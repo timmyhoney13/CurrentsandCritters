@@ -160,6 +160,80 @@ check("the preview iframe is sandboxed with no allow-scripts",
 check("the test-send destination is never taken from the page",
       !/test-send[\s\S]{0,400}to:/.test(MOD));
 
+/* ══════════════════════════════════════════════════════════════════════
+   The reef on the signup page.
+
+   A critter facing the opposite way to its direction of travel is swimming
+   backwards. Nobody can name it, everybody notices it, and it is invisible in
+   a diff. Two things are pinned here:
+
+     1. THE RULE — flip exactly when the art's facing disagrees with travel.
+     2. THE FACTS — which way each piece of art is drawn. That is a human
+        judgement made by looking at the file, so it cannot be re-derived on
+        the fly (auto-detecting "which side is the eye on" agrees on 14 of 16
+        and confidently gets whale-shark and horned-puffin wrong, because dark
+        spots and dark plumage look exactly like a dark eye). Instead every
+        avatar's bytes are hashed. Swap the art and this fails, telling you to
+        look at the new file and confirm which way it now faces — which is the
+        only honest way to catch it.
+   ══════════════════════════════════════════════════════════════════════ */
+{
+  const crypto = require("crypto");
+  const JOIN = fs.readFileSync(path.join(ROOT, "multiplayer/client/join.html"), "utf8");
+  const PIN = JSON.parse(fs.readFileSync(
+    path.join(ROOT, "multiplayer/client/avatar-facing.json"), "utf8"));
+
+  // The table inside the page must agree with the pinned facts.
+  const facesRight = new Set([...JOIN.matchAll(/"([a-z-]+)":1/g)].map(m => m[1]));
+  const pinnedRight = new Set(Object.keys(PIN).filter(n => PIN[n].faces === "right"));
+  check("the page's right-facing list matches the pinned facts",
+        [...pinnedRight].every(n => facesRight.has(n)) &&
+        [...facesRight].every(n => pinnedRight.has(n)),
+        "page=[" + [...facesRight].sort() + "] pinned=[" + [...pinnedRight].sort() + "]");
+
+  // Art must not have silently changed direction under the table.
+  let drifted = [];
+  for (const [name, info] of Object.entries(PIN)) {
+    const f = path.join(ROOT, "multiplayer/client/avatars", name + ".png");
+    if (!fs.existsSync(f)) { drifted.push(name + " (missing)"); continue; }
+    const sha = crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex").slice(0, 12);
+    if (sha !== info.sha) drifted.push(name + " (art changed — RE-CHECK WHICH WAY IT FACES)");
+  }
+  check("no swimmer's art has changed since its facing was verified",
+        drifted.length === 0, drifted.join(", "));
+
+  // Every critter the page asks for actually exists.
+  const referenced = [...new Set([...JOIN.matchAll(/\["([a-z-]+)",\s*-?\d/g)].map(m => m[1]))];
+  const missing = referenced.filter(n =>
+    !fs.existsSync(path.join(ROOT, "multiplayer/client/avatars", n + ".png")));
+  check("every critter on the reef has art", missing.length === 0, missing.join(", "));
+  check("the reef is populated", referenced.length >= 20, "only " + referenced.length);
+
+  // The rule itself, and the direction each swimmer travels.
+  check("the flip is derived from facing vs. travel, not hand-placed",
+        /if \(faces\(name\) !== dir\) img\.className = "flip";/.test(JOIN));
+
+  // Work out, for every swimmer, which way it would END UP facing.
+  const rows = [...JOIN.matchAll(/\["([a-z-]+)",\s*-?[\d.]+,\s*\d+,\s*\d+,\s*-?[\d.]+,\s*"(left|right)"/g)];
+  check("the roster parsed", rows.length >= 14, "parsed " + rows.length);
+  const backwards = rows.filter(m => {
+    const name = m[1], travels = m[2];
+    const art = (PIN[name] || {}).faces || "left";
+    const flipped = art !== travels;              // the page's own rule
+    const shows = flipped ? (art === "left" ? "right" : "left") : art;
+    return shows !== travels;
+  }).map(m => m[1]);
+  check("no critter swims backwards", backwards.length === 0, backwards.join(", "));
+
+  check("the reef uses the Coral Reef board background",
+        /backgrounds\/bg-coral-reef\.png/.test(JOIN));
+  check("motion is disabled for prefers-reduced-motion",
+        /prefers-reduced-motion: reduce/.test(JOIN) && /animation:none !important/.test(JOIN));
+  check("the decoration can never eat a click on the form",
+        /\.reef\{[^}]*pointer-events:none/.test(JOIN.replace(/\s+/g, m => m.includes("\n") ? "" : " ")) ||
+        /pointer-events:none/.test(JOIN));
+}
+
 if (!CHROME) {
   console.log("\nSKIP: no Chrome/Chromium found — skipping the render checks.");
   console.log(`\n${pass} passed, ${fail} failed`);

@@ -5,90 +5,331 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Join the Email List, Currents and Critters</title>
 <meta name="description" content="Get occasional updates about Currents &amp; Critters: new features, game nights, and progress on the physical card game.">
+<meta name="theme-color" content="#04263b">
 <!--
-  The public signup page. Replaces the old "Join the Email List" buttons, which
-  opened a mailto: (manual work for Tim) and later a Google Form (a spreadsheet
-  nobody's newsletter ever read from).
+  The public signup page.
 
   CONFIRMED OPT-IN, DELIBERATELY.
   A box on a public web page proves nothing about who owns the address typed
   into it. Sending a newsletter to someone who never asked is what earns spam
-  reports, and a few of those can get the whole sending account suspended. So
-  this creates a PENDING record that no campaign can reach, and only a click in
-  the real inbox turns it into a subscriber.
+  reports, and a few of those can suspend the whole sending account. So this
+  creates a PENDING record no campaign can reach, and only a click in the real
+  inbox turns it into a subscriber.
+
+  THE REEF.
+  Decoration is built from the game's own avatar art over the Coral Reef board
+  background. The one rule that matters: EVERY PIECE OF THAT ART IS DRAWN
+  FACING LEFT, except manta-ray, sailfish and bobtail-squid. A critter whose
+  facing does not match its direction of travel is swimming backwards, which is
+  the sort of thing nobody can name but everybody notices. So facing is a data
+  field (FACES below), the flip is derived from it, and the whole layer is
+  generated from one table rather than hand-placed — hand-placing is how three
+  of them quietly end up reversed.
 -->
 <link rel="icon" href="/icon.svg">
+<link rel="preload" as="image" href="/backgrounds/bg-coral-reef.png">
 <style>
-  :root{ --deep:#04263b; --teal:#0fb6c4; --gold:#ffd479; --ink:#eaf6fb; --muted:#9fc6d6; }
+  :root{
+    --deep:#04263b; --deep-2:#0a4d6b; --teal:#0fb6c4; --gold:#ffd479;
+    --ink:#eaf6fb; --muted:#a8cfdd;
+  }
   *{box-sizing:border-box}
   html,body{height:100%}
   body{
-    margin:0; padding:28px 18px;
+    margin:0; padding:32px 18px;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    color:var(--ink); min-height:100%;
-    background:radial-gradient(120% 90% at 50% 0%,#0a4d6b 0%,#063a54 45%,#04263b 100%) fixed;
+    color:var(--ink);
+    background:#04263b;
     display:flex; align-items:center; justify-content:center;
+    overflow-x:hidden;
   }
+
+  /* ── The reef itself ────────────────────────────────────────────── */
+  .reef{
+    position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none;
+    /* The scrim earns its keep twice: it keeps the card legible over busy
+       coral, and it deepens toward the seafloor so the reef reads as water
+       with depth rather than wallpaper. Kept light enough at the midline that
+       the coral colour still comes through — that colour is the point. */
+    background:
+      linear-gradient(180deg, rgba(4,38,59,.50) 0%, rgba(4,38,59,.20) 36%,
+                              rgba(4,38,59,.40) 72%, rgba(3,26,42,.88) 100%),
+      url("/backgrounds/bg-coral-reef.png") center/cover no-repeat;
+    filter:saturate(1.12);
+  }
+  /* Sunlight through water. Two slow, offset sweeps so it never pulses. */
+  .rays{
+    position:absolute; inset:-20% -10% auto; height:120%;
+    background:
+      linear-gradient(102deg, rgba(190,240,255,.14) 0 3%, transparent 3% 14%,
+                              rgba(190,240,255,.10) 14% 16%, transparent 16% 30%,
+                              rgba(190,240,255,.13) 30% 32%, transparent 32% 50%);
+    mix-blend-mode:screen; opacity:.75;
+    animation:rays 19s ease-in-out infinite alternate;
+  }
+  @keyframes rays{ from{transform:translateX(-3%) skewX(-2deg)} to{transform:translateX(3%) skewX(2deg)} }
+
+  /* ── Swimmers ───────────────────────────────────────────────────── */
+  .swimmer{
+    position:absolute; left:0; top:var(--top);
+    animation:swim-left var(--dur) linear infinite;
+    animation-delay:var(--delay);
+    will-change:transform;
+  }
+  .swimmer.to-right{ animation-name:swim-right; }
+  @keyframes swim-left { from{transform:translate3d(112vw,0,0)} to{transform:translate3d(-30vw,0,0)} }
+  @keyframes swim-right{ from{transform:translate3d(-30vw,0,0)} to{transform:translate3d(112vw,0,0)} }
+
+  .bob{ animation:bob var(--bob,7s) ease-in-out infinite alternate; }
+  @keyframes bob{ from{transform:translateY(-9px) rotate(-2.5deg)} to{transform:translateY(9px) rotate(2.5deg)} }
+
+  .swimmer img{
+    display:block; width:var(--size); height:auto;
+    filter:drop-shadow(0 8px 18px rgba(0,20,35,.4));
+  }
+  /* The flip that makes a critter face where it is going. */
+  .swimmer img.flip{ transform:scaleX(-1); }
+
+  /* Depth: further away is smaller, hazier, slower. */
+  .swimmer.far  { opacity:.42; filter:blur(1.6px); }
+  .swimmer.mid  { opacity:.72; filter:blur(.4px); }
+
+  /* ── Seafloor critters — anchored, gently breathing ─────────────── */
+  .floor{ position:absolute; left:0; right:0; bottom:0; height:220px; }
+  .floor img{
+    position:absolute; bottom:var(--b,6px); left:var(--x);
+    width:var(--size); height:auto; opacity:.9;
+    filter:drop-shadow(0 6px 14px rgba(0,20,35,.45));
+    animation:sway var(--dur,6s) ease-in-out infinite alternate;
+    animation-delay:var(--delay,0s);
+    transform-origin:50% 100%;
+  }
+  @keyframes sway{ from{transform:rotate(-4deg) translateY(0)} to{transform:rotate(4deg) translateY(-4px)} }
+
+  /* ── Bubbles ────────────────────────────────────────────────────── */
+  .bubble{
+    position:absolute; bottom:-40px; left:var(--x);
+    width:var(--size); height:var(--size); border-radius:50%;
+    background:radial-gradient(circle at 32% 30%, rgba(255,255,255,.85), rgba(190,240,255,.16) 62%, rgba(190,240,255,.05));
+    border:1px solid rgba(220,250,255,.35);
+    animation:rise var(--dur) linear infinite; animation-delay:var(--delay);
+    opacity:0;
+  }
+  @keyframes rise{
+    0%{ transform:translateY(0) translateX(0); opacity:0 }
+    8%{ opacity:.7 }
+    92%{ opacity:.5 }
+    100%{ transform:translateY(-108vh) translateX(var(--drift,14px)); opacity:0 }
+  }
+
+  /* ── The card ───────────────────────────────────────────────────── */
   .card{
-    width:100%; max-width:560px; text-align:center;
-    background:rgba(3,30,46,.62); border:1px solid rgba(79,193,213,.26);
-    border-radius:20px; padding:38px 30px 32px;
-    box-shadow:0 18px 50px rgba(0,0,0,.32);
+    position:relative; z-index:2;
+    width:100%; max-width:540px; text-align:center;
+    background:linear-gradient(180deg, rgba(4,36,56,.90), rgba(3,26,42,.94));
+    border:1px solid rgba(120,215,235,.34);
+    border-radius:24px; padding:38px 32px 30px;
+    box-shadow:0 26px 70px rgba(0,12,22,.62), inset 0 1px 0 rgba(255,255,255,.09);
+    backdrop-filter:blur(9px) saturate(1.1);
+    -webkit-backdrop-filter:blur(9px) saturate(1.1);
   }
-  .logo{width:78px;height:78px;margin:0 auto 16px;display:block}
-  h1{font-size:clamp(1.5rem,5vw,2.05rem);margin:.1em 0 .45em;line-height:1.2}
-  .sub{color:var(--muted);line-height:1.62;margin:0 auto 22px;max-width:440px;font-size:.98rem}
-  ul{text-align:left;max-width:380px;margin:0 auto 24px;padding-left:20px;color:var(--muted);line-height:1.75;font-size:.94rem}
-  li::marker{color:var(--teal)}
-  form{display:flex;flex-direction:column;gap:11px;max-width:400px;margin:0 auto}
+  .logo{width:80px;height:80px;margin:0 auto 14px;display:block;
+        filter:drop-shadow(0 6px 16px rgba(0,20,35,.5))}
+  h1{font-size:clamp(1.55rem,5vw,2.1rem);margin:.1em 0 .4em;line-height:1.18;
+     letter-spacing:-.2px}
+  .sub{color:var(--muted);line-height:1.62;margin:0 auto 20px;max-width:420px;font-size:.98rem}
+
+  ul{text-align:left;max-width:360px;margin:0 auto 24px;padding:0;list-style:none;
+     color:var(--muted);font-size:.94rem}
+  li{display:flex;align-items:center;gap:10px;padding:6px 0;line-height:1.45}
+  li img{width:30px;height:30px;flex:0 0 30px;object-fit:contain;
+         filter:drop-shadow(0 2px 5px rgba(0,20,35,.5))}
+
+  form{display:flex;flex-direction:column;gap:11px;max-width:380px;margin:0 auto}
   input[type=email]{
-    font:inherit;width:100%;padding:14px 15px;border-radius:12px;
-    border:1px solid rgba(79,193,213,.4);background:rgba(2,20,32,.6);color:var(--ink);
+    font:inherit;width:100%;padding:14px 16px;border-radius:13px;
+    border:1px solid rgba(120,215,235,.4);background:rgba(2,18,30,.72);color:var(--ink);
+    transition:border-color .15s, box-shadow .15s;
   }
-  input[type=email]:focus{outline:2px solid var(--teal);outline-offset:-1px}
+  input[type=email]::placeholder{color:#6f9bb0}
+  input[type=email]:focus{outline:none;border-color:var(--teal);
+    box-shadow:0 0 0 3px rgba(15,182,196,.22)}
   button{
-    font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 22px;
-    background:linear-gradient(180deg,#15c1cf,#0a96a3);color:#022b33;cursor:pointer;
-    transition:filter .15s;
+    font:inherit;font-weight:800;font-size:1.02rem;border:0;border-radius:13px;padding:15px 22px;
+    background:linear-gradient(180deg,#22d3e0,#0a96a3);color:#022b33;cursor:pointer;
+    box-shadow:0 8px 20px rgba(10,150,163,.34); transition:filter .15s, transform .12s;
   }
-  button:hover:not(:disabled){filter:brightness(1.08)}
-  button:disabled{opacity:.55;cursor:default}
-  .msg{margin-top:16px;font-size:.93rem;min-height:1.3em;line-height:1.55}
+  button:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px)}
+  button:active:not(:disabled){transform:translateY(0)}
+  button:disabled{opacity:.55;cursor:default;box-shadow:none}
+
+  .msg{margin-top:16px;font-size:.94rem;min-height:1.3em;line-height:1.55}
   .ok{color:#8af3b0}.err{color:#ff9a9a}
   .done .hide-when-done{display:none}
-  .fine{margin-top:24px;font-size:.78rem;color:rgba(159,198,214,.75);line-height:1.6}
+  .cheer{font-size:2.6rem;line-height:1;margin:.2em 0 .1em;display:none}
+  .done .cheer{display:block;animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes pop{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+
+  .fine{margin-top:22px;font-size:.79rem;color:rgba(168,207,221,.8);line-height:1.65}
   .fine a{color:var(--teal)}
+
+  @media (max-width:620px){
+    .card{padding:30px 22px 26px}
+    .swimmer.phone-hide{display:none}
+    .floor{height:150px}
+  }
+  /* Motion is decoration; never make somebody seasick to read a form. */
+  @media (prefers-reduced-motion: reduce){
+    .swimmer,.bob,.bubble,.rays,.floor img{animation:none !important}
+    .swimmer{transform:translate3d(var(--rest,40vw),0,0)}
+    .bubble{display:none}
+  }
 </style>
 </head>
 <body>
-  <main class="card" id="card">
-    <img class="logo" src="/email-logo.png" alt="Currents and Critters">
-    <h1>Join the Email List</h1>
-    <p class="sub hide-when-done">Occasional emails from me about the game &mdash; never spam, and you can leave any time.</p>
-    <ul class="hide-when-done">
-      <li>New game features and updates</li>
-      <li>Online game nights and special events</li>
-      <li>Progress on the physical card game</li>
-      <li>Rewards and important announcements</li>
-      <li>Chances to playtest and shape the game</li>
-    </ul>
-    <form id="form" class="hide-when-done" novalidate>
-      <input id="email" type="email" name="email" placeholder="you@example.com"
-             autocomplete="email" required aria-label="Your email address">
-      <button id="go" type="submit">Join the list</button>
-    </form>
-    <div class="msg" id="msg" role="status" aria-live="polite"></div>
-    <p class="fine">
-      We&rsquo;ll send one email to confirm it&rsquo;s really you.
-      No spam, and every email has a one-click unsubscribe.<br>
-      <a href="/privacy">Privacy Policy</a> &middot;
-      <a href="https://currentsandcritters.com">Currents &amp; Critters</a>
-    </p>
-  </main>
+
+<div class="reef" id="reef" aria-hidden="true">
+  <div class="rays"></div>
+  <div class="floor" id="floor"></div>
+</div>
+
+<main class="card" id="card">
+  <img class="logo" src="/email-logo.png" alt="Currents and Critters">
+  <div class="cheer" id="cheer">🐠</div>
+  <h1 id="headline">Join the Email List</h1>
+  <p class="sub hide-when-done">Occasional emails from me about the game — never spam, and you can leave any time.</p>
+
+  <ul class="hide-when-done" id="perks">
+    <li><img src="/avatars/mandarin-goby.png" alt="" loading="lazy"><span>New game features and updates</span></li>
+    <li><img src="/avatars/spinner-dolphin.png" alt="" loading="lazy"><span>Online game nights and special events</span></li>
+    <li><img src="/avatars/king-crab.png" alt="" loading="lazy"><span>Progress on the physical card game</span></li>
+    <li><img src="/avatars/sea-star.png" alt="" loading="lazy"><span>Rewards and important announcements</span></li>
+    <li><img src="/avatars/mantis-shrimp.png" alt="" loading="lazy"><span>Chances to playtest and shape the game</span></li>
+  </ul>
+
+  <form id="form" class="hide-when-done" novalidate>
+    <input id="email" type="email" name="email" placeholder="you@example.com"
+           autocomplete="email" required aria-label="Your email address">
+    <button id="go" type="submit">Join the list</button>
+  </form>
+
+  <div class="msg" id="msg" role="status" aria-live="polite"></div>
+
+  <p class="fine">
+    We’ll send one email to confirm it’s really you. No spam, and every email
+    has a one-click unsubscribe.<br>
+    <a href="/privacy">Privacy Policy</a> ·
+    <a href="https://currentsandcritters.com">Currents &amp; Critters</a>
+  </p>
+</main>
 
 <script>
 (function(){
   "use strict";
+
+  /* ══════════════════════════════════════════════════════════════
+     THE REEF
+     ══════════════════════════════════════════════════════════════ */
+  // Which way each piece of art is DRAWN. Verified by eye against the actual
+  // files — the overwhelming majority face left, and the three that don't are
+  // the whole reason this is a table instead of an assumption.
+  var FACES_RIGHT = { "manta-ray":1, "sailfish":1, "bobtail-squid":1 };
+  function faces(name){ return FACES_RIGHT[name] ? "right" : "left"; }
+
+  // name, top %, px size, seconds, delay, direction, depth layer
+  var ROSTER = [
+    ["whale-shark",           8,  190, 74, -12, "left",  "far"],
+    ["manta-ray",            17,  132, 61,  -4, "right", "mid"],
+    ["spinner-dolphin",      26,  118, 44, -26, "left",  ""],
+    ["sailfish",             35,  126, 39,  -9, "right", "mid"],
+    ["narwhal",              44,  108, 52, -33, "left",  ""],
+    ["loggerhead-sea-turtle",56,   96, 58, -18, "right", ""],
+    ["mahi-mahi",            64,   92, 41, -47, "left",  "mid"],
+    ["yellowfin-tuna",       72,   84, 36, -22, "right", ""],
+    ["clownfish",            30,   60, 33,  -6, "right", "", "phone-hide"],
+    ["blue-tang",            49,   64, 37, -29, "left",  "", "phone-hide"],
+    ["mandarin-goby",        67,   58, 31, -15, "right", "", "phone-hide"],
+    ["reef-triggerfish",     21,   66, 46, -38, "left",  "mid", "phone-hide"],
+    ["cleaner-wrasse",       78,   56, 29, -11, "left",  "", "phone-hide"],
+    ["bobtail-squid",        85,   62, 49, -25, "right", "mid","phone-hide"],
+    ["mantis-shrimp",        88,   58, 43, -40, "left",  "",   "phone-hide"],
+    ["horned-puffin",         4,   70, 35, -20, "left",  "mid","phone-hide"]
+  ];
+
+  var FLOOR = [
+    ["staghorn-coral",  4, 96, 8.5, 0],
+    ["sea-anemone",    17, 58, 6.2, -1.4],
+    ["sea-star",       29, 52, 7.4, -2.8],
+    ["hermit-crab",    46, 54, 6.8, -0.7],
+    ["elkhorn-coral",  61, 92, 9.1, -3.5],
+    ["sea-urchin",     76, 46, 6.0, -2.1],
+    ["king-crab",      88, 62, 7.7, -4.2]
+  ];
+
+  var reef = document.getElementById("reef");
+  var floor = document.getElementById("floor");
+  var frag = document.createDocumentFragment();
+
+  ROSTER.forEach(function (r, i) {
+    var name = r[0], top = r[1], size = r[2], dur = r[3],
+        delay = r[4], dir = r[5], depth = r[6] || "", extra = r[7] || "";
+
+    var swimmer = document.createElement("div");
+    swimmer.className = "swimmer" + (dir === "right" ? " to-right" : "")
+                      + (depth ? " " + depth : "") + (extra ? " " + extra : "");
+    swimmer.style.setProperty("--top", top + "%");
+    swimmer.style.setProperty("--dur", dur + "s");
+    swimmer.style.setProperty("--delay", delay + "s");
+    // Where it parks when motion is reduced — spread out, not stacked.
+    swimmer.style.setProperty("--rest", (8 + (i * 6) % 80) + "vw");
+
+    var bob = document.createElement("div");
+    bob.className = "bob";
+    bob.style.setProperty("--bob", (5 + (i % 5) * 1.3) + "s");
+
+    var img = document.createElement("img");
+    img.src = "/avatars/" + name + ".png";
+    img.alt = "";
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.style.setProperty("--size", size + "px");
+    // THE RULE: flip only when the art faces the opposite way to the travel.
+    if (faces(name) !== dir) img.className = "flip";
+
+    bob.appendChild(img);
+    swimmer.appendChild(bob);
+    frag.appendChild(swimmer);
+  });
+  reef.insertBefore(frag, floor);
+
+  FLOOR.forEach(function (f) {
+    var img = document.createElement("img");
+    img.src = "/avatars/" + f[0] + ".png";
+    img.alt = ""; img.loading = "lazy"; img.decoding = "async";
+    img.style.setProperty("--x", f[1] + "%");
+    img.style.setProperty("--size", f[2] + "px");
+    img.style.setProperty("--dur", f[3] + "s");
+    img.style.setProperty("--delay", f[4] + "s");
+    floor.appendChild(img);
+  });
+
+  // Bubbles, only when motion is welcome.
+  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    for (var b = 0; b < 14; b++) {
+      var d = document.createElement("div");
+      d.className = "bubble";
+      d.style.setProperty("--x", (3 + b * 7) + "%");
+      d.style.setProperty("--size", (5 + (b % 4) * 4) + "px");
+      d.style.setProperty("--dur", (13 + (b % 6) * 3.5) + "s");
+      d.style.setProperty("--delay", (-b * 1.9) + "s");
+      d.style.setProperty("--drift", ((b % 3) - 1) * 26 + "px");
+      reef.appendChild(d);
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     THE FORM
+     ══════════════════════════════════════════════════════════════ */
   var form = document.getElementById("form"),
       input = document.getElementById("email"),
       btn = document.getElementById("go"),
@@ -99,7 +340,7 @@
     e.preventDefault();
     if (busy) return;                       // double-click guard
     var value = (input.value || "").trim();
-    if (!value || value.indexOf("@") < 1 || value.indexOf(".") < 0) {
+    if (!value || value.indexOf("@") < 1 || value.lastIndexOf(".") < value.indexOf("@")) {
       msg.className = "msg err";
       msg.textContent = "Please enter a valid email address.";
       input.focus();
@@ -117,9 +358,10 @@
     }).then(function(d){
       if (d && d.ok) {
         document.getElementById("card").classList.add("done");
+        document.getElementById("headline").textContent = "Check your inbox!";
         msg.className = "msg ok";
         msg.textContent = d.message ||
-          "Almost there! Check your email and click the confirmation link.";
+          "Almost there! Click the confirmation link we just sent you.";
       } else {
         msg.className = "msg err";
         msg.textContent = (d && d.error) || "Something went wrong. Please try again.";

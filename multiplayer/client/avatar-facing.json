@@ -1,0 +1,94 @@
+{
+  "blue-tang": {
+    "faces": "left",
+    "sha": "35f37d7f6457"
+  },
+  "bobtail-squid": {
+    "faces": "right",
+    "sha": "e235e997f6b0"
+  },
+  "cleaner-wrasse": {
+    "faces": "left",
+    "sha": "2cf62ddf230b"
+  },
+  "clownfish": {
+    "faces": "left",
+    "sha": "92528e09d90a"
+  },
+  "elkhorn-coral": {
+    "faces": "left",
+    "sha": "88ebe6264db2"
+  },
+  "hermit-crab": {
+    "faces": "left",
+    "sha": "0d1debe92015"
+  },
+  "horned-puffin": {
+    "faces": "left",
+    "sha": "bb7866bb5fc4"
+  },
+  "king-crab": {
+    "faces": "left",
+    "sha": "ddaff58cabae"
+  },
+  "loggerhead-sea-turtle": {
+    "faces": "left",
+    "sha": "2963f5f4b2b2"
+  },
+  "mahi-mahi": {
+    "faces": "left",
+    "sha": "890c5ca04d10"
+  },
+  "mandarin-goby": {
+    "faces": "left",
+    "sha": "973b2235e214"
+  },
+  "manta-ray": {
+    "faces": "right",
+    "sha": "99b0fee788ce"
+  },
+  "mantis-shrimp": {
+    "faces": "left",
+    "sha": "a2428cdbcf05"
+  },
+  "narwhal": {
+    "faces": "left",
+    "sha": "fd7ab7ebeec0"
+  },
+  "reef-triggerfish": {
+    "faces": "left",
+    "sha": "f1ccf029e763"
+  },
+  "sailfish": {
+    "faces": "right",
+    "sha": "9276df159735"
+  },
+  "sea-anemone": {
+    "faces": "left",
+    "sha": "8f21c0920f4a"
+  },
+  "sea-star": {
+    "faces": "left",
+    "sha": "2580677ad30c"
+  },
+  "sea-urchin": {
+    "faces": "left",
+    "sha": "2a3e34052228"
+  },
+  "spinner-dolphin": {
+    "faces": "left",
+    "sha": "0cdad8e01e39"
+  },
+  "staghorn-coral": {
+    "faces": "left",
+    "sha": "5ef54eeab327"
+  },
+  "whale-shark": {
+    "faces": "left",
+    "sha": "20c4402134e6"
+  },
+  "yellowfin-tuna": {
+    "faces": "left",
+    "sha": "ec8116ba075f"
+  }
+}
