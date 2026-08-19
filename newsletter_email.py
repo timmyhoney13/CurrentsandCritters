@@ -1104,7 +1104,12 @@ def smtp_settings() -> Dict[str, Any]:
         "port": port,
         "security": sec,
         "username": _env("SMTP_USERNAME"),
-        "password": _env("SMTP_PASSWORD"),
+        # Google shows an app password as four space-separated groups
+        # ("woff lfgo xgfb rhpv"), so that is what gets pasted into Render.
+        # Whether Gmail tolerates the spaces on the wire is not something to
+        # find out in production, and no provider has a password with a space
+        # in it, so strip ALL whitespace and remove the question.
+        "password": re.sub(r"\s+", "", _env("SMTP_PASSWORD")),
         "timeout": 30,
     }
 

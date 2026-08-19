@@ -1343,6 +1343,17 @@ class TestTransportSelection(_EnvSandbox):
         os.environ["NEWSLETTER_TRANSPORT"] = "smtp"
         self.assertEqual(ne.transport(), "smtp")
 
+    def test_app_password_spaces_are_stripped(self):
+        """Google displays an app password as four space-separated groups, so
+        that is exactly what gets pasted into Render. No provider has a
+        password containing a space, so the spaces are noise — strip them
+        rather than discover in production whether Gmail tolerates them."""
+        os.environ.update(SMTP_HOST="h", SMTP_USERNAME="u",
+                          SMTP_PASSWORD="woff lfgo xgfb rhpv")
+        self.assertEqual(ne.smtp_settings()["password"], "wofflfgoxgfbrhpv")
+        os.environ["SMTP_PASSWORD"] = "  abcd efgh\tijkl\nmnop  "
+        self.assertEqual(ne.smtp_settings()["password"], "abcdefghijklmnop")
+
     def test_port_465_implies_implicit_tls(self):
         os.environ.update(SMTP_HOST="h", SMTP_USERNAME="u", SMTP_PASSWORD="p",
                           SMTP_PORT="465")

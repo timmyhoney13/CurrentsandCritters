@@ -157,8 +157,11 @@ Password**, not your normal one:
    it is not already on (App Passwords do not exist without it).
 2. <https://myaccount.google.com/apppasswords> → name it `Currents & Critters
    Newsletter` → **Create**.
-3. Google shows a 16-character password. Paste it into `SMTP_PASSWORD` — spaces
-   are fine, they are ignored.
+3. Google shows a 16-character password. Paste it into `SMTP_PASSWORD` — the
+   spaces Google puts in it are stripped for you, so either form works.
+   **Make sure you are signed in as the account the password is for** — the
+   single most common failure is generating it on a different Google account,
+   which fails with `535 BadCredentials` and no other clue.
 
 That is a settings page, not a Google Cloud project. No consent screen, no
 scopes, no refresh token, nothing to re-authorise later.
