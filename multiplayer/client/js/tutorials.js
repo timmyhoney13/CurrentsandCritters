@@ -118,6 +118,12 @@
   //  steps: [{ target:selector|null, badge, title, text, before?() }]
   // ════════════════════════════════════════════════════════════════
   let coach = null, coachSteps = [], coachIdx = 0, coachDone = null, coachCleanup = null, coachWait = null, coachPoll = null;
+  // The Next button doubles as a pointer ("Click below →") while an interactive
+  // step waits for a real click, so it has to say which way the target actually
+  // is. positionCoach decides the popup's side every time it runs, which is the
+  // only place that knows: the same step sits below its target on a tall screen
+  // and above it on a short one.
+  let coachAwaitingAct = false, coachPointer = "none";
   // Timers that keep a step honest: coachStuck un-disables Next so no step can
   // ever trap the player, coachSettle re-positions once async content lands.
   let coachStuck = null, coachSettle = null;
@@ -151,6 +157,28 @@
     return live.length === 0 || i >= live[live.length - 1];
   }
   function coachFinish() { const cb = coachDone; endCoach(); cb && cb(); }
+
+  // ── "Click <which way> →" ─────────────────────────────────────────
+  // While an interactive step waits for the real click, Next is disabled and
+  // used as a signpost. Hard-coding "Click above" was wrong roughly half the
+  // time: the popup goes BELOW its target when there is room and ABOVE it when
+  // there is not, so on every screen the waiting-room "Start Game" step told
+  // the player to click above a button that was underneath the popup.
+  const POINTER_LABEL = {
+    above: "Click above →",
+    below: "Click below →",
+    left:  "Click left →",
+    right: "Click right →",
+    none:  "Click the highlight →",
+  };
+  function coachSetPointer(dir) {
+    coachPointer = POINTER_LABEL[dir] ? dir : "none";
+    if (!coachAwaitingAct || !coach) return;
+    const b = coach.querySelector("#tut3-next");
+    // Only while it is still the signpost — once the anti-dead-end timer has
+    // turned it into "Skip this step →" it must keep saying so.
+    if (b && b.disabled) b.textContent = POINTER_LABEL[coachPointer];
+  }
 
   function coachAdvance() {
     if (coachIsLast(coachIdx)) coachFinish();
@@ -281,6 +309,7 @@
     if (coachSettle) { clearTimeout(coachSettle); coachSettle = null; }
     coachIdx = i;
     const step = coachSteps[i];
+    coachAwaitingAct = false;
     clearCoachGlows();
     try { step.before && step.before(); } catch (_) {}
     // Auto-advance once a real UI transition completes (modal opens, room
@@ -343,7 +372,11 @@
       if (isLastStep) {
         nextBtn.textContent = "Finish ✓"; nextBtn.disabled = false;
       } else if (isInteractive && !step.allowNext) {
-        nextBtn.textContent = "Click above →"; nextBtn.disabled = true;
+        // positionCoach fixes the direction the moment it has measured; this is
+        // just the value it had for the previous step, or "none" on the first.
+        nextBtn.textContent = POINTER_LABEL[coachPointer] || POINTER_LABEL.none;
+        nextBtn.disabled = true;
+        coachAwaitingAct = true;
       } else {
         // Interactive + allowNext, non-interactive, or back-navigated: always enabled.
         nextBtn.textContent = "Next →"; nextBtn.disabled = false;
@@ -361,11 +394,19 @@
       coachStuck = setInterval(() => {
         waited += 500;
         const t = coachResolveEl(step);
+        // A GATE step (step.mustAct) is the one every step after it depends on:
+        // skip "Start Game" and the whole rest of the tour points at a game that
+        // never started. So it keeps waiting for as long as the control really
+        // is there and usable — the player has to click it. The dead-end escape
+        // is still armed for the cases that actually dead-end: the button never
+        // rendered, it is off screen, or it is disabled (a room still waiting on
+        // human players), and the countdown restarts if it becomes usable again.
+        if (step.mustAct && coachIsUsable(t)) { waited = 0; return; }
         const limit = (t && isVisible(t)) ? STUCK_WITH_TARGET_MS : STUCK_NO_TARGET_MS;
         if (waited < limit) return;
         clearInterval(coachStuck); coachStuck = null;
         const b = coach.querySelector("#tut3-next");
-        if (b && b.disabled) { b.disabled = false; b.textContent = "Skip this step →"; }
+        if (b && b.disabled) { b.disabled = false; b.textContent = "Skip this step →"; coachAwaitingAct = false; }
       }, 500);
     }
 
@@ -384,6 +425,14 @@
     if (r.width === 0 && r.height === 0) return false;
     const st = getComputedStyle(el);
     return st.display !== "none" && st.visibility !== "hidden";
+  }
+
+  // Visible AND actually clickable — a disabled button is on screen but there is
+  // nothing the player can do with it.
+  function coachIsUsable(el) {
+    if (!isVisible(el)) return false;
+    if (el.disabled) return false;
+    return !el.getAttribute || el.getAttribute("aria-disabled") !== "true";
   }
 
   function positionCoach() {
@@ -405,6 +454,7 @@
       arrow.style.display = "none";
       pop.style.left = Math.max(8, (vw - popW) / 2) + "px";
       pop.style.top = Math.max(8, (vh - popH) / 2) + "px";
+      coachSetPointer("none");
       return;
     }
     hole.classList.remove("nohole");
@@ -426,6 +476,7 @@
       pop.style.top = (step.popAnchor === "top")
         ? "12px"
         : Math.max(8, vh - popH - 12) + "px";
+      coachSetPointer(step.popAnchor === "top" ? "below" : "above");
       return;
     }
 
@@ -441,6 +492,7 @@
       arrow.style.display = "none";
       pop.style.left = Math.max(8, (vw - popW) / 2) + "px";
       pop.style.top = Math.max(8, vh - popH - 16) + "px";
+      coachSetPointer("above");
       return;
     }
     const pad = 8;
@@ -462,10 +514,13 @@
       arrowDir = "none";
       const roomRight = vw - r.right - gap, roomLeft = r.left - gap;
       if (roomRight >= popW || roomLeft >= popW) {
-        left = (roomRight >= roomLeft) ? (r.right + gap) : (r.left - gap - popW);
+        const toTheRight = (roomRight >= roomLeft);
+        left = toTheRight ? (r.right + gap) : (r.left - gap - popW);
         pop.style.left = Math.max(8, Math.min(vw - popW - 8, left)) + "px";
         pop.style.top = top + "px";
         arrow.style.display = "none";
+        // Popup to the right of the target ⇒ the target is to its LEFT.
+        coachSetPointer(toTheRight ? "left" : "right");
         return;
       }
     }
@@ -473,6 +528,8 @@
     left = Math.max(8, Math.min(vw - popW - 8, left));
     pop.style.left = left + "px";
     pop.style.top = top + "px";
+    // arrowDir "up" = the popup sits BELOW the target, so the target is above it.
+    coachSetPointer(arrowDir === "up" ? "above" : arrowDir === "down" ? "below" : "none");
 
     // Arrow
     if (arrowDir === "none") { arrow.style.display = "none"; }
@@ -1216,7 +1273,7 @@
     { target: "#wr-players-list", badge: "Setup", title: "Waiting Room",
       before: gtAllBotsEasy,
       text: "Players and computer opponents appear here." },
-    { target: "#wr-start-btn", badge: "Setup", title: "Start the Game", interactive: true, advanceWhen: gtGameOpen,
+    { target: "#wr-start-btn", badge: "Setup", title: "Start the Game", interactive: true, mustAct: true, advanceWhen: gtGameOpen,
       text: "Click <strong>Start Game</strong>." },
 
     // ── Gameplay ────────────────────────────────────────────────────
@@ -1364,7 +1421,7 @@
     { target: "#wr-players-list", badge: "Setup", title: "Waiting Room",
       before: gtAllBotsEasy,
       text: "Your computer opponents are ready." },
-    { target: "#wr-start-btn", badge: "Setup", title: "Start the Game", interactive: true, advanceWhen: gtGameOpen,
+    { target: "#wr-start-btn", badge: "Setup", title: "Start the Game", interactive: true, mustAct: true, advanceWhen: gtGameOpen,
       text: "Click <strong>Start Game</strong>." },
 
     // ── Strategy guide (Help → pick Crustaceans → Bird Lobster) ─────
@@ -1538,7 +1595,7 @@
       text: "Click <strong>Generate Current</strong>." },
     { target: "#wr-players-list", glow: [wrDiffBoxEl], badge: "Rooms", title: "Bot Difficulty",
       text: "Each bot can be Easy, Medium, or Hard. As host, change any bot's difficulty here." },
-    { target: "#wr-start-btn", badge: "Rooms", title: "Start the Game", interactive: true, advanceWhen: gtGameOpen,
+    { target: "#wr-start-btn", badge: "Rooms", title: "Start the Game", interactive: true, mustAct: true, advanceWhen: gtGameOpen,
       before: gtAllBotsEasy,
       text: "Click <strong>Start Game</strong>." },
 

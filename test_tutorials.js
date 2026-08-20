@@ -124,6 +124,50 @@ check(`no step points at an id that does not exist${missing.length ? " — " + m
 check("card-play steps offer the dropdown as well as dragging",
       (TUT.match(/Choose action…/g) || []).length >= 4);
 
+console.log("\nthe 'Click <which way> →' label points the right way");
+
+// Next doubles as a signpost while an interactive step waits for the real
+// click. It used to say "Click above" always — but the popup sits BELOW its
+// target when there is room and ABOVE it when there is not, so on a laptop the
+// waiting-room "Start Game" step pointed the player at the empty air above a
+// button that was underneath the popup.
+check("the label is not hard-coded to one direction",
+      !/nextBtn\.textContent = "Click above →"/.test(TUT));
+check("there is a label for each side", /POINTER_LABEL = \{[\s\S]{0,240}?above:[\s\S]{0,240}?below:[\s\S]{0,240}?left:[\s\S]{0,240}?right:/.test(TUT));
+check("only positionCoach decides it, because only it has measured",
+      /function coachSetPointer\(dir\)/.test(TUT));
+// Every early return in positionCoach is a different placement, and each one
+// has to say which way it just put the popup.
+{
+  const body = /function positionCoach\(\) \{[\s\S]*?\n  \}\n/.exec(TUT);
+  const n = body ? (body[0].match(/coachSetPointer\(/g) || []).length : 0;
+  const returns = body ? (body[0].match(/\n      return;|\n        return;/g) || []).length : 0;
+  check(`every placement branch sets the pointer (${n} setters, ${returns} early returns)`,
+        n >= returns + 1);
+}
+check("...and a step going backwards does not keep the old direction",
+      /coachAwaitingAct = false;\n    clearCoachGlows\(\);/.test(TUT));
+check("once it becomes 'Skip this step →' the direction stops overwriting it",
+      /if \(b && b\.disabled\) b\.textContent = POINTER_LABEL\[coachPointer\]/.test(TUT));
+
+console.log("\nthe step that starts the game has to be done, not skipped");
+
+// Skipping "Start Game" leaves every following step pointing into a game that
+// never started — so that one step keeps waiting while the button is genuinely
+// clickable. The dead-end escape still arms when it is missing or disabled.
+check("the Start Game steps are marked as gates",
+      (TUT.match(/target: "#wr-start-btn"[^\n]*mustAct: true/g) || []).length === 3);
+check("every #wr-start-btn step is one of them",
+      (TUT.match(/target: "#wr-start-btn"/g) || []).length === 3);
+check("a gate step holds the timer back", /if \(step\.mustAct && coachIsUsable\(t\)\) \{ waited = 0; return; \}/.test(TUT));
+check("...only while the control is really usable", /function coachIsUsable\(el\)/.test(TUT));
+check("...and a disabled button does not count as usable",
+      /function coachIsUsable\(el\)[\s\S]{0,220}?el\.disabled/.test(TUT));
+check("the button the gate waits on is the real one, and it does get enabled",
+      /id="wr-start-btn"/.test(HTML) && /btn\.disabled = false;[\s\S]{0,200}?"Start Game"/.test(APP));
+check("a gate still gives way when the room cannot start (non-host / not full)",
+      /btn\.disabled = true;[\s\S]{0,120}?Waiting for host to start/.test(APP));
+
 console.log("\nthe popup gets out of its own way");
 check("it sits beside the target when it fits neither below nor above",
       /Sit\s*\n?\s*\/\/ BESIDE it if there is room|roomRight >= popW \|\| roomLeft >= popW/.test(TUT));
@@ -230,6 +274,16 @@ if (!CHROME) {
       if (guard === 8) {
         var hr = hole.getBoundingClientRect(), pop = q("#tut3-pop").getBoundingClientRect();
         var over = !(pop.right < hr.left || pop.left > hr.right || pop.bottom < hr.top || pop.top > hr.bottom);
+        // Which way IS the target, measured — so the "Click above →" label can
+        // be checked against reality rather than against the source.
+        var side = "none";
+        if (!hole.classList.contains("nohole")) {
+          if (pop.top >= hr.bottom - 1) side = "above";
+          else if (pop.bottom <= hr.top + 1) side = "below";
+          else if (pop.left >= hr.right - 1) side = "left";
+          else if (pop.right <= hr.left + 1) side = "right";
+          else side = "overlap";
+        }
         log.push({
           step: countTxt, title: title,
           hasTarget: !hole.classList.contains("nohole"),
@@ -238,6 +292,8 @@ if (!CHROME) {
           popOffscreen: pop.left < -1 || pop.right > window.innerWidth + 1
                      || pop.top < -1 || pop.bottom > window.innerHeight + 1,
           nextDisabled: !!nextBtn.disabled,
+          nextLabel: nextBtn.textContent,
+          targetSide: side,
         });
       }
       if (choices.length) { log.push({ finished: true, terminal: countTxt }); finish(); clearInterval(iv); return; }
@@ -357,6 +413,15 @@ if (!CHROME) {
         check(`${tourName} ${who}: the popup never covers the thing you must click${covered.length ? " — " + covered.join(", ") : ""}`,
               covered.length === 0);
 
+        // "Click above →" over a target that is below the popup is a wrong
+        // instruction, and the player follows it.
+        const misPointed = steps.filter(s => {
+          const m = /^Click (above|below|left|right)/.exec(s.nextLabel || "");
+          return m && s.targetSide !== "overlap" && s.targetSide !== "none" && m[1] !== s.targetSide;
+        }).map(s => `${s.title}: says ${(/^Click (\w+)/.exec(s.nextLabel) || [])[1]}, target is ${s.targetSide}`);
+        check(`${tourName} ${who}: "Click <way>" always points at the target${misPointed.length ? " — " + misPointed.join(", ") : ""}`,
+              misPointed.length === 0);
+
         const off = steps.filter(s => s.popOffscreen).map(s => s.title);
         check(`${tourName} ${who}: the popup is always fully on screen${off.length ? " — " + off.join(", ") : ""}`,
               off.length === 0);
@@ -402,6 +467,13 @@ if (!CHROME) {
             steps.every(s => !s.popOffscreen));
       check(`${label} (${w}x${h}): the popup never covers a required click`,
             steps.every(s => !(s.nextDisabled && s.popCoversTarget)));
+      // The direction flips with the window size — this is the width the
+      // hard-coded "Click above →" got wrong.
+      check(`${label} (${w}x${h}): "Click <way>" still points at the target`,
+            steps.every(s => {
+              const m = /^Click (above|below|left|right)/.exec(s.nextLabel || "");
+              return !m || s.targetSide === "overlap" || s.targetSide === "none" || m[1] === s.targetSide;
+            }));
     }
   } finally {
     try { server.kill(); } catch (_) {}
