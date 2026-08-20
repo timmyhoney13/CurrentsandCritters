@@ -180,6 +180,14 @@
 # resolves on both the Render game server and the Vercel marketing site.
 !test_rules_page.js
 
+# The Player Home left sidebar. It is its own scroller, so the white nav card
+# inside it has to be as tall as its own content — otherwise you scroll down to
+# the Daily Streak block and the card has already ended above it, leaving "View
+# streak details" on the bare page. Measured in headless Chrome at nine window
+# sizes (including the Streak Rescue worst case), and again along the path the
+# Main Menu tutorial takes to those same two elements.
+!test_sidebar_scroll.js
+
 # The Stripe money path. The .py half covers the server's decision functions —
 # webhook signature verification (the only thing between a stranger's POST and
 # free coins), price→reward mapping, and the lifetime-total wall tiers. The .js

@@ -7895,7 +7895,16 @@
         border: none;
         box-shadow: none;
       }
-      /* Nav card, holds logo + navigation + daily streak section */
+      /* Nav card, holds logo + navigation + daily streak section.
+         The SIDEBAR is the scroller, so the card must be as tall as its own
+         content whenever that content is taller than the screen — otherwise
+         you scroll down to the Daily Streak block and the white card has
+         already ended above it, leaving the dots, the XP rows and "View
+         streak details" sitting on the bare page background. `flex: 1 0 auto`
+         is what buys that: grow to fill the sidebar when everything fits,
+         never shrink below content when it does not. (It was `flex: 1;
+         min-height: 0`, which capped the card at the visible height and let
+         the content flow out the bottom of it.) */
       #auth-stats-lobby .ph-sidebar-nav-card {
         background: rgba(248,253,255,.94);
         backdrop-filter: blur(18px);
@@ -7906,8 +7915,7 @@
         padding: 16px 16px 14px;
         display: flex;
         flex-direction: column;
-        flex: 1;
-        min-height: 0;
+        flex: 1 0 auto;
       }
       /* Fill the rest of the screen, no max-width cap on desktop. */
       #auth-stats-lobby .ph-wrap {
