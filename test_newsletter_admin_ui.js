@@ -184,7 +184,10 @@ check("the test-send destination is never taken from the page",
     path.join(ROOT, "multiplayer/client/avatar-facing.json"), "utf8"));
 
   // The table inside the page must agree with the pinned facts.
-  const facesRight = new Set([...JOIN.matchAll(/"([a-z-]+)":1/g)].map(m => m[1]));
+  const rightBlock = JOIN.slice(JOIN.indexOf("var FACES_RIGHT"), JOIN.indexOf("var SYMMETRIC"));
+  const symBlock = JOIN.slice(JOIN.indexOf("var SYMMETRIC"), JOIN.indexOf("function faces"));
+  const facesRight = new Set([...rightBlock.matchAll(/"([a-z-]+)":1/g)].map(m => m[1]));
+  const symmetric = new Set([...symBlock.matchAll(/"([a-z-]+)":1/g)].map(m => m[1]));
   const pinnedRight = new Set(Object.keys(PIN).filter(n => PIN[n].faces === "right"));
   check("the page's right-facing list matches the pinned facts",
         [...pinnedRight].every(n => facesRight.has(n)) &&
@@ -211,7 +214,9 @@ check("the test-send destination is never taken from the page",
 
   // The rule itself, and the direction each swimmer travels.
   check("the flip is derived from facing vs. travel, not hand-placed",
-        /if \(faces\(name\) !== dir\) img\.className = "flip";/.test(JOIN));
+        /faces\(name\) !== dir\) img\.className = "flip";/.test(JOIN));
+  check("a head-on animal is exempt from the flip",
+        /!SYMMETRIC\[name\] &&/.test(JOIN));
 
   // Work out, for every swimmer, which way it would END UP facing.
   const rows = [...JOIN.matchAll(/\["([a-z-]+)",\s*-?[\d.]+,\s*\d+,\s*\d+,\s*-?[\d.]+,\s*"(left|right)"/g)];
@@ -219,11 +224,25 @@ check("the test-send destination is never taken from the page",
   const backwards = rows.filter(m => {
     const name = m[1], travels = m[2];
     const art = (PIN[name] || {}).faces || "left";
+    if (art === "symmetric") return false;        // head-on: no wrong way to point it
     const flipped = art !== travels;              // the page's own rule
     const shows = flipped ? (art === "left" ? "right" : "left") : art;
     return shows !== travels;
   }).map(m => m[1]);
   check("no critter swims backwards", backwards.length === 0, backwards.join(", "));
+
+  // Tim's rule: game fish, marine mammals and cephalopods. Nothing with
+  // feathers, legs or a shell. Coral and sponge are reef STRUCTURE and stay.
+  const NOT_ALLOWED = ["puffin","gull","albatross","penguin","auk","osprey","pelican",
+                       "frigatebird","turtle","crab","lobster","shrimp","urchin",
+                       "anemone","sea-star","sea-cucumber"];
+  const swimmers = [...new Set([...JOIN.matchAll(/\["([a-z-]+)",\s*-?[\d.]+,\s*\d+,/g)].map(m => m[1]))];
+  const banned = swimmers.filter(n => NOT_ALLOWED.some(b => n.includes(b)));
+  check("no birds, reptiles, crustaceans or echinoderms on the reef",
+        banned.length === 0, banned.join(", "));
+  const iconAnimals = [...new Set([...JOIN.matchAll(/\/avatars\/([a-z-]+)\.png/g)].map(m => m[1]))];
+  const bannedIcons = iconAnimals.filter(n => NOT_ALLOWED.some(b => n.includes(b)));
+  check("...and none in the perk list either", bannedIcons.length === 0, bannedIcons.join(", "));
 
   check("the reef uses the Coral Reef board background",
         /backgrounds\/bg-coral-reef\.png/.test(JOIN));

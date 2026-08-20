@@ -18,8 +18,10 @@
 
   THE REEF.
   Decoration is built from the game's own avatar art over the Coral Reef board
-  background. The one rule that matters: EVERY PIECE OF THAT ART IS DRAWN
-  FACING LEFT, except manta-ray, sailfish and bobtail-squid. A critter whose
+  background — GAME FISH, MARINE MAMMALS AND CEPHALOPODS only. Nothing with
+  feathers, legs or a shell swims past; the coral on the seafloor is reef
+  structure, not wildlife. The one rule that matters: most of that art is drawn
+  FACING LEFT, and six pieces are not. A critter whose
   facing does not match its direction of travel is swimming backwards, which is
   the sort of thing nobody can name but everybody notices. So facing is a data
   field (FACES below), the flip is derived from it, and the whole layer is
@@ -202,9 +204,9 @@
   <ul class="hide-when-done" id="perks">
     <li><img src="/avatars/mandarin-goby.png" alt="" loading="lazy"><span>New game features and updates</span></li>
     <li><img src="/avatars/spinner-dolphin.png" alt="" loading="lazy"><span>Online game nights and special events</span></li>
-    <li><img src="/avatars/king-crab.png" alt="" loading="lazy"><span>Progress on the physical card game</span></li>
-    <li><img src="/avatars/sea-star.png" alt="" loading="lazy"><span>Rewards and important announcements</span></li>
-    <li><img src="/avatars/mantis-shrimp.png" alt="" loading="lazy"><span>Chances to playtest and shape the game</span></li>
+    <li><img src="/avatars/blue-marlin.png" alt="" loading="lazy"><span>Progress on the physical card game</span></li>
+    <li><img src="/avatars/yellowfin-tuna.png" alt="" loading="lazy"><span>Rewards and important announcements</span></li>
+    <li><img src="/avatars/common-octopus.png" alt="" loading="lazy"><span>Chances to playtest and shape the game</span></li>
   </ul>
 
   <form id="form" class="hide-when-done" novalidate>
@@ -233,37 +235,55 @@
   // Which way each piece of art is DRAWN. Verified by eye against the actual
   // files — the overwhelming majority face left, and the three that don't are
   // the whole reason this is a table instead of an assumption.
-  var FACES_RIGHT = { "manta-ray":1, "sailfish":1, "bobtail-squid":1 };
+  // Which way each piece of art is DRAWN. Verified by eye against the actual
+  // files, at zoom, with a centre guide. Most face left; these face right, and
+  // they are the whole reason this is a table instead of an assumption.
+  var FACES_RIGHT = {
+    "blue-marlin":1, "sailfish":1, "tarpon":1, "king-salmon":1,
+    "manta-ray":1, "bobtail-squid":1
+  };
+  // Drawn head-on and symmetrical, so a flip would be meaningless — and
+  // flipping one would just make its highlights jump for no reason.
+  var SYMMETRIC = { "common-octopus":1, "giant-squid":1 };
   function faces(name){ return FACES_RIGHT[name] ? "right" : "left"; }
 
-  // name, top %, px size, seconds, delay, direction, depth layer
+  // Game fish, marine mammals and cephalopods. No birds, no turtles, no
+  // crustaceans — the reef itself is coral, and everything swimming through it
+  // is something you could hook, something that breathes air, or something
+  // with tentacles.
+  // name, top %, px size, seconds, delay, direction, depth layer, [phone-hide]
   var ROSTER = [
-    ["whale-shark",           8,  190, 74, -12, "left",  "far"],
-    ["manta-ray",            17,  132, 61,  -4, "right", "mid"],
-    ["spinner-dolphin",      26,  118, 44, -26, "left",  ""],
-    ["sailfish",             35,  126, 39,  -9, "right", "mid"],
-    ["narwhal",              44,  108, 52, -33, "left",  ""],
-    ["loggerhead-sea-turtle",56,   96, 58, -18, "right", ""],
-    ["mahi-mahi",            64,   92, 41, -47, "left",  "mid"],
-    ["yellowfin-tuna",       72,   84, 36, -22, "right", ""],
-    ["clownfish",            30,   60, 33,  -6, "right", "", "phone-hide"],
-    ["blue-tang",            49,   64, 37, -29, "left",  "", "phone-hide"],
-    ["mandarin-goby",        67,   58, 31, -15, "right", "", "phone-hide"],
-    ["reef-triggerfish",     21,   66, 46, -38, "left",  "mid", "phone-hide"],
-    ["cleaner-wrasse",       78,   56, 29, -11, "left",  "", "phone-hide"],
-    ["bobtail-squid",        85,   62, 49, -25, "right", "mid","phone-hide"],
-    ["mantis-shrimp",        88,   58, 43, -40, "left",  "",   "phone-hide"],
-    ["horned-puffin",         4,   70, 35, -20, "left",  "mid","phone-hide"]
+    ["whale-shark",         7,  195, 76, -12, "left",  "far"],
+    ["manta-ray",          16,  132, 62,  -4, "right", "mid"],
+    ["blue-marlin",        25,  140, 40,  -9, "right", ""],
+    ["spinner-dolphin",    33,  118, 45, -27, "left",  ""],
+    ["sailfish",           41,  126, 38, -19, "right", "mid"],
+    ["bottlenose-dolphin", 50,  116, 51, -34, "left",  ""],
+    ["yellowfin-tuna",     59,   96, 37, -22, "right", ""],
+    ["narwhal",            67,  104, 55, -44, "left",  "mid"],
+    ["mahi-mahi",          75,   94, 42, -48, "left",  ""],
+    ["common-octopus",     84,   88, 66, -15, "left",  "mid"],
+    ["tarpon",             30,   86, 44, -37, "right", "",    "phone-hide"],
+    ["king-salmon",        46,   78, 40, -13, "right", "",    "phone-hide"],
+    ["amberjack",          62,   74, 35, -29, "left",  "",    "phone-hide"],
+    ["roosterfish",        21,   80, 47, -41, "left",  "mid", "phone-hide"],
+    ["barracuda",          71,   86, 43,  -7, "left",  "",    "phone-hide"],
+    ["big-eye-tuna",       88,   72, 33, -25, "right", "",    "phone-hide"],
+    ["bobtail-squid",      54,   62, 50, -31, "right", "mid", "phone-hide"],
+    ["great-white-shark",  12,  118, 58, -52, "left",  "far", "phone-hide"]
   ];
 
+  // The seafloor is the REEF — coral and sponge, i.e. the structure, not
+  // critters. The only animal down here is a cephalopod, which is exactly
+  // where you would actually find one.
   var FLOOR = [
-    ["staghorn-coral",  4, 96, 8.5, 0],
-    ["sea-anemone",    17, 58, 6.2, -1.4],
-    ["sea-star",       29, 52, 7.4, -2.8],
-    ["hermit-crab",    46, 54, 6.8, -0.7],
-    ["elkhorn-coral",  61, 92, 9.1, -3.5],
-    ["sea-urchin",     76, 46, 6.0, -2.1],
-    ["king-crab",      88, 62, 7.7, -4.2]
+    ["staghorn-coral",     4, 100, 8.5,  0],
+    ["grooved-brain-coral",18,  70, 6.4, -1.4],
+    ["deep-sea-coral",     32,  74, 7.6, -2.9],
+    ["giant-squid",        47,  76, 5.8, -0.6],
+    ["elkhorn-coral",      62,  96, 9.1, -3.5],
+    ["sea-sponge",         77,  58, 6.1, -2.2],
+    ["staghorn-coral",     90,  78, 7.9, -4.3]
   ];
 
   var reef = document.getElementById("reef");
@@ -294,7 +314,8 @@
     img.decoding = "async";
     img.style.setProperty("--size", size + "px");
     // THE RULE: flip only when the art faces the opposite way to the travel.
-    if (faces(name) !== dir) img.className = "flip";
+    // A head-on animal is exempt — there is no "wrong way" to point it.
+    if (!SYMMETRIC[name] && faces(name) !== dir) img.className = "flip";
 
     bob.appendChild(img);
     swimmer.appendChild(bob);
