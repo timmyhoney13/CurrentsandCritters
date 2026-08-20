@@ -24,7 +24,7 @@
     "sha": "c99c72be7584"
   },
   "common-octopus": {
-    "faces": "symmetric",
+    "faces": "right",
     "sha": "c11642b2e9e1"
   },
   "deep-sea-coral": {
@@ -38,10 +38,6 @@
   "giant-squid": {
     "faces": "symmetric",
     "sha": "f8070928e2bc"
-  },
-  "great-white-shark": {
-    "faces": "left",
-    "sha": "0acd3eed7db4"
   },
   "grooved-brain-coral": {
     "faces": "left",
@@ -59,10 +55,6 @@
     "faces": "left",
     "sha": "973b2235e214"
   },
-  "manta-ray": {
-    "faces": "right",
-    "sha": "99b0fee788ce"
-  },
   "narwhal": {
     "faces": "left",
     "sha": "fd7ab7ebeec0"
@@ -70,10 +62,6 @@
   "roosterfish": {
     "faces": "left",
     "sha": "214e850ad7ab"
-  },
-  "sailfish": {
-    "faces": "right",
-    "sha": "9276df159735"
   },
   "sea-sponge": {
     "faces": "left",
@@ -90,10 +78,6 @@
   "tarpon": {
     "faces": "right",
     "sha": "a96f0f4dfb6a"
-  },
-  "whale-shark": {
-    "faces": "left",
-    "sha": "20c4402134e6"
   },
   "yellowfin-tuna": {
     "faces": "left",

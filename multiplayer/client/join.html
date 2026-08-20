@@ -21,8 +21,8 @@
   background — GAME FISH, MARINE MAMMALS AND CEPHALOPODS only. Nothing with
   feathers, legs or a shell swims past; the coral on the seafloor is reef
   structure, not wildlife. The one rule that matters: most of that art is drawn
-  FACING LEFT, and six pieces are not. A critter whose
-  facing does not match its direction of travel is swimming backwards, which is
+  FACING LEFT, and five pieces are not. A critter whose facing does not match
+  its direction of travel is swimming backwards, which is
   the sort of thing nobody can name but everybody notices. So facing is a data
   field (FACES below), the flip is derived from it, and the whole layer is
   generated from one table rather than hand-placed — hand-placing is how three
@@ -233,18 +233,21 @@
      THE REEF
      ══════════════════════════════════════════════════════════════ */
   // Which way each piece of art is DRAWN. Verified by eye against the actual
-  // files — the overwhelming majority face left, and the three that don't are
-  // the whole reason this is a table instead of an assumption.
-  // Which way each piece of art is DRAWN. Verified by eye against the actual
   // files, at zoom, with a centre guide. Most face left; these face right, and
   // they are the whole reason this is a table instead of an assumption.
   var FACES_RIGHT = {
-    "blue-marlin":1, "sailfish":1, "tarpon":1, "king-salmon":1,
-    "manta-ray":1, "bobtail-squid":1
+    "blue-marlin":1, "tarpon":1, "king-salmon":1,
+    "bobtail-squid":1, "common-octopus":1
   };
+  // The octopus is the subtle one. Its eye sits nearly centred, so what your
+  // eye actually reads as "forward" is the swept mantle lobe: it belongs
+  // BEHIND the animal, trailing. Drawn with the lobe to the left, that means
+  // the art leads to the right — calling it symmetric left it dragging its own
+  // mantle into the direction of travel, which is what swimming backwards
+  // looks like for a cephalopod.
   // Drawn head-on and symmetrical, so a flip would be meaningless — and
   // flipping one would just make its highlights jump for no reason.
-  var SYMMETRIC = { "common-octopus":1, "giant-squid":1 };
+  var SYMMETRIC = { "giant-squid":1 };
   function faces(name){ return FACES_RIGHT[name] ? "right" : "left"; }
 
   // Game fish, marine mammals and cephalopods. No birds, no turtles, no
@@ -253,26 +256,21 @@
   // with tentacles.
   // name, top %, px size, seconds, delay, direction, depth layer, [phone-hide]
   var ROSTER = [
-    ["whale-shark",         7,  195, 76, -12, "left",  "far"],
-    ["manta-ray",          16,  132, 62,  -4, "right", "mid"],
-    ["blue-marlin",        25,  140, 40,  -9, "right", ""],
-    ["spinner-dolphin",    33,  118, 45, -27, "left",  ""],
-    ["sailfish",           41,  126, 38, -19, "right", "mid"],
-    ["bottlenose-dolphin", 50,  116, 51, -34, "left",  ""],
-    ["yellowfin-tuna",     59,   96, 37, -22, "right", ""],
-    ["narwhal",            67,  104, 55, -44, "left",  "mid"],
-    ["mahi-mahi",          75,   94, 42, -48, "left",  ""],
-    ["common-octopus",     84,   88, 66, -15, "left",  "mid"],
-    ["tarpon",             30,   86, 44, -37, "right", "",    "phone-hide"],
-    ["king-salmon",        46,   78, 40, -13, "right", "",    "phone-hide"],
-    ["amberjack",          62,   74, 35, -29, "left",  "",    "phone-hide"],
-    ["roosterfish",        21,   80, 47, -41, "left",  "mid", "phone-hide"],
-    ["barracuda",          71,   86, 43,  -7, "left",  "",    "phone-hide"],
-    ["big-eye-tuna",       88,   72, 33, -25, "right", "",    "phone-hide"],
-    ["bobtail-squid",      54,   62, 50, -31, "right", "mid", "phone-hide"],
-    ["great-white-shark",  12,  118, 58, -52, "left",  "far", "phone-hide"]
+    ["blue-marlin",         9,  140, 40,  -9, "right", ""],
+    ["spinner-dolphin",    21,  118, 45, -27, "left",  ""],
+    ["bottlenose-dolphin", 34,  116, 51, -34, "left",  ""],
+    ["yellowfin-tuna",     46,   96, 37, -22, "right", ""],
+    ["narwhal",            58,  104, 55, -44, "left",  "far"],
+    ["mahi-mahi",          70,   94, 42, -48, "left",  ""],
+    ["common-octopus",     83,   88, 66, -15, "left",  "mid"],
+    ["roosterfish",        14,   80, 47, -41, "left",  "mid", "phone-hide"],
+    ["tarpon",             27,   86, 44, -37, "right", "",    "phone-hide"],
+    ["king-salmon",        40,   78, 40, -13, "right", "",    "phone-hide"],
+    ["bobtail-squid",      52,   62, 50, -31, "right", "mid", "phone-hide"],
+    ["amberjack",          64,   74, 35, -29, "left",  "",    "phone-hide"],
+    ["barracuda",          76,   86, 43,  -7, "left",  "",    "phone-hide"],
+    ["big-eye-tuna",       88,   72, 33, -25, "right", "",    "phone-hide"]
   ];
-
   // The seafloor is the REEF — coral and sponge, i.e. the structure, not
   // critters. The only animal down here is a cephalopod, which is exactly
   // where you would actually find one.
