@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.68";
-  const APP_BUILD   = "2026-08-21.1";
+  const APP_VERSION = "1.6.69";
+  const APP_BUILD   = "2026-08-21.2";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,12 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "👁️ A peek at someone's board goes away when you do", items: [
+      "Hovering a player to peek at their board no longer leaves that peek stuck on screen. Every seat and opponent card is rebuilt whenever the scores or the turn change, and a panel pinned to an element that no longer exists was never told the mouse had left it — so one peek could sit over the table for the rest of the game, over the end screen, and follow you back out to Player Home.",
+      "It now closes the moment you look away: move off it, click, scroll, switch tabs or leave the window and it is gone. If the seat underneath was simply redrawn while you were still hovering it, the peek stays put and refreshes instead of flickering away.",
+      "The game ending closes it too, along with an enlarged board left open from clicking a player — and Escape now closes that enlarged board, the same as the ✕ and clicking the backdrop.",
+      "On phones and tablets the peek no longer opens at all. There is no \"move the mouse away\" on a touchscreen, so it could only be dismissed by tapping something else; tapping a player to enlarge their board already does the job.",
+    ]},
     { ver: "V1.7.0", title: "🚪 The way in: one click, one screen", items: [
       "Choosing Computer or Mobile on the first screen no longer asks you for a guest nickname. The laptop and phone you tap there are painted in the same spot as PLAY AS GUEST on the sign-in screen behind them, so the moment the device screen closed, your cursor was resting on a button you could not see — and the second half of a double-click pressed it. You would land in the guest name box without ever having chosen to play as a guest.",
       "The sign-in buttons are also held back until the screen has actually drawn itself. They are invisible shapes over the artwork, and on a slow connection they were live before there was anything on screen to aim at, so a click anywhere near the middle went to Play as Guest.",
