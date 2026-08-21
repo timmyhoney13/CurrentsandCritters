@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.71";
-  const APP_BUILD   = "2026-08-21.4";
+  const APP_VERSION = "1.6.72";
+  const APP_BUILD   = "2026-08-21.5";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,32 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🎲 Game Night, every Saturday", items: [
+      "Game Night is every Saturday, 7:00–9:00 PM CST. There is a banner at the top of your Player Home and on the website that says when the next one is, counts down to it, and turns green while it is running.",
+      "It also shows the time in YOUR time zone, so 7 PM CST does not have to be worked out on paper.",
+      "RSVP is not mandatory — but it is recommended, so we know how many tables to set. The RSVP button takes you to the Discord server, where the event lives.",
+    ]},
+    { ver: "V1.7.0", title: "🎁 Bring a friend, you both get 100 Critter Coins", items: [
+      "There is a friend-code box on the sign-up screen now. A friend who makes an account and types your code earns 100 Critter Coins for them AND 100 for you, every single time.",
+      "Every 5 friends you bring in earns you a free avatar background on top of that. Your Friends tab shows how many have joined and how many more until the next one.",
+      "It is a sign-up bonus, so a code can be entered in the first 14 days of a new account, once per account. Your own code never works on your own account, and two accounts cannot refer each other in a circle.",
+      "The coins are paid out by the server into both accounts at once, so there is no waiting and nothing to claim.",
+    ]},
+    { ver: "V1.7.0", title: "🏅 The Level Pass", items: [
+      "Every level you climb now has something waiting on it. There is a new Level Pass page in the sidebar with the whole track on it: Critter Coins, Streak Shields, critter stickers, XP Boosts, Weekly Swaps and free backgrounds, all the way to Level 100.",
+      "It always tells you how much XP is left until the next thing — at the top of the page, and on every reward still ahead of you.",
+      "Rewards are yours the moment you reach the level. They never expire, and Claim All takes everything you have earned in one tap.",
+      "XP Boost: +20% XP for 24 hours, from everything — games, the daily login bonus, challenges and achievements alike. You hold it until you want it, so it is never wasted.",
+      "Streak Shields cover a missed day so your daily streak survives it. The pass hands them out as you level, on top of the ones the Store sells.",
+      "Weekly Swap: spend one and you can swap out as many weekly challenges as you like for the rest of that week. A 🔄 Swap button appears on each weekly challenge while it is active.",
+      "Critter stickers unlock for critters you own and show up in game chat.",
+      "The critters you unlock by levelling up — Blue Tang, Manta Ray, Great White Shark and the rest — are marked on the track as milestones. They still unlock on their own the moment you reach the level, exactly as before.",
+    ]},
+    { ver: "V1.7.0", title: "🐠 The Avatar Gallery shows you what is next", items: [
+      "There is a Level Track along the top of the Avatar Gallery: every critter you unlock by levelling up, on one scrollable line, with the critter above the tick and the level below it.",
+      "It marks where you are, and says how much XP is left until the next one — \"3,450 XP till you unlock the Manta Ray\" — plus roughly how many more wins that is.",
+      "The track opens on your own position rather than at Level 10, so a level-70 player sees their own stretch of it straight away.",
+    ]},
     { ver: "V1.7.0", title: "👁️ A peek at someone's board goes away when you do", items: [
       "Hovering a player to peek at their board no longer leaves that peek stuck on screen. Every seat and opponent card is rebuilt whenever the scores or the turn change, and a panel pinned to an element that no longer exists was never told the mouse had left it — so one peek could sit over the table for the rest of the game, over the end screen, and follow you back out to Player Home.",
       "It now closes the moment you look away: move off it, click, scroll, switch tabs or leave the window and it is gone. If the seat underneath was simply redrawn while you were still hovering it, the peek stays put and refreshes instead of flickering away.",
@@ -1064,6 +1090,43 @@
     // The coins landed server-side, so re-read the account rather than letting
     // the header keep painting the old balance.
     onClaimed: () => { try { window.__fishReloadProfile && window.__fishReloadProfile(); } catch (_) {} },
+  };
+
+  // ── Level Pass bridge ──────────────────────────────────────────────────
+  // The page lives in js/level-pass.js. EVERY rule is server-authoritative
+  // (/api/pass/*): the account's level is re-derived from its own stored
+  // total_xp inside the same transaction that writes the reward, so nothing
+  // this bridge hands over can move a payout.
+  window.__ccLevelPass = {
+    APP_BUILD,
+    get:  (p) => apiFetch(p),
+    post: (p, b) => apiPost(p, b),
+    toast: (m, t) => { try { showToast(m, t); } catch (_) {} },
+    avSrc: (u) => { try { return _avSrc(u); } catch (_) { return u; } },
+    async idToken() {
+      try { const u = window.__fishAuthUser && window.__fishAuthUser();
+            return (u && u.getIdToken) ? await u.getIdToken() : ""; } catch (_) { return ""; }
+    },
+    // A claim moves coins, backgrounds and stickers on the account document the
+    // rest of the app renders from, so re-read it rather than letting the
+    // header keep painting the old balance.
+    onGranted: () => { try { window.__fishReloadProfile && window.__fishReloadProfile(); } catch (_) {} },
+  };
+
+  // ── Referral bridge ────────────────────────────────────────────────────
+  // js/referral.js. The friend code is resolved server-side and BOTH payouts
+  // happen in one transaction (/api/referral/redeem) — this bridge only carries
+  // digits there and a sentence back.
+  window.__ccReferral = {
+    APP_BUILD,
+    get:  (p) => apiFetch(p),
+    post: (p, b) => apiPost(p, b),
+    toast: (m, t) => { try { showToast(m, t); } catch (_) {} },
+    async idToken() {
+      try { const u = window.__fishAuthUser && window.__fishAuthUser();
+            return (u && u.getIdToken) ? await u.getIdToken() : ""; } catch (_) { return ""; }
+    },
+    onRedeemed: () => { try { window.__fishReloadProfile && window.__fishReloadProfile(); } catch (_) {} },
   };
 
   // The sidebar entry, added only for the admin account. Re-checked on a timer
@@ -11804,13 +11867,41 @@
     } catch (_) {}
     return 0;
   }
+  // ── Level Pass XP Boost ────────────────────────────────────────────────
+  // +20% on every XP source for 24 hours. Read SYNCHRONOUSLY from the pass's
+  // cached server state — an XP grant can never afford to await a request, and
+  // an unloaded pass reporting "no boost" is the safe direction (a missed boost
+  // is a smaller wrong than XP nobody earned).
+  function passBoostNow() {
+    try {
+      const b = window.__ccPassBoost && window.__ccPassBoost();
+      if (b && b.active) return b;
+    } catch (_) {}
+    return { active: false, percent: 0, mult: 1 };
+  }
+
+  // Prestige first, then the boost on top of it. Kept as ONE function because
+  // every XP path already calls this one — adding a second multiplier anywhere
+  // else is how a bonus ends up applying to games but not to achievements.
+  // `base`, `bonus`, `total` and `level` keep their old meanings so existing
+  // callers are unaffected; the breakdown fields are additive.
   function prestigeXp(baseXp) {
     const base = Math.max(0, Math.floor(Number(baseXp) || 0));
     const lvl = prestigeLevelNow();
-    const total = Math.floor(base * (1 + lvl * 0.25));
-    return { base, bonus: total - base, total, level: lvl };
+    const afterPrestige = Math.floor(base * (1 + lvl * 0.25));
+    const boost = passBoostNow();
+    const total = Math.floor(afterPrestige * boost.mult);
+    return {
+      base, level: lvl, total,
+      bonus: total - base,                    // everything above base
+      prestigeBonus: afterPrestige - base,
+      boostBonus: total - afterPrestige,
+      boostPercent: boost.active ? boost.percent : 0,
+      boosted: !!boost.active,
+    };
   }
   window.__fishPrestigeXp = prestigeXp;
+  window.__fishXpBoost = passBoostNow;
 
   function getStoredTotalXp(stats) {
     const src = (stats && typeof stats === "object") ? stats : {};
@@ -12209,8 +12300,12 @@
       // Prestige multiplies BOTH the placement/stat XP and the daily login
       // bonus — every legitimate XP source, not just games.
       const _pxGame   = prestigeXp(xpAward);
+      // The login bonus is multiplied by hand here rather than through
+      // prestigeXp (it keeps 2 decimal places), so the Level Pass boost has to
+      // be applied here as well — "+20% XP from everything" has to mean it.
       const _pxStreak = _streakBonusXp > 0
-        ? Math.round(_streakBonusXp * (1 + prestigeLevelNow() * 0.25) * 100) / 100
+        ? Math.round(_streakBonusXp * (1 + prestigeLevelNow() * 0.25)
+                     * passBoostNow().mult * 100) / 100
         : 0;
       const nextTotalXp = oldTotalXp + _pxGame.total + _pxStreak;
       const levelProgress = getLevelProgressFromTotalXp(nextTotalXp);
@@ -13411,9 +13506,17 @@
         if (_pxEnd.bonus > 0) {
           const brk = document.createElement("div");
           brk.className = "ccP-xpbreak";
-          brk.innerHTML = "Base XP: <b>" + _pxEnd.base + "</b><br>"
-            + '<span class="b">Prestige Bonus: +' + _pxEnd.bonus + " (Prestige " + _pxEnd.level + ")</span><br>"
-            + "Total XP Earned: <b>" + _pxEnd.total + "</b>";
+          let html = "Base XP: <b>" + _pxEnd.base + "</b><br>";
+          if (_pxEnd.prestigeBonus > 0) {
+            html += '<span class="b">Prestige Bonus: +' + _pxEnd.prestigeBonus
+                 + " (Prestige " + _pxEnd.level + ")</span><br>";
+          }
+          if (_pxEnd.boostBonus > 0) {
+            html += '<span class="b">XP Boost: +' + _pxEnd.boostBonus
+                 + " (+" + _pxEnd.boostPercent + "%)</span><br>";
+          }
+          html += "Total XP Earned: <b>" + _pxEnd.total + "</b>";
+          brk.innerHTML = html;
           xpEl.parentNode.appendChild(brk);
         }
       }
@@ -17259,6 +17362,7 @@
       const sortSel = $a("gal-sort-sel"); if (sortSel) sortSel.value = "all";
       try { window.__fishLoadIconCounts?.(); } catch {}
       _galRenderHeader();
+      _galRenderLevelTrack();
       _galRenderTabs();
       _galRenderGrid();
       _galRenderDetail(null);
@@ -17373,6 +17477,111 @@
       _pubProfileData = null;
       document.body.style.overflow = "";
     };
+
+    // ══════════════════════════════════════════════════════════════════
+    //  THE LEVEL TRACK  (top of the Avatar Gallery)
+    //
+    //  Every critter you unlock by LEVELLING UP, on one scrollable line:
+    //  the critter above the tick, the level below it, a "You" marker where
+    //  you are now, and — the point of the whole thing — how much XP is left
+    //  before the next one.
+    //
+    //  It reads the SAME two sources the unlock sweep does (LEVEL_XP_TOTALS
+    //  and each avatar's own unlock.goal), so it can never advertise a level
+    //  the sweep would not actually unlock at.
+    // ══════════════════════════════════════════════════════════════════
+
+    // The level-gated avatars, in level order. Derived from the catalogue
+    // rather than listed again here: adding a level avatar puts it on the
+    // track automatically, and there is no second table to forget.
+    function _galLevelAvatars() {
+      return ANIMAL_AVATARS
+        .filter(a => a && a.unlock && a.unlock.type === "level" && a.unlock.goal)
+        .slice()
+        .sort((x, y) => Number(x.unlock.goal) - Number(y.unlock.goal));
+    }
+
+    // Cumulative XP needed to REACH a level, from the one curve.
+    function _galXpToReachLevel(level) {
+      const i = Math.max(1, Math.min(LEVEL_XP_TOTALS.length, Math.floor(level))) - 1;
+      return Number(LEVEL_XP_TOTALS[i]) || 0;
+    }
+
+    // Roughly how many more wins that is, so the number means something to a
+    // player who does not think in XP. Uses the REAL award (a top finish
+    // against humans) run through the player's own multipliers, so a boosted
+    // or Prestiged account is told the truth rather than a generic figure.
+    function _galWinsToGo(xpLeft) {
+      let perWin = 100;
+      try { perWin = Math.max(1, Number(prestigeXp(100).total) || 100); } catch (_) {}
+      return Math.max(1, Math.ceil(xpLeft / perWin));
+    }
+
+    function _galRenderLevelTrack() {
+      const host = $a("gal-level-track");
+      if (!host) return;
+      const list = _galLevelAvatars();
+      if (!list.length) { host.style.display = "none"; return; }
+      host.style.display = "";
+
+      const { stats, level } = _avatarStatsAndLevel();
+      const totalXp = getStoredTotalXp(stats);
+      const nextIdx = list.findIndex(a => Number(a.unlock.goal) > level);
+
+      // ── The headline: "3,450 XP until you unlock the Manta Ray" ────────
+      let headline;
+      if (nextIdx === -1) {
+        headline = '<span class="galLT-next-done">Every level critter is yours. 🌊</span>';
+      } else {
+        const nextA = list[nextIdx];
+        const goal  = Number(nextA.unlock.goal);
+        const left  = Math.max(0, _galXpToReachLevel(goal) - totalXp);
+        const wins  = _galWinsToGo(left);
+        headline =
+          '<span class="galLT-xp">' + left.toLocaleString() + ' XP</span>'
+          + ' till you unlock the <b>' + escapeHtml(nextA.name) + '</b>'
+          + ' <span class="galLT-games">· about ' + wins.toLocaleString()
+          + ' more win' + (wins === 1 ? "" : "s") + ' · Level ' + goal + '</span>';
+      }
+
+      const stops = list.map((a, i) => {
+        const goal = Number(a.unlock.goal);
+        const done = level >= goal;
+        const isNext = (i === nextIdx);
+        // The "You are here" pill rides the stop being worked towards; once
+        // everything is unlocked it settles on the last one.
+        const showYou = isNext || (nextIdx === -1 && i === list.length - 1);
+        const cls = ["galLT-stop", done ? "is-done" : "is-locked"];
+        if (isNext) cls.push("is-next");
+        return '<div class="' + cls.join(" ") + '" title="'
+          + escapeHtml(a.name) + ' · Level ' + goal + '">'
+          + (showYou ? '<div class="galLT-you">You · Lv ' + level + '</div>' : "")
+          + '<div class="galLT-critter"><img src="' + escapeHtml(_avSrc(a.img))
+          + '" alt="" loading="lazy"></div>'
+          + '<div class="galLT-name">' + escapeHtml(a.name) + '</div>'
+          + '<div class="galLT-line"></div>'
+          + '<div class="galLT-lvl">' + goal + '</div>'
+          + '</div>';
+      }).join("");
+
+      host.innerHTML =
+        '<div class="galLT-head">'
+        + '<div class="galLT-title">Level Track</div>'
+        + '<div class="galLT-next">' + headline + '</div>'
+        + '</div>'
+        + '<div class="galLT-rail" id="galLT-rail">' + stops + '</div>';
+
+      // Put the player where they actually are. Without this the track always
+      // opens on Level 10 and a level-70 player sees none of their own progress.
+      try {
+        const rail = $a("galLT-rail");
+        const mark = rail && (rail.querySelector(".galLT-stop.is-next")
+                              || rail.querySelector(".galLT-stop:last-child"));
+        if (rail && mark) {
+          rail.scrollLeft = Math.max(0, mark.offsetLeft - rail.clientWidth * 0.45);
+        }
+      } catch (_) {}
+    }
 
     function _galRenderHeader() {
       const equipped = _galEquippedImg();
@@ -17870,7 +18079,7 @@
           showCodeMsg(res.msg, res.ok);
           if (res.ok) {
             if (codeInput) codeInput.value = "";
-            try { _galRenderHeader(); _galRenderTabs(); _galRenderGrid(); } catch {}
+            try { _galRenderHeader(); _galRenderLevelTrack(); _galRenderTabs(); _galRenderGrid(); } catch {}
             if (res.refresh) setTimeout(() => showCodeMsg("", false), 4000);
           }
         } catch {
@@ -19081,6 +19290,9 @@
         return;
       }
       revealLobby(nickname, code);
+      // Signed in with a real account: warm the reward caches now, so the XP
+      // boost is known before the first game finishes rather than after.
+      try { window.__ccPrimeRewardModules && window.__ccPrimeRewardModules(); } catch (_) {}
     }
 
     function clearGuestSessionStorage() {
@@ -20779,6 +20991,28 @@
         _avatarPromptShownForUid = _authUser.uid;
         _activeProfile = { ...(_activeProfile || {}), uid: _authUser.uid, nickname: nick, friend_code: code, avatar_url: DEFAULT_AVATAR_IMG };
         await applyAvatarSelection(DEFAULT_AVATAR_IMG);
+        // ── Referral, if they typed a friend's code ────────────────────
+        // Runs only AFTER saveNewProfile, because the server pays into an
+        // account document that has to exist first. Awaited so the coin
+        // balance is already right on the first paint of Player Home — but
+        // wrapped so that NOTHING here can stop a new player getting in. A
+        // failed referral is a missing bonus; a blocked sign-up is a lost
+        // player.
+        try {
+          const refEl = $a("auth-ref-input");
+          const refCode = refEl ? String(refEl.value || "").trim() : "";
+          if (refCode && typeof window.__ccReferralRedeem === "function") {
+            const rr = await window.__ccReferralRedeem(refCode);
+            if (rr && rr.ok) {
+              showToast(`🎁 +${Number(rr.coins || 0).toLocaleString()} Critter Coins — `
+                + `${rr.referrerName || "your friend"} got the same!`, "good");
+            } else if (rr && rr.message) {
+              // Say why, but let them in regardless. The Friends tab keeps
+              // offering the box for the rest of the sign-up window.
+              showToast(rr.message, "warn");
+            }
+          }
+        } catch (_) {}
         revealLobby(nick, code);
       } catch (e) {
         ccReport("firebase_profile_save_failed", ccErrDetail(e), "warn");
@@ -22458,6 +22692,16 @@
     // whole unlocked_icons list all move in a single server transaction, so
     // painting on from the pre-Prestige snapshot would show a Level 100 player
     // who is actually Level 1.
+    // Warm the Level Pass + referral caches. The pass one matters most:
+    // __ccPassBoost() is read synchronously by every XP path, and an unprimed
+    // cache reports "no boost" — which would quietly cost a player the boost
+    // they just activated on their first game back.
+    function _ccPrimeRewardModules() {
+      try { window.__ccLevelPassPrime && window.__ccLevelPassPrime(); } catch (_) {}
+      try { window.__ccReferralPrime && window.__ccReferralPrime(); } catch (_) {}
+    }
+    window.__ccPrimeRewardModules = _ccPrimeRewardModules;
+
     window.__fishReloadProfile = async function () {
       await _trRefreshMyProfile();
       try { if (typeof renderPhOverview === "function") renderPhOverview(); } catch (_) {}
@@ -23100,7 +23344,7 @@
     // ── Player Home: tab switching ───────────────────────────────
     (function() {
       const tabs = document.querySelectorAll("#ph-tabs .ph-tab");
-      const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", messages:"ph-panel-messages", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", clans:"ph-panel-clans", prestige:"ph-panel-prestige", store:"ph-panel-store" };
+      const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", messages:"ph-panel-messages", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", clans:"ph-panel-clans", prestige:"ph-panel-prestige", levelpass:"ph-panel-levelpass", store:"ph-panel-store" };
       const statsLobby = document.getElementById("auth-stats-lobby");
       // Tabs that require a real account; guests see a "Sign in to…" gate.
       const GUEST_GATE_MSGS = {
@@ -23112,6 +23356,7 @@
         leaderboard:  "Sign in to view the leaderboards",
         clans:        "Sign in to join a clan",
         prestige:     "Sign in to ride the next current",
+        levelpass:    "Sign in to earn Level Pass rewards",
         achievements: "Sign in to see Achievements",
       };
       // The Clans panel is empty markup that js/clans-ui.js fills in, so if that
@@ -23119,6 +23364,25 @@
       // "the Clans page is blank". js/clans-ui.js is a separate deferred script,
       // so give it a few moments to turn up before giving up — and if it never
       // does, put the reason on screen rather than leaving an empty ocean.
+      // js/level-pass.js is a separate deferred script, so on a cold open it
+      // may not have registered yet. Waiting a few beats and then SAYING SO is
+      // the difference between "still loading" and a permanently blank page
+      // that explains nothing — the way the Clans tab once shipped.
+      function _renderLevelPassTab(attempt) {
+        const n = attempt || 0;
+        if (typeof window.__ccLevelPassRender === "function") {
+          window.__ccLevelPassRender();
+          return;
+        }
+        if (n < 20) { setTimeout(() => _renderLevelPassTab(n + 1), 100); return; }
+        const root = document.getElementById("cc-level-pass-root");
+        if (root) {
+          root.innerHTML = '<div class="ccLP"><div class="ccLP-empty">'
+            + "The Level Pass didn't finish loading. Please refresh the page."
+            + "</div></div>";
+        }
+      }
+
       function _renderClansTab(attempt) {
         const n = attempt || 0;
         const cr = document.getElementById("cc-clans-root");
@@ -23215,12 +23479,14 @@
         if (name === "howto")        renderPhHowTo();
         if (name === "friends")      { renderPhFriendsList(); if (_authUser && typeof window.__fishCheckFriendAchievements === "function") window.__fishCheckFriendAchievements(_authUser.uid); }
         if (name === "history")      renderPhHistory();
-        if (name === "overview")     renderPhOverview();
+        if (name === "overview")     { renderPhOverview();
+                                     try { window.__ccGameNightRender && window.__ccGameNightRender(); } catch (_) {} }
         if (name === "achievements") renderPhAchievements();
         if (name === "competitive")  { checkAndApplySeasonReset().then(() => renderPhCompetitive()); }
         if (name === "leaderboard")  renderPhLeaderboard();
         if (name === "clans")        _renderClansTab();
         if (name === "prestige")     _renderPrestigeTab();
+        if (name === "levelpass")    _renderLevelPassTab();
         if (name === "store")        renderPhStore();
       }
       window._switchPhTab = switchTab;
@@ -25903,6 +26169,16 @@
     }
 
     function _csCardHtml(c, isWeekly) {
+      // ── Weekly Swap ────────────────────────────────────────────────
+      // A Level Pass reward: spend one token and swapping is unlimited for the
+      // rest of THAT week. The button exists only while the server says the
+      // token is live for this exact week, and never on a challenge already
+      // completed — rerolling a finished one would throw away XP already paid.
+      const canSwap  = isWeekly && !c.completed && _csSwapUnlocked();
+      const swapHtml = canSwap
+        ? `<button class="ph-cs-swap" type="button" data-swapslot="${Number(c.slotPos)}"
+             title="Swap this challenge for a different one">🔄 Swap</button>`
+        : "";
       const target    = Math.max(1, Number(c.target) || 1);
       const cur       = Math.max(0, Math.min(target, Number(c.progress) || 0));
       const pct       = Math.round((cur / target) * 100);
@@ -25930,6 +26206,7 @@
           </div>
           <div class="ph-cs-card-req" title="${escapeHtml(c.req || "")}">${escapeHtml(c.req || "")}</div>
           <div class="ph-cs-card-foot">${footHtml}</div>
+          ${swapHtml}
         </div>`;
     }
 
@@ -26246,6 +26523,47 @@
       return h <= 0 ? `Resets in ${m}m` : `Resets in ${h}h ${m}m`;
     }
 
+    // ── Weekly Swap (a Level Pass reward) ─────────────────────────
+    // Is unlimited weekly swapping live for THIS week? The token is spent
+    // server-side against the player's own local Monday-midnight, so both
+    // sides have to be compared against the same boundary the challenges
+    // themselves roll on.
+    function _csSwapUnlocked() {
+      try {
+        return !!(window.__ccPassRerollActive
+                  && window.__ccPassRerollActive(_getThisMondayMidnight()));
+      } catch (_) { return false; }
+    }
+
+    // Swap ONE weekly slot for a challenge the player does not already have.
+    // Progress on that slot is discarded — that is the trade being offered, and
+    // it is why a COMPLETED slot is never swappable (its XP is already paid).
+    function _csSwapWeeklySlot(slotPos) {
+      if (!_csSwapUnlocked()) return false;
+      const pos = Number(slotPos);
+      const state = _loadWeeklyState();
+      _refreshWeeklyIfNeeded(state);
+      const slot = state.slots[pos];
+      if (!slot || slot.completedAt) return false;
+
+      // Never hand back one of the three already on screen.
+      const taken = new Set(state.slots.map(s => s.idx));
+      const pool = _WEEKLY_CHALLENGES.map((_, i) => i).filter(i => !taken.has(i));
+      if (!pool.length) return false;
+
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      slot.idx = pick;
+      slot.progress = 0;
+      slot.completedAt = null;
+      _saveWeeklyState(state);
+      renderChallengeStrip();
+      try { window._renderIgChallengePanel?.(); } catch (_) {}
+      const def = _WEEKLY_CHALLENGES[pick];
+      try { showToast("🔄 Swapped in: " + (def ? def.name : "a new challenge"), "info"); } catch (_) {}
+      return true;
+    }
+    window._csSwapWeeklySlot = _csSwapWeeklySlot;
+
     const _WEEKLY_STATE_KEY = "cc_weekly_state_v1";
 
     // Returns the epoch ms of the most recent Monday at 00:00 local time.
@@ -26256,6 +26574,11 @@
       const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday, 0, 0, 0, 0);
       return mon.getTime();
     }
+    // Exported for js/level-pass.js: a Weekly Swap token buys unlimited swaps
+    // for ONE week, and the week it buys has to be the same one the challenges
+    // themselves roll on.
+    window.__ccWeekStartMs = _getThisMondayMidnight;
+
     function _weekdayKey() {
       // Mon=0 ... Sun=6, matches our daysPlayed object keys.
       const day = new Date().getDay();
@@ -26324,11 +26647,16 @@
     function _getCurrentWeeklySlots() {
       const state = _loadWeeklyState();
       _refreshWeeklyIfNeeded(state);
-      return state.slots.map(slot => {
+      return state.slots.map((slot, slotPos) => {
         const def = _WEEKLY_CHALLENGES[slot.idx] || _WEEKLY_CHALLENGES[0];
         const completed = Boolean(slot.completedAt);
         return {
           ...def,
+          // The display list is REORDERED (incomplete first), so a card's
+          // position in the row is not its slot. Carrying the real slot index
+          // is what stops a swap rerolling a different challenge from the one
+          // that was clicked.
+          slotPos,
           progress: completed ? def.target : (Number(slot.progress) || 0),
           completed,
           completedAt: slot.completedAt || null,
@@ -26417,6 +26745,9 @@
       }
     }
     window._reportWeeklyChallengeProgress = reportWeeklyChallengeProgress;
+    // Spending a Weekly Swap token turns the swap buttons on, and the module
+    // that spends it needs a way to repaint the strip.
+    window.renderChallengeStrip = renderChallengeStrip;
 
     // Public hook the game code calls when a DAILY challenge progresses. Same
     // contract as the weekly one — amount, {complete:true} or {setTo:n} — so a
@@ -27113,6 +27444,19 @@
       const cardsEl   = $a("ph-cs-cards");
       if (!headerBtn || !rewardBtn || !cardsEl) return;
       _csWired = true;
+
+      // Weekly Swap buttons are DELEGATED off the (stable) cards container:
+      // the cards themselves are rebuilt on every render, so per-button
+      // listeners would be thrown away the first time a swap repainted them.
+      // stopPropagation because the card sits inside surfaces that have their
+      // own click meaning.
+      cardsEl.addEventListener("click", (e) => {
+        const btn = e.target && e.target.closest && e.target.closest(".ph-cs-swap");
+        if (!btn || !cardsEl.contains(btn)) return;
+        e.stopPropagation();
+        e.preventDefault();
+        _csSwapWeeklySlot(btn.getAttribute("data-swapslot"));
+      });
 
       // The calendar icon and the Daily/Weekly pill are the switch — there is
       // no tab row any more. Both sit inside the header, which is itself the

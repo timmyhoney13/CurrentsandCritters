@@ -37,6 +37,8 @@ import prestige_server
 import analytics_server
 import newsletter_server
 import discord_server
+import level_pass_server
+import referral_server
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -11179,6 +11181,18 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if discord_server.handle_post(self, parsed, body):
             return
 
+        # Level Pass (/api/pass/*). Every tier re-derives the account's level
+        # from its OWN stored total_xp inside the payout transaction, so the
+        # browser's idea of its level is never an input to a reward.
+        if level_pass_server.handle_post(self, parsed, body):
+            return
+
+        # Friend-code referral (/api/referral/*). Pays TWO accounts in one
+        # transaction — which is exactly why the browser cannot be the one
+        # deciding who gets paid.
+        if referral_server.handle_post(self, parsed, body):
+            return
+
         # Newsletter API. /api/newsletter/unsubscribe is public by design (an
         # unsubscribe link must work without logging in); every OTHER action
         # under this prefix verifies a Firebase ID token against ADMIN_EMAIL
@@ -12168,6 +12182,32 @@ def main() -> None:
         print("[discord] join reward OFF — set "
               + ", ".join(_discord_cfg["missing"])
               + " to switch it on (see DISCORD_REWARD_SETUP.md)")
+
+    # Level Pass. It owns no level curve of its own: _level_progress_for_total_xp
+    # is injected, so the pass, the header, the leaderboard and the client all
+    # read ONE table. A third copy of LEVEL_XP_TOTALS is exactly the drift that
+    # demotes live players.
+    level_pass_server.init(
+        get_firestore=_get_firestore,
+        verify_token=_verify_firebase_id_token,
+        level_for_xp=_level_progress_for_total_xp,
+        level_totals=LEVEL_XP_TOTALS,
+        background_paths=ALL_BACKGROUND_PATHS,
+    )
+    print(f"[pass] level pass ON — {len(level_pass_server.track())} tiers, "
+          f"+{level_pass_server.BOOST_PERCENT}% XP boost for {level_pass_server.BOOST_HOURS}h")
+
+    # Friend-code referral reward. Same injected Firestore accessor and token
+    # verifier as everything else; the background catalogue is shared with the
+    # Level Pass so neither can hand out a path the gallery cannot render.
+    referral_server.init(
+        get_firestore=_get_firestore,
+        verify_token=_verify_firebase_id_token,
+        background_paths=ALL_BACKGROUND_PATHS,
+    )
+    print(f"[referral] friend-code reward ON — {referral_server.reward_coins()} coins each side, "
+          f"1 background per {referral_server.background_every()} referrals, "
+          f"{referral_server.window_days()}-day sign-up window")
 
     # Bootstrap the stats file with historical seed values if it doesn't exist yet.
     if STATS_SEED_GAMES > 0 or STATS_SEED_PLAYERS > 0:

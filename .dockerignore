@@ -16,6 +16,8 @@
 !newsletter_server.py
 !newsletter_email.py
 !discord_server.py
+!level_pass_server.py
+!referral_server.py
 
 # Allow the AI brain and card data files.
 !fish_ai_brain.json

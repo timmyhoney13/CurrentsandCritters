@@ -35,6 +35,11 @@ COPY newsletter_email.py /app/newsletter_email.py
 # Discord join reward — imported at module scope too, so a missing COPY here is
 # a server that will not boot, not a reward that quietly goes missing.
 COPY discord_server.py /app/discord_server.py
+# Level Pass and the friend-code referral reward — module-scope imports as well,
+# so a missing COPY here is a server that will not boot, not a feature that
+# quietly goes missing.
+COPY level_pass_server.py /app/level_pass_server.py
+COPY referral_server.py /app/referral_server.py
 COPY fish_ai_brain.json /app/fish_ai_brain.json
 COPY cards_vertical.txt /app/cards_vertical.txt
 COPY cards_lr.txt /app/cards_lr.txt

@@ -77,6 +77,31 @@
 # membership. Plus the client chip's own render/claim rules.
 !test_discord_rewards.py
 !test_discord_reward_ui.js
+
+# Level Pass (the free reward track over levels 1–100). multiplayer_server.py
+# imports this at module scope, so dropping it from the allowlist kills the
+# whole server on startup with an ImportError, not just the pass. It holds the
+# track definition and the transaction that pays each tier EXACTLY once, after
+# re-deriving the account's level from its own stored total_xp.
+!level_pass_server.py
+# Its tests: the "cannot be claimed twice" guarantee, the level gate that
+# ignores whatever the client claimed its level was, the consumable caps, and
+# the rule that a tier which cannot pay (no backgrounds left) writes no ledger
+# entry so it stays claimable later.
+!test_level_pass_server.py
+# The client half: the REAL level-pass renderer against REAL server payloads,
+# plus the avatar-gallery level track and the XP-boost multiplier.
+!test_level_pass_ui.js
+
+# Friend-code referral reward. Module-scope import again, same consequence if
+# it goes missing. It pays TWO accounts in one transaction, which is why none
+# of it can live in the browser.
+!referral_server.py
+# Its tests: both payouts landing together, the once-ever-per-account guard,
+# the self-referral / mutual-referral / stale-window refusals, and the
+# every-fifth-friend background going to the REFERRER only.
+!test_referral_server.py
+!test_referral_ui.js
 # The Discord Developer Portal walkthrough for switching the reward on.
 !DISCORD_REWARD_SETUP.md
 
