@@ -103,6 +103,10 @@ function makeEnv(opts) {
     // lands. The stub must do both or it tests a contract that doesn't exist.
     post: async (p, b) => {
       posts.push({ p, b });
+      // A request that takes real time on the wire. The interesting Discord
+      // bugs are all races between one sync and the next, and they are
+      // invisible when every reply lands in the same microtask.
+      for (let i = 0; i < (o.postDelay || 0); i++) await new Promise((r) => setImmediate(r));
       let r;
       if (typeof o.postResp === "function") r = o.postResp(p, b);
       else if (p.endsWith("/state")) r = o.state || { ok: true, enabled: true, coins: 250, claimed: false, signedIn: true, inviteUrl: "https://discord.gg/test" };
@@ -111,8 +115,10 @@ function makeEnv(opts) {
       return o.bare ? r : { ok: true, status: 200, data: r };
     },
     toast: (m, t) => toasts.push({ m: String(m), t }),
+    // Read LIVE off `o`, so a test can sign in (or break the token) partway
+    // through, the way Firebase really does.
     authUser: () => (o.signedOut ? null : { uid: o.uid || "u1", getIdToken: async () => "tok" }),
-    idToken: async () => (o.signedOut ? "" : "tok"),
+    idToken: async () => (o.signedOut || o.tokenEmpty ? "" : "tok"),
     modal: async (op) => { modals.push(op); return o.modalChoice || "later"; },
     onClaimed: (r) => claimed.push(r),
   };
@@ -178,6 +184,14 @@ function makeEnv(opts) {
     },
     hasMessageListener: () => !!messageListener,
     tickIntervals: () => { [...timers.values()].filter((t) => t.kind === "interval").forEach((t) => t.fn()); },
+    // Fire every pending setTimeout once, soonest first, the way the clock
+    // would. Used to run the chip's back-off retries without really waiting.
+    runTimeouts: () => {
+      [...timers.entries()]
+        .filter(([, t]) => t.kind === "timeout")
+        .sort((a, b) => a[1].ms - b[1].ms)
+        .forEach(([id, t]) => { timers.delete(id); t.fn(); });
+    },
     pendingTimers: () => timers.size,
     lastPopup: () => (opened.length ? opened[opened.length - 1].win : null),
   };
@@ -381,6 +395,111 @@ function makeEnv(opts) {
     const e = makeEnv({ search: "" });
     await flush();
     eq("no flag ⇒ no toast, no URL rewrite", e.navigations.length, 0);
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  //  The one thing this chip must never do
+  // ════════════════════════════════════════════════════════════════════
+  // Reported from the live game: "I did it with my account, then it said you
+  // could redeem it again." The coins were never at risk — the server refuses
+  // a second payout and always did — but a chip that re-offers a reward you
+  // already collected reads as a bug in the reward, and the only way to find
+  // out is to click it and be told no.
+  //
+  // Every case here is the same mistake wearing a different hat: a /state reply
+  // that is NOT about the signed-in account being filed as if it were.
+  console.log("\nA reward already collected is never offered again");
+  {
+    // Firebase resolves AFTER boot, which is the normal order of events: the
+    // boot sync asks signed-out, sign-in fires the real one while the first is
+    // still on the wire. The old de-dupe handed back the signed-out request
+    // instead of making the real one, so the only answer the chip ever had was
+    // "nobody has claimed" — and it offered a paid reward for the whole session.
+    const o = {
+      signedOut: true,
+      postDelay: 4,
+      postResp: (p, b) => (p.endsWith("/state")
+        ? { ok: true, enabled: true, coins: 250, signedIn: !!(b && b.idToken),
+            claimed: !!(b && b.idToken), coinsAwarded: b && b.idToken ? 250 : 0 }
+        : { ok: true, url: "https://discord.com/oauth2/authorize?x=1", coins: 250 }),
+    };
+    const e = makeEnv(o);
+    await new Promise((r) => setImmediate(r));   // boot's signed-out sync is in flight
+    o.signedOut = false;                          // …and Firebase resolves right now
+    e.ctx.window.__ccDiscordSync();               // syncStatsHeader, on sign-in
+    await flush(40);
+
+    eq("signing in mid-request asks again, as the account", e.posts.length, 2);
+    check("…with a token the second time", !!(e.posts[1] && e.posts[1].b && e.posts[1].b.idToken));
+    check("a claimed account is told so, not re-offered",
+          /claimed/.test(e.txt.textContent), e.txt.textContent);
+    check("…and the chip is not a button", e.chip.disabled === true);
+  }
+  {
+    // Same shape, reversed: a signed-out reply must not be allowed to land on
+    // top of the signed-in one just because it was slower.
+    const o = {
+      signedOut: true,
+      postDelay: 8,
+      postResp: (p, b) => ({ ok: true, enabled: true, coins: 250,
+        signedIn: !!(b && b.idToken), claimed: !!(b && b.idToken),
+        coinsAwarded: b && b.idToken ? 250 : 0 }),
+    };
+    const e = makeEnv(o);
+    await new Promise((r) => setImmediate(r));
+    o.signedOut = false;
+    o.postDelay = 1;                              // the newer request answers FIRST
+    e.ctx.window.__ccDiscordSync();
+    await flush(60);
+    check("a slower stale reply cannot overwrite a newer one",
+          /claimed/.test(e.txt.textContent), e.txt.textContent);
+  }
+  {
+    // The token came back empty for a signed-in player, so the request went out
+    // untokenised and the server answered about nobody. Filing that against the
+    // uid pinned "unclaimed" for the rest of the page load, because every later
+    // repaint short-circuits on "this account already has an answer".
+    const o = {
+      tokenEmpty: true,
+      postResp: (p, b) => ({ ok: true, enabled: true, coins: 250,
+        signedIn: !!(b && b.idToken), claimed: !!(b && b.idToken),
+        coinsAwarded: b && b.idToken ? 250 : 0 }),
+    };
+    const e = makeEnv(o);
+    await flush();
+    check("an answer about nobody is not advertised as an offer",
+          !/\+250/.test(e.txt.textContent), e.txt.textContent);
+    check("…and the chip cannot be clicked on it", e.chip.disabled === true);
+
+    o.tokenEmpty = false;                          // the token starts working
+    e.ctx.window.__ccDiscordSync();
+    await flush(20);
+    check("…and the next repaint asks again rather than trusting it",
+          e.posts.length >= 2);
+    check("…and the truth wins", /claimed/.test(e.txt.textContent), e.txt.textContent);
+  }
+  {
+    // The other half of the same rule: never trap a player who IS owed the
+    // reward behind a chip that can't be clicked. When the account can't be
+    // read at all, the chip gives up quietly and opens back up — the server is
+    // the guard, and a refusal you can read beats a button that never works.
+    const o = {
+      tokenEmpty: true,
+      postResp: (p, b) => ({ ok: true, enabled: true, coins: 250,
+        signedIn: !!(b && b.idToken), claimed: false }),
+    };
+    const e = makeEnv(o);
+    await flush();
+    const start = e.posts.length;
+    // Run the retries the module scheduled, in order, without waiting on them.
+    for (let i = 0; i < 6 && e.pendingTimers(); i++) { e.runTimeouts(); await flush(10); }
+    check("an unreadable account is retried, not given up on at once",
+          e.posts.length > start, `posts ${start} → ${e.posts.length}`);
+    check("…and it stops retrying rather than hammering the server",
+          e.posts.length <= start + 4, `posts ${start} → ${e.posts.length}`);
+    check("…and the chip ends up clickable, never a dead button",
+          e.chip.disabled === false);
+    eq("…and nothing is left ticking", e.pendingTimers(), 0);
   }
 
   console.log("\nThe module cannot pay anybody");

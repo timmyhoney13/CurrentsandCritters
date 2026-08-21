@@ -76,12 +76,62 @@
   const msgFor = (code) => MESSAGES[String(code || "")] || "Something went wrong — nothing was claimed.";
 
   // ── State, and the chip it paints ────────────────────────────────────────
-  let _state = null;      // last server reply
-  let _lastUid = null;    // which account _state describes
-  let _busy = false;      // a Discord window is open right now
-  let _inFlight = null;   // de-dupes overlapping syncs
+  //
+  // _answersFor is the whole point of this block, and the bug it exists to stop
+  // is worth spelling out: the chip once went on offering the reward to an
+  // account that had already collected it. Two ways in, both of which end with
+  // a reply that is not about the signed-in account being filed as if it were:
+  //
+  //   • boot() syncs before Firebase has resolved, so it asks signed-OUT. That
+  //     request was still on the wire when sign-in fired the real one, and the
+  //     old de-dupe handed the caller the signed-out request instead of making
+  //     the real one — so the only answer we ever got was "nobody has claimed".
+  //   • idToken() came back empty for a signed-in player (a refresh hiccup), so
+  //     the request went out untokenised and the server, quite correctly,
+  //     answered about nobody. That answer was then cached AGAINST the uid, and
+  //     the `_answersFor === uid` short-circuit pinned it there for good.
+  //
+  // So: a reply is only ever filed against an account when the server actually
+  // read that account (res.signedIn), and only when that account is still the
+  // one signed in by the time it lands.
+  let _state = null;        // last server reply
+  let _answersFor = null;   // the uid _state is an answer FOR (null = nobody's)
+  let _busy = false;        // a Discord window is open right now
+  let _inFlight = null;     // the sync currently on the wire…
+  let _inFlightUid = "";    // …and the account it is asking about
+  let _seq = 0;             // only the newest sync may write _state
+
+  // Bounded self-heal for the unresolved case. Nothing else is guaranteed to
+  // repaint the chip, and the alternative — leaving it disabled forever — would
+  // lock a player out of a reward they are owed.
+  const MAX_RETRIES = 3;
+  let _retries = 0;
+  let _retryTimer = null;
 
   function chip() { return $("ph-discord-reward"); }
+
+  function currentUid() {
+    const b = bridge();
+    if (!b) return "";
+    try { const u = b.authUser(); return (u && u.uid) || ""; } catch (_) { return ""; }
+  }
+
+  // True while we are signed in and still have no answer about THIS account.
+  // Until the retries run out the chip says so instead of advertising a reward
+  // it may not be able to hand over; after that it opens up again and lets the
+  // server be the guard, because a refusal the player can read beats a button
+  // that never works.
+  function unresolved() {
+    const uid = currentUid();
+    return !!uid && _answersFor !== uid && _retries < MAX_RETRIES;
+  }
+
+  function scheduleRetry() {
+    if (_retryTimer || _retries >= MAX_RETRIES) return;
+    const wait = 700 * Math.pow(2, _retries);
+    _retries += 1;
+    _retryTimer = setTimeout(() => { _retryTimer = null; sync(true); }, wait);
+  }
 
   function render() {
     const el = chip();
@@ -93,10 +143,15 @@
     // promise the server hasn't made.
     if (!s || !s.enabled) { el.hidden = true; return; }
 
+    // Signed in, but no answer about this account yet: do not advertise. The
+    // one thing this chip must never do is offer a reward the player has
+    // already collected, and "we haven't asked yet" is not "you can claim".
+    const pending = !s.claimed && !_busy && unresolved();
+
     el.hidden = false;
     el.classList.toggle("is-claimed", !!s.claimed);
-    el.classList.toggle("is-busy", _busy);
-    el.disabled = !!s.claimed || _busy;
+    el.classList.toggle("is-busy", _busy || pending);
+    el.disabled = !!s.claimed || _busy || pending;
 
     const coins = fmt(s.coins);
     if (s.claimed) {
@@ -109,6 +164,10 @@
       if (txt) txt.textContent = "Checking with Discord…";
       el.title = "Finish signing in with Discord in the other window";
       el.setAttribute("aria-label", "Checking with Discord");
+    } else if (pending) {
+      if (txt) txt.textContent = "Checking your account…";
+      el.title = "Checking whether this account has already collected the reward";
+      el.setAttribute("aria-label", "Checking whether this account has already collected the reward");
     } else {
       if (txt) txt.textContent = `+${coins} Critter Coins`;
       el.title = `Join the Discord server and claim ${coins} Critter Coins`;
@@ -121,25 +180,45 @@
   async function sync(force) {
     const b = bridge();
     if (!b || !chip()) return;
-    let uid = "";
-    try { const u = b.authUser(); uid = (u && u.uid) || ""; } catch (_) { uid = ""; }
-    if (!force && _state && _lastUid === uid) { render(); return; }
-    if (_inFlight) return _inFlight;
+    const uid = currentUid();
+    if (!force && _state && _answersFor === uid) { render(); return; }
+    // De-dupe only against a request asking about the SAME account. A reply
+    // about the signed-out page cannot answer "has THIS account claimed?", so
+    // handing it back here is what let a paid account keep being offered the
+    // reward — see the note on _answersFor.
+    if (_inFlight && _inFlightUid === uid) return _inFlight;
 
-    _inFlight = (async () => {
+    const seq = ++_seq;
+    // Paint the "asking" state BEFORE the round trip, not after it. Signing in
+    // arrives with a signed-out answer already on the chip, and without this the
+    // player watches "+250 Critter Coins" for a whole request before it turns
+    // into "you already collected this".
+    render();
+    const run = (async () => {
       const token = uid ? await idToken() : "";
       const res = await post("/api/discord/state", token ? { idToken: token } : {});
+      // A newer sync started while this one was on the wire; it knows about a
+      // more recent account than this reply does, so this reply is history.
+      if (seq !== _seq) return;
       if (res && res.ok) {
         _state = res;
-        _lastUid = uid;
+        // Only file it against the account when the server really read that
+        // account, and only when it is still the account we are looking at.
+        const forThisAccount = uid ? res.signedIn === true : true;
+        _answersFor = (forThisAccount && currentUid() === uid) ? uid : null;
+        if (_answersFor !== null) { _retries = 0; }
       } else if (!_state) {
         // A failed first load must not advertise anything.
         _state = { enabled: false, coins: 0, claimed: false };
-        _lastUid = uid;
+        _answersFor = null;
       }
+      if (_answersFor === null && currentUid()) scheduleRetry();
       render();
     })();
-    try { await _inFlight; } finally { _inFlight = null; }
+    _inFlight = run;
+    _inFlightUid = uid;
+    try { await run; }
+    finally { if (_inFlight === run) { _inFlight = null; _inFlightUid = ""; } }
   }
 
   // ── The claim ────────────────────────────────────────────────────────────
@@ -242,6 +321,11 @@
           coinsAwarded: out.coins || (_state && _state.coins) || 0,
           claimedAt: new Date().toISOString(),
         });
+        // This IS the answer for this account, straight from the payout, so
+        // file it as one — otherwise the chip reads as unresolved the instant
+        // after it was paid and starts re-asking about a settled fact.
+        _answersFor = currentUid();
+        _retries = 0;
         toast(`+${fmt(out.coins)} Critter Coins for joining the Discord!`, "ok");
         try { b.onClaimed && b.onClaimed(out); } catch (_) {}
       } else {
