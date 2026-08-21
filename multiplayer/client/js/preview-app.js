@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.67";
-  const APP_BUILD   = "2026-08-20.1";
+  const APP_VERSION = "1.6.68";
+  const APP_BUILD   = "2026-08-21.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,16 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🚪 The way in: one click, one screen", items: [
+      "Choosing Computer or Mobile on the first screen no longer asks you for a guest nickname. The laptop and phone you tap there are painted in the same spot as PLAY AS GUEST on the sign-in screen behind them, so the moment the device screen closed, your cursor was resting on a button you could not see — and the second half of a double-click pressed it. You would land in the guest name box without ever having chosen to play as a guest.",
+      "The sign-in buttons are also held back until the screen has actually drawn itself. They are invisible shapes over the artwork, and on a slow connection they were live before there was anything on screen to aim at, so a click anywhere near the middle went to Play as Guest.",
+      "Both guards let go on their own — a missing or slow background can never leave you facing two buttons that do nothing.",
+    ]},
+    { ver: "V1.7.0", title: "💬 The Discord reward is offered once, and only once", items: [
+      "Collect the 250 Critter Coins for joining the Discord and the offer stays collected. It could come back reading \"+250 Critter Coins\" on an account that had already been paid, which meant clicking it just to be told no.",
+      "The coins were never at risk — the server has always refused a second payout, once per account and once per Discord account. This was the chip on your Player Home asking the wrong question and then trusting the answer: it checked before you were signed in, and filed a reply about nobody as if it were about you.",
+      "It now says \"Checking your account…\" until it actually knows, and if it cannot find out it opens back up rather than leaving you with a button that will not press.",
+    ]},
     { ver: "V1.7.0", title: "🗺️ Tutorials: steps you do, and a card that shows you where it goes", items: [
       "Every step now shows you WHERE a card goes, not just which one to play: a ghost of the card flies out of your hand into the exact slot it belongs in, on a loop, until you play it. The Lobster's is the bottom spot of the Artificial Reef, the Gull's is the top spot, and you can watch the trip instead of reading a description of it.",
       "The highlighted card is now lit up inside as well as outlined. A gold border around a card on a dimmed table still left it the same colour as every card you were not supposed to touch.",
@@ -17908,7 +17918,49 @@
         const gb = $a("auth-guest-btn"), gg = $a("auth-choose-google-btn");
         if (gb) gb.style.pointerEvents = "";
         if (gg) gg.style.pointerEvents = "";
+        armChooseStep();
       }
+    }
+
+    // PLAY AS GUEST and CONTINUE WITH GOOGLE are invisible boxes positioned over
+    // the painted buttons in login-bg.png. A click there is only ever meant if
+    // the player can SEE what they are clicking, so the two boxes stay inert
+    // (css: #auth-step-choose:not(.is-armed)) until the artwork has painted.
+    //
+    // This is the second half of the fix for "it prompted me for a username as
+    // if I'd clicked Play as Guest" — device-select.js stops the click that
+    // closed the device screen falling through onto this one, and this stops a
+    // blind click at a chooser that has not drawn itself yet. On a slow
+    // connection that window is seconds long, and PLAY AS GUEST sits dead
+    // centre of it.
+    //
+    // It FAILS OPEN in every direction: a cached image arms after one beat, a
+    // slow one arms on load, and an image that never arrives at all still arms
+    // on the backstop timer. Nothing here can leave a player facing two buttons
+    // that do not work.
+    let _chooseArmTimer = null;
+    function armChooseStep() {
+      const step = $a("auth-step-choose");
+      if (!step) return;
+      step.classList.remove("is-armed");
+      if (_chooseArmTimer) { clearTimeout(_chooseArmTimer); _chooseArmTimer = null; }
+      const arm = () => {
+        _chooseArmTimer = null;
+        // Moved on to another step while we waited; that step arms itself.
+        if (step.style.display === "none") return;
+        step.classList.add("is-armed");
+      };
+      // A short settle even once the art is up, so the tail of a click aimed at
+      // whatever was on screen a moment ago cannot count as a choice here.
+      const settle = () => {
+        if (_chooseArmTimer) clearTimeout(_chooseArmTimer);
+        _chooseArmTimer = setTimeout(arm, 350);
+      };
+      const img = step.querySelector(".auth-step-choose-img");
+      if (!img || (img.complete && img.naturalWidth > 0)) { settle(); return; }
+      img.addEventListener("load", settle, { once: true });
+      img.addEventListener("error", settle, { once: true });   // fail open
+      _chooseArmTimer = setTimeout(arm, 4000);                 // backstop
     }
 
     function lockNameInputs(nick) {
