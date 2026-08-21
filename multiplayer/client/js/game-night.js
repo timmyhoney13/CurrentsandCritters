@@ -128,8 +128,18 @@
     const { start, end, live } = nextSession(now);
     const local = localWindow(start, end);
     // Only worth showing when the reader is NOT already on Chicago time —
-    // otherwise it repeats the headline back at them.
-    const localBit = (local && zoneOffsetMs(now) !== -new Date().getTimezoneOffset() * 60000)
+    // otherwise it repeats the headline back at them, and in summer it does it
+    // in a DIFFERENT abbreviation ("7-9 PM CST · that's 7-9 PM CDT for you"),
+    // which reads like a contradiction.
+    //
+    // Compared in whole MINUTES on purpose. zoneOffsetMs() is built from a
+    // seconds-resolution wall clock minus a millisecond-resolution instant, so
+    // it carries the current millisecond as noise and is essentially never
+    // exactly equal to a round minute offset — which made this test always true
+    // and showed the chip to Chicago readers too.
+    const zoneMins = Math.round(zoneOffsetMs(now) / 60000);
+    const readerMins = -new Date().getTimezoneOffset();
+    const localBit = (local && zoneMins !== readerMins)
       ? `<span class="ccGN-local">that's ${esc(local)} for you</span>` : "";
 
     const when = live
