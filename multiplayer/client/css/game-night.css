@@ -1,0 +1,195 @@
+/* Currents and Critters — Game Night banner.
+ *
+ * Loaded by BOTH hosts (the marketing site via Vercel's /css/:file rewrite, and
+ * the game's Player Home), because js/game-night.js renders the same markup on
+ * both. Everything here is scoped under .ccGN, and every colour carries its own
+ * fallback — the marketing site defines the brand tokens, Player Home does not,
+ * and the banner has to look right either way.
+ *
+ * It is meant to be the loudest thing on the page it sits on: on Player Home it
+ * inserts itself above the challenge strip, and on the marketing site it gets
+ * its own full-width band. That is deliberate — the whole point of the feature
+ * is that nobody misses when Game Night is.
+ */
+
+#cc-game-night { display: block; }
+
+/* Self-contained box model. This banner renders on TWO hosts with two
+   different CSS resets — the game's preview.css sets a global border-box, the
+   marketing site's styles.css is its own thing — and `width:100%` on the RSVP
+   button plus 24px of padding overflowed the card by exactly the padding on
+   whichever host did not. Declaring it here means the banner does not care
+   what it is dropped into. */
+.ccGN, .ccGN *, .ccGN *::before, .ccGN *::after { box-sizing: border-box; }
+
+.ccGN {
+  --gn-ink:    #ffffff;
+  --gn-deep:   var(--brand-teal-deep, #0a6080);
+  --gn-cyan:   var(--brand-cyan, #0ca4cb);
+  --gn-gold:   #ffc861;
+  --gn-gold-d: #e09a24;
+  --gn-mint:   var(--brand-mint, #2ac88f);
+  margin: 0 0 18px;
+  font-family: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.ccGN-inner {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 22px;
+  border-radius: 22px;
+  color: var(--gn-ink);
+  background:
+    radial-gradient(120% 160% at 0% 0%, rgba(255, 255, 255, .18) 0%, rgba(255, 255, 255, 0) 55%),
+    linear-gradient(120deg, #0a3951 0%, #0d6d92 46%, #0ca4cb 100%);
+  border: 1px solid rgba(255, 255, 255, .22);
+  box-shadow: 0 10px 28px rgba(8, 52, 77, .28);
+  position: relative;
+  overflow: hidden;
+}
+/* A slow sheen so the band reads as "an event", not a notice. Purely
+   decorative, behind the text, and switched off with reduced motion. */
+.ccGN-inner::after {
+  content: "";
+  position: absolute;
+  inset: -40% -60%;
+  background: linear-gradient(75deg, transparent 42%, rgba(255, 255, 255, .10) 50%, transparent 58%);
+  animation: ccGN-sheen 9s linear infinite;
+  pointer-events: none;
+}
+@keyframes ccGN-sheen { from { transform: translateX(-30%); } to { transform: translateX(30%); } }
+
+.ccGN-ico {
+  font-size: 2.6rem;
+  line-height: 1;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .3));
+}
+
+.ccGN-body { flex: 1 1 auto; min-width: 0; }
+
+.ccGN-title {
+  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-size: 1.5rem;
+  letter-spacing: .5px;
+  line-height: 1.1;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, .28);
+}
+
+.ccGN-when {
+  margin-top: 2px;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, .95);
+}
+.ccGN-when b { font-weight: 800; }
+.ccGN-local {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .16);
+  border: 1px solid rgba(255, 255, 255, .26);
+  font-size: .8rem;
+  white-space: nowrap;
+}
+
+.ccGN-status { margin-top: 7px; }
+.ccGN-count,
+.ccGN-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: .86rem;
+  font-weight: 800;
+}
+.ccGN-count {
+  background: rgba(255, 255, 255, .15);
+  border: 1px solid rgba(255, 255, 255, .28);
+}
+.ccGN-live {
+  background: var(--gn-mint);
+  color: #06301f;
+  border: 1px solid rgba(255, 255, 255, .5);
+  animation: ccGN-pulse 2.2s ease-in-out infinite;
+}
+@keyframes ccGN-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(42, 200, 143, .55); }
+  50%      { box-shadow: 0 0 0 9px rgba(42, 200, 143, 0); }
+}
+
+/* The "not mandatory but recommended" line. Quieter than the schedule, but it
+   must still be legible on the gradient — this is the sentence that decides
+   whether people feel they can just turn up. */
+.ccGN-note {
+  margin-top: 7px;
+  font-size: .86rem;
+  color: rgba(255, 255, 255, .82);
+  line-height: 1.35;
+}
+
+.ccGN-cta { flex: 0 0 auto; }
+.ccGN-btn {
+  display: inline-block;
+  padding: 12px 24px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--gn-gold) 0%, var(--gn-gold-d) 100%);
+  color: #3d2600;
+  font-weight: 900;
+  font-size: 1rem;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, .45);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, .26);
+  white-space: nowrap;
+  transition: transform .14s ease, box-shadow .14s ease;
+}
+.ccGN-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .32);
+}
+.ccGN-btn:active { transform: translateY(0); }
+.ccGN-btn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+/* ── Narrow screens ──────────────────────────────────────────────────────
+   The banner stacks rather than shrinking: a 3-column layout at 380px turns
+   the RSVP button into an unreadable sliver, which is the one element that
+   must stay tappable. */
+@media (max-width: 720px) {
+  .ccGN-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 18px;
+    border-radius: 18px;
+  }
+  .ccGN-ico { font-size: 2.1rem; }
+  .ccGN-title { font-size: 1.3rem; }
+  .ccGN-when { font-size: .94rem; }
+  .ccGN-local { margin-left: 0; margin-top: 4px; }
+  .ccGN-cta { width: 100%; }
+  .ccGN-btn { display: block; text-align: center; width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ccGN-inner::after { animation: none; }
+  .ccGN-live { animation: none; }
+  .ccGN-btn { transition: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   MARKETING SITE BAND
+   The game injects the banner into Player Home's Overview panel, which
+   already has its own page padding. The marketing site gives it a real
+   section instead — matching .section's 1180px measure but with far less
+   vertical padding, because this is an announcement strip between the hero
+   and the value props, not a content section of its own.
+   ══════════════════════════════════════════════════════════════════════ */
+.game-night-band { padding: 34px 24px 10px; }
+.game-night-inner { max-width: 1180px; margin: 0 auto; }
+.game-night-band .ccGN { margin-bottom: 0; }
+
+@media (max-width: 720px) {
+  .game-night-band { padding: 24px 16px 4px; }
+}
