@@ -231,7 +231,16 @@ body::before {
 .n-card-val { font-size: 1.86rem; font-weight: 800; letter-spacing: -.6px; line-height: 1.15; }
 .n-card-val.small { font-size: .95rem; font-weight: 700; letter-spacing: 0; word-break: break-word; }
 .n-card-val.empty { font-size: .9rem; font-weight: 700; color: var(--n-muted); letter-spacing: 0; }
-.n-card-foot { margin-top: auto; padding-top: 10px; font-size: .77rem; color: var(--n-muted); }
+/* The caption wraps to two lines the moment it says anything specific, and a
+   card whose caption wrapped was taller than the one beside it. Reserving both
+   lines here keeps the row level without rationing words in the caption. */
+.n-card-foot {
+  margin-top: auto; padding-top: 10px; font-size: .77rem; color: var(--n-muted);
+  /* Two lines of text PLUS the padding above them — the box is border-box, so
+     a bare 2.6em would reserve two lines minus the padding and a wrapped
+     caption would still push its own card taller than the rest of the row. */
+  line-height: 1.3; min-height: calc(2.6em + 10px);
+}
 
 .n-panel {
   background: var(--n-card); border: 1px solid var(--n-line-soft);

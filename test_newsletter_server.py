@@ -1313,7 +1313,12 @@ class TestPublicSignup(Base):
         self.assertIsNotNone(sub)
         self.assertEqual(sub["status"], ns.STATUS_PENDING)
         self.assertEqual(sub["source"], ns.SOURCE_WEBSITE)
-        self.assertEqual(sub["welcomeEmailStatus"], "pending")
+        # NOT "pending". A welcome is not due until they confirm, and a record
+        # parked in the welcome queue that can never send is re-read by the
+        # worker on every pass for the life of the process — and shows up on
+        # the dashboard as a welcome email that is pending and never sends.
+        self.assertEqual(sub["welcomeEmailStatus"], ns.WELCOME_AWAITING)
+        self.assertNotIn(sub["id"], ns._pending_welcome_ids())
         sent = self.box.to("new@person.com")
         self.assertEqual(len(sent), 1)
         self.assertIn("confirm", sent[0]["subject"].lower())
@@ -1428,6 +1433,150 @@ class TestPublicSignup(Base):
         self.assertEqual(c["unsubscribed"], 0,
                          "pending is not 'unsubscribed' — that would be a lie in the UI")
         self.assertEqual(c["total"], 2)
+
+    def test_the_dashboard_does_not_call_a_new_signup_unsubscribed(self):
+        """The reported bug, at its source.
+
+        counts() was always careful about this; the DASHBOARD derived
+        unsubscribed as "everything that is not active", so signing up on the
+        website and opening the admin panel showed you as unsubscribed the
+        moment you joined."""
+        self.signup("active@x.com")
+        self.post("subscribe", {"email": "just.joined@x.com"})
+        ns._invalidate_subs_cache()
+        d = self.admin_post("dashboard").last
+        self.assertEqual(d["activeCount"], 1)
+        self.assertEqual(d["pendingCount"], 1)
+        self.assertEqual(d["unsubscribedCount"], 0,
+                         "nobody has unsubscribed; one person is mid-signup")
+        self.assertEqual(d["totalCount"], 2)
+
+    def test_the_admin_list_can_show_and_filter_the_waiting(self):
+        self.post("subscribe", {"email": "waiting@x.com"})
+        ns._invalidate_subs_cache()
+        rows = self.admin_post("subscribers", {"status": "pending"}).last["rows"]
+        self.assertEqual([r["email"] for r in rows], ["waiting@x.com"])
+        self.assertEqual(rows[0]["status"], ns.STATUS_PENDING,
+                         "the UI cannot label it correctly if the row does not say so")
+
+    def test_an_unconfirmed_signup_never_starves_the_welcome_queue(self):
+        """A forever-pending welcome is not just cosmetic: the queue is read a
+        page at a time, so enough of them push every real welcome out of it."""
+        for i in range(30):
+            self.post("subscribe", {"email": "wait%d@x.com" % i}, ip="9.9.%d.1" % i)
+        ev, sess = self.stripe_event("paid@x.com")
+        ns.handle_stripe_session(ev, sess)      # no drain: this welcome is still due
+        ns._invalidate_subs_cache()
+        due = ns._pending_welcome_ids(25)
+        self.assertIn(ns._subscriber_id("paid@x.com"), due)
+        self.assertTrue(all(self.subs()[d]["status"] == ns.STATUS_ACTIVE for d in due),
+                        "nothing that cannot send is holding a slot in the queue")
+        self.drain()
+        self.assertEqual(len(self.box.to("paid@x.com")), 1)
+
+    def test_a_welcome_left_pending_by_an_older_build_is_healed(self):
+        """Records written before welcomes were parked are already in
+        Firestore with welcomeEmailStatus="pending" and no way out of it. The
+        worker's own pass must repair them, not keep re-reading them."""
+        self.post("subscribe", {"email": "legacy@x.com"})
+        self.box.messages.clear()               # the confirmation mail already went
+        sid = ns._subscriber_id("legacy@x.com")
+        ns._db().collection(ns.C_SUBS).document(sid).set(
+            {"welcomeEmailStatus": ns.WELCOME_PENDING}, merge=True)
+        ns._invalidate_subs_cache()
+        self.assertNotIn(sid, ns._pending_welcome_ids(),
+                         "an unconfirmed record is not due a welcome")
+        self.assertEqual(self.sub_for("legacy@x.com")["welcomeEmailStatus"],
+                         ns.WELCOME_AWAITING, "and it is parked so it is never re-read")
+        self.assertEqual(len(self.box.to("legacy@x.com")), 0)
+
+    def test_confirming_arms_the_welcome_that_was_parked(self):
+        self.post("subscribe", {"email": "arm@x.com"})
+        self.box.messages.clear()
+        ns.confirm_with_token(ns.make_confirm_token(self.sub_for("arm@x.com")))
+        sub = self.sub_for("arm@x.com")
+        self.assertEqual(sub["status"], ns.STATUS_ACTIVE)
+        self.assertEqual(sub["welcomeEmailStatus"], ns.WELCOME_PENDING)
+        self.drain()
+        self.assertEqual(len(self.box.to("arm@x.com")), 1, "the welcome actually sends")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 10c. FINISHING A SIGNUP FROM THE ADMIN PANEL
+# ══════════════════════════════════════════════════════════════════════════
+class TestAdminFinishesSignup(Base):
+    def post(self, action, payload, ip="7.7.7.7"):
+        h = Handler(ip)
+        ns.handle_post(h, Parsed("/api/newsletter/" + action), payload)
+        return h
+
+    def test_resending_reuses_the_same_link(self):
+        """A resend must not rotate the token, or the mail already sitting in
+        their inbox stops working the moment they ask for another copy."""
+        self.post("subscribe", {"email": "again@x.com"})
+        first = ns.make_confirm_token(self.sub_for("again@x.com"))
+        self.box.messages.clear()
+
+        r = self.admin_post("subscriber-resend-confirmation",
+                            {"id": ns._subscriber_id("again@x.com")})
+        self.assertTrue(r.last["ok"], r.last)
+        self.assertEqual(len(self.box.to("again@x.com")), 1)
+        self.assertIn("confirm", self.box.to("again@x.com")[0]["subject"].lower())
+        self.assertEqual(ns.make_confirm_token(self.sub_for("again@x.com")), first)
+        self.assertTrue(ns.confirm_with_token(first)["ok"])
+
+    def test_only_a_waiting_signup_can_be_re_sent_a_link(self):
+        self.signup("done@x.com")
+        self.box.messages.clear()
+        r = self.admin_post("subscriber-resend-confirmation",
+                            {"id": ns._subscriber_id("done@x.com")})
+        self.assertFalse(r.last["ok"])
+        self.assertEqual(len(self.box.to("done@x.com")), 0)
+
+    def test_confirming_by_hand_activates_and_welcomes(self):
+        self.post("subscribe", {"email": "byhand@x.com"})
+        self.box.messages.clear()
+        r = self.admin_post("subscriber-confirm",
+                            {"id": ns._subscriber_id("byhand@x.com"),
+                             "reason": "my own address; mail went to spam"})
+        self.assertTrue(r.last["ok"], r.last)
+        sub = self.sub_for("byhand@x.com")
+        self.assertEqual(sub["status"], ns.STATUS_ACTIVE)
+        self.assertIn("Confirmed by admin", sub["consentNote"])
+        self.drain()
+        self.assertEqual(len(self.box.to("byhand@x.com")), 1)
+
+    def test_confirming_by_hand_needs_a_reason_and_is_audited(self):
+        self.post("subscribe", {"email": "why@x.com"})
+        sid = ns._subscriber_id("why@x.com")
+        r = self.admin_post("subscriber-confirm", {"id": sid, "reason": "  "})
+        self.assertFalse(r.last["ok"])
+        self.assertEqual(self.sub_for("why@x.com")["status"], ns.STATUS_PENDING)
+
+        self.admin_post("subscriber-confirm", {"id": sid, "reason": "spoke to them"})
+        actions = [a["action"] for a in self.admin_post("audit", {"limit": 50}).last["rows"]]
+        self.assertIn("subscriber_confirmed_by_admin", actions,
+                      "skipping the email proof must always leave a trace")
+
+    def test_an_unsubscribed_person_cannot_be_confirmed_back_on(self):
+        """Reactivate exists and demands its own reason. Confirm-by-hand must
+        not become a quieter way to do the same thing."""
+        self.signup("left@x.com")
+        ns._unsubscribe_by_id(ns._subscriber_id("left@x.com"),
+                              actor="self-service", reason="test")
+        r = self.admin_post("subscriber-confirm",
+                            {"id": ns._subscriber_id("left@x.com"), "reason": "oops"})
+        self.assertFalse(r.last["ok"])
+        self.assertEqual(self.sub_for("left@x.com")["status"], ns.STATUS_UNSUB)
+
+    def test_a_stranger_cannot_confirm_anybody(self):
+        self.post("subscribe", {"email": "target@x.com"})
+        sid = ns._subscriber_id("target@x.com")
+        for action in ("subscriber-confirm", "subscriber-resend-confirmation"):
+            h = self.admin_post(action, {"id": sid, "reason": "x"},
+                                email="nobody@example.com")
+            self.assertFalse(h.last.get("ok"), action)
+        self.assertEqual(self.sub_for("target@x.com")["status"], ns.STATUS_PENDING)
 
 
 # ══════════════════════════════════════════════════════════════════════════

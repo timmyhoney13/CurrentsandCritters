@@ -282,6 +282,11 @@ try:
     case.signup("quote'and&amp@x.com", event_id="ex2", session_id="cx2")
     case.admin_post("subscriber-unsubscribe",
                     {"id": ns._subscriber_id("p0@x.com")})
+    # Somebody who signed up on the website 10 seconds ago and has not clicked
+    # the link in their inbox yet. This is the case that was being drawn as
+    # "Unsubscribed" — it has to be in the fixture or the renderer is never
+    # asked the question.
+    ns.request_subscription("waiting@x.com")
     ns._invalidate_subs_cache()
 
     cid = case.admin_post("campaign-save", {
@@ -310,6 +315,9 @@ try:
         "campaign-save": {"ok": True, "id": draft, "created": False},
         "subscriber-add": {"ok": True, "result": "created"},
         "subscriber-unsubscribe": {"ok": True, "result": "unsubscribed"},
+        "subscriber-resend-confirmation": {"ok": True, "email": "waiting@x.com"},
+        "subscriber-confirm": {"ok": True, "result": "confirmed",
+                               "email": "waiting@x.com"},
         "campaign-start": {"ok": True, "id": cid, "recipients": 4},
         "export": {"ok": True, "csv": "Email\\n\\"a@b.com\\"", "rows": 1,
                    "filename": "x.csv"},
@@ -423,6 +431,13 @@ function survey() {
     heading: (v.querySelector(".n-h1") || {}).textContent || "",
     cards: cards.length,
     cardHeights: [...new Set(cards.map(c => Math.round(c.getBoundingClientRect().height)))],
+    cardSizes: cards.map(c => {
+      const h = n => n ? Math.round(n.getBoundingClientRect().height) : -1;
+      return ((c.querySelector(".n-card-lbl")||{}).textContent || "") + "=" +
+             h(c) + "[lbl " + h(c.querySelector(".n-card-lbl")) +
+             " val " + h(c.querySelector(".n-card-val")) +
+             " foot " + h(c.querySelector(".n-card-foot")) + "]";
+    }),
     tables: v.querySelectorAll("table.n-table").length,
     rows: v.querySelectorAll("table.n-table tbody tr").length,
     panels: v.querySelectorAll(".n-panel").length,
@@ -482,6 +497,72 @@ async function goto(id, wait) {
       vis(v).indexOf("quote'and&amp@x.com") >= 0;
     out.checks.noStrayElementsFromAddress =
       v.querySelectorAll("img,script,iframe,b").length === 0;
+
+    // ── 4b. the person who signed up 10 seconds ago ────────────────
+    // The bug that started this: they were drawn as "Unsubscribed".
+    const rowFor = addr => [...v.querySelectorAll("table.n-table tbody tr")]
+      .find(tr => (tr.cells[0].textContent || "") === addr);
+    const waiting = rowFor("waiting@x.com");
+    const gone = rowFor("p0@x.com");
+    out.checks.waitingRowExists = !!waiting;
+    out.checks.waitingStatusText = waiting ? waiting.cells[1].textContent.trim() : "";
+    out.checks.waitingNotCalledUnsubscribed =
+      !!waiting && !/unsubscribed/i.test(waiting.cells[1].textContent);
+    out.checks.waitingIsVisuallyDistinct = !!waiting && !!gone &&
+      getComputedStyle(waiting.cells[1].firstChild).backgroundColor !==
+      getComputedStyle(gone.cells[1].firstChild).backgroundColor;
+    out.checks.waitingActions = waiting
+      ? [...waiting.cells[waiting.cells.length - 1].querySelectorAll("button")]
+          .map(b => b.textContent.trim())
+      : [];
+    out.checks.unsubscribedStillSaysSo =
+      !!gone && /unsubscribed/i.test(gone.cells[1].textContent);
+
+    // Resending must ask the server, and must not need a modal to do it.
+    window.__POSTS.length = 0;
+    if (waiting) {
+      const resend = [...waiting.querySelectorAll("button")]
+        .find(b => /resend/i.test(b.textContent));
+      if (resend) resend.click();
+      await sleep(300);
+    }
+    out.checks.resendCallsServer =
+      window.__POSTS.filter(p => p.action === "subscriber-resend-confirmation").length;
+    out.checks.resendSentTheRightId = window.__POSTS.some(p =>
+      p.action === "subscriber-resend-confirmation" && p.body && !!p.body.id);
+
+    // Confirming by hand is the one that skips the proof, so it must ask.
+    window.__POSTS.length = 0;
+    if (waiting) {
+      const byHand = [...waiting.querySelectorAll("button")]
+        .find(b => /confirm/i.test(b.textContent));
+      if (byHand) byHand.click();
+      await sleep(400);
+    }
+    const cModal = document.querySelector(".n-modal");
+    out.checks.confirmOpensModal = !!cModal;
+    out.checks.confirmModalWarns = !!cModal && /proves somebody owns/i.test(vis(cModal));
+    out.checks.confirmModalAsksReason = !!cModal && !!cModal.querySelector("input");
+    if (cModal) {
+      const go = [...cModal.querySelectorAll(".n-btn")]
+        .find(b => /confirm subscriber/i.test(b.textContent));
+      if (go) { go.click(); await sleep(300); }
+    }
+    out.checks.confirmWithoutReasonDoesNothing =
+      window.__POSTS.filter(p => p.action === "subscriber-confirm").length === 0;
+    if (cModal) {
+      cModal.querySelector("input").value = "my own address";
+      const go = [...cModal.querySelectorAll(".n-btn")]
+        .find(b => /confirm subscriber/i.test(b.textContent));
+      if (go) { go.click(); await sleep(320); }
+    }
+    out.checks.confirmWithReasonSends =
+      window.__POSTS.filter(p => p.action === "subscriber-confirm").length === 1;
+    const esc = document.querySelector(".n-modal");
+    if (esc) {
+      const x = [...esc.querySelectorAll(".n-btn")].find(b => /cancel|close/i.test(b.textContent));
+      if (x) { x.click(); await sleep(200); }
+    }
 
     // ── 5. compose: preview iframe + send guard ────────────────────
     await goto("compose", 900);
@@ -637,7 +718,7 @@ for (const id of SECTIONS) {
 const dash = D.screens.dashboard || { cards: 0, cardHeights: [], text: "", rows: 0 };
 check("dashboard shows the counts", dash.cards >= 5, "cards=" + dash.cards);
 check("dashboard cards are all the same height",
-      dash.cardHeights.length === 1, dash.cardHeights.join(","));
+      dash.cardHeights.length === 1, (dash.cardSizes || []).join(" | "));
 check("subscribers lists the list", (D.screens.subscribers||{rows:0}).rows >= 4,
       "rows=" + (D.screens.subscribers||{rows:0}).rows);
 check("subscribers shows active AND unsubscribed counts",
@@ -657,6 +738,40 @@ check("settings reports the Stripe webhook state",
       /Stripe/.test((D.screens.settings||{text:''}).text) && /webhook/i.test((D.screens.settings||{text:''}).text));
 check("settings shows which Stripe labels are accepted",
       /Labels we accept/i.test((D.screens.settings||{text:''}).text));
+
+// ── the person who just signed up ─────────────────────────────────────────
+// This is the reported bug: joining the list and then being shown as having
+// left it. The renderer had two states for three, so "not active" was drawn
+// as "Unsubscribed" — for somebody whose signup was 10 seconds old.
+check("a website signup awaiting confirmation is in the list",
+      D.checks.waitingRowExists);
+check("...and is NEVER labelled Unsubscribed",
+      D.checks.waitingNotCalledUnsubscribed, D.checks.waitingStatusText);
+check("...it says it is waiting to confirm",
+      /waiting to confirm/i.test(D.checks.waitingStatusText || ""),
+      D.checks.waitingStatusText);
+check("...and does not look like an unsubscribed row",
+      D.checks.waitingIsVisuallyDistinct);
+check("a genuinely unsubscribed person still reads Unsubscribed",
+      D.checks.unsubscribedStillSaysSo);
+check("the dashboard counts them separately",
+      /Waiting to confirm/i.test(dash.text), dash.text.slice(0, 200));
+check("the list can be filtered down to them",
+      /Waiting to confirm/i.test((D.screens.subscribers||{text:''}).text));
+check("their row offers to re-send the link",
+      D.checks.waitingActions.some(t => /resend/i.test(t)),
+      D.checks.waitingActions.join(" | "));
+check("their row offers to confirm by hand",
+      D.checks.waitingActions.some(t => /confirm/i.test(t)),
+      D.checks.waitingActions.join(" | "));
+check("re-sending the link asks the server, with an id",
+      D.checks.resendCallsServer === 1 && D.checks.resendSentTheRightId,
+      "calls=" + D.checks.resendCallsServer);
+check("confirming by hand asks first", D.checks.confirmOpensModal);
+check("...and says why the email click matters", D.checks.confirmModalWarns);
+check("...and will not act without a typed reason",
+      D.checks.confirmModalAsksReason && D.checks.confirmWithoutReasonDoesNothing);
+check("...and does act once there is one", D.checks.confirmWithReasonSends);
 
 // ── escaping ──────────────────────────────────────────────────────────────
 check("an address with & and ' renders as literal text",
@@ -721,7 +836,7 @@ check("the dashboard still shows every card",
       (M.screens.dashboard||{}).cards + " vs " + dash.cards);
 check("cards stay a consistent height on a phone",
       ((M.screens.dashboard||{}).cardHeights||[]).length === 1,
-      ((M.screens.dashboard||{}).cardHeights||[]).join(","));
+      ((M.screens.dashboard||{}).cardSizes||[]).join(" | "));
 for (const id of SECTIONS) {
   const s = M.screens[id];
   if (s) check(id + ": no placeholder junk on mobile", s.bad.length === 0, s.bad.join(","));

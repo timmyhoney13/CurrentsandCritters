@@ -115,7 +115,7 @@ the system entirely and touches nothing else.
 
 | Collection | Document id | Holds |
 |---|---|---|
-| `newsletterSubscribers` | `sha256(emailLower)[:40]` | email, emailLower, status (`active`/`unsubscribed`), source, subscribedAt, resubscribedAt, unsubscribedAt, unsubId, tokenVersion, welcomeEmailStatus/At/Attempts/Error/Kind, stripeSessionId, stripeEventId, consentNote, createdAt, updatedAt |
+| `newsletterSubscribers` | `sha256(emailLower)[:40]` | email, emailLower, status (`active`/`pending`/`unsubscribed`), source, subscribedAt, resubscribedAt, unsubscribedAt, unsubId, tokenVersion, welcomeEmailStatus/At/Attempts/Error/Kind, stripeSessionId, stripeEventId, consentNote, createdAt, updatedAt |
 | `newsletterWebhookEvents` | Stripe event id | eventId, sessionId, subscriberId, result, processedAt |
 | `newsletterCampaigns` | auto | subject, previewText, contentHtml (sanitised), status, createdAt/By, startedAt/By, sentAt, intendedRecipients, sentCount, failedCount, skippedCount, interruptedCount |
 | `newsletterCampaigns/{id}/recipients` | **subscriber id** | campaignId, subscriberId, email, status, attempts, gmailMessageId, lastErrorCategory, sentAt, leaseUntil, updatedAt |

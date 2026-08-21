@@ -207,6 +207,8 @@
 
       cards.appendChild(card("Active subscribers", num(d.activeCount),
         d.truncated ? "List truncated — see Subscribers" : "Receiving newsletters"));
+      cards.appendChild(card("Waiting to confirm", num(d.pendingCount),
+        d.pendingCount ? "Signed up; have not clicked their email link" : "Nobody mid-signup"));
       cards.appendChild(card("Unsubscribed", num(d.unsubscribedCount), "Kept on record, never emailed"));
       cards.appendChild(card("Newsletters sent", num(d.newslettersSent), "Completed campaigns"));
       cards.appendChild(card("Most recent signup",
@@ -275,6 +277,15 @@
     return h;
   }
   function chip(kind, text) { return el("span", "n-chip " + kind, text); }
+  // Three states, and the third one is the point: somebody who signed up on
+  // the website is "pending" until they click the link in their inbox. Folding
+  // that into "Unsubscribed" (anything-not-active) reported a person who had
+  // just joined as having opted out.
+  function statusChip(status) {
+    if (status === "active") return chip("good", "Active");
+    if (status === "pending") return chip("warn", "Waiting to confirm");
+    return chip("neutral", "Unsubscribed");
+  }
   function gmailChip(g) {
     if (!g.configured) return chip("bad", "Not set up");
     if (!g.connected) return chip("bad", "Connection failed");
@@ -323,7 +334,8 @@
     q.placeholder = "Search by email address…";
     q.value = state.subs.query; q.style.maxWidth = "300px";
     var status = el("select", "n-select"); status.style.maxWidth = "180px";
-    [["all", "All statuses"], ["active", "Active only"], ["unsubscribed", "Unsubscribed only"]]
+    [["all", "All statuses"], ["active", "Active only"],
+     ["pending", "Waiting to confirm"], ["unsubscribed", "Unsubscribed only"]]
       .forEach(function (o) {
         var op = document.createElement("option");
         op.value = o[0]; op.textContent = o[1];
@@ -374,6 +386,8 @@
         state.subs.data = d;
 
         counts.appendChild(card("Active", num(d.counts.active), "Will receive newsletters"));
+        counts.appendChild(card("Waiting to confirm", num(d.counts.pending),
+          "Signed up, email not confirmed yet"));
         counts.appendChild(card("Unsubscribed", num(d.counts.unsubscribed), "Excluded from every send"));
         counts.appendChild(card("Total on record", num(d.counts.total),
           d.truncated ? "Showing the first " + num(d.counts.total) : "All subscriber records"));
@@ -417,7 +431,7 @@
       tdE.textContent = r.email; tr.appendChild(tdE);
 
       var tdS = document.createElement("td");
-      tdS.appendChild(r.status === "active" ? chip("good", "Active") : chip("neutral", "Unsubscribed"));
+      tdS.appendChild(statusChip(r.status));
       tr.appendChild(tdS);
 
       var tdSrc = document.createElement("td"); tdSrc.className = "n-when";
@@ -449,6 +463,23 @@
           });
         });
         tdA.appendChild(u);
+      } else if (r.status === "pending") {
+        // Nothing here is a punishment — this person is mid-signup. Give the
+        // two actions that finish it: send the link again, or vouch for the
+        // address by hand when the mail never arrived.
+        var again = el("button", "n-btn small", "Resend link");
+        again.addEventListener("click", function () {
+          again.disabled = true;
+          api("subscriber-resend-confirmation", { id: r.id }).then(function (d) {
+            again.disabled = false;
+            if (d.ok) toast("Confirmation email re-sent to " + r.email + ".", "good");
+            else toast(d.error || "Could not re-send.", "bad");
+          });
+        });
+        tdA.appendChild(again);
+        var ok = el("button", "n-btn small", "Confirm by hand");
+        ok.addEventListener("click", function () { openConfirmModal(r, reload); });
+        tdA.appendChild(ok);
       } else {
         var re = el("button", "n-btn small", "Reactivate");
         re.addEventListener("click", function () { openReactivateModal(r, reload); });
@@ -517,6 +548,33 @@
         }
       });
       setTimeout(function () { email.focus(); }, 60);
+    }
+
+    function openConfirmModal(r, reload) {
+      var reason = el("input", "n-input");
+      reason.placeholder = "e.g. this is my own address; the mail went to spam";
+      var form = el("label", "n-field");
+      form.appendChild(el("span", "n-label", "Why are you confirming this by hand?"));
+      form.appendChild(reason);
+
+      confirmModal({
+        title: "Confirm this address without the email click?",
+        body: "They signed up but have not clicked the link in their inbox. Confirming " +
+              "here makes them an active subscriber and sends the welcome email.",
+        warn: "The email click is what proves somebody owns an address. Only skip it when " +
+              "you know they do — your account and reason are written to the audit log.",
+        facts: [["Email", r.email], ["Signed up", r.subscribedAtIso || "—"]],
+        content: form,
+        confirmLabel: "Confirm subscriber",
+        onConfirm: function (done, close) {
+          if (!reason.value.trim()) { done(); toast("Give a reason first.", "bad"); return; }
+          api("subscriber-confirm", { id: r.id, reason: reason.value }).then(function (d) {
+            done();
+            if (d.ok) { toast(r.email + " is now an active subscriber.", "good"); close(); reload(); }
+            else toast(d.error || "Could not confirm.", "bad");
+          });
+        }
+      });
     }
 
     function openReactivateModal(r, reload) {

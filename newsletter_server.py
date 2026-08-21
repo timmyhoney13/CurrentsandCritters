@@ -93,6 +93,13 @@ STATUS_UNSUB = "unsubscribed"
 # Only the person holding the inbox can turn it into an active subscriber.
 STATUS_PENDING = "pending"
 
+# Welcome-email states. WELCOME_AWAITING is the one that matters: an
+# unconfirmed signup has NO welcome to send yet, and parking it here is what
+# keeps it out of the welcome queue until the person clicks the link.
+WELCOME_PENDING = "pending"
+WELCOME_AWAITING = "awaiting_confirmation"
+WELCOME_SKIPPED = "skipped"
+
 SOURCE_STRIPE = "Stripe Checkout"
 SOURCE_MANUAL = "Manual Admin Addition"
 SOURCE_WEBSITE = "Website Signup"
@@ -362,7 +369,8 @@ AUDIT_ACTIONS = (
     "subscriber_reactivated", "welcome_email_sent", "welcome_email_failed",
     "test_email_sent", "draft_created", "draft_updated", "campaign_approved",
     "campaign_started", "campaign_completed", "campaign_failed", "csv_exported",
-    "subscriber_added_website", "confirmation_sent",
+    "subscriber_added_website", "confirmation_sent", "confirmation_resent",
+    "subscriber_confirmed_by_admin",
     "unauthorized_admin_access", "connection_check",
 )
 
@@ -492,7 +500,15 @@ def _blank_subscriber(email_lower: str, source: str,
         "unsubscribedAt": 0,
         "unsubId": _new_unsub_id(),
         "tokenVersion": 1,
-        "welcomeEmailStatus": "pending",
+        # A record still awaiting an email confirmation has nothing to send
+        # yet and must not sit in the welcome queue pretending otherwise. Left
+        # as "pending" it would be re-read by the worker every 20 seconds
+        # forever, the dashboard would report a welcome email that is pending
+        # and never sends, and — because the queue is read a page at a time —
+        # a pile of unconfirmed signups would starve the welcomes that ARE
+        # due. Confirming flips this to WELCOME_PENDING.
+        "welcomeEmailStatus": (WELCOME_PENDING if status == STATUS_ACTIVE
+                               else WELCOME_AWAITING),
         "welcomeEmailAt": 0,
         "welcomeAttempts": 0,
         "welcomeLeaseUntil": 0,
@@ -587,7 +603,7 @@ def _subscribe(
                 "unsubscribedAt": 0,
                 "unsubId": _new_unsub_id(),
                 "tokenVersion": _int(existing.get("tokenVersion"), 1) + 1,
-                "welcomeEmailStatus": "pending",
+                "welcomeEmailStatus": WELCOME_PENDING,
                 "welcomeEmailAt": 0,
                 "welcomeAttempts": 0,
                 "welcomeLeaseUntil": 0,
@@ -768,7 +784,7 @@ def _claim_welcome(sub_id: str) -> Optional[Dict[str, Any]]:
         d = snap.to_dict() or {}
         if d.get("status") != STATUS_ACTIVE:
             return None
-        if d.get("welcomeEmailStatus") != "pending":
+        if d.get("welcomeEmailStatus") != WELCOME_PENDING:
             return None
         now = _now()
         if _int(d.get("welcomeLeaseUntil")) > now:
@@ -1059,6 +1075,13 @@ def confirm_with_token(token: str) -> Dict[str, Any]:
             "resubscribedAt": now,
             "confirmedAt": now,
             "updatedAt": now,
+            # The welcome was parked at WELCOME_AWAITING while this record was
+            # unconfirmed. THIS is the moment it becomes due, so arm it here —
+            # the worker only ever picks up WELCOME_PENDING.
+            "welcomeEmailStatus": WELCOME_PENDING,
+            "welcomeAttempts": 0,
+            "welcomeLeaseUntil": 0,
+            "welcomeError": "",
             "consentNote": "Website signup, confirmed by email click.",
         }, merge=True)
     except Exception as exc:  # noqa: BLE001
@@ -1072,6 +1095,94 @@ def confirm_with_token(token: str) -> Dict[str, Any]:
     _wake_worker()
     return {"ok": True, "known": True, "result": "confirmed",
             "email": sub.get("emailLower", "")}
+
+
+def _load_subscriber(sub_id: str) -> Optional[Dict[str, Any]]:
+    db = _db()
+    if db is None:
+        return None
+    try:
+        snap = db.collection(C_SUBS).document(sub_id).get()
+    except Exception as exc:  # noqa: BLE001
+        print("[newsletter] subscriber read failed: %s" % exc)
+        return None
+    if not snap.exists:
+        return None
+    d = snap.to_dict() or {}
+    d["id"] = sub_id
+    return d
+
+
+def resend_confirmation(sub_id: str, *, actor: str) -> Dict[str, Any]:
+    """Send the confirmation email again for one PENDING signup.
+
+    Same record, same token: a resend must not invalidate the link already
+    sitting in the person's inbox, or clicking the older mail would fail.
+    """
+    sub = _load_subscriber(sub_id)
+    if sub is None:
+        return {"ok": False, "error": "not_found"}
+    if sub.get("status") != STATUS_PENDING:
+        return {"ok": False, "error": "Only a signup that is still waiting for "
+                                      "confirmation can be sent one."}
+    if not unsub_secret_configured():
+        return {"ok": False, "error": "NEWSLETTER_UNSUBSCRIBE_SECRET is not set, so no "
+                                      "confirmation link can be built."}
+    _send_confirmation(sub)
+    audit("confirmation_resent", admin=actor, subscriber_id=sub_id,
+          summary="Confirmation email re-sent")
+    return {"ok": True, "email": str(sub.get("emailLower") or "")}
+
+
+def confirm_by_admin(sub_id: str, *, actor: str, reason: str) -> Dict[str, Any]:
+    """Turn a pending signup into a subscriber WITHOUT the email click.
+
+    The email click is the proof that somebody owns an address, and this
+    bypasses it — so it is deliberately narrow: pending records only, a typed
+    reason is required, and the actor is written into the audit log and into
+    the record's own consent note. It exists because a confirmation mail can
+    land in spam or bounce off a mail server, and the alternative to a
+    recorded, attributed override is Tim editing Firestore by hand.
+    """
+    reason = str(reason or "").strip()[:200]
+    if not reason:
+        return {"ok": False, "error": "Say why you are confirming this address by hand."}
+    sub = _load_subscriber(sub_id)
+    if sub is None:
+        return {"ok": False, "error": "not_found"}
+    if sub.get("status") == STATUS_ACTIVE:
+        return {"ok": True, "result": "already_active",
+                "email": str(sub.get("emailLower") or "")}
+    if sub.get("status") != STATUS_PENDING:
+        return {"ok": False, "error": "That person unsubscribed. Use Reactivate instead."}
+
+    db = _db()
+    if db is None:
+        return {"ok": False, "error": "Firestore unavailable"}
+    now = _now()
+    try:
+        db.collection(C_SUBS).document(sub_id).set({
+            "status": STATUS_ACTIVE,
+            "resubscribedAt": now,
+            "confirmedAt": now,
+            "confirmedByAdmin": actor[:200],
+            "updatedAt": now,
+            "welcomeEmailStatus": WELCOME_PENDING,
+            "welcomeAttempts": 0,
+            "welcomeLeaseUntil": 0,
+            "welcomeError": "",
+            "consentNote": ("Confirmed by admin %s: %s" % (actor, reason))[:200],
+        }, merge=True)
+    except Exception as exc:  # noqa: BLE001
+        print("[newsletter] admin confirm failed: %s" % exc)
+        return {"ok": False, "error": "Could not confirm that address."}
+
+    _invalidate_subs_cache()
+    audit("subscriber_confirmed_by_admin", admin=actor, subscriber_id=sub_id,
+          summary="Confirmed by hand: %s" % reason)
+    _queue_welcome(sub_id)
+    _wake_worker()
+    return {"ok": True, "result": "confirmed", "email": str(sub.get("emailLower") or "")}
 
 
 def unsubscribe_with_token(token: str) -> Dict[str, Any]:
@@ -1524,17 +1635,61 @@ def _sending_campaign_ids() -> List[str]:
         return []
 
 
+def _park_welcome(sub_id: str, status: str, why: str) -> None:
+    """Take one welcome OUT of the queue without sending it.
+
+    Used for records that can never receive a welcome in their current state:
+    an unconfirmed signup (nothing is due until they click the link) and an
+    address that unsubscribed before the welcome went out (they opted out).
+    Both would otherwise stay welcomeEmailStatus="pending" forever, and a
+    forever-pending row is re-read on every worker pass for the life of the
+    server.
+    """
+    db = _db()
+    if db is None:
+        return
+    try:
+        db.collection(C_SUBS).document(sub_id).set(
+            {"welcomeEmailStatus": status, "welcomeLeaseUntil": 0,
+             "welcomeError": why, "updatedAt": _now()}, merge=True)
+        _invalidate_subs_cache()
+    except Exception as exc:  # noqa: BLE001
+        print("[newsletter] welcome park failed for %s: %s" % (sub_id, exc))
+
+
 def _pending_welcome_ids(limit: int = 50) -> List[str]:
+    """Ids of subscribers whose welcome email is genuinely due.
+
+    The Firestore query can only ask one question (welcomeEmailStatus ==
+    pending); asking it together with status == active would need a composite
+    index, which is a manual console step this system deliberately does not
+    depend on. So the status test happens here, on documents already read —
+    and anything that can never send is parked on the spot rather than left to
+    be re-read on the next pass, which is also what heals records written
+    before welcomes were parked at signup.
+    """
     db = _db()
     if db is None:
         return []
     try:
         snap = (db.collection(C_SUBS)
-                .where("welcomeEmailStatus", "==", "pending").limit(limit).get())
-        return [doc.id for doc in snap]
+                .where("welcomeEmailStatus", "==", WELCOME_PENDING).limit(limit).get())
     except Exception as exc:  # noqa: BLE001
         print("[newsletter] pending-welcome query failed: %s" % exc)
         return []
+    due: List[str] = []
+    for doc in snap:
+        d = doc.to_dict() or {}
+        status = d.get("status")
+        if status == STATUS_ACTIVE:
+            due.append(doc.id)
+        elif status == STATUS_PENDING:
+            _park_welcome(doc.id, WELCOME_AWAITING,
+                          "Waiting for the person to confirm their email address.")
+        else:
+            _park_welcome(doc.id, WELCOME_SKIPPED,
+                          "Unsubscribed before the welcome email was sent.")
+    return due
 
 
 _WORKER_IDLE_SEC = 20.0
@@ -1743,6 +1898,12 @@ def _admin_dashboard() -> Dict[str, Any]:
     rows, truncated = _all_subscribers()
     pub = [_public_subscriber(r) for r in rows]
     active = [r for r in pub if r["status"] == STATUS_ACTIVE]
+    # Somebody who signed up on the website and has not clicked the link in
+    # their inbox yet is PENDING, and is neither of the other two things.
+    # Counting them as unsubscribed — which "everything that is not active"
+    # quietly does — tells the admin that a person who has just joined has
+    # opted out, which is the exact opposite of what happened.
+    waiting = [r for r in pub if r["status"] == STATUS_PENDING]
     newest = max((r["subscribedAt"] for r in pub), default=0)
     newest_row = next((r for r in sorted(pub, key=lambda x: x["subscribedAt"], reverse=True)), None)
 
@@ -1764,12 +1925,14 @@ def _admin_dashboard() -> Dict[str, Any]:
             print("[newsletter] dashboard campaign scan failed: %s" % exc)
     recent.sort(key=lambda d: _int(d.get("createdAt")), reverse=True)
 
-    pending_welcome = sum(1 for r in rows if r.get("welcomeEmailStatus") == "pending")
+    pending_welcome = sum(1 for r in rows
+                          if r.get("welcomeEmailStatus") == WELCOME_PENDING)
     failed_welcome = sum(1 for r in rows if r.get("welcomeEmailStatus") == "failed")
 
     return {
         "activeCount": len(active),
-        "unsubscribedCount": len(pub) - len(active),
+        "pendingCount": len(waiting),
+        "unsubscribedCount": len(pub) - len(active) - len(waiting),
         "totalCount": len(pub),
         "truncated": truncated,
         "mostRecentSignup": newest_row["email"] if newest_row else "",
@@ -2034,6 +2197,25 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
             out = _unsubscribe_by_id(sid, actor=admin, reason="admin action")
             _invalidate_subs_cache()
             handler._send_json({"ok": bool(out.get("ok")), "result": out.get("result", "")})
+            return True
+
+        if action == "subscriber-resend-confirmation":
+            sid = str(body.get("id") or "").strip()[:64]
+            if not sid:
+                handler._send_json({"ok": False, "error": "Missing subscriber."}, status=400)
+                return True
+            handler._send_json(resend_confirmation(sid, actor=admin))
+            return True
+
+        if action == "subscriber-confirm":
+            sid = str(body.get("id") or "").strip()[:64]
+            if not sid:
+                handler._send_json({"ok": False, "error": "Missing subscriber."}, status=400)
+                return True
+            out = confirm_by_admin(sid, actor=admin,
+                                   reason=str(body.get("reason") or ""))
+            _invalidate_subs_cache()
+            handler._send_json(out)
             return True
 
         if action == "subscriber-reactivate":
