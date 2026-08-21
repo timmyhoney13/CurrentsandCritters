@@ -1,0 +1,565 @@
+/* Currents and Critters — Level Pass (self-contained module).
+ *
+ * Renders the whole "Level Pass" Player-Home page into #cc-level-pass-root:
+ * a horizontal reward track laid over the existing 1–100 level curve, the
+ * consumables it pays out, and the "how much XP until the next thing" line
+ * the whole page is really built around.
+ *
+ *   window.__ccLevelPassRender()     the page itself
+ *   window.__ccLevelPassSync()       re-read state from the server
+ *   window.__ccPassBoost()           { active, until, percent, mult } — the XP
+ *                                    multiplier every XP path multiplies by
+ *   window.__ccPassRerollActive(ms)  is weekly-challenge swapping unlimited
+ *                                    for the week starting at `ms`?
+ *   window.__ccPassInventory()       cached shields / boosts / swaps
+ *
+ * NOTHING here decides anything. The server owns the track, re-derives the
+ * player's level from their own stored total_xp inside every payout, and
+ * writes the goods. This file renders that state and sends intents. Editing a
+ * number in here changes what one player sees for one paint and is then thrown
+ * away by the server's own re-check (level_pass_server.py).
+ *
+ * WHY THE BOOST IS READ FROM HERE
+ * XP itself is written by the client (the game-end save and __fishGrantXp both
+ * increment stats.total_xp), exactly as the Prestige bonus already is. So the
+ * boost's EXISTENCE is server-owned — a claim, then an activation, both
+ * transactional — while the multiplier is applied client-side beside the
+ * Prestige one. window.__ccPassBoost() is that seam, and it is deliberately
+ * synchronous and cached: an XP grant must never wait on a network round-trip.
+ */
+(function () {
+  "use strict";
+
+  function bridge() { return window.__ccLevelPass; }
+  // A MISSING bridge means preview-app.js never reached the line that defines
+  // one. Registering anyway (and re-checking at click time) is what stops the
+  // tab being permanently, silently blank — the exact failure the Clans tab
+  // shipped with once already.
+  if (bridge() && bridge().ENABLED === false) return;
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const num = (v, d) => { const n = Number(v); return Number.isFinite(n) ? n : (d || 0); };
+  const fmt = (n) => Math.round(num(n)).toLocaleString();
+  const toast = (m, t) => { try { bridge().toast(m, t); } catch (_) {} };
+  const avSrc = (u) => { try { return bridge().avSrc(u); } catch (_) { return u; } };
+
+  // The bridge's post() resolves to an ENVELOPE — { ok, status, data } — where
+  // `data` is the server's JSON body, and it THROWS when the request never
+  // landed. Unwrapping in exactly one place is what keeps an async throw from
+  // silently blanking the surface it renders.
+  function unwrap(res) {
+    if (res && typeof res === "object" && "data" in res && "status" in res) {
+      return res.data || { ok: false, error: "server_error" };
+    }
+    return res || { ok: false, error: "server_error" };
+  }
+
+  async function post(action, extra) {
+    const b = bridge();
+    if (!b) return { ok: false, error: "unavailable" };
+    const body = Object.assign({}, extra || {});
+    try { body.idToken = (await b.idToken()) || ""; } catch (_) { body.idToken = ""; }
+    try { return unwrap(await b.post("/api/pass/" + action, body)); }
+    catch (_) { return { ok: false, error: "offline" }; }
+  }
+
+  // Server error code → a sentence a player can act on. Mirrors
+  // level_pass_server.ERROR_MESSAGES so the toast and the server agree; the
+  // server also sends `message`, and that one wins when it is there.
+  const MESSAGES = {
+    unauthorized: "Sign in to use the Level Pass.",
+    already_claimed: "You've already claimed that reward.",
+    level_locked: "You haven't reached that level yet.",
+    shields_full: "Your Streak Shields are full — spend one first.",
+    boosts_full: "You're holding as many XP Boosts as you can — use one first.",
+    rerolls_full: "You're holding as many Weekly Swaps as you can — use one first.",
+    backgrounds_full: "You already own every background. This one is waiting for the next batch.",
+    stickers_full: "You already have a sticker for every critter you own.",
+    boost_running: "An XP Boost is already running.",
+    no_boost: "You don't have an XP Boost to activate.",
+    no_token: "You don't have a Weekly Swap token.",
+    already_active: "Weekly Swaps are already unlimited for you this week.",
+    offline: "Couldn't reach the server. Nothing was claimed — please try again.",
+    unavailable: "The Level Pass didn't finish loading — please refresh the page.",
+    server_error: "Something went wrong. Nothing was claimed — please try again.",
+  };
+  const msgFor = (res) => (res && res.message)
+    || MESSAGES[String((res && res.error) || "")]
+    || MESSAGES.server_error;
+
+  // ── State ────────────────────────────────────────────────────────────────
+  // `_state` is the last SERVER answer. Everything paints from it, and nothing
+  // else writes to it — a claim updates it by re-reading, never by guessing
+  // what the server would have done.
+  let _state = null;
+  let _loading = false;
+  let _claimedSet = new Set();
+  let _busyTier = "";       // tier id mid-claim, so its button can't double-fire
+  let _tickTimer = null;    // repaints the boost countdown
+
+  function inventory() {
+    return (_state && _state.inventory) || {
+      shields: 0, boosts: 0, rerolls: 0, boostUntil: 0,
+      boostActive: false, boostPercent: 20, rerollWeek: 0, coins: 0,
+    };
+  }
+  window.__ccPassInventory = inventory;
+
+  // THE XP SEAM. Synchronous and cached on purpose: every XP grant calls this,
+  // and none of them can afford to await a request. An unloaded pass reports
+  // "no boost", which is the safe direction — a missed boost is a smaller
+  // wrong than XP nobody earned.
+  window.__ccPassBoost = function () {
+    const inv = inventory();
+    const until = num(inv.boostUntil);
+    const active = until > Date.now();
+    const pct = num(inv.boostPercent, 20);
+    return {
+      active,
+      until: active ? until : 0,
+      percent: active ? pct : 0,
+      // The multiplier itself, so callers never re-derive it from a percentage
+      // and land on a different number than the card promised.
+      mult: active ? 1 + (pct / 100) : 1,
+    };
+  };
+
+  // Weekly-challenge swapping is unlimited for the week a token was spent on.
+  // The week is the client's own local Monday-midnight, because that is what
+  // the weekly challenges themselves roll on.
+  window.__ccPassRerollActive = function (weekStartMs) {
+    const week = num(weekStartMs, -1);
+    return week > 0 && num(inventory().rerollWeek) === week;
+  };
+
+  async function sync() {
+    if (_loading) return _state;
+    _loading = true;
+    try {
+      const res = await post("state", {});
+      if (res && res.ok) {
+        _state = res;
+        _claimedSet = new Set(Array.isArray(res.claimed) ? res.claimed : []);
+      }
+    } finally { _loading = false; }
+    return _state;
+  }
+  window.__ccLevelPassSync = async function () {
+    await sync();
+    if (isOpen()) render();
+    return _state;
+  };
+
+  function isOpen() {
+    const root = $("cc-level-pass-root");
+    return !!(root && root.offsetParent !== null);
+  }
+
+  // ── XP maths ─────────────────────────────────────────────────────────────
+  // levelTotals[i] is the cumulative total_xp needed to REACH level i+1. It is
+  // served by the pass endpoint rather than copied into this file, so the
+  // "N XP to go" on a card is computed from the same table the server grants
+  // levels from.
+  function levelTotals() {
+    const t = _state && _state.levelTotals;
+    return Array.isArray(t) && t.length ? t : null;
+  }
+  function xpToReach(level) {
+    const totals = levelTotals();
+    if (!totals) return null;
+    const idx = Math.max(1, Math.min(totals.length, Math.floor(level))) - 1;
+    return num(totals[idx]);
+  }
+  // XP the player still needs before `level` is reached. null when the curve
+  // has not loaded — the caller must then say nothing rather than say zero.
+  function xpUntil(level) {
+    const need = xpToReach(level);
+    if (need == null) return null;
+    return Math.max(0, need - num(_state && _state.totalXp));
+  }
+
+  // ── The next thing waiting ───────────────────────────────────────────────
+  // "How much XP till the next thing" — the nearest tier above the player's
+  // level, claimable or milestone alike. A milestone counts: the critter at 50
+  // IS the next thing when you are level 49.
+  function nextTier() {
+    const track = (_state && _state.track) || [];
+    const lvl = num(_state && _state.level, 1);
+    let best = null;
+    for (const t of track) {
+      if (num(t.level) <= lvl) continue;
+      if (!best || num(t.level) < num(best.level)) best = t;
+    }
+    return best;
+  }
+
+  function unclaimedReady() {
+    const track = (_state && _state.track) || [];
+    const lvl = num(_state && _state.level, 1);
+    return track.filter(t => t.claimable && num(t.level) <= lvl && !_claimedSet.has(t.id));
+  }
+
+  // ── Rendering ────────────────────────────────────────────────────────────
+  function tierState(t) {
+    const lvl = num(_state && _state.level, 1);
+    if (!t.claimable) return num(t.level) <= lvl ? "earned" : "locked";
+    if (_claimedSet.has(t.id)) return "claimed";
+    return num(t.level) <= lvl ? "ready" : "locked";
+  }
+
+  function tierCardHtml(t) {
+    const st = tierState(t);
+    const isMilestone = t.type === "critter";
+    const cls = ["ccLP-tier", "is-" + st];
+    if (isMilestone) cls.push("is-milestone");
+    if (_busyTier === t.id) cls.push("is-busy");
+
+    // The face of the card: a critter portrait for milestones, the reward's
+    // own glyph for everything else.
+    const face = isMilestone && t.img
+      ? `<img class="ccLP-tier-img" src="${esc(avSrc(t.img))}" alt="" loading="lazy">`
+      : `<span class="ccLP-tier-ico" aria-hidden="true">${esc(t.icon || "🎁")}</span>`;
+
+    // "N XP to go" on every locked tier — the thing the whole page is for.
+    let foot;
+    if (st === "ready") {
+      foot = `<button class="ccLP-claim" type="button" data-tier="${esc(t.id)}">Claim</button>`;
+    } else if (st === "claimed") {
+      foot = `<span class="ccLP-tier-done">✓ Claimed</span>`;
+    } else if (st === "earned") {
+      foot = `<span class="ccLP-tier-done">✓ Unlocked</span>`;
+    } else {
+      const left = xpUntil(num(t.level));
+      foot = left == null
+        ? `<span class="ccLP-tier-lock">🔒 Level ${esc(t.level)}</span>`
+        : `<span class="ccLP-tier-togo"><b>${fmt(left)}</b> XP to go</span>`;
+    }
+
+    return `
+      <div class="${cls.join(" ")}" data-tier="${esc(t.id)}" data-level="${esc(t.level)}">
+        <div class="ccLP-tier-lvl">${esc(t.level)}</div>
+        <div class="ccLP-tier-face">${face}</div>
+        <div class="ccLP-tier-label" title="${esc(t.label)}">${esc(t.label)}</div>
+        <div class="ccLP-tier-blurb">${esc(t.blurb || "")}</div>
+        <div class="ccLP-tier-foot">${foot}</div>
+      </div>`;
+  }
+
+  function boostChipHtml() {
+    const inv = inventory();
+    const b = window.__ccPassBoost();
+    if (b.active) {
+      const left = Math.max(0, b.until - Date.now());
+      const h = Math.floor(left / 3600000);
+      const m = Math.floor((left % 3600000) / 60000);
+      const s = Math.floor((left % 60000) / 1000);
+      // Seconds only appear in the last minute, so the chip is not a twitching
+      // stopwatch for 24 hours.
+      const clock = h > 0 ? `${h}h ${m}m` : (m > 0 ? `${m}m` : `${s}s`);
+      return `<div class="ccLP-chip is-live" title="Every XP source is boosted while this runs">
+          <span class="ccLP-chip-ico">⚡</span>
+          <span class="ccLP-chip-txt"><b>+${esc(b.percent)}% XP</b><span>${esc(clock)} left</span></span>
+        </div>`;
+    }
+    const held = num(inv.boosts);
+    return `<div class="ccLP-chip${held ? "" : " is-empty"}">
+        <span class="ccLP-chip-ico">⚡</span>
+        <span class="ccLP-chip-txt"><b>${held} XP Boost${held === 1 ? "" : "s"}</b><span>+${esc(num(inv.boostPercent, 20))}% for ${esc(num(_state && _state.boostHours, 24))}h</span></span>
+        ${held ? `<button class="ccLP-chip-btn" type="button" id="ccLP-boost-btn">Activate</button>` : ""}
+      </div>`;
+  }
+
+  function swapChipHtml() {
+    const inv = inventory();
+    const held = num(inv.rerolls);
+    const week = (typeof window.__ccWeekStartMs === "function") ? window.__ccWeekStartMs() : 0;
+    const live = week > 0 && num(inv.rerollWeek) === week;
+    if (live) {
+      return `<div class="ccLP-chip is-live" title="Swap as many weekly challenges as you like until Monday">
+          <span class="ccLP-chip-ico">🔄</span>
+          <span class="ccLP-chip-txt"><b>Unlimited Swaps</b><span>until Monday</span></span>
+        </div>`;
+    }
+    return `<div class="ccLP-chip${held ? "" : " is-empty"}">
+        <span class="ccLP-chip-ico">🔄</span>
+        <span class="ccLP-chip-txt"><b>${held} Weekly Swap${held === 1 ? "" : "s"}</b><span>unlimited swaps for a week</span></span>
+        ${held ? `<button class="ccLP-chip-btn" type="button" id="ccLP-swap-btn">Use one</button>` : ""}
+      </div>`;
+  }
+
+  function headerHtml() {
+    const inv = inventory();
+    const lvl = num(_state && _state.level, 1);
+    const into = num(_state && _state.xpIntoLevel);
+    const goal = Math.max(1, num(_state && _state.xpForLevel, 1));
+    const pct = Math.max(0, Math.min(100, Math.round((into / goal) * 100)));
+    const maxLvl = num(_state && _state.maxLevel, 100);
+    const nxt = nextTier();
+    const ready = unclaimedReady();
+
+    // The headline sentence. A player at the cap has no "next thing", and
+    // saying "0 XP until nothing" is worse than saying they are finished.
+    let nextLine;
+    if (!nxt) {
+      nextLine = `<span class="ccLP-next-done">Every reward on the track is yours. 🐙</span>`;
+    } else {
+      const left = xpUntil(num(nxt.level));
+      const what = nxt.type === "critter"
+        ? `the <b>${esc(nxt.critter || nxt.label)}</b>`
+        : `<b>${esc(nxt.label)}</b>`;
+      nextLine = left == null
+        ? `Next up at Level ${esc(nxt.level)}: ${what}`
+        : `<b class="ccLP-next-xp">${fmt(left)} XP</b> until ${what} <span class="ccLP-next-lvl">· Level ${esc(nxt.level)}</span>`;
+    }
+
+    const shields = num(inv.shields);
+    return `
+      <div class="ccLP-head">
+        <div class="ccLP-head-top">
+          <div class="ccLP-lvl-badge">
+            <span class="ccLP-lvl-word">Level</span>
+            <span class="ccLP-lvl-num">${esc(lvl)}</span>
+          </div>
+          <div class="ccLP-head-mid">
+            <div class="ccLP-title">Level Pass</div>
+            <div class="ccLP-next">${nextLine}</div>
+            <div class="ccLP-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
+              <div class="ccLP-bar-fill" style="width:${pct}%"></div>
+            </div>
+            <div class="ccLP-bar-txt">${fmt(into)} / ${fmt(goal)} XP to Level ${esc(Math.min(maxLvl, lvl + 1))}</div>
+          </div>
+          <div class="ccLP-head-actions">
+            ${ready.length
+              ? `<button class="ccLP-claimall" type="button" id="ccLP-claimall">Claim ${ready.length} reward${ready.length === 1 ? "" : "s"}</button>`
+              : `<span class="ccLP-allclear">Nothing to claim</span>`}
+          </div>
+        </div>
+        <div class="ccLP-chips">
+          <div class="ccLP-chip">
+            <span class="ccLP-chip-ico"><img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false"></span>
+            <span class="ccLP-chip-txt"><b>${fmt(inv.coins)}</b><span>Critter Coins</span></span>
+          </div>
+          <div class="ccLP-chip${shields ? "" : " is-empty"}">
+            <span class="ccLP-chip-ico">🛡️</span>
+            <span class="ccLP-chip-txt"><b>${shields} Streak Shield${shields === 1 ? "" : "s"}</b><span>covers a missed day</span></span>
+          </div>
+          ${boostChipHtml()}
+          ${swapChipHtml()}
+        </div>
+      </div>`;
+  }
+
+  function render() {
+    const root = $("cc-level-pass-root");
+    if (!root) return;
+
+    if (!_state) {
+      root.innerHTML = `<div class="ccLP"><div class="ccLP-empty">Loading your Level Pass…</div></div>`;
+      return;
+    }
+    if (!_state.signedIn) {
+      root.innerHTML = `<div class="ccLP"><div class="ccLP-empty">Sign in with Google to start earning Level Pass rewards.</div></div>`;
+      return;
+    }
+
+    const track = (_state.track || []).slice().sort((a, b) => num(a.level) - num(b.level));
+    root.innerHTML = `
+      <div class="ccLP">
+        ${headerHtml()}
+        <div class="ccLP-rail-wrap">
+          <button class="ccLP-nav ccLP-nav-prev" type="button" id="ccLP-prev" aria-label="Scroll back">‹</button>
+          <div class="ccLP-rail" id="ccLP-rail">${track.map(tierCardHtml).join("")}</div>
+          <button class="ccLP-nav ccLP-nav-next" type="button" id="ccLP-next" aria-label="Scroll forward">›</button>
+        </div>
+        <div class="ccLP-foot-note">
+          Rewards are yours the moment you reach the level — claim them whenever you like, they never expire.
+        </div>
+      </div>`;
+
+    wire();
+    scrollToCurrent();
+    startTick();
+  }
+
+  // Put the player where they actually are, the way every pass does: their
+  // current level just left of centre, so the next few rewards are the ones on
+  // screen.
+  function scrollToCurrent() {
+    const rail = $("ccLP-rail");
+    if (!rail) return;
+    const lvl = num(_state && _state.level, 1);
+    let target = null;
+    for (const card of rail.querySelectorAll(".ccLP-tier")) {
+      if (num(card.getAttribute("data-level")) <= lvl) target = card;
+    }
+    // Nobody has passed a tier yet → show the start, not a blank rail.
+    const anchor = target || rail.querySelector(".ccLP-tier");
+    if (!anchor) return;
+    const left = anchor.offsetLeft - rail.clientWidth * 0.35;
+    try { rail.scrollTo({ left: Math.max(0, left), behavior: "auto" }); }
+    catch (_) { rail.scrollLeft = Math.max(0, left); }
+  }
+
+  // The boost chip counts down, so it has to repaint — but only while the page
+  // is actually on screen, and only once every 30s until the final stretch.
+  function startTick() {
+    stopTick();
+    const b = window.__ccPassBoost();
+    if (!b.active) return;
+    const every = (b.until - Date.now()) > 120000 ? 30000 : 1000;
+    _tickTimer = setInterval(() => {
+      if (!isOpen()) { stopTick(); return; }
+      if (!window.__ccPassBoost().active) { stopTick(); render(); return; }
+      const chips = document.querySelector(".ccLP-chips");
+      if (!chips) { stopTick(); return; }
+      // Repaint ONLY the chip — re-rendering the page would throw away the
+      // player's scroll position in the rail every single tick.
+      const holder = document.createElement("div");
+      holder.innerHTML = boostChipHtml();
+      const live = chips.querySelector(".ccLP-chip.is-live");
+      if (live && holder.firstElementChild) live.replaceWith(holder.firstElementChild);
+    }, every);
+  }
+  function stopTick() {
+    if (_tickTimer) { clearInterval(_tickTimer); _tickTimer = null; }
+  }
+
+  // ── Actions ──────────────────────────────────────────────────────────────
+  async function claimTier(tierId) {
+    if (!tierId || _busyTier) return;
+    _busyTier = tierId;
+    render();
+    const res = await post("claim", { tier: tierId });
+    _busyTier = "";
+    if (res && res.ok) {
+      announce(res.granted);
+      // Re-read rather than patch: the server just moved coins, inventory and
+      // possibly an unlocked_backgrounds array, and it is the only thing that
+      // knows what actually landed.
+      await sync();
+      afterGrant();
+    } else {
+      toast(msgFor(res), "warn");
+      // "Already claimed" means this tab was stale — resync so the button
+      // stops offering something that is gone.
+      if (res && res.error === "already_claimed") await sync();
+    }
+    render();
+  }
+
+  async function claimAll() {
+    const btn = $("ccLP-claimall");
+    if (btn) { btn.disabled = true; btn.textContent = "Claiming…"; }
+    const res = await post("claim-all", {});
+    if (res && res.ok) {
+      const n = num(res.count);
+      const coins = (res.claimed || []).reduce(
+        (sum, r) => sum + num(r.granted && r.granted.coins), 0);
+      toast(n
+        ? `Claimed ${n} reward${n === 1 ? "" : "s"}${coins ? ` · +${fmt(coins)} Critter Coins` : ""}`
+        : "Nothing new to claim just yet.", n ? "good" : "info");
+      // A tier that refused (a full hoard, no backgrounds left) is reported
+      // honestly instead of being swallowed — the rest still paid out.
+      (res.skipped || []).forEach(s => toast(msgFor({ error: s.error }), "warn"));
+      await sync();
+      afterGrant();
+    } else {
+      toast(msgFor(res), "warn");
+    }
+    render();
+  }
+
+  function announce(granted) {
+    if (!granted) return;
+    const t = String(granted.type || "");
+    if (t === "coins")           toast(`+${fmt(granted.coins)} Critter Coins`, "good");
+    else if (t === "shield")     toast("🛡️ Streak Shield added — it covers one missed day.", "good");
+    else if (t === "boost")      toast("⚡ XP Boost added — activate it whenever you want it.", "good");
+    else if (t === "reroll")     toast("🔄 Weekly Swap added — spend it for a week of free swaps.", "good");
+    else if (t === "background") toast("🖼️ New background unlocked — equip it in the Avatar Gallery.", "good");
+    else if (t === "sticker")    toast("🎴 New critter sticker unlocked for game chat.", "good");
+  }
+
+  // Coins, backgrounds and stickers all live on the account document the rest
+  // of the app renders from, so a payout has to push the app to re-read it —
+  // otherwise the header keeps painting the old balance.
+  function afterGrant() {
+    try { bridge().onGranted && bridge().onGranted(); } catch (_) {}
+  }
+
+  async function activateBoost() {
+    const btn = $("ccLP-boost-btn");
+    if (btn) btn.disabled = true;
+    const res = await post("boost", {});
+    if (res && res.ok) {
+      toast(`⚡ XP Boost running — +${res.percent}% XP from everything for ${res.hours} hours.`, "good");
+      await sync();
+      afterGrant();
+    } else {
+      toast(msgFor(res), "warn");
+    }
+    render();
+  }
+
+  async function activateSwap() {
+    const btn = $("ccLP-swap-btn");
+    if (btn) btn.disabled = true;
+    const week = (typeof window.__ccWeekStartMs === "function") ? window.__ccWeekStartMs() : 0;
+    if (!week) { toast(MESSAGES.server_error, "warn"); render(); return; }
+    const res = await post("reroll", { weekStartMs: week });
+    if (res && res.ok) {
+      toast("🔄 Weekly Swaps unlocked — swap as many challenges as you like until Monday.", "good");
+      await sync();
+      // The challenge strip's swap buttons only appear once this is live.
+      try { window.renderChallengeStrip && window.renderChallengeStrip(); } catch (_) {}
+      afterGrant();
+    } else {
+      toast(msgFor(res), "warn");
+    }
+    render();
+  }
+
+  function wire() {
+    const root = $("cc-level-pass-root");
+    if (!root) return;
+    const rail = $("ccLP-rail");
+
+    root.querySelectorAll(".ccLP-claim").forEach(btn => {
+      btn.addEventListener("click", () => claimTier(btn.getAttribute("data-tier")));
+    });
+    const all = $("ccLP-claimall");
+    if (all) all.addEventListener("click", claimAll);
+    const boost = $("ccLP-boost-btn");
+    if (boost) boost.addEventListener("click", activateBoost);
+    const swap = $("ccLP-swap-btn");
+    if (swap) swap.addEventListener("click", activateSwap);
+
+    const step = () => Math.max(240, (rail ? rail.clientWidth : 600) * 0.8);
+    const prev = $("ccLP-prev");
+    const next = $("ccLP-next");
+    if (prev && rail) prev.addEventListener("click", () => rail.scrollBy({ left: -step(), behavior: "smooth" }));
+    if (next && rail) next.addEventListener("click", () => rail.scrollBy({ left: step(), behavior: "smooth" }));
+  }
+
+  // ── Entry points ─────────────────────────────────────────────────────────
+  window.__ccLevelPassRender = async function () {
+    render();                 // paint the loading state immediately
+    await sync();
+    render();
+  };
+
+  // Keep the cached boost fresh for the XP paths even when the page is never
+  // opened: __ccPassBoost() is read by every XP grant, and a stale "no boost"
+  // would quietly cost a player the thing they just activated. One read on
+  // sign-in is enough — activating a boost resyncs on its own.
+  window.__ccLevelPassPrime = function () {
+    sync().catch(() => {});
+  };
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) stopTick();
+    else if (isOpen()) startTick();
+  });
+})();

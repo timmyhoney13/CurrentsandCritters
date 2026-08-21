@@ -1,0 +1,766 @@
+/* Currents and Critters — Level Pass, referral card, and the Avatar Gallery's
+ * level track.
+ *
+ * Three surfaces, one stylesheet, because they are one idea seen from three
+ * places: the levels you climb and what is waiting on them.
+ *
+ *   .ccLP*    the Level Pass page (#cc-level-pass-root)
+ *   .ccRF*    the "Invite a Friend" card (#cc-referral-root)
+ *   .galLT*   the level track along the top of the Avatar Gallery
+ *
+ * The palette is the Player Home's own — the same ocean-light blues, cream
+ * glass, Nunito + Luckiest Guy and 20-26px corners that prestige.css already
+ * uses. Nothing here invents a second look.
+ *
+ * WHY THE GALLERY TRACK LIVES HERE AND NOT IN preview.css
+ * It is the pass's twin: the same critters, the same curve, the same "N XP to
+ * go" arithmetic, and it is loaded on the same page. Keeping the two together
+ * is what stops one of them being restyled without the other.
+ */
+
+/* ══════════════════════════════════════════════════════════════════════
+   SHARED PALETTE
+   ══════════════════════════════════════════════════════════════════════ */
+/* Self-contained box model, for the same reason the Game Night banner declares
+   one: these surfaces must not depend on a reset that lives in another file. */
+#cc-level-pass-root, #cc-level-pass-root *,
+#cc-referral-root, #cc-referral-root *,
+.galLT, .galLT * { box-sizing: border-box; }
+
+#cc-level-pass-root,
+#cc-referral-root,
+.galLT {
+  --lp-ink:      #17365a;
+  --lp-ink-soft: #5b7fa3;
+  --lp-ink-dim:  #7a9db8;
+  --lp-blue:     #1c70cc;
+  --lp-blue-lt:  #2e8fe0;
+  --lp-line:     rgba(169, 203, 230, .78);
+  --lp-card:     rgba(252, 255, 255, .95);
+  --lp-card-2:   rgba(243, 250, 255, .92);
+  --lp-gold:     #c89320;
+  --lp-gold-lt:  #e8b34a;
+  --lp-teal:     #12a37c;
+  --lp-coral:    #e0644a;
+  font-family: "Nunito", system-ui, -apple-system, sans-serif;
+  color: var(--lp-ink);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   LEVEL PASS — the page
+   ══════════════════════════════════════════════════════════════════════ */
+.ccLP { padding: 4px 0 24px; }
+
+.ccLP-empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--lp-ink-soft);
+  font-size: .98rem;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+.ccLP-head {
+  background: var(--lp-card);
+  border: 1px solid var(--lp-line);
+  border-radius: 24px;
+  padding: 20px 22px;
+  box-shadow: 0 6px 20px rgba(23, 54, 90, .09);
+  margin-bottom: 18px;
+}
+
+.ccLP-head-top {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.ccLP-lvl-badge {
+  flex: 0 0 auto;
+  width: 92px;
+  height: 92px;
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(160deg, var(--lp-blue-lt) 0%, var(--lp-blue) 100%);
+  box-shadow: 0 6px 16px rgba(28, 112, 204, .34);
+  border: 2px solid rgba(255, 255, 255, .5);
+}
+.ccLP-lvl-word {
+  font-size: .68rem;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  opacity: .85;
+  font-weight: 800;
+}
+.ccLP-lvl-num {
+  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.ccLP-head-mid { flex: 1 1 auto; min-width: 0; }
+
+.ccLP-title {
+  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-size: 1.7rem;
+  color: var(--lp-ink);
+  line-height: 1.1;
+}
+
+/* THE sentence: "12,400 XP until the Manta Ray". This is what the page is
+   for, so it gets the size and the colour. */
+.ccLP-next {
+  margin-top: 3px;
+  font-size: 1rem;
+  color: var(--lp-ink-soft);
+}
+.ccLP-next b { color: var(--lp-ink); font-weight: 800; }
+.ccLP-next-xp { color: var(--lp-blue) !important; }
+.ccLP-next-lvl { color: var(--lp-ink-dim); font-size: .88rem; }
+.ccLP-next-done { color: var(--lp-teal); font-weight: 800; }
+
+.ccLP-bar {
+  margin-top: 10px;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(169, 203, 230, .4);
+  overflow: hidden;
+  border: 1px solid var(--lp-line);
+}
+.ccLP-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--lp-blue-lt), var(--lp-blue));
+  transition: width .5s ease;
+}
+.ccLP-bar-txt {
+  margin-top: 5px;
+  font-size: .82rem;
+  color: var(--lp-ink-dim);
+  font-weight: 700;
+}
+
+.ccLP-head-actions { flex: 0 0 auto; }
+.ccLP-claimall {
+  padding: 13px 22px;
+  border: none;
+  border-radius: 999px;
+  font-family: "Nunito", sans-serif;
+  font-weight: 900;
+  font-size: .98rem;
+  color: #3d2600;
+  cursor: pointer;
+  background: linear-gradient(180deg, var(--lp-gold-lt) 0%, var(--lp-gold) 100%);
+  box-shadow: 0 5px 14px rgba(200, 147, 32, .38);
+  transition: transform .14s ease, box-shadow .14s ease;
+  animation: ccLP-nudge 2.6s ease-in-out infinite;
+}
+.ccLP-claimall:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(200, 147, 32, .46); }
+.ccLP-claimall:disabled { opacity: .6; cursor: default; animation: none; transform: none; }
+@keyframes ccLP-nudge {
+  0%, 92%, 100% { transform: translateY(0); }
+  96%           { transform: translateY(-3px); }
+}
+.ccLP-allclear {
+  font-size: .88rem;
+  color: var(--lp-ink-dim);
+  font-weight: 700;
+}
+
+/* ── Inventory chips ──────────────────────────────────────────────────── */
+.ccLP-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 15px;
+  border-top: 1px dashed var(--lp-line);
+}
+.ccLP-chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 14px;
+  border-radius: 16px;
+  background: var(--lp-card-2);
+  border: 1px solid var(--lp-line);
+  min-height: 46px;
+}
+.ccLP-chip.is-empty { opacity: .55; }
+.ccLP-chip.is-live {
+  background: linear-gradient(135deg, rgba(18, 163, 124, .14), rgba(46, 143, 224, .12));
+  border-color: rgba(18, 163, 124, .55);
+}
+.ccLP-chip-ico { font-size: 1.25rem; line-height: 1; display: flex; }
+.ccLP-chip-ico .cc-coin { width: 20px; height: 20px; }
+.ccLP-chip-txt { display: flex; flex-direction: column; line-height: 1.25; }
+.ccLP-chip-txt b { font-size: .92rem; color: var(--lp-ink); }
+.ccLP-chip-txt span { font-size: .74rem; color: var(--lp-ink-dim); }
+.ccLP-chip-btn {
+  margin-left: 4px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-family: "Nunito", sans-serif;
+  font-weight: 800;
+  font-size: .8rem;
+  color: #fff;
+  background: linear-gradient(180deg, var(--lp-blue-lt), var(--lp-blue));
+}
+.ccLP-chip-btn:hover { filter: brightness(1.08); }
+.ccLP-chip-btn:disabled { opacity: .55; cursor: default; }
+
+/* ── The track ────────────────────────────────────────────────────────── */
+.ccLP-rail-wrap { position: relative; }
+
+.ccLP-rail {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  padding: 6px 4px 16px;
+  /* The connecting line every reward track has, drawn behind the cards so a
+     player reads them as one road rather than a row of tiles. */
+  background:
+    linear-gradient(90deg, var(--lp-line), var(--lp-line)) center 96px / 100% 3px no-repeat;
+  scrollbar-width: thin;
+}
+.ccLP-rail::-webkit-scrollbar { height: 9px; }
+.ccLP-rail::-webkit-scrollbar-track { background: rgba(169, 203, 230, .25); border-radius: 999px; }
+.ccLP-rail::-webkit-scrollbar-thumb { background: rgba(46, 143, 224, .5); border-radius: 999px; }
+
+.ccLP-tier {
+  scroll-snap-align: center;
+  flex: 0 0 auto;
+  width: 168px;
+  padding: 12px 12px 14px;
+  border-radius: 20px;
+  background: var(--lp-card);
+  border: 1px solid var(--lp-line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  position: relative;
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+.ccLP-tier:hover { transform: translateY(-3px); box-shadow: 0 8px 18px rgba(23, 54, 90, .14); }
+
+.ccLP-tier-lvl {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-size: 1rem;
+  color: #fff;
+  background: linear-gradient(160deg, #90b4d0, #6d94b4);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(23, 54, 90, .2);
+}
+
+.ccLP-tier-face {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ccLP-tier-ico { font-size: 2.1rem; line-height: 1; }
+.ccLP-tier-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 5px rgba(23, 54, 90, .22));
+}
+
+.ccLP-tier-label {
+  font-weight: 900;
+  font-size: .88rem;
+  color: var(--lp-ink);
+  line-height: 1.2;
+}
+.ccLP-tier-blurb {
+  font-size: .7rem;
+  color: var(--lp-ink-dim);
+  line-height: 1.3;
+  /* Two lines, then ellipsis: the cards must stay the same height or the
+     connecting line behind them stops lining up. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 1.82em;
+}
+.ccLP-tier-foot { margin-top: auto; padding-top: 6px; min-height: 32px; display: flex; align-items: center; }
+
+.ccLP-claim {
+  padding: 7px 18px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: "Nunito", sans-serif;
+  font-weight: 900;
+  font-size: .84rem;
+  color: #3d2600;
+  background: linear-gradient(180deg, var(--lp-gold-lt) 0%, var(--lp-gold) 100%);
+  box-shadow: 0 3px 9px rgba(200, 147, 32, .4);
+}
+.ccLP-claim:hover { filter: brightness(1.06); }
+.ccLP-tier-done { font-size: .8rem; font-weight: 800; color: var(--lp-teal); }
+.ccLP-tier-lock,
+.ccLP-tier-togo { font-size: .76rem; color: var(--lp-ink-dim); font-weight: 700; }
+.ccLP-tier-togo b { color: var(--lp-blue); }
+
+/* ── Tier states ──────────────────────────────────────────────────────── */
+.ccLP-tier.is-locked { opacity: .72; }
+.ccLP-tier.is-locked .ccLP-tier-face { filter: grayscale(1); opacity: .55; }
+
+.ccLP-tier.is-ready {
+  border-color: var(--lp-gold);
+  box-shadow: 0 0 0 3px rgba(232, 179, 74, .28), 0 6px 16px rgba(200, 147, 32, .2);
+}
+.ccLP-tier.is-ready .ccLP-tier-lvl { background: linear-gradient(160deg, var(--lp-gold-lt), var(--lp-gold)); }
+
+.ccLP-tier.is-claimed,
+.ccLP-tier.is-earned { background: var(--lp-card-2); }
+.ccLP-tier.is-claimed .ccLP-tier-lvl,
+.ccLP-tier.is-earned .ccLP-tier-lvl { background: linear-gradient(160deg, #34c79c, var(--lp-teal)); }
+
+.ccLP-tier.is-busy { opacity: .6; pointer-events: none; }
+
+/* Milestone critters are the arrivals on the track and read bigger. */
+.ccLP-tier.is-milestone {
+  width: 190px;
+  background: linear-gradient(170deg, rgba(255, 252, 240, .97), rgba(252, 255, 255, .95));
+  border-color: rgba(200, 147, 32, .5);
+}
+.ccLP-tier.is-milestone .ccLP-tier-face { width: 80px; height: 80px; }
+.ccLP-tier.is-milestone .ccLP-tier-label { font-size: .95rem; }
+
+/* ── Rail arrows ──────────────────────────────────────────────────────── */
+.ccLP-nav {
+  position: absolute;
+  top: 96px;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--lp-line);
+  background: rgba(255, 255, 255, .96);
+  color: var(--lp-blue);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(23, 54, 90, .18);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 3px;
+}
+.ccLP-nav:hover { background: #fff; color: var(--lp-blue-lt); }
+.ccLP-nav-prev { left: -6px; }
+.ccLP-nav-next { right: -6px; }
+
+.ccLP-foot-note {
+  margin-top: 6px;
+  text-align: center;
+  font-size: .82rem;
+  color: var(--lp-ink-dim);
+}
+
+@media (max-width: 860px) {
+  .ccLP-head-top { flex-wrap: wrap; gap: 14px; }
+  .ccLP-lvl-badge { width: 72px; height: 72px; border-radius: 20px; }
+  .ccLP-lvl-num { font-size: 2rem; }
+  .ccLP-head-actions { width: 100%; }
+  .ccLP-claimall { width: 100%; }
+  .ccLP-nav { display: none; }   /* touch scrolling is the better control here */
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   INVITE A FRIEND
+   ══════════════════════════════════════════════════════════════════════ */
+#cc-referral-root { display: block; margin-bottom: 16px; }
+
+.ccRF {
+  background: var(--lp-card);
+  border: 1px solid var(--lp-line);
+  border-radius: 22px;
+  padding: 18px 20px;
+  box-shadow: 0 5px 16px rgba(23, 54, 90, .08);
+}
+.ccRF-empty { padding: 22px 4px; text-align: center; color: var(--lp-ink-soft); }
+
+.ccRF-head { display: flex; gap: 13px; align-items: flex-start; }
+.ccRF-ico { font-size: 1.9rem; line-height: 1; flex: 0 0 auto; }
+.ccRF-title {
+  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-size: 1.25rem;
+  line-height: 1.15;
+}
+.ccRF-sub {
+  margin-top: 3px;
+  font-size: .9rem;
+  color: var(--lp-ink-soft);
+  line-height: 1.45;
+}
+.ccRF-sub b { color: var(--lp-ink); font-weight: 800; }
+.ccRF-sub .cc-coin { width: 15px; height: 15px; vertical-align: -2px; }
+
+.ccRF-code-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--lp-card-2);
+  border: 1px dashed var(--lp-line);
+}
+.ccRF-code-lbl { font-size: .78rem; color: var(--lp-ink-dim); font-weight: 800; text-transform: uppercase; letter-spacing: .6px; }
+.ccRF-code {
+  font-family: "Luckiest Guy", ui-monospace, monospace;
+  font-size: 1.3rem;
+  letter-spacing: 2px;
+  color: var(--lp-blue);
+  user-select: all;
+}
+.ccRF-copy {
+  margin-left: auto;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--lp-line);
+  background: #fff;
+  color: var(--lp-blue);
+  font-family: "Nunito", sans-serif;
+  font-weight: 800;
+  font-size: .8rem;
+  cursor: pointer;
+}
+.ccRF-copy:hover { background: var(--lp-card-2); }
+
+.ccRF-prog { margin-top: 14px; }
+.ccRF-prog-top { display: flex; justify-content: space-between; gap: 10px; font-size: .84rem; margin-bottom: 5px; }
+.ccRF-prog-lbl { font-weight: 800; color: var(--lp-ink); }
+.ccRF-prog-goal { color: var(--lp-ink-dim); font-weight: 700; }
+.ccRF-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(169, 203, 230, .4);
+  border: 1px solid var(--lp-line);
+  overflow: hidden;
+}
+.ccRF-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #34c79c, var(--lp-teal));
+  transition: width .5s ease;
+}
+.ccRF-earned { margin-top: 5px; font-size: .78rem; color: var(--lp-teal); font-weight: 800; }
+
+.ccRF-redeem { margin-top: 15px; padding-top: 14px; border-top: 1px dashed var(--lp-line); }
+.ccRF-redeem-lbl { display: block; font-size: .85rem; color: var(--lp-ink-soft); margin-bottom: 7px; font-weight: 700; }
+.ccRF-redeem-row { display: flex; gap: 9px; }
+.ccRF-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 11px 15px;
+  border-radius: 12px;
+  border: 1px solid var(--lp-line);
+  background: #fff;
+  font-family: "Nunito", sans-serif;
+  font-size: .96rem;
+  color: var(--lp-ink);
+}
+.ccRF-input:focus { outline: none; border-color: var(--lp-blue-lt); box-shadow: 0 0 0 3px rgba(46, 143, 224, .2); }
+.ccRF-btn {
+  flex: 0 0 auto;
+  padding: 11px 20px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  font-family: "Nunito", sans-serif;
+  font-weight: 900;
+  font-size: .9rem;
+  color: #fff;
+  background: linear-gradient(180deg, var(--lp-blue-lt), var(--lp-blue));
+  box-shadow: 0 4px 11px rgba(28, 112, 204, .3);
+}
+.ccRF-btn:hover { filter: brightness(1.07); }
+.ccRF-btn:disabled { opacity: .6; cursor: default; }
+
+.ccRF-err { margin-top: 7px; font-size: .84rem; min-height: 1.2em; }
+.ccRF-err.is-bad { color: var(--lp-coral); font-weight: 700; }
+.ccRF-err.is-good { color: var(--lp-teal); font-weight: 700; }
+
+.ccRF-redeemed,
+.ccRF-closed {
+  margin-top: 14px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  font-size: .87rem;
+  line-height: 1.4;
+}
+.ccRF-redeemed { background: rgba(18, 163, 124, .1); border: 1px solid rgba(18, 163, 124, .35); color: #0d7a5c; font-weight: 700; }
+.ccRF-closed { background: var(--lp-card-2); border: 1px solid var(--lp-line); color: var(--lp-ink-dim); }
+
+@media (max-width: 620px) {
+  .ccRF-redeem-row { flex-direction: column; }
+  .ccRF-btn { width: 100%; }
+  .ccRF-code-row { flex-wrap: wrap; }
+  .ccRF-copy { margin-left: 0; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   AVATAR GALLERY — the level track
+   A scrollable timeline across the top of the gallery: the critter above the
+   tick, the level below it, a marker where the player is now, and the XP
+   still to go before the next one.
+   ══════════════════════════════════════════════════════════════════════ */
+.galLT {
+  margin: 0 0 14px;
+  padding: 14px 16px 10px;
+  border-radius: 20px;
+  background: var(--lp-card);
+  border: 1px solid var(--lp-line);
+  box-shadow: 0 4px 14px rgba(23, 54, 90, .08);
+}
+
+.galLT-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.galLT-title {
+  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-size: 1.05rem;
+  color: var(--lp-ink);
+}
+/* "3,450 XP until you unlock the Manta Ray" — the line the whole track exists
+   to make true. */
+.galLT-next { font-size: .92rem; color: var(--lp-ink-soft); }
+.galLT-next b { color: var(--lp-ink); font-weight: 800; }
+.galLT-next .galLT-xp { color: var(--lp-blue); font-weight: 900; }
+.galLT-next .galLT-games { color: var(--lp-ink-dim); font-size: .84rem; }
+.galLT-next-done { color: var(--lp-teal); font-weight: 800; }
+
+.galLT-rail {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 0 6px;
+  scrollbar-width: thin;
+  position: relative;
+}
+.galLT-rail::-webkit-scrollbar { height: 8px; }
+.galLT-rail::-webkit-scrollbar-track { background: rgba(169, 203, 230, .25); border-radius: 999px; }
+.galLT-rail::-webkit-scrollbar-thumb { background: rgba(46, 143, 224, .5); border-radius: 999px; }
+
+/* One stop = critter on top, tick in the middle, level underneath. */
+.galLT-stop {
+  flex: 0 0 auto;
+  width: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding-bottom: 2px;
+}
+
+.galLT-critter {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--lp-card-2);
+  border: 2px solid var(--lp-line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: transform .16s ease;
+}
+.galLT-critter img { width: 84%; height: 84%; object-fit: contain; }
+.galLT-stop:hover .galLT-critter { transform: translateY(-3px) scale(1.06); }
+
+.galLT-name {
+  margin-top: 4px;
+  font-size: .68rem;
+  font-weight: 800;
+  color: var(--lp-ink-soft);
+  text-align: center;
+  line-height: 1.15;
+  height: 2.3em;
+  overflow: hidden;
+}
+
+/* The line the ticks sit on, drawn as each stop's own left/right halves so it
+   scrolls with them and never drifts out of alignment with the marks. */
+.galLT-line {
+  width: 100%;
+  height: 3px;
+  background: var(--lp-line);
+  position: relative;
+  margin: 3px 0 0;
+}
+.galLT-line::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  transform: translateX(-50%);
+  width: 3px;
+  height: 11px;
+  background: var(--lp-ink-dim);
+  border-radius: 2px;
+}
+.galLT-lvl {
+  margin-top: 6px;
+  font-size: .8rem;
+  font-weight: 900;
+  color: var(--lp-ink-dim);
+}
+
+/* Reached: full colour, teal tick. */
+.galLT-stop.is-done .galLT-critter { border-color: var(--lp-teal); background: rgba(18, 163, 124, .1); }
+.galLT-stop.is-done .galLT-line { background: linear-gradient(90deg, var(--lp-teal), var(--lp-teal)); }
+.galLT-stop.is-done .galLT-line::before { background: var(--lp-teal); }
+.galLT-stop.is-done .galLT-lvl { color: var(--lp-teal); }
+.galLT-stop.is-done .galLT-name { color: var(--lp-ink); }
+
+/* Locked: greyed, so "what have I got" is answerable at a glance. */
+.galLT-stop.is-locked .galLT-critter img { filter: grayscale(1); opacity: .5; }
+
+/* The next one up gets the emphasis — it is the one being worked towards. */
+.galLT-stop.is-next .galLT-critter {
+  border-color: var(--lp-gold);
+  background: rgba(232, 179, 74, .14);
+  box-shadow: 0 0 0 3px rgba(232, 179, 74, .25);
+}
+.galLT-stop.is-next .galLT-lvl { color: var(--lp-gold); }
+.galLT-stop.is-next .galLT-name { color: var(--lp-ink); }
+
+/* "You are here": a pill riding the line between two stops. */
+.galLT-you {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--lp-blue-lt), var(--lp-blue));
+  color: #fff;
+  font-size: .64rem;
+  font-weight: 900;
+  white-space: nowrap;
+  box-shadow: 0 3px 8px rgba(28, 112, 204, .4);
+  z-index: 2;
+}
+.galLT-you::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid var(--lp-blue);
+}
+
+@media (max-width: 620px) {
+  .galLT { padding: 12px 12px 8px; border-radius: 16px; }
+  .galLT-stop { width: 78px; }
+  .galLT-critter { width: 46px; height: 46px; }
+  .galLT-title { font-size: .96rem; }
+  .galLT-next { font-size: .84rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ccLP-claimall { animation: none; }
+  .ccLP-tier,
+  .galLT-critter,
+  .ccLP-bar-fill,
+  .ccRF-bar-fill { transition: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   WEEKLY SWAP BUTTON
+   Sits on a weekly challenge card, but ONLY while a Level Pass Weekly Swap
+   token is live for that week — so it lives with the pass, not with the
+   challenge strip it appears on.
+   ══════════════════════════════════════════════════════════════════════ */
+.ph-cs-card { position: relative; }
+
+.ph-cs-swap {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(46, 143, 224, .55);
+  background: rgba(255, 255, 255, .92);
+  color: #1c70cc;
+  font-family: "Nunito", sans-serif;
+  font-weight: 800;
+  font-size: .68rem;
+  line-height: 1.4;
+  cursor: pointer;
+  z-index: 2;
+  box-shadow: 0 2px 6px rgba(23, 54, 90, .16);
+  transition: background .14s ease, transform .14s ease;
+}
+.ph-cs-swap:hover { background: #fff; transform: translateY(-1px); }
+.ph-cs-swap:active { transform: translateY(0); }
+.ph-cs-swap:focus-visible { outline: 2px solid #1c70cc; outline-offset: 2px; }
+
+@media (max-width: 620px) {
+  .ph-cs-swap { font-size: .64rem; padding: 3px 7px; top: 6px; right: 6px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   SIGN-UP: the optional friend-code field
+   On the first-sign-in card, which is dark glass over the login art — so
+   this block is deliberately light-on-dark, unlike everything above it.
+   ══════════════════════════════════════════════════════════════════════ */
+.auth-ref-box {
+  margin: 4px 0 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .07);
+  border: 1px dashed rgba(255, 255, 255, .28);
+  text-align: left;
+}
+.auth-ref-lbl {
+  display: block;
+  font-size: .82rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, .88);
+  margin-bottom: 6px;
+}
+.auth-ref-box .pv-input { margin: 0; width: 100%; }
+.auth-ref-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 8px;
+  font-size: .78rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, .78);
+}
+.auth-ref-note strong { color: #ffd985; }
+.auth-ref-note .cc-coin { width: 13px; height: 13px; vertical-align: -2px; }
