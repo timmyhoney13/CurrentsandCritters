@@ -81,7 +81,7 @@
      the card make the trip once. Painted above the dim, below the popup. */
   #tut3-drags { position:fixed; inset:0; pointer-events:none; }
   .tut3-drag-ghost { position:fixed; border-radius:10px; border:2.5px dashed #ffd574; background:rgba(9,34,60,.55); box-shadow:0 14px 30px rgba(0,0,0,.5), 0 0 18px rgba(255,213,116,.6); overflow:hidden; pointer-events:none; animation:tut3-drag-fly 2.3s ease-in-out infinite; }
-  .tut3-drag-ghost img { width:100%; height:100%; object-fit:contain; display:block; opacity:.85; }
+  .tut3-drag-ghost img { width:100%; height:100%; object-fit:cover; display:block; opacity:.85; }
   .tut3-drag-hand { position:absolute; right:-9px; bottom:-11px; font-size:20px; line-height:1; filter:drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
   @keyframes tut3-drag-fly {
     0%   { transform:translate(0,0) scale(1); opacity:0; }
@@ -122,7 +122,10 @@
   #tut3-toast { position:fixed; left:50%; bottom:30px; transform:translateX(-50%) translateY(20px); z-index:100060; background:linear-gradient(135deg,#1fbb8a,#159e9e); color:#fff; padding:13px 22px; border-radius:14px; font-family:"Nunito",sans-serif; font-weight:800; box-shadow:0 12px 36px rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .3s, transform .3s; display:flex; align-items:center; gap:10px; }
   #tut3-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
   #tut3-hole.pulse { animation:tut3pulse 1.25s ease-in-out infinite; }
-  @keyframes tut3pulse { 0%,100%{ box-shadow:0 0 0 9999px rgba(5,24,44,.72), 0 0 16px rgba(95,208,232,.5); } 50%{ box-shadow:0 0 0 9999px rgba(5,24,44,.72), 0 0 30px 6px rgba(95,208,232,.95); } }
+  /* These keyframes REPLACE box-shadow, so they have to carry the inset glow
+     too. Without it the inner highlight vanished on exactly the steps that
+     pulse, which is every step that asks the player to click something. */
+  @keyframes tut3pulse { 0%,100%{ box-shadow:0 0 0 9999px rgba(5,24,44,.72), 0 0 16px rgba(95,208,232,.5), inset 0 0 30px rgba(150,240,255,.42); } 50%{ box-shadow:0 0 0 9999px rgba(5,24,44,.72), 0 0 30px 6px rgba(95,208,232,.95), inset 0 0 34px rgba(150,240,255,.6); } }
   /* Live status line under a step's text: "waiting for the other players" vs
      "it is your turn". Turn order is random and the bots take real turns, so a
      step that says "play the Lobster" is, for a few seconds, an instruction the
@@ -1710,6 +1713,31 @@
   //  chat, Surf's Up, AFK rules, and the card viewer + hand rearrange.
   // ════════════════════════════════════════════════════════════════
   const wrDiffBoxEl = () => document.querySelector("#wr-players-list .wr-diff-box");
+  // The room code the Online tour puts in the box. Generated once per run and
+  // reused, because the step that says "this is your room code" and the room
+  // that actually gets created have to be talking about the same code. A fixed
+  // literal would collide the moment two people took this tutorial at once.
+  let _tutRoomCode = "";
+  function tutRoomCode() {
+    if (!_tutRoomCode) {
+      const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      const buf = (window.crypto && window.crypto.getRandomValues)
+        ? window.crypto.getRandomValues(new Uint32Array(5)) : null;
+      let out = "";
+      for (let i = 0; i < 5; i++) out += A[(buf ? buf[i] : Math.floor(Math.random() * 0xffffffff)) % A.length];
+      _tutRoomCode = out;
+    }
+    return _tutRoomCode;
+  }
+  function tutFillRoomCode() {
+    const row = document.getElementById("nc-password-row"); if (row) row.style.display = "";
+    const pw = document.getElementById("nc-password");
+    if (pw && !pw.value.trim()) {
+      pw.value = tutRoomCode();
+      pw.dispatchEvent(new Event("input", { bubbles: true }));
+      pw.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
   const ONLINE_STEPS = [
     { target: null, badge: "Online Play", title: "Online Play & Controls",
       before: () => { try { navTab("overview"); } catch (_) {} },
@@ -1728,19 +1756,13 @@
       advanceWhen: () => { const sel = document.getElementById("nc-visibility"); return !!(sel && sel.value === "private"); },
       text: "Public rooms appear in Open Currents. Private rooms need a code. Switch to <strong>Private</strong>." },
     { target: "#nc-password", badge: "Rooms", title: "Your Room Code",
-      before: () => {
-        const row = document.getElementById("nc-password-row"); if (row) row.style.display = "";
-        const pw = document.getElementById("nc-password");
-        if (pw && !pw.value.trim()) { pw.value = "FISHY"; pw.dispatchEvent(new Event("input", { bubbles: true })); pw.dispatchEvent(new Event("change", { bubbles: true })); }
-      },
-      text: "This is your room code. A joiner enters it in <strong>Join Game → Private</strong>." },
+      before: tutFillRoomCode,
+      text: "This is your room code, and it is the code this room will really be created with. A joiner types it into <strong>Join Game → Private</strong> to get in. Room codes are <strong>five letters or numbers</strong>, and you can replace this one with anything you like." },
     { target: "#nc-create-btn", badge: "Rooms", title: "Create the Room", interactive: true, advanceWhen: gtWaitingOpen,
       before: () => {
         const sel = document.getElementById("nc-visibility");
         if (sel && sel.value !== "private") { sel.value = "private"; sel.dispatchEvent(new Event("change", { bubbles: true })); }
-        const row = document.getElementById("nc-password-row"); if (row) row.style.display = "";
-        const pw = document.getElementById("nc-password");
-        if (pw && !pw.value.trim()) { pw.value = "FISHY"; pw.dispatchEvent(new Event("input", { bubbles: true })); pw.dispatchEvent(new Event("change", { bubbles: true })); }
+        tutFillRoomCode();
       },
       text: "Click <strong>Generate Current</strong>." },
     { target: "#wr-players-list", glow: [wrDiffBoxEl], badge: "Rooms", title: "Bot Difficulty",
@@ -1789,6 +1811,9 @@
       return;
     }
     window.__ccTutorialGame = true;
+    // A fresh code per run: taking this tutorial twice in one sitting must not
+    // try to create a second room under the first one's code.
+    _tutRoomCode = "";
     let _exited = false;
     const _exit = async () => {
       if (_exited) return;

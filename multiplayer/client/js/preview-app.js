@@ -3275,19 +3275,23 @@
       password = code;
     }
     if (_isTutGame) {
-      // Keep the tutorial game completely separate from every other game:
-      // force it PRIVATE so it never appears in the Open Currents list and no
-      // real player can join and disrupt the guided turn (which would scramble
-      // turn order and trap the draw step).
+      // A tutorial room is always PRIVATE, so it never appears in Open Currents
+      // and no real player can join and scramble the guided turn.
       //
-      // The code is the SAME SHAPE as every other room code. This used to be
-      // "TUT" plus a timestamp, sliced to the 12-char maximum — a code the
-      // waiting room then displayed at four times the length of a real one,
-      // in every tutorial, as the player's first look at what a room code is.
-      // 5 random characters is what a room code is, and the room being private
-      // is what keeps strangers out, not the length of its name.
+      // Its code is the same shape as any other: 5 characters. It used to be
+      // "TUT" plus a base-36 timestamp sliced to the 12-char maximum, which the
+      // waiting room then displayed at over twice the length of a real code, in
+      // every tutorial, as the first room code most people ever saw. Being
+      // private is what keeps strangers out, not the length of the name.
+      //
+      // And when the tutorial has just SHOWN the player a code (Online Play &
+      // Controls stops on the code box to say "this is your room code"), that
+      // is the code the room gets: rid already holds it, normalized and
+      // validated by the private branch above. Overriding it unconditionally
+      // put a different code on the very next screen.
+      const tutKeepsTypedCode = (visibility === "private");
       visibility = "private";
-      rid = freshRoomCode(5);
+      if (!tutKeepsTypedCode) rid = freshRoomCode(5);
       password = rid;
     }
     _myRoomVisibility = visibility;

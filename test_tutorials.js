@@ -286,7 +286,18 @@ console.log("\nthe tutorial room code looks like a room code");
   check("...and it is still a valid room id (4-12 uppercase alphanumerics)",
         /const n = Math\.max\(4, Math\.min\(12,/.test(APP));
   check("the tutorial room is still private, which is what keeps strangers out",
-        /if \(_isTutGame\) \{[\s\S]{0,900}?visibility = "private";/.test(APP));
+        /if \(_isTutGame\) \{[\s\S]{0,1200}?visibility = "private";/.test(APP));
+  // The Online tour stops on the code box and says "this is your room code".
+  // Overriding it anyway meant the very next screen showed a different one.
+  check("a code the tutorial showed the player is the code the room gets",
+        /const tutKeepsTypedCode = \(visibility === "private"\);/.test(APP) &&
+        /if \(!tutKeepsTypedCode\) rid = freshRoomCode\(5\);/.test(APP));
+  check("...and the tour puts a real 5-character code in that box",
+        /function tutRoomCode\(\)/.test(TUT) && /new Uint32Array\(5\)/.test(TUT));
+  check("...the same one for the code step and the create step",
+        (TUT.match(/tutFillRoomCode/g) || []).length >= 3 && !/FISHY/.test(TUT));
+  check("...regenerated per run, so taking the tour twice cannot reuse a live code",
+        /_tutRoomCode = "";/.test(TUT));
 }
 
 console.log("\nthe tutorial ends by ending");
