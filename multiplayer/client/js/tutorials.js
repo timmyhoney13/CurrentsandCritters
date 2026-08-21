@@ -58,16 +58,38 @@
   #tut3-coach { position:fixed; inset:0; z-index:100050; display:none; pointer-events:none; }
   #tut3-coach.open { display:block; }
   #tut3-catch { position:fixed; inset:0; background:transparent; pointer-events:none; }
-  #tut3-hole { position:fixed; top:0; left:0; width:0; height:0; border-radius:14px; border:2.5px solid #5fd0e8; box-shadow:0 0 0 9999px rgba(5,24,44,.72), 0 0 22px rgba(95,208,232,.6); transition:top .28s ease, left .28s ease, width .28s ease, height .28s ease; pointer-events:none; }
+  /* The ring AND the fill. A border on its own reads as "something round here":
+     against a dimmed table the card inside the ring is still the same colour as
+     every card the player must NOT touch, so "which one do I click?" is left to
+     the player to work out from a 2px outline. The translucent wash + inset
+     glow lift the spotlighted card itself out of the dim. It is painted over
+     the target (pointer-events:none, so clicks still land on the card). */
+  #tut3-hole { position:fixed; top:0; left:0; width:0; height:0; border-radius:14px; border:2.5px solid #5fd0e8; background:rgba(120,225,255,.17); box-shadow:0 0 0 9999px rgba(5,24,44,.72), 0 0 22px rgba(95,208,232,.6), inset 0 0 30px rgba(150,240,255,.42); transition:top .28s ease, left .28s ease, width .28s ease, height .28s ease; pointer-events:none; }
   /* No target → keep the full-screen dim (box-shadow) but hide the ring. */
-  #tut3-hole.nohole { width:0!important; height:0!important; left:50%!important; top:-12px!important; border-color:transparent!important; box-shadow:0 0 0 9999px rgba(5,24,44,.74)!important; }
+  #tut3-hole.nohole { width:0!important; height:0!important; left:50%!important; top:-12px!important; border-color:transparent!important; background:transparent!important; box-shadow:0 0 0 9999px rgba(5,24,44,.74)!important; }
   /* Secondary highlight: glowing rings drawn over EXTRA elements a step wants to
      call out (e.g. the board drop-zone while the spotlight sits on the matching
      hand card). Painted above the dim but below the popup, so two things light up
      at once without ever covering the instructions. */
   #tut3-glows { position:fixed; inset:0; pointer-events:none; }
-  .tut3-glow-ring { position:fixed; border-radius:14px; border:3px solid #ffd574; box-shadow:0 0 22px rgba(255,213,116,.9), inset 0 0 0 3px rgba(255,213,116,.3); animation:tut3-glow-pulse 1.15s ease-in-out infinite; pointer-events:none; }
+  .tut3-glow-ring { position:fixed; border-radius:14px; border:3px solid #ffd574; background:rgba(255,213,116,.22); box-shadow:0 0 22px rgba(255,213,116,.9), inset 0 0 26px rgba(255,213,116,.5), inset 0 0 0 3px rgba(255,213,116,.3); animation:tut3-glow-pulse 1.15s ease-in-out infinite; pointer-events:none; }
   @keyframes tut3-glow-pulse { 0%,100%{ opacity:.62; } 50%{ opacity:1; } }
+  /* Drag demonstration: a ghost of the very card the step is asking for, flying
+     from the player's hand into the slot it belongs in, on a loop. "Play the
+     Lobster" is only half an instruction — the other half is WHERE, and a
+     sentence describing a board position is much harder to follow than watching
+     the card make the trip once. Painted above the dim, below the popup. */
+  #tut3-drags { position:fixed; inset:0; pointer-events:none; }
+  .tut3-drag-ghost { position:fixed; border-radius:10px; border:2.5px dashed #ffd574; background:rgba(9,34,60,.55); box-shadow:0 14px 30px rgba(0,0,0,.5), 0 0 18px rgba(255,213,116,.6); overflow:hidden; pointer-events:none; animation:tut3-drag-fly 2.3s ease-in-out infinite; }
+  .tut3-drag-ghost img { width:100%; height:100%; object-fit:contain; display:block; opacity:.85; }
+  .tut3-drag-hand { position:absolute; right:-9px; bottom:-11px; font-size:20px; line-height:1; filter:drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
+  @keyframes tut3-drag-fly {
+    0%   { transform:translate(0,0) scale(1); opacity:0; }
+    10%  { transform:translate(0,0) scale(1); opacity:.95; }
+    62%  { transform:translate(var(--tut3-dx,0px),var(--tut3-dy,0px)) scale(.9); opacity:.95; }
+    80%  { transform:translate(var(--tut3-dx,0px),var(--tut3-dy,0px)) scale(.9); opacity:.95; }
+    100% { transform:translate(var(--tut3-dx,0px),var(--tut3-dy,0px)) scale(.9); opacity:0; }
+  }
   /* Teaching card-row inside the popup: card images + glowing symbol badges, used
      by the Star-ability lesson to show matching symbols side by side. */
   .t2-row { display:flex; align-items:center; justify-content:center; gap:8px; margin:4px 0 12px; flex-wrap:wrap; }
@@ -101,11 +123,14 @@
   #tut3-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
   #tut3-hole.pulse { animation:tut3pulse 1.25s ease-in-out infinite; }
   @keyframes tut3pulse { 0%,100%{ box-shadow:0 0 0 9999px rgba(5,24,44,.72), 0 0 16px rgba(95,208,232,.5); } 50%{ box-shadow:0 0 0 9999px rgba(5,24,44,.72), 0 0 30px 6px rgba(95,208,232,.95); } }
-  /* Terminal-step action buttons (e.g. Keep Playing / Return to Tutorials). */
-  #tut3-pop .t3-choices { display:flex; flex-direction:column; gap:9px; margin-top:14px; }
-  #tut3-pop .t3-choice { width:100%; border:none; border-radius:12px; padding:12px 16px; font-weight:800; font-size:1rem; cursor:pointer; font-family:inherit; background:#e3eef7; color:#1769b0; transition:filter .12s, transform .12s; }
-  #tut3-pop .t3-choice:hover { filter:brightness(1.05); transform:translateY(-1px); }
-  #tut3-pop .t3-choice.primary { background:linear-gradient(135deg,#2ea8ea,#1a77c9); color:#fff; }
+  /* Live status line under a step's text: "waiting for the other players" vs
+     "it is your turn". Turn order is random and the bots take real turns, so a
+     step that says "play the Lobster" is, for a few seconds, an instruction the
+     player cannot follow. This says so instead of leaving them poking at a card
+     that will not move. */
+  #tut3-pop .t3-live { display:flex; align-items:center; gap:8px; margin-top:12px; padding:8px 12px; border-radius:11px; font-size:.9rem; font-weight:800; background:#e7f2fb; color:#3a6e9c; }
+  #tut3-pop .t3-live.go { background:#e2f7ef; color:#12805e; }
+  #tut3-pop .t3-live .t3-live-dot { width:9px; height:9px; border-radius:50%; background:currentColor; flex-shrink:0; animation:tut3-glow-pulse 1.15s ease-in-out infinite; }
 
   `;
   const styleEl = document.createElement("style");
@@ -127,9 +152,14 @@
   // Timers that keep a step honest: coachStuck un-disables Next so no step can
   // ever trap the player, coachSettle re-positions once async content lands.
   let coachStuck = null, coachSettle = null;
-  // How long an interactive step waits for the real click before it offers a way
-  // past. Short when there is nothing on screen to click (the step cannot be
-  // completed at all), generous when the target is right there.
+  // Live status line ("waiting for the other players…") re-rendered on its own
+  // beat, because the advanceWhen poll does not run on a back-navigated step.
+  let coachTick = null;
+  // How long an interactive step waits before it offers a way past. A step is
+  // NEVER skippable while the thing it asks for is on screen and usable: the
+  // escape exists for the genuine dead end (a control that never rendered, a
+  // screen gated behind sign-in, a rigged card the server did not deal), not
+  // for a player who would rather not do the step.
   const STUCK_WITH_TARGET_MS = 15000;
   const STUCK_NO_TARGET_MS   = 4000;
 
@@ -229,6 +259,62 @@
     });
   }
 
+  // ── Drag demonstration (step.dragDemo) ────────────────────────────────
+  // {from, to} resolve the same way targets do (selector or function). A ghost
+  // of the card sitting at `from` flies to `to` on a loop, so "where does this
+  // go?" is answered by showing it rather than describing a board position.
+  // Rebuilt only when the two rectangles actually move: restarting the
+  // animation every tick would leave the ghost frozen at its first frame.
+  let _dragSig = "";
+  function clearCoachDrags() {
+    const box = coach && coach.querySelector("#tut3-drags");
+    if (box) box.innerHTML = "";
+    _dragSig = "";
+  }
+  function applyCoachDrags() {
+    const box = coach && coach.querySelector("#tut3-drags");
+    if (!box) return;
+    const step = coachSteps[coachIdx];
+    const demo = step && step.dragDemo;
+    const from = demo ? coachResolveOne(demo.from) : null;
+    const to   = demo ? coachResolveOne(demo.to)   : null;
+    if (!from || !to || !isVisible(from) || !isVisible(to)) { if (box.innerHTML) clearCoachDrags(); return; }
+    const a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
+    // Aim at the CENTRE of the destination, carrying the card's own size along.
+    const dx = Math.round((b.left + b.width / 2) - (a.left + a.width / 2));
+    const dy = Math.round((b.top + b.height / 2) - (a.top + a.height / 2));
+    const img = from.querySelector("img");
+    const src = img ? img.getAttribute("src") || "" : "";
+    const sig = [Math.round(a.left), Math.round(a.top), Math.round(a.width), Math.round(a.height), dx, dy, src].join("|");
+    if (sig === _dragSig) return;
+    _dragSig = sig;
+    box.innerHTML = `<div class="tut3-drag-ghost">${src ? `<img src="${esc(src)}" alt="">` : ""}<span class="tut3-drag-hand">👆</span></div>`;
+    const ghost = box.firstElementChild;
+    ghost.style.left   = Math.round(a.left) + "px";
+    ghost.style.top    = Math.round(a.top) + "px";
+    ghost.style.width  = Math.round(a.width) + "px";
+    ghost.style.height = Math.round(a.height) + "px";
+    ghost.style.setProperty("--tut3-dx", dx + "px");
+    ghost.style.setProperty("--tut3-dy", dy + "px");
+  }
+
+  // ── Live status line (step.liveNote) ──────────────────────────────────
+  // Returns {text, go} or null. Re-rendered on its own interval so it keeps up
+  // even on a step the player reached with ← Back.
+  function applyCoachLive() {
+    if (!coach) return;
+    const holder = coach.querySelector("#tut3-live");
+    if (!holder) return;
+    const step = coachSteps[coachIdx];
+    let note = null;
+    try { note = (step && typeof step.liveNote === "function") ? step.liveNote() : null; } catch (_) { note = null; }
+    if (!note || !note.text) { holder.style.display = "none"; holder.innerHTML = ""; return; }
+    holder.style.display = "";
+    holder.className = "t3-live" + (note.go ? " go" : "");
+    const html = `<span class="t3-live-dot"></span><span>${esc(note.text)}</span>`;
+    if (holder.innerHTML !== html) holder.innerHTML = html;
+  }
+
   // Called by an interactive mock element when the user performs an action.
   // If the current step is waiting for exactly that action, advance the tour.
   function coachHit(action) {
@@ -249,11 +335,13 @@
        <div id="tut3-hole"></div>
        <div id="tut3-arrow"></div>
        <div id="tut3-glows"></div>
+       <div id="tut3-drags"></div>
        <div id="tut3-pop">
          <button class="t3-skip" id="tut3-skip">Skip ✕</button>
          <div class="t3-badge" id="tut3-badge"></div>
          <h3 id="tut3-title"></h3>
          <div class="t3-text" id="tut3-text"></div>
+         <div class="t3-live" id="tut3-live" style="display:none"></div>
          <div class="t3-bar">
            <span class="t3-count" id="tut3-count"></span>
            <button class="t3-btn t3-back" id="tut3-back">← Back</button>
@@ -287,16 +375,27 @@
     }
     if (coachPoll) { clearInterval(coachPoll); coachPoll = null; }
     if (coachStuck) { clearInterval(coachStuck); coachStuck = null; }
+    if (coachTick) { clearInterval(coachTick); coachTick = null; }
     if (coachSettle) { clearTimeout(coachSettle); coachSettle = null; }
     clearCoachGlows();
+    clearCoachDrags();
     const cu = coachCleanup;
     coachSteps = []; coachDone = null; coachCleanup = null; coachWait = null;
     try { cu && cu(); } catch (_) {}
   }
 
-  // goingBack=true: arrived here via the ← Back button. In back-mode we skip the
-  // advanceWhen poll (so an already-satisfied condition never auto-jumps the player
-  // forward again) and unlock Next so the player can continue when ready.
+  // goingBack=true: arrived here via the ← Back button.
+  //
+  // Back used to hand the player a step they could look at but not DO: the
+  // catch-layer went back to swallowing clicks, so ← Back on "click your
+  // avatar" left them on a step whose one instruction no longer worked, with
+  // Next as the only way out. That is not going back to a step. So a
+  // back-navigated step is fully live — clicks reach the page and the action
+  // still advances the tour — with two concessions to the fact that it has
+  // already been done once: Next stays available, and the advanceWhen poll is
+  // LATCHED (it must see the condition go false before it can fire), so a
+  // condition that is already true does not bounce the player straight forward
+  // again the moment they arrive.
   function gotoStep(i, goingBack) {
     if (i < 0 || i >= coachSteps.length) return;
     // Step over anything that does not apply to this player. Travelling back
@@ -306,21 +405,35 @@
     if (i < 0 || i >= coachSteps.length) { coachFinish(); return; }
     if (coachPoll) { clearInterval(coachPoll); coachPoll = null; }
     if (coachStuck) { clearInterval(coachStuck); coachStuck = null; }
+    if (coachTick) { clearInterval(coachTick); coachTick = null; }
     if (coachSettle) { clearTimeout(coachSettle); coachSettle = null; }
     coachIdx = i;
     const step = coachSteps[i];
     coachAwaitingAct = false;
     clearCoachGlows();
+    clearCoachDrags();
     try { step.before && step.before(); } catch (_) {}
     // Auto-advance once a real UI transition completes (modal opens, room
     // created, game started, etc.). Re-positions while it waits so the spotlight
     // follows the live element.
-    // Skip the poll when going back, already-satisfied conditions must not
-    // immediately jump the player forward again.
-    if (!goingBack && typeof step.advanceWhen === "function") {
+    if (typeof step.advanceWhen === "function") {
+      // Arriving backwards onto an already-satisfied step: arm the latch so the
+      // poll only fires after the condition has gone false and true again, i.e.
+      // after the player has really redone the action.
+      let armed = true;
+      if (goingBack) { try { armed = !step.advanceWhen(); } catch (_) { armed = true; } }
       coachPoll = setInterval(() => {
-        try { if (step.advanceWhen()) { clearInterval(coachPoll); coachPoll = null; coachAdvance(); } else { positionCoach(); } } catch (_) {}
+        try {
+          const ok = step.advanceWhen();
+          if (!armed) { if (!ok) armed = true; positionCoach(); return; }
+          if (ok) { clearInterval(coachPoll); coachPoll = null; coachAdvance(); } else { positionCoach(); }
+        } catch (_) {}
       }, 350);
+    }
+    // The live status line has its own beat: it must keep updating on a step
+    // with no advanceWhen at all, and on one whose poll is latched.
+    if (typeof step.liveNote === "function") {
+      coachTick = setInterval(applyCoachLive, 400);
     }
     coach.querySelector("#tut3-badge").textContent = step.badge || "";
     coach.querySelector("#tut3-title").innerHTML = step.title || "";
@@ -328,23 +441,13 @@
     // images) the moment it opens, after its before() has run.
     let bodyHtml = (typeof step.text === "function" ? (step.text() || "") : (step.text || ""));
     if (step.cta) bodyHtml += `<div><button class="t3-cta" id="tut3-cta">${esc(step.cta.label)}</button></div>`;
-    const hasChoices = Array.isArray(step.choices) && step.choices.length > 0;
-    if (hasChoices) {
-      bodyHtml += `<div class="t3-choices">` + step.choices.map((c, k) =>
-        `<button class="t3-choice${c.primary ? " primary" : ""}" data-choice="${k}">${esc(c.label)}</button>`).join("") + `</div>`;
-    }
     const textEl = coach.querySelector("#tut3-text");
     textEl.innerHTML = bodyHtml;
     if (step.cta) {
       const ctaBtn = textEl.querySelector("#tut3-cta");
       if (ctaBtn) ctaBtn.addEventListener("click", () => { try { step.cta.onClick(); } catch (_) {} });
     }
-    if (hasChoices) {
-      textEl.querySelectorAll("[data-choice]").forEach(b => b.addEventListener("click", () => {
-        const c = step.choices[Number(b.dataset.choice)];
-        if (c && typeof c.onClick === "function") { try { c.onClick(); } catch (_) {} }
-      }));
-    }
+    applyCoachLive();
     const live = coachLiveIdxs();
     const pos = Math.max(0, live.indexOf(i));
     const isLastStep = coachIsLast(i);
@@ -354,54 +457,47 @@
     backBtn.disabled = (pos === 0);
     // Interactive step: let real clicks/drags reach the highlighted element and
     // disable Next so the player must perform the action.
-    // When going back we never trap the player, clicks pass through and Next is
-    // always available so they can resume forward without repeating the action.
-    const isInteractive = !goingBack && step.interactive;
+    // A back-navigated step stays just as live — the whole point of ← Back is
+    // to be able to do the step again — but its Next is not re-locked, because
+    // the player has already been through it once.
+    const isInteractive = !!step.interactive;
     coachWait = isInteractive ? (step.wait || null) : null;
     const catchEl = coach.querySelector("#tut3-catch");
     const hole = coach.querySelector("#tut3-hole");
     if (catchEl) catchEl.style.pointerEvents = isInteractive ? "none" : "auto";
     if (hole) hole.classList.toggle("pulse", !!isInteractive);
     const nextBtn = coach.querySelector("#tut3-next");
-    if (hasChoices) {
-      // Terminal step with its own action buttons (Keep Playing / Return to
-      // Tutorials): hide Next; Back and Skip stay available.
-      nextBtn.style.display = "none";
+    const lockNext = isInteractive && !step.allowNext && !goingBack;
+    nextBtn.style.display = "";
+    if (isLastStep) {
+      nextBtn.textContent = "Finish ✓"; nextBtn.disabled = false;
+    } else if (lockNext) {
+      // positionCoach fixes the direction the moment it has measured; this is
+      // just the value it had for the previous step, or "none" on the first.
+      nextBtn.textContent = POINTER_LABEL[coachPointer] || POINTER_LABEL.none;
+      nextBtn.disabled = true;
+      coachAwaitingAct = true;
     } else {
-      nextBtn.style.display = "";
-      if (isLastStep) {
-        nextBtn.textContent = "Finish ✓"; nextBtn.disabled = false;
-      } else if (isInteractive && !step.allowNext) {
-        // positionCoach fixes the direction the moment it has measured; this is
-        // just the value it had for the previous step, or "none" on the first.
-        nextBtn.textContent = POINTER_LABEL[coachPointer] || POINTER_LABEL.none;
-        nextBtn.disabled = true;
-        coachAwaitingAct = true;
-      } else {
-        // Interactive + allowNext, non-interactive, or back-navigated: always enabled.
-        nextBtn.textContent = "Next →"; nextBtn.disabled = false;
-      }
+      // Interactive + allowNext, non-interactive, or back-navigated: always enabled.
+      nextBtn.textContent = "Next →"; nextBtn.disabled = false;
     }
-    // ── Never trap the player ──────────────────────────────────────────
-    // An interactive step waits for one real click, so anything that makes that
-    // click impossible (a screen gated behind sign-in, a rigged card the server
-    // did not deal, a control that never rendered) would leave Next disabled
-    // forever with Skip as the only way out — abandoning the whole tutorial.
-    // So Next unlocks itself: quickly when there is nothing on screen to click,
-    // after a fair pause when the target really is right there.
-    if (isInteractive && !hasChoices && !step.allowNext && !isLastStep) {
+    // ── A step is done, not skipped ────────────────────────────────────
+    // While the thing a step asks for is on screen and usable, there is no way
+    // past it but to do it. Skipping was never a shortcut: skip "close the card
+    // viewer" and the viewer sits over every step that follows; skip "Start
+    // Game" and the rest of the tour points into a game that never started.
+    //
+    // The escape below is only for a step that CANNOT be completed — a screen
+    // gated behind sign-in, a rigged card the server did not deal, a control
+    // that never rendered or is disabled — because the alternative there is
+    // Skip ✕, which throws away the whole tutorial. The countdown restarts the
+    // moment the target becomes usable again.
+    if (isInteractive && !step.allowNext && !isLastStep && !goingBack) {
       let waited = 0;
       coachStuck = setInterval(() => {
         waited += 500;
         const t = coachResolveEl(step);
-        // A GATE step (step.mustAct) is the one every step after it depends on:
-        // skip "Start Game" and the whole rest of the tour points at a game that
-        // never started. So it keeps waiting for as long as the control really
-        // is there and usable — the player has to click it. The dead-end escape
-        // is still armed for the cases that actually dead-end: the button never
-        // rendered, it is off screen, or it is disabled (a room still waiting on
-        // human players), and the countdown restarts if it becomes usable again.
-        if (step.mustAct && coachIsUsable(t)) { waited = 0; return; }
+        if (coachIsUsable(t)) { waited = 0; return; }
         const limit = (t && isVisible(t)) ? STUCK_WITH_TARGET_MS : STUCK_NO_TARGET_MS;
         if (waited < limit) return;
         clearInterval(coachStuck); coachStuck = null;
@@ -440,6 +536,7 @@
     const step = coachSteps[coachIdx];
     if (!step) return;
     applyCoachGlows();
+    applyCoachDrags();
     const hole = coach.querySelector("#tut3-hole");
     const pop = coach.querySelector("#tut3-pop");
     const arrow = coach.querySelector("#tut3-arrow");
@@ -979,6 +1076,21 @@
   // brief window right after the 2nd draw where can_act may still read true
   // before the server processes the forced end-of-turn.
   let _gtSawOppTurn = false;
+  // When the current "waiting for the others" step opened, so a wait that was
+  // already over before it opened does not stall.
+  let _gtWaitFrom = 0;
+  // ── "It is your turn" / "waiting for the others" ────────────────────────
+  // Playing a card ends your turn by itself, so between two guided plays the
+  // three computer players take real turns. Shared by every step that asks for
+  // a play, because the alternative is a step telling the player to drag a card
+  // that will not go anywhere for the next few seconds.
+  function tutTurnNote() {
+    if (!gtPay()) return null;                       // not in a game yet
+    return gtMyTurn()
+      ? { text: "It is your turn.", go: true }
+      : { text: "Waiting for the other players to take their turns\u2026" };
+  }
+
   // First seat belonging to another player (always an AI in the 1-human tutorial).
   function gtOtherSeat() {
     const me = gtMe();
@@ -1172,6 +1284,30 @@
     return fallback;
   }
   function gtFreeCreatureEl() { const e = gtFreeCreatureEntry(); return e ? gtHandCardEl(gtEntryUid(e)) : null; }
+
+  // ── "Where does this card actually go?" ───────────────────────────────
+  // Ask the server, not the tutorial. The legal-action list already names the
+  // exact ocean and lane a card may be played into, so the step can light up
+  // the one slot that will accept it (and the drag demo can fly into it)
+  // instead of glowing the whole board and leaving the player to guess which
+  // of four spots is the right one.
+  function gtSlotElForEntry(entryUid) {
+    if (!entryUid) return null;
+    let acts = [];
+    try { acts = window.__ccLegalActions ? window.__ccLegalActions() : []; } catch (_) { return null; }
+    const a = acts.find(x => x && x.kind === "play_to_ocean" && Number(x.card_uid) === Number(entryUid));
+    if (!a) return null;
+    const dir = String(a.face_direction || "").toLowerCase();
+    if (!dir) return null;
+    const hub = document.querySelector(`#pv-my-board .pv-ocean-hub[data-ocean-uid="${a.ocean_uid}"]`);
+    return hub ? hub.querySelector(`.pv-lane-${dir}`) : null;
+  }
+  // The slot the tutorial's free creature belongs in; the whole board is the
+  // fallback so the destination always lights up even before the board renders.
+  function gtFreeCreatureSlotEl() {
+    const e = gtFreeCreatureEntry();
+    return (e && gtSlotElForEntry(gtEntryUid(e))) || document.getElementById("pv-my-board");
+  }
   // Board-focus close control (Tutorial 2 "close the board view").
   function gtBoardFocusCloseEl() { const el = document.getElementById("pv-board-focus-close"); return (el && el.offsetParent !== null) ? el : null; }
 
@@ -1201,6 +1337,17 @@
     const reef = blReefOcean();
     return reef ? document.querySelector(`#pv-my-board .pv-ocean-hub[data-ocean-uid="${reef.ocean_uid}"]`) : null;
   }
+  // ONE lane of that hub. "Play the Lobster on the Artificial Reef" leaves out
+  // the half the player actually needs: an Ocean has four attachment spots and
+  // a Lobster only goes in one of them. Lighting the hub as a whole says "one
+  // of these four", which is the question, not the answer. Down = Ocean Floor
+  // (Lobsters), up = Surface (the Gull).
+  function blReefLaneEl(dir) {
+    const hub = blReefHubEl();
+    return hub ? hub.querySelector(`.pv-lane-${dir}`) : null;
+  }
+  function blReefFloorEl()   { return blReefLaneEl("down"); }
+  function blReefSurfaceEl() { return blReefLaneEl("up"); }
   // Two SAFE payment cards for California Gull's 2-card cost, the extra oceans
   // (Coral Reef + Mangrove) B-Lob doesn't need. Never the Lobsters (already on the
   // board by this step).
@@ -1242,9 +1389,6 @@
     try { const h = window.__ccHelpTut; if (h) { if (!h.isOpen()) h.open(); h.showList(); } } catch (_) {}
   }
 
-  // Terminal-step handlers, assigned by runGameTour / runBLobTour before runCoach.
-  let _t2Keep = null, _t2Return = null, _t3Keep = null, _t3Return = null;
-
   // ════════════════════════════════════════════════════════════════
   //  TUTORIAL 2, THE GAME (short: real setup + one Star ability)
   // ════════════════════════════════════════════════════════════════
@@ -1273,13 +1417,13 @@
     { target: "#wr-players-list", badge: "Setup", title: "Waiting Room",
       before: gtAllBotsEasy,
       text: "Players and computer opponents appear here." },
-    { target: "#wr-start-btn", badge: "Setup", title: "Start the Game", interactive: true, mustAct: true, advanceWhen: gtGameOpen,
+    { target: "#wr-start-btn", badge: "Setup", title: "Start the Game", interactive: true, advanceWhen: gtGameOpen,
       text: "Click <strong>Start Game</strong>." },
 
     // ── Gameplay ────────────────────────────────────────────────────
     { target: gtGuideBarEl, badge: "Your Turn", title: "Follow the Guide",
       text: "The moment your turn starts, a <strong>guide bar</strong> appears above the table spelling out what to do next. Turn order is random, so if another player is going first, it turns up when the turn reaches you." },
-    { target: "#pv-draw-deck", badge: "Your Turn", title: "Draw Two", interactive: true,
+    { target: "#pv-draw-deck", badge: "Your Turn", title: "Draw Two", interactive: true, liveNote: tutTurnNote,
       before: () => { _gtDrawBase = gtDrawCount(); _gtDrawSawTurn = false; _gtHandBase = gtHandCardCount(); },
       advanceWhen: () => {
         // Hand started full; drawing 2 brings it +2. Backups: optimistic draw
@@ -1295,23 +1439,33 @@
       advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
       text: "The computer players are taking their turns." },
 
+    // ── Two-sided cards ─────────────────────────────────────────────
+    // The single most confusing thing about the deck, and it was never said
+    // anywhere in the tutorials: a card is not one animal.
+    { target: "#pv-hand", badge: "Your Cards", title: "Every Card Is Two Animals",
+      text: "Look at a card in your hand and you are only seeing <strong>one side of it</strong>. Turn it around and it is a completely <strong>different animal</strong>, with its own name, its own cost, its own symbol and its own ★ ability. So a card in your hand is really two choices, and playing it means choosing <strong>which animal you are playing</strong>. Hover a card to see both sides listed." },
+    { target: "#pv-hand", badge: "Your Cards", title: "Which Side, Which Spot",
+      text: "The side you choose also decides <strong>where the card can go</strong>. Each animal faces a direction: <strong>Surface</strong> (the top spot, birds and baitfish), <strong>Ocean Floor</strong> (the bottom spot, lobsters, crabs and gobies), or the <strong>left and right</strong> spots for the bigger swimmers. That is why the same card can be a Surface bird one way round and an Ocean Floor crustacean the other." },
+
     // ── One Star ability: Mangrove's Play Again ─────────────────────
     { target: gtMangroveHandEl, glow: [gtOceanDropEl], badge: "Play", title: "Play Mangrove",
-      interactive: true, popAnchor: "top",
+      interactive: true, popAnchor: "top", liveNote: tutTurnNote,
+      dragDemo: { from: gtMangroveHandEl, to: gtOceanDropEl },
       before: () => { t2ForceStarOn(); t2CacheOceanPair(); _gtOceanBase = gtOceanCount(); },
       advanceWhen: () => gtPayingOcean() || gtOceanCount() > _gtOceanBase,
-      text: "Drag <strong>Mangrove</strong> onto your board — or pick it in the <strong>Choose action…</strong> dropdown and press <strong>Play Card</strong>." },
+      text: "Drag <strong>Mangrove</strong> from your hand into the glowing drop zone on your board, the way the ghost card is showing you. You can also pick it in the <strong>Choose action…</strong> dropdown and press <strong>Play Card</strong>." },
     { target: gtArcticHandEl, glow: [gtArcticHandEl, "#pv-payment-confirm-btn", gtPayBarEl],
       badge: "Star", title: "Activate the Star", interactive: true, popAnchor: "top",
       advanceWhen: () => gtOceanCount() > _gtOceanBase,
       text: "Pay with the glowing matching-symbol card, then confirm." },
     { target: null, badge: "★ Star", title: "Star Activated!",
       text: "The symbols matched, so ★ Play Again activated." },
-    { target: gtFreeCreatureEl, glow: ["#pv-my-board"], badge: "Play Again", title: "Play a Creature",
-      interactive: true, popAnchor: "top",
+    { target: gtFreeCreatureEl, glow: [gtFreeCreatureSlotEl], badge: "Play Again", title: "Play a Creature",
+      interactive: true, popAnchor: "top", liveNote: tutTurnNote,
+      dragDemo: { from: gtFreeCreatureEl, to: gtFreeCreatureSlotEl },
       before: () => { _gtCreatureBase = gtCreatureCount(); },
       advanceWhen: () => gtCreatureCount() > _gtCreatureBase,
-      text: "★ Play Again means this turn is not over. Drag the glowing creature onto your board, or play it from the <strong>Choose action…</strong> dropdown." },
+      text: "★ Play Again means this turn is not over. Drag the glowing creature into the glowing spot on your board, the one the ghost card is flying into, or play it from the <strong>Choose action…</strong> dropdown." },
 
     // ── Short explanations ──────────────────────────────────────────
     { target: gtPoolEl, glow: [gtPoolEl], badge: "The Pool", title: "The Pool",
@@ -1326,17 +1480,13 @@
     { target: "#pv-my-score-badge", badge: "Scoring", title: "Your Score",
       text: "Your current score appears here." },
     { target: "#pv-end-turn-inline", badge: "Your Turn", title: "End Your Turn",
-      text: "Use End Turn when you are finished making moves." },
+      text: "Most of the time you never touch this. <strong>Playing a card ends your turn for you</strong>, and so does drawing your two cards.<br><br>End Turn is for the handful of cards that let you keep playing: <strong>Loggerhead Sea Turtle</strong> and <strong>Hermit Crab</strong> open your turn up so you can play <strong>as many cards as you like</strong>. The game has no way of knowing when you have finished, so it waits, and <strong>you</strong> tell it you are done by pressing End Turn. When that is happening the game says so above the table." },
     { target: "#pv-draw-deck", badge: "Endgame", title: "Ending the Game",
       text: "The END GAME card starts the final round. The highest score wins." },
 
     // ── Complete (no full match required) ───────────────────────────
     { target: null, badge: "Complete", title: "Tutorial 2 Complete!",
-      text: "You created a game, played Mangrove, and fired a Star ability. What next?",
-      choices: [
-        { label: "Keep Playing", primary: true, onClick: () => { try { _t2Keep && _t2Keep(); } catch (_) {} } },
-        { label: "Return to Tutorials", onClick: () => { try { _t2Return && _t2Return(); } catch (_) {} } },
-      ] },
+      text: "You created a game, played Mangrove, and fired a Star ability. Select <strong>Finish</strong> to return to the tutorials." },
   ];
 
   function runGameTour() {
@@ -1350,26 +1500,23 @@
     // Flag the next created game as a tutorial so the server rigs a playable
     // opening hand. Consumed (cleared) by the create handler.
     window.__ccTutorialGame = true;
-    let _exited = false, _keepPlaying = false;
+    let _exited = false;
+    // Finishing and skipping both leave the practice match: the tutorial's game
+    // is a rigged, private, all-bot room, not somewhere to be left sitting.
     const _cleanup = async () => {
       if (_exited) return;
       _exited = true;
       window.__ccTutorialGame = false;
-      if (_keepPlaying) return;             // Keep Playing: leave the player in the live match
       try { if (window.__tutLeaveGame) await window.__tutLeaveGame(); } catch (_) {}
       setTimeout(openChooser, 700);
     };
-    _t2Keep = () => {
-      setDone("game"); showToast("Tutorial 2 complete", completionSubtitle());
-      _keepPlaying = true; endCoach();      // close coachmarks, stay in the match
-    };
-    _t2Return = () => {
-      setDone("game"); showToast("Tutorial 2 complete", completionSubtitle());
-      _keepPlaying = false; endCoach();     // close coachmarks, leave match, reopen chooser
-    };
-    // No onDone (the final step's own buttons drive completion); Skip → _cleanup
-    // (leaves the match, no setDone).
-    runCoach(GAME_STEPS, null, _cleanup);
+    // endCoach runs _cleanup first, then this; Skip ✕ runs _cleanup alone, so
+    // only finishing marks the tutorial done.
+    runCoach(GAME_STEPS, async () => {
+      setDone("game");
+      showToast("Tutorial 2 complete", completionSubtitle());
+      await _cleanup();
+    }, _cleanup);
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -1390,7 +1537,6 @@
   }
   function blHandElByName(nameLc) { const e = blHandEntryByName(nameLc); return e ? gtHandCardEl(gtEntryUid(e)) : null; }
   function blNarwhalEl() { return blHandElByName("bigeye tuna") || blHandElByName("big eye tuna") || blHandElByName("narwhal"); }
-  function blEndTurnEl() { const el = document.getElementById("pv-end-turn-inline"); return (el && el.offsetParent !== null) ? el : null; }
 
   // ════════════════════════════════════════════════════════════════
   //  TUTORIAL 3, PRACTICE GAME (B-Lob): real setup, then the Strategy
@@ -1421,7 +1567,7 @@
     { target: "#wr-players-list", badge: "Setup", title: "Waiting Room",
       before: gtAllBotsEasy,
       text: "Your computer opponents are ready." },
-    { target: "#wr-start-btn", badge: "Setup", title: "Start the Game", interactive: true, mustAct: true, advanceWhen: gtGameOpen,
+    { target: "#wr-start-btn", badge: "Setup", title: "Start the Game", interactive: true, advanceWhen: gtGameOpen,
       text: "Click <strong>Start Game</strong>." },
 
     // ── Strategy guide (Help → pick Crustaceans → Bird Lobster) ─────
@@ -1453,62 +1599,69 @@
     { target: () => blHandElByName("artificial reef"), badge: "B-Lob", title: "Artificial Reef",
       text: "Artificial Reef scores +2 for every attached card." },
     { target: () => blHandElByName("lobster"), badge: "B-Lob", title: "Lobster",
-      text: "Lobsters are free and can stack in one slot." },
+      text: "Lobsters are free, they go on the <strong>Ocean Floor</strong> (the bottom spot), and any number of them can share that one spot." },
     { target: () => blHandElByName("california gull"), badge: "B-Lob", title: "California Gull",
-      text: "California Gull scores +2 per crustacean." },
+      text: "California Gull is a bird, so it goes on the <strong>Surface</strong> (the top spot), and it scores +2 per crustacean underneath." },
 
-    // ── Guided B-Lob turns (one action per turn) ────────────────────
+    // ── Guided B-Lob turns (one play per turn) ──────────────────────
+    // Playing a card ends the turn by itself, so there is no End Turn step
+    // between these: the computer players simply take their turns, and each
+    // play step says so on its own live status line until the turn comes back.
     { target: () => blHandElByName("artificial reef"), glow: [gtOceanDropEl], badge: "Turn 1", title: "Play Artificial Reef",
-      interactive: true, popAnchor: "top",
+      interactive: true, popAnchor: "top", liveNote: tutTurnNote,
+      dragDemo: { from: () => blHandElByName("artificial reef"), to: gtOceanDropEl },
       before: () => { _gtOceanBase = gtOceanCount(); },
       advanceWhen: () => gtPayingOcean() || blReefOnBoard(),
-      text: "Drag <strong>Artificial Reef</strong> onto your board — or pick it in the <strong>Choose action…</strong> dropdown and press <strong>Play Card</strong>." },
+      text: "Drag <strong>Artificial Reef</strong> from your hand into the glowing drop zone on your board, the way the ghost card is showing you. You can also pick it in the <strong>Choose action…</strong> dropdown and press <strong>Play Card</strong>." },
     { target: gtPayBarEl, glow: [blNarwhalEl, "#pv-payment-confirm-btn", gtPayBarEl], badge: "Turn 1", title: "Pay the Cost",
       interactive: true, popAnchor: "top", advanceWhen: () => blReefOnBoard(),
-      text: "Pay for it with the glowing card in your hand, then press <strong>Confirm</strong>." },
-    { target: blEndTurnEl, badge: "Your Turn", title: "End Your Turn", interactive: true, allowNext: true,
-      before: () => { _gtSawOppTurn = false; },
-      advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
-      text: "End your turn so the computer players can play." },
+      // Pay with the glowing card and ONLY the glowing card: the rest of this
+      // tutorial is built on the two Lobsters and the Gull, and spending one of
+      // them here leaves the following steps asking for a card that is gone.
+      text: "Oceans cost cards. Pay for this one with the <strong>glowing card</strong> in your hand, then press <strong>Confirm</strong>. Use that card and not another one, your <strong>Lobsters</strong> and your <strong>California Gull</strong> are the rest of this combo, so keep them in your hand." },
 
-    { target: () => blHandElByName("lobster"), glow: [blReefHubEl], badge: "Turn 2", title: "Play Lobster",
-      interactive: true, popAnchor: "top",
+    { target: () => blHandElByName("lobster"), glow: [blReefFloorEl], badge: "Turn 2", title: "Play Lobster",
+      interactive: true, popAnchor: "top", liveNote: tutTurnNote,
+      dragDemo: { from: () => blHandElByName("lobster"), to: blReefFloorEl },
       advanceWhen: () => blLobstersOnReef() >= 1,
-      text: "Drag a <strong>Lobster</strong> onto the glowing Artificial Reef — or play it from the <strong>Choose action…</strong> dropdown." },
-    { target: blEndTurnEl, badge: "Your Turn", title: "End Your Turn", interactive: true, allowNext: true,
-      before: () => { _gtSawOppTurn = false; },
-      advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
-      text: "End your turn." },
+      text: "Drag the <strong>Lobster</strong> into the <strong>bottom spot</strong> of your Artificial Reef, the glowing slot the ghost card is flying into. That bottom spot is the Ocean Floor, which is where crustaceans live. You can also play it from the <strong>Choose action…</strong> dropdown." },
 
-    { target: () => blHandElByName("lobster"), glow: [blReefHubEl], badge: "Turn 3", title: "Stack Another",
-      interactive: true, popAnchor: "top",
+    { target: () => blHandElByName("lobster"), glow: [blReefFloorEl], badge: "Turn 3", title: "Stack Another",
+      interactive: true, popAnchor: "top", liveNote: tutTurnNote,
+      dragDemo: { from: () => blHandElByName("lobster"), to: blReefFloorEl },
       advanceWhen: () => blLobstersOnReef() >= 2,
-      text: "Play your second <strong>Lobster</strong> into the same slot as the first. Lobsters stack, so any number can share one spot." },
+      text: "Drag your second <strong>Lobster</strong> into that same bottom spot, right on top of the first one. Lobsters stack, so any number of them can share one spot." },
     { target: null, badge: "B-Lob", title: "Lobsters Stacked!",
       text: "Two Lobsters now share one slot." },
-    { target: blEndTurnEl, badge: "Your Turn", title: "End Your Turn", interactive: true, allowNext: true,
-      before: () => { _gtSawOppTurn = false; },
-      advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
-      text: "End your turn." },
+    { target: null, badge: "Their Turn", title: "Waiting for the Others",
+      liveNote: tutTurnNote,
+      before: () => { _gtSawOppTurn = false; _gtWaitFrom = Date.now(); },
+      // Normally: wait for the turn to leave and come back. But the bots can
+      // have finished the whole round while the player was reading the step
+      // before this one, and then "the turn left" never happens again — so once
+      // it has plainly been the player's turn for a few seconds, move on.
+      advanceWhen: () => {
+        if (!gtMyTurn()) { _gtSawOppTurn = true; return false; }
+        return _gtSawOppTurn || (Date.now() - _gtWaitFrom > 3500);
+      },
+      text: "You never press End Turn here. Playing a card <strong>ends your turn for you</strong>, so the three computer players are taking their turns now. This step moves on by itself the moment the turn comes back to you." },
 
-    { target: () => blHandElByName("california gull"), glow: [blReefHubEl], badge: "Turn 4", title: "Play California Gull",
-      interactive: true, popAnchor: "top",
+    { target: () => blHandElByName("california gull"), glow: [blReefSurfaceEl], badge: "Turn 4", title: "Play California Gull",
+      interactive: true, popAnchor: "top", liveNote: tutTurnNote,
+      dragDemo: { from: () => blHandElByName("california gull"), to: blReefSurfaceEl },
       advanceWhen: () => gtPayingCreature() || blGullOnReef(),
-      text: "Play <strong>California Gull</strong> onto the surface of Artificial Reef, by dragging it there or from the <strong>Choose action…</strong> dropdown." },
+      text: "The gull is a bird, so it goes in the <strong>top spot</strong> of the Artificial Reef, the Surface. Drag it from your hand into that glowing slot, exactly like the ghost card, or play it from the <strong>Choose action…</strong> dropdown." },
     { target: gtPayBarEl, glow: [() => blGullPayEls()[0], () => blGullPayEls()[1], "#pv-payment-confirm-btn", gtPayBarEl],
       badge: "Turn 4", title: "Pay Two Cards", interactive: true, popAnchor: "top",
+      dragDemo: { from: () => blHandElByName("california gull"), to: blReefSurfaceEl },
       advanceWhen: () => blGullOnReef(),
-      text: "Select the two glowing payment cards, then confirm." },
+      text: "The gull costs two cards. Select the <strong>two glowing cards</strong> in your hand, then press <strong>Confirm</strong>, and the gull lands in the top spot of the reef, over your stacked Lobsters." },
     { target: null, badge: "B-Lob", title: "B-Lob Working!",
       text: "California Gull gains +2 per Lobster because Lobsters are crustaceans." },
 
     // ── Complete (no full match required) ───────────────────────────
     { target: null, badge: "Complete", title: "Tutorial 3 Complete!",
-      text: "You built the B-Lob combo: stacked Lobsters under Artificial Reef, topped with California Gull. What next?",
-      choices: [
-        { label: "Keep Playing", primary: true, onClick: () => { try { _t3Keep && _t3Keep(); } catch (_) {} } },
-        { label: "Return to Tutorials", onClick: () => { try { _t3Return && _t3Return(); } catch (_) {} } },
-      ] },
+      text: "You built the B-Lob combo: stacked Lobsters on the Ocean Floor of the Artificial Reef, topped with a California Gull on the Surface. Select <strong>Finish</strong> to return to the tutorials." },
   ];
 
   function runBLobTour() {
@@ -1519,38 +1672,35 @@
         text: "This tutorial sets up a real game from the menu. Please open the <strong>Main Menu</strong> first, then choose <strong>Tutorial, then Practice Game (B-Lob)</strong>." }], null);
       return;
     }
-    // Save the strategies active BEFORE this tutorial so Return/Skip can restore
-    // them. (Keep Playing leaves the tutorial's Crustaceans + Bird Lobster on.)
+    // Save the strategies active BEFORE this tutorial so leaving it (finished or
+    // skipped) can put them back: the tour turns Crustaceans + Bird Lobster on
+    // for its own lesson and must not leave the player's plan rewritten.
     let _blobPrevStrats = [];
     try { if (window.__ccHelpTut) _blobPrevStrats = window.__ccHelpTut.activeLabels(); } catch (_) {}
     // Flag the next created game as a B-Lob tutorial so the server rigs the exact
     // Bird+Lobster opening hand. Both flags are consumed by the create handler.
     window.__ccTutorialGame = true;
     window.__ccTutorialVariant = "blob";
-    let _exited = false, _keepPlaying = false;
+    let _exited = false;
+    // Finish or Skip: either way the practice match is left and the strategies
+    // the player had turned on before the tutorial are put back.
     const _cleanup = async () => {
       if (_exited) return;
       _exited = true;
       window.__ccTutorialGame = false;
       window.__ccTutorialVariant = "";
       try { if (window.__ccHelpTut) window.__ccHelpTut.close(); } catch (_) {}
-      if (_keepPlaying) return;   // Keep Playing: stay in match, keep B-Lob strategies on
-      // Return to Tutorials OR Skip: restore pre-tutorial strategies, leave match.
       try { if (window.__ccHelpTut) window.__ccHelpTut.setActiveLabels(_blobPrevStrats); } catch (_) {}
       try { if (window.__tutLeaveGame) await window.__tutLeaveGame(); } catch (_) {}
       setTimeout(openChooser, 700);
     };
-    _t3Keep = () => {
-      setDone("practice"); showToast("Tutorial 3 complete", completionSubtitle());
-      _keepPlaying = true; endCoach();      // close coachmarks, stay in match, strategies stay on
-    };
-    _t3Return = () => {
-      setDone("practice"); showToast("Tutorial 3 complete", completionSubtitle());
-      _keepPlaying = false; endCoach();     // close coachmarks, restore strategies, leave match
-    };
-    // No onDone (final step's buttons drive completion); Skip → _cleanup (restores
-    // strategies, leaves the match, no setDone).
-    runCoach(BLOB_STEPS, null, _cleanup);
+    // endCoach runs _cleanup first, then this; Skip ✕ runs _cleanup alone, so
+    // only finishing marks the tutorial done.
+    runCoach(BLOB_STEPS, async () => {
+      setDone("practice");
+      showToast("Tutorial 3 complete", completionSubtitle());
+      await _cleanup();
+    }, _cleanup);
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -1595,7 +1745,7 @@
       text: "Click <strong>Generate Current</strong>." },
     { target: "#wr-players-list", glow: [wrDiffBoxEl], badge: "Rooms", title: "Bot Difficulty",
       text: "Each bot can be Easy, Medium, or Hard. As host, change any bot's difficulty here." },
-    { target: "#wr-start-btn", badge: "Rooms", title: "Start the Game", interactive: true, mustAct: true, advanceWhen: gtGameOpen,
+    { target: "#wr-start-btn", badge: "Rooms", title: "Start the Game", interactive: true, advanceWhen: gtGameOpen,
       before: gtAllBotsEasy,
       text: "Click <strong>Start Game</strong>." },
 
@@ -1604,8 +1754,8 @@
       text: "Tap 💬 Chat to talk with everyone in the current game." },
 
     // ── Group 3: Surf's Up & AFK rules ──────────────────────────────
-    { target: "#pv-surf-btn", badge: "Breaks", title: "Surf's Up",
-      text: "Tap 🏄 Surf's Up to go Away, you can't move while Away. Tap <strong>I'm Back</strong> to return." },
+    { target: "#pv-surf-btn", badge: "Breaks", title: "Surf's Up!!",
+      text: "Real life happens in the middle of a game. <strong>🏄 Surf's Up!!</strong> is how you step away without wrecking the table for everyone else.<br><br>Tap it and you are marked <strong>Away</strong>:<br>• <strong>The game waits for you.</strong> Your turn parks where it is. Nothing is drawn or played for you, and nothing is auto-passed.<br>• <strong>Nobody can vote you AFK</strong> for the next 10 minutes, so you will not come back to find your turn was skipped.<br>• <strong>You cannot make a move while Away.</strong> That is the point, it is an honest \u201cI am not here\u201d, not a way to stall.<br>• Everyone at the table sees a <strong>🌊 Away</strong> badge on your seat, so they know why the game paused.<br><br>Tap <strong>🌊 I'm Back</strong> and you pick your turn up exactly where you left it. In Competitive it steps <strong>both of your hands</strong> away at once." },
     { target: "#pv-chat-btn", badge: "AFK", title: "Reporting AFK",
       text: "If a player vanishes on their own turn, report them in chat. Capitals don't matter:<br><span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:3px;color:#cfe6fb\">P1 AFK</span> <span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:3px;color:#cfe6fb\">P1 away</span> <span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:3px;color:#cfe6fb\">PlayerName away</span>" },
     { target: null, badge: "AFK", title: "The 20-Second Check",
@@ -1615,13 +1765,16 @@
 
     // ── Group 4: card controls ──────────────────────────────────────
     { target: "#pv-hand", badge: "Cards", title: "Enlarge a Card", interactive: true, advanceWhen: gtZoomOpen,
-      text: "Click any card in your hand to enlarge it and read its text." },
-    { target: "#pv-zoom-modal", badge: "Cards", title: "Flip & Close", interactive: true, advanceWhen: gtZoomClosed,
-      text: "Use ‹ and › to view the previous and next card, then close the viewer." },
+      text: "Click any card in your hand to enlarge it and read its text. Remember that a card is <strong>two animals</strong>, one on each side, each with its own cost, symbol, direction and ★ ability, so it is always worth a proper look before you commit to a side." },
+    { target: "#pv-zoom-modal", glow: ["#pv-zoom-close"], badge: "Cards", title: "Flip & Close", interactive: true,
+      advanceWhen: gtZoomClosed,
+      text: "Use <strong>‹</strong> and <strong>›</strong> to step through the rest of your hand without closing the viewer. When you are done, click the glowing <strong>✕</strong> in the corner of the card to close it." },
+    // The only step in any tutorial with no click alternative, so the gesture
+    // is spelled out rather than named.
     { target: "#pv-hand", badge: "Cards", title: "Rearrange Your Hand", interactive: true,
       before: () => { _tutHandSig = gtHandSig(); },
       advanceWhen: () => gtHandSig() !== _tutHandSig,
-      text: "Drag a card onto another to rearrange your hand." },
+      text: "Your hand is yours to order however you like. <strong>Press and hold</strong> any card, <strong>drag it on top of another card</strong> in your hand, and let go: the two swap places. On a touch screen, hold the card for a moment before you move it. Do that once and the step moves on." },
 
     { target: null, badge: "Complete", title: "Online Play & Controls Complete!",
       text: "That's rooms, bots, chat, breaks, AFK rules, and card controls. Select <strong>Finish</strong> to return to the tutorials." },
@@ -1727,7 +1880,7 @@
 
     // ── 13. Hand-switch in the game ────────────────────────────────
     { target: null, badge: "In the Game", title: "Switching Between Your Hands",
-      text: "In a competitive game, turns cycle through all four seats automatically, and you never switch hands yourself. The moment you end a turn, the board <strong>flips straight to your other hand</strong> — you don't wait for your opponent to finish, and there's no overlay to tap through. Use that time to plan the hand that's up next; the banner at the top always names the hand you're looking at and turns gold when it's your turn to play it." },
+      text: "In a competitive game, turns cycle through all four seats automatically, and you never switch hands yourself. The moment you end a turn, the board <strong>flips straight to your other hand</strong>. You don't wait for your opponent to finish, and there's no overlay to tap through. Use that time to plan the hand that's up next; the banner at the top always names the hand you're looking at and turns gold when it's your turn to play it." },
 
     // ── 14. Strategy: two hands ────────────────────────────────────
     { target: null, badge: "Strategy", title: "Playing Two Hands",

@@ -48,12 +48,17 @@ function check(name, cond) {
 // ════════════════════════════════════════════════════════════════════════
 //  SOURCE
 // ════════════════════════════════════════════════════════════════════════
-console.log("\nno step can trap the player");
+console.log("\na step is done, not skipped");
 
-// An interactive step disables Next until the player performs the action. If
-// the action is impossible — a screen gated behind sign-in, a rigged card the
-// server did not deal, a control that never rendered — that is a dead end.
-check("interactive steps get a timer that re-enables Next", /coachStuck\s*=\s*setInterval/.test(TUT));
+// A step used to un-disable its own Next after 15 seconds even when the thing
+// it asked for was sitting right there under the spotlight — so "close the card
+// viewer" could be skipped, and then the viewer covered every step after it.
+// Now the countdown only runs while the target is NOT usable, which is the
+// genuine dead end (gated behind sign-in, never rendered, disabled).
+check("the escape is armed only while the target is unusable",
+      /if \(coachIsUsable\(t\)\) \{ waited = 0; return; \}/.test(TUT));
+check("...and it is no longer a per-step opt-in", !/mustAct/.test(TUT));
+check("interactive steps still get the dead-end timer", /coachStuck\s*=\s*setInterval/.test(TUT));
 check("the timer un-disables Next rather than auto-advancing",
       /b\.disabled\s*=\s*false;\s*b\.textContent\s*=\s*"Skip this step →"/.test(TUT));
 check("a step with nothing on screen to click gives up sooner",
@@ -64,7 +69,27 @@ check("a step with nothing on screen to click gives up sooner",
   check(`the no-target wait (${noTarget}ms) is shorter than the with-target wait (${withTarget}ms)`,
         noTarget > 0 && withTarget > noTarget);
 }
+check("a disabled control does not count as usable, so a real dead end still gives way",
+      /function coachIsUsable\(el\)[\s\S]{0,220}?el\.disabled/.test(TUT));
 check("the timer is cleared when the tour ends", /if \(coachStuck\) \{ clearInterval\(coachStuck\)/.test(TUT));
+
+console.log("\n← Back takes you back to the step, not to a picture of it");
+
+// Back used to hand over a step the player could read but not perform: the
+// catch-layer went straight back to swallowing every click, so "click your
+// avatar" on a back-navigated step did nothing at all.
+check("a back-navigated step is still interactive",
+      /const isInteractive = !!step\.interactive;/.test(TUT));
+check("...so clicks still reach the page on it",
+      /catchEl\.style\.pointerEvents = isInteractive \? "none" : "auto"/.test(TUT));
+check("...and doing the action still advances the tour (the poll is armed, not skipped)",
+      /if \(typeof step\.advanceWhen === "function"\) \{[\s\S]{0,400}?if \(goingBack\) \{ try \{ armed = !step\.advanceWhen\(\); \}/.test(TUT));
+check("an already-satisfied condition does not bounce them forward again (the latch)",
+      /if \(!armed\) \{ if \(!ok\) armed = true; positionCoach\(\); return; \}/.test(TUT));
+check("Next is not re-locked on a step already done once",
+      /const lockNext = isInteractive && !step\.allowNext && !goingBack;/.test(TUT));
+check("...and going forward again re-locks it, so Back is not a way round a step",
+      /\} else if \(lockNext\) \{/.test(TUT));
 
 console.log("\nsteps that cannot apply are skipped, not shown broken");
 
@@ -153,20 +178,129 @@ check("once it becomes 'Skip this step →' the direction stops overwriting it",
 console.log("\nthe step that starts the game has to be done, not skipped");
 
 // Skipping "Start Game" leaves every following step pointing into a game that
-// never started — so that one step keeps waiting while the button is genuinely
-// clickable. The dead-end escape still arms when it is missing or disabled.
-check("the Start Game steps are marked as gates",
-      (TUT.match(/target: "#wr-start-btn"[^\n]*mustAct: true/g) || []).length === 3);
-check("every #wr-start-btn step is one of them",
+// never started. It is now covered by the general rule (an interactive step
+// cannot be skipped while its target is usable) rather than a per-step flag.
+check("all three tours really do gate on Start Game",
       (TUT.match(/target: "#wr-start-btn"/g) || []).length === 3);
-check("a gate step holds the timer back", /if \(step\.mustAct && coachIsUsable\(t\)\) \{ waited = 0; return; \}/.test(TUT));
-check("...only while the control is really usable", /function coachIsUsable\(el\)/.test(TUT));
-check("...and a disabled button does not count as usable",
-      /function coachIsUsable\(el\)[\s\S]{0,220}?el\.disabled/.test(TUT));
+check("...and each of those steps is interactive",
+      (TUT.match(/target: "#wr-start-btn", badge: "[^"]*", title: "Start the Game", interactive: true/g) || []).length === 3);
 check("the button the gate waits on is the real one, and it does get enabled",
       /id="wr-start-btn"/.test(HTML) && /btn\.disabled = false;[\s\S]{0,200}?"Start Game"/.test(APP));
 check("a gate still gives way when the room cannot start (non-host / not full)",
       /btn\.disabled = true;[\s\S]{0,120}?Waiting for host to start/.test(APP));
+
+console.log("\nthe highlight shows WHICH card, not just that one is somewhere here");
+
+// Against a dimmed table a 2px outline leaves the spotlighted card exactly the
+// same colour as every card the player must not touch.
+check("the spotlight fills its hole, not only its border",
+      /#tut3-hole \{[^}]*background:rgba\(/.test(TUT) && /#tut3-hole \{[^}]*inset 0 0 \d+px/.test(TUT));
+check("...and clears the fill when there is no target",
+      /#tut3-hole\.nohole \{[^}]*background:transparent!important/.test(TUT));
+check("a secondary glow ring is filled too",
+      /\.tut3-glow-ring \{[^}]*background:rgba\(255,213,116/.test(TUT) && /\.tut3-glow-ring \{[^}]*inset 0 0 \d+px rgba\(255,213,116/.test(TUT));
+check("neither highlight can swallow the click it is asking for",
+      /#tut3-hole \{[^}]*pointer-events:none/.test(TUT) && /\.tut3-glow-ring \{[^}]*pointer-events:none/.test(TUT));
+
+console.log("\n\"play this card\" also shows WHERE it goes");
+
+check("the engine understands step.dragDemo", /function applyCoachDrags\(\)/.test(TUT));
+check("the ghost carries the real card art", /const img = from\.querySelector\("img"\)/.test(TUT));
+check("it flies from the hand card to the destination",
+      /--tut3-dx/.test(TUT) && /--tut3-dy/.test(TUT) && /@keyframes tut3-drag-fly/.test(TUT));
+check("it is rebuilt only when the two rects move, so it never freezes on frame 1",
+      /if \(sig === _dragSig\) return;/.test(TUT));
+check("it is repositioned with everything else", /applyCoachGlows\(\);\s*\n\s*applyCoachDrags\(\);/.test(TUT));
+check("it is torn down with the tour", /clearCoachDrags\(\);/.test(TUT));
+{
+  const demos = (TUT.match(/dragDemo: \{/g) || []).length;
+  check(`every guided play demonstrates the drag (${demos} of them)`, demos >= 6);
+}
+// A card goes in ONE of an Ocean's four spots. Glowing the whole hub says
+// "one of these four", which is the question, not the answer.
+check("the destination is a single lane, not the whole ocean",
+      /function blReefLaneEl\(dir\)/.test(TUT) && /\.pv-lane-\$\{dir\}/.test(TUT));
+check("...and lanes are what the board really renders",
+      /lane\.className = `pv-lane-\$\{dir\}`/.test(APP));
+check("Tutorial 2 asks the SERVER where its creature may go, rather than guessing",
+      /function gtSlotElForEntry\(entryUid\)/.test(TUT) && /window\.__ccLegalActions/.test(TUT));
+check("__ccLegalActions is a real export", /window\.__ccLegalActions = \(\)/.test(APP));
+check("face_direction is really on a legal action", /String\(a\.face_direction\|\|""\)\.toLowerCase\(\)===dir/.test(APP));
+
+console.log("\nthe tutorials say true things about the game");
+
+// Playing a card ends your turn. The B-Lob tour used to stop after every play
+// and tell the player to press End Turn — an instruction for a button that had
+// already done its job, three times in one tutorial.
+check("no B-Lob step tells the player to end a turn the game already ended",
+      !/title: "End Your Turn"[^}]*badge: "Turn/.test(TUT) && (TUT.match(/title: "End Your Turn"/g) || []).length === 1);
+check("the one surviving End Turn step is the LESSON, not an instruction",
+      /title: "End Your Turn",\s*\n\s*text: "Most of the time you never touch this\./.test(TUT));
+check("...and it names the two cards that actually need it",
+      /Loggerhead Sea Turtle<\/strong> and <strong>Hermit Crab/.test(TUT));
+{
+  // Those two, and only those two, are what the server calls an open play
+  // window — the same line test_end_turn_callout_cards.py pins from the deck.
+  const server = fs.readFileSync(path.join(ROOT, "multiplayer_server.py"), "utf8");
+  check("...which is the same rule the server enforces",
+        /is_open_play_window = bool\(fish\.has_multi_play_window\(player\)\)/.test(server));
+}
+check("the player is told what to do instead: nothing, the bots are playing",
+      /title: "Waiting for the Others"/.test(TUT) && /ends your turn for you/.test(TUT));
+check("a play step says live whether it is even your turn yet",
+      /function tutTurnNote\(\)/.test(TUT) && (TUT.match(/liveNote: tutTurnNote/g) || []).length >= 4);
+check("...and that line keeps ticking on a back-navigated step",
+      /coachTick = setInterval\(applyCoachLive, \d+\)/.test(TUT));
+check("...and is cleared with the tour", /if \(coachTick\) \{ clearInterval\(coachTick\); coachTick = null; \}/.test(TUT));
+
+// A card is two animals. Nothing in any tutorial said so.
+check("the two-sided deck is explained", /title: "Every Card Is Two Animals"/.test(TUT));
+check("...including what the side decides about placement",
+      /title: "Which Side, Which Spot"/.test(TUT) && /Ocean Floor<\/strong> \(the bottom spot/.test(TUT));
+check("Surf's Up gets a real explanation, not one line",
+      /title: "Surf's Up!!"/.test(TUT) &&
+      /nobody can vote you afk/i.test(TUT) && /your turn parks/i.test(TUT));
+check("the card viewer's ✕ is highlighted when the step says to click it",
+      /glow: \["#pv-zoom-close"\], badge: "Cards", title: "Flip & Close"/.test(TUT));
+check("...and #pv-zoom-close is the real close button", /id="pv-zoom-close"/.test(HTML));
+
+console.log("\nno em dashes in anything the player reads");
+{
+  const bad = [];
+  const re = /(?:text|title|badge|label|cta)\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+  let m;
+  while ((m = re.exec(TUT))) if (/[—–]/.test(m[1])) bad.push(m[1].slice(0, 60));
+  check(`no step text uses an em or en dash${bad.length ? " — " + bad.join(" | ") : ""}`, bad.length === 0);
+}
+
+console.log("\nthe tutorial room code looks like a room code");
+{
+  // "TUT" + a base-36 timestamp, sliced to the 12-char maximum, was the first
+  // room code every learner ever saw — more than twice the length of a real one.
+  check("the tutorial no longer mints a 12-character code", !/\("TUT" \+ tutSuffix\)/.test(APP));
+  check("it uses the house length instead", /rid = freshRoomCode\(5\);/.test(APP));
+  const real = /let rid = Math\.random\(\)\.toString\(36\)\.slice\(2,(\d)\)\.toUpperCase\(\)/.exec(APP);
+  check(`...which is the same length an ordinary room gets (${real ? Number(real[1]) - 2 : "?"})`,
+        !!real && Number(real[1]) - 2 === 5);
+  check("the server agrees that is the house length", /ROOM_ID_LENGTH = 5/.test(fs.readFileSync(path.join(ROOT, "multiplayer_server.py"), "utf8")));
+  check("...and it is still a valid room id (4-12 uppercase alphanumerics)",
+        /const n = Math\.max\(4, Math\.min\(12,/.test(APP));
+  check("the tutorial room is still private, which is what keeps strangers out",
+        /if \(_isTutGame\) \{[\s\S]{0,900}?visibility = "private";/.test(APP));
+}
+
+console.log("\nthe tutorial ends by ending");
+{
+  check("no tutorial offers to keep playing the rigged practice game",
+        !/Keep Playing/.test(TUT));
+  check("...and the terminal choice menu is gone with it",
+        !/t3-choice/.test(TUT) && !/step\.choices/.test(TUT));
+  check("Tutorial 2 finishes through the normal Finish button",
+        /runCoach\(GAME_STEPS, async \(\) => \{[\s\S]{0,200}?setDone\("game"\)/.test(TUT));
+  check("Tutorial 3 too", /runCoach\(BLOB_STEPS, async \(\) => \{[\s\S]{0,200}?setDone\("practice"\)/.test(TUT));
+  check("...and both leave the practice match behind",
+        (TUT.match(/if \(window\.__tutLeaveGame\) await window\.__tutLeaveGame\(\)/g) || []).length >= 3);
+}
 
 console.log("\nthe popup gets out of its own way");
 check("it sits beside the target when it fits neither below nor above",

@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.66";
-  const APP_BUILD   = "2026-08-19.4";
+  const APP_VERSION = "1.6.67";
+  const APP_BUILD   = "2026-08-20.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,19 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🗺️ Tutorials: steps you do, and a card that shows you where it goes", items: [
+      "Every step now shows you WHERE a card goes, not just which one to play: a ghost of the card flies out of your hand into the exact slot it belongs in, on a loop, until you play it. The Lobster's is the bottom spot of the Artificial Reef, the Gull's is the top spot, and you can watch the trip instead of reading a description of it.",
+      "The highlighted card is now lit up inside as well as outlined. A gold border around a card on a dimmed table still left it the same colour as every card you were not supposed to touch.",
+      "A step can no longer be skipped while the thing it asks for is on screen. Skipping \"close the card viewer\" left the viewer sitting over everything after it. If a step genuinely cannot be done, it still gives way rather than trapping you.",
+      "← Back now takes you back to the step, not to a picture of it. You could read a step you had gone back to but not actually do it: clicks stopped reaching the page, so \"click your avatar\" did nothing.",
+      "The B-Lob practice game no longer stops after every card to tell you to press End Turn. Playing a card already ends your turn, so it just says the other players are going, and moves on by itself when the turn comes back to you.",
+      "End Turn is explained for what it is actually for: Loggerhead Sea Turtle and Hermit Crab let you keep playing cards, and the game cannot tell when you have finished, so that is when you press it.",
+      "New: a card is TWO animals, one on each side, each with its own cost, symbol, direction and ★ ability, and which side you play decides which spot on the Ocean it can go in. Nothing in any tutorial had ever said so.",
+      "Surf's Up now gets a real explanation: your turn parks, nothing is drawn or played for you, nobody can report you AFK for 10 minutes, and you cannot move until you tap I'm Back.",
+      "Every play step tells you live whether it is your turn or whether the computer players are still going, so you are never dragging a card that cannot go anywhere yet.",
+      "The tutorial's room code is a normal 5-character room code. It used to be a 12-character TUT code, which was the first room code most people ever saw.",
+      "Finishing a tutorial returns you to the tutorial list instead of asking whether you want to keep playing the rigged practice game.",
+    ]},
     { ver: "V1.7.0", title: "🗺️ Tutorials: no step can leave you stuck", items: [
       "The Main Menu Tour's History step used to hand you a \"View a sample match\" button and then refuse to move on until you had tapped all three opponents inside the match — with the tutorial's own words sitting over the chips it told you to tap. The match now opens itself, the players are highlighted for you, and Next works straight away: looking around is optional.",
       "Every step that waits for a click now offers a way past it if the click turns out to be impossible, so a tutorial can never dead-end into Skip.",
@@ -626,6 +639,21 @@
   function normalizeRoomCode(raw) {
     const r = String(raw||"").toUpperCase().replace(/[^A-Z0-9]/g, "");
     return ROOM_ID_RE.test(r) ? r : "";
+  }
+  // A fresh room code of the house length. crypto.getRandomValues where it
+  // exists (every browser the game supports) so two people opening a tutorial
+  // in the same millisecond do not collide the way a timestamp seed would.
+  function freshRoomCode(len) {
+    const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const n = Math.max(4, Math.min(12, Number(len) || 5));
+    let out = "";
+    const buf = (window.crypto && window.crypto.getRandomValues)
+      ? window.crypto.getRandomValues(new Uint32Array(n)) : null;
+    for (let i = 0; i < n; i++) {
+      const r = buf ? buf[i] : Math.floor(Math.random() * 0xffffffff);
+      out += A[r % A.length];
+    }
+    return out;
   }
   function seatTokenKey(id)  { return `fish_room_${id}_seat_token`; }
   function hostTokenKey(id)  { return `fish_room_${id}_host_token`; }
@@ -3248,13 +3276,18 @@
     }
     if (_isTutGame) {
       // Keep the tutorial game completely separate from every other game:
-      // force it PRIVATE with a unique TUT… code so it never appears in the
-      // Open Currents list and no real player can join and disrupt the guided
-      // turn (which would scramble turn order and trap the draw step).
+      // force it PRIVATE so it never appears in the Open Currents list and no
+      // real player can join and disrupt the guided turn (which would scramble
+      // turn order and trap the draw step).
+      //
+      // The code is the SAME SHAPE as every other room code. This used to be
+      // "TUT" plus a timestamp, sliced to the 12-char maximum — a code the
+      // waiting room then displayed at four times the length of a real one,
+      // in every tutorial, as the player's first look at what a room code is.
+      // 5 random characters is what a room code is, and the room being private
+      // is what keeps strangers out, not the length of its name.
       visibility = "private";
-      const tutSuffix = (Date.now().toString(36) + Math.random().toString(36).slice(2))
-        .replace(/[^a-z0-9]/gi, "").toUpperCase();
-      rid = ("TUT" + tutSuffix).slice(0, 12);   // always 4–12 uppercase alphanumerics
+      rid = freshRoomCode(5);
       password = rid;
     }
     _myRoomVisibility = visibility;
