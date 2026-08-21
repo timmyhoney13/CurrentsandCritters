@@ -10639,6 +10639,9 @@
     if (_wbT) _wbT.classList.remove("visible");
     document.getElementById("pv-chat-btn").style.display = "none";
     document.getElementById("pv-endgame-overlay").classList.remove("open");
+    // The board peek / enlarged board are position:fixed, so a stuck one would
+    // float over Player Home for the rest of the session.
+    try { closeBoardFocus(); } catch (_) {}
     try { setPlayAgainCallout(false); } catch (_) {}
     try { _endSaveReset(); } catch (_) {}
     try { window._igcpSetVisible?.(false); } catch {}
@@ -11094,9 +11097,73 @@
   }
 
   // ── Board hover preview ─────────────────────────────────────────
+  // The peek is a position:fixed panel anchored to whatever you are hovering,
+  // and every element it can anchor to (seat pills, opponent cards) is thrown
+  // away and rebuilt whenever the board re-renders. A removed element never
+  // fires mouseleave, so "hover a board, then anything changes" used to strand
+  // the peek on screen — straight through the end screen and back out to Player
+  // Home. So hiding it is never left to mouseleave alone:
+  //   • a watchdog checks the anchor is still in the DOM and still under the
+  //     pointer, and re-anchors to the rebuilt element when there is one;
+  //   • any click, scroll, resize, tab-away or pointer-leaves-the-window kills it;
+  //   • the end screen and _leaveGameCleanup() clear it outright.
   let _boardHoverTimer = null;
+  let _boardHoverAnchor = null;   // element the visible peek is pinned to
+  let _boardHoverGuard = null;    // interval that verifies the anchor is still real
+  let _boardHoverPt = null;       // last pointer position, for re-anchoring
+
+  // A hover peek only makes sense with a real pointer. On touch, :hover sticks
+  // to the last thing tapped and there is no mouseleave at all, so the peek
+  // would sit there until something else was tapped; tap-to-enlarge already
+  // covers that case.
+  function _canHoverPeek() {
+    try { return !!window.matchMedia && window.matchMedia("(hover: hover)").matches; }
+    catch (_) { return true; }
+  }
+  function _boardHoverVisible() {
+    const pop = document.getElementById("pv-board-hover");
+    return !!(pop && pop.classList.contains("visible"));
+  }
+  // What the pointer is actually over right now, asked of the layout rather
+  // than of mouse events — the whole problem is the events that never come.
+  function _elementAtPointer() {
+    if (!_boardHoverPt) return null;
+    try { return document.elementFromPoint(_boardHoverPt.x, _boardHoverPt.y); }
+    catch (_) { return null; }
+  }
+  function _pointerIsOver(el) {
+    const hit = _elementAtPointer();
+    return !!(hit && el && (hit === el || el.contains(hit)));
+  }
+  // The element under the pointer, if it is a peek anchor with a player.
+  function _boardHoverAnchorAtPointer() {
+    const hit = _elementAtPointer();
+    const cand = hit && hit.closest ? hit.closest("[data-peek-anchor]") : null;
+    return (cand && cand.__ccPeekPlayer) ? cand : null;
+  }
+  function _checkBoardHover() {
+    if (!_boardHoverVisible()) return;
+    const a = _boardHoverAnchor;
+    if (!a) { hideBoardHover(); return; }
+    if (!a.isConnected) {
+      // Re-rendered out from under a pointer that never moved: pin to the fresh
+      // element in the same spot rather than flickering the peek away.
+      const repl = _boardHoverAnchorAtPointer();
+      if (repl && repl !== a) showBoardHover(repl.__ccPeekPlayer, repl);
+      else hideBoardHover();
+      return;
+    }
+    // Still in the DOM, but no longer under the pointer: the seat re-flowed
+    // away, or something opened over it. No mouse event reports either.
+    // Skipped until the pointer has been somewhere at least once.
+    if (!_boardHoverPt) return;
+    if (!_pointerIsOver(a)) hideBoardHover();
+  }
   function showBoardHover(player, anchorEl) {
     if (!player) return;
+    if (!_canHoverPeek()) return;
+    // The 110ms delay can outlive the thing you were hovering.
+    if (anchorEl && !anchorEl.isConnected) return;
     const pop = document.getElementById("pv-board-hover");
     const title = document.getElementById("pv-bh-title");
     const content = document.getElementById("pv-bh-content");
@@ -11123,30 +11190,71 @@
     }
     pop.style.left = `${Math.round(left)}px`;
     pop.style.top  = `${Math.round(top)}px`;
+    _boardHoverAnchor = anchorEl || null;
+    if (!_boardHoverGuard) _boardHoverGuard = setInterval(_checkBoardHover, 200);
   }
   function hideBoardHover() {
     const pop = document.getElementById("pv-board-hover");
     if (pop) pop.classList.remove("visible");
     if (_boardHoverTimer) { clearTimeout(_boardHoverTimer); _boardHoverTimer = null; }
+    if (_boardHoverGuard) { clearInterval(_boardHoverGuard); _boardHoverGuard = null; }
+    _boardHoverAnchor = null;
   }
+  window.__ccHideBoardHover = hideBoardHover;
   function attachBoardHover(el, player) {
     if (!el || !player) return;
+    // Tagged so the watchdog can find this element's replacement by position.
+    el.dataset.peekAnchor = "1";
+    el.__ccPeekPlayer = player;
     el.addEventListener("mouseenter", () => {
+      if (!_canHoverPeek()) return;
       if (_boardHoverTimer) clearTimeout(_boardHoverTimer);
       // Slight delay so quick mouse-throughs don't flash the popup.
-      _boardHoverTimer = setTimeout(() => showBoardHover(player, el), 110);
+      _boardHoverTimer = setTimeout(() => showBoardHover(el.__ccPeekPlayer || player, el), 110);
     });
     el.addEventListener("mouseleave", () => {
       hideBoardHover();
     });
   }
 
-  document.getElementById("pv-board-focus-close").addEventListener("click", () => {
-    document.getElementById("pv-board-focus").classList.remove("open");
+  // Everything that means "the peek is no longer what you are looking at".
+  // All on capture so a stopPropagation() somewhere below can't keep it alive.
+  document.addEventListener("mousemove", (e) => {
+    _boardHoverPt = { x: e.clientX, y: e.clientY };
+    if (!_boardHoverAnchor) return;
+    // The peek itself is pointer-events:none, so the target under the cursor is
+    // always the real page: anything outside the anchor means we moved off it.
+    if (!_boardHoverAnchor.isConnected || !_boardHoverAnchor.contains(e.target)) hideBoardHover();
+  }, true);
+  ["pointerdown", "click", "wheel", "touchstart", "dragstart"].forEach((evt) => {
+    document.addEventListener(evt, () => { hideBoardHover(); }, true);
   });
+  window.addEventListener("scroll", () => { hideBoardHover(); }, true);
+  window.addEventListener("resize", () => { hideBoardHover(); });
+  window.addEventListener("blur", () => { hideBoardHover(); });
+  document.addEventListener("mouseleave", () => { hideBoardHover(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) hideBoardHover(); });
+
+  // Closing the enlarged board is one function, so every exit (button, backdrop,
+  // Escape, game over, leaving the game) really closes it.
+  function closeBoardFocus() {
+    const ov = document.getElementById("pv-board-focus");
+    if (ov) ov.classList.remove("open");
+    hideBoardHover();
+  }
+  window.__ccCloseBoardFocus = closeBoardFocus;
+  document.getElementById("pv-board-focus-close").addEventListener("click", closeBoardFocus);
   document.getElementById("pv-board-focus").addEventListener("click", (e) => {
-    if (e.target === document.getElementById("pv-board-focus"))
-      document.getElementById("pv-board-focus").classList.remove("open");
+    if (e.target === document.getElementById("pv-board-focus")) closeBoardFocus();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    // A card zoomed FROM the enlarged board is on top: Escape closes that first.
+    const zoom = document.getElementById("pv-zoom-modal");
+    if (zoom && zoom.classList.contains("open")) return;
+    const ov = document.getElementById("pv-board-focus");
+    if (ov && ov.classList.contains("open")) { e.preventDefault(); closeBoardFocus(); }
+    else hideBoardHover();
   });
 
   // ── End game overlay ──────────────────────────────────────────
@@ -12846,7 +12954,12 @@
     // Stop the per-game playtime clock the instant the end screen is revealed.
     // Captured once (first reveal) so it never drifts if the player lingers or
     // the end-game poll fires repeatedly.
-    if (!_endRevealMs) _endRevealMs = Date.now();
+    if (!_endRevealMs) {
+      _endRevealMs = Date.now();
+      // A peek or an enlarged board opened during play must not outlive the game.
+      // Once only: from the end screen you can still open a board again.
+      try { closeBoardFocus(); } catch (_) {}
+    }
     if (_endgameDismissed) overlay.classList.remove("open");
     else {
       overlay.classList.add("open");
