@@ -102,6 +102,15 @@
 # Messages: chat-background docs share the messages subcollection with group
 # rosters, so this pins down that they never get mistaken for one another.
 !test_chat_backgrounds.js
+# Chat mute silences NOTIFICATIONS ONLY — badges and dots — while messages keep
+# arriving and unread counters keep counting. Zeroing a counter instead of
+# hiding a badge would make everything received while muted look read.
+!test_chat_mute.js
+# Undo pressed during the BOTS' turns. The unit half drives the real
+# submit_undo/_apply_pending_undo_restore against a stub; the integration half
+# spins up a REAL GameRoom and a real match and presses Undo mid bot-think.
+!test_undo_fix.py
+!test_undo_integration.py
 # Bracket builder: the design logic (checked against the Python validator) and
 # the headless-Chrome geometry check for the connection lines.
 !test_tournament_builder.js
