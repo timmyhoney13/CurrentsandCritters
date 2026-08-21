@@ -2968,6 +2968,11 @@
       flex-shrink: 0;
     }
     #igcp-pill.weekly { background: rgba(232,179,74,.2); color: #f0c860; border-color: rgba(232,179,74,.36); }
+    /* The pill is the Daily<->Weekly switch, so it has to look like something
+       you can press rather than a label that happens to be tappable. */
+    #igcp-pill { cursor: pointer; transition: filter .14s, box-shadow .14s; }
+    #igcp-pill:hover  { filter: brightness(1.28); box-shadow: 0 0 0 1px rgba(255,255,255,.16); }
+    #igcp-pill:focus-visible { outline: 2px solid #6db8e0; outline-offset: 1px; }
     #igcp-cards {
       padding: 7px 7px 3px;
       display: flex;
@@ -6946,6 +6951,12 @@
       gap: 14px;
       flex: 1 1 320px;
       min-width: 0;
+      /* The Daily|Weekly switch is a full-width row inside this flex ROW, so
+         the body has to wrap at every width — not just under the 1320px rule
+         below. Without this the switch becomes a third column and squeezes the
+         three challenges, which is the same failure the 1320px comment
+         describes, one element earlier. */
+      flex-wrap: wrap;
     }
     .ph-cs-chev {
       margin-left: auto;
@@ -7001,6 +7012,61 @@
       font-size: .78rem;
       color: #4b6f94;
       line-height: 1.3;
+    }
+    /* Daily | Weekly switch. Its own line above the challenges, so it never
+       competes with them for width. */
+    .ph-cs-views {
+      flex: 1 1 100%;
+      display: flex;
+      gap: 6px;
+      min-width: 0;
+    }
+    .ph-cs-view {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(165,204,233,.7);
+      background: rgba(245,250,255,.9);
+      color: #3d5f80;
+      font-family: inherit;
+      font-size: .76rem;
+      font-weight: 700;
+      letter-spacing: .2px;
+      cursor: pointer;
+      transition: background .14s, border-color .14s, color .14s, box-shadow .14s;
+    }
+    .ph-cs-view:hover { border-color: #7fb6dd; color: #22557f; }
+    .ph-cs-view.is-on {
+      background: linear-gradient(135deg, #2482df 0%, #1a66c4 100%);
+      border-color: #1a66c4;
+      color: #f6fbff;
+      box-shadow: 0 2px 8px rgba(36,130,223,.30);
+    }
+    #ph-cs-view-weekly.is-on {
+      background: linear-gradient(135deg, #d9a12b 0%, #b87a16 100%);
+      border-color: #b87a16;
+      box-shadow: 0 2px 8px rgba(217,161,43,.30);
+    }
+    /* Swept: the set is cleared. Green reads as "nothing left to do here" at a
+       glance, which is the whole point of putting the count on the button. */
+    .ph-cs-view.is-swept:not(.is-on) {
+      border-color: rgba(47,143,85,.55);
+      color: #2c7a4b;
+      background: rgba(238,250,242,.95);
+    }
+    /* Opening onto an explanation beats opening onto an empty box. */
+    .ph-cs-empty {
+      grid-column: 1 / -1;
+      padding: 14px 12px;
+      border-radius: 13px;
+      border: 1px dashed rgba(165,204,233,.75);
+      background: rgba(245,250,255,.7);
+      color: #4b6f94;
+      font-size: .82rem;
+      text-align: center;
     }
     /* Middle: 3 challenge cards */
     .ph-cs-cards {

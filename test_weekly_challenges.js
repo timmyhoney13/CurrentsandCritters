@@ -37,28 +37,94 @@ function check(name, cond) {
   else { fail++; console.log("  ✗ FAIL: " + name); }
 }
 
-// ── Source: the daily system is gone, not just hidden ───────────────────────
-console.log("\ndaily challenges are removed");
+// ── Source: the daily system is back, and wired ─────────────────────────────
+// Dailies were retired in 1.6.54 and restored by request. The reason they went
+// is a real one, so the restore is not a revert: three slots on three
+// INDEPENDENT 24-hour timers meant the set never had a start or an end. They
+// now share one local-midnight boundary, the same shape as the weeklies'
+// Monday. That is the thing worth pinning — a per-slot timer creeping back in
+// is the bug, not the feature.
+console.log("\ndaily challenges are back");
 
-for (const stump of [
+for (const piece of [
   "_DAILY_CHALLENGES", "_reportDailyChallengeProgress", "_getCurrentDailySlots",
   "_loadDailyState", "cc_daily_state_v1", "daily_tide_sweep",
 ]) {
-  check(`no trace of ${stump}`, !APP.includes(stump));
+  check(`${piece} exists again`, APP.includes(piece));
 }
 
-// Observer state that existed ONLY to feed a daily. Each of these was updated
-// every payload; left behind they cost work and read as live tracking.
-for (const dead of [
+const dailyPool  = APP.slice(APP.indexOf("const _DAILY_CHALLENGES = ["));
+const dailyCount = (dailyPool.slice(0, dailyPool.indexOf("\n    ];"))
+  .match(/^\s*\{ id: "\w+",\s+name: "/gm) || []).length;
+check("the daily pool has its 50 challenges (" + dailyCount + ")", dailyCount === 50);
+
+// The dailies must be their OWN list. Reusing the weekly ids under a "Daily"
+// label would look right on screen and be the same three jobs twice.
+const weeklyIds = new Set(
+  [...APP.slice(APP.indexOf("const _WEEKLY_CHALLENGES = [")).matchAll(/\{ id: "(\w+)"/g)]
+    .slice(0, 56).map(m => m[1]));
+const dailyIds = [...dailyPool.slice(0, dailyPool.indexOf("\n    ];")).matchAll(/\{ id: "(\w+)"/g)]
+  .map(m => m[1]);
+check("no daily id is a weekly id wearing a different label",
+      dailyIds.every(id => !weeklyIds.has(id)));
+check("daily ids are unique", new Set(dailyIds).size === dailyIds.length);
+
+// ONE boundary, shared by all three slots — the whole point of the restore.
+check("the day resets at local midnight, together",
+      /function _getTodayMidnight\(\)/.test(APP) && /dayStartMs/.test(APP));
+check("a rolled day re-rolls all three slots",
+      /function _refreshDailyIfNeeded\(state\)/.test(APP));
+check("the old per-slot 24h refresh is NOT back",
+      !APP.includes("_DAILY_REFRESH_MS") && !APP.includes("_refreshExpiredDailies"));
+check("the three dailies are rolled unique, like the weeklies",
+      /function _rollDailyIndices\(count\)/.test(APP));
+
+// Observer state that exists ONLY to feed a daily. Without these the pool,
+// streak and first-ocean challenges can be shown but never completed.
+for (const obs of [
   "_chObsPoolWatcherStreak", "_chObsCompSelfDiscarded", "_chObsPoolJustResetAt",
   "_chObsSurfaceStreak", "_chObsFloorStreak", "_chObsPrevMyHandCount",
   "_CH_FIRST_OCEAN_MAP", "_challObserveStarCombo",
 ]) {
-  check(`observer state ${dead} went with it`, !APP.includes(dead));
+  check(`observer state ${obs} came back with it`, APP.includes(obs));
+}
+// An observer that is declared but never RUN is the same as a missing one.
+check("the first-ocean observer runs each payload", /_challObserveFirstOcean\(me\);/.test(APP));
+check("the star-combo observer runs each payload", /_challObserveStarCombo\(state, players\);/.test(APP));
+// The board-length tracker must go back to 0 between games or the *_start
+// dailies can only ever fire in the first game of a session.
+check("the first-ocean tracker resets between games",
+      /_resetChallengeObservers[\s\S]{0,900}_chObsPrevMyBoardLen = 0;/.test(APP));
+
+// A challenge nothing ever reports is a challenge that cannot be completed.
+for (const id of [
+  "pool_cleaner", "fresh_current", "pool_watcher", "pool_patience", "set_it_up",
+  "deny_the_setup", "surface_life", "ocean_floor", "star_spark", "star_surfer",
+  "symbol_match", "star_finish", "combo_current", "better_spot", "mini_ecosystem",
+  "discard_duty", "current_lite", "last_turn_move", "table_talk", "good_sport",
+  "login_current", "clean_finish", "casual_current", "ranked_ripple",
+  "still_swimming", "daily_splash", "almost_there", "no_bots_today",
+  "host_harbor", "join_current", "strategy_switch", "ranked_win_day",
+]) {
+  const reported = new RegExp(`_reportDailyChallengeProgress\\??\\.?\\(?\\s*["']${id}["']`).test(APP)
+                || new RegExp(`rd\\("${id}"`).test(APP);
+  check(`${id} is actually reported somewhere`, reported);
 }
 
-check("the play-again-pending flag is gone with the challenge it fed",
-      !APP.includes("cc_play_again_pending"));
+check("the daily Tide Sweep is an earnable achievement, not a dead id",
+      /\{ id:"daily_tide_sweep",/.test(APP)
+      && /__fishUnlockAchievementById\?\.\("daily_tide_sweep"\)/.test(APP));
+check("the sweep is guarded so it fires once a day, not once a report",
+      /sweepClaimed[\s\S]{0,200}daily_tide_sweep/.test(APP));
+
+// ── Source: the two sets stay separate ──────────────────────────────────────
+console.log("\ndaily and weekly are two different things");
+
+check("daily state and weekly state are different keys",
+      APP.includes('"cc_daily_state_v1"') && APP.includes('"cc_weekly_state_v1"'));
+check("the end-game snapshot carries both", /return \{ weekly, daily \};/.test(APP));
+check("the end-game screen credits dailies too", APP.includes('"Daily Challenge"'));
+check("the strip remembers which half you were looking at", APP.includes('"cc_cs_view"'));
 
 // ── Source: the weekly system is intact ─────────────────────────────────────
 console.log("\nweekly challenges still do everything they did");
@@ -75,8 +141,6 @@ for (const id of ["stolen_setup", "good_sport_week", "balanced_ocean", "star_sto
   check(`${id} survived the daily it shared a detector with`, APP.includes(`"${id}"`));
 }
 // The end-game screen credits weeklies only, and reads a weekly-only snapshot.
-check("the end-game snapshot is weekly-only", /return \{ weekly \};/.test(APP));
-check("no end-game 'Daily Challenge' reward row", !APP.includes('"Daily Challenge"'));
 
 // ── Source: the strip ships closed ──────────────────────────────────────────
 console.log("\nthe strip ships closed");
@@ -87,10 +151,19 @@ check("closed is announced to screen readers", /aria-expanded="false"/.test(HTML
 check("the header controls the body it hides", /aria-controls="ph-cs-body"/.test(HTML));
 check("the cards live inside the collapsible body",
       HTML.indexOf('id="ph-cs-body"') < HTML.indexOf('id="ph-cs-cards"'));
-check("the old Daily ↔ Weekly toggle button is gone", !HTML.includes("ph-cs-toggle-btn"));
+check("the old toggle BUTTON in the header is still gone (a button inside a\n       button is not clickable) — the switch lives in the body now",
+      !HTML.includes("ph-cs-toggle-btn"));
+check("the Daily|Weekly switch is inside the collapsible body",
+      HTML.indexOf('id="ph-cs-body"') < HTML.indexOf('id="ph-cs-view-daily"')
+      && HTML.includes('id="ph-cs-view-weekly"'));
+check("the switch is styled", /\.ph-cs-views \{/.test(CSS) && /\.ph-cs-view\.is-on \{/.test(CSS));
+check("the body wraps, so the switch never becomes a third column\n       squeezing the challenges",
+      /\.ph-cs-body \{[^}]*flex-wrap: wrap;/.test(CSS));
+check("switching views does not also close the strip",
+      /btn\.addEventListener\("click", \(e\) => \{\s*e\.stopPropagation\(\);/.test(APP));
 check("the strip's open state is remembered", APP.includes('"cc_cs_open"'));
-check("the closed header still says how many are done",
-      /complete this week — tap to see them/.test(APP));
+check("the closed header counts BOTH sets, so the other half is discoverable",
+      /complete — tap to see them/.test(APP) && /daily/.test(APP) && /weekly/.test(APP));
 check("CSS hides the body when collapsed",
       /\.ph-cs-strip\.is-collapsed \.ph-cs-body \{ display: none; \}/.test(CSS));
 
@@ -105,7 +178,8 @@ const rewardTag = (/<button class="ph-cs-reward"[\s\S]*?>/.exec(HTML) || [""])[0
 check("the reward card is not hidden by inline style", !/display:\s*none/.test(rewardTag));
 check("renderChallengeStrip decides whether the reward shows",
       /rewardEl\.style\.display = _csOpen \? "" : "none"/.test(APP));
-check("the reward names its XP", /Weekly Tide Sweep · \+1,500 XP/.test(APP));
+check("the reward names its XP, for each set",
+      /Weekly Tide Sweep · \+1,500 XP/.test(APP) && /Daily Tide Sweep · \+400 XP/.test(APP));
 check("the placeholder count matches the 3 weeklies that exist",
       /id="ph-cs-reward-count">0 \/ 3 Completed</.test(HTML));
 check("no stale '/ 5 Completed' left from the 5→3 change",
@@ -117,7 +191,7 @@ check("the Perfect Week line is styled", /\.ph-cs-reward-sub \{/.test(CSS));
 // Same omission in the in-game panel: three jobs listed, no pay stated.
 check("the in-game panel has a reward line", /id="igcp-reward"/.test(HTML) && /#igcp-reward \{/.test(CSS));
 check("the in-game reward line is filled in on open",
-      /igcp-rw-done/.test(APP) && /Weekly Tide Sweep/.test(APP));
+      /igcp-rw-done/.test(APP) && /Tide Sweep/.test(APP));
 check("it is hidden with the rest when minimised",
       /#ig-challenge-panel\.igcp-minimized #igcp-reward/.test(CSS));
 // It sits OUTSIDE the scroll box, so it spends the same fixed budget the cards
@@ -128,8 +202,11 @@ check("the tight-screen budget pays for the reward line",
 console.log("\nthe in-game panel starts tucked away");
 check("minimised unless the player said otherwise",
       /localStorage\.getItem\(_IGCP_MINIMIZED_KEY\) !== "0"/.test(APP));
-check("it shows Weekly, with no view to switch", !APP.includes("_IGCP_VIEW_KEY"));
-check("its header markup says Weekly", /id="igcp-title">Weekly Challenges</.test(HTML));
+check("the in-game panel switches views through the shared setting,\n       not a second one of its own",
+      !APP.includes("_IGCP_VIEW_KEY") && /_csView = _csView === "weekly" \? "daily" : "weekly"/.test(APP));
+check("its pill is the switch and looks pressable",
+      /id="igcp-pill"[^>]*role="button"/.test(HTML) && /#igcp-pill \{ cursor: pointer;/.test(CSS));
+check("its header markup names a real view", /id="igcp-title">(Daily|Weekly) Challenges</.test(HTML));
 // The footer has looked like a button since it shipped (pointer cursor, hover
 // colour) and is the only control guaranteed to be on screen when the panel is
 // taller than the room above the bottom UI — the header is what goes off the

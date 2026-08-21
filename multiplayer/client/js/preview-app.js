@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.69";
-  const APP_BUILD   = "2026-08-21.2";
+  const APP_VERSION = "1.6.70";
+  const APP_BUILD   = "2026-08-21.3";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -106,6 +106,12 @@
       "\"Follow the guide bar\" no longer points at an empty strip when someone else has the first turn — turn order is random, and the step now says so and waits.",
       "Card-play steps say you can use the Choose action dropdown as well as dragging, which is the easier one on a phone.",
       "The instructions get out of their own way: the popup now sits beside whatever it is pointing at when there is no room above or below it, and never covers the thing you have been asked to click.",
+    ]},
+    { ver: "V1.7.0", title: "📅 Daily Challenges are back", items: [
+      "Three Daily Challenges are back alongside your weeklies, drawn from a pool of 50 — pool plays, ★ abilities, first-ocean starts, comeback finishes, table talk and more. Each one pays its XP the moment you complete it.",
+      "They all reset together at midnight, your time. The old dailies each ran their own 24-hour timer started when you finished it, so the three refreshed at three different times and the set never had a beginning or an end. Now there is one clock and one question: have you done today's three?",
+      "Clear all three in a day for the Daily Tide Sweep, worth 400 XP. The weekly Tide Sweep and Perfect Week are untouched.",
+      "Your Player Home strip and the in-game panel both have a Daily / Weekly switch, each showing how many you have left, and they remember which one you were looking at. The bar still starts closed, and now tells you both counts before you open it.",
     ]},
     { ver: "V1.7.0", title: "⚔️ Competitive: your other hand is there the moment you finish", items: [
       "End a turn in a competitive match and the board switches to your other hand straight away. It used to sit on the hand you had just played until your opponent finished their turn, so the switch happened on their clock and the board changed under you the moment the turn came back.",
@@ -3984,38 +3990,96 @@
           const myName = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(p => p.index === myIdx)?.name;
           const pickUids = Array.isArray(action.pool_pick_uids) ? action.pool_pick_uids.map(Number) : [];
 
+          // fresh_current, drawing from a freshly-reset pool (within 60s of reset)
+          if (_chObsPoolJustResetAt && (Date.now() - _chObsPoolJustResetAt) < 60000 && pickUids.length > 0) {
+            window._reportDailyChallengeProgress?.("fresh_current", 0, { complete: true });
+            _chObsPoolJustResetAt = 0;
+          }
+
           // Check provenance of drawn cards: which were added by other players?
+          let drawnFromOther = false;
           let drawnFromOpponentLastTurn = false;
+          let drawnFromMyCompPartner = false;
           const round = Number(latestPayload?.state?.round_count) || 0;
           for (const uid of pickUids) {
             const owner = _chObsPoolEntryOwner.get(uid);
             const addedTurn = _chObsPoolEntryAddedTurn.get(uid);
             if (!owner) continue;
-            // stolen_setup, an opponent put it in last turn
-            if (owner !== myName && addedTurn != null && (round - Number(addedTurn)) <= 1) {
-              drawnFromOpponentLastTurn = true;
+            if (owner !== myName) {
+              drawnFromOther = true;
+              // deny_the_setup / stolen_setup, opponent put it in last turn
+              if (addedTurn != null && (round - Number(addedTurn)) <= 1) {
+                drawnFromOpponentLastTurn = true;
+              }
+            }
+            // set_it_up, comp only, this device's seats put it in
+            if (_chObsCompSelfDiscarded.has(uid)) {
+              const ownerSeatIdx = (Array.isArray(_latestPlayers) ? _latestPlayers : [])
+                .find(p => p.name === owner)?.index;
+              // Make sure the pickup is by the OPPOSITE hand of the same device.
+              if (Array.isArray(compMySeats) && compMySeats.includes(ownerSeatIdx) && ownerSeatIdx !== myIdx) {
+                drawnFromMyCompPartner = true;
+              }
             }
           }
 
-          // stolen_setup (weekly), drew an opponent's very-recently-played
-          // pool card.
+          // pool_watcher, streak of pool draws from OTHER players' cards.
+          // Any pool draw from MY OWN discarded card resets the streak.
+          if (pickUids.length > 0) {
+            if (drawnFromOther && pickUids.every(u => {
+                  const o = _chObsPoolEntryOwner.get(u);
+                  return o && o !== myName;
+                })) {
+              _chObsPoolWatcherStreak++;
+              if (_chObsPoolWatcherStreak >= 5) {
+                window._reportDailyChallengeProgress?.("pool_watcher", 0, { complete: true });
+              }
+            } else {
+              _chObsPoolWatcherStreak = 0;
+            }
+          }
+
+          // deny_the_setup (daily) / stolen_setup (weekly), drew an opponent's
+          // very-recently-played pool card.
           if (drawnFromOpponentLastTurn) {
+            window._reportDailyChallengeProgress?.("deny_the_setup", 0, { complete: true });
             window._reportWeeklyChallengeProgress?.("stolen_setup", 0, { complete: true });
+          }
+
+          // set_it_up (daily, comp only), pulled out a card that THIS device
+          // had earlier set up via the opposite hand.
+          if (drawnFromMyCompPartner) {
+            window._reportDailyChallengeProgress?.("set_it_up", 0, { complete: true });
+          }
+
+          // pool_patience, a card that has been in the pool for >= one full
+          // rotation gets taken by me.
+          for (const uid of pickUids) {
+            const addedTurn = _chObsPoolEntryAddedTurn.get(uid);
+            if (addedTurn != null && (round - Number(addedTurn)) >= 1) {
+              window._reportDailyChallengeProgress?.("pool_patience", 0, { complete: true });
+              break;
+            }
           }
 
           // Clear taken cards from provenance maps so they don't re-trigger.
           for (const uid of pickUids) {
             _chObsPoolEntryOwner.delete(uid);
             _chObsPoolEntryAddedTurn.delete(uid);
+            _chObsCompSelfDiscarded.delete(uid);
           }
         } catch (e) { /* non-fatal */ }
       }
       if (action.kind === "move_between_oceans") {
         _gameAchTracker.animalMoves = (_gameAchTracker.animalMoves || 0) + 1;
+        // Daily: current_lite, Move 3 animals today (target 3, accumulates).
+        try { window._reportDailyChallengeProgress?.("current_lite", 1); } catch {}
         // Achievement board_fixer: moved an animal on the final turn (end-game
         // window), combined with a win at game end.
         if (_gameAchTracker.endGameSeen) {
           _gameAchTracker.movedDuringEndgame = true;
+          // Daily: last_turn_move, Move an animal after End Game appears.
+          try { window._reportDailyChallengeProgress?.("last_turn_move", 0, { complete: true }); } catch {}
         }
         // Snapshot my score before the move resolves; the per-payload
         // observer will compare to the post-move score to detect
@@ -4141,6 +4205,26 @@
           }
         } catch {}
 
+        // ── Surface / Floor streaks (surface_life, ocean_floor) ────────
+        const dir = String(action.face_direction || "").toLowerCase();
+        if (dir === "up") {
+          _chObsSurfaceStreak++;
+          _chObsFloorStreak = 0;
+          if (_chObsSurfaceStreak >= 3) {
+            try { window._reportDailyChallengeProgress?.("surface_life", 0, { complete: true }); } catch {}
+          }
+        } else if (dir === "down") {
+          _chObsFloorStreak++;
+          _chObsSurfaceStreak = 0;
+          if (_chObsFloorStreak >= 3) {
+            try { window._reportDailyChallengeProgress?.("ocean_floor", 0, { complete: true }); } catch {}
+          }
+        } else {
+          // left/right break both streaks
+          _chObsSurfaceStreak = 0;
+          _chObsFloorStreak = 0;
+        }
+
         // Free animal play, submitted a play during an active free-play window.
         const fpsBefore = Array.isArray(latestPayload?.legal_actions?.free_play_species)
           ? latestPayload.legal_actions.free_play_species
@@ -4148,14 +4232,42 @@
         if (fpsBefore.length > 0) {
           try { window._reportWeeklyChallengeProgress?.("free_animal_week", 1); } catch {}
         }
+      } else if (action.kind && action.kind !== "play_ocean") {
+        // Any other action (draw, move, discard, end turn) breaks the streaks.
+        _chObsSurfaceStreak = 0;
+        _chObsFloorStreak = 0;
       }
 
       // ── Star ability activation hooks ─────────────────────────────
       if (action.use_star) {
         _gameAchTracker.starsActivated = (_gameAchTracker.starsActivated || 0) + 1;
+        _chObsStarTurnPlayer = latestPayload?.state?.current_player || null;
+        // Snapshot turn-start score so combo_current can verify the +15 hit.
         try {
+          const meNow = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(p => p.index === myIdx);
+          const myName = meNow?.name;
+          if (myName && _turnStartScores[myName] != null) {
+            _chObsStarTurnStartScore = Number(_turnStartScores[myName]);
+          }
+        } catch {}
+        try {
+          // Daily: star_spark, Activate 2 ★ abilities (target 2, accumulates)
+          window._reportDailyChallengeProgress?.("star_spark", 1);
+          // Daily: star_surfer, Activate 5 ★ in ONE game. Per-game counter
+          // resets in _resetGameAchTracker, so once the in-game count reaches
+          // 5 we mark it complete (idempotent if already done).
+          if (_gameAchTracker.starsActivated >= 5) {
+            window._reportDailyChallengeProgress?.("star_surfer", 0, { complete: true });
+          }
+          // Daily: symbol_match, Discard matching symbol to activate ★
+          // (any successful ★ activation requires a matching symbol).
+          window._reportDailyChallengeProgress?.("symbol_match", 0, { complete: true });
           // Achievement perfect_symbol (cumulative): matching-symbol ★ activation 100×.
           window.__fishBumpAchievement?.("perfect_symbol", 1, 100);
+          // Daily: star_finish, ★ activation after End Game appears
+          if (_gameAchTracker.endGameSeen) {
+            window._reportDailyChallengeProgress?.("star_finish", 0, { complete: true });
+          }
           // Weekly: star_storm, 20 ★ activations this week
           window._reportWeeklyChallengeProgress?.("star_storm", 1);
         } catch {}
@@ -5225,13 +5337,93 @@
   let _chObsPoolEntryOwner    = new Map(); // entry_uid -> name of player who added it
   let _chObsPoolEntryAddedTurn= new Map(); // entry_uid -> round_count when it was added
   let _chObsPoolPrevCurPlayer = null; // current_player seen on the PREVIOUS payload, owned
-                                      //  by _challObservePool ONLY
+                                      //  by _challObservePool ONLY (must not be shared with
+                                      //  _challObserveStarCombo, which mutates its own tracker
+                                      //  earlier in the same observer pass).
+  // ── Daily-only observers ──────────────────────────────────────────
+  // These went out with the dailies in 1.6.54 and come back with them. Each
+  // one exists because its challenge asks about a SEQUENCE — a streak, a
+  // before/after, a "who put that there" — which a single payload cannot
+  // answer on its own.
+  let _chObsStarTurnPlayer    = null; // the current_player at the moment a ★ was activated
+  let _chObsStarTurnStartScore= null; // turn-start score recorded when the ★ was activated
+  let _chObsPrevTurnPlayer    = null; // last-seen current_player for turn-end detection
+  let _chObsPrevMyBoardLen    = 0;    // my board size last payload (for the *_start dailies)
+  let _chObsPoolJustResetAt   = 0;    // when the pool last reset (0 = no fresh-draw window open)
+  let _chObsPoolWatcherStreak = 0;    // consecutive draws from pool from OTHER players' cards
+  let _chObsCompSelfDiscarded = new Set(); // entry_uids put in pool by THIS device's seats
+                                           // (for set_it_up, competitive only)
+  let _chObsPrevMyHandCount   = 0;    // hand size last payload (for discard_duty)
+  let _chObsSurfaceStreak     = 0;    // consecutive play_to_ocean direction="up"
+  let _chObsFloorStreak       = 0;    // consecutive play_to_ocean direction="down"
   let _chObsPrevMyBoardCards    = new Set(); // face_uids on my board last payload
   let _chObsSpeciesPlayedGame   = new Set(); // species placed this game
   let _chObsOceanTypesPlayedGame= new Set(); // distinct ocean names this game
   let _chObsLastTurnStartScore  = null;     // my score at the start of my CURRENT turn
                                             //  (snapshotted on turn-boundary observer; used
                                             //   for breaker_turn at turn-end)
+
+  // Fires the matching *_start daily challenge for the player's first
+  // ocean of the game. Idempotent, the report function only ticks ACTIVE
+  // slots that match the id, so this is safe to call on rejoin/refresh.
+  const _CH_FIRST_OCEAN_MAP = {
+    "coral reef":     "coral_start",
+    "deep ocean":     "deep_start",
+    "mangrove":       "mangrove_start",
+    "pier":           "pier_start",
+    "arctic ocean":   "arctic_start",
+    "kelp forest":    "kelp_start",
+    "tide pool":      "tide_pool_start",
+    "artificial reef":"artificial_start",
+  };
+  function _challObserveFirstOcean(me) {
+    const board = (me && Array.isArray(me.board)) ? me.board : [];
+    const curLen = board.length;
+    // Detect a 0 -> >=1 transition. Also handles the rejoin-mid-game case
+    // (we start at 0 and the first observed render already has >=1).
+    if (_chObsPrevMyBoardLen === 0 && curLen >= 1) {
+      const oceanName = String(board[0]?.ocean?.name || "").trim().toLowerCase();
+      const challengeId = _CH_FIRST_OCEAN_MAP[oceanName];
+      if (challengeId) {
+        try { window._reportDailyChallengeProgress?.(challengeId, 0, { complete: true }); } catch {}
+      }
+    }
+    _chObsPrevMyBoardLen = curLen;
+  }
+
+  // 'combo_current' detection, when a star ability was activated this
+  // turn, on the turn boundary check whether the player gained 15+ pts
+  // during the turn. If so, fire the daily challenge.
+  function _challObserveStarCombo(state, players) {
+    const curP = state?.current_player || null;
+    // Only act on turn boundary (current_player changes).
+    if (curP === _chObsPrevTurnPlayer) return;
+    // The player who JUST FINISHED their turn:
+    const finishedPlayer = _chObsPrevTurnPlayer;
+    _chObsPrevTurnPlayer = curP;
+    if (!finishedPlayer) return;
+    if (!_chObsStarTurnPlayer || _chObsStarTurnPlayer !== finishedPlayer) return;
+
+    // Verify it's me who just finished a star turn.
+    const meName = (players.find(p => p.index === myIdx) || {}).name;
+    if (finishedPlayer !== meName) {
+      _chObsStarTurnPlayer = null;
+      _chObsStarTurnStartScore = null;
+      return;
+    }
+
+    // Compute turn delta.
+    const meEntry = players.find(p => p.name === finishedPlayer);
+    if (meEntry) {
+      const endScore = Number(meEntry.score || 0);
+      const startScore = (_chObsStarTurnStartScore != null) ? _chObsStarTurnStartScore : endScore;
+      if ((endScore - startScore) >= 15) {
+        try { window._reportDailyChallengeProgress?.("combo_current", 0, { complete: true }); } catch {}
+      }
+    }
+    _chObsStarTurnPlayer = null;
+    _chObsStarTurnStartScore = null;
+  }
 
   // 'better_spot' detection, when a move was just submitted, we took a
   // pre-move score snapshot. If the next observed score is higher than
@@ -5242,6 +5434,8 @@
     if (curScore > _chObsPreMoveScore) {
       // Achievement better_spot: a move raised my score; combined with a win at game end.
       _gameAchTracker.betterSpot = true;
+      // Daily better_spot asks only for the move, not the win.
+      try { window._reportDailyChallengeProgress?.("better_spot", 0, { complete: true }); } catch {}
     }
     // Compare just once per move action (good or bad outcome both clear it).
     _chObsPreMoveScore = null;
@@ -5268,12 +5462,23 @@
       ? curPlayer
       : (_chObsPoolPrevCurPlayer || curPlayer);
 
+    const meName = (players.find(p => p.index === myIdx) || {}).name;
+
     // Record provenance for any newly-added pool entries.
     if (newEntries.length && lastActor) {
       const round = Number(state.round_count) || 0;
       for (const uid of newEntries) {
         _chObsPoolEntryOwner.set(uid, lastActor);
         _chObsPoolEntryAddedTurn.set(uid, round);
+        // Competitive: track if this card was put into the pool by one of
+        // this device's seats (set_it_up requires opposite-hand pickup later).
+        if (typeof compMode !== "undefined" && compMode) {
+          const ownerSeat = (Array.isArray(players) ? players : [])
+            .find(p => p.name === lastActor)?.index;
+          if (Array.isArray(compMySeats) && compMySeats.includes(ownerSeat)) {
+            _chObsCompSelfDiscarded.add(uid);
+          }
+        }
       }
     }
 
@@ -5282,6 +5487,13 @@
     if (_chObsPrevPoolSize >= 9 && poolNow.length === 0) {
       _chObsPoolEntryOwner.clear();
       _chObsPoolEntryAddedTurn.clear();
+      // Pool resets are triggered by whoever just placed the 10th card.
+      // If it was me, pool_cleaner completes.
+      if (lastActor === meName) {
+        try { window._reportDailyChallengeProgress?.("pool_cleaner", 0, { complete: true }); } catch {}
+      }
+      // Mark fresh-pool window open so the next pool draw can fire fresh_current.
+      _chObsPoolJustResetAt = Date.now();
     }
 
     _chObsPrevPoolUids = nowUids;
@@ -5378,10 +5590,24 @@
       }
     }
 
+    // mini_ecosystem (daily), 4 different species groups in one game — the
+    // same count balanced_ocean reads at 6.
+    if (_chObsSpeciesPlayedGame.size >= 4) {
+      try { window._reportDailyChallengeProgress?.("mini_ecosystem", 0, { complete: true }); } catch {}
+    }
+
     // the_all_blue_weekly, 8 distinct Oceans on my board in one game.
     if (_chObsOceanTypesPlayedGame.size >= 8) {
       try { window._reportWeeklyChallengeProgress?.("the_all_blue_weekly", 0, { complete: true }); } catch {}
     }
+
+    // discard_duty, at end of turn, was forced to discard down to 10.
+    // Detect via hand size dropping from >10 to exactly 10 between payloads.
+    const curHand = Number(me?.hand_count ?? (Array.isArray(me?.hand) ? me.hand.length : 0));
+    if (_chObsPrevMyHandCount > 10 && curHand === 10) {
+      try { window._reportDailyChallengeProgress?.("discard_duty", 0, { complete: true }); } catch {}
+    }
+    _chObsPrevMyHandCount = curHand;
 
     _chObsPrevMyBoardCards = curCardUids;
   }
@@ -5395,6 +5621,8 @@
     _challObserveMoveScore(me);
     _challObservePool(state, players);
     _challObserveSpeciesAndOcean(me);
+    _challObserveFirstOcean(me);
+    _challObserveStarCombo(state, players);
   }
 
   // Reset all observer state when leaving the room so a brand-new game
@@ -5411,6 +5639,18 @@
     _chObsSpeciesPlayedGame = new Set();
     _chObsOceanTypesPlayedGame = new Set();
     _chObsLastTurnStartScore = null;
+    // Back to 0 so the NEXT game's first ocean is seen as a 0 -> 1 transition
+    // and can re-fire the *_start dailies.
+    _chObsPrevMyBoardLen = 0;
+    _chObsStarTurnPlayer = null;
+    _chObsStarTurnStartScore = null;
+    _chObsPrevTurnPlayer = null;
+    _chObsPoolJustResetAt = 0;
+    _chObsPoolWatcherStreak = 0;
+    _chObsCompSelfDiscarded = new Set();
+    _chObsPrevMyHandCount = 0;
+    _chObsSurfaceStreak = 0;
+    _chObsFloorStreak = 0;
   }
 
   function renderPayload(payload) {
@@ -13199,12 +13439,15 @@
           [highCardWhoList.includes(myName),  "Highest Scoring Card"],
         ];
         statRewards.forEach(([won, label]) => { if (won) addReward("⭐", "Match Stat Bonus", label, 15, false); });
-        // Newly-completed weekly challenges (mirror the Challenges panel).
+        // Newly-completed challenges (mirror the Challenges panel). Dailies
+        // first: they are the smaller, more frequent win and reading them at
+        // the top is how the summary shows the day moving.
         try {
           if (typeof window._getNewlyCompletedChallenges === "function") {
-            const snap = _preGameChallengeSnapshot || { weekly: new Set() };
-            const { weekly: nw } = window._getNewlyCompletedChallenges(snap);
-            nw.forEach(ch => addReward(ch.icon || "📆", (ch.name || ch.id), "Weekly Challenge", ch.xp || 0, false));
+            const snap = _preGameChallengeSnapshot || { weekly: new Set(), daily: new Set() };
+            const { weekly: nw, daily: nd } = window._getNewlyCompletedChallenges(snap);
+            (nd || []).forEach(ch => addReward(ch.icon || "📅", (ch.name || ch.id), "Daily Challenge", ch.xp || 0, false));
+            (nw || []).forEach(ch => addReward(ch.icon || "📆", (ch.name || ch.id), "Weekly Challenge", ch.xp || 0, false));
           }
         } catch (_) {}
         // Progress status rows.
@@ -13390,22 +13633,28 @@
     if (!wrap || !list) return;
     if (typeof window._getNewlyCompletedChallenges !== "function") return;
 
-    const snapshot = _preGameChallengeSnapshot || { weekly: new Set() };
-    const { weekly: newWeekly } = window._getNewlyCompletedChallenges(snapshot);
+    const snapshot = _preGameChallengeSnapshot || { weekly: new Set(), daily: new Set() };
+    const { weekly: newWeekly, daily: newDaily } = window._getNewlyCompletedChallenges(snapshot);
 
-    if (!newWeekly.length) {
+    // Dailies first — the smaller, more frequent win, and the one a player is
+    // most likely to have just moved.
+    const rows = [
+      ...(newDaily  || []).map(ch => ({ ch, weekly: false })),
+      ...(newWeekly || []).map(ch => ({ ch, weekly: true  })),
+    ];
+    if (!rows.length) {
       wrap.style.display = "none";
       return;
     }
 
     list.innerHTML = "";
-    newWeekly.forEach(ch => {
+    rows.forEach(({ ch, weekly }) => {
       const row = document.createElement("div");
       row.className = "gs-ch-row";
       row.innerHTML = `
-        <div class="gs-ch-icon">${ch.icon || "📆"}</div>
+        <div class="gs-ch-icon">${ch.icon || (weekly ? "📆" : "📅")}</div>
         <div class="gs-ch-info">
-          <div class="gs-ch-type weekly">Weekly Challenge</div>
+          <div class="gs-ch-type ${weekly ? "weekly" : "daily"}">${weekly ? "Weekly" : "Daily"} Challenge</div>
           <div class="gs-ch-name">${ch.name || ch.id}</div>
         </div>
         <div class="gs-ch-xp">+${(ch.xp || 0).toLocaleString()} XP</div>`;
@@ -13963,6 +14212,8 @@
     if (!token) return;
     await apiPost(`/api/rooms/${roomId}/chat`, { seat_token: token, message: text, target }, { timeoutMs: 8000 });
     _gameAchTracker.chatMsgs = (_gameAchTracker.chatMsgs || 0) + 1;
+    // Daily: table_talk, send 1 message in a game.
+    try { window._reportDailyChallengeProgress?.("table_talk", 0, { complete: true }); } catch {}
     if (typeof compMode !== "undefined" && compMode) {
       _gameAchTracker.compChatMsgs = (_gameAchTracker.compChatMsgs || 0) + 1;
       // Achievement annoying_messenger (hidden): 20 compliments in one Competitive game.
@@ -13986,6 +14237,11 @@
           && _gameAchTracker && !_gameAchTracker.goodSportWeekFired) {
         _gameAchTracker.goodSportWeekFired = true;
         window._reportWeeklyChallengeProgress("good_sport_week", 1);
+      }
+      // Daily: good_sport, the same send-off, once. No per-game guard needed —
+      // the daily is a one-shot, and reporting a completed slot is a no-op.
+      if (endgameActive && positive) {
+        window._reportDailyChallengeProgress?.("good_sport", 0, { complete: true });
       }
     } catch {}
     // Bonito avatar unlock: type "good game" once the End Game card is out
@@ -16219,6 +16475,7 @@
     { id:"close_current",           name:"Close Current",             icon:"🎯", cat:"Competitive", xp:2000,  desc:"Win a Competitive game by 5 points or less." },
     { id:"reef_regular",            name:"Reef Regular",              icon:"🪸", cat:"Casual",      xp:2000,  desc:"Finish 100 Casual games." },
     { id:"perfect_symbol",          name:"Perfect Symbol",            icon:"🔷", cat:"All Modes",   xp:2000,  desc:"Activate a ★ ability with a matching symbol 100 times." },
+    { id:"daily_tide_sweep",        name:"Daily Tide Sweep",          icon:"📅", cat:"Challenges",  xp:400,   desc:"Complete all 3 of your daily challenges in one day." },
     { id:"weekly_tide_sweep",       name:"Weekly Tide Sweep",         icon:"🗓️", cat:"Challenges",  xp:1500,  desc:"Complete all 3 of your weekly challenges in one week." },
     { id:"reef_veteran",            name:"Reef Veteran",              icon:"⚓", cat:"Casual",      xp:4000,  desc:"Finish 250 Casual games." },
     { id:"mammal_pod_master",       name:"Mammal Pod Master",         icon:"🐬", cat:"Strategy",    xp:5000,  desc:"Win using Mammals 12 times." },
@@ -25477,6 +25734,71 @@
     // Player rolls 3 unique random challenges per week. The strip shows
     // all 3 (uncompleted first). Resets every Monday
     // 12:00 AM local time.
+    // ── DAILY: pool of 50 challenges, 3 rolled per day. ──────────────
+    // Dailies were retired in 1.6.54 and are back by request. The reason they
+    // went is worth keeping fixed: three slots each on their OWN 24-hour timer,
+    // started when that slot was completed, meant the three refreshed at three
+    // different times of day and a player who finished one at 9pm found it
+    // still locked at 8pm the next evening. There was no moment when the day
+    // "started", so the set never felt finishable.
+    //
+    // They now reset TOGETHER at local midnight, the same shape as the weeklies'
+    // Monday reset — one clock, one question ("have I done today's three?"),
+    // and a countdown that means something. Everything else is as it was: the
+    // pool, the XP, and the Daily Tide Sweep for clearing all three.
+    const _DAILY_CHALLENGES = [
+      { id: "login_current",     name: "Login Current",              req: "Log in today.",                                                  target: 1,   xp: 1,   icon: "🌅" },
+      { id: "clean_finish",      name: "Clean Finish",               req: "Finish a game without quitting.",                                target: 1,   xp: 100, icon: "🐟" },
+      { id: "casual_current",    name: "Casual Current",             req: "Play 1 Casual game.",                                            target: 1,   xp: 100, icon: "🌊" },
+      { id: "ranked_ripple",     name: "Ranked Ripple",              req: "Play 1 Competitive game.",                                       target: 1,   xp: 125, icon: "⚔️" },
+      { id: "still_swimming",    name: "Still Swimming",             req: "Play 2 games today.",                                            target: 2,   xp: 150, icon: "🏊" },
+      { id: "daily_splash",      name: "Daily Splash",               req: "Score 100+ points in a game.",                                   target: 100, xp: 150, icon: "💦" },
+      { id: "almost_there",      name: "Almost There",               req: "Finish within 15 points of the winner.",                         target: 1,   xp: 150, icon: "🥈" },
+      { id: "play_again_endgame", name: "Play Again End Game",       req: "Play again when the End Game card gets drawn.",                  target: 1,   xp: 50,  icon: "🔄" },
+      { id: "final_current",     name: "Final Current",              req: "Take your final turn after End Game appears.",                   target: 1,   xp: 75,  icon: "🏁" },
+      { id: "pool_watcher",      name: "Pool Watcher",               req: "Take five cards in a row from the Pool that another player discarded.", target: 5, xp: 75, icon: "👀" },
+      { id: "pool_patience",     name: "Pool Patience",              req: "Take a card after it stays in the Pool for one full rotation.",  target: 1,   xp: 75,  icon: "⏳" },
+      { id: "pool_cleaner",      name: "Pool Cleaner",               req: "Trigger a Pool reset.",                                          target: 1,   xp: 100, icon: "🧹" },
+      { id: "fresh_current",     name: "Fresh Current",              req: "Draw the first card after the Pool resets.",                     target: 1,   xp: 75,  icon: "✨" },
+      { id: "discard_duty",      name: "Discard Duty",               req: "Discard down to 10 cards at end of turn.",                       target: 1,   xp: 50,  icon: "🃏" },
+      { id: "coral_start",       name: "Coral Start",                req: "Play a Coral Reef as your first Ocean.",                         target: 1,   xp: 50,  icon: "🪸" },
+      { id: "deep_start",        name: "Deep Start",                 req: "Play a Deep Ocean as your first Ocean.",                         target: 1,   xp: 50,  icon: "🌊" },
+      { id: "mangrove_start",    name: "Mangrove Start",             req: "Play a Mangrove as your first Ocean.",                           target: 1,   xp: 50,  icon: "🌳" },
+      { id: "pier_start",        name: "Pier Start",                 req: "Play a Pier as your first Ocean.",                               target: 1,   xp: 50,  icon: "🛟" },
+      { id: "arctic_start",      name: "Arctic Start",               req: "Play an Arctic Ocean as your first Ocean.",                      target: 1,   xp: 50,  icon: "❄️" },
+      { id: "kelp_start",        name: "Kelp Start",                 req: "Play a Kelp Forest as your first Ocean.",                        target: 1,   xp: 50,  icon: "🌿" },
+      { id: "tide_pool_start",   name: "Tide Pool Start",            req: "Play a Tide Pool as your first Ocean.",                          target: 1,   xp: 50,  icon: "🐚" },
+      { id: "artificial_start",  name: "Artificial Start",           req: "Play an Artificial Reef as your first Ocean.",                   target: 1,   xp: 50,  icon: "🏗️" },
+      { id: "mini_ecosystem",    name: "Mini Ecosystem",             req: "Play 4 different species groups in one game.",                   target: 4,   xp: 150, icon: "🐠" },
+      { id: "surface_life",      name: "Surface Life",               req: "Play 3 cards on top spaces in a row.",                           target: 3,   xp: 75,  icon: "🦅" },
+      { id: "ocean_floor",       name: "Ocean Floor",                req: "Play 3 cards on bottom spaces in a row.",                        target: 3,   xp: 75,  icon: "🦀" },
+      { id: "star_spark",        name: "Star Spark",                 req: "Activate 2 ★ abilities.",                                        target: 2,   xp: 75,  icon: "⭐" },
+      { id: "star_surfer",       name: "Star Surfer",                req: "Activate 5 ★ abilities in one game.",                            target: 5,   xp: 150, icon: "🌟" },
+      { id: "symbol_match",      name: "Symbol Match",               req: "Discard a matching symbol to activate a ★ ability.",             target: 1,   xp: 25,  icon: "🔣" },
+      { id: "combo_current",     name: "Combo Current",              req: "Activate a ★ ability and score 15+ points that turn.",           target: 1,   xp: 150, icon: "💫" },
+      { id: "star_finish",       name: "Star Finish",                req: "Activate a ★ ability after End Game appears.",                   target: 1,   xp: 150, icon: "🎆" },
+      { id: "no_star_needed",    name: "No Star Needed",             req: "Score 100+ without activating a ★ ability.",                     target: 100, xp: 200, icon: "💪" },
+      { id: "better_spot",       name: "Better Spot",                req: "Move an animal to a higher-scoring Ocean.",                      target: 1,   xp: 125, icon: "📈" },
+      { id: "last_turn_move",    name: "Last Turn Move",             req: "Move an animal after End Game appears.",                         target: 1,   xp: 150, icon: "🎯" },
+      { id: "no_moving_needed",  name: "No Moving Needed",           req: "Win without moving any animals.",                                target: 1,   xp: 150, icon: "🛡️" },
+      { id: "current_lite",      name: "Current Controller Lite",    req: "Move 3 animals today.",                                          target: 3,   xp: 150, icon: "🔁" },
+      { id: "board_fixer",       name: "Board Fixer",                req: "Move an animal that changes your final score.",                  target: 1,   xp: 150, icon: "🔧" },
+      { id: "strategy_switch",   name: "Strategy Switch",            req: "Play 2 games using different strategies today.",                 target: 2,   xp: 200, icon: "🎴" },
+      { id: "ranked_warmup",     name: "Ranked Warmup",              req: "Finish a Competitive game without quitting.",                    target: 1,   xp: 125, icon: "🥊" },
+      { id: "one_hand_strong",   name: "One Hand Strong",            req: "Score 100+ with one Competitive hand.",                          target: 100, xp: 125, icon: "✋" },
+      { id: "double_handed",     name: "Double Handed",              req: "Score 100+ with both Competitive hands.",                        target: 2,   xp: 175, icon: "🙌" },
+      { id: "set_it_up",         name: "Set It Up",                  req: "Put a card in the Pool with one hand and take it later with the other.", target: 1, xp: 200, icon: "🎣" },
+      { id: "deny_the_setup",    name: "Deny the Setup",             req: "Take a Pool card your opponent played in the Pool last turn.",   target: 1,   xp: 150, icon: "🚫" },
+      { id: "ranked_win_day",    name: "Ranked Win of the Day",      req: "Win 1 Competitive game today.",                                  target: 1,   xp: 250, icon: "🏆" },
+      { id: "friend_tide",       name: "Friend Tide",                req: "Play with a friend.",                                            target: 1,   xp: 150, icon: "👥" },
+      { id: "table_talk",        name: "Table Talk",                 req: "Send 1 message in a game.",                                      target: 1,   xp: 25,  icon: "💬" },
+      { id: "good_sport",        name: "Good Sport",                 req: 'Send "good game" after the End Game card is shown.',             target: 1,   xp: 50,  icon: "🤝" },
+      { id: "host_harbor",       name: "Host a Harbor",              req: "Create a room and finish the game.",                             target: 1,   xp: 100, icon: "🏠" },
+      { id: "join_current",      name: "Join the Current",           req: "Join someone else's room and finish the game.",                  target: 1,   xp: 100, icon: "🚪" },
+      { id: "no_bots_today",     name: "No Bots Today",              req: "Finish a game with only real players.",                          target: 1,   xp: 150, icon: "🙋" },
+      { id: "new_face",          name: "New Face",                   req: "Play with someone new.",                                         target: 1,   xp: 125, icon: "🆕" },
+    ];
+
     const _WEEKLY_CHALLENGES = [
       { id: "weekly_finisher",       name: "Weekly Finisher",          req: "Finish 10 games this week.",                                  target: 10, xp: 1000, icon: "🏁" },
       { id: "ocean_regular",         name: "Ocean Regular",            req: "Finish 15 games this week.",                                  target: 15, xp: 1500, icon: "🌊" },
@@ -25545,22 +25867,47 @@
     // The strip is CLOSED on arrival and remembers what the player last chose,
     // so someone who opens it every visit gets it open every visit.
     const _CS_OPEN_KEY = "cc_cs_open";
+    // Which half is showing. Daily is the default because it is the one that
+    // changes every day and so the one worth opening onto; the choice is
+    // remembered, so a player who lives in the weeklies keeps them.
+    const _CS_VIEW_KEY = "cc_cs_view";
     let _csOpen   = (function(){ try { return localStorage.getItem(_CS_OPEN_KEY) === "1"; } catch { return false; } })();
+    let _csView   = (function(){ try { return localStorage.getItem(_CS_VIEW_KEY) === "weekly" ? "weekly" : "daily"; } catch { return "daily"; } })();
     let _csWired  = false;
+    let _csTickTimer = null;
 
-    function _csCardHtml(c) {
+    // One slow tick, only while the strip is open on the DAILY view: it keeps
+    // the "Resets in 4h 12m" line honest and swaps in the fresh three the
+    // moment local midnight passes, so a player sitting on the page overnight
+    // does not have to reload to get their new day.
+    function _startChallengeTick() {
+      if (_csTickTimer) return;
+      _csTickTimer = setInterval(() => {
+        if (!_csOpen) return;
+        let rolled = false;
+        try {
+          const st = _loadDailyState();
+          rolled = _refreshDailyIfNeeded(st);
+        } catch {}
+        // A minute of drift on the countdown is not worth a repaint the player
+        // did not ask for, so only the daily view ticks for the clock alone.
+        if (rolled || _csView === "daily") renderChallengeStrip();
+      }, 60000);
+    }
+
+    function _csCardHtml(c, isWeekly) {
       const target    = Math.max(1, Number(c.target) || 1);
       const cur       = Math.max(0, Math.min(target, Number(c.progress) || 0));
       const pct       = Math.round((cur / target) * 100);
       const xpFmt     = (Number(c.xp) || 0).toLocaleString();
       const completed = Boolean(c.completed);
-      const classes   = ["ph-cs-card", "is-weekly"];
+      const classes   = ["ph-cs-card", isWeekly ? "is-weekly" : "is-daily"];
       if (completed)  classes.push("is-completed");
       const footHtml = completed
         ? `
           <div class="ph-cs-card-bar"><div class="ph-cs-card-fill" style="width:100%"></div></div>
           <span class="ph-cs-card-completed-badge">✓ Completed</span>
-          <span class="ph-cs-card-next">New one Monday</span>`
+          <span class="ph-cs-card-next">${isWeekly ? "New one Monday" : "New one at midnight"}</span>`
         : `
           <div class="ph-cs-card-bar"><div class="ph-cs-card-fill" style="width:${pct}%"></div></div>
           <span class="ph-cs-card-progress">${cur}/${target}</span>
@@ -25570,7 +25917,7 @@
           <div class="ph-cs-card-top">
             <div class="ph-cs-card-icon" aria-hidden="true">${escapeHtml(c.icon || "🎯")}</div>
             <div class="ph-cs-card-meta">
-              <div class="ph-cs-card-type">WEEKLY</div>
+              <div class="ph-cs-card-type">${isWeekly ? "WEEKLY" : "DAILY"}</div>
               <div class="ph-cs-card-name" title="${escapeHtml(c.name || "")}">${escapeHtml(c.name || "")}</div>
             </div>
           </div>
@@ -25588,71 +25935,139 @@
       const rewardEl = $a("ph-cs-reward-btn");
       const rlabelEl = $a("ph-cs-reward-label");
       const rsubEl   = $a("ph-cs-reward-sub");
+      const ricoEl   = $a("ph-cs-reward-icon");
+      const pillEl   = $a("ph-cs-pill");
+      const titleEl  = $a("ph-cs-title");
       if (!stripEl || !cardsEl || !subEl) return;
 
       // Each render also marks today as played (for Seven Seas / Perfect
       // Week) and runs the weekly meta claim check.
       try { _markTodayPlayed(); } catch {}
       try { _maybeClaimWeeklyMeta(); } catch {}
+      // Log-in is itself a daily challenge, and the strip rendering is the
+      // earliest honest proof the player is here today.
+      try { window._reportDailyChallengeProgress?.("login_current", 0, { complete: true }); } catch {}
 
-      const meta       = _getWeeklyMeta();
-      const sweepDone  = meta.completedCount;
-      const sweepTotal = meta.totalCount;
+      const weekly = _csView === "weekly";
+      // Both metas every render: the header count belongs to the view that is
+      // showing, but the OTHER view's badge has to be right the moment the
+      // player switches, without waiting for a second render.
+      let meta, dailyMeta, weeklyMeta;
+      try { dailyMeta  = _getDailyMeta(); }  catch { dailyMeta  = null; }
+      try { weeklyMeta = _getWeeklyMeta(); } catch { weeklyMeta = null; }
+      meta = (weekly ? weeklyMeta : dailyMeta)
+             || { completedCount: 0, totalCount: 3, sweepDone: false, resetsInMs: 0 };
+      const done  = meta.completedCount;
+      const total = meta.totalCount;
+
+      if (pillEl) {
+        pillEl.textContent = weekly ? "Weekly" : "Daily";
+        pillEl.classList.toggle("weekly", weekly);
+        pillEl.classList.toggle("daily", !weekly);
+      }
+      if (titleEl) titleEl.textContent = weekly ? "Weekly Challenges" : "Daily Challenges";
 
       // The header has to be worth reading while it is the only thing on
       // screen, so it carries the count even when the challenges are hidden.
-      subEl.textContent = _csOpen
-        ? "Complete weekly challenges to earn bigger XP rewards."
-        : `${sweepDone} of ${sweepTotal} complete this week — tap to see them.`;
+      // Closed, it speaks for BOTH sets — a player who never opens the strip
+      // would otherwise never learn the other half exists.
+      if (_csOpen) {
+        subEl.textContent = weekly
+          ? "Complete weekly challenges to earn bigger XP rewards."
+          : `Three fresh challenges every day. ${_formatResetIn(meta.resetsInMs || 0)}.`;
+      } else {
+        const d = dailyMeta ? `${dailyMeta.completedCount}/${dailyMeta.totalCount} daily` : "";
+        const w = weeklyMeta ? `${weeklyMeta.completedCount}/${weeklyMeta.totalCount} weekly` : "";
+        subEl.textContent = `${[d, w].filter(Boolean).join(" · ")} complete — tap to see them.`;
+      }
 
       stripEl.classList.toggle("is-collapsed", !_csOpen);
       const headerBtn = $a("ph-cs-header-btn");
       if (headerBtn) {
         headerBtn.setAttribute("aria-expanded", _csOpen ? "true" : "false");
-        headerBtn.title = _csOpen ? "Hide this week's challenges" : "Show this week's challenges";
+        headerBtn.title = _csOpen ? "Hide your challenges" : "Show your challenges";
       }
 
-      // Only fill the cards when they can be seen. A closed strip costs nothing.
-      cardsEl.innerHTML = _csOpen
-        ? _getWeeklyDisplaySlots().map(c => _csCardHtml(c)).join("")
-        : "";
+      // The Daily|Weekly switch: which one is on, and each one's live count so
+      // the player can see there is something to collect on the other side.
+      ["daily", "weekly"].forEach(view => {
+        const btn = $a("ph-cs-view-" + view);
+        if (!btn) return;
+        const m = view === "weekly" ? weeklyMeta : dailyMeta;
+        const on = (view === "weekly") === weekly;
+        btn.classList.toggle("is-on", on);
+        btn.setAttribute("aria-selected", on ? "true" : "false");
+        btn.textContent = `${view === "weekly" ? "🗓️ Weekly" : "📅 Daily"}`
+          + (m ? `  ${m.completedCount}/${m.totalCount}` : "");
+        btn.classList.toggle("is-swept", Boolean(m && m.sweepDone));
+      });
 
-      // Weekly Tide Sweep reward area, live count of 3 weeklies completed.
-      // This is the only place the week's REWARD is stated, so it follows the
+      // Only fill the cards when they can be seen. A closed strip costs nothing.
+      // An open one must never be empty: the slots come from local state, so the
+      // only ways to get nothing are a thrown read (private-mode localStorage)
+      // or an empty roll, and both used to blank the strip silently — which
+      // looks exactly like a broken button.
+      if (_csOpen) {
+        let html = "";
+        try {
+          const slots = weekly ? _getWeeklyDisplaySlots() : _getDailyDisplaySlots();
+          html = slots.map(c => _csCardHtml(c, weekly)).join("");
+        } catch (e) { html = ""; }
+        cardsEl.innerHTML = html || `<div class="ph-cs-empty">Your ${weekly ? "weekly" : "daily"} challenges couldn't be loaded — they'll reroll on your next visit.</div>`;
+      } else {
+        cardsEl.innerHTML = "";
+      }
+
+      // Tide Sweep reward area, live count of the showing view's 3 challenges.
+      // This is the only place the set's REWARD is stated, so it follows the
       // cards: shown whenever they are, hidden with them when the strip is
       // closed. (It used to be display:none in the markup and nothing ever
       // turned it back on, so opening the strip showed challenges with no
       // reward attached to them at all.)
-      const sweepPct = Math.min(100, Math.round((sweepDone / Math.max(1, sweepTotal)) * 100));
-      if (countEl) countEl.textContent = `${sweepDone} / ${sweepTotal} Completed`;
+      const sweepPct = Math.min(100, Math.round((done / Math.max(1, total)) * 100));
+      if (countEl) countEl.textContent = `${done} / ${total} Completed`;
       if (fillEl)  fillEl.style.width  = sweepPct + "%";
+      if (ricoEl)  ricoEl.textContent  = weekly ? "🗝️" : "📅";
       if (rewardEl) {
         rewardEl.style.display = _csOpen ? "" : "none";
-        rewardEl.classList.toggle("is-done", meta.sweepDone);
+        rewardEl.classList.toggle("is-done", Boolean(meta.sweepDone));
         rewardEl.title = meta.sweepDone
-          ? "Weekly Tide Sweep complete — see it in Achievements"
-          : `Complete all ${sweepTotal} weekly challenges for 1,500 XP`;
+          ? `${weekly ? "Weekly" : "Daily"} Tide Sweep complete — see it in Achievements`
+          : `Complete all ${total} ${weekly ? "weekly" : "daily"} challenges for ${weekly ? "1,500" : "400"} XP`;
       }
       if (rlabelEl) {
-        rlabelEl.textContent = meta.sweepDone
-          ? "✓ Weekly Tide Sweep · 1,500 XP earned"
-          : "Weekly Tide Sweep · +1,500 XP";
+        if (weekly) {
+          rlabelEl.textContent = meta.sweepDone
+            ? "✓ Weekly Tide Sweep · 1,500 XP earned"
+            : "Weekly Tide Sweep · +1,500 XP";
+        } else {
+          rlabelEl.textContent = meta.sweepDone
+            ? "✓ Daily Tide Sweep · 400 XP earned"
+            : "Daily Tide Sweep · +400 XP";
+        }
       }
-      // Perfect Week is the week's OTHER reward and had nowhere on screen to
-      // say so. It needs the Sweep plus a game on all 7 days.
+      // The week's OTHER reward is Perfect Week, and it had nowhere on screen
+      // to say so. The day's second line is its countdown instead — a daily set
+      // is only worth planning around if you know how long is left on it.
       if (rsubEl) {
-        rsubEl.textContent = meta.perfectClaimed
-          ? "✓ Perfect Week · 5,000 XP earned"
-          : `Perfect Week: play all 7 days for +5,000 XP (${meta.daysPlayedCount}/7)`;
+        if (weekly) {
+          rsubEl.textContent = (weeklyMeta && weeklyMeta.perfectClaimed)
+            ? "✓ Perfect Week · 5,000 XP earned"
+            : `Perfect Week: play all 7 days for +5,000 XP (${(weeklyMeta && weeklyMeta.daysPlayedCount) || 0}/7)`;
+        } else {
+          rsubEl.textContent = _formatResetIn(meta.resetsInMs || 0)
+            + " — three new challenges at midnight";
+        }
       }
 
+      _startChallengeTick();
       _wireChallengeStrip();
     }
 
     // Snapshot of which weekly challenges are currently completed (for the
     // end-game diff).
     window._getCompletedChallengeSnapshot = function() {
-      const weekly = new Set();
+      const weekly = new Set(), daily = new Set();
       try {
         const ws = _loadWeeklyState ? _loadWeeklyState() : null;
         if (ws) ws.slots.forEach(slot => {
@@ -25662,13 +26077,23 @@
           }
         });
       } catch {}
-      return { weekly };
+      try {
+        const ds = _loadDailyState ? _loadDailyState() : null;
+        if (ds) ds.slots.forEach(slot => {
+          if (slot.completedAt) {
+            const def = _DAILY_CHALLENGES[slot.idx];
+            if (def) daily.add(def.id);
+          }
+        });
+      } catch {}
+      return { weekly, daily };
     };
 
     // Returns challenges newly completed since preSnapshot.
     window._getNewlyCompletedChallenges = function(preSnapshot) {
-      const seen = (preSnapshot && preSnapshot.weekly) || new Set();
-      const newWeekly = [];
+      const seen     = (preSnapshot && preSnapshot.weekly) || new Set();
+      const seenDay  = (preSnapshot && preSnapshot.daily)  || new Set();
+      const newWeekly = [], newDaily = [];
       try {
         const ws = _loadWeeklyState ? _loadWeeklyState() : null;
         if (ws) ws.slots.forEach(slot => {
@@ -25680,10 +26105,130 @@
           }
         });
       } catch {}
-      return { weekly: newWeekly };
+      try {
+        const ds = _loadDailyState ? _loadDailyState() : null;
+        if (ds) ds.slots.forEach(slot => {
+          if (slot.completedAt) {
+            const def = _DAILY_CHALLENGES[slot.idx];
+            if (def && !seenDay.has(def.id)) {
+              newDaily.push({ id: def.id, name: def.name, icon: def.icon || "📅", xp: def.xp || 0 });
+            }
+          }
+        });
+      } catch {}
+      return { weekly: newWeekly, daily: newDaily };
     };
 
-    // ── WEEKLY state management ───────────────────────────────────
+    // ── DAILY state management ────────────────────────────────────
+    const _DAILY_STATE_KEY = "cc_daily_state_v1";
+
+    // Local midnight that started TODAY. The daily equivalent of
+    // _getThisMondayMidnight, and deliberately the same shape: one boundary
+    // that every slot shares, computed in the player's own timezone.
+    function _getTodayMidnight() {
+      const now = new Date();
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
+    }
+
+    // Roll N unique random indices into the daily pool. Unique, unlike the
+    // original roll — three slots could land on the same challenge, and being
+    // shown the same job three times reads as a bug however random it is.
+    function _rollDailyIndices(count) {
+      const pool = _DAILY_CHALLENGES.map((_, i) => i);
+      const out = [];
+      const n = Math.min(count, pool.length);
+      for (let i = 0; i < n; i++) {
+        const j = Math.floor(Math.random() * pool.length);
+        out.push(pool.splice(j, 1)[0]);
+      }
+      return out;
+    }
+
+    function _freshDailyState() {
+      return {
+        dayStartMs: _getTodayMidnight(),
+        slots: _rollDailyIndices(3).map(idx => ({ idx, progress: 0, completedAt: null })),
+        sweepClaimed: false,
+      };
+    }
+
+    function _loadDailyState() {
+      try {
+        const raw = localStorage.getItem(_DAILY_STATE_KEY);
+        if (raw) {
+          const obj = JSON.parse(raw);
+          if (obj && Array.isArray(obj.slots) && obj.slots.length === 3
+              && obj.slots.every(s => Number.isInteger(s.idx) && s.idx >= 0 && s.idx < _DAILY_CHALLENGES.length)
+              && Number.isFinite(obj.dayStartMs)) {
+            return obj;
+          }
+        }
+      } catch {}
+      const fresh = _freshDailyState();
+      _saveDailyState(fresh);
+      return fresh;
+    }
+
+    function _saveDailyState(state) {
+      try { localStorage.setItem(_DAILY_STATE_KEY, JSON.stringify(state)); } catch {}
+    }
+
+    // Stored day older than today's midnight ⇒ the day rolled: three fresh
+    // challenges, progress cleared, sweep re-earnable.
+    function _refreshDailyIfNeeded(state) {
+      const midnight = _getTodayMidnight();
+      if ((Number(state.dayStartMs) || 0) < midnight) {
+        Object.assign(state, _freshDailyState());
+        _saveDailyState(state);
+        return true;
+      }
+      return false;
+    }
+
+    function _getCurrentDailySlots() {
+      const state = _loadDailyState();
+      _refreshDailyIfNeeded(state);
+      return state.slots.map(slot => {
+        const def = _DAILY_CHALLENGES[slot.idx] || _DAILY_CHALLENGES[0];
+        const completed = Boolean(slot.completedAt);
+        return {
+          ...def,
+          progress: completed ? def.target : (Number(slot.progress) || 0),
+          completed,
+          completedAt: slot.completedAt || null,
+        };
+      });
+    }
+
+    // 3 active dailies, uncompleted first — same ordering rule as the weeklies
+    // so the two views read identically.
+    function _getDailyDisplaySlots() {
+      const all = _getCurrentDailySlots();
+      return [...all.filter(s => !s.completed), ...all.filter(s => s.completed)].slice(0, 3);
+    }
+
+    function _getDailyMeta() {
+      const state = _loadDailyState();
+      _refreshDailyIfNeeded(state);
+      const completedCount = state.slots.filter(s => s.completedAt).length;
+      return {
+        completedCount,
+        totalCount: 3,
+        sweepDone:    completedCount >= 3,
+        sweepClaimed: Boolean(state.sweepClaimed),
+        resetsInMs:   Math.max(0, (_getTodayMidnight() + 24 * 60 * 60 * 1000) - Date.now()),
+      };
+    }
+
+    // "Resets in 4h 12m" — the thing a daily has that a weekly does not, and
+    // the whole reason a player can decide whether to squeeze one in tonight.
+    function _formatResetIn(ms) {
+      if (!Number.isFinite(ms) || ms <= 0) return "Resets at midnight";
+      const totalMin = Math.floor(ms / 60000);
+      const h = Math.floor(totalMin / 60), m = totalMin % 60;
+      return h <= 0 ? `Resets in ${m}m` : `Resets in ${h}h ${m}m`;
+    }
+
     const _WEEKLY_STATE_KEY = "cc_weekly_state_v1";
 
     // Returns the epoch ms of the most recent Monday at 00:00 local time.
@@ -25856,6 +26401,50 @@
     }
     window._reportWeeklyChallengeProgress = reportWeeklyChallengeProgress;
 
+    // Public hook the game code calls when a DAILY challenge progresses. Same
+    // contract as the weekly one — amount, {complete:true} or {setTo:n} — so a
+    // call site that feeds both reads the same either way.
+    function reportDailyChallengeProgress(challengeId, amount = 1, opts = {}) {
+      const state = _loadDailyState();
+      _refreshDailyIfNeeded(state);
+      let changed = false;
+      state.slots.forEach(slot => {
+        const def = _DAILY_CHALLENGES[slot.idx];
+        if (!def || def.id !== challengeId) return;
+        if (slot.completedAt) return;
+        const target = Math.max(1, Number(def.target) || 1);
+        const cur    = Math.max(0, Number(slot.progress) || 0);
+        let next;
+        if (opts.complete)                    next = target;
+        else if (Number.isFinite(opts.setTo)) next = Math.min(target, Math.max(0, Number(opts.setTo)));
+        else                                  next = Math.min(target, cur + (Number(amount) || 1));
+        if (next !== cur) {
+          slot.progress = next;
+          if (next >= target) {
+            slot.completedAt = Date.now();
+            try { window.__fishGrantXp?.(def.xp, { reason: def.name }); } catch {}
+          }
+          changed = true;
+        }
+      });
+      if (changed) {
+        _saveDailyState(state);
+        // The header carries the count for whichever view is showing, so it
+        // repaints even while the strip is closed — same rule as weekly.
+        renderChallengeStrip();
+        try { window._renderIgChallengePanel?.(); } catch {}
+        // Achievement daily_tide_sweep: all 3 daily slots completed. Guarded so
+        // it fires once per day rather than on every later report.
+        if (state.slots.length === 3 && state.slots.every(s => s.completedAt)
+            && !state.sweepClaimed) {
+          state.sweepClaimed = true;
+          _saveDailyState(state);
+          try { window.__fishUnlockAchievementById?.("daily_tide_sweep"); } catch {}
+        }
+      }
+    }
+    window._reportDailyChallengeProgress = reportDailyChallengeProgress;
+
     // ── Challenge / meta XP grant ────────────────────────────────────
     // Persists XP to the player's total and recomputes their level. Used by
     // every daily/weekly challenge completion (def.xp) and by the Tide Sweep /
@@ -25928,7 +26517,7 @@
       let _igcpWired   = false;
       let _igcpVisible = false;
 
-      function _igcpCardHtml(c) {
+      function _igcpCardHtml(c, isWeekly) {
         const target = Math.max(1, Number(c.target) || 1);
         const cur    = Math.max(0, Math.min(target, Number(c.progress) || 0));
         const pct    = Math.round((cur / target) * 100);
@@ -25936,7 +26525,7 @@
         const xpFmt  = (Number(c.xp) || 0).toLocaleString();
         const prog   = done ? "✓ Done" : `${cur}/${target}`;
         return `
-          <div class="igcp-row${done ? " igcp-done" : ""}">
+          <div class="igcp-row${done ? " igcp-done" : ""}${isWeekly ? " igcp-weekly" : " igcp-daily"}">
             <div class="igcp-row-top">
               <div class="igcp-row-icon">${escapeHtml(c.icon || "🎯")}</div>
               <div class="igcp-row-info">
@@ -25963,30 +26552,38 @@
         panel.classList.toggle("igcp-minimized", _igcpMin);
         const minBtn = document.getElementById("igcp-minimize-btn");
         if (minBtn) minBtn.textContent = _igcpMin ? "+" : "−";
-        titleEl.textContent = "Weekly Challenges";
-        pillEl.textContent  = "Weekly";
-        pillEl.classList.add("weekly");
+        // The panel follows the same Daily|Weekly choice as the Player Home
+        // strip — one setting, so switching in one place is not undone by the
+        // other the next time either is opened.
+        const weekly = _csView === "weekly";
+        titleEl.textContent = weekly ? "Weekly Challenges" : "Daily Challenges";
+        pillEl.textContent  = weekly ? "Weekly" : "Daily";
+        pillEl.classList.toggle("weekly", weekly);
+        pillEl.classList.toggle("daily", !weekly);
         const rewardEl = document.getElementById("igcp-reward");
         if (!_igcpMin) {
           // Opening this panel must never produce an empty box. The rows are
-          // built from local weekly state, so the only ways to get nothing are
-          // a thrown read (private-mode localStorage) or an empty roll — both
-          // of which used to blank the panel silently, which looks exactly like
-          // a broken button. Say what happened instead.
+          // built from local state, so the only ways to get nothing are a
+          // thrown read (private-mode localStorage) or an empty roll — both of
+          // which used to blank the panel silently, which looks exactly like a
+          // broken button. Say what happened instead.
           let html = "";
           try {
-            html = _getWeeklyDisplaySlots().map(c => _igcpCardHtml(c)).join("");
+            const slots = weekly ? _getWeeklyDisplaySlots() : _getDailyDisplaySlots();
+            html = slots.map(c => _igcpCardHtml(c, weekly)).join("");
           } catch (e) { html = ""; }
-          cardsEl.innerHTML = html || `<div class="igcp-empty">This week's challenges aren't loaded yet. Open Player Home to roll them.</div>`;
+          cardsEl.innerHTML = html || `<div class="igcp-empty">Your ${weekly ? "weekly" : "daily"} challenges aren't loaded yet. Open Player Home to roll them.</div>`;
           // …and it must never list three jobs without saying what they pay.
           if (rewardEl) {
             let meta = null;
-            try { meta = _getWeeklyMeta(); } catch (e) { meta = null; }
+            try { meta = weekly ? _getWeeklyMeta() : _getDailyMeta(); } catch (e) { meta = null; }
             if (meta) {
               rewardEl.classList.toggle("igcp-rw-done", Boolean(meta.sweepDone));
+              const xp = weekly ? "1,500" : "400";
+              const which = weekly ? "Weekly" : "Daily";
               rewardEl.textContent = meta.sweepDone
-                ? "✓ Weekly Tide Sweep complete — 1,500 XP"
-                : `🗝️ All ${meta.totalCount} = Weekly Tide Sweep · +1,500 XP  (${meta.completedCount}/${meta.totalCount})`;
+                ? `✓ ${which} Tide Sweep complete — ${xp} XP`
+                : `${weekly ? "🗝️" : "📅"} All ${meta.totalCount} = ${which} Tide Sweep · +${xp} XP  (${meta.completedCount}/${meta.totalCount})`;
             } else {
               rewardEl.textContent = "";
             }
@@ -26015,10 +26612,31 @@
 
         minBtn.addEventListener("click", (e) => { e.stopPropagation(); toggle(); });
 
+        // The Daily|Weekly pill. It lives inside the header, which is itself
+        // the show/hide toggle, so it has to swallow the click or switching
+        // views would also close the panel.
+        const pillEl = document.getElementById("igcp-pill");
+        const swapView = (e) => {
+          e.stopPropagation();
+          _csView = _csView === "weekly" ? "daily" : "weekly";
+          try { localStorage.setItem(_CS_VIEW_KEY, _csView); } catch {}
+          renderIgChallengePanel();
+          // Player Home shares the setting, so repaint it too — it may be
+          // sitting behind the game, already rendered on the other view.
+          try { renderChallengeStrip(); } catch {}
+        };
+        if (pillEl) {
+          pillEl.addEventListener("click", swapView);
+          pillEl.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); swapView(e); }
+          });
+        }
+
         // The header opens and closes the panel — the same gesture both ways,
         // so there is nothing to learn beyond "tap it".
         header.addEventListener("click", (e) => {
           if (e.target === minBtn || minBtn.contains(e.target)) return;
+          if (pillEl && (e.target === pillEl || pillEl.contains(e.target))) return;
           toggle();
         });
 
@@ -26337,6 +26955,78 @@
         // Other detectable ones
         if (!hadBots) rw("no_bots_needed", 1);
         if (!wasHost) rw("join_week", 1);
+
+        // ─── DAILY ─────────────────────────────────────────────────
+        // Same facts as the weeklies above, read against today's three. `rd`
+        // only ticks a slot whose rolled id matches, so calling every one of
+        // these on every game end costs nothing when none are active today.
+        const rd = (id, amt, opts) => {
+          try { window._reportDailyChallengeProgress?.(id, amt, opts); } catch {}
+        };
+
+        // Game-finish counters
+        rd("still_swimming", 1);
+        if (!quitByMe) rd("clean_finish", 0, { complete: true });
+
+        // Mode-specific
+        if (isComp) {
+          rd("ranked_ripple", 0, { complete: true });
+          if (!quitByMe) rd("ranked_warmup", 0, { complete: true });
+        } else {
+          rd("casual_current", 0, { complete: true });
+        }
+
+        // Score thresholds
+        if (myScore >= 100) {
+          rd("daily_splash", 0, { complete: true });
+          // no_star_needed wants the same 100 with no ★ all game.
+          if (!(_gameAchTracker?.starsActivated > 0)) rd("no_star_needed", 0, { complete: true });
+        }
+        if (isComp && myCompBest >= 100) rd("one_hand_strong", 0, { complete: true });
+
+        // almost_there: finished within 15 points of the winner (and not the
+        // winner myself — "within 15 of yourself" is not a near miss).
+        try {
+          if (!isWinner && finalScores.length >= 2) {
+            const top = Math.max(...finalScores.map(f => Number(f.score || 0)));
+            if (top - myScore <= 15) rd("almost_there", 0, { complete: true });
+          }
+        } catch {}
+
+        // Win-only dailies
+        if (isWinner) {
+          if (isComp) rd("ranked_win_day", 0, { complete: true });
+          if (!(_gameAchTracker?.animalMoves > 0)) rd("no_moving_needed", 0, { complete: true });
+          if (_gameAchTracker?.betterSpot) rd("board_fixer", 0, { complete: true });
+        }
+
+        // Social / lobby-shaped dailies
+        if (!hadBots) rd("no_bots_today", 0, { complete: true });
+        if (wasHost) rd("host_harbor", 0, { complete: true });
+        else         rd("join_current", 0, { complete: true });
+
+        // strategy_switch: two games today on DIFFERENT strategies. Kept in a
+        // per-day ledger for the same reason mixed_waters keeps a per-week one
+        // — the challenge is about the pair, not about either game alone.
+        // The strategy is read straight off the server's classification here
+        // rather than reusing the block above, which only runs on a WIN — this
+        // challenge counts games played, won or lost.
+        try {
+          const _myP = (Array.isArray(_latestPlayers) ? _latestPlayers : [])
+            .find(p => p.index === myIdx);
+          const myStrategyForDay = (_myP && typeof _myP.strategy === "string")
+            ? _myP.strategy.trim() : "";
+          if (typeof _getTodayMidnight === "function" && myStrategyForDay) {
+            const ssKey = "cc_day_strats_" + _getTodayMidnight();
+            let seen = [];
+            try { seen = JSON.parse(localStorage.getItem(ssKey) || "[]") || []; } catch {}
+            if (!seen.includes(myStrategyForDay)) {
+              seen.push(myStrategyForDay);
+              try { localStorage.setItem(ssKey, JSON.stringify(seen)); } catch {}
+            }
+            if (seen.length >= 2) rd("strategy_switch", 0, { complete: true });
+          }
+        } catch {}
       } catch (e) {
         console.warn("Challenge hook error:", e);
       }
@@ -26385,6 +27075,24 @@
       const cardsEl   = $a("ph-cs-cards");
       if (!headerBtn || !rewardBtn || !cardsEl) return;
       _csWired = true;
+
+      // Daily | Weekly. These sit inside the body, so a click on one would
+      // otherwise bubble to the header and close the strip the player just
+      // asked to look at.
+      ["daily", "weekly"].forEach(view => {
+        const btn = $a("ph-cs-view-" + view);
+        if (!btn) return;
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (_csView === view) return;
+          _csView = view;
+          try { localStorage.setItem(_CS_VIEW_KEY, view); } catch {}
+          renderChallengeStrip();
+          cardsEl.classList.add("fading");
+          void cardsEl.offsetWidth;
+          cardsEl.classList.remove("fading");
+        });
+      });
 
       // The header is the whole toggle: closed → open, open → closed.
       headerBtn.addEventListener("click", () => {

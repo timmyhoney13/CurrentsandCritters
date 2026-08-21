@@ -691,7 +691,7 @@
   function tutIsGuest() {
     try { return !(window.__fishAuthUser && window.__fishAuthUser()); } catch (_) { return false; }
   }
-  // The Weekly Challenges strip remembers whether it was open. Close it first so
+  // The Challenges strip remembers whether it was open. Close it first so
   // "click the bar to open it" is a real instruction and not already done.
   function collapseChallengeStrip() {
     const strip = document.getElementById("ph-cs-strip");
@@ -762,16 +762,16 @@
       advanceWhen: gtGalClosed,
       text: "Click the <strong>back arrow</strong> at the top to close the gallery and return to the menu." },
 
-    // ── Open the Weekly Challenges (interactive, must click the header) ──
-    { target: "#ph-cs-header-btn", badge: "Weekly Challenges", title: "Open Your Challenges",
+    // ── Open the Challenges strip (interactive, must click the header) ──
+    { target: "#ph-cs-header-btn", badge: "Challenges", title: "Open Your Challenges",
       before: () => { closeMenuOverlays(); navTab("overview"); collapseChallengeStrip(); },
       interactive: true,
       advanceWhen: gtChallengesOpen,
-      text: "Click the <strong>Weekly Challenges</strong> bar to open it." },
+      text: "Click the <strong>Challenges</strong> bar to open it." },
 
-    // ── Weekly Challenges description ─────────────────────────────────
-    { target: "#ph-cs-strip", badge: "Weekly Challenges", title: "Weekly Challenges",
-      text: "These are your <strong>Weekly Challenges</strong>. You get three each week, and completing them earns big <strong>XP</strong> rewards. They reset every <strong>Monday</strong>, so you have the whole week to finish them. Click the bar again to tuck them away." },
+    // ── Challenges description ────────────────────────────────────────
+    { target: "#ph-cs-strip", badge: "Challenges", title: "Daily & Weekly Challenges",
+      text: "These are your <strong>Challenges</strong>. You get three <strong>Daily</strong> ones that reset at <strong>midnight</strong>, and three <strong>Weekly</strong> ones that reset every <strong>Monday</strong> for much bigger <strong>XP</strong>. Use the <strong>Daily</strong> and <strong>Weekly</strong> buttons to switch between them, and clear all three of either set to earn a <strong>Tide Sweep</strong> bonus. Click the bar again to tuck them away." },
 
     // ── Overview panel ────────────────────────────────────────────────
     { target: "#ph-panel-overview", badge: "Overview Tab", title: "Overview",
