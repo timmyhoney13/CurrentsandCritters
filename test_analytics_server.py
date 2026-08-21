@@ -397,6 +397,90 @@ class TestEmptyIsNotZero(AnalyticsTestCase):
         self.assertEqual(h.status, 403)
 
 
+class TestEmptyHistoryIsNotAFault(AnalyticsTestCase):
+    """A server that has recorded no games yet is not a broken server.
+
+    The Technical tab used to fail the "Game records" check on an empty history
+    directory, which dragged the Server card to "Needs attention" — so a freshly
+    deployed box, or one whose disk had just been reset, opened permanently red
+    with nothing actually wrong. A check that is always red is a check nobody
+    reads. A directory that is MISSING or unwritable is the real fault, and that
+    one still has to be loud, and has to name the path so it can be fixed.
+    """
+    users = {}
+    games = []
+    comp_games = []
+
+    def _records_check(self):
+        d = self.call("technical").payload
+        return {c["label"]: c for c in d["checks"]}["Game records"]
+
+    def _server_card(self):
+        d = self.call("technical").payload
+        return {c["label"]: c for c in d["cards"]}["Server"]
+
+    def test_an_empty_but_writable_directory_passes(self):
+        check = self._records_check()
+        self.assertTrue(check["ok"], "an empty history directory is not a fault")
+        self.assertIn("No games recorded yet", check["detail"])
+        # It still has to say WHERE it looked, or an empty dashboard is a dead
+        # end for whoever has to work out why nothing is arriving.
+        self.assertIn(self.games_dir, check["detail"])
+
+    def test_an_empty_directory_leaves_the_server_healthy(self):
+        self.assertEqual(self._server_card()["value"], "Healthy")
+
+    def test_a_missing_directory_is_a_fault_and_names_the_path(self):
+        missing = os.path.join(self.tmp, "gone")
+        an.init(get_firestore=lambda: self.db, verify_token=self.verify,
+                games_history_dir=missing, competitive_games_dir=self.comp_dir,
+                live_snapshot=lambda: self.live_payload, app_version="")
+        self.clear_caches()
+        check = self._records_check()
+        self.assertFalse(check["ok"], "a missing history directory IS a fault")
+        self.assertIn(missing, check["detail"])
+        self.assertEqual(self._server_card()["value"], "Needs attention")
+
+    def test_an_unconfigured_directory_is_a_fault(self):
+        an.init(get_firestore=lambda: self.db, verify_token=self.verify,
+                games_history_dir="", competitive_games_dir=self.comp_dir,
+                live_snapshot=lambda: self.live_payload, app_version="")
+        self.clear_caches()
+        check = self._records_check()
+        self.assertFalse(check["ok"])
+        self.assertIn("No history directory is configured", check["detail"])
+
+    def test_an_unwritable_directory_is_a_fault_even_though_it_reads_fine(self):
+        locked = os.path.join(self.tmp, "locked")
+        os.makedirs(locked)
+        os.chmod(locked, 0o500)
+        try:
+            an.init(get_firestore=lambda: self.db, verify_token=self.verify,
+                    games_history_dir=locked, competitive_games_dir=self.comp_dir,
+                    live_snapshot=lambda: self.live_payload, app_version="")
+            self.clear_caches()
+            check = self._records_check()
+            if os.access(locked, os.W_OK):
+                self.skipTest("running as a user that ignores the mode bits")
+            self.assertFalse(check["ok"])
+            self.assertIn("not writable", check["detail"])
+        finally:
+            os.chmod(locked, 0o700)
+
+
+class TestHistoryPresentStillCounts(AnalyticsTestCase):
+    """The happy path has to keep saying the number, not just "fine"."""
+
+    games = [game(NOW - 2 * DAY, completed=True, duration=600),
+             game(NOW - 3 * DAY, completed=True, duration=900)]
+
+    def test_a_directory_with_games_reports_the_count(self):
+        d = self.call("technical").payload
+        check = {c["label"]: c for c in d["checks"]}["Game records"]
+        self.assertTrue(check["ok"])
+        self.assertIn("games on disk", check["detail"])
+
+
 # ══════════════════════════════════════════════════════════════════════════
 #  3 — THE METRIC MATHS
 # ══════════════════════════════════════════════════════════════════════════

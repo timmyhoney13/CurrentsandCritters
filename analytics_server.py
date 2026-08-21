@@ -302,6 +302,35 @@ _GAMES_LOCK = threading.Lock()
 _MAX_GAME_FILES = 20000
 
 
+def _history_dir_state(path: str) -> Dict[str, Any]:
+    """Why the history directory has no games in it — which is NOT one question
+    but two, and they have opposite answers.
+
+    A directory that is missing, unreadable or was never configured is a real
+    server fault: games are finishing and their records are going nowhere. A
+    directory that is there, readable and simply empty is a server that has not
+    recorded a game yet — a fresh deploy, or a reset disk. Reporting the second
+    one as a failing check is how the dashboard ends up permanently red for a
+    server with nothing wrong with it, and a check that is always red is a check
+    nobody reads.
+
+    `writable` separates the third case: readable and empty, but nothing can be
+    written into it either, which is the fault dressed up as the innocent one.
+    """
+    if not str(path or "").strip():
+        return {"path": "", "exists": False, "writable": False, "count": 0,
+                "problem": "No history directory is configured on this server."}
+    if not os.path.isdir(path):
+        return {"path": path, "exists": False, "writable": False, "count": 0,
+                "problem": f"The history directory does not exist: {path}"}
+    count = _dir_signature(path)[0]
+    writable = os.access(path, os.W_OK)
+    return {
+        "path": path, "exists": True, "writable": writable, "count": count,
+        "problem": "" if writable else f"The history directory is not writable: {path}",
+    }
+
+
 def _dir_signature(path: str) -> Tuple[int, int]:
     try:
         newest = 0
@@ -1106,11 +1135,23 @@ def _section_technical(f: Dict[str, Any]) -> Dict[str, Any]:
     skipped = _int(load.get("deep_plan_skipped"))
     granted = _int(load.get("deep_plan_granted"))
 
+    # An empty history directory is only a fault when the records had somewhere
+    # to go and did not arrive. See _history_dir_state.
+    hist = _history_dir_state(_games_dir)
+    if hist["problem"]:
+        records_ok, records_detail = False, hist["problem"]
+    elif all_games:
+        records_detail = f"{len(all_games)} games on disk."
+        records_ok = True
+    else:
+        records_ok = True
+        records_detail = ("No games recorded yet. The history directory is empty "
+                          f"and writable: {hist['path']}")
+
     checks = [
         {"label": "Player database", "ok": _get_firestore is not None and _get_firestore() is not None,
          "detail": "Firebase service account connected."},
-        {"label": "Game records", "ok": bool(all_games),
-         "detail": f"{len(all_games)} games on disk."},
+        {"label": "Game records", "ok": records_ok, "detail": records_detail},
         {"label": "Bot thinking budget",
          "ok": not (granted and skipped > granted * 0.25),
          "detail": f"{skipped} deep plans skipped, {granted} granted."},
