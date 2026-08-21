@@ -5927,6 +5927,16 @@
     #auth-step-choose #auth-guest-btn        { top: 51.22%; }
     #auth-step-choose #auth-choose-google-btn { top: 61.74%; }
     #auth-step-choose #auth-choose-google-btn svg { display: none; }
+    /* Both buttons are INVISIBLE boxes painted over login-bg.png, so until that
+       artwork is actually on the screen there is nothing here to aim at and a
+       click can only be a stray one — the tail of a double-click on the device
+       screen that was showing an instant ago, or a blind poke at a page whose
+       2MB background has not arrived yet. Either way it landed on PLAY AS GUEST
+       and prompted for a guest nickname the player never asked for. armChooseStep()
+       in preview-app.js adds .is-armed once the art has painted; it fails OPEN,
+       so a blocked or missing image can never leave the two buttons dead. */
+    #auth-step-choose:not(.is-armed) .pv-btn,
+    #auth-step-choose:not(.is-armed) .auth-btn-google { pointer-events: none; }
     #auth-step-choose .auth-err {
       position: absolute;
       left: 36.90%;

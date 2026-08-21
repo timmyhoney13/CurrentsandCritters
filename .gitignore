@@ -203,6 +203,11 @@
 # against version.json, so a build bump can't leave a stale stamp behind.
 !test_privacy_policy.js
 !test_thanks_page.js
+# The two screens you click before you have an account. The device gate and the
+# sign-in chooser paint their buttons in the same place, so choosing a device
+# used to leave the cursor sitting on an invisible PLAY AS GUEST. Measured in a
+# real browser at six window sizes — no source grep can see it.
+!test_auth_gate.js
 
 !fish_ai_brain.json
 !multiplayer/

@@ -161,6 +161,36 @@
   }
   if (!scr) { resolveReady(""); return; } // fail-open: never trap the player out
 
+  // ── The click that closes this screen must not land on the next one ───────
+  // Reported as "it prompted me for a username as if I'd clicked Play as
+  // Guest, which I didn't". The auth screen's PLAY AS GUEST hot-zone is an
+  // invisible box painted over login-bg.png, and it sits at exactly the spot
+  // where the COMPUTER laptop and the MOBILE phone are painted HERE. Hide this
+  // screen and the pixel under the player's cursor silently becomes that
+  // button — so the second half of a double-click, or one impatient extra tap,
+  // opened the guest nickname prompt for somebody who never chose guest.
+  // (Measured, not guessed: test_auth_gate.js clicks the laptop and asks what
+  // is under that pixel afterwards.)
+  //
+  // A transparent sheet over the page eats real pointer input for a beat. It is
+  // a real ELEMENT rather than a capture listener on purpose: an element can
+  // only ever swallow a physical click, so scripted .click(), the keyboard path
+  // and assistive tech are all untouched.
+  var SHIELD_MS = 700;   // covers a double-click (~500ms) and a touch ghost click
+  function raiseClickShield() {
+    var doc = document.body || document.documentElement;
+    if (!doc) return;
+    var sh = document.createElement("div");
+    sh.id = "cc-gate-shield";
+    sh.setAttribute("aria-hidden", "true");
+    sh.style.cssText = "position:fixed;inset:0;background:transparent;border:0;" +
+      "z-index:2147483001;pointer-events:auto;touch-action:manipulation;";
+    doc.appendChild(sh);
+    setTimeout(function () {
+      if (sh.parentNode) sh.parentNode.removeChild(sh);
+    }, SHIELD_MS);
+  }
+
   var done = false;
   function choose(device) {
     if (done) return;
@@ -168,6 +198,7 @@
     window.ccSetDevice(device);
     scr.classList.add("cc-device-hidden");
     scr.setAttribute("aria-hidden", "true");
+    raiseClickShield();
     resolveReady(device);
   }
   var halves = scr.querySelectorAll("[data-cc-device]");
