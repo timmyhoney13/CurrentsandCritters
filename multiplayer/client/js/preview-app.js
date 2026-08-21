@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.70";
-  const APP_BUILD   = "2026-08-21.3";
+  const APP_VERSION = "1.6.71";
+  const APP_BUILD   = "2026-08-21.4";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -106,6 +106,13 @@
       "\"Follow the guide bar\" no longer points at an empty strip when someone else has the first turn — turn order is random, and the step now says so and waits.",
       "Card-play steps say you can use the Choose action dropdown as well as dragging, which is the easier one on a phone.",
       "The instructions get out of their own way: the popup now sits beside whatever it is pointing at when there is no room above or below it, and never covers the thing you have been asked to click.",
+    ]},
+    { ver: "V1.7.0", title: "📅 The calendar is the Daily / Weekly switch", items: [
+      "Tap the calendar icon on your Challenges bar and it hands you the other set: Daily becomes Weekly, tap it again and you are back on Daily. The Daily | Weekly tab row that used to sit above the challenges is gone — it was a second row of buttons doing what the icon already looked like it did.",
+      "The Daily/Weekly badge beside the calendar does the same thing, so either half of the header switches you.",
+      "Tapping the calendar while the bar is closed opens it too, so the swap always ends with the other three challenges on screen instead of silently changing something you cannot see.",
+      "The bar still tells you both counts before you open it, and the switch says how far along the set you would be switching to is.",
+      "In-game, the panel's calendar icon switches sets the same way — the pill there already did, and now the icon beside it matches. Both surfaces share one setting, as before.",
     ]},
     { ver: "V1.7.0", title: "📅 Daily Challenges are back", items: [
       "Three Daily Challenges are back alongside your weeklies, drawn from a pool of 50 — pool plays, ★ abilities, first-ocean starts, comeback finishes, table talk and more. Each one pays its XP the moment you complete it.",
@@ -25960,10 +25967,27 @@
       const done  = meta.completedCount;
       const total = meta.totalCount;
 
+      // The pill and the calendar are the SAME switch, and a switch has to
+      // advertise the other side, not the side you are already on.
+      const otherLabel = weekly ? "Daily" : "Weekly";
+      const otherMeta  = weekly ? dailyMeta : weeklyMeta;
+      const swapTitle  = `Switch to ${otherLabel} Challenges`
+        + (otherMeta ? ` (${otherMeta.completedCount}/${otherMeta.totalCount} done)` : "");
       if (pillEl) {
         pillEl.textContent = weekly ? "Weekly" : "Daily";
         pillEl.classList.toggle("weekly", weekly);
         pillEl.classList.toggle("daily", !weekly);
+        pillEl.title = swapTitle;
+      }
+      const calBtn = $a("ph-cs-icon-btn");
+      if (calBtn) {
+        calBtn.title = swapTitle;
+        calBtn.setAttribute("aria-label", swapTitle);
+        calBtn.classList.toggle("is-weekly", weekly);
+        // A green ring means the OTHER set is already cleared — nothing to go
+        // and collect over there. This is the one thing the deleted tab row
+        // said that the header did not.
+        calBtn.classList.toggle("is-other-swept", Boolean(otherMeta && otherMeta.sweepDone));
       }
       if (titleEl) titleEl.textContent = weekly ? "Weekly Challenges" : "Daily Challenges";
 
@@ -25972,9 +25996,16 @@
       // Closed, it speaks for BOTH sets — a player who never opens the strip
       // would otherwise never learn the other half exists.
       if (_csOpen) {
-        subEl.textContent = weekly
+        const base = weekly
           ? "Complete weekly challenges to earn bigger XP rewards."
           : `Three fresh challenges every day. ${_formatResetIn(meta.resetsInMs || 0)}.`;
+        // With the tab row gone, this line is the only place the OTHER set's
+        // progress is written down, so it carries it — and says which button
+        // hands it to you.
+        const otherCount = otherMeta
+          ? ` · ${otherMeta.completedCount}/${otherMeta.totalCount} ${otherLabel.toLowerCase()} — tap the calendar for those.`
+          : ` · Tap the calendar for your ${otherLabel.toLowerCase()} challenges.`;
+        subEl.textContent = base + otherCount;
       } else {
         const d = dailyMeta ? `${dailyMeta.completedCount}/${dailyMeta.totalCount} daily` : "";
         const w = weeklyMeta ? `${weeklyMeta.completedCount}/${weeklyMeta.totalCount} weekly` : "";
@@ -25987,20 +26018,6 @@
         headerBtn.setAttribute("aria-expanded", _csOpen ? "true" : "false");
         headerBtn.title = _csOpen ? "Hide your challenges" : "Show your challenges";
       }
-
-      // The Daily|Weekly switch: which one is on, and each one's live count so
-      // the player can see there is something to collect on the other side.
-      ["daily", "weekly"].forEach(view => {
-        const btn = $a("ph-cs-view-" + view);
-        if (!btn) return;
-        const m = view === "weekly" ? weeklyMeta : dailyMeta;
-        const on = (view === "weekly") === weekly;
-        btn.classList.toggle("is-on", on);
-        btn.setAttribute("aria-selected", on ? "true" : "false");
-        btn.textContent = `${view === "weekly" ? "🗓️ Weekly" : "📅 Daily"}`
-          + (m ? `  ${m.completedCount}/${m.totalCount}` : "");
-        btn.classList.toggle("is-swept", Boolean(m && m.sweepDone));
-      });
 
       // Only fill the cards when they can be seen. A closed strip costs nothing.
       // An open one must never be empty: the slots come from local state, so the
@@ -26560,6 +26577,15 @@
         pillEl.textContent  = weekly ? "Weekly" : "Daily";
         pillEl.classList.toggle("weekly", weekly);
         pillEl.classList.toggle("daily", !weekly);
+        // Both switches name the set you would GET, not the one you are on.
+        const swapTitle = `Switch to ${weekly ? "Daily" : "Weekly"} Challenges`;
+        pillEl.title = swapTitle;
+        const calBtnEl = document.getElementById("igcp-cal-btn");
+        if (calBtnEl) {
+          calBtnEl.title = swapTitle;
+          calBtnEl.setAttribute("aria-label", swapTitle);
+          calBtnEl.classList.toggle("weekly", weekly);
+        }
         const rewardEl = document.getElementById("igcp-reward");
         if (!_igcpMin) {
           // Opening this panel must never produce an empty box. The rows are
@@ -26612,19 +26638,19 @@
 
         minBtn.addEventListener("click", (e) => { e.stopPropagation(); toggle(); });
 
-        // The Daily|Weekly pill. It lives inside the header, which is itself
-        // the show/hide toggle, so it has to swallow the click or switching
+        // The CALENDAR and the Daily|Weekly pill are both the switch, matching
+        // Player Home. They live inside the header, which is itself the
+        // show/hide toggle, so each has to swallow its click or switching
         // views would also close the panel.
         const pillEl = document.getElementById("igcp-pill");
+        const calBtn = document.getElementById("igcp-cal-btn");
         const swapView = (e) => {
           e.stopPropagation();
-          _csView = _csView === "weekly" ? "daily" : "weekly";
-          try { localStorage.setItem(_CS_VIEW_KEY, _csView); } catch {}
-          renderIgChallengePanel();
-          // Player Home shares the setting, so repaint it too — it may be
-          // sitting behind the game, already rendered on the other view.
-          try { renderChallengeStrip(); } catch {}
+          // One shared switch, so Player Home — which may be sitting behind
+          // the game, already rendered on the other view — repaints with it.
+          _csSwapView();
         };
+        if (calBtn) calBtn.addEventListener("click", swapView);
         if (pillEl) {
           pillEl.addEventListener("click", swapView);
           pillEl.addEventListener("keydown", (e) => {
@@ -26637,6 +26663,7 @@
         header.addEventListener("click", (e) => {
           if (e.target === minBtn || minBtn.contains(e.target)) return;
           if (pillEl && (e.target === pillEl || pillEl.contains(e.target))) return;
+          if (calBtn && (e.target === calBtn || calBtn.contains(e.target))) return;
           toggle();
         });
 
@@ -27068,6 +27095,17 @@
       } catch {}
     }
 
+    // The one Daily <-> Weekly switch. Both surfaces that offer it — the
+    // Player Home calendar/pill and the in-game panel — call this, so the two
+    // can never end up showing different halves of the same setting.
+    function _csSwapView() {
+      _csView = _csView === "weekly" ? "daily" : "weekly";
+      try { localStorage.setItem(_CS_VIEW_KEY, _csView); } catch {}
+      try { renderChallengeStrip(); } catch {}
+      try { window._renderIgChallengePanel?.(); } catch {}
+    }
+    window._csSwapChallengeView = _csSwapView;
+
     function _wireChallengeStrip() {
       if (_csWired) return;
       const headerBtn = $a("ph-cs-header-btn");
@@ -27076,26 +27114,31 @@
       if (!headerBtn || !rewardBtn || !cardsEl) return;
       _csWired = true;
 
-      // Daily | Weekly. These sit inside the body, so a click on one would
-      // otherwise bubble to the header and close the strip the player just
-      // asked to look at.
-      ["daily", "weekly"].forEach(view => {
-        const btn = $a("ph-cs-view-" + view);
-        if (!btn) return;
-        btn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          if (_csView === view) return;
-          _csView = view;
-          try { localStorage.setItem(_CS_VIEW_KEY, view); } catch {}
-          renderChallengeStrip();
-          cardsEl.classList.add("fading");
-          void cardsEl.offsetWidth;
-          cardsEl.classList.remove("fading");
-        });
+      // The calendar icon and the Daily/Weekly pill are the switch — there is
+      // no tab row any more. Both sit inside the header, which is itself the
+      // open/close toggle, so each has to swallow its click or switching sets
+      // would also shut the strip the player just asked to look at.
+      const swap = (e) => {
+        e.stopPropagation();
+        // Switching while closed would be invisible, so it opens too: the
+        // gesture always ends with the other three challenges on screen.
+        if (!_csOpen) {
+          _csOpen = true;
+          try { localStorage.setItem(_CS_OPEN_KEY, "1"); } catch {}
+        }
+        _csSwapView();
+        cardsEl.classList.add("fading");
+        void cardsEl.offsetWidth;
+        cardsEl.classList.remove("fading");
+      };
+      [$a("ph-cs-icon-btn"), $a("ph-cs-pill")].forEach(btn => {
+        if (btn) btn.addEventListener("click", swap);
       });
 
-      // The header is the whole toggle: closed → open, open → closed.
-      headerBtn.addEventListener("click", () => {
+      // The header is the whole toggle: closed → open, open → closed. It is a
+      // div with role="button" (it has to hold two real buttons), so Enter and
+      // Space are this handler's job rather than the browser's.
+      const toggleOpen = () => {
         _csOpen = !_csOpen;
         try { localStorage.setItem(_CS_OPEN_KEY, _csOpen ? "1" : "0"); } catch {}
         renderChallengeStrip();
@@ -27105,6 +27148,11 @@
           void cardsEl.offsetWidth;
           cardsEl.classList.remove("fading");
         }
+      };
+      headerBtn.addEventListener("click", toggleOpen);
+      headerBtn.addEventListener("keydown", (e) => {
+        if (e.target !== headerBtn) return;   // let the two inner buttons be
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleOpen(); }
       });
 
       rewardBtn.addEventListener("click", () => {

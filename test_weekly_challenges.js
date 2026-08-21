@@ -151,16 +151,51 @@ check("closed is announced to screen readers", /aria-expanded="false"/.test(HTML
 check("the header controls the body it hides", /aria-controls="ph-cs-body"/.test(HTML));
 check("the cards live inside the collapsible body",
       HTML.indexOf('id="ph-cs-body"') < HTML.indexOf('id="ph-cs-cards"'));
-check("the old toggle BUTTON in the header is still gone (a button inside a\n       button is not clickable) — the switch lives in the body now",
+check("the old toggle BUTTON in the header is still gone (ph-cs-toggle-btn)",
       !HTML.includes("ph-cs-toggle-btn"));
-check("the Daily|Weekly switch is inside the collapsible body",
-      HTML.indexOf('id="ph-cs-body"') < HTML.indexOf('id="ph-cs-view-daily"')
-      && HTML.includes('id="ph-cs-view-weekly"'));
-check("the switch is styled", /\.ph-cs-views \{/.test(CSS) && /\.ph-cs-view\.is-on \{/.test(CSS));
-check("the body wraps, so the switch never becomes a third column\n       squeezing the challenges",
-      /\.ph-cs-body \{[^}]*flex-wrap: wrap;/.test(CSS));
+
+// ── Source: the CALENDAR is the switch, and the tab row is gone ─────────────
+// The Daily|Weekly tab row used to sit at the top of the body. It is deleted:
+// pressing the calendar icon (or the pill beside it) hands you the other set.
+console.log("\nthe calendar icon is the Daily|Weekly switch");
+
+check("the tab row is gone from the markup",
+      !HTML.includes('id="ph-cs-view-daily"') && !HTML.includes('id="ph-cs-view-weekly"')
+      && !HTML.includes('class="ph-cs-views"'));
+check("its CSS went with it", !/\.ph-cs-views \{/.test(CSS) && !/\.ph-cs-view\.is-on \{/.test(CSS));
+check("the calendar is a real button", /id="ph-cs-icon-btn"[\s\S]{0,120}type="button"/.test(HTML));
+check("so the header cannot be one (a button inside a button is not clickable)",
+      /<div class="ph-cs-header" id="ph-cs-header-btn" role="button" tabindex="0"/.test(HTML));
+check("the pill is a switch too", /<button class="ph-cs-pill[^>]*id="ph-cs-pill"/.test(HTML));
+check("both are wired to the swap",
+      /\[\$a\("ph-cs-icon-btn"\), \$a\("ph-cs-pill"\)\]\.forEach\(btn => \{[\s\S]{0,80}addEventListener\("click", swap\)/.test(APP));
 check("switching views does not also close the strip",
-      /btn\.addEventListener\("click", \(e\) => \{\s*e\.stopPropagation\(\);/.test(APP));
+      /const swap = \(e\) => \{\s*e\.stopPropagation\(\);/.test(APP));
+check("switching while closed opens the strip, so the swap is visible",
+      /if \(!_csOpen\) \{\s*_csOpen = true;/.test(APP));
+check("a keyboard can still work the header div",
+      /headerBtn\.addEventListener\("keydown"/.test(APP));
+check("the calendar is styled as pressable in its own right",
+      /\.ph-cs-icon-btn:hover \{/.test(CSS) && /\.ph-cs-icon-btn \{[^}]*cursor: pointer;/.test(CSS));
+check("it carries a swap glyph so the gesture is discoverable",
+      HTML.includes("ph-cs-icon-swap") && /\.ph-cs-icon-swap \{/.test(CSS));
+check("the switch names the set you would GET, not the one you are on",
+      /Switch to \$\{otherLabel\} Challenges/.test(APP));
+check("the OTHER set's count survives the tab row it used to live on",
+      /otherMeta\.completedCount\}\/\$\{otherMeta\.totalCount\}/.test(APP));
+check("Player Home and the in-game panel share ONE swap",
+      /function _csSwapView\(\)/.test(APP)
+      && /window\._renderIgChallengePanel\?\.\(\);/.test(APP));
+check("the in-game calendar is a button and is wired",
+      HTML.includes('id="igcp-cal-btn"')
+      && /if \(calBtn\) calBtn\.addEventListener\("click", swapView\);/.test(APP));
+check("the in-game header ignores clicks on its calendar",
+      /if \(calBtn && \(e\.target === calBtn \|\| calBtn\.contains\(e\.target\)\)\) return;/.test(APP));
+check("#igcp-cal-btn is styled", /#igcp-cal-btn \{/.test(CSS));
+
+console.log("\nthe strip ships closed (cont.)");
+check("the body still wraps, so the cards and the reward can take\n       separate lines",
+      /\.ph-cs-body \{[^}]*flex-wrap: wrap;/.test(CSS));
 check("the strip's open state is remembered", APP.includes('"cc_cs_open"'));
 check("the closed header counts BOTH sets, so the other half is discoverable",
       /complete — tap to see them/.test(APP) && /daily/.test(APP) && /weekly/.test(APP));
@@ -325,6 +360,146 @@ if (!CHROME) {
         r.open && /Tide Sweep/.test(r.open.rewardText) && /1,500 XP/.test(r.open.rewardText));
   check("neither state scrolls the page sideways",
         r.closed && r.open && r.closed.noSideScroll && r.open.noSideScroll);
+
+  // ── The calendar switch, driven with real clicks ─────────────────────────
+  // The switch used to be a tab row inside the body; it is the calendar icon
+  // in the header now. That puts a button INSIDE the element that opens and
+  // closes the strip, which is exactly the arrangement that breaks: a click
+  // that reaches the header as well as the calendar swaps the set and then
+  // slams the strip shut on it. Source regexes cannot see that — only a real
+  // click at a real pixel can, so this runs the app's OWN handler source
+  // (_csSwapView + _wireChallengeStrip, lifted verbatim) over the real markup
+  // under the real CSS, and clicks whatever is painted on top.
+  console.log("\nthe calendar switch, clicked for real");
+
+  // Lift a function's source out of preview-app.js by matching braces. Running
+  // a copy would prove nothing; this is the shipped code.
+  function lift(name) {
+    const at = APP.indexOf(`function ${name}(`);
+    if (at < 0) throw new Error("no such function: " + name);
+    let d = 0, i = APP.indexOf("{", at);
+    for (let j = i; j < APP.length; j++) {
+      if (APP[j] === "{") d++;
+      else if (APP[j] === "}") { d--; if (!d) return APP.slice(at, j + 1); }
+    }
+    throw new Error("unbalanced: " + name);
+  }
+
+  const switchPage = `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style>
+<style>#auth-stats-lobby{display:block!important}.ph-panel{display:block!important}body{margin:0}
+*,*::before,*::after{transition:none!important;animation:none!important}</style>
+</head><body><div id="auth-stats-lobby"><div class="ph-panel">${STRIP}</div></div>
+<div id="out">RUNNING</div>
+<script>
+(function(){
+  const log = {};
+  try {
+    // The handlers' world, stubbed to the few names they actually touch.
+    const $a = (id) => document.getElementById(id);
+    const _CS_OPEN_KEY = "cc_cs_open", _CS_VIEW_KEY = "cc_cs_view";
+    let _csOpen = false, _csView = "daily", _csWired = false;
+    let renders = 0;
+    // Stands in for renderChallengeStrip: it does the two things the click
+    // handlers depend on — paint the collapsed class and fill the cards.
+    function renderChallengeStrip() {
+      renders++;
+      const strip = $a("ph-cs-strip"), cards = $a("ph-cs-cards");
+      strip.classList.toggle("is-collapsed", !_csOpen);
+      $a("ph-cs-pill").textContent = _csView === "weekly" ? "Weekly" : "Daily";
+      $a("ph-cs-title").textContent = _csView === "weekly" ? "Weekly Challenges" : "Daily Challenges";
+      $a("ph-cs-icon-btn").classList.toggle("is-weekly", _csView === "weekly");
+      cards.innerHTML = _csOpen ? ${JSON.stringify(CARD)}.repeat(3) : "";
+    }
+    ${lift("_csSwapView")}
+    ${lift("_wireChallengeStrip")}
+    renderChallengeStrip();
+    _wireChallengeStrip();
+
+    // A click delivered the way a browser delivers one: to whatever is on top
+    // at that pixel, not to an element handed over by id.
+    function clickCentre(id) {
+      const b = $a(id).getBoundingClientRect();
+      const x = Math.round(b.left + b.width / 2), y = Math.round(b.top + b.height / 2);
+      let el = document.elementFromPoint(x, y);
+      const hit = el ? (el.closest("button,[role=button]") || el) : null;
+      const hitId = hit ? (hit.id || hit.className || hit.tagName) : "none";
+      if (el) el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+      return hitId;
+    }
+    const state = () => ({
+      view: _csView,
+      open: _csOpen,
+      collapsed: $a("ph-cs-strip").classList.contains("is-collapsed"),
+      pill: $a("ph-cs-pill").textContent,
+      title: $a("ph-cs-title").textContent,
+      cardsSeen: [...$a("ph-cs-cards").querySelectorAll(".ph-cs-card")]
+        .filter(c => c.getBoundingClientRect().height > 20).length,
+    });
+
+    log.tabRowGone = !document.querySelector(".ph-cs-views, .ph-cs-view");
+    log.start = state();
+    // 1. Closed → click the calendar. It must swap AND open.
+    log.calHit1 = clickCentre("ph-cs-icon-btn");
+    log.afterCal1 = state();
+    // 2. Open on weekly → click the calendar again. Back to daily, still open.
+    log.calHit2 = clickCentre("ph-cs-icon-btn");
+    log.afterCal2 = state();
+    // 3. The pill is the same switch.
+    log.pillHit = clickCentre("ph-cs-pill");
+    log.afterPill = state();
+    // 4. The header itself still closes the strip.
+    const hb = $a("ph-cs-header-btn").getBoundingClientRect();
+    document.elementFromPoint(Math.round(hb.right - 14), Math.round(hb.top + hb.height / 2))
+      .dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    log.afterHeader = state();
+    // 5. …and a keyboard can work it, now that it is a div.
+    $a("ph-cs-header-btn").dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    log.afterEnter = state();
+    // 6. Enter on the CALENDAR must swap, not toggle the header behind it.
+    const before = _csView;
+    $a("ph-cs-icon-btn").dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    $a("ph-cs-icon-btn").dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    log.afterCalEnter = state();
+    log.calEnterSwapped = _csView !== before;
+  } catch (e) { log.err = String(e && (e.stack || e.message)); }
+  document.getElementById("out").textContent = JSON.stringify(log);
+})();
+</script></body></html>`;
+
+  const sf = path.join(os.tmpdir(), "cc_cs_switch.html");
+  fs.writeFileSync(sf, switchPage);
+  const sdom = execFileSync(CHROME, ["--headless", "--disable-gpu", "--no-sandbox",
+    "--hide-scrollbars", "--window-size=1440,900", "--virtual-time-budget=8000",
+    "--dump-dom", "file://" + sf], { encoding: "utf8", maxBuffer: 64e6 });
+  const sm = /<div id="out">([\s\S]*?)<\/div>/.exec(sdom);
+  const sw = JSON.parse((sm ? sm[1] : "{}").replace(/&quot;/g, '"').replace(/&amp;/g, "&")
+                        .replace(/&lt;/g, "<").replace(/&gt;/g, ">"));
+
+  check("the handlers ran at all" + (sw.err ? " — " + sw.err : ""), !sw.err);
+  check("no tab row is rendered", sw.tabRowGone === true);
+  check("it starts closed, on Daily",
+        sw.start && sw.start.collapsed === true && sw.start.view === "daily");
+  check(`a click at the calendar's pixel really lands on it (hit: ${sw.calHit1})`,
+        sw.calHit1 === "ph-cs-icon-btn");
+  check("clicking the calendar goes Daily → Weekly",
+        sw.afterCal1 && sw.afterCal1.view === "weekly" && sw.afterCal1.pill === "Weekly"
+        && sw.afterCal1.title === "Weekly Challenges");
+  check("…and does NOT close the strip on the set it just showed you",
+        sw.afterCal1 && sw.afterCal1.collapsed === false && sw.afterCal1.cardsSeen === 3);
+  check("clicking it again goes Weekly → Daily",
+        sw.afterCal2 && sw.afterCal2.view === "daily" && sw.afterCal2.collapsed === false);
+  check(`the pill is the same switch (hit: ${sw.pillHit})`,
+        sw.pillHit === "ph-cs-pill" && sw.afterPill && sw.afterPill.view === "weekly"
+        && sw.afterPill.collapsed === false);
+  check("the header is still the open/close toggle",
+        sw.afterHeader && sw.afterHeader.collapsed === true
+        && sw.afterHeader.view === sw.afterPill.view);
+  check("Enter on the header opens it (it is a div now, not a button)",
+        sw.afterEnter && sw.afterEnter.collapsed === false);
+  check("Enter on the calendar swaps the set instead of closing the strip",
+        sw.calEnterSwapped === true && sw.afterCalEnter && sw.afterCalEnter.collapsed === false);
 
   // ── The open strip at every width ─────────────────────────────────────────
   // This file measured ONE window size (1440x900) and passed, while every
