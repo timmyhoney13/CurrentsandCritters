@@ -120,6 +120,10 @@
 !test_tournament_server.py
 !test_tournament_integration.py
 !test_deck_shuffle_fairness.py
+# Card symbols: reads the symbol back OUT of the printed badge on every
+# card sheet, because nothing else ties cards_*.txt to the art and a
+# rebuild silently left nine cards describing the wrong symbol.
+!test_card_symbols_match_art.py
 # Trading: the server-side swap core, its end-to-end flow, and the client rule
 # that makes a traded-away item be earned again instead of re-granted for free.
 !test_trade_logic.py

@@ -42,14 +42,14 @@
 242	Artificial Reef	+2 per card attached	Ocean	1	N/A	Square
 243	Artificial Reef	+2 per card attached	Ocean	1	N/A	Triangle
 244	Artificial Reef	+2 per card attached	Ocean	1	N/A	Heart
-245	Arctic Ocean	+4 | *Play again*	Ocean	2	N/A	Square
+245	Arctic Ocean	+4 | *Play again*	Ocean	2	N/A	Heart
 246	Arctic Ocean	+4 | *Play again*	Ocean	2	N/A	Triangle
 247	Arctic Ocean	+4 | *Play again*	Ocean	2	N/A	Diamond
 248	Arctic Ocean	+4 | *Play again*	Ocean	2	N/A	Circle
 249	Arctic Ocean	+4 | *Play again*	Ocean	2	N/A	Triangle
-250	Arctic Ocean	+4 | *Play again*	Ocean	2	N/A	Heart
-251	Arctic Ocean	+4 | *Play again*	Ocean	2	N/A	Triangle
-252	Arctic Ocean	+4 | *Play again*	Ocean	2	N/A	Circle
+250	Arctic Ocean	+4 | *Play again*	Ocean	2	N/A	Square
+251	Arctic Ocean	+4 | *Play again*	Ocean	2	N/A	Circle
+252	Arctic Ocean	+4 | *Play again*	Ocean	2	N/A	Triangle
 253	Kelp Forest	+5 per kelp forest if you control 4+ | Draw one	Ocean	1	N/A	Heart
 254	Kelp Forest	+5 per kelp forest if you control 4+ | Draw one	Ocean	1	N/A	Square
 255	Kelp Forest	+5 per kelp forest if you control 4+ | Draw one	Ocean	1	N/A	Diamond
@@ -57,8 +57,8 @@
 257	Kelp Forest	+5 per kelp forest if you control 4+ | Draw one	Ocean	1	N/A	Circle
 258	Kelp Forest	+5 per kelp forest if you control 4+ | Draw one	Ocean	1	N/A	Triangle
 259	Kelp Forest	+5 per kelp forest if you control 4+ | Draw one	Ocean	1	N/A	Square
-260	Kelp Forest	+5 per kelp forest if you control 4+ | Draw one	Ocean	1	N/A	Square
-261	Kelp Forest	+5 per kelp forest if you control 4+ | Draw one	Ocean	1	N/A	Circle
+260	Kelp Forest	+5 per kelp forest if you control 4+ | Draw one	Ocean	1	N/A	Circle
+261	Kelp Forest	+5 per kelp forest if you control 4+ | Draw one	Ocean	1	N/A	Triangle
 262	Kelp Forest	+5 per kelp forest if you control 4+ | Draw one	Ocean	1	N/A	Diamond
 263	Tide Pool	+1 per every two oceans you control	Ocean	1	N/A	Diamond
 264	Tide Pool	+1 per every two oceans you control	Ocean	1	N/A	Circle

@@ -31,7 +31,7 @@
 131	Sailfish	+4 | *Play a free game fish*	Game Fish	2	Left	Diamond
 132	Reef Trigger Fish	+2 per cephalopod | *play any number of cephalopods for free*	Crosscurrent	4	Right	Heart
 133	Goliath Grouper	Draw one | *Play again*	Game Fish	1	Left	Square
-134	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Right	Square
+134	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Right	Diamond
 135	Mahi Mahi	+1	Game Fish	0	Left	Circle
 136	Great White Shark	+3 per mammal | *Draw one*	Crosscurrent	4	Right	Heart
 137	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Left	Square
@@ -68,8 +68,8 @@
 168	Barracuda	+2 per Invertebrate | *Play a free Invertebrate*	Game Fish	2	Right	Diamond
 169	Barracuda	+2 per Invertebrate | *Play a free Invertebrate*	Game Fish	2	Left	Heart
 170	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Right	Diamond
-171	Bobtail Squid	+3 if you have at least three cephalopods	Cephalopod	1	Left	Circle
-172	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Right	Triangle
+171	Bobtail Squid	+3 if you have at least three cephalopods	Cephalopod	1	Left	Square
+172	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Right	Diamond
 173	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Left	Triangle
 174	Cuttlefish	+3 if you have at least three cephalopods	Cephalopod	1	Right	Square
 175	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Left	Heart

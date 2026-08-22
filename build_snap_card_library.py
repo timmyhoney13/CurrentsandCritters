@@ -431,8 +431,15 @@ def main():
                 existing = json.load(f)
         except FileNotFoundError:
             raise SystemExit("snap-card-library.json does not exist: run the builder")
-        a = {c["id"]: (c["p"], c["d"]) for c in existing.get("cards", [])}
-        b = {c["id"]: (c["p"], c["d"]) for c in library["cards"]}
+        # Compare the descriptors AND the face metadata: a printed-symbol fix in
+        # cards_*.txt leaves every hash identical, so hashes alone would call a
+        # stale library up to date.
+        def _sig(c):
+            faces = {side: (f.get("u"), f.get("n"), f.get("sym"))
+                     for side, f in (c.get("halves") or {}).items()}
+            return (c["p"], c["d"], tuple(sorted(faces.items())))
+        a = {c["id"]: _sig(c) for c in existing.get("cards", [])}
+        b = {c["id"]: _sig(c) for c in library["cards"]}
         if a != b:
             changed = sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k))
             raise SystemExit(f"snap-card-library.json is stale: rerun the builder "
