@@ -382,7 +382,7 @@ AUDIT_ACTIONS = (
     "test_email_sent", "draft_created", "draft_updated", "campaign_approved",
     "campaign_started", "campaign_completed", "campaign_failed", "csv_exported",
     "subscriber_added_website", "confirmation_sent", "confirmation_resent",
-    "subscriber_confirmed_by_admin", "subscriber_bounced",
+    "subscriber_confirmed_by_admin", "subscriber_bounced", "self_test",
     "unauthorized_admin_access", "connection_check",
 )
 
@@ -749,6 +749,22 @@ def _suppress_bounced(sub_id: str, email: str, *, why: str) -> None:
     print("[newsletter] suppressed %s after a hard bounce" % (email or sub_id))
 
 
+def _cached_active_count() -> Optional[int]:
+    """How many active subscribers there are, but ONLY if we already know.
+
+    Returns None rather than reading the collection. Every caller of this is
+    decorating something (a line in a notification email), and none of them is
+    worth a full scan; build_owner_notification already omits the row when this
+    is None.
+    """
+    with _SUBS_LOCK:
+        rows = _SUBS_CACHE["rows"] if (
+            _SUBS_CACHE["rows"] and (time.time() - _SUBS_CACHE["at"]) < _SUBS_TTL) else None
+    if rows is None:
+        return None
+    return sum(1 for r in rows if r.get("status") == STATUS_ACTIVE)
+
+
 def _invalidate_subs_cache() -> None:
     with _SUBS_LOCK:
         _SUBS_CACHE["at"] = 0.0
@@ -940,6 +956,7 @@ def _send_welcome_now(sub_id: str) -> None:
                 # ONLY moment the address is ever tested, so it is the moment
                 # to act on the answer.
                 _suppress_bounced(sub_id, email, why="Welcome email was permanently rejected")
+        _mirror_send_health()
         print("[newsletter] welcome send failed for %s: %s" % (sub_id, exc))
         return
     except Exception as exc:  # noqa: BLE001
@@ -949,19 +966,28 @@ def _send_welcome_now(sub_id: str) -> None:
         return
 
     _finish_welcome(sub_id, status="sent")
+    _mirror_send_health()
     audit("welcome_email_sent", subscriber_id=sub_id,
           summary="Welcome email sent (%s)" % ("reactivation" if is_reactivation else "new signup"))
 
     # The owner notification rides along with the welcome so the two can never
     # disagree about whether somebody joined, and so a duplicate signup (which
     # never gets here) can never produce a duplicate notification either.
+    #
+    # `active_total` is read from the CACHE and skipped when it is cold. It
+    # used to call counts() unconditionally, which reads every subscriber
+    # document in the collection, and _finish_welcome one line above has just
+    # invalidated that cache: so every single welcome email dragged a full
+    # collection scan behind it. It is one line of a courtesy notification to
+    # one person. It is not worth a scan of the whole list, and it is certainly
+    # not worth doing that while somebody is waiting for their welcome.
     try:
         note = nl_email.build_owner_notification(
             subscriber_email=email,
             subscribed_at=_iso(sub.get("resubscribedAt") or sub.get("subscribedAt")),
             source=str(sub.get("source") or ""),
             is_reactivation=is_reactivation,
-            active_total=counts().get("active"),
+            active_total=_cached_active_count(),
         )
         nl_email.send_email(to_email=admin_email(), subject=note["subject"],
                             html_body=note["html"], text_body=note["text"], is_bulk=False)
@@ -1173,9 +1199,42 @@ def request_subscription(email_lower: str, *, source: str = SOURCE_WEBSITE) -> D
     Returns the same shape as every other subscribe path:
     {"result": ..., "subscriber": {...}, "sendWelcome": bool}.
     """
-    out = _subscribe(
-        email_lower, source=source, status=STATUS_ACTIVE,
-        consent_note="Signed up on the Currents & Critters website form.")
+    note = "Signed up on the Currents & Critters website form."
+
+    # FAST PATH: one write, no transaction.
+    #
+    # Somebody is watching a spinner while this runs, and _subscribe costs
+    # three Firestore round trips (begin, read, commit) where the overwhelming
+    # majority of signups are a brand-new address that needs exactly one write.
+    # create() is that write: it is atomic and it FAILS if the document already
+    # exists, which is the same guarantee the transaction's read was there to
+    # provide. So the common case gets one round trip, and the moment there is
+    # any doubt (the address is already known) it falls through to the full
+    # transaction below, which handles reactivation, duplicates and stranded
+    # pending records properly. Nothing is traded away: a collision is decided
+    # by Firestore, not by a read we did earlier and hoped was still true.
+    db = _db()
+    if db is not None:
+        doc = _blank_subscriber(email_lower, source, STATUS_ACTIVE)
+        doc["consentNote"] = note
+        try:
+            db.collection(C_SUBS).document(doc["id"]).create(doc)
+            _invalidate_subs_cache()
+            return {"result": "created", "subscriber": doc, "sendWelcome": True}
+        except Exception as exc:  # noqa: BLE001
+            # A collision is the EXPECTED outcome for a returning address and
+            # the transaction below handles it properly. Anything else is not
+            # expected, and falling through silently would turn a real fault
+            # (a permissions change, a client without create()) into a
+            # permanent invisible slowdown, which is the kind of thing that
+            # goes unnoticed for months. Correctness is identical either way,
+            # so it still falls through; it just says so first.
+            if type(exc).__name__ not in ("AlreadyExists", "Conflict"):
+                print("[newsletter] signup fast path unavailable (%s: %s); using the "
+                      "transaction" % (type(exc).__name__, exc))
+
+    out = _subscribe(email_lower, source=source, status=STATUS_ACTIVE,
+                     consent_note=note)
     _invalidate_subs_cache()
     return out
 
@@ -1758,6 +1817,7 @@ def _process_campaign_batch(cid: str) -> int:
                       "lastErrorCategory": "unknown"}, merge=True)
             _bump(cref, "failedCount")
             print("[newsletter] send error for campaign %s: %s" % (cid, exc))
+    _mirror_send_health()
     return attempted
 
 
@@ -1827,6 +1887,65 @@ def _park_welcome(sub_id: str, status: str, why: str) -> None:
         print("[newsletter] welcome park failed for %s: %s" % (sub_id, exc))
 
 
+def _reclaim_stuck_welcomes(limit: int = 50) -> int:
+    """Put back any welcome that was claimed for sending and never finished.
+
+    THE BUG THIS FIXES, because it is the one that silently eats welcome
+    emails: _claim_welcome flips a record to "sending" and takes a lease, and
+    _finish_welcome is what moves it on. If the process disappears between
+    those two, and a Render deploy stops the container mid-send EVERY TIME one
+    ships, the record is left saying "sending" forever. _pending_welcome_ids
+    only ever asks for welcomeEmailStatus == "pending", so a stuck record is
+    never retried, never parked and never counted as failed: the person is an
+    active subscriber who simply never hears from us, and nothing anywhere
+    reports it. Campaign recipients have had this sweep since day one
+    (R_SENDING → R_INTERRUPTED); welcomes never got one.
+
+    Re-sending is the right call here, where re-sending a CAMPAIGN is not: a
+    campaign recipient may already have the mail and a duplicate newsletter to
+    ten thousand people is unrecoverable, whereas the worst case here is one
+    person getting two copies of a welcome, and the alternative is that person
+    getting none. The lease still has to expire first, so a send genuinely in
+    flight is never disturbed.
+    """
+    db = _db()
+    if db is None:
+        return 0
+    try:
+        snap = (db.collection(C_SUBS)
+                .where("welcomeEmailStatus", "==", "sending").limit(limit).get())
+    except Exception as exc:  # noqa: BLE001
+        print("[newsletter] stuck-welcome query failed: %s" % exc)
+        return 0
+    now = _now()
+    freed = 0
+    for doc in snap:
+        d = doc.to_dict() or {}
+        if _int(d.get("welcomeLeaseUntil")) > now:
+            continue                          # a live send owns it
+        # A record that has already burned its attempts is not re-queued: if
+        # every send dies in the same place, putting it back forever is an
+        # infinite loop that hides the real problem instead of reporting it.
+        if _int(d.get("welcomeAttempts")) >= MAX_ATTEMPTS:
+            upd = {"welcomeEmailStatus": "failed", "welcomeLeaseUntil": 0,
+                   "welcomeError": "Interrupted mid-send %d times; giving up."
+                                   % _int(d.get("welcomeAttempts")),
+                   "updatedAt": now}
+        else:
+            upd = {"welcomeEmailStatus": WELCOME_PENDING, "welcomeLeaseUntil": 0,
+                   "welcomeError": "Interrupted mid-send (server restarted); re-queued.",
+                   "updatedAt": now}
+        try:
+            doc.reference.set(upd, merge=True)
+            freed += 1
+        except Exception as exc:  # noqa: BLE001
+            print("[newsletter] stuck-welcome reclaim failed for %s: %s" % (doc.id, exc))
+    if freed:
+        _invalidate_subs_cache()
+        print("[newsletter] re-queued %d welcome email(s) left stuck by a restart" % freed)
+    return freed
+
+
 def _pending_welcome_ids(limit: int = 50) -> List[str]:
     """Ids of subscribers whose welcome email is genuinely due.
 
@@ -1863,6 +1982,11 @@ def _pending_welcome_ids(limit: int = 50) -> List[str]:
 
 
 _WORKER_IDLE_SEC = 20.0
+# How often to look for welcomes stranded in "sending" by a dead process. The
+# first sweep happens immediately at worker start (that is the one that matters,
+# a restart is what strands them); after that it is a slow safety net, not a
+# poll, so it must not be anywhere near the 20s tick.
+_RECLAIM_EVERY_SEC = 300.0
 
 
 def _worker_loop() -> None:
@@ -1878,9 +2002,18 @@ def _worker_loop() -> None:
     # query, so a cold start does not log a spurious failure.
     time.sleep(5)
     print("[newsletter] send worker started")
+    # A deploy is what orphans a welcome mid-send, and a deploy is exactly what
+    # has just happened when this thread starts, so the very first thing it
+    # does is pick up whatever the last container dropped.
+    next_reclaim = 0.0
     while True:
         try:
             did_work = False
+
+            if time.time() >= next_reclaim:
+                next_reclaim = time.time() + _RECLAIM_EVERY_SEC
+                if _reclaim_stuck_welcomes() > 0:
+                    did_work = True
 
             # 1) Welcome emails, before anything else. Somebody typed their
             #    address a moment ago and is watching an inbox for this one,
@@ -2068,6 +2201,85 @@ def _admin_test_send(body: Dict[str, Any], admin: str) -> Dict[str, Any]:
     return {"ok": True, "sentTo": admin_email()}
 
 
+def _admin_self_test(admin: str) -> Dict[str, Any]:
+    """Send one real email to the admin, right now, and report exactly what
+    happened. Never raises.
+
+    This exists because every other way of answering "why is no mail arriving"
+    required reading a Render log. It uses the same send path as a real welcome
+    (same transport, same headers, same From) so a pass genuinely means mail
+    works, and a failure hands back the provider's own words instead of a
+    tidied-up summary: "the mail server rejected the username/password" is
+    something Tim can act on, "sending failed" is not.
+    """
+    out: Dict[str, Any] = {"ok": False, "steps": []}
+
+    def step(name: str, ok: Optional[bool], detail: str = "") -> None:
+        out["steps"].append({"name": name, "ok": ok, "detail": detail})
+
+    t = nl_email.transport()
+    step("A way to send email is configured", bool(t),
+         nl_email.transport_label() if t else
+         "Set SMTP_HOST, SMTP_USERNAME and SMTP_PASSWORD (or NEWSLETTER_API_KEY) "
+         "in the Render dashboard, then redeploy.")
+    if not t:
+        out["error"] = ("No email transport is configured, so nothing can be sent at "
+                        "all. This is almost certainly the whole problem.")
+        return out
+
+    step("Unsubscribe links can be signed", unsub_secret_configured(),
+         "" if unsub_secret_configured() else
+         "NEWSLETTER_UNSUBSCRIBE_SECRET is not set: website signups are refused and "
+         "campaigns cannot start.")
+
+    conn = nl_email.connection_status()
+    step("The mail server accepts our login", bool(conn.get("connected")),
+         conn.get("error") or conn.get("authorizedAs") or "")
+    if not conn.get("connected"):
+        out["error"] = conn.get("error") or "Could not connect to the mail server."
+        return out
+
+    # The real thing: an actual message down the real transport.
+    to = admin or admin_email()
+    body = (
+        '<p style="margin:0 0 14px;font-size:20px;font-weight:800;">Sending works.</p>'
+        '<p style="margin:0 0 14px;">This is the newsletter self-test. If you are '
+        'reading it, the server can deliver mail: the same path sends every welcome '
+        'email and every newsletter.</p>'
+        '<p style="margin:0;font-size:14px;">Transport: %s<br />From: %s</p>'
+        % (nl_email.transport_label(), nl_email.sender_email())
+    )
+    try:
+        nl_email.send_email(
+            to_email=to,
+            subject="Currents & Critters newsletter self-test",
+            html_body=nl_email.render_email_html(body_html=body, unsubscribe_url="",
+                                                 show_visit_button=False,
+                                                 preview_text="Sending works."),
+            text_body="Sending works. This is the newsletter self-test.\n",
+            is_bulk=False)
+    except nl_email.SendError as exc:
+        step("A real email goes out", False, str(exc))
+        out["error"] = str(exc)
+        out["category"] = exc.category
+        _mirror_send_health()
+        audit("self_test", admin=admin, summary="Self-test FAILED: %s" % exc.category)
+        return out
+    except Exception as exc:  # noqa: BLE001
+        step("A real email goes out", False, str(exc)[:300])
+        out["error"] = "Unexpected error: %s" % str(exc)[:300]
+        _mirror_send_health()
+        audit("self_test", admin=admin, summary="Self-test failed unexpectedly")
+        return out
+
+    step("A real email goes out", True, "Delivered to %s" % to)
+    _mirror_send_health()
+    audit("self_test", admin=admin, summary="Self-test passed")
+    out["ok"] = True
+    out["sentTo"] = to
+    return out
+
+
 def _admin_dashboard() -> Dict[str, Any]:
     rows, truncated = _all_subscribers()
     pub = [_public_subscriber(r) for r in rows]
@@ -2103,8 +2315,13 @@ def _admin_dashboard() -> Dict[str, Any]:
     pending_welcome = sum(1 for r in rows
                           if r.get("welcomeEmailStatus") == WELCOME_PENDING)
     failed_welcome = sum(1 for r in rows if r.get("welcomeEmailStatus") == "failed")
+    # Counted and reported because a record stuck here used to be invisible in
+    # every direction: not pending, not failed, not sent, and never retried.
+    stuck_welcome = sum(1 for r in rows if r.get("welcomeEmailStatus") == "sending")
 
     return {
+        "sendHealth": send_health(),
+        "stuckWelcome": stuck_welcome,
         "activeCount": len(active),
         "pendingCount": len(waiting),
         "unsubscribedCount": len(pub) - len(active) - len(waiting),
@@ -2120,6 +2337,90 @@ def _admin_dashboard() -> Dict[str, Any]:
         "sendsUsedToday": nl_email.sends_used_today(),
         "dailyCap": nl_email.daily_send_cap(),
     }
+
+
+def send_health() -> Dict[str, Any]:
+    """The delivery verdict for the dashboard, from this process and the last.
+
+    `nl_email.send_health()` only knows what THIS process has tried, and it is
+    reset by every deploy, so on its own it reports "nothing tried yet" for a
+    system that has been failing for a week. The last real outcome is therefore
+    mirrored into newsletterMeta/sendHealth and read back here when this
+    process has nothing of its own to say.
+    """
+    live = nl_email.send_health()
+    if live.get("everTried") or not live.get("configured"):
+        return live
+    db = _db()
+    if db is None:
+        return live
+    try:
+        snap = db.collection(C_META).document("sendHealth").get()
+    except Exception as exc:  # noqa: BLE001
+        print("[newsletter] send health read failed: %s" % exc)
+        return live
+    if not snap.exists:
+        return live
+    d = snap.to_dict() or {}
+    if not _int(d.get("lastFailAt")) and not _int(d.get("lastOkAt")):
+        return live
+    live = dict(live)
+    live["fromPreviousRun"] = True
+    live["lastOkAt"] = _int(d.get("lastOkAt"))
+    live["lastFailAt"] = _int(d.get("lastFailAt"))
+    live["lastError"] = str(d.get("lastError") or "")
+    live["lastErrorCategory"] = str(d.get("lastErrorCategory") or "")
+    # Which happened last is READ, not inferred from two second-resolution
+    # timestamps that can tie. Old documents written before this field existed
+    # fall back to the comparison, and a tie there resolves to "failed",
+    # because guessing "healthy" is the one wrong answer that hides a fault.
+    outcome = str(d.get("lastOutcome") or "")
+    if not outcome:
+        outcome = "fail" if _int(d.get("lastFailAt")) >= _int(d.get("lastOkAt")) else "ok"
+    if outcome == "fail":
+        live["healthy"] = False
+        live["summary"] = ("Nothing has been sent since this server restarted, and the "
+                           "last attempt before it FAILED (%s): %s"
+                           % (live["lastErrorCategory"] or "unknown",
+                              live["lastError"] or "no detail"))
+    else:
+        live["summary"] = ("Nothing has been sent since this server restarted. The last "
+                           "message before it went out normally (%s)."
+                           % _iso(live["lastOkAt"]))
+    return live
+
+
+_HEALTH_MIRROR = {"ok": 0, "fail": 0}
+
+
+def _mirror_send_health() -> None:
+    """Persist the delivery outcome, at most once per changed state.
+
+    Written from the worker after a send, never from a request. It is one small
+    document and the point is that it OUTLIVES the process: a failure whose
+    only record is in memory disappears at the next deploy, which is precisely
+    when somebody goes looking for it.
+    """
+    h = nl_email.send_health()
+    if (_HEALTH_MIRROR["ok"] == h["lastOkAt"]
+            and _HEALTH_MIRROR["fail"] == h["lastFailAt"]):
+        return
+    _HEALTH_MIRROR["ok"], _HEALTH_MIRROR["fail"] = h["lastOkAt"], h["lastFailAt"]
+    db = _db()
+    if db is None:
+        return
+    try:
+        db.collection(C_META).document("sendHealth").set({
+            "lastOkAt": h["lastOkAt"],
+            "lastFailAt": h["lastFailAt"],
+            "lastError": h["lastError"],
+            "lastErrorCategory": h["lastErrorCategory"],
+            "lastOutcome": h["lastOutcome"],
+            "transport": h["transportLabel"],
+            "updatedAt": _now(),
+        }, merge=True)
+    except Exception as exc:  # noqa: BLE001
+        print("[newsletter] send health write failed: %s" % exc)
 
 
 def _stripe_status() -> Dict[str, Any]:
@@ -2304,9 +2605,22 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
         if out.get("sendWelcome"):
             _queue_welcome(str(sub.get("id") or ""))
             _wake_worker()
-        handler._send_json({"ok": True, "message":
-                            "You're on the list! A welcome email is on its way to your "
-                            "inbox."})
+        # Do not promise mail this server cannot send. If no transport is
+        # configured the signup is still real, their address is on the list and
+        # the welcome is queued for whenever sending is fixed, but telling
+        # somebody an email is on its way when nothing can leave the building
+        # is how a broken mail system stays invisible: they wait, nothing
+        # arrives, and they conclude the signup failed rather than reporting
+        # it. The reply is still identical for every address, so the form
+        # still cannot be used to test who is already subscribed.
+        if nl_email.transport():
+            msg = ("You're on the list! A welcome email is on its way to your inbox.")
+        else:
+            msg = ("You're on the list! (Email delivery is being set up, so your "
+                   "welcome message will arrive a little later.)")
+            print("[newsletter] ⚠️  signup accepted but NO EMAIL TRANSPORT IS "
+                  "CONFIGURED, nothing can be delivered")
+        handler._send_json({"ok": True, "message": msg})
         return True
 
     # ── public: confirm a website signup ─────────────────────────────────
@@ -2518,6 +2832,14 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
                 preview_text=str(camp.get("previewText") or ""))})
             return True
 
+        if action == "self-test":
+            if not _rate_ok("test_send", client):
+                handler._send_json({"ok": False, "error": "Give it a minute between "
+                                                          "self-tests."}, status=429)
+                return True
+            handler._send_json(_admin_self_test(admin))
+            return True
+
         if action == "test-send":
             if not _rate_ok("test_send", client):
                 handler._send_json({"ok": False, "error": "You have sent several tests in a "
@@ -2688,3 +3010,21 @@ def init(*, get_firestore, verify_token, app_version: str = "") -> None:
     print("[newsletter] ready (admins=%s, transport=%s, sanitizer=%s, unsub secret=%s)"
           % (",".join(nl_email.admin_emails()), nl_email.transport_label(), nl_email.sanitizer_name(),
              "set" if unsub_secret_configured() else "MISSING"))
+    # Two ways for this system to be completely dead while looking fine from
+    # every page, so both get shouted at boot rather than mentioned. A single
+    # tidy line saying "transport=not configured" is what a person scrolling a
+    # deploy log does not notice.
+    if not nl_email.transport():
+        print("[newsletter] " + "=" * 68)
+        print("[newsletter] !! NO EMAIL TRANSPORT CONFIGURED. NOTHING WILL BE SENT.")
+        print("[newsletter] !! No welcome emails, no newsletters, no test sends.")
+        print("[newsletter] !! Fix: set SMTP_HOST, SMTP_USERNAME and SMTP_PASSWORD")
+        print("[newsletter] !!      (or NEWSLETTER_API_KEY) in the Render dashboard,")
+        print("[newsletter] !!      then redeploy. See NEWSLETTER_SETUP.md section 4.")
+        print("[newsletter] " + "=" * 68)
+    if not unsub_secret_configured():
+        print("[newsletter] " + "=" * 68)
+        print("[newsletter] !! NEWSLETTER_UNSUBSCRIBE_SECRET IS NOT SET.")
+        print("[newsletter] !! Website signups are REFUSED and campaigns cannot start.")
+        print("[newsletter] !! Fix: set it in the Render dashboard, then redeploy.")
+        print("[newsletter] " + "=" * 68)

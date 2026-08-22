@@ -2162,6 +2162,95 @@ _LAST_SEND = {"at": 0.0}
 _SEND_LOCK = threading.Lock()
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  SEND HEALTH: what actually happened, last time we tried
+# ═══════════════════════════════════════════════════════════════════════════
+# Why this exists. Every failure path in this file was already careful and
+# already logged, and that turned out to be worth almost nothing: a subscriber
+# was told "a welcome email is on its way", the send raised, the record was
+# marked failed, one line went to a Render log nobody reads, and from every
+# surface a human actually looks at, the system appeared to be working. The
+# whole newsletter can be dead for weeks and the only symptom is silence.
+#
+# So the outcome of every real send attempt is recorded here, and
+# newsletter_server persists it to Firestore and puts it on the dashboard. The
+# rule this enforces: a system that cannot deliver must SAY SO somewhere a
+# person will see, without being asked.
+_HEALTH_LOCK = threading.Lock()
+_HEALTH: Dict[str, Any] = {
+    "lastOkAt": 0, "lastFailAt": 0, "lastError": "", "lastErrorCategory": "",
+    "consecutiveFailures": 0, "sentSinceBoot": 0, "failedSinceBoot": 0,
+    # WHICH of the two happened last, recorded rather than inferred by
+    # comparing lastOkAt with lastFailAt. Those are unix SECONDS, and a send
+    # that fails immediately after one succeeds shares a second with it perhaps
+    # half the time at this message rate. A tie resolved by ">" silently reads
+    # as healthy, which is the one direction this must never guess in.
+    "lastOutcome": "",
+}
+
+
+def _note_send_ok() -> None:
+    with _HEALTH_LOCK:
+        _HEALTH["lastOkAt"] = int(time.time())
+        _HEALTH["lastOutcome"] = "ok"
+        _HEALTH["consecutiveFailures"] = 0
+        _HEALTH["sentSinceBoot"] = int(_HEALTH["sentSinceBoot"]) + 1
+        _HEALTH["lastError"] = ""
+        _HEALTH["lastErrorCategory"] = ""
+
+
+def _note_send_fail(exc: Exception, category: str = "unknown") -> None:
+    with _HEALTH_LOCK:
+        _HEALTH["lastFailAt"] = int(time.time())
+        _HEALTH["lastOutcome"] = "fail"
+        _HEALTH["consecutiveFailures"] = int(_HEALTH["consecutiveFailures"]) + 1
+        _HEALTH["failedSinceBoot"] = int(_HEALTH["failedSinceBoot"]) + 1
+        _HEALTH["lastError"] = _redact(str(exc))[:400]
+        _HEALTH["lastErrorCategory"] = str(category or "unknown")[:40]
+
+
+def send_health() -> Dict[str, Any]:
+    """A plain answer to "can this thing send email right now".
+
+    `healthy` is deliberately three-valued in spirit: True only when a send has
+    genuinely succeeded and nothing has failed since; False when the last thing
+    that happened was a failure; and True-with-nothing-tried when the process
+    has not attempted a send yet, which is NOT evidence of anything and must
+    never be dressed up as a passing check.
+    """
+    with _HEALTH_LOCK:
+        h = dict(_HEALTH)
+    h["transport"] = transport()
+    h["transportLabel"] = transport_label()
+    h["configured"] = bool(h["transport"])
+    h["everTried"] = bool(h["lastOkAt"] or h["lastFailAt"])
+    if not h["configured"]:
+        h["healthy"] = False
+        h["summary"] = ("No way to send email is configured, so NOTHING is being "
+                        "delivered: no welcome emails and no newsletters. Set "
+                        "SMTP_HOST / SMTP_USERNAME / SMTP_PASSWORD, or "
+                        "NEWSLETTER_API_KEY, in the Render dashboard.")
+    elif not h["everTried"]:
+        h["healthy"] = True
+        h["summary"] = ("%s is configured. Nothing has been sent since this server "
+                        "started, so there is no delivery result to report yet."
+                        % h["transportLabel"])
+    elif h["consecutiveFailures"] > 0:
+        h["healthy"] = False
+        h["summary"] = ("The last %d send attempt%s failed (%s): %s"
+                        % (h["consecutiveFailures"],
+                           "" if h["consecutiveFailures"] == 1 else "s",
+                           h["lastErrorCategory"] or "unknown",
+                           h["lastError"] or "no detail"))
+    else:
+        h["healthy"] = True
+        h["summary"] = ("Sending normally through %s. %d message%s delivered since "
+                        "this server started."
+                        % (h["transportLabel"], h["sentSinceBoot"],
+                           "" if h["sentSinceBoot"] == 1 else "s"))
+    return h
+
+
 def send_email(
     *,
     to_email: str,
@@ -2195,10 +2284,12 @@ def send_email(
 
     t = transport()
     if not t:
-        raise SendError(
+        exc = SendError(
             "No way to send email is configured. Set SMTP_HOST / SMTP_USERNAME / "
             "SMTP_PASSWORD, or NEWSLETTER_API_KEY.",
             category="config", retryable=False)
+        _note_send_fail(exc, "config")
+        raise exc
 
     if not _cap_take():
         raise SendError(
@@ -2221,14 +2312,22 @@ def send_email(
             time.sleep(gap)
         _LAST_SEND["at"] = time.time()
 
-    if t == "smtp":
-        res = _send_smtp(msg, to_norm)
-    elif t == "http":
-        res = _send_http(to_email=to_norm, subject=subject, html_body=html_body,
-                         text_body=text_body, unsub=unsubscribe_url,
-                         one_click=one_click_url, is_bulk=is_bulk, stream=stream)
-    else:
-        res = _send_gmail_api(msg)
+    try:
+        if t == "smtp":
+            res = _send_smtp(msg, to_norm)
+        elif t == "http":
+            res = _send_http(to_email=to_norm, subject=subject, html_body=html_body,
+                             text_body=text_body, unsub=unsubscribe_url,
+                             one_click=one_click_url, is_bulk=is_bulk, stream=stream)
+        else:
+            res = _send_gmail_api(msg)
+    except SendError as exc:
+        _note_send_fail(exc, exc.category)
+        raise
+    except Exception as exc:  # noqa: BLE001
+        _note_send_fail(exc, "unknown")
+        raise
+    _note_send_ok()
     return {"messageId": message_id, "gmailId": str(res.get("providerId") or "")}
 
 

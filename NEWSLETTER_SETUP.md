@@ -112,7 +112,7 @@ merely unlikely.
 | `render.yaml` | The new environment variables, documented inline. |
 | `vercel.json` | Redirects for `/admin/newsletter` and `/newsletter/unsubscribe/:token` to the Render host, and a rewrite so `/email-logo.png` resolves on the marketing site. |
 | `multiplayer/client/js/privacy-policy.js` | Newsletter sections updated: **see §10, there is a correction in here you should read**. |
-| `multiplayer/client/preview.html`, `privacy.html`, `js/preview-app.js`, `version.json` | Version bumped to **1.6.78 / 2026-08-22.5** and cache-busters bumped with it (project convention: an edited asset must get a fresh `?v=`). |
+| `multiplayer/client/preview.html`, `privacy.html`, `js/preview-app.js`, `version.json` | Version bumped to **1.6.79 / 2026-08-22.6** and cache-busters bumped with it (project convention: an edited asset must get a fresh `?v=`). |
 | `test_privacy_policy.js` | Last-updated date assertion moved to August 6, 2026. |
 
 **Nothing was removed or replaced.** Deleting the newsletter module would
@@ -524,7 +524,7 @@ the building: switching is one environment variable, not a rewrite.
 Run the automated suites first, they need no accounts and no network:
 
 ```bash
-python3 test_newsletter_server.py      # 161 tests
+python3 test_newsletter_server.py      # 185 tests
 node   test_newsletter_admin_ui.js     # needs Chrome
 ```
 
@@ -534,9 +534,27 @@ Then, in order:
 ```bash
 curl -s https://play.currentsandcritters.com/version.json
 ```
-Must show **`1.6.78` / `2026-08-22.5`**. If it doesn't, the deploy hasn't
+Must show **`1.6.79` / `2026-08-22.6`**. If it doesn't, the deploy hasn't
 finished: Render Docker builds take ~10–15 minutes. *"Still broken" has often
 meant "never shipped".*
+
+### 9.1b "No email is arriving": start here
+Open `/admin/newsletter`. The **Dashboard** now answers this at the top of the
+page, before any of the numbers, and there is a **Send me a test email now**
+button next to it that pushes a real message down the real transport and shows
+you exactly which step failed, in the mail provider's own words.
+
+The three things that stop mail completely, in the order they bite:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Dashboard says *Email sending is not set up* | No transport configured | Set `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD` in Render (§4), redeploy |
+| Signup form says *"Email delivery is being set up"* instead of *"a welcome email is on its way"* | Same as above, seen from the public side | Same |
+| Self-test fails on *The mail server accepts our login* | Wrong password | Google Workspace needs an **App Password**, not the account password, and 2-Step Verification must be on |
+
+The Render deploy log shouts about the first two at boot with a boxed
+`!! NO EMAIL TRANSPORT CONFIGURED` banner, so `Ctrl-F` for `[newsletter]` there
+is the fastest check of all.
 
 ### 9.2 Sending connection
 Open `/admin/newsletter` → **Connections**. You want:

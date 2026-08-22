@@ -205,6 +205,39 @@
       state.dashboard = d;
       state.settings = s.ok ? s : null;
 
+      /* ── "IS MAIL ACTUALLY GOING OUT?" ────────────────────────────────
+         Top of the page, above the numbers, because this is the question
+         the numbers cannot answer. The whole system can be dead while every
+         count on this page looks healthy: subscribers still arrive, the
+         dashboard still fills in, and nothing says the outbound side has
+         been failing for a week. So when it is broken this shouts, and it
+         carries the provider's own error text plus the one button that
+         proves the fix worked. */
+      var hz = d.sendHealth || {};
+      if (hz.healthy === false) {
+        var alert = el("div", "n-warn-box");
+        alert.style.marginBottom = "18px";
+        var t = el("div");
+        t.style.fontWeight = "800";
+        t.style.fontSize = "16px";
+        t.textContent = hz.configured ? "Email is not being delivered"
+                                      : "Email sending is not set up";
+        alert.appendChild(t);
+        alert.appendChild(el("div", null, hz.summary || ""));
+        if (hz.fromPreviousRun) {
+          alert.appendChild(el("div", "n-hint",
+            "This is the last result from before the server restarted."));
+        }
+        alert.appendChild(selfTestButton());
+        v.insertBefore(alert, cards);
+      } else if (hz.summary) {
+        var okline = el("div", "n-note");
+        okline.style.marginBottom = "18px";
+        okline.appendChild(el("span", null, hz.summary + " "));
+        okline.appendChild(selfTestButton());
+        v.insertBefore(okline, cards);
+      }
+
       cards.appendChild(card("Active subscribers", num(d.activeCount),
         d.truncated ? "List truncated: see Subscribers" : "Receiving newsletters"));
       cards.appendChild(card("Stranded (old signups)", num(d.pendingCount),
@@ -256,17 +289,67 @@
           sp.appendChild(statusRow("Daily limit",
             chip("warn", num(s.gmail.dailyCap) + " / day"), s.gmail.capWarning));
         }
-        if (d.pendingWelcome || d.failedWelcome) {
+        if (d.pendingWelcome || d.failedWelcome || d.stuckWelcome) {
+          var bits = num(d.pendingWelcome) + " pending, " + num(d.failedWelcome) + " failed";
+          if (d.stuckWelcome) bits += ", " + num(d.stuckWelcome) + " mid-send";
           sp.appendChild(statusRow("Welcome emails",
-            chip(d.failedWelcome ? "warn" : "info",
-              num(d.pendingWelcome) + " pending, " + num(d.failedWelcome) + " failed"),
-            "Pending welcomes send automatically within a minute."));
+            chip((d.failedWelcome || d.stuckWelcome) ? "warn" : "info", bits),
+            d.stuckWelcome
+              ? "Mid-send welcomes are re-queued automatically after a restart."
+              : "Pending welcomes send automatically within a minute."));
         }
       } else {
         sp.appendChild(el("p", "n-note", "Could not read connection status."));
       }
       st.appendChild(sp);
       v.appendChild(st);
+    });
+  }
+
+  /* One button that sends a REAL email through the real transport and reports
+     exactly what came back. It exists because the only previous way to answer
+     "why is no mail arriving" was to read a Render log. */
+  function selfTestButton() {
+    var b = el("button", "n-btn small", "Send me a test email now");
+    b.addEventListener("click", function () {
+      b.disabled = true;
+      b.textContent = "Testing…";
+      api("self-test").then(function (r) {
+        b.disabled = false;
+        b.textContent = "Send me a test email now";
+        showSelfTest(r);
+      });
+    });
+    return b;
+  }
+
+  function showSelfTest(r) {
+    var body = el("div");
+    (r.steps || []).forEach(function (st) {
+      var row = el("div", "n-status-row");
+      row.appendChild(el("div", "n-status-lbl", st.name));
+      row.appendChild(chip(st.ok ? "good" : "bad", st.ok ? "OK" : "Failed"));
+      row.appendChild(el("div", "n-status-val", st.detail || ""));
+      body.appendChild(row);
+    });
+    if (!r.ok && r.error) {
+      var e = el("div", "n-warn-box");
+      e.style.marginTop = "12px";
+      e.appendChild(el("div", null, r.error));
+      body.appendChild(e);
+    }
+    confirmModal({
+      title: r.ok ? "Sending works" : "Sending is broken",
+      body: r.ok
+        ? ("A real email was just delivered to " + (r.sentTo || "your admin address") +
+           ". If it is not in your inbox in a minute, check spam: that would mean " +
+           "delivery works and reputation is the problem, not configuration.")
+        : "This is the exact point where it fails, and the message underneath is "
+          + "the mail provider's own, not a summary.",
+      confirmLabel: "Close",
+      hideCancel: true,
+      content: body,
+      onConfirm: function (done, close) { done(); close(); }
     });
   }
 
@@ -1457,7 +1540,10 @@
     var cancel = el("button", "n-btn", "Cancel");
     var ok = el("button", "n-btn " + (opts.send ? "send" : (opts.danger ? "danger" : "primary")),
       opts.confirmLabel || "Confirm");
-    acts.appendChild(cancel); acts.appendChild(ok);
+    // A result-only modal (the self-test report) has nothing to cancel, and a
+    // "Cancel" next to a finished report reads as if it could undo something.
+    if (!opts.hideCancel) acts.appendChild(cancel);
+    acts.appendChild(ok);
     box.appendChild(acts);
     back.appendChild(box);
     $("modalHost").appendChild(back);

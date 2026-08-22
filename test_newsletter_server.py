@@ -22,6 +22,7 @@ Run:  python3 test_newsletter_server.py
 """
 from __future__ import annotations
 
+import contextlib
 import copy
 import json
 import os
@@ -104,6 +105,11 @@ class FakeSnap:
         return copy.deepcopy(self._data) if self._data is not None else None
 
 
+class AlreadyExists(Exception):
+    """Stands in for google.api_core.exceptions.AlreadyExists. Matched by NAME
+    in newsletter_server, so the name here is the contract."""
+
+
 class FakeDoc:
     def __init__(self, coll, doc_id):
         self._coll = coll
@@ -118,6 +124,17 @@ class FakeDoc:
             _deep_merge(cur, copy.deepcopy(data))
         else:
             self._coll._docs[self.id] = _resolve(copy.deepcopy(data))
+
+    def create(self, data):
+        """Write ONLY if the document does not exist, like the real client.
+
+        The fake did not have this at all, so the single-write signup fast path
+        silently fell through to the transaction in every test and would have
+        shipped completely unexercised.
+        """
+        if self.id in self._coll._docs:
+            raise AlreadyExists("document already exists: " + self.id)
+        self._coll._docs[self.id] = _resolve(copy.deepcopy(data))
 
     def collection(self, name):
         return self._coll._db.collection(self._coll.name + "/" + self.id + "/" + name)
@@ -325,6 +342,29 @@ class Base(unittest.TestCase):
         out = ns.handle_stripe_session(ev, sess)
         self.drain()
         return out
+
+    @contextlib.contextmanager
+    def transport_configured(self):
+        """Make nl_email.transport() report SMTP.
+
+        Base already stubs send_email and connection_status, but the code now
+        also asks "is a transport configured at all" straight from the
+        environment, and answers that question FIRST because an unconfigured
+        transport is the headline, not a detail. So a test about what happens
+        DURING a send has to say that sending is set up.
+        """
+        keys = ("SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD")
+        saved = {k: os.environ.get(k) for k in keys}
+        os.environ.update({"SMTP_HOST": "smtp.example.com",
+                           "SMTP_USERNAME": "u", "SMTP_PASSWORD": "p"})
+        try:
+            yield
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
 
     def legacy_pending(self, email):
         """Create a record the way signups worked BEFORE the confirmation step
@@ -2673,6 +2713,279 @@ class TestBounceSuppression(Base):
         sub = self.sub_for("fine@x.com")
         self.assertEqual(sub["status"], ns.STATUS_ACTIVE, "still a subscriber")
         self.assertFalse(sub.get("bounced"))
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 14. THE THINGS THAT MADE "EMAILS ARE NOT SENDING" HARD TO SEE
+# ══════════════════════════════════════════════════════════════════════════
+class TestStuckWelcomes(Base):
+    """A welcome claimed for sending and never finished.
+
+    This is the one that silently ate welcome emails. _claim_welcome flips the
+    record to "sending" and takes a lease; _finish_welcome moves it on. A
+    deploy stops the container between those two EVERY TIME one ships, and
+    _pending_welcome_ids only ever asks for "pending", so the record sat in
+    "sending" forever: never retried, never failed, never counted, and the
+    person simply never heard from us.
+    """
+
+    def strand(self, email, *, attempts=1, lease_until=0):
+        self.signup(email)
+        sid = ns._subscriber_id(email)
+        ns._db().collection(ns.C_SUBS).document(sid).set(
+            {"welcomeEmailStatus": "sending", "welcomeAttempts": attempts,
+             "welcomeLeaseUntil": lease_until}, merge=True)
+        ns._invalidate_subs_cache()
+        self.box.messages.clear()
+        return sid
+
+    def test_a_stranded_welcome_is_invisible_to_the_old_queue(self):
+        """Proves the bug exists at all: without the sweep, nothing finds it."""
+        sid = self.strand("lost@x.com")
+        self.assertNotIn(sid, ns._pending_welcome_ids(),
+                         "this is why it was never retried")
+
+    def test_the_sweep_re_queues_it_and_the_welcome_actually_sends(self):
+        sid = self.strand("lost@x.com")
+        self.assertEqual(ns._reclaim_stuck_welcomes(), 1)
+        self.assertIn(sid, ns._pending_welcome_ids())
+        for s in ns._pending_welcome_ids():
+            ns._send_welcome_now(s)
+        self.assertEqual(len(self.box.to("lost@x.com")), 1,
+                         "the person finally gets the welcome they were owed")
+
+    def test_a_send_still_in_flight_is_never_disturbed(self):
+        """The lease is the whole point: re-queueing a live send would mail the
+        same person twice."""
+        self.strand("inflight@x.com", lease_until=ns._now() + 120)
+        self.assertEqual(ns._reclaim_stuck_welcomes(), 0)
+        self.assertEqual(
+            self.sub_for("inflight@x.com")["welcomeEmailStatus"], "sending")
+
+    def test_a_welcome_that_keeps_dying_is_failed_not_looped_forever(self):
+        """If every attempt dies in the same place, re-queueing it forever is an
+        infinite loop that hides the real fault instead of reporting it."""
+        self.strand("cursed@x.com", attempts=ns.MAX_ATTEMPTS)
+        ns._reclaim_stuck_welcomes()
+        sub = self.sub_for("cursed@x.com")
+        self.assertEqual(sub["welcomeEmailStatus"], "failed")
+        self.assertIn("giving up", sub["welcomeError"])
+
+    def test_the_dashboard_reports_stuck_welcomes(self):
+        self.strand("lost@x.com")
+        ns._invalidate_subs_cache()
+        self.assertEqual(self.admin_post("dashboard").last["stuckWelcome"], 1,
+                         "a state nothing counted is a state nobody fixes")
+
+
+class TestSendHealth(Base):
+    def test_a_failing_transport_is_reported_as_unhealthy(self):
+        with self.transport_configured():
+            ne._note_send_fail(ne.SendError("bad password", category="auth_revoked"),
+                               "auth_revoked")
+            h = ns.send_health()
+            self.assertFalse(h["healthy"])
+            self.assertIn("bad password", h["summary"])
+
+    def test_a_healthy_send_clears_it(self):
+        with self.transport_configured():
+            ne._note_send_fail(Exception("boom"), "network")
+            ne._note_send_ok()
+            h = ne.send_health()
+            self.assertTrue(h["healthy"])
+            self.assertEqual(h["consecutiveFailures"], 0)
+
+    def test_nothing_tried_yet_is_never_dressed_up_as_a_pass(self):
+        """"We have not tried" is not evidence that sending works, and saying
+        so would be exactly the false reassurance this whole section exists to
+        remove."""
+        with ne._HEALTH_LOCK:
+            ne._HEALTH.update({"lastOkAt": 0, "lastFailAt": 0, "consecutiveFailures": 0,
+                               "sentSinceBoot": 0, "lastError": ""})
+        with self.transport_configured():
+            h = ne.send_health()
+            self.assertFalse(h["everTried"])
+            self.assertIn("no delivery result to report", h["summary"])
+
+    def test_an_unconfigured_transport_says_nothing_is_being_delivered(self):
+        h = ne.send_health()
+        self.assertFalse(h["healthy"])
+        self.assertIn("NOTHING is being delivered", h["summary"])
+
+    def test_a_failure_in_the_same_second_as_a_success_still_reads_as_failed(self):
+        """Found by the suite, not by reading the code: these are unix SECONDS,
+        so a send that fails right after one succeeds shares a timestamp with
+        it, and a tie broken by ">" reports the system as healthy. Healthy is
+        the one direction this must never guess in."""
+        ne._note_send_ok()
+        ne._note_send_fail(ne.SendError("late failure", category="network"), "network")
+        ns._HEALTH_MIRROR.update({"ok": 0, "fail": 0})
+        ns._mirror_send_health()
+        doc = self.db.collection(ns.C_META)._docs["sendHealth"]
+        self.assertEqual(doc["lastOkAt"], doc["lastFailAt"], "the tie this is about")
+        with ne._HEALTH_LOCK:
+            ne._HEALTH.update({"lastOkAt": 0, "lastFailAt": 0, "lastError": "",
+                               "lastOutcome": "", "consecutiveFailures": 0})
+        with self.transport_configured():
+            self.assertFalse(ns.send_health()["healthy"])
+
+    def test_a_failure_survives_the_restart_that_hid_it(self):
+        """In-memory health is wiped by every deploy, which is precisely when
+        somebody goes looking for what went wrong."""
+        ne._note_send_fail(ne.SendError("nope", category="auth_revoked"), "auth_revoked")
+        ns._HEALTH_MIRROR.update({"ok": 0, "fail": 0})
+        ns._mirror_send_health()
+        # Simulate the restart: this process now knows nothing.
+        with ne._HEALTH_LOCK:
+            ne._HEALTH.update({"lastOkAt": 0, "lastFailAt": 0, "lastError": "",
+                               "consecutiveFailures": 0})
+        with self.transport_configured():
+            h = ns.send_health()
+            self.assertFalse(h["healthy"])
+            self.assertTrue(h["fromPreviousRun"])
+            self.assertIn("nope", h["summary"])
+
+
+class TestHonestSignupReply(Base):
+    def test_it_does_not_promise_mail_it_cannot_send(self):
+        """The signup still succeeds, because a broken SMTP setting is not the
+        subscriber's problem, but telling them an email is on its way when
+        nothing can leave the building is how a dead mail system stays
+        invisible."""
+        h = Handler("6.6.6.1")
+        ns.handle_post(h, Parsed("/api/newsletter/subscribe"), {"email": "a@x.com"})
+        self.assertTrue(h.last["ok"])
+        self.assertNotIn("on its way", h.last["message"])
+        self.assertEqual(self.sub_for("a@x.com")["status"], ns.STATUS_ACTIVE,
+                         "they are still genuinely subscribed")
+
+    def test_it_does_promise_mail_when_sending_works(self):
+        with self.transport_configured():
+            h = Handler("6.6.6.2")
+            ns.handle_post(h, Parsed("/api/newsletter/subscribe"), {"email": "b@x.com"})
+            self.assertIn("on its way", h.last["message"])
+
+    def test_the_reply_is_still_identical_for_every_address(self):
+        """The anti-enumeration property must survive the new wording."""
+        with self.transport_configured():
+            self.signup("known@x.com")
+            a = Handler("6.6.6.3")
+            ns.handle_post(a, Parsed("/api/newsletter/subscribe"), {"email": "known@x.com"})
+            b = Handler("6.6.6.4")
+            ns.handle_post(b, Parsed("/api/newsletter/subscribe"), {"email": "new@x.com"})
+            self.assertEqual(a.last, b.last)
+
+
+class TestSignupFastPath(Base):
+    def test_a_new_address_is_created_with_a_single_write(self):
+        """Three Firestore round trips became one, with somebody watching a
+        spinner for every one of them."""
+        out = ns.request_subscription("fast@x.com")
+        self.assertEqual(out["result"], "created")
+        self.assertTrue(out["sendWelcome"])
+        sub = self.sub_for("fast@x.com")
+        self.assertEqual(sub["status"], ns.STATUS_ACTIVE)
+        self.assertEqual(sub["welcomeEmailStatus"], ns.WELCOME_PENDING)
+        self.assertTrue(sub["unsubId"], "a usable unsubscribe token was still built")
+
+    def test_the_fast_path_really_is_the_one_being_taken(self):
+        """Guards the trap this nearly shipped with: the fake Firestore had no
+        create(), so the fast path fell through to the transaction in every
+        test and would have gone out completely unexercised."""
+        calls = []
+        real = ns._subscribe
+        ns._subscribe = lambda *a, **k: calls.append(1) or real(*a, **k)
+        try:
+            ns.request_subscription("nofallback@x.com")
+            self.assertEqual(calls, [], "a brand-new address must not need a transaction")
+        finally:
+            ns._subscribe = real
+
+    def test_a_collision_falls_through_and_stays_correct(self):
+        """A returning address is the case create() cannot handle, and the
+        transaction must still do the right thing with it."""
+        self.signup("back@x.com")
+        ns.unsubscribe_with_token(ns.make_unsub_token(self.sub_for("back@x.com")))
+        self.assertEqual(self.sub_for("back@x.com")["status"], ns.STATUS_UNSUB)
+        out = ns.request_subscription("back@x.com")
+        self.assertEqual(out["result"], "reactivated")
+        self.assertTrue(out["sendWelcome"])
+        self.assertEqual(self.sub_for("back@x.com")["status"], ns.STATUS_ACTIVE)
+
+    def test_signing_up_twice_still_makes_exactly_one_subscriber(self):
+        ns.request_subscription("dupe@x.com")
+        out = ns.request_subscription("dupe@x.com")
+        self.assertEqual(out["result"], "already_active")
+        self.assertFalse(out["sendWelcome"], "and no second welcome")
+        self.assertEqual(len(self.subs()), 1)
+
+
+class TestSelfTest(Base):
+    def test_it_sends_a_real_email_and_says_so(self):
+        with self.transport_configured():
+            r = self.admin_post("self-test").last
+        self.assertTrue(r["ok"], r)
+        self.assertTrue(self.box.to(ADMIN), "a real message actually went out")
+        self.assertTrue(all(s["ok"] for s in r["steps"]), r["steps"])
+
+    def test_an_unconfigured_transport_is_named_as_the_whole_problem(self):
+        """With nothing configured it must not waste Tim's time on the other
+        steps: this one fact explains every missing email."""
+        r = self.admin_post("self-test").last
+        self.assertFalse(r["ok"])
+        self.assertIn("nothing can be sent at all", r["error"])
+        self.assertEqual(len(r["steps"]), 1)
+
+    def test_it_reports_the_providers_own_words_on_failure(self):
+        """"Sending failed" is not actionable. "The mail server rejected the
+        username/password" is."""
+        self.box.fail_with = ne.SendError(
+            "The mail server rejected the username/password.",
+            category="auth_revoked", retryable=False)
+        self.box.fail_times = -1
+        with self.transport_configured():
+            r = self.admin_post("self-test").last
+        self.assertFalse(r["ok"])
+        self.assertIn("username/password", r["error"])
+        self.assertEqual(r["category"], "auth_revoked")
+        failed = [s for s in r["steps"] if not s["ok"]]
+        self.assertEqual(len(failed), 1, "it names the exact step that broke")
+
+    def test_it_never_sends_anywhere_but_the_admin(self):
+        """A test send that accepts a destination is a spam relay wearing an
+        admin login."""
+        with self.transport_configured():
+            self.admin_post("self-test", {"to": "victim@elsewhere.com",
+                                          "email": "victim@elsewhere.com"})
+        self.assertEqual(self.box.to("victim@elsewhere.com"), [])
+
+    def test_a_stranger_cannot_run_it(self):
+        with self.transport_configured():
+            h = self.admin_post("self-test", email="nobody@example.com")
+        self.assertFalse(h.last.get("ok"))
+        self.assertEqual(self.box.messages, [])
+
+
+class TestWelcomeDoesNotScanTheWholeList(Base):
+    def test_sending_a_welcome_does_not_read_every_subscriber(self):
+        """It used to: _finish_welcome invalidates the subscriber cache, and
+        the very next line called counts(), which reads the entire collection,
+        to decorate ONE line of Tim's notification email. Every welcome
+        dragged a full scan behind it."""
+        self.signup("seed@x.com")
+        ns._invalidate_subs_cache()
+        h = Handler("6.6.6.9")
+        ns.handle_post(h, Parsed("/api/newsletter/subscribe"), {"email": "scan@x.com"})
+
+        scans = []
+        real = ns._all_subscribers
+        ns._all_subscribers = lambda force=False: scans.append(1) or real(force)
+        try:
+            self.drain()
+        finally:
+            ns._all_subscribers = real
+        self.assertEqual(scans, [], "no collection scan on the welcome path")
+        self.assertEqual(len(self.box.to("scan@x.com")), 1, "and it still sends")
 
 
 if __name__ == "__main__":
