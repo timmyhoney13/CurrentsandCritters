@@ -282,11 +282,15 @@ try:
     case.signup("quote'and&amp@x.com", event_id="ex2", session_id="cx2")
     case.admin_post("subscriber-unsubscribe",
                     {"id": ns._subscriber_id("p0@x.com")})
-    # Somebody who signed up on the website 10 seconds ago and has not clicked
-    # the link in their inbox yet. This is the case that was being drawn as
-    # "Unsubscribed", it has to be in the fixture or the renderer is never
+    # A record left stranded in the old pending state: they signed up back
+    # when joining took a confirmation click and never clicked it. Signups are
+    # one step now, so nothing creates one of these any more, but Firestore is
+    # full of them and this is the case that was being drawn as
+    # "Unsubscribed". It has to be in the fixture or the renderer is never
     # asked the question.
-    ns.request_subscription("waiting@x.com")
+    ns._subscribe("waiting@x.com", source=ns.SOURCE_WEBSITE,
+                  status=ns.STATUS_PENDING,
+                  consent_note="Website signup; awaiting email confirmation.")
     ns._invalidate_subs_cache()
 
     cid = case.admin_post("campaign-save", {
@@ -743,21 +747,21 @@ check("settings shows which Stripe labels are accepted",
 // This is the reported bug: joining the list and then being shown as having
 // left it. The renderer had two states for three, so "not active" was drawn
 // as "Unsubscribed", for somebody whose signup was 10 seconds old.
-check("a website signup awaiting confirmation is in the list",
+check("a signup stranded by the old confirm step is in the list",
       D.checks.waitingRowExists);
 check("...and is NEVER labelled Unsubscribed",
       D.checks.waitingNotCalledUnsubscribed, D.checks.waitingStatusText);
-check("...it says it is waiting to confirm",
-      /waiting to confirm/i.test(D.checks.waitingStatusText || ""),
+check("...it says the address was never confirmed",
+      /never confirmed/i.test(D.checks.waitingStatusText || ""),
       D.checks.waitingStatusText);
 check("...and does not look like an unsubscribed row",
       D.checks.waitingIsVisuallyDistinct);
 check("a genuinely unsubscribed person still reads Unsubscribed",
       D.checks.unsubscribedStillSaysSo);
 check("the dashboard counts them separately",
-      /Waiting to confirm/i.test(dash.text), dash.text.slice(0, 200));
+      /Stranded \(old signups\)/i.test(dash.text), dash.text.slice(0, 200));
 check("the list can be filtered down to them",
-      /Waiting to confirm/i.test((D.screens.subscribers||{text:''}).text));
+      /Never confirmed/i.test((D.screens.subscribers||{text:''}).text));
 check("their row offers to re-send the link",
       D.checks.waitingActions.some(t => /resend/i.test(t)),
       D.checks.waitingActions.join(" | "));

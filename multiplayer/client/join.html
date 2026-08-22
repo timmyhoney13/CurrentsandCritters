@@ -218,8 +218,8 @@
   <div class="msg" id="msg" role="status" aria-live="polite"></div>
 
   <p class="fine">
-    We’ll send one email to confirm it’s really you. No spam, and every email
-    has a one-click unsubscribe.<br>
+    You’re in as soon as you press the button, and a welcome email lands in your
+    inbox. No spam, and every email has a one-click unsubscribe.<br>
     <a href="/privacy">Privacy Policy</a> ·
     <a href="https://currentsandcritters.com">Currents &amp; Critters</a>
   </p>
@@ -377,10 +377,10 @@
     }).then(function(d){
       if (d && d.ok) {
         document.getElementById("card").classList.add("done");
-        document.getElementById("headline").textContent = "Check your inbox!";
+        document.getElementById("headline").textContent = "You\u2019re on the list!";
         msg.className = "msg ok";
         msg.textContent = d.message ||
-          "Almost there! Click the confirmation link we just sent you.";
+          "You\u2019re on the list! A welcome email is on its way to your inbox.";
       } else {
         msg.className = "msg err";
         msg.textContent = (d && d.error) || "Something went wrong. Please try again.";

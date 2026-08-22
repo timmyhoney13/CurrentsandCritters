@@ -207,8 +207,9 @@
 
       cards.appendChild(card("Active subscribers", num(d.activeCount),
         d.truncated ? "List truncated: see Subscribers" : "Receiving newsletters"));
-      cards.appendChild(card("Waiting to confirm", num(d.pendingCount),
-        d.pendingCount ? "Signed up; have not clicked their email link" : "Nobody mid-signup"));
+      cards.appendChild(card("Stranded (old signups)", num(d.pendingCount),
+        d.pendingCount ? "Old two-step signups, confirm by hand"
+                       : "Signups now join the list at once"));
       cards.appendChild(card("Unsubscribed", num(d.unsubscribedCount), "Kept on record, never emailed"));
       cards.appendChild(card("Newsletters sent", num(d.newslettersSent), "Completed campaigns"));
       cards.appendChild(card("Most recent signup",
@@ -277,13 +278,15 @@
     return h;
   }
   function chip(kind, text) { return el("span", "n-chip " + kind, text); }
-  // Three states, and the third one is the point: somebody who signed up on
-  // the website is "pending" until they click the link in their inbox. Folding
-  // that into "Unsubscribed" (anything-not-active) reported a person who had
-  // just joined as having opted out.
+  // Three states, and the third one is a leftover that still matters.
+  // Signing up is one step now, but records created under the old
+  // confirm-your-email flow are still sitting in "pending", and they are real
+  // people who filled in the form and never got in. Folding them into
+  // "Unsubscribed" (anything-not-active) would report somebody who joined as
+  // having opted out, and would hide the ones still owed a fix.
   function statusChip(status) {
     if (status === "active") return chip("good", "Active");
-    if (status === "pending") return chip("warn", "Waiting to confirm");
+    if (status === "pending") return chip("warn", "Never confirmed");
     return chip("neutral", "Unsubscribed");
   }
   function gmailChip(g) {
@@ -335,7 +338,7 @@
     q.value = state.subs.query; q.style.maxWidth = "300px";
     var status = el("select", "n-select"); status.style.maxWidth = "180px";
     [["all", "All statuses"], ["active", "Active only"],
-     ["pending", "Waiting to confirm"], ["unsubscribed", "Unsubscribed only"]]
+     ["pending", "Never confirmed"], ["unsubscribed", "Unsubscribed only"]]
       .forEach(function (o) {
         var op = document.createElement("option");
         op.value = o[0]; op.textContent = o[1];
@@ -386,8 +389,8 @@
         state.subs.data = d;
 
         counts.appendChild(card("Active", num(d.counts.active), "Will receive newsletters"));
-        counts.appendChild(card("Waiting to confirm", num(d.counts.pending),
-          "Signed up, email not confirmed yet"));
+        counts.appendChild(card("Never confirmed", num(d.counts.pending),
+          "Signed up under the old two-step flow and never clicked the link"));
         counts.appendChild(card("Unsubscribed", num(d.counts.unsubscribed), "Excluded from every send"));
         counts.appendChild(card("Total on record", num(d.counts.total),
           d.truncated ? "Showing the first " + num(d.counts.total) : "All subscriber records"));
@@ -558,8 +561,10 @@
       form.appendChild(reason);
 
       confirmModal({
-        title: "Confirm this address without the email click?",
-        body: "They signed up but have not clicked the link in their inbox. Confirming " +
+        title: "Add this address to the list by hand?",
+        body: "They signed up back when joining took a confirmation click, and never " +
+              "clicked it. Signups are one step now, so nothing will ever confirm this " +
+              "record on its own. Confirming " +
               "here makes them an active subscriber and sends the welcome email.",
         warn: "The email click is what proves somebody owns an address. Only skip it when " +
               "you know they do, your account and reason are written to the audit log.",
@@ -877,6 +882,47 @@
 
         var form = el("div");
         form.appendChild(previewBtn);
+
+        /* ── The spam preflight ────────────────────────────────────────
+           Runs the draft past the checks a filter applies, in the one place
+           it can still change the outcome: the moment before an irreversible
+           send. It is advice and never a gate, the Send button is not touched
+           by anything here, because a false positive must never be able to
+           block Tim's own newsletter. */
+        var spam = el("div"); spam.style.marginTop = "14px";
+        spam.appendChild(el("div", "n-hint", "Checking for spam-filter triggers…"));
+        form.appendChild(spam);
+        api("spam-check", { id: cid }).then(function (sc) {
+          spam.innerHTML = "";
+          if (!sc || !sc.ok) return;                 // never block on the check
+          var warns = (sc.findings || []).filter(function (x) { return x.level === "warn"; });
+          var notes = (sc.findings || []).filter(function (x) { return x.level === "note"; });
+          if (!warns.length && !notes.length) {
+            var okBox = el("div", "n-note", "Spam check: nothing to flag. "
+              + num(sc.stats.words) + " words, " + num(sc.stats.links) + " links, "
+              + num(sc.stats.images) + " images.");
+            spam.appendChild(okBox);
+            return;
+          }
+          var box = el("div", warns.length ? "n-warn-box" : "n-note");
+          box.appendChild(el("div", null, warns.length
+            ? ("Spam check found " + warns.length + " thing"
+               + (warns.length === 1 ? "" : "s") + " worth fixing first. You can still send.")
+            : "Spam check: a few small suggestions. Nothing here will get you filtered."));
+          var ul = el("ul");
+          ul.style.margin = "8px 0 0";
+          ul.style.paddingLeft = "18px";
+          warns.concat(notes).forEach(function (fnd) {
+            var li = el("li");
+            li.style.marginBottom = "5px";
+            li.appendChild(el("strong", null, fnd.title));
+            li.appendChild(el("div", "n-hint", fnd.detail));
+            ul.appendChild(li);
+          });
+          box.appendChild(ul);
+          spam.appendChild(box);
+        });
+
         var f = el("label", "n-field"); f.style.marginTop = "14px";
         f.appendChild(el("span", "n-label", "Type SEND to confirm"));
         f.appendChild(phrase);
@@ -1242,6 +1288,73 @@
       recheck.addEventListener("click", function () { go("settings"); });
       p1.appendChild(recheck);
       host.appendChild(p1);
+
+      /* ── Domain authentication ──────────────────────────────────────
+         The panel that answers "why does my email go to spam". Everything
+         above is about whether we can SEND; this is about whether anyone
+         believes the message when it arrives. It is a live DNS read, so it
+         reports what the internet currently sees, not what was intended. */
+      var da = d.domainAuth || {};
+      var pDns = el("div", "n-panel");
+      pDns.appendChild(el("h3", null, "Domain authentication (spam folder)"));
+      pDns.appendChild(el("p", "n-note",
+        "Gmail and Yahoo require bulk senders to prove mail really comes from " +
+        "their domain. Fail that and the message is not bounced, it is filed as " +
+        "spam. These are live DNS lookups for " + (da.domain || "your domain") + "."));
+
+      if (da.dnsReachable === false) {
+        pDns.appendChild(el("div", "n-warn-box", da.summary ||
+          "This server could not reach DNS, so none of this could be checked."));
+      } else {
+        var authRow = function (label, part, good, unknownIsFine) {
+          var okv = part && part.ok;
+          var kind = okv ? "good" : (unknownIsFine ? "warn" : "bad");
+          pDns.appendChild(statusRow(label,
+            chip(kind, okv ? good : (unknownIsFine ? "Not confirmed" : "Missing")),
+            (part && (part.detail || part.record)) || ""));
+        };
+        authRow("SPF", da.spf, "Published");
+        /* DKIM selectors cannot be enumerated from outside, so a miss here is
+           reported as unknown, never as a failure. Saying "missing" would send
+           Tim to fix something that may already be correct. */
+        authRow("DKIM", da.dkim,
+          "Published" + (da.dkim && da.dkim.selector ? " (" + da.dkim.selector + ")" : ""),
+          true);
+        authRow("DMARC", da.dmarc,
+          "Published" + (da.dmarc && da.dmarc.policy ? " (p=" + da.dmarc.policy + ")" : ""));
+
+        var box = el("div", da.ready ? "n-note" : "n-warn-box", da.summary || "");
+        box.style.marginTop = "14px";
+        pDns.appendChild(box);
+
+        if (da.dmarc && !da.dmarc.ok && !da.consumerGmail) {
+          var fix = el("div", "n-note");
+          fix.style.marginTop = "10px";
+          fix.appendChild(el("div", null, "Add this one DNS record at your domain host:"));
+          var rec = el("div", "n-code",
+            "TXT   _dmarc." + (da.domain || "") +
+            "   v=DMARC1; p=none; rua=mailto:" + (d.adminEmail || "") + "; fo=1");
+          rec.style.display = "block";
+          rec.style.marginTop = "6px";
+          rec.style.wordBreak = "break-all";
+          fix.appendChild(rec);
+          pDns.appendChild(fix);
+        }
+      }
+
+      var reDns = el("button", "n-btn", "Re-check DNS now");
+      reDns.style.marginTop = "14px";
+      reDns.addEventListener("click", function () {
+        reDns.disabled = true; reDns.textContent = "Checking DNS…";
+        /* The server caches these lookups for ten minutes; this is the flag
+           that says "I just edited DNS, look again". */
+        api("settings", { recheckDns: true }).then(function (fresh) {
+          if (fresh && fresh.ok) { state.settings = fresh; go("settings"); }
+          else { reDns.disabled = false; reDns.textContent = "Re-check DNS now"; }
+        });
+      });
+      pDns.appendChild(reDns);
+      host.appendChild(pDns);
 
       var p2 = el("div", "n-panel");
       p2.appendChild(el("h3", null, "Stripe newsletter signup"));

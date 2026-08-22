@@ -34,19 +34,34 @@ hosted somewhere, which it is.
 **People join in two ways.**
 
 1. **The website.** Every "Join the Email List" button on currentsandcritters.com
-   opens `/newsletter/join`. They enter an address, get a *confirm your email*
-   message, and only become a subscriber when they click it. Until then the
-   record is `pending` and no campaign can reach it.
-   *(Those buttons used to point at a Google Form: signups there landed in a
+   opens `/newsletter/join`. They enter an address, press the button, and they
+   are a subscriber: **one step, no confirmation click**. The welcome email is
+   what lands in their inbox.
+   *(This used to be double opt-in, with a "confirm your email" message that
+   had to be clicked first. It was removed because the people who ignore that
+   message are not spammers, they are subscribers who thought they had joined
+   and then never hear from you again. What replaces it is the welcome email
+   itself: it goes to the address that was typed, it says plainly what it is,
+   and it carries the same one-click unsubscribe as every other message, so
+   anybody whose address was typed in by somebody else is one tap from off the
+   list in the very first mail they get.)*
+   *(Before that, those buttons pointed at a Google Form: signups landed in a
    spreadsheet no campaign ever read from, so nobody who used it was ever
    actually on the list.)*
+
+   **Records still stuck in `pending`** are from the old flow: real people who
+   filled in the form and never clicked. Nothing creates a new one, and nothing
+   will ever confirm them on their own. The admin page counts them under
+   *Stranded (old signups)* and each row has a **Confirm by hand** button that
+   makes them active and sends the welcome. Old confirmation links still work
+   forever, so anyone who digs one out of their inbox still gets in.
 
 2. **Stripe checkout.** If, and only if, they typed an
 address into the optional **"Enter your email to get updates"** field, Stripe's
 `checkout.session.completed` webhook hands that address to the newsletter code,
-which creates a subscriber directly (no confirmation needed: paying
-proves they own the address), sends them a welcome email, and emails you to say
-somebody joined.
+which creates a subscriber directly, sends them a welcome email, and emails you
+to say somebody joined. (This path never had a confirmation step: paying with
+an address already proves they own it.)
 
 You write and send newsletters at **`/admin/newsletter`**, signed in with your
 Google account *(that is Google **sign-in**, which the game already uses, not
@@ -97,7 +112,7 @@ merely unlikely.
 | `render.yaml` | The new environment variables, documented inline. |
 | `vercel.json` | Redirects for `/admin/newsletter` and `/newsletter/unsubscribe/:token` to the Render host, and a rewrite so `/email-logo.png` resolves on the marketing site. |
 | `multiplayer/client/js/privacy-policy.js` | Newsletter sections updated: **see §10, there is a correction in here you should read**. |
-| `multiplayer/client/preview.html`, `privacy.html`, `js/preview-app.js`, `version.json` | Version bumped to **1.6.57 / 2026-08-15.1** and cache-busters bumped with it (project convention: an edited asset must get a fresh `?v=`). |
+| `multiplayer/client/preview.html`, `privacy.html`, `js/preview-app.js`, `version.json` | Version bumped to **1.6.78 / 2026-08-22.5** and cache-busters bumped with it (project convention: an edited asset must get a fresh `?v=`). |
 | `test_privacy_policy.js` | Last-updated date assertion moved to August 6, 2026. |
 
 **Nothing was removed or replaced.** Deleting the newsletter module would
@@ -358,6 +373,19 @@ restarts.
 Without these, Gmail and Outlook will junk your newsletters. Do all three, at
 your DNS provider for **beardedsealstudios.com**.
 
+> **The admin panel now checks these for you.** `/admin/newsletter` →
+> **Settings** → *Domain authentication (spam folder)* does live DNS lookups
+> and tells you which of the three are actually published, with the exact
+> record to add for anything missing. **Re-check DNS now** re-reads after an
+> edit (the result is cached for ten minutes otherwise). That panel is the
+> answer to "why is my email going to spam", and it reports what the internet
+> currently sees, not what you meant to set up.
+>
+> **As of 2026-08-22 this domain has SPF ✅ and DKIM ✅ but NO DMARC record.**
+> Gmail and Yahoo have required one on bulk senders since February 2024, so
+> this is the single highest-value thing left to fix. It is the one record in
+> the DMARC table below and it takes about two minutes.
+
 ### SPF
 One TXT record at the root. **If you already have an SPF record, edit it, a
 domain with two SPF records fails SPF entirely.**
@@ -393,6 +421,8 @@ After a week with SPF and DKIM passing, move to `p=quarantine`, and later
 mail disappears silently.
 
 ### Verify
+Easiest: **Settings → Domain authentication** in the admin panel, then
+**Re-check DNS now**. From a terminal:
 ```bash
 dig +short TXT beardedsealstudios.com
 dig +short TXT google._domainkey.beardedsealstudios.com
@@ -400,6 +430,58 @@ dig +short TXT _dmarc.beardedsealstudios.com
 ```
 Then send yourself a test (§8) and use Gmail's **Show original**, it must say
 `SPF: PASS`, `DKIM: PASS`, `DMARC: PASS`.
+
+If your provider signs DKIM with a selector this check does not know about, the
+panel says *Not confirmed* rather than *Missing*, on purpose: selectors cannot
+be listed from outside, so "not on any name I know" is not the same statement
+as "you have no DKIM". Set `NEWSLETTER_DKIM_SELECTOR` to the one your provider
+gave you and it will find it.
+
+---
+
+## 7b. The rest of the anti-spam work (already done in code)
+
+DNS is the half you have to do by hand. This is the half the code does, listed
+so you know what is already covered and do not go looking for it.
+
+**Every message carries the headers that mailbox providers look for.** They are
+built in ONE place (`_deliverability_headers`) so the SMTP path and the HTTPS
+API path cannot drift apart:
+
+| Header | Why |
+|---|---|
+| `List-Unsubscribe` + `List-Unsubscribe-Post` | RFC 8058 one-click. **Required** by Gmail/Yahoo for bulk senders since Feb 2024. |
+| `List-Id` | Names the list, so clients file it as subscribed mail instead of guessing. |
+| `Feedback-ID` | Google Postmaster Tools groups spam-complaint rates by this, per campaign, instead of one blended number for the whole domain. |
+| `X-Entity-Ref-ID` | Stops Gmail collapsing a run of same-subject newsletters into one thread, where they go unread. |
+| `Precedence: bulk`, `Auto-Submitted` | Stops out-of-office autoresponders replying to every send. |
+
+**Spam preflight before every send.** The send modal reads the draft the way a
+filter will and lists what it finds: shouting subject, more than one `!`, fake
+`Re:`, known trigger phrases, image-only body, missing alt text, shortened or
+`http://` links, no preview text. It **never blocks a send**, it only advises,
+because a false positive that stops your own newsletter is a worse bug than the
+spam folder.
+
+**Hard bounces come off the list automatically.** An address that is
+permanently rejected (it does not exist) is suppressed on the spot and recorded
+as `bounced`, not as an opt-out. A dead address re-mailed on every campaign for
+a year is what a bought list looks like from the outside, and providers score
+that against every other message the domain sends. A temporary failure (a
+timeout, a 4xx) never removes anybody.
+
+**Also true by design:** one recipient per message and no tracking pixel, so
+there is nothing in an email that a filter reads as surveillance and no way for
+one subscriber to learn that another exists.
+
+Two things nobody can do in code, worth knowing:
+
+* **Warm up.** If this domain has never sent bulk mail, do not send to
+  thousands on day one. A few hundred, then grow. A cold domain that suddenly
+  sends 2,000 messages looks exactly like a compromised account.
+* **Google Postmaster Tools.** Add `beardedsealstudios.com` at
+  <https://postmaster.google.com>. It is free, takes five minutes, and it is the
+  only place you can see your real spam-complaint rate. Keep it under 0.3%.
 
 ---
 
@@ -442,7 +524,7 @@ the building: switching is one environment variable, not a rewrite.
 Run the automated suites first, they need no accounts and no network:
 
 ```bash
-python3 test_newsletter_server.py      # 105 tests
+python3 test_newsletter_server.py      # 161 tests
 node   test_newsletter_admin_ui.js     # needs Chrome
 ```
 
@@ -452,7 +534,7 @@ Then, in order:
 ```bash
 curl -s https://play.currentsandcritters.com/version.json
 ```
-Must show **`1.6.57` / `2026-08-15.1`**. If it doesn't, the deploy hasn't
+Must show **`1.6.78` / `2026-08-22.5`**. If it doesn't, the deploy hasn't
 finished: Render Docker builds take ~10–15 minutes. *"Still broken" has often
 meant "never shipped".*
 
@@ -498,10 +580,29 @@ Then check the paths that must produce **nothing**:
 | Stripe → Webhooks → send with a bad signature | `400`, nothing recorded |
 
 ### 9.5 Welcome email
+Sign up at `/newsletter/join` with an address you can read. You should be a
+subscriber immediately (the page says so) and the welcome email should arrive
+within a minute: **there is no confirmation step, and no confirmation email**.
+
 Check on phone and desktop: logo renders, layout is readable, **Visit Currents
 & Critters** works, **Privacy Policy** works, **Unsubscribe** works, business
 address is present. View the plain-text part (Gmail: Show original), it must
 be readable prose, not stripped tags.
+
+While you have **Show original** open, this is the fastest place to confirm the
+anti-spam work end to end:
+
+| Look for | Expected |
+|---|---|
+| `SPF` / `DKIM` / `DMARC` | `PASS` on all three (see §7) |
+| `List-Unsubscribe-Post` | `List-Unsubscribe=One-Click` |
+| `List-Id` | `Currents and Critters Newsletter <newsletter.beardedsealstudios.com>` |
+| `Feedback-ID` | ends in the sender id, all on one line |
+| Where it landed | Inbox, not Promotions and not Spam |
+
+If it lands in spam with all three of SPF/DKIM/DMARC passing, the cause is
+reputation rather than configuration: the domain is new to bulk sending. Send
+small for a while and add Google Postmaster Tools (§7b).
 
 ### 9.6 Test email
 Compose → **Send Test Email**. It arrives at your address only, subject

@@ -204,6 +204,32 @@ def privacy_url() -> str:
     return _env("PRIVACY_POLICY_URL", site_url() + "/privacy")
 
 
+def sender_domain() -> str:
+    """The domain half of the From address. This is the domain whose SPF, DKIM
+    and DMARC records decide whether anything we send is trusted, so it is
+    worth having a name."""
+    return sender_email().rsplit("@", 1)[-1].strip().lower()
+
+
+def _sender_id() -> str:
+    """A stable, non-identifying id for the SENDER (not the recipient), used as
+    the last field of Feedback-ID. Google Postmaster Tools groups reputation by
+    this, so it must be the same on every message forever."""
+    dom = sender_domain() or "currentsandcritters"
+    return re.sub(r"[^a-z0-9]+", "-", dom).strip("-")[:40] or "cc-newsletter"
+
+
+def list_id() -> str:
+    """RFC 2919 List-Id for the newsletter.
+
+    Naming the list explicitly is what lets a mail client file it as a
+    subscribed list rather than guessing, and it gives the reader's own filters
+    something stable to match on. The domain half must be a domain we control.
+    """
+    return "Currents and Critters Newsletter <newsletter.%s>" % (
+        sender_domain() or "currentsandcritters.com")
+
+
 # A consumer @gmail.com account may send to ~500 recipients per rolling 24h.
 # A Google Workspace account on your own domain gets ~2,000. Those are wildly
 # different budgets, and exceeding either does not bounce: Google throttles or
@@ -985,6 +1011,66 @@ def _clean_header(value: str, limit: int = 400) -> str:
     return s.strip()[:limit]
 
 
+# Longest a header line may be before Python folds it onto a continuation
+# line. Folding is legal and every parser unfolds it, but a folded Feedback-ID
+# arrives with its value starting after a line break, and this header is read
+# by one specific consumer (Google Postmaster Tools) whose parser is not ours
+# to test. Keeping it on one line costs nothing.
+_MAX_HEADER_LINE = 76
+
+
+def _feedback_id(stream: str) -> str:
+    """The Feedback-ID value: at most 4 colon-separated fields, and Google
+    reads the LAST as the sender id.
+
+    `stream` is what splits the buckets ("welcome", "campaign-<id>"). It is
+    scrubbed because a colon inside it would silently invent an extra field
+    and shift the sender id out of last place, which splits one sender's
+    reputation into two halves that neither add up nor mean anything.
+    """
+    sender = _sender_id()
+    bucket = re.sub(r"[^A-Za-z0-9_-]+", "-", str(stream or "news")).strip("-") or "news"
+    tail = ":cc:newsletter:%s" % sender
+    # Trim the BUCKET, never the sender id: the bucket is a label and the
+    # sender id is the identity Postmaster Tools accumulates against.
+    room = _MAX_HEADER_LINE - len("Feedback-ID: ") - len(tail)
+    return bucket[:max(1, room)] + tail
+
+
+def _deliverability_headers(*, unsubscribe_url: str, one_click_url: str,
+                            is_bulk: bool, stream: str) -> Dict[str, str]:
+    """Every header that exists to keep mail out of the spam folder, in ONE
+    place.
+
+    It is one function because there are two ways out of this module (a MIME
+    blob down SMTP / the Gmail API, and a JSON body to an HTTPS provider) and
+    they used to build these separately. That is exactly the shape of bug that
+    hides for months: swapping NEWSLETTER_API_KEY in silently dropped List-Id
+    and Feedback-ID from every message, and nothing in the product looks any
+    different when it happens. Now the two transports cannot disagree.
+    """
+    headers: Dict[str, str] = {}
+    if unsubscribe_url:
+        targets = ["<%s>" % _clean_header(unsubscribe_url, 900)]
+        if one_click_url:
+            targets.insert(0, "<%s>" % _clean_header(one_click_url, 900))
+        # mailto fallback for clients that only support the RFC 2369 form.
+        targets.append("<mailto:%s?subject=unsubscribe>" % reply_to())
+        headers["List-Unsubscribe"] = ", ".join(targets)
+        if one_click_url:
+            headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+    if is_bulk:
+        headers["List-Id"] = _clean_header(list_id(), 200)
+        headers["Precedence"] = "bulk"
+        headers["Auto-Submitted"] = "auto-generated"
+        headers["X-Auto-Response-Suppress"] = "OOF, AutoReply"
+        headers["Feedback-ID"] = _feedback_id(stream)
+    # Unique per message, and unrelated to Message-ID so that a client which
+    # threads on one does not thread on the other.
+    headers["X-Entity-Ref-ID"] = uuid.uuid4().hex
+    return headers
+
+
 def build_message(
     *,
     to_email: str,
@@ -994,6 +1080,7 @@ def build_message(
     unsubscribe_url: str = "",
     one_click_url: str = "",
     is_bulk: bool = True,
+    stream: str = "",
 ) -> Tuple[MIMEMultipart, str]:
     """The MIME message object + its Message-ID.
 
@@ -1005,7 +1092,7 @@ def build_message(
     return _build_message(
         to_email=to_email, subject=subject, html_body=html_body,
         text_body=text_body, unsubscribe_url=unsubscribe_url,
-        one_click_url=one_click_url, is_bulk=is_bulk)
+        one_click_url=one_click_url, is_bulk=is_bulk, stream=stream)
 
 
 def build_mime(
@@ -1017,12 +1104,13 @@ def build_mime(
     unsubscribe_url: str = "",
     one_click_url: str = "",
     is_bulk: bool = True,
+    stream: str = "",
 ) -> Tuple[str, str]:
     """Build a full MIME message. Returns (base64url_raw, message_id)."""
     msg, message_id = _build_message(
         to_email=to_email, subject=subject, html_body=html_body,
         text_body=text_body, unsubscribe_url=unsubscribe_url,
-        one_click_url=one_click_url, is_bulk=is_bulk)
+        one_click_url=one_click_url, is_bulk=is_bulk, stream=stream)
     return base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii"), message_id
 
 
@@ -1035,6 +1123,7 @@ def _build_message(
     unsubscribe_url: str = "",
     one_click_url: str = "",
     is_bulk: bool = True,
+    stream: str = "",
 ) -> Tuple[MIMEMultipart, str]:
     """The one place a message is assembled, whatever the transport.
 
@@ -1043,10 +1132,26 @@ def _build_message(
         native "Unsubscribe" control from these, and since Feb 2024 Google
         REQUIRES one-click unsubscribe on bulk mail from any sender doing
         volume. Without them bulk mail is throttled or junked.
+      List-Id: RFC 2919. Names the list, so a mail client can file it as
+        subscribed list mail instead of inferring what it is, and so the
+        reader's own filters have something stable to match.
+      Feedback-ID: Google Postmaster Tools groups spam-complaint rates by
+        this. Without it every message is one undifferentiated blob and a bad
+        campaign is invisible until the whole domain's reputation is hurt;
+        with it a single campaign can be seen going wrong. The last field is
+        the SENDER id and must never change. No recipient data goes in here.
+      X-Entity-Ref-ID: stops Gmail collapsing a run of messages that share a
+        subject into one threaded conversation, which is how a monthly
+        newsletter ends up hidden under "3 older messages" and unread, and an
+        unread rate is a deliverability input.
       Precedence: bulk / Auto-Submitted: tells well-behaved autoresponders
         not to reply, so an out-of-office does not bounce back per recipient.
       Message-ID: unique per message. The provider assigns its own too, but a
         stable one of ours is what makes a delivery traceable in the logs.
+
+    What is deliberately NOT here: any header naming the recipient beyond the
+    single To:, and any tracking pixel. Both are reputation liabilities and
+    neither is worth a read receipt.
     """
     subject = _clean_header(subject, 900)
     to_email = _clean_header(to_email, MAX_EMAIL_LEN)
@@ -1061,19 +1166,10 @@ def _build_message(
     msg["Message-ID"] = message_id
     msg["MIME-Version"] = "1.0"
 
-    if unsubscribe_url:
-        targets = ["<%s>" % _clean_header(unsubscribe_url, 900)]
-        if one_click_url:
-            targets.insert(0, "<%s>" % _clean_header(one_click_url, 900))
-        # mailto fallback for clients that only support the RFC 2369 form.
-        targets.append("<mailto:%s?subject=unsubscribe>" % reply_to())
-        msg["List-Unsubscribe"] = ", ".join(targets)
-        if one_click_url:
-            msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
-    if is_bulk:
-        msg["Precedence"] = "bulk"
-        msg["Auto-Submitted"] = "auto-generated"
-        msg["X-Auto-Response-Suppress"] = "OOF, AutoReply"
+    for name, value in _deliverability_headers(
+            unsubscribe_url=unsubscribe_url, one_click_url=one_click_url,
+            is_bulk=is_bulk, stream=stream).items():
+        msg[name] = value
 
     # Plain text FIRST: multipart/alternative is "last part wins", so the
     # richest form must come last or clients show the text version.
@@ -1360,7 +1456,8 @@ def _http_body(provider: str, *, to_email: str, subject: str, html_body: str,
 
 
 def _send_http(*, to_email: str, subject: str, html_body: str, text_body: str,
-               unsub: str, one_click: str, is_bulk: bool) -> Dict[str, Any]:
+               unsub: str, one_click: str, is_bulk: bool,
+               stream: str = "") -> Dict[str, Any]:
     provider = http_provider()
     if not provider:
         raise SendError("No email API is configured (set NEWSLETTER_API_KEY).",
@@ -1368,17 +1465,8 @@ def _send_http(*, to_email: str, subject: str, html_body: str, text_body: str,
     key = _api_key_for(provider)
     spec = HTTP_PROVIDERS[provider]
 
-    headers: Dict[str, str] = {}
-    if unsub:
-        targets = ["<%s>" % _clean_header(unsub, 900)]
-        if one_click:
-            targets.insert(0, "<%s>" % _clean_header(one_click, 900))
-        targets.append("<mailto:%s?subject=unsubscribe>" % reply_to())
-        headers["List-Unsubscribe"] = ", ".join(targets)
-        if one_click:
-            headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
-    if is_bulk:
-        headers["Precedence"] = "bulk"
+    headers = _deliverability_headers(unsubscribe_url=unsub, one_click_url=one_click,
+                                      is_bulk=is_bulk, stream=stream)
 
     body = _http_body(provider, to_email=to_email, subject=_clean_header(subject, 900),
                       html_body=html_body, text_body=text_body, headers=headers)
@@ -1515,6 +1603,400 @@ def _gmail_check() -> Dict[str, Any]:
     if not any(s.endswith("gmail.send") for s in scopes):
         out["connected"] = False
         out["error"] = "The connected account did not grant the gmail.send scope."
+    return out
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  SPAM PREFLIGHT: READ THE DRAFT THE WAY A FILTER WILL
+# ═══════════════════════════════════════════════════════════════════════════
+# What this is: a checklist run over a draft before it goes out, reporting the
+# things that measurably move mail into the junk folder.
+#
+# What this is NOT: a SpamAssassin score. Nobody outside the filter vendors
+# knows the real weights, they change, and a made-up number ("your spam score
+# is 3.7!") would be believed. So every finding here is a specific, checkable
+# statement about the draft with a reason attached, and the worst it ever does
+# is warn: the admin can always send anyway, because a false positive must
+# never be able to block Tim's own newsletter.
+#
+# Severity is only ever "warn" or "note". There is no "error", deliberately.
+
+# Phrases that filters have scored for two decades. The list is short and
+# specific on purpose: a long fuzzy list produces a warning on every honest
+# draft, and a check that always fires is a check nobody reads.
+_SPAM_PHRASES = (
+    "act now", "buy now", "call now", "cash bonus", "click here now",
+    "congratulations you", "credit card offer", "double your", "earn extra cash",
+    "extra income", "for free!", "free access", "free gift", "free money",
+    "get paid", "guaranteed", "limited time offer", "lose weight", "make money",
+    "miracle", "no credit check", "no obligation", "once in a lifetime",
+    "order now", "risk free", "risk-free", "satisfaction guaranteed",
+    "this is not spam", "urgent action", "viagra", "winner", "you have been selected",
+    "100% free", "$$$",
+)
+
+# URL shorteners hide the destination, which is exactly what a phisher wants
+# and exactly why filters treat them as a signal.
+_SHORTENER_HOSTS = (
+    "bit.ly", "tinyurl.com", "goo.gl", "t.co", "ow.ly", "buff.ly", "is.gd",
+    "rebrand.ly", "cutt.ly", "shorturl.at", "rb.gy", "tiny.cc",
+)
+
+
+def _finding(level: str, title: str, detail: str) -> Dict[str, str]:
+    return {"level": level, "title": title, "detail": detail}
+
+
+def spam_preflight(*, subject: str, content_html: str,
+                   preview_text: str = "") -> Dict[str, Any]:
+    """Check one draft for the things that get mail junked.
+
+    Returns {"ok": bool, "findings": [{level,title,detail}, …], "stats": {…}}.
+    `ok` means nothing scored "warn"; it is advice, not permission.
+    """
+    subject = str(subject or "")
+    content_html = str(content_html or "")
+    # Images are stripped BEFORE the word count. html_to_text keeps alt text,
+    # which is right for a plain-text part and wrong here: an email that is one
+    # picture and nothing else would otherwise report a word of body copy it
+    # does not have, and quietly miss the check that exists for exactly that
+    # email. Alt text is still checked separately, below.
+    text = html_to_text(re.sub(r"<img\b[^>]*>", " ", content_html, flags=re.I))
+    words = [w for w in re.split(r"\s+", text) if w]
+    letters = [c for c in subject if c.isalpha()]
+    links = re.findall(r"""href\s*=\s*["']([^"']+)["']""", content_html, re.I)
+    images = re.findall(r"<img\b", content_html, re.I)
+
+    findings: List[Dict[str, str]] = []
+
+    # ── Subject line ─────────────────────────────────────────────────────
+    if not subject.strip():
+        findings.append(_finding("warn", "No subject line",
+                                 "A message with no subject is filtered on sight."))
+    elif len(subject) > 78:
+        findings.append(_finding(
+            "note", "Subject is %d characters" % len(subject),
+            "Phones cut the subject off around 40 characters and most inboxes "
+            "around 70. The part that survives is the part that gets opened."))
+
+    if letters and sum(1 for c in letters if c.isupper()) / len(letters) > 0.6 and len(letters) > 6:
+        findings.append(_finding(
+            "warn", "Subject is mostly capital letters",
+            "SHOUTING IN THE SUBJECT is one of the oldest and most reliable spam "
+            "signals there is. Sentence case reads as a person."))
+
+    if subject.count("!") > 1:
+        findings.append(_finding(
+            "warn", "Subject has %d exclamation marks" % subject.count("!"),
+            "More than one exclamation mark in a subject is scored by every "
+            "major filter. One is plenty."))
+
+    if re.match(r"\s*(re|fwd?)\s*:", subject, re.I):
+        findings.append(_finding(
+            "warn", "Subject starts with Re: or Fwd:",
+            "Faking a reply to mail nobody sent is treated as deception, and it "
+            "is one of the few things that can hurt a whole sending domain."))
+
+    if re.search(r"[\U0001F300-\U0001FAFF\u2600-\u27BF]", subject):
+        findings.append(_finding(
+            "note", "Subject contains an emoji",
+            "Fine in moderation and it does lift open rates, but several emoji "
+            "in one subject reads as promotional and lands in the Promotions tab."))
+
+    # ── Body ─────────────────────────────────────────────────────────────
+    if not words:
+        findings.append(_finding(
+            "warn", "The email has no text at all",
+            "A message that is only images is unreadable with images turned off, "
+            "which is the default in several mail clients, and filters treat an "
+            "image-only body as a way of hiding text from them."))
+    elif len(words) < 20:
+        findings.append(_finding(
+            "note", "Only %d word%s of text" % (len(words), "" if len(words) == 1 else "s"),
+            "Very short mail with a link in it looks like the shape of a phish. "
+            "A couple of real sentences fixes it."))
+
+    if images and len(words) < len(images) * 20:
+        findings.append(_finding(
+            "warn", "Mostly images, very little text",
+            "%d image%s against %d words. Aim for a healthy majority of real text: "
+            "the ratio is a filter input and it is also what people with images "
+            "off actually see." % (len(images), "" if len(images) == 1 else "s", len(words))))
+
+    missing_alt = len(images) - len(re.findall(r"<img\b[^>]*\balt\s*=", content_html, re.I))
+    if missing_alt > 0:
+        findings.append(_finding(
+            "note", "%d image%s without alt text" % (missing_alt,
+                                                     "" if missing_alt == 1 else "s"),
+            "Alt text is what a screen reader reads and what shows when images "
+            "are blocked, and its absence is a small spam signal."))
+
+    hit = sorted({p for p in _SPAM_PHRASES
+                  if p in (subject + " " + text).lower()})
+    if hit:
+        findings.append(_finding(
+            "warn", "Spam-filter phrases: %s" % ", ".join(hit[:6]),
+            "These are scored by filters because of what they are usually "
+            "attached to. Say the same thing in your own words and the score "
+            "goes away."))
+
+    # ── Links ────────────────────────────────────────────────────────────
+    bad_hosts = sorted({h for link in links for h in _SHORTENER_HOSTS
+                        if h in link.lower()})
+    if bad_hosts:
+        findings.append(_finding(
+            "warn", "Shortened links (%s)" % ", ".join(bad_hosts),
+            "A shortener hides where a link really goes, which is exactly what "
+            "filters are looking for. Link to the real URL."))
+
+    if any(link.lower().startswith("http://") for link in links):
+        findings.append(_finding(
+            "warn", "One or more links are plain http://",
+            "Unencrypted links are penalised and warned about by browsers. "
+            "Use https:// everywhere."))
+
+    if len(links) > 12:
+        findings.append(_finding(
+            "note", "%d links in one email" % len(links),
+            "A wall of links reads as a bulk blast. Fewer, clearer links do better."))
+
+    if not preview_text.strip():
+        findings.append(_finding(
+            "note", "No preview text",
+            "Without it the inbox shows the first line of the email instead, which "
+            "is usually the logo alt text. Preview text is free open-rate."))
+
+    return {
+        "ok": not any(f["level"] == "warn" for f in findings),
+        "findings": findings,
+        "stats": {"words": len(words), "links": len(links), "images": len(images),
+                  "subjectLength": len(subject)},
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  DOMAIN AUTHENTICATION: DOES THE INTERNET BELIEVE WE ARE WHO WE SAY?
+# ═══════════════════════════════════════════════════════════════════════════
+# Everything else in this file is about producing a good message. None of it
+# matters if the receiving server cannot verify that the message came from the
+# domain in the From line. Since February 2024 Gmail and Yahoo do not merely
+# prefer that verification on bulk mail, they REQUIRE it: SPF or DKIM must
+# pass, DMARC must exist, and the passing one must be aligned with the From
+# domain. A sender that fails is not bounced with an explanation, it is
+# quietly filed as spam, which is the single most likely reason for "my emails
+# go to junk".
+#
+# Those three facts live in DNS, not in this code, so this cannot fix them. It
+# CAN check them, and checking is the whole difference between "I think DNS is
+# set up" and knowing. The admin Settings tab shows the answer.
+#
+# Why DNS-over-HTTPS instead of a resolver library: the house style is
+# stdlib-only, `dnspython` is not installed, and a container's own resolver is
+# not reachable from Python's stdlib without writing a DNS packet parser.
+# DoH is one HTTPS GET returning JSON, which urllib already does.
+_DOH_URL = "https://dns.google/resolve"
+_DNS_TTL_SEC = 600.0
+_DNS_CACHE: Dict[str, Any] = {"at": 0.0, "domain": "", "result": None}
+_DNS_LOCK = threading.Lock()
+
+# The DKIM selector a provider signs with is provider-specific and not
+# discoverable from DNS (you cannot list a zone), so the common ones are tried
+# in turn. Adding a provider here is a one-line change, and NEWSLETTER_DKIM_SELECTOR
+# overrides the lot when a provider uses something bespoke.
+DKIM_SELECTORS = (
+    "google",                       # Google Workspace
+    "resend",                       # Resend
+    "pm-bounces", "20230601",       # Postmark
+    "s1", "s2",                     # Brevo / SendGrid-style
+    "k1",                           # Mailchimp / Mandrill
+    "mail",                         # generic
+    "default", "selector1", "selector2",   # Microsoft 365
+)
+
+
+def _txt_records(name: str, timeout: int = 6) -> List[str]:
+    """Every TXT record at `name`, or [] if the lookup fails.
+
+    Failure is never distinguished from absence by the CALLER, but it is here:
+    an empty list from a timeout would otherwise be reported as "you have no
+    SPF record", which would send Tim to edit DNS that is already correct.
+    _dns_ok below carries whether the lookup itself worked.
+    """
+    url = "%s?name=%s&type=TXT" % (_DOH_URL, urllib.parse.quote(name, safe=""))
+    try:
+        status, data = _http_json(url, headers={"Accept": "application/dns-json"},
+                                  timeout=timeout)
+    except Exception:  # noqa: BLE001, a DNS check must never break the page
+        return []
+    if status != 200 or not isinstance(data, dict):
+        return []
+    out: List[str] = []
+    for ans in (data.get("Answer") or []):
+        if not isinstance(ans, dict):
+            continue
+        val = str(ans.get("data") or "")
+        # A long TXT record arrives as several quoted strings that must be
+        # concatenated, which is exactly how a 2048-bit DKIM key looks.
+        parts = re.findall(r'"([^"]*)"', val)
+        out.append("".join(parts) if parts else val.strip('"'))
+    return out
+
+
+def _dns_reachable() -> bool:
+    """One cheap known-good lookup, so "no records found" can be told apart
+    from "this container cannot reach DNS at all"."""
+    return bool(_txt_records("google.com", timeout=5))
+
+
+def _check_spf(domain: str) -> Dict[str, Any]:
+    recs = [r for r in _txt_records(domain) if r.lower().startswith("v=spf1")]
+    out: Dict[str, Any] = {"ok": False, "found": bool(recs), "record": recs[0] if recs else "",
+                           "detail": ""}
+    if not recs:
+        out["detail"] = ("No SPF record on %s. Add a TXT record at the root: "
+                         "v=spf1 include:_spf.google.com ~all (swap the include for "
+                         "your provider's)." % domain)
+        return out
+    if len(recs) > 1:
+        # Two SPF records is not "extra protection", it is an RFC 7208
+        # permerror, and a permerror fails SPF outright. This one is worth
+        # shouting about because it looks harmless in a DNS panel.
+        out["detail"] = ("%d SPF records on %s. A domain with more than one fails SPF "
+                         "entirely; merge them into a single record." % (len(recs), domain))
+        return out
+    rec = recs[0]
+    out["ok"] = True
+    if rec.rstrip().endswith("+all"):
+        out["ok"] = False
+        out["detail"] = "This SPF record ends in +all, which tells the world anyone may send as you."
+    elif "all" not in rec:
+        out["detail"] = "SPF record has no 'all' mechanism, so it never says what to do with unlisted senders."
+    return out
+
+
+def _check_dmarc(domain: str) -> Dict[str, Any]:
+    recs = [r for r in _txt_records("_dmarc." + domain) if r.lower().startswith("v=dmarc1")]
+    out: Dict[str, Any] = {"ok": False, "found": bool(recs), "record": recs[0] if recs else "",
+                           "policy": "", "detail": ""}
+    if not recs:
+        out["detail"] = ("No DMARC record. Gmail and Yahoo require one on bulk mail: add a "
+                         "TXT record at _dmarc.%s with v=DMARC1; p=none; rua=mailto:%s"
+                         % (domain, admin_email() or ("postmaster@" + domain)))
+        return out
+    rec = recs[0]
+    m = re.search(r"\bp\s*=\s*(none|quarantine|reject)", rec, re.I)
+    out["policy"] = (m.group(1).lower() if m else "")
+    out["ok"] = bool(out["policy"])
+    if not out["policy"]:
+        out["detail"] = "DMARC record has no p= policy tag, so it does not count as published."
+    elif out["policy"] == "none":
+        out["detail"] = ("Policy is p=none, which satisfies the requirement and monitors only. "
+                         "Once SPF and DKIM have passed for a week, move to p=quarantine.")
+    return out
+
+
+def _check_dkim(domain: str) -> Dict[str, Any]:
+    """Look for a published DKIM key under any selector we know about.
+
+    A miss here is reported as UNKNOWN, never as a failure: selectors cannot
+    be enumerated from outside, so "none of the nine names I know about" is
+    genuinely not the same statement as "you have no DKIM". Saying otherwise
+    would send Tim chasing a problem that may not exist.
+    """
+    forced = _env("NEWSLETTER_DKIM_SELECTOR")
+    selectors = [forced] if forced else list(DKIM_SELECTORS)
+    for sel in selectors:
+        for rec in _txt_records("%s._domainkey.%s" % (sel, domain)):
+            low = rec.lower()
+            if "p=" in low and ("v=dkim1" in low or "k=rsa" in low):
+                return {"ok": True, "found": True, "selector": sel,
+                        "record": rec[:120] + ("…" if len(rec) > 120 else ""),
+                        "detail": ""}
+    return {
+        "ok": False, "found": False, "selector": "", "record": "",
+        "detail": ("No DKIM key found under the selectors this check knows about (%s). "
+                   "That does not prove DKIM is missing, only that it is not on a "
+                   "standard selector: check your provider's dashboard, or set "
+                   "NEWSLETTER_DKIM_SELECTOR to the one it gave you."
+                   % ", ".join(selectors[:5])),
+    }
+
+
+def domain_auth_status(force: bool = False) -> Dict[str, Any]:
+    """SPF / DKIM / DMARC for the sending domain, as the internet sees them.
+
+    Cached for ten minutes: this is four DNS lookups behind an admin page that
+    re-renders on every tab switch, and DNS changes take longer than that to
+    propagate anyway.
+    """
+    domain = sender_domain()
+    now = time.time()
+    with _DNS_LOCK:
+        cached = _DNS_CACHE.get("result")
+        if (not force and cached and _DNS_CACHE.get("domain") == domain
+                and now - float(_DNS_CACHE.get("at") or 0) < _DNS_TTL_SEC):
+            return dict(cached)
+
+    out: Dict[str, Any] = {
+        "domain": domain, "checkedAt": int(now), "dnsReachable": True,
+        "spf": {}, "dkim": {}, "dmarc": {}, "ready": False, "summary": "",
+        "consumerGmail": sender_is_consumer_gmail(),
+    }
+    if not domain:
+        out["summary"] = "No From address is configured, so there is no domain to check."
+        return out
+
+    if sender_is_consumer_gmail():
+        # gmail.com's own SPF/DKIM/DMARC are Google's and are always correct,
+        # so checking them says nothing. The real problem with sending bulk
+        # mail from a consumer address is a different one, and worth saying.
+        out.update({
+            "spf": {"ok": True, "found": True, "record": "(managed by Google)", "detail": ""},
+            "dkim": {"ok": True, "found": True, "selector": "(managed by Google)",
+                     "record": "", "detail": ""},
+            "dmarc": {"ok": True, "found": True, "policy": "quarantine",
+                      "record": "(managed by Google)", "detail": ""},
+            "ready": True,
+            "summary": ("Sending from a free @gmail.com address. Authentication is Google's "
+                        "and is fine, but bulk mail from a consumer address is filtered "
+                        "harder than mail from your own domain, and the daily budget is "
+                        "much smaller. Moving to an address on your own domain is the "
+                        "single biggest deliverability upgrade available."),
+        })
+        with _DNS_LOCK:
+            _DNS_CACHE.update({"at": now, "domain": domain, "result": dict(out)})
+        return out
+
+    if not _dns_reachable():
+        out.update({
+            "dnsReachable": False,
+            "summary": ("This server could not reach DNS to check, so nothing below is "
+                        "known either way. It is a check that failed, not a domain that "
+                        "failed."),
+        })
+        return out                    # deliberately NOT cached: retry next time
+
+    out["spf"] = _check_spf(domain)
+    out["dkim"] = _check_dkim(domain)
+    out["dmarc"] = _check_dmarc(domain)
+    # DKIM is "unknown", never "failed" (see _check_dkim), so it cannot be the
+    # thing that reports the domain as not ready. SPF + DMARC can.
+    out["ready"] = bool(out["spf"].get("ok") and out["dmarc"].get("ok"))
+    if out["ready"] and out["dkim"].get("ok"):
+        out["summary"] = ("SPF, DKIM and DMARC are all published for %s. This is what "
+                          "Gmail and Yahoo require of a bulk sender." % domain)
+    elif out["ready"]:
+        out["summary"] = ("SPF and DMARC are published for %s. DKIM could not be confirmed "
+                          "from outside, which is normal, verify it in your email "
+                          "provider's dashboard." % domain)
+    else:
+        missing = [n for n, k in (("SPF", "spf"), ("DMARC", "dmarc")) if not out[k].get("ok")]
+        out["summary"] = ("%s is not set up for %s. Until it is, Gmail and Yahoo are "
+                          "entitled to send everything you post straight to spam."
+                          % (" and ".join(missing), domain))
+
+    with _DNS_LOCK:
+        _DNS_CACHE.update({"at": now, "domain": domain, "result": dict(out)})
     return out
 
 
@@ -1689,12 +2171,17 @@ def send_email(
     unsubscribe_url: str = "",
     one_click_url: str = "",
     is_bulk: bool = True,
+    stream: str = "",
 ) -> Dict[str, Any]:
     """Send exactly one message to exactly one recipient.
 
     One address per message is not an efficiency oversight, it is the privacy
     requirement. No To/CC/BCC ever carries more than the single subscriber the
     message is for, so no subscriber can learn that another subscriber exists.
+
+    `stream` names the kind of mail for Feedback-ID, which is how Google
+    Postmaster Tools reports complaint rates per bucket rather than one blended
+    number for the whole domain.
 
     Returns {"messageId": …, "gmailId": …}: `gmailId` keeps its name because
     the campaign records already store it; it now holds whichever id the active
@@ -1723,6 +2210,7 @@ def send_email(
     msg, message_id = _build_message(
         to_email=to_norm, subject=subject, html_body=html_body, text_body=text_body,
         unsubscribe_url=unsubscribe_url, one_click_url=one_click_url, is_bulk=is_bulk,
+        stream=stream,
     )
 
     # Pace the wire. Done BEFORE the send and outside any transport lock, so a
@@ -1738,7 +2226,7 @@ def send_email(
     elif t == "http":
         res = _send_http(to_email=to_norm, subject=subject, html_body=html_body,
                          text_body=text_body, unsub=unsubscribe_url,
-                         one_click=one_click_url, is_bulk=is_bulk)
+                         one_click=one_click_url, is_bulk=is_bulk, stream=stream)
     else:
         res = _send_gmail_api(msg)
     return {"messageId": message_id, "gmailId": str(res.get("providerId") or "")}

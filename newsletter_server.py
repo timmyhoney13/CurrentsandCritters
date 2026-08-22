@@ -88,14 +88,26 @@ C_META = "newsletterMeta"
 
 STATUS_ACTIVE = "active"
 STATUS_UNSUB = "unsubscribed"
-# A public web form proves nothing about who owns the address, so a signup
-# from one lands here and NOTHING can mail it except the confirmation itself.
-# Only the person holding the inbox can turn it into an active subscriber.
+# ── STATUS_PENDING IS A LEGACY STATE, NOTHING CREATES ONE ANY MORE ─────────
+# Signing up used to be double opt-in: a website signup landed here and only
+# a click in the person's inbox promoted it. That is gone. A signup is now
+# active the moment the form is submitted and the WELCOME email is what lands
+# in their inbox, because a confirmation step that people ignore is a list
+# that silently never grows: every unclicked mail is a person who thought
+# they had joined and hears nothing again.
+#
+# The state itself stays, and every path that reads it stays, because records
+# created under the old flow are still in Firestore and an old confirmation
+# link is still sitting in somebody's inbox. Both must keep working:
+# confirm_with_token() still promotes a legacy pending record, and the admin
+# page can still confirm or resend for one. Nothing NEW is ever written here.
 STATUS_PENDING = "pending"
 
-# Welcome-email states. WELCOME_AWAITING is the one that matters: an
-# unconfirmed signup has NO welcome to send yet, and parking it here is what
-# keeps it out of the welcome queue until the person clicks the link.
+# Welcome-email states. WELCOME_AWAITING now only ever appears on the legacy
+# pending records described above: a record with no confirmed owner has no
+# welcome to send yet, and parking it here is what keeps it out of the welcome
+# queue (left as "pending" the worker would re-read it every 20 seconds
+# forever and a pile of them would starve the welcomes that ARE due).
 WELCOME_PENDING = "pending"
 WELCOME_AWAITING = "awaiting_confirmation"
 WELCOME_SKIPPED = "skipped"
@@ -370,7 +382,7 @@ AUDIT_ACTIONS = (
     "test_email_sent", "draft_created", "draft_updated", "campaign_approved",
     "campaign_started", "campaign_completed", "campaign_failed", "csv_exported",
     "subscriber_added_website", "confirmation_sent", "confirmation_resent",
-    "subscriber_confirmed_by_admin",
+    "subscriber_confirmed_by_admin", "subscriber_bounced",
     "unauthorized_admin_access", "connection_check",
 )
 
@@ -584,19 +596,29 @@ def _subscribe(
             out = doc
             send_welcome = (status == STATUS_ACTIVE)
         elif existing.get("status") == STATUS_PENDING and status == STATUS_PENDING:
-            # They asked again before confirming. Same record, same token:
-            # re-sending the confirmation is the caller's job.
+            # Legacy double opt-in path: they asked again before confirming.
+            # Same record, same token. Nothing creates a pending record now,
+            # so only an old record can still reach this.
             result, send_welcome, out = "already_pending", False, existing
         elif existing.get("status") == STATUS_ACTIVE:
             # Already on the list. No second record, no second welcome, no
             # second "you have a new subscriber" email to Tim.
             result, send_welcome, out = "already_active", False, existing
         else:
-            # Previously unsubscribed and intentionally opting in again:
-            # reactivate the SAME record (history preserved), rotate the token
-            # so any old unsubscribe link in an old inbox stops working, and
-            # send the welcome again because this is a fresh, deliberate
+            # Either previously unsubscribed and intentionally opting in
+            # again, or a legacy record that was left waiting for a
+            # confirmation click that no longer exists. Both are the same
+            # move: reactivate the SAME record (history preserved), rotate the
+            # token so any old unsubscribe link in an old inbox stops working,
+            # and send the welcome, because this is a fresh, deliberate
             # decision, not a duplicate of the original signup.
+            #
+            # `welcomeKind` is read straight off what the record WAS, never
+            # assumed: telling Tim "reactivation, previously unsubscribed"
+            # about somebody who merely never clicked a confirmation link is a
+            # small lie, and the owner notification is the one place he finds
+            # out who joined.
+            was_unsub = existing.get("status") == STATUS_UNSUB
             upd = {
                 "status": STATUS_ACTIVE,
                 "resubscribedAt": now,
@@ -608,7 +630,7 @@ def _subscribe(
                 "welcomeAttempts": 0,
                 "welcomeLeaseUntil": 0,
                 "welcomeError": "",
-                "welcomeKind": "reactivation",
+                "welcomeKind": "reactivation" if was_unsub else "new",
                 "source": source,
                 "updatedAt": now,
             }
@@ -621,7 +643,8 @@ def _subscribe(
             t.set(sub_ref, upd, merge=True)
             out = dict(existing)
             out.update(upd)
-            result, send_welcome = "reactivated", True
+            result = "reactivated" if was_unsub else "created"
+            send_welcome = True
 
         if ev_ref is not None:
             t.set(ev_ref, {
@@ -682,6 +705,48 @@ def _unsubscribe_by_id(sub_id: str, *, actor: str, reason: str) -> Dict[str, Any
 _SUBS_CACHE: Dict[str, Any] = {"at": 0.0, "rows": [], "truncated": False}
 _SUBS_TTL = 15.0
 _SUBS_LOCK = threading.Lock()
+
+
+# A per-recipient permanent rejection. The address does not exist, or the
+# receiving server will never take mail for it. Anything else (a timeout, a
+# 4xx, a rate limit) is the network's problem, not the address's.
+HARD_BOUNCE_CATEGORIES = ("invalid_recipient",)
+
+
+def _suppress_bounced(sub_id: str, email: str, *, why: str) -> None:
+    """Take a permanently-undeliverable address off the list.
+
+    This is a deliverability measure, not tidiness. Mailbox providers watch the
+    proportion of a sender's mail that hits addresses which do not exist, and
+    they read a high one as "this sender is mailing a list they did not build",
+    which is the profile of a spammer. One dead address re-attempted on every
+    campaign for a year is a slow leak in the reputation of every OTHER message
+    the domain sends.
+
+    Recorded as its own status, never as a self-service unsubscribe: the person
+    did not opt out, their address stopped existing, and the two must stay
+    distinguishable in the audit log and in the counts.
+    """
+    db = _db()
+    if db is None:
+        return
+    try:
+        db.collection(C_SUBS).document(sub_id).set({
+            "status": STATUS_UNSUB,
+            "unsubscribedAt": _now(),
+            "updatedAt": _now(),
+            "bounced": True,
+            "bounceReason": str(why or "")[:200],
+            "welcomeEmailStatus": WELCOME_SKIPPED,
+            "welcomeLeaseUntil": 0,
+        }, merge=True)
+    except Exception as exc:  # noqa: BLE001
+        print("[newsletter] bounce suppression failed for %s: %s" % (sub_id, exc))
+        return
+    _invalidate_subs_cache()
+    audit("subscriber_bounced", subscriber_id=sub_id,
+          summary="Removed after a permanent delivery failure (%s)" % (why or "bounce"))
+    print("[newsletter] suppressed %s after a hard bounce" % (email or sub_id))
 
 
 def _invalidate_subs_cache() -> None:
@@ -757,7 +822,10 @@ def counts() -> Dict[str, int]:
 # ═══════════════════════════════════════════════════════════════════════════
 _welcome_q: "queue.Queue[str]" = queue.Queue()
 
-# The confirmation email for a website signup. Queued, never sent inside the
+# The confirmation email. LEGACY: a website signup no longer sends one, and
+# the only thing that still reaches this is an admin pressing "resend
+# confirmation" on a record created back when signups were double opt-in.
+# Queued, never sent inside the
 # request: handing a message to Gmail is a TCP connect, a login and a round
 # trip to Google, and doing that before answering the browser is why the form
 # sat on "Signing you up…" for seconds after somebody typed their address.
@@ -856,6 +924,7 @@ def _send_welcome_now(sub_id: str) -> None:
         nl_email.send_email(
             to_email=email, subject=msg["subject"], html_body=msg["html"],
             text_body=msg["text"], unsubscribe_url=unsub, one_click_url=one_click_url(sub),
+            stream="welcome",
         )
     except nl_email.SendError as exc:
         if exc.retryable and _int(sub.get("welcomeAttempts")) < MAX_ATTEMPTS:
@@ -865,6 +934,12 @@ def _send_welcome_now(sub_id: str) -> None:
             _finish_welcome(sub_id, status="failed", error=str(exc)[:300])
             audit("welcome_email_failed", subscriber_id=sub_id,
                   summary="Welcome email failed: %s" % exc.category)
+            if exc.category in HARD_BOUNCE_CATEGORIES:
+                # A typo'd address that took a signup and then bounced. Now
+                # that a signup joins the list without confirming, this is the
+                # ONLY moment the address is ever tested, so it is the moment
+                # to act on the answer.
+                _suppress_bounced(sub_id, email, why="Welcome email was permanently rejected")
         print("[newsletter] welcome send failed for %s: %s" % (sub_id, exc))
         return
     except Exception as exc:  # noqa: BLE001
@@ -944,10 +1019,32 @@ def _drain_confirmations(limit: int = 25) -> int:
 
 
 def _queue_welcome(sub_id: str) -> None:
+    if not sub_id:
+        return
     try:
         _welcome_q.put_nowait(sub_id)
     except Exception:  # noqa: BLE001
         pass
+
+
+def _drain_welcomes(limit: int = 25) -> int:
+    """Send every welcome waiting in the queue. Returns how many went out.
+
+    Shared by the worker loop and by the campaign sender, which calls it
+    BETWEEN recipients: somebody who just submitted the signup form is sitting
+    in front of an inbox waiting for this one message, and a campaign batch is
+    25 messages nobody is waiting on. Now that a signup no longer sends a
+    confirmation, this is the mail that must never queue behind bulk.
+    """
+    done = 0
+    while done < limit:
+        try:
+            sub_id = _welcome_q.get_nowait()
+        except queue.Empty:
+            break
+        done += 1
+        _send_welcome_now(sub_id)
+    return done
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1062,17 +1159,35 @@ def resolve_unsub_token(token: str) -> Optional[Dict[str, Any]]:
 
 
 def request_subscription(email_lower: str, *, source: str = SOURCE_WEBSITE) -> Dict[str, Any]:
-    """Step 1 of a PUBLIC signup: record a pending address and hand back the
-    confirmation link. Creates nothing that any campaign can reach."""
-    out = _subscribe(email_lower, source=source, status=STATUS_PENDING,
-                     consent_note="Website signup; awaiting email confirmation.")
+    """A PUBLIC signup, in one step. The address joins the list immediately and
+    the caller queues the welcome email. There is no confirmation click.
+
+    What replaces the confirmation step, because "nothing" would be the wrong
+    answer: the welcome email itself. It goes to the address that was typed,
+    it says plainly what the person was signed up for, and it carries the same
+    one-click unsubscribe every other message does, so anyone whose address
+    was typed in by somebody else is one tap from being off the list, in the
+    very first message they receive. That is the same protection the
+    confirmation gave, minus the step that lost real subscribers.
+
+    Returns the same shape as every other subscribe path:
+    {"result": ..., "subscriber": {...}, "sendWelcome": bool}.
+    """
+    out = _subscribe(
+        email_lower, source=source, status=STATUS_ACTIVE,
+        consent_note="Signed up on the Currents & Critters website form.")
     _invalidate_subs_cache()
     return out
 
 
 def confirm_with_token(token: str) -> Dict[str, Any]:
-    """Step 2: the person clicked the link in their inbox, which is the only
-    proof we accept that they own the address.
+    """Promote a legacy pending record: the person clicked the confirmation
+    link that is still sitting in their inbox from the double opt-in era.
+
+    Signups do not send these any more, but the links that WERE sent are
+    permanent, and a link that answers "sorry, that no longer works" to
+    somebody doing exactly what they were asked to do is the worst possible
+    ending. So this stays, unchanged, for as long as those emails exist.
 
     Idempotent: clicking twice, or a mail client pre-fetching the link, must
     not error and must not re-send the welcome.
@@ -1154,7 +1269,7 @@ def _load_subscriber(sub_id: str) -> Optional[Dict[str, Any]]:
 
 
 def resend_confirmation(sub_id: str, *, actor: str) -> Dict[str, Any]:
-    """Send the confirmation email again for one PENDING signup.
+    """Send the confirmation email again for one legacy PENDING signup.
 
     Same record, same token: a resend must not invalidate the link already
     sitting in the person's inbox, or clicking the older mail would fail.
@@ -1175,14 +1290,15 @@ def resend_confirmation(sub_id: str, *, actor: str) -> Dict[str, Any]:
 
 
 def confirm_by_admin(sub_id: str, *, actor: str, reason: str) -> Dict[str, Any]:
-    """Turn a pending signup into a subscriber WITHOUT the email click.
+    """Turn a legacy pending signup into a subscriber WITHOUT the email click.
 
-    The email click is the proof that somebody owns an address, and this
-    bypasses it, so it is deliberately narrow: pending records only, a typed
-    reason is required, and the actor is written into the audit log and into
-    the record's own consent note. It exists because a confirmation mail can
-    land in spam or bounce off a mail server, and the alternative to a
-    recorded, attributed override is Tim editing Firestore by hand.
+    Signups are single opt-in now, so nothing new ever lands in the pending
+    state, but the records that were stranded there when the confirmation step
+    was removed are real people who filled in the form and never got in. This
+    is how they get in: pending records only, a typed reason is required, and
+    the actor is written into the audit log and into the record's own consent
+    note, so an override is always attributable. The alternative is Tim
+    editing Firestore by hand.
     """
     reason = str(reason or "").strip()[:200]
     if not reason:
@@ -1584,6 +1700,8 @@ def _process_campaign_batch(cid: str) -> int:
         # A signup that lands mid-campaign jumps the bulk queue: the person is
         # sitting in front of their inbox, and waiting out the rest of this
         # batch would cost them the better part of a minute.
+        if not _welcome_q.empty():
+            _drain_welcomes()
         if not _confirm_q.empty():
             _drain_confirmations()
         claim = _claim_recipient(cref, sub_id)
@@ -1602,6 +1720,7 @@ def _process_campaign_batch(cid: str) -> int:
             res = nl_email.send_email(
                 to_email=claim["email"], subject=msg["subject"], html_body=msg["html"],
                 text_body=msg["text"], unsubscribe_url=unsub, one_click_url=one_click_url(sub),
+                stream="campaign-%s" % cid,
             )
             rref.set({"status": R_SENT, "sentAt": _now(), "updatedAt": _now(),
                       "gmailMessageId": str(res.get("gmailId") or "")[:120],
@@ -1623,6 +1742,12 @@ def _process_campaign_batch(cid: str) -> int:
                 rref.set({"status": R_FAILED, "leaseUntil": 0, "updatedAt": _now(),
                           "lastErrorCategory": exc.category}, merge=True)
                 _bump(cref, "failedCount")
+                if exc.category in HARD_BOUNCE_CATEGORIES:
+                    # The address does not exist. Mailing it again on every
+                    # future campaign is what a bought list looks like from the
+                    # outside, so it comes off the list now, once.
+                    _suppress_bounced(sub_id, claim["email"],
+                                      why="Permanently rejected during campaign %s" % cid)
             if not exc.retryable and exc.category in ("auth_revoked", "config", "forbidden"):
                 # A credential problem is not per-recipient; grinding through
                 # the rest of the list would just fail ten thousand times.
@@ -1757,29 +1882,25 @@ def _worker_loop() -> None:
         try:
             did_work = False
 
-            # 1) Confirmation emails, before anything else. Somebody typed
-            #    their address a moment ago and is watching an inbox for this
-            #    one, whereas a campaign batch is 25 messages that nobody is
-            #    waiting on: running those first would put a live signup
-            #    behind half a minute of bulk mail.
-            if _drain_confirmations() > 0:
+            # 1) Welcome emails, before anything else. Somebody typed their
+            #    address a moment ago and is watching an inbox for this one,
+            #    whereas a campaign batch is 25 messages that nobody is waiting
+            #    on: running those first would put a live signup behind half a
+            #    minute of bulk mail. Queued-by-this-process first, then any
+            #    stragglers left pending by an earlier one.
+            drained = _drain_welcomes(25)
+            if drained > 0:
                 did_work = True
-
-            # 2) Welcome emails queued by this process, then any stragglers
-            #    left pending by an earlier one.
-            drained = 0
-            while drained < 25:
-                try:
-                    sub_id = _welcome_q.get_nowait()
-                except queue.Empty:
-                    break
-                drained += 1
-                did_work = True
-                _send_welcome_now(sub_id)
-            if drained == 0:
+            else:
                 for sub_id in _pending_welcome_ids(25):
                     did_work = True
                     _send_welcome_now(sub_id)
+
+            # 2) Confirmation emails. Legacy only: nothing queues one at signup
+            #    any more, so this drains an admin "resend confirmation" for a
+            #    record created back when signups were double opt-in.
+            if _drain_confirmations() > 0:
+                did_work = True
 
             # 3) Campaigns.
             for cid in _sending_campaign_ids():
@@ -1951,11 +2072,12 @@ def _admin_dashboard() -> Dict[str, Any]:
     rows, truncated = _all_subscribers()
     pub = [_public_subscriber(r) for r in rows]
     active = [r for r in pub if r["status"] == STATUS_ACTIVE]
-    # Somebody who signed up on the website and has not clicked the link in
-    # their inbox yet is PENDING, and is neither of the other two things.
-    # Counting them as unsubscribed, which "everything that is not active"
-    # quietly does: tells the admin that a person who has just joined has
-    # opted out, which is the exact opposite of what happened.
+    # PENDING is neither of the other two things. Nothing creates one now,
+    # but records left behind by the old confirm-your-email flow are real
+    # people who filled in the form and never got in, and counting them as
+    # unsubscribed, which "everything that is not active" quietly does, would
+    # both report a joiner as having opted out and hide the ones still owed
+    # a fix.
     waiting = [r for r in pub if r["status"] == STATUS_PENDING]
     newest = max((r["subscribedAt"] for r in pub), default=0)
     newest_row = next((r for r in sorted(pub, key=lambda x: x["subscribedAt"], reverse=True)), None)
@@ -2171,16 +2293,20 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
                                                       "Please try again."}, status=500)
             return True
 
-        result = out.get("result", "")
         sub = out.get("subscriber") or {}
-        # An address ALREADY on the list gets no second confirmation and no
+        # An address ALREADY on the list gets no second welcome and no
         # different answer: the reply below is identical either way, so this
         # form cannot be used to test whether somebody is a subscriber.
-        if result in ("created", "pending", "already_pending"):
-            _queue_confirmation(sub)
+        # `sendWelcome` is the transaction's own verdict (true for a brand-new
+        # signup and for a deliberate re-join after unsubscribing, false for a
+        # duplicate), so the "always send a welcome" promise is kept without
+        # ever mailing the same person twice for one click.
+        if out.get("sendWelcome"):
+            _queue_welcome(str(sub.get("id") or ""))
+            _wake_worker()
         handler._send_json({"ok": True, "message":
-                            "Almost there! Check your email and click the confirmation "
-                            "link to finish joining."})
+                            "You're on the list! A welcome email is on its way to your "
+                            "inbox."})
         return True
 
     # ── public: confirm a website signup ─────────────────────────────────
@@ -2377,6 +2503,21 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
                                 "html": msg["html"], "text": msg["text"]})
             return True
 
+        if action == "spam-check":
+            # Read the draft the way a spam filter will, before it goes out.
+            # Advice only: it never blocks a send, and the send modal shows
+            # whatever it finds next to the button rather than in place of it.
+            cid = str(body.get("id") or "").strip()[:64]
+            camp = _get_campaign(cid) if cid else None
+            if not camp:
+                camp = {"subject": body.get("subject"), "previewText": body.get("previewText"),
+                        "contentHtml": body.get("contentHtml")}
+            handler._send_json({"ok": True, **nl_email.spam_preflight(
+                subject=str(camp.get("subject") or ""),
+                content_html=str(camp.get("contentHtml") or ""),
+                preview_text=str(camp.get("previewText") or ""))})
+            return True
+
         if action == "test-send":
             if not _rate_ok("test_send", client):
                 handler._send_json({"ok": False, "error": "You have sent several tests in a "
@@ -2417,6 +2558,11 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
             handler._send_json({
                 "ok": True,
                 "gmail": gm,
+                # Four DNS lookups, cached for ten minutes inside
+                # newsletter_email, so opening this tab repeatedly does not
+                # hammer a resolver. `force` re-checks after a DNS edit.
+                "domainAuth": nl_email.domain_auth_status(
+                    force=bool(body.get("recheckDns"))),
                 "stripe": _stripe_status(),
                 "unsubscribeSecretSet": unsub_secret_configured(),
                 "adminEmail": admin_email(),

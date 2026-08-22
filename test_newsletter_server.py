@@ -326,6 +326,20 @@ class Base(unittest.TestCase):
         self.drain()
         return out
 
+    def legacy_pending(self, email):
+        """Create a record the way signups worked BEFORE the confirmation step
+        was removed: pending, welcome parked, waiting on a click.
+
+        Nothing in the product writes one of these any more, but Firestore is
+        full of them and their confirmation links are permanent, so every path
+        that reads one still has to work. This is the only way to build one.
+        """
+        out = ns._subscribe(email.lower(), source=ns.SOURCE_WEBSITE,
+                            status=ns.STATUS_PENDING,
+                            consent_note="Website signup; awaiting email confirmation.")
+        ns._invalidate_subs_cache()
+        return out["subscriber"]
+
     def clear_queues(self):
         import queue as _q
         for q in (ns._welcome_q, ns._confirm_q):
@@ -1322,34 +1336,64 @@ class TestPublicSignup(Base):
     def post(self, action, payload, ip="7.7.7.7"):
         h = Handler(ip)
         ns.handle_post(h, Parsed("/api/newsletter/" + action), payload)
-        # The request itself only queues the confirmation email (see
-        # test_the_reply_does_not_wait_for_the_confirmation_email). Running the
+        # The request itself only QUEUES the mail (see
+        # test_the_reply_does_not_wait_for_the_welcome_email). Running the
         # worker's pass here lets every other test go on asking the question it
-        # cares about: "did the right mail go to the right person"without
+        # cares about: "did the right mail go to the right person" without
         # each one knowing that the send is deferred.
         self.drain()
         return h
 
-    def test_signup_creates_a_pending_record_and_mails_a_confirmation(self):
+    def test_signup_joins_the_list_at_once_and_mails_the_welcome(self):
+        """The whole point of the single opt-in change: no second step, and
+        the mail that arrives is the welcome, not a chore."""
         h = self.post("subscribe", {"email": "New@Person.com"})
         self.assertTrue(h.last["ok"])
         sub = self.sub_for("new@person.com")
         self.assertIsNotNone(sub)
-        self.assertEqual(sub["status"], ns.STATUS_PENDING)
+        self.assertEqual(sub["status"], ns.STATUS_ACTIVE,
+                         "a website signup is a subscriber immediately")
         self.assertEqual(sub["source"], ns.SOURCE_WEBSITE)
-        # NOT "pending". A welcome is not due until they confirm, and a record
-        # parked in the welcome queue that can never send is re-read by the
-        # worker on every pass for the life of the process, and shows up on
-        # the dashboard as a welcome email that is pending and never sends.
-        self.assertEqual(sub["welcomeEmailStatus"], ns.WELCOME_AWAITING)
-        self.assertNotIn(sub["id"], ns._pending_welcome_ids())
+        self.assertEqual(sub["welcomeEmailStatus"], "sent")
         sent = self.box.to("new@person.com")
-        self.assertEqual(len(sent), 1)
-        self.assertIn("confirm", sent[0]["subject"].lower())
-        self.assertNotIn("Unsubscribe from these emails", sent[0]["html_body"],
-                         "nothing to unsubscribe from yet")
+        self.assertEqual(len(sent), 1, "exactly one email, and it is the welcome")
+        self.assertIn("Welcome", sent[0]["subject"])
+        self.assertNotIn("confirm", sent[0]["subject"].lower())
 
-    def test_the_reply_does_not_wait_for_the_confirmation_email(self):
+    def test_the_welcome_carries_the_way_out(self):
+        """What replaces the confirmation click. Anyone whose address was
+        typed in by somebody else must be able to leave from the FIRST message
+        they receive, or single opt-in really would be a way to mail
+        strangers."""
+        self.post("subscribe", {"email": "typo@x.com"})
+        msg = self.box.to("typo@x.com")[0]
+        self.assertTrue(msg["unsubscribe_url"], "a live per-person unsubscribe link")
+        self.assertTrue(msg["one_click_url"], "and the RFC 8058 one-click form")
+        self.assertIn("Unsubscribe from these emails", msg["html_body"])
+        # And it genuinely works, first try, with no login.
+        token = msg["unsubscribe_url"].rsplit("/", 1)[-1]
+        ns.unsubscribe_with_token(token)
+        self.assertEqual(self.sub_for("typo@x.com")["status"], ns.STATUS_UNSUB)
+
+    def test_a_signup_never_sends_a_confirmation_email(self):
+        self.post("subscribe", {"email": "nochore@x.com"})
+        subjects = [m["subject"].lower() for m in self.box.to("nochore@x.com")]
+        self.assertTrue(subjects)
+        self.assertFalse([s for s in subjects if "confirm" in s],
+                         "the confirm-your-email step is gone")
+
+    def test_a_welcome_is_due_even_if_the_send_is_deferred(self):
+        """The queue is in-process; the durable record of "this person is owed
+        a welcome" is the subscriber document, and it must say so before any
+        mail moves, or a restart between the two loses the welcome."""
+        h = Handler("7.7.7.5")
+        ns.handle_post(h, Parsed("/api/newsletter/subscribe"), {"email": "owed@x.com"})
+        ns._invalidate_subs_cache()
+        self.assertEqual(self.sub_for("owed@x.com")["welcomeEmailStatus"],
+                         ns.WELCOME_PENDING)
+        self.assertIn(ns._subscriber_id("owed@x.com"), ns._pending_welcome_ids())
+
+    def test_the_reply_does_not_wait_for_the_welcome_email(self):
         """The bug this guards: the form sat on "Signing you up…" for seconds
         after somebody typed their address, because the request handed the
         message to Gmail, a connect, a login and a round trip to Google,
@@ -1374,34 +1418,38 @@ class TestPublicSignup(Base):
             self.assertEqual(sent_calls, [], "no mail is sent inside the request")
             self.assertLess(elapsed, 0.3,
                             "the reply must not wait on the mail provider")
-            # Queued, not dropped: the person still gets their link.
+            # Queued, not dropped: the person still gets their welcome.
             self.drain()
-            self.assertEqual(sent_calls, ["quick@x.com"])
-            self.assertIn("confirm", self.box.to("quick@x.com")[0]["subject"].lower())
+            # The subscriber's welcome goes FIRST, then Tim's heads-up. Both
+            # ride the worker; neither is allowed near the request.
+            self.assertEqual(sent_calls[0], "quick@x.com")
+            self.assertIn(ADMIN, sent_calls, "and Tim still hears about the signup")
+            self.assertIn("Welcome", self.box.to("quick@x.com")[0]["subject"])
         finally:
             ne.send_email = real
 
-    def test_a_confirmation_is_never_stuck_behind_a_campaign(self):
+    def test_a_welcome_is_never_stuck_behind_a_campaign(self):
         """A campaign batch is 25 messages nobody is waiting on. A signup that
-        lands while one is going out must not queue behind it."""
+        lands while one is going out must not queue behind it: that person is
+        sitting in front of an inbox right now."""
         self.signup("bulk@x.com")
         cid = self.admin_post("campaign-save",
                               {"subject": "S", "contentHtml": "<p>b</p>"}).last["id"]
         self.admin_post("campaign-start", {"id": cid, "confirm": "SEND"})
         self.box.messages.clear()
 
-        # Queue a signup's confirmation the way the request handler does, then
-        # run the campaign pass: the confirmation goes out during it.
+        # Queue a signup's welcome the way the request handler does, then
+        # run the campaign pass: the welcome goes out during it.
         h = Handler("7.7.7.8")
         ns.handle_post(h, Parsed("/api/newsletter/subscribe"), {"email": "urgent@x.com"})
         self.assertEqual(len(self.box.to("urgent@x.com")), 0)
         for c in ns._sending_campaign_ids():
             ns._process_campaign_batch(c)
         self.assertEqual(len(self.box.to("urgent@x.com")), 1,
-                         "the confirmation jumped the bulk queue")
+                         "the welcome jumped the bulk queue")
 
     def test_a_pending_address_can_never_receive_a_campaign(self):
-        self.post("subscribe", {"email": "pending@x.com"})
+        self.legacy_pending("pending@x.com")
         self.signup("real@x.com")            # a confirmed Stripe subscriber
         self.box.messages.clear()
         ns._invalidate_subs_cache()
@@ -1417,11 +1465,14 @@ class TestPublicSignup(Base):
         addrs = [m["to_email"] for m in self.box.messages]
         self.assertIn("real@x.com", addrs)
         self.assertNotIn("pending@x.com", addrs,
-                         "an unconfirmed address must never be mailed a newsletter")
+                         "a record stranded in the old pending state is not a subscriber")
 
-    def test_confirming_activates_and_sends_the_welcome(self):
-        self.post("subscribe", {"email": "join@x.com"})
-        sub = self.sub_for("join@x.com")
+    def test_an_old_confirmation_link_still_works(self):
+        """Signups stopped sending these, but the ones already sent are
+        permanent. A link that answers "that no longer works" to somebody
+        doing exactly what they were asked to do is the worst possible
+        ending, so this path is kept alive on purpose."""
+        sub = self.legacy_pending("join@x.com")
         token = ns.make_confirm_token(sub)
         self.box.messages.clear()
 
@@ -1433,7 +1484,7 @@ class TestPublicSignup(Base):
         self.assertIn("Welcome", self.box.to("join@x.com")[0]["subject"])
 
     def test_confirming_twice_is_safe(self):
-        self.post("subscribe", {"email": "twice@x.com"})
+        self.legacy_pending("twice@x.com")
         token = ns.make_confirm_token(self.sub_for("twice@x.com"))
         ns.confirm_with_token(token)
         self.drain()
@@ -1459,7 +1510,7 @@ class TestPublicSignup(Base):
         self.assertFalse(ns.confirm_with_token(unsub_tok).get("known"))
 
     def test_a_tampered_confirm_token_is_refused(self):
-        self.post("subscribe", {"email": "tamper@x.com"})
+        self.legacy_pending("tamper@x.com")
         tok = ns.make_confirm_token(self.sub_for("tamper@x.com"))
         uid, mac = tok.split(".", 1)
         flipped = ("A" if mac[0] != "A" else "B") + mac[1:]
@@ -1467,7 +1518,7 @@ class TestPublicSignup(Base):
         self.assertEqual(self.sub_for("tamper@x.com")["status"], ns.STATUS_PENDING)
 
     def test_an_unsubscribed_person_is_not_resurrected_by_an_old_link(self):
-        self.post("subscribe", {"email": "gone@x.com"})
+        self.legacy_pending("gone@x.com")
         sub = self.sub_for("gone@x.com")
         tok = ns.make_confirm_token(sub)
         ns._unsubscribe_by_id(sub["id"], actor="self-service", reason="test")
@@ -1482,7 +1533,7 @@ class TestPublicSignup(Base):
         b = self.post("subscribe", {"email": "stranger@x.com"}).last
         self.assertEqual(a, b, "identical reply either way")
         self.assertEqual(len(self.box.to("known@x.com")), 0,
-                         "an active subscriber gets no second confirmation")
+                         "an active subscriber gets no second welcome")
 
     def test_invalid_addresses_are_rejected(self):
         for bad in ("", "   ", "notanemail", "a@b", "x@y..com", "a b@x.com"):
@@ -1500,7 +1551,7 @@ class TestPublicSignup(Base):
 
     def test_counts_keep_pending_out_of_both_buckets(self):
         self.signup("active@x.com")
-        self.post("subscribe", {"email": "waiting@x.com"})
+        self.legacy_pending("waiting@x.com")
         ns._invalidate_subs_cache()
         c = ns.counts()
         self.assertEqual(c["active"], 1)
@@ -1513,21 +1564,27 @@ class TestPublicSignup(Base):
         """The reported bug, at its source.
 
         counts() was always careful about this; the DASHBOARD derived
-        unsubscribed as "everything that is not active", so signing up on the
-        website and opening the admin panel showed you as unsubscribed the
-        moment you joined."""
+        unsubscribed as "everything that is not active", so a record in the
+        pending state showed up in the admin panel as having opted out."""
         self.signup("active@x.com")
-        self.post("subscribe", {"email": "just.joined@x.com"})
+        self.legacy_pending("stranded@x.com")
         ns._invalidate_subs_cache()
         d = self.admin_post("dashboard").last
         self.assertEqual(d["activeCount"], 1)
         self.assertEqual(d["pendingCount"], 1)
         self.assertEqual(d["unsubscribedCount"], 0,
-                         "nobody has unsubscribed; one person is mid-signup")
+                         "nobody has unsubscribed; one record was left stranded")
         self.assertEqual(d["totalCount"], 2)
 
+    def test_a_website_signup_counts_as_active_on_the_dashboard(self):
+        self.post("subscribe", {"email": "web@x.com"})
+        ns._invalidate_subs_cache()
+        d = self.admin_post("dashboard").last
+        self.assertEqual(d["activeCount"], 1)
+        self.assertEqual(d["pendingCount"], 0, "nothing is waiting on anything")
+
     def test_the_admin_list_can_show_and_filter_the_waiting(self):
-        self.post("subscribe", {"email": "waiting@x.com"})
+        self.legacy_pending("waiting@x.com")
         ns._invalidate_subs_cache()
         rows = self.admin_post("subscribers", {"status": "pending"}).last["rows"]
         self.assertEqual([r["email"] for r in rows], ["waiting@x.com"])
@@ -1538,7 +1595,7 @@ class TestPublicSignup(Base):
         """A forever-pending welcome is not just cosmetic: the queue is read a
         page at a time, so enough of them push every real welcome out of it."""
         for i in range(30):
-            self.post("subscribe", {"email": "wait%d@x.com" % i}, ip="9.9.%d.1" % i)
+            self.legacy_pending("wait%d@x.com" % i)
         ev, sess = self.stripe_event("paid@x.com")
         ns.handle_stripe_session(ev, sess)      # no drain: this welcome is still due
         ns._invalidate_subs_cache()
@@ -1553,8 +1610,8 @@ class TestPublicSignup(Base):
         """Records written before welcomes were parked are already in
         Firestore with welcomeEmailStatus="pending" and no way out of it. The
         worker's own pass must repair them, not keep re-reading them."""
-        self.post("subscribe", {"email": "legacy@x.com"})
-        self.box.messages.clear()               # the confirmation mail already went
+        self.legacy_pending("legacy@x.com")
+        self.box.messages.clear()
         sid = ns._subscriber_id("legacy@x.com")
         ns._db().collection(ns.C_SUBS).document(sid).set(
             {"welcomeEmailStatus": ns.WELCOME_PENDING}, merge=True)
@@ -1566,7 +1623,7 @@ class TestPublicSignup(Base):
         self.assertEqual(len(self.box.to("legacy@x.com")), 0)
 
     def test_confirming_arms_the_welcome_that_was_parked(self):
-        self.post("subscribe", {"email": "arm@x.com"})
+        self.legacy_pending("arm@x.com")
         self.box.messages.clear()
         ns.confirm_with_token(ns.make_confirm_token(self.sub_for("arm@x.com")))
         sub = self.sub_for("arm@x.com")
@@ -1583,18 +1640,15 @@ class TestAdminFinishesSignup(Base):
     def post(self, action, payload, ip="7.7.7.7"):
         h = Handler(ip)
         ns.handle_post(h, Parsed("/api/newsletter/" + action), payload)
-        # The request itself only queues the confirmation email (see
-        # test_the_reply_does_not_wait_for_the_confirmation_email). Running the
-        # worker's pass here lets every other test go on asking the question it
-        # cares about: "did the right mail go to the right person"without
-        # each one knowing that the send is deferred.
+        # The request only queues the mail; run the worker's pass so each test
+        # can ask "did the right mail go to the right person".
         self.drain()
         return h
 
     def test_resending_reuses_the_same_link(self):
         """A resend must not rotate the token, or the mail already sitting in
         their inbox stops working the moment they ask for another copy."""
-        self.post("subscribe", {"email": "again@x.com"})
+        self.legacy_pending("again@x.com")
         first = ns.make_confirm_token(self.sub_for("again@x.com"))
         self.box.messages.clear()
 
@@ -1615,7 +1669,7 @@ class TestAdminFinishesSignup(Base):
         self.assertEqual(len(self.box.to("done@x.com")), 0)
 
     def test_confirming_by_hand_activates_and_welcomes(self):
-        self.post("subscribe", {"email": "byhand@x.com"})
+        self.legacy_pending("byhand@x.com")
         self.box.messages.clear()
         r = self.admin_post("subscriber-confirm",
                             {"id": ns._subscriber_id("byhand@x.com"),
@@ -1628,7 +1682,7 @@ class TestAdminFinishesSignup(Base):
         self.assertEqual(len(self.box.to("byhand@x.com")), 1)
 
     def test_confirming_by_hand_needs_a_reason_and_is_audited(self):
-        self.post("subscribe", {"email": "why@x.com"})
+        self.legacy_pending("why@x.com")
         sid = ns._subscriber_id("why@x.com")
         r = self.admin_post("subscriber-confirm", {"id": sid, "reason": "  "})
         self.assertFalse(r.last["ok"])
@@ -1651,7 +1705,7 @@ class TestAdminFinishesSignup(Base):
         self.assertEqual(self.sub_for("left@x.com")["status"], ns.STATUS_UNSUB)
 
     def test_a_stranger_cannot_confirm_anybody(self):
-        self.post("subscribe", {"email": "target@x.com"})
+        self.legacy_pending("target@x.com")
         sid = ns._subscriber_id("target@x.com")
         for action in ("subscriber-confirm", "subscriber-resend-confirmation"):
             h = self.admin_post(action, {"id": sid, "reason": "x"},
@@ -2364,6 +2418,261 @@ class TestRealSmtpOverASocket(_EnvSandbox):
             self.assertIsNotNone(m, "every campaign email carries an unsubscribe link")
             links.add(m.group(1))
         self.assertEqual(len(links), 3, "each link is unique to its recipient")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 13. DELIVERABILITY: staying out of the spam folder
+# ══════════════════════════════════════════════════════════════════════════
+# Everything here is about the difference between a message being SENT and a
+# message being READ. None of it changes what the newsletter says.
+class TestDeliverabilityHeaders(unittest.TestCase):
+    def raw(self, **kw):
+        import base64
+        kw.setdefault("to_email", "a@b.com")
+        kw.setdefault("subject", "Subject here")
+        kw.setdefault("html_body", "<p>hi</p>")
+        kw.setdefault("text_body", "hi")
+        raw, _mid = ne.build_mime(**kw)
+        return base64.urlsafe_b64decode(raw).decode("utf-8", "replace")
+
+    def test_bulk_mail_names_its_list_and_its_feedback_bucket(self):
+        msg = self.raw(unsubscribe_url="https://x/newsletter/unsubscribe/t.k",
+                       one_click_url="https://x/newsletter/unsubscribe/t.k",
+                       stream="campaign-abc123")
+        self.assertIn("List-Id:", msg)
+        self.assertIn("Feedback-ID: campaign-abc123:", msg,
+                      "Postmaster Tools groups complaint rates by this")
+        self.assertIn("X-Entity-Ref-ID:", msg)
+
+    def test_the_feedback_id_is_never_folded_onto_a_second_line(self):
+        """Folding is legal and every parser unfolds it, but this header has
+        exactly one consumer (Google Postmaster Tools) whose parser is not
+        ours to test, and a very long campaign id is what pushes it over."""
+        for stream in ("welcome", "campaign-" + "x" * 60):
+            msg = self.raw(unsubscribe_url="https://x/u/t.k", stream=stream)
+            line = [l for l in msg.splitlines() if l.startswith("Feedback-ID:")][0]
+            self.assertLessEqual(len(line), 78, line)
+            self.assertTrue(line.split(":", 1)[1].strip(),
+                            "the value is on the header line, not folded below it")
+
+    def test_the_feedback_id_keeps_the_sender_id_last(self):
+        """Four colon-separated fields, and Google reads the LAST as the
+        sender. A colon inside the bucket name would shift it out of place and
+        silently split this sender's reputation in two."""
+        msg = self.raw(unsubscribe_url="https://x/u/t.k", stream="we:ird:name")
+        line = [l for l in msg.splitlines() if l.startswith("Feedback-ID:")][0]
+        fields = line.split(":", 1)[1].strip().split(":")
+        self.assertEqual(len(fields), 4, line)
+        self.assertEqual(fields[-1], ne._sender_id())
+
+    def test_a_personal_email_is_not_dressed_as_bulk(self):
+        """The owner notification is one message to one person who did not
+        subscribe to anything. Marking it bulk, or giving it a List-Id, is a
+        lie about what it is."""
+        msg = self.raw(is_bulk=False)
+        self.assertNotIn("List-Id:", msg)
+        self.assertNotIn("Precedence: bulk", msg)
+        self.assertNotIn("Feedback-ID:", msg)
+
+    def test_every_message_is_threaded_separately(self):
+        ids = {self.raw().split("X-Entity-Ref-ID:")[1].split("\n")[0].strip()
+               for _ in range(20)}
+        self.assertEqual(len(ids), 20,
+                         "a shared ref id is how a monthly newsletter ends up "
+                         "collapsed under 'older messages' and unread")
+
+    def test_the_http_transport_sends_the_same_headers_as_smtp(self):
+        """The trap this closes: the two transports used to build these
+        separately, so switching to an email API silently dropped half of
+        them, and nothing in the product looks any different when it does."""
+        http = ne._deliverability_headers(
+            unsubscribe_url="https://x/u/t.k", one_click_url="https://x/u/t.k",
+            is_bulk=True, stream="welcome")
+        mime = self.raw(unsubscribe_url="https://x/u/t.k",
+                        one_click_url="https://x/u/t.k", stream="welcome")
+        for name in ("List-Unsubscribe", "List-Unsubscribe-Post", "List-Id",
+                     "Precedence", "Feedback-ID", "X-Entity-Ref-ID"):
+            self.assertIn(name, http, name)
+            self.assertIn(name + ":", mime, name)
+
+
+class TestSpamPreflight(unittest.TestCase):
+    def check(self, **kw):
+        kw.setdefault("subject", "A perfectly ordinary subject")
+        kw.setdefault("content_html",
+                      "<p>Here is a normal paragraph of real writing with enough "
+                      "words in it that nothing looks thin or suspicious to a "
+                      "filter reading the message.</p>")
+        kw.setdefault("preview_text", "A normal preview line.")
+        return ne.spam_preflight(**kw)
+
+    def titles(self, res):
+        return " | ".join(f["title"] for f in res["findings"])
+
+    def test_an_ordinary_newsletter_passes_clean(self):
+        """A check that fires on every honest draft is a check nobody reads."""
+        res = self.check()
+        self.assertTrue(res["ok"], self.titles(res))
+        self.assertEqual(res["findings"], [])
+
+    def test_it_catches_the_classic_spam_shapes(self):
+        res = self.check(subject="RE: ACT NOW!! FREE MONEY GUARANTEED!!",
+                         content_html='<p>hi</p><a href="http://bit.ly/x">go</a>')
+        t = self.titles(res).lower()
+        self.assertFalse(res["ok"])
+        self.assertIn("capital letters", t)
+        self.assertIn("exclamation", t)
+        self.assertIn("re: or fwd:", t)
+        self.assertIn("spam-filter phrases", t)
+        self.assertIn("shortened links", t)
+        self.assertIn("http://", t)
+
+    def test_an_image_only_email_is_flagged(self):
+        """Alt text is not body copy. Counting it would let the one email this
+        check exists for, a single picture and nothing else, report a word of
+        text it does not have and slip past."""
+        res = self.check(content_html='<img src="https://x/a.png" alt="a">')
+        self.assertFalse(res["ok"])
+        self.assertIn("no text at all", self.titles(res).lower())
+
+    def test_a_missing_subject_is_flagged(self):
+        self.assertFalse(self.check(subject="   ")["ok"])
+
+    def test_it_only_ever_advises(self):
+        """It must never be able to block a send. The worst finding is a
+        warning, because a false positive that stops Tim's own newsletter is a
+        worse bug than the spam folder."""
+        res = self.check(subject="FREE MONEY!!! ACT NOW!!!")
+        self.assertTrue(res["findings"])
+        for f in res["findings"]:
+            self.assertIn(f["level"], ("warn", "note"))
+            self.assertTrue(f["detail"], "every finding says WHY, or it is noise")
+
+
+class TestDomainAuth(unittest.TestCase):
+    """The SPF/DKIM/DMARC check. Every lookup is stubbed: a test that depends
+    on live DNS fails on a plane."""
+
+    def setUp(self):
+        self._real = ne._txt_records
+        ne._DNS_CACHE.update({"at": 0.0, "domain": "", "result": None})
+
+    def tearDown(self):
+        ne._txt_records = self._real
+        ne._DNS_CACHE.update({"at": 0.0, "domain": "", "result": None})
+
+    def stub(self, table):
+        # google.com is the reachability probe; answering it keeps the check
+        # from short-circuiting into "could not reach DNS".
+        table.setdefault("google.com", ["v=spf1 -all"])
+        ne._txt_records = lambda name, timeout=6: table.get(name, [])
+
+    def test_a_fully_configured_domain_reads_ready(self):
+        dom = ne.sender_domain()
+        self.stub({
+            dom: ["v=spf1 include:_spf.google.com ~all"],
+            "google._domainkey." + dom: ["v=DKIM1; k=rsa; p=AAAA"],
+            "_dmarc." + dom: ["v=DMARC1; p=quarantine; rua=mailto:x@y.com"],
+        })
+        out = ne.domain_auth_status(force=True)
+        self.assertTrue(out["ready"], out["summary"])
+        self.assertTrue(out["spf"]["ok"])
+        self.assertTrue(out["dkim"]["ok"])
+        self.assertEqual(out["dmarc"]["policy"], "quarantine")
+
+    def test_a_missing_dmarc_record_is_reported(self):
+        dom = ne.sender_domain()
+        self.stub({dom: ["v=spf1 include:_spf.google.com ~all"]})
+        out = ne.domain_auth_status(force=True)
+        self.assertFalse(out["ready"])
+        self.assertFalse(out["dmarc"]["ok"])
+        self.assertIn("DMARC", out["summary"])
+
+    def test_two_spf_records_are_caught(self):
+        """A domain with two SPF records fails SPF outright, and it looks
+        completely harmless sitting in a DNS panel."""
+        dom = ne.sender_domain()
+        self.stub({dom: ["v=spf1 include:_spf.google.com ~all",
+                         "v=spf1 include:mailgun.org ~all"],
+                   "_dmarc." + dom: ["v=DMARC1; p=none"]})
+        out = ne.domain_auth_status(force=True)
+        self.assertFalse(out["spf"]["ok"])
+        self.assertIn("more than one", out["spf"]["detail"])
+
+    def test_an_unknown_dkim_selector_is_never_called_a_failure(self):
+        """Selectors cannot be enumerated from outside, so "not on any name I
+        know" is genuinely not the same statement as "you have no DKIM", and
+        reporting it as one sends Tim to fix something already correct."""
+        dom = ne.sender_domain()
+        self.stub({dom: ["v=spf1 ~all"], "_dmarc." + dom: ["v=DMARC1; p=none"]})
+        out = ne.domain_auth_status(force=True)
+        self.assertFalse(out["dkim"]["ok"])
+        self.assertTrue(out["ready"], "DKIM alone must not fail the domain")
+        self.assertIn("does not prove DKIM is missing", out["dkim"]["detail"])
+
+    def test_unreachable_dns_is_not_reported_as_a_broken_domain(self):
+        ne._txt_records = lambda name, timeout=6: []
+        out = ne.domain_auth_status(force=True)
+        self.assertFalse(out["dnsReachable"])
+        self.assertIn("check that failed", out["summary"])
+        self.assertIsNone(ne._DNS_CACHE["result"],
+                          "a failed check must not be cached as an answer")
+
+    def test_the_result_is_cached(self):
+        dom = ne.sender_domain()
+        calls = []
+        table = {"google.com": ["v=spf1 -all"], dom: ["v=spf1 ~all"],
+                 "_dmarc." + dom: ["v=DMARC1; p=none"]}
+
+        def counting(name, timeout=6):
+            calls.append(name)
+            return table.get(name, [])
+
+        ne._txt_records = counting
+        ne.domain_auth_status(force=True)
+        n = len(calls)
+        ne.domain_auth_status()
+        self.assertEqual(len(calls), n, "an admin page re-render is not a DNS storm")
+
+
+class TestBounceSuppression(Base):
+    def test_a_permanently_rejected_address_comes_off_the_list(self):
+        """A dead address re-mailed on every campaign is what a bought list
+        looks like from the outside, and mailbox providers score it that way
+        against every OTHER message the domain sends."""
+        self.signup("real@x.com")
+        self.box.messages.clear()
+        h = Handler("7.7.7.6")
+        ns.handle_post(h, Parsed("/api/newsletter/subscribe"), {"email": "typo@nowhere.invalid"})
+        self.box.fail_with = ne.SendError("no such user", category="invalid_recipient",
+                                          retryable=False)
+        self.box.fail_times = -1                # every send fails
+        self.drain()
+        self.box.fail_with = None
+        ns._invalidate_subs_cache()
+
+        sub = self.sub_for("typo@nowhere.invalid")
+        self.assertEqual(sub["status"], ns.STATUS_UNSUB)
+        self.assertTrue(sub["bounced"])
+        self.assertIn("subscriber_bounced",
+                      [a["action"] for a in self.admin_post("audit", {"limit": 50}).last["rows"]],
+                      "and it is recorded as a bounce, not as an opt-out")
+
+    def test_a_temporary_failure_does_not_remove_anybody(self):
+        """The distinction that matters: a network blip is the network's
+        problem, not the address's, and removing somebody over one would lose
+        a real subscriber for good."""
+        h = Handler("7.7.7.7")
+        ns.handle_post(h, Parsed("/api/newsletter/subscribe"), {"email": "fine@x.com"})
+        self.box.fail_with = ne.SendError("timeout", category="network", retryable=True)
+        self.box.fail_times = -1
+        for _ in range(ns.MAX_ATTEMPTS + 2):
+            ns._send_welcome_now(ns._subscriber_id("fine@x.com"))
+        self.box.fail_with = None
+        ns._invalidate_subs_cache()
+        sub = self.sub_for("fine@x.com")
+        self.assertEqual(sub["status"], ns.STATUS_ACTIVE, "still a subscriber")
+        self.assertFalse(sub.get("bounced"))
 
 
 if __name__ == "__main__":
