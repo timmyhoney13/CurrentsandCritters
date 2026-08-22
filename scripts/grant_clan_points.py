@@ -11,13 +11,13 @@ _apply_award is the engine for points a player EARNED, and it enforces two
 rules that are correct for earned points and wrong for a hand-out:
 
   • WEEKLY_POINT_CAP (150/member/week) would eat the whole grant, or eat the
-    player's real games for the rest of the week — a 150-point gift is exactly
+    player's real games for the rest of the week, a 150-point gift is exactly
     the cap, so every point they went on to earn this week would vanish.
   • it feeds gameplay_points, the weekly counters and the challenge sweep, so
     a gift would silently tick off "Rising Tide"/"Powerful Current" and pay
     out challenge rewards nobody played for.
 
-So an admin bonus lands in its own bucket — season `bonus_points`, plus the
+So an admin bonus lands in its own bucket: season `bonus_points`, plus the
 clan's season and lifetime totals, plus the contributor's row so the roster
 shows who it was for. Nothing a challenge reads is touched.
 
@@ -27,7 +27,7 @@ The XP side
 challenges pays member_xp == clan_points * 5, with no exceptions. That ratio
 is CLAN_POINT_XP below, and --xp overrides it when you want a different number.
 XP is written the same way _admin_set_xp and clan_server._grant_challenge_xp
-write it — total_xp plus all six derived level fields — because the header, the
+write it: total_xp plus all six derived level fields, because the header, the
 profile and the XP leaderboard read the derived fields directly, and moving
 total_xp alone leaves the account showing its old level everywhere.
 """
@@ -55,7 +55,7 @@ def _ratio_still_holds() -> bool:
 
 def resolve_player(db, who: str):
     """(snapshot, doc) for ONE account by uid, nickname, username or email.
-    Never guesses between two matching names — pass the uid for those."""
+    Never guesses between two matching names: pass the uid for those."""
     who = str(who or "").strip()
     if not who:
         print("--player is required"); sys.exit(1)
@@ -68,7 +68,7 @@ def resolve_player(db, who: str):
                          ("email", who), ("authEmail", who)):
         matches = list(users.where(field, "==", value).limit(2).stream())
         if len(matches) > 1:
-            print(f"{who!r} matches more than one account on {field} — pass the uid instead.")
+            print(f"{who!r} matches more than one account on {field}: pass the uid instead.")
             sys.exit(1)
         if matches:
             return matches[0], (matches[0].to_dict() or {})
@@ -149,7 +149,7 @@ def main() -> None:
     print(f"player XP  : {had_xp} -> {new_xp}  (+{xp_add}), level "
           f"{stats.get('level', stats.get('player_level'))} -> {lvl}")
     if args.dry_run:
-        print("\nDRY RUN — nothing written.")
+        print("\nDRY RUN, nothing written.")
         return
 
     # ── Clan side: one transaction, whole-doc set, exactly like _apply_award ──
@@ -183,7 +183,7 @@ def main() -> None:
         # (the "earned by playing" challenges). A gift proves none of those.
         cs._activity_push(c, "bonus",
                           f"🎁 +{points} Clan Points for {name}"
-                          + (f" — {args.note}" if args.note else ""))
+                          + (f": {args.note}" if args.note else ""))
         t.set(ledger_ref, {
             "ts": cs._now(), "uid": uid, "name": name, "kind": "admin_bonus",
             "points": points, "requested": points, "week": cs._week_key(),

@@ -15,7 +15,7 @@
  *      the launcher opens a second window on top of the player's game.
  *
  *   2. THE CONFIRMATION. The page must only say "confirmed" when the SERVER
- *      says the webhook fulfilled that session — never on its own say-so.
+ *      says the webhook fulfilled that session, never on its own say-so.
  *
  * The real thanks.html is parsed and its real inline script is executed in a
  * stubbed DOM, so these assertions are against the shipped file, not a copy.
@@ -40,7 +40,7 @@ async function runAll() {
   for (const [name, fn] of queue) {
     if (name === null) { console.log("\n" + fn); continue; }
     try { await fn(); console.log("  ✓ " + name); pass++; }
-    catch (e) { console.log("  ✗ " + name + " — " + e.message); failures.push(name); }
+    catch (e) { console.log("  ✗ " + name + ": " + e.message); failures.push(name); }
   }
   console.log(`\n${pass} passed, ${failures.length} failed`);
   if (failures.length) { failures.forEach(f => console.log("  FAILED: " + f)); process.exit(1); }
@@ -275,7 +275,7 @@ check("the store records a return URL before leaving for Stripe", () => {
   const app = fs.readFileSync(
     path.join(__dirname, "multiplayer/client/js/preview-app.js"), "utf8");
   if (!app.includes("cc_stripe_return")) {
-    throw new Error("preview-app.js no longer saves cc_stripe_return — the back button will always fall back to '/'");
+    throw new Error("preview-app.js no longer saves cc_stripe_return, the back button will always fall back to '/'");
   }
   const i = app.indexOf("_phstRememberReturn()");
   const j = app.indexOf("window.location.href = _phstStripeUrl");

@@ -167,7 +167,7 @@
 
     /* ── "Play again" callout ─────────────────────────────────────────────
        A Hermit Crab, a Sea Turtle or any ★ "play again" gives you a second
-       turn, and the turn banner says so — but the banner is at the top of the
+       turn, and the turn banner says so, but the banner is at the top of the
        screen and the thing you have to do next is at the bottom, so players sat
        on an extra turn waiting for something to happen. This bobs directly over
        End Turn until the turn is handed on. It is a real button (it ends the
@@ -175,7 +175,7 @@
 
        It is positioned against the ACTION BAR, not against End Turn itself.
        Hanging it off the button reads well on a laptop, where the bar is one
-       row — but a phone wraps that bar onto two or three rows, and "just above
+       row, but a phone wraps that bar onto two or three rows, and "just above
        End Turn" is then right on top of Play Card and the ★ Star ability
        checkbox. Above the bar it always floats clear, over the board, and
        _positionPlayAgainCallout() slides it (and its pointer) to sit over
@@ -1148,7 +1148,7 @@
       flex-direction: column;
       /* dvh, not vh. On iOS Safari `100vh` is the height the page WOULD have
          with the toolbars retracted, but html/body are overflow:hidden, so the
-         extra height is not scrolled to — it is clipped off the bottom of the
+         extra height is not scrolled to, it is clipped off the bottom of the
          screen. The bottom of the game screen is the hand zone, and the bottom
          of a seat pill is its "⭐ N pts · 🃏M" line, so a phone lost exactly
          that: every player's score and card count. What the browser does let
@@ -1298,7 +1298,7 @@
        overflow-y is ALWAYS auto (it used to be `hidden` until the board was
        zoomed IN past 100%): #pv-table-inner is an auto-height grid, so once a
        player owns enough oceans to wrap onto more rows than fit, the rest sat
-       below the bottom edge with no way to reach it — wheel, trackpad and
+       below the bottom edge with no way to reach it: wheel, trackpad and
        finger did nothing, and a mobile pinch only pans the visual viewport, it
        cannot reveal clipped content. So the board scrolls up and down at every
        board zoom now. Horizontal stays clipped at 100% (nothing is ever wider
@@ -1331,7 +1331,7 @@
        is always reachable, on a phone especially.
        The dock is sticky and ZERO height with the pill absolutely positioned
        inside it, so the pill's own box never feeds back into the board's scroll
-       height — otherwise showing it could change whether the board overflows,
+       height, otherwise showing it could change whether the board overflows,
        which is the very thing that decides whether to show it. (The reserved
        strip further down only ever ADDS room, which is safe.) */
     #pv-board-scroll-dock {
@@ -1777,7 +1777,7 @@
     /* Overflow deliberately stays VISIBLE: #pv-table is the one and only board
        scroller. This used to say overflow-y:auto, which never actually scrolled
        (its grid row is auto-height, so the row just grew) but did make it a
-       second scroll container in the chain — two nested scrollers is how a
+       second scroll container in the chain, two nested scrollers is how a
        finger swipe ends up moving the wrong box and stranding the last row of
        oceans. Visible also lets the hover scale/lift on a card spill out
        instead of being sliced off at the edge. */
@@ -2326,7 +2326,7 @@
     /* Star ability, matching-symbol cards glow gold during payment */
     .pv-hand-card.star-sym-match .pv-card-inner { border-color: var(--gold); box-shadow: 0 0 14px rgba(240,200,64,.55), 0 0 28px rgba(240,200,64,.25); }
     /* Chosen as the ★ payment: still gold (it is what fires the star), plus a
-       green inner ring so "selected" stays readable at a glance — brightness
+       green inner ring so "selected" stays readable at a glance: brightness
        alone is impossible to judge on one card in a fanned hand. */
     .pv-hand-card.star-sym-match.pay-selected .pv-card-inner {
       border-color: var(--gold);
@@ -3084,9 +3084,9 @@
       position: fixed;
       right: 12px;
       /* Sits above the bottom UI (action bar + hand zone). That stack changes
-         height with the window — the action bar wraps onto more lines when it
+         height with the window, the action bar wraps onto more lines when it
          is narrow, and on a phone the hand zone carries the player seats on
-         their own row — so the offset is measured (updateBottomDockOffset) and
+         their own row, so the offset is measured (updateBottomDockOffset) and
          published as --pv-bottom-ui. The literal is the desktop fallback for
          the first paint, before the measurement lands. */
       bottom: var(--pv-bottom-ui, 302px);
@@ -5167,7 +5167,7 @@
       background-color: #0a1d3a;
       background-image: url("/choose-device.png?v=2");
       /* ALWAYS preserve the artwork's real proportions (it's exactly 16:9) and
-         just scale it to fit the current screen — never stretched or squished.
+         just scale it to fit the current screen, never stretched or squished.
          `contain` fits the whole image inside any window and re-fits live as the
          screen / window size changes, so the full title, octagon and COMPUTER /
          MOBILE labels always show undistorted at every size. Any leftover strip
@@ -5270,27 +5270,27 @@
        deck side by side. `max-content` columns never shrink, so on a phone the
        eight seat pills (4 left + 4 right, ~780px) claimed the whole row, the
        hand's `1fr` column collapsed to ZERO width, and the fan spilled out
-       underneath the seat clusters — which sit at z-index 20 and swallowed
+       underneath the seat clusters, which sit at z-index 20 and swallowed
        every tap. Measured on an iPhone 12 (585px in-game layout viewport):
        all 8 hand cards failed the hit test and 2 were fully off-screen, while
-       the DECK — the thing you click to draw — sat 12px past the right edge.
+       the DECK, the thing you click to draw: sat 12px past the right edge.
        The game was, literally, unplayable on a phone.
 
        Three blocks, because the two halves of the problem have different
-       thresholds — and because a phone held SIDEWAYS is short, not narrow, so
+       thresholds, and because a phone held SIDEWAYS is short, not narrow, so
        it wants the opposite trade.
 
-       (1) ≤1180px — the seat pills go compact. That alone buys the hand back
+       (1) ≤1180px, the seat pills go compact. That alone buys the hand back
            enough of the row that the flanking layout works again (the JS fan
            in applyHandLayout squeezes the overlap to whatever width the hand
            ends up with, so it only ever needs a real width to work with).
-       (2) ≤1180px AND ≥620px tall — now there is vertical room to spend, so
+       (2) ≤1180px AND ≥620px tall, now there is vertical room to spend, so
            go further and stack: seats on one row, hand full-width underneath.
            A phone in portrait lands here (585 x 1266 on an iPhone 12). The
            same phone in landscape (1266 x 585) does NOT: it keeps the seats
            beside the hand, because on a 585px-tall screen another 100px row
            costs far more than it buys.
-       (3) ≤700px — the pool has to give the deck room to stay on screen. */
+       (3) ≤700px, the pool has to give the deck room to stay on screen. */
     @media (max-width: 1180px) {
       /* Last resort so a seat can never be unreachable: if even the compact
          pills overflow their half (a very small phone, or a 10-seat room),
@@ -5318,7 +5318,7 @@
        Keyed on the input device, not the width: in-game the phone viewport is
        laid out ~1.5x wider than the screen and scaled back down to ~0.67, so a
        9px label renders at ~6 real pixels and a 25px button is a 17px tap
-       target — and that is just as true of a phone held SIDEWAYS, which lays
+       target, and that is just as true of a phone held SIDEWAYS, which lays
        out at ~1266px and would sail past any width-based cutoff. A mouse is
        unaffected. */
     @media (pointer: coarse) {
@@ -5336,11 +5336,11 @@
     /* ── The challenge panel gets every pixel above the bottom UI ─────────
        #ig-challenge-panel is fixed above the bottom UI and wants ~235px for
        its three challenge cards. It used to also reserve 120px at the top for
-       the guide bar and the turn banner — which reads fine until you measure a
+       the guide bar and the turn banner, which reads fine until you measure a
        phone held SIDEWAYS: 1266x498 with a 274px bottom stack leaves 224px of
        room, so the reserve left the cards box 34px tall. Tapping the header
        "opened" the panel onto a sliver of one row, which is indistinguishable
-       from nothing happening — the reported "click Weekly Challenges and none
+       from nothing happening, the reported "click Weekly Challenges and none
        of them pop up".
 
        So the reserve is gone: the panel may use the whole gap between the top
@@ -5363,7 +5363,7 @@
     }
     /* 88px = the panel chrome outside the scroll box (header + reward line +
        footer + border). The reward line is ~28px and lives outside #igcp-cards,
-       so it has to come out of the same budget — otherwise it grows the panel
+       so it has to come out of the same budget, otherwise it grows the panel
        past --igcp-room and the sideways-phone case loses a card again. */
     #igcp-cards { max-height: max(56px, calc(var(--igcp-room) - 88px)); overflow-y: auto; }
 
@@ -5381,7 +5381,7 @@
       #pv-seats-left  { grid-area: seatsL; margin-right: 0; }
       #pv-seats-right { grid-area: seatsR; margin-left: 0; }
       /* The hand gets the full width of the screen, and paints ABOVE the seat
-         row — a hovered/selected card lifts 64px, which would otherwise slide
+         row, a hovered/selected card lifts 64px, which would otherwise slide
          under the seat pills again, this time from below. */
       #pv-hand {
         grid-area: hand;
@@ -5394,7 +5394,7 @@
     /* ── Small phones: the last seat pill must not need a swipe ──────────
        Four pills have to fit half of a 480px layout (a 320px phone). At the
        ≤1180px size that is 4×62 + gaps ≈ 260 against 240 available, so the
-       fourth player sat just past the edge — reachable only by scrolling the
+       fourth player sat just past the edge: reachable only by scrolling the
        cluster, which nobody would think to try. */
     @media (max-width: 520px) {
       .pv-seat { width: 53px; padding: 5px 1px; }
@@ -5406,7 +5406,7 @@
     /* ── POOL + DECK: the deck must stay on screen ───────────────────────
        #pv-pool-wrap is a fixed `repeat(5, 90px)` = 482px and #pv-pool-area is
        flex-shrink:0, so on a phone the pool alone nearly filled the screen and
-       pushed the deck — the thing you click to draw — and its "N cards" count
+       pushed the deck, the thing you click to draw, and its "N cards" count
        off the right edge. This also un-sticks the BOARD: #pv-table-inner is a
        grid, so the centre strip's min-content width was stretching
        #pv-my-board (and its "drag an Ocean card here" drop zone) past the
@@ -5420,7 +5420,7 @@
 
        `min-width: 0` on the cards is what makes it work. A grid item's default
        `min-width: auto` is its CONTENT-based minimum, and the content is a
-       full-resolution card image — so without this the tracks refuse to go
+       full-resolution card image, so without this the tracks refuse to go
        below the artwork's intrinsic width and the strip blows out wider than
        it was to begin with. Same reason the columns are minmax(0, 1fr) rather
        than 1fr. */
@@ -5956,7 +5956,7 @@
     #auth-step-choose #auth-choose-google-btn svg { display: none; }
     /* Both buttons are INVISIBLE boxes painted over login-bg.png, so until that
        artwork is actually on the screen there is nothing here to aim at and a
-       click can only be a stray one — the tail of a double-click on the device
+       click can only be a stray one, the tail of a double-click on the device
        screen that was showing an instant ago, or a blind poke at a page whose
        2MB background has not arrived yet. Either way it landed on PLAY AS GUEST
        and prompted for a guest nickname the player never asked for. armChooseStep()
@@ -6406,7 +6406,7 @@
     }
     .ph-discord-ico { flex: 0 0 auto; }
     .ph-discord-txt { min-width: 0; }
-    /* "+250 Critter Coins" — the offer, advertised right beside the invite it
+    /* "+250 Critter Coins", the offer, advertised right beside the invite it
        pays for. Gold so it reads as coins next to the Discord blurple, and a
        real <button> because clicking it starts the verified claim. It ships
        hidden and only js/discord-reward.js may reveal it, so a server with the
@@ -6939,7 +6939,7 @@
       box-shadow: 0 6px 26px rgba(35,100,165,.11);
       margin-bottom: 14px;
     }
-    /* Left: calendar icon + title block — the click target that opens the strip */
+    /* Left: calendar icon + title block, the click target that opens the strip */
     .ph-cs-header {
       display: flex;
       align-items: center;
@@ -6963,7 +6963,7 @@
       max-width: none;
       padding-right: 0;
       border-right: 0;
-      /* the narrow-screen rule below turns the divider into a bottom border —
+      /* the narrow-screen rule below turns the divider into a bottom border,
          with nothing under it, that reads as a line hanging off the header */
       border-bottom: 0;
       padding-bottom: 0;
@@ -6988,7 +6988,7 @@
     }
     .ph-cs-strip.is-collapsed .ph-cs-chev { transform: rotate(-90deg); }
     /* The calendar is the Daily <-> Weekly switch. It is a real button inside
-       the header, so it has to read as pressable in its own right — not just
+       the header, so it has to read as pressable in its own right, not just
        light up when the header behind it does. */
     .ph-cs-icon-btn {
       width: 50px; height: 50px;
@@ -7238,7 +7238,7 @@
       width: 188px;
       /* A flex item's automatic minimum size is its MIN-CONTENT width, which
          for this card (three lines of unbreakable label text) is far wider
-         than 188px — and with flex-shrink 0 it kept every pixel of it, so on
+         than 188px, and with flex-shrink 0 it kept every pixel of it, so on
          a 1100–1400px screen the three challenges beside it were squeezed to
          ~100px each. min-width:0 makes the 188px real. */
       min-width: 0;
@@ -7289,7 +7289,7 @@
       border-radius: 999px;
       transition: width .35s ease;
     }
-    /* Perfect Week, under the Tide Sweep bar — the second reward of the week. */
+    /* Perfect Week, under the Tide Sweep bar, the second reward of the week. */
     .ph-cs-reward-sub {
       font-size: .66rem;
       font-weight: 700;
@@ -7309,14 +7309,14 @@
     /* Responsive, stack the layout vertically on narrower screens */
     /* These rules were written when the header, the cards and the reward were
        all direct children of .ph-cs-strip, which wraps. The cards and the
-       reward now live inside .ph-cs-body — a flex ROW of its own that did not
-       wrap — so "cards: 100%, reward: 100%" put both on one line. The reward
+       reward now live inside .ph-cs-body, a flex ROW of its own that did not
+       wrap, so "cards: 100%, reward: 100%" put both on one line. The reward
        is flex: 0 0 auto (shrink 0) and refuses to give any of it back, so the
        three challenges were squeezed to a 26px sliver: opening the strip on
        anything narrower than a desktop showed no challenges at all. The body
        has to wrap too, and the reward has to take a line of its own. */
     /* 1320px, not 1100: Player Home spends ~290px on the sidebar and page
-       padding, so a 1150px window leaves the strip 860px — header 280 +
+       padding, so a 1150px window leaves the strip 860px: header 280 +
        reward 188 + gaps = three ~100px challenge cards, too narrow to read.
        Below this the header and the reward each take their own line and the
        challenges get the full width. */
@@ -8014,7 +8014,7 @@
       }
       /* Nav card, holds logo + navigation + daily streak section.
          The SIDEBAR is the scroller, so the card must be as tall as its own
-         content whenever that content is taller than the screen — otherwise
+         content whenever that content is taller than the screen, otherwise
          you scroll down to the Daily Streak block and the white card has
          already ended above it, leaving the dots, the XP rows and "View
          streak details" sitting on the bare page background. `flex: 1 0 auto`
@@ -8151,7 +8151,7 @@
       display: flex; align-items: baseline; gap: 6px;
     }
     .phst-tier-once { font-size: .7rem; font-weight: 700; color: #8aa6bd; }
-    /* Critter Coins the tier grants — a gold band above the perk list so the
+    /* Critter Coins the tier grants, a gold band above the perk list so the
        one perk players spend is not buried in a ✓ row. */
     .phst-tier-coins {
       display: flex; flex-direction: column; gap: 2px;
@@ -8725,7 +8725,7 @@
       /* ── The menu must not be the whole first screen ──────────────
          Player Home stacks the full desktop sidebar (logo + 12-item nav +
          Daily Streak) above the content on a phone. As one column that card
-         alone was 928px tall on an iPhone 12 — taller than the screen — and
+         alone was 928px tall on an iPhone 12: taller than the screen, and
          pushed Quick Match / Create Game to y=1494, nearly two full scrolls
          below the fold. Two columns halves the nav's height and keeps every
          item on the same card, in the same order. */
@@ -8744,7 +8744,7 @@
       /* Touch-sized Store buttons (they were 24px tall), a link that was a
          17px-tall tap target, and labels above the ~9px floor where small caps
          stop being readable. The chip label is written with the lobby id in
-         front of it because its base rule lives LATER in this stylesheet — at
+         front of it because its base rule lives LATER in this stylesheet, at
          equal specificity that one would win, and the override would silently
          do nothing. */
       .phst-card-buy { padding: 9px 16px; font-size: .84rem; }
@@ -10461,14 +10461,14 @@
     /* ══ PRIVACY POLICY MODAL ══════════════════════════════════════
        Read-only reader, opened from Settings → 📜 Legal. The document's own
        type and colour live in css/privacy.css (.pp-dark); everything here is
-       the frame around it — the box, the jump list and the scroller. */
+       the frame around it, the box, the jump list and the scroller. */
     #privacy-modal { z-index: 9800; }       /* above the auth screen + settings */
     .privacy-modal-box { max-width: 560px; max-height: 90vh; }
     .privacy-sub {
       text-align: center; font-size: 12px; font-weight: 700;
       color: rgba(160,200,240,.75); margin-top: -4px;
     }
-    /* Jump list — a horizontal strip of the 18 section numbers. Scrolls
+    /* Jump list, a horizontal strip of the 18 section numbers. Scrolls
        sideways rather than stacking, so the reader never eats the document. */
     .privacy-jump {
       display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 4px;
@@ -12963,11 +12963,10 @@
       border: 1px solid rgba(255,255,255,.14);
     }
     .cctr-item-coin {
-      width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center; font-size: 22px;
-      background: radial-gradient(circle at 35% 30%, #ffe08a, #d4a820);
-      border: 1px solid rgba(255,255,255,.3);
+      width: 40px; height: 40px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
     }
+    .cctr-item-coin .cc-coin { width: 38px; height: 38px; vertical-align: middle; }
     .cctr-item-body { flex: 1; min-width: 0; }
     .cctr-item-name {
       font-size: 13px; font-weight: 800; color: #eaf6ff;
@@ -13094,7 +13093,7 @@
 
        The rulebook markup (js/rulebook.js) is skin-agnostic: every .rb-*
        rule reads its colours from variables, and the wrapper class picks
-       the skin — .rb-light on the frosted Player Home page, .rb-dark over
+       the skin: .rb-light on the frosted Player Home page, .rb-dark over
        the table at night. One document, two homes.
        ══════════════════════════════════════════════════════════════ */
 
@@ -13323,7 +13322,7 @@
       flex: 0 0 auto; display: block; width: 68px; height: 68px;
       border-radius: 18px; overflow: hidden;
       /* the portraits are cut-outs on transparent, so the family colour becomes
-         the plate behind them — which is also what keeps a white Puffin visible */
+         the plate behind them, which is also what keeps a white Puffin visible */
       background: color-mix(in srgb, var(--sc, #b388ff) 18%, #e6f2fd);
       border: 2px solid var(--sc, #b388ff);
       box-shadow: 0 0 0 1px rgba(16,58,116,.18), 0 3px 10px rgba(20,85,150,.16);

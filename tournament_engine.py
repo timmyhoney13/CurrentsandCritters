@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tournament engine for Currents & Critters — PURE LOGIC, no I/O.
+"""Tournament engine for Currents & Critters: PURE LOGIC, no I/O.
 
 This module is the server-authoritative backbone for Tournament Mode. It is
 deliberately free of Flask/HTTP/Firestore concerns so it can be unit-tested
@@ -7,14 +7,14 @@ exhaustively and reused by ``multiplayer_server.py`` (which owns rooms, SSE,
 and Firestore).
 
 What lives here:
-  • Bracket PLANNING — given a player count and players-per-match, deterministically
+  • Bracket PLANNING: given a player count and players-per-match, deterministically
     build the whole single-elimination tree (rounds, matches, capacities, the
     "feeds into" links, byes, and smaller opening matches).
-  • Bracket STATE — seed players into round 1, record a match result, advance the
+  • Bracket STATE: seed players into round 1, record a match result, advance the
     winner into the exact next-round slot, detect the champion.
-  • PLACEMENTS — final 1st/2nd/3rd/… ranking, including an optional third-place
+  • PLACEMENTS: final 1st/2nd/3rd/… ranking, including an optional third-place
     match and a placement-by-progress fallback.
-  • XP — a scaled, size-aware reward breakdown with stable component ids so the
+  • XP, a scaled, size-aware reward breakdown with stable component ids so the
     server can pay each component exactly once (idempotency lives in the caller's
     ledger; this module only *computes* the amounts and ids).
 
@@ -24,7 +24,7 @@ Design choices worth knowing:
     (a "bye" is a size-1 match) and prefers "smaller opening matches" over byes,
     exactly as the product spec asks. It is fully deterministic from (N, M, A).
   • ADVANCEMENT IS CONFIGURABLE: ``advance_per_match`` is how many finishers get out
-    of every match — 1 is classic single elimination, 2+ is a "top N advance" /
+    of every match: 1 is classic single elimination, 2+ is a "top N advance" /
     group-stage format. Two invariants keep any (N, M, A) converging on one champion:
       – a match can never advance everyone: effective advance == min(A, capacity - 1)
         (a bye, capacity 1, still advances its lone player);
@@ -79,7 +79,7 @@ class TournamentConfig:
     # so a custom tournament must fill every seat (players or bots) before it starts.
     opening_sizes: Optional[List[int]] = None
     # DESIGNED BRACKET (optional): the host's hand-built bracket from the canvas
-    # builder — an arbitrary DAG of matches with typed player spots and explicit
+    # builder, an arbitrary DAG of matches with typed player spots and explicit
     # winner-advances-here connections. Serialized form of a ``CustomBracket`` (see
     # below). When set it fully replaces the generated shape: total_capacity is the
     # number of player-entry spots and players_per_match is the largest match.
@@ -87,7 +87,7 @@ class TournamentConfig:
 
     @property
     def is_custom(self) -> bool:
-        """True for either host-authored shape (opening-size list or full graph) —
+        """True for either host-authored shape (opening-size list or full graph),
         both have a FIXED bracket that must be completely filled before start."""
         return bool(self.opening_sizes) or bool(self.custom_graph)
 
@@ -180,7 +180,7 @@ def validate_config(cfg: TournamentConfig) -> List[str]:
     if not errs and cfg.advance_per_match >= cfg.players_per_match:
         errs.append(
             f"Top {cfg.advance_per_match} cannot advance out of a "
-            f"{cfg.players_per_match}-player match — at least one player must be "
+            f"{cfg.players_per_match}-player match, at least one player must be "
             "knocked out."
         )
     # Custom opening-round layout, if provided, must itself be well-formed and be
@@ -190,7 +190,7 @@ def validate_config(cfg: TournamentConfig) -> List[str]:
         if not errs and cfg.advance_per_match >= min(cfg.opening_sizes):
             errs.append(
                 f"Top {cfg.advance_per_match} cannot advance out of a "
-                f"{min(cfg.opening_sizes)}-player match — make every opening match "
+                f"{min(cfg.opening_sizes)}-player match: make every opening match "
                 f"at least {cfg.advance_per_match + 1} players, or advance fewer."
             )
         if not errs:
@@ -205,7 +205,7 @@ def validate_config(cfg: TournamentConfig) -> List[str]:
                     f"size ({max(cfg.opening_sizes)})."
                 )
     # Belt-and-braces: actually plan the bracket. The rules above should make every
-    # surviving config converge, so a failure here is a bug, not a user mistake —
+    # surviving config converge, so a failure here is a bug, not a user mistake,
     # but it must never reach a live tournament.
     if not errs:
         try:
@@ -247,19 +247,19 @@ def validate_opening_sizes(sizes: List[int]) -> List[str]:
 
 
 # =============================================================================
-# DESIGNED BRACKETS — the canvas builder's data model
+# DESIGNED BRACKETS, the canvas builder's data model
 # =============================================================================
 # A designed bracket is an arbitrary DAG of matches instead of a generated grid.
 # The host places match boxes on a canvas, sets how many player spots each holds
 # (2–8) and how many players advance, then draws a connection from each advancing
 # finisher to the exact spot it fills in a later match. Every player spot is typed:
 #
-#   open        — a human or an AI may take it
-#   human       — a real player only
-#   ai          — always filled by a bot
-#   invite      — reserved for one named player
-#   winner_from — filled by the winner of another match      (rank 1)
-#   top_from    — filled by the Nth advancing player of another match (rank N)
+#   open, a human or an AI may take it
+#   human, a real player only
+#   ai, always filled by a bot
+#   invite: reserved for one named player
+#   winner_from: filled by the winner of another match      (rank 1)
+#   top_from: filled by the Nth advancing player of another match (rank N)
 #
 # The two feed kinds are the same edge with a different rank, so they share one
 # representation: (source match, rank). "Winner from" is simply rank 1.
@@ -430,7 +430,7 @@ class CustomBracket:
         return out
 
     def terminal_matches(self) -> List[CustomMatch]:
-        """Matches nothing advances out of — a well-formed bracket has exactly one
+        """Matches nothing advances out of, a well-formed bracket has exactly one
         (the Final, whose winner is the champion)."""
         fed_from = {s.source for m in self.matches for s in m.slots if s.is_feed}
         return [m for m in self.matches if m.id not in fed_from]
@@ -462,11 +462,11 @@ def validate_custom_bracket(spec: CustomBracket) -> List[str]:
         if not m.id:
             errs.append(f"{who} is missing an id.")
         elif m.id in seen_ids:
-            errs.append(f"Two matches share the id {m.id!r} — each match needs its own.")
+            errs.append(f"Two matches share the id {m.id!r}, each match needs its own.")
         seen_ids.add(m.id)
         if not (MIN_PLAYERS_PER_MATCH <= m.capacity <= MAX_PLAYERS_PER_MATCH):
             errs.append(
-                f"{who} has {m.capacity} player spot(s) — each match holds "
+                f"{who} has {m.capacity} player spot(s), each match holds "
                 f"{MIN_PLAYERS_PER_MATCH}–{MAX_PLAYERS_PER_MATCH}."
             )
             continue
@@ -474,7 +474,7 @@ def validate_custom_bracket(spec: CustomBracket) -> List[str]:
             errs.append(f"{who} must advance at least 1 player.")
         elif m.advance >= m.capacity:
             errs.append(
-                f"{who} advances {m.advance} of {m.capacity} players — a match must "
+                f"{who} advances {m.advance} of {m.capacity} players, a match must "
                 "knock at least one player out."
             )
         for si, s in enumerate(m.slots):
@@ -511,7 +511,7 @@ def validate_custom_bracket(spec: CustomBracket) -> List[str]:
             spots = ", ".join(f"{name(t[0])} spot {t[1] + 1}" for t in targets)
             errs.append(
                 f"{_place_word(rank)} of {name(sid)} is sent to {len(targets)} spots "
-                f"({spots}) — a player can only advance to one."
+                f"({spots}), a player can only advance to one."
             )
     if errs:
         return errs
@@ -534,12 +534,12 @@ def validate_custom_bracket(spec: CustomBracket) -> List[str]:
             + str(len(terminals))
             + " matches that lead nowhere ("
             + ", ".join(name(m.id) for m in terminals)
-            + ") — connect them so exactly one Final decides the champion."
+            + "): connect them so exactly one Final decides the champion."
         )
         return errs
     final = terminals[0]
     if final.advance != 1:
-        errs.append(f"{name(final.id)} is the Final — exactly 1 player can win it "
+        errs.append(f"{name(final.id)} is the Final, exactly 1 player can win it "
                     f"(it advances {final.advance}).")
 
     # ── every advancing player has a seat waiting ────────────────────────────
@@ -550,7 +550,7 @@ def validate_custom_bracket(spec: CustomBracket) -> List[str]:
         for rank in range(1, m.advance + 1):
             if (m.id, rank) not in consumed:
                 errs.append(
-                    f"{_place_word(rank)} of {m.display(i)} has nowhere to go — "
+                    f"{_place_word(rank)} of {m.display(i)} has nowhere to go: "
                     "connect it to a spot in a later match."
                 )
 
@@ -568,7 +568,7 @@ def validate_custom_bracket(spec: CustomBracket) -> List[str]:
             f"starting player spots (this bracket has {entries})."
         )
     if spec.human_capacity() < 1:
-        errs.append("Every spot is AI-only — leave at least one spot a person can take.")
+        errs.append("Every spot is AI-only: leave at least one spot a person can take.")
     return errs
 
 
@@ -636,7 +636,7 @@ def layer_custom_bracket(spec: CustomBracket) -> List[List[CustomMatch]]:
     """Group the designed matches into rounds by longest path from a starting match.
 
     A match sits one layer past the deepest match feeding it, so the Final (which
-    every path ends at) is always alone in the last layer — exactly the invariant
+    every path ends at) is always alone in the last layer, exactly the invariant
     the runtime Bracket relies on. Within a layer the host's own ordering is kept.
     """
     depth: Dict[str, int] = {}
@@ -703,7 +703,7 @@ def custom_bracket_summary(spec: CustomBracket) -> Dict[str, Any]:
 
 
 def make_uniform_graph(sizes: List[int]) -> CustomBracket:
-    """Build a designed bracket from a list of opening match sizes — the same shape
+    """Build a designed bracket from a list of opening match sizes, the same shape
     the simple custom builder produces. Handy as the canvas builder's starting
     point and as a test fixture: winners feed forward in order, round by round."""
     spec = CustomBracket()
@@ -742,7 +742,7 @@ def make_uniform_graph(sizes: List[int]) -> CustomBracket:
 def _effective_advance(capacity: int, advance: int) -> int:
     """How many players really get out of a match of ``capacity`` seats.
 
-    A match can never advance its whole field — somebody has to be knocked out —
+    A match can never advance its whole field, somebody has to be knocked out,
     so this clamps to ``capacity - 1``. A bye (capacity 1) is the one exception:
     its lone player advances, having played nobody. This clamp is what guarantees
     every (players, per-match, advance) combination converges on one champion."""
@@ -780,7 +780,7 @@ def plan_round_sizes(n_players: int, per_match: int, advance: int = 1,
     round is packed greedily from the number of advancing winners.
     """
     rounds: List[List[int]] = []
-    # A round holding exactly one match IS the Final — it crowns the champion
+    # A round holding exactly one match IS the Final, it crowns the champion
     # rather than advancing anyone, whatever ``advance`` says.
     survivors = lambda sizes: (1 if len(sizes) <= 1 else  # noqa: E731
                                sum(_effective_advance(s, advance) for s in sizes))
@@ -910,7 +910,7 @@ class Bracket:
         if cfg.opening_sizes:
             # Custom bracket: the shape is FIXED by opening_sizes (sized for
             # total_capacity). n_players is only how many real players will be
-            # seeded now — the rest of the slots wait for joiners/bots — so it may
+            # seeded now, the rest of the slots wait for joiners/bots, so it may
             # be anything from 0 (empty preview) up to capacity.
             if not (0 <= n_players <= cfg.total_capacity):
                 raise ValueError(
@@ -984,7 +984,7 @@ class Bracket:
         The graph is laid out into rounds by longest path, which puts the Final
         alone in the last round, then every "winner advances here" connection is
         translated into the same ``feeds`` links a generated bracket uses. From
-        that point on the designed bracket runs through the identical machinery —
+        that point on the designed bracket runs through the identical machinery:
         record_result / _push_winners / placements all work unchanged.
         """
         if spec is None:
@@ -1074,7 +1074,7 @@ class Bracket:
         For a generated bracket that is exactly round 1. A designed bracket may put
         starting spots in any round (e.g. a Final with two winner spots and one
         AI-only spot), so this walks the whole bracket in (round, match, spot) order
-        and returns the typed entry spots only — feed spots fill themselves as
+        and returns the typed entry spots only: feed spots fill themselves as
         matches finish. Each entry: {round_index, match_index, slot, kind, invite,
         match_number, label, seat}."""
         out: List[Dict[str, Any]] = []
@@ -1119,7 +1119,7 @@ class Bracket:
 
         By default the count must match the number of opening slots exactly (the
         real seeding at tournament start). Pass ``allow_partial=True`` to seed FEWER
-        players than slots — used to render a live lobby PREVIEW where remaining
+        players than slots: used to render a live lobby PREVIEW where remaining
         seats are still empty (they fill as players join or bots are added)."""
         if self.spec is not None:
             # Designed bracket: seats are typed and may sit in any round, so fill
@@ -1445,7 +1445,7 @@ def available_formats(total_capacity: int, advance: int = 1) -> List[Dict[str, A
 
 
 # =============================================================================
-# XP (§12) — amounts + stable component ids; caller enforces idempotency
+# XP (§12): amounts + stable component ids; caller enforces idempotency
 # =============================================================================
 
 # Base rewards calibrated for a full 32-player tournament.
@@ -1463,7 +1463,7 @@ XP_BASE = {
 
 
 # Below this many distinct real (non-guest) accounts, the big placement/champion/
-# progress rewards are withheld — a tournament padded with guests or a single main
+# progress rewards are withheld, a tournament padded with guests or a single main
 # vs. throwaways cannot be farmed for meaningful XP. (Guests never get XP at all.)
 MIN_REAL_ACCOUNTS_FOR_PLACEMENT_XP = 3
 

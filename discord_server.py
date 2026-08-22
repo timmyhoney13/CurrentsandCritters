@@ -1,4 +1,4 @@
-"""Currents and Critters — the Discord join reward (server-authoritative).
+"""Currents and Critters, the Discord join reward (server-authoritative).
 
 Critter Coins, once, for ACTUALLY being in the Discord server. Wired additively
 into multiplayer_server the same way clan_server / prestige_server are:
@@ -9,7 +9,7 @@ into multiplayer_server the same way clan_server / prestige_server are:
     if discord_server.handle_post(self, parsed, body): ...     # in do_POST
 
 WHY THERE IS AN OAUTH FLOW HERE AT ALL
-A "did you join? [yes]" button is not a membership check — it is a free coin
+A "did you join? [yes]" button is not a membership check, it is a free coin
 button. So the player authorises us with Discord and the SERVER asks Discord
 whether that Discord account is in our guild. The browser never tells us the
 answer, and there is no code path that pays out without Discord having said yes.
@@ -21,24 +21,24 @@ THE THREE THINGS THAT CANNOT HAPPEN
   3. Paid without being a member.       →  _guild_membership() must return True.
 Both ledger docs are written with create() INSIDE the same transaction as the
 coin write, so the coins cannot exist without the ledger and the ledger cannot
-exist without the coins. That doc-id create() is the whole guarantee — see the
+exist without the coins. That doc-id create() is the whole guarantee: see the
 identical pattern in prestige_server._commit.
 
 WHO PAYS FOR PEOPLE ALREADY IN THE SERVER
 Nobody has to. An existing member runs the exact same flow: they authorise,
 Discord says "yes, a member", they get paid. There is no separate backfill and
-no list of names to keep — being in the server is the only thing checked, and
+no list of names to keep: being in the server is the only thing checked, and
 it is checked live at claim time.
 
-CONFIGURATION (all env vars — see DISCORD_REWARD_SETUP.md for the walkthrough)
+CONFIGURATION (all env vars: see DISCORD_REWARD_SETUP.md for the walkthrough)
     DISCORD_CLIENT_ID       the OAuth2 app's Client ID
     DISCORD_CLIENT_SECRET   its Client Secret         (never leaves this server)
     DISCORD_GUILD_ID        the server ("guild") id players must be in
-    DISCORD_REDIRECT_URI    optional — defaults to the play. host's /callback,
+    DISCORD_REDIRECT_URI    optional: defaults to the play. host's /callback,
                             and MUST be listed as a redirect on the OAuth app
-    DISCORD_INVITE_URL      optional — the invite the client advertises
-    DISCORD_REWARD_COINS    optional — defaults to 250
-    DISCORD_STATE_SECRET    optional — defaults to the client secret
+    DISCORD_INVITE_URL      optional, the invite the client advertises
+    DISCORD_REWARD_COINS    optional, defaults to 100
+    DISCORD_STATE_SECRET    optional: defaults to the client secret
 With any of the first three missing the feature reports enabled:false, the
 client hides the offer entirely, and every claim endpoint refuses. It never
 degrades into paying out unverified.
@@ -77,7 +77,7 @@ def init(*, get_firestore, verify_token) -> None:
 DISCORD_API = "https://discord.com/api/v10"
 DEFAULT_INVITE_URL = "https://discord.gg/T9V2eqxf8"
 DEFAULT_REDIRECT_URI = "https://play.currentsandcritters.com/api/discord/callback"
-DEFAULT_REWARD_COINS = 250
+DEFAULT_REWARD_COINS = 100
 
 # identify            → the Discord user id, which is what stops one Discord
 #                       account paying out on five game accounts.
@@ -127,7 +127,7 @@ def is_enabled() -> bool:
 
 
 def config_status() -> Dict[str, Any]:
-    """What is missing, for the startup log — names only, never values."""
+    """What is missing, for the startup log: names only, never values."""
     missing = [n for n in ("DISCORD_CLIENT_ID", "DISCORD_CLIENT_SECRET", "DISCORD_GUILD_ID")
                if not _env(n)]
     return {"enabled": is_enabled(), "missing": missing,
@@ -152,7 +152,7 @@ def _sign(body: str) -> str:
 
 
 def make_state(uid: str) -> str:
-    """`v1.<payload>.<sig>` — payload carries the uid, an issue time and a
+    """`v1.<payload>.<sig>`: payload carries the uid, an issue time and a
     single-use nonce."""
     payload = {"u": str(uid), "t": int(time.time()), "n": secrets.token_urlsafe(9)}
     body = _b64u(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8"))
@@ -160,7 +160,7 @@ def make_state(uid: str) -> str:
 
 
 # Nonces already spent, so a captured redirect URL cannot be replayed to re-run
-# the Discord round-trip. (It could never pay twice — the ledger stops that —
+# the Discord round-trip. (It could never pay twice, the ledger stops that,
 # but there is no reason to let it be replayed at all.) Process-local and
 # self-pruning; the ledger remains the durable guarantee across restarts.
 _USED_NONCES: Dict[str, float] = {}
@@ -223,7 +223,7 @@ def authorize_url(uid: str) -> str:
         # are about to use.
         "prompt": "consent",
     }
-    # quote_via=quote so the scope separator is %20 rather than "+" — both are
+    # quote_via=quote so the scope separator is %20 rather than "+", both are
     # accepted, but %20 is what Discord's own docs show and it cannot be
     # misread as a literal plus.
     return ("https://discord.com/oauth2/authorize?"
@@ -337,7 +337,7 @@ def _revoke_later(token: str) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  FIRESTORE — the payout and its two "exactly once" guards
+#  FIRESTORE, the payout and its two "exactly once" guards
 # ═══════════════════════════════════════════════════════════════════════════
 _SAFE_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,120}$")
 
@@ -385,7 +385,7 @@ def claim_state(db, uid: str) -> Dict[str, Any]:
 
 def _grant(db, uid: str, discord_id: str, discord_username: str) -> Dict[str, Any]:
     """Pay the reward exactly once. Discord has already confirmed membership by
-    the time this runs — this function's whole job is the "exactly once" part.
+    the time this runs, this function's whole job is the "exactly once" part.
 
     All reads happen before all writes (a Firestore transaction requires it),
     and both ledger docs are create()d, so a race between two tabs, two devices
@@ -463,7 +463,7 @@ def _grant(db, uid: str, discord_id: str, discord_username: str) -> Dict[str, An
     try:
         return _run(txn)
     except Exception as exc:  # noqa: BLE001
-        # A create() collision means another request won the race — the guard
+        # A create() collision means another request won the race, the guard
         # doing its job, not an outage. ONLY that one maps to "already
         # claimed": a contention abort wrote nothing, and telling someone they
         # have been paid when they have not is the one wrong answer here, since
@@ -519,19 +519,19 @@ ERROR_MESSAGES = {
     "discord_already_used": "That Discord account has already claimed the reward "
                             "on another Currents and Critters account.",
     "discord_denied": "You cancelled the Discord sign-in, so nothing was claimed.",
-    "discord_unreachable": "Discord didn't answer just now. Nothing was claimed — "
+    "discord_unreachable": "Discord didn't answer just now. Nothing was claimed: "
                            "please try again in a minute.",
     "discord_rejected": "Discord wouldn't confirm that sign-in. Nothing was claimed "
-                        "— please try again.",
+                        "please try again.",
     "state_expired": "That claim window timed out. Please start it again.",
     "state_used": "That claim link was already used. Please start it again.",
     "bad_state": "That claim link wasn't valid. Please start it again from the game.",
     "not_configured": "The Discord reward isn't switched on yet.",
     "no_account": "Sign in to the game first, then claim.",
     "firestore_unavailable": "The server couldn't reach your account just now. "
-                             "Nothing was claimed — please try again.",
+                             "Nothing was claimed: please try again.",
     "bad_request": "Something was wrong with that claim. Please try again.",
-    "server_error": "Something went wrong. Nothing was claimed — please try again.",
+    "server_error": "Something went wrong. Nothing was claimed: please try again.",
 }
 
 
@@ -562,7 +562,7 @@ def _callback_html(result: Dict[str, Any]) -> bytes:
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Currents and Critters &mdash; Discord</title>
+<title>Currents and Critters: Discord</title>
 <style>
   html,body{{margin:0;height:100%;font-family:Nunito,system-ui,-apple-system,Segoe UI,sans-serif;
     background:linear-gradient(180deg,#0b3a5c,#07263d);color:#eaf6ff;
@@ -621,8 +621,8 @@ def _state_payload(uid: Optional[str]) -> Dict[str, Any]:
     if not out["enabled"]:
         # Say WHICH variables are still missing (names only, never values) so
         # "the offer never appeared" can be diagnosed with one request instead
-        # of a trip through the Render logs. The names are already public — they
-        # are in DISCORD_REWARD_SETUP.md — and "off" is obvious from `enabled`.
+        # of a trip through the Render logs. The names are already public, they
+        # are in DISCORD_REWARD_SETUP.md, and "off" is obvious from `enabled`.
         out["missing"] = config_status()["missing"]
     if not uid or not out["enabled"]:
         return out
@@ -637,7 +637,7 @@ def _state_payload(uid: Optional[str]) -> Dict[str, Any]:
 
 
 def handle_get(handler, parsed) -> bool:
-    """GET /api/discord/callback — where Discord sends the player back.
+    """GET /api/discord/callback, where Discord sends the player back.
 
     Carries no Firebase token (Discord controls this redirect), so the SIGNED
     `state` is the only thing that says whose account this is.
@@ -674,8 +674,8 @@ def handle_get(handler, parsed) -> bool:
 
 
 def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
-    """POST /api/discord/state  — is the offer on, and has this account claimed?
-       POST /api/discord/start  — begin a verified claim (returns the Discord URL)
+    """POST /api/discord/state: is the offer on, and has this account claimed?
+       POST /api/discord/start: begin a verified claim (returns the Discord URL)
     """
     path = parsed.path
     if not path.startswith("/api/discord/"):
@@ -698,7 +698,7 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
             handler._send_json({"ok": False, "error": "unauthorized"}, status=401)
             return True
         # A courtesy pre-check so an already-paid account is told so without a
-        # pointless trip to Discord. It is NOT the guard — _grant is.
+        # pointless trip to Discord. It is NOT the guard: _grant is.
         db = _get_firestore() if _get_firestore else None
         if db is not None:
             try:

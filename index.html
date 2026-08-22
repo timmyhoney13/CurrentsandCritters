@@ -7,11 +7,11 @@
 <link rel="icon" href="assets/logo-icon.svg"/>
 <link rel="stylesheet" href="styles.css"/>
 <!-- Game Night band. The banner's markup is built by /js/game-night.js, which
-     the GAME serves too — Vercel rewrites /css/:file and /js/:file to
+     the GAME serves too: Vercel rewrites /css/:file and /js/:file to
      multiplayer/client/, so both hosts render the identical banner from one
      source. Two copies of an event time is how a site ends up advertising
      last season's schedule on one of them. -->
-<link rel="stylesheet" href="/css/game-night.css?v=2026-08-21.6"/>
+<link rel="stylesheet" href="/css/game-night.css?v=2026-08-22.1"/>
 <!-- Luckiest Guy: the chunky display font for the Supporter Reef Wall donor names
      (see .scn-name in the inline styles below). Loaded here, page-local, so it
      doesn't weigh down the game app which shares colors_and_type.css. -->
@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap"/>
 <script src="image-slot.js"></script>
-<script defer src="/js/game-night.js?v=2026-08-21.6"></script>
+<script defer src="/js/game-night.js?v=2026-08-22.1"></script>
 <style>
   /* ── OLD-SITE NOTICE BAR ─────────────────────────────────────────── */
   .oldsite-bar {
@@ -1358,13 +1358,13 @@ updateBetaBarClear();
 
 <!-- ============ EMAIL-LIST SIGNUP TARGET ============ -->
 <script>
-// Single source of truth for the "Join the Email List" links — hero, nav,
+// Single source of truth for the "Join the Email List" links: hero, nav,
 // Our Story band and footer all read this one value.
 //
 // It points at the real signup page, which writes into the NEWSLETTER SYSTEM.
 // It used to be a Google Form: those signups landed in a spreadsheet that no
 // campaign has ever read from, so everyone who filled it in was never actually
-// on the list. The mailto: before that was worse — manual retyping.
+// on the list. The mailto: before that was worse: manual retyping.
 // The mailto: in the HTML stays as the fallback if this is ever blanked.
 (function () {
   const EMAIL_LIST_FORM_URL = 'https://play.currentsandcritters.com/newsletter/join';

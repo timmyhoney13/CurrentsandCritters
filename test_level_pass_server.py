@@ -1,8 +1,8 @@
-"""test_level_pass_server.py — the Level Pass, where it pays out.
+"""test_level_pass_server.py, the Level Pass, where it pays out.
 
 Every tier on the track hands over real currency: Critter Coins, Streak
 Shields, backgrounds, XP boosts. So the tests that matter are not "does the
-page render" — they are the four things that must never happen:
+page render", they are the four things that must never happen:
 
   1. A tier paying twice.                → the ledger create() guard
   2. A tier paying at a level the account has not reached.
@@ -43,12 +43,12 @@ PREVIEW_JS = os.path.join(ROOT, "multiplayer", "client", "js", "preview-app.js")
 # ══════════════════════════════════════════════════════════════════════════
 #  In-memory Firestore
 #  Faithful in the two ways this module depends on: set(merge=True) merges
-#  nested maps key-by-key, and create() on an existing id RAISES — which is
+#  nested maps key-by-key, and create() on an existing id RAISES, which is
 #  the entire "cannot be claimed twice" guarantee.
 # ══════════════════════════════════════════════════════════════════════════
 class ArrayUnion:
-    """Stands in for firestore.ArrayUnion. Appending through this — rather than
-    writing back a list the module just read and normalised — is what stops a
+    """Stands in for firestore.ArrayUnion. Appending through this, rather than
+    writing back a list the module just read and normalised: is what stops a
     payout deleting entries the normaliser did not recognise."""
     def __init__(self, items):
         self.items = list(items)
@@ -139,7 +139,7 @@ class FakeColl:
 
 class FakeTxn:
     """Writes land immediately. Good enough here: the fake runs the body once,
-    and the guarantee under test — create() refusing the second run — is
+    and the guarantee under test: create() refusing the second run: is
     reproduced exactly."""
     def __init__(self, db):
         self._db = db
@@ -245,6 +245,25 @@ class PassTestBase(unittest.TestCase):
                 return t
         raise AssertionError(f"no {rtype} tier at level {level}")
 
+    def first_tier_of(self, rtype):
+        """The lowest-level tier of a given type.
+
+        Tests ask for "a shield tier", not "the shield tier at level 5". The
+        track's LEVELS are an economy dial and get retuned; the rules being
+        tested here are not. Looking tiers up by type is what stops a rebalance
+        showing up as a wall of failing tests about claiming and caps."""
+        for t in sorted(lp.track(), key=lambda x: x["level"]):
+            if t["type"] == rtype:
+                return t
+        raise AssertionError(f"the track has no {rtype} tier at all")
+
+    def level_with_a_claimable_below(self, rtype):
+        """A level high enough to have claimed both `rtype` and a coins tier,
+        for the claim-all sweep tests."""
+        t = self.first_tier_of(rtype)
+        coins = self.first_tier_of("coins")
+        return max(t["level"], coins["level"])
+
 
 # ══════════════════════════════════════════════════════════════════════════
 #  THE TRACK ITSELF
@@ -253,7 +272,7 @@ class TrackShape(PassTestBase):
     def test_tier_ids_are_unique(self):
         ids = [t["id"] for t in lp.track()]
         self.assertEqual(len(ids), len(set(ids)),
-                         "two tiers share an id — they would share a ledger doc, "
+                         "two tiers share an id, they would share a ledger doc, "
                          "so claiming one would silently claim the other")
 
     def test_levels_are_in_range(self):
@@ -270,7 +289,7 @@ class TrackShape(PassTestBase):
             if level == MAX_LEVEL:
                 continue
             self.assertEqual(len(tiers), 1,
-                             f"level {level} carries {len(tiers)} rewards — the track "
+                             f"level {level} carries {len(tiers)} rewards, the track "
                              "is meant to be a steady drip, not a pile")
 
     def test_critter_tiers_are_not_claimable(self):
@@ -279,7 +298,7 @@ class TrackShape(PassTestBase):
         for t in lp.track():
             if t["type"] == "critter":
                 self.assertFalse(t["claimable"],
-                                 f"{t['id']} is claimable — that reopens the traded-away hole")
+                                 f"{t['id']} is claimable, that reopens the traded-away hole")
 
     def test_every_claimable_tier_has_a_label_and_a_blurb(self):
         for t in lp.track():
@@ -287,14 +306,20 @@ class TrackShape(PassTestBase):
             self.assertTrue(t["blurb"].strip(), f"{t['id']} has no blurb")
             self.assertTrue(t["icon"].strip(), f"{t['id']} has no icon")
 
-    def test_coin_payout_stays_in_proportion(self):
-        """The whole track should be worth a few Store items, not a fortune.
-        A background is 1,000 coins and a skin 2,000; anything past ~10,000
-        across 100 levels makes the Store pointless."""
+    TRACK_COIN_BUDGET = 4000
+
+    def test_the_whole_track_pays_exactly_the_coin_budget(self):
+        """4,000 Critter Coins across all 100 levels, and not a coin more.
+
+        This is a deliberate ceiling, not an incidental total: a background is
+        1,000 coins and a skin 2,000, so the whole climb from 1 to 100 is worth
+        about two Store items. Retuning individual tiers is fine; the tiers
+        have to be rebalanced against each other rather than the budget being
+        quietly raised, which is what this assertion is here to force."""
         total = sum(t["amount"] for t in lp.track() if t["type"] == "coins")
-        self.assertGreater(total, 2000, "the track barely pays anything")
-        self.assertLess(total, 10000,
-                        f"the track pays {total} coins — that devalues the Store")
+        self.assertEqual(total, self.TRACK_COIN_BUDGET,
+                         f"the track pays {total} coins, budget is "
+                         f"{self.TRACK_COIN_BUDGET}")
 
     def test_milestone_critters_match_the_client_level_unlocks(self):
         """THE drift check.
@@ -306,7 +331,7 @@ class TrackShape(PassTestBase):
             src = fh.read()
         # Split ANIMAL_AVATARS into one slice per entry FIRST. Matching across
         # the whole file lets a `{ id:… }` with a non-level unlock swallow the
-        # NEXT entry's `unlock:{type:"level"}` — which is exactly what a lazy
+        # NEXT entry's `unlock:{type:"level"}`, which is exactly what a lazy
         # cross-entry regex did here, and it read Peruvian Pelican as the
         # level-80 avatar.
         starts = [m.start() for m in re.finditer(r'\{\s*id:"[a-z0-9-]+",\s*name:"', src)]
@@ -327,7 +352,7 @@ class TrackShape(PassTestBase):
         self.assertEqual(
             sorted(client.keys()), sorted(pass_critters.keys()),
             f"level-gated avatars {sorted(client.keys())} but the pass shows "
-            f"{sorted(pass_critters.keys())} — one of them was changed alone")
+            f"{sorted(pass_critters.keys())}, one of them was changed alone")
         for level, (name, img) in client.items():
             self.assertEqual(pass_critters[level][0], name,
                              f"level {level}: pass says {pass_critters[level][0]}, client says {name}")
@@ -350,7 +375,7 @@ class TrackShape(PassTestBase):
 # ══════════════════════════════════════════════════════════════════════════
 class Claiming(PassTestBase):
     def test_coins_land_once_and_only_once(self):
-        tier = self.tier_of(2, "coins")
+        tier = self.first_tier_of("coins")
         self.make_user(level=5, coins=10)
 
         first = lp.claim(self.db, "u1", tier["id"])
@@ -365,25 +390,28 @@ class Claiming(PassTestBase):
         self.assertEqual(len(self.ledger_ids()), 1)
 
     def test_a_level_you_have_not_reached_pays_nothing(self):
-        tier = self.tier_of(99, "coins")
+        tier = sorted((t for t in lp.track() if t["type"] == "coins"),
+                      key=lambda x: x["level"])[-1]
         self.make_user(level=5, coins=0)
         res = lp.claim(self.db, "u1", tier["id"])
         self.assertFalse(res["ok"])
         self.assertEqual(res["error"], "level_locked")
         self.assertEqual(self.coins(), 0)
         self.assertEqual(self.ledger_ids(), [],
-                         "a refused claim wrote a ledger entry — the tier is now "
+                         "a refused claim wrote a ledger entry, the tier is now "
                          "unclaimable forever")
 
     def test_the_level_comes_from_the_account_not_the_request(self):
-        """There is no level in a claim request at all — the only way to move
+        """There is no level in a claim request at all, the only way to move
         the gate is to actually have the XP. Prove it by moving total_xp."""
-        tier = self.tier_of(99, "coins")
+        tier = sorted((t for t in lp.track() if t["type"] == "coins"),
+                      key=lambda x: x["level"])[-1]
         self.make_user(level=5)
         self.assertFalse(lp.claim(self.db, "u1", tier["id"])["ok"])
 
-        # Same request, same tier — only the stored XP changed.
-        self.db.collection("users")._docs["u1"]["stats"]["total_xp"] = xp_for_level(99)
+        # Same request, same tier, only the stored XP changed.
+        self.db.collection("users")._docs["u1"]["stats"]["total_xp"] = \
+            xp_for_level(tier["level"])
         self.assertTrue(lp.claim(self.db, "u1", tier["id"])["ok"])
 
     def test_unknown_and_unclaimable_tiers_are_refused(self):
@@ -394,11 +422,11 @@ class Claiming(PassTestBase):
         self.assertEqual(self.ledger_ids(), [])
 
     def test_a_missing_account_is_refused(self):
-        tier = self.tier_of(2, "coins")
+        tier = self.first_tier_of("coins")
         self.assertEqual(lp.claim(self.db, "nobody", tier["id"])["error"], "no_account")
 
     def test_claiming_does_not_disturb_the_rest_of_stats(self):
-        tier = self.tier_of(2, "coins")
+        tier = self.first_tier_of("coins")
         self.make_user(level=5, coins=5)
         self.db.collection("users")._docs["u1"]["stats"]["daily_streak"] = 12
         lp.claim(self.db, "u1", tier["id"])
@@ -408,8 +436,8 @@ class Claiming(PassTestBase):
 
 class Consumables(PassTestBase):
     def test_shields_stack_up_to_the_cap_then_refuse(self):
-        tier = self.tier_of(5, "shield")
-        self.make_user(level=10, streak_shields=lp.MAX_SHIELDS)
+        tier = self.first_tier_of("shield")
+        self.make_user(level=tier["level"], streak_shields=lp.MAX_SHIELDS)
         res = lp.claim(self.db, "u1", tier["id"])
         self.assertEqual(res["error"], "shields_full")
         self.assertEqual(self.ledger_ids(), [],
@@ -420,21 +448,21 @@ class Consumables(PassTestBase):
         self.assertEqual(self.user()["streak_shields"], 1)
 
     def test_boost_and_reroll_tiers_grant_inventory_not_an_active_effect(self):
-        self.make_user(level=20)
-        boost = self.tier_of(13, "boost")
-        reroll = self.tier_of(15, "reroll")
+        boost = self.first_tier_of("boost")
+        reroll = self.first_tier_of("reroll")
+        self.make_user(level=max(boost["level"], reroll["level"]))
         self.assertTrue(lp.claim(self.db, "u1", boost["id"])["ok"])
         self.assertTrue(lp.claim(self.db, "u1", reroll["id"])["ok"])
         doc = self.user()
         self.assertEqual(doc["xp_boosts"], 1)
         self.assertEqual(doc["weekly_reroll_tokens"], 1)
-        # Claiming must NOT start the clock — that is what activation is for.
+        # Claiming must NOT start the clock, that is what activation is for.
         self.assertNotIn("xp_boost_until", doc)
 
 
 class BackgroundsAndStickers(PassTestBase):
     def test_background_picks_the_first_one_not_owned(self):
-        tier = self.tier_of(40, "background")
+        tier = self.first_tier_of("background")
         self.make_user(level=50, unlocked_backgrounds=[BACKGROUNDS[0]])
         res = lp.claim(self.db, "u1", tier["id"])
         self.assertTrue(res["ok"], res)
@@ -442,19 +470,19 @@ class BackgroundsAndStickers(PassTestBase):
         self.assertIn(BACKGROUNDS[1], self.user()["unlocked_backgrounds"])
 
     def test_owning_every_background_leaves_the_tier_claimable(self):
-        tier = self.tier_of(40, "background")
+        tier = self.first_tier_of("background")
         self.make_user(level=50, unlocked_backgrounds=list(BACKGROUNDS))
         res = lp.claim(self.db, "u1", tier["id"])
         self.assertEqual(res["error"], "backgrounds_full")
         self.assertEqual(self.ledger_ids(), [],
-                         "the tier burned itself on a reward it could not give — "
+                         "the tier burned itself on a reward it could not give: "
                          "it must wait for the next batch instead")
 
     def test_a_background_grant_appends_and_never_rewrites_the_list(self):
         """The normaliser lowercases and drops anything unrecognised. Writing
-        that normalised copy back would delete the odd entry — so grants go
+        that normalised copy back would delete the odd entry, so grants go
         through ArrayUnion. This is the regression test for exactly that."""
-        tier = self.tier_of(40, "background")
+        tier = self.first_tier_of("background")
         self.make_user(level=50,
                        unlocked_backgrounds=["/backgrounds/CUSTOM-Legacy.PNG"])
         self.assertTrue(lp.claim(self.db, "u1", tier["id"])["ok"])
@@ -464,26 +492,26 @@ class BackgroundsAndStickers(PassTestBase):
         self.assertIn(BACKGROUNDS[0], after)
 
     def test_sticker_falls_back_to_the_starter_mullet(self):
-        """A brand-new account has an EMPTY unlocked_icons — mullet is the
+        """A brand-new account has an EMPTY unlocked_icons: mullet is the
         starter and is never written there. Without seeding it, the level-3
         sticker would have nothing to give a new player."""
-        tier = self.tier_of(3, "sticker")
-        self.make_user(level=5)
+        tier = self.first_tier_of("sticker")
+        self.make_user(level=tier["level"])
         res = lp.claim(self.db, "u1", tier["id"])
         self.assertTrue(res["ok"], res)
         self.assertEqual(res["granted"]["path"], "/avatars/mullet.png")
 
     def test_sticker_skips_critters_that_already_have_one(self):
-        tier = self.tier_of(3, "sticker")
-        self.make_user(level=5,
+        tier = self.first_tier_of("sticker")
+        self.make_user(level=tier["level"],
                        unlocked_icons=["/avatars/blue-tang.png"],
                        emote_icons=["/avatars/mullet.png"])
         res = lp.claim(self.db, "u1", tier["id"])
         self.assertEqual(res["granted"]["path"], "/avatars/blue-tang.png")
 
     def test_sticker_refuses_without_burning_the_tier(self):
-        tier = self.tier_of(3, "sticker")
-        self.make_user(level=5, emote_icons=["/avatars/mullet.png"])
+        tier = self.first_tier_of("sticker")
+        self.make_user(level=tier["level"], emote_icons=["/avatars/mullet.png"])
         res = lp.claim(self.db, "u1", tier["id"])
         self.assertEqual(res["error"], "stickers_full")
         self.assertEqual(self.ledger_ids(), [])
@@ -514,7 +542,8 @@ class ClaimAll(PassTestBase):
 
     def test_one_refusing_tier_does_not_stop_the_others(self):
         """A full shield hoard must not swallow the coins on the same sweep."""
-        self.make_user(level=12, streak_shields=lp.MAX_SHIELDS)
+        self.make_user(level=self.level_with_a_claimable_below("shield"),
+                       streak_shields=lp.MAX_SHIELDS)
         res = lp.claim_all(self.db, "u1")
         self.assertTrue(res["ok"])
         self.assertGreater(self.coins(), 0, "the coin tiers were skipped too")
@@ -608,7 +637,7 @@ class State(PassTestBase):
 
     def test_reports_level_progress_and_claims(self):
         self.make_user(level=12, coins=40)
-        tier = self.tier_of(2, "coins")
+        tier = self.first_tier_of("coins")
         lp.claim(self.db, "u1", tier["id"])
         out = lp.state_payload("u1")
         self.assertEqual(out["level"], 12)
@@ -664,7 +693,7 @@ class Http(PassTestBase):
             self.assertEqual(h.payload["error"], "unauthorized", action)
 
     def test_claim_over_http_pays_and_reports_inventory(self):
-        tier = self.tier_of(2, "coins")
+        tier = self.first_tier_of("coins")
         self.make_user(level=5, coins=0)
         handled, h = self.post("/api/pass/claim",
                                {"idToken": "good:u1", "tier": tier["id"]})
@@ -673,7 +702,8 @@ class Http(PassTestBase):
         self.assertEqual(h.payload["inventory"]["coins"], tier["amount"])
 
     def test_a_refusal_carries_a_sentence_a_player_can_act_on(self):
-        tier = self.tier_of(99, "coins")
+        tier = sorted((t for t in lp.track() if t["type"] == "coins"),
+                      key=lambda x: x["level"])[-1]
         self.make_user(level=1)
         _, h = self.post("/api/pass/claim", {"idToken": "good:u1", "tier": tier["id"]})
         self.assertFalse(h.payload["ok"])

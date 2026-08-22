@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.73";
-  const APP_BUILD   = "2026-08-21.6";
+  const APP_VERSION = "1.6.74";
+  const APP_BUILD   = "2026-08-22.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -73,43 +73,38 @@
     { ver: "V1.7.0", title: "🎲 Game Night, every Saturday", items: [
       "Game Night is every Saturday, 7:00–9:00 PM CST. There is a banner at the top of your Player Home and on the website that says when the next one is, counts down to it, and turns green while it is running.",
       "It also shows the time in YOUR time zone, so 7 PM CST does not have to be worked out on paper.",
-      "RSVP is not mandatory — but it is recommended, so we know how many tables to set. The RSVP button takes you to the Discord server, where the event lives.",
+      "RSVP is not mandatory, but it is recommended. The RSVP button takes you to the Discord server, where the event lives.",
     ]},
-    { ver: "V1.7.0", title: "🎁 Bring a friend, you both get 100 Critter Coins", items: [
-      "There is a friend-code box on the sign-up screen now. A friend who makes an account and types your code earns 100 Critter Coins for them AND 100 for you, every single time.",
-      "Every 5 friends you bring in earns you a free avatar background on top of that. Your Friends tab shows how many have joined and how many more until the next one.",
+    { ver: "V1.7.0", title: "🎁 Bring a friend, you both get Critter Coins", items: [
+      "There is a friend-code box on the sign-up screen now. A friend who makes an account and types your code earns 40 Critter Coins for them AND 40 for you, every single time.",
+      "Every 10 friends you bring in earns you a free avatar background on top of that. Your Friends tab shows how many have joined and how many more until the next one.",
       "It is a sign-up bonus, so a code can be entered in the first 14 days of a new account, once per account. Your own code never works on your own account, and two accounts cannot refer each other in a circle.",
       "The coins are paid out by the server into both accounts at once, so there is no waiting and nothing to claim.",
     ]},
     { ver: "V1.7.0", title: "🏅 The Level Pass", items: [
       "Every level you climb now has something waiting on it. There is a new Level Pass page in the sidebar with the whole track on it: Critter Coins, Streak Shields, critter stickers, XP Boosts, Weekly Swaps and free backgrounds, all the way to Level 100.",
-      "It always tells you how much XP is left until the next thing — at the top of the page, and on every reward still ahead of you.",
+      "It always tells you how much XP is left until the next thing, at the top of the page, and on every reward still ahead of you.",
       "Rewards are yours the moment you reach the level. They never expire, and Claim All takes everything you have earned in one tap.",
-      "XP Boost: +20% XP for 24 hours, from everything — games, the daily login bonus, challenges and achievements alike. You hold it until you want it, so it is never wasted.",
+      "XP Boost: +20% XP for 24 hours, from everything: games, the daily login bonus, challenges and achievements alike. You hold it until you want it, so it is never wasted.",
       "Streak Shields cover a missed day so your daily streak survives it. The pass hands them out as you level, on top of the ones the Store sells.",
       "Weekly Swap: spend one and you can swap out as many weekly challenges as you like for the rest of that week. A 🔄 Swap button appears on each weekly challenge while it is active.",
       "Critter stickers unlock for critters you own and show up in game chat.",
-      "The critters you unlock by levelling up — Blue Tang, Manta Ray, Great White Shark and the rest — are marked on the track as milestones. They still unlock on their own the moment you reach the level, exactly as before.",
-    ]},
-    { ver: "V1.7.0", title: "🐠 The Avatar Gallery shows you what is next", items: [
-      "There is a Level Track along the top of the Avatar Gallery: every critter you unlock by levelling up, on one scrollable line, with the critter above the tick and the level below it.",
-      "It marks where you are, and says how much XP is left until the next one — \"3,450 XP till you unlock the Manta Ray\" — plus roughly how many more wins that is.",
-      "The track opens on your own position rather than at Level 10, so a level-70 player sees their own stretch of it straight away.",
+      "Blue Tang, Manta Ray, Great White Shark and the rest of the critters you unlock by levelling up are marked on the track as milestones. They still unlock on their own the moment you reach the level, exactly as before.",
     ]},
     { ver: "V1.7.0", title: "👁️ A peek at someone's board goes away when you do", items: [
-      "Hovering a player to peek at their board no longer leaves that peek stuck on screen. Every seat and opponent card is rebuilt whenever the scores or the turn change, and a panel pinned to an element that no longer exists was never told the mouse had left it — so one peek could sit over the table for the rest of the game, over the end screen, and follow you back out to Player Home.",
+      "Hovering a player to peek at their board no longer leaves that peek stuck on screen. Every seat and opponent card is rebuilt whenever the scores or the turn change, and a panel pinned to an element that no longer exists was never told the mouse had left it, so one peek could sit over the table for the rest of the game, over the end screen, and follow you back out to Player Home.",
       "It now closes the moment you look away: move off it, click, scroll, switch tabs or leave the window and it is gone. If the seat underneath was simply redrawn while you were still hovering it, the peek stays put and refreshes instead of flickering away.",
-      "The game ending closes it too, along with an enlarged board left open from clicking a player — and Escape now closes that enlarged board, the same as the ✕ and clicking the backdrop.",
+      "The game ending closes it too, along with an enlarged board left open from clicking a player, and Escape now closes that enlarged board, the same as the ✕ and clicking the backdrop.",
       "On phones and tablets the peek no longer opens at all. There is no \"move the mouse away\" on a touchscreen, so it could only be dismissed by tapping something else; tapping a player to enlarge their board already does the job.",
     ]},
     { ver: "V1.7.0", title: "🚪 The way in: one click, one screen", items: [
-      "Choosing Computer or Mobile on the first screen no longer asks you for a guest nickname. The laptop and phone you tap there are painted in the same spot as PLAY AS GUEST on the sign-in screen behind them, so the moment the device screen closed, your cursor was resting on a button you could not see — and the second half of a double-click pressed it. You would land in the guest name box without ever having chosen to play as a guest.",
+      "Choosing Computer or Mobile on the first screen no longer asks you for a guest nickname. The laptop and phone you tap there are painted in the same spot as PLAY AS GUEST on the sign-in screen behind them, so the moment the device screen closed, your cursor was resting on a button you could not see, and the second half of a double-click pressed it. You would land in the guest name box without ever having chosen to play as a guest.",
       "The sign-in buttons are also held back until the screen has actually drawn itself. They are invisible shapes over the artwork, and on a slow connection they were live before there was anything on screen to aim at, so a click anywhere near the middle went to Play as Guest.",
-      "Both guards let go on their own — a missing or slow background can never leave you facing two buttons that do nothing.",
+      "Both guards let go on their own, a missing or slow background can never leave you facing two buttons that do nothing.",
     ]},
     { ver: "V1.7.0", title: "💬 The Discord reward is offered once, and only once", items: [
       "Collect the 250 Critter Coins for joining the Discord and the offer stays collected. It could come back reading \"+250 Critter Coins\" on an account that had already been paid, which meant clicking it just to be told no.",
-      "The coins were never at risk — the server has always refused a second payout, once per account and once per Discord account. This was the chip on your Player Home asking the wrong question and then trusting the answer: it checked before you were signed in, and filed a reply about nobody as if it were about you.",
+      "The coins were never at risk, the server has always refused a second payout, once per account and once per Discord account. This was the chip on your Player Home asking the wrong question and then trusting the answer: it checked before you were signed in, and filed a reply about nobody as if it were about you.",
       "It now says \"Checking your account…\" until it actually knows, and if it cannot find out it opens back up rather than leaving you with a button that will not press.",
     ]},
     { ver: "V1.7.0", title: "🗺️ Tutorials: steps you do, and a card that shows you where it goes", items: [
@@ -126,22 +121,22 @@
       "Finishing a tutorial returns you to the tutorial list instead of asking whether you want to keep playing the rigged practice game.",
     ]},
     { ver: "V1.7.0", title: "🗺️ Tutorials: no step can leave you stuck", items: [
-      "The Main Menu Tour's History step used to hand you a \"View a sample match\" button and then refuse to move on until you had tapped all three opponents inside the match — with the tutorial's own words sitting over the chips it told you to tap. The match now opens itself, the players are highlighted for you, and Next works straight away: looking around is optional.",
+      "The Main Menu Tour's History step used to hand you a \"View a sample match\" button and then refuse to move on until you had tapped all three opponents inside the match, with the tutorial's own words sitting over the chips it told you to tap. The match now opens itself, the players are highlighted for you, and Next works straight away: looking around is optional.",
       "Every step that waits for a click now offers a way past it if the click turns out to be impossible, so a tutorial can never dead-end into Skip.",
       "Playing as a guest: the tour says up front which parts of the menu are locked until you sign in, and quietly leaves out the Avatar Gallery steps the app will not let a guest open at all. Step numbers count only the steps you are actually shown.",
-      "\"Follow the guide bar\" no longer points at an empty strip when someone else has the first turn — turn order is random, and the step now says so and waits.",
+      "\"Follow the guide bar\" no longer points at an empty strip when someone else has the first turn: turn order is random, and the step now says so and waits.",
       "Card-play steps say you can use the Choose action dropdown as well as dragging, which is the easier one on a phone.",
       "The instructions get out of their own way: the popup now sits beside whatever it is pointing at when there is no room above or below it, and never covers the thing you have been asked to click.",
     ]},
     { ver: "V1.7.0", title: "📅 The calendar is the Daily / Weekly switch", items: [
-      "Tap the calendar icon on your Challenges bar and it hands you the other set: Daily becomes Weekly, tap it again and you are back on Daily. The Daily | Weekly tab row that used to sit above the challenges is gone — it was a second row of buttons doing what the icon already looked like it did.",
+      "Tap the calendar icon on your Challenges bar and it hands you the other set: Daily becomes Weekly, tap it again and you are back on Daily. The Daily | Weekly tab row that used to sit above the challenges is gone, it was a second row of buttons doing what the icon already looked like it did.",
       "The Daily/Weekly badge beside the calendar does the same thing, so either half of the header switches you.",
       "Tapping the calendar while the bar is closed opens it too, so the swap always ends with the other three challenges on screen instead of silently changing something you cannot see.",
       "The bar still tells you both counts before you open it, and the switch says how far along the set you would be switching to is.",
-      "In-game, the panel's calendar icon switches sets the same way — the pill there already did, and now the icon beside it matches. Both surfaces share one setting, as before.",
+      "In-game, the panel's calendar icon switches sets the same way, the pill there already did, and now the icon beside it matches. Both surfaces share one setting, as before.",
     ]},
     { ver: "V1.7.0", title: "📅 Daily Challenges are back", items: [
-      "Three Daily Challenges are back alongside your weeklies, drawn from a pool of 50 — pool plays, ★ abilities, first-ocean starts, comeback finishes, table talk and more. Each one pays its XP the moment you complete it.",
+      "Three Daily Challenges are back alongside your weeklies, drawn from a pool of 50: pool plays, ★ abilities, first-ocean starts, comeback finishes, table talk and more. Each one pays its XP the moment you complete it.",
       "They all reset together at midnight, your time. The old dailies each ran their own 24-hour timer started when you finished it, so the three refreshed at three different times and the set never had a beginning or an end. Now there is one clock and one question: have you done today's three?",
       "Clear all three in a day for the Daily Tide Sweep, worth 400 XP. The weekly Tide Sweep and Perfect Week are untouched.",
       "Your Player Home strip and the in-game panel both have a Daily / Weekly switch, each showing how many you have left, and they remember which one you were looking at. The bar still starts closed, and now tells you both counts before you open it.",
@@ -149,95 +144,95 @@
     { ver: "V1.7.0", title: "⚔️ Competitive: your other hand is there the moment you finish", items: [
       "End a turn in a competitive match and the board switches to your other hand straight away. It used to sit on the hand you had just played until your opponent finished their turn, so the switch happened on their clock and the board changed under you the moment the turn came back.",
       "The wait is now yours to plan with: your next hand's cards, board and score are on screen for the whole time your opponent is playing, and the top bar tells you which hand it is.",
-      "The full-screen \"Your Turn — Hand 2\" card is gone with it. The switch is instant, so there is nothing left to tap through before you can play.",
-      "Undo still belongs to the hand that played, even though you're looking at the other one — it names the hand it will rewind.",
+      "The full-screen \"Your Turn: Hand 2\" card is gone with it. The switch is instant, so there is nothing left to tap through before you can play.",
+      "Undo still belongs to the hand that played, even though you're looking at the other one, it names the hand it will rewind.",
     ]},
     { ver: "V1.7.0", title: "🪝 The End Turn nudge knows which cards need it", items: [
-      "The bobbing arrow over End Turn now also appears for a Hermit Crab or Loggerhead Sea Turtle window — turns that let you keep playing until you stop, and that used to look like the game had frozen.",
+      "The bobbing arrow over End Turn now also appears for a Hermit Crab or Loggerhead Sea Turtle window: turns that let you keep playing until you stop, and that used to look like the game had frozen.",
       "It stays quiet for a one-shot free play like the Roosterfish's free Baitfish, where the turn ends by itself as usual. Every card in the deck is checked by what it actually does, not by a hand-written list.",
     ]},
     { ver: "V1.7.0", title: "🃏 Each competitive hand keeps its own card arrangement", items: [
       "Drag your cards into the order you like and both of your competitive hands now remember their own arrangement. Arranging one hand, playing the other, and coming back used to leave the first one shuffled back into the order the server sent.",
     ]},
     { ver: "V1.7.0", title: "📅 Weekly Challenges open onto actual challenges", items: [
-      "Tapping Weekly Challenges on your Player Home shows the three challenges. Unless your screen was a wide desktop one, they were being squeezed to a 26-pixel sliver each — the bar opened and there was nothing on it you could read. Phones, tablets and any browser window under about 1,300 pixels wide were all affected.",
+      "Tapping Weekly Challenges on your Player Home shows the three challenges. Unless your screen was a wide desktop one, they were being squeezed to a 26-pixel sliver each, the bar opened and there was nothing on it you could read. Phones, tablets and any browser window under about 1,300 pixels wide were all affected.",
       "The challenges now take the full width on those screens, with the Weekly Tide Sweep reward on its own line underneath, and they stay wide enough to read on every size from a phone up.",
     ]},
     { ver: "V1.7.0", title: "🗝️ Weekly Challenges show what they pay again", items: [
-      "Opening Weekly Challenges shows the reward for finishing them. The Weekly Tide Sweep card — 1,500 XP for all three, with a live 0/3 bar — was being hidden by the page itself, so the challenges appeared with nothing attached to them. It's back, and it turns green when you've swept the week.",
+      "Opening Weekly Challenges shows the reward for finishing them. The Weekly Tide Sweep card: 1,500 XP for all three, with a live 0/3 bar: was being hidden by the page itself, so the challenges appeared with nothing attached to them. It's back, and it turns green when you've swept the week.",
       "Perfect Week is on that card too, which it never was anywhere: finish all three AND play on all seven days for 5,000 XP. It counts your days for you.",
       "The in-game panel says it as well, so you can see what the week is worth without leaving the table.",
     ]},
     { ver: "V1.7.0", title: "🔑 Clan passwords, and a front door you can find", items: [
-      "Clans can have a password. Anyone who knows it joins instantly — no request, no waiting for the owner. It's the setting for a clan that wants to be open to its friends and nobody else. Pick 🔑 Password when you found a clan, or switch to it later in clan settings, and change the word whenever you like.",
+      "Clans can have a password. Anyone who knows it joins instantly, no request, no waiting for the owner. It's the setting for a clan that wants to be open to its friends and nobody else. Pick 🔑 Password when you found a clan, or switch to it later in clan settings, and change the word whenever you like.",
       "The other three settings are unchanged: 🌊 Public lets anyone straight in, ✉️ Request to Join means you approve people, 🔒 Invite Only means invitation only. An invite always works, whichever one is on.",
-      "Join a Clan and Create a Clan are now the first thing on the Clans tab if you're not in one — big buttons at the top, instead of something to scroll past a leaderboard to find.",
+      "Join a Clan and Create a Clan are now the first thing on the Clans tab if you're not in one: big buttons at the top, instead of something to scroll past a leaderboard to find.",
     ]},
     { ver: "V1.7.0", title: "💰 Every Prestige now pays 1,000 Critter Coins", items: [
-      "Prestige pays a flat 1,000 Critter Coins, every single time. It used to start at 500 and climb, which meant the first one — the one you work hardest for — paid the least.",
+      "Prestige pays a flat 1,000 Critter Coins, every single time. It used to start at 500 and climb, which meant the first one, the one you work hardest for: paid the least.",
       "Everything else about Prestige is unchanged: the permanent +25% XP, the store bonus, the background, the skin and the badge all stack exactly as before.",
     ]},
     { ver: "V1.7.0", title: "💬 250 Critter Coins for joining the Discord", items: [
-      "Join the Currents and Critters Discord server and claim 250 Critter Coins. The offer sits right next to the Join the Discord button on your Player Home — tap it, approve with Discord, and the coins land on your account straight away.",
-      "Already in the server? You're not left out and there's nothing extra to do — tap the same button and you'll be paid on the spot. We check with Discord live, so it doesn't matter whether you joined today or months ago.",
+      "Join the Currents and Critters Discord server and claim 250 Critter Coins. The offer sits right next to the Join the Discord button on your Player Home: tap it, approve with Discord, and the coins land on your account straight away.",
+      "Already in the server? You're not left out and there's nothing extra to do: tap the same button and you'll be paid on the spot. We check with Discord live, so it doesn't matter whether you joined today or months ago.",
       "It's one reward per person: once per account, and once per Discord account, so it can't be collected twice.",
     ]},
-    { ver: "V1.7.0", title: "🤡 Clownfish copies its Ocean — all of it", items: [
-      "A Clownfish is now a second copy of the Ocean it is attached to, in every way, not just for points. It counts as one more of that Ocean everywhere Oceans are counted — the Coral Reef chart, the Kelp Forest \"4 or more\", who has the most Piers, and how many Oceans you control.",
+    { ver: "V1.7.0", title: "🤡 Clownfish copies its Ocean, all of it", items: [
+      "A Clownfish is now a second copy of the Ocean it is attached to, in every way, not just for points. It counts as one more of that Ocean everywhere Oceans are counted, the Coral Reef chart, the Kelp Forest \"4 or more\", who has the most Piers, and how many Oceans you control.",
       "Play one onto a Deep Ocean or a Kelp Forest and you draw a card, because that is what those Oceans do.",
       "On a Mangrove or an Arctic Ocean it carries that Ocean's ★. Pay the Clownfish's cost with a card matching the Clownfish's own symbol and you get to play again. Those are the only two Oceans with a ★.",
       "Two things it still doesn't do: it never scores a chart twice (three Coral Reefs plus a Clownfish pay 16, once, for the whole set), and it is never a new KIND of Ocean, so it can't be your missing eighth for the Mangrove's +10.",
       "The Rule Book has a Clownfish page under Special Rules now, with a table of what it's worth on each of the eight Oceans.",
     ]},
     { ver: "V1.7.0", title: "📱 A game that fits your phone", items: [
-      "The whole game screen now fits the part of your phone you can actually see. The bottom of every player's pill — their ⭐ points and 🃏 card count — is back on screen, and so is the ☰ Menu button at the top. No more tilting the phone or sliding the page around to find them.",
+      "The whole game screen now fits the part of your phone you can actually see. The bottom of every player's pill, their ⭐ points and 🃏 card count: is back on screen, and so is the ☰ Menu button at the top. No more tilting the phone or sliding the page around to find them.",
       "End Turn is no longer off the right-hand edge when you play sideways. The game now measures the real width your browser gives it instead of assuming the full width of the display, so nothing sits past the edge.",
-      "Tapping Weekly Challenges in game actually shows the three challenges now. On a short screen it was opening onto a sliver you couldn't read — it now uses all the room above the action bar and scrolls, and the footer closes it as well as the header.",
+      "Tapping Weekly Challenges in game actually shows the three challenges now. On a short screen it was opening onto a sliver you couldn't read, it now uses all the room above the action bar and scrolls, and the footer closes it as well as the header.",
     ]},
     { ver: "V1.7.0", title: "★ Play again? We'll tell you when you're done", items: [
-      "When a Hermit Crab, a Sea Turtle or a ★ ability hands you another turn, a reminder now bobs right over the ✓ End Turn button until you finish the turn — so an extra turn never reads as the game being stuck.",
+      "When a Hermit Crab, a Sea Turtle or a ★ ability hands you another turn, a reminder now bobs right over the ✓ End Turn button until you finish the turn, so an extra turn never reads as the game being stuck.",
       "You can tap the reminder itself; it does exactly what pressing End Turn does.",
     ]},
     { ver: "V1.7.0", title: "🛟 Your results can't be lost to a dropped signal", items: [
-      "If your connection blinks while the game summary is up, the end screen now keeps retrying the save on its own — and retries straight away the moment you're back online. Before, one lost second could quietly cost you the XP, the streak and the game history for that match.",
+      "If your connection blinks while the game summary is up, the end screen now keeps retrying the save on its own, and retries straight away the moment you're back online. Before, one lost second could quietly cost you the XP, the streak and the game history for that match.",
       "It also says which it is: a quiet \"Saving your results…\" while it's working, and a clear warning with a Try again button if it can't reach the server. Nothing at all once it's saved.",
     ]},
     { ver: "V1.7.0", title: "🛡️ Joining a clan is one tap", items: [
-      "The Clans tab now shows the clans you can actually join right on the first screen, each with its own Join button — no searching first.",
+      "The Clans tab now shows the clans you can actually join right on the first screen, each with its own Join button, no searching first.",
       "Every clan in Find a Clan has the same one-tap Join (or Request) beside it, and the recommended clans at the top are full rows now instead of name chips, so you can see who they are before you press it.",
     ]},
     { ver: "V1.7.0", title: "📆 Challenges: weekly only, and out of the way", items: [
-      "Daily Challenges are gone. Weekly Challenges are the whole system now — three a week, a fresh set every Monday, and the bigger XP.",
+      "Daily Challenges are gone. Weekly Challenges are the whole system now, three a week, a fresh set every Monday, and the bigger XP.",
       "The challenge strip on your home screen starts closed. Its bar tells you how many you've finished this week; tap it to open the three challenges, tap it again to tuck them away. It remembers what you chose.",
-      "The in-game panel starts tucked away too — tap its header when you want to see how you're doing.",
+      "The in-game panel starts tucked away too: tap its header when you want to see how you're doing.",
     ]},
     { ver: "V1.7.0", title: "🌊 Prestige, riding the next current", items: [
-      "Reach Level 100 and you can Prestige: your level and XP go back to the start, and you keep a permanent set of rewards that never resets. It's completely optional — we'll ask once each time you sign in, and \"Not right now\" is always a fine answer.",
-      "Every Prestige pays Critter Coins (500, then +250 each time), a permanent +25% XP from every source, and +5% extra coins on any Critter Coin pack you buy — at the same price.",
+      "Reach Level 100 and you can Prestige: your level and XP go back to the start, and you keep a permanent set of rewards that never resets. It's completely optional: we'll ask once each time you sign in, and \"Not right now\" is always a fine answer.",
+      "Every Prestige pays Critter Coins (500, then +250 each time), a permanent +25% XP from every source, and +5% extra coins on any Critter Coin pack you buy, at the same price.",
       "You also pick two critters to keep through the reset, unlock an exclusive alternate skin for any animal in the game, a new Prestige background, a new name colour, and a new badge that shows beside your name everywhere.",
       "Nothing you paid for is ever taken away. Competitive rank, clan, friends, coins, achievements, lifetime stats, purchases and every earlier Prestige reward all stay exactly as they are.",
       "Name colours build up as you go: two to choose from at Prestige 1 (you get the other at 2), Deep Purple, then Gold, a custom colour creator at 4, gradients at 5, and subtle ocean effects after that. Animated effects can be switched off while keeping the colour.",
     ]},
     { ver: "V1.7.0", title: "🔒 Privacy Policy, and a simpler sign-in", items: [
-      "Our full Privacy Policy is now published at currentsandcritters.com/privacy — there's a link at the very bottom of every page — and you can read the whole thing in game from Settings → 📜 Legal.",
+      "Our full Privacy Policy is now published at currentsandcritters.com/privacy: there's a link at the very bottom of every page, and you can read the whole thing in game from Settings → 📜 Legal.",
       "Signing in for the first time is now one screen: pick a username and dive in. The long scroll-and-agree Terms box is gone.",
-      "Changing your username: your first change is free, and after that each one costs 100 Critter Coins. No more 24-hour wait, so you can change it whenever you like — and your friend code never changes.",
+      "Changing your username: your first change is free, and after that each one costs 100 Critter Coins. No more 24-hour wait, so you can change it whenever you like, and your friend code never changes.",
       "The Name Change Token has left the Store, since there's no longer a wait to skip. Any tokens you'd bought are no longer needed.",
     ]},
     { ver: "V1.7.0", title: "🔥 Streak Leaderboard", items: [
       "There's a new 🔥 Streak board on the Leaderboard tab, with a toggle for the two questions people actually ask: who has the longest streak ever, and who has the longest one going right now.",
-      "Both numbers come from your play calendar, so a streak that lapsed drops off the current board straight away — no more old records sitting at the top. A day covered by a Streak Shield still counts.",
+      "Both numbers come from your play calendar, so a streak that lapsed drops off the current board straight away, no more old records sitting at the top. A day covered by a Streak Shield still counts.",
       "Your own card at the top shows your current streak, your best ever, and how many days you've played, even when you're not in the top 25 yet.",
     ]},
     { ver: "V1.7.0", title: "🐚 Player Perks in the Store", items: [
-      "Streak Shield (500 coins) covers one missed day so your daily streak survives it. Miss a day and we'll ask if you want to spend one — if you don't have one yet, that same button buys it and uses it in one tap.",
-      "Emote Pack (500 coins) turns 5 critters you've unlocked into chat emotes. Every animal in the game can be one, you just have to own it first — and if you have fewer than 5 critters left without an emote, we tell you exactly how many you'd get before you spend anything.",
+      "Streak Shield (500 coins) covers one missed day so your daily streak survives it. Miss a day and we'll ask if you want to spend one, if you don't have one yet, that same button buys it and uses it in one tap.",
+      "Emote Pack (500 coins) turns 5 critters you've unlocked into chat emotes. Every animal in the game can be one, you just have to own it first, and if you have fewer than 5 critters left without an emote, we tell you exactly how many you'd get before you spend anything.",
       "Critter Re-Earn (2,500 coins) hands back a critter you traded away, without earning its unlock all over again.",
-      "Once you own an emote, a smiley appears next to the chat box in game. Tap it and send the critter — everyone at the table sees the picture, whether or not they own it.",
+      "Once you own an emote, a smiley appears next to the chat box in game. Tap it and send the critter, everyone at the table sees the picture, whether or not they own it.",
     ]},
     { ver: "V1.7.0", title: "🔕 Mute the chat for one game", items: [
       "There's a bell on the chat window's header now. Tap it and pick what you want to go quiet: this game's chat, your direct messages, or both.",
-      "Muting only turns off the notifications — the red number on the 💬 button and the dot on the back arrow. Messages keep coming in, so you can open chat whenever you like and read everything you missed.",
+      "Muting only turns off the notifications, the red number on the 💬 button and the dot on the back arrow. Messages keep coming in, so you can open chat whenever you like and read everything you missed.",
       "It lasts for that game only. Leave or start a new match and chat is back to normal, and unmuting mid-game brings back the exact count you would have had.",
     ]},
     { ver: "V1.7.0", title: "🪙 Supporter Tiers now come with Critter Coins", items: [
@@ -248,7 +243,7 @@
       "Clans now have 25 weekly challenges and 26 season challenges, and everything your whole clan does counts toward them. There is a Challenges tab inside your clan showing both boards with live progress, and you can open the same boards mid-game from the in-game Menu.",
       "Clan Rules is now the first tab on the Clans page. Every scoring rule, both challenge lists and all the season payouts are on one page, written by the server itself so it always matches what actually happens.",
       "Clan Points now need a real opponent: everyone in the game has to be a registered account. A game against bots or guests scores nothing, except first place, which is worth half a Clan Point at any player count.",
-      "When the season ends your Competitive rank pays out: Critter Coins to you, Clan Points to your clan. Silver 50, Golden 100, Diamond 150, Emerald 200, King of the Critters 250 — and the Clan Points land before the final standings, so a highly ranked roster can still move the clan up the board on the last day.",
+      "When the season ends your Competitive rank pays out: Critter Coins to you, Clan Points to your clan. Silver 50, Golden 100, Diamond 150, Emerald 200, King of the Critters 250, and the Clan Points land before the final standings, so a highly ranked roster can still move the clan up the board on the last day.",
       "Clans now hold 25 members instead of 20.",
       "The Clans tab opens instantly instead of waiting on the server, and saving your clan settings, voting for your critter or joining an event no longer blanks the page while it thinks.",
     ]},
@@ -261,7 +256,7 @@
       "The vote list now shows how many votes each critter has, and who is winning right now.",
     ]},
     { ver: "V1.7.0", title: "Clans: invite people by friend code", items: [
-      "The invite box on your clan's Members tab now asks for a friend code — the 4-digit number under a player's name on their Player Home — instead of making you spell their username exactly right.",
+      "The invite box on your clan's Members tab now asks for a friend code, the 4-digit number under a player's name on their Player Home, instead of making you spell their username exactly right.",
       "Just the code is enough (2809). If two players happen to share a code, the game says so and you add their name in front of it (Twin Midi 9113) rather than inviting the wrong person.",
       "The confirmation names who the code belongs to, so you can tell straight away that the invite went to the player you meant.",
       "Inviting from a player's profile or from Messages works exactly as before.",
@@ -270,18 +265,18 @@
       "There's a new Clans tab in the sidebar, right under Leaderboard. Start a clan or join one, pick a critter as its icon, and up to 25 of you play for the same score.",
       "Clan seasons run three months, the same length as a competitive season. Each one has its own name and number, a countdown to the end date, and a leaderboard of every clan.",
       "You earn Clan Points just by playing: a competitive win is +3, and in casual, 1st is +2, 2nd is +1 and 3rd is +1 in games of four or more. You can also earn one point a day by trading with a clanmate.",
-      "Finish top three and every member who earned at least 10 points that season gets Critter Coins — 400, 300 or 200 each — plus a gold, silver or bronze badge stamped with the season number. Top ten clans get a seasonal border.",
+      "Finish top three and every member who earned at least 10 points that season gets Critter Coins: 400, 300 or 200 each, plus a gold, silver or bronze badge stamped with the season number. Top ten clans get a seasonal border.",
       "Whoever contributed most becomes the Clan MVP: a permanent badge, a “Season 1 Clan MVP” title, 150 Critter Coins and an icon beside their name for the first two weeks of the next season.",
       "Clans have private chat with pinned announcements, an activity log of everything that's happened, scheduled events like game nights, a shared daily goal that levels the clan up, and a season vote for a favourite critter.",
       "Owners can run it how they like: Public, Request to Join or Invite Only, with Captains and Recruiters, or custom roles where you tick exactly which powers they get.",
       "Clan names are checked automatically, including the sneaky spellings, and you can report any that slip through.",
     ]},
     { ver: "V1.7.0", title: "Competitive: the hand whose turn it is, is the hand you see", items: [
-      "The hand-off between your two hands is now done by the server, not guessed at by your screen. Whichever of your hands the turn is on is the one you're looking at — its cards, its board, its YOUR TURN — every time, with nothing left to go wrong in between.",
+      "The hand-off between your two hands is now done by the server, not guessed at by your screen. Whichever of your hands the turn is on is the one you're looking at, its cards, its board, its YOUR TURN, every time, with nothing left to go wrong in between.",
       "Refreshing, rejoining, or reopening the game window no longer costs you your second hand. Coming back into a Competitive match now brings both hands with you instead of leaving one of them unplayable for the rest of the game.",
-      "A tap can no longer be spent on a hand that isn't on screen — if the turn has just moved to your other hand, the game says it's switching and brings that hand up rather than quietly ending its turn for you.",
+      "A tap can no longer be spent on a hand that isn't on screen, if the turn has just moved to your other hand, the game says it's switching and brings that hand up rather than quietly ending its turn for you.",
       "Both of your hands wear your icon and background now, instead of your second hand sitting there under a stranger's default picture.",
-      "AFK reports count one vote per PERSON. Your opponent's two hands used to be a majority on their own — they could put your hand on the 10-second clock every single turn — and your own second hand was listed as a voter against you.",
+      "AFK reports count one vote per PERSON. Your opponent's two hands used to be a majority on their own, they could put your hand on the 10-second clock every single turn, and your own second hand was listed as a voter against you.",
       "Your own other hand can no longer draw 2 cards \"for\" you.",
       "Results are scored by seat, so two players with the same nickname can't scramble whose hand scored what.",
     ]},
@@ -566,8 +561,8 @@
   // ── Prestige alternate animal skins ──────────────────────────────
   // A Prestige skin is a COSMETIC treatment painted over a card's existing
   // artwork (see [data-ccskin] in css/prestige.css). It changes nothing about
-  // the card — not its ability, star ability, cost, points, ocean requirement,
-  // interactions, rarity or balance — and it is applied ONLY to the owner's own
+  // the card, not its ability, star ability, cost, points, ocean requirement,
+  // interactions, rarity or balance, and it is applied ONLY to the owner's own
   // hand and board, never to an opponent's cards (renderReadOnlyBoard is
   // deliberately left alone: tinting their art would imply they own a skin they
   // don't). Purely a `filter:` on the <img>, so no layout moves and nothing the
@@ -588,7 +583,7 @@
 
   // Escape a value for use inside innerHTML. The auth IIFE further down has its
   // own private copy of this; the game scope needs one too, and NOT having it is
-  // not a lint nit — the end-game screen builds each standings row with
+  // not a lint nit, the end-game screen builds each standings row with
   // innerHTML and tags real (non-AI) players with data-cc-pname="…", so the
   // first human name in the standings threw ReferenceError mid-loop and took
   // the whole rest of renderEndGame (match stats, XP bar, feats) with it.
@@ -894,7 +889,7 @@
     },
     // ── Tournament ↔ game-window bridge (foreground control) ─────────────────
     // The tournament bracket overlay must never stay covering a live match. The
-    // URL is NOT a reliable "am I in this room?" signal — a match can be running
+    // URL is NOT a reliable "am I in this room?" signal, a match can be running
     // inline while the address bar still reads /game (e.g. the dedicated game
     // window, or a room entered without a navigation). These expose the game
     // app's OWN authoritative current-room state so the tournament module can
@@ -923,7 +918,7 @@
       } catch (_) {}
     },
     isSpectating: () => { try { return isSpectating(); } catch (_) { return false; } },
-    // Hand a spectator seat back without the UI churn of leaveSpectator() — used
+    // Hand a spectator seat back without the UI churn of leaveSpectator(): used
     // right before we navigate away into our own match.
     stopSpectating: () => {
       try {
@@ -943,7 +938,7 @@
         if (isSpectating() && String(_spectatorRoomId).toUpperCase() === target) return true;
         // Give up our seat ONLY when the game we're in is over. Watching another
         // match from the bracket mid-game must still hold our seat for the usual
-        // 8 minutes (keepRejoin) — exactly like navigating away used to.
+        // 8 minutes (keepRejoin), exactly like navigating away used to.
         const stillPlaying = ((latestPayload && latestPayload.room && latestPayload.room.phase) || "") === "running";
         const tok = getSeatToken();
         if (!stillPlaying && tok && roomId) {
@@ -993,7 +988,7 @@
   // ── Prestige bridge ────────────────────────────────────────────────────
   // The Prestige page lives in its own module (js/prestige-ui.js) and renders
   // into #cc-prestige-root. EVERY rule is server-authoritative
-  // (/api/prestige/*) — this bridge only hands the module network, auth and
+  // (/api/prestige/*), this bridge only hands the module network, auth and
   // the critter catalogue. ENABLED=false hides the whole system again.
   const PRESTIGE_PUBLIC = true;
   window.__ccPrestige = {
@@ -1013,7 +1008,7 @@
     avSrc: (u) => (window.__fishAvSrc ? window.__fishAvSrc(u) : u),
     goTab: (t) => { try { window._switchPhTab && window._switchPhTab(t); } catch (_) {} },
     // The full critter roster WITH the sentence that says how each one was
-    // earned — the "keep two" screen shows a player exactly what they would
+    // earned, the "keep two" screen shows a player exactly what they would
     // have to do again. (ANIMAL_AVATARS is declared later in this same scope,
     // so it is read lazily.)
     animalAvatars: () => {
@@ -1040,8 +1035,8 @@
 
   // ── Developer Analytics bridge ─────────────────────────────────────────
   // The dashboard (js/analytics-ui.js) is a full-screen overlay for the
-  // developer account only. It is READ-ONLY — there is no mutation anywhere in
-  // /api/analytics/* — and the server re-checks admin on every single call, so
+  // developer account only. It is READ-ONLY, there is no mutation anywhere in
+  // /api/analytics/*, and the server re-checks admin on every single call, so
   // this bridge's isAdmin() is a convenience for hiding the button, never the
   // security boundary. Faking it client-side gets you a 403 and nothing else.
   const ANALYTICS_ADMIN_EMAIL = "currentsandcritters@gmail.com";
@@ -1069,7 +1064,7 @@
   // Discord itself is asked whether the player is in the server, and the coins
   // are written by the server inside the same transaction as the two "paid
   // exactly once" ledger docs. This bridge only hands the module network, auth
-  // and the two things it must do after a payout — repaint the coin balance
+  // and the two things it must do after a payout: repaint the coin balance
   // and say so.
   window.__ccDiscord = {
     APP_BUILD,
@@ -1115,7 +1110,7 @@
 
   // ── Referral bridge ────────────────────────────────────────────────────
   // js/referral.js. The friend code is resolved server-side and BOTH payouts
-  // happen in one transaction (/api/referral/redeem) — this bridge only carries
+  // happen in one transaction (/api/referral/redeem), this bridge only carries
   // digits there and a sentence back.
   window.__ccReferral = {
     APP_BUILD,
@@ -1538,8 +1533,8 @@
   // Skip the full re-render when the payload is the SAME document we last drew.
   // "Same" is version + which seat fetched it, never the version alone: the
   // server's state_view is per-token (viewer.can_act, legal_actions and the
-  // private hand all come from the polling seat), so in competitive — where one
-  // player owns two seats — one version legitimately has two different views.
+  // private hand all come from the polling seat), so in competitive, where one
+  // player owns two seats, one version legitimately has two different views.
   // Keying on version alone dropped the second hand's view as "unchanged" and
   // froze the client on hand 1's board for the whole game.
   let _lastRenderedKey = ""; // `${version}:${viewer seat}` of the last render
@@ -1659,7 +1654,7 @@
       }
     }
     // Skip the full DOM rebuild when this is the same document we already drew.
-    // The key includes the VIEWER SEAT, not just the version — see _lastRenderedKey.
+    // The key includes the VIEWER SEAT, not just the version: see _lastRenderedKey.
     // Manual calls to renderPayload() bypass this and always re-render (local state changes).
     const renderKey = (Number.isFinite(v) ? v : "x") + ":" +
                       (Number.isFinite(viewerSeat) ? viewerSeat : "-");
@@ -1957,7 +1952,7 @@
     _spectatorToken = r.data.spectator_token;
     _spectatorRoomId = rid;
     roomId = rid;
-    // The join call already carried our look — seed the push throttles so the
+    // The join call already carried our look: seed the push throttles so the
     // first poll doesn't re-send it, but a later equip still does.
     _lastPushedAvatar = look.avatar ? (rid + "|" + look.avatar) : "";
     _lastPushedBg = rid + "|" + look.background;
@@ -2901,8 +2896,8 @@
       showToast("All seats are taken.", "err"); return;
     }
 
-    // Competitive: claim a whole PAIR of hands. Ownership is fixed by seat —
-    // P1 is {0,1}, P2 is {2,3} — and the turn interleave, the same-owner action
+    // Competitive: claim a whole PAIR of hands. Ownership is fixed by seat:
+    // P1 is {0,1}, P2 is {2,3}, and the turn interleave, the same-owner action
     // rule and every "both my hands" rule read it straight off the seat index.
     // Taking the first two OPEN seats could hand out {1,2}, one hand from each
     // player, which no rule can express. Take a free pair or don't join.
@@ -2920,7 +2915,7 @@
       const tokens = { [s2]: j2.data?.seat_token || "", [s3]: j3.data?.seat_token || "" };
       compMode = true; compMySeats = [s2, s3]; compTokens = tokens;
       compHostToken = ""; compHandNames = {};
-      // Name the two SIDES by the pair each one holds — seats {0,1} are P1 and
+      // Name the two SIDES by the pair each one holds: seats {0,1} are P1 and
       // {2,3} are P2, and "am I P1" is decided by compMySeats[0] < 2 everywhere
       // (result reporting included). Assuming the joiner is always P2 mislabels
       // both sides on the rare join that lands on the {0,1} pair.
@@ -3456,10 +3451,10 @@
         try { sessionStorage.setItem(`fish_comp_seats_${rId}_0`, JSON.stringify({ seats: [0,1], tokens, p1: name, p2: "Player 2" })); } catch {}
       } else {
         // Seat 1 is this player's SECOND hand. If claiming it failed the room is
-        // a hand short — it can never reach 4 players to start, and a stranger
+        // a hand short, it can never reach 4 players to start, and a stranger
         // could sit in the hand that was meant to be theirs. Say so rather than
         // dropping them into a lobby that quietly never starts.
-        try { showToast("Could not claim your second hand — close this Current and create a new one.", "err", 7000); } catch (_) {}
+        try { showToast("Could not claim your second hand: close this Current and create a new one.", "err", 7000); } catch (_) {}
       }
     }
     enterRoom(rId);
@@ -3579,10 +3574,10 @@
       if (star.fires && sel >= cost) {
         const ok = Array.from(selectedPayment).some(uid => entryHasSymbolMatch(uid, star.sym));
         msg += ok
-          ? ` — ★ ${star.ability || "star ability"} will fire`
-          : ` — no ${star.sym} card selected, the ★ will NOT fire`;
+          ? ` ★ ${star.ability || "star ability"} will fire`
+          : ` no ${star.sym} card selected, the ★ will NOT fire`;
       } else if (star.offered) {
-        msg += ` — ★ is off, playing without ${star.ability ? `"${star.ability}"` : "the star ability"}`;
+        msg += `: ★ is off, playing without ${star.ability ? `"${star.ability}"` : "the star ability"}`;
       }
       txt.textContent = msg;
     }
@@ -3687,7 +3682,7 @@
   function _isMyTurnForAction() {
     if (_viewerCanActNow()) return true;
     // Competitive: the turn can already be on my OTHER hand while the payload on
-    // screen is still the hand I was just playing. It is my turn — but that
+    // screen is still the hand I was just playing. It is my turn, but that
     // hand's cards, board and legal actions are NOT what is displayed, so an
     // action sent now would be aimed at cards the player cannot see (End Turn
     // would end the unseen hand's turn for them). Refuse, and pull the active
@@ -3795,7 +3790,7 @@
 
   // The one question every ★ affordance in the UI must be answered by: will
   // submitting THIS action fire the star? The engine only fires a ★ for an
-  // action sent with use_star=true — paying with a matching symbol on the plain
+  // action sent with use_star=true: paying with a matching symbol on the plain
   // variant does nothing. So:
   //   • fires   → the gold "this pays for the ★" highlight is honest.
   //   • offered → a ★ twin exists but the player turned ★ off; no gold, just a note.
@@ -3872,7 +3867,7 @@
     // mid-turn follow-up actions (play, then immediately play again) still work.
     if (!_isMyTurnForAction()) {
       if (_compHandoffPending()) {
-        // It IS my turn, just my other hand's — say so instead of "not your turn".
+        // It IS my turn, just my other hand's: say so instead of "not your turn".
         const _hand = compGetHandName(Number(latestPayload?.active_action_seat));
         try { showToast(`Switching to ${_hand}…`, "warn"); } catch (_) {}
         setStatus(`Bringing up ${_hand}, its cards are on the way.`);
@@ -3916,7 +3911,7 @@
     _drawWarnBypass = false;
 
     // In competitive mode, use the token for whichever of our seats is currently
-    // active — the server acts as the ACTIVE seat (see _competitive_same_owner),
+    // active, the server acts as the ACTIVE seat (see _competitive_same_owner),
     // so sending the other hand's token would submit this hand's move against the
     // wrong seat's legal-action list. mySeatIdx (the seat the last render drew) is
     // only the fallback, for the poll-cycle where the two briefly disagree.
@@ -3970,7 +3965,7 @@
             Number(a.ocean_uid ?? -1) === Number(action.ocean_uid ?? -1) &&
             String(a.face_direction || "") === String(action.face_direction || "")
           );
-          // Read the ★ off the FACE being played — on a two-sided card the
+          // Read the ★ off the FACE being played, on a two-sided card the
           // other face normally carries no star at all.
           const ability = _actionStarText(action) || "the star ability";
           const msg = document.getElementById("star-skip-msg");
@@ -5332,7 +5327,7 @@
       Number(a.ocean_uid ?? -1) === Number(act.ocean_uid ?? -1)
     );
     if (!starVariant) { submitAction(act); return; }
-    // Star ability label read from the FACE this action plays, not faces[0] —
+    // Star ability label read from the FACE this action plays, not faces[0],
     // on a two-sided card the other face usually has no ★ at all.
     const abilityLabel = _actionStarText(act) || "its star ability";
     const msg = document.getElementById("star-skip-msg");
@@ -5412,8 +5407,8 @@
                                       //  earlier in the same observer pass).
   // ── Daily-only observers ──────────────────────────────────────────
   // These went out with the dailies in 1.6.54 and come back with them. Each
-  // one exists because its challenge asks about a SEQUENCE — a streak, a
-  // before/after, a "who put that there" — which a single payload cannot
+  // one exists because its challenge asks about a SEQUENCE, a streak, a
+  // before/after, a "who put that there", which a single payload cannot
   // answer on its own.
   let _chObsStarTurnPlayer    = null; // the current_player at the moment a ★ was activated
   let _chObsStarTurnStartScore= null; // turn-start score recorded when the ★ was activated
@@ -5660,7 +5655,7 @@
       }
     }
 
-    // mini_ecosystem (daily), 4 different species groups in one game — the
+    // mini_ecosystem (daily), 4 different species groups in one game, the
     // same count balanced_ocean reads at 6.
     if (_chObsSpeciesPlayedGame.size >= 4) {
       try { window._reportDailyChallengeProgress?.("mini_ecosystem", 0, { complete: true }); } catch {}
@@ -5995,7 +5990,7 @@
       // callout repeats it over the End Turn button at the bottom, which is
       // where the player actually has to do something to hand the turn on.
       // The callout also covers the Hermit Crab / Sea Turtle open window,
-      // which the banner does not announce at all — see turnWaitsOnEndTurn.
+      // which the banner does not announce at all: see turnWaitsOnEndTurn.
       setPlayAgainCallout(turnWaitsOnEndTurn(lw) && !_staleWindow);
       if (!_staleWindow) {
         banner.className = "my-turn";
@@ -6021,7 +6016,7 @@
       // Competitive handoff: the turn HAS come to one of my hands, but this
       // payload was fetched with the other hand's token so viewer.can_act is
       // still false. The corrective re-fetch (see applyServerPayload) is already
-      // in flight — say what's happening instead of flashing "their turn…".
+      // in flight: say what's happening instead of flashing "their turn…".
       banner.className = "their-turn";
       banner.textContent = `✦  Switching to ${compGetHandName(Number(payload.active_action_seat))}…  ✦`;
       endBtn.classList.remove("pulse-glow");
@@ -6205,7 +6200,7 @@
       // eligible_seat is a seat index; compare to mySeatIdx (never game index).
       // Competitive: the view moves to your OTHER hand the instant your turn
       // ends, so the hand holding the undo is normally NOT the hand on screen.
-      // The undo belongs to the person, not the hand — accept either of my two
+      // The undo belongs to the person, not the hand: accept either of my two
       // seats (the click handler already sends the eligible seat's own token).
       const undoIsMine = mySeatIdx !== null && (
         mySeatIdx === undoInfo.eligible_seat
@@ -6956,7 +6951,7 @@
     } catch (e) {}
     return _liveAvatarByName[n] || "";
   }
-  // Fingerprint of every face on screen — surfaces that skip redundant
+  // Fingerprint of every face on screen: surfaces that skip redundant
   // re-renders diff this so an avatar change still repaints them. My own
   // equipped icon has to be in here too: it is the one face that changes
   // without the relayed table changing, so leaving it out meant my new icon
@@ -6982,7 +6977,7 @@
     const key = roomId + "|" + myUrl;   // include room so a new game re-pushes
     if (!myUrl || key === _lastPushedAvatar) return;
     // Spectating: no seat, but we still have a face in the spectator list and
-    // on our chat lines — equip under the spectator token instead.
+    // on our chat lines: equip under the spectator token instead.
     if (isSpectating()) {
       _lastPushedAvatar = key;
       try {
@@ -7009,7 +7004,7 @@
     try { if (typeof window.__fishEquippedBackground === "function") myBg = String(window.__fishEquippedBackground() || ""); } catch (e) { myBg = ""; }
     const key = roomId + "|" + myBg;
     if (key === _lastPushedBg) return;
-    if (isSpectating()) {          // no seat — equip under the spectator token
+    if (isSpectating()) {          // no seat: equip under the spectator token
       _lastPushedBg = key;
       try {
         apiPost(`/api/rooms/${_spectatorRoomId}/background`,
@@ -7096,7 +7091,7 @@
       // Authoritative source: each player's OWN avatar carried per-seat in the
       // game state (p.avatar), so every player has a separate icon and a change
       // propagates immediately. For MY seat my local equipped value wins, the
-      // same way it does for the background below — the relayed copy is a
+      // same way it does for the background below, the relayed copy is a
       // round-trip behind, so preferring it made my own new icon sit on the old
       // one until the next poll came back.
       let initialUrl = fallbackAvatar;
@@ -7132,7 +7127,7 @@
       plabel.textContent = `P${p.index + 1}`;
       const nmText = document.createElement("span");
       nmText.textContent = p.name || `P${p.index + 1}`;
-      // In-game seats know a display NAME, not a uid — the Prestige sweep
+      // In-game seats know a display NAME, not a uid, the Prestige sweep
       // resolves either. Seats sit on the dark board, so the readability plate
       // (when one is needed) has to be the dark one.
       if (p.name && !isLikelyAiName(p.name)) {
@@ -7518,7 +7513,7 @@
     41:  { name:"Osprey",            symbol:"triangle", species:"bird",        text:"+2 pts per matching-symbol card on your board.",        starText:"" },
     43:  { name:"Osprey",            symbol:"heart",    species:"bird",        text:"+2 pts per matching-symbol card on your board.",        starText:"" },
     // ── Down-slot UIDs (even, 1-96) used by bot boards ─────────────
-    // Staghorn Coral ● — the guaranteed circle card that pays for the Red Beaded
+    // Staghorn Coral ●, the guaranteed circle card that pays for the Red Beaded
     // Anemone's ★ in the star lesson (see TUT_INIT_HAND). Kept out of every
     // earlier payment step so it is always still in hand when the ★ step opens.
     2:   { name:"Staghorn Coral",    symbol:"circle",   species:"coral",       text:"+3 pts per Coral on your board.",                       starText:"" },
@@ -7535,7 +7530,7 @@
   // circle card for the Red Beaded Anemone's ★ step. Before this the only ●
   // cards were in the pool, so a player who drew the other two pool cards
   // reached the star lesson with nothing to match, and the step fired the ★ off
-  // a non-matching discard — teaching the opposite of the rule.
+  // a non-matching discard: teaching the opposite of the rule.
   const TUT_INIT_HAND = [217, 11, 3, 26, 102, 6, 2, 9];
   // Cards a later step depends on, so no earlier payment step may spend them:
   // 11 Horned Puffin (played), 26 Red Beaded Anemone (the ★ lesson), 102 Spinner
@@ -7950,7 +7945,7 @@
         });
       }
       // star_play: Red Beaded Anemone glows gold, and so do the ● cards that can
-      // pay for its ★ — the same gold the real game paints on symbol-matching
+      // pay for its ★, the same gold the real game paints on symbol-matching
       // payment cards (.pv-hand-card.star-sym-match).
       if (step.waitFor === "star_play") {
         if (uid === 26) div.classList.add("tut-drag-ready");
@@ -7962,7 +7957,7 @@
       }
 
       // pay_ocean: Coral Reef locked (selected/queued); protect the cards later
-      // steps need — puffin (11), anemone (26), dolphin (102) and the ● Staghorn
+      // steps need: puffin (11), anemone (26), dolphin (102) and the ● Staghorn
       // Coral (2) that pays for the anemone's ★.
       if (step.waitFor === "pay_ocean") {
         if (uid === ts.selectedCardUid) {
@@ -7973,7 +7968,7 @@
       }
 
       // pay_animal: Puffin locked gold (pulsing), and the ♥ cards that fire its
-      // ★ glow gold too — paying for a star ability always reads gold, in the
+      // ★ glow gold too: paying for a star ability always reads gold, in the
       // tutorial and in a real game alike.
       if (step.waitFor === "pay_animal") {
         if (uid === ts.selectedHandUid) {
@@ -8471,8 +8466,8 @@
 
   // ── Coming back into a competitive match ────────────────────────────────
   // compMode + the seat pair live only in memory, set by whichever flow created
-  // or joined the match. EVERY other way back into a room — the ?room= URL, the
-  // "Rejoin →" card, reopening the game window, a plain refresh — restores one
+  // or joined the match. EVERY other way back into a room, the ?room= URL, the
+  // "Rejoin →" card, reopening the game window, a plain refresh: restores one
   // seat token and knows nothing about competitive, so the client came back as
   // an ordinary single-seat player: hand 1 played fine and hand 2 could never be
   // seen or played for the rest of the match. The room itself says what it is,
@@ -8481,7 +8476,7 @@
   // The one token we still hold is enough for both hands: the server treats a
   // player's two seats as one person, answering either token with whichever of
   // their hands is active and accepting either for that hand's move (see
-  // _competitive_same_owner). Ownership is fixed by seat — {0,1} and {2,3} — so
+  // _competitive_same_owner). Ownership is fixed by seat: {0,1} and {2,3}, so
   // the viewer's seat index names the pair with no extra round trip.
   function compAdoptFromPayload(payload) {
     if (!payload || !payload.room || !payload.room.competitive) return;
@@ -8599,11 +8594,11 @@
     }
   }
 
-  // There is no hand-switch screen any more. A full-screen "Your Turn — Hand 2"
+  // There is no hand-switch screen any more. A full-screen "Your Turn: Hand 2"
   // card used to slide in (and hold the board for 2.2 s) every time the turn
   // reached the player's other hand. The switch itself is now instant and the
-  // server does it the moment your turn ends — see _competitive_view_seat_locked
-  // — so the board is already on the right hand and an overlay announcing it is
+  // server does it the moment your turn ends: see _competitive_view_seat_locked
+  //, so the board is already on the right hand and an overlay announcing it is
   // just something to tap through. The top banner still names the live hand.
 
   function compOpenOverlay() {
@@ -9003,7 +8998,7 @@
   }
 
   // Event listeners
-  // (Legacy #pv-comp-open-btn removed with the old lobby — Competitive is now a
+  // (Legacy #pv-comp-open-btn removed with the old lobby: Competitive is now a
   //  mode inside the New Current modal, opened from the Player Home.)
   document.getElementById("comp-close-btn").addEventListener("click", () => {
     clearInterval(_compWaitPollTimer); _compWaitPollTimer = null;
@@ -9029,7 +9024,7 @@
   document.getElementById("comp-hist-btn").addEventListener("click", loadCompHistory);
 
   // ── Event listeners ──────────────────────────────────────────────
-  // (Legacy #pv-tutorial-open-btn removed with the old lobby — the tutorial
+  // (Legacy #pv-tutorial-open-btn removed with the old lobby, the tutorial
   //  chooser is opened from the Player Home's #stats-tutorial-btn.)
 
   document.getElementById("tut-x-btn").addEventListener("click", () => {
@@ -9639,7 +9634,7 @@
     return arr;
   }
   // Which hand a render belongs to. players[i].index IS the seat index in the
-  // server payload, and it rides along inside `me` — so it stays correct even
+  // server payload, and it rides along inside `me`, so it stays correct even
   // when renderHand is re-invoked later from a cached _handRenderData, which
   // the global myIdx would not.
   function handOrderKeyFor(me) {
@@ -9685,15 +9680,15 @@
   // along its own rotated axis. At the edges of a big fan that moves the card up
   // to ~25 px sideways and ~65 px down from its LAYOUT box, so "which card is the
   // pointer over" has two possible answers:
-  //   • the layout box (offsetLeft/offsetTop) — stable, but not where the card is
+  //   • the layout box (offsetLeft/offsetTop): stable, but not where the card is
   //     actually painted, and
-  //   • the live rendered box — where the card is painted, but it moves whenever a
+  //   • the live rendered box, where the card is painted, but it moves whenever a
   //     card lifts on hover, which feeds back into hover and flickers.
   // Hover used the first, the browser's own click dispatch used the second, so
   // from ~11 cards up the card that LIFTED was not the card that got the click:
   // "it does not discard the one you want".
   //
-  // Fix: hit-test the card's BASE transformed quad — the shape it has when
+  // Fix: hit-test the card's BASE transformed quad, the shape it has when
   // nothing is hovered. That is exactly what the player is aiming at, and it
   // never moves (hover changes only draw, never the hit shape), so there is no
   // feedback loop. Every consumer (hover, click, drag) uses it, so what lifts is
@@ -9732,7 +9727,7 @@
       const ax = Math.abs(lx), ay = Math.abs(ly);
       if (ax > hw || ay > hh) continue;
       // Cards are rounded rectangles, and the browser lets the card BEHIND show
-      // through the corner arc — so must this test, or a click on the corner of
+      // through the corner arc, so must this test, or a click on the corner of
       // an overlapped card would be stolen by the one in front.
       const r = _handCornerRadius(el);
       if (r > 0) {
@@ -9754,7 +9749,7 @@
   // Cards overlap by a fixed -28px margin (see .pv-hand-card), so a full hand
   // is 98 + 9×70 = 728px wide no matter how much room there is. On a phone, or
   // any window narrower than about 1400px, that is wider than the hand's own
-  // column — and since the cards only OVERFLOW (the zone is overflow:visible)
+  // column, and since the cards only OVERFLOW (the zone is overflow:visible)
   // they spill sideways underneath the player-seat clusters, which sit at
   // z-index 20 and take the tap instead. That is the "I can't play my cards on
   // mobile" bug, and it is a layout problem, so the fix is a layout one:
@@ -9771,7 +9766,7 @@
 
   // How much width the hand is ALLOWED, measured from things the hand cannot
   // itself change. Deliberately not #pv-hand's own width: that element sits in
-  // a grid track which, in some layouts, is sized to its contents — so reading
+  // a grid track which, in some layouts, is sized to its contents, so reading
   // it and then narrowing the cards would narrow the track, which would narrow
   // the cards again. A layout that feeds back on itself never settles, and it
   // is the same trap the hover hit-test had to be rescued from (see
@@ -9804,7 +9799,7 @@
     if (!n) return;
     const zone = document.getElementById("pv-hand");
     const cardW = cards[0].offsetWidth;
-    // 0 while the hand is hidden — leave the CSS default alone.
+    // 0 while the hand is hidden: leave the CSS default alone.
     const avail = zone ? handRoomPx(zone) : 0;
     if (!cardW || avail <= cardW) {
       cards.forEach(c => { c.style.marginLeft = ""; });
@@ -9825,7 +9820,7 @@
 
   // How far the fan is painted BELOW the bottom of its layout row. The hand
   // zone is flush with the bottom of the screen, so this much of the outermost
-  // cards was being cut off by the edge of the display — worst on a phone,
+  // cards was being cut off by the edge of the display: worst on a phone,
   // where those are the cards you are most likely to be reaching for.
   // Deterministic from the same transform applyHandLayout writes:
   //   world = translateX(tx) · rotate(a) · translateY(lift)
@@ -9921,7 +9916,7 @@
     const overflow = hand.length - MAX_VISIBLE;
 
     // Maintain this hand's display order: remove departed cards, add new ones at
-    // end. Spliced in place, never reassigned — see _handOrders.
+    // end. Spliced in place, never reassigned: see _handOrders.
     const allEntryUids = visible.map(e => Number(e.entry_uid ?? (Array.isArray(e.faces)&&e.faces[0]?e.faces[0].uid:null) ?? e.uid ?? 0));
     for (let i = handOrder.length - 1; i >= 0; i--) {
       if (!allEntryUids.includes(handOrder[i])) handOrder.splice(i, 1);
@@ -10078,7 +10073,7 @@
       // Click handler. Stored on the element as well as bound, so a click that
       // the browser dispatched to the WRONG card (its transformed box happened to
       // sit under the pointer) can be re-routed to the card the player was
-      // actually aiming at — see _handHitTestIdx.
+      // actually aiming at: see _handHitTestIdx.
       const onCardClick = (ev) => {
         if (tarponActive) {
           // Tarpon "discard and draw that many", tap to toggle a card in/out of the
@@ -10155,7 +10150,7 @@
   //   adjacent cards. These flicker loops only stop when the cursor moves away.
   //
   // Fix: listen on the container with pointermove and hit-test through the one
-  //   shared _handHitTestIdx, which uses each card's BASE transformed quad — the
+  //   shared _handHitTestIdx, which uses each card's BASE transformed quad, the
   //   shape it has when nothing is hovered. Hover changes only how a card is
   //   PAINTED, never its hit shape, so the hit zone stays perfectly stable while
   //   cards animate and the feedback loop is broken completely.
@@ -10177,11 +10172,11 @@
     // A click that reaches no card element at all still belongs to the card the
     // player aimed at. The fan is drawn well outside #pv-hand's own box (the
     // outer cards hang up to ~65 px below it) and the aimed card lifts 64 px on
-    // hover, so the pointer can easily end up over bare background — the click
+    // hover, so the pointer can easily end up over bare background, the click
     // then did nothing at all.
     //
     // Only genuine BACKGROUND elements may hand a click over. Anything with its
-    // own UI — a button, a modal, the action bar, a seat pill — keeps its click,
+    // own UI, a button, a modal, the action bar, a seat pill: keeps its click,
     // so this can never steal from something drawn on top of the hand.
     const _HAND_FALLTHROUGH_IDS = new Set(["pv-hand", "pv-hand-zone", "pv-game"]);
     document.addEventListener("click", (ev) => {
@@ -10222,7 +10217,7 @@
     if (pendingPayAction) {
       const cost = Number(pendingPayAction.cost_to_pay || 0);
       const name = pendingPayAction.face_name || "card";
-      // Only the ★ variant cares about the payment's symbol — say so exactly.
+      // Only the ★ variant cares about the payment's symbol: say so exactly.
       const star = starPayInfo(pendingPayAction);
       const symHint = star.fires
         ? `, one of them a <strong>${star.sym}</strong> card (the cards glowing <strong style="color:var(--gold)">gold</strong>) to fire ★ ${star.ability || "the star ability"}`
@@ -10309,23 +10304,23 @@
   // holding a turn that will not end on its own. The turn banner announces the
   // ★ one at the top of the screen (and the Hermit Crab / Turtle one not at
   // all), but the action it is asking for lives at the bottom, and on a phone
-  // the two are nowhere near each other — so the turn read as "the game is
+  // the two are nowhere near each other, so the turn read as "the game is
   // stuck". This bobs just above the action bar, pointing down at End Turn,
   // for as long as that turn lasts. It is hidden by every state
   // that takes End Turn away (payment, forced discard, Tarpon), because a
   // callout pointing at a button that is not there is worse than none.
   let _playAgainCalloutOn = false;
 
-  // The ONE test for "this turn will not end by itself" — the only turns the
+  // The ONE test for "this turn will not end by itself", the only turns the
   // callout is for. Two server flags, and the difference between them and
   // everything else is the whole point:
-  //   • is_replay_turn      — a ★ "play again" handed you another turn.
-  //   • is_open_play_window — a Hermit Crab ("play any number of baitfish this
+  //   • is_replay_turn, a ★ "play again" handed you another turn.
+  //   • is_open_play_window, a Hermit Crab ("play any number of baitfish this
   //     turn for free") or a Loggerhead Sea Turtle ("play any number of cards
   //     by paying the costs") opened a window you close yourself.
   // A ONE-SHOT free play is not in here on purpose. A Roosterfish's "play a
   // free Baitfish" is a single card and the turn carries on ending the way it
-  // always does, so prompting there would just be noise on an ordinary turn —
+  // always does, so prompting there would just be noise on an ordinary turn,
   // the server draws that line in has_multi_play_window(), not this file.
   function turnWaitsOnEndTurn(lw) {
     return Boolean(lw && (lw.is_replay_turn || lw.is_open_play_window));
@@ -11417,7 +11412,7 @@
   // and every element it can anchor to (seat pills, opponent cards) is thrown
   // away and rebuilt whenever the board re-renders. A removed element never
   // fires mouseleave, so "hover a board, then anything changes" used to strand
-  // the peek on screen — straight through the end screen and back out to Player
+  // the peek on screen: straight through the end screen and back out to Player
   // Home. So hiding it is never left to mouseleave alone:
   //   • a watchdog checks the anchor is still in the DOM and still under the
   //     pointer, and re-anchors to the rebuilt element when there is one;
@@ -11441,7 +11436,7 @@
     return !!(pop && pop.classList.contains("visible"));
   }
   // What the pointer is actually over right now, asked of the layout rather
-  // than of mouse events — the whole problem is the events that never come.
+  // than of mouse events, the whole problem is the events that never come.
   function _elementAtPointer() {
     if (!_boardHoverPt) return null;
     try { return document.elementFromPoint(_boardHoverPt.x, _boardHoverPt.y); }
@@ -11585,7 +11580,7 @@
   // _lastSavedWinner, and the comment says "the next poll retries". That was
   // only ever true while the game was still moving. Once it is over the room's
   // state_version stops changing, applyServerPayload drops the identical
-  // payload as already-rendered, renderEndGame is never called again — and so a
+  // payload as already-rendered, renderEndGame is never called again, and so a
   // save that lost the network for one second was never retried at all. The
   // player's XP, streak and game history just quietly did not happen, on a
   // screen that showed them all as if they had.
@@ -11610,8 +11605,8 @@
       box.classList.add("failed");
       if (txt) {
         txt.textContent = navigator.onLine === false
-          ? "You're offline — your XP and stats aren't saved yet."
-          : "Couldn't reach the server — your XP and stats aren't saved yet.";
+          ? "You're offline, your XP and stats aren't saved yet."
+          : "Couldn't reach the server, your XP and stats aren't saved yet.";
       }
       const btn = document.getElementById("gs-save-retry");
       if (btn) btn.disabled = false;
@@ -11655,8 +11650,8 @@
   }
 
   function _endSaveReset() {
-    // Called from every renderEndGame(null) — i.e. once a second for the whole
-    // game — so cost nothing when there is nothing to reset.
+    // Called from every renderEndGame(null): i.e. once a second for the whole
+    // game, so cost nothing when there is nothing to reset.
     if (_endSaveState === "idle" && !_endSaveTimer && !_endSaveArgs) return;
     _endSaveStop();
     _endSaveState = "idle"; _endSaveTries = 0; _endSaveArgs = null;
@@ -11854,7 +11849,7 @@
   //
   // ⚠️ It multiplies whatever is handed in, AFTER any existing reduction. An
   // AI game is already halved to 50 before it gets here, so a Prestige 3
-  // player earns 50 + 25 = 87 from it — the AI reduction survives, which it
+  // player earns 50 + 25 = 87 from it, the AI reduction survives, which it
   // would not if the bonus were folded into the placement table instead.
   //
   // The multiplier read here is only for DISPLAY and for the client's own
@@ -11869,7 +11864,7 @@
   }
   // ── Level Pass XP Boost ────────────────────────────────────────────────
   // +20% on every XP source for 24 hours. Read SYNCHRONOUSLY from the pass's
-  // cached server state — an XP grant can never afford to await a request, and
+  // cached server state, an XP grant can never afford to await a request, and
   // an unloaded pass reporting "no boost" is the safe direction (a missed boost
   // is a smaller wrong than XP nobody earned).
   function passBoostNow() {
@@ -11881,7 +11876,7 @@
   }
 
   // Prestige first, then the boost on top of it. Kept as ONE function because
-  // every XP path already calls this one — adding a second multiplier anywhere
+  // every XP path already calls this one: adding a second multiplier anywhere
   // else is how a bonus ends up applying to games but not to achievements.
   // `base`, `bonus`, `total` and `level` keep their old meanings so existing
   // callers are unaffected; the breakdown fields are additive.
@@ -12298,11 +12293,11 @@
         : 0;
       const oldTotalXp = getStoredTotalXp(cStats);
       // Prestige multiplies BOTH the placement/stat XP and the daily login
-      // bonus — every legitimate XP source, not just games.
+      // bonus, every legitimate XP source, not just games.
       const _pxGame   = prestigeXp(xpAward);
       // The login bonus is multiplied by hand here rather than through
       // prestigeXp (it keeps 2 decimal places), so the Level Pass boost has to
-      // be applied here as well — "+20% XP from everything" has to mean it.
+      // be applied here as well: "+20% XP from everything" has to mean it.
       const _pxStreak = _streakBonusXp > 0
         ? Math.round(_streakBonusXp * (1 + prestigeLevelNow() * 0.25)
                      * passBoostNow().mult * 100) / 100
@@ -13003,7 +12998,7 @@
 
       // Score every hand by its SEAT, falling back to its name. Two players with
       // the same nickname put four rows under two names, and a name join then
-      // hands both sides the same scores — which can record the winner as the
+      // hands both sides the same scores, which can record the winner as the
       // loser. Every final_scores row already carries the seat that earned it.
       const scoreBySeat = new Map();
       const scoreByName = {};
@@ -13615,7 +13610,7 @@
         const avatarSeed = p.name || ("p" + i);
         const fallbackAvatar = (typeof getDefaultAvatar === "function") ? getDefaultAvatar(avatarSeed) : "/avatars/mullet.png";
         // The face each player finished the match wearing is already in the
-        // state we just rendered from — use it instead of showing a name-hash
+        // state we just rendered from: use it instead of showing a name-hash
         // stranger until the async nickname lookup lands (and forever, for a
         // guest with no profile doc to look up).
         const liveAv = pvLiveAvatar(p.name) || String(playerObj?.avatar || "");
@@ -13746,7 +13741,7 @@
     const snapshot = _preGameChallengeSnapshot || { weekly: new Set(), daily: new Set() };
     const { weekly: newWeekly, daily: newDaily } = window._getNewlyCompletedChallenges(snapshot);
 
-    // Dailies first — the smaller, more frequent win, and the one a player is
+    // Dailies first, the smaller, more frequent win, and the one a player is
     // most likely to have just moved.
     const rows = [
       ...(newDaily  || []).map(ch => ({ ch, weekly: false })),
@@ -13984,7 +13979,7 @@
   // A bracket match room is finished for good the moment it ends: there's no
   // rematch to ready up for, and "Back to Lobby" drops you out of the flow. So
   // when the game we just played is one of OUR tournament matches, the button
-  // row becomes the only two things that make sense — watch another live match,
+  // row becomes the only two things that make sense: watch another live match,
   // or wait for your next one in the lobby. tournament-ui.js owns the decision
   // (__ccTourneyMatchCtx); a null answer means "not a tournament match" and the
   // normal buttons stay exactly as they were. Runs on every end-game poll, so it
@@ -14007,12 +14002,12 @@
     normal.forEach(id => { const b = document.getElementById(id); if (b) b.style.display = "none"; });
     const status = document.getElementById("gs-again-status");
     if (status) status.classList.remove("show");      // "x/N ready to play again" doesn't apply
-    // Spectate is offered whenever another bracket game is actually running —
+    // Spectate is offered whenever another bracket game is actually running,
     // including after you've been knocked out, which is exactly when a player
     // wants to watch the rest of the tournament play out. ctx.canSpectate is
     // already false when the host disallowed watching or nothing is live.
     spec.style.display = ctx.canSpectate === false ? "none" : "";
-    // A game we only WATCHED ends the same way — the natural next step is the next
+    // A game we only WATCHED ends the same way, the natural next step is the next
     // live match, not a rematch we have no seat for.
     spec.textContent = ctx.watching
       ? (ctx.live > 1 ? `👁 Watch Another Match (${ctx.live} live)` : "👁 Watch Another Match")
@@ -14129,7 +14124,7 @@
 
   // Wait for the next match: give up the seat in the finished room (as "Back to
   // Lobby" does) and land on the Player Home, where the tournament module raises
-  // its waiting bar — spinner, live status and a Spectate button — so the player
+  // its waiting bar: spinner, live status and a Spectate button, so the player
   // can sit in their stats, friends or the menu until their match is called.
   document.getElementById("pv-endgame-t-wait")?.addEventListener("click", async () => {
     _saveConfirmedStrategyStats();
@@ -14202,7 +14197,7 @@
   // Muting only silences the notifications OUTSIDE the panel: the 💬 button
   // badge, the lobby chat badge and the back-arrow dot. Messages keep
   // arriving and unread counts keep counting, so the chat itself is always
-  // one click away — and unmuting restores the exact badge you would have had.
+  // one click away, and unmuting restores the exact badge you would have had.
   // The choice belongs to ONE room (sessionStorage, so a mid-game refresh
   // keeps it) and is dropped when you leave for a different game.
   let _chatMuteMode = "none";      // "none" | "game" | "dm" | "all"
@@ -14236,7 +14231,7 @@
       const senderName = m.sender || "?";
 
       // Sender avatar: the face they are wearing NOW, not the one frozen into
-      // the message when they sent it — change your icon mid-game and every
+      // the message when they sent it: change your icon mid-game and every
       // line you have already typed changes with you. m.avatar is the fallback
       // for a sender who has since left (no live seat to read).
       const av = document.createElement("div"); av.className = "cm-avatar";
@@ -14348,7 +14343,7 @@
         _gameAchTracker.goodSportWeekFired = true;
         window._reportWeeklyChallengeProgress("good_sport_week", 1);
       }
-      // Daily: good_sport, the same send-off, once. No per-game guard needed —
+      // Daily: good_sport, the same send-off, once. No per-game guard needed,
       // the daily is a one-shot, and reporting a completed slot is a no-op.
       if (endgameActive && positive) {
         window._reportDailyChallengeProgress?.("good_sport", 0, { complete: true });
@@ -14586,7 +14581,7 @@
       const on = _chatMuteMode !== "none";
       btn.textContent = on ? "🔕" : "🔔";
       btn.classList.toggle("muted", on);
-      const t = _CHAT_MUTE_LABEL[_chatMuteMode] + (on ? " — click to change" : " — click to mute for this game");
+      const t = _CHAT_MUTE_LABEL[_chatMuteMode] + (on ? " click to change" : " click to mute for this game");
       btn.title = t; btn.setAttribute("aria-label", t);
     }
     const menu = _pg("pv-chat-mute-menu");
@@ -15422,7 +15417,7 @@
   //
   // It also owns SCROLLING THE OCEANS with one finger. Draggable cards carry
   // touch-action:pinch-zoom (so a drag never scroll-jitters), which also means
-  // the browser will not pan the board when a swipe starts on one — and with a
+  // the browser will not pan the board when a swipe starts on one, and with a
   // big board most of the board IS cards, so there was nowhere left to swipe
   // from and the bottom oceans were unreachable. Now, ONLY when the oceans
   // actually overflow, a vertical swipe that starts on an ocean card pans the
@@ -15647,7 +15642,7 @@
   // ═══════════════════════════════════════════════════════════════
   // BOARD SCROLL AFFORDANCE
   // #pv-table scrolls the oceans up and down (see the CSS). Nothing tells a
-  // player that, though, and a phone has no permanent scrollbar — so once the
+  // player that, though, and a phone has no permanent scrollbar, so once the
   // board has more oceans than fit, a sticky pill appears at the bottom of the
   // board: tap it to page down, tap it at the bottom to jump back to the top.
   // That is the guaranteed, gesture-free way to reach the last ocean.
@@ -15681,7 +15676,7 @@
     table.addEventListener("scroll", updateBoardScrollAffordance, { passive: true });
     window.addEventListener("resize", updateBoardScrollAffordance);
     // The hand fan is sized to the width the hand has, so a rotation or a
-    // resized window has to re-fit it — otherwise turning a phone sideways
+    // resized window has to re-fit it, otherwise turning a phone sideways
     // leaves the cards squeezed for the old, narrower screen (or spilling off
     // the new one). Cheap: it only rewrites margins when they need to change.
     const refit = () => {
@@ -15749,9 +15744,9 @@
   // #bs-ctrl (Board Size + Chat) and #ig-challenge-panel are fixed to the
   // bottom corners of the screen, above the action bar and the hand. Both used
   // a hard-coded `bottom: 302px`, which is only the right number for the
-  // desktop stack. The moment that stack is taller — a narrow window wraps the
+  // desktop stack. The moment that stack is taller, a narrow window wraps the
   // action bar onto two or three lines, and on a phone the hand zone carries
-  // the player seats on their own row — the docks land ON TOP of the action
+  // the player seats on their own row, the docks land ON TOP of the action
   // bar, covering Help, the action dropdown and Surf's Up. So measure the real
   // thing and publish it as --pv-bottom-ui for both to sit on.
   function updateBottomDockOffset() {
@@ -16295,7 +16290,7 @@
   const PHST_EMOTE_PACK_PRICE   = 500;   // one pack of critter chat emotes
   const PHST_EMOTE_PACK_SIZE    = 5;     // critters granted per Emote Pack
   const PHST_REEARN_COIN_PRICE  = 2500;  // buy back one traded-away critter
-  const PHST_PERK_STACK_MAX     = 5;     // hoard cap per stackable consumable
+  const PHST_PERK_STACK_MAX     = 3;     // hoard cap per stackable consumable
 
   // ── Username changes ───────────────────────────────────────────
   // ONE free rename per account, then this much per change, with no waiting
@@ -16377,8 +16372,8 @@
   // account's progress (users/{uid}.traded_away, see _trade_away_after in
   // multiplayer_server.py); everything measured against BANKED progress must be
   // earned AGAIN from that snapshot before an automatic grant returns it.
-  // Requirements that are repeatable by nature — one-game feats, hidden clicks,
-  // donation codes, Store purchases — are re-done by definition and pass
+  // Requirements that are repeatable by nature: one-game feats, hidden clicks,
+  // donation codes, Store purchases: are re-done by definition and pass
   // straight through (reaching the grant means the player just did it again).
   const REEARN_GATED_TYPES = new Set(["stat", "comp_wins", "level", "rank", "achievement"]);
 
@@ -16429,14 +16424,14 @@
       // A rank is a standing position, so "again" means CLIMB TO IT again: fall
       // below the tier (a loss streak, or the season reset that puts everyone
       // back to Unranked) and get back up. `dipped` is set the moment we see the
-      // player below the tier after the trade — see _noteReEarnRankDip.
+      // player below the tier after the trade: see _noteReEarnRankDip.
       const curName = stats?.rank_competitive || "Unranked";
       const cur  = rankTierValue(curName);
       const need = _RANK_TIER_VALUE[u.tier] || Infinity;
       const below = !!(base && base.dipped) || rankTierValue(base && base.rank) < need;
       return { met: below && cur >= need, prog: null, repeatable: true,
                text: below
-                 ? `Climb back to ${u.tier} — you're ${curName}.`
+                 ? `Climb back to ${u.tier}: you're ${curName}.`
                  : `Drop below ${u.tier} and earn it again (you're ${curName}; the season reset counts).` };
     }
     if (u.type === "achievement") {
@@ -17362,7 +17357,6 @@
       const sortSel = $a("gal-sort-sel"); if (sortSel) sortSel.value = "all";
       try { window.__fishLoadIconCounts?.(); } catch {}
       _galRenderHeader();
-      _galRenderLevelTrack();
       _galRenderTabs();
       _galRenderGrid();
       _galRenderDetail(null);
@@ -17477,111 +17471,6 @@
       _pubProfileData = null;
       document.body.style.overflow = "";
     };
-
-    // ══════════════════════════════════════════════════════════════════
-    //  THE LEVEL TRACK  (top of the Avatar Gallery)
-    //
-    //  Every critter you unlock by LEVELLING UP, on one scrollable line:
-    //  the critter above the tick, the level below it, a "You" marker where
-    //  you are now, and — the point of the whole thing — how much XP is left
-    //  before the next one.
-    //
-    //  It reads the SAME two sources the unlock sweep does (LEVEL_XP_TOTALS
-    //  and each avatar's own unlock.goal), so it can never advertise a level
-    //  the sweep would not actually unlock at.
-    // ══════════════════════════════════════════════════════════════════
-
-    // The level-gated avatars, in level order. Derived from the catalogue
-    // rather than listed again here: adding a level avatar puts it on the
-    // track automatically, and there is no second table to forget.
-    function _galLevelAvatars() {
-      return ANIMAL_AVATARS
-        .filter(a => a && a.unlock && a.unlock.type === "level" && a.unlock.goal)
-        .slice()
-        .sort((x, y) => Number(x.unlock.goal) - Number(y.unlock.goal));
-    }
-
-    // Cumulative XP needed to REACH a level, from the one curve.
-    function _galXpToReachLevel(level) {
-      const i = Math.max(1, Math.min(LEVEL_XP_TOTALS.length, Math.floor(level))) - 1;
-      return Number(LEVEL_XP_TOTALS[i]) || 0;
-    }
-
-    // Roughly how many more wins that is, so the number means something to a
-    // player who does not think in XP. Uses the REAL award (a top finish
-    // against humans) run through the player's own multipliers, so a boosted
-    // or Prestiged account is told the truth rather than a generic figure.
-    function _galWinsToGo(xpLeft) {
-      let perWin = 100;
-      try { perWin = Math.max(1, Number(prestigeXp(100).total) || 100); } catch (_) {}
-      return Math.max(1, Math.ceil(xpLeft / perWin));
-    }
-
-    function _galRenderLevelTrack() {
-      const host = $a("gal-level-track");
-      if (!host) return;
-      const list = _galLevelAvatars();
-      if (!list.length) { host.style.display = "none"; return; }
-      host.style.display = "";
-
-      const { stats, level } = _avatarStatsAndLevel();
-      const totalXp = getStoredTotalXp(stats);
-      const nextIdx = list.findIndex(a => Number(a.unlock.goal) > level);
-
-      // ── The headline: "3,450 XP until you unlock the Manta Ray" ────────
-      let headline;
-      if (nextIdx === -1) {
-        headline = '<span class="galLT-next-done">Every level critter is yours. 🌊</span>';
-      } else {
-        const nextA = list[nextIdx];
-        const goal  = Number(nextA.unlock.goal);
-        const left  = Math.max(0, _galXpToReachLevel(goal) - totalXp);
-        const wins  = _galWinsToGo(left);
-        headline =
-          '<span class="galLT-xp">' + left.toLocaleString() + ' XP</span>'
-          + ' till you unlock the <b>' + escapeHtml(nextA.name) + '</b>'
-          + ' <span class="galLT-games">· about ' + wins.toLocaleString()
-          + ' more win' + (wins === 1 ? "" : "s") + ' · Level ' + goal + '</span>';
-      }
-
-      const stops = list.map((a, i) => {
-        const goal = Number(a.unlock.goal);
-        const done = level >= goal;
-        const isNext = (i === nextIdx);
-        // The "You are here" pill rides the stop being worked towards; once
-        // everything is unlocked it settles on the last one.
-        const showYou = isNext || (nextIdx === -1 && i === list.length - 1);
-        const cls = ["galLT-stop", done ? "is-done" : "is-locked"];
-        if (isNext) cls.push("is-next");
-        return '<div class="' + cls.join(" ") + '" title="'
-          + escapeHtml(a.name) + ' · Level ' + goal + '">'
-          + (showYou ? '<div class="galLT-you">You · Lv ' + level + '</div>' : "")
-          + '<div class="galLT-critter"><img src="' + escapeHtml(_avSrc(a.img))
-          + '" alt="" loading="lazy"></div>'
-          + '<div class="galLT-name">' + escapeHtml(a.name) + '</div>'
-          + '<div class="galLT-line"></div>'
-          + '<div class="galLT-lvl">' + goal + '</div>'
-          + '</div>';
-      }).join("");
-
-      host.innerHTML =
-        '<div class="galLT-head">'
-        + '<div class="galLT-title">Level Track</div>'
-        + '<div class="galLT-next">' + headline + '</div>'
-        + '</div>'
-        + '<div class="galLT-rail" id="galLT-rail">' + stops + '</div>';
-
-      // Put the player where they actually are. Without this the track always
-      // opens on Level 10 and a level-70 player sees none of their own progress.
-      try {
-        const rail = $a("galLT-rail");
-        const mark = rail && (rail.querySelector(".galLT-stop.is-next")
-                              || rail.querySelector(".galLT-stop:last-child"));
-        if (rail && mark) {
-          rail.scrollLeft = Math.max(0, mark.offsetLeft - rail.clientWidth * 0.45);
-        }
-      } catch (_) {}
-    }
 
     function _galRenderHeader() {
       const equipped = _galEquippedImg();
@@ -18079,7 +17968,7 @@
           showCodeMsg(res.msg, res.ok);
           if (res.ok) {
             if (codeInput) codeInput.value = "";
-            try { _galRenderHeader(); _galRenderLevelTrack(); _galRenderTabs(); _galRenderGrid(); } catch {}
+            try { _galRenderHeader(); _galRenderTabs(); _galRenderGrid(); } catch {}
             if (res.refresh) setTimeout(() => showCodeMsg("", false), 4000);
           }
         } catch {
@@ -18520,7 +18409,7 @@
     // (css: #auth-step-choose:not(.is-armed)) until the artwork has painted.
     //
     // This is the second half of the fix for "it prompted me for a username as
-    // if I'd clicked Play as Guest" — device-select.js stops the click that
+    // if I'd clicked Play as Guest": device-select.js stops the click that
     // closed the device screen falling through onto this one, and this stops a
     // blind click at a chooser that has not drawn itself yet. On a slow
     // connection that window is seconds long, and PLAY AS GUEST sits dead
@@ -19240,8 +19129,8 @@
         // ── Prestige on sign-in ────────────────────────────────────
         // Warm the Prestige state (it drives the badge + name colour on every
         // username in the app, so it must be ready before the first
-        // leaderboard/friends paint), then — ONLY if this account is sitting at
-        // the level cap — ask whether they'd like to ride the next current.
+        // leaderboard/friends paint), then, ONLY if this account is sitting at
+        // the level cap: ask whether they'd like to ride the next current.
         // Prestige is always optional: the ask has a "Not right now", closes on
         // Escape, starts nothing by itself, and comes back next sign-in.
         try {
@@ -19268,7 +19157,7 @@
     }
 
     // Reveal the lobby for a RETURNING guest (auto-restored from a saved
-    // nickname). Nothing stands between a guest and the lobby any more — the
+    // nickname). Nothing stands between a guest and the lobby any more, the
     // Terms gate that used to sit here is gone (build 1.6.48).
     function revealGuestLobby(nick) {
       revealLobby(nick, "");
@@ -19299,6 +19188,10 @@
       localStorage.removeItem(GUEST_NICK_KEY);
       localStorage.removeItem(GUEST_AVATAR_KEY);
       _guestSessionActive = false;
+      // Every caller of this is leaving the current identity behind. Drop the
+      // Level Pass cache with it, so the sidebar's unclaimed badge cannot show
+      // the last account's number to the next one.
+      try { window.__ccLevelPassReset && window.__ccLevelPassReset(); } catch (_) {}
       _guestAvatarUrl = "";
     }
 
@@ -19307,7 +19200,7 @@
       // Only stay out of the Player Home if a real game board is actually on
       // screen (deep-linked straight into a room). This used to bounce to a
       // long-dead create/join "old lobby" page whenever a stale room id merely
-      // lingered in the URL — e.g. right after leaving a tournament — instead of
+      // lingered in the URL: e.g. right after leaving a tournament, instead of
       // landing on the nice Player Home. Keying off the visible game board means
       // returning home ALWAYS shows the real home (daily/weekly, leaderboards…).
       const _pvGameEl = $a("pv-game");
@@ -19686,7 +19579,7 @@
     // enterGameLobby() removed: it existed only to reveal the legacy create/join
     // "old lobby" page. Deep-link room entry is handled by enterRoom()/the
     // auto-join boot flow, and showStatsLobby() now stays put when a game board
-    // is already on screen — so this dead bounce is gone.
+    // is already on screen, so this dead bounce is gone.
 
     let _lbSize = 2; // current player-count tab
     async function loadLeaderboard(size) {
@@ -20024,17 +19917,17 @@
     // One table, two rankings behind a toggle: longest streak EVER and longest
     // CURRENT (live) streak. Both numbers are recomputed from stats.streak_days, the
     // single source of truth (see _computeStreakInfo), because the stored
-    // stats.daily_streak is only rewritten when a game finishes — a player who
+    // stats.daily_streak is only rewritten when a game finishes, a player who
     // stopped playing keeps a stale-high value in their doc, which would
     // otherwise sit at the top of the "current" board forever.
     //
     // Each board fetches by its OWN stored field (one query, same cost as the
-    // Wins board — user docs are big, so a second pass over 75 of them is not
+    // Wins board: user docs are big, so a second pass over 75 of them is not
     // free). That is sound because recomputing can only LOWER a stored value,
     // never raise it, so the top-N by stored value always contains the true
     // top-N. It relies on stats.streak_days / daily_streak / streak_longest
     // being written TOGETHER (they are, in both writers: the end-of-game save
-    // and __fishUseStreakShield) — a doc missing the ordered field is dropped
+    // and __fishUseStreakShield), a doc missing the ordered field is dropped
     // by Firestore, so if that invariant is ever broken this board goes blind.
     function _phLbStreakNums(stats) {
       let info = null;
@@ -20994,7 +20887,7 @@
         // ── Referral, if they typed a friend's code ────────────────────
         // Runs only AFTER saveNewProfile, because the server pays into an
         // account document that has to exist first. Awaited so the coin
-        // balance is already right on the first paint of Player Home — but
+        // balance is already right on the first paint of Player Home, but
         // wrapped so that NOTHING here can stop a new player getting in. A
         // failed referral is a missing bonus; a blocked sign-up is a lost
         // player.
@@ -21004,7 +20897,7 @@
           if (refCode && typeof window.__ccReferralRedeem === "function") {
             const rr = await window.__ccReferralRedeem(refCode);
             if (rr && rr.ok) {
-              showToast(`🎁 +${Number(rr.coins || 0).toLocaleString()} Critter Coins — `
+              showToast(`🎁 +${Number(rr.coins || 0).toLocaleString()} Critter Coins: `
                 + `${rr.referrerName || "your friend"} got the same!`, "good");
             } else if (rr && rr.message) {
               // Say why, but let them in regardless. The Friends tab keeps
@@ -21238,7 +21131,7 @@
 
       // What the next rename costs. The first one on an account is free; every
       // one after that costs PHST_RENAME_COIN_PRICE, with no waiting period.
-      // The button is never disabled — a player short on coins is told the
+      // The button is never disabled, a player short on coins is told the
       // price when they try to save, not blocked from opening the form.
       if (_authUser && _activeProfile) {
         const costEl  = $a("settings-nick-cost");
@@ -21316,7 +21209,7 @@
 
       // Price check up front, from the SERVER doc rather than the cached
       // profile, so the confirm box quotes what will actually be charged.
-      // (The transaction below re-reads it again and is the real authority —
+      // (The transaction below re-reads it again and is the real authority,
       // this pass is only here to ask before spending anything.)
       let willCharge = false;
       try {
@@ -21713,7 +21606,7 @@
       listEl.innerHTML = "";
 
       // In-game room-chat bridge entry (hidden while searching for people, and
-      // never on the Messages page — that row closes the messaging UI to reveal
+      // never on the Messages page, that row closes the messaging UI to reveal
       // the in-game chat panel, which would just blank the page you're on).
       if (!filtering && !_msgPageMounted && typeof roomId !== "undefined" && roomId) {
         const room = document.createElement("div");
@@ -21917,7 +21810,7 @@
         if (window.__fishTrade && window.__fishTrade.refreshButtons) window.__fishTrade.refreshButtons();
       }
 
-      // Clan System: "Invite to Clan" sits beside Trade in a DM — same rule as
+      // Clan System: "Invite to Clan" sits beside Trade in a DM, same rule as
       // the profile button (only for members who actually hold invite rights).
       const clanBtn = $a("ccm-clan-btn");
       if (clanBtn) {
@@ -22688,13 +22581,13 @@
       } catch (_) {}
     }
     // Anything that changes MY account server-side needs this same re-read.
-    // Prestige is the biggest one — level, XP, coins, equipped avatar and the
+    // Prestige is the biggest one: level, XP, coins, equipped avatar and the
     // whole unlocked_icons list all move in a single server transaction, so
     // painting on from the pre-Prestige snapshot would show a Level 100 player
     // who is actually Level 1.
     // Warm the Level Pass + referral caches. The pass one matters most:
     // __ccPassBoost() is read synchronously by every XP path, and an unprimed
-    // cache reports "no boost" — which would quietly cost a player the boost
+    // cache reports "no boost", which would quietly cost a player the boost
     // they just activated on their first game back.
     function _ccPrimeRewardModules() {
       try { window.__ccLevelPassPrime && window.__ccLevelPassPrime(); } catch (_) {}
@@ -22922,7 +22815,8 @@
       rows.forEach(r => {
         const row = document.createElement("div"); row.className = "cctr-item";
         if (r.type === "coins") {
-          const ic = document.createElement("div"); ic.className = "cctr-item-coin"; ic.textContent = "🪙";
+          const ic = document.createElement("div"); ic.className = "cctr-item-coin";
+          ic.innerHTML = '<img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false">';
           row.appendChild(ic);
           const body = document.createElement("div"); body.className = "cctr-item-body";
           const nm = document.createElement("div"); nm.className = "cctr-item-name"; nm.textContent = "Critter Coins";
@@ -23362,12 +23256,12 @@
       // The Clans panel is empty markup that js/clans-ui.js fills in, so if that
       // module hasn't registered, doing nothing here is indistinguishable from
       // "the Clans page is blank". js/clans-ui.js is a separate deferred script,
-      // so give it a few moments to turn up before giving up — and if it never
+      // so give it a few moments to turn up before giving up, and if it never
       // does, put the reason on screen rather than leaving an empty ocean.
       // js/level-pass.js is a separate deferred script, so on a cold open it
       // may not have registered yet. Waiting a few beats and then SAYING SO is
       // the difference between "still loading" and a permanently blank page
-      // that explains nothing — the way the Clans tab once shipped.
+      // that explains nothing, the way the Clans tab once shipped.
       function _renderLevelPassTab(attempt) {
         const n = attempt || 0;
         if (typeof window.__ccLevelPassRender === "function") {
@@ -23392,7 +23286,7 @@
           if (cr && !cr.children.length) {
             cr.innerHTML = '<div style="padding:26px 14px;text-align:center;'
               + 'color:#7a9db8;font-weight:700;font-size:13px;">'
-              + 'Clans couldn\'t be drawn — the clan module (js/clans-ui.js) never loaded.'
+              + 'Clans couldn\'t be drawn, the clan module (js/clans-ui.js) never loaded.'
               + '<br>Please refresh the page.</div>';
           }
           try { console.error("[clans] clans-ui.js never registered __ccClansRender"); } catch (_) {}
@@ -23401,7 +23295,7 @@
             if (cr) {
               cr.innerHTML = '<div style="padding:26px 14px;text-align:center;'
                 + 'color:#7a9db8;font-weight:700;font-size:13px;">'
-                + 'Clans couldn\'t be drawn — the tab hit an error.<br>Please refresh the page.</div>';
+                + 'Clans couldn\'t be drawn, the tab hit an error.<br>Please refresh the page.</div>';
             }
             console.error("[clans] tab render threw", err);
           } catch (_) {}
@@ -23422,7 +23316,7 @@
           if (pr && !pr.children.length) {
             pr.innerHTML = '<div style="padding:26px 14px;text-align:center;'
               + 'color:#7a9db8;font-weight:700;font-size:13px;">'
-              + 'Prestige couldn\'t be drawn — the Prestige module (js/prestige-ui.js) never loaded.'
+              + 'Prestige couldn\'t be drawn, the Prestige module (js/prestige-ui.js) never loaded.'
               + '<br>Please refresh the page.</div>';
           }
           try { console.error("[prestige] prestige-ui.js never registered __ccPrestigeRender"); } catch (_) {}
@@ -23431,7 +23325,7 @@
             if (pr) {
               pr.innerHTML = '<div style="padding:26px 14px;text-align:center;'
                 + 'color:#7a9db8;font-weight:700;font-size:13px;">'
-                + 'Prestige couldn\'t be drawn — the page hit an error.<br>Please refresh the page.</div>';
+                + 'Prestige couldn\'t be drawn, the page hit an error.<br>Please refresh the page.</div>';
             }
             console.error("[prestige] tab render threw", err);
           } catch (_) {}
@@ -23470,7 +23364,7 @@
           if (gated) _ensureGuestGate(el, GUEST_GATE_MSGS[k]);
         });
         // The Messages page hosts the one #cc-msg-drawer element, so it must be
-        // handed over on entry and handed back on exit — including when the
+        // handed over on entry and handed back on exit, including when the
         // panel is guest-gated, or the drawer would sit under the gate.
         if (name === "messages" && !isGuest) _msgMountPage(); else _msgUnmountPage();
         // Skip data renders for gated panels (content is hidden anyway).
@@ -23548,7 +23442,7 @@
               url: location.pathname + location.search,
               at:  Date.now(),
             }));
-          } catch (_) { /* private mode / quota — the button just falls back to "/" */ }
+          } catch (_) { /* private mode / quota, the button just falls back to "/" */ }
         }
 
         // Open a Stripe Payment Link in the SAME tab. Require sign-in first so
@@ -23577,7 +23471,7 @@
       //  hand off to Stripe-hosted links.
       //
       //  ⚠️ A LINK IS IDENTIFIED BY ITS PRICE, NOT ITS URL. The webhook has no
-      //  table of these URLs — it reads `amount_total` off the completed
+      //  table of these URLs, it reads `amount_total` off the completed
       //  session and looks it up in COIN_PACKS_BY_CENTS / SUPPORTER_TIERS_BY_CENTS
       //  in multiplayer_server.py. So the `usd:` on each row here MUST equal the
       //  price of the Payment Link it points at. Point a row at a link with a
@@ -23597,7 +23491,7 @@
       // 2) Supporter Tiers, one-time contributions. Perks are cosmetic /
       //    progression only and are granted server-side after Stripe payment.
       //    ⚠️ `coins` MUST equal SUPPORTER_TIER_GRANTS[tier].coins in
-      //    multiplayer_server.py — the server is what actually credits them,
+      //    multiplayer_server.py, the server is what actually credits them,
       //    this is only the display. test_stripe_payments.py checks both match.
       const PHST_SUPPORTER_TIERS = [
         {
@@ -23670,7 +23564,7 @@
         // ── Prestige store bonus ──────────────────────────────────────
         // +5% per Prestige level, shown BEFORE checkout so the buyer knows
         // exactly what they'll receive. The price is unchanged, and this is
-        // display only — the server recomputes the bonus from its own copy of
+        // display only, the server recomputes the bonus from its own copy of
         // the Prestige level after Stripe confirms the payment.
         const _pLvl = (() => {
           try {
@@ -23803,14 +23697,14 @@
             {
               key: "shield", ico: "🛡️", name: "Streak Shield",
               price: (typeof PHST_SHIELD_COIN_PRICE !== "undefined") ? PHST_SHIELD_COIN_PRICE : 500,
-              desc: "Covers one missed day so your daily streak survives it. We'll offer it the moment you break a streak — buy ahead and it's one tap.",
+              desc: "Covers one missed day so your daily streak survives it. We'll offer it the moment you break a streak: buy ahead and it's one tap.",
               stat: _shields ? `You hold ${_shields} shield${_shields !== 1 ? "s" : ""}` : "You hold no shields",
               cta: "Buy",
             },
             {
               key: "emotes", ico: "😀", name: "Emote Pack",
               price: (typeof PHST_EMOTE_PACK_PRICE !== "undefined") ? PHST_EMOTE_PACK_PRICE : 500,
-              desc: `Pick ${_packSize} critters you've unlocked and send them as pictures in game chat. Every animal in the game can be an emote — you just have to own it first.`,
+              desc: `Pick ${_packSize} critters you've unlocked and send them as pictures in game chat. Every animal in the game can be an emote, you just have to own it first.`,
               stat: `${_emotes.length} emote${_emotes.length !== 1 ? "s" : ""} owned · ${_eligible.length} critter${_eligible.length !== 1 ? "s" : ""} available`,
               cta: "Choose",
             },
@@ -24070,7 +23964,7 @@
 
       // Turn a perk-purchase reason code into something a player understands.
       function _perkFailMsg(reason, price, what) {
-        if (reason === "coins")     return `Not enough Critter Coins — ${what} costs ${phstFmtCoins(price)}.`;
+        if (reason === "coins")     return `Not enough Critter Coins: ${what} costs ${phstFmtCoins(price)}.`;
         if (reason === "max")       return `You're already holding the most ${what}s you can stack.`;
         if (reason === "owned")     return `You already own that.`;
         if (reason === "locked")    return `You can only make emotes from critters you've unlocked.`;
@@ -24100,11 +23994,11 @@
         const held  = window.__fishStreakShields ? window.__fishStreakShields() : 0;
         const r = await ccPerkModal({
           icon: "🛡️", title: "Streak Shield",
-          body: `Covers one missed day so your daily streak keeps going. When you break a streak we'll offer to spend it for you — nothing is used until you say yes.`,
+          body: `Covers one missed day so your daily streak keeps going. When you break a streak we'll offer to spend it for you, nothing is used until you say yes.`,
           note: held ? `You're holding ${held} already.` : "",
           actions: [
             { key:"cancel", label:"Not now" },
-            { key:"confirm", label:`Buy — ${phstFmtCoins(price)} coins`, primary:true },
+            { key:"confirm", label:`Buy: ${phstFmtCoins(price)} coins`, primary:true },
           ],
         });
         if (r.action !== "confirm") return;
@@ -24117,7 +24011,7 @@
       // The Emote Pack grants PHST_EMOTE_PACK_SIZE critters, and it can only
       // ever grant critters you have UNLOCKED and don't already have an emote
       // for. When fewer than a full pack is left, say so with the real number
-      // BEFORE taking any coins — that shortfall is the whole warning.
+      // BEFORE taking any coins, that shortfall is the whole warning.
       async function _perkBuyEmotes() {
         const price = PHST_EMOTE_PACK_PRICE;
         const size  = PHST_EMOTE_PACK_SIZE;
@@ -24128,7 +24022,7 @@
           await ccPerkModal({
             icon: "😀", title: "You've emoted everything",
             body: owned
-              ? `You already have an emote for all ${owned} critters you've unlocked. Unlock more critters and come back — every animal in the game can become an emote.`
+              ? `You already have an emote for all ${owned} critters you've unlocked. Unlock more critters and come back, every animal in the game can become an emote.`
               : "You need at least one unlocked critter before you can make an emote.",
             actions: [{ key:"confirm", label:"Got it", primary:true }],
           });
@@ -24138,7 +24032,7 @@
         if (pool.length < size) {
           const short = await ccPerkModal({
             icon: "⚠️", title: "You'd only get " + pool.length + " of " + size,
-            body: `A pack is ${size} emotes, but you only have ${pool.length} critter${pool.length !== 1 ? "s" : ""} left without one — you already own emotes for the rest of what you've unlocked. Buying now still costs ${phstFmtCoins(price)} coins and gives you ${pool.length}.`,
+            body: `A pack is ${size} emotes, but you only have ${pool.length} critter${pool.length !== 1 ? "s" : ""} left without one, you already own emotes for the rest of what you've unlocked. Buying now still costs ${phstFmtCoins(price)} coins and gives you ${pool.length}.`,
             note: "Unlock more critters first and the same pack gets you the full five.",
             actions: [
               { key:"cancel", label:"Wait, I'll unlock more" },
@@ -24155,7 +24049,7 @@
           grid: pool, pick: take, requireFull: true,
           actions: [
             { key:"cancel", label:"Cancel" },
-            { key:"confirm", label:`Buy — ${phstFmtCoins(price)} coins`, primary:true },
+            { key:"confirm", label:`Buy: ${phstFmtCoins(price)} coins`, primary:true },
           ],
         });
         if (r.action !== "confirm" || !r.selected.length) return;
@@ -24178,11 +24072,11 @@
         }
         const r = await ccPerkModal({
           icon: "🔁", title: "Take one back",
-          body: "Pick the critter you want returned. It goes straight into your Avatar Gallery — you won't have to earn its unlock a second time.",
+          body: "Pick the critter you want returned. It goes straight into your Avatar Gallery, you won't have to earn its unlock a second time.",
           grid: pool, pick: 1, requireFull: true,
           actions: [
             { key:"cancel", label:"Cancel" },
-            { key:"confirm", label:`Buy — ${phstFmtCoins(price)} coins`, primary:true },
+            { key:"confirm", label:`Buy: ${phstFmtCoins(price)} coins`, primary:true },
           ],
         });
         if (r.action !== "confirm" || !r.selected.length) return;
@@ -24215,7 +24109,7 @@
           const missed = _streakLocalDateStr(new Date(Date.now() - 86400000));
           const run    = Number(info.dayNum[info.mostRecent]) || 0;
           if (run < 2) return null;                                  // a 1-day "streak" isn't worth a prompt
-          // You get today — and only today — to cover yesterday. At local
+          // You get today, and only today, to cover yesterday. At local
           // midnight the hole becomes TWO days wide and one shield can no
           // longer bridge it, so that midnight is a real deadline, not a
           // marketing timer. msLeft is what the countdown shows.
@@ -24228,7 +24122,7 @@
         }
       }
 
-      // "6h 12m" / "48m" / "under a minute" — the countdown's own wording.
+      // "6h 12m" / "48m" / "under a minute", the countdown's own wording.
       function _streakTimeLeftLabel(ms) {
         const total = Math.max(0, Math.floor(Number(ms) || 0) / 60000);   // whole minutes
         const mins  = Math.floor(total);
@@ -24244,7 +24138,7 @@
       // is a single tap either way.
       async function _offerStreakShield(stats) {
         if (!_authUser || _galReadOnly) return;
-        // Never interrupt a live game — Player Home is where streaks are shown,
+        // Never interrupt a live game: Player Home is where streaks are shown,
         // and the offer is still valid the next time they land there.
         const gameEl = document.getElementById("pv-game");
         if (gameEl && gameEl.offsetParent !== null) return;
@@ -24260,11 +24154,11 @@
           icon: "🛡️",
           title: `Your ${offer.run}-day streak is about to end`,
           body: `You didn't play yesterday, so your ${offer.run}-day streak is broken. A Streak Shield covers that one missed day and keeps the run alive.`,
-          note: `You have ${_streakTimeLeftLabel(offer.msLeft)} left to decide — after that the run is gone for good.`
+          note: `You have ${_streakTimeLeftLabel(offer.msLeft)} left to decide, after that the run is gone for good.`
             + (held ? ` You're holding ${held} Streak Shield${held !== 1 ? "s" : ""}.` : ` A shield costs ${phstFmtCoins(price)} Critter Coins.`),
           actions: [
             { key:"cancel",  label:"Let it go" },
-            { key:"confirm", label: held ? "Use a Shield" : `Buy & use — ${phstFmtCoins(price)}`, primary:true },
+            { key:"confirm", label: held ? "Use a Shield" : `Buy & use: ${phstFmtCoins(price)}`, primary:true },
           ],
         });
         // Either way the banner keeps counting down until the window closes.
@@ -24303,7 +24197,7 @@
             : `until your ${offer.run}-day streak is gone. A Streak Shield (${phstFmtCoins(PHST_SHIELD_COIN_PRICE)} coins) saves it.`;
         }
         const btn = document.getElementById("ph-ss-rescue-btn");
-        if (btn) btn.textContent = held ? "Use a Shield" : `Save it — ${phstFmtCoins(PHST_SHIELD_COIN_PRICE)}`;
+        if (btn) btn.textContent = held ? "Use a Shield" : `Save it: ${phstFmtCoins(PHST_SHIELD_COIN_PRICE)}`;
         // Tick once a minute; the label is minute-resolution so anything faster
         // would just be repainting the same string.
         if (!_rescueTimer) _rescueTimer = setInterval(_renderStreakRescue, 60000);
@@ -24328,10 +24222,10 @@
               body: `You have ${_streakTimeLeftLabel(offer.msLeft)} left before this run is gone for good. A Streak Shield covers the day you missed and keeps it alive.`,
               note: held
                 ? `You're holding ${held} Streak Shield${held !== 1 ? "s" : ""}.`
-                : `You don't have one yet — this buys one for ${phstFmtCoins(price)} Critter Coins.`,
+                : `You don't have one yet, this buys one for ${phstFmtCoins(price)} Critter Coins.`,
               actions: [
                 { key:"cancel",  label:"Not now" },
-                { key:"confirm", label: held ? "Use a Shield" : `Buy & use — ${phstFmtCoins(price)}`, primary:true },
+                { key:"confirm", label: held ? "Use a Shield" : `Buy & use: ${phstFmtCoins(price)}`, primary:true },
               ],
             });
             if (r.action === "confirm") await _runStreakRescue(offer, held);
@@ -24354,13 +24248,13 @@
         }
         const used = await window.__fishUseStreakShield(offer.missed);
         if (used && used.ok) {
-          // used.longest is the run AFTER bridging the gap — covering a missed
+          // used.longest is the run AFTER bridging the gap: covering a missed
           // day can merge two runs, so the longest-ever can grow right here.
           const best = Number(used.longest) || 0;
           showToast(
             best > 0 && best === used.current
-              ? `Streak saved! 🛡️ Day ${used.current} — that's your longest ever. Play today to keep it.`
-              : `Streak saved! 🛡️ You're on day ${used.current} — play today to keep it going.`,
+              ? `Streak saved! 🛡️ Day ${used.current}: that's your longest ever. Play today to keep it.`
+              : `Streak saved! 🛡️ You're on day ${used.current}: play today to keep it going.`,
             "ok");
           return true;
         }
@@ -25399,15 +25293,15 @@
 
     // ── Player Home: How to play tab ───────────────────────────────
     // Three views over one card:
-    //   Quick Start   — how a turn actually plays in THIS app. Every claim here
+    //   Quick Start, how a turn actually plays in THIS app. Every claim here
     //                   is taken from the live rules engine / the tutorial, not
     //                   from the printed book, because the two differ in places
     //                   (the mulligan is automatic online, the pool sweep is
     //                   automatic, and so on). The species counts likewise come
     //                   from the real deck lists, not from the printed
     //                   Encyclopedia, which is a page or two behind.
-    //   Full Rulebook — the printed book, word for word, from js/rulebook.js.
-    //   Strategies    — the same plans the in-game 💡 Help button offers, read
+    //   Full Rulebook, the printed book, word for word, from js/rulebook.js.
+    //   Strategies, the same plans the in-game 💡 Help button offers, read
     //                   straight out of HELP_STRATEGIES so the two can't drift.
     let _htpBuilt = false;
     let _htpView  = "quick";
@@ -25465,16 +25359,16 @@
         +   `<img src="${imagePathForUid(217)}" alt="Coral Reef ocean card" loading="lazy">`
         + `</span>`
         + `<div class="htp-spec-body">`
-        +   `<h3 class="htp-spec-name">Oceans <span class="htp-spec-note">not a species — the foundation</span></h3>`
+        +   `<h3 class="htp-spec-name">Oceans <span class="htp-spec-note">not a species, the foundation</span></h3>`
         +   `<div class="htp-spec-meta"><span class="htp-spec-n">68 cards</span>`
         +     `<span class="htp-spec-slot">8 kinds of ocean</span></div>`
         +   `<p class="htp-spec-txt">Every animal above has to attach to one of these. Oceans go down left to right, `
-        +     `never move again, and each kind scores by its own rule — a Coral Reef pays more the more reefs you `
+        +     `never move again, and each kind scores by its own rule, a Coral Reef pays more the more reefs you `
         +     `own, an Artificial Reef pays for every card hanging off it, a Tide Pool just counts your oceans.</p>`
         + `</div></div>`;
       return '<div class="htp-sec-head"><span class="htp-sec-ico">🐚</span>List of species</div>'
         + '<p class="htp-p htp-p-lead">Every animal in the game belongs to one of these nine families. Each family '
-        +   'has its own colour, and that is the colour the game lights a card up in once you switch on a strategy — '
+        +   'has its own colour, and that is the colour the game lights a card up in once you switch on a strategy: '
         +   'in your hand and in the pool alike. The small mark beside each name is the family’s symbol, the one '
         +   'stamped in the bottom-right corner of every card it owns, so you can tell a card’s family at a glance '
         +   'without reading a word.</p>'
@@ -25766,7 +25660,7 @@
     function renderPhOverview() {
       renderOverviewAchievements(_phStatsRaw || _phStats || {});
       renderChallengeStrip();
-      // "You have reached the end of this current!" — the banner that says
+      // "You have reached the end of this current!" the banner that says
       // Prestige is available, shown at the top of the Overview whenever the
       // account is sitting at the level cap. Dismissing it lasts for this
       // session only; Prestige itself is never forced.
@@ -25999,7 +25893,7 @@
     // Daily challenges were retired in 1.6.54: three of them rolling on three
     // independent 24-hour timers meant the Overview tab opened on a wall of
     // homework that reset before most players came back to it. Weekly is the
-    // whole system now — three challenges, one Monday reset, bigger XP — and
+    // whole system now, three challenges, one Monday reset, bigger XP, and
     // the strip stays CLOSED until the player asks for it.
     //
     // ── The pool: 56 challenges (Weekly Tide Sweep and Perfect
@@ -26016,7 +25910,7 @@
     // "started", so the set never felt finishable.
     //
     // They now reset TOGETHER at local midnight, the same shape as the weeklies'
-    // Monday reset — one clock, one question ("have I done today's three?"),
+    // Monday reset, one clock, one question ("have I done today's three?"),
     // and a countdown that means something. Everything else is as it was: the
     // pool, the XP, and the Daily Tide Sweep for clearing all three.
     const _DAILY_CHALLENGES = [
@@ -26173,7 +26067,7 @@
       // A Level Pass reward: spend one token and swapping is unlimited for the
       // rest of THAT week. The button exists only while the server says the
       // token is live for this exact week, and never on a challenge already
-      // completed — rerolling a finished one would throw away XP already paid.
+      // completed: rerolling a finished one would throw away XP already paid.
       const canSwap  = isWeekly && !c.completed && _csSwapUnlocked();
       const swapHtml = canSwap
         ? `<button class="ph-cs-swap" type="button" data-swapslot="${Number(c.slotPos)}"
@@ -26261,7 +26155,7 @@
         calBtn.title = swapTitle;
         calBtn.setAttribute("aria-label", swapTitle);
         calBtn.classList.toggle("is-weekly", weekly);
-        // A green ring means the OTHER set is already cleared — nothing to go
+        // A green ring means the OTHER set is already cleared, nothing to go
         // and collect over there. This is the one thing the deleted tab row
         // said that the header did not.
         calBtn.classList.toggle("is-other-swept", Boolean(otherMeta && otherMeta.sweepDone));
@@ -26270,23 +26164,23 @@
 
       // The header has to be worth reading while it is the only thing on
       // screen, so it carries the count even when the challenges are hidden.
-      // Closed, it speaks for BOTH sets — a player who never opens the strip
+      // Closed, it speaks for BOTH sets, a player who never opens the strip
       // would otherwise never learn the other half exists.
       if (_csOpen) {
         const base = weekly
           ? "Complete weekly challenges to earn bigger XP rewards."
           : `Three fresh challenges every day. ${_formatResetIn(meta.resetsInMs || 0)}.`;
         // With the tab row gone, this line is the only place the OTHER set's
-        // progress is written down, so it carries it — and says which button
+        // progress is written down, so it carries it, and says which button
         // hands it to you.
         const otherCount = otherMeta
-          ? ` · ${otherMeta.completedCount}/${otherMeta.totalCount} ${otherLabel.toLowerCase()} — tap the calendar for those.`
+          ? ` · ${otherMeta.completedCount}/${otherMeta.totalCount} ${otherLabel.toLowerCase()}: tap the calendar for those.`
           : ` · Tap the calendar for your ${otherLabel.toLowerCase()} challenges.`;
         subEl.textContent = base + otherCount;
       } else {
         const d = dailyMeta ? `${dailyMeta.completedCount}/${dailyMeta.totalCount} daily` : "";
         const w = weeklyMeta ? `${weeklyMeta.completedCount}/${weeklyMeta.totalCount} weekly` : "";
-        subEl.textContent = `${[d, w].filter(Boolean).join(" · ")} complete — tap to see them.`;
+        subEl.textContent = `${[d, w].filter(Boolean).join(" · ")} complete: tap to see them.`;
       }
 
       stripEl.classList.toggle("is-collapsed", !_csOpen);
@@ -26299,7 +26193,7 @@
       // Only fill the cards when they can be seen. A closed strip costs nothing.
       // An open one must never be empty: the slots come from local state, so the
       // only ways to get nothing are a thrown read (private-mode localStorage)
-      // or an empty roll, and both used to blank the strip silently — which
+      // or an empty roll, and both used to blank the strip silently, which
       // looks exactly like a broken button.
       if (_csOpen) {
         let html = "";
@@ -26307,7 +26201,7 @@
           const slots = weekly ? _getWeeklyDisplaySlots() : _getDailyDisplaySlots();
           html = slots.map(c => _csCardHtml(c, weekly)).join("");
         } catch (e) { html = ""; }
-        cardsEl.innerHTML = html || `<div class="ph-cs-empty">Your ${weekly ? "weekly" : "daily"} challenges couldn't be loaded — they'll reroll on your next visit.</div>`;
+        cardsEl.innerHTML = html || `<div class="ph-cs-empty">Your ${weekly ? "weekly" : "daily"} challenges couldn't be loaded: they'll reroll on your next visit.</div>`;
       } else {
         cardsEl.innerHTML = "";
       }
@@ -26326,7 +26220,7 @@
         rewardEl.style.display = _csOpen ? "" : "none";
         rewardEl.classList.toggle("is-done", Boolean(meta.sweepDone));
         rewardEl.title = meta.sweepDone
-          ? `${weekly ? "Weekly" : "Daily"} Tide Sweep complete — see it in Achievements`
+          ? `${weekly ? "Weekly" : "Daily"} Tide Sweep complete: see it in Achievements`
           : `Complete all ${total} ${weekly ? "weekly" : "daily"} challenges for ${weekly ? "1,500" : "400"} XP`;
       }
       if (rlabelEl) {
@@ -26341,7 +26235,7 @@
         }
       }
       // The week's OTHER reward is Perfect Week, and it had nowhere on screen
-      // to say so. The day's second line is its countdown instead — a daily set
+      // to say so. The day's second line is its countdown instead, a daily set
       // is only worth planning around if you know how long is left on it.
       if (rsubEl) {
         if (weekly) {
@@ -26350,7 +26244,7 @@
             : `Perfect Week: play all 7 days for +5,000 XP (${(weeklyMeta && weeklyMeta.daysPlayedCount) || 0}/7)`;
         } else {
           rsubEl.textContent = _formatResetIn(meta.resetsInMs || 0)
-            + " — three new challenges at midnight";
+            + ", three new challenges at midnight";
         }
       }
 
@@ -26425,7 +26319,7 @@
     }
 
     // Roll N unique random indices into the daily pool. Unique, unlike the
-    // original roll — three slots could land on the same challenge, and being
+    // original roll, three slots could land on the same challenge, and being
     // shown the same job three times reads as a bug however random it is.
     function _rollDailyIndices(count) {
       const pool = _DAILY_CHALLENGES.map((_, i) => i);
@@ -26494,7 +26388,7 @@
       });
     }
 
-    // 3 active dailies, uncompleted first — same ordering rule as the weeklies
+    // 3 active dailies, uncompleted first, same ordering rule as the weeklies
     // so the two views read identically.
     function _getDailyDisplaySlots() {
       const all = _getCurrentDailySlots();
@@ -26514,7 +26408,7 @@
       };
     }
 
-    // "Resets in 4h 12m" — the thing a daily has that a weekly does not, and
+    // "Resets in 4h 12m", the thing a daily has that a weekly does not, and
     // the whole reason a player can decide whether to squeeze one in tonight.
     function _formatResetIn(ms) {
       if (!Number.isFinite(ms) || ms <= 0) return "Resets at midnight";
@@ -26536,7 +26430,7 @@
     }
 
     // Swap ONE weekly slot for a challenge the player does not already have.
-    // Progress on that slot is discarded — that is the trade being offered, and
+    // Progress on that slot is discarded, that is the trade being offered, and
     // it is why a COMPLETED slot is never swappable (its XP is already paid).
     function _csSwapWeeklySlot(slotPos) {
       if (!_csSwapUnlocked()) return false;
@@ -26750,7 +26644,7 @@
     window.renderChallengeStrip = renderChallengeStrip;
 
     // Public hook the game code calls when a DAILY challenge progresses. Same
-    // contract as the weekly one — amount, {complete:true} or {setTo:n} — so a
+    // contract as the weekly one: amount, {complete:true} or {setTo:n}, so a
     // call site that feeds both reads the same either way.
     function reportDailyChallengeProgress(challengeId, amount = 1, opts = {}) {
       const state = _loadDailyState();
@@ -26778,7 +26672,7 @@
       if (changed) {
         _saveDailyState(state);
         // The header carries the count for whichever view is showing, so it
-        // repaints even while the strip is closed — same rule as weekly.
+        // repaints even while the strip is closed, same rule as weekly.
         renderChallengeStrip();
         try { window._renderIgChallengePanel?.(); } catch {}
         // Achievement daily_tide_sweep: all 3 daily slots completed. Guarded so
@@ -26802,7 +26696,7 @@
     window.__fishGrantXp = async function(amount, opts) {
       amount = Math.max(0, Math.floor(Number(amount) || 0));
       if (amount <= 0) return;
-      // The Prestige XP bonus applies here too — this hook is what pays out
+      // The Prestige XP bonus applies here too, this hook is what pays out
       // every daily / weekly / monthly challenge, the Tide Sweep and Perfect
       // Week metas, event rewards and clan challenge XP.
       const _px = (typeof window.__fishPrestigeXp === "function")
@@ -26859,7 +26753,7 @@
       const _IGCP_ENABLED_KEY   = "cc_igcp_enabled";
       const _IGCP_MINIMIZED_KEY = "cc_igcp_min";
       let _igcpEnabled = (function(){ try { return localStorage.getItem(_IGCP_ENABLED_KEY) !== "0"; } catch { return true; } })();
-      // Starts MINIMISED and remembers what you last did with it — the panel
+      // Starts MINIMISED and remembers what you last did with it, the panel
       // sits over the board, so it opens only when asked for.
       let _igcpMin     = (function(){ try { return localStorage.getItem(_IGCP_MINIMIZED_KEY) !== "0"; } catch { return true; } })();
       let _igcpWired   = false;
@@ -26901,7 +26795,7 @@
         const minBtn = document.getElementById("igcp-minimize-btn");
         if (minBtn) minBtn.textContent = _igcpMin ? "+" : "−";
         // The panel follows the same Daily|Weekly choice as the Player Home
-        // strip — one setting, so switching in one place is not undone by the
+        // strip, one setting, so switching in one place is not undone by the
         // other the next time either is opened.
         const weekly = _csView === "weekly";
         titleEl.textContent = weekly ? "Weekly Challenges" : "Daily Challenges";
@@ -26921,7 +26815,7 @@
         if (!_igcpMin) {
           // Opening this panel must never produce an empty box. The rows are
           // built from local state, so the only ways to get nothing are a
-          // thrown read (private-mode localStorage) or an empty roll — both of
+          // thrown read (private-mode localStorage) or an empty roll, both of
           // which used to blank the panel silently, which looks exactly like a
           // broken button. Say what happened instead.
           let html = "";
@@ -26939,7 +26833,7 @@
               const xp = weekly ? "1,500" : "400";
               const which = weekly ? "Weekly" : "Daily";
               rewardEl.textContent = meta.sweepDone
-                ? `✓ ${which} Tide Sweep complete — ${xp} XP`
+                ? `✓ ${which} Tide Sweep complete: ${xp} XP`
                 : `${weekly ? "🗝️" : "📅"} All ${meta.totalCount} = ${which} Tide Sweep · +${xp} XP  (${meta.completedCount}/${meta.totalCount})`;
             } else {
               rewardEl.textContent = "";
@@ -26977,8 +26871,8 @@
         const calBtn = document.getElementById("igcp-cal-btn");
         const swapView = (e) => {
           e.stopPropagation();
-          // One shared switch, so Player Home — which may be sitting behind
-          // the game, already rendered on the other view — repaints with it.
+          // One shared switch, so Player Home, which may be sitting behind
+          // the game, already rendered on the other view: repaints with it.
           _csSwapView();
         };
         if (calBtn) calBtn.addEventListener("click", swapView);
@@ -26989,7 +26883,7 @@
           });
         }
 
-        // The header opens and closes the panel — the same gesture both ways,
+        // The header opens and closes the panel, the same gesture both ways,
         // so there is nothing to learn beyond "tap it".
         header.addEventListener("click", (e) => {
           if (e.target === minBtn || minBtn.contains(e.target)) return;
@@ -27343,7 +27237,7 @@
         if (isComp && myCompBest >= 100) rd("one_hand_strong", 0, { complete: true });
 
         // almost_there: finished within 15 points of the winner (and not the
-        // winner myself — "within 15 of yourself" is not a near miss).
+        // winner myself: "within 15 of yourself" is not a near miss).
         try {
           if (!isWinner && finalScores.length >= 2) {
             const top = Math.max(...finalScores.map(f => Number(f.score || 0)));
@@ -27365,9 +27259,9 @@
 
         // strategy_switch: two games today on DIFFERENT strategies. Kept in a
         // per-day ledger for the same reason mixed_waters keeps a per-week one
-        // — the challenge is about the pair, not about either game alone.
+        //, the challenge is about the pair, not about either game alone.
         // The strategy is read straight off the server's classification here
-        // rather than reusing the block above, which only runs on a WIN — this
+        // rather than reusing the block above, which only runs on a WIN, this
         // challenge counts games played, won or lost.
         try {
           const _myP = (Array.isArray(_latestPlayers) ? _latestPlayers : [])
@@ -27426,8 +27320,8 @@
       } catch {}
     }
 
-    // The one Daily <-> Weekly switch. Both surfaces that offer it — the
-    // Player Home calendar/pill and the in-game panel — call this, so the two
+    // The one Daily <-> Weekly switch. Both surfaces that offer it, the
+    // Player Home calendar/pill and the in-game panel: call this, so the two
     // can never end up showing different halves of the same setting.
     function _csSwapView() {
       _csView = _csView === "weekly" ? "daily" : "weekly";
@@ -27458,7 +27352,7 @@
         _csSwapWeeklySlot(btn.getAttribute("data-swapslot"));
       });
 
-      // The calendar icon and the Daily/Weekly pill are the switch — there is
+      // The calendar icon and the Daily/Weekly pill are the switch, there is
       // no tab row any more. Both sit inside the header, which is itself the
       // open/close toggle, so each has to swallow its click or switching sets
       // would also shut the strip the player just asked to look at.
@@ -27781,7 +27675,7 @@
       }
     }
 
-    // Cached across renders — the reward table is the same for everyone and
+    // Cached across renders, the reward table is the same for everyone and
     // changes only on deploy.
     let _rankRewardsCache = null;
     async function renderRankRewards(myTier) {
@@ -28794,7 +28688,7 @@
     }
     window.__fishRunAchievementReset = runAchievementResetIfNeeded;
 
-    // Called every time a qualifying feat happens — not only the first. The
+    // Called every time a qualifying feat happens, not only the first. The
     // completion (badge, XP, popup) is still one-shot, but `progress` is a
     // LIFETIME meter that keeps counting afterwards: doing the thing again is
     // how you earn back an avatar you traded away (see reEarnState). Callers
@@ -28842,7 +28736,7 @@
 
       // Grant any animal avatar tied to this achievement, then immediately
       // surface the unlock overlay (delayed so the achievement popup animates
-      // first). Runs on repeats too — that's the path that hands back an avatar
+      // first). Runs on repeats too: that's the path that hands back an avatar
       // whose requirement has now been met a second time.
       try {
         let _achAvatarGranted = false;
@@ -28899,12 +28793,12 @@
 
     // NOTE: the meter deliberately keeps running after completion. The
     // achievements page only draws the bar while !done, so nothing renders
-    // "18 / 12" — but the running count is what proves the requirement was met
+    // "18 / 12", but the running count is what proves the requirement was met
     // a SECOND time, which is how a traded-away avatar is earned back.
     async function updateAchievementProgress(uid, achId, progress, goal) {
       if (!_db || !uid || !achId) return;
       const rec = _userAchievements[achId] || {};
-      // Skip the write when nothing moved — callers that feed a standing count
+      // Skip the write when nothing moved: callers that feed a standing count
       // (e.g. the friend total on every load) must not write every time.
       if (Number(rec.progress) !== Number(progress) || Number(rec.goal) !== Number(goal)) {
         const newRec = { ...rec, progress, goal };
@@ -29144,7 +29038,7 @@
       }
 
       // Humuhumunukuapua'a: 5 cephalopods placed in one turn. Reported on every
-      // qualifying game, not just the first — a repeat performance is what earns
+      // qualifying game, not just the first, a repeat performance is what earns
       // back the Reef Triggerfish if it was traded away (unlockAchievement keeps
       // the badge one-shot and only counts the performance).
       if (Number(tracker.maxCephInTurn || 0) >= 5) {
@@ -29152,7 +29046,7 @@
       }
 
       // Quick Swim: 4-player game finished in under 30 min and won (reported
-      // every time, same reason as above — it earns back the Mantis Shrimp).
+      // every time, same reason as above, it earns back the Mantis Shrimp).
       if (isWinner && playerCount === 4
           && Number(gameMinutes) > 0 && Number(gameMinutes) < 30) {
         await unlockAchievement(uid, "quick_swim");
@@ -29282,7 +29176,7 @@
     // (see REEARN_GATED_TYPES): a one-game feat, a hidden click, a code or a
     // Store purchase reaching this point means the player just did it again.
     // Counters are read from the LOADED profile, so a re-earn finished by the
-    // game just played lands on the next profile load — returning to Player
+    // game just played lands on the next profile load: returning to Player
     // Home runs one, and that's where unlock screens are shown anyway.
     function _reEarnAllowsGrant(path) {
       try {
@@ -29308,7 +29202,7 @@
       const path = normalizeAvatarUrl(String(iconPath || ""));
       if (!path || !path.startsWith("/avatars/")) return false;
       if (isAvatarUnlocked(path)) return false; // already owned (starter or unlocked)
-      // Traded away? Banked progress must not hand it back — earn it again.
+      // Traded away? Banked progress must not hand it back: earn it again.
       if (!_reEarnAllowsGrant(path)) return false;
       _unlockedIcons = [..._unlockedIcons, path];
       // Record into the per-account baseline so the on-load diff
@@ -29486,12 +29380,12 @@
     };
 
     // ═══════════════════════════════════════════════════════════════
-    //  PLAYER PERKS — Critter Coin consumables
+    //  PLAYER PERKS: Critter Coin consumables
     //  Three Store items that are neither an avatar nor a background:
     //    • Streak Shield      500   covers ONE missed day of your daily streak
     //    • Emote Pack         500   5 critter emotes for in-game chat
     //    • Critter Re-Earn  2,500   instantly take back a critter you traded
-    //  (The Name Change Token retired in 1.6.48 — a username change is now one
+    //  (The Name Change Token retired in 1.6.48, a username change is now one
     //  free rename then PHST_RENAME_COIN_PRICE, charged in the rename's own
     //  transaction, so there is nothing left to hold.)
     //  Inventory lives on the user doc (streak_shields, emote_icons) and is
@@ -29501,7 +29395,7 @@
     //  can read them too.
     // ═══════════════════════════════════════════════════════════════
 
-    // The profile to read perk inventory from — NEVER another player's. While
+    // The profile to read perk inventory from, NEVER another player's. While
     // the gallery is showing someone else's collection every global here points
     // at THEIR doc (see _galReadOnly), so a read would report their inventory
     // and a write would spend from my coins into their account.
@@ -29530,7 +29424,7 @@
     }
     window.__fishEmoteEligible = () => _emoteEligible().map(a => ({ id:a.id, name:a.name, img:a.img }));
 
-    // Critters this account traded away and has not got back — the only ones
+    // Critters this account traded away and has not got back, the only ones
     // Critter Re-Earn can buy back (you can't skip a requirement you never
     // satisfied in the first place).
     function _reEarnBuyable() {
@@ -29587,7 +29481,7 @@
         if (held >= PHST_PERK_STACK_MAX) throw new Error("max");
         return { streak_shields: held + 1 };
       });
-      // Mirror the count the TRANSACTION settled on, not a local guess — the
+      // Mirror the count the TRANSACTION settled on, not a local guess, the
       // doc may have been ahead of this tab.
       if (res.ok) _perkReflect(res.newBalance, { streak_shields: res.patch.streak_shields });
       return res;
@@ -29595,7 +29489,7 @@
 
     // Spend a held shield to cover ONE missed day: `dayStr` ("YYYY-MM-DD") is
     // written into stats.streak_days exactly as a played day would be, which is
-    // what bridges the gap — every streak number in the app derives from that
+    // what bridges the gap, every streak number in the app derives from that
     // list (see _computeStreakInfo). The list is rebuilt with _streakAddDay so
     // it stays sorted and bounded, and the day is also recorded in
     // streak_shield_days so a shield can never be spent twice on one date.
@@ -29803,7 +29697,7 @@
 
     // Rank avatars are re-earned by CLIMBING to the tier again, so we have to
     // notice the fall. Whenever the player is seen below the required tier with
-    // a trade-away on record, stamp `dipped` on that entry — after that,
+    // a trade-away on record, stamp `dipped` on that entry, after that,
     // reaching the tier again re-grants it (a season reset to Unranked counts).
     // One write, only on the load where the dip is first seen.
     async function _noteReEarnRankDip(stats) {

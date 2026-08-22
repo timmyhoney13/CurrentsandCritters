@@ -1,4 +1,4 @@
-"""Currents and Critters — Developer Analytics (server-authoritative, admin only).
+"""Currents and Critters: Developer Analytics (server-authoritative, admin only).
 
 Wired additively into multiplayer_server (same pattern as clan_server /
 prestige_server):
@@ -8,7 +8,7 @@ prestige_server):
 
 WHY THE WHOLE THING IS SERVER-SIDE
 The browser cannot compute any of this. Firestore security rules block reading
-other players' documents (by design — emails and profiles are private), and the
+other players' documents (by design: emails and profiles are private), and the
 game-history records live on the Render disk, which no client can see. So every
 number here is derived here, with the service account, and shipped to the
 dashboard already aggregated. No raw player document ever leaves this module.
@@ -20,15 +20,15 @@ in the body is never trusted. There is no GET form on purpose: analytics answers
 must never be reachable by pasting a URL.
 
 THE THREE SOURCES, AND WHAT EACH ONE CAN HONESTLY ANSWER
-  • Firestore `users`      — accounts: joins (created_at), activity
+  • Firestore `users`: accounts: joins (created_at), activity
                              (last_active/online), progress (stats.*), wallet
                              (stats.critter_coins). This answers "who is
                              playing" and "are they coming back".
-  • games_history/*.json   — one record per finished human game, written by
+  • games_history/*.json, one record per finished human game, written by
                              multiplayer_server._save_game_history. This answers
-                             "what happened in the games" — completion, length,
+                             "what happened in the games": completion, length,
                              sizes, strategies, every animal on every board.
-  • competitive_games/*.json — ranked matches, forfeits included.
+  • competitive_games/*.json: ranked matches, forfeits included.
 Anything none of those can support is reported as "no data", NEVER as a zero: a
 zero is a measurement and would read as "this dropped to nothing overnight".
 
@@ -100,7 +100,7 @@ def _float(v, default=0.0) -> float:
 
 
 def _pct(part: float, whole: float) -> Optional[float]:
-    """Percentage, or None when the denominator is zero — a rate with nothing
+    """Percentage, or None when the denominator is zero, a rate with nothing
     under it is unknown, not 0%."""
     if not whole:
         return None
@@ -179,7 +179,7 @@ def _admin_claims(body: Dict[str, Any]) -> Optional[dict]:
     Two independent gates, both required: the ID token must verify (so the
     caller really is that account), and the account must be flagged admin in
     Firestore (or be the known admin email). A client-supplied uid or email is
-    never enough — those are trivially forged from devtools.
+    never enough, those are trivially forged from devtools.
     """
     if _verify_token is None:
         return None
@@ -207,7 +207,7 @@ def _admin_claims(body: Dict[str, Any]) -> Optional[dict]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  SOURCE 1 — ACCOUNTS (Firestore `users`)
+#  SOURCE 1: ACCOUNTS (Firestore `users`)
 # ═══════════════════════════════════════════════════════════════════════════
 # One scan feeds every section, so it is read at most this often. Two minutes
 # keeps "Players Online Now" honest while a dashboard left open all afternoon
@@ -239,7 +239,7 @@ def _load_users(force: bool = False) -> List[Dict[str, Any]]:
     try:
         try:
             stream = db.collection("users").select(_USER_FIELDS).stream()
-        except Exception:  # noqa: BLE001 — older SDKs without select()
+        except Exception:  # noqa: BLE001: older SDKs without select()
             stream = db.collection("users").stream()
         for doc in stream:
             d = doc.to_dict() or {}
@@ -290,7 +290,7 @@ def _filter_users(rows: List[Dict[str, Any]], f: Dict[str, Any]) -> List[Dict[st
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  SOURCE 2 — FINISHED GAMES (the history directory)
+#  SOURCE 2: FINISHED GAMES (the history directory)
 # ═══════════════════════════════════════════════════════════════════════════
 # Keyed on the directory's own (file count, newest mtime): a game that finishes
 # changes both, so the very next call re-reads. Nothing else invalidates it,
@@ -303,13 +303,13 @@ _MAX_GAME_FILES = 20000
 
 
 def _history_dir_state(path: str) -> Dict[str, Any]:
-    """Why the history directory has no games in it — which is NOT one question
+    """Why the history directory has no games in it, which is NOT one question
     but two, and they have opposite answers.
 
     A directory that is missing, unreadable or was never configured is a real
     server fault: games are finishing and their records are going nowhere. A
     directory that is there, readable and simply empty is a server that has not
-    recorded a game yet — a fresh deploy, or a reset disk. Reporting the second
+    recorded a game yet, a fresh deploy, or a reset disk. Reporting the second
     one as a failing check is how the dashboard ends up permanently red for a
     server with nothing wrong with it, and a check that is always red is a check
     nobody reads.
@@ -405,7 +405,7 @@ def _game_completed(rec: Dict[str, Any]) -> bool:
 
 def _game_duration(rec: Dict[str, Any]) -> Optional[int]:
     """Seconds of play, or None for records written before the timing fields
-    existed. None must stay None — averaging a missing duration in as 0 would
+    existed. None must stay None: averaging a missing duration in as 0 would
     quietly drag "how long is a game" toward zero."""
     d = _int(rec.get("duration_sec"), -1)
     if d > 0:
@@ -461,14 +461,14 @@ def _filters(body: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _window(f: Dict[str, Any]) -> Tuple[int, int, int, int]:
-    """(start, end, prev_start, prev_end) — the range and the one before it."""
+    """(start, end, prev_start, prev_end), the range and the one before it."""
     end = _now()
     start = end - f["days"] * DAY
     return start, end, start - f["days"] * DAY, start
 
 
 def _delta(now_val: Optional[float], prev_val: Optional[float]) -> Optional[float]:
-    """Percent change vs the previous period. None when there is no baseline —
+    """Percent change vs the previous period. None when there is no baseline:
     "+100%" off a zero baseline is noise, not information."""
     if now_val is None or prev_val is None or not prev_val:
         return None
@@ -606,7 +606,7 @@ def _live_panel(live: Dict[str, Any], users: List[Dict[str, Any]], now: int) -> 
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  ALERTS — only things a developer would actually act on
+#  ALERTS, only things a developer would actually act on
 # ═══════════════════════════════════════════════════════════════════════════
 # Below these counts a swing is sampling noise, not a signal. Alerting on a
 # 2-game day is how a dashboard trains its owner to ignore it.
@@ -677,7 +677,7 @@ def _section_players(f: Dict[str, Any]) -> Dict[str, Any]:
         base += v
         cumulative.append(base)
 
-    # How far players actually get before they stop — the honest version of a
+    # How far players actually get before they stop, the honest version of a
     # funnel: every step is measured from the same account list.
     signed_up = len(users)
     played_one = len([u for u in users if u["games"] >= 1])
@@ -819,7 +819,7 @@ def _section_cards(f: Dict[str, Any]) -> Dict[str, Any]:
     min_sample = max(1, _int(f.get("min_sample"), _CARD_MIN_SAMPLE))
 
     played: Dict[str, int] = {}      # every copy played, counted once each
-    appeared: Dict[str, int] = {}    # BOARDS it appeared on — the win-rate sample
+    appeared: Dict[str, int] = {}    # BOARDS it appeared on, the win-rate sample
     won_with: Dict[str, int] = {}
     species: Dict[str, int] = {}
     oceans: Dict[str, int] = {}
@@ -1274,7 +1274,7 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
         else:
             handler._send_json({"ok": False, "error": "unknown_section"}, status=404)
             return True
-    except Exception as exc:  # noqa: BLE001 — a broken section must not 500 the tool
+    except Exception as exc:  # noqa: BLE001, a broken section must not 500 the tool
         print(f"[analytics] section {action} failed: {exc}")
         handler._send_json({"ok": False, "error": "section_failed",
                             "detail": str(exc)[:200]})

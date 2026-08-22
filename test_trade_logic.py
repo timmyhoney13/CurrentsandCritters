@@ -1,4 +1,4 @@
-"""Unit tests for the SERVER-SIDE trade core (pure functions — no Firestore).
+"""Unit tests for the SERVER-SIDE trade core (pure functions, no Firestore).
 
 Covers offer sanitising, per-side validation, and the atomic swap computation
 (_trade_compute_apply): ownership, coins, duplicate protection, equipped-item
@@ -92,7 +92,7 @@ recv_owns = M._trade_assets(user(avatars=["/avatars/a.png"]))
 check("recipient already owns avatar → duplicate",
       M._trade_validate_side(offer(avatars=["/avatars/a.png"]), giver, recv_owns) == "duplicate_avatar")
 
-print("compute_apply — happy path (example from spec):")
+print("compute_apply: happy path (example from spec):")
 # P1 gives 1000 coins + Sardine avatar; P2 gives Lobster avatar.
 A, B = "uidA", "uidB"
 docA = user(avatars=["/avatars/sardine.png"], coins=1500, avatar_url="/avatars/sardine.png")
@@ -112,7 +112,7 @@ check("B gains sardine", ch[B]["unlocked_icons"] == ["/avatars/sardine.png"])
 check("B coins 0+1000=1000", ch[B]["critter_coins"] == 1000)
 check("A equipped avatar reset (traded away sardine)", ch[A].get("avatar_url") == "/avatars/mullet.png")
 
-print("compute_apply — commit-time ownership loss:")
+print("compute_apply: commit-time ownership loss:")
 docA2 = user(avatars=[], coins=0)   # A no longer owns what they offered
 t2 = trade(A, B, None, None)
 t2["offers"] = {A: offer(avatars=["/avatars/sardine.png"]), B: offer()}
@@ -121,7 +121,7 @@ err2, ch2 = M._trade_compute_apply(t2,
                                    user() if t2["participants"][1] == B else docA2)
 check("aborts when giver lost the item", err2 == "avatar_not_owned" and ch2 is None)
 
-print("compute_apply — insufficient coins at commit:")
+print("compute_apply: insufficient coins at commit:")
 t3 = trade(A, B, None, None)
 t3["offers"] = {A: offer(coins=1000), B: offer()}
 dA = user(coins=999)
@@ -130,7 +130,7 @@ err3, ch3 = M._trade_compute_apply(t3,
                                    user() if t3["participants"][1] == B else dA)
 check("aborts when giver can't afford", err3 == "not_enough_coins" and ch3 is None)
 
-print("compute_apply — background + coins both ways:")
+print("compute_apply: background + coins both ways:")
 dA4 = user(backgrounds=["/backgrounds/bg-kelp.png"], coins=2000, background_url="/backgrounds/bg-kelp.png")
 dB4 = user(backgrounds=["/backgrounds/bg-deep.png"], coins=300)
 t4 = trade(A, B, None, None)
@@ -146,7 +146,7 @@ check("B bg now kelp", ch4[B]["unlocked_backgrounds"] == ["/backgrounds/bg-kelp.
 check("B coins 300-200+500=600", ch4[B]["critter_coins"] == 600)
 check("A equipped bg cleared", ch4[A].get("background_url") == "")
 
-print("compute_apply — empty trade (both give nothing) is a valid no-op:")
+print("compute_apply: empty trade (both give nothing) is a valid no-op:")
 t5 = trade(A, B, None, None)
 t5["offers"] = {A: offer(), B: offer()}
 err5, ch5 = M._trade_compute_apply(t5, user(coins=5), user(coins=9))
@@ -189,7 +189,7 @@ check("derives level from total_xp",
 check("records rank", snap["rank"] == "Bronze Barracuda")
 check("missing stats → empty snapshot", M._trade_progress_snapshot({})["stats"] == {})
 
-print("compute_apply — trading an avatar away snapshots progress:")
+print("compute_apply: trading an avatar away snapshots progress:")
 PUFFIN, LOB = "/avatars/horned-puffin.png", "/avatars/lobster.png"
 dA6 = user_p(avatars=[PUFFIN], stats={"lifetime_play_again": 91, "total_xp": 1000})
 dB6 = user_p(avatars=[LOB], stats={"lifetime_play_again": 4})
@@ -207,7 +207,7 @@ check("receiver records nothing for what they received",
       entry_for(ch6[B], PUFFIN) is None)
 check("receiver DOES record what they gave", entry_for(ch6[B], LOB) is not None)
 
-print("compute_apply — receiving an item back clears its debt:")
+print("compute_apply: receiving an item back clears its debt:")
 dA7 = user_p(avatars=[], traded_away=[{"item": PUFFIN, "stats": {"lifetime_play_again": 91}},
                                       {"item": LOB, "stats": {"lifetime_play_again": 12}}])
 dB7 = user_p(avatars=[PUFFIN])
@@ -220,7 +220,7 @@ check("no error", err7 == "")
 check("entry dropped for the item received back", entry_for(ch7[A], PUFFIN) is None)
 check("unrelated entries preserved", entry_for(ch7[A], LOB) is not None)
 
-print("compute_apply — re-giving the same item re-snapshots (no stale baseline):")
+print("compute_apply: re-giving the same item re-snapshots (no stale baseline):")
 dA8 = user_p(avatars=[PUFFIN], stats={"lifetime_play_again": 200},
              traded_away=[{"item": PUFFIN, "stats": {"lifetime_play_again": 91}}])
 t8 = trade(A, B, None, None)
@@ -234,7 +234,7 @@ check("exactly one entry for the item",
 check("baseline is the CURRENT count, not the old one",
       entry_for(ch8[A], PUFFIN)["stats"]["lifetime_play_again"] == 200)
 
-print("compute_apply — backgrounds are snapshotted too:")
+print("compute_apply: backgrounds are snapshotted too:")
 KELP = "/backgrounds/bg-kelp.png"
 dA9 = user_p(backgrounds=[KELP], stats={"total_xp": 500})
 t9 = trade(A, B, None, None)
@@ -246,7 +246,7 @@ check("no error", err9 == "")
 check("background recorded", entry_for(ch9[A], KELP) is not None)
 check("a trade that gives nothing writes no entries", ch9[B]["traded_away"] == [])
 
-print("compute_apply — junk in an existing traded_away list is dropped safely:")
+print("compute_apply: junk in an existing traded_away list is dropped safely:")
 dA10 = user_p(avatars=[PUFFIN], traded_away=["nope", None, {"no_item": 1}, 7])
 t10 = trade(A, B, None, None)
 t10["offers"] = {A: offer(avatars=[PUFFIN]), B: offer()}

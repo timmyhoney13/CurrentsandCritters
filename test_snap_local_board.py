@@ -32,7 +32,7 @@ def check(name, cond, detail=""):
         print(f"  ✓ {name}")
     else:
         FAIL += 1
-        print(f"  ✗ {name}" + (f" — {detail}" if detail else ""))
+        print(f"  ✗ {name}" + (f": {detail}" if detail else ""))
 
 
 print("uid ↔ page mapping (what the browser library is built from)")
@@ -83,7 +83,7 @@ check("oversized thumbnail rejected", huge["thumb"] is None)
 
 print("\nscoring a manually corrected board (deterministic engine, no AI)")
 # a board like the scanner + player would confirm: one ocean, an Up card
-# above it, a Left card beside it — exactly the uid space the client sends
+# above it, a Left card beside it, exactly the uid space the client sends
 board = [{"name": "Tester", "oceans": [
     {"u": 208, "up": [1], "down": [2], "left": [101], "right": [102]},
 ]}]
@@ -165,7 +165,7 @@ diff = total([{"u": ocean_u, "up": [mate_diff], "down": [sponge], "left": [], "r
 check("matching-symbol combo scores MORE with a matching-symbol partner",
       same > diff, f"same-sym {same} vs diff-sym {diff}")
 
-# Blue Tang: "+2 per Crosscurrent animal" — cross-card combo counting
+# Blue Tang: "+2 per Crosscurrent animal": cross-card combo counting
 tang = uid_by_text("per crosscurrent", "down")
 goby = next((u for u in sorted(db)
              if str(db[u].species or "").strip().lower() == "crosscurrent"

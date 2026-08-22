@@ -4,7 +4,7 @@
  *
  * Run:  node test_tournament_builder.js
  *
- * The builder generates designs — quick-start templates and "Add Round" — that the
+ * The builder generates designs: quick-start templates and "Add Round", that the
  * SERVER has to accept. So every design produced here is checked twice: once by the
  * builder's own mirror of the rules, and once by the real Python validator in
  * tournament_engine.py (via test_tournament_builder_check.py). That parity is the
@@ -66,13 +66,13 @@ function flushServerChecks() {
 }
 
 // ============================================================================
-// packRound — the split that "Add Round" and the templates both use
+// packRound, the split that "Add Round" and the templates both use
 // ============================================================================
 test("packRound splits evenly and never makes a bye", () => {
   eq(packRound(8, 2), [2, 2, 2, 2]);
   eq(packRound(4, 2), [2, 2]);
   eq(packRound(16, 4), [4, 4, 4, 4]);
-  // 5 into 1v1 would be [2,2,1] — a bye, illegal in a designed bracket — so the
+  // 5 into 1v1 would be [2,2,1], a bye, illegal in a designed bracket, so the
   // odd player is folded into a 3-player match instead.
   eq(packRound(5, 2), [3, 2]);
   eq(packRound(6, 4), [3, 3]);
@@ -104,7 +104,7 @@ test("packRound never exceeds the 8-player match cap", () => {
 });
 
 // ============================================================================
-// buildTemplate — a whole bracket from (players, per match, top N advance)
+// buildTemplate, a whole bracket from (players, per match, top N advance)
 // ============================================================================
 test("single elimination template has the classic shape", () => {
   const built = buildTemplate(8, 2, 1);
@@ -151,11 +151,11 @@ test("template respects the 32-match ceiling", () => {
 });
 
 // ============================================================================
-// pendingFeeds — what "Add Round" will pick up
+// pendingFeeds, what "Add Round" will pick up
 // ============================================================================
 test("a finished bracket only has its champion 'advancing'", () => {
   buildTemplate(8, 2, 1);
-  // The Final's winner is the champion — they advance to nowhere by design, which
+  // The Final's winner is the champion, they advance to nowhere by design, which
   // is why "Add Round" refuses to act on a single pending finisher.
   const pend = pendingFeeds();
   eq(pend.length, 1);

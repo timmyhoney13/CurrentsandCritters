@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WHICH CARDS put the "Still your turn — tap ✓ End Turn" callout on screen.
+"""WHICH CARDS put the "Still your turn: tap ✓ End Turn" callout on screen.
 
 The callout exists for the one situation players read as a frozen game: a turn
 that will not end by itself. Two cards do that, and one that looks like it does
@@ -12,7 +12,7 @@ must not fire it:
 The Roosterfish is ONE free card. The turn carries on ending exactly the way it
 always does, so a prompt there is noise on an ordinary turn.
 
-Nothing here is asserted against a hand-written list of card names — the card
+Nothing here is asserted against a hand-written list of card names, the card
 text is read out of the shipped deck files and run through the real ability
 executor, so a card whose wording is edited is judged on its NEW wording. The
 line between the two behaviours is has_multi_play_window(), and this proves
@@ -70,19 +70,19 @@ class OpenPlayWindow(unittest.TestCase):
     def test_hermit_crab_opens_the_window(self):
         p = play("hermit crab")
         self.assertTrue(fish.has_multi_play_window(p),
-                        "Hermit Crab lets you keep playing baitfish — the turn "
+                        "Hermit Crab lets you keep playing baitfish, the turn "
                         "sits there until you End Turn")
 
     def test_sea_turtle_opens_the_window(self):
         p = play("loggerhead sea turtle")
         self.assertTrue(fish.has_multi_play_window(p),
-                        "Loggerhead Sea Turtle lets you keep paying for plays — "
+                        "Loggerhead Sea Turtle lets you keep paying for plays: "
                         "the turn sits there until you End Turn")
 
     def test_roosterfish_does_not(self):
         p = play("roosterfish")
         self.assertFalse(fish.has_multi_play_window(p),
-                         "Roosterfish is ONE free Baitfish — the turn ends the "
+                         "Roosterfish is ONE free Baitfish, the turn ends the "
                          "way it always does, so no callout")
 
     def test_roosterfish_still_grants_its_free_baitfish(self):
@@ -142,7 +142,7 @@ class ServerAndClientAreWired(unittest.TestCase):
 
     def test_the_fallback_payload_carries_it_too(self):
         """When _serialize_legal_actions throws, the hand-built payload is what
-        the client gets — it must not silently drop the callout."""
+        the client gets, it must not silently drop the callout."""
         src = read("multiplayer_server.py")
         self.assertIn('"is_open_play_window": is_open_play_window,', src)
 
@@ -158,7 +158,7 @@ class ServerAndClientAreWired(unittest.TestCase):
 
     def test_the_turn_flags_are_cleared_at_turn_end(self):
         """A window that outlived its turn would leave the callout up on a
-        normal turn — worse than never showing it."""
+        normal turn: worse than never showing it."""
         import inspect
         src = inspect.getsource(fish.clear_turn_only_flags)
         for flag in ("multi_play_paid_turn", "free_baitfish_chain",

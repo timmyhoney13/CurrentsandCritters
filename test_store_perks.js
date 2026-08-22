@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-/* Player Perks — the Critter-Coin consumables sold in the Store.
+/* Player Perks, the Critter-Coin consumables sold in the Store.
  *
  * Run:  node test_store_perks.js
  *
  * Three things are bought with coins that are neither an avatar nor a
  * background: a Streak Shield, an Emote Pack and a Critter Re-Earn. Each one
  * has a rule that costs a player real money (or a real streak) when it breaks,
- * so each one is pinned here. (The Name Change Token retired in 1.6.48 — a
+ * so each one is pinned here. (The Name Change Token retired in 1.6.48, a
  * rename is now one free change then PHST_RENAME_COIN_PRICE, charged inside
  * the rename's own transaction; section 6 pins that rule instead.)
  *
  *   1. The Streak Shield offer fires ONLY when one shield can actually save
- *      the run — the last day played was the day before yesterday. Alive
+ *      the run, the last day played was the day before yesterday. Alive
  *      streaks, two-day holes and 1-day "streaks" must not prompt.
  *   2. Spending a shield writes the missed day into stats.streak_days, which
- *      is what every streak number in the app derives from — so the run really
+ *      is what every streak number in the app derives from, so the run really
  *      does continue, and it can't be spent twice on the same date.
  *   3. The Emote Pack can only ever grant critters you have UNLOCKED and don't
  *      already have an emote for, and it warns with the REAL shortfall number
@@ -103,7 +103,7 @@ console.log("\n1. The Streak Shield offer fires only when one shield can save it
   check(one && one.run === 4,
         `the prompt must quote the run that broke (4), got ${one && one.run}`);
 
-  // Two missed days cannot be covered by one shield — prompting would sell a
+  // Two missed days cannot be covered by one shield: prompting would sell a
   // shield that doesn't save anything.
   check(offerFor([dayStr(-6), dayStr(-5), dayStr(-4), dayStr(-3)]) === null,
         "a two-day hole is beyond one shield and must not prompt");
@@ -154,7 +154,7 @@ console.log("2. Spending a shield really does continue the run");
   check(sandbox._computeStreakInfo(played).longest === 6,
         "playing on after a shield raises the longest run to 6");
 
-  // Covering a hole MERGES the two runs either side of it — the longest-ever
+  // Covering a hole MERGES the two runs either side of it, the longest-ever
   // can therefore jump past the sum of what either side was worth alone.
   {
     const split = [dayStr(-9), dayStr(-8), dayStr(-7), dayStr(-6), dayStr(-5),
@@ -191,7 +191,7 @@ console.log("2b. The 24-hour rescue window and its countdown");
 // ═══════════════════════════════════════════════════════════════════════════
 {
   // You get until the end of today to cover yesterday. At local midnight the
-  // hole becomes two days wide and no single shield can bridge it — so the
+  // hole becomes two days wide and no single shield can bridge it, so the
   // deadline the countdown shows is the real one, not a sales timer.
   const offer = sandbox._streakShieldOffer({
     streak_days: [dayStr(-4), dayStr(-3), dayStr(-2)],
@@ -206,7 +206,7 @@ console.log("2b. The 24-hour rescue window and its countdown");
   check(Math.abs(offer.deadline - Date.now() - offer.msLeft) < 1000,
         "msLeft agrees with the deadline");
 
-  // Once the window has passed, the offer is gone entirely — no countdown, no
+  // Once the window has passed, the offer is gone entirely, no countdown, no
   // sale. (Simulated by a history whose gap is already two days wide.)
   check(sandbox._streakShieldOffer({ streak_days: [dayStr(-5), dayStr(-4), dayStr(-3)] }) === null,
         "after the window closes there is no offer and nothing to sell");
@@ -263,7 +263,7 @@ console.log("3. The perk spend transactions");
     const ref = { __ref: true };
     const tx = {
       get: async () => ({ exists: true, data: () => JSON.parse(JSON.stringify(store)) }),
-      // Real signature is tx.update(ref, patch) — the ref is ignored here
+      // Real signature is tx.update(ref, patch), the ref is ignored here
       // because this fake owns exactly one document.
       update: (_ref, patch) => {
         applied.push(patch);
@@ -290,7 +290,7 @@ console.log("3. The perk spend transactions");
     increment: (n) => ({ __inc: n }),
   };
 
-  // The prices the Store advertises — read out of the source so the test can
+  // The prices the Store advertises: read out of the source so the test can
   // never drift from the tags on the cards.
   const priceOf = (name) => {
     const m = new RegExp(`const ${name}\\s*=\\s*(\\d+)`).exec(APP);
@@ -518,7 +518,7 @@ console.log("3. The perk spend transactions");
       check(/def _clean_emote_id/.test(SERVER),
             "the server validates emote ids");
       check(/_EMOTE_ID_RE = re\.compile\(r"\^\[a-z0-9\]\+\(\?:-\[a-z0-9\]\+\)\*\$"\)/.test(SERVER),
-            "an emote id is a plain avatar slug — no paths, no markup");
+            "an emote id is a plain avatar slug, no paths, no markup");
       check(/if not message and not emote:\s*\n\s*return \{"ok": False, "error": "empty message"\}/.test(SERVER),
             "an emote with no text is a valid message; a line with neither is not");
       check(/if emote:\s*\n\s*entry\["emote"\] = emote/.test(SERVER),
@@ -561,7 +561,7 @@ console.log("3. The perk spend transactions");
 
       // The Name Change Token is gone from every surface it used to touch.
       // (The words may still appear in a comment or the changelog note that
-      // retires it — what must be gone is the code.)
+      // retires it, what must be gone is the code.)
       for (const dead of ["nametok", "PHST_NAMETOK_COIN_PRICE", "name_change_tokens",
                           "__fishBuyNameToken", "__fishNameTokens"]) {
         check(!APP.includes(dead), `the retired token leaves no '${dead}' behind`);
@@ -569,7 +569,7 @@ console.log("3. The perk spend transactions");
       check(!/name: "Name Change Token"/.test(APP), "no Store card sells the retired token");
 
       // A rename charges coins INSIDE the same transaction that renames, and
-      // the free/paid decision is made from the freshly-read doc — so a
+      // the free/paid decision is made from the freshly-read doc, so a
       // double-tap can't take two free renames and a failed rename can't take
       // the coins with it.
       const renameTx = /const out = await _db\.runTransaction\(async \(tx\) => \{[\s\S]*?\n        \}\);/.exec(APP);
@@ -630,7 +630,7 @@ console.log("3. The perk spend transactions");
             "no supporter tier carries a coins-buy-you-this note, and the renderer slot is gone too");
       check(!/perk-coins-note/.test(INDEX),
             "the marketing site's note markup is gone, not just its text");
-      // The coin AMOUNTS themselves stay — it's only the "this buys you…"
+      // The coin AMOUNTS themselves stay: it's only the "this buys you…"
       // claim that was removed.
       check(/5,000 Critter Coins/.test(INDEX) && /phst-tier-coins-amt/.test(APP),
             "the tiers still show how many coins they include");

@@ -4,7 +4,7 @@
  * Run:  node test_sidebar_scroll.js       (needs Google Chrome installed)
  *
  * The bug this pins down: on desktop the sidebar (#ph-sidebar) is the scroller
- * — `overflow-y:auto` under `max-height:calc(100vh - 40px)` — and the white
+ *: `overflow-y:auto` under `max-height:calc(100vh - 40px)`, and the white
  * card inside it (.ph-sidebar-nav-card) was `flex:1; min-height:0`. On a short
  * screen the nav + Daily Streak section is TALLER than the viewport, and
  * `min-height:0` let the card shrink to the visible height while its own
@@ -15,15 +15,15 @@
  *
  * What is checked, in real screen pixels in headless Chrome against the REAL
  * preview.css and the REAL sidebar markup sliced out of preview.html:
- *   1. CARD COVERS CONTENT — the white card's painted box reaches at least as
+ *   1. CARD COVERS CONTENT, the white card's painted box reaches at least as
  *      far down as its last child (the "View streak details" button), at every
  *      height, scrolled to the bottom.
- *   2. SCROLLED TO THE BOTTOM — with the sidebar scrolled all the way down,
+ *   2. SCROLLED TO THE BOTTOM, with the sidebar scrolled all the way down,
  *      the button is on screen AND the card is painted behind it (hit-test at
  *      the button's corners lands inside the card).
- *   3. TALL SCREENS — when everything fits, the card still fills the sidebar
+ *   3. TALL SCREENS, when everything fits, the card still fills the sidebar
  *      (no short card floating above empty space).
- *   4. TUTORIAL — the Main Menu tour spotlights ".ph-sidebar-streak" and
+ *   4. TUTORIAL, the Main Menu tour spotlights ".ph-sidebar-streak" and
  *      "#ph-ss-details-btn"; after the tour's scrollIntoView, both must be
  *      visible AND backed by the card.
  */
@@ -43,7 +43,7 @@ const CHROME = [
 ].find(p => fs.existsSync(p));
 
 if (!CHROME) {
-  console.log("SKIP: no Chrome/Chromium found — cannot run the sidebar layout check.");
+  console.log("SKIP: no Chrome/Chromium found: cannot run the sidebar layout check.");
   process.exit(0);
 }
 
@@ -63,7 +63,7 @@ const SIDEBAR = HTML.slice(SB_START, SB_END + '</div><!-- /.ph-sidebar -->'.leng
 const TUT = fs.readFileSync(path.join(ROOT, "multiplayer/client/js/tutorials.js"), "utf8");
 for (const sel of ['".ph-sidebar-streak"', '"#ph-ss-details-btn"']) {
   if (!TUT.includes(sel)) {
-    console.error(`FAIL: tutorials.js no longer targets ${sel} — update this test.`);
+    console.error(`FAIL: tutorials.js no longer targets ${sel}: update this test.`);
     process.exit(1);
   }
 }
@@ -110,8 +110,8 @@ ${SIDEBAR}
   say("SBBOX top=" + Math.round(sb.getBoundingClientRect().top) + " bottom=" + Math.round(sb.getBoundingClientRect().bottom));
 
   // Is the card actually PAINTED behind a point? DOM containment proves
-  // nothing here — the streak block stayed a CHILD of the card while spilling
-  // out the bottom of it — so this asks the only question that matters: is the
+  // nothing here, the streak block stayed a CHILD of the card while spilling
+  // out the bottom of it, so this asks the only question that matters: is the
   // point inside the card's own painted box?
   function backedByCard(x, y) {
     const r = card.getBoundingClientRect();
@@ -133,7 +133,7 @@ ${SIDEBAR}
   // "#ph-ss-details-btn", and reaches each one exactly the way tutorials.js
   // does: scrollIntoView({block:"center"}). Whatever that lands on is what the
   // player sees through the spotlight hole, so it must be on screen inside the
-  // sidebar AND painted on the white card — all four corners of it.
+  // sidebar AND painted on the white card, all four corners of it.
   for (const [name, el] of [["TUT-STRK", strk], ["TUT-BTN", btn]]) {
     el.scrollIntoView({ block: "center", behavior: "instant" });
     const r = el.getBoundingClientRect();

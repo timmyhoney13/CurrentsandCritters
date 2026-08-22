@@ -8,7 +8,7 @@
  * and measures, in SCREEN pixels, where each drawn SVG path actually starts and
  * ends versus the gold advance handle and the player spot it is supposed to join.
  * The bug it pins down was a missing `transform-origin` on the links SVG, which
- * slid every line away from its boxes by half the canvas at any zoom but 1 — so
+ * slid every line away from its boxes by half the canvas at any zoom but 1, so
  * checking only at zoom 1 would have passed while the builder looked broken.
  */
 "use strict";
@@ -27,7 +27,7 @@ const CHROME = [
 ].find(p => fs.existsSync(p));
 
 if (!CHROME) {
-  console.log("SKIP: no Chrome/Chromium found — cannot run the line-geometry check.");
+  console.log("SKIP: no Chrome/Chromium found: cannot run the line-geometry check.");
   process.exit(0);
 }
 
@@ -172,7 +172,7 @@ const lines = report.split("\n");
 fs.rmSync(tmp, { recursive: true, force: true });
 
 // The LIVE tournament bracket (tournament-ui.js) draws its connectors the same
-// way — one SVG given the same transform as the grid of matches — and had the
+// way, one SVG given the same transform as the grid of matches, and had the
 // same missing origin. A full-app browser run is a lot of scaffolding for a CSS
 // pairing, so assert the pairing itself: wherever a transformed layer and its
 // lines SVG share a transform, they must share an origin.
@@ -190,7 +190,7 @@ const uiSrc = fs.readFileSync(path.join(ROOT, "multiplayer/client/js/tournament-
   if (!a || !b) lines.push(`FAIL ${file}: could not find ${layer} / ${svg}`);
   else if (has(a) !== has(b)) {
     lines.push(`FAIL ${file}: ${layer} and ${svg} share a transform but not a transform-origin` +
-      ` — connector lines will drift from their matches at any zoom but 1`);
+      `: connector lines will drift from their matches at any zoom but 1`);
   } else lines.push(`PASS ${file}: transformed layer and its lines SVG share transform-origin`);
 });
 

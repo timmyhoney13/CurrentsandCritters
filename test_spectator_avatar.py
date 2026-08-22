@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A spectator wears the icon they have equipped — the server half.
+"""A spectator wears the icon they have equipped, the server half.
 
 Run:  python3 test_spectator_avatar.py
 
@@ -7,7 +7,7 @@ A seated player's icon travels on their SEAT (Seat.avatar, pushed with
 /api/rooms/<id>/avatar and stamped onto every chat line they send). A
 spectator has no seat, so none of that applied to them: they showed up in the
 spectator list as a bare name, and their chat lines arrived with no avatar at
-all — which made every client fall back to a hash of the sender string. That
+all, which made every client fall back to a hash of the sender string. That
 string is "[Spectator] Tim", not "Tim", so the fallback wasn't even the same
 default face the person wears everywhere else in the app.
 
@@ -92,7 +92,7 @@ check(mp._clean_background_path("/avatars/mullet.png") == "",
       "an avatar is not a background")
 check(mp._clean_background_path("javascript:alert(1)") == "", "a script URL is refused")
 
-# The seat path must use the exact same rule — one definition, not two that
+# The seat path must use the exact same rule, one definition, not two that
 # can drift apart.
 src = open(os.path.join(ROOT, "multiplayer_server.py"), encoding="utf-8").read()
 check('avatar = _clean_avatar_path(body.get("avatar"))' in src,

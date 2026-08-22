@@ -25,12 +25,12 @@
 
 # Prestige (descend past Level 100). multiplayer_server.py imports this at module
 # scope, so if the allowlist ever drops it the server dies on startup with an
-# ImportError instead of failing soft. It owns no level curve of its own — the
+# ImportError instead of failing soft. It owns no level curve of its own, the
 # cap and progress fn are injected from LEVEL_XP_TOTALS via prestige_server.init.
 !prestige_server.py
 # Its tests: the reward math + the whole commit transaction against an
 # in-memory Firestore fake, plus the two tables that MUST mirror the client
-# (the avatar relock map and the skinnable-animal roster) — those two checks
+# (the avatar relock map and the skinnable-animal roster): those two checks
 # are the only thing standing between "a new avatar was added" and "a bought
 # avatar gets relocked by a Prestige".
 !test_prestige_server.py
@@ -39,7 +39,7 @@
 # The admin XP tool (/api/admin/set_xp): sets one account's lifetime XP to an
 # exact number and rewrites every level field derived from it in the same write.
 # The test pins the derivation AND that the server's level table still matches
-# the client's — the two are what keep the leaderboard, header and profile
+# the client's: the two are what keep the leaderboard, header and profile
 # telling the same story about an account.
 !test_admin_set_xp.py
 
@@ -59,8 +59,9 @@
 
 # Newsletter. multiplayer_server.py imports newsletter_server at module scope and
 # newsletter_server imports newsletter_email, so BOTH have to be on the allowlist:
-# ship one without the other and the container dies on startup with an ImportError
-# — the whole game, not just the mailing list. .dockerignore and the Dockerfile
+# ship one without the other and the container dies on startup with an
+# ImportError that takes the whole game down, not just the mailing list.
+# .dockerignore and the Dockerfile
 # COPY lines carry the same pair; all three have to agree.
 !newsletter_server.py
 !newsletter_email.py
@@ -73,7 +74,7 @@
 !discord_server.py
 # Its tests: the "cannot be paid twice" guarantee from both directions, the
 # signed OAuth state (forged/expired/replayed), and the rule that no failure of
-# any kind — Discord down, scope missing, garbled reply — is ever mistaken for
+# any kind, Discord down, scope missing, garbled reply, is ever mistaken for
 # membership. Plus the client chip's own render/claim rules.
 !test_discord_rewards.py
 !test_discord_reward_ui.js
@@ -105,14 +106,14 @@
 # The Discord Developer Portal walkthrough for switching the reward on.
 !DISCORD_REWARD_SETUP.md
 
-# Clans: headless-Chrome render check — every screen against the REAL css/module
+# Clans: headless-Chrome render check, every screen against the REAL css/module
 # (it caught a season countdown that never started).
 !test_clans_render.js
-# Clans: the server↔client seam — payloads from the REAL clan_server rendered by
+# Clans: the server↔client seam, payloads from the REAL clan_server rendered by
 # the REAL clans-ui.js, so the two halves can't drift apart while both are green.
 !test_clans_payloads.py
 # Clans: every one of the 51 clan challenges, driven to completion one step at a
-# time — and proved not to fire a step early, or to fire anything else by
+# time, and proved not to fire a step early, or to fire anything else by
 # accident. Also covers the telemetry multiplayer_server derives to feed them.
 !test_clan_challenges.py
 !test_tournament_engine.py
@@ -127,7 +128,7 @@
 # Messages: chat-background docs share the messages subcollection with group
 # rosters, so this pins down that they never get mistaken for one another.
 !test_chat_backgrounds.js
-# Chat mute silences NOTIFICATIONS ONLY — badges and dots — while messages keep
+# Chat mute silences NOTIFICATIONS ONLY, badges and dots, while messages keep
 # arriving and unread counters keep counting. Zeroing a counter instead of
 # hiding a badge would make everything received while muted look read.
 !test_chat_mute.js
@@ -142,13 +143,13 @@
 !test_tournament_builder_check.py
 !test_tournament_builder_lines.js
 # Tournament: being knocked out must not cut you off from watching the rest of
-# the bracket — pins the "out" vs "done" split and the Spectate-button rules.
+# the bracket, pins the "out" vs "done" split and the Spectate-button rules.
 !test_tournament_spectate.js
 # Board: headless-Chrome check that a tall board of oceans can actually be
 # scrolled to its bottom, on a phone-sized viewport as well as a laptop.
 !test_board_scroll.js
 # Board peek: the hover preview of another player's board must never get stuck
-# on screen — a removed anchor fires no mouseleave, so every dismissal path
+# on screen, a removed anchor fires no mouseleave, so every dismissal path
 # (pointer off, click, scroll, tab away, game over, leaving the game) is pinned.
 !test_board_peek_dismiss.js
 # Stars: every ★ ability fired for real through the engine, plus the payload
@@ -157,7 +158,7 @@
 # Stars: the gold border rule itself, incl. computed colours in headless Chrome.
 !test_star_gold_border.js
 # Clownfish: the one card whose ability is whatever Ocean it sits on. Pins both
-# halves — it counts as one more of that Ocean without scoring its chart twice,
+# halves, it counts as one more of that Ocean without scoring its chart twice,
 # and on a Mangrove or an Arctic Ocean it carries that Ocean's ★ (play again),
 # which is the half the engine did not do.
 !test_clownfish_copy.py
@@ -170,17 +171,17 @@
 # Playing on a phone: the in-game screen laid the player seats out flanking the
 # hand in a grid whose side columns never shrink, so on a phone the hand's own
 # column collapsed to zero and the whole fan spilled underneath the seat pills
-# (which take the tap) — every card in your hand was unclickable, two were off
+# (which take the tap), every card in your hand was unclickable, two were off
 # the screen entirely, and the deck you draw from sat past the right edge.
 !test_mobile_layout.js
 # Weekly Challenges: daily challenges were retired (1.6.54), and the weekly
-# strip now starts CLOSED. Proves the daily system left no stumps behind — no
+# strip now starts CLOSED. Proves the daily system left no stumps behind, no
 # pool, no state, no reporting hook, and none of the per-payload observer state
-# that only ever fed one — and measures the closed/open strip in headless
+# that only ever fed one, and measures the closed/open strip in headless
 # Chrome, because "hidden until you click it" is a thing only the browser knows.
 !test_weekly_challenges.js
 # Tutorials: walks the Main Menu and Competitive tours through the REAL app in
-# headless Chrome — as a guest AND signed in, at five widths — pressing Next
+# headless Chrome, as a guest AND signed in, at five widths, pressing Next
 # when it is offered and otherwise clicking whatever the spotlight is on. It
 # catches the class of bug a source grep cannot: every selector valid, every
 # handler wired, and the running tour still dead-ends (the History step used to
@@ -194,16 +195,16 @@
 # Competitive: one human owns TWO seats, so the turn must reach both of their
 # hands. The .js half proves the client follows the turn to its other hand (the
 # per-seat render gate); the .py half runs a real 4-seat match and covers the
-# player-vs-seat rules — Play Again, leaving, Surf's Up.
+# player-vs-seat rules, Play Again, leaving, Surf's Up.
 !test_competitive_hand_switch.js
 !test_competitive_mode.py
 # Dragging cards around inside your hand is client-only state, and it used to
-# live in ONE array — so drawing your OTHER competitive hand deleted the first
+# live in ONE array, so drawing your OTHER competitive hand deleted the first
 # hand's arrangement. This runs the real ordering lines, lifted out of
 # preview-app.js, over a player who owns two seats.
 !test_competitive_hand_order.js
 # Spectating: a spectator has no seat, and a player's equipped icon used to
-# travel only on their seat — so watchers showed up as a bare name and their
+# travel only on their seat, so watchers showed up as a bare name and their
 # chat lines wore a hash of "[Spectator] Name" instead of the icon they equipped.
 !test_spectator_avatar.py
 !test_spectator_avatar.js
@@ -219,32 +220,32 @@
 !test_rules_page.js
 
 # The Player Home left sidebar. It is its own scroller, so the white nav card
-# inside it has to be as tall as its own content — otherwise you scroll down to
+# inside it has to be as tall as its own content, otherwise you scroll down to
 # the Daily Streak block and the card has already ended above it, leaving "View
 # streak details" on the bare page. Measured in headless Chrome at nine window
 # sizes (including the Streak Rescue worst case), and again along the path the
 # Main Menu tutorial takes to those same two elements.
 !test_sidebar_scroll.js
 
-# The Stripe money path. The .py half covers the server's decision functions —
+# The Stripe money path. The .py half covers the server's decision functions , 
 # webhook signature verification (the only thing between a stranger's POST and
 # free coins), price→reward mapping, and the lifetime-total wall tiers. The .js
 # half runs the REAL /thanks page in a stubbed DOM: the back-to-game button (an
 # untrusted cross-origin value, so it must never become an open redirect) and
 # the rule that it only claims "confirmed" when the SERVER says so.
 !test_stripe_payments.py
-# Asks Stripe what the 7 live Payment Links actually charge and ask for — the
+# Asks Stripe what the 7 live Payment Links actually charge and ask for, the
 # half of the money path the test suite can't see. Dev tool, never in the image.
 !verify_stripe_links.py
 # Guards the privacy page: one source for the document, both /privacy spellings,
-# and the ?v= stamps on every asset it and preview.html share — all compared
+# and the ?v= stamps on every asset it and preview.html share, all compared
 # against version.json, so a build bump can't leave a stale stamp behind.
 !test_privacy_policy.js
 !test_thanks_page.js
 # The two screens you click before you have an account. The device gate and the
 # sign-in chooser paint their buttons in the same place, so choosing a device
 # used to leave the cursor sitting on an invisible PLAY AS GUEST. Measured in a
-# real browser at six window sizes — no source grep can see it.
+# real browser at six window sizes, no source grep can see it.
 !test_auth_gate.js
 
 !fish_ai_brain.json
@@ -258,7 +259,7 @@
 !cards_oceans.txt
 !update_cards.py
 
-# Recovery + learning tools (run locally — never commit serviceAccountKey.json)
+# Recovery + learning tools (run locally, never commit serviceAccountKey.json)
 !apply_recovery.js
 !apply_history_learning.js
 serviceAccountKey.json
@@ -276,19 +277,19 @@ serviceAccountKey.json
 # The "play again" callout: a Hermit Crab / Sea Turtle / ★ extra turn is
 # announced by the turn banner at the TOP of the screen while the action it
 # asks for is at the BOTTOM, so players sat on an extra turn thinking the game
-# had stalled. Measures the callout above the action bar in headless Chrome —
+# had stalled. Measures the callout above the action bar in headless Chrome , 
 # on screen, pointing at End Turn, and covering no other control even when the
 # bar wraps onto three rows on a phone.
 !test_play_again_callout.js
 # …and WHICH cards may raise it. A Hermit Crab / Loggerhead Sea Turtle opens a
-# window you have to close yourself, so the turn sits there looking frozen — a
+# window you have to close yourself, so the turn sits there looking frozen, a
 # Roosterfish's one free Baitfish does not, and must not prompt. Runs every
 # card in the shipped deck files through the real ability executor, so the line
 # is drawn by card TEXT, not by a hand-written list of names.
 !test_end_turn_callout_cards.py
 # The end screen keeps trying: once a game is over its state_version stops
-# changing, so the payload is dropped as already-rendered and renderEndGame —
-# the only caller of saveGameStats — is never reached again. One second of lost
+# changing, so the payload is dropped as already-rendered and renderEndGame , 
+# the only caller of saveGameStats, is never reached again. One second of lost
 # network therefore cost the player their XP, streak and game history on a
 # screen that showed all three. Pins the watchdog and the three save states.
 !test_endgame_save_retry.js
@@ -298,7 +299,7 @@ serviceAccountKey.json
 # to the other server modules.) NOTE: .gitignore and .dockerignore are BOTH
 # `*`-then-`!` allowlists, so a new root file is silently excluded from git AND
 # from the image until it is named in both. Verify with: git check-ignore -v <f>
-# The helper script and the tests are dev tools — deliberately NOT in the image.
+# The helper script and the tests are dev tools, deliberately NOT in the image.
 !test_newsletter_server.py
 !test_newsletter_admin_ui.js
 !NEWSLETTER_SETUP.md
@@ -306,7 +307,7 @@ serviceAccountKey.json
 !scripts/get_gmail_refresh_token.py
 
 # Admin hand-out: Clan Points to a clan + the matching XP to the member.
-# Run locally against Firestore with GOOGLE_APPLICATION_CREDENTIALS — a dev
+# Run locally against Firestore with GOOGLE_APPLICATION_CREDENTIALS, a dev
 # tool, deliberately NOT in the image.
 !scripts/grant_clan_points.py
 

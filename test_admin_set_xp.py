@@ -5,7 +5,7 @@ adds), and it is stored twice over: `stats.total_xp` is the source of truth, but
 `level` / `player_level` / `xp_current` / `level_xp_current` / `xp_goal` /
 `level_xp_goal` sit beside it and are what the header, the profile and the XP
 leaderboard actually read. Writing total_xp alone leaves an account showing one
-number in one place and another everywhere else — so the whole point of this
+number in one place and another everywhere else, so the whole point of this
 tool is that all seven move together, derived from the SAME level table the
 client uses.
 
@@ -137,7 +137,7 @@ class AdminSetXpTest(unittest.TestCase):
 
     def test_every_derived_level_field_moves_with_it(self):
         # 1000 XP sits inside level 6 on the shipped curve (level 6 starts at
-        # 900, level 7 at 1400) — so 100 into a 500-XP level.
+        # 900, level 7 at 1400), so 100 into a 500-XP level.
         ms._admin_set_xp("timmyhotdog", 1000)
         s = self.stats()
         self.assertEqual(s["level"], 6)
@@ -226,7 +226,7 @@ class AdminSetXpTest(unittest.TestCase):
     def test_a_non_number_is_refused(self):
         for bad in ("lots", None, "", [], {}, 12.7):
             res = ms._admin_set_xp("timmyhotdog", bad)
-            if bad == 12.7:      # int(12.7) is a real conversion — 12 XP
+            if bad == 12.7:      # int(12.7) is a real conversion: 12 XP
                 self.assertTrue(res.get("ok"), res)
                 continue
             self.assertFalse(res.get("ok"), f"{bad!r} should be refused")
@@ -260,7 +260,7 @@ class AdminSetXpTest(unittest.TestCase):
 
 class LevelCurveAgreementTest(unittest.TestCase):
     """The server's copy of the level curve and the client's must be identical,
-    or a server-set XP writes a level the client would disagree with — the
+    or a server-set XP writes a level the client would disagree with, the
     exact "leaderboard says one thing, profile says another" bug this tool
     exists to avoid."""
 

@@ -4,7 +4,7 @@
  * Run:  node test_competitive_hand_order.js
  *
  * You can drag cards around inside your hand to arrange them, and that
- * arrangement is client-side only — the server never hears about it, so it
+ * arrangement is client-side only, the server never hears about it, so it
  * lives in one place in preview-app.js and nowhere else.
  *
  * The bug this pins down: that place used to be a SINGLE array, `_handOrder`.
@@ -25,7 +25,7 @@
  * each card's drop handler captures its hand's array at render time and must
  * still be holding the live array several renders later.
  *
- * Everything below runs the REAL code — the ordering block, the seat-key
+ * Everything below runs the REAL code, the ordering block, the seat-key
  * lookup and the drop-handler reorder are sliced out of preview-app.js by text
  * and executed, so a change to those lines changes what this test runs.
  */
@@ -161,7 +161,7 @@ for (let turn = 0; turn < 6; turn++) {
 eq(uidsOf(a), [105, 101, 102, 103, 104], "seat 0 arrangement survives 6 more hand switches");
 eq(uidsOf(b), [202, 203, 201, 204, 205], "seat 1 arrangement survives 6 more hand switches");
 
-// Two hands, two independent entries in the map — not one shared array.
+// Two hands, two independent entries in the map, not one shared array.
 check(sandbox._ordersMap().size === 2, "_handOrders holds one order per seat, not one shared array");
 
 console.log("\nThe arrangement survives the hand actually changing");
@@ -182,7 +182,7 @@ console.log("\nThe drop handler's captured array stays live");
 
 // Each card's drop handler closes over its hand's order array at RENDER time.
 // Several renders (of both hands) happen before the player finishes a drag, so
-// that captured reference has to still be the array the renderer reads — which
+// that captured reference has to still be the array the renderer reads, which
 // is only true while the arrays are spliced in place and never reassigned.
 const captured = sandbox.renderHandOrder(seat(0, [101, 103, 104, 105, 106])).order;
 sandbox.renderHandOrder(seat(1, HAND_B));
@@ -208,7 +208,7 @@ check(solo._ordersMap().size === 1, "solo: exactly one order in the map");
 
 console.log("\nThe old shared-array behaviour really was broken");
 
-// Same code, but with every hand answering to ONE key — which is precisely
+// Same code, but with every hand answering to ONE key, which is precisely
 // what a single `_handOrder` array was. If this still preserved the order, the
 // checks above would not be testing anything.
 const shared = { myIdx: null, console };
@@ -220,7 +220,7 @@ eq(uidsOf(shared.renderHandOrder(seat(0, HAND_A))), [105, 101, 102, 103, 104],
    "shared-array model: the reorder does stick while only one hand is drawn");
 shared.renderHandOrder(seat(1, HAND_B));   // the other hand plays
 check(JSON.stringify(uidsOf(shared.renderHandOrder(seat(0, HAND_A)))) !== JSON.stringify([105, 101, 102, 103, 104]),
-      "shared-array model: the arrangement IS lost after the other hand — the bug reproduces");
+      "shared-array model: the arrangement IS lost after the other hand, the bug reproduces");
 
 // ── Source guards ────────────────────────────────────────────────────────────
 console.log("\nSource guards");

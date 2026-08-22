@@ -11,7 +11,7 @@ WHY THIS RUNS LOCALLY AND NOT ON THE SERVER
 Getting a refresh token requires a human to click "Allow" in a browser while
 signed in as timothy.honey@beardedsealstudios.com. Building that consent flow
 into the live server would mean the production service permanently exposes an
-OAuth callback that can mint sending credentials — a real attack surface, for
+OAuth callback that can mint sending credentials, a real attack surface, for
 something done once. Doing it here means the server only ever holds the
 finished token, and the client secret never has to live anywhere but Render.
 
@@ -68,7 +68,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         _result["error"] = (qs.get("error") or [""])[0]
         body = (b"<html><body style='font-family:sans-serif;text-align:center;"
                 b"padding:60px;background:#04263b;color:#eaf6fb'>"
-                b"<h2>Done &mdash; you can close this tab.</h2>"
+                b"<h2>Done, you can close this tab.</h2>"
                 b"<p>Go back to your terminal for the refresh token.</p>"
                 b"</body></html>")
         self.send_response(200)
@@ -160,7 +160,7 @@ def main() -> int:
     if _result.get("state") != state:
         # A mismatched state means the response did not come from the request
         # this script made.
-        print("State mismatch — aborting rather than trusting that response.")
+        print("State mismatch: aborting rather than trusting that response.")
         return 1
     code = _result.get("code") or ""
     if not code:

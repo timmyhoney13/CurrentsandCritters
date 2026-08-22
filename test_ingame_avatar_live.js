@@ -182,7 +182,7 @@ console.log("\n1. My own seat shows the icon I just picked, not the one the serv
      "before the change, both seats wear what the server relayed");
 
   // I equip a new icon. The push is in flight, so the payload still carries the
-  // old one for my seat — the render must not wait for the round trip.
+  // old one for my seat, the render must not wait for the round trip.
   h.ctx.myAvatar = "/avatars/manta-ray.png";
   h.api.renderPlayerSeats(seats("/avatars/clownfish.png", "/avatars/osprey.png"), 0, 0);
   eq(facesIn(h.ctx.els["pv-seats-left"], "pv-seat-avatar-wrap").filter(Boolean),
@@ -197,7 +197,7 @@ console.log("2. Another player's change lands on their seat on the next tick");
   h.api.renderPlayerSeats(seats("/avatars/clownfish.png", "/avatars/narwhal.png"), 0, 0);
   eq(facesIn(h.ctx.els["pv-seats-left"], "pv-seat-avatar-wrap").filter(Boolean),
      ["/avatars/clownfish.png", "/avatars/narwhal.png"],
-     "the seat repaints — p.avatar is part of the render key");
+     "the seat repaints: p.avatar is part of the render key");
 }
 
 console.log("3. pvLiveAvatar is the one answer, and mine is the local truth");

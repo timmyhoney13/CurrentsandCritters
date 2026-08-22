@@ -8,10 +8,10 @@ ENV PYTHONUNBUFFERED=1
 # firebase-admin lets the server read the exact registered-player and live
 # online-player counts from Firestore, served to the website via /api/stats.
 # (Snap & Score card recognition runs in the player's browser against the
-# prebuilt multiplayer/client/snap-card-library.json — no vision API, no
+# prebuilt multiplayer/client/snap-card-library.json, no vision API, no
 # anthropic SDK, no server-side image processing.)
 # nh3 is the HTML sanitiser for admin-authored newsletter content (Rust
-# `ammonia` bindings — the maintained successor to bleach). newsletter_email.py
+# `ammonia` bindings: the maintained successor to bleach). newsletter_email.py
 # has a deny-by-default fallback parser if this import ever fails, so a wheel
 # problem degrades safely instead of shipping unsanitised HTML; nh3 is the path
 # that should actually run in production.
@@ -28,14 +28,14 @@ COPY prestige_server.py /app/prestige_server.py
 COPY analytics_server.py /app/analytics_server.py
 # Both halves of the newsletter, or neither: multiplayer_server.py imports
 # newsletter_server at module scope and newsletter_server imports newsletter_email,
-# so a missing COPY here is not a missing mailing list — it is the whole server
+# so a missing COPY here is not a missing mailing list, it is the whole server
 # failing to boot on ImportError.
 COPY newsletter_server.py /app/newsletter_server.py
 COPY newsletter_email.py /app/newsletter_email.py
-# Discord join reward — imported at module scope too, so a missing COPY here is
+# Discord join reward, imported at module scope too, so a missing COPY here is
 # a server that will not boot, not a reward that quietly goes missing.
 COPY discord_server.py /app/discord_server.py
-# Level Pass and the friend-code referral reward — module-scope imports as well,
+# Level Pass and the friend-code referral reward, module-scope imports as well,
 # so a missing COPY here is a server that will not boot, not a feature that
 # quietly goes missing.
 COPY level_pass_server.py /app/level_pass_server.py

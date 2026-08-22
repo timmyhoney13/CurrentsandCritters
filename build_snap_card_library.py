@@ -2,21 +2,21 @@
 """Build the Snap & Score local-recognition card library.
 
 Reads every official card sheet (horizontal_cards / vertical_cards /
-oceans_cards page PNGs — each page IS one physical card: up/down cards carry a
+oceans_cards page PNGs, each page IS one physical card: up/down cards carry a
 top half + bottom half face, left/right cards a left + right face, ocean pages
 one full face) and precomputes the recognition descriptors the in-browser
 scanner compares photo crops against:
 
-  • pHash    — 64-bit DCT perceptual hash (robust to blur / lighting / resize)
-  • dHash    — 64-bit gradient hash
-  • color    — 4×4 mean-RGB layout (48 ints)
-  • edges    — 8-bin gradient-orientation histogram
-  • badge    — 8×8 luma grid of each half's symbol badge (disambiguates copies
+  • pHash: 64-bit DCT perceptual hash (robust to blur / lighting / resize)
+  • dHash: 64-bit gradient hash
+  • color: 4×4 mean-RGB layout (48 ints)
+  • edges: 8-bin gradient-orientation histogram
+  • badge: 8×8 luma grid of each half's symbol badge (disambiguates copies
                of the same art that differ only by the printed symbol)
 
 Reference pipeline mirrors the runtime crop pipeline: page → 200×280 working
 image → percentile luma normalize → 64×64 base → descriptors. The browser
-never re-processes the official art at scan time — it loads the JSON this
+never re-processes the official art at scan time, it loads the JSON this
 script writes.
 
 Output:
@@ -31,7 +31,7 @@ Run whenever the card art or the card database changes:
     python3 build_snap_card_library.py --check  # verify only (build gate)
 
 The descriptor math here MUST stay in lockstep with snap-vision-core.js
-(DESCRIPTOR_VERSION guards it: bump both together or matching silently dies —
+(DESCRIPTOR_VERSION guards it: bump both together or matching silently dies,
 the fixtures test exists to catch exactly that).
 """
 
@@ -56,7 +56,7 @@ CARD_W, CARD_H = 200, 280   # canonical portrait working size (5:7)
 BASE_N = 64                 # square base the descriptors are computed from
 GRAY_N = 32                 # pHash / edge-histogram working size
 
-# Name-band regions as fractions of the FULL portrait card (x0,y0,x1,y1) —
+# Name-band regions as fractions of the FULL portrait card (x0,y0,x1,y1),
 # where each face prints its card NAME (measured on the 720×1008 sheets).
 # Ocean pages place names at varying heights, so oceans skip this signal.
 NAME_REGIONS = {
@@ -180,7 +180,7 @@ def color_layout(base_rgb):
 
 
 # Orientation-bin boundaries at k·π/8: exact same literals live in
-# snap-vision-core.js — binning via IEEE multiply/compare (no atan2/hypot,
+# snap-vision-core.js: binning via IEEE multiply/compare (no atan2/hypot,
 # whose last-bit platform differences would break cross-language parity).
 _EDGE_SIN = (0.3826834323650898, 0.7071067811865476, 0.9238795325112867, 1.0,
              0.9238795325112867, 0.7071067811865476, 0.3826834323650898)
@@ -233,7 +233,7 @@ def normalize_rgb(rgb, count):
 
 def region_color_layout(base_rgb, x0, y0, x1, y1):
     """4×4 mean-RGB layout of a sub-region of the 64×64 base (half-face color
-    fingerprint — the per-half equivalent of a card-name check)."""
+    fingerprint, the per-half equivalent of a card-name check)."""
     w, h = x1 - x0, y1 - y0
     crop = [0.0] * (w * h * 3)
     for y in range(h):
@@ -247,7 +247,7 @@ def region_color_layout(base_rgb, x0, y0, x1, y1):
 
 def region_phash(base_rgb, x0, y0, x1, y1):
     """pHash of a sub-region of the base (independent per-half ART structure
-    evidence — robust to color casts, complements the color layouts)."""
+    evidence: robust to color casts, complements the color layouts)."""
     w, h = x1 - x0, y1 - y0
     g = [0.0] * (w * h)
     for y in range(h):
@@ -259,7 +259,7 @@ def region_phash(base_rgb, x0, y0, x1, y1):
 
 
 def region_luma_grid(base_rgb, fx0, fy0, fx1, fy1, gw, gh):
-    """gw×gh luma grid of a fractional region of the base (name-band layout —
+    """gw×gh luma grid of a fractional region of the base (name-band layout:
     coarse but consistent evidence of WHICH name is printed there)."""
     x0, y0 = int(fx0 * BASE_N), int(fy0 * BASE_N)
     x1 = max(x0 + 1, int(fx1 * BASE_N))
@@ -279,10 +279,10 @@ def descriptors_from_base(base_rgb):
     which kind of card it is yet, so it carries both; refs keep only their own
     kind's split). Every signal derives from the SAME 64×64 base so the
     cross-language parity fixtures cover all of it:
-      p/d/c/e — whole-card hash / gradient hash / color layout / edge structure
-      hh/hv   — per-half 4×4 color layouts (top/bottom and left/right splits)
-      ph/pv   — per-half pHashes (independent half-ART structure)
-      nh/nv   — name-band 12×4 luma grids (which NAME is printed on each face)
+      p/d/c/e: whole-card hash / gradient hash / color layout / edge structure
+      hh/hv: per-half 4×4 color layouts (top/bottom and left/right splits)
+      ph/pv: per-half pHashes (independent half-ART structure)
+      nh/nv: name-band 12×4 luma grids (which NAME is printed on each face)
     """
     gray64 = gray_of(base_rgb, BASE_N * BASE_N)
     gray32 = box_downsample(gray64, BASE_N, BASE_N, 1, GRAY_N, GRAY_N)
@@ -349,7 +349,7 @@ def page_map():
         pages.append(("v", p, f"vertical_cards/page_{p:02d}.png",
                       {"left": expect(101 + 2 * (p - 1), "left"),
                        "right": expect(102 + 2 * (p - 1), "right")}))
-    for p in range(1, 69):  # page 69 is END GAME — never on a board
+    for p in range(1, 69):  # page 69 is END GAME, never on a board
         pages.append(("o", p, f"oceans_cards/page_{p:02d}.png",
                       {"ocean": expect(200 + p, "ocean")}))
     return pages, problems
@@ -357,7 +357,7 @@ def page_map():
 
 def load_card_working_rgb(path):
     """Page PNG → flat RGB floats at the canonical 200×280 working size.
-    PIL's BOX resample is a true box average — the same operation the runtime
+    PIL's BOX resample is a true box average, the same operation the runtime
     warp+downsample performs, just in fast C."""
     img = Image.open(path).convert("RGB").resize((CARD_W, CARD_H), Image.BOX)
     return [float(b) for b in img.tobytes()]
@@ -430,12 +430,12 @@ def main():
             with open(OUT_LIBRARY, "r", encoding="utf-8") as f:
                 existing = json.load(f)
         except FileNotFoundError:
-            raise SystemExit("snap-card-library.json does not exist — run the builder")
+            raise SystemExit("snap-card-library.json does not exist: run the builder")
         a = {c["id"]: (c["p"], c["d"]) for c in existing.get("cards", [])}
         b = {c["id"]: (c["p"], c["d"]) for c in library["cards"]}
         if a != b:
             changed = sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k))
-            raise SystemExit(f"snap-card-library.json is stale — rerun the builder "
+            raise SystemExit(f"snap-card-library.json is stale: rerun the builder "
                              f"(differs on: {', '.join(changed[:8])} …)")
         print("library is up to date ✓")
         return

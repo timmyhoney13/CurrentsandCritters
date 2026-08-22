@@ -1,4 +1,4 @@
-/* Currents and Critters — the Discord join reward chip (self-contained module).
+/* Currents and Critters, the Discord join reward chip (self-contained module).
  *
  * Renders the "+250 Critter Coins" chip that sits beside the Join-the-Discord
  * button on Player Home, and runs the claim:
@@ -24,7 +24,7 @@
   const $ = (id) => document.getElementById(id);
   const fmt = (n) => (Number(n) || 0).toLocaleString();
 
-  // The bridge's post() resolves to an ENVELOPE — { ok, status, data } — where
+  // The bridge's post() resolves to an ENVELOPE: { ok, status, data }, where
   // `data` is the server's JSON body, and it THROWS when the request never
   // landed. Unwrapping in one place is what keeps an async throw from silently
   // blanking the surface it renders (see the Clans tab that shipped blank once).
@@ -54,26 +54,26 @@
   // Server error code → a sentence a player can act on. Mirrors the server's
   // own ERROR_MESSAGES (discord_server.py) so the popup and the toast agree.
   const MESSAGES = {
-    not_a_member: "You're not in the Discord server yet — join it, then claim again.",
+    not_a_member: "You're not in the Discord server yet: join it, then claim again.",
     already_claimed: "You've already collected the Discord reward on this account.",
     discord_already_used: "That Discord account already claimed the reward on another Currents and Critters account.",
     discord_denied: "You cancelled the Discord sign-in, so nothing was claimed.",
-    discord_unreachable: "Discord didn't answer just now. Nothing was claimed — try again in a minute.",
-    discord_rejected: "Discord wouldn't confirm that sign-in. Nothing was claimed — please try again.",
+    discord_unreachable: "Discord didn't answer just now. Nothing was claimed: try again in a minute.",
+    discord_rejected: "Discord wouldn't confirm that sign-in. Nothing was claimed: please try again.",
     state_expired: "That claim window timed out. Give it another go.",
     state_used: "That claim link was already used. Give it another go.",
     bad_state: "That claim link wasn't valid. Give it another go.",
     not_configured: "The Discord reward isn't switched on yet.",
     no_account: "Sign in with Google first to collect Critter Coins.",
     unauthorized: "Sign in with Google first to collect Critter Coins.",
-    firestore_unavailable: "Couldn't reach your account just now. Nothing was claimed — please try again.",
-    bad_request: "Something was wrong with that claim. Nothing was claimed — please try again.",
-    server_error: "Something went wrong. Nothing was claimed — please try again.",
-    offline: "Couldn't reach the server. Nothing was claimed — please try again.",
-    unavailable: "The reward didn't finish loading — please refresh the page.",
+    firestore_unavailable: "Couldn't reach your account just now. Nothing was claimed: please try again.",
+    bad_request: "Something was wrong with that claim. Nothing was claimed: please try again.",
+    server_error: "Something went wrong. Nothing was claimed: please try again.",
+    offline: "Couldn't reach the server. Nothing was claimed: please try again.",
+    unavailable: "The reward didn't finish loading: please refresh the page.",
     popup_blocked: "Your browser blocked the Discord window. Allow pop-ups for this site, then try again.",
   };
-  const msgFor = (code) => MESSAGES[String(code || "")] || "Something went wrong — nothing was claimed.";
+  const msgFor = (code) => MESSAGES[String(code || "")] || "Something went wrong, nothing was claimed.";
 
   // ── State, and the chip it paints ────────────────────────────────────────
   //
@@ -85,7 +85,7 @@
   //   • boot() syncs before Firebase has resolved, so it asks signed-OUT. That
   //     request was still on the wire when sign-in fired the real one, and the
   //     old de-dupe handed the caller the signed-out request instead of making
-  //     the real one — so the only answer we ever got was "nobody has claimed".
+  //     the real one, so the only answer we ever got was "nobody has claimed".
   //   • idToken() came back empty for a signed-in player (a refresh hiccup), so
   //     the request went out untokenised and the server, quite correctly,
   //     answered about nobody. That answer was then cached AGAINST the uid, and
@@ -102,7 +102,7 @@
   let _seq = 0;             // only the newest sync may write _state
 
   // Bounded self-heal for the unresolved case. Nothing else is guaranteed to
-  // repaint the chip, and the alternative — leaving it disabled forever — would
+  // repaint the chip, and the alternative, leaving it disabled forever: would
   // lock a player out of a reward they are owed.
   const MAX_RETRIES = 3;
   let _retries = 0;
@@ -185,7 +185,7 @@
     // De-dupe only against a request asking about the SAME account. A reply
     // about the signed-out page cannot answer "has THIS account claimed?", so
     // handing it back here is what let a paid account keep being offered the
-    // reward — see the note on _answersFor.
+    // reward: see the note on _answersFor.
     if (_inFlight && _inFlightUid === uid) return _inFlight;
 
     const seq = ++_seq;
@@ -264,7 +264,7 @@
         finish(d);
       }
       window.addEventListener("message", onMessage);
-      // Closing the window without finishing is an answer too — otherwise the
+      // Closing the window without finishing is an answer too, otherwise the
       // chip would sit on "Checking with Discord…" forever.
       const closeTimer = setInterval(() => {
         try { if (win && win.closed) finish(null); } catch (_) {}
@@ -313,7 +313,7 @@
       if (!out) return;                       // closed without finishing
       if (out.ok) {
         // The server has already told us everything the chip needs, so take it
-        // rather than asking again — a re-read that failed (or answered from a
+        // rather than asking again, a re-read that failed (or answered from a
         // stale read) would flip a just-paid chip back to "+250 to claim" and
         // invite a second click that can only be refused.
         _state = Object.assign({}, _state, {
@@ -322,7 +322,7 @@
           claimedAt: new Date().toISOString(),
         });
         // This IS the answer for this account, straight from the payout, so
-        // file it as one — otherwise the chip reads as unresolved the instant
+        // file it as one, otherwise the chip reads as unresolved the instant
         // after it was paid and starts re-asking about a settled fact.
         _answersFor = currentUid();
         _retries = 0;

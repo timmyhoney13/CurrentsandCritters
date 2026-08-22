@@ -1,8 +1,8 @@
-/* Currents and Critters — Developer Analytics dashboard.
+/* Currents and Critters: Developer Analytics dashboard.
  *
  * A full-screen, admin-only overlay. It is the sunlit-shallows half of the
  * game's look (the Player Home's Nunito + soft ocean blues), not the deep-water
- * board — a dashboard is read for minutes at a time, and the light surface is
+ * board, a dashboard is read for minutes at a time, and the light surface is
  * what makes room for the open space this screen is built around.
  *
  * THE ONE RULE THIS FILE ENFORCES
@@ -11,7 +11,7 @@
  * here competes with the numbers. When something needs emphasis it gets SPACE,
  * not another colour.
  *
- * COLOURS — this is not a free palette
+ * COLOURS, this is not a free palette
  * `--a-series-1/2/3` are the only colours a chart may use for identity, always
  * in that order, never cycled. They were not eyeballed: they are the game's
  * ocean / coral / teal families stepped until they cleared the lightness band,
@@ -38,8 +38,8 @@
   --a-ink-2:  #3c637f;
   --a-muted:  #5c7e99;
 
-  /* Series — fixed order, validated, never cycled */
-  --a-series-1: #2e8fe0;   /* ocean blue — the primary; most charts use only this */
+  /* Series: fixed order, validated, never cycled */
+  --a-series-1: #2e8fe0;   /* ocean blue, the primary; most charts use only this */
   --a-series-2: #c25a34;   /* deep coral */
   --a-series-3: #0f8f79;   /* deep teal */
 
@@ -50,7 +50,7 @@
   --a-seq-4: #1f69ac;
   --a-seq-5: #12497a;
 
-  /* Status — reserved meaning, always with a label or icon */
+  /* Status: reserved meaning, always with a label or icon */
   --a-good: #12805a;
   --a-warn: #9a6b12;
   --a-bad:  #c0392b;
@@ -58,7 +58,7 @@
   /* Selection / highlight */
   --a-sel: #c25a34;
 
-  /* Geometry — one radius, one shadow, one gap scale */
+  /* Geometry, one radius, one shadow, one gap scale */
   --a-r:   14px;
   --a-r-s: 10px;
   --a-gap: 28px;
@@ -79,7 +79,7 @@
 #ccA-overlay *, #ccA-overlay *::before, #ccA-overlay *::after { box-sizing: border-box; }
 #ccA-overlay button { font-family: inherit; cursor: pointer; }
 
-/* A soft ocean horizon behind the whole thing — the only decoration in the
+/* A soft ocean horizon behind the whole thing, the only decoration in the
    file, and it sits under everything and never moves. */
 #ccA-overlay::before {
   content: "";
@@ -164,7 +164,7 @@ select.ccA-ctl { -webkit-appearance: none; appearance: none; padding-right: 30px
 .ccA-adv-toggle .ccA-caret { transition: transform .18s; display: inline-block; }
 .ccA-adv-toggle.open .ccA-caret { transform: rotate(180deg); }
 
-/* Advanced filters — collapsed by default, and a full-width tray when open so
+/* Advanced filters: collapsed by default, and a full-width tray when open so
    it never squeezes the four controls that matter. */
 .ccA-adv {
   position: relative;
@@ -235,7 +235,7 @@ select.ccA-ctl { -webkit-appearance: none; appearance: none; padding-right: 30px
 .ccA-block-head .ccA-spacer { flex: 1; }
 
 /* ══════════════════════════════════════════════════════════════════════
-   SUMMARY CARDS — one size, one shape, everywhere
+   SUMMARY CARDS, one size, one shape, everywhere
    ══════════════════════════════════════════════════════════════════════ */
 .ccA-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(212px, 1fr)); gap: 14px; }
 .ccA-card {
@@ -251,7 +251,7 @@ select.ccA-ctl { -webkit-appearance: none; appearance: none; padding-right: 30px
 }
 /* Every part of a card is a FIXED height, so a two-line title, a missing
    comparison or a sparkline can't make one card taller than its neighbours.
-   "Consistent card dimensions" has to be structural — left to content, the row
+   "Consistent card dimensions" has to be structural: left to content, the row
    goes ragged the first time a label wraps at phone width. */
 .ccA-card-lbl {
   font-size: .78rem;
@@ -291,7 +291,7 @@ select.ccA-ctl { -webkit-appearance: none; appearance: none; padding-right: 30px
 .ccA-delta.flat { color: var(--a-muted); }
 .ccA-card-spark { margin-left: auto; flex: 0 0 auto; opacity: .95; }
 
-/* Tone chips — colour NEVER alone; each carries its own word. */
+/* Tone chips: colour NEVER alone; each carries its own word. */
 .ccA-chip {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 2px 8px; border-radius: 999px;
@@ -355,7 +355,7 @@ select.ccA-ctl { -webkit-appearance: none; appearance: none; padding-right: 30px
 .ccA-panel-head .ccA-spacer { flex: 1; }
 .ccA-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(390px, 1fr)); gap: 16px; }
 
-/* Measure switcher — one chart, several measures, instead of three charts. */
+/* Measure switcher, one chart, several measures, instead of three charts. */
 .ccA-switch { display: inline-flex; padding: 3px; border-radius: 9px; background: var(--a-sunk); gap: 2px; }
 .ccA-switch button {
   border: 0; background: transparent; border-radius: 7px;
@@ -398,13 +398,13 @@ select.ccA-ctl { -webkit-appearance: none; appearance: none; padding-right: 30px
 .ccA-tip.on { opacity: 1; }
 .ccA-tip .ccA-tip-k { color: #9dc4e0; font-weight: 600; }
 
-/* Legend — present whenever a chart carries two or more series. */
+/* Legend: present whenever a chart carries two or more series. */
 .ccA-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; }
 .ccA-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--a-ink-2); font-weight: 700; }
 .ccA-legend-key { width: 14px; height: 3px; border-radius: 2px; flex: 0 0 14px; }
 .ccA-legend-key.dot { width: 9px; height: 9px; border-radius: 50%; flex-basis: 9px; }
 
-/* ── Ranked rows (a bar list — reads better than a pie, always) ─────── */
+/* ── Ranked rows (a bar list: reads better than a pie, always) ─────── */
 .ccA-rank { margin-top: 12px; display: flex; flex-direction: column; gap: 9px; }
 .ccA-rank-row { display: grid; grid-template-columns: minmax(88px, 208px) 1fr auto; align-items: center; gap: 12px; }
 .ccA-rank-lbl { font-size: .82rem; font-weight: 700; color: var(--a-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 7px; }
@@ -423,7 +423,7 @@ select.ccA-ctl { -webkit-appearance: none; appearance: none; padding-right: 30px
 .ccA-step-bar span { display: block; height: 100%; border-radius: 999px; background: var(--a-series-1); }
 
 /* ══════════════════════════════════════════════════════════════════════
-   LIVE PANEL — calm: it updates in place and never reflows
+   LIVE PANEL: calm: it updates in place and never reflows
    ══════════════════════════════════════════════════════════════════════ */
 .ccA-live { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 12px; margin-top: 12px; }
 .ccA-live-cell { padding: 12px 13px; border-radius: var(--a-r-s); background: var(--a-sunk); text-align: center; }
@@ -436,7 +436,7 @@ select.ccA-ctl { -webkit-appearance: none; appearance: none; padding-right: 30px
 .ccA-signup span { color: var(--a-muted); flex: 0 0 auto; }
 
 /* ══════════════════════════════════════════════════════════════════════
-   ALERTS — at most three here; the rest live in Technical Health
+   ALERTS, at most three here; the rest live in Technical Health
    ══════════════════════════════════════════════════════════════════════ */
 .ccA-alerts { display: flex; flex-direction: column; gap: 9px; margin-top: 12px; }
 .ccA-alert {
@@ -454,7 +454,7 @@ select.ccA-ctl { -webkit-appearance: none; appearance: none; padding-right: 30px
 .ccA-alert-go { margin-left: auto; flex: 0 0 auto; align-self: center; }
 
 /* ══════════════════════════════════════════════════════════════════════
-   TABLES — sections only, never the Overview
+   TABLES: sections only, never the Overview
    ══════════════════════════════════════════════════════════════════════ */
 .ccA-table-wrap { margin-top: 12px; overflow-x: auto; border-radius: var(--a-r-s); border: 1px solid var(--a-line-soft); }
 table.ccA-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
@@ -491,7 +491,7 @@ table.ccA-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
 .ccA-btn:focus-visible { outline: 2px solid var(--a-series-1); outline-offset: 2px; }
 
 /* ══════════════════════════════════════════════════════════════════════
-   DETAIL DRAWER — where "View details" goes, so the page stays simple
+   DETAIL DRAWER, where "View details" goes, so the page stays simple
    ══════════════════════════════════════════════════════════════════════ */
 .ccA-drawer-back {
   position: fixed; inset: 0; z-index: 100060;
@@ -579,7 +579,7 @@ table.ccA-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
 @media (max-width: 560px) {
   /* Two rows instead of one: the title + ✕ on top, the filters underneath.
      On one row the nowrap title and the wrapping filter bar sit on top of each
-     other — and the ✕ must never be the thing that gets pushed off. */
+     other, and the ✕ must never be the thing that gets pushed off. */
   .ccA-head { flex-wrap: wrap; row-gap: 10px; }
   .ccA-brand { order: 1; flex: 1 1 auto; min-width: 0; }
   .ccA-head-spacer { display: none; }

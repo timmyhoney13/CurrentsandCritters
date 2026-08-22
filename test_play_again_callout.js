@@ -2,19 +2,19 @@
 /* The "play again" callout over the End Turn button.
  *
  * A Hermit Crab, a Sea Turtle or any ★ "play again" hands you a second turn.
- * The turn banner announces it — at the TOP of the screen — while the thing you
+ * The turn banner announces it, at the TOP of the screen, while the thing you
  * have to do to hand the turn on is at the BOTTOM, and on a phone those two are
  * a whole screen apart. Players sat on an extra turn waiting for the game to
  * move on by itself. The callout bobs directly over End Turn for exactly as
  * long as the extra turn lasts.
  *
  * Two halves:
- *   • SOURCE — it is driven by legal_actions.is_replay_turn, and every state
+ *   • SOURCE, it is driven by legal_actions.is_replay_turn, and every state
  *     that takes End Turn off the bar takes the callout with it. A callout
  *     pointing at a button that isn't there is worse than no callout.
- *   • RENDER — real markup, real CSS, headless Chrome: hidden by default, and
+ *   • RENDER, real markup, real CSS, headless Chrome: hidden by default, and
  *     when shown it sits ABOVE the End Turn button, horizontally over it, and
- *     inside the screen — at a laptop size and at a phone-held-sideways size.
+ *     inside the screen, at a laptop size and at a phone-held-sideways size.
  *
  * Run:  node test_play_again_callout.js       (render half needs Google Chrome)
  */
@@ -60,7 +60,7 @@ check("it does not restart its animation on every 1s poll",
       /if \(want === _playAgainCalloutOn\) return;/.test(APP));
 // One predicate decides it, and it covers BOTH ways a turn stops ending by
 // itself: a ★ "play again", and the Hermit Crab / Sea Turtle open window.
-// A one-shot free play (Roosterfish) is deliberately not in it — the server
+// A one-shot free play (Roosterfish) is deliberately not in it, the server
 // draws that line in has_multi_play_window(); test_end_turn_callout_cards.py
 // proves it card by card.
 check("one predicate decides when it is on", /function turnWaitsOnEndTurn\(lw\)/.test(APP));
@@ -79,7 +79,7 @@ check("the FINAL turn of the game still gets it if that turn is one of those",
 // Every branch that can leave End Turn unusable must clear it.
 const offSites = (APP.match(/setPlayAgainCallout\(false\)/g) || []).length;
 check(`every state that takes End Turn away clears it (${offSites} sites)`, offSites >= 7);
-// Scoped to the function each branch really lives in — several of these
+// Scoped to the function each branch really lives in, several of these
 // conditions appear more than once in a 28k-line file.
 const BAR_FN = (() => {
   const i = APP.indexOf("function renderActionBar(actions, isMyTurn");
@@ -131,12 +131,12 @@ const CHROME = [
 ].find(p => fs.existsSync(p));
 
 if (!CHROME) {
-  console.log("\nSKIP: no Chrome/Chromium found — skipping the render half.");
+  console.log("\nSKIP: no Chrome/Chromium found: skipping the render half.");
 } else {
   // Headless Chrome hands the page 87px less than --window-size.
   const CHROME_CHROME_PX = 87;
 
-  // The REAL edge-clamp, sliced out of preview-app.js — a reimplementation here
+  // The REAL edge-clamp, sliced out of preview-app.js, a reimplementation here
   // would only prove that the test can do arithmetic.
   const clampStart = APP.indexOf("  function _positionPlayAgainCallout() {");
   const clampEnd   = APP.indexOf("\n  }", clampStart) + 4;

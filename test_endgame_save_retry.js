@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 /* The end-game screen has to keep trying, and has to say when it hasn't.
  *
- * The bug: saveGameStats is built to be retried — a failed write never sets
+ * The bug: saveGameStats is built to be retried, a failed write never sets
  * _lastSavedWinner, and the comment promises "the next poll retries". That was
  * only true while the game was still moving. Once it is over, the room's
  * state_version stops changing, applyServerPayload drops every identical
- * payload as already-rendered, and renderEndGame — the only caller of
- * saveGameStats — is never reached again. So one second of lost network at the
+ * payload as already-rendered, and renderEndGame, the only caller of
+ * saveGameStats: is never reached again. So one second of lost network at the
  * wrong moment meant the XP, the streak and the game history were never
  * written, on a screen that displayed all three as if they had been.
  *
  * The fix has two halves and this pins both:
- *   • RETRY  — the end screen drives its own timer instead of riding on the
+ *   • RETRY, the end screen drives its own timer instead of riding on the
  *     poll, re-arms the moment the device comes back online, and gives up only
  *     into a button the player can press.
- *   • SAY SO — three states, one of which is loud: saving (quiet), saved
+ *   • SAY SO, three states, one of which is loud: saving (quiet), saved
  *     (nothing at all), failed (impossible to miss, with the retry in it).
  *
  * Run:  node test_endgame_save_retry.js        (render half needs Google Chrome)
@@ -94,9 +94,9 @@ check("the retry button only exists in the failed state",
       /#gs-save-retry \{[\s\S]{0,60}display: none;/.test(CSS) &&
       /#gs-save-state\.failed #gs-save-retry \{ display: inline-block; \}/.test(CSS));
 check("being offline is named as being offline, not as a mystery",
-      /You're offline — your XP and stats aren't saved yet\./.test(APP));
+      /You're offline, your XP and stats aren't saved yet\./.test(APP));
 check("a reachability failure says the results are not saved YET",
-      /Couldn't reach the server — your XP and stats aren't saved yet\./.test(APP));
+      /Couldn't reach the server, your XP and stats aren't saved yet\./.test(APP));
 check("success says nothing (a per-game 'saved!' banner is noise)",
       /"saved" and "na" show nothing/.test(APP));
 check("the spinner stops for reduced motion",
@@ -111,7 +111,7 @@ const CHROME = [
 ].find(p => fs.existsSync(p));
 
 if (!CHROME) {
-  console.log("\nSKIP: no Chrome/Chromium found — skipping the render half.");
+  console.log("\nSKIP: no Chrome/Chromium found: skipping the render half.");
 } else {
   console.log("\nrendered, through all three states");
 

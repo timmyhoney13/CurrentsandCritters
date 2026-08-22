@@ -1,8 +1,8 @@
 /* ================================================================
- * Currents and Critters — the Rule Book, one shared source of truth.
+ * Currents and Critters, the Rule Book, one shared source of truth.
  *
  * The rule text below is the printed rulebook, reproduced WORD FOR WORD.
- * Nothing here is paraphrased, trimmed or "improved" — only the layout
+ * Nothing here is paraphrased, trimmed or "improved", only the layout
  * (headings, cards, figures, example boxes) is ours. If a rule changes on
  * the printed book, change it here and nowhere else.
  *
@@ -45,7 +45,7 @@
       + '<img src="/oceans_cards/page_' + pad2(uid - 200) + '.png?v=' + ART_V + '" alt="" loading="lazy" draggable="false">'
       + '</span>';
   }
-  // A WHOLE physical card — the entire printed sheet page, uncropped. Every
+  // A WHOLE physical card, the entire printed sheet page, uncropped. Every
   // animal card carries two creatures, one at each end (Up/Down cards stack
   // them, Left/Right cards sit them side by side); an Ocean card is a single
   // picture. This is the card as it lies on the table, and the three shapes all
@@ -61,7 +61,7 @@
   }
 
   // One card sitting in the Pool, shown whole and captioned with BOTH of its
-  // creatures — never a cropped half, which reads as if a card were one animal.
+  // creatures, never a cropped half, which reads as if a card were one animal.
   function poolCard(uid, nameA, nameB) {
     return '<figure class="rb-pool-card">' + fullFace(uid)
       + '<figcaption><span class="rb-pool-name">' + nameA + '</span>'
@@ -100,7 +100,7 @@
   // "Play a free crustacean" as a three-step board sequence, because the ★ is
   // the one rule people read twice: play the card, THEN place the free one on
   // a spot that is actually open. Cleanser Wrasse and Lobster are both Down
-  // cards, so the free Lobster has to go on a second Ocean's floor — which is
+  // cards, so the free Lobster has to go on a second Ocean's floor, which is
   // the point of the picture.
   function crustaceanStep(n, boardHtml, headline, body) {
     return ''
@@ -168,12 +168,12 @@
   }
 
   // The Pool board filling to its ten-card limit, then resetting. Laid out the
-  // way the real board is — two rows of five — and filled with ten actual cards
+  // way the real board is, two rows of five, and filled with ten actual cards
   // rather than anonymous card backs, because in play the Pool is always face up.
   //
   // Ten DIFFERENT physical cards, each drawn whole: six Up/Down cards, three
   // Left/Right cards and one Ocean. The uid names the card's first end (top, or
-  // left) and both creatures are captioned — every entry must be a distinct
+  // left) and both creatures are captioned, every entry must be a distinct
   // sheet page, or two slots would show the same card twice.
   var POOL_EXAMPLE = [
     [11,  "Horned Puffin",      "Lobster"],                 // Up/Down page 06
@@ -208,7 +208,7 @@
   // All four Mandarin Gobies, the "Shooting the Moon" set.
   // Clownfish: the one card whose ability is a different ability on every
   // Ocean. Two pictures, because the two halves of the rule are the two
-  // questions people ask — what it does to a count, and when it hands you a ★.
+  // questions people ask, what it does to a count, and when it hands you a ★.
   function clownfishFigure() {
     return ''
       + '<div class="rb-fig">'
@@ -256,7 +256,7 @@
       return '<li><span class="rb-cft-ocean">' + r[0] + '</span>'
         + '<span class="rb-cft-what">' + r[1] + '</span>'
         + '<span class="rb-cft-now' + (r[2] ? '' : ' rb-cft-none') + '">'
-        + (r[2] || '&mdash;') + '</span></li>';
+        + (r[2] || '-') + '</span></li>';
     }).join("");
     return ''
       + '<div class="rb-fig">'

@@ -7776,7 +7776,7 @@ def final_points(gs: GameState, player: PlayerState) -> int:
             kinds = {c.name.lower() for c in non_ocean_cards if c.species.lower() == "baitfish"}
             pts += value_from_threshold_table(t, len(kinds))
         elif card.name.lower() == "coral reef":
-            # Coral Reef table is a global count score — only apply once, not once per card.
+            # Coral Reef table is a global count score, only apply once, not once per card.
             if not coral_reef_table_applied:
                 pts += value_from_threshold_table(t, coral_reef_count_total)
                 coral_reef_table_applied = True

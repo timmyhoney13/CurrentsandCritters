@@ -1,21 +1,17 @@
-/* Currents and Critters — Level Pass, referral card, and the Avatar Gallery's
- * level track.
+/* Currents and Critters: the Level Pass and the referral card.
  *
- * Three surfaces, one stylesheet, because they are one idea seen from three
+ * Two surfaces, one stylesheet, because they are one idea seen from two
  * places: the levels you climb and what is waiting on them.
  *
  *   .ccLP*    the Level Pass page (#cc-level-pass-root)
  *   .ccRF*    the "Invite a Friend" card (#cc-referral-root)
- *   .galLT*   the level track along the top of the Avatar Gallery
  *
- * The palette is the Player Home's own — the same ocean-light blues, cream
+ * The palette is the Player Home's own: the same ocean-light blues, cream
  * glass, Nunito + Luckiest Guy and 20-26px corners that prestige.css already
  * uses. Nothing here invents a second look.
  *
- * WHY THE GALLERY TRACK LIVES HERE AND NOT IN preview.css
- * It is the pass's twin: the same critters, the same curve, the same "N XP to
- * go" arithmetic, and it is loaded on the same page. Keeping the two together
- * is what stops one of them being restyled without the other.
+ * The Avatar Gallery used to carry a twin of the pass rail along its top (the
+ * .galLT* block). It was removed in 1.6.74 as a duplicate of the pass itself.
  */
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -24,12 +20,10 @@
 /* Self-contained box model, for the same reason the Game Night banner declares
    one: these surfaces must not depend on a reset that lives in another file. */
 #cc-level-pass-root, #cc-level-pass-root *,
-#cc-referral-root, #cc-referral-root *,
-.galLT, .galLT * { box-sizing: border-box; }
+#cc-referral-root, #cc-referral-root * { box-sizing: border-box; }
 
 #cc-level-pass-root,
-#cc-referral-root,
-.galLT {
+#cc-referral-root {
   --lp-ink:      #17365a;
   --lp-ink-soft: #5b7fa3;
   --lp-ink-dim:  #7a9db8;
@@ -47,7 +41,7 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   LEVEL PASS — the page
+   LEVEL PASS, the page
    ══════════════════════════════════════════════════════════════════════ */
 .ccLP { padding: 4px 0 24px; }
 
@@ -275,6 +269,15 @@
   justify-content: center;
 }
 .ccLP-tier-ico { font-size: 2.1rem; line-height: 1; }
+/* The minted Critter Coin on a coin tier. Sized to sit where the 2.1rem glyph
+   used to, so a coin tier is exactly as tall as every other card. */
+.ccLP-tier-coin {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  -webkit-user-select: none; user-select: none;
+  filter: drop-shadow(0 3px 5px rgba(23, 54, 90, .22));
+}
 .ccLP-tier-img {
   width: 100%;
   height: 100%;
@@ -522,178 +525,9 @@
   .ccRF-copy { margin-left: 0; }
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   AVATAR GALLERY — the level track
-   A scrollable timeline across the top of the gallery: the critter above the
-   tick, the level below it, a marker where the player is now, and the XP
-   still to go before the next one.
-   ══════════════════════════════════════════════════════════════════════ */
-.galLT {
-  margin: 0 0 14px;
-  padding: 14px 16px 10px;
-  border-radius: 20px;
-  background: var(--lp-card);
-  border: 1px solid var(--lp-line);
-  box-shadow: 0 4px 14px rgba(23, 54, 90, .08);
-}
-
-.galLT-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-}
-.galLT-title {
-  font-family: "Luckiest Guy", "Nunito", sans-serif;
-  font-size: 1.05rem;
-  color: var(--lp-ink);
-}
-/* "3,450 XP until you unlock the Manta Ray" — the line the whole track exists
-   to make true. */
-.galLT-next { font-size: .92rem; color: var(--lp-ink-soft); }
-.galLT-next b { color: var(--lp-ink); font-weight: 800; }
-.galLT-next .galLT-xp { color: var(--lp-blue); font-weight: 900; }
-.galLT-next .galLT-games { color: var(--lp-ink-dim); font-size: .84rem; }
-.galLT-next-done { color: var(--lp-teal); font-weight: 800; }
-
-.galLT-rail {
-  display: flex;
-  align-items: flex-end;
-  gap: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 4px 0 6px;
-  scrollbar-width: thin;
-  position: relative;
-}
-.galLT-rail::-webkit-scrollbar { height: 8px; }
-.galLT-rail::-webkit-scrollbar-track { background: rgba(169, 203, 230, .25); border-radius: 999px; }
-.galLT-rail::-webkit-scrollbar-thumb { background: rgba(46, 143, 224, .5); border-radius: 999px; }
-
-/* One stop = critter on top, tick in the middle, level underneath. */
-.galLT-stop {
-  flex: 0 0 auto;
-  width: 92px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  position: relative;
-  padding-bottom: 2px;
-}
-
-.galLT-critter {
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  background: var(--lp-card-2);
-  border: 2px solid var(--lp-line);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  transition: transform .16s ease;
-}
-.galLT-critter img { width: 84%; height: 84%; object-fit: contain; }
-.galLT-stop:hover .galLT-critter { transform: translateY(-3px) scale(1.06); }
-
-.galLT-name {
-  margin-top: 4px;
-  font-size: .68rem;
-  font-weight: 800;
-  color: var(--lp-ink-soft);
-  text-align: center;
-  line-height: 1.15;
-  height: 2.3em;
-  overflow: hidden;
-}
-
-/* The line the ticks sit on, drawn as each stop's own left/right halves so it
-   scrolls with them and never drifts out of alignment with the marks. */
-.galLT-line {
-  width: 100%;
-  height: 3px;
-  background: var(--lp-line);
-  position: relative;
-  margin: 3px 0 0;
-}
-.galLT-line::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: -4px;
-  transform: translateX(-50%);
-  width: 3px;
-  height: 11px;
-  background: var(--lp-ink-dim);
-  border-radius: 2px;
-}
-.galLT-lvl {
-  margin-top: 6px;
-  font-size: .8rem;
-  font-weight: 900;
-  color: var(--lp-ink-dim);
-}
-
-/* Reached: full colour, teal tick. */
-.galLT-stop.is-done .galLT-critter { border-color: var(--lp-teal); background: rgba(18, 163, 124, .1); }
-.galLT-stop.is-done .galLT-line { background: linear-gradient(90deg, var(--lp-teal), var(--lp-teal)); }
-.galLT-stop.is-done .galLT-line::before { background: var(--lp-teal); }
-.galLT-stop.is-done .galLT-lvl { color: var(--lp-teal); }
-.galLT-stop.is-done .galLT-name { color: var(--lp-ink); }
-
-/* Locked: greyed, so "what have I got" is answerable at a glance. */
-.galLT-stop.is-locked .galLT-critter img { filter: grayscale(1); opacity: .5; }
-
-/* The next one up gets the emphasis — it is the one being worked towards. */
-.galLT-stop.is-next .galLT-critter {
-  border-color: var(--lp-gold);
-  background: rgba(232, 179, 74, .14);
-  box-shadow: 0 0 0 3px rgba(232, 179, 74, .25);
-}
-.galLT-stop.is-next .galLT-lvl { color: var(--lp-gold); }
-.galLT-stop.is-next .galLT-name { color: var(--lp-ink); }
-
-/* "You are here": a pill riding the line between two stops. */
-.galLT-you {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 2px 9px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, var(--lp-blue-lt), var(--lp-blue));
-  color: #fff;
-  font-size: .64rem;
-  font-weight: 900;
-  white-space: nowrap;
-  box-shadow: 0 3px 8px rgba(28, 112, 204, .4);
-  z-index: 2;
-}
-.galLT-you::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: -5px;
-  transform: translateX(-50%);
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 5px solid var(--lp-blue);
-}
-
-@media (max-width: 620px) {
-  .galLT { padding: 12px 12px 8px; border-radius: 16px; }
-  .galLT-stop { width: 78px; }
-  .galLT-critter { width: 46px; height: 46px; }
-  .galLT-title { font-size: .96rem; }
-  .galLT-next { font-size: .84rem; }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .ccLP-claimall { animation: none; }
   .ccLP-tier,
-  .galLT-critter,
   .ccLP-bar-fill,
   .ccRF-bar-fill { transition: none; }
 }
@@ -701,7 +535,7 @@
 /* ══════════════════════════════════════════════════════════════════════
    WEEKLY SWAP BUTTON
    Sits on a weekly challenge card, but ONLY while a Level Pass Weekly Swap
-   token is live for that week — so it lives with the pass, not with the
+   token is live for that week, so it lives with the pass, not with the
    challenge strip it appears on.
    ══════════════════════════════════════════════════════════════════════ */
 .ph-cs-card { position: relative; }
@@ -734,7 +568,7 @@
 
 /* ══════════════════════════════════════════════════════════════════════
    SIGN-UP: the optional friend-code field
-   On the first-sign-in card, which is dark glass over the login art — so
+   On the first-sign-in card, which is dark glass over the login art, so
    this block is deliberately light-on-dark, unlike everything above it.
    ══════════════════════════════════════════════════════════════════════ */
 .auth-ref-box {

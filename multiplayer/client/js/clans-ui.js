@@ -1,8 +1,8 @@
-/* Currents and Critters — Clan System UI (self-contained module).
+/* Currents and Critters: Clan System UI (self-contained module).
  *
  * Renders the whole "Clans" Player-Home tab into #cc-clans-root. Talks only to
  * the server-authoritative /api/clan/* API through the window.__ccClans bridge
- * (set up in preview-app.js). The server owns every rule — points, caps,
+ * (set up in preview-app.js). The server owns every rule: points, caps,
  * cooldowns, permissions, seasons; this file renders state + sends intents.
  * Ocean-light styling reuses the Player-Home ph-* look (Nunito, pill buttons,
  * 18px cards, #2e8fe0 blues) so the tab feels native.
@@ -14,7 +14,7 @@
   // The hard off-switch (the bridge IS there and says ENABLED:false) still
   // registers nothing at all. A MISSING bridge is a different thing: it means
   // preview-app.js never reached the line that defines one, and returning here
-  // would leave the Clans tab permanently dead — clicking it would paint an
+  // would leave the Clans tab permanently dead: clicking it would paint an
   // empty page with nothing on screen, and nothing in the console, to say why.
   // So register the entry points anyway and let them re-check at click time.
   if (bridge() && !bridge().ENABLED) return;
@@ -42,16 +42,16 @@
   };
 
   // ── API ────────────────────────────────────────────────────────────────────
-  // The host bridge's post() resolves to an ENVELOPE — { ok, status, data } —
+  // The host bridge's post() resolves to an ENVELOPE: { ok, status, data },
   // where `data` is the server's JSON body and `ok` is only the HTTP status.
   // Everything below reads the SERVER payload directly (res.ok, res.season,
   // res.rows, res.clan …), so the envelope is unwrapped here, in one place.
   //
   // Getting this wrong is what made the whole tab render blank: `res.ok` was
   // the HTTP ok, so a 200 looked like success, but `res.season` was undefined
-  // and renderHome threw on it — clearing the root and never refilling it.
+  // and renderHome threw on it: clearing the root and never refilling it.
   // (A bare payload is passed straight through, so a bridge that already
-  // unwraps — like the test harnesses — keeps working.)
+  // unwraps, like the test harnesses: keeps working.)
   function unwrap(res) {
     if (res && typeof res === "object" && "data" in res && "status" in res) {
       return res.data || { ok: false, error: "server_error" };
@@ -66,7 +66,7 @@
     body.idToken = await b.idToken();
     if (!body.idToken) return { ok: false, error: "unauthorized" };
     // apiFetch THROWS when the request never lands. Return null for that, the
-    // way the claim hook already reads "no response at all" — it must stay
+    // way the claim hook already reads "no response at all", it must stay
     // retryable rather than look like a request the server refused.
     try {
       return unwrap(await b.post("/api/clan/" + action, body));
@@ -74,17 +74,17 @@
   }
 
   const ERR = {
-    unavailable: "Clans didn't finish loading — please refresh the page.",
+    unavailable: "Clans didn't finish loading: please refresh the page.",
     unauthorized: "Sign in to use Clans.",
-    firestore_unavailable: "Clans are temporarily unavailable — try again shortly.",
+    firestore_unavailable: "Clans are temporarily unavailable: try again shortly.",
     bad_name: "That clan name can't be used.",
     name_taken: "That clan name is already taken.",
-    already_in_clan: "You're already in a clan — leave it first.",
+    already_in_clan: "You're already in a clan: leave it first.",
     already_member: "Already a member of that clan.",
     clan_full: "That clan is full (25 members max).",
     invite_required: "That clan is invite only.",
     request_required: "That clan requires a join request.",
-    bad_password: "Wrong password — check it with someone in the clan.",
+    bad_password: "Wrong password: check it with someone in the clan.",
     too_many_tries: "Too many wrong passwords. Wait a few minutes and try again.",
     password_too_short: "A clan password needs at least 4 characters.",
     password_too_long: "That password is too long (64 characters max).",
@@ -104,25 +104,25 @@
     no_user: "No player found with that friend code.",
     // Friend codes are one-per-player, so this should never reach anyone. It
     // stays mapped so the server's last-resort guard has a sentence, not a slug.
-    ambiguous_code: "That friend code couldn't be matched to one player — check it and try again.",
+    ambiguous_code: "That friend code couldn't be matched to one player: check it and try again.",
     self_invite: "That's your own friend code!",
-    server_error: "Something went wrong — try again.",
+    server_error: "Something went wrong: try again.",
   };
   const errMsg = (e) => ERR[e] || "Something went wrong (" + esc(e || "unknown") + ").";
 
   // ── Formatting helpers ─────────────────────────────────────────────────────
   function fmtDate(ts) {
-    if (!ts) return "—";
+    if (!ts) return "-";
     try { return new Date(ts * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); }
-    catch (_) { return "—"; }
+    catch (_) { return "-"; }
   }
   function fmtDateTime(ts) {
-    if (!ts) return "—";
+    if (!ts) return "-";
     try { return new Date(ts * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); }
-    catch (_) { return "—"; }
+    catch (_) { return "-"; }
   }
   function fmtAgo(ts) {
-    if (!ts) return "—";
+    if (!ts) return "-";
     const s = Math.max(0, Math.floor(Date.now() / 1000 - ts));
     if (s < 90) return "just now";
     if (s < 3600) return Math.floor(s / 60) + "m ago";
@@ -137,7 +137,7 @@
     return { d, h, m, s };
   }
   const roleLabel = (r) => ({ owner: "👑 Owner", captain: "⚓ Captain", recruiter: "📯 Recruiter", member: "🐟 Member" }[r] || "🐟 Member");
-  const privacyLabel = (p) => ({ public: "🌊 Public — anyone can join", request: "✉️ Request to Join", invite: "🔒 Invite Only", password: "🔑 Password — anyone with the password" }[p] || p);
+  const privacyLabel = (p) => ({ public: "🌊 Public, anyone can join", request: "✉️ Request to Join", invite: "🔒 Invite Only", password: "🔑 Password, anyone with the password" }[p] || p);
   const privacyShort = (p) => ({ public: "🌊 Public", request: "✉️ Request", invite: "🔒 Invite", password: "🔑 Password" }[p] || p);
 
   // ── Critter pickers ────────────────────────────────────────────────────────
@@ -321,7 +321,7 @@
      It has to sit in exactly the space the shield glyph occupied, so every
      animal is drawn to the same circle: the sidebar's 20px (.ph-snav-item svg
      is 20x20) and the top tab strip's 16px (its svg's own attributes). These
-     rules live outside #cc-clans-root on purpose — the buttons are the Player
+     rules live outside #cc-clans-root on purpose, the buttons are the Player
      Home's, and the critter must show on every tab, not just this one. */
   .ph-snav-item .ccC-navcritter, .ph-tab .ccC-navcritter {
     flex-shrink: 0; border-radius: 50%; object-fit: cover; display: block;
@@ -345,13 +345,13 @@
 
   // Every render clears the root FIRST and only attaches the finished card at
   // the very end, so anything that throws in between leaves the tab looking
-  // empty — and because the render functions are async, the throw surfaces as
+  // empty, and because the render functions are async, the throw surfaces as
   // an unhandled rejection that the caller's try/catch never sees. So: say what
   // broke, in the panel, and name the reason so a screenshot is a bug report.
   function showRenderError(r, why, err) {
     try {
       const detail = err && (err.message || String(err)) ? " (" + esc(err.message || String(err)).slice(0, 120) + ")" : "";
-      r.innerHTML = '<div class="ccC-empty">Clans couldn\'t be drawn — ' + esc(why) + "."
+      r.innerHTML = '<div class="ccC-empty">Clans couldn\'t be drawn: ' + esc(why) + "."
         + detail + '<br>Please refresh the page.</div>';
     } catch (_) {}
     try { console.error("[clans] " + why, err); } catch (_) {}
@@ -378,7 +378,7 @@
 
   // ── Instant open ───────────────────────────────────────────────────────────
   // Opening Clans used to sit on "Loading clans…" for a whole round trip to the
-  // server before a single pixel of the page existed — on a cold Render dyno
+  // server before a single pixel of the page existed, on a cold Render dyno
   // that reads as "the tab takes forever". So the last home payload is kept per
   // account and painted IMMEDIATELY, and the real fetch runs behind it and
   // repaints when it lands.
@@ -398,7 +398,7 @@
       if (slim.prev_season) slim.prev_season = Object.assign({}, slim.prev_season, { standings: [] });
       localStorage.setItem(HOME_CACHE_KEY,
         JSON.stringify({ uid, at: Math.floor(Date.now() / 1000), home: slim }));
-    } catch (_) {}       // quota, private mode — the tab just loads the slow way
+    } catch (_) {}       // quota, private mode, the tab just loads the slow way
   }
 
   function cachedHome() {
@@ -411,12 +411,12 @@
     } catch (_) { return null; }
   }
 
-  // Reload the open clan after a change to it — in ONE round trip, without the
+  // Reload the open clan after a change to it, in ONE round trip, without the
   // panel going blank. /home already returns the full profile of YOUR clan as
   // my_clan_full, so that single call is everything a change to your own clan
   // needs. The old pattern (`C.clan = null; render()`) threw the profile away
   // and made renderClan fetch it back, so every save cost a second sequential
-  // request AND showed "Loading clan…" in between — which is what made saving
+  // request AND showed "Loading clan…" in between, which is what made saving
   // settings, joining an event or assigning a role feel like the tab had hung.
   async function reloadClan() {
     const res = await refreshHome(false);
@@ -426,7 +426,7 @@
       C.clan = full;
       if (row) { C.clan.rank = row.rank; C.clan.record = row.record; }
     } else {
-      C.clan = null;      // someone else's clan — renderClan has to refetch it
+      C.clan = null;      // someone else's clan: renderClan has to refetch it
     }
     render();
     return res;
@@ -524,7 +524,7 @@
       return;
     }
     if (_tabIconUid === uid) {
-      // Already primed. Re-assert only if the button isn't wearing it — the nav
+      // Already primed. Re-assert only if the button isn't wearing it, the nav
       // can be rebuilt (or arrive late) long after the payload was fetched.
       const want = tabIconFromHome() || cachedTabIcon(uid);
       const btns = navButtons();
@@ -545,7 +545,7 @@
     try {
       injectCss();
     } catch (err) { showRenderError(r, "the clan styles could not be applied", err); return; }
-    // Whatever is wrong, SAY so — this tab is rendered entirely from here, so
+    // Whatever is wrong, SAY so, this tab is rendered entirely from here, so
     // any silent bail-out reads to the player as "the Clans page is empty".
     // Each message names its own cause, so a screenshot identifies the branch.
     const b = bridge();
@@ -566,12 +566,12 @@
       r.innerHTML = '<div class="ccC-empty">Sign in to join a clan.</div>';
       return;
     }
-    // Paint FIRST, fetch second. Whatever we already know — this session's
-    // payload, or the last one this account saw — goes on screen right now, and
+    // Paint FIRST, fetch second. Whatever we already know, this session's
+    // payload, or the last one this account saw: goes on screen right now, and
     // the authoritative fetch repaints behind it. Only a player who has never
     // opened Clans on this device ever waits on the network.
     // Clan Rules is the FIRST tab in the strip (every scoring rule and both
-    // challenge ladders on one page), but the tab still opens on your clan —
+    // challenge ladders on one page), but the tab still opens on your clan:
     // people come here to check their clan far more often than to re-read how
     // it scores.
     const known = C.home || cachedHome();
@@ -593,13 +593,13 @@
       if (!known) showRenderError(r, "the clan server could not be reached", err);
       return;
     }
-    if (C.navSeq !== seq) return;              // they navigated — leave them there
+    if (C.navSeq !== seq) return;              // they navigated: leave them there
     if (!res || !res.ok) {
       if (!known) showRenderError(r, "the clan server could not be reached");
       return;                                   // stale-but-real beats an error page
     }
     // A season that ended since the player was last here opens straight onto
-    // the Season Results screen — once. After that it's the 📜 button.
+    // the Season Results screen, once. After that it's the 📜 button.
     C.view = (justEndedSid() ? "results" : "home");
     render();
   };
@@ -628,7 +628,7 @@
       C.claimedRooms[rid] = true;   // claim the slot first: never double-post
       const res = await post("claim-game", { room_id: rid });
       if (!res) {
-        // No response at all (network blip) — the server never saw it, so let
+        // No response at all (network blip), the server never saw it, so let
         // a later attempt through instead of losing the points for good.
         delete C.claimedRooms[rid];
         return;
@@ -641,19 +641,19 @@
       if (pts > 0) toast(`🛡️ +${pts} Clan Point${pts === 1 ? "" : "s"} for ${res.clan_name || "your clan"}!`, "success");
       else if (res.opp_capped) toast("🛡️ Clan Points: daily limit vs the same opponent reached.", "info");
       if (res.goal_done) toast("🌞 Your clan finished today's Daily Goal! +25 Clan XP", "success");
-      C.home = null;    // stale — refetch next time the tab opens
+      C.home = null;    // stale: refetch next time the tab opens
     } catch (_) {}
   };
 
   // Trade completion toast (server does the awarding; see /api/trade/confirm)
   window.__ccClanTradePoint = function (pts) {
     const n = Number(pts || 0);
-    if (n > 0) toast(`🤝 +${n} Clan Point — daily clan trade complete!`, "success");
+    if (n > 0) toast(`🤝 +${n} Clan Point: daily clan trade complete!`, "success");
     C.home = null;
   };
 
   // "Invite to Clan" from player profiles / messages (uid + name), and from the
-  // Members-tab box (friend code only — the server resolves it to a uid and
+  // Members-tab box (friend code only, the server resolves it to a uid and
   // sends the name back so the toast can say who it reached).
   window.__ccClanInvite = async function (toUid, toName, toCode) {
     const res = await post("invite", {
@@ -668,7 +668,7 @@
   window.__ccClanCanInvite = function () {
     try {
       if (!C.home) {
-        // Not loaded yet (Clans tab never opened) — prime it in the background
+        // Not loaded yet (Clans tab never opened): prime it in the background
         // so the NEXT profile open can show the invite button.
         if (bridge().authUser()) refreshHome(false);
         return false;
@@ -713,7 +713,7 @@
     wrap.appendChild(left); wrap.appendChild(cd);
     // Self-cancelling: leaving the Clans tab detaches this node without calling
     // render(), so the timer stops itself. It must only do that AFTER the block
-    // has been on screen — callers build the whole card first and attach it
+    // has been on screen: callers build the whole card first and attach it
     // last, so the first tick legitimately runs detached.
     let everAttached = false;
     const tick = () => {
@@ -786,7 +786,7 @@
     c.appendChild(topNav("rules"));
     const rules = await loadRules();
     if (!rules) {
-      c.appendChild(el("div", "ccC-empty", "The clan rules could not be loaded right now — try again shortly."));
+      c.appendChild(el("div", "ccC-empty", "The clan rules could not be loaded right now: try again shortly."));
       r.appendChild(c);
       return;
     }
@@ -894,14 +894,14 @@
     if (!C.home) {
       r.innerHTML = '<div class="ccC-empty">Loading clans…</div>';
       const res = await refreshHome(true);
-      if (!res || !res.ok) { r.innerHTML = '<div class="ccC-empty">Clans are unavailable right now — try again shortly.</div>'; return; }
+      if (!res || !res.ok) { r.innerHTML = '<div class="ccC-empty">Clans are unavailable right now: try again shortly.</div>'; return; }
       r.innerHTML = "";
     }
     const H = C.home;
     const c = card('🛡️ Clans');
     c.appendChild(topNav("home"));
 
-    // If you are not in a clan, the two things you came here to do go FIRST —
+    // If you are not in a clan, the two things you came here to do go FIRST:
     // above the season block and the top-3 podium. They used to sit below both,
     // which on a phone is off the bottom of the screen: the answer to "how do I
     // make a clan?" was to scroll past a leaderboard you have no part in yet.
@@ -927,7 +927,7 @@
       });
       c.appendChild(pod);
     } else {
-      c.appendChild(el("div", "ccC-empty", "No clans yet this season — found the first one! 🐚"));
+      c.appendChild(el("div", "ccC-empty", "No clans yet this season: found the first one! 🐚"));
     }
 
     // My clan (or join/create CTA)
@@ -960,8 +960,8 @@
       bb.appendChild(bJoin); bb.appendChild(bMake);
       m.appendChild(bb);
       c.appendChild(m);
-      // Joining used to be a four-step errand — Clans → Find a Clan → wait for
-      // the browse fetch → pick one → Join — for what is a one-word decision.
+      // Joining used to be a four-step errand: Clans → Find a Clan → wait for
+      // the browse fetch → pick one → Join, for what is a one-word decision.
       // The clans that will actually take you right now are on this screen
       // instead, each with its own Join button, and the search page is still one
       // tap away for anyone who wants to look further.
@@ -1065,11 +1065,11 @@
   // row in Browse both call this. A public clan is one press away from being
   // yours; a request-only clan is one press away from having asked.
   //
-  // The button is taken out of service while the request is in flight — joining
+  // The button is taken out of service while the request is in flight: joining
   // is a transaction on the server and a double press is a second one.
   async function joinFromRow(cl, btn) {
     // A password clan asks one question first, then joins exactly like a public
-    // one. The password is only ever sent to the server — nothing on this side
+    // one. The password is only ever sent to the server, nothing on this side
     // knows or checks it.
     if (cl.privacy === "password") { passwordJoinModal(cl, btn); return; }
     const wasText = btn.textContent;
@@ -1093,7 +1093,7 @@
     btn.textContent = wasText;
   }
 
-  // "What's the password?" — the whole of joining a password clan.
+  // "What's the password?" the whole of joining a password clan.
   function passwordJoinModal(cl, btn) {
     const bg = el("div", "ccC-modal-bg");
     const md = el("div", "ccC-modal");
@@ -1144,7 +1144,7 @@
   }
 
   // One clan, as a row you can join without opening it first. `row` still opens
-  // the profile — the button is the shortcut, not the only way in.
+  // the profile, the button is the shortcut, not the only way in.
   function joinableRow(cl) {
     const full = cl.member_count >= cl.max_members;
     const row = el("div", "ccC-member");
@@ -1173,7 +1173,7 @@
 
   // The home screen's "clans you can join right now" list. /browse already
   // computes exactly this set (`recommended`: public, not full, best-ranked
-  // first), so this is one request, cached for the session — re-rendering the
+  // first), so this is one request, cached for the session: re-rendering the
   // home screen must not re-ask.
   const OPEN_CLANS_SHOWN = 4;
   function openClansSection() {
@@ -1187,7 +1187,7 @@
       b.innerHTML = "";
       if (!list.length) {
         b.appendChild(el("div", "ccC-hint",
-          "No clans are open right now — search by name, or start your own and invite your friends."));
+          "No clans are open right now: search by name, or start your own and invite your friends."));
         return;
       }
       b.style.padding = "0";                       // the rows carry their own
@@ -1253,7 +1253,7 @@
       listWrap.innerHTML = "";
       if ((res.recommended || []).length && !inp.value.trim()) {
         const sec = el("div", "ccC-sec");
-        sec.appendChild(el("div", "ccC-sec-h", "⭐ Open now — one tap to join"));
+        sec.appendChild(el("div", "ccC-sec-h", "⭐ Open now, one tap to join"));
         const b = el("div", "ccC-sec-b");
         b.style.padding = "0";                     // the rows carry their own
         // Rows, not name chips: a chip could only open the clan, which meant
@@ -1263,7 +1263,7 @@
         listWrap.appendChild(sec);
       }
       if (!(res.rows || []).length) {
-        listWrap.appendChild(el("div", "ccC-empty", "No clans found — try another name, or create your own!"));
+        listWrap.appendChild(el("div", "ccC-empty", "No clans found: try another name, or create your own!"));
         return;
       }
       const sec = el("div", "ccC-sec");
@@ -1292,7 +1292,7 @@
     const inName = el("input", "ccC-inp");
     inName.maxLength = 30; inName.placeholder = "e.g. Reef Riders";
     inName.style.width = "100%"; inName.style.boxSizing = "border-box";
-    const hName = el("div", "ccC-hint", "3–30 characters. Names are checked automatically — inappropriate or disguised names can't be used.");
+    const hName = el("div", "ccC-hint", "3–30 characters. Names are checked automatically: inappropriate or disguised names can't be used.");
     fName.appendChild(inName); fName.appendChild(hName);
     body.appendChild(fName);
     let nameOk = false, nameTimer = null;
@@ -1305,14 +1305,14 @@
         const v = inName.value.trim();
         if (v.length < 3) { hName.textContent = "At least 3 characters."; return; }
         const res = await post("check-name", { name: v });
-        if (!res || !res.ok) { hName.textContent = "Couldn't check the name — try again."; return; }
+        if (!res || !res.ok) { hName.textContent = "Couldn't check the name: try again."; return; }
         if (!res.clean) { hName.className = "ccC-hint bad"; hName.textContent = res.reason === "inappropriate" ? "That name isn't allowed." : res.reason === "charset" ? "Letters, numbers and simple punctuation only." : "Name must be 3–30 characters."; return; }
         if (!res.available) { hName.className = "ccC-hint bad"; hName.textContent = "That name is already taken."; return; }
         nameOk = true; hName.className = "ccC-hint good"; hName.textContent = "✓ Available!";
       }, 350);
     });
 
-    // Icon picker — the critters YOU have unlocked (you're the only member of a
+    // Icon picker, the critters YOU have unlocked (you're the only member of a
     // clan you're founding, so your unlocks are the whole clan's choice).
     const fIcon = el("div", "ccC-field");
     fIcon.innerHTML = '<label>Clan critter icon</label>';
@@ -1369,7 +1369,7 @@
 
     // The password, shown only when it is the setting being used. A clan in
     // password mode with no password would be a clan nobody could ever join, so
-    // the server refuses that too — this just asks before it happens.
+    // the server refuses that too, this just asks before it happens.
     const fPw = el("div", "ccC-field");
     fPw.innerHTML = '<label>Clan password</label>';
     const inPw = el("input", "ccC-inp");
@@ -1379,7 +1379,7 @@
     inPw.autocomplete = "off";
     inPw.style.width = "100%"; inPw.style.boxSizing = "border-box";
     fPw.appendChild(inPw);
-    fPw.appendChild(el("div", "ccC-hint", "4–64 characters. Anyone who types this joins instantly — share it with the people you want in. You can change it any time."));
+    fPw.appendChild(el("div", "ccC-hint", "4–64 characters. Anyone who types this joins instantly: share it with the people you want in. You can change it any time."));
     body.appendChild(fPw);
     const syncPw = () => { fPw.style.display = selPriv === "password" ? "" : "none"; };
     syncPw();
@@ -1400,11 +1400,11 @@
                                          password: selPriv === "password" ? pw : "" });
       go.disabled = false;
       if (res && res.ok) {
-        toast("Clan founded — welcome, Owner! 👑", "success");
+        toast("Clan founded: welcome, Owner! 👑", "success");
         C.home = null; await refreshHome(true);
         openClan(res.clan_id);
       } else if (res && res.error === "bad_name") {
-        toast("That clan name can't be used — please pick another.", "error");
+        toast("That clan name can't be used: please pick another.", "error");
       } else toast(errMsg(res && res.error), "error");
     });
     body.appendChild(go);
@@ -1431,7 +1431,7 @@
     holder.innerHTML = "";
     c.insertBefore(seasonBlock(res.season), holder);
     const rows = res.rows || [];
-    if (!rows.length) { holder.appendChild(el("div", "ccC-empty", "No clans yet — create the first one!")); return; }
+    if (!rows.length) { holder.appendChild(el("div", "ccC-empty", "No clans yet: create the first one!")); return; }
 
     // Featured top three
     const pod = el("div", "ccC-podium");
@@ -1493,7 +1493,7 @@
     holder.appendChild(el("div", "ccC-season",
       `<div><div class="ccC-season-name">Season ${res.number} · ${esc(res.name)}</div>
        <div class="ccC-season-sub">${standings.length ? "Final results" : "No clan results were recorded for this season."}</div></div>
-       <div class="ccC-season-sub">Next: Season ${res.next_season.number} · ${esc(res.next_season.name)} — started ${fmtDate(res.next_season.starts_ts)}</div>`));
+       <div class="ccC-season-sub">Next: Season ${res.next_season.number} · ${esc(res.next_season.name)}: started ${fmtDate(res.next_season.starts_ts)}</div>`));
     if (standings.length) {
       const pod = el("div", "ccC-podium");
       const cls = ["g", "s", "b"], medals = ["🥇", "🥈", "🥉"];
@@ -1513,7 +1513,7 @@
       const mine = standings.find(s => s.clan_id === myId);
       if (mine) {
         const sec = el("div", "ccC-sec");
-        sec.appendChild(el("div", "ccC-sec-h", `🛡️ ${esc(mine.name)} — final placement #${mine.rank}`));
+        sec.appendChild(el("div", "ccC-sec-h", `🛡️ ${esc(mine.name)}: final placement #${mine.rank}`));
         const b = el("div", "ccC-sec-b");
         const my = res.my_contribution || {};
         b.innerHTML = `
@@ -1525,18 +1525,18 @@
             <div class="ccC-stat"><b>${esc(mine.record)}</b><span>Record</span></div>
           </div>
           <div style="font-size:12.5px;">
-            <div>🎖 <b>Clan MVP:</b> ${mine.mvp ? esc(mine.mvp.name) + " (" + mine.mvp.points + " pts)" : "—"}</div>
-            <div>⚔️ <b>Most competitive wins:</b> ${mine.top_comp ? esc(mine.top_comp.name) + " (" + mine.top_comp.wins + ")" : "—"}</div>
-            <div>🌊 <b>Most active member:</b> ${mine.most_active ? esc(mine.most_active.name) + " (" + mine.most_active.days + " days)" : "—"}</div>
+            <div>🎖 <b>Clan MVP:</b> ${mine.mvp ? esc(mine.mvp.name) + " (" + mine.mvp.points + " pts)" : "-"}</div>
+            <div>⚔️ <b>Most competitive wins:</b> ${mine.top_comp ? esc(mine.top_comp.name) + " (" + mine.top_comp.wins + ")" : "-"}</div>
+            <div>🌊 <b>Most active member:</b> ${mine.most_active ? esc(mine.most_active.name) + " (" + mine.most_active.days + " days)" : "-"}</div>
             ${my ? `<div style="margin-top:7px;">📊 <b>Your contribution:</b> ${my.points || 0} pts
               (games ${my.game_points || 0} · trades ${my.trade_points || 0} · challenges ${my.challenge_points || 0})</div>` : ""}
-            ${mine.coins_per_member ? `<div>🪙 <b>Clan reward:</b> ${mine.coins_per_member} Critter Coins per eligible member (10+ pts)</div>` : ""}
-            <div>🪙 <b>You earned:</b> ${Number(res.my_coins || 0).toLocaleString()} Critter Coins</div>
+            ${mine.coins_per_member ? `<div><img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false"> <b>Clan reward:</b> ${mine.coins_per_member} Critter Coins per eligible member (10+ pts)</div>` : ""}
+            <div><img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false"> <b>You earned:</b> ${Number(res.my_coins || 0).toLocaleString()} Critter Coins</div>
             <div>🎖 <b>You unlocked:</b> ${(res.my_badges || []).length
               ? (res.my_badges || []).map(b => `<span class="ccC-chip gold">${b.type === "mvp"
                   ? "Season " + b.season + " Clan MVP"
                   : (b.place === 1 ? "🥇" : b.place === 2 ? "🥈" : "🥉") + " Season " + b.season + " badge"}</span>`).join(" ")
-              : "—"}</div>
+              : "-"}</div>
           </div>`;
         sec.appendChild(b);
         holder.appendChild(sec);
@@ -1552,8 +1552,8 @@
         tr.innerHTML = `<td><b>${cl.rank <= 3 ? ["🥇","🥈","🥉"][cl.rank-1] : "#" + cl.rank}</b></td>
           <td><img class="mini" src="${esc(avSrc(cl.icon))}">${esc(cl.name)}</td>
           <td><b>${cl.points}</b></td><td>${esc(cl.record)}</td>
-          <td>${cl.mvp ? "🎖 " + esc(cl.mvp.name) : "—"}</td>
-          <td>${cl.coins_per_member ? cl.coins_per_member + " Critter Coins/member" : cl.rank <= SEASON_BORDER_TOP_N_UI ? "Seasonal border" : "—"}</td>`;
+          <td>${cl.mvp ? "🎖 " + esc(cl.mvp.name) : "-"}</td>
+          <td>${cl.coins_per_member ? cl.coins_per_member + " Critter Coins/member" : cl.rank <= SEASON_BORDER_TOP_N_UI ? "Seasonal border" : "-"}</td>`;
         tbody.appendChild(tr);
       });
       tb.appendChild(tbody);
@@ -1588,7 +1588,7 @@
     const bar = el("div", "ccC-topbtns");
     const back = el("button", "ccC-btn", "← Back");
     // Back goes back NOW. The payload that drew the home screen is still in
-    // C.home, so there is nothing to wait for — the refresh lands behind it.
+    // C.home, so there is nothing to wait for, the refresh lands behind it.
     // Blocking the navigation on a round trip is what made Back feel stuck.
     back.addEventListener("click", () => {
       C.clan = null;
@@ -1669,7 +1669,7 @@
     const left = countdownParts(ch.ends_ts || 0);
     const contribs = (ch.contributors || []).filter(x => x.points > 0);
     const row = el("div", "ccC-chall");
-    // "3d 4h left" for a week, "12d left" for a season — hours are noise on a
+    // "3d 4h left" for a week, "12d left" for a season: hours are noise on a
     // three-month clock.
     const clock = ch.ends_ts ? (left.d >= 14 ? `${left.d}d left` : `${left.d}d ${left.h}h left`) : "";
     row.innerHTML = `<div style="display:flex;justify-content:space-between;gap:8px;">
@@ -1707,13 +1707,13 @@
     const note = el("div", "ccC-sec-b");
     note.innerHTML = `<div class="ccC-hint">Everything your whole clan does counts toward these.
       Weekly challenges reset every Monday 00:00 UTC; season challenges run the whole quarter.
-      <b>Casual progress counts every finished game, bots included — Clan POINTS are what need a
+      <b>Casual progress counts every finished game, bots included: Clan POINTS are what need a
       real opponent. Competitive matches only count against a real registered opponent.</b></div>`;
     pane.appendChild(note);
     pane.appendChild(challengeSection("🏁 Weekly clan challenges", cl.challenges,
-                                      "New clan challenges are being finalized — coming soon! 🐙"));
+                                      "New clan challenges are being finalized: coming soon! 🐙"));
     pane.appendChild(challengeSection("🗓️ Season clan challenges", cl.season_challenges,
-                                      "Season challenges are being finalized — coming soon! 🐚"));
+                                      "Season challenges are being finalized: coming soon! 🐚"));
     const rulesBtn = el("div", "ccC-sec-b");
     const b = el("button", "ccC-btn tiny", "📜 Read the full clan rules");
     b.addEventListener("click", () => nav("rules"));
@@ -1747,10 +1747,10 @@
     sec.appendChild(b);
     pane.appendChild(sec);
 
-    // Weekly challenges — the same rows the Challenges tab and the in-game
+    // Weekly challenges, the same rows the Challenges tab and the in-game
     // sheet draw, so progress never reads differently in two places.
     pane.appendChild(challengeSection("🏁 Weekly clan challenges", cl.challenges,
-                                      "New clan challenges are being finalized — coming soon! 🐙"));
+                                      "New clan challenges are being finalized: coming soon! 🐙"));
     const more = el("div", "ccC-sec-b");
     more.style.paddingTop = "0";
     const bMore = el("button", "ccC-btn tiny", "🗓️ See season challenges →");
@@ -1771,7 +1771,7 @@
       const votable = pickableAvatars(cl.icon_pool);
 
       // Casting a vote used to throw the whole screen away and rebuild it from
-      // two more server calls (/home then /get) — the panel blanked to
+      // two more server calls (/home then /get), the panel blanked to
       // "Loading clan…", scrolled back to the top, and a second click during
       // that gap raced the first. The vote response now carries the new tally,
       // so a vote repaints THIS section only, in place, from what the server
@@ -1807,7 +1807,7 @@
         const res = await post("vote-critter", { icon: a.img });
         voting = false;
         if (!res || !res.ok) { paintVotes(); toast(errMsg(res && res.error), "error"); return; }
-        // The server hands back the recounted tally — a missing field means an
+        // The server hands back the recounted tally, a missing field means an
         // older server, so fall back to counting this one ballot ourselves
         // rather than showing a stale number.
         cl.my_vote = res.my_vote || a.img;
@@ -1817,7 +1817,7 @@
         }
         paintVotes();
         // The winner rides on the Clans nav button, so keep the cached home
-        // payload in step and re-decide the button — without refetching it.
+        // payload in step and re-decide the button, without refetching it.
         try {
           if (C.home && C.home.my_clan_full && C.home.my_clan_full.id === cl.id) {
             C.home.my_clan_full.favorite_critter = cl.favorite_critter;
@@ -1837,7 +1837,7 @@
       pane.appendChild(secV);
     }
 
-    // Friendly rival (no rewards ride on it — bragging rights only)
+    // Friendly rival (no rewards ride on it: bragging rights only)
     const canRival = !!(my && (my.is_owner || my.perms.post_announcements));
     if (cl.rival || canRival) {
       const secR = el("div", "ccC-sec");
@@ -1873,7 +1873,7 @@
               <b style="color:${a >= b2 ? "#1c5f9e" : "#8aa4bb"};min-width:40px;">${a}</b>
               <span class="ccC-hint" style="margin:0;">${lab}</span>
               <b style="color:${b2 >= a ? "#1c5f9e" : "#8aa4bb"};min-width:40px;text-align:right;">${b2}</b></div>`).join("")
-          + '<div class="ccC-hint" style="margin-top:7px;">Rivalries are for bragging rights only — no extra points or rewards.</div>';
+          + '<div class="ccC-hint" style="margin-top:7px;">Rivalries are for bragging rights only, no extra points or rewards.</div>';
       } else {
         bb.innerHTML = '<div class="ccC-hint">Pick one friendly rival clan for the season and compare stats head-to-head. No rewards attached.</div>';
       }
@@ -1888,7 +1888,7 @@
       secP.appendChild(el("div", "ccC-sec-h", "📜 Season history"));
       const bp = el("div", "ccC-sec-b");
       prevs.forEach(([sid, resu]) => {
-        bp.appendChild(el("div", "", `<b>Season ${seasonNumFromSid(sid)}</b> — #${resu.rank} · ${resu.points} pts
+        bp.appendChild(el("div", "", `<b>Season ${seasonNumFromSid(sid)}</b>: #${resu.rank} · ${resu.points} pts
           ${resu.mvp ? " · MVP: " + esc(resu.mvp.name) + " 🎖" : ""}`));
       });
       secP.appendChild(bp);
@@ -1909,7 +1909,7 @@
     const bg = el("div", "ccC-modal-bg");
     const md = el("div", "ccC-modal");
     md.innerHTML = "<h3>⚔️ Pick a friendly rival</h3>"
-      + '<div class="ccC-hint" style="margin-bottom:8px;">One rival per season. Purely for bragging rights — no points or rewards change hands.</div>';
+      + '<div class="ccC-hint" style="margin-bottom:8px;">One rival per season. Purely for bragging rights, no points or rewards change hands.</div>';
     const list = el("div", "");
     list.innerHTML = '<div class="ccC-empty">Loading clans…</div>';
     md.appendChild(list);
@@ -1978,7 +1978,7 @@
       const b = el("div", "ccC-sec-b");
       b.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;align-items:center;";
       const inp = el("input", "ccC-inp");
-      inp.placeholder = "Friend code — e.g. 2809";
+      inp.placeholder = "Friend code: e.g. 2809";
       inp.style.flex = "1 1 160px";
       const bt = el("button", "ccC-btn pri tiny", "Send invite");
       const send = async () => {
@@ -2048,7 +2048,7 @@
     const former = cl.former_contributors || [];
     if (former.length) {
       const secF = el("div", "ccC-sec");
-      secF.appendChild(el("div", "ccC-sec-h", "🫧 Former members — points stay with the clan"));
+      secF.appendChild(el("div", "ccC-sec-h", "🫧 Former members: points stay with the clan"));
       const b = el("div", "ccC-sec-b");
       b.innerHTML = former.map(f => `<span class="ccC-chip" style="margin:0 4px 4px 0;">${esc(f.name || "Player")} · ${f.points} pts</span>`).join("");
       secF.appendChild(b);
@@ -2169,7 +2169,7 @@
     go.addEventListener("click", async () => {
       const res = await post("report", { kind: "name", clan_id: cl.id, reason: ta.value.trim() });
       document.body.removeChild(bg);
-      if (res && res.ok) toast("Report sent — thanks for keeping the reef clean. 🪸", "success");
+      if (res && res.ok) toast("Report sent: thanks for keeping the reef clean. 🪸", "success");
       else toast(errMsg(res && res.error), "error");
     });
     row.appendChild(cancel); row.appendChild(go);
@@ -2240,7 +2240,7 @@
     function draw() {
       log.innerHTML = "";
       if (!C.chatMsgs.length) {
-        log.innerHTML = '<div class="ccC-empty">No messages yet — say hi! 🐠</div>';
+        log.innerHTML = '<div class="ccC-empty">No messages yet: say hi! 🐠</div>';
         return;
       }
       C.chatMsgs.forEach(m => {
@@ -2386,7 +2386,7 @@
       d.appendChild(row);
       b.appendChild(d);
     });
-    b.appendChild(el("div", "ccC-hint", "Events don't award Clan Points by themselves — only the games, trades and challenges played during them do."));
+    b.appendChild(el("div", "ccC-hint", "Events don't award Clan Points by themselves, only the games, trades and challenges played during them do."));
     sec.appendChild(b);
     pane.appendChild(sec);
   }
@@ -2428,7 +2428,7 @@
     sec.style.margin = "10px 16px 14px";
     const rows = cl.activity || [];
     if (!rows.length) {
-      sec.appendChild(el("div", "ccC-empty", "Nothing here yet — go make some waves! 🌊"));
+      sec.appendChild(el("div", "ccC-empty", "Nothing here yet: go make some waves! 🌊"));
     }
     rows.forEach(a => {
       const d = el("div", "row");
@@ -2473,7 +2473,7 @@
 
       // Password, shown only in password mode. Left blank it keeps the current
       // one; typed into it becomes the new one. Switching INTO password mode
-      // with no password on file needs one here — the server refuses the rest.
+      // with no password on file needs one here, the server refuses the rest.
       const fpw = el("div", "ccC-field");
       fpw.innerHTML = "<label>Clan password</label>";
       const inPw = el("input", "ccC-inp");
@@ -2487,7 +2487,7 @@
         const has = !!cl.has_password;
         inPw.placeholder = has ? "Leave blank to keep the current password" : "Choose a password (4–64 characters)";
         pwHint.textContent = has
-          ? "Anyone who types this joins instantly. Type a new one to change it — everyone using the old one will need the new word."
+          ? "Anyone who types this joins instantly. Type a new one to change it, everyone using the old one will need the new word."
           : "Anyone who types this joins instantly. Share it with the people you want in.";
       };
       syncPw();
@@ -2498,7 +2498,7 @@
       lb.appendChild(document.createTextNode("Allow Captains to create & edit custom roles"));
       b.appendChild(lb);
 
-      // Icon change — the clan banner critter. Same rule as founding: it has to
+      // Icon change, the clan banner critter. Same rule as founding: it has to
       // be unlocked by somebody in the clan, not necessarily by the owner.
       const fi = el("div", "ccC-field");
       fi.innerHTML = "<label>Clan critter icon</label>";

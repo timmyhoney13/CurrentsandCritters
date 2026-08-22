@@ -1,4 +1,4 @@
-/* Currents and Critters — Tournament Mode UI (self-contained, flag-gated).
+/* Currents and Critters: Tournament Mode UI (self-contained, flag-gated).
  *
  * Loaded on every page but does NOTHING unless window.__ccTourney.ENABLED is
  * true (set in preview-app.js: TOURNAMENTS_PUBLIC, or ?tournaments=1, or
@@ -7,7 +7,7 @@
  *
  * Talks to the server-authoritative tournament API (/api/tournament/*). The
  * server owns winners/advancement/XP; this file only renders state + sends the
- * host/player intents. Original ocean-themed bracket — no third-party assets.
+ * host/player intents. Original ocean-themed bracket, no third-party assets.
  */
 (function () {
   "use strict";
@@ -53,7 +53,7 @@
 
   // Return to the Player Home after a tournament. Drop any stale room id from the
   // URL first (mirrors the in-game leave cleanup) so the home screen lands on the
-  // real Player Home — never the removed legacy create/join lobby — and a refresh
+  // real Player Home, never the removed legacy create/join lobby, and a refresh
   // can't auto-join a finished match room.
   function goHome() {
     try {
@@ -73,7 +73,7 @@
     if ($("#cc-tourney-style")) return;
     const s = el("style"); s.id = "cc-tourney-style";
     s.textContent = `
-    /* Ocean-surface light theme — matches the "New Current" (Create Game) modal:
+    /* Ocean-surface light theme: matches the "New Current" (Create Game) modal:
        light blue gradient cards, Cinzel titles, white inputs, #2050a0 labels,
        warm-gold primary button. Cohesive with the rest of the game. */
     :root{ --ccT-ink:#0d3070; --ccT-ink2:#2050a0; --ccT-line-c:rgba(120,185,235,.55);
@@ -168,7 +168,7 @@
     .ccT-btn.coral{ background:linear-gradient(120deg,#ff8a6a,#ff6a86); color:#fff; box-shadow:0 6px 20px rgba(255,90,110,.3); }
     .ccT-btn.sm{ padding:8px 13px; font-size:.85rem; border-radius:12px; }
 
-    /* full-screen tournament — light ocean surface. Sits above the end-of-game
+    /* full-screen tournament: light ocean surface. Sits above the end-of-game
        screen (9850) so opening the bracket from a finished match actually shows it. */
     #ccT-screen{ position:fixed; inset:0; z-index:9860; display:none; flex-direction:column;
       background:radial-gradient(120% 90% at 50% -10%, #e2f2fc 0%, #bfdcf2 55%, #a3cbe7 100%);
@@ -294,7 +294,7 @@
 
     /* ── status surface: in-game chip + Player-Home waiting bar ──────────────
        The old "Return to <tournament>" pill floated at bottom-CENTRE, right on
-       top of the hand and the action bar — permanently in the way. In a game the
+       top of the hand and the action bar: permanently in the way. In a game the
        status now DOCKS into the game's own notice bar; everywhere else it's a
        waiting banner on the Player Home, so it can never cover anything. */
     .ccT-chip{ display:inline-flex; align-items:center; gap:6px; flex:none; max-width:min(46vw,300px);
@@ -337,14 +337,14 @@
   // CREATE overlay
   // =========================================================================
   // mode: 'uniform' (pick a size + format) | 'sizes' (list each opening match's
-  // size) | 'design' (the full canvas builder — window.__ccTourneyBuilder).
+  // size) | 'design' (the full canvas builder: window.__ccTourneyBuilder).
   // advance = how many finishers get out of every match. 1 is classic single
   // elimination; 2+ makes each match a group whose top N go through.
   let createState = { capacity: 8, ppm: 2, advance: 1, formats: [], summary: null, thirdPlace: false,
                       mode: "uniform", customSizes: [2, 2, 2, 2],
                       design: null, designSummary: null };
 
-  /** The biggest match size that must still knock somebody out — the advancement
+  /** The biggest match size that must still knock somebody out, the advancement
    *  ceiling is one less than the SMALLEST match in the bracket. */
   function advanceCeiling() {
     if (createState.mode === "sizes") {
@@ -367,7 +367,7 @@
     for (let a = 1; a <= max; a++) {
       const o = document.createElement("option");
       o.value = String(a);
-      o.textContent = a === 1 ? "🥇 Winner only — single elimination"
+      o.textContent = a === 1 ? "🥇 Winner only: single elimination"
                               : `🏅 Top ${a} advance to the next round`;
       if (a === createState.advance) o.selected = true;
       sel.appendChild(o);
@@ -376,7 +376,7 @@
     sel.disabled = max <= 1;
     if (hint) {
       hint.textContent = max <= 1
-        ? "1 v 1 matches can only send the winner through — pick a bigger match size to advance more."
+        ? "1 v 1 matches can only send the winner through: pick a bigger match size to advance more."
         : createState.advance === 1
           ? "Lose once and you're out."
           : `Each match plays as a group: its best ${createState.advance} carry on, the rest are knocked out.`;
@@ -390,14 +390,14 @@
     modal.innerHTML = `
       <div class="ccT-card">
         <h2>🏆 New Tournament</h2>
-        <div class="ccT-sub">Bracket-style tournament — 4 to 32 players, your choice of match size.</div>
+        <div class="ccT-sub">Bracket-style tournament: 4 to 32 players, your choice of match size.</div>
         <div class="ccT-body">
           <div class="ccT-field"><label>Tournament name</label>
             <input class="ccT-input" id="ccT-name" maxlength="40" placeholder="Currents Cup" value="Currents Cup"></div>
           <div class="ccT-field"><label>Bracket</label>
             <div class="ccT-mode-grid" id="ccT-modes">
               <div class="ccT-fmt" data-mode="uniform"><div class="ccT-fmt-title">⚡ Quick</div>
-                <div class="ccT-fmt-meta">Pick a size — we build the bracket.</div></div>
+                <div class="ccT-fmt-meta">Pick a size, we build the bracket.</div></div>
               <div class="ccT-fmt" data-mode="sizes"><div class="ccT-fmt-title">🧩 Match sizes</div>
                 <div class="ccT-fmt-meta">Set each opening match's size yourself.</div></div>
               <div class="ccT-fmt" data-mode="design"><div class="ccT-fmt-title">🎨 Design it</div>
@@ -419,7 +419,7 @@
               <div class="ccT-fmt-grid" id="ccT-fmts"></div></div>
           </div>
           <div id="ccT-custom" style="display:none">
-            <div class="ccT-field"><label>Opening matches — set each match's size (2–8 players)</label>
+            <div class="ccT-field"><label>Opening matches: set each match's size (2–8 players)</label>
               <div id="ccT-custom-list" class="ccT-custom-list"></div>
               <button class="ccT-btn sm ghost" id="ccT-custom-add" type="button" style="margin-top:6px">＋ Add match</button>
             </div>
@@ -437,7 +437,7 @@
               <input class="ccT-input" id="ccT-pw" maxlength="12" placeholder="code"></div>
           </div>
           <div class="ccT-field"><label class="ccT-toggle"><input type="checkbox" id="ccT-fill-bots">
-            <span>🤖 Fill empty seats with bots<span class="ccT-hint">Start any time — bots take every open spot so a full bracket runs even solo.</span></span></label></div>
+            <span>🤖 Fill empty seats with bots<span class="ccT-hint">Start any time: bots take every open spot so a full bracket runs even solo.</span></span></label></div>
           <div class="ccT-field"><label class="ccT-toggle"><input type="checkbox" id="ccT-spec" checked> Allow spectators</label></div>
           <div class="ccT-field" id="ccT-third-field"><label class="ccT-toggle"><input type="checkbox" id="ccT-third"> Play a 3rd-place match for the bronze</label></div>
           <div id="ccT-create-err" style="color:#c62a4e;min-height:18px;font-size:.85rem"></div>
@@ -486,7 +486,7 @@
     modal.querySelectorAll("#ccT-modes .ccT-fmt").forEach(t =>
       t.classList.toggle("sel", t.dataset.mode === mode));
     // A designed bracket decides 3rd place by its own shape, and its size comes
-    // from the canvas — those controls would be lying, so hide them.
+    // from the canvas, those controls would be lying, so hide them.
     show("#ccT-third-field", mode !== "design");
     if (mode === "sizes") renderCustomBuilder();
     if (mode === "design") renderDesignState();
@@ -519,7 +519,7 @@
 
   function openDesigner() {
     const b = window.__ccTourneyBuilder;
-    if (!b) { toast("The bracket builder didn't load — refresh the page.", "err"); return; }
+    if (!b) { toast("The bracket builder didn't load: refresh the page.", "err"); return; }
     // The builder sits above the create modal, so cancelling it simply reveals the
     // modal again exactly as the host left it.
     b.open(createState.design, (design, summary) => {
@@ -655,7 +655,7 @@
     if (createState.mode === "design") {
       const d = createState.design;
       if (!d || !d.matches || !d.matches.length) {
-        errEl.textContent = "Design a bracket first — open the bracket builder.";
+        errEl.textContent = "Design a bracket first: open the bracket builder.";
         return;
       }
     } else if (createState.mode === "sizes") {
@@ -705,7 +705,7 @@
     let r;
     try { r = await post("/api/tournament/join", body); } catch (_) { toast("Network error joining.", "err"); return; }
     if (r.data && r.data.error === "wrong password") {
-      const p = window.prompt("This tournament is private — enter its join code:");
+      const p = window.prompt("This tournament is private: enter its join code:");
       if (p) return promptJoin(code, p);
       return;
     }
@@ -719,7 +719,7 @@
   function clearActive() { try { localStorage.removeItem("cc_active_tournament"); } catch (_) {} }
 
   // =========================================================================
-  // BROWSE & JOIN — pick an open tournament from a list, or enter a code.
+  // BROWSE & JOIN: pick an open tournament from a list, or enter a code.
   // Reachable from the create modal and the Leaderboard "🏅 Tournaments" tab.
   // =========================================================================
   async function openBrowse() {
@@ -761,7 +761,7 @@
     try { const r = await get("/api/tournament/list"); rows = (r.data && r.data.tournaments) || []; } catch (_) {}
     const open = rows.filter(t => t.phase === "lobby" && t.joined < t.capacity);
     if (!open.length) {
-      list.innerHTML = `<div class="ccT-empty">No open tournaments right now — create one below!</div>`;
+      list.innerHTML = `<div class="ccT-empty">No open tournaments right now: create one below!</div>`;
       return;
     }
     list.innerHTML = "";
@@ -807,7 +807,7 @@
     scr.querySelectorAll(".ccT-tab").forEach(t => t.addEventListener("click", () => setView(t.dataset.view)));
     $("#ccT-h-leave", scr).addEventListener("click", onLeave);
     // "Spectate" must actually spectate. It used to just switch to the bracket
-    // tab, which is what the tab beside it already does — so a knocked-out player
+    // tab, which is what the tab beside it already does, so a knocked-out player
     // pressing the one button labelled "watch a game" got a bracket and no game.
     $("#ccT-h-spectate", scr).addEventListener("click", () => spectatePick());
     $("#ccT-h-host", scr).addEventListener("click", openHostPanel);
@@ -821,7 +821,7 @@
     scr.classList.add("open");
     T.screenOpen = true;
     // Force the next state to re-render even if its version matches the last one
-    // synced before the overlay was closed — otherwise applyState() early-returns
+    // synced before the overlay was closed, otherwise applyState() early-returns
     // and the just-opened overlay stays blank.
     T.lastVersion = -1;
     startSync();
@@ -842,7 +842,7 @@
   }
 
   // Is my run over (knocked out, champion, or the whole bracket is done)? Then the
-  // header's exit is a plain "go back", not a forfeit — see onLeave.
+  // header's exit is a plain "go back", not a forfeit: see onLeave.
   function myRunIsOver(st) {
     if (!st || !st.viewer) return false;
     if (st.phase === "complete" || st.phase === "cancelled") return true;
@@ -853,8 +853,8 @@
   async function onLeave() {
     const st = T.state;
     // Knocked out / finished: this button is just "back to Home". Leaving for real
-    // would tell the server we FORFEITED — costing the no-quit XP of a run we
-    // already completed — and drop us out of the results we're waiting on. Close
+    // would tell the server we FORFEITED: costing the no-quit XP of a run we
+    // already completed, and drop us out of the results we're waiting on. Close
     // the overlay instead and keep following the tournament from the home screen.
     if (myRunIsOver(st)) {
       closeScreen();
@@ -929,7 +929,7 @@
       specBtn.style.display = nLive > 0 ? "" : "none";
       specBtn.textContent = nLive > 1 ? `👁 Spectate (${nLive})` : "👁 Spectate";
     }
-    // "Leave" forfeits — so it must not be the word on the button once there is
+    // "Leave" forfeits, so it must not be the word on the button once there is
     // nothing left to forfeit (see onLeave).
     const leaveBtn = $("#ccT-h-leave", scr);
     if (leaveBtn) {
@@ -959,7 +959,7 @@
     const st = T.state; const me = st.viewer || {};
     root.innerHTML = `<div class="ccT-lobby">
       <div class="ccT-panel">
-        <h3>Players — ${st.joined}/${st.capacity}${
+        <h3>Players: ${st.joined}/${st.capacity}${
           st.human_capacity != null && st.human_capacity < st.capacity
             ? ` <span style="font-weight:500;font-size:.8rem;opacity:.8">(${st.human_capacity} people, ${st.capacity - st.human_capacity} AI)</span>` : ""}</h3>
         <div class="ccT-players" id="ccT-players"></div>
@@ -998,8 +998,8 @@
     toast(`Now tap another player to swap them with ${name || "this player"}.`, "info");
   }
   function cssAttr(s) { return String(s).replace(/["\\]/g, "\\$&"); }
-  // Wire a lobby row or bracket slot so the HOST can drag it onto — or tap-select
-  // then tap — another to directly swap the two players' bracket positions.
+  // Wire a lobby row or bracket slot so the HOST can drag it onto, or tap-select
+  // then tap, another to directly swap the two players' bracket positions.
   function wireHostSwapTarget(node, pid, name) {
     if (!pid) return;
     node.dataset.swapPid = pid;
@@ -1030,12 +1030,12 @@
     row.innerHTML = `<img class="ccT-av" src="${esc(bridge().avSrc(p.avatar) || "/avatars/mullet.png")}" onerror="this.src='/avatars/mullet.png'">
       <span class="ccT-nm">${esc(p.name)} ${p.is_host ? '<span class="ccT-host-dot" title="Host">★</span>' : ""}</span>
       ${botBadge}<span class="ccT-badge ${esc(p.status)}">${statusLabel(p)}</span>`;
-    // avatar async upgrade (skip bots — their avatar is already assigned)
+    // avatar async upgrade (skip bots, their avatar is already assigned)
     if (!p.is_bot) bridge().avatarForNick(p.name).then(u => { if (u) { const img = row.querySelector(".ccT-av"); if (img) img.src = bridge().avSrc(u); } }).catch(() => {});
     if (lobby && isHost) {
       // Host arranges everyone directly: drag one card onto another, or tap two.
       wireHostSwapTarget(row, p.pid, p.name);
-      row.title = "Drag onto another player — or tap two players — to swap their spots";
+      row.title = "Drag onto another player, or tap two players, to swap their spots";
     } else if (lobby) {
       // Non-host player: drag your OWN card onto another to REQUEST a switch.
       if (p.me) {
@@ -1072,7 +1072,7 @@
     const isHost = me.is_host;
     const amReady = me.ready;
     let html = "";
-    html += `<button class="ccT-btn wide ${amReady ? "ghost" : ""}" id="ccT-ready">${amReady ? "✓ Ready — tap to unready" : "I'm Ready"}</button>`;
+    html += `<button class="ccT-btn wide ${amReady ? "ghost" : ""}" id="ccT-ready">${amReady ? "✓ Ready: tap to unready" : "I'm Ready"}</button>`;
     html += `<button class="ccT-btn wide ghost" id="ccT-view-bracket">👁 View bracket preview</button>`;
     if (isHost) {
       html += `<button class="ccT-btn wide" id="ccT-randomize">🎲 Randomize Seeding</button>`;
@@ -1082,7 +1082,7 @@
       if (!st.can_start) html += `<div style="font-size:.8rem;color:#3a6aa5;margin-top:6px">${esc(st.can_start_reason || "")}</div>`;
       html += `<button class="ccT-btn wide ghost" id="ccT-open-host">⚙ Host Controls</button>`;
     }
-    // How players get out of a match — the difference between single elimination and
+    // How players get out of a match, the difference between single elimination and
     // a top-N format is the first thing a competitor needs to know.
     const advN = st.summary ? (st.summary.advancing_per_match || 1) : 1;
     const advTxt = st.summary && st.summary.mixed_advance
@@ -1099,7 +1099,7 @@
       : "";
     html += `<div style="margin-top:14px;font-size:.85rem;color:#2b5a97;line-height:1.6">
       <b>Tip:</b> ${isHost
-        ? "drag a player onto another — or tap two players — to swap their bracket spots."
+        ? "drag a player onto another, or tap two players, to swap their bracket spots."
         : "drag your card onto another player to request a seat switch."}
       ${shapeLine}
       <br>Share code: <b>${esc(st.tournament_id)}</b>${st.visibility === "private" ? " (private)" : ""}.</div>`;
@@ -1238,7 +1238,7 @@
   const ordinalShort = (n) => n === 1 ? "winner" : n === 2 ? "runner-up" : "#" + n;
   function emptySpotText(m, si) {
     const k = (m.slot_kinds || [])[si];
-    if (!k) return "—";
+    if (!k) return "-";
     if (k.kind === "ai") return "🤖 AI";
     if (k.kind === "human") return "🧑 player";
     if (k.kind === "invite") return k.invite ? "✉️ " + k.invite : "✉️ invited";
@@ -1247,7 +1247,7 @@
       const who = ordinalShort(+k.rank || 1);
       return from ? `${k.rank > 1 ? "🎖" : "🏅"} ${who} of M${from}` : `🏅 ${who}`;
     }
-    return "—";
+    return "-";
   }
 
   function renderBracket(root) {
@@ -1255,7 +1255,7 @@
     if (!br) { root.innerHTML = `<div style="padding:40px;text-align:center;opacity:.7">The bracket appears when the tournament starts.<br>${st.phase === "lobby" ? "Add a few players to preview the bracket…" : ""}</div>`; return; }
     const hostArrange = !!(br.preview && hostCanArrange());
     const banner = br.preview
-      ? `<div class="ccT-preview-banner">👁 Preview — this is how the bracket looks right now. Empty spots fill as players join${st.fill_bots ? " (or bots fill them at start)" : ""}.${hostArrange ? " Drag a player onto another — or tap two — to swap their spots." : ""}</div>`
+      ? `<div class="ccT-preview-banner">👁 Preview, this is how the bracket looks right now. Empty spots fill as players join${st.fill_bots ? " (or bots fill them at start)" : ""}.${hostArrange ? " Drag a player onto another, or tap two, to swap their spots." : ""}</div>`
       : "";
     root.innerHTML = `${banner}<div class="ccT-bracket-wrap" id="ccT-bwrap">
         <svg class="ccT-lines" id="ccT-lines"></svg>
@@ -1273,7 +1273,7 @@
       const header = roundLabel(br, ri);
       col.appendChild(el("div", "ccT-round-label", header));
       // When one round mixes labels (e.g. a Semifinal beside a Losers Bracket
-      // match), each card names itself — the shared header can't.
+      // match), each card names itself, the shared header can't.
       const mixed = round.some(m => (m.label || "").trim() && (m.label || "").trim() !== header);
       round.forEach(m => col.appendChild(matchCard(m, st, myPath, hostArrange, mixed)));
       grid.appendChild(col);
@@ -1299,7 +1299,7 @@
     if (mine && m.status === "ready") statusTxt = "start ▶";
     else if (mine && m.status === "active") statusTxt = "enter ▶";
     // With "top N advance" more than one finisher goes through, so every advancing
-    // player is marked — and their finishing place shown, since 2nd advancing is
+    // player is marked, and their finishing place shown, since 2nd advancing is
     // meaningfully different from winning the match.
     const advancing = m.advancing || (m.winner ? [{ pid: m.winner.pid, place: 1 }] : []);
     const placeOf = {};
@@ -1342,7 +1342,7 @@
       card.addEventListener("click", (e) => {
         e.stopPropagation();
         // Act on the LIVE viewer state, not the snapshot captured when this card
-        // was drawn — the match may have flipped ready→active since then, and a
+        // was drawn, the match may have flipped ready→active since then, and a
         // stale "ready" read would pop the ready-check instead of taking you in.
         const mm = (T.state && T.state.viewer && T.state.viewer.my_match)
                 || (st.viewer && st.viewer.my_match);
@@ -1374,7 +1374,7 @@
       if (ri >= br.rounds.length - 1) return;
       round.forEach(m => {
         // feeds[i] carries finisher #(i+1), so a line only lights once THAT place
-        // has actually been decided — with top-N advancement the 1st-place line
+        // has actually been decided, with top-N advancement the 1st-place line
         // lighting says nothing about the 2nd-place one.
         const advanced = (m.advancing || (m.winner ? [m.winner] : [])).length;
         (m.feeds || []).forEach((f, wi) => {
@@ -1398,7 +1398,7 @@
     const apply = () => { grid.style.transform = `translate(${T.panX}px,${T.panY}px) scale(${T.zoom})`; const svg = $("#ccT-lines", root); if (svg) svg.style.transform = grid.style.transform; };
     let dragging = false, sx = 0, sy = 0, px = 0, py = 0;
     // The bracket is re-rendered on every SSE tick, which recreates `wrap`. Its own
-    // listeners die with the old node, but window listeners would pile up — tear the
+    // listeners die with the old node, but window listeners would pile up: tear the
     // previous pair down before wiring a fresh one so they can't accumulate.
     if (T.panHandlers) {
       window.removeEventListener("mousemove", T.panHandlers.move);
@@ -1513,7 +1513,7 @@
         _lastMatchRoom = mm.room_id;
         closeReadyLobby();
         // If we're already sitting on this match's room page (viewing the bracket
-        // over our own live game), don't auto-yank the bracket away — the player
+        // over our own live game), don't auto-yank the bracket away, the player
         // opened it on purpose. Only auto-jump when the game is on another page.
         if (!sameRoomAsCurrent(mm.room_id)) enterMatch(mm);
       }
@@ -1550,13 +1550,13 @@
     const allReady = tc > 0 && rc >= tc;
     m.innerHTML = `<div class="ccT-card" style="width:min(440px,94vw)"><div class="ccT-body" style="text-align:center">
       <div style="font-size:2.2rem">🌊</div>
-      <h2>Match ${mm.match_number} — Ready Check</h2>
+      <h2>Match ${mm.match_number}: Ready Check</h2>
       <p style="margin:2px 0 8px">Round ${mm.round_index + 1}. The game starts the instant <b>every player</b> is ready.</p>
       <div class="ccT-mr-count"><b>${rc}</b> / ${tc} ready</div>
       <div class="ccT-mr-list">${rows}</div>
       ${allReady
-        ? `<div class="ccT-mr-go">🌊 Everyone's ready — starting your match…</div>`
-        : `<button class="ccT-btn wide ${iAmReady ? "ghost" : "gold"}" id="ccT-mr-ready">${iAmReady ? "✓ You're Ready — tap to cancel" : "I'm Ready — Start Match"}</button>`}
+        ? `<div class="ccT-mr-go">🌊 Everyone's ready: starting your match…</div>`
+        : `<button class="ccT-btn wide ${iAmReady ? "ghost" : "gold"}" id="ccT-mr-ready">${iAmReady ? "✓ You're Ready: tap to cancel" : "I'm Ready: Start Match"}</button>`}
       <button class="ccT-btn wide ghost" id="ccT-mr-later">View bracket</button>
     </div></div>`;
     const rb = $("#ccT-mr-ready", m);
@@ -1585,12 +1585,12 @@
     // Are we already sitting on THIS match's room page? That happens when the
     // bracket overlay was opened on top of our own live game (via the status chip):
     // re-navigating to the same URL is a no-op, so the overlay just stays put with
-    // the game behind it — the "click my game and it keeps me on the bracket with
+    // the game behind it, the "click my game and it keeps me on the bracket with
     // the game in the background" bug. Instead, close the overlay to reveal the
     // live game underneath, and keep the watch running for our next round.
     if (sameRoomAsCurrent(roomId)) {
       // Force the live game back to the front (it may be sitting behind the
-      // overlay), THEN drop the bracket overlay so the game is actually visible —
+      // overlay), THEN drop the bracket overlay so the game is actually visible,
       // instead of leaving it running in the background. This is the fix for
       // "click Enter Your Match → stuck on the bracket, game only appears when I
       // leave the tournament": leaving worked only because it, too, closed the
@@ -1624,7 +1624,7 @@
       if (me.status === "champion") { _lastEndShownFor = "complete-" + st.version; showChampion(st); }
       else if (me.in_tournament && _lastEndShownFor !== "final-" + st.tournament_id) { _lastEndShownFor = "final-" + st.tournament_id; showFinalPlacement(st); }
     }
-    // cancelled by host — don't strand clients on a dead screen
+    // cancelled by host: don't strand clients on a dead screen
     if (st.phase === "cancelled" && _lastEndShownFor !== "cancelled-" + st.tournament_id) {
       _lastEndShownFor = "cancelled-" + st.tournament_id;
       showCancelled(st);
@@ -1659,7 +1659,7 @@
   function showFinalPlacement(st) {
     let m = $("#ccT-final"); if (!m) { m = el("div", "ccT-modal"); m.id = "ccT-final"; document.body.appendChild(m); }
     const place = st.viewer.final_place; const xp = me_xp(st);
-    // A bare "25th Place" is meaningless on its own — say what it's 25th OF, and
+    // A bare "25th Place" is meaningless on its own: say what it's 25th OF, and
     // how far the run actually got, so a big (often AI-padded) bracket reads right.
     const field = (st.participants || []).length;
     const bots = (st.participants || []).filter(p => p && p.is_bot).length;
@@ -1693,7 +1693,7 @@
       <div class="ccT-xp-row" style="border:none"><span><b>Total tournament XP</b></span><b>+${xp.total_xp} XP</b></div></div>`;
   }
   function podiumHtml(st) {
-    const p = st.final_placements || []; const nm = (pl) => { const e = p.find(x => x.place === pl); const part = (st.participants || []).find(x => x.pid === (e && e.player_id)); return part ? part.name : "—"; };
+    const p = st.final_placements || []; const nm = (pl) => { const e = p.find(x => x.place === pl); const part = (st.participants || []).find(x => x.pid === (e && e.player_id)); return part ? part.name : "-"; };
     return `<div class="ccT-podium">
       <div class="ccT-pod second"><div>🥈</div><div style="font-weight:700">${esc(nm(2))}</div><div style="opacity:.7;font-size:.8rem">2nd</div></div>
       <div class="ccT-pod first"><div>🥇</div><div style="font-weight:800">${esc(nm(1))}</div><div style="opacity:.7;font-size:.8rem">1st</div></div>
@@ -1738,7 +1738,7 @@
       const m = matchInRoom(st, cur);
       if (!m) return null;
       // Are we a PLAYER in this match, or watching it? Either way it's a bracket
-      // match and "Play Again / Back to Lobby" is wrong — a watcher has no seat to
+      // match and "Play Again / Back to Lobby" is wrong, a watcher has no seat to
       // play again with, so that button could only ever fail.
       const playing = (m.players || []).some(p => p && p.pid === st.viewer.pid);
       const finished = st.phase === "complete" || st.phase === "cancelled";
@@ -1770,7 +1770,7 @@
   };
 
   // =========================================================================
-  // STATUS SURFACE — "where do I stand in this tournament right now?"
+  // STATUS SURFACE, "where do I stand in this tournament right now?"
   // =========================================================================
   // One status element, two homes, so it is never in the player's way:
   //   • inside a game → a compact chip DOCKED INTO the game's own notice bar.
@@ -1781,13 +1781,13 @@
   //     so you can wait there and still browse your stats, friends or the menu.
   // s = { mode:"lobby"|"playing"|"waiting"|"out"|"done", name, live, canSpectate }
   //   live: how many OTHER matches are being played right now (-1 = not known yet).
-  //   "out" = knocked out while the tournament is STILL RUNNING — you have no next
+  //   "out" = knocked out while the tournament is STILL RUNNING, you have no next
   //   match, but the rest of the bracket is live and you can watch any of it.
   function chipText(s) {
-    if (s.mode === "done") return "🏆 " + (s.name || "Tournament") + " — results";
+    if (s.mode === "done") return "🏆 " + (s.name || "Tournament") + ": results";
     if (s.mode === "out") {
-      if (s.live > 0) return `👁 Knocked out — ${s.live} game${s.live === 1 ? "" : "s"} still live`;
-      return "🏆 Knocked out — follow the bracket";
+      if (s.live > 0) return `👁 Knocked out: ${s.live} game${s.live === 1 ? "" : "s"} still live`;
+      return "🏆 Knocked out: follow the bracket";
     }
     if (s.mode === "waiting") {
       if (s.live > 0) return `⏳ Waiting for ${s.live} other game${s.live === 1 ? "" : "s"} to finish`;
@@ -1801,8 +1801,8 @@
     if (s.mode === "lobby") return "Your tournament hasn't started yet.";
     if (s.mode === "playing") return "Your tournament match is in progress.";
     if (s.mode === "out") {
-      if (s.live > 0) return `You're out — ${s.live} tournament game${s.live === 1 ? "" : "s"} still being played.`;
-      return "You're out — the next round is starting.";
+      if (s.live > 0) return `You're out: ${s.live} tournament game${s.live === 1 ? "" : "s"} still being played.`;
+      return "You're out, the next round is starting.";
     }
     if (s.live > 0) return `Waiting for ${s.live} other tournament game${s.live === 1 ? "" : "s"} to finish…`;
     if (s.live === 0) return "Waiting for the next tournament round…";
@@ -1842,7 +1842,7 @@
     const txt = chipText(s);
     if (chip.textContent !== txt) chip.textContent = txt;
     chip.title = s.mode === "waiting"
-      ? "Your match is done — the other tournament games are still running. Tap for the bracket."
+      ? "Your match is done, the other tournament games are still running. Tap for the bracket."
       : "Open the tournament bracket";
     chip.classList.toggle("waiting", s.mode === "waiting");
     chip.classList.toggle("done", s.mode === "done");
@@ -1852,7 +1852,7 @@
 
   // The waiting bar lives inside the Player Home, immediately after the Quick
   // Match search bar, so it shows on every tab of the home screen (overview,
-  // stats, friends…) exactly like matchmaking does — and disappears with the
+  // stats, friends…) exactly like matchmaking does, and disappears with the
   // home screen, because it's a child of it.
   function waitBarEl() {
     let bar = document.getElementById("ccT-waitbar");
@@ -1875,13 +1875,13 @@
   function showWaitBar(s) {
     const bar = waitBarEl(); if (!bar) return;
     bar.style.display = "";
-    // The spinner means "something is being waited on" — nothing is, in the
+    // The spinner means "something is being waited on", nothing is, in the
     // pre-start lobby or once the bracket is over.
     bar.classList.toggle("nospin", s.mode === "done" || s.mode === "lobby");
     const main = $("#ccT-wb-main", bar), sub = $("#ccT-wb-sub", bar);
     if (main) main.textContent = barMain(s);
     if (sub) sub.textContent = barSub(s);
-    // Offer Spectate whenever there is (or might be) another game to watch —
+    // Offer Spectate whenever there is (or might be) another game to watch:
     // between your own matches AND after you've been knocked out. The "out" case
     // is the one players actually ask for: your run is over, the final isn't.
     const spec = $("#ccT-wb-spectate", bar);
@@ -1896,7 +1896,7 @@
   // Are we currently sitting inside a game room page (e.g. /play/ROOM)? A
   // tournament match runs as a normal game room, so while the player is IN their
   // match we must NOT slap the full-screen bracket overlay on top of the game
-  // (that was the "click your match → can't join" bug — the overlay covered the
+  // (that was the "click your match → can't join" bug, the overlay covered the
   // game and every click just re-opened the bracket). We show the return pill
   // instead so the game stays visible and the player can hop back when ready.
   function onGameRoomPage() {
@@ -1918,7 +1918,7 @@
   // Which match room the player is ACTUALLY in, upper-cased to match the
   // tournament's room ids. Prefer the game app's live room over the address bar:
   // if a match is running inline the URL may not be /play/ROOM, and a URL-only
-  // check would wrongly decide we're NOT in the room — so "Enter your match"
+  // check would wrongly decide we're NOT in the room, so "Enter your match"
   // would fail to drop the overlay and the game stayed stuck in the background.
   // "" when not in any room.
   function currentRoomId() {
@@ -1963,16 +1963,16 @@
   }
 
   // Background tournament watch. Runs whenever the bracket overlay is CLOSED but
-  // we're still in a live tournament — in our match, spectating someone else's,
+  // we're still in a live tournament, in our match, spectating someone else's,
   // or waiting it out on the Player Home. It does three things:
   //   1) Keeps us marked CONNECTED on the server (each state read refreshes our
   //      presence) so our NEXT round's match WAITS for us to ready up instead of
   //      launching without us while we're still on the previous game's end screen.
   //   2) Paints the status surface (in-game chip / home waiting bar) so the player
   //      always knows whether they're playing or waiting on the other games.
-  //   3) The moment our next match is up it brings us there — straight into the
+  //   3) The moment our next match is up it brings us there: straight into the
   //      game if it already launched, or to its ready check if it's still
-  //      gathering ready-ups — so we never get stranded on a finished game.
+  //      gathering ready-ups, so we never get stranded on a finished game.
   function startWatch() {
     stopWatch();
     if (!T.tid) return;
@@ -1990,7 +1990,7 @@
       st = r.data && r.data.ok && r.data.state;
     } catch (_) { return; }
     if (!st || !st.viewer) return;
-    // NB: don't touch T.state / T.lastVersion here — the overlay is closed so
+    // NB: don't touch T.state / T.lastVersion here, the overlay is closed so
     // nothing renders from them, and leaving lastVersion alone means opening the
     // screen (below) still triggers a fresh applyState→render instead of an
     // early-return on a matching version (which would paint a blank overlay).
@@ -2017,7 +2017,7 @@
       // A player knocked out earlier followed the rest of the bracket from here,
       // so this is the moment their run actually ends: show the result (placement
       // + XP) instead of leaving them to notice that a bar changed wording. Only
-      // from the home screen — never on top of a game table or its end screen.
+      // from the home screen, never on top of a game table or its end screen.
       if (wasOut && !myGameLive && !T.screenOpen && !onGameRoomPage()) openScreen();
       return;
     }
@@ -2025,7 +2025,7 @@
     // the rest of the bracket is live and watching it is the whole point of
     // sticking around. Lumping it in with "complete" stopped the watch (so the
     // live count froze and the final standings never arrived) and painted the
-    // "done" bar, which hides the Spectate button — the "I lost and now I can't
+    // "done" bar, which hides the Spectate button, the "I lost and now I can't
     // watch anything" bug. Keep watching, and keep offering the other games.
     if (st.viewer.status === "eliminated") {
       renderStatus(Object.assign({ mode: "out" }, base));
@@ -2054,7 +2054,7 @@
     if (!key || T.outAnnounced === key) return;
     T.outAnnounced = key;
     if (base.canSpectate === false || !(base.live > 0)) return;
-    toast(`You're out of ${st.name || "the tournament"} — ${base.live} game${base.live === 1 ? " is" : "s are"} still live. Tap Spectate to watch.`, "info");
+    toast(`You're out of ${st.name || "the tournament"}: ${base.live} game${base.live === 1 ? " is" : "s are"} still live. Tap Spectate to watch.`, "info");
   }
 
   // The end-of-game screen sits at z-index 9850 and would bury the ready check.
@@ -2063,7 +2063,7 @@
   }
 
   // =========================================================================
-  // SPECTATE — only ever offered when another match is genuinely being played
+  // SPECTATE, only ever offered when another match is genuinely being played
   // =========================================================================
   async function spectatePick() {
     let st = T.bg || T.state;
@@ -2093,12 +2093,12 @@
           "Every match in <b>" + esc(st.name || "this tournament") + "</b> has been played. Open the bracket for the final standings.");
       } else if (pending) {
         showNotice("🌊", "The next round hasn't started yet",
-          "The other games in <b>" + esc(st.name || "this tournament") + "</b> are still gathering their players. Try again in a moment — "
+          "The other games in <b>" + esc(st.name || "this tournament") + "</b> are still gathering their players. Try again in a moment: "
           + (out ? "we'll keep the bracket updated as they play." : "we'll bring you into your match the moment it's ready."));
       } else {
         showNotice("🌊", "Nothing is being played right now",
           "No match in <b>" + esc(st.name || "this tournament") + "</b> is live at the moment. "
-          + (out ? "Follow the bracket — the next round starts shortly." : "Hang tight, we'll bring you into your match the moment it's ready."));
+          + (out ? "Follow the bracket, the next round starts shortly." : "Hang tight, we'll bring you into your match the moment it's ready."));
       }
       return;
     }
@@ -2106,7 +2106,7 @@
     showWatchPicker(live);
   }
 
-  // Small "nothing to see here" card — reuses the tournament modal styling.
+  // Small "nothing to see here" card: reuses the tournament modal styling.
   function showNotice(icon, title, htmlBody) {
     let m = $("#ccT-notice");
     if (!m) { m = el("div", "ccT-modal"); m.id = "ccT-notice"; document.body.appendChild(m); }
@@ -2173,7 +2173,7 @@
       T.bg = st;
       const qp = new URLSearchParams(location.search);
       const forThisTourney = qp.get("t") === a.tid;
-      // While inside the match room itself, never cover the game with the overlay —
+      // While inside the match room itself, never cover the game with the overlay,
       // the watch shows the status chip in the game's own notice bar instead, keeps
       // us connected (so the next round waits for us) and pulls us into our next
       // match's ready check when it's up.

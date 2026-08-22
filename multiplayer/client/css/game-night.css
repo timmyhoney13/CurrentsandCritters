@@ -1,22 +1,22 @@
-/* Currents and Critters — Game Night banner.
+/* Currents and Critters: Game Night banner.
  *
  * Loaded by BOTH hosts (the marketing site via Vercel's /css/:file rewrite, and
  * the game's Player Home), because js/game-night.js renders the same markup on
  * both. Everything here is scoped under .ccGN, and every colour carries its own
- * fallback — the marketing site defines the brand tokens, Player Home does not,
+ * fallback, the marketing site defines the brand tokens, Player Home does not,
  * and the banner has to look right either way.
  *
  * It is meant to be the loudest thing on the page it sits on: on Player Home it
  * inserts itself above the challenge strip, and on the marketing site it gets
- * its own full-width band. That is deliberate — the whole point of the feature
+ * its own full-width band. That is deliberate, the whole point of the feature
  * is that nobody misses when Game Night is.
  */
 
 #cc-game-night { display: block; }
 
 /* Self-contained box model. This banner renders on TWO hosts with two
-   different CSS resets — the game's preview.css sets a global border-box, the
-   marketing site's styles.css is its own thing — and `width:100%` on the RSVP
+   different CSS resets, the game's preview.css sets a global border-box, the
+   marketing site's styles.css is its own thing, and `width:100%` on the RSVP
    button plus 24px of padding overflowed the card by exactly the padding on
    whichever host did not. Declaring it here means the banner does not care
    what it is dropped into. */
@@ -121,7 +121,7 @@
 }
 
 /* The "not mandatory but recommended" line. Quieter than the schedule, but it
-   must still be legible on the gradient — this is the sentence that decides
+   must still be legible on the gradient, this is the sentence that decides
    whether people feel they can just turn up. */
 .ccGN-note {
   margin-top: 7px;
@@ -182,7 +182,7 @@
    MARKETING SITE BAND
    The game injects the banner into Player Home's Overview panel, which
    already has its own page padding. The marketing site gives it a real
-   section instead — matching .section's 1180px measure but with far less
+   section instead: matching .section's 1180px measure but with far less
    vertical padding, because this is an announcement strip between the hero
    and the value props, not a content section of its own.
    ══════════════════════════════════════════════════════════════════════ */

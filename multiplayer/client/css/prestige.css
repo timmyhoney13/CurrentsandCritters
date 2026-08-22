@@ -1,12 +1,12 @@
-/* Currents and Critters — Prestige System styling.
+/* Currents and Critters: Prestige System styling.
  *
- * The Prestige page IS the game's coral reef. The whole screen — sidebar and
- * all — is /game-bg.png, the exact background the board is played on, and the
+ * The Prestige page IS the game's coral reef. The whole screen: sidebar and
+ * all: is /game-bg.png, the exact background the board is played on, and the
  * page's panels are the same cream glass, Nunito + Luckiest Guy, 20-26px
  * corners and #2e8fe0 blues the Player Home already uses. Nothing here invents
  * a second look: it reuses the one the game has.
  *
- * On top of the reef sit the living layers — drifting currents, light rays
+ * On top of the reef sit the living layers: drifting currents, light rays
  * through the water, rising bubbles, marine snow, swaying kelp and real
  * critters from the game swimming past. Those layers are also what the
  * unlocked PRESTIGE BACKGROUNDS are: the same reef, graded and populated
@@ -43,7 +43,7 @@
    ROOT
    ══════════════════════════════════════════════════════════════════════ */
 #cc-prestige-root {
-  /* Ocean-light palette — the Player Home's, not a new one. */
+  /* Ocean-light palette, the Player Home's, not a new one. */
   --p-ink:      #17365a;   /* body text on cream                       */
   --p-ink-soft: #5b7fa3;   /* secondary text                           */
   --p-ink-dim:  #7a9db8;   /* labels                                   */
@@ -63,7 +63,7 @@
   isolation: isolate;
   min-height: 520px;
   /* ⚠️ NO negative margin here. Widening the root to break out of .ph-wrap's
-     gutter makes it wider than the viewport, and nothing up the tree clips it —
+     gutter makes it wider than the viewport, and nothing up the tree clips it,
      which on a phone pushes the step tracker, the tiles and the right-hand half
      of every sentence off the side of the screen. The reef is already full-page
      (see the data-bg-tab rule at the top), so the root does not need to be: only
@@ -164,8 +164,8 @@
 /* Real critters from the game, swimming past. */
 .ccP-swimmers { overflow: hidden; }
 /* A critter must face the way it is travelling. The art is NOT drawn to a
-   single convention — most of the deck faces left, but the sardine, manta ray,
-   whale shark, marlin and others face right — so the mirror can't be a constant.
+   single convention, most of the deck faces left, but the sardine, manta ray,
+   whale shark, marlin and others face right, so the mirror can't be a constant.
    --sxr / --sxl are the scaleX to use when swimming right / left; JS tags each
    image with the facing of its own art (see FACING in prestige-ui.js). The
    keyframe fallbacks keep the transform valid if the class never lands. */
@@ -178,7 +178,7 @@
 }
 .ccP-swim.rtl { animation-name: ccP-swim-rtl; }
 .ccP-swim.faces-right { --sxr:  1; --sxl: -1; }
-.ccP-swim.faces-none  { --sxr:  1; --sxl:  1; }     /* no front — never mirror */
+.ccP-swim.faces-none  { --sxr:  1; --sxl:  1; }     /* no front, never mirror */
 @keyframes ccP-swim     { from { transform: translate3d(-22vw, 0, 0) scaleX(var(--sxr, -1)); } to { transform: translate3d(122vw, 0, 0) scaleX(var(--sxr, -1)); } }
 @keyframes ccP-swim-rtl { from { transform: translate3d(122vw, 0, 0) scaleX(var(--sxl, 1)); }  to { transform: translate3d(-22vw, 0, 0) scaleX(var(--sxl, 1)); } }
 
@@ -194,7 +194,7 @@
 @keyframes ccP-pulse { from { opacity: .25; } to { opacity: .85; } }
 
 /* A soft light wash so cream panels always have somewhere to sit. */
-/* Just enough lift for cream panels to sit on, and no more — the reef is the
+/* Just enough lift for cream panels to sit on, and no more, the reef is the
    point of the page, so anything that hides its coral is too much. */
 .ccP-veil {
   background:
@@ -375,6 +375,7 @@
 }
 .ccP-list li:last-child { border-bottom: none; }
 .ccP-list .ico { flex: 0 0 auto; width: 20px; text-align: center; font-size: 15px; }
+.ccP-list .ico img { width: 17px; height: 17px; object-fit: contain; vertical-align: -3px; }
 .ccP-panel.reset { border-color: rgba(224, 130, 90, .55); background: linear-gradient(165deg, #fffaf6, #fff2ea); }
 .ccP-panel.reset .ccP-panel-h { color: #a8451f; }
 .ccP-panel.keep  { border-color: rgba(18, 163, 124, .45); background: linear-gradient(165deg, #f6fffb, #eafaf3); }
@@ -445,14 +446,14 @@
 .ccP-devicebar { display: flex; gap: 7px; justify-content: center; margin-bottom: 12px; }
 /* ⚠️ `width:100%` is load-bearing. .ccP-cardprev sizes itself from its parent
    (width:100% + aspect-ratio), so a figure left to shrink-to-fit gives it a
-   near-zero width to be a percentage OF — and the compare preview collapses to
+   near-zero width to be a percentage OF, and the compare preview collapses to
    a ~50px thumbnail instead of the card it is meant to be. */
 .ccP-frame { width: 100%; margin: 0 auto; transition: max-width .2s ease; }
 .ccP-frame.mobile { max-width: 150px; }
 .ccP-frame.desktop { max-width: 212px; }
 
 /* ══════════════════════════════════════════════════════════════════════
-   ALTERNATE ANIMAL SKINS — cosmetic treatments over the EXISTING card art.
+   ALTERNATE ANIMAL SKINS: cosmetic treatments over the EXISTING card art.
    Appearance only: nothing here can touch an ability, cost, points, ocean
    requirement, interaction, rarity or balance. Nothing here changes layout.
    ══════════════════════════════════════════════════════════════════════ */
@@ -500,14 +501,14 @@
 .ccP-pv img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255, 255, 255, .7); }
 .ccP-pv .where { font-size: 9.5px; font-weight: 900; letter-spacing: .5px; text-transform: uppercase; opacity: .62; display: block; margin-bottom: 1px; }
 
-/* The rendered username — the one place a Prestige colour is drawn. Used by
+/* The rendered username, the one place a Prestige colour is drawn. Used by
    the previews here AND by every username in the game (__ccPrestigeApplyName). */
 .cc-pname { font-weight: 900; }
 .cc-pname.grad {
   background-clip: text; -webkit-background-clip: text;
   color: transparent; -webkit-text-fill-color: transparent;
 }
-/* Fallback for anything that can't paint gradient text — better a solid,
+/* Fallback for anything that can't paint gradient text: better a solid,
    readable name than an invisible one. */
 @supports not ((background-clip: text) or (-webkit-background-clip: text)) {
   .cc-pname.grad { color: inherit !important; -webkit-text-fill-color: currentColor !important; background: none !important; }
@@ -700,7 +701,7 @@
 }
 @keyframes ccP-celwave { from { transform: translateY(105%) scaleY(1.4); } to { transform: translateY(-105%) scaleY(1); } }
 /* The one number the whole screen is about. White on a bright reef disappears,
-   so it is the game's gold with a deep-navy edge — readable on every scene's
+   so it is the game's gold with a deep-navy edge: readable on every scene's
    grade, light or dark. */
 .ccP-cel-num {
   font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400;
@@ -754,7 +755,7 @@
 /* ══════════════════════════════════════════════════════════════════════
    THE SIGN-IN ASK
    Shown once per sign-in while a player is sitting at the level cap.
-   Prestige is optional — this is an invitation, not a gate, so it closes on
+   Prestige is optional, this is an invitation, not a gate, so it closes on
    Escape, on a backdrop tap, and on a big obvious "Not right now".
    ══════════════════════════════════════════════════════════════════════ */
 .ccP-ask-bg {

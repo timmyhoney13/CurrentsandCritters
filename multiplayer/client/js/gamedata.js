@@ -1,5 +1,5 @@
 /* ================================================================
- * Currents and Critters — shared game data, one source of truth.
+ * Currents and Critters: shared game data, one source of truth.
  *
  * These tables used to live inside js/preview-app.js. They now live here
  * so BOTH the game and the standalone How to Play page (rules.html) read
@@ -89,9 +89,9 @@
   // FAMILY_COLORS key, i.e. the colour the game glows that family in.
   const SPECIES_GUIDE = [
     { key: "baitfish",     name: "Bait Fish",     art: "mullet",         n: 20, slot: "Surface (top)",
-      txt: "Free to play, every single one. Alone they are worth almost nothing — five <i>different</i> baitfish on your board is worth 30." },
+      txt: "Free to play, every single one. Alone they are worth almost nothing: five <i>different</i> baitfish on your board is worth 30." },
     { key: "bird",         name: "Birds",         art: "horned-puffin",  n: 28, slot: "Surface (top)",
-      txt: "The surface family. Most of them count something — other birds, crustaceans, matching symbols — and the Horned Puffin simply hands you another play." },
+      txt: "The surface family. Most of them count something, other birds, crustaceans, matching symbols, and the Horned Puffin simply hands you another play." },
     { key: "cephalopod",   name: "Cephalopods",   art: "common-octopus", n: 13, slot: "Left &amp; right",
       txt: "Squid, octopus and cuttlefish. All cheap, and every one of them is worth more the moment you have three out." },
     { key: "coral",        name: "Coral",         art: "staghorn-coral", n: 9,  slot: "Ocean floor (bottom)",

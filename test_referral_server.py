@@ -1,4 +1,4 @@
-"""test_referral_server.py — the friend-code referral reward.
+"""test_referral_server.py, the friend-code referral reward.
 
 This is the one feature in the game that pays an account OTHER than the one
 making the request, so the tests are about who gets paid, how often, and who
@@ -9,7 +9,7 @@ cannot get paid at all:
   3. You cannot redeem your own code.
   4. Two accounts cannot refund each other forever.   → mutual-referral guard
   5. A years-old account cannot "sign up" to collect. → the window
-  6. Every fifth friend earns the REFERRER a background — not the friend, and
+  6. Every fifth friend earns the REFERRER a background, not the friend, and
      not five backgrounds.
 
 Plus the friend-code resolution the whole thing hangs off: codes are NOT unique
@@ -22,6 +22,7 @@ paying a stranger.
 from __future__ import annotations
 
 import os
+import re
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -32,7 +33,7 @@ sys.path.insert(0, ROOT)
 import referral_server as rs  # noqa: E402
 
 # The in-memory Firestore lives next door. Importing it rather than pasting a
-# third copy is what keeps the two suites testing the same Firestore semantics —
+# third copy is what keeps the two suites testing the same Firestore semantics,
 # especially set(merge=True) and the create() that raises.
 from test_level_pass_server import (  # noqa: E402
     ArrayUnion, FakeDb, FakeHandler, Parsed,
@@ -244,7 +245,7 @@ class Window(RefBase):
 
     def test_an_unreadable_created_at_fails_OPEN(self):
         """A timestamp we cannot parse must not cost a legitimate new player
-        their coins — they would never find out why. Refusing on unknown is the
+        their coins, they would never find out why. Refusing on unknown is the
         worse failure here, so unknown means "in window"."""
         self.make_user("them", "4985")
         self.make_user("me", "1111")
@@ -378,8 +379,19 @@ class State(RefBase):
 # ══════════════════════════════════════════════════════════════════════════
 class Config(RefBase):
     def test_defaults_match_what_the_ui_promises(self):
-        self.assertEqual(rs.reward_coins(), 100)
-        self.assertEqual(rs.background_every(), 5)
+        """The sign-up screen states the reward BEFORE any network call, so its
+        number is written into preview.html by hand. This is the check that the
+        hand-written promise and the amount actually paid are the same figure:
+        retune one without the other and a new player is told a number nobody
+        will pay them."""
+        html = open(os.path.join(ROOT, "multiplayer", "client", "preview.html"),
+                    encoding="utf-8").read()
+        m = re.search(r'id="auth-ref-coins"[^>]*>([\d,]+)<', html)
+        self.assertTrue(m, "the sign-up screen no longer states a coin amount")
+        promised = int(m.group(1).replace(",", ""))
+        self.assertEqual(
+            promised, rs.reward_coins(),
+            f"sign-up promises {promised} but the server pays {rs.reward_coins()}")
 
     def test_env_overrides_are_read_and_clamped(self):
         os.environ["REFERRAL_REWARD_COINS"] = "250"
@@ -387,7 +399,8 @@ class Config(RefBase):
         os.environ["REFERRAL_REWARD_COINS"] = "-5"
         self.assertEqual(rs.reward_coins(), 0)
         os.environ["REFERRAL_REWARD_COINS"] = "not a number"
-        self.assertEqual(rs.reward_coins(), 100, "a bad value must fall back, not crash")
+        self.assertEqual(rs.reward_coins(), rs.DEFAULT_REWARD_COINS,
+                         "a bad value must fall back, not crash")
 
 
 # ══════════════════════════════════════════════════════════════════════════

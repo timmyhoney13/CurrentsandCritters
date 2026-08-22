@@ -1,4 +1,4 @@
-/* Currents and Critters — Prestige System UI (self-contained module).
+/* Currents and Critters: Prestige System UI (self-contained module).
  *
  * Renders the whole "Prestige" Player-Home page into #cc-prestige-root, plus
  * the pieces of Prestige that show up OUTSIDE that page:
@@ -26,7 +26,7 @@
   function bridge() { return window.__ccPrestige; }
   // A MISSING bridge means preview-app.js never reached the line that defines
   // one. Registering anyway (and re-checking at click time) is what stops the
-  // tab from being permanently, silently blank — the exact failure the Clans
+  // tab from being permanently, silently blank, the exact failure the Clans
   // tab shipped with once already.
   if (bridge() && bridge().ENABLED === false) return;
 
@@ -41,10 +41,13 @@
   };
   const num = (v, d) => { const n = Number(v); return Number.isFinite(n) ? n : (d || 0); };
   const fmt = (n) => num(n).toLocaleString();
+  // The Critter Coin. The minted turtle coin, never the generic emoji, so the
+  // currency looks like one thing everywhere it is named.
+  const COIN_IMG = '<img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false">';
   const toast = (m, t) => { try { bridge().toast(m, t); } catch (_) {} };
   const avSrc = (u) => { try { return bridge().avSrc(u); } catch (_) { return u; } };
 
-  // The bridge's post() resolves to an ENVELOPE — { ok, status, data } — where
+  // The bridge's post() resolves to an ENVELOPE: { ok, status, data }, where
   // `data` is the server's JSON body. Everything below reads the SERVER payload
   // (res.ok, res.prestige, res.avatars…), so unwrap in exactly one place.
   // Getting this wrong is what once rendered a whole tab blank with nothing in
@@ -69,24 +72,24 @@
   }
 
   const ERR = {
-    unavailable: "Prestige didn't finish loading — please refresh the page.",
+    unavailable: "Prestige didn't finish loading: please refresh the page.",
     unauthorized: "Sign in to use Prestige.",
-    firestore_unavailable: "Prestige is temporarily unavailable — try again shortly.",
-    no_account: "We couldn't find your account — try signing in again.",
+    firestore_unavailable: "Prestige is temporarily unavailable: try again shortly.",
+    no_account: "We couldn't find your account: try signing in again.",
     not_max_level: "You haven't reached the maximum level yet.",
     already_prestiged: "That Prestige has already been completed.",
     prestige_cap: "You've reached the highest Prestige there is. Incredible.",
     confirm_required: "Type PRESTIGE in the confirmation box first.",
-    idempotency_required: "Something went wrong starting the Prestige — please try again.",
+    idempotency_required: "Something went wrong starting the Prestige: please try again.",
     avatars_required: "Choose the two critters you want to keep.",
     avatars_count: "Choose exactly two critters to keep.",
     avatar_not_owned: "One of those critters isn't unlocked on your account.",
-    avatar_already_kept: "That critter stays automatically — choose one that would relock.",
+    avatar_already_kept: "That critter stays automatically: choose one that would relock.",
     skin_required: "Choose an animal and a skin style.",
     skin_unknown_animal: "That animal isn't in Currents and Critters.",
     skin_unknown_style: "That skin style doesn't exist.",
     skin_style_locked: "That skin style unlocks at a higher Prestige.",
-    skin_already_owned: "You already own that skin — pick a different one.",
+    skin_already_owned: "You already own that skin: pick a different one.",
     color_choice_required: "Choose your name colour to continue.",
     color_locked: "You haven't unlocked that name colour.",
     custom_color_locked: "Custom colours unlock at Prestige 4.",
@@ -95,10 +98,10 @@
     effect_locked: "You haven't unlocked that name effect.",
     background_locked: "You haven't unlocked that background.",
     skin_locked: "You don't own that animal skin.",
-    color_unreadable: "That colour is too hard to read against the game's backgrounds — try a stronger one.",
+    color_unreadable: "That colour is too hard to read against the game's backgrounds: try a stronger one.",
     color_reserved: "That colour is reserved for game staff and system messages.",
     bad_color: "That isn't a valid colour.",
-    server_error: "Something went wrong — try again.",
+    server_error: "Something went wrong: try again.",
   };
   const errMsg = (e) => ERR[e] || ("Something went wrong (" + esc(e || "unknown") + ").");
   // The one sentence shown when a commit fails. It is the truth: a failed
@@ -162,7 +165,7 @@
     document.body.classList.toggle("ccP-still-names", S.still);
   }
 
-  // Anything animating stops when the page is not visible — the difference
+  // Anything animating stops when the page is not visible, the difference
   // between a background tab costing nothing and costing a phone's battery.
   document.addEventListener("visibilitychange", () => {
     const hidden = document.hidden;
@@ -172,11 +175,11 @@
 
   // ══════════════════════════════════════════════════════════════════════
   //  THE LIVING OCEAN SCENE
-  //  Also the renderer for every unlocked Prestige background — the scenes
+  //  Also the renderer for every unlocked Prestige background, the scenes
   //  ARE the backgrounds, which is why they can move.
   // ══════════════════════════════════════════════════════════════════════
   // Real critters from the game, used as the drifting silhouettes. No stock
-  // art, no placeholders — these are the same PNGs the Avatar Gallery uses.
+  // art, no placeholders, these are the same PNGs the Avatar Gallery uses.
   const SCENE_CRITTERS = {
     shallows:  ["mullet", "sardine", "bottlenose-dolphin", "flying-fish"],
     kelp:      ["blue-tang", "sea-star", "california-gull", "spiny-lobster"],
@@ -191,13 +194,13 @@
   };
 
   // Which way each critter's ARTWORK points before any mirroring. The deck has
-  // no single convention — most animals are drawn facing left, but the sardine,
-  // manta ray, whale shark, marlin and others were drawn facing right — so a
+  // no single convention, most animals are drawn facing left, but the sardine,
+  // manta ray, whale shark, marlin and others were drawn facing right, so a
   // blanket flip makes half the ocean swim backwards. Every entry below was
   // checked against the actual PNG. "none" = no front to speak of (corals,
   // anemones, a sea star, a head-on bird): those are never mirrored, because
   // mirroring symmetrical art is a no-op at best and looks like a jitter at worst.
-  // Anything the scenes use MUST be listed here — test_prestige_ui.js fails the
+  // Anything the scenes use MUST be listed here: test_prestige_ui.js fails the
   // build otherwise, so a new scene critter can't silently swim tail-first.
   const FACING = {
     // ── faces right ──
@@ -330,7 +333,7 @@
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  //  BADGE ART — SVG, so it costs nothing and scales beside any username
+  //  BADGE ART: SVG, so it costs nothing and scales beside any username
   // ══════════════════════════════════════════════════════════════════════
   const BADGE_ART = {
     wave: '<path d="M1 9c2.5-3 4.5-3 7 0s4.5 3 7 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>',
@@ -409,7 +412,7 @@
       ? new Date(meta.last_prestige_at * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
       : "";
     _tip = el("div", "cc-pbadge-tip");
-    // Public information only — level, title, XP bonus, date. Never coins,
+    // Public information only: level, title, XP bonus, date. Never coins,
     // never history, never anything else off the account.
     _tip.innerHTML = "<b>Prestige " + lvl + "</b>"
       + '<div class="r">' + esc(title) + "</div>"
@@ -453,7 +456,7 @@
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  //  USERNAME APPEARANCE — one renderer, used everywhere a name is drawn
+  //  USERNAME APPEARANCE, one renderer, used everywhere a name is drawn
   // ══════════════════════════════════════════════════════════════════════
   function hexToRgb(h) {
     const m = /^#?([0-9a-f]{6})$/i.exec(String(h || "").trim());
@@ -480,7 +483,7 @@
    *  surface is the obvious-looking version and it is backwards: a pale yellow
    *  on the light Player Home would be given the WHITE plate, which makes an
    *  already-faint name fainter. A light colour needs a dark plate and a dark
-   *  colour needs a light one — that is what makes every accepted colour land
+   *  colour needs a light one, that is what makes every accepted colour land
    *  at ≥ 4.25:1 (see best_plated_contrast in prestige_server.py). */
   function plateFor(rgb) {
     return contrast(rgb, PLATE_DARK) >= contrast(rgb, PLATE_LIGHT)
@@ -586,7 +589,7 @@
   let _byNameQueue = [];
   let _lookupTimer = null;
 
-  /** Same as lookup(), but keyed on the DISPLAY NAME — which is all an in-game
+  /** Same as lookup(), but keyed on the DISPLAY NAME, which is all an in-game
    *  seat, the end-game summary or a tournament bracket ever has. */
   function lookupByName(names) {
     const want = (Array.isArray(names) ? names : [names])
@@ -611,7 +614,7 @@
             else _byNameMiss[n] = 1;
           });
         } else {
-          // Retryable — never poison the cache on a failed request.
+          // Retryable, never poison the cache on a failed request.
           batch.forEach((n) => { delete _byNameMiss[n]; });
         }
         resolve(done());
@@ -644,7 +647,7 @@
             else { _nameMiss[u] = 1; }
           });
         } else {
-          // A failed lookup must be retryable — do NOT poison the cache.
+          // A failed lookup must be retryable: do NOT poison the cache.
           batch.forEach((u) => { delete _nameMiss[u]; });
         }
         resolve(done());
@@ -755,7 +758,7 @@
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  //  RENDER — root + shell
+  //  RENDER: root + shell
   // ══════════════════════════════════════════════════════════════════════
   function root() { return $("#cc-prestige-root"); }
 
@@ -904,7 +907,7 @@
     return '<div class="ccP-body"><div class="ccP-locked">'
       + '<div class="big">🔒 Prestige unlocks at Level ' + fmt(st.max_level) + "</div>"
       + '<div class="sm">You\'re Level ' + fmt(st.level) + " with <b>" + fmt(st.xp_to_max)
-      + " XP</b> to go. Everything below is waiting for you — nothing here can be bought or skipped.</div>"
+      + " XP</b> to go. Everything below is waiting for you, nothing here can be bought or skipped.</div>"
       + '<button class="ccP-ride" disabled aria-disabled="true" style="margin-top:16px">Ride the Next Current</button>'
       + "</div></div>";
   }
@@ -932,7 +935,7 @@
           + esc(s.label) + "</button>";
       }).join("") + "</div>";
   }
-  // How many critters this Prestige needs the player to keep. Normally two —
+  // How many critters this Prestige needs the player to keep. Normally two,
   // but the SERVER lowers it when the account has fewer relockable critters
   // than that, and the wizard has to agree or it would demand a selection that
   // cannot be made (see keep_quota in prestige_server.py).
@@ -993,7 +996,7 @@
       + '<div class="ccP-rw-desc">' + desc + "</div>"
       + (from ? '<div class="ccP-rw-from">' + from + "</div>" : "") + "</div>";
 
-    const coin = '<img src="/critter-coin.png?v=1" alt="">';
+    const coin = COIN_IMG;
     return '<div class="ccP-rewards">'
       + card(coin, "Critter Coins", fmt(nxt.coins), "gold",
         "Paid into your wallet the moment the Prestige completes, with a transaction record.",
@@ -1004,16 +1007,16 @@
       + card("🛒", "Critter Coin store bonus", "+" + num(nxt.store_bonus_pct) + "%", "",
         "Extra coins on every Critter Coin package you buy. The price never changes.",
         "Now <b>+" + num(p.store_bonus_pct) + "%</b> → <b>+" + num(nxt.store_bonus_pct) + "%</b>")
-      + card("🌊", "Prestige background", esc(bg.name || "—"), "",
-        esc(bg.blurb || "") + " A living scene — currents, light, bubbles and critters — yours forever.",
+      + card("🌊", "Prestige background", esc(bg.name || "-"), "",
+        esc(bg.blurb || "") + " A living scene: currents, light, bubbles and critters: yours forever.",
         "Prestige " + num(nxt.prestige) + " background")
       + card("🎨", "Alternate animal skin", "1 animal", "",
-        "Pick any animal in the game and unlock an exclusive skin for it. Appearance only — it changes nothing about how the card plays.",
+        "Pick any animal in the game and unlock an exclusive skin for it. Appearance only, it changes nothing about how the card plays.",
         (nxt.skin_styles || []).length + " styles available to you")
       + card("🏷️", "Name colour", colors || "New options", "",
         colors ? "Wear it anywhere your name appears." : "New username customisation unlocks.",
         extras.length ? "Also unlocks " + esc(extras.join(", ")) : "")
-      + card(badgeHtml(num(nxt.prestige), { large: true, decorative: true }) || "🏅", "Prestige badge", esc(badge.name || "—"), "",
+      + card(badgeHtml(num(nxt.prestige), { large: true, decorative: true }) || "🏅", "Prestige badge", esc(badge.name || "-"), "",
         "Shown beside your username across the whole game.", "")
       + "</div>";
   }
@@ -1063,11 +1066,11 @@
       + '<div class="ccP-panel-h">🐟 ' + (need === 1 ? "Keep one critter" : "Keep two critters") + "</div>"
       + '<div class="ccP-panel-sub">'
       + (need === 0
-        ? "Nothing you own would relock, so there's nothing to choose here — everything you have stays."
+        ? "Nothing you own would relock, so there's nothing to choose here, everything you have stays."
         : (need === 1
           ? "You only have one critter that would relock, so keeping it is the whole choice."
           : "These two stay unlocked through the reset. Everything else you earned by playing "
-            + "relocks and has to be earned again — the same way you got it the first time."))
+            + "relocks and has to be earned again, the same way you got it the first time."))
       + "</div>"
       + '<div class="ccP-toolbar"><div class="ccP-panel-sub" style="margin:0">'
       + fmt(av.eligible.length) + " critters would relock.</div>"
@@ -1075,7 +1078,7 @@
       + S.keep.length + " of " + need + "</div></div>"
       + (av.eligible.length
         ? '<div class="ccP-grid">' + av.eligible.map((p) => tile(p, "elig")).join("") + "</div>"
-        : '<div class="ccP-ok">You have no critters that would relock — nothing to choose.</div>')
+        : '<div class="ccP-ok">You have no critters that would relock, nothing to choose.</div>')
       + (S.keep.length ? '<div class="ccP-panel-sub" style="margin:12px 0 0">'
         + "On your profile they'll look like this:</div>" + profilePreviewHtml() : "")
       + "</div>"
@@ -1205,7 +1208,7 @@
         }).join("") + "</div>";
     } else if (autoColors.length) {
       picker = '<div class="ccP-ok">Prestige ' + num(nxt.prestige) + " unlocks <b>"
-        + esc(colorNames(autoColors)) + "</b> automatically — no choice needed.</div>";
+        + esc(colorNames(autoColors)) + "</b> automatically, no choice needed.</div>";
     } else {
       const bits = [];
       if (nxt.custom_color) bits.push("the custom solid-colour creator (colour wheel, sliders and a hex field)");
@@ -1217,7 +1220,7 @@
       });
       picker = bits.length
         ? '<div class="ccP-ok">Prestige ' + num(nxt.prestige) + " unlocks " + esc(bits.join(", "))
-          + ". You'll set it up in <b>Name Appearance</b> after the Prestige — no choice needed here.</div>"
+          + ". You'll set it up in <b>Name Appearance</b> after the Prestige, no choice needed here.</div>"
         : '<div class="ccP-ok">No new name colour at this Prestige. Everything you have already unlocked stays.</div>';
     }
 
@@ -1226,7 +1229,7 @@
       + picker
       + '<div class="ccP-panel-sub" style="margin-top:14px">How it looks, on light and dark surfaces:</div>'
       + previewStrip(nick, meta)
-      + '<div class="ccP-panel-sub" style="margin-top:10px">Colours are added on top of your name, never instead of it — '
+      + '<div class="ccP-panel-sub" style="margin-top:10px">Colours are added on top of your name, never instead of it: '
       + "a name that would be hard to read gets a subtle plate behind it automatically, and staff/system colours can't be used.</div>"
       + "</div>";
   }
@@ -1275,7 +1278,7 @@
       + li("🛡️", "Clan membership, role, season points and clan stats")
       + li("👥", "Friends, messages and trade history")
       + li("📊", "Lifetime statistics, match history and completed achievements")
-      + li("🪙", "Critter Coins — and this Prestige adds more")
+      + li(COIN_IMG, "Critter Coins, and this Prestige adds more")
       + li("💳", "Everything bought with coins or real money: avatars, backgrounds, cosmetics")
       + li("🎟️", "Limited-time, event and competitive-rank avatars")
       + li("🌊", "Every previous Prestige reward: badges, name colours, skins, backgrounds")
@@ -1314,8 +1317,8 @@
         ? esc(colorNames([S.colorPick]))
         : (colorChoiceNeeded() ? '<span style="color:#ffd7dc">none selected</span>'
           : (colorNames(nxt.colors) || "no new colour at this Prestige")))
-      + kv("New background", esc(bg.name || "—"))
-      + kv("New badge", esc(badge.name || "—") + " " + badgeHtml(num(nxt.prestige)))
+      + kv("New background", esc(bg.name || "-"))
+      + kv("New badge", esc(badge.name || "-") + " " + badgeHtml(num(nxt.prestige)))
       + kv("Critters relocking", fmt(Math.max(0, ((S.state.avatars || {}).eligible || []).length - S.keep.length)))
       + "</dl></div>" + resetKeepHtml();
   }
@@ -1367,15 +1370,15 @@
     if (!h.length) return "";
     const map = animalMap();
     const rows = h.slice().reverse().map((e) => {
-      const when = e.at ? new Date(e.at * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
+      const when = e.at ? new Date(e.at * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "-";
       const kept = (e.avatars_kept || []).map((p) => esc((map[String(p).toLowerCase()] || {}).name || p)).join(" · ");
-      const skin = e.skin ? esc(String(e.skin.style)) + " " + esc(String(e.skin.animal).replace(/-/g, " ")) : "—";
+      const skin = e.skin ? esc(String(e.skin.style)) + " " + esc(String(e.skin.animal).replace(/-/g, " ")) : "-";
       return '<div class="ccP-hist-row"><div class="ccP-hist-n">' + num(e.prestige) + "</div>"
         + '<div class="ccP-hist-b"><b>' + esc(e.title || titleFor(e.prestige)) + "</b> · " + esc(when)
         + "<br>Level " + fmt(e.level_before) + " before the reset · <b>+" + fmt(e.coins) + "</b> Critter Coins"
-        + "<br>Kept: " + (kept || "—") + " · Skin: " + skin
-        + "<br>Background: " + esc((e.background && e.background.name) || "—")
-        + " · Badge: " + esc((e.badge && e.badge.name) || "—")
+        + "<br>Kept: " + (kept || "-") + " · Skin: " + skin
+        + "<br>Background: " + esc((e.background && e.background.name) || "-")
+        + " · Badge: " + esc((e.badge && e.badge.name) || "-")
         + "<br>XP bonus after: <b>+" + Math.round(num(e.xp_multiplier) * 100 - 100) + "%</b>"
         + " · Store bonus after: <b>+" + num(e.store_bonus_pct) + "%</b></div></div>";
     }).join("");
@@ -1434,7 +1437,7 @@
       const need = keepQuota();
       if (i >= 0) S.keep.splice(i, 1);
       else if (S.keep.length < need) S.keep.push(p);
-      else { toast("You can keep " + need + " critters — tap one to swap it out.", "info"); return; }
+      else { toast("You can keep " + need + " critters: tap one to swap it out.", "info"); return; }
       paint();
     }));
 
@@ -1550,7 +1553,7 @@
     const nick = (bridge() && bridge().nickname && bridge().nickname()) || "You";
     const meta = { level: num(res.prestige), title: res.title,
                    name: appearanceToName({ mode: "default" }) };
-    // Show the new colour if this Prestige granted exactly one — otherwise the
+    // Show the new colour if this Prestige granted exactly one, otherwise the
     // player picks in Name Appearance and we don't guess for them.
     const newColor = (res.colors_unlocked || [])[0];
     if (newColor) {
@@ -1578,10 +1581,10 @@
       + '<div class="ccP-cel-msg">Your level has returned to Level 1, but your journey has made you stronger. '
       + "Enjoy your new rewards and begin your next adventure through the oceans of Currents and Critters.</div>"
       + '<div class="ccP-cel-grid">'
-      + celCard("🪙", "Critter Coins", "+" + fmt(res.coins_awarded), "Balance: " + fmt(res.coins_total))
+      + celCard(COIN_IMG, "Critter Coins", "+" + fmt(res.coins_awarded), "Balance: " + fmt(res.coins_total))
       + celCard("⭐", "Permanent XP bonus", "+" + num(res.xp_bonus_pct) + "%", "From every XP source")
       + celCard("🛒", "Store bonus", "+" + num(res.store_bonus_pct) + "%", "On bought coin packs")
-      + celCard("🌊", "Background", esc(bg.name || "—"), esc(bg.blurb || ""))
+      + celCard("🌊", "Background", esc(bg.name || "-"), esc(bg.blurb || ""))
       + (skinAnimal && skinStyle ? celCard("🎨", "Animal skin",
         esc(skinStyle.name) + " " + esc(skinAnimal.name), "Appearance only") : "")
       + celCard("🏷️", "Name colour", nameHtml(nick, meta, { surface: "dark", badge: false }),
@@ -1602,7 +1605,7 @@
     ov.classList.add("open");
     ov.classList.toggle("ccP-paused", document.hidden);
 
-    // NOTHING is auto-equipped — every cosmetic is opt-in from these buttons.
+    // NOTHING is auto-equipped, every cosmetic is opt-in from these buttons.
     const close = () => { ov.classList.remove("open"); ov.innerHTML = ""; };
     ov.querySelectorAll("[data-cel]").forEach((b) => b.addEventListener("click", async () => {
       const what = b.getAttribute("data-cel");
@@ -1632,7 +1635,7 @@
     const cur = (S.state && S.state.prestige && S.state.prestige.appearance) || {};
     const next = Object.assign({}, cur, patch || {});
     const res = await post("appearance", { appearance: next });
-    if (!res || !res.ok) { toast(res ? errMsg(res.error) : "Couldn't save that — try again.", "err"); return false; }
+    if (!res || !res.ok) { toast(res ? errMsg(res.error) : "Couldn't save that: try again.", "err"); return false; }
     if (S.state && S.state.prestige) S.state.prestige.appearance = res.appearance;
     if (S.mine) S.mine.name = appearanceToName(res.appearance);
     try { bridge().onAppearance && bridge().onAppearance(res.appearance); } catch (_) {}
@@ -1760,7 +1763,7 @@
           + '<div class="ccP-panel-sub">Shown behind your profile and on your Prestige page.</div>'
           + '<div class="ccP-grid">' + bgs + "</div></div>" : "")
         + (skins ? '<div class="ccP-panel"><div class="ccP-panel-h">Alternate animal skins</div>'
-          + '<div class="ccP-panel-sub">Cosmetic only — they change how your card art looks to you and nothing else.</div>'
+          + '<div class="ccP-panel-sub">Cosmetic only, they change how your card art looks to you and nothing else.</div>'
           + '<div class="ccP-grid">' + skins + "</div>"
           + '<label class="ccP-panel-sub" style="display:flex;gap:9px;align-items:center;margin-top:10px;cursor:pointer">'
           + '<input type="checkbox" id="ccP-skinsoff"' + (app.skins_off ? " checked" : "") + ">"
@@ -1810,7 +1813,7 @@
           appearance: Object.assign({}, app, { mode: "custom", color: v }),
         });
         const msg = $("#ccP-cc-msg", box);
-        if (!res || !res.ok) { if (msg) msg.textContent = res ? errMsg(res.error) : "Couldn't save that — try again."; return; }
+        if (!res || !res.ok) { if (msg) msg.textContent = res ? errMsg(res.error) : "Couldn't save that: try again."; return; }
         S.state.prestige.appearance = res.appearance;
         if (S.mine) S.mine.name = appearanceToName(res.appearance);
         try { bridge().onAppearance && bridge().onAppearance(res.appearance); } catch (_) {}
@@ -1830,7 +1833,7 @@
         if (midEl && midEl.value && !midEl.disabled) g.mid = midEl.value;
         const res = await post("appearance", { appearance: Object.assign({}, app, g) });
         const msg = $("#ccP-g-msg", box);
-        if (!res || !res.ok) { if (msg) msg.textContent = res ? errMsg(res.error) : "Couldn't save that — try again."; return; }
+        if (!res || !res.ok) { if (msg) msg.textContent = res ? errMsg(res.error) : "Couldn't save that: try again."; return; }
         S.state.prestige.appearance = res.appearance;
         if (S.mine) S.mine.name = appearanceToName(res.appearance);
         try { bridge().onAppearance && bridge().onAppearance(res.appearance); } catch (_) {}
@@ -1890,7 +1893,7 @@
    *
    *  Dismissal is per SESSION, not forever: Prestige is always optional, but a
    *  player sitting at the cap should be reminded it is waiting each time they
-   *  come back — not silenced permanently by one stray tap on the ✕. */
+   *  come back, not silenced permanently by one stray tap on the ✕. */
   function notice(host) {
     if (!host) return false;
     const st = S.state;
@@ -1921,7 +1924,7 @@
 
   // ══════════════════════════════════════════════════════════════════════
   //  THE SIGN-IN ASK
-  //  Prestige is ALWAYS optional — but a player who has reached the end of the
+  //  Prestige is ALWAYS optional, but a player who has reached the end of the
   //  current gets asked, in the game's own voice, every time they sign in.
   //  "Not right now" costs nothing and the ask returns next session; it never
   //  starts anything on its own and it never blocks the game behind it.
@@ -1961,14 +1964,14 @@
       + '<div class="ccP-ask-badge">' + (badgeHtml(num(nxt.prestige), { large: true }) || "🌊") + "</div>"
       + '<h2 class="ccP-title" id="ccP-ask-h">You have reached the end of this current!</h2>'
       + '<div class="ccP-sub">Ride the next current to return to Level 1 and unlock permanent Prestige rewards. '
-      + "You can do this whenever you like — nothing expires, and we'll ask again next time you sign in.</div>"
+      + "You can do this whenever you like, nothing expires, and we'll ask again next time you sign in.</div>"
       + '<div class="ccP-ask-grid">'
-      + askCard('<img src="/critter-coin.png?v=1" alt="">', fmt(nxt.coins), "Critter Coins")
+      + askCard(COIN_IMG, fmt(nxt.coins), "Critter Coins")
       + askCard("⭐", "+" + num(nxt.xp_bonus_pct) + "%", "Permanent XP")
       + askCard("🛒", "+" + num(nxt.store_bonus_pct) + "%", "Store bonus")
       + askCard("🎨", "1 animal", "Alternate skin")
-      + askCard("🌊", esc(bg.name || "—"), "New background")
-      + askCard("🏅", esc(badge.name || "—"), "New badge")
+      + askCard("🌊", esc(bg.name || "-"), "New background")
+      + askCard("🏅", esc(badge.name || "-"), "New badge")
       + "</div>"
       + '<div class="ccP-ask-keep">You keep your competitive rank, clan, friends, coins, achievements, '
       + "lifetime stats and everything you have ever bought.</div>"
@@ -1976,7 +1979,7 @@
       + '<button class="ccP-ride" type="button" data-ask="go">View Prestige Rewards</button>'
       + '<button class="ccP-btn ghost" type="button" data-ask="later">Not right now</button>'
       + "</div></div></div>";
-    // The same living ocean as the page — this is the doorway into it.
+    // The same living ocean as the page, this is the doorway into it.
     // Guarded: an overlay whose scene failed to mount is still perfectly
     // usable, but one that THREW here would leave a half-built modal on screen
     // with no way to close it.
@@ -2023,7 +2026,7 @@
   //  two attributes:  data-cc-pname="<uid|nickname>"  data-cc-surface="dark".
   //  This sweep resolves them (uid or name), applies the colour/effect and
   //  drops the badge in beside it. One call after any render is enough, and
-  //  re-running it is free — already-decorated nodes are skipped.
+  //  re-running it is free: already-decorated nodes are skipped.
   //
   //  Doing it this way instead of editing every render path is what makes the
   //  colours CONSISTENT: leaderboards, friends, clan rosters, in-game seats,

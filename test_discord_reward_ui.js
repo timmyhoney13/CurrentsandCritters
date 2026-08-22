@@ -1,23 +1,23 @@
-/* Discord join reward — client module test (node vm + a small DOM stub).
+/* Discord join reward: client module test (node vm + a small DOM stub).
  *
  * Loads the REAL js/discord-reward.js against a stub __ccDiscord bridge and
  * pins the rules where a silent failure would be invisible until a player hit
- * it — or, worse, would advertise coins that don't exist:
+ * it, or, worse, would advertise coins that don't exist:
  *
  *   • the chip is HIDDEN unless the server says the offer is on, including when
  *     the /state request fails outright (never advertise on a failure)
- *   • it says "+250 Critter Coins" before, and "claimed" after — and once
+ *   • it says "+250 Critter Coins" before, and "claimed" after, and once
  *     claimed it is not a button any more
  *   • the Discord window is opened SYNCHRONOUSLY inside the click, before the
  *     network call, or every pop-up blocker kills the flow
  *   • the result is only accepted from OUR origin and only when it is our
- *     message — a page in another tab cannot hand the game a fake "ok"
+ *     message, a page in another tab cannot hand the game a fake "ok"
  *   • closing the window without finishing puts the chip back, it never sticks
  *     on "Checking with Discord…"
  *   • "you're not in the server" offers the invite instead of just complaining
  *   • pop-ups blocked falls back to this tab, and the ?discord= return flag is
  *     read and then wiped from the URL
- *   • the module never sends an amount anywhere — it cannot pay anybody
+ *   • the module never sends an amount anywhere, it cannot pay anybody
  *
  * Run:  node test_discord_reward_ui.js
  */
@@ -198,7 +198,7 @@ function makeEnv(opts) {
 }
 
 (async function run() {
-  console.log("\nDiscord reward chip — render rules");
+  console.log("\nDiscord reward chip: render rules");
   {
     const e = makeEnv({});
     await flush();
@@ -401,8 +401,8 @@ function makeEnv(opts) {
   //  The one thing this chip must never do
   // ════════════════════════════════════════════════════════════════════
   // Reported from the live game: "I did it with my account, then it said you
-  // could redeem it again." The coins were never at risk — the server refuses
-  // a second payout and always did — but a chip that re-offers a reward you
+  // could redeem it again." The coins were never at risk, the server refuses
+  // a second payout and always did, but a chip that re-offers a reward you
   // already collected reads as a bug in the reward, and the only way to find
   // out is to click it and be told no.
   //
@@ -414,7 +414,7 @@ function makeEnv(opts) {
     // boot sync asks signed-out, sign-in fires the real one while the first is
     // still on the wire. The old de-dupe handed back the signed-out request
     // instead of making the real one, so the only answer the chip ever had was
-    // "nobody has claimed" — and it offered a paid reward for the whole session.
+    // "nobody has claimed", and it offered a paid reward for the whole session.
     const o = {
       signedOut: true,
       postDelay: 4,
@@ -481,7 +481,7 @@ function makeEnv(opts) {
   {
     // The other half of the same rule: never trap a player who IS owed the
     // reward behind a chip that can't be clicked. When the account can't be
-    // read at all, the chip gives up quietly and opens back up — the server is
+    // read at all, the chip gives up quietly and opens back up, the server is
     // the guard, and a refusal you can read beats a button that never works.
     const o = {
       tokenEmpty: true,

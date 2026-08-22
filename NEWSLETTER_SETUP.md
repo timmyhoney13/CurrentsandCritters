@@ -1,11 +1,11 @@
-# Currents & Critters — Newsletter System
+# Currents & Critters: Newsletter System
 
 Everything that could be built in code is built and tested. What remains is
 account-level setup in Stripe, Render and your DNS.
 
 **There is no Google Cloud project, no OAuth consent screen, no scopes, and no
-refresh-token script.** Sending now runs over ordinary SMTP — four values from
-whoever already hosts your email — or over an HTTPS email API if you prefer.
+refresh-token script.** Sending now runs over ordinary SMTP: four values from
+whoever already hosts your email, or over an HTTPS email API if you prefer.
 
 **Nothing in this document contains a real secret, and nothing in the repo
 does either.** Where a value is secret you will see the variable *name* and the
@@ -16,7 +16,7 @@ does either.** Where a value is secret you will see the variable *name* and the
 ## 0. The one thing I cannot remove
 
 Email to real inboxes always needs an **authenticated sender**. That is how
-SMTP and the anti-spam world work, not a limitation of this code — no server
+SMTP and the anti-spam world work, not a limitation of this code, no server
 can simply emit mail from nowhere and have Gmail or Outlook accept it. So
 *something* has to hold a credential for beardedsealstudios.com.
 
@@ -24,7 +24,7 @@ What I could remove is how much that costs you. It is now:
 
 > **Four values you already have, pasted into Render.**
 
-No new account, no console, no scripts — as long as your domain email is
+No new account, no console, no scripts, as long as your domain email is
 hosted somewhere, which it is.
 
 ---
@@ -37,19 +37,19 @@ hosted somewhere, which it is.
    opens `/newsletter/join`. They enter an address, get a *confirm your email*
    message, and only become a subscriber when they click it. Until then the
    record is `pending` and no campaign can reach it.
-   *(Those buttons used to point at a Google Form — signups there landed in a
+   *(Those buttons used to point at a Google Form: signups there landed in a
    spreadsheet no campaign ever read from, so nobody who used it was ever
    actually on the list.)*
 
-2. **Stripe checkout.** If — and only if — they typed an
+2. **Stripe checkout.** If, and only if, they typed an
 address into the optional **"Enter your email to get updates"** field, Stripe's
 `checkout.session.completed` webhook hands that address to the newsletter code,
-which creates a subscriber directly (no confirmation needed — paying
+which creates a subscriber directly (no confirmation needed: paying
 proves they own the address), sends them a welcome email, and emails you to say
 somebody joined.
 
 You write and send newsletters at **`/admin/newsletter`**, signed in with your
-Google account *(that is Google **sign-in**, which the game already uses — not
+Google account *(that is Google **sign-in**, which the game already uses, not
 a Google Cloud project)*. Sending happens on the server in controlled batches,
 one individual message per subscriber, each with its own unsubscribe link.
 Everything is recorded so a retry, a double-click or a server restart can never
@@ -77,11 +77,11 @@ merely unlikely.
 |---|---|
 | `newsletter_server.py` | The whole backend: subscribers, the Stripe hook, unsubscribe, drafts, campaigns, the send worker, the audit log, and every admin API route. Wired into `multiplayer_server` the same additive way as `clan_server` / `analytics_server`. |
 | `newsletter_email.py` | The only file that sends mail or turns admin HTML into an email: the strict HTML sanitiser, the branded shell + footer, plain-text generation, MIME building, and the three transports (SMTP / HTTPS API / Gmail API). |
-| `multiplayer/client/newsletter-admin.html` | The admin page shell. Deliberately contains **no data** — it is a sign-in card until Google auth succeeds. |
+| `multiplayer/client/newsletter-admin.html` | The admin page shell. Deliberately contains **no data**, it is a sign-in card until Google auth succeeds. |
 | `multiplayer/client/js/newsletter-admin.js` | The admin UI: 8 sections, the composer, previews, confirmations. |
 | `multiplayer/client/css/newsletter.css` | Admin styling. Same design tokens as the Developer Analytics dashboard so the two admin tools read as one. |
 | `multiplayer/client/unsubscribe.html` | The public unsubscribe confirmation page. |
-| `multiplayer/client/email-logo.png` | 144×144 PNG logo for email headers, extracted from `assets/logo-icon.svg` (which is an SVG wrapper around a PNG — and SVG does not render in Gmail or Outlook). |
+| `multiplayer/client/email-logo.png` | 144×144 PNG logo for email headers, extracted from `assets/logo-icon.svg` (which is an SVG wrapper around a PNG, and SVG does not render in Gmail or Outlook). |
 | `scripts/get_gmail_refresh_token.py` | **Optional.** Only needed for §4 Option C (Gmail API over OAuth). Not used by the recommended SMTP path. |
 | `test_newsletter_server.py` | 105 backend tests: consent, idempotency, sanitising, CSV injection, unsubscribe tokens, authorisation, campaigns, and all three transports. |
 | `test_newsletter_admin_ui.js` | Real-browser admin UI checks, driven by payloads from the real server. |
@@ -96,7 +96,7 @@ merely unlikely.
 | `.dockerignore`, `.gitignore` | Allowlist entries for the new files (both are `*`-then-`!` allowlists). |
 | `render.yaml` | The new environment variables, documented inline. |
 | `vercel.json` | Redirects for `/admin/newsletter` and `/newsletter/unsubscribe/:token` to the Render host, and a rewrite so `/email-logo.png` resolves on the marketing site. |
-| `multiplayer/client/js/privacy-policy.js` | Newsletter sections updated — **see §10, there is a correction in here you should read**. |
+| `multiplayer/client/js/privacy-policy.js` | Newsletter sections updated: **see §10, there is a correction in here you should read**. |
 | `multiplayer/client/preview.html`, `privacy.html`, `js/preview-app.js`, `version.json` | Version bumped to **1.6.57 / 2026-08-15.1** and cache-busters bumped with it (project convention: an edited asset must get a fresh `?v=`). |
 | `test_privacy_policy.js` | Last-updated date assertion moved to August 6, 2026. |
 
@@ -109,7 +109,7 @@ behaviour.
 ## 3. Database
 
 Firestore, using the same service account the rest of the server already uses.
-**There are no migrations to run** — Firestore creates collections on first
+**There are no migrations to run**: Firestore creates collections on first
 write. There is nothing to roll back; deleting the collections below removes
 the system entirely and touches nothing else.
 
@@ -120,11 +120,11 @@ the system entirely and touches nothing else.
 | `newsletterCampaigns` | auto | subject, previewText, contentHtml (sanitised), status, createdAt/By, startedAt/By, sentAt, intendedRecipients, sentCount, failedCount, skippedCount, interruptedCount |
 | `newsletterCampaigns/{id}/recipients` | **subscriber id** | campaignId, subscriberId, email, status, attempts, gmailMessageId, lastErrorCategory, sentAt, leaseUntil, updatedAt |
 | `newsletterAudit` | auto | action, at, atIso, admin, subscriberId, campaignId, summary, correlationId |
-| `newsletterMeta/stripeFieldLabels` | fixed | The custom-field **labels** last seen on a checkout (label text only, never an answer) — the diagnostic in §5.2. |
+| `newsletterMeta/stripeFieldLabels` | fixed | The custom-field **labels** last seen on a checkout (label text only, never an answer), the diagnostic in §5.2. |
 
 **Indexes:** none to create. Every query is a single-field equality, which
 Firestore indexes automatically. The subscriber list is searched, filtered,
-sorted and paginated in Python over one cached scan — deliberately, so you
+sorted and paginated in Python over one cached scan: deliberately, so you
 never have to create a composite index per (status, sort) pair, and never hit a
 500 the first time one is missing. The honest ceiling is 20,000 subscriber
 records; past that the list truncates and the UI says so.
@@ -135,14 +135,14 @@ rules. No browser ever reads them directly.
 
 ---
 
-## 4. Set up sending — pick ONE
+## 4. Set up sending: pick ONE
 
 The system supports three ways to send. **Option A is the one to use.** You only
 ever configure one; the others can stay completely unset.
 
 ---
 
-### Option A — SMTP (recommended, ~5 minutes, no new accounts)
+### Option A: SMTP (recommended, ~5 minutes, no new accounts)
 
 Your domain email is hosted somewhere already. Whoever hosts it will give you
 these four values, usually on a page called *IMAP/SMTP*, *Mail client setup*,
@@ -155,7 +155,7 @@ or *Email clients*.
 | `SMTP_HOST` | e.g. `smtp.gmail.com`, `smtp.zoho.com`, `mail.privateemail.com` |
 | `SMTP_PORT` | `587` (already set for you). Use `465` only if your host says so |
 | `SMTP_USERNAME` | almost always `timothy.honey@beardedsealstudios.com` |
-| `SMTP_PASSWORD` | the mailbox password, or an **app password** — see below |
+| `SMTP_PASSWORD` | the mailbox password, or an **app password**: see below |
 
 Then **Manual Deploy → Deploy latest commit**, open
 `/admin/newsletter` → **Connections**, and it should say **Connected**.
@@ -168,22 +168,22 @@ Password**, not your normal one:
    it is not already on (App Passwords do not exist without it).
 2. <https://myaccount.google.com/apppasswords> → name it `Currents & Critters
    Newsletter` → **Create**.
-3. Google shows a 16-character password. Paste it into `SMTP_PASSWORD` — the
+3. Google shows a 16-character password. Paste it into `SMTP_PASSWORD`, the
    spaces Google puts in it are stripped for you, so either form works.
-   **Make sure you are signed in as the account the password is for** — the
+   **Make sure you are signed in as the account the password is for**, the
    single most common failure is generating it on a different Google account,
    which fails with `535 BadCredentials` and no other clue.
 
 That is a settings page, not a Google Cloud project. No consent screen, no
 scopes, no refresh token, nothing to re-authorise later.
 
-**If your email is somewhere else** — Namecheap Private Email, Zoho, Fastmail,
-iCloud+, Proton Bridge, your registrar — the same four values apply; look for
+**If your email is somewhere else**: Namecheap Private Email, Zoho, Fastmail,
+iCloud+, Proton Bridge, your registrar, the same four values apply; look for
 "SMTP settings" in their help. Nothing else changes.
 
 ---
 
-### Option B — an HTTPS email API (if SMTP is blocked, or when you outgrow it)
+### Option B, an HTTPS email API (if SMTP is blocked, or when you outgrow it)
 
 Some hosts block outbound SMTP ports. If **Connections** reports a network
 error that never clears, use this instead. It is also the right move once your
@@ -191,7 +191,7 @@ list grows past a few thousand (see §8).
 
 1. Create an account at one of: **Resend** (simplest), **Postmark**, **Brevo**,
    **SendGrid**.
-2. Add and verify the domain `beardedsealstudios.com` in their dashboard —
+2. Add and verify the domain `beardedsealstudios.com` in their dashboard,
    they will give you DNS records, which are the same SPF/DKIM records you need
    anyway (§8).
 3. Create an API key.
@@ -207,11 +207,11 @@ Leave the `SMTP_*` values blank, or set `NEWSLETTER_TRANSPORT=http` to force it.
 
 ---
 
-### Option C — Gmail API over OAuth (optional, not recommended)
+### Option C: Gmail API over OAuth (optional, not recommended)
 
 Still supported, and `scripts/get_gmail_refresh_token.py` still works if you
 ever want it. It is the **only** route that needs a Google Cloud project, a
-consent screen and scopes — which is exactly why nothing requires it any more.
+consent screen and scopes, which is exactly why nothing requires it any more.
 Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_REFRESH_TOKEN` if
 you go this way.
 
@@ -221,7 +221,7 @@ you go this way.
 
 `NEWSLETTER_TRANSPORT` forces a choice. Left unset, the first fully-configured
 option wins, in the order **SMTP → HTTP API → Gmail API**. So the moment you
-fill in `SMTP_*`, that is what sends — any leftover Google variables become
+fill in `SMTP_*`, that is what sends, any leftover Google variables become
 dead weight rather than a dependency.
 
 **Connections** always names the method that is actually in use, so this is
@@ -231,7 +231,7 @@ never a guess.
 
 ## 5. Stripe setup
 
-The webhook endpoint **already exists and is already configured** — the
+The webhook endpoint **already exists and is already configured**, the
 newsletter reuses `/api/stripe/webhook`, which your store has been using. There
 is no second endpoint to create.
 
@@ -248,7 +248,7 @@ Stripe Dashboard → **Developers → Webhooks**. You should already have:
 Both events are required. Delayed payment methods (bank debits, Cash App) send
 the second one; without it, those buyers are charged and never subscribed.
 
-### 4.2 ⚠️ The one thing you must verify — the field label
+### 4.2 ⚠️ The one thing you must verify, the field label
 
 **This is the single most likely thing to silently break the whole system.**
 
@@ -267,7 +267,7 @@ Enter your email to get updates
 The code already accepts several spellings of this, plus a heuristic for any
 label that asks for an **email** *and* mentions **updates / newsletter /
 mailing list**. It deliberately will **not** match a bare "Email" or "Billing
-email" — consent has to be legible in the question itself.
+email": consent has to be legible in the question itself.
 
 If your label is something else, either change it in Stripe, or add it in
 Render:
@@ -283,7 +283,7 @@ precisely so this failure can never be invisible.
 
 > Note: Stripe caps a custom-field label at 50 characters. The longer sentence
 > that was quoted in your Privacy Policy (89 characters) cannot be the live
-> label — see §9.
+> label: see §9.
 
 ---
 
@@ -302,7 +302,7 @@ way to send. Everything else already has a sensible default.
 |---|---|---|---|---|
 | `NEWSLETTER_UNSUBSCRIBE_SECRET` | **Yes** | Signs unsubscribe links. Campaign sending refuses to start without it | 64 random urlsafe chars | `python3 -c "import secrets;print(secrets.token_urlsafe(48))"` |
 
-#### Sending — fill in ONE group
+#### Sending: fill in ONE group
 
 **Option A, SMTP (recommended):**
 
@@ -337,8 +337,8 @@ choose §4 Option C.
 | `PRIVACY_POLICY_URL` | Footer link | `https://currentsandcritters.com/privacy` |
 | `NEWSLETTER_DAILY_SEND_CAP` | Messages/day this process will send | `1200` |
 | `NEWSLETTER_TRANSPORT` | Force `smtp` / `http` / `gmail_api` | auto-detect |
-| `NEWSLETTER_FIELD_LABEL` | Extra accepted Stripe labels, `|`-separated | unset — see §5.2 |
-| `STRIPE_WEBHOOK_SECRET` | *Already set* — reused, do not change | — |
+| `NEWSLETTER_FIELD_LABEL` | Extra accepted Stripe labels, `|`-separated | unset: see §5.2 |
+| `STRIPE_WEBHOOK_SECRET` | *Already set*: reused, do not change |: |
 
 Every variable takes effect on the next deploy.
 
@@ -347,7 +347,7 @@ link already sitting in someone's inbox.** Set it once and leave it alone.
 
 **No Render worker, cron job or background service is needed.** The send worker
 is a daemon thread inside the existing web service. That works because the
-service has a mounted disk, which forces Render to run exactly one instance —
+service has a mounted disk, which forces Render to run exactly one instance,
 and campaign state lives in Firestore, so a restart resumes rather than
 restarts.
 
@@ -359,7 +359,7 @@ Without these, Gmail and Outlook will junk your newsletters. Do all three, at
 your DNS provider for **beardedsealstudios.com**.
 
 ### SPF
-One TXT record at the root. **If you already have an SPF record, edit it — a
+One TXT record at the root. **If you already have an SPF record, edit it, a
 domain with two SPF records fails SPF entirely.**
 
 | Type | Name | Value |
@@ -389,7 +389,7 @@ reports.
 | TXT | `_dmarc` | `v=DMARC1; p=none; rua=mailto:timothy.honey@beardedsealstudios.com; fo=1` |
 
 After a week with SPF and DKIM passing, move to `p=quarantine`, and later
-`p=reject`. Do not start at `p=reject` — if anything is misconfigured, your
+`p=reject`. Do not start at `p=reject`, if anything is misconfigured, your
 mail disappears silently.
 
 ### Verify
@@ -398,14 +398,14 @@ dig +short TXT beardedsealstudios.com
 dig +short TXT google._domainkey.beardedsealstudios.com
 dig +short TXT _dmarc.beardedsealstudios.com
 ```
-Then send yourself a test (§8) and use Gmail's **Show original** — it must say
+Then send yourself a test (§8) and use Gmail's **Show original**, it must say
 `SPF: PASS`, `DKIM: PASS`, `DMARC: PASS`.
 
 ---
 
-## 8. Sending limits — the real numbers
+## 8. Sending limits, the real numbers
 
-Whatever you send through has a cap, and going over it does not bounce — the
+Whatever you send through has a cap, and going over it does not bounce, the
 provider throttles or suspends you, sometimes for 24 hours. So the cap is
 enforced **here, before the wire**, by `NEWSLETTER_DAILY_SEND_CAP`.
 
@@ -416,7 +416,7 @@ enforced **here, before the wire**, by `NEWSLETTER_DAILY_SEND_CAP`.
 | Resend | 100/day free; paid plans far higher | 1,200 |
 | Postmark / Brevo / SendGrid | per plan | 1,200 |
 
-The default follows the From address automatically — set
+The default follows the From address automatically: set
 `NEWSLETTER_FROM_EMAIL` to an `@gmail.com` address and the cap drops to 400 on
 its own, so a Workspace-sized cap can never end up pointed at a 500/day
 mailbox. Setting `NEWSLETTER_DAILY_SEND_CAP` explicitly overrides it, and the
@@ -433,13 +433,13 @@ mailbox. Setting `NEWSLETTER_DAILY_SEND_CAP` explicitly overrides it, and the
 **When your list passes ~1,500, move to Option B** (§4). Google's mail service
 is not a bulk sender and will eventually treat volume as abuse.
 `newsletter_email.send_email()` is the only function that knows how mail leaves
-the building — switching is one environment variable, not a rewrite.
+the building: switching is one environment variable, not a rewrite.
 
 ---
 
 ## 9. Testing
 
-Run the automated suites first — they need no accounts and no network:
+Run the automated suites first, they need no accounts and no network:
 
 ```bash
 python3 test_newsletter_server.py      # 105 tests
@@ -453,17 +453,17 @@ Then, in order:
 curl -s https://play.currentsandcritters.com/version.json
 ```
 Must show **`1.6.57` / `2026-08-15.1`**. If it doesn't, the deploy hasn't
-finished — Render Docker builds take ~10–15 minutes. *"Still broken" has often
+finished: Render Docker builds take ~10–15 minutes. *"Still broken" has often
 meant "never shipped".*
 
 ### 9.2 Sending connection
 Open `/admin/newsletter` → **Connections**. You want:
-- **Method** — names the transport actually in use (e.g. `SMTP (smtp.gmail.com)`)
-- **Connection: Connected** — this is a real login/handshake, not a guess
+- **Method**: names the transport actually in use (e.g. `SMTP (smtp.gmail.com)`)
+- **Connection: Connected**, this is a real login/handshake, not a guess
 - **Unsubscribe links: Ready**
 
 Any failure states exactly what to fix. Note that with SMTP or an HTTP API the
-panel will say the From address is *not independently verifiable* — that is
+panel will say the From address is *not independently verifiable*, that is
 deliberate honesty: only a test send proves it, and claiming otherwise is how a
 "configured" system quietly fails.
 
@@ -474,7 +474,7 @@ deliberate honesty: only a test send proves it, and claiming otherwise is how a
 | Sign in as `timothy.honey@beardedsealstudios.com` | Full admin |
 | Sign in as any other Google account | "not authorised", no data |
 | `curl -X POST https://play.currentsandcritters.com/api/newsletter/subscribers -H 'Content-Type: application/json' -d '{"idToken":"x"}'` | `403 {"ok":false,"error":"unauthorized"}` |
-| Same with `-d '{"email":"timothy.honey@beardedsealstudios.com"}'` | Still 403 — body claims are never trusted |
+| Same with `-d '{"email":"timothy.honey@beardedsealstudios.com"}'` | Still 403: body claims are never trusted |
 | Repeat a failed call 40× | `429` |
 
 ### 9.4 Stripe signup (use TEST mode)
@@ -500,13 +500,13 @@ Then check the paths that must produce **nothing**:
 ### 9.5 Welcome email
 Check on phone and desktop: logo renders, layout is readable, **Visit Currents
 & Critters** works, **Privacy Policy** works, **Unsubscribe** works, business
-address is present. View the plain-text part (Gmail: Show original) — it must
+address is present. View the plain-text part (Gmail: Show original), it must
 be readable prose, not stripped tags.
 
 ### 9.6 Test email
 Compose → **Send Test Email**. It arrives at your address only, subject
 prefixed `[TEST]`, with a yellow TEST banner and **no live unsubscribe token**.
-Click it three times fast — exactly one email arrives.
+Click it three times fast, exactly one email arrives.
 
 ### 9.7 A safe mass-send rehearsal
 **Do this before you ever send to the real list.**
@@ -515,7 +515,7 @@ Click it three times fast — exactly one email arrives.
    permission box).
 2. Unsubscribe every real subscriber temporarily, *or* do this on a Render
    preview service pointed at a scratch Firebase project. **Do not skip this
-   step** — there is no "cancel send" once a campaign starts.
+   step**, there is no "cancel send" once a campaign starts.
 3. Compose a newsletter, **Send to all subscribers**, type `SEND`.
 4. While it runs, check **Sending Progress**: counts move, percentage climbs.
 5. Verify:
@@ -533,7 +533,7 @@ Click it three times fast — exactly one email arrives.
 | Click the link in a real email | "You have been unsubscribed…" |
 | Click it again | Same friendly page, no error |
 | Change one character of the token | Same page, **nobody is unsubscribed** |
-| Gmail's own **Unsubscribe** button (top of the message) | Works — one-click, RFC 8058 |
+| Gmail's own **Unsubscribe** button (top of the message) | Works: one-click, RFC 8058 |
 | Send a new campaign | The unsubscribed person is not in it |
 | They buy again and re-enter their address | Reactivated, welcome email sent again, old link now dead |
 
@@ -554,7 +554,7 @@ Your policy said the checkout field is labelled:
 
 That is **89 characters**, and **Stripe caps a custom-field label at 50**. So
 that cannot be what the live Payment Links actually ask. I have changed the
-policy to quote the label you gave me — **"Enter your email to get updates"** —
+policy to quote the label you gave me: **"Enter your email to get updates"**,
 and added explicit sentences that leaving it blank, completing a purchase, or
 giving an email for a receipt do **not** subscribe anyone.
 
@@ -573,7 +573,7 @@ Firebase ID token scheme the rest of your codebase already uses (`/api/trade/*`,
 `/api/analytics/*`), and I think that is the stronger choice rather than a
 shortcut:
 
-- A CSRF attack works because cookies are **ambient** — the browser attaches
+- A CSRF attack works because cookies are **ambient**, the browser attaches
   them to any request, including one triggered by evil.com. There are no
   cookies here. Authorisation is a token this page's own JavaScript puts in
   the request body, so a forged cross-site request simply arrives
@@ -590,11 +590,11 @@ and I will add them.
 ## 11. Limitations and remaining risks
 
 1. **Google's mail service is not a bulk mailer.** Fine to ~1,500/day over
-   SMTP. Past that, switch to §4 Option B — one environment variable.
+   SMTP. Past that, switch to §4 Option B, one environment variable.
 2. **A crash mid-send leaves a few "interrupted" recipients.** When the process
    dies between handing a message to Gmail and recording it, the outcome is
    genuinely unknown. Rather than guess, those are marked *interrupted* and
-   **never auto-resent** — Sending Progress shows them with an explicit
+   **never auto-resent**: Sending Progress shows them with an explicit
    **Retry** button. This is the deliberate trade: a handful of manual clicks
    instead of a chance of double-sending your whole list.
 3. **20,000 subscriber ceiling** on the admin list view (§3). Well beyond
@@ -626,5 +626,5 @@ git push                     # Render auto-deploys from main
 - Confirm with `curl -s https://play.currentsandcritters.com/version.json`.
 
 **Rollback:** `git revert <commit> && git push`. The Firestore collections are
-additive — nothing else reads them, so leaving them in place after a revert is
+additive, nothing else reads them, so leaving them in place after a revert is
 harmless.

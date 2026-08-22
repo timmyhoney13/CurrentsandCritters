@@ -10,7 +10,7 @@
 
   Like the unsubscribe page, the GET only RENDERS; the page then POSTs to apply
   it. Mail scanners and link-preview bots fetch every URL in an email, and a
-  GET that confirmed the signup would let a robot opt somebody in — which is
+  GET that confirmed the signup would let a robot opt somebody in, which is
   exactly the consent this whole flow exists to establish.
 -->
 <link rel="icon" href="/icon.svg">
@@ -109,7 +109,7 @@
           } else {
             finish("You're on the list!",
                    "Thanks for confirming. You'll hear from me when there's " +
-                   "something worth sharing — and every email has a one-click " +
+                   "something worth sharing, and every email has a one-click " +
                    "unsubscribe.");
           }
         } else {

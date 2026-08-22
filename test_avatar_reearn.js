@@ -4,7 +4,7 @@
  *   node test_avatar_reearn.js
  *
  * Trading an item away must NOT leave its unlock requirement permanently
- * satisfied — banked progress (75 lifetime Play Agains, a level, a rank…) used
+ * satisfied: banked progress (75 lifetime Play Agains, a level, a rank…) used
  * to hand the avatar straight back on the next stats load. The server snapshots
  * the giver's progress (see _trade_away_after in multiplayer_server.py) and the
  * client compares live progress against that snapshot.
@@ -26,7 +26,7 @@ const SRC = fs.readFileSync(
 let passed = 0, failed = 0;
 function check(name, cond, detail) {
   if (cond) { passed++; console.log("  ✓ " + name); }
-  else { failed++; console.error("  ✗ FAIL: " + name + (detail ? " — " + detail : "")); }
+  else { failed++; console.error("  ✗ FAIL: " + name + (detail ? ": " + detail : "")); }
 }
 function section(t) { console.log("\n" + t); }
 
@@ -220,7 +220,7 @@ check("no rule anywhere leaves an avatar permanently trade-only",
 section("the whole shipped catalogue, avatar by avatar:");
 {
   // The product rule: trading an item away means doing its unlock requirement
-  // AGAIN — never "this is gone unless someone trades it to you". Every gated
+  // AGAIN, never "this is gone unless someone trades it to you". Every gated
   // avatar in the real registry must therefore report a repeatable re-earn.
   const gated = ANIMAL_AVATARS.filter(a => a.unlock && REEARN_GATED_TYPES.has(a.unlock.type));
   check(`every gated avatar is re-earnable (${gated.length} checked)`,

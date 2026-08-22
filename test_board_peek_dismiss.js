@@ -7,7 +7,7 @@
  * ends, the screen can still be there." The peek (#pv-board-hover) is a
  * position:fixed panel anchored to a seat pill / opponent card, and it was only
  * ever hidden by that element's own mouseleave. But every one of those elements
- * is destroyed and rebuilt whenever the seats or opponents re-render — and a
+ * is destroyed and rebuilt whenever the seats or opponents re-render, and a
  * removed element never fires mouseleave. So a peek that was open when the state
  * ticked stayed open forever: over the table, over the end screen, and back out
  * to Player Home, since nothing on the way out cleared it either.
@@ -17,12 +17,12 @@
  * measured, not assumed:
  *   • hover shows it, mouseleave hides it (the path that already worked)
  *   • the anchor being re-rendered away under a pointer that never moved hides
- *     it — and re-anchors instead when a fresh anchor took its place
+ *     it, and re-anchors instead when a fresh anchor took its place
  *   • pointer off the anchor without a mouseleave, click, scroll, tab-away
  *   • Escape and the one closeBoardFocus() exit clear peek AND enlarged board
  *   • touch devices (hover:none) never open a peek that could not be closed
- * The two exits that need the whole app to run — game over and leaving the game
- * — are checked at the source level: both must call closeBoardFocus().
+ * The two exits that need the whole app to run: game over and leaving the game
+ *: are checked at the source level: both must call closeBoardFocus().
  */
 "use strict";
 
@@ -76,7 +76,7 @@ console.log("\nGAME-OVER + LEAVE-GAME WIRING (source)");
 }
 
 if (!CHROME) {
-  console.log("\nSKIP: no Chrome/Chromium found — cannot run the browser half.");
+  console.log("\nSKIP: no Chrome/Chromium found: cannot run the browser half.");
   process.exit(failures ? 1 : 0);
 }
 
@@ -94,7 +94,7 @@ if (s < 0 || e < 0 || e <= s) {
 const PEEK = APP.slice(s, e);
 for (const fn of ["showBoardHover", "hideBoardHover", "attachBoardHover", "closeBoardFocus"]) {
   if (!PEEK.includes("function " + fn)) {
-    console.error(`FAIL: sliced region is missing ${fn}() — the markers moved.`);
+    console.error(`FAIL: sliced region is missing ${fn}(), the markers moved.`);
     process.exit(1);
   }
 }
@@ -189,7 +189,7 @@ window.__t = { attachBoardHover, showBoardHover, hideBoardHover, openBoardFocus,
   rec("mouseleave closes the peek", !shown());
 
   // 3. THE BUG: the anchor is re-rendered away while the pointer sits still.
-  //    No mouse event of any kind follows — that is exactly why it used to stay.
+  //    No mouse event of any kind follows, that is exactly why it used to stay.
   enter(A); await wait(200);
   const wasOpen = shown();
   A.remove();
@@ -220,7 +220,7 @@ window.__t = { attachBoardHover, showBoardHover, hideBoardHover, openBoardFocus,
   await wait(50);
   rec("clicking off the peek closes it", c1 && !shown());
 
-  // 7. Scrolling closes it (it is position:fixed — it would detach from the seat).
+  // 7. Scrolling closes it (it is position:fixed, it would detach from the seat).
   enter(A2); await wait(200);
   const c2 = shown();
   document.getElementById("scroller").dispatchEvent(new Event("scroll", { bubbles: false }));
@@ -289,7 +289,7 @@ const m = dom.match(/<div id="out">([\s\S]*?)<\/div>/);
 const lines = m ? m[1].split("\n").map(l => l.trim()).filter(Boolean) : [];
 console.log("\nPEEK DISMISSAL (headless Chrome, real preview.css)");
 if (!lines.length) {
-  fail("the page produced no results — the sliced peek code threw before finishing");
+  fail("the page produced no results, the sliced peek code threw before finishing");
 } else {
   for (const line of lines) {
     const pass = line.startsWith("PASS");

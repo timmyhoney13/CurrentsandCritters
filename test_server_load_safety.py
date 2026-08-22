@@ -7,7 +7,7 @@ Two independent failure modes are covered here, both measured on a real server
 before they were fixed:
 
 1. CPU starvation by the bot planner. Rollout confirmation is pure Python, so
-   the GIL means N simultaneous games do not plan in parallel — they queue on
+   the GIL means N simultaneous games do not plan in parallel, they queue on
    one core and take the HTTP threads down with them. Measured with 32
    concurrent mixed-mode games: GET /api/health, which touches nothing at all,
    went from 2.5 ms to 5.3 SECONDS. The fix is admission control
@@ -15,12 +15,12 @@ before they were fixed:
    site is, and bots that can't get a slot fall back to the one-pass chooser,
    which is still a fully weighted bot.
 
-2. Rooms never being released. Finished rooms stayed in RoomManager.rooms — and
-   on the mounted disk — for the life of the process, so memory and the disk
+2. Rooms never being released. Finished rooms stayed in RoomManager.rooms, and
+   on the mounted disk, for the life of the process, so memory and the disk
    grew forever and every restart got slower. The fix is
    RoomManager.sweep_finished_rooms plus a janitor thread.
 
-These tests assert the POLICY, not the measured milliseconds — timings belong in
+These tests assert the POLICY, not the measured milliseconds: timings belong in
 a load run, not a unit test.
 """
 
@@ -80,7 +80,7 @@ class DeepPlanAdmissionControl(unittest.TestCase):
             )
 
     def test_busy_server_stops_planning_entirely(self):
-        """Past the cutoff, rollouts are off — the site's responsiveness wins."""
+        """Past the cutoff, rollouts are off, the site's responsiveness wins."""
         for n in (mp._DEEP_PLAN_OFF_GAMES, mp._DEEP_PLAN_OFF_GAMES + 50, 500):
             self._set_games(n)
             self.assertEqual(
@@ -111,7 +111,7 @@ class DeepPlanAdmissionControl(unittest.TestCase):
                 held.append(True)
             self.assertFalse(
                 mp._DEEP_PLAN_SEM.acquire(blocking=False),
-                "slots are meant to be exhausted here — an extra grant means "
+                "slots are meant to be exhausted here, an extra grant means "
                 "the cap does not actually cap anything",
             )
         finally:
@@ -147,7 +147,7 @@ class ActiveGameCounter(unittest.TestCase):
         self.assertEqual(mp.active_game_count(), 1)
 
     def test_counter_never_goes_negative(self):
-        """A stray decrement must not drive the count below zero — a negative
+        """A stray decrement must not drive the count below zero, a negative
         count would read as 'quiet' forever and re-enable full planning."""
         mp._note_game_running(-5)
         self.assertEqual(mp.active_game_count(), 0)
@@ -216,7 +216,7 @@ class RoomReaping(unittest.TestCase):
 
     def test_just_finished_room_is_kept(self):
         """The endgame screen, Play Again and tournament reporting all still
-        need this room — reaping it early is worse than keeping it too long."""
+        need this room: reaping it early is worse than keeping it too long."""
         self._room("NEWEND", "ended", ended_ago=5)
         mp.ROOMS.sweep_finished_rooms()
         self.assertIn("NEWEND", mp.ROOMS.rooms)

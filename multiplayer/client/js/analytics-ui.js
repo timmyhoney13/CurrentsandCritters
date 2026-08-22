@@ -1,11 +1,11 @@
-/* Currents and Critters — Developer Analytics dashboard (admin only).
+/* Currents and Critters: Developer Analytics dashboard (admin only).
  *
  * A full-screen overlay opened from the Player Home, closed with the ✕ in its
  * header (or Escape). Every number comes from the server-authoritative
  * /api/analytics/* API through the window.__ccAnalytics bridge; this file owns
  * no maths beyond formatting, and no player data ever reaches it un-aggregated.
  *
- * THE DESIGN CONTRACT — the thing to defend when adding to this file
+ * THE DESIGN CONTRACT, the thing to defend when adding to this file
  * The dashboard is useful within five seconds, and it stays that way only if
  * new information is added BEHIND something rather than beside it:
  *   • Overview shows ten summary cards and exactly four blocks. Nothing else.
@@ -15,7 +15,7 @@
  *   • Detail lives in the drawer (openDrawer), advanced options live in the
  *     collapsed tray, definitions live in tooltips and the Help drawer.
  *   • Only the selected section is fetched and rendered.
- * If something new has nowhere to go, that means it belongs in a section — or
+ * If something new has nowhere to go, that means it belongs in a section, or
  * behind a "View details", which is nearly always the right answer.
  *
  * COLOUR
@@ -34,13 +34,13 @@
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
 
-  // Big numbers use the font's proportional figures and compact above 10k —
+  // Big numbers use the font's proportional figures and compact above 10k:
   // "12.4K" reads at a glance where "12,438" has to be counted.
   function fmt(n) {
-    if (n == null || n === "") return "—";
+    if (n == null || n === "") return "-";
     if (typeof n === "string") return n;
     const v = Number(n);
-    if (!isFinite(v)) return "—";
+    if (!isFinite(v)) return "-";
     if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
     if (Math.abs(v) >= 1e4) return (v / 1e3).toFixed(1).replace(/\.0$/, "") + "K";
     return v.toLocaleString(undefined, { maximumFractionDigits: 1 });
@@ -53,10 +53,10 @@
     return Math.floor(s / 86400) + "d ago";
   }
   function fmtWhen(unix) {
-    if (!unix) return "—";
+    if (!unix) return "-";
     try {
       return new Date(unix * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    } catch (_) { return "—"; }
+    } catch (_) { return "-"; }
   }
   function dayLabel(iso) {
     const p = String(iso || "").split("-");
@@ -112,7 +112,7 @@
     { days: 90, label: "Last 90 days" },
   ];
 
-  // Plain-language definitions. They live HERE and in the Help drawer — never
+  // Plain-language definitions. They live HERE and in the Help drawer, never
   // as a paragraph on the dashboard itself.
   const DEFS = {
     "New players": "Accounts created during the selected date range.",
@@ -134,7 +134,7 @@
   // ══════════════════════════════════════════════════════════════════════════
   //  API
   // ══════════════════════════════════════════════════════════════════════════
-  // The host bridge's post() resolves to an ENVELOPE — { ok, status, data } —
+  // The host bridge's post() resolves to an ENVELOPE: { ok, status, data },
   // where `ok` is only the HTTP status. Unwrapping it here, once, is what stops
   // a 200 with an error body from looking like success (the exact bug that once
   // blanked the Clans tab). A bare payload passes straight through, so test
@@ -155,19 +155,19 @@
     try {
       return unwrap(await b.post("/api/analytics/" + action, body));
     } catch (_) {
-      // The request never landed — retryable, and NOT the same thing as the
+      // The request never landed: retryable, and NOT the same thing as the
       // server refusing it.
       return null;
     }
   }
 
   const ERRORS = {
-    unavailable: "The dashboard didn't finish loading — please refresh the page.",
+    unavailable: "The dashboard didn't finish loading: please refresh the page.",
     unauthorized: "This dashboard is for the developer account only.",
     section_failed: "That section couldn't be built from the current data.",
     unknown_section: "That section doesn't exist.",
   };
-  const errMsg = (e) => ERRORS[e] || "Couldn't load this section — try Refresh.";
+  const errMsg = (e) => ERRORS[e] || "Couldn't load this section: try Refresh.";
 
   // ══════════════════════════════════════════════════════════════════════════
   //  CHART PRIMITIVES
@@ -218,7 +218,7 @@
     svg += `<g class="ccA-axis">` + ticks.map(t =>
       `<text x="${PL - 9}" y="${(y(t) + 4).toFixed(1)}" text-anchor="end">${fmt(t)}</text>`).join("") + `</g>`;
 
-    // Date labels: one every `stride` days, plus the final day — but only when
+    // Date labels: one every `stride` days, plus the final day, but only when
     // there is room for it. Without the gap test the last two labels overlap
     // into an unreadable smudge whenever the range doesn't divide evenly.
     const MIN_LABEL_GAP = 58;
@@ -236,7 +236,7 @@
     }).join("") + `</g>`;
     svg += `<line class="ccA-baseline" x1="${PL}" y1="${PT + ih}" x2="${PL + iw}" y2="${PT + ih}"/>`;
 
-    // The previous period rides as a neutral dashed ghost — it is a reference,
+    // The previous period rides as a neutral dashed ghost, it is a reference,
     // not a second identity, so it never takes a series colour.
     if (opt.compare && opt.compare.length) {
       const c = opt.compare;
@@ -253,7 +253,7 @@
       svg += `<polyline class="ccA-line" stroke="${color}" points="${pts}"/>`;
       const last = s.values.length - 1;
       svg += `<circle class="ccA-dot" cx="${x(last).toFixed(1)}" cy="${y(s.values[last]).toFixed(1)}" r="4.5" fill="${color}"/>`;
-      // Label the endpoint only — a number on every point goes unread.
+      // Label the endpoint only, a number on every point goes unread.
       svg += `<text class="ccA-endlabel" x="${(x(last) + 9).toFixed(1)}" y="${(y(s.values[last]) + 4).toFixed(1)}">${fmt(s.values[last])}</text>`;
     });
 
@@ -360,7 +360,7 @@
     }).join("") + `</div>`;
   }
 
-  /* 12-point sparkline for a summary card. No axes, no labels — it shows shape
+  /* 12-point sparkline for a summary card. No axes, no labels, it shows shape
      only; the card's own number carries the value. */
   function sparkline(values, color) {
     const v = (values || []).slice(-12).map(n => Number(n) || 0);
@@ -388,7 +388,7 @@
     if (delta !== null && delta !== undefined && isFinite(delta)) {
       const dir = delta > 0.05 ? "up" : delta < -0.05 ? "down" : "flat";
       const arrow = dir === "up" ? "▲" : dir === "down" ? "▼" : "•";
-      // The arrow is never the only channel — the signed number says it too.
+      // The arrow is never the only channel, the signed number says it too.
       // What the change is measured against goes in the tooltip rather than as
       // a second line of text wrapping inside a 212px card.
       deltaHtml = `<span class="ccA-delta ${dir}">${arrow} ${Math.abs(delta).toFixed(1)}%</span>`;
@@ -448,11 +448,11 @@
     const cell = (row, c) => {
       const v = row[c.key];
       if (c.key === "last_seen" || c.key === "joined" || c.key === "created" || c.key === "when") {
-        return v ? esc(fmtWhen(v)) : "—";
+        return v ? esc(fmtWhen(v)) : "-";
       }
-      if (c.key === "win_rate") return v == null ? "—" : esc(v + "%");
+      if (c.key === "win_rate") return v == null ? "-" : esc(v + "%");
       if (typeof v === "number") return esc(fmt(v));
-      return esc(v == null || v === "" ? "—" : v);
+      return esc(v == null || v === "" ? "-" : v);
     };
     const isNum = (c) => !["name", "label", "mode"].includes(c.key);
     const optional = (spec.columns || []).filter(c => !c.always);
@@ -498,13 +498,13 @@
                     "How many games are being completed?", { more: "gameplay" }))
       + blockHtml("Retention", `<div class="ccA-panel">
           <div class="ccA-panel-head"><div>
-            <div class="ccA-panel-title">Players who came back<span class="ccA-info" tabindex="0" data-tip="Only players who have had the chance to come back are counted — someone who joined yesterday can't have a 7-day return yet.">i</span></div>
+            <div class="ccA-panel-title">Players who came back<span class="ccA-info" tabindex="0" data-tip="Only players who have had the chance to come back are counted, someone who joined yesterday can't have a 7-day return yet.">i</span></div>
             <div class="ccA-panel-q">Are players returning after joining?</div>
           </div><div class="ccA-spacer"></div>
           <button class="ccA-btn" data-more="players">View details</button></div>
           ${stepsHtml((d.retention || []).map(r => ({
             label: "After " + r.day + (r.day === 1 ? " day" : " days"),
-            value: r.rate == null ? "—" : r.rate + "%",
+            value: r.rate == null ? "-" : r.rate + "%",
             note: r.returned + " of " + r.cohort + " players",
             pct: r.rate,
           })))}
@@ -547,7 +547,7 @@
   function liveHtml(live) {
     const cell = (v, l) => `<div class="ccA-live-cell"><div class="ccA-live-val">${fmt(v)}</div><div class="ccA-live-lbl">${esc(l)}</div></div>`;
     const signups = (live.recent_signups || []).slice(0, 5);
-    // The id is how refreshLive swaps ONLY this panel — replacing it by
+    // The id is how refreshLive swaps ONLY this panel: replacing it by
     // position would silently start replacing whatever else the Overview grid
     // happens to hold first.
     return `<div class="ccA-panel" id="ccA-live-panel">
@@ -603,7 +603,7 @@
             </div></div>
             ${stepsHtml((d.retention || []).map(r => ({
               label: "After " + r.day + (r.day === 1 ? " day" : " days"),
-              value: r.rate == null ? "—" : r.rate + "%",
+              value: r.rate == null ? "-" : r.rate + "%",
               note: r.returned + " of " + r.cohort,
               pct: r.rate,
             })))}
@@ -637,7 +637,7 @@
     return {
       days: growth.days,
       title: label,
-      // The previous period is only comparable for a per-day count — a running
+      // The previous period is only comparable for a per-day count, a running
       // total against a running total says nothing.
       series: [{ label: label, values: gs[S.growthMeasure] || [] }],
       compare: (S.filters.compare && S.growthMeasure !== "cumulative") ? growth.compare : null,
@@ -722,7 +722,7 @@
           </div><div class="ccA-spacer"></div>
           <button class="ccA-btn" data-drawer="sample">Sample size</button></div>
           ${review.length ? `<div class="ccA-rank">` + review.slice(0, 8).map(r => {
-            // The direction is spelled out, not left to the bar's colour — a
+            // The direction is spelled out, not left to the bar's colour, a
             // reader who can't tell amber from teal still gets the answer.
             const strong = r.direction === "strong";
             return `<div class="ccA-rank-row">
@@ -733,7 +733,7 @@
               <div class="ccA-rank-val">${esc(r.win_rate)}%</div>
             </div>`;
           }).join("") + `</div>
-            <div class="ccA-panel-q" style="margin-top:12px">${review.length} ${review.length === 1 ? "animal sits" : "animals sit"} more than 12 points from the typical win rate of ${esc((d.cards.find(c => c.label === "Typical win rate") || {}).value ?? "—")}%.</div>`
+            <div class="ccA-panel-q" style="margin-top:12px">${review.length} ${review.length === 1 ? "animal sits" : "animals sit"} more than 12 points from the typical win rate of ${esc((d.cards.find(c => c.label === "Typical win rate") || {}).value ?? "-")}%.</div>`
             : emptyHtml("No animals look out of balance right now.", "✓")}
         </div>`)
       + blockHtml("What gets played", `<div class="ccA-grid-2">
@@ -902,7 +902,7 @@
         </div>`)
       + blockHtml("Games that ended badly",
           panelHtml("ccA-t-trunc", "Games that ended badly", "Are games failing to finish?", {
-            tip: "Games saved without a final score — everyone left, or the room errored.",
+            tip: "Games saved without a final score, everyone left, or the room errored.",
           }))
       + blockHtml("All alerts", alertsHtml(d.alerts || [], false))
       + blockHtml("Server load", `<div class="ccA-panel">
@@ -945,7 +945,7 @@
             })}</div>`) : ""}
           ${p ? blockHtml(p.name, `<div class="ccA-panel">
             <div class="ccA-facts">
-              <div class="ccA-fact"><div class="ccA-fact-lbl">Friend code</div><div class="ccA-fact-val">${esc(p.friend_code || "—")}</div></div>
+              <div class="ccA-fact"><div class="ccA-fact-lbl">Friend code</div><div class="ccA-fact-val">${esc(p.friend_code || "-")}</div></div>
               <div class="ccA-fact"><div class="ccA-fact-lbl">Joined</div><div class="ccA-fact-val">${esc(fmtWhen(p.joined))}</div></div>
               <div class="ccA-fact"><div class="ccA-fact-lbl">Last seen</div><div class="ccA-fact-val">${esc(p.online ? "Online now" : fmtAgo(Math.floor(Date.now() / 1000) - p.last_seen))}</div></div>
               <div class="ccA-fact"><div class="ccA-fact-lbl">Games</div><div class="ccA-fact-val">${fmt(p.games)}</div></div>
@@ -1123,7 +1123,7 @@
       S.growthMeasure = m;
       const d = S.data[S.section];
       if (!d) return;
-      // Redraw the ONE chart rather than the page — the switcher exists so the
+      // Redraw the ONE chart rather than the page, the switcher exists so the
       // dashboard doesn't need three near-identical charts side by side.
       drawGrowth(d, S.section === "overview" ? "#ccA-c-growth" : "#ccA-p-growth");
     } else if (group === "games") {
@@ -1143,7 +1143,7 @@
     load(section);
   }
 
-  /* Drop every cached section — the filters changed, so every number is stale.
+  /* Drop every cached section, the filters changed, so every number is stale.
      Only the visible one is re-fetched; the rest reload when opened. */
   function invalidate() {
     S.data = {};
@@ -1188,7 +1188,7 @@
     }
     const data = S.data[sec];
     if (!data) { root.innerHTML = skeleton(sec); return; }
-    // A section that throws must not blank the dashboard — that failure mode is
+    // A section that throws must not blank the dashboard, that failure mode is
     // silent (no console error reaches the developer looking at an empty page).
     try {
       (RENDER[sec] || RENDER.overview)(data, root);
@@ -1201,7 +1201,7 @@
 
   const nameOf = (id) => (SECTIONS.find(s => s.id === id) || {}).name || "Analytics";
 
-  /* Flat placeholders in the shapes that are coming — no spinners anywhere. */
+  /* Flat placeholders in the shapes that are coming, no spinners anywhere. */
   function skeleton(sec) {
     const cards = sec === "search" ? 0 : 4;
     return headHtml(nameOf(sec), "")
@@ -1243,7 +1243,7 @@
       <div class="ccA-panel">
         <div class="ccA-panel-title">Reading this dashboard</div>
         <div class="ccA-panel-q" style="margin-top:6px">Everything is measured over the date range in the header. A dash means there
-        isn't enough data yet — never zero. Rates are left blank rather than shown as 0% when nothing has happened to divide by.</div>
+        isn't enough data yet, never zero. Rates are left blank rather than shown as 0% when nothing has happened to divide by.</div>
       </div>
       <div class="ccA-block"><div class="ccA-h2">Definitions</div>
         <div class="ccA-alerts">${rows}</div>
@@ -1258,7 +1258,7 @@
           <div class="ccA-panel-title">Why some animals are left out</div>
           <div class="ccA-panel-q" style="margin-top:6px">A win rate needs enough boards behind it to mean anything. Animals that
           appeared on fewer than ${esc(d.min_sample || 20)} boards in this range are still listed in the table, but they are never
-          flagged for balance review — with a handful of games, one lucky win swings the rate by tens of points.</div>
+          flagged for balance review, with a handful of games, one lucky win swings the rate by tens of points.</div>
         </div>
         <div class="ccA-block"><div class="ccA-h2">Flagged animals</div>
           ${(d.review || []).length ? `<div class="ccA-panel">${tableHtml("review", {
@@ -1389,7 +1389,7 @@
 
   // Charts are drawn at the panel's real pixel width, so a resized window has
   // to redraw them or the axis text scales with the stretch. Debounced, and
-  // straight from the cached payload — no request, no skeleton flash.
+  // straight from the cached payload, no request, no skeleton flash.
   let _resizeTimer = null;
   window.addEventListener("resize", () => {
     if (!S.open) return;

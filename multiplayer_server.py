@@ -62,12 +62,12 @@ CLAIM_REWARDS_HTML_PATH   = os.path.join(BASE_DIR, "multiplayer", "client", "cla
 # and gives them the "Back to the game" button.
 THANKS_HTML_PATH          = os.path.join(BASE_DIR, "multiplayer", "client", "thanks.html")
 # Newsletter (see newsletter_server.py). The admin page is served to anyone who
-# asks for it — it is a sign-in card until Google auth succeeds, and every byte
+# asks for it, it is a sign-in card until Google auth succeeds, and every byte
 # of data on it comes from POST /api/newsletter/* calls that each verify a
 # Firebase ID token against ADMIN_EMAIL server-side. The URL is not the lock.
 NEWSLETTER_ADMIN_HTML_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "newsletter-admin.html")
 UNSUBSCRIBE_HTML_PATH      = os.path.join(BASE_DIR, "multiplayer", "client", "unsubscribe.html")
-# Snap & Score — physical-board scanning + scoring companion app. Served at
+# Snap & Score: physical-board scanning + scoring companion app. Served at
 # /score on the main host AND as the root page for score.currentsandcritters.com
 # (second custom domain on the same Render service, routed by Host header).
 # Card recognition runs in the player's browser against the prebuilt
@@ -90,7 +90,7 @@ COMPETITIVE_SEASONS_PATH     = os.path.join(COMPETITIVE_GAMES_DIR, "seasons.json
 # client loads (it queries /api/competitive/forfeit_pending by name).
 COMPETITIVE_FORFEITS_PATH    = os.path.join(COMPETITIVE_GAMES_DIR, "forfeits_pending.json")
 # Competitive: a player who leaves a running match and does not return within
-# this many seconds forfeits — the player still present wins.
+# this many seconds forfeits, the player still present wins.
 COMPETITIVE_FORFEIT_SEC = 30.0
 # Team Mode: the fixed team roster. A team's index (0..3) maps to its color
 # name and swatch. A team game starts with 2 teams (Red vs Blue) and the host
@@ -107,7 +107,7 @@ GAMES_LEADERBOARD_PATH = os.path.join(GAMES_HISTORY_DIR, "leaderboard.json")
 STATS_PATH = str(
     os.environ.get("FISH_STATS_PATH", os.path.join(ROOM_STATE_DIR, "site_stats.json"))
 ).strip() or os.path.join(ROOM_STATE_DIR, "site_stats.json")
-# Hardcoded historical baseline — the current real totals, so the counter never
+# Hardcoded historical baseline, the current real totals, so the counter never
 # shows a stale/low number even if the Render env vars aren't synced. Applied as a
 # floor only: real Firestore counts (registered) and the live games counter climb
 # above this and are never lowered by it.
@@ -121,9 +121,9 @@ STATS_SEED_PLAYERS = max(_STATS_SEED_PLAYERS_FLOOR, max(0, int(os.environ.get("F
 # asterisks (the message still sends, minus the swear) so a swear can never
 # reach another player even if a client bypasses the matching browser-side
 # filter in preview-app.js. Two match modes mirror the client exactly:
-#   • STRONG roots — matched ANYWHERE, tolerant of leetspeak, repeated letters
+#   • STRONG roots: matched ANYWHERE, tolerant of leetspeak, repeated letters
 #     and separator evasion (f u c k, f-u-c-k, f*u*c*k, sh1t, phuck…).
-#   • WORD roots — short words that also live inside innocent words (ass in
+#   • WORD roots: short words that also live inside innocent words (ass in
 #     "class", cock in "peacock"), matched ONLY as a whole word (avoids the
 #     "Scunthorpe problem").
 # Keep these two lists in sync with CC_PROFANITY in preview-app.js.
@@ -162,7 +162,7 @@ def _prof_word_core(word: str) -> str:
 
 
 # One leading-boundary group (1) + one body group (2) wrapping the whole
-# alternation — so group indices stay fixed no matter which word matches.
+# alternation, so group indices stay fixed no matter which word matches.
 _PROF_STRONG_RE = re.compile("(" + "|".join(_prof_strong_pat(w) for w in _PROF_STRONG) + ")", re.IGNORECASE)
 _PROF_WORD_RE   = re.compile(
     "(^|[^a-z0-9])(" + "|".join(_prof_word_core(w) for w in _PROF_WORDS) + ")(?=[^a-z0-9]|$)",
@@ -179,7 +179,7 @@ def _censor_profanity(text: str) -> str:
     return _PROF_WORD_RE.sub(lambda m: m.group(1) + "*" * len(m.group(2)), out)
 
 
-# "Say good game" — the clan season challenge, and the same phrase the Bonito
+# "Say good game", the clan season challenge, and the same phrase the Bonito
 # avatar already listens for. Matched here on the SERVER so the credit comes
 # from a message the server actually stored, not from the client's word.
 # "gg" only counts on its own (or as "gg wp"/"ggs") so it can't be picked out
@@ -196,7 +196,7 @@ def _is_good_game_message(text: str) -> bool:
 # A chat line can carry an `emote` instead of (or alongside) text: the id of an
 # animal avatar, which every client paints as that critter's picture. Only this
 # slug shape is ever stored, so the value can never be markup, a path, or a URL
-# — the client builds "/avatars/<id>.png" from it and falls back to the default
+#, the client builds "/avatars/<id>.png" from it and falls back to the default
 # icon if no such file exists. Ownership is the buyer's own store inventory and
 # is enforced client-side where that inventory lives; the worst a tampered
 # client can do is send a picture of a critter it hasn't bought, which is
@@ -214,7 +214,7 @@ def _clean_emote_id(value: Any) -> str:
 
 # Equipped icon / background images. Only our own asset paths are ever stored
 # and relayed, so a tampered client can never point another player's <img> at
-# an outside URL. Used for seats AND spectators — a spectator has no seat but
+# an outside URL. Used for seats AND spectators, a spectator has no seat but
 # still wears a face in the spectator list and on every chat line they send.
 _AVATAR_PATH_RE = re.compile(r"^/avatars/[A-Za-z0-9_\-]+\.png$")
 _BACKGROUND_PATH_RE = re.compile(r"^/backgrounds/[A-Za-z0-9_\-]+\.png$")
@@ -239,7 +239,7 @@ def _clean_background_path(value: Any) -> str:
 # ── Firebase Admin: exact live "Registered Players" / "Players Online" ──────
 # Firestore is the persistent source of truth for accounts and presence, but
 # the marketing site cannot read it directly (security rules block public
-# reads — by design, to keep emails/profiles private). Instead the server reads
+# reads, by design, to keep emails/profiles private). Instead the server reads
 # Firestore with a service account and serves the exact counts through
 # /api/stats. Configure by setting FIREBASE_SERVICE_ACCOUNT to the service
 # account JSON (or GOOGLE_APPLICATION_CREDENTIALS to a file path). If neither
@@ -429,7 +429,7 @@ def _fetch_icon_ownership():
         users = db.collection("users")
         # Pull only the fields we need from each doc to keep it light. We also
         # read is_admin/email so the developer/admin account (which owns every
-        # icon) can be excluded — otherwise it skews every icon toward a higher
+        # icon) can be excluded, otherwise it skews every icon toward a higher
         # "% of people own this" than players actually have.
         try:
             stream = users.select(["unlocked_icons", "is_admin", "email"]).stream()
@@ -479,10 +479,10 @@ def get_icon_ownership():
 
 
 # ══════════════════════════════════════════════════════════════════════════
-#  STRIPE CHECKOUT WEBHOOK — credit Critter Coins / grant Supporter Tiers
+#  STRIPE CHECKOUT WEBHOOK: credit Critter Coins / grant Supporter Tiers
 # ══════════════════════════════════════════════════════════════════════════
 # Players buy Critter Coins packs and Supporter Tiers through Stripe-hosted
-# Payment Links (see the in-app Store). Stripe runs the entire card flow — we
+# Payment Links (see the in-app Store). Stripe runs the entire card flow, we
 # never see card data, and the client NEVER credits coins to itself. After
 # Stripe confirms a payment it POSTs a `checkout.session.completed` event to
 # /api/stripe/webhook, and ONLY this handler (gated by the webhook signature)
@@ -490,7 +490,7 @@ def get_icon_ownership():
 # a fake "I paid" event to mint themselves coins.
 #
 # ──────────────────────────────────────────────────────────────────────────
-#  WHERE TO PUT YOUR STRIPE KEYS  (set as Render env vars — never hard-code!)
+#  WHERE TO PUT YOUR STRIPE KEYS  (set as Render env vars, never hard-code!)
 # ──────────────────────────────────────────────────────────────────────────
 #   STRIPE_WEBHOOK_SECRET  → the "Signing secret" for THIS endpoint. In the
 #       Stripe Dashboard: Developers → Webhooks → "Add endpoint",
@@ -498,12 +498,12 @@ def get_icon_ownership():
 #         • Events to send: checkout.session.completed
 #                           checkout.session.async_payment_succeeded
 #           (the second one is REQUIRED if you accept any delayed payment
-#           method — bank debits, Cash App, some wallets. Those complete the
+#           method: bank debits, Cash App, some wallets. Those complete the
 #           session as UNPAID and confirm later; without it the buyer is
 #           charged and never gets their coins/tier.)
 #       Stripe then shows a secret starting with "whsec_". Paste it into the
 #       STRIPE_WEBHOOK_SECRET env var. (Test mode and live mode each have their
-#       OWN signing secret — use the matching one.)
+#       OWN signing secret: use the matching one.)
 #   STRIPE_SECRET_KEY      → your secret API key ("sk_test_…" in test mode,
 #       "sk_live_…" in live mode). It is OPTIONAL here: coin/tier fulfilment is
 #       resolved from the checkout amount/metadata without any Stripe API call.
@@ -514,7 +514,7 @@ def get_icon_ownership():
 #   ⚠️ The Payment Links wired into the Store are TEST links right now, so use
 #   the TEST webhook signing secret while testing. Before launch, swap the Store
 #   links to LIVE Payment Links AND set STRIPE_WEBHOOK_SECRET to the LIVE
-#   endpoint's signing secret. They are separate secrets — changing only the
+#   endpoint's signing secret. They are separate secrets: changing only the
 #   links means real money is taken and nothing is ever granted.
 #
 #   Also set, on EVERY Payment Link (Stripe → Payment Links → edit → "After
@@ -528,7 +528,7 @@ STRIPE_SECRET_KEY     = os.environ.get("STRIPE_SECRET_KEY", "").strip()
 # recommended replay-attack guard).
 STRIPE_SIG_TOLERANCE_SEC = 5 * 60
 
-# The 8 cosmetic ocean backgrounds — KEEP IN SYNC with EXCLUSIVE_BACKGROUNDS in
+# The 8 cosmetic ocean backgrounds: KEEP IN SYNC with EXCLUSIVE_BACKGROUNDS in
 # preview-app.js. Granting a tier with "unlock all backgrounds" adds these.
 ALL_BACKGROUND_PATHS = [
     "/backgrounds/bg-kelp.png",
@@ -547,7 +547,7 @@ ALL_BACKGROUND_PATHS = [
 # ⚠️ These cents MUST match the prices on your Stripe Payment Links. If you
 # change a price for launch, update the matching key here. (If you ever add two
 # products that share a price, set metadata.cc_coins / metadata.cc_tier on the
-# Payment Link or Price instead — _reward_for_session reads metadata first.)
+# Payment Link or Price instead: _reward_for_session reads metadata first.)
 COIN_PACKS_BY_CENTS = {
     100:  1000,    # $1.00  → 1,000 coins
     500:  5250,    # $5.00  → 5,250 coins
@@ -562,7 +562,7 @@ SUPPORTER_TIERS_BY_CENTS = {
 
 # What each Supporter Tier grants automatically in Firestore. The remaining
 # perks (thank-you email, postcard, physical copy, Supporter Reef Wall name) are
-# manual fulfilment — they're saved on the purchase record (stripe_events doc)
+# manual fulfilment: they're saved on the purchase record (stripe_events doc)
 # with the buyer's email so you can fulfil them by hand.
 #
 # The `coins` grant is sized to a SHOPPING LIST at the shop's own prices
@@ -573,11 +573,11 @@ SUPPORTER_TIERS_BY_CENTS = {
 #                          its coins are what let it choose them.
 #   ocean-ally   15,000  → backgrounds already granted, so ~7 seasonal skins
 #   tide-turner  30,000  → a full year of seasonal skins, plus a buffer
-# (There is no "All Backgrounds bundle" product — an old changelog line mentions
+# (There is no "All Backgrounds bundle" product, an old changelog line mentions
 # one at 4,990 coins, but the store only ever sells them one at a time.)
 # Deliberately BELOW the coin-pack rate ($1 = 1,000 coins, best pack 1,250/$):
 # packs stay the efficient way to buy currency, tiers sell founder recognition.
-# ⚠️ These numbers are printed on THREE tier cards — the in-game Store
+# ⚠️ These numbers are printed on THREE tier cards, the in-game Store
 # (PHST_SUPPORTER_TIERS in preview-app.js), the marketing site (index.html) and
 # the /thanks confirmation. test_stripe_payments.py fails if they drift apart.
 SUPPORTER_TIER_GRANTS = {
@@ -587,7 +587,7 @@ SUPPORTER_TIER_GRANTS = {
 }
 
 # Player level curve: the CUMULATIVE total_xp required to REACH each level
-# (index 0 = level 1). ⚠️ KEEP IN SYNC with LEVEL_XP_TOTALS in preview-app.js —
+# (index 0 = level 1). ⚠️ KEEP IN SYNC with LEVEL_XP_TOTALS in preview-app.js:
 # it's what lets a server-granted XP bump (a Supporter-Tier purchase) write the
 # stored level fields to exactly what the client would compute from total_xp, so
 # the leaderboard / header / profile never disagree.
@@ -606,7 +606,7 @@ LEVEL_XP_TOTALS = [
 
 
 def _level_progress_for_total_xp(total_xp: Any) -> Tuple[int, int, int]:
-    """(level, xp_current, xp_goal) for a total_xp — mirrors the client's
+    """(level, xp_current, xp_goal) for a total_xp: mirrors the client's
     getLevelProgressFromTotalXp so stored level fields match exactly."""
     try:
         xp = max(0, int(total_xp))
@@ -634,7 +634,7 @@ def _supporter_tier_grant_updates(tier: Any, stats: Any) -> Tuple[Dict[str, Any]
     Shared by BOTH fulfilment routes so they can never drift:
       • the Stripe webhook, when the buyer already had an account at checkout;
       • /api/claim-rewards, when a guest paid first and made the account after.
-    Before this was shared, the claim route wrote only `supporter_tier` — a
+    Before this was shared, the claim route wrote only `supporter_tier`, a
     guest who claimed late got the badge and none of the goods.
 
     `stats` is the account's CURRENT stats map; coins and XP are added to what
@@ -707,12 +707,12 @@ SUPPORTER_WALL_TIERS: List[Tuple[int, str, str]] = [
 ]
 
 # The EXACT labels of the three custom questions added to every Stripe Payment
-# Link. Stripe echoes them back in session.custom_fields[].label.custom — we
+# Link. Stripe echoes them back in session.custom_fields[].label.custom, we
 # match on these verbatim (trim + case-insensitive) to read each answer.
 #
 # ⚠️ A LABEL IS A BEHAVIOUR KEY, not display text. It has to match what the
 # Payment Link actually asks, character for character. Edit it here without
-# editing it in Stripe and the lookup silently returns "" — the buyer's typed
+# editing it in Stripe and the lookup silently returns "", the buyer's typed
 # username is dropped and a signed-out payment can no longer be matched to their
 # account. The game's name is written both ways in the wild ("Currents and
 # Critters" everywhere it is displayed now, "Currents & Critters" on anything
@@ -742,21 +742,21 @@ def _supporter_tier_for_total(total_cents: Any) -> Tuple[Optional[str], Optional
 # ── Wall name safety filter ──────────────────────────────────────────────────
 # A paid, public wall name goes onto the wall IMMEDIATELY (see the gate in
 # _process_stripe_checkout). Names that trip these lists are held as
-# pending_review for a human instead — they never auto-show, but they aren't
+# pending_review for a human instead, they never auto-show, but they aren't
 # rejected either: they surface in the /supporter-admin review list. The three
 # lists trade off catching abuse vs. falsely holding innocent names:
 #
-#   _WALL_SUBSTR_BLOCK  matched inside a SINGLE token — high-signal terms that
+#   _WALL_SUBSTR_BLOCK  matched inside a SINGLE token: high-signal terms that
 #     essentially never appear inside a real word/name, so "ShitLord" and
 #     "bullshit" are caught while a multi-word name never crosses a boundary.
-#   _WALL_WORD_BLOCK    matched only as a WHOLE token — short words that DO live
+#   _WALL_WORD_BLOCK    matched only as a WHOLE token: short words that DO live
 #     inside ordinary surnames (Hancock, Dickinson, Cummings, Assange), so we
 #     require the entire token to equal them to avoid false holds.
-#   _WALL_COLLAPSED_BLOCK  matched in the separator-stripped whole name —
+#   _WALL_COLLAPSED_BLOCK  matched in the separator-stripped whole name:
 #     catches spaced-out evasion, e.g. "n i g g e r" / "f-a-g-g-o-t" / "F u c k".
 #     Only terms that never appear inside an innocent word (even across word
 #     boundaries) go here; "shit"/"cunt" are NOT, to avoid "fresh item"/
-#     "Scunthorpe" false holds — they're still caught per-token above.
+#     "Scunthorpe" false holds: they're still caught per-token above.
 _WALL_SUBSTR_BLOCK = frozenset({
     "fuck", "shit", "bitch", "pussy", "whore", "slut", "faggot", "nigger",
     "nigga", "kike", "chink", "wetback", "tranny", "dildo", "jizz", "asshole",
@@ -778,7 +778,7 @@ def _name_needs_review(name: str) -> bool:
     """True when a public wall name should wait for MANUAL approval instead of
     auto-showing: blank, unusually long, or containing blocked/offensive words.
     A clean name returns False and goes straight onto the wall. Held names are
-    not rejected — they surface in the /supporter-admin review list."""
+    not rejected, they surface in the /supporter-admin review list."""
     raw = str(name or "").strip()
     if not raw or len(raw) > 40:
         return True
@@ -803,7 +803,7 @@ def _custom_field_value(custom_fields: Any, label: str) -> str:
     (text / dropdown / numeric). Returns "" when the field is absent/blank.
 
     `label` may also be a tuple/list of acceptable spellings (see
-    CF_USERNAME_LABELS) — the first one present on the session wins."""
+    CF_USERNAME_LABELS), the first one present on the session wins."""
     if not isinstance(custom_fields, list):
         return ""
     if isinstance(label, (tuple, list)):
@@ -848,7 +848,7 @@ def _find_uid_by_username(db, username_lower: str) -> Optional[str]:
     construction; see _claim_username). Returns the uid or None.
 
     Deliberately does NOT fall back to the in-game `nickname`, which is NOT
-    unique — matching a typed name against a shared nickname could credit a
+    unique: matching a typed name against a shared nickname could credit a
     payment (and its coins) to the wrong account. Unmatched payments are saved
     as guests and reclaimed later by verified email, which is safe."""
     uname = str(username_lower or "").strip().lower()
@@ -879,7 +879,7 @@ def _session_product_name(session: dict, kind: Optional[str], value: Any) -> str
 def _verify_firebase_id_token(id_token: str) -> Optional[dict]:
     """Verify a Firebase ID token server-side and return its decoded claims
     (with 'uid' and, usually, 'email'), or None if missing/invalid. Used to
-    prove account ownership on the claim + username endpoints — we never trust a
+    prove account ownership on the claim + username endpoints, we never trust a
     raw uid from the client for those money/identity actions."""
     tok = str(id_token or "").strip()
     if not tok:
@@ -901,7 +901,7 @@ def _verify_stripe_signature(payload: bytes, sig_header: str, secret: str) -> bo
     We recompute HMAC-SHA256(secret, b"<t>." + raw_body) and constant-time
     compare it against each v1 signature, and reject events outside the
     timestamp tolerance. Returns False on any problem (no secret/header, bad
-    timestamp, no matching signature) — i.e. we fulfil ONLY verified events."""
+    timestamp, no matching signature): i.e. we fulfil ONLY verified events."""
     if not secret or not sig_header:
         return False
     timestamp = None
@@ -959,16 +959,16 @@ def _stripe_session_status(session_id: str) -> Dict[str, Any]:
     """Has the webhook already fulfilled this checkout session?
 
     Feeds the /thanks page so a buyer sees "your purchase is confirmed" only
-    once the money is genuinely recorded on our side — a misconfigured signing
+    once the money is genuinely recorded on our side, a misconfigured signing
     secret or a Firestore outage shows up as "still processing" instead of a
     thank-you page that quietly lied.
 
     Reads ONLY the stripe_events audit marker written inside the fulfilment
     transaction. Safe to expose: the caller must already know the session id
     (an unguessable token Stripe gives only to the buyer), and the reply carries
-    just what was bought — never the email, uid, or Stripe customer id."""
+    just what was bought, never the email, uid, or Stripe customer id."""
     sid = str(session_id or "").strip()
-    # Stripe checkout session ids look like cs_test_… / cs_live_… — reject
+    # Stripe checkout session ids look like cs_test_… / cs_live_…: reject
     # anything else outright rather than turning arbitrary text into a query.
     if not sid or len(sid) > 200 or not re.match(r"^cs_[A-Za-z0-9_]+$", sid):
         return {"ok": False, "error": "bad session id"}
@@ -997,7 +997,7 @@ def _stripe_session_status(session_id: str) -> Dict[str, Any]:
             "matched": bool(d.get("matched")),
         }
     # Not fulfilled YET is the normal case for the first second or two after
-    # checkout — the page polls, it does not treat this as a failure.
+    # checkout, the page polls, it does not treat this as a failure.
     return {"ok": True, "processed": False}
 
 
@@ -1010,7 +1010,7 @@ def _process_stripe_checkout(event: dict) -> str:
     """Apply a verified checkout.session.completed event EXACTLY ONCE.
 
     A single Firestore transaction does everything for one paid checkout:
-      • records the payment under the supporter (deduped by Stripe SESSION id —
+      • records the payment under the supporter (deduped by Stripe SESSION id,
         so a re-counted session never inflates totals),
       • adds amount_total to the supporter's LIFETIME total and recomputes their
         wall tier/size from that lifetime total,
@@ -1086,7 +1086,7 @@ def _process_stripe_checkout(event: dict) -> str:
         guest_id = ""
     else:
         # Key a guest supporter by EMAIL so repeat purchases from the SAME buyer
-        # accumulate onto ONE doc — their lifetime total (and their wall name)
+        # accumulate onto ONE doc, their lifetime total (and their wall name)
         # keeps growing even though Stripe issues a fresh customer id for every
         # Payment-Link checkout. Email is safe as a Firestore doc id (no "/"),
         # and the claim flow already finds guests by emailLower. Falls back to
@@ -1121,7 +1121,7 @@ def _process_stripe_checkout(event: dict) -> str:
         tier_name, wall_size = _supporter_tier_for_total(new_total)        # by lifetime
 
         # (9 / auto-show + safety) A supporter who asked to be public and typed a
-        # CLEAN name goes onto the wall IMMEDIATELY — no manual approval needed.
+        # CLEAN name goes onto the wall IMMEDIATELY, no manual approval needed.
         #   • anonymous (chose "no")      → recorded but never shown on the wall.
         #   • name trips the blocklist    → held as pending_review + hidden until
         #                                    a human approves it in /supporter-admin.
@@ -1139,7 +1139,7 @@ def _process_stripe_checkout(event: dict) -> str:
             status, visible = "approved", True
 
         # ── writes ───────────────────────────────────────────────────────────
-        # 1) the payment record — its existence is the dedup key.
+        # 1) the payment record, its existence is the dedup key.
         txn.set(payment_ref, {
             "stripeSessionId":  stripe_session_id,
             "stripeCustomerId": stripe_customer_id,
@@ -1192,7 +1192,7 @@ def _process_stripe_checkout(event: dict) -> str:
                 # ── Prestige store bonus ────────────────────────────────────
                 # +5% per Prestige level on BOUGHT coin packs. Computed here,
                 # from the account's own stored Prestige level, AFTER Stripe
-                # confirmed the payment — the browser never sends an amount and
+                # confirmed the payment, the browser never sends an amount and
                 # the price the buyer paid is not changed by it. Deliberately
                 # not applied to tier grants, refunds, admin grants, challenge
                 # rewards or the Prestige coin reward itself.
@@ -1207,7 +1207,7 @@ def _process_stripe_checkout(event: dict) -> str:
                           f"+{prestige_bonus} on a {pack}-coin pack "
                           f"(P{prestige_server.prestige_level_of(existing_user)})")
             elif kind == "tier":
-                # Coins, XP + derived level, backgrounds and icons — the same
+                # Coins, XP + derived level, backgrounds and icons, the same
                 # grant /claim-rewards applies, from the one helper.
                 updates, _tier_coins = _supporter_tier_grant_updates(value, stats)
                 if need_founder:
@@ -1259,7 +1259,7 @@ def _process_stripe_checkout(event: dict) -> str:
     # doc) and later bought in-game while signed in (→ supporters/{uid}) would
     # otherwise stand on the wall TWICE, with their lifetime total split between
     # the two rows, so neither name grows the way it should. Fold the guest rows
-    # in now — the same merge /claim-rewards runs, deduped by Stripe session id,
+    # in now, the same merge /claim-rewards runs, deduped by Stripe session id,
     # so it's a no-op once there's nothing left to move.
     #
     # ⚠️ Matched on the ACCOUNT's OWN email, never on `checkout_email`. Stripe
@@ -1282,7 +1282,7 @@ def _process_stripe_checkout(event: dict) -> str:
 
 
 # ══════════════════════════════════════════════════════════════════════════
-#  SUPPORTER REEF WALL — public read, admin review, guest claim, usernames
+#  SUPPORTER REEF WALL: public read, admin review, guest claim, usernames
 # ══════════════════════════════════════════════════════════════════════════
 _WALL_CACHE = {"at": 0.0, "data": None}
 _WALL_TTL_SEC = 45.0
@@ -1292,7 +1292,7 @@ def _build_supporter_wall() -> List[Dict[str, Any]]:
     """Public wall rows: ONLY approved + visible supporters, and ONLY the three
     public fields (displayName / wallSize / tier). No emails, Stripe ids,
     Firebase uids, or payment history ever leave this function. Sorted by
-    lifetime spend (used purely for ordering — the cents are NOT returned)."""
+    lifetime spend (used purely for ordering, the cents are NOT returned)."""
     db = _get_firestore()
     if db is None:
         return []
@@ -1321,7 +1321,7 @@ def _build_supporter_wall() -> List[Dict[str, Any]]:
                 "displayName": str(d.get("displayName") or "Supporter"),
                 "wallSize":    d.get("wallSize"),   # kept for the standalone /wall page
                 "tier":        d.get("tier"),
-                # LIFETIME total in cents — the homepage wall sizes each name
+                # LIFETIME total in cents, the homepage wall sizes each name
                 # CONTINUOUSLY from this (every dollar = a bit bigger) and shows
                 # it on hover. Exposed intentionally at the site owner's request.
                 "amountCents": cents,
@@ -1344,7 +1344,7 @@ def _supporter_wall_cached() -> List[Dict[str, Any]]:
 
 
 def _admin_list_supporters(filter_mode: str = "pending") -> Dict[str, Any]:
-    """Admin-only review list. Includes private fields (email/ids) — this is ONLY
+    """Admin-only review list. Includes private fields (email/ids), this is ONLY
     served behind the admin key. filter_mode 'pending' shows records awaiting
     review; anything else returns everything."""
     db = _get_firestore()
@@ -1467,7 +1467,7 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
 
     Only guest records whose CHECKOUT email matches the claimer's verified email
     are pulled in. Each guest payment is copied into supporters/{uid}/payments
-    ONLY if that Stripe session isn't already there — so no payment is ever
+    ONLY if that Stripe session isn't already there, so no payment is ever
     double-counted, and re-running the claim is a safe no-op. Each move folds its
     cents into the supporter's lifetime total + tier in the SAME transaction;
     unclaimed coin rewards are credited, and the guest records are marked
@@ -1583,7 +1583,7 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
             done: Dict[str, Any] = {"claimStatus": "claimed", "claimedByUid": uid,
                                     "updatedAt": SERVER_TIMESTAMP}
             # Pull the guest row OFF the wall. Its money now lives on
-            # supporters/{uid}, which carries the SAME name — leaving both
+            # supporters/{uid}, which carries the SAME name, leaving both
             # visible puts one donor on the wall TWICE, at two different sizes,
             # and double-counts them in the total raised.
             # Only once EVERY payment actually landed: hiding a guest whose
@@ -1620,7 +1620,7 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
             credited = 0
             if rdata.get("rewardKind") == "coins":
                 # A late claim is still a BOUGHT coin pack, so the Prestige
-                # store bonus applies here exactly as it does in the webhook —
+                # store bonus applies here exactly as it does in the webhook:
                 # paying first and making the account after must not cost the
                 # buyer their bonus.
                 pack = int(rdata.get("rewardValue") or 0)
@@ -1667,8 +1667,8 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
 # The authoritative trade lives at trades/{tradeId} where
 #   tradeId = "__".join(sorted([uidA, uidB]))   (one active trade per DM pair)
 # After every change the state is MIRRORED into each player's
-# users/{uid}/messages/trade_<tradeId> doc — the SAME subcollection DMs already
-# live in — so both clients see it update live via the existing snapshot
+# users/{uid}/messages/trade_<tradeId> doc, the SAME subcollection DMs already
+# live in, so both clients see it update live via the existing snapshot
 # listener, with NO new Firestore rules required. That mirror doc carries
 # meta:true so the existing message filters skip it in chat bubbles / unread.
 
@@ -1683,7 +1683,7 @@ TRADE_MAX_COINS = 100_000_000          # sanity ceiling on a single offer
 # GIVER's progress at the moment the item leaves, and make the requirement be
 # met AGAIN from that snapshot before any automatic grant can return it.
 # The unlock catalogue (which stat, which goal) lives in preview-app.js, so this
-# side stays generic and only records raw numbers — see tradedAwayEntry() /
+# side stays generic and only records raw numbers: see tradedAwayEntry() /
 # reEarnState() there for the comparison.
 TRADE_AWAY_MAX_ENTRIES = 200           # de-duped per item; far above the item count
 TRADE_AWAY_MAX_STAT_KEYS = 120         # bound on one entry's stats snapshot
@@ -1691,7 +1691,7 @@ TRADE_AWAY_MAX_STAT_KEYS = 120         # bound on one entry's stats snapshot
 
 def _trade_progress_snapshot(doc: Any) -> Dict[str, Any]:
     """Every numeric stat on the account, the derived level and rank, and each
-    achievement's lifetime meter — the raw material any unlock rule could be
+    achievement's lifetime meter, the raw material any unlock rule could be
     measured against."""
     doc = doc if isinstance(doc, dict) else {}
     stats = doc.get("stats") if isinstance(doc.get("stats"), dict) else {}
@@ -1765,7 +1765,7 @@ def _admin_revoke_item(who: str, item: str, dry_run: bool = False) -> Dict[str, 
     requirement to be met AGAIN, exactly as a trade would (same
     `traded_away` snapshot, so the client's re-earn gate applies).
 
-    `who` is a uid or a nickname. Cosmetics only — never touches stats, XP or
+    `who` is a uid or a nickname. Cosmetics only, never touches stats, XP or
     achievements. Returns what changed so it can be run dry first."""
     db = _get_firestore()
     if db is None:
@@ -1786,7 +1786,7 @@ def _admin_revoke_item(who: str, item: str, dry_run: bool = False) -> Dict[str, 
         if not matches:
             return {"ok": False, "error": f"no account found for {who!r}"}
         if len(matches) > 1:
-            return {"ok": False, "error": f"{who!r} matches more than one account — pass the uid"}
+            return {"ok": False, "error": f"{who!r} matches more than one account: pass the uid"}
         snap = matches[0]
     uid = snap.id
     doc = snap.to_dict() or {}
@@ -1818,7 +1818,7 @@ def _admin_revoke_item(who: str, item: str, dry_run: bool = False) -> Dict[str, 
 
 def _admin_resolve_account(who: str) -> Tuple[Optional[Any], Optional[Dict[str, Any]]]:
     """Find ONE account by uid or nickname, for the admin tools. Returns
-    (snapshot, error) — never guesses between two matching nicknames."""
+    (snapshot, error), never guesses between two matching nicknames."""
     db = _get_firestore()
     if db is None:
         return None, {"ok": False, "error": "firestore_unavailable"}
@@ -1834,7 +1834,7 @@ def _admin_resolve_account(who: str) -> Tuple[Optional[Any], Optional[Dict[str, 
         matches = list(users.where(field, "==", value).limit(2).stream())
         if len(matches) > 1:
             return None, {"ok": False,
-                          "error": f"{who!r} matches more than one account — pass the uid"}
+                          "error": f"{who!r} matches more than one account: pass the uid"}
         if matches:
             return matches[0], None
     return None, {"ok": False, "error": f"no account found for {who!r}"}
@@ -1847,7 +1847,7 @@ def _admin_set_xp(who: str, total_xp: Any, dry_run: bool = False) -> Dict[str, A
     total_xp is the single source of truth, but the level/xp_current/xp_goal
     fields are stored alongside it and read directly by the header, the profile
     and the XP leaderboard. Setting total_xp on its own would leave those saying
-    the old level — the account would show one number here and another there.
+    the old level, the account would show one number here and another there.
     Deriving them here, from the same table the client uses, is what makes the
     leaderboard agree the moment it is next opened.
 
@@ -1888,7 +1888,7 @@ def _admin_set_xp(who: str, total_xp: Any, dry_run: bool = False) -> Dict[str, A
         "level_xp_goal":    xp_goal,
     }
     if not dry_run:
-        # merge=True deep-merges, so only these seven keys move — coins, games,
+        # merge=True deep-merges, so only these seven keys move: coins, games,
         # achievements and everything else on the stats map are untouched.
         db.collection("users").document(uid).set({"stats": stats_update}, merge=True)
     return {"ok": True, "dry_run": dry_run, "uid": uid,
@@ -2031,7 +2031,7 @@ def _trade_compute_apply(trade: Dict[str, Any], doc_a: Dict[str, Any],
     assets_b = _trade_assets(doc_b)
 
     # Re-verify BOTH directions at commit time (defence in depth vs. the
-    # offer-time check — an item may have been spent/traded since).
+    # offer-time check, an item may have been spent/traded since).
     err = _trade_validate_side(offer_a, assets_a, assets_b)
     if err:
         return (err, None)
@@ -2079,7 +2079,7 @@ def _trade_compute_apply(trade: Dict[str, Any], doc_a: Dict[str, Any],
 def _trade_mirror(db, trade: Dict[str, Any]) -> None:
     """Write the live trade state into BOTH participants' messages subcollection
     (deterministic id) so their existing snapshot listener re-renders it live.
-    Best-effort — a failed mirror never blocks the authoritative write."""
+    Best-effort, a failed mirror never blocks the authoritative write."""
     from firebase_admin import firestore as _fs
     SERVER_TIMESTAMP = getattr(_fs, "SERVER_TIMESTAMP", None)
     if SERVER_TIMESTAMP is None:
@@ -2087,7 +2087,7 @@ def _trade_mirror(db, trade: Dict[str, Any]) -> None:
     tid = trade.get("tradeId")
     payload = {
         "conv_id": trade.get("conv_id"),
-        # NOTE: deliberately NOT meta:true — a meta doc would make the DM be
+        # NOTE: deliberately NOT meta:true, a meta doc would make the DM be
         # detected as a group. The client excludes trade:true docs everywhere it
         # excludes meta docs (chat bubbles, unread counts, last-message preview).
         "trade": True,           # flags this as the live trade doc
@@ -2106,7 +2106,7 @@ def _trade_mirror(db, trade: Dict[str, Any]) -> None:
 
 def _trade_post_message(db, trade: Dict[str, Any], text: str, actor: str,
                         ping: bool = False) -> None:
-    """Post a centered SYSTEM line into the pair's DM for BOTH players — used
+    """Post a centered SYSTEM line into the pair's DM for BOTH players: used
     for the trade started / completed / canceled summary.
 
     sender/receiver are the two REAL uids (sender=actor, receiver=the other) so
@@ -2165,7 +2165,7 @@ def _trade_summary_text(trade: Dict[str, Any]) -> str:
     if len(parts) != 2:
         return "Trade completed."
     a, b = parts
-    return (f"✅ Trade completed — {names.get(a, 'Player')} gave {_side(a)}; "
+    return (f"✅ Trade completed: {names.get(a, 'Player')} gave {_side(a)}; "
             f"{names.get(b, 'Player')} gave {_side(b)}.")
 
 
@@ -2213,7 +2213,7 @@ def _trade_open(uid: str, uid_name: str, peer_uid: str, peer_name: str) -> Dict[
         snap = trade_ref.get(transaction=txn)
         cur = snap.to_dict() if snap.exists else None
         if cur and cur.get("status") == "open":
-            # Resume — just refresh display names in case someone renamed.
+            # Resume, just refresh display names in case someone renamed.
             merged_names = dict(cur.get("names") or {})
             merged_names.update(names)
             cur["names"] = merged_names
@@ -2325,7 +2325,7 @@ def _trade_confirm(uid: str, peer_uid: str, version: int, confirm: bool) -> Dict
     If confirming would make BOTH sides confirmed at the SAME version, the swap
     is executed atomically in this same transaction (all reads before writes):
     both user docs + the trade doc are read, both offers re-validated against
-    live ownership, and — only if everything still holds — the items/coins are
+    live ownership, and, only if everything still holds, the items/coins are
     moved and the trade is marked completed. Any commit-time failure resets both
     confirmations (bumping the version) and returns a clear error instead."""
     db = _get_firestore()
@@ -2362,7 +2362,7 @@ def _trade_confirm(uid: str, peer_uid: str, version: int, confirm: bool) -> Dict
         if uid not in parts:
             return {"__err__": "not_participant"}
         if confirm and int(version) != int(trade.get("version") or 1):
-            # The offer changed under them — reject; the client re-syncs + re-confirms.
+            # The offer changed under them: reject; the client re-syncs + re-confirms.
             return {"__err__": "changed", "trade": trade}
 
         confirmed = dict(trade.get("confirmed") or {})
@@ -2383,7 +2383,7 @@ def _trade_confirm(uid: str, peer_uid: str, version: int, confirm: bool) -> Dict
             docs[p] = (usnap.to_dict() or {}) if usnap.exists else {}
         err, changes = _trade_compute_apply(trade, docs[parts[0]], docs[parts[1]])
         if err:
-            # Can't safely complete — reset confirmations, bump version, record error.
+            # Can't safely complete: reset confirmations, bump version, record error.
             reset = {p: False for p in parts}
             new_version = int(trade.get("version") or 1) + 1
             txn.set(trade_ref, {"confirmed": reset, "version": new_version,
@@ -2394,7 +2394,7 @@ def _trade_confirm(uid: str, peer_uid: str, version: int, confirm: bool) -> Dict
             trade["last_error"] = err
             return {"__err__": err, "trade": trade}
 
-        # Apply the resolved values to both accounts + close the trade — all in
+        # Apply the resolved values to both accounts + close the trade, all in
         # this one atomic transaction.
         for p in parts:
             ch = changes[p]
@@ -2566,7 +2566,7 @@ def _shuffle_deck_keep_end_bottom15(gs, ms) -> None:
     GAME card out of the bottom 15. Cards are drawn from the FRONT (pop(0)), so
     the "bottom" is the END of the list. END GAME is removed, the rest is
     shuffled, then END GAME is re-inserted at a random position within the last
-    15 cards — identical to the engine's authoritative placement in run_match.
+    15 cards: identical to the engine's authoritative placement in run_match.
     A plain random.shuffle(gs.deck) would move END GAME anywhere, which made the
     game end far too early (e.g. END drawn with 53 cards left) after an undo.
     """
@@ -2940,7 +2940,7 @@ def entry_to_dict(ms: fish.MatchState, gs: fish.GameState, entry_uid: int) -> Di
 # registry. The uid encodes the original art face in its low 3 digits
 # (uid = serial * 1000 + face_uid), so the client's imagePathForUid() /
 # cardHalfPos() render the correct sprite for a minted card with no extra
-# bookkeeping — anywhere a normal card is drawn (hand, board, zoom, picker).
+# bookkeeping: anywhere a normal card is drawn (hand, board, zoom, picker).
 _MINT_SERIAL_LOCK = threading.Lock()
 _MINT_SERIAL_NEXT = 1000  # → minted uids are 1_000_000+ (originals are ≤ 269)
 
@@ -2957,8 +2957,8 @@ _ADMIN_CATALOG_CACHE: Optional[List[Dict[str, Any]]] = None
 
 
 def build_admin_card_catalog() -> List[Dict[str, Any]]:
-    """Every card in the game — both faces of each two-sided card (the left+right
-    and up+down orientations) plus single-face oceans — regardless of where the
+    """Every card in the game, both faces of each two-sided card (the left+right
+    and up+down orientations) plus single-face oceans: regardless of where the
     copies currently sit. Powers the Current Controller add/mint pickers so the
     admin can see and grant EVERY card, not just what is left in the live deck."""
     global _ADMIN_CATALOG_CACHE
@@ -3029,7 +3029,7 @@ def choose_action_weighted_light(
     constant simulation-heavy evaluation.
 
     If out_scored is provided, the full (action, score) list (sorted best-first)
-    is copied into it — used by the Current Controller's Bot Brain Viewer.
+    is copied into it: used by the Current Controller's Bot Brain Viewer.
     """
     acts = fish.candidate_actions_for_ai(gs, ms, player)
     acts = fish.filter_overbuild_ocean_actions(gs, ms, player, acts)
@@ -3136,7 +3136,7 @@ _DEEP_PLAN_TIME_BUDGET: Dict[str, float] = {
 # Rollout confirmation is the single most expensive thing this server does: a
 # hard bot simulates up to 8 candidate moves × 3 determinized worlds, all in
 # pure Python. Python runs one thread of bytecode at a time (the GIL), so N
-# simultaneous games do NOT plan in parallel — they take turns on the one core
+# simultaneous games do NOT plan in parallel, they take turns on the one core
 # and, past a handful of games, starve the HTTP threads with them. Measured on
 # a 12-core box: 32 concurrent bot games drove GET /api/health (which touches
 # nothing at all) from 2.5 ms to 5.3 seconds, with the process pinned at one
@@ -3148,7 +3148,7 @@ _DEEP_PLAN_TIME_BUDGET: Dict[str, float] = {
 #
 # So deep planning is a privilege, not a right: only a few moves anywhere on
 # the server may be in rollout confirmation at once. A bot that cannot get a
-# slot keeps its one-pass score from choose_action_weighted_light — still a
+# slot keeps its one-pass score from choose_action_weighted_light, still a
 # fully weighted, synergy- and strategy-aware bot (exactly what
 # FISH_DEEP_BOTS=0 runs), just without the confirmation pass. Quiet server =
 # every bot plans deeply and nothing changes; busy server = bots get slightly
@@ -3225,8 +3225,8 @@ def choose_action_weighted_deep(
     """
     Deep AI chooser for live multiplayer: the light one-pass scorer picks a
     shortlist, then each shortlisted move is CONFIRMED by actually simulating
-    it — the move, its follow-ups, one likely reply turn from every opponent,
-    and two of our own future turns — scored with the real scoring function.
+    it, the move, its follow-ups, one likely reply turn from every opponent,
+    and two of our own future turns: scored with the real scoring function.
 
     Rollouts are determinized (opponents' hidden hands and the deck order are
     reshuffled from the unseen-card pool per sample), so the bot plans like a
@@ -3422,13 +3422,13 @@ class Seat:
     is_host: bool = False
     # The player's chosen avatar image path (e.g. "/avatars/clownfish.png").
     # Carried per-seat in game state so every client renders each player's
-    # OWN icon — no shared nickname lookup, so two players never share one.
+    # OWN icon, no shared nickname lookup, so two players never share one.
     avatar: Optional[str] = None
     # The player's equipped exclusive background (e.g. "/backgrounds/bg-kelp.png"),
     # rendered behind their avatar on every seat. Empty/None = no background.
     background: Optional[str] = None
     difficulty: str = "medium"  # easy | medium | hard (only meaningful for ai seats)
-    # Surf's Up! — player explicitly marked themselves Away. Turn pauses
+    # Surf's Up! player explicitly marked themselves Away. Turn pauses
     # indefinitely on this seat; other seats cannot draw for them.
     is_away: bool = False
     # Set true by the client after the 5-min idle + 30-sec warning expires
@@ -3442,7 +3442,7 @@ class Seat:
     left_at: Optional[float] = None
     # Unix time this seat's token last polled state. Used by the competitive
     # forfeit check to detect a player who left/closed/crashed (their client
-    # stops polling) — independent of whether they clicked "Leave".
+    # stops polling): independent of whether they clicked "Leave".
     last_seen: Optional[float] = None
     # Post-game "Play Again" ready-up flag. Set true when this seat clicks Play
     # Again on the end screen; cleared on every fresh game launch. When all
@@ -3459,7 +3459,7 @@ class Seat:
     # Stamped on the Seat OBJECT at room creation, so it survives BOTH the
     # launch-time seat shuffle (which moves seat objects and renumbers indices)
     # and any display-name change. Match standings are mapped back to the bracket
-    # through this — never through the player's name, which the client can rename.
+    # through this, never through the player's name, which the client can rename.
     # Server-only: deliberately absent from the seat payload sent to clients.
     tournament_pid: Optional[str] = None
 
@@ -3583,7 +3583,7 @@ class GameRoom:
         self.latest_public_state: Optional[Dict[str, Any]] = None
         self.latest_private_hands: Dict[int, List[Dict[str, Any]]] = {}
         self.last_turn_number: int = 0
-        # Current Controller: per-room flag — hidden-state capture stays off until
+        # Current Controller: per-room flag: hidden-state capture stays off until
         # the admin actually opens a mod tool in this room (see admin_activate).
         # Initialized here (alongside the bot-brain/override maps) so the
         # admin_mod endpoint is safe even in the lobby, before any game launches.
@@ -3631,7 +3631,7 @@ class GameRoom:
         # ── End-screen "Most ★ Abilities Activated" ──────────────────────
         # The client can only ever see its OWN free-play windows (legal_actions
         # go to the viewer alone), so counting ★s in the browser could never
-        # name a bot or the other humans — that stat card sat on "-" for
+        # name a bot or the other humans, that stat card sat on "-" for
         # everybody but you. ★s only fire on a play sent with use_star, which
         # action_history records for EVERY seat, so the tally is computed here
         # once the game is over and shipped with the final scores.
@@ -3676,7 +3676,7 @@ class GameRoom:
         self.allow_spectators: bool = (visibility == "public")
         # spectators: token → {"name", "joined_unix", "avatar", "background"}
         # A spectator has no seat, so their equipped icon/background live here
-        # instead — see spectator_list() and submit_spectator_chat().
+        # instead: see spectator_list() and submit_spectator_chat().
         self.spectators: Dict[str, Dict[str, Any]] = {}
         # kick votes: spectator_token → set of voter seat indices
         self._spectator_kick_votes: Dict[str, set] = {}
@@ -3766,7 +3766,7 @@ class GameRoom:
                     "background": spec.get("background") or ""}
 
     def spectator_state_view(self, host_header: str, proto_hint: str = "") -> Dict[str, Any]:
-        """State payload for spectators — same as a non-viewer but boards-only (no hand data)."""
+        """State payload for spectators, same as a non-viewer but boards-only (no hand data)."""
         with self.cond:
             state_obj = copy.deepcopy(self.latest_public_state) if isinstance(self.latest_public_state, dict) else None
             if isinstance(state_obj, dict):
@@ -3817,7 +3817,7 @@ class GameRoom:
                 "ts": time.time(),
                 "spectator": True,
                 # Same per-message icon a seated player's line carries. Without
-                # it the client falls back to a hash of the sender name — and
+                # it the client falls back to a hash of the sender name, and
                 # the name here is prefixed, so it wasn't even the same default
                 # face this person wears everywhere else.
                 "avatar": spec.get("avatar") or "",
@@ -4101,7 +4101,7 @@ class GameRoom:
         if not active and not reserved:
             if self.phase != "ended":
                 self.phase = "ended"
-                self.status_note = "Room closed — no players returned."
+                self.status_note = "Room closed, no players returned."
         elif active and not any(s.is_host for s in active):
             active[0].is_host = True
             self.status_note = f"{active[0].claimed_name or active[0].label} is now host."
@@ -4121,7 +4121,7 @@ class GameRoom:
                     return {"ok": True, "action": "left"}
                 # Competitive: free BOTH of the leaver's hands. Freeing only the
                 # seat whose token was sent left the other hand claimed by a
-                # player who is gone — a ghost that could never ready up, so the
+                # player who is gone, a ghost that could never ready up, so the
                 # rematch counter hung and the room never closed.
                 leaving_seats = self._owned_seats_locked(seat)
                 leaving_name = (leaving_seats[0].claimed_name
@@ -4184,8 +4184,8 @@ class GameRoom:
                         return {"ok": True, "action": "host_transferred",
                                 "new_host": active[0].claimed_name or active[0].label,
                                 "reserved": True}
-                    # No one active to host — keep the (reserved) host slot.
-                self.status_note = f"{leaving_name} left — seat held for rejoin ({REJOIN_WINDOW_SEC // 60} min)."
+                    # No one active to host: keep the (reserved) host slot.
+                self.status_note = f"{leaving_name} left: seat held for rejoin ({REJOIN_WINDOW_SEC // 60} min)."
                 self._bump_locked()
                 return {"ok": True, "action": "left", "reserved": True}
 
@@ -4415,7 +4415,7 @@ class GameRoom:
             room.chat_messages = [x for x in list(payload.get("chat_messages", [])) if isinstance(x, dict)][-200:]
             # A restored room has to remember who said "good game" (the clan
             # season challenge). The chat it was saying it in is right here, so
-            # rebuild it rather than persist a second copy — and skip system
+            # rebuild it rather than persist a second copy, and skip system
             # and spectator lines, which are not players talking.
             room.clan_gg_names = {
                 str(m.get("sender") or "").strip().lower()
@@ -4606,7 +4606,7 @@ class GameRoom:
                 self.status_note = "Recovery complete. Live play resumed."
                 self._bump_locked(force_persist=True)
             elif self.recovery_cursor % 20 == 0:
-                self.status_note = f"Resyncing game after server restart — step {self.recovery_cursor} of {target}. Room is staying open, please wait..."
+                self.status_note = f"Resyncing game after server restart: step {self.recovery_cursor} of {target}. Room is staying open, please wait..."
                 self._bump_locked(force_persist=False)
         return chosen
 
@@ -4616,7 +4616,7 @@ class GameRoom:
 
         A tournament bracket match pre-claims every seat under the participant's
         tournament name. The reconnect path would otherwise rename the seat to
-        whatever the client currently calls itself — which drifts (a nickname
+        whatever the client currently calls itself, which drifts (a nickname
         changed mid-tournament, a duplicate name that was suffixed at pre-claim,
         or a deep-link page load where the profile nickname hasn't resolved yet
         and the app falls back to "Player"). Keeping the tournament's name means
@@ -4640,7 +4640,7 @@ class GameRoom:
                 if existing_seat is not None and seat_index is None:
                     new_name = safe_name(player_name, existing_seat.label)
                     rejoined = existing_seat.left_at is not None
-                    existing_seat.left_at = None  # they're back — lift any reservation
+                    existing_seat.left_at = None  # they're back: lift any reservation
                     if new_name and existing_seat.claimed_name != new_name \
                             and not self._name_is_locked_locked(existing_seat):
                         existing_seat.claimed_name = new_name
@@ -4686,8 +4686,8 @@ class GameRoom:
                     "reconnected": True,
                 }
             # A seat reserved for a rejoining player (they left a running game
-            # within the window) can only be reclaimed by them — via the
-            # token-reconnect path above — never taken over by someone else.
+            # within the window) can only be reclaimed by them: via the
+            # token-reconnect path above, never taken over by someone else.
             if (target.left_at is not None
                     and (time.time() - target.left_at) <= REJOIN_WINDOW_SEC
                     and not (existing_seat is not None and existing_seat.index == target.index)):
@@ -4711,7 +4711,7 @@ class GameRoom:
                 if allow_takeover and host_ok:
                     previous_name = target.claimed_name or target.label
                     # Seat switch: free the caller's old seat first, but never vacate the
-                    # host seat as a side-effect — only explicit host-to-host reclaims may do that.
+                    # host seat as a side-effect, only explicit host-to-host reclaims may do that.
                     if existing_seat is not None and existing_seat is not target and existing_seat.kind == "human" and not existing_seat.is_host:
                         existing_seat.claimed_name = None
                         existing_seat.token = None
@@ -4817,8 +4817,8 @@ class GameRoom:
             return False
         if not all(s.play_again_ready for s in active):
             return False
-        # Everyone who is still here is ready — bots ready implicitly. Go.
-        self._launch_game_locked(card_db, status_note="New game starting — everyone readied up!")
+        # Everyone who is still here is ready: bots ready implicitly. Go.
+        self._launch_game_locked(card_db, status_note="New game starting, everyone readied up!")
         return True
 
     def play_again(self, seat_token: Optional[str], card_db: Dict[int, fish.CardDef]) -> Dict[str, Any]:
@@ -4831,7 +4831,7 @@ class GameRoom:
 
             # Competitive: one human owns TWO seats (their two hands) but presses
             # Play Again ONCE, from one of them. Ready every seat they own, or the
-            # ready set can never complete — 2 presses against 4 human seats left
+            # ready set can never complete: 2 presses against 4 human seats left
             # the rematch stuck on "2/4 ready…" forever.
             for s in self._owned_seats_locked(seat):
                 s.play_again_ready = True
@@ -5132,7 +5132,7 @@ class GameRoom:
             self._forfeit_result = None
             if self.recovery_active:
                 self.status_note = (
-                    f"Resyncing game after server restart — step {self.recovery_cursor} of {self.recovery_target_count}. Room is staying open, please wait..."
+                    f"Resyncing game after server restart: step {self.recovery_cursor} of {self.recovery_target_count}. Room is staying open, please wait..."
                 )
             else:
                 self.recovery_error = None
@@ -5147,7 +5147,7 @@ class GameRoom:
         """Randomly reassign which player occupies which seat POSITION.
 
         After everyone has joined, the host is whoever created the room and by
-        join order always ends up in seat 0 — i.e. always "Player 1". The client
+        join order always ends up in seat 0: i.e. always "Player 1". The client
         labels, positions and orders every player purely by seat index (P{index+1},
         turn order, AFK id), so to truly randomize the player order we shuffle the
         seats themselves right as the game launches.
@@ -5159,15 +5159,15 @@ class GameRoom:
         its own and all per-seat identity stays intact.
 
         Runs once per launch (see _launch_game_locked), so the arrangement is
-        fresh each game, stored server-side on self.seats — every client sees the
-        SAME order — and is never re-shuffled mid-game: casual turn order is
+        fresh each game, stored server-side on self.seats, every client sees the
+        SAME order, and is never re-shuffled mid-game: casual turn order is
         deterministic seat order, so a resume after a server restart rebuilds the
         exact same order.
 
         Skipped for:
-          • competitive — each human owns a fixed PAIR of seats ({0,1}/{2,3})
+          • competitive, each human owns a fixed PAIR of seats ({0,1}/{2,3})
             and the [0,2,1,3] interleave depends on those fixed positions;
-          • tutorials — the guided walkthrough needs the human at seat 0 / first.
+          • tutorials, the guided walkthrough needs the human at seat 0 / first.
         """
         if self.competitive or getattr(self, "is_tutorial", False):
             return
@@ -5202,7 +5202,7 @@ class GameRoom:
             if _s.kind == "human":
                 _s.last_seen = _now_seen
         self._forfeit_result = None
-        # Fresh game — clear any post-game ready-up state from the prior round.
+        # Fresh game: clear any post-game ready-up state from the prior round.
         self.post_game_left = []
         for _s in self.seats:
             _s.play_again_ready = False
@@ -5281,8 +5281,8 @@ class GameRoom:
         """Every seat the same PHYSICAL player controls, `seat` included.
 
         Normal rooms: just the seat itself. Competitive: both of that player's
-        hands ({0,1} or {2,3}). Anything a player does once for themselves —
-        readying up, leaving — has to apply to all of them, otherwise the second
+        hands ({0,1} or {2,3}). Anything a player does once for themselves:
+        readying up, leaving: has to apply to all of them, otherwise the second
         hand lingers as a seat nobody is sitting in."""
         if not self._competitive_same_owner(seat.index, seat.index):
             return [seat]
@@ -5293,7 +5293,7 @@ class GameRoom:
         """Competitive only: WHICH of a player's two hands their screen shows.
 
         Two rules, in order:
-          1. If the turn is on one of their hands, that hand — it is the only
+          1. If the turn is on one of their hands, that hand, it is the only
              hand they can act with, so it is the only hand worth showing.
           2. Otherwise (the opponent is playing) the hand that is up NEXT for
              them. Finishing a turn with hand 1 used to leave the board sitting
@@ -5305,7 +5305,7 @@ class GameRoom:
         Turn order is walked through the game_idx↔seat_idx remap ([0,2,1,3] in
         competitive), so "next" is the real next turn, never seat order.
         Returns None for non-competitive rooms (the caller keeps the token's own
-        seat) — and the chosen hand is never a leak: both hands are the one
+        seat), and the chosen hand is never a leak: both hands are the one
         person holding the token."""
         if not (self.competitive and len(self.seats) == 4):
             return None
@@ -5368,12 +5368,12 @@ class GameRoom:
             if self.active_action_seat != act_seat_index:
                 return {"ok": False, "error": "not your turn"}
 
-            # Surf's Up!! — while a seat is officially Away it cannot make any
+            # Surf's Up!! while a seat is officially Away it cannot make any
             # move. The player must tap "I'm Back" (toggle Away off) before they
             # can act again. This keeps Surf's Up a true "I've stepped away" state.
             act_seat = self.seats[act_seat_index] if 0 <= act_seat_index < len(self.seats) else seat
             if getattr(act_seat, "is_away", False):
-                return {"ok": False, "error": "You're on Surf's Up (Away) — tap “I'm Back” before you can make a move."}
+                return {"ok": False, "error": "You're on Surf's Up (Away): tap “I'm Back” before you can make a move."}
 
             req_id_raw = payload.get("request_id")
             req_id = req_id_raw.strip() if isinstance(req_id_raw, str) else ""
@@ -5442,7 +5442,7 @@ class GameRoom:
         deadline = time.monotonic() + timeout_sec
         with self.cond:
             while self.phase == "running":
-                # Apply any queued Current Controller mod mutations here — this
+                # Apply any queued Current Controller mod mutations here, this
                 # runs on the match thread, so engine state is never raced.
                 self._drain_admin_mods_locked()
                 q = self.pending_actions.get(seat_index)
@@ -5450,8 +5450,8 @@ class GameRoom:
                     return q.pop(0)
                 # A human elsewhere armed a flag-driven Undo (submit_undo's path 3)
                 # while THIS seat was parked here waiting for input. That restore
-                # only runs at the TOP of a policy loop — which a blocked human
-                # never reaches on its own — so without waking here the undo would
+                # only runs at the TOP of a policy loop, which a blocked human
+                # never reaches on its own, so without waking here the undo would
                 # hang until this seat acted or the 30-min timeout fired (the
                 # "I pressed Undo and nothing happened" bug at a turn handoff).
                 # Return a sentinel so the caller re-loops and its top-of-loop
@@ -5466,7 +5466,7 @@ class GameRoom:
                     return {"kind": "__undo_armed__"}
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
-                    return None  # Timed out — caller will fall back to safe action
+                    return None  # Timed out: caller will fall back to safe action
                 self.cond.wait(timeout=min(0.25, remaining))
             return None
 
@@ -5479,7 +5479,7 @@ class GameRoom:
     ) -> Dict[str, Any]:
         # Which plays have a real use_star twin in THIS action list. The engine
         # never auto-fires a STAR from a symbol match in the payment (see
-        # apply_action) — it fires only for an action submitted with
+        # apply_action), it fires only for an action submitted with
         # use_star=True. So a "★ if <symbol>" hint (and the gold payment
         # highlight the client draws from it) is only honest when the star
         # variant of that exact play is actually on offer right now.
@@ -5626,7 +5626,7 @@ class GameRoom:
                     if uid not in picks:
                         picks.append(uid)
             if not picks:
-                # Client submitted batch discard without selecting any cards —
+                # Client submitted batch discard without selecting any cards:
                 # reject it so the human policy loops and waits for a real selection.
                 return None
             chosen.pool_pick_uids = picks
@@ -5783,7 +5783,7 @@ class GameRoom:
         if not bool(action.use_star):
             return cost_to_pay, False, ""
 
-        # Per PLAY, not per face — a Clownfish's ★ is the one belonging to the
+        # Per PLAY, not per face, a Clownfish's ★ is the one belonging to the
         # ocean it is being attached to (Mangrove / Arctic Ocean: "play again").
         has_star = False
         try:
@@ -5942,7 +5942,7 @@ class GameRoom:
                     "board": board_payload,
                     # The strategy this player actually built (guide-based,
                     # per-player). Used by the client for stats / leaderboards /
-                    # recap / achievements — no manual choosing.
+                    # recap / achievements, no manual choosing.
                     "strategy": detected_strategy,
                 }
             )
@@ -6048,7 +6048,7 @@ class GameRoom:
 
         # Two-phase undo snapshot (deepcopy done outside the lock for performance).
         # Phase 1 (turn_start for player X): save a pending snapshot of the state
-        #   BEFORE X plays — this is the correct restore point for X's future undo.
+        #   BEFORE X plays, this is the correct restore point for X's future undo.
         # Phase 2 (turn_start for the NEXT player Y): promote the pending snapshot
         #   as the active undo for X (the player who just FINISHED), not for Y.
         # This ensures the undo button is only active for the person who just played,
@@ -6120,7 +6120,7 @@ class GameRoom:
                 self._undo_pending_seat = undo_new_pending_seat
                 # A new turn is starting. Clear the active action seat so it does
                 # NOT keep pointing at the previous (human) player while an AI
-                # bot takes its turn — otherwise that human's client keeps seeing
+                # bot takes its turn, otherwise that human's client keeps seeing
                 # can_act=true ("YOUR TURN") during everyone else's turn.
                 # _human_policy re-sets active_action_seat to its own seat the
                 # instant it runs (same engine thread, immediately after this
@@ -6195,7 +6195,7 @@ class GameRoom:
             self._undo_pending_seat = None
             if self.recovery_active:
                 self.status_note = (
-                    f"Resyncing game after server restart — step {self.recovery_cursor} of {self.recovery_target_count}. Room is staying open, please wait..."
+                    f"Resyncing game after server restart: step {self.recovery_cursor} of {self.recovery_target_count}. Room is staying open, please wait..."
                 )
             else:
                 self.status_note = "Game running."
@@ -6206,14 +6206,14 @@ class GameRoom:
 
         The queue-based path (undo_confirm / undo_mid_turn) only works when a human
         policy is blocked in _wait_for_action ready to pick the command up. When the
-        player after you is an AI — or the table is momentarily between turns —
+        player after you is an AI, or the table is momentarily between turns:
         active_action_seat is None, so there is nobody to route the undo to and the
         request was silently dropped (the bug: "undo does nothing, cards not put
         back"). To fix that, every policy (AI and human) calls this at the top of its
         turn. If an undo is armed (self.undo_requested) and a snapshot exists, restore
         the pre-turn state in place and return Action(kind='undo') so the engine
         rewinds and replays the previous human's turn. Returns None when nothing is
-        pending — the common case, a cheap flag read with no copying."""
+        pending, the common case, a cheap flag read with no copying."""
         gs_restore: Any = None
         ms_restore: Any = None
         with self.cond:
@@ -6222,7 +6222,7 @@ class GameRoom:
                 ms_restore = copy.deepcopy(self.undo_snapshot_ms)
         if gs_restore is None:
             return None
-        # TRUE REVERT to the turn-start snapshot — same exact deck/END-GAME layout,
+        # TRUE REVERT to the turn-start snapshot, same exact deck/END-GAME layout,
         # so re-drawing yields the same cards (no reroll) and end game cannot trigger
         # early. Mirrors the in-policy undo_confirm restore below.
         try:
@@ -6247,7 +6247,7 @@ class GameRoom:
             # A rewind invalidates anything queued for the (now-discarded) future.
             self.pending_actions.clear()
             self.active_action_seat = None
-            self.status_note = "Undo granted — replaying previous player's turn."
+            self.status_note = "Undo granted: replaying previous player's turn."
             self._bump_locked()
         # The engine re-reads p = gs.current_player() after it sees this action, so
         # the stale `player` reference held by the caller is harmless.
@@ -6273,8 +6273,8 @@ class GameRoom:
                     return replay_action
 
                 # Surf's Up!! Away ALWAYS wins. If the player marked themselves
-                # Away — even mid-turn, after a prior timeout already armed a
-                # forced end/draw — disarm it and never auto-resolve. The cmd-is-
+                # Away, even mid-turn, after a prior timeout already armed a
+                # forced end/draw: disarm it and never auto-resolve. The cmd-is-
                 # None timeout path below keeps waiting while Away, so the table
                 # parks the turn instead of drawing cards for an Away player.
                 seat_away_now = self.seats[seat_index] if 0 <= seat_index < len(self.seats) else None
@@ -6282,16 +6282,16 @@ class GameRoom:
                     force_end_turn_next[0] = False
 
                 # If the last fallback was a forced draw, immediately end the
-                # turn now that end_turn is legal — don't wait another window.
+                # turn now that end_turn is legal: don't wait another window.
                 if force_end_turn_next[0]:
                     force_end_turn_next[0] = False
                     for action in actions:
                         if action.kind == "end_turn":
                             return action
-                    # end_turn not legal yet — likely hand > 10 from the forced
+                    # end_turn not legal yet: likely hand > 10 from the forced
                     # draw, so the engine is requiring a discard. For the
                     # draw-for-inactive path we don't want to leave the table
-                    # waiting on a player who is gone — fall back to a single
+                    # waiting on a player who is gone: fall back to a single
                     # discard so the turn can complete.
                     only_discards_now = bool(actions) and all(
                         a.kind in {"discard_to_pool", "discard_batch_to_pool"} for a in actions
@@ -6300,7 +6300,7 @@ class GameRoom:
                         return self._safe_fallback_action(gs, ms, player)
                     # Still mid-draw (the 2nd of the 2 turn draws is pending): take
                     # that draw now so an auto-drawn/inactive/AFK player completes a
-                    # full 2-card draw and the turn ends — instead of falling
+                    # full 2-card draw and the turn ends, instead of falling
                     # through and parking for another full wait window.
                     second_draw = next(
                         (a for a in actions
@@ -6312,16 +6312,16 @@ class GameRoom:
                     # Otherwise fall through and re-offer legal actions normally.
 
                 is_replay_turn = bool(player.flags.pop("_replay_turn_next", False))
-                # An OPEN play window — a Hermit Crab ("play any number of
+                # An OPEN play window, a Hermit Crab ("play any number of
                 # baitfish this turn for free") or a Loggerhead Sea Turtle
-                # ("play any number of cards by paying the costs") — is the
+                # ("play any number of cards by paying the costs"): is the
                 # other way a turn stops ending by itself. The player can keep
                 # playing until they say stop, so the game sits there looking
                 # frozen until they press End Turn, exactly like a replay turn.
                 #
                 # It is deliberately NOT every free play. A Roosterfish's
                 # "*play a free Baitfish*" is ONE card and the turn moves on by
-                # itself afterwards, so it needs no prompt — and the difference
+                # itself afterwards, so it needs no prompt, and the difference
                 # between the two is precisely has_multi_play_window(), which
                 # reads the chain flags (multi_play_paid_turn,
                 # free_baitfish_chain, free_cephalopods, free_yellowfin_tuna)
@@ -6378,7 +6378,7 @@ class GameRoom:
                         return None
                     self.legal_actions_by_seat[seat_index] = legal_payload
                     if self.active_action_seat != seat_index:
-                        # Turn boundary — clear any stale inactive_eligible from
+                        # Turn boundary: clear any stale inactive_eligible from
                         # the previous player so the Draw-2 button doesn't show
                         # on the wrong avatar.
                         for _s in self.seats:
@@ -6396,20 +6396,20 @@ class GameRoom:
                     is_tarpon_phase = bool(player.flags.get("_tarpon_discard_active", False))
                     if is_tarpon_phase:
                         self.status_note = (
-                            f"{player.name}: Tarpon — choose cards to discard, then select 'end turn now'."
+                            f"{player.name}: Tarpon: choose cards to discard, then select 'end turn now'."
                         )
                     elif only_discards:
                         excess = max(0, len(player.hand) - (int(fish.HAND_LIMIT) if hasattr(fish, "HAND_LIMIT") else 10))
                         self.status_note = (
-                            f"{player.name} has {len(player.hand)} cards — select {excess} or more to discard to the pool."
+                            f"{player.name} has {len(player.hand)} cards: select {excess} or more to discard to the pool."
                         )
                     elif is_replay_turn:
                         self.status_note = f"★ Play again! {player.name} takes another turn."
                     elif free_play_species:
                         species_str = " or ".join(free_play_species)
-                        self.status_note = f"★ FREE PLAY: {player.name} — play a free {species_str} (or click End Turn to skip)."
+                        self.status_note = f"★ FREE PLAY: {player.name}: play a free {species_str} (or click End Turn to skip)."
                     elif ms.end_game_triggered:
-                        self.status_note = f"Final round! {player.name} — draw and play, or choose 'end turn now' to pass."
+                        self.status_note = f"Final round! {player.name}: draw and play, or choose 'end turn now' to pass."
                     else:
                         self.status_note = f"Waiting for action from {player.name}."
                     self._bump_locked()
@@ -6424,7 +6424,7 @@ class GameRoom:
                     return None
 
                 # Wait for the human to act. Give a long 30 min window so the game
-                # never auto-draws cards or skips turns under any normal play pace —
+                # never auto-draws cards or skips turns under any normal play pace,
                 # only truly-abandoned games will hit the fallback.
                 only_discards = bool(actions) and all(
                     a.kind in {"discard_to_pool", "discard_batch_to_pool"} for a in actions
@@ -6433,7 +6433,7 @@ class GameRoom:
                 cmd = self._wait_for_action(seat_index, timeout_sec=wait_sec)
                 if cmd is not None and cmd.get("kind") == "__undo_armed__":
                     # A flag-driven undo was armed (by the previous player) while we
-                    # were blocked waiting for input — e.g. they pressed Undo during
+                    # were blocked waiting for input: e.g. they pressed Undo during
                     # the handoff to us. Re-loop so the top-of-loop
                     # _apply_pending_undo_restore restores the snapshot and returns
                     # Action(undo), replaying the undoing player's turn at once.
@@ -6449,7 +6449,7 @@ class GameRoom:
                             gs_restore = copy.deepcopy(self.undo_snapshot_gs)
                             ms_restore = copy.deepcopy(self.undo_snapshot_ms)
                     if gs_restore is not None:
-                        # TRUE REVERT: restore the pre-turn deck EXACTLY as it was —
+                        # TRUE REVERT: restore the pre-turn deck EXACTLY as it was:
                         # do NOT reshuffle. Reshuffling on undo handed the player a
                         # different ("random") card every time they undid a draw, and
                         # worse, let them reroll their draw by undoing repeatedly. The
@@ -6468,7 +6468,7 @@ class GameRoom:
                         ms.__dict__.clear()
                         ms.__dict__.update(ms_restore.__dict__)
                         # After restoring gs, `player` still references the
-                        # pre-restore PlayerState object — it is no longer in
+                        # pre-restore PlayerState object, it is no longer in
                         # gs.players. Sync the restored player's data into the
                         # same object and put it back into gs.players so that
                         # any subsequent apply_action(gs, ms, player, …) in the
@@ -6491,13 +6491,13 @@ class GameRoom:
                             self.legal_actions_by_seat.clear()
                             self.pending_actions.clear()
                             self.active_action_seat = None
-                            self.status_note = f"{player.name} undid their draw — turn restarted."
+                            self.status_note = f"{player.name} undid their draw: turn restarted."
                             self._bump_locked()
                         # Rebuild the client-visible public state from the reverted
                         # gs/ms. The queue-based mid-turn undo restores state in place
                         # and loops back inside THIS policy without ever returning to
-                        # the engine, so — unlike the full-turn undo, which returns
-                        # Action("undo") and gets a fresh turn_start snapshot — no
+                        # the engine, so: unlike the full-turn undo, which returns
+                        # Action("undo") and gets a fresh turn_start snapshot, no
                         # snapshot runs to refresh latest_public_state. Without this the
                         # client keeps showing the pre-undo hand/deck (legal_actions
                         # update, but hand_count/board do not): the drawn card looks
@@ -6512,7 +6512,7 @@ class GameRoom:
                     continue  # Re-loop: offer fresh legal actions for the same player
 
                 if cmd is not None and cmd.get("kind") == "undo_confirm":
-                    # Previous player requested undo — restore state and signal engine.
+                    # Previous player requested undo: restore state and signal engine.
                     gs_restore: Any = None
                     ms_restore: Any = None
                     with self.cond:
@@ -6529,7 +6529,7 @@ class GameRoom:
                             self.undo_valid = False
                             self.undo_snapshot_gs = None
                             self.undo_snapshot_ms = None
-                            # Clear the pending snapshot too — the turn being replayed
+                            # Clear the pending snapshot too, the turn being replayed
                             # means the "next player's" pending is now stale.
                             self._undo_pending_gs = None
                             self._undo_pending_ms = None
@@ -6538,7 +6538,7 @@ class GameRoom:
                             # A rewind invalidates anything queued for the discarded future.
                             self.pending_actions.clear()
                             self.active_action_seat = None
-                            self.status_note = "Undo granted — replaying previous player's turn."
+                            self.status_note = "Undo granted: replaying previous player's turn."
                             self._bump_locked()
                         return fish.Action(kind="undo")
                     continue
@@ -6560,7 +6560,7 @@ class GameRoom:
                                 break
                     if draw_action is None:
                         with self.cond:
-                            self.status_note = f"Could not draw for {player.name} — no draw or end action available."
+                            self.status_note = f"Could not draw for {player.name}, no draw or end action available."
                             self._bump_locked()
                         continue
                     if draw_action.kind == "draw":
@@ -6584,14 +6584,14 @@ class GameRoom:
                     # Phase ended or player timed out.
                     if self.phase != "running":
                         return None
-                    # Protected Surf's Up Away — never auto-resolve; wait again.
+                    # Protected Surf's Up Away, never auto-resolve; wait again.
                     seat_obj = self.seats[seat_index] if 0 <= seat_index < len(self.seats) else None
                     if seat_obj is not None and getattr(seat_obj, "is_away", False):
                         continue
                     # Timeout = the player is AFK / disconnected / not responding.
                     # CRITICAL: never auto-draw cards for them. _safe_timeout_action
                     # only ends the turn (if it can be passed without drawing) or
-                    # discards an over-limit hand — it NEVER draws. If the only way
+                    # discards an over-limit hand, it NEVER draws. If the only way
                     # forward would be a draw, it returns None and we PARK the turn
                     # (keep waiting), exactly like the Surf's Up Away path above.
                     # The only way an away player receives cards is the AFK vote
@@ -6603,23 +6603,23 @@ class GameRoom:
                         # ("<name> is AFK" in chat) to make them draw 2 and pass.
                         with self.cond:
                             self.status_note = (
-                                f"Waiting for {player.name} — they appear to be away. "
+                                f"Waiting for {player.name}, they appear to be away. "
                                 f"Other players can vote them AFK to draw 2 and pass the turn."
                             )
                             self._bump_locked()
                         self._record_event(
-                            f"{player.name} (seat {seat_index}) timed out while away — "
+                            f"{player.name} (seat {seat_index}) timed out while away: "
                             f"turn parked (no auto-draw; awaiting return or AFK vote)."
                         )
                         continue
                     action_desc = "ending turn" if fallback.kind == "end_turn" else "discarding a card"
                     with self.cond:
                         self.status_note = (
-                            f"{player.name} took too long — {action_desc} to keep game moving."
+                            f"{player.name} took too long: {action_desc} to keep game moving."
                         )
                         self._bump_locked()
                     self._record_event(
-                        f"{player.name} (seat {seat_index}) timed out — {action_desc}."
+                        f"{player.name} (seat {seat_index}) timed out: {action_desc}."
                     )
                     return fallback
 
@@ -6629,7 +6629,7 @@ class GameRoom:
                         self.status_note = "Invalid action submitted. Try again."
                         self._bump_locked()
                     continue
-                # Player submitted a real action — clear any pending forced-end flag.
+                # Player submitted a real action: clear any pending forced-end flag.
                 force_end_turn_next[0] = False
                 # Discard actions end the discard phase; clear the stale cache so the
                 # client's red banner disappears on the next poll rather than persisting
@@ -6639,7 +6639,7 @@ class GameRoom:
                         self.legal_actions_by_seat.pop(seat_index, None)
                         self._bump_locked()
                 # Close the previous player's undo window ONLY when a HUMAN at a
-                # different seat acts. Bot turns NEVER lock in your turn — you can
+                # different seat acts. Bot turns NEVER lock in your turn, you can
                 # still undo after any number of bots have played; only a human
                 # acting after you makes it permanent. (This policy runs for human
                 # seats, so the actor is human; we resolve the seat kind defensively
@@ -6657,7 +6657,7 @@ class GameRoom:
 
     # Think-delay ranges per speed tier (seconds, low..high inclusive).
     # A random value in the range is sampled each policy call so the bot
-    # never feels mechanical — it occasionally plays fast or slow even on
+    # never feels mechanical, it occasionally plays fast or slow even on
     # Normal to mimic natural human rhythm.
     _AI_THINK_RANGES: Dict[str, Tuple[float, float]] = {
         "slow":   (3.0, 5.5),
@@ -6666,7 +6666,7 @@ class GameRoom:
     }
 
     def _is_unwatched_all_ai_locked_free(self) -> bool:
-        """True for a game with no human seat and nobody spectating — i.e. an
+        """True for a game with no human seat and nobody spectating: i.e. an
         all-AI tournament bracket match that no one is looking at. Cheap and
         lock-free on purpose: it is read from the bot think-pause on the match
         thread, and a stale answer only costs one move's worth of pacing."""
@@ -6731,7 +6731,7 @@ class GameRoom:
                 except Exception as _exc:
                     self._record_event(f"bot brain/override warning ({player.name}): {_exc}")
 
-            # Think delay — simulate the bot "considering" its move so the
+            # Think delay: simulate the bot "considering" its move so the
             # game doesn't feel like AI is moving instantly.  Read ai_speed
             # at call time so host changes take effect immediately.
             speed = str(getattr(self, "ai_speed", "normal") or "normal").lower()
@@ -6776,7 +6776,7 @@ class GameRoom:
         return policy
 
     # ════════════════════════════════════════════════════════════════
-    #  CURRENT CONTROLLER — admin mod tools (server side, hard-gated)
+    #  CURRENT CONTROLLER: admin mod tools (server side, hard-gated)
     #  Reads come from the latest snapshot; mutations are queued and applied
     #  on the MATCH THREAD (drained in _wait_for_action) so they can never race
     #  the game engine.
@@ -6883,11 +6883,11 @@ class GameRoom:
     def _mint_card_clone(self, gs, ms, src_uid):
         """Create a brand-new physical copy of the card identified by src_uid
         (any face), cloned from the canonical card definition. The first time a
-        game mints, it gives that game its OWN card_db (a shallow copy — we only
+        game mints, it gives that game its OWN card_db (a shallow copy, we only
         ever add new keys, never mutate existing CardDefs) so minted cards never
         leak into the process-wide CARD_DB shared by every other game. Registers
         the clone's abilities + match pair-map and returns the new canonical
-        (primary) uid — or None if the source card is unknown."""
+        (primary) uid, or None if the source card is unknown."""
         try:
             src_uid = int(src_uid)
         except (TypeError, ValueError):
@@ -7001,14 +7001,14 @@ class GameRoom:
             elif dest == "hand":
                 pl = self._seat_player(gs, int(P.get("seat")))
                 if pl is None:
-                    gs.deck.insert(0, uid); return {"ok": False, "error": "bad seat — returned to deck"}
+                    gs.deck.insert(0, uid); return {"ok": False, "error": "bad seat: returned to deck"}
                 pl.hand.append(uid)
             else:
-                gs.deck.insert(0, uid); return {"ok": False, "error": "bad dest — returned to deck"}
+                gs.deck.insert(0, uid); return {"ok": False, "error": "bad dest: returned to deck"}
             return {"ok": True, "moved_from": src}
         if op == "mint":
             # Create fresh copies of ANY card and place them. Unlike the move-based
-            # ops above, mint never consumes a real deck copy — so the admin can
+            # ops above, mint never consumes a real deck copy, so the admin can
             # grant cards that aren't in the deck and FLOOD a hand with N copies.
             dest = str(P.get("dest", "hand") or "hand")
             try:
@@ -7087,7 +7087,7 @@ class GameRoom:
                     self._admin_mod_queue.remove(item)
                 except ValueError:
                     pass
-            return {"ok": False, "error": "timed out — mutations apply during a human turn; try again on your own turn"}
+            return {"ok": False, "error": "timed out: mutations apply during a human turn; try again on your own turn"}
         return item.get("result") or {"ok": False, "error": "no result"}
 
     def admin_arm_bot_override(self, seat_index, action_index, action_desc=None) -> Dict[str, Any]:
@@ -7185,18 +7185,18 @@ class GameRoom:
             return None
         if not actions:
             return None
-        # Priority 1: end_turn — cleanest exit, doesn't auto-draw or auto-play.
+        # Priority 1: end_turn: cleanest exit, doesn't auto-draw or auto-play.
         # If end_turn is legal, the player is past the draw phase, so we can
         # just end their turn without taking any card-modifying action.
         for action in actions:
             if action.kind == "end_turn":
                 return action
-        # Priority 2: plain deck draw — required when turn can't end yet (draw
+        # Priority 2: plain deck draw: required when turn can't end yet (draw
         # phase). Drawing from the deck is robust under partial client desync.
         for action in actions:
             if action.kind == "draw" and int(getattr(action, "draw_from_pool", 0)) == 0:
                 return action
-        # Priority 3: single discard — during discard-mode (hand > 10). Avoid
+        # Priority 3: single discard, during discard-mode (hand > 10). Avoid
         # the batch variant which would wipe a hand-load of cards at once.
         for action in actions:
             if action.kind == "discard_to_pool":
@@ -7216,16 +7216,16 @@ class GameRoom:
         """Fallback action for an inactive / AFK / disconnected / non-responding
         player whose turn timer expired. UNLIKE _safe_fallback_action, this
         NEVER draws cards. An away player must never have cards drawn for them
-        automatically — cards are only ever given through the AFK vote system
+        automatically: cards are only ever given through the AFK vote system
         (a `draw_for_inactive` command queued by _afk_resolve_challenge after a
         valid ≥50% vote, or by another player via the draw_for_inactive action).
 
         Returns:
-          • end_turn  — if the turn can be passed WITHOUT drawing (e.g. final
+          • end_turn, if the turn can be passed WITHOUT drawing (e.g. final
                         round, or any state where ending is already legal);
-          • a single discard — only when the hand is over the limit, which
+          • a single discard, only when the hand is over the limit, which
                         removes cards and never gives them;
-          • None      — when the only way forward would be to draw a card, so
+          • None, when the only way forward would be to draw a card, so
                         the caller must PARK the turn and keep waiting instead.
         """
         try:
@@ -7234,17 +7234,17 @@ class GameRoom:
             return None
         if not actions:
             return None
-        # Priority 1: end_turn — passes the turn without touching the deck.
+        # Priority 1: end_turn: passes the turn without touching the deck.
         for action in actions:
             if action.kind == "end_turn":
                 return action
-        # Priority 2: single discard — only reachable when the hand is already
+        # Priority 2: single discard, only reachable when the hand is already
         # over the limit. Discarding removes cards; it never adds any.
         for action in actions:
             if action.kind == "discard_to_pool":
                 return action
         # Otherwise the only legal way forward is to DRAW. We must not draw for
-        # an away/inactive player — return None so the turn parks and waits.
+        # an away/inactive player: return None so the turn parks and waits.
         return None
 
     def _wrap_policy_with_fallback(self, seat_label: str, base_policy, seat_index: Optional[int] = None):
@@ -7262,7 +7262,7 @@ class GameRoom:
                 # auto-discarding.
                 if player.flags.get("_discard_mode"):
                     return None
-                # Never auto-draw for an away player, even on an error fallback —
+                # Never auto-draw for an away player, even on an error fallback,
                 # a "fallback move" is not a valid reason to add cards to an away
                 # player's hand (only a vote is). Use the non-drawing variant so
                 # the recovery can end/discard but never draw for them.
@@ -7274,7 +7274,7 @@ class GameRoom:
                 if seat_obj is not None and getattr(seat_obj, "is_away", False):
                     self._record_event(
                         f"Blocked auto-draw fallback for away player {player.name} "
-                        f"(seat {seat_index}) — away players only draw via vote."
+                        f"(seat {seat_index}), away players only draw via vote."
                     )
                     return self._safe_timeout_action(gs, ms, player)
                 return self._safe_fallback_action(gs, ms, player)
@@ -7392,19 +7392,19 @@ class GameRoom:
             return "Best Guess"
         def pct(key: str) -> float:
             return type_counts.get(key, 0) / total_cards
-        # Goby "Shooting the Moon" — any Goby present is the tell.
+        # Goby "Shooting the Moon", any Goby present is the tell.
         if name_counts.get("mandarin goby", 0) >= 1:
             return "Goby"
-        # Coral/Cephalopods — cephalopods + meaningful coral base.
+        # Coral/Cephalopods: cephalopods + meaningful coral base.
         if pct("cephalopod") >= 0.30 and pct("coral") >= 0.15:
             return "Coral/Cephalopods (CC)"
         # Pure Cephalopods
         if pct("cephalopod") >= 0.40:
             return "Cephalopods"
-        # Bird/Lobster — birds + crustaceans.
+        # Bird/Lobster: birds + crustaceans.
         if pct("bird") >= 0.20 and (pct("crustacean") >= 0.10 or name_counts.get("lobster", 0) >= 1 or name_counts.get("mantis shrimp", 0) >= 1):
             return "Bird/Lobster (B-Lob)"
-        # Bird/Coral — birds + coral base.
+        # Bird/Coral: birds + coral base.
         if pct("bird") >= 0.20 and pct("coral") >= 0.15:
             return "Bird/Coral (B-Coral)"
         # Pure bird board.
@@ -7416,10 +7416,10 @@ class GameRoom:
         # Mammals
         if pct("mammal") >= 0.45:
             return "Mammals"
-        # Yellowfin Tuna Stack — key engine card present.
+        # Yellowfin Tuna Stack: key engine card present.
         if name_counts.get("yellowfin tuna", 0) >= 1:
             return "Yellowfin Tuna"
-        # Ocean All Blue — majority ocean cards.
+        # Ocean All Blue: majority ocean cards.
         if pct("ocean") >= 0.40 or pct("coral") >= 0.50:
             return "Ocean All Blue"
         # Game Fish catch-all
@@ -7429,7 +7429,7 @@ class GameRoom:
 
     def _check_competitive_forfeit_locked(self) -> None:
         """Competitive only: if one player left the running match and has not
-        returned within COMPETITIVE_FORFEIT_SEC, end the game as a forfeit — the
+        returned within COMPETITIVE_FORFEIT_SEC, end the game as a forfeit, the
         player still present wins, the one who left loses. MUST be called with
         self.cond held (it mutates phase/winner). Polled from state_view, so the
         remaining player's own polling naturally triggers it within ~1s of the
@@ -7445,7 +7445,7 @@ class GameRoom:
         # is "present" while either of their seats is still polling (last_seen
         # fresh) and not on an expired leave reservation. A player whose most
         # recent activity across BOTH hands is older than the forfeit window has
-        # left/closed/crashed — they forfeit. This is polled from state_view, so
+        # left/closed/crashed, they forfeit. This is polled from state_view, so
         # the player still here just refreshed their own last_seen and counts as
         # present; we only ever forfeit the OTHER (absent) player.
         def _group_present(group: int) -> bool:
@@ -7460,7 +7460,7 @@ class GameRoom:
         p1_present = _group_present(0)
         p2_present = _group_present(1)
         # Only call a forfeit when exactly one side is present (the other left).
-        # If neither is present, no one is around to award the win to — let the
+        # If neither is present, no one is around to award the win to: let the
         # room be cleaned up normally instead.
         leaver_group: Optional[int] = None
         if p1_present and not p2_present:
@@ -7500,7 +7500,7 @@ class GameRoom:
             "winner": winner_name,
             "loser": loser_name,
             "reason": (f"{loser_name} left the match and did not return within "
-                       f"{int(COMPETITIVE_FORFEIT_SEC)} seconds — {winner_name} wins by forfeit."),
+                       f"{int(COMPETITIVE_FORFEIT_SEC)} seconds: {winner_name} wins by forfeit."),
         }
         self.status_note = (
             f"{loser_name} forfeited (left the match for {int(COMPETITIVE_FORFEIT_SEC)}s). "
@@ -7535,7 +7535,7 @@ class GameRoom:
                         score_by_seat[idx] = int(p.get("score", 0) or 0)
         except Exception:
             score_by_seat = {}
-        # A player's score is their BEST hand — the same rule the finished-game
+        # A player's score is their BEST hand, the same rule the finished-game
         # record and the client's winner check use.
         def _side_score(seat_a: int, seat_b: int) -> int:
             vals = [score_by_seat[i] for i in (seat_a, seat_b) if i in score_by_seat]
@@ -7594,7 +7594,7 @@ class GameRoom:
                 "season_id": get_season_id(ts),
                 "processed": False,
             }
-            # Keep the file from growing unbounded — drop processed entries older
+            # Keep the file from growing unbounded: drop processed entries older
             # than 30 days.
             cutoff = ts - 30 * 24 * 3600
             for k in list(pending.keys()):
@@ -7702,7 +7702,7 @@ class GameRoom:
     # Clan Points and clan challenges are server-verified: the clan server may
     # only ever count things THIS server watched happen. Everything below is
     # derived from the room's own executed-action history (the same list the
-    # recovery replay trusts) plus the final board — never from anything the
+    # recovery replay trusts) plus the final board, never from anything the
     # client reported. The result is stamped onto each player row of the game
     # history record as "clan_stats", and clan_server.claim_game_points reads
     # it back at claim time.
@@ -7801,8 +7801,8 @@ class GameRoom:
                     row["max_ceph_turn"] = max(row["max_ceph_turn"], ceph_in_turn[key])
             else:
                 continue
-            # ★s only ever fire on a play sent with use_star — never as a
-            # standing board trigger — so a play action is the only place one
+            # ★s only ever fire on a play sent with use_star, never as a
+            # standing board trigger, so a play action is the only place one
             # can be counted.
             if bool(rec.get("use_star")):
                 row["stars"] += 1
@@ -7841,7 +7841,7 @@ class GameRoom:
             stats[i]["seat_index"] = int(self._comp_game_to_seat.get(i, i))
             stats[i]["said_gg"] = name.strip().lower() in gg
             # No snapshot means the END GAME card was never revealed while the
-            # recorder was watching — then nobody can claim a comeback.
+            # recorder was watching, then nobody can claim a comeback.
             stats[i]["behind_at_endgame"] = bool(eg) and int(eg.get(name, 0)) < eg_best
         return stats
 
@@ -7909,7 +7909,7 @@ class GameRoom:
                     "is_human": game_idx in human_indices,
                     "board": board_cards,
                     "score_breakdown": breakdown,
-                    # Seat, not list position — competitive pairs two of these
+                    # Seat, not list position: competitive pairs two of these
                     # rows onto one person, and the clan server needs to know
                     # which two. In casual they are the same number.
                     "seat_index": int(self._comp_game_to_seat.get(game_idx, game_idx)),
@@ -8080,11 +8080,11 @@ class GameRoom:
                 # Reuses the same game_idx↔seat_idx remap plumbing as competitive.
                 seat_turn_order = self._team_spread_turn_order()
             else:
-                # Casual games: turn order simply follows the seat order — P1
+                # Casual games: turn order simply follows the seat order: P1
                 # (seat 0) first, then P2, P3 … around the table. The seats
                 # themselves were randomly assigned to players at launch
-                # (_randomize_seat_positions_locked), so who is P1 — and thus who
-                # goes first — is already randomized fresh each game; play then
+                # (_randomize_seat_positions_locked), so who is P1, and thus who
+                # goes first: is already randomized fresh each game; play then
                 # proceeds cleanly in player-number order. Tutorials are NOT
                 # reseated, so the human stays seat 0 (game_idx 0) and goes first
                 # for the guided walkthrough. This branch is DETERMINISTIC (no
@@ -8160,7 +8160,7 @@ class GameRoom:
 
             # Best-first standings. Each row also carries the SEAT it came from
             # (game index -> seat index), which is the only rename-proof way to
-            # tie a result row back to the player who earned it — tournament
+            # tie a result row back to the player who earned it: tournament
             # result reporting depends on it.
             _by_score = sorted(range(len(gs.players)),
                                key=lambda i: _safe_score(gs.players[i]), reverse=True)
@@ -8210,7 +8210,7 @@ class GameRoom:
                 )
                 if not _game_good_to_learn:
                     self._record_event(
-                        f"AI learning skipped — only 4P/5P games with top>=100 train "
+                        f"AI learning skipped, only 4P/5P games with top>=100 train "
                         f"the AI (players={_pcount}, top={_top_score}, "
                         f"ended_naturally={_ended_naturally})."
                     )
@@ -8236,7 +8236,7 @@ class GameRoom:
                             finals = [fish.final_points(gs, p) for p in gs.players]
                             fish.update_archetype_stats(cbrain2, gs.players, finals)
                             fish.append_game_memory(brain2, gs, finals)
-                            # Human-board reinforcement — highest-signal learning pass.
+                            # Human-board reinforcement: highest-signal learning pass.
                             fish.reinforce_human_demo_from_board(gs, human_indices, cbrain2, boost=demo_boost)
                             fish.save_brain(brain2, fish.BRAIN_PATH)
                         learn_mode = "full_match+human_demo" if human_only_game else "human_demo_only"
@@ -8252,7 +8252,7 @@ class GameRoom:
 
             _game_saved = True
             with self.cond:
-                # If a forfeit already decided the result (a player left), keep it —
+                # If a forfeit already decided the result (a player left), keep it,
                 # the match loop may have wound down to completion afterward, but the
                 # forfeit winner/loser is authoritative. Don't overwrite it with a
                 # score-based tally from the fallback-played-out turns.
@@ -8267,7 +8267,7 @@ class GameRoom:
                 self._bump_locked(force_persist=True)
 
             # Tournament Mode: if this match belongs to a tournament, feed its
-            # result into the bracket. Defensive — a tournament error must never
+            # result into the bracket. Defensive, a tournament error must never
             # break a normal game's completion.
             try:
                 _notify_tournament_if_match(self)
@@ -8302,7 +8302,7 @@ class GameRoom:
                 except Exception as save_exc:
                     self._record_event(f"Emergency save warning: {save_exc}")
             with self.cond:
-                # A forfeit result is authoritative — never downgrade an
+                # A forfeit result is authoritative, never downgrade an
                 # already-decided forfeit win to an error state.
                 if self._forfeit_result is None:
                     self.phase = "error"
@@ -8333,7 +8333,7 @@ class GameRoom:
             }
         # The 'players' array the client renders uses seat_index as p.index
         # (set in _record_snapshot). So the client must use seat_index to find
-        # "me" in the players list — game_index equals seat_index here.
+        # "me" in the players list: game_index equals seat_index here.
         return {
             "seat_index": seat.index,
             "game_index": seat.index,
@@ -8363,13 +8363,13 @@ class GameRoom:
                     viewer_seat = self.host_seat()
             # Record this player's last activity so the competitive forfeit check
             # can tell when a client has stopped polling (left/closed). One poll
-            # means the PERSON is here, so it refreshes every seat they own — in
+            # means the PERSON is here, so it refreshes every seat they own, in
             # competitive a player's two hands are never at the table separately.
             if viewer_seat is not None:
                 _seen_now = time.time()
                 for _owned in self._owned_seats_locked(viewer_seat):
                     _owned.last_seen = _seen_now
-            # A player polling with their seat token has returned — clear the
+            # A player polling with their seat token has returned: clear the
             # rejoin reservation so the seat counts as active again.
             if viewer_seat is not None and viewer_seat.left_at is not None:
                 viewer_seat.left_at = None
@@ -8384,18 +8384,18 @@ class GameRoom:
             # ── Which hand this payload is a view OF ────────────────────────
             # Normally the token's own seat. In competitive one human owns TWO
             # seats, and the hand the turn is on is the ONLY hand they can be
-            # looking at — so a poll with either of their tokens returns the
+            # looking at, so a poll with either of their tokens returns the
             # ACTIVE hand's view: its board, its cards, its legal actions, its
             # "YOUR TURN". The client used to do this itself by re-polling with
             # the other hand's token the moment it noticed the turn had moved,
             # which is a race it can lose (a poll in flight, a dropped corrective
             # fetch, a client holding only one of the two tokens after a refresh)
-            # — and losing it froze the match on hand 1 while the banner said
+            #, and losing it froze the match on hand 1 while the banner said
             # hand 2 was up. The switch belongs here, where it cannot be raced.
             # This is not a leak: both hands belong to the one person holding the
             # token, and submit_action already accepts either token for whichever
             # of their hands is active (see _competitive_same_owner).
-            # And once the turn leaves them entirely — the opponent is playing —
+            # And once the turn leaves them entirely, the opponent is playing,
             # the view moves on to whichever of their hands is up NEXT, so the
             # switch to the other hand happens the instant their own turn ends
             # instead of waiting on the opponent to finish theirs.
@@ -8434,7 +8434,7 @@ class GameRoom:
                         continue
                     # p["index"] is ALREADY the seat index (set in
                     # _record_snapshot as seat_idx). Do NOT run it through
-                    # _comp_game_to_seat again — that double-applies the
+                    # _comp_game_to_seat again, that double-applies the
                     # turn-order remap and, whenever the casual order is
                     # shuffled (i.e. every game now), hands each player the
                     # WRONG seat's avatar/background. Look the seat up directly.
@@ -8499,7 +8499,7 @@ class GameRoom:
                 "public_links": load_public_links(),
                 "seats": self.seat_snapshot_locked(),
                 # is_host belongs to the PERSON, not to whichever of their hands
-                # the view is on — otherwise the host's own controls blink out
+                # the view is on, otherwise the host's own controls blink out
                 # every time the turn reaches their second hand.
                 "viewer": dict(
                     self._viewer_payload_locked(view_seat),
@@ -8530,7 +8530,7 @@ class GameRoom:
                 "final_scores": self.final_scores,
                 "winner": self.winner,
                 # End-screen match stats the browser cannot see for itself.
-                # Only sent once the game is over — that is the only screen
+                # Only sent once the game is over, that is the only screen
                 # that reads them, and it keeps every in-play poll unchanged.
                 "match_stats": (
                     {"star_uses": dict(self._star_counts_locked())}
@@ -8547,7 +8547,7 @@ class GameRoom:
                 "undo": {
                     "eligible_seat": self.undo_eligible_seat,
                     "valid": bool(self.undo_valid),
-                    # True once an undo has been requested but not yet replayed — the
+                    # True once an undo has been requested but not yet replayed, the
                     # client hides the button so it can't be double-clicked while the
                     # engine (often an AI mid-turn) is still picking the request up.
                     "requested": bool(self.undo_requested),
@@ -8574,8 +8574,8 @@ class GameRoom:
         message = str(body.get("message", "")).strip()[:500]
         target = str(body.get("target", "Everyone")).strip()[:64]
         # Critter emote (Store "Emote Pack"): an animal-avatar id the client
-        # paints as a picture instead of text. It is NOT free text — only the
-        # slug shape below is accepted — so it is validated rather than run
+        # paints as a picture instead of text. It is NOT free text, only the
+        # slug shape below is accepted, so it is validated rather than run
         # through the profanity masker, which matches on word roots and would
         # asterisk any future id whose segments happened to collide (no current
         # avatar slug does; test_chat_emotes.py checks every one).
@@ -8638,8 +8638,8 @@ class GameRoom:
 
         One vote per PERSON, not per seat. Competitive is four seats but two
         people, so counting seats let the opponent's two hands cast two of the
-        three "votes" against you — a majority they hold on their own, every
-        turn — and listed your OWN other hand as a voter against you. Seats
+        three "votes" against you, a majority they hold on their own, every
+        turn, and listed your OWN other hand as a voter against you. Seats
         owned by the same human collapse to a single ballot (the lowest seat
         index), and the target's own pair never votes at all."""
         out: List[int] = []
@@ -8700,14 +8700,14 @@ class GameRoom:
         """Parse one chat line for an AFK vote and process it (lock held)."""
         if self.phase != "running":
             return
-        # Pattern: "<target> [is] afk|away" — tolerant of case and extra spaces.
+        # Pattern: "<target> [is] afk|away": tolerant of case and extra spaces.
         # Accepts variations like "P3 is AFK", "P3 afk", "P3 is away", "P3 away".
         m = re.match(r"^\s*(.+?)\s+(?:is\s+)?(?:afk|away)\s*[!.\s]*$", message, re.IGNORECASE)
         if not m:
             return
         target_seat = self._afk_resolve_target_locked(m.group(1))
         if target_seat is None:
-            return  # not a recognizable player — treat as ordinary chat
+            return  # not a recognizable player: treat as ordinary chat
         # Only the CURRENT active player can be reported.
         if self.active_action_seat is None or target_seat.index != self.active_action_seat:
             self._add_system_chat("You can only report the current player as AFK.")
@@ -8718,16 +8718,16 @@ class GameRoom:
         if voter.index == target_seat.index:
             return  # can't vote yourself
         if self._competitive_same_owner(voter.index, target_seat.index):
-            self._add_system_chat("That's your own hand — you can't report yourself as AFK.")
+            self._add_system_chat("That's your own hand, you can't report yourself as AFK.")
             self.cond.notify_all()
             return
         target_name = target_seat.claimed_name or self._afk_label_for_seat(target_seat)
-        # Surf's Up immunity — can't be voted on for 10 minutes after pressing it.
+        # Surf's Up immunity: can't be voted on for 10 minutes after pressing it.
         if time.time() < float(self.afk_immune_until.get(target_seat.index, 0.0)):
             self._add_system_chat(f"{target_name} is protected by Surf's Up and can't be reported right now.")
             self.cond.notify_all()
             return
-        # Already challenged this turn — no re-nomination until their next turn.
+        # Already challenged this turn, no re-nomination until their next turn.
         if target_seat.index in self.afk_nominated_this_turn:
             return
         voters = self._afk_eligible_voter_indices_locked(target_seat.index)
@@ -8785,7 +8785,7 @@ class GameRoom:
                 return
             if 0 <= target_idx < len(self.seats):
                 seat = self.seats[target_idx]
-                # Last-moment Surf's Up wins — never auto-draw an Away player.
+                # Last-moment Surf's Up wins, never auto-draw an Away player.
                 if getattr(seat, "is_away", False):
                     self.afk_challenge_seat = None
                     self.afk_challenge_deadline = None
@@ -8804,11 +8804,11 @@ class GameRoom:
                 })
             self.afk_challenge_seat = None
             self.afk_challenge_deadline = None
-            self._add_system_chat(f"{name} was AFK — drawing 2 cards and passing the turn.")
+            self._add_system_chat(f"{name} was AFK: drawing 2 cards and passing the turn.")
             self._bump_locked()
 
     def afk_cancel(self, body: Dict[str, Any]) -> Dict[str, Any]:
-        """The challenged player clicked / moved inside the game — cancel the
+        """The challenged player clicked / moved inside the game: cancel the
         AFK check. They can't be re-nominated until their next turn."""
         seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
         with self.cond:
@@ -8874,7 +8874,7 @@ class GameRoom:
             seat = self._seat_from_token_locked(seat_token)
             if seat is None:
                 return {"ok": False, "error": "invalid seat token"}
-            # Both of a competitive player's hands wear their background — see
+            # Both of a competitive player's hands wear their background: see
             # set_avatar; only one token ever does the pushing.
             owned = self._owned_seats_locked(seat)
             if all(s.background == (background or None) for s in owned):
@@ -8902,13 +8902,13 @@ class GameRoom:
             want = body.get("away")
             new_val = (not seat.is_away) if not isinstance(want, bool) else bool(want)
             # A person is at the table or they aren't. In competitive one human
-            # owns two seats, so Surf's Up has to move BOTH hands — flagging only
+            # owns two seats, so Surf's Up has to move BOTH hands: flagging only
             # the hand that happened to be active left the other hand "present"
             # for a player who had walked away.
             owned = self._owned_seats_locked(seat)
             for s in owned:
                 s.is_away = bool(new_val)
-            # Pressing Surf's Up grants 10 minutes of AFK-vote immunity — this
+            # Pressing Surf's Up grants 10 minutes of AFK-vote immunity, this
             # holds even if they toggle Surf's Up back off before it expires.
             # Also cancel any live AFK challenge currently aimed at this seat.
             for s in owned:
@@ -8936,7 +8936,7 @@ class GameRoom:
             # Name the PERSON, not the hand, so competitive doesn't announce
             # "Otter 2 is on Surf's Up" when Otter stepped away.
             display = owned[0].claimed_name or owned[0].label
-            note = f"{display} is on Surf's Up — Away" if seat.is_away else f"{display} is back."
+            note = f"{display} is on Surf's Up, Away" if seat.is_away else f"{display} is back."
             self.chat_messages.append({
                 "sender": "System",
                 "target": "Everyone",
@@ -8964,7 +8964,7 @@ class GameRoom:
                 return {"ok": False, "error": "only human seats"}
             want = body.get("eligible")
             new_val = True if not isinstance(want, bool) else bool(want)
-            # Never flag eligible while protected Away — Surf's Up always wins.
+            # Never flag eligible while protected Away: Surf's Up always wins.
             if seat.is_away:
                 new_val = False
             if seat.inactive_eligible == new_val:
@@ -8998,13 +8998,13 @@ class GameRoom:
             if target.kind != "human":
                 return {"ok": False, "error": "target is not a human seat"}
             if target.is_away:
-                return {"ok": False, "error": "target is on protected Surf's Up — wait for them to come back"}
+                return {"ok": False, "error": "target is on protected Surf's Up: wait for them to come back"}
             if not target.inactive_eligible:
                 return {"ok": False, "error": "target is not flagged inactive"}
             if self.active_action_seat != target.index:
                 return {"ok": False, "error": "not target's turn"}
             if caller.index == target.index or self._competitive_same_owner(caller.index, target.index):
-                # Same person — in competitive that includes your own other hand.
+                # Same person, in competitive that includes your own other hand.
                 return {"ok": False, "error": "cannot draw for yourself"}
             queue = self.pending_actions.setdefault(target.index, [])
             # If a draw-for-inactive cmd is already queued, do nothing (idempotent).
@@ -9049,7 +9049,7 @@ class GameRoom:
             if self.undo_snapshot_gs is None:
                 # undo_valid should never be True without a snapshot, but never arm
                 # an undo we cannot actually restore.
-                return {"ok": False, "error": "undo not available — no snapshot"}
+                return {"ok": False, "error": "undo not available, no snapshot"}
             active = self.active_action_seat
             if active is not None and active == seat.index:
                 # Mid-turn undo: player is still in their own turn (e.g. drew first card).
@@ -9070,7 +9070,7 @@ class GameRoom:
                 self.pending_actions.setdefault(active, []).insert(0, {"kind": "undo_confirm"})
                 self._bump_locked()
                 return {"ok": True}
-            # No active HUMAN is waiting — an AI is taking its turn (active_action_seat
+            # No active HUMAN is waiting, an AI is taking its turn (active_action_seat
             # is None for the whole duration of every bot turn) or the table is between
             # turns. Arm the undo flag; the next policy to run on the engine thread (AI
             # or human) calls _apply_pending_undo_restore, restores the snapshot, and
@@ -9115,7 +9115,7 @@ class RoomLiveRecorder:
         )
         # Clan telemetry: the score standing the instant the END GAME card is
         # revealed. "Comeback Current" asks whether you were behind at that
-        # moment, and no later record can answer it — the final standings are
+        # moment, and no later record can answer it, the final standings are
         # exactly what a comeback changed. Captured once, on the first executed
         # action after the reveal.
         try:
@@ -9400,7 +9400,7 @@ class RoomManager:
         of the process (a finished room was only ever evicted if someone
         happened to create a new room with the same id). That leaks memory on a
         busy day, leaves the mounted disk filling with per-room state files, and
-        makes every restart slower — load_persisted_rooms reads all of them back
+        makes every restart slower: load_persisted_rooms reads all of them back
         at boot.
 
         Deliberately conservative, because deleting a room a player still wants
@@ -9419,7 +9419,7 @@ class RoomManager:
             for room in list(self.rooms.values()):
                 thread = getattr(room, "game_thread", None)
                 if thread is not None and thread.is_alive():
-                    continue  # still playing — never reap a live game
+                    continue  # still playing, never reap a live game
                 phase = room.phase
                 if phase in {"ended", "error"}:
                     done_at = int(room.ended_unix or room.created_unix or now)
@@ -9432,7 +9432,7 @@ class RoomManager:
                             for s in room.seats
                             if s.kind == "human" and s.token is not None
                         ]
-                    # time.time() for seats, now_unix() for the room — both are
+                    # time.time() for seats, now_unix() for the room, both are
                     # wall-clock seconds, so they compare directly.
                     last = max(seen) if seen else float(room.created_unix or now)
                     if now - last >= ROOM_KEEP_IDLE_LOBBY_SEC:
@@ -9537,7 +9537,7 @@ ROOMS = RoomManager()
 
 
 def _deployed_app_version() -> str:
-    """"1.6.49 (2026-08-05.5)" from the client's version.json — the same string
+    """"1.6.49 (2026-08-05.5)" from the client's version.json, the same string
     the players' What's New banner shows, so the dashboard can never claim a
     different build than the one actually serving the game."""
     try:
@@ -9551,7 +9551,7 @@ def _deployed_app_version() -> str:
 
 # ── Developer Analytics ↔ live server bridge ─────────────────────────────────
 # The analytics module owns no room state of its own; this is the one place that
-# reads it. Everything here is a cheap in-memory count — the dashboard's
+# reads it. Everything here is a cheap in-memory count, the dashboard's
 # real-time panel polls it, so it must never touch Firestore or the disk.
 def _analytics_live_snapshot() -> Dict[str, Any]:
     """Right-now counts for the dashboard: who's on, what's running, and the
@@ -9570,7 +9570,7 @@ def _analytics_live_snapshot() -> Dict[str, Any]:
                 playing += 1
                 started = int(room.started_unix or 0)
                 # A "game" running for six hours is a room nobody ever closed,
-                # not a long game — that is what the Technical alert is for.
+                # not a long game, that is what the Technical alert is for.
                 if started and now - started > 6 * 3600:
                     stuck += 1
             elif phase == "lobby":
@@ -9578,7 +9578,7 @@ def _analytics_live_snapshot() -> Dict[str, Any]:
                 with room.cond:
                     if any(s.quick_play_ticket for s in room.seats):
                         matchmaking += 1
-        except Exception:  # noqa: BLE001 — one odd room must not blank the panel
+        except Exception:  # noqa: BLE001, one odd room must not blank the panel
             continue
 
     _reg, online, _games = get_live_user_counts()
@@ -9627,7 +9627,7 @@ def _tournament_create_match_room(*, tournament_id, round_index, match_index,
                                   match_number, players, spectators_allowed=True):
     """Spawn a PRIVATE GameRoom for one tournament bracket match. Every seat is
     pre-claimed for its assigned participant with a server-controlled seat token
-    (so there are NO open seats — outsiders can't join, no ghost host seat, and
+    (so there are NO open seats: outsiders can't join, no ghost host seat, and
     each player controls exactly their seat). Returns
     {room_id, seat_tokens:{pid:token}}. The tournament delivers each player their
     seat_token so their client reconnects straight into the right seat, and the
@@ -9639,7 +9639,7 @@ def _tournament_create_match_room(*, tournament_id, round_index, match_index,
     bots = [p for p in players if p.get("is_bot")]
     # An ALL-BOT bracket match is a real game too, so it gets a real room. A room
     # always needs a host seat to be constructed (create_room's rule), so build one
-    # human seat and hand it straight over to the AI below — no human is coming.
+    # human seat and hand it straight over to the AI below, no human is coming.
     all_bots = not humans
     # Private + unguessable password: membership is the pre-claimed seat set, not
     # the code, so the room never appears joinable to anyone else.
@@ -9707,7 +9707,7 @@ def _tournament_start_match_room(room_id) -> bool:
     if room is None:
         return False
     if getattr(room, "phase", None) != "lobby":
-        return True  # already running/ended — treat as started
+        return True  # already running/ended: treat as started
     try:
         res = room.start_game(getattr(room, "host_control_token", ""), None, CARD_DB)
         return bool(res.get("ok"))
@@ -9726,7 +9726,7 @@ def _notify_tournament_if_match(room) -> None:
     duplicate names get a " (2)" suffix at pre-claim that the client's own name
     then overwrites) as well as the launch-time seat shuffle. Mapping by name was
     silently dropping the renamed player out of the standings and re-adding them
-    LAST — recording the match winner as the loser, knocking them out of a
+    LAST: recording the match winner as the loser, knocking them out of a
     tournament they had actually won.
     """
     tid = getattr(room, "tournament_id", None)
@@ -9853,7 +9853,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # ── WebP content negotiation ────────────────────────────────────
         # Big photographic PNG/JPG art (backgrounds, card sheets) ships with a
         # pre-generated .webp sibling that is ~10-25x smaller. When the browser
-        # advertises WebP support we serve that instead — same URL, no client
+        # advertises WebP support we serve that instead, same URL, no client
         # change, automatic PNG fallback for anything that doesn't. This is the
         # single biggest win for image load time. Vary: Accept keeps caches
         # from handing a WebP body to a client that can't read it.
@@ -10032,9 +10032,9 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         JSON record so update_brain_from_match and reinforce_human_demo_from_board
         can learn card synergies from real human games.
 
-        priority_nick — if set, games containing this player (case-insensitive)
+        priority_nick, if set, games containing this player (case-insensitive)
             are boosted 5× over the baseline 2.4× human demo boost.
-        min_score — only include games where the winner scored at least this many
+        min_score, only include games where the winner scored at least this many
             points (use 0 to include everything; set e.g. 80 for leaderboard-quality).
         """
         name_to_uid: Dict[str, int] = {}
@@ -10129,7 +10129,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                         results["boosted"] += 1
 
                     # Learn each replayed game into its own table-size brain.
-                    # These are all real human games — weight synergy learning
+                    # These are all real human games: weight synergy learning
                     # ~10× (priority players higher). update_brain_from_match's
                     # internal quality gate discards undeveloped / near-tie games.
                     cbrain = fish.get_count_brain(brain, len(gs.players))
@@ -10260,7 +10260,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         return body, None
 
     def _handle_stripe_webhook(self) -> None:
-        """POST /api/stripe/webhook — Stripe calls this after a checkout completes.
+        """POST /api/stripe/webhook: Stripe calls this after a checkout completes.
 
         Flow: read the raw body → (1) verify the Stripe signature → parse the
         event → if it's checkout.session.completed, fulfil it server-side. We ACK
@@ -10280,7 +10280,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         # (1) Verify the event really came from Stripe. Without a configured
-        # signing secret we refuse everything — fulfilling unverified events
+        # signing secret we refuse everything: fulfilling unverified events
         # would let anyone POST a fake purchase and mint coins.
         sig = self.headers.get("Stripe-Signature", "")
         if not _verify_stripe_signature(raw, sig, STRIPE_WEBHOOK_SECRET):
@@ -10378,7 +10378,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         # Snap & Score developer test harness (detection boxes, crops, match
-        # candidates, timings — used to tune the scanner on real photos).
+        # candidates, timings: used to tune the scanner on real photos).
         if parsed.path in {"/snap-dev", "/snap-dev.html"}:
             self._send_html_file(SNAP_DEV_HTML_PATH, "snap & score dev")
             return
@@ -10395,13 +10395,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if clan_server.handle_get(self, parsed):
             return
 
-        # Prestige API (public reward catalogue — no account data in it).
+        # Prestige API (public reward catalogue, no account data in it).
         if prestige_server.handle_get(self, parsed):
             return
 
         # Discord join reward: /api/discord/callback, where Discord sends the
         # player back after they authorise. It is a GET because Discord controls
-        # the redirect — the account it belongs to comes from the signed state
+        # the redirect, the account it belongs to comes from the signed state
         # in the URL, never from a token this request could carry.
         if discord_server.handle_get(self, parsed):
             return
@@ -10528,11 +10528,11 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "asset not found"}, status=HTTPStatus.NOT_FOUND)
             return
 
-        # email-logo.png — the logo embedded in every newsletter and welcome
+        # email-logo.png, the logo embedded in every newsletter and welcome
         # email, and used by the admin + unsubscribe pages.
         # Deliberately allow_webp=False: Outlook and several corporate mail
         # clients cannot render WebP, and an email image has no <picture>
-        # fallback to save it — a negotiated WebP would be a broken image in
+        # fallback to save it, a negotiated WebP would be a broken image in
         # exactly the clients most likely to be reading. Cached hard because
         # the URL is baked into mail that lives in inboxes for years.
         if parsed.path == "/email-logo.png":
@@ -10544,7 +10544,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "asset not found"}, status=HTTPStatus.NOT_FOUND)
             return
 
-        # login-bg.png — short cache so artwork updates land quickly
+        # login-bg.png: short cache so artwork updates land quickly
         if parsed.path == "/login-bg.png":
             asset_path = os.path.join(CLIENT_DIR, "login-bg.png")
             if os.path.exists(asset_path):
@@ -10598,7 +10598,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
 
         # Card-art sprite sheets (horizontal / vertical / oceans page PNGs).
         # Previously these fell through to SimpleHTTPRequestHandler.do_GET(),
-        # which sends NO Cache-Control — so the browser (and Cloudflare, which
+        # which sends NO Cache-Control, so the browser (and Cloudflare, which
         # marked them "DYNAMIC") re-fetched every ~300–600 KB page on every card,
         # every game load. That is why cards took forever to appear. The client
         # already cache-busts each URL with ?v=CARD_IMAGE_VERSION, so the file at
@@ -10647,7 +10647,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             # The webhook itself only accepts POST (Stripe POSTs signed events).
             # A browser visit is a GET, which would otherwise hit the static file
             # handler and show a scary "404 File not found". Answer GET with a
-            # clear 200 so visiting the URL confirms the endpoint is live — this
+            # clear 200 so visiting the URL confirms the endpoint is live, this
             # is NOT the address bar's job; paste this exact URL into Stripe.
             self._send_json(
                 {
@@ -10760,7 +10760,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_preview_html()
             return
 
-        # Public Supporter Reef Wall data — approved + visible records only,
+        # Public Supporter Reef Wall data: approved + visible records only,
         # exposing just displayName / wallSize / tier (no emails/ids/history).
         if parsed.path == "/api/supporters/wall":
             wall = _supporter_wall_cached()
@@ -11015,7 +11015,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             # Exact registered + live online counts straight from Firestore (the
             # real account list), when a service account is configured. Every
             # account has a Firestore user doc, so the live count is complete
-            # and authoritative — use it directly. Falls back to the stored
+            # and authoritative: use it directly. Falls back to the stored
             # seen-uid counter / 0 when Firebase isn't configured. The persisted
             # Firestore games counter is folded in too so the games number keeps
             # climbing even if the Render disk lost its game-history files.
@@ -11170,13 +11170,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if prestige_server.handle_post(self, parsed, body):
             return
 
-        # Developer Analytics API (admin only — every call proves an admin
+        # Developer Analytics API (admin only, every call proves an admin
         # account with a verified Firebase ID token inside the module).
         if analytics_server.handle_post(self, parsed, body):
             return
 
         # Discord join reward (state / start). The payout itself never happens
-        # here — only Discord's own callback can trigger it, after Discord has
+        # here, only Discord's own callback can trigger it, after Discord has
         # confirmed the player really is in the server.
         if discord_server.handle_post(self, parsed, body):
             return
@@ -11188,7 +11188,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         # Friend-code referral (/api/referral/*). Pays TWO accounts in one
-        # transaction — which is exactly why the browser cannot be the one
+        # transaction, which is exactly why the browser cannot be the one
         # deciding who gets paid.
         if referral_server.handle_post(self, parsed, body):
             return
@@ -11308,7 +11308,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         # Take a cosmetic back off an account and make its unlock requirement be
-        # earned again (same snapshot a trade writes — see _admin_revoke_item).
+        # earned again (same snapshot a trade writes: see _admin_revoke_item).
         # Body: { "admin_key": "...", "user": "<nickname or uid>",
         #         "item": "/avatars/x.png", "dry_run"?: true }
         if parsed.path == "/api/admin/revoke_item":
@@ -11359,7 +11359,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                             stats = json.load(f)
                     except (FileNotFoundError, json.JSONDecodeError):
                         stats = {"registered_players": 0, "seen_uids": [], "games_played": 0}
-                    # Only raise existing counts — never lower them.
+                    # Only raise existing counts, never lower them.
                     stats["games_played"]        = max(int(stats.get("games_played", 0)),        new_games)
                     stats["registered_players"]  = max(int(stats.get("registered_players", 0)), new_players)
                     atomic_write_json(STATS_PATH, stats)
@@ -11409,12 +11409,12 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/rooms":
-            pass  # key check removed — open room creation
+            pass  # key check removed: open room creation
 
             # Capacity guard. One finished-room sweep first, so a server that is
             # merely holding dead rooms opens back up instead of turning players
             # away. Only a genuine flood of LIVE rooms gets refused, and it is
-            # refused politely — an out-of-memory process would take every game
+            # refused politely, an out-of-memory process would take every game
             # in progress down with it.
             if MAX_ACTIVE_ROOMS and ROOMS.room_count() >= MAX_ACTIVE_ROOMS:
                 try:
@@ -11423,7 +11423,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     pass
                 if ROOMS.room_count() >= MAX_ACTIVE_ROOMS:
                     self._send_json(
-                        {"ok": False, "error": "The server is at capacity right now — "
+                        {"ok": False, "error": "The server is at capacity right now: "
                                                "please try again in a minute."},
                         status=HTTPStatus.SERVICE_UNAVAILABLE,
                     )
@@ -11619,7 +11619,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # Requires BOTH (1) the admin key (constant-time compared) and (2) a
         # valid seat token for THIS room. The key defaults to "dog" but can be
         # overridden by the ADMIN_MOD_KEY env secret. Without the key, every op
-        # is rejected — so console/URL tampering by non-admins fails.
+        # is rejected, so console/URL tampering by non-admins fails.
         if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "admin_mod":
             room = ROOMS.get(parts[2])
             if room is None:
@@ -11912,7 +11912,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/competitive/forfeit_ack":
-            # The loser's client has applied the CP penalty for a forfeit loss —
+            # The loser's client has applied the CP penalty for a forfeit loss:
             # mark the pending entry processed so it is never applied twice.
             entry_id = str(body.get("id", "")).strip()
             who = str(body.get("name", "")).strip()
@@ -12145,7 +12145,7 @@ def main() -> None:
 
     # Developer Analytics: read-only. It is handed the same Firestore accessor
     # and token verifier as everything else, plus the two history directories
-    # THIS server writes its game records into — so the dashboard measures the
+    # THIS server writes its game records into, so the dashboard measures the
     # real games, never a second tally that could drift from them.
     analytics_server.init(
         get_firestore=_get_firestore,
@@ -12158,7 +12158,7 @@ def main() -> None:
 
     # Newsletter: the same Firestore accessor and token verifier as everything
     # else, so there is exactly one way to prove who a caller is. init() also
-    # starts the send worker — the daemon thread that delivers welcome emails
+    # starts the send worker, the daemon thread that delivers welcome emails
     # and grinds through campaign batches, so no browser request ever holds a
     # connection open while thousands of messages go out.
     newsletter_server.init(
@@ -12168,18 +12168,18 @@ def main() -> None:
     )
 
     # Discord join reward. Same Firestore accessor and token verifier as
-    # everything else. Missing credentials are a LOUD no-op — the offer is
-    # hidden and every claim refuses — never a payout that skips the check.
+    # everything else. Missing credentials are a LOUD no-op, the offer is
+    # hidden and every claim refuses, never a payout that skips the check.
     discord_server.init(
         get_firestore=_get_firestore,
         verify_token=_verify_firebase_id_token,
     )
     _discord_cfg = discord_server.config_status()
     if _discord_cfg["enabled"]:
-        print(f"[discord] join reward ON — {_discord_cfg['coins']} coins, "
+        print(f"[discord] join reward ON: {_discord_cfg['coins']} coins, "
               f"redirect {_discord_cfg['redirect_uri']}")
     else:
-        print("[discord] join reward OFF — set "
+        print("[discord] join reward OFF: set "
               + ", ".join(_discord_cfg["missing"])
               + " to switch it on (see DISCORD_REWARD_SETUP.md)")
 
@@ -12194,7 +12194,7 @@ def main() -> None:
         level_totals=LEVEL_XP_TOTALS,
         background_paths=ALL_BACKGROUND_PATHS,
     )
-    print(f"[pass] level pass ON — {len(level_pass_server.track())} tiers, "
+    print(f"[pass] level pass ON: {len(level_pass_server.track())} tiers, "
           f"+{level_pass_server.BOOST_PERCENT}% XP boost for {level_pass_server.BOOST_HOURS}h")
 
     # Friend-code referral reward. Same injected Firestore accessor and token
@@ -12205,7 +12205,7 @@ def main() -> None:
         verify_token=_verify_firebase_id_token,
         background_paths=ALL_BACKGROUND_PATHS,
     )
-    print(f"[referral] friend-code reward ON — {referral_server.reward_coins()} coins each side, "
+    print(f"[referral] friend-code reward ON: {referral_server.reward_coins()} coins each side, "
           f"1 background per {referral_server.background_every()} referrals, "
           f"{referral_server.window_days()}-day sign-up window")
 
@@ -12219,7 +12219,7 @@ def main() -> None:
                         _existing = json.load(_sf)
                 except (FileNotFoundError, json.JSONDecodeError):
                     _existing = {}
-                # Apply seed as a floor — never lower existing counts.
+                # Apply seed as a floor, never lower existing counts.
                 _existing["games_played"]       = max(int(_existing.get("games_played", 0)),       STATS_SEED_GAMES)
                 _existing["registered_players"] = max(int(_existing.get("registered_players", 0)), STATS_SEED_PLAYERS)
                 if "seen_uids" not in _existing:
@@ -12239,7 +12239,7 @@ def main() -> None:
 
     # Room janitor: without it every room ever created stays in memory and on
     # the mounted disk for the life of the process. Daemon thread, and every
-    # cycle is wrapped — a sweep that throws must never take the server with it.
+    # cycle is wrapped, a sweep that throws must never take the server with it.
     def _room_janitor() -> None:
         while True:
             time.sleep(ROOM_SWEEP_INTERVAL_SEC)

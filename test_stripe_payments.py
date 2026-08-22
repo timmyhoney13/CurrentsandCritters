@@ -6,7 +6,7 @@ Every check here is on the pure decision functions in multiplayer_server, so the
 suite runs with no Firestore, no network, and no Stripe account.
 
 Covered:
-  • signature verification — the ONLY thing standing between a stranger's POST
+  • signature verification, the ONLY thing standing between a stranger's POST
     and free Critter Coins,
   • price → reward mapping, including the live-mode ways it can silently miss,
   • the wall tier / lifetime-total maths,
@@ -52,7 +52,7 @@ class TestWebhookSignature(unittest.TestCase):
         self.assertFalse(ms._verify_stripe_signature(self.BODY, header, self.SECRET))
 
     def test_rejects_a_tampered_body(self):
-        """Signed one payload, delivered another — the classic attack."""
+        """Signed one payload, delivered another, the classic attack."""
         header = _sign(self.BODY, self.SECRET)
         tampered = json.dumps({"id": "evt_1", "amount_total": 99999999}).encode()
         self.assertFalse(ms._verify_stripe_signature(tampered, header, self.SECRET))
@@ -112,7 +112,7 @@ class TestRewardMapping(unittest.TestCase):
         self.assertEqual((kind, value), ("tier", "tide-turner"))
 
     def test_non_usd_is_not_guessed_from_the_amount(self):
-        """1500 JPY is not a $15 tier — the cents tables are USD prices only."""
+        """1500 JPY is not a $15 tier, the cents tables are USD prices only."""
         kind, value = ms._reward_for_session(
             self._session(currency="jpy", amount_total=1500))
         self.assertEqual((kind, value), (None, None))
@@ -152,7 +152,7 @@ class TestWallTiers(unittest.TestCase):
                              f"${cents/100:.2f}")
 
     def test_two_small_gifts_add_up_to_a_tier(self):
-        """$15 + $15 must reach the $25 band — the point of a lifetime total."""
+        """$15 + $15 must reach the $25 band, the point of a lifetime total."""
         self.assertEqual(ms._supporter_tier_for_total(1500 + 1500)[0], "ocean_ally")
 
     def test_garbage_totals_do_not_crash(self):
@@ -178,14 +178,14 @@ class TestCustomFields(unittest.TestCase):
         self.assertEqual(ms._custom_field_value(fields, ms.CF_USERNAME_LABEL), "tim_h")
 
     def test_label_match_is_case_and_space_insensitive(self):
-        """Stripe echoes the label the site owner typed — don't be brittle."""
+        """Stripe echoes the label the site owner typed: don't be brittle."""
         fields = [self._field("  name for supporter reef wall  ", "Jett")]
         self.assertEqual(ms._custom_field_value(fields, ms.CF_WALL_NAME_LABEL), "Jett")
 
     def test_username_question_accepts_both_spellings_of_the_game_name(self):
         """A custom-field label is a BEHAVIOUR KEY, not display text.
 
-        The game's name appears both ways in the wild — "Currents and Critters"
+        The game's name appears both ways in the wild: "Currents and Critters"
         everywhere it is displayed now, "Currents & Critters" on anything older.
         A Payment Link whose question uses the spelling the server does NOT
         match reads back as "", so a signed-out buyer's typed username is lost
@@ -249,7 +249,7 @@ class TestSessionStatusInput(unittest.TestCase):
 
     def test_accepts_the_real_shape(self):
         """A well-formed id gets past validation (then needs Firestore, which is
-        absent here — so 'unavailable', NOT 'bad session id')."""
+        absent here, so 'unavailable', NOT 'bad session id')."""
         for good in ("cs_test_a1B2c3D4", "cs_live_b1234567890"):
             out = ms._stripe_session_status(good)
             self.assertNotEqual(out.get("error"), "bad session id", good)
@@ -283,7 +283,7 @@ class TestLevelCurveMatchesClient(unittest.TestCase):
 
 class TestSupporterTierCoinGrants(unittest.TestCase):
     """Supporter Tiers credit Critter Coins. The amounts are printed on three
-    separate tier cards, so the danger is not the maths — it's drift."""
+    separate tier cards, so the danger is not the maths: it's drift."""
 
     ORDER = ("wave-warrior", "ocean-ally", "tide-turner")
 
@@ -323,8 +323,8 @@ class TestSupporterTierCoinGrants(unittest.TestCase):
         """Both tier cards used to spell out exactly what a tier's coins would
         buy ("5 of the 8 backgrounds", "~7 seasonal skins", "a full year of
         seasonal skins"). Every one of those sentences goes stale the moment a
-        price or the catalogue moves — and a stale promise on a PAID product is
-        the expensive kind of wrong — so they were removed from both surfaces
+        price or the catalogue moves, and a stale promise on a PAID product is
+        the expensive kind of wrong, so they were removed from both surfaces
         and must not come back. The coin AMOUNTS still show; only the claim
         about what they buy is gone."""
         retired = (
@@ -347,7 +347,7 @@ class TestSupporterTierCoinGrants(unittest.TestCase):
 
 class TestTierGrantUpdates(unittest.TestCase):
     """_supporter_tier_grant_updates is the ONE place a tier is turned into
-    account changes — the webhook and the late-claim path both call it, so a
+    account changes, the webhook and the late-claim path both call it, so a
     guest who claims after the fact gets exactly what a signed-in buyer got."""
 
     def test_coins_are_added_to_the_existing_balance(self):
@@ -417,7 +417,7 @@ class TestTierCoinsPrintedEverywhere(unittest.TestCase):
                           f"index.html never promises {tier}'s {coins:,} coins")
 
     def test_the_thanks_page_reads_the_amount_from_the_server(self):
-        """/thanks must NOT keep its own copy of the numbers — it prints
+        """/thanks must NOT keep its own copy of the numbers, it prints
         whatever tierCoins the status endpoint sends."""
         html = self._read("multiplayer", "client", "thanks.html")
         self.assertIn("tierCoins", html)
@@ -454,7 +454,7 @@ def _read(*parts: str) -> str:
 class TestLivePaymentLinks(unittest.TestCase):
     """Every Buy button points at the RIGHT live Stripe Payment Link.
 
-    The webhook never sees these URLs — it grants by `amount_total` — so a
+    The webhook never sees these URLs, it grants by `amount_total`, so a
     button wired to the wrong link is invisible until a real customer is charged
     $50 and handed $1 of coins. These pin each product to its exact URL.
     """
@@ -475,7 +475,7 @@ class TestLivePaymentLinks(unittest.TestCase):
         self.home = _read("index.html")
 
     def test_no_test_mode_links_survive_anywhere(self):
-        """A `test_` link takes fake cards only — real buyers get nothing."""
+        """A `test_` link takes fake cards only, real buyers get nothing."""
         for name, blob in (("preview-app.js", self.js), ("index.html", self.home)):
             self.assertNotIn("buy.stripe.com/test_", blob,
                              f"{name} still ships a TEST-mode Payment Link")
@@ -484,7 +484,7 @@ class TestLivePaymentLinks(unittest.TestCase):
         """Two products sharing one URL = one of them charges the wrong price.
 
         Coin packs are sold in the in-game store only. The three tiers are sold
-        in BOTH places, so they appear once per file — but never twice in one.
+        in BOTH places, so they appear once per file, but never twice in one.
         """
         for key, (url, _cents) in self.LINKS.items():
             in_js, in_home = self.js.count(url), self.home.count(url)
@@ -530,7 +530,7 @@ class TestLivePaymentLinks(unittest.TestCase):
                              f"{name}'s ${usd} link grants a different tier server-side")
 
     def test_marketing_site_uses_the_same_tier_links_as_the_store(self):
-        """Two front doors to one product — they must not drift apart."""
+        """Two front doors to one product, they must not drift apart."""
         import re
         for label, tier in (("Wave Warrior", "wave-warrior"),
                             ("Ocean Ally",   "ocean-ally"),

@@ -5,7 +5,7 @@
  *
  * test_clans_ui.js proves the module's PUBLIC HOOKS behave (claim dedup,
  * off-switch, toasts) in a bare vm. This one puts the REAL clans-ui.js and the
- * REAL preview.css in headless Chrome and looks at what actually paints —
+ * REAL preview.css in headless Chrome and looks at what actually paints,
  * the class of bug a stubbed document can never catch: a section that renders
  * empty, an undefined leaking into visible text, a season countdown that never
  * ticks, or a page that scrolls sideways on a phone.
@@ -33,7 +33,7 @@ const CHROME = [
 ].find(p => fs.existsSync(p));
 
 if (!CHROME) {
-  console.log("SKIP: no Chrome/Chromium found — cannot run the clans render check.");
+  console.log("SKIP: no Chrome/Chromium found: cannot run the clans render check.");
   process.exit(0);
 }
 
@@ -125,7 +125,7 @@ const HOME = {
   my_clan: TOP3[0], my_clan_full: PROFILE,
   my_contribution: { points: 62, game_points: 55, trade_points: 7, weekly: 20, weekly_cap: 150 },
   cooldown_until: 0,
-  // My own unlocks — the critters offered when I found a clan (I'd be its only
+  // My own unlocks, the critters offered when I found a clan (I'd be its only
   // member, so my unlocks are the whole clan's choice).
   my_unlocked: ["/avatars/clownfish.png", "/avatars/lobster.png", "/avatars/mullet.png",
                 "/avatars/narwhal.png"],
@@ -144,7 +144,7 @@ const RESPONSES = {
   // The server resolves the friend code and hands the name back for the toast.
   "/api/clan/invite": { ok: true, name: "LemmeSeeThemToes" },
   // A vote comes back with the RECOUNTED tally, so the client repaints from
-  // this alone — no follow-up /home or /get. Narwhal overtakes clownfish here.
+  // this alone, no follow-up /home or /get. Narwhal overtakes clownfish here.
   "/api/clan/vote-critter": { ok: true, my_vote: "/avatars/narwhal.png",
     favorite_critter: "/avatars/narwhal.png",
     favorite_votes: { "/avatars/narwhal.png": 2, "/avatars/clownfish.png": 1 } },
@@ -162,7 +162,7 @@ const page = `<!doctype html><html><head><meta charset="utf-8">
 <style>${CSS}</style>
 <style>body{margin:0;font-family:"Nunito",sans-serif;} #cc-clans-root{padding:8px;}
 /* preview.css hides the lobby and every .ph-panel until sign-in picks a tab.
-   Left hidden, EVERY getBoundingClientRect() here reads 0 — the overflow and
+   Left hidden, EVERY getBoundingClientRect() here reads 0, the overflow and
    scroll checks pass because nothing is laid out at all, and no geometry can
    be measured. Force the two wrappers visible and change nothing else. */
 #auth-stats-lobby{display:block!important} .ph-panel{display:block!important}</style>
@@ -178,14 +178,14 @@ window.__ccToasts = [];
 window.__ccPosts = [];
 window.__ccClans = {
   ENABLED: true, APP_BUILD: "test",
-  // The REAL bridge (preview-app's apiPost) resolves to an ENVELOPE —
-  // { ok, status, data } — not the server payload. Stubbing the payload
+  // The REAL bridge (preview-app's apiPost) resolves to an ENVELOPE:
+  // { ok, status, data }, not the server payload. Stubbing the payload
   // directly is what let the blank-tab bug through every suite.
   get:  async (p) => ({ ok: true, status: 200, data: RESPONSES[p] || { ok: true } }),
   post: async (p, b) => {
     window.__ccPosts.push({ p, b });
     // A deliberately slow endpoint, so the suite can watch what is on screen
-    // WHILE the server is still thinking — which is the whole point of
+    // WHILE the server is still thinking, which is the whole point of
     // painting from cache first.
     const d = (window.__ccDelay || {})[p] || 0;
     if (d) await new Promise(r => setTimeout(r, d));
@@ -249,7 +249,7 @@ function snapshot(name) {
 
     // Home → my clan profile (Overview). /home already returned this exact
     // profile as my_clan_full, so opening MY OWN clan must not go to the server
-    // again — that second round trip is what made the tab feel slow.
+    // again, that second round trip is what made the tab feel slow.
     const postsBeforeOpen = window.__ccPosts.length;
     const myRow = document.querySelector(".ccC-myclan");
     if (myRow) myRow.click();
@@ -287,7 +287,7 @@ function snapshot(name) {
     await wait(200);
     snapshot("members");
     // The invite box asks for a friend code, so the placeholder carries as much
-    // of that instruction as the heading does — and innerText can't see it.
+    // of that instruction as the heading does, and innerText can't see it.
     out.invitePlaceholder = [...document.querySelectorAll("#cc-clans-root input")]
       .map(i => i.placeholder || "").join(" | ");
     // Actually use it: type a code, press the button, see what goes to the
@@ -344,7 +344,7 @@ function snapshot(name) {
     // ── Opening the tab must not wait on the network ───────────────────
     // The first open cached this account's home payload, so a SECOND open has
     // to paint from it immediately and let the fetch land behind it. With a
-    // 900ms server, the screen must already be real at 120ms — not sitting on
+    // 900ms server, the screen must already be real at 120ms, not sitting on
     // "Loading clans…", which is what "the clan tab takes forever" was.
     out.instant = {};
     window.__ccDelay = { "/api/clan/home": 900 };
@@ -359,7 +359,7 @@ function snapshot(name) {
 
     // Saving clan settings must cost ONE request and must never blank the
     // panel: it used to null the profile, fetch /home, then let renderClan
-    // fetch /get as well — two sequential round trips with "Loading clan…"
+    // fetch /get as well, two sequential round trips with "Loading clan…"
     // in between.
     await window.__ccClansRender(); await wait(200);
     const settingsRow = document.querySelector(".ccC-myclan");
@@ -384,14 +384,14 @@ function snapshot(name) {
 
     // A player with NO clan sees the join/create call to action instead, and
     // that is the only path to the create form (you can't create while in a
-    // clan) — re-render with a clanless payload and walk it.
+    // clan): re-render with a clanless payload and walk it.
     RESPONSES["/api/clan/home"] = Object.assign({}, HOME_JSON,
       { my_clan: null, my_clan_full: null, invites: [] });
     await window.__ccClansRender();
     await wait(300);
     snapshot("noclan");
     // The two things a clanless player came here to do must be the FIRST thing
-    // on the tab — above the season block and the top-3 podium, not scrolled
+    // on the tab: above the season block and the top-3 podium, not scrolled
     // off the bottom under a leaderboard they have no part in yet.
     {
       const bar  = document.querySelector(".ccC-cta");
@@ -450,7 +450,7 @@ function snapshot(name) {
       hasDesc: !!document.querySelector("textarea"),
     };
     // Password mode: the option exists, and its field only appears when it is
-    // the mode being used — an always-visible password box on a public clan is
+    // the mode being used, an always-visible password box on a public clan is
     // a question nobody can answer.
     {
       const pwBtn = [...document.querySelectorAll(".ccC-btn")]
@@ -465,7 +465,7 @@ function snapshot(name) {
         const inp = pwField() && pwField().querySelector("input");
         out.createPw.hasInput = !!inp;
         // Switching back to a passwordless mode hides the field again. Checked
-        // BEFORE founding — a successful create leaves this screen entirely.
+        // BEFORE founding, a successful create leaves this screen entirely.
         const pubBtn = [...document.querySelectorAll(".ccC-btn")]
           .find(b => /🌊 Public/.test(b.textContent));
         if (pubBtn) {
@@ -495,7 +495,7 @@ function snapshot(name) {
     }
 
     // Joining a PASSWORD clan asks for the word, then joins with it. Nothing on
-    // this side checks the password — it only carries it to the server.
+    // this side checks the password, it only carries it to the server.
     {
       RESPONSES["/api/clan/browse"] = {
         ok: true, season: HOME_JSON.season,
@@ -595,7 +595,7 @@ check("profile: no placeholder junk in text", prof.bad.length === 0, prof.bad.jo
 
 // Speed, as behaviour. Opening your own clan is served from the /home payload
 // that drew the screen you clicked, and casting a vote is ONE request repainted
-// in place — not a vote plus a /home plus a /get with the panel blanked out in
+// in place, not a vote plus a /home plus a /get with the panel blanked out in
 // between. Both of these were the "clans take forever / voting bugs out" bug.
 const openCalls = (D.openMyClan || {}).calls || [];
 check("open my own clan: no second round trip to the server",
@@ -741,7 +741,7 @@ check("phone: module ran without errors", P.errors.length === 0, P.errors.join("
 for (const name of ["home", "profile", "members", "leaderboard"]) {
   const s = P.screens[name];
   if (!s) { check("phone: " + name + " rendered", false); continue; }
-  // Wide content (the leaderboard table) must scroll INSIDE its own box —
+  // Wide content (the leaderboard table) must scroll INSIDE its own box,
   // the page itself must never scroll sideways.
   check("phone: " + name + " does not scroll sideways",
         s.scrollW <= s.clientW + 1, `scrollW=${s.scrollW} clientW=${s.clientW}`);

@@ -2,7 +2,7 @@
 
 Ordered by how much damage the bug would do:
 
- 1. CONSENT. Who becomes a subscriber, and — much more important — who does
+ 1. CONSENT. Who becomes a subscriber, and, much more important, who does
     NOT. A bug that subscribes someone who did not ask is the one that gets a
     sending domain blocked, so most of section 1 is about the paths that must
     produce NOTHING.
@@ -28,6 +28,7 @@ import os
 import socket
 import sys
 import threading
+import time
 import types
 import unittest
 
@@ -279,7 +280,13 @@ class Base(unittest.TestCase):
     def setUp(self):
         self.db = FakeDb()
         self.box = SentBox()
+        # The real send worker is a daemon thread that would wake up mid-test,
+        # drain the same queues these tests drain by hand and send against
+        # whichever FakeDb happened to be current. Claiming it is already
+        # started keeps every send in this file on the test's own thread.
+        ns._worker_started = True
         ns.init(get_firestore=lambda: self.db, verify_token=_verify, app_version="test")
+        self.clear_queues()
         ns._invalidate_subs_cache()
         ns._RL.clear()
         # Never touch the network.
@@ -319,9 +326,20 @@ class Base(unittest.TestCase):
         self.drain()
         return out
 
-    def drain(self):
-        """Run the worker's welcome-email pass synchronously."""
+    def clear_queues(self):
         import queue as _q
+        for q in (ns._welcome_q, ns._confirm_q):
+            while True:
+                try:
+                    q.get_nowait()
+                except _q.Empty:
+                    break
+
+    def drain(self):
+        """Run the worker's outbound pass synchronously: the confirmation
+        emails a signup queued, then the welcomes."""
+        import queue as _q
+        ns._drain_confirmations(limit=1000)
         while True:
             try:
                 sub_id = ns._welcome_q.get_nowait()
@@ -445,7 +463,7 @@ class TestIdempotency(Base):
         self.assertGreaterEqual(after["resubscribedAt"], first["resubscribedAt"])
         self.assertEqual(len(self.subs()), 1, "same record, not a second one")
         self.assertEqual(len(self.box.to("a@b.com")), 2,
-                         "welcome sent again — this was a fresh, deliberate opt-in")
+                         "welcome sent again, this was a fresh, deliberate opt-in")
 
         # A new token was minted and the OLD link no longer works.
         self.assertNotEqual(ns.make_unsub_token(after), tok_before)
@@ -555,7 +573,7 @@ class TestSanitizing(unittest.TestCase):
         # that CR/LF never survive into a header value, so the payload stays
         # part of the Subject rather than becoming a Bcc. Asserting on header
         # LINES (not a substring of the whole message) is what actually tests
-        # that — the words are allowed to appear, just not as a header.
+        # that, the words are allowed to appear, just not as a header.
         import base64
         raw, _ = ne.build_mime(
             to_email="a@b.com",
@@ -756,7 +774,7 @@ class TestAdminAuth(Base):
 
     def test_several_admins_can_be_allowlisted(self):
         """ADMIN_EMAIL may list more than one account, so a second owner login
-        does not mean editing code — but it stays an EXACT-match allowlist."""
+        does not mean editing code, but it stays an EXACT-match allowlist."""
         old = os.environ.get("ADMIN_EMAIL")
         os.environ["ADMIN_EMAIL"] = ADMIN + ",currentsandcritters@gmail.com"
         try:
@@ -907,7 +925,7 @@ class TestCampaigns(Base):
     def test_send_requires_the_confirmation_phrase(self):
         self._make_list(3)
         cid = self._draft()
-        # Case-sensitive and exact. Surrounding whitespace IS forgiven — it is
+        # Case-sensitive and exact. Surrounding whitespace IS forgiven, it is
         # a paste artefact, not a sign the person didn't mean it, and the
         # friction that matters is having had to type the word at all.
         for bad in ("", "send", "yes", "Send", "SENDD", "SEN", "SEND NOW"):
@@ -1304,6 +1322,12 @@ class TestPublicSignup(Base):
     def post(self, action, payload, ip="7.7.7.7"):
         h = Handler(ip)
         ns.handle_post(h, Parsed("/api/newsletter/" + action), payload)
+        # The request itself only queues the confirmation email (see
+        # test_the_reply_does_not_wait_for_the_confirmation_email). Running the
+        # worker's pass here lets every other test go on asking the question it
+        # cares about: "did the right mail go to the right person"without
+        # each one knowing that the send is deferred.
+        self.drain()
         return h
 
     def test_signup_creates_a_pending_record_and_mails_a_confirmation(self):
@@ -1315,7 +1339,7 @@ class TestPublicSignup(Base):
         self.assertEqual(sub["source"], ns.SOURCE_WEBSITE)
         # NOT "pending". A welcome is not due until they confirm, and a record
         # parked in the welcome queue that can never send is re-read by the
-        # worker on every pass for the life of the process — and shows up on
+        # worker on every pass for the life of the process, and shows up on
         # the dashboard as a welcome email that is pending and never sends.
         self.assertEqual(sub["welcomeEmailStatus"], ns.WELCOME_AWAITING)
         self.assertNotIn(sub["id"], ns._pending_welcome_ids())
@@ -1324,6 +1348,57 @@ class TestPublicSignup(Base):
         self.assertIn("confirm", sent[0]["subject"].lower())
         self.assertNotIn("Unsubscribe from these emails", sent[0]["html_body"],
                          "nothing to unsubscribe from yet")
+
+    def test_the_reply_does_not_wait_for_the_confirmation_email(self):
+        """The bug this guards: the form sat on "Signing you up…" for seconds
+        after somebody typed their address, because the request handed the
+        message to Gmail, a connect, a login and a round trip to Google,
+        before answering the browser. Nothing in the reply depends on that
+        send, so it belongs on the worker."""
+        real = ne.send_email
+        sent_calls = []
+
+        def _slow(**kw):
+            sent_calls.append(kw.get("to_email"))
+            time.sleep(0.6)
+            return real(**kw)
+
+        ne.send_email = _slow
+        try:
+            h = Handler("7.7.7.9")
+            started = time.time()
+            ns.handle_post(h, Parsed("/api/newsletter/subscribe"),
+                           {"email": "quick@x.com"})
+            elapsed = time.time() - started
+            self.assertTrue(h.last["ok"])
+            self.assertEqual(sent_calls, [], "no mail is sent inside the request")
+            self.assertLess(elapsed, 0.3,
+                            "the reply must not wait on the mail provider")
+            # Queued, not dropped: the person still gets their link.
+            self.drain()
+            self.assertEqual(sent_calls, ["quick@x.com"])
+            self.assertIn("confirm", self.box.to("quick@x.com")[0]["subject"].lower())
+        finally:
+            ne.send_email = real
+
+    def test_a_confirmation_is_never_stuck_behind_a_campaign(self):
+        """A campaign batch is 25 messages nobody is waiting on. A signup that
+        lands while one is going out must not queue behind it."""
+        self.signup("bulk@x.com")
+        cid = self.admin_post("campaign-save",
+                              {"subject": "S", "contentHtml": "<p>b</p>"}).last["id"]
+        self.admin_post("campaign-start", {"id": cid, "confirm": "SEND"})
+        self.box.messages.clear()
+
+        # Queue a signup's confirmation the way the request handler does, then
+        # run the campaign pass: the confirmation goes out during it.
+        h = Handler("7.7.7.8")
+        ns.handle_post(h, Parsed("/api/newsletter/subscribe"), {"email": "urgent@x.com"})
+        self.assertEqual(len(self.box.to("urgent@x.com")), 0)
+        for c in ns._sending_campaign_ids():
+            ns._process_campaign_batch(c)
+        self.assertEqual(len(self.box.to("urgent@x.com")), 1,
+                         "the confirmation jumped the bulk queue")
 
     def test_a_pending_address_can_never_receive_a_campaign(self):
         self.post("subscribe", {"email": "pending@x.com"})
@@ -1370,7 +1445,7 @@ class TestPublicSignup(Base):
 
     def test_a_confirm_token_cannot_unsubscribe_and_vice_versa(self):
         """The two links are over the same subscriber id, so without a purpose
-        in the signature they would be the SAME string — and the link that
+        in the signature they would be the SAME string, and the link that
         signs you up would also be the link that removes you."""
         self.signup("both@x.com")
         sub = self.sub_for("both@x.com")
@@ -1431,7 +1506,7 @@ class TestPublicSignup(Base):
         self.assertEqual(c["active"], 1)
         self.assertEqual(c["pending"], 1)
         self.assertEqual(c["unsubscribed"], 0,
-                         "pending is not 'unsubscribed' — that would be a lie in the UI")
+                         "pending is not 'unsubscribed', that would be a lie in the UI")
         self.assertEqual(c["total"], 2)
 
     def test_the_dashboard_does_not_call_a_new_signup_unsubscribed(self):
@@ -1508,6 +1583,12 @@ class TestAdminFinishesSignup(Base):
     def post(self, action, payload, ip="7.7.7.7"):
         h = Handler(ip)
         ns.handle_post(h, Parsed("/api/newsletter/" + action), payload)
+        # The request itself only queues the confirmation email (see
+        # test_the_reply_does_not_wait_for_the_confirmation_email). Running the
+        # worker's pass here lets every other test go on asking the question it
+        # cares about: "did the right mail go to the right person"without
+        # each one knowing that the send is deferred.
+        self.drain()
         return h
 
     def test_resending_reuses_the_same_link(self):
@@ -1580,7 +1661,7 @@ class TestAdminFinishesSignup(Base):
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# 11. TRANSPORTS — the system must work with NOTHING Google-shaped configured
+# 11. TRANSPORTS, the system must work with NOTHING Google-shaped configured
 # ══════════════════════════════════════════════════════════════════════════
 class _EnvSandbox(unittest.TestCase):
     """Base that restores every transport env var, so one test's SMTP_HOST
@@ -1655,7 +1736,7 @@ class TestTransportSelection(_EnvSandbox):
 
     def test_daily_cap_follows_the_sending_account(self):
         """Switching the From address to a free @gmail.com must not leave a
-        Workspace-sized cap pointed at a 500/day mailbox — going over gets the
+        Workspace-sized cap pointed at a 500/day mailbox: going over gets the
         account suspended, not bounced."""
         os.environ["NEWSLETTER_FROM_EMAIL"] = "someone@beardedsealstudios.com"
         self.assertFalse(ne.sender_is_consumer_gmail())
@@ -1666,7 +1747,7 @@ class TestTransportSelection(_EnvSandbox):
         self.assertEqual(ne.daily_send_cap(), ne.CONSUMER_GMAIL_CAP)
         self.assertLess(ne.CONSUMER_GMAIL_CAP, 500, "must sit under Gmail's real limit")
 
-        # An explicit cap is still honoured — but it gets flagged.
+        # An explicit cap is still honoured, but it gets flagged.
         os.environ["NEWSLETTER_DAILY_SEND_CAP"] = "1200"
         self.assertEqual(ne.daily_send_cap(), 1200)
         st = ne.connection_status()
@@ -1676,7 +1757,7 @@ class TestTransportSelection(_EnvSandbox):
     def test_app_password_spaces_are_stripped(self):
         """Google displays an app password as four space-separated groups, so
         that is exactly what gets pasted into Render. No provider has a
-        password containing a space, so the spaces are noise — strip them
+        password containing a space, so the spaces are noise: strip them
         rather than discover in production whether Gmail tolerates them."""
         os.environ.update(SMTP_HOST="h", SMTP_USERNAME="u",
                           SMTP_PASSWORD="woff lfgo xgfb rhpv")
@@ -1748,7 +1829,7 @@ class TestSmtpTransport(_EnvSandbox):
         self.assertEqual(msg.get_content_type(), "multipart/alternative")
         parts = [p.get_content_type() for p in msg.get_payload()]
         self.assertEqual(parts, ["text/plain", "text/html"],
-                         "plain first — multipart/alternative is last-part-wins")
+                         "plain first: multipart/alternative is last-part-wins")
 
     def test_connection_is_reused_across_sends(self):
         opened = {"n": 0}
@@ -2099,7 +2180,7 @@ class TestRealSmtpOverASocket(_EnvSandbox):
 
         # ── envelope ────────────────────────────────────────────────────
         self.assertEqual(s["rcpts"], ["fan@example.com"],
-                         "one envelope recipient, lowercased — nobody can see anybody else")
+                         "one envelope recipient, lowercased, nobody can see anybody else")
         self.assertEqual(s["from"], ADMIN)
         self.assertTrue(self.server.authed, "the server really did authenticate us")
 
@@ -2121,7 +2202,7 @@ class TestRealSmtpOverASocket(_EnvSandbox):
         parts = parsed.get_payload()
         self.assertEqual([p.get_content_type() for p in parts],
                          ["text/plain", "text/html"],
-                         "plain first — multipart/alternative is last-part-wins")
+                         "plain first: multipart/alternative is last-part-wins")
 
         text = parts[0].get_payload(decode=True).decode("utf-8")
         html = parts[1].get_payload(decode=True).decode("utf-8")

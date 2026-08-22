@@ -18,14 +18,14 @@
 
   THE REEF.
   Decoration is built from the game's own avatar art over the Coral Reef board
-  background — GAME FISH, MARINE MAMMALS AND CEPHALOPODS only. Nothing with
+  background: GAME FISH, MARINE MAMMALS AND CEPHALOPODS only. Nothing with
   feathers, legs or a shell swims past; the coral on the seafloor is reef
   structure, not wildlife. The one rule that matters: most of that art is drawn
   FACING LEFT, and five pieces are not. A critter whose facing does not match
   its direction of travel is swimming backwards, which is
   the sort of thing nobody can name but everybody notices. So facing is a data
   field (FACES below), the flip is derived from it, and the whole layer is
-  generated from one table rather than hand-placed — hand-placing is how three
+  generated from one table rather than hand-placed: hand-placing is how three
   of them quietly end up reversed.
 -->
 <link rel="icon" href="/icon.svg">
@@ -52,7 +52,7 @@
     /* The scrim earns its keep twice: it keeps the card legible over busy
        coral, and it deepens toward the seafloor so the reef reads as water
        with depth rather than wallpaper. Kept light enough at the midline that
-       the coral colour still comes through — that colour is the point. */
+       the coral colour still comes through, that colour is the point. */
     background:
       linear-gradient(180deg, rgba(4,38,59,.50) 0%, rgba(4,38,59,.20) 36%,
                               rgba(4,38,59,.40) 72%, rgba(3,26,42,.88) 100%),
@@ -96,7 +96,7 @@
   .swimmer.far  { opacity:.42; filter:blur(1.6px); }
   .swimmer.mid  { opacity:.72; filter:blur(.4px); }
 
-  /* ── Seafloor critters — anchored, gently breathing ─────────────── */
+  /* ── Seafloor critters: anchored, gently breathing ─────────────── */
   .floor{ position:absolute; left:0; right:0; bottom:0; height:220px; }
   .floor img{
     position:absolute; bottom:var(--b,6px); left:var(--x);
@@ -199,7 +199,7 @@
   <img class="logo" src="/email-logo.png" alt="Currents and Critters">
   <div class="cheer" id="cheer">🐠</div>
   <h1 id="headline">Join the Email List</h1>
-  <p class="sub hide-when-done">Occasional emails from me about the game — never spam, and you can leave any time.</p>
+  <p class="sub hide-when-done">Occasional emails from me about the game, never spam, and you can leave any time.</p>
 
   <ul class="hide-when-done" id="perks">
     <li><img src="/avatars/mandarin-goby.png" alt="" loading="lazy"><span>New game features and updates</span></li>
@@ -242,16 +242,16 @@
   // The octopus is the subtle one. Its eye sits nearly centred, so what your
   // eye actually reads as "forward" is the swept mantle lobe: it belongs
   // BEHIND the animal, trailing. Drawn with the lobe to the left, that means
-  // the art leads to the right — calling it symmetric left it dragging its own
+  // the art leads to the right: calling it symmetric left it dragging its own
   // mantle into the direction of travel, which is what swimming backwards
   // looks like for a cephalopod.
-  // Drawn head-on and symmetrical, so a flip would be meaningless — and
+  // Drawn head-on and symmetrical, so a flip would be meaningless, and
   // flipping one would just make its highlights jump for no reason.
   var SYMMETRIC = { "giant-squid":1 };
   function faces(name){ return FACES_RIGHT[name] ? "right" : "left"; }
 
   // Game fish, marine mammals and cephalopods. No birds, no turtles, no
-  // crustaceans — the reef itself is coral, and everything swimming through it
+  // crustaceans, the reef itself is coral, and everything swimming through it
   // is something you could hook, something that breathes air, or something
   // with tentacles.
   // name, top %, px size, seconds, delay, direction, depth layer, [phone-hide]
@@ -271,7 +271,7 @@
     ["barracuda",          76,   86, 43,  -7, "left",  "",    "phone-hide"],
     ["big-eye-tuna",       88,   72, 33, -25, "right", "",    "phone-hide"]
   ];
-  // The seafloor is the REEF — coral and sponge, i.e. the structure, not
+  // The seafloor is the REEF: coral and sponge, i.e. the structure, not
   // critters. The only animal down here is a cephalopod, which is exactly
   // where you would actually find one.
   var FLOOR = [
@@ -298,7 +298,7 @@
     swimmer.style.setProperty("--top", top + "%");
     swimmer.style.setProperty("--dur", dur + "s");
     swimmer.style.setProperty("--delay", delay + "s");
-    // Where it parks when motion is reduced — spread out, not stacked.
+    // Where it parks when motion is reduced: spread out, not stacked.
     swimmer.style.setProperty("--rest", (8 + (i * 6) % 80) + "vw");
 
     var bob = document.createElement("div");
@@ -312,7 +312,7 @@
     img.decoding = "async";
     img.style.setProperty("--size", size + "px");
     // THE RULE: flip only when the art faces the opposite way to the travel.
-    // A head-on animal is exempt — there is no "wrong way" to point it.
+    // A head-on animal is exempt, there is no "wrong way" to point it.
     if (!SYMMETRIC[name] && faces(name) !== dir) img.className = "flip";
 
     bob.appendChild(img);

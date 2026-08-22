@@ -1,4 +1,4 @@
-/* Currents and Critters — Custom Tournament Bracket BUILDER.
+/* Currents and Critters: Custom Tournament Bracket BUILDER.
  *
  * A blank canvas the host designs a tournament on: drop match boxes anywhere,
  * set how many player spots each holds (2–8), drag connections from a match's
@@ -6,7 +6,7 @@
  * (open / player only / AI / invite / fed by a match), and label matches
  * ("Round 1", "Semifinal", "Final", "Losers Bracket", or anything).
  *
- * The design is validated live — the same rules the server enforces — and the
+ * The design is validated live, the same rules the server enforces, and the
  * host cannot open a tournament until every check passes. The server re-validates
  * on create; this module only produces the design and shows what's wrong.
  *
@@ -117,7 +117,7 @@
     while (m.slots.length < n) m.slots.push({ kind: K_OPEN, source: "", rank: 1, invite: "" });
     while (m.slots.length > n) {
       m.slots.pop();
-      // Dropping a spot can orphan a connection that pointed into it — the
+      // Dropping a spot can orphan a connection that pointed into it, the
       // validator will say so, and the source's advance count is clamped here.
     }
     m.advance = clamp(m.advance, 1, Math.max(1, m.slots.length - 1));
@@ -154,7 +154,7 @@
     if (!to || !from) return;
     if (fromId === toId) { toast("A match can't feed itself.", "warn"); return; }
     const s = to.slots[si]; if (!s) return;
-    // Clear any other spot already taking this finisher — one player, one seat.
+    // Clear any other spot already taking this finisher, one player, one seat.
     B.matches.forEach(m => m.slots.forEach(x => {
       if (x.source === fromId && x.rank === rank && !(m.id === toId && x === s)) {
         x.kind = K_OPEN; x.source = ""; x.rank = 1;
@@ -209,7 +209,7 @@
   }
 
   // =========================================================================
-  // Rounds — the fast way to grow a bracket.
+  // Rounds, the fast way to grow a bracket.
   //
   // "Add Round" takes every finisher who is still advancing to nowhere, packs them
   // into a new column of matches and connects all of them in one go, so a whole
@@ -230,7 +230,7 @@
   }
 
   /** Split ``n`` players into matches of at most ``per`` (0 = auto), as evenly as
-   *  possible and never below MIN_SPOTS — a designed bracket has no byes, so a
+   *  possible and never below MIN_SPOTS, a designed bracket has no byes, so a
    *  leftover single player is folded into a bigger match instead. Mirrors
    *  _round_match_sizes() in tournament_engine.py. */
   function packRound(n, per) {
@@ -246,7 +246,7 @@
   }
 
   // Labels the builder assigns itself. A host's own name ("Losers Bracket") is
-  // never overwritten, but these get re-derived as the bracket grows — otherwise
+  // never overwritten, but these get re-derived as the bracket grows, otherwise
   // yesterday's "Final" keeps that name after a round is added behind it.
   const AUTO_LABEL = /^(round \d+|final|grand final)$/i;
   function relabelAuto() {
@@ -262,7 +262,7 @@
   function addRound(per) {
     const pending = pendingFeeds();
     if (!pending.length) {
-      toast("Add some matches first — a round connects the players advancing out of them.", "warn");
+      toast("Add some matches first, a round connects the players advancing out of them.", "warn");
       return;
     }
     if (pending.length < MIN_SPOTS) {
@@ -271,7 +271,7 @@
     }
     const sizes = packRound(pending.length, per);
     if (!sizes) {
-      toast(`${pending.length} players can't be split into ${MIN_SPOTS}–${MAX_SPOTS}-player matches that way — try another size.`, "warn");
+      toast(`${pending.length} players can't be split into ${MIN_SPOTS}–${MAX_SPOTS}-player matches that way: try another size.`, "warn");
       return;
     }
     if (B.matches.length + sizes.length > MAX_MATCHES) {
@@ -296,7 +296,7 @@
     B.sel = null;
     autoArrange();      // renders + refits, so the new column reads cleanly
     const n = sizes.length;
-    toast(n === 1 ? "Added the Final — every advancing player now has a seat."
+    toast(n === 1 ? "Added the Final, every advancing player now has a seat."
                   : `Added a round of ${n} matches and connected ${pending.length} players.`, "ok");
   }
 
@@ -320,7 +320,7 @@
     }
     render();
     toast(placed ? `Connected ${placed} advancing player${placed === 1 ? "" : "s"}.`
-                 : "No empty spots in a later match — add a round instead.", placed ? "ok" : "warn");
+                 : "No empty spots in a later match: add a round instead.", placed ? "ok" : "warn");
   }
 
   /** Build a WHOLE bracket from a format: N players, matches of ``per``, top
@@ -338,7 +338,7 @@
       const sizes = packRound(field, per);
       if (!sizes) break;
       grid.push(sizes);
-      // A round holding one match IS the Final — it crowns a champion, not a top N.
+      // A round holding one match IS the Final, it crowns a champion, not a top N.
       field = sizes.length <= 1 ? 1 : sizes.reduce((a, s) => a + eff(s), 0);
     }
     if (!grid.length) return null;
@@ -380,7 +380,7 @@
   }
 
   // =========================================================================
-  // Validation — mirrors validate_custom_bracket() in tournament_engine.py so the
+  // Validation: mirrors validate_custom_bracket() in tournament_engine.py so the
   // host sees problems instantly. The server is still the authority on create.
   // =========================================================================
   function placeWord(rank) { return rank === 1 ? "The winner" : rank === 2 ? "The runner-up" : "Finisher #" + rank; }
@@ -394,9 +394,9 @@
     ms.forEach((m, i) => {
       const who = display(m.id);
       if (m.slots.length < MIN_SPOTS || m.slots.length > MAX_SPOTS)
-        errs.push(`${who} has ${m.slots.length} player spot(s) — each match holds ${MIN_SPOTS}–${MAX_SPOTS}.`);
+        errs.push(`${who} has ${m.slots.length} player spot(s), each match holds ${MIN_SPOTS}–${MAX_SPOTS}.`);
       else if (m.advance >= m.slots.length)
-        errs.push(`${who} advances ${m.advance} of ${m.slots.length} players — a match must knock at least one player out.`);
+        errs.push(`${who} advances ${m.advance} of ${m.slots.length} players, a match must knock at least one player out.`);
       m.slots.forEach((s, si) => {
         if (s.kind !== K_WINNER && s.kind !== K_TOP) return;
         if (!s.source) errs.push(`${who}, spot ${si + 1} waits on a match result but no match is connected.`);
@@ -421,7 +421,7 @@
       if (targets.length > 1) {
         const [src, rank] = k.split("|");
         const where = targets.map(t => `${display(t.mid)} spot ${t.si + 1}`).join(", ");
-        errs.push(`${placeWord(+rank)} of ${display(src)} is sent to ${targets.length} spots (${where}) — a player can only advance to one.`);
+        errs.push(`${placeWord(+rank)} of ${display(src)} is sent to ${targets.length} spots (${where}), a player can only advance to one.`);
       }
     });
     if (errs.length) return errs;
@@ -434,16 +434,16 @@
     const terminals = ms.filter(m => !fedFrom.has(m.id));
     if (!terminals.length) return ["No Final: every match advances into another one, so no champion is decided."];
     if (terminals.length > 1)
-      return [`The bracket has ${terminals.length} matches that lead nowhere (${terminals.map(m => display(m.id)).join(", ")}) — connect them so exactly one Final decides the champion.`];
+      return [`The bracket has ${terminals.length} matches that lead nowhere (${terminals.map(m => display(m.id)).join(", ")}): connect them so exactly one Final decides the champion.`];
     const final = terminals[0];
     if (final.advance !== 1)
-      errs.push(`${display(final.id)} is the Final — exactly 1 player can win it (it advances ${final.advance}).`);
+      errs.push(`${display(final.id)} is the Final, exactly 1 player can win it (it advances ${final.advance}).`);
 
     ms.forEach(m => {
       if (m.id === final.id) return;
       for (let rank = 1; rank <= m.advance; rank++) {
         if (!consumed.has(m.id + "|" + rank))
-          errs.push(`${placeWord(rank)} of ${display(m.id)} has nowhere to go — connect it to a spot in a later match.`);
+          errs.push(`${placeWord(rank)} of ${display(m.id)} has nowhere to go: connect it to a spot in a later match.`);
       }
     });
 
@@ -451,7 +451,7 @@
     if (entries < MIN_FIELD || entries > MAX_FIELD)
       errs.push(`A tournament needs ${MIN_FIELD}–${MAX_FIELD} starting player spots (this bracket has ${entries}).`);
     const humanSpots = ms.reduce((a, m) => a + m.slots.filter(s => ENTRY_KINDS.indexOf(s.kind) >= 0 && s.kind !== K_AI).length, 0);
-    if (!humanSpots) errs.push("Every spot is AI-only — leave at least one spot a person can take.");
+    if (!humanSpots) errs.push("Every spot is AI-only: leave at least one spot a person can take.");
     return errs;
   }
 
@@ -638,7 +638,7 @@
           <button class="ccTB-b sm" id="ccTB-round">＋ Add Round ▾</button>
           <div class="ccTB-menu-pop">
             <div class="ccTB-menu-note" id="ccTB-round-note"></div>
-            <button data-per="0">Auto — fit everyone advancing</button>
+            <button data-per="0">Auto: fit everyone advancing</button>
             <button data-per="2">1 v 1 matches</button>
             <button data-per="3">3-player matches</button>
             <button data-per="4">4-player matches</button>
@@ -734,7 +734,7 @@
     const pending = pendingFeeds();
     const n = pending.length;
     note.textContent = !n
-      ? "Nothing is advancing yet — add some matches first."
+      ? "Nothing is advancing yet: add some matches first."
       : n < MIN_SPOTS
         ? "One player is still advancing, so that match is already the Final."
         : `${n} players are advancing with nowhere to go. Pick a match size and they'll all be seated and connected.`;
@@ -744,7 +744,7 @@
       b.disabled = !sizes;
       const tail = sizes
         ? ` → ${sizes.length === 1 ? "the Final" : sizes.length + " matches"} (${sizes.join("·")})`
-        : " — doesn't divide";
+        : " doesn't divide";
       b.textContent = (b.dataset.baseLabel || (b.dataset.baseLabel = b.textContent)) + tail;
     });
   }
@@ -760,7 +760,7 @@
       if (B.matches.length && !window.confirm("Replace the bracket on the canvas with this one?")) return;
       const built = buildTemplate(TPL.n, TPL.per, TPL.adv);
       closeMenus();
-      if (!built) { toast("That combination doesn't make a bracket — try a different match size.", "warn"); return; }
+      if (!built) { toast("That combination doesn't make a bracket: try a different match size.", "warn"); return; }
       autoArrange();
       toast(`Built a ${TPL.n}-player bracket: ${built.rounds} rounds, ${built.matches} matches.`, "ok");
     });
@@ -779,7 +779,7 @@
     }
     TPL.per = clamp(TPL.per, MIN_SPOTS, Math.min(MAX_SPOTS, TPL.n));
     perEl.value = String(TPL.per);
-    // "Top N advance" — 1 is single elimination, more makes each match a group.
+    // "Top N advance": 1 is single elimination, more makes each match a group.
     advEl.innerHTML = "";
     TPL.adv = clamp(TPL.adv, 1, Math.max(1, TPL.per - 1));
     for (let a = 1; a <= TPL.per - 1; a++) {
@@ -851,12 +851,12 @@
     foot.appendChild(stepper("Advance", m.advance, 1, Math.max(1, m.slots.length - 1), (v) => setAdvance(m.id, v)));
     box.appendChild(foot);
 
-    // One output port per advancing finisher — drag it onto a spot to connect.
+    // One output port per advancing finisher: drag it onto a spot to connect.
     const ports = el("div", "ccTB-ports");
     for (let r = 1; r <= m.advance; r++) {
       const used = B.matches.some(t => t.slots.some(sl => sl.source === m.id && sl.rank === r));
       const p = el("div", "ccTB-port" + (used ? " used" : ""), r === 1 ? "🏅" : String(r));
-      p.title = `${placeWord(r)} of ${display(m.id)} — drag onto a spot in a later match`;
+      p.title = `${placeWord(r)} of ${display(m.id)}: drag onto a spot in a later match`;
       p.dataset.mid = m.id; p.dataset.rank = String(r);
       p.addEventListener("mousedown", (e) => startLink(e, m.id, r));
       p.addEventListener("touchstart", (e) => startLink(e, m.id, r), { passive: false });
@@ -930,7 +930,7 @@
     const kinds = {};
     B.matches.forEach(m => m.slots.forEach(s => { if (ENTRY_KINDS.indexOf(s.kind) >= 0) kinds[s.kind] = (kinds[s.kind] || 0) + 1; }));
     const advs = Array.from(new Set(B.matches.map(m => m.advance))).sort((a, b) => a - b);
-    const advTxt = !advs.length ? "—"
+    const advTxt = !advs.length ? "-"
       : advs.length > 1 ? `Top ${advs[0]}–${advs[advs.length - 1]}`
       : advs[0] === 1 ? "Winner only" : `Top ${advs[0]}`;
     let html = `<h3>Your bracket</h3>
@@ -938,7 +938,7 @@
       <div class="ccTB-stat"><span>Starting player spots</span><b>${entries}</b></div>
       <div class="ccTB-stat"><span>Rounds</span><b>${rows.length}</b></div>
       <div class="ccTB-stat"><span>Advancing per match</span><b>${advTxt}</b></div>
-      <div class="ccTB-stat"><span>Round shape</span><b>${rows.map(r => r.length).join(" → ") || "—"}</b></div>`;
+      <div class="ccTB-stat"><span>Round shape</span><b>${rows.map(r => r.length).join(" → ") || "-"}</b></div>`;
     ENTRY_KINDS.forEach(k => {
       if (kinds[k]) html += `<div class="ccTB-stat"><span>${KIND_META[k].icon} ${KIND_META[k].name}</span><b>${kinds[k]}</b></div>`;
     });
@@ -947,7 +947,7 @@
       B.errors.slice(0, 12).forEach(e => { html += `<div class="ccTB-err">${esc(e)}</div>`; });
       if (B.errors.length > 12) html += `<div class="ccTB-tip">…and ${B.errors.length - 12} more.</div>`;
     } else {
-      html += `<div class="ccTB-ok">✓ Every check passed — this bracket is ready to open.</div>`;
+      html += `<div class="ccTB-ok">✓ Every check passed, this bracket is ready to open.</div>`;
       if (B.summary) {
         html += `<div class="ccTB-tip">${B.summary.tournament_size} players · ${B.summary.num_rounds} rounds ·
           ${B.summary.playable_matches} games. The winner of the Final is the champion.</div>`;
@@ -956,12 +956,12 @@
     const pending = pendingFeeds().length;
     if (pending >= MIN_SPOTS) {
       html += `<div class="ccTB-tip" style="color:#8a5a00"><b>${pending}</b> advancing player${pending === 1 ? "" : "s"}
-        still need a seat — <b>＋ Add Round</b> seats and connects them all at once.</div>`;
+        still need a seat: <b>＋ Add Round</b> seats and connects them all at once.</div>`;
     }
     html += `<div class="ccTB-tip"><b>How to build:</b><br>
-      • <b>📐 Quick start</b> builds a whole bracket — players, match size, and who advances.<br>
+      • <b>📐 Quick start</b> builds a whole bracket: players, match size, and who advances.<br>
       • <b>＋ Add Round</b> takes everyone still advancing and connects them into a new round in one click.<br>
-      • <b>＋ Add Match</b> drops a single box — set <i>Players</i> (2–8) inside it.<br>
+      • <b>＋ Add Match</b> drops a single box: set <i>Players</i> (2–8) inside it.<br>
       • Drag a box anywhere (or by its ⠿ grip) to move it.<br>
       • Drag the gold 🏅 handle on a match's right edge onto a spot in another match to send its winner there.<br>
       • <b>Advance</b> sets how many players get out of a match (top 1, top 2, top 3…); each one gets its own handle.<br>
@@ -1000,7 +1000,7 @@
   }
 
   // Geometry is MEASURED off the live DOM and converted back into canvas space, so
-  // a line always lands on the exact pixel of the handle/spot it belongs to — at
+  // a line always lands on the exact pixel of the handle/spot it belongs to, at
   // any zoom, and whatever the CSS box metrics happen to be. (Hand-computing this
   // from the design is what put the lines in the wrong places: it assumed a port
   // pitch and a row height that the stylesheet doesn't actually produce.)
@@ -1179,7 +1179,7 @@
   // Open / save
   // =========================================================================
   async function serverCheck() {
-    // The client mirrors the rules, but the server is the authority — ask it, so a
+    // The client mirrors the rules, but the server is the authority: ask it, so a
     // design can never be "valid here, rejected there".
     if (B.checking) return;
     B.checking = true;

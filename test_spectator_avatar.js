@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* A spectator wears the icon they have equipped — the client half.
+/* A spectator wears the icon they have equipped, the client half.
  * (multiplayer/client/js/preview-app.js)
  *
  * Run:  node test_spectator_avatar.js
@@ -50,7 +50,7 @@ function extract(name) {
   if (depth !== 0) throw new Error("unbalanced braces extracting " + name);
   return APP.slice(start, i + 1);
 }
-// The avatar table is data, not a function — lift it by name too.
+// The avatar table is data, not a function: lift it by name too.
 const AVATAR_TABLE = APP.match(/const PV_SEAT_AVATARS = \[[^\]]+\];/);
 if (!AVATAR_TABLE) throw new Error("could not find PV_SEAT_AVATARS");
 

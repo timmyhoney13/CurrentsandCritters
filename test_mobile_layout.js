@@ -4,18 +4,18 @@
  * Run:  node test_mobile_layout.js        (needs Google Chrome installed)
  *
  * The bug this pins down: on a phone the in-game screen was unusable. Measured
- * on an iPhone 12 (the game lays out at 585 x 1266 CSS px there — device width
+ * on an iPhone 12 (the game lays out at 585 x 1266 CSS px there: device width
  * x 1.5, see ccGameViewport in device-select.js):
  *
- *   • #pv-hand-zone is a `max-content 1fr max-content` grid — player seats
+ *   • #pv-hand-zone is a `max-content 1fr max-content` grid: player seats
  *     flanking the hand. `max-content` columns never shrink, so the eight seat
  *     pills (4 left + 4 right, ~780px) took the whole row, the hand's `1fr`
  *     column collapsed to ZERO width, and the fan spilled out sideways under
  *     the seat clusters. Those sit at z-index 20, so they took every tap:
  *     all 8 cards failed the hit test and 2 were entirely off-screen.
  *   • #pv-pool-wrap is a fixed `repeat(5, 90px)` inside a flex-shrink:0 pool
- *     area, so the pool alone was wider than the phone and pushed the DECK —
- *     the thing you click to draw — past the right edge.
+ *     area, so the pool alone was wider than the phone and pushed the DECK,
+ *     the thing you click to draw: past the right edge.
  *   • The fan's own arc (rotate + a pos^2 lift) paints the outermost cards
  *     ~35px BELOW their row, and the hand sits flush with the bottom of the
  *     screen, so their bottoms were sliced off by the edge of the display.
@@ -24,12 +24,12 @@
  *
  * What is checked, in real screen pixels in headless Chrome against the REAL
  * preview.css and the REAL layout code sliced out of preview-app.js:
- *   1. HAND     — every card fully on screen (all four edges) and the top-most
+ *   1. HAND, every card fully on screen (all four edges) and the top-most
  *                 thing at its centre is the card itself, not a seat pill.
- *   2. HIT TEST — _handHitTestIdx answers with card i at card i's own centre,
+ *   2. HIT TEST: _handHitTestIdx answers with card i at card i's own centre,
  *                 so what you tap is what you get after the fan is squeezed.
- *   3. TABLE    — the deck is on screen and nothing scrolls sideways.
- *   4. DOCKS    — the two floating side docks clear the action bar.
+ *   3. TABLE, the deck is on screen and nothing scrolls sideways.
+ *   4. DOCKS, the two floating side docks clear the action bar.
  * Every one of them runs at phone sizes AND at a laptop size, because the fix
  * must not cost the desktop layout anything.
  */
@@ -49,7 +49,7 @@ const CHROME = [
 ].find(p => fs.existsSync(p));
 
 if (!CHROME) {
-  console.log("SKIP: no Chrome/Chromium found — cannot run the mobile layout check.");
+  console.log("SKIP: no Chrome/Chromium found: cannot run the mobile layout check.");
   process.exit(0);
 }
 
@@ -242,11 +242,11 @@ try {
     }
   });
   ok(out.length === 0, label + ": every hand card is fully on screen" +
-     (out.length ? " — off: " + out.join(" ") : ""));
+     (out.length ? " off: " + out.join(" ") : ""));
 
   // 2. Nothing OUTSIDE the hand is painted over a card. Cards overlapping each
   //    other is the fan working as designed (front-most wins, and the hit test
-  //    below resolves it); a seat pill on top of a card is the bug — that is
+  //    below resolves it); a seat pill on top of a card is the bug, that is
   //    what made every card in the hand untappable on a phone.
   var stolen = [];
   cards.forEach(function (c, i) {
@@ -258,17 +258,17 @@ try {
     if (!inHand) stolen.push(i + " under " + (top ? (top.id || top.className || top.tagName) : "nothing"));
   });
   ok(stolen.length === 0, label + ": no seat pill or panel is painted over a hand card" +
-     (stolen.length ? " — stolen: " + stolen.join("; ") : ""));
+     (stolen.length ? " stolen: " + stolen.join("; ") : ""));
 
   // 3. The shared hit test agrees: aiming at card i's centre returns card i.
   //    (Front-most wins where the fan overlaps, so only the un-overlapped part
-  //    of a card is guaranteed — the centre of the LAST card always is.)
+  //    of a card is guaranteed, the centre of the LAST card always is.)
   var last = cards.length - 1;
   var lr = cards[last].getBoundingClientRect();
   var got = _handHitTestIdx(lr.left + lr.width / 2, lr.top + lr.height / 2);
   ok(got === last, label + ": the hit test still resolves the front card after the fan is squeezed (got " + got + ", want " + last + ")");
 
-  // 4. The deck — how you draw — is on screen, and nothing scrolls sideways.
+  // 4. The deck, how you draw: is on screen, and nothing scrolls sideways.
   var deck = document.getElementById("pv-draw-deck").getBoundingClientRect();
   ok(deck.right <= VW + TOL && deck.left >= -TOL,
      label + ": the deck is on screen (right " + Math.round(deck.right) + " vs " + VW + ")");
@@ -314,7 +314,7 @@ function runChrome(width, height, nCards, nSeats) {
 
 const lines = [];
 // The three phone shapes the game really lays out at (device width x 1.5, see
-// ccGameViewport): a small Android, an iPhone SE and an iPhone 12 — each with a
+// ccGameViewport): a small Android, an iPhone SE and an iPhone 12, each with a
 // full 10-card hand, and the iPhone 12 again with a fresh 8-card hand.
 lines.push(...runChrome(540, 1170, 10, 4));
 lines.push(...runChrome(562, 1186, 10, 4));
@@ -332,7 +332,7 @@ const narrowBlock = (() => {
   return i < 0 ? "" : CSS.slice(i, i + 1600);
 })();
 if (!narrowBlock) {
-  lines.push("FAIL preview.css: the narrow in-game layout block is gone — the hand column can collapse again");
+  lines.push("FAIL preview.css: the narrow in-game layout block is gone, the hand column can collapse again");
 } else if (/#pv-hand-zone\s*\{[^}]*grid-template-areas/.test(narrowBlock)) {
   lines.push("PASS preview.css: narrow screens stack the seats above the hand instead of flanking it");
 } else {
@@ -342,7 +342,7 @@ if (!narrowBlock) {
 // ── The game screen must be the size of the screen ──────────────────────────
 // `100vh` on iOS Safari is the height the page WOULD have with the browser
 // toolbars retracted, not the height it has. html/body are overflow:hidden, so
-// the difference is not scrolled to, it is sliced off the bottom of #pv-game —
+// the difference is not scrolled to, it is sliced off the bottom of #pv-game,
 // and the bottom of #pv-game is the bottom of a seat pill, which is its
 // "⭐ N pts · 🃏M" line. Every player's score and card count, gone. What is
 // left is panning the visual viewport, which is how the Menu button at the TOP
@@ -353,7 +353,7 @@ const gameBlock = (() => {
 })();
 lines.push(/height:\s*100dvh/.test(gameBlock)
   ? "PASS preview.css: the in-game screen is sized in dvh, so nothing is clipped off the bottom"
-  : "FAIL preview.css: #pv-game is still sized in vh — the bottom of the hand zone is off-screen on iOS");
+  : "FAIL preview.css: #pv-game is still sized in vh, the bottom of the hand zone is off-screen on iOS");
 lines.push(/height:\s*100vh/.test(gameBlock)
   ? "PASS preview.css: a plain-vh fallback is kept for browsers without dvh"
   : "FAIL preview.css: #pv-game lost its vh fallback");
@@ -362,7 +362,7 @@ lines.push(/height:\s*100vh/.test(gameBlock)
 // device-select widens the viewport and pins initial-scale to dw/W. When dw
 // came from screen.width it was the width of the DISPLAY, which on a notched
 // phone held sideways is ~60px more than the box Safari actually gives the page
-// — so the game laid out wider than the space it was scaled into and the right
+//, so the game laid out wider than the space it was scaled into and the right
 // end of the action bar (End Turn first) hung off the edge, unreachable because
 // minimum-scale was pinned to the same wrong number.
 const DEV = fs.readFileSync(path.join(ROOT, "multiplayer/client/js/device-select.js"), "utf8");

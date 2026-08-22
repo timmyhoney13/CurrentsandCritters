@@ -1,6 +1,6 @@
 """Statistical proof that the deck shuffle is a fair, uniform shuffle.
 
-Players regularly report that the deal "feels rigged" — the same cards keep
+Players regularly report that the deal "feels rigged", the same cards keep
 showing up for everyone, and the game seems to favour one strategy. This suite
 drives the REAL setup path (build_deck_with_late_end_game -> start_game ->
 perform_mulligans -> final reshuffle, i.e. exactly what run_match does) and
@@ -9,25 +9,25 @@ numbers instead of impressions.
 
 What is proven here:
 
-  A. Deck integrity — every game contains exactly the same multiset of cards
+  A. Deck integrity, every game contains exactly the same multiset of cards
      (161 entries), no card silently duplicated or dropped by the shuffle.
-  B. Positional uniformity — every card is equally likely to land in every
+  B. Positional uniformity, every card is equally likely to land in every
      region of the deck. A shuffle that clumps would show up as a skewed
      histogram here.
-  C. Deal uniformity — over thousands of fresh games the per-card frequency in
+  C. Deal uniformity, over thousands of fresh games the per-card frequency in
      an opening hand matches a perfect random sampler (chi-square compared
      against an empirically generated null, NOT a textbook table, so the
      hypergeometric structure of dealing 8-from-161 is accounted for).
-  D. Seat fairness — seat 1 is dealt no better a hand than seat 4.
-  E. Fresh randomness per game — consecutive games do not reuse a deck order.
-  F. END GAME placement — the ONE deliberate non-uniformity, per the printed
+  D. Seat fairness: seat 1 is dealt no better a hand than seat 4.
+  E. Fresh randomness per game: consecutive games do not reuse a deck order.
+  F. END GAME placement, the ONE deliberate non-uniformity, per the printed
      rulebook: "take the bottom 15 cards, shuffle the END GAME card into them."
 
 NOTE ON WHY THE GAME STILL FEELS REPETITIVE: it is deck COMPOSITION, not the
 shuffle. The deck is 43% Ocean cards, Coral Reef alone is 13 of 161 entries and
 Yellowfin Tuna appears on 14, while Mandarin Goby appears on 4. So an average
 8-card hand holds ~3.4 Oceans and ~0.7 Yellowfin Tuna by design. Those counts
-match the rulebook Encyclopedia and are a game-design choice, not a bug — see
+match the rulebook Encyclopedia and are a game-design choice, not a bug: see
 test_composition_matches_rulebook, which pins them so an accidental edit to the
 card files can't quietly reweight the deck.
 """
@@ -92,7 +92,7 @@ def chi_square(counts, trials, hand=8):
 
 
 def test_A_deck_integrity():
-    """Every shuffle yields the identical multiset of cards — nothing gained,
+    """Every shuffle yields the identical multiset of cards, nothing gained,
     lost or duplicated by the shuffling itself."""
     baseline = sorted(REFERENCE_DECK)
     assert len(baseline) == len(set(baseline)), "deck contains a duplicated uid"
@@ -132,7 +132,7 @@ def test_C_deal_uniformity():
 
     The null is generated empirically with random.sample rather than read off a
     chi-square table, because the 8 cards of a hand are drawn WITHOUT
-    replacement — their counts are negatively correlated and the statistic does
+    replacement, their counts are negatively correlated and the statistic does
     not follow a textbook chi-square with DECK_SIZE-1 degrees of freedom.
     """
     trials = 4000
@@ -168,7 +168,7 @@ def test_C_deal_uniformity():
         )
     print(
         f"C PASS: chi2={stat:.1f} vs null {[round(n, 1) for n in nulls]} "
-        f"over {trials} games — indistinguishable from a perfect shuffle"
+        f"over {trials} games: indistinguishable from a perfect shuffle"
     )
 
 
@@ -191,11 +191,11 @@ def test_D_seat_fairness():
     worst = max(abs(o - mean) / mean for o in oceans)
     assert worst < 0.03, f"seat bias {worst:.1%} in Ocean count: {oceans}"
     rates = [f"{o / (trials * 8) * 100:.1f}%" for o in oceans]
-    print(f"D PASS: Oceans dealt per seat within {worst:.2%} — {rates}")
+    print(f"D PASS: Oceans dealt per seat within {worst:.2%}: {rates}")
 
 
 def test_E_fresh_randomness_per_game():
-    """Consecutive games never reuse a deck order — the server draws a fresh
+    """Consecutive games never reuse a deck order, the server draws a fresh
     64-bit seed on every launch, restart and play-again."""
     orders = set()
     for _ in range(500):
@@ -226,7 +226,7 @@ def test_F_end_game_stays_in_bottom_15():
 
 def test_G_composition_matches_rulebook():
     """Pins the deck's card counts. The shuffle is fair, so what a hand FEELS
-    like is decided entirely here — if these numbers drift, the deal changes
+    like is decided entirely here, if these numbers drift, the deal changes
     character even though the shuffle is untouched."""
     counts = collections.Counter(c.name.strip() for c in CARD_DB.values())
     expected = {
@@ -255,7 +255,7 @@ def test_G_composition_matches_rulebook():
     assert ocean_entries == 69, f"Ocean entries drifted to {ocean_entries}"
     share = ocean_entries / DECK_SIZE
     print(
-        f"G PASS: {DECK_SIZE} entries, {ocean_entries} Ocean ({share:.0%}) — an average "
+        f"G PASS: {DECK_SIZE} entries, {ocean_entries} Ocean ({share:.0%}), an average "
         f"8-card hand holds {share * 8:.1f} Oceans and "
         f"{8 * 14 / DECK_SIZE:.1f} Yellowfin Tuna BY DESIGN, not by a biased shuffle"
     )

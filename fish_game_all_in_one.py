@@ -214,7 +214,7 @@ def draw(gs: GameState, player: PlayerState, n: int = 1, ms=None) -> None:
         if ms is not None and ms.end_game_uid is not None and uid == ms.end_game_uid:
             trigger_end_game(ms, gs)
             ms.discard_pile.append(uid)
-            gs.log.append(f"END GAME card drawn by {player.name} via card ability — end game triggered.")
+            gs.log.append(f"END GAME card drawn by {player.name} via card ability: end game triggered.")
             continue  # draw a replacement card
         player.hand.append(uid)
         drew += 1
@@ -569,7 +569,7 @@ def _execute_main_pattern(
             is_web_human = bool(player.flags.get("_web_human", False))
             if is_web_human:
                 # Web human: set a flag so run_match's interactive loop handles the discard.
-                # The draw-back happens there too — do nothing else here.
+                # The draw-back happens there too: do nothing else here.
                 player.flags["_tarpon_discard_active"] = True
                 gs.log.append(f"{player.name} Tarpon effect: choose cards to discard via web UI.")
             elif is_human_turn and ms is not None:
@@ -703,7 +703,7 @@ def _execute_main_pattern(
             player.score += n * count
 
     # Count tables like "1 = 5 | 2 = 25".
-    # Baitfish diversity charts are end-game only (final_points is authoritative) — skip here.
+    # Baitfish diversity charts are end-game only (final_points is authoritative): skip here.
     thresholds = []
     for m in re.finditer(r"(\d+)\s*=\s*(\d+)", t):
         thresholds.append((int(m.group(1)), int(m.group(2))))
@@ -820,7 +820,7 @@ def _execute_star_pattern(
         player.flags["free_cephalopods"] = True
         gs.log.append(f"{player.name} can play Cephalopods for free from {card.name} star ability.")
     elif "play a free cephalopod" in t:
-        # Single-use free cephalopod (e.g. Grooved Brain Coral) — consumed after one play.
+        # Single-use free cephalopod (e.g. Grooved Brain Coral): consumed after one play.
         player.flags["free_cephalopod_once"] = True
         gs.log.append(f"{player.name} can play one free Cephalopod from {card.name} star ability.")
     if "free crustacean" in t:
@@ -2265,7 +2265,7 @@ def get_count_brain(brain: Dict[str, object], num_players: int) -> Dict[str, obj
 
 
 def record_turtle_outcome(cbrain: Dict[str, object], gs: "GameState", winners: List["PlayerState"]) -> None:
-    """Track, per count, how often a turtle-on-board player WINS — the signal the
+    """Track, per count, how often a turtle-on-board player WINS, the signal the
     live gate uses to decide the bot 'understands' the turtle."""
     ts = cbrain.get("turtle_stats")
     if not isinstance(ts, dict):
@@ -2326,13 +2326,13 @@ def clownfish_host_ocean(gs: GameState, card: CardDef, ocean_uid: Optional[int])
 
       • it scores whatever that Ocean scores (final_points reads the host's
         text through it),
-      • it counts as one more of that Ocean everywhere Oceans are counted —
+      • it counts as one more of that Ocean everywhere Oceans are counted,
         the Coral Reef chart, the Kelp Forest "4 or more", "the most piers",
         "oceans you control" (see effective_ocean_names),
       • it fires the Ocean's own on-play ability when you play it, so a
         Clownfish onto a Deep Ocean or a Kelp Forest draws a card,
       • and it carries the Ocean's ★ (Mangrove and Arctic Ocean, both "play
-        again") — see clownfish_star_host.
+        again"): see clownfish_star_host.
 
     What it does NOT copy is identity: it is still a Crosscurrent animal, so it
     is not an eighth ocean TYPE for the Mangrove's "all 8 oceans", and it takes
@@ -2365,7 +2365,7 @@ def effective_ocean_names(gs: GameState, player: PlayerState) -> List[str]:
     Every Ocean a player effectively controls, by lowercase name.
 
     Their real Ocean cards, plus one entry per Clownfish named after the Ocean
-    it is attached to — because a Clownfish counts as one more of that Ocean.
+    it is attached to, because a Clownfish counts as one more of that Ocean.
     This is the single source for every ocean count in scoring: the Coral Reef
     chart, the Kelp Forest "4 or more", "the most piers", "the most oceans",
     "+1 per every two oceans you control" and the Mangrove's "all 8 oceans".
@@ -2394,7 +2394,7 @@ def effective_ocean_names(gs: GameState, player: PlayerState) -> List[str]:
 
 
 def star_source_card(gs: GameState, card: CardDef, ocean_uid: Optional[int] = None) -> CardDef:
-    """The card whose ★ this play fires — the Clownfish's host ocean, or the card."""
+    """The card whose ★ this play fires, the Clownfish's host ocean, or the card."""
     host = clownfish_star_host(gs, card, ocean_uid)
     return host if host is not None else card
 
@@ -3631,13 +3631,13 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
     """High-level strategy families used for AI plan picking + scoring.
 
     Each profile now has:
-      * heavy_hitters  — cards the AI should rarely pay/discard
-      * stack_engines  — cards that multiply the strategy's value
-      * support_names  — useful helpers
-      * names          — core cards (heavy hitters + stack engines folded in for legacy callers)
-      * species        — preferred species (broad bonus)
-      * text_keywords  — synergy text the AI should reward
-      * difficulty     — beginner / intermediate / advanced / expert
+      * heavy_hitters: cards the AI should rarely pay/discard
+      * stack_engines: cards that multiply the strategy's value
+      * support_names: useful helpers
+      * names: core cards (heavy hitters + stack engines folded in for legacy callers)
+      * species: preferred species (broad bonus)
+      * text_keywords: synergy text the AI should reward
+      * difficulty: beginner / intermediate / advanced / expert
     """
     profiles = [
         # ── Beginner ────────────────────────────────────────────────
@@ -3710,7 +3710,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             "support_names": [
                 "sea urchin", "loggerhead sea turtle",
             ],
-            # NOTE: California Gull is deliberately NOT listed — it is a
+            # NOTE: California Gull is deliberately NOT listed, it is a
             # Crustacean buff that belongs in B-Lob, and pure Birds penalizes it.
             "text_keywords": [
                 "per bird", "emperor penguin", "razorbill auk", "play again",
@@ -3860,10 +3860,10 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
     return profiles
 
 
-# Strategies usable at each skill level (cumulative — expert can pick any).
+# Strategies usable at each skill level (cumulative: expert can pick any).
 # NOTE: "ocean_all_blue" is intentionally NOT a bot-pickable MAIN strategy.
 # You can't win off the Ocean / All-Blue payoff alone, so bots never commit to
-# it as their primary plan — they still place oceans and use ocean cards as
+# it as their primary plan, they still place oceans and use ocean cards as
 # support within every other strategy. (The ocean_all_blue profile still exists
 # for detecting/labelling a HUMAN player's ocean strategy in stats & avatars.)
 STRATEGY_SKILL_ALLOWLIST = {
@@ -3889,17 +3889,17 @@ def strategies_allowed_for_skill(skill_level: str) -> set[str]:
 # Keeping this here so all difficulty tuning lives in one place.
 AI_DIFFICULTY_CONFIGS: Dict[str, Dict[str, Any]] = {
     # Design principle: harder bots COMMIT to their opening-hand strategy and
-    # execute it. They don't switch faster — a great player picks a plan and
+    # execute it. They don't switch faster, a great player picks a plan and
     # carries it through unless the board genuinely demands a pivot.
     "easy": {
         "difficulty":      "easy",
         "skill_level":     "beginner",      # only Ocean / Yellowfin / Mammals
-        "switch_margin":   3.0,             # easier to flip — easy bots wander
+        "switch_margin":   3.0,             # easier to flip: easy bots wander
         "block_weight":    0.0,             # ignores opponents entirely
         "strategy_weight": 0.55,            # weak strategy signal → looser play
         "explore_chance":  0.30,            # picks a near-best (not the best) often
         "payment_smart":   False,           # uses naive payment (no strategy keep)
-        # Deep planning (rollout confirmation) — off for easy bots.
+        # Deep planning (rollout confirmation), off for easy bots.
         "plan_candidates": 0,               # how many top moves get full rollouts
         "plan_samples":    0,               # determinized worlds averaged per move
         "confirm_weight":  0.0,             # rollout score share in the final blend
@@ -3919,12 +3919,12 @@ AI_DIFFICULTY_CONFIGS: Dict[str, Dict[str, Any]] = {
     "hard": {
         "difficulty":      "hard",
         "skill_level":     "expert",        # full strategy book including Goby
-        "switch_margin":   6.0,             # commits hard — only pivots when board
+        "switch_margin":   6.0,             # commits hard, only pivots when board
                                             # genuinely demands it (overwhelming shift)
         "block_weight":    1.5,             # blocks opponents who threaten combos
         "strategy_weight": 1.8,             # strategy fit strongly weighted but not
                                             # so high it overrides actual point value
-        "explore_chance":  0.0,             # never random — always picks best
+        "explore_chance":  0.0,             # never random, always picks best
         "payment_smart":   True,            # protects strategy heavy hitters from payment
         "plan_candidates": 8,
         "plan_samples":    3,
@@ -3993,7 +3993,7 @@ def strategy_family_card_score(card: CardDef, family_profile: Optional[Dict[str,
     return score
 
 
-# Display names for each strategy family — the single source of truth for what
+# Display names for each strategy family, the single source of truth for what
 # a player's detected strategy is called everywhere in the UI.
 STRATEGY_DISPLAY_NAMES: Dict[str, str] = {
     "ocean_all_blue":     "Ocean",
@@ -4010,7 +4010,7 @@ STRATEGY_DISPLAY_NAMES: Dict[str, str] = {
     "invertebrates":      "Invertebrates",
     "goby_moon_shot":     "Goby Moon Shot",
 }
-# Hybrid plans only count if the board genuinely has BOTH halves — this is what
+# Hybrid plans only count if the board genuinely has BOTH halves, this is what
 # makes a bird+lobster board read as "B-Lob" instead of plain "Birds".
 _HYBRID_REQUIRES: Dict[str, Tuple[str, ...]] = {
     "birds_crustaceans": ("bird", "crustacean"),
@@ -4023,7 +4023,7 @@ def detect_player_strategy(gs: GameState, player: PlayerState) -> str:
     """Detect the strategy a player ACTUALLY built, from their final board,
     using the strategy guide (strategy_family_profiles) as the source of truth.
 
-    Counts the player's board cards toward each strategy — heavy hitters weigh
+    Counts the player's board cards toward each strategy: heavy hitters weigh
     most, then stack engines, then support, then a plain species match. The
     highest total wins. Hybrid plans (B-Lob, B-Coral, CC) are only eligible
     when both of their species are present, so a hand with the most cards from
@@ -4145,7 +4145,7 @@ def hand_strategy_family_fit_score(
     keywords    = family_profile["_keywords"]
 
     total = 0.0
-    anchors = 0   # heavy/engine/named core pieces — the cards that DEFINE the plan
+    anchors = 0   # heavy/engine/named core pieces, the cards that DEFINE the plan
     for entry_uid in hand_uids:
         best_val = 0.0
         best_anchor = False
@@ -4157,8 +4157,8 @@ def hand_strategy_family_fit_score(
             v = 0.0
             is_anchor = False
             # ONLY heavy hitters + stack engines are anchors (the cards that
-            # define a plan). Support cards — including the common ocean types
-            # folded into ocean_all_blue's support list — are NOT anchors, so a
+            # define a plan). Support cards, including the common ocean types
+            # folded into ocean_all_blue's support list: are NOT anchors, so a
             # hand of generic oceans no longer masquerades as Complete Current.
             if nm in heavy_set:
                 v = 3.5; is_anchor = True
@@ -4167,7 +4167,7 @@ def hand_strategy_family_fit_score(
             elif nm in support_set:
                 v = 0.9
             elif sp in species_set:
-                v = 0.55                      # generic species match — deliberately small
+                v = 0.55                      # generic species match: deliberately small
             else:
                 for kw in keywords:
                     if kw and (kw in tx or kw in nm):
@@ -4204,7 +4204,7 @@ HYBRID_COMPONENTS: Dict[str, Tuple[str, str]] = {
 def _hand_anchor_count(gs: GameState, ms: MatchState, hand_uids: List[int],
                        family_profile: Optional[Dict[str, Any]]) -> int:
     """Number of hand entries whose card is a heavy hitter or stack engine of
-    the family — i.e. the defining 'anchor' pieces."""
+    the family: i.e. the defining 'anchor' pieces."""
     if not isinstance(family_profile, dict):
         return 0
     _ensure_profile_sets(family_profile)
@@ -4223,7 +4223,7 @@ def _hand_anchor_count(gs: GameState, ms: MatchState, hand_uids: List[int],
 def _board_anchor_count(gs: GameState, player: PlayerState,
                         family_profile: Optional[Dict[str, Any]]) -> int:
     """Number of cards ALREADY on the board that are heavy hitters or stack
-    engines of the family — the defining 'anchor' pieces the bot has committed."""
+    engines of the family, the defining 'anchor' pieces the bot has committed."""
     if not isinstance(family_profile, dict):
         return 0
     _ensure_profile_sets(family_profile)
@@ -4314,7 +4314,7 @@ def assign_strategy_families_from_opening_hands(
     profile_by_label = {str(f.get("label", "")): f for f in families}
     assigned: List[Tuple[str, str, float]] = []
     # Track which plans earlier bots already committed to this game so the table
-    # naturally diversifies — strong players don't all fight over the same cards
+    # naturally diversifies: strong players don't all fight over the same cards
     # (this is the direct fix for "every bot went the same strategy").
     taken: Dict[str, int] = {}
     family_stats = None
@@ -4328,7 +4328,7 @@ def assign_strategy_families_from_opening_hands(
             continue
         skill = str(p.flags.get("_ai_skill_level", "advanced")).strip().lower()
         allowlist = strategies_allowed_for_skill(skill)
-        # The Goby moon shot requires real opening fit — gate strictly even for experts.
+        # The Goby moon shot requires real opening fit: gate strictly even for experts.
         best_label = ""
         best_fit = float("-inf")
         best_total = float("-inf")
@@ -4398,7 +4398,7 @@ def maybe_reassess_strategy_family(
 
     Returns the new strategy label if a switch occurred, else None.
     A switch happens only when another strategy beats the current one by
-    ``switch_margin`` points — keeps the AI from flip-flopping.
+    ``switch_margin`` points: keeps the AI from flip-flopping.
     """
     skill = str(player.flags.get("_ai_skill_level", "advanced")).strip().lower()
     allowlist = strategies_allowed_for_skill(skill)
@@ -4413,12 +4413,12 @@ def maybe_reassess_strategy_family(
 
     # PIVOTING REMOVED: a bot commits to ONE strategy and trains/plays it to the
     # end. Constant mid-game pivoting was hurting results, so once a strategy
-    # family is chosen we never switch away from it — we only adopt one the first
+    # family is chosen we never switch away from it, we only adopt one the first
     # time (when none is set yet). Everything below this guard is pure adoption.
     if current_label:
         return None
 
-    # Snap-shot hand + board + visible pool — pool cards available
+    # Snap-shot hand + board + visible pool: pool cards available
     # for drawing should reward strategies that can pick them up.
     pool_uids = list(ms.pool)
 
@@ -4436,8 +4436,8 @@ def maybe_reassess_strategy_family(
     scores: Dict[str, float] = {}
     for fam in families:
         label = str(fam.get("label", "")).strip().lower()
-        # Hand fit (weight 1.0), board fit (heavily weighted — board commitment is sticky),
-        # pool potential (weight 0.4 — what's grabbable next turn).
+        # Hand fit (weight 1.0), board fit (heavily weighted: board commitment is sticky),
+        # pool potential (weight 0.4: what's grabbable next turn).
         hand_score = hand_strategy_family_fit_score(gs, ms, player.hand, fam)
         if hand_score < -100.0:
             hand_score = 0.0
@@ -4448,7 +4448,7 @@ def maybe_reassess_strategy_family(
         for entry_uid in pool_uids:
             pool_score += entry_best_strategy_family_score(ms, gs, entry_uid, fam)
         hist = strategy_family_stats_bias(family_stats, label)
-        # Only penalize SWITCHING INTO a broad/unbalanced family — never the
+        # Only penalize SWITCHING INTO a broad/unbalanced family, never the
         # current plan (penalizing the current plan caused needless flip-flops).
         if label != current_label:
             hand_score -= strategy_pick_penalty(gs, ms, player.hand, label, profile_by_label)
@@ -4458,8 +4458,8 @@ def maybe_reassess_strategy_family(
 
     # ── Commitment-scaled stickiness ────────────────────────────────────
     # A good player picks a plan early and carries it through. The further a bot
-    # is into its current strategy — measured by the heavy hitters and stack
-    # engines it has ALREADY committed to the board — the harder it should be to
+    # is into its current strategy: measured by the heavy hitters and stack
+    # engines it has ALREADY committed to the board, the harder it should be to
     # leave. Stickiness therefore grows with commitment depth, with heavy hitters
     # (the biggest scoring pieces) counting double.
     cur_profile = profile_by_label.get(current_label) if current_label else None
@@ -4476,7 +4476,7 @@ def maybe_reassess_strategy_family(
 
     best_label = max(scores, key=scores.get)
     if not current_label:
-        # No strategy yet — adopt the best one.
+        # No strategy yet: adopt the best one.
         player.flags["_strategy_family"] = best_label
         player.flags["_strategy_family_fit"] = float(scores[best_label])
         player.flags["_strategy_family_source"] = "mid_game_adopt"
@@ -4490,7 +4490,7 @@ def maybe_reassess_strategy_family(
     # already has enough core cards to support it AND we are not too far into the
     # current plan. Heavy hitters / core cards matter far more than stray support.
 
-    # Gate 1 — the NEW plan must already hold real anchor pieces (heavy hitters
+    # Gate 1, the NEW plan must already hold real anchor pieces (heavy hitters
     # or stack engines) in hand or on board. A bot never abandons its plan to
     # chase a strategy it cannot yet build.
     new_profile = profile_by_label.get(best_label)
@@ -4501,11 +4501,11 @@ def maybe_reassess_strategy_family(
     if new_anchors_ready < 2:
         return None
 
-    # Gate 2 — once deeply committed to the current plan, almost never pivot.
+    # Gate 2, once deeply committed to the current plan, almost never pivot.
     # Two heavy hitters (or four anchors) down means the plan is built: stay.
     # Otherwise the required margin escalates the deeper we already are.
     if committed_heavy >= 2 or committed_anchors >= 4:
-        return None  # too far in — carry the plan to the finish
+        return None  # too far in: carry the plan to the finish
     effective_margin = switch_margin
     if committed_anchors >= 2:
         effective_margin = switch_margin * 2.0
@@ -4523,7 +4523,7 @@ def maybe_reassess_strategy_family(
 
 
 # ──────────────────────────────────────────────────────────────────────────
-#  OPPONENT-AWARENESS — track what each opponent is building and let the AI
+#  OPPONENT-AWARENESS: track what each opponent is building and let the AI
 #  defensively hate-draft pool cards that would complete their combos.
 # ──────────────────────────────────────────────────────────────────────────
 
@@ -4536,7 +4536,7 @@ def _opponent_strategy_score_table(
 
     The opponent's own hand is hidden from us in real play, but in this
     engine all players share `gs`. We weight board (visible, public) very
-    heavily and ignore hand for the inference — that matches what a real
+    heavily and ignore hand for the inference, that matches what a real
     player can see.
     """
     scores: Dict[str, float] = {}
@@ -4576,8 +4576,8 @@ def infer_opponent_strategy(
         return ("unknown", 0.0)
 
     # Confidence has two ingredients:
-    #   * commitment   — how many cards on board fit the plan (saturates at 6)
-    #   * separation   — how far ahead the top is over the runner-up
+    #   * commitment, how many cards on board fit the plan (saturates at 6)
+    #   * separation, how far ahead the top is over the runner-up
     commitment = min(1.0, top_score / 14.0)
     separation = 0.0 if top_score <= 0 else min(1.0, max(0.0, (top_score - runner)) / 6.0)
     confidence = 0.55 * commitment + 0.45 * separation
@@ -4669,14 +4669,14 @@ def refresh_opponent_snapshot(gs: GameState, ms: MatchState, player: PlayerState
         player.flags["_opp_snapshot"] = {}
 
 
-# Cards whose *second copy* is a threat in its own right — pairs, self-stacks
-# and burst pieces — so the AI denies copy #2 even before an opponent's overall
+# Cards whose *second copy* is a threat in its own right: pairs, self-stacks
+# and burst pieces, so the AI denies copy #2 even before an opponent's overall
 # plan is confidently read from the board. Kept deliberately small: the broader
 # strategy-family heavy-hitter/engine sets cover the rest, and over-listing here
 # would make bots hate-draft too aggressively (see the over-defense guard:
 # a draw only beats a real play if no play scores within 0.6 of it).
 _INTRINSIC_PAIR_STACK_CARDS = {
-    "razorbill auk",       # PAIR — a 2nd copy is one of the best two-card totals
+    "razorbill auk",       # PAIR, a 2nd copy is one of the best two-card totals
     "reef trigger fish",   # cephalopod burst that compounds per copy
     "reef triggerfish",
     "yellowfin tuna",      # stacks under Artificial Reef
@@ -4691,7 +4691,7 @@ _INTRINSIC_PAIR_STACK_CARDS = {
 
 def card_is_pair_or_stack_threat(card: CardDef) -> bool:
     """True for cards whose *duplicate* is dangerous on its own (pairs, stacks,
-    bursts) — used to deny an opponent copy #2 the moment we see them take or
+    bursts): used to deny an opponent copy #2 the moment we see them take or
     play copy #1, without ever reading their hidden hand."""
     if card is None:
         return False
@@ -4753,7 +4753,7 @@ def pool_card_blocking_value(
             # avoids double-counting a grabbed card they've since played). A
             # matching copy is what makes the pair (Razorbill Auk = +3.2 once
             # they hold one), extends the burst (a 3rd Reef Triggerfish on a
-            # cephalopod board) or grows a stack — so we deny those copies HARD.
+            # cephalopod board) or grows a stack, so we deny those copies HARD.
             copies_owned = max(
                 int(board_name_counts.get(nm, 0)),
                 int(acquired_counts.get(nm, 0)),
@@ -4765,7 +4765,7 @@ def pool_card_blocking_value(
             # A concrete duplicate threat: we SAW them take/commit copy #1 of a
             # card whose duplicate is dangerous on its own (pair/stack/burst).
             # This is the "they picked up an auk → don't let them get the second
-            # one" read — and it's signal enough even before their broader
+            # one" read, and it's signal enough even before their broader
             # strategy is confidently inferred from the board.
             intrinsic_dup = bool(
                 copies_owned >= 1
@@ -4775,7 +4775,7 @@ def pool_card_blocking_value(
 
             # Confidence gate: normally skip opponents we can't read yet so we
             # don't waste blocking power. A concrete second-copy threat bypasses
-            # the gate — grabbing copy #1 of a pair IS the read.
+            # the gate: grabbing copy #1 of a pair IS the read.
             if conf < 0.20 and not intrinsic_dup:
                 continue
 
@@ -4807,7 +4807,7 @@ def pool_card_blocking_value(
             pieces = have_heavy + have_engine
             value *= 1.0 + min(0.45, 0.12 * pieces)
 
-            # Expert combos are particularly explosive — boost block weight.
+            # Expert combos are particularly explosive: boost block weight.
             if label == GOBY_LABEL:
                 value *= 1.40
 
@@ -4873,7 +4873,7 @@ def update_strategy_family_stats(brain: Dict[str, object], gs: GameState, player
     if not players or not scores or len(players) != len(scores):
         return
     top = max(float(s) for s in scores) if scores else 0.0
-    # "Take notes on whoever won" — the winning strategy is the strongest signal,
+    # "Take notes on whoever won", the winning strategy is the strongest signal,
     # so the game's top scorer gets an EXTRA note on top of the normal win credit.
     # This makes winning strategies rise faster in the bot's plan-picking bias.
     for p, s_raw in zip(players, scores):
@@ -4895,7 +4895,7 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
     return [
         # ── Beginner ─────────────────────────────────────────────────────────
         {
-            # "The All Blue" — maximize ocean cards for easy board presence.
+            # "The All Blue": maximize ocean cards for easy board presence.
             "label": "Ocean All Blue",
             "species": ["ocean", "coral"],
             "names": [
@@ -4907,7 +4907,7 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
             "support_names": ["coral reef", "artificial reef", "kelp forest", "deep ocean"],
         },
         {
-            # Yellowfin Tuna — stack fish in one ocean to maximize space and scoring.
+            # Yellowfin Tuna: stack fish in one ocean to maximize space and scoring.
             "label": "Yellowfin Tuna Stack",
             "species": ["game fish"],
             "names": [
@@ -4919,7 +4919,7 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
             "support_names": ["johnson's sea cucumber", "artificial reef", "clownfish"],
         },
         {
-            # Mammals — simple stack of dolphins/sharks/narwhals for steady scoring.
+            # Mammals: simple stack of dolphins/sharks/narwhals for steady scoring.
             "label": "Mammals",
             "species": ["mammal"],
             "names": [
@@ -4935,7 +4935,7 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
         },
         # ── Intermediate ─────────────────────────────────────────────────────
         {
-            # Baitfish Barrage — flood board with baitfish, scale with predators.
+            # Baitfish Barrage: flood board with baitfish, scale with predators.
             "label": "Baitfish Barrage",
             "species": ["baitfish"],
             "names": [
@@ -4948,7 +4948,7 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
         },
         # ── Advanced ─────────────────────────────────────────────────────────
         {
-            # Bird/Lobster (B-Lob) — birds + invertebrate synergies.
+            # Bird/Lobster (B-Lob): birds + invertebrate synergies.
             "label": "Bird Lobster",
             "species": ["bird", "crustacean"],
             "names": [
@@ -4961,7 +4961,7 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
             "support_names": ["mantis shrimp", "lobster", "spiny lobster", "sea urchin", "sea star"],
         },
         {
-            # Bird/Coral (B-Coral) — high-scoring birds + coral passive generation.
+            # Bird/Coral (B-Coral): high-scoring birds + coral passive generation.
             "label": "Bird Coral",
             "species": ["bird", "coral"],
             "names": [
@@ -4974,7 +4974,7 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
             "support_names": ["staghorn coral", "deep sea coral", "grooved brain coral", "elkhorn coral"],
         },
         {
-            # Coral/Cephalopods (CC) — coral base + cephalopod explosive turns.
+            # Coral/Cephalopods (CC): coral base + cephalopod explosive turns.
             "label": "Coral Cephalopods",
             "species": ["cephalopod", "coral"],
             "names": [
@@ -4988,7 +4988,7 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
         },
         # ── Expert ───────────────────────────────────────────────────────────
         {
-            # Goby "Shooting the Moon" — high-risk Goby + Spiny Lobster combo.
+            # Goby "Shooting the Moon": high-risk Goby + Spiny Lobster combo.
             "label": "Goby Moon Shot",
             "species": ["crosscurrent", "n/a", "crustacean"],
             "names": [
@@ -5025,7 +5025,7 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
             "support_names": ["manta ray", "blue tang"],
         },
         {
-            # King Salmon / Coral Fill — fill oceans for bonus scoring.
+            # King Salmon / Coral Fill: fill oceans for bonus scoring.
             "label": "King Salmon Coral Fill",
             "species": ["coral", "game fish"],
             "names": [
@@ -5259,7 +5259,7 @@ def action_archetype_bonus(
                 b += 0.6
             return max(-0.5, min(6.0, b))
         # ── Yellowfin Tuna Stack (family-keyed; fires for live bots) ─────
-        # Artificial Reef is THE key ocean — the Yellowfin stacking host.
+        # Artificial Reef is THE key ocean, the Yellowfin stacking host.
         # Other oceans are only useful as space for Bigeye / Johnson's Sea Cucumber /
         # Loggerhead, so reward Artificial Reef strongly and other oceans
         # only mildly (and only when there's a real need for board space).
@@ -5273,7 +5273,7 @@ def action_archetype_bonus(
             )
             has_artificial_reef = "artificial reef" in board_names
             if cn == "artificial reef":
-                # Highest priority — play it as early as possible.
+                # Highest priority: play it as early as possible.
                 if not has_artificial_reef:
                     return 2.6 + min(1.5, 0.3 * engine_count)
                 return 0.6 + min(1.5, 0.3 * engine_count)  # a 2nd reef still stacks Tuna
@@ -5285,7 +5285,7 @@ def action_archetype_bonus(
                 return -0.6 if not has_artificial_reef else -0.2
             return 0.2
         # ── Crustaceans (family-keyed; fires for live bots) ──────────────
-        # Artificial Reef is the key ocean — Lobsters stack below it. Reward
+        # Artificial Reef is the key ocean: Lobsters stack below it. Reward
         # it strongly; other oceans only mildly (bottom-side space for other
         # crustaceans).
         if family_label == "crustaceans":
@@ -5325,7 +5325,7 @@ def action_archetype_bonus(
                 return -0.4
             return 0.1
         # ── Coral Reef Stack (family-keyed; fires for live bots) ─────────
-        # Coral Reef is the necessary ocean — corals score much better on it,
+        # Coral Reef is the necessary ocean: corals score much better on it,
         # and Coral Reefs should roughly match the coral count. Reward Coral
         # Reefs (more when more corals are available); other oceans only mild.
         if family_label == "coral":
@@ -5370,7 +5370,7 @@ def action_archetype_bonus(
             return 0.4 if hand_ceph >= 2 else 0.05
         # ── CC: Coral / Cephalopods (family-keyed; fires for live bots) ──
         # Coral Reef is the key ocean (Coral base), but also leave room for the
-        # Cephalopod burst — so build oceans while holding cephalopods.
+        # Cephalopod burst, so build oceans while holding cephalopods.
         if family_label == "coral_cephalopods":
             cn = card.name.strip().lower()
             reef_count = board_names.count("coral reef")
@@ -5441,7 +5441,7 @@ def action_archetype_bonus(
         turtle_gated = bool(player.flags.get("_turtle_gated", turtle_suppressed()))
         if turtle_gated:
             # Learning gate: until this table size's brain has learned the turtle
-            # wins games (see turtle_is_effective), refuse to PLAY it — a hard
+            # wins games (see turtle_is_effective), refuse to PLAY it, a hard
             # avoid so it is only ever played if it is the sole legal move.
             bonus -= 100.0
         elif turtle_burst_ready:
@@ -5844,7 +5844,7 @@ def action_archetype_bonus(
 
     # ── Complete Current (ocean_all_blue) animal payoffs ────────────────
     # Great Albatross (most-oceans finisher) and Clownfish (clone the best
-    # ocean — Mangrove's all-8 bonus or Artificial Reef) are the key animal
+    # ocean: Mangrove's all-8 bonus or Artificial Reef) are the key animal
     # pieces in an otherwise ocean-only plan.
     if family_label == "ocean_all_blue":
         ocean_count = len(player.board_oceans)
@@ -5854,7 +5854,7 @@ def action_archetype_bonus(
             ocean_name = gs.card_db[action.ocean_uid].name.strip().lower()
             bonus += 1.0 + clownfish_ocean_value(ocean_name)
             if ocean_name == "mangrove":
-                bonus += 1.6        # clone the all-8 Mangrove bonus — the ideal Clownfish host
+                bonus += 1.6        # clone the all-8 Mangrove bonus, the ideal Clownfish host
 
     # ── Yellowfin Tuna Stack (family-keyed; fires for live bots) ────────
     # Artificial Reef = host, Yellowfin Tuna = stacking engine, Bigeye Tuna =
@@ -5876,14 +5876,14 @@ def action_archetype_bonus(
             on_reef = (target_ocean == "artificial reef")
 
         if cname == "yellowfin tuna":
-            # Stacking engine — scales with Bigeye payoff potential, and is
+            # Stacking engine: scales with Bigeye payoff potential, and is
             # strongest stacked on the Artificial Reef.
             bonus += min(3.0, 0.7 * yellow_count) + min(1.6, 0.4 * bigeye_count)
             bonus += min(1.2, 0.3 * seacuke_count)
             if on_reef:
                 bonus += 2.2            # the ideal placement
             elif artreef_count > 0:
-                bonus -= 0.8            # reef exists but stacking elsewhere — wasteful
+                bonus -= 0.8            # reef exists but stacking elsewhere: wasteful
         elif cname in {"big eye tuna", "bigeye tuna"}:
             # Draw payoff: hold until ~4 Yellowfin are on the board so it draws
             # more than it costs. Allow earlier near the end / when desperate.
@@ -5894,7 +5894,7 @@ def action_archetype_bonus(
                 bonus += 0.3 if not end_soon else 1.4
             else:
                 bonus -= 2.6 if not end_soon else 0.0
-            # Prefer NOT to consume an Artificial Reef slot — keep the reef for
+            # Prefer NOT to consume an Artificial Reef slot: keep the reef for
             # Yellowfin stacking; play Bigeye on a normal ocean.
             if on_reef and yellow_count < 4:
                 bonus -= 0.8
@@ -5923,7 +5923,7 @@ def action_archetype_bonus(
             # Main payoff: scales with the mammals already on board.
             bonus += 1.4 + min(3.0, 0.70 * mammal_count)
         if cname == "bottlenose dolphin":
-            # Free-mammal engine — strong when there's a mammal left to chain.
+            # Free-mammal engine: strong when there's a mammal left to chain.
             bonus += 0.6 + min(2.4, 0.80 * hand_mammals)
             if hand_mammals == 0:
                 bonus -= 0.8                          # don't waste it with no follow-up
@@ -5934,7 +5934,7 @@ def action_archetype_bonus(
     # Flood the board with baitfish, then cash in with Whale Shark. Sea Urchin
     # draws on each baitfish play; Roosterfish plays free baitfish; Hermit Crab
     # / Loggerhead dump many at once (their *timing* is already handled by the
-    # global readiness + Turtle-burst blocks above — here we add the baitfish
+    # global readiness + Turtle-burst blocks above, here we add the baitfish
     # family scaling those generic checks don't capture).
     if family_label == "baitfish_barrage":
         bait_count       = sum(1 for s in board_species if s == "baitfish")
@@ -5942,7 +5942,7 @@ def action_archetype_bonus(
         sea_urchin_count = board_names.count("sea urchin")
         hand_bait        = hand_species_counts.get("baitfish", 0)
         if cname == "whale shark":
-            # Main payoff — scales with baitfish; hold it until the board is
+            # Main payoff: scales with baitfish; hold it until the board is
             # flooded enough to make it worth more than the cards it costs.
             bonus += 0.8 + min(3.4, 0.60 * bait_count)
             if bait_count < 3:
@@ -5952,7 +5952,7 @@ def action_archetype_bonus(
             bonus += min(2.2, 0.70 * whale_count)       # feed the Whale Shark payoff
             bonus += min(2.0, 0.70 * sea_urchin_count)  # Sea Urchin draws on baitfish plays
         if cname == "sea urchin":
-            # Early enabler — value scales with baitfish on board AND in hand.
+            # Early enabler: value scales with baitfish on board AND in hand.
             bonus += 0.6 + min(2.4, 0.55 * (bait_count + hand_bait))
         if cname == "roosterfish":
             bonus += min(2.4, 0.55 * (bait_count + hand_bait))   # free-baitfish engine
@@ -5978,7 +5978,7 @@ def action_archetype_bonus(
         if cname == "emperor penguin":
             bonus += 1.2 + min(3.0, 0.60 * bird_count)  # main heavy hitter
         if cname == "razorbill auk":
-            # Complete the pair — 2 Razorbills is a huge two-card total.
+            # Complete the pair: 2 Razorbills is a huge two-card total.
             bonus += 3.2 if razorbill_count >= 1 else 0.9
         if cname == "sea urchin":
             bonus += 0.5 + min(2.2, 0.50 * (bird_count + hand_birds))   # early enabler
@@ -5989,7 +5989,7 @@ def action_archetype_bonus(
         if cname == "great albatross":
             bonus += 0.6 + min(1.6, 0.30 * bird_count)  # cheap bird + draw
         if cname == "california gull":
-            # Wrong card for PURE birds — only tolerable if crustaceans are on
+            # Wrong card for PURE birds, only tolerable if crustaceans are on
             # board (hybrid drift toward B-Lob); otherwise strongly discourage.
             if crust_count >= 2:
                 bonus += min(2.0, 0.60 * crust_count)
@@ -6019,12 +6019,12 @@ def action_archetype_bonus(
             bonus += min(2.4, 0.75 * gull_count)      # California Gull boosts crustaceans
             bonus += min(1.8, 0.55 * seastar_count)      # Sea Star draws on bottom-side plays
         if cname == "lobster":
-            # Main heavy hitter — best stacked on the Artificial Reef.
+            # Main heavy hitter: best stacked on the Artificial Reef.
             bonus += 0.8 + min(2.6, 0.55 * crust_count)
             if on_reef:
                 bonus += 2.2
             elif artreef_on_board:
-                bonus -= 0.8                              # reef exists but stacking elsewhere — wasteful
+                bonus -= 0.8                              # reef exists but stacking elsewhere: wasteful
         elif cname == "mantis shrimp":
             # High-value threat; multiple copies multiply hard.
             bonus += 1.2 + min(2.8, 1.0 * mantis_count) + min(1.4, 0.3 * crust_count)
@@ -6062,7 +6062,7 @@ def action_archetype_bonus(
                    and gs.card_db[action.ocean_uid].name.strip().lower() == "artificial reef")
         artreef_on_board = "artificial reef" in board_names
 
-        # California Gull — the bridge: scales with crustaceans (boost) and
+        # California Gull, the bridge: scales with crustaceans (boost) and
         # adds bird volume too. Top priority in B-Lob.
         if cname == "california gull":
             bonus += 1.2 + min(3.0, 0.70 * crust_count) + min(1.2, 0.25 * bird_count)
@@ -6126,7 +6126,7 @@ def action_archetype_bonus(
         if cname == "magnificent frigatebird":
             bonus += 1.2 + min(3.0, 0.6 * coral_count)   # main heavy hitter + free coral
         elif cname == "deep sea coral":
-            # +10 only if it's the ONLY creature on its ocean — needs isolation.
+            # +10 only if it's the ONLY creature on its ocean: needs isolation.
             if others_on_target == 0:
                 bonus += 2.4 + (0.8 if on_reef else 0.0)
             else:
@@ -6177,7 +6177,7 @@ def action_archetype_bonus(
             bonus += min(2.8, 0.6 * coral_count)
         elif cname == "grooved brain coral":
             bonus += 0.8 + min(1.6, 0.4 * coral_count)
-        # ── Bird side (support — lighter weight) ──
+        # ── Bird side (support: lighter weight) ──
         elif cname == "razorbill auk":
             bonus += 2.8 if razorbill_count >= 1 else 0.8   # pair still a major threat
         elif cname == "emperor penguin":
@@ -6188,7 +6188,7 @@ def action_archetype_bonus(
             bonus += 0.8                                    # draw to find Coral / reefs
         elif cname == "great albatross":
             bonus += 0.5 + min(1.0, 0.2 * bird_count)
-        # Light generic bird volume (support only — kept smaller than coral).
+        # Light generic bird volume (support only: kept smaller than coral).
         if cspecies == "bird" and cname != "magnificent frigatebird":
             bonus += min(1.2, 0.25 * bird_count) + min(1.2, 0.4 * penguin_count)
 
@@ -6210,7 +6210,7 @@ def action_archetype_bonus(
         if cname == "giant squid":
             bonus += 1.0                                 # best cephalopod (+6 at 3+); only 2 exist
         elif cname == "manta ray":
-            # Play it EARLY — before the cephalopod flood — when cephalopods are
+            # Play it EARLY, before the cephalopod flood, when cephalopods are
             # still in hand. (Global check already requires cephalopod support.)
             if ceph_count <= 1 and hand_ceph >= 2:
                 bonus += 1.4
@@ -6237,7 +6237,7 @@ def action_archetype_bonus(
 
         # ── Bridge ──
         if cname == "grooved brain coral":
-            # THE connector — a coral that plays a free cephalopod. Top value,
+            # THE connector, a coral that plays a free cephalopod. Top value,
             # especially with cephalopods waiting in hand.
             bonus += 1.6 + min(1.8, 0.4 * coral_count) + min(1.6, 0.5 * hand_ceph)
         # ── Coral side ──
@@ -6274,7 +6274,7 @@ def action_archetype_bonus(
             bonus += min(1.6, 0.55 * manta_count)        # Manta Ray draws per cephalopod
 
     # ── Goby Moon Shot / "Shooting the Moon" (family-keyed; live bots) ──
-    # Mandarin Goby scores 1=0, 2=14, 3=30, 4=80 — a LONE goby is worthless,
+    # Mandarin Goby scores 1=0, 2=14, 3=30, 4=80, a LONE goby is worthless,
     # so the bot must hold gobies and play them in a burst toward 3-4. Spiny
     # Lobster = "+6 per mandarin goby"; Common Sea Star draws on bottom-side
     # plays; Blue Tang = "+2 per Crosscurrent animal".
@@ -6285,17 +6285,17 @@ def action_archetype_bonus(
         if cname == "mandarin goby":
             # Marginal value mirrors the 0/14/30/80 payoff curve.
             if goby_on_board >= 3:
-                bonus += 5.0          # the 4th goby — the moon shot (80)
+                bonus += 5.0          # the 4th goby, the moon shot (80)
             elif goby_on_board == 2:
                 bonus += 3.0          # the 3rd (30)
             elif goby_on_board == 1:
-                bonus += 2.6          # the 2nd (14) — first real points
+                bonus += 2.6          # the 2nd (14), first real points
             else:
-                # Would be a lone goby (0 pts) and reveals the plan — only worth
+                # Would be a lone goby (0 pts) and reveals the plan, only worth
                 # it as setup when more gobies are waiting in hand to follow.
                 bonus += 0.3 if hand_gobies >= 1 else -2.2
         elif cname == "spiny lobster":
-            # +6 per mandarin goby ON BOARD — huge once gobies are down.
+            # +6 per mandarin goby ON BOARD: huge once gobies are down.
             bonus += min(4.0, 1.2 * goby_on_board)
             if goby_on_board == 0:
                 bonus -= 1.0          # nothing to multiply yet (global check also gates this)
@@ -6326,7 +6326,7 @@ def action_archetype_bonus(
         elif cname == "johnson's sea cucumber":
             bonus += pc_mult * 0.6                                         # mostly a Yellowfin support card
         # Generic invertebrate volume feeds Red Beaded Anemone / Barracuda (the scorer
-        # itself is excluded — it scores on the others, it isn't its own fuel).
+        # itself is excluded, it scores on the others, it isn't its own fuel).
         if cspecies == "invertebrate" and cname != "red beaded anemone":
             bonus += pc_mult * min(1.8, 0.4 * inv_board)
 
@@ -6563,7 +6563,7 @@ def expand_draw_actions_for_ai(gs: GameState, ms: MatchState, player: PlayerStat
         scored.sort(key=lambda x: x[1], reverse=True)
         top = [uid for uid, _ in scored[: min(4, len(scored))]]
         if not top:
-            # No scorable pool cards — keep the original action as a safe fallback.
+            # No scorable pool cards: keep the original action as a safe fallback.
             out.append(a)
             continue
 
@@ -6582,7 +6582,7 @@ def expand_draw_actions_for_ai(gs: GameState, ms: MatchState, player: PlayerStat
                     b.pool_pick_uids = [top[i], top[j]]
                     out.append(b)
         else:
-            # draw_from_pool == 2 but fewer than 2 scorable cards — keep original.
+            # draw_from_pool == 2 but fewer than 2 scorable cards: keep original.
             out.append(a)
     return out
 
@@ -6611,7 +6611,7 @@ def candidate_actions_for_ai(gs: GameState, ms: MatchState, player: PlayerState)
     elif getattr(ms, "end_game_triggered", False) and play_acts:
         acts = play_acts
     # Hand has nothing worth playing ("doesn't like its hand"): when the bot draws
-    # to fish for a better card, draw from the DECK — never grab from the pool.
+    # to fish for a better card, draw from the DECK, never grab from the pool.
     elif not play_acts:
         deck_draws = [a for a in acts if a.kind == "draw" and a.draw_from_pool <= 0]
         if deck_draws:
@@ -6694,7 +6694,7 @@ def update_brain_from_match(
     top_score = scores[ranked[0].name]
     # Quality gate: only learn from balanced, developed games with a real winner.
     # Each table size now learns into its OWN per-count brain (see get_count_brain),
-    # so we no longer restrict learning to 4P/5P — we just require a developed
+    # so we no longer restrict learning to 4P/5P, we just require a developed
     # game. Smaller tables score lower, so the winner floor scales with size.
     n_players = len(gs.players)
     min_top = 100.0
@@ -6704,7 +6704,7 @@ def update_brain_from_match(
         min_top = 80.0
     if is_human_game:
         # Human games train the maps 10× harder, so only well-developed human
-        # games qualify — discard marginal ones rather than amplify their noise.
+        # games qualify: discard marginal ones rather than amplify their noise.
         min_top *= 1.15
         # And require a real margin: a near-tie human game is low-signal.
         if len(ranked) >= 2 and (top_score - scores[ranked[-1].name]) < 0.20 * min_top:
@@ -6885,9 +6885,9 @@ def entry_keep_priority_for_strategy(ms: MatchState, gs: GameState, player: Play
     has_memory = isinstance(player.flags.get("_visible_memory"), dict)
     best = 0.0
 
-    # Strategy-specific keep weights — cards inside the current strategy's
+    # Strategy-specific keep weights: cards inside the current strategy's
     # heavy_hitters / stack_engines are precious and shouldn't be spent.
-    # Easy bots have payment_smart=False — they skip these protections so
+    # Easy bots have payment_smart=False, they skip these protections so
     # they sometimes spend their best cards. Default True for human-paced
     # AI and medium/hard bots.
     payment_smart_flag = player.flags.get("_ai_payment_smart")
@@ -7351,13 +7351,13 @@ def consume_free_flag_if_applicable(player: PlayerState, card: CardDef) -> bool:
     if not key:
         return False
 
-    # Single-use free cephalopod (Grooved Brain Coral star) — consumed after one play.
+    # Single-use free cephalopod (Grooved Brain Coral star): consumed after one play.
     if player.flags.get("free_cephalopod_once", False) and card.species.strip().lower() == "cephalopod":
         player.flags["free_cephalopod_once"] = False
         return True
 
     if key == "free_cephalopods":
-        # Unlimited free cephalopods (Reef Trigger Fish star) — never consumed.
+        # Unlimited free cephalopods (Reef Trigger Fish star), never consumed.
         return bool(player.flags.get(key, False))
 
     if player.flags.get(key, False):
@@ -7675,7 +7675,7 @@ def validate_end_game_placement(gs: GameState, ms: MatchState, where: str = "") 
             if from_bottom > 15:
                 problems.append(
                     f"END GAME ABOVE bottom 15: pos={pos}, {from_bottom} cards from bottom "
-                    f"(deck size {len(deck)}) — it could be drawn far too early"
+                    f"(deck size {len(deck)}), it could be drawn far too early"
                 )
     except Exception as exc:  # never crash the engine over a validation
         problems.append(f"validation error: {exc}")
@@ -7703,7 +7703,7 @@ def _note_pool_acquired(gs: Optional["GameState"], player: PlayerState, uid: int
 
     The pool is FACE-UP, so who-grabbed-what is information every opponent can
     legitimately see at the table. The AI reads this (never the hidden hand) so
-    it can react to "they just picked up the first Razorbill Auk — deny them the
+    it can react to "they just picked up the first Razorbill Auk: deny them the
     second copy" even before that card ever reaches their board. Best-effort:
     silently no-ops if state is unavailable. See [opponent_strategy_snapshot]
     and [pool_card_blocking_value], which consume this memory."""
@@ -7782,7 +7782,7 @@ def _rig_blob_tutorial_hand(
         California Gull · Mangrove · Coral Reef
     Cards are sourced from the post-deal deck (or already in hand); displaced hand
     cards go back to the deck so card-conservation and hand size (8) are preserved.
-    Best-effort per card — if the deck can't supply one, that slot is left as dealt.
+    Best-effort per card, if the deck can't supply one, that slot is left as dealt.
     """
     p = gs.players[idx]
 
@@ -7796,7 +7796,7 @@ def _rig_blob_tutorial_hand(
         return end_uid is not None and entry_uid == end_uid
 
     # Pool of every entry we may pull from: the human's hand + the deck + every
-    # OTHER player's hand (minus END GAME). Including bot hands matters — a needed
+    # OTHER player's hand (minus END GAME). Including bot hands matters, a needed
     # card (e.g. the Narwhal/Bigeye Tuna dual) is sometimes dealt to a bot, and
     # would otherwise be unreachable.
     def all_sources():
@@ -7849,7 +7849,7 @@ def _rig_blob_tutorial_hand(
         return
 
     # Pull each target into the human's hand from wherever it lives (their hand,
-    # the deck, or a bot's hand — replacing it in the bot's hand with a spare deck
+    # the deck, or a bot's hand: replacing it in the bot's hand with a spare deck
     # card so bot hand sizes stay correct). Then return every other card the human
     # was dealt to the deck. Card-conservation is preserved throughout.
     new_hand: list = []
@@ -7903,7 +7903,7 @@ def rig_tutorial_opening_hand(
         return
     p = gs.players[idx]
 
-    # (The Mangrove itself is guaranteed — with a coordinated symbol — by the
+    # (The Mangrove itself is guaranteed, with a coordinated symbol, by the
     # STAR-ABILITY teaching rig further below, so no separate Mangrove pass here.)
 
     def dirs_of(uid: int) -> set:
@@ -7958,7 +7958,7 @@ def rig_tutorial_opening_hand(
     # Paying for the Mangrove with the symbol-matched Arctic (discarding it as
     # payment) fires the Star. The symbol is chosen dynamically (whatever variant
     # the deck can supply) and the client reads the actual symbol back, so the
-    # lesson stays correct. Best-effort — if the deck can't supply a matching
+    # lesson stays correct. Best-effort, if the deck can't supply a matching
     # variant, the pair is simply left as-is. (A free Lobster is added below for
     # the Play-Again creature step.)
     def _is_card(u: int, name_lc: str, sym_lc: Optional[str], primary_only: bool) -> bool:
@@ -8012,21 +8012,21 @@ def rig_tutorial_opening_hand(
         _installed.add(donor)
         return donor
 
-    # Pair 1 — Mangrove + Arctic Ocean share a symbol (prefer Heart). Paying for
+    # Pair 1: Mangrove + Arctic Ocean share a symbol (prefer Heart). Paying for
     # the Mangrove with the symbol-matched Arctic fires the Mangrove's *Play again*
-    # star — the single Star ability Tutorial 2 now teaches.
+    # star, the single Star ability Tutorial 2 now teaches.
     s1 = _shared_symbol("mangrove", False, "arctic ocean", False, ("heart",))
     if s1 is not None:
         _install("mangrove", s1, False)
         _install("arctic ocean", s1, False)
     # One simple FREE creature (Lobster, cost 0) so the guided "use Play Again to
     # play a creature" step needs no separate payment. (The old Great Albatross +
-    # Kelp Forest second-Star pair was removed — Tutorial 2 teaches one Star only.)
+    # Kelp Forest second-Star pair was removed: Tutorial 2 teaches one Star only.)
     _install("lobster", None, False)
 
     # Dedup: the original deal can already contain extra / wrong-symbol copies of a
     # teaching card (e.g. a second Mangrove with a different symbol). Keep exactly
-    # ONE copy of each — the coordinated-symbol one — and swap every other copy
+    # ONE copy of each, the coordinated-symbol one, and swap every other copy
     # back to the deck for a non-teaching filler, so the spotlight is unambiguous.
     _keep = [("mangrove", s1, False), ("arctic ocean", s1, False)]
     def _any_teaching_name(u: int) -> bool:
@@ -8067,7 +8067,7 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
     # End-of-turn discard phase: only discard actions are legal until hand is within the limit.
     if player.flags.get("_discard_mode") and len(player.hand) > HAND_LIMIT:
         # Batch action for web human multi-select UI.  pool_pick_uids is intentionally
-        # empty here — the client populates it with the player's actual selection before
+        # empty here, the client populates it with the player's actual selection before
         # submitting.  Individual discard_to_pool actions are kept as a fallback for AI
         # and for single-card interactive removal.
         return [
@@ -8083,7 +8083,7 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
     multi_yellowfin = int(player.flags.get("free_yellowfin_tuna", 0)) > 0
     has_manual_end_window = free_only or multi_paid or multi_baitfish or multi_cephalopods or multi_yellowfin
     # Species-restricted free chains (Hermit Crab baitfish, cephalopod, yellowfin)
-    # only let you keep playing that ONE species for free — never oceans or other
+    # only let you keep playing that ONE species for free, never oceans or other
     # cards. The Loggerhead Sea Turtle's PAID chain (multi_paid) is excluded: it
     # lets you play anything by paying, oceans included. When a restricted window
     # has nothing of its species left to play, the only legal action becomes
@@ -8095,7 +8095,7 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
     if include_draw:
         draws_taken = int(player.flags.get("_draws_taken", 0))
         if draws_taken >= 1:
-            # Second draw phase: ONLY offer draw options — player must pick their 2nd card.
+            # Second draw phase: ONLY offer draw options: player must pick their 2nd card.
             if len(gs.deck) >= 1:
                 actions.append(Action(kind="draw", draw_from_pool=0))
             if len(ms.pool) >= 1:
@@ -8121,7 +8121,7 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
             if restricted_free_window:
                 # Restricted follow-up windows (free STAR abilities, Hermit Crab
                 # baitfish chain, cephalopod / yellowfin chains) only play their
-                # own species for free — they can never be used to play oceans.
+                # own species for free, they can never be used to play oceans.
                 continue
             if can_afford_play(gs, ms, player, entry_uid, face_uid, use_star=False):
                 actions.append(Action(kind="play_ocean", card_uid=entry_uid, face_uid=face_uid, use_star=False))
@@ -8385,7 +8385,7 @@ def discard_keep_score(gs: GameState, ms: MatchState, player: PlayerState, entry
         if c is None:
             continue
         face_keep = 0.0
-        # Raw card power — pluses and a modest cost term (expensive payoffs are
+        # Raw card power: pluses and a modest cost term (expensive payoffs are
         # worth holding for when we can afford them).
         plus = sum(int(m.group(1)) for m in re.finditer(r"\+(\d+)", c.text))
         face_keep += 0.45 * plus
@@ -8525,11 +8525,11 @@ def apply_action(
         turn_state.draws_this_turn += len(pool_cards) + len(deck_cards)
 
         if draws_taken == 0:
-            # First of two draws — flag so second draw phase offers only draw options.
+            # First of two draws: flag so second draw phase offers only draw options.
             player.flags["_draws_taken"] = 1
             turn_state.free_followups += 1  # keeps action_budget alive for 2nd draw
         else:
-            # Second draw — turn is complete.
+            # Second draw: turn is complete.
             player.flags.pop("_draws_taken", None)
             turn_state.force_end_turn = True
         return True
@@ -8547,8 +8547,8 @@ def apply_action(
 
     if action.kind == "discard_batch_to_pool":
         # Human selects multiple cards to discard at once. Two callers:
-        #   • end-of-turn hand-limit phase — must trim down to HAND_LIMIT; and
-        #   • Tarpon "discard and draw that many" — ANY number, may drop below the limit.
+        #   • end-of-turn hand-limit phase: must trim down to HAND_LIMIT; and
+        #   • Tarpon "discard and draw that many", ANY number, may drop below the limit.
         # pool_pick_uids holds the card UIDs chosen to move to the pool.
         # De-duplicate while preserving order and keep only cards still in hand, so a
         # repeated UID can never remove the same card twice (which would raise).
@@ -8561,11 +8561,11 @@ def apply_action(
             return fail("discard_batch_to_pool: no valid cards selected")
         if not tarpon_mode:
             # Hand-limit discard phase enforces "trim to exactly the limit". Tarpon
-            # skips these caps entirely — it lets you cycle any number of cards.
+            # skips these caps entirely, it lets you cycle any number of cards.
             remaining = len(player.hand) - len(chosen_uids)
             if remaining > HAND_LIMIT:
                 return fail(
-                    f"discard_batch_to_pool: not enough discarded — {remaining} would remain, limit is {HAND_LIMIT}"
+                    f"discard_batch_to_pool: not enough discarded: {remaining} would remain, limit is {HAND_LIMIT}"
                 )
             if player.flags.get("_discard_mode") and remaining < HAND_LIMIT:
                 return fail(
@@ -8581,11 +8581,11 @@ def apply_action(
             labels = ", ".join(entry_short_label(ms, gs, uid) for uid in chosen_uids)
             print(f"{player.name} batch-discards {len(chosen_uids)} card(s) to pool: {labels}")
         # NOTHING is drawn here. A ★ fires when its own card is PLAYED with a
-        # matching symbol discarded to pay for it (apply_action, use_star=True) —
+        # matching symbol discarded to pay for it (apply_action, use_star=True),
         # it is not a standing board trigger. Re-firing board ★ draws off the
         # end-of-turn trim refilled the hand as fast as it was emptied: discard 3
         # to reach 10, three board cards draw 3 back, still over the limit, discard
-        # again — "it takes forever to discard and it drew me three cards for some
+        # again, "it takes forever to discard and it drew me three cards for some
         # reason". The identical call on the play-cost payment path was already
         # removed for the same reason (excess Osprey/Bottlenose Dolphin draws).
         return True
@@ -8705,7 +8705,7 @@ def apply_action(
     action.payment_uids = [int(uid) for uid in payments]
 
     # Star only fires when the player explicitly chose use_star=True.
-    # auto_star stays False here — symbol match in payment alone does not trigger star.
+    # auto_star stays False here: symbol match in payment alone does not trigger star.
 
     # Pay cost into pool.
     for uid in payments:
@@ -8782,7 +8782,7 @@ def apply_action(
             #
             # player.score is restored around it because that field is a RUNNING
             # tally, and final_points already reads the host's text through the
-            # Clownfish when it scores the board — letting the copy bump it here
+            # Clownfish when it scores the board: letting the copy bump it here
             # too would count the Ocean's points twice in the live scoreboard.
             copy_host = clownfish_host_ocean(gs, card, action.ocean_uid)
             if copy_host is not None:
@@ -9482,7 +9482,7 @@ def double_check_action_score(
     ms2 = copy.deepcopy(ms)
     if determinize_rng is not None:
         # Honest planning: don't peek at opponents' real hands or the true
-        # deck order — roll the line forward against a plausible world instead.
+        # deck order: roll the line forward against a plausible world instead.
         _determinize_hidden_state(gs2, ms2, player_index, determinize_rng)
     p2 = gs2.players[player_index]
     before_score = final_points(gs2, p2)
@@ -9672,7 +9672,7 @@ def online_update_weights(
 # learning signal. The n-step return fixes this: each move is credited with the
 # DISCOUNTED SUM of the rewards over the player's next several own-moves, plus a
 # discounted bootstrap from the final game outcome. A turn-3 setup therefore
-# inherits credit for the points it generates on turns 8-12 — teaching the AI to
+# inherits credit for the points it generates on turns 8-12: teaching the AI to
 # think far ahead and plan winning engines instead of chasing instant points.
 N_STEP_LOOKAHEAD = 10      # how many of the player's OWN future moves to look ahead over
 N_STEP_GAMMA = 0.90        # per-own-move discount (0.90^10 ≈ 0.35 → long, real horizon)
@@ -9996,14 +9996,14 @@ def final_points(gs: GameState, player: PlayerState) -> int:
     non_ocean_cards = [c for c in all_cards if c.direction.strip().lower() != "n/a"]
 
     # Every ocean count below is taken over effective_ocean_names, so a Clownfish
-    # counts as one more of the Ocean it is attached to — the same way it already
+    # counts as one more of the Ocean it is attached to, the same way it already
     # counted on the Coral Reef chart.
     my_ocean_names = effective_ocean_names(gs, player)
     ocean_count = len(my_ocean_names)
     other_ocean_counts = [len(effective_ocean_names(gs, p)) for p in gs.players if p is not player]
     has_most_oceans = ocean_count >= max(other_ocean_counts) if other_ocean_counts else True
     # Distinct ocean TYPES for the Mangrove "+10 if you have all 8 oceans" bonus.
-    # Must be 8 DIFFERENT ocean types, not just 8 ocean cards — and a Clownfish
+    # Must be 8 DIFFERENT ocean types, not just 8 ocean cards, and a Clownfish
     # only ever duplicates a name it is already sitting on, so it can never be
     # the missing eighth type.
     distinct_ocean_types = len(set(my_ocean_names))
@@ -10249,7 +10249,7 @@ def final_points(gs: GameState, player: PlayerState) -> int:
                 coral_reef_table_applied = True
         elif re.search(r"\d+\s*=\s*\d+", t):
             # Table score is a global bracket (e.g. 2 Mantis Shrimps = 15 total, not 30).
-            # Clownfish on a Coral Reef is already counted in coral_reef_count_total — skip.
+            # Clownfish on a Coral Reef is already counted in coral_reef_count_total: skip.
             if (card.name.lower() == "clownfish"
                     and gs.card_db.get(ocean_uid) is not None
                     and gs.card_db.get(ocean_uid).name.lower() == "coral reef"):
@@ -10293,7 +10293,7 @@ def full_score_breakdown(gs: GameState, player: PlayerState) -> Dict[str, Any]:
 
 
 def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, Any]:
-    """Internal implementation — mirrors final_points() and captures per-card components."""
+    """Internal implementation: mirrors final_points() and captures per-card components."""
     # Build same board list as final_points: (uid, CardDef, ocean_uid)
     board: List[Tuple[int, CardDef, int]] = []
     for ocean_uid in player.board_oceans:
@@ -10322,7 +10322,7 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
     ocean_count = len(_my_ocean_names)
     other_ocean_counts = [len(effective_ocean_names(gs, p)) for p in gs.players if p is not player]
     has_most_oceans = ocean_count >= max(other_ocean_counts) if other_ocean_counts else True
-    # Distinct ocean types for Mangrove "+10 if you have all 8 oceans" — needs 8 DIFFERENT types.
+    # Distinct ocean types for Mangrove "+10 if you have all 8 oceans": needs 8 DIFFERENT types.
     _distinct_ocean_types = len(set(_my_ocean_names))
 
     def _has_most_piers() -> bool:
@@ -10583,7 +10583,7 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
                 n and add(n, f"{coral_reef_total} Coral Reef(s) → {n} pts")
                 coral_reef_table_applied = True
         elif re.search(r"\d+\s*=\s*\d+", t):
-            # Clownfish on a Coral Reef is already counted in coral_reef_total — skip.
+            # Clownfish on a Coral Reef is already counted in coral_reef_total: skip.
             if (card.name.lower() == "clownfish"
                     and gs.card_db.get(ocean_uid) is not None
                     and gs.card_db.get(ocean_uid).name.lower() == "coral reef"):
@@ -11009,7 +11009,7 @@ def run_match(
                 if switched and live_recorder is not None:
                     prev = str(p.flags.get("_strategy_family_prev", "")) or "(none)"
                     live_recorder.event(
-                        f"AI strategy switch — {p.name}: {prev} → {switched}"
+                        f"AI strategy switch: {p.name}: {prev} → {switched}"
                     )
                 # Build the opponent-awareness snapshot once per AI turn.
                 refresh_opponent_snapshot(gs, ms, p)
@@ -11131,7 +11131,7 @@ def run_match(
                     live_recorder.event(f"{p.name} attempt failed: {reason}")
                 # Web humans: a rejected move must NEVER auto-draw and burn the
                 # turn. The draw-fallback below exists for bots / abandoned seats
-                # to keep an unattended game moving — but for a live player it was
+                # to keep an unattended game moving, but for a live player it was
                 # the "it drew for me and ended my turn" bug. Instead, re-offer
                 # legal actions (loop without consuming the action budget) so the
                 # player can simply try again (e.g. pick a different payment).
@@ -11184,8 +11184,8 @@ def run_match(
                     break
             _ = sanitize_runtime_state(gs, ms, action_policies=action_policies, max_notes=0)
 
-            # END GAME mid-turn detection MUST happen HERE — immediately after the
-            # action is committed — NOT later in this loop. A 2nd draw that reveals the
+            # END GAME mid-turn detection MUST happen HERE: immediately after the
+            # action is committed, NOT later in this loop. A 2nd draw that reveals the
             # END GAME card sets turn_state.force_end_turn, and the force-end handler
             # below `break`s out of the action loop BEFORE the old detection point was
             # reached. That left eg_triggered_this_turn False, so the final-turns
@@ -11336,7 +11336,7 @@ def run_match(
             if has_multi_play_window(p):
                 action_budget += 1
             # (END GAME mid-turn detection now happens right after apply_action above,
-            # so a force_end_turn break — e.g. the 2nd draw revealing the END GAME card —
+            # so a force_end_turn break: e.g. the 2nd draw revealing the END GAME card:
             # can no longer skip it and rob the revealer of their final turn.)
             action_budget -= 1
 
@@ -11372,7 +11372,7 @@ def run_match(
                                 pass
                         p.flags["_tarpon_discard_active"] = False
                         break
-                    # Invalid/empty batch — loop and wait for a valid submission.
+                    # Invalid/empty batch: loop and wait for a valid submission.
                     continue
                 if t_action.kind == "discard_to_pool":
                     t_ok = apply_action(gs, ms, p, t_action, turn_state, choose_payment_ai, verbose=verbose)
@@ -11408,7 +11408,7 @@ def run_match(
             while len(p.hand) > _eff_hand_limit:
                 chosen_discard = d_policy(gs, ms, p)
                 if chosen_discard is None:
-                    # Policy returned None — either game phase ended or an error
+                    # Policy returned None: either game phase ended or an error
                     # occurred.  For web humans, do NOT auto-discard: leave the
                     # hand as-is and let the next poll re-enter the discard phase.
                     # For AI or terminal humans, fall back to the AI discard helper.
@@ -11417,17 +11417,17 @@ def run_match(
                     discard_down_to_ten_ai(gs, ms, p)
                     break
                 if chosen_discard.kind == "discard_batch_to_pool":
-                    # Human submitted a batch — process all at once.
+                    # Human submitted a batch: process all at once.
                     discard_ok = apply_action(gs, ms, p, chosen_discard, turn_state, choose_payment_ai, verbose=verbose)
                     if not discard_ok:
-                        # Batch failed (e.g. empty picks got through) — try again next loop.
+                        # Batch failed (e.g. empty picks got through): try again next loop.
                         continue
                     # Do NOT unconditionally break: an under-sized batch (fewer cards
                     # than needed) would otherwise end the turn still over the limit.
                     # Let the while-condition re-check and re-prompt if still over.
                     continue
                 if chosen_discard.kind != "discard_to_pool":
-                    # Unexpected action kind during discard phase — ignore and try again.
+                    # Unexpected action kind during discard phase: ignore and try again.
                     continue
                 discard_ok = apply_action(gs, ms, p, chosen_discard, turn_state, choose_payment_ai, verbose=verbose)
                 if not discard_ok:
@@ -11438,7 +11438,7 @@ def run_match(
         else:
             discard_down_to_ten_ai(gs, ms, p)
 
-        # HARD SAFETY NET — a turn must NEVER end above the effective hand limit,
+        # HARD SAFETY NET, a turn must NEVER end above the effective hand limit,
         # for any player, under any circumstance. If the interactive web-human
         # discard above exited early (an abandoned turn that timed out, an under-
         # sized batch, or any edge case), force the remaining excess down now. This
@@ -11477,7 +11477,7 @@ def run_match(
                 pass
 
         if ms.end_game_triggered:
-            # Don't count the turn where end game was triggered — that player
+            # Don't count the turn where end game was triggered, that player
             # completes their current turn normally and still gets a proper final
             # turn later (same as every other player).  Only decrement for
             # subsequent turns.
@@ -11521,14 +11521,14 @@ def run_match(
 
     # ── Game-quality gate: only learn from GOOD 4- and 5-player games ──
     # Scores aren't comparable across player counts (2P runs high, 8P runs
-    # low), so we ONLY train on 4- and 5-player games — the balanced "standard"
-    # format — and require a real developed board (top score >= 100). What the
+    # low), so we ONLY train on 4- and 5-player games, the balanced "standard"
+    # format, and require a real developed board (top score >= 100). What the
     # brain learns there applies to every player count (the brain is global).
     # A game is used for learning only when it:
     #   * has 4 or 5 players, AND
     #   * reached the natural end (END GAME card drawn), not a stall/abandon, AND
     #   * the winner scored at least 100 (a real, developed game).
-    # All other games still play + score normally — they just don't train the AI.
+    # All other games still play + score normally, they just don't train the AI.
     _q_finals = [float(_safe_fp(p)) for p in gs.players]
     _q_top = max(_q_finals) if _q_finals else 0.0
     _q_pcount = len(gs.players)
@@ -11542,7 +11542,7 @@ def run_match(
     if not _game_is_good_for_learning:
         try:
             gs.log.append(
-                f"Learning skipped — low-quality game (top={_q_top:.0f}, "
+                f"Learning skipped: low-quality game (top={_q_top:.0f}, "
                 f"ended_naturally={bool(getattr(ms, 'end_game_triggered', False))}, "
                 f"stalled={_q_stalled})."
             )
@@ -11555,7 +11555,7 @@ def run_match(
     # cause over the player's next ~10 own-moves, plus a discounted bootstrap of
     # the final win/loss margin. This propagates credit BACKWARD through time, so
     # an early engine-setup play that pays off ten turns later actually learns it
-    # was good — the AI plans far ahead instead of chasing instant points.
+    # was good, the AI plans far ahead instead of chasing instant points.
     if _game_is_good_for_learning and online_weights is not None and any(move_histories.values()):
         finals = [_safe_fp(p) for p in gs.players]
         for i, feats_list in move_histories.items():
@@ -12450,9 +12450,9 @@ import multiprocessing as _mp
 TRAIN_DEFAULT_DIR = "fish_training"
 CANDIDATE_BRAIN_PATH = "fish_ai_brain.candidate.json"
 
-# "Excellent" top score per count — normalizes the game-quality score component.
+# "Excellent" top score per count: normalizes the game-quality score component.
 TRAIN_TARGET_TOP: Dict[int, float] = {2: 240.0, 3: 175.0, 4: 135.0, 5: 118.0, 6: 104.0, 7: 94.0, 8: 86.0}
-# Developed-board floor per count — below this a game is too weak to learn from.
+# Developed-board floor per count: below this a game is too weak to learn from.
 TRAIN_MIN_TOP: Dict[int, float] = {2: 55.0, 3: 80.0, 4: 100.0, 5: 100.0, 6: 95.0, 7: 90.0, 8: 85.0}
 # The learnable maps the LIVE server reads per count (multiplayer_server.py:6838+).
 TRAIN_POLICY_MAP_KEYS = (
@@ -12731,7 +12731,7 @@ def _train_learn_one(candidate_brain: Dict[str, Any], record: Dict[str, Any], qu
                 b[mk] = {}
 
     # 1) Weight learning via n-step credit assignment (winners AND strong 2nds get
-    #    positive credit because each player is scored on their OWN margin) — req 4.
+    #    positive credit because each player is scored on their OWN margin): req 4.
     move_feats = record.get("move_feats", {}) or {}
     move_rewards = record.get("move_rewards", {}) or {}
     for i_str, feats_list in move_feats.items():
@@ -13013,7 +13013,7 @@ def train_validate_rules(card_db: Dict[int, CardDef], counts: List[int], log) ->
         if rules_err > 0:
             bad += 1
     if bad >= max(2, (len(probe_counts) + 1) // 2):
-        return False, f"Systemic rules errors in {bad}/{len(probe_counts)} preflight games — aborting."
+        return False, f"Systemic rules errors in {bad}/{len(probe_counts)} preflight games: aborting."
     return True, f"Rules preflight OK ({len(probe_counts)} counts probed, {bad} with issues)."
 
 
@@ -13042,7 +13042,7 @@ def train_generate(candidate_brain: Dict[str, Any], counts: List[int], games_per
                 continue
             tasks.append((c, i, _train_game_seed(base_seed, c, i)))
     if not tasks:
-        log(f"Generation: all {len(records)} games already present (resumed) — skipping.")
+        log(f"Generation: all {len(records)} games already present (resumed): skipping.")
         return records
     snapshot = {c: _train_policy_maps_from_cbrain(get_count_brain(candidate_brain, c)) for c in counts}
     log(f"Generation: {len(tasks)} games to play ({len(records)} resumed), jobs={jobs}.")
@@ -13105,7 +13105,7 @@ def train_benchmark(candidate_brain: Dict[str, Any], old_brain: Dict[str, Any], 
                     if completed % 25 == 0 or completed == len(tasks):
                         log(f"  benchmarked {completed}/{len(tasks)}")
     else:
-        log(f"Benchmark: all cells already present (resumed) — skipping.")
+        log(f"Benchmark: all cells already present (resumed): skipping.")
     return _bench_aggregate(results, counts, matchups), results
 
 
@@ -13143,16 +13143,16 @@ def _train_write_html(path: str, summary: Dict[str, Any]) -> None:
         old = cell.get("old", {})
         rnd = cell.get("random", {})
         mix = cell.get("mixed", {})
-        verdict = "✅ BETTER" if old.get("is_better") else ("≈ tie/worse" if old.get("games") else "—")
+        verdict = "✅ BETTER" if old.get("is_better") else ("≈ tie/worse" if old.get("games") else "-")
         vcolor = "#1a7f37" if old.get("is_better") else "#9a6700"
         rows.append(
             f"<tr><td><b>{c}P</b></td>"
-            f"<td>{old.get('win_rate','—')} <span class=ci>[{old.get('win_ci_low','')}–{old.get('win_ci_high','')}]</span></td>"
+            f"<td>{old.get('win_rate','-')} <span class=ci>[{old.get('win_ci_low','')}–{old.get('win_ci_high','')}]</span></td>"
             f"<td style='color:{vcolor};font-weight:600'>{verdict}</td>"
-            f"<td>{rnd.get('win_rate','—')}</td>"
-            f"<td>{mix.get('win_rate','—')}</td>"
-            f"<td>{old.get('avg_score','—')}</td>"
-            f"<td>{old.get('avg_margin','—')}</td>"
+            f"<td>{rnd.get('win_rate','-')}</td>"
+            f"<td>{mix.get('win_rate','-')}</td>"
+            f"<td>{old.get('avg_score','-')}</td>"
+            f"<td>{old.get('avg_margin','-')}</td>"
             f"<td>{esc(summary.get('promotion',{}).get('promoted_map',{}).get(str(c),'held'))}</td></tr>"
         )
     agg = bench["aggregate"]
@@ -13175,7 +13175,7 @@ def _train_write_html(path: str, summary: Dict[str, Any]) -> None:
     top_decs = summary["top25_decisions"]
 
     html = f"""<!doctype html><html><head><meta charset=utf-8>
-<title>Currents &amp; Critters — Multi-Count AI Training Report</title>
+<title>Currents &amp; Critters: Multi-Count AI Training Report</title>
 <style>
 body{{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;background:#f6f8fa;color:#1f2328}}
 .wrap{{max-width:1100px;margin:0 auto;padding:28px}}
@@ -13191,16 +13191,16 @@ th,td{{padding:7px 10px;text-align:left;border-bottom:1px solid #eaeef2}} th{{ba
 .k{{color:#57606a;font-size:12px}} .v{{font-size:22px;font-weight:700}}
 small{{color:#8c959f}}
 </style></head><body><div class=wrap>
-<h1>Currents &amp; Critters — Multi-Count AI Training Report</h1>
+<h1>Currents &amp; Critters: Multi-Count AI Training Report</h1>
 <p class=sub>Generated {esc(summary['generated_at'])} · base seed {esc(summary['base_seed'])} · {esc(summary['games_per_count'])} training games/count · {esc(summary['benchmark_games'])} benchmark games/count · counts {esc(counts)}</p>
-<div class="banner {'good' if agg.get('old_is_better') else 'warn'}">{agg_verdict} &nbsp;—&nbsp; new-vs-old win rate {agg.get('old_win_rate')} (95% CI {agg.get('old_ci_low')}–{agg.get('old_ci_high')}, n={agg.get('games')})</div>
+<div class="banner {'good' if agg.get('old_is_better') else 'warn'}">{agg_verdict} &nbsp;&nbsp; new-vs-old win rate {agg.get('old_win_rate')} (95% CI {agg.get('old_ci_low')}–{agg.get('old_ci_high')}, n={agg.get('games')})</div>
 <div class=cards>
   <div class=card><div class=k>Training games</div><div class=v>{esc(summary['n_games'])}</div><small>{esc(summary['n_learned'])} learned · {esc(summary['n_pruned'])} pruned</small></div>
   <div class=card><div class=k>Counts promoted to live</div><div class=v>{esc(summary.get('promotion',{}).get('promoted',[]))}</div><small>held: {esc(summary.get('promotion',{}).get('held',[]))}</small></div>
   <div class=card><div class=k>Live-brain backup</div><div class=v style='font-size:13px'>{esc(summary.get('promotion',{}).get('backup',''))}</div></div>
 </div>
 
-<h2>Per-count verdict — is the new AI better than the old AI?</h2>
+<h2>Per-count verdict: is the new AI better than the old AI?</h2>
 <table><tr><th>Count</th><th>New vs Old win rate</th><th>Verdict</th><th>vs Random</th><th>vs Mixed</th><th>Avg score</th><th>Avg margin</th><th>Promotion</th></tr>
 {''.join(rows)}</table>
 <small>Verdict = the 95% Wilson lower bound of the new-vs-old win rate exceeds 0.50.</small>
@@ -13230,7 +13230,7 @@ small{{color:#8c959f}}
 <table><tr><th>#</th><th>Value</th><th>Count</th><th>Turn</th><th>Card</th><th>Reward</th><th>Future value</th><th>Synergy</th><th>Deny</th></tr>
 {''.join(f"<tr><td>{i+1}</td><td>{d['value']}</td><td>{d['count']}P</td><td>{d['turn']}</td><td>{esc(d['card'])}</td><td>{round(d['reward'],2)}</td><td>{round(d['future_value'],2)}</td><td>{round(d['synergy'],2)}</td><td>{round(d['deny'],2)}</td></tr>" for i,d in enumerate(top_decs))}</table>
 
-<h2>Bottom 25 games (pruned / ignored — never learned from)</h2>
+<h2>Bottom 25 games (pruned / ignored, never learned from)</h2>
 <table><tr><th>#</th><th>Count</th><th>Seed</th><th>Reason</th><th>Top</th><th>Rules errors</th><th>Stalled</th><th>Natural end</th></tr>
 {''.join(f"<tr><td>{i+1}</td><td>{g['count']}P</td><td>{g['seed']}</td><td>{esc(g['pruned'])}</td><td>{g['top']}</td><td>{g['rules_errors']}</td><td>{g['stalled']}</td><td>{g['end_game_triggered']}</td></tr>" for i,g in enumerate(bot_games))}</table>
 
@@ -13341,7 +13341,7 @@ def train_all_player_counts(counts: List[int], games_per_count: int, benchmark_g
 
     t_start = time.time()
     log("=" * 70)
-    log(f"MULTI-COUNT TRAINING — counts {counts} · {games_per_count} games/count · "
+    log(f"MULTI-COUNT TRAINING: counts {counts} · {games_per_count} games/count · "
         f"{benchmark_games} bench/count · jobs={jobs} · seed={base_seed}")
     log(f"Total: {len(counts) * games_per_count} training + {len(counts) * benchmark_games * 3} benchmark games.")
     log("=" * 70)
@@ -13389,7 +13389,7 @@ def train_all_player_counts(counts: List[int], games_per_count: int, benchmark_g
     bench_summary, bench_results = train_benchmark(candidate_brain, old_brain, counts, benchmark_games, base_seed, jobs, run_dir, log)
     log(f"Benchmark complete in {time.time()-t0:.0f}s.")
 
-    # 5) Promote per-count where new beat old (with backup) — req 8/11 + user choice.
+    # 5) Promote per-count where new beat old (with backup): req 8/11 + user choice.
     promo = train_promote(candidate_brain, BRAIN_PATH, bench_summary, counts, do_promote, log)
 
     # 6) Reports + artifacts.
@@ -13434,7 +13434,7 @@ def train_all_player_counts(counts: List[int], games_per_count: int, benchmark_g
     _train_write_csv(os.path.join(run_dir, "games.csv"), scored)
     _train_write_html(os.path.join(run_dir, "report.html"), summary)
 
-    # 7) Final console verdict (prove improvement — req 9).
+    # 7) Final console verdict (prove improvement: req 9).
     log("=" * 70)
     log("RESULTS BY PLAYER COUNT (new AI vs old AI):")
     for c in counts:

@@ -1425,7 +1425,7 @@ footer.foot {
 }
 .foot ul a:hover { color: var(--glow); }
 
-/* Legal strip — sits between the link columns and the copyright line, so the
+/* Legal strip: sits between the link columns and the copyright line, so the
    privacy policy is the last thing you can click on the way down the page. */
 .foot-legal {
   max-width: 1180px;

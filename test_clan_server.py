@@ -1,4 +1,4 @@
-"""Clan System — end-to-end tests of the real clan_server functions against an
+"""Clan System: end-to-end tests of the real clan_server functions against an
 in-memory Firestore fake (same harness style as test_trade_integration.py) and
 a sandboxed temp dir for game records (never dirties the tree).
 
@@ -151,7 +151,7 @@ class FakeDB:
     def collection(self, name):
         return FakeCollection(self.store, name)
     def get_all(self, refs):
-        """Batched multi-document read — the real client has this, and the whole
+        """Batched multi-document read, the real client has this, and the whole
         clan roster is fetched through it now, so the fake must too or the tests
         only ever cover the one-at-a-time fallback. Real Firestore returns the
         docs in arbitrary order; shuffling here keeps callers honest about that."""
@@ -361,7 +361,7 @@ check("recruiter accepts request", r.get("ok") and "eve" in clan_doc(CID2)["memb
 # The fourth privacy mode: anyone who knows the word joins INSTANTLY (exactly
 # like public), anyone who doesn't cannot get in at all. Tim's ask was "set
 # passwords on a clan and only the people that enter can get into it, or you can
-# just do anyone can join" — so both halves are tested here: the lock holds, and
+# just do anyone can join", so both halves are tested here: the lock holds, and
 # public still lets anyone straight in.
 print("password clans:")
 
@@ -381,7 +381,7 @@ check("case matters", not CS._check_password(_rec, "reef riders 99"))
 check("surrounding whitespace is forgiven", CS._check_password(_rec, "  Reef Riders 99  "))
 check("an empty guess is never right", not CS._check_password(_rec, ""))
 # A clan whose record is missing or damaged must refuse everyone, never admit
-# everyone — the failure has to close the door, not open it.
+# everyone, the failure has to close the door, not open it.
 check("no record = nobody gets in", not CS._check_password(None, "anything"))
 check("empty record = nobody gets in", not CS._check_password({}, "anything"))
 check("hash present but no salt = nobody gets in",
@@ -419,7 +419,7 @@ check("a wrong password = no entry", not r.get("ok") and r.get("error") == "bad_
 check("...and the guesser really is not in the clan",
       "pwguess" not in clan_doc(PWCID).get("members", {}))
 r = route("pwjoin", "join", {"clan_id": PWCID, "password": "seahorse7"})
-check("the right password joins instantly — no request, no approval", r.get("ok"))
+check("the right password joins instantly, no request, no approval", r.get("ok"))
 check("...and they are a member", "pwjoin" in clan_doc(PWCID)["members"])
 check("...as a plain member, not an owner",
       clan_doc(PWCID)["members"]["pwjoin"]["role"] == "member")
@@ -500,7 +500,7 @@ check("one-tap 'recommended' never offers a password clan",
 
 # ══ 3b. Invite by FRIEND CODE ════════════════════════════════════════════════
 # The Members-tab invite box only ever knows a 4-digit friend code. Codes are
-# random, so two players CAN share one — the resolver has to say so instead of
+# random, so two players CAN share one, the resolver has to say so instead of
 # inviting whichever stranger it found first.
 print("invite by friend code:")
 
@@ -549,7 +549,7 @@ check("unknown code rejected", not r.get("ok") and r.get("error") == "no_user")
 r = route("cara", "invite", {"to_code": "1001"})
 check("your own code rejected", not r.get("ok") and r.get("error") == "self_invite")
 
-# A nickname can itself end in digits — "Player123" must not be split into
+# A nickname can itself end in digits: "Player123" must not be split into
 # "Player" + "123" and silently invite somebody else.
 set_user("jonas", nick="Player123", username="Player123")
 r = route("cara", "invite", {"to_code": "Player123"})
@@ -618,7 +618,7 @@ check("non-member can report a clan name", r.get("ok") and
 r = route("solo", "report", {"kind": "message", "clan_id": CID2, "msg_id": "x"})
 check("outsider cannot report inside another clan's chat", not r.get("ok"))
 
-# ══ 5. Game points — casual ═══════════════════════════════════════════════════
+# ══ 5. Game points: casual ═══════════════════════════════════════════════════
 print("casual points:")
 def hp(name): return {"name": name, "is_human": True}
 def ai(name): return {"name": name, "is_human": False}
@@ -670,7 +670,7 @@ r = CS.claim_game_points("alice", "TRNC")
 check("unfinished game never scores", not r.get("ok") and r.get("error") == "not_finished")
 
 # ── No real opponent: first place is worth HALF a point, nothing else is ─────
-# "Requires a real opponent — both players must be registered (non-guest)
+# "Requires a real opponent, both players must be registered (non-guest)
 # accounts, or it scores 0. Make it .5 if you get number 1 against bots in any
 # player count."
 write_hist("ALLB", players=[hp("Alice"), ai("Bot A"), ai("Bot B")],
@@ -725,7 +725,7 @@ check("repeat same-lobby games stop scoring after the cap",
 check("repeat-opponents flag filed", any(k.startswith("clan_flags/") and
       (DB.store[k].get("kind") == "repeat_opponents") for k in DB.store))
 
-# ══ 6. Game points — competitive ═════════════════════════════════════════════
+# ══ 6. Game points: competitive ═════════════════════════════════════════════
 print("competitive points:")
 write_hist("CMP1", mode="competitive", players=[hp("Alice"), hp("Bob")],
            standings=[{"name": "Alice", "score": 60}, {"name": "Bob", "score": 50}])
@@ -792,7 +792,7 @@ check("trade points tracked separately", slot["trade_points"] >= 2)
 check("trade activity hides the items", any("clan trade" in a["text"] and "coins" not in a["text"].lower()
                                             for a in clan_doc(CID)["activity"]))
 
-# weekly 150 cap (runs AFTER the trade test — trade points count toward it too)
+# weekly 150 cap (runs AFTER the trade test: trade points count toward it too)
 r = CS._apply_award(DB, CID, "alice", "Alice", kind="casual", points=500,
                     dedup_id="capfill", activity_text="cap fill +{pts}")
 check("weekly award clamped to the 150 cap", r.get("ok") and
@@ -886,7 +886,7 @@ check("full column set present", all(k in rows[0] for k in
       ("rank", "icon", "name", "member_count", "points", "comp_wins", "casual_wins",
        "challenge_points", "trade_points", "games", "record")))
 # a clan created through the API must appear on the very next read (cache must
-# not hide it) — this is the bug the 20s standings cache would otherwise cause
+# not hide it), this is the bug the 20s standings cache would otherwise cause
 set_user("zed")
 CS._route_post(DB, "zed", "leaderboard", {}, FAKE_SID["cur"])          # warms the cache
 zr = CS._route_post(DB, "zed", "create",
@@ -955,10 +955,15 @@ meta = DB.store.get("clan_meta/season_2026-Q3")
 check("season meta written", meta and meta.get("finalized") is True)
 stand = meta["standings"]
 check("winners ranked first", stand[0]["name"] == "Winners" and stand[0]["rank"] == 1)
-check("1st-place coins to eligible members", user("mia")["stats"]["critter_coins"] == 10 + 400 + 150)
-check("majority-trader still gets coins (only MVP blocked)", user("noah")["stats"]["critter_coins"] == 10 + 400)
+check("1st-place coins to eligible members",
+      user("mia")["stats"]["critter_coins"]
+      == 10 + CS.SEASON_REWARD_COINS[0] + CS.MVP_BONUS_COINS)
+check("majority-trader still gets coins (only MVP blocked)",
+      user("noah")["stats"]["critter_coins"] == 10 + CS.SEASON_REWARD_COINS[0])
 check("below-10-points member gets nothing", user("olly")["stats"]["critter_coins"] == 10)
-check("2nd-place clan coins", user("rex")["stats"]["critter_coins"] == 0 + 300 + 150)
+check("2nd-place clan coins",
+      user("rex")["stats"]["critter_coins"]
+      == 0 + CS.SEASON_REWARD_COINS[1] + CS.MVP_BONUS_COINS)
 check("MVP is mia (majority-trades noah excluded despite more points)",
       stand[0]["mvp"] and stand[0]["mvp"]["uid"] == "mia")
 check("MVP badge + title stamped", any(b.get("type") == "mvp" and "Clan MVP" in (b.get("title") or "")
@@ -977,7 +982,8 @@ check("finalize is idempotent (no double pay)", user("mia")["stats"]["critter_co
 
 # season-results endpoint: my own payout + cosmetics for that season
 res = CS._route_post(DB, "mia", "season-results", {"sid": PREV}, FAKE_SID["cur"])
-check("results: my coins reported", res.get("my_coins") == 400 + 150)
+check("results: my coins reported",
+      res.get("my_coins") == CS.SEASON_REWARD_COINS[0] + CS.MVP_BONUS_COINS)
 check("results: my badges reported", len(res.get("my_badges") or []) == 2)
 check("results: resolves the clan I was in that season", res.get("my_clan_id") == "w1")
 res_o = CS._route_post(DB, "olly", "season-results", {"sid": PREV}, FAKE_SID["cur"])
@@ -1076,7 +1082,7 @@ check("...and out of the vote, so the tab icon stays wearable",
 
 # ══ 12b. What a Clans screen COSTS ═══════════════════════════════════════════
 # The tab was slow for one reason: every screen read the roster one document at
-# a time, so a full clan paid a Firestore round trip per member, per call — and
+# a time, so a full clan paid a Firestore round trip per member, per call, and
 # opening the tab, opening the clan and voting each did it again. The roster is
 # one batched read now, and casting a vote writes one map key instead of the
 # whole clan document back.
@@ -1121,7 +1127,7 @@ check("opening Clans is ONE batched roster read, not one per member",
 check("...and it returns the full clan profile, so opening the clan needs no 2nd call",
       bool((home1 or {}).get("my_clan_full")))
 
-# A finished season is immutable, so its standings are read once per process —
+# A finished season is immutable, so its standings are read once per process,
 # not once per tab open, per player, forever.
 DB.store["clan_meta/season_" + CS._prev_sid(FAKE_SID["cur"])] = {
     "sid": CS._prev_sid(FAKE_SID["cur"]), "finalized": True, "standings": []}
@@ -1177,7 +1183,7 @@ check("the rest of the season slot is untouched too",
           if k != "critter_votes"})
 
 # A vote can't move the standings, so it must not throw the leaderboard scan
-# away — that whole-collection scan is the most expensive read on the page, and
+# away, that whole-collection scan is the most expensive read on the page, and
 # chat lines and votes were dropping it dozens of times an evening for nothing.
 CS._leaderboard_rows(DB, FAKE_SID["cur"])          # warm it
 warm_at = CS._LB_CACHE["at"]
@@ -1234,7 +1240,7 @@ check("player with no clan is moved in", "mover1" in clan_doc(BELMONT)["members"
 check("...and their user doc points at it", user("mover1").get("clan_id") == BELMONT)
 check("player already in another clan is moved across",
       "mover2" in clan_doc(BELMONT)["members"] and "mover2" not in clan_doc(OLD)["members"])
-check("an operator move is not a quit — no 24h point cooldown",
+check("an operator move is not a quit, no 24h point cooldown",
       not user("mover2").get("clan_cooldown_until"))
 check("invite-only clan doesn't block the move", clan_doc(BELMONT).get("privacy") == "invite")
 check("the injected invite is consumed, not left lying around",
@@ -1294,7 +1300,7 @@ CS.PENDING_MEMBER_MOVES = ({"key": "t-move-owner", "name": "Owner Olivia", "code
                             "clan": "Belmont Board Game Club"},)
 CS._MOVES_NEXT_CHECK = 0.0
 CS.ensure_pending_moves(DB)
-check("a solo clan owner is left alone — the move never dissolves their clan",
+check("a solo clan owner is left alone, the move never dissolves their clan",
       "clan_moves/t-move-owner" not in DB.store
       and user("mover5").get("clan_id")
       and DB.store.get("clan_names/olivias own"))

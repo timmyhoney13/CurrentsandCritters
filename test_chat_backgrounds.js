@@ -7,7 +7,7 @@
  * Why this file exists: a chat background is stored as ANOTHER doc in the same
  * users/{uid}/messages subcollection as real messages, carrying meta:true so it
  * never renders as a bubble. But `meta:true` is also how a GROUP roster doc is
- * marked — so without care, giving a plain DM a wallpaper would silently
+ * marked, so without care, giving a plain DM a wallpaper would silently
  * reclassify it as a group chat (wrong title, wrong send path, wrong members).
  * The guard is _msgIsGroupMeta(); these tests pin it down, plus the "not a
  * message / not unread" invariants every filter depends on.

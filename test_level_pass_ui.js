@@ -1,5 +1,5 @@
 /* ================================================================
- * test_level_pass_ui.js — the client half of the Level Pass, the
+ * test_level_pass_ui.js, the client half of the Level Pass, the
  * referral card and the Game Night banner, in a real browser.
  *
  * The three modules are driven headlessly against payloads produced by
@@ -10,11 +10,11 @@
  *
  *   1. The bridge ENVELOPE. post() resolves to { ok, status, data } and
  *      a module that forgets to unwrap `.data` throws mid-render and
- *      leaves a BLANK tab with nothing in the console — the exact way
+ *      leaves a BLANK tab with nothing in the console, the exact way
  *      the Clans tab shipped once. Every stub below returns the real
  *      envelope, never the bare payload, because a bare-payload stub
  *      hides that bug completely.
- *   2. "N XP to go" / "N XP until …" — the whole point of both surfaces.
+ *   2. "N XP to go" / "N XP until …", the whole point of both surfaces.
  *      A locked tier that says nothing is the feature missing.
  *   3. Claim buttons appearing ONLY on tiers that are reached and
  *      unclaimed. A Claim button on a locked tier is a promise the
@@ -26,7 +26,7 @@
  * Headless Chrome silently clamps --window-size to about 500px wide, so
  * asking for a 390px window gets you a 500px one and a phone is never
  * actually tested. An iframe has its own viewport, and media queries
- * inside it evaluate against ITS width — so these really are 390px.
+ * inside it evaluate against ITS width, so these really are 390px.
  *
  *   node test_level_pass_ui.js
  * ================================================================ */
@@ -48,7 +48,7 @@ const CHROME = [
 ].find(p => fs.existsSync(p));
 
 if (!CHROME) {
-  console.log("SKIP: no Chrome/Chromium found — cannot run the level-pass render check.");
+  console.log("SKIP: no Chrome/Chromium found: cannot run the level-pass render check.");
   process.exit(0);
 }
 
@@ -160,8 +160,8 @@ function innerHtml() {
     + '</body></html>';
 }
 
-// Bridges. post() resolves to the ENVELOPE the real apiPost returns —
-// { ok, status, data } — NOT the bare body. A stub returning the bare body
+// Bridges. post() resolves to the ENVELOPE the real apiPost returns:
+// { ok, status, data }, NOT the bare body. A stub returning the bare body
 // would let an unwrap bug sail straight through this test.
 const BOOT = \`
   window.__toasts = [];
@@ -274,7 +274,7 @@ const MAIN = \`
     const overflow = [];
     document.querySelectorAll("#cc-level-pass-root *, #cc-referral-root *, #cc-game-night *")
       .forEach(el => {
-        // Anything inside a scroller is allowed to be wider than the window —
+        // Anything inside a scroller is allowed to be wider than the window,
         // that is what the scroller is for. Everything else is a real overflow.
         let p = el.parentElement, inScroller = false;
         while (p && p !== document.body) {
@@ -380,7 +380,7 @@ check("locked tiers each say how much XP is left",
 check("the level bar states its own numbers",
       /[\d,]+ \/ [\d,]+ XP to Level 23/.test(D.pass.barTxt), D.pass.barTxt);
 
-// Assert against the SERVER's own inventory, never a number typed in here —
+// Assert against the SERVER's own inventory, never a number typed in here,
 // the fixture claims a few tiers before snapshotting, so any hard-coded
 // figure is a value from before the payout it is supposed to be checking.
 const chipText = D.pass.chips.join(" | ");
@@ -419,12 +419,20 @@ check("the percent matches the server's", D.boost.apiPercent === P.boosted.boost
 
 console.log("\n  Invite a Friend:");
 check("the card found its own home in the Friends panel", D.referral.selfInjected === true);
-check("the reward is stated", /you both get 100/i.test(D.referral.text),
+// The amounts come from the SERVER payload the card was rendered from, not
+// from numbers typed here: they are an economy dial, and the card's job is to
+// state whatever the server currently pays, exactly.
+const REF = P.referral;
+const refPct = Math.round(((REF.referrals % REF.backgroundEvery) / REF.backgroundEvery) * 100) + "%";
+check(`the reward is stated (${REF.coins} coins)`,
+      new RegExp("you both get " + REF.coins, "i").test(D.referral.text),
       D.referral.text.slice(0, 140));
 check("the player's own friend code is shown", D.referral.code === "4985", D.referral.code);
 check("progress toward the next background is counted",
-      /2 more → free background/.test(D.referral.goal), D.referral.goal);
-check("the progress bar reflects 3 of 5", D.referral.barPct === "60%", D.referral.barPct);
+      new RegExp(REF.toNextBackground + " more → free background").test(D.referral.goal),
+      D.referral.goal);
+check(`the progress bar reflects ${REF.referrals} of ${REF.backgroundEvery}`,
+      D.referral.barPct === refPct, `${D.referral.barPct} want ${refPct}`);
 check("a fresh account can enter a code", D.referral.hasInput === true);
 
 console.log("\n  Game Night:");
@@ -471,7 +479,7 @@ console.log("\nwiring (real preview.html / preview-app.js):");
 
   // Every element the three modules look up by id must exist in the markup.
   for (const id of ["cc-level-pass-root", "ph-panel-levelpass", "snav-levelpass",
-                    "gal-level-track", "auth-ref-input"]) {
+                    "snav-levelpass-badge", "auth-ref-input"]) {
     check(`preview.html declares #${id}`, HTML.includes(`id="${id}"`));
   }
 
@@ -508,15 +516,18 @@ console.log("\nwiring (real preview.html / preview-app.js):");
   check("__ccWeekStartMs is exported", /window\.__ccWeekStartMs\s*=/.test(APP));
   check("renderChallengeStrip is exported", /window\.renderChallengeStrip\s*=/.test(APP));
 
-  // The gallery track must be DEFINED and actually CALLED — a renderer nobody
-  // invokes is the same as no renderer.
-  check("_galRenderLevelTrack is defined", /function _galRenderLevelTrack\(/.test(APP));
-  check("_galRenderLevelTrack is called when the gallery opens",
-        (APP.match(/_galRenderLevelTrack\(\)/g) || []).length >= 2,
-        (APP.match(/_galRenderLevelTrack\(\)/g) || []).length + " call(s)");
+  // The Avatar Gallery's twin of the pass rail was removed in 1.6.74. Its
+  // markup, its CSS and its renderer all have to go together: a leftover host
+  // element is an empty card in the gallery, and leftover CSS is dead weight
+  // shipped to every player.
+  const LPCSS = fs.readFileSync(path.join(CLIENT, "css", "level-pass.css"), "utf8");
+  check("the gallery level track renderer is gone", !/function _galRenderLevelTrack\(/.test(APP));
+  check("…and nothing still calls it", !/_galRenderLevelTrack\(\)/.test(APP));
+  check("…and its host element is gone from preview.html", !HTML.includes('id="gal-level-track"'));
+  check("…and its CSS rules went with it", !/^\.galLT/m.test(LPCSS));
 
   // The XP boost has to reach EVERY XP path, which means going through the one
-  // multiplier — not a second one bolted on beside it.
+  // multiplier, not a second one bolted on beside it.
   check("the boost is folded into prestigeXp", /boostBonus/.test(APP));
   check("the daily login bonus is boosted too",
         /passBoostNow\(\)\.mult/.test(APP));

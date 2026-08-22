@@ -48,10 +48,10 @@ services:
       # settings → Service accounts → Generate new private key.
       - key: FIREBASE_SERVICE_ACCOUNT
         sync: false
-      # Stripe checkout webhook (POST /api/stripe/webhook) — credits Critter
+      # Stripe checkout webhook (POST /api/stripe/webhook): credits Critter
       # Coins / grants Supporter Tiers after a successful payment.
       #   STRIPE_WEBHOOK_SECRET: the endpoint's "Signing secret" (whsec_…) from
-      #     Stripe Dashboard → Developers → Webhooks → your endpoint. REQUIRED —
+      #     Stripe Dashboard → Developers → Webhooks → your endpoint. REQUIRED,
       #     the webhook rejects every event until this is set. Use the TEST
       #     secret while the Store uses TEST Payment Links; the LIVE secret at
       #     launch. TEST and LIVE mode have SEPARATE endpoints and SEPARATE
@@ -61,7 +61,7 @@ services:
       #     Subscribe the endpoint to BOTH:
       #       checkout.session.completed
       #       checkout.session.async_payment_succeeded
-      #   STRIPE_SECRET_KEY: secret API key (sk_test_… / sk_live_…). Optional —
+      #   STRIPE_SECRET_KEY: secret API key (sk_test_… / sk_live_…). Optional:
       #     fulfilment works without it; reserved for future use.
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
@@ -71,7 +71,7 @@ services:
       # 250 Critter Coins, once, for actually being in the Discord server.
       # Step-by-step setup is in DISCORD_REWARD_SETUP.md. Until all three of
       # the sync:false values below are set, the server logs "join reward OFF",
-      # the game hides the offer entirely, and every claim is refused — it never
+      # the game hides the offer entirely, and every claim is refused, it never
       # falls back to paying out unchecked.
       #
       #   DISCORD_CLIENT_ID / DISCORD_CLIENT_SECRET
@@ -99,15 +99,15 @@ services:
         sync: false
       # ── Newsletter (newsletter_server.py / newsletter_email.py) ─────────
       # Full setup, including DNS, is in NEWSLETTER_SETUP.md. Values marked
-      # sync:false are secrets — enter them in the Render dashboard, never here.
+      # sync:false are secrets: enter them in the Render dashboard, never here.
       #
       # ONLY TWO THINGS ARE ACTUALLY REQUIRED:
       #   1. NEWSLETTER_UNSUBSCRIBE_SECRET
-      #   2. ONE way to send mail — the SMTP_* block below is the easy one.
+      #   2. ONE way to send mail, the SMTP_* block below is the easy one.
       #
       #   NEWSLETTER_UNSUBSCRIBE_SECRET
       #                    Random 32+ byte string that signs unsubscribe links.
-      #                    REQUIRED — campaign sending refuses to start without
+      #                    REQUIRED: campaign sending refuses to start without
       #                    it, because marketing mail with no working
       #                    unsubscribe link is what gets a domain blocked.
       #                    ⚠️ Changing it invalidates every unsubscribe link
@@ -119,12 +119,12 @@ services:
       #                    whoever already hosts your domain email. Port 587 with
       #                    STARTTLS is the norm; 465 switches to implicit TLS
       #                    automatically. If your mail is on Google Workspace,
-      #                    use smtp.gmail.com with an APP PASSWORD — that needs
+      #                    use smtp.gmail.com with an APP PASSWORD, that needs
       #                    no Google Cloud project, no OAuth consent screen and
       #                    no refresh token.
       #
       #   NEWSLETTER_API_KEY (+ optional NEWSLETTER_HTTP_PROVIDER)
-      #                    ALTERNATIVE: an HTTPS email API instead of SMTP —
+      #                    ALTERNATIVE: an HTTPS email API instead of SMTP:
       #                    resend | postmark | brevo | sendgrid (default resend).
       #                    Use this if outbound SMTP is blocked. One key, no SMTP.
       #
@@ -181,8 +181,8 @@ services:
         sync: false
       - key: NEWSLETTER_FIELD_LABEL
         sync: false
-      # Snap & Score (score.currentsandcritters.com — add it as a second custom
+      # Snap & Score (score.currentsandcritters.com: add it as a second custom
       # domain on this same service). Board-photo card recognition runs locally
-      # in the player's browser against the prebuilt snap-card-library.json —
+      # in the player's browser against the prebuilt snap-card-library.json,
       # no API key and no per-photo cost. Regenerate the library with
       # `python3 build_snap_card_library.py` whenever the card art changes.

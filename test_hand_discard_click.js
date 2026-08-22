@@ -1,33 +1,33 @@
 #!/usr/bin/env node
-/* Clicking a card in the hand gives you THAT card — measured in real pixels.
+/* Clicking a card in the hand gives you THAT card: measured in real pixels.
  *
  * Run:  node test_hand_discard_click.js        (needs Google Chrome installed)
  *
  * The bug: "it does not discard the one you want". A hand card is PAINTED by a
- * CSS transform — rotate(angle) then translateY(lift) along its own rotated
- * axis — so at the edges of a wide fan the card sits up to ~25 px sideways and
+ * CSS transform: rotate(angle) then translateY(lift) along its own rotated
+ * axis, so at the edges of a wide fan the card sits up to ~25 px sideways and
  * ~65 px below its layout box. Hover hit-tested the LAYOUT box (offsetLeft /
  * offsetTop, deliberately, to stop a lift/flicker feedback loop) while the
  * browser dispatched the click by the PAINTED box. Two different answers to
  * "which card is under the pointer": the card that lifted was not the card that
- * got clicked. It only shows up in a big fan — and the hand-limit discard screen
+ * got clicked. It only shows up in a big fan, and the hand-limit discard screen
  * renders EVERY card (11, 13, 16…), which is exactly where players hit it.
  *
  * The fix is one shared hit test, _handHitTestIdx, over each card's BASE
- * transformed quad (the shape it has when nothing is hovered — stable under the
+ * transformed quad (the shape it has when nothing is hovered: stable under the
  * hover lift, so no flicker, and it is what the player is aiming at). Hover,
  * click and dragstart all route through it.
  *
  * What this file measures, in headless Chrome, against the REAL preview.css and
  * the REAL functions lifted from preview-app.js, for hands of 11–16 cards:
- *   1. AGREEMENT — for every point where Chrome itself paints card i on top
+ *   1. AGREEMENT, for every point where Chrome itself paints card i on top
  *      (document.elementFromPoint), _handHitTestIdx must answer i. Every point,
  *      every card, no exceptions.
- *   2. WHAT LIFTS IS WHAT YOU GET — hover a point, the card lifts, click the same
+ *   2. WHAT LIFTS IS WHAT YOU GET: hover a point, the card lifts, click the same
  *      point: the routed click handler must fire for the card that lifted, even
  *      though it has moved out from under the pointer and Chrome now dispatches
  *      the event to a neighbour (or to the hand background).
- *   3. STABILITY — hovering must not change any card's hit shape (that is the
+ *   3. STABILITY: hovering must not change any card's hit shape (that is the
  *      no-flicker property the old layout-rect test was protecting).
  *   4. The old layout-rect model is reported as a baseline, so the numbers show
  *      how wrong it was, and a source grep guards against it coming back.
@@ -56,7 +56,7 @@ function srcOk(cond, m) { srcLines.push((cond ? "PASS " : "FAIL ") + m); }
 
 srcOk(
   /function _handHitTestIdx\(/.test(APP),
-  "preview-app.js: _handHitTestIdx() exists — one hit test shared by hover and click"
+  "preview-app.js: _handHitTestIdx() exists, one hit test shared by hover and click"
 );
 srcOk(
   /function _handCardAt\(/.test(APP) && /_handCardAt\(ev\.clientX, ev\.clientY\)/.test(APP),
@@ -79,12 +79,12 @@ srcOk(
 // The pixel half runs the real functions, so it can only run if they are there.
 if (srcLines.some(l => l.startsWith("FAIL"))) {
   console.log(srcLines.join("\n"));
-  console.log("\nThe shared hand hit test is missing or bypassed — the pixel checks cannot run.");
+  console.log("\nThe shared hand hit test is missing or bypassed, the pixel checks cannot run.");
   process.exit(1);
 }
 if (!CHROME) {
   console.log(srcLines.join("\n"));
-  console.log("\nSKIP: no Chrome/Chromium found — the pixel half of this check did not run.");
+  console.log("\nSKIP: no Chrome/Chromium found, the pixel half of this check did not run.");
   process.exit(0);
 }
 
@@ -220,7 +220,7 @@ function insetOf(i, cx, cy) {
 // card i, and at least 2 px outside every card drawn in front of it. Blink
 // rasterises these rotated cards on composited layers snapped to whole device
 // pixels, so its own hit region wobbles about a pixel either side of the exact
-// quad — inside that band the browser cannot say which card it means either, and
+// quad: inside that band the browser cannot say which card it means either, and
 // no player can aim there. Everywhere else, agreement must be perfect.
 var EDGE = 2;
 function paintedPoints(i) {
@@ -262,7 +262,7 @@ function hitMap() {
 function run() {
   applyHandLayout(-1);
 
-  // 1 — AGREEMENT with what Chrome actually paints.
+  // 1: AGREEMENT with what Chrome actually paints.
   var total = 0, wrong = 0, wrongLayout = 0, worstCard = -1, worstMiss = 0;
   var perCardOk = 0;
   for (var i = 0; i < N; i++) {
@@ -283,7 +283,7 @@ function run() {
   results.push("NOTE " + N + " cards: the old layout-box model was wrong at " + wrongLayout +
                "/" + total + " of those points");
 
-  // 2 — WHAT LIFTS IS WHAT YOU GET.
+  // 2, WHAT LIFTS IS WHAT YOU GET.
   var bad = [];
   for (var c = 0; c < N; c++) {
     applyHandLayout(-1);
@@ -306,9 +306,9 @@ function run() {
     }
   }
   ok(bad.length === 0, N + " cards: hovering then clicking the same pixel selects the card that lifted" +
-     (bad.length ? " — wrong for " + bad.join("; ") : ""));
+     (bad.length ? " wrong for " + bad.join("; ") : ""));
 
-  // 3 — STABILITY: the hover lift must not move any card's hit shape.
+  // 3: STABILITY: the hover lift must not move any card's hit shape.
   applyHandLayout(-1);
   var base = hitMap(), stable = true;
   for (var h = 0; h < N; h++) {

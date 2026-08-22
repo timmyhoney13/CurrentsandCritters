@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-/* Weekly Challenges — the strip that starts closed, and the daily system that
+/* Weekly Challenges, the strip that starts closed, and the daily system that
  * is gone (1.6.54).
  *
  * Two halves:
- *   • SOURCE — daily challenges left no stumps behind: no pool, no state, no
+ *   • SOURCE: daily challenges left no stumps behind: no pool, no state, no
  *     reporting hook, no unearnable "Daily Tide Sweep" achievement, and no
  *     observer state that only ever fed a daily. A leftover call to a hook that
  *     no longer exists is silent (every call site used `?.`), which is exactly
  *     the kind of dead code that gets copied forward.
- *   • RENDER — the real preview.html markup under the real preview.css in
+ *   • RENDER, the real preview.html markup under the real preview.css in
  *     headless Chrome: closed, the strip is its header and nothing else; open,
  *     the three challenges are actually on screen. That is the whole feature,
  *     and a stubbed DOM cannot see it.
@@ -42,7 +42,7 @@ function check(name, cond) {
 // is a real one, so the restore is not a revert: three slots on three
 // INDEPENDENT 24-hour timers meant the set never had a start or an end. They
 // now share one local-midnight boundary, the same shape as the weeklies'
-// Monday. That is the thing worth pinning — a per-slot timer creeping back in
+// Monday. That is the thing worth pinning, a per-slot timer creeping back in
 // is the bug, not the feature.
 console.log("\ndaily challenges are back");
 
@@ -69,7 +69,7 @@ check("no daily id is a weekly id wearing a different label",
       dailyIds.every(id => !weeklyIds.has(id)));
 check("daily ids are unique", new Set(dailyIds).size === dailyIds.length);
 
-// ONE boundary, shared by all three slots — the whole point of the restore.
+// ONE boundary, shared by all three slots, the whole point of the restore.
 check("the day resets at local midnight, together",
       /function _getTodayMidnight\(\)/.test(APP) && /dayStartMs/.test(APP));
 check("a rolled day re-rolls all three slots",
@@ -198,14 +198,14 @@ check("the body still wraps, so the cards and the reward can take\n       separa
       /\.ph-cs-body \{[^}]*flex-wrap: wrap;/.test(CSS));
 check("the strip's open state is remembered", APP.includes('"cc_cs_open"'));
 check("the closed header counts BOTH sets, so the other half is discoverable",
-      /complete — tap to see them/.test(APP) && /daily/.test(APP) && /weekly/.test(APP));
+      /complete: tap to see them/.test(APP) && /daily/.test(APP) && /weekly/.test(APP));
 check("CSS hides the body when collapsed",
       /\.ph-cs-strip\.is-collapsed \.ph-cs-body \{ display: none; \}/.test(CSS));
 
 // ── Source: opening the strip shows the week's REWARD ───────────────────────
 // The reward card shipped with an inline display:none and nothing in the whole
 // client ever cleared it, so every player who opened the strip saw three
-// challenges and no reward — no Tide Sweep, no XP, no progress bar. The only
+// challenges and no reward, no Tide Sweep, no XP, no progress bar. The only
 // reference to the element anywhere was its click handler.
 console.log("\nopening the strip shows what the week pays");
 
@@ -220,7 +220,7 @@ check("the placeholder count matches the 3 weeklies that exist",
 check("no stale '/ 5 Completed' left from the 5→3 change",
       !/\/ 5 Completed/.test(HTML));
 check("a swept week reads as earned, not pending", /is-done/.test(APP) && /\.ph-cs-reward\.is-done/.test(CSS));
-check("Perfect Week — the other reward — is stated too",
+check("Perfect Week, the other reward: is stated too",
       /id="ph-cs-reward-sub"/.test(HTML) && /Perfect Week: play all 7 days/.test(APP));
 check("the Perfect Week line is styled", /\.ph-cs-reward-sub \{/.test(CSS));
 // Same omission in the in-game panel: three jobs listed, no pay stated.
@@ -230,7 +230,7 @@ check("the in-game reward line is filled in on open",
 check("it is hidden with the rest when minimised",
       /#ig-challenge-panel\.igcp-minimized #igcp-reward/.test(CSS));
 // It sits OUTSIDE the scroll box, so it spends the same fixed budget the cards
-// do — the sideways-phone case loses a card if it is not paid for.
+// do, the sideways-phone case loses a card if it is not paid for.
 check("the tight-screen budget pays for the reward line",
       /#igcp-cards \{ max-height: max\(56px, calc\(var\(--igcp-room\) - 88px\)\)/.test(CSS));
 
@@ -244,7 +244,7 @@ check("its pill is the switch and looks pressable",
 check("its header markup names a real view", /id="igcp-title">(Daily|Weekly) Challenges</.test(HTML));
 // The footer has looked like a button since it shipped (pointer cursor, hover
 // colour) and is the only control guaranteed to be on screen when the panel is
-// taller than the room above the bottom UI — the header is what goes off the
+// taller than the room above the bottom UI, the header is what goes off the
 // top. It must actually do something.
 check("the footer closes the panel too", /footEl\.addEventListener\("click"/.test(APP));
 check("opening it can never leave an empty box", /igcp-empty/.test(APP) && /igcp-empty/.test(CSS));
@@ -269,7 +269,7 @@ const CHROME = [
 ].find(p => fs.existsSync(p));
 
 if (!CHROME) {
-  console.log("\nSKIP: no Chrome/Chromium found — skipping the render half.");
+  console.log("\nSKIP: no Chrome/Chromium found: skipping the render half.");
 } else {
   console.log("\nrendered, closed then open");
 
@@ -311,7 +311,7 @@ if (!CHROME) {
     stripH: Math.round(strip.getBoundingClientRect().height),
     cardsSeen: [...cards.querySelectorAll(".ph-cs-card")]
       .filter(c => c.getBoundingClientRect().height > 20).length,
-    // The reward is the point of doing the challenges — measure it like a card.
+    // The reward is the point of doing the challenges: measure it like a card.
     rewardSeen: onScreen(rew),
     rewardH: Math.round(rew.getBoundingClientRect().height),
     rewardSubSeen: onScreen(rsub),
@@ -366,7 +366,7 @@ if (!CHROME) {
   // in the header now. That puts a button INSIDE the element that opens and
   // closes the strip, which is exactly the arrangement that breaks: a click
   // that reaches the header as well as the calendar swaps the set and then
-  // slams the strip shut on it. Source regexes cannot see that — only a real
+  // slams the strip shut on it. Source regexes cannot see that, only a real
   // click at a real pixel can, so this runs the app's OWN handler source
   // (_csSwapView + _wireChallengeStrip, lifted verbatim) over the real markup
   // under the real CSS, and clicks whatever is painted on top.
@@ -400,7 +400,7 @@ if (!CHROME) {
     let _csOpen = false, _csView = "daily", _csWired = false;
     let renders = 0;
     // Stands in for renderChallengeStrip: it does the two things the click
-    // handlers depend on — paint the collapsed class and fill the cards.
+    // handlers depend on: paint the collapsed class and fill the cards.
     function renderChallengeStrip() {
       renders++;
       const strip = $a("ph-cs-strip"), cards = $a("ph-cs-cards");
@@ -477,7 +477,7 @@ if (!CHROME) {
   const sw = JSON.parse((sm ? sm[1] : "{}").replace(/&quot;/g, '"').replace(/&amp;/g, "&")
                         .replace(/&lt;/g, "<").replace(/&gt;/g, ">"));
 
-  check("the handlers ran at all" + (sw.err ? " — " + sw.err : ""), !sw.err);
+  check("the handlers ran at all" + (sw.err ? ": " + sw.err : ""), !sw.err);
   check("no tab row is rendered", sw.tabRowGone === true);
   check("it starts closed, on Daily",
         sw.start && sw.start.collapsed === true && sw.start.view === "daily");
@@ -506,7 +506,7 @@ if (!CHROME) {
   // player on anything narrower opened the strip onto three 26px slivers.
   // The responsive rules were written when the header, the cards and the
   // reward were all children of .ph-cs-strip (which wraps); the cards and the
-  // reward later moved into .ph-cs-body — a flex row that did NOT wrap — so
+  // reward later moved into .ph-cs-body, a flex row that did NOT wrap, so
   // "cards 100%, reward 100%" shared one line, and the reward (flex-shrink 0)
   // kept all of it. Reading a challenge needs REAL WIDTH, so measure it.
   console.log("\nthe open strip, at every screen width");
@@ -540,7 +540,7 @@ if (!CHROME) {
   // A phone held SIDEWAYS is the tight case: the game lays out at ~1266x498
   // and the measured bottom stack (action bar + hand zone) is 274px, so there
   // are 224px of room above it. The old rule reserved 120px of that for the
-  // banner and gave #igcp-cards `100vh - bottom - 190px` = 34px — a sliver of
+  // banner and gave #igcp-cards `100vh - bottom - 190px` = 34px, a sliver of
   // one row, which is what "click Weekly Challenges and none of them pop up"
   // actually looked like. Same markup, same CSS, real pixels.
   console.log("\nthe in-game panel, opened on a phone held sideways");

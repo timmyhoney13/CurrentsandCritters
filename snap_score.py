@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Snap & Score — physical-game board scanning + scoring companion backend.
+"""Snap & Score: physical-game board scanning + scoring companion backend.
 
 Serves score.currentsandcritters.com (same Render service as the game; the
 subdomain is routed by Host header in multiplayer_server.py). Two flows:
 
   • Score My Board (guest): the photo is recognized ENTIRELY IN THE BROWSER
-    (snap-vision-core.js against the prebuilt snap-card-library.json — no
+    (snap-vision-core.js against the prebuilt snap-card-library.json, no
     vision API, no photo upload), then the OFFICIAL scoring engine
     (fish.final_points) computes the score. No account, no rewards, nothing
     stored.
@@ -15,7 +15,7 @@ subdomain is routed by Host header in multiplayer_server.py). Two flows:
     on-device) + confirmed, every joined player approves the standings, then a
     server-side Firestore transaction awards XP / achievements / avatars /
     history EXACTLY ONCE via a rewardLedger with deterministic doc ids. The
-    browser never writes rewards — every grant happens here with
+    browser never writes rewards, every grant happens here with
     firebase-admin. Instead of the photo, the client submits anti-cheat
     EVIDENCE (sha256 + dHash + a small review thumbnail) via
     /api/snap/session/photo.
@@ -113,7 +113,7 @@ def get_config() -> Dict[str, Any]:
                 for k, v in data.items():
                     if k in cfg:
                         cfg[k] = v
-    except Exception as exc:  # noqa: BLE001 — config fetch must never break scoring
+    except Exception as exc:  # noqa: BLE001: config fetch must never break scoring
         print(f"[snap] config fetch failed ({exc}); using defaults")
     _config_cache["cfg"] = cfg
     _config_cache["at"] = now
@@ -121,7 +121,7 @@ def get_config() -> Dict[str, Any]:
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# Card roster (from the real card database — single source of truth)
+# Card roster (from the real card database: single source of truth)
 # ════════════════════════════════════════════════════════════════════════════
 
 _CARD_DB: Optional[Dict[int, Any]] = None
@@ -203,7 +203,7 @@ class _UidAllocator:
     """Maps requested card uids to UNIQUE uids across one whole game.
 
     The client sends real card-db uids. A physical table can never hold the
-    same physical copy twice, but detection/edit mistakes can — and dict-keyed
+    same physical copy twice, but detection/edit mistakes can, and dict-keyed
     ocean slots require unique ocean uids anyway. Repeats are remapped to an
     unused same-name copy, or (when every real copy is used) to a minted clone
     (uid = serial*1000 + face, the same scheme the admin card minter uses, so
@@ -227,7 +227,7 @@ class _UidAllocator:
         if not _side_matches(base, side):
             self.warnings.append(
                 f"{player_name}: {base.name} is a {base.direction} card but was placed on "
-                f"the {side} side — kept, but double-check the photo"
+                f"the {side} side: kept, but double-check the photo"
             )
         if uid not in self.used:
             self.used.add(uid)
@@ -246,7 +246,7 @@ class _UidAllocator:
         self.db[minted] = dataclass_replace(base, uid=minted)
         self.used.add(minted)
         self.warnings.append(
-            f"{player_name}: more copies of {base.name} than exist in one deck — "
+            f"{player_name}: more copies of {base.name} than exist in one deck: "
             f"extra copy counted, but check for a double-scan"
         )
         return minted
@@ -329,10 +329,10 @@ def _boards_without(boards, player_idx, ocean_u, card_u=None):
 
 
 def score_boards(raw_boards: List[Dict[str, Any]], with_breakdown: bool = True) -> Dict[str, Any]:
-    """Score a full table with the official engine. Pure — no side effects.
+    """Score a full table with the official engine. Pure, no side effects.
 
     Returns per-player: score, detected strategy, and a per-card breakdown
-    (marginal points: how much the total drops if that card is removed —
+    (marginal points: how much the total drops if that card is removed:
     honest about synergies, which is why marginals may not sum to the total).
     """
     boards, game_db, warnings = normalize_boards(raw_boards)
@@ -435,7 +435,7 @@ def _board_facts(board: Dict[str, Any], game_db: Dict[int, Any]) -> Dict[str, An
 # ════════════════════════════════════════════════════════════════════════════
 # Mirrors the online client's ACHIEVEMENT_DEFS conditions exactly (ids + XP
 # from preview-app.js). Anything that needs turn-by-turn history (draw source,
-# star usage, per-turn plays, chat, timing) is deliberately NOT here — those
+# star usage, per-turn plays, chat, timing) is deliberately NOT here, those
 # stay online-only, as the spec requires.
 
 def _ach_defs() -> List[Dict[str, Any]]:
@@ -511,7 +511,7 @@ def _rank_for(all_scores: List[int], my_score: int) -> int:
 def compute_rewards(session: Dict[str, Any]) -> Dict[str, Any]:
     """Standings + per-seat verified rewards from the CONFIRMED boards.
 
-    Pure calculation — used both for the pre-approval preview and (recomputed
+    Pure calculation: used both for the pre-approval preview and (recomputed
     from scratch, never trusted from the preview) inside finalization.
     """
     seats = [s for s in session["seats"] if s.get("confirmedBoard")]
@@ -563,8 +563,8 @@ def _safe_check(d, facts, ctx) -> bool:
 # Photo evidence (recognition itself happens in the player's browser)
 # ════════════════════════════════════════════════════════════════════════════
 # The client computes the same anti-cheat signals this module used to derive
-# from the uploaded photo — sha256 of the captured JPEG, a 64-bit dHash, and a
-# small review thumbnail — and submits ONLY those with the detected board.
+# from the uploaded photo: sha256 of the captured JPEG, a 64-bit dHash, and a
+# small review thumbnail, and submits ONLY those with the detected board.
 # Formats are validated strictly so garbage can't enter the hash registries.
 
 _EVIDENCE_SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -734,7 +734,7 @@ def join_session(code: str, uid: Optional[str], name: str) -> Dict[str, Any]:
 
 def add_offline_seat(session, name: str) -> Dict[str, Any]:
     """A physical player with no device: gets scored, cannot (and need not)
-    approve — the spec requires approval from every JOINED player only."""
+    approve, the spec requires approval from every JOINED player only."""
     if len(session["seats"]) >= session["playerCount"]:
         raise BoardError("the session is full")
     seat_no = len(session["seats"])
@@ -775,7 +775,7 @@ def _connected_seats(session):
 
 
 def session_view(session, my_seat: Optional[int]) -> Dict[str, Any]:
-    """Redacted view for polling — never leaks tokens or other uids."""
+    """Redacted view for polling, never leaks tokens or other uids."""
     seats = []
     for s in session["seats"]:
         seats.append({
@@ -948,7 +948,7 @@ def assess_risk(session, db) -> Dict[str, Any]:
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# Finalization — one Firestore transaction, rewards exactly once
+# Finalization, one Firestore transaction, rewards exactly once
 # ════════════════════════════════════════════════════════════════════════════
 
 def finalize_session(session) -> Dict[str, Any]:
@@ -974,7 +974,7 @@ def finalize_session(session) -> Dict[str, Any]:
     }
 
     if db is None:
-        results["note"] = ("Scores are final, but the account server is not configured — "
+        results["note"] = ("Scores are final, but the account server is not configured: "
                            "no XP or history could be saved.")
         return results
 
@@ -989,11 +989,11 @@ def finalize_session(session) -> Dict[str, Any]:
             results["note"] = ("This game could not be verified, so no rewards were "
                                "granted. Scores above are still calculated correctly.")
     except _AlreadyFinalized:
-        results["note"] = "This game was already submitted — rewards were not granted twice."
+        results["note"] = "This game was already submitted: rewards were not granted twice."
         results["historySaved"] = True
     except Exception as exc:  # noqa: BLE001
         traceback.print_exc()
-        results["note"] = f"Saving rewards failed ({exc}) — nothing was partially granted."
+        results["note"] = f"Saving rewards failed ({exc}), nothing was partially granted."
     return results
 
 
@@ -1044,7 +1044,7 @@ def _finalize_in_firestore(db, session, rewards, risk, grant_rewards: bool,
     game_id = session["gameId"]
     game_ref = db.collection("physicalGames").document(game_id)
 
-    # Board views for history entries (computed outside the txn — pure).
+    # Board views for history entries (computed outside the txn: pure).
     seats_confirmed = [s for s in session["seats"] if s.get("confirmedBoard")]
     raw_boards = [{"name": s["name"], "oceans": s["confirmedBoard"]["oceans"]} for s in seats_confirmed]
     boards_norm, game_db, _ = normalize_boards(raw_boards)
@@ -1147,7 +1147,7 @@ def _finalize_in_firestore(db, session, rewards, risk, grant_rewards: bool,
             new_avatars = [a for a in row["avatars"] if a["img"] not in owned_icons]
             xp_gain = row["xpGame"] + sum(a["xp"] for a in new_achievements)
 
-            # reward ledger — deterministic ids make double-grants impossible
+            # reward ledger: deterministic ids make double-grants impossible
             ledger_rows = [("xp_game", f"placement_{row['placement']}", row["xpGame"], None)]
             ledger_rows += [("achievement", a["id"], a["xp"], a["id"]) for a in new_achievements]
             ledger_rows += [("avatar", a["id"], 0, a["id"]) for a in new_avatars]
@@ -1279,7 +1279,7 @@ def handle_get(handler, parsed) -> bool:
         return False
     try:
         if path == "/api/snap/config":
-            # recognition now runs locally in the browser — always available
+            # recognition now runs locally in the browser, always available
             handler._send_json({"ok": True, "visionEnabled": True,
                                 "visionReason": "local", "localVision": True,
                                 "rosterVersion": build_roster()["version"]})
@@ -1312,7 +1312,7 @@ def handle_get(handler, parsed) -> bool:
         return True
 
 
-def handle_post(handler, parsed) -> bool:  # noqa: C901 — one dispatcher, kept flat on purpose
+def handle_post(handler, parsed) -> bool:  # noqa: C901, one dispatcher, kept flat on purpose
     path = parsed.path
     if not path.startswith("/api/snap/"):
         return False
@@ -1355,14 +1355,14 @@ def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
         handler._send_json({"ok": True, **score_boards(boards)})
         return
 
-    # ── legacy photo-upload detection (removed — recognition is on-device) ──
+    # ── legacy photo-upload detection (removed: recognition is on-device) ──
     if path == "/api/snap/detect":
-        raise BoardError("card scanning now runs right on your device — refresh "
+        raise BoardError("card scanning now runs right on your device: refresh "
                          "this page to get the update, then take the photo again")
 
     # ── session photo evidence (detection already happened in the browser) ──
     # Stores the anti-cheat signals + the locally detected board on a seat,
-    # exactly like the old photo-upload path did — minus the photo itself.
+    # exactly like the old photo-upload path did: minus the photo itself.
     if path == "/api/snap/session/photo":
         code = str(body.get("code") or "").upper()
         token = str(body.get("playerToken") or "")
@@ -1388,14 +1388,14 @@ def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
             warnings = [str(w)[:160] for w in (body.get("warnings") or [])
                         if isinstance(w, str)][:12]
             # a detected board that doesn't survive normalization is stored as
-            # empty (the player builds by hand) — evidence is never lost to a
+            # empty (the player builds by hand): evidence is never lost to a
             # malformed detection
             if oceans:
                 try:
                     score_boards([{"name": target["name"], "oceans": oceans}],
                                  with_breakdown=False)
                 except BoardError as exc:
-                    warnings = ([f"detected board couldn't be used ({exc}) — "
+                    warnings = ([f"detected board couldn't be used ({exc}): "
                                  "build it by hand"] + warnings)[:12]
                     oceans = []
             if evidence["hash"]:
@@ -1460,7 +1460,7 @@ def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
                 raise BoardError("no such seat")
             # Connected players (account OR guest with a device) always confirm
             # their own board; only device-less offline seats can be confirmed
-            # by someone else. The host gets no special power here — approval
+            # by someone else. The host gets no special power here: approval
             # and confirmation both belong to the seat's owner.
             if target["seat"] != me["seat"] and target.get("kind") != "offline":
                 raise BoardError("each player confirms their own board")

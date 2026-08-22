@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-/* The way into the game — the two screens you click before you have an account.
+/* The way into the game, the two screens you click before you have an account.
  *
  * The bug that prompted this file, reported from the live game: "when I click
  * play, sometimes it immediately prompts me to put in a username, acting like I
- * already clicked sign in as guest — which I did not."
+ * already clicked sign in as guest, which I did not."
  *
  * Nothing in the source explains it. Every handler is wired correctly, every
  * selector is valid, and #auth-guest-overlay is opened from exactly one place:
@@ -55,7 +55,7 @@ function check(name, cond, extra) {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-//  SOURCE — the guards have to be where they say they are
+//  SOURCE, the guards have to be where they say they are
 // ════════════════════════════════════════════════════════════════════════
 console.log("\nthe guards exist at all");
 {
@@ -77,7 +77,7 @@ console.log("\nthe guards exist at all");
 }
 
 // ════════════════════════════════════════════════════════════════════════
-//  DRIVE — the real screens, in a real browser
+//  DRIVE, the real screens, in a real browser
 // ════════════════════════════════════════════════════════════════════════
 const CHROME = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -87,7 +87,7 @@ const CHROME = [
 ].find((p) => fs.existsSync(p));
 
 if (!CHROME) {
-  console.log("\nSKIP: no Chrome/Chromium found — skipping the drive half.");
+  console.log("\nSKIP: no Chrome/Chromium found: skipping the drive half.");
 } else {
   const PORT = 9231 + (process.pid % 400);
   const SERVER_SRC = `
@@ -106,7 +106,7 @@ if (!CHROME) {
   `;
 
   // A click, delivered the way the browser delivers one: to whatever is on top
-  // at that pixel. That is the whole point — an element sitting over the page
+  // at that pixel. That is the whole point, an element sitting over the page
   // (the shield) and a `pointer-events:none` button (the unarmed chooser) are
   // both invisible to the eye but very visible to elementFromPoint, so this
   // models a real click far better than calling .click() on an element by id.
@@ -217,7 +217,7 @@ if (!CHROME) {
   try {
     // ── 1. The hazard the guard exists for ────────────────────────────────
     // If this ever stops being true the artwork has moved and the shield is
-    // guarding nothing — worth knowing, and worth reading this file again.
+    // guarding nothing: worth knowing, and worth reading this file again.
     console.log("\nthe two screens really do overlap (this is the hazard)");
     for (const [w, h] of SIZES) {
       const r = run("_gate_overlap.html", `

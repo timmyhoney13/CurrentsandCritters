@@ -1,4 +1,4 @@
-"""Currents and Critters — newsletter subscribers, campaigns and admin API.
+"""Currents and Critters: newsletter subscribers, campaigns and admin API.
 
 Wired additively into multiplayer_server, exactly like clan_server /
 prestige_server / analytics_server:
@@ -11,7 +11,7 @@ prestige_server / analytics_server:
 
 Nothing here changes an existing route, an existing collection, or the payment
 path. If this whole module were deleted the game, the store and the webhook
-would behave exactly as they did before — the Stripe hook is a try/except'd
+would behave exactly as they did before, the Stripe hook is a try/except'd
 side call that can only ever log.
 
 ────────────────────────────────────────────────────────────────────────────
@@ -29,9 +29,9 @@ IDEMPOTENCY, IN THREE LAYERS
 Stripe retries webhooks. Browsers double-click. Render restarts mid-campaign.
 Every one of those is handled by a DATABASE-level uniqueness key, not by a
 best-effort flag:
-  • newsletterWebhookEvents/{stripe_event_id}     — one Stripe event, once.
-  • newsletterSubscribers/{sha256(email)}         — one address, one record.
-  • …/campaigns/{cid}/recipients/{subscriber_id}  — one campaign, one delivery
+  • newsletterWebhookEvents/{stripe_event_id}, one Stripe event, once.
+  • newsletterSubscribers/{sha256(email)}, one address, one record.
+  • …/campaigns/{cid}/recipients/{subscriber_id}, one campaign, one delivery
                                                     per subscriber.
 Each is a Firestore DOCUMENT ID, so the uniqueness is enforced by the store
 itself inside a transaction, not by a read-then-write race in Python.
@@ -39,11 +39,11 @@ itself inside a transaction, not by a read-then-write race in Python.
 ────────────────────────────────────────────────────────────────────────────
 UNSUBSCRIBE TOKENS
 The link carries "<unsubId>.<mac>":
-  unsubId — 16 random urlsafe bytes stored on the subscriber. Opaque; it is
+  unsubId: 16 random urlsafe bytes stored on the subscriber. Opaque; it is
             NOT derived from the email or a row number, so a link cannot be
             guessed from an address and possessing one tells you nothing
             about any other subscriber.
-  mac     — HMAC-SHA256(NEWSLETTER_UNSUBSCRIBE_SECRET, unsubId:tokenVersion),
+  mac: HMAC-SHA256(NEWSLETTER_UNSUBSCRIBE_SECRET, unsubId:tokenVersion),
             truncated and base64url'd, compared in constant time.
 The MAC is never stored, so a database leak yields no working links, and
 bumping tokenVersion (which reactivation does) invalidates every old link at
@@ -125,11 +125,11 @@ MAX_SUBSCRIBER_SCAN = 20_000
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  THE STRIPE NEWSLETTER FIELD — A LABEL IS A BEHAVIOUR KEY
+#  THE STRIPE NEWSLETTER FIELD, A LABEL IS A BEHAVIOUR KEY
 # ═══════════════════════════════════════════════════════════════════════════
 # Stripe echoes a Payment Link's custom questions back on the session as
 # custom_fields[].label.custom, verbatim. We find the newsletter answer by
-# matching that label — so the strings below are not display text, they are
+# matching that label, so the strings below are not display text, they are
 # lookup keys, and if they stop matching what the Payment Link actually asks,
 # the lookup silently returns "" and NOBODY EVER GETS SUBSCRIBED with no error
 # anywhere. (multiplayer_server learned this the hard way with the username
@@ -169,7 +169,7 @@ def _label_is_newsletter_field(label: str) -> bool:
 
     Exact (case/space-insensitive) match against the accepted list first. The
     heuristic fallback then accepts a label that asks for an EMAIL *and*
-    mentions updates/newsletter/mailing — e.g. a future reword like "Your email
+    mentions updates/newsletter/mailing: e.g. a future reword like "Your email
     for game updates". It deliberately cannot match a plain "Email" or
     "Billing email": consent has to be legible in the question itself, so a
     label that does not say what the address is for never counts as opting in.
@@ -189,7 +189,7 @@ def extract_newsletter_email(custom_fields: Any) -> Tuple[str, List[str]]:
     """(normalised email or "", every label seen on the session).
 
     The labels come back so the caller can record what Stripe actually asked
-    when no field matched — the diagnostic that makes a label drift visible.
+    when no field matched, the diagnostic that makes a label drift visible.
     """
     seen: List[str] = []
     found = ""
@@ -266,7 +266,7 @@ def _db():
 def _subscriber_id(email_lower: str) -> str:
     """Document id = SHA-256 of the normalised address.
 
-    This IS the "unique constraint on normalized subscriber email" — Firestore
+    This IS the "unique constraint on normalized subscriber email": Firestore
     has no UNIQUE index, but a document id is unique by definition, so deriving
     it from the address makes a duplicate structurally impossible rather than
     merely unlikely. Hashing (instead of using the raw address as the id)
@@ -293,7 +293,7 @@ def _mac(unsub_id: str, version: int, purpose: str = "") -> str:
     """Keyed signature over (purpose, id, version).
 
     `purpose` is what stops a confirmation link doubling as an unsubscribe link
-    and vice versa — two tokens over the same id would otherwise be identical
+    and vice versa, two tokens over the same id would otherwise be identical
     strings, and a subscriber could be unsubscribed by the link that was meant
     to sign them up. The unsubscribe purpose is deliberately the EMPTY string
     so tokens already sitting in inboxes keep verifying.
@@ -339,7 +339,7 @@ def unsubscribe_url(sub: Dict[str, Any]) -> str:
 
 def one_click_url(sub: Dict[str, Any]) -> str:
     """The RFC 8058 POST target Gmail/Outlook hit when the reader uses the mail
-    client's own Unsubscribe button. Same token, same route — the route accepts
+    client's own Unsubscribe button. Same token, same route, the route accepts
     POST as well as GET."""
     return unsubscribe_url(sub)
 
@@ -391,7 +391,7 @@ def audit(action: str, *, admin: str = "", subscriber_id: str = "", campaign_id:
             "summary": str(summary or "")[:400],
             "correlationId": str(correlation_id or "")[:32],
         })
-    except Exception as exc:  # noqa: BLE001 — an audit write must never break the action
+    except Exception as exc:  # noqa: BLE001, an audit write must never break the action
         print("[newsletter] audit write failed (%s): %s" % (action, exc))
 
 
@@ -401,7 +401,7 @@ def audit(action: str, *, admin: str = "", subscriber_id: str = "", campaign_id:
 # In-process fixed-window counters keyed by (bucket, client). Enough to stop
 # credential stuffing on the admin routes and token-guessing on unsubscribe;
 # it is not a distributed limiter and does not pretend to be (this service
-# runs as a single instance — it has a mounted disk).
+# runs as a single instance, it has a mounted disk).
 _RL_LOCK = threading.Lock()
 _RL: Dict[str, Tuple[int, int]] = {}
 _RL_RULES: Dict[str, Tuple[int, int]] = {
@@ -412,7 +412,7 @@ _RL_RULES: Dict[str, Tuple[int, int]] = {
     "export":      (10, 600),
     "campaign":    (12, 600),    # campaign start / approve
     "signup":      (120, 300),   # the Stripe hook path
-    "public_signup": (8, 600),   # the website form — 8 per IP per 10 min
+    "public_signup": (8, 600),   # the website form: 8 per IP per 10 min
 }
 
 
@@ -457,7 +457,7 @@ def _admin_claims(body: Dict[str, Any], handler=None) -> Optional[dict]:
 
     Three gates, all required:
       1. the Firebase ID token verifies server-side (proves the caller holds a
-         live Google session for that account — a uid or email in the body is
+         live Google session for that account, a uid or email in the body is
          never looked at),
       2. the token's email is VERIFIED by the identity provider,
       3. that email equals ADMIN_EMAIL exactly.
@@ -504,7 +504,7 @@ def _blank_subscriber(email_lower: str, source: str,
         # yet and must not sit in the welcome queue pretending otherwise. Left
         # as "pending" it would be re-read by the worker every 20 seconds
         # forever, the dashboard would report a welcome email that is pending
-        # and never sends, and — because the queue is read a page at a time —
+        # and never sends, and, because the queue is read a page at a time,
         # a pile of unconfirmed signups would starve the welcomes that ARE
         # due. Confirming flips this to WELCOME_PENDING.
         "welcomeEmailStatus": (WELCOME_PENDING if status == STATUS_ACTIVE
@@ -545,7 +545,7 @@ def _subscribe(
 
     `event_doc_id`, when given, is a Stripe event id: the transaction also
     creates newsletterWebhookEvents/{id} and ABORTS if it already exists. That
-    is what makes a Stripe retry a no-op — the guard and the write commit or
+    is what makes a Stripe retry a no-op, the guard and the write commit or
     fail together, so there is no window where the subscriber is created but
     the event is not yet marked processed.
     """
@@ -564,7 +564,7 @@ def _subscribe(
 
     @transactional
     def _apply(t) -> Dict[str, Any]:
-        # Reads first — Firestore requires every read before any write.
+        # Reads first: Firestore requires every read before any write.
         snap = sub_ref.get(transaction=t)
         ev_snap = ev_ref.get(transaction=t) if ev_ref is not None else None
         if ev_snap is not None and ev_snap.exists:
@@ -584,7 +584,7 @@ def _subscribe(
             out = doc
             send_welcome = (status == STATUS_ACTIVE)
         elif existing.get("status") == STATUS_PENDING and status == STATUS_PENDING:
-            # They asked again before confirming. Same record, same token —
+            # They asked again before confirming. Same record, same token:
             # re-sending the confirmation is the caller's job.
             result, send_welcome, out = "already_pending", False, existing
         elif existing.get("status") == STATUS_ACTIVE:
@@ -596,7 +596,7 @@ def _subscribe(
             # reactivate the SAME record (history preserved), rotate the token
             # so any old unsubscribe link in an old inbox stops working, and
             # send the welcome again because this is a fresh, deliberate
-            # decision — not a duplicate of the original signup.
+            # decision, not a duplicate of the original signup.
             upd = {
                 "status": STATUS_ACTIVE,
                 "resubscribedAt": now,
@@ -677,7 +677,7 @@ def _unsubscribe_by_id(sub_id: str, *, actor: str, reason: str) -> Dict[str, Any
 # index for every (status, sort-field) pair, which is a manual console step per
 # combination and a 500 the first time one is missed. At newsletter scale
 # (thousands, not millions) one cached scan is both faster and impossible to
-# misconfigure. MAX_SUBSCRIBER_SCAN is the honest ceiling — past it the list is
+# misconfigure. MAX_SUBSCRIBER_SCAN is the honest ceiling: past it the list is
 # truncated and the UI says so rather than quietly showing a subset.
 _SUBS_CACHE: Dict[str, Any] = {"at": 0.0, "rows": [], "truncated": False}
 _SUBS_TTL = 15.0
@@ -721,7 +721,7 @@ def _public_subscriber(d: Dict[str, Any]) -> Dict[str, Any]:
     """What the admin UI is allowed to see about a subscriber.
 
     Note what is absent: unsubId and tokenVersion. The admin page never needs
-    a working unsubscribe token, so it is never sent one — that keeps the
+    a working unsubscribe token, so it is never sent one, that keeps the
     token out of the browser, out of the network tab, and out of any screenshot
     or CSV that leaves the machine.
     """
@@ -746,7 +746,7 @@ def counts() -> Dict[str, int]:
     rows, _ = _all_subscribers()
     active = sum(1 for r in rows if r.get("status") == STATUS_ACTIVE)
     pending = sum(1 for r in rows if r.get("status") == STATUS_PENDING)
-    # Unsubscribed is what is LEFT, not "everything that is not active" —
+    # Unsubscribed is what is LEFT, not "everything that is not active":
     # pending sits in neither bucket and must not inflate either.
     return {"active": active, "pending": pending,
             "unsubscribed": len(rows) - active - pending, "total": len(rows)}
@@ -756,6 +756,18 @@ def counts() -> Dict[str, int]:
 #  WELCOME + OWNER NOTIFICATION DELIVERY
 # ═══════════════════════════════════════════════════════════════════════════
 _welcome_q: "queue.Queue[str]" = queue.Queue()
+
+# The confirmation email for a website signup. Queued, never sent inside the
+# request: handing a message to Gmail is a TCP connect, a login and a round
+# trip to Google, and doing that before answering the browser is why the form
+# sat on "Signing you up…" for seconds after somebody typed their address.
+# Nothing about the answer depends on the send, the reply is deliberately
+# identical whether the address is new, already pending or already a
+# subscriber, so the browser gets it now and the worker does the work.
+# The whole subscriber dict is queued rather than its id, because the record
+# was just read inside the transaction and re-reading it would be a second
+# Firestore round trip to learn what we already know.
+_confirm_q: "queue.Queue[Dict[str, Any]]" = queue.Queue()
 
 
 def _claim_welcome(sub_id: str) -> Optional[Dict[str, Any]]:
@@ -903,6 +915,34 @@ def _send_confirmation(sub: Dict[str, Any]) -> None:
         print("[newsletter] confirmation send failed: %s" % exc)
 
 
+def _queue_confirmation(sub: Dict[str, Any]) -> None:
+    """Hand one confirmation email to the worker and return immediately.
+
+    Falls back to sending inline if the queue somehow refuses the item: a slow
+    signup is a nuisance, a signup whose confirmation link never arrives is a
+    person who never joins.
+    """
+    try:
+        _confirm_q.put_nowait(dict(sub))
+    except Exception:  # noqa: BLE001
+        _send_confirmation(sub)
+        return
+    _wake_worker()
+
+
+def _drain_confirmations(limit: int = 25) -> int:
+    """Send every confirmation waiting in the queue. Returns how many went out."""
+    done = 0
+    while done < limit:
+        try:
+            sub = _confirm_q.get_nowait()
+        except queue.Empty:
+            break
+        done += 1
+        _send_confirmation(sub)
+    return done
+
+
 def _queue_welcome(sub_id: str) -> None:
     try:
         _welcome_q.put_nowait(sub_id)
@@ -916,7 +956,7 @@ def _queue_welcome(sub_id: str) -> None:
 def _record_seen_labels(labels: List[str], matched: bool) -> None:
     """Remember which custom-field labels Stripe actually sent.
 
-    Label TEXT only — never an answer, never an address. This exists so the
+    Label TEXT only, never an answer, never an address. This exists so the
     admin Settings tab can show "the last checkout asked: …", which is the
     difference between diagnosing a label mismatch in ten seconds and never
     noticing that signups silently stopped.
@@ -953,7 +993,7 @@ def handle_stripe_session(event: Dict[str, Any], session: Dict[str, Any]) -> str
         _record_seen_labels(labels, bool(email))
         if not email:
             # Blank field, or an invalid address, or a checkout with no such
-            # field. All three mean "no consent given" — not an error.
+            # field. All three mean "no consent given", not an error.
             return "no_signup"
 
         event_id = str(event.get("id") or "").strip()[:200]
@@ -998,7 +1038,7 @@ def resolve_unsub_token(token: str) -> Optional[Dict[str, Any]]:
 
     The MAC is checked with hmac.compare_digest, so a wrong token cannot be
     narrowed down by timing, and a token whose MAC does not match the CURRENT
-    tokenVersion is rejected — that is how reactivation retires old links.
+    tokenVersion is rejected, that is how reactivation retires old links.
     """
     uid, mac = _parse_token(token)
     if not uid or not mac:
@@ -1034,7 +1074,7 @@ def confirm_with_token(token: str) -> Dict[str, Any]:
     """Step 2: the person clicked the link in their inbox, which is the only
     proof we accept that they own the address.
 
-    Idempotent — clicking twice, or a mail client pre-fetching the link, must
+    Idempotent: clicking twice, or a mail client pre-fetching the link, must
     not error and must not re-send the welcome.
     """
     uid, mac = _parse_token(token)
@@ -1076,7 +1116,7 @@ def confirm_with_token(token: str) -> Dict[str, Any]:
             "confirmedAt": now,
             "updatedAt": now,
             # The welcome was parked at WELCOME_AWAITING while this record was
-            # unconfirmed. THIS is the moment it becomes due, so arm it here —
+            # unconfirmed. THIS is the moment it becomes due, so arm it here,
             # the worker only ever picks up WELCOME_PENDING.
             "welcomeEmailStatus": WELCOME_PENDING,
             "welcomeAttempts": 0,
@@ -1138,7 +1178,7 @@ def confirm_by_admin(sub_id: str, *, actor: str, reason: str) -> Dict[str, Any]:
     """Turn a pending signup into a subscriber WITHOUT the email click.
 
     The email click is the proof that somebody owns an address, and this
-    bypasses it — so it is deliberately narrow: pending records only, a typed
+    bypasses it, so it is deliberately narrow: pending records only, a typed
     reason is required, and the actor is written into the audit log and into
     the record's own consent note. It exists because a confirmation mail can
     land in spam or bounce off a mail server, and the alternative to a
@@ -1189,7 +1229,7 @@ def unsubscribe_with_token(token: str) -> Dict[str, Any]:
     """Apply an unsubscribe. Always safe to call twice.
 
     Returns {"ok": bool, "known": bool, "email": str}. `known` is False for a
-    bad/absent token — the CALLER still shows a success page in that case, so
+    bad/absent token, the CALLER still shows a success page in that case, so
     the page can never be used to test whether an address is on the list.
     """
     sub = resolve_unsub_token(token)
@@ -1541,6 +1581,11 @@ def _process_campaign_batch(cid: str) -> int:
 
     attempted = 0
     for sub_id in ids:
+        # A signup that lands mid-campaign jumps the bulk queue: the person is
+        # sitting in front of their inbox, and waiting out the rest of this
+        # batch would cost them the better part of a minute.
+        if not _confirm_q.empty():
+            _drain_confirmations()
         claim = _claim_recipient(cref, sub_id)
         if claim is None:
             continue
@@ -1663,7 +1708,7 @@ def _pending_welcome_ids(limit: int = 50) -> List[str]:
     The Firestore query can only ask one question (welcomeEmailStatus ==
     pending); asking it together with status == active would need a composite
     index, which is a manual console step this system deliberately does not
-    depend on. So the status test happens here, on documents already read —
+    depend on. So the status test happens here, on documents already read,
     and anything that can never send is parked on the spot rather than left to
     be re-read on the next pass, which is also what heals records written
     before welcomes were parked at signup.
@@ -1700,7 +1745,7 @@ def _worker_loop() -> None:
 
     Why a thread and not "send it in the request": a campaign to a few thousand
     people takes minutes, and an HTTP handler that runs for minutes is a
-    timeout, a browser retry, and — without the recipient documents — a second
+    timeout, a browser retry, and, without the recipient documents, a second
     copy for everyone. The browser's job is to say "go"; this loop does the
     work and the campaign state in Firestore is what survives a restart.
     """
@@ -1712,7 +1757,15 @@ def _worker_loop() -> None:
         try:
             did_work = False
 
-            # 1) Welcome emails queued by this process, then any stragglers
+            # 1) Confirmation emails, before anything else. Somebody typed
+            #    their address a moment ago and is watching an inbox for this
+            #    one, whereas a campaign batch is 25 messages that nobody is
+            #    waiting on: running those first would put a live signup
+            #    behind half a minute of bulk mail.
+            if _drain_confirmations() > 0:
+                did_work = True
+
+            # 2) Welcome emails queued by this process, then any stragglers
             #    left pending by an earlier one.
             drained = 0
             while drained < 25:
@@ -1728,14 +1781,14 @@ def _worker_loop() -> None:
                     did_work = True
                     _send_welcome_now(sub_id)
 
-            # 2) Campaigns.
+            # 3) Campaigns.
             for cid in _sending_campaign_ids():
                 if _process_campaign_batch(cid) > 0:
                     did_work = True
 
             if did_work:
                 _worker_wake.set()          # loop straight round for the next batch
-        except Exception as exc:  # noqa: BLE001 — the worker must never die
+        except Exception as exc:  # noqa: BLE001, the worker must never die
             print("[newsletter] worker error: %s" % exc)
             traceback.print_exc()
         _worker_wake.wait(timeout=_WORKER_IDLE_SEC)
@@ -1771,7 +1824,7 @@ def _csv_safe(value: Any) -> str:
 
 def build_csv(rows: List[Dict[str, Any]]) -> str:
     """Subscriber export. Carries no unsubscribe tokens, no OAuth tokens, no
-    Stripe ids and no credentials of any kind — only what the admin already
+    Stripe ids and no credentials of any kind, only what the admin already
     sees on screen."""
     buf = io.StringIO()
     w = csv.writer(buf, quoting=csv.QUOTE_ALL, lineterminator="\n")
@@ -1856,7 +1909,7 @@ def _admin_add(body: Dict[str, Any], admin: str) -> Dict[str, Any]:
 def _admin_test_send(body: Dict[str, Any], admin: str) -> Dict[str, Any]:
     """Send a preview to the admin address, and ONLY the admin address.
 
-    The recipient is not taken from the request at all — a test send that
+    The recipient is not taken from the request at all, a test send that
     accepts a destination is a spam relay wearing an admin login."""
     cid = str(body.get("id") or "").strip()[:64]
     camp = _get_campaign(cid) if cid else None
@@ -1900,8 +1953,8 @@ def _admin_dashboard() -> Dict[str, Any]:
     active = [r for r in pub if r["status"] == STATUS_ACTIVE]
     # Somebody who signed up on the website and has not clicked the link in
     # their inbox yet is PENDING, and is neither of the other two things.
-    # Counting them as unsubscribed — which "everything that is not active"
-    # quietly does — tells the admin that a person who has just joined has
+    # Counting them as unsubscribed, which "everything that is not active"
+    # quietly does: tells the admin that a person who has just joined has
     # opted out, which is the exact opposite of what happened.
     waiting = [r for r in pub if r["status"] == STATUS_PENDING]
     newest = max((r["subscribedAt"] for r in pub), default=0)
@@ -1953,7 +2006,7 @@ def _stripe_status() -> Dict[str, Any]:
     We can prove that this server holds a signing secret and report the last
     checkout whose custom-field labels we saw. We cannot prove the Stripe
     Dashboard is pointed at us or that the endpoint is enabled, so this never
-    claims "connected" — it reports observations and lets the page say what
+    claims "connected", it reports observations and lets the page say what
     they mean. Claiming a configuration that was never verified is exactly the
     kind of thing that hides a broken signup for a month.
     """
@@ -2046,7 +2099,7 @@ def _admin_campaign_progress(cid: str) -> Dict[str, Any]:
 
 
 def _admin_retry_failed(cid: str, admin: str) -> Dict[str, Any]:
-    """Put failed / interrupted recipients back in the queue — explicitly, on a
+    """Put failed / interrupted recipients back in the queue: explicitly, on a
     human's decision. Recipients already marked SENT are never touched, so a
     retry can never produce a second copy for someone who got the first."""
     db = _db()
@@ -2076,7 +2129,7 @@ def _admin_retry_failed(cid: str, admin: str) -> Dict[str, Any]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  HTTP — ADMIN API
+#  HTTP: ADMIN API
 # ═══════════════════════════════════════════════════════════════════════════
 def _deny(handler, status: int = 403) -> bool:
     handler._send_json({"ok": False, "error": "unauthorized"}, status=status)
@@ -2084,7 +2137,7 @@ def _deny(handler, status: int = 403) -> bool:
 
 
 def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
-    """POST /api/newsletter/... — every admin action, plus the JSON unsubscribe.
+    """POST /api/newsletter/... every admin action, plus the JSON unsubscribe.
 
     Returns True when this module handled the request.
     """
@@ -2124,7 +2177,7 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
         # different answer: the reply below is identical either way, so this
         # form cannot be used to test whether somebody is a subscriber.
         if result in ("created", "pending", "already_pending"):
-            _send_confirmation(sub)
+            _queue_confirmation(sub)
         handler._send_json({"ok": True, "message":
                             "Almost there! Check your email and click the confirmation "
                             "link to finish joining."})
@@ -2327,7 +2380,7 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
         if action == "test-send":
             if not _rate_ok("test_send", client):
                 handler._send_json({"ok": False, "error": "You have sent several tests in a "
-                                                          "row — give it a minute."}, status=429)
+                                                          "row: give it a minute."}, status=429)
                 return True
             handler._send_json(_admin_test_send(body, admin))
             return True
@@ -2393,7 +2446,7 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  HTTP — PUBLIC PAGES
+#  HTTP: PUBLIC PAGES
 # ═══════════════════════════════════════════════════════════════════════════
 def _unsub_page_path() -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -2406,12 +2459,12 @@ def _client_page(name: str) -> str:
 
 
 def handle_get(handler, parsed) -> bool:
-    """GET /newsletter/unsubscribe/<token> — the public confirmation page.
+    """GET /newsletter/unsubscribe/<token>, the public confirmation page.
 
     Serves the page for ANY token shape. It does not apply the unsubscribe on
     GET, because mail scanners and link-preview bots fetch every URL in an
     email and would otherwise unsubscribe people who never clicked. The page
-    posts back to apply it — and it auto-posts on load, so a human still sees
+    posts back to apply it, and it auto-posts on load, so a human still sees
     one click do the whole job.
     """
     path = parsed.path
@@ -2446,12 +2499,12 @@ def handle_get(handler, parsed) -> bool:
 
 
 def handle_one_click_post(handler, parsed) -> bool:
-    """POST /newsletter/unsubscribe/<token> — RFC 8058 one-click.
+    """POST /newsletter/unsubscribe/<token>: RFC 8058 one-click.
 
     Gmail and Outlook POST here from their own servers when the reader uses the
     mail client's native Unsubscribe button. The body is
     `List-Unsubscribe=One-Click` as form data, NOT JSON, which is why this is
-    dispatched before the JSON body reader in do_POST — reading it as JSON
+    dispatched before the JSON body reader in do_POST: reading it as JSON
     would consume the stream and fail.
     """
     path = parsed.path

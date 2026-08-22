@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-/* Tutorials — every step of every tour has to actually work.
+/* Tutorials, every step of every tour has to actually work.
  *
  * The bug that prompted this file: the Main Menu Tour's History step handed the
  * learner a "View a sample match" button and then refused to advance until they
- * had tapped all three opponents inside the match modal — with the tutorial
+ * had tapped all three opponents inside the match modal, with the tutorial
  * popup sitting over the very chips it told them to tap. Next stayed disabled,
  * so the only way out was Skip, which throws away the whole tutorial. "It
  * doesn't work and is confusing" is exactly right, and no source grep finds it:
@@ -11,11 +11,11 @@
  * broken.
  *
  * Two halves:
- *   • SOURCE — the invariants that keep a step honest. Chiefly: an interactive
+ *   • SOURCE, the invariants that keep a step honest. Chiefly: an interactive
  *     step must never be able to trap the player (there is a timer that
  *     un-disables Next), and every hard-coded CSS id a step points at has to
  *     exist in the real markup.
- *   • DRIVE — the REAL preview.html, real CSS, real preview-app.js in headless
+ *   • DRIVE, the REAL preview.html, real CSS, real preview-app.js in headless
  *     Chrome, walking the Main Menu and Competitive tours the way a player
  *     does: press Next when it is offered, otherwise click whatever the
  *     spotlight is on. Asserted for the two tours that need no game server, as
@@ -51,7 +51,7 @@ function check(name, cond) {
 console.log("\na step is done, not skipped");
 
 // A step used to un-disable its own Next after 15 seconds even when the thing
-// it asked for was sitting right there under the spotlight — so "close the card
+// it asked for was sitting right there under the spotlight, so "close the card
 // viewer" could be skipped, and then the viewer covered every step after it.
 // Now the countdown only runs while the target is NOT usable, which is the
 // genuine dead end (gated behind sign-in, never rendered, disabled).
@@ -94,7 +94,7 @@ check("...and going forward again re-locks it, so Back is not a way round a step
 console.log("\nsteps that cannot apply are skipped, not shown broken");
 
 // A guest is refused the Avatar Gallery outright (two separate guards in the
-// app), and the Friends card is hidden behind the guest gate — so the steps
+// app), and the Friends card is hidden behind the guest gate, so the steps
 // built on them are skipped rather than left to stall.
 check("the app really does refuse a guest the gallery (openAvatarGallery)",
       /Guests can't open the avatar collection[\s\S]{0,80}if \(!_authUser\)/.test(APP));
@@ -141,7 +141,7 @@ const stepIds = [...TUT.matchAll(/target: "#([a-zA-Z0-9_-]+)"/g)].map(m => m[1])
 check(`every step id was collected (${stepIds.length} of them)`, stepIds.length > 30);
 const missing = [...new Set(stepIds)].filter(id =>
   !HTML.includes(`id="${id}"`) && !APP.includes(`"${id}"`));
-check(`no step points at an id that does not exist${missing.length ? " — " + missing.join(", ") : ""}`,
+check(`no step points at an id that does not exist${missing.length ? ": " + missing.join(", ") : ""}`,
       missing.length === 0);
 
 // Playing a card is not drag-only: the action dropdown does the same job, and
@@ -152,7 +152,7 @@ check("card-play steps offer the dropdown as well as dragging",
 console.log("\nthe 'Click <which way> →' label points the right way");
 
 // Next doubles as a signpost while an interactive step waits for the real
-// click. It used to say "Click above" always — but the popup sits BELOW its
+// click. It used to say "Click above" always, but the popup sits BELOW its
 // target when there is room and ABOVE it when there is not, so on a laptop the
 // waiting-room "Start Game" step pointed the player at the empty air above a
 // button that was underneath the popup.
@@ -230,7 +230,7 @@ check("face_direction is really on a legal action", /String\(a\.face_direction\|
 console.log("\nthe tutorials say true things about the game");
 
 // Playing a card ends your turn. The B-Lob tour used to stop after every play
-// and tell the player to press End Turn — an instruction for a button that had
+// and tell the player to press End Turn, an instruction for a button that had
 // already done its job, three times in one tutorial.
 check("no B-Lob step tells the player to end a turn the game already ended",
       !/title: "End Your Turn"[^}]*badge: "Turn/.test(TUT) && (TUT.match(/title: "End Your Turn"/g) || []).length === 1);
@@ -240,7 +240,7 @@ check("...and it names the two cards that actually need it",
       /Loggerhead Sea Turtle<\/strong> and <strong>Hermit Crab/.test(TUT));
 {
   // Those two, and only those two, are what the server calls an open play
-  // window — the same line test_end_turn_callout_cards.py pins from the deck.
+  // window, the same line test_end_turn_callout_cards.py pins from the deck.
   const server = fs.readFileSync(path.join(ROOT, "multiplayer_server.py"), "utf8");
   check("...which is the same rule the server enforces",
         /is_open_play_window = bool\(fish\.has_multi_play_window\(player\)\)/.test(server));
@@ -270,13 +270,13 @@ console.log("\nno em dashes in anything the player reads");
   const re = /(?:text|title|badge|label|cta)\s*:\s*"((?:[^"\\]|\\.)*)"/g;
   let m;
   while ((m = re.exec(TUT))) if (/[—–]/.test(m[1])) bad.push(m[1].slice(0, 60));
-  check(`no step text uses an em or en dash${bad.length ? " — " + bad.join(" | ") : ""}`, bad.length === 0);
+  check(`no step text uses an em or en dash${bad.length ? ": " + bad.join(" | ") : ""}`, bad.length === 0);
 }
 
 console.log("\nthe tutorial room code looks like a room code");
 {
   // "TUT" + a base-36 timestamp, sliced to the 12-char maximum, was the first
-  // room code every learner ever saw — more than twice the length of a real one.
+  // room code every learner ever saw, more than twice the length of a real one.
   check("the tutorial no longer mints a 12-character code", !/\("TUT" \+ tutSuffix\)/.test(APP));
   check("it uses the house length instead", /rid = freshRoomCode\(5\);/.test(APP));
   const real = /let rid = Math\.random\(\)\.toString\(36\)\.slice\(2,(\d)\)\.toUpperCase\(\)/.exec(APP);
@@ -319,7 +319,7 @@ check("it sits beside the target when it fits neither below nor above",
 check("a step is re-positioned once async content lands", /coachSettle = setTimeout\(positionCoach/.test(TUT));
 
 // ════════════════════════════════════════════════════════════════════════
-//  DRIVE — the real app, in headless Chrome
+//  DRIVE, the real app, in headless Chrome
 // ════════════════════════════════════════════════════════════════════════
 const CHROME = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -329,10 +329,10 @@ const CHROME = [
 ].find(p => fs.existsSync(p));
 
 if (!CHROME) {
-  console.log("\nSKIP: no Chrome/Chromium found — skipping the drive half.");
+  console.log("\nSKIP: no Chrome/Chromium found: skipping the drive half.");
 } else {
   // The driver: pick a device, sign in as a guest, open the chooser, start a
-  // tour, then behave like a player — press Next when it is offered, otherwise
+  // tour, then behave like a player: press Next when it is offered, otherwise
   // click whatever the spotlight is sitting on. Records, for every step, the
   // things a player would notice: is anything highlighted, can I get past it,
   // is the popup covering the thing I am told to click, is it even on screen.
@@ -419,7 +419,7 @@ if (!CHROME) {
       if (guard === 8) {
         var hr = hole.getBoundingClientRect(), pop = q("#tut3-pop").getBoundingClientRect();
         var over = !(pop.right < hr.left || pop.left > hr.right || pop.bottom < hr.top || pop.top > hr.bottom);
-        // Which way IS the target, measured — so the "Click above →" label can
+        // Which way IS the target, measured, so the "Click above →" label can
         // be checked against reality rather than against the source.
         var side = "none";
         if (!hole.classList.contains("nohole")) {
@@ -453,7 +453,7 @@ if (!CHROME) {
         }
       }
       if (guard > 62) {
-        log.push({ stuck: countTxt + " — " + title });
+        log.push({ stuck: countTxt + ": " + title });
         nextBtn.disabled = false; click(nextBtn);    // force on, so the rest is still audited
       }
     } catch (e) { log.push({ err: String(e && e.message) }); }
@@ -462,7 +462,7 @@ if (!CHROME) {
 </script>`;
 
   // Serve the client directory: the app loads its scripts by absolute path.
-  // It has to be a SEPARATE process — execFileSync below blocks this one's event
+  // It has to be a SEPARATE process: execFileSync below blocks this one's event
   // loop, so a server running in here would never answer a single request.
   const PORT = 8931 + (process.pid % 500);
   const SERVER_SRC = `
@@ -481,8 +481,8 @@ if (!CHROME) {
   `;
 
   // Two profiles. Guest is what the app hands a signed-out player. "Signed in"
-  // has to be faked — the real gates read a module-scoped _authUser no test can
-  // set — so the harness serves a copy of the app with exactly those three
+  // has to be faked, the real gates read a module-scoped _authUser no test can
+  // set, so the harness serves a copy of the app with exactly those three
   // gates opened, and tells the tour it is signed in.
   function harnessApp() {
     let a = APP;
@@ -543,7 +543,7 @@ if (!CHROME) {
         const done  = rows.some(r => r.finished);
 
         check(`${tourName} ${who}: runs to the end`, done);
-        check(`${tourName} ${who}: no step traps the player${stuck.length ? " — " + stuck.join(" | ") : ""}`,
+        check(`${tourName} ${who}: no step traps the player${stuck.length ? ": " + stuck.join(" | ") : ""}`,
               stuck.length === 0);
         check(`${tourName} ${who}: every step was reached (${steps.length} steps)`, steps.length >= 12);
 
@@ -551,11 +551,11 @@ if (!CHROME) {
         // to the whole screen; a step that asks for a CLICK must have something
         // to click, or Next stays disabled and the player is stranded.
         const blind = steps.filter(s => s.nextDisabled && !s.hasTarget).map(s => s.title);
-        check(`${tourName} ${who}: nothing to click is never asked for${blind.length ? " — " + blind.join(", ") : ""}`,
+        check(`${tourName} ${who}: nothing to click is never asked for${blind.length ? ": " + blind.join(", ") : ""}`,
               blind.length === 0);
 
         const covered = steps.filter(s => s.nextDisabled && s.popCoversTarget).map(s => s.title);
-        check(`${tourName} ${who}: the popup never covers the thing you must click${covered.length ? " — " + covered.join(", ") : ""}`,
+        check(`${tourName} ${who}: the popup never covers the thing you must click${covered.length ? ": " + covered.join(", ") : ""}`,
               covered.length === 0);
 
         // "Click above →" over a target that is below the popup is a wrong
@@ -564,16 +564,16 @@ if (!CHROME) {
           const m = /^Click (above|below|left|right)/.exec(s.nextLabel || "");
           return m && s.targetSide !== "overlap" && s.targetSide !== "none" && m[1] !== s.targetSide;
         }).map(s => `${s.title}: says ${(/^Click (\w+)/.exec(s.nextLabel) || [])[1]}, target is ${s.targetSide}`);
-        check(`${tourName} ${who}: "Click <way>" always points at the target${misPointed.length ? " — " + misPointed.join(", ") : ""}`,
+        check(`${tourName} ${who}: "Click <way>" always points at the target${misPointed.length ? ": " + misPointed.join(", ") : ""}`,
               misPointed.length === 0);
 
         const off = steps.filter(s => s.popOffscreen).map(s => s.title);
-        check(`${tourName} ${who}: the popup is always fully on screen${off.length ? " — " + off.join(", ") : ""}`,
+        check(`${tourName} ${who}: the popup is always fully on screen${off.length ? ": " + off.join(", ") : ""}`,
               off.length === 0);
 
         // A spotlight thinner than a finger is not a spotlight.
         const slivers = steps.filter(s => s.hasTarget && (s.targetW < 24 || s.targetH < 10)).map(s => `${s.title} ${s.targetW}x${s.targetH}`);
-        check(`${tourName} ${who}: no spotlight is a sliver${slivers.length ? " — " + slivers.join(", ") : ""}`,
+        check(`${tourName} ${who}: no spotlight is a sliver${slivers.length ? ": " + slivers.join(", ") : ""}`,
               slivers.length === 0);
 
         if (tourKey === "menu") {
@@ -606,13 +606,13 @@ if (!CHROME) {
       if (!rows) { check(`${label} ${w}x${h}: the harness reached the tour`, false); continue; }
       const steps = rows.filter(r => r.step);
       const stuck = rows.filter(r => r.stuck).map(r => r.stuck);
-      check(`${label} (${w}x${h}): runs to the end with no step trapping the player${stuck.length ? " — " + stuck.join(" | ") : ""}`,
+      check(`${label} (${w}x${h}): runs to the end with no step trapping the player${stuck.length ? ": " + stuck.join(" | ") : ""}`,
             rows.some(r => r.finished) && stuck.length === 0);
       check(`${label} (${w}x${h}): the popup stays on screen`,
             steps.every(s => !s.popOffscreen));
       check(`${label} (${w}x${h}): the popup never covers a required click`,
             steps.every(s => !(s.nextDisabled && s.popCoversTarget)));
-      // The direction flips with the window size — this is the width the
+      // The direction flips with the window size, this is the width the
       // hard-coded "Click above →" got wrong.
       check(`${label} (${w}x${h}): "Click <way>" still points at the target`,
             steps.every(s => {

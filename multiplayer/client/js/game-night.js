@@ -1,4 +1,4 @@
-/* Currents and Critters — Game Night (one module, both hosts).
+/* Currents and Critters: Game Night (one module, both hosts).
  *
  * "Game Night is every Saturday, 7–9 PM CST. RSVP here. RSVP isn't required,
  * but it's recommended." That is the whole feature, and it has to be
@@ -15,7 +15,7 @@
  *
  * WHY THERE IS TIME-ZONE CODE IN HERE AT ALL
  * "7 PM CST" is not a time to anyone outside that zone, and "CST" drifts by an
- * hour twice a year — the zone people mean is America/Chicago, which is CST in
+ * hour twice a year, the zone people mean is America/Chicago, which is CST in
  * winter and CDT in summer. So the next occurrence is computed against the
  * real IANA zone and ALSO shown in the reader's own local time. Nothing here
  * hard-codes UTC-6.
@@ -41,7 +41,7 @@
 
   // ── Time zone maths ──────────────────────────────────────────────────────
   // The offset of ZONE at a given instant, in ms. Derived by formatting the
-  // instant in that zone and reading the wall clock back — the only way to get
+  // instant in that zone and reading the wall clock back, the only way to get
   // this right across DST without shipping a tz database.
   function zoneOffsetMs(date) {
     try {
@@ -60,7 +60,7 @@
   }
 
   // The instant at which a given ZONE wall-clock time occurs. Guess with the
-  // offset at the guess, then correct once — a single pass is enough because
+  // offset at the guess, then correct once, a single pass is enough because
   // the offset only ever moves by an hour and never twice inside one day.
   function instantFor(y, m, d, hour) {
     const guess = new Date(Date.UTC(y, m, d, hour, 0, 0) + 6 * 3600000);
@@ -70,7 +70,7 @@
     return off2 === off ? exact : new Date(Date.UTC(y, m, d, hour, 0, 0) - off2);
   }
 
-  // Today's date AS SEEN IN ZONE — not the viewer's date. A player in Sydney
+  // Today's date AS SEEN IN ZONE, not the viewer's date. A player in Sydney
   // is already on Sunday while Game Night is still running in Chicago.
   function zoneToday(now) {
     const parts = new Intl.DateTimeFormat("en-US", {
@@ -127,7 +127,7 @@
     const now = new Date();
     const { start, end, live } = nextSession(now);
     const local = localWindow(start, end);
-    // Only worth showing when the reader is NOT already on Chicago time —
+    // Only worth showing when the reader is NOT already on Chicago time,
     // otherwise it repeats the headline back at them, and in summer it does it
     // in a DIFFERENT abbreviation ("7-9 PM CST · that's 7-9 PM CDT for you"),
     // which reads like a contradiction.
@@ -135,7 +135,7 @@
     // Compared in whole MINUTES on purpose. zoneOffsetMs() is built from a
     // seconds-resolution wall clock minus a millisecond-resolution instant, so
     // it carries the current millisecond as noise and is essentially never
-    // exactly equal to a round minute offset — which made this test always true
+    // exactly equal to a round minute offset, which made this test always true
     // and showed the chip to Chicago readers too.
     const zoneMins = Math.round(zoneOffsetMs(now) / 60000);
     const readerMins = -new Date().getTimezoneOffset();
@@ -143,7 +143,7 @@
       ? `<span class="ccGN-local">that's ${esc(local)} for you</span>` : "";
 
     const when = live
-      ? `<span class="ccGN-live">● Live right now — until ${esc(
+      ? `<span class="ccGN-live">● Live right now, until ${esc(
           new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(end))}</span>`
       : `<span class="ccGN-count">Starts in ${esc(countdown(start - now))}</span>`;
 
@@ -158,7 +158,7 @@
           </div>
           <div class="ccGN-status">${when}</div>
           <div class="ccGN-note">
-            RSVP isn't mandatory — but it's recommended, so we know how many tables to set.
+            RSVP isn't mandatory, but it's recommended.
           </div>
         </div>
         <div class="ccGN-cta">
@@ -176,7 +176,7 @@
   //   • A page that declares <div id="cc-game-night"> gets it exactly there.
   //   • Player Home has no such div (preview.html is shared with a lot of
   //     other work), so the banner inserts ITSELF at the top of the Overview
-  //     panel — above the challenge strip, which is what "easy to see" means
+  //     panel: above the challenge strip, which is what "easy to see" means
   //     on that screen.
   function host() {
     let el = document.getElementById("cc-game-night");

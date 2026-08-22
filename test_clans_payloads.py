@@ -1,14 +1,14 @@
-"""Clan System — the seam between the REAL server and the REAL Clans tab.
+"""Clan System, the seam between the REAL server and the REAL Clans tab.
 
 test_clan_server.py proves clan_server.py's rules. test_clans_render.js proves
 clans-ui.js paints, but from payloads typed out BY HAND ("shapes copied from
-clan_server.py") — so the two halves could drift apart and both suites would
+clan_server.py"), so the two halves could drift apart and both suites would
 stay green while the live tab rendered blank.
 
 This one closes that seam: it builds a clan world by calling the real server
 actions against an in-memory Firestore, takes the payloads the server actually
 returns, and feeds those exact bytes to the real js/clans-ui.js in headless
-Chrome. Every screen must paint real content — and the empty world (no clans
+Chrome. Every screen must paint real content, and the empty world (no clans
 exist yet, which is what every player sees on launch day) must NOT be blank.
 
 The real Player-Home Clans nav buttons are in the page too (shield glyph and
@@ -165,7 +165,7 @@ class FakeDB:
         return FakeCollection(self.store, name)
 
     def get_all(self, refs):
-        """Batched multi-document read — the real client has this, and the whole
+        """Batched multi-document read, the real client has this, and the whole
         clan roster is fetched through it now, so the fake must too or the tests
         only ever cover the one-at-a-time fallback. Real Firestore returns the
         docs in arbitrary order; shuffling here keeps callers honest about that."""
@@ -309,7 +309,7 @@ check("/api/clan/rules lists all 51 challenges",
       len(_rules["weekly_challenges"]) + len(_rules["season_challenges"]) == 51)
 
 if not CHROME:
-    print("\nSKIP: no Chrome/Chromium — server payloads checked, render check skipped.")
+    print("\nSKIP: no Chrome/Chromium: server payloads checked, render check skipped.")
     print(f"\n{'=' * 46}\nRESULT: {_PASS} passed, {_FAIL} failed")
     sys.exit(1 if _FAIL else 0)
 
@@ -318,7 +318,7 @@ MOD = open(os.path.join(ROOT, "multiplayer/client/js/clans-ui.js"), encoding="ut
 
 # The two Clans nav buttons below are copied verbatim from preview.html (shield-
 # and-check glyph and all): the clan's critter has to replace that glyph, at the
-# glyph's own size, on every tab — not just while the Clans tab is open.
+# glyph's own size, on every tab, not just while the Clans tab is open.
 PAGE = """<!doctype html><html><head><meta charset="utf-8"><style>__CSS__</style></head><body>
 <div id="auth-stats-lobby" class="visible" data-bg-tab="clans">
   <div class="ph-sidebar"><div class="ph-sidebar-nav-card">
@@ -343,8 +343,8 @@ const RESPONSES = __PAYLOADS__;
 const HOME_CLANLESS = __CLANLESS__;
 window.__ccClans = {
   ENABLED: true, APP_BUILD: "test",
-  // The REAL bridge (preview-app's apiPost) hands back an ENVELOPE —
-  // { ok, status, data } — where data is the server JSON below. Feeding the
+  // The REAL bridge (preview-app's apiPost) hands back an ENVELOPE:
+  // { ok, status, data }, where data is the server JSON below. Feeding the
   // payload in bare is what let the blank-tab bug through every suite.
   get:  async (p) => ({ ok: true, status: 200, data: RESPONSES[p] || { ok: true } }),
   post: async (p, b) => ({ ok: true, status: 200, data: RESPONSES[p] || { ok: true } }),
@@ -510,11 +510,16 @@ check("rules: every weekly challenge is listed",
 check("rules: every season challenge is listed",
       all(c["name"] in _rt for c in CS.CLAN_SEASON_CHALLENGES),
       str([c["name"] for c in CS.CLAN_SEASON_CHALLENGES if c["name"] not in _rt]))
+# The payout numbers come from the constants, so retuning the economy changes
+# the rulebook and this check together instead of breaking it.
+_king = CS.COMP_RANK_SEASON_REWARDS["king"]
+_emerald = CS.COMP_RANK_SEASON_REWARDS["emerald"]
 check("rules: every competitive rank tier and its payout is listed",
       all(t in _rt for t in ["Bronze Barracuda", "Silver Spiny Lobster", "Golden Grouper",
                              "Diamond Dolphin", "Emerald Emperor Penguin",
                              "King of the Critters"])
-      and "200 Critter Coins" in _rt and "+50 Clan Points" in _rt)
+      and f"{_emerald['coins']} Critter Coins" in _rt
+      and f"+{_king['clan_points']} Clan Points" in _rt)
 
 # ── Challenges tab inside a clan: both ladders, with progress ───────────────
 _ct = S["challenges"]["text"]
@@ -535,7 +540,7 @@ check("noclan: the join/create call to action", "not in a clan" in S["noclan"]["
 check("create: the form", "clan name" in S["create"]["text"].lower())
 
 # The clan's critter on the Clans nav button, in place of the shield-and-check
-# glyph — the thing a player sees from every OTHER tab.
+# glyph, the thing a player sees from every OTHER tab.
 NAV = OUT.get("nav") or []
 check("nav: both Clans buttons found", len(NAV) == 2, str(NAV))
 check("nav: both wear the critter that won the vote",

@@ -5,7 +5,7 @@ Run:  python3 -m unittest test_competitive_mode -v
 
 Competitive is the odd one out: four seats, but only TWO physical players, each
 owning a fixed PAIR of hands (P1 = {0,1}, P2 = {2,3}) that the engine interleaves
-0 → 2 → 1 → 3. Almost every competitive bug has the same shape — code that treats
+0 → 2 → 1 → 3. Almost every competitive bug has the same shape: code that treats
 a seat as a player, so the player's OTHER hand is left behind:
 
   • the turn reaches your second hand and the client never follows it there;
@@ -146,12 +146,12 @@ class CompetitiveTurnOrder(unittest.TestCase):
             if not cls.seen or cls.seen[-1] != seat:
                 cls.seen.append(seat)
                 # Snapshot what all four tokens see at this exact turn boundary.
-                if len(cls.seen) == 2:  # seat 2 — P1 has just finished hand 1
+                if len(cls.seen) == 2:  # seat 2: P1 has just finished hand 1
                     cls.views_opp_turn = {
                         t: cls.room.state_view(cls.tokens[t], "localhost")
                         for t in (0, 1, 2, 3)
                     }
-                if len(cls.seen) == 3:  # seat 1 — P1's SECOND hand
+                if len(cls.seen) == 3:  # seat 1: P1's SECOND hand
                     cls.views = {
                         t: cls.room.state_view(cls.tokens[t], "localhost")
                         for t in (0, 1, 2, 3)
@@ -175,13 +175,13 @@ class CompetitiveTurnOrder(unittest.TestCase):
 
     def test_second_hand_gets_a_real_turn_of_its_own(self):
         """The turn is on P1's hand 2 (seat 1). EITHER of P1's tokens must return
-        that hand's view — its YOUR TURN, its legal actions, its cards.
+        that hand's view, its YOUR TURN, its legal actions, its cards.
 
         The client used to have to notice the turn had moved and re-poll with the
         other hand's token. That is a race, and losing it froze the match on hand
         1 while the banner said hand 2 was up. The switch happens here now, so a
-        client that polls with hand 1's token — or has only that token left after
-        a refresh — still gets hand 2 the moment it is hand 2's turn."""
+        client that polls with hand 1's token, or has only that token left after
+        a refresh, still gets hand 2 the moment it is hand 2's turn."""
         self.assertTrue(self.views, "never reached P1's second hand")
         versions = {v["version"] for v in self.views.values()}
         self.assertEqual(len(versions), 1,
@@ -198,7 +198,7 @@ class CompetitiveTurnOrder(unittest.TestCase):
             self.assertGreater(len(legal["actions"]), 0)
 
         # Whichever hand a payload is a view OF, it carries that hand's cards and
-        # nobody else's — an opponent's token can never pull a rival hand. P2 is
+        # nobody else's, an opponent's token can never pull a rival hand. P2 is
         # waiting here, so both of P2's tokens show P2's NEXT hand (seat 3).
         for t, shown in ((0, 1), (1, 1), (2, 3), (3, 3)):
             players = self.views[t]["state"]["players"]
@@ -224,7 +224,7 @@ class CompetitiveTurnOrder(unittest.TestCase):
 
     def test_my_view_moves_to_my_other_hand_as_soon_as_my_turn_ends(self):
         """P1 has just finished hand 1 and the opponent is playing. P1's screen
-        must ALREADY be on hand 2 — the hand they play next.
+        must ALREADY be on hand 2, the hand they play next.
 
         It used to sit on the hand they had just played until the opponent
         finished their turn, so the switch ran on the opponent's clock: you
@@ -250,7 +250,7 @@ class CompetitiveTurnOrder(unittest.TestCase):
 
     def test_the_hand_on_screen_is_never_the_opponents(self):
         """Every switch stays inside the viewer's own pair, at every moment
-        sampled — showing early must never hand anyone a rival's cards."""
+        sampled: showing early must never hand anyone a rival's cards."""
         for views in (self.views_opp_turn, self.views):
             for t in (0, 1):
                 self.assertIn(views[t]["viewer"]["seat_index"], (0, 1))
@@ -330,7 +330,7 @@ class CompetitiveSeatOwnership(unittest.TestCase):
 
     def test_one_token_is_enough_to_see_the_active_hand(self):
         """What a client has after a refresh: one seat token and no idea the
-        room is competitive. It must still be shown the hand whose turn it is —
+        room is competitive. It must still be shown the hand whose turn it is,
         here hand 2's token polling on hand 1's turn."""
         view = self.room.state_view(self.tokens[1], "localhost")
         self.assertEqual(view["viewer"]["seat_index"], 0)
@@ -340,7 +340,7 @@ class CompetitiveSeatOwnership(unittest.TestCase):
         self.assertGreater(len(next(p for p in players if p["index"] == 0)["hand"]), 0)
 
     def test_polling_either_hand_keeps_the_whole_player_present(self):
-        """One poll means the PERSON is here — a competitive forfeit must never
+        """One poll means the PERSON is here, a competitive forfeit must never
         fire because only one of their two hands did the polling."""
         for seat in self.room.seats:
             seat.last_seen = 0.0
@@ -352,7 +352,7 @@ class CompetitiveSeatOwnership(unittest.TestCase):
 
     def test_afk_votes_are_counted_per_player_not_per_hand(self):
         """Four seats, two people. Counting seats gave the opponent two of the
-        three ballots against you — a majority they hold alone, every turn — and
+        three ballots against you, a majority they hold alone, every turn, and
         listed your own other hand as a voter against you."""
         voters = self.room._afk_eligible_voter_indices_locked(0)
         self.assertEqual(voters, [2],
@@ -364,7 +364,7 @@ class CompetitiveSeatOwnership(unittest.TestCase):
                           "a player must not be able to AFK-vote themselves through hand 2")
 
     def test_either_of_the_opponents_hands_casts_the_one_vote(self):
-        """P2 voting with hand 2 (seat 3) still counts — the eligible list holds
+        """P2 voting with hand 2 (seat 3) still counts, the eligible list holds
         only seat 2, so the vote has to be matched by OWNER, not seat index."""
         self.room.submit_chat({"seat_token": self.tokens[3], "message": "Otter is afk"})
         self.assertEqual(self.room.afk_challenge_seat, 0,
@@ -449,7 +449,7 @@ class CompetitiveResultRecording(unittest.TestCase):
     """The saved match result must be scored by SEAT, never by display name.
 
     A player can rename a hand mid-match. The standings carry the names the
-    engine started with, so a name lookup silently scores the renamed hand 0 —
+    engine started with, so a name lookup silently scores the renamed hand 0,
     which can record the winner as the loser. Every row already carries its seat.
     """
 

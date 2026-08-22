@@ -5,7 +5,7 @@ Three jobs, in order of how much damage the bug would do:
  1. THE TABLES THAT MUST NOT DRIFT. AVATAR_UNLOCK_TYPES decides whether an
     avatar relocks on Prestige, and it mirrors ANIMAL_AVATARS in
     js/preview-app.js. If a new avatar is added to the client and not here, it
-    either survives a Prestige it should not, or — much worse — a bought /
+    either survives a Prestige it should not, or, much worse, a bought /
     donated / competitive-rank avatar gets taken away. Same idea for
     SKIN_ANIMALS vs the printed card lists.
 
@@ -122,7 +122,7 @@ class _FakeQuery:
 
 
 class FakeTxn:
-    """Applies writes immediately — good enough here because the fake runs the
+    """Applies writes immediately: good enough here because the fake runs the
     body exactly once and the real atomicity guarantee we care about (the
     ledger create() refusing a second run) is reproduced faithfully."""
     def __init__(self, db):
@@ -240,7 +240,7 @@ def good_body(db, uid="u1", **over):
     snap = db.collection("users").document(uid).get()
     st = ps._state_payload(uid, snap.to_dict())
     keep = st["avatars"]["eligible"][:st["keep_quota"]]
-    # First (animal, style) pair this account does not already own — a Prestige
+    # First (animal, style) pair this account does not already own, a Prestige
     # can never re-take a skin it already has.
     owned = {(s["animal"], s["style"]) for s in st["owned_skins"]}
     skin = None
@@ -273,7 +273,7 @@ class TestCatalogueMirrors(unittest.TestCase):
 
         This is the test that stops a bought avatar from being relocked. If it
         fails after adding an avatar to the client, add the same path here with
-        its unlock.type — do not delete the assertion.
+        its unlock.type: do not delete the assertion.
         """
         src = open(CLIENT_JS, encoding="utf-8").read()
         i = src.index("const ANIMAL_AVATARS = [")
@@ -342,10 +342,11 @@ class TestCatalogueMirrors(unittest.TestCase):
 #  2) THE REWARD MATH
 # ══════════════════════════════════════════════════════════════════════════
 class TestRewardMath(unittest.TestCase):
-    def test_every_prestige_pays_a_flat_1000_coins(self):
+    def test_every_prestige_pays_the_same_flat_amount(self):
         # Flat, not a ladder: the 40th Prestige pays exactly what the 1st did.
         for lvl in list(range(1, 11)) + [25, 40, 100, ps.MAX_PRESTIGE_LEVEL]:
-            self.assertEqual(ps.coin_reward_for(lvl), 1000, f"Prestige {lvl}")
+            self.assertEqual(ps.coin_reward_for(lvl), ps.PRESTIGE_COIN_BASE,
+                             f"Prestige {lvl}")
         self.assertEqual(ps.coin_reward_for(0), 0)
         self.assertEqual(ps.coin_reward_for(-3), 0)
 
@@ -359,7 +360,7 @@ class TestRewardMath(unittest.TestCase):
 
     def test_an_existing_reduction_survives_the_bonus(self):
         """An AI game is halved to 50 BEFORE the bonus. The reduction has to
-        still be there afterwards — 87, not 175/2 and not 175."""
+        still be there afterwards: 87, not 175/2 and not 175."""
         halved = 100 // 2
         out = ps.apply_xp_bonus(halved, 3)
         self.assertEqual(out["base"], 50)
@@ -446,7 +447,7 @@ class TestColourGuards(unittest.TestCase):
         # whole cube must not be comfortably clear of it, or the gate is fiction.
         self.assertLess(worst[1], ps.MIN_CONTRAST + 0.75,
                         f"MIN_CONTRAST is set far below what any colour can hit "
-                        f"(worst is {worst[0]} at {worst[1]:.2f}) — it can never fire")
+                        f"(worst is {worst[0]} at {worst[1]:.2f}), it can never fire")
 
     def test_the_floor_still_refuses_a_colour_that_cannot_reach_it(self):
         """Defensive: if the plates are ever retuned so some colour can't clear
@@ -528,13 +529,14 @@ class TestCommit(unittest.TestCase):
         res = ps._commit(self.db, "u1", good_body(self.db))
         self.assertTrue(res.get("ok"), res)
         self.assertEqual(res["prestige"], 1)
-        self.assertEqual(res["coins_awarded"], 1000)
+        self.assertEqual(res["coins_awarded"], ps.PRESTIGE_COIN_BASE)
 
         u = self.user()
         self.assertEqual(u["stats"]["total_xp"], 0)
         self.assertEqual(u["stats"]["level"], 1)
         self.assertEqual(u["stats"]["player_level"], 1)
-        self.assertEqual(u["stats"]["critter_coins"], 2000)   # 1000 + 1000
+        self.assertEqual(u["stats"]["critter_coins"],
+                         1000 + ps.PRESTIGE_COIN_BASE)   # starting 1000 + the payout
         self.assertEqual(u["prestige"]["level"], 1)
         self.assertAlmostEqual(u["prestige"]["xp_multiplier"], 1.25)
         self.assertEqual(u["prestige"]["store_bonus_pct"], 5)
@@ -765,14 +767,15 @@ class TestCommit(unittest.TestCase):
         self.assertTrue(second["ok"])
         self.assertTrue(second.get("replayed"))
         self.assertEqual(second["coins_awarded"], first["coins_awarded"])
-        # Paid exactly once.
-        self.assertEqual(self.user()["stats"]["critter_coins"], 2000)
+        # Paid exactly once: the starting 1000 plus ONE payout, not two.
+        self.assertEqual(self.user()["stats"]["critter_coins"],
+                         1000 + ps.PRESTIGE_COIN_BASE)
         self.assertEqual(self.user()["prestige"]["level"], 1)
         self.assertEqual(len(self.user()["prestige"]["history"]), 1)
 
     def test_a_fresh_key_at_the_same_prestige_number_is_refused(self):
         """A determined caller who rotates the idempotency key still cannot
-        claim Prestige 1 twice — the per-run ledger doc is the real guard."""
+        claim Prestige 1 twice, the per-run ledger doc is the real guard."""
         ps._commit(self.db, "u1", good_body(self.db))
         # Put them back at the cap but do NOT let the prestige level move.
         self.db.collection("users").document("u1").set(
@@ -800,10 +803,10 @@ class TestCommit(unittest.TestCase):
             xp_multiplier=50.0, store_bonus_pct=100,
             prestige=42, level=1, new_level=42))
         self.assertTrue(res.get("ok"), res)
-        self.assertEqual(res["coins_awarded"], 1000)
+        self.assertEqual(res["coins_awarded"], ps.PRESTIGE_COIN_BASE)
         self.assertEqual(res["prestige"], 1)
         u = self.user()
-        self.assertEqual(u["stats"]["critter_coins"], 2000)
+        self.assertEqual(u["stats"]["critter_coins"], 1000 + ps.PRESTIGE_COIN_BASE)
         self.assertAlmostEqual(u["prestige"]["xp_multiplier"], 1.25)
         self.assertEqual(u["prestige"]["store_bonus_pct"], 5)
 
@@ -837,7 +840,7 @@ class TestStatePayload(unittest.TestCase):
         self.assertEqual(st["level"], MAX_LEVEL)
         self.assertEqual(st["xp_to_max"], 0)
         self.assertEqual(st["next"]["prestige"], 1)
-        self.assertEqual(st["next"]["coins"], 1000)
+        self.assertEqual(st["next"]["coins"], ps.PRESTIGE_COIN_BASE)
 
     def test_below_the_cap_reports_the_remaining_xp(self):
         make_account(self.db, "u1", total_xp=CAP_XP - 2500)

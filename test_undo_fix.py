@@ -4,7 +4,7 @@ Drives the REAL GameRoom.submit_undo and GameRoom._apply_pending_undo_restore
 methods (bound to a lightweight stub) to prove:
 
   A. Undo during a BOT turn (active_action_seat is None) now ARMS the flag
-     instead of failing with "no active player" — this is the reported bug.
+     instead of failing with "no active player", this is the reported bug.
   B. The AI/human policy honoring the flag restores the pre-turn snapshot
      EXACTLY (cards put back, deck put back) and signals Action(kind='undo').
   C. The existing human-next routing (undo_confirm queue) still works.
@@ -58,7 +58,7 @@ def make_stub(seats, *, active, eligible=0, valid=True, snapshot=True, phase="ru
 
 
 def live_gs_ms():
-    """Current (post-play) state: 2 cards in hand, 3 fewer in deck — what the
+    """Current (post-play) state: 2 cards in hand, 3 fewer in deck, what the
     player is looking at after drawing/playing this turn."""
     gs = types.SimpleNamespace(hand=["A", "B"], deck=[1, 2], turn_index=0, played=["C", "D"])
     ms = types.SimpleNamespace(pool=[9, 8, 7, 6, 5])
@@ -71,7 +71,7 @@ def test_A_bot_turn_arms_flag():
     out = stub.submit_undo({"seat_token": "tok0"})
     assert out == {"ok": True}, out
     assert stub.undo_requested is True
-    # Must NOT have been (mis)routed into any queue — the AI picks it up via flag.
+    # Must NOT have been (mis)routed into any queue, the AI picks it up via flag.
     assert stub.pending_actions == {}, stub.pending_actions
     print("A PASS: undo during bot turn arms the flag (no 'no active player' error)")
 
@@ -177,7 +177,7 @@ def test_H_wait_times_out_when_nothing_armed():
 
 def test_I_no_sentinel_without_snapshot():
     """undo_requested set but no snapshot (an impossible-but-defensive state) must
-    NOT yield the sentinel — we never wake a player for an undo we cannot apply."""
+    NOT yield the sentinel, we never wake a player for an undo we cannot apply."""
     seats = [Seat(0, "human", "P1", token="tok0"), Seat(1, "human", "P2", token="tok1")]
     stub = make_stub(seats, active=None, eligible=0, snapshot=False)
     stub.undo_requested = True

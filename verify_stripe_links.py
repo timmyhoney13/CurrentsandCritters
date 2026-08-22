@@ -1,4 +1,4 @@
-"""Check the 7 LIVE Payment Links against what the code expects — for real.
+"""Check the 7 LIVE Payment Links against what the code expects, for real.
 
 test_stripe_payments.py proves the BUTTONS point at the right URLs. It cannot
 prove what those URLs actually DO, because that lives in your Stripe account.
@@ -8,12 +8,12 @@ things that silently break the money path.
 Why each check matters:
 
   1. PRICE. The webhook grants by `amount_total` alone (COIN_PACKS_BY_CENTS /
-     SUPPORTER_TIERS_BY_CENTS) — it never sees the URL. A link priced $35 behind
+     SUPPORTER_TIERS_BY_CENTS), it never sees the URL. A link priced $35 behind
      the "Tide Turner" button charges $35 and grants ocean-ally, and nothing in
      the code can notice.
   2. THE THREE CUSTOM QUESTIONS. A label is a behaviour key (see the comment on
      CF_WALL_NAME_LABEL). Miss the wall-name questions and the buyer defaults to
-     ANONYMOUS — they pay and never appear on the Reef Wall. Miss the username
+     ANONYMOUS, they pay and never appear on the Reef Wall. Miss the username
      question and a signed-out purchase can never be matched to their account.
      ⚠️ These belong on ALL SEVEN links, coin packs included: every purchase
      counts toward the lifetime total that sizes a name on the wall.
@@ -105,7 +105,7 @@ def main() -> int:
     mode = "LIVE" if key.startswith("sk_live_") else "TEST"
     print(f"Checking 7 Payment Links against a {mode}-mode key.\n")
     if mode == "TEST":
-        print("! A test key cannot see live links — every one will read as MISSING.\n")
+        print("! A test key cannot see live links, every one will read as MISSING.\n")
 
     links = _all_payment_links(key)
     failures = 0
@@ -120,7 +120,7 @@ def main() -> int:
             print()
             continue
 
-        # 1) price — the only thing the webhook matches on.
+        # 1) price, the only thing the webhook matches on.
         items = _get(f"payment_links/{link['id']}/line_items", key, limit=100)
         total = sum(int(i.get("amount_total") or 0) for i in items.get("data") or [])
         currency = (items.get("data") or [{}])[0].get("currency", "")
@@ -160,7 +160,7 @@ def main() -> int:
         if link.get("active"):
             print(f"{OK} active")
         else:
-            print(f"{BAD} INACTIVE — the button is dead")
+            print(f"{BAD} INACTIVE, the button is dead")
             failures += 1
 
         # 4) redirect back to /thanks with the session id.
@@ -168,21 +168,21 @@ def main() -> int:
         if "{CHECKOUT_SESSION_ID}" in after and "/thanks" in after:
             print(f"{OK} returns to {after}")
         elif after:
-            print(f"{WARN} redirect is {after} — /thanks can only confirm the "
+            print(f"{WARN} redirect is {after}: /thanks can only confirm the "
                   f"purchase if it ends in /thanks?session_id={{CHECKOUT_SESSION_ID}}")
         else:
-            print(f"{WARN} no redirect set — buyers stay on Stripe's receipt page")
+            print(f"{WARN} no redirect set: buyers stay on Stripe's receipt page")
         print()
 
     # The webhook secret: live links + a test-mode secret = every real payment
     # is rejected at the signature gate, money taken and nothing granted.
     whsec = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
     if not whsec:
-        print(f"{WARN} STRIPE_WEBHOOK_SECRET is not set in THIS shell — check it "
+        print(f"{WARN} STRIPE_WEBHOOK_SECRET is not set in THIS shell: check it "
               f"on Render, and that it's the LIVE endpoint's signing secret.")
     print("=" * 66)
     if failures:
-        print(f"{failures} problem(s) found — fix these in the Stripe Dashboard.")
+        print(f"{failures} problem(s) found: fix these in the Stripe Dashboard.")
         return 1
     print("All 7 links check out: right price, right product, wall questions present.")
     return 0

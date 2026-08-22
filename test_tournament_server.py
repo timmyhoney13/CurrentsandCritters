@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Server-orchestration tests for tournament_server.py (headless — no Firestore,
+"""Server-orchestration tests for tournament_server.py (headless, no Firestore,
 no real game rooms). Drives the Tournament object end to end via its public API.
 
 Run:  python3 -m unittest test_tournament_server -v
@@ -878,7 +878,7 @@ class TestReadyCheck(unittest.TestCase):
         self.assertEqual(mm2["ready_count"], 1)
 
     def test_offline_opponent_gets_a_grace_period_then_stops_blocking(self):
-        """A player who has merely gone quiet keeps their match — the game must not
+        """A player who has merely gone quiet keeps their match, the game must not
         be played without them because their client missed a couple of polls. Past
         the absent grace the bracket moves on so a player who really left can't
         stall everyone."""
@@ -930,7 +930,7 @@ class TestReadyCheck(unittest.TestCase):
 
 
 # =============================================================================
-# DESIGNED (canvas-built) BRACKETS — typed player spots + host-drawn connections
+# DESIGNED (canvas-built) BRACKETS: typed player spots + host-drawn connections
 # =============================================================================
 from tournament_engine import (  # noqa: E402
     CustomBracket, CustomMatch, CustomSlot, make_uniform_graph,
@@ -991,7 +991,7 @@ class TestDesignedBracketServer(unittest.TestCase):
         self.assertTrue(r.get("spectator"), "a 3rd person must not take an AI spot")
 
     def test_ai_only_spots_do_not_block_the_start_button(self):
-        # An AI-only spot is the host saying "a bot plays here" — start() fills it,
+        # An AI-only spot is the host saying "a bot plays here": start() fills it,
         # so an empty one must never gate the Start button.
         spec = CustomBracket(matches=[
             dmatch("a", [SLOT_OPEN, SLOT_OPEN]),
@@ -1137,7 +1137,7 @@ class TestDesignedBracketServer(unittest.TestCase):
         self.assertEqual(t.phase, Tournament.PHASE_COMPLETE)
 
     def test_a_bot_filled_lobby_still_lets_real_players_in(self):
-        # The host tops the lobby up with AI, then a friend arrives — a bot must
+        # The host tops the lobby up with AI, then a friend arrives, a bot must
         # step aside rather than turn a real player into a spectator.
         mgr, t = make_designed(make_uniform_graph([2, 2]), 1)
         t.fill_with_bots()
@@ -1276,7 +1276,7 @@ class TestDesignedHttpDispatch(unittest.TestCase):
 
 
 class TestBotMatchesArePlayed(unittest.TestCase):
-    """Every bracket match is decided by a real game — including all-AI matches.
+    """Every bracket match is decided by a real game, including all-AI matches.
 
     They used to be resolved instantly by a coin flip, so the moment the last human
     was knocked out of a bot-filled bracket the server sprinted through the
@@ -1616,7 +1616,7 @@ class TestForfeitDoesNotStallOrMisrank(_FakeRooms):
         a, b = [p for p in tp.player_ids if p]
         t.leave(a)
         self.assertEqual(tp.status, M_COMPLETE,
-                         "the third-place match is a match too — a forfeit must resolve it")
+                         "the third-place match is a match too, a forfeit must resolve it")
         self.assertEqual(tp.winners, [b])
 
     def test_a_forfeiter_is_never_advanced_by_a_walkover(self):

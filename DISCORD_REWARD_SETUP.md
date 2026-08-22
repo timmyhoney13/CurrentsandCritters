@@ -1,11 +1,11 @@
-# Discord join reward — setup
+# Discord join reward: setup
 
 **250 Critter Coins, once, for actually being in the Discord server.**
 
 The code is written, tested and deployed. It stays switched **off** until you
 add three values from the Discord Developer Portal to Render. Until then the
 server logs `[discord] join reward OFF …`, the game hides the offer completely,
-and every claim is refused — it never falls back to paying out unchecked.
+and every claim is refused, it never falls back to paying out unchecked.
 
 Budget about 10 minutes. You need to be the **owner** of the Discord server.
 
@@ -32,7 +32,7 @@ That long number is `DISCORD_GUILD_ID`. Paste it somewhere for a moment.
 5. Under **Client Secret**, press **Reset Secret** → **Yes, do it** → copy the
    value → that is `DISCORD_CLIENT_SECRET`.
    *Discord shows a client secret once. If you lose it, reset it again and
-   update Render — nothing else breaks.*
+   update Render, nothing else breaks.*
 6. Still on the OAuth2 page, find **Redirects** → **Add Redirect** and paste
    **exactly** this, then **Save Changes**:
 
@@ -41,7 +41,7 @@ That long number is `DISCORD_GUILD_ID`. Paste it somewhere for a moment.
    ```
 
    > ⚠️ This is the one step that silently breaks everything. It must match
-   > character for character — no trailing slash, `https` not `http`. If it
+   > character for character, no trailing slash, `https` not `http`. If it
    > doesn't, Discord rejects every claim with a 400 and the server log says
    > exactly that, naming the URI it sent.
 
@@ -73,7 +73,7 @@ you move the game to a different domain.
 In the Render logs after the deploy you want to see:
 
 ```
-[discord] join reward ON — 250 coins, redirect https://play.currentsandcritters.com/api/discord/callback
+[discord] join reward ON: 250 coins, redirect https://play.currentsandcritters.com/api/discord/callback
 ```
 
 If you see `join reward OFF` instead, the line names which variables are still
@@ -81,7 +81,7 @@ missing.
 
 Then, in the game: open **Player Home** and look beside the Join-the-Discord
 button. A gold **+250 Critter Coins** chip should be sitting there. Click it,
-approve on Discord, and the coins land — the balance in the header updates
+approve on Discord, and the coins land, the balance in the header updates
 without a refresh.
 
 ---
@@ -90,7 +90,7 @@ without a refresh.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `DISCORD_REWARD_COINS` | `250` | The amount paid. Changing it changes the advert, the payout and the ledger together — there is only one number. |
+| `DISCORD_REWARD_COINS` | `250` | The amount paid. Changing it changes the advert, the payout and the ledger together, there is only one number. |
 | `DISCORD_INVITE_URL` | the community invite | The invite the game links to, if you ever regenerate it. |
 | `DISCORD_STATE_SECRET` | the client secret | Signs the OAuth handshake. Only set this if you want it separate from the client secret. |
 
@@ -103,15 +103,15 @@ Three things are guaranteed, and each has tests behind it
 
 1. **You cannot be paid without being a member.** When a player claims, the
    *server* asks Discord "is this account in guild X?" and pays only on a yes.
-   Discord being down, a rejected sign-in, or a garbled reply are all "no" —
+   Discord being down, a rejected sign-in, or a garbled reply are all "no",
    never a payout.
 
 2. **You cannot be paid twice.** Two ledger documents are written in the *same
    Firestore transaction* as the coins: `discord_rewards/u_{uid}` (this game
    account has been paid) and `discord_rewards/d_{discordId}` (this Discord
    account has been paid). Because they are created by document ID, a second
-   attempt — a double-tap, two tabs, two devices, an alt account using the same
-   Discord login — collides and the whole transaction is abandoned, coins
+   attempt, a double-tap, two tabs, two devices, an alt account using the same
+   Discord login: collides and the whole transaction is abandoned, coins
    included.
 
 3. **People already in the server just claim it.** Membership is checked live,

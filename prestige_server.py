@@ -1,4 +1,4 @@
-"""Currents and Critters — Prestige System (server-authoritative core).
+"""Currents and Critters: Prestige System (server-authoritative core).
 
 Wired additively into multiplayer_server (same pattern as clan_server):
     import prestige_server
@@ -10,17 +10,17 @@ Wired additively into multiplayer_server (same pattern as clan_server):
 A player who reaches the level cap may "ride the next current": their level and
 XP go back to the start, and in exchange they keep a permanent, stacking set of
 rewards. NOTHING the player paid for, earned competitively, or was given by a
-previous Prestige is ever taken away — see KEEP_FOREVER_UNLOCK_TYPES and the
+previous Prestige is ever taken away: see KEEP_FOREVER_UNLOCK_TYPES and the
 reset list in _commit().
 
-Everything lives in Firestore (admin SDK — the browser can never write any of
+Everything lives in Firestore (admin SDK, the browser can never write any of
 it, so a devtools edit of the Prestige level, the coin reward or the XP
 multiplier is not a thing that can happen):
     users/{uid}.prestige         the whole prestige record (level, unlocks,
                                  equipped appearance, history)
     users/{uid}.stats            level/XP reset + the coin reward land here
     users/{uid}.unlocked_icons   relocked down to the permanent set
-    prestige_ledger/{uid}_{n}    ONE doc per prestige — its doc-id create() is
+    prestige_ledger/{uid}_{n}    ONE doc per prestige, its doc-id create() is
                                  the atomic "this prestige happened exactly
                                  once" guarantee, and it doubles as the
                                  admin log
@@ -71,10 +71,10 @@ def init(*, get_firestore, verify_token, level_progress, max_level,
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  REWARD MATH — the single definition of every number the player is promised
+#  REWARD MATH, the single definition of every number the player is promised
 # ═══════════════════════════════════════════════════════════════════════════
-PRESTIGE_COIN_BASE = 1000       # Prestige 1
-PRESTIGE_COIN_STEP = 0          # each further Prestige — flat: EVERY Prestige pays 1000
+PRESTIGE_COIN_BASE = 400        # Prestige 1
+PRESTIGE_COIN_STEP = 0          # each further Prestige. Flat: EVERY Prestige pays 400
 PRESTIGE_XP_STEP = 0.25         # +25% XP per Prestige, stacking
 PRESTIGE_STORE_STEP = 0.05      # +5% on bought coin packs per Prestige, stacking
 PRESTIGE_KEEP_AVATARS = 2       # avatars the player chooses to carry over
@@ -83,7 +83,7 @@ MAX_PRESTIGE_LEVEL = 999        # a hard ceiling so nothing can loop forever
 
 
 def coin_reward_for(new_level: Any) -> int:
-    """Critter Coins paid for REACHING `new_level` — a flat 1,000 EVERY Prestige.
+    """Critter Coins paid for REACHING `new_level`: a flat 400 EVERY Prestige.
 
     The step is kept (at 0) rather than deleted because it is published in
     catalog() and read by the client's ladder preview; a flat reward is the
@@ -108,7 +108,7 @@ def apply_xp_bonus(base_xp: Any, level: Any) -> Dict[str, int]:
     """{base, bonus, total} for a base XP amount at a Prestige level.
 
     The bonus is applied to whatever is handed in, so an existing reduction
-    (an AI game already halved to 50) stays reduced and is then multiplied —
+    (an AI game already halved to 50) stays reduced and is then multiplied:
     50 base at Prestige 3 is 50 + 37 = 87, not 175/2.
     """
     base = max(0, _int(base_xp))
@@ -120,7 +120,7 @@ def store_bonus_coins(base_coins: Any, level: Any) -> int:
     """Extra coins on a PURCHASED pack, rounded to the nearest whole coin.
 
     Deliberately NOT applied to refunds, admin grants, free rewards, challenge
-    rewards or the Prestige coin reward itself — the webhook only calls this on
+    rewards or the Prestige coin reward itself, the webhook only calls this on
     a verified `kind == "coins"` Stripe purchase.
     """
     base = max(0, _int(base_coins))
@@ -131,7 +131,7 @@ def store_bonus_coins(base_coins: Any, level: Any) -> int:
 
 
 def store_bonus_for(stats: Any, base_coins: Any) -> int:
-    """store_bonus_coins() for a user doc's `prestige` map — the webhook's entry
+    """store_bonus_coins() for a user doc's `prestige` map, the webhook's entry
     point. Reads the STORED level (server data), never anything from a client."""
     return store_bonus_coins(base_coins, prestige_level_of(stats))
 
@@ -183,7 +183,7 @@ PRESTIGE_BACKGROUNDS: List[Dict[str, Any]] = [
      "blurb": "A reef in full colour, pulsing gently with the tide."},
     {"level": 4,  "id": "pbg-midnight",  "name": "Midnight Drift",      "scene": "midnight",
      "blurb": "Deep blue quiet, with silhouettes passing far above."},
-    # ⚠️ Not "Golden Current" — that is the Prestige 5 BADGE, and a reward card
+    # ⚠️ Not "Golden Current", that is the Prestige 5 BADGE, and a reward card
     # that reads "Background: Golden Current / Badge: Golden Current" looks like
     # a bug on the one screen that has to be unambiguous.
     {"level": 5,  "id": "pbg-golden",    "name": "Amber Tide",          "scene": "golden",
@@ -221,7 +221,7 @@ def background_for_level(level: Any) -> Dict[str, Any]:
 
 
 def badge_for_level(level: Any) -> Optional[Dict[str, Any]]:
-    """The badge worn at `level` — the highest one reached (10+ all wear the
+    """The badge worn at `level`, the highest one reached (10+ all wear the
     Crown, with the number beside it doing the talking)."""
     n = _int(level)
     if n < 1:
@@ -244,7 +244,7 @@ def title_for_level(level: Any) -> str:
 
 # ── Username colours ────────────────────────────────────────────────────────
 # Every colour carries the level it becomes available at. Prestige 1 is the one
-# level where the player PICKS one of two and banks the other for Prestige 2 —
+# level where the player PICKS one of two and banks the other for Prestige 2,
 # every later unlock is automatic.
 NAME_COLORS: List[Dict[str, Any]] = [
     {"id": "default",  "name": "Default",        "hex": "",        "level": 0},
@@ -268,7 +268,7 @@ GRADIENT_STYLES = ["smooth", "split", "center", "edges"]
 
 # Animated name effects. Each is deliberately slow and low-amplitude; the
 # player (or their OS reduced-motion setting) can switch all of them off and
-# keep the colour — see `animate` in the appearance record.
+# keep the colour: see `animate` in the appearance record.
 NAME_EFFECTS: List[Dict[str, Any]] = [
     {"id": "none",    "name": "None",              "level": 0},
     {"id": "glow",    "name": "Subtle Glow",       "level": 6},
@@ -280,7 +280,7 @@ NAME_EFFECTS: List[Dict[str, Any]] = [
 ]
 
 # ── Alternate animal skins ──────────────────────────────────────────────────
-# Cosmetic art treatments applied over a card's EXISTING artwork — they change
+# Cosmetic art treatments applied over a card's EXISTING artwork, they change
 # nothing about the card: not its ability, star ability, cost, points, ocean
 # requirement, interactions, rarity or balance. The client renders them; the
 # server's job is only to say which (animal, style) pairs an account owns.
@@ -447,12 +447,12 @@ AVATAR_UNLOCK_TYPES: Dict[str, str] = {
 # The game draws usernames on a light surface (Player Home, leaderboards) and a
 # dark one (in-game seats, chat). Where a colour is low-contrast on the surface
 # it landed on, the client seats it on a READABILITY PLATE whose polarity is
-# chosen from the colour's own luminance — a light name gets a dark plate, a
+# chosen from the colour's own luminance, a light name gets a dark plate, a
 # dark name gets a light one (see .cc-pname.plate in css/prestige.css).
 #
 # ⚠️ What that means for this gate, stated plainly so nobody re-tunes it into
 # something it cannot be: once the plate polarity is correct, the WORST
-# achievable contrast over any colour is ~4.25:1 — better than WCAG AA — and it
+# achievable contrast over any colour is ~4.25:1: better than WCAG AA, and it
 # occurs at mid luminance (L≈0.197, which is where the game's own Ocean Blue
 # sits). So a luminance gate set anywhere below 4.25 can never reject anything,
 # and anywhere above it starts rejecting the game's own palette. The floor below
@@ -502,7 +502,7 @@ def _contrast(a: Tuple[int, int, int], b: Tuple[int, int, int]) -> float:
 
 def best_plated_contrast(rgb: Tuple[int, int, int]) -> float:
     """The contrast the client will actually render at, given it may seat the
-    name on whichever plate suits the colour. This — not the bare surface — is
+    name on whichever plate suits the colour. This, not the bare surface: is
     what the readability floor is checked against."""
     return max(_contrast(rgb, LIGHT_PLATE), _contrast(rgb, DARK_PLATE),
                _contrast(rgb, LIGHT_SURFACE), _contrast(rgb, DARK_SURFACE))
@@ -510,7 +510,7 @@ def best_plated_contrast(rgb: Tuple[int, int, int]) -> float:
 
 def validate_custom_color(value: Any) -> Tuple[Optional[str], Optional[str]]:
     """(normalised '#rrggbb', None) or (None, error). The one gate every custom
-    username colour passes through — the creator, the gradient editor, and any
+    username colour passes through, the creator, the gradient editor, and any
     later feature that lets a player type a hex."""
     rgb = _hex_to_rgb(value)
     if rgb is None:
@@ -639,7 +639,7 @@ def _record_of(udoc: Dict[str, Any]) -> Dict[str, Any]:
             out[key] = []
     if not isinstance(out.get("appearance"), dict):
         out["appearance"] = _blank_record()["appearance"]
-    # These two are DERIVED, never trusted from storage — an old doc written
+    # These two are DERIVED, never trusted from storage, an old doc written
     # before a formula change, or hand-edited, still reports the right numbers.
     out["xp_multiplier"] = xp_multiplier_for(out["level"])
     out["store_bonus_pct"] = store_bonus_pct_for(out["level"])
@@ -656,7 +656,7 @@ def _unlocks_at(level: int) -> Dict[str, Any]:
         if c["level"] != level or c["id"] == "default":
             continue
         (color_choice if c.get("choice") else colors_auto).append(c["id"])
-    # Prestige 2 also hands back whichever Prestige-1 colour was not taken —
+    # Prestige 2 also hands back whichever Prestige-1 colour was not taken:
     # resolved at commit time against what the account already owns.
     return {
         "prestige": level,
@@ -709,17 +709,17 @@ def _public_appearance(rec: Dict[str, Any], nickname: str = "") -> Dict[str, Any
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  AVATAR SPLIT — what relocks, what stays, what can be chosen
+#  AVATAR SPLIT, what relocks, what stays, what can be chosen
 # ═══════════════════════════════════════════════════════════════════════════
 def split_avatars(unlocked: Any, rec: Dict[str, Any]) -> Dict[str, List[str]]:
     """{'eligible', 'automatic', 'unknown'} for an account's unlocked_icons.
 
-    eligible  — earned by playing, would relock, so it can be one of the two
+    eligible: earned by playing, would relock, so it can be one of the two
                 the player chooses to carry over.
-    automatic — bought / donated / competitive-rank / starter / already carried
+    automatic: bought / donated / competitive-rank / starter / already carried
                 over by an earlier Prestige. Stays without being chosen, and
                 MUST NOT be selectable (choosing one would waste a slot).
-    unknown   — a path this server has never heard of. Treated as automatic:
+    unknown, a path this server has never heard of. Treated as automatic:
                 when in doubt, do not take something away from a player.
     """
     eligible: List[str] = []
@@ -790,7 +790,7 @@ def _state_payload(uid: str, udoc: Dict[str, Any]) -> Dict[str, Any]:
         },
         "next": _unlocks_at(next_level) if next_level <= MAX_PRESTIGE_LEVEL else None,
         "avatars": split,
-        # What the wizard must actually collect — 2, or fewer when the player
+        # What the wizard must actually collect: 2, or fewer when the player
         # has fewer relockable critters than that (see keep_quota).
         "keep_quota": keep_quota(split),
         "owned_skins": [{"animal": a, "style": s} for (a, s) in sorted(owned_skins)],
@@ -825,12 +825,12 @@ def _xp_needed_for_max() -> int:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  SELECTION VALIDATION — every choice is re-checked against SERVER data
+#  SELECTION VALIDATION, every choice is re-checked against SERVER data
 # ═══════════════════════════════════════════════════════════════════════════
 def keep_quota(split: Dict[str, List[str]]) -> int:
     """How many critters this player must choose to keep.
 
-    Two, normally — but never more than they actually have to choose FROM.
+    Two, normally, but never more than they actually have to choose FROM.
     Prestige straight after a Prestige (or an account that only ever bought its
     critters) can have 0 or 1 relockable ones, and demanding two there would
     make Prestige permanently impossible for them: nothing they could do in the
@@ -893,7 +893,7 @@ def _validate_color_choice(raw: Any, level: int, owned: List[str]) -> Tuple[List
             return [], "color_choice_required"
         granted.append(pick)
     # Backfill anything from a STRICTLY EARLIER level the account never
-    # received — which is how the Prestige-1 colour the player didn't pick
+    # received, which is how the Prestige-1 colour the player didn't pick
     # arrives at Prestige 2.
     #
     # ⚠️ `c["level"] < level`, NOT `<= level`. With `<=` this loop handed over
@@ -910,7 +910,7 @@ def _validate_color_choice(raw: Any, level: int, owned: List[str]) -> Tuple[List
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  COMMIT — the one atomic transaction
+#  COMMIT, the one atomic transaction
 # ═══════════════════════════════════════════════════════════════════════════
 def _idem_id(uid: str, key: str) -> str:
     digest = hashlib.sha256(f"{uid}:{key}".encode("utf-8")).hexdigest()[:32]
@@ -1071,7 +1071,7 @@ def _commit(db, uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
         t.set(user_ref, updates, merge=True)
 
         # The ledger doc IS the "this happened once" guarantee AND the admin log
-        # — created inside the same transaction, so it cannot exist without the
+        #: created inside the same transaction, so it cannot exist without the
         # account change and the account change cannot exist without it.
         t.create(run_ref, {
             "uid": uid,
@@ -1124,7 +1124,7 @@ def _commit(db, uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  APPEARANCE — equipping what a Prestige unlocked (never grants anything)
+#  APPEARANCE: equipping what a Prestige unlocked (never grants anything)
 # ═══════════════════════════════════════════════════════════════════════════
 def _validate_appearance(raw: Any, rec: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     if not isinstance(raw, dict):
@@ -1300,7 +1300,7 @@ def _uid_for_name(db, name: str) -> Optional[str]:
 def _names_payload(db, uids: Any, names: Any = None) -> Dict[str, Any]:
     """Public badge + name-colour for a batch of uids AND/OR display names.
 
-    Public data only — level, badge, title, XP-bonus %, last-prestige date and
+    Public data only: level, badge, title, XP-bonus %, last-prestige date and
     how the name is drawn. Never coins, history, or anything else off the
     account (see _public_appearance).
     """
@@ -1337,7 +1337,7 @@ def _names_payload(db, uids: Any, names: Any = None) -> Dict[str, Any]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  CATALOGUE (public, cacheable — no account data in it)
+#  CATALOGUE (public, cacheable, no account data in it)
 # ═══════════════════════════════════════════════════════════════════════════
 CATALOG_VERSION = "1"
 
@@ -1416,7 +1416,7 @@ def _admin_history(db, uid: str) -> Dict[str, Any]:
 def _admin_correct(db, uid: str, body: Dict[str, Any], actor: str) -> Dict[str, Any]:
     """Fix a cosmetic selection or restore a missing reward. Deliberately CANNOT
     change the Prestige level, the coin reward, or anything that would let an
-    admin action double-pay — those go through _commit or not at all."""
+    admin action double-pay, those go through _commit or not at all."""
     ref = _users(db).document(uid)
     snap = ref.get()
     if not snap.exists:
@@ -1517,7 +1517,7 @@ def _disabled(db) -> Dict[str, List[str]]:
 #  HTTP ROUTES
 # ═══════════════════════════════════════════════════════════════════════════
 def handle_get(handler, parsed) -> bool:
-    """GET /api/prestige/catalog — public, no account data, safely cacheable."""
+    """GET /api/prestige/catalog: public, no account data, safely cacheable."""
     if parsed.path != "/api/prestige/catalog":
         return False
     handler._send_json({"ok": True, "catalog": catalog()})
@@ -1605,7 +1605,7 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
         import traceback
         print(f"[prestige] {action} failed for {uid}: {exc}\n{traceback.format_exc(limit=4)}")
         # Nothing leaks about the internals, and the player is told plainly that
-        # their account was not touched — because a failed transaction never
+        # their account was not touched, because a failed transaction never
         # writes any part of the reset.
         handler._send_json({"ok": False, "error": "server_error"})
     return True

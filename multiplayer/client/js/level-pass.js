@@ -1,4 +1,4 @@
-/* Currents and Critters — Level Pass (self-contained module).
+/* Currents and Critters: Level Pass (self-contained module).
  *
  * Renders the whole "Level Pass" Player-Home page into #cc-level-pass-root:
  * a horizontal reward track laid over the existing 1–100 level curve, the
@@ -7,7 +7,7 @@
  *
  *   window.__ccLevelPassRender()     the page itself
  *   window.__ccLevelPassSync()       re-read state from the server
- *   window.__ccPassBoost()           { active, until, percent, mult } — the XP
+ *   window.__ccPassBoost()           { active, until, percent, mult }, the XP
  *                                    multiplier every XP path multiplies by
  *   window.__ccPassRerollActive(ms)  is weekly-challenge swapping unlimited
  *                                    for the week starting at `ms`?
@@ -22,8 +22,8 @@
  * WHY THE BOOST IS READ FROM HERE
  * XP itself is written by the client (the game-end save and __fishGrantXp both
  * increment stats.total_xp), exactly as the Prestige bonus already is. So the
- * boost's EXISTENCE is server-owned — a claim, then an activation, both
- * transactional — while the multiplier is applied client-side beside the
+ * boost's EXISTENCE is server-owned, a claim, then an activation, both
+ * transactional, while the multiplier is applied client-side beside the
  * Prestige one. window.__ccPassBoost() is that seam, and it is deliberately
  * synchronous and cached: an XP grant must never wait on a network round-trip.
  */
@@ -33,7 +33,7 @@
   function bridge() { return window.__ccLevelPass; }
   // A MISSING bridge means preview-app.js never reached the line that defines
   // one. Registering anyway (and re-checking at click time) is what stops the
-  // tab being permanently, silently blank — the exact failure the Clans tab
+  // tab being permanently, silently blank, the exact failure the Clans tab
   // shipped with once already.
   if (bridge() && bridge().ENABLED === false) return;
 
@@ -45,7 +45,7 @@
   const toast = (m, t) => { try { bridge().toast(m, t); } catch (_) {} };
   const avSrc = (u) => { try { return bridge().avSrc(u); } catch (_) { return u; } };
 
-  // The bridge's post() resolves to an ENVELOPE — { ok, status, data } — where
+  // The bridge's post() resolves to an ENVELOPE: { ok, status, data }, where
   // `data` is the server's JSON body, and it THROWS when the request never
   // landed. Unwrapping in exactly one place is what keeps an async throw from
   // silently blanking the surface it renders.
@@ -72,18 +72,18 @@
     unauthorized: "Sign in to use the Level Pass.",
     already_claimed: "You've already claimed that reward.",
     level_locked: "You haven't reached that level yet.",
-    shields_full: "Your Streak Shields are full — spend one first.",
-    boosts_full: "You're holding as many XP Boosts as you can — use one first.",
-    rerolls_full: "You're holding as many Weekly Swaps as you can — use one first.",
+    shields_full: "Your Streak Shields are full: spend one first.",
+    boosts_full: "You're holding as many XP Boosts as you can: use one first.",
+    rerolls_full: "You're holding as many Weekly Swaps as you can: use one first.",
     backgrounds_full: "You already own every background. This one is waiting for the next batch.",
     stickers_full: "You already have a sticker for every critter you own.",
     boost_running: "An XP Boost is already running.",
     no_boost: "You don't have an XP Boost to activate.",
     no_token: "You don't have a Weekly Swap token.",
     already_active: "Weekly Swaps are already unlimited for you this week.",
-    offline: "Couldn't reach the server. Nothing was claimed — please try again.",
-    unavailable: "The Level Pass didn't finish loading — please refresh the page.",
-    server_error: "Something went wrong. Nothing was claimed — please try again.",
+    offline: "Couldn't reach the server. Nothing was claimed: please try again.",
+    unavailable: "The Level Pass didn't finish loading: please refresh the page.",
+    server_error: "Something went wrong. Nothing was claimed: please try again.",
   };
   const msgFor = (res) => (res && res.message)
     || MESSAGES[String((res && res.error) || "")]
@@ -91,7 +91,7 @@
 
   // ── State ────────────────────────────────────────────────────────────────
   // `_state` is the last SERVER answer. Everything paints from it, and nothing
-  // else writes to it — a claim updates it by re-reading, never by guessing
+  // else writes to it, a claim updates it by re-reading, never by guessing
   // what the server would have done.
   let _state = null;
   let _loading = false;
@@ -109,7 +109,7 @@
 
   // THE XP SEAM. Synchronous and cached on purpose: every XP grant calls this,
   // and none of them can afford to await a request. An unloaded pass reports
-  // "no boost", which is the safe direction — a missed boost is a smaller
+  // "no boost", which is the safe direction, a missed boost is a smaller
   // wrong than XP nobody earned.
   window.__ccPassBoost = function () {
     const inv = inventory();
@@ -144,6 +144,10 @@
         _claimedSet = new Set(Array.isArray(res.claimed) ? res.claimed : []);
       }
     } finally { _loading = false; }
+    // EVERY path that changes what is claimable ends in a sync: the boot
+    // prime, opening the page, a claim, a claim-all. Repainting the badge
+    // here and nowhere else is what stops the number drifting from the track.
+    paintNavBadge();
     return _state;
   }
   window.__ccLevelPassSync = async function () {
@@ -173,7 +177,7 @@
     return num(totals[idx]);
   }
   // XP the player still needs before `level` is reached. null when the curve
-  // has not loaded — the caller must then say nothing rather than say zero.
+  // has not loaded, the caller must then say nothing rather than say zero.
   function xpUntil(level) {
     const need = xpToReach(level);
     if (need == null) return null;
@@ -181,7 +185,7 @@
   }
 
   // ── The next thing waiting ───────────────────────────────────────────────
-  // "How much XP till the next thing" — the nearest tier above the player's
+  // "How much XP till the next thing", the nearest tier above the player's
   // level, claimable or milestone alike. A milestone counts: the critter at 50
   // IS the next thing when you are level 49.
   function nextTier() {
@@ -201,6 +205,58 @@
     return track.filter(t => t.claimable && num(t.level) <= lvl && !_claimedSet.has(t.id));
   }
 
+  // ── The sidebar's red badge ──────────────────────────────────────────────
+  // The same .ph-snav-badge the Messages tab uses, so an unclaimed reward
+  // reads exactly like an unread message.
+  //
+  // It counts only rewards the player can ACT on. A Streak Shield tier sitting
+  // on a full hoard is genuinely unclaimable right now, and counting it would
+  // paint a red number that clicking cannot clear: the definition of a badge
+  // that looks broken. The caps come from the server (state.caps) rather than
+  // being copied here, so the badge and the payout agree on what "full" means.
+  function claimableNow() {
+    const inv = inventory();
+    const caps = (_state && _state.caps) || {};
+    const room = {
+      shield: num(caps.shields, 3) - num(inv.shields),
+      boost:  num(caps.boosts, 3) - num(inv.boosts),
+      reroll: num(caps.rerolls, 3) - num(inv.rerolls),
+    };
+    return unclaimedReady().filter(t => {
+      const left = room[String(t.type)];
+      if (left === undefined) return true;   // coins, stickers, backgrounds
+      if (left <= 0) return false;
+      room[String(t.type)] = left - 1;       // two shield tiers, one slot free
+      return true;
+    });
+  }
+
+  // Paint it. Signed out, still loading, or nothing waiting all mean "hide",
+  // never a stale number, and never a lingering 0.
+  function paintNavBadge() {
+    const el = $("snav-levelpass-badge");
+    if (!el) return;
+    let n = 0;
+    try { n = (_state && _state.signedIn) ? claimableNow().length : 0; } catch (_) { n = 0; }
+    if (n > 0) {
+      el.textContent = n > 99 ? "99+" : String(n);
+      el.style.display = "";
+      el.setAttribute("aria-label", n + " Level Pass reward" + (n === 1 ? "" : "s") + " ready to claim");
+    } else {
+      el.textContent = "";
+      el.style.display = "none";
+      el.removeAttribute("aria-label");
+    }
+  }
+  // Signing out drops the cached state and clears the badge on the spot,
+  // rather than leaving the previous account's red number on screen until a
+  // round-trip comes back.
+  window.__ccLevelPassReset = function () {
+    _state = null;
+    _claimedSet = new Set();
+    paintNavBadge();
+  };
+
   // ── Rendering ────────────────────────────────────────────────────────────
   function tierState(t) {
     const lvl = num(_state && _state.level, 1);
@@ -216,13 +272,18 @@
     if (isMilestone) cls.push("is-milestone");
     if (_busyTier === t.id) cls.push("is-busy");
 
-    // The face of the card: a critter portrait for milestones, the reward's
-    // own glyph for everything else.
+    // The face of the card: a critter portrait for milestones, the minted
+    // Critter Coin for coin tiers, the reward's own glyph for everything else.
+    // Coins get the real coin art rather than the generic emoji, because this
+    // is the same currency the Store, the wallet chip and the trade window all
+    // show, and it should look like one thing in all four places.
     const face = isMilestone && t.img
       ? `<img class="ccLP-tier-img" src="${esc(avSrc(t.img))}" alt="" loading="lazy">`
-      : `<span class="ccLP-tier-ico" aria-hidden="true">${esc(t.icon || "🎁")}</span>`;
+      : t.type === "coins"
+        ? `<img class="ccLP-tier-coin" src="/critter-coin.png?v=1" alt="" draggable="false" loading="lazy">`
+        : `<span class="ccLP-tier-ico" aria-hidden="true">${esc(t.icon || "🎁")}</span>`;
 
-    // "N XP to go" on every locked tier — the thing the whole page is for.
+    // "N XP to go" on every locked tier, the thing the whole page is for.
     let foot;
     if (st === "ready") {
       foot = `<button class="ccLP-claim" type="button" data-tier="${esc(t.id)}">Claim</button>`;
@@ -374,7 +435,7 @@
           <button class="ccLP-nav ccLP-nav-next" type="button" id="ccLP-next" aria-label="Scroll forward">›</button>
         </div>
         <div class="ccLP-foot-note">
-          Rewards are yours the moment you reach the level — claim them whenever you like, they never expire.
+          Rewards are yours the moment you reach the level: claim them whenever you like, they never expire.
         </div>
       </div>`;
 
@@ -402,7 +463,7 @@
     catch (_) { rail.scrollLeft = Math.max(0, left); }
   }
 
-  // The boost chip counts down, so it has to repaint — but only while the page
+  // The boost chip counts down, so it has to repaint, but only while the page
   // is actually on screen, and only once every 30s until the final stretch.
   function startTick() {
     stopTick();
@@ -414,7 +475,7 @@
       if (!window.__ccPassBoost().active) { stopTick(); render(); return; }
       const chips = document.querySelector(".ccLP-chips");
       if (!chips) { stopTick(); return; }
-      // Repaint ONLY the chip — re-rendering the page would throw away the
+      // Repaint ONLY the chip: re-rendering the page would throw away the
       // player's scroll position in the rail every single tick.
       const holder = document.createElement("div");
       holder.innerHTML = boostChipHtml();
@@ -442,7 +503,7 @@
       afterGrant();
     } else {
       toast(msgFor(res), "warn");
-      // "Already claimed" means this tab was stale — resync so the button
+      // "Already claimed" means this tab was stale: resync so the button
       // stops offering something that is gone.
       if (res && res.error === "already_claimed") await sync();
     }
@@ -461,7 +522,7 @@
         ? `Claimed ${n} reward${n === 1 ? "" : "s"}${coins ? ` · +${fmt(coins)} Critter Coins` : ""}`
         : "Nothing new to claim just yet.", n ? "good" : "info");
       // A tier that refused (a full hoard, no backgrounds left) is reported
-      // honestly instead of being swallowed — the rest still paid out.
+      // honestly instead of being swallowed, the rest still paid out.
       (res.skipped || []).forEach(s => toast(msgFor({ error: s.error }), "warn"));
       await sync();
       afterGrant();
@@ -475,15 +536,15 @@
     if (!granted) return;
     const t = String(granted.type || "");
     if (t === "coins")           toast(`+${fmt(granted.coins)} Critter Coins`, "good");
-    else if (t === "shield")     toast("🛡️ Streak Shield added — it covers one missed day.", "good");
-    else if (t === "boost")      toast("⚡ XP Boost added — activate it whenever you want it.", "good");
-    else if (t === "reroll")     toast("🔄 Weekly Swap added — spend it for a week of free swaps.", "good");
-    else if (t === "background") toast("🖼️ New background unlocked — equip it in the Avatar Gallery.", "good");
+    else if (t === "shield")     toast("🛡️ Streak Shield added, it covers one missed day.", "good");
+    else if (t === "boost")      toast("⚡ XP Boost added: activate it whenever you want it.", "good");
+    else if (t === "reroll")     toast("🔄 Weekly Swap added: spend it for a week of free swaps.", "good");
+    else if (t === "background") toast("🖼️ New background unlocked: equip it in the Avatar Gallery.", "good");
     else if (t === "sticker")    toast("🎴 New critter sticker unlocked for game chat.", "good");
   }
 
   // Coins, backgrounds and stickers all live on the account document the rest
-  // of the app renders from, so a payout has to push the app to re-read it —
+  // of the app renders from, so a payout has to push the app to re-read it,
   // otherwise the header keeps painting the old balance.
   function afterGrant() {
     try { bridge().onGranted && bridge().onGranted(); } catch (_) {}
@@ -494,7 +555,7 @@
     if (btn) btn.disabled = true;
     const res = await post("boost", {});
     if (res && res.ok) {
-      toast(`⚡ XP Boost running — +${res.percent}% XP from everything for ${res.hours} hours.`, "good");
+      toast(`⚡ XP Boost running: +${res.percent}% XP from everything for ${res.hours} hours.`, "good");
       await sync();
       afterGrant();
     } else {
@@ -510,7 +571,7 @@
     if (!week) { toast(MESSAGES.server_error, "warn"); render(); return; }
     const res = await post("reroll", { weekStartMs: week });
     if (res && res.ok) {
-      toast("🔄 Weekly Swaps unlocked — swap as many challenges as you like until Monday.", "good");
+      toast("🔄 Weekly Swaps unlocked: swap as many challenges as you like until Monday.", "good");
       await sync();
       // The challenge strip's swap buttons only appear once this is live.
       try { window.renderChallengeStrip && window.renderChallengeStrip(); } catch (_) {}
@@ -553,7 +614,7 @@
   // Keep the cached boost fresh for the XP paths even when the page is never
   // opened: __ccPassBoost() is read by every XP grant, and a stale "no boost"
   // would quietly cost a player the thing they just activated. One read on
-  // sign-in is enough — activating a boost resyncs on its own.
+  // sign-in is enough: activating a boost resyncs on its own.
   window.__ccLevelPassPrime = function () {
     sync().catch(() => {});
   };

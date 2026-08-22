@@ -1,4 +1,4 @@
-"""Currents and Critters — the Level Pass (server-authoritative).
+"""Currents and Critters, the Level Pass (server-authoritative).
 
 A free reward track laid over the existing 1–100 level curve. Reaching a level
 unlocks that level's tier; the player claims it and the SERVER writes the goods.
@@ -11,7 +11,7 @@ prestige_server / discord_server:
     if level_pass_server.handle_post(self, parsed, body): ...        # in do_POST
 
 WHY THE SERVER OWNS THIS
-Every tier pays real currency — Critter Coins, Streak Shields, backgrounds. A
+Every tier pays real currency: Critter Coins, Streak Shields, backgrounds. A
 client that could say "I reached 60, pay me" is a free-coins button. So the
 level is RE-DERIVED here from `stats.total_xp` on the account's own document,
 inside the same transaction that writes the reward. The browser's idea of its
@@ -19,14 +19,14 @@ level is never an input to a payout.
 
 EXACTLY ONCE, PER LEVEL
 Each tier is claimable once, ever. The guard is a create()d ledger document,
-`level_pass_claims/{uid}__L{level}`, written INSIDE the payout transaction — so
+`level_pass_claims/{uid}__L{level}`, written INSIDE the payout transaction, so
 the reward cannot exist without the ledger and the ledger cannot exist without
 the reward. Two tabs double-tapping "Claim" end with one payout and one loser.
 (The same primitive as discord_server._grant and prestige_server._commit.)
 
 WHAT THE TRACK DELIBERATELY DOES NOT GRANT
 The level-gated CRITTERS (Blue Tang at 10, Sea Star at 100, …) appear on the
-track as milestones but are `showcase` — not claimable here. They are already
+track as milestones but are `showcase`, not claimable here. They are already
 granted by the client's own unlock sweep, which honours the trading system's
 re-earn rule (a critter you traded away has to be earned again, not handed back
 by a second unlock path). Paying them out here would quietly reopen that hole.
@@ -54,7 +54,7 @@ _background_paths: List[str] = []
 def init(*, get_firestore, verify_token, level_for_xp, level_totals,
          background_paths) -> None:
     """`level_for_xp` is multiplayer_server._level_progress_for_total_xp and
-    `level_totals` is its LEVEL_XP_TOTALS — the ONE level curve, injected
+    `level_totals` is its LEVEL_XP_TOTALS, the ONE level curve, injected
     rather than copied. A third copy of that table is exactly the kind of drift
     that demotes live players.
 
@@ -80,17 +80,17 @@ BOOST_PERCENT = 20
 BOOST_HOURS = 24
 BOOST_MS = BOOST_HOURS * 60 * 60 * 1000
 
-# Hoard caps. Consumables stack, but not without limit — an unclaimed track
+# Hoard caps. Consumables stack, but not without limit, an unclaimed track
 # should not become a 40-shield stockpile the day someone hits level 100.
-MAX_SHIELDS = 5          # matches PHST_PERK_STACK_MAX in preview-app.js
-MAX_BOOSTS = 5
-MAX_REROLLS = 5
+MAX_SHIELDS = 3          # matches PHST_PERK_STACK_MAX in preview-app.js
+MAX_BOOSTS = 3
+MAX_REROLLS = 3
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  THE TRACK
 # ═══════════════════════════════════════════════════════════════════════════
-# One reward per level at most, and most levels have none — the track is meant
+# One reward per level at most, and most levels have none, the track is meant
 # to be a steady drip, not a slot machine. Coins cluster on the levels either
 # side of a critter unlock so the milestone levels feel like arrivals.
 #
@@ -103,71 +103,45 @@ MAX_REROLLS = 5
 #                the rest of that week
 #   background → one exclusive avatar background, server-picked from unowned
 #   critter    → SHOWCASE ONLY. The level-gated avatar, granted by the normal
-#                unlock path — never claimed here (see the module docstring).
+#                unlock path, never claimed here (see the module docstring).
 _TRACK_SPEC: Sequence[Dict[str, Any]] = (
-    {"level": 2,   "type": "coins",      "amount": 50},
-    {"level": 3,   "type": "sticker",    "amount": 1},
-    {"level": 5,   "type": "shield",     "amount": 1},
-    {"level": 7,   "type": "coins",      "amount": 75},
-    {"level": 9,   "type": "coins",      "amount": 100},
+    {"level": 2,   "type": "coins",      "amount": 25},
     {"level": 10,  "type": "critter",    "critter": "Blue Tang",             "img": "/avatars/blue-tang.png"},
-    {"level": 11,  "type": "coins",      "amount": 100},
+    {"level": 11,  "type": "coins",      "amount": 50},
     {"level": 13,  "type": "boost",      "amount": 1},
-    {"level": 15,  "type": "reroll",     "amount": 1},
     {"level": 17,  "type": "sticker",    "amount": 1},
-    {"level": 19,  "type": "coins",      "amount": 150},
     {"level": 20,  "type": "critter",    "critter": "Orange Tube Sponge",    "img": "/avatars/sea-sponge.png"},
-    {"level": 21,  "type": "coins",      "amount": 150},
+    {"level": 21,  "type": "coins",      "amount": 75},
     {"level": 23,  "type": "shield",     "amount": 1},
-    {"level": 25,  "type": "sticker",    "amount": 1},
     {"level": 27,  "type": "reroll",     "amount": 1},
-    {"level": 29,  "type": "coins",      "amount": 200},
     {"level": 30,  "type": "critter",    "critter": "Mahi Mahi",             "img": "/avatars/mahi-mahi.png"},
-    {"level": 31,  "type": "coins",      "amount": 200},
-    {"level": 33,  "type": "boost",      "amount": 1},
-    {"level": 35,  "type": "shield",     "amount": 1},
-    {"level": 37,  "type": "sticker",    "amount": 1},
-    # Level 40 is the one milestone level with no critter of its own — the
-    # curve jumps 30 → 50. The mid-track background fills it so the longest
+    {"level": 31,  "type": "coins",      "amount": 100},
+    # Level 40 is the one milestone level with no critter of its own: the
+    # curve jumps 30 to 50. The mid-track background fills it so the longest
     # gap on the whole pass still has something waiting at the end of it.
     {"level": 40,  "type": "background", "amount": 1},
-    {"level": 43,  "type": "reroll",     "amount": 1},
-    {"level": 45,  "type": "coins",      "amount": 250},
+    {"level": 45,  "type": "coins",      "amount": 150},
     {"level": 47,  "type": "sticker",    "amount": 1},
-    {"level": 49,  "type": "coins",      "amount": 250},
     {"level": 50,  "type": "critter",    "critter": "Manta Ray",             "img": "/avatars/manta-ray.png"},
-    {"level": 51,  "type": "coins",      "amount": 250},
+    {"level": 51,  "type": "coins",      "amount": 200},
     {"level": 53,  "type": "shield",     "amount": 1},
     {"level": 55,  "type": "boost",      "amount": 1},
-    {"level": 57,  "type": "sticker",    "amount": 1},
-    {"level": 59,  "type": "coins",      "amount": 300},
     {"level": 60,  "type": "critter",    "critter": "King Crab",             "img": "/avatars/king-crab.png"},
-    {"level": 61,  "type": "coins",      "amount": 300},
-    {"level": 63,  "type": "reroll",     "amount": 1},
-    {"level": 65,  "type": "shield",     "amount": 1},
-    {"level": 67,  "type": "sticker",    "amount": 1},
-    {"level": 69,  "type": "coins",      "amount": 350},
+    {"level": 61,  "type": "coins",      "amount": 250},
+    {"level": 65,  "type": "reroll",     "amount": 1},
     {"level": 70,  "type": "critter",    "critter": "Blue Marlin",           "img": "/avatars/blue-marlin.png"},
-    {"level": 71,  "type": "coins",      "amount": 350},
-    {"level": 73,  "type": "boost",      "amount": 1},
-    {"level": 75,  "type": "background", "amount": 1},
+    {"level": 71,  "type": "coins",      "amount": 300},
     {"level": 77,  "type": "sticker",    "amount": 1},
-    {"level": 79,  "type": "coins",      "amount": 400},
     {"level": 80,  "type": "critter",    "critter": "Great Albatross",       "img": "/avatars/great-albatross.png"},
     {"level": 81,  "type": "coins",      "amount": 400},
     {"level": 83,  "type": "shield",     "amount": 1},
-    {"level": 85,  "type": "reroll",     "amount": 1},
-    {"level": 87,  "type": "sticker",    "amount": 1},
-    {"level": 89,  "type": "coins",      "amount": 450},
     {"level": 90,  "type": "critter",    "critter": "Great White Shark",     "img": "/avatars/great-white-shark.png"},
     {"level": 91,  "type": "coins",      "amount": 450},
     {"level": 93,  "type": "boost",      "amount": 1},
-    {"level": 95,  "type": "shield",     "amount": 1},
-    {"level": 97,  "type": "sticker",    "amount": 1},
     {"level": 99,  "type": "coins",      "amount": 500},
     {"level": 100, "type": "critter",    "critter": "Sea Star",              "img": "/avatars/sea-star.png"},
     # The end of the track pays like the end of a track.
-    {"level": 100, "type": "coins",      "amount": 1000, "key": "100c"},
+    {"level": 100, "type": "coins",      "amount": 1500, "key": "100c"},
     {"level": 100, "type": "background", "amount": 1,    "key": "100b"},
 )
 
@@ -188,7 +162,7 @@ CLAIMABLE_TYPES = frozenset({"coins", "shield", "sticker", "boost", "reroll", "b
 
 def _tier_id(spec: Dict[str, Any]) -> str:
     """Stable identifier for a tier. Level 100 carries three rewards, so the
-    level alone is not unique — `key` disambiguates, and it is what the ledger
+    level alone is not unique: `key` disambiguates, and it is what the ledger
     document is named after. Changing a key re-opens that tier for claiming, so
     they are append-only in practice."""
     extra = str(spec.get("key") or "")
@@ -222,7 +196,7 @@ def _blurb(spec: Dict[str, Any]) -> str:
         "coins":      "Spend them in the Store on skins, backgrounds and perks.",
         "shield":     "Covers one missed day so your daily streak survives it.",
         "sticker":    "A critter sticker for game chat, picked from ones you own.",
-        "boost":      f"+{BOOST_PERCENT}% XP from everything for {BOOST_HOURS} hours — "
+        "boost":      f"+{BOOST_PERCENT}% XP from everything for {BOOST_HOURS} hours: "
                       "games, challenges, achievements and the daily bonus. Activate it when you want it.",
         "reroll":     "Swap out as many weekly challenges as you like for the rest of that week.",
         "background": "An exclusive scene behind your avatar, everywhere it appears.",
@@ -231,7 +205,7 @@ def _blurb(spec: Dict[str, Any]) -> str:
 
 
 def track() -> List[Dict[str, Any]]:
-    """The published track. Pure data — safe to serve to anyone, signed in or
+    """The published track. Pure data: safe to serve to anyone, signed in or
     not, and the client renders straight from it so the two can never drift."""
     out: List[Dict[str, Any]] = []
     for spec in _TRACK_SPEC:
@@ -289,7 +263,7 @@ def _transactional():
 def _array_union():
     """Appends to unlocked_backgrounds / emote_icons go through ArrayUnion, not
     through "read the list, add one, write it back". The read here is normalised
-    (lowercased, junk dropped) so it can pick what is missing — writing that
+    (lowercased, junk dropped) so it can pick what is missing: writing that
     normalised copy back would quietly delete any entry the filter rejected."""
     from firebase_admin import firestore
     fn = getattr(firestore, "ArrayUnion", None)
@@ -348,7 +322,7 @@ def _str_list(value: Any, pattern: "re.Pattern[str]") -> List[str]:
 # ── Server-picked rewards ───────────────────────────────────────────────────
 # A tier that hands over something already owned is a wasted reward, so the
 # background and sticker tiers pick at claim time from what this account is
-# actually missing — inside the transaction, off the freshly-read document.
+# actually missing: inside the transaction, off the freshly-read document.
 
 def _pick_background(doc: Dict[str, Any]) -> Optional[str]:
     owned = set(_str_list(doc.get("unlocked_backgrounds"), _BG_PATH))
@@ -362,7 +336,7 @@ def _pick_sticker(doc: Dict[str, Any]) -> Optional[str]:
     """A sticker for a critter this account OWNS and has no sticker for yet.
 
     Mullet is every account's starter and is not written into unlocked_icons,
-    so it is seeded in explicitly — otherwise a brand-new player's level-3
+    so it is seeded in explicitly, otherwise a brand-new player's level-3
     sticker would have nothing to draw from and the tier would refuse."""
     owned = _str_list(doc.get("unlocked_icons"), _AVATAR_PATH)
     if "/avatars/mullet.png" not in owned:
@@ -394,7 +368,7 @@ def _inventory(doc: Dict[str, Any]) -> Dict[str, Any]:
 
 def claimed_ids(db, uid: str) -> List[str]:
     """Which tiers this account has already taken. One query, not one read per
-    tier — the track is ~60 tiers and this runs on every page open."""
+    tier, the track is ~60 tiers and this runs on every page open."""
     if not _SAFE_ID.match(str(uid or "")):
         return []
     out: List[str] = []
@@ -406,7 +380,7 @@ def claimed_ids(db, uid: str) -> List[str]:
                 out.append(tier)
     except Exception as exc:  # noqa: BLE001
         # A lookup that fails must read as "nothing claimed yet", never as
-        # "everything claimed" — the claim itself re-checks the ledger inside
+        # "everything claimed", the claim itself re-checks the ledger inside
         # its transaction, so the worst case is a button that looks available
         # and then politely says it was already taken.
         print(f"[pass] claimed lookup failed for {uid}: {exc}")
@@ -420,9 +394,14 @@ def state_payload(uid: Optional[str]) -> Dict[str, Any]:
         "track": track(),
         "maxLevel": max_level(),
         # The cumulative XP to REACH each level, index 0 = level 1. Served so
-        # the pass and the gallery's level track can say "12,400 XP until the
-        # Manta Ray" from the same numbers the server levels people up with.
+        # the pass can say "12,400 XP until the Manta Ray" from the same
+        # numbers the server levels people up with.
         "levelTotals": list(_level_totals),
+        # The hoard caps, served rather than copied into the client, because
+        # the sidebar's unclaimed badge has to know that a shield tier sitting
+        # on a full hoard is NOT something the player can act on. A badge that
+        # cannot be cleared reads as a broken badge.
+        "caps": {"shields": MAX_SHIELDS, "boosts": MAX_BOOSTS, "rerolls": MAX_REROLLS},
         "boostPercent": BOOST_PERCENT,
         "boostHours": BOOST_HOURS,
         "signedIn": bool(uid),
@@ -537,7 +516,7 @@ def claim(db, uid: str, tier_id: str) -> Dict[str, Any]:
             if not path:
                 # Nothing left to give. Refuse WITHOUT writing a ledger entry,
                 # so the tier stays claimable if a future release adds more
-                # backgrounds — a reward that silently evaporates is worse than
+                # backgrounds, a reward that silently evaporates is worse than
                 # one that waits.
                 return {"ok": False, "error": "backgrounds_full"}
             update["unlocked_backgrounds"] = _array_union()([path])
@@ -573,7 +552,7 @@ def claim(db, uid: str, tier_id: str) -> Dict[str, Any]:
     try:
         return _run(txn)
     except Exception as exc:  # noqa: BLE001
-        # A create() collision is the guard working — another request won the
+        # A create() collision is the guard working, another request won the
         # race. Every other failure wrote nothing, and must NOT be reported as
         # "already claimed", or the player believes they were paid and never
         # tries again.
@@ -627,7 +606,7 @@ def activate_boost(db, uid: str) -> Dict[str, Any]:
     """Spend one held boost and start the 24 hours.
 
     Held separately from claiming so nobody burns a boost the moment they claim
-    it. Refuses while one is already running — stacking two boosts into 48
+    it. Refuses while one is already running: stacking two boosts into 48
     hours is not what the tier promises, and silently eating the second one is
     worse than saying no."""
     if not _SAFE_ID.match(str(uid or "")):
@@ -663,7 +642,7 @@ def activate_boost(db, uid: str) -> Dict[str, Any]:
 
 # A week start the client sends must look like a real Monday-midnight near now.
 # Weekly state is local-time on the client, so the server cannot compute this
-# itself — but it can refuse an obviously invented one.
+# itself, but it can refuse an obviously invented one.
 _WEEK_MS = 7 * 24 * 60 * 60 * 1000
 _WEEK_SLACK_MS = 8 * 24 * 60 * 60 * 1000
 
@@ -694,7 +673,7 @@ def activate_reroll(db, uid: str, week_start_ms: Any) -> Dict[str, Any]:
             return {"ok": False, "error": "no_account"}
         doc = snap.to_dict() or {}
         if _int(doc.get("weekly_reroll_week")) == week:
-            # Already unlimited this week — charging a second token for
+            # Already unlimited this week: charging a second token for
             # something they already have is the one outcome to avoid.
             return {"ok": False, "error": "already_active", "week": week}
         held = max(0, _int(doc.get("weekly_reroll_tokens")))
@@ -716,24 +695,24 @@ def activate_reroll(db, uid: str, week_start_ms: Any) -> Dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════
 ERROR_MESSAGES = {
     "unauthorized": "Sign in to use the Level Pass.",
-    "no_account": "We couldn't find your account — try signing in again.",
+    "no_account": "We couldn't find your account: try signing in again.",
     "unknown_tier": "That reward isn't on the Level Pass.",
-    "not_claimable": "That milestone unlocks on its own — there's nothing to claim.",
+    "not_claimable": "That milestone unlocks on its own: there's nothing to claim.",
     "already_claimed": "You've already claimed that reward.",
     "level_locked": "You haven't reached that level yet.",
-    "shields_full": "Your Streak Shields are full — spend one first.",
-    "boosts_full": "You're holding as many XP Boosts as you can — use one first.",
-    "rerolls_full": "You're holding as many Weekly Swaps as you can — use one first.",
+    "shields_full": "Your Streak Shields are full: spend one first.",
+    "boosts_full": "You're holding as many XP Boosts as you can: use one first.",
+    "rerolls_full": "You're holding as many Weekly Swaps as you can: use one first.",
     "backgrounds_full": "You already own every background. This one is waiting for the next batch.",
     "stickers_full": "You already have a sticker for every critter you own.",
     "boost_running": "An XP Boost is already running.",
     "no_boost": "You don't have an XP Boost to activate.",
     "no_token": "You don't have a Weekly Swap token.",
     "already_active": "Weekly Swaps are already unlimited for you this week.",
-    "bad_week": "Couldn't work out which week that is — reload and try again.",
+    "bad_week": "Couldn't work out which week that is: reload and try again.",
     "bad_request": "Something was wrong with that request. Nothing was claimed.",
     "firestore_unavailable": "Couldn't reach your account just now. Nothing was claimed.",
-    "server_error": "Something went wrong. Nothing was claimed — please try again.",
+    "server_error": "Something went wrong. Nothing was claimed: please try again.",
 }
 
 

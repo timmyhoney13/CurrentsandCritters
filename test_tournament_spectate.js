@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Tests for the "I lost — can I still watch the rest of the tournament?" path
+/* Tests for the "I lost: can I still watch the rest of the tournament?" path
  * (multiplayer/client/js/tournament-ui.js + the end-game buttons in
  * multiplayer/client/js/preview-app.js).
  *
@@ -8,7 +8,7 @@
  * Why this file exists: being knocked out used to be treated exactly like the
  * tournament being OVER. The background watch stopped (so the live-match count
  * froze and the final standings never arrived) and the status bar rendered in
- * "done" mode, which hides the Spectate button — leaving a knocked-out player
+ * "done" mode, which hides the Spectate button, leaving a knocked-out player
  * with no way to watch the semifinal they'd just been eliminated from. These
  * tests pin the distinction: phase complete/cancelled == done; eliminated while
  * the bracket is still running == "out", which keeps watching and keeps
@@ -65,7 +65,7 @@ const br = new Function(
 
 // ── The two decisions the wait bar makes, lifted from showWaitBar ────────────
 // (showWaitBar itself touches the DOM, so the rule it applies is re-derived from
-// its own source text — if the rule changes, this must be updated with it.)
+// its own source text, if the rule changes, this must be updated with it.)
 const SPEC_RULE = UI.match(/const canWatch = ([^;]+);/);
 if (!SPEC_RULE) throw new Error("could not find the Spectate-button rule in showWaitBar");
 const canWatch = new Function("s", "return " + SPEC_RULE[1] + ";");
@@ -178,7 +178,7 @@ console.log("\nThe header exit is only a forfeit while you can still forfeit");
 console.log("\nEnd-of-match buttons (preview-app.js)");
 {
   // The end screen swaps Play Again / Back to Lobby for Spectate / Wait. Pin the
-  // fact that a WATCHED tournament match gets the same treatment — a spectator
+  // fact that a WATCHED tournament match gets the same treatment, a spectator
   // has no seat, so "Play Again" could only ever fail.
   const sync = APP.slice(APP.indexOf("function _syncEndgameTournamentButtons"),
                          APP.indexOf("function updatePlayAgainUI"));

@@ -4,7 +4,7 @@ Why this file exists
 --------------------
 A ★ ability is opt-in: the player pays the card's cost and includes at least one
 card whose symbol matches the card being played, and the engine fires the star
-only for an action submitted with use_star=True (see apply_action — a symbol
+only for an action submitted with use_star=True (see apply_action, a symbol
 match on a plain play deliberately does NOT auto-fire it).
 
 That leaves several ways for a star to silently do nothing:
@@ -374,7 +374,7 @@ def test_legal_action_payload_never_promises_an_unfirable_star():
                       f"[{a['face_name']}] star_symbol {a['star_symbol']!r} is not a real symbol")
                 check(key in star_twins,
                       f"[{a['face_name']}] offers '★ if {a['star_symbol']}' but no use_star "
-                      f"variant exists — the gold payment border would be a lie")
+                      f"variant exists, the gold payment border would be a lie")
                 check(int(a["cost_to_pay"]) > 0,
                       f"[{a['face_name']}] star_symbol on a free play, nothing to discard")
             if a["use_star"]:

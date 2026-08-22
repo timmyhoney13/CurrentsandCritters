@@ -1,11 +1,11 @@
-/* Currents and Critters — friend-code referral reward (self-contained module).
+/* Currents and Critters: friend-code referral reward (self-contained module).
  *
  * "A friend signs up with Google, types your friend code, you BOTH get 100
  * Critter Coins. Every fifth friend you bring in earns you a free background."
  *
  *   window.__ccReferralRender()      the referral card on Player Home
  *   window.__ccReferralSync()        re-read state from the server
- *   window.__ccReferralRedeem(code)  redeem a code — what the SIGN-UP screen
+ *   window.__ccReferralRedeem(code)  redeem a code, what the SIGN-UP screen
  *                                    calls, resolving to the server's answer
  *   window.__ccReferralCanRedeem()   cached "is the window still open?"
  *
@@ -32,7 +32,7 @@
   const fmt = (n) => Math.round(num(n)).toLocaleString();
   const toast = (m, t) => { try { bridge().toast(m, t); } catch (_) {} };
 
-  // The bridge's post() resolves to an ENVELOPE — { ok, status, data } — and
+  // The bridge's post() resolves to an ENVELOPE: { ok, status, data }, and
   // THROWS when the request never landed. Unwrap in exactly one place.
   function unwrap(res) {
     if (res && typeof res === "object" && "data" in res && "status" in res) {
@@ -57,14 +57,14 @@
     no_code: "Enter your friend's code first.",
     bad_code: "That doesn't look like a friend code. Try the 4 digits under their name.",
     no_user: "No player has that friend code.",
-    ambiguous_code: "More than one player has that code — enter it as Name#Code.",
+    ambiguous_code: "More than one player has that code: enter it as Name#Code.",
     own_code: "That's your own friend code!",
     already_redeemed: "You've already used a friend code on this account.",
-    mutual_referral: "You two already referred each other — only one direction pays out.",
+    mutual_referral: "You two already referred each other, only one direction pays out.",
     window_closed: "Friend codes are a sign-up bonus, and this account is past the window.",
-    offline: "Couldn't reach the server. Nothing was awarded — please try again.",
-    unavailable: "The referral reward didn't finish loading — please refresh the page.",
-    server_error: "Something went wrong. Nothing was awarded — please try again.",
+    offline: "Couldn't reach the server. Nothing was awarded: please try again.",
+    unavailable: "The referral reward didn't finish loading: please refresh the page.",
+    server_error: "Something went wrong. Nothing was awarded: please try again.",
   };
   const msgFor = (res) => (res && res.message)
     || MESSAGES[String((res && res.error) || "")]
@@ -129,11 +129,11 @@
   function redeemHtml() {
     if (_state.redeemed) {
       const who = String(_state.redeemedFrom || "").trim();
-      return `<div class="ccRF-redeemed">✓ You joined with ${who ? esc(who) + "'s" : "a friend's"} code — coins already paid.</div>`;
+      return `<div class="ccRF-redeemed">✓ You joined with ${who ? esc(who) + "'s" : "a friend's"} code: coins already paid.</div>`;
     }
     if (!_state.canRedeem) {
       // Past the window. Say so plainly instead of showing a box that will
-      // only ever refuse — a dead input is worse than no input.
+      // only ever refuse, a dead input is worse than no input.
       return `<div class="ccRF-closed">Friend codes are a sign-up bonus, entered in the first
         ${esc(num(_state.windowDays, 14))} days after making an account.</div>`;
     }
@@ -160,7 +160,7 @@
           <span class="ccRF-ico" aria-hidden="true">🎁</span>
           <div>
             <div class="ccRF-title">Invite a Friend</div>
-            <div class="ccRF-sub">They sign up with Google and type your code —
+            <div class="ccRF-sub">They sign up with Google and type your code:
               <b>you both get ${coins}</b>
               <img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coins" draggable="false">.
               Every <b>${esc(every)}</b> friends earns you a <b>free background</b>.</div>
@@ -224,7 +224,7 @@
 
     if (res && res.ok) {
       const who = String(res.referrerName || "").trim();
-      toast(`+${fmt(res.coins)} Critter Coins — and ${who || "your friend"} got ${fmt(res.coins)} too!`, "good");
+      toast(`+${fmt(res.coins)} Critter Coins, and ${who || "your friend"} got ${fmt(res.coins)} too!`, "good");
       if (res.backgroundGranted) {
         toast("🖼️ Your friend earned a free background from that referral!", "good");
       }
@@ -273,5 +273,20 @@
 
   // Primed on sign-in so the sign-up screen and the Friends tab both know
   // whether the window is still open without waiting for a paint.
-  window.__ccReferralPrime = function () { sync().catch(() => {}); };
+  // The sign-up screen states the reward before any account exists, so its
+  // number is written into preview.html as the current default. Once the
+  // server answers, overwrite it, that way an env override (REFERRAL_REWARD_COINS)
+  // is reflected instead of the screen promising something else.
+  function _paintSignupPromise() {
+    try {
+      const el = document.getElementById("auth-ref-coins");
+      if (el && _state && Number.isFinite(Number(_state.coins))) {
+        el.textContent = fmt(_state.coins);
+      }
+    } catch (_) {}
+  }
+
+  window.__ccReferralPrime = function () {
+    sync().then(_paintSignupPromise).catch(() => {});
+  };
 })();

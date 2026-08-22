@@ -5,7 +5,7 @@
  *
  * Three things ship together here and each one can break silently:
  *
- *   1. THE DOCUMENT. js/privacy-policy.js is the ONE source of the policy —
+ *   1. THE DOCUMENT. js/privacy-policy.js is the ONE source of the policy,
  *      the published /privacy page and the in-game reader both render that
  *      exact string. If a section is dropped, renamed or duplicated, the
  *      contents list and the headings drift apart and nobody notices, because
@@ -14,7 +14,7 @@
  *      commitments (we don't sell data, we don't store your Google password,
  *      the mailing address) are actually in the text.
  *
- *   2. BOTH HOSTS SERVE IT. /privacy is one file behind two front doors —
+ *   2. BOTH HOSTS SERVE IT. /privacy is one file behind two front doors:
  *      Vercel (marketing site, via a rewrite) and Render (game host, via a
  *      route). Adding one and forgetting the other 404s on exactly one domain,
  *      which is the failure nobody sees from their own laptop. The page loads
@@ -82,7 +82,7 @@ const TEXT = String(HTML_DOC || "")
   check(TEXT.includes("Last updated: August 6, 2026"),
         "the last-updated date is printed in the document, not just exported");
 
-  // The contents list and the headings come from ONE array — prove it by
+  // The contents list and the headings come from ONE array: prove it by
   // finding every advertised section id exactly once in the rendered doc.
   for (const s of SECTIONS || []) {
     const hits = (HTML_DOC.match(new RegExp(`id="${s.id}"`, "g")) || []).length;
@@ -90,7 +90,7 @@ const TEXT = String(HTML_DOC || "")
     check(HTML_DOC.includes(`</span>${s.title}</h3>`),
           `section ${s.n}'s heading prints its own title`);
   }
-  // Numbering is 1..18 with no gaps — a gap means a section was deleted.
+  // Numbering is 1..18 with no gaps, a gap means a section was deleted.
   check((SECTIONS || []).every((s, i) => s.n === i + 1),
         "sections are numbered 1 to 18 with no gaps");
   check(!HTML_DOC.includes("undefined"), "nothing renders as 'undefined'");
@@ -254,7 +254,7 @@ console.log("6. The in-game reader (Settings → 📜 Legal)");
 console.log("7. First sign-in is one screen");
 // ═══════════════════════════════════════════════════════════════════════════
 // The scroll-to-the-bottom Terms gate used to stand between a new player and
-// their first game — on account creation AND on every single guest dive. It is
+// their first game, on account creation AND on every single guest dive. It is
 // gone; nothing may re-introduce a gate on the way in.
 {
   for (const dead of ["ccShowTerms", "__ccShowTerms", "TERMS_VERSION", "hasAgreedToTerms",
@@ -282,7 +282,7 @@ console.log("8. One free rename, then coins");
   check(price === 100, `a username change costs 100 coins, source says ${price}`);
 
   // The promise on the sign-in screen and the charge in Settings are the SAME
-  // number — the screen prints the constant rather than a hard-coded price.
+  // number, the screen prints the constant rather than a hard-coded price.
   check(/id="auth-nick-price"/.test(HTML), "the sign-in screen has a slot for the price");
   check(/priceEl\.textContent = String\(PHST_RENAME_COIN_PRICE\)/.test(APP),
         "the sign-in screen prints the constant that charges it");
@@ -315,7 +315,7 @@ console.log("8. One free rename, then coins");
   check(/You have \$\{_myCritterCoins\(\)\}/.test(APP),
         "a player who must pay is shown their balance");
 
-  // The Change button is never disabled — being short on coins is explained at
+  // The Change button is never disabled: being short on coins is explained at
   // save time, not by a dead button with no reason attached.
   check(/editBtn\.disabled = false;/.test(APP), "the Change button is always live");
 }

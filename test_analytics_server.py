@@ -1,6 +1,6 @@
 """Tests for the Developer Analytics API (analytics_server.py).
 
-The dashboard's whole value is that its numbers are RIGHT — a wrong retention
+The dashboard's whole value is that its numbers are RIGHT, a wrong retention
 rate or an off-by-one date window is worse than no dashboard, because it gets
 believed. So these tests build fixed, hand-countable data and assert the exact
 numbers, never "it returned something".
@@ -45,7 +45,7 @@ NOW = int(time.time())
 
 
 # ══════════════════════════════════════════════════════════════════════════
-#  A tiny in-memory Firestore — only the reads this module actually makes
+#  A tiny in-memory Firestore, only the reads this module actually makes
 # ══════════════════════════════════════════════════════════════════════════
 class FakeSnap:
     def __init__(self, doc_id, data):
@@ -108,7 +108,7 @@ def make_users():
     """Six accounts with hand-chosen dates so every cohort is countable.
 
     joined-90d / joined-40d / joined-20d are all old enough for a 7-day
-    retention answer; joined-2d is NOT, and that is the point — it must be
+    retention answer; joined-2d is NOT, and that is the point, it must be
     excluded from the cohort rather than counted as "didn't return".
     """
     return {
@@ -137,7 +137,7 @@ def make_users():
             "nickname": "Tide", "created_at": NOW - 20 * DAY, "last_active": NOW - 20 * DAY,
             "stats": {"completed_games": 1, "level": 1, "critter_coins": 0},
         },
-        # Joined 2 days ago — too new to have a 7-day answer either way.
+        # Joined 2 days ago: too new to have a 7-day answer either way.
         "u-fresh": {
             "nickname": "Sprat", "created_at": NOW - 2 * DAY, "last_active": NOW - 3600,
             "online": True,
@@ -156,7 +156,7 @@ def game(when, *, completed=True, players=4, humans=2, winner="Reef",
     """One game-history record shaped exactly like multiplayer_server writes.
 
     `animals` gives every player the same board; `boards` (a list, one entry per
-    name) gives them different ones — which is the only way to build a card that
+    name) gives them different ones, which is the only way to build a card that
     is genuinely lopsided, since a card on BOTH boards wins exactly half the time
     no matter how strong it is.
     """
@@ -277,7 +277,7 @@ class AnalyticsTestCase(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════
-#  1 — THE ADMIN GATE
+#  1, THE ADMIN GATE
 # ══════════════════════════════════════════════════════════════════════════
 class TestAdminGate(AnalyticsTestCase):
     games = [game(NOW - DAY)]
@@ -307,7 +307,7 @@ class TestAdminGate(AnalyticsTestCase):
             self.assertEqual(h.status, 403, f"token {token!r} must be refused")
 
     def test_a_forged_uid_in_the_body_is_ignored(self):
-        # The uid is never read from the body — only from the verified token.
+        # The uid is never read from the body, only from the verified token.
         h = self.call("overview", idToken="player-token", uid=ADMIN_UID,
                       is_admin=True, email="currentsandcritters@gmail.com")
         self.assertEqual(h.status, 403)
@@ -338,7 +338,7 @@ class TestAdminGate(AnalyticsTestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════
-#  2 — "NO DATA" IS NOT ZERO
+#  2, "NO DATA" IS NOT ZERO
 # ══════════════════════════════════════════════════════════════════════════
 class TestEmptyIsNotZero(AnalyticsTestCase):
     users = {}
@@ -372,7 +372,7 @@ class TestEmptyIsNotZero(AnalyticsTestCase):
 
     def test_without_firestore_the_game_half_still_works(self):
         # The admin email in a VERIFIED token is proof on its own, so the
-        # dashboard still opens when Firebase is down — the account numbers go
+        # dashboard still opens when Firebase is down, the account numbers go
         # to "no data" and an alert says why, rather than the tool going dark.
         an.init(get_firestore=lambda: None, verify_token=self.verify,
                 games_history_dir=self.games_dir, competitive_games_dir=self.comp_dir,
@@ -401,7 +401,7 @@ class TestEmptyHistoryIsNotAFault(AnalyticsTestCase):
     """A server that has recorded no games yet is not a broken server.
 
     The Technical tab used to fail the "Game records" check on an empty history
-    directory, which dragged the Server card to "Needs attention" — so a freshly
+    directory, which dragged the Server card to "Needs attention", so a freshly
     deployed box, or one whose disk had just been reset, opened permanently red
     with nothing actually wrong. A check that is always red is a check nobody
     reads. A directory that is MISSING or unwritable is the real fault, and that
@@ -482,7 +482,7 @@ class TestHistoryPresentStillCounts(AnalyticsTestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════
-#  3 — THE METRIC MATHS
+#  3, THE METRIC MATHS
 # ══════════════════════════════════════════════════════════════════════════
 class TestRetention(AnalyticsTestCase):
     games = [game(NOW - DAY)]
@@ -491,7 +491,7 @@ class TestRetention(AnalyticsTestCase):
         return an._filter_users(an._load_users(force=True), {})
 
     def test_cohort_excludes_players_too_new_to_have_returned(self):
-        # u-fresh joined 2 days ago. At day 7 it cannot be in the cohort — and
+        # u-fresh joined 2 days ago. At day 7 it cannot be in the cohort, and
         # counting it as "didn't return" is what drags a growing game's
         # retention down for no real reason.
         r = an._retention(self.rows(), 7, NOW)
@@ -603,7 +603,7 @@ class TestFilters(AnalyticsTestCase):
         self.assertEqual(an._filters({"days": "nonsense"})["days"], an.DEFAULT_RANGE_DAYS)
 
 
-# Blue Tang sits on BOTH boards, so it wins exactly half the time — that is the
+# Blue Tang sits on BOTH boards, so it wins exactly half the time, that is the
 # baseline. Mandarin Goby only ever sits on the LOSER's board, so its win rate is
 # 0% and it should be flagged as weak.
 _TANG = [("Blue Tang", "Reef Fish")]
@@ -674,7 +674,7 @@ class TestAlerts(AnalyticsTestCase):
 
 
 class TestQuietData(AnalyticsTestCase):
-    """A handful of games must not set anything off — a dashboard that cries
+    """A handful of games must not set anything off, a dashboard that cries
     wolf on a 3-game day trains its owner to ignore it."""
     games = [game(NOW - DAY, completed=False), game(NOW - DAY, completed=True)]
 
@@ -685,7 +685,7 @@ class TestQuietData(AnalyticsTestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════
-#  4 — THE PAYLOAD SHAPE THE CLIENT RENDERS
+#  4, THE PAYLOAD SHAPE THE CLIENT RENDERS
 # ══════════════════════════════════════════════════════════════════════════
 class TestPayloadShape(AnalyticsTestCase):
     games = [game(NOW - DAY), game(NOW - 2 * DAY, completed=False)]
@@ -735,7 +735,7 @@ class TestPayloadShape(AnalyticsTestCase):
         self.assertIsNone(d["player"])
 
     def test_search_reaches_the_dev_account_even_though_charts_exclude_it(self):
-        # Search is a lookup tool, not a measurement — it must find everyone.
+        # Search is a lookup tool, not a measurement, it must find everyone.
         d = self.call("search", query="Dev").payload
         self.assertTrue(d["matches"], "search should still find the developer account")
 
@@ -768,7 +768,7 @@ class TestPayloadShape(AnalyticsTestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════
-#  5 — CACHING (a dashboard left open must not rescan Firestore per tick)
+#  5: CACHING (a dashboard left open must not rescan Firestore per tick)
 # ══════════════════════════════════════════════════════════════════════════
 class TestCaching(AnalyticsTestCase):
     games = [game(NOW - DAY)]
@@ -812,7 +812,7 @@ class TestCaching(AnalyticsTestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════
-#  6 — THE RECORD THE SERVER ACTUALLY WRITES
+#  6, THE RECORD THE SERVER ACTUALLY WRITES
 # ══════════════════════════════════════════════════════════════════════════
 class TestGameRecordContract(unittest.TestCase):
     """The timing fields the dashboard reads have to be the ones
@@ -827,7 +827,7 @@ class TestGameRecordContract(unittest.TestCase):
         body = src[start:start + 8000]
         for field in ('"started_unix"', '"ended_unix"', '"duration_sec"', '"rounds"'):
             self.assertIn(field, body,
-                          f"_save_game_history must still write {field} — analytics reads it")
+                          f"_save_game_history must still write {field}: analytics reads it")
 
 
 if __name__ == "__main__":

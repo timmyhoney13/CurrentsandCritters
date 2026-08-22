@@ -5,16 +5,16 @@
  *
  * What a gold border on a hand card means, everywhere in the app: "discard this
  * card to fire the ★ ability of the card you are playing." That promise is only
- * keepable when the staged play is the use_star variant — the engine ignores the
+ * keepable when the staged play is the use_star variant, the engine ignores the
  * payment's symbol on a plain play (apply_action: "Star only fires when the
  * player explicitly chose use_star=True"). Painting gold off the server's
  * star_symbol hint alone lit cards up for a star that never fired.
  *
  * These checks run the REAL helpers lifted out of preview-app.js (no browser
- * needed — they are pure functions over the legal-action payload), plus a scan
+ * needed, they are pure functions over the legal-action payload), plus a scan
  * of the render/CSS so the rule cannot be quietly re-broken:
- *   1. starPayInfo() — fires/offered/sym/ability for every payload shape.
- *   2. Two-sided cards — symbol matching sees BOTH faces; the ★ text is read
+ *   1. starPayInfo(): fires/offered/sym/ability for every payload shape.
+ *   2. Two-sided cards: symbol matching sees BOTH faces; the ★ text is read
  *      off the face actually being played, not faces[0].
  *   3. renderHand paints .star-sym-match only when the star really fires.
  *   4. The gold style exists in preview.css for the real game AND the tutorial.
@@ -158,7 +158,7 @@ console.log("3. renderHand gates .star-sym-match on the star actually firing");
   check(/if\s*\(_starPay\.fires\)/.test(region),
         "the .star-sym-match branch must be gated on _starPay.fires");
   check(!/pendingPayAction\?\.star_symbol/.test(region),
-        "renderHand must not fall back to star_symbol — that paints gold for a star that never fires");
+        "renderHand must not fall back to star_symbol, that paints gold for a star that never fires");
   check(/entryHasSymbolMatch\(entryUid,\s*_starPay\.sym\)/.test(region),
         "gold must go to cards whose symbol matches the star symbol");
   check(/beingPlayed/.test(region),
@@ -229,7 +229,7 @@ console.log("5. computed colours in a real browser");
   ].find(p => fs.existsSync(p));
 
   if (!CHROME) {
-    console.log("  SKIP: no Chrome/Chromium found — stylesheet checks above still ran.");
+    console.log("  SKIP: no Chrome/Chromium found: stylesheet checks above still ran.");
   } else {
     const os = require("os");
     const { execFileSync } = require("child_process");

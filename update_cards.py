@@ -10,7 +10,7 @@ Staging folders (create if they don't exist):
     new_cards/vertical/     →  vertical_cards/page_01.png  … page_44.png
     new_cards/oceans/       →  oceans_cards/page_01.png    … page_66.png
 
-Any PNG file names are accepted — files are sorted naturally and
+Any PNG file names are accepted: files are sorted naturally and
 renamed to page_01.png, page_02.png, … in that order.
 
 You can update just one deck by only populating that staging folder.
@@ -67,12 +67,12 @@ def copy_deck(deck: dict) -> int:
     label: str = deck["label"]
 
     if not src.exists():
-        print(f"  [skip] {label} — staging folder not found: {src}")
+        print(f"  [skip] {label}: staging folder not found: {src}")
         return 0
 
     pngs = find_pngs(src)
     if not pngs:
-        print(f"  [skip] {label} — no PNG files in {src}")
+        print(f"  [skip] {label}, no PNG files in {src}")
         return 0
 
     if len(pngs) != expected:
@@ -98,7 +98,7 @@ def bump_version(preview: Path) -> str:
     new_ver = datetime.now().strftime("%Y%m%d-%H%M%S")
     new_text, n = VERSION_RE.subn(lambda m: m.group(1) + new_ver + m.group(2), text)
     if n == 0:
-        print("  [warn] CARD_IMAGE_VERSION not found in preview.html — cache NOT busted")
+        print("  [warn] CARD_IMAGE_VERSION not found in preview.html: cache NOT busted")
         return new_ver
     preview.write_text(new_text, encoding="utf-8")
     print(f"  [ok]   CARD_IMAGE_VERSION → {new_ver}")
@@ -114,12 +114,12 @@ def git_push(version: str, decks_updated: list[str]):
                     "multiplayer/client/preview.html"], check=True)
     status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
     if not status.stdout.strip():
-        print("  [skip] Nothing changed — git working tree is clean.")
+        print("  [skip] Nothing changed: git working tree is clean.")
         return
-    msg = f"Update card images ({', '.join(decks_updated)}) — version {version}"
+    msg = f"Update card images ({', '.join(decks_updated)}): version {version}"
     subprocess.run(["git", "commit", "-m", msg], check=True)
     subprocess.run(["git", "push", "origin", "main"], check=True)
-    print("  [ok]   Pushed to GitHub — Render will redeploy automatically.")
+    print("  [ok]   Pushed to GitHub: Render will redeploy automatically.")
 
 
 def main():
@@ -132,9 +132,9 @@ def main():
             (STAGING / key).mkdir(exist_ok=True)
         print(f"Created staging folders under:\n  {STAGING}\n")
         print("Drop your PNG files into the right subfolder, then run this script again.\n")
-        print("  new_cards/horizontal/  — Up / Down animal card images  (48 pages)")
-        print("  new_cards/vertical/    — Left / Right animal cards      (44 pages)")
-        print("  new_cards/oceans/      — Ocean / environment cards      (66 pages)\n")
+        print("  new_cards/horizontal/, Up / Down animal card images  (48 pages)")
+        print("  new_cards/vertical/: Left / Right animal cards      (44 pages)")
+        print("  new_cards/oceans/: Ocean / environment cards      (66 pages)\n")
         sys.exit(0)
 
     updated = []

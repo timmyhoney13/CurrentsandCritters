@@ -76,7 +76,7 @@
   @keyframes tut3-glow-pulse { 0%,100%{ opacity:.62; } 50%{ opacity:1; } }
   /* Drag demonstration: a ghost of the very card the step is asking for, flying
      from the player's hand into the slot it belongs in, on a loop. "Play the
-     Lobster" is only half an instruction — the other half is WHERE, and a
+     Lobster" is only half an instruction, the other half is WHERE, and a
      sentence describing a board position is much harder to follow than watching
      the card make the trip once. Painted above the dim, below the popup. */
   #tut3-drags { position:fixed; inset:0; pointer-events:none; }
@@ -166,7 +166,7 @@
   const STUCK_WITH_TARGET_MS = 15000;
   const STUCK_NO_TARGET_MS   = 4000;
 
-  // A step can declare itself inapplicable to this player (step.skipIf) — the
+  // A step can declare itself inapplicable to this player (step.skipIf), the
   // Avatar Gallery steps for a guest, say, who is not allowed to open it. Those
   // steps are stepped over in whichever direction the player is travelling, and
   // they are left out of the "Step N of M" count so the numbers stay honest.
@@ -208,7 +208,7 @@
     coachPointer = POINTER_LABEL[dir] ? dir : "none";
     if (!coachAwaitingAct || !coach) return;
     const b = coach.querySelector("#tut3-next");
-    // Only while it is still the signpost — once the anti-dead-end timer has
+    // Only while it is still the signpost, once the anti-dead-end timer has
     // turned it into "Skip this step →" it must keep saying so.
     if (b && b.disabled) b.textContent = POINTER_LABEL[coachPointer];
   }
@@ -393,8 +393,8 @@
   // catch-layer went back to swallowing clicks, so ← Back on "click your
   // avatar" left them on a step whose one instruction no longer worked, with
   // Next as the only way out. That is not going back to a step. So a
-  // back-navigated step is fully live — clicks reach the page and the action
-  // still advances the tour — with two concessions to the fact that it has
+  // back-navigated step is fully live: clicks reach the page and the action
+  // still advances the tour, with two concessions to the fact that it has
   // already been done once: Next stays available, and the advanceWhen poll is
   // LATCHED (it must see the condition go false before it can fire), so a
   // condition that is already true does not bounce the player straight forward
@@ -460,8 +460,8 @@
     backBtn.disabled = (pos === 0);
     // Interactive step: let real clicks/drags reach the highlighted element and
     // disable Next so the player must perform the action.
-    // A back-navigated step stays just as live — the whole point of ← Back is
-    // to be able to do the step again — but its Next is not re-locked, because
+    // A back-navigated step stays just as live, the whole point of ← Back is
+    // to be able to do the step again, but its Next is not re-locked, because
     // the player has already been through it once.
     const isInteractive = !!step.interactive;
     coachWait = isInteractive ? (step.wait || null) : null;
@@ -490,9 +490,9 @@
     // viewer" and the viewer sits over every step that follows; skip "Start
     // Game" and the rest of the tour points into a game that never started.
     //
-    // The escape below is only for a step that CANNOT be completed — a screen
+    // The escape below is only for a step that CANNOT be completed, a screen
     // gated behind sign-in, a rigged card the server did not deal, a control
-    // that never rendered or is disabled — because the alternative there is
+    // that never rendered or is disabled, because the alternative there is
     // Skip ✕, which throws away the whole tutorial. The countdown restarts the
     // moment the target becomes usable again.
     if (isInteractive && !step.allowNext && !isLastStep && !goingBack) {
@@ -526,7 +526,7 @@
     return st.display !== "none" && st.visibility !== "hidden";
   }
 
-  // Visible AND actually clickable — a disabled button is on screen but there is
+  // Visible AND actually clickable, a disabled button is on screen but there is
   // nothing the player can do with it.
   function coachIsUsable(el) {
     if (!isVisible(el)) return false;
@@ -814,7 +814,7 @@
 
     // ── The sample match, opened FOR the player ───────────────────────
     // This used to hand the learner a button and then refuse to continue until
-    // they had tapped all three opponents — which reads as a broken step when
+    // they had tapped all three opponents, which reads as a broken step when
     // the popup is sitting over the very chips you are told to tap. Now the
     // match opens on its own, the spotlight sits on the row of players, and Next
     // works straight away: looking around is optional, not a toll gate.
@@ -1030,7 +1030,7 @@
     }, 400);
   }
 
-  // The guide bar is only on screen while it is YOUR turn — renderGuideBar
+  // The guide bar is only on screen while it is YOUR turn: renderGuideBar
   // strips .visible the rest of the time. Turn order is random, so a step that
   // hard-targets "#pv-guide-bar" spotlights nothing for everyone who isn't
   // first. Resolve it only when it is really showing, and say so in the text.
@@ -1641,7 +1641,7 @@
       before: () => { _gtSawOppTurn = false; _gtWaitFrom = Date.now(); },
       // Normally: wait for the turn to leave and come back. But the bots can
       // have finished the whole round while the player was reading the step
-      // before this one, and then "the turn left" never happens again — so once
+      // before this one, and then "the turn left" never happens again, so once
       // it has plainly been the player's turn for a few seconds, move on.
       advanceWhen: () => {
         if (!gtMyTurn()) { _gtSawOppTurn = true; return false; }

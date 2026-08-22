@@ -75,7 +75,7 @@
     return /^(chrome|moz|safari|safari-web|ms-browser)-extension:/i.test(String(raw || ""));
   }
   // Same-origin misses are our bug (level "error"). A third-party host that
-  // fails — a Google profile photo, a CDN hiccup — is worth recording but is
+  // fails, a Google profile photo, a CDN hiccup: is worth recording but is
   // not something the game can fix, so it must not read as a game error.
   // `unknownLevel` covers a blank url: for a script that is the anonymised
   // cross-origin "Script error." (not ours), but a blank img src is our own

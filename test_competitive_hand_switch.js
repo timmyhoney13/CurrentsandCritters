@@ -9,7 +9,7 @@
  * turn is on.
  *
  * The server decides that now (state_view returns the ACTIVE hand's view for
- * either of a player's tokens — see _competitive_same_owner), because the
+ * either of a player's tokens: see _competitive_same_owner), because the
  * client-side version of it was a race: a poll in flight, a corrective fetch
  * that never went out, or a client that came back from a refresh holding only
  * one of its two tokens, and the match froze on hand 1 while the banner said
@@ -197,12 +197,12 @@ function shownHandOf(client, seat) {
 }
 
 // ── 1. P1 (seats 0+1) plays a full round ─────────────────────────────────────
-console.log("1. P1 owns seats 0+1 — the view follows whichever hand is active");
+console.log("1. P1 owns seats 0+1, the view follows whichever hand is active");
 {
   const server = makeServer();
   const p1 = makeClient(server, [0, 1]);
 
-  // Turn 1 — seat 0 (my hand 1).
+  // Turn 1: seat 0 (my hand 1).
   p1.poll();
   check(shownSeat(p1) === 0 && shownCanAct(p1) === true,
         "hand 1's turn: client shows seat 0 with YOUR TURN");
@@ -248,8 +248,8 @@ console.log("1. P1 owns seats 0+1 — the view follows whichever hand is active"
         "back to hand 1: client switched its view back to seat 0");
 }
 
-// ── 2. P2 (seats 2+3) — the mirror case ──────────────────────────────────────
-console.log("2. P2 owns seats 2+3 — same switch, opposite side of the table");
+// ── 2. P2 (seats 2+3), the mirror case ──────────────────────────────────────
+console.log("2. P2 owns seats 2+3, same switch, opposite side of the table");
 {
   const server = makeServer();
   const p2 = makeClient(server, [2, 3]);
@@ -272,7 +272,7 @@ console.log("3. re-entering the match (refresh / Rejoin / ?room= URL) restores b
 {
   const server = makeServer();
   // What the generic room-entry paths leave behind: one seat token, compMode
-  // off, no seat pair — and an SSE stream competitive must not run on.
+  // off, no seat pair, and an SSE stream competitive must not run on.
   const fakeSse = { closed: false, close() { this.closed = true; } };
   const back = makeClient(server, [0], {
     compMode: false, heldToken: TOKENS[0], sseSource: fakeSse,
@@ -353,7 +353,7 @@ console.log("5. preview-app.js keeps the per-seat render gate");
 }
 
 // ── 6. The hand-switch SCREEN is gone ────────────────────────────────────────
-// A full-screen "Your Turn — Hand 2" card used to slide in and hold the board
+// A full-screen "Your Turn: Hand 2" card used to slide in and hold the board
 // for 2.2 s every time the turn reached the player's other hand. The switch is
 // instant now (and already done before the opponent finishes), so the overlay
 // was one more thing to tap through. It has to be gone from all three files, or

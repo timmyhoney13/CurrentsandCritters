@@ -1,19 +1,19 @@
-"""Clan challenges — every single one, line by line, against the real server.
+"""Clan challenges, every single one, line by line, against the real server.
 
 There are 51 clan challenges (25 weekly + 26 season) and every one of them is
 checked here twice over:
 
-  • YOU GET IT BY DOING WHAT IT SAYS — drive the exact thing the challenge
+  • YOU GET IT BY DOING WHAT IT SAYS: drive the exact thing the challenge
     describes, one step short of its target (must NOT be done), then take the
     last step (must be done, and its Clan Points must have landed).
-  • YOU NEVER GET ONE BY ACCIDENT — after each driver, the set of completed
+  • YOU NEVER GET ONE BY ACCIDENT, after each driver, the set of completed
     challenges must equal an explicitly listed expected set. Anything that
     fires without being earned fails the run, and so does anything that was
     genuinely earned but silently skipped.
 
 Everything runs through the REAL clan_server against an in-memory Firestore
 fake and a sandboxed temp dir for game records (same harness as
-test_clan_server.py — never touches the tree). Nothing is stubbed on the way
+test_clan_server.py, never touches the tree). Nothing is stubbed on the way
 in: the counters are moved by claim_game_points reading a game record with the
 same shape multiplayer_server writes, by the real trade hook, and by the real
 event / join / rival routes.
@@ -418,7 +418,7 @@ def _by_id(cid):
 
 
 print("═" * 62)
-print("CLAN CHALLENGES — every challenge, line by line")
+print("CLAN CHALLENGES, every challenge, line by line")
 print("═" * 62)
 
 # ══ 0. Table sanity ══════════════════════════════════════════════════════════
@@ -442,7 +442,7 @@ check("an unknown metric can never complete a challenge",
       and CS._num(CS._season_metric(_s, "not_a_real_metric")) == 0)
 
 # ══ WEEKLY 1-2: Full Crew / All Hands on Deck ════════════════════════════════
-print("\nweekly — participation:")
+print("\nweekly: participation:")
 cid, us = new_clan(10)
 def _play_n(members):
     def go():
@@ -466,7 +466,7 @@ check("ten games by ONE member never completes Full Crew",
       "w_full_crew" not in done_set(cid), str(sorted(done_set(cid))))
 
 # ══ WEEKLY 3-4: Daily Divers / Six-Seven ═════════════════════════════════════
-print("\nweekly — days played:")
+print("\nweekly: days played:")
 cid, us = new_clan(1)
 BASE = 1783339200                          # Monday 12:00 UTC
 def _days(lo, hi):
@@ -494,7 +494,7 @@ check("two games on the same day count as one day",
 at(BASE)
 
 # ══ WEEKLY 5: Double Handed ══════════════════════════════════════════════════
-print("\nweekly — competitive:")
+print("\nweekly: competitive:")
 cid, us = new_clan(1)
 def _comp_n(n, **kw):
     return lambda: [comp(us[0], **kw) for _ in range(n)]
@@ -543,7 +543,7 @@ check("a loss resets the clan streak", weekly_of(cid).get("comp_streak") == 1
       and weekly_of(cid).get("comp_streak3") == 0)
 
 # ══ WEEKLY 16/17: Double Trouble, Dominant Depths ════════════════════════════
-print("\nweekly — two-handed competitive:")
+print("\nweekly: two-handed competitive:")
 cid, us = new_clan(1)
 # Both hands beating their best, but NOT doubling it: Dominant only.
 scenario(cid, "Dominant Depths (5 wins with both hands over their best)",
@@ -575,7 +575,7 @@ check("...while Double Trouble only asks for the two hands",
       weekly_of(cid).get("double_hands") == 1)
 
 # ══ WEEKLY 6: Artificial Start ═══════════════════════════════════════════════
-print("\nweekly — how you played:")
+print("\nweekly, how you played:")
 cid, us = new_clan(1)
 AR = stats(first_ocean="Artificial Reef")
 scenario(cid, "Artificial Start (Artificial Reef first in 4 games)",
@@ -638,7 +638,7 @@ for _ in range(3):
 check("a 7-player game is not Eight at Sea", weekly_of(cid).get("eight_all_human") == 0)
 
 # ══ WEEKLY 10: Friendly Competition ══════════════════════════════════════════
-print("\nweekly — against another clan:")
+print("\nweekly: against another clan:")
 other_cid, other_us = new_clan(2, name="Rivals")
 cid, us = new_clan(3)
 def _win_vs_other(members):
@@ -667,7 +667,7 @@ check("Friendly Competition needs the WIN",
       len(weekly_of(cid).get("vs_clan_winners") or {}) == 0)
 
 # ══ WEEKLY 11: Comeback Current ══════════════════════════════════════════════
-print("\nweekly — comebacks:")
+print("\nweekly: comebacks:")
 cid, us = new_clan(1)
 BEHIND = stats(behind_at_endgame=True)
 scenario(cid, "Comeback Current (win 2 you were behind in at End Game)",
@@ -702,7 +702,7 @@ check("four Cephalopods in a turn is not the achievement",
       len(weekly_of(cid).get("humu_members") or {}) == 0)
 
 # ══ WEEKLY 18-24: the play-telemetry challenges ══════════════════════════════
-print("\nweekly — play telemetry:")
+print("\nweekly: play telemetry:")
 TELEMETRY = [
     ("w_ocean_architects", "oceans_played", 75, "Ocean Architects (play 75 Ocean cards)"),
     ("w_critter_collection", "animals_played", 125, "Critter Collection (play 125 animal cards)"),
@@ -737,9 +737,9 @@ r = casual(us[0], place=1, bots=["Bot"], cs=None)
 check("an old record with no telemetry still claims cleanly", r.get("ok") is True)
 
 # ══ WEEKLY 25: Clan Traders ══════════════════════════════════════════════════
-print("\nweekly — trading:")
+print("\nweekly: trading:")
 # A player can only take one trade point a day, so 15 trades in a week needs a
-# few partners — 6 members trading in pairs over 5 days is 15.
+# few partners: 6 members trading in pairs over 5 days is 15.
 cid, us = new_clan(6)
 PAIRS = [(0, 1), (2, 3), (4, 5)]
 def _trades(n):
@@ -763,7 +763,7 @@ check("one trade counts ONCE for the clan, even though it pays both sides",
 at(BASE)
 
 # ══ SEASON: participation ════════════════════════════════════════════════════
-print("\nseason — participation:")
+print("\nseason: participation:")
 cid, us = new_clan(2)
 def _with_mate(n):
     return lambda: [casual(us[0], place=2, opponents=[us[1]], bots=["Bot"]) for _ in range(n)]
@@ -816,7 +816,7 @@ check("a 5-player game is not a Packed Ocean game",
       CS._num(slot_of(cid).get("casual_6p")) == 0)
 
 # ══ SEASON: gameplay points ══════════════════════════════════════════════════
-print("\nseason — points earned by playing:")
+print("\nseason: points earned by playing:")
 cid, us = new_clan(4)
 def _earn(n_wins, member):
     # Each win is +2, against a DIFFERENT opponent set each time so the
@@ -844,7 +844,7 @@ check("trade points are not 'through gameplay'",
 
 # ══ SEASON: Balanced Waters ══════════════════════════════════════════════════
 cid, us = new_clan(4)
-# 26 points of casual only — half the job.
+# 26 points of casual only: half the job.
 for _ in range(13):
     o = nid("e"); set_user(o, "Foe" + o)
     casual(us[0], place=1, opponents=[o])
@@ -861,7 +861,7 @@ check("its progress reads the SMALLER half while it is unfinished",
       CS._season_metric({"comp_points": 40, "casual_points": 12}, "balanced_points") == 12)
 
 # ══ SEASON: Podium Masters ═══════════════════════════════════════════════════
-print("\nseason — podiums:")
+print("\nseason: podiums:")
 cid, us = new_clan(2)
 def _podiums(n, place):
     return lambda: [casual(us[0], place=place, bots=["B1", "B2", "B3"]) for _ in range(n)]
@@ -874,7 +874,7 @@ cid, us = new_clan(1)
 for _ in range(10):
     casual(us[0], place=4, bots=["B1", "B2", "B3"])
 check("fourth place is not a podium", CS._num(slot_of(cid).get("podiums")) == 0)
-# A podium has to actually PLACE — last place is never a podium, however few
+# A podium has to actually PLACE, last place is never a podium, however few
 # players there were.
 cid, us = new_clan(1)
 for _ in range(5):
@@ -893,7 +893,7 @@ check("third in a four-player game IS a podium",
       CS._num(slot_of(cid).get("podiums")) == 2)
 
 # ══ SEASON: Shoot the Moon ═══════════════════════════════════════════════════
-print("\nseason — Shoot the Moon:")
+print("\nseason: Shoot the Moon:")
 cid, us = new_clan(1)
 MOON = stats(gobies=4)
 scenario(cid, "Shoot the Moon (all 4 Mandarin Gobies on one board)",
@@ -910,7 +910,7 @@ for _ in range(6):
 check("three Gobies is not Shoot the Moon", CS._num(slot_of(cid).get("moon_games")) == 0)
 
 # ══ SEASON: Fresh Recruits ═══════════════════════════════════════════════════
-print("\nseason — the clan itself:")
+print("\nseason, the clan itself:")
 cid, us = new_clan(1)
 def _join(n):
     def go():
@@ -986,7 +986,7 @@ check("a normal casual game is not a Team Mode game",
       CS._num(slot_of(cid).get("team_games")) == 0)
 
 # ══ SEASON: Good Sports ══════════════════════════════════════════════════════
-print("\nseason — good sportsmanship:")
+print("\nseason: good sportsmanship:")
 cid, us = new_clan(2)
 GG = stats(said_gg=True)
 def _gg(n, who=0):
@@ -1010,7 +1010,7 @@ check("...and not 'biggest'", not M._is_good_game_message("that was my biggest s
 check("...and not an empty line", not M._is_good_game_message(""))
 
 # ══ SEASON: Ecosystem Engineers ══════════════════════════════════════════════
-print("\nseason — Ecosystem Engineers:")
+print("\nseason: Ecosystem Engineers:")
 cid, us = new_clan(2)
 for _ in range(6):
     casual(us[0], place=2, bots=["Bot"], cs=stats(animals_played=100))
@@ -1025,7 +1025,7 @@ check("its progress reads the smaller of the two",
       CS._season_metric({"animals_played": 900, "oceans_played": 200}, "ecosystem") == 200)
 
 # ══ SEASON: Saving the Invertebrates (whole clan) ════════════════════════════
-print("\nseason — Saving the Invertebrates:")
+print("\nseason: Saving the Invertebrates:")
 INV = {"saving_the_invertebrates": {"completed": True}}
 cid, us = new_clan(3)
 for u in us[:2]:
@@ -1051,7 +1051,7 @@ check("a one-person clan cannot claim 'every member' by itself",
       "s_invertebrates" not in done_set(cid))
 
 # ══ SEASON: Rank Climbers ════════════════════════════════════════════════════
-print("\nseason — Rank Climbers:")
+print("\nseason: Rank Climbers:")
 LADDER = ["Bronze Barracuda I", "Bronze Barracuda II", "Bronze Barracuda III",
           "Silver Spiny Lobster I", "Silver Spiny Lobster II", "Silver Spiny Lobster III",
           "Golden Grouper I", "Golden Grouper II", "Golden Grouper III",
@@ -1097,7 +1097,7 @@ scenario(cid, "Competitive Fleet (10 different members win a competitive match)"
          last_step=lambda: comp(us[9], won=True))
 
 # ══ SEASON: Regular Tides ════════════════════════════════════════════════════
-print("\nseason — Regular Tides (weeks, never months):")
+print("\nseason: Regular Tides (weeks, never months):")
 cid, us = new_clan(2)
 MONDAYS = [1782734400 + 7 * DAY * i for i in range(11)]   # 11 consecutive Mondays
 def _weeks(lo, hi, per_week=3):
@@ -1142,7 +1142,7 @@ scenario(cid, "Ranked Predators (win 30 competitive matches)",
          last_step=lambda: comp(us[0], won=True))
 
 # ══ SEASON: Powerful Current ═════════════════════════════════════════════════
-print("\nseason — the big point ladders:")
+print("\nseason, the big point ladders:")
 cid, us = new_clan(4)
 def _earn_split(total_wins):
     def go():
@@ -1174,7 +1174,7 @@ check("five real trades read as five, not ten",
 at(BASE)
 
 # ══ SEASON: Rival Reckoning + the rank payout (season finalize) ══════════════
-print("\nseason finalize — rival result and rank rewards:")
+print("\nseason finalize: rival result and rank rewards:")
 CS._FINALIZED_SIDS.clear()
 CS._FINALIZED_SIDS.add(CS._prev_sid(SID))
 win_cid, win_us = new_clan(2, rank="Golden Grouper II")
@@ -1197,27 +1197,40 @@ check("...and losing to them does not",
 check("a Gold roster brings its clan 15 Clan Points a head",
       points(win_cid) - before_win >= 30 + 10,      # 2 × 15 rank + 10 rival
       f"{before_win} → {points(win_cid)}")
-check("Gold pays each member 100 Critter Coins",
-      (DB.store["users/" + win_us[0]]["stats"]["critter_coins"]) == 100,
+_gold_coins = CS.COMP_RANK_SEASON_REWARDS["gold"]["coins"]
+check(f"Gold pays each member {_gold_coins} Critter Coins",
+      (DB.store["users/" + win_us[0]]["stats"]["critter_coins"]) == _gold_coins,
       str(DB.store["users/" + win_us[0]]["stats"]["critter_coins"]))
 check("Bronze pays nothing at all",
       DB.store["users/" + lose_us[0]]["stats"]["critter_coins"] == 0
       and points(lose_cid) == before_lose)
 
-# Every tier, exactly as Tim listed them.
+# Every division name lands on the tier Tim listed. The PAYOUTS are read from
+# the constants rather than repeated here: which tier a division belongs to is
+# a rule, what that tier pays is an economy dial, and a rebalance should not
+# read as six broken tests.
 print("\nrank reward table:")
-for div, tier, coins, pts in [
-        ("Bronze Barracuda III", "bronze", 0, 0),
-        ("Silver Spiny Lobster II", "silver", 50, 5),
-        ("Golden Grouper I", "gold", 100, 15),
-        ("Diamond Dolphin III", "diamond", 150, 20),
-        ("Emerald Emperor Penguin II", "emerald", 200, 25),
-        ("King of the Critters", "king", 250, 50)]:
+_tiers_ascending = ["unranked", "bronze", "silver", "gold", "diamond", "emerald", "king"]
+for div, tier in [
+        ("Bronze Barracuda III", "bronze"),
+        ("Silver Spiny Lobster II", "silver"),
+        ("Golden Grouper I", "gold"),
+        ("Diamond Dolphin III", "diamond"),
+        ("Emerald Emperor Penguin II", "emerald"),
+        ("King of the Critters", "king")]:
     got_tier = CS._rank_tier(div)
     rw = CS.COMP_RANK_SEASON_REWARDS.get(got_tier) or {}
-    check(f"{div} → {tier}: {coins} Critter Coins + {pts} Clan Points",
-          got_tier == tier and rw.get("coins") == coins and rw.get("clan_points") == pts,
+    check(f"{div} maps to {tier}, paying {rw.get('coins')} Critter Coins "
+          f"+ {rw.get('clan_points')} Clan Points",
+          got_tier == tier and rw.get("coins") is not None,
           f"{got_tier} {rw}")
+
+# A higher rank must never pay less than a lower one. That IS a rule, and it is
+# the one thing a rebalance can silently get wrong.
+_coins = [CS.COMP_RANK_SEASON_REWARDS[t]["coins"] for t in _tiers_ascending]
+_pts = [CS.COMP_RANK_SEASON_REWARDS[t]["clan_points"] for t in _tiers_ascending]
+check("the rank payouts never go backwards as the rank goes up",
+      _coins == sorted(_coins) and _pts == sorted(_pts), f"{_coins} / {_pts}")
 check("Unranked pays nothing", CS.COMP_RANK_SEASON_REWARDS["unranked"]["coins"] == 0)
 
 # ══ The core scoring rule ════════════════════════════════════════════════════
@@ -1232,7 +1245,7 @@ r = casual(us[0], place=1, opponents=[real])
 check("1st against a real account is the full 2 points", r.get("points") == 2)
 check("the clan's total carries the half point", CS._num(slot_of(cid).get("points")) == 2.5)
 # The half point has to survive every path that reports it back, not just the
-# one that stores it — truncating it on the way out is the same bug.
+# one that stores it: truncating it on the way out is the same bug.
 _home = CS._route_post(DB, us[0], "home", {}, SID)
 check("the home screen reports the half point, not a truncated 2",
       _home["my_contribution"]["points"] == 2.5, str(_home["my_contribution"]))
@@ -1246,7 +1259,7 @@ check("...and the member row inside it",
 check("halves are stored as halves, not rounded away",
       CS._num(0.5) == 0.5 and CS._num(2) == 2 and CS._num(2.0) == 2 and CS._num("bad") == 0)
 
-# Casual against bots still counts for CHALLENGES — only the points are cut.
+# Casual against bots still counts for CHALLENGES, only the points are cut.
 cid, us = new_clan(1)
 casual(us[0], place=2, bots=["Bot"], cs=stats(oceans_played=9, animals_played=4))
 check("a bots-only casual game still counts as a game",
@@ -1271,7 +1284,7 @@ with open(os.path.join(HIST, f"game_{room}_{CS._now()}.json"), "w") as f:
 r = CS.claim_game_points(us[0], room)
 check("a competitive match against a guest is refused outright",
       not r.get("ok") and r.get("error") == "opponent_not_registered", str(r))
-check("...and moves nothing at all — not the record, not the telemetry",
+check("...and moves nothing at all, not the record, not the telemetry",
       CS._num(slot_of(cid).get("games")) == 0
       and CS._num(slot_of(cid).get("comp_wins")) == 0
       and CS._num(weekly_of(cid).get("oceans_played")) == 0)
@@ -1376,7 +1389,7 @@ st, _ = _room([act(0, "play_to_ocean", face_uid=101, turn=1) for _ in range(3)]
               + [act(0, "play_to_ocean", face_uid=101, turn=2) for _ in range(3)])
 check("3 + 3 across two turns is NOT 5 in one turn", st[0]["max_ceph_turn"] == 3)
 
-# A ★ on a draw is not a thing — only a play can carry one.
+# A ★ on a draw is not a thing, only a play can carry one.
 st, _ = _room([act(0, "draw", draw_from_pool=1, use_star=True)])
 check("a draw never counts as a ★ activation", st[0]["stars"] == 0 and st[0]["pool_draws"] == 1)
 

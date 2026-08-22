@@ -9,7 +9,7 @@ limit, and both are pinned here.
    hand-limit batch discard: any board card whose symbol matched a discarded
    card, and whose ★ text mentioned a draw, drew a card.  So trimming 13 → 10
    handed 3 cards straight back, the turn loop saw the player still over the
-   limit and re-opened the discard phase, and round it went — "it takes forever
+   limit and re-opened the discard phase, and round it went, "it takes forever
    to discard a card when you are over ten cards ... and it drew me three cards
    for some reason".  A ★ is opt-in and one-shot (play the card, pay with a
    matching symbol, use_star=True); it is not a standing trigger on any discard.
@@ -146,12 +146,12 @@ def test_trim_to_limit_draws_nothing():
     check(len(me.hand) == 10, f"hand is {len(me.hand)} after trimming 3 from 13, expected 10")
     check(
         len(gs.deck) == deck_before,
-        f"deck lost {deck_before - len(gs.deck)} card(s) — the trim drew cards back",
+        f"deck lost {deck_before - len(gs.deck)} card(s), the trim drew cards back",
     )
 
 
 def test_trim_to_limit_draws_nothing_for_every_matching_symbol():
-    """Same, once per symbol that has a 'draw' ★ on a board card — no exceptions."""
+    """Same, once per symbol that has a 'draw' ★ on a board card, no exceptions."""
     seen = set()
     for uid in sorted(CARD_DB):
         c = CARD_DB[uid]
@@ -175,7 +175,7 @@ def test_trim_to_limit_draws_nothing_for_every_matching_symbol():
         check(ok, f"[{c.name} {sym}] batch discard rejected: {why}")
         check(len(me.hand) == 10, f"[{c.name} {sym}] hand is {len(me.hand)}, expected 10")
         check(len(gs.deck) == deck_before, f"[{c.name} {sym}] the trim drew {deck_before - len(gs.deck)} card(s)")
-    check(len(seen) > 0, "no board card with a 'draw' ★ exists — fixture is not testing anything")
+    check(len(seen) > 0, "no board card with a 'draw' ★ exists: fixture is not testing anything")
 
 
 def test_trim_removes_exactly_the_picked_cards():
@@ -195,7 +195,7 @@ def test_trim_removes_exactly_the_picked_cards():
 
 
 def test_repeated_uid_cannot_take_a_second_card():
-    """A doubled uid in the payload discards one card, not two — and is rejected
+    """A doubled uid in the payload discards one card, not two, and is rejected
     for being under-sized rather than quietly eating a neighbour."""
     gs, ms, me = new_match()
     hand_of(ms, gs, me, 12)
@@ -243,7 +243,7 @@ def test_tarpon_cycle_still_draws_back():
 
 
 def test_no_standing_board_star_trigger_remains():
-    """The helper is gone for good — a grep-level guard against re-wiring it."""
+    """The helper is gone for good, a grep-level guard against re-wiring it."""
     src = open("fish_game_all_in_one.py", encoding="utf-8").read()
     live = [
         ln for ln in src.splitlines()

@@ -1,9 +1,9 @@
 /* ================================================================
- * Currents and Critters — THE RULE BOOK, one stylesheet, three homes.
+ * Currents and Critters, THE RULE BOOK, one stylesheet, three homes.
  *
  * The markup comes from js/rulebook.js and is skin-agnostic: every .rb-*
  * rule reads its colours from variables, and the wrapper class picks the
- * skin — .rb-light on a pale page, .rb-dark over the table at night.
+ * skin: .rb-light on a pale page, .rb-dark over the table at night.
  *
  * Rendered by:
  *   • Player Home → How to play → Full Rulebook   (.rb-light)
@@ -219,7 +219,7 @@
     .rb-face-v.rb-face-left img  { left: 0; }
     .rb-face-v.rb-face-right img { left: -100%; }
     .rb-face-o img { width: 100%; height: auto; }
-    /* A whole, uncropped card — both of its ends. All three decks print on the
+    /* A whole, uncropped card, both of its ends. All three decks print on the
        same 720×1008 page, so every full card is the same portrait outline. */
     .rb-face-full { aspect-ratio: 720 / 1008; }
     .rb-face-full img { width: 100%; height: auto; }
@@ -263,7 +263,7 @@
     @media (max-width: 560px) {
       .rb-cft li { grid-template-columns: 1fr; gap: 2px; }
       .rb-cft li.rb-cft-head { display: none; }
-      /* Stacked, the third column needs to say what it is — except where there
+      /* Stacked, the third column needs to say what it is: except where there
          is nothing to say, which is most Oceans. */
       .rb-cft-now::before {
         content: "When you play it: ";
@@ -326,7 +326,7 @@
       background: linear-gradient(180deg,#f6c178 0%,#e8a052 100%);
     }
 
-    /* Pool figure — two rows of five, the shape of the real board */
+    /* Pool figure, two rows of five, the shape of the real board */
     .rb-pool-board {
       display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
       width: min(760px, 100%); margin: 0 auto;
@@ -343,7 +343,7 @@
       font-size: 10.5px; font-weight: 800; line-height: 1.25; text-align: center;
       color: var(--rb-muted); overflow-wrap: anywhere;
     }
-    /* Both creatures are named, split by a hairline — the caption echoes the
+    /* Both creatures are named, split by a hairline, the caption echoes the
        two-ended card above it. */
     .rb-pool-name { display: block; }
     .rb-pool-name + .rb-pool-name {
@@ -463,7 +463,7 @@
 
     /* Encyclopedia */
     .rb-enc { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      align-items: start; }  /* families have very different lengths — don't stretch the short ones */
+      align-items: start; }  /* families have very different lengths: don't stretch the short ones */
     .rb-enc-group {
       padding: 14px 16px; border-radius: 16px;
       background: var(--rb-surface2); border: 1px solid var(--rb-line);

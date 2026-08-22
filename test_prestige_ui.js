@@ -1,14 +1,14 @@
-/* Prestige System — client module test (node vm + jsdom-free DOM stub).
+/* Prestige System: client module test (node vm + jsdom-free DOM stub).
  *
  * Loads the real js/prestige-ui.js against a stub __ccPrestige bridge and
- * checks the parts the rest of the app depends on — the ones where a silent
+ * checks the parts the rest of the app depends on, the ones where a silent
  * failure would be invisible until a player hit it:
  *
  *   • the module registers every window.__ccPrestige* hook preview-app.js calls
  *   • the ENVELOPE is unwrapped ({ ok, status, data }); a bridge that returns a
  *     bare payload still works, and a THROWN request is retryable, not fatal
  *   • the username renderer: solid, custom, gradient, effects, and the
- *     READABILITY PLATE polarity (a pale name must get a DARK plate — picking
+ *     READABILITY PLATE polarity (a pale name must get a DARK plate: picking
  *     the plate by surface instead of by colour is the bug this pins)
  *   • the badge: compact, level-labelled, tier classes at 5 and 10
  *   • the XP breakdown matches the server's formula exactly
@@ -68,7 +68,7 @@ function makeNode(tag) {
     // silently skip the very code paths under test.
     querySelector(sel) {
       const raw = String(sel || "");
-      // [data-x="y"] — the form the module uses for its buttons.
+      // [data-x="y"], the form the module uses for its buttons.
       const attr = /^\[([A-Za-z0-9_-]+)="([^"]*)"\]$/.exec(raw);
       if (attr) {
         if (new RegExp(attr[1] + '="' + attr[2] + '"').test(this._html)) {
@@ -448,7 +448,7 @@ const tick = () => new Promise((r) => setTimeout(r, 30));
   }
   {
     // A request that never lands THROWS in the real bridge. That has to stay
-    // retryable — not an unhandled rejection that kills the render.
+    // retryable, not an unhandled rejection that kills the render.
     let threw = false;
     try {
       const { win } = makeEnv({ postResp: () => null });
@@ -629,7 +629,7 @@ const tick = () => new Promise((r) => setTimeout(r, 30));
     check("the leftward keyframe mirrors by variable, not a fixed scaleX",
       /@keyframes ccP-swim-rtl\s*\{[^}]*scaleX\(var\(--sxl/.test(css));
     // A var() with no fallback that fails to resolve invalidates the whole
-    // transform — the critters would stop moving entirely rather than degrade.
+    // transform, the critters would stop moving entirely rather than degrade.
     check("both mirror variables carry a fallback so the swim can't break",
       /var\(--sxr,\s*-?\d/.test(css) && /var\(--sxl,\s*-?\d/.test(css));
     // Travelling right and travelling left must mirror OPPOSITELY, or the
@@ -650,7 +650,7 @@ const tick = () => new Promise((r) => setTimeout(r, 30));
 
     // Every critter a scene uses must be classified. Without this, adding a
     // right-facing animal to a scene silently ships a fish swimming backwards
-    // — exactly the bug the bottlenose dolphin was reported for.
+    //, exactly the bug the bottlenose dolphin was reported for.
     const src = fs.readFileSync(path.join(__dirname, "multiplayer/client/js/prestige-ui.js"), "utf8");
     const sceneBlock = /const SCENE_CRITTERS = \{([\s\S]*?)\n  \};/.exec(src);
     const facingBlock = /const FACING = \{([\s\S]*?)\n  \};/.exec(src);
@@ -675,7 +675,7 @@ const tick = () => new Promise((r) => setTimeout(r, 30));
         missedNone.length === 0, "untagged: " + missedNone.join(", "));
       // The guard against future drift: a critter added to a scene that nobody
       // classified. Left-facing is the majority default, so this lists them for
-      // review rather than failing — but a NEW unknown name must be deliberate.
+      // review rather than failing, but a NEW unknown name must be deliberate.
       const known = new Set([...classified, "mullet", "bottlenose-dolphin", "flying-fish",
         "blue-tang", "spiny-lobster", "clownfish", "mandarin-goby", "reef-triggerfish",
         "big-eye-tuna", "barracuda", "yellowfin-tuna", "mahi-mahi", "narwhal",
@@ -695,7 +695,7 @@ const tick = () => new Promise((r) => setTimeout(r, 30));
 
     // Reading the CSS text proves the RULE is written; it cannot prove the
     // browser resolves it. A var() that fails to resolve invalidates the whole
-    // transform, which would freeze every critter in place — silently, and only
+    // transform, which would freeze every critter in place: silently, and only
     // in a real engine. So measure the computed matrix in headless Chrome.
     const CHROME = [
       "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -769,7 +769,7 @@ document.getElementById("out").textContent=JSON.stringify(rows);
     check("the normal badge is focusable and labelled",
       /tabindex="0"/.test(normal) && /aria-label="/.test(normal) && /role="img"/.test(normal));
     // The reported violation: "Blocked aria-hidden on an element because its
-    // descendant retained focus" — a tabindex="0" badge inside .ccP-rw-ico.
+    // descendant retained focus", a tabindex="0" badge inside .ccP-rw-ico.
     check("the decorative badge is not a focus stop", !/tabindex/.test(deco));
     check("the decorative badge exposes nothing to assistive tech",
       !/aria-label/.test(deco) && !/role="img"/.test(deco) && /aria-hidden="true"/.test(deco));
@@ -780,7 +780,7 @@ document.getElementById("out").textContent=JSON.stringify(rows);
     check("the reward card renders the badge decoratively",
       /badgeHtml\(num\(nxt\.prestige\), \{ large: true, decorative: true \}\)/.test(src));
     // Everywhere the badge is NOT inside an aria-hidden wrapper it must stay
-    // interactive — a decorative badge everywhere would lose the tooltip.
+    // interactive, a decorative badge everywhere would lose the tooltip.
     check("the hero badge stays interactive",
       /ccP-hero-badge">'\s*\+\s*badgeHtml\(lvl, \{ large: true \}\)/.test(src));
   }

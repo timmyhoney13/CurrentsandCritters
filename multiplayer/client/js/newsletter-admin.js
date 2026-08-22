@@ -1,10 +1,10 @@
 /* ================================================================
- * Currents and Critters — Newsletter admin (/admin/newsletter).
+ * Currents and Critters: Newsletter admin (/admin/newsletter).
  *
  * WHAT THIS FILE IS ALLOWED TO DECIDE
  * Layout, and nothing else. Every authorisation answer, every count, every
  * sanitising pass and every send happens on the server. The `isAdmin` flag
- * below exists ONLY to decide whether to draw the app or the sign-in card —
+ * below exists ONLY to decide whether to draw the app or the sign-in card:
  * flipping it in devtools gets you an empty shell whose every request comes
  * back 403, because each endpoint verifies the Firebase ID token itself.
  *
@@ -13,13 +13,13 @@
  * script. It is not ambient: a form posted from evil.com carries no token, so
  * the request is simply unauthorised. Cookies are what need CSRF protection,
  * and this page sets none. (Adding a cookie session plus a CSRF token would be
- * strictly weaker than what is here — it would create the ambient authority
+ * strictly weaker than what is here, it would create the ambient authority
  * the token scheme avoids.)
  *
  * ESCAPING
  * Every subscriber address, campaign subject and audit line is untrusted text.
  * It reaches the DOM through esc() or textContent, never through raw innerHTML.
- * The one place server HTML is rendered — the email preview — goes into a
+ * The one place server HTML is rendered, the email preview: goes into a
  * SANDBOXED iframe via srcdoc, so even if the sanitiser were bypassed the
  * markup would run with no origin, no cookies and no access to this page.
  * ================================================================ */
@@ -85,7 +85,7 @@
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          // Not a security control on its own — the ID token is. It makes the
+          // Not a security control on its own, the ID token is. It makes the
           // request non-simple so a cross-origin attempt must pass preflight.
           "X-CC-Newsletter": "1"
         },
@@ -206,13 +206,13 @@
       state.settings = s.ok ? s : null;
 
       cards.appendChild(card("Active subscribers", num(d.activeCount),
-        d.truncated ? "List truncated — see Subscribers" : "Receiving newsletters"));
+        d.truncated ? "List truncated: see Subscribers" : "Receiving newsletters"));
       cards.appendChild(card("Waiting to confirm", num(d.pendingCount),
         d.pendingCount ? "Signed up; have not clicked their email link" : "Nobody mid-signup"));
       cards.appendChild(card("Unsubscribed", num(d.unsubscribedCount), "Kept on record, never emailed"));
       cards.appendChild(card("Newsletters sent", num(d.newslettersSent), "Completed campaigns"));
       cards.appendChild(card("Most recent signup",
-        d.mostRecentSignup || "—", d.mostRecentSignupAtIso || "No signups yet",
+        d.mostRecentSignup || "-", d.mostRecentSignupAtIso || "No signups yet",
         d.mostRecentSignup ? "small" : "empty"));
       cards.appendChild(card("Sent today", num(d.sendsUsedToday) + " / " + num(d.dailyCap),
         "Gmail daily cap for this process"));
@@ -241,7 +241,7 @@
       if (s.ok) {
         sp.appendChild(statusRow("Email sending", gmailChip(s.gmail),
           s.gmail.connected
-            ? ((s.gmail.transportLabel || "") + " — signed in as " + (s.gmail.authorizedAs || "?"))
+            ? ((s.gmail.transportLabel || "") + ": signed in as " + (s.gmail.authorizedAs || "?"))
             : (s.gmail.error || "")));
         sp.appendChild(statusRow("Stripe webhook secret",
           chip(s.stripe.webhookSecretSet ? "good" : "bad", s.stripe.webhookSecretSet ? "Set" : "Not set"),
@@ -250,7 +250,7 @@
             : "Signups from checkout cannot be processed until this is set."));
         sp.appendChild(statusRow("Unsubscribe links",
           chip(s.unsubscribeSecretSet ? "good" : "bad", s.unsubscribeSecretSet ? "Ready" : "Not configured"),
-          s.unsubscribeSecretSet ? "" : "Set NEWSLETTER_UNSUBSCRIBE_SECRET — sending is blocked without it."));
+          s.unsubscribeSecretSet ? "" : "Set NEWSLETTER_UNSUBSCRIBE_SECRET: sending is blocked without it."));
         if (s.ok && s.gmail && s.gmail.capWarning) {
           sp.appendChild(statusRow("Daily limit",
             chip("warn", num(s.gmail.dailyCap) + " / day"), s.gmail.capWarning));
@@ -435,11 +435,11 @@
       tr.appendChild(tdS);
 
       var tdSrc = document.createElement("td"); tdSrc.className = "n-when";
-      tdSrc.textContent = r.source || "—"; tr.appendChild(tdSrc);
+      tdSrc.textContent = r.source || "-"; tr.appendChild(tdSrc);
 
       ["subscribedAtIso", "resubscribedAtIso", "unsubscribedAtIso"].forEach(function (k) {
         var td = document.createElement("td"); td.className = "n-when";
-        td.textContent = r[k] || "—"; tr.appendChild(td);
+        td.textContent = r[k] || "-"; tr.appendChild(td);
       });
 
       var tdA = document.createElement("td"); tdA.className = "n-acts";
@@ -450,7 +450,7 @@
             title: "Unsubscribe this person?",
             body: "They will stop receiving newsletters immediately. Their record is kept " +
                   "(nothing is deleted) so they are never accidentally re-added.",
-            facts: [["Email", r.email], ["Subscribed", r.subscribedAtIso || "—"]],
+            facts: [["Email", r.email], ["Subscribed", r.subscribedAtIso || "-"]],
             confirmLabel: "Unsubscribe",
             danger: true,
             onConfirm: function (done) {
@@ -464,7 +464,7 @@
         });
         tdA.appendChild(u);
       } else if (r.status === "pending") {
-        // Nothing here is a punishment — this person is mid-signup. Give the
+        // Nothing here is a punishment, this person is mid-signup. Give the
         // two actions that finish it: send the link again, or vouch for the
         // address by hand when the mail never arrived.
         var again = el("button", "n-btn small", "Resend link");
@@ -562,8 +562,8 @@
         body: "They signed up but have not clicked the link in their inbox. Confirming " +
               "here makes them an active subscriber and sends the welcome email.",
         warn: "The email click is what proves somebody owns an address. Only skip it when " +
-              "you know they do — your account and reason are written to the audit log.",
-        facts: [["Email", r.email], ["Signed up", r.subscribedAtIso || "—"]],
+              "you know they do, your account and reason are written to the audit log.",
+        facts: [["Email", r.email], ["Signed up", r.subscribedAtIso || "-"]],
         content: form,
         confirmLabel: "Confirm subscriber",
         onConfirm: function (done, close) {
@@ -589,7 +589,7 @@
         body: "Only do this when they have asked to rejoin. They will start receiving " +
               "newsletters again and will be sent the welcome email.",
         warn: "Reactivating someone who did not ask is a spam complaint waiting to happen.",
-        facts: [["Email", r.email], ["Unsubscribed", r.unsubscribedAtIso || "—"]],
+        facts: [["Email", r.email], ["Unsubscribed", r.unsubscribedAtIso || "-"]],
         content: form,
         confirmLabel: "Reactivate",
         onConfirm: function (done, close) {
@@ -613,7 +613,7 @@
     v.appendChild(sectionHead(
       state.draft.id ? "Edit newsletter" : "Compose newsletter",
       "The footer, business address, Privacy Policy link and each reader's own " +
-      "unsubscribe link are added automatically — don't type them."));
+      "unsubscribe link are added automatically: don't type them."));
 
     var grid = el("div", "n-compose");
 
@@ -628,7 +628,7 @@
     left.appendChild(f1);
 
     var prev = el("input", "n-input");
-    prev.placeholder = "Optional — the grey line shown next to the subject in the inbox";
+    prev.placeholder = "Optional, the grey line shown next to the subject in the inbox";
     prev.maxLength = 200; prev.value = state.draft.previewText || "";
     var f2 = el("label", "n-field");
     f2.appendChild(el("span", "n-label", "Preview text"));
@@ -717,7 +717,7 @@
 
     // Paste as PLAIN TEXT. Pasting from Word or a webpage otherwise drags in
     // style attributes, font tags and tracking markup that the server would
-    // strip anyway — this way what you see in the editor is what survives.
+    // strip anyway, this way what you see in the editor is what survives.
     ed.addEventListener("paste", function (e) {
       e.preventDefault();
       var text = (e.clipboardData || window.clipboardData).getData("text/plain");
@@ -827,7 +827,7 @@
     });
     tool("🖼 Image", "Insert image", function () {
       var url = window.prompt(
-        "Image URL. It must be a public https:// address — email clients " +
+        "Image URL. It must be a public https:// address: email clients " +
         "cannot load an image from your computer.", "https://");
       if (!url) return;
       url = url.trim();
@@ -848,13 +848,13 @@
         '<p><a class="cc-btn" href="' + esc(url.trim()) + '">' + esc(text) + "</a></p><p><br></p>");
     });
     sep();
-    tool("—", "Divider", function () { cmd("insertHorizontalRule"); });
+    tool("-", "Divider", function () { cmd("insertHorizontalRule"); });
     tool("Clear", "Remove formatting", function () { cmd("removeFormat"); });
     return bar;
   }
 
   /* ══════════════════════════════════════════════════════════════
-     SEND CONFIRMATION — the one irreversible action
+     SEND CONFIRMATION, the one irreversible action
      ══════════════════════════════════════════════════════════════ */
   function openSendModal(cid, subject) {
     api("campaign-progress", { id: cid }).then(function (pd) {
@@ -885,12 +885,12 @@
         confirmModal({
           title: "Send this newsletter to every active subscriber?",
           body: "This cannot be undone. Each person gets their own individual email " +
-                "with their own unsubscribe link — no subscriber can see another's address.",
+                "with their own unsubscribe link, no subscriber can see another's address.",
           warn: "Sending happens on the server in batches. You can close this page; " +
                 "progress continues and is shown under Sending Progress.",
           facts: [
             ["Subject", subject],
-            ["Active subscribers", activeCount == null ? "—" : num(activeCount)],
+            ["Active subscribers", activeCount == null ? "-" : num(activeCount)],
             ["From", state.settings && state.settings.gmail ? state.settings.gmail.senderEmail : ""]
           ],
           content: form,
@@ -944,11 +944,11 @@
       if (kind === "draft") {
         [c.createdAtIso, c.updatedAtIso].forEach(function (x) {
           var td = document.createElement("td"); td.className = "n-when";
-          td.textContent = x || "—"; tr.appendChild(td);
+          td.textContent = x || "-"; tr.appendChild(td);
         });
       } else {
         var d1 = document.createElement("td"); d1.className = "n-when";
-        d1.textContent = c.sentAtIso || c.startedAtIso || "—"; tr.appendChild(d1);
+        d1.textContent = c.sentAtIso || c.startedAtIso || "-"; tr.appendChild(d1);
         [c.intendedRecipients, c.sentCount, c.failedCount, c.skippedCount].forEach(function (n) {
           var td = document.createElement("td"); td.textContent = num(n); tr.appendChild(td);
         });
@@ -1041,14 +1041,14 @@
       sendable.forEach(function (c) {
         var o = document.createElement("option");
         o.value = c.id;
-        o.textContent = (c.subject || "(no subject)") + " — " + (c.sentAtIso || c.startedAtIso || c.status);
+        o.textContent = (c.subject || "(no subject)") + ": " + (c.sentAtIso || c.startedAtIso || c.status);
         if (c.id === state.progressId) o.selected = true;
         sel.appendChild(o);
       });
       sel.onchange = function () { state.progressId = sel.value; tick(); };
       tick();
       // The campaign list arrives asynchronously, so by the time we get here
-      // the user may already have navigated away — and go()'s clearInterval
+      // the user may already have navigated away, and go()'s clearInterval
       // has therefore ALREADY run. Starting the poller now would leave a timer
       // nothing ever clears, hammering the server from a section that is no
       // longer on screen. Only arm it if this section is still the live one.
@@ -1080,9 +1080,9 @@
         var meta = el("p", "n-note");
         meta.textContent =
           "Status: " + c.status +
-          " · Started: " + (c.startedAtIso || "—") +
-          " · Finished: " + (c.sentAtIso || "—") +
-          " · Started by: " + (c.startedBy || "—");
+          " · Started: " + (c.startedAtIso || "-") +
+          " · Finished: " + (c.sentAtIso || "-") +
+          " · Started by: " + (c.startedBy || "-");
         p.appendChild(meta);
         p.appendChild(progressBlock({
           percent: c.percent, intendedRecipients: c.intendedRecipients,
@@ -1123,7 +1123,7 @@
           var tb = document.createElement("tbody");
           c.failures.forEach(function (f) {
             var tr = document.createElement("tr");
-            [f.email, f.status, String(f.attempts), f.error || "—"].forEach(function (x) {
+            [f.email, f.status, String(f.attempts), f.error || "-"].forEach(function (x) {
               var td = document.createElement("td"); td.textContent = x; tr.appendChild(td);
             });
             tb.appendChild(tr);
@@ -1179,14 +1179,14 @@
       var tb = document.createElement("tbody");
       d.rows.forEach(function (r) {
         var tr = document.createElement("tr");
-        var w = document.createElement("td"); w.className = "n-when"; w.textContent = r.atIso || "—";
+        var w = document.createElement("td"); w.className = "n-when"; w.textContent = r.atIso || "-";
         tr.appendChild(w);
         var a = document.createElement("td");
         a.appendChild(chip(AUDIT_TONE[r.action] || "neutral", AUDIT_LABEL[r.action] || r.action));
         tr.appendChild(a);
         var who = document.createElement("td"); who.className = "n-when";
         who.textContent = r.admin || "system"; tr.appendChild(who);
-        var s = document.createElement("td"); s.textContent = r.summary || "—"; tr.appendChild(s);
+        var s = document.createElement("td"); s.textContent = r.summary || "-"; tr.appendChild(s);
         tb.appendChild(tr);
       });
       t.appendChild(tb); scroll.appendChild(t); wrap.appendChild(scroll);
@@ -1216,7 +1216,7 @@
         "or token is ever sent to this page."));
       p1.appendChild(statusRow("Method", chip(g.transport ? "info" : "bad",
         g.transportLabel || "not configured"),
-        g.transport === "smtp" ? "Standard SMTP — works with any mail provider."
+        g.transport === "smtp" ? "Standard SMTP: works with any mail provider."
           : g.transport === "http" ? "HTTPS email API."
           : g.transport === "gmail_api" ? "Gmail API (OAuth)."
           : "Set SMTP_HOST / SMTP_USERNAME / SMTP_PASSWORD, or NEWSLETTER_API_KEY."));
@@ -1226,9 +1226,9 @@
       p1.appendChild(statusRow("From address", chip("neutral", g.senderEmail),
         g.senderVerified
           ? "Confirmed: this address matches the account we authenticated as."
-          : "Not independently verifiable with this method — a test email is the real proof."));
+          : "Not independently verifiable with this method, a test email is the real proof."));
       p1.appendChild(statusRow("Reply-To", chip("neutral", g.replyTo), ""));
-      p1.appendChild(statusRow("Endpoint", chip("neutral", (g.scopes || []).join(", ") || "—"), ""));
+      p1.appendChild(statusRow("Endpoint", chip("neutral", (g.scopes || []).join(", ") || "-"), ""));
       p1.appendChild(statusRow("Daily cap",
         chip(g.capWarning ? "warn" : "neutral", num(g.dailyCap) + " / day"),
         g.capWarning || "Matches what this account can actually send."));
@@ -1247,7 +1247,7 @@
       p2.appendChild(el("h3", null, "Stripe newsletter signup"));
       p2.appendChild(el("p", "n-note",
         "Signups arrive on the checkout.session.completed webhook. We can verify that a " +
-        "signing secret is set and show which question labels Stripe last sent — we " +
+        "signing secret is set and show which question labels Stripe last sent, we " +
         "cannot verify the Stripe Dashboard from here, so nothing below is guessed."));
       p2.appendChild(statusRow("Webhook signing secret",
         chip(s.webhookSecretSet ? "good" : "bad", s.webhookSecretSet ? "Set" : "Not set"),
@@ -1292,7 +1292,7 @@
       p3.appendChild(statusRow("Unsubscribe links",
         chip(d.unsubscribeSecretSet ? "good" : "bad", d.unsubscribeSecretSet ? "Configured" : "Missing"),
         d.unsubscribeSecretSet ? "Links are signed and cannot be guessed."
-          : "Set NEWSLETTER_UNSUBSCRIBE_SECRET — sending is blocked without it."));
+          : "Set NEWSLETTER_UNSUBSCRIBE_SECRET: sending is blocked without it."));
       p3.appendChild(statusRow("HTML sanitiser", chip("neutral", g.sanitizer),
         "Every newsletter body is sanitised on the server before it is stored or sent."));
       var admins = d.adminEmails || [d.adminEmail];

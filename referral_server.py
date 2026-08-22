@@ -1,4 +1,4 @@
-"""Currents and Critters — the friend-code referral reward (server-authoritative).
+"""Currents and Critters, the friend-code referral reward (server-authoritative).
 
 A new Google account types a friend's code when it signs up. BOTH accounts get
 Critter Coins, and every fifth friend somebody brings in earns them a free
@@ -35,7 +35,7 @@ same mitigation everyone else lands on.
 
 WHY THE BACKGROUND IS THE REFERRER'S ALONE
 "Every five friends" only counts on the side of the person handing the code
-out — the friend joining has referred nobody. So the fifth, tenth, fifteenth …
+out, the friend joining has referred nobody. So the fifth, tenth, fifteenth …
 successful referral grants ONE background to the referrer, chosen from the ones
 they do not already own. The friend's reward is the coins, every time.
 """
@@ -63,8 +63,8 @@ def init(*, get_firestore, verify_token, background_paths) -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 #  CONFIG
 # ═══════════════════════════════════════════════════════════════════════════
-DEFAULT_REWARD_COINS = 100      # paid to BOTH sides, per successful referral
-DEFAULT_BACKGROUND_EVERY = 5    # referrals per free background, for the referrer
+DEFAULT_REWARD_COINS = 40       # paid to BOTH sides, per successful referral
+DEFAULT_BACKGROUND_EVERY = 10   # referrals per free background, for the referrer
 DEFAULT_WINDOW_DAYS = 14        # how long after signing up a code may be entered
 
 
@@ -95,7 +95,7 @@ def window_days() -> int:
 # ═══════════════════════════════════════════════════════════════════════════
 # Friend codes are random 4-digit numbers and are NOT unique on their own, so a
 # collision asks for the name too rather than paying a stranger. Same shapes the
-# Clans invite box accepts (see clan_server._resolve_invitee) — a player who
+# Clans invite box accepts (see clan_server._resolve_invitee), a player who
 # learned to type "Twin Midi#9113" there should not have to learn something else
 # here.
 _FC_ONLY_RE = re.compile(r"^#?(\d{3,6})$")                  # "2809" / "#2809"
@@ -132,7 +132,7 @@ def _uid_by_friend_code(db, code: str) -> Tuple[str, str]:
 
 
 def _uid_by_name_and_code(db, name: str, code: str) -> str:
-    """friend_lookup/{nicknameLower}_{code} — the exact doc signup writes and
+    """friend_lookup/{nicknameLower}_{code}, the exact doc signup writes and
     every nickname change rewrites."""
     key = f"{str(name or '').strip().lower()}_{code}"
     try:
@@ -199,7 +199,7 @@ def _stats_of(doc: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _created_epoch(doc: Dict[str, Any]) -> Optional[float]:
-    """`created_at` is a Firestore serverTimestamp — a DatetimeWithNanoseconds
+    """`created_at` is a Firestore serverTimestamp, a DatetimeWithNanoseconds
     in the admin SDK. Anything we cannot read as a time returns None, and None
     means "cannot prove this account is old", which the window check treats as
     IN window. Refusing a legitimate new player because their timestamp did not
@@ -369,7 +369,7 @@ def redeem(db, uid: str, raw_code: str) -> Dict[str, Any]:
                 their_update["unlocked_backgrounds"] = _array_union()([picked])
                 their_update["referral_backgrounds"] = \
                     max(0, _int(them.get("referral_backgrounds"))) + 1
-            # If they already own every background the milestone still counts —
+            # If they already own every background the milestone still counts,
             # the coins are the guaranteed part. referral_backgrounds is NOT
             # incremented, so the display never claims a background that was
             # not actually granted.
@@ -408,7 +408,7 @@ def redeem(db, uid: str, raw_code: str) -> Dict[str, Any]:
     try:
         return _run(txn)
     except Exception as exc:  # noqa: BLE001
-        # A create() collision means another request won the race — the guard
+        # A create() collision means another request won the race, the guard
         # doing its job. Everything else wrote nothing, and saying "already
         # redeemed" to someone who was not paid is the one answer they would
         # believe and never retry.
@@ -424,25 +424,25 @@ def redeem(db, uid: str, raw_code: str) -> Dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════
 ERROR_MESSAGES = {
     "unauthorized": "Sign in with Google to use a friend code.",
-    "no_account": "We couldn't find your account — try signing in again.",
+    "no_account": "We couldn't find your account: try signing in again.",
     "no_code": "Enter your friend's code first.",
     "bad_code": "That doesn't look like a friend code. Try the 4 digits under their name.",
     "no_user": "No player has that friend code.",
-    "ambiguous_code": "More than one player has that code — enter it as Name#Code.",
+    "ambiguous_code": "More than one player has that code: enter it as Name#Code.",
     "own_code": "That's your own friend code!",
     "already_redeemed": "You've already used a friend code on this account.",
-    "mutual_referral": "You two already referred each other — only one direction pays out.",
+    "mutual_referral": "You two already referred each other, only one direction pays out.",
     "window_closed": "Friend codes are a sign-up bonus, and this account is past the window.",
     "firestore_unavailable": "Couldn't reach your account just now. Nothing was awarded.",
     "bad_request": "Something was wrong with that request. Nothing was awarded.",
-    "server_error": "Something went wrong. Nothing was awarded — please try again.",
+    "server_error": "Something went wrong. Nothing was awarded: please try again.",
 }
 
 
 def message_for(result: Dict[str, Any]) -> str:
     code = str(result.get("error") or "")
     if code == "window_closed":
-        return (f"Friend codes are a sign-up bonus — they can be entered in the first "
+        return (f"Friend codes are a sign-up bonus, they can be entered in the first "
                 f"{window_days()} days after making an account.")
     return ERROR_MESSAGES.get(code, ERROR_MESSAGES["server_error"])
 

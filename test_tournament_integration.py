@@ -119,7 +119,7 @@ class TestResultsMapBySeatNotName(unittest.TestCase):
     """The bug that knocked a winner out of their own tournament.
 
     Standings used to be tied back to bracket participants by DISPLAY NAME. The
-    game renames a seat to whatever name the reconnecting client sends — and a
+    game renames a seat to whatever name the reconnecting client sends, and a
     client deep-linked straight into its match room can easily send a different
     one (nickname changed mid-tournament, a duplicate suffixed at pre-claim, or a
     fresh page load where the profile hasn't resolved and it falls back to

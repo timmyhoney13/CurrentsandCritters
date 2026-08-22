@@ -1,37 +1,37 @@
-"""Clownfish copies the Ocean it is attached to — scoring AND its ★.
+"""Clownfish copies the Ocean it is attached to: scoring AND its ★.
 
 The card reads "Copies the Ocean's ability this card is attached to", and it
 means all of it. A Clownfish IS a second copy of its host Ocean:
 
   1. SCORING. A Clownfish on a Coral Reef makes your reefs count as one higher
-     on the Coral Reef chart — and NOT a second reading of the chart. The chart
+     on the Coral Reef chart, and NOT a second reading of the chart. The chart
      is a single score for the whole collection (1=1, 2=4, 3=9, 4=16, 5=0,
      6+=35), so "counts as one, does not multiply" is a real distinction:
      3 reefs + a Clownfish must pay 16, not 9 twice and not 9+16. Same shape on
      a Kelp Forest, where the Clownfish both counts toward the "4 or more" and
      scores its own +5.
 
-  2. THE ★. Two Oceans carry a star — Mangrove and Arctic Ocean, both "play
-     again" — so a Clownfish attached to one of them has that star, and paying
+  2. THE ★. Two Oceans carry a star: Mangrove and Arctic Ocean, both "play
+     again", so a Clownfish attached to one of them has that star, and paying
      its cost with a card matching the CLOWNFISH's own symbol grants the extra
      play. This half did not work: has_star_ability() reads a card's own text,
      the Clownfish's carries no ★, so the star twin was never offered and a
      forced use_star=True was rejected outright with "has no STAR ability".
 
   3. THE COUNT. It counts as one more of that Ocean everywhere an Ocean is
-     counted — "the most piers", "oceans you control" — not only on the two
+     counted, "the most piers", "oceans you control", not only on the two
      charts that happened to special-case it. What it cannot do is be a new
      ocean TYPE: it duplicates the name it sits on, so it can never be the
      missing eighth for the Mangrove's "all 8 oceans".
 
   4. THE ON-PLAY ABILITY. Playing a Clownfish onto a Deep Ocean or a Kelp
      Forest draws a card, because that is what those Oceans do. Their points
-     are NOT re-added to the running tally when it fires — final_points already
+     are NOT re-added to the running tally when it fires: final_points already
      reads the host's text through the Clownfish, so counting it here too would
      show the Ocean twice on the live scoreboard.
 
-Every part is driven through the real engine — real card data, real
-legal_actions, real apply_action — because "the rulebook says so" is exactly
+Every part is driven through the real engine, real card data, real
+legal_actions, real apply_action, because "the rulebook says so" is exactly
 the thing that was already true while the game disagreed.
 
 Run:  python3 test_clownfish_copy.py
@@ -232,7 +232,7 @@ for name in PLAIN_OCEANS:
     check(star_text_for_play(gs, CARD_DB[CLOWNFISH], host) == "",
           f"no ★ text is offered for a {name}")
 
-# The plain play must still work on a starred ocean — the ★ is opt-in.
+# The plain play must still work on a starred ocean, the ★ is opt-in.
 offered, ok, replays, gs, me, host = play_clownfish("mangrove", use_star=False)
 check(ok, "a Clownfish can still be played onto a Mangrove without its ★")
 check(replays == 0, "a plain play on a Mangrove grants no extra play (the ★ is opt-in)")
@@ -317,7 +317,7 @@ four = fish.final_points(gs, me)
 # copying one: 2+2+4+2 = 10. Merely copying the ability without joining the
 # count would pay 1+1+4+1 = 7, which is what it used to do.
 check(four == 10,
-      f"a Clownfish is a 4th ocean for '+1 per every two oceans' — 10, not 7 (got {four})")
+      f"a Clownfish is a 4th ocean for '+1 per every two oceans': 10, not 7 (got {four})")
 
 # …but never a new ocean TYPE. Seven types plus a duplicate is still seven.
 gs, ms, me = new_match()
@@ -434,7 +434,7 @@ for seed in range(40):
         mismatches.append(f"seed {seed}: score {scored} vs breakdown {shown}")
 check(not mismatches,
       "final_points and full_score_breakdown agree on every board" +
-      (" — " + "; ".join(mismatches[:3]) if mismatches else ""))
+      (": " + "; ".join(mismatches[:3]) if mismatches else ""))
 
 
 print("\n" + "=" * 46)

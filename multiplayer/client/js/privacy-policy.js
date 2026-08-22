@@ -1,8 +1,8 @@
 /* ================================================================
- * Currents and Critters — the Privacy Policy, one shared source.
+ * Currents and Critters, the Privacy Policy, one shared source.
  *
  * The policy text below is the legal document, reproduced WORD FOR WORD.
- * Nothing here is paraphrased, trimmed or "improved" — only the layout
+ * Nothing here is paraphrased, trimmed or "improved", only the layout
  * (headings, cards, the contact block) is ours. If the policy changes,
  * change it HERE and nowhere else.
  *

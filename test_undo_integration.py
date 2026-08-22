@@ -3,7 +3,7 @@
 Unlike test_undo_fix.py (which exercises the undo methods against a stub), this
 spins up a REAL GameRoom, starts a REAL match (1 human + 1 bot) on the actual
 engine thread, drives the human's turn through the real submit_action API, then
-presses Undo during the BOT's turn via the real submit_undo — exactly the path a
+presses Undo during the BOT's turn via the real submit_undo, exactly the path a
 player hits in the live game. It proves the full wiring:
 
     human plays a turn  →  bot starts thinking  →  human presses Undo  →
@@ -39,7 +39,7 @@ def _wait_until(room, pred, timeout, poll=0.005):
 
 
 def _human_hand_len(room, seat):
-    # Which SEAT the human gets is randomised at start_game — the host is not
+    # Which SEAT the human gets is randomised at start_game, the host is not
     # always seat 0. seat→game-player index is identity for a non-competitive
     # room, so the human's engine-side player is players[seat].
     gs = room._live_gs
@@ -78,7 +78,7 @@ def drive_human_turn(room, token, seat, timeout=25.0):
         if choice is None:
             choice = next((i for i, a in enumerate(actions) if a.get("kind") == "draw"), None)
         if choice is None:
-            # Only discards/plays left — submit the first; harmless for arming undo.
+            # Only discards/plays left: submit the first; harmless for arming undo.
             choice = 0
         room.submit_action({"seat_token": token, "action_index": choice,
                             "request_id": f"drive-{time.monotonic()}"})
@@ -99,7 +99,7 @@ def drive_human_turn(room, token, seat, timeout=25.0):
 
 def run():
     room = mp.GameRoom("UNDOINT", "Tester", total_players=2, human_players=1, ai_players=1)
-    # The creator auto-claims the host seat at construction — but WHICH seat that
+    # The creator auto-claims the host seat at construction, but WHICH seat that
     # is gets randomised when the match starts, so it is seat 1 about half the
     # time. Everything below keys off host_seat.index; hardcoding 0 made this
     # test wait out its timeout on the BOT's seat whenever the draw went the
@@ -138,7 +138,7 @@ def run():
             "undo never became valid for the human during the bot's turn"
         print("bot is now taking its (slow) turn; undo is armed for the human")
 
-        # Press Undo during the bot's turn — the reported-broken scenario.
+        # Press Undo during the bot's turn, the reported-broken scenario.
         fired_at = time.monotonic()
         out = room.submit_undo({"seat_token": token})
         assert out.get("ok"), out
@@ -146,7 +146,7 @@ def run():
 
         # The durable, unambiguous proof the undo landed: the human's hand reverts
         # to its turn-start size AND it is the human's turn again (the turn replays).
-        # ("Undo granted" in status_note is too transient to poll — the replayed
+        # ("Undo granted" in status_note is too transient to poll, the replayed
         # human turn overwrites it within milliseconds.)
         #
         # Timing also proves the interrupt: "slow" think is 3.0-5.5s, so without the
@@ -166,7 +166,7 @@ def run():
         assert reverted, (
             f"undo NOT honored within 2.5s: hand={now_hand} (want turn-start {turn_start_hand}), "
             f"active_seat={_read(room, lambda r: r.active_action_seat)} "
-            f"— the bot's think-pause was not interrupted / cards not put back"
+            f"the bot's think-pause was not interrupted / cards not put back"
         )
         print(f"undo honored + hand reverted {after_turn_hand}->{turn_start_hand} "
               f"in {elapsed:.3f}s (bot 'slow' think is 3.0-5.5s) ✓")

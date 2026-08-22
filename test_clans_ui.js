@@ -1,4 +1,4 @@
-/* Clan System — client module smoke test (node vm, no browser).
+/* Clan System: client module smoke test (node vm, no browser).
  *
  * Loads the real js/clans-ui.js against a stub __ccClans bridge and checks the
  * public hooks the rest of the app depends on:
@@ -35,8 +35,8 @@ function makeEnv({ enabled = true, postResp } = {}) {
     ENABLED: enabled,
     APP_BUILD: "test",
     get: async () => ({ ok: true }),
-    // The REAL bridge (preview-app's apiPost) resolves to an envelope —
-    // { ok, status, data } — and THROWS when the request never lands. The
+    // The REAL bridge (preview-app's apiPost) resolves to an envelope:
+    // { ok, status, data }, and THROWS when the request never lands. The
     // stubs must do the same or they test a contract that doesn't exist.
     post: async (p, b) => {
       calls.push({ p, b });
@@ -253,7 +253,7 @@ function makeEnvNav({ authed = true, homeResp, stored } = {}) {
   check("profile invite still sends the uid", invP && invP.b.to_uid === "u7");
   check("profile invite falls back to the name it knows",
         envP.toasts.some(t => t.m.includes("Reefy")));
-  // An unknown code has to say so — not fail silently. Friend codes are one per
+  // An unknown code has to say so, not fail silently. Friend codes are one per
   // player, so nothing may tell the inviter to disambiguate with a name; the
   // slug still has to come back as a readable sentence, never as a raw slug.
   const envBad = makeEnv({ postResp: () => ({ ok: false, error: "ambiguous_code" }) });
@@ -357,7 +357,7 @@ function makeEnvNav({ authed = true, homeResp, stored } = {}) {
 
   // The one failure that actually produces a BLANK tab: every render clears the
   // root first and attaches the finished card last, and the render functions are
-  // async — so a throw halfway through lands as an unhandled rejection and the
+  // async, so a throw halfway through lands as an unhandled rejection and the
   // panel just stays empty. A home payload with no season makes renderHome throw.
   const crash = makeEnvDom({ authed: true, homeResp: { ok: true } });
   await crash.windowStub.__ccClansRender();

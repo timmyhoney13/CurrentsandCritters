@@ -7,16 +7,16 @@
  * bottom of the oceans". #pv-table was `overflow:hidden` unless the board was
  * zoomed IN past 100%, and #pv-table-inner is an auto-height grid, so once a
  * player had enough oceans to wrap onto more rows than fit, everything past the
- * bottom edge was simply clipped — unreachable by wheel, trackpad, finger or
+ * bottom edge was simply clipped: unreachable by wheel, trackpad, finger or
  * pinch (pinch pans the visual viewport, it cannot reveal clipped content).
  *
  * Two halves, both measured in real screen pixels in headless Chrome against
  * the REAL preview.css and the REAL touch-drag shim from preview-app.js:
- *   1. LAYOUT — with a board too tall to fit (desktop and phone-sized windows),
+ *   1. LAYOUT, with a board too tall to fit (desktop and phone-sized windows),
  *      the bottom of the last ocean must be reachable by scrolling, the top must
  *      be reachable again, and there must be exactly ONE vertical scroller in
  *      the chain (nested scrollers make finger scrolling a coin flip).
- *   2. GESTURE — in Mobile mode a one-finger vertical swipe that starts on a
+ *   2. GESTURE, in Mobile mode a one-finger vertical swipe that starts on a
  *      draggable ocean card must scroll the board (native panning is off there:
  *      draggable cards carry touch-action:pinch-zoom so drags don't jitter), a
  *      press-and-hold must still start a real drag, and drags that were always
@@ -39,7 +39,7 @@ const CHROME = [
 ].find(p => fs.existsSync(p));
 
 if (!CHROME) {
-  console.log("SKIP: no Chrome/Chromium found — cannot run the board-scroll check.");
+  console.log("SKIP: no Chrome/Chromium found: cannot run the board-scroll check.");
   process.exit(0);
 }
 
@@ -189,7 +189,7 @@ function layoutChecks(label) {
   scrollAll(board, 0);
   var last = lastHub();
   var overflowing = last.getBoundingClientRect().bottom > viewBottom() + TOL;
-  ok(overflowing, label + ": setup — a board of " + hubs().length +
+  ok(overflowing, label + ": setup, a board of " + hubs().length +
      " oceans really does overflow the visible area (last ocean bottom " +
      last.getBoundingClientRect().bottom.toFixed(0) + " vs view bottom " + viewBottom().toFixed(0) + ")");
   if (!overflowing) return;
@@ -212,7 +212,7 @@ function layoutChecks(label) {
   ok(live.length === 1, label + ": exactly ONE vertical scroller for the board, found " +
      live.length + " [" + live.map(function (s) { return "#" + (s.id || s.className); }).join(", ") + "]");
 
-  // 4. showing the pill must never take the overflow away again — it may only
+  // 4. showing the pill must never take the overflow away again, it may only
   //    add room. Otherwise .pv-can-scroll flips the very test that sets it and
   //    the pill blinks in and out on every render.
   var dock = document.getElementById("pv-board-scroll-dock");
@@ -257,7 +257,7 @@ function focusChecks(label) {
   var last = ro.querySelectorAll(".pv-ocean-hub");
   last = last[last.length - 1];
   var overflowing = last.getBoundingClientRect().bottom > bottomOfView() + TOL;
-  ok(overflowing, label + ": setup — another player's board of " + ro.children.length +
+  ok(overflowing, label + ": setup, another player's board of " + ro.children.length +
      " oceans overflows the focus overlay");
   if (overflowing) {
     scrollAll(last, 1e6);
@@ -393,7 +393,7 @@ const tableRule = (() => {
   return i < 0 ? "" : CSS.slice(i, CSS.indexOf("}", i));
 })();
 if (/overflow\s*:\s*hidden/.test(tableRule)) {
-  lines.push("FAIL preview.css: #pv-table is overflow:hidden — a board taller than the table is clipped away");
+  lines.push("FAIL preview.css: #pv-table is overflow:hidden, a board taller than the table is clipped away");
 } else if (/overflow(-y)?\s*:\s*(auto|scroll)/.test(tableRule)) {
   lines.push("PASS preview.css: #pv-table scrolls vertically at every board zoom");
 } else {

@@ -4,8 +4,8 @@
  *
  * Run:  node test_chat_mute.js
  *
- * Why this file exists: "mute" here must silence NOTIFICATIONS ONLY — the 💬
- * button badge, the lobby badge and the back-arrow dot — while the messages
+ * Why this file exists: "mute" here must silence NOTIFICATIONS ONLY, the 💬
+ * button badge, the lobby badge and the back-arrow dot, while the messages
  * themselves keep arriving and the unread counters keep counting. If muting
  * ever zeroed a counter instead of hiding a badge, unmuting (or the next game)
  * would show a wrong number and messages received while muted would look read.
@@ -188,7 +188,7 @@ console.log("\nBadges: what each mode silences");
   });
 }
 
-console.log("\nMuting hides the badge — it never eats the messages");
+console.log("\nMuting hides the badge, it never eats the messages");
 {
   const env = makeEnv({ mode: "all", muteRoom: "AAAAA", roomTotal: 4, seen: 0, otherUnread: 3 });
   env.api.pvcUpdateBadges();
@@ -296,7 +296,7 @@ console.log("\nWiring inside preview-app.js");
   ok(/pvcMuteSync\(\);\s*\/\/ adopt this room/.test(SRC), "pvcUpdateBadges syncs the room's choice");
   ok(/_chatMuteMode = "none"; _chatMuteRoom = null;/.test(SRC),
      "leaving a game drops the mute (next game starts unmuted)");
-  // The invariant is that pvcClosePanel closes the mute menu — NOT that the two
+  // The invariant is that pvcClosePanel closes the mute menu, NOT that the two
   // statements sit on adjacent lines. The original regex required adjacency and
   // went red the moment the emote tray added a line between them, reporting a
   // broken menu that was never broken.

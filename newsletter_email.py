@@ -1,4 +1,4 @@
-"""Currents and Critters — newsletter email: sanitising, rendering, sending.
+"""Currents and Critters: newsletter email: sanitising, rendering, sending.
 
 This module is the ONLY thing in the project that talks to Gmail, and the only
 thing that turns admin-authored HTML into an email body. newsletter_server.py
@@ -15,7 +15,7 @@ an SDK would add ~30MB of transitive dependencies to save ~40 lines. Everything
 below is urllib + email.mime.
 
 THE ONE THING THAT IS *NOT* HAND-ROLLED
-HTML sanitising. `nh3` (Rust ammonia bindings — the maintained successor to
+HTML sanitising. `nh3` (Rust ammonia bindings, the maintained successor to
 bleach) is installed in the image and is the real production path. The
 hand-written allowlist parser below is a DEFENCE-IN-DEPTH FALLBACK for
 environments where the wheel is missing (local test runs), not a preference:
@@ -32,7 +32,7 @@ account is 500). One message to one subscriber = one recipient, which is why
 this system never puts more than one address on a message. DAILY_SEND_CAP
 below defaults to 1,200/day to leave headroom for the welcome mails, test
 sends and Tim's ordinary human email on the same account. Going over does not
-bounce — Google returns 429/"User-rate limit exceeded" and stops the account
+bounce: Google returns 429/"User-rate limit exceeded" and stops the account
 sending for up to 24h, so the cap is enforced HERE, before the wire.
 """
 from __future__ import annotations
@@ -55,26 +55,26 @@ from html.parser import HTMLParser
 from typing import Any, Dict, List, Optional, Tuple
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  CONFIG (every secret comes from a Render env var — nothing is hard-coded)
+#  CONFIG (every secret comes from a Render env var, nothing is hard-coded)
 # ═══════════════════════════════════════════════════════════════════════════
 #
 #  THREE WAYS TO SEND. Pick ONE; the rest can stay unset.
 #
 #  There is no way to send mail to real inboxes without an authenticated
-#  sender — that is how SMTP and the anti-spam world work, not a limitation
+#  sender, that is how SMTP and the anti-spam world work, not a limitation
 #  here. What IS negotiable is how much account setup that costs you, so this
 #  module supports the cheap options and treats the expensive one as optional.
 #
-#    "smtp"    — DEFAULT AND EASIEST. Host, port, username, password. Every
+#    "smtp": DEFAULT AND EASIEST. Host, port, username, password. Every
 #                mail provider on earth gives you these, including the one
 #                already hosting timothy.honey@beardedsealstudios.com. If that
 #                is Google Workspace, an App Password works and needs NO Google
 #                Cloud project, NO OAuth consent screen, NO scopes and NO
-#                refresh token — it is four values from a settings page.
-#    "http"    — An HTTPS email API (Resend / Postmark / Mailgun / SendGrid /
+#                refresh token, it is four values from a settings page.
+#    "http", An HTTPS email API (Resend / Postmark / Mailgun / SendGrid /
 #                Brevo). One API key. Use this when the host blocks outbound
 #                SMTP ports, which some do.
-#    "gmail_api" — The OAuth route. Still supported, no longer required, and
+#    "gmail_api", The OAuth route. Still supported, no longer required, and
 #                deliberately last: it is the only one that costs a Google
 #                Cloud project.
 #
@@ -86,9 +86,9 @@ GOOGLE_TOKENINFO_URI = "https://oauth2.googleapis.com/tokeninfo"
 GMAIL_SEND_URI = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
 
 # The minimum scopes that do the job (only relevant to the gmail_api transport):
-#   gmail.send  — send only. It cannot read a single message in the mailbox,
+#   gmail.send: send only. It cannot read a single message in the mailbox,
 #                 which is the whole point of not asking for gmail.modify.
-#   openid,email — lets /tokeninfo tell us WHICH account the refresh token
+#   openid,email: lets /tokeninfo tell us WHICH account the refresh token
 #                 belongs to, so we can verify it is allowed to send as
 #                 GMAIL_SENDER_EMAIL without requesting gmail.readonly or
 #                 gmail.settings.basic (both far broader).
@@ -163,7 +163,7 @@ def reply_to() -> str:
 # ADMIN_EMAIL may list SEVERAL accounts, separated by comma / pipe / space.
 # Every one of them can open /admin/newsletter; the FIRST is the primary, and
 # is where "new subscriber" notifications and test emails are delivered.
-# Listing more than one is a deliberate widening of access — it is still an
+# Listing more than one is a deliberate widening of access, it is still an
 # exact-match allowlist, never a domain or a pattern, so there is no wildcard
 # to get wrong.
 DEFAULT_ADMIN_EMAIL = "timothy.honey@beardedsealstudios.com"
@@ -181,7 +181,7 @@ def admin_emails() -> List[str]:
 
 
 def admin_email() -> str:
-    """The PRIMARY admin — where notifications and test emails are sent."""
+    """The PRIMARY admin, where notifications and test emails are sent."""
     return admin_emails()[0]
 
 
@@ -196,7 +196,7 @@ def site_url() -> str:
 
 
 def app_base_url() -> str:
-    """Where the unsubscribe links point — the Render host that runs this code."""
+    """Where the unsubscribe links point, the Render host that runs this code."""
     return _env("APP_BASE_URL", "https://play.currentsandcritters.com").rstrip("/")
 
 
@@ -206,7 +206,7 @@ def privacy_url() -> str:
 
 # A consumer @gmail.com account may send to ~500 recipients per rolling 24h.
 # A Google Workspace account on your own domain gets ~2,000. Those are wildly
-# different budgets, and exceeding either does not bounce — Google throttles or
+# different budgets, and exceeding either does not bounce: Google throttles or
 # SUSPENDS the account, sometimes for a full day.
 CONSUMER_GMAIL_CAP = 400          # 500 real limit, minus headroom for your own mail
 WORKSPACE_CAP = 1200              # 2,000 real limit, minus the same headroom
@@ -214,7 +214,7 @@ WORKSPACE_CAP = 1200              # 2,000 real limit, minus the same headroom
 
 def sender_is_consumer_gmail() -> bool:
     """True when mail goes out from a free @gmail.com / @googlemail.com account
-    rather than a Workspace domain — which is a 4x smaller daily budget."""
+    rather than a Workspace domain, which is a 4x smaller daily budget."""
     dom = sender_email().rsplit("@", 1)[-1].strip().lower()
     return dom in ("gmail.com", "googlemail.com")
 
@@ -225,8 +225,8 @@ def daily_send_cap() -> int:
     The DEFAULT follows the sending account: a free Gmail address gets the
     small budget automatically, so switching the From address to @gmail.com
     cannot silently leave a 1,200/day cap pointed at a 500/day mailbox. An
-    explicit NEWSLETTER_DAILY_SEND_CAP is always honoured — it is your account
-    and you may know something we don't — but connection_status() flags it when
+    explicit NEWSLETTER_DAILY_SEND_CAP is always honoured, it is your account
+    and you may know something we don't, but connection_status() flags it when
     it exceeds what the account can actually take.
     """
     default = CONSUMER_GMAIL_CAP if sender_is_consumer_gmail() else WORKSPACE_CAP
@@ -348,7 +348,7 @@ def normalize_email(raw: Any) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  HTML SANITISING — strict allowlist, deny by default
+#  HTML SANITISING: strict allowlist, deny by default
 # ═══════════════════════════════════════════════════════════════════════════
 # Everything an email body may legally contain. Note what is NOT here: script,
 # style, iframe, object, embed, form, input, button, link, meta, svg, video,
@@ -390,7 +390,7 @@ ALLOWED_URL_SCHEMES = {"http", "https", "mailto"}
 # disallowed tag we keep the inner text (pasting <div>hello</div> should not
 # lose the sentence), but the text inside these is code, not prose: without
 # this, "<script>alert(1)</script>" renders the words "alert(1)" in the
-# newsletter. Harmless — it is escaped — but it is not what anyone meant.
+# newsletter. Harmless, it is escaped, but it is not what anyone meant.
 DROP_CONTENT_TAGS = {"script", "style", "title", "head", "noscript",
                      "template", "textarea", "xml", "svg", "math"}
 
@@ -400,7 +400,7 @@ def _safe_url(value: str, *, image: bool = False) -> Optional[str]:
 
     Rejects javascript:, data:, vbscript:, file: and every other scheme, plus
     anything with control characters used to smuggle a scheme past a naive
-    check (`java\\tscript:`). Protocol-relative //host is rejected too — an
+    check (`java\\tscript:`). Protocol-relative //host is rejected too, an
     email has no "current protocol" to be relative to. Images additionally
     must be https, because an http image in an email is a downgrade every
     client will either block or flag.
@@ -429,7 +429,7 @@ def _safe_url(value: str, *, image: bool = False) -> Optional[str]:
 class _AllowlistSanitizer(HTMLParser):
     """Deny-by-default HTML rebuilder (fallback when nh3 is unavailable).
 
-    It does not "strip bad things" — it PARSES the input and re-emits only the
+    It does not "strip bad things", it PARSES the input and re-emits only the
     tags and attributes on the allowlist, escaping every piece of text on the
     way out. Anything it does not understand simply never reaches the output,
     which is why an unknown tag or a malformed attribute cannot survive.
@@ -456,7 +456,7 @@ class _AllowlistSanitizer(HTMLParser):
                 return
             self.out.append("<%s%s />" % (tag, rendered))
             return
-        # An <a> whose href was rejected is not a link — emit its text only,
+        # An <a> whose href was rejected is not a link: emit its text only,
         # so a javascript: anchor degrades to plain words rather than a dead
         # underlined stub.
         if tag == "a" and 'href="' not in rendered:
@@ -626,7 +626,7 @@ class _TextExtractor(HTMLParser):
     Not a "strip the tags" pass: block elements become blank lines, list items
     become "• ", and a link becomes "text <url>" so the plain-text reader can
     still follow it. A text part that is just the HTML with angle brackets
-    removed is worse than none — it is the part spam filters read.
+    removed is worse than none, it is the part spam filters read.
     """
 
     def __init__(self) -> None:
@@ -725,7 +725,7 @@ def html_to_text(raw: Any) -> str:
 # actually render the same in Gmail, Apple Mail, Outlook and every phone.
 #
 # The palette is the game's own deep-ocean skin, the same values the in-game
-# pages use (--deep #04263b, --teal #0fb6c4, --gold #ffd479) — an email that
+# pages use (--deep #04263b, --teal #0fb6c4, --gold #ffd479), an email that
 # arrives looking like the game is the point.
 _SHELL_BG = "#eef6fd"
 _DEEP = "#04263b"
@@ -743,7 +743,7 @@ _FONT = ("-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',"
 
 def _footer_html(unsubscribe_url: str, *, is_test: bool = False) -> str:
     """The legally-required footer. Automatically appended to every welcome
-    email and every marketing newsletter — the admin never types it, so it can
+    email and every marketing newsletter, the admin never types it, so it can
     never be forgotten on a send.
 
     Three shapes, because a footer that lies is worse than no footer:
@@ -845,7 +845,7 @@ def render_email_html(
         test_banner = (
             '<tr><td style="padding:14px 32px;background:#5a4a12;font-family:%s;'
             'font-size:13px;font-weight:700;color:%s;letter-spacing:.3px;">'
-            '&#9888;&#65039; TEST EMAIL &mdash; this is a preview send. '
+            '&#9888;&#65039; TEST EMAIL, this is a preview send. '
             'No subscriber received this copy.</td></tr>' % (_FONT, _GOLD)
         )
 
@@ -977,7 +977,7 @@ def welcome_body_html() -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 def _clean_header(value: str, limit: int = 400) -> str:
     """Header-injection guard. A newline in a subject line lets an attacker add
-    their own Bcc:, so CR/LF are removed from every header value we build —
+    their own Bcc:, so CR/LF are removed from every header value we build,
     including ones that only an admin can set, because "only an admin" is not
     a security property worth betting the sending domain on."""
     s = str(value or "")
@@ -1039,13 +1039,13 @@ def _build_message(
     """The one place a message is assembled, whatever the transport.
 
     Headers that matter and why:
-      List-Unsubscribe / List-Unsubscribe-Post — Gmail and Outlook render a
+      List-Unsubscribe / List-Unsubscribe-Post: Gmail and Outlook render a
         native "Unsubscribe" control from these, and since Feb 2024 Google
         REQUIRES one-click unsubscribe on bulk mail from any sender doing
         volume. Without them bulk mail is throttled or junked.
-      Precedence: bulk / Auto-Submitted — tells well-behaved autoresponders
+      Precedence: bulk / Auto-Submitted: tells well-behaved autoresponders
         not to reply, so an out-of-office does not bounce back per recipient.
-      Message-ID — unique per message. The provider assigns its own too, but a
+      Message-ID: unique per message. The provider assigns its own too, but a
         stable one of ours is what makes a delivery traceable in the logs.
     """
     subject = _clean_header(subject, 900)
@@ -1139,7 +1139,7 @@ def _http_json(url: str, *, data: Optional[bytes] = None, headers: Optional[Dict
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  TRANSPORT 1 — SMTP  (the default: four values from your mail provider)
+#  TRANSPORT 1: SMTP  (the default: four values from your mail provider)
 # ═══════════════════════════════════════════════════════════════════════════
 def smtp_settings() -> Dict[str, Any]:
     """Host/port/security, with sane defaults so only HOST/USER/PASSWORD are
@@ -1208,7 +1208,7 @@ def _smtp_connect(cfg: Dict[str, Any]):
 
 
 def _smtp_conn(cfg: Dict[str, Any]):
-    """A live, authenticated connection — reused when fresh, reopened when not."""
+    """A live, authenticated connection: reused when fresh, reopened when not."""
     now = time.time()
     conn = _SMTP_CONN.get("conn")
     if conn is not None and (now - float(_SMTP_CONN.get("at") or 0)) < _SMTP_REUSE_SEC:
@@ -1259,7 +1259,7 @@ def _smtp_error(exc: Exception) -> "SendError":
                          category="network", retryable=True)
     if isinstance(exc, (OSError, TimeoutError)):
         return SendError(
-            "Could not reach %s:%s. Some hosts block outbound SMTP — if this keeps "
+            "Could not reach %s:%s. Some hosts block outbound SMTP, if this keeps "
             "happening, switch to an HTTPS email API by setting NEWSLETTER_API_KEY."
             % (_env("SMTP_HOST"), smtp_settings()["port"]),
             category="network", retryable=True)
@@ -1313,7 +1313,7 @@ def _smtp_check() -> Dict[str, Any]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  TRANSPORT 2 — HTTPS email API (Resend / Postmark / Brevo / SendGrid)
+#  TRANSPORT 2: HTTPS email API (Resend / Postmark / Brevo / SendGrid)
 # ═══════════════════════════════════════════════════════════════════════════
 def _http_headers(provider: str, key: str) -> Dict[str, str]:
     spec = HTTP_PROVIDERS[provider]
@@ -1438,7 +1438,7 @@ def _http_check() -> Dict[str, Any]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  TRANSPORT 3 — Gmail API (optional; the only one needing a Google project)
+#  TRANSPORT 3: Gmail API (optional; the only one needing a Google project)
 # ═══════════════════════════════════════════════════════════════════════════
 def _fetch_access_token(force: bool = False) -> str:
     """Exchange the stored refresh token for an access token, cached until ~1
@@ -1469,7 +1469,7 @@ def _fetch_access_token(force: bool = False) -> str:
             err = str(data.get("error") or "")
             # invalid_grant means the refresh token was revoked, the Google
             # password changed, or the OAuth client was deleted. Retrying will
-            # never fix it — a human has to re-authorise.
+            # never fix it, a human has to re-authorise.
             if err in ("invalid_grant", "unauthorized_client", "invalid_client"):
                 raise SendError(
                     "Google authorisation was revoked or is invalid (%s). "
@@ -1493,7 +1493,7 @@ def _gmail_check() -> Dict[str, Any]:
     """Refresh the token, then ask /tokeninfo WHICH account it belongs to.
 
     That is how we confirm the authorised account is genuinely allowed to send
-    as the From address rather than assuming it — a mismatch means Gmail would
+    as the From address rather than assuming it, a mismatch means Gmail would
     reject or rewrite the From, which is the thing that must never be faked.
     No token, or fragment of one, ever leaves this function.
     """
@@ -1524,9 +1524,9 @@ def connection_status() -> Dict[str, Any]:
     Reports on whichever transport is ACTIVE, and is careful to distinguish
     what it verified from what it merely assumed:
 
-      connected        — we really did open a session / the key really was
+      connected, we really did open a session / the key really was
                          accepted. Not a guess.
-      canSendAsSender  — the From address is CONFIRMED usable. Only the Gmail
+      canSendAsSender, the From address is CONFIRMED usable. Only the Gmail
                          API can prove this (its /tokeninfo names the account).
                          SMTP and the HTTP APIs enforce it at send time and
                          give no way to ask in advance, so this stays optimistic
@@ -1562,7 +1562,7 @@ def connection_status() -> Dict[str, Any]:
     if out["dailyCap"] > _real:
         out["capWarning"] = (
             "NEWSLETTER_DAILY_SEND_CAP is %d, but a %s account only allows about "
-            "%d recipients per day. Going over does not bounce — the account gets "
+            "%d recipients per day. Going over does not bounce, the account gets "
             "throttled or suspended for up to 24 hours."
             % (out["dailyCap"],
                "free @gmail.com" if out["consumerGmail"] else "Google Workspace",
@@ -1597,13 +1597,13 @@ def connection_status() -> Dict[str, Any]:
         # it accepts THIS From address is only knowable by trying.
         out["canSendAsSender"] = out["connected"]
         if out["connected"] and cfg["username"].lower() == sender_email().lower():
-            # The From matches the authenticated mailbox — as close to proven as
+            # The From matches the authenticated mailbox, as close to proven as
             # SMTP gets without sending.
             out["senderVerified"] = True
         elif out["connected"]:
             out["setupHint"] = (
                 "The From address (%s) is not the same as the SMTP login (%s). Most "
-                "providers only allow that if it is a verified alias — send a test "
+                "providers only allow that if it is a verified alias: send a test "
                 "email to confirm." % (sender_email(), cfg["username"]))
         return out
 
@@ -1692,11 +1692,11 @@ def send_email(
 ) -> Dict[str, Any]:
     """Send exactly one message to exactly one recipient.
 
-    One address per message is not an efficiency oversight — it is the privacy
+    One address per message is not an efficiency oversight, it is the privacy
     requirement. No To/CC/BCC ever carries more than the single subscriber the
     message is for, so no subscriber can learn that another subscriber exists.
 
-    Returns {"messageId": …, "gmailId": …} — `gmailId` keeps its name because
+    Returns {"messageId": …, "gmailId": …}: `gmailId` keeps its name because
     the campaign records already store it; it now holds whichever id the active
     provider returned (empty for SMTP, which has none). Raises SendError on
     failure with a category the caller uses to decide whether to retry.
@@ -1805,7 +1805,7 @@ def build_confirmation(confirm_url: str) -> Dict[str, str]:
 
     Why a public form needs this and a Stripe checkout does not: at checkout
     the person has already proven they control the address (they paid with it,
-    and Stripe emailed them a receipt). A box on a web page proves nothing —
+    and Stripe emailed them a receipt). A box on a web page proves nothing,
     anyone can type a stranger's address into it. Sending that stranger a
     newsletter they never asked for is how a sending account gets reported and
     suspended, which at a few hundred messages a day is the whole channel.
@@ -1827,7 +1827,7 @@ def build_confirmation(confirm_url: str) -> Dict[str, str]:
         'If the button doesn&rsquo;t work, copy this link into your browser:<br />'
         '<span style="word-break:break-all;">%(url_text)s</span></p>'
         '<p style="margin:0;font-size:14px;color:%(muted)s;">'
-        'If you didn&rsquo;t sign up, just ignore this email &mdash; you will not '
+        'If you didn&rsquo;t sign up, just ignore this email, you will not '
         'be added to the list and you will not hear from us again.</p>'
     ) % {"deep": _DEEP, "teal": _TEAL, "muted": _MUTED,
          "url": _html.escape(confirm_url, quote=True),
@@ -1861,7 +1861,7 @@ def build_owner_notification(
     active_total: Optional[int] = None,
 ) -> Dict[str, str]:
     """The heads-up to Tim. Carries the subscriber's address, when, where from
-    and whether it was new or a reactivation — and deliberately NOT the
+    and whether it was new or a reactivation, and deliberately NOT the
     unsubscribe token, which would let anyone who ever saw this mailbox
     unsubscribe that person."""
     kind = "Reactivation (previously unsubscribed)" if is_reactivation else "New signup"
@@ -1901,7 +1901,7 @@ def build_owner_notification(
         # operational notice to the owner, not marketing mail, so attaching a
         # marketing footer to it would be both wrong and confusing.
         "html": render_email_html(body_html=body, unsubscribe_url="", show_visit_button=False,
-                                  preview_text="%s — %s" % (subscriber_email, kind)),
+                                  preview_text="%s: %s" % (subscriber_email, kind)),
         "text": "New Currents & Critters newsletter subscriber\n\n" + text_rows
                 + "\n\nAdmin: " + app_base_url() + "/admin/newsletter\n",
     }

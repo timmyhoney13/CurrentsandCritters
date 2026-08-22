@@ -9,8 +9,8 @@ match as a normal GameRoom, feeding match results back into the bracket to advan
 rounds, and the idempotent server-authoritative XP grant (modeled on
 snap_score._finalize_in_firestore).
 
-It plugs into multiplayer_server.py the same way snap_score does — via init(...)
-and handle_get/handle_post — so nothing about the existing game modes changes.
+It plugs into multiplayer_server.py the same way snap_score does: via init(...)
+and handle_get/handle_post, so nothing about the existing game modes changes.
 
 The server is the sole authority: clients never decide winners, advancement, XP,
 or placement. Every mutation validates against the bracket + participant roster
@@ -60,8 +60,8 @@ def _parse_opening_sizes(raw: Any) -> Optional[List[int]]:
 
 
 def _parse_advance(raw: Any) -> int:
-    """How many finishers advance out of each match ("top N"). Defaults to 1 —
-    classic single elimination — for anything missing or unreadable. The real
+    """How many finishers advance out of each match ("top N"). Defaults to 1:
+    classic single elimination, for anything missing or unreadable. The real
     ceiling is per match size and is enforced by validate_config."""
     try:
         n = int(raw)
@@ -110,12 +110,12 @@ def _graph_config(spec: CustomBracket, body: Dict[str, Any]) -> TournamentConfig
 # to hard-disable the server side entirely.
 TOURNAMENTS_ENABLED = str(os.environ.get("FISH_TOURNAMENTS", "1")).strip().lower() not in ("0", "false", "no", "")
 # When set, the /api/tournament/report HTTP endpoint is live so the automated
-# test harness can drive bracket advancement. NEVER set in production — real
+# test harness can drive bracket advancement. NEVER set in production, real
 # results must only arrive via the trusted on_room_ended game-end hook.
 TEST_HOOKS_ENABLED = str(os.environ.get("FISH_TOURNAMENT_TEST_HOOKS", "")).strip().lower() in ("1", "true", "yes")
 # Match launch is gated by a per-match READY CHECK: once a match's slots are all
 # filled, every assigned human must ready up (bots are auto-ready) before its game
-# starts. There is no timed auto-start — a match waits on its players. A human who
+# starts. There is no timed auto-start, a match waits on its players. A human who
 # DISCONNECTS during the ready check no longer blocks the launch (so a dropped
 # player can't stall the bracket); the host can also forfeit a stuck player.
 # A participant whose client hasn't polled state within this window is marked
@@ -124,7 +124,7 @@ TEST_HOOKS_ENABLED = str(os.environ.get("FISH_TOURNAMENT_TEST_HOOKS", "")).strip
 DISCONNECT_GRACE_SEC = float(os.environ.get("FISH_TOURNAMENT_DISCONNECT_GRACE", "25"))
 # How long a match that is otherwise ready waits for an assigned player who has
 # gone quiet before it launches without them. Being marked "disconnected" is a
-# low bar — a client that misses a couple of polls between rounds trips it — and
+# low bar, a client that misses a couple of polls between rounds trips it, and
 # starting someone's bracket match while they are still walking back from the
 # previous game's end screen means they never got to play it. Comfortably longer
 # than DISCONNECT_GRACE_SEC so a blip costs nobody their match.
@@ -136,7 +136,7 @@ SPECTATOR_GRACE_SEC = float(os.environ.get("FISH_TOURNAMENT_SPECTATOR_GRACE", "6
 # Every bracket match is decided by a REAL game of Currents and Critters, including
 # matches where the whole field is AI seat-fillers: those spawn an all-bot game
 # room and the engine plays it out. Set to 0 to fall back to resolving them
-# instantly server-side (the old behaviour — fast, but it decides rounds by coin
+# instantly server-side (the old behaviour: fast, but it decides rounds by coin
 # flip and can crown a champion seconds after the last human is knocked out).
 PLAY_BOT_MATCHES = str(os.environ.get("FISH_TOURNAMENT_PLAY_BOT_MATCHES", "1")).strip().lower() \
     not in ("0", "false", "no")
@@ -243,7 +243,7 @@ def _code(n: int = 6) -> str:
 
 
 # =============================================================================
-# Tournament — one live tournament, server-authoritative, SSE-broadcastable
+# Tournament, one live tournament, server-authoritative, SSE-broadcastable
 # =============================================================================
 class Tournament:
     PHASE_LOBBY = "lobby"
@@ -365,7 +365,7 @@ class Tournament:
         # advertised a crowd, and a spectator who came back as a player was still
         # counted twice.
         # Reading state IS watching, so a viewer who is not a competitor keeps (or
-        # re-takes) their spectator seat — a backgrounded tab that missed the grace
+        # re-takes) their spectator seat, a backgrounded tab that missed the grace
         # window must not be told it is no longer in the tournament at all. Same
         # rule join() applies, so this can never grant more than joining would.
         if viewer_pid and me is None:
@@ -387,7 +387,7 @@ class Tournament:
                 changed = True
         for p in self.participants:
             if p.is_bot:
-                continue  # bots have no client heartbeat — never reap them
+                continue  # bots have no client heartbeat, never reap them
             if p.connected and p.last_seen and (now - p.last_seen) > DISCONNECT_GRACE_SEC:
                 p.connected = False
                 if self.phase == self.PHASE_LOBBY and p.status in (S_NOT_READY, S_READY):
@@ -452,7 +452,7 @@ class Tournament:
              players in lobby order
           3. AI-only spots take bots, then any open spot still empty takes a bot
 
-        A NAMED invite spot stays empty until its player arrives — that is what
+        A NAMED invite spot stays empty until its player arrives, that is what
         "reserved" means. can_start says who it is waiting on, and the host can
         release it by filling the lobby with bots.
         """
@@ -482,7 +482,7 @@ class Tournament:
                 if out[i] or s.get("kind") not in kinds or not pool:
                     continue
                 if not named_ok and s.get("invite"):
-                    continue    # reserved for someone specific — hold it open
+                    continue    # reserved for someone specific: hold it open
                 out[i] = pool.pop(0).pid
         fill((SLOT_HUMAN,), free_humans)
         fill((SLOT_INVITE,), free_humans, named_ok=False)
@@ -529,7 +529,7 @@ class Tournament:
                 self._bump_locked()
                 return {"ok": True, "token": existing.token, "rejoin": True}
             if self.phase != self.PHASE_LOBBY:
-                # tournament already started — join as spectator if allowed
+                # tournament already started: join as spectator if allowed
                 if self.spectators_allowed:
                     self.spectator_pids[pid] = _now()
                     self._bump_locked()
@@ -577,7 +577,7 @@ class Tournament:
             was_active = p.status not in (S_ELIMINATED, S_CHAMPION)
             # Leaving once your run is ALREADY over is not a forfeit. A knocked-out
             # player (or anyone closing the results screen) has completed the
-            # tournament — marking them ``quit`` here stripped the no-quit XP off a
+            # tournament: marking them ``quit`` here stripped the no-quit XP off a
             # run they actually finished, and re-eliminated the champion.
             if not was_active or self.phase in (self.PHASE_COMPLETE, self.PHASE_CANCELLED):
                 p.connected = False
@@ -590,7 +590,7 @@ class Tournament:
             self._log("player_forfeit", f"{p.name} left the tournament", by=p.pid)
             self._forfeit_active_matches_for(p)
             self._bump_locked()
-        # A forfeit can fill the next match or complete the final — progress the
+        # A forfeit can fill the next match or complete the final: progress the
         # bracket + finalize OUTSIDE the lock (both take their own locks).
         self._spawn_ready_matches()
         self._maybe_finalize()
@@ -625,7 +625,7 @@ class Tournament:
     def _fill_designed_seats_locked(self) -> int:
         """MUST hold self.cond. Add exactly enough bots to take every designed spot
         a bot is allowed to hold (AI-only spots first, then any open spot no real
-        player claimed). Human-only spots are left empty — only a person can take
+        player claimed). Human-only spots are left empty, only a person can take
         one, and can_start says so."""
         added = 0
         for _ in range(len(self.seat_slots()) + 1):
@@ -662,7 +662,7 @@ class Tournament:
     def _evict_bot_for_human_locked(self) -> bool:
         """MUST hold self.cond. Drop one bot so an arriving player has a spot.
 
-        Bots are seat-fillers, never seat-holders — a host who pre-filled the lobby
+        Bots are seat-fillers, never seat-holders, a host who pre-filled the lobby
         should not have shut the door on their friends. A designed bracket keeps
         exactly as many bots as its AI-only spots require; those are the host's
         deliberate "put a bot here", not filler."""
@@ -796,7 +796,7 @@ class Tournament:
             return {"ok": True, "host_controlled": True}
 
     def host_swap(self, pid_a: str, pid_b: str) -> Dict[str, Any]:
-        """Host directly swaps two players' bracket positions — no consent needed
+        """Host directly swaps two players' bracket positions, no consent needed
         (unlike request_switch). Drives the host drag-swap in the lobby + preview
         bracket. Swapping join_order swaps which opening slot each player seeds into."""
         with self.cond:
@@ -877,7 +877,7 @@ class Tournament:
         # A DESIGNED bracket is checked against its typed spots: every spot must have
         # someone in it, and only a real player can take a human-only spot.
         if self.cfg.is_graph:
-            # AI-only spots are never a blocker — start() always puts a bot in them,
+            # AI-only spots are never a blocker: start() always puts a bot in them,
             # because that spot type IS the host saying "a bot plays here".
             empty = [s for s in self._empty_seats() if s.get("kind") != SLOT_AI]
             if empty:
@@ -887,12 +887,12 @@ class Tournament:
                     where = ", ".join(f"Match {s['match_number']} spot {s['slot'] + 1}"
                                       for s in humans_only[:3])
                     return False, (f"{len(humans_only)} player-only spot(s) still empty "
-                                   f"({where}) — they need real players")
+                                   f"({where}), they need real players")
                 if invites:
                     who = ", ".join(str(s["invite"]) for s in invites[:3])
                     return False, (f"waiting on invited player(s): {who} "
                                    "(or fill their spot with a bot)")
-                return False, (f"{len(empty)} spot(s) still empty — add players "
+                return False, (f"{len(empty)} spot(s) still empty: add players "
                                "or fill them with bots")
             not_ready = [p for p in self.participants if not p.ready and p.connected]
             if not_ready:
@@ -910,7 +910,7 @@ class Tournament:
             need = self.cfg.total_capacity - n
             if need > 0:
                 return False, (f"custom bracket needs all {self.cfg.total_capacity} seats "
-                               f"filled ({need} empty — add players or fill with bots)")
+                               f"filled ({need} empty: add players or fill with bots)")
             return False, f"custom bracket holds {self.cfg.total_capacity} players (have {n})"
         not_ready = [p for p in self.participants if not p.ready and p.connected]
         if not_ready:
@@ -927,7 +927,7 @@ class Tournament:
                 and len(self.participants) < self.cfg.total_capacity:
             self.fill_with_bots()
         # A designed bracket's AI-only spots ALWAYS need a bot, whether or not the
-        # host asked for bot-fill — that spot type is the host saying "put a bot here".
+        # host asked for bot-fill, that spot type is the host saying "put a bot here".
         if self.cfg.is_graph and self.phase == self.PHASE_LOBBY:
             with self.cond:
                 if any(s.get("kind") == SLOT_AI for s in self._empty_seats()):
@@ -984,7 +984,7 @@ class Tournament:
     def _spawn_ready_matches(self) -> None:
         """Give every match that is ready to be played a real game.
 
-        EVERY match in the bracket is decided by a real game — including matches
+        EVERY match in the bracket is decided by a real game, including matches
         whose whole field is AI, which get an all-bot game room the engine plays
         out. Nothing is ever skipped or fast-forwarded, so a tournament always
         works through all of its rounds instead of jumping to a champion the
@@ -999,7 +999,7 @@ class Tournament:
                 break
             bot_only = [m for m in playable if self._match_is_all_bots(m)]
             _bot_ids = {id(m) for m in bot_only}   # identity: BracketMatch is a dataclass
-            # Matches with humans in them go first, always — a player should never
+            # Matches with humans in them go first, always, a player should never
             # sit waiting on a bot game before their own match can start.
             for m in [m for m in playable if id(m) not in _bot_ids]:
                 self._spawn_match(m)
@@ -1037,13 +1037,13 @@ class Tournament:
             # A player who forfeited between winning their last match and this one
             # being ready is NOT coming. Seating them anyway left an abandoned seat
             # in the game: the engine never draws for an away player, so their turn
-            # parks and the match — and the whole bracket behind it — hangs waiting
+            # parks and the match, and the whole bracket behind it: hangs waiting
             # on somebody who already left. Leave them out of the game and rank them
             # last when the result comes back (see match_forfeit_pids).
             gone = [p for p in parts if p.quit]
             playing = [p for p in parts if not p.quit]
             if gone and len(playing) < 2:
-                # Nobody left to play a real game against — the survivor (if any)
+                # Nobody left to play a real game against, the survivor (if any)
                 # walks over. Resolved after the lock so it can advance the bracket.
                 walkover = [p.pid for p in playing] + [p.pid for p in gone]
             m.status = M_READY          # claim it before releasing the lock
@@ -1090,7 +1090,7 @@ class Tournament:
             entered = self.match_entered_pids.setdefault(m.match_number, set())
             ready = self.match_ready_pids.setdefault(m.match_number, set())
             # Bots have no client to "enter" or "ready up", so pre-mark them present
-            # AND ready — the match then launches the instant every human is ready.
+            # AND ready, the match then launches the instant every human is ready.
             entered.update(p.pid for p in parts if p.is_bot)
             ready.update(p.pid for p in parts if p.is_bot)
             # Stays M_READY (waiting on the human ready-check) until everyone readies.
@@ -1102,7 +1102,7 @@ class Tournament:
             self._launch_match(m.round_index, m.match_index)
         else:
             # Nothing else re-checks the ready gate once the absent-player grace
-            # expires, so give it one wake-up call — otherwise a match blocked only
+            # expires, so give it one wake-up call, otherwise a match blocked only
             # by someone who never came back would wait forever.
             self._arm_match_timer(m, MATCH_ABSENT_GRACE_SEC + 1.0)
 
@@ -1144,13 +1144,13 @@ class Tournament:
         """MUST hold self.cond. True when the match can launch.
 
         Needs a room, and every human assigned to it readied up (bots are
-        auto-ready — an all-bot match therefore launches the moment its room
+        auto-ready, an all-bot match therefore launches the moment its room
         exists, since there is nobody to wait for).
 
         A human who has gone quiet only stops blocking the launch after
         MATCH_ABSENT_GRACE_SEC. "Disconnected" is a 25-second bar that a client
         walking back from the previous game's end screen trips easily, and
-        launching on that basis played someone's bracket match without them — the
+        launching on that basis played someone's bracket match without them, the
         "it never let me play my match" bug. Past the grace the bracket still moves
         on (a player who really left can't stall everyone), and at least one human
         must be ready so a match is never launched into an empty room.
@@ -1167,7 +1167,7 @@ class Tournament:
         # everyone else in their match sit for a minute and a half for nothing.
         humans = [p for p in assigned if not p.is_bot and not p.quit]
         if not humans:
-            # Nobody left to wait on (all bots, or every human forfeited) — the
+            # Nobody left to wait on (all bots, or every human forfeited), the
             # engine plays it out and the forfeiters rank last.
             return True
         waited = _now() - (self.match_ready_since.get(m.match_number) or _now())
@@ -1235,7 +1235,7 @@ class Tournament:
     def match_entered(self, pid: str) -> Dict[str, Any]:
         """A player opened their assigned match room. Entering counts as readying up
         (so a player who deep-links straight into their room still satisfies the
-        ready check), but the game only launches once EVERY assigned human is ready —
+        ready check), but the game only launches once EVERY assigned human is ready:
         entering never bypasses another player's ready-up."""
         if not self.bracket:
             return {"ok": False, "error": "not started"}
@@ -1276,7 +1276,7 @@ class Tournament:
         """Best-effort CURRENT scores of a running match, keyed by participant id.
 
         Empty when there is no room, the game hasn't published a state yet, or the
-        room can't be read — every caller treats that as "no information"."""
+        room can't be read, every caller treats that as "no information"."""
         if not m.room_id or _get_room is None:
             return {}
         try:
@@ -1309,7 +1309,7 @@ class Tournament:
         rank everyone else by the score they had actually reached.
 
         Ordering matters: the old code ranked the survivors by SLOT, so one player
-        quitting a 4-player match handed the win — and the round — to whoever
+        quitting a 4-player match handed the win, and the round, to whoever
         happened to be seeded first, no matter who was ahead."""
         if not self.bracket:
             return
@@ -1380,7 +1380,7 @@ class Tournament:
             p.completed_first_match = True
             p.deepest_round = max(p.deepest_round, m.round_index)
         # Only 1st place "wins" the match, but with top-N advancement EVERY advancing
-        # finisher moves on — they all get credit for reaching the next round and all
+        # finisher moves on, they all get credit for reaching the next round and all
         # sit in the waiting state until it spawns.
         wp = self._by_pid(winner) if winner else None
         if wp and not m.is_third_place:
@@ -1436,7 +1436,7 @@ class Tournament:
                                   next((e["place"] for e in self.bracket.final_placements()
                                         if e["player_id"] == p.pid), 0)) or 0
         completed_no_quit = (not p.quit) and self.phase == self.PHASE_COMPLETE
-        # distinct real (non-guest) accounts that actually played — anti-farm gate
+        # distinct real (non-guest) accounts that actually played: anti-farm gate
         real_accounts = len({q.pid for q in self.participants
                              if not q.is_guest and q.completed_first_match})
         return compute_player_xp(
@@ -1630,7 +1630,7 @@ class Tournament:
         return None
 
     def _match_ready_payload(self, m, me: Participant) -> Dict[str, Any]:
-        """The viewer-facing snapshot of a match awaiting/running for ``me`` —
+        """The viewer-facing snapshot of a match awaiting/running for ``me``:
         includes the live ready-check roster so the client can render who still
         needs to ready up before the game launches."""
         seat_token = (self.match_seat_tokens.get(m.match_number) or {}).get(me.pid)
@@ -1756,7 +1756,7 @@ def on_room_ended(room_id: str, ranking: List[str], scores: Dict[str, int]) -> D
 def _grant_xp_firestore(tid: str, p: Participant, breakdown: Dict[str, Any]) -> bool:
     """Grant a player's tournament XP EXACTLY ONCE via a deterministic reward
     ledger. Returns True if granted (or already granted). Degrades gracefully
-    (returns False) if Firestore is unavailable — the computed breakdown is still
+    (returns False) if Firestore is unavailable, the computed breakdown is still
     surfaced to the client so it can display the earned XP."""
     if p.is_guest or not p.pid or p.pid.startswith("guest:"):
         return False
@@ -1836,14 +1836,14 @@ def _grant_xp_firestore(tid: str, p: Participant, breakdown: Dict[str, Any]) -> 
 
 
 # =============================================================================
-# HTTP plumbing — plugs into multiplayer_server do_GET / do_POST
+# HTTP plumbing: plugs into multiplayer_server do_GET / do_POST
 # =============================================================================
 def _pid_and_name(handler, body: Dict[str, Any]) -> Tuple[str, str, bool, str]:
     """Resolve (pid, name, is_guest, avatar) from an authenticated body.
     Accounts authenticate with idToken; guests carry a stable guest_id."""
     id_token = body.get("idToken") if isinstance(body.get("idToken"), str) else ""
     # player_name/host_name take precedence over `name` because create uses
-    # `name` for the TOURNAMENT name — the two must never collide.
+    # `name` for the TOURNAMENT name, the two must never collide.
     name = str(body.get("player_name") or body.get("host_name") or body.get("name") or "Player")[:32]
     avatar = str(body.get("avatar") or "")[:256]
     if id_token:
@@ -1881,7 +1881,7 @@ def handle_get(handler, parsed) -> bool:
             return True
         if path == "/api/tournament/advance_options":
             # Every legal "top N advance" rule for a match shape, with the bracket
-            # each one produces — drives the host's advancement picker.
+            # each one produces: drives the host's advancement picker.
             custom = _parse_opening_sizes((q.get("opening_sizes") or [None])[0])
             if custom and validate_opening_sizes(custom):
                 handler._send_json({"ok": False, "error": "; ".join(validate_opening_sizes(custom))},
@@ -1998,7 +1998,7 @@ def _require(handler, t: Optional[Tournament]) -> bool:
 
 
 def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
-    # Live check for the bracket BUILDER — takes a work-in-progress design and
+    # Live check for the bracket BUILDER: takes a work-in-progress design and
     # returns every problem with it plus a preview summary. No tournament exists
     # yet, so this runs before the id lookup below.
     if path == "/api/tournament/validate":
@@ -2018,7 +2018,7 @@ def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
         graph = _parse_custom_graph(body.get("custom_graph"))
         if graph is not None:
             # Canvas-designed bracket: the host's own shape, spot types and
-            # connections. Re-validated here — the client's check is only a preview.
+            # connections. Re-validated here, the client's check is only a preview.
             gerrs = validate_custom_bracket(graph)
             if gerrs:
                 handler._send_json({"ok": False, "error": "; ".join(gerrs), "errors": gerrs},
@@ -2045,7 +2045,7 @@ def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
                                 "token": host.token if host else "",
                                 "pid": pid, "designed": True})
             return
-        # "Top N advance" applies to every generated bracket — 1 is classic single
+        # "Top N advance" applies to every generated bracket: 1 is classic single
         # elimination, 2+ turns each match into a group whose best N go through.
         adv = _parse_advance(body.get("advance_per_match"))
         custom = _parse_opening_sizes(body.get("opening_sizes"))

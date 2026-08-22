@@ -6,7 +6,7 @@
  * The Leaderboard tab gained a "🔥 Streak" mode with a two-way toggle:
  * LONGEST STREAK EVER and LONGEST CURRENT STREAK. The one thing that makes it
  * hard is that stats.daily_streak in a user doc is only rewritten when a game
- * FINISHES — a player who stopped playing a week ago keeps their old number
+ * FINISHES, a player who stopped playing a week ago keeps their old number
  * frozen in Firestore, so ranking by the stored field alone would park them at
  * the top of the "current" board forever. Every number here is therefore
  * recomputed from stats.streak_days (the single source of truth, the same list
@@ -17,7 +17,7 @@
  * preview.css, and drives them against canned Firestore snapshots:
  *
  *   1. LONGEST board ranks by best-run-ever, CURRENT board by the live run.
- *   2. A stale stored daily_streak is corrected, not trusted — the lapsed
+ *   2. A stale stored daily_streak is corrected, not trusted, the lapsed
  *      player drops off the current board and keeps their spot on longest.
  *   3. A day covered by a Streak Shield keeps a run continuous.
  *   4. The toggle re-sorts AND swaps the two metric column headers, live.
@@ -74,13 +74,13 @@ srcOk(/id="ph-lb-streak-longest-tab"/.test(HTML) && /id="ph-lb-streak-current-ta
 
 if (srcLines.some(l => l.startsWith("FAIL"))) {
   console.log(srcLines.join("\n"));
-  console.log("\nThe streak leaderboard is missing or unwired — the browser checks cannot run.");
+  console.log("\nThe streak leaderboard is missing or unwired, the browser checks cannot run.");
   process.exit(1);
 }
 console.log(srcLines.join("\n") + "\n");
 
 if (!CHROME) {
-  console.log("SKIP: no Chrome/Chromium found — the browser half of this check did not run.");
+  console.log("SKIP: no Chrome/Chromium found, the browser half of this check did not run.");
   process.exit(0);
 }
 
@@ -125,7 +125,7 @@ function grabConst(name) {
 const LIFTED = [
   grabConst("_LB_ICON_ADD"),
   grabConst("_LB_ICON_FRIENDS"),
-  // streak maths — the same source of truth the rest of the app uses
+  // streak maths, the same source of truth the rest of the app uses
   grabFn("_streakLocalDateStr"),
   grabFn("_streakParseDate"),
   grabFn("_streakDayDiff"),
@@ -191,7 +191,7 @@ const USERS = [
     stats: { streak_days: run(30, 200).concat(run(12, 0)), daily_streak: 12, streak_longest: 30 } },
 
   // THE STALE ONE. Stopped playing 9 days ago at the end of a 40-day run.
-  // Firestore still says daily_streak: 40 — the board must say 0 and drop them
+  // Firestore still says daily_streak: 40, the board must say 0 and drop them
   // from the current tab, while 40 stays their longest ever (rank 1).
   { id: "u_bo", nickname: "Bo", avatar_url: "/avatars/narwhal.png",
     stats: { streak_days: run(40, 9), daily_streak: 40, streak_longest: 40 } },
@@ -202,7 +202,7 @@ const USERS = [
     streak_shield_days: [dstr(3)],
     stats: { streak_days: run(9, 0), daily_streak: 9, streak_longest: 9 } },
 
-  // Tie with Cy on both metrics (9 / 9) — they must share a rank number.
+  // Tie with Cy on both metrics (9 / 9), they must share a rank number.
   { id: "u_di", nickname: "Di", avatar_url: "/avatars/mullet.png",
     stats: { streak_days: run(9, 0), daily_streak: 9, streak_longest: 9 } },
 
@@ -213,7 +213,7 @@ const USERS = [
 
   // Truncated history: _streakAddDay keeps only the last 800 days, so this
   // player's record 60-day run has fallen off the list. streak_longest must be
-  // honoured over the (now shorter) recomputed value — a best run is never lost.
+  // honoured over the (now shorter) recomputed value, a best run is never lost.
   { id: "u_fay", nickname: "Fay", avatar_url: "/avatars/mullet.png",
     stats: { streak_days: run(4, 0), daily_streak: 4, streak_longest: 20 } },
 
@@ -221,7 +221,7 @@ const USERS = [
   { id: "u_blank", nickname: "   ", stats: { streak_days: run(50, 0), daily_streak: 50, streak_longest: 50 } },
   { id: "u_guest", nickname: "Player", stats: { streak_days: run(50, 0), daily_streak: 50, streak_longest: 50 } },
 
-  // Me. Small streak, nowhere near the board — the summary card must still
+  // Me. Small streak, nowhere near the board, the summary card must still
   // show my real numbers.
   { id: "u_me", nickname: "Tim", avatar_url: "/avatars/mullet.png",
     stats: { streak_days: run(2, 0), daily_streak: 2, streak_longest: 3 } },

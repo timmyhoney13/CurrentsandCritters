@@ -7,7 +7,7 @@ Three jobs, in order of how much damage the bug would do:
     the ledger doc-id create(), so it is tested from every direction.
 
  2. NOBODY IS PAID WITHOUT BEING A MEMBER. Discord saying "no", Discord not
-    answering at all, a garbled reply, a missing scope — none of them may be
+    answering at all, a garbled reply, a missing scope, none of them may be
     mistaken for a yes, and none of them may write a coin.
 
  3. THE SIGNED STATE. Discord's callback carries no Firebase token, so the
@@ -101,7 +101,7 @@ class FakeTxn:
     of Firestore that actually matters here: if the ledger create() collides,
     the whole transaction is abandoned and the coin write in the SAME
     transaction never lands either. A fake that wrote as it went would show two
-    racing claims paying 500 coins and call it a pass — the bug this test
+    racing claims paying 500 coins and call it a pass, the bug this test
     exists to catch."""
     def __init__(self, db):
         self._db = db
@@ -264,9 +264,9 @@ class TestClaim(Base):
         out = ds.claim_for_code("alice", "code-1")
 
         self.assertTrue(out["ok"], out)
-        self.assertEqual(out["coins_awarded"], 250)
-        self.assertEqual(out["coins_total"], 290)
-        self.assertEqual(self.db.coins("alice"), 290)
+        self.assertEqual(out["coins_awarded"], ds.reward_coins())
+        self.assertEqual(out["coins_total"], 40 + ds.reward_coins())
+        self.assertEqual(self.db.coins("alice"), 40 + ds.reward_coins())
         # The number the player was promised is the number they were paid.
         self.assertEqual(ds.reward_coins(), out["coins_awarded"])
 
@@ -284,7 +284,7 @@ class TestClaim(Base):
         ds.claim_for_code("alice", "code-1")
         stats = self.db.collection("users")._docs["alice"]["stats"]
         self.assertEqual(stats["games_played"], 12)
-        self.assertEqual(stats["critter_coins"], 260)
+        self.assertEqual(stats["critter_coins"], 10 + ds.reward_coins())
 
     def test_ledger_records_both_sides_of_the_pairing(self):
         self.account("alice")
@@ -296,16 +296,16 @@ class TestClaim(Base):
         self.assertEqual(rec["discord_id"], "900001")
         self.assertEqual(rec["discord_username"], "alice_reef")
         self.assertEqual(rec["coins_before"], 0)
-        self.assertEqual(rec["coins_after"], 250)
+        self.assertEqual(rec["coins_after"], ds.reward_coins())
 
     def test_already_a_member_needs_no_backfill(self):
         """Somebody who joined the Discord months ago runs the same flow and is
-        paid on the spot — membership is checked live, never from a list."""
+        paid on the spot: membership is checked live, never from a list."""
         self.account("oldtimer", coins=1_000)
         self.discord(member=True, user_id="111", username="oldtimer")
         out = ds.claim_for_code("oldtimer", "code-1")
         self.assertTrue(out["ok"])
-        self.assertEqual(self.db.coins("oldtimer"), 1_250)
+        self.assertEqual(self.db.coins("oldtimer"), 1_000 + ds.reward_coins())
 
     def test_claim_state_reports_the_payout(self):
         self.account("alice")
@@ -314,7 +314,7 @@ class TestClaim(Base):
         ds.claim_for_code("alice", "code-1")
         state = ds.claim_state(self.db, "alice")
         self.assertTrue(state["claimed"])
-        self.assertEqual(state["coinsAwarded"], 250)
+        self.assertEqual(state["coinsAwarded"], ds.reward_coins())
         self.assertEqual(state["discordUsername"], "alice_reef")
 
 
@@ -330,14 +330,14 @@ class TestPaidOnce(Base):
         again = ds.claim_for_code("alice", "code-2")
         self.assertFalse(again["ok"])
         self.assertEqual(again["error"], "already_claimed")
-        self.assertEqual(self.db.coins("alice"), 250)
+        self.assertEqual(self.db.coins("alice"), ds.reward_coins())
 
     def test_claiming_ten_more_times_still_pays_once(self):
         self.account("alice")
         self.discord()
         for _ in range(11):
             ds.claim_for_code("alice", "code")
-        self.assertEqual(self.db.coins("alice"), 250)
+        self.assertEqual(self.db.coins("alice"), ds.reward_coins())
 
     def test_one_discord_account_cannot_pay_an_alt_game_account(self):
         self.account("alice")
@@ -358,11 +358,11 @@ class TestPaidOnce(Base):
         ds.claim_for_code("alice", "code-1")
         self.discord(user_id="900002")
         ds.claim_for_code("bob", "code-2")
-        self.assertEqual(self.db.coins("alice"), 250)
-        self.assertEqual(self.db.coins("bob"), 250)
+        self.assertEqual(self.db.coins("alice"), ds.reward_coins())
+        self.assertEqual(self.db.coins("bob"), ds.reward_coins())
 
     def test_a_race_between_two_tabs_pays_once(self):
-        """Two tabs, both of which read "not claimed" before either commits —
+        """Two tabs, both of which read "not claimed" before either commits,
         the worst possible interleaving. The ledger create() is what decides it,
         so exactly one wins, and the loser's coin write is abandoned with it."""
         self.account("alice")
@@ -395,7 +395,7 @@ class TestPaidOnce(Base):
         self.assertEqual(len(results), 2)
         self.assertEqual(sum(1 for r in results if r.get("ok")), 1,
                          f"exactly one claim may succeed, got {results}")
-        self.assertEqual(self.db.coins("alice"), 250)
+        self.assertEqual(self.db.coins("alice"), ds.reward_coins())
         self.assertEqual(self.db.ledger_ids(), ["d_900001", "u_alice"])
 
     def test_a_failed_claim_writes_nothing_at_all(self):
@@ -408,7 +408,7 @@ class TestPaidOnce(Base):
         # …and the next, legitimate claim still works.
         self.discord(member=True)
         self.assertTrue(ds.claim_for_code("alice", "code-2")["ok"])
-        self.assertEqual(self.db.coins("alice"), 327)
+        self.assertEqual(self.db.coins("alice"), 77 + ds.reward_coins())
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -435,7 +435,7 @@ class TestMembership(Base):
 
     def test_missing_scope_falls_back_to_the_guild_list(self):
         """An older consent screen has no guilds.members.read. The fallback must
-        still answer correctly — both ways."""
+        still answer correctly, both ways."""
         self.account("alice")
         self.discord(member_status=403, guilds=[{"id": "999"}, {"id": ENV["DISCORD_GUILD_ID"]}])
         self.assertTrue(ds.claim_for_code("alice", "code-1")["ok"])
@@ -457,7 +457,7 @@ class TestMembership(Base):
         out = ds.claim_for_code("alice", "bad-code")
         self.assertEqual(out["error"], "discord_rejected")
         self.assertEqual(self.db.coins("alice"), 0)
-        # We stopped at the token exchange — no identity, no membership call.
+        # We stopped at the token exchange, no identity, no membership call.
         self.assertEqual([u for _m, u in fake.calls],
                          ["https://discord.com/api/v10/oauth2/token"])
 
@@ -581,7 +581,7 @@ class TestHttp(Base):
         self.assertTrue(ds.handle_post(h, Parsed("/api/discord/state"), {}))
         self.assertTrue(h.json["ok"])
         self.assertTrue(h.json["enabled"])
-        self.assertEqual(h.json["coins"], 250)
+        self.assertEqual(h.json["coins"], ds.reward_coins())
         self.assertFalse(h.json["signedIn"])
         self.assertFalse(h.json["claimed"])
 
@@ -624,7 +624,7 @@ class TestHttp(Base):
 
     def test_there_is_no_endpoint_that_grants_coins_directly(self):
         """The client can ask to START a claim and can READ its state. It can
-        never ask to be paid — only Discord's own callback can do that."""
+        never ask to be paid, only Discord's own callback can do that."""
         for action in ("claim", "grant", "award", "confirm", "verify"):
             h = FakeHandler()
             ds.handle_post(h, Parsed(f"/api/discord/{action}"), {"idToken": "tokenalice"})
@@ -643,11 +643,11 @@ class TestHttp(Base):
         h = FakeHandler()
         self.assertTrue(ds.handle_get(h, Parsed("/api/discord/callback",
                                                 f"code=abc&state={state}")))
-        self.assertEqual(self.db.coins("alice"), 255)
+        self.assertEqual(self.db.coins("alice"), 5 + ds.reward_coins())
         result = self._callback_result(h.html)
         self.assertTrue(result["ok"])
-        self.assertEqual(result["coins"], 250)
-        self.assertEqual(result["total"], 255)
+        self.assertEqual(result["coins"], ds.reward_coins())
+        self.assertEqual(result["total"], 5 + ds.reward_coins())
         self.assertEqual(result["source"], "cc-discord")
         # The page must post its answer back to OUR origin and nowhere else.
         self.assertIn("window.location.origin", h.html)

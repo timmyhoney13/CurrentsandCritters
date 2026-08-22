@@ -61,21 +61,21 @@
 
     // ── How wide the page can actually be, in device-independent pixels ──────
     // This number decides initial-scale, so it has to be the width the browser
-    // will really give the page — NOT the width of the display.
+    // will really give the page, NOT the width of the display.
     //
     // screen.width is the display. On a notched phone held sideways Safari
     // carves the notch out of the page's box (viewport-fit is `contain`), so
     // screen.width over-reported the usable width by ~60px. width=screen*1.5
     // with initial-scale=1/1.5 then laid the game out ~7% wider than the space
     // it was being scaled into, and everything at the right end of the action
-    // bar — End Turn, first — sat off the edge of the screen. Because
+    // bar: End Turn, first: sat off the edge of the screen. Because
     // minimum-scale was pinned to that same wrong fit, a player could not even
     // pinch out to find it; the only way to reach End Turn was to pan sideways.
     //
     // documentElement.clientWidth IS the real box, but it only reads true while
     // the NORMAL meta is in effect (once we widen the viewport it reports the
     // widened width instead, which would feed back on itself). So measure on
-    // the way in — entering a game always comes from a NORMAL-viewport screen —
+    // the way in: entering a game always comes from a NORMAL-viewport screen,
     // and cache it per orientation. screen.* stays as the fallback.
     var metaIsGame = false;
     var fitW = { p: 0, l: 0 };
@@ -167,7 +167,7 @@
   // invisible box painted over login-bg.png, and it sits at exactly the spot
   // where the COMPUTER laptop and the MOBILE phone are painted HERE. Hide this
   // screen and the pixel under the player's cursor silently becomes that
-  // button — so the second half of a double-click, or one impatient extra tap,
+  // button, so the second half of a double-click, or one impatient extra tap,
   // opened the guest nickname prompt for somebody who never chose guest.
   // (Measured, not guessed: test_auth_gate.js clicks the laptop and asks what
   // is under that pixel afterwards.)

@@ -343,7 +343,7 @@ class TestFullSimulations(unittest.TestCase):
 
 # =============================================================================
 class TestTopNAdvancement(unittest.TestCase):
-    """"Top N advance" — the non-single-elimination formats.
+    """"Top N advance", the non-single-elimination formats.
 
     advance_per_match = 1 is classic single elimination; 2+ turns every match into
     a group whose best N carry on. The guarantee under test is that ANY legal
@@ -381,7 +381,7 @@ class TestTopNAdvancement(unittest.TestCase):
             self.assertEqual(b.final_match.advance, 1, f"N={n} M={m} top{a}")
 
     def test_every_advancing_player_has_a_seat(self):
-        """Advancing finishers of a round must exactly fill the next round's spots —
+        """Advancing finishers of a round must exactly fill the next round's spots,
         no player is dropped, and no seat is left that nobody can reach."""
         for n, m, a in self.ALL:
             b = Bracket.build(TournamentConfig(n, m, advance_per_match=a), n)
@@ -752,7 +752,7 @@ def graph_cfg(spec, **kw):
 
 
 def simple_designed():
-    """Two 2-player matches feeding a Final — the smallest legal design."""
+    """Two 2-player matches feeding a Final, the smallest legal design."""
     return CustomBracket(matches=[
         dmatch("a", [SLOT_OPEN, SLOT_OPEN], label="Round 1"),
         dmatch("b", [SLOT_OPEN, SLOT_OPEN], label="Round 1"),
@@ -1054,7 +1054,7 @@ class TestDesignedBracketRuntime(unittest.TestCase):
 # =============================================================================
 class TestNoRoundIsEverSkipped(unittest.TestCase):
     """A tournament must work through ALL of its rounds. No champion while a
-    match still owes a game — the report was "it didn't let me play the last two
+    match still owes a game, the report was "it didn't let me play the last two
     games, it just decided the winner"."""
 
     def test_final_alone_is_not_enough_to_be_complete(self):

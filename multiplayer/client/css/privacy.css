@@ -1,9 +1,9 @@
 /* ================================================================
- * Currents and Critters — THE PRIVACY POLICY, one stylesheet, two homes.
+ * Currents and Critters, THE PRIVACY POLICY, one stylesheet, two homes.
  *
  * The markup comes from js/privacy-policy.js and is skin-agnostic: every
  * .pp-* rule reads its colours from variables, and the wrapper class picks
- * the skin — .pp-light on the published page, .pp-dark over the table.
+ * the skin: .pp-light on the published page, .pp-dark over the table.
  *
  * Rendered by:
  *   • privacy.html, the published /privacy page   (.pp-light)
@@ -69,7 +69,7 @@
   margin: 0 0 18px;
 }
 
-/* "This Privacy Policy applies to:" — the scope card. */
+/* "This Privacy Policy applies to:" the scope card. */
 .pp-applies {
   border: 1px solid var(--pp-line);
   background: var(--pp-surface2);

@@ -1,7 +1,7 @@
 # Exclude everything by default, then allow only what the server needs.
 *
 
-# Git history — huge and never needed inside the image.
+# Git history, huge and never needed inside the image.
 .git
 
 # Allow the Python server and engine.

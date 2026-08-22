@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Critter emotes in room chat — the server half.
+"""Critter emotes in room chat, the server half.
 
 Run:  python3 test_chat_emotes.py
 
@@ -11,7 +11,7 @@ server rules make that safe and make it work:
      would let a client put markup or a path where every other client builds
      an <img src>. Only a plain avatar slug survives.
   2. An emote line has no text, so it is the one case where an empty message
-     is a real message — but a line with neither text nor emote is still
+     is a real message, but a line with neither text nor emote is still
      rejected.
   3. The emote is stored on the chat entry, which is what reaches every
      client (and what a restored room replays).
@@ -52,7 +52,7 @@ check(len(slugs) > 40, f"the avatar folder has plenty of critters ({len(slugs)})
 bad = [s for s in slugs if clean(s) != s]
 check(not bad, f"every avatar slug is a valid emote id, these were rejected: {bad[:5]}")
 
-# The profanity masker is what we are deliberately bypassing — prove it would
+# The profanity masker is what we are deliberately bypassing: prove it would
 # actually have damaged ids, so the bypass is justified rather than incidental.
 mangled = [s for s in slugs if mp._censor_profanity(s) != s]
 print(f"   (profanity filter would have mangled {len(mangled)} slug(s): {mangled[:3]})")

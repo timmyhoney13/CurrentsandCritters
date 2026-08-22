@@ -1,5 +1,5 @@
 /* ================================================================
- * test_rules_page.js — the published How to Play page (/rules) and the
+ * test_rules_page.js, the published How to Play page (/rules) and the
  * two files it now shares with the game.
  *
  * The page renders three things: a Quick Start written on the page, the
@@ -7,11 +7,11 @@
  * js/gamedata.js. The last two used to live inside the game's own
  * preview-app.js/preview.css, so the risks worth testing are:
  *
- *   1. the extraction was LOSSLESS — the tables and the CSS the game
+ *   1. the extraction was LOSSLESS, the tables and the CSS the game
  *      still loads are byte-for-byte what they were before the split
  *      (compared against the previous commit, not a copy of them);
  *   2. the game still loads both new files, in the right ORDER;
- *   3. every asset /rules asks for exists, and resolves on BOTH hosts —
+ *   3. every asset /rules asks for exists, and resolves on BOTH hosts:
  *      Render serves the game paths natively, Vercel needs a rewrite.
  *
  *   node test_rules_page.js
@@ -50,7 +50,7 @@ const read = (p) => fs.readFileSync(p, "utf8");
 
 // ── The pre-split baseline ───────────────────────────────────────
 // The lossless checks compare today's files against the last commit that
-// still held the tables and the .rb rules INSIDE the game — found by
+// still held the tables and the .rb rules INSIDE the game: found by
 // walking history rather than hard-coding a sha, so the test keeps
 // working as the branch moves on. Skipped (not failed) when history does
 // not reach that far: a shallow clone, or a fresh checkout with no git.
@@ -87,7 +87,7 @@ function freshWindow() {
 }
 
 // ── The shared data module ───────────────────────────────────────
-console.log("\njs/gamedata.js — the tables the game and /rules share");
+console.log("\njs/gamedata.js, the tables the game and /rules share");
 
 const gamedataSrc = read(path.join(CLIENT, "js", "gamedata.js"));
 const W = freshWindow();
@@ -188,7 +188,7 @@ check("every .rb rule moved to css/rulebook.css, and none was left behind", () =
     .filter(l => /^\.rb[.\-\s{,:]/.test(l) || /^\.rb\b/.test(l));
   // What matters is that the split LOST nothing, and that preview.css does not
   // grow new book styling behind rulebook.css's back. What does NOT matter is
-  // that the stylesheet never grows again — a new figure or table added to
+  // that the stylesheet never grows again, a new figure or table added to
   // rulebook.css since the split is that file doing its job, so additions are
   // allowed where the original multiset comparison forbade them.
   const beforeLines = rbLines(before);
@@ -200,7 +200,7 @@ check("every .rb rule moved to css/rulebook.css, and none was left behind", () =
   // Pin the count so it stays the only one.
   const leftBehind = rbLines(after);
   assert(leftBehind.length <= rbLines(before).filter(l => leftBehind.includes(l)).length,
-    "preview.css gained NEW .rb rules — they belong in css/rulebook.css: " + leftBehind.join(" | "));
+    "preview.css gained NEW .rb rules, they belong in css/rulebook.css: " + leftBehind.join(" | "));
 });
 
 // ── The game still loads both new files, in order ─────────────────
@@ -247,7 +247,7 @@ check("APP_BUILD matches version.json", () => {
 });
 
 // ── The page itself ──────────────────────────────────────────────
-console.log("\nrules.html — the published How to Play page");
+console.log("\nrules.html, the published How to Play page");
 
 const rulesHtml = read(path.join(CLIENT, "rules.html"));
 
@@ -271,7 +271,7 @@ check("never inlines its own copy of the rules text", () => {
   // A tell-tale rulebook sentence appearing here would mean the page had
   // grown a second, silently-diverging copy of the printed book.
   assert(!rulesHtml.includes("Create the highest-scoring marine ecosystem"),
-    "rules.html contains rulebook prose — it must render js/rulebook.js instead");
+    "rules.html contains rulebook prose, it must render js/rulebook.js instead");
 });
 
 check("reads its family colours lazily, not at parse time", () => {
@@ -342,7 +342,7 @@ check("Vercel rewrites cover every game-path prefix the page uses", () => {
       r.source === "/" + pre || r.source.startsWith("/" + pre + "/"));
     if (!hit) missing.push(pre);
   }
-  eq(missing, [], "no Vercel rewrite for these — they would 404 on currentsandcritters.com");
+  eq(missing, [], "no Vercel rewrite for these, they would 404 on currentsandcritters.com");
 });
 
 check("/rules is still served from this file on both hosts", () => {
@@ -356,7 +356,7 @@ check("/rules is still served from this file on both hosts", () => {
 });
 
 // ── The marketing site's How to Play band ────────────────────────
-console.log("\nindex.html — the band that replaced the Learn-in-60 image");
+console.log("\nindex.html, the band that replaced the Learn-in-60 image");
 
 const indexHtml = read(path.join(ROOT, "index.html"));
 
