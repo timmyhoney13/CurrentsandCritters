@@ -1555,8 +1555,8 @@
       <div class="ccT-mr-count"><b>${rc}</b> / ${tc} ready</div>
       <div class="ccT-mr-list">${rows}</div>
       ${allReady
-        ? `<div class="ccT-mr-go">🌊 Everyone's ready: starting your match…</div>`
-        : `<button class="ccT-btn wide ${iAmReady ? "ghost" : "gold"}" id="ccT-mr-ready">${iAmReady ? "✓ You're Ready: tap to cancel" : "I'm Ready: Start Match"}</button>`}
+        ? `<div class="ccT-mr-go">🌊 Everyone's ready, starting your match…</div>`
+        : `<button class="ccT-btn wide ${iAmReady ? "ghost" : "gold"}" id="ccT-mr-ready">${iAmReady ? "✓ You're Ready: tap to cancel" : "I'm Ready, Start Match"}</button>`}
       <button class="ccT-btn wide ghost" id="ccT-mr-later">View bracket</button>
     </div></div>`;
     const rb = $("#ccT-mr-ready", m);

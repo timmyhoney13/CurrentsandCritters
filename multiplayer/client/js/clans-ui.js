@@ -1711,9 +1711,9 @@
       real opponent. Competitive matches only count against a real registered opponent.</b></div>`;
     pane.appendChild(note);
     pane.appendChild(challengeSection("🏁 Weekly clan challenges", cl.challenges,
-                                      "New clan challenges are being finalized: coming soon! 🐙"));
+                                      "New clan challenges are being finalized, coming soon! 🐙"));
     pane.appendChild(challengeSection("🗓️ Season clan challenges", cl.season_challenges,
-                                      "Season challenges are being finalized: coming soon! 🐚"));
+                                      "Season challenges are being finalized, coming soon! 🐚"));
     const rulesBtn = el("div", "ccC-sec-b");
     const b = el("button", "ccC-btn tiny", "📜 Read the full clan rules");
     b.addEventListener("click", () => nav("rules"));
@@ -1750,7 +1750,7 @@
     // Weekly challenges, the same rows the Challenges tab and the in-game
     // sheet draw, so progress never reads differently in two places.
     pane.appendChild(challengeSection("🏁 Weekly clan challenges", cl.challenges,
-                                      "New clan challenges are being finalized: coming soon! 🐙"));
+                                      "New clan challenges are being finalized, coming soon! 🐙"));
     const more = el("div", "ccC-sec-b");
     more.style.paddingTop = "0";
     const bMore = el("button", "ccC-btn tiny", "🗓️ See season challenges →");
@@ -2428,7 +2428,7 @@
     sec.style.margin = "10px 16px 14px";
     const rows = cl.activity || [];
     if (!rows.length) {
-      sec.appendChild(el("div", "ccC-empty", "Nothing here yet: go make some waves! 🌊"));
+      sec.appendChild(el("div", "ccC-empty", "Nothing here yet, go make some waves! 🌊"));
     }
     rows.forEach(a => {
       const d = el("div", "row");
