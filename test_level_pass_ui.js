@@ -150,6 +150,7 @@ function innerHtml() {
     + '<style>' + S.gnCss + '</style>'
     + '</head><body>'
     + '<div class="panel" id="ph-panel-overview"></div>'
+    + '<button><span id="snav-levelpass-badge" style="display:none">0</span></button>'
     + '<div class="panel"><div id="cc-level-pass-root"></div></div>'
     + '<div class="panel" id="ph-panel-friends"></div>'
     + '<scr' + 'ipt>' + BOOT + '</scr' + 'ipt>'
@@ -180,8 +181,15 @@ const BOOT = \`
     post: async (p, b) => {
       window.__posts.push([p, b]);
       if (p === "/api/pass/state") return envelope(window.__PASS_STATE);
-      if (p === "/api/pass/claim") return envelope({ ok: true, tier: b.tier, level: 2,
-        granted: { type: "coins", coins: 50 }, inventory: window.__PASS_STATE.inventory });
+      if (p === "/api/pass/claim") {
+        // The real server records the claim, and the client re-reads rather
+        // than guessing. Record it here too, so the badge is tested against a
+        // state that actually changed.
+        const st = window.__PASS_STATE;
+        if (!st.claimed.includes(b.tier)) st.claimed = st.claimed.concat([b.tier]);
+        return envelope({ ok: true, tier: b.tier, level: 2,
+          granted: { type: "coins", coins: 50 }, inventory: st.inventory });
+      }
       return envelope({ ok: false, error: "server_error" });
     },
   };
@@ -227,6 +235,34 @@ const MAIN = \`
       heights: [...new Set(tiers.slice(0, 12).map(t => Math.round(t.getBoundingClientRect().height)))],
       minTierW: Math.min(...tiers.map(t => Math.round(t.getBoundingClientRect().width))),
     };
+
+    // ── The sidebar's unclaimed badge ────────────────────────────────
+    // The number a player sees on the Level Pass tab before they open it. It
+    // has to match what is actually claimable, come DOWN when one is claimed,
+    // and disappear when there is nothing left. A badge that cannot be cleared
+    // is the failure this measures.
+    const badge = document.getElementById("snav-levelpass-badge");
+    const badgeNow = () => (badge.style.display === "none" ? null : (badge.textContent || "").trim());
+    out.badge = { atLoad: badgeNow(), readyAtLoad: out.pass.ready };
+
+    const firstClaim = document.querySelector(".ccLP-claim");
+    if (firstClaim) {
+      firstClaim.click();
+      // The claim posts, resyncs and repaints; give the microtasks a turn.
+      for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0));
+      out.badge.afterOneClaim = badgeNow();
+      out.badge.readyAfter = document.querySelectorAll(".ccLP-tier.is-ready").length;
+    }
+
+    // Nothing claimable at all: the badge must be GONE, not a zero.
+    window.__PASS_STATE = parent.__PAYLOADS.fresh;
+    await window.__ccLevelPassSync();
+    out.badge.whenNothingReady = badgeNow();
+    out.badge.rawTextWhenHidden = (badge.textContent || "").trim();
+
+    // Signing out drops the cached state, and the badge with it.
+    window.__ccLevelPassReset();
+    out.badge.afterSignOut = badgeNow();
 
     // A brand-new account: nothing claimed, everything ahead.
     window.__PASS_STATE = parent.__PAYLOADS.fresh;
@@ -416,6 +452,24 @@ check("__ccPassBoost() hands back the multiplier, not just a percent",
       D.boost.apiMult === 1.2, D.boost.apiMult);
 check("the percent matches the server's", D.boost.apiPercent === P.boosted.boostPercent,
       `${D.boost.apiPercent} vs ${P.boosted.boostPercent}`);
+
+console.log("\n  the sidebar's unclaimed badge:");
+check("it shows a count as soon as the pass syncs",
+      D.badge.atLoad !== null && Number(D.badge.atLoad) > 0, JSON.stringify(D.badge));
+check("…and the count is the number of rewards actually waiting",
+      Number(D.badge.atLoad) === D.badge.readyAtLoad,
+      `badge ${D.badge.atLoad} vs ${D.badge.readyAtLoad} ready tiers`);
+check("claiming one takes the number down by one",
+      Number(D.badge.afterOneClaim) === Number(D.badge.atLoad) - 1,
+      `${D.badge.atLoad} -> ${D.badge.afterOneClaim}`);
+check("…and the track agrees a tier left the ready pile",
+      D.badge.readyAfter === D.badge.readyAtLoad - 1,
+      `${D.badge.readyAtLoad} -> ${D.badge.readyAfter}`);
+check("with nothing to claim the badge is hidden, not a zero",
+      D.badge.whenNothingReady === null && D.badge.rawTextWhenHidden === "",
+      JSON.stringify(D.badge));
+check("signing out clears it without waiting on the network",
+      D.badge.afterSignOut === null, JSON.stringify(D.badge));
 
 console.log("\n  Invite a Friend:");
 check("the card found its own home in the Friends panel", D.referral.selfInjected === true);

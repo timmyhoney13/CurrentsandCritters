@@ -148,6 +148,9 @@ _TRACK_SPEC: Sequence[Dict[str, Any]] = (
 # How each reward type describes itself. One place, so the pass card, the claim
 # toast and the ledger entry can never word the same reward three ways.
 _TYPE_META: Dict[str, Dict[str, str]] = {
+    # A text fallback only. The client paints coin tiers with the minted
+    # Critter Coin art (critter-coin.png), the same coin the Store, the wallet
+    # chip and the trade window show, so this glyph never reaches a player.
     "coins":      {"icon": "🪙", "name": "Critter Coins"},
     "shield":     {"icon": "🛡️", "name": "Streak Shield"},
     "sticker":    {"icon": "🎴", "name": "Critter Sticker"},

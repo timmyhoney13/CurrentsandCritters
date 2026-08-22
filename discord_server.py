@@ -556,7 +556,11 @@ def _callback_html(result: Dict[str, Any]) -> bytes:
         "message": message_for(result),
     })
     heading = "You're in! 🎉" if ok else "Not claimed"
-    icon = "🪙" if ok else "🐚"
+    # The minted Critter Coin, the same art the game itself pays out in, rather
+    # than the generic coin emoji. This page is served from the game's own
+    # host, so /critter-coin.png resolves here exactly as it does in the app.
+    icon = ('<img src="/critter-coin.png?v=1" alt="Critter Coins" width="52" height="52">'
+            if ok else "🐚")
     body = message_for(result).replace("&", "&amp;").replace("<", "&lt;")
     accent = "#7ff0b8" if ok else "#ffc7b5"
     return f"""<!doctype html>
@@ -570,6 +574,8 @@ def _callback_html(result: Dict[str, Any]) -> bytes:
   .card{{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);border-radius:18px;
     padding:28px 26px;max-width:420px;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.35)}}
   .ico{{font-size:44px;line-height:1}}
+  .ico img{{width:52px;height:52px;object-fit:contain;vertical-align:middle;
+    filter:drop-shadow(0 2px 6px rgba(0,0,0,.45))}}
   h1{{font-size:1.3rem;margin:14px 0 8px;color:{accent}}}
   p{{margin:0 0 18px;line-height:1.5;opacity:.92;font-size:.98rem}}
   a{{display:inline-block;background:#2fa8e0;color:#04263c;font-weight:800;text-decoration:none;
