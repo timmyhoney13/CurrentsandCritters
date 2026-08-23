@@ -277,6 +277,15 @@
     font-size: 12.5px; }
   .ccC-pin b { color:#8a6a12; }
   .ccC-empty { padding: 22px 10px; text-align: center; color:#7a9db8; font-weight: 700; font-size: 13px; }
+  /* What a signed-out visitor sees on this tab: an explanation, not a refusal. */
+  .ccC-guest { padding: 26px 24px; border-radius: 16px; line-height: 1.6;
+    border: 1px solid rgba(140,200,240,.4);
+    background: linear-gradient(180deg, rgba(247,252,255,.95), rgba(228,243,253,.9));
+    color: #33648c; }
+  .ccC-guest-t { font-family: "Luckiest Guy", "Nunito", sans-serif; font-size: 1.35rem;
+    color: #1a4a90; margin-bottom: 8px; }
+  .ccC-guest-p { font-size: .94rem; margin-bottom: 10px; max-width: 62ch; }
+  .ccC-guest-p:last-child { margin-bottom: 0; }
   .ccC-activity { max-height: 320px; overflow-y:auto; }
   .ccC-activity .row { display:flex; gap:10px; padding: 7px 14px; border-bottom:1px solid #eef4fa; font-size: 12.5px; }
   .ccC-activity .row:last-child { border-bottom:none; }
@@ -561,9 +570,21 @@
     try { signedIn = !!b.authUser(); }
     catch (err) { showRenderError(r, "your sign-in could not be read", err); return; }
     if (!signedIn) {
-      // The tab's own guest gate normally covers this; say it here too so the
-      // page is never simply blank when the gate hasn't been applied.
-      r.innerHTML = '<div class="ccC-empty">Sign in to join a clan.</div>';
+      // A guest is not turned away with one line. Every /api/clan/* call is
+      // signed with an account's token, so there is genuinely no clan data to
+      // show them, but "what is this and what would I get" is content we own
+      // and can render without asking the server anything.
+      r.innerHTML =
+        '<div class="ccC-guest">'
+        + '<div class="ccC-guest-t">Clans</div>'
+        + '<div class="ccC-guest-p">A clan is a crew you play the season with. Every '
+        + 'game you finish adds points to your clan\'s total, weekly and daily clan '
+        + 'challenges pay out to everyone who took part, and the season standings '
+        + 'reset every quarter so a new clan can win one.</div>'
+        + '<div class="ccC-guest-p">Clan membership belongs to an account, so this is '
+        + 'one of the few things a guest cannot do. The rest of the game is open to '
+        + 'you right now.</div>'
+        + '</div>';
       return;
     }
     // Paint FIRST, fetch second. Whatever we already know, this session's

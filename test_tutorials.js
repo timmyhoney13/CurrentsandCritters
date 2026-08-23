@@ -93,20 +93,26 @@ check("...and going forward again re-locks it, so Back is not a way round a step
 
 console.log("\nsteps that cannot apply are skipped, not shown broken");
 
-// A guest is refused the Avatar Gallery outright (two separate guards in the
-// app), and the Friends card is hidden behind the guest gate, so the steps
-// built on them are skipped rather than left to stall.
-check("the app really does refuse a guest the gallery (openAvatarGallery)",
-      /Guests can't open the avatar collection[\s\S]{0,80}if \(!_authUser\)/.test(APP));
-check("...and again on the avatar's own click handler",
-      /only signed-in players open the gallery\.\s*\n\s*if \(_authUser\)/.test(APP));
-check("Friends is one of the guest-gated panels", /GUEST_GATE_MSGS = \{[\s\S]{0,400}?friends:/.test(APP));
+// A guest now gets the WHOLE menu, including the Avatar Gallery, so the steps
+// that used to be skipped for them are shown. What a guest still does not have
+// is a friend code (the server issues those to accounts), so that one step, and
+// only that one, is still skipped rather than left pointing at an empty box.
+check("a guest can open the gallery, so nothing is skipped for it",
+      !/Guests can't open the avatar collection/.test(APP)
+      && !/Guests cannot change their avatar/.test(APP));
+check("...and the avatar button no longer tests for an account",
+      !/only signed-in players open the gallery/.test(APP));
+check("no panel is gated from a guest at all", !/GUEST_GATE_MSGS/.test(APP));
+check("what a guest gets instead is a note, not a locked door",
+      /GUEST_NOTES = \{/.test(APP) && /ph-guest-note/.test(APP));
 check("the engine understands step.skipIf", /function coachSkipped\(step\)/.test(TUT));
 check("skipping works travelling backwards too", /function coachNextIdx\(from, back\)/.test(TUT));
 check("the tour detects a guest from the app's own auth bridge",
       /function tutIsGuest\(\)[\s\S]{0,160}window\.__fishAuthUser/.test(TUT));
 check("__fishAuthUser is a real export", /window\.__fishAuthUser\s*=\s*\(\)\s*=>\s*_authUser/.test(APP));
-check("the gallery steps are guest-skipped", (TUT.match(/skipIf: tutIsGuest/g) || []).length >= 6);
+check("the only step still skipped for a guest is the friend code",
+      (TUT.match(/skipIf: tutIsGuest/g) || []).length === 1
+      && /ph-fc-display[\s\S]{0,120}skipIf: tutIsGuest/.test(TUT));
 check("a guest is told up front what is locked", /skipIf: \(\) => !tutIsGuest\(\)/.test(TUT));
 check("Step N of M counts only the steps this player is shown",
       /const live = coachLiveIdxs\(\);[\s\S]{0,220}Step \$\{pos \+ 1\} of \$\{live\.length\}/.test(TUT));
@@ -484,15 +490,11 @@ if (!CHROME) {
   // has to be faked, the real gates read a module-scoped _authUser no test can
   // set, so the harness serves a copy of the app with exactly those three
   // gates opened, and tells the tour it is signed in.
-  function harnessApp() {
-    let a = APP;
-    a = a.replace("      // Guests can't open the avatar collection, locked to the Mullet.\n      if (!_authUser) {",
-                  "      // Guests can't open the avatar collection, locked to the Mullet.\n      if (false) {");
-    a = a.replace("        // Guests are locked to the Mullet, only signed-in players open the gallery.\n        if (_authUser) {",
-                  "        // Guests are locked to the Mullet, only signed-in players open the gallery.\n        if (true) {");
-    a = a.replace(/      const GUEST_GATE_MSGS = \{[\s\S]*?\n      \};\n/, "      const GUEST_GATE_MSGS = {};\n");
-    return a;
-  }
+  // The "signed in" profile used to need three gates patched open here. All
+  // three are gone from the app: a guest opens the gallery and every panel, so
+  // the two profiles now differ only in what __fishAuthUser reports, which is
+  // what the tour itself reads. The app is served unmodified.
+  function harnessApp() { return APP; }
 
   const tmp = [];
   function writeTmp(name, body) { const f = path.join(CLIENT, name); fs.writeFileSync(f, body); tmp.push(f); return name; }
@@ -583,15 +585,20 @@ if (!CHROME) {
           const sample = steps.find(s => s.title === "A Real Past Match");
           check(`${tourName} ${who}: ...and you can move on without touching it`,
                 !!sample && sample.nextDisabled === false && sample.hasTarget === true);
-          const gallery = titles.includes("Your Avatar Gallery");
-          check(`${tourName} ${who}: the gallery steps are ${signedIn ? "shown" : "skipped"}`,
-                gallery === signedIn);
+          // The gallery is now open to everyone, so BOTH profiles walk it.
+          // A tour that quietly skipped a third of itself for guests was the
+          // tour agreeing with a lockout that no longer exists.
+          check(`${tourName} ${who}: the gallery steps are shown`,
+                titles.includes("Your Avatar Gallery"));
           if (signedIn) {
             check(`${tourName} ${who}: the friend code is on screen for its step`,
                   !!steps.find(s => s.title === "Your Friend Code" && s.hasTarget));
           } else {
-            check(`${tourName} ${who}: the guest is told what is locked`,
+            check(`${tourName} ${who}: the guest is told what a guest does not keep`,
                   titles.includes("You are playing as a guest"));
+            // The one thing a guest genuinely has not got.
+            check(`${tourName} ${who}: ...and the friend-code step is skipped`,
+                  !titles.includes("Your Friend Code"));
           }
         }
       }

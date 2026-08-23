@@ -5157,60 +5157,12 @@
     }
     .comp-hist-action-btn:hover { background: rgba(255,255,255,.9); }
 
-    /* ── DEVICE SELECTION (first screen: Computer vs Mobile) ──────────
-       Full-screen gate shown before anything else. The artwork is the
-       whole background; two invisible click halves sit on top (left =
-       computer, right = mobile) so the design is never altered. Highest
-       possible z-index so it covers the loading screen, auth, and splash. */
-    #cc-device-screen {
-      position: fixed; inset: 0; z-index: 2147483000;
-      background-color: #0a1d3a;
-      background-image: url("/choose-device.png?v=2");
-      /* ALWAYS preserve the artwork's real proportions (it's exactly 16:9) and
-         just scale it to fit the current screen, never stretched or squished.
-         `contain` fits the whole image inside any window and re-fits live as the
-         screen / window size changes, so the full title, octagon and COMPUTER /
-         MOBILE labels always show undistorted at every size. Any leftover strip
-         on off-16:9 screens is filled by the matching deep-ocean background, so
-         there's no ugly letterbox. (`100% 100%` used to stretch it to fill the
-         page, which looked squished on ultrawide / 16:10 / 4:3 screens; `cover`
-         cropped the bottom labels. `contain` avoids both.) */
-      background-size: contain;
-      background-position: center;
-      background-repeat: no-repeat;
-      display: flex;
-      overflow: hidden;
-      touch-action: manipulation;
-      -webkit-user-select: none; user-select: none;
-    }
-    #cc-device-screen.cc-device-hidden { display: none !important; }
-    /* Two equal, full-height click/tap targets. Transparent by default so
-       the painted COMPUTER / MOBILE buttons show through unchanged. */
-    .cc-device-half {
-      flex: 1 1 50%;
-      width: 50%;
-      height: 100%;
-      min-width: 0;
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      display: block;
-      cursor: pointer;
-      background: transparent;
-      border: none;
-      outline: none;
-      -webkit-appearance: none; appearance: none;
-      font: inherit; color: inherit;
-      -webkit-tap-highlight-color: transparent;
-      transition: background-color .12s ease;
-    }
-    /* Gentle press/hover feedback only, keeps taps feeling responsive
-       without covering or restyling the artwork. */
-    @media (hover: hover) {
-      .cc-device-half:hover { background-color: rgba(255,255,255,.06); }
-    }
-    .cc-device-half:active { background-color: rgba(255,255,255,.10); }
-    .cc-device-half:focus-visible { background-color: rgba(255,255,255,.08); }
+    /* ── DEVICE SELECTION: DELETED ────────────────────────────────────
+       The full-screen COMPUTER / MOBILE gate that used to live here is gone.
+       js/device-select.js detects the device from real input instead, so there
+       is no screen, no baked artwork and no invisible click halves. The rules
+       below (body.cc-device-mobile) are unchanged: they are what mobile MODE
+       does, which is still very much a thing. */
 
     /* ── TOUCH-FRIENDLY MOBILE CONTROLS ──────────────────────────────
        Activated by the Mobile device choice (body.cc-device-mobile). Two
@@ -7936,27 +7888,44 @@
       font-size: 1rem;
       line-height: 1.55;
     }
-    /* Guest sign-in gate: shown over stat/social tabs for guests */
-    .ph-guest-gate { display: none; }
-    .ph-panel.is-guest-gated > *:not(.ph-guest-gate) { display: none !important; }
-    .ph-panel.is-guest-gated > .ph-guest-gate {
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 14px; text-align: center;
-      min-height: 320px; padding: 48px 28px;
-      border: 1px solid rgba(140,200,240,.55); border-radius: 22px;
-      background: linear-gradient(180deg, rgba(240,250,255,.92), rgba(216,238,252,.88));
-      box-shadow: 0 8px 30px rgba(0,60,120,.1);
+    /* ── Guest note ───────────────────────────────────────────────────
+       Replaces the old full-panel guest GATE, which hid ten of thirteen tabs
+       behind a padlock and a Sign In button. Guests now get the panel itself
+       and one slim line above it saying what an account would add. It must
+       read as information, not as a wall: no padlock, no dimming, and it never
+       covers or disables the content under it. */
+    /* Messages, seen by a guest. The panel is a window onto an account's
+       message store, so a guest has nothing to show in it; this says what the
+       room is for instead of leaving a blank rectangle that reads as broken. */
+    .ph-msg-guest {
+      padding: 28px 26px; border-radius: 18px;
+      border: 1px solid rgba(140,200,240,.45);
+      background: linear-gradient(180deg, rgba(247,252,255,.95), rgba(228,243,253,.9));
+      color: #33648c; line-height: 1.6;
     }
-    .ph-guest-gate-ico { font-size: 3rem; opacity: .7; }
-    .ph-guest-gate-msg { font-size: 1.25rem; font-weight: 800; color: #1a4a90; max-width: 420px; line-height: 1.4; }
-    .ph-guest-gate-sub { font-size: .9rem; color: #5a86b0; max-width: 380px; line-height: 1.5; margin-top: -6px; }
-    .ph-guest-gate-btn {
-      margin-top: 6px; padding: 12px 32px; border-radius: 12px; border: none;
+    .ph-msg-guest-t {
+      font-family: "Luckiest Guy", "Nunito", sans-serif;
+      font-size: 1.4rem; color: #1a4a90; margin-bottom: 8px;
+    }
+    .ph-msg-guest-p { font-size: .95rem; margin-bottom: 10px; max-width: 62ch; }
+    .ph-msg-guest-p:last-child { margin-bottom: 0; }
+
+    .ph-guest-note {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      margin: 0 0 14px; padding: 10px 14px;
+      border: 1px solid rgba(140,200,240,.55); border-radius: 12px;
+      background: linear-gradient(180deg, rgba(240,250,255,.92), rgba(219,239,252,.85));
+      color: #24567f; font-size: .9rem; font-weight: 700; line-height: 1.45;
+    }
+    .ph-guest-note-msg { flex: 1 1 220px; min-width: 0; }
+    .ph-guest-note-btn {
+      flex: 0 0 auto; padding: 7px 18px; border-radius: 999px; border: none;
       background: linear-gradient(135deg, #2e90e0, #1a6ad0); color: #fff;
-      font-size: 1rem; font-weight: 800; cursor: pointer; font-family: inherit;
-      box-shadow: 0 4px 14px rgba(26,106,208,.35); transition: transform .12s;
+      font-size: .86rem; font-weight: 800; cursor: pointer; font-family: inherit;
+      box-shadow: 0 3px 10px rgba(26,106,208,.3); transition: transform .12s;
     }
-    .ph-guest-gate-btn:hover { transform: translateY(-2px); }
+    .ph-guest-note-btn:hover { transform: translateY(-1px); }
+    .ph-guest-note-btn:focus-visible { outline: 3px solid #7fc4ff; outline-offset: 2px; }
     .ph-empty-panel small {
       display: block;
       margin-top: 6px;

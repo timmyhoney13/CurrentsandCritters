@@ -302,6 +302,12 @@ serviceAccountKey.json
 # Saturdays a minute at a time (DST included) and runs the app's real prestigeXp
 # to pin the stacking order and the never-below-1x fallbacks.
 !test_game_night_xp.js
+# A guest gets the whole game, minus the saving. Walks the real app in a real
+# browser as a signed-out player: every one of the 13 tabs opens and renders
+# real content, the Avatar Gallery opens with the 6 PAID critters locked and
+# the earnable ones wearable, and the device is detected (touch = mobile,
+# mouse = computer) with no "choose your device" screen anywhere.
+!test_guest_access.js
 
 # Newsletter tests + setup guide + the one-off OAuth helper.
 # (newsletter_server.py / newsletter_email.py are allowlisted further up, next

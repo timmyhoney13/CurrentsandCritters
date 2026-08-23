@@ -343,8 +343,14 @@ function makeEnvNav({ authed = true, homeResp, stored } = {}) {
 
   const signedOut = makeEnvDom({ authed: false });
   await signedOut.windowStub.__ccClansRender();
-  check("signed out says to sign in instead of painting nothing",
-        /sign in/i.test(signedOut.rootEl.innerHTML));
+  // A signed-out visitor is not turned away with one line: the tab explains
+  // what a clan IS (content we own and can draw without the server) and then
+  // says the one thing that needs an account. Painting nothing, or painting a
+  // bare refusal, are both failures here.
+  check("signed out explains what clans are instead of painting nothing",
+        /clan is a crew/i.test(signedOut.rootEl.innerHTML));
+  check("...and says which part needs an account",
+        /account/i.test(signedOut.rootEl.innerHTML));
 
   // Signed in, the guards must fall through to the real thing. (What that then
   // paints is covered against real markup by test_clans_render.js.)

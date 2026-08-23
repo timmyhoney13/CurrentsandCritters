@@ -1,35 +1,30 @@
 #!/usr/bin/env node
-/* The way into the game, the two screens you click before you have an account.
+/* The way into the game: the one screen you click before you have an account.
  *
- * The bug that prompted this file, reported from the live game: "when I click
- * play, sometimes it immediately prompts me to put in a username, acting like I
- * already clicked sign in as guest, which I did not."
+ * There used to be two, and the pair of them caused the reported bug: "when I
+ * click play, sometimes it immediately prompts me to put in a username, acting
+ * like I already clicked sign in as guest, which I did not."
  *
- * Nothing in the source explains it. Every handler is wired correctly, every
- * selector is valid, and #auth-guest-overlay is opened from exactly one place:
- * a click on #auth-guest-btn. The bug is entirely in the GEOMETRY, and it only
- * shows up in a real browser:
+ *   • CHOOSE YOUR DEVICE painted a laptop and a phone over two invisible
+ *     half-width click targets.
+ *   • The sign-in screen paints PLAY AS GUEST over an invisible click target of
+ *     its own, in the SAME place.
+ *   • So dismissing the first screen left the cursor on the second one's button,
+ *     and the second half of a double-click opened the guest prompt.
  *
- *   • CHOOSE YOUR DEVICE paints a laptop and a phone in the middle of the
- *     screen, over two invisible half-width click targets.
- *   • The sign-in screen paints PLAY AS GUEST in the middle of the screen, over
- *     an invisible click target of its own.
- *   • They are the same picture size and the two hot zones OVERLAP. Choose your
- *     device and the pixel under your cursor silently becomes PLAY AS GUEST, so
- *     the second half of a double-click lands on it.
+ * THE DEVICE SCREEN IS NOW GONE (js/device-select.js detects the device from
+ * real input instead), which retires that whole class of bug rather than
+ * guarding it: there is no longer a screen to click through, so there is no
+ * click to land on what comes next. The click shield that used to absorb it is
+ * gone with it. This file now pins that it STAYS gone, and keeps the half of
+ * the hazard that is still real:
  *
- * The same hazard has a slower twin: login-bg.png is the only thing that makes
- * those invisible boxes findable, and until it paints the player is clicking a
- * button they cannot see.
+ *   login-bg.png is the only thing that makes the sign-in screen's invisible
+ *   boxes findable, so until it paints, the player is clicking a button they
+ *   cannot see. #auth-step-choose is held inert until the artwork is up, and
+ *   fails OPEN if it never arrives, so nobody is ever left with dead buttons.
  *
- * So this file measures, in headless Chrome with the real markup, the real CSS
- * and the real preview-app.js:
- *   1. that the overlap is real (it is what the guard exists for),
- *   2. that a double-click on the device screen no longer reaches the guest
- *      prompt,
- *   3. that the shield lets go again, so a deliberate click still works,
- *   4. that an invisible button is inert until its artwork is on screen,
- *   5. and that none of it can leave a player facing two dead buttons.
+ * Measured in headless Chrome against the real markup, CSS and preview-app.js.
  *
  * Run:  node test_auth_gate.js        (needs Google Chrome / Chromium)
  */
@@ -55,16 +50,22 @@ function check(name, cond, extra) {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-//  SOURCE, the guards have to be where they say they are
+//  SOURCE
 // ════════════════════════════════════════════════════════════════════════
-console.log("\nthe guards exist at all");
+console.log("\nthe screen that caused the collision is gone");
 {
-  check("the device gate raises a click shield when it closes",
-        /raiseClickShield\(\);/.test(DEV) && /function raiseClickShield/.test(DEV));
-  check("…as an element, so it can only ever swallow a HUMAN click",
-        /document\.createElement\("div"\)/.test(DEV) && !/addEventListener\("click"[^)]*true\)/.test(DEV));
-  check("…and it always takes itself back down",
-        /sh\.parentNode\.removeChild\(sh\)/.test(DEV));
+  check("no device screen in the markup", !/id="cc-device-screen"/.test(HTML));
+  check("no invisible device halves", !/cc-device-half/.test(HTML + CSS));
+  check("no click shield, because there is no longer a click to swallow",
+        !/cc-gate-shield/.test(DEV + APP + CSS));
+  check("the device is detected instead of asked",
+        /function guess\(\)/.test(DEV) && /pointerType/.test(DEV));
+  check("…and nothing blocks the boot waiting for an answer",
+        /window\.ccDeviceReady = Promise\.resolve/.test(DEV));
+}
+
+console.log("\nthe guard that is still needed is still there");
+{
   check("the sign-in chooser is armed rather than born live",
         /function armChooseStep/.test(APP) && /armChooseStep\(\);/.test(APP));
   check("…the CSS is what actually holds the buttons back",
@@ -77,7 +78,7 @@ console.log("\nthe guards exist at all");
 }
 
 // ════════════════════════════════════════════════════════════════════════
-//  DRIVE, the real screens, in a real browser
+//  DRIVE
 // ════════════════════════════════════════════════════════════════════════
 const CHROME = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -105,12 +106,11 @@ if (!CHROME) {
     }).listen(${PORT});
   `;
 
-  // A click, delivered the way the browser delivers one: to whatever is on top
-  // at that pixel. That is the whole point, an element sitting over the page
-  // (the shield) and a `pointer-events:none` button (the unarmed chooser) are
-  // both invisible to the eye but very visible to elementFromPoint, so this
-  // models a real click far better than calling .click() on an element by id.
-  const CLICK_AT = `
+  // A click delivered the way the browser delivers one: to whatever is on top
+  // at that pixel. A `pointer-events:none` button (the unarmed chooser) is
+  // invisible to the eye but very visible to elementFromPoint, so this models a
+  // real click far better than calling .click() on an element by id.
+  const HELPERS = `
   function clickAt(x, y) {
     var el = document.elementFromPoint(x, y);
     var hit = el ? (el.id || el.className || el.tagName) : "none";
@@ -118,19 +118,6 @@ if (!CHROME) {
     if (el) el.click();
     return hit;
   }
-  // Where the artwork actually lands. #cc-device-screen paints choose-device.png
-  // with background-size:contain, so on any window that is not exactly 16:9 the
-  // picture is letterboxed inside the viewport and a percentage of the WINDOW is
-  // not a percentage of the PICTURE.
-  function artBox() {
-    var W = window.innerWidth, H = window.innerHeight, AR = 1672 / 941;
-    if (W / H > AR) { var h = H, w = H * AR; return { x: (W - w) / 2, y: 0, w: w, h: h }; }
-    var w2 = W, h2 = W / AR; return { x: 0, y: (H - h2) / 2, w: w2, h: h2 };
-  }
-  // Centres of the painted COMPUTER laptop and MOBILE phone, measured off
-  // choose-device.png (1672x941).
-  function laptopPt() { var a = artBox(); return [a.x + a.w * 0.425, a.y + a.h * 0.57]; }
-  function phonePt()  { var a = artBox(); return [a.x + a.w * 0.598, a.y + a.h * 0.57]; }
   function guestOpen() {
     var o = document.getElementById("auth-guest-overlay");
     return !!o && getComputedStyle(o).display !== "none";
@@ -139,14 +126,14 @@ if (!CHROME) {
     var s = document.getElementById("auth-step-choose");
     return !!s && s.classList.contains("is-armed");
   }
-  function chooserUp() {
-    var s = document.getElementById("auth-step-choose");
-    return !!s && getComputedStyle(s).display !== "none"
-        && !document.getElementById("auth-screen").classList.contains("hidden");
+  function guestBtnPt() {
+    var gb = document.getElementById("auth-guest-btn");
+    var rc = gb.getBoundingClientRect();
+    return [rc.left + rc.width / 2, rc.top + rc.height / 2];
   }
   `;
 
-  // Scenario driver. Waits for the device screen, then runs `body`.
+  // Waits for the sign-in chooser to be on screen, then runs `body`.
   function driver(body, opts) {
     const o = opts || {};
     return `
@@ -158,7 +145,7 @@ if (!CHROME) {
   document.head.appendChild(st);
   var log = {}, out = document.getElementById("out");
   function done() { out.textContent = JSON.stringify(log); }
-  ${CLICK_AT}
+  ${HELPERS}
   ${o.breakArt ? 'try { document.querySelector(".auth-step-choose-img").src = "/definitely-not-here.png"; } catch (e) {}' : ""}
   var tick = 0;
   var iv = setInterval(function () {
@@ -166,14 +153,16 @@ if (!CHROME) {
     try {
       var spl = document.getElementById("cc-fs-splash");
       if (spl && getComputedStyle(spl).display !== "none") spl.style.display = "none";
-      var dev = document.getElementById("cc-device-screen");
-      if (!dev || getComputedStyle(dev).display === "none") return;
-      // device-select.js is a DEFERRED script and this driver is not, so the
-      // click targets are not live the moment the markup exists. ccGetDevice is
-      // the flag that says its IIFE has run and the two halves are wired; under
-      // --virtual-time-budget the clock outruns the network, and clicking
-      // before this point just silently does nothing.
-      if (typeof window.ccGetDevice !== "function") return;
+      // Firebase resolves over the network; the sign-in screen must not wait
+      // on it here or the clock outruns the request under virtual time.
+      if (tick > 20) {
+        var ls = document.getElementById("auth-loading-screen");
+        if (ls) ls.classList.add("hidden");
+        var as = document.getElementById("auth-screen");
+        if (as) as.classList.remove("hidden");
+      }
+      var step = document.getElementById("auth-step-choose");
+      if (!step || getComputedStyle(step).display === "none") return;
       if (tick < 25) return;               // let the app finish booting
       clearInterval(iv);
       ${body}
@@ -187,8 +176,7 @@ if (!CHROME) {
   function writeTmp(name, body) { const f = path.join(CLIENT, name); fs.writeFileSync(f, body); tmp.push(f); return name; }
 
   // `ok` says whether the run got far enough to be worth asserting on. A page
-  // that never finished loading is a harness miss, not a finding, so it is
-  // retried rather than reported.
+  // that never finished loading is a harness miss, not a finding.
   function run(name, body, w, h, opts, ok) {
     writeTmp(name, HTML + driver(body, opts));
     let last = null;
@@ -215,122 +203,79 @@ if (!CHROME) {
   const SIZES = [[1440, 900], [1920, 1080], [1280, 800], [1024, 768], [430, 932], [820, 1180]];
 
   try {
-    // ── 1. The hazard the guard exists for ────────────────────────────────
-    // If this ever stops being true the artwork has moved and the shield is
-    // guarding nothing: worth knowing, and worth reading this file again.
-    console.log("\nthe two screens really do overlap (this is the hazard)");
+    // ── 1. Nothing stands in front of the sign-in screen any more ─────────
+    // The old bug needed something ELSE to be on top of PLAY AS GUEST first.
+    // Measured at every size: the first screen a player meets is the sign-in
+    // screen, and the pixel over its painted button belongs to that button.
+    console.log("\nthe sign-in screen is the first thing there is");
     for (const [w, h] of SIZES) {
-      const r = run("_gate_overlap.html", `
-        var p = laptopPt(), q = phonePt();
-        log.beforeLaptop = (function(){var e=document.elementFromPoint(p[0],p[1]);return e?(e.id||e.className):"none";})();
-        clickAt(p[0], p[1]);                       // choose Computer
-        setTimeout(function () {
-          // Look UNDER the shield: what would this pixel have hit without it?
-          var sh = document.getElementById("cc-gate-shield");
-          if (sh) sh.style.display = "none";
-          var step = document.getElementById("auth-step-choose");
-          if (step) step.classList.add("is-armed");   // and past the arming gate
-          var a = document.elementFromPoint(p[0], p[1]);
-          var b = document.elementFromPoint(q[0], q[1]);
-          log.underLaptop = a ? (a.id || a.className) : "none";
-          log.underPhone  = b ? (b.id || b.className) : "none";
-          done();
-        }, 60);
-      `, w, h, null, (r) => r.underLaptop !== undefined && !/cc-device-half/.test(r.underLaptop));
-      if (!r) { check(`${w}x${h}: the harness reached the device screen`, false); continue; }
-      check(`${w}x${h}: the laptop is a device button before the choice`,
-            /cc-device-computer/.test(r.beforeLaptop || ""), r.beforeLaptop);
-      check(`${w}x${h}: …and PLAY AS GUEST is what sits under that same pixel after it`,
-            r.underLaptop === "auth-guest-btn", r.underLaptop);
-      check(`${w}x${h}: …the MOBILE phone lands on it too`,
-            r.underPhone === "auth-guest-btn", r.underPhone);
+      const r = run("_gate_first.html", `
+        log.deviceScreen = !!document.getElementById("cc-device-screen");
+        log.shield = !!document.getElementById("cc-gate-shield");
+        log.device = window.CC_DEVICE || "";
+        var p = guestBtnPt();
+        log.overGuestBtn = (function(){var e=document.elementFromPoint(p[0],p[1]);return e?(e.id||e.className):"none";})();
+        log.guestPrompt = guestOpen();
+        done();
+      `, w, h, null, (r) => r.overGuestBtn !== undefined);
+      if (!r) { check(`${w}x${h}: the harness reached the sign-in screen`, false); continue; }
+      check(`${w}x${h}: no device screen exists to be clicked through`,
+            r.deviceScreen === false);
+      check(`${w}x${h}: no click shield is needed either`, r.shield === false);
+      check(`${w}x${h}: a device was decided without asking`,
+            r.device === "computer" || r.device === "mobile", r.device);
+      check(`${w}x${h}: nothing covers PLAY AS GUEST`,
+            r.overGuestBtn === "auth-guest-btn", r.overGuestBtn);
+      check(`${w}x${h}: and nobody has been asked for a nickname yet`,
+            r.guestPrompt === false);
     }
 
-    // ── 2. The reported bug ───────────────────────────────────────────────
-    console.log("\nchoosing a device never asks you for a guest nickname");
-    for (const [w, h] of SIZES) {
-      const r = run("_gate_double.html", `
-        var p = laptopPt(), q = phonePt();
-        clickAt(p[0], p[1]);                        // choose Computer
-        setTimeout(function () {
-          log.second = clickAt(p[0], p[1]);         // the other half of a double-click
-          log.third  = clickAt(q[0], q[1]);         // …and an impatient one on the phone
-          setTimeout(function () {
-            log.guestPrompt = guestOpen();
-            log.chooserUp = chooserUp();
-            done();
-          }, 40);
-        }, 90);
-      `, w, h, null, (r) => r.chooserUp === true);
-      if (!r) { check(`${w}x${h}: the harness reached the device screen`, false); continue; }
-      check(`${w}x${h}: a double-click on CHOOSE YOUR DEVICE does not open the guest prompt`,
-            r.guestPrompt === false, `second click hit ${r.second}`);
-      check(`${w}x${h}: …and the stray click was swallowed by the shield`,
-            r.second === "cc-gate-shield", r.second);
-      check(`${w}x${h}: …the player is left on the sign-in screen, as intended`,
-            r.chooserUp === true);
-    }
-
-    // ── 3. The guard has to let go again ──────────────────────────────────
-    console.log("\n…but the guards let go, so a deliberate click still works");
+    // ── 2. A deliberate click works ───────────────────────────────────────
+    console.log("\na real click reaches PLAY AS GUEST");
     {
-      const r = run("_gate_release.html", `
-        var p = laptopPt();
-        clickAt(p[0], p[1]);
+      const r = run("_gate_click.html", `
         setTimeout(function () {
-          log.shieldGone = !document.getElementById("cc-gate-shield");
           log.armed = armed();
-          var gb = document.getElementById("auth-guest-btn");
-          var rc = gb.getBoundingClientRect();
-          log.hit = clickAt(rc.left + rc.width / 2, rc.top + rc.height / 2);
+          var p = guestBtnPt();
+          log.hit = clickAt(p[0], p[1]);
           setTimeout(function () { log.guestPrompt = guestOpen(); done(); }, 40);
         }, 1600);
-      `, 1440, 900, null, (r) => r.shieldGone === true && r.armed === true);
-      check("the click shield takes itself back down", r && r.shieldGone === true);
-      check("…the sign-in chooser arms itself once the artwork is up", r && r.armed === true);
+      `, 1440, 900, null, (r) => r.armed === true);
+      check("the sign-in chooser arms itself once the artwork is up", r && r.armed === true);
       check("…a real click reaches PLAY AS GUEST", r && r.hit === "auth-guest-btn", r && r.hit);
       check("…and it opens the guest nickname prompt, which is the whole point",
             r && r.guestPrompt === true);
     }
 
-    // ── 4. An invisible button is not clickable before you can see it ─────
+    // ── 3. An invisible button is not clickable before you can see it ─────
     console.log("\nan invisible button is inert until its artwork is on screen");
     {
       const r = run("_gate_unarmed.html", `
-        var p = laptopPt();
-        clickAt(p[0], p[1]);
         setTimeout(function () {
-          var sh = document.getElementById("cc-gate-shield");
-          if (sh) sh.parentNode.removeChild(sh);      // take the shield out of it
           var step = document.getElementById("auth-step-choose");
-          step.classList.remove("is-armed");          // …as if the art had not painted
-          var gb = document.getElementById("auth-guest-btn");
-          var rc = gb.getBoundingClientRect();
-          log.hit = clickAt(rc.left + rc.width / 2, rc.top + rc.height / 2);
+          step.classList.remove("is-armed");          // as if the art had not painted
+          var p = guestBtnPt();
+          log.hit = clickAt(p[0], p[1]);
           setTimeout(function () { log.guestPrompt = guestOpen(); done(); }, 40);
         }, 1200);
-      `, 1440, 900, null, (r) => r.hit !== undefined && !/cc-device-half/.test(r.hit));
+      `, 1440, 900, null, (r) => r.hit !== undefined);
       check("an unpainted chooser cannot be clicked through",
             r && r.hit !== "auth-guest-btn", r && r.hit);
       check("…so no guest prompt comes from a blind click", r && r.guestPrompt === false);
     }
 
-    // ── 5. Fail open, always ──────────────────────────────────────────────
+    // ── 4. Fail open, always ──────────────────────────────────────────────
     console.log("\nnothing here can leave a player with two dead buttons");
     {
       const r = run("_gate_failopen.html", `
-        var p = laptopPt();
-        clickAt(p[0], p[1]);
         setTimeout(function () {
           log.armed = armed();
-          var gb = document.getElementById("auth-guest-btn");
-          var rc = gb.getBoundingClientRect();
-          log.hit = clickAt(rc.left + rc.width / 2, rc.top + rc.height / 2);
+          var p = guestBtnPt();
+          log.hit = clickAt(p[0], p[1]);
           setTimeout(function () { log.guestPrompt = guestOpen(); done(); }, 40);
         }, 5200);
-      `, 1440, 900, { breakArt: true }, (r) => r.hit !== undefined && !/cc-device-half/.test(r.hit));
-      check("an artwork that never loads still arms the buttons",
-            r && r.armed === true);
+      `, 1440, 900, { breakArt: true }, (r) => r.hit !== undefined);
+      check("an artwork that never loads still arms the buttons", r && r.armed === true);
       check("…and they work", r && r.guestPrompt === true, r && r.hit);
     }
   } finally {

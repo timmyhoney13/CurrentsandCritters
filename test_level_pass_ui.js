@@ -566,7 +566,11 @@ console.log("\nwiring (real preview.html / preview-app.js):");
 
   // The tab has to exist in all three places or it is a dead sidebar button.
   check("the Level Pass tab is in the panels map", /levelpass:"ph-panel-levelpass"/.test(APP));
-  check("the Level Pass tab has a guest gate", /levelpass:\s*"Sign in/.test(APP));
+  // The tab is no longer locked for guests: they see their level and the whole
+  // reward track, and the note says the part that needs an account (claiming).
+  check("the Level Pass tab opens for a guest, with a note about claiming",
+        /levelpass:\s*"[^"]*[Cc]laiming[^"]*account/.test(APP)
+        && !/GUEST_GATE_MSGS/.test(APP));
   check("switchTab renders the Level Pass", /name === "levelpass"\)\s*_renderLevelPassTab/.test(APP));
   check("_renderLevelPassTab is defined", /function _renderLevelPassTab\(/.test(APP));
 

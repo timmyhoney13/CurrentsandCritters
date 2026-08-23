@@ -718,7 +718,7 @@
     { target: null, badge: "Playing as a Guest", title: "You are playing as a guest",
       skipIf: () => !tutIsGuest(),
       before: closeMenuOverlays,
-      text: "You can play right now without an account, but a guest has <strong>no saved profile</strong>, so the tabs that keep your history, <strong>stats, friends, messages, achievements and the leaderboard</strong>, show a sign-in card instead of your data, and the <strong>Avatar Gallery</strong> stays closed. This tour still shows you where everything lives. <strong>Sign in</strong> from any of those tabs and it all fills in." },
+      text: "You can play right now without an account, and the whole menu is open to you: <strong>stats, history, achievements, the leaderboard, clans and your Avatar Gallery</strong> all work. The one thing a guest does not get is a <strong>saved profile</strong>: everything you earn lives in this browser and is lost if you clear it or switch device. <strong>Sign in</strong> whenever you want to keep it." },
 
     // ── Profile card (top bar / XP) ───────────────────────────────────
     { target: ".ph-profile-card", badge: "Your Profile", title: "Your Profile Card",
@@ -731,7 +731,6 @@
 
     // ── Avatar click (interactive, must actually open gallery) ──────
     { target: "#stats-avatar", badge: "Avatar Gallery", title: "Open Your Avatar Gallery",
-      skipIf: tutIsGuest,
       before: closeMenuOverlays,
       interactive: true,
       advanceWhen: gtGalOpen,
@@ -739,12 +738,10 @@
 
     // ── Avatar Gallery, intro context ───────────────────────────────
     { target: "#avatar-gallery", badge: "Avatar Gallery", title: "Your Avatar Gallery",
-      skipIf: tutIsGuest,
       text: "This is where you choose which critter represents you. New critters are <strong>unlocked by earning achievements, climbing the competitive ranks, or redeeming a code</strong>. Click any locked animal to see its fun fact and exactly what you need to do to earn it." },
 
     // ── Click the Osprey tile (interactive) ──────────────────────────
     { target: "[data-avatar-id='osprey']", badge: "Avatar Gallery", title: "Click an Animal",
-      skipIf: tutIsGuest,
       before: () => { try { document.querySelector("[data-avatar-id='osprey']")?.scrollIntoView({ block: "center", behavior: "instant" }); } catch(_) {} },
       interactive: true,
       advanceWhen: () => !!document.querySelector("[data-avatar-id='osprey'].gal-selected"),
@@ -752,12 +749,10 @@
 
     // ── Osprey detail panel ───────────────────────────────────────────
     { target: "#gal-detail", badge: "Avatar Gallery", title: "Fun Fact and Unlock",
-      skipIf: tutIsGuest,
       text: "Every animal shows its <strong>fun fact</strong> and exactly what you need to do to <strong>unlock</strong> it. The Osprey is your reward for completing all five tutorials. You are already on your way!" },
 
     // ── Back button, must click to exit gallery ──────────────────────
     { target: "#gal-back-btn", badge: "Avatar Gallery", title: "Back to the Menu",
-      skipIf: tutIsGuest,
       interactive: true,
       advanceWhen: gtGalClosed,
       text: "Click the <strong>back arrow</strong> at the top to close the gallery and return to the menu." },

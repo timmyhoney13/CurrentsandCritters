@@ -545,8 +545,10 @@ const tick = () => new Promise((r) => setTimeout(r, 30));
 
     check("preview-app routes the prestige tab", /prestige:"ph-panel-prestige"/.test(app));
     check("preview-app renders the tab on switch", /_renderPrestigeTab\(\)/.test(app));
-    check("preview-app gates the tab behind sign-in",
-      /prestige:\s*"Sign in to ride the next current"/.test(app));
+    // Not gated any more: a guest can read what Prestige is and what it pays.
+    // Keeping a RUN needs an account, and the note says exactly that.
+    check("preview-app opens the tab to guests, with a note about keeping a run",
+      /prestige:\s*"[^"]*account[^"]*"/.test(app) && !/GUEST_GATE_MSGS/.test(app));
     check("preview-app defines the bridge", /window\.__ccPrestige = \{/.test(app));
     check("the bridge hands over the critter roster with unlock labels",
       /unlockLabel:\s*\(a\.unlock && a\.unlock\.label\)/.test(app));

@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.81";
-  const APP_BUILD   = "2026-08-22.8";
+  const APP_VERSION = "1.6.82";
+  const APP_BUILD   = "2026-08-22.9";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -15579,11 +15579,17 @@
       // ANY new touch stops a running fling, even one the shim then ignores
       // (a finger on empty water scrolls natively and must not fight the glide).
       stopFling();
+      // A real touch always carries a touches list; a SYNTHETIC touchstart (a
+      // script, a test harness, some assistive tech) may not, and reading
+      // .length off nothing threw an uncaught TypeError that took the whole
+      // shim down with it. No touches means no gesture to track.
+      const touches = e && e.touches;
+      if (!touches) return;
       // A second finger landing mid-pan means the player wants to pinch-zoom the
       // game: let go of the gesture entirely instead of holding it for a scroll.
-      if (panning && e.touches.length > 1) { reset(); return; }
-      if (src || !mobileActive() || e.touches.length !== 1) return;
-      const t = e.touches[0];
+      if (panning && touches.length > 1) { reset(); return; }
+      if (src || !mobileActive() || touches.length !== 1) return;
+      const t = touches[0];
       const d = closestDraggable(t.target);
       if (!d) return;
       src = d; startX = t.clientX; startY = t.clientY; started = false; touchId = t.identifier;
@@ -17094,18 +17100,61 @@
     function getDefaultAvatar(seed) {
       return DEFAULT_AVATAR_IMG;
     }
-    // An avatar is selectable if it's a starter or the player has unlocked it.
+    // ── What a guest may wear ────────────────────────────────────────────
+    // Everything except the ones you PAY for. Two unlock types cost real money
+    // or Critter Coins, and both need an account to hold the purchase:
+    //   • "shop" ... bought in the Store for Critter Coins
+    //   • "code" ... redeemed from a donation code
+    // Every other type (achievement, level, rank, event, stat, secret, starter)
+    // is something you EARN by playing, and a guest is playing, so a guest gets
+    // them. The rule is written as "not paid" rather than a hand-listed set of
+    // allowed ids on purpose: a new earnable critter is then available to
+    // guests the day it is added, and only a new PAID one has to be thought
+    // about, which is the direction that fails safe for the shop.
+    const PAID_UNLOCK_TYPES = ["shop", "code"];
+    function isPaidAvatar(img) {
+      const n = normalizeAvatarUrl(img);
+      if (!n) return false;
+      const rec = ANIMAL_AVATARS.find(a => normalizeAvatarUrl(a.img) === n);
+      return !!(rec && rec.unlock && PAID_UNLOCK_TYPES.includes(rec.unlock.type));
+    }
+    // True while this session is really a guest PLAYING, not merely "nobody is
+    // signed in yet". The difference matters at the sign-up screen: a person
+    // creating an account is also signed out, but the avatar they pick there
+    // belongs to the new account and must be one they actually own, so the
+    // guest allowance is switched off around that picker (_withOwnedOnly).
+    let _avatarOwnedOnly = false;
+    function _isGuestSession() {
+      return !_authUser && _guestSessionActive && !_avatarOwnedOnly;
+    }
+    // Run fn with the guest allowance off: only starters and real unlocks count.
+    function _withOwnedOnly(fn) {
+      const prev = _avatarOwnedOnly;
+      _avatarOwnedOnly = true;
+      try { return fn(); } finally { _avatarOwnedOnly = prev; }
+    }
+
+    // An avatar is selectable if it's a starter, the player has unlocked it,
+    // or this is a guest and it is not a paid one.
     function isAvatarUnlocked(img) {
       const n = normalizeAvatarUrl(img);
       if (!n) return false;
       if (AVATAR_OPTIONS.includes(n)) return true;
-      return _unlockedIcons.includes(n);
+      if (_unlockedIcons.includes(n)) return true;
+      // A guest viewing ANOTHER player's collection must see THEIR unlocks, not
+      // be told everything is unlocked, so the guest rule stands down there.
+      if (_isGuestSession() && !_galReadOnly) return !isPaidAvatar(n);
+      return false;
     }
 
     function sanitizeSelectableAvatar(url, seed) {
       const normalized = normalizeAvatarUrl(url);
       if (AVATAR_OPTIONS.includes(normalized)) return normalized;
       if (_unlockedIcons.length && _unlockedIcons.includes(normalized)) return normalized;
+      if (normalized && _isGuestSession() && !_galReadOnly && !isPaidAvatar(normalized)) {
+        // Only real catalogue entries; an unknown path is still rejected.
+        if (ANIMAL_AVATARS.some(a => normalizeAvatarUrl(a.img) === normalized)) return normalized;
+      }
       return getDefaultAvatar(seed);
     }
 
@@ -17382,11 +17431,9 @@
     function openAvatarGallery() {
       const gal = $a("avatar-gallery");
       if (!gal) return;
-      // Guests can't open the avatar collection, locked to the Mullet.
-      if (!_authUser) {
-        if (typeof showToast === "function") showToast("Sign in to choose your avatar.", "warn");
-        return;
-      }
+      // Guests open the collection like anybody else. What they cannot do is
+      // wear a PAID critter (see isAvatarUnlocked), and the choice they make
+      // lives in this browser rather than on an account.
       _galSpecies = "all";
       _galSort = "all";
       _galSelectedId = null;
@@ -18968,11 +19015,18 @@
 
     function prepareSignupAvatarSelection(seed) {
       const baseSeed = seed || _authUser?.uid || _authUser?.email;
-      _signupAvatarUrl = sanitizeSelectableAvatar(_signupAvatarUrl, baseSeed);
+      // A NEW ACCOUNT starts with the starter critters, never with the wider
+      // set a guest session is allowed to wear: otherwise anyone could play one
+      // guest game and then seed a fresh account with an earned critter they
+      // have not earned. _withOwnedOnly wraps the click handler too, because
+      // that runs long after this function has returned.
+      _signupAvatarUrl = _withOwnedOnly(() => sanitizeSelectableAvatar(_signupAvatarUrl, baseSeed));
       const rerender = () => {
-        renderAvatarGrid("auth-avatar-grid", _signupAvatarUrl, (selected) => {
-          _signupAvatarUrl = sanitizeSelectableAvatar(selected, baseSeed);
-          rerender();
+        _withOwnedOnly(() => {
+          renderAvatarGrid("auth-avatar-grid", _signupAvatarUrl, (selected) => {
+            _signupAvatarUrl = _withOwnedOnly(() => sanitizeSelectableAvatar(selected, baseSeed));
+            rerender();
+          });
         });
       };
       rerender();
@@ -18982,11 +19036,8 @@
       const options = opts || {};
       const modal = $a("avatar-picker-modal");
       if (!modal) return;
-      // Guests cannot change their avatar, they're locked to the Mullet.
-      if (!_authUser) {
-        if (typeof showToast === "function") showToast("Sign in to choose your avatar.", "warn");
-        return;
-      }
+      // Guests choose an avatar too; applyAvatarSelection() already knows how
+      // to persist a guest's pick to this browser instead of an account.
       const forceRequired = !!options.required;
       const guestMode = !!options.guestMode || (!_authUser && _guestSessionActive);
       const seed = guestMode
@@ -20450,14 +20501,18 @@
 
     // ── Startup ──────────────────────────────────────────────────
     (async function startAuth() {
-      // FIRST SCREEN GATE: do not boot auth, lobby, or game until the
-      // player has chosen Computer or Mobile. Resolves immediately when a
-      // choice is already saved for this session. The chosen device's body
-      // class / window.CC_* flags are applied before anything else runs.
+      // Device mode is applied before anything else runs, so the first layout
+      // is already the right one. ccDeviceReady resolves immediately now (the
+      // COMPUTER / MOBILE screen it used to wait on is gone, js/device-select.js
+      // detects it instead); the await is kept because the flags it sets must
+      // be in place before the lobby measures anything.
       try { if (window.ccDeviceReady) await window.ccDeviceReady; } catch (_) {}
 
       if (!_auth) {
         const savedGuestNick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
+        // Same reason as the sign-out path below: mark the guest session before
+        // the saved avatar is validated against it.
+        if (savedGuestNick) _guestSessionActive = true;
         const savedGuestAvatar = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", savedGuestNick || "guest");
         if (savedGuestNick) {
           _guestAvatarUrl = savedGuestAvatar;
@@ -20636,6 +20691,11 @@
           _friendCode = "";
           _pendingOnboardingUid = "";
           const savedGuestNick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
+          // A saved guest nickname IS a guest session, so say so BEFORE reading
+          // the saved avatar back. sanitizeSelectableAvatar asks whether this is
+          // a guest to decide what may be worn, and answering "no" here reset a
+          // returning guest to the default critter on every single reload.
+          if (savedGuestNick) _guestSessionActive = true;
           const savedGuestAvatar = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", savedGuestNick || "guest");
           _avatarPromptShownForUid = "";
           setStatsAvatarClickable(false);
@@ -20998,16 +21058,8 @@
 
     const statsAvatarBtn = $a("stats-avatar");
     if (statsAvatarBtn) {
-      statsAvatarBtn.addEventListener("click", () => {
-        // Guests are locked to the Mullet, only signed-in players open the gallery.
-        if (_authUser) {
-          openAvatarGallery();
-        } else if (_guestSessionActive && typeof showToast === "function") {
-          showToast("Sign in to choose your avatar.", "warn");
-        }
-      });
+      statsAvatarBtn.addEventListener("click", () => { openAvatarGallery(); });
       statsAvatarBtn.addEventListener("keydown", (e) => {
-        if (!_authUser) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           openAvatarGallery();
@@ -23276,18 +23328,28 @@
       const tabs = document.querySelectorAll("#ph-tabs .ph-tab");
       const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", messages:"ph-panel-messages", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", clans:"ph-panel-clans", prestige:"ph-panel-prestige", levelpass:"ph-panel-levelpass", store:"ph-panel-store" };
       const statsLobby = document.getElementById("auth-stats-lobby");
-      // Tabs that require a real account; guests see a "Sign in to…" gate.
-      const GUEST_GATE_MSGS = {
-        normal:       "Sign in to track your stats",
-        competitive:  "Sign in to track your competitive stats",
-        history:      "Sign in to view your game history",
-        friends:      "Sign in to add friends",
-        messages:     "Sign in to message your friends",
-        leaderboard:  "Sign in to view the leaderboards",
-        clans:        "Sign in to join a clan",
-        prestige:     "Sign in to ride the next current",
-        levelpass:    "Sign in to earn Level Pass rewards",
-        achievements: "Sign in to see Achievements",
+      // ── Guests are not locked out of the menu ────────────────────────
+      // Every tab opens for a guest. What a guest does NOT get is a saved
+      // account: stats, levels and unlocks live in this browser and go no
+      // further, and the handful of things that need a server identity to
+      // exist at all (a clan membership, a DM, a claimed reward) say so at the
+      // BUTTON that needs it, not at the door.
+      //
+      // This used to be a table of ten locked tabs, which is a padlock wall in
+      // front of a free game: it reads as a paywall, and it hides the entire
+      // game from someone deciding whether to make an account. The panels that
+      // genuinely need an account now carry one honest line at the top instead,
+      // and everything that works without one just works.
+      const GUEST_NOTES = {
+        normal:       "Playing as a guest: these stats are saved in this browser only.",
+        competitive:  "Playing as a guest: these stats are saved in this browser only.",
+        history:      "Playing as a guest: your game history is saved in this browser only.",
+        achievements: "Playing as a guest: achievements are saved in this browser only.",
+        friends:      "Sign in to add friends and get a friend code of your own.",
+        messages:     "Sign in to message other players.",
+        clans:        "Clans are played from an account: sign in to join one or start your own.",
+        prestige:     "Prestige is tracked on your account. Sign in to keep a run.",
+        levelpass:    "Your level and rewards show here. Claiming them needs an account.",
       };
       // The Clans panel is empty markup that js/clans-ui.js fills in, so if that
       // module hasn't registered, doing nothing here is indistinguishable from
@@ -23368,21 +23430,45 @@
         }
       }
 
-      function _ensureGuestGate(panelEl, msg) {
-        let gate = panelEl.querySelector(":scope > .ph-guest-gate");
-        if (!gate) {
-          gate = document.createElement("div");
-          gate.className = "ph-guest-gate";
-          gate.innerHTML = '<div class="ph-guest-gate-ico">🔒</div>'
-            + '<div class="ph-guest-gate-msg"></div>'
-            + '<div class="ph-guest-gate-sub">Create a free account to save your progress across devices.</div>'
-            + '<button class="ph-guest-gate-btn">Sign In</button>';
-          gate.querySelector(".ph-guest-gate-btn").addEventListener("click", () => {
+      // A one-line note at the top of a panel, NOT a cover over it. The panel
+      // underneath stays fully usable; this only explains what a guest account
+      // does not keep, with the way to fix that one tap away.
+      // Messages is the one panel with nothing of its own to draw for a guest:
+      // it is a view onto a message store that only an account has. An empty
+      // div is indistinguishable from a broken page, so say what the room is.
+      function _msgGuestPlaceholder() {
+        const host = document.getElementById("ph-messages-host");
+        if (!host) return;
+        if (host.querySelector(".ph-msg-guest")) return;
+        host.innerHTML = '<div class="ph-msg-guest">'
+          + '<div class="ph-msg-guest-t">Messages</div>'
+          + '<div class="ph-msg-guest-p">Chat one to one with the players you meet, '
+          + 'start a group with your friends, and trade critters, backgrounds and '
+          + 'Critter Coins straight from a conversation.</div>'
+          + '<div class="ph-msg-guest-p">Messages are delivered to an account, so this '
+          + 'is the one part of the game that needs you to make one. Everything else '
+          + 'is open to you as a guest.</div>'
+          + '</div>';
+      }
+
+      function _ensureGuestNote(panelEl, msg) {
+        let note = panelEl.querySelector(":scope > .ph-guest-note");
+        if (!note) {
+          note = document.createElement("div");
+          note.className = "ph-guest-note";
+          note.innerHTML = '<span class="ph-guest-note-msg"></span>'
+            + '<button type="button" class="ph-guest-note-btn">Sign in</button>';
+          note.querySelector(".ph-guest-note-btn").addEventListener("click", () => {
             if (typeof window.__fishGoToSignIn === "function") window.__fishGoToSignIn();
           });
-          panelEl.insertBefore(gate, panelEl.firstChild);
+          panelEl.insertBefore(note, panelEl.firstChild);
         }
-        gate.querySelector(".ph-guest-gate-msg").textContent = msg;
+        note.querySelector(".ph-guest-note-msg").textContent = msg;
+        note.style.display = "";
+      }
+      function _clearGuestNote(panelEl) {
+        const note = panelEl.querySelector(":scope > .ph-guest-note");
+        if (note) note.style.display = "none";
       }
       function switchTab(name) {
         // Changing tabs returns every hidden critter to its untouched state.
@@ -23394,18 +23480,17 @@
           const el = document.getElementById(id);
           if (!el) return;
           el.style.display = k === name ? "" : "none";
-          // Apply / clear the guest gate on gated panels
-          const gated = isGuest && !!GUEST_GATE_MSGS[k];
-          el.classList.toggle("is-guest-gated", gated);
-          if (gated) _ensureGuestGate(el, GUEST_GATE_MSGS[k]);
+          // A note for guests where one is warranted; never a cover. Cleared
+          // the moment an account exists, including on the same page.
+          el.classList.remove("is-guest-gated");
+          if (isGuest && GUEST_NOTES[k]) _ensureGuestNote(el, GUEST_NOTES[k]);
+          else _clearGuestNote(el);
         });
         // The Messages page hosts the one #cc-msg-drawer element, so it must be
-        // handed over on entry and handed back on exit, including when the
-        // panel is guest-gated, or the drawer would sit under the gate.
+        // handed over on entry and handed back on exit. A guest has no message
+        // store to mount, so the page shows its sign-in note instead.
         if (name === "messages" && !isGuest) _msgMountPage(); else _msgUnmountPage();
-        // Skip data renders for gated panels (content is hidden anyway).
-        const gatedNow = isGuest && !!GUEST_GATE_MSGS[name];
-        if (gatedNow) return;
+        if (name === "messages" && isGuest) _msgGuestPlaceholder();
         if (name === "howto")        renderPhHowTo();
         if (name === "friends")      { renderPhFriendsList(); if (_authUser && typeof window.__fishCheckFriendAchievements === "function") window.__fishCheckFriendAchievements(_authUser.uid); }
         if (name === "history")      renderPhHistory();
@@ -29824,7 +29909,7 @@
     window.__fishNickname          = () => _playerNickname;
     window.__fishAuthUser          = () => _authUser;
     window.__fishDb                = () => _db;
-    window.__fishOpenAvatarGallery = () => { if (_authUser || _guestSessionActive) openAvatarGallery(); };
+    window.__fishOpenAvatarGallery = () => openAvatarGallery();
     window.__fishShowStatsLobby = () => showStatsLobby();
     window.__fishSyncNickname   = () => { if (_playerNickname) lockNameInputs(_playerNickname); };
     window.__fishIsGuest        = () => !_authUser && _guestSessionActive;
