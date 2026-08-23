@@ -151,6 +151,19 @@ services:
       # receives the "new subscriber" notifications and test emails.
       - key: ADMIN_EMAIL
         value: timothy.honey@beardedsealstudios.com,currentsandcritters@gmail.com
+      # ⚠️ This is a CONSUMER @gmail.com address, not an address on
+      # beardedsealstudios.com, and that has three consequences worth knowing
+      # before wondering why mail is filtered:
+      #   1. the real sending ceiling is ~500 recipients per rolling 24h, not
+      #      the ~2,000 a Workspace domain gets (see the cap below);
+      #   2. SPF/DKIM/DMARC are Google's own and always pass, so the admin
+      #      Domain-authentication panel has nothing to fix here, and the DMARC
+      #      record on beardedsealstudios.com is irrelevant while this is the
+      #      From address;
+      #   3. bulk mail from a consumer address is filtered harder than mail
+      #      from a domain you own. Moving to timothy.honey@beardedsealstudios.com
+      #      (which already has SPF and DKIM published) is the single biggest
+      #      deliverability upgrade available, and only needs the DMARC record.
       - key: NEWSLETTER_FROM_EMAIL
         value: currentsandcritters@gmail.com
       - key: NEWSLETTER_FROM_NAME
@@ -161,8 +174,21 @@ services:
         value: https://currentsandcritters.com
       - key: PRIVACY_POLICY_URL
         value: https://currentsandcritters.com/privacy
-      - key: NEWSLETTER_DAILY_SEND_CAP
-        value: "1200"
+      # NEWSLETTER_DAILY_SEND_CAP is deliberately NOT set here.
+      #
+      # It used to be pinned to "1200", which is the Workspace-sized budget and
+      # roughly two and a half times what the consumer @gmail.com From address
+      # above is actually allowed. Going over does not bounce: Google throttles
+      # or SUSPENDS the account, sometimes for a full 24 hours, and while it is
+      # suspended NOTHING sends, including the welcome email of every person
+      # who signs up in the meantime.
+      #
+      # daily_send_cap() already derives the right number from the From address
+      # (400 for a consumer account, 1200 for a domain), specifically so that
+      # changing the From address cannot leave a too-large cap pointed at a
+      # too-small mailbox. Hard-coding a value here overrode that safety with
+      # the exact mistake it was written to prevent. Leave it unset and let the
+      # code follow the sender; set it only to LOWER the number.
       - key: SMTP_PORT
         value: "587"
       - key: NEWSLETTER_UNSUBSCRIBE_SECRET

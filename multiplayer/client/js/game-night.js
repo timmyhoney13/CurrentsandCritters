@@ -1,8 +1,9 @@
 /* Currents and Critters: Game Night (one module, both hosts).
  *
- * "Game Night is every Saturday, 7–9 PM CST. RSVP here. RSVP isn't required,
- * but it's recommended." That is the whole feature, and it has to be
- * impossible to miss in two places:
+ * "Game Night is every Saturday, 7–9 PM CST. Games, challenges and the daily
+ * bonus pay 1.75x XP while it runs. RSVP here. RSVP isn't required, but it's
+ * recommended." That is the whole feature, and it has to be impossible to miss
+ * in two places:
  *
  *   • the marketing site (index.html)  → renders into <div id="cc-game-night">
  *   • the game's Player Home            → self-injects at the TOP of the
@@ -19,6 +20,14 @@
  * winter and CDT in summer. So the next occurrence is computed against the
  * real IANA zone and ALSO shown in the reader's own local time. Nothing here
  * hard-codes UTC-6.
+ *
+ * WHY THE XP MULTIPLIER LIVES HERE TOO
+ * The bonus is only on while the session is live, and "is it live?" is exactly
+ * what nextSession() already answers, against the real zone and DST. Putting
+ * the multiplier anywhere else would mean a SECOND copy of the schedule, which
+ * is how a bonus ends up paying out an hour late twice a year. The app reads
+ * it through window.__ccGameNightXp(), a synchronous call (an XP grant can
+ * never await), and treats a missing module as "no bonus", the safe direction.
  */
 (function () {
   "use strict";
@@ -35,6 +44,16 @@
   const WEEKDAY = 6;                // 0=Sun … 6=Sat
   const START_HOUR = 19;            // 7:00 PM
   const END_HOUR = 21;              // 9:00 PM
+
+  // XP pays this much while the session is live, everywhere the Prestige bonus
+  // and the Level Pass boost apply (games, the daily login bonus, daily/weekly
+  // challenges and their metas, events, clan challenge XP). One number, read
+  // by the banner (so the promise is written from the same constant that pays
+  // it) and by the app's XP grant.
+  const XP_MULT = 1.75;
+  const XP_PERCENT = Math.round((XP_MULT - 1) * 100);   // 75, for "+75%"
+  // "1.75x" without a trailing zero, and "2x" if it is ever a round number.
+  const XP_LABEL = String(Number(XP_MULT.toFixed(2))) + "x";
 
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g,
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -101,6 +120,27 @@
     return { start, end, live: now >= start && now < end };
   }
 
+  // ── The XP bonus seam ────────────────────────────────────────────────────
+  // { active, mult, percent, label, start, end }. SYNCHRONOUS on purpose: the
+  // app calls this from inside an XP grant, which can never wait on anything.
+  // `now` is injectable so a test can ask about a Saturday evening without one.
+  function xpState(now) {
+    const at = (now instanceof Date) ? now : new Date();
+    let live = false, start = null, end = null;
+    try {
+      const s = nextSession(at);
+      live = !!s.live; start = s.start; end = s.end;
+    } catch (_) { live = false; }
+    return {
+      active: live,
+      mult: live ? XP_MULT : 1,
+      percent: live ? XP_PERCENT : 0,
+      label: XP_LABEL,
+      start, end,
+    };
+  }
+  window.__ccGameNightXp = xpState;
+
   // "7:00 PM" in the reader's own zone, so nobody has to do the arithmetic.
   function localWindow(start, end) {
     try {
@@ -147,6 +187,12 @@
           new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(end))}</span>`
       : `<span class="ccGN-count">Starts in ${esc(countdown(start - now))}</span>`;
 
+    // The reward, stated from the same constant that pays it. It is a separate
+    // chip rather than a line of the note so it survives the narrow layout,
+    // where the note wraps to three lines and stops being read.
+    const xpChip = `<span class="ccGN-xp${live ? " is-live" : ""}">⚡ ${esc(XP_LABEL)} XP${
+      live ? " right now" : " all night"}</span>`;
+
     return `
       <div class="ccGN-inner${live ? " is-live" : ""}">
         <div class="ccGN-ico" aria-hidden="true">🎲</div>
@@ -156,9 +202,10 @@
             <b>Every Saturday, 7:00–9:00 PM CST</b>
             ${localBit}
           </div>
-          <div class="ccGN-status">${when}</div>
+          <div class="ccGN-status">${when}${xpChip}</div>
           <div class="ccGN-note">
-            RSVP isn't mandatory, but it's recommended.
+            Games, challenges and your daily bonus all pay ${esc(XP_LABEL)} XP while
+            it runs. RSVP isn't mandatory, but it's recommended.
           </div>
         </div>
         <div class="ccGN-cta">

@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.79";
-  const APP_BUILD   = "2026-08-22.6";
+  const APP_VERSION = "1.6.80";
+  const APP_BUILD   = "2026-08-22.7";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -11875,6 +11875,29 @@
     return { active: false, percent: 0, mult: 1 };
   }
 
+  // ── Game Night XP ──────────────────────────────────────────────────────
+  // Every XP source pays 1.75x while Saturday's session is live. The schedule
+  // and the multiplier both live in js/game-night.js (window.__ccGameNightXp),
+  // which is the ONE place the event is defined; a second copy of "is it live
+  // right now?" is how a bonus pays out an hour late twice a year at DST.
+  //
+  // Read SYNCHRONOUSLY, like the pass boost: an XP grant can never await, and a
+  // module that has not loaded reporting "no bonus" is the safe direction. The
+  // multiplier is clamped to >= 1 so a broken value can never REMOVE XP.
+  function gameNightXpNow() {
+    try {
+      const g = window.__ccGameNightXp && window.__ccGameNightXp();
+      if (g && g.active) {
+        const m = Number(g.mult);
+        if (Number.isFinite(m) && m > 1) {
+          return { active: true, mult: m, percent: Math.round((m - 1) * 100),
+                   label: String(g.label || (Number(m.toFixed(2)) + "x")) };
+        }
+      }
+    } catch (_) {}
+    return { active: false, mult: 1, percent: 0, label: "" };
+  }
+
   // Prestige first, then the boost on top of it. Kept as ONE function because
   // every XP path already calls this one: adding a second multiplier anywhere
   // else is how a bonus ends up applying to games but not to achievements.
@@ -11885,18 +11908,25 @@
     const lvl = prestigeLevelNow();
     const afterPrestige = Math.floor(base * (1 + lvl * 0.25));
     const boost = passBoostNow();
-    const total = Math.floor(afterPrestige * boost.mult);
+    const afterBoost = Math.floor(afterPrestige * boost.mult);
+    const night = gameNightXpNow();
+    const total = Math.floor(afterBoost * night.mult);
     return {
       base, level: lvl, total,
       bonus: total - base,                    // everything above base
       prestigeBonus: afterPrestige - base,
-      boostBonus: total - afterPrestige,
+      boostBonus: afterBoost - afterPrestige,
       boostPercent: boost.active ? boost.percent : 0,
       boosted: !!boost.active,
+      gameNightBonus: total - afterBoost,
+      gameNightMult: night.mult,
+      gameNightLabel: night.label,
+      gameNight: !!night.active,
     };
   }
   window.__fishPrestigeXp = prestigeXp;
   window.__fishXpBoost = passBoostNow;
+  window.__fishGameNightXp = gameNightXpNow;
 
   function getStoredTotalXp(stats) {
     const src = (stats && typeof stats === "object") ? stats : {};
@@ -12296,11 +12326,12 @@
       // bonus, every legitimate XP source, not just games.
       const _pxGame   = prestigeXp(xpAward);
       // The login bonus is multiplied by hand here rather than through
-      // prestigeXp (it keeps 2 decimal places), so the Level Pass boost has to
-      // be applied here as well: "+20% XP from everything" has to mean it.
+      // prestigeXp (it keeps 2 decimal places), so the Level Pass boost and the
+      // Game Night multiplier have to be applied here as well: "+20% XP from
+      // everything" and "1.75x on Game Night" both have to mean it.
       const _pxStreak = _streakBonusXp > 0
         ? Math.round(_streakBonusXp * (1 + prestigeLevelNow() * 0.25)
-                     * passBoostNow().mult * 100) / 100
+                     * passBoostNow().mult * gameNightXpNow().mult * 100) / 100
         : 0;
       const nextTotalXp = oldTotalXp + _pxGame.total + _pxStreak;
       const levelProgress = getLevelProgressFromTotalXp(nextTotalXp);
@@ -13489,8 +13520,9 @@
     } else {
       setText("gs-my-rank", myRank + rankSuffix(myRank) + " of " + playerCount);
     }
-    // XP earned, with the Prestige breakdown spelled out under it so the bonus
-    // is never an invisible number: "Base XP 100 / Prestige Bonus +75 / Total 175".
+    // XP earned, with every multiplier spelled out under it so a bonus is never
+    // an invisible number: "Base XP 100 / Prestige Bonus +75 / Game Night +131
+    // / Total 306".
     const _pxEnd = prestigeXp(totalXp);
     setText("gs-xp-gained", "+" + _pxEnd.total + " XP");
     try {
@@ -13509,6 +13541,10 @@
           if (_pxEnd.boostBonus > 0) {
             html += '<span class="b">XP Boost: +' + _pxEnd.boostBonus
                  + " (+" + _pxEnd.boostPercent + "%)</span><br>";
+          }
+          if (_pxEnd.gameNightBonus > 0) {
+            html += '<span class="b">Game Night: +' + _pxEnd.gameNightBonus
+                 + " (" + _pxEnd.gameNightLabel + ")</span><br>";
           }
           html += "Total XP Earned: <b>" + _pxEnd.total + "</b>";
           brk.innerHTML = html;

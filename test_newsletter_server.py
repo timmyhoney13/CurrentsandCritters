@@ -2778,6 +2778,75 @@ class TestStuckWelcomes(Base):
                          "a state nothing counted is a state nobody fixes")
 
 
+class TestProviderQuota(Base):
+    """Gmail announces a TEMPORARY block with a PERMANENT code.
+
+    "550 5.4.5 Daily user sending limit exceeded" is a 5xx that clears by
+    itself in a few hours. Reading the code alone called it permanent, failed
+    that recipient outright, and then marched on and did the same to every
+    remaining address: one exhausted quota became a list-wide wipeout needing a
+    manual retry, and every signup during that window lost its welcome for
+    good.
+    """
+
+    def quota_error(self):
+        import smtplib
+        exc = smtplib.SMTPDataError(550, b"5.4.5 Daily user sending limit exceeded")
+        return ne._smtp_error(exc)
+
+    def test_a_gmail_quota_block_is_temporary_not_permanent(self):
+        err = self.quota_error()
+        self.assertEqual(err.category, "provider_quota")
+        self.assertTrue(err.retryable, "it clears by itself; it must not fail anybody")
+
+    def test_a_genuine_5xx_rejection_is_still_permanent(self):
+        """The fix must not turn every hard rejection into an endless retry."""
+        import smtplib
+        err = ne._smtp_error(smtplib.SMTPDataError(550, b"5.1.1 No such user here"))
+        self.assertEqual(err.category, "invalid_message")
+        self.assertFalse(err.retryable)
+
+    def test_a_campaign_pauses_instead_of_burning_the_list(self):
+        for i in range(3):
+            self.signup("q%d@x.com" % i, event_id="qe%d" % i, session_id="qs%d" % i)
+        cid = self.admin_post("campaign-save",
+                              {"subject": "S", "contentHtml": "<p>b</p>"}).last["id"]
+        self.admin_post("campaign-start", {"id": cid, "confirm": "SEND"})
+        self.box.fail_with = self.quota_error()
+        self.box.fail_times = -1
+        ns._process_campaign_batch(cid)
+        self.box.fail_with = None
+
+        recips = self.db.collection(ns.C_CAMPAIGNS + "/" + cid + "/recipients")._docs
+        self.assertTrue(recips)
+        for r in recips.values():
+            self.assertNotEqual(r["status"], ns.R_FAILED,
+                                "nobody is failed over the provider's own limit")
+        # And once the quota clears, the campaign finishes on a later pass.
+        for _ in range(6):
+            ns._process_campaign_batch(cid)
+        sent = sum(1 for r in recips.values() if r["status"] == ns.R_SENT)
+        self.assertEqual(sent, 3, "everyone still gets exactly one copy")
+
+    def test_a_welcome_does_not_spend_an_attempt_on_a_quota_block(self):
+        h = Handler("6.6.7.1")
+        ns.handle_post(h, Parsed("/api/newsletter/subscribe"), {"email": "quota@x.com"})
+        sid = ns._subscriber_id("quota@x.com")
+        self.box.fail_with = self.quota_error()
+        self.box.fail_times = -1
+        for _ in range(ns.MAX_ATTEMPTS + 3):
+            ns._send_welcome_now(sid)
+        self.box.fail_with = None
+        ns._invalidate_subs_cache()
+        sub = self.sub_for("quota@x.com")
+        self.assertEqual(sub["welcomeEmailStatus"], ns.WELCOME_PENDING,
+                         "still due, not failed")
+        self.assertEqual(sub["welcomeAttempts"], 0, "its attempts were given back")
+        # When the provider lets go, the welcome actually arrives.
+        ns._send_welcome_now(sid)
+        self.assertEqual(len(self.box.to("quota@x.com")), 1)
+
+
 class TestSendHealth(Base):
     def test_a_failing_transport_is_reported_as_unhealthy(self):
         with self.transport_configured():

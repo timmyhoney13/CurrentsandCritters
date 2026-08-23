@@ -1321,6 +1321,29 @@ def _smtp_conn(cfg: Dict[str, Any]):
     return conn
 
 
+# What a provider says when it is rate-limiting rather than rejecting. Matched
+# on TEXT because the status code cannot be trusted to distinguish the two:
+# Gmail, Outlook and most relays announce a temporary quota block with a 5xx.
+_QUOTA_PHRASES = (
+    "daily user sending limit", "daily sending quota", "sending quota exceeded",
+    "quota exceeded", "rate limit", "rate-limit", "too many messages",
+    "too many recipients", "try again later", "temporarily rate limited",
+    "message rate exceeded", "throttl", "4.7.0", "5.4.5", "5.7.1 daily",
+)
+
+
+def _smtp_text(exc: Exception) -> str:
+    raw = getattr(exc, "smtp_error", b"") or b""
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", "replace")
+    return str(raw or exc)[:300]
+
+
+def _is_quota_error(code: int, text: str) -> bool:
+    low = (text or "").lower()
+    return any(p in low for p in _QUOTA_PHRASES)
+
+
 def _smtp_error(exc: Exception) -> "SendError":
     """Map an smtplib exception onto the retry policy.
 
@@ -1344,6 +1367,22 @@ def _smtp_error(exc: Exception) -> "SendError":
                          category="invalid_recipient", retryable=False)
     if isinstance(exc, smtplib.SMTPDataError):
         code = getattr(exc, "smtp_code", 0) or 0
+        text = _smtp_text(exc)
+        # QUOTA FIRST, because Gmail reports a TEMPORARY block with a
+        # PERMANENT code: "550 5.4.5 Daily user sending limit exceeded" is a
+        # 5xx that clears by itself in a few hours. Reading the code alone
+        # marked it permanent, which failed the recipient outright and then
+        # marched on and did the same to every remaining address in the
+        # campaign, turning one exhausted quota into a list-wide wipeout that
+        # needs a manual retry. It is the exact failure the daily cap exists to
+        # prevent, arriving from the provider instead of from us, so it gets
+        # the same treatment: pause, and resume when the quota rolls over.
+        if _is_quota_error(code, text):
+            return SendError(
+                "The mail provider is refusing more mail for now (%s). This is its "
+                "own sending limit, not a problem with the message: sending pauses "
+                "and resumes when the limit rolls over." % (text or code),
+                category="provider_quota", retryable=True)
         # 4xx is temporary (greylisting, throttling); 5xx is permanent.
         if 400 <= code < 500:
             return SendError("Mail server temporary error %s." % code,

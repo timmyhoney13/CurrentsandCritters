@@ -94,7 +94,13 @@
   white-space: nowrap;
 }
 
-.ccGN-status { margin-top: 7px; }
+.ccGN-status {
+  margin-top: 7px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
 .ccGN-count,
 .ccGN-live {
   display: inline-flex;
@@ -118,6 +124,28 @@
 @keyframes ccGN-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(42, 200, 143, .55); }
   50%      { box-shadow: 0 0 0 9px rgba(42, 200, 143, 0); }
+}
+
+/* The XP chip. It sits beside the countdown/live pill, so the status row is
+   "when" + "what you get" on one line; on a narrow screen it wraps under it
+   rather than squeezing either pill. Gold when the session is live, because at
+   that moment it is an instruction ("play now"), not a schedule note. */
+.ccGN-xp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: .86rem;
+  font-weight: 800;
+  background: rgba(255, 255, 255, .15);
+  border: 1px solid rgba(255, 255, 255, .28);
+  white-space: nowrap;
+}
+.ccGN-xp.is-live {
+  background: linear-gradient(180deg, var(--gn-gold) 0%, var(--gn-gold-d) 100%);
+  color: #3d2600;
+  border-color: rgba(255, 255, 255, .5);
 }
 
 /* The "not mandatory but recommended" line. Quieter than the schedule, but it

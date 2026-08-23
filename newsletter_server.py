@@ -914,6 +914,19 @@ def _finish_welcome(sub_id: str, *, status: str, error: str = "") -> None:
     _invalidate_subs_cache()
 
 
+def _reset_welcome_attempts(sub_id: str) -> None:
+    """Give a welcome its attempts back after a failure that was nothing to do
+    with it (the provider was rate-limiting everything)."""
+    db = _db()
+    if db is None:
+        return
+    try:
+        db.collection(C_SUBS).document(sub_id).set(
+            {"welcomeAttempts": 0, "updatedAt": _now()}, merge=True)
+    except Exception as exc:  # noqa: BLE001
+        print("[newsletter] welcome attempt reset failed for %s: %s" % (sub_id, exc))
+
+
 def _send_welcome_now(sub_id: str) -> None:
     """Send the welcome email + the owner notification for one subscriber.
 
@@ -943,6 +956,16 @@ def _send_welcome_now(sub_id: str) -> None:
             stream="welcome",
         )
     except nl_email.SendError as exc:
+        if exc.category in ("daily_cap", "provider_quota"):
+            # The provider is refusing everything right now. This welcome is
+            # not faulty and must not spend one of its three attempts on a
+            # condition that clears by itself, or a quiet afternoon of quota
+            # trouble permanently fails every signup that happened during it.
+            _finish_welcome(sub_id, status=WELCOME_PENDING, error=str(exc)[:300])
+            _reset_welcome_attempts(sub_id)
+            _mirror_send_health()
+            print("[newsletter] welcome for %s deferred: %s" % (sub_id, exc.category))
+            return
         if exc.retryable and _int(sub.get("welcomeAttempts")) < MAX_ATTEMPTS:
             # Known NOT to have been delivered → safe to put back on the queue.
             _finish_welcome(sub_id, status="pending", error=str(exc)[:300])
@@ -1786,13 +1809,17 @@ def _process_campaign_batch(cid: str) -> int:
                       "leaseUntil": 0, "lastErrorCategory": ""}, merge=True)
             _bump(cref, "sentCount")
         except nl_email.SendError as exc:
-            if exc.category == "daily_cap":
-                # Not this recipient's fault: put them straight back to pending
-                # and stop the pass. Sending resumes on the next worker tick
-                # after the cap rolls over.
+            # "daily_cap" is OUR limit; "provider_quota" is theirs. Neither is
+            # this recipient's fault and neither is fixed by trying the next
+            # address, so both put the recipient straight back to pending and
+            # stop the pass. Sending resumes on a later worker tick once the
+            # quota rolls over, with nobody dropped and nobody sent twice.
+            if exc.category in ("daily_cap", "provider_quota"):
                 rref.set({"status": R_PENDING, "leaseUntil": 0, "updatedAt": _now(),
-                          "lastErrorCategory": "daily_cap"}, merge=True)
-                print("[newsletter] daily cap reached; pausing campaign %s" % cid)
+                          "lastErrorCategory": exc.category}, merge=True)
+                print("[newsletter] %s reached; pausing campaign %s (%s)"
+                      % (exc.category, cid, exc))
+                _mirror_send_health()
                 return attempted
             if exc.retryable and claim["attempts"] < MAX_ATTEMPTS:
                 rref.set({"status": R_PENDING, "leaseUntil": 0, "updatedAt": _now(),

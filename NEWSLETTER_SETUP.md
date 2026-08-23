@@ -112,7 +112,7 @@ merely unlikely.
 | `render.yaml` | The new environment variables, documented inline. |
 | `vercel.json` | Redirects for `/admin/newsletter` and `/newsletter/unsubscribe/:token` to the Render host, and a rewrite so `/email-logo.png` resolves on the marketing site. |
 | `multiplayer/client/js/privacy-policy.js` | Newsletter sections updated: **see §10, there is a correction in here you should read**. |
-| `multiplayer/client/preview.html`, `privacy.html`, `js/preview-app.js`, `version.json` | Version bumped to **1.6.79 / 2026-08-22.6** and cache-busters bumped with it (project convention: an edited asset must get a fresh `?v=`). |
+| `multiplayer/client/preview.html`, `privacy.html`, `js/preview-app.js`, `version.json` | Version bumped to **1.6.80 / 2026-08-22.7** and cache-busters bumped with it (project convention: an edited asset must get a fresh `?v=`). |
 | `test_privacy_policy.js` | Last-updated date assertion moved to August 6, 2026. |
 
 **Nothing was removed or replaced.** Deleting the newsletter module would
@@ -524,7 +524,7 @@ the building: switching is one environment variable, not a rewrite.
 Run the automated suites first, they need no accounts and no network:
 
 ```bash
-python3 test_newsletter_server.py      # 185 tests
+python3 test_newsletter_server.py      # 189 tests
 node   test_newsletter_admin_ui.js     # needs Chrome
 ```
 
@@ -534,7 +534,7 @@ Then, in order:
 ```bash
 curl -s https://play.currentsandcritters.com/version.json
 ```
-Must show **`1.6.79` / `2026-08-22.6`**. If it doesn't, the deploy hasn't
+Must show **`1.6.80` / `2026-08-22.7`**. If it doesn't, the deploy hasn't
 finished: Render Docker builds take ~10–15 minutes. *"Still broken" has often
 meant "never shipped".*
 
@@ -555,6 +555,29 @@ The three things that stop mail completely, in the order they bite:
 The Render deploy log shouts about the first two at boot with a boxed
 `!! NO EMAIL TRANSPORT CONFIGURED` banner, so `Ctrl-F` for `[newsletter]` there
 is the fastest check of all.
+
+### 9.1c The consumer-Gmail trap
+`NEWSLETTER_FROM_EMAIL` is `currentsandcritters@gmail.com`, a **free consumer
+account**, not an address on beardedsealstudios.com. That matters more than it
+looks:
+
+* The real ceiling is about **500 recipients per rolling 24h**, not the ~2,000 a
+  Workspace domain gets. Going over does not bounce, Google **suspends sending
+  for up to 24 hours**, and while it is suspended nothing goes out at all,
+  including the welcome email of everyone who signs up meanwhile. That is the
+  most likely way for "no emails are sending" to be true with a perfectly
+  correct configuration.
+* `NEWSLETTER_DAILY_SEND_CAP` is therefore **no longer pinned in render.yaml**.
+  `daily_send_cap()` derives it from the From address (400 consumer / 1200
+  domain) exactly so that changing the sender cannot leave an oversized cap
+  pointed at an undersized mailbox. Set it only to LOWER the number. **If the
+  Render dashboard still has a stored value of 1200, delete it.**
+* SPF/DKIM/DMARC for gmail.com are Google's own and always pass, so the Domain
+  authentication panel has nothing to fix while this is the sender, and the
+  missing DMARC record on beardedsealstudios.com does not affect it.
+* Moving the From address to `timothy.honey@beardedsealstudios.com` is the
+  biggest single deliverability upgrade available: that domain already has SPF
+  and DKIM published and needs only the DMARC record in §7.
 
 ### 9.2 Sending connection
 Open `/admin/newsletter` → **Connections**. You want:
