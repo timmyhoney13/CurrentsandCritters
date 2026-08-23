@@ -320,7 +320,11 @@ body.motion-subtle .seagull { animation-duration: 90s !important; }
 .hero-hand .card {
   width: clamp(120px, 14vw, 180px);
   height: clamp(170px, 20vw, 252px);
-  object-fit: cover;
+  /* contain, not cover: every critter is a 600x600 square, so cover blew it up
+     to fill a portrait card and sliced off the tails, fins and flippers at the
+     edges. contain + padding keeps the whole animal inside its own card. */
+  object-fit: contain;
+  padding: clamp(6px, 0.7vw, 10px);
   border-radius: var(--r-lg);
   box-shadow: 0 24px 50px rgba(8, 40, 58, 0.32);
   background: var(--brand-cyan-soft);
@@ -328,11 +332,23 @@ body.motion-subtle .seagull { animation-duration: 90s !important; }
   margin-left: -38px;
 }
 .hero-hand .card:first-child { margin-left: 0; }
-.hero-hand .card:nth-child(1) { transform: rotate(-9deg) translateY(14px); }
-.hero-hand .card:nth-child(2) { transform: rotate(-4deg) translateY(4px); }
+/* One straight left-to-right stack. Every card is numbered on purpose: the
+   middle card used to be the only one with a z-index, which parked the Blue
+   Marlin (3) on top of the Yellowfin Tuna (4) that overlaps it. */
+.hero-hand .card:nth-child(1) { transform: rotate(-9deg) translateY(14px); z-index: 1; }
+.hero-hand .card:nth-child(2) { transform: rotate(-4deg) translateY(4px); z-index: 2; }
 .hero-hand .card:nth-child(3) { transform: rotate(0deg) translateY(-2px) scale(1.02); z-index: 3; }
-.hero-hand .card:nth-child(4) { transform: rotate(4deg) translateY(4px); }
-.hero-hand .card:nth-child(5) { transform: rotate(9deg) translateY(14px); }
+.hero-hand .card:nth-child(4) { transform: rotate(4deg) translateY(4px); z-index: 4; }
+.hero-hand .card:nth-child(5) { transform: rotate(9deg) translateY(14px); z-index: 5; }
+/* Loggerhead Sea Turtle: its art carries more built-in margin than the rest,
+   so it gets less padding to match the other critters' size. */
+.hero-hand .card:nth-child(1) { padding: clamp(2px, 0.3vw, 5px); }
+/* Blue Marlin: the Tuna card now overlaps its right edge, so its art is nudged
+   clear of the seam - otherwise the tip of the bill disappears under it. */
+.hero-hand .card:nth-child(3) { padding-right: clamp(24px, 2.6vw, 40px); }
+/* Yellowfin Tuna: sits in front of the Marlin, and its art rides smaller
+   inside the card so the whole fish reads over the card behind it. */
+.hero-hand .card:nth-child(4) { padding: clamp(16px, 1.8vw, 28px); }
 .hero-hand .card:hover { transform: translateY(-18px) rotate(0) scale(1.08); z-index: 10; }
 
 /* horizon, beach band */
