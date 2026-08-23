@@ -352,6 +352,18 @@
     border-bottom: 1px solid rgba(255,255,255,0.08);
   }
 
+  /* ── GAME NIGHT, riding inside the sand value-props band ─────────────
+        The banner's own look is shared with the game (css/game-night.css);
+        only its placement is page-local. position/z-index because
+        .values-band::before is an absolutely positioned speckle overlay,
+        and without a stacking bump it paints over the banner. */
+  .values-band .game-night-inner {
+    position: relative;
+    z-index: 2;
+    margin-top: 22px;
+  }
+  .values-band .game-night-inner .ccGN { margin-bottom: 0; }
+
   /* ── SUPPORTER REEF WALL: live names overlaid on the "Backed By People
         Who Care" illustration. Names are fetched from the game server and
         sized by the donor's lifetime total (bigger donation = bigger name).
@@ -512,7 +524,7 @@
       <span class="sep">·</span>
       <span>Ages <strong>14+</strong></span>
     </div>
-    <p class="lead">Create vibrant ocean ecosystems, discover powerful card combinations, and outmaneuver your opponents before the END&nbsp;GAME card surfaces. Easy to learn, deep to master, and designed to help support ocean conservation with every game.</p>
+    <p class="lead">Create vibrant ocean ecosystems, discover powerful card combinations, and outmaneuver your opponents before the END&nbsp;GAME card surfaces. Easy to learn, deep to master, and 2% goes to ocean conservation with every game.</p>
     <div class="ctas">
       <a class="btn btn-mint btn-lg" href="https://play.currentsandcritters.com/">▶ Play Online Free</a>
       <a class="btn btn-primary btn-lg" data-email-list href="mailto:currentsandcritters@gmail.com?subject=Add%20me%20to%20the%20email%20list">🐚 Join the Email List</a>
@@ -529,15 +541,6 @@
   </div>
 
   <div class="horizon"></div>
-</section>
-
-<!-- ============ GAME NIGHT ============
-     Filled in by /js/game-night.js: the schedule, a live countdown, and the
-     RSVP link. Deliberately the first thing below the hero. -->
-<section class="section game-night-band" id="game-night">
-  <div class="game-night-inner">
-    <div id="cc-game-night" class="ccGN"></div>
-  </div>
 </section>
 
 <!-- ============ VALUE PROPS BAND (sand) ============ -->
@@ -569,14 +572,24 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7 -4.5 -7 -11a5 5 0 0 1 9 -3a5 5 0 0 1 9 3c0 6.5 -7 11 -7 11"/></svg>
       </div>
       <h4>2% to the Ocean</h4>
-      <p>Every game sold sends 2% of revenue to ocean conservation. Receipts published.</p>
+      <p>2% goes to ocean conservation on every game sold. Receipts published.</p>
     </div>
+  </div>
+
+  <!-- ============ GAME NIGHT ============
+       Filled in by /js/game-night.js: the schedule, a live countdown, and the
+       RSVP link. It rides INSIDE the sand band, directly under the four value
+       props, rather than in a band of its own between the hero and here: the
+       beach then runs unbroken from the horizon down, and the schedule lands
+       right after the reader has been told what the game is. -->
+  <div class="game-night-inner" id="game-night">
+    <div id="cc-game-night" class="ccGN"></div>
   </div>
 </section>
 
 <!-- ============ PEOPLE WHO CARE ============ -->
 <section class="people-care" id="people-care">
-  <img class="people-care-img" src="assets/backed-by-people.png" alt="Backed By People Who Care, these people help fund the launch of Currents and Critters and support our commitment to ocean cleanup and conservation. The more you support, the bigger your name is." loading="lazy"/>
+  <img class="people-care-img" src="assets/backed-by-people.png" alt="Backed By People Who Care, these people help fund the launch of Currents and Critters and support our commitment: 2% goes to ocean conservation. The more you support, the bigger your name is." loading="lazy"/>
   <!-- Live supporter names are injected here from the game server; each name is
        sized by the donor's lifetime total. Empty until a supporter is approved. -->
   <div class="people-care-names" id="supporter-names" aria-label="Supporter reef wall names" aria-live="polite"></div>
@@ -755,7 +768,7 @@
     <div class="section-head">
       <span class="eyebrow">★ Partner With Us</span>
       <h2>Protect the Waters That Inspired the Game</h2>
-      <p>2% of every game sold supports ocean conservation. Want to make an even bigger impact? Partner with Currents and Critters to help protect the waters that inspired the game.</p>
+      <p>2% goes to ocean conservation on every game sold. Want to make an even bigger impact? Partner with Currents and Critters to help protect the waters that inspired the game.</p>
     </div>
 
     <div class="impact-band big-impact">
@@ -901,7 +914,7 @@
       Critter Coins, bonus XP, profile frames, and player icons are cosmetic/progression rewards only and do not affect gameplay.
       Critter Coins are the online game's cosmetic currency and are credited to your game account automatically after checkout.
       Supporter Reef Wall placement is based on contribution amount, with the highest supporters featured first.
-      A portion of every contribution goes toward ocean cleanup and conservation.
+      2% goes to ocean conservation.
     </p>
 
     <div class="sponsor-cta-band our-story">
@@ -909,7 +922,7 @@
         <span class="eyebrow">★ Our Story</span>
         <h3>Our Story</h3>
         <p>Growing up near the Jersey Shore, my family and I spent countless days in and around the ocean. As I got older and moved away, I realized how much those memories shaped my love for the ocean and the life in and around it.</p>
-        <p>That passion is a big part of why I created Currents and Critters. I wanted to build something fun that also gives back - helping support ocean cleanup and conservation so future generations can experience clean, healthy, and abundant oceans the same way I did growing up.</p>
+        <p>That passion is a big part of why I created Currents and Critters. I wanted to build something fun that also gives back - 2% goes to ocean conservation - so future generations can experience clean, healthy, and abundant oceans the same way I did growing up.</p>
       </div>
       <div class="cta-buttons">
         <a class="btn btn-mint btn-lg" href="mailto:currentsandcritters@gmail.com?subject=Partner with Currents and Critters">Partner With Us →</a>
@@ -971,7 +984,7 @@
   </div>
   <div class="foot-bottom">
     <div>© 2026 Currents and Critters. Designed by hand. Illustrated by hand. Made with a little love and a whole lot of salt water.</div>
-    <div class="impact-line">2% of every game funds ocean conservation</div>
+    <div class="impact-line">2% goes to ocean conservation</div>
   </div>
 </footer>
 
