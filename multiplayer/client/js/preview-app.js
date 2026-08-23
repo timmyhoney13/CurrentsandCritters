@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.82";
-  const APP_BUILD   = "2026-08-22.9";
+  const APP_VERSION = "1.6.83";
+  const APP_BUILD   = "2026-08-23.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -17007,12 +17007,17 @@
       el.className = isOk ? "auth-ok" : "auth-err";
     }
 
-    function validateNick(nick) {
+    // The same three rules guard three screens that do NOT call the thing by the
+    // same name: a guest picks a "nickname", an account holder creates and then
+    // renames a "username". The rules are identical, so the noun is a parameter
+    // rather than an excuse for a second copy of the validator.
+    function validateNick(nick, noun) {
+      const what = noun || "Nickname";
       const t = (nick || "").trim();
-      if (t.length < 3)  return "Nickname must be at least 3 characters.";
-      if (t.length > 15) return "Nickname must be 15 characters or less.";
+      if (t.length < 3)  return what + " must be at least 3 characters.";
+      if (t.length > 15) return what + " must be 15 characters or less.";
       if (!/^[\w\s\-\.]+$/.test(t)) return "Letters, numbers, spaces, dashes, and dots only.";
-      if (CC_PROFANITY.hasProfanity(t)) return "Please choose a friendlier nickname.";
+      if (CC_PROFANITY.hasProfanity(t)) return "Please choose a friendlier " + what.toLowerCase() + ".";
       return "";
     }
 
@@ -18475,7 +18480,12 @@
         const el = $a(id);
         if (el) el.style.display = id === stepId ? "" : "none";
       });
-      $a("auth-screen").classList.remove("hidden");
+      const scr = $a("auth-screen");
+      scr.classList.remove("hidden");
+      // The kelp-forest backdrop belongs to CREATE YOUR USERNAME alone. The
+      // other three steps paint their own artwork edge to edge, so showing it
+      // under them would only put a second seabed behind the first.
+      scr.classList.toggle("on-nickname", stepId === "auth-step-nickname");
       if (stepId === "auth-step-choose") {
         const ol = $a("auth-guest-overlay");
         if (ol) ol.classList.remove("visible");
@@ -20647,6 +20657,7 @@
               const hint = (user.displayName || "").split(" ")[0].slice(0, 15);
               const nickInput = $a("auth-nick-input");
               if (nickInput && hint) nickInput.value = hint;
+              paintNickCount();   // the field was just pre-filled behind its back
               _signupAvatarUrl = sanitizeSelectableAvatar(profile?.avatar_url, user.uid || user.email || hint || "player");
               // The rename-cost promise on this screen quotes the ONE constant
               // the Settings save handler charges, so the two can never differ.
@@ -20954,7 +20965,7 @@
     $a("auth-nick-go-btn").addEventListener("click", async () => {
       if (!_authUser) { setAuthMsg("auth-nick-err", "Not signed in.", false); return; }
       const nick = ($a("auth-nick-input").value || "").trim();
-      const err  = validateNick(nick);
+      const err  = validateNick(nick, "Username");
       if (err) { setAuthMsg("auth-nick-err", err, false); return; }
       void finishNicknameSetup(nick);
     });
@@ -21005,10 +21016,25 @@
         revealLobby(nick, code);
       } catch (e) {
         ccReport("firebase_profile_save_failed", ccErrDetail(e), "warn");
-        setAuthMsg("auth-nick-err", "Could not save nickname. Try again.", false);
+        setAuthMsg("auth-nick-err", "Could not save your username. Try again.", false);
       }
     }
     $a("auth-nick-input").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-nick-go-btn").click(); });
+
+    // The username field is capped by maxlength, which stops the 16th character
+    // without ever saying why. This is the counter that says why. It reads the
+    // RAW length, not the trimmed one, because raw length is what maxlength
+    // actually enforces, and a counter that disagreed with the cap would be
+    // worse than none.
+    function paintNickCount() {
+      const inp = $a("auth-nick-input"), out = $a("auth-nick-count");
+      if (!inp || !out) return;
+      const n = (inp.value || "").length;
+      out.textContent = n + " / 15";
+      out.classList.toggle("is-full", n >= 15);
+    }
+    $a("auth-nick-input").addEventListener("input", paintNickCount);
+    paintNickCount();
 
     // ── Launch screen controller (Open / Return / Relaunch / Continue / Sign Out) ──
     (function setupLaunchScreen() {
@@ -21289,7 +21315,7 @@
     $a("settings-nick-save-btn").addEventListener("click", async () => {
       if (!_authUser || !_db) return;
       const newNick = ($a("settings-nick-input").value || "").trim();
-      const err = validateNick(newNick);
+      const err = validateNick(newNick, "Username");
       if (err) { setAuthMsg("settings-nick-err", err, false); return; }
       if (newNick === _playerNickname) { setAuthMsg("settings-nick-err", "That's already your username.", false); return; }
 

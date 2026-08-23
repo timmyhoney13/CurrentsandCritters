@@ -251,6 +251,11 @@
 # used to leave the cursor sitting on an invisible PLAY AS GUEST. Measured in a
 # real browser at six window sizes, no source grep can see it.
 !test_auth_gate.js
+# CREATE YOUR USERNAME. The kelp backdrop cannot live inside the card it
+# backs (a negative-z child paints over its own parent's background), and
+# Chrome will not open a window under 500px, so the phone widths are
+# measured in iframes. Neither fact survives a source grep.
+!test_username_screen.js
 
 !fish_ai_brain.json
 !multiplayer/

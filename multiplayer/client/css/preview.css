@@ -10476,20 +10476,250 @@
     }
     .privacy-web-link:hover { text-decoration: underline; }
 
-    /* ══ FIRST SIGN-IN: the username rename-cost note ══════════════ */
-    .auth-nick-note {
-      display: flex; align-items: flex-start; gap: 8px;
-      text-align: left; font-size: 12px; line-height: 1.45;
-      color: rgba(200,230,255,.85);
-      background: rgba(34,216,248,.08);
-      border: 1px solid rgba(34,216,248,.28);
-      border-radius: 10px; padding: 9px 12px; margin: 2px 0 4px;
+    /* ══ FIRST SIGN-IN: CREATE YOUR USERNAME ═════════════════════
+       This screen opens the instant login-bg.png closes, so it is built to
+       read as the next frame of that artwork rather than as a form: kelp
+       scenery behind a pale sea-glass card, navy lettering, one gold button.
+
+       Everything here is scoped under #auth-step-nickname on purpose. The
+       ids beat css/level-pass.css (which owns the plain .auth-ref-* look and
+       loads AFTER this file), and they keep the dark-glass .auth-box that the
+       other three auth steps still use completely untouched.
+       ═══════════════════════════════════════════════════════ */
+    #auth-step-nickname {
+      /* Ink pulled off the lettering in login-bg.png so the two screens are
+         written in the same colour, not two different blues. */
+      --nk-ink:      #123a68;
+      --nk-ink-soft: #3f6d96;
+      --nk-teal:     #1c7fab;
+      --nk-line:     rgba(31,105,160,.22);
+      --nk-gold:     #e8b34a;
     }
-    .auth-nick-note strong { color: #eaf7ff; font-weight: 800; }
-    .auth-nick-note .ann-ico { flex: 0 0 auto; font-size: 14px; line-height: 1.3; }
-    .auth-nick-note .cc-coin {
+
+    /* ── Kelp forest backdrop ──────────────────────────────
+       A SIBLING of the four auth steps, sitting at z-index 1 between
+       #auth-screen's flat navy and the cards (#auth-screen > .auth-box is
+       z-index:2). It cannot be a child of the card it backs: a negative
+       z-index child paints on top of its own parent's background, which
+       blanks the card. showStep() reveals it with .on-nickname, so the three
+       steps that bring their own artwork never see it. */
+    #auth-screen .auth-kelp-bg {
+      display: none;
+      position: absolute; inset: 0; z-index: 1;
+      overflow: hidden; pointer-events: none;
+      background: #0f4a6b;
+    }
+    #auth-screen.on-nickname .auth-kelp-bg { display: block; }
+    /* bg-kelp.png is round board art on a pale square. Overscanning it by 8%
+       and blurring it does two jobs at once: it pushes that pale ring off
+       every screen shape, and it drops the scenery back so the card in front
+       of it stays the sharpest thing on the screen. */
+    #auth-screen .auth-kelp-bg::before {
+      content: ""; position: absolute; inset: -8%;
+      background: url("/backgrounds/bg-kelp.png") center 56% / cover no-repeat;
+      /* cover alone always fits ONE axis exactly, which on this art means the
+         pale ring outside the circle reaches the edge of the screen wherever
+         the circle narrows. The extra 1.28 is what pushes that ring off every
+         screen shape, from ultrawide to a phone held upright. */
+      transform: scale(1.2);
+      filter: blur(4px) saturate(1.06);
+    }
+    /* Depth scrim. The vignette earns its keep twice: it settles the corners so
+       the eye goes to the card, and it is the matte for the last few pixels of
+       pale ring that the 1.2 overscan still cannot reach on the most extreme
+       window shapes. The linear pass reads as water: sunlit at the surface,
+       deepening towards the seabed. */
+    #auth-screen .auth-kelp-bg::after {
+      content: ""; position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 118% 96% at 50% 46%,
+          rgba(4,32,58,0) 42%, rgba(4,32,58,.34) 76%, rgba(4,28,52,.72) 100%),
+        linear-gradient(180deg,
+          rgba(150,222,240,.16) 0%, rgba(8,52,80,.10) 40%, rgba(5,32,56,.5) 100%);
+    }
+
+    /* ── The card ───────────────────────────────────── */
+    #auth-step-nickname.auth-box {
+      max-width: 400px;
+      padding: 26px 26px 24px;
+      gap: 0;                       /* every gap below is a deliberate margin */
+      border-radius: 22px;
+      border: 1.5px solid rgba(255,255,255,.85);
+      background: linear-gradient(168deg,
+                    rgba(250,253,255,.97) 0%,
+                    rgba(230,245,253,.95) 56%,
+                    rgba(215,238,251,.95) 100%);
+      box-shadow: 0 0 0 1px rgba(20,80,130,.2),
+                  0 26px 64px rgba(3,26,52,.5),
+                  inset 0 1px 0 rgba(255,255,255,.95);
+      /* A short window (landscape phone, small laptop) scrolls the card
+         instead of clipping the button off the bottom of it. */
+      max-height: min(94vh, 780px);
+      overflow-y: auto; overscroll-behavior: contain;
+    }
+
+    /* ── Heading ────────────────────────────────────── */
+    #auth-step-nickname .auth-nick-head { margin-bottom: 20px; }
+    #auth-step-nickname .auth-title {
+      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-weight: 800; font-size: clamp(1.3rem, 4.6vw, 1.55rem);
+      line-height: 1.15; letter-spacing: .2px;
+      color: var(--nk-ink); text-shadow: 0 1px 0 rgba(255,255,255,.8);
+    }
+    /* Gold swash under the title, fading out at both ends. Echoes the gold of
+       PLAY AS GUEST on the screen before this one. */
+    #auth-step-nickname .auth-rule {
+      width: 56px; height: 3px; margin: 9px auto 11px; border-radius: 2px;
+      background: linear-gradient(90deg,
+                    rgba(232,179,74,0), var(--nk-gold) 50%, rgba(232,179,74,0));
+    }
+    #auth-step-nickname .auth-subtitle {
+      color: var(--nk-ink-soft);
+      font-size: 12.5px; line-height: 1.5;
+      max-width: 34ch; margin: 0 auto;
+      text-wrap: balance;
+    }
+    #auth-step-nickname .auth-hint {
+      margin: 5px auto 0; max-width: 34ch;
+      font-size: 11px; line-height: 1.45; font-weight: 600;
+      color: rgba(63,109,150,.72);
+      text-wrap: balance;
+    }
+
+    /* ── Labelled field ──────────────────────────────── */
+    #auth-step-nickname .auth-field-top {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 10px; margin-bottom: 6px;
+    }
+    #auth-step-nickname .auth-field-lbl {
+      font-size: 10.5px; font-weight: 800;
+      letter-spacing: 1px; text-transform: uppercase;
+      color: var(--nk-teal);
+    }
+    /* Reads out what maxlength is silently enforcing. Tabular figures so the
+       count does not jiggle the label line as you type. */
+    #auth-step-nickname .auth-count {
+      font-size: 10.5px; font-weight: 800; letter-spacing: .4px;
+      font-variant-numeric: tabular-nums;
+      color: rgba(63,109,150,.6);
+      transition: color .15s;
+    }
+    #auth-step-nickname .auth-count.is-full { color: #b07a10; }
+    #auth-step-nickname .auth-optional {
+      font-size: 10.5px; font-weight: 700; letter-spacing: .4px;
+      text-transform: uppercase; color: rgba(63,109,150,.62);
+    }
+
+    #auth-step-nickname .pv-input {
+      background: #fff;
+      border: 1.5px solid rgba(31,105,160,.28);
+      border-radius: 12px;
+      color: var(--nk-ink);
+      font-weight: 700;
+      font-size: 16px;              /* 16px keeps iOS from zooming on focus */
+      padding: 12px 14px;
+      box-shadow: inset 0 1px 3px rgba(16,58,104,.07);
+      transition: border-color .16s, box-shadow .16s;
+    }
+    #auth-step-nickname .pv-input::placeholder {
+      color: rgba(63,109,150,.5); font-weight: 600;
+    }
+    #auth-step-nickname .pv-input:focus {
+      border-color: #35a8d4;
+      box-shadow: 0 0 0 3px rgba(53,168,212,.2), inset 0 1px 3px rgba(16,58,104,.05);
+    }
+
+    /* setAuthMsg() overwrites className outright, so these two are styled by
+       what they ARE, never by an extra class that a status update would wipe. */
+    #auth-step-nickname .auth-err,
+    #auth-step-nickname .auth-ok {
+      text-align: left; font-size: 11.5px; font-weight: 700;
+      min-height: 15px; padding-top: 5px; line-height: 1.3;
+    }
+    #auth-step-nickname .auth-err { color: #b0243c; }
+    #auth-step-nickname .auth-ok  { color: #10795c; }
+
+    /* ── Rename-cost note: the one tinted row on the card ─────────── */
+    #auth-step-nickname .auth-nick-note {
+      display: flex; align-items: flex-start; gap: 9px;
+      margin: 12px 0 0;
+      padding: 10px 12px; border-radius: 12px;
+      background: rgba(53,168,212,.11);
+      text-align: left; font-size: 11.5px; line-height: 1.5;
+      color: var(--nk-ink-soft);
+    }
+    #auth-step-nickname .auth-nick-note strong { color: var(--nk-ink); font-weight: 800; }
+    #auth-step-nickname .ann-ico {
+      flex: 0 0 auto; width: 14px; height: 14px; margin-top: 1px;
+      color: var(--nk-teal);
+    }
+    #auth-step-nickname .ann-ico-gold { color: #c08a14; }
+    #auth-step-nickname .cc-coin {
       width: 13px; height: 13px; display: inline-block;
       vertical-align: -2px; margin: 0 1px;
+    }
+
+    /* ── Friend code: a section behind a hairline, not another box ──── */
+    #auth-step-nickname .auth-ref-box {
+      margin: 18px 0 0; padding: 17px 0 0;
+      border: 0; border-top: 1px solid var(--nk-line);
+      border-radius: 0; background: none; text-align: left;
+    }
+    #auth-step-nickname .auth-ref-note {
+      display: flex; align-items: flex-start; gap: 9px;
+      margin-top: 9px; font-size: 11.5px; line-height: 1.45;
+      color: var(--nk-ink-soft);
+    }
+    #auth-step-nickname .auth-ref-note strong { color: #9a6a0c; font-weight: 800; }
+
+    /* ── The one button ────────────────────────────────
+       Butter gold with dark ink, i.e. PLAY AS GUEST from login-bg.png, not the
+       dark mustard .pv-btn.gold wears on the game's dark panels. */
+    #auth-step-nickname .pv-btn.gold {
+      margin-top: 20px; padding: 14px 18px;
+      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-size: 15px; font-weight: 800; letter-spacing: .3px;
+      color: #4a3208; text-shadow: 0 1px 0 rgba(255,255,255,.45);
+      background: linear-gradient(180deg, #ffdf9d 0%, #f5c261 52%, #eeb043 100%);
+      border: 1.5px solid rgba(190,132,26,.55);
+      border-radius: 14px;
+      box-shadow: 0 4px 0 rgba(184,128,26,.5), 0 8px 20px rgba(20,60,100,.22),
+                  inset 0 1px 0 rgba(255,255,255,.75);
+    }
+    #auth-step-nickname .pv-btn.gold:hover:not(:disabled) {
+      filter: brightness(1.04);
+      box-shadow: 0 5px 0 rgba(184,128,26,.5), 0 12px 26px rgba(20,60,100,.28),
+                  inset 0 1px 0 rgba(255,255,255,.75);
+    }
+    #auth-step-nickname .pv-btn.gold:active:not(:disabled) {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 rgba(184,128,26,.5), 0 4px 12px rgba(20,60,100,.22),
+                  inset 0 1px 0 rgba(255,255,255,.65);
+    }
+
+    /* ── Small screens ────────────────────────────────
+       The gutter is padding on the SCREEN, not vw arithmetic on the card: the
+       card is already width:100%, so it simply fills what is left, and it
+       cannot be knocked off centre by a scrollbar or by a mobile browser whose
+       layout viewport is not the number 100vw reports. The backdrop is
+       absolutely positioned against the padding box, so it stays full bleed. */
+    #auth-screen.on-nickname { padding: 16px; }
+    @media (max-width: 460px) {
+      #auth-screen.on-nickname { padding: 12px; }
+      #auth-step-nickname.auth-box {
+        max-width: none; padding: 22px 20px 20px; border-radius: 20px;
+      }
+      #auth-step-nickname .auth-nick-head { margin-bottom: 17px; }
+    }
+    /* Landscape phones and short laptop windows: tighten the vertical rhythm
+       so the gold button stays above the fold instead of behind a scrollbar. */
+    @media (max-height: 620px) {
+      #auth-step-nickname.auth-box { padding: 18px 22px 18px; }
+      #auth-step-nickname .auth-nick-head { margin-bottom: 13px; }
+      #auth-step-nickname .auth-rule { margin: 7px auto 8px; }
+      #auth-step-nickname .auth-nick-note { margin-top: 9px; }
+      #auth-step-nickname .auth-ref-box { margin-top: 13px; padding-top: 13px; }
+      #auth-step-nickname .pv-btn.gold { margin-top: 14px; padding: 12px 18px; }
     }
 
     /* ══ MESSAGING DRAWER (DMs + room chat bridge) ══════════════════ */
