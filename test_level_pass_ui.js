@@ -301,6 +301,7 @@ const MAIN = \`
       text: txt(gn),
       href: (gn.querySelector(".ccGN-btn") || {}).href || "",
       btnLabel: txt(gn.querySelector(".ccGN-btn")),
+      xpChip: txt(gn.querySelector(".ccGN-xp")),
       selfInjected: gn.parentElement && gn.parentElement.id === "ph-panel-overview",
       firstChild: gn.parentElement && gn.parentElement.firstElementChild === gn,
     };
@@ -500,6 +501,13 @@ check("RSVP is described as recommended, not required",
       /isn't mandatory/i.test(D.gn.text) && /recommended/i.test(D.gn.text), D.gn.text);
 check("it says when the next one starts",
       /Starts in|Live right now/.test(D.gn.text), D.gn.text);
+// The XP bonus is half the reason to turn up, so it is a chip of its own next
+// to the countdown, not a clause buried in the note.
+check("the 1.75x XP bonus is on a chip of its own",
+      /1\.75x XP/.test(D.gn.xpChip), D.gn.xpChip);
+check("…and the note says what it applies to",
+      /Games, challenges and your daily bonus all pay 1\.75x XP/.test(D.gn.text),
+      D.gn.text.slice(0, 220));
 
 // ══════════════════════════════════════════════════════════════════════════
 console.log("\nwidths (real iframe viewports):");

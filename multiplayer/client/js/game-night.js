@@ -124,8 +124,13 @@
   // { active, mult, percent, label, start, end }. SYNCHRONOUS on purpose: the
   // app calls this from inside an XP grant, which can never wait on anything.
   // `now` is injectable so a test can ask about a Saturday evening without one.
+  // Coerced through Number rather than tested with `instanceof Date`: a Date
+  // handed in from another realm (an iframe, a test harness) is not an instance
+  // of THIS realm's Date, and silently answering about the wrong instant is the
+  // one failure mode that would be invisible.
   function xpState(now) {
-    const at = (now instanceof Date) ? now : new Date();
+    const ms = (now == null) ? Date.now() : Number(now);
+    const at = new Date(Number.isFinite(ms) ? ms : Date.now());
     let live = false, start = null, end = null;
     try {
       const s = nextSession(at);

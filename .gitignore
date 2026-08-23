@@ -297,6 +297,11 @@ serviceAccountKey.json
 # network therefore cost the player their XP, streak and game history on a
 # screen that showed all three. Pins the watchdog and the three save states.
 !test_endgame_save_retry.js
+# Game Night pays 1.75x XP, and the whole feature is "at the right hour": the
+# schedule and the multiplier live in ONE module, so this sweeps a year of
+# Saturdays a minute at a time (DST included) and runs the app's real prestigeXp
+# to pin the stacking order and the never-below-1x fallbacks.
+!test_game_night_xp.js
 
 # Newsletter tests + setup guide + the one-off OAuth helper.
 # (newsletter_server.py / newsletter_email.py are allowlisted further up, next
