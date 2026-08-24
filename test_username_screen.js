@@ -133,7 +133,7 @@ console.log("\nthe cache busters moved, or nobody gets any of this");
 {
   const stamps = new Set((HTML.match(/\?v=2026-\d\d-\d\d\.\d+/g) || []));
   check("preview.css and preview-app.js share one fresh stamp",
-        /css\/preview\.css\?v=2026-08-23/.test(HTML) && /js\/preview-app\.js\?v=2026-08-23/.test(HTML),
+        /css\/preview\.css\?v=2026-08-24/.test(HTML) && /js\/preview-app\.js\?v=2026-08-24/.test(HTML),
         [...stamps].join(" "));
 }
 

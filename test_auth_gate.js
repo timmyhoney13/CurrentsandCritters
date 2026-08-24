@@ -69,8 +69,14 @@ console.log("\nthe guard that is still needed is still there");
   check("the sign-in chooser is armed rather than born live",
         /function armChooseStep/.test(APP) && /armChooseStep\(\);/.test(APP));
   check("…the CSS is what actually holds the buttons back",
-        /#auth-step-choose:not\(\.is-armed\) \.pv-btn/.test(CSS)
-        && /#auth-step-choose:not\(\.is-armed\) \.auth-btn-google/.test(CSS));
+        /#auth-step-choose:not\(\.is-armed\) > \.pv-btn/.test(CSS)
+        && /#auth-step-choose:not\(\.is-armed\) > \.auth-btn-google/.test(CSS));
+  // > and not a descendant selector. The guest card is also a child of this
+  // step, and these rules strip a button of its colour and its background: a
+  // descendant selector reached into the card and made Dive In invisible.
+  check("…and it holds back the step's OWN buttons, not the guest card's",
+        !/#auth-step-choose(:not\(\.is-armed\))? \.pv-btn\b/.test(CSS)
+        && !/#auth-step-choose \.auth-btn-google\b/.test(CSS));
   check("…it arms on a slow image rather than only on a cached one",
         /addEventListener\("load", settle/.test(APP));
   check("…and it fails OPEN on an image that never arrives",

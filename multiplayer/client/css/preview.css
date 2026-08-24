@@ -5487,18 +5487,64 @@
     #cc-fs-splash.ccfs-blocked .ccfs-window { display: inline-block; }
     .ccfs-window:hover { color: #ffffff; border-color: rgba(216,232,251,.7); }
 
-    /* Slim "return to full screen" pill, nudges the player back to full
-       screen if they drop out (Esc / browser), so the game stays full screen. */
+    /* "Back to full screen": the nudge shown when a player who asked for full
+       screen drops out of it (Esc, or the browser).
+       It used to be a 210px-wide orange pill pinned to the TOP CENTRE at
+       z-index 100000, i.e. straight across the notice bar in-game and across
+       the artwork on the sign-in screen, which it had no business being on at
+       all. Now it is a small ocean-glass chip in the bottom-left corner, cut
+       from the same deep navy and cyan as the game's own panels, that opens out
+       to its full label on hover or focus. Out of the way, and unmistakably
+       part of the game.
+       It is also gated on body.cc-signed-in (set by revealLobby, cleared by
+       showStep), so it can only ever appear once the player is through the
+       door: no floating chip on top of login-bg.png. And it stays out of a
+       game entirely: the action bar in there already carries its own
+       "⛶ Full Screen" button, so a floating one would be a second copy of it,
+       sitting on top of the P1 seat pill. See onFsChange(). */
     #cc-fs-resume {
-      display: none; position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
-      z-index: 100000; cursor: pointer;
-      font-family: "Nunito", sans-serif; font-size: 13px; font-weight: 800; letter-spacing: .3px;
-      color: #1a1208; background: linear-gradient(180deg, #f6c178 0%, #e8a052 100%);
-      border: 1.5px solid rgba(244,165,116,.6); border-radius: 18px; padding: 8px 18px;
-      box-shadow: 0 4px 16px rgba(0,0,0,.45); animation: dwm-fade-in .2s ease;
+      display: none; position: fixed;
+      left: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+      /* Above Player Home (8900) so it is reachable there, and below every
+         modal (9100 and up) so a modal simply covers it. It used to be 100000,
+         which is how a nudge ended up painted over the whole game. */
+      z-index: 8950; cursor: pointer;
+      align-items: center; gap: 7px;
+      font-family: "Nunito", sans-serif; font-size: 12.5px; font-weight: 800; letter-spacing: .2px;
+      color: #d8ecfb;
+      background: linear-gradient(160deg, rgba(22,58,118,.94) 0%, rgba(10,32,72,.96) 100%);
+      border: 1.5px solid rgba(95,179,214,.5); border-radius: 999px;
+      padding: 8px 14px 8px 11px;
+      box-shadow: 0 8px 22px rgba(2,14,34,.5), inset 0 1px 0 rgba(255,255,255,.08);
+      -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+      animation: dwm-fade-in .2s ease;
+      transition: color .16s, border-color .16s, box-shadow .16s, background .16s;
     }
-    #cc-fs-resume.show { display: block; }
-    #cc-fs-resume:hover { filter: brightness(1.06); }
+    /* Only once the player is in. .show is still what says "you are out of full
+       screen"; this is what says "and you are actually playing". */
+    body.cc-signed-in #cc-fs-resume.show { display: flex; }
+    #cc-fs-resume .ccfs-glyph {
+      font-size: 14px; line-height: 1; color: #7fd2f2;
+      transition: color .16s;
+    }
+    /* Collapsed to the glyph until you look at it, so the corner stays quiet. */
+    #cc-fs-resume .ccfs-word {
+      max-width: 0; overflow: hidden; white-space: nowrap;
+      opacity: 0; transition: max-width .22s ease, opacity .18s ease;
+    }
+    #cc-fs-resume:hover, #cc-fs-resume:focus-visible {
+      color: #ffffff; border-color: rgba(127,210,242,.85);
+      box-shadow: 0 10px 26px rgba(2,14,34,.55), 0 0 0 3px rgba(95,179,214,.18),
+                  inset 0 1px 0 rgba(255,255,255,.12);
+    }
+    #cc-fs-resume:hover .ccfs-word,
+    #cc-fs-resume:focus-visible .ccfs-word { max-width: 190px; opacity: 1; }
+    #cc-fs-resume:hover .ccfs-glyph, #cc-fs-resume:focus-visible .ccfs-glyph { color: #a9e4ff; }
+    #cc-fs-resume:active { transform: translateY(1px); }
+    @media (prefers-reduced-motion: reduce) {
+      #cc-fs-resume { animation: none; }
+      #cc-fs-resume .ccfs-word { transition: none; }
+    }
 
     #auth-screen {
       position: fixed; inset: 0; z-index: 9000;
@@ -5870,13 +5916,20 @@
       -webkit-user-drag: none;
       pointer-events: none;
     }
-    #auth-step-choose .auth-title,
-    #auth-step-choose .auth-subtitle,
-    #auth-step-choose .auth-divider {
+    /* Everything from here down is scoped with > on purpose. #auth-step-choose
+       is one painted image with two INVISIBLE buttons over it, so these rules
+       strip a button of its background, its colour and its font size. The guest
+       card is also a child of this step, and a descendant selector reached
+       straight into it: its Dive In button came out transparent-on-transparent,
+       absolutely positioned at the step's left:36.9%, i.e. gone. The two real
+       overlay buttons are direct children, so > says what was always meant. */
+    #auth-step-choose > .auth-title,
+    #auth-step-choose > .auth-subtitle,
+    #auth-step-choose > .auth-divider {
       display: none !important;
     }
-    #auth-step-choose .pv-btn,
-    #auth-step-choose .auth-btn-google {
+    #auth-step-choose > .pv-btn,
+    #auth-step-choose > .auth-btn-google {
       position: absolute;
       left: 36.90%;
       width: 26.08%;
@@ -5894,13 +5947,13 @@
       -webkit-tap-highlight-color: rgba(255,255,255,.15);
       z-index: 2;
     }
-    #auth-step-choose .pv-btn:focus-visible,
-    #auth-step-choose .auth-btn-google:focus-visible {
+    #auth-step-choose > .pv-btn:focus-visible,
+    #auth-step-choose > .auth-btn-google:focus-visible {
       outline: 2px solid rgba(255,255,255,.75);
       outline-offset: -3px;
     }
-    #auth-step-choose .pv-btn:active,
-    #auth-step-choose .auth-btn-google:active {
+    #auth-step-choose > .pv-btn:active,
+    #auth-step-choose > .auth-btn-google:active {
       transform: translateY(1px);
     }
     #auth-step-choose #auth-guest-btn        { top: 51.22%; }
@@ -5914,86 +5967,325 @@
        and prompted for a guest nickname the player never asked for. armChooseStep()
        in preview-app.js adds .is-armed once the art has painted; it fails OPEN,
        so a blocked or missing image can never leave the two buttons dead. */
-    #auth-step-choose:not(.is-armed) .pv-btn,
-    #auth-step-choose:not(.is-armed) .auth-btn-google { pointer-events: none; }
-    #auth-step-choose .auth-err {
+    #auth-step-choose:not(.is-armed) > .pv-btn,
+    #auth-step-choose:not(.is-armed) > .auth-btn-google { pointer-events: none; }
+    /* ── The chooser's one status line ───────────────────────────────
+       This used to be bare red text laid straight onto login-bg.png, and the
+       most common thing it ever said was that the player had closed the Google
+       window: a decision, painted as a fault, in the one colour the game uses
+       for nothing else. It is a card now, cut from the same sea glass as the
+       guest card and CREATE YOUR USERNAME (pale gradient, white rim, navy
+       lettering), with the tone carried by a small line-art icon and one accent
+       ring: teal for "you backed out", gold for "you have to do something".
+
+       It is centred on the SAME column as the two painted buttons above it
+       (36.90% + 26.08%/2 = 49.94%), so it reads as belonging to them, and it is
+       wider than that column because a sentence needs the room.
+
+       Hidden state is opacity+visibility, not display, so it can fade both ways
+       and so an empty note takes up no space and casts no shadow. */
+    #auth-step-choose > .auth-err {
       position: absolute;
-      left: 36.90%;
-      top: 72%;
-      width: 26.08%;
-      text-align: center;
-      min-height: 18px;
-      font-size: .82rem;
-      color: #9a2d37;
-      font-weight: 700;
+      left: 50%;
+      top: 71.4%;
+      transform: translateX(-50%) translateY(6px);
+      width: max-content;
+      /* Narrow enough to sit INSIDE the painted octagon at this height, and
+         about as wide as the two buttons above it, so it reads as theirs. */
+      max-width: min(40%, 400px);
+      box-sizing: border-box;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 9px 14px;
+      /* No one-word last line under a two-line note. */
+      text-wrap: balance;
+      min-height: 0;
+      text-align: left;
+      text-shadow: none;
       font-family: "Baloo 2", "Nunito", sans-serif;
+      font-size: clamp(11px, 1.05vw, 13px);
+      font-weight: 700;
+      line-height: 1.4;
+      color: #123a68;
+      border-radius: 14px;
+      border: 1.5px solid rgba(255,255,255,.85);
+      background: linear-gradient(168deg,
+                    rgba(250,253,255,.97) 0%,
+                    rgba(228,244,253,.96) 100%);
+      box-shadow: 0 0 0 1px rgba(20,80,130,.18),
+                  0 14px 32px rgba(3,26,52,.42),
+                  inset 0 1px 0 rgba(255,255,255,.95);
+      /* Never eats a click aimed at the artwork behind it. */
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
       z-index: 3;
-      text-shadow: 0 1px 2px rgba(255,255,255,.6);
+      transition: opacity .22s ease, transform .22s ease, visibility 0s linear .22s;
     }
-    /* ── Guest overlay, rendered inside the octagon on the login image ── */
+    #auth-step-choose > .auth-err.is-on {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(-50%) translateY(0);
+      transition: opacity .22s ease,
+                  transform .28s cubic-bezier(.2,.9,.3,1.05),
+                  visibility 0s;
+    }
+    #auth-step-choose > .auth-err .auth-note-ico {
+      flex: 0 0 auto; margin-top: 1px;
+      width: 15px; height: 15px;
+    }
+    /* Backed out, nothing is wrong: the guest card's teal. */
+    #auth-step-choose > .auth-err.is-info .auth-note-ico { color: #1c7fab; }
+    #auth-step-choose > .auth-err.is-info {
+      box-shadow: 0 0 0 1px rgba(28,127,171,.35),
+                  0 14px 32px rgba(3,26,52,.42),
+                  inset 0 1px 0 rgba(255,255,255,.95);
+    }
+    /* Good news: the deep sea green the other auth screens already use. */
+    #auth-step-choose > .auth-err.is-ok .auth-note-ico { color: #10795c; }
+    /* Your move: the artwork's own butter gold, not a red the game never uses. */
+    #auth-step-choose > .auth-err.is-warn .auth-note-ico { color: #b07a10; }
+    #auth-step-choose > .auth-err.is-warn {
+      box-shadow: 0 0 0 1px rgba(184,128,26,.45),
+                  0 14px 32px rgba(3,26,52,.42),
+                  inset 0 1px 0 rgba(255,255,255,.95);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #auth-step-choose > .auth-err,
+      #auth-step-choose > .auth-err.is-on { transition: opacity .01s linear; transform: translateX(-50%); }
+    }
+    /* Phone-shaped windows letterbox the artwork small, so the note takes the
+       width it needs rather than the column's. */
+    @media (max-width: 700px) {
+      #auth-step-choose > .auth-err { max-width: 76%; padding: 8px 12px; }
+    }
+    /* ══ GUEST SIGN-IN CARD ═════════════════════════════════════════
+       The other half of first sign-in. An account holder clicks CONTINUE WITH
+       GOOGLE and lands on CREATE YOUR USERNAME; a guest clicks PLAY AS GUEST
+       and lands here, and the two are asked for the same thing, so they are
+       drawn the same way: pale sea-glass card, navy lettering, one butter-gold
+       button. The tokens are lifted from #auth-step-nickname deliberately.
+
+       This used to be a dark slab pinned inside the octagon printed on
+       login-bg.png, at 33%/41%/34% of a fixed-aspect step. It was translucent
+       over painted text, so the artwork's own SIGN IN OR CREATE AN ACCOUNT read
+       straight through it, and its button was invisible (see the > note above).
+       A dialog over a scrim owes nothing to where the art happens to be. */
     #auth-guest-overlay {
+      --ag-ink:      #123a68;
+      --ag-ink-soft: #3f6d96;
+      --ag-teal:     #1c7fab;
+      --ag-line:     rgba(31,105,160,.22);
+      --ag-gold:     #e8b34a;
+
       display: none;
-      position: absolute;
-      left: 33%;
-      top: 41%;
-      width: 34%;
-      bottom: 27%;
-      z-index: 5;
-      background: rgba(6, 20, 56, 0.90);
-      border: 1px solid rgba(90, 170, 235, 0.45);
-      border-radius: 12px;
-      padding: 4% 4% 3%;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: clamp(4px, 0.9vh, 10px);
-      box-shadow: 0 4px 28px rgba(0, 0, 0, 0.6);
-      overflow: hidden;
+      /* Fixed, not absolute: #auth-step-choose is a letterboxed box of the
+         artwork's own aspect ratio, so an absolute scrim would stop at the
+         navy bars instead of dimming the screen. */
+      position: fixed; inset: 0; z-index: 30;
+      align-items: center; justify-content: center;
+      padding: 20px;
+      /* Dims the busy reef art so the card is the only thing to read, and
+         doubles as the reason the painted lettering behind stops competing. */
+      background:
+        radial-gradient(ellipse 80% 70% at 50% 50%, rgba(4,26,52,.62), rgba(3,18,38,.86) 100%);
+      -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
     }
     #auth-guest-overlay.visible { display: flex; }
-    #auth-guest-overlay .ago-title {
-      font-family: 'Cinzel', serif;
-      color: #9ad4f5;
-      font-size: clamp(10px, 1.5vw, 16px);
+
+    #auth-guest-overlay .ago-card {
+      /* Positioned so the card owns the coordinate space its children measure
+         against, the way #auth-screen > .auth-box does for the other steps. */
+      position: relative;
+      width: 100%; max-width: 392px;
+      box-sizing: border-box;
+      padding: 26px 26px 22px;
+      border-radius: 22px;
+      border: 1.5px solid rgba(255,255,255,.85);
+      background: linear-gradient(168deg,
+                    rgba(250,253,255,.97) 0%,
+                    rgba(230,245,253,.95) 56%,
+                    rgba(215,238,251,.95) 100%);
+      box-shadow: 0 0 0 1px rgba(20,80,130,.2),
+                  0 26px 64px rgba(3,26,52,.5),
+                  inset 0 1px 0 rgba(255,255,255,.95);
       text-align: center;
-      font-weight: 700;
-      line-height: 1.2;
+      /* A short window scrolls the card rather than clipping the button off it. */
+      max-height: min(94vh, 720px);
+      overflow-y: auto; overscroll-behavior: contain;
+      animation: ago-rise .22s cubic-bezier(.2,.9,.3,1.05);
+    }
+    @keyframes ago-rise {
+      from { opacity: 0; transform: translateY(10px) scale(.98); }
+      to   { opacity: 1; transform: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #auth-guest-overlay .ago-card { animation: none; }
+    }
+
+    /* ── Heading ────────────────────────────────────── */
+    #auth-guest-overlay .ago-head { margin-bottom: 18px; }
+    #auth-guest-overlay .ago-title {
+      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-weight: 800; font-size: clamp(1.3rem, 4.6vw, 1.55rem);
+      line-height: 1.15; letter-spacing: .2px;
+      color: var(--ag-ink); text-shadow: 0 1px 0 rgba(255,255,255,.8);
+    }
+    /* The same gold swash the username card wears, echoing PLAY AS GUEST. */
+    #auth-guest-overlay .ago-rule {
+      width: 56px; height: 3px; margin: 9px auto 11px; border-radius: 2px;
+      background: linear-gradient(90deg,
+                    rgba(232,179,74,0), var(--ag-gold) 50%, rgba(232,179,74,0));
     }
     #auth-guest-overlay .ago-sub {
-      color: #7ab8d8;
-      font-size: clamp(8px, 0.95vw, 11px);
-      text-align: center;
-      line-height: 1.4;
+      color: var(--ag-ink-soft);
+      font-size: 12.5px; line-height: 1.5;
+      max-width: 34ch; margin: 0 auto;
+      text-wrap: balance;
     }
+
+    /* ── Labelled field ──────────────────────────────── */
+    #auth-guest-overlay .ago-field-top {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 10px; margin-bottom: 6px;
+    }
+    #auth-guest-overlay .ago-lbl {
+      font-size: 10.5px; font-weight: 800;
+      letter-spacing: 1px; text-transform: uppercase;
+      color: var(--ag-teal);
+    }
+    #auth-guest-overlay .ago-count {
+      font-size: 10.5px; font-weight: 800; letter-spacing: .4px;
+      font-variant-numeric: tabular-nums;
+      color: rgba(63,109,150,.6);
+      transition: color .15s;
+    }
+    #auth-guest-overlay .ago-count.is-full { color: #b07a10; }
+
     #auth-guest-overlay .pv-input {
-      background: rgba(10, 38, 95, 0.70) !important;
-      border-color: rgba(100, 180, 240, 0.5) !important;
-      color: #d6eeff !important;
-      font-size: clamp(9px, 1.1vw, 13px) !important;
-      padding: clamp(4px, 0.7vh, 8px) clamp(6px, 1vw, 10px) !important;
-      width: 100%;
-      box-sizing: border-box;
+      display: block; width: 100%; box-sizing: border-box;
+      background: #fff;
+      border: 1.5px solid rgba(31,105,160,.28);
+      border-radius: 12px;
+      color: var(--ag-ink);
+      font-weight: 700;
+      font-size: 16px;              /* 16px keeps iOS from zooming on focus */
+      padding: 12px 14px;
+      box-shadow: inset 0 1px 3px rgba(16,58,104,.07);
+      transition: border-color .16s, box-shadow .16s;
     }
-    #auth-guest-overlay .pv-input::placeholder { color: #4e88b0; }
+    #auth-guest-overlay .pv-input::placeholder {
+      color: rgba(63,109,150,.5); font-weight: 600;
+    }
+    #auth-guest-overlay .pv-input:focus {
+      border-color: #35a8d4;
+      box-shadow: 0 0 0 3px rgba(53,168,212,.2), inset 0 1px 3px rgba(16,58,104,.05);
+    }
+
+    /* setAuthMsg() overwrites className outright, so this is styled by what it
+       IS, never by an extra class a status update would wipe. */
+    #auth-guest-overlay .auth-err,
+    #auth-guest-overlay .auth-ok {
+      text-align: left; font-size: 11.5px; font-weight: 700;
+      min-height: 15px; padding-top: 5px; line-height: 1.35;
+    }
+    /* Said the way the note row under it is said: a tinted rounded row with a
+       coloured edge, not a naked line of red on the sea glass. Empty is the
+       normal state and :empty is how it stays invisible, since setAuthMsg()
+       writes "" rather than removing the element. */
+    #auth-guest-overlay .auth-err:not(:empty),
+    #auth-guest-overlay .auth-ok:not(:empty) {
+      margin-top: 7px; padding: 7px 10px;
+      border-radius: 10px;
+    }
+    #auth-guest-overlay .auth-err { color: #8d2033; }
+    #auth-guest-overlay .auth-ok  { color: #0d6b52; }
+    #auth-guest-overlay .auth-err:not(:empty) {
+      background: rgba(198,74,74,.11);
+      box-shadow: inset 3px 0 0 rgba(176,36,60,.5);
+    }
+    #auth-guest-overlay .auth-ok:not(:empty) {
+      background: rgba(28,171,131,.12);
+      box-shadow: inset 3px 0 0 rgba(16,121,92,.45);
+    }
+
+    /* ── The one tinted row: what a guest gives up, said plainly ───── */
+    #auth-guest-overlay .ago-note {
+      display: flex; align-items: flex-start; gap: 9px;
+      margin: 12px 0 0;
+      padding: 10px 12px; border-radius: 12px;
+      background: rgba(53,168,212,.11);
+      text-align: left; font-size: 11.5px; line-height: 1.5;
+      color: var(--ag-ink-soft);
+    }
+    #auth-guest-overlay .ago-note strong { color: var(--ag-ink); font-weight: 800; }
+    #auth-guest-overlay .ago-ico {
+      flex: 0 0 auto; width: 14px; height: 14px; margin-top: 1px;
+      color: var(--ag-teal);
+    }
+
+    /* ── The one button ────────────────────────────────
+       Butter gold with dark ink: PLAY AS GUEST as painted on login-bg.png, not
+       the dark mustard .pv-btn.gold wears on the game's dark panels. */
     #auth-guest-overlay .pv-btn.gold {
-      font-size: clamp(9px, 1.1vw, 13px) !important;
-      padding: clamp(4px, 0.7vh, 9px) 0 !important;
-      min-height: 0 !important;
-      width: 100%;
+      display: block; width: 100%;
+      margin-top: 18px; padding: 14px 18px;
+      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-size: 15px; font-weight: 800; letter-spacing: .3px;
+      color: #4a3208; text-shadow: 0 1px 0 rgba(255,255,255,.45);
+      background: linear-gradient(180deg, #ffdf9d 0%, #f5c261 52%, #eeb043 100%);
+      border: 1.5px solid rgba(190,132,26,.55);
+      border-radius: 14px;
+      box-shadow: 0 4px 0 rgba(184,128,26,.5), 0 8px 20px rgba(20,60,100,.22),
+                  inset 0 1px 0 rgba(255,255,255,.75);
     }
-    #auth-guest-overlay .auth-err {
-      font-size: clamp(8px, 0.9vw, 11px);
-      min-height: 0;
-      text-align: center;
-      color: #e07070;
+    #auth-guest-overlay .pv-btn.gold:hover:not(:disabled) {
+      transform: none; filter: brightness(1.04);
+      box-shadow: 0 5px 0 rgba(184,128,26,.5), 0 12px 26px rgba(20,60,100,.28),
+                  inset 0 1px 0 rgba(255,255,255,.75);
     }
-    #auth-guest-overlay .auth-link {
-      color: #7ec8e8;
-      font-size: clamp(8px, 0.9vw, 11px);
-      cursor: pointer;
-      text-align: center;
+    #auth-guest-overlay .pv-btn.gold:active:not(:disabled) {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 rgba(184,128,26,.5), 0 4px 12px rgba(20,60,100,.22),
+                  inset 0 1px 0 rgba(255,255,255,.65);
     }
-    #auth-guest-overlay .auth-link:hover { text-decoration: underline; }
+
+    /* ── Back: a real button, under a hairline, quiet next to the gold ── */
+    #auth-guest-overlay .ago-back {
+      display: block; width: 100%;
+      margin: 14px 0 0; padding: 11px 0 0;
+      border: 0; border-top: 1px solid var(--ag-line);
+      background: none; cursor: pointer;
+      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-size: 12.5px; font-weight: 700; letter-spacing: .2px;
+      color: var(--ag-teal);
+    }
+    #auth-guest-overlay .ago-back:hover { color: var(--ag-ink); }
+    #auth-guest-overlay .ago-back:focus-visible {
+      outline: 2px solid #35a8d4; outline-offset: 2px; border-radius: 8px;
+    }
+
+    /* ── Small screens ────────────────────────────────
+       The gutter is padding on the SCRIM, so the card simply fills what is
+       left and cannot be knocked off centre by a scrollbar. */
+    @media (max-width: 460px) {
+      #auth-guest-overlay { padding: 14px; }
+      #auth-guest-overlay .ago-card {
+        max-width: none; padding: 22px 20px 18px; border-radius: 20px;
+      }
+      #auth-guest-overlay .ago-head { margin-bottom: 16px; }
+    }
+    /* Landscape phones and short laptop windows: tighten the vertical rhythm
+       so Dive In stays above the fold instead of behind a scrollbar. */
+    @media (max-height: 620px) {
+      #auth-guest-overlay .ago-card { padding: 18px 22px 16px; }
+      #auth-guest-overlay .ago-head { margin-bottom: 12px; }
+      #auth-guest-overlay .ago-rule { margin: 7px auto 8px; }
+      #auth-guest-overlay .ago-note { margin-top: 9px; }
+      #auth-guest-overlay .pv-btn.gold { margin-top: 13px; padding: 12px 18px; }
+      #auth-guest-overlay .ago-back { margin-top: 11px; padding-top: 9px; }
+    }
 
     /* Profile bar inside lobby */
     #auth-profile-bar {
@@ -12908,11 +13200,6 @@
       max-width: 420px;
       line-height: 1.35;
     }
-    #cc-fs-resume {
-      min-width: 210px;
-      text-align: center;
-    }
-
     /* ══════════════════════════════════════════════════════════════════
        TEAM MODE, lobby columns, swap popup, end-game reveal
        ══════════════════════════════════════════════════════════════════ */

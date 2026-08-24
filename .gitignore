@@ -256,6 +256,16 @@
 # Chrome will not open a window under 500px, so the phone widths are
 # measured in iframes. Neither fact survives a source grep.
 !test_username_screen.js
+# PLAY AS A GUEST. The step it lives in paints two INVISIBLE buttons, so its
+# rules say background/color:transparent and position:absolute; as a descendant
+# selector they reached into the guest card and erased Dive In. That, the fixed
+# scrim, and the phone widths are all measurements, not greppable source.
+!test_guest_card.js
+# The sign-in screen's status line, and the full-screen chip. What it pins is
+# all measurement: that the note is a card and not red text, that it never eats
+# a click meant for the artwork, that a calm note takes itself away, and that
+# the corner chip cannot appear before body.cc-signed-in exists.
+!test_auth_notice.js
 
 !fish_ai_brain.json
 !multiplayer/

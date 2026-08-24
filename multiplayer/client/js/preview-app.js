@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.83";
-  const APP_BUILD   = "2026-08-23.1";
+  const APP_VERSION = "1.6.84";
+  const APP_BUILD   = "2026-08-24.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -15431,12 +15431,25 @@
       if (!ok) try { showToast("Full screen was blocked, tap the button again.", "warn"); } catch (_) {}
     });
 
+    // The chip is the way back to full screen OUTSIDE a game. Inside one, the
+    // action bar already carries "⛶ Full Screen" and the two bottom corners are
+    // seat pills, so a floating chip would be a second button sitting on top of
+    // P1's name. Hence: only when the game screen is down.
+    const gameEl = document.getElementById("pv-game");
+    const inGame = () => !!(gameEl && gameEl.style.display !== "none");
     function onFsChange() {
-      if (wantsFullscreen && !isFs()) resume.classList.add("show");
+      if (wantsFullscreen && !isFs() && !inGame()) resume.classList.add("show");
       else resume.classList.remove("show");
     }
     document.addEventListener("fullscreenchange", onFsChange);
     document.addEventListener("webkitfullscreenchange", onFsChange);
+    // Leaving full screen is an event; opening or closing the game screen is
+    // not, and both change the answer. The game screen is shown and hidden by
+    // writing style.display in a dozen places, so watch the attribute rather
+    // than chase every one of them.
+    if (gameEl && typeof MutationObserver === "function") {
+      new MutationObserver(onFsChange).observe(gameEl, { attributes: true, attributeFilter: ["style"] });
+    }
   })();
 
   // ═══════════════════════════════════════════════════════════════
@@ -17000,12 +17013,59 @@
     // ── Helpers ─────────────────────────────────────────────────
     const $a = id => document.getElementById(id);
 
-    function setAuthMsg(id, msg, isOk) {
+    // Two little line-art SVGs, held here because they are the only markup this
+    // renderer writes. Everything Firebase or a player supplies goes in as
+    // textContent, never as HTML.
+    const AUTH_NOTE_ICON = {
+      // Calm news: two ripples, the same line-art language as the guest card.
+      info: '<svg class="auth-note-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true">'
+          + '<path d="M2.5 9.2c2.3-2.5 3.9-2.5 6.2 0s3.9 2.5 6.2 0 3.9-2.5 6.2 0"/>'
+          + '<path d="M2.5 15c2.3-2.5 3.9-2.5 6.2 0s3.9 2.5 6.2 0 3.9-2.5 6.2 0"/></svg>',
+      ok:   '<svg class="auth-note-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+          + '<path d="M4.6 12.6 9.6 17.5 19.4 6.9"/></svg>',
+      // Something really is wrong and the player has to do something about it.
+      warn: '<svg class="auth-note-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+          + '<circle cx="12" cy="12" r="9"/><path d="M12 7.4v5.4"/><path d="M12 16.3h.01"/></svg>',
+    };
+
+    // The chooser screen's status line lies on top of painted artwork, so it is
+    // a dressed sea-glass note (icon, navy lettering, gold or teal accent), not
+    // a stripe of red text floating over the reef. A calm note fades itself out
+    // after a few seconds; anything the player still has to act on stays until
+    // the next attempt clears it.
+    let _authNoteTimer = 0;
+    function setAuthNotice(el, msg, tone) {
+      if (_authNoteTimer) { clearTimeout(_authNoteTimer); _authNoteTimer = 0; }
+      el.classList.remove("is-info", "is-ok", "is-warn");
+      if (!msg) { el.classList.remove("is-on"); el.textContent = ""; return; }
+      const kind = (tone === "info" || tone === "ok") ? tone : "warn";
+      el.innerHTML = AUTH_NOTE_ICON[kind];
+      const say = document.createElement("span");
+      say.className = "auth-note-say";
+      say.textContent = msg;
+      el.appendChild(say);
+      el.classList.add("is-on", "is-" + kind);
+      if (kind === "info") _authNoteTimer = setTimeout(() => { el.classList.remove("is-on"); }, 7000);
+    }
+
+    // `tone` is a boolean at nearly every call site (true = good news). The auth
+    // screens have a third register the boolean cannot say: backing out of a
+    // sign-in is neither good news nor a fault, and painting it as a fault is
+    // what made closing the Google window look like something broke. Those call
+    // sites pass the string "info" instead.
+    function setAuthMsg(id, msg, tone) {
       const el = $a(id);
       if (!el) return;
+      const t = typeof tone === "string" ? tone : (tone ? "ok" : "warn");
+      if (el.classList.contains("auth-note")) { setAuthNotice(el, msg, t); return; }
       el.textContent = msg;
-      el.className = isOk ? "auth-ok" : "auth-err";
+      el.className = (t === "warn") ? "auth-err" : "auth-ok";
     }
+
+    // The one hook test_auth_notice.js drives: the real renderer, reached by the
+    // real element id, so what the test measures at five widths is exactly what
+    // a player sees. Nothing in the app calls it.
+    window.__ccAuthNote = (msg, tone) => setAuthMsg("auth-choose-err", msg, tone);
 
     // The same three rules guard three screens that do NOT call the thing by the
     // same name: a guest picks a "nickname", an account holder creates and then
@@ -18079,6 +18139,18 @@
       target.src = fallback;
     }, true);
 
+    // Closing the Google window, or clicking away from it, is a player changing
+    // their mind. It is not a fault, and it must never be dressed as one: these
+    // codes are shown as a calm note that fades itself out (see setAuthMsg's
+    // "info" tone), never as red text on the artwork.
+    const AUTH_CANCEL_CODES = [
+      "auth/popup-closed-by-user",
+      "auth/popup-cancelled-by-user",
+      "auth/cancelled-popup-request",
+      "auth/user-cancelled",
+    ];
+    const isAuthCancel = (code) => AUTH_CANCEL_CODES.includes(code);
+
     function friendlyAuthErr(code) {
       const map = {
         "auth/wrong-password":         "Incorrect password.",
@@ -18087,17 +18159,19 @@
         "auth/email-already-in-use":   "An account already exists with that email.",
         "auth/weak-password":          "Password must be at least 6 characters.",
         "auth/invalid-email":          "Invalid email address.",
-        "auth/popup-closed-by-user":   "Sign-in popup was closed.",
-        "auth/popup-cancelled-by-user":"Sign-in popup was cancelled.",
-        "auth/popup-blocked":          "Popup was blocked. Allow popups for this site and try again.",
-        "auth/cancelled-popup-request":"Sign-in cancelled.",
-        "auth/network-request-failed": "Network error. Check your connection.",
-        "auth/too-many-requests":      "Too many attempts. Please wait and try again.",
+        // The three "you backed out" cases. Said the way a deckhand would say
+        // it: nothing went wrong, the water is still here when you are ready.
+        "auth/popup-closed-by-user":   "No harm done, that sign-in window closed. Dive in whenever you're ready.",
+        "auth/popup-cancelled-by-user":"Sign-in stopped. Dive in whenever you're ready.",
+        "auth/cancelled-popup-request":"Sign-in stopped. Dive in whenever you're ready.",
+        "auth/popup-blocked":          "Your browser blocked the sign-in window. Allow pop-ups for this site, then try again.",
+        "auth/network-request-failed": "The tide went out on your connection. Check it and try again.",
+        "auth/too-many-requests":      "Too many tries in a row. Wait a moment, then try again.",
         "auth/unauthorized-domain":    "This domain isn't authorized for Google sign-in. Add it in Firebase console → Authentication → Authorized Domains.",
         "auth/operation-not-allowed":  "Google sign-in is not enabled. Enable it in Firebase console → Authentication → Sign-in providers.",
-        "auth/internal-error":         "Google sign-in failed (internal error). Try again.",
+        "auth/internal-error":         "Google sign-in didn't finish. Try that once more.",
       };
-      return map[code] || `Sign-in error (${code || "unknown"}). Try again.`;
+      return map[code] || `Sign-in didn't finish (${code || "unknown"}). Try again.`;
     }
 
     // ── Firestore helpers ────────────────────────────────────────
@@ -18482,6 +18556,10 @@
       });
       const scr = $a("auth-screen");
       scr.classList.remove("hidden");
+      // Any auth step showing means the player is back outside the door, so the
+      // floating game chrome that is gated on cc-signed-in (the back-to-full-
+      // screen chip) goes away rather than floating over the artwork.
+      document.body.classList.remove("cc-signed-in");
       // The kelp-forest backdrop belongs to CREATE YOUR USERNAME alone. The
       // other three steps paint their own artwork edge to edge, so showing it
       // under them would only put a second seabed behind the first.
@@ -19185,6 +19263,9 @@
       _playerNickname = (nickname || "").trim();
       _friendCode     = code || "";
       _guestSessionActive = !_authUser;
+      // Through the door, by either road (guest or account). Floating game
+      // chrome may exist from here on, and not one moment earlier.
+      document.body.classList.add("cc-signed-in");
       // A registered player is now in their account, drop any stale guest
       // session left in localStorage so it can never later hijack a re-auth
       // (e.g. a token refresh momentarily reading as signed-out) and drop them
@@ -20815,20 +20896,58 @@
     window.__ccShowPrivacy = ccShowPrivacy;
 
     // ── Guest flow ───────────────────────────────────────────────
-    $a("auth-guest-btn").addEventListener("click", () => {
+    // The guest card is a dialog laid over the sign-in artwork, so while it is
+    // up the two painted buttons underneath it are held inert: they are
+    // invisible boxes and the scrim does not stop a click reaching them.
+
+    // Says what maxlength is silently enforcing, the same way the username
+    // card does. Reads the RAW length, because raw length is what maxlength
+    // caps, and a counter that disagreed with the cap would be worse than none.
+    function paintGuestCount() {
+      const inp = $a("auth-guest-nick"), out = $a("auth-guest-count");
+      if (!inp || !out) return;
+      const n = (inp.value || "").length;
+      out.textContent = n + " / 15";
+      out.classList.toggle("is-full", n >= 15);
+    }
+
+    function openGuestCard() {
       $a("auth-guest-overlay").classList.add("visible");
       $a("auth-guest-btn").style.pointerEvents = "none";
       $a("auth-choose-google-btn").style.pointerEvents = "none";
-      setAuthMsg("auth-guest-err", "", false);
+      setAuthMsg("auth-guest-err", "", true);
+      // Whatever the chooser was saying belongs to the chooser; it must not be
+      // left glowing under the scrim while this card is open.
+      setAuthMsg("auth-choose-err", "", true);
       $a("auth-guest-nick").value = "";
+      paintGuestCount();
       setTimeout(() => $a("auth-guest-nick").focus(), 60);
-    });
+    }
 
-    $a("auth-guest-back").addEventListener("click", () => {
+    function closeGuestCard() {
       $a("auth-guest-overlay").classList.remove("visible");
       $a("auth-guest-btn").style.pointerEvents = "";
       $a("auth-choose-google-btn").style.pointerEvents = "";
-    });
+      // Backing out of the guest card is not a failed sign-in, so nothing it
+      // said stays behind on the artwork you land back on.
+      setAuthMsg("auth-guest-err", "", true);
+      setAuthMsg("auth-choose-err", "", true);
+    }
+
+    $a("auth-guest-btn").addEventListener("click", openGuestCard);
+    $a("auth-guest-back").addEventListener("click", closeGuestCard);
+    $a("auth-guest-nick").addEventListener("input", paintGuestCount);
+    paintGuestCount();
+
+    // Escape closes it, as a dialog should. A click on the scrim deliberately
+    // does NOT: what shows through it is CONTINUE WITH GOOGLE, painted into the
+    // artwork, and dismissing the card on a click aimed at that button would
+    // read as having signed in. Back is right there and says where it goes.
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      const ol = $a("auth-guest-overlay");
+      if (ol && ol.classList.contains("visible")) { e.stopPropagation(); closeGuestCard(); }
+    }, true);
 
     async function beginCleanGoogleSignIn(errId) {
       if (!_auth) {
@@ -20860,14 +20979,16 @@
           setAuthMsg(errId, "You selected the same Google account. Choose a different account in the Google picker.", false);
         }
       } catch (e) {
-        ccReport("firebase_google_signin_failed", ccErrDetail(e), "warn");
+        // A player closing the Google window is a decision, not a failure, so
+        // it is not filed in the error log as one either.
+        if (!isAuthCancel(e.code)) ccReport("firebase_google_signin_failed", ccErrDetail(e), "warn");
         const popupBlocked = ["auth/popup-blocked","auth/cancelled-popup-request"].includes(e.code);
         if (popupBlocked) {
           const rp = new firebase.auth.GoogleAuthProvider();
           rp.setCustomParameters({ prompt: "select_account consent" });
           try { await _auth.signInWithRedirect(rp); return; } catch {}
         }
-        setAuthMsg(errId, friendlyAuthErr(e.code), false);
+        setAuthMsg(errId, friendlyAuthErr(e.code), isAuthCancel(e.code) ? "info" : "warn");
       }
     }
 
@@ -20893,7 +21014,9 @@
         provider.setCustomParameters({ prompt: "select_account consent" });
         await _auth.signInWithPopup(provider);
       } catch (e) {
-        ccReport("firebase_google_signin_failed", ccErrDetail(e), "warn");
+        // A player closing the Google window is a decision, not a failure, so
+        // it is not filed in the error log as one either.
+        if (!isAuthCancel(e.code)) ccReport("firebase_google_signin_failed", ccErrDetail(e), "warn");
         const popupBlocked = ["auth/popup-blocked","auth/cancelled-popup-request"].includes(e.code);
         if (popupBlocked) {
           try {
@@ -20903,7 +21026,7 @@
             await _auth.signInWithRedirect(rp); return;
           } catch (_) {}
         }
-        setAuthMsg(errId, friendlyAuthErr(e.code), false);
+        setAuthMsg(errId, friendlyAuthErr(e.code), isAuthCancel(e.code) ? "info" : "warn");
       }
     }
 
@@ -20953,7 +21076,7 @@
       }).catch(e => {
         if (e.code && e.code !== "auth/no-current-user") {
           ccReport("firebase_redirect_result_failed", ccErrDetail(e), "warn");
-          setAuthMsg("auth-choose-err", friendlyAuthErr(e.code), false);
+          setAuthMsg("auth-choose-err", friendlyAuthErr(e.code), isAuthCancel(e.code) ? "info" : "warn");
         }
       });
     }

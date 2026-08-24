@@ -58,7 +58,7 @@
     })();
   </script>
 
-  <script defer src="/js/error-logging.js?v=2026-08-23.1"></script>
+  <script defer src="/js/error-logging.js?v=2026-08-24.1"></script>
 
   <!-- Firebase config, generated at build time from VITE_FIREBASE_* env vars -->
   <script defer src="/firebase-config.js"></script>
@@ -66,24 +66,24 @@
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-08-23.1" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-08-24.1" />
   <!-- The printed rulebook's own stylesheet. Split out of preview.css so the
        standalone How to Play page (/rules) can render the very same book
        without pulling in the whole game stylesheet. Must load AFTER
        preview.css so the cascade is exactly what it was before the split. -->
-  <link rel="stylesheet" href="/css/rulebook.css?v=2026-08-23.1" />
+  <link rel="stylesheet" href="/css/rulebook.css?v=2026-08-24.1" />
   <!-- The privacy policy's own stylesheet, on the same split as the rulebook:
        the published /privacy page renders the very same document without
        pulling in the whole game stylesheet. Must load AFTER preview.css. -->
-  <link rel="stylesheet" href="/css/privacy.css?v=2026-08-23.1" />
+  <link rel="stylesheet" href="/css/privacy.css?v=2026-08-24.1" />
   <!-- Prestige: the Prestige page's own ocean scene, plus the .cc-pname /
        .cc-pbadge rules that draw a Prestige username and badge ANYWHERE in the
        game. Must load AFTER preview.css so those name styles win. -->
-  <link rel="stylesheet" href="/css/prestige.css?v=2026-08-23.1" />
+  <link rel="stylesheet" href="/css/prestige.css?v=2026-08-24.1" />
   <!-- Developer Analytics: the admin dashboard's own stylesheet, split out the
        same way, everything in it is scoped under #ccA-overlay, which nothing
        else on the page ever renders, so it cannot touch the game. -->
-  <link rel="stylesheet" href="/css/analytics.css?v=2026-08-23.1" />
+  <link rel="stylesheet" href="/css/analytics.css?v=2026-08-24.1" />
 </head>
 <body>
 
@@ -91,7 +91,7 @@
      There is no "choose your device" screen any more. js/device-select.js
      works it out: a touch means mobile, a mouse means computer, and a real
      input event outranks its own opening guess. Nothing is rendered here. -->
-<script defer src="/js/device-select.js?v=2026-08-23.1"></script>
+<script defer src="/js/device-select.js?v=2026-08-24.1"></script>
 
 <!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══
      The whole screen is the baked artwork (fullscreen-splash.png). #ccfs-play
@@ -116,7 +116,11 @@
     <button id="ccfs-window" class="ccfs-window" type="button" aria-label="Continue playing without full screen">Continue in this window</button>
   </div>
 </div>
-<button id="cc-fs-resume" type="button" title="Return to full screen" aria-label="Return to full screen">⛶ Return to full screen</button>
+<!-- Shown only if a player who asked for full screen drops out of it, and only
+     once they are signed in (body.cc-signed-in). A quiet ocean-glass chip in
+     the bottom-left corner: the glyph alone until you look at it, the whole
+     label on hover or keyboard focus. -->
+<button id="cc-fs-resume" type="button" title="Back to full screen" aria-label="Back to full screen"><span class="ccfs-glyph" aria-hidden="true">⛶</span><span class="ccfs-word">Back to full screen</span></button>
 
 <!-- ══ AUTH LOADING (covers page while Firebase resolves) ═════════ -->
 <div id="auth-loading-screen">Diving in…</div>
@@ -149,15 +153,48 @@
     <img src="/login-bg.png?v=43" alt="Currents and Critters" class="auth-step-choose-img" />
     <button id="auth-guest-btn" class="pv-btn gold full" aria-label="Play as Guest"></button>
     <button id="auth-choose-google-btn" class="auth-btn-google" aria-label="Continue with Google"></button>
-    <div class="auth-err" id="auth-choose-err"></div>
-    <!-- Guest form overlay, shown inside the octagon when guest is chosen -->
-    <div id="auth-guest-overlay">
-      <div class="ago-title">Guest Nickname</div>
-      <div class="ago-sub">Choose a nickname for this session.<br>No account needed.</div>
-      <input id="auth-guest-nick" class="pv-input" placeholder="Nickname (3–15 chars)" maxlength="15" autocomplete="off" />
-      <div class="auth-err" id="auth-guest-err"></div>
-      <button id="auth-guest-go-btn" class="pv-btn gold full">Dive In →</button>
-      <span class="auth-link" id="auth-guest-back">← Back</span>
+    <!-- The chooser's one status line. It lies on painted artwork, so .auth-note
+         makes setAuthMsg() render it as a dressed sea-glass note (icon + navy
+         lettering) instead of the bare red line every other auth field uses.
+         The class is the switch: setAuthMsg reads it, so this element and only
+         this element gets the treatment. -->
+    <div class="auth-err auth-note" id="auth-choose-err" role="status" aria-live="polite"></div>
+    <!-- Guest sign-in card.
+         The screen behind this one is a single painted image, so the card
+         cannot sit INSIDE the octagon printed on it: the artwork's own
+         lettering shows through and the two fight each other. It is a real
+         dialog instead, centred over a scrim, dressed exactly like CREATE YOUR
+         USERNAME (the screen an account holder gets at this same moment) so
+         both ways into the game look like the same game.
+
+         It stays a CHILD of #auth-step-choose so showStep() hiding the step
+         hides the card with it; every rule that paints the step's two
+         invisible buttons is scoped with > so it cannot reach in here. -->
+    <div id="auth-guest-overlay" role="dialog" aria-modal="true" aria-labelledby="ago-title">
+      <div class="ago-card">
+        <div class="ago-head">
+          <div class="ago-title" id="ago-title">Play as a Guest</div>
+          <div class="ago-rule" aria-hidden="true"></div>
+          <div class="ago-sub">Pick a name for this session. No account needed.</div>
+        </div>
+
+        <div class="ago-field-top">
+          <label class="ago-lbl" for="auth-guest-nick">Nickname</label>
+          <span class="ago-count" id="auth-guest-count" aria-hidden="true">0 / 15</span>
+        </div>
+        <input id="auth-guest-nick" class="pv-input" placeholder="3 to 15 characters" maxlength="15"
+               autocomplete="off" autocapitalize="off" spellcheck="false" />
+        <div class="auth-err" id="auth-guest-err"></div>
+
+        <div class="ago-note">
+          <svg class="ago-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7.2-4.6-7.2-10.2A7.2 7.2 0 0 1 12 3.6a7.2 7.2 0 0 1 7.2 7.2C19.2 16.4 12 21 12 21Z"/><circle cx="12" cy="10.6" r="2.6"/></svg>
+          <span>A guest plays everything. Your stats just stay <strong>in this browser</strong>
+            until you sign in.</span>
+        </div>
+
+        <button id="auth-guest-go-btn" class="pv-btn gold full">Dive In →</button>
+        <button type="button" class="ago-back" id="auth-guest-back">← Back to sign in</button>
+      </div>
     </div>
   </div>
 
@@ -2963,63 +3000,63 @@
 
 <!-- The printed rulebook, one shared source for the How to play tab and the
      in-game Rule Book modal. Must load before preview-app.js reads it. -->
-<script defer src="/js/rulebook.js?v=2026-08-23.1"></script>
+<script defer src="/js/rulebook.js?v=2026-08-24.1"></script>
 
 <!-- Family colours + the built-in strategy list, shared with the published
      How to Play page (/rules) so the two can never drift. Deferred scripts
      run in document order, so this lands before preview-app.js reads it. -->
-<script defer src="/js/gamedata.js?v=2026-08-23.1"></script>
+<script defer src="/js/gamedata.js?v=2026-08-24.1"></script>
 
 <!-- The privacy policy, one shared source for the published /privacy page and
      the in-game reader (Settings → 📜 Legal). Must load before preview-app.js
      reads window.CC_PRIVACY_HTML. -->
-<script defer src="/js/privacy-policy.js?v=2026-08-23.1"></script>
+<script defer src="/js/privacy-policy.js?v=2026-08-24.1"></script>
 
 <!-- Level Pass, the Invite-a-Friend card and the Avatar Gallery's level
      track. One stylesheet: they are one idea seen from three places. -->
-<link rel="stylesheet" href="/css/level-pass.css?v=2026-08-23.1">
+<link rel="stylesheet" href="/css/level-pass.css?v=2026-08-24.1">
 <!-- Game Night. Also served to the marketing site (Vercel rewrites /css/:file),
      so the banner looks identical on both hosts from one source. -->
-<link rel="stylesheet" href="/css/game-night.css?v=2026-08-23.1">
+<link rel="stylesheet" href="/css/game-night.css?v=2026-08-24.1">
 
-<script defer src="/js/preview-app.js?v=2026-08-23.1"></script>
+<script defer src="/js/preview-app.js?v=2026-08-24.1"></script>
 
 <!-- Level Pass: the reward track over levels 1-100. Every rule is server-side
      (/api/pass/*); this renders state and sends intents. -->
-<script defer src="/js/level-pass.js?v=2026-08-23.1"></script>
+<script defer src="/js/level-pass.js?v=2026-08-24.1"></script>
 <!-- Friend-code referral reward. Pays two accounts, so the server owns all of
      it (/api/referral/*); this collects digits and renders the answer. -->
-<script defer src="/js/referral.js?v=2026-08-23.1"></script>
+<script defer src="/js/referral.js?v=2026-08-24.1"></script>
 <!-- Game Night banner. Self-injects at the top of the Overview panel. -->
-<script defer src="/js/game-night.js?v=2026-08-23.1"></script>
+<script defer src="/js/game-night.js?v=2026-08-24.1"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
-<script defer src="/js/tournament-ui.js?v=2026-08-23.1"></script>
+<script defer src="/js/tournament-ui.js?v=2026-08-24.1"></script>
 
 <!-- Clan System (Clans tab below Leaderboard; renders into #cc-clans-root). -->
-<script defer src="/js/clans-ui.js?v=2026-08-23.1"></script>
+<script defer src="/js/clans-ui.js?v=2026-08-24.1"></script>
 
 <!-- Prestige System (Prestige page + the badge/name-colour renderer used by
      every username in the game; renders into #cc-prestige-root). -->
-<script defer src="/js/prestige-ui.js?v=2026-08-23.1"></script>
+<script defer src="/js/prestige-ui.js?v=2026-08-24.1"></script>
 
 <!-- Discord join reward, the "+250 Critter Coins" chip beside the Join the
      Discord button, and the verified claim behind it. It renders into the one
      #ph-discord-reward button and stays hidden until the server says the offer
      is switched on. -->
-<script defer src="/js/discord-reward.js?v=2026-08-23.1"></script>
+<script defer src="/js/discord-reward.js?v=2026-08-24.1"></script>
 
 <!-- Developer Analytics, a full-screen, admin-only dashboard. It builds no DOM
      and makes no request until the Analytics sidebar button is clicked, so it
      costs every player nothing but the parse. -->
-<script defer src="/js/analytics-ui.js?v=2026-08-23.1"></script>
+<script defer src="/js/analytics-ui.js?v=2026-08-24.1"></script>
 <!-- Custom bracket BUILDER, the host's design canvas. Inert until opened from
      the New Tournament modal, so it costs nothing on every other page. -->
-<script defer src="/js/tournament-builder.js?v=2026-08-23.1"></script>
+<script defer src="/js/tournament-builder.js?v=2026-08-24.1"></script>
 
-<script defer src="/js/challenge-of-challenges.js?v=2026-08-23.1"></script>
+<script defer src="/js/challenge-of-challenges.js?v=2026-08-24.1"></script>
 
-<script defer src="/js/hidden-cephalopods.js?v=2026-08-23.1"></script>
+<script defer src="/js/hidden-cephalopods.js?v=2026-08-24.1"></script>
 
 <!-- ══ CHALLENGE OF CHALLENGES MODALS ════════════════════════════ -->
 
@@ -3092,13 +3129,13 @@
      Visible ONLY for currentsandcritters@gmail.com. Every tool is gated
      behind its own ON/OFF toggle; OFF fully disables the tool.
      ══════════════════════════════════════════════════════════════════ -->
-<script defer src="/js/current-controller.js?v=2026-08-23.1"></script>
+<script defer src="/js/current-controller.js?v=2026-08-24.1"></script>
 <!-- ══════════════════════════════════════════════════════════════════
      TUTORIAL v2, three modes (Main Menu Tour · The Game · Practice B-Lob).
      Completing ALL THREE unlocks the Osprey avatar. Stage 1: launcher +
      completion tracking + the Main Menu Tour (spotlight coachmarks over the
      real lobby). The Game tour and B-Lob practice arrive in later stages.
      ══════════════════════════════════════════════════════════════════ -->
-<script defer src="/js/tutorials.js?v=2026-08-23.1"></script>
+<script defer src="/js/tutorials.js?v=2026-08-24.1"></script>
 </body>
 </html>
