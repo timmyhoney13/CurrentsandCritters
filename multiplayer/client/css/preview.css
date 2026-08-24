@@ -6086,29 +6086,62 @@
       position: fixed; inset: 0; z-index: 30;
       align-items: center; justify-content: center;
       padding: 20px;
-      /* Dims the busy reef art so the card is the only thing to read, and
-         doubles as the reason the painted lettering behind stops competing. */
-      background:
-        radial-gradient(ellipse 80% 70% at 50% 50%, rgba(4,26,52,.62), rgba(3,18,38,.86) 100%);
-      -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+      /* The floor under the scenery, for the instant before the art paints. */
+      background: #0f4a6b;
     }
     #auth-guest-overlay.visible { display: flex; }
 
+    /* ── The room the card stands in ────────────────────────────────
+       The kelp forest, the same scenery CREATE YOUR USERNAME opens onto, so a
+       guest and an account holder are asked for their name in the same place.
+       It is painted by the overlay's own pseudo-elements: they are absolutely
+       positioned, so being generated children of a flex container costs
+       nothing, and there is no extra element to keep behind the card.
+
+       bg-kelp.png is round board art on a pale square, so it is overscanned
+       (inset -8% AND scale 1.2) to push that pale ring off every window shape,
+       and blurred to drop the scenery behind the card. Exactly what
+       #auth-screen .auth-kelp-bg does; the numbers are lifted from it. */
+    #auth-guest-overlay::before {
+      content: ""; position: absolute; inset: -8%;
+      background: url("/backgrounds/bg-kelp.png") center 56% / cover no-repeat;
+      transform: scale(1.2);
+      filter: blur(4px) saturate(1.06);
+      pointer-events: none;
+    }
+    /* Depth: a vignette that settles the corners so the eye goes to the card,
+       over water that is sunlit at the surface and deepens towards the seabed.
+       It is also the matte for the last pixels of pale ring the overscan
+       cannot reach on the most extreme window shapes. */
+    #auth-guest-overlay::after {
+      content: ""; position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 112% 92% at 50% 48%,
+          rgba(4,32,58,.10) 34%, rgba(4,32,58,.46) 74%, rgba(3,24,46,.82) 100%),
+        linear-gradient(180deg,
+          rgba(150,222,240,.14) 0%, rgba(8,52,80,.12) 42%, rgba(4,28,52,.55) 100%);
+      pointer-events: none;
+    }
+
     #auth-guest-overlay .ago-card {
       /* Positioned so the card owns the coordinate space its children measure
-         against, the way #auth-screen > .auth-box does for the other steps. */
-      position: relative;
-      width: 100%; max-width: 392px;
+         against, the way #auth-screen > .auth-box does for the other steps,
+         and so it stacks in FRONT of the scenery the overlay paints. */
+      position: relative; z-index: 1;
+      width: 100%; max-width: 404px;
       box-sizing: border-box;
-      padding: 26px 26px 22px;
-      border-radius: 22px;
-      border: 1.5px solid rgba(255,255,255,.85);
+      padding: 28px 28px 24px;
+      border-radius: 24px;
+      border: 1.5px solid rgba(255,255,255,.9);
       background: linear-gradient(168deg,
                     rgba(250,253,255,.97) 0%,
                     rgba(230,245,253,.95) 56%,
                     rgba(215,238,251,.95) 100%);
+      /* The halo is what keeps a pale card off a busy kelp forest: a rim of
+         its own light, then the shadow that lifts it off the water. */
       box-shadow: 0 0 0 1px rgba(20,80,130,.2),
-                  0 26px 64px rgba(3,26,52,.5),
+                  0 0 46px rgba(28,127,171,.38),
+                  0 30px 70px rgba(3,26,52,.55),
                   inset 0 1px 0 rgba(255,255,255,.95);
       text-align: center;
       /* A short window scrolls the card rather than clipping the button off it. */
@@ -6128,20 +6161,20 @@
     #auth-guest-overlay .ago-head { margin-bottom: 18px; }
     #auth-guest-overlay .ago-title {
       font-family: "Baloo 2", "Nunito", sans-serif;
-      font-weight: 800; font-size: clamp(1.3rem, 4.6vw, 1.55rem);
-      line-height: 1.15; letter-spacing: .2px;
+      font-weight: 800; font-size: clamp(1.42rem, 5vw, 1.72rem);
+      line-height: 1.12; letter-spacing: .2px;
       color: var(--ag-ink); text-shadow: 0 1px 0 rgba(255,255,255,.8);
     }
     /* The same gold swash the username card wears, echoing PLAY AS GUEST. */
     #auth-guest-overlay .ago-rule {
-      width: 56px; height: 3px; margin: 9px auto 11px; border-radius: 2px;
+      width: 64px; height: 3px; margin: 10px auto 12px; border-radius: 2px;
       background: linear-gradient(90deg,
                     rgba(232,179,74,0), var(--ag-gold) 50%, rgba(232,179,74,0));
     }
     #auth-guest-overlay .ago-sub {
       color: var(--ag-ink-soft);
-      font-size: 12.5px; line-height: 1.5;
-      max-width: 34ch; margin: 0 auto;
+      font-size: 13px; line-height: 1.5;
+      max-width: 32ch; margin: 0 auto;
       text-wrap: balance;
     }
 
@@ -6210,21 +6243,6 @@
       box-shadow: inset 3px 0 0 rgba(16,121,92,.45);
     }
 
-    /* ── The one tinted row: what a guest gives up, said plainly ───── */
-    #auth-guest-overlay .ago-note {
-      display: flex; align-items: flex-start; gap: 9px;
-      margin: 12px 0 0;
-      padding: 10px 12px; border-radius: 12px;
-      background: rgba(53,168,212,.11);
-      text-align: left; font-size: 11.5px; line-height: 1.5;
-      color: var(--ag-ink-soft);
-    }
-    #auth-guest-overlay .ago-note strong { color: var(--ag-ink); font-weight: 800; }
-    #auth-guest-overlay .ago-ico {
-      flex: 0 0 auto; width: 14px; height: 14px; margin-top: 1px;
-      color: var(--ag-teal);
-    }
-
     /* ── The one button ────────────────────────────────
        Butter gold with dark ink: PLAY AS GUEST as painted on login-bg.png, not
        the dark mustard .pv-btn.gold wears on the game's dark panels. */
@@ -6282,7 +6300,6 @@
       #auth-guest-overlay .ago-card { padding: 18px 22px 16px; }
       #auth-guest-overlay .ago-head { margin-bottom: 12px; }
       #auth-guest-overlay .ago-rule { margin: 7px auto 8px; }
-      #auth-guest-overlay .ago-note { margin-top: 9px; }
       #auth-guest-overlay .pv-btn.gold { margin-top: 13px; padding: 12px 18px; }
       #auth-guest-overlay .ago-back { margin-top: 11px; padding-top: 9px; }
     }

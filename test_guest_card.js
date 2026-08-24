@@ -79,6 +79,28 @@ console.log("\nthe step's invisible-button rules stop at its own children");
         /<div id="auth-step-choose"[\s\S]{0,400}?<button id="auth-guest-btn"/.test(HTML));
 }
 
+console.log("\nit opens onto the kelp forest, the room CREATE YOUR USERNAME stands in");
+{
+  const OL = (() => {
+    const a = CSS.indexOf("#auth-guest-overlay {");
+    return a < 0 ? "" : CSS.slice(a, CSS.indexOf("#auth-guest-overlay .ago-card {", a));
+  })();
+  check("the scenery is the game's own kelp art, not a flat dark scrim",
+        /#auth-guest-overlay::before[\s\S]{0,300}?backgrounds\/bg-kelp\.png/.test(OL));
+  check("…overscanned, or the pale ring around that round art reaches the edge",
+        /#auth-guest-overlay::before[\s\S]{0,300}?inset: -8%/.test(OL)
+        && /#auth-guest-overlay::before[\s\S]{0,300}?scale\(1\.2\)/.test(OL));
+  check("…and dropped back with a blur, so the card is the sharpest thing on screen",
+        /#auth-guest-overlay::before[\s\S]{0,300}?filter: blur\(/.test(OL));
+  check("…under a vignette, so the eye goes to the card",
+        /#auth-guest-overlay::after[\s\S]{0,300}?radial-gradient/.test(OL));
+  check("the scenery cannot take a click meant for the card",
+        (OL.match(/pointer-events: none/g) || []).length >= 2);
+  check("…and the card stacks in FRONT of it",
+        /#auth-guest-overlay \.ago-card \{[\s\S]{0,400}?position: relative; z-index: 1;/.test(CSS),
+        "generated content on a positioned parent paints over an unpositioned child");
+}
+
 console.log("\nthe card is a dialog over a scrim, not a slab inside the octagon");
 {
   check("it is fixed, so the scrim covers the screen and not the letterboxed step",
@@ -102,14 +124,17 @@ console.log("\nit is dressed like CREATE YOUR USERNAME, because it is the same m
         /#auth-guest-overlay \.ago-title\s*\{[^}]*"Baloo 2"/.test(CSS));
   check("same butter-gold button with dark ink, not the dark mustard one",
         /#auth-guest-overlay \.pv-btn\.gold\s*\{[^}]*color:\s*#4a3208/.test(CSS));
-  check("same sea-glass card gradient", /#auth-guest-overlay \.ago-card[\s\S]{0,400}?linear-gradient\(168deg/.test(CSS));
+  check("same sea-glass card gradient", /#auth-guest-overlay \.ago-card[\s\S]{0,700}?linear-gradient\(168deg/.test(CSS));
   check("same gold swash under the title", /#auth-guest-overlay \.ago-rule\s*\{/.test(CSS));
   check("same labelled field with a counter beside the label",
         /#auth-guest-overlay \.ago-lbl\s*\{/.test(CSS) && /#auth-guest-overlay \.ago-count\s*\{/.test(CSS));
-  check("same single tinted note row, and only one of them",
-        (CARD.match(/class="ago-note"/g) || []).length === 1);
-  check("the note is a drawn icon, not an emoji the platform picks",
-        /<svg class="ago-ico"/.test(CARD) && !/[\u{1F300}-\u{1FAFF}]/u.test(CARD));
+  // The card asks one thing and says nothing else. The tinted row explaining
+  // that a guest's stats live in this browser is gone, and so is its CSS: the
+  // Player Home guest banners already say it, at the moment it matters.
+  check("nothing on the card but the ask",
+        !/class="ago-note"/.test(CARD) && !/in this browser/.test(CARD)
+        && !/ago-note|ago-ico/.test(CSS));
+  check("no emoji the platform picks its own art for", !/[\u{1F300}-\u{1FAFF}]/u.test(CARD));
   check("every rule is scoped to the card, so no other auth box is touched",
         (CSS.match(/^\s*#auth-guest-overlay/gm) || []).length > 20);
 }
