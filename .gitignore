@@ -266,6 +266,11 @@
 # a click meant for the artwork, that a calm note takes itself away, and that
 # the corner chip cannot appear before body.cc-signed-in exists.
 !test_auth_notice.js
+# Player Home's four action cards and the Friends tab. It measures what a
+# stylesheet read cannot: that each card's NAME is light ink on its gradient
+# (a stale second .ph-action-label rule paints it navy, which was invisible
+# while the cards were images), and that the reef is attached to the window.
+!test_home_actions.js
 
 !fish_ai_brain.json
 !multiplayer/

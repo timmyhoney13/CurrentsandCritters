@@ -7056,9 +7056,7 @@
       position: relative;
     }
     /* Bottom-left readability scrim (a gradient, not a blur), guarantees the
-       title/subtitle stay legible on the lighter top of each gradient. Anchored
-       to the bottom-left and faded to transparent before the coral art on the
-       right, so it never darkens the illustration. */
+       title/subtitle stay legible on the lighter top of each card's gradient. */
     .ph-action-card::before {
       content: "";
       position: absolute;
@@ -7074,35 +7072,14 @@
       transform: translateY(-3px);
       box-shadow: 0 16px 38px rgba(0,45,110,.30), inset 0 1px 0 rgba(255,255,255,.22);
     }
-    /* ── Image-based action cards: the exact reference artwork ───────
-       The button shows ONE image (text + coral baked in). It matches the
-       image aspect ratio so nothing is cropped, and the image sits on top of
-       any gradient/scrim/per-tab styling so the artwork is identical on every
-       tab. The button stays fully clickable. */
-    .ph-action-img-card {
-      aspect-ratio: 472 / 304;
-      height: auto !important;
-      min-height: 0 !important;
-      padding: 0 !important;
-      border: none !important;
-      background: transparent !important;
-    }
-    .ph-action-img-card::before { display: none !important; }  /* no scrim, text is in the image */
-    .ph-action-img {
-      position: absolute; inset: 0;
-      width: 100%; height: 100%;
-      object-fit: cover;
-      border-radius: inherit;
-      display: block;
-      z-index: 2;
-      -webkit-user-drag: none; user-select: none;
-      pointer-events: none;   /* clicks pass through to the button */
-    }
-    /* Individual card gradient themes, cleaner, evenly-weighted stops */
-    .ph-action-card:nth-child(1) { background: linear-gradient(145deg, #6fd6f2 0%, #2cb4e6 38%, #1583c9 72%, #0f63a4 100%); } /* Create, ocean blue */
-    .ph-action-card:nth-child(2) { background: linear-gradient(145deg, #ff8b78 0%, #f24f49 38%, #d62f2e 72%, #ad2024 100%); } /* Join, clean red */
-    .ph-action-card:nth-child(3) { background: linear-gradient(145deg, #b2d965 0%, #82b837 38%, #5d9627 72%, #437a16 100%); } /* Tutorial, reef green */
-    .ph-action-card:nth-child(4) { background: linear-gradient(145deg, #cb9af2 0%, #9d5fdd 38%, #7c3fc4 72%, #592a9c 100%); } /* Competitive, clean purple */
+    /* One colour and one name per card. The order here is the order in the
+       markup, and each gradient is the one that was painted into the PNG this
+       card replaced: Quick Match blue, Create purple, Join red, Tutorial
+       green. Change the markup order and you must change these with it. */
+    .ph-action-card:nth-child(1) { background: linear-gradient(145deg, #6fd6f2 0%, #2cb4e6 38%, #1583c9 72%, #0f63a4 100%); } /* Quick Match, ocean blue */
+    .ph-action-card:nth-child(2) { background: linear-gradient(145deg, #cb9af2 0%, #9d5fdd 38%, #7c3fc4 72%, #592a9c 100%); } /* Create, clean purple */
+    .ph-action-card:nth-child(3) { background: linear-gradient(145deg, #ff8b78 0%, #f24f49 38%, #d62f2e 72%, #ad2024 100%); } /* Join, clean red */
+    .ph-action-card:nth-child(4) { background: linear-gradient(145deg, #b2d965 0%, #82b837 38%, #5d9627 72%, #437a16 100%); } /* Tutorial, reef green */
     /* Circular icon holder, no backdrop-filter (causes GPU blur on entire card) */
     .ph-action-icon {
       width: 50px;
@@ -9262,8 +9239,20 @@
 
     /* ── Friends tab: warm coral / social ── */
     /* ── Friends tab: underwater seaweed illustration ── */
+    /* ── Friends: the game's own Coral Reef ────────────────────────
+       ph-bg-game-art.png IS the Coral Reef ocean, the board players play on,
+       painted as a rectangle. Not the round avatar background of the same
+       reef (that one is a circle on a pale square: blown up to fill a page it
+       is all open water in the middle, with its pale rim creeping in at the
+       corners), and not the stock-looking underwater scene this tab wore.
+
+       It is attached FIXED, which is what makes it fit the page: every other
+       tab paints its art against the scrollable box, so on a long panel the
+       art is stretched over the whole scroll height and only its top strip is
+       ever on screen. Fixed sizes it against the viewport instead, so the reef
+       is the whole reef at any scroll position and any page length. */
     #auth-stats-lobby[data-bg-tab="friends"] {
-      background: url("/multiplayer/client/ph-bg-friends-art.png") center center / cover no-repeat !important;
+      background: #bfe8f6 url("/multiplayer/client/ph-bg-game-art.png") center 42% / cover no-repeat fixed !important;
     }
     #auth-stats-lobby[data-bg-tab="friends"]::before,
     #auth-stats-lobby[data-bg-tab="friends"]::after {
@@ -9273,37 +9262,37 @@
     #auth-stats-lobby[data-bg-tab="friends"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="friends"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="friends"] .ph-scard {
-      background: rgba(215,248,235,0.68) !important;
+      background: rgba(226,244,255,0.70) !important;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
-      border: 1px solid rgba(80,190,160,0.45) !important;
-      box-shadow: 0 6px 28px rgba(0,80,60,0.13) !important;
+      border: 1px solid rgba(120,180,225,0.45) !important;
+      box-shadow: 0 6px 28px rgba(0,55,110,0.14) !important;
     }
     #auth-stats-lobby[data-bg-tab="friends"] .ph-tabs {
-      background: rgba(210,248,232,0.70) !important;
+      background: rgba(220,242,255,0.72) !important;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(80,190,160,0.40) !important;
-      box-shadow: 0 4px 18px rgba(0,80,60,0.10) !important;
+      border: 1px solid rgba(120,180,225,0.40) !important;
+      box-shadow: 0 4px 18px rgba(0,55,110,0.10) !important;
     }
     #auth-stats-lobby[data-bg-tab="friends"] .ph-tab.active {
-      background: rgba(235,255,245,0.90) !important;
+      background: rgba(240,250,255,0.92) !important;
     }
     #auth-stats-lobby[data-bg-tab="friends"] .ph-action-card {
-      background: rgba(215,248,235,0.68) !important;
+      background: rgba(226,244,255,0.70) !important;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
-      border: 1px solid rgba(80,190,160,0.45) !important;
-      box-shadow: 0 4px 18px rgba(0,80,60,0.10) !important;
+      border: 1px solid rgba(120,180,225,0.45) !important;
+      box-shadow: 0 4px 18px rgba(0,55,110,0.10) !important;
     }
     #auth-stats-lobby[data-bg-tab="friends"] .ph-sg {
-      background: rgba(140,220,195,0.10) !important;
+      background: rgba(150,205,240,0.10) !important;
     }
     #auth-stats-lobby[data-bg-tab="friends"] .ph-sc {
-      background: rgba(225,252,240,0.72) !important;
+      background: rgba(233,248,255,0.74) !important;
     }
     #auth-stats-lobby[data-bg-tab="friends"] .ph-sh {
-      background: rgba(210,248,232,0.75) !important;
+      background: rgba(220,242,255,0.76) !important;
     }
     #auth-stats-lobby[data-bg-tab="friends"] .ph-topbar {
       background: transparent;
@@ -9514,9 +9503,9 @@
       box-shadow: 0 8px 26px rgba(0,45,110,.20), inset 0 1px 0 rgba(255,255,255,.18) !important;
     }
     #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(1) { background: linear-gradient(145deg, #6fd6f2 0%, #2cb4e6 38%, #1583c9 72%, #0f63a4 100%) !important; }
-    #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(2) { background: linear-gradient(145deg, #ff8b78 0%, #f24f49 38%, #d62f2e 72%, #ad2024 100%) !important; }
-    #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(3) { background: linear-gradient(145deg, #b2d965 0%, #82b837 38%, #5d9627 72%, #437a16 100%) !important; }
-    #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(4) { background: linear-gradient(145deg, #cb9af2 0%, #9d5fdd 38%, #7c3fc4 72%, #592a9c 100%) !important; }
+    #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(2) { background: linear-gradient(145deg, #cb9af2 0%, #9d5fdd 38%, #7c3fc4 72%, #592a9c 100%) !important; }
+    #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(3) { background: linear-gradient(145deg, #ff8b78 0%, #f24f49 38%, #d62f2e 72%, #ad2024 100%) !important; }
+    #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(4) { background: linear-gradient(145deg, #b2d965 0%, #82b837 38%, #5d9627 72%, #437a16 100%) !important; }
 
     #ph-panel-friends .ph-scard {
       background: rgba(250,253,255,.95);
@@ -9796,18 +9785,11 @@
     .ph-ai-green { border-color: #9bc6ea; background: #edf7ff; }
     .ph-ai-teal { border-color: #b8e5df; background: #edfdfa; }
     .ph-ai-gold { border-color: #f0d9ab; background: #fff8e8; }
-    .ph-action-label {
-      font-size: 1.02rem;
-      font-weight: 800;
-      color: #1860b8;
-      line-height: 1.1;
-    }
-    .ph-action-sub {
-      margin-top: 2px;
-      font-size: .9rem;
-      color: #3f6f99;
-      font-weight: 600;
-    }
+    /* The label rules that belong to these cards are up with the cards. This
+       block used to repaint them in navy for an older light-card design, and
+       being later in the file it won: the moment the cards stopped being
+       images with the lettering baked in, every name went dark-on-dark. Only
+       the empty-subtitle guard is left here. */
     .ph-action-sub:empty { display: none; }
 
     .ph-main {
