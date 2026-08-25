@@ -6098,28 +6098,29 @@
        positioned, so being generated children of a flex container costs
        nothing, and there is no extra element to keep behind the card.
 
-       bg-kelp.png is round board art on a pale square, so it is overscanned
-       (inset -8% AND scale 1.2) to push that pale ring off every window shape,
-       and blurred to drop the scenery behind the card. Exactly what
-       #auth-screen .auth-kelp-bg does; the numbers are lifted from it. */
+       kelp-forest.png is a real WIDE painting of the forest: kelp up both
+       edges, open sunlit water through the middle, which is where the card
+       sits. It replaces bg-kelp.png, the round AVATAR art on a pale square,
+       which had to be overscanned (inset -8% AND scale 1.2) and blurred to
+       keep its pale ring and its blue circle off the screen. None of that is
+       needed for a rectangle, so none of it is here: no overscan, no scale,
+       and no blur, so the forest is as sharp as it was painted. */
     #auth-guest-overlay::before {
-      content: ""; position: absolute; inset: -8%;
-      background: url("/backgrounds/bg-kelp.png") center 56% / cover no-repeat;
-      transform: scale(1.2);
-      filter: blur(4px) saturate(1.06);
+      content: ""; position: absolute; inset: 0;
+      background: #0f4a6b url("/backgrounds/kelp-forest.png") center bottom / cover no-repeat;
       pointer-events: none;
     }
-    /* Depth: a vignette that settles the corners so the eye goes to the card,
-       over water that is sunlit at the surface and deepens towards the seabed.
-       It is also the matte for the last pixels of pale ring the overscan
-       cannot reach on the most extreme window shapes. */
+    /* Depth: a light vignette that settles the corners so the eye goes to the
+       card, over water that deepens towards the seabed. Much lighter than it
+       was, because it no longer has to double as a matte hiding the corners of
+       a circle: the artwork now reaches every edge on its own. */
     #auth-guest-overlay::after {
       content: ""; position: absolute; inset: 0;
       background:
-        radial-gradient(ellipse 112% 92% at 50% 48%,
-          rgba(4,32,58,.10) 34%, rgba(4,32,58,.46) 74%, rgba(3,24,46,.82) 100%),
+        radial-gradient(ellipse 118% 98% at 50% 46%,
+          rgba(4,32,58,0) 46%, rgba(4,32,58,.22) 78%, rgba(3,24,46,.48) 100%),
         linear-gradient(180deg,
-          rgba(150,222,240,.14) 0%, rgba(8,52,80,.12) 42%, rgba(4,28,52,.55) 100%);
+          rgba(150,222,240,.10) 0%, rgba(8,52,80,.06) 44%, rgba(4,28,52,.26) 100%);
       pointer-events: none;
     }
 
@@ -10831,32 +10832,50 @@
       background: #0f4a6b;
     }
     #auth-screen.on-nickname .auth-kelp-bg { display: block; }
-    /* bg-kelp.png is round board art on a pale square. Overscanning it by 8%
-       and blurring it does two jobs at once: it pushes that pale ring off
-       every screen shape, and it drops the scenery back so the card in front
-       of it stays the sharpest thing on the screen. */
+    /* kelp-forest.png is a real WIDE painting of the forest: kelp up both
+       edges, open sunlit water through the middle, which is exactly where the
+       card sits. It replaces bg-kelp.png, the round AVATAR art on a pale
+       square, which had to be overscanned (inset -8% AND scale 1.2) and
+       blurred to keep its pale ring and its blue circle off the screen. A
+       rectangle needs none of that, so none of it is here: the forest is as
+       sharp as it was painted, and `center bottom` keeps the seabed on the
+       floor of the window instead of drifting up it. */
     #auth-screen .auth-kelp-bg::before {
-      content: ""; position: absolute; inset: -8%;
-      background: url("/backgrounds/bg-kelp.png") center 56% / cover no-repeat;
-      /* cover alone always fits ONE axis exactly, which on this art means the
-         pale ring outside the circle reaches the edge of the screen wherever
-         the circle narrows. The extra 1.28 is what pushes that ring off every
-         screen shape, from ultrawide to a phone held upright. */
-      transform: scale(1.2);
-      filter: blur(4px) saturate(1.06);
+      content: ""; position: absolute; inset: 0;
+      background: url("/backgrounds/kelp-forest.png") center bottom / cover no-repeat;
     }
-    /* Depth scrim. The vignette earns its keep twice: it settles the corners so
-       the eye goes to the card, and it is the matte for the last few pixels of
-       pale ring that the 1.2 overscan still cannot reach on the most extreme
-       window shapes. The linear pass reads as water: sunlit at the surface,
-       deepening towards the seabed. */
+    /* Depth scrim: a light vignette that settles the corners so the eye goes
+       to the card, over water that deepens towards the seabed. Much lighter
+       than it was, because it no longer has to double as a matte hiding the
+       corners of a circle: the artwork reaches every edge on its own. */
     #auth-screen .auth-kelp-bg::after {
       content: ""; position: absolute; inset: 0;
       background:
-        radial-gradient(ellipse 118% 96% at 50% 46%,
-          rgba(4,32,58,0) 42%, rgba(4,32,58,.34) 76%, rgba(4,28,52,.72) 100%),
+        radial-gradient(ellipse 122% 100% at 50% 44%,
+          rgba(4,32,58,0) 50%, rgba(4,32,58,.18) 80%, rgba(4,28,52,.42) 100%),
         linear-gradient(180deg,
-          rgba(150,222,240,.16) 0%, rgba(8,52,80,.10) 40%, rgba(5,32,56,.5) 100%);
+          rgba(150,222,240,.10) 0%, rgba(8,52,80,.05) 42%, rgba(5,32,56,.24) 100%);
+    }
+
+    /* ── The kelp forest on a tall window ──────────────────────────
+       The painting is 1701x925, and the kelp is up its two OUTER edges. In a
+       portrait window `cover` has to scale it by the height, so it crops the
+       width hard: on a phone that threw away both banks of kelp and left the
+       screen as plain open water, which is the one thing this art was chosen
+       not to be.
+
+       So below roughly 7:5, the forest is shown at its full WIDTH, sitting on
+       the floor of the window, and the water simply CONTINUES above it: a
+       gradient ending on #bdf6fb, sampled from the painting's own top row, so
+       the join is a colour match rather than a seam. Both screens, one rule:
+       they are the same room. */
+    @media (max-aspect-ratio: 7/5) {
+      #auth-screen .auth-kelp-bg::before,
+      #auth-guest-overlay::before {
+        background:
+          url("/backgrounds/kelp-forest.png") center bottom / 100% auto no-repeat,
+          linear-gradient(180deg, #7ed3ef 0%, #a6ecfa 46%, #bdf6fb 74%, #bdf6fb 100%);
+      }
     }
 
     /* ── The card ───────────────────────────────────── */

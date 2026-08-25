@@ -61,7 +61,19 @@ console.log("\nthe backdrop is scenery, and it is not inside the card");
 {
   check("there is a kelp backdrop at all", /class="auth-kelp-bg"/.test(HTML));
   check("…it is the kelp forest, not some other board",
-        /auth-kelp-bg[\s\S]{0,600}?backgrounds\/bg-kelp\.png/.test(CSS));
+        /auth-kelp-bg[\s\S]{0,900}?backgrounds\/kelp-forest\.png/.test(CSS));
+  // kelp-forest.png is the WIDE painting. bg-kelp.png is the round avatar art
+  // on a pale square, which had to be overscanned and blurred to keep its ring
+  // and its circle off the screen. Using it here brings all of that back.
+  check("…the wide painting, not the round avatar art",
+        !/auth-kelp-bg[\s\S]{0,900}?backgrounds\/bg-kelp\.png/.test(CSS));
+  check("…so it needs no overscan or blur to hide a pale ring",
+        !/#auth-screen \.auth-kelp-bg::before \{[^}]*inset: -8%/.test(CSS)
+        && !/#auth-screen \.auth-kelp-bg::before \{[^}]*filter: blur\(/.test(CSS));
+  // In a tall window `cover` scales by height and crops the width, which threw
+  // away both banks of kelp and left plain open water.
+  check("…and a tall window keeps both banks of kelp",
+        /@media \(max-aspect-ratio: 7\/5\)[\s\S]{0,600}?kelp-forest\.png[^;]*100% auto/.test(CSS));
   check("…and it is NOT a child of the card it sits behind",
         !/auth-kelp-bg/.test(STEP),
         "a negative-z child paints over its own parent's background");

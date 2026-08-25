@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.88";
-  const APP_BUILD   = "2026-08-24.5";
+  const APP_VERSION = "1.6.89";
+  const APP_BUILD   = "2026-08-24.6";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🌿 Signing in stands in the kelp forest", items: [
+      "Play as a Guest and Create Your Username both open onto the painted kelp forest now: kelp up both sides, open sunlit water through the middle, and the seabed on the floor of the window.",
+      "It was standing in the round avatar version of that art, which is a circle on a pale square, so it had to be zoomed and blurred to keep the pale ring and the circle's edge off your screen. The real painting needs none of that, so the forest is as sharp as it was drawn.",
+      "On a phone held upright it keeps both banks of kelp instead of cropping them away, and the water simply carries on above.",
+    ]},
     { ver: "V1.7.0", title: "🪸 The four home cards have their coral back", items: [
       "Quick Match, Create Game, Join Game and Tutorial are their painted artwork again. They were briefly flattened to a plain colour and a text label; that was a mistake and it's undone. The cards are exactly the ones you knew.",
     ]},

@@ -86,12 +86,26 @@ console.log("\nit opens onto the kelp forest, the room CREATE YOUR USERNAME stan
     return a < 0 ? "" : CSS.slice(a, CSS.indexOf("#auth-guest-overlay .ago-card {", a));
   })();
   check("the scenery is the game's own kelp art, not a flat dark scrim",
-        /#auth-guest-overlay::before[\s\S]{0,300}?backgrounds\/bg-kelp\.png/.test(OL));
-  check("…overscanned, or the pale ring around that round art reaches the edge",
-        /#auth-guest-overlay::before[\s\S]{0,300}?inset: -8%/.test(OL)
-        && /#auth-guest-overlay::before[\s\S]{0,300}?scale\(1\.2\)/.test(OL));
-  check("…and dropped back with a blur, so the card is the sharpest thing on screen",
-        /#auth-guest-overlay::before[\s\S]{0,300}?filter: blur\(/.test(OL));
+        /#auth-guest-overlay::before[\s\S]{0,400}?backgrounds\/kelp-forest\.png/.test(OL));
+  // The WIDE painting, not bg-kelp.png, which is the round avatar art on a
+  // pale square: that one had to be overscanned AND blurred to keep its ring
+  // and its circle off the screen, and it took the forest's sharpness with it.
+  check("…the wide painting, not the round avatar art",
+        !/#auth-guest-overlay::before[\s\S]{0,400}?backgrounds\/bg-kelp\.png/.test(OL));
+  check("…so it is not overscanned to hide a pale ring",
+        !/#auth-guest-overlay::before \{[^}]*inset: -8%/.test(OL)
+        && !/#auth-guest-overlay::before \{[^}]*scale\(1\.2\)/.test(OL));
+  check("…and it is not blurred: the forest is as sharp as it was painted",
+        !/#auth-guest-overlay::before \{[^}]*filter: blur\(/.test(OL));
+  check("…and a guest and an account holder stand in the same room",
+        /#auth-screen \.auth-kelp-bg::before[\s\S]{0,300}?kelp-forest\.png/.test(CSS));
+  // A background that 404s is silent: the screen just goes flat navy. The
+  // .webp sibling matters as much as the .png, because the server negotiates
+  // it and every modern browser is served that one, not the PNG.
+  check("the kelp painting is really in the client",
+        fs.existsSync(path.join(CLIENT, "backgrounds/kelp-forest.png")));
+  check("…with its WebP sibling, which is what most browsers are actually sent",
+        fs.existsSync(path.join(CLIENT, "backgrounds/kelp-forest.webp")));
   check("…under a vignette, so the eye goes to the card",
         /#auth-guest-overlay::after[\s\S]{0,300}?radial-gradient/.test(OL));
   check("the scenery cannot take a click meant for the card",
