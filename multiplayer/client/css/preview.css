@@ -5487,24 +5487,31 @@
     #cc-fs-splash.ccfs-blocked .ccfs-window { display: inline-block; }
     .ccfs-window:hover { color: #ffffff; border-color: rgba(216,232,251,.7); }
 
-    /* "Back to full screen": the nudge shown when a player who asked for full
-       screen drops out of it (Esc, or the browser).
+    /* THE FULL-SCREEN TOGGLE, the small ocean-glass chip that lives in the
+       BOTTOM-RIGHT corner of the menu, on every tab of it, and opens out to
+       its full label on hover or focus.
        It used to be a 210px-wide orange pill pinned to the TOP CENTRE at
        z-index 100000, i.e. straight across the notice bar in-game and across
        the artwork on the sign-in screen, which it had no business being on at
-       all. Now it is a small ocean-glass chip in the bottom-left corner, cut
-       from the same deep navy and cyan as the game's own panels, that opens out
-       to its full label on hover or focus. Out of the way, and unmistakably
-       part of the game.
-       It is also gated on body.cc-signed-in (set by revealLobby, cleared by
+       all. Then it was a bottom-LEFT chip that only appeared after a player
+       who had asked for full screen dropped out of it, so most of the time the
+       menu had no full-screen control at all and there was nothing to learn or
+       point a tutorial at. Now it is always there, in one fixed corner, and it
+       toggles both ways. See syncFsChip().
+       One corner, deliberately: it is position:fixed, so it does not move
+       between Overview, Store, Clans or any other tab, and no tab panel can
+       scroll it away.
+       It is still gated on body.cc-signed-in (set by revealLobby, cleared by
        showStep), so it can only ever appear once the player is through the
        door: no floating chip on top of login-bg.png. And it stays out of a
        game entirely: the action bar in there already carries its own
-       "⛶ Full Screen" button, so a floating one would be a second copy of it,
-       sitting on top of the P1 seat pill. See onFsChange(). */
+       "⛶ Full Screen" button, so a floating one would be a second copy of it.
+       Bottom-right is free on the menu; in a game it is not (the log and chat
+       panels dock there), which is the other half of why it hides in one. */
     #cc-fs-resume {
       display: none; position: fixed;
-      left: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+      right: calc(14px + env(safe-area-inset-right, 0px));
+      bottom: calc(14px + env(safe-area-inset-bottom, 0px));
       /* Above Player Home (8900) so it is reachable there, and below every
          modal (9100 and up) so a modal simply covers it. It used to be 100000,
          which is how a nudge ended up painted over the whole game. */
@@ -5520,8 +5527,9 @@
       animation: dwm-fade-in .2s ease;
       transition: color .16s, border-color .16s, box-shadow .16s, background .16s;
     }
-    /* Only once the player is in. .show is still what says "you are out of full
-       screen"; this is what says "and you are actually playing". */
+    /* Only once the player is in. .show is what says "the menu is what is on
+       screen right now"; this is what says "and the player is through the
+       door". Both have to be true. */
     body.cc-signed-in #cc-fs-resume.show { display: flex; }
     #cc-fs-resume .ccfs-glyph {
       font-size: 14px; line-height: 1; color: #7fd2f2;
@@ -5537,9 +5545,18 @@
       box-shadow: 0 10px 26px rgba(2,14,34,.55), 0 0 0 3px rgba(95,179,214,.18),
                   inset 0 1px 0 rgba(255,255,255,.12);
     }
+    /* .ccfs-peek is the third way in: the Main Menu tour's full-screen step
+       holds the label open so the learner can read it without hovering. */
     #cc-fs-resume:hover .ccfs-word,
-    #cc-fs-resume:focus-visible .ccfs-word { max-width: 190px; opacity: 1; }
+    #cc-fs-resume:focus-visible .ccfs-word,
+    #cc-fs-resume.ccfs-peek .ccfs-word { max-width: 190px; opacity: 1; }
     #cc-fs-resume:hover .ccfs-glyph, #cc-fs-resume:focus-visible .ccfs-glyph { color: #a9e4ff; }
+    /* In full screen the chip is the way OUT of it, so it reads as a toggle
+       that is switched on rather than as an offer. */
+    #cc-fs-resume.is-on { border-color: rgba(240,200,64,.5); }
+    #cc-fs-resume.is-on .ccfs-glyph { color: #ffd977; }
+    #cc-fs-resume.is-on:hover .ccfs-glyph,
+    #cc-fs-resume.is-on:focus-visible .ccfs-glyph { color: #ffe6a8; }
     #cc-fs-resume:active { transform: translateY(1px); }
     @media (prefers-reduced-motion: reduce) {
       #cc-fs-resume { animation: none; }

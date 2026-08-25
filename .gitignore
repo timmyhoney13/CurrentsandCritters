@@ -271,6 +271,12 @@
 # (a stale second .ph-action-label rule paints it navy, which was invisible
 # while the cards were images), and that the reef is attached to the window.
 !test_home_actions.js
+# THE FULL-SCREEN TOGGLE on the menu. Runs the real setupGameWindowFullscreen()
+# sliced out of preview-app.js against the real stylesheet, at five widths and
+# on six tabs, and measures the three things a source read cannot answer: that
+# the chip lands in the BOTTOM-RIGHT corner, that its rectangle is identical on
+# every tab, and that nothing on any of those tabs is painted over it.
+!test_fullscreen_chip.js
 
 !fish_ai_brain.json
 !multiplayer/

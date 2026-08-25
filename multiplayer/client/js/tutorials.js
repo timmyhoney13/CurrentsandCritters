@@ -679,6 +679,17 @@
     if (zm) zm.classList.remove("open");
     const bf = document.getElementById("pv-board-focus");
     if (bf) bf.classList.remove("open");
+    // The full-screen step holds the corner chip open so its label can be read
+    // without hovering it; every other step wants it back to just the glyph.
+    fsChipPeek(false);
+  }
+
+  // The full-screen chip is collapsed to its ⛶ glyph until you hover or focus
+  // it, which is right for a quiet corner and wrong for a tutorial step that
+  // is naming it. This opens it for the length of that one step.
+  function fsChipPeek(on) {
+    const c = document.getElementById("cc-fs-resume");
+    if (c) c.classList.toggle("ccfs-peek", !!on);
   }
   function openSettings() { const b = document.getElementById("stats-settings-top-btn"); if (b) try { b.click(); } catch (_) {} }
 
@@ -905,6 +916,11 @@
       interactive: true,
       advanceWhen: () => !document.getElementById("streak-cal-modal")?.classList.contains("open"),
       text: "Click the <strong>✕</strong> to close the calendar." },
+
+    // ── Full screen (the corner chip, on every tab) ──────────────────
+    { target: "#cc-fs-resume", badge: "Full Screen", title: "Full Screen",
+      before: () => { closeMenuOverlays(); navTab("overview"); fsChipPeek(true); },
+      text: "That <strong>⛶</strong> chip in the <strong>bottom-right corner</strong> is <strong>Full screen</strong>. It is pinned to that same corner on <strong>every tab of the menu</strong>, so it is always in the one place, whether you are on Overview, the Store or your Clan. Click it to hand the game the whole screen, and click it again (or press <strong>Esc</strong>) to come back out. Once you are in a game, the same control sits in the action bar at the bottom as <strong>⛶ Full Screen</strong>." },
 
     // ── All Done ──────────────────────────────────────────────────────
     { target: "#stats-tutorial-btn", badge: "All Done", title: "That is the whole menu",

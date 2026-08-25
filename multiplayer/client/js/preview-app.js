@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.89";
-  const APP_BUILD   = "2026-08-24.6";
+  const APP_VERSION = "1.6.90";
+  const APP_BUILD   = "2026-08-25.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "\u26F6 Full screen, in the same corner every time", items: [
+      "The menu now has a full-screen button that is always there: a small \u26F6 chip in the bottom-right corner, on every tab. Click it to hand the game the whole screen, click it again (or press Esc) to come back out.",
+      "It used to appear only if you had already asked for full screen and then fallen out of it, and it sat in the other corner, so most of the time the menu had no way into full screen at all.",
+      "Inside a game nothing changes: the action bar keeps its own \u26F6 Full Screen button. The Main Menu tutorial now points the chip out too.",
+    ]},
     { ver: "V1.7.0", title: "🌿 Signing in stands in the kelp forest", items: [
       "Play as a Guest and Create Your Username both open onto the painted kelp forest now: kelp up both sides, open sunlit water through the middle, and the seabed on the floor of the window.",
       "It was standing in the round avatar version of that art, which is a circle on a pale square, so it had to be zoomed and blurred to keep the pale ring and the circle's edge off your screen. The real painting needs none of that, so the forest is as sharp as it was drawn.",
@@ -15453,30 +15458,66 @@
       splash.classList.remove("show");
       try { sessionStorage.setItem("cc_fs_splash_dismissed", "1"); } catch (_) {}
     });
+    async function exitFs() {
+      try {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+      } catch (e) {
+        ccReport("fullscreen_exit_failed", {
+          error: e && (e.name || e.message || e)
+        }, "warn");
+      }
+      return !isFs();
+    }
+
+    // The chip toggles BOTH ways, so one button is the whole full-screen
+    // control on the menu: in, and back out again.
     resume.addEventListener("click", async () => {
-      const ok = await enterFs();
-      if (!ok) try { showToast("Full screen was blocked, tap the button again.", "warn"); } catch (_) {}
+      if (isFs()) {
+        wantsFullscreen = false;
+        document.body.classList.remove("cc-fullscreen-wanted");
+        await exitFs();
+      } else {
+        wantsFullscreen = true;
+        document.body.classList.add("cc-fullscreen-wanted");
+        const ok = await enterFs();
+        if (!ok) try { showToast("Full screen was blocked, tap the button again.", "warn"); } catch (_) {}
+      }
+      syncFsChip();
     });
 
-    // The chip is the way back to full screen OUTSIDE a game. Inside one, the
-    // action bar already carries "⛶ Full Screen" and the two bottom corners are
-    // seat pills, so a floating chip would be a second button sitting on top of
-    // P1's name. Hence: only when the game screen is down.
+    // The chip is THE full-screen control outside a game: always in the
+    // bottom-right corner of the menu, on every tab of it, whichever way the
+    // toggle currently sits. It used to appear only after a player who had
+    // opted into full screen fell out of it, which meant most players never
+    // saw a full-screen control on the menu at all.
+    // Inside a game it still hides: the action bar already carries
+    // "⛶ Full Screen", and the bottom-right corner in there belongs to the
+    // floating log and the chat panel. Hence: only when the game screen is
+    // down.
     const gameEl = document.getElementById("pv-game");
     const inGame = () => !!(gameEl && gameEl.style.display !== "none");
-    function onFsChange() {
-      if (wantsFullscreen && !isFs() && !inGame()) resume.classList.add("show");
-      else resume.classList.remove("show");
+    const fsWord = resume.querySelector(".ccfs-word");
+    function syncFsChip() {
+      const fs = isFs();
+      const label = fs ? "Exit full screen" : "Full screen";
+      if (fsWord && fsWord.textContent !== label) fsWord.textContent = label;
+      resume.title = label;
+      resume.setAttribute("aria-label", label);
+      resume.classList.toggle("is-on", fs);
+      resume.classList.toggle("show", !inGame());
     }
-    document.addEventListener("fullscreenchange", onFsChange);
-    document.addEventListener("webkitfullscreenchange", onFsChange);
-    // Leaving full screen is an event; opening or closing the game screen is
-    // not, and both change the answer. The game screen is shown and hidden by
-    // writing style.display in a dozen places, so watch the attribute rather
-    // than chase every one of them.
+    document.addEventListener("fullscreenchange", syncFsChip);
+    document.addEventListener("webkitfullscreenchange", syncFsChip);
+    // Entering or leaving full screen is an event; opening or closing the game
+    // screen is not, and both change what the chip should say and whether it
+    // shows at all. The game screen is shown and hidden by writing
+    // style.display in a dozen places, so watch the attribute rather than
+    // chase every one of them.
     if (gameEl && typeof MutationObserver === "function") {
-      new MutationObserver(onFsChange).observe(gameEl, { attributes: true, attributeFilter: ["style"] });
+      new MutationObserver(syncFsChip).observe(gameEl, { attributes: true, attributeFilter: ["style"] });
     }
+    syncFsChip();
   })();
 
   // ═══════════════════════════════════════════════════════════════

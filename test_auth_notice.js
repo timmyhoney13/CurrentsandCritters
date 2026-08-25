@@ -20,7 +20,10 @@
  *        - it hides with opacity+visibility, not display, so an empty note
  *          still has a box: it must never take a click meant for the artwork.
  *
- *   2. THE FULL-SCREEN NUDGE IS NOT PART OF SIGNING IN. #cc-fs-resume was a
+ *   2. THE FULL-SCREEN TOGGLE IS NOT PART OF SIGNING IN. It now lives in the
+ *      bottom-RIGHT corner of the menu and is always there (see
+ *      test_fullscreen_chip.js); what this file guards is that it is nowhere
+ *      to be seen until the player is through the door. #cc-fs-resume was a
  *      210px orange pill pinned top-centre at z-index 100000, which is on top
  *      of the notice bar in-game and on top of the artwork on the sign-in
  *      screen. It is a small ocean-glass chip in the bottom-left corner now,
@@ -150,7 +153,7 @@ console.log("\nthe full-screen chip is out of the way, and only exists once you 
   check("it is not pinned across the top of the screen any more",
         !/top:\s*10px/.test(block) && !/left:\s*50%/.test(block));
   check("…it sits in a corner instead",
-        /left:\s*14px/.test(block) && /bottom:\s*calc\(14px/.test(block));
+        /right:\s*calc\(14px/.test(block) && /bottom:\s*calc\(14px/.test(block));
   check("…dressed like the game's own panels, not a loud orange pill",
         !/#f6c178/.test(block) && /rgba\(95,179,214/.test(block));
   check("…and it is quiet until you look at it",
@@ -170,10 +173,10 @@ console.log("\nthe full-screen chip is out of the way, and only exists once you 
         "above Player Home (8900), below every modal (9100+)");
   check("…and it stays out of a game, where the action bar already has the button",
         /const inGame = \(\) => !!\(gameEl && gameEl\.style\.display !== "none"\);/.test(APP)
-        && /wantsFullscreen && !isFs\(\) && !inGame\(\)/.test(APP),
-        "the two bottom corners in a game are seat pills");
+        && /classList\.toggle\("show", !inGame\(\)\)/.test(APP),
+        "in a game the bottom-right corner is the floating log");
   check("…which is re-checked when the game screen opens or closes, not only on Esc",
-        /new MutationObserver\(onFsChange\)\.observe\(gameEl/.test(APP),
+        /new MutationObserver\(syncFsChip\)\.observe\(gameEl/.test(APP),
         "style.display on #pv-game is written in a dozen places and fires no event");
   check("the button carries a glyph and a label it can open out to",
         /id="cc-fs-resume"[\s\S]{0,220}?class="ccfs-glyph"[\s\S]{0,120}?class="ccfs-word"/.test(HTML));
@@ -305,7 +308,8 @@ setTimeout(function () {
         chipBeforeSignIn: chipBeforeSignIn,
         chipAfterSignIn: chipCs.display,
         chipW: Math.round(cb.width), chipH: Math.round(cb.height),
-        chipLeft: Math.round(cb.left), chipBottomGap: Math.round(w.innerHeight - cb.bottom),
+        chipRightGap: Math.round(w.innerWidth - cb.right),
+        chipBottomGap: Math.round(w.innerHeight - cb.bottom),
         chipTop: Math.round(cb.top),
         fadedLater: faded[i]
       });
@@ -365,9 +369,9 @@ setTimeout(function () {
       check(at + " …and is a corner chip once you are in",
             r.chipAfterSignIn === "flex" && r.chipW <= 70 && r.chipH >= 28 && r.chipH <= 46,
             `${r.chipAfterSignIn} ${r.chipW}x${r.chipH}`);
-      check(at + " …in the bottom-left corner, out of the way of the top bar",
-            r.chipLeft <= 20 && r.chipBottomGap <= 24 && r.chipTop > r.vh / 2,
-            `l=${r.chipLeft} gapB=${r.chipBottomGap} top=${r.chipTop} vh=${r.vh}`);
+      check(at + " …in the bottom-right corner, out of the way of the top bar",
+            r.chipRightGap <= 24 && r.chipBottomGap <= 24 && r.chipTop > r.vh / 2,
+            `gapR=${r.chipRightGap} gapB=${r.chipBottomGap} top=${r.chipTop} vh=${r.vh}`);
     });
   }
 }
