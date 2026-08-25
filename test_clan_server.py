@@ -492,8 +492,8 @@ check("the clan profile never carries the password, even for the owner",
 _browse = CS._route_post(DB, "pwguess", "browse", {}, FAKE_SID["cur"])
 check("browse lists password clans (you can act on them)",
       any(row.get("id") == PWCID for row in _browse.get("rows", [])))
-check("browse still hides invite-only clans (you cannot)",
-      all(row.get("privacy") != "invite" for row in _browse.get("rows", [])))
+check("browse marks a password clan joinable (a word you can be told)",
+      next(r for r in _browse["rows"] if r["id"] == PWCID).get("joinable") is True)
 check("browse never leaks a password", "newword12" not in json.dumps(_browse))
 check("one-tap 'recommended' never offers a password clan",
       all(row.get("privacy") == "public" for row in _browse.get("recommended", [])))
@@ -896,6 +896,96 @@ check("new clan is visible immediately after creation",
       any(r["id"] == zr.get("clan_id") for r in rows2))
 
 # ══ 10. Season finalize: coins, badges, MVP ═══════════════════════════════════
+# ── Clan chat: the same-second cursor ────────────────────────────────────────
+# `ts` is whole seconds, so an EXCLUSIVE cursor threw away every message
+# written in the same second as the newest one the caller already had, and the
+# cursor never moves back, so it was gone for good. This is the whole of "the
+# clan chat doesn't work".
+print("clan chat:")
+set_user("chatty1", "Chatty One")
+set_user("chatty2", "Chatty Two")
+r = route("chatty1", "create", {"name": "Chatterbox Reef", "icon": "/avatars/clownfish.png",
+                                "privacy": "public"})
+CHATID = r["clan_id"]
+route("chatty2", "join", {"clan_id": CHATID})
+route("chatty1", "chat-send", {"text": "first thing I said"})
+_first = route("chatty1", "chat-get", {"since": 0})
+check("chat returns what was said", any(m["text"] == "first thing I said"
+                                        for m in _first["messages"]))
+_cursor = max(int(m["ts"]) for m in _first["messages"])
+_sent = route("chatty2", "chat-send", {"text": "replied in the same second"})
+check("chat-send hands the message straight back",
+      (_sent.get("message") or {}).get("text") == "replied in the same second")
+_next = route("chatty1", "chat-get", {"since": _cursor})
+check("a reply in the SAME SECOND is not lost",
+      any(m["text"] == "replied in the same second" for m in _next["messages"]))
+check("...and it comes back with the id the client dedupes on",
+      all(m.get("id") for m in _next["messages"]))
+check("message ids sort in the order the messages were written",
+      [m["id"] for m in _next["messages"]] == sorted(m["id"] for m in _next["messages"]))
+_peek = route("chatty1", "chat-peek", {})
+check("chat-peek names the newest line",
+      (_peek.get("last") or {}).get("text") == "replied in the same second")
+check("chat-peek carries the clan it is about",
+      _peek.get("clan_id") == CHATID and _peek.get("clan_name") == "Chatterbox Reef")
+check("chat-peek is one message, never history", len(_peek.get("last") or {}) > 0)
+r = route("outsider_nc", "chat-get", {})
+check("chat is members-only", not r.get("ok"))
+
+# ── Browse shows EVERY clan ──────────────────────────────────────────────────
+print("browse:")
+set_user("hidden1", "Hidden One")
+r = route("hidden1", "create", {"name": "Quiet Tide Society", "icon": "/avatars/narwhal.png",
+                                "privacy": "invite"})
+HIDCID = r["clan_id"]
+_b = route("chatty1", "browse", {})
+_hid = next((row for row in _b["rows"] if row["id"] == HIDCID), None)
+check("an invite-only clan is still listed (it exists, so it shows up)", _hid is not None)
+check("...marked as one you cannot join", _hid and _hid.get("joinable") is False)
+check("...and the joinable ones are listed first",
+      [r["joinable"] for r in _b["rows"]] == sorted((r["joinable"] for r in _b["rows"]), reverse=True))
+check("browse counts every clan", _b.get("total_clans") == len(_b["rows"]))
+check("the one-tap list still only offers real one-tap joins",
+      all(r["privacy"] == "public" and not r["full"] for r in _b["recommended"]))
+_named = route("chatty1", "browse", {"query": "quiet tide"})
+check("searching by name finds it too", any(r["id"] == HIDCID for r in _named["rows"]))
+
+# ── The season runs 30 days past its quarter ─────────────────────────────────
+print("season length:")
+_q3_start, _q3_end = CS._season_bounds("2026-Q3")
+check("season 1 ends a month after its quarter does",
+      _q3_end == int(__import__("datetime").datetime(2026, 10, 1,
+          tzinfo=__import__("datetime").timezone.utc).timestamp()) + CS.CLAN_SEASON_EXTRA_SEC)
+check("the launch season keeps its own quarter start",
+      _q3_start == int(__import__("datetime").datetime(2026, 7, 1,
+          tzinfo=__import__("datetime").timezone.utc).timestamp()))
+_q4_start, _q4_end = CS._season_bounds("2026-Q4")
+check("one season's end is exactly the next one's start", _q3_end == _q4_start)
+check("seasons never overlap or leave a gap", _q4_end > _q4_start > _q3_start)
+# Which season a moment belongs to is the real question the extra days raise,
+# and the suite's season stub answers "2026-Q3" whatever you ask it. So put the
+# REAL calendar-quarter function back for these four.
+_stub_sid = CS._get_season_id
+CS._get_season_id = M.get_season_id
+check("the day after Q3's quarter ends is still season 1", CS._clan_sid(_q3_end - 86400) == "2026-Q3")
+check("...and the day after the SEASON ends is season 2", CS._clan_sid(_q3_end + 86400) == "2026-Q4")
+check("the launch quarter is never filed under a season that never existed",
+      CS._clan_sid(_q3_start + 86400) == "2026-Q3")
+check("mid-season is its own season", CS._clan_sid(_q3_start + 45 * 86400) == "2026-Q3")
+CS._get_season_id = _stub_sid
+
+# ── The published payout is the payout ───────────────────────────────────────
+print("season rewards:")
+_pub = CS._season_public("2026-Q3")
+check("every payload carries the real coin payout",
+      _pub["reward_coins"] == list(CS.SEASON_REWARD_COINS))
+check("...so the page can never advertise a number the server won't pay",
+      _pub["reward_coins"] == [400, 300, 200])
+check("the MVP bonus rides along too", _pub["mvp_coins"] == CS.MVP_BONUS_COINS)
+_rules = CS.clan_rules()
+check("the published rules quote the same numbers",
+      any("400 Critter Coins" in line for line in _rules["season_rewards"]))
+
 print("season finalize:")
 for k in [k for k in DB.store if k.startswith("clans/") or k.startswith("clan_meta/")]:
     del DB.store[k]
@@ -949,8 +1039,14 @@ for u in ("mia", "noah", "olly", "pia"):
     DB.store["users/" + u]["clan_id"] = "w1"
 
 FAKE_SID["cur"] = "2026-Q4"     # roll the quarter → Q3 must finalize
+# A clan season runs CLAN_SEASON_EXTRA_DAYS past its own quarter, so rolling
+# the calendar quarter is no longer enough on its own: the clock has to be past
+# the season's real end before Q3 is over and can be paid out.
+_REAL_NOW = CS._now
+CS._now = lambda: CS._season_bounds("2026-Q3")[1] + 3600
 CS._FINALIZED_SIDS.clear()
 CS.ensure_season_finalized(DB)
+CS._now = _REAL_NOW
 meta = DB.store.get("clan_meta/season_2026-Q3")
 check("season meta written", meta and meta.get("finalized") is True)
 stand = meta["standings"]

@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import itertools
 import json
 import os
 import re
@@ -74,7 +75,7 @@ JOIN_COOLDOWN_SEC         = 24 * 3600  # after leaving/being removed from a clan
 TRADE_BOUNCE_WINDOW_SEC   = 7 * 24 * 3600   # same-items back-and-forth window
 TRADE_PAIR_WEEK_FLAG      = 3          # >N completed trades same pair/week → flag
 
-SEASON_REWARD_COINS       = [150, 100, 50]    # 1st / 2nd / 3rd place clans
+SEASON_REWARD_COINS       = [400, 300, 200]   # 1st / 2nd / 3rd place clans
 SEASON_REWARD_MIN_POINTS  = 10         # member contribution needed for the coin reward
 SEASON_BORDER_TOP_N       = 10         # top-10 clans get the seasonal border
 MVP_MIN_POINTS            = 25
@@ -87,6 +88,12 @@ CLAN_XP_PER_LEVEL_STEP    = 100        # level n→n+1 costs 100*n XP
 
 # Season 1 = 2026-Q3 (launch quarter). Names rotate through this ocean roster.
 CLAN_SEASON_EPOCH         = (2026, 3)  # (year, quarter)
+# Clan seasons run this many days PAST the quarter they are named for, so there
+# is time to actually finish a season's challenges. Everything reads the season
+# through _season_bounds/_clan_sid, so this one number moves the countdown, the
+# season-challenge deadlines and the moment the season rolls over, together.
+CLAN_SEASON_EXTRA_DAYS    = 30
+CLAN_SEASON_EXTRA_SEC     = CLAN_SEASON_EXTRA_DAYS * 86400
 CLAN_SEASON_NAMES = [
     "Riptide", "Undertow", "High Tide", "Deep Current", "Gulf Stream",
     "Whirlpool", "Tidal Bloom", "Abyssal", "Coral Crest", "Moonlit Tide",
@@ -561,13 +568,42 @@ def _season_name(sid: str) -> str:
 
 
 def _season_bounds(sid: str) -> Tuple[int, int]:
-    """(start_ts, end_ts) of the quarter, UTC. end_ts is the first second of
-    the NEXT quarter (the countdown target and the next season's start)."""
+    """(start_ts, end_ts) of the season, UTC.
+
+    A clan season is the quarter it is named for PLUS CLAN_SEASON_EXTRA_DAYS,
+    so the countdown everyone plays against runs a month longer than the bare
+    calendar quarter. end_ts is still exactly the next season's start_ts: the
+    extra days shift both ends, they never overlap or leave a gap. The epoch
+    season keeps the quarter's own start, because there is no season before it
+    to run long into it."""
     y, q = _sid_parse(sid)
     start = datetime(y, 3 * (q - 1) + 1, 1, tzinfo=timezone.utc)
     ny, nq = (y + 1, 1) if q == 4 else (y, q + 1)
     end = datetime(ny, 3 * (nq - 1) + 1, 1, tzinfo=timezone.utc)
-    return int(start.timestamp()), int(end.timestamp())
+    start_ts, end_ts = int(start.timestamp()), int(end.timestamp())
+    if (y, q) != CLAN_SEASON_EPOCH:
+        start_ts += CLAN_SEASON_EXTRA_SEC
+    return start_ts, end_ts + CLAN_SEASON_EXTRA_SEC
+
+
+def _clan_sid(ts: Optional[int] = None) -> str:
+    """The clan season running at `ts`. Seasons run CLAN_SEASON_EXTRA_DAYS past
+    the quarter they are named for, so for the first stretch of a new calendar
+    quarter the PREVIOUS season is still the live one: every clan read and
+    write has to agree about that, or points would land in a season the page
+    isn't showing."""
+    now = int(ts if ts is not None else _now())
+    quarter_sid = _get_season_id(now)
+    prev = _prev_sid(quarter_sid)
+    # Only a season that actually EXISTS runs long: the epoch season starts on
+    # its quarter, so the quarter before it never reaches into it. Without that
+    # guard the launch quarter's first month would be filed under a season the
+    # game has never had.
+    if _sid_parse(prev) >= CLAN_SEASON_EPOCH:
+        start, end = _season_bounds(prev)
+        if start <= now < end:
+            return prev
+    return quarter_sid
 
 
 def _prev_sid(sid: str) -> str:
@@ -584,6 +620,17 @@ def _season_public(sid: str) -> Dict[str, Any]:
         "starts_ts": start,
         "ends_ts": end,
         "now": _now(),
+        # What finishing top three is actually worth. The Clans page used to
+        # print these numbers by hand and they drifted: the podium promised
+        # 400/300/200 while the payout paid 150/100/50. Every payload that
+        # carries a season carries the real figures now, so there is one place
+        # they can be wrong, and it is the place that pays them.
+        "reward_coins": list(SEASON_REWARD_COINS),
+        "reward_min_points": SEASON_REWARD_MIN_POINTS,
+        "mvp_coins": MVP_BONUS_COINS,
+        "mvp_min_points": MVP_MIN_POINTS,
+        "border_top_n": SEASON_BORDER_TOP_N,
+        "extra_days": CLAN_SEASON_EXTRA_DAYS,
     }
 
 
@@ -922,10 +969,46 @@ def _activity_push(clan: Dict[str, Any], type_: str, text: str) -> None:
     del log[CLAN_ACTIVITY_MAX:]
 
 
+# Chat message ids sort the way the messages read. `ts` is whole seconds, so
+# two lines written in the same second have no order of their own; a per-process
+# counter breaks the tie, and the random tail keeps two SERVERS from colliding.
+# Zero-padded so plain string sorting matches time order.
+_CHAT_SEQ = itertools.count(1)
+
+
+def _chat_mid(ts: Optional[int] = None) -> str:
+    return f"m{int(ts if ts is not None else _now()):011d}_{next(_CHAT_SEQ) % 100000:05d}_{secrets.token_hex(3)}"
+
+
+def _chat_rows(db, clan_id: str, since: int = 0, cap: int = CLAN_CHAT_FETCH) -> List[Dict[str, Any]]:
+    """Clan chat, oldest-last, from `since` (INCLUSIVE) onward.
+
+    Newest-first server-side so a long-lived clan chat never streams its whole
+    history on every poll; falls back to a plain capped scan where order_by
+    isn't available (tests / old SDKs). Ordered by (ts, id): ids are minted so
+    that string order matches write order inside one second."""
+    rows: List[Dict[str, Any]] = []
+    col = _clans(db).document(clan_id).collection("chat")
+    try:
+        try:
+            cursor = col.order_by("ts", direction="DESCENDING").limit(max(1, cap))
+        except Exception:
+            cursor = col.limit(600)
+        for doc in cursor.stream():
+            d = doc.to_dict() or {}
+            if int(d.get("ts") or 0) < since or d.get("deleted"):
+                continue
+            rows.append({"id": doc.id, **d})
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] chat read failed: {exc}")
+    rows.sort(key=lambda r: (int(r.get("ts") or 0), str(r.get("id") or "")))
+    return rows[-max(1, cap):]
+
+
 def _chat_system(db, clan_id: str, text: str) -> None:
     """Best-effort system line into the clan chat (never raises)."""
     try:
-        _clans(db).document(clan_id).collection("chat").document(f"m{_now()}_{secrets.token_hex(3)}").set({
+        _clans(db).document(clan_id).collection("chat").document(_chat_mid()).set({
             "ts": _now(), "uid": "", "name": "", "kind": "system",
             "text": str(text)[:CLAN_CHAT_MAX],
         })
@@ -1052,7 +1135,7 @@ def _apply_award(db, clan_id: str, uid: str, name: str, *, kind: str,
     clan_ref = _clans(db).document(clan_id)
     ledger_ref = clan_ref.collection("ledger").document(dedup_id)
     txn = db.transaction()
-    sid = _get_season_id()
+    sid = _clan_sid()
     wk = _week_key()
     today = _date_key()
     out: Dict[str, Any] = {}
@@ -1551,7 +1634,7 @@ def ensure_season_finalized(db) -> None:
     snapshot standings, pay coin rewards to eligible members of the top 3,
     stamp badges/borders, pick each clan's MVP, write clan_meta/season_<sid>.
     The meta doc's create() is the cross-process idempotency lock."""
-    sid_now = _get_season_id()
+    sid_now = _clan_sid()
     prev = _prev_sid(sid_now)
     if prev in _FINALIZED_SIDS:
         return
@@ -2171,7 +2254,7 @@ def _bump_season(db, clan_id: str, *, add: Optional[Dict[str, Any]] = None,
     own action has already succeeded and must not be undone by bookkeeping)."""
     transactional = _txn_helpers()
     clan_ref = _clans(db).document(clan_id)
-    sid = sid or _get_season_id()
+    sid = sid or _clan_sid()
     out: Dict[str, Any] = {"ok": False, "challenges_done": []}
 
     @transactional
@@ -2228,7 +2311,7 @@ def _team_rival_match(db, clan: Dict[str, Any], my_count: int,
     what "you both get 15 points" means."""
     if my_count < 3:
         return False
-    rival_id = str((clan.get("rivals") or {}).get(_get_season_id()) or "")
+    rival_id = str((clan.get("rivals") or {}).get(_clan_sid()) or "")
     if not rival_id:
         return False
     try:
@@ -2262,7 +2345,7 @@ def _sweep_member_derived(db, clan_id: str, uid: str, udoc: Dict[str, Any]) -> N
         return
     transactional = _txn_helpers()
     clan_ref = _clans(db).document(clan_id)
-    sid = _get_season_id()
+    sid = _clan_sid()
 
     @transactional
     def _run(t) -> None:
@@ -2314,7 +2397,7 @@ def _bump_opponent_counter(db, clan_id: str, uid: str, name: str, *, key: str,
     transactional = _txn_helpers()
     clan_ref = _clans(db).document(clan_id)
     txn = db.transaction()
-    sid = _get_season_id()
+    sid = _clan_sid()
     today = _date_key()
     khash = "o" + hashlib.md5(key.encode()).hexdigest()[:10]
 
@@ -2580,7 +2663,7 @@ def _join_clan(uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
         clan["join_requests"] = [r for r in (clan.get("join_requests") or [])
                                  if str(r.get("uid")) != uid]
         # Fresh Recruits: see _join_clan_direct.
-        slot = _season_slot(clan, _get_season_id())
+        slot = _season_slot(clan, _clan_sid())
         slot["new_members"] = _num(slot.get("new_members")) + 1
         _activity_push(clan, "join", f"🌊 {nick} joined the clan")
         t.set(clan_ref, clan)
@@ -2972,7 +3055,7 @@ def _season_challenges_view(slot: Dict[str, Any],
                             sid: str = "") -> List[Dict[str, Any]]:
     """The season-long challenge board, same shape as the weekly one, so one
     renderer draws both (in the Clans tab AND inside a live game)."""
-    ends = _season_bounds(sid or _get_season_id())[1]
+    ends = _season_bounds(sid or _clan_sid())[1]
     return _challenge_rows(CLAN_SEASON_CHALLENGES, set(slot.get("challenges_done") or []),
                            lambda ch: _season_metric(slot, str(ch.get("metric") or "")),
                            clan, "season", ends)
@@ -3118,7 +3201,7 @@ def handle_get(handler, parsed) -> bool:
         return True
     ensure_season_finalized(db)
     ensure_pending_moves(db)
-    sid = _get_season_id()
+    sid = _clan_sid()
     handler._send_json({"ok": True, "season": _season_public(sid),
                         "rows": _leaderboard_rows(db, sid)})
     return True
@@ -3189,7 +3272,7 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:  # noqa: C901
         return True
     ensure_season_finalized(db)
     ensure_pending_moves(db)
-    sid = _get_season_id()
+    sid = _clan_sid()
 
     try:
         handler._send_json(_route_post(db, uid, action, body, sid))
@@ -3208,7 +3291,7 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:  # noqa: C901
 # scan away on every chat line or vote click is a big cost for no change.
 _NO_STANDINGS_CHANGE = frozenset({
     "home", "leaderboard", "browse", "get", "season-results", "check-name",
-    "challenges", "chat-get", "chat-send", "vote-critter",
+    "challenges", "chat-get", "chat-peek", "chat-send", "vote-critter",
 })
 
 
@@ -3259,22 +3342,31 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
         return {"ok": True, "season": _season_public(sid), "rows": _leaderboard_rows(db, sid)}
 
     if action == "browse":
+        # EVERY clan is listed, invite-only ones included. Hiding them is what
+        # made a newly created clan look like it had never been created: the
+        # founder set it to Invite Only, went to Browse to check on it, and the
+        # game showed them a world with one clan in it. A clan you cannot press
+        # Join on is still a clan that exists, so it is on the list, marked,
+        # with the reason you can't join in place of the button.
         q = str(body.get("query") or "").strip().lower()
         rows = _leaderboard_rows(db, sid)
         if q:
-            # Searching by name finds any clan, including invite-only ones (you
-            # can look at it and ask around, you just can't press Join).
             rows = [r for r in rows if q in str(r.get("name") or "").lower()]
-        else:
-            # The plain browse list is the clans you can actually act on:
-            # password clans included: knowing the word is enough, so there is
-            # something to press. (Invite-only is the one you can't act on.)
-            rows = [r for r in rows if r.get("privacy") in ("public", "request", "password")]
-        open_first = sorted(rows, key=lambda r: (r["member_count"] >= CLAN_MAX_MEMBERS, r["rank"]))
-        recommended = [r for r in rows
-                       if r.get("privacy") == "public" and r["member_count"] < CLAN_MAX_MEMBERS][:5]
+        for r in rows:
+            r["full"] = r["member_count"] >= CLAN_MAX_MEMBERS
+            r["joinable"] = (not r["full"]
+                             and r.get("privacy") in ("public", "request", "password"))
+        # The clans you can act on first, then the rest; each block by rank.
+        open_first = sorted(rows, key=lambda r: (not r["joinable"], r["rank"]))
+        # `recommended` is the home screen's ONE-TAP list, so it stays strictly
+        # to clans that really are one tap: public and not full. A password
+        # clan is a tap plus a word you have to go and ask for, which is not a
+        # shortcut. It is still listed in `rows` like everything else.
+        recommended = [r for r in open_first
+                       if r.get("privacy") == "public" and not r["full"]][:5]
         return {"ok": True, "season": _season_public(sid),
-                "rows": open_first[:100], "recommended": recommended}
+                "rows": open_first[:100], "recommended": recommended,
+                "total_clans": len(rows)}
 
     if action == "get":
         # No clan_id means "mine", the in-game Clan Challenges sheet asks that
@@ -3677,10 +3769,9 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
         updates["activity"] = clan.get("activity")
         _clans(db).document(clan_id).set(updates, merge=True)
         try:
-            _clans(db).document(clan_id).collection("chat").document(
-                f"m{_now()}_{secrets.token_hex(3)}").set({
-                    "ts": _now(), "uid": uid, "name": me.get("name"),
-                    "kind": "announce", "text": text})
+            _clans(db).document(clan_id).collection("chat").document(_chat_mid()).set({
+                "ts": _now(), "uid": uid, "name": me.get("name"),
+                "kind": "announce", "text": text})
         except Exception as exc:  # noqa: BLE001
             print(f"[clan] announce chat write failed: {exc}")
         return {"ok": True}
@@ -3708,7 +3799,7 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
             doc["room_id"] = str(body.get("room_id"))[:12].upper()
         if kind == "tourney_invite" and body.get("tid"):
             doc["tid"] = str(body.get("tid"))[:24]
-        mid = f"m{_now()}_{secrets.token_hex(3)}"
+        mid = _chat_mid(doc["ts"])
         _clans(db).document(clan_id).collection("chat").document(mid).set(doc)
         # Occasional prune so the unordered limit() scan below can never fill
         # up with ancient messages and starve the recent ones.
@@ -3721,32 +3812,43 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
                         col.document(old.id).delete()
         except Exception as exc:  # noqa: BLE001
             print(f"[clan] chat prune failed: {exc}")
-        return {"ok": True, "id": mid}
+        # Hand the whole message back so the sender's own line can appear the
+        # instant they press Send, without waiting for the next poll.
+        return {"ok": True, "id": mid, "message": {"id": mid, **doc}}
 
     if action == "chat-get":
+        # `since` is INCLUSIVE, and that is the whole point. `ts` is only
+        # accurate to the second, so an exclusive cursor silently ate every
+        # message written in the same second as the newest one the caller
+        # already had: two clanmates replying at once, or a reply landing in
+        # the same second as your own line, and it was gone for good, because
+        # the cursor never moves back. That is what "the clan chat doesn't
+        # work" was. The caller re-reads that one second and drops the ids it
+        # already holds, which costs a handful of duplicate rows per poll and
+        # cannot lose a message.
         since = int(body.get("since") or 0)
-        rows = []
-        col = _clans(db).document(clan_id).collection("chat")
-        try:
-            # Newest-first server-side so a long-lived clan chat never streams
-            # the whole history on every 3.5s poll. Falls back to a plain
-            # capped scan where order_by isn't available (tests / old SDKs).
-            try:
-                cursor = col.order_by("ts", direction="DESCENDING").limit(CLAN_CHAT_FETCH)
-            except Exception:
-                cursor = col.limit(600)
-            for doc in cursor.stream():
-                d = doc.to_dict() or {}
-                if int(d.get("ts") or 0) <= since or d.get("deleted"):
-                    continue
-                rows.append({"id": doc.id, **d})
-        except Exception as exc:  # noqa: BLE001
-            print(f"[clan] chat read failed: {exc}")
-        rows.sort(key=lambda r: int(r.get("ts") or 0))
+        rows = _chat_rows(db, clan_id, since)
         muted_until = int((clan.get("muted") or {}).get(uid) or 0)
         return {"ok": True, "messages": rows[-CLAN_CHAT_FETCH:],
                 "muted_until": muted_until if muted_until > _now() else 0,
+                "server_ts": _now(),
                 "pinned": clan.get("pinned_announcement")}
+
+    if action == "chat-peek":
+        # The cheapest possible "has anyone said anything?": ONE message, for
+        # the background poller that raises the clan-chat notification from
+        # any page. Never returns history, so it stays affordable to call on a
+        # timer from every signed-in member.
+        rows = _chat_rows(db, clan_id, 0, cap=1)
+        last = rows[-1] if rows else None
+        return {"ok": True, "server_ts": _now(),
+                "last": ({"id": last.get("id"), "ts": last.get("ts"),
+                          "uid": last.get("uid"), "name": last.get("name"),
+                          "kind": last.get("kind"),
+                          "text": str(last.get("text") or "")[:120]}
+                         if last else None),
+                "clan_id": clan_id, "clan_name": clan.get("name"),
+                "clan_icon": clan.get("icon")}
 
     if action == "chat-mod":
         if not _has_perm(clan, uid, "moderate_chat"):
@@ -3917,7 +4019,7 @@ def _join_clan_direct(db, uid: str, clan_id: str) -> Dict[str, Any]:
                                  if str(r.get("uid")) != uid]
         # Fresh Recruits counts arrivals this season, inside the same
         # transaction as the arrival itself.
-        slot = _season_slot(clan, _get_season_id())
+        slot = _season_slot(clan, _clan_sid())
         slot["new_members"] = _num(slot.get("new_members")) + 1
         _activity_push(clan, "join", f"🌊 {nick} joined the clan")
         t.set(clan_ref, clan)

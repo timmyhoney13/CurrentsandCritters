@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.86";
-  const APP_BUILD   = "2026-08-24.3";
+  const APP_VERSION = "1.6.87";
+  const APP_BUILD   = "2026-08-24.4";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,25 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "💬 Clan chat works, and it comes to find you", items: [
+      "Clan chat was losing messages. Anything a clanmate wrote in the same second as the last message you'd already seen was skipped, and it never came back: you'd have had to reload the page to find out it existed. Two people replying at once was enough to do it. Fixed, and messages are now tracked one by one so none can slip through that gap again.",
+      "Your own message appears the instant you press Send instead of waiting for the next refresh, and if it doesn't go through, what you typed is handed back to you rather than thrown away.",
+      "When someone in your clan says something, a note now pops up wherever you are on Player Home, with who said it and what. Tap it and you're in the conversation. The Clans button keeps a red dot until you've read it. It never notifies you about your own messages.",
+    ]},
+    { ver: "V1.7.0", title: "🛡️ Your clan's front page, rebuilt", items: [
+      "Opening your clan used to mean eight identical grey tiles, one goal, and then the entire weekly challenge list printed out underneath: a wall of text with no shape to it. Now it opens on a scoreboard banner, your own contribution and how much of this week's cap you have left, today's goal and this week's progress side by side, who's online right now, and the clan chat right there on the page.",
+      "Weekly challenges are cards with a progress ring instead of a long list, colour-coded by how you're doing: blue while you're working on one, amber when you're nearly there, green when it's done. The ones you're closest to finishing come first, and the Challenges tab can filter to just the ones still to do.",
+      "Moving between the clan's tabs no longer rebuilds the whole page to do it, so the clan page is quicker to get around. The critter ballot only loads its hundred animal pictures when you actually open it to vote.",
+    ]},
+    { ver: "V1.7.0", title: "🔍 Every clan shows up, and only once", items: [
+      "Find a Clan lists every clan in the game now, including invite-only ones. They used to be hidden, so if you made a clan and set it to Invite Only, you could go looking for it and be shown a world it wasn't in. An invite-only clan is marked as one, and its button says why you can't press it.",
+      "Your own clan is no longer drawn twice on one screen. It was showing on the podium AND again in the card below it, which read as two clans with the same name. It's the card, and it wears its own medal.",
+      "The clan leaderboard drops its podium when there are three clans or fewer, since a podium plus a table of the same three clans is just every clan listed twice.",
+    ]},
+    { ver: "V1.7.0", title: "🗓️ A month more season, and the real coin payout", items: [
+      "The clan season now runs 30 days longer than the calendar quarter it's named for, so there's actually time to finish a season's challenges. Season 1 · Riptide now ends October 30th. Weekly challenges still reset every Monday.",
+      "Finishing top three pays 400, 300 and 200 Critter Coins per member. That's what the Clans page has always said, but the payout was quietly a third of it. The page and the payout are the same number now, and the page reads it from the server so they can't drift apart again.",
+    ]},
     { ver: "V1.7.0", title: "🎲 Game Night, every Saturday", items: [
       "Game Night is every Saturday, 7:00–9:00 PM CST. There is a banner at the top of your Player Home and on the website that says when the next one is, counts down to it, and turns green while it is running.",
       "It also shows the time in YOUR time zone, so 7 PM CST does not have to be worked out on paper.",

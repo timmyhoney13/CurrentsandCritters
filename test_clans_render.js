@@ -44,7 +44,11 @@ const NOW = Math.floor(Date.now() / 1000);
 
 // ── Canned server payloads (shapes copied from clan_server.py) ──────────────
 const SEASON = { id: "2026-Q3", number: 1, name: "Riptide",
-                 starts_ts: NOW - 86400 * 30, ends_ts: NOW + 86400 * 44, now: NOW };
+                 starts_ts: NOW - 86400 * 30, ends_ts: NOW + 86400 * 44, now: NOW,
+                 // What finishing top three pays, straight from the server. The
+                 // page must print THESE and never a number of its own.
+                 reward_coins: [400, 300, 200], reward_min_points: 10,
+                 mvp_coins: 50, mvp_min_points: 25, border_top_n: 10, extra_days: 30 };
 
 const CARD = (id, name, icon, pts, rank) => ({
   id, name, icon, icon_name: name, description: name + " description",
@@ -168,12 +172,20 @@ const page = `<!doctype html><html><head><meta charset="utf-8">
 #auth-stats-lobby{display:block!important} .ph-panel{display:block!important}</style>
 </head><body>
 <div id="auth-stats-lobby" data-bg-tab="clans">
+  <!-- The real Player Home nav button. The clan critter and the unread-chat
+       dot both ride on this, from every tab, so the page has to have one. -->
+  <button class="ph-snav-item" data-tab="clans"><svg width="20" height="20"></svg>Clans</button>
   <div class="ph-panel" id="ph-panel-clans"><div id="cc-clans-root"></div></div>
 </div>
 <pre id="RESULT"></pre>
 <script>
 const RESPONSES = ${JSON.stringify(RESPONSES)};
 const HOME_JSON = JSON.parse(JSON.stringify(RESPONSES["/api/clan/home"]));
+// The probe script rewrites some of these payloads mid-run, so it needs the
+// raw pieces they are built from on this side of the page too.
+const NOW = ${NOW};
+const SEASON = ${JSON.stringify(SEASON)};
+const TOP3 = ${JSON.stringify(TOP3)};
 window.__ccToasts = [];
 window.__ccPosts = [];
 window.__ccClans = {
@@ -224,6 +236,11 @@ function snapshot(name) {
       countdown: (document.querySelector(".ccC-count") || {}).innerText || "",
       activity: q(".ccC-activity .row"), chips: q(".ccC-chip"),
       iconTiles: q(".ccC-iconpick .ic"),
+      // The rebuilt Overview: one hero banner, goal cards, challenge CARDS
+      // (not a list) and the clan chat embedded on the front page.
+      hero: q(".ccC-hero"), heroRail: q(".ccC-hero-rail > div"),
+      goals: q(".ccC-goal"), chCards: q(".ccC-chcard"), rings: q(".ccC-ring"),
+      chatLogs: q(".ccC-chat-log"), chatMsgs: q(".ccC-msg"),
     },
     // widest painted element vs the viewport → horizontal overflow check
     overflow: Math.max(0, Math.round(
@@ -259,9 +276,19 @@ function snapshot(name) {
       loadingShown: /Loading clan/i.test(txt()),
     };
     snapshot("profile");
+    out.overviewText = txt();
     const voteSec = () => [...document.querySelectorAll(".ccC-sec")]
       .find(s => /Favorite clan critter/i.test(s.innerText || "")) || null;
+    // The ballot is a hundred <img> tags for an established clan, so it is
+    // built only when asked for. Count what it offers AFTER opening it, and
+    // record that it really was closed to begin with.
+    out.voteClosedTiles = [...(voteSec() || document).querySelectorAll(".ccC-iconpick .ic")].length;
+    const voteToggle = [...((voteSec() || document).querySelectorAll("button"))]
+      .find(b => /^Vote$/i.test((b.textContent || "").trim()));
+    if (voteToggle) voteToggle.click();
+    await wait(80);
     out.voteText = ((voteSec() || {}).innerText) || "";
+    out.voteOpenTiles = [...(voteSec() || document).querySelectorAll(".ccC-iconpick .ic")].length;
 
     // Cast a vote. One request, repainted in place from its response: the
     // section must not blank out, the screen must not be rebuilt, and the two
@@ -340,6 +367,107 @@ function snapshot(name) {
       logScrolls: (() => { const l = document.querySelector(".ccC-chat-log");
         return !!l && l.scrollHeight >= l.clientHeight; })(),
     };
+
+    // ── The same-second message ────────────────────────────────────────────
+    // A message ts is whole seconds. The old cursor was exclusive (ts > since),
+    // so a reply written in the same second as the newest message already on
+    // screen was skipped, and because the cursor never moves back it was gone
+    // until a page reload. This is the whole of "the clan chat doesn't work".
+    // The server now re-serves that second and the client drops what it
+    // already has BY ID, so a same-second reply has to turn up.
+    const lastTs = RESPONSES["/api/clan/chat-get"].messages.slice(-1)[0].ts;
+    RESPONSES["/api/clan/chat-get"] = {
+      ok: true, muted_until: 0, server_ts: NOW, pinned: null,
+      messages: [
+        // one the client already holds (same id) → must not be drawn twice
+        { id: "m3", ts: lastTs, uid: "u1", name: "Alice", kind: "announce", text: "Practice tonight at 8!" },
+        // and one written in the SAME SECOND that it has never seen
+        { id: "m4", ts: lastTs, uid: "u2", name: "Bob", kind: "msg", text: "same second reply" },
+      ],
+    };
+    const beforeSameSec = q(".ccC-msg");
+    await wait(4000);                          // one poll tick (3.5s)
+    // Count inside the LOG, not the whole tab: the same words are also on the
+    // pinned-announcement banner above it, which is a different thing.
+    const logText = () => (document.querySelector(".ccC-chat-log") || {}).innerText || "";
+    out.sameSecond = {
+      arrived: /same second reply/.test(logText()),
+      // exactly ONE new bubble: the id it already had must not be repeated
+      added: q(".ccC-msg") - beforeSameSec,
+      dupes: (logText().match(/Practice tonight at 8!/g) || []).length,
+    };
+
+    // Sending: your own line has to appear the moment the server confirms it,
+    // and what you typed must never be swallowed.
+    RESPONSES["/api/clan/chat-send"] = { ok: true, id: "m5",
+      message: { id: "m5", ts: NOW, uid: "u1", name: "Alice", kind: "msg", text: "hello from the test" } };
+    const chatInput = document.querySelector(".ccC-chat-in input");
+    const chatSend = [...document.querySelectorAll(".ccC-chat-in button")][0];
+    if (chatInput && chatSend) {
+      chatInput.value = "hello from the test";
+      chatSend.click();
+      await wait(120);
+      out.chatSend = { shown: /hello from the test/.test(txt()), cleared: chatInput.value };
+    }
+
+    // ── Sub-tabs must repaint the PANE, not the whole clan card ────────────
+    // Rebuilding the header, the level ring and every avatar to move between
+    // two tabs is what made the clan page feel heavy. Nothing above the pane
+    // changes when the sub-tab does, so nothing above the pane may be rebuilt:
+    // proved by NODE IDENTITY, which a rebuild cannot preserve.
+    {
+      const header = document.querySelector(".ccC-myclan");
+      const postsBefore = window.__ccPosts.length;
+      const memTab2 = [...document.querySelectorAll(".ph-lb-mode-btn")]
+        .find(b => /^Members$/i.test((b.textContent || "").trim()));
+      if (memTab2) memTab2.click();
+      await wait(200);
+      out.tabSwitch = {
+        sameHeaderNode: document.querySelector(".ccC-myclan") === header,
+        calls: window.__ccPosts.slice(postsBefore).map(c => c.p),
+        paneChanged: q(".ccC-member") > 0,
+      };
+    }
+
+    // ── The clan chat notification ─────────────────────────────────────────
+    // Clan chat has to reach you when you are NOT looking at it, or a clan of
+    // six people talks to an empty room. Go back to the home screen (no chat
+    // panel on it), let the background watcher run, and a line somebody else
+    // just said must raise a popup and put a dot on the Clans nav button.
+    RESPONSES["/api/clan/chat-peek"] = {
+      ok: true, server_ts: NOW, clan_id: "c1", clan_name: "Reef Riders",
+      clan_icon: "/avatars/clownfish.png",
+      last: { id: "notif1", ts: NOW, uid: "u2", name: "Bob", kind: "msg",
+              text: "who's on for a game?" },
+    };
+    try { localStorage.removeItem("cc_clan_chat_seen"); } catch (_) {}
+    await window.__ccClansRender();
+    // The watcher is rate-limited to one peek per CHAT_POLL_SEC (25s), and
+    // earlier ticks in this run have already used the current slot, so wait
+    // out a whole window. Virtual time makes this cost nothing.
+    await wait(30000);
+    {
+      const n = document.querySelector(".ccC-notif");
+      out.notif = {
+        shown: !!n,
+        text: n ? (n.innerText || "").replace(/\\s+/g, " ").trim() : "",
+        dot: !!document.querySelector(".ccC-navdot"),
+      };
+      // Clicking it is reading it: the dot clears and it does not come back.
+      if (n) {
+        n.click();
+        await wait(300);
+        out.notif.clearedOnClick = !document.querySelector(".ccC-notif")
+                                && !document.querySelector(".ccC-navdot");
+        out.notif.openedChat = !!document.querySelector(".ccC-chat");
+      }
+    }
+    // Your own line must never notify you about yourself.
+    RESPONSES["/api/clan/chat-peek"].last = { id: "notif2", ts: NOW, uid: "u1",
+      name: "Alice", kind: "msg", text: "this is me talking" };
+    await window.__ccClansRender();
+    await wait(30000);
+    out.notifSelf = { shown: !!document.querySelector(".ccC-notif") };
 
     // ── Opening the tab must not wait on the network ───────────────────
     // The first open cached this account's home payload, so a SECOND open has
@@ -434,6 +562,45 @@ function snapshot(name) {
       await wait(300);
       out.noClanJoin.posted = window.__ccPosts.slice(before).map(c => c.p);
     }
+    // ── Browse lists EVERY clan ────────────────────────────────────────────
+    // A clan you can't press Join on is still a clan that exists. Hiding the
+    // invite-only ones is what made a brand-new clan look like it had never
+    // been created: its founder set it to Invite Only, came here to check, and
+    // was shown a world without it in it.
+    RESPONSES["/api/clan/browse"] = {
+      ok: true, season: SEASON, total_clans: 3,
+      rows: [
+        Object.assign({}, TOP3[1], { joinable: true, full: false }),
+        Object.assign({}, TOP3[2], { joinable: true, full: false, privacy: "request" }),
+        Object.assign({}, TOP3[2], { id: "c9", name: "Quiet Tide Society",
+                      icon: "/avatars/mullet.png", description: "", points: 0, rank: 4,
+                      privacy: "invite", member_count: 1, joinable: false, full: false }),
+      ],
+      recommended: [Object.assign({}, TOP3[1], { joinable: true, full: false })],
+    };
+    await window.__ccClansRender(); await wait(250);
+    {
+      const browseTab = [...document.querySelectorAll(".ph-lb-mode-btn")]
+        .find(b => /Browse/i.test(b.textContent));
+      if (browseTab) browseTab.click();
+      await wait(300);
+      const t = txt();
+      const inviteBtn = [...document.querySelectorAll(".ccC-member .ccC-btn")]
+        .find(b => /invite only/i.test(b.textContent || ""));
+      out.browse = {
+        rows: q(".ccC-member"),
+        hasInviteOnly: /Quiet Tide Society/.test(t),
+        // Listed once, not once in a "one tap" strip and again below it. Count
+        // the NAME HEADINGS, not the text: every row also prints the clan's
+        // description, which begins with the clan's own name.
+        kelpTimes: [...document.querySelectorAll(".ccC-member .n")]
+          .filter(n => /Kelp Krew/.test(n.textContent || "")).length,
+        inviteBtnDisabled: !!(inviteBtn && inviteBtn.disabled),
+        inviteBtnReason: inviteBtn ? (inviteBtn.title || "") : "",
+        countShown: /3 clans/i.test(t),
+      };
+    }
+
     RESPONSES["/api/clan/home"] = Object.assign({}, HOME_JSON,
       { my_clan: null, my_clan_full: null, invites: [] });
     await window.__ccClansRender();
@@ -545,11 +712,19 @@ fs.writeFileSync(file, page);
 function run(width, height) {
   const dom = execFileSync(CHROME, [
     "--headless", "--disable-gpu", "--no-sandbox", "--hide-scrollbars",
-    `--window-size=${width},${height}`, "--virtual-time-budget=20000",
+    // The probe waits out real timers (the 3.5s chat poll, the 5s notification
+    // watcher), so the budget has to cover all of them with room to spare, or
+    // Chrome dumps the DOM mid-run and every check reads undefined.
+    `--window-size=${width},${height}`, "--virtual-time-budget=150000",
     "--dump-dom", "file://" + file,
   ], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-  const m = dom.match(/@@([\s\S]*?)@@/);
-  if (!m) throw new Error("no result payload in the DOM dump");
+  // Anchored to the RESULT node, not to the first "@@" in the document: the
+  // dump also contains the script that WRITES the payload, so an unanchored
+  // match silently parses the source code of the emitter when the probe never
+  // finished, and every assertion then fails for the wrong reason.
+  const m = dom.match(/<pre id="RESULT">@@([\s\S]*?)@@<\/pre>/);
+  if (!m) throw new Error("no result payload in the DOM dump "
+    + "(the probe did not finish: raise --virtual-time-budget or look for a thrown error)");
   return JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&")
                         .replace(/&lt;/g, "<").replace(/&gt;/g, ">"));
 }
@@ -565,15 +740,44 @@ const D = run(1280, 900);
 check("module ran without errors", D.errors.length === 0, D.errors.join(" | "));
 
 const home = D.screens.home || { counts: {}, bad: [] };
-check("home: three featured clans", home.counts.podium === 3, "podium=" + home.counts.podium);
+// Your own clan is the hero card; the podium shows the clans that are NOT
+// yours. Drawing it in both places is what put two identically named clans on
+// one screen and read as a duplicate clan.
 check("home: my clan row rendered", home.counts.myclan >= 1);
+check("home: the podium shows the OTHER clans, not yours too",
+      home.counts.podium === 2, "podium=" + home.counts.podium);
+check("home: my clan appears exactly once on the screen",
+      (home.text.match(/Reef Riders/g) || []).length === 1,
+      "occurrences=" + (home.text.match(/Reef Riders/g) || []).length);
+check("home: the hero card carries its own medal", /🥇/.test(home.text));
+check("home: the podium quotes the server's coin payout, not its own",
+      /400 Critter Coins/.test(home.text) && !/150 Critter Coins/.test(home.text));
+check("home: 2nd and 3rd are still shown",
+      /Kelp Krew/.test(home.text) && /Tide Turners/.test(home.text));
 check("home: season countdown filled", /\d/.test(home.counts.countdown || ""), home.counts.countdown);
 check("home: pending invite shown", (home.text || "").includes("Tide Turners"));
 check("home: badge shelf shown", (home.text || "").includes("Clan MVP"));
 check("home: no placeholder junk in text", home.bad.length === 0, home.bad.join(","));
 
 const prof = D.screens.profile || { counts: {}, bad: [] };
-check("profile: stat tiles rendered", prof.counts.stats >= 8, "stats=" + prof.counts.stats);
+check("profile: the scoreboard is one hero banner", prof.counts.hero === 1);
+check("profile: every headline stat is on it", prof.counts.heroRail >= 5,
+      "rail=" + prof.counts.heroRail);
+check("profile: today and this week are their own cards", prof.counts.goals >= 2,
+      "goals=" + prof.counts.goals);
+// The weekly board is CARDS with progress rings, not a printed-out list.
+check("profile: weekly challenges are cards, not a list", prof.counts.chCards >= 1,
+      "cards=" + prof.counts.chCards);
+check("profile: each card carries a progress ring", prof.counts.rings >= 1);
+check("profile: the ring shows how far along it is", /80%/.test(prof.text || ""));
+// Chat is on the front page: a clan that has to go and find its chat tab
+// doesn't talk.
+check("profile: the clan chat is on the overview", prof.counts.chatLogs >= 1);
+check("profile: ...with real messages in it",
+      /Good game everyone/.test(prof.text || ""));
+check("profile: who is online is shown", /On right now/i.test(prof.text || ""));
+check("profile: your own contribution is on the front page",
+      /your points/i.test(prof.text || ""));
 check("profile: pinned announcement shown", (prof.text || "").includes("Practice tonight"));
 check("profile: daily goal bar rendered", prof.counts.goalbars >= 1);
 check("profile: weekly challenge shown", (prof.text || "").includes("Reef Regulars"));
@@ -583,8 +787,10 @@ check("profile: clan level shown", (prof.text || "").includes("Lv 3"));
 // The season vote decides the clan's icon on the Clans tab, so it may only
 // offer critters the clan has unlocked (pool: clownfish + narwhal of the three
 // the game offers) and it has to say what winning means.
+check("profile: the critter ballot is not built until it is asked for",
+      D.voteClosedTiles === 0, "tiles=" + D.voteClosedTiles);
 check("profile: the vote offers only the clan's unlocked critters",
-      prof.counts.iconTiles === 2, "tiles=" + prof.counts.iconTiles);
+      D.voteOpenTiles === 2, "tiles=" + D.voteOpenTiles);
 check("profile: the vote says the winner becomes the tab icon",
       (prof.text || "").includes("Clans tab"));
 check("profile: the vote shows the running tally",
@@ -598,8 +804,14 @@ check("profile: no placeholder junk in text", prof.bad.length === 0, prof.bad.jo
 // in place, not a vote plus a /home plus a /get with the panel blanked out in
 // between. Both of these were the "clans take forever / voting bugs out" bug.
 const openCalls = (D.openMyClan || {}).calls || [];
-check("open my own clan: no second round trip to the server",
-      openCalls.length === 0, openCalls.join(","));
+// The PROFILE still costs nothing (it came with /home). The overview's chat
+// panel does fetch its messages, which is the price of chat being on the front
+// page: it is one small call, it does not block the paint, and nothing else
+// may sneak in beside it.
+check("open my own clan: the profile still costs no round trip",
+      openCalls.every(c => c === "/api/clan/chat-get"), openCalls.join(","));
+check("open my own clan: at most one call, and it is the chat",
+      openCalls.length <= 1, openCalls.join(","));
 check("open my own clan: never shows a loading placeholder",
       (D.openMyClan || {}).loadingShown === false);
 const V = D.vote || {};
@@ -648,8 +860,56 @@ check("activity log: trade line hides the items",
 
 const lb = D.screens.leaderboard || { counts: {}, bad: [] };
 check("leaderboard: a row per clan", lb.counts.rows === 3, "rows=" + lb.counts.rows);
-check("leaderboard: featured top three", lb.counts.podium === 3);
+// With three clans or fewer the podium IS the table: showing both put every
+// clan on the screen twice.
+check("leaderboard: no podium when it would just repeat the table",
+      lb.counts.podium === 0, "podium=" + lb.counts.podium);
+check("leaderboard: every clan appears exactly once",
+      ["Reef Riders", "Kelp Krew", "Tide Turners"].every(
+        n => (lb.text.match(new RegExp(n, "g")) || []).length === 1),
+      lb.text.slice(0, 120));
+check("leaderboard: says how many clans are playing", /3 clans playing/i.test(lb.text || ""));
 check("leaderboard: no placeholder junk in text", lb.bad.length === 0, lb.bad.join(","));
+
+// ── Clan chat: the bug that made it "not work" ──────────────────────────────
+const ss = D.sameSecond || {};
+check("chat: a reply written in the SAME SECOND still arrives", ss.arrived === true);
+check("chat: ...and nothing already on screen is drawn twice", ss.dupes === 1, "copies=" + ss.dupes);
+check("chat: exactly one new bubble for one new message", ss.added === 1, "added=" + ss.added);
+const cs = D.chatSend || {};
+check("chat: your own line appears the moment it is sent", cs.shown === true);
+check("chat: the box clears when the send lands", cs.cleared === "");
+
+// ── The clan chat notification ──────────────────────────────────────────────
+const nf = D.notif || {};
+check("chat notification: pops up when a clanmate talks", nf.shown === true);
+// The header is uppercased by CSS, so innerText comes back shouting: compare
+// case-insensitively rather than pinning the styling.
+check("chat notification: says who and what",
+      /Bob/i.test(nf.text) && /on for a game/i.test(nf.text), nf.text);
+check("chat notification: names the clan", /Reef Riders/i.test(nf.text), nf.text);
+check("chat notification: dots the Clans nav button", nf.dot === true);
+check("chat notification: clicking it clears the dot", nf.clearedOnClick === true);
+check("chat notification: ...and lands you in the conversation", nf.openedChat === true);
+check("chat notification: never fires for your own message",
+      (D.notifSelf || {}).shown === false);
+
+// ── Sub-tab switching is a pane repaint, not a page rebuild ─────────────────
+const tsw = D.tabSwitch || {};
+check("sub-tabs: the header is not rebuilt to change tab", tsw.sameHeaderNode === true);
+check("sub-tabs: changing tab costs no request", (tsw.calls || []).length === 0,
+      (tsw.calls || []).join(","));
+check("sub-tabs: ...and the pane really did change", tsw.paneChanged === true);
+
+// ── Browse shows every clan ─────────────────────────────────────────────────
+const br = D.browse || {};
+check("browse: an invite-only clan is listed like any other", br.hasInviteOnly === true);
+check("browse: every clan has a row", br.rows === 3, "rows=" + br.rows);
+check("browse: no clan is listed twice", br.kelpTimes === 1, "Kelp Krew ×" + br.kelpTimes);
+check("browse: the invite-only button is disabled", br.inviteBtnDisabled === true);
+check("browse: ...and says why you can't press it",
+      /invitation/i.test(br.inviteBtnReason || ""), br.inviteBtnReason);
+check("browse: says how many clans there are", br.countShown === true);
 
 const nc = D.screens.noclan || { text: "" };
 check("no clan: shows the join/create call to action",

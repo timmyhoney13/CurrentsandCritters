@@ -375,6 +375,8 @@ function snap(name) {
     text: t,
     counts: { podium:q(".ccC-pod"), myclan:q(".ccC-myclan"), sec:q(".ccC-sec"),
               stat:q(".ccC-stat"), member:q(".ccC-member"), row:q(".ccC-table tbody tr"),
+              hero:q(".ccC-hero"), heroRail:q(".ccC-hero-rail > div"),
+              goal:q(".ccC-goal"), chCard:q(".ccC-chcard"), chatLog:q(".ccC-chat-log"),
               msg:q(".ccC-msg"), activity:q(".ccC-activity .row"),
               countdown:(document.querySelector(".ccC-count")||{}).innerText||"" },
   };
@@ -402,6 +404,21 @@ function navState() {
     out.nav = navState();
     const my = document.querySelector(".ccC-myclan"); if (my) my.click();
     await wait(300); snap("profile");
+    // The critter ballot is one <img> per unlocked critter, so it is built only
+    // when somebody asks to vote. Record that it starts closed, then open it.
+    out.voteClosed = (() => {
+      const sec = [...document.querySelectorAll(".ccC-sec")]
+        .find(s => /Favorite clan critter/i.test(s.innerText || ""));
+      return sec ? sec.querySelectorAll(".ccC-iconpick .ic").length : -1;
+    })();
+    {
+      const sec = [...document.querySelectorAll(".ccC-sec")]
+        .find(s => /Favorite clan critter/i.test(s.innerText || ""));
+      const open = sec && [...sec.querySelectorAll("button")]
+        .find(b => (b.textContent || "").trim() === "Vote");
+      if (open) open.click();
+      await wait(120);
+    }
     out.vote = (() => {
       const sec = [...document.querySelectorAll(".ccC-sec")]
         .find(s => /Favorite clan critter/i.test(s.innerText || ""));
@@ -469,14 +486,27 @@ for name in ["home", "profile", "challenges", "members", "chat", "events", "log"
     check(f"{name}: paints real content", s["len"] > 40, f"len={s['len']}")
     check(f"{name}: no placeholder junk", not s["bad"], ",".join(s["bad"]))
 
-check("home: both clans on the podium", S["home"]["counts"]["podium"] == 2,
+# Your own clan is the hero card, so the podium holds the OTHER clans. Drawing
+# it in both places put two identically named clans on one screen.
+check("home: the other clan is on the podium", S["home"]["counts"]["podium"] == 1,
       str(S["home"]["counts"]["podium"]))
+check("home: your own clan is drawn exactly once",
+      S["home"]["text"].count("Reef Riders") == 1,
+      "occurrences=" + str(S["home"]["text"].count("Reef Riders")))
 check("home: season countdown filled", any(c.isdigit() for c in S["home"]["counts"]["countdown"]),
       S["home"]["counts"]["countdown"])
 check("home: my clan row shown", S["home"]["counts"]["myclan"] >= 1)
 check("home: the clan name the server returned", "Reef Riders" in S["home"]["text"])
-check("profile: stat tiles rendered", S["profile"]["counts"]["stat"] >= 8,
-      str(S["profile"]["counts"]["stat"]))
+check("profile: the scoreboard is one hero banner", S["profile"]["counts"]["hero"] == 1,
+      str(S["profile"]["counts"]["hero"]))
+check("profile: every headline stat is on it", S["profile"]["counts"]["heroRail"] >= 5,
+      str(S["profile"]["counts"]["heroRail"]))
+check("profile: today and this week are their own cards", S["profile"]["counts"]["goal"] >= 2,
+      str(S["profile"]["counts"]["goal"]))
+check("profile: weekly challenges are cards, not a printed list",
+      S["profile"]["counts"]["chCard"] >= 1, str(S["profile"]["counts"]["chCard"]))
+check("profile: the clan chat is on the front page",
+      S["profile"]["counts"]["chatLog"] >= 1, str(S["profile"]["counts"]["chatLog"]))
 check("profile: the pinned announcement", "Practice tonight" in S["profile"]["text"])
 check("members: a row per member", S["members"]["counts"]["member"] == 4,
       str(S["members"]["counts"]["member"]))
@@ -562,6 +592,8 @@ check("vote: the season vote section rendered", V.get("found") is True)
 check("vote: it says the winner becomes the tab icon",
       "Clans tab" in (V.get("text") or ""), (V.get("text") or "")[:120])
 check("vote: no em dashes in the section", "—" not in (V.get("text") or ""))
+check("vote: the ballot is not built until it is asked for",
+      OUT.get("voteClosed") == 0, str(OUT.get("voteClosed")))
 check("vote: only critters the clan has unlocked are offered",
       V.get("tiles") == 2, str(V.get("names")))
 check("vote: the tally is shown on the tiles",
