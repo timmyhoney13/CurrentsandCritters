@@ -143,10 +143,19 @@ console.log("\nthe character counter tells you what maxlength is enforcing");
 
 console.log("\nthe cache busters moved, or nobody gets any of this");
 {
-  const stamps = new Set((HTML.match(/\?v=2026-\d\d-\d\d\.\d+/g) || []));
-  check("preview.css and preview-app.js share one fresh stamp",
-        /css\/preview\.css\?v=2026-08-24/.test(HTML) && /js\/preview-app\.js\?v=2026-08-24/.test(HTML),
-        [...stamps].join(" "));
+  // Pinned to a LITERAL date this used to fail on every ship that bumped the
+  // busters, which taught people to edit the test instead of reading it. The
+  // real contract is not which date it is, it is that /css and /js all move
+  // TOGETHER: one file left behind is one file served from a day-old cache.
+  const refs = HTML.match(/\/(?:css|js)\/[A-Za-z0-9._-]+\?v=[0-9A-Za-z.-]+/g) || [];
+  const stamps = new Set(refs.map((r) => r.split("?v=")[1]));
+  check("every /css and /js file carries a cache buster", refs.length >= 20, String(refs.length));
+  check("…and they all share ONE stamp, so nothing is left on a stale copy",
+        stamps.size === 1, [...stamps].join(" "));
+  const stamp = [...stamps][0] || "";
+  check("preview.css and preview-app.js are both carrying it",
+        HTML.includes(`css/preview.css?v=${stamp}`) && HTML.includes(`js/preview-app.js?v=${stamp}`),
+        stamp);
 }
 
 // ════════════════════════════════════════════════════════════════════════

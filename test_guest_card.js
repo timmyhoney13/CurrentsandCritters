@@ -189,10 +189,18 @@ console.log("\nopening and closing it is one pair of functions");
 
 console.log("\nthe cache busters moved, or nobody gets any of this");
 {
-  const stamps = new Set((HTML.match(/\?v=2026-\d\d-\d\d\.\d+/g) || []));
-  check("preview.css and preview-app.js share one fresh stamp",
-        /css\/preview\.css\?v=2026-08-24/.test(HTML) && /js\/preview-app\.js\?v=2026-08-24/.test(HTML),
+  // Not pinned to a literal date: that failed on every ship that bumped the
+  // busters, which teaches people to edit the test rather than read it. The
+  // contract is that /css and /js all move TOGETHER, and that the stamp they
+  // move to is the build the client polls for.
+  const refs = HTML.match(/\/(?:css|js)\/[A-Za-z0-9._-]+\?v=[0-9A-Za-z.-]+/g) || [];
+  const stamps = new Set(refs.map((r) => r.split("?v=")[1]));
+  const build = JSON.parse(fs.readFileSync(path.join(CLIENT, "version.json"), "utf8")).build;
+  check("every /css and /js file carries a cache buster", refs.length >= 20, String(refs.length));
+  check("…all on ONE stamp, so nothing is left on a stale copy", stamps.size === 1,
         [...stamps].join(" "));
+  check("…and that stamp is this build", [...stamps][0] === build,
+        `${[...stamps][0]} vs version.json ${build}`);
 }
 
 // ════════════════════════════════════════════════════════════════════════
