@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.87";
-  const APP_BUILD   = "2026-08-24.4";
+  const APP_VERSION = "1.6.88";
+  const APP_BUILD   = "2026-08-24.5";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,9 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🪸 The four home cards have their coral back", items: [
+      "Quick Match, Create Game, Join Game and Tutorial are their painted artwork again. They were briefly flattened to a plain colour and a text label; that was a mistake and it's undone. The cards are exactly the ones you knew.",
+    ]},
     { ver: "V1.7.0", title: "💬 Clan chat works, and it comes to find you", items: [
       "Clan chat was losing messages. Anything a clanmate wrote in the same second as the last message you'd already seen was skipped, and it never came back: you'd have had to reload the page to find out it existed. Two people replying at once was enough to do it. Fixed, and messages are now tracked one by one so none can slip through that gap again.",
       "Your own message appears the instant you press Send instead of waiting for the next refresh, and if it doesn't go through, what you typed is handed back to you rather than thrown away.",

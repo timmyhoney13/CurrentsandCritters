@@ -1,21 +1,20 @@
 #!/usr/bin/env node
 /* Player Home: the four action cards, and the Friends tab's reef.
  *
- * 1. THE CARDS ARE A COLOUR AND A NAME. Each one used to be a single baked PNG
- *    with a cartoon coral creature and the lettering painted into it. The art
- *    is gone; the colours it was painted in are now the card's own gradient and
- *    the name is real text.
+ * 1. THE CARDS ARE THEIR ARTWORK. Quick Match, Create Game, Join Game and
+ *    Tutorial are each ONE baked PNG, with the coral creature and the
+ *    lettering painted into it. That art is the row players know, so this
+ *    guards it: the markup points at the four files, the files are on disk,
+ *    and, in a real browser, every one of them actually DECODES and covers its
+ *    card. A missing PNG is otherwise silent, the card just goes flat.
  *
- *    The trap that made this dangerous: a SECOND .ph-action-label rule, ~2600
- *    lines further down the file and left over from an older light-card
- *    design, paints the label navy. While the cards were images nothing showed
- *    it. The moment they became text, every name went dark-on-dark and was
- *    unreadable. So this test measures the rendered colour, it does not read
- *    the stylesheet and hope.
+ *    (They were briefly replaced by a gradient and a text label. They are the
+ *    artwork again. If you are about to swap them for markup, that is the
+ *    change this file is here to make you do on purpose.)
  *
- *    The other trap is order: the gradients are nth-child, and the markup order
- *    (Quick Match, Create, Join, Tutorial) is what maps a card to its colour.
- *    Reorder the markup and every card changes identity.
+ *    The image sits on top of the card's own gradient and takes no clicks
+ *    (pointer-events: none), so the button underneath keeps working. The ids
+ *    every handler binds to are checked too, they are the contract.
  *
  * 2. FRIENDS STANDS ON THE REEF. Not the round avatar background of the same
  *    reef (a circle on a pale square, all open water in the middle when it is
@@ -52,32 +51,34 @@ const ROW = (() => {
 // ════════════════════════════════════════════════════════════════════════
 //  SOURCE
 // ════════════════════════════════════════════════════════════════════════
-console.log("\nthe cards are a colour and a name, and nothing else");
+console.log("\nthe four cards are their artwork");
 {
-  check("no baked card images left in the markup",
-        !/ph-action-img/.test(HTML) && !/action-card-\w+\.png/.test(HTML));
-  check("…nor rules for them in the stylesheet",
-        !/ph-action-img/.test(CSS));
-  check("every card is a name and a subtitle",
-        (ROW.match(/class="ph-action-label"/g) || []).length === 4
-        && (ROW.match(/class="ph-action-sub"/g) || []).length === 4);
-  check("…and the names are the four the buttons still answer to",
-        />Quick Match</.test(ROW) && />Create Game</.test(ROW)
-        && />Join Game</.test(ROW) && />Tutorial</.test(ROW));
+  const WANT = [
+    ["stats-quickmatch-btn",  "action-card-quickmatch.png", "Quick Match"],
+    ["stats-create-btn",      "action-card-create.png",     "Create Game"],
+    ["stats-join-toggle-btn", "action-card-join.png",       "Join Game"],
+    ["stats-tutorial-btn",    "action-card-tutorial.png",   "Tutorial"],
+  ];
+  check("four image cards in the row",
+        (ROW.match(/class="ph-action-card ph-action-img-card"/g) || []).length === 4,
+        String((ROW.match(/ph-action-img-card/g) || []).length));
+  WANT.forEach(([id, png, label]) => {
+    check(`${label} is its own artwork`,
+          new RegExp(`id="${id}"[\\s\\S]{0,200}?src="/${png.replace(".", "\\.")}`).test(ROW),
+          png);
+    // A card whose PNG is not in the build is a card that silently goes flat.
+    check(`  …and ${png} is really in the client`,
+          fs.existsSync(path.join(CLIENT, png)));
+  });
   check("the ids handlers bind to are untouched",
-        /id="stats-quickmatch-btn"/.test(ROW) && /id="stats-create-btn"/.test(ROW)
-        && /id="stats-join-toggle-btn"/.test(ROW) && /id="stats-tutorial-btn"/.test(ROW));
-  check("the colours still follow the markup order: blue, purple, red, green",
-        /nth-child\(1\) \{ background: linear-gradient\(145deg, #6fd6f2/.test(CSS)
-        && /nth-child\(2\) \{ background: linear-gradient\(145deg, #cb9af2/.test(CSS)
-        && /nth-child\(3\) \{ background: linear-gradient\(145deg, #ff8b78/.test(CSS)
-        && /nth-child\(4\) \{ background: linear-gradient\(145deg, #b2d965/.test(CSS));
-  check("…in the per-tab override too, or a card changes colour per tab",
-        /\[data-bg-tab\] \.ph-action-card:nth-child\(2\) \{ background: linear-gradient\(145deg, #cb9af2/.test(CSS)
-        && /\[data-bg-tab\] \.ph-action-card:nth-child\(3\) \{ background: linear-gradient\(145deg, #ff8b78/.test(CSS));
-  check("there is only ONE rule that colours the label",
-        (CSS.match(/^\s*\.ph-action-label \{/gm) || []).length === 1,
-        "a second, later one repaints it navy and the name disappears");
+        WANT.every(([id]) => new RegExp(`id="${id}"`).test(ROW)));
+  check("the artwork covers the card and is not cropped",
+        /\.ph-action-img-card \{[\s\S]*?aspect-ratio: 472 \/ 304/.test(CSS)
+        && /\.ph-action-img \{[\s\S]*?object-fit: cover/.test(CSS));
+  check("…and takes no clicks, so the button underneath still works",
+        /\.ph-action-img \{[\s\S]*?pointer-events: none/.test(CSS));
+  check("the scrim is off on an image card (the lettering is in the art)",
+        /\.ph-action-img-card::before \{ display: none/.test(CSS));
 }
 
 console.log("\nthe Friends tab stands on the game's own Coral Reef");
@@ -120,7 +121,13 @@ if (!CHROME) {
       ".webp":"image/webp",".svg":"image/svg+xml",".ico":"image/x-icon"};
     http.createServer((req,res)=>{
       const rel=decodeURIComponent(req.url.split("?")[0]).replace(/^\\/+/,"");
-      const f=path.join(ROOT,rel);
+      // Two roots, because the shipped page addresses assets BOTH ways: the
+      // tab art as /multiplayer/client/..., and the card art as /action-card-
+      // ....png, which the real server resolves against multiplayer/client.
+      // Serving only the repo root 404s every card PNG and the cards go flat,
+      // which is exactly the failure this suite is supposed to catch for real.
+      let f=path.join(ROOT,rel);
+      if(!fs.existsSync(f)) f=path.join(ROOT,"multiplayer/client",rel);
       if(!f.startsWith(ROOT)||!fs.existsSync(f)||fs.statSync(f).isDirectory()){res.writeHead(404);res.end();return;}
       res.writeHead(200,{"Content-Type":MIME[path.extname(f)]||"application/octet-stream"});
       fs.createReadStream(f).pipe(res);
@@ -147,22 +154,20 @@ setTimeout(function () {
   try {
     var cards = [].slice.call(document.querySelectorAll(".ph-action-card"));
     res.cards = cards.map(function (c) {
-      var lbl = c.querySelector(".ph-action-label");
-      var cs = getComputedStyle(lbl), cc = getComputedStyle(c);
-      var cb = c.getBoundingClientRect(), lb = lbl.getBoundingClientRect();
-      // "Is the name light on a dark card" as a number, not as a stylesheet read.
-      var lum = function (s) {
-        var m = /rgba?\\((\\d+), ?(\\d+), ?(\\d+)/.exec(s) || [0,0,0,0];
-        return (0.2126*+m[1] + 0.7152*+m[2] + 0.0722*+m[3]) / 255;
-      };
+      var img = c.querySelector("img.ph-action-img");
+      var cb = c.getBoundingClientRect();
+      var ib = img ? img.getBoundingClientRect() : null;
+      var cs = img ? getComputedStyle(img) : null;
       return {
-        name: lbl.textContent.trim(),
-        ink: cs.color, inkLum: +lum(cs.color).toFixed(3),
-        painted: cc.backgroundImage.indexOf("gradient") >= 0,
-        hasImg: !!c.querySelector("img"),
-        w: Math.round(cb.width), h: Math.round(cb.height),
-        inside: lb.left >= cb.left - 1 && lb.right <= cb.right + 1
-                && lb.bottom <= cb.bottom + 1
+        hasImg: !!img,
+        src: img ? (img.getAttribute("src") || "") : "",
+        alt: img ? (img.alt || "") : "",
+        // naturalWidth is the only thing that separates "the art is there"
+        // from "the file 404'd and the card went flat".
+        loaded: !!(img && img.complete && img.naturalWidth > 0),
+        clickThrough: cs ? cs.pointerEvents === "none" : false,
+        covers: !!(ib && cb && ib.width >= cb.width - 1 && ib.height >= cb.height - 1),
+        w: Math.round(cb.width), h: Math.round(cb.height)
       };
     });
     var lob = document.getElementById("auth-stats-lobby");
@@ -204,11 +209,13 @@ setTimeout(function () {
     check("four action cards", ov.cards.length === 4, String(ov.cards.length));
     const want = ["Quick Match", "Create Game", "Join Game", "Tutorial"];
     ov.cards.forEach((c, i) => {
-      check(`card ${i + 1} is ${want[i]}`, c.name === want[i], c.name);
-      check(`  …painted, with no image on it`, c.painted && !c.hasImg);
-      check(`  …its name is light ink, readable on the gradient`, c.inkLum > .85, c.ink);
-      check(`  …and the name sits inside the card`, c.inside);
-      check(`  …at a real size`, c.w > 150 && c.h > 120, `${c.w}x${c.h}`);
+      check(`card ${i + 1} is the ${want[i]} artwork`,
+            c.hasImg && new RegExp(want[i].split(" ")[0], "i").test(c.src), c.src);
+      check(`  …and the image really decoded`, c.loaded,
+            c.loaded ? "" : "the PNG did not load: the card is blank");
+      check(`  …it covers the whole card`, c.covers, `${c.w}x${c.h}`);
+      check(`  …clicks pass through to the button`, c.clickThrough);
+      check(`  …at a real size`, c.w > 150 && c.h > 90, `${c.w}x${c.h}`);
     });
   }
   const fr = rows.friends;
@@ -218,7 +225,7 @@ setTimeout(function () {
           /ph-bg-game-art/.test(fr.bgImage || ""), fr.bgImage);
     check("…fixed to the window, not stretched down the scroll",
           fr.bgAttach === "fixed", fr.bgAttach);
-    check("…and its cards keep their own colours", (fr.cards || []).every((c) => c.painted));
+    check("…and its cards still wear their artwork", (fr.cards || []).every((c) => c.hasImg && c.loaded));
   }
 }
 

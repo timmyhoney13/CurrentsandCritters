@@ -7056,7 +7056,9 @@
       position: relative;
     }
     /* Bottom-left readability scrim (a gradient, not a blur), guarantees the
-       title/subtitle stay legible on the lighter top of each card's gradient. */
+       title/subtitle stay legible on the lighter top of each gradient. Anchored
+       to the bottom-left and faded to transparent before the coral art on the
+       right, so it never darkens the illustration. */
     .ph-action-card::before {
       content: "";
       position: absolute;
@@ -7072,14 +7074,35 @@
       transform: translateY(-3px);
       box-shadow: 0 16px 38px rgba(0,45,110,.30), inset 0 1px 0 rgba(255,255,255,.22);
     }
-    /* One colour and one name per card. The order here is the order in the
-       markup, and each gradient is the one that was painted into the PNG this
-       card replaced: Quick Match blue, Create purple, Join red, Tutorial
-       green. Change the markup order and you must change these with it. */
-    .ph-action-card:nth-child(1) { background: linear-gradient(145deg, #6fd6f2 0%, #2cb4e6 38%, #1583c9 72%, #0f63a4 100%); } /* Quick Match, ocean blue */
-    .ph-action-card:nth-child(2) { background: linear-gradient(145deg, #cb9af2 0%, #9d5fdd 38%, #7c3fc4 72%, #592a9c 100%); } /* Create, clean purple */
-    .ph-action-card:nth-child(3) { background: linear-gradient(145deg, #ff8b78 0%, #f24f49 38%, #d62f2e 72%, #ad2024 100%); } /* Join, clean red */
-    .ph-action-card:nth-child(4) { background: linear-gradient(145deg, #b2d965 0%, #82b837 38%, #5d9627 72%, #437a16 100%); } /* Tutorial, reef green */
+    /* ── Image-based action cards: the exact reference artwork ───────
+       The button shows ONE image (text + coral baked in). It matches the
+       image aspect ratio so nothing is cropped, and the image sits on top of
+       any gradient/scrim/per-tab styling so the artwork is identical on every
+       tab. The button stays fully clickable. */
+    .ph-action-img-card {
+      aspect-ratio: 472 / 304;
+      height: auto !important;
+      min-height: 0 !important;
+      padding: 0 !important;
+      border: none !important;
+      background: transparent !important;
+    }
+    .ph-action-img-card::before { display: none !important; }  /* no scrim, text is in the image */
+    .ph-action-img {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      border-radius: inherit;
+      display: block;
+      z-index: 2;
+      -webkit-user-drag: none; user-select: none;
+      pointer-events: none;   /* clicks pass through to the button */
+    }
+    /* Individual card gradient themes, cleaner, evenly-weighted stops */
+    .ph-action-card:nth-child(1) { background: linear-gradient(145deg, #6fd6f2 0%, #2cb4e6 38%, #1583c9 72%, #0f63a4 100%); } /* Create, ocean blue */
+    .ph-action-card:nth-child(2) { background: linear-gradient(145deg, #ff8b78 0%, #f24f49 38%, #d62f2e 72%, #ad2024 100%); } /* Join, clean red */
+    .ph-action-card:nth-child(3) { background: linear-gradient(145deg, #b2d965 0%, #82b837 38%, #5d9627 72%, #437a16 100%); } /* Tutorial, reef green */
+    .ph-action-card:nth-child(4) { background: linear-gradient(145deg, #cb9af2 0%, #9d5fdd 38%, #7c3fc4 72%, #592a9c 100%); } /* Competitive, clean purple */
     /* Circular icon holder, no backdrop-filter (causes GPU blur on entire card) */
     .ph-action-icon {
       width: 50px;
@@ -9503,9 +9526,9 @@
       box-shadow: 0 8px 26px rgba(0,45,110,.20), inset 0 1px 0 rgba(255,255,255,.18) !important;
     }
     #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(1) { background: linear-gradient(145deg, #6fd6f2 0%, #2cb4e6 38%, #1583c9 72%, #0f63a4 100%) !important; }
-    #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(2) { background: linear-gradient(145deg, #cb9af2 0%, #9d5fdd 38%, #7c3fc4 72%, #592a9c 100%) !important; }
-    #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(3) { background: linear-gradient(145deg, #ff8b78 0%, #f24f49 38%, #d62f2e 72%, #ad2024 100%) !important; }
-    #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(4) { background: linear-gradient(145deg, #b2d965 0%, #82b837 38%, #5d9627 72%, #437a16 100%) !important; }
+    #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(2) { background: linear-gradient(145deg, #ff8b78 0%, #f24f49 38%, #d62f2e 72%, #ad2024 100%) !important; }
+    #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(3) { background: linear-gradient(145deg, #b2d965 0%, #82b837 38%, #5d9627 72%, #437a16 100%) !important; }
+    #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(4) { background: linear-gradient(145deg, #cb9af2 0%, #9d5fdd 38%, #7c3fc4 72%, #592a9c 100%) !important; }
 
     #ph-panel-friends .ph-scard {
       background: rgba(250,253,255,.95);
@@ -9785,11 +9808,18 @@
     .ph-ai-green { border-color: #9bc6ea; background: #edf7ff; }
     .ph-ai-teal { border-color: #b8e5df; background: #edfdfa; }
     .ph-ai-gold { border-color: #f0d9ab; background: #fff8e8; }
-    /* The label rules that belong to these cards are up with the cards. This
-       block used to repaint them in navy for an older light-card design, and
-       being later in the file it won: the moment the cards stopped being
-       images with the lettering baked in, every name went dark-on-dark. Only
-       the empty-subtitle guard is left here. */
+    .ph-action-label {
+      font-size: 1.02rem;
+      font-weight: 800;
+      color: #1860b8;
+      line-height: 1.1;
+    }
+    .ph-action-sub {
+      margin-top: 2px;
+      font-size: .9rem;
+      color: #3f6f99;
+      font-weight: 600;
+    }
     .ph-action-sub:empty { display: none; }
 
     .ph-main {
