@@ -41,7 +41,14 @@ const CLIENT = path.join(ROOT, "multiplayer/client");
 const read   = (p) => fs.readFileSync(path.join(CLIENT, p), "utf8");
 
 const HTML = read("preview.html");
-const CSS  = read("css/preview.css");
+// The guest card now has a TWIN: #auth-account-overlay, the sign-in / create
+// card, is the same card asking a different question, so every rule below is
+// written for both ids at once. Reading this file for the guest card's rules
+// therefore means dropping the twin's half of each selector list first, which
+// is what this does. Nothing else changes: what is asserted below is still
+// exactly the rule that reaches the guest card.
+const CSS  = read("css/preview.css")
+  .replace(/,\s*#auth-account-overlay[^,{]*?(?=\s*[,{])/g, "");
 const APP  = read("js/preview-app.js");
 
 let pass = 0, fail = 0;
@@ -51,9 +58,13 @@ function check(name, cond, extra) {
 }
 
 // The card's own markup, so "what is inside it" is a real question.
+// Stops at the account card, which follows it inside the same step: what is
+// asserted here is what is on the GUEST card, and the twin has its own notes,
+// its own icons and its own second form.
 const CARD = (() => {
   const a = HTML.indexOf('<div id="auth-guest-overlay"');
-  const b = HTML.indexOf("<!-- Step 2a", a);
+  let b = HTML.indexOf('<div id="auth-account-overlay"', a);
+  if (b < 0) b = HTML.indexOf("<!-- Step 2a", a);
   return HTML.slice(a, b);
 })();
 
@@ -75,8 +86,12 @@ console.log("\nthe step's invisible-button rules stop at its own children");
         /#auth-step-choose > \.pv-btn/.test(CSS)
         && /#auth-step-choose > \.auth-btn-google/.test(CSS)
         && /#auth-step-choose > \.auth-err/.test(CSS));
+  // The window is generous because the redrawn octagon (the sea-glass panel
+  // that covers the one printed on login-bg.png, plus its lettering) now sits
+  // between the step and its first button. What is being pinned is that the
+  // button is INSIDE the step and not nested in something else.
   check("…and the two buttons they aim at really are direct children",
-        /<div id="auth-step-choose"[\s\S]{0,400}?<button id="auth-guest-btn"/.test(HTML));
+        /<div id="auth-step-choose"[\s\S]{0,2600}?<button id="auth-guest-btn"/.test(HTML));
 }
 
 console.log("\nit opens onto the kelp forest, the room CREATE YOUR USERNAME stands in");
@@ -162,8 +177,8 @@ console.log("\nthe field says what maxlength is enforcing");
   // Anchored on the two lines that matter, not on a character budget from the
   // top of the function: opening the card blanks the field, so the counter has
   // to be repainted right there or it keeps reading the last guest's name.
-  check("…and it is repainted when opening the card clears the field",
-        /\$a\("auth-guest-nick"\)\.value = "";\s*\n\s*paintGuestCount\(\);/.test(APP));
+  check("…and it is repainted when opening the card writes the field",
+        /\$a\("auth-guest-nick"\)\.value = [^\n]*;\s*\n\s*paintGuestCount\(\);/.test(APP));
   check("the field is 16px, so iOS does not zoom the page on focus",
         /#auth-guest-overlay \.pv-input\s*\{[^}]*font-size:\s*16px/.test(CSS));
 }

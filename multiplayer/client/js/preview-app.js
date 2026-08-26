@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.90";
-  const APP_BUILD   = "2026-08-25.1";
+  const APP_VERSION = "1.6.91";
+  const APP_BUILD   = "2026-08-26.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,21 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🔑 A username and a password, for everyone without a Google account", items: [
+      "The sign-in screen's second button is now SIGN IN / CREATE AN ACCOUNT. Tap it and it asks whether you already have one, then either signs you in or makes you a new account with just a username and a password. No email, no Google account, nothing to wait for.",
+      "Picking a password shows a bar that fills and turns green as it gets harder to guess, and Create Account stays greyed out until it is green. \"password123\" and a single lower-case word do not count, however long they are.",
+      "Continue with Google is still right there, at the bottom of both forms, unchanged.",
+      "The username you choose is the name you sign in with, forever. Your in-game name can still be renamed later; Settings shows the sign-in one so you can always look it up.",
+    ]},
+    { ver: "V1.7.0", title: "🐚 Playing as a guest: everything opens, and now it can come with you", items: [
+      "A guest gets the whole game and keeps nothing, and now both halves of that are true. Your stats, XP, level and games update as you play and are waiting for you back on Player Home. Signing out erases every bit of it, and says so before it does.",
+      "At the end of a game there is a CREATE AN ACCOUNT button. Make an account from there and everything you played as a guest comes with you: your XP, your level, your games and the critters you unlocked. Same from the \"Create a free account\" line on Player Home.",
+      "Backing out of signing in no longer costs you your guest session. Closing the Google window, or a username already being taken, used to end it; now the session is still there, and PLAY AS GUEST hands your nickname back.",
+    ]},
+    { ver: "V1.7.0", title: "🌊 The sign-in screen, readable on a phone", items: [
+      "The octagon on the sign-in screen is drawn by the game now instead of being part of the painting, so its words are real words. On a phone, where the artwork used to letterbox into a thin band with lettering about five pixels tall, the panel is drawn large and the title stays up top at a size you can read, over the same eight oceans, blurred to fill the screen.",
+      "The Store no longer opens with a paragraph explaining who handles your card details. Stripe\u2019s own checkout says all of that, on the page where it matters.",
+    ]},
     { ver: "V1.7.0", title: "\u26F6 Full screen, in the same corner every time", items: [
       "The menu now has a full-screen button that is always there: a small \u26F6 chip in the bottom-right corner, on every tab. Click it to hand the game the whole screen, click it again (or press Esc) to come back out.",
       "It used to appear only if you had already asked for full screen and then fallen out of it, and it sat in the other corner, so most of the time the menu had no way into full screen at all.",
@@ -13377,6 +13392,7 @@
     // Tournament match → "Spectate / Wait for next match" instead of the normal
     // "Play Again / Back to Lobby" pair.
     try { _syncEndgameTournamentButtons(); } catch (_) {}
+    try { _syncEndgameGuestButton(); } catch (_) {}
 
     const myName = (typeof window.__fishNickname === "function") ? window.__fishNickname() : "";
     const sorted = [...(finalScores || [])].sort((a,b) => (b.score||0) - (a.score||0));
@@ -14041,6 +14057,7 @@
     const notices = document.getElementById("gs-left-notices");
     if (notices) notices.innerHTML = "";
     try { _syncEndgameTournamentButtons(); } catch (_) {}
+    try { _syncEndgameGuestButton(); } catch (_) {}
   }
 
   // ── Tournament matches end differently ────────────────────────────────────
@@ -14056,6 +14073,38 @@
     try { return (typeof window.__ccTourneyMatchCtx === "function") ? window.__ccTourneyMatchCtx() : null; }
     catch (_) { return null; }
   }
+  // CREATE AN ACCOUNT, at the end of a game, for guests only.
+  //
+  // A guest has just earned XP, maybe a level, maybe a critter, and the whole
+  // lot vanishes when they sign out. This is the moment to say so, and the
+  // only moment where the offer is about something they can see. Tapping it
+  // photographs the guest session on the way out (see __fishGoToSignIn), so
+  // creating the account pours it into the new profile.
+  //
+  // It never appears inside a tournament match: that end screen is already
+  // swapped for the bracket's own two buttons, and a tournament seat belongs
+  // to an account anyway.
+  function _syncEndgameGuestButton() {
+    const btn = document.getElementById("pv-endgame-signup");
+    if (!btn) return;
+    const isGuest = (typeof window.__fishIsGuest === "function") ? !!window.__fishIsGuest() : false;
+    const inTourney = !!_tourneyMatchCtx();
+    btn.style.display = (isGuest && !inTourney) ? "" : "none";
+  }
+  document.getElementById("pv-endgame-signup")?.addEventListener("click", async () => {
+    // Leave the way BACK TO LOBBY leaves: the seat is handed back and the game
+    // is torn down first. The sign-in screen sits at a lower z-index than the
+    // end-of-game overlay, so walking straight to it from here would put the
+    // sign-in card behind the scoreboard it came from.
+    _saveConfirmedStrategyStats();
+    const token = getSeatToken();
+    if (token && roomId) {
+      try { await apiPost(`/api/rooms/${roomId}/leave`, { seat_token: token }, { timeoutMs: 5000 }); } catch (_) {}
+    }
+    returnToMenu();
+    try { window.__fishGoToSignIn && window.__fishGoToSignIn({ migrate: true, pane: "create" }); } catch (_) {}
+  });
+
   function _syncEndgameTournamentButtons() {
     const spec = document.getElementById("pv-endgame-t-spectate");
     const wait = document.getElementById("pv-endgame-t-wait");
@@ -16879,6 +16928,11 @@
     const GUEST_NICK_KEY = "fish_guest_nick";
     const GUEST_AVATAR_KEY = "fish_guest_avatar";
     const GUEST_STATS_KEY_PREFIX = "fish_guest_stats_v1::";
+    // The last guest nickname used on this device. Not a session: only what to
+    // pre-fill PLAY AS GUEST with, so backing out of a sign-in does not cost a
+    // returning guest their name (and with it, their stats, which are filed
+    // under it). Erased by a real sign-out along with everything else.
+    const LAST_GUEST_NICK_KEY = "cc_last_guest_nick";
 
     // ── Legal ────────────────────────────────────────────────────────
     // Nothing gates sign-in. First sign-in is ONE screen: pick a username.
@@ -17399,6 +17453,168 @@
         localStorage.setItem(key, JSON.stringify(safe));
       } catch {
         // best-effort
+      }
+    }
+
+    // ══ WHAT A GUEST SESSION IS WORTH, AND HOW LONG IT LASTS ══════════
+    // A guest gets the whole game and keeps nothing. Their stats update the
+    // moment a game ends (saveGameStats writes the blob below, Player Home
+    // reads it straight back), they survive a reload and the hand-off from the
+    // launcher into the game window, and they are ERASED the moment the guest
+    // signs out. That last part used to be untrue: sign-out forgot the
+    // nickname but left the stats behind under it, so typing the same
+    // nickname again resurrected a session that was supposed to be over.
+    //
+    // Progress that a guest can build up lives in more than the one blob (the
+    // daily/weekly challenge state, the win streaks, the critters they
+    // unlocked), so the sweep is by PREFIX and by name rather than a list of
+    // keys somebody has to remember to add to.
+    const GUEST_WIPE_KEYS = [
+      "cc_daily_state_v1",     // daily challenge slots + progress
+      "cc_weekly_state_v1",    // weekly challenge slots + progress
+      "cc_streak_v1",          // win-streak counters
+      "cc_seen_opponents_v1",  // "played N different people" progress
+      "cc_new_avatars",        // unseen-critter dots in the gallery
+      "cc_notif_queue",        // undelivered unlock notifications
+      "cc_active_strats",      // strategy tracking
+      "cc_strat_play_counts",
+    ];
+    const GUEST_WIPE_PREFIXES = [GUEST_STATS_KEY_PREFIX, GUEST_UNLOCKED_ICONS_PREFIX];
+
+    // The guest's OWN progress: the stats blob and the critters they unlocked,
+    // both filed under their nickname and belonging to nobody else. Erased
+    // whenever a guest session is genuinely over.
+    function purgeGuestProgressBlobs() {
+      try {
+        // Collect first, delete after: removing while iterating localStorage by
+        // index renumbers what is left and skips half of it.
+        const doomed = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && GUEST_WIPE_PREFIXES.some(pre => k.startsWith(pre))) doomed.push(k);
+        }
+        doomed.forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+      } catch (_) { /* private mode: nothing was saved to erase */ }
+    }
+
+    // Everything, including the device-wide caches a guest also builds up: the
+    // challenge slots, the win streaks, the opponents they have met. Those are
+    // NOT filed per identity, so this is reserved for a guest genuinely
+    // signing out. Running it on an account's sign-out would delete that
+    // account's challenge progress, which lives nowhere else.
+    function purgeGuestData() {
+      purgeGuestProgressBlobs();
+      try {
+        GUEST_WIPE_KEYS.forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+      } catch (_) {}
+    }
+
+    // A guest pressing Sign Out. This is the one action the "nothing is kept"
+    // promise is about, so it is the one place the whole lot goes.
+    function signOutGuestForGood() {
+      let wasGuest = _guestSessionActive === true;
+      try { wasGuest = wasGuest || !!(localStorage.getItem(GUEST_NICK_KEY) || "").trim(); } catch (_) {}
+      if (wasGuest) purgeGuestData();
+      try { localStorage.removeItem(LAST_GUEST_NICK_KEY); } catch (_) {}
+      clearGuestMigration();
+      clearGuestSessionStorage();
+    }
+
+    // ── Guest → account migration ─────────────────────────────────────
+    // "Everything you played as a guest comes with you" only works if the
+    // guest's progress is copied out BEFORE the sign-in that erases it, and
+    // survives the page navigation that a launcher sign-in performs. So it is
+    // staged in localStorage under its own key, with a timestamp, and claimed
+    // exactly once by the code that creates the new profile.
+    //
+    // It is applied ONLY when a brand-new account is created. Pouring a
+    // client-side blob into an account that already has a history would let a
+    // stale snapshot overwrite real progress, and safeWriteProfile's
+    // never-regress guard is a floor, not a licence.
+    const GUEST_MIGRATE_KEY = "cc_guest_migration_v1";
+    const GUEST_MIGRATE_TTL_MS = 45 * 60 * 1000;
+
+    function stageGuestMigration() {
+      try {
+        const nick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
+        if (!nick) return false;
+        const stats = loadGuestStats(nick);
+        if (!stats || Number(stats.completed_games || 0) <= 0) return false;   // nothing played, nothing to carry
+        let icons = [];
+        try {
+          const raw = localStorage.getItem(GUEST_UNLOCKED_ICONS_PREFIX + nick.toLowerCase());
+          if (raw) icons = JSON.parse(raw).filter(v => typeof v === "string" && v.startsWith("/avatars/"));
+        } catch (_) { icons = []; }
+        localStorage.setItem(GUEST_MIGRATE_KEY, JSON.stringify({ at: Date.now(), nick, stats, icons }));
+        return true;
+      } catch (_) { return false; }
+    }
+
+    function takeGuestMigration() {
+      let raw = null;
+      try { raw = localStorage.getItem(GUEST_MIGRATE_KEY); } catch (_) { return null; }
+      clearGuestMigration();
+      if (!raw) return null;
+      try {
+        const m = JSON.parse(raw);
+        if (!m || typeof m !== "object") return null;
+        if (!Number.isFinite(Number(m.at)) || Date.now() - Number(m.at) > GUEST_MIGRATE_TTL_MS) return null;
+        if (!m.stats || typeof m.stats !== "object") return null;
+        return m;
+      } catch (_) { return null; }
+    }
+
+    function clearGuestMigration() {
+      try { localStorage.removeItem(GUEST_MIGRATE_KEY); } catch (_) {}
+    }
+
+    // Pour a staged guest session into a profile that was created seconds ago.
+    // Routed through safeWriteProfile, whose never-regress guard means the
+    // worst a stale or damaged snapshot can do is nothing at all. Every number
+    // is re-read as a finite number on the way in, so a hand-edited blob
+    // cannot write NaN into a live account and break every screen that adds
+    // it up. Nothing here may throw: a failed transfer is a missing bonus, a
+    // blocked sign-up is a lost player.
+    async function applyGuestMigration(uid) {
+      if (!uid || !_db) return false;
+      const m = takeGuestMigration();
+      if (!m) return false;
+      // The blob came out of JSON.parse, so it cannot contain NaN, Infinity or
+      // a function: what it CAN contain, if somebody has been editing local
+      // storage by hand, is a string where a number belongs, which is what
+      // turns a leaderboard into "NaN". So the walk is about TYPES. The depth
+      // is generous because the saved best-game snapshot (its board, its
+      // seats) is a real nested document and a truncated one would open a
+      // broken replay.
+      const clean = {};
+      const walk = (src, dst, depth) => {
+        Object.keys(src || {}).forEach(k => {
+          const v = src[k];
+          if (typeof v === "number") { if (Number.isFinite(v)) dst[k] = v; }
+          else if (typeof v === "string" || typeof v === "boolean") dst[k] = v;
+          else if (Array.isArray(v)) dst[k] = v.slice(0, 50);
+          else if (v && typeof v === "object" && depth < 6) { dst[k] = {}; walk(v, dst[k], depth + 1); }
+        });
+      };
+      walk(m.stats, clean, 0);
+      if (!Number(clean.completed_games || 0)) return false;
+      const icons = Array.isArray(m.icons)
+        ? m.icons.filter(v => typeof v === "string" && v.startsWith("/avatars/")).slice(0, 200)
+        : [];
+      try {
+        // The write's own guard decides what the account ends up with, so what
+        // it RETURNS is the truth about that, not what we asked for.
+        const saved = await safeWriteProfile(uid, icons.length ? { stats: clean, unlocked_icons: icons } : { stats: clean });
+        const landed = (saved && typeof saved.stats === "object") ? saved.stats : clean;
+        if (icons.length) _unlockedIcons = Array.from(new Set([..._unlockedIcons, ...icons]));
+        _activeProfile = { ...(_activeProfile || {}), uid, stats: landed };
+        showToast(`🎁 Your guest progress came with you: ${Number(landed.completed_games || 0).toLocaleString()} `
+          + `game${Number(landed.completed_games) === 1 ? "" : "s"} and `
+          + `${Number(landed.total_xp || 0).toLocaleString()} XP.`, "good");
+        return true;
+      } catch (e) {
+        ccReport("guest_migration_failed", ccErrDetail(e), "warn");
+        return false;
       }
     }
 
@@ -18329,7 +18545,7 @@
       return { profile: null, reason: "notfound" };
     }
 
-    async function saveNewProfile(uid, nickname, email, avatarUrl) {
+    async function saveNewProfile(uid, nickname, email, avatarUrl, extra) {
       if (!_db) return "";
       const nick = nickname.trim();
       const code = genFriendCode();
@@ -18354,6 +18570,7 @@
           last_active:    firebase.firestore.FieldValue.serverTimestamp(),
           created_at:     firebase.firestore.FieldValue.serverTimestamp(),
           stats:          existingStats || defaultGuestStats(),
+          ...(extra && typeof extra === "object" ? extra : {}),
         };
         tx.set(ref, data, { merge: true });
       });
@@ -18633,8 +18850,12 @@
       // under them would only put a second seabed behind the first.
       scr.classList.toggle("on-nickname", stepId === "auth-step-nickname");
       if (stepId === "auth-step-choose") {
-        const ol = $a("auth-guest-overlay");
-        if (ol) ol.classList.remove("visible");
+        // Both cards close with the screen they belong to. Landing back on the
+        // chooser with one of them still open would put a dialog in front of
+        // the two buttons that are supposed to be the whole choice.
+        ["auth-guest-overlay", "auth-account-overlay"].forEach(id => {
+          const ol = $a(id); if (ol) ol.classList.remove("visible");
+        });
         const gb = $a("auth-guest-btn"), gg = $a("auth-choose-google-btn");
         if (gb) gb.style.pointerEvents = "";
         if (gg) gg.style.pointerEvents = "";
@@ -19424,15 +19645,39 @@
         showStep("auth-step-choose");
         return;
       }
+      // This account already existed, so a guest snapshot staged on the way in
+      // has no home: it is never merged into a history that is already there.
+      // Dropped here rather than left lying around, so it cannot be claimed
+      // later by an unrelated sign-up on this device. The guest's own blobs go
+      // with it: the session that led here is over for real now. The
+      // device-wide caches are left alone, because from this point on they
+      // belong to the account standing in front of them.
+      clearGuestMigration();
+      purgeGuestProgressBlobs();
+      try { localStorage.removeItem(LAST_GUEST_NICK_KEY); } catch (_) {}
       revealLobby(nickname, code);
       // Signed in with a real account: warm the reward caches now, so the XP
       // boost is known before the first game finishes rather than after.
       try { window.__ccPrimeRewardModules && window.__ccPrimeRewardModules(); } catch (_) {}
     }
 
+    // Ends the guest session in this page. It deliberately does NOT erase what
+    // was played: most callers are a sign-in ATTEMPT, and an attempt can be
+    // cancelled (a closed Google window, a username already taken). Deleting a
+    // guest's afternoon because they backed out of a form would be the worst
+    // possible reading of "nothing is saved". The erasing happens at the two
+    // moments that really end a guest session: signOutGuestForGood(), and
+    // arriving in a real account.
+    //
+    // The nickname is remembered on the way out, so coming back is one tap on
+    // PLAY AS GUEST and the same session is still there.
     function clearGuestSessionStorage() {
-      localStorage.removeItem(GUEST_NICK_KEY);
-      localStorage.removeItem(GUEST_AVATAR_KEY);
+      try {
+        const nick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
+        if (nick) localStorage.setItem(LAST_GUEST_NICK_KEY, nick);
+        localStorage.removeItem(GUEST_NICK_KEY);
+        localStorage.removeItem(GUEST_AVATAR_KEY);
+      } catch (_) {}
       _guestSessionActive = false;
       // Every caller of this is leaving the current identity behind. Drop the
       // Level Pass cache with it, so the sidebar's unclaimed badge cannot show
@@ -19515,9 +19760,14 @@
       if (settingsNick) settingsNick.textContent = nick;
       const settingsStatus = $a("settings-account-status");
       if (settingsStatus) {
-        settingsStatus.textContent = _authUser
-          ? ((_authUser.providerData?.[0]?.providerId === "google.com") ? "Google account" : "Email account")
-          : "Guest session";
+        // A username-and-password account signs in with a name that never
+        // changes, even after the player renames the name everybody else
+        // sees. This row is the only place they can go to look it up.
+        const loginName = String(_activeProfile?.login_username || "").trim();
+        settingsStatus.textContent = !_authUser ? "Guest session"
+          : (_authUser.providerData?.[0]?.providerId === "google.com") ? "Google account"
+          : loginName ? ("Sign in as " + loginName)
+          : "Username and password";
       }
       // Load stats
       if (_authUser) {
@@ -20802,6 +21052,18 @@
             if (bar) bar.style.display = "none";
             _pendingOnboardingUid = user.uid;
             if (!hasNickname) {
+              // A username-and-password sign-up already chose its name: the
+              // name IS the login. Finish the profile with it instead of
+              // asking the same question twice. Staged in localStorage by
+              // ccPasswordCreate() because the launcher navigates this tab
+              // into the game window between the two halves of this flow.
+              const staged = takePendingSignup();
+              if (staged && !validateLoginName(staged.nick)) {
+                const refEl = $a("auth-ref-input");
+                if (refEl) refEl.value = staged.ref || "";
+                await finishNicknameSetup(staged.nick);
+                return;
+              }
               // New account (doc doesn't exist): must choose nickname first.
               const hint = (user.displayName || "").split(" ")[0].slice(0, 15);
               const nickInput = $a("auth-nick-input");
@@ -20883,7 +21145,9 @@
             // the cross-domain redirect.)
             showStep("auth-step-choose");
             if (accountSignInPending) {
-              setAuthMsg("auth-choose-err", "Tap “Continue with Google” to finish signing in.", true);
+              // Provider-neutral on purpose: the account waiting to be finished
+              // may be a username and password, not a Google one.
+              setAuthMsg("auth-choose-err", "Tap “Sign In / Create an Account” to finish signing in.", true);
             }
           }
         }
@@ -20963,6 +21227,21 @@
     }
     window.__ccShowPrivacy = ccShowPrivacy;
 
+    // Said once, at the only moment it is true, and only to a guest who has
+    // actually played something. A guest who has not finished a game has
+    // nothing to lose and is not stopped to be told so.
+    function confirmGuestSignOut() {
+      if (_authUser || !_guestSessionActive) return true;
+      let games = 0;
+      try { games = Number(loadGuestStats(_playerNickname || "guest").completed_games || 0); } catch (_) {}
+      if (!games) return true;
+      return confirm(
+        `Sign out of this guest session?\n\n`
+        + `${games} game${games === 1 ? "" : "s"}, your XP, your level and the critters you unlocked `
+        + `are only stored on this device, and signing out erases them for good.\n\n`
+        + `Create a free account instead and they come with you.`);
+    }
+
     // ── Guest flow ───────────────────────────────────────────────
     // The guest card is a dialog laid over the sign-in artwork, so while it is
     // up the two painted buttons underneath it are held inert: they are
@@ -20980,6 +21259,8 @@
     }
 
     function openGuestCard() {
+      const acct = $a("auth-account-overlay");
+      if (acct) acct.classList.remove("visible");
       $a("auth-guest-overlay").classList.add("visible");
       $a("auth-guest-btn").style.pointerEvents = "none";
       $a("auth-choose-google-btn").style.pointerEvents = "none";
@@ -20987,7 +21268,12 @@
       // Whatever the chooser was saying belongs to the chooser; it must not be
       // left glowing under the scrim while this card is open.
       setAuthMsg("auth-choose-err", "", true);
-      $a("auth-guest-nick").value = "";
+      // Pre-filled with the last nickname used on this device, if there is one.
+      // The stats are filed under the nickname, so handing it back is what
+      // makes backing out of a sign-in cost nothing.
+      let last = "";
+      try { last = (localStorage.getItem(LAST_GUEST_NICK_KEY) || "").trim(); } catch (_) {}
+      $a("auth-guest-nick").value = validateNick(last) ? "" : last;
       paintGuestCount();
       setTimeout(() => $a("auth-guest-nick").focus(), 60);
     }
@@ -21098,20 +21384,11 @@
       }
     }
 
-    const chooseGoogleBtn = $a("auth-choose-google-btn");
-    if (chooseGoogleBtn) chooseGoogleBtn.addEventListener("click", async () => {
-      if (IS_GAME_WINDOW()) {
-        // Already inside the dedicated window (or on mobile, where we play
-        // inline), sign in here with a popup.
-        await beginGameWindowGoogleSignIn("auth-choose-err");
-      } else {
-        // Launcher: sign in with Google HERE using a popup (gesture-driven and
-        // reliable on all browsers, unlike the cross-domain signInWithRedirect).
-        // When sign-in resolves, onAuthStateChanged opens the dedicated game
-        // window (which inherits this session), or shows the Open Game button.
-        await beginCleanGoogleSignIn("auth-choose-err");
-      }
-    });
+    // SIGN IN / CREATE AN ACCOUNT. It used to run Google sign-in on the spot,
+    // which made Google the only way in. It opens the account card now, and
+    // Google is one of the two ways out of that card.
+    const chooseAccountBtn = $a("auth-choose-google-btn");
+    if (chooseAccountBtn) chooseAccountBtn.addEventListener("click", () => openAccountCard("ask"));
 
     $a("auth-guest-go-btn").addEventListener("click", () => {
       const nick = ($a("auth-guest-nick").value || "").trim();
@@ -21133,6 +21410,367 @@
       }
     });
     $a("auth-guest-nick").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-guest-go-btn").click(); });
+
+    // ══ ACCOUNT CARD: a username and a password, or Google ═══════════
+    //
+    // Not everybody has a Google account, and the sign-in screen used to have
+    // no other door. This is the other door.
+    //
+    // Firebase Authentication only knows about EMAIL and password, so a
+    // username is turned into one: `mermaid_92` signs in as
+    // `mermaid_92@players.currentsandcritters.com`. Nothing is ever sent
+    // there; the address exists so that Firebase's own uniqueness check on
+    // email becomes a uniqueness check on the username, enforced by the
+    // service rather than by a Firestore query that two people can win at
+    // once. auth/email-already-in-use IS "that username is taken".
+    //
+    // Because the address is not real, the login name can never change and a
+    // forgotten password cannot be mailed back. Both are said plainly on the
+    // card. The login name is stored on the profile as `login_username`, so
+    // Settings can always show a player the name they type to get back in,
+    // even after they rename the name everybody else sees.
+    const CC_LOGIN_DOMAIN = "players.currentsandcritters.com";
+    // The nickname rules allow spaces and let dots sit anywhere; an email
+    // local part does not. A login name is the stricter subset, so that the
+    // name the player types and the address it becomes are the same string.
+    function validateLoginName(name) {
+      const t = String(name || "").trim();
+      if (t.length < 3)  return "Username must be at least 3 characters.";
+      if (t.length > 15) return "Username must be 15 characters or less.";
+      if (!/^[A-Za-z0-9._-]+$/.test(t)) return "Letters, numbers, dots, dashes and underscores only, no spaces.";
+      if (/^[._-]|[._-]$/.test(t))      return "Start and end with a letter or a number.";
+      if (/\.\./.test(t))               return "No two dots in a row.";
+      if (CC_PROFANITY.hasProfanity(t)) return "Please choose a friendlier username.";
+      return "";
+    }
+    const ccLoginEmail = (name) => String(name || "").trim().toLowerCase() + "@" + CC_LOGIN_DOMAIN;
+
+    // ── Password strength ─────────────────────────────────────────────
+    // Four steps, scored on the things that actually make a password hard to
+    // guess: how long it is, and how many different kinds of character are in
+    // it. Anything obvious is pinned to the bottom of the scale no matter how
+    // long it is, because "password12345" is long and worthless. Score 3 is
+    // the floor for creating an account, which is where the bar turns green:
+    // the colour and the rule are the same thing, so the bar is not decoration.
+    const CC_PW_MIN_SCORE = 3;
+    const CC_PW_OBVIOUS = /^(?:p+a+s+s+w+o+r+d+|letmein|welcome|qwerty|abc123|iloveyou|admin|dragon|monkey|football|baseball|sunshine|princess|currents?(?:and)?critters?|critters?|fish|ocean)\d{0,4}!?$/i;
+    function ccPasswordScore(pw) {
+      const p = String(pw || "");
+      if (p.length < 8) return { score: 0, word: "Too short", tip: "8+ characters, with letters and numbers." };
+      if (CC_PW_OBVIOUS.test(p) || /^(.)\1+$/.test(p) || /^(?:0123456789|1234567890|123456789|12345678)\d*$/.test(p)) {
+        return { score: 1, word: "Too easy", tip: "That one is on every guessing list." };
+      }
+      let kinds = 0;
+      if (/[a-z]/.test(p)) kinds++;
+      if (/[A-Z]/.test(p)) kinds++;
+      if (/[0-9]/.test(p)) kinds++;
+      if (/[^A-Za-z0-9]/.test(p)) kinds++;
+      let score = 1;
+      if (p.length >= 8  && kinds >= 2) score = 2;
+      if (p.length >= 10 && kinds >= 3) score = 3;
+      if (p.length >= 12 && kinds >= 3) score = 4;
+      if (p.length >= 16 && kinds >= 2) score = Math.max(score, 3);
+      if (score >= 4) return { score, word: "Very strong", tip: "That will hold." };
+      if (score === 3) return { score, word: "Strong", tip: "Good to go." };
+      if (score === 2) return { score, word: "Weak",   tip: "Add length, or a capital, number or symbol." };
+      return { score, word: "Very weak", tip: "Mix in letters, numbers and a symbol." };
+    }
+
+    // ── The card ──────────────────────────────────────────────────────
+    // Three panes on one card: the question, sign in, create. ccAccountPane()
+    // is the only thing that decides which is showing, so a pane can never be
+    // left half-open behind another.
+    const AAO_PANES = {
+      ask:    { pane: "aao-pane-ask",    sub: "Your stats, critters, friends and history, saved and waiting next time." },
+      signin: { pane: "aao-pane-signin", sub: "Welcome back. Sign in with the username you chose." },
+      create: { pane: "aao-pane-create", sub: "Pick a username and a password. No email, no waiting." },
+    };
+    function ccAccountPane(which) {
+      const key = AAO_PANES[which] ? which : "ask";
+      Object.keys(AAO_PANES).forEach(k => {
+        const el = $a(AAO_PANES[k].pane);
+        if (el) el.style.display = (k === key) ? "" : "none";
+      });
+      const sub = $a("aao-sub");
+      if (sub) sub.textContent = AAO_PANES[key].sub;
+      setAuthMsg("aao-in-err", "", true);
+      setAuthMsg("aao-new-err", "", true);
+      const focusId = key === "signin" ? "aao-in-user" : (key === "create" ? "aao-new-user" : "");
+      if (focusId) setTimeout(() => { try { $a(focusId).focus(); } catch (_) {} }, 60);
+    }
+
+    function openAccountCard(which) {
+      const ol = $a("auth-account-overlay");
+      if (!ol) return;
+      // Whatever the chooser was saying belongs to the chooser, and the two
+      // painted-over buttons underneath are still real buttons: a scrim does
+      // not stop a click, so they are held inert while the card is up.
+      setAuthMsg("auth-choose-err", "", true);
+      const gb = $a("auth-guest-btn"), ab = $a("auth-choose-google-btn");
+      if (gb) gb.style.pointerEvents = "none";
+      if (ab) ab.style.pointerEvents = "none";
+      // A guest who got here from the end of a game is carrying their session
+      // with them; say so on the create pane, since it is the whole reason
+      // they tapped the button.
+      const note = $a("aao-migrate-note");
+      let carrying = false;
+      try { carrying = !!localStorage.getItem(GUEST_MIGRATE_KEY); } catch (_) {}
+      if (note) note.style.display = carrying ? "" : "none";
+      ol.classList.add("visible");
+      ccAccountPane(which || "ask");
+      ccPaintPwMeter();
+    }
+
+    function closeAccountCard() {
+      const ol = $a("auth-account-overlay");
+      if (ol) ol.classList.remove("visible");
+      const gb = $a("auth-guest-btn"), ab = $a("auth-choose-google-btn");
+      if (gb) gb.style.pointerEvents = "";
+      if (ab) ab.style.pointerEvents = "";
+      setAuthMsg("aao-in-err", "", true);
+      setAuthMsg("aao-new-err", "", true);
+      setAuthMsg("auth-choose-err", "", true);
+      // Nothing typed is kept: a password left sitting in a field behind a
+      // closed dialog is a password sitting on a shared computer.
+      ["aao-in-pass", "aao-new-pass", "aao-new-pass2"].forEach(id => {
+        const el = $a(id); if (el) { el.value = ""; el.type = "password"; }
+      });
+      ["aao-in-eye", "aao-new-eye"].forEach(id => {
+        const el = $a(id); if (el) { el.textContent = "Show"; el.setAttribute("aria-label", "Show password"); }
+      });
+      ccPaintPwMeter();
+    }
+
+    function ccPaintPwMeter() {
+      const inp = $a("aao-new-pass"), bar = $a("aao-meter");
+      const word = $a("aao-meter-word"), tip = $a("aao-meter-tip"), go = $a("aao-new-go");
+      if (!inp || !bar) return;
+      const raw = inp.value || "";
+      const r = ccPasswordScore(raw);
+      bar.dataset.s = raw ? String(r.score) : "0";
+      bar.setAttribute("aria-label", "Password strength: " + (raw ? r.word : "empty"));
+      if (word) word.textContent = raw ? r.word : "Too short";
+      if (tip)  tip.textContent  = raw ? r.tip  : "8+ characters, with letters and numbers.";
+      if (go) go.disabled = !(raw && r.score >= CC_PW_MIN_SCORE);
+    }
+
+    // ── Sign in with a username and a password ────────────────────────
+    async function ccPasswordSignIn() {
+      const errId = "aao-in-err";
+      if (!_auth) { setAuthMsg(errId, "Sign-in is not configured on this server.", false); return; }
+      const user = ($a("aao-in-user").value || "").trim();
+      const pass = $a("aao-in-pass").value || "";
+      if (!user) { setAuthMsg(errId, "Enter your username.", false); return; }
+      if (!pass) { setAuthMsg(errId, "Enter your password.", false); return; }
+      const go = $a("aao-in-go");
+      if (go) { go.disabled = true; go.setAttribute("aria-busy", "true"); }
+      setAuthMsg(errId, "Signing you in…", true);
+      try {
+        // A guest signing into an EXISTING account keeps nothing: their guest
+        // progress is not merged into a history that is already there. That is
+        // decided when the sign-in SUCCEEDS (revealRegisteredLobby drops the
+        // snapshot), not here: a wrong password must not throw away what they
+        // are carrying, or the second attempt arrives empty-handed.
+        clearGuestSessionStorage();
+        _playerNickname = ""; _friendCode = ""; _activeProfile = null;
+        _pendingOnboardingUid = ""; _avatarPromptShownForUid = "";
+        if (_auth.currentUser) { try { await _auth.signOut(); } catch (_) {} }
+        await _auth.signInWithEmailAndPassword(ccLoginEmail(user), pass);
+        closeAccountCard();
+      } catch (e) {
+        ccReport("firebase_password_signin_failed", ccErrDetail(e), "warn");
+        setAuthMsg(errId, ccPasswordAuthErr(e && e.code, "signin"), false);
+      } finally {
+        if (go) { go.disabled = false; go.removeAttribute("aria-busy"); }
+      }
+    }
+
+    // ── Create an account with a username and a password ──────────────
+    // Firebase creating the user is the ONLY thing that happens here.
+    // Everything after it (the profile, the friend code, the starter avatar,
+    // the referral, the guest transfer) is the job of finishNicknameSetup,
+    // the exact path a Google sign-up already takes, so there is one way an
+    // account comes into existence and not two that drift apart.
+    //
+    // The chosen name is handed over in localStorage rather than a variable
+    // because on the launcher, a successful sign-in NAVIGATES this tab into
+    // the game window: a variable would not survive the trip, and the player
+    // would be asked to invent a username they just invented.
+    const CC_PENDING_SIGNUP_KEY = "cc_pending_signup_v1";
+    const CC_PENDING_SIGNUP_TTL_MS = 30 * 60 * 1000;
+    function stagePendingSignup(nick, refCode) {
+      try {
+        localStorage.setItem(CC_PENDING_SIGNUP_KEY, JSON.stringify({
+          at: Date.now(), nick: String(nick || ""), ref: String(refCode || ""),
+        }));
+      } catch (_) {}
+    }
+    function takePendingSignup() {
+      let raw = null;
+      try { raw = localStorage.getItem(CC_PENDING_SIGNUP_KEY); } catch (_) { return null; }
+      try { localStorage.removeItem(CC_PENDING_SIGNUP_KEY); } catch (_) {}
+      if (!raw) return null;
+      try {
+        const v = JSON.parse(raw);
+        if (!v || !v.nick) return null;
+        if (!Number.isFinite(Number(v.at)) || Date.now() - Number(v.at) > CC_PENDING_SIGNUP_TTL_MS) return null;
+        return v;
+      } catch (_) { return null; }
+    }
+
+    async function ccPasswordCreate() {
+      const errId = "aao-new-err";
+      if (!_auth) { setAuthMsg(errId, "Sign-in is not configured on this server.", false); return; }
+      const nick  = ($a("aao-new-user").value || "").trim();
+      const pass  = $a("aao-new-pass").value || "";
+      const pass2 = $a("aao-new-pass2").value || "";
+      const ref   = ($a("aao-new-ref").value || "").trim();
+
+      const nameErr = validateLoginName(nick);
+      if (nameErr) { setAuthMsg(errId, nameErr, false); return; }
+      const strength = ccPasswordScore(pass);
+      if (strength.score < CC_PW_MIN_SCORE) {
+        setAuthMsg(errId, "Pick a stronger password: " + strength.tip, false); return;
+      }
+      if (pass !== pass2) { setAuthMsg(errId, "The two passwords don't match.", false); return; }
+
+      const go = $a("aao-new-go");
+      if (go) { go.disabled = true; go.setAttribute("aria-busy", "true"); }
+      setAuthMsg(errId, "Creating your account…", true);
+      try {
+        // Staged BEFORE the account exists, because creating it signs the
+        // player in, and signing in is what erases the guest session.
+        stageGuestMigration();
+        stagePendingSignup(nick, ref);
+        clearGuestSessionStorage();
+        _playerNickname = ""; _friendCode = ""; _activeProfile = null;
+        _pendingOnboardingUid = ""; _avatarPromptShownForUid = "";
+        if (_auth.currentUser) { try { await _auth.signOut(); } catch (_) {} }
+        const cred = await _auth.createUserWithEmailAndPassword(ccLoginEmail(nick), pass);
+        // The display name is a backstop: if anything ever loses the staged
+        // username, the CREATE YOUR USERNAME screen pre-fills from here.
+        try { await cred.user.updateProfile({ displayName: nick }); } catch (_) {}
+        closeAccountCard();
+      } catch (e) {
+        // This attempt is over, so the staged username does not stay armed.
+        // The guest SNAPSHOT deliberately does stay: "that username is taken"
+        // is the most likely thing to land here, and the retry that follows it
+        // has to be able to carry the same afternoon in with it. It expires on
+        // its own, and is dropped for good the moment an account is reached.
+        takePendingSignup();
+        ccReport("firebase_password_signup_failed", ccErrDetail(e), "warn");
+        setAuthMsg(errId, ccPasswordAuthErr(e && e.code, "create"), false);
+      } finally {
+        if (go) { go.removeAttribute("aria-busy"); }
+        ccPaintPwMeter();             // re-enables Create Account if the password still qualifies
+      }
+    }
+
+    // The username IS the email here, so Firebase's email wording would be
+    // nonsense on this card ("no account found with that email"). These are
+    // the same failures said in the words the player actually typed.
+    function ccPasswordAuthErr(code, mode) {
+      const map = {
+        "auth/invalid-credential":   "That username and password don't match. Check both and try again.",
+        "auth/wrong-password":       "That password is not right.",
+        "auth/user-not-found":       "No account with that username. Create one instead?",
+        "auth/invalid-email":        "Letters, numbers, dots, dashes and underscores only, no spaces.",
+        "auth/email-already-in-use": "That username is taken. Try another one.",
+        "auth/weak-password":        "That password is too easy to guess. Make it longer.",
+        "auth/user-disabled":        "That account has been disabled.",
+        "auth/network-request-failed":"The tide went out on your connection. Check it and try again.",
+        "auth/too-many-requests":    "Too many tries in a row. Wait a moment, then try again.",
+        "auth/operation-not-allowed":
+          "Username and password sign-in is not switched on for this server yet. "
+          + "Enable Email/Password in Firebase console → Authentication → Sign-in providers. "
+          + "You can still continue with Google.",
+      };
+      if (map[code]) return map[code];
+      return (mode === "create" ? "Could not create that account" : "Could not sign you in")
+        + ` (${code || "unknown"}). Try again.`;
+    }
+
+    // The three rules this card enforces, reachable by name so a test can ask
+    // them directly instead of inferring them from a rendered form. The same
+    // hook window.__ccAuthNote is for the chooser's status line: the app uses
+    // the functions, the test uses the names.
+    window.__ccPwScore        = (pw)   => ccPasswordScore(pw);
+    window.__ccLoginNameCheck = (name) => validateLoginName(name);
+    window.__ccLoginEmail     = (name) => ccLoginEmail(name);
+
+    // ── Wiring ────────────────────────────────────────────────────────
+    (function wireAccountCard() {
+      const ol = $a("auth-account-overlay");
+      if (!ol) return;
+      $a("aao-go-signin").addEventListener("click", () => ccAccountPane("signin"));
+      $a("aao-go-create").addEventListener("click", () => ccAccountPane("create"));
+      $a("aao-ask-back").addEventListener("click", closeAccountCard);
+      $a("aao-in-back").addEventListener("click", () => ccAccountPane("ask"));
+      $a("aao-new-back").addEventListener("click", () => ccAccountPane("ask"));
+
+      $a("aao-in-go").addEventListener("click", () => { void ccPasswordSignIn(); });
+      $a("aao-new-go").addEventListener("click", () => { void ccPasswordCreate(); });
+
+      // Google, from either form. Same two functions the chooser button used
+      // to call directly, so there is still exactly one Google sign-in path.
+      const googleFrom = async (errId) => {
+        stageGuestMigration();
+        if (IS_GAME_WINDOW()) await beginGameWindowGoogleSignIn(errId);
+        else                  await beginCleanGoogleSignIn(errId);
+      };
+      $a("aao-in-google").addEventListener("click",  () => { void googleFrom("aao-in-err"); });
+      $a("aao-new-google").addEventListener("click", () => { void googleFrom("aao-new-err"); });
+
+      // Enter submits the pane you are standing in.
+      const onEnter = (id, run) => $a(id).addEventListener("keydown", e => { if (e.key === "Enter") run(); });
+      onEnter("aao-in-user", () => $a("aao-in-go").click());
+      onEnter("aao-in-pass", () => $a("aao-in-go").click());
+      onEnter("aao-new-user",  () => $a("aao-new-pass").focus());
+      onEnter("aao-new-pass",  () => $a("aao-new-pass2").focus());
+      onEnter("aao-new-pass2", () => $a("aao-new-go").click());
+      onEnter("aao-new-ref",   () => $a("aao-new-go").click());
+
+      $a("aao-new-pass").addEventListener("input", ccPaintPwMeter);
+      $a("aao-ref-toggle").addEventListener("click", () => {
+        const wrap = $a("aao-ref-wrap"), btn = $a("aao-ref-toggle");
+        const open = wrap.style.display !== "none";
+        wrap.style.display = open ? "none" : "";
+        btn.setAttribute("aria-expanded", open ? "false" : "true");
+        btn.textContent = open ? "+ I have a friend code" : "− Never mind the friend code";
+        if (!open) setTimeout(() => { try { $a("aao-new-ref").focus(); } catch (_) {} }, 40);
+      });
+      $a("aao-new-user").addEventListener("input", () => {
+        const inp = $a("aao-new-user"), out = $a("aao-new-user-count");
+        if (!inp || !out) return;
+        const n = (inp.value || "").length;
+        out.textContent = n + " / 15";
+        out.classList.toggle("is-full", n >= 15);
+      });
+
+      // Show / Hide, one handler for both fields it applies to.
+      const wireEye = (btnId, fieldIds) => $a(btnId).addEventListener("click", () => {
+        const btn = $a(btnId);
+        const showing = btn.textContent === "Hide";
+        fieldIds.forEach(fid => { const f = $a(fid); if (f) f.type = showing ? "password" : "text"; });
+        btn.textContent = showing ? "Show" : "Hide";
+        btn.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+      });
+      wireEye("aao-in-eye", ["aao-in-pass"]);
+      wireEye("aao-new-eye", ["aao-new-pass", "aao-new-pass2"]);
+
+      // Escape closes it, the way the guest card does, and for the same
+      // reason a click on the scrim does not: what shows through the scrim is
+      // PLAY AS GUEST, and dismissing this on a click aimed at that button
+      // would read as having chosen to play as a guest.
+      document.addEventListener("keydown", (e) => {
+        if (e.key !== "Escape") return;
+        if (!ol.classList.contains("visible")) return;
+        e.stopPropagation();
+        closeAccountCard();
+      }, true);
+
+      ccPaintPwMeter();
+    })();
 
     // Google sign-in is wired up earlier via #auth-choose-google-btn (chooser screen)
     // Play as Guest is wired up via #auth-guest-btn → #auth-guest-go-btn flow.
@@ -21164,7 +21802,21 @@
       if (!_authUser) { setAuthMsg("auth-nick-err", "Not signed in.", false); return; }
       setAuthMsg("auth-nick-err", "Saving…", true);
       try {
-        const code = await saveNewProfile(_authUser.uid, nick, _authUser.email || "", "");
+        // A synthetic login address is not an email anybody can be reached
+        // at, so it is not filed as one. login_username is what Settings
+        // shows a player when they ask "what do I type to get back in?", and
+        // it never changes, even when the name everybody else sees does.
+        const isPasswordAccount = String(_authUser.email || "").toLowerCase().endsWith("@" + CC_LOGIN_DOMAIN);
+        const code = await saveNewProfile(_authUser.uid, nick,
+          isPasswordAccount ? "" : (_authUser.email || ""), "",
+          isPasswordAccount ? { login_username: nick, auth_provider: "password" } : { auth_provider: "google" });
+        // ── The guest session that walked in here, if there was one ────
+        // Only ever onto a profile that was just created; never merged into
+        // an account that already has a history behind it.
+        try { await applyGuestMigration(_authUser.uid); } catch (_) {}
+        // Migrated or not, the guest session that led here is over.
+        purgeGuestProgressBlobs();
+        try { localStorage.removeItem(LAST_GUEST_NICK_KEY); } catch (_) {}
         fetch("/api/user/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -21262,8 +21914,8 @@
           _ccExplicitSignOut = true;
           try { await _auth.signOut(); } catch (_) {}
         } else {
-          clearGuestSessionStorage();
-          _guestSessionActive = false;
+          if (!confirmGuestSignOut()) return;
+          signOutGuestForGood();
           _playerNickname = "";
         }
         _ccGameWin = null;
@@ -21295,9 +21947,12 @@
 
     // ── Sign out (game lobby bar) ────────────────────────────────
     $a("auth-signout-btn").addEventListener("click", async () => {
+      // A guest signing out is the one irreversible button on this screen, so
+      // it says so first, and only when there is really something to lose.
+      if (!_authUser && !confirmGuestSignOut()) return;
       await cancelQuickMatch(true);
       try { if (typeof stopThemeSong === "function") stopThemeSong(); } catch {}
-      clearGuestSessionStorage();
+      signOutGuestForGood();
       if (_authUser) stopPresencePing(_authUser.uid);
       if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
       _playerNickname = ""; _friendCode = ""; _activeProfile = null;
@@ -23528,7 +24183,7 @@
     // Guest notice sign-in link
     const guestSigninLink = $a("stats-guest-signin-link");
     if (guestSigninLink) guestSigninLink.addEventListener("click", () => {
-      if (window.__fishGoToSignIn) window.__fishGoToSignIn();
+      if (window.__fishGoToSignIn) window.__fishGoToSignIn({ migrate: true, pane: "create" });
     });
 
     // ── Friends button (legacy lobby), navigate to friends tab ──
@@ -23790,7 +24445,7 @@
           if (!baseUrl) return;
           if (!_authUser) {
             if (typeof showToast === "function")
-              showToast("Sign in with Google first so your purchase is added to your account.", "info");
+              showToast("Sign in or create an account first so your purchase is added to it.", "info");
             return;
           }
           _phstRememberReturn();
@@ -23890,11 +24545,12 @@
         if (!el) return;
         const esc = (typeof escapeHtml === "function") ? escapeHtml : (s)=>String(s);
 
-        // Reassurance line: Stripe-hosted checkout + account linking.
-        let html = `<div class="phst-account-note">
-          <span class="phst-account-ico">🔒</span>
-          <div>Checkout is hosted securely by <strong>Stripe</strong>, we never see your card. Purchases are linked to your signed-in Google account, and rewards arrive automatically once payment clears.</div>
-        </div>`;
+        // No reassurance line. It used to open the Store with a paragraph
+        // about who handles the card and where the rewards go, which is the
+        // kind of thing a shop only says when there is a reason to doubt it:
+        // reading it made the page feel less trustworthy, not more. Stripe's
+        // own checkout says all of it, on the page where it matters.
+        let html = "";
 
         // ── 1) Critter Coins ──────────────────────────────────────────
         html += `<div class="phst-section-title"><img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"> Critter Coins<span class="phst-sec-rule"></span></div>`;
@@ -24152,7 +24808,7 @@
       window._phstBuyBg = async function (bgId, btn) {
         const bg = (typeof _BG_BY_ID !== "undefined") ? _BG_BY_ID[bgId] : null;
         if (!bg) return;
-        if (!_authUser) { showToast("Sign in with Google first to spend Critter Coins.", "info"); return; }
+        if (!_authUser) { showToast("Sign in or create an account first to spend Critter Coins.", "info"); return; }
         if (typeof window.__fishBuyBackgroundWithCoins !== "function") return;
         if (btn) btn.disabled = true;
         try {
@@ -24181,7 +24837,7 @@
       window._phstBuyIcon = async function (skinId, btn) {
         const sk = (typeof animalById === "function") ? animalById(skinId) : null;
         if (!sk) return;
-        if (!_authUser) { showToast("Sign in with Google first to spend Critter Coins.", "info"); return; }
+        if (!_authUser) { showToast("Sign in or create an account first to spend Critter Coins.", "info"); return; }
         if (typeof window.__fishBuyIconWithCoins !== "function") return;
         const price = (typeof PHST_SKIN_COIN_PRICE !== "undefined") ? PHST_SKIN_COIN_PRICE : 2000;
         if (btn) btn.disabled = true;
@@ -24307,13 +24963,13 @@
         if (reason === "owned")     return `You already own that.`;
         if (reason === "locked")    return `You can only make emotes from critters you've unlocked.`;
         if (reason === "nottraded") return `You never traded that critter away.`;
-        if (reason === "auth")      return `Sign in with Google first to spend Critter Coins.`;
+        if (reason === "auth")      return `Sign in or create an account first to spend Critter Coins.`;
         return "Purchase failed, try again.";
       }
 
       // ── Player Perk purchases ──────────────────────────────────────
       window._phstBuyPerk = async function (key, btn) {
-        if (!_authUser) { showToast("Sign in with Google first to spend Critter Coins.", "info"); return; }
+        if (!_authUser) { showToast("Sign in or create an account first to spend Critter Coins.", "info"); return; }
         if (btn) btn.disabled = true;
         try {
           if (key === "shield")  await _perkBuyShield();
@@ -30133,7 +30789,14 @@
     window.__fishGuestStatsGet  = () => loadGuestStats(_playerNickname || "guest");
     window.__fishGetMyStats     = () => (_activeProfile && typeof _activeProfile.stats === "object") ? _activeProfile.stats : null;
     window.__fishGuestStatsSave = (stats) => saveGuestStats(_playerNickname || "guest", stats);
-    window.__fishGoToSignIn     = () => {
+    // Leaving a guest session to make a real one. `opts.migrate` means the
+    // guest is being invited to keep what they have played (the link under
+    // Player Home's guest notice, and the button at the end of a game), so the
+    // session is photographed BEFORE clearGuestSessionStorage erases it.
+    // `opts.pane` opens the account card straight onto the right half.
+    window.__fishGoToSignIn     = (opts) => {
+      const o = opts || {};
+      if (o.migrate) stageGuestMigration();
       clearGuestSessionStorage();
       _playerNickname = ""; _friendCode = ""; _activeProfile = null;
       _authUser = null;
@@ -30143,6 +30806,10 @@
       const sl = $a("auth-stats-lobby"); if (sl) sl.classList.remove("visible");
       $a("auth-screen").classList.remove("hidden");
       showStep("auth-step-choose");
+      // After showStep, which closes every card on this screen before we open
+      // one. armChooseStep() holds the two buttons underneath inert for a beat
+      // either way, so the card is safe to put up immediately.
+      if (o.pane) openAccountCard(o.pane);
     };
 
   // ── Notification bell ─────────────────────────────────────────────

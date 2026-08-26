@@ -53,7 +53,7 @@
   // Mirrors referral_server.ERROR_MESSAGES; the server also sends `message`,
   // and that one wins when it is there (it can quote the live window length).
   const MESSAGES = {
-    unauthorized: "Sign in with Google to use a friend code.",
+    unauthorized: "Sign in or create an account to use a friend code.",
     no_code: "Enter your friend's code first.",
     bad_code: "That doesn't look like a friend code. Try the 4 digits under their name.",
     no_user: "No player has that friend code.",
@@ -184,7 +184,7 @@
     if (!el) return;
     if (!_state) { el.innerHTML = `<div class="ccRF"><div class="ccRF-empty">Loading…</div></div>`; return; }
     if (!_state.signedIn) {
-      el.innerHTML = `<div class="ccRF"><div class="ccRF-empty">Sign in with Google to invite friends and earn Critter Coins.</div></div>`;
+      el.innerHTML = `<div class="ccRF"><div class="ccRF-empty">Sign in or create an account to invite friends and earn Critter Coins.</div></div>`;
       return;
     }
     el.innerHTML = innerHtml();

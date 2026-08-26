@@ -261,6 +261,14 @@
 # selector they reached into the guest card and erased Dive In. That, the fixed
 # scrim, and the phone widths are all measurements, not greppable source.
 !test_guest_card.js
+# SIGN IN / CREATE AN ACCOUNT: the second way in, a username and a password,
+# for the people who have no Google account. The half that cannot be grepped is
+# the measured half: that the octagon this screen now draws really COVERS the
+# one printed into login-bg.png at every window size (the printed one says
+# "…WITH GOOGLE" twice), that both labels fit inside their buttons, that Create
+# Account is above the fold on a laptop, and that the green strength bar and the
+# button it gates agree at the exact score they change on.
+!test_account_signin.js
 # The sign-in screen's status line, and the full-screen chip. What it pins is
 # all measurement: that the note is a card and not red text, that it never eats
 # a click meant for the artwork, that a calm note takes itself away, and that

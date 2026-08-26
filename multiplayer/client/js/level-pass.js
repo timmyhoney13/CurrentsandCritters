@@ -421,7 +421,7 @@
       return;
     }
     if (!_state.signedIn) {
-      root.innerHTML = `<div class="ccLP"><div class="ccLP-empty">Sign in with Google to start earning Level Pass rewards.</div></div>`;
+      root.innerHTML = `<div class="ccLP"><div class="ccLP-empty">Sign in or create an account to start earning Level Pass rewards.</div></div>`;
       return;
     }
 
