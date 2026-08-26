@@ -270,6 +270,12 @@
 # laptop, and that the green strength bar and the button it gates agree at the
 # exact score they change on.
 !test_account_signin.js
+# One-shot image surgery: CURRENTS & CRITTERS was painted 46px right of the
+# middle of login-bg.png, and this is what moved it. Kept because the next
+# redraw of that artwork will probably need it again and the awkward parts (the
+# hard seam between the two top panels runs through the "&", and the reef at
+# the right-hand end is diagonal) took several tries to get right.
+!tools_center_signin_title.py
 # The rotted pier piling: the plank hidden in the sign-in artwork, and the Pier
 # background it is worth. The measured half reads the PAINTING back out of a
 # canvas: the pixel under the middle of the box has to be rust red, at every

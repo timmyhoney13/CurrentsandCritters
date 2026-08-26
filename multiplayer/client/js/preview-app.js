@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.93";
-  const APP_BUILD   = "2026-08-26.3";
+  const APP_VERSION = "1.6.94";
+  const APP_BUILD   = "2026-08-26.4";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🌊 A new sign-in screen, and something hidden in it", items: [
+      "The first screen is a new painting. Same eight oceans, but SIGN IN OR CREATE AN ACCOUNT and both buttons are drawn straight into it now, and CURRENTS & CRITTERS sits dead centre above them.",
+      "Play as a Guest, Sign In / Create an Account and Create Your Username all open ON that painting: it dims back and the card stands in front of it. Signing in is one room now instead of three.",
+      "There is a rotted piling on the pier, bottom left, one plank that is not the colour of the others. Find it and the Pier background is yours the moment there is an account to put it in: sign in straight after, or make one tomorrow, and it will be waiting in your Avatar Gallery.",
+    ]},
     { ver: "V1.7.0", title: "🔑 A username and a password, for everyone without a Google account", items: [
       "The sign-in screen's second button is now SIGN IN / CREATE AN ACCOUNT. Tap it and it asks whether you already have one, then either signs you in or makes you a new account with just a username and a password. No email, no Google account, nothing to wait for.",
       "Picking a password shows a bar that fills and turns green as it gets harder to guess, and Create Account stays greyed out until it is green. \"password123\" and a single lower-case word do not count, however long they are.",
@@ -82,18 +87,13 @@
       "Backing out of signing in no longer costs you your guest session. Closing the Google window, or a username already being taken, used to end it; now the session is still there, and PLAY AS GUEST hands your nickname back.",
     ]},
     { ver: "V1.7.0", title: "🌊 The sign-in screen, readable on a phone", items: [
-      "The octagon on the sign-in screen is drawn by the game now instead of being part of the painting, so its words are real words. On a phone, where the artwork used to letterbox into a thin band with lettering about five pixels tall, the panel is drawn large and the title stays up top at a size you can read, over the same eight oceans, blurred to fill the screen.",
+      "On a phone the sign-in artwork used to letterbox into a thin band with lettering about five pixels tall. It is cropped to its title strip now, the panel underneath is drawn large with real, readable words in it, and the same eight oceans fill the rest of the screen, blurred.",
       "The Store no longer opens with a paragraph explaining who handles your card details. Stripe\u2019s own checkout says all of that, on the page where it matters.",
     ]},
     { ver: "V1.7.0", title: "\u26F6 Full screen, in the same corner every time", items: [
       "The menu now has a full-screen button that is always there: a small \u26F6 chip in the bottom-right corner, on every tab. Click it to hand the game the whole screen, click it again (or press Esc) to come back out.",
       "It used to appear only if you had already asked for full screen and then fallen out of it, and it sat in the other corner, so most of the time the menu had no way into full screen at all.",
       "Inside a game nothing changes: the action bar keeps its own \u26F6 Full Screen button. The Main Menu tutorial now points the chip out too.",
-    ]},
-    { ver: "V1.7.0", title: "🌿 Signing in stands in the kelp forest", items: [
-      "Play as a Guest and Create Your Username both open onto the painted kelp forest now: kelp up both sides, open sunlit water through the middle, and the seabed on the floor of the window.",
-      "It was standing in the round avatar version of that art, which is a circle on a pale square, so it had to be zoomed and blurred to keep the pale ring and the circle's edge off your screen. The real painting needs none of that, so the forest is as sharp as it was drawn.",
-      "On a phone held upright it keeps both banks of kelp instead of cropping them away, and the water simply carries on above.",
     ]},
     { ver: "V1.7.0", title: "🪸 The four home cards have their coral back", items: [
       "Quick Match, Create Game, Join Game and Tutorial are their painted artwork again. They were briefly flattened to a plain colour and a text label; that was a mistake and it's undone. The cards are exactly the ones you knew.",
@@ -18840,9 +18840,9 @@
       // floating game chrome that is gated on cc-signed-in (the back-to-full-
       // screen chip) goes away rather than floating over the artwork.
       document.body.classList.remove("cc-signed-in");
-      // The kelp-forest backdrop belongs to CREATE YOUR USERNAME alone. The
-      // other three steps paint their own artwork edge to edge, so showing it
-      // under them would only put a second seabed behind the first.
+      // The blurred backdrop belongs to CREATE YOUR USERNAME alone. The other
+      // three steps paint their own artwork edge to edge, so showing it under
+      // them would only put a second sea behind the first.
       scr.classList.toggle("on-nickname", stepId === "auth-step-nickname");
       if (stepId === "auth-step-choose") {
         // Both cards close with the screen they belong to. Landing back on the

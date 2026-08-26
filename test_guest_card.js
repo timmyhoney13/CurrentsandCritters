@@ -94,35 +94,47 @@ console.log("\nthe step's invisible-button rules stop at its own children");
         /<div id="auth-step-choose"[\s\S]{0,2600}?<button id="auth-guest-btn"/.test(HTML));
 }
 
-console.log("\nit opens onto the kelp forest, the room CREATE YOUR USERNAME stands in");
+console.log("\nit opens ON the sign-in painting, the screen it was called from");
 {
   const OL = (() => {
     const a = CSS.indexOf("#auth-guest-overlay {");
     return a < 0 ? "" : CSS.slice(a, CSS.indexOf("#auth-guest-overlay .ago-card {", a));
   })();
-  check("the scenery is the game's own kelp art, not a flat dark scrim",
-        /#auth-guest-overlay::before[\s\S]{0,400}?backgrounds\/kelp-forest\.png/.test(OL));
-  // The WIDE painting, not bg-kelp.png, which is the round avatar art on a
-  // pale square: that one had to be overscanned AND blurred to keep its ring
-  // and its circle off the screen, and it took the forest's sharpness with it.
-  check("…the wide painting, not the round avatar art",
-        !/#auth-guest-overlay::before[\s\S]{0,400}?backgrounds\/bg-kelp\.png/.test(OL));
-  check("…so it is not overscanned to hide a pale ring",
-        !/#auth-guest-overlay::before \{[^}]*inset: -8%/.test(OL)
-        && !/#auth-guest-overlay::before \{[^}]*scale\(1\.2\)/.test(OL));
-  check("…and it is not blurred: the forest is as sharp as it was painted",
-        !/#auth-guest-overlay::before \{[^}]*filter: blur\(/.test(OL));
+  // The card opens ON the chooser, so the room must not change when it does:
+  // the same painting, letterboxed the same way, with a scrim over it.
+  check("the scenery is the sign-in painting, not a flat dark scrim",
+        /#auth-guest-overlay::after[\s\S]{0,900}?login-bg\.png/.test(OL));
+  check("…letterboxed exactly as the chooser letterboxes it",
+        /#auth-guest-overlay::after[\s\S]{0,900}?login-bg\.png[^;]*center \/ contain no-repeat/.test(OL));
+  check("…over the same blurred copy that fills the chooser's letterbox",
+        /#auth-guest-overlay::before[\s\S]{0,400}?login-bg\.png[^;]*center \/ cover/.test(OL)
+        && /#auth-guest-overlay::before[\s\S]{0,400}?filter: blur\(34px\)/.test(OL));
+  // The octagon underneath has PLAY AS GUEST painted into it. Two things that
+  // still look like buttons behind a live card is the one way this screen can
+  // be misread, so they go under a pool of deeper water.
+  check("…with the painted octagon sunk under a scrim so it cannot be misread",
+        /#auth-guest-overlay::after[\s\S]{0,900}?radial-gradient\(ellipse 49% 66% at 50% 50%,\s*\n\s*rgba\(3,20,42,\.9/.test(OL));
+  check("…and the oceans around it left bright, which is the point of using it",
+        /rgba\(6,32,60,\.04\)/.test(OL));
+  check("the kelp forest is gone from this screen",
+        !/url\("\/backgrounds\/kelp-forest\.png"\)/.test(OL));
+  // The pairing is read off the file as it really is: the loader above
+  // deliberately strips ", #auth-account-overlay…" out of its copy, which is
+  // the one thing that would hide a rule the two screens share.
+  const RAW = read("css/preview.css");
   check("…and a guest and an account holder stand in the same room",
-        /#auth-screen \.auth-kelp-bg::before[\s\S]{0,300}?kelp-forest\.png/.test(CSS));
+        /#auth-guest-overlay::after,\s*\n\s*#auth-account-overlay::after \{/.test(RAW));
+  check("…as does CREATE YOUR USERNAME, the screen either of them opens onto",
+        /#auth-screen \.auth-step-bg::after \{[\s\S]{0,1400}?login-bg\.png/.test(RAW));
   // A background that 404s is silent: the screen just goes flat navy. The
   // .webp sibling matters as much as the .png, because the server negotiates
   // it and every modern browser is served that one, not the PNG.
-  check("the kelp painting is really in the client",
-        fs.existsSync(path.join(CLIENT, "backgrounds/kelp-forest.png")));
+  check("the painting is really in the client",
+        fs.existsSync(path.join(CLIENT, "login-bg.png")));
   check("…with its WebP sibling, which is what most browsers are actually sent",
-        fs.existsSync(path.join(CLIENT, "backgrounds/kelp-forest.webp")));
+        fs.existsSync(path.join(CLIENT, "login-bg.webp")));
   check("…under a vignette, so the eye goes to the card",
-        /#auth-guest-overlay::after[\s\S]{0,300}?radial-gradient/.test(OL));
+        /#auth-guest-overlay::after[\s\S]{0,900}?radial-gradient/.test(OL));
   check("the scenery cannot take a click meant for the card",
         (OL.match(/pointer-events: none/g) || []).length >= 2);
   check("…and the card stacks in FRONT of it",

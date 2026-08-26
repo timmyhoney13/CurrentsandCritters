@@ -2,7 +2,7 @@
 /* CREATE YOUR USERNAME: the first screen you fill in.
  *
  * It opens the instant login-bg.png closes, so it is dressed to be the next
- * frame of that artwork rather than a form on a navy void: kelp-forest scenery
+ * frame of that artwork rather than a form on a navy void: the sign-in painting
  * behind a pale sea-glass card, navy lettering, one warm gold button. Scenery
  * only, no critters.
  *
@@ -10,7 +10,7 @@
  *
  *   1. THE BACKDROP CANNOT BE A CHILD OF THE CARD. A child with a negative
  *      z-index paints on top of its OWN parent's background, so parking the
- *      kelp inside #auth-step-nickname blanked the card it was meant to sit
+ *      backdrop inside #auth-step-nickname blanked the card it was meant to sit
  *      behind: sharp inputs and a button floating on bare artwork. It is a
  *      sibling of the four steps, revealed by .on-nickname.
  *
@@ -59,28 +59,28 @@ const STEP = (() => {
 // ════════════════════════════════════════════════════════════════════════
 console.log("\nthe backdrop is scenery, and it is not inside the card");
 {
-  check("there is a kelp backdrop at all", /class="auth-kelp-bg"/.test(HTML));
-  check("…it is the kelp forest, not some other board",
-        /auth-kelp-bg[\s\S]{0,900}?backgrounds\/kelp-forest\.png/.test(CSS));
-  // kelp-forest.png is the WIDE painting. bg-kelp.png is the round avatar art
-  // on a pale square, which had to be overscanned and blurred to keep its ring
-  // and its circle off the screen. Using it here brings all of that back.
-  check("…the wide painting, not the round avatar art",
-        !/auth-kelp-bg[\s\S]{0,900}?backgrounds\/bg-kelp\.png/.test(CSS));
-  check("…so it needs no overscan or blur to hide a pale ring",
-        !/#auth-screen \.auth-kelp-bg::before \{[^}]*inset: -8%/.test(CSS)
-        && !/#auth-screen \.auth-kelp-bg::before \{[^}]*filter: blur\(/.test(CSS));
-  // In a tall window `cover` scales by height and crops the width, which threw
-  // away both banks of kelp and left plain open water.
-  check("…and a tall window keeps both banks of kelp",
-        /@media \(max-aspect-ratio: 7\/5\)[\s\S]{0,600}?kelp-forest\.png[^;]*100% auto/.test(CSS));
+  check("there is a backdrop at all", /class="auth-step-bg"/.test(HTML));
+  // First sign-in is ONE room: the chooser, the guest card, the account card
+  // and this screen all stand in the same painting, so the player never gets a
+  // room change they did not ask for.
+  check("…it is the sign-in painting, the same one every step before it shows",
+        /#auth-screen \.auth-step-bg::after \{[\s\S]{0,1400}?login-bg\.png/.test(CSS));
+  check("…letterboxed as the chooser letterboxes it, over its blurred copy",
+        /#auth-screen \.auth-step-bg::after[\s\S]{0,1400}?login-bg\.png[^;]*center \/ contain/.test(CSS)
+        && /#auth-screen \.auth-step-bg::before \{[\s\S]{0,300}?login-bg\.png[^;]*center \/ cover/.test(CSS));
+  // The octagon painted into it says SIGN IN OR CREATE AN ACCOUNT and carries
+  // two buttons. Behind a live card those are a screen asking to be misread.
+  check("…with the painted octagon sunk under a scrim",
+        /#auth-screen \.auth-step-bg::after[\s\S]{0,1400}?radial-gradient\(ellipse 49% 66% at 50% 50%/.test(CSS));
+  check("the kelp forest is gone: it was a second painting for one step",
+        !/url\("\/backgrounds\/kelp-forest\.png"\)/.test(CSS));
   check("…and it is NOT a child of the card it sits behind",
-        !/auth-kelp-bg/.test(STEP),
+        !/auth-step-bg/.test(STEP),
         "a negative-z child paints over its own parent's background");
   check("…so it is styled as a child of the screen instead",
-        /#auth-screen\s+\.auth-kelp-bg\s*\{/.test(CSS));
+        /#auth-screen\s+\.auth-step-bg\s*\{/.test(CSS));
   check("no critters swim in it, it is one still image",
-        !/auth-kelp-bg[\s\S]{0,900}?animation:/.test(CSS));
+        !/auth-step-bg[\s\S]{0,900}?animation:/.test(CSS));
 }
 
 console.log("\n.on-nickname is the only thing that shows it");
@@ -90,8 +90,8 @@ console.log("\n.on-nickname is the only thing that shows it");
   check("…which also CLEARS it for the other three",
         /classList\.toggle\("on-nickname"/.test(APP) && !/classList\.add\("on-nickname"\)/.test(APP));
   check("…and the CSS keeps it hidden until then",
-        /#auth-screen\s+\.auth-kelp-bg\s*\{[^}]*display:\s*none/.test(CSS)
-        && /#auth-screen\.on-nickname\s+\.auth-kelp-bg\s*\{[^}]*display:\s*block/.test(CSS));
+        /#auth-screen\s+\.auth-step-bg\s*\{[^}]*display:\s*none/.test(CSS)
+        && /#auth-screen\.on-nickname\s+\.auth-step-bg\s*\{[^}]*display:\s*block/.test(CSS));
 }
 
 console.log("\nthe card is dressed like the artwork before it, not like the game's dark panels");
@@ -101,7 +101,7 @@ console.log("\nthe card is dressed like the artwork before it, not like the game
   check("the gold button is the light butter gold with dark ink",
         /#auth-step-nickname \.pv-btn\.gold\s*\{[^}]*color:\s*#4a3208/.test(CSS));
   check("every rule is scoped to this step, so the other auth boxes are untouched",
-        (CSS.match(/^\s*(#auth-step-nickname|#auth-screen\.on-nickname|#auth-screen \.auth-kelp-bg)/gm) || []).length > 12);
+        (CSS.match(/^\s*(#auth-step-nickname|#auth-screen\.on-nickname|#auth-screen \.auth-step-bg)/gm) || []).length > 12);
   check("…including the friend-code box, which must beat css/level-pass.css",
         /#auth-step-nickname \.auth-ref-box\s*\{/.test(CSS),
         "level-pass.css loads later, so a bare .auth-ref-box selector would lose");
@@ -228,7 +228,7 @@ setTimeout(function () {
       var fr = document.getElementById("f" + i), d = fr.contentDocument, w = fr.contentWindow;
       var card = d.getElementById("auth-step-nickname"), btn = d.getElementById("auth-nick-go-btn");
       var cb = card.getBoundingClientRect(), bb = btn.getBoundingClientRect();
-      var kelp = d.querySelector("#auth-screen .auth-kelp-bg");
+      var back = d.querySelector("#auth-screen .auth-step-bg");
       var cs = w.getComputedStyle(card);
       res.push({
         w: sz[0], vw: w.innerWidth,
@@ -237,8 +237,8 @@ setTimeout(function () {
         // A see-through card means the backdrop is painting over it again.
         cardOpaque: cs.backgroundImage !== "none" || cs.backgroundColor !== "rgba(0, 0, 0, 0)",
         // The backdrop must be BEHIND the card and still cover the screen.
-        kelpBehind: w.getComputedStyle(kelp).display === "block" &&
-                    Math.round(kelp.getBoundingClientRect().width) >= w.innerWidth,
+        kelpBehind: w.getComputedStyle(back).display === "block" &&
+                    Math.round(back.getBoundingClientRect().width) >= w.innerWidth,
         // Nothing on this screen may push the page sideways.
         sideways: d.documentElement.scrollWidth > w.innerWidth + 1,
         // The button has to be reachable, scrolling the card if need be.
@@ -283,7 +283,7 @@ setTimeout(function () {
       check(at + " the step rendered", !r.err, r.err);
       if (r.err) return;
       check(at + " the card paints its own surface (the backdrop is not over it)", r.cardOpaque);
-      check(at + " the kelp is behind it and covers the screen", r.kelpBehind);
+      check(at + " the backdrop is behind it and covers the screen", r.kelpBehind);
       check(at + " the card fits, centred, with a gutter on both sides",
             r.cardL >= 8 && r.vw - r.cardR >= 8 && Math.abs(r.cardL - (r.vw - r.cardR)) <= 2,
             `l=${r.cardL} r=${r.vw - r.cardR} vw=${r.vw}`);

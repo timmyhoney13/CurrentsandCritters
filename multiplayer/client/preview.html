@@ -58,7 +58,7 @@
     })();
   </script>
 
-  <script defer src="/js/error-logging.js?v=2026-08-26.3"></script>
+  <script defer src="/js/error-logging.js?v=2026-08-26.4"></script>
 
   <!-- Firebase config, generated at build time from VITE_FIREBASE_* env vars -->
   <script defer src="/firebase-config.js"></script>
@@ -66,24 +66,24 @@
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-08-26.3" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-08-26.4" />
   <!-- The printed rulebook's own stylesheet. Split out of preview.css so the
        standalone How to Play page (/rules) can render the very same book
        without pulling in the whole game stylesheet. Must load AFTER
        preview.css so the cascade is exactly what it was before the split. -->
-  <link rel="stylesheet" href="/css/rulebook.css?v=2026-08-26.3" />
+  <link rel="stylesheet" href="/css/rulebook.css?v=2026-08-26.4" />
   <!-- The privacy policy's own stylesheet, on the same split as the rulebook:
        the published /privacy page renders the very same document without
        pulling in the whole game stylesheet. Must load AFTER preview.css. -->
-  <link rel="stylesheet" href="/css/privacy.css?v=2026-08-26.3" />
+  <link rel="stylesheet" href="/css/privacy.css?v=2026-08-26.4" />
   <!-- Prestige: the Prestige page's own ocean scene, plus the .cc-pname /
        .cc-pbadge rules that draw a Prestige username and badge ANYWHERE in the
        game. Must load AFTER preview.css so those name styles win. -->
-  <link rel="stylesheet" href="/css/prestige.css?v=2026-08-26.3" />
+  <link rel="stylesheet" href="/css/prestige.css?v=2026-08-26.4" />
   <!-- Developer Analytics: the admin dashboard's own stylesheet, split out the
        same way, everything in it is scoped under #ccA-overlay, which nothing
        else on the page ever renders, so it cannot touch the game. -->
-  <link rel="stylesheet" href="/css/analytics.css?v=2026-08-26.3" />
+  <link rel="stylesheet" href="/css/analytics.css?v=2026-08-26.4" />
 </head>
 <body>
 
@@ -91,7 +91,7 @@
      There is no "choose your device" screen any more. js/device-select.js
      works it out: a touch means mobile, a mouse means computer, and a real
      input event outranks its own opening guess. Nothing is rendered here. -->
-<script defer src="/js/device-select.js?v=2026-08-26.3"></script>
+<script defer src="/js/device-select.js?v=2026-08-26.4"></script>
 
 <!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══
      The whole screen is the baked artwork (fullscreen-splash.png). #ccfs-play
@@ -144,17 +144,19 @@
       <img src="/moving-background-right.png" alt="">
     </div>
   </div>
-  <!-- Kelp forest backdrop for the CREATE YOUR USERNAME step. It is a SIBLING
-       of the steps, not a child: a child with a negative z-index paints on top
-       of its own parent's background, which blanked the card it was meant to
-       sit behind. showStep() puts .on-nickname on #auth-screen to reveal it,
-       so it can never bleed onto the three steps that bring their own art. -->
-  <div class="auth-kelp-bg" aria-hidden="true"></div>
+  <!-- The backdrop for the CREATE YOUR USERNAME step: the sign-in painting,
+       blurred, the same water the guest and account cards stand in. It is a
+       SIBLING of the steps, not a child: a child with a negative z-index paints
+       on top of its own parent's background, which blanked the card it was
+       meant to sit behind. showStep() puts .on-nickname on #auth-screen to
+       reveal it, so it can never bleed onto the three steps that bring their
+       own art. -->
+  <div class="auth-step-bg" aria-hidden="true"></div>
 
   <!-- Step 1: choose mode. The whole panel is the login-bg.png painting, with
        click boxes over the two buttons painted into it. -->
   <div id="auth-step-choose" class="auth-box">
-    <img src="/login-bg.png?v=44" alt="Currents and Critters" class="auth-step-choose-img" />
+    <img src="/login-bg.png?v=45" alt="Currents and Critters" class="auth-step-choose-img" />
     <!-- THE OCTAGON, redrawn in CSS, for ONE layout.
          login-bg.png is one flat painting: its eight oceans, its title, its
          octagon and the two buttons in it are all the same pixels, and it says
@@ -387,11 +389,11 @@
        filled in from PHST_RENAME_COIN_PRICE at boot (see preview-app.js), so
        there is only one number to change if it ever moves.
 
-       This screen lands the instant you come off login-bg.png, so it is
-       dressed to match it: kelp-forest scenery behind a pale sea-glass card
-       with navy lettering and one warm gold button, exactly the octagon you
-       just clicked through. Scenery only, no critters: the one face on this
-       screen should be the name you are about to pick. -->
+       This screen lands the instant you come off login-bg.png, so it does not
+       change the room: the same painting behind it, dimmed back, with a pale
+       sea-glass card in front carrying navy lettering and one warm gold button,
+       exactly the octagon you just clicked through. Scenery only, no critters:
+       the one face on this screen should be the name you are about to pick. -->
   <div id="auth-step-nickname" class="auth-box" style="display:none">
     <div class="auth-nick-head">
       <div class="auth-title">Create Your Username</div>
@@ -3184,63 +3186,63 @@
 
 <!-- The printed rulebook, one shared source for the How to play tab and the
      in-game Rule Book modal. Must load before preview-app.js reads it. -->
-<script defer src="/js/rulebook.js?v=2026-08-26.3"></script>
+<script defer src="/js/rulebook.js?v=2026-08-26.4"></script>
 
 <!-- Family colours + the built-in strategy list, shared with the published
      How to Play page (/rules) so the two can never drift. Deferred scripts
      run in document order, so this lands before preview-app.js reads it. -->
-<script defer src="/js/gamedata.js?v=2026-08-26.3"></script>
+<script defer src="/js/gamedata.js?v=2026-08-26.4"></script>
 
 <!-- The privacy policy, one shared source for the published /privacy page and
      the in-game reader (Settings → 📜 Legal). Must load before preview-app.js
      reads window.CC_PRIVACY_HTML. -->
-<script defer src="/js/privacy-policy.js?v=2026-08-26.3"></script>
+<script defer src="/js/privacy-policy.js?v=2026-08-26.4"></script>
 
 <!-- Level Pass, the Invite-a-Friend card and the Avatar Gallery's level
      track. One stylesheet: they are one idea seen from three places. -->
-<link rel="stylesheet" href="/css/level-pass.css?v=2026-08-26.3">
+<link rel="stylesheet" href="/css/level-pass.css?v=2026-08-26.4">
 <!-- Game Night. Also served to the marketing site (Vercel rewrites /css/:file),
      so the banner looks identical on both hosts from one source. -->
-<link rel="stylesheet" href="/css/game-night.css?v=2026-08-26.3">
+<link rel="stylesheet" href="/css/game-night.css?v=2026-08-26.4">
 
-<script defer src="/js/preview-app.js?v=2026-08-26.3"></script>
+<script defer src="/js/preview-app.js?v=2026-08-26.4"></script>
 
 <!-- Level Pass: the reward track over levels 1-100. Every rule is server-side
      (/api/pass/*); this renders state and sends intents. -->
-<script defer src="/js/level-pass.js?v=2026-08-26.3"></script>
+<script defer src="/js/level-pass.js?v=2026-08-26.4"></script>
 <!-- Friend-code referral reward. Pays two accounts, so the server owns all of
      it (/api/referral/*); this collects digits and renders the answer. -->
-<script defer src="/js/referral.js?v=2026-08-26.3"></script>
+<script defer src="/js/referral.js?v=2026-08-26.4"></script>
 <!-- Game Night banner. Self-injects at the top of the Overview panel. -->
-<script defer src="/js/game-night.js?v=2026-08-26.3"></script>
+<script defer src="/js/game-night.js?v=2026-08-26.4"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
-<script defer src="/js/tournament-ui.js?v=2026-08-26.3"></script>
+<script defer src="/js/tournament-ui.js?v=2026-08-26.4"></script>
 
 <!-- Clan System (Clans tab below Leaderboard; renders into #cc-clans-root). -->
-<script defer src="/js/clans-ui.js?v=2026-08-26.3"></script>
+<script defer src="/js/clans-ui.js?v=2026-08-26.4"></script>
 
 <!-- Prestige System (Prestige page + the badge/name-colour renderer used by
      every username in the game; renders into #cc-prestige-root). -->
-<script defer src="/js/prestige-ui.js?v=2026-08-26.3"></script>
+<script defer src="/js/prestige-ui.js?v=2026-08-26.4"></script>
 
 <!-- Discord join reward, the "+250 Critter Coins" chip beside the Join the
      Discord button, and the verified claim behind it. It renders into the one
      #ph-discord-reward button and stays hidden until the server says the offer
      is switched on. -->
-<script defer src="/js/discord-reward.js?v=2026-08-26.3"></script>
+<script defer src="/js/discord-reward.js?v=2026-08-26.4"></script>
 
 <!-- Developer Analytics, a full-screen, admin-only dashboard. It builds no DOM
      and makes no request until the Analytics sidebar button is clicked, so it
      costs every player nothing but the parse. -->
-<script defer src="/js/analytics-ui.js?v=2026-08-26.3"></script>
+<script defer src="/js/analytics-ui.js?v=2026-08-26.4"></script>
 <!-- Custom bracket BUILDER, the host's design canvas. Inert until opened from
      the New Tournament modal, so it costs nothing on every other page. -->
-<script defer src="/js/tournament-builder.js?v=2026-08-26.3"></script>
+<script defer src="/js/tournament-builder.js?v=2026-08-26.4"></script>
 
-<script defer src="/js/challenge-of-challenges.js?v=2026-08-26.3"></script>
+<script defer src="/js/challenge-of-challenges.js?v=2026-08-26.4"></script>
 
-<script defer src="/js/hidden-cephalopods.js?v=2026-08-26.3"></script>
+<script defer src="/js/hidden-cephalopods.js?v=2026-08-26.4"></script>
 
 <!-- ══ CHALLENGE OF CHALLENGES MODALS ════════════════════════════ -->
 
@@ -3313,13 +3315,13 @@
      Visible ONLY for currentsandcritters@gmail.com. Every tool is gated
      behind its own ON/OFF toggle; OFF fully disables the tool.
      ══════════════════════════════════════════════════════════════════ -->
-<script defer src="/js/current-controller.js?v=2026-08-26.3"></script>
+<script defer src="/js/current-controller.js?v=2026-08-26.4"></script>
 <!-- ══════════════════════════════════════════════════════════════════
      TUTORIAL v2, three modes (Main Menu Tour · The Game · Practice B-Lob).
      Completing ALL THREE unlocks the Osprey avatar. Stage 1: launcher +
      completion tracking + the Main Menu Tour (spotlight coachmarks over the
      real lobby). The Game tour and B-Lob practice arrive in later stages.
      ══════════════════════════════════════════════════════════════════ -->
-<script defer src="/js/tutorials.js?v=2026-08-26.3"></script>
+<script defer src="/js/tutorials.js?v=2026-08-26.4"></script>
 </body>
 </html>

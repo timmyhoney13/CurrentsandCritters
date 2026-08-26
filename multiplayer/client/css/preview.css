@@ -6354,7 +6354,7 @@
       /* Fixed, not absolute: the band is the box, the window is what needs
          filling. */
       position: fixed; inset: -6vmax;
-      background: #0a1d3a url("/login-bg.png?v=44") center / cover no-repeat;
+      background: #0a1d3a url("/login-bg.png?v=45") center / cover no-repeat;
       filter: blur(34px) saturate(1.12) brightness(.66);
       pointer-events: none;
       z-index: 0;
@@ -6466,45 +6466,82 @@
       position: fixed; inset: 0; z-index: 30;
       align-items: center; justify-content: center;
       padding: 20px;
-      /* The floor under the scenery, for the instant before the art paints. */
-      background: #0f4a6b;
+      /* The floor under the scenery, for the instant before the art paints:
+         the same deep navy the chooser's own letterbox fill sits on. */
+      background: #0a1d3a;
     }
     #auth-guest-overlay.visible,
     #auth-account-overlay.visible { display: flex; }
 
     /* ── The room the card stands in ────────────────────────────────
-       The kelp forest, the same scenery CREATE YOUR USERNAME opens onto, so a
-       guest and an account holder are asked for their name in the same place.
-       It is painted by the overlay's own pseudo-elements: they are absolutely
-       positioned, so being generated children of a flex container costs
-       nothing, and there is no extra element to keep behind the card.
+       The SIGN-IN PAINTING, exactly as the chooser shows it, with a scrim over
+       it. These cards open ON that screen, so the room does not change when one
+       does: the same eight oceans in the same places at the same size, dimmed
+       back a stop, and a card in front of them.
 
-       kelp-forest.png is a real WIDE painting of the forest: kelp up both
-       edges, open sunlit water through the middle, which is where the card
-       sits. It replaces bg-kelp.png, the round AVATAR art on a pale square,
-       which had to be overscanned (inset -8% AND scale 1.2) and blurred to
-       keep its pale ring and its blue circle off the screen. None of that is
-       needed for a rectangle, so none of it is here: no overscan, no scale,
-       and no blur, so the forest is as sharp as it was painted. */
+       It is built the way the chooser builds it, because it has to match it
+       pixel for pixel or opening a card would look like a cut to somewhere
+       else: ::before is the blurred copy that fills the letterbox, ::after is
+       the painting itself, letterboxed to its own ratio, with the scrim laid
+       on top of it in the same declaration (a gradient listed BEFORE an image
+       paints in front of it).
+
+       The card lands over the octagon, and at every size it is about as wide
+       as the two buttons painted into it, so what a player sees is the panel
+       they were just looking at with the question they just asked sitting in
+       it. What it replaces is kelp-forest.png: a different painting on either
+       side of one step, and a room change nobody asked for. */
     #auth-guest-overlay::before,
     #auth-account-overlay::before {
-      content: ""; position: absolute; inset: 0;
-      background: #0f4a6b url("/backgrounds/kelp-forest.png") center bottom / cover no-repeat;
+      content: ""; position: fixed; inset: -6vmax;
+      background: #0a1d3a url("/login-bg.png?v=45") center / cover no-repeat;
+      filter: blur(34px) saturate(1.12) brightness(.66);
       pointer-events: none;
     }
-    /* Depth: a light vignette that settles the corners so the eye goes to the
-       card, over water that deepens towards the seabed. Much lighter than it
-       was, because it no longer has to double as a matte hiding the corners of
-       a circle: the artwork now reaches every edge on its own. */
+    /* The painting itself, letterboxed to its own ratio exactly as the chooser
+       letterboxes it, with the scrim over it. The gradient is listed FIRST so
+       it paints IN FRONT of the image: one element, one declaration, no third
+       layer to keep in order.
+
+       The scrim is doing real work, not mood: the octagon underneath has PLAY
+       AS GUEST and SIGN IN / CREATE AN ACCOUNT painted into it, and two buttons
+       that still look like buttons behind a live card is the one way this
+       screen can be misread. Dimmed this far they read as the room, not as a
+       choice. */
     #auth-guest-overlay::after,
     #auth-account-overlay::after {
-      content: ""; position: absolute; inset: 0;
+      content: ""; position: fixed; inset: 0;
       background:
-        radial-gradient(ellipse 118% 98% at 50% 46%,
-          rgba(4,32,58,0) 46%, rgba(4,32,58,.22) 78%, rgba(3,24,46,.48) 100%),
-        linear-gradient(180deg,
-          rgba(150,222,240,.10) 0%, rgba(8,52,80,.06) 44%, rgba(4,28,52,.26) 100%);
+        /* The pool the card stands in. It is centred because the octagon is
+           centred, and it is about half the window across because that is what
+           the octagon is at every size the artwork letterboxes to. Everything
+           printed on that panel goes under it; the eight oceans around it stay
+           as bright as they were painted, which is the whole reason for using
+           this picture instead of a flat scrim. */
+        radial-gradient(ellipse 49% 66% at 50% 50%,
+          rgba(3,20,42,.93) 0%, rgba(3,20,42,.90) 42%,
+          rgba(4,26,50,.42) 74%, rgba(4,26,50,.34) 100%),
+        /* …and a light vignette to settle the corners. */
+        radial-gradient(ellipse 124% 106% at 50% 46%,
+          rgba(6,32,60,.04) 0%, rgba(6,32,60,.13) 58%, rgba(4,24,48,.44) 100%),
+        url("/login-bg.png?v=45") center / contain no-repeat;
       pointer-events: none;
+    }
+
+    /* ── A phone-shaped window ───────────────────────────────────────
+       The painting letterboxes into a band there, and a card takes up most of
+       the screen, so all a sharp copy adds is two slivers of ocean poking out
+       beside the card and a ghost of the title behind it. Down here the room
+       is the blurred water alone, which is exactly what the chooser shows at
+       this shape too. The line is the chooser's line, for the same reason. */
+    @media (max-aspect-ratio: 4/5), (max-width: 640px) {
+      #auth-guest-overlay::after,
+      #auth-account-overlay::after,
+      #auth-screen .auth-step-bg::after {
+        background:
+          radial-gradient(ellipse 120% 102% at 50% 46%,
+            rgba(4,26,50,.26) 0%, rgba(4,26,50,.40) 62%, rgba(3,20,42,.64) 100%);
+      }
     }
 
     #auth-guest-overlay .ago-card,
@@ -11406,9 +11443,10 @@
     .privacy-web-link:hover { text-decoration: underline; }
 
     /* ══ FIRST SIGN-IN: CREATE YOUR USERNAME ═════════════════════
-       This screen opens the instant login-bg.png closes, so it is built to
-       read as the next frame of that artwork rather than as a form: kelp
-       scenery behind a pale sea-glass card, navy lettering, one gold button.
+       This screen opens the instant login-bg.png closes, so it is built to read
+       as the next frame of that artwork rather than as a form: the SAME
+       painting behind it, dimmed back, with a pale sea-glass card in front,
+       navy lettering, one gold button.
 
        Everything here is scoped under #auth-step-nickname on purpose. The
        ids beat css/level-pass.css (which owns the plain .auth-ref-* look and
@@ -11432,59 +11470,50 @@
        z-index child paints on top of its own parent's background, which
        blanks the card. showStep() reveals it with .on-nickname, so the three
        steps that bring their own artwork never see it. */
-    #auth-screen .auth-kelp-bg {
+    #auth-screen .auth-step-bg {
       display: none;
       position: absolute; inset: 0; z-index: 1;
       overflow: hidden; pointer-events: none;
-      background: #0f4a6b;
+      background: #23506e;
     }
-    #auth-screen.on-nickname .auth-kelp-bg { display: block; }
-    /* kelp-forest.png is a real WIDE painting of the forest: kelp up both
-       edges, open sunlit water through the middle, which is exactly where the
-       card sits. It replaces bg-kelp.png, the round AVATAR art on a pale
-       square, which had to be overscanned (inset -8% AND scale 1.2) and
-       blurred to keep its pale ring and its blue circle off the screen. A
-       rectangle needs none of that, so none of it is here: the forest is as
-       sharp as it was painted, and `center bottom` keeps the seabed on the
-       floor of the window instead of drifting up it. */
-    #auth-screen .auth-kelp-bg::before {
-      content: ""; position: absolute; inset: 0;
-      background: url("/backgrounds/kelp-forest.png") center bottom / cover no-repeat;
+    #auth-screen.on-nickname .auth-step-bg { display: block; }
+    /* The same room the two cards on the step before this one open in: the
+       sign-in painting under a scrim, built exactly the way they build it (see
+       the note on #auth-guest-overlay::before). First sign-in is one room, not
+       a slideshow of three. */
+    #auth-screen .auth-step-bg::before {
+      content: ""; position: fixed; inset: -6vmax;
+      background: #0a1d3a url("/login-bg.png?v=45") center / cover no-repeat;
+      filter: blur(34px) saturate(1.12) brightness(.66);
     }
-    /* Depth scrim: a light vignette that settles the corners so the eye goes
-       to the card, over water that deepens towards the seabed. Much lighter
-       than it was, because it no longer has to double as a matte hiding the
-       corners of a circle: the artwork reaches every edge on its own. */
-    #auth-screen .auth-kelp-bg::after {
-      content: ""; position: absolute; inset: 0;
+    /* The painting itself, letterboxed to its own ratio, with the scrim laid over
+       it in the same declaration: a gradient listed BEFORE an image paints in
+       front of it. */
+    #auth-screen .auth-step-bg::after {
+      content: ""; position: fixed; inset: 0;
       background:
-        radial-gradient(ellipse 122% 100% at 50% 44%,
-          rgba(4,32,58,0) 50%, rgba(4,32,58,.18) 80%, rgba(4,28,52,.42) 100%),
-        linear-gradient(180deg,
-          rgba(150,222,240,.10) 0%, rgba(8,52,80,.05) 42%, rgba(5,32,56,.24) 100%);
+        /* The pool the card stands in. It is centred because the octagon is
+           centred, and it is about half the window across because that is what
+           the octagon is at every size the artwork letterboxes to. Everything
+           printed on that panel goes under it; the eight oceans around it stay
+           as bright as they were painted, which is the whole reason for using
+           this picture instead of a flat scrim. */
+        radial-gradient(ellipse 49% 66% at 50% 50%,
+          rgba(3,20,42,.93) 0%, rgba(3,20,42,.90) 42%,
+          rgba(4,26,50,.42) 74%, rgba(4,26,50,.34) 100%),
+        /* …and a light vignette to settle the corners. */
+        radial-gradient(ellipse 124% 106% at 50% 46%,
+          rgba(6,32,60,.04) 0%, rgba(6,32,60,.13) 58%, rgba(4,24,48,.44) 100%),
+        url("/login-bg.png?v=45") center / contain no-repeat;
     }
 
-    /* ── The kelp forest on a tall window ──────────────────────────
-       The painting is 1701x925, and the kelp is up its two OUTER edges. In a
-       portrait window `cover` has to scale it by the height, so it crops the
-       width hard: on a phone that threw away both banks of kelp and left the
-       screen as plain open water, which is the one thing this art was chosen
-       not to be.
-
-       So below roughly 7:5, the forest is shown at its full WIDTH, sitting on
-       the floor of the window, and the water simply CONTINUES above it: a
-       gradient ending on #bdf6fb, sampled from the painting's own top row, so
-       the join is a colour match rather than a seam. Both screens, one rule:
-       they are the same room. */
-    @media (max-aspect-ratio: 7/5) {
-      #auth-screen .auth-kelp-bg::before,
-      #auth-guest-overlay::before,
-      #auth-account-overlay::before {
-        background:
-          url("/backgrounds/kelp-forest.png") center bottom / 100% auto no-repeat,
-          linear-gradient(180deg, #7ed3ef 0%, #a6ecfa 46%, #bdf6fb 74%, #bdf6fb 100%);
-      }
-    }
+    /* A tall window used to need its own rule here, back when this screen stood
+       in the kelp forest: that painting had its kelp up two OUTER edges, and
+       `cover` in a portrait window cropped both banks away and left plain open
+       water, which was the one thing that art was chosen not to be. The
+       sign-in painting is letterboxed rather than cropped and its blurred copy
+       fills whatever is left, so there is nothing to lose at any shape and the
+       rule is gone. */
 
     /* ── The card ───────────────────────────────────── */
     #auth-step-nickname.auth-box {
