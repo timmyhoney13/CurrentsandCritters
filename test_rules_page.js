@@ -96,7 +96,8 @@ vm.runInContext(gamedataSrc, vm.createContext(W), { filename: "gamedata.js" });
 check("exports every table the two consumers need", () => {
   for (const key of ["CC_FAMILY_COLORS", "CC_FAMILY_INK", "CC_STRAT_PRIMARY",
                      "CC_BUILTIN_STRATEGIES", "CC_SPECIES_GUIDE",
-                     "CC_FAMILY_AVATAR", "CC_STRAT_AVATAR_OVERRIDE"]) {
+                     "CC_FAMILY_SYMBOL", "CC_FAMILY_LABEL", "CC_COMBO_PAIR_LABELS",
+                     "CC_OCEAN_CARD_UID", "CC_STRAT_SYMBOLS"]) {
     assert(W[key], "window." + key + " is missing");
   }
 });
@@ -139,6 +140,107 @@ check("the species guide covers the nine animal families", () => {
   });
 });
 
+// ── The symbol a strategy wears ──────────────────────────────────
+// Strategy tiles show the family SYMBOL (the mark printed bottom-right on
+// every card of that family), and a COMBO shows BOTH marks it bridges. The
+// resolver is shared, so these checks cover the game AND /rules at once.
+console.log("\nThe symbol each strategy wears");
+
+const symsFor = (i) => W.CC_STRAT_SYMBOLS(i, W.CC_BUILTIN_STRATEGIES[i]);
+
+check("there is a symbol for each of the nine animal families, and no tenth", () => {
+  eq(Object.keys(W.CC_FAMILY_SYMBOL).sort(), W.CC_SPECIES_GUIDE.map(s => s.key).sort(),
+    "FAMILY_SYMBOL must match the nine families on the List of Species");
+  assert(!("ocean" in W.CC_FAMILY_SYMBOL),
+    "an ocean is not a species and has no printed symbol, it must not get one here");
+});
+
+check("every family symbol names a file that exists, and a name to read out", () => {
+  const missing = [];
+  for (const [fam, file] of Object.entries(W.CC_FAMILY_SYMBOL)) {
+    if (!fs.existsSync(path.join(CLIENT, "species", file + ".png"))) missing.push("species/" + file + ".png");
+    assert(W.CC_FAMILY_LABEL[fam], fam + " has a symbol but no display name");
+  }
+  eq(missing, [], "symbol art that is not on disk");
+  for (const fam of Object.keys(W.CC_FAMILY_COLORS)) {
+    assert(W.CC_FAMILY_LABEL[fam], fam + " has no display name");
+  }
+});
+
+check("every strategy resolves to one or two symbols, never none", () => {
+  W.CC_BUILTIN_STRATEGIES.forEach((s, i) => {
+    const syms = symsFor(i);
+    assert(syms.length >= 1 && syms.length <= 2,
+      s.label + " resolved to " + syms.length + " symbols");
+    for (const e of syms) {
+      assert(e.key && e.label, s.label + ": a symbol with no key or label");
+      assert(e.sym || e.cardUid != null, s.label + ": " + e.key + " has neither art nor a card");
+    }
+  });
+});
+
+check("a CORE plan wears exactly one symbol", () => {
+  W.CC_BUILTIN_STRATEGIES.forEach((s, i) => {
+    if (s.tier === "Combo") return;
+    eq(symsFor(i).length, 1, s.label + " is a core plan and should wear one symbol");
+  });
+});
+
+check("a COMBO wears BOTH of the symbols it bridges, and they differ", () => {
+  let combos = 0;
+  W.CC_BUILTIN_STRATEGIES.forEach((s, i) => {
+    if (s.tier !== "Combo") return;
+    combos++;
+    const syms = symsFor(i);
+    eq(syms.length, 2, s.label + " is a combo and should wear two symbols");
+    assert(syms[0].key !== syms[1].key, s.label + " wears the same symbol twice");
+  });
+  assert(combos >= 10, "expected 10+ combos, found " + combos);
+});
+
+check("the combo pair table names real strategies, one entry per combo", () => {
+  const labels = new Set(W.CC_BUILTIN_STRATEGIES.map(s => s.label));
+  for (const [combo, pair] of Object.entries(W.CC_COMBO_PAIR_LABELS)) {
+    assert(labels.has(combo), "pair table names a strategy that does not exist: " + combo);
+    eq(pair.length, 2, combo + " must bridge exactly two cores");
+    for (const lbl of pair) assert(labels.has(lbl), combo + " bridges an unknown plan: " + lbl);
+  }
+  for (const s of W.CC_BUILTIN_STRATEGIES) {
+    if (s.tier === "Combo") assert(W.CC_COMBO_PAIR_LABELS[s.label], s.label + " is a combo with no pair");
+  }
+});
+
+check("the first symbol is the family the tile is already tinted in", () => {
+  // The tile's colour comes from _STRAT_PRIMARY; if the leading symbol were a
+  // different family the tile would say two things at once.
+  W.CC_BUILTIN_STRATEGIES.forEach((s, i) => {
+    eq(symsFor(i)[0].key, W.CC_STRAT_PRIMARY[i], s.label + ": symbol and tile colour disagree");
+  });
+});
+
+check("Oceans, the one family with no symbol, fall back to the Coral Reef card", () => {
+  const i = W.CC_STRAT_PRIMARY.findIndex((fam, n) => fam === "ocean" && W.CC_BUILTIN_STRATEGIES[n]);
+  assert(i >= 0, "expected an ocean-led strategy");
+  const syms = symsFor(i);
+  eq(syms.length, 1, "an ocean plan wears one thing");
+  eq(syms[0].cardUid, W.CC_OCEAN_CARD_UID, "an ocean plan should show the ocean card");
+  assert(!syms[0].sym, "an ocean plan must not claim a species symbol");
+  const page = W.CC_OCEAN_CARD_UID - 200;
+  const file = path.join(ROOT, "oceans_cards", "page_" + (page < 10 ? "0" + page : page) + ".png");
+  assert(fs.existsSync(file), "the ocean card art is missing: " + file);
+});
+
+check("a custom plan borrows the first family its own cards recognise", () => {
+  const mine = { label: "My plan", custom: true, cards: [{ species: "Unknownfish" }, { species: "Mammal" }] };
+  eq(W.CC_STRAT_SYMBOLS(99, mine).map(e => e.key), ["mammal"], "custom plan symbol");
+  // A custom plan that happens to be NAMED after a built-in combo must not
+  // inherit that combo's two symbols, its own cards decide.
+  const impostor = { label: "Bird Lobster", custom: true, cards: [{ species: "Coral" }] };
+  eq(W.CC_STRAT_SYMBOLS(99, impostor).map(e => e.key), ["coral"], "custom plan named after a combo");
+  // And one the game cannot read at all still gets a tile rather than a hole.
+  eq(W.CC_STRAT_SYMBOLS(99, { label: "???", custom: true, cards: [] }).length, 1, "unreadable custom plan");
+});
+
 // ── Lossless extraction: compare against the pre-split commit ─────
 console.log("\nThe split moved code, it did not rewrite it");
 
@@ -160,8 +262,11 @@ check("the four tables are IDENTICAL to the ones preview-app.js used to hold", (
   eq(W.CC_FAMILY_INK, grab("FAMILY_INK", "{", "}"), "FAMILY_INK drifted");
   eq(W.CC_STRAT_PRIMARY, grab("_STRAT_PRIMARY", "[", "]"), "_STRAT_PRIMARY drifted");
   eq(W.CC_BUILTIN_STRATEGIES, grab("BUILTIN_STRATEGIES", "[", "]"), "BUILTIN_STRATEGIES drifted");
-  eq(W.CC_FAMILY_AVATAR, grab("_FAMILY_AVATAR", "{", "}"), "_FAMILY_AVATAR drifted");
-  eq(W.CC_STRAT_AVATAR_OVERRIDE, grab("_STRAT_AVATAR_OVERRIDE", "{", "}"), "_STRAT_AVATAR_OVERRIDE drifted");
+  // _FAMILY_AVATAR / _STRAT_AVATAR_OVERRIDE are deliberately gone: strategy
+  // tiles wear the family SYMBOL now, so the portrait tables they picked have
+  // no reader left. Nothing else in the split lost a row.
+  assert(!("CC_FAMILY_AVATAR" in W) && !("CC_STRAT_AVATAR_OVERRIDE" in W),
+    "the strategy-portrait tables were retired, they should not be back");
 });
 
 check("preview-app.js no longer defines them, it reads them off window", () => {
@@ -169,8 +274,7 @@ check("preview-app.js no longer defines them, it reads them off window", () => {
   for (const [local, global_] of [
     ["FAMILY_COLORS", "CC_FAMILY_COLORS"], ["FAMILY_INK", "CC_FAMILY_INK"],
     ["_STRAT_PRIMARY", "CC_STRAT_PRIMARY"], ["BUILTIN_STRATEGIES", "CC_BUILTIN_STRATEGIES"],
-    ["HTP_SPECIES", "CC_SPECIES_GUIDE"], ["_FAMILY_AVATAR", "CC_FAMILY_AVATAR"],
-    ["_STRAT_AVATAR_OVERRIDE", "CC_STRAT_AVATAR_OVERRIDE"],
+    ["HTP_SPECIES", "CC_SPECIES_GUIDE"], ["_COMBO_PAIR_LABELS", "CC_COMBO_PAIR_LABELS"],
   ]) {
     const re = new RegExp("const\\s+" + local + "\\s*=\\s*window\\." + global_ + ";");
     assert(re.test(app), local + " should be `const " + local + " = window." + global_ + ";`");
@@ -283,6 +387,49 @@ check("reads its family colours lazily, not at parse time", () => {
     "expected a colours() accessor that reads window on every call");
 });
 
+// ── Both renderers stamp the tile the same way ───────────────────
+// The symbol lives in one resolver; the risk is a renderer quietly keeping
+// its own idea of what a strategy looks like, so the game and /rules drift.
+const appSrc = read(path.join(CLIENT, "js", "preview-app.js"));
+
+check("both the game and /rules build the tile from CC_STRAT_SYMBOLS", () => {
+  assert(/window\.CC_STRAT_SYMBOLS\(/.test(appSrc), "preview-app.js does not call the shared resolver");
+  assert(/window\.CC_STRAT_SYMBOLS\(/.test(rulesHtml), "rules.html does not call the shared resolver");
+  // Read on every call, never snapshotted: gamedata.js is deferred, so a
+  // parse-time grab in rules.html would be undefined.
+  assert(!/var\s+\w+\s*=\s*window\.CC_STRAT_SYMBOLS\s*;/.test(rulesHtml),
+    "CC_STRAT_SYMBOLS is snapshotted at parse time, before gamedata.js has run");
+});
+
+check("no strategy tile reaches for a critter portrait any more", () => {
+  assert(!/strat-art[^>]*>\s*<img src="\/avatars\//.test(rulesHtml), "rules.html still paints an avatar on the tile");
+  for (const src of [appSrc, rulesHtml]) {
+    assert(!/CC_FAMILY_AVATAR|CC_STRAT_AVATAR_OVERRIDE/.test(src),
+      "a renderer still reads the retired strategy-portrait tables");
+  }
+});
+
+check("every tile class the game uses is a symbol tile", () => {
+  // The four in-game tiles plus the Player Home one all go through the same
+  // helper, so each has to pick up the .cc-strat-sym rules.
+  for (const cls of ["hs2-reco-art", "hs2-card-art", "hs2-mini-art", "hs2-combo-art", "htp-strat-art"]) {
+    assert(new RegExp("_stratArtHtml\\(i, \"" + cls + "\"\\)|stratArtHtml\\(i, \"" + cls + "\"\\)").test(appSrc),
+      cls + " is not fed by _stratArtHtml");
+  }
+});
+
+check("both stylesheets carry the symbol-tile rules", () => {
+  const css = read(path.join(CLIENT, "css", "preview.css"));
+  for (const [name, src] of [["css/preview.css", css], ["rules.html", rulesHtml]]) {
+    assert(/\.cc-strat-sym\s*\{/.test(src), name + " has no .cc-strat-sym rule");
+    // The tile classes already size any <img> inside them to 100%/cover, so the
+    // symbol rule has to be the more specific one or the glyph is stretched.
+    assert(/\.cc-strat-sym\s*>\s*img\.cc-sym-img/.test(src),
+      name + ": the symbol sizing must outrank the tile's own `img` rule");
+    assert(/\.cc-strat-sym\[data-syms="2"\]/.test(src), name + " does not shrink a combo's two symbols");
+  }
+});
+
 // ── Assets resolve on BOTH hosts ─────────────────────────────────
 console.log("\nEvery asset /rules asks for resolves on both hosts");
 
@@ -320,8 +467,8 @@ check("the avatars and species art the page names all exist", () => {
     if (!fs.existsSync(art)) missing.push("avatars/" + s.art + ".png");
     if (!fs.existsSync(sym)) missing.push("species/" + s.key.replace(/ /g, "-") + ".png");
   }
-  for (const slug of Object.values(W.CC_FAMILY_AVATAR).concat(Object.values(W.CC_STRAT_AVATAR_OVERRIDE), ["mullet"])) {
-    if (!fs.existsSync(path.join(CLIENT, "avatars", slug + ".png"))) missing.push("avatars/" + slug + ".png");
+  for (const file of Object.values(W.CC_FAMILY_SYMBOL)) {
+    if (!fs.existsSync(path.join(CLIENT, "species", file + ".png"))) missing.push("species/" + file + ".png");
   }
   eq(missing, [], "missing art");
 });

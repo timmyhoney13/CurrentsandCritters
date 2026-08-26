@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.91";
-  const APP_BUILD   = "2026-08-26.1";
+  const APP_VERSION = "1.6.92";
+  const APP_BUILD   = "2026-08-26.2";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -4842,40 +4842,35 @@
     function _isCombo(i)  { const s = HELP_STRATEGIES[i]; return !!s && s.tier === "Combo" && !s.custom; }
     function _isCustom(i) { const s = HELP_STRATEGIES[i]; return !!s && !!s.custom; }
 
-    // Featured critter portrait for each strategy, uses the AVATAR GALLERY art
-    // (/avatars/*.png), not the card sprites. Default per primary animal family,
-    // with a few per-strategy overrides. Display only, no card data/rules change.
-    // Both tables live in js/gamedata.js, so a strategy wears the same face
-    // here and on the published How to Play page (/rules).
-    const _FAMILY_AVATAR         = window.CC_FAMILY_AVATAR;
-    const _STRAT_AVATAR_OVERRIDE = window.CC_STRAT_AVATAR_OVERRIDE;
-    function _stratAvatar(i) {
-      if (_STRAT_AVATAR_OVERRIDE[i]) return _STRAT_AVATAR_OVERRIDE[i];
-      const fam = (i < _STRAT_PRIMARY.length) ? _normFamily(_STRAT_PRIMARY[i]) : "";
-      if (_FAMILY_AVATAR[fam]) return _FAMILY_AVATAR[fam];
-      const s = HELP_STRATEGIES[i]; // custom strategy → first recognised family
-      if (s && s.cards) for (const c of s.cards) { const f = _normFamily(c.species); if (_FAMILY_AVATAR[f]) return _FAMILY_AVATAR[f]; }
-      return "mullet";
-    }
+    // The symbol each strategy wears: the family mark printed in the
+    // bottom-right corner of every card in that family (/species/*.png), so a
+    // plan is stamped with the very thing the player is reading off the cards
+    // in their hand. A COMBO wears BOTH marks it bridges, split by a +.
+    // Oceans have no printed symbol, so an ocean-led plan shows the Coral Reef
+    // ocean card instead. The table and the resolver both live in
+    // js/gamedata.js, so a strategy wears the same symbol here and on the
+    // published How to Play page (/rules).
     function _stratArtHtml(i, cls) {
-      return `<div class="${cls}"><img src="${_avSrc('/avatars/' + _stratAvatar(i) + '.png')}" alt="" loading="lazy"></div>`;
+      // Fail soft: a stale cached gamedata.js would otherwise throw here and
+      // take the whole strategy panel down with it. An empty frame is bad, a
+      // blank screen is worse.
+      if (typeof window.CC_STRAT_SYMBOLS !== "function") return `<div class="${cls}"></div>`;
+      const syms = window.CC_STRAT_SYMBOLS(i, HELP_STRATEGIES[i]) || [];
+      if (!syms.length) return `<div class="${cls}"></div>`;
+      const one = (e) => e.cardUid != null
+        ? `<img class="cc-sym-img cc-sym-card" src="${imagePathForUid(e.cardUid)}" alt="${_hesc(e.label)}" title="${_hesc(e.label)}" loading="lazy">`
+        : `<img class="cc-sym-img" src="/species/${e.sym}.png" alt="${_hesc(e.label)}" title="${_hesc(e.label)}" loading="lazy">`;
+      const plus = `<span class="cc-sym-plus" aria-hidden="true">+</span>`;
+      return `<div class="${cls} cc-strat-sym" data-syms="${syms.length}"`
+        + ` title="${_hesc(syms.map(e => e.label).join(" + "))}">`
+        + syms.map(one).join(plus) + `</div>`;
     }
 
-    // Which CORE strategies each COMBO bridges. Keyed by combo label so it is
-    // robust to index shifts from appended custom strategies. (Data unchanged,
-    // this only powers the "suggested combos" discovery.)
-    const _COMBO_PAIR_LABELS = {
-      "Bird Lobster": ["Birds", "Crustaceans"],
-      "Bird Coral": ["Birds", "Coral"],
-      "Coral Cephalopods": ["Coral", "Cephalopods"],
-      "Birds + Baitfish Barrage": ["Birds", "Baitfish Barrage"],
-      "Baitfish Barrage + Yellowfin Tuna": ["Baitfish Barrage", "Yellowfin Tuna Stack"],
-      "Cephalopods + Shooting the Moon": ["Cephalopods", "Shooting the Moon"],
-      "Shooting the Moon + King Salmon": ["Shooting the Moon", "King Salmon"],
-      "King Salmon + Birds": ["King Salmon", "Birds"],
-      "Mammals + Cephalopods": ["Mammals", "Cephalopods"],
-      "Yellowfin Tuna + Mammals": ["Yellowfin Tuna Stack", "Mammals"],
-    };
+    // Which CORE strategies each COMBO bridges, and therefore the two symbols
+    // its tile wears. Keyed by combo label so it is robust to index shifts from
+    // appended custom strategies. Lives in js/gamedata.js so /rules pairs them
+    // up the same way.
+    const _COMBO_PAIR_LABELS = window.CC_COMBO_PAIR_LABELS;
     function _comboPairIdxs(i) {
       const s = HELP_STRATEGIES[i];
       if (!s) return [];
@@ -5325,9 +5320,9 @@
       // drilled into a strategy's detail page.
       showList: () => { if (modal.classList.contains("open")) renderList(); },
       indexByLabel: _idxByLabel,
-      // Featured-critter portrait for a strategy. Shared with the Player Home
-      // "How to play → Strategies" page so a plan wears the same face there as
-      // it does on the in-game 💡 Help screen.
+      // The family symbol(s) a strategy wears. Shared with the Player Home
+      // "How to play → Strategies" page so a plan is stamped with the same
+      // mark there as it is on the in-game 💡 Help screen.
       stratArtHtml: _stratArtHtml,
       isActive: (label) => { const i = _idxByLabel(label); return i >= 0 && _activeStrategies.has(i); },
       activeLabels: () => [..._activeStrategies].map(i => HELP_STRATEGIES[i] && HELP_STRATEGIES[i].label).filter(Boolean),

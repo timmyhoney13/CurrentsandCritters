@@ -914,6 +914,55 @@
       content: ""; position: absolute; inset: 0; pointer-events: none;
       background: linear-gradient(180deg, transparent 62%, rgba(9,20,40,.55));
     }
+
+    /* ── A strategy tile wears its family SYMBOL ─────────────────────
+       Not a critter portrait: the mark actually stamped in the bottom-right
+       corner of every card in that family (/species/*.png), so the tile shows
+       the same thing the player is reading off the cards in their hand. A
+       COMBO wears BOTH marks it bridges, split by a +. Oceans are not a
+       species and have no printed symbol, so an ocean-led plan falls back to
+       the Coral Reef ocean card (.cc-sym-card), which is how the List of
+       Species illustrates Oceans too.
+         These rules land on the SAME element as .hs2-*-art / .htp-strat-art,
+       so every img rule here is written .cc-strat-sym > img.cc-sym-img to
+       outrank the plain `.hs2-card-art img` sizing above. Duplicated (only
+       here and inline in rules.html) because /rules must stay self-contained.
+         The breathing room is in PIXELS per tile, never a percentage:
+       percentage padding resolves against the CONTAINING BLOCK's width, which
+       here is the whole strategy row, so `padding: 7%` blew a 54px tile out to
+       145px with nothing left inside it. */
+    .cc-strat-sym {
+      display: flex; align-items: center; justify-content: center;
+      gap: var(--sym-gap, 4px); padding: var(--sym-pad, 6px); box-sizing: border-box;
+    }
+    .hs2-card-art.cc-strat-sym  { --sym-pad: 11px; --sym-gap: 7px; }
+    .hs2-reco-art.cc-strat-sym  { --sym-pad: 9px;  --sym-gap: 5px; }
+    .hs2-combo-art.cc-strat-sym { --sym-pad: 9px;  --sym-gap: 6px; }
+    .hs2-mini-art.cc-strat-sym  { --sym-pad: 7px;  --sym-gap: 4px; }
+    .htp-strat-art.cc-strat-sym { --sym-pad: 4px;  --sym-gap: 1px; }
+    .cc-strat-sym > img.cc-sym-img {
+      width: auto; height: auto; max-width: 100%; max-height: 100%;
+      min-width: 0; object-fit: contain; padding: 0; display: block;
+    }
+    /* Two symbols share the width, so cap each at just under half. */
+    .cc-strat-sym[data-syms="2"] > img.cc-sym-img { max-width: 44%; }
+    .cc-strat-sym > .cc-sym-card { border-radius: 3px; box-shadow: 0 2px 7px rgba(0,0,0,.45); }
+    /* The bottom scrim was there to blend a photo into the card body below.
+       A centred symbol needs no blending, and the scrim only dims it. */
+    .hs2-card-art.cc-strat-sym::after, .hs2-combo-art.cc-strat-sym::after { display: none; }
+    .cc-strat-sym > .cc-sym-plus {
+      flex: 0 0 auto; font-family: "Nunito", sans-serif; font-weight: 900;
+      font-size: 15px; line-height: 1; color: rgba(214,232,250,.6);
+    }
+    /* On the dark tiles a light halo lifts the two darkest marks (the navy
+       marlin, the brown baitfish shoal) off the navy plate. */
+    .hs2-card-art.cc-strat-sym > img.cc-sym-img,
+    .hs2-reco-art.cc-strat-sym > img.cc-sym-img,
+    .hs2-mini-art.cc-strat-sym > img.cc-sym-img,
+    .hs2-combo-art.cc-strat-sym > img.cc-sym-img {
+      filter: drop-shadow(0 0 7px rgba(168,214,255,.34)) drop-shadow(0 2px 5px rgba(0,0,0,.5));
+    }
+    .hs2-mini-art.cc-strat-sym > .cc-sym-plus { font-size: 12px; }
     .hs2-card-tag { position: absolute; top: 7px; right: 7px; z-index: 2; }
     .hs2-card-body { padding: 9px 11px 11px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
     .hs2-card-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 16px; color: #fef0e0; letter-spacing: .4px; line-height: 1.12; }
@@ -14400,12 +14449,22 @@
     }
     .htp-strat-head::-webkit-details-marker { display: none; }
     .htp-strat-head:hover { background: rgba(230,246,255,.7); }
+    /* Landscape, not square: the tile holds a family symbol, and a COMBO holds
+       two of them side by side. A 52px square left each of the pair about 14px
+       wide, too small to tell a puffin from a lobster. Every tile is the same
+       width so the names still line up down the list. */
     .htp-strat-art {
-      flex: 0 0 auto; width: 52px; height: 52px; border-radius: 13px; overflow: hidden;
+      flex: 0 0 auto; width: 64px; height: 52px; border-radius: 13px; overflow: hidden;
       background: color-mix(in srgb, var(--strat-c, #b388ff) 16%, #eaf6ff);
       border: 2px solid color-mix(in srgb, var(--strat-c, #b388ff) 55%, transparent);
     }
     .htp-strat-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    /* Same symbol tile as the in-game Help screen, on the pale Player Home
+       skin: a soft ink shadow so the white Birds puffin still has an edge. */
+    .htp-strat-art.cc-strat-sym > img.cc-sym-img {
+      filter: drop-shadow(0 0 1px rgba(16,58,116,.45)) drop-shadow(0 1px 2px rgba(16,58,116,.3));
+    }
+    .htp-strat-art.cc-strat-sym > .cc-sym-plus { font-size: 10px; color: #6f97b8; }
     .htp-strat-txt { flex: 1; min-width: 0; }
     .htp-strat-name {
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap;

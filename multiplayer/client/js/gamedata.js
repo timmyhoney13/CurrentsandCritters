@@ -108,27 +108,103 @@
       txt: "The wildcards, welcome on any side but the surface. Turtles let you play as much as you can pay for, and all four Mandarin Gobies together is the largest single payoff in the game." },
   ];
 
-  // ── The face a strategy wears ───────────────────────────────────
-  // Strategy tiles are illustrated with the collectible avatar portraits
-  // (/avatars/*.png), not card sprites. Default per primary animal family,
-  // with a few per-strategy overrides. Display only; no rules ride on this.
-  const FAMILY_AVATAR = {
-    bird: "emperor-penguin", crustacean: "lobster", cephalopod: "common-octopus",
-    mammal: "bottlenose-dolphin", baitfish: "whale-shark", "game fish": "yellowfin-tuna",
-    coral: "staghorn-coral", invertebrate: "sea-anemone", crosscurrent: "great-white-shark",
-    ocean: "great-albatross",
+  // ── The symbol a strategy wears ─────────────────────────────────
+  // A strategy tile shows the family SYMBOL, the little mark stamped in the
+  // bottom-right corner of every card in that family (/species/*.png), which
+  // is the same mark the player is already reading off the card in their
+  // hand. A COMBO wears BOTH of the symbols it bridges, split by a +, so
+  // "Bird Lobster" says bird and lobster before you open it.
+  //   Oceans are the one gap in the set: an ocean is not a species and has
+  //   no printed symbol, which is why the List of Species is nine tiles plus
+  //   a separate ocean strip. An ocean-led plan therefore shows the Coral
+  //   Reef ocean card, exactly the way that strip illustrates Oceans.
+  //   File names, not paths: the two renderers prefix /species/ themselves.
+  const FAMILY_SYMBOL = {
+    baitfish: "baitfish", bird: "bird", cephalopod: "cephalopod", coral: "coral",
+    crosscurrent: "crosscurrent", crustacean: "crustacean", "game fish": "game-fish",
+    invertebrate: "invertebrate", mammal: "mammal",
   };
-  const STRAT_AVATAR_OVERRIDE = {
-    6:  "big-eye-tuna",   // Yellowfin Tuna Stack   → Bigeye Tuna
-    10: "mandarin-goby",  // Shooting the Moon      → Goby
-    11: "king-salmon",    // King Salmon
+  // What to call a family out loud (alt text and the tile's tooltip). These are
+  // the names printed on the List of Species, not the internal colour keys.
+  const FAMILY_LABEL = {
+    baitfish: "Bait Fish", bird: "Birds", cephalopod: "Cephalopods", coral: "Coral",
+    crosscurrent: "Crosscurrent", crustacean: "Crustaceans", "game fish": "Game Fish",
+    invertebrate: "Invertebrates", mammal: "Mammals", ocean: "Oceans",
   };
+  // Coral Reef: the ocean card that stands in for the missing ocean symbol.
+  const OCEAN_CARD_UID = 217;
+
+  // Which two CORE plans each COMBO bridges, and therefore the two symbols it
+  // wears. Keyed by LABEL so it survives the index shift from custom
+  // strategies appended after the built-ins. The first name is the combo's
+  // primary family, i.e. the colour the tile is already tinted in.
+  const COMBO_PAIR_LABELS = {
+    "Bird Lobster": ["Birds", "Crustaceans"],
+    "Bird Coral": ["Birds", "Coral"],
+    "Coral Cephalopods": ["Coral", "Cephalopods"],
+    "Birds + Baitfish Barrage": ["Birds", "Baitfish Barrage"],
+    "Baitfish Barrage + Yellowfin Tuna": ["Baitfish Barrage", "Yellowfin Tuna Stack"],
+    "Cephalopods + Shooting the Moon": ["Cephalopods", "Shooting the Moon"],
+    "Shooting the Moon + King Salmon": ["Shooting the Moon", "King Salmon"],
+    "King Salmon + Birds": ["King Salmon", "Birds"],
+    "Mammals + Cephalopods": ["Mammals", "Cephalopods"],
+    "Yellowfin Tuna + Mammals": ["Yellowfin Tuna Stack", "Mammals"],
+  };
+
+  // Species written any of the ways the card lists spell it, reduced to the
+  // one key FAMILY_COLORS is filed under.
+  function normFamilyKey(species) {
+    let s = String(species || "").toLowerCase().trim();
+    if (s === "gamefish" || s === "game-fish") s = "game fish";
+    if (s === "lobster" || s === "lobsters" || s === "crustaceans") s = "crustacean";
+    if (s === "cross current" || s === "cross-current" || s === "current") s = "crosscurrent";
+    if (FAMILY_COLORS[s]) return s;
+    if (s.endsWith("s") && FAMILY_COLORS[s.slice(0, -1)]) return s.slice(0, -1);
+    return s;
+  }
+
+  // The one or two symbols strategy `i` wears, in the order it names them.
+  // Called at RENDER time by both the game and /rules, so a plan is stamped
+  // with the same mark in both places.
+  //   Returns [{ key, label, sym }] for a family symbol and
+  //   [{ key, label, cardUid }] for Oceans, which has no symbol to show.
+  //   Never returns an empty list: an unrecognisable custom plan still gets a
+  //   tile rather than an empty frame.
+  function stratSymbols(i, strat) {
+    const s = strat || BUILTIN_STRATEGIES[i];
+    const out = [];
+    const push = (species) => {
+      const key = normFamilyKey(species);
+      if (!key || out.some(e => e.key === key)) return;
+      if (key === "ocean") out.push({ key: key, label: FAMILY_LABEL.ocean, cardUid: OCEAN_CARD_UID });
+      else if (FAMILY_SYMBOL[key]) out.push({ key: key, label: FAMILY_LABEL[key] || key, sym: FAMILY_SYMBOL[key] });
+    };
+    const custom = !!(s && s.custom);
+    const pair = (!custom && s) ? COMBO_PAIR_LABELS[s.label] : null;
+    if (pair) {
+      for (const lbl of pair) {
+        const j = BUILTIN_STRATEGIES.findIndex(x => x.label === lbl);
+        if (j >= 0) push(_STRAT_PRIMARY[j]);
+      }
+    }
+    if (!out.length && !custom) push(_STRAT_PRIMARY[i]);
+    // A custom plan (or anything still unmatched) borrows the first family its
+    // own card list recognises.
+    if (!out.length && s && Array.isArray(s.cards)) {
+      for (let c = 0; c < s.cards.length && !out.length; c++) push(s.cards[c].species);
+    }
+    if (!out.length) push("crosscurrent");
+    return out.slice(0, 2);
+  }
 
   window.CC_FAMILY_COLORS      = FAMILY_COLORS;
   window.CC_FAMILY_INK         = FAMILY_INK;
   window.CC_STRAT_PRIMARY      = _STRAT_PRIMARY;
   window.CC_BUILTIN_STRATEGIES = BUILTIN_STRATEGIES;
   window.CC_SPECIES_GUIDE      = SPECIES_GUIDE;
-  window.CC_FAMILY_AVATAR      = FAMILY_AVATAR;
-  window.CC_STRAT_AVATAR_OVERRIDE = STRAT_AVATAR_OVERRIDE;
+  window.CC_FAMILY_SYMBOL      = FAMILY_SYMBOL;
+  window.CC_FAMILY_LABEL       = FAMILY_LABEL;
+  window.CC_COMBO_PAIR_LABELS  = COMBO_PAIR_LABELS;
+  window.CC_OCEAN_CARD_UID     = OCEAN_CARD_UID;
+  window.CC_STRAT_SYMBOLS      = stratSymbols;
 })();
