@@ -7,12 +7,18 @@
  *
  * What this file pins, in the order a player meets it:
  *
- *   1. THE SIGN-IN SCREEN IS STILL THE SIGN-IN SCREEN. login-bg.png, its eight
- *      oceans and its title are untouched. What changed is the octagon: it is
- *      redrawn in CSS, a little larger than the one painted into the artwork,
- *      because the painted one has "…WITH GOOGLE" baked into it twice. The
- *      redrawn panel must COVER the printed one at every window size, or the
- *      old wording shows around the edges.
+ *   1. THE SIGN-IN SCREEN IS THE PAINTING. login-bg.png is one flat image:
+ *      eight oceans, the title, an octagon, and two buttons in it that say
+ *      PLAY AS GUEST and SIGN IN / CREATE AN ACCOUNT. Nothing is drawn over
+ *      its lettering. The two buttons are BOXES over the painted pair, so what
+ *      this file measures is that they land on them, at every window size: a
+ *      box that has drifted is a button a player aims at and misses.
+ *
+ *      The one exception is a phone-shaped window, where the painting is
+ *      cropped to its title strip because the octagon in it comes out 141px
+ *      across with lettering five pixels tall. There, and only there, the
+ *      octagon is redrawn large in CSS and the buttons put their own clothes
+ *      back on. The printed octagon must be off the screen entirely.
  *   2. THE SECOND BUTTON OPENS A CARD, not a Google popup.
  *   3. THE CARD ASKS FIRST ("do you already have one?"), then shows the form
  *      for the answer. Google is at the bottom of BOTH forms.
@@ -57,29 +63,44 @@ function check(name, cond, extra) {
 //  SOURCE
 // ══════════════════════════════════════════════════════════════════════════
 
-console.log("\nthe artwork is untouched, the octagon on it is covered");
+console.log("\nthe artwork says it itself, and the buttons are boxes on it");
 {
   check("the sign-in screen is still the painted one, eight oceans and all",
         /login-bg\.png/.test(HTML) && /class="auth-step-choose-img"/.test(HTML));
-  check("a redrawn octagon sits over the printed one",
-        /<div class="auth-oct" aria-hidden="true">/.test(HTML)
-        && /#auth-step-choose > \.auth-oct \{/.test(CSS));
-  check("…it is scenery, so it can never take a click",
-        /#auth-step-choose > \.auth-oct \{[\s\S]{0,600}?pointer-events: none/.test(CSS));
-  check("…and it is cut LARGER than the one underneath it",
-        /--oct-size: calc\(var\(--auth-w\) \* 0\.39/.test(CSS));
-  check("the panel's lettering is real text now, not paint",
-        /class="auth-oct-title"/.test(HTML) && /class="auth-oct-sub"/.test(HTML));
   check("both buttons say what they do",
         />Play as Guest</.test(HTML) && />Sign In \/ Create an Account</.test(HTML));
-  check("…and neither is transparent-on-transparent any more",
-        !/#auth-step-choose > \.pv-btn,[\s\S]{0,400}?color: transparent/.test(CSS));
-  // Everything on this screen is measured from the octagon, so one variable
-  // moves the whole panel when a phone letterboxes the artwork into a band.
+  // The paint carries the lettering on any window that can show it, so the
+  // label in the page is hidden the ACCESSIBLE way: clipped to a pixel, still
+  // read aloud, still the button's name. display:none would take the name off
+  // the button and leave a screen reader announcing "button".
+  check("…and their labels are hidden by clipping, never by display:none",
+        /class="auth-btn-label"/.test(HTML)
+        && /\.auth-btn-label \{[\s\S]{0,240}?clip-path: inset\(50%\)/.test(CSS)
+        && !/> \.auth-btn-label \{[\s\S]{0,240}?display: none/.test(CSS));
+  check("a redrawn octagon still exists, for the layout that needs one",
+        /<div class="auth-oct" aria-hidden="true">/.test(HTML)
+        && /#auth-step-choose > \.auth-oct \{/.test(CSS));
+  check("…but it is not drawn over the painting by default",
+        /#auth-step-choose > \.auth-oct \{\s*\n\s*display: none;/.test(CSS));
+  check("…and it is scenery wherever it does show, so it can never take a click",
+        /#auth-step-choose > \.auth-oct \{[\s\S]{0,900}?pointer-events: none/.test(CSS));
+  check("its lettering is real text, for the same one layout",
+        /class="auth-oct-title"/.test(HTML) && /class="auth-oct-sub"/.test(HTML));
+  // Everything on this screen is measured from the painted octagon, so one
+  // variable moves the whole panel when a phone letterboxes the artwork.
   check("the panel is built from the octagon's size, not from scattered percentages",
-        /var\(--oct-size\)/.test(CSS) && /var\(--oct-cy\)/.test(CSS));
+        /var\(--oct-size\)/.test(CSS) && /var\(--oct-cy\)/.test(CSS)
+        && /var\(--oct-cx\)/.test(CSS) && /var\(--oct-h\)/.test(CSS));
+  check("…measured off the artwork's own 1556x1011 coordinates",
+        /--auth-w: min\(100vw, calc\(100vh \* 1556 \/ 1011\)\)/.test(CSS));
   check("…and a phone-shaped window grows it rather than shrinking the words",
-        /@media \(max-aspect-ratio: 7\/5\)[\s\S]{0,400}?--oct-size: min\(84vw/.test(CSS));
+        /@media \(max-aspect-ratio: 4\/5\)[\s\S]{0,400}?--oct-size: min\(84vw/.test(CSS));
+  check("…where the panel and its words come back on together",
+        /#auth-step-choose > \.auth-oct,\s*\n\s*#auth-step-choose > \.auth-oct-copy \{ display: block; \}/.test(CSS));
+  // A box you cannot see is only ever meant when the thing under it is up.
+  check("nothing on the artwork is clickable until the artwork has painted",
+        /#auth-step-choose:not\(\.is-armed\) > \.pv-btn,[\s\S]{0,260}?pointer-events: none/.test(CSS)
+        && /function armChooseStep\(\)/.test(APP));
 }
 
 console.log("\nthe second button opens a card, not a Google popup");
@@ -250,11 +271,18 @@ if (!CHROME) {
     }).listen(${PORT});
   `;
 
-  // The octagon printed into login-bg.png, in the artwork's own 1672x941
-  // coordinates: measured off the image, centre and half-width. The redrawn
-  // panel has to contain this rectangle at every size or the baked wording
-  // shows around it.
-  const PAINTED = { cx: 836 / 1672, cy: 481 / 941, half: 306 / 1672 };
+  // The two buttons PAINTED into login-bg.png, measured off the image in its
+  // own 1556x1011 coordinates and written as fractions of the artwork box. The
+  // boxes a player actually clicks have to CONTAIN these at every window size:
+  // a box that has drifted is a button somebody aims at and misses.
+  const PAINTED_BTNS = {
+    guest: { l: 567.5 / 1556, r: 1005.5 / 1556, t: 549 / 1011, b: 631 / 1011 },
+    acct:  { l: 567.5 / 1556, r: 1005.5 / 1556, t: 655 / 1011, b: 734 / 1011 },
+  };
+  // The top edge of the octagon printed into it, as a fraction of the artwork's
+  // WIDTH, because the phone layout scales the strip to the full width and
+  // takes its slice off the top. Nothing of that octagon may be in the slice.
+  const PAINTED_OCT_TOP_OF_W = 244.5 / 1556;
 
   const HELPERS = `
   function R(sel){ var e=document.querySelector(sel); if(!e) return null;
@@ -337,8 +365,8 @@ if (!CHROME) {
   const SIZES = [[1440, 900], [1920, 1080], [1280, 800], [1024, 768], [500, 900], [820, 1180], [900, 520]];
 
   try {
-    // ── 1. The redrawn octagon covers the painted one ─────────────────────
-    console.log("\nthe redrawn octagon covers the painted one, at every size");
+    // ── 1. The click boxes land on the painted buttons ────────────────────
+    console.log("\nthe two boxes land on the two buttons painted underneath them");
     for (const [w, h] of SIZES) {
       const r = run("_acc_cover.html", `
         log.img = R(".auth-step-choose-img");
@@ -349,30 +377,52 @@ if (!CHROME) {
           return e.scrollWidth > e.clientWidth + 1;})();
         log.acctOvf = (function(){var e=document.getElementById("auth-choose-google-btn");
           return e.scrollWidth > e.clientWidth + 1;})();
+        // The name a screen reader gets, whether or not the label is painted.
+        log.guestName = document.getElementById("auth-guest-btn").textContent.trim();
+        log.acctName  = document.getElementById("auth-choose-google-btn").textContent.trim();
         log.docW = document.documentElement.scrollWidth;
         log.vw = window.innerWidth;
         done();
-      `, w, h, (r) => r.oct && r.img);
-      if (!r || !r.oct) { check(`${w}x${h}: the harness reached the sign-in screen`, false); continue; }
+      `, w, h, (r) => r.img && r.guest);
+      if (!r || !r.img) { check(`${w}x${h}: the harness reached the sign-in screen`, false); continue; }
 
-      // Where the printed octagon lands, given where the artwork landed. In the
-      // phone layout only a title strip of the artwork is shown, and the
-      // printed octagon is cropped away entirely: there is nothing to cover.
-      const shrunk = r.img.h < r.img.w * (941 / 1672) * 0.9;
+      // In the phone layout only a title strip of the artwork is shown, so the
+      // painted buttons are not on the screen and there is nothing to land on.
+      const shrunk = r.img.h < r.img.w * (1011 / 1556) * 0.9;
       if (!shrunk) {
-        const px = { cx: r.img.l + PAINTED.cx * r.img.w, cy: r.img.t + PAINTED.cy * r.img.h,
-                     half: PAINTED.half * r.img.w };
-        const covers = r.oct.l <= px.cx - px.half + 0.5 && r.oct.r >= px.cx + px.half - 0.5
-                    && r.oct.t <= px.cy - px.half + 0.5 && r.oct.b >= px.cy + px.half - 0.5;
-        check(`${w}x${h}: nothing printed on the artwork can show around the panel`, covers,
-              `panel ${Math.round(r.oct.l)}..${Math.round(r.oct.r)} vs printed `
-              + `${Math.round(px.cx - px.half)}..${Math.round(px.cx + px.half)}`);
+        const paintedBox = (f) => ({
+          l: r.img.l + f.l * r.img.w, r: r.img.l + f.r * r.img.w,
+          t: r.img.t + f.t * r.img.h, b: r.img.t + f.b * r.img.h,
+        });
+        [["PLAY AS GUEST", r.guest, PAINTED_BTNS.guest],
+         ["SIGN IN / CREATE AN ACCOUNT", r.acct, PAINTED_BTNS.acct]].forEach(([name, drawn, f]) => {
+          const px = paintedBox(f);
+          const covers = drawn.l <= px.l + 0.5 && drawn.r >= px.r - 0.5
+                      && drawn.t <= px.t + 0.5 && drawn.b >= px.b - 0.5;
+          check(`${w}x${h}: the box for ${name} covers the painted button`, covers,
+                `box ${Math.round(drawn.l)},${Math.round(drawn.t)}..${Math.round(drawn.r)},${Math.round(drawn.b)} `
+                + `vs paint ${Math.round(px.l)},${Math.round(px.t)}..${Math.round(px.r)},${Math.round(px.b)}`);
+        });
+        // The painting says everything here, so nothing may be drawn on top of
+        // its octagon: a panel over it would cover the artwork's own lettering.
+        check(`${w}x${h}: nothing is drawn over the painted octagon`,
+              r.oct.w === 0 && r.oct.h === 0,
+              `panel is ${Math.round(r.oct.w)}x${Math.round(r.oct.h)}`);
       } else {
         check(`${w}x${h}: the phone layout crops the printed octagon away entirely`,
-              r.img.h <= r.oct.t + 1, `strip ends ${Math.round(r.img.h)}, panel starts ${Math.round(r.oct.t)}`);
+              r.img.h <= r.img.w * PAINTED_OCT_TOP_OF_W + 1,
+              `strip is ${Math.round(r.img.h)} tall, the printed octagon starts at `
+              + `${Math.round(r.img.w * PAINTED_OCT_TOP_OF_W)}`);
+        check(`${w}x${h}: …so the panel is redrawn, below the strip`,
+              r.oct.w > 0 && r.img.h <= r.oct.t + 1,
+              `strip ends ${Math.round(r.img.h)}, panel starts ${Math.round(r.oct.t)}`);
+        check(`${w}x${h}: both labels fit inside their buttons`,
+              r.guestOvf === false && r.acctOvf === false);
       }
-      check(`${w}x${h}: both labels fit inside their buttons`,
-            r.guestOvf === false && r.acctOvf === false);
+      // Painted or drawn, the buttons keep the names they are read out by.
+      check(`${w}x${h}: both buttons still say what they do`,
+            r.guestName === "Play as Guest" && r.acctName === "Sign In / Create an Account",
+            `${r.guestName} / ${r.acctName}`);
       check(`${w}x${h}: nothing pushes the page sideways`, r.docW <= r.vw + 1,
             `${r.docW} > ${r.vw}`);
     }

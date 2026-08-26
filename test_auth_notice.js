@@ -110,7 +110,10 @@ console.log("\nthe note is dressed like the screen it lies on");
 {
   const block = (() => {
     const a = CSS.indexOf("#auth-step-choose > .auth-err {");
-    return a < 0 ? "" : CSS.slice(a, CSS.indexOf("/* ══ GUEST SIGN-IN CARD", a));
+    // Ends at the phone-shaped-window block, not at the guest card: what is
+    // being read here is the note's OWN rules, and the phone block below it
+    // hides other things on the screen with display:none.
+    return a < 0 ? "" : CSS.slice(a, CSS.indexOf("/* ── A phone-shaped window", a));
   })();
   check("there is a rule for it at all", block.length > 200);
   check("it keeps the direct-child form the guest card depends on",
@@ -129,8 +132,12 @@ console.log("\nthe note is dressed like the screen it lies on");
         && !/display:\s*none/.test(block));
   check("…and never takes a click meant for the artwork",
         /pointer-events:\s*none/.test(block));
+  // --oct-cx is the centre line of the octagon painted into the artwork, which
+  // is the centre line of the two buttons painted under it. The note is hung on
+  // the same variable, so it cannot drift off their column when the artwork is
+  // re-cut and that number moves.
   check("it is centred on the same column as the two painted buttons",
-        /left:\s*50%/.test(block) && /translateX\(-50%\)/.test(block));
+        /left:\s*var\(--oct-cx\)/.test(block) && /translateX\(-50%\)/.test(block));
   check("a reduced-motion player gets no animation",
         /prefers-reduced-motion[\s\S]{0,200}?#auth-step-choose > \.auth-err/.test(block));
 }

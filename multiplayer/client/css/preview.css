@@ -5970,22 +5970,24 @@
       position: relative;
       /* The artwork is letterboxed to its own aspect ratio, so this is the box
          it fills AND the scale of everything painted into it: one image pixel
-         is var(--auth-w)/1672 of the screen. Every size on this screen (the
-         octagon, its lettering, the two buttons) is a fraction of it, so the
-         whole panel grows and shrinks with the painting instead of drifting
-         out of it at the sizes nobody tested. */
-      --auth-w: min(100vw, calc(100vh * 1672 / 941));
-      /* The octagon: how big it is, and where its middle sits. Everything on
-         this screen is measured from these two, so the panel can be grown for
-         a phone-shaped window (where the artwork letterboxes down to a thin
-         band and 5px lettering) by changing ONE number, and the buttons, the
-         wording and the status note all follow it. --oct-cy is a LENGTH from
-         the top of the artwork, not a percentage, so it stays glued to the
-         octagon printed underneath however large this one is drawn. */
-      --oct-size: calc(var(--auth-w) * 0.392);
-      --oct-cy:   calc(var(--auth-w) * 0.2882);
+         is var(--auth-w)/1556 of the screen. Every size on this screen (the
+         two buttons, the rotted piling on the pier, the octagon a phone gets
+         drawn for it) is a fraction of it, so the whole panel grows and
+         shrinks with the painting instead of drifting out of it at the sizes
+         nobody tested. */
+      --auth-w: min(100vw, calc(100vh * 1556 / 1011));
+      /* The octagon PAINTED into the artwork, measured off it in the artwork's
+         own 1556x1011 coordinates: 511 wide, 544.5 tall, centred at
+         (786, 516.75). It is taller than it is wide, so it takes two sizes
+         rather than one. --oct-cy is a LENGTH from the top of the artwork
+         instead of a percentage, so everything measured from it stays glued to
+         the paint however large the screen is. */
+      --oct-size: calc(var(--auth-w) * 0.3284);    /* 511    / 1556 */
+      --oct-h:    calc(var(--oct-size) * 1.0656);  /* 544.5  / 511  */
+      --oct-cx:   50.53%;                          /* 786.3  / 1556 */
+      --oct-cy:   calc(var(--auth-w) * 0.3321);    /* 516.75 / 1556 */
       width: var(--auth-w);
-      height: min(100vh, calc(100vw * 941 / 1672));
+      height: min(100vh, calc(100vw * 1011 / 1556));
       max-width: none;
       min-height: 0;
       padding: 0 !important;
@@ -6010,10 +6012,10 @@
       pointer-events: none;
     }
     /* Everything from here down is scoped with > on purpose. #auth-step-choose
-       is one painted image with two INVISIBLE buttons over it, so these rules
-       strip a button of its background, its colour and its font size. The guest
-       card is also a child of this step, and a descendant selector reached
-       straight into it: its Dive In button came out transparent-on-transparent,
+       is one painted image with click boxes over it, so these rules strip a
+       button of its background, its colour and its font size. The guest card is
+       also a child of this step, and a descendant selector reached straight
+       into it: its Dive In button came out transparent-on-transparent,
        absolutely positioned at the step's left:36.9%, i.e. gone. The two real
        overlay buttons are direct children, so > says what was always meant. */
     #auth-step-choose > .auth-title,
@@ -6021,19 +6023,32 @@
     #auth-step-choose > .auth-divider {
       display: none !important;
     }
-    /* ── The octagon, redrawn ────────────────────────────────────────
-       Cut a little wider than the one painted into login-bg.png (~656px
-       against ~610px, in the artwork's own 1672px coordinates) so the printed
-       lettering underneath cannot show at the edges, and centred on the same
-       spot: 50% across, 51.2% down. Scenery, so it never takes a click. */
+    /* ── The octagon, redrawn: scenery for ONE layout ────────────────
+       The artwork says everything this screen has to say. SIGN IN OR CREATE AN
+       ACCOUNT is painted into its octagon and the two buttons underneath carry
+       their own labels, so on any window wide enough to show the painting
+       whole, the painting IS the screen and this panel stays out of its way.
+
+       It comes back on a phone-shaped window, and only there, because down
+       there the artwork is cropped to its title strip: the printed octagon is
+       not on the screen at all, and something has to say the words at a size
+       somebody can read. Same eight-sided sea glass, drawn from the same two
+       variables as everything else, so it can never drift out of step with the
+       painting it stands in for.
+
+       It is aria-hidden and pointer-events:none wherever it shows: it is
+       scenery, and the buttons must stay the topmost thing at their own
+       pixels. */
     #auth-step-choose > .auth-oct {
+      display: none;
       position: absolute;
-      left: 50%; top: var(--oct-cy);
+      left: var(--oct-cx); top: var(--oct-cy);
       width:  var(--oct-size);
-      height: var(--oct-size);
+      height: var(--oct-h);
       transform: translate(-50%, -50%);
-      clip-path: polygon(29.3% 0%, 70.7% 0%, 100% 29.3%, 100% 70.7%,
-                         70.7% 100%, 29.3% 100%, 0% 70.7%, 0% 29.3%);
+      /* The printed octagon's own bevels: 77 of 511 across, 82.5 of 544.5 down. */
+      clip-path: polygon(15.1% 0%, 84.9% 0%, 100% 15.2%, 100% 84.8%,
+                         84.9% 100%, 15.1% 100%, 0% 84.8%, 0% 15.2%);
       background: rgba(255,255,255,.94);
       filter: drop-shadow(0 0 calc(var(--oct-size) * 0.031) rgba(214,246,255,.6));
       pointer-events: none;
@@ -6045,19 +6060,21 @@
     #auth-step-choose > .auth-oct::after {
       content: "";
       position: absolute; inset: 0.85%;
-      clip-path: polygon(29.3% 0%, 70.7% 0%, 100% 29.3%, 100% 70.7%,
-                         70.7% 100%, 29.3% 100%, 0% 70.7%, 0% 29.3%);
+      clip-path: polygon(15.1% 0%, 84.9% 0%, 100% 15.2%, 100% 84.8%,
+                         84.9% 100%, 15.1% 100%, 0% 84.8%, 0% 15.2%);
       background:
         radial-gradient(ellipse 70% 42% at 28% 22%, rgba(255,255,255,.34), rgba(255,255,255,0) 62%),
         radial-gradient(ellipse 58% 34% at 74% 62%, rgba(255,255,255,.20), rgba(255,255,255,0) 64%),
         linear-gradient(168deg, #9fe2f8 0%, #74cdf1 44%, #55b9e8 100%);
     }
-    /* The lettering the octagon used to have printed on it. */
+    /* The lettering the painted octagon carries, for the layout that cannot
+       show the painted octagon. Hidden with it on every other layout. */
     #auth-step-choose > .auth-oct-copy {
+      display: none;
       position: absolute;
-      left: 50%;
-      top: calc(var(--oct-cy) - var(--oct-size) * 0.2135);
-      width: calc(var(--oct-size) * 0.765);
+      left: var(--oct-cx);
+      top: calc(var(--oct-cy) - var(--oct-h) * 0.24);
+      width: calc(var(--oct-size) * 0.80);
       transform: translate(-50%, -50%);
       text-align: center;
       pointer-events: none;
@@ -6084,63 +6101,81 @@
     }
 
     /* ── The two buttons ─────────────────────────────────────────────
-       Same boxes as before, in the same places, but they say what they do now
-       instead of relying on words printed underneath them. Butter gold for
-       PLAY AS GUEST and pale lavender for the account door, exactly the pair
-       login-bg.png was painted with. */
+       Boxes over the two buttons PAINTED into the artwork, cut a few pixels
+       proud of them on every side (painted 438x82 and 438x79, drawn 450x84 on
+       the same centres) so no rounding difference can leave a printed edge
+       showing beside a drawn one.
+
+       The painting supplies the lettering, the gold, the lavender and the
+       shine. These supply the click, the hover, the focus ring and the
+       keyboard order. Their labels are still in the page, wrapped in
+       .auth-btn-label and hidden the accessible way rather than with
+       display:none, so a screen reader still reaches a button that says what
+       it does.
+
+       On a phone-shaped window the painting is cropped to its title strip and
+       there is nothing underneath to click, so down there they put their own
+       clothes back on and the labels come out of hiding. See the media query
+       at the bottom of this block. */
     #auth-step-choose > .pv-btn,
     #auth-step-choose > .auth-btn-google {
       position: absolute;
-      left: 50%;
-      width:  calc(var(--oct-size) * 0.78);
-      height: calc(var(--oct-size) * 0.1175);
+      left: var(--oct-cx);
+      width:  calc(var(--oct-size) * 0.880);   /* 450 / 511 */
+      height: calc(var(--oct-size) * 0.164);   /*  84 / 511 */
       transform: translateX(-50%);
       display: flex !important;
       align-items: center;
       justify-content: center;
-      padding: 0 calc(var(--oct-size) * 0.031) !important;
+      padding: 0 !important;
       margin: 0 !important;
       min-height: 0 !important;
-      border-radius: calc(var(--oct-size) * 0.0224);
+      border: 0 !important;
+      border-radius: calc(var(--oct-size) * 0.036);
+      background: transparent !important;
+      box-shadow: none !important;
+      color: transparent !important;
+      text-shadow: none !important;
       font-family: "Baloo 2", "Nunito", sans-serif;
       font-weight: 800 !important;
-      font-size: calc(var(--oct-size) * 0.0455) !important;
+      font-size: calc(var(--oct-size) * 0.050) !important;
       letter-spacing: .3px;
       line-height: 1.05;
       text-align: center;
       white-space: nowrap;
       cursor: pointer;
-      transition: filter .14s, box-shadow .14s, transform .08s;
+      transition: background .14s, box-shadow .14s, transform .08s;
       -webkit-tap-highlight-color: rgba(255,255,255,.15);
       z-index: 3;
     }
-    #auth-step-choose > .pv-btn.gold {
-      color: #4a3208 !important;
-      text-shadow: 0 1px 0 rgba(255,255,255,.45);
-      background: linear-gradient(180deg, #ffdf9d 0%, #f5c261 52%, #eeb043 100%) !important;
-      border: max(1px, calc(var(--oct-size) * 0.004)) solid rgba(190,132,26,.6) !important;
-      box-shadow: 0 calc(var(--oct-size) * 0.0066) 0 rgba(184,128,26,.55),
-                  0 calc(var(--oct-size) * 0.0128) calc(var(--oct-size) * 0.031) rgba(20,60,100,.24),
-                  inset 0 1px 0 rgba(255,255,255,.75) !important;
+    /* Hidden the accessible way: still read, still counted, no box.
+       pointer-events:none stays on it in BOTH layouts, including the phone one
+       where it is visible: the button has to be the topmost thing at its own
+       pixels, and a label that answers elementFromPoint in its place is a label
+       that can start answering other questions in its place too. */
+    #auth-step-choose > .pv-btn > .auth-btn-label,
+    #auth-step-choose > .auth-btn-google > .auth-btn-label {
+      position: absolute;
+      width: 1px; height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+      pointer-events: none;
     }
-    #auth-step-choose > .auth-btn-google {
-      color: #3a1a6a !important;
-      text-shadow: 0 1px 0 rgba(255,255,255,.5);
-      background: linear-gradient(180deg, #f4ecff 0%, #e6d9fb 55%, #dccbf7 100%) !important;
-      border: max(1px, calc(var(--oct-size) * 0.004)) solid rgba(138,106,196,.5) !important;
-      box-shadow: 0 calc(var(--oct-size) * 0.0066) 0 rgba(126,96,182,.45),
-                  0 calc(var(--oct-size) * 0.0128) calc(var(--oct-size) * 0.031) rgba(20,60,100,.24),
-                  inset 0 1px 0 rgba(255,255,255,.85) !important;
-    }
+    /* A cursor on painted glass has to be told it is on something. A wash and
+       a rim of the artwork's own light, no colour of its own: the button
+       underneath is still the button you can see. */
     #auth-step-choose > .pv-btn:hover,
     #auth-step-choose > .auth-btn-google:hover {
-      filter: brightness(1.05);
+      background: rgba(255,255,255,.16) !important;
+      box-shadow: inset 0 0 0 max(2px, calc(var(--oct-size) * 0.005)) rgba(255,255,255,.66),
+                  0 0 calc(var(--oct-size) * 0.03) rgba(255,255,255,.35) !important;
       transform: translateX(-50%);   /* .pv-btn:hover lifts; this screen does not */
     }
     #auth-step-choose > .pv-btn:focus-visible,
     #auth-step-choose > .auth-btn-google:focus-visible {
-      outline: 2px solid rgba(255,255,255,.75);
-      outline-offset: -3px;
+      outline: 3px solid rgba(255,255,255,.9);
+      outline-offset: 2px;
     }
     #auth-step-choose > .pv-btn:active,
     #auth-step-choose > .auth-btn-google:active {
@@ -6150,18 +6185,55 @@
        nudged with margin-top: the shared rule above sets `margin: 0 !important`
        (it must, or these inherit .pv-btn's spacing), so a margin here would
        silently do nothing and drop each button half its own height. */
-    #auth-step-choose #auth-guest-btn        { top: var(--oct-cy); }
-    #auth-step-choose #auth-choose-google-btn { top: calc(var(--oct-cy) + var(--oct-size) * 0.1513); }
-    /* Both buttons are INVISIBLE boxes painted over login-bg.png, so until that
-       artwork is actually on the screen there is nothing here to aim at and a
-       click can only be a stray one, the tail of a double-click on the device
-       screen that was showing an instant ago, or a blind poke at a page whose
-       2MB background has not arrived yet. Either way it landed on PLAY AS GUEST
-       and prompted for a guest nickname the player never asked for. armChooseStep()
-       in preview-app.js adds .is-armed once the art has painted; it fails OPEN,
-       so a blocked or missing image can never leave the two buttons dead. */
+    #auth-step-choose #auth-guest-btn         { top: calc(var(--oct-cy) + var(--oct-size) * 0.0612); }
+    #auth-step-choose #auth-choose-google-btn { top: calc(var(--oct-cy) + var(--oct-size) * 0.2657); }
+
+    /* ── The rotted piling ───────────────────────────────────────────
+       One plank of the pier in the bottom-left ocean is painted rust red among
+       the blues and violets. This is a box over exactly that plank, measured
+       off the artwork (x 300..342, y 730..815 in its own 1556x1011
+       coordinates), so finding it means noticing the thing that is already
+       there rather than sweeping a cursor over a picture.
+
+       It keeps a minimum size so it stays a real target on a small window, and
+       it is gone entirely on a phone-shaped one, where the pier is cropped
+       away with the rest of the painting. */
+    #auth-step-choose > .auth-pier-secret {
+      position: absolute;
+      left: 20.63%;                                     /* 321   / 1556 */
+      top:  76.41%;                                     /* 772.5 / 1011 */
+      width:  max(26px, calc(var(--auth-w) * 0.027));   /*  42   / 1556 */
+      height: max(40px, calc(var(--auth-w) * 0.0546));  /*  85   / 1556 */
+      transform: translate(-50%, -50%);
+      padding: 0; margin: 0; border: 0;
+      background: transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 4;
+      transition: background .16s, box-shadow .16s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* A nibble for a cursor that wanders past it. Enough to say "this one is
+       different", not enough to give the whole thing away from the doorway. */
+    #auth-step-choose > .auth-pier-secret:hover,
+    #auth-step-choose > .auth-pier-secret:focus-visible {
+      background: rgba(255,226,170,.20);
+      box-shadow: 0 0 0 2px rgba(255,238,200,.8),
+                  0 0 18px rgba(255,204,110,.85);
+      outline: none;
+    }
+    /* Every box on this screen is invisible, painted over artwork, so until
+       that artwork is actually up there is nothing here to aim at and a click
+       can only be a stray one: the tail of a double-click on the device screen
+       that was showing an instant ago, or a blind poke at a page whose 2MB
+       background has not arrived yet. Either way it landed on PLAY AS GUEST
+       and prompted for a guest nickname the player never asked for.
+       armChooseStep() in preview-app.js adds .is-armed once the art has
+       painted; it fails OPEN, so a blocked or missing image can never leave
+       these dead. */
     #auth-step-choose:not(.is-armed) > .pv-btn,
-    #auth-step-choose:not(.is-armed) > .auth-btn-google { pointer-events: none; }
+    #auth-step-choose:not(.is-armed) > .auth-btn-google,
+    #auth-step-choose:not(.is-armed) > .auth-pier-secret { pointer-events: none; }
     /* ── The chooser's one status line ───────────────────────────────
        This used to be bare red text laid straight onto login-bg.png, and the
        most common thing it ever said was that the player had closed the Google
@@ -6171,21 +6243,19 @@
        lettering), with the tone carried by a small line-art icon and one accent
        ring: teal for "you backed out", gold for "you have to do something".
 
-       It is centred on the SAME column as the two painted buttons above it
-       (36.90% + 26.08%/2 = 49.94%), so it reads as belonging to them, and it is
-       wider than that column because a sentence needs the room.
+       It sits just BELOW the octagon, on the same centre line as the two
+       buttons above it, because the octagon it used to sit inside is painted
+       now and this would be a card over that painting's own lettering.
 
        Hidden state is opacity+visibility, not display, so it can fade both ways
        and so an empty note takes up no space and casts no shadow. */
     #auth-step-choose > .auth-err {
       position: absolute;
-      left: 50%;
-      top: calc(var(--oct-cy) + var(--oct-size) * 0.325);
+      left: var(--oct-cx);
+      top: calc(var(--oct-cy) + var(--oct-h) * 0.55);
       transform: translateX(-50%) translateY(6px);
       width: max-content;
-      /* Narrow enough to sit INSIDE the painted octagon at this height, and
-         about as wide as the two buttons above it, so it reads as theirs. */
-      max-width: min(40%, 400px);
+      max-width: min(46%, 460px);
       box-sizing: border-box;
       display: flex;
       align-items: flex-start;
@@ -6255,32 +6325,36 @@
     }
     /* ── A phone-shaped window ───────────────────────────────────────
        The artwork is one fixed-ratio painting, so a 430x932 phone letterboxes
-       it into a 430x242 band with navy above and below, and everything on it
-       shrinks with it: the octagon came out 168px across and its second line
-       of lettering about five pixels tall. That was survivable while the
-       words were painted on and nobody was expected to read them. It is not
-       survivable now that they are the actual sign-in copy.
+       it into a 430x279 band, and everything on it shrinks with it: the
+       octagon comes out 141px across and its second line of lettering about
+       five pixels tall. That is not a sign-in screen, it is a picture of one.
+
+       WHERE THE LINE IS. The painting is 1556x1011, so it only letterboxes
+       badly once the window is taller than it is wide: at 4:5 it fills half
+       the height and there is real room underneath for a panel, and at 1024x768
+       it fills the screen and its own lettering is 20px tall. So the line is
+       4/5, not the 7/5 the old wider artwork needed, and a plain desktop window
+       keeps the painting. The second clause is for a window that is small
+       whatever shape it is: under 640px across, the painted lettering is
+       readable-in-theory and squinted-at in practice.
 
        Two changes, and only two:
 
          1. The letterbox is no longer bare navy. The same painting fills the
             window behind the band, blurred and dimmed, so the screen is deep
-            water from edge to edge instead of a strip on a slab. Blurred, the
-            painted octagon underneath is an unreadable smear, which is the
-            point: nothing of the old wording can be made out.
-         2. The octagon is drawn LARGER than the band and overflows it. It
-            stays centred on the octagon printed underneath, so it still
-            covers it completely, and everything else on the screen is
-            measured from it, so the buttons and the lettering come along.
-
-       No new layout, no second set of positions to keep in step: one variable
-       moves and the whole panel follows it. */
+            water from edge to edge instead of a strip on a slab.
+         2. Only the TOP of the painting is shown, and the octagon is REDRAWN
+            underneath it, larger than the band and centred on the screen,
+            with real text in it and the two buttons wearing the artwork's own
+            gold and lavender. Everything is measured from the same two
+            variables as the wide layout, so there is no second set of
+            positions to keep in step. */
     #auth-step-choose::before {
       content: "";
       /* Fixed, not absolute: the band is the box, the window is what needs
          filling. */
       position: fixed; inset: -6vmax;
-      background: #0a1d3a url("/login-bg.png?v=43") center / cover no-repeat;
+      background: #0a1d3a url("/login-bg.png?v=44") center / cover no-repeat;
       filter: blur(34px) saturate(1.12) brightness(.66);
       pointer-events: none;
       z-index: 0;
@@ -6288,7 +6362,7 @@
     /* The artwork itself must stay in FRONT of its own blurred copy. */
     #auth-step-choose .auth-step-choose-img { z-index: 1; }
 
-    @media (max-aspect-ratio: 7/5) {
+    @media (max-aspect-ratio: 4/5), (max-width: 640px) {
       /* The screen is the box now, not the band. */
       #auth-step-choose.auth-box {
         width: 100vw;
@@ -6297,9 +6371,54 @@
         --oct-size: min(84vw, 46vh);
         --oct-cy: 53%;
       }
+      /* The panel and its words, the pair the wide layout does not need. */
+      #auth-step-choose > .auth-oct,
+      #auth-step-choose > .auth-oct-copy { display: block; }
+      /* The pier is not on the screen down here, so neither is the plank. */
+      #auth-step-choose > .auth-pier-secret { display: none; }
+      /* Butter gold and pale lavender, the pair the artwork was painted with,
+         because the painted pair is above the crop line. */
+      #auth-step-choose > .pv-btn.gold {
+        color: #4a3208 !important;
+        text-shadow: 0 1px 0 rgba(255,255,255,.45);
+        background: linear-gradient(180deg, #ffdf9d 0%, #f5c261 52%, #eeb043 100%) !important;
+        border: max(1px, calc(var(--oct-size) * 0.004)) solid rgba(190,132,26,.6) !important;
+        box-shadow: 0 calc(var(--oct-size) * 0.0066) 0 rgba(184,128,26,.55),
+                    0 calc(var(--oct-size) * 0.0128) calc(var(--oct-size) * 0.031) rgba(20,60,100,.24),
+                    inset 0 1px 0 rgba(255,255,255,.75) !important;
+      }
+      #auth-step-choose > .auth-btn-google {
+        color: #3a1a6a !important;
+        text-shadow: 0 1px 0 rgba(255,255,255,.5);
+        background: linear-gradient(180deg, #f4ecff 0%, #e6d9fb 55%, #dccbf7 100%) !important;
+        border: max(1px, calc(var(--oct-size) * 0.004)) solid rgba(138,106,196,.5) !important;
+        box-shadow: 0 calc(var(--oct-size) * 0.0066) 0 rgba(126,96,182,.45),
+                    0 calc(var(--oct-size) * 0.0128) calc(var(--oct-size) * 0.031) rgba(20,60,100,.24),
+                    inset 0 1px 0 rgba(255,255,255,.85) !important;
+      }
+      /* …so the labels come out of hiding and take their own room back. */
+      #auth-step-choose > .pv-btn > .auth-btn-label,
+      #auth-step-choose > .auth-btn-google > .auth-btn-label {
+        position: static;
+        width: auto; height: auto;
+        overflow: visible;
+        clip-path: none;
+      }
+      #auth-step-choose > .pv-btn:hover,
+      #auth-step-choose > .auth-btn-google:hover {
+        background: none !important;
+        box-shadow: none !important;
+        filter: brightness(1.05);
+      }
+      #auth-step-choose > .pv-btn.gold:hover {
+        background: linear-gradient(180deg, #ffdf9d 0%, #f5c261 52%, #eeb043 100%) !important;
+      }
+      #auth-step-choose > .auth-btn-google:hover {
+        background: linear-gradient(180deg, #f4ecff 0%, #e6d9fb 55%, #dccbf7 100%) !important;
+      }
       /* Only the TOP of the painting is shown: the title, its bubbles and its
          shells, cut off above the octagon printed underneath (which starts at
-         about 19% of the artwork's height). So the words stay up top, at a
+         about 24% of the artwork's height). So the words stay up top, at a
          size somebody can actually read, and the painted panel they used to
          sit above is not on the screen at all, which is the one thing the
          redrawn octagon has to guarantee.
@@ -6309,7 +6428,7 @@
          slice wanted. */
       #auth-step-choose .auth-step-choose-img {
         inset: 0 0 auto 0;
-        height: min(calc(100vw * 0.107), 15vh);
+        height: min(calc(100vw * 0.138), 15vh);
         object-fit: cover;
         object-position: 50% 0;
         /* The crop ends on a hard horizontal line, which reads as a mistake.
@@ -6317,13 +6436,6 @@
            the strip look like the top of the painting rather than a cut. */
         -webkit-mask-image: linear-gradient(180deg, #000 74%, transparent 100%);
                 mask-image: linear-gradient(180deg, #000 74%, transparent 100%);
-      }
-    }
-    /* A wide, short window (a landscape phone): the height is the scarce
-       thing, so the panel is capped against it and the artwork stays whole. */
-    @media (min-aspect-ratio: 7/5) and (max-height: 560px) {
-      #auth-step-choose.auth-box {
-        --oct-size: min(calc(var(--auth-w) * 0.392), 92vh);
       }
     }
 

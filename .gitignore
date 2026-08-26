@@ -263,12 +263,22 @@
 !test_guest_card.js
 # SIGN IN / CREATE AN ACCOUNT: the second way in, a username and a password,
 # for the people who have no Google account. The half that cannot be grepped is
-# the measured half: that the octagon this screen now draws really COVERS the
-# one printed into login-bg.png at every window size (the printed one says
-# "…WITH GOOGLE" twice), that both labels fit inside their buttons, that Create
-# Account is above the fold on a laptop, and that the green strength bar and the
-# button it gates agree at the exact score they change on.
+# the measured half: that the two boxes a player clicks really LAND on the two
+# buttons painted into login-bg.png at every window size, that a phone-shaped
+# window crops the printed octagon away entirely before redrawing one, that both
+# labels fit inside their buttons, that Create Account is above the fold on a
+# laptop, and that the green strength bar and the button it gates agree at the
+# exact score they change on.
 !test_account_signin.js
+# The rotted pier piling: the plank hidden in the sign-in artwork, and the Pier
+# background it is worth. The measured half reads the PAINTING back out of a
+# canvas: the pixel under the middle of the box has to be rust red, at every
+# size, so an art rebuild that moves the pier fails here instead of quietly
+# leaving the secret over open water. The rest is the rule that makes it a
+# reward and not a party trick: nothing is granted on the sign-in screen because
+# nobody is there yet, and the find is spent on ONE account, once, whenever that
+# account turns up.
+!test_pier_piling.js
 # The sign-in screen's status line, and the full-screen chip. What it pins is
 # all measurement: that the note is a card and not red text, that it never eats
 # a click meant for the artwork, that a calm note takes itself away, and that

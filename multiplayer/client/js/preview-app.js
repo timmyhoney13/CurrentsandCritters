@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.92";
-  const APP_BUILD   = "2026-08-26.2";
+  const APP_VERSION = "1.6.93";
+  const APP_BUILD   = "2026-08-26.3";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -19584,6 +19584,9 @@
         if (typeof _msgStartListListener === "function") _msgStartListListener();
         // Apply any competitive forfeit losses incurred while we were offline.
         try { setTimeout(() => { checkPendingForfeitLosses().catch(() => {}); }, 1500); } catch (_) {}
+        // Anything found on the sign-in screen, before this account had a
+        // name, is filed against it now. See ccPierClaim().
+        try { ccPierClaim().catch(() => {}); } catch (_) {}
         // Put this account's clan critter on the Clans nav button right away.
         // It shows from every tab, so it must not wait for the Clans tab to be
         // opened (clans-ui.js also picks this up on its own, just slower).
@@ -21287,6 +21290,71 @@
     $a("auth-guest-back").addEventListener("click", closeGuestCard);
     $a("auth-guest-nick").addEventListener("input", paintGuestCount);
     paintGuestCount();
+
+    // ══ THE ROTTED PILING ═══════════════════════════════════════════
+    // One plank of the pier painted into the sign-in screen is rust red among
+    // the blues and violets. Clicking it is worth the Pier background, and the
+    // interesting part of the thing is WHEN you are allowed to find it: on the
+    // sign-in screen, before anybody knows who you are.
+    //
+    // So the find is not the reward. The find is a note on this DEVICE, and it
+    // is spent the first moment there is an ACCOUNT to spend it on: the sign-in
+    // that follows it, or the account they create ten minutes later, or the one
+    // they create tomorrow. That is what makes it "your account got it" rather
+    // than "this browser got it". Nothing is granted until there is somebody to
+    // grant it to, and it is granted to exactly one of them, once.
+    const PIER_FIND_KEY = "cc_pier_piling_found_v1";
+    const PIER_BG_IMG   = "/backgrounds/bg-pier.png";
+
+    function ccPierNoteFind() { try { localStorage.setItem(PIER_FIND_KEY, "1"); } catch (_) {} }
+    function ccPierFound()    { try { return localStorage.getItem(PIER_FIND_KEY) === "1"; } catch (_) { return false; } }
+
+    // Spend the note, if there is one, on the account that has just arrived.
+    // Called from revealLobby(), which is the ONE place both roads in end:
+    // signing into an account that already existed, and finishing the username
+    // screen on an account created a moment ago.
+    //
+    // The note is cleared only when the grant is known to have reached
+    // Firestore, or when this account turns out to own the Pier already. A
+    // failed write leaves it exactly where it was, so the next sign-in tries
+    // again: the alternative is somebody who found it, read the message, and
+    // has nothing to show for it because their connection blinked.
+    async function ccPierClaim() {
+      if (!ccPierFound()) return;
+      // Never while another player's collection is swapped into the globals:
+      // that grant would be written against MY account for THEIR gallery.
+      if (_galReadOnly) return;
+      if (!_authUser || !_db) return;
+      const path = normalizeBgUrl(PIER_BG_IMG);
+      if (!path) return;
+      if (Array.isArray(_unlockedBackgrounds) && _unlockedBackgrounds.includes(path)) {
+        try { localStorage.removeItem(PIER_FIND_KEY); } catch (_) {}
+        return;
+      }
+      try {
+        await _db.collection("users").doc(_authUser.uid).update({
+          unlocked_backgrounds: firebase.firestore.FieldValue.arrayUnion(path),
+        });
+      } catch (_) {
+        return;   // keep the note; the next sign-in has another go
+      }
+      try { localStorage.removeItem(PIER_FIND_KEY); } catch (_) {}
+      _unlockedBackgrounds = [...(_unlockedBackgrounds || []), path];
+      if (_activeProfile) _activeProfile = { ..._activeProfile, unlocked_backgrounds: _unlockedBackgrounds };
+      showToast("\uD83E\uDEB5 The rotted pier piling paid out: the Pier background is yours, "
+              + "waiting in your Avatar Gallery.", "good", 6500);
+    }
+
+    // The plank itself. Finding something is not an error, so it speaks through
+    // the chooser's own sea-glass note in the good-news tone rather than the
+    // one the screen uses to say a sign-in went wrong.
+    const _pierBtn = $a("auth-pier-secret");
+    if (_pierBtn) _pierBtn.addEventListener("click", () => {
+      ccPierNoteFind();
+      setAuthMsg("auth-choose-err",
+        "You found the rotted pier piling! Sign in or create an account and the Pier background is yours.",
+        "ok");
+    });
 
     // Escape closes it, as a dialog should. A click on the scrim deliberately
     // does NOT: what shows through it is CONTINUE WITH GOOGLE, painted into the
