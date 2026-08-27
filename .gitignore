@@ -358,6 +358,15 @@ serviceAccountKey.json
 # the earnable ones wearable, and the device is detected (touch = mobile,
 # mouse = computer) with no "choose your device" screen anywhere.
 !test_guest_access.js
+# A GUEST IS A DIFFERENT PERSON. Signs a real account in against a stubbed
+# Firebase, walks its Player Home, signs out, plays as a guest and walks the
+# same tabs again: nothing of the account's (hours, games, achievements,
+# history, critters) may survive the handover. Also pins the four things a
+# guest was owed and not getting: the critter they equipped reaching the
+# table, leaderboards served through /api/leaderboard, the Level Pass and
+# Prestige ladders describing themselves, and a Competitive tab with no
+# unlabelled "0 0" left on it.
+!test_guest_identity.js
 
 # Newsletter tests + setup guide + the one-off OAuth helper.
 # (newsletter_server.py / newsletter_email.py are allowlisted further up, next

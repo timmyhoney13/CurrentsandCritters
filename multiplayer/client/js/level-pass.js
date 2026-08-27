@@ -257,6 +257,51 @@
     paintNavBadge();
   };
 
+  // ── A guest's own level ──────────────────────────────────────────────────
+  // The server answers a signed-out /api/pass/state with the full track and
+  // level 1, because it has no account to look the level up in. A guest DOES
+  // have a level though: their XP is banked in this browser, and the page used
+  // to refuse to draw at all rather than use it, so "your level and rewards
+  // show here" was a promise the page then broke.
+  //
+  // levelTotals[i] is the cumulative XP to REACH level i+1, the same table the
+  // server grants levels from, so deriving from it here cannot disagree with
+  // what an account would be shown.
+  // totals[i] is the cumulative XP to REACH level i + 1 (index 0 is level 1,
+  // which costs nothing), the same convention xpToReach() reads it with.
+  function guestLevelFromXp(totalXp) {
+    const totals = levelTotals();
+    if (!totals) return 1;
+    const xp = num(totalXp);
+    let lvl = 1;
+    for (let i = 0; i < totals.length; i++) {
+      if (xp >= num(totals[i])) lvl = i + 1; else break;
+    }
+    return Math.min(lvl, num(_state && _state.maxLevel, totals.length));
+  }
+  function isGuestView() {
+    return !!(_state && !_state.signedIn && typeof window.__fishIsGuest === "function" && window.__fishIsGuest());
+  }
+  // Fold the guest's local XP into the state the whole page reads, so every
+  // level test below (tier states, "N XP to go", the header bar) works off one
+  // number and none of them need to know who is looking.
+  function applyGuestLevel() {
+    if (!isGuestView()) return;
+    let xp = 0;
+    try {
+      const gs = (typeof window.__fishGuestStatsGet === "function") ? (window.__fishGuestStatsGet() || {}) : {};
+      xp = num(gs.total_xp);
+    } catch (_) { xp = 0; }
+    const lvl = guestLevelFromXp(xp);
+    const totals = levelTotals() || [];
+    const prev = num(totals[lvl - 1]);            // XP that reached this level
+    const next = num(totals[lvl], prev);          // XP that reaches the next one
+    _state.level = lvl;
+    _state.totalXp = xp;
+    _state.xpIntoLevel = Math.max(0, xp - prev);
+    _state.xpForLevel = Math.max(1, next - prev);
+  }
+
   // ── Rendering ────────────────────────────────────────────────────────────
   function tierState(t) {
     const lvl = num(_state && _state.level, 1);
@@ -285,7 +330,12 @@
 
     // "N XP to go" on every locked tier, the thing the whole page is for.
     let foot;
-    if (st === "ready") {
+    if (st === "ready" && isGuestView()) {
+      // A guest can reach a tier but not hold what is in it: the reward is
+      // paid into an account. Say that on the card, rather than a Claim button
+      // that can only fail.
+      foot = `<span class="ccLP-tier-lock">Sign in to claim</span>`;
+    } else if (st === "ready") {
       foot = `<button class="ccLP-claim" type="button" data-tier="${esc(t.id)}">Claim</button>`;
     } else if (st === "claimed") {
       foot = `<span class="ccLP-tier-done">✓ Claimed</span>`;
@@ -392,9 +442,11 @@
             <div class="ccLP-bar-txt">${fmt(into)} / ${fmt(goal)} XP to Level ${esc(Math.min(maxLvl, lvl + 1))}</div>
           </div>
           <div class="ccLP-head-actions">
-            ${ready.length
-              ? `<button class="ccLP-claimall" type="button" id="ccLP-claimall">Claim ${ready.length} reward${ready.length === 1 ? "" : "s"}</button>`
-              : `<span class="ccLP-allclear">Nothing to claim</span>`}
+            ${isGuestView()
+              ? `<span class="ccLP-allclear">Rewards are paid into an account</span>`
+              : ready.length
+                ? `<button class="ccLP-claimall" type="button" id="ccLP-claimall">Claim ${ready.length} reward${ready.length === 1 ? "" : "s"}</button>`
+                : `<span class="ccLP-allclear">Nothing to claim</span>`}
           </div>
         </div>
         <div class="ccLP-chips">
@@ -420,10 +472,16 @@
       root.innerHTML = `<div class="ccLP"><div class="ccLP-empty">Loading your Level Pass…</div></div>`;
       return;
     }
-    if (!_state.signedIn) {
+    // A guest sees the whole track, at their own level, with claiming off:
+    // "your level and rewards show here, claiming them needs an account" is
+    // what the tab promises, and this is that promise kept. Only a session
+    // with no identity at all (nobody has signed in or started a guest run)
+    // gets the sign-in line.
+    if (!_state.signedIn && !isGuestView()) {
       root.innerHTML = `<div class="ccLP"><div class="ccLP-empty">Sign in or create an account to start earning Level Pass rewards.</div></div>`;
       return;
     }
+    applyGuestLevel();
 
     const track = (_state.track || []).slice().sort((a, b) => num(a.level) - num(b.level));
     root.innerHTML = `
@@ -435,7 +493,9 @@
           <button class="ccLP-nav ccLP-nav-next" type="button" id="ccLP-next" aria-label="Scroll forward">›</button>
         </div>
         <div class="ccLP-foot-note">
-          Rewards are yours the moment you reach the level: claim them whenever you like, they never expire.
+          ${isGuestView()
+            ? "You are playing as a guest: your level is kept in this browser. Rewards are paid into an account, so make one and everything you have earned comes with you."
+            : "Rewards are yours the moment you reach the level: claim them whenever you like, they never expire."}
         </div>
       </div>`;
 

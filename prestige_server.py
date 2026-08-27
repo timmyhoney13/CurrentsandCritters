@@ -1531,6 +1531,7 @@ def _route(db, uid: str, action: str, body: Dict[str, Any]) -> Dict[str, Any]:
             return {"ok": False, "error": "no_account"}
         payload = _state_payload(uid, snap.to_dict() or {})
         payload["disabled"] = _disabled(db)
+        payload["signed_in"] = True
         return payload
     if action == "commit":
         out = _commit(db, uid, body)
@@ -1592,6 +1593,23 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
     # ── player ──────────────────────────────────────────────────────────────
     action = path[len("/api/prestige/"):]
     uid = _auth_uid(body)
+
+    # Readable signed-out, the same way the Level Pass track is. Prestige is a
+    # published reward ladder: what it costs, what it pays, what a badge looks
+    # like. Refusing to describe it to somebody without an account turned the
+    # Prestige tab into an error box reading "Sign in to use Prestige", which
+    # tells a player nothing about the thing they are being asked to sign in
+    # for. The payload below is built from an EMPTY account, so it carries a
+    # ladder and nothing about anybody; the caller is told plainly that it is
+    # not signed in, and every action that writes still needs a real uid.
+    if action == "state" and not uid:
+        payload = _state_payload("", {})
+        payload["signed_in"] = False
+        db = _get_firestore() if _get_firestore else None
+        payload["disabled"] = _disabled(db) if db is not None else False
+        handler._send_json(payload)
+        return True
+
     if not uid:
         handler._send_json({"ok": False, "error": "unauthorized"}, status=401)
         return True

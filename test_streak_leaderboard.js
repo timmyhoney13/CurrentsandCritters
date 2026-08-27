@@ -138,6 +138,11 @@ const LIFTED = [
   grabFn("phLbMedal"),
   grabFn("phLbRankClass"),
   grabFn("phLbSetSumCard"),
+  grabFn("phLbClearSumCards"),
+  // The one query behind every board: Firestore for a signed-in player,
+  // /api/leaderboard for a guest. This harness is signed in, so it takes the
+  // Firestore branch against the fake _db below.
+  grabFn("lbTopUsers"),
   // the board itself
   grabFn("_phLbStreakNums"),
   grabFn("_phLbRenderStreak"),

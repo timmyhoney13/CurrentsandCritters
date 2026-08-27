@@ -63,8 +63,14 @@
     const b = bridge();
     if (!b) return { ok: false, error: "unavailable" };
     const body = Object.assign({}, extra || {});
-    body.idToken = await b.idToken();
-    if (!body.idToken) return { ok: false, error: "unauthorized" };
+    try { body.idToken = (await b.idToken()) || ""; } catch (_) { body.idToken = ""; }
+    // Reading the ladder needs no account. The server answers a token-less
+    // "state" with the published ladder and signed_in:false, so somebody
+    // playing as a guest can see what Prestige IS. Refusing here is what made
+    // the tab an error box that said "Sign in to use Prestige" and then would
+    // not say what Prestige was. Everything that WRITES still needs a real
+    // token, and the server re-checks that whatever this sends.
+    if (!body.idToken && action !== "state") return { ok: false, error: "unauthorized" };
     // apiPost THROWS when the request never lands; null means "retryable",
     // which is a different thing from a request the server refused.
     try { return unwrap(await b.post("/api/prestige/" + action, body)); }
@@ -727,6 +733,38 @@
     return S.cat;
   }
 
+  // True when the page is being read by somebody playing without an account.
+  // The server answers a signed-out "state" with the ladder and signed_in:false.
+  function isGuestView() {
+    if (!S.state || S.state.signed_in !== false) return false;
+    try { return !!(window.__fishIsGuest && window.__fishIsGuest()); } catch (_) { return false; }
+  }
+
+  // A guest banks XP in this browser, so the ladder can show them where they
+  // really stand instead of parking everybody at Level 1. Display only: every
+  // action that writes still goes through the server with a real uid.
+  function applyGuestProgress() {
+    if (!isGuestView()) return;
+    let xp = 0;
+    try {
+      const gs = (window.__fishGuestStatsGet && window.__fishGuestStatsGet()) || {};
+      xp = num(gs.total_xp);
+    } catch (_) { xp = 0; }
+    let lvl = num(S.state.level, 1), into = 0, goal = num(S.state.xp_goal, 1);
+    try {
+      // The app's own curve, the same one the header level chip reads, so the
+      // two can never disagree about what level a guest is.
+      const p = window.__fishLevelFromXp && window.__fishLevelFromXp(xp);
+      if (p) { lvl = num(p.level, 1); into = num(p.xpCurrent); goal = Math.max(1, num(p.xpGoal, 1)); }
+    } catch (_) {}
+    S.state.level = lvl;
+    S.state.total_xp = xp;
+    S.state.xp_into_level = into;
+    S.state.xp_goal = goal;
+    S.state.xp_to_max = Math.max(0, num(S.state.xp_to_max) - xp);
+    S.state.can_prestige = false;   // a run is kept on an account, never here
+  }
+
   async function loadState() {
     const res = await post("state", {});
     if (res && res.ok) {
@@ -817,6 +855,7 @@
 
     if (!res) { paintError("Prestige couldn't be reached. Check your connection and try again."); return; }
     if (!res.ok) { paintError(errMsg(res.error)); return; }
+    applyGuestProgress();
 
     // Selections that are no longer valid (the account changed in another tab)
     // are dropped rather than silently submitted.
@@ -904,10 +943,16 @@
   // ── Locked (not at the cap yet) ──────────────────────────────────────────
   function lockedHtml() {
     const st = S.state;
+    const guestLine = isGuestView()
+      ? '<div class="sm" style="margin-top:8px">You are playing as a guest, so your level is kept in '
+        + "this browser. A Prestige run is kept on an account: make one and everything you have "
+        + "earned so far comes with you.</div>"
+      : "";
     return '<div class="ccP-body"><div class="ccP-locked">'
       + '<div class="big">🔒 Prestige unlocks at Level ' + fmt(st.max_level) + "</div>"
       + '<div class="sm">You\'re Level ' + fmt(st.level) + " with <b>" + fmt(st.xp_to_max)
       + " XP</b> to go. Everything below is waiting for you, nothing here can be bought or skipped.</div>"
+      + guestLine
       + '<button class="ccP-ride" disabled aria-disabled="true" style="margin-top:16px">Ride the Next Current</button>'
       + "</div></div>";
   }
@@ -2013,6 +2058,17 @@
   //  EXPORTS
   // ══════════════════════════════════════════════════════════════════════
   window.__ccPrestigeRender = render;
+  // Drop everything cached about WHOSE prestige this is. Called when the
+  // session changes hands (sign-out, or an account handing over to a guest):
+  // S.mine and S.state are one person's run, and _nameCache holds the badge
+  // and name colour that was resolved for them.
+  window.__ccPrestigeReset = function () {
+    S.cat = null; S.state = null; S.mine = null;
+    S.step = 0; S.keep = []; S.skin = null; S.colorPick = "";
+    S.busy = false; S.error = ""; S.seq++;
+    try { Object.keys(_nameCache).forEach((k) => { delete _nameCache[k]; }); } catch (_) {}
+    try { Object.keys(_nameMiss).forEach((k) => { delete _nameMiss[k]; }); } catch (_) {}
+  };
   window.__ccPrestigeBadgeHtml = badgeHtml;
   window.__ccPrestigeNameHtml = nameHtml;
   window.__ccPrestigeDecorate = decorate;

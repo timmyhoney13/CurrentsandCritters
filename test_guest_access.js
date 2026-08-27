@@ -165,7 +165,11 @@ const DRIVER = `
       // no backend in this harness. Anything else is a real error.
       // Expected in this harness: no backend, no signed-in session, and the
       // card art / firebase-config live outside the served client directory.
-      if (!/permission|network|firestore|Failed to fetch|ERR_|auth\\/|Quota|CONFIGURATION|resource_load_failed/i.test(s)) {
+      // api_fetch_failed / api_http_error are the same "no backend" story:
+      // the guest leaderboards now read /api/leaderboard, which nothing is
+      // serving here. The tab says so on screen, which is the behaviour under
+      // test; the report is not a fault in the page.
+      if (!/permission|network|firestore|Failed to fetch|ERR_|auth\\/|Quota|CONFIGURATION|resource_load_failed|api_fetch_failed|api_http_error/i.test(s)) {
         out.errors.push("console.error: " + s.slice(0, 200));
       }
     } catch (_) {}

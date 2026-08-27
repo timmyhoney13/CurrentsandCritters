@@ -478,6 +478,88 @@ def get_icon_ownership():
     return _ICON_OWNERSHIP_CACHE["counts"], _ICON_OWNERSHIP_CACHE["total"]
 
 
+# ── Public leaderboards, read with the service account ─────────────────────
+# Every board on Player Home is the same query: the top N user docs ordered by
+# one stats field. A signed-in player runs it straight against Firestore. A
+# GUEST cannot: a guest holds no Firebase session at all, and the users
+# collection is not readable without one, so every board came back
+# permission-denied and the Leaderboard tab was a wall of "Could not load".
+#
+# The server has the service account, so it serves a guest the same rows. Two
+# rules keep this from turning a private collection into a public dump:
+#   • The orderable field is whitelisted. A client cannot ask the server to
+#     sort the user table by anything it likes.
+#   • The row is rebuilt field by field from a whitelist, so nothing that is
+#     not already printed on a leaderboard row can leave the building. Emails,
+#     friend codes and unlocked-icon lists are not in it.
+# The dev/admin account is dropped, exactly as it is from icon ownership.
+_LB_BOARD_FIELDS = {
+    "stats.total_xp", "stats.total_score", "stats.normal_wins",
+    "stats.tournament_wins", "stats.comp_cp", "stats.comp_best_single_hand",
+    "stats.comp_best_combined", "stats.daily_streak", "stats.streak_longest",
+} | {f"stats.highest_score_{n}p" for n in range(2, 9)}
+# Exactly the stats a leaderboard row prints, and nothing else.
+_LB_STATS_FIELDS = (
+    "total_xp", "total_score", "normal_wins", "completed_games", "level",
+    "tournament_wins", "tournaments_played", "comp_cp", "competitive_wins",
+    "comp_best_single_hand", "comp_best_combined", "daily_streak",
+    "streak_longest", "streak_days", "most_played_strategy",
+    "most_played_strategy_by_size", "favorite_strategy",
+    # The Casual board ranks by a balanced average, derived from these when a
+    # player has no precomputed one.
+    "balanced_games", "balanced_score_sum",
+    "total_score_by_size", "normal_games_by_size",
+) + tuple(f"highest_score_{n}p" for n in range(2, 9))
+_LB_CACHE: Dict[str, Any] = {}          # "field|limit" -> {"at": ts, "rows": [...]}
+_LB_TTL_SEC = 60.0
+_LB_MAX_LIMIT = 150
+
+
+def _fetch_leaderboard_rows(field: str, limit: int):
+    """Top `limit` public rows ordered by `field` desc, or None if unavailable."""
+    db = _get_firestore()
+    if db is None:
+        return None
+    try:
+        from firebase_admin import firestore as _fs
+        q = db.collection("users").order_by(
+            field, direction=_fs.Query.DESCENDING
+        ).limit(int(limit))
+        rows = []
+        for doc in q.stream():
+            data = doc.to_dict() or {}
+            if data.get("is_admin") is True or str(
+                    data.get("email") or "").strip().lower() == "currentsandcritters@gmail.com":
+                continue
+            src = data.get("stats") if isinstance(data.get("stats"), dict) else {}
+            stats = {k: src[k] for k in _LB_STATS_FIELDS if k in src}
+            rows.append({
+                "id": doc.id,
+                "nickname": str(data.get("nickname") or ""),
+                "avatar_url": str(data.get("avatar_url") or ""),
+                "background_url": str(data.get("background_url") or ""),
+                "stats": stats,
+            })
+        return rows
+    except Exception as exc:  # noqa: BLE001 - a board must never crash the server
+        print(f"[leaderboard] query failed ({field}): {exc}")
+        return None
+
+
+def get_leaderboard_rows(field: str, limit: int):
+    """Cached rows; keeps the last good answer when a refresh fails."""
+    key = f"{field}|{limit}"
+    entry = _LB_CACHE.get(key)
+    now = time.time()
+    if entry and now - entry["at"] < _LB_TTL_SEC:
+        return entry["rows"]
+    rows = _fetch_leaderboard_rows(field, limit)
+    if rows is not None:
+        _LB_CACHE[key] = {"at": now, "rows": rows}
+        return rows
+    return entry["rows"] if entry else None
+
+
 # ══════════════════════════════════════════════════════════════════════════
 #  STRIPE CHECKOUT WEBHOOK: credit Critter Coins / grant Supporter Tiers
 # ══════════════════════════════════════════════════════════════════════════
@@ -11034,6 +11116,29 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 "registered_players": registered_players,
                 "online_players": online_players,
             })
+            return
+
+        if parsed.path == "/api/leaderboard":
+            # The public boards, for clients that cannot read Firestore
+            # themselves (guests). Same rows a signed-in player sees, minus
+            # everything a leaderboard row does not print.
+            qs = parse_qs(parsed.query)
+            board = (qs.get("board", [""])[0] or "").strip()
+            if board not in _LB_BOARD_FIELDS:
+                self._send_json({"ok": False, "error": "unknown board"},
+                                status=HTTPStatus.BAD_REQUEST)
+                return
+            try:
+                limit = int(qs.get("limit", ["50"])[0])
+            except (TypeError, ValueError):
+                limit = 50
+            limit = max(1, min(_LB_MAX_LIMIT, limit))
+            rows = get_leaderboard_rows(board, limit)
+            if rows is None:
+                self._send_json({"ok": False, "error": "leaderboard unavailable"},
+                                status=HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            self._send_json({"ok": True, "board": board, "rows": rows})
             return
 
         if parsed.path == "/api/icon-ownership":

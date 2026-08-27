@@ -16,8 +16,47 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.94";
-  const APP_BUILD   = "2026-08-26.4";
+  const APP_VERSION = "1.6.95";
+  const APP_BUILD   = "2026-08-26.5";
+
+  // ── Progress that is filed on the DEVICE, not on an account ─────────────
+  // The challenge slots, the win streaks, the opponents you have met, the
+  // strategies you have played, the unseen-critter dots and the undelivered
+  // unlock notifications all live in localStorage: they are running totals
+  // nothing asks a server about mid-game.
+  //
+  // They used to live under ONE key each, shared by whoever happened to be
+  // sitting at this browser. Signing out of an account and tapping PLAY AS
+  // GUEST therefore opened onto that account's half-finished dailies, its win
+  // streaks and its pending unlock toasts, because none of it was ever filed
+  // under a name.
+  //
+  // Now the key carries whose it is. Two rules make the change free:
+  //   • An ACCOUNT with progress under the old shared key adopts it once, so
+  //     nobody loses a streak or a day of challenges on the way to this fix.
+  //   • A GUEST never adopts anything. That is the entire point.
+  const CC_SCOPED_KEYS = [
+    "cc_daily_state_v1", "cc_weekly_state_v1", "cc_streak_v1",
+    "cc_seen_opponents_v1", "cc_active_strats", "cc_strat_play_counts",
+    "cc_new_avatars", "cc_notif_queue",
+  ];
+  function ccScopedKey(base) {
+    let who = "";
+    try { who = String((window.__ccIdentityName && window.__ccIdentityName()) || ""); } catch (_) { who = ""; }
+    // Before anybody has signed in there is nothing to keep apart, so the bare
+    // key is used and the adoption below never runs.
+    if (!who) return base;
+    const key = base + "::" + who;
+    // One-time adoption of pre-scoping progress, for accounts only.
+    try {
+      if (who.startsWith("acct:") && localStorage.getItem(key) === null) {
+        const legacy = localStorage.getItem(base);
+        if (legacy !== null) localStorage.setItem(key, legacy);
+      }
+    } catch (_) {}
+    return key;
+  }
+  window.__ccScopedKey = ccScopedKey;
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -4672,7 +4711,7 @@
   const _activeStrategies = new Set();
   (function _loadActiveStrategies() {
     try {
-      const raw = JSON.parse(localStorage.getItem("cc_active_strats") || "[]");
+      const raw = JSON.parse(localStorage.getItem(ccScopedKey("cc_active_strats")) || "[]");
       if (Array.isArray(raw)) {
         raw.forEach(label => {
           const i = HELP_STRATEGIES.findIndex(s => s.label === label);
@@ -4682,20 +4721,20 @@
     } catch (_) {}
   })();
   function _saveActiveStrategies() {
-    try { localStorage.setItem("cc_active_strats", JSON.stringify([..._activeStrategies].map(i => HELP_STRATEGIES[i]?.label).filter(Boolean))); } catch (_) {}
+    try { localStorage.setItem(ccScopedKey("cc_active_strats"), JSON.stringify([..._activeStrategies].map(i => HELP_STRATEGIES[i]?.label).filter(Boolean))); } catch (_) {}
   }
   function _trackStrategyPlay(i) {
     try {
       const label = HELP_STRATEGIES[i]?.label;
       if (!label) return;
-      const counts = JSON.parse(localStorage.getItem("cc_strat_play_counts") || "{}");
+      const counts = JSON.parse(localStorage.getItem(ccScopedKey("cc_strat_play_counts")) || "{}");
       counts[label] = (counts[label] || 0) + 1;
-      localStorage.setItem("cc_strat_play_counts", JSON.stringify(counts));
+      localStorage.setItem(ccScopedKey("cc_strat_play_counts"), JSON.stringify(counts));
     } catch (_) {}
   }
   function _getMostPlayedStrategyLocal() {
     try {
-      const counts = JSON.parse(localStorage.getItem("cc_strat_play_counts") || "{}");
+      const counts = JSON.parse(localStorage.getItem(ccScopedKey("cc_strat_play_counts")) || "{}");
       const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
       return (top && top[0]) ? top[0] : "";
     } catch (_) { return ""; }
@@ -7036,6 +7075,11 @@
     } catch (e) {}
   }
   window.__fishPushSeatAvatar = pushMySeatAvatar;
+  // Both pushes are throttled on "same value as last time". When the session
+  // changes hands the next person may be wearing what the last one wore, and
+  // the throttle would then send nothing at all, so the memory is cleared with
+  // everything else that belonged to the previous identity.
+  window.__fishForgetPushedAvatar = function () { _lastPushedAvatar = ""; _lastPushedBg = ""; };
 
   // Push our equipped background to the server for this seat so every client
   // renders it behind our avatar. Self-throttled like the avatar push.
@@ -13961,9 +14005,9 @@
       confirmed.forEach(label => {
         try {
           // Track in localStorage (feeds the in-game "most played" display)
-          const counts = JSON.parse(localStorage.getItem("cc_strat_play_counts") || "{}");
+          const counts = JSON.parse(localStorage.getItem(ccScopedKey("cc_strat_play_counts")) || "{}");
           counts[label] = (counts[label] || 0) + 1;
-          localStorage.setItem("cc_strat_play_counts", JSON.stringify(counts));
+          localStorage.setItem(ccScopedKey("cc_strat_play_counts"), JSON.stringify(counts));
         } catch (_) {}
       });
 
@@ -16920,6 +16964,9 @@
     let _ccPrivacyCleanup = null;
     let _statsLoadSeq = 0;
     let _pendingOnboardingUid = "";
+    // Who Player Home is currently drawn for: "acct:<uid>", "guest:<nick>", or
+    // "" for nobody. See _ccBecomeIdentity() for what this is guarding.
+    let _ccIdentityKey = "";
     const GUEST_NICK_KEY = "fish_guest_nick";
     const GUEST_AVATAR_KEY = "fish_guest_avatar";
     const GUEST_STATS_KEY_PREFIX = "fish_guest_stats_v1::";
@@ -17329,6 +17376,20 @@
       return false;
     }
 
+    // "Have you EARNED this critter?", which is NOT the same question as
+    // isAvatarUnlocked's "may you wear it". A guest may wear anything they have
+    // not had to buy, on purpose, so that a free game is not a padlock wall.
+    // Counting that allowance as progress is what told a brand-new guest they
+    // had 53 of 59 critters unlocked before they had played a single game.
+    // The gallery keeps asking the wearable question; every counter, bar and
+    // "N / M unlocked" asks this one.
+    function isAvatarEarned(img) {
+      const n = normalizeAvatarUrl(img);
+      if (!n) return false;
+      if (AVATAR_OPTIONS.includes(n)) return true;      // starters, everybody has them
+      return _unlockedIcons.includes(n);
+    }
+
     function sanitizeSelectableAvatar(url, seed) {
       const normalized = normalizeAvatarUrl(url);
       if (AVATAR_OPTIONS.includes(normalized)) return normalized;
@@ -17464,17 +17525,17 @@
     // daily/weekly challenge state, the win streaks, the critters they
     // unlocked), so the sweep is by PREFIX and by name rather than a list of
     // keys somebody has to remember to add to.
-    const GUEST_WIPE_KEYS = [
-      "cc_daily_state_v1",     // daily challenge slots + progress
-      "cc_weekly_state_v1",    // weekly challenge slots + progress
-      "cc_streak_v1",          // win-streak counters
-      "cc_seen_opponents_v1",  // "played N different people" progress
-      "cc_new_avatars",        // unseen-critter dots in the gallery
-      "cc_notif_queue",        // undelivered unlock notifications
-      "cc_active_strats",      // strategy tracking
-      "cc_strat_play_counts",
+    // The device-scoped blobs (challenges, streaks, opponents met, strategy
+    // counts, gallery dots, pending unlock toasts). They carry the owner in
+    // the key now (see ccScopedKey), so a guest sign-out sweeps the GUEST's
+    // copies by prefix and leaves everybody else's alone. It used to delete
+    // the bare keys, which were shared, so a guest signing out took the
+    // account's challenge progress with them.
+    const GUEST_WIPE_PREFIXES = [
+      GUEST_STATS_KEY_PREFIX,
+      GUEST_UNLOCKED_ICONS_PREFIX,
+      ...CC_SCOPED_KEYS.map(k => k + "::guest:"),
     ];
-    const GUEST_WIPE_PREFIXES = [GUEST_STATS_KEY_PREFIX, GUEST_UNLOCKED_ICONS_PREFIX];
 
     // The guest's OWN progress: the stats blob and the critters they unlocked,
     // both filed under their nickname and belonging to nobody else. Erased
@@ -17492,16 +17553,13 @@
       } catch (_) { /* private mode: nothing was saved to erase */ }
     }
 
-    // Everything, including the device-wide caches a guest also builds up: the
-    // challenge slots, the win streaks, the opponents they have met. Those are
-    // NOT filed per identity, so this is reserved for a guest genuinely
-    // signing out. Running it on an account's sign-out would delete that
-    // account's challenge progress, which lives nowhere else.
+    // Everything a guest built up on this device: their stats blob, the
+    // critters they unlocked, and the challenge slots / win streaks /
+    // opponents met that ccScopedKey files under their name. All of it is
+    // filed per identity now, so this can no longer reach an account's
+    // progress the way it once could.
     function purgeGuestData() {
       purgeGuestProgressBlobs();
-      try {
-        GUEST_WIPE_KEYS.forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
-      } catch (_) {}
     }
 
     // A guest pressing Sign Out. This is the one action the "nothing is kept"
@@ -17727,11 +17785,11 @@
     let _galSavedState = null;  // { activeProfile, unlockedIcons, playerNickname }
 
     function _galGetNewSet() {
-      try { return new Set(JSON.parse(localStorage.getItem(GAL_NEW_KEY) || "[]")); }
+      try { return new Set(JSON.parse(localStorage.getItem(ccScopedKey(GAL_NEW_KEY)) || "[]")); }
       catch { return new Set(); }
     }
     function _galSaveNewSet(set) {
-      try { localStorage.setItem(GAL_NEW_KEY, JSON.stringify([...set])); } catch {}
+      try { localStorage.setItem(ccScopedKey(GAL_NEW_KEY), JSON.stringify([...set])); } catch {}
     }
     function _galClearNew(id) {
       const s = _galGetNewSet();
@@ -19042,19 +19100,36 @@
       return normalized;
     }
 
-    // Bridge for code outside this IIFE (e.g. in-game player seat row)
+    // Bridge for code outside this IIFE (e.g. in-game player seat row).
+    //
+    // THIS IS THE FACE EVERY OTHER PLAYER SEES. It feeds the seat rows, the
+    // chat lines, and pushMySeatAvatar(), which is what relays the icon to
+    // everyone else's screen. It used to answer "/avatars/mullet.png" for
+    // anyone without an account, on the old rule that guests could not choose
+    // a critter. Guests HAVE been able to choose one since the padlock wall
+    // came down: the gallery opens for them, every earnable critter is
+    // selectable, and applyAvatarSelection() saves the pick to this browser.
+    // The one thing that never got the message was this function, so a guest
+    // equipped a critter, watched Player Home change, sat down at a table and
+    // was a Mullet again, to themselves and to everybody else.
+    //
+    // A guest's pick lives in _guestAvatarUrl (mirrored onto _activeProfile),
+    // an account's on the profile, so the read order differs by session; both
+    // ends still go through the same catalogue check, so a stale or deleted
+    // path falls back to the default rather than being sent out as a 404.
     window.__fishMyAvatarUrl = function () {
       try {
-        // Guests are always the Mullet, they cannot choose an avatar.
-        if (!_authUser) return "/avatars/mullet.png";
-        const seed = _authUser?.uid || _playerNickname || "guest";
+        const guest = !_authUser && _guestSessionActive;
+        if (!_authUser && !guest) return "/avatars/mullet.png";
+        const seed = guest ? (_playerNickname || "guest") : (_authUser?.uid || _playerNickname || "guest");
         const fromProfile = _activeProfile && (
           _activeProfile.avatar_url ||
           _activeProfile.avatarUrl ||
           _activeProfile.photo_url ||
           _activeProfile.photoURL
         );
-        const normalized = normalizeAvatarUrl(fromProfile || _guestAvatarUrl || "");
+        const raw = guest ? (_guestAvatarUrl || fromProfile || "") : (fromProfile || _guestAvatarUrl || "");
+        const normalized = normalizeAvatarUrl(raw);
         if (normalized && animalByImg(normalized)) return normalized;
         return getDefaultAvatar(seed);
       } catch (e) {
@@ -19123,10 +19198,16 @@
       if (letter) letter.textContent = safeInitial(nickname || _playerNickname || "Guest");
       if (!wrap || !img) return;
       const avatarSeed = _authUser?.uid || _playerNickname || nickname || "guest";
-      // Guests are locked to the Mullet, never show a chosen/saved avatar.
-      const avatarUrl = !_authUser
-        ? "/avatars/mullet.png"
-        : resolveAvatarUrl(profile, { includeAuthFallback: true, seed: avatarSeed });
+      // A guest wears their own pick here, the same one __fishMyAvatarUrl()
+      // sends to the table. Only a session with no identity at all falls back
+      // to the Mullet.
+      const avatarUrl = _authUser
+        ? resolveAvatarUrl(profile, { includeAuthFallback: true, seed: avatarSeed })
+        : (_guestSessionActive
+            ? (typeof window.__fishMyAvatarUrl === "function"
+                ? window.__fishMyAvatarUrl()
+                : sanitizeSelectableAvatar(_guestAvatarUrl, avatarSeed))
+            : "/avatars/mullet.png");
       if (!avatarUrl) {
         wrap.classList.remove("has-image");
         img.removeAttribute("src");
@@ -19550,6 +19631,10 @@
       // Through the door, by either road (guest or account). Floating game
       // chrome may exist from here on, and not one moment earlier.
       document.body.classList.add("cc-signed-in");
+      // Both roads in end here, so this is where a change of person is noticed
+      // and the last person's cached data is dropped. It has to run before the
+      // lobby paints anything, or the first frame is still the last identity's.
+      _ccBecomeIdentity();
       // A registered player is now in their account, drop any stale guest
       // session left in localStorage so it can never later hijack a re-auth
       // (e.g. a token refresh momentarily reading as signed-out) and drop them
@@ -19748,8 +19833,11 @@
       if (signedEl) signedEl.style.display = "grid";
       const friendBtn = $a("stats-friend-btn");
       if (friendBtn) friendBtn.style.display = (_authUser && _friendCode) ? "" : "none";
-      // Guests are locked to the Mullet, only signed-in players can change avatar.
-      setStatsAvatarClickable(!!_authUser);
+      // The avatar on the profile card opens the gallery for a guest too: they
+      // may wear anything they have not had to buy, so the way in has to be
+      // there. Only a session with no identity at all (neither account nor
+      // guest) has nothing to change.
+      setStatsAvatarClickable(!!(_authUser || _guestSessionActive));
       // Guest notice
       const guestNotice = $a("stats-guest-notice");
       if (guestNotice) guestNotice.style.display = _guestSessionActive ? "" : "none";
@@ -19985,12 +20073,8 @@
       const completed = (safeStats.completed_games || 0) > 0 || anyBySize;
       const noGamesEl = $a("stats-no-games");
       const normalBlock = $a("stats-normal-block");
-      const compBlock = $a("stats-comp-block");
-      const summaryGrid = $a("stats-summary-grid");
       if (noGamesEl) noGamesEl.style.display = completed ? "none" : "";
       if (normalBlock) normalBlock.style.display = completed ? "" : "none";
-      if (compBlock) compBlock.style.display = completed ? "" : "none";
-      if (summaryGrid) summaryGrid.style.display = "none";
 
       const s = (id, val, opts) => {
         const options = opts || {};
@@ -20006,18 +20090,13 @@
 
       if (!completed) {
         renderPieChart("stat-normal-pie", {}, false);
-        renderPieChart("stat-comp-pie", {}, true);
         return;
       }
 
-      s("stat-normal-top", safeStats.highest_score_normal ?? safeStats.highest_score ?? null, { allowZero: true });
       s("stat-normal-wins", safeStats.normal_wins ?? 0, { allowZero: true });
-      s("stat-comp-top", safeStats.highest_score_competitive ?? null, { allowZero: true });
-      s("stat-comp-wins", safeStats.competitive_wins ?? 0, { allowZero: true });
       s("stat-completed", safeStats.completed_games ?? 0, { allowZero: true });
       s("stat-strategy", safeStats.most_played_strategy || null, { fallback: "No games completed yet." });
       renderPieChart("stat-normal-pie", safeStats.normal_games_by_size || {}, false);
-      renderPieChart("stat-comp-pie", safeStats.comp_games_by_size || {}, true);
     }
 
     async function loadFriendsMini(uid) {
@@ -20086,7 +20165,7 @@
       if (errEl) errEl.textContent = "";
       try {
         const field = `stats.highest_score_${_lbSize}p`;
-        const snap  = await _db.collection("users").orderBy(field, "desc").limit(20).get({ source: "server" });
+        const snap = await _db.collection("users").orderBy(field, "desc").limit(20).get({ source: "server" });
         if (snap.empty) {
           listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0;">No scores yet for this size.</div>';
           return;
@@ -20191,6 +20270,22 @@
     function phLbSizeLabel(size) {
       return size === "all" ? "Overall" : `${size}P`;
     }
+    // "Your rank" cards are the one place a leaderboard says YOU. They are
+    // painted by whichever board last drew and then simply left there, so the
+    // previous session's rank card survived a change of person and sat above
+    // a guest's boards reading "#1 · Level 99 · 249,800 XP". Hidden and
+    // emptied whenever the session changes hands, and again before every
+    // board redraws, so a card on screen always belongs to whoever is looking.
+    function phLbClearSumCards() {
+      document.querySelectorAll("#ph-panel-leaderboard .ph-lb-summary").forEach(card => {
+        card.style.display = "none";
+        const rank = card.querySelector(".ph-lb-sum-rank");
+        if (rank) { rank.textContent = "-"; rank.className = "ph-lb-sum-rank"; }
+        const vals = card.querySelector(".ph-lb-sum-vals");
+        if (vals) vals.innerHTML = "";
+      });
+    }
+
     function phLbSetSumCard(id, rankId, valsId, show, rankNum, vals) {
       const card = $a(id);
       if (!card) return;
@@ -20249,8 +20344,35 @@
     };
 
     /* ── main render ── */
+    // ── One query behind every board ────────────────────────────────────
+    // Each board is "the top N user docs by one stats field". A signed-in
+    // player runs that against Firestore. A GUEST holds no Firebase session,
+    // and the users collection is not readable without one, so every board
+    // used to come back permission-denied: the whole Leaderboard tab read
+    // "Could not load", which is how a guest was locked out of the boards
+    // without a single padlock being drawn. The server can read it with the
+    // service account, so a guest is served the same rows through
+    // /api/leaderboard and the renderers below never learn the difference.
+    //
+    // Returns Firestore-shaped docs ({ id, data() }) either way.
+    async function lbTopUsers(field, limit) {
+      const n = Math.max(1, Math.min(150, Number(limit) || 50));
+      if (_db && _authUser) {
+        const snap = await _db.collection("users").orderBy(field, "desc").limit(n).get({ source: "server" });
+        return snap.docs;
+      }
+      const res = await apiFetch(`/api/leaderboard?board=${encodeURIComponent(field)}&limit=${n}`,
+                                 { method: "GET", timeoutMs: 8000 });
+      const rows = res && res.ok && res.data && Array.isArray(res.data.rows) ? res.data.rows : null;
+      if (!rows) throw new Error("leaderboard unavailable");
+      return rows.map(r => ({ id: String(r.id || ""), data: () => r }));
+    }
+
     async function renderPhLeaderboard() {
-      if (!_db) return;
+      // No _db check any more: a guest never has one, and lbTopUsers() serves
+      // them the same rows from the server. Bailing out here is what left the
+      // whole tab reading "Loading…" for ever.
+      phLbClearSumCards();
       // Refresh friend UIDs so add-friend cells are accurate.
       if (_authUser) {
         try { const fl = await loadFriends(_authUser.uid); _lbFriendUids = new Set(fl.map(f => f.uid)); } catch { _lbFriendUids = new Set(); }
@@ -20276,9 +20398,9 @@
       try {
         // Fetch by total_xp; fall back to level for accounts that only have level stored.
         // Fetch extra to filter out blank/guest accounts (no nickname or 0 XP).
-        const snap = await _db.collection("users").orderBy("stats.total_xp","desc").limit(50).get({ source: "server" });
+        const docs = await lbTopUsers("stats.total_xp", 50);
         let rows = [], myRank = 0, myRow = null, shown = 0;
-        snap.docs.forEach(doc => {
+        docs.forEach(doc => {
           const d     = doc.data();
           const stats = d.stats || {};
           const nick  = String(d.nickname || "").trim();
@@ -20343,7 +20465,7 @@
       tbody.innerHTML = `<tr><td colspan="6" class="ph-lb-empty">Loading…</td></tr>`;
       try {
         // Fetch broadly by normal_wins; we'll add comp wins client-side and re-sort.
-        const snap = await _db.collection("users").orderBy("stats.normal_wins","desc").limit(75).get({ source: "server" });
+        const snap = { docs: await lbTopUsers("stats.normal_wins", 75) };
         let rows = [], myRank = 0, myRow = null, shown = 0;
         snap.docs.forEach(doc => {
           const d     = doc.data();
@@ -20454,7 +20576,7 @@
       tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
       try {
         const field = byCurrent ? "stats.daily_streak" : "stats.streak_longest";
-        const snap  = await _db.collection("users").orderBy(field,"desc").limit(75).get({ source: "server" });
+        const snap = { docs: await lbTopUsers(field, 75) };
         let rows = [];
         snap.docs.forEach(doc => {
           const d     = doc.data();
@@ -20529,7 +20651,7 @@
       if (!tbody) return;
       tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
       try {
-        const snap = await _db.collection("users").orderBy("stats.tournament_wins","desc").limit(75).get({ source: "server" });
+        const snap = { docs: await lbTopUsers("stats.tournament_wins", 75) };
         let rows = [], myRank = 0, myRow = null, shown = 0;
         snap.docs.forEach(doc => {
           const d     = doc.data();
@@ -20597,7 +20719,7 @@
         // without needing the materialized field. Size tabs: orderBy best score.
         let candidates;
         if (_phLbSize === "all") {
-          const snap = await _db.collection("users").orderBy("stats.total_score","desc").limit(150).get({ source: "server" });
+          const snap = { docs: await lbTopUsers("stats.total_score", 150) };
           candidates = snap.docs
             .map(doc => ({ doc, d: doc.data(), score: balancedAvgFromStats((doc.data()||{}).stats) }))
             .filter(c => c.score > 0)
@@ -20605,7 +20727,7 @@
             .slice(0, 25);
         } else {
           const field = phLbSizeField(_phLbSize);
-          const snap  = await _db.collection("users").orderBy(field,"desc").limit(25).get({ source: "server" });
+          const snap = { docs: await lbTopUsers(field, 25) };
           candidates = snap.docs
             .map(doc => ({ doc, d: doc.data(), score: ((doc.data()||{}).stats || {})[`highest_score_${_phLbSize}p`] || 0 }))
             .filter(c => c.score > 0);
@@ -20689,7 +20811,7 @@
       if (!tbody) return;
       tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
       try {
-        const snap = await _db.collection("users").orderBy("stats.comp_cp","desc").limit(25).get({ source: "server" });
+        const snap = { docs: await lbTopUsers("stats.comp_cp", 25) };
         let rows = [], myRank = 0, myRow = null, shown = 0;
         snap.docs.forEach(doc => {
           const d   = doc.data();
@@ -20740,7 +20862,7 @@
       if (!tbody) return;
       tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
       try {
-        const snap = await _db.collection("users").orderBy("stats.comp_best_single_hand","desc").limit(25).get({ source: "server" });
+        const snap = { docs: await lbTopUsers("stats.comp_best_single_hand", 25) };
         let rows = [], myRank = 0, myRow = null, shown = 0;
         snap.docs.forEach(doc => {
           const d     = doc.data();
@@ -20789,7 +20911,7 @@
       if (!tbody) return;
       tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
       try {
-        const snap = await _db.collection("users").orderBy("stats.comp_best_combined","desc").limit(25).get({ source: "server" });
+        const snap = { docs: await lbTopUsers("stats.comp_best_combined", 25) };
         let rows = [], myRank = 0, myRow = null, shown = 0;
         snap.docs.forEach(doc => {
           const d     = doc.data();
@@ -21000,6 +21122,9 @@
           _playerNickname = "";
           _friendCode = "";
           _activeProfile = null;
+          // Whoever was here before (a guest, or a different account) leaves
+          // now, taking their cached stats, achievements and unlocks with them.
+          _ccBecomeIdentity();
           startHoursTimer(user.uid);
 
           // Load profile: tries UID → email → nickname, then retries on error.
@@ -21110,6 +21235,10 @@
           _playerNickname = "";
           _friendCode = "";
           _pendingOnboardingUid = "";
+          // The account is gone from this page. Everything cached about it
+          // goes now, before a guest session can be restored on top of it.
+          _guestSessionActive = false;
+          _ccBecomeIdentity();
           const savedGuestNick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
           // A saved guest nickname IS a guest session, so say so BEFORE reading
           // the saved avatar back. sanitizeSelectableAvatar asks whether this is
@@ -22022,6 +22151,8 @@
       _ccExplicitSignOut = true;
       if (_auth) { try { await _auth.signOut(); } catch {} }
       _authUser = null;
+      _guestSessionActive = false;
+      _ccBecomeIdentity();
       _avatarPromptShownForUid = "";
       _avatarSelectionRequired = false;
       _pendingOnboardingUid = "";
@@ -22384,6 +22515,8 @@
       _ccExplicitSignOut = true;
       if (_auth) { try { await _auth.signOut(); } catch {} }
       _authUser = null;
+      _guestSessionActive = false;
+      _ccBecomeIdentity();
       _avatarPromptShownForUid = "";
       _avatarSelectionRequired = false;
       _pendingOnboardingUid = "";
@@ -22406,6 +22539,8 @@
         _ccExplicitSignOut = true;
         if (_auth) { try { await _auth.signOut(); } catch {} }
         _authUser = null;
+        _guestSessionActive = false;
+        _ccBecomeIdentity();
         _avatarPromptShownForUid = "";
         _avatarSelectionRequired = false;
         _pendingOnboardingUid = "";
@@ -25551,6 +25686,8 @@
     // ── Player Home: player-count high score tabs ─────────────────
     let _phStats = null;
     let _phStatsRaw = null;
+    // The identity _phStatsRaw was cached for (see updatePhStats).
+    let _phStatsOwner = "";
     let _phSelectedPlayerCount = 4;
     function normalizePhPlayerCount(ps) {
       const n = Number(ps);
@@ -25986,7 +26123,7 @@
       const visible = ANIMAL_AVATARS.filter(a => !!a.unlock);
 
       const totalCount   = visible.length;
-      const unlockedCount = visible.filter(a => isAvatarUnlocked(a.img)).length;
+      const unlockedCount = visible.filter(a => isAvatarEarned(a.img)).length;
       const pct = totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
       const setText = (id, v) => { const e = $a(id); if (e) e.textContent = String(v); };
       setText("av-stat-done",  unlockedCount);
@@ -25995,10 +26132,12 @@
       setText("av-stat-left",  totalCount - unlockedCount);
       if (barFill) barFill.style.width = pct + "%";
 
-      // Filter by species + status
+      // Filter by species + status. EARNED, not wearable: this list is the
+      // record of how each critter is won, so a guest's wear-anything
+      // allowance must not tick every card here as done.
       let filtered = visible.filter(a => {
         if (speciesFilter !== "all" && a.species !== speciesFilter) return false;
-        const unlocked = isAvatarUnlocked(a.img);
+        const unlocked = isAvatarEarned(a.img);
         if (statusFilter === "unlocked" && !unlocked) return false;
         if (statusFilter === "locked"   &&  unlocked) return false;
         return true;
@@ -26006,7 +26145,7 @@
 
       // Sort: unlocked first, then locked by progress descending
       filtered.sort((a, b) => {
-        const aU = isAvatarUnlocked(a.img), bU = isAvatarUnlocked(b.img);
+        const aU = isAvatarEarned(a.img), bU = isAvatarEarned(b.img);
         if (aU !== bU) return aU ? -1 : 1;
         // Both locked, sort by progress fraction descending
         const ap = _effectiveUnlockProgress(a, stats, level) || 0;
@@ -26021,7 +26160,7 @@
 
       list.innerHTML = "";
       filtered.forEach(a => {
-        const unlocked = isAvatarUnlocked(a.img);
+        const unlocked = isAvatarEarned(a.img);
         const u        = a.unlock;
         // Traded away → measure against the re-earn requirement, not the
         // original one it already satisfies (see reEarnState).
@@ -26253,10 +26392,14 @@
       _phStats = safeStats;
       // Only replace _phStatsRaw if incoming stats have actual content.
       // This prevents a null/empty renderStats call (e.g. mid-reload) from erasing cached data.
+      // The cache is stamped with WHOSE stats it is, because "an empty read
+      // must not erase good data" is only true within one identity: across
+      // two it is what showed a guest the last account's hours.
       const incomingHasContent = (safeStats.completed_games || 0) > 0
         || Object.values(safeStats.normal_games_by_size || {}).some(n => Number(n) > 0);
-      if (incomingHasContent || !_phStatsRaw) {
+      if (incomingHasContent || !_phStatsRaw || _phStatsOwner !== _ccIdentityKey) {
         _phStatsRaw = safeStats;
+        _phStatsOwner = _ccIdentityKey;
       }
 
       // Total games: prefer completed_games; fall back to summing normal+comp by-size counts.
@@ -26335,7 +26478,7 @@
       // Animals unlocked
       const allUnlockable = ANIMAL_AVATARS.filter(a => !!a.unlock);
       const animalsTotal   = allUnlockable.length;
-      const animalsDone    = allUnlockable.filter(a => isAvatarUnlocked(a.img)).length;
+      const animalsDone    = allUnlockable.filter(a => isAvatarEarned(a.img)).length;
       set("ph-ov-animals", `${animalsDone} / ${animalsTotal}`);
 
       renderOverviewAchievements(safeStats);
@@ -26729,7 +26872,7 @@
       const achDone  = ACHIEVEMENT_DEFS.filter(d => userAchs[d.id] && userAchs[d.id].completed).length;
       set("ph-ov-achievements", `${achDone} / ${achTotal}`);
       const allUnlockable = ANIMAL_AVATARS.filter(a => !!a.unlock);
-      const animalsDone   = allUnlockable.filter(a => isAvatarUnlocked(a.img)).length;
+      const animalsDone   = allUnlockable.filter(a => isAvatarEarned(a.img)).length;
       set("ph-ov-animals", `${animalsDone} / ${allUnlockable.length}`);
     }
 
@@ -27399,7 +27542,7 @@
 
     function _loadDailyState() {
       try {
-        const raw = localStorage.getItem(_DAILY_STATE_KEY);
+        const raw = localStorage.getItem(ccScopedKey(_DAILY_STATE_KEY));
         if (raw) {
           const obj = JSON.parse(raw);
           if (obj && Array.isArray(obj.slots) && obj.slots.length === 3
@@ -27415,7 +27558,7 @@
     }
 
     function _saveDailyState(state) {
-      try { localStorage.setItem(_DAILY_STATE_KEY, JSON.stringify(state)); } catch {}
+      try { localStorage.setItem(ccScopedKey(_DAILY_STATE_KEY), JSON.stringify(state)); } catch {}
     }
 
     // Stored day older than today's midnight ⇒ the day rolled: three fresh
@@ -27564,7 +27707,7 @@
 
     function _loadWeeklyState() {
       try {
-        const raw = localStorage.getItem(_WEEKLY_STATE_KEY);
+        const raw = localStorage.getItem(ccScopedKey(_WEEKLY_STATE_KEY));
         if (raw) {
           const obj = JSON.parse(raw);
           if (obj && Array.isArray(obj.slots) && obj.slots.length === 3
@@ -27579,7 +27722,7 @@
       return fresh;
     }
     function _saveWeeklyState(state) {
-      try { localStorage.setItem(_WEEKLY_STATE_KEY, JSON.stringify(state)); } catch {}
+      try { localStorage.setItem(ccScopedKey(_WEEKLY_STATE_KEY), JSON.stringify(state)); } catch {}
     }
 
     // If the stored weekStartMs is older than this Monday's midnight, the
@@ -28025,7 +28168,7 @@
           const SEEN_KEY = "cc_seen_opponents_v1";
           let seenSet = new Set();
           try {
-            const raw = localStorage.getItem(SEEN_KEY);
+            const raw = localStorage.getItem(ccScopedKey(SEEN_KEY));
             if (raw) JSON.parse(raw).forEach(n => seenSet.add(String(n)));
           } catch {}
           const newOpponents = realOpponents.filter(n => !seenSet.has(n.toLowerCase()));
@@ -28034,7 +28177,7 @@
           // Update ledger.
           if (realOpponents.length > 0) {
             for (const n of realOpponents) seenSet.add(n.toLowerCase());
-            try { localStorage.setItem(SEEN_KEY, JSON.stringify([...seenSet])); } catch {}
+            try { localStorage.setItem(ccScopedKey(SEEN_KEY), JSON.stringify([...seenSet])); } catch {}
           }
           // Weekly: friendly_waters, 5 different real opponents this week.
           // Uses a separate per-week ledger keyed by the current Monday.
@@ -28164,7 +28307,7 @@
           const STREAK_KEY = "cc_streak_v1";
           let s = { casualWin: 0, compWin: 0, anyWin: 0, casualBigWinStreak: 0 };
           try {
-            const r = localStorage.getItem(STREAK_KEY);
+            const r = localStorage.getItem(ccScopedKey(STREAK_KEY));
             if (r) s = Object.assign(s, JSON.parse(r));
           } catch {}
 
@@ -28204,7 +28347,7 @@
             s.compWin = 0;
             s.casualBigWinStreak = 0;
           }
-          try { localStorage.setItem(STREAK_KEY, JSON.stringify(s)); } catch {}
+          try { localStorage.setItem(ccScopedKey(STREAK_KEY), JSON.stringify(s)); } catch {}
 
           // mixed_waters, 1 casual win + 1 comp win this week (target 2).
           // Per-week ledger keyed by current Monday midnight.
@@ -28505,9 +28648,20 @@
         if (!ok || !data?.games?.length) {
           compEl.innerHTML = '<div class="ph-empty">No competitive games yet.</div>'; return;
         }
+        // MY games, not the server's. /api/competitive/history answers with
+        // the whole ledger, and this list never filtered it, so it printed
+        // strangers' matches under the heading "Competitive 1v1 History" and
+        // scored every one of them as a loss. The Competitive tab has always
+        // filtered by seat name; this is the same filter.
         const myName = ($a("stats-lobby-nick")?.textContent || "").trim();
+        const myGames = myName
+          ? data.games.filter(g => g.p1_name === myName || g.p2_name === myName)
+          : [];
+        if (!myGames.length) {
+          compEl.innerHTML = '<div class="ph-empty">No competitive games yet.</div>'; return;
+        }
         compEl.innerHTML = "";
-        data.games.slice(0, 30).forEach(g => {
+        myGames.slice(0, 30).forEach(g => {
           const isDraw   = Boolean(g.is_draw);
           const isWin    = !isDraw && myName ? g.winner === myName : false;
           const opp      = myName
@@ -29590,6 +29744,7 @@
         || (!(stats.completed_games > 0)
             && !Object.values(stats.normal_games_by_size || {}).some(n => Number(n) > 0));
       const haveGoodCache = !!_phStatsRaw
+        && _phStatsOwner === _ccIdentityKey
         && ((_phStatsRaw.completed_games || 0) > 0
             || Object.values(_phStatsRaw.normal_games_by_size || {}).some(n => Number(n) > 0));
       if (incomingEmpty && haveGoodCache) {
@@ -30208,6 +30363,85 @@
       _gameAchTracker.cephThisTurn      = 0;
       _gameAchTracker.maxCephInTurn     = 0;
     }
+
+    // ══════════════════════════════════════════════════════════════════
+    // ONE IDENTITY AT A TIME
+    // ------------------------------------------------------------------
+    // Player Home is not drawn from Firestore on every paint. It is drawn
+    // from module-level caches: the stats blob, the achievement records, the
+    // unlocked critters, the friend list. Nothing ever emptied them, and
+    // signing out does not reload the page, so signing out of an account and
+    // tapping PLAY AS GUEST handed the guest everything the account left
+    // behind: its hours, its game history, its unlocked achievements, its
+    // critters. The guest's own (empty) numbers could not even push them out,
+    // because two of the caches are deliberately STICKY, renderStats() and
+    // updatePhStats() both refuse to let an empty read overwrite good data.
+    // That refusal is right WITHIN one identity (a transient empty read
+    // mid-reload must not blank a real profile) and exactly wrong ACROSS two.
+    //
+    // So the person at the keyboard is given a name, and the moment that name
+    // changes, everything filed under the last one goes. The rule is "wipe
+    // unless it is provably still the same person", which fails safe: the
+    // worst an unnecessary wipe costs is one re-fetch, while a missed one
+    // shows somebody else's life to a stranger.
+    function _ccIdentityName() {
+      if (_authUser && _authUser.uid) return "acct:" + _authUser.uid;
+      if (_guestSessionActive) return "guest:" + String(_playerNickname || "").trim().toLowerCase();
+      return "";
+    }
+
+    // Empty every cache that belongs to a person. Deliberately NOT included:
+    // the card art, the avatar catalogue, the rulebook, anything that is the
+    // same for everybody.
+    function _ccWipeIdentityCaches() {
+      _phStats = null;
+      _phStatsRaw = null;
+      _phStatsOwner = "";
+      _userAchievements = {};
+      _achLoadedUid = null;
+      _unlockedIcons = [];
+      _unlockedBackgrounds = [];
+      _lbFriendUids = new Set();
+      _galSavedState = null;
+      _galReadOnly = false;
+      try { window.__fishFriendNicksLower = new Set(); } catch (_) {}
+      // Faces are cached BY NICKNAME, and the last session's own nickname is
+      // in there pointing at the last session's critter.
+      try { Object.keys(_nickAvatarCache).forEach(k => { delete _nickAvatarCache[k]; }); } catch (_) {}
+      // The reward modules keep their own copy of "your" state.
+      try { window.__ccLevelPassReset && window.__ccLevelPassReset(); } catch (_) {}
+      try { window.__ccPrestigeReset && window.__ccPrestigeReset(); } catch (_) {}
+      // The in-game seat pushes are throttled on "same avatar as last time";
+      // a new person wearing the last one's critter would push nothing.
+      try { window.__fishForgetPushedAvatar && window.__fishForgetPushedAvatar(); } catch (_) {}
+      // Repaint the panels that are already on screen with the empty caches,
+      // so nothing is left showing until its tab is next opened.
+      try { if (typeof updatePhStats === "function") updatePhStats({}); } catch (_) {}
+      try { if (typeof renderPhOverview === "function") renderPhOverview(); } catch (_) {}
+      try { if (typeof renderChallengeStrip === "function") renderChallengeStrip(); } catch (_) {}
+      try { if (typeof phLbClearSumCards === "function") phLbClearSumCards(); } catch (_) {}
+      // Board tables hold the last identity's "you" highlight and add-friend
+      // buttons; blank them so nothing of theirs survives on screen.
+      try {
+        document.querySelectorAll("#ph-panel-leaderboard tbody[id^=\"ph-lb-\"]").forEach(tb => {
+          tb.innerHTML = '<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>';
+        });
+      } catch (_) {}
+    }
+
+    // Called wherever the session changes hands. Wipes only on a real change,
+    // so an ordinary re-render (or a token refresh that re-reveals the same
+    // lobby) costs nothing.
+    function _ccBecomeIdentity() {
+      const now = _ccIdentityName();
+      if (now === _ccIdentityKey) return false;
+      _ccIdentityKey = now;
+      _ccWipeIdentityCaches();
+      return true;
+    }
+    // The device-scoped progress blobs (challenges, streaks, opponents met)
+    // are filed under this name too, see _ccScopedKey().
+    window.__ccIdentityName = _ccIdentityName;
 
     // Expose achievement functions to outer scope
     window.__fishLoadUserAchievements = loadUserAchievements;
@@ -30883,10 +31117,10 @@
   const NOTIF_KEY = "cc_notif_queue";
 
   function _notifLoad() {
-    try { return JSON.parse(localStorage.getItem(NOTIF_KEY) || "[]"); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(ccScopedKey(NOTIF_KEY)) || "[]"); } catch { return []; }
   }
   function _notifSave(q) {
-    try { localStorage.setItem(NOTIF_KEY, JSON.stringify(q)); } catch {}
+    try { localStorage.setItem(ccScopedKey(NOTIF_KEY), JSON.stringify(q)); } catch {}
   }
   function _notifPush(entry) {
     const q = _notifLoad();

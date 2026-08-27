@@ -10772,8 +10772,7 @@
       #ph-panel-normal .ph-sg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
 
-    #stat-normal-pie,
-    #stat-comp-pie {
+    #stat-normal-pie {
       display: none !important;
     }
 
