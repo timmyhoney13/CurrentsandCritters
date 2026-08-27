@@ -127,16 +127,22 @@ console.log("\nthere is one Google path, and one password path");
   // PASSWORD really asks. It cannot be a yes/no answer, though: the reply is
   // the same sentence whatever the server finds, or this screen becomes a way
   // to ask which usernames exist.
-  check("FORGOT PASSWORD really asks the server for a reset",
-        /\$a\("ao-forgot"\)\.addEventListener\("click", \(\) => \{ void ccForgotPassword\(\); \}\)/.test(APP)
-        && /apiPost\("\/api\/account\/forgot-password", \{ username: user \}\)/.test(APP));
+  //
+  // It is a PANE now rather than a button that answered in place, so the link
+  // opens the pane and the pane's own button does the asking.
+  check("FORGOT PASSWORD opens the pane that asks for a reset",
+        /\$a\("ao-forgot"\)\.addEventListener\("click", \(\) => ccChooserPane\("forgot"\)\)/.test(APP)
+        && /\$a\("ao-forgot-go"\)\.addEventListener\("click", \(\) => \{ void ccForgotPassword\(\); \}\)/.test(APP));
+  check("…and the pane really asks the server",
+        /apiPost\("\/api\/account\/forgot-password", \{ username: user \}\)/.test(APP)
+        && /const user = \(\(\$a\("ao-forgot-user"\) \|\| \{\}\)\.value \|\| ""\)\.trim\(\);/.test(APP));
   check("…and says the same thing whether or not that account exists",
         /FORGOT_ANSWER = \(/.test(PY_ACC)
         && /answer = \{"ok": True, "message": FORGOT_ANSWER\}/.test(PY_ACC));
   check("the panes are children of the step, so showStep puts them back",
         /<div id="auth-step-choose"[\s\S]*?<div class="ao-pane" id="ao-pane-create"/.test(HTML));
-  check("…and showStep really does put the column back on the sign-in pane",
-        /ccChooserPane\("signin", \{ quiet: true \}\)/.test(APP));
+  check("…and showStep really does put the column back on the pane it opens on",
+        /ccChooserPane\(asPane \|\| "signin", \{ quiet: !asPane \}\)/.test(APP));
   check("the dialog it replaced is gone from every file",
         !/auth-account-overlay|aao-/.test(HTML + CSS + APP));
 }
@@ -156,8 +162,19 @@ console.log("\ntwo panes in one column, and only ever one of them");
   check("leaving the create pane does not leave a password sitting in the page",
         /function ccClearCreateFields\(\)/.test(APP)
         && /\["ao-new-pass", "ao-new-pass2"\]\.forEach/.test(APP));
-  check("Escape backs out of the create pane, and does nothing on the other one",
-        /if \(_aoPane !== "create"\) return;/.test(APP));
+  // Escape is one listener for every pane now, because there are five of them.
+  // It leaves the create pane through the SAME function the Back button uses,
+  // so the key and the button cannot drift apart on the thing that matters: a
+  // password is never left sitting in a field behind you.
+  check("Escape backs out of a pane you went into",
+        /const AO_ESCAPES_TO = \{ forgot: "signin", create: "signin", guest: "signin" \};/.test(APP)
+        && /const back = AO_ESCAPES_TO\[_aoPane\];\s*\n\s*if \(!back\) return;/.test(APP));
+  check("…and never off the sign-in pane, or off the one that needs a name",
+        !/AO_ESCAPES_TO = \{[^}]*signin:/.test(APP)
+        && !/AO_ESCAPES_TO = \{[^}]*nickname:/.test(APP));
+  check("…and leaving create by the key clears the password, same as the button",
+        /if \(_aoPane === "create" && _aoEscapeCreate\) \{ _aoEscapeCreate\(\); return; \}/.test(APP)
+        && /_aoEscapeCreate = backFromCreate;/.test(APP));
 }
 
 console.log("\nthe green bar is the rule, not a decoration");

@@ -127,8 +127,11 @@ if (!CHROME) {
     if (el) el.click();
     return hit;
   }
+  // PLAY AS GUEST turns the sign-in column over onto its guest pane; it used
+  // to open a dialog laid over the whole screen. Either way the question is
+  // the same one: has anybody been asked for a nickname yet.
   function guestOpen() {
-    var o = document.getElementById("auth-guest-overlay");
+    var o = document.getElementById("ao-pane-guest");
     return !!o && getComputedStyle(o).display !== "none";
   }
   function armed() {
@@ -255,7 +258,7 @@ if (!CHROME) {
           log.armed = armed();
           var p = guestBtnPt();
           log.hit = clickAt(p[0], p[1]);
-          setTimeout(function () { log.guestPrompt = guestOpen(); done(); }, 40);
+          setTimeout(function () { log.guestPrompt = guestOpen(); done(); }, 420);
         }, 1600);
       `, 1440, 900, null, (r) => r.armed === true);
       check("the sign-in chooser arms itself once the artwork is up", r && r.armed === true);
@@ -273,7 +276,7 @@ if (!CHROME) {
           step.classList.remove("is-armed");          // as if the art had not painted
           var p = guestBtnPt();
           log.hit = clickAt(p[0], p[1]);
-          setTimeout(function () { log.guestPrompt = guestOpen(); done(); }, 40);
+          setTimeout(function () { log.guestPrompt = guestOpen(); done(); }, 420);
         }, 1200);
       `, 1440, 900, null, (r) => r.hit !== undefined);
       check("an unpainted chooser cannot be clicked through",
@@ -289,7 +292,7 @@ if (!CHROME) {
           log.armed = armed();
           var p = guestBtnPt();
           log.hit = clickAt(p[0], p[1]);
-          setTimeout(function () { log.guestPrompt = guestOpen(); done(); }, 40);
+          setTimeout(function () { log.guestPrompt = guestOpen(); done(); }, 420);
         }, 5200);
       `, 1440, 900, { breakArt: true }, (r) => r.hit !== undefined);
       check("an artwork that never loads still arms the buttons", r && r.armed === true);

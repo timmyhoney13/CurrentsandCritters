@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.97";
-  const APP_BUILD   = "2026-08-27.2";
+  const APP_VERSION = "1.6.98";
+  const APP_BUILD   = "2026-08-27.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -10775,14 +10775,19 @@
 
   document.getElementById("pv-undo-btn").addEventListener("click", async () => {
     const undoInfo = (latestPayload && latestPayload.undo) || {};
-    // eligible_seat and active_action_seat are both seat indices
-    const isMidTurn = undoInfo.valid && undoInfo.eligible_seat === mySeatIdx && latestPayload?.active_action_seat === mySeatIdx;
+    // Whether this press restarts the turn in progress or takes back the last
+    // completed turn is the SERVER's call: it is the only side that knows whether
+    // a restore point for the current turn exists and whether anything has been
+    // done in it. Deciding it here from active_action_seat alone called every play
+    // made inside a multi-play window a "draw", and promised a turn restart the
+    // server was not always going to perform.
+    const isMidTurn = Boolean(undoInfo.can_restart_turn) && undoInfo.eligible_seat === mySeatIdx;
     // Competitive: the undo can belong to my other hand (the screen has already
     // moved on to the hand I play next), so name the hand being rewound.
     const otherHand = (compMode && undoInfo.eligible_seat != null && undoInfo.eligible_seat !== mySeatIdx)
       ? compGetHandName(undoInfo.eligible_seat) : "";
     const msg = isMidTurn
-      ? "Undo your draw? The drawn card(s) will be shuffled back into the deck and your turn restarts."
+      ? "Restart your turn? Everything you have played and paid for this turn goes back exactly where it came from, and you start the turn over."
       : otherHand
         ? `Undo ${otherHand}'s last turn? The game will revert to before that hand played.`
         : "Undo your last turn? The game will revert to before you played. (Bot turns are fine, this only locks once another human plays after you.)";
@@ -10807,7 +10812,7 @@
         undoOk = true;
         // True revert: each undone card goes back exactly where it came from
         // (the face-up pool or the deck), never duplicated, never left in hand.
-        showToast(isMidTurn ? "Draw undone, your card went back where it came from." : "Turn undone, your cards are back.", "ok");
+        showToast(isMidTurn ? "Turn restarted, every card you played and paid is back." : "Turn undone, your cards are back.", "ok");
       } else {
         showToast((r && r.error) || "Undo no longer available.", "err");
       }
@@ -18899,14 +18904,24 @@
 
 
     // ── Step navigation ──────────────────────────────────────────
-    const ALL_STEPS = [
-      "auth-step-choose","auth-step-guest","auth-step-nickname","auth-step-launch",
-    ];
+    // Two of the four steps are gone. PLAY AS GUEST used to open a dialog over
+    // this screen and CREATE YOUR USERNAME used to be a screen of its own; both
+    // are panes of the sign-in column now, so the ocean on the left never moves
+    // between the three things this screen can ask somebody for.
+    //
+    // The names survive the change. Everywhere in the app that says
+    // showStep("auth-step-nickname") still means "ask them to pick a name", and
+    // this is the one place that knows it does that by turning a pane over
+    // rather than by building a second screen.
+    const ALL_STEPS = ["auth-step-choose", "auth-step-launch"];
+    const STEP_AS_PANE = { "auth-step-nickname": "nickname", "auth-step-guest": "guest" };
 
     function showStep(stepId) {
+      const asPane = STEP_AS_PANE[stepId] || "";
+      const realStep = asPane ? "auth-step-choose" : stepId;
       ALL_STEPS.forEach(id => {
         const el = $a(id);
-        if (el) el.style.display = id === stepId ? "" : "none";
+        if (el) el.style.display = id === realStep ? "" : "none";
       });
       const scr = $a("auth-screen");
       scr.classList.remove("hidden");
@@ -18914,19 +18929,13 @@
       // floating game chrome that is gated on cc-signed-in (the back-to-full-
       // screen chip) goes away rather than floating over the artwork.
       document.body.classList.remove("cc-signed-in");
-      // The blurred backdrop belongs to CREATE YOUR USERNAME alone. The other
-      // three steps paint their own artwork edge to edge, so showing it under
-      // them would only put a second sea behind the first.
-      scr.classList.toggle("on-nickname", stepId === "auth-step-nickname");
-      if (stepId === "auth-step-choose") {
-        // The guest card closes with the screen it belongs to. Landing back
-        // on the chooser with it still open would put a dialog in front of the
-        // column that is supposed to be the whole choice.
-        const gol = $a("auth-guest-overlay");
-        if (gol) gol.classList.remove("visible");
-        // And the column goes back to the pane it opens on, without the
-        // animation: this is a screen arriving, not a pane turning over.
-        try { ccChooserPane("signin", { quiet: true }); } catch (_) {}
+      if (realStep === "auth-step-choose") {
+        // Landing on the chooser puts the column back on the pane it opens on,
+        // without the animation: this is a screen arriving, not a pane turning
+        // over. Unless a pane was asked for by name, in which case it DOES
+        // animate, because arriving at "pick your name" straight off a Google
+        // sign-in is a step forward through one screen.
+        try { ccChooserPane(asPane || "signin", { quiet: !asPane }); } catch (_) {}
         const gb = $a("auth-guest-btn"), gg = $a("auth-choose-google-btn");
         if (gb) gb.style.pointerEvents = "";
         if (gg) gg.style.pointerEvents = "";
@@ -21444,12 +21453,19 @@
     }
 
     // ── Guest flow ───────────────────────────────────────────────
-    // The guest card is a dialog laid over the sign-in artwork, so while it is
-    // up the two painted buttons underneath it are held inert: they are
-    // invisible boxes and the scrim does not stop a click reaching them.
+    // PLAY AS GUEST used to open a dialog over the sign-in artwork, and the
+    // interesting part of that dialog was everything it had to do BECAUSE it
+    // was a dialog: hold the two buttons showing through the scrim inert, own
+    // a scrim, own a copy of the painting, and answer Escape.
+    //
+    // It is a pane of the same column now. Asking somebody for a nickname is
+    // not an interruption, it is the next thing this screen has to say, so it
+    // is said in the place the screen says everything else. ccChooserPane()
+    // owns which pane is up, which means the guest form can no longer be left
+    // open behind anything or hidden behind anything.
 
     // Says what maxlength is silently enforcing, the same way the username
-    // card does. Reads the RAW length, because raw length is what maxlength
+    // pane does. Reads the RAW length, because raw length is what maxlength
     // caps, and a counter that disagreed with the cap would be worse than none.
     function paintGuestCount() {
       const inp = $a("auth-guest-nick"), out = $a("auth-guest-count");
@@ -21459,37 +21475,29 @@
       out.classList.toggle("is-full", n >= 15);
     }
 
-    function openGuestCard() {
-      $a("auth-guest-overlay").classList.add("visible");
-      $a("auth-guest-btn").style.pointerEvents = "none";
-      $a("auth-choose-google-btn").style.pointerEvents = "none";
-      setAuthMsg("auth-guest-err", "", true);
-      // Whatever the chooser was saying belongs to the chooser; it must not be
-      // left glowing under the scrim while this card is open.
-      setAuthMsg("auth-choose-err", "", true);
+    // Everything the guest pane needs on arrival. Called by ccChooserPane, so
+    // it runs however the pane was reached: the button, a deep link, or the
+    // column being put back where it was.
+    function ccPrimeGuestPane() {
+      const inp = $a("auth-guest-nick");
+      if (!inp) return;
       // Pre-filled with the last nickname used on this device, if there is one.
       // The stats are filed under the nickname, so handing it back is what
       // makes backing out of a sign-in cost nothing.
       let last = "";
       try { last = (localStorage.getItem(LAST_GUEST_NICK_KEY) || "").trim(); } catch (_) {}
-      $a("auth-guest-nick").value = validateNick(last) ? "" : last;
+      if (!inp.value) inp.value = validateNick(last) ? "" : last;
       paintGuestCount();
-      setTimeout(() => $a("auth-guest-nick").focus(), 60);
     }
 
-    function closeGuestCard() {
-      $a("auth-guest-overlay").classList.remove("visible");
-      $a("auth-guest-btn").style.pointerEvents = "";
-      $a("auth-choose-google-btn").style.pointerEvents = "";
-      // Backing out of the guest card is not a failed sign-in, so nothing it
-      // said stays behind on the artwork you land back on.
-      setAuthMsg("auth-guest-err", "", true);
-      setAuthMsg("auth-choose-err", "", true);
-    }
+    function openGuestCard()  { ccChooserPane("guest"); }
+    function closeGuestCard() { ccChooserPane("signin"); }
 
     $a("auth-guest-btn").addEventListener("click", openGuestCard);
     $a("auth-guest-back").addEventListener("click", closeGuestCard);
     $a("auth-guest-nick").addEventListener("input", paintGuestCount);
+    const _guestCreateBtn = $a("ao-guest-create");
+    if (_guestCreateBtn) _guestCreateBtn.addEventListener("click", () => ccChooserPane("create"));
     paintGuestCount();
 
     // ══ THE STAGHORN CORAL ══════════════════════════════════════════
@@ -21558,14 +21566,23 @@
         "ok");
     });
 
-    // Escape closes it, as a dialog should. A click on the scrim deliberately
-    // does NOT: what shows through it is CONTINUE WITH GOOGLE, painted into the
-    // artwork, and dismissing the card on a click aimed at that button would
-    // read as having signed in. Back is right there and says where it goes.
+    // Escape backs out of a pane you went INTO, the same as the Back button on
+    // it. Never off the sign-in pane (there is nowhere behind it) and never off
+    // the username pane: by the time that one is up the account exists and it
+    // needs a name, so there is nothing for Escape to mean.
+    const AO_ESCAPES_TO = { forgot: "signin", create: "signin", guest: "signin" };
+    // Set by wireChooserPanes: leaving the create pane has to wipe the password
+    // fields, and that belongs with the button that does it, not here.
+    let _aoEscapeCreate = null;
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
-      const ol = $a("auth-guest-overlay");
-      if (ol && ol.classList.contains("visible")) { e.stopPropagation(); closeGuestCard(); }
+      const step = $a("auth-step-choose");
+      if (!step || step.style.display === "none") return;
+      const back = AO_ESCAPES_TO[_aoPane];
+      if (!back) return;
+      e.stopPropagation();
+      if (_aoPane === "create" && _aoEscapeCreate) { _aoEscapeCreate(); return; }
+      ccChooserPane(back);
     }, true);
 
     async function beginCleanGoogleSignIn(errId) {
@@ -21761,8 +21778,21 @@
     // change is that the OCEAN DOES NOT MOVE: the painting on the left stays
     // exactly where it was, and the form on the right turns over in place,
     // which is why the animation lives on the pane and not on the screen.
-    const AO_PANES = { signin: "ao-pane-signin", create: "ao-pane-create" };
-    const AO_PANE_ORDER = ["signin", "create"];
+    // Five panes now, not two: the sign-in form, the way back into a forgotten
+    // password, the way to make an account, the guest door, and the name a
+    // brand-new account picks. Every one of them is the same column.
+    //
+    // The ORDER is not decoration. It is the only thing that decides which way
+    // a pane slides, and the movement is what tells somebody whether they went
+    // deeper into the screen or came back out of it.
+    const AO_PANES = {
+      signin:   "ao-pane-signin",
+      forgot:   "ao-pane-forgot",
+      create:   "ao-pane-create",
+      guest:    "ao-pane-guest",
+      nickname: "ao-pane-nickname",
+    };
+    const AO_PANE_ORDER = ["signin", "forgot", "create", "guest", "nickname"];
     let _aoPane = "signin";
     let _aoPaneTimer = null;
 
@@ -21812,8 +21842,13 @@
       }
       _aoPane = key;
 
-      // Whatever the other pane was saying belongs to the other pane.
+      // Whatever a pane was saying belongs to that pane. The column's shared
+      // line and the three a pane carries of its own are all wiped on the way
+      // through, so nothing is ever read as an answer to the wrong question.
       setAuthMsg("auth-choose-err", "", true);
+      ["auth-guest-err", "auth-nick-err", "ao-forgot-err"].forEach(id => {
+        if ($a(id)) setAuthMsg(id, "", true);
+      });
       if (key === "create") {
         // A guest who got here from the end of a game is carrying their
         // session with them; say so, since it is the whole reason they clicked.
@@ -21823,7 +21858,21 @@
         if (note) note.style.display = carrying ? "" : "none";
         ccPaintPwMeter();
       }
-      const focusId = key === "create" ? "ao-new-user" : "ao-user";
+      if (key === "guest")  ccPrimeGuestPane();
+      if (key === "forgot") {
+        // Carry across whatever they had already typed, so asking for a reset
+        // is not a reason to type your own name twice.
+        const from = $a("ao-user"), to = $a("ao-forgot-user");
+        if (from && to && !to.value) to.value = (from.value || "").trim();
+      }
+      const AO_PANE_FOCUS = {
+        signin:   "ao-user",
+        forgot:   "ao-forgot-user",
+        create:   "ao-new-user",
+        guest:    "auth-guest-nick",
+        nickname: "auth-nick-input",
+      };
+      const focusId = AO_PANE_FOCUS[key] || "ao-user";
       setTimeout(() => { try { $a(focusId).focus({ preventScroll: true }); } catch (_) {} }, 220);
     }
 
@@ -22050,20 +22099,26 @@
       return { ok: true, message: d.message || "Check your inbox for the confirmation link." };
     }
 
-    // Forgot password, from the sign-in pane. The answer is deliberately the
-    // same whether or not that username exists and whether or not it has an
-    // address on it: this screen must not be a way to ask which usernames are
-    // real.
+    // Forgot password, on its own pane. It used to be a button that did the
+    // whole thing in place: one click, and the only thing that happened was a
+    // sentence appearing under a form you had already half-filled. Asking for
+    // something is a step, so it gets a step's room, a step's heading and a
+    // step's way back.
+    //
+    // What it DOES is unchanged, including the part that matters most: the
+    // answer is deliberately the same whether or not that username exists and
+    // whether or not it has an address on it, because this screen must never
+    // become a way to ask which usernames are real.
     async function ccForgotPassword() {
-      const errId = "auth-choose-err";
-      const user = (($a("ao-user") || {}).value || "").trim();
+      const errId = "ao-forgot-err";
+      const user = (($a("ao-forgot-user") || {}).value || "").trim();
       if (!user) {
-        setAuthMsg(errId, "Type your username above first, then Forgot password.", "info");
-        try { $a("ao-user").focus(); } catch (_) {}
+        setAuthMsg(errId, "Type the username you sign in with.", "info");
+        try { $a("ao-forgot-user").focus(); } catch (_) {}
         return;
       }
-      const btn = $a("ao-forgot");
-      if (btn) btn.disabled = true;
+      const btn = $a("ao-forgot-go");
+      if (btn) { btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
       setAuthMsg(errId, "Looking for an email on that account\u2026", true);
       try {
         const r = await apiPost("/api/account/forgot-password", { username: user });
@@ -22075,7 +22130,7 @@
       } catch (_) {
         setAuthMsg(errId, "Could not reach the server. Try again in a moment.", false);
       } finally {
-        if (btn) btn.disabled = false;
+        if (btn) { btn.disabled = false; btn.removeAttribute("aria-busy"); }
       }
     }
 
@@ -22118,13 +22173,26 @@
       onEnter("ao-pass", () => { void inlineSignIn(); });
       wireEye("ao-eye", ["ao-pass"]);
       $a("ao-create").addEventListener("click", () => ccChooserPane("create"));
-      $a("ao-forgot").addEventListener("click", () => { void ccForgotPassword(); });
+      $a("ao-forgot").addEventListener("click", () => ccChooserPane("forgot"));
 
-      // ── Pane 2: create an account ──────────────────────────────────
-      $a("ao-back-signin").addEventListener("click", () => {
+      // ── Pane 2: a forgotten password ───────────────────────────────
+      const backFromForgot = () => ccChooserPane("signin");
+      $a("ao-back-forgot").addEventListener("click", backFromForgot);
+      $a("ao-forgot-signin").addEventListener("click", backFromForgot);
+      $a("ao-forgot-go").addEventListener("click", () => { void ccForgotPassword(); });
+      onEnter("ao-forgot-user", () => { void ccForgotPassword(); });
+
+      // ── Pane 3: create an account ──────────────────────────────────
+      // Two ways back off this pane, and they are not the same control: the
+      // pill at the top left is where you came from, the line at the foot is
+      // an offer to sign into an account you already have. Both leave by the
+      // same door, and neither leaves a password in a field behind them.
+      const backFromCreate = () => {
         ccClearCreateFields();
         ccChooserPane("signin");
-      });
+      };
+      $a("ao-back-create").addEventListener("click", backFromCreate);
+      $a("ao-back-signin").addEventListener("click", backFromCreate);
       $a("ao-new-go").addEventListener("click", () => { void ccPasswordCreate(); });
       $a("ao-new-google").addEventListener("click", () => { void ccGoogleSignIn("auth-choose-err"); });
       onEnter("ao-new-user",  () => $a("ao-new-pass").focus());
@@ -22150,24 +22218,17 @@
         out.classList.toggle("is-full", n >= 15);
       });
 
-      // Escape backs out of the create pane, the way it closed the dialog this
-      // replaced. There is nothing to dismiss on the sign-in pane, so it does
-      // nothing there rather than stealing the key from anything else.
-      document.addEventListener("keydown", (e) => {
-        if (e.key !== "Escape") return;
-        if (_aoPane !== "create") return;
-        const step = $a("auth-step-choose");
-        if (!step || step.style.display === "none") return;
-        e.stopPropagation();
-        ccClearCreateFields();
-        ccChooserPane("signin");
-      }, true);
+      // Escape is handled once, for every pane, next to the guest flow
+      // (AO_ESCAPES_TO). It leaves the create pane by this same function, so
+      // the key and the button cannot drift apart on the thing that matters:
+      // a password is never left sitting in a field on a shared computer.
+      _aoEscapeCreate = backFromCreate;
 
       ccPaintPwMeter();
     })();
 
     // Google sign-in is wired up earlier via #auth-choose-google-btn (chooser screen)
-    // Play as Guest is wired up via #auth-guest-btn → #auth-guest-go-btn flow.
+    // Play as Guest is wired up via #auth-guest-btn → #ao-pane-guest → #auth-guest-go-btn.
 
     // Handle redirect result from signInWithRedirect (fires on page load after Google redirect)
     if (_auth) {

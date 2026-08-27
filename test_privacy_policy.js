@@ -270,7 +270,9 @@ console.log("7. First sign-in is one screen");
   // Guest: name → in. Account: name → saved → in.
   check(/void finishNicknameSetup\(nick\);\n    \}\);/.test(APP),
         "saving a new username goes straight to the profile write");
-  check(/id="auth-step-nickname"/.test(HTML), "the username screen is still the first-run step");
+  // A pane of the sign-in column since the sign-in screen became one room;
+  // showStep("auth-step-nickname") still reaches it by that name.
+  check(/id="ao-pane-nickname"/.test(HTML), "the username screen is still the first-run step");
   check(/Create Your Username/.test(HTML), "the screen asks you to create a username");
 }
 

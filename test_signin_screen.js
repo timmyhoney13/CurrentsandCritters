@@ -11,13 +11,17 @@
  *      own 1600x2000 ratio (nothing cropped), sits inside the viewport, and
  *      never crosses the cut.
  *
- *   2. A DARK SLIT DOWN THE MIDDLE. The diagonal leaves a wedge of screen
- *      between the painting's cut edge and the sign-in column, and that wedge
- *      used to be the step's own flat navy: a third colour on a screen with two
- *      sides. The column paints nothing now and the step paints the field
- *      across the whole screen, so the wedge IS the column. Measured off a real
- *      screenshot: the pixels in the wedge have to match the pixels of the
- *      column beside them.
+ *   2. A BLACK TRIANGLE BESIDE THE PAINTING. The diagonal leaves a wedge of
+ *      screen between the painting's cut edge and the sign-in column, and that
+ *      wedge has been wrong twice. First it was the step's own flat navy, a
+ *      third colour on a screen with two sides, which read as a SLIT. Then it
+ *      was the column's own field, one colour with the column but the darkest
+ *      thing on the screen sitting hard against the brightest, which read as a
+ *      HOLE. Now the ocean carries on past the cut (.ao-seam) and fades into
+ *      the deep the column stands in. Measured off a real screenshot: nothing
+ *      in the wedge is darker than the column beside it, the water at the cut
+ *      is genuinely lit rather than merely not-black, and the run from the cut
+ *      to the column has no step in it anywhere.
  *
  *   3. CREATE AN ACCOUNT WAS A POP-UP. It is a second pane of the same column
  *      now: the ocean does not move, the form turns over. Measured as: the
@@ -64,14 +68,31 @@ console.log("\nthe whole painting, at every window shape");
         && !/object-position: 50% 2%/.test(CSS));
 }
 
-console.log("\none surface on the right, with no slit down the middle");
+console.log("\none surface on the right, with the ocean carried across the cut");
 {
   check("the step paints the column's field across the whole screen",
-        /#auth-step-choose\.auth-box \{[\s\S]{0,1400}?linear-gradient\(168deg, #0a1c33 0%, #061527 50%, #040f1e 100%\) !important;/.test(CSS));
+        /#auth-step-choose\.auth-box \{[\s\S]{0,1800}?linear-gradient\(168deg, #0a1c33 0%, #061527 50%, #040f1e 100%\) !important;/.test(CSS));
   check("…and the column itself paints nothing on top of it",
         /#auth-step-choose > \.ao-form \{[\s\S]{0,600}?background: transparent;/.test(CSS));
   check("the flat navy that used to fill the wedge is gone",
         !/background: #04101f !important;/.test(CSS));
+  // The wedge is FILLED now, not merely the same colour as its neighbour.
+  check("there is something painted in the wedge", /class="ao-seam"/.test(HTML));
+  check("…and it is the painting itself, carried on out of focus",
+        /#auth-step-choose > \.ao-seam::before \{[\s\S]{0,400}?auth-ocean\.jpg[\s\S]{0,200}?filter: blur\(/.test(CSS));
+  check("…faded out before its own box ends, so it draws no second edge",
+        /mask-image: linear-gradient\(96deg, #000 40%, rgba\(0,0,0,\.42\) 49%, rgba\(0,0,0,0\) 58%\)/.test(CSS));
+  // The box hugs the cut by arithmetic, not by a guessed angle: the cut runs
+  // 50% -> 44% of the SCREEN, and a box at left:44% width:22% puts its top end
+  // at (50-44)/22 of the box. Change one of those three and the light slides
+  // off the diagonal at some window shape nobody tested.
+  check("the seam box is pinned to the cut at every window shape",
+        /#auth-step-choose > \.ao-seam \{[\s\S]{0,400}?left: 44%;[\s\S]{0,200}?width: 22%;/.test(CSS)
+        && /#auth-step-choose > \.ao-seam \{[\s\S]{0,500}?clip-path: polygon\(27\.27% 0, 100% 0, 100% 100%, 0 100%\)/.test(CSS));
+  check("…and it is scenery: under the column, taking no clicks",
+        /#auth-step-choose > \.ao-seam \{[\s\S]{0,300}?z-index: 1;[\s\S]{0,120}?pointer-events: none;/.test(CSS));
+  check("the phone layout, which has no diagonal, has no wedge to fill either",
+        /#auth-step-choose > \.ao-seam \{ display: none; \}/.test(CSS));
 }
 
 console.log("\ncreate an account is a pane, not a pop-up");
@@ -82,11 +103,42 @@ console.log("\ncreate an account is a pane, not a pop-up");
         /id="ao-pane-signin"/.test(HTML) && /id="ao-pane-create"/.test(HTML));
   check("…and one function decides which is showing",
         /function ccChooserPane\(which, opts\)/.test(APP)
-        && /const AO_PANES = \{ signin: "ao-pane-signin", create: "ao-pane-create" \};/.test(APP));
+        && /const AO_PANE_ORDER = \["signin", "forgot", "create", "guest", "nickname"\];/.test(APP));
+  // Everything this screen can ask somebody for is a face of the same column
+  // now. Two of these used to be somewhere else entirely: PLAY AS GUEST was a
+  // dialog laid over the artwork, and CREATE YOUR USERNAME was a whole screen
+  // of its own with a second, blurred copy of the sea behind it.
+  ["ao-pane-signin", "ao-pane-forgot", "ao-pane-create", "ao-pane-guest", "ao-pane-nickname"]
+    .forEach(id => check(`…including ${id.replace("ao-pane-", "")}`,
+                         new RegExp(`id="${id}"`).test(HTML)));
+  check("the guest dialog is gone from every file",
+        !/auth-guest-overlay/.test(HTML + CSS)
+        && !/\bago-(card|head|title|rule|sub|lbl|count|back|field-top)\b/.test(HTML + CSS));
+  check("…and so is the username screen, and the backdrop that existed for it",
+        !/id="auth-step-nickname"/.test(HTML)
+        && !/class="auth-step-bg"/.test(HTML)
+        && !/on-nickname/.test(CSS));
+  check("…but showStep still knows what those two names mean",
+        /const STEP_AS_PANE = \{ "auth-step-nickname": "nickname", "auth-step-guest": "guest" \};/.test(APP));
   check("CREATE AN ACCOUNT turns the column over rather than opening anything",
         /\$a\("ao-create"\)\.addEventListener\("click", \(\) => ccChooserPane\("create"\)\);/.test(APP));
-  check("…and there is a way back to signing in",
-        /\$a\("ao-back-signin"\)\.addEventListener\("click", \(\) => \{[\s\S]{0,140}?ccChooserPane\("signin"\);/.test(APP));
+  // Two ways back off the create pane, and they are not the same control: the
+  // pill at the top left is where you came FROM, the line at the foot is an
+  // offer to sign into an account you already have. Both go through one
+  // function, so neither can start leaving a password in a field behind it.
+  check("…and there is a Back button on it, on the heading's own line",
+        /<div class="ao-head-row">[\s\S]{0,700}?id="ao-back-create"[\s\S]{0,700}?<div class="ao-h">Create an Account<\/div>/.test(HTML));
+  check("…which leaves by the same door as the line at the foot of the pane",
+        /\$a\("ao-back-create"\)\.addEventListener\("click", backFromCreate\);/.test(APP)
+        && /\$a\("ao-back-signin"\)\.addEventListener\("click", backFromCreate\);/.test(APP)
+        && /const backFromCreate = \(\) => \{[\s\S]{0,120}?ccClearCreateFields\(\);[\s\S]{0,80}?ccChooserPane\("signin"\);/.test(APP));
+  check("…and the guest and reset panes carry the same control",
+        /id="ao-back-forgot"/.test(HTML) && /id="auth-guest-back"/.test(HTML));
+  // Beside the heading, not above it. Stacked, the pill cost fifty pixels,
+  // which is exactly what put CREATE ACCOUNT below the fold on a 1366x768
+  // laptop; test_account_signin.js measures that fold for real.
+  check("…on the heading's line, because above it the pane got too tall",
+        /#auth-step-choose \.ao-head-row \{[\s\S]{0,200}?display: flex;[\s\S]{0,200}?align-items: center;/.test(CSS));
   check("the pane arrives with an animation, and leaves with one",
         /@keyframes aoPaneIn \{/.test(CSS) && /@keyframes aoPaneOut \{/.test(CSS)
         && /#auth-step-choose \.ao-pane \{ animation: aoPaneIn/.test(CSS));
@@ -249,44 +301,58 @@ try {
     check("…and the step declares the gradient field", r && /linear-gradient/.test(r.stepBg || ""));
     if (fs.existsSync(shot)) {
       // The wedge is between the painting's cut edge and the column's left
-      // edge. Sample a row across it and compare it to the column just to the
-      // right: one surface means one colour.
+      // edge. Walk a row from just clear of the lit line all the way into the
+      // column and ask three things of it: nothing in it is darker than the
+      // column (that was the SLIT), the water right at the cut is genuinely
+      // lit rather than merely not-black (that was the HOLE), and the walk has
+      // no step in it anywhere (that would be a new edge).
       const py = `
 import json, sys
 from PIL import Image
 im = Image.open(${JSON.stringify(shot)}).convert("RGB")
 W, H = im.size
 px = im.load()
+def lum(c): return (c[0] + c[1] + c[2]) / 3.0
 out = []
 for frac in (0.30, 0.55, 0.80, 0.95):
     y = int(H * frac)
     # the cut runs from 50% at the top to 44% at the bottom, in CSS pixels;
     # the screenshot may be scaled, so work in fractions of the width.
     cut = (0.50 - 0.06 * frac)
-    x_wedge0 = int(W * (cut + 0.012))     # clear of the lit edge line
-    x_wedge1 = int(W * 0.495)
-    col = [px[x, y] for x in range(int(W * 0.52), int(W * 0.60))]
-    wedge = [px[x, y] for x in range(x_wedge0, x_wedge1)]
-    if not wedge or not col: continue
-    def mean(v): return [sum(c[i] for c in v) / len(v) for i in range(3)]
-    mw, mc = mean(wedge), mean(col)
-    darkest = min(sum(c) for c in wedge) / 3.0
-    colmean = sum(mc) / 3.0
-    out.append({"y": frac, "wedge": mw, "col": mc,
-                "diff": max(abs(a - b) for a, b in zip(mw, mc)),
-                "darkest": darkest, "colmean": colmean})
+    x0 = int(W * (cut + 0.012))           # clear of the lit edge line
+    # The GUTTER is what this is about: the empty field between the cut and
+    # the first thing the column draws (.ao-form-inner starts at 56% of the
+    # width at this window size). Sampling past it walks over the SIGN IN
+    # button and measures the button.
+    col = [px[x, y] for x in range(int(W * 0.525), int(W * 0.55))]
+    at_cut = [px[x, y] for x in range(x0, x0 + max(2, int(W * 0.012)))]
+    if not col or not at_cut: continue
+    colmean = sum(lum(c) for c in col) / len(col)
+    cutmean = sum(lum(c) for c in at_cut) / len(at_cut)
+    # the whole run, cut -> column, in 0.4%-of-width samples
+    walk = [lum(px[x, y]) for x in range(x0, int(W * 0.55), max(1, int(W * 0.004)))]
+    darkest = min(walk)
+    # A slit is a DIP: somewhere between the painting and the column that is
+    # darker than the field it lands in. The fade itself is not a dip, so the
+    # thing to compare against is where the walk ENDS, not its own average.
+    ends = walk[-1]
+    jump = max(abs(b - a) for a, b in zip(walk, walk[1:])) if len(walk) > 1 else 0
+    out.append({"y": frac, "colmean": colmean, "cutmean": cutmean,
+                "darkest": darkest, "ends": ends, "jump": jump})
 print(json.dumps(out))
 `;
       let rows = [];
       try { rows = JSON.parse(execFileSync("python3", ["-c", py], { encoding: "utf8" })); }
       catch (e) { check("the screenshot could be read", false, String(e && e.message)); }
       for (const row of rows) {
-        check(`at ${Math.round(row.y * 100)}% down: the wedge is the same colour as the column`,
-              row.diff < 9,
-              `wedge ${row.wedge.map(Math.round)} vs column ${row.col.map(Math.round)}`);
-        check(`…and nothing in it is a dark slit`,
-              row.darkest > row.colmean - 9,
-              `darkest ${row.darkest.toFixed(1)} vs column ${row.colmean.toFixed(1)}`);
+        check(`at ${Math.round(row.y * 100)}% down: nothing beside the painting is a dark slit`,
+              row.darkest > row.ends - 3,
+              `darkest ${row.darkest.toFixed(1)} vs where it lands ${row.ends.toFixed(1)}`);
+        check(`…and the water at the cut is lit, not a hole punched in the page`,
+              row.cutmean > row.colmean + 12,
+              `at the cut ${row.cutmean.toFixed(1)} vs column ${row.colmean.toFixed(1)}`);
+        check(`…and the run from the cut across the field has no step in it`,
+              row.jump < 9, `biggest jump ${row.jump.toFixed(1)}`);
       }
       try { fs.unlinkSync(shot); } catch (_) {}
     } else {

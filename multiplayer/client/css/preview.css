@@ -6000,6 +6000,10 @@
          paints nothing itself now, so the wedge and the column are one
          continuous surface with no seam to notice. */
       background:
+        /* The light off the cut. First in the stack, so it is the top layer:
+           the deep water beside the painting is LIT by the painting, which is
+           what stops the diagonal reading as the edge of a hole. */
+        radial-gradient(64% 88% at 43% 48%, rgba(58,152,216,.30), rgba(14,60,104,.13) 40%, rgba(0,0,0,0) 74%),
         radial-gradient(38% 58% at 91% 4%, rgba(32,116,192,.28), rgba(0,0,0,0) 62%),
         radial-gradient(35% 52% at 56% 104%, rgba(16,84,150,.22), rgba(0,0,0,0) 60%),
         linear-gradient(168deg, #0a1c33 0%, #061527 50%, #040f1e 100%) !important;
@@ -6030,7 +6034,7 @@
     #auth-step-choose > .ao-art::before {
       content: "";
       position: absolute; inset: -8%;
-      background: url("/auth-ocean.jpg?v=2026-08-27.2") center/cover no-repeat;
+      background: url("/auth-ocean.jpg?v=2026-08-27.3") center/cover no-repeat;
       filter: blur(26px) saturate(1.12) brightness(.94);
       pointer-events: none;
     }
@@ -6079,6 +6083,81 @@
               clip-path: polygon(50% 0, 50.28% 0, 44.28% 100%, 44% 100%);
       filter: drop-shadow(0 0 12px rgba(140,225,255,.55))
               drop-shadow(0 0 30px rgba(60,170,255,.30));
+    }
+
+    /* ── The water on the other side of the cut ─────────────────────
+       THE BLACK TRIANGLE. The diagonal leaves a wedge of screen between the
+       painting's cut edge and the sign-in column, and painting that wedge the
+       same navy as the column was only half the answer: it stopped being a
+       SLIT (a third colour down the middle) and started being a HOLE (the
+       darkest thing on the screen, hard up against the brightest). The eye
+       reads an unfinished page either way.
+
+       So the ocean carries on past the cut. This box hugs the diagonal exactly
+       at every window shape, and that exactness is the whole reason it is
+       positioned the way it is: the cut runs 50% → 44% of the SCREEN, and
+       clip-path percentages are read against the ELEMENT, so a box pinned at
+       left:44% width:22% puts the cut's top end at (50-44)/22 = 27.27% of its
+       own width and the bottom end at 0. No angle to guess, no aspect ratio to
+       assume, and nothing to keep in step if the 88% on .ao-art ever moves.
+
+       Three layers, deepest first:
+         ::before  the painting itself, thrown out of focus and sunk, so what
+                   is beside the picture is the picture's own water and not a
+                   colour somebody picked to be near it;
+         ::after   the sun coming through it, brightest on the cut;
+         the box   the fade into the deep, which is what hands the eye over to
+                   the column instead of stopping it dead. */
+    #auth-step-choose > .ao-seam {
+      position: absolute;
+      top: 0; bottom: 0; left: 44%;
+      width: 22%;
+      z-index: 1;
+      pointer-events: none;
+      overflow: hidden;
+      -webkit-clip-path: polygon(27.27% 0, 100% 0, 100% 100%, 0 100%);
+              clip-path: polygon(27.27% 0, 100% 0, 100% 100%, 0 100%);
+    }
+    /* The painting, continued. Blurred hard and sunk almost to the colour of
+       the column, then masked away to nothing across the width of the wedge,
+       so there is no second edge where the water stops. inset is negative
+       because a blur inside a box pulls the box's own transparent edges in
+       with it, which would draw the one thing this exists to remove. */
+    #auth-step-choose > .ao-seam::before {
+      content: "";
+      position: absolute; inset: -40% -60%;
+      background: url("/auth-ocean.jpg?v=2026-08-27.3") center/cover no-repeat;
+      filter: blur(38px) saturate(1.04) brightness(.42);
+      /* 96deg is not a guess: a gradient at that angle has iso-lines running
+         dx/dy = -0.105, and the cut runs -0.06W/H, which is -0.096 to -0.107
+         across every window shape this screen is used at. So the fade runs
+         PARALLEL to the cut, and the whole diagonal gets the same water from
+         top to bottom instead of the top being darker than the bottom.
+
+         The stops are read against this pseudo-element's own box (which is
+         much bigger than the wedge, so the blur has room to be a blur), where
+         the cut lands at ~37% and the wedge's far edge at ~60%. Gone by 58%,
+         so the water is already at nothing before the box it is in ends: a
+         mask that was still painting at the edge would draw the one hard line
+         this whole rule exists to remove. */
+      -webkit-mask-image: linear-gradient(96deg, #000 40%, rgba(0,0,0,.42) 49%, rgba(0,0,0,0) 58%);
+              mask-image: linear-gradient(96deg, #000 40%, rgba(0,0,0,.42) 49%, rgba(0,0,0,0) 58%);
+    }
+    /* The sun on it. A narrow, soft lift that sits ON the cut and is gone a
+       fifth of the way across, so the lit line reads as light lying on water
+       rather than as a rule drawn around a gap. */
+    #auth-step-choose > .ao-seam::after {
+      content: "";
+      position: absolute; inset: 0;
+      /* Same angle, same reason. Held flat to 34% because that is as far along
+         its own box as the cut ever gets (a very wide window puts it at 19%, a
+         squarish one at 32%), so the light sits ON the diagonal at every shape
+         rather than a little to one side of it. */
+      background: linear-gradient(96deg,
+        rgba(150,222,255,.30) 0%,
+        rgba(126,206,250,.26) 34%,
+        rgba(58,142,206,.11) 52%,
+        rgba(0,0,0,0) 74%);
     }
 
     /* ── The lettering ──────────────────────────────────────────────
@@ -6343,7 +6422,8 @@
        Both cards are children of this step and both carry an .auth-err of their
        own; a descendant rule here reaches into them and restyles the line that
        tells a guest their nickname is taken. */
-    #auth-step-choose .ao-form-inner > .auth-err {
+    #auth-step-choose .ao-form-inner > .auth-err,
+    #auth-step-choose .ao-pane > .auth-err {
       margin-top: 16px;
       display: none;
       align-items: flex-start; gap: 9px;
@@ -6355,17 +6435,22 @@
       font-size: 14.5px; font-weight: 700; line-height: 1.4;
       text-align: left;
     }
-    #auth-step-choose .ao-form-inner > .auth-err.is-on { display: flex; }
-    #auth-step-choose .ao-form-inner > .auth-err .auth-note-ico { flex: 0 0 auto; opacity: .95; }
-    #auth-step-choose .ao-form-inner > .auth-err.is-info {
+    #auth-step-choose .ao-form-inner > .auth-err.is-on,
+    #auth-step-choose .ao-pane > .auth-err.is-on { display: flex; }
+    #auth-step-choose .ao-form-inner > .auth-err .auth-note-ico,
+    #auth-step-choose .ao-pane > .auth-err .auth-note-ico { flex: 0 0 auto; opacity: .95; }
+    #auth-step-choose .ao-form-inner > .auth-err.is-info,
+    #auth-step-choose .ao-pane > .auth-err.is-info {
       border-color: rgba(94,200,255,.34);
       background: rgba(16,70,116,.38); color: #cfeaff;
     }
-    #auth-step-choose .ao-form-inner > .auth-err.is-ok {
+    #auth-step-choose .ao-form-inner > .auth-err.is-ok,
+    #auth-step-choose .ao-pane > .auth-err.is-ok {
       border-color: rgba(96,220,170,.34);
       background: rgba(12,74,58,.38); color: #ccf6e6;
     }
-    #auth-step-choose .ao-form-inner > .auth-err.is-warn {
+    #auth-step-choose .ao-form-inner > .auth-err.is-warn,
+    #auth-step-choose .ao-pane > .auth-err.is-warn {
       border-color: rgba(255,206,110,.34);
       background: rgba(94,66,12,.38); color: #ffeec6;
     }
@@ -6495,6 +6580,79 @@
       color: #b8f0d8;
     }
     #auth-step-choose .ao-note-ico { font-size: 14px; line-height: 1.2; }
+    /* Three tones, because the panes say three different kinds of thing in
+       one: what you are being given (green), what you should know before you
+       choose (amber), and a plain aside (blue). The colour is carried by the
+       left rule and a wash, never by the text, so every one of them stays at
+       the same contrast on the same dark water. */
+    #auth-step-choose .ao-note.is-warn {
+      background: rgba(255,196,90,.13);
+      box-shadow: inset 3px 0 0 rgba(255,196,90,.62);
+      color: #ffe3ae;
+    }
+    #auth-step-choose .ao-note.is-info {
+      background: rgba(94,200,255,.12);
+      box-shadow: inset 3px 0 0 rgba(94,200,255,.58);
+      color: #cfeaff;
+    }
+    #auth-step-choose .ao-note strong { color: #fff; font-weight: 800; }
+    #auth-step-choose .ao-note .cc-coin {
+      width: 13px; height: 13px; vertical-align: -2px;
+    }
+
+    /* ── Back ───────────────────────────────────────────────────────
+       The one control that undoes the step you just took, in the one place it
+       belongs: top left of the pane, above the heading, left-aligned with the
+       fields under it so the pane still reads as one column.
+
+       Deliberately NOT the line at the foot of the pane. "Already have an
+       account? Sign In" is an offer to do a different thing; this is the way
+       out of where you are, and a screen that only offers the first is a
+       screen you can get stuck in. It is quiet on purpose (a hairline pill,
+       not a button), because the loud button on every one of these panes has
+       to be the one that finishes what you came to do. */
+    /* On the heading's own line, not above it. Stacked, the pill cost this
+       column fifty pixels of height, and fifty pixels is exactly what put
+       CREATE ACCOUNT below the fold on a 1366x768 laptop: the one button on
+       that pane that has to be reachable without scrolling. Beside the
+       heading it costs nothing, and a control on the same line as the title
+       it undoes is the more ordinary thing anyway. */
+    #auth-step-choose .ao-head-row {
+      display: flex; align-items: center;
+      gap: clamp(10px, 1vw, 15px);
+      flex-wrap: wrap;
+    }
+    #auth-step-choose .ao-head-row .ao-h { flex: 1 1 auto; min-width: 0; }
+    #auth-step-choose .ao-back {
+      display: inline-flex; align-items: center; gap: 7px;
+      flex: 0 0 auto;
+      height: 34px;
+      padding: 0 15px 0 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(146,190,232,.22);
+      background: rgba(255,255,255,.032);
+      color: #cfe4f7;
+      font-family: "Nunito", sans-serif;
+      font-size: 12.5px; font-weight: 800;
+      letter-spacing: .10em; text-transform: uppercase;
+      cursor: pointer;
+      transition: background .15s, border-color .15s, color .15s, transform .08s;
+    }
+    #auth-step-choose .ao-back svg {
+      flex: 0 0 auto;
+      transition: transform .18s cubic-bezier(.2,.9,.3,1.05);
+    }
+    #auth-step-choose .ao-back:hover {
+      background: rgba(255,255,255,.075);
+      border-color: rgba(146,190,232,.44);
+      color: #fff;
+    }
+    #auth-step-choose .ao-back:hover svg { transform: translateX(-3px); }
+    #auth-step-choose .ao-back:active { transform: translateY(1px); }
+    #auth-step-choose .ao-back:focus-visible { outline: 2px solid #7ee2ff; outline-offset: 3px; }
+    @media (prefers-reduced-motion: reduce) {
+      #auth-step-choose .ao-back svg { transition: none; }
+    }
 
     #auth-step-choose .ao-primary[aria-busy="true"] { cursor: progress; }
 
@@ -6502,14 +6660,25 @@
        buttons. Its rhythm is one notch tighter than the sign-in pane's, which
        is what keeps CREATE ACCOUNT above the fold on a laptop screen. */
     #auth-step-choose #ao-pane-create .ao-lbl,
-    #auth-step-choose #ao-pane-create .ao-lbl-row { margin-top: clamp(11px, 1.15vw, 17px); }
-    #auth-step-choose #ao-pane-create .ao-lbl { margin-bottom: 6px; }
-    #auth-step-choose #ao-pane-create .ao-lbl-row .ao-lbl { margin-top: 0; }
-    #auth-step-choose #ao-pane-create .ao-field { height: clamp(44px, 3.2vw, 52px); }
-    #auth-step-choose #ao-pane-create .ao-primary { height: clamp(46px, 3.4vw, 54px); }
-    #auth-step-choose #ao-pane-create .ao-sub { margin-top: 8px; }
+    #auth-step-choose #ao-pane-nickname .ao-lbl,
+    #auth-step-choose #ao-pane-create .ao-lbl-row,
+    #auth-step-choose #ao-pane-nickname .ao-lbl-row { margin-top: clamp(11px, 1.15vw, 17px); }
+    #auth-step-choose #ao-pane-create .ao-lbl,
+    #auth-step-choose #ao-pane-nickname .ao-lbl { margin-bottom: 6px; }
+    #auth-step-choose #ao-pane-create .ao-lbl-row .ao-lbl,
+    #auth-step-choose #ao-pane-nickname .ao-lbl-row .ao-lbl { margin-top: 0; }
+    #auth-step-choose #ao-pane-create .ao-field,
+    #auth-step-choose #ao-pane-nickname .ao-field { height: clamp(44px, 3.2vw, 52px); }
+    #auth-step-choose #ao-pane-create .ao-primary,
+    #auth-step-choose #ao-pane-nickname .ao-gold { height: clamp(46px, 3.4vw, 54px); }
+    #auth-step-choose #ao-pane-create .ao-sub,
+    #auth-step-choose #ao-pane-nickname .ao-sub { margin-top: 8px; }
     #auth-step-choose #ao-pane-create .ao-or { margin: clamp(12px, 1.3vw, 18px) 0; }
     #auth-step-choose #ao-pane-create .ao-hint { margin-top: 6px; }
+    /* The gold button ends these two panes rather than the blue one, so it
+       needs the top margin .ao-primary carries and .ao-gold does not. */
+    #auth-step-choose #ao-pane-guest .ao-gold,
+    #auth-step-choose #ao-pane-nickname .ao-gold { margin-top: clamp(16px, 1.8vw, 26px); }
 
     /* ── Held inert until the art has painted ───────────────────────
        armChooseStep() in preview-app.js adds .is-armed once the painting has
@@ -6545,7 +6714,10 @@
          kelp and half the critters cut off it, and "all of it, at every size"
          has to mean every size. */
       #auth-step-choose .ao-art-img { width: 100%; }
+      /* No diagonal down here, so neither the lit edge nor the water that
+         fills the wedge it leaves has anything to be. */
       #auth-step-choose::after { display: none; }
+      #auth-step-choose > .ao-seam { display: none; }
       #auth-step-choose > .ao-copy {
         position: absolute;
         left: 0; width: 100%;
@@ -6579,285 +6751,11 @@
       #auth-step-choose .ao-art > .auth-coral-secret { width: max(38px, 15%); }
     }
 
-    /* ══ GUEST SIGN-IN CARD ═════════════════════════════════════════
-       The other half of first sign-in. An account holder clicks CONTINUE WITH
-       GOOGLE and lands on CREATE YOUR USERNAME; a guest clicks PLAY AS GUEST
-       and lands here, and the two are asked for the same thing, so they are
-       drawn the same way: pale sea-glass card, navy lettering, one butter-gold
-       button. The tokens are lifted from #auth-step-nickname deliberately.
-
-       This used to be a dark slab pinned inside the octagon printed on
-       login-bg.png, at 33%/41%/34% of a fixed-aspect step. It was translucent
-       over painted text, so the artwork's own SIGN IN OR CREATE AN ACCOUNT read
-       straight through it, and its button was invisible (see the > note above).
-       A dialog over a scrim owes nothing to where the art happens to be. */
-    #auth-guest-overlay {
-      --ag-ink:      #123a68;
-      --ag-ink-soft: #3f6d96;
-      --ag-teal:     #1c7fab;
-      --ag-line:     rgba(31,105,160,.22);
-      --ag-gold:     #e8b34a;
-
-      display: none;
-      /* Fixed, not absolute: #auth-step-choose is a letterboxed box of the
-         artwork's own aspect ratio, so an absolute scrim would stop at the
-         navy bars instead of dimming the screen. */
-      position: fixed; inset: 0; z-index: 30;
-      align-items: center; justify-content: center;
-      padding: 20px;
-      /* The floor under the scenery, for the instant before the art paints:
-         the same deep navy the chooser's own letterbox fill sits on. */
-      background: #0a1d3a;
-    }
-    #auth-guest-overlay.visible { display: flex; }
-
-    /* ── The room the card stands in ────────────────────────────────
-       The SIGN-IN PAINTING, exactly as the chooser shows it, with a scrim over
-       it. These cards open ON that screen, so the room does not change when one
-       does: the same eight oceans in the same places at the same size, dimmed
-       back a stop, and a card in front of them.
-
-       It is built the way the chooser builds it, because it has to match it
-       pixel for pixel or opening a card would look like a cut to somewhere
-       else: ::before is the blurred copy that fills the letterbox, ::after is
-       the painting itself, letterboxed to its own ratio, with the scrim laid
-       on top of it in the same declaration (a gradient listed BEFORE an image
-       paints in front of it).
-
-       The card lands over the octagon, and at every size it is about as wide
-       as the two buttons painted into it, so what a player sees is the panel
-       they were just looking at with the question they just asked sitting in
-       it. What it replaces is kelp-forest.png: a different painting on either
-       side of one step, and a room change nobody asked for. */
-    #auth-guest-overlay::before {
-      content: ""; position: fixed; inset: -6vmax;
-      background: #0a1d3a url("/auth-ocean.jpg?v=2026-08-27.2") center / cover no-repeat;
-      filter: blur(34px) saturate(1.12) brightness(.66);
-      pointer-events: none;
-    }
-    /* The painting itself, with the scrim over it. The gradient is listed FIRST
-       so it paints IN FRONT of the image: one element, one declaration, no
-       third layer to keep in order.
-
-       cover, not contain: the sign-in painting is a tall panel that fills half
-       a wide screen, and letterboxing it whole behind a card would show the
-       card standing on two navy bars. Covering the window keeps it water.
-
-       The scrim is doing real work, not mood. The screen underneath carries a
-       live form and three buttons, and a form that still looks usable behind an
-       open card is the one way this screen can be misread. Dimmed this far it
-       reads as the room, not as a choice. */
-    #auth-guest-overlay::after {
-      content: ""; position: fixed; inset: 0;
-      background:
-        /* The pool the card stands in, centred on the card. The water around
-           it stays as bright as it was painted, which is the whole reason for
-           using the picture here instead of a flat scrim. */
-        radial-gradient(ellipse 49% 66% at 50% 50%,
-          rgba(3,20,42,.93) 0%, rgba(3,20,42,.90) 42%,
-          rgba(4,26,50,.52) 74%, rgba(4,26,50,.44) 100%),
-        /* …and a light vignette to settle the corners. */
-        radial-gradient(ellipse 124% 106% at 50% 46%,
-          rgba(6,32,60,.04) 0%, rgba(6,32,60,.13) 58%, rgba(4,24,48,.44) 100%),
-        url("/auth-ocean.jpg?v=2026-08-27.2") center / cover no-repeat;
-      pointer-events: none;
-    }
-
-    /* ── A phone-shaped window ───────────────────────────────────────
-       The painting letterboxes into a band there, and a card takes up most of
-       the screen, so all a sharp copy adds is two slivers of ocean poking out
-       beside the card and a ghost of the title behind it. Down here the room
-       is the blurred water alone, which is exactly what the chooser shows at
-       this shape too. The line is the chooser's line, for the same reason. */
-    @media (max-aspect-ratio: 4/5), (max-width: 640px) {
-      #auth-guest-overlay::after,
-      #auth-screen .auth-step-bg::after {
-        background:
-          radial-gradient(ellipse 120% 102% at 50% 46%,
-            rgba(4,26,50,.26) 0%, rgba(4,26,50,.40) 62%, rgba(3,20,42,.64) 100%);
-      }
-    }
-
-    #auth-guest-overlay .ago-card {
-      /* Positioned so the card owns the coordinate space its children measure
-         against, the way #auth-screen > .auth-box does for the other steps,
-         and so it stacks in FRONT of the scenery the overlay paints. */
-      position: relative; z-index: 1;
-      width: 100%; max-width: 404px;
-      box-sizing: border-box;
-      padding: 28px 28px 24px;
-      border-radius: 24px;
-      border: 1.5px solid rgba(255,255,255,.9);
-      background: linear-gradient(168deg,
-                    rgba(250,253,255,.97) 0%,
-                    rgba(230,245,253,.95) 56%,
-                    rgba(215,238,251,.95) 100%);
-      /* The halo is what keeps a pale card off a busy kelp forest: a rim of
-         its own light, then the shadow that lifts it off the water. */
-      box-shadow: 0 0 0 1px rgba(20,80,130,.2),
-                  0 0 46px rgba(28,127,171,.38),
-                  0 30px 70px rgba(3,26,52,.55),
-                  inset 0 1px 0 rgba(255,255,255,.95);
-      text-align: center;
-      /* A short window scrolls the card rather than clipping the button off it. */
-      max-height: min(94vh, 720px);
-      overflow-y: auto; overscroll-behavior: contain;
-      animation: ago-rise .22s cubic-bezier(.2,.9,.3,1.05);
-    }
-    @keyframes ago-rise {
-      from { opacity: 0; transform: translateY(10px) scale(.98); }
-      to   { opacity: 1; transform: none; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      #auth-guest-overlay .ago-card { animation: none; }
-    }
-
-    /* ── Heading ────────────────────────────────────── */
-    #auth-guest-overlay .ago-head { margin-bottom: 18px; }
-    #auth-guest-overlay .ago-title {
-      font-family: "Baloo 2", "Nunito", sans-serif;
-      font-weight: 800; font-size: clamp(1.42rem, 5vw, 1.72rem);
-      line-height: 1.12; letter-spacing: .2px;
-      color: var(--ag-ink); text-shadow: 0 1px 0 rgba(255,255,255,.8);
-    }
-    /* The same gold swash the username card wears, echoing PLAY AS GUEST. */
-    #auth-guest-overlay .ago-rule {
-      width: 64px; height: 3px; margin: 10px auto 12px; border-radius: 2px;
-      background: linear-gradient(90deg,
-                    rgba(232,179,74,0), var(--ag-gold) 50%, rgba(232,179,74,0));
-    }
-    #auth-guest-overlay .ago-sub {
-      color: var(--ag-ink-soft);
-      font-size: 13px; line-height: 1.5;
-      max-width: 32ch; margin: 0 auto;
-      text-wrap: balance;
-    }
-
-    /* ── Labelled field ──────────────────────────────── */
-    #auth-guest-overlay .ago-field-top {
-      display: flex; align-items: baseline; justify-content: space-between;
-      gap: 10px; margin-bottom: 6px;
-    }
-    #auth-guest-overlay .ago-lbl {
-      font-size: 10.5px; font-weight: 800;
-      letter-spacing: 1px; text-transform: uppercase;
-      color: var(--ag-teal);
-    }
-    #auth-guest-overlay .ago-count {
-      font-size: 10.5px; font-weight: 800; letter-spacing: .4px;
-      font-variant-numeric: tabular-nums;
-      color: rgba(63,109,150,.6);
-      transition: color .15s;
-    }
-    #auth-guest-overlay .ago-count.is-full { color: #b07a10; }
-
-    #auth-guest-overlay .pv-input {
-      display: block; width: 100%; box-sizing: border-box;
-      background: #fff;
-      border: 1.5px solid rgba(31,105,160,.28);
-      border-radius: 12px;
-      color: var(--ag-ink);
-      font-weight: 700;
-      font-size: 16px;              /* 16px keeps iOS from zooming on focus */
-      padding: 12px 14px;
-      box-shadow: inset 0 1px 3px rgba(16,58,104,.07);
-      transition: border-color .16s, box-shadow .16s;
-    }
-    #auth-guest-overlay .pv-input::placeholder {
-      color: rgba(63,109,150,.5); font-weight: 600;
-    }
-    #auth-guest-overlay .pv-input:focus {
-      border-color: #35a8d4;
-      box-shadow: 0 0 0 3px rgba(53,168,212,.2), inset 0 1px 3px rgba(16,58,104,.05);
-    }
-
-    /* setAuthMsg() overwrites className outright, so this is styled by what it
-       IS, never by an extra class a status update would wipe. */
-    #auth-guest-overlay .auth-err,
-    #auth-guest-overlay .auth-ok {
-      text-align: left; font-size: 11.5px; font-weight: 700;
-      min-height: 15px; padding-top: 5px; line-height: 1.35;
-    }
-    /* Said the way the note row under it is said: a tinted rounded row with a
-       coloured edge, not a naked line of red on the sea glass. Empty is the
-       normal state and :empty is how it stays invisible, since setAuthMsg()
-       writes "" rather than removing the element. */
-    #auth-guest-overlay .auth-err:not(:empty),
-    #auth-guest-overlay .auth-ok:not(:empty) {
-      margin-top: 7px; padding: 7px 10px;
-      border-radius: 10px;
-    }
-    #auth-guest-overlay .auth-err { color: #8d2033; }
-    #auth-guest-overlay .auth-ok { color: #0d6b52; }
-    #auth-guest-overlay .auth-err:not(:empty) {
-      background: rgba(198,74,74,.11);
-      box-shadow: inset 3px 0 0 rgba(176,36,60,.5);
-    }
-    #auth-guest-overlay .auth-ok:not(:empty) {
-      background: rgba(28,171,131,.12);
-      box-shadow: inset 3px 0 0 rgba(16,121,92,.45);
-    }
-
-    /* ── The one button ────────────────────────────────
-       Butter gold with dark ink: PLAY AS GUEST on the screen before this, not
-       the dark mustard .pv-btn.gold wears on the game's dark panels. */
-    #auth-guest-overlay .pv-btn.gold {
-      display: block; width: 100%;
-      margin-top: 18px; padding: 14px 18px;
-      font-family: "Baloo 2", "Nunito", sans-serif;
-      font-size: 15px; font-weight: 800; letter-spacing: .3px;
-      color: #4a3208; text-shadow: 0 1px 0 rgba(255,255,255,.45);
-      background: linear-gradient(180deg, #ffdf9d 0%, #f5c261 52%, #eeb043 100%);
-      border: 1.5px solid rgba(190,132,26,.55);
-      border-radius: 14px;
-      box-shadow: 0 4px 0 rgba(184,128,26,.5), 0 8px 20px rgba(20,60,100,.22),
-                  inset 0 1px 0 rgba(255,255,255,.75);
-    }
-    #auth-guest-overlay .pv-btn.gold:hover:not(:disabled) {
-      transform: none; filter: brightness(1.04);
-      box-shadow: 0 5px 0 rgba(184,128,26,.5), 0 12px 26px rgba(20,60,100,.28),
-                  inset 0 1px 0 rgba(255,255,255,.75);
-    }
-    #auth-guest-overlay .pv-btn.gold:active:not(:disabled) {
-      transform: translateY(3px);
-      box-shadow: 0 1px 0 rgba(184,128,26,.5), 0 4px 12px rgba(20,60,100,.22),
-                  inset 0 1px 0 rgba(255,255,255,.65);
-    }
-
-    /* ── Back: a real button, under a hairline, quiet next to the gold ── */
-    #auth-guest-overlay .ago-back {
-      display: block; width: 100%;
-      margin: 14px 0 0; padding: 11px 0 0;
-      border: 0; border-top: 1px solid var(--ag-line);
-      background: none; cursor: pointer;
-      font-family: "Baloo 2", "Nunito", sans-serif;
-      font-size: 12.5px; font-weight: 700; letter-spacing: .2px;
-      color: var(--ag-teal);
-    }
-    #auth-guest-overlay .ago-back:hover { color: var(--ag-ink); }
-    #auth-guest-overlay .ago-back:focus-visible {
-      outline: 2px solid #35a8d4; outline-offset: 2px; border-radius: 8px;
-    }
-
-    /* ── Small screens ────────────────────────────────
-       The gutter is padding on the SCRIM, so the card simply fills what is
-       left and cannot be knocked off centre by a scrollbar. */
-    @media (max-width: 460px) {
-      #auth-guest-overlay { padding: 14px; }
-      #auth-guest-overlay .ago-card {
-        max-width: none; padding: 22px 20px 18px; border-radius: 20px;
-      }
-      #auth-guest-overlay .ago-head { margin-bottom: 16px; }
-    }
-    /* Landscape phones and short laptop windows: tighten the vertical rhythm
-       so Dive In stays above the fold instead of behind a scrollbar. */
-    @media (max-height: 620px) {
-      #auth-guest-overlay .ago-card { padding: 18px 22px 16px; }
-      #auth-guest-overlay .ago-head { margin-bottom: 12px; }
-      #auth-guest-overlay .ago-rule { margin: 7px auto 8px; }
-      #auth-guest-overlay .pv-btn.gold { margin-top: 13px; padding: 12px 18px; }
-      #auth-guest-overlay .ago-back { margin-top: 11px; padding-top: 9px; }
-    }
+    /* The guest sign-in CARD used to be here: a pale sea-glass dialog over a
+       scrim, with its own copy of the painting behind it. It is a pane of the
+       sign-in column now (#ao-pane-guest), dressed like every other pane, so
+       there is nothing left to style. The ocean does not move to ask somebody
+       for a nickname. */
 
     /* Profile bar inside lobby */
     #auth-profile-bar {
@@ -11352,258 +11250,21 @@
     .privacy-web-link:hover { text-decoration: underline; }
 
     /* ══ FIRST SIGN-IN: CREATE YOUR USERNAME ═════════════════════
-       This screen opens the instant the sign-in painting closes, so it reads
-       as the next frame of that artwork rather than as a form: the SAME
-       painting behind it, dimmed back, with a pale sea-glass card in front,
-       navy lettering, one gold button.
+       Gone from here, all of it: a pale sea-glass card on a blurred copy of
+       the sea, a kelp-forest backdrop element, and about two hundred lines
+       holding one field in the middle of a screen of its own.
 
-       Everything here is scoped under #auth-step-nickname on purpose. The
-       ids beat css/level-pass.css (which owns the plain .auth-ref-* look and
-       loads AFTER this file), and they keep the dark-glass .auth-box that the
-       other three auth steps still use completely untouched.
-       ═══════════════════════════════════════════════════════ */
-    #auth-step-nickname {
-      /* Ink pulled off the sign-in lettering so the two screens are
-         written in the same colour, not two different blues. */
-      --nk-ink:      #123a68;
-      --nk-ink-soft: #3f6d96;
-      --nk-teal:     #1c7fab;
-      --nk-line:     rgba(31,105,160,.22);
-      --nk-gold:     #e8b34a;
-    }
+       It is #ao-pane-nickname now, a pane of the sign-in column, wearing the
+       same clothes as every other pane. Signing in with Google used to throw
+       the painting away and build a different room to ask one question in;
+       now the ocean stays exactly where it was and the form turns over, which
+       is what the two doors into this game were always supposed to have in
+       common. showStep("auth-step-nickname") still means what it always
+       meant, it just turns a pane over instead of swapping a screen.
 
-    /* ── Kelp forest backdrop ──────────────────────────────
-       A SIBLING of the four auth steps, sitting at z-index 1 between
-       #auth-screen's flat navy and the cards (#auth-screen > .auth-box is
-       z-index:2). It cannot be a child of the card it backs: a negative
-       z-index child paints on top of its own parent's background, which
-       blanks the card. showStep() reveals it with .on-nickname, so the three
-       steps that bring their own artwork never see it. */
-    #auth-screen .auth-step-bg {
-      display: none;
-      position: absolute; inset: 0; z-index: 1;
-      overflow: hidden; pointer-events: none;
-      background: #23506e;
-    }
-    #auth-screen.on-nickname .auth-step-bg { display: block; }
-    /* The same room the two cards on the step before this one open in: the
-       sign-in painting under a scrim, built exactly the way they build it (see
-       the note on #auth-guest-overlay::before). First sign-in is one room, not
-       a slideshow of three. */
-    #auth-screen .auth-step-bg::before {
-      content: ""; position: fixed; inset: -6vmax;
-      background: #0a1d3a url("/auth-ocean.jpg?v=2026-08-27.2") center / cover no-repeat;
-      filter: blur(34px) saturate(1.12) brightness(.66);
-    }
-    /* The painting itself, letterboxed to its own ratio, with the scrim laid over
-       it in the same declaration: a gradient listed BEFORE an image paints in
-       front of it. */
-    #auth-screen .auth-step-bg::after {
-      content: ""; position: fixed; inset: 0;
-      background:
-        /* The pool the card stands in, centred on the card. The water around
-           it stays as bright as it was painted, which is the whole reason for
-           using the picture here instead of a flat scrim. */
-        radial-gradient(ellipse 49% 66% at 50% 50%,
-          rgba(3,20,42,.93) 0%, rgba(3,20,42,.90) 42%,
-          rgba(4,26,50,.52) 74%, rgba(4,26,50,.44) 100%),
-        /* …and a light vignette to settle the corners. */
-        radial-gradient(ellipse 124% 106% at 50% 46%,
-          rgba(6,32,60,.04) 0%, rgba(6,32,60,.13) 58%, rgba(4,24,48,.44) 100%),
-        url("/auth-ocean.jpg?v=2026-08-27.2") center / cover no-repeat;
-    }
-
-    /* A tall window used to need its own rule here, back when this screen stood
-       in the kelp forest: that painting had its kelp up two OUTER edges, and
-       `cover` in a portrait window cropped both banks away and left plain open
-       water, which was the one thing that art was chosen not to be. The
-       sign-in painting is letterboxed rather than cropped and its blurred copy
-       fills whatever is left, so there is nothing to lose at any shape and the
-       rule is gone. */
-
-    /* ── The card ───────────────────────────────────── */
-    #auth-step-nickname.auth-box {
-      max-width: 400px;
-      padding: 26px 26px 24px;
-      gap: 0;                       /* every gap below is a deliberate margin */
-      border-radius: 22px;
-      border: 1.5px solid rgba(255,255,255,.85);
-      background: linear-gradient(168deg,
-                    rgba(250,253,255,.97) 0%,
-                    rgba(230,245,253,.95) 56%,
-                    rgba(215,238,251,.95) 100%);
-      box-shadow: 0 0 0 1px rgba(20,80,130,.2),
-                  0 26px 64px rgba(3,26,52,.5),
-                  inset 0 1px 0 rgba(255,255,255,.95);
-      /* A short window (landscape phone, small laptop) scrolls the card
-         instead of clipping the button off the bottom of it. */
-      max-height: min(94vh, 780px);
-      overflow-y: auto; overscroll-behavior: contain;
-    }
-
-    /* ── Heading ────────────────────────────────────── */
-    #auth-step-nickname .auth-nick-head { margin-bottom: 20px; }
-    #auth-step-nickname .auth-title {
-      font-family: "Baloo 2", "Nunito", sans-serif;
-      font-weight: 800; font-size: clamp(1.3rem, 4.6vw, 1.55rem);
-      line-height: 1.15; letter-spacing: .2px;
-      color: var(--nk-ink); text-shadow: 0 1px 0 rgba(255,255,255,.8);
-    }
-    /* Gold swash under the title, fading out at both ends. Echoes the gold of
-       PLAY AS GUEST on the screen before this one. */
-    #auth-step-nickname .auth-rule {
-      width: 56px; height: 3px; margin: 9px auto 11px; border-radius: 2px;
-      background: linear-gradient(90deg,
-                    rgba(232,179,74,0), var(--nk-gold) 50%, rgba(232,179,74,0));
-    }
-    #auth-step-nickname .auth-subtitle {
-      color: var(--nk-ink-soft);
-      font-size: 12.5px; line-height: 1.5;
-      max-width: 34ch; margin: 0 auto;
-      text-wrap: balance;
-    }
-    #auth-step-nickname .auth-hint {
-      margin: 5px auto 0; max-width: 34ch;
-      font-size: 11px; line-height: 1.45; font-weight: 600;
-      color: rgba(63,109,150,.72);
-      text-wrap: balance;
-    }
-
-    /* ── Labelled field ──────────────────────────────── */
-    #auth-step-nickname .auth-field-top {
-      display: flex; align-items: baseline; justify-content: space-between;
-      gap: 10px; margin-bottom: 6px;
-    }
-    #auth-step-nickname .auth-field-lbl {
-      font-size: 10.5px; font-weight: 800;
-      letter-spacing: 1px; text-transform: uppercase;
-      color: var(--nk-teal);
-    }
-    /* Reads out what maxlength is silently enforcing. Tabular figures so the
-       count does not jiggle the label line as you type. */
-    #auth-step-nickname .auth-count {
-      font-size: 10.5px; font-weight: 800; letter-spacing: .4px;
-      font-variant-numeric: tabular-nums;
-      color: rgba(63,109,150,.6);
-      transition: color .15s;
-    }
-    #auth-step-nickname .auth-count.is-full { color: #b07a10; }
-    #auth-step-nickname .auth-optional {
-      font-size: 10.5px; font-weight: 700; letter-spacing: .4px;
-      text-transform: uppercase; color: rgba(63,109,150,.62);
-    }
-
-    #auth-step-nickname .pv-input {
-      background: #fff;
-      border: 1.5px solid rgba(31,105,160,.28);
-      border-radius: 12px;
-      color: var(--nk-ink);
-      font-weight: 700;
-      font-size: 16px;              /* 16px keeps iOS from zooming on focus */
-      padding: 12px 14px;
-      box-shadow: inset 0 1px 3px rgba(16,58,104,.07);
-      transition: border-color .16s, box-shadow .16s;
-    }
-    #auth-step-nickname .pv-input::placeholder {
-      color: rgba(63,109,150,.5); font-weight: 600;
-    }
-    #auth-step-nickname .pv-input:focus {
-      border-color: #35a8d4;
-      box-shadow: 0 0 0 3px rgba(53,168,212,.2), inset 0 1px 3px rgba(16,58,104,.05);
-    }
-
-    /* setAuthMsg() overwrites className outright, so these two are styled by
-       what they ARE, never by an extra class that a status update would wipe. */
-    #auth-step-nickname .auth-err,
-    #auth-step-nickname .auth-ok {
-      text-align: left; font-size: 11.5px; font-weight: 700;
-      min-height: 15px; padding-top: 5px; line-height: 1.3;
-    }
-    #auth-step-nickname .auth-err { color: #b0243c; }
-    #auth-step-nickname .auth-ok  { color: #10795c; }
-
-    /* ── Rename-cost note: the one tinted row on the card ─────────── */
-    #auth-step-nickname .auth-nick-note {
-      display: flex; align-items: flex-start; gap: 9px;
-      margin: 12px 0 0;
-      padding: 10px 12px; border-radius: 12px;
-      background: rgba(53,168,212,.11);
-      text-align: left; font-size: 11.5px; line-height: 1.5;
-      color: var(--nk-ink-soft);
-    }
-    #auth-step-nickname .auth-nick-note strong { color: var(--nk-ink); font-weight: 800; }
-    #auth-step-nickname .ann-ico {
-      flex: 0 0 auto; width: 14px; height: 14px; margin-top: 1px;
-      color: var(--nk-teal);
-    }
-    #auth-step-nickname .ann-ico-gold { color: #c08a14; }
-    #auth-step-nickname .cc-coin {
-      width: 13px; height: 13px; display: inline-block;
-      vertical-align: -2px; margin: 0 1px;
-    }
-
-    /* ── Friend code: a section behind a hairline, not another box ──── */
-    #auth-step-nickname .auth-ref-box {
-      margin: 18px 0 0; padding: 17px 0 0;
-      border: 0; border-top: 1px solid var(--nk-line);
-      border-radius: 0; background: none; text-align: left;
-    }
-    #auth-step-nickname .auth-ref-note {
-      display: flex; align-items: flex-start; gap: 9px;
-      margin-top: 9px; font-size: 11.5px; line-height: 1.45;
-      color: var(--nk-ink-soft);
-    }
-    #auth-step-nickname .auth-ref-note strong { color: #9a6a0c; font-weight: 800; }
-
-    /* ── The one button ────────────────────────────────
-       Butter gold with dark ink, i.e. PLAY AS GUEST on the screen before, not the
-       dark mustard .pv-btn.gold wears on the game's dark panels. */
-    #auth-step-nickname .pv-btn.gold {
-      margin-top: 20px; padding: 14px 18px;
-      font-family: "Baloo 2", "Nunito", sans-serif;
-      font-size: 15px; font-weight: 800; letter-spacing: .3px;
-      color: #4a3208; text-shadow: 0 1px 0 rgba(255,255,255,.45);
-      background: linear-gradient(180deg, #ffdf9d 0%, #f5c261 52%, #eeb043 100%);
-      border: 1.5px solid rgba(190,132,26,.55);
-      border-radius: 14px;
-      box-shadow: 0 4px 0 rgba(184,128,26,.5), 0 8px 20px rgba(20,60,100,.22),
-                  inset 0 1px 0 rgba(255,255,255,.75);
-    }
-    #auth-step-nickname .pv-btn.gold:hover:not(:disabled) {
-      filter: brightness(1.04);
-      box-shadow: 0 5px 0 rgba(184,128,26,.5), 0 12px 26px rgba(20,60,100,.28),
-                  inset 0 1px 0 rgba(255,255,255,.75);
-    }
-    #auth-step-nickname .pv-btn.gold:active:not(:disabled) {
-      transform: translateY(3px);
-      box-shadow: 0 1px 0 rgba(184,128,26,.5), 0 4px 12px rgba(20,60,100,.22),
-                  inset 0 1px 0 rgba(255,255,255,.65);
-    }
-
-    /* ── Small screens ────────────────────────────────
-       The gutter is padding on the SCREEN, not vw arithmetic on the card: the
-       card is already width:100%, so it simply fills what is left, and it
-       cannot be knocked off centre by a scrollbar or by a mobile browser whose
-       layout viewport is not the number 100vw reports. The backdrop is
-       absolutely positioned against the padding box, so it stays full bleed. */
-    #auth-screen.on-nickname { padding: 16px; }
-    @media (max-width: 460px) {
-      #auth-screen.on-nickname { padding: 12px; }
-      #auth-step-nickname.auth-box {
-        max-width: none; padding: 22px 20px 20px; border-radius: 20px;
-      }
-      #auth-step-nickname .auth-nick-head { margin-bottom: 17px; }
-    }
-    /* Landscape phones and short laptop windows: tighten the vertical rhythm
-       so the gold button stays above the fold instead of behind a scrollbar. */
-    @media (max-height: 620px) {
-      #auth-step-nickname.auth-box { padding: 18px 22px 18px; }
-      #auth-step-nickname .auth-nick-head { margin-bottom: 13px; }
-      #auth-step-nickname .auth-rule { margin: 7px auto 8px; }
-      #auth-step-nickname .auth-nick-note { margin-top: 9px; }
-      #auth-step-nickname .auth-ref-box { margin-top: 13px; padding-top: 13px; }
-      #auth-step-nickname .pv-btn.gold { margin-top: 14px; padding: 12px 18px; }
-    }
+       The backdrop element went with it. It existed only to put the sea behind
+       that one card, and the column it moved into is already standing in the
+       sea. */
 
     /* ══ MESSAGING DRAWER (DMs + room chat bridge) ══════════════════ */
     #cc-msg-drawer {

@@ -104,14 +104,17 @@ console.log("\nthe note is rendered, not just coloured");
   check("…and a warning does not, so it is still there when you look",
         /_authNoteTimer\) \{ clearTimeout\(_authNoteTimer\)/.test(APP),
         "the timer must also be cancelled when a new note replaces an old one");
-  check("backing out of the guest card clears what the chooser was saying",
-        /function closeGuestCard\(\)[\s\S]{0,400}?setAuthMsg\("auth-choose-err", "", true\);/.test(APP));
+  // Every pane the column can turn to carries its own line, and turning the
+  // column over wipes all of them. Whatever a pane was saying was an answer to
+  // that pane's question; left up, it reads as an answer to the next one.
+  check("turning the column over clears what the last pane was saying",
+        /setAuthMsg\("auth-choose-err", "", true\);\s*\n\s*\["auth-guest-err", "auth-nick-err", "ao-forgot-err"\]\.forEach/.test(APP));
 }
 
 console.log("\nthe note is dressed like the column it sits in");
 {
   const block = (() => {
-    const a = CSS.indexOf("#auth-step-choose .ao-form-inner > .auth-err {");
+    const a = CSS.indexOf("#auth-step-choose .ao-form-inner > .auth-err,");
     // Ends at the arming block below it, so what is read here is the note's own
     // rules and not the phone layout's.
     return a < 0 ? "" : CSS.slice(a, CSS.indexOf("/* ── Held inert", a));
@@ -137,13 +140,25 @@ console.log("\nthe note is dressed like the column it sits in");
         /text-align:\s*left/.test(block));
 }
 
-console.log("\nthe guest card says its piece the same way");
+console.log("\nevery pane says its piece the same way, because it is one rule");
 {
-  check("the message row is tinted and rounded, not a naked red line",
-        /#auth-guest-overlay \.auth-err:not\(:empty\)[\s\S]{0,180}?background:/.test(CSS));
-  check("…and an empty one still draws nothing",
-        /#auth-guest-overlay \.auth-err:not\(:empty\),/.test(CSS),
-        ":empty is the guard, because setAuthMsg writes \"\" rather than removing it");
+  // The guest form used to be a dialog with its own pale card and its own idea
+  // of what an error looked like: dark red on near-white, nothing like the line
+  // ten pixels behind it on the column. It is a pane of that column now, so
+  // there is nothing left to keep in step: the SAME rule dresses the line on
+  // every one of the five panes.
+  check("the note rule reaches the line inside a pane, not just the column's own",
+        /#auth-step-choose \.ao-form-inner > \.auth-err,\s*\n\s*#auth-step-choose \.ao-pane > \.auth-err \{/.test(CSS));
+  check("…and reaches it for every tone, not only the red one",
+        /#auth-step-choose \.ao-pane > \.auth-err\.is-info \{/.test(CSS)
+        && /#auth-step-choose \.ao-pane > \.auth-err\.is-warn \{/.test(CSS)
+        && /#auth-step-choose \.ao-pane > \.auth-err\.is-ok \{/.test(CSS));
+  check("…and shows it by the same switch, so an empty one draws nothing",
+        /#auth-step-choose \.ao-pane > \.auth-err\.is-on \{ display: flex; \}/.test(CSS));
+  check("the dialog that had its own is gone", !/#auth-guest-overlay/.test(CSS));
+  ["auth-guest-err", "auth-nick-err", "ao-forgot-err"].forEach(id =>
+    check(`#${id} is dressed by it, because it is inside a pane`,
+          new RegExp(`<div class="auth-err auth-note" id="${id}"`).test(HTML)));
 }
 
 console.log("\nthe full-screen chip is out of the way, and only exists once you are in");
@@ -227,10 +242,9 @@ if (!CHROME) {
       var ls = document.getElementById("auth-loading-screen");
       if (ls) { ls.classList.add("hidden"); ls.style.display = "none"; }
       var as = document.getElementById("auth-screen");
-      if (as) { as.classList.remove("hidden"); as.classList.remove("on-nickname"); }
-      ["auth-step-guest","auth-step-nickname","auth-step-launch"].forEach(function (id) {
-        var e = document.getElementById(id); if (e) e.style.display = "none";
-      });
+      if (as) as.classList.remove("hidden");
+      var ls2 = document.getElementById("auth-step-launch");
+      if (ls2) ls2.style.display = "none";
       var c = document.getElementById("auth-step-choose");
       if (c) { c.style.display = ""; c.classList.add("is-armed"); }
       if (tick > 25 && window.__ccAuthNote) {

@@ -1,29 +1,31 @@
 #!/usr/bin/env node
-/* CREATE YOUR USERNAME: the first screen you fill in.
+/* CREATE YOUR USERNAME: the first thing a new account fills in.
  *
- * It opens the instant the sign-in screen closes, so it is dressed to be the next
- * frame of that artwork rather than a form on a navy void: the sign-in painting
- * behind a pale sea-glass card, navy lettering, one warm gold button. Scenery
- * only, no critters.
+ * It used to be a SCREEN of its own. Signing in with Google threw the sign-in
+ * painting away, built a second room out of a blurred copy of the same sea, and
+ * stood a pale sea-glass card in the middle of it to ask one question. Three of
+ * the four things that ever went wrong here went wrong because of that room:
+ * the backdrop was a sibling of four steps that a negative-z child would have
+ * painted over, one class was the only thing scoping it, and the gutter had to
+ * be padding on the screen because the card was sized in vw.
  *
- * Three things here are easy to break and impossible to see in a diff:
+ * All of that is gone. It is #ao-pane-nickname: the fifth pane of the sign-in
+ * column, in the room the player was already standing in. The ocean does not
+ * move between "sign in" and "pick your name", and there is no second painting
+ * to keep in step with the first, because there is only one painting.
  *
- *   1. THE BACKDROP CANNOT BE A CHILD OF THE CARD. A child with a negative
- *      z-index paints on top of its OWN parent's background, so parking the
- *      backdrop inside #auth-step-nickname blanked the card it was meant to sit
- *      behind: sharp inputs and a button floating on bare artwork. It is a
- *      sibling of the four steps, revealed by .on-nickname.
+ * What survived the move, and is what this file pins now:
  *
- *   2. .on-nickname IS THE ONLY THING SCOPING IT. The other three steps bring
- *      artwork of their own (or none), and a second seabed under the sign-in art
- *      would be a mess, so showStep() must clear the class as well as set it.
- *
- *   3. THE GUTTER IS PADDING ON THE SCREEN, NOT vw ARITHMETIC. The card used
- *      calc(100vw - 28px), which is only the width of the screen when nothing
- *      else claims a scrollbar and the layout viewport is what 100vw says it
- *      is. Headless Chrome refuses to open a window under 500px wide, which is
- *      exactly how a phone-width bug survives a "we tested it" screenshot, so
- *      the phone widths here are measured inside same-origin iframes.
+ *   1. showStep("auth-step-nickname") STILL MEANS WHAT IT MEANT. Half a dozen
+ *      places in the app say it; exactly one place knows it now turns a pane
+ *      over instead of swapping a screen.
+ *   2. THE IDS ARE UNCHANGED. referral.js writes #auth-ref-coins, the rename
+ *      price is written into #auth-nick-price, and the server test reads both
+ *      straight out of this HTML.
+ *   3. IT HOLDS TOGETHER FROM A 320px PHONE UP. Headless Chrome refuses to open
+ *      a window under 500px wide, which is exactly how a phone-width bug
+ *      survives a "we tested it" screenshot, so the phone widths here are
+ *      measured inside same-origin iframes.
  *
  * Run:  node test_username_screen.js      (needs Google Chrome / Chromium)
  */
@@ -47,74 +49,83 @@ function check(name, cond, extra) {
   else { fail++; console.log("  ✗ FAIL: " + name + (extra ? "  → " + extra : "")); }
 }
 
-// The markup of the step itself, so "is it inside the card" is a real question.
-const STEP = (() => {
-  const a = HTML.indexOf('<div id="auth-step-nickname"');
-  const b = HTML.indexOf("<!-- Step 4: launch", a);
-  return HTML.slice(a, b);
+// The pane's own markup, so "what is on it" is a real question.
+const PANE = (() => {
+  const a = HTML.indexOf('<div class="ao-pane" id="ao-pane-nickname"');
+  const b = HTML.indexOf('id="auth-choose-err"', a);
+  return a < 0 ? "" : HTML.slice(a, b < 0 ? a + 5000 : b);
 })();
 
 // ════════════════════════════════════════════════════════════════════════
 //  SOURCE
 // ════════════════════════════════════════════════════════════════════════
-console.log("\nthe backdrop is scenery, and it is not inside the card");
+console.log("\nthe second room is gone, and so is everything that held it up");
 {
-  check("there is a backdrop at all", /class="auth-step-bg"/.test(HTML));
-  // First sign-in is ONE room: the chooser, the guest card, the account card
-  // and this screen all stand in the same painting, so the player never gets a
-  // room change they did not ask for.
-  check("…it is the sign-in painting, the same one every step before it shows",
-        /#auth-screen \.auth-step-bg::after \{[\s\S]{0,1400}?auth-ocean\.jpg/.test(CSS));
-  check("…covering the window as the cards cover it, over its blurred copy",
-        /#auth-screen \.auth-step-bg::after[\s\S]{0,1400}?auth-ocean\.jpg[^;]*center \/ cover/.test(CSS)
-        && /#auth-screen \.auth-step-bg::before \{[\s\S]{0,300}?auth-ocean\.jpg[^;]*center \/ cover/.test(CSS));
-  // The screen behind carries a live sign-in form. Behind a live card that is a
-  // second screen asking to be misread.
-  check("…with the screen behind it sunk under a scrim",
-        /#auth-screen \.auth-step-bg::after[\s\S]{0,1400}?radial-gradient\(ellipse 49% 66% at 50% 50%/.test(CSS));
-  check("the kelp forest is gone: it was a second painting for one step",
-        !/url\("\/backgrounds\/kelp-forest\.png"\)/.test(CSS));
-  check("…and it is NOT a child of the card it sits behind",
-        !/auth-step-bg/.test(STEP),
-        "a negative-z child paints over its own parent's background");
-  check("…so it is styled as a child of the screen instead",
-        /#auth-screen\s+\.auth-step-bg\s*\{/.test(CSS));
-  check("no critters swim in it, it is one still image",
-        !/auth-step-bg[\s\S]{0,900}?animation:/.test(CSS));
+  check("there is no screen of its own left", !/id="auth-step-nickname"/.test(HTML));
+  check("…nor a backdrop element that existed only to sit behind it",
+        !/class="auth-step-bg"/.test(HTML) && !/auth-step-bg/.test(CSS));
+  check("…nor the one class that used to reveal it", !/on-nickname/.test(CSS + APP));
+  check("…and no second copy of the painting to keep in step with the first",
+        (CSS.match(/auth-ocean\.jpg/g) || []).length <= 4,
+        "one for the art, one for its blurred bed, one for the seam: not a room per step");
+  // What replaced it.
+  check("it is a pane of the sign-in column",
+        /<div class="ao-form-inner">[\s\S]*?<div class="ao-pane" id="ao-pane-nickname"/.test(HTML));
+  check("…shown by the one function that shows any of them",
+        /nickname: "ao-pane-nickname",/.test(APP)
+        && /function ccChooserPane\(which, opts\)/.test(APP));
 }
 
-console.log("\n.on-nickname is the only thing that shows it");
+console.log("\nshowStep still means what it always meant");
 {
-  check("showStep sets it for this step",
-        /classList\.toggle\("on-nickname", stepId === "auth-step-nickname"\)/.test(APP));
-  check("…which also CLEARS it for the other three",
-        /classList\.toggle\("on-nickname"/.test(APP) && !/classList\.add\("on-nickname"\)/.test(APP));
-  check("…and the CSS keeps it hidden until then",
-        /#auth-screen\s+\.auth-step-bg\s*\{[^}]*display:\s*none/.test(CSS)
-        && /#auth-screen\.on-nickname\s+\.auth-step-bg\s*\{[^}]*display:\s*block/.test(CSS));
+  // Half a dozen places in the app say showStep("auth-step-nickname"). Exactly
+  // one place knows that it turns a pane over now rather than swapping a screen.
+  check("the two dead step names map to the panes that replaced them",
+        /const STEP_AS_PANE = \{ "auth-step-nickname": "nickname", "auth-step-guest": "guest" \};/.test(APP));
+  check("…and the app still asks for them by name",
+        /showStep\("auth-step-nickname"\);/.test(APP));
+  check("…so the real step shown is the chooser, with that pane up",
+        /const realStep = asPane \? "auth-step-choose" : stepId;/.test(APP)
+        && /ccChooserPane\(asPane \|\| "signin", \{ quiet: !asPane \}\)/.test(APP));
+  // Arriving at "pick your name" straight off a Google sign-in is a step
+  // FORWARD through one screen, so it animates. Landing back on the chooser
+  // from anywhere else is a screen arriving, so it does not.
+  check("…and a named pane arrives with the movement, an unnamed one without it",
+        /quiet: !asPane/.test(APP));
 }
 
-console.log("\nthe card is dressed like the artwork before it, not like the game's dark panels");
+console.log("\nit is dressed like every other pane, because it is one");
 {
-  check("the title is set in the artwork's rounded face, not the serif",
-        /#auth-step-nickname \.auth-title\s*\{[^}]*"Baloo 2"/.test(CSS));
-  check("the gold button is the light butter gold with dark ink",
-        /#auth-step-nickname \.pv-btn\.gold\s*\{[^}]*color:\s*#4a3208/.test(CSS));
-  check("every rule is scoped to this step, so the other auth boxes are untouched",
-        (CSS.match(/^\s*(#auth-step-nickname|#auth-screen\.on-nickname|#auth-screen \.auth-step-bg)/gm) || []).length > 12);
-  check("…including the friend-code box, which must beat css/level-pass.css",
-        /#auth-step-nickname \.auth-ref-box\s*\{/.test(CSS),
-        "level-pass.css loads later, so a bare .auth-ref-box selector would lose");
+  check("the same heading, in the column's voice",
+        /<div class="ao-h">Create Your Username<\/div>/.test(PANE));
+  check("the same labelled field with a counter beside the label",
+        /class="ao-lbl-row"/.test(PANE) && /id="auth-nick-count"/.test(PANE));
+  check("the same gold button first sign-in is finished with",
+        /id="auth-nick-go-btn" class="pv-btn gold full ao-gold"/.test(PANE));
+  check("the same status line, dressed by the same rule",
+        /<div class="auth-err auth-note" id="auth-nick-err"/.test(PANE)
+        && /#auth-step-choose \.ao-pane > \.auth-err \{/.test(CSS));
+  check("…and it borrows the create pane's tighter rhythm, being the other tall one",
+        /#auth-step-choose #ao-pane-nickname \.ao-field \{ height: clamp\(44px/.test(CSS));
+  // There is deliberately no way back off this pane: by the time it is up the
+  // account exists and it needs a name.
+  check("there is no Back on it, because there is nowhere to go",
+        !/ao-back/.test(PANE));
+  check("…and Escape does not offer one either",
+        !/AO_ESCAPES_TO = \{[^}]*nickname:/.test(APP));
 }
 
-console.log("\nthe gutter is padding on the screen, not vw arithmetic on the card");
+console.log("\nthe two things other files read out of this pane are still here");
 {
-  check("no 100vw width maths on the card",
-        !/#auth-step-nickname[^}]*100vw/.test(CSS));
-  check("…the screen carries the gutter instead",
-        /#auth-screen\.on-nickname\s*\{[^}]*padding:/.test(CSS));
-  check("a short window scrolls the card instead of clipping the button off it",
-        /#auth-step-nickname\.auth-box\s*\{[\s\S]*?overflow-y:\s*auto/.test(CSS));
+  // referral.js writes the coin figure into it, the app writes the rename price
+  // into it, and test_referral_server.py reads the first straight out of this
+  // HTML. Renaming either id breaks something that never mentions this screen.
+  check("the rename price still has its slot", /id="auth-nick-price"/.test(PANE));
+  check("…quoted from the ONE constant Settings charges",
+        /priceEl\.textContent = String\(PHST_RENAME_COIN_PRICE\)/.test(APP));
+  check("the referral coin figure still has its slot", /id="auth-ref-coins"/.test(PANE));
+  check("…and the friend-code field is still optional and still here",
+        /id="auth-ref-input"/.test(PANE) && /class="ao-optional">Optional/.test(PANE));
 }
 
 console.log("\nthe copy calls the thing what the screen calls it");
@@ -188,10 +199,14 @@ if (!CHROME) {
   `;
 
   // Firebase resolves over the network and there is no real account here, so
-  // the step is opened the way showStep() opens it and then left alone.
+  // the pane is opened the way the app opens it: through showStep, by the name
+  // the rest of the app still calls this screen.
   const DRIVER = `
 <script>
 (function () {
+  var st = document.createElement("style");
+  st.textContent = "*,*::before,*::after{transition:none!important;animation:none!important}";
+  document.head.appendChild(st);
   var tick = 0;
   var iv = setInterval(function () {
     if (++tick > 500) { clearInterval(iv); return; }
@@ -199,15 +214,21 @@ if (!CHROME) {
       var spl = document.getElementById("cc-fs-splash"); if (spl) spl.style.display = "none";
       var ls = document.getElementById("auth-loading-screen");
       if (ls) { ls.classList.add("hidden"); ls.style.display = "none"; }
-      var as = document.getElementById("auth-screen");
-      if (as) { as.classList.remove("hidden"); as.classList.add("on-nickname"); }
-      ["auth-step-choose","auth-step-guest","auth-step-launch"].forEach(function (id) {
-        var e = document.getElementById(id); if (e) e.style.display = "none";
-      });
-      var n = document.getElementById("auth-step-nickname"); if (n) n.style.display = "";
-      var i = document.getElementById("auth-nick-input");
-      if (i && !i.value) { i.value = "Loggerhead"; i.dispatchEvent(new Event("input")); }
-      if (tick > 30) { clearInterval(iv); window.__ccReady = 1; }
+      var as = document.getElementById("auth-screen"); if (as) as.classList.remove("hidden");
+      var lz = document.getElementById("auth-step-launch"); if (lz) lz.style.display = "none";
+      var step = document.getElementById("auth-step-choose");
+      if (!step) return;
+      step.style.display = ""; step.classList.add("is-armed");
+      if (tick < 30 || !window.__ccChooserPane) return;
+      clearInterval(iv);
+      var art = document.querySelector(".ao-art-img").getBoundingClientRect();
+      window.__ccArtBefore = [art.left, art.top, art.width, art.height];
+      window.__ccChooserPane("nickname");
+      setTimeout(function () {
+        var i = document.getElementById("auth-nick-input");
+        if (i) { i.value = "Loggerhead"; i.dispatchEvent(new Event("input")); }
+        window.__ccReady = 1;
+      }, 500);
     } catch (e) {}
   }, 40);
 })();
@@ -226,30 +247,37 @@ setTimeout(function () {
   sizes.forEach(function (sz, i) {
     try {
       var fr = document.getElementById("f" + i), d = fr.contentDocument, w = fr.contentWindow;
-      var card = d.getElementById("auth-step-nickname"), btn = d.getElementById("auth-nick-go-btn");
-      var cb = card.getBoundingClientRect(), bb = btn.getBoundingClientRect();
-      var back = d.querySelector("#auth-screen .auth-step-bg");
-      var cs = w.getComputedStyle(card);
+      var pane = d.getElementById("ao-pane-nickname"), btn = d.getElementById("auth-nick-go-btn");
+      var signin = d.getElementById("ao-pane-signin");
+      var col = d.querySelector(".ao-form");
+      var pb = pane.getBoundingClientRect(), bb = btn.getBoundingClientRect();
+      var art = d.querySelector(".ao-art-img").getBoundingClientRect();
+      var bs = w.getComputedStyle(btn);
       res.push({
         w: sz[0], vw: w.innerWidth,
-        cardL: Math.round(cb.left), cardR: Math.round(cb.right), cardW: Math.round(cb.width),
-        btnW: Math.round(bb.width),
-        // A see-through card means the backdrop is painting over it again.
-        cardOpaque: cs.backgroundImage !== "none" || cs.backgroundColor !== "rgba(0, 0, 0, 0)",
-        // The backdrop must be BEHIND the card and still cover the screen.
-        kelpBehind: w.getComputedStyle(back).display === "block" &&
-                    Math.round(back.getBoundingClientRect().width) >= w.innerWidth,
+        up: w.getComputedStyle(pane).display !== "none",
+        // The pane it replaced is really gone, not sitting live underneath it.
+        signinGone: w.getComputedStyle(signin).display === "none",
+        // The ocean does not move. That is the whole point of the change.
+        artMoved: (w.__ccArtBefore || []).map(function (v, k) {
+          return Math.abs(v - [art.left, art.top, art.width, art.height][k]);
+        }).some(function (dv) { return dv > 0.6; }),
+        paneL: Math.round(pb.left), paneR: Math.round(pb.right),
+        // Create Username: painted, in flow, full height.
+        btnStatic: bs.position === "static",
+        btnPainted: bs.backgroundImage.indexOf("gradient") >= 0 &&
+                    bs.color !== "rgba(0, 0, 0, 0)" && parseFloat(bs.fontSize) > 8,
         // Nothing on this screen may push the page sideways.
         sideways: d.documentElement.scrollWidth > w.innerWidth + 1,
-        // The button has to be reachable, scrolling the card if need be.
-        buttonReachable: btn.getBoundingClientRect().height > 20 &&
-                         card.scrollHeight >= btn.offsetTop + btn.offsetHeight,
+        // The button has to be reachable, scrolling the column if need be.
+        buttonReachable: bb.height > 20 &&
+                         col.scrollHeight >= btn.offsetTop + btn.offsetHeight,
         count: (d.getElementById("auth-nick-count") || {}).textContent
       });
     } catch (e) { res.push({ w: sz[0], err: String(e && e.message) }); }
   });
   document.getElementById("out").textContent = JSON.stringify(res);
-}, 7000);
+}, 8000);
 </script>`;
 
   const page = "__uname_step.html", wrap = "__uname_wrap.html";
@@ -280,13 +308,15 @@ setTimeout(function () {
   } else {
     rows.forEach((r) => {
       const at = r.w + "px:";
-      check(at + " the step rendered", !r.err, r.err);
-      if (r.err) return;
-      check(at + " the card paints its own surface (the backdrop is not over it)", r.cardOpaque);
-      check(at + " the backdrop is behind it and covers the screen", r.kelpBehind);
-      check(at + " the card fits, centred, with a gutter on both sides",
-            r.cardL >= 8 && r.vw - r.cardR >= 8 && Math.abs(r.cardL - (r.vw - r.cardR)) <= 2,
-            `l=${r.cardL} r=${r.vw - r.cardR} vw=${r.vw}`);
+      check(at + " asking for a username put the pane up", !r.err && r.up, r.err);
+      if (r.err || !r.up) return;
+      check(at + " …and took the sign-in pane away rather than stacking on it", r.signinGone);
+      check(at + " the ocean did not move", r.artMoved === false);
+      check(at + " the pane fits inside the window",
+            r.paneL >= 0 && r.paneR <= r.vw + 1, `l=${r.paneL} r=${r.paneR} vw=${r.vw}`);
+      check(at + " Create Username is in the pane's flow, not positioned by the step",
+            r.btnStatic);
+      check(at + " …and it is actually painted, not transparent on transparent", r.btnPainted);
       check(at + " nothing pushes the page sideways", !r.sideways);
       check(at + " Create Username is reachable", r.buttonReachable);
       check(at + " the counter followed the typing", r.count === "10 / 15", r.count);
