@@ -103,7 +103,8 @@ services:
       #
       # ONLY TWO THINGS ARE ACTUALLY REQUIRED:
       #   1. NEWSLETTER_UNSUBSCRIBE_SECRET
-      #   2. ONE way to send mail, the SMTP_* block below is the easy one.
+      #   2. ONE way to send mail: NEWSLETTER_API_KEY. (The SMTP_* block below
+      #      cannot work on Render, which blocks the SMTP ports outright.)
       #
       #   NEWSLETTER_UNSUBSCRIBE_SECRET
       #                    Random 32+ byte string that signs unsubscribe links.
@@ -114,19 +115,33 @@ services:
       #                    already sitting in someone's inbox.
       #                    Generate: python3 -c "import secrets;print(secrets.token_urlsafe(48))"
       #
-      #   SMTP_HOST / SMTP_PORT / SMTP_USERNAME / SMTP_PASSWORD
-      #                    THE DEFAULT AND EASIEST WAY TO SEND. Four values from
-      #                    whoever already hosts your domain email. Port 587 with
-      #                    STARTTLS is the norm; 465 switches to implicit TLS
-      #                    automatically. If your mail is on Google Workspace,
-      #                    use smtp.gmail.com with an APP PASSWORD, that needs
-      #                    no Google Cloud project, no OAuth consent screen and
-      #                    no refresh token.
+      #   ⚠️ RENDER BLOCKS OUTBOUND SMTP. Ports 25, 465 and 587 are blocked
+      #      on every plan, deliberately, as an anti-spam policy. This is why
+      #      the newsletter delivered NOTHING while SMTP_HOST was set to
+      #      smtp.gmail.com with perfectly correct credentials: the connect
+      #      hung until it timed out ("Could not reach smtp.gmail.com:587").
+      #      NO SMTP SETTINGS CAN WORK HERE. Use NEWSLETTER_API_KEY.
       #
-      #   NEWSLETTER_API_KEY (+ optional NEWSLETTER_HTTP_PROVIDER)
-      #                    ALTERNATIVE: an HTTPS email API instead of SMTP:
-      #                    resend | postmark | brevo | sendgrid (default resend).
-      #                    Use this if outbound SMTP is blocked. One key, no SMTP.
+      #   NEWSLETTER_API_KEY (+ NEWSLETTER_HTTP_PROVIDER)
+      #                    THE ONE THAT WORKS ON RENDER. An HTTPS email API,
+      #                    port 443 like any other web request, never blocked:
+      #                    brevo | resend | postmark | sendgrid.
+      #                    ⚠️ NEWSLETTER_HTTP_PROVIDER defaults to "resend", so
+      #                    SET IT EXPLICITLY or the key goes to the wrong API.
+      #                    Brevo is suggested: its free tier allows a verified
+      #                    SINGLE SENDER, so it works with the consumer
+      #                    currentsandcritters@gmail.com From address above
+      #                    without owning a domain. Whichever you pick, the
+      #                    From address must be verified with THEM.
+      #                    An API key OUTRANKS SMTP_* automatically, so these
+      #                    can be left in place; see newsletter_email.transport().
+      #
+      #   SMTP_HOST / SMTP_PORT / SMTP_USERNAME / SMTP_PASSWORD
+      #                    Four values from whoever hosts your domain email.
+      #                    ONLY USEFUL ON A HOST THAT ALLOWS OUTBOUND SMTP,
+      #                    which Render is not. Kept for a future move and for
+      #                    local testing. Some providers also offer port 2525,
+      #                    which Render does NOT block; Gmail does not.
       #
       #   GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN
       #                    OPTIONAL third route (Gmail API over OAuth). Only this

@@ -180,7 +180,33 @@
     view.appendChild(el("div", "n-empty", "Loading…"));
   }
 
+  /* insertBefore, but it cannot throw. `ref` is only a positioning hint, and
+     a detached one is not worth losing the message over: the whole reason
+     these callers exist is to show that something is wrong, so failing to
+     place one perfectly must never be what stops it being shown at all. */
+  function putAbove(parent, node, ref) {
+    if (ref && ref.parentNode === parent) parent.insertBefore(node, ref);
+    else parent.appendChild(node);
+  }
+
+  /* Every render throws away the previous view's DOM (`v.innerHTML = ""`),
+     but the request that view is waiting on carries on and then writes into
+     nodes that are no longer attached to anything. That is a real crash, not
+     a cosmetic one: "NotFoundError: the node before which the new node is to
+     be inserted is not a child of this node", thrown out of a .then() where
+     nothing catches it, leaving the page half-drawn with no message. It shows
+     up when a response is slow or failing and the reader clicks another tab
+     while waiting, which is exactly what people do when the server is
+     struggling: the moment the dashboard is worth watching is the moment this
+     breaks it.
+
+     So each render takes a ticket, and a continuation checks its ticket is
+     still the current one before touching the DOM. */
+  var renderGen = 0;
+  function stale(gen) { return gen !== renderGen; }
+
   function render() {
+    renderGen++;
     var v = $("view"); v.innerHTML = "";
     ({
       dashboard: viewDashboard, subscribers: viewSubscribers, compose: viewCompose,
@@ -193,12 +219,14 @@
      DASHBOARD
      ══════════════════════════════════════════════════════════════ */
   function viewDashboard(v) {
+    var gen = renderGen;
     v.appendChild(sectionHead("Dashboard", "Everything at a glance."));
     var cards = el("div", "n-cards");
     v.appendChild(cards);
     loading(v);
 
     Promise.all([api("dashboard"), api("settings")]).then(function (res) {
+      if (stale(gen)) return;          // the reader moved on; this view is gone
       var d = res[0], s = res[1];
       v.querySelectorAll(".n-empty").forEach(function (n) { n.remove(); });
       if (!d.ok) { v.appendChild(el("div", "n-empty", d.error || "Could not load the dashboard.")); return; }
@@ -229,13 +257,45 @@
             "This is the last result from before the server restarted."));
         }
         alert.appendChild(selfTestButton());
-        v.insertBefore(alert, cards);
+        putAbove(v, alert, cards);
       } else if (hz.summary) {
         var okline = el("div", "n-note");
         okline.style.marginBottom = "18px";
         okline.appendChild(el("span", null, hz.summary + " "));
         okline.appendChild(selfTestButton());
-        v.insertBefore(okline, cards);
+        putAbove(v, okline, cards);
+      }
+
+      /* People who signed up while sending was broken. Their welcome was
+         marked failed and, before the repair pass existed, nothing would ever
+         have looked at it again. Shown separately from the health box because
+         it survives the fix: sending can be healthy again while a backlog of
+         people are still owed the email they were promised. */
+      if (d.owedWelcome > 0) {
+        var owed = el("div", "n-warn-box");
+        owed.style.marginBottom = "18px";
+        var ot = el("div");
+        ot.style.fontWeight = "800";
+        ot.textContent = d.owedWelcome === 1
+          ? "1 person is still owed their welcome email"
+          : d.owedWelcome + " people are still owed their welcome email";
+        owed.appendChild(ot);
+        owed.appendChild(el("div", null,
+          "They signed up while email delivery was down, so their welcome was "
+          + "written off as failed. It is re-sent automatically whenever the "
+          + "server restarts with working email, or you can do it now."));
+        var rb = el("button", "n-btn primary", "Send the ones we missed");
+        rb.addEventListener("click", function () {
+          rb.disabled = true; rb.textContent = "Re-queueing…";
+          api("resend-missed").then(function (r) {
+            rb.textContent = r.ok
+              ? "Re-queued " + r.requeued + "; they send within a minute"
+              : (r.error || "Could not re-queue.");
+            if (r.ok) setTimeout(render, 4000);
+          });
+        });
+        owed.appendChild(rb);
+        putAbove(v, owed, cards);
       }
 
       cards.appendChild(card("Active subscribers", num(d.activeCount),
@@ -783,7 +843,7 @@
     /* ---- behaviour ---- */
     var previewTimer = null, lastPreviewKey = "";
     function refreshPreview() {
-      var key = subj.value + " " + prev.value + " " + ed.innerHTML + " " + mode;
+      var key = subj.value + "\u0000" + prev.value + "\u0000" + ed.innerHTML + "\u0000" + mode;
       if (key === lastPreviewKey) return;
       lastPreviewKey = key;
       clearTimeout(previewTimer);

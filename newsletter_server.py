@@ -899,14 +899,24 @@ def _claim_welcome(sub_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def _finish_welcome(sub_id: str, *, status: str, error: str = "") -> None:
+def _finish_welcome(sub_id: str, *, status: str, error: str = "",
+                    category: str = "") -> None:
     db = _db()
     if db is None:
         return
+    # The CATEGORY is stored alongside the human-readable error, not just the
+    # sentence. _heal_outage_welcomes has to decide, later and from the
+    # document alone, whether a failure was the system's fault or the
+    # address's, and re-deriving that by matching on error text is guesswork
+    # that breaks the moment a provider rewords a message.
     upd = {"welcomeEmailStatus": status, "welcomeLeaseUntil": 0,
-           "welcomeError": str(error or "")[:300], "updatedAt": _now()}
+           "welcomeError": str(error or "")[:300],
+           "welcomeErrorCategory": str(category or "")[:40],
+           "updatedAt": _now()}
     if status == "sent":
         upd["welcomeEmailAt"] = _now()
+        upd["welcomeError"] = ""
+        upd["welcomeErrorCategory"] = ""
     try:
         db.collection(C_SUBS).document(sub_id).set(upd, merge=True)
     except Exception as exc:  # noqa: BLE001
@@ -941,11 +951,20 @@ def _send_welcome_now(sub_id: str) -> None:
     is_reactivation = str(sub.get("welcomeKind") or "new") == "reactivation"
 
     if not unsub:
-        _finish_welcome(sub_id, status="failed",
+        # Refusing to send is right: marketing mail with no working unsubscribe
+        # link is what gets a sending domain blocked. Marking the PERSON failed
+        # for it was not. A missing NEWSLETTER_UNSUBSCRIBE_SECRET is a server
+        # setting nobody who signed up has any part in, and it is fixed in one
+        # move, so this is deferred exactly like a dead transport: they keep
+        # their place in the queue and their full retry budget, and the welcome
+        # goes out once the secret is set.
+        _finish_welcome(sub_id, status=WELCOME_PENDING, category="config",
                         error="NEWSLETTER_UNSUBSCRIBE_SECRET is not set, so no unsubscribe "
-                              "link could be built. Refusing to send marketing mail without one.")
-        audit("welcome_email_failed", subscriber_id=sub_id,
-              summary="No unsubscribe secret configured; welcome not sent.")
+                              "link could be built. Refusing to send marketing mail without "
+                              "one; this welcome is queued until it is set.")
+        _reset_welcome_attempts(sub_id)
+        audit("welcome_email_deferred", subscriber_id=sub_id,
+              summary="No unsubscribe secret configured; welcome queued, not sent.")
         return
 
     try:
@@ -956,21 +975,29 @@ def _send_welcome_now(sub_id: str) -> None:
             stream="welcome",
         )
     except nl_email.SendError as exc:
-        if exc.category in ("daily_cap", "provider_quota"):
-            # The provider is refusing everything right now. This welcome is
-            # not faulty and must not spend one of its three attempts on a
-            # condition that clears by itself, or a quiet afternoon of quota
-            # trouble permanently fails every signup that happened during it.
-            _finish_welcome(sub_id, status=WELCOME_PENDING, error=str(exc)[:300])
+        if nl_email.is_outage(exc.category):
+            # NOTHING can be sent right now: the transport is unconfigured,
+            # unreachable, unauthenticated or rate limited. This welcome is not
+            # faulty, and the condition clears by itself the moment the
+            # transport is fixed, so it must not spend one of its three
+            # attempts on it. Without this, a blocked SMTP port burned all
+            # three attempts in about a minute and marked the person FAILED
+            # permanently: nothing ever re-reads a failed welcome, so fixing
+            # the transport afterwards did not deliver a single one of them.
+            _finish_welcome(sub_id, status=WELCOME_PENDING, error=str(exc)[:300],
+                            category=exc.category)
             _reset_welcome_attempts(sub_id)
             _mirror_send_health()
-            print("[newsletter] welcome for %s deferred: %s" % (sub_id, exc.category))
+            print("[newsletter] welcome for %s deferred, sending is down (%s)"
+                  % (sub_id, exc.category))
             return
         if exc.retryable and _int(sub.get("welcomeAttempts")) < MAX_ATTEMPTS:
             # Known NOT to have been delivered → safe to put back on the queue.
-            _finish_welcome(sub_id, status="pending", error=str(exc)[:300])
+            _finish_welcome(sub_id, status="pending", error=str(exc)[:300],
+                            category=exc.category)
         else:
-            _finish_welcome(sub_id, status="failed", error=str(exc)[:300])
+            _finish_welcome(sub_id, status="failed", error=str(exc)[:300],
+                            category=exc.category)
             audit("welcome_email_failed", subscriber_id=sub_id,
                   summary="Welcome email failed: %s" % exc.category)
             if exc.category in HARD_BOUNCE_CATEGORIES:
@@ -1809,15 +1836,21 @@ def _process_campaign_batch(cid: str) -> int:
                       "leaseUntil": 0, "lastErrorCategory": ""}, merge=True)
             _bump(cref, "sentCount")
         except nl_email.SendError as exc:
-            # "daily_cap" is OUR limit; "provider_quota" is theirs. Neither is
-            # this recipient's fault and neither is fixed by trying the next
-            # address, so both put the recipient straight back to pending and
-            # stop the pass. Sending resumes on a later worker tick once the
-            # quota rolls over, with nobody dropped and nobody sent twice.
-            if exc.category in ("daily_cap", "provider_quota"):
+            # An OUTAGE is never this recipient's fault and is never fixed by
+            # trying the next address: our cap, their cap, a throttle, a dead
+            # network, a rejected credential. All of them put the recipient
+            # straight back to pending and STOP the pass. Sending resumes on a
+            # later worker tick, with nobody dropped and nobody sent twice.
+            #
+            # This used to cover only the two quota categories, so a blocked
+            # port (category "network", and retryable, so it fell through to
+            # the per-recipient branch below) marched through the entire list
+            # burning three attempts each and marking every single person
+            # failed, for a condition that had nothing to do with any of them.
+            if nl_email.is_outage(exc.category):
                 rref.set({"status": R_PENDING, "leaseUntil": 0, "updatedAt": _now(),
                           "lastErrorCategory": exc.category}, merge=True)
-                print("[newsletter] %s reached; pausing campaign %s (%s)"
+                print("[newsletter] sending is down (%s); pausing campaign %s (%s)"
                       % (exc.category, cid, exc))
                 _mirror_send_health()
                 return attempted
@@ -1834,11 +1867,12 @@ def _process_campaign_batch(cid: str) -> int:
                     # outside, so it comes off the list now, once.
                     _suppress_bounced(sub_id, claim["email"],
                                       why="Permanently rejected during campaign %s" % cid)
-            if not exc.retryable and exc.category in ("auth_revoked", "config", "forbidden"):
-                # A credential problem is not per-recipient; grinding through
-                # the rest of the list would just fail ten thousand times.
-                print("[newsletter] fatal send error, pausing campaign %s: %s" % (cid, exc.category))
-                return attempted
+            # (A credential problem used to be caught here, to stop the run
+            # rather than fail ten thousand recipients one at a time. It is now
+            # handled by the outage branch above, which covers auth_revoked,
+            # config and forbidden along with every other whole-system failure,
+            # and which returns BEFORE the recipient is marked failed rather
+            # than after.)
         except Exception as exc:  # noqa: BLE001
             rref.set({"status": R_FAILED, "leaseUntil": 0, "updatedAt": _now(),
                       "lastErrorCategory": "unknown"}, merge=True)
@@ -1973,6 +2007,106 @@ def _reclaim_stuck_welcomes(limit: int = 50) -> int:
     return freed
 
 
+# The exact sentences the old code wrote into welcomeError before the failure
+# CATEGORY was stored on the document. Records written during the outage that
+# prompted all of this have no welcomeErrorCategory to read, and they are
+# precisely the ones owed an email, so they are recognised by their text. New
+# failures never reach this list: they carry their category.
+_LEGACY_OUTAGE_ERROR_MARKERS = (
+    "could not reach",              # blocked SMTP port
+    "some hosts block outbound",
+    "no way to send email",         # no transport configured
+    "lost the connection",
+    "is not configured",
+    "is not set",                   # e.g. the unsubscribe secret
+    "smtp is not configured",
+    "daily sending cap",
+    "refusing more mail",
+    "username/password",            # auth rejected while credentials were wrong
+    "authentication",
+)
+
+
+def _is_outage_failure(d: Dict[str, Any]) -> bool:
+    """Was this welcome lost to a system outage rather than a bad address?"""
+    cat = str(d.get("welcomeErrorCategory") or "")
+    if cat:
+        return nl_email.is_outage(cat)
+    err = str(d.get("welcomeError") or "").lower()
+    if not err:
+        return False
+    return any(m in err for m in _LEGACY_OUTAGE_ERROR_MARKERS)
+
+
+def _heal_outage_welcomes(limit: int = 200) -> int:
+    """Give back the welcome email of everyone silenced by an outage.
+
+    THE REPAIR FOR THE BUG THAT PROMPTED IT. Sending was dead for a long time
+    (Render blocks outbound SMTP, so smtp.gmail.com:587 was never reachable).
+    Every signup during that window failed three times in about a minute and
+    was written off as welcomeEmailStatus="failed". Nothing in this file ever
+    looked at a failed welcome again: not _pending_welcome_ids, which asks only
+    for "pending", and not _reclaim_stuck_welcomes, which asks only for
+    "sending". So those people were active subscribers, permanently, who had
+    been promised an email that was never going to arrive, and repairing the
+    transport would not have sent it either. The failure was ours and the
+    record of it was the only thing standing between them and the email.
+
+    This runs when the worker starts, which is what makes it self-healing: the
+    next time this server comes up with a transport that works, everybody owed
+    a welcome gets one, with no admin action and nobody having to know.
+
+    Safety: it re-queues ONLY failures whose cause was the system (see
+    _is_outage_failure). A genuinely bad address stays failed, because
+    re-queueing a hard bounce forever is how a sender's reputation dies.
+    Attempts are reset so the retry budget is spent on the real attempt, and
+    the person is still an active subscriber or they are skipped entirely.
+    Re-running it is harmless: a healed record is "pending", not "failed", so
+    the query stops finding it.
+    """
+    if not nl_email.transport():
+        # Nothing can be delivered yet, so moving records to "pending" would
+        # only fail them again. They stay put until there is a way to send.
+        return 0
+    db = _db()
+    if db is None:
+        return 0
+    try:
+        snap = (db.collection(C_SUBS)
+                .where("welcomeEmailStatus", "==", "failed").limit(limit).get())
+    except Exception as exc:  # noqa: BLE001
+        print("[newsletter] outage-welcome query failed: %s" % exc)
+        return 0
+    healed = 0
+    for doc in snap:
+        d = doc.to_dict() or {}
+        if d.get("status") != STATUS_ACTIVE:
+            continue                          # unsubscribed, or never confirmed
+        if not _is_outage_failure(d):
+            continue                          # a real bounce: leave it alone
+        try:
+            doc.reference.set({
+                "welcomeEmailStatus": WELCOME_PENDING,
+                "welcomeAttempts": 0,
+                "welcomeLeaseUntil": 0,
+                "welcomeError": "Re-queued: the earlier failure was a mail-system "
+                                "outage, not a problem with this address.",
+                "welcomeErrorCategory": "",
+                "updatedAt": _now(),
+            }, merge=True)
+            healed += 1
+        except Exception as exc:  # noqa: BLE001
+            print("[newsletter] outage-welcome heal failed for %s: %s" % (doc.id, exc))
+    if healed:
+        _invalidate_subs_cache()
+        print("[newsletter] re-queued %d welcome email(s) lost to a sending outage"
+              % healed)
+        audit("welcomes_requeued",
+              summary="Re-queued %d welcome email(s) that failed while sending was "
+                      "down" % healed)
+    return healed
+
+
 def _pending_welcome_ids(limit: int = 50) -> List[str]:
     """Ids of subscribers whose welcome email is genuinely due.
 
@@ -2040,6 +2174,14 @@ def _worker_loop() -> None:
             if time.time() >= next_reclaim:
                 next_reclaim = time.time() + _RECLAIM_EVERY_SEC
                 if _reclaim_stuck_welcomes() > 0:
+                    did_work = True
+                # Then the people an OUTAGE wrote off. This is deliberately in
+                # the same first-thing-on-boot sweep: "the next time the server
+                # comes up with working email, everyone who was missed gets
+                # theirs" is the promise, and it should not need an admin to
+                # remember to press something. It is a no-op when there is no
+                # transport, and a no-op once everybody has been healed.
+                if _heal_outage_welcomes() > 0:
                     did_work = True
 
             # 1) Welcome emails, before anything else. Somebody typed their
@@ -2247,8 +2389,9 @@ def _admin_self_test(admin: str) -> Dict[str, Any]:
     t = nl_email.transport()
     step("A way to send email is configured", bool(t),
          nl_email.transport_label() if t else
-         "Set SMTP_HOST, SMTP_USERNAME and SMTP_PASSWORD (or NEWSLETTER_API_KEY) "
-         "in the Render dashboard, then redeploy.")
+         "Set NEWSLETTER_API_KEY in the Render dashboard, then redeploy. Render "
+         "blocks outbound SMTP, so an HTTPS email API key is the route that "
+         "works here.")
     if not t:
         out["error"] = ("No email transport is configured, so nothing can be sent at "
                         "all. This is almost certainly the whole problem.")
@@ -2259,7 +2402,10 @@ def _admin_self_test(admin: str) -> Dict[str, Any]:
          "NEWSLETTER_UNSUBSCRIBE_SECRET is not set: website signups are refused and "
          "campaigns cannot start.")
 
-    conn = nl_email.connection_status()
+    # force=True: the self-test exists to prove the CURRENT state, so it must
+    # reconnect rather than repeat a verdict cached minutes ago, which is
+    # exactly what somebody re-checking after a fix must not be shown.
+    conn = nl_email.connection_status(force=True)
     step("The mail server accepts our login", bool(conn.get("connected")),
          conn.get("error") or conn.get("authorizedAs") or "")
     if not conn.get("connected"):
@@ -2345,10 +2491,19 @@ def _admin_dashboard() -> Dict[str, Any]:
     # Counted and reported because a record stuck here used to be invisible in
     # every direction: not pending, not failed, not sent, and never retried.
     stuck_welcome = sum(1 for r in rows if r.get("welcomeEmailStatus") == "sending")
+    # Of the failures, the ones that were OUR fault and are therefore still
+    # owed an email. Split out from failed_welcome because the two need
+    # opposite responses: a bounced address is finished, an outage victim is
+    # waiting. This is the number that must go to zero after a transport fix.
+    owed_welcome = sum(1 for r in rows
+                       if r.get("status") == STATUS_ACTIVE
+                       and r.get("welcomeEmailStatus") == "failed"
+                       and _is_outage_failure(r))
 
     return {
         "sendHealth": send_health(),
         "stuckWelcome": stuck_welcome,
+        "owedWelcome": owed_welcome,
         "activeCount": len(active),
         "pendingCount": len(waiting),
         "unsubscribedCount": len(pub) - len(active) - len(waiting),
@@ -2900,7 +3055,9 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
             return True
 
         if action == "settings":
-            gm = nl_email.connection_status()
+            # The panel's Re-check button sends recheckDns; it means "actually
+            # go and look", so it bypasses the connection cache too.
+            gm = nl_email.connection_status(force=bool(body.get("recheckDns")))
             audit("connection_check", admin=admin,
                   summary="Checked %s: %s" % (gm.get("transportLabel") or "no transport",
                                               "ok" if gm.get("connected") else "not connected"))
@@ -2921,6 +3078,23 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
                 "privacyUrl": nl_email.privacy_url(),
                 "appVersion": _app_version,
             })
+            return True
+
+        if action == "resend-missed":
+            # The same repair the worker runs at boot, on demand. It exists so
+            # the answer to "did everyone who signed up while it was broken
+            # actually get their email?" can be pressed and watched, rather
+            # than waited for.
+            if not nl_email.transport():
+                handler._send_json({"ok": False, "error":
+                                    "There is still no way to send email, so re-queueing "
+                                    "would only fail again. Set NEWSLETTER_API_KEY first."})
+                return True
+            healed = _heal_outage_welcomes()
+            _wake_worker()
+            audit("welcomes_requeued", admin=admin,
+                  summary="Re-queued %d welcome email(s) by hand" % healed)
+            handler._send_json({"ok": True, "requeued": healed})
             return True
 
         if action == "whoami":
@@ -3045,9 +3219,13 @@ def init(*, get_firestore, verify_token, app_version: str = "") -> None:
         print("[newsletter] " + "=" * 68)
         print("[newsletter] !! NO EMAIL TRANSPORT CONFIGURED. NOTHING WILL BE SENT.")
         print("[newsletter] !! No welcome emails, no newsletters, no test sends.")
-        print("[newsletter] !! Fix: set SMTP_HOST, SMTP_USERNAME and SMTP_PASSWORD")
-        print("[newsletter] !!      (or NEWSLETTER_API_KEY) in the Render dashboard,")
-        print("[newsletter] !!      then redeploy. See NEWSLETTER_SETUP.md section 4.")
+        print("[newsletter] !! Fix: set NEWSLETTER_API_KEY in the Render dashboard,")
+        print("[newsletter] !!      then redeploy. Render BLOCKS outbound SMTP")
+        print("[newsletter] !!      (ports 25/465/587), so SMTP_* can never connect")
+        print("[newsletter] !!      from here. See NEWSLETTER_SETUP.md section 4.")
+        print("[newsletter] !! Every welcome owed is queued, not lost: they send")
+        print("[newsletter] !!      themselves the next time this server starts")
+        print("[newsletter] !!      with a working transport.")
         print("[newsletter] " + "=" * 68)
     if not unsub_secret_configured():
         print("[newsletter] " + "=" * 68)

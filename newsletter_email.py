@@ -38,6 +38,7 @@ sending for up to 24h, so the cap is enforced HERE, before the wire.
 from __future__ import annotations
 
 import base64
+import hashlib
 import html as _html
 import json
 import os
@@ -143,6 +144,15 @@ BUSINESS_ADDRESS_LINES = (
 
 def _env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
+
+
+def _int_env(name: str, default: int) -> int:
+    """An env var that must be a number. A typo falls back to the default
+    rather than raising at import time and taking the whole server down."""
+    try:
+        return int(_env(name) or default)
+    except ValueError:
+        return default
 
 
 def sender_email() -> str:
@@ -296,18 +306,33 @@ def gmail_configured() -> bool:
 def transport() -> str:
     """The active transport: "smtp" | "http" | "gmail_api" | "" (none).
 
-    Order is cheapest-setup-first, so the moment SMTP_* is filled in it takes
-    over and the Google variables become dead weight rather than a dependency.
+    ⚠️ HTTP WINS OVER SMTP WHEN BOTH ARE CONFIGURED, and that ordering is load
+    bearing, not a preference.
+
+    This used to be "cheapest-setup-first": SMTP_* beat everything. That turned
+    the one documented remedy for a blocked host into a no-op. Render (and a
+    lot of other PaaS hosts) blocks outbound connections on the SMTP ports
+    25 / 465 / 587 outright, so smtp.gmail.com can never be reached from the
+    container; the send fails with "Could not reach smtp.gmail.com:587", and
+    the error text, this module's docs and NEWSLETTER_SETUP.md all told the
+    reader to fix it by setting NEWSLETTER_API_KEY. Doing exactly that changed
+    nothing, because SMTP_HOST was still set and still won, so the fix looked
+    like it had failed and mail stayed dead.
+
+    Nobody sets an API key by accident. Setting one is a deliberate act that
+    means "use this", so it takes precedence, and the SMTP_* values can stay in
+    the dashboard as a fallback for a host that does allow port 587.
+    NEWSLETTER_TRANSPORT=smtp still forces the old behaviour explicitly.
     """
     forced = _env("NEWSLETTER_TRANSPORT").lower().replace("-", "_")
     if forced in ("smtp", "http", "gmail_api"):
         return forced
     if forced in ("resend", "postmark", "brevo", "sendgrid"):
         return "http"
-    if smtp_configured():
-        return "smtp"
     if http_configured():
         return "http"
+    if smtp_configured():
+        return "smtp"
     if gmail_configured():
         return "gmail_api"
     return ""
@@ -1193,6 +1218,39 @@ class SendError(Exception):
         self.status = status
 
 
+# ── "Is this recipient broken, or is the whole system down?" ───────────────
+# THE distinction that decides whether somebody ever gets their email.
+#
+# `retryable` answers a much smaller question than callers were asking of it:
+# "could sending to this same address work later?". For a blocked SMTP port
+# the answer is yes, so a network failure was retried three times, ~20 seconds
+# apart, and then marked FAILED forever, per subscriber. Nothing re-reads a
+# failed welcome. So an outage that lasted an afternoon permanently silenced
+# every person who signed up during it, and fixing the transport afterwards
+# did not send them anything, because their records no longer said "pending".
+#
+# These categories are never the recipient's fault and are never fixed by
+# moving on to the next address: the transport is misconfigured, unreachable,
+# unauthenticated or rate limited. Work stops, the recipient goes straight
+# back on the queue, and the attempt is NOT counted against them.
+OUTAGE_CATEGORIES = frozenset({
+    "config",          # no transport configured at all
+    "network",         # host blocks the port / provider unreachable
+    "auth",            # username/password or key rejected
+    "auth_revoked",    # OAuth refresh token withdrawn
+    "forbidden",       # provider refused the credential
+    "daily_cap",       # our own cap
+    "provider_quota",  # their cap
+    "rate_limit",      # temporary throttle
+})
+
+
+def is_outage(category: Any) -> bool:
+    """True when `category` means "nothing can be sent right now", as opposed
+    to "this one message or address is bad"."""
+    return str(category or "") in OUTAGE_CATEGORIES
+
+
 _TOKEN_LOCK = threading.Lock()
 _TOKEN_CACHE: Dict[str, Any] = {"access_token": "", "expires_at": 0.0, "email": "", "scopes": ""}
 
@@ -1261,7 +1319,15 @@ def smtp_settings() -> Dict[str, Any]:
         # find out in production, and no provider has a password with a space
         # in it, so strip ALL whitespace and remove the question.
         "password": re.sub(r"\s+", "", _env("SMTP_PASSWORD")),
-        "timeout": 30,
+        # 30 seconds was too long to be safe inside an HTTP request. A host
+        # that BLOCKS the SMTP port drops the SYN rather than refusing it, so
+        # the connect does not fail fast, it burns the entire timeout. The
+        # admin "send a test" path then spent one timeout on connection_status()
+        # and up to two more on the send-plus-retry, ~90 seconds in a single
+        # request, which is past the platform's proxy limit: the browser got a
+        # 502 with no message, and a blocked port looked like a crashed server.
+        # 12s is far more than any reachable mail server needs to answer.
+        "timeout": max(3, _int_env("SMTP_TIMEOUT", 12)),
     }
 
 
@@ -1394,8 +1460,12 @@ def _smtp_error(exc: Exception) -> "SendError":
                          category="network", retryable=True)
     if isinstance(exc, (OSError, TimeoutError)):
         return SendError(
-            "Could not reach %s:%s. Some hosts block outbound SMTP, if this keeps "
-            "happening, switch to an HTTPS email API by setting NEWSLETTER_API_KEY."
+            "Could not reach %s:%s. This host BLOCKS outbound SMTP (Render blocks "
+            "ports 25, 465 and 587), so no SMTP settings can ever work here and "
+            "nothing is being delivered. Fix: set NEWSLETTER_API_KEY to an HTTPS "
+            "email API key (Brevo, Resend, Postmark or SendGrid). It takes "
+            "priority over SMTP automatically, so you do not have to remove the "
+            "SMTP_* values. See NEWSLETTER_SETUP.md."
             % (_env("SMTP_HOST"), smtp_settings()["port"]),
             category="network", retryable=True)
     return SendError("SMTP error: %s" % _redact(str(exc)), category="unknown", retryable=True)
@@ -2039,7 +2109,66 @@ def domain_auth_status(force: bool = False) -> Dict[str, Any]:
     return out
 
 
-def connection_status() -> Dict[str, Any]:
+_CONN_LOCK = threading.Lock()
+_CONN_CACHE: Dict[str, Any] = {"at": 0.0, "value": None, "key": ""}
+# A live connection check opens a real session, so on a host that BLOCKS the
+# SMTP port it costs a full connect timeout every time. The admin dashboard
+# asks for one on every load and the test-send path asks for one before every
+# send, so the same dead port was re-proved several times per page, each one
+# holding an HTTP request open for the duration.
+#
+# Cached briefly: long enough that one page load is not a pile of timeouts,
+# short enough to still read as live. The Connections panel's Re-check button
+# passes force=True.
+_CONN_TTL_SEC = 60.0
+
+
+def _conn_fingerprint() -> str:
+    """Everything a connection verdict depends on, hashed.
+
+    The cache is keyed on this rather than on time alone, because the moment
+    that matters most is the one right after a credential is corrected: a
+    verdict cached against the OLD key would report the old failure and make a
+    working fix look broken. Change any of these and the next call genuinely
+    reconnects, TTL or no TTL. Hashed so a key or password is never held in a
+    second place.
+    """
+    parts = [
+        transport(), sender_email(),
+        _env("SMTP_HOST"), _env("SMTP_PORT"), _env("SMTP_SECURITY"),
+        _env("SMTP_USERNAME"), _env("SMTP_PASSWORD"),
+        http_provider(), _api_key_for(http_provider() or "resend"),
+        _env("GOOGLE_CLIENT_ID"), _env("GOOGLE_CLIENT_SECRET"),
+        _env("GOOGLE_REFRESH_TOKEN"),
+    ]
+    return hashlib.sha256("\x1f".join(parts).encode("utf-8")).hexdigest()
+
+
+def connection_status(force: bool = False) -> Dict[str, Any]:
+    key = _conn_fingerprint()
+    with _CONN_LOCK:
+        cached = _CONN_CACHE.get("value")
+        if (not force and cached is not None
+                and _CONN_CACHE.get("key") == key
+                and (time.time() - float(_CONN_CACHE.get("at") or 0)) < _CONN_TTL_SEC):
+            return dict(cached)
+    out = _connection_status_uncached()
+    with _CONN_LOCK:
+        _CONN_CACHE["at"] = time.time()
+        _CONN_CACHE["value"] = dict(out)
+        _CONN_CACHE["key"] = key
+    return out
+
+
+def invalidate_connection_cache() -> None:
+    """Forget the cached verdict, so the next check really reconnects."""
+    with _CONN_LOCK:
+        _CONN_CACHE["at"] = 0.0
+        _CONN_CACHE["value"] = None
+        _CONN_CACHE["key"] = ""
+
+
+def _connection_status_uncached() -> Dict[str, Any]:
     """Live sending check for the admin Connections panel.
 
     Reports on whichever transport is ACTIVE, and is careful to distinguish
@@ -2097,9 +2226,10 @@ def connection_status() -> Dict[str, Any]:
     if not t:
         out["error"] = "No way to send email is configured yet."
         out["setupHint"] = (
-            "Easiest: set SMTP_HOST, SMTP_PORT, SMTP_USERNAME and SMTP_PASSWORD "
-            "from your existing mail provider. Alternative: set NEWSLETTER_API_KEY "
-            "for an HTTPS email API (Resend, Postmark, Brevo, SendGrid)."
+            "Set NEWSLETTER_API_KEY to an HTTPS email API key (Brevo, Resend, "
+            "Postmark or SendGrid). This is the one that works on Render, which "
+            "blocks the outbound SMTP ports 25, 465 and 587: SMTP_* values are "
+            "accepted here but can never connect from this host."
         )
         return out
 
@@ -2267,8 +2397,10 @@ def send_health() -> Dict[str, Any]:
         h["healthy"] = False
         h["summary"] = ("No way to send email is configured, so NOTHING is being "
                         "delivered: no welcome emails and no newsletters. Set "
-                        "SMTP_HOST / SMTP_USERNAME / SMTP_PASSWORD, or "
-                        "NEWSLETTER_API_KEY, in the Render dashboard.")
+                        "NEWSLETTER_API_KEY in the Render dashboard (Render blocks "
+                        "outbound SMTP, so an HTTPS email API is the route that "
+                        "works). Nobody is lost meanwhile: every welcome owed is "
+                        "queued and sends itself once this is set.")
     elif not h["everTried"]:
         h["healthy"] = True
         h["summary"] = ("%s is configured. Nothing has been sent since this server "
@@ -2324,8 +2456,9 @@ def send_email(
     t = transport()
     if not t:
         exc = SendError(
-            "No way to send email is configured. Set SMTP_HOST / SMTP_USERNAME / "
-            "SMTP_PASSWORD, or NEWSLETTER_API_KEY.",
+            "No way to send email is configured. Set NEWSLETTER_API_KEY to an "
+            "HTTPS email API key (Brevo, Resend, Postmark, SendGrid); SMTP_* is "
+            "the alternative, but only on a host that allows outbound SMTP.",
             category="config", retryable=False)
         _note_send_fail(exc, "config")
         raise exc

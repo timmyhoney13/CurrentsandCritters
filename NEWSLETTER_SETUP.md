@@ -4,8 +4,9 @@ Everything that could be built in code is built and tested. What remains is
 account-level setup in Stripe, Render and your DNS.
 
 **There is no Google Cloud project, no OAuth consent screen, no scopes, and no
-refresh-token script.** Sending now runs over ordinary SMTP: four values from
-whoever already hosts your email, or over an HTTPS email API if you prefer.
+refresh-token script.** Sending runs over an **HTTPS email API**: one API key
+pasted into Render. (SMTP is also supported, but **not on Render**, which
+blocks the outbound SMTP ports. See §4.)
 
 **Nothing in this document contains a real secret, and nothing in the repo
 does either.** Where a value is secret you will see the variable *name* and the
@@ -22,10 +23,11 @@ can simply emit mail from nowhere and have Gmail or Outlook accept it. So
 
 What I could remove is how much that costs you. It is now:
 
-> **Four values you already have, pasted into Render.**
+> **One API key, pasted into Render.**
 
-No new account, no console, no scripts, as long as your domain email is
-hosted somewhere, which it is.
+No console, no scripts, no Google Cloud project. It does mean one free account
+with an email provider, because Render blocks the SMTP ports that would
+otherwise have let the mailbox you already own do the job (§4).
 
 ---
 
@@ -152,12 +154,103 @@ rules. No browser ever reads them directly.
 
 ## 4. Set up sending: pick ONE
 
-The system supports three ways to send. **Option A is the one to use.** You only
-ever configure one; the others can stay completely unset.
+> ### ⚠️ READ THIS FIRST: Render blocks SMTP. Use Option A.
+>
+> **Render blocks outbound connections on the SMTP ports (25, 465 and 587)**,
+> on every plan. It is a deliberate anti-spam policy of the host, not a bug and
+> not something a setting on our side can defeat.
+>
+> This is why no newsletter email was being delivered. `SMTP_HOST` was set to
+> `smtp.gmail.com` and the credentials were perfectly correct, but the
+> connection could never leave the container: the connect attempt just hung
+> until it timed out, and the admin page reported
+> *"Could not reach smtp.gmail.com:587"*.
+>
+> **Any SMTP settings will fail on Render, no matter how correct they are.**
+> The fix is an HTTPS email API, which talks to port 443 like any other web
+> request and is never blocked. That is Option A below, and it is the only
+> option that works on this host.
+>
+> Nobody who signed up during the outage was lost. Every welcome email that
+> could not be delivered is queued, and they are all sent automatically the
+> next time the server starts with a working transport. See §4.1.
 
 ---
 
-### Option A: SMTP (recommended, ~5 minutes, no new accounts)
+### Option A: an HTTPS email API (the one that works here, ~10 minutes)
+
+1. Create an account with one of these. **Brevo** is suggested first because
+   its free tier (300 emails/day) allows a *verified single sender*, so it
+   works with the existing `currentsandcritters@gmail.com` From address
+   without owning a domain. Resend and Postmark generally want a verified
+   domain before they will send to arbitrary recipients.
+
+   | Provider | Free tier | Notes |
+   |---|---|---|
+   | **Brevo** | 300/day | Verified single sender is enough; no domain needed |
+   | **Resend** | 3,000/month | Wants a verified domain for real sending |
+   | **Postmark** | 100/month trial | Excellent deliverability, small free tier |
+   | **SendGrid** | 100/day | Single-sender verification available |
+
+2. Verify the sender address they ask for. If you use Brevo with the current
+   setup, verify **`currentsandcritters@gmail.com`**, which is the value of
+   `NEWSLETTER_FROM_EMAIL`. It must match, or the provider rejects every
+   message.
+
+   *(Better, when you have a moment: verify the domain
+   `beardedsealstudios.com` and move `NEWSLETTER_FROM_EMAIL` to
+   `timothy.honey@beardedsealstudios.com`. Bulk mail from a consumer
+   `@gmail.com` address is filtered much harder. See §8.)*
+
+3. Create an API key.
+
+4. **Render → your service → Environment → add:**
+
+   | Key | Value |
+   |---|---|
+   | `NEWSLETTER_API_KEY` | the key from step 3 |
+   | `NEWSLETTER_HTTP_PROVIDER` | `brevo` / `resend` / `postmark` / `sendgrid` |
+
+   `NEWSLETTER_HTTP_PROVIDER` defaults to `resend`, so **set it explicitly** if
+   you signed up anywhere else, or the key is sent to the wrong API.
+
+5. **Manual Deploy → Deploy latest commit.**
+
+6. Open `/admin/newsletter` → **Connections**. It should name your provider and
+   say **Connected**. Then press **Send a self-test**: that sends one real
+   email through the real path and reports the provider's own words if it
+   fails.
+
+**You do NOT have to delete the `SMTP_*` values.** An API key now takes
+priority over SMTP automatically. (It did not used to, which is why the old
+advice in the error message, "set `NEWSLETTER_API_KEY`", would not have worked
+on its own: `SMTP_HOST` was still set and still won.)
+
+---
+
+### 4.1 What happens to everyone who signed up while it was broken
+
+Nothing about the outage is permanent, and there is nothing you need to
+remember to do.
+
+* Every welcome email that failed because sending was down is kept **queued**,
+  not written off. An outage never counts against a subscriber's retry budget.
+* When the server next starts **with a working transport**, it sweeps for
+  anyone still owed a welcome and sends it. This runs on its own, at boot.
+* Anyone written off by the *older* code (marked `failed` during the outage,
+  when that was a dead end) is found and re-queued by the same sweep.
+* The dashboard shows **"N people are still owed their welcome email"** with a
+  **Send the ones we missed** button, if you would rather watch it happen than
+  wait for a restart.
+* Addresses that genuinely bounced are left alone. Re-mailing known-bad
+  addresses on every restart is what wrecks a sender's reputation.
+
+---
+
+### Option B: SMTP (only on a host that allows it, ~5 minutes)
+
+**This cannot work on Render.** It is kept for a future move to a host that
+permits outbound SMTP, and for local testing.
 
 Your domain email is hosted somewhere already. Whoever hosts it will give you
 these four values, usually on a page called *IMAP/SMTP*, *Mail client setup*,
@@ -168,12 +261,9 @@ or *Email clients*.
 | Key | What to put |
 |---|---|
 | `SMTP_HOST` | e.g. `smtp.gmail.com`, `smtp.zoho.com`, `mail.privateemail.com` |
-| `SMTP_PORT` | `587` (already set for you). Use `465` only if your host says so |
+| `SMTP_PORT` | `587`. Use `465` only if your host says so |
 | `SMTP_USERNAME` | almost always `timothy.honey@beardedsealstudios.com` |
 | `SMTP_PASSWORD` | the mailbox password, or an **app password**: see below |
-
-Then **Manual Deploy → Deploy latest commit**, open
-`/admin/newsletter` → **Connections**, and it should say **Connected**.
 
 **If your email is on Google Workspace** (very likely, since you sign in with
 Google), the host is `smtp.gmail.com` and the password must be an **App
@@ -189,44 +279,18 @@ Password**, not your normal one:
    single most common failure is generating it on a different Google account,
    which fails with `535 BadCredentials` and no other clue.
 
-That is a settings page, not a Google Cloud project. No consent screen, no
-scopes, no refresh token, nothing to re-authorise later.
-
-**If your email is somewhere else**: Namecheap Private Email, Zoho, Fastmail,
-iCloud+, Proton Bridge, your registrar, the same four values apply; look for
-"SMTP settings" in their help. Nothing else changes.
-
----
-
-### Option B, an HTTPS email API (if SMTP is blocked, or when you outgrow it)
-
-Some hosts block outbound SMTP ports. If **Connections** reports a network
-error that never clears, use this instead. It is also the right move once your
-list grows past a few thousand (see §8).
-
-1. Create an account at one of: **Resend** (simplest), **Postmark**, **Brevo**,
-   **SendGrid**.
-2. Add and verify the domain `beardedsealstudios.com` in their dashboard,
-   they will give you DNS records, which are the same SPF/DKIM records you need
-   anyway (§8).
-3. Create an API key.
-
-**Render → Environment:**
-
-| Key | Value |
-|---|---|
-| `NEWSLETTER_API_KEY` | the key from step 3 |
-| `NEWSLETTER_HTTP_PROVIDER` | `resend` (default) / `postmark` / `brevo` / `sendgrid` |
-
-Leave the `SMTP_*` values blank, or set `NEWSLETTER_TRANSPORT=http` to force it.
+Note that some providers also offer **port 2525**, which Render does *not*
+block. If your provider supports it, `SMTP_PORT=2525` can make SMTP work here.
+Gmail does not offer 2525.
 
 ---
 
 ### Option C: Gmail API over OAuth (optional, not recommended)
 
 Still supported, and `scripts/get_gmail_refresh_token.py` still works if you
-ever want it. It is the **only** route that needs a Google Cloud project, a
-consent screen and scopes, which is exactly why nothing requires it any more.
+ever want it. It sends over HTTPS, so it is *not* blocked by Render either, but
+it is the **only** route that needs a Google Cloud project, a consent screen
+and scopes, which is why Option A is the recommendation.
 Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_REFRESH_TOKEN` if
 you go this way.
 
@@ -234,10 +298,16 @@ you go this way.
 
 ### Which one is live?
 
-`NEWSLETTER_TRANSPORT` forces a choice. Left unset, the first fully-configured
-option wins, in the order **SMTP → HTTP API → Gmail API**. So the moment you
-fill in `SMTP_*`, that is what sends, any leftover Google variables become
-dead weight rather than a dependency.
+`NEWSLETTER_TRANSPORT` forces a choice (`http` / `smtp` / `gmail_api`). Left
+unset, the first fully-configured option wins, in the order
+**HTTP API → SMTP → Gmail API**.
+
+⚠️ **The HTTP API deliberately outranks SMTP.** It used to be the other way
+round, and that turned the documented remedy for a blocked host into a no-op:
+you would set `NEWSLETTER_API_KEY` exactly as instructed, `SMTP_HOST` would
+still win, and mail would stay dead with no indication why. Setting an API key
+is a deliberate act, so it takes over. Set `NEWSLETTER_TRANSPORT=smtp` if you
+ever genuinely want SMTP while both are configured.
 
 **Connections** always names the method that is actually in use, so this is
 never a guess.
@@ -544,17 +614,29 @@ page, before any of the numbers, and there is a **Send me a test email now**
 button next to it that pushes a real message down the real transport and shows
 you exactly which step failed, in the mail provider's own words.
 
-The three things that stop mail completely, in the order they bite:
+**By far the most likely cause, and the one that actually happened:**
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Dashboard says *Email sending is not set up* | No transport configured | Set `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD` in Render (§4), redeploy |
-| Signup form says *"Email delivery is being set up"* instead of *"a welcome email is on its way"* | Same as above, seen from the public side | Same |
-| Self-test fails on *The mail server accepts our login* | Wrong password | Google Workspace needs an **App Password**, not the account password, and 2-Step Verification must be on |
+| *"Could not reach smtp.gmail.com:587"*, or a `network` failure that never clears | **Render blocks outbound SMTP (ports 25/465/587).** Correct SMTP credentials cannot help; the connection never leaves the container | Set `NEWSLETTER_API_KEY` (§4 Option A). You do **not** need to remove `SMTP_*` |
 
-The Render deploy log shouts about the first two at boot with a boxed
+The rest, in the order they bite:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Dashboard says *Email sending is not set up* | No transport configured | Set `NEWSLETTER_API_KEY` in Render (§4), redeploy |
+| Signup form says *"Email delivery is being set up"* instead of *"a welcome email is on its way"* | Same as above, seen from the public side | Same |
+| Self-test fails on *The mail server accepts our login* | Wrong key, or the wrong provider name | Check `NEWSLETTER_HTTP_PROVIDER` matches where the key came from; it defaults to `resend` |
+| The provider rejects every message with a sender error | The From address is not verified with them | Verify `NEWSLETTER_FROM_EMAIL` in the provider's dashboard (§4 Option A step 2) |
+| Admin page returns **502** on preview / test-send / save | The server was restarting, **or** a blocked SMTP port held the request open past the proxy timeout | Fixed: the SMTP timeout is now short and connection checks are cached, so a dead port returns an error instead of a 502 |
+
+The Render deploy log shouts about a missing transport at boot with a boxed
 `!! NO EMAIL TRANSPORT CONFIGURED` banner, so `Ctrl-F` for `[newsletter]` there
 is the fastest check of all.
+
+**Nobody is lost while this is broken.** Welcome emails that cannot be sent
+stay queued and go out by themselves once a working transport is set: see
+§4.1.
 
 ### 9.1c The consumer-Gmail trap
 `NEWSLETTER_FROM_EMAIL` is `currentsandcritters@gmail.com`, a **free consumer

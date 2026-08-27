@@ -310,7 +310,7 @@ class Base(unittest.TestCase):
         self._real_send = ne.send_email
         ne.send_email = lambda **kw: self.box.send(**kw)
         self._real_conn = ne.connection_status
-        ne.connection_status = lambda: {
+        ne.connection_status = lambda force=False: {
             "configured": True, "connected": True, "canSendAsSender": True,
             "senderVerified": True, "transport": "smtp",
             "transportLabel": "SMTP (smtp.example.com)",
@@ -769,9 +769,15 @@ class TestUnsubscribe(Base):
             ns.handle_stripe_session(ev, sess)
             self.drain()
             sub = self.sub_for("a@b.com")
-            self.assertEqual(sub["welcomeEmailStatus"], "failed")
             self.assertEqual(len(self.box.to("a@b.com")), 0,
                              "never send marketing mail with no working unsubscribe link")
+            # DEFERRED, not failed. Refusing to send is right; holding it
+            # against the subscriber is not. A missing server secret is not
+            # something they did, it is fixed in one move, and a "failed"
+            # welcome is never read again, so marking it failed here quietly
+            # meant they would never get the email even after the fix.
+            self.assertEqual(sub["welcomeEmailStatus"], ns.WELCOME_PENDING)
+            self.assertEqual(sub["welcomeAttempts"], 0)
         finally:
             os.environ["NEWSLETTER_UNSUBSCRIBE_SECRET"] = old
 
@@ -1160,7 +1166,7 @@ class TestCampaigns(Base):
     def test_send_blocked_without_gmail(self):
         self._make_list(2)
         cid = self._draft()
-        ne.connection_status = lambda: {"connected": False, "canSendAsSender": False,
+        ne.connection_status = lambda force=False: {"connected": False, "canSendAsSender": False,
                                         "transportLabel": "not configured",
                                         "error": "not connected"}
         h = self.admin_post("campaign-start", {"id": cid, "confirm": "SEND"})
@@ -1788,9 +1794,14 @@ class TestTransportSelection(_EnvSandbox):
         st = ne.connection_status()
         self.assertFalse(st["connected"])
         self.assertFalse(st["configured"])
-        # It must TELL you how to fix it, and lead with the easy option.
-        self.assertIn("SMTP_HOST", st["setupHint"])
+        # It must TELL you how to fix it, and lead with the option that
+        # actually works on the host this runs on. It used to lead with
+        # SMTP_HOST, which on Render can never connect at all (ports 25, 465
+        # and 587 are blocked outbound), so the advice sent the reader to the
+        # one setting guaranteed not to fix it.
         self.assertIn("NEWSLETTER_API_KEY", st["setupHint"])
+        self.assertIn("SMTP", st["setupHint"],
+                      "still has to mention SMTP, to explain why it is not the answer")
 
     def test_smtp_wins_and_needs_no_google(self):
         os.environ.update(SMTP_HOST="smtp.example.com", SMTP_USERNAME="me@x.com",
@@ -1872,7 +1883,8 @@ class TestTransportSelection(_EnvSandbox):
                           html_body="<p>x</p>", text_body="x")
         self.assertEqual(cm.exception.category, "config")
         self.assertFalse(cm.exception.retryable, "a missing config never retries")
-        self.assertIn("SMTP_HOST", str(cm.exception))
+        self.assertIn("NEWSLETTER_API_KEY", str(cm.exception),
+                      "the error names the variable that actually works here")
 
 
 class TestSmtpTransport(_EnvSandbox):
@@ -3055,6 +3067,394 @@ class TestWelcomeDoesNotScanTheWholeList(Base):
             ns._all_subscribers = real
         self.assertEqual(scans, [], "no collection scan on the welcome path")
         self.assertEqual(len(self.box.to("scan@x.com")), 1, "and it still sends")
+
+
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  THE BLOCKED-PORT OUTAGE
+#
+#  What actually happened in production, and the reason every test below
+#  exists. NEWSLETTER_SETUP.md now leads with it: Render blocks outbound
+#  connections on the SMTP ports (25, 465, 587), so smtp.gmail.com:587 was
+#  never reachable from the container and not one email had gone out.
+#
+#  That much was a configuration problem. The damage was a code problem:
+#
+#   1. a blocked port raises OSError, mapped to category "network" with
+#      retryable=True. True is correct in the narrow sense that the same
+#      address could work later, and it was read as "so retry it three times
+#      and then give up on this person", which is the wrong conclusion from
+#      the right fact;
+#   2. three attempts, ~20 seconds apart on the worker tick, took about a
+#      minute, so within a minute of signing up each person was written off
+#      as welcomeEmailStatus="failed";
+#   3. nothing ever reads a failed welcome again. Not _pending_welcome_ids
+#      (asks for "pending"), not _reclaim_stuck_welcomes (asks for "sending").
+#
+#  So they were active subscribers, permanently, who had been told an email
+#  was on its way, and repairing the transport would not have sent it. The
+#  outage was recoverable; the record of it was what made the loss permanent.
+# ══════════════════════════════════════════════════════════════════════════
+class TestBlockedSmtpOutage(Base):
+    def blocked_port(self):
+        """The exact error a host that blocks outbound SMTP produces: the
+        connect times out, smtplib raises OSError, _smtp_error maps it."""
+        return ne._smtp_error(TimeoutError("timed out"))
+
+    # ── the classification ───────────────────────────────────────────────
+    def test_a_blocked_port_is_an_outage_not_a_bad_address(self):
+        err = self.blocked_port()
+        self.assertEqual(err.category, "network")
+        self.assertTrue(ne.is_outage(err.category),
+                        "nothing can be sent, so it is not this recipient's fault")
+
+    def test_the_error_names_the_setting_that_actually_fixes_it(self):
+        """The old text said "switch to an HTTPS email API by setting
+        NEWSLETTER_API_KEY", and doing exactly that changed nothing, because
+        SMTP_* was still set and still won the transport election. Advice that
+        cannot work is worse than none: it burns the one fix the reader had."""
+        msg = str(self.blocked_port())
+        self.assertIn("NEWSLETTER_API_KEY", msg)
+        self.assertIn("block", msg.lower())
+
+    def test_a_real_bounce_is_still_the_addresss_fault(self):
+        """The repair must not swallow the failures that ARE permanent, or a
+        dead address is retried forever and the sender's reputation pays."""
+        self.assertFalse(ne.is_outage("invalid_recipient"))
+        self.assertFalse(ne.is_outage("invalid_message"))
+
+    # ── nobody is written off during the outage ──────────────────────────
+    def test_a_welcome_survives_a_blocked_port_indefinitely(self):
+        h = Handler("7.7.7.1")
+        ns.handle_post(h, Parsed("/api/newsletter/subscribe"), {"email": "blocked@x.com"})
+        sid = ns._subscriber_id("blocked@x.com")
+        self.box.fail_with = self.blocked_port()
+        self.box.fail_times = -1
+        # Far more passes than MAX_ATTEMPTS: an outage can last for days, and
+        # a day of it must not be able to exhaust anybody's retry budget.
+        for _ in range(ns.MAX_ATTEMPTS * 5):
+            ns._send_welcome_now(sid)
+        self.box.fail_with = None
+        ns._invalidate_subs_cache()
+
+        sub = self.sub_for("blocked@x.com")
+        self.assertEqual(sub["welcomeEmailStatus"], ns.WELCOME_PENDING,
+                         "still owed, never written off")
+        self.assertEqual(sub["welcomeAttempts"], 0, "an outage costs them nothing")
+
+        # And the moment sending works, the email they were promised arrives.
+        ns._send_welcome_now(sid)
+        self.assertEqual(len(self.box.to("blocked@x.com")), 1)
+
+    def test_a_campaign_pauses_rather_than_failing_everybody(self):
+        for i in range(3):
+            self.signup("c%d@x.com" % i, event_id="ce%d" % i, session_id="cs%d" % i)
+        cid = self.admin_post("campaign-save",
+                              {"subject": "S", "contentHtml": "<p>b</p>"}).last["id"]
+        self.admin_post("campaign-start", {"id": cid, "confirm": "SEND"})
+        self.box.fail_with = self.blocked_port()
+        self.box.fail_times = -1
+        # The worker keeps ticking for as long as the outage lasts, so the
+        # pass has to run more times than MAX_ATTEMPTS. One pass proves
+        # nothing: a retryable error puts the recipient back to pending the
+        # first two times either way, and it is the THIRD that used to write
+        # everybody off.
+        for _ in range(ns.MAX_ATTEMPTS + 3):
+            ns._process_campaign_batch(cid)
+        self.box.fail_with = None
+
+        recips = self.db.collection(ns.C_CAMPAIGNS + "/" + cid + "/recipients")._docs
+        self.assertTrue(recips)
+        for r in recips.values():
+            self.assertNotEqual(r["status"], ns.R_FAILED,
+                                "a dead network is not a reason to fail a reader")
+        for _ in range(6):
+            ns._process_campaign_batch(cid)
+        sent = sum(1 for r in recips.values() if r["status"] == ns.R_SENT)
+        self.assertEqual(sent, 3, "everyone gets exactly one copy once it heals")
+
+    # ── the people already written off get their email ───────────────────
+    def _already_failed(self, email, *, error, category=None, status=None):
+        """A subscriber left behind by the outage, as Firestore actually holds
+        one: active, welcome failed, attempts spent."""
+        self.signup(email, event_id="e-" + email, session_id="s-" + email)
+        sid = ns._subscriber_id(email)
+        # The signup above succeeded and sent its welcome, because Base stubs a
+        # working transport. Forget it: this helper is building the record as
+        # the OUTAGE left it, so the mailbox has to start empty or "did the
+        # repair deliver one email" cannot be asked.
+        self.box.messages = []
+        rec = {"welcomeEmailStatus": "failed", "welcomeAttempts": ns.MAX_ATTEMPTS,
+               "welcomeError": error, "updatedAt": ns._now()}
+        if category is not None:
+            rec["welcomeErrorCategory"] = category
+        if status is not None:
+            rec["status"] = status
+        self.db.collection(ns.C_SUBS).document(sid).set(rec, merge=True)
+        ns._invalidate_subs_cache()
+        return sid
+
+    def test_the_repair_pass_gives_back_a_welcome_lost_to_the_outage(self):
+        with self.transport_configured():
+            sid = self._already_failed("lost@x.com", error="Could not reach smtp.gmail.com:587.",
+                                       category="network")
+            self.assertEqual(ns._heal_outage_welcomes(), 1)
+            ns._invalidate_subs_cache()
+            sub = self.sub_for("lost@x.com")
+            self.assertEqual(sub["welcomeEmailStatus"], ns.WELCOME_PENDING)
+            self.assertEqual(sub["welcomeAttempts"], 0, "a full retry budget for the real try")
+            # And it genuinely sends.
+            ns._send_welcome_now(sid)
+            self.assertEqual(len(self.box.to("lost@x.com")), 1)
+
+    def test_records_written_before_the_category_existed_are_still_healed(self):
+        """The people owed an email are, by definition, the ones whose records
+        were written by the OLD code, which stored no welcomeErrorCategory. If
+        the repair only understood the new field it would skip every single
+        person it exists for."""
+        with self.transport_configured():
+            self._already_failed("legacy@x.com",
+                                 error="Could not reach smtp.gmail.com:587. Some hosts "
+                                       "block outbound SMTP, if this keeps happening…")
+            self.assertEqual(ns._heal_outage_welcomes(), 1)
+            ns._invalidate_subs_cache()
+            self.assertEqual(self.sub_for("legacy@x.com")["welcomeEmailStatus"],
+                             ns.WELCOME_PENDING)
+
+    def test_a_hard_bounce_is_left_alone(self):
+        """The one thing the repair must never do: put a dead address back on
+        the queue. Re-mailing known-bad addresses on every restart is what a
+        bought list looks like from the outside."""
+        with self.transport_configured():
+            self._already_failed("bounce@x.com", error="No such user here.",
+                                 category="invalid_recipient")
+            self.assertEqual(ns._heal_outage_welcomes(), 0)
+            ns._invalidate_subs_cache()
+            self.assertEqual(self.sub_for("bounce@x.com")["welcomeEmailStatus"], "failed")
+
+    def test_someone_who_unsubscribed_is_not_mailed_by_the_repair(self):
+        with self.transport_configured():
+            self._already_failed("gone@x.com", error="Could not reach smtp.gmail.com:587.",
+                                 category="network", status=ns.STATUS_UNSUB)
+            self.assertEqual(ns._heal_outage_welcomes(), 0,
+                             "opting out outranks being owed a welcome")
+
+    def test_the_repair_does_nothing_while_there_is_still_no_way_to_send(self):
+        """Re-queueing into a system that cannot send would just fail them all
+        again, and this time they would have a fresh attempt budget to burn."""
+        self._already_failed("early@x.com", error="Could not reach smtp.gmail.com:587.",
+                             category="network")
+        self.assertEqual(ns._heal_outage_welcomes(), 0)
+        ns._invalidate_subs_cache()
+        self.assertEqual(self.sub_for("early@x.com")["welcomeEmailStatus"], "failed")
+
+    def test_running_the_repair_twice_does_not_send_two_welcomes(self):
+        with self.transport_configured():
+            sid = self._already_failed("once@x.com", error="Could not reach smtp.gmail.com:587.",
+                                       category="network")
+            self.assertEqual(ns._heal_outage_welcomes(), 1)
+            self.assertEqual(ns._heal_outage_welcomes(), 0,
+                             "healed records are no longer failed, so they stop matching")
+            ns._send_welcome_now(sid)
+            ns._send_welcome_now(sid)
+            self.assertEqual(len(self.box.to("once@x.com")), 1, "exactly one copy")
+
+    # ── the whole story, end to end ──────────────────────────────────────
+    def test_signup_during_an_outage_is_delivered_after_the_fix(self):
+        """The promise, verified as one sequence: somebody signs up while
+        sending is dead, everything fails for as long as the outage lasts, the
+        transport is repaired, the server comes up, and their email arrives
+        without anybody having asked for it."""
+        with self.transport_configured():
+            h = Handler("7.7.7.9")
+            ns.handle_post(h, Parsed("/api/newsletter/subscribe"), {"email": "story@x.com"})
+            self.assertTrue(h.last["ok"])
+            sid = ns._subscriber_id("story@x.com")
+
+            # The outage, for a long time.
+            self.box.fail_with = self.blocked_port()
+            self.box.fail_times = -1
+            for _ in range(20):
+                ns._send_welcome_now(sid)
+            self.assertEqual(self.box.to("story@x.com"), [], "nothing got out, as expected")
+
+            # The fix, and the boot-time sweep the worker runs.
+            self.box.fail_with = None
+            ns._heal_outage_welcomes()
+            for sub_id in ns._pending_welcome_ids(50):
+                ns._send_welcome_now(sub_id)
+
+            self.assertEqual(len(self.box.to("story@x.com")), 1,
+                             "the person who signed up during the outage got their email")
+            ns._invalidate_subs_cache()
+            self.assertEqual(self.sub_for("story@x.com")["welcomeEmailStatus"], "sent")
+
+
+class TestTransportPrecedence(_EnvSandbox):
+    """Setting NEWSLETTER_API_KEY has to be enough on its own.
+
+    It was not. SMTP_* won the election, so on a host that blocks SMTP the
+    documented remedy left the dead transport in charge and the fix looked
+    like it had failed.
+    """
+
+    def test_an_api_key_takes_over_from_smtp(self):
+        os.environ.update(SMTP_HOST="smtp.gmail.com", SMTP_USERNAME="u",
+                          SMTP_PASSWORD="p", NEWSLETTER_API_KEY="re_abc123")
+        self.assertEqual(ne.transport(), "http",
+                         "the key is a deliberate act; it wins without deleting SMTP_*")
+
+    def test_smtp_still_works_when_it_is_the_only_thing_set(self):
+        os.environ.update(SMTP_HOST="smtp.example.com", SMTP_USERNAME="u", SMTP_PASSWORD="p")
+        self.assertEqual(ne.transport(), "smtp")
+
+    def test_smtp_can_still_be_forced_explicitly(self):
+        os.environ.update(SMTP_HOST="smtp.example.com", SMTP_USERNAME="u", SMTP_PASSWORD="p",
+                          NEWSLETTER_API_KEY="re_abc123", NEWSLETTER_TRANSPORT="smtp")
+        self.assertEqual(ne.transport(), "smtp",
+                         "a host that does allow port 587 can still say so")
+
+
+class TestConnectionCheckIsNotAPileOfTimeouts(_EnvSandbox):
+    """A blocked port does not refuse a connection, it swallows it, so every
+    check costs the whole timeout. The admin page asked for one on every load
+    and the test-send path asked for another before every send: ~90 seconds of
+    them could stack inside one HTTP request, past the platform's proxy limit.
+    The browser got a bare 502 and a blocked port looked like a crashed server.
+    """
+
+    def test_the_smtp_timeout_is_short_enough_to_answer_a_request(self):
+        self.assertLessEqual(ne.smtp_settings()["timeout"], 15,
+                             "three of these must still fit inside one HTTP request")
+
+    def test_a_repeat_check_is_served_from_cache(self):
+        calls = []
+        real = ne._connection_status_uncached
+        ne._connection_status_uncached = lambda: (calls.append(1), {"connected": True})[1]
+        try:
+            ne.invalidate_connection_cache()
+            ne.connection_status()
+            ne.connection_status()
+            self.assertEqual(len(calls), 1, "the second one did not reconnect")
+            ne.connection_status(force=True)
+            self.assertEqual(len(calls), 2, "force really does go and look")
+        finally:
+            ne._connection_status_uncached = real
+            ne.invalidate_connection_cache()
+
+    def test_changing_the_credentials_invalidates_the_cache(self):
+        """The moment that matters most is right after a key is corrected. A
+        verdict cached against the old one would report the old failure and
+        make a working fix look broken."""
+        calls = []
+        real = ne._connection_status_uncached
+        ne._connection_status_uncached = lambda: (calls.append(1), {"connected": True})[1]
+        try:
+            ne.invalidate_connection_cache()
+            os.environ.update(NEWSLETTER_API_KEY="re_old")
+            ne.connection_status()
+            os.environ.update(NEWSLETTER_API_KEY="re_new")
+            ne.connection_status()
+            self.assertEqual(len(calls), 2, "a new key is genuinely re-checked")
+        finally:
+            ne._connection_status_uncached = real
+            ne.invalidate_connection_cache()
+
+
+class TestTheRecommendedSetupActuallyDelivers(Base):
+    """The HTTPS API path end to end, because it is now THE path.
+
+    Everything above proves the SMTP outage no longer loses anybody. This
+    proves the thing they are being moved TO carries a real signup all the way
+    to the provider, so the recommendation in NEWSLETTER_SETUP.md is not a
+    second guess.
+    """
+
+    def setUp(self):
+        super().setUp()
+        # Undo Base's send_email stub: this test wants the real send path,
+        # stubbed only at the outermost HTTP call, so the transport election,
+        # the MIME/JSON shaping and the deliverability headers all really run.
+        ne.send_email = self._real_send
+        self.calls = []
+        self._orig_http = ne._http_json
+        self.http_status = 200
+
+        def fake(url, *, data=None, headers=None, method="GET", timeout=30):
+            self.calls.append({"url": url, "headers": headers or {},
+                               "body": json.loads(data.decode()) if data else {}})
+            if self.http_status != 200:
+                return self.http_status, {"message": "nope"}
+            return 200, {"messageId": "bv-1", "id": "re-1"}
+        ne._http_json = fake
+
+        self._saved = {k: os.environ.get(k) for k in
+                       ("NEWSLETTER_API_KEY", "NEWSLETTER_HTTP_PROVIDER",
+                        "SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD")}
+        os.environ.update(NEWSLETTER_API_KEY="xkeysib-test",
+                          NEWSLETTER_HTTP_PROVIDER="brevo",
+                          # Left set on purpose: this is the state the Render
+                          # dashboard is actually in, and the key has to win
+                          # anyway or the fix does not take effect.
+                          SMTP_HOST="smtp.gmail.com", SMTP_USERNAME="u",
+                          SMTP_PASSWORD="p")
+
+    def tearDown(self):
+        ne._http_json = self._orig_http
+        for k, v in self._saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        super().tearDown()
+
+    def test_a_signup_reaches_the_provider_with_smtp_still_configured(self):
+        h = Handler("8.8.8.1")
+        ns.handle_post(h, Parsed("/api/newsletter/subscribe"), {"email": "real@x.com"})
+        self.assertTrue(h.last["ok"])
+        self.assertIn("on its way", h.last["message"],
+                      "with a working transport we may promise the email")
+        self.drain()
+
+        posts = [c for c in self.calls
+                 if c["body"].get("to") == [{"email": "real@x.com"}]]
+        self.assertEqual(len(posts), 1, "exactly one message to the subscriber")
+        c = posts[0]
+        self.assertEqual(c["url"], "https://api.brevo.com/v3/smtp/email")
+        self.assertEqual(c["headers"].get("api-key"), "xkeysib-test")
+        self.assertIn("List-Unsubscribe", c["body"]["headers"],
+                      "one-click unsubscribe survives the HTTP transport")
+        self.assertTrue(c["body"]["htmlContent"])
+        self.assertTrue(c["body"]["textContent"])
+        ns._invalidate_subs_cache()
+        self.assertEqual(self.sub_for("real@x.com")["welcomeEmailStatus"], "sent")
+
+    def test_a_wrong_api_key_defers_people_instead_of_losing_them(self):
+        """The likeliest mistake while following the setup doc: the key is
+        pasted from the wrong provider, or NEWSLETTER_HTTP_PROVIDER is left on
+        its "resend" default. That is a 401, which is deliberately NOT
+        retryable, and the old code would therefore have marked every signup
+        during it permanently failed. It is a server misconfiguration, so it
+        must defer instead."""
+        self.http_status = 401
+        h = Handler("8.8.8.2")
+        ns.handle_post(h, Parsed("/api/newsletter/subscribe"), {"email": "badkey@x.com"})
+        sid = ns._subscriber_id("badkey@x.com")
+        for _ in range(ns.MAX_ATTEMPTS + 3):
+            ns._send_welcome_now(sid)
+        ns._invalidate_subs_cache()
+        sub = self.sub_for("badkey@x.com")
+        self.assertEqual(sub["welcomeEmailStatus"], ns.WELCOME_PENDING,
+                         "a bad key is the server's fault, not the reader's")
+        self.assertEqual(sub["welcomeAttempts"], 0)
+
+        # Key corrected: they get the email they were promised.
+        self.http_status = 200
+        ns._send_welcome_now(sid)
+        ns._invalidate_subs_cache()
+        self.assertEqual(self.sub_for("badkey@x.com")["welcomeEmailStatus"], "sent")
+
 
 
 if __name__ == "__main__":
