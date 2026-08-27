@@ -58,7 +58,7 @@
     })();
   </script>
 
-  <script defer src="/js/error-logging.js?v=2026-08-27.2"></script>
+  <script defer src="/js/error-logging.js?v=2026-08-27.3"></script>
 
   <!-- Firebase config, generated at build time from VITE_FIREBASE_* env vars -->
   <script defer src="/firebase-config.js"></script>
@@ -66,24 +66,24 @@
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-08-27.2" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-08-27.3" />
   <!-- The printed rulebook's own stylesheet. Split out of preview.css so the
        standalone How to Play page (/rules) can render the very same book
        without pulling in the whole game stylesheet. Must load AFTER
        preview.css so the cascade is exactly what it was before the split. -->
-  <link rel="stylesheet" href="/css/rulebook.css?v=2026-08-27.2" />
+  <link rel="stylesheet" href="/css/rulebook.css?v=2026-08-27.3" />
   <!-- The privacy policy's own stylesheet, on the same split as the rulebook:
        the published /privacy page renders the very same document without
        pulling in the whole game stylesheet. Must load AFTER preview.css. -->
-  <link rel="stylesheet" href="/css/privacy.css?v=2026-08-27.2" />
+  <link rel="stylesheet" href="/css/privacy.css?v=2026-08-27.3" />
   <!-- Prestige: the Prestige page's own ocean scene, plus the .cc-pname /
        .cc-pbadge rules that draw a Prestige username and badge ANYWHERE in the
        game. Must load AFTER preview.css so those name styles win. -->
-  <link rel="stylesheet" href="/css/prestige.css?v=2026-08-27.2" />
+  <link rel="stylesheet" href="/css/prestige.css?v=2026-08-27.3" />
   <!-- Developer Analytics: the admin dashboard's own stylesheet, split out the
        same way, everything in it is scoped under #ccA-overlay, which nothing
        else on the page ever renders, so it cannot touch the game. -->
-  <link rel="stylesheet" href="/css/analytics.css?v=2026-08-27.2" />
+  <link rel="stylesheet" href="/css/analytics.css?v=2026-08-27.3" />
 </head>
 <body>
 
@@ -91,7 +91,7 @@
      There is no "choose your device" screen any more. js/device-select.js
      works it out: a touch means mobile, a mouse means computer, and a real
      input event outranks its own opening guess. Nothing is rendered here. -->
-<script defer src="/js/device-select.js?v=2026-08-27.2"></script>
+<script defer src="/js/device-select.js?v=2026-08-27.3"></script>
 
 <!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══
      The whole screen is the baked artwork (fullscreen-splash.png). #ccfs-play
@@ -144,15 +144,6 @@
       <img src="/moving-background-right.png" alt="">
     </div>
   </div>
-  <!-- The backdrop for the CREATE YOUR USERNAME step: the sign-in painting,
-       blurred, the same water the guest and account cards stand in. It is a
-       SIBLING of the steps, not a child: a child with a negative z-index paints
-       on top of its own parent's background, which blanked the card it was
-       meant to sit behind. showStep() puts .on-nickname on #auth-screen to
-       reveal it, so it can never bleed onto the three steps that bring their
-       own art. -->
-  <div class="auth-step-bg" aria-hidden="true"></div>
-
   <!-- Step 1: the way in. Two halves of one screen: the ocean on the left,
        the sign-in column on the right, split on a slow diagonal at exactly the
        halfway line.
@@ -169,7 +160,7 @@
        stack of forty things to keep in place at every window size. -->
   <div id="auth-step-choose" class="auth-box">
     <div class="ao-art">
-      <img src="/auth-ocean.jpg?v=2026-08-27.2" alt="" class="ao-art-img" />
+      <img src="/auth-ocean.jpg?v=2026-08-27.3" alt="" class="ao-art-img" />
       <!-- ══ THE STAGHORN CORAL ══════════════════════════════════════
            A staghorn coral grows out of the kelp bed at the bottom left of the
            painting, warm rose among the greens. This box is over exactly that
@@ -182,6 +173,21 @@
       <button type="button" id="auth-coral-secret" class="auth-coral-secret"
               aria-label="A staghorn coral in the kelp"></button>
     </div>
+
+    <!-- The water on the other side of the cut.
+
+         The diagonal used to end at a wall: bright painting, one lit line, and
+         then flat navy that was the darkest thing on the screen sitting right
+         next to the brightest. It read as a black triangle punched out of the
+         page rather than as the other half of one picture.
+
+         This is what fills it. It is a box that hugs the cut exactly (its own
+         clip-path is the same diagonal, expressed in its own coordinates), and
+         it carries the painting on past the edge: the same ocean, thrown out of
+         focus and sunk, fading out into the deep the column stands in. The
+         light that spills off the cut is painted on top of it. Scenery only:
+         aria-hidden, no pointer events, underneath every button. -->
+    <div class="ao-seam" aria-hidden="true"></div>
 
     <!-- The lettering, over the water. Cinzel, the serif the rulebook and the
          card faces already use, so the door into the game is set in the same
@@ -247,7 +253,53 @@
             <button type="button" id="ao-create">Create an Account &rsaquo;</button></p>
         </div>
 
-        <!-- ── Pane 2: create an account ───────────────────────────────
+        <!-- ── Pane 2: a forgotten password ────────────────────────────
+             This used to be a button that did the whole thing in place: click
+             FORGOT PASSWORD? and the only thing that happened was a sentence
+             appearing under the form, in the middle of fields you had already
+             half-filled. Asking for something is a step, and a step is a pane
+             here, so it gets the same room and the same way back as the other
+             two.
+
+             What it does is unchanged, including the part that matters most:
+             the answer is deliberately the SAME whether or not that username
+             exists and whether or not it has an address on it, because this
+             screen must never become a way to ask which usernames are real. -->
+        <div class="ao-pane" id="ao-pane-forgot" style="display:none">
+          <div class="ao-head-row">
+            <button type="button" class="ao-back" id="ao-back-forgot">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                   stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>
+              <span>Back</span>
+            </button>
+            <div class="ao-h">Reset Your Password</div>
+          </div>
+          <p class="ao-sub">Type the username you sign in with. If there is a confirmed
+            email on that account, a reset link goes to it.</p>
+
+          <label class="ao-lbl" for="ao-forgot-user">Username</label>
+          <div class="ao-field">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 19.5c1.6-3.6 4.3-5.4 7.5-5.4s5.9 1.8 7.5 5.4"/></svg>
+            <input id="ao-forgot-user" type="text" placeholder="Enter your username" maxlength="15"
+                   autocomplete="username" autocapitalize="off" spellcheck="false" />
+          </div>
+
+          <button type="button" id="ao-forgot-go" class="ao-primary">Send Reset Link</button>
+
+          <div class="auth-err auth-note" id="ao-forgot-err" role="status" aria-live="polite"></div>
+
+          <div class="ao-note is-warn">
+            <span class="ao-note-ico" aria-hidden="true">&#9888;&#65039;</span>
+            <span>An account here has no email of its own, so one with nothing linked
+              cannot be reset. You can still play as a guest, or make a new account.</span>
+          </div>
+
+          <p class="ao-new">Remembered it?
+            <button type="button" id="ao-forgot-signin">Sign In &rsaquo;</button></p>
+        </div>
+
+        <!-- ── Pane 3: create an account ───────────────────────────────
              This used to be a dialog laid over the whole screen. It is the
              same column now: the ocean on the left never moves, the form on
              the right turns over. One room, one thing changing in it.
@@ -256,7 +308,19 @@
              which pane is showing, so one can never be left half-open behind
              the other. -->
         <div class="ao-pane" id="ao-pane-create" style="display:none">
-          <div class="ao-h">Create an Account</div>
+          <!-- The way back. The line at the foot of this pane ("Already have an
+               account? Sign In") is an OFFER; this is NAVIGATION, and the two
+               are not the same thing. It sits at the top left, where the thing
+               that undoes the step you just took belongs, and it is the same
+               control on all three panes that are somewhere you went. -->
+          <div class="ao-head-row">
+            <button type="button" class="ao-back" id="ao-back-create">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                   stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>
+              <span>Back</span>
+            </button>
+            <div class="ao-h">Create an Account</div>
+          </div>
           <p class="ao-sub">Free, and it keeps your critters, stats, friends and history.</p>
 
           <div class="ao-lbl-row">
@@ -353,6 +417,127 @@
             <button type="button" id="ao-back-signin">&lsaquo; Sign In</button></p>
         </div>
 
+        <!-- ── Pane 4: play as a guest ─────────────────────────────────
+             This was a dialog laid over the whole screen, with its own pale
+             sea-glass card, its own scrim and its own copy of the painting
+             behind it. It asked for ONE nickname, and it interrupted the
+             screen to do it.
+
+             It is a pane now, for the same reason CREATE AN ACCOUNT is: every
+             door out of this screen asks for something, and asking is not
+             interrupting. The ocean does not move, the column turns over, and
+             the three ways in are three faces of one room instead of a form,
+             a pop-up and a second page.
+
+             The ids are the ones the app has always addressed this by
+             (#auth-guest-nick, #auth-guest-go-btn, #auth-guest-back,
+             #auth-guest-err, #auth-guest-count) so nothing downstream of the
+             nickname had to change to make the screen it is typed on
+             different. -->
+        <div class="ao-pane" id="ao-pane-guest" style="display:none">
+          <div class="ao-head-row">
+            <button type="button" class="ao-back" id="auth-guest-back">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                   stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>
+              <span>Back</span>
+            </button>
+            <div class="ao-h">Play as a Guest</div>
+          </div>
+          <p class="ao-sub">Pick a name for this session and dive straight in. No account, no email.</p>
+
+          <div class="ao-lbl-row">
+            <label class="ao-lbl" for="auth-guest-nick">Nickname</label>
+            <span class="ao-count" id="auth-guest-count" aria-hidden="true">0 / 15</span>
+          </div>
+          <div class="ao-field">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 19.5c1.6-3.6 4.3-5.4 7.5-5.4s5.9 1.8 7.5 5.4"/></svg>
+            <input id="auth-guest-nick" type="text" placeholder="3 to 15 characters" maxlength="15"
+                   autocomplete="off" autocapitalize="off" spellcheck="false" />
+          </div>
+
+          <div class="auth-err auth-note" id="auth-guest-err" role="status" aria-live="polite"></div>
+
+          <!-- Said before they type, not after they have played twenty games.
+               This is the one real difference between this door and the other
+               two, so it is the one thing on the pane in its own box. -->
+          <div class="ao-note is-warn">
+            <span class="ao-note-ico" aria-hidden="true">&#127754;</span>
+            <span>A guest session lives on this device only. The XP, level and critters
+              you earn are erased the moment you sign out.</span>
+          </div>
+
+          <button type="button" id="auth-guest-go-btn" class="pv-btn gold full ao-gold">Dive In &rarr;</button>
+
+          <p class="ao-new">Want to keep what you earn?
+            <button type="button" id="ao-guest-create">Create an Account &rsaquo;</button></p>
+        </div>
+
+        <!-- ── Pane 5: create your username ────────────────────────────
+             The first screen of a brand-new account, and until now a whole
+             STEP of its own: a pale card on a blurred copy of the sea, which
+             meant that signing in with Google threw the painting away and
+             built a different room to ask one question in.
+
+             It is the same column as everything else now. Somebody who typed a
+             username and a password never sees it (the login name IS the name,
+             and finishNicknameSetup is called with it directly); somebody who
+             came in through Google lands here, on the pane, with the ocean
+             exactly where they left it.
+
+             There is no way back from this one on purpose: the account exists
+             by the time this pane is up, and it needs a name. The ids are
+             unchanged, so referral.js, the rename price and the tests that
+             read them all still find what they look for. -->
+        <div class="ao-pane" id="ao-pane-nickname" style="display:none">
+          <div class="ao-h">Create Your Username</div>
+          <p class="ao-sub">Your public name in-game, on leaderboards and in friend search.
+            Not your email, and not your Google name.</p>
+
+          <div class="ao-lbl-row">
+            <label class="ao-lbl" for="auth-nick-input">Username</label>
+            <span class="ao-count" id="auth-nick-count" aria-hidden="true">0 / 15</span>
+          </div>
+          <div class="ao-field">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 19.5c1.6-3.6 4.3-5.4 7.5-5.4s5.9 1.8 7.5 5.4"/></svg>
+            <input id="auth-nick-input" type="text" placeholder="3 to 15 characters" maxlength="15"
+                   autocomplete="off" autocapitalize="off" spellcheck="false" />
+          </div>
+
+          <div class="auth-err auth-note" id="auth-nick-err" role="status" aria-live="polite"></div>
+
+          <div class="ao-note is-info" id="auth-nick-note">
+            <span class="ao-note-ico" aria-hidden="true">&#127991;&#65039;</span>
+            <span>You can change your username <strong>once for free</strong>. After that, each
+              change costs <strong><span id="auth-nick-price">100</span>
+              <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false"> Critter Coins</strong>.</span>
+          </div>
+
+          <!-- Referral. Optional by design: leaving it empty must never stop
+               somebody making an account. The reward is paid by the server
+               after the profile exists (see finishNicknameSetup), never from
+               here. -->
+          <div class="ao-lbl-row">
+            <label class="ao-lbl" for="auth-ref-input">Invited by a friend?</label>
+            <span class="ao-optional">Optional</span>
+          </div>
+          <div class="ao-field">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12.5V21H4v-8.5"/><path d="M2.6 8h18.8v4.5H2.6z"/><path d="M12 21V8"/><path d="M12 8H7.6a2.6 2.6 0 1 1 0-5.2C10.9 2.8 12 8 12 8Z"/><path d="M12 8h4.4a2.6 2.6 0 1 0 0-5.2C13.1 2.8 12 8 12 8Z"/></svg>
+            <input id="auth-ref-input" type="text" placeholder="Their friend code, e.g. 4985"
+                   maxlength="24" autocomplete="off" inputmode="numeric" />
+          </div>
+          <div class="ao-note">
+            <span class="ao-note-ico" aria-hidden="true">&#127873;</span>
+            <span>Enter it now and <strong>you both get <span id="auth-ref-coins">40</span>
+              <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false">
+              Critter Coins</strong>.</span>
+          </div>
+
+          <button type="button" id="auth-nick-go-btn" class="pv-btn gold full ao-gold">Create Username &rarr;</button>
+        </div>
+
         <!-- The column's one status line, shared by both panes. .auth-note
              makes setAuthMsg() render it as a dressed note rather than the
              bare red line the cards use. The class is the switch: setAuthMsg
@@ -360,103 +545,15 @@
         <div class="auth-err auth-note" id="auth-choose-err" role="status" aria-live="polite"></div>
       </div>
     </div>
-    <!-- Guest sign-in card.
-         The screen behind this one is a single painted image, so the card
-         cannot sit INSIDE the octagon printed on it: the artwork's own
-         lettering shows through and the two fight each other. It is a real
-         dialog instead, centred over a scrim, dressed exactly like CREATE YOUR
-         USERNAME (the screen an account holder gets at this same moment) so
-         both ways into the game look like the same game.
-
-         It stays a CHILD of #auth-step-choose so showStep() hiding the step
-         hides the card with it; every rule that paints the step's two
-         invisible buttons is scoped with > so it cannot reach in here.
-
-         What it opens onto is the kelp forest (backgrounds/bg-kelp.png), the
-         same scenery CREATE YOUR USERNAME stands in, painted by the overlay's
-         own ::before and ::after rather than by an <img>, so there is no extra
-         element to keep behind the card. -->
-    <div id="auth-guest-overlay" role="dialog" aria-modal="true" aria-labelledby="ago-title">
-      <div class="ago-card">
-        <div class="ago-head">
-          <div class="ago-title" id="ago-title">Play as a Guest</div>
-          <div class="ago-rule" aria-hidden="true"></div>
-          <div class="ago-sub">Pick a name for this session. Nothing is kept once you sign out.</div>
-        </div>
-
-        <div class="ago-field-top">
-          <label class="ago-lbl" for="auth-guest-nick">Nickname</label>
-          <span class="ago-count" id="auth-guest-count" aria-hidden="true">0 / 15</span>
-        </div>
-        <input id="auth-guest-nick" class="pv-input" placeholder="3 to 15 characters" maxlength="15"
-               autocomplete="off" autocapitalize="off" spellcheck="false" />
-        <div class="auth-err" id="auth-guest-err"></div>
-
-        <button id="auth-guest-go-btn" class="pv-btn gold full">Dive In →</button>
-        <button type="button" class="ago-back" id="auth-guest-back">← Back to sign in</button>
-      </div>
-    </div>
 
   </div>
 
-  <!-- Step 2a: guest nickname (kept as empty shell for showStep compatibility) -->
-  <div id="auth-step-guest" class="auth-box" style="display:none"></div>
-
-  <!-- Step 3: username setup (new signed-in users).
-       This is the WHOLE of first sign-in now: pick a name and dive in. The
-       note spells out the rename rule the Settings screen enforces: the first
-       change is free, every one after that costs Critter Coins. The price is
-       filled in from PHST_RENAME_COIN_PRICE at boot (see preview-app.js), so
-       there is only one number to change if it ever moves.
-
-       This screen lands the instant the sign-in painting closes, so it does not
-       change the room: the same painting behind it, dimmed back, with a pale
-       sea-glass card in front carrying navy lettering and one warm gold button,
-       exactly the octagon you just clicked through. Scenery only, no critters:
-       the one face on this screen should be the name you are about to pick. -->
-  <div id="auth-step-nickname" class="auth-box" style="display:none">
-    <div class="auth-nick-head">
-      <div class="auth-title">Create Your Username</div>
-      <div class="auth-rule" aria-hidden="true"></div>
-      <div class="auth-subtitle">Your public name in-game, on leaderboards and in friend search.</div>
-      <div class="auth-hint">Not your email, and not your Google name.</div>
-    </div>
-
-    <div class="auth-field-top">
-      <label class="auth-field-lbl" for="auth-nick-input">Username</label>
-      <span class="auth-count" id="auth-nick-count" aria-hidden="true">0 / 15</span>
-    </div>
-    <input id="auth-nick-input" class="pv-input" placeholder="3 to 15 characters" maxlength="15"
-           autocomplete="off" autocapitalize="off" spellcheck="false" />
-    <div class="auth-err" id="auth-nick-err"></div>
-
-    <div class="auth-nick-note" id="auth-nick-note">
-      <svg class="ann-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.83 0l-7.17-7.17A2 2 0 0 1 2.8 12V4.8a2 2 0 0 1 2-2H12a2 2 0 0 1 1.43.6l7.17 7.17a2 2 0 0 1 0 2.83Z"/><circle cx="7.6" cy="7.6" r="1.25" fill="currentColor" stroke="none"/></svg>
-      <span>You can change your username <strong>once for free</strong>. After that, each change costs
-        <strong><span id="auth-nick-price">100</span>
-        <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false"> Critter Coins</strong>.</span>
-    </div>
-
-    <!-- Referral. Optional by design: leaving it empty must never stop
-         somebody making an account. The reward is paid by the server after the
-         profile exists (see finishNicknameSetup), never from here. -->
-    <div class="auth-ref-box">
-      <div class="auth-field-top">
-        <label class="auth-field-lbl" for="auth-ref-input">Invited by a friend?</label>
-        <span class="auth-optional">Optional</span>
-      </div>
-      <input id="auth-ref-input" class="pv-input" placeholder="Their friend code, e.g. 4985"
-             maxlength="24" autocomplete="off" inputmode="numeric" />
-      <div class="auth-ref-note">
-        <svg class="ann-ico ann-ico-gold" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12.5V21H4v-8.5"/><path d="M2.6 8h18.8v4.5H2.6z"/><path d="M12 21V8"/><path d="M12 8H7.6a2.6 2.6 0 1 1 0-5.2C10.9 2.8 12 8 12 8Z"/><path d="M12 8h4.4a2.6 2.6 0 1 0 0-5.2C13.1 2.8 12 8 12 8Z"/></svg>
-        <span>Enter it now and <strong>you both get <span id="auth-ref-coins">40</span>
-          <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false">
-          Critter Coins</strong>.</span>
-      </div>
-    </div>
-
-    <button id="auth-nick-go-btn" class="pv-btn gold full">Create Username →</button>
-  </div>
+  <!-- Two steps used to live here: an empty shell for the guest nickname, and
+       CREATE YOUR USERNAME, a whole screen of its own for a single field.
+       Both are panes of the sign-in column now (#ao-pane-guest and
+       #ao-pane-nickname). First sign-in is ONE room, whichever door you came
+       through, and showStep("auth-step-nickname") still works: it turns the
+       column over instead of building a second screen. -->
 
   <!-- Step 4: launch, shown on the launcher/landing page after auth so the
        game opens in its own dedicated window (Steam-style). Doubles as the
@@ -3225,63 +3322,63 @@
 
 <!-- The printed rulebook, one shared source for the How to play tab and the
      in-game Rule Book modal. Must load before preview-app.js reads it. -->
-<script defer src="/js/rulebook.js?v=2026-08-27.2"></script>
+<script defer src="/js/rulebook.js?v=2026-08-27.3"></script>
 
 <!-- Family colours + the built-in strategy list, shared with the published
      How to Play page (/rules) so the two can never drift. Deferred scripts
      run in document order, so this lands before preview-app.js reads it. -->
-<script defer src="/js/gamedata.js?v=2026-08-27.2"></script>
+<script defer src="/js/gamedata.js?v=2026-08-27.3"></script>
 
 <!-- The privacy policy, one shared source for the published /privacy page and
      the in-game reader (Settings → 📜 Legal). Must load before preview-app.js
      reads window.CC_PRIVACY_HTML. -->
-<script defer src="/js/privacy-policy.js?v=2026-08-27.2"></script>
+<script defer src="/js/privacy-policy.js?v=2026-08-27.3"></script>
 
 <!-- Level Pass, the Invite-a-Friend card and the Avatar Gallery's level
      track. One stylesheet: they are one idea seen from three places. -->
-<link rel="stylesheet" href="/css/level-pass.css?v=2026-08-27.2">
+<link rel="stylesheet" href="/css/level-pass.css?v=2026-08-27.3">
 <!-- Game Night. Also served to the marketing site (Vercel rewrites /css/:file),
      so the banner looks identical on both hosts from one source. -->
-<link rel="stylesheet" href="/css/game-night.css?v=2026-08-27.2">
+<link rel="stylesheet" href="/css/game-night.css?v=2026-08-27.3">
 
-<script defer src="/js/preview-app.js?v=2026-08-27.2"></script>
+<script defer src="/js/preview-app.js?v=2026-08-27.3"></script>
 
 <!-- Level Pass: the reward track over levels 1-100. Every rule is server-side
      (/api/pass/*); this renders state and sends intents. -->
-<script defer src="/js/level-pass.js?v=2026-08-27.2"></script>
+<script defer src="/js/level-pass.js?v=2026-08-27.3"></script>
 <!-- Friend-code referral reward. Pays two accounts, so the server owns all of
      it (/api/referral/*); this collects digits and renders the answer. -->
-<script defer src="/js/referral.js?v=2026-08-27.2"></script>
+<script defer src="/js/referral.js?v=2026-08-27.3"></script>
 <!-- Game Night banner. Self-injects at the top of the Overview panel. -->
-<script defer src="/js/game-night.js?v=2026-08-27.2"></script>
+<script defer src="/js/game-night.js?v=2026-08-27.3"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
-<script defer src="/js/tournament-ui.js?v=2026-08-27.2"></script>
+<script defer src="/js/tournament-ui.js?v=2026-08-27.3"></script>
 
 <!-- Clan System (Clans tab below Leaderboard; renders into #cc-clans-root). -->
-<script defer src="/js/clans-ui.js?v=2026-08-27.2"></script>
+<script defer src="/js/clans-ui.js?v=2026-08-27.3"></script>
 
 <!-- Prestige System (Prestige page + the badge/name-colour renderer used by
      every username in the game; renders into #cc-prestige-root). -->
-<script defer src="/js/prestige-ui.js?v=2026-08-27.2"></script>
+<script defer src="/js/prestige-ui.js?v=2026-08-27.3"></script>
 
 <!-- Discord join reward, the "+250 Critter Coins" chip beside the Join the
      Discord button, and the verified claim behind it. It renders into the one
      #ph-discord-reward button and stays hidden until the server says the offer
      is switched on. -->
-<script defer src="/js/discord-reward.js?v=2026-08-27.2"></script>
+<script defer src="/js/discord-reward.js?v=2026-08-27.3"></script>
 
 <!-- Developer Analytics, a full-screen, admin-only dashboard. It builds no DOM
      and makes no request until the Analytics sidebar button is clicked, so it
      costs every player nothing but the parse. -->
-<script defer src="/js/analytics-ui.js?v=2026-08-27.2"></script>
+<script defer src="/js/analytics-ui.js?v=2026-08-27.3"></script>
 <!-- Custom bracket BUILDER, the host's design canvas. Inert until opened from
      the New Tournament modal, so it costs nothing on every other page. -->
-<script defer src="/js/tournament-builder.js?v=2026-08-27.2"></script>
+<script defer src="/js/tournament-builder.js?v=2026-08-27.3"></script>
 
-<script defer src="/js/challenge-of-challenges.js?v=2026-08-27.2"></script>
+<script defer src="/js/challenge-of-challenges.js?v=2026-08-27.3"></script>
 
-<script defer src="/js/hidden-cephalopods.js?v=2026-08-27.2"></script>
+<script defer src="/js/hidden-cephalopods.js?v=2026-08-27.3"></script>
 
 <!-- ══ CHALLENGE OF CHALLENGES MODALS ════════════════════════════ -->
 
@@ -3354,13 +3451,13 @@
      Visible ONLY for currentsandcritters@gmail.com. Every tool is gated
      behind its own ON/OFF toggle; OFF fully disables the tool.
      ══════════════════════════════════════════════════════════════════ -->
-<script defer src="/js/current-controller.js?v=2026-08-27.2"></script>
+<script defer src="/js/current-controller.js?v=2026-08-27.3"></script>
 <!-- ══════════════════════════════════════════════════════════════════
      TUTORIAL v2, three modes (Main Menu Tour · The Game · Practice B-Lob).
      Completing ALL THREE unlocks the Osprey avatar. Stage 1: launcher +
      completion tracking + the Main Menu Tour (spotlight coachmarks over the
      real lobby). The Game tour and B-Lob practice arrive in later stages.
      ══════════════════════════════════════════════════════════════════ -->
-<script defer src="/js/tutorials.js?v=2026-08-27.2"></script>
+<script defer src="/js/tutorials.js?v=2026-08-27.3"></script>
 </body>
 </html>
