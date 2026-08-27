@@ -124,12 +124,12 @@ console.log("\nit opens ON the sign-in painting, the screen it was called from")
         /rgba\(6,32,60,\.04\)/.test(OL));
   check("the kelp forest is gone from this screen",
         !/url\("\/backgrounds\/kelp-forest\.png"\)/.test(OL));
-  // The pairing is read off the file as it really is: the loader above
-  // deliberately strips ", #auth-account-overlay…" out of its copy, which is
-  // the one thing that would hide a rule the two screens share.
+  // Creating an account is a pane of the sign-in column now, not a second
+  // dialog, so the room a guest stands in is shared with CREATE YOUR USERNAME
+  // rather than with a card beside it.
   const RAW = read("css/preview.css");
-  check("…and a guest and an account holder stand in the same room",
-        /#auth-guest-overlay::after,\s*\n\s*#auth-account-overlay::after \{/.test(RAW));
+  check("…and a guest stands in the sign-in painting, dimmed back",
+        /#auth-guest-overlay::after \{[\s\S]{0,900}?auth-ocean\.jpg/.test(RAW));
   check("…as does CREATE YOUR USERNAME, the screen either of them opens onto",
         /#auth-screen \.auth-step-bg::after \{[\s\S]{0,1400}?auth-ocean\.jpg/.test(RAW));
   // A background that 404s is silent: the screen just goes flat navy. The

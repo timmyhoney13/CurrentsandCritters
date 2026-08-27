@@ -39,6 +39,7 @@ import newsletter_server
 import discord_server
 import level_pass_server
 import referral_server
+import account_email
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -609,6 +610,14 @@ STRIPE_SECRET_KEY     = os.environ.get("STRIPE_SECRET_KEY", "").strip()
 # Reject events whose signed timestamp is more than this far from now (Stripe's
 # recommended replay-attack guard).
 STRIPE_SIG_TOLERANCE_SEC = 5 * 60
+
+# A username IS an email here: `mermaid_92` signs in to Firebase as
+# `mermaid_92@players.currentsandcritters.com`, an address at a domain that
+# receives nothing, so that Firebase's uniqueness check on email becomes one on
+# the username. KEEP IN SYNC with CC_LOGIN_DOMAIN in preview-app.js: it is the
+# address account_email.py resets, and a reset for the wrong string is a reset
+# for nobody.
+CC_LOGIN_DOMAIN = "players.currentsandcritters.com"
 
 # The 8 cosmetic ocean backgrounds: KEEP IN SYNC with EXCLUSIVE_BACKGROUNDS in
 # preview-app.js. Granting a tier with "unlock all backgrounds" adds these.
@@ -10488,6 +10497,12 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if discord_server.handle_get(self, parsed):
             return
 
+        # The confirmation link out of the account email. Public and signed-out
+        # by definition: it is clicked from a mail app, in whatever browser that
+        # app hands it to.
+        if account_email.handle_get(self, parsed):
+            return
+
         if parsed.path == "/firebase-config.js":
             cfg = {
                 "apiKey":            os.environ.get("VITE_FIREBASE_API_KEY", ""),
@@ -11308,6 +11323,15 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # transaction, which is exactly why the browser cannot be the one
         # deciding who gets paid.
         if referral_server.handle_post(self, parsed, body):
+            return
+
+        # The email on a username-and-password account: link it, and the
+        # forgotten-password reset that address exists for. link-email proves
+        # the account with a verified ID token; forgot-password is public by
+        # necessity (somebody who has forgotten a password can prove nothing)
+        # and answers identically whatever it finds, so it cannot be used to
+        # ask which usernames exist.
+        if account_email.handle_post(self, parsed, body):
             return
 
         # Newsletter API. /api/newsletter/unsubscribe is public by design (an
@@ -12322,6 +12346,22 @@ def main() -> None:
         verify_token=_verify_firebase_id_token,
         background_paths=ALL_BACKGROUND_PATHS,
     )
+    # The email on a username-and-password account. Same injected Firestore
+    # accessor and token verifier as everything else; the login domain is
+    # passed in so the synthetic address this module resets is built from the
+    # same string the client signs in with.
+    account_email.init(
+        get_firestore=_get_firestore,
+        verify_token=_verify_firebase_id_token,
+        login_domain=CC_LOGIN_DOMAIN,
+    )
+    if not account_email.secret_configured():
+        print("[account] !! no ACCOUNT_EMAIL_SECRET (or NEWSLETTER_UNSUBSCRIBE_SECRET / "
+              "SESSION_SECRET): email confirmation links cannot be signed, so linking is OFF")
+    else:
+        print("[account] account email ON: confirm links good for "
+              f"{account_email.CONFIRM_TTL_SEC // 3600}h, resets mailed to confirmed addresses only")
+
     print(f"[referral] friend-code reward ON: {referral_server.reward_coins()} coins each side, "
           f"1 background per {referral_server.background_every()} referrals, "
           f"{referral_server.window_days()}-day sign-up window")

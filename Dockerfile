@@ -40,6 +40,8 @@ COPY discord_server.py /app/discord_server.py
 # quietly goes missing.
 COPY level_pass_server.py /app/level_pass_server.py
 COPY referral_server.py /app/referral_server.py
+# The email on an account (link, confirm, reset). Module-scope import too.
+COPY account_email.py /app/account_email.py
 COPY fish_ai_brain.json /app/fish_ai_brain.json
 COPY cards_vertical.txt /app/cards_vertical.txt
 COPY cards_lr.txt /app/cards_lr.txt

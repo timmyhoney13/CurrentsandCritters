@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.95";
-  const APP_BUILD   = "2026-08-27.1";
+  const APP_VERSION = "1.6.97";
+  const APP_BUILD   = "2026-08-27.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,11 +109,21 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🪸 The whole painting, and a coral in it", items: [
+      "The picture on the sign-in screen is all there now. It used to be cropped to fill its half of the screen, which took the birds off the top and the kelp bed off the bottom on most windows; it is fitted whole into its own water instead, at every window size, on a phone as well.",
+      "The rotted piling is gone. In its place, down in the kelp at the bottom left, a staghorn coral grows out of the sea floor: warm rose among all that green. Find it and the Coral Reef background is yours the moment there is an account to put it in.",
+      "Create an Account is not a pop-up any more. The ocean stays exactly where it is and the column on the right turns over to the form, then turns back. The dark seam that ran down the middle between the two halves is gone with it.",
+    ]},
+    { ver: "V1.7.0", title: "📧 An email, if you want one", items: [
+      "Creating an account now has an optional email field. Link one and it is the way back in if you ever forget your password: we send a confirmation link, and once you have clicked it, Forgot password? really works.",
+      "Already have an account? Settings → Email links one to it. It is used for that and nothing else, and nothing is linked until you click the link we send.",
+      "Accounts without an email carry on exactly as before. Nothing has to be given to anybody.",
+    ]},
     { ver: "V1.7.0", title: "🌊 A new way in", items: [
       "The sign-in screen is two halves now. On the left, a painting of the kelp forest with the game's own animals in it: birds over the water, a manta and a narwhal below it, a salmon, a squid and a tang down in the kelp. On the right, every way into the game in one column.",
       "Your username and password are on that screen. No dialog to open first: type them in and sign in. Continue with Google, Play as Guest and Create an Account are all right underneath.",
       "Nothing on the screen is painted lettering any more, so the words are real type at any size and a phone gets the picture as a band across the top with the sign-in underneath it, instead of a title strip five pixels tall.",
-      "The rotted piling moved with it. There is a plank lying in the kelp, bottom left, that is not the colour of anything else down there.",
+      "Something is hidden in the kelp, bottom left, that is not the colour of anything else down there.",
     ]},
     { ver: "V1.7.0", title: "🌊 A new sign-in screen, and something hidden in it", items: [
       "The first screen is a new painting. Same eight oceans, but SIGN IN OR CREATE AN ACCOUNT and both buttons are drawn straight into it now, and CURRENTS & CRITTERS sits dead centre above them.",
@@ -18909,12 +18919,14 @@
       // them would only put a second sea behind the first.
       scr.classList.toggle("on-nickname", stepId === "auth-step-nickname");
       if (stepId === "auth-step-choose") {
-        // Both cards close with the screen they belong to. Landing back on the
-        // chooser with one of them still open would put a dialog in front of
-        // the two buttons that are supposed to be the whole choice.
-        ["auth-guest-overlay", "auth-account-overlay"].forEach(id => {
-          const ol = $a(id); if (ol) ol.classList.remove("visible");
-        });
+        // The guest card closes with the screen it belongs to. Landing back
+        // on the chooser with it still open would put a dialog in front of the
+        // column that is supposed to be the whole choice.
+        const gol = $a("auth-guest-overlay");
+        if (gol) gol.classList.remove("visible");
+        // And the column goes back to the pane it opens on, without the
+        // animation: this is a screen arriving, not a pane turning over.
+        try { ccChooserPane("signin", { quiet: true }); } catch (_) {}
         const gb = $a("auth-guest-btn"), gg = $a("auth-choose-google-btn");
         if (gb) gb.style.pointerEvents = "";
         if (gg) gg.style.pointerEvents = "";
@@ -18947,7 +18959,7 @@
         // Moved on to another step while we waited; that step arms itself.
         if (step.style.display === "none") return;
         step.classList.add("is-armed");
-        placePierBox();
+        placeCoralBoxSoon();
       };
       // A short settle even once the art is up, so the tail of a click aimed at
       // whatever was on screen a moment ago cannot count as a choice here.
@@ -18957,44 +18969,63 @@
       };
       const img = step.querySelector(".ao-art-img");
       if (!img || (img.complete && img.naturalWidth > 0)) { settle(); return; }
-      img.addEventListener("load", settle, { once: true });
+      img.addEventListener("load", () => { placeCoralBoxSoon(); settle(); }, { once: true });
       img.addEventListener("error", settle, { once: true });   // fail open
       _chooseArmTimer = setTimeout(arm, 4000);                 // backstop
     }
 
-    // ── Where the rotted piling is ──────────────────────────────────
-    // The plank is at one fixed spot in the painting. The painting is
-    // object-fit: cover, so how much of it is on screen, and where that spot
-    // lands, depends on the shape of the window: a wide short one crops the
-    // sides off, a tall one crops the top and bottom. No CSS length can read
-    // that crop, and a box written in percentages of the panel slides off the
-    // plank the moment the window stops being the panel's own 4:5.
+    // ── Where the staghorn coral is ─────────────────────────────────
+    // The coral is at one fixed spot in the painting. The painting is
+    // object-fit: contain inside a panel of whatever shape the window makes
+    // it, so how big it is drawn, and where that spot lands, changes with
+    // every window size. No CSS length can read that fit, and a box written in
+    // percentages of the PANEL slides off the coral the moment the window
+    // stops being the picture's own 4:5.
     //
     // So the box is placed from the image's own geometry instead, and placed
-    // again whenever that geometry changes. It fails quiet: if the art has not
-    // decoded yet there is nothing to measure, and the CSS fallback keeps the
-    // button in the right corner until there is.
-    const PIER_SPOT = { x: .092, y: .8815, w: .155, h: .058 };  // of the painting
-    function placePierBox() {
+    // again whenever that geometry changes. Coordinates are the PANEL's, not
+    // the page's, because the button is a child of the panel: that is what
+    // makes it survive the phone layout, where the screen is a scrolling page.
+    // It fails quiet: if the art has not decoded yet there is nothing to
+    // measure, and the CSS fallback keeps the button in the corner until there
+    // is.
+    const CORAL_SPOT = { x: .126, y: .952, w: .150, h: .100 };  // of the painting
+    function placeCoralBox() {
       const step = $a("auth-step-choose");
-      const btn  = $a("auth-pier-secret");
+      const btn  = $a("auth-coral-secret");
       const img  = step && step.querySelector(".ao-art-img");
-      if (!step || !btn || !img || !img.naturalWidth) return;
-      if (getComputedStyle(btn).display === "none") return;     // the phone layout
-      const ir = img.getBoundingClientRect(), sr = step.getBoundingClientRect();
-      if (!ir.width || !ir.height) return;
-      const sc = Math.max(ir.width / img.naturalWidth, ir.height / img.naturalHeight);
-      const ox = ir.left - (img.naturalWidth  * sc - ir.width)  / 2;
-      const oy = ir.top  - (img.naturalHeight * sc - ir.height) / 2;
-      const w = Math.max(44, PIER_SPOT.w * img.naturalWidth  * sc);
-      const h = Math.max(30, PIER_SPOT.h * img.naturalHeight * sc);
+      const art  = btn && btn.parentElement;
+      if (!step || !btn || !img || !art || !img.naturalWidth) return false;
+      if (getComputedStyle(btn).display === "none") return true;
+      const ir = img.getBoundingClientRect(), pr = art.getBoundingClientRect();
+      if (!ir.width || !ir.height) return false;
+      // min, not max: the picture is CONTAINED in its box, so the smaller of
+      // the two ratios is the one it was drawn at.
+      const sc = Math.min(ir.width / img.naturalWidth, ir.height / img.naturalHeight);
+      const ox = ir.left + (ir.width  - img.naturalWidth  * sc) / 2;
+      const oy = ir.top  + (ir.height - img.naturalHeight * sc) / 2;
+      const w = Math.max(40, CORAL_SPOT.w * img.naturalWidth  * sc);
+      const h = Math.max(30, CORAL_SPOT.h * img.naturalHeight * sc);
       btn.style.width  = Math.round(w) + "px";
       btn.style.height = Math.round(h) + "px";
-      btn.style.left   = Math.round(ox + PIER_SPOT.x * img.naturalWidth  * sc - sr.left - w / 2) + "px";
-      btn.style.top    = Math.round(oy + PIER_SPOT.y * img.naturalHeight * sc - sr.top  - h / 2) + "px";
+      btn.style.left   = Math.round(ox + CORAL_SPOT.x * img.naturalWidth  * sc - pr.left - w / 2) + "px";
+      btn.style.top    = Math.round(oy + CORAL_SPOT.y * img.naturalHeight * sc - pr.top  - h / 2) + "px";
       btn.style.bottom = "auto";
+      return true;
     }
-    window.addEventListener("resize", placePierBox);
+    // Placing it needs the art DECODED, not merely arrived: naturalWidth is 0
+    // until then, and the one call this used to make happened on arming, which
+    // can win that race. Losing it left the box on its CSS fallback, which is
+    // the right corner but the wrong pixels. So it asks again until it can.
+    let _coralPlaceTimer = null;
+    function placeCoralBoxSoon(tries) {
+      if (_coralPlaceTimer) { clearTimeout(_coralPlaceTimer); _coralPlaceTimer = null; }
+      if (placeCoralBox()) return;
+      const left = (tries == null ? 14 : tries) - 1;
+      if (left <= 0) return;                       // fail quiet: the fallback stands
+      _coralPlaceTimer = setTimeout(() => placeCoralBoxSoon(left), 120);
+    }
+    window.addEventListener("resize", placeCoralBox);
 
     function lockNameInputs(nick) {
       ["pv-host-name","pv-join-name","pv-join-name-home"].forEach(id => {
@@ -19709,8 +19740,8 @@
         // Apply any competitive forfeit losses incurred while we were offline.
         try { setTimeout(() => { checkPendingForfeitLosses().catch(() => {}); }, 1500); } catch (_) {}
         // Anything found on the sign-in screen, before this account had a
-        // name, is filed against it now. See ccPierClaim().
-        try { ccPierClaim().catch(() => {}); } catch (_) {}
+        // name, is filed against it now. See ccCoralClaim().
+        try { ccCoralClaim().catch(() => {}); } catch (_) {}
         // Put this account's clan critter on the Clans nav button right away.
         // It shows from every tab, so it must not wait for the Clans tab to be
         // opened (clans-ui.js also picks this up on its own, just slower).
@@ -21223,6 +21254,10 @@
               if (staged && !validateLoginName(staged.nick)) {
                 const refEl = $a("auth-ref-input");
                 if (refEl) refEl.value = staged.ref || "";
+                // Linked AFTER the profile exists, by finishNicknameSetup: the
+                // server files the address against an account document, and
+                // there is no account document yet.
+                _pendingLinkEmail = ccValidEmail(staged.email) ? staged.email : "";
                 await finishNicknameSetup(staged.nick);
                 return;
               }
@@ -21425,8 +21460,6 @@
     }
 
     function openGuestCard() {
-      const acct = $a("auth-account-overlay");
-      if (acct) acct.classList.remove("visible");
       $a("auth-guest-overlay").classList.add("visible");
       $a("auth-guest-btn").style.pointerEvents = "none";
       $a("auth-choose-google-btn").style.pointerEvents = "none";
@@ -21459,11 +21492,12 @@
     $a("auth-guest-nick").addEventListener("input", paintGuestCount);
     paintGuestCount();
 
-    // ══ THE ROTTED PILING ═══════════════════════════════════════════
-    // One plank of the pier painted into the sign-in screen is rust red among
-    // the blues and violets. Clicking it is worth the Pier background, and the
-    // interesting part of the thing is WHEN you are allowed to find it: on the
-    // sign-in screen, before anybody knows who you are.
+    // ══ THE STAGHORN CORAL ══════════════════════════════════════════
+    // One staghorn coral painted into the sign-in screen stands warm rose
+    // among the blues and greens. Clicking it is worth the Coral Reef
+    // background, and the interesting part of the thing is WHEN you are
+    // allowed to find it: on the sign-in screen, before anybody knows who you
+    // are.
     //
     // So the find is not the reward. The find is a note on this DEVICE, and it
     // is spent the first moment there is an ACCOUNT to spend it on: the sign-in
@@ -21471,11 +21505,11 @@
     // they create tomorrow. That is what makes it "your account got it" rather
     // than "this browser got it". Nothing is granted until there is somebody to
     // grant it to, and it is granted to exactly one of them, once.
-    const PIER_FIND_KEY = "cc_pier_piling_found_v1";
-    const PIER_BG_IMG   = "/backgrounds/bg-pier.png";
+    const CORAL_FIND_KEY = "cc_staghorn_coral_found_v1";
+    const CORAL_BG_IMG   = "/backgrounds/bg-coral-reef.png";
 
-    function ccPierNoteFind() { try { localStorage.setItem(PIER_FIND_KEY, "1"); } catch (_) {} }
-    function ccPierFound()    { try { return localStorage.getItem(PIER_FIND_KEY) === "1"; } catch (_) { return false; } }
+    function ccCoralNoteFind() { try { localStorage.setItem(CORAL_FIND_KEY, "1"); } catch (_) {} }
+    function ccCoralFound()    { try { return localStorage.getItem(CORAL_FIND_KEY) === "1"; } catch (_) { return false; } }
 
     // Spend the note, if there is one, on the account that has just arrived.
     // Called from revealLobby(), which is the ONE place both roads in end:
@@ -21487,16 +21521,16 @@
     // failed write leaves it exactly where it was, so the next sign-in tries
     // again: the alternative is somebody who found it, read the message, and
     // has nothing to show for it because their connection blinked.
-    async function ccPierClaim() {
-      if (!ccPierFound()) return;
+    async function ccCoralClaim() {
+      if (!ccCoralFound()) return;
       // Never while another player's collection is swapped into the globals:
       // that grant would be written against MY account for THEIR gallery.
       if (_galReadOnly) return;
       if (!_authUser || !_db) return;
-      const path = normalizeBgUrl(PIER_BG_IMG);
+      const path = normalizeBgUrl(CORAL_BG_IMG);
       if (!path) return;
       if (Array.isArray(_unlockedBackgrounds) && _unlockedBackgrounds.includes(path)) {
-        try { localStorage.removeItem(PIER_FIND_KEY); } catch (_) {}
+        try { localStorage.removeItem(CORAL_FIND_KEY); } catch (_) {}
         return;
       }
       try {
@@ -21506,21 +21540,21 @@
       } catch (_) {
         return;   // keep the note; the next sign-in has another go
       }
-      try { localStorage.removeItem(PIER_FIND_KEY); } catch (_) {}
+      try { localStorage.removeItem(CORAL_FIND_KEY); } catch (_) {}
       _unlockedBackgrounds = [...(_unlockedBackgrounds || []), path];
       if (_activeProfile) _activeProfile = { ..._activeProfile, unlocked_backgrounds: _unlockedBackgrounds };
-      showToast("\uD83E\uDEB5 The rotted pier piling paid out: the Pier background is yours, "
+      showToast("\uD83E\uDEB8 The staghorn coral paid out: the Coral Reef background is yours, "
               + "waiting in your Avatar Gallery.", "good", 6500);
     }
 
-    // The plank itself. Finding something is not an error, so it speaks through
+    // The coral itself. Finding something is not an error, so it speaks through
     // the chooser's own sea-glass note in the good-news tone rather than the
     // one the screen uses to say a sign-in went wrong.
-    const _pierBtn = $a("auth-pier-secret");
-    if (_pierBtn) _pierBtn.addEventListener("click", () => {
-      ccPierNoteFind();
+    const _coralBtn = $a("auth-coral-secret");
+    if (_coralBtn) _coralBtn.addEventListener("click", () => {
+      ccCoralNoteFind();
       setAuthMsg("auth-choose-err",
-        "You found the rotted pier piling! Sign in or create an account and the Pier background is yours.",
+        "You found the staghorn coral! Sign in or create an account and the Coral Reef background is yours.",
         "ok");
     });
 
@@ -21718,74 +21752,95 @@
       return { score, word: "Very weak", tip: "Mix in letters, numbers and a symbol." };
     }
 
-    // ── The card ──────────────────────────────────────────────────────
-    // Three panes on one card: the question, sign in, create. ccAccountPane()
-    // is the only thing that decides which is showing, so a pane can never be
-    // left half-open behind another.
-    const AAO_PANES = {
-      ask:    { pane: "aao-pane-ask",    sub: "Your stats, critters, friends and history, saved and waiting next time." },
-      signin: { pane: "aao-pane-signin", sub: "Welcome back. Sign in with the username you chose." },
-      create: { pane: "aao-pane-create", sub: "Pick a username and a password. No email, no waiting." },
-    };
-    function ccAccountPane(which) {
-      const key = AAO_PANES[which] ? which : "ask";
-      Object.keys(AAO_PANES).forEach(k => {
-        const el = $a(AAO_PANES[k].pane);
-        if (el) el.style.display = (k === key) ? "" : "none";
+    // ── The two panes ─────────────────────────────────────────────────
+    // Sign in, and create an account. They are the same column, one at a
+    // time, and ccChooserPane() is the only thing that decides which, so one
+    // can never be left half-open behind the other.
+    //
+    // This replaced a dialog laid over the whole screen. The point of the
+    // change is that the OCEAN DOES NOT MOVE: the painting on the left stays
+    // exactly where it was, and the form on the right turns over in place,
+    // which is why the animation lives on the pane and not on the screen.
+    const AO_PANES = { signin: "ao-pane-signin", create: "ao-pane-create" };
+    const AO_PANE_ORDER = ["signin", "create"];
+    let _aoPane = "signin";
+    let _aoPaneTimer = null;
+
+    function ccChooserPane(which, opts) {
+      const key = AO_PANES[which] ? which : "signin";
+      const next = $a(AO_PANES[key]);
+      if (!next) return;
+      const quiet = !!(opts && opts.quiet);
+      const cur = $a(AO_PANES[_aoPane]);
+      if (cur === next && cur.style.display !== "none") { _aoPane = key; return; }
+
+      // Which way through the screen this is, so the movement can say so.
+      const forward = AO_PANE_ORDER.indexOf(key) >= AO_PANE_ORDER.indexOf(_aoPane);
+      if (_aoPaneTimer) { clearTimeout(_aoPaneTimer); _aoPaneTimer = null; }
+      Object.keys(AO_PANES).forEach(k => {
+        const el = $a(AO_PANES[k]);
+        if (el) el.classList.remove("is-leaving", "to-right", "from-left");
       });
-      const sub = $a("aao-sub");
-      if (sub) sub.textContent = AAO_PANES[key].sub;
-      setAuthMsg("aao-in-err", "", true);
-      setAuthMsg("aao-new-err", "", true);
-      const focusId = key === "signin" ? "aao-in-user" : (key === "create" ? "aao-new-user" : "");
-      if (focusId) setTimeout(() => { try { $a(focusId).focus(); } catch (_) {} }, 60);
+
+      const show = () => {
+        Object.keys(AO_PANES).forEach(k => {
+          const el = $a(AO_PANES[k]);
+          if (el && el !== next) el.style.display = "none";
+        });
+        next.style.display = "";
+        next.classList.remove("is-leaving", "to-right");
+        next.classList.toggle("from-left", !forward);
+        // Restart the animation even when the same class is already on it.
+        void next.offsetWidth;
+        // A pane that arrives below the fold on a short window is a pane
+        // nobody can see the top of.
+        const col = $a("auth-step-choose") && $a("auth-step-choose").querySelector(".ao-form");
+        if (col && typeof col.scrollTo === "function") col.scrollTo({ top: 0, behavior: "smooth" });
+        else if (col) col.scrollTop = 0;
+      };
+
+      if (cur && cur !== next && cur.style.display !== "none" && !quiet) {
+        cur.classList.add("is-leaving");
+        cur.classList.toggle("to-right", !forward);
+        _aoPaneTimer = setTimeout(() => {
+          _aoPaneTimer = null;
+          cur.classList.remove("is-leaving", "to-right");
+          show();
+        }, 170);
+      } else {
+        show();
+      }
+      _aoPane = key;
+
+      // Whatever the other pane was saying belongs to the other pane.
+      setAuthMsg("auth-choose-err", "", true);
+      if (key === "create") {
+        // A guest who got here from the end of a game is carrying their
+        // session with them; say so, since it is the whole reason they clicked.
+        const note = $a("ao-migrate-note");
+        let carrying = false;
+        try { carrying = !!localStorage.getItem(GUEST_MIGRATE_KEY); } catch (_) {}
+        if (note) note.style.display = carrying ? "" : "none";
+        ccPaintPwMeter();
+      }
+      const focusId = key === "create" ? "ao-new-user" : "ao-user";
+      setTimeout(() => { try { $a(focusId).focus({ preventScroll: true }); } catch (_) {} }, 220);
     }
 
-    function openAccountCard(which) {
-      const ol = $a("auth-account-overlay");
-      if (!ol) return;
-      // Whatever the chooser was saying belongs to the chooser, and the two
-      // painted-over buttons underneath are still real buttons: a scrim does
-      // not stop a click, so they are held inert while the card is up.
-      setAuthMsg("auth-choose-err", "", true);
-      const gb = $a("auth-guest-btn"), ab = $a("auth-choose-google-btn");
-      if (gb) gb.style.pointerEvents = "none";
-      if (ab) ab.style.pointerEvents = "none";
-      // A guest who got here from the end of a game is carrying their session
-      // with them; say so on the create pane, since it is the whole reason
-      // they tapped the button.
-      const note = $a("aao-migrate-note");
-      let carrying = false;
-      try { carrying = !!localStorage.getItem(GUEST_MIGRATE_KEY); } catch (_) {}
-      if (note) note.style.display = carrying ? "" : "none";
-      ol.classList.add("visible");
-      ccAccountPane(which || "ask");
-      ccPaintPwMeter();
-    }
-
-    function closeAccountCard() {
-      const ol = $a("auth-account-overlay");
-      if (ol) ol.classList.remove("visible");
-      const gb = $a("auth-guest-btn"), ab = $a("auth-choose-google-btn");
-      if (gb) gb.style.pointerEvents = "";
-      if (ab) ab.style.pointerEvents = "";
-      setAuthMsg("aao-in-err", "", true);
-      setAuthMsg("aao-new-err", "", true);
-      setAuthMsg("auth-choose-err", "", true);
-      // Nothing typed is kept: a password left sitting in a field behind a
-      // closed dialog is a password sitting on a shared computer.
-      ["aao-in-pass", "aao-new-pass", "aao-new-pass2"].forEach(id => {
+    // Leaving the create pane never leaves a password sitting in a field on a
+    // shared computer.
+    function ccClearCreateFields() {
+      ["ao-new-pass", "ao-new-pass2"].forEach(id => {
         const el = $a(id); if (el) { el.value = ""; el.type = "password"; }
       });
-      ["aao-in-eye", "aao-new-eye"].forEach(id => {
-        const el = $a(id); if (el) { el.textContent = "Show"; el.setAttribute("aria-label", "Show password"); }
-      });
+      const eye = $a("ao-new-eye");
+      if (eye) { eye.textContent = "Show"; eye.setAttribute("aria-label", "Show password"); }
       ccPaintPwMeter();
     }
 
     function ccPaintPwMeter() {
-      const inp = $a("aao-new-pass"), bar = $a("aao-meter");
-      const word = $a("aao-meter-word"), tip = $a("aao-meter-tip"), go = $a("aao-new-go");
+      const inp = $a("ao-new-pass"), bar = $a("ao-meter");
+      const word = $a("ao-meter-word"), tip = $a("ao-meter-tip"), go = $a("ao-new-go");
       if (!inp || !bar) return;
       const raw = inp.value || "";
       const r = ccPasswordScore(raw);
@@ -21803,7 +21858,7 @@
     // sign-in happens and not two that drift apart.
     async function ccPasswordSignIn(ids) {
       const f = Object.assign(
-        { user: "aao-in-user", pass: "aao-in-pass", err: "aao-in-err", go: "aao-in-go" },
+        { user: "ao-user", pass: "ao-pass", err: "auth-choose-err", go: "ao-signin" },
         ids || {});
       const errId = f.err;
       if (!_auth) { setAuthMsg(errId, "Sign-in is not configured on this server.", false); return; }
@@ -21825,7 +21880,6 @@
         _pendingOnboardingUid = ""; _avatarPromptShownForUid = "";
         if (_auth.currentUser) { try { await _auth.signOut(); } catch (_) {} }
         await _auth.signInWithEmailAndPassword(ccLoginEmail(user), pass);
-        closeAccountCard();
       } catch (e) {
         ccReport("firebase_password_signin_failed", ccErrDetail(e), "warn");
         setAuthMsg(errId, ccPasswordAuthErr(e && e.code, "signin"), false);
@@ -21847,10 +21901,11 @@
     // would be asked to invent a username they just invented.
     const CC_PENDING_SIGNUP_KEY = "cc_pending_signup_v1";
     const CC_PENDING_SIGNUP_TTL_MS = 30 * 60 * 1000;
-    function stagePendingSignup(nick, refCode) {
+    function stagePendingSignup(nick, refCode, email) {
       try {
         localStorage.setItem(CC_PENDING_SIGNUP_KEY, JSON.stringify({
           at: Date.now(), nick: String(nick || ""), ref: String(refCode || ""),
+          email: String(email || ""),
         }));
       } catch (_) {}
     }
@@ -21868,12 +21923,13 @@
     }
 
     async function ccPasswordCreate() {
-      const errId = "aao-new-err";
+      const errId = "auth-choose-err";
       if (!_auth) { setAuthMsg(errId, "Sign-in is not configured on this server.", false); return; }
-      const nick  = ($a("aao-new-user").value || "").trim();
-      const pass  = $a("aao-new-pass").value || "";
-      const pass2 = $a("aao-new-pass2").value || "";
-      const ref   = ($a("aao-new-ref").value || "").trim();
+      const nick  = ($a("ao-new-user").value || "").trim();
+      const pass  = $a("ao-new-pass").value || "";
+      const pass2 = $a("ao-new-pass2").value || "";
+      const ref   = ($a("ao-new-ref").value || "").trim();
+      const email = ($a("ao-new-email").value || "").trim();
 
       const nameErr = validateLoginName(nick);
       if (nameErr) { setAuthMsg(errId, nameErr, false); return; }
@@ -21882,15 +21938,21 @@
         setAuthMsg(errId, "Pick a stronger password: " + strength.tip, false); return;
       }
       if (pass !== pass2) { setAuthMsg(errId, "The two passwords don't match.", false); return; }
+      // The email is optional, but a TYPO in it is not: an address nobody can
+      // be reached at is worse than none, because it looks like a way back in.
+      if (email && !ccValidEmail(email)) {
+        setAuthMsg(errId, "That email address doesn't look right. Check it, or leave it empty.", false);
+        return;
+      }
 
-      const go = $a("aao-new-go");
+      const go = $a("ao-new-go");
       if (go) { go.disabled = true; go.setAttribute("aria-busy", "true"); }
       setAuthMsg(errId, "Creating your account…", true);
       try {
         // Staged BEFORE the account exists, because creating it signs the
         // player in, and signing in is what erases the guest session.
         stageGuestMigration();
-        stagePendingSignup(nick, ref);
+        stagePendingSignup(nick, ref, email);
         clearGuestSessionStorage();
         _playerNickname = ""; _friendCode = ""; _activeProfile = null;
         _pendingOnboardingUid = ""; _avatarPromptShownForUid = "";
@@ -21899,7 +21961,6 @@
         // The display name is a backstop: if anything ever loses the staged
         // username, the CREATE YOUR USERNAME screen pre-fills from here.
         try { await cred.user.updateProfile({ displayName: nick }); } catch (_) {}
-        closeAccountCard();
       } catch (e) {
         // This attempt is over, so the staged username does not stay armed.
         // The guest SNAPSHOT deliberately does stay: "that username is taken"
@@ -21939,102 +22000,167 @@
         + ` (${code || "unknown"}). Try again.`;
     }
 
+    // ══ THE EMAIL ON AN ACCOUNT ══════════════════════════════════════
+    // A username here is turned into an address at a domain that receives
+    // nothing (see CC_LOGIN_DOMAIN), so the account itself cannot be reached
+    // and a forgotten password has nowhere to go. This is the way back in: a
+    // REAL address, kept BESIDE the account rather than on it, confirmed by
+    // clicking a link, and used for exactly one thing.
+    //
+    // Beside, not on, is the whole design. Firebase knows one email per user
+    // and that one IS the login name; changing it would change the name they
+    // type to sign in. So the real address lives on the profile as
+    // `recovery_email`, the server holds it, and a reset is the server mailing
+    // Firebase's own reset link for the synthetic address to the real one.
+    // The browser never does any of that: it cannot be trusted to say whose
+    // account an address belongs to.
+    const CC_EMAIL_RE = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
+    function ccValidEmail(s) {
+      const v = String(s || "").trim();
+      return v.length >= 6 && v.length <= 190 && CC_EMAIL_RE.test(v);
+    }
+
+    async function ccIdToken() {
+      try {
+        const u = _auth && _auth.currentUser;
+        return (u && u.getIdToken) ? await u.getIdToken() : "";
+      } catch (_) { return ""; }
+    }
+
+    // Link (or replace) the address on the signed-in account. The server sends
+    // the confirmation; nothing counts as linked until that link is clicked,
+    // because an address somebody typed by accident must never become the way
+    // into their account.
+    async function ccLinkEmail(email) {
+      const token = await ccIdToken();
+      if (!token) return { ok: false, message: "You are not signed in." };
+      let r;
+      try { r = await apiPost("/api/account/link-email", { idToken: token, email }); }
+      catch (_) { return { ok: false, message: "Could not reach the server. Try again in a moment." }; }
+      const d = (r && r.data) || {};
+      if (!r.ok || !d.ok) {
+        return { ok: false, message: d.message || "Could not link that email address." };
+      }
+      // Keep the open profile in step, so Settings says the right thing the
+      // moment the modal is reopened rather than after the next sign-in.
+      if (_activeProfile) {
+        _activeProfile = { ..._activeProfile, recovery_email: String(email || "").trim().toLowerCase(),
+                           recovery_email_verified: false };
+      }
+      return { ok: true, message: d.message || "Check your inbox for the confirmation link." };
+    }
+
+    // Forgot password, from the sign-in pane. The answer is deliberately the
+    // same whether or not that username exists and whether or not it has an
+    // address on it: this screen must not be a way to ask which usernames are
+    // real.
+    async function ccForgotPassword() {
+      const errId = "auth-choose-err";
+      const user = (($a("ao-user") || {}).value || "").trim();
+      if (!user) {
+        setAuthMsg(errId, "Type your username above first, then Forgot password.", "info");
+        try { $a("ao-user").focus(); } catch (_) {}
+        return;
+      }
+      const btn = $a("ao-forgot");
+      if (btn) btn.disabled = true;
+      setAuthMsg(errId, "Looking for an email on that account\u2026", true);
+      try {
+        const r = await apiPost("/api/account/forgot-password", { username: user });
+        const d = (r && r.data) || {};
+        setAuthMsg(errId, d.message
+          || "If that account has a confirmed email, a reset link is on its way to it. "
+           + "An account with no email cannot be reset: play as a guest, or create a new account.",
+          "info");
+      } catch (_) {
+        setAuthMsg(errId, "Could not reach the server. Try again in a moment.", false);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
     // The three rules this card enforces, reachable by name so a test can ask
     // them directly instead of inferring them from a rendered form. The same
     // hook window.__ccAuthNote is for the chooser's status line: the app uses
     // the functions, the test uses the names.
     window.__ccPwScore        = (pw)   => ccPasswordScore(pw);
+    window.__ccValidEmail     = (em)   => ccValidEmail(em);
+    window.__ccChooserPane    = (w)    => ccChooserPane(w);
     window.__ccLoginNameCheck = (name) => validateLoginName(name);
     window.__ccLoginEmail     = (name) => ccLoginEmail(name);
 
     // ── Wiring ────────────────────────────────────────────────────────
-    (function wireAccountCard() {
-      const ol = $a("auth-account-overlay");
-      if (!ol) return;
-      $a("aao-go-signin").addEventListener("click", () => ccAccountPane("signin"));
-      $a("aao-go-create").addEventListener("click", () => ccAccountPane("create"));
-      $a("aao-ask-back").addEventListener("click", closeAccountCard);
-      $a("aao-in-back").addEventListener("click", () => ccAccountPane("ask"));
-      $a("aao-new-back").addEventListener("click", () => ccAccountPane("ask"));
-
-      $a("aao-in-go").addEventListener("click", () => { void ccPasswordSignIn(); });
-      $a("aao-new-go").addEventListener("click", () => { void ccPasswordCreate(); });
-
-      // Google, from either form, through the same ccGoogleSignIn the sign-in
-      // screen uses, so there is exactly one Google sign-in path.
-      $a("aao-in-google").addEventListener("click",  () => { void ccGoogleSignIn("aao-in-err"); });
-      $a("aao-new-google").addEventListener("click", () => { void ccGoogleSignIn("aao-new-err"); });
+    (function wireChooserPanes() {
+      const col = $a("ao-pane-signin");
+      if (!col) return;
 
       // Enter submits the pane you are standing in.
-      const onEnter = (id, run) => $a(id).addEventListener("keydown", e => { if (e.key === "Enter") run(); });
-      onEnter("aao-in-user", () => $a("aao-in-go").click());
-      onEnter("aao-in-pass", () => $a("aao-in-go").click());
-      onEnter("aao-new-user",  () => $a("aao-new-pass").focus());
-      onEnter("aao-new-pass",  () => $a("aao-new-pass2").focus());
-      onEnter("aao-new-pass2", () => $a("aao-new-go").click());
-      onEnter("aao-new-ref",   () => $a("aao-new-go").click());
+      const onEnter = (id, run) => {
+        const el = $a(id);
+        if (el) el.addEventListener("keydown", e => { if (e.key === "Enter") run(); });
+      };
+      // Show / Hide, one handler for every field it applies to.
+      const wireEye = (btnId, fieldIds) => {
+        const btn = $a(btnId);
+        if (!btn) return;
+        btn.addEventListener("click", () => {
+          const showing = btn.textContent === "Hide";
+          fieldIds.forEach(fid => { const f = $a(fid); if (f) f.type = showing ? "password" : "text"; });
+          btn.textContent = showing ? "Show" : "Hide";
+          btn.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+        });
+      };
 
-      $a("aao-new-pass").addEventListener("input", ccPaintPwMeter);
-      $a("aao-ref-toggle").addEventListener("click", () => {
-        const wrap = $a("aao-ref-wrap"), btn = $a("aao-ref-toggle");
+      // ── Pane 1: sign in ────────────────────────────────────────────
+      const inlineSignIn = () => ccPasswordSignIn();
+      $a("ao-signin").addEventListener("click", () => { void inlineSignIn(); });
+      onEnter("ao-user", () => { void inlineSignIn(); });
+      onEnter("ao-pass", () => { void inlineSignIn(); });
+      wireEye("ao-eye", ["ao-pass"]);
+      $a("ao-create").addEventListener("click", () => ccChooserPane("create"));
+      $a("ao-forgot").addEventListener("click", () => { void ccForgotPassword(); });
+
+      // ── Pane 2: create an account ──────────────────────────────────
+      $a("ao-back-signin").addEventListener("click", () => {
+        ccClearCreateFields();
+        ccChooserPane("signin");
+      });
+      $a("ao-new-go").addEventListener("click", () => { void ccPasswordCreate(); });
+      $a("ao-new-google").addEventListener("click", () => { void ccGoogleSignIn("auth-choose-err"); });
+      onEnter("ao-new-user",  () => $a("ao-new-pass").focus());
+      onEnter("ao-new-pass",  () => $a("ao-new-pass2").focus());
+      onEnter("ao-new-pass2", () => $a("ao-new-go").click());
+      onEnter("ao-new-email", () => $a("ao-new-go").click());
+      onEnter("ao-new-ref",   () => $a("ao-new-go").click());
+      wireEye("ao-new-eye", ["ao-new-pass", "ao-new-pass2"]);
+      $a("ao-new-pass").addEventListener("input", ccPaintPwMeter);
+      $a("ao-ref-toggle").addEventListener("click", () => {
+        const wrap = $a("ao-ref-wrap"), btn = $a("ao-ref-toggle");
         const open = wrap.style.display !== "none";
         wrap.style.display = open ? "none" : "";
         btn.setAttribute("aria-expanded", open ? "false" : "true");
-        btn.textContent = open ? "+ I have a friend code" : "− Never mind the friend code";
-        if (!open) setTimeout(() => { try { $a("aao-new-ref").focus(); } catch (_) {} }, 40);
+        btn.textContent = open ? "+ I have a friend code" : "\u2212 Never mind the friend code";
+        if (!open) setTimeout(() => { try { $a("ao-new-ref").focus(); } catch (_) {} }, 40);
       });
-      $a("aao-new-user").addEventListener("input", () => {
-        const inp = $a("aao-new-user"), out = $a("aao-new-user-count");
+      $a("ao-new-user").addEventListener("input", () => {
+        const inp = $a("ao-new-user"), out = $a("ao-new-user-count");
         if (!inp || !out) return;
         const n = (inp.value || "").length;
         out.textContent = n + " / 15";
         out.classList.toggle("is-full", n >= 15);
       });
 
-      // Show / Hide, one handler for both fields it applies to.
-      const wireEye = (btnId, fieldIds) => $a(btnId).addEventListener("click", () => {
-        const btn = $a(btnId);
-        const showing = btn.textContent === "Hide";
-        fieldIds.forEach(fid => { const f = $a(fid); if (f) f.type = showing ? "password" : "text"; });
-        btn.textContent = showing ? "Show" : "Hide";
-        btn.setAttribute("aria-label", showing ? "Show password" : "Hide password");
-      });
-      wireEye("aao-in-eye", ["aao-in-pass"]);
-      wireEye("aao-new-eye", ["aao-new-pass", "aao-new-pass2"]);
-
-      // ── The form on the sign-in screen itself ──────────────────────
-      // Same question as the card's sign-in pane, asked one screen earlier so
-      // somebody who already has an account never opens a dialog to type into.
-      // It hands ccPasswordSignIn its own fields rather than carrying a second
-      // copy of the sign-in.
-      const inlineSignIn = () => ccPasswordSignIn({
-        user: "ao-user", pass: "ao-pass", err: "auth-choose-err", go: "ao-signin",
-      });
-      if ($a("ao-signin")) {
-        $a("ao-signin").addEventListener("click", () => { void inlineSignIn(); });
-        onEnter("ao-user", () => { void inlineSignIn(); });
-        onEnter("ao-pass", () => { void inlineSignIn(); });
-        wireEye("ao-eye", ["ao-pass"]);
-        // CREATE AN ACCOUNT opens the card on the pane that makes one, rather
-        // than on the question the player has already answered by clicking it.
-        $a("ao-create").addEventListener("click", () => openAccountCard("create"));
-        // There is no email on an account here, which is the whole point of
-        // them, and it means there is nothing to mail a reset to. Saying so is
-        // better than a link that goes nowhere.
-        $a("ao-forgot").addEventListener("click", () => setAuthMsg("auth-choose-err",
-          "An account here has no email address, so a password cannot be mailed back to you. " +
-          "Play as a guest, or create a new account.", "info"));
-      }
-
-      // Escape closes it, the way the guest card does, and for the same
-      // reason a click on the scrim does not: what shows through the scrim is
-      // PLAY AS GUEST, and dismissing this on a click aimed at that button
-      // would read as having chosen to play as a guest.
+      // Escape backs out of the create pane, the way it closed the dialog this
+      // replaced. There is nothing to dismiss on the sign-in pane, so it does
+      // nothing there rather than stealing the key from anything else.
       document.addEventListener("keydown", (e) => {
         if (e.key !== "Escape") return;
-        if (!ol.classList.contains("visible")) return;
+        if (_aoPane !== "create") return;
+        const step = $a("auth-step-choose");
+        if (!step || step.style.display === "none") return;
         e.stopPropagation();
-        closeAccountCard();
+        ccClearCreateFields();
+        ccChooserPane("signin");
       }, true);
 
       ccPaintPwMeter();
@@ -22066,6 +22192,11 @@
       if (err) { setAuthMsg("auth-nick-err", err, false); return; }
       void finishNicknameSetup(nick);
     });
+    // An address typed on the create pane, waiting for there to be an account
+    // to file it against. Cleared the moment it is spent, so a second sign-up
+    // in the same tab can never inherit the first one's email.
+    let _pendingLinkEmail = "";
+
     async function finishNicknameSetup(nick) {
       if (!_authUser) { setAuthMsg("auth-nick-err", "Not signed in.", false); return; }
       setAuthMsg("auth-nick-err", "Saving…", true);
@@ -22096,6 +22227,21 @@
             error: e && (e.name || e.message || e)
           }, "warn");
         });
+        // The email, if they gave one. Never allowed to stop a sign-up: a
+        // failed link is a missing way back in, a blocked sign-up is a lost
+        // player. It says so out loud either way, because somebody who typed
+        // an address is expecting a mail.
+        if (_pendingLinkEmail) {
+          const em = _pendingLinkEmail;
+          _pendingLinkEmail = "";
+          try {
+            const lr = await ccLinkEmail(em);
+            showToast(lr.ok
+              ? ("\uD83D\uDCE7 " + lr.message)
+              : ("Your account is ready, but the email could not be linked: " + lr.message
+                 + " You can add it in Settings."), lr.ok ? "good" : "warn", 7000);
+          } catch (_) {}
+        }
         _playerNickname = nick;
         _friendCode = code;
         _pendingOnboardingUid = "";
@@ -22381,6 +22527,13 @@
         }
       }
 
+      // ── The email row ───────────────────────────────────────────
+      // Only for an account that signs in with a username and a password: a
+      // Google account already has a real address of its own and is reset
+      // through Google, so offering to "link an email" there would be a second
+      // address that does nothing.
+      _paintSettingsEmailRow();
+
       // Sync music slider UI
       _syncMusicSliderUI();
 
@@ -22401,6 +22554,75 @@
         if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") { e.preventDefault(); open(); }
       });
     })();
+    // ── Linking an email ────────────────────────────────────────────
+    function _isPasswordAccount() {
+      if (!_authUser) return false;
+      if (_authUser.providerData?.[0]?.providerId === "google.com") return false;
+      return true;
+    }
+    function _paintSettingsEmailRow() {
+      const row = $a("settings-email-row");
+      if (!row) return;
+      const show = _isPasswordAccount();
+      row.style.display = show ? "" : "none";
+      const form = $a("settings-email-form");
+      if (form) form.style.display = "none";
+      if (!show) return;
+      const cur = String(_activeProfile?.recovery_email || "").trim();
+      const ok  = !!_activeProfile?.recovery_email_verified;
+      const val = $a("settings-current-email");
+      const btn = $a("settings-edit-email-btn");
+      if (val) {
+        val.textContent = cur ? (ok ? cur : cur + " (unconfirmed)") : "Not linked";
+        val.style.color = cur && ok ? "var(--cyan)" : (cur ? "#e0b040" : "rgba(150,200,240,.75)");
+      }
+      if (btn) btn.textContent = cur ? "Change" : "Link";
+      const inp = $a("settings-email-input");
+      if (inp) inp.value = cur;
+      setAuthMsg("settings-email-err", "", true);
+    }
+    (function wireSettingsEmail() {
+      const btn = $a("settings-edit-email-btn");
+      if (!btn) return;
+      const form = () => $a("settings-email-form");
+      btn.addEventListener("click", () => {
+        const f = form();
+        if (!f) return;
+        const opening = f.style.display === "none";
+        f.style.display = opening ? "flex" : "none";
+        if (opening) setTimeout(() => { try { $a("settings-email-input").focus(); } catch (_) {} }, 40);
+      });
+      const cancel = () => {
+        const f = form();
+        if (f) f.style.display = "none";
+        setAuthMsg("settings-email-err", "", true);
+      };
+      $a("settings-email-cancel").addEventListener("click", cancel);
+      $a("settings-email-cancel").addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") { e.preventDefault(); cancel(); }
+      });
+      const save = async () => {
+        const inp = $a("settings-email-input"), go = $a("settings-email-save-btn");
+        const email = (inp && inp.value || "").trim();
+        if (!ccValidEmail(email)) {
+          setAuthMsg("settings-email-err", "That email address doesn't look right.", false);
+          return;
+        }
+        if (go) { go.disabled = true; go.setAttribute("aria-busy", "true"); }
+        setAuthMsg("settings-email-err", "Sending the confirmation\u2026", true);
+        const r = await ccLinkEmail(email);
+        if (go) { go.disabled = false; go.removeAttribute("aria-busy"); }
+        if (!r.ok) { setAuthMsg("settings-email-err", r.message, false); return; }
+        setAuthMsg("settings-email-err", "", true);
+        _paintSettingsEmailRow();
+        showToast("\uD83D\uDCE7 " + r.message, "good", 6500);
+      };
+      $a("settings-email-save-btn").addEventListener("click", () => { void save(); });
+      $a("settings-email-input").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); void save(); }
+      });
+    })();
+
     $a("settings-edit-nick-btn").addEventListener("click", () => {
       const form = $a("settings-nick-form");
       if (form) { form.style.display = "flex"; $a("settings-nick-input").focus(); }
@@ -31166,7 +31388,8 @@
     // guest is being invited to keep what they have played (the link under
     // Player Home's guest notice, and the button at the end of a game), so the
     // session is photographed BEFORE clearGuestSessionStorage erases it.
-    // `opts.pane` opens the account card straight onto the right half.
+    // `opts.pane` opens the sign-in column straight onto the pane that makes
+    // an account, rather than the one that signs into one.
     window.__fishGoToSignIn     = (opts) => {
       const o = opts || {};
       if (o.migrate) stageGuestMigration();
@@ -31179,10 +31402,10 @@
       const sl = $a("auth-stats-lobby"); if (sl) sl.classList.remove("visible");
       $a("auth-screen").classList.remove("hidden");
       showStep("auth-step-choose");
-      // After showStep, which closes every card on this screen before we open
-      // one. armChooseStep() holds the two buttons underneath inert for a beat
-      // either way, so the card is safe to put up immediately.
-      if (o.pane) openAccountCard(o.pane);
+      // After showStep, which puts the column back on its sign-in pane.
+      // armChooseStep() holds the column inert for a beat either way, so the
+      // pane is safe to turn over immediately.
+      if (o.pane) ccChooserPane(o.pane, { quiet: true });
     };
 
   // ── Notification bell ─────────────────────────────────────────────

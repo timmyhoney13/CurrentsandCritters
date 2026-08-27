@@ -20,11 +20,11 @@
  *      landed but that each control is there, whole, and reachable at seven
  *      window sizes, and that a narrow window stacks the halves.
  *   2. THERE IS ONE GOOGLE PATH AND ONE PASSWORD PATH. The screen carries its
- *      own username and password field, and signs in through the same function
- *      the card's form uses. CREATE AN ACCOUNT opens the card on the create
- *      pane.
- *   3. THE CARD ASKS FIRST ("do you already have one?"), then shows the form
- *      for the answer. Google is at the bottom of BOTH forms.
+ *      own username and password field. CREATE AN ACCOUNT turns the column
+ *      over onto the pane that makes one.
+ *   3. THE COLUMN HAS TWO PANES, and only ever one of them on screen. Creating
+ *      an account used to be a dialog over the whole picture; it is the same
+ *      column now, so the ocean never moves. Google is under BOTH panes.
  *   4. THE GREEN BAR IS THE RULE, not decoration: Create Account is disabled
  *      until the password scores 3 of 4, which is the score at which the bar
  *      turns green. The two can never disagree, because the button reads the
@@ -55,6 +55,7 @@ const read   = (p) => fs.readFileSync(path.join(CLIENT, p), "utf8");
 const HTML = read("preview.html");
 const CSS  = read("css/preview.css");
 const APP  = read("js/preview-app.js");
+const PY_ACC = fs.readFileSync(path.join(ROOT, "account_email.py"), "utf8");
 
 let pass = 0, fail = 0;
 function check(name, cond, extra) {
@@ -109,67 +110,71 @@ console.log("\nthere is one Google path, and one password path");
   // field, Google is one door among several and does the thing it says.
   check("CONTINUE WITH GOOGLE runs Google",
         /chooseAccountBtn\.addEventListener\("click", \(\) => \{ void ccGoogleSignIn\("auth-choose-err"\); \}\)/.test(APP));
-  check("…through the one path the cards use too",
+  check("…through the one path the create pane uses too",
         /async function ccGoogleSignIn\(errId\)/.test(APP)
-        && /\$a\("aao-in-google"\)\.addEventListener\("click",  \(\) => \{ void ccGoogleSignIn\("aao-in-err"\); \}\)/.test(APP));
-  check("CREATE AN ACCOUNT opens the card on the pane that makes one",
-        /\$a\("ao-create"\)\.addEventListener\("click", \(\) => openAccountCard\("create"\)\)/.test(APP));
+        && /\$a\("ao-new-google"\)\.addEventListener\("click", \(\) => \{ void ccGoogleSignIn\("auth-choose-err"\); \}\)/.test(APP));
+  check("CREATE AN ACCOUNT turns the column over onto the pane that makes one",
+        /\$a\("ao-create"\)\.addEventListener\("click", \(\) => ccChooserPane\("create"\)\)/.test(APP));
   // Two forms ask for a username and a password now. They must be one function
   // taking two sets of fields, not two copies drifting apart.
-  check("the screen's own form signs in through the card's own function",
+  check("the sign-in pane has one sign-in function, not a copy of one",
         /async function ccPasswordSignIn\(ids\)/.test(APP)
-        && /user: "ao-user", pass: "ao-pass", err: "auth-choose-err", go: "ao-signin"/.test(APP));
+        && /\{ user: "ao-user", pass: "ao-pass", err: "auth-choose-err", go: "ao-signin" \}/.test(APP));
   check("…and Enter in either field submits it",
         /onEnter\("ao-user", \(\) => \{ void inlineSignIn\(\); \}\)/.test(APP)
         && /onEnter\("ao-pass", \(\) => \{ void inlineSignIn\(\); \}\)/.test(APP));
-  // There is no email on an account here, so there is nothing to send a reset
-  // to. A link that goes nowhere is worse than saying so.
-  check("FORGOT PASSWORD says the true thing instead of going nowhere",
-        /\$a\("ao-forgot"\)\.addEventListener\("click", \(\) => setAuthMsg\("auth-choose-err",[\s\S]{0,220}?no email address/.test(APP));
-  check("the card is a child of the step, so showStep hides it with the screen",
-        /<div id="auth-step-choose"[\s\S]*?<div id="auth-account-overlay"/.test(HTML));
-  check("…and showStep really does close it",
-        /\["auth-guest-overlay", "auth-account-overlay"\]\.forEach/.test(APP));
-  check("it announces itself as a dialog",
-        /id="auth-account-overlay" role="dialog" aria-modal="true"/.test(HTML));
-  check("it wears the guest card's clothes rather than a second set",
-        /#auth-guest-overlay \.ago-card,\s*\n\s*#auth-account-overlay \.ago-card/.test(CSS));
+  // There IS an email on an account now, if the player linked one, so FORGOT
+  // PASSWORD really asks. It cannot be a yes/no answer, though: the reply is
+  // the same sentence whatever the server finds, or this screen becomes a way
+  // to ask which usernames exist.
+  check("FORGOT PASSWORD really asks the server for a reset",
+        /\$a\("ao-forgot"\)\.addEventListener\("click", \(\) => \{ void ccForgotPassword\(\); \}\)/.test(APP)
+        && /apiPost\("\/api\/account\/forgot-password", \{ username: user \}\)/.test(APP));
+  check("…and says the same thing whether or not that account exists",
+        /FORGOT_ANSWER = \(/.test(PY_ACC)
+        && /answer = \{"ok": True, "message": FORGOT_ANSWER\}/.test(PY_ACC));
+  check("the panes are children of the step, so showStep puts them back",
+        /<div id="auth-step-choose"[\s\S]*?<div class="ao-pane" id="ao-pane-create"/.test(HTML));
+  check("…and showStep really does put the column back on the sign-in pane",
+        /ccChooserPane\("signin", \{ quiet: true \}\)/.test(APP));
+  check("the dialog it replaced is gone from every file",
+        !/auth-account-overlay|aao-/.test(HTML + CSS + APP));
 }
 
-console.log("\nit asks first, then shows the form for the answer");
+console.log("\ntwo panes in one column, and only ever one of them");
 {
-  ["aao-pane-ask", "aao-pane-signin", "aao-pane-create"].forEach(id =>
-    check(`the ${id.replace("aao-pane-", "")} pane exists`, new RegExp(`id="${id}"`).test(HTML)));
+  ["ao-pane-signin", "ao-pane-create"].forEach(id =>
+    check(`the ${id.replace("ao-pane-", "")} pane exists`, new RegExp(`id="${id}"`).test(HTML)));
   check("one function decides which pane is showing",
-        /function ccAccountPane\(which\)/.test(APP));
-  check("Google is offered from BOTH forms",
-        /id="aao-in-google"/.test(HTML) && /id="aao-new-google"/.test(HTML));
+        /function ccChooserPane\(which, opts\)/.test(APP));
+  check("Google is offered from BOTH panes",
+        /id="auth-choose-google-btn"/.test(HTML) && /id="ao-new-google"/.test(HTML));
   check("…through the same two functions the chooser used to call",
         /beginGameWindowGoogleSignIn\(errId\)[\s\S]{0,200}?beginCleanGoogleSignIn\(errId\)/.test(APP));
   check("a password field is a password field",
         (HTML.match(/type="password"/g) || []).length >= 3);
-  check("closing the card does not leave a password sitting in the page",
-        /\["aao-in-pass", "aao-new-pass", "aao-new-pass2"\]\.forEach/.test(APP));
-  check("Escape closes it, a click on the scrim does not",
-        /if \(!ol\.classList\.contains\("visible"\)\) return;/.test(APP)
-        && !/auth-account-overlay"\)\.addEventListener\("click"/.test(APP));
+  check("leaving the create pane does not leave a password sitting in the page",
+        /function ccClearCreateFields\(\)/.test(APP)
+        && /\["ao-new-pass", "ao-new-pass2"\]\.forEach/.test(APP));
+  check("Escape backs out of the create pane, and does nothing on the other one",
+        /if \(_aoPane !== "create"\) return;/.test(APP));
 }
 
 console.log("\nthe green bar is the rule, not a decoration");
 {
-  check("there is a bar", /id="aao-meter"/.test(HTML) && /aao-meter-fill/.test(HTML));
+  check("there is a bar", /id="ao-meter"/.test(HTML) && /ao-meter-fill/.test(HTML));
   check("it turns green at 3 and stays green at 4",
-        /\.aao-meter\[data-s="3"\] \.aao-meter-fill \{[^}]*background: #4fae54/.test(CSS)
-        && /\.aao-meter\[data-s="4"\] \.aao-meter-fill \{[^}]*background: #1e9b62/.test(CSS));
+        /\.ao-meter\[data-s="3"\] \.ao-meter-fill \{[^}]*background: #5cc76a/.test(CSS)
+        && /\.ao-meter\[data-s="4"\] \.ao-meter-fill \{[^}]*background: #2fc48a/.test(CSS));
   check("…and is red then amber below it",
-        /\.aao-meter\[data-s="1"\] \.aao-meter-fill \{[^}]*background: #d4553f/.test(CSS)
-        && /\.aao-meter\[data-s="2"\] \.aao-meter-fill \{[^}]*background: #e0932c/.test(CSS));
+        /\.ao-meter\[data-s="1"\] \.ao-meter-fill \{[^}]*background: #e2664a/.test(CSS)
+        && /\.ao-meter\[data-s="2"\] \.ao-meter-fill \{[^}]*background: #edaa3c/.test(CSS));
   check("the button is gated on the same score the bar paints",
         /go\.disabled = !\(raw && r\.score >= CC_PW_MIN_SCORE\)/.test(APP));
   check("…and the submit re-checks it, so a re-enabled button cannot smuggle one through",
         /if \(strength\.score < CC_PW_MIN_SCORE\)/.test(APP));
   check("a disabled Create Account looks disabled",
-        /#auth-account-overlay \.pv-btn\.gold:disabled/.test(CSS));
+        /#auth-step-choose \.ao-primary\[disabled\] \{ opacity: \.6; cursor: default; \}/.test(CSS));
   check("the two passwords have to match", /if \(pass !== pass2\)/.test(APP));
 }
 
@@ -188,12 +193,49 @@ console.log("\na username is an account");
   check("…and the name they type to get back in is stored, and shown in Settings",
         /login_username: nick/.test(APP) && /"Sign in as " \+ loginName/.test(APP));
   check("account creation reuses the one path an account is born on",
-        /const staged = takePendingSignup\(\);[\s\S]{0,400}?await finishNicknameSetup\(staged\.nick\)/.test(APP));
+        /const staged = takePendingSignup\(\);[\s\S]{0,800}?await finishNicknameSetup\(staged\.nick\)/.test(APP));
   check("…and the chosen name survives the launcher's navigation into the game window",
         /CC_PENDING_SIGNUP_KEY = "cc_pending_signup_v1"/.test(APP)
         && /localStorage\.setItem\(CC_PENDING_SIGNUP_KEY/.test(APP));
   check("a server without Email/Password switched on says exactly that",
         /Enable Email\/Password in Firebase console/.test(APP));
+}
+
+console.log("\nan email can be linked, and it is the only way back in");
+{
+  // The account's own address is synthetic and receives nothing, so a real one
+  // is kept beside it. The browser never decides whose account an address
+  // belongs to: it hands the server an ID token and the server writes.
+  check("the sign-up form offers one, and says what it is for",
+        /id="ao-new-email"/.test(HTML)
+        && /reset a forgotten password/.test(HTML));
+  check("…optional, and said so",
+        /<span class="ao-optional">Optional<\/span>[\s\S]{0,400}?id="ao-new-email"/.test(HTML));
+  check("Settings can link one to an account that already exists",
+        /id="settings-email-row"/.test(HTML) && /id="settings-email-input"/.test(HTML)
+        && /function _paintSettingsEmailRow\(\)/.test(APP));
+  check("…and does not offer it to a Google account, which has one already",
+        /function _isPasswordAccount\(\)[\s\S]{0,220}?providerId === "google\.com"\) return false;/.test(APP));
+  check("…or to a guest, who has no account to link it to",
+        /function _isPasswordAccount\(\) \{\s*\n\s*if \(!_authUser\) return false;/.test(APP));
+  check("the link is made by the server, with a verified token",
+        /apiPost\("\/api\/account\/link-email", \{ idToken: token, email \}\)/.test(APP)
+        && /uid = _auth_uid\(body\)/.test(PY_ACC));
+  check("…and the browser only keeps a copy of it, never writes one",
+        !/(?:update|set)\(\{[^}]{0,400}?recovery_email/.test(APP)
+        && /_activeProfile = \{ \.\.\._activeProfile, recovery_email:/.test(APP));
+  check("an address is not linked until the link in the mail is clicked",
+        /"recovery_email_verified": False,/.test(PY_ACC)
+        && /def verify_email\(token: str\)/.test(PY_ACC));
+  check("…and a reset only ever goes to a CONFIRMED one",
+        /if not email_lower or not profile\.get\("recovery_email_verified"\):\s*\n\s*return answer/.test(PY_ACC));
+  check("the token covers the account AND the address, so it fits one door only",
+        /msg = "verify-email:%s:%s:%d" % \(uid, email_lower, exp\)/.test(PY_ACC));
+  check("the address on a new account is linked only once the account exists",
+        /_pendingLinkEmail = ccValidEmail\(staged\.email\) \? staged\.email : "";/.test(APP)
+        && /const lr = await ccLinkEmail\(em\);/.test(APP));
+  check("…and a failed link can never block a sign-up",
+        /_pendingLinkEmail = "";\s*\n\s*try \{[\s\S]{0,400}?\} catch \(_\) \{\}/.test(APP));
 }
 
 console.log("\na guest keeps nothing, and loses nothing by accident");
@@ -230,7 +272,7 @@ console.log("\na guest can take their afternoon with them");
   check("…and it leaves the game the way BACK TO LOBBY leaves it",
         /pv-endgame-signup"\)\?\.addEventListener[\s\S]{0,700}?returnToMenu\(\);/.test(APP));
   check("the session is photographed BEFORE the sign-in that ends it",
-        /stageGuestMigration\(\);\s*\n\s*stagePendingSignup\(nick, ref\);\s*\n\s*clearGuestSessionStorage\(\);/.test(APP));
+        /stageGuestMigration\(\);\s*\n\s*stagePendingSignup\(nick, ref, email\);\s*\n\s*clearGuestSessionStorage\(\);/.test(APP));
   check("…and it survives the trip through a page navigation",
         /GUEST_MIGRATE_KEY = "cc_guest_migration_v1"/.test(APP));
   check("nothing is carried for a guest who never finished a game",
@@ -294,10 +336,10 @@ if (!CHROME) {
     return {l:r.left,t:r.top,w:r.width,h:r.height,r:r.right,b:r.bottom}; }
   function vis(id){ var e=document.getElementById(id);
     return !!e && getComputedStyle(e).display !== "none"; }
-  function cardOpen(){ var o=document.getElementById("auth-account-overlay");
-    return !!o && o.classList.contains("visible"); }
-  function typePw(v){ var p=document.getElementById("aao-new-pass");
+  function typePw(v){ var p=document.getElementById("ao-new-pass");
     p.value=v; p.dispatchEvent(new Event("input")); }
+  function pane(){ return vis("ao-pane-create") ? "create"
+                        : (vis("ao-pane-signin") ? "signin" : "none"); }
   `;
 
   function driver(body) {
@@ -392,7 +434,7 @@ if (!CHROME) {
         });
         // The tap target for a field is the row it sits in, not the bare input:
         // the input is one line of text inside a 60px row.
-        log.rows = Array.prototype.map.call(document.querySelectorAll("#auth-step-choose .ao-field"),
+        log.rows = Array.prototype.map.call(document.querySelectorAll("#ao-pane-signin .ao-field"),
           function (e) { return Math.round(e.getBoundingClientRect().height); });
         log.guestName = document.getElementById("auth-guest-btn").textContent.trim();
         log.acctName  = document.getElementById("auth-choose-google-btn").textContent.trim();
@@ -419,68 +461,47 @@ if (!CHROME) {
             `${r.docW} > ${r.vw}`);
     }
 
-    // ── 2. CREATE AN ACCOUNT opens the card ───────────────────────────────
-    console.log("\nCREATE AN ACCOUNT opens the card");
+    // ── 2. CREATE AN ACCOUNT turns the column over ────────────────────────
+    console.log("\nCREATE AN ACCOUNT turns the column over, and Back returns");
     {
       const r = run("_acc_open.html", `
         setTimeout(function () {
-          log.before = cardOpen();
+          log.before = pane();
+          log.artBefore = R(".ao-art-img");
           document.getElementById("ao-create").click();
-          log.after = cardOpen();
-          log.ask    = vis("aao-pane-ask");
-          log.signin = vis("aao-pane-signin");
-          log.create = vis("aao-pane-create");
-          // The ways in underneath must be inert while the card is up.
-          log.guestInert = getComputedStyle(document.getElementById("auth-guest-btn")).pointerEvents === "none";
-          // …and the card, not the artwork, owns the pixel at its own centre.
-          var c = R("#auth-account-overlay .ago-card");
-          var el = document.elementFromPoint(c.l + c.w / 2, c.t + 12);
-          log.topAtCard = !!(el && el.closest && el.closest("#auth-account-overlay"));
-          done();
+          setTimeout(function () {
+            log.after = pane();
+            log.createHasGoogle = !!document.querySelector("#ao-pane-create #ao-new-google");
+            log.signinHasGoogle = !!document.querySelector("#ao-pane-signin #auth-choose-google-btn");
+            log.onlyOne = ["ao-pane-signin","ao-pane-create"].filter(vis).length;
+            // The pane, not the artwork, owns its own pixels: measured at the
+            // username field, which is a control somebody is about to click.
+            var f = R("#ao-new-user");
+            var el = document.elementFromPoint(f.l + f.w / 2, f.t + f.h / 2);
+            log.topAtPane = !!(el && el.closest && el.closest("#ao-pane-create"));
+            log.artAfter = R(".ao-art-img");
+            document.getElementById("ao-back-signin").click();
+            setTimeout(function () {
+              log.back = pane();
+              log.guestLive = getComputedStyle(document.getElementById("auth-guest-btn")).pointerEvents !== "none";
+              done();
+            }, 400);
+          }, 400);
         }, 1500);
-      `, 1440, 900, (r) => r.after !== undefined);
-      check("the card is shut until it is asked for", r && r.before === false);
-      check("…the button opens it", r && r.after === true);
-      // Straight to the form that makes an account: the player answered the
-      // question by clicking a button that says which answer it is.
-      check("…on the form that makes one, not back on the question",
-            r && r.create === true && r.ask === false && r.signin === false);
-      check("…with the ways in underneath held inert", r && r.guestInert === true);
-      check("…and it is really in front", r && r.topAtCard === true);
-    }
-
-    // ── 3. Both answers reach their form, and Back comes back ─────────────
-    console.log("\nboth answers reach a form, and Back really returns");
-    {
-      const r = run("_acc_panes.html", `
-        setTimeout(function () {
-          document.getElementById("auth-choose-google-btn").click();
-          document.getElementById("aao-go-signin").click();
-          log.signin = vis("aao-pane-signin");
-          log.signinHasGoogle = !!document.querySelector("#aao-pane-signin #aao-in-google");
-          document.getElementById("aao-in-back").click();
-          log.backToAsk = vis("aao-pane-ask");
-          document.getElementById("aao-go-create").click();
-          log.create = vis("aao-pane-create");
-          log.createHasGoogle = !!document.querySelector("#aao-pane-create #aao-new-google");
-          // Only ever one pane on screen.
-          log.onlyOne = ["aao-pane-ask","aao-pane-signin","aao-pane-create"].filter(vis).length;
-          document.getElementById("aao-ask-back") && null;
-          document.getElementById("aao-new-back").click();
-          document.getElementById("aao-ask-back").click();
-          log.closed = !cardOpen();
-          log.guestLive = getComputedStyle(document.getElementById("auth-guest-btn")).pointerEvents !== "none";
-          done();
-        }, 1500);
-      `, 1440, 900, (r) => r.signin !== undefined);
-      check("'I have an account' opens the sign-in form", r && r.signin === true);
-      check("…with Google under it", r && r.signinHasGoogle === true);
-      check("Back returns to the question", r && r.backToAsk === true);
-      check("'Create an account' opens the create form", r && r.create === true);
-      check("…with Google under that too", r && r.createHasGoogle === true);
-      check("only one pane is ever on screen", r && r.onlyOne === 1);
-      check("backing all the way out closes the card", r && r.closed === true);
-      check("…and gives the buttons underneath back", r && r.guestLive === true);
+      `, 1440, 900, (r) => r.back !== undefined);
+      check("the column opens on the sign-in pane", r && r.before === "signin", r && r.before);
+      check("…the button turns it over to the create pane", r && r.after === "create", r && r.after);
+      check("…and only one of them is ever on screen", r && r.onlyOne === 1);
+      check("…with Google under both of them",
+            r && r.createHasGoogle === true && r.signinHasGoogle === true);
+      check("…and the pane is really in front", r && r.topAtPane === true);
+      check("the ocean does not move when the form does",
+            r && r.artBefore && r.artAfter
+              && Math.abs(r.artBefore.l - r.artAfter.l) < 0.5
+              && Math.abs(r.artBefore.w - r.artAfter.w) < 0.5,
+            r && JSON.stringify([r.artBefore, r.artAfter]));
+      check("Back returns to signing in", r && r.back === "signin", r && r.back);
+      check("…with every way in live again", r && r.guestLive === true);
     }
 
     // ── 4. The green bar and the button are the same rule ─────────────────
@@ -488,15 +509,14 @@ if (!CHROME) {
     {
       const r = run("_acc_meter.html", `
         setTimeout(function () {
-          document.getElementById("auth-choose-google-btn").click();
-          document.getElementById("aao-go-create").click();
-          var bar = document.getElementById("aao-meter");
-          var go  = document.getElementById("aao-new-go");
+          document.getElementById("ao-create").click();
+          var bar = document.getElementById("ao-meter");
+          var go  = document.getElementById("ao-new-go");
           function probe(pw){
             typePw(pw);
             return { s: bar.dataset.s, off: go.disabled,
-                     fill: getComputedStyle(document.getElementById("aao-meter-fill")).backgroundColor,
-                     word: document.getElementById("aao-meter-word").textContent };
+                     fill: getComputedStyle(document.getElementById("ao-meter-fill")).backgroundColor,
+                     word: document.getElementById("ao-meter-word").textContent };
           }
           log.empty  = probe("");
           log.short  = probe("fish");
@@ -514,6 +534,12 @@ if (!CHROME) {
             good:   window.__ccLoginNameCheck("tide_pool-9"),
           };
           log.email = window.__ccLoginEmail("TidePool");
+          log.emails = {
+            good:  window.__ccValidEmail("reef@example.com"),
+            typo:  window.__ccValidEmail("reef@example"),
+            empty: window.__ccValidEmail(""),
+            space: window.__ccValidEmail("reef @example.com"),
+          };
           done();
         }, 1500);
       `, 1440, 900, (r) => r.strong !== undefined);
@@ -525,7 +551,7 @@ if (!CHROME) {
       check("a long plain word is not enough either", ok && r.plain.off === true, ok && r.plain.s);
       check("a real one unlocks the button", ok && r.good.off === false, ok && r.good.s);
       check("…at exactly the point the bar turns green",
-            ok && r.good.s === "3" && /79,\s*174,\s*84/.test(r.good.fill), ok && r.good.fill);
+            ok && r.good.s === "3" && /92,\s*199,\s*106/.test(r.good.fill), ok && r.good.fill);
       check("…and a stronger one fills it", ok && r.strong.s === "4" && r.strong.off === false);
       // Pinned outright, because "roughly stronger" is how a strength meter
       // ends up calling a lower-case dictionary word "good". Empty and a
@@ -541,30 +567,61 @@ if (!CHROME) {
       check("…and an ordinary one is fine", ok && r.names.good === "");
       check("the username becomes one lower-case address",
             ok && r.email === "tidepool@players.currentsandcritters.com", ok && r.email);
+      check("an email address is checked before it is kept",
+            ok && r.emails.good === true && r.emails.typo === false
+              && r.emails.empty === false && r.emails.space === false,
+            ok && JSON.stringify(r.emails));
     }
 
-    // ── 5. The create form fits on the screen it opens on ─────────────────
-    console.log("\nCreate Account is on the screen, not below a scroll");
+    // ── 5. The create pane fits the column it opens in ────────────────────
+    // It is a form in a scrolling column now rather than a card in the middle
+    // of the screen, so "on the screen" is a weaker promise than it was: what
+    // has to hold is that CREATE ACCOUNT is reachable at every size, and that
+    // it is above the fold at the sizes people actually play on.
+    console.log("\nCreate Account is reachable, and above the fold on a laptop");
     for (const [w, h] of [[1440, 900], [1280, 800], [1024, 768], [500, 900]]) {
       const r = run("_acc_fold.html", `
         setTimeout(function () {
-          document.getElementById("auth-choose-google-btn").click();
-          document.getElementById("aao-go-create").click();
-          log.go   = R("#aao-new-go");
-          log.card = R("#auth-account-overlay .ago-card");
-          log.vh   = window.innerHeight;
-          log.vw   = window.innerWidth;
-          log.docW = document.documentElement.scrollWidth;
-          log.refOpen = vis("aao-ref-wrap");
-          done();
+          document.getElementById("ao-create").click();
+          setTimeout(function () {
+            var col = document.querySelector("#auth-step-choose .ao-form");
+            log.go   = R("#ao-new-go");
+            log.pane = R("#ao-pane-create");
+            log.vh   = window.innerHeight;
+            log.vw   = window.innerWidth;
+            log.docW = document.documentElement.scrollWidth;
+            log.refOpen = vis("ao-ref-wrap");
+            log.scrollable = col.scrollHeight > col.clientHeight + 1;
+            log.reach = col.scrollHeight - col.clientHeight;
+            log.stacked = getComputedStyle(col).position === "relative";
+            // Below the fold is only allowed if scrolling really reaches it.
+            var sc = log.stacked ? document.getElementById("auth-step-choose") : col;
+            sc.scrollTop = sc.scrollHeight;
+            setTimeout(function () {
+              var b = R("#ao-new-go");
+              log.afterScroll = b;
+              log.reachable = !!b && b.b <= window.innerHeight + 1 && b.t >= -1;
+              done();
+            }, 250);
+          }, 500);
         }, 1500);
       `, w, h, (r) => r.go);
       if (!r || !r.go) { check(`${w}x${h}: the create form rendered`, false); continue; }
-      check(`${w}x${h}: Create Account is visible without scrolling the card`,
-            r.go.b <= r.card.b + 1 && r.go.b <= r.vh + 1,
-            `button bottom ${Math.round(r.go.b)}, card bottom ${Math.round(r.card.b)}, window ${r.vh}`);
+      if (r.stacked) {
+        // The phone layout is a page, not two halves: the form runs under the
+        // painting and is scrolled to like any other page.
+        check(`${w}x${h}: Create Account is reachable by scrolling the page`,
+              r.reachable === true,
+              `button bottom ${Math.round(r.go.b)}, window ${r.vh}, after scroll `
+              + (r.afterScroll ? Math.round(r.afterScroll.b) : "?"));
+      } else {
+        check(`${w}x${h}: Create Account is above the fold`,
+              r.go.b <= r.vh + 1,
+              `button bottom ${Math.round(r.go.b)}, window ${r.vh}`
+              + (r.scrollable ? `, column scrolls ${Math.round(r.reach)}px` : ""));
+      }
       check(`${w}x${h}: the friend code stays folded away until asked for`, r.refOpen === false);
-      check(`${w}x${h}: the card fits sideways`, r.docW <= r.vw + 1);
+      check(`${w}x${h}: the column fits sideways`, r.docW <= r.vw + 1);
     }
 
     // ── 6. What a guest is told, and what happens to them ─────────────────

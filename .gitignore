@@ -94,6 +94,17 @@
 # plus the avatar-gallery level track and the XP-boost multiplier.
 !test_level_pass_ui.js
 
+# The email address on a username-and-password account. Module-scope import
+# again, same consequence if it goes missing: the whole server fails to boot on
+# ImportError, not just the email. It holds the signed confirmation token, the
+# "not linked until the link is clicked" rule, and the password reset that
+# mails Firebase's own link for the SYNTHETIC login address to the real one.
+!account_email.py
+# Its tests: the forged / edited / expired / stale token refusals, the one
+# confirmed address per account rule, and the forgotten-password answer that
+# says the same thing whatever it finds.
+!test_account_email.py
+
 # Friend-code referral reward. Module-scope import again, same consequence if
 # it goes missing. It pays TWO accounts in one transaction, which is why none
 # of it can live in the browser.
@@ -276,15 +287,30 @@
 # hard seam between the two top panels runs through the "&", and the reef at
 # the right-hand end is diagonal) took several tries to get right.
 !tools_center_signin_title.py
-# The rotted pier piling: the plank hidden in the sign-in artwork, and the Pier
-# background it is worth. The measured half reads the PAINTING back out of a
-# canvas: the pixel under the middle of the box has to be rust red, at every
-# size, so an art rebuild that moves the pier fails here instead of quietly
-# leaving the secret over open water. The rest is the rule that makes it a
-# reward and not a party trick: nothing is granted on the sign-in screen because
-# nobody is there yet, and the find is spent on ONE account, once, whenever that
-# account turns up.
-!test_pier_piling.js
+# The other piece of image surgery on that artwork: lifting the rotted pier
+# plank out of auth-ocean.jpg and planting the staghorn coral that replaced it
+# in 1.6.97. Kept for the same reason: the water under the plank had to be
+# MODELLED rather than diffused (averaging the boundary drags the kelp green
+# up into the hole), and each shading pass on the coral needs its own layer
+# because ImageDraw SETS alpha instead of blending it. It refuses to run on
+# artwork that no longer has the plank in it.
+!tools_draw_signin_coral.py
+# The staghorn coral: the secret hidden in the sign-in artwork, and the Coral
+# Reef background it is worth. The measured half reads the PAINTING back out of
+# a canvas: the artwork under the box has to be coral, and centred in it, at
+# every size, so an art rebuild that moves the colony fails here instead of
+# quietly leaving the secret over open water. The rest is the rule that makes
+# it a reward and not a party trick: nothing is granted on the sign-in screen
+# because nobody is there yet, and the find is spent on ONE account, once,
+# whenever that account turns up.
+!test_coral_secret.js
+# The sign-in screen itself: that the whole painting is on screen at six window
+# shapes (it used to be cropped to fill its half), that the wedge the diagonal
+# leaves is the same colour as the column beside it (measured off a real
+# screenshot, because a dark slit down the middle is a thing you see and not a
+# thing you can read in a stylesheet), and that CREATE AN ACCOUNT turns the
+# column over without moving the ocean by a pixel.
+!test_signin_screen.js
 # The sign-in screen's status line, and the full-screen chip. What it pins is
 # all measurement: that the note is a card and not red text, that it never eats
 # a click meant for the artwork, that a calm note takes itself away, and that
