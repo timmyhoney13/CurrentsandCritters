@@ -152,6 +152,8 @@
 # spins up a REAL GameRoom and a real match and presses Undo mid bot-think.
 !test_undo_fix.py
 !test_undo_integration.py
+!test_undo_midturn_restart.py
+!test_action_atomicity.py
 # Bracket builder: the design logic (checked against the Python validator) and
 # the headless-Chrome geometry check for the connection lines.
 !test_tournament_builder.js
