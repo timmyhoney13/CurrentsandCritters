@@ -8470,7 +8470,162 @@ def clear_turn_only_flags(player: PlayerState) -> None:
                 player.flags[k] = False
 
 
-def apply_action(
+# -----------------------------------------------------------------------------
+# Action transactions: an action either happens completely or not at all.
+# -----------------------------------------------------------------------------
+# apply_action mutates as it goes: it consumes a free-play flag, moves the
+# payment cards from the hand into the pool, pulls the played card out of the
+# hand, and only THEN resolves the card onto the board and runs its ability. Any
+# rejection or exception after the first of those steps used to leave the state
+# half-changed: the engine answered "that move did not happen" while the cards
+# paid for it were already gone ("I played a mammal, had no spot for it, and it
+# never gave me back the cards I paid, but it let me play again").
+#
+# So every action now runs inside a transaction. Everything an action can touch
+# is captured up front and put back verbatim the moment the action reports
+# failure, which makes "a failed action costs you nothing" a property of the
+# engine rather than something each of the ~40 fail() sites has to remember.
+#
+# The capture is deliberately hand-rolled rather than copy.deepcopy(gs): the
+# card_db it hangs off is thousands of frozen CardDefs, and this runs inside the
+# bots' rollout planner, so it has to stay in the microseconds.
+
+def _copy_flags(flags: Dict[str, object]) -> Dict[str, object]:
+    out = dict(flags)
+    for key, value in out.items():
+        if isinstance(value, list):
+            out[key] = list(value)
+        elif isinstance(value, dict):
+            out[key] = dict(value)
+        elif isinstance(value, set):
+            out[key] = set(value)
+    return out
+
+
+def capture_action_tx(
+    gs: GameState,
+    ms: MatchState,
+    action: Action,
+    turn_state: TurnState,
+) -> tuple:
+    """Snapshot everything a single action is able to mutate.
+
+    Not captured on purpose: gs.card_db and ms.pair_primary_to_faces /
+    ms.face_to_primary, which are built once at match setup and never written
+    during an action.
+    """
+    players = tuple(
+        (
+            p,
+            list(p.hand),
+            list(p.discard),
+            list(p.board_oceans),
+            {
+                uid: (list(s.up), list(s.down), list(s.left), list(s.right))
+                for uid, s in p.ocean_slots.items()
+            },
+            p.score,
+            p.energy,
+            _copy_flags(p.flags),
+        )
+        for p in gs.players
+    )
+    return (
+        players,
+        list(gs.deck),
+        len(gs.log),
+        gs.turn_index,
+        gs.round_count,
+        gs.end_game_triggered,
+        gs.end_game_trigger_turn_player,
+        gs.turns_remaining_after_trigger,
+        list(ms.pool),
+        list(ms.discard_pile),
+        ms.end_game_uid,
+        ms.end_game_triggered,
+        ms.final_turns_remaining,
+        list(action.pool_pick_uids),
+        list(action.payment_uids),
+        action.face_uid,
+        turn_state.star_activations,
+        turn_state.free_followups,
+        list(turn_state.played_face_uids),
+        set(turn_state.discarded_entry_uids),
+        turn_state.replay_pickup_used,
+        turn_state.force_end_turn,
+        turn_state.draws_this_turn,
+    )
+
+
+def restore_action_tx(
+    gs: GameState,
+    ms: MatchState,
+    action: Action,
+    turn_state: TurnState,
+    tx: tuple,
+) -> None:
+    """Put back exactly what capture_action_tx recorded."""
+    (
+        players, deck, log_len, turn_index, round_count,
+        gs_eg_triggered, gs_eg_trigger_player, gs_turns_remaining,
+        pool, discard_pile, ms_eg_uid, ms_eg_triggered, ms_final_turns,
+        pool_picks, payment_uids, face_uid,
+        star_activations, free_followups, played_face_uids,
+        discarded_entry_uids, replay_pickup_used, force_end_turn, draws_this_turn,
+    ) = tx
+
+    for (p, hand, discard, board_oceans, slots, score, energy, flags) in players:
+        p.hand[:] = hand
+        p.discard[:] = discard
+        p.board_oceans[:] = board_oceans
+        # Rebuild the lanes in place so any OceanSlots reference held elsewhere
+        # (an ability closure, a bot's cached lane) sees the rewind too.
+        for uid in list(p.ocean_slots.keys()):
+            if uid not in slots:
+                del p.ocean_slots[uid]
+        for uid, (up, down, left, right) in slots.items():
+            existing = p.ocean_slots.get(uid)
+            if not isinstance(existing, OceanSlots):
+                existing = OceanSlots()
+                p.ocean_slots[uid] = existing
+            existing.up[:] = up
+            existing.down[:] = down
+            existing.left[:] = left
+            existing.right[:] = right
+        p.score = score
+        p.energy = energy
+        p.flags.clear()
+        p.flags.update(flags)
+
+    gs.deck[:] = deck
+    del gs.log[log_len:]
+    gs.turn_index = turn_index
+    gs.round_count = round_count
+    gs.end_game_triggered = gs_eg_triggered
+    gs.end_game_trigger_turn_player = gs_eg_trigger_player
+    gs.turns_remaining_after_trigger = gs_turns_remaining
+
+    ms.pool[:] = pool
+    ms.discard_pile[:] = discard_pile
+    ms.end_game_uid = ms_eg_uid
+    ms.end_game_triggered = ms_eg_triggered
+    ms.final_turns_remaining = ms_final_turns
+
+    action.pool_pick_uids = pool_picks
+    action.payment_uids = payment_uids
+    action.face_uid = face_uid
+
+    turn_state.star_activations = star_activations
+    turn_state.free_followups = free_followups
+    turn_state.played_face_uids[:] = played_face_uids
+    turn_state.discarded_entry_uids.clear()
+    turn_state.discarded_entry_uids.update(discarded_entry_uids)
+    turn_state.replay_pickup_used = replay_pickup_used
+    turn_state.force_end_turn = force_end_turn
+    turn_state.draws_this_turn = draws_this_turn
+
+
+def _apply_action_uncommitted(
     gs: GameState,
     ms: MatchState,
     player: PlayerState,
@@ -8840,6 +8995,40 @@ def apply_action(
             print(f"{player.name} triggers STAR on {card.uid}:{card.name}{star_note}")
 
     return True
+
+
+def apply_action(
+    gs: GameState,
+    ms: MatchState,
+    player: PlayerState,
+    action: Action,
+    turn_state: TurnState,
+    payment_picker: Callable[[GameState, MatchState, PlayerState, int, int, int, bool], Optional[List[int]]],
+    verbose: bool = False,
+    fail_reason: Optional[List[str]] = None,
+) -> bool:
+    """Apply one action, all of it or none of it.
+
+    _apply_action_uncommitted does the real work and mutates as it goes. This
+    wrapper makes the whole thing atomic: on any rejection, and on any exception
+    escaping the resolver, the state is rewound to exactly what it was before the
+    attempt, so a move that did not happen can never cost a player their payment,
+    their free play, or the card itself.
+    """
+    tx = capture_action_tx(gs, ms, action, turn_state)
+    try:
+        ok = _apply_action_uncommitted(
+            gs, ms, player, action, turn_state, payment_picker,
+            verbose=verbose, fail_reason=fail_reason,
+        )
+    except Exception as exc:
+        restore_action_tx(gs, ms, action, turn_state, tx)
+        if fail_reason is not None:
+            fail_reason.append(f"exception while applying action: {exc}")
+        return False
+    if not ok:
+        restore_action_tx(gs, ms, action, turn_state, tx)
+    return bool(ok)
 
 
 def action_features(
