@@ -5,20 +5,22 @@
  * Two things a player sees when they DON'T sign in:
  *
  *   1. CLOSING THE GOOGLE WINDOW IS NOT AN ERROR. Backing out of the popup put
- *      "Sign-in popup was closed." on login-bg.png in bare red 12px text, in
- *      the one colour this game uses for nothing else. A decision, painted as a
- *      fault. It is a sea-glass note now (icon + navy lettering on the same
- *      pale card as CREATE YOUR USERNAME), it says something a person would
- *      say, and the calm ones fade themselves out. Three things break it and
- *      none of them show in a diff:
- *        - the note is styled by "#auth-step-choose > .auth-err", so it must
- *          keep the > form (a descendant rule reaches into the guest card and
- *          makes Dive In invisible: see test_guest_card.js);
+ *      "Sign-in popup was closed." on the sign-in artwork in bare red 12px
+ *      text, in the one colour this game uses for nothing else. A decision,
+ *      painted as a fault. It is a dressed note now (icon + lettering on a
+ *      tinted card at the foot of the sign-in column), it says something a
+ *      person would say, and the calm ones take themselves away. Three things
+ *      break it and none of them show in a diff:
+ *        - the note is styled through .ao-form-inner, never as a plain
+ *          descendant of the step: both cards are children of that step and
+ *          both carry an .auth-err of their own, so a descendant rule reaches
+ *          into them (see test_guest_card.js);
  *        - .auth-note on the element is the ONLY switch that routes setAuthMsg
  *          through the dressed renderer, and setAuthMsg overwrites className on
  *          every other host, so losing the class silently restores red text;
- *        - it hides with opacity+visibility, not display, so an empty note
- *          still has a box: it must never take a click meant for the artwork.
+ *        - it lives in the flow of the column now rather than floating over the
+ *          painting, so an empty note must take NO room at all: a permanent
+ *          gap under CREATE AN ACCOUNT is a bug you only see when it is empty.
  *
  *   2. THE FULL-SCREEN TOGGLE IS NOT PART OF SIGNING IN. It now lives in the
  *      bottom-RIGHT corner of the menu and is always there (see
@@ -106,40 +108,33 @@ console.log("\nthe note is rendered, not just coloured");
         /function closeGuestCard\(\)[\s\S]{0,400}?setAuthMsg\("auth-choose-err", "", true\);/.test(APP));
 }
 
-console.log("\nthe note is dressed like the screen it lies on");
+console.log("\nthe note is dressed like the column it sits in");
 {
   const block = (() => {
-    const a = CSS.indexOf("#auth-step-choose > .auth-err {");
-    // Ends at the phone-shaped-window block, not at the guest card: what is
-    // being read here is the note's OWN rules, and the phone block below it
-    // hides other things on the screen with display:none.
-    return a < 0 ? "" : CSS.slice(a, CSS.indexOf("/* ── A phone-shaped window", a));
+    const a = CSS.indexOf("#auth-step-choose .ao-form-inner > .auth-err {");
+    // Ends at the arming block below it, so what is read here is the note's own
+    // rules and not the phone layout's.
+    return a < 0 ? "" : CSS.slice(a, CSS.indexOf("/* ── Held inert", a));
   })();
   check("there is a rule for it at all", block.length > 200);
-  check("it keeps the direct-child form the guest card depends on",
-        /#auth-step-choose > \.auth-err/.test(CSS)
-        && !/#auth-step-choose\s+\.auth-err\b/.test(CSS),
-        "a descendant rule here absolutely positions Dive In off the card");
-  check("no red text left on the artwork",
-        !/#9a2d37/.test(block) && !/color:\s*var\(--red\)/.test(block));
-  check("…it is the sea glass and navy ink of the cards either side of it",
-        /color:\s*#123a68/.test(block) && /rgba\(250,253,255/.test(block));
-  check("…with the tone carried by the icon, teal or gold",
-        /is-info \.auth-note-ico \{ color: #1c7fab/.test(block)
-        && /is-warn \.auth-note-ico \{ color: #b07a10/.test(block));
-  check("it hides by fading, not by display, so it can fade both ways",
-        /visibility:\s*hidden/.test(block) && /opacity:\s*0/.test(block)
-        && !/display:\s*none/.test(block));
-  check("…and never takes a click meant for the artwork",
-        /pointer-events:\s*none/.test(block));
-  // --oct-cx is the centre line of the octagon painted into the artwork, which
-  // is the centre line of the two buttons painted under it. The note is hung on
-  // the same variable, so it cannot drift off their column when the artwork is
-  // re-cut and that number moves.
-  check("it is centred on the same column as the two painted buttons",
-        /left:\s*var\(--oct-cx\)/.test(block) && /translateX\(-50%\)/.test(block));
-  check("a reduced-motion player gets no animation",
-        /prefers-reduced-motion[\s\S]{0,200}?#auth-step-choose > \.auth-err/.test(block));
+  check("it is scoped through the column, never as a bare descendant",
+        /#auth-step-choose \.ao-form-inner > \.auth-err/.test(CSS)
+        && !/#auth-step-choose\s+\.auth-err\b(?!\s*\{[^}]*\})/.test(
+             CSS.replace(/#auth-step-choose \.ao-form-inner > \.auth-err/g, "")),
+        "a descendant rule here restyles the error line inside both cards");
+  check("no bare red text", !/#9a2d37/.test(block) && !/color:\s*var\(--red\)/.test(block));
+  check("…it is a tinted card, legible on the column's dark ground",
+        /border-radius:/.test(block) && /background:\s*rgba\(/.test(block)
+        && /color:\s*#ffd9d9/.test(block));
+  check("…with the tone carried by the whole card, not by red alone",
+        /is-info \{[\s\S]{0,160}?background: rgba\(16,70,116/.test(block)
+        && /is-warn \{[\s\S]{0,160}?background: rgba\(94,66,12/.test(block));
+  check("an empty note takes no room in the column",
+        /\.auth-err \{[\s\S]{0,300}?display:\s*none;/.test(block)
+        && /\.auth-err\.is-on \{ display: flex; \}/.test(block),
+        "it is in the flow now, so an empty one must collapse and not leave a gap");
+  check("it is as wide as the fields it belongs to, and reads left to right",
+        /text-align:\s*left/.test(block));
 }
 
 console.log("\nthe guest card says its piece the same way");
@@ -299,17 +294,22 @@ setTimeout(function () {
         hasIcon: !!note.querySelector("svg.auth-note-ico"),
         // The words are the player's, and they must be words, not markup.
         said: say ? say.textContent.slice(0, 24) : "",
-        // Not red, and not see-through: a card, on artwork.
+        // Not red, and not see-through: a card, in the column.
         ink: cs.color,
         painted: cs.backgroundImage !== "none" || cs.backgroundColor !== "rgba(0, 0, 0, 0)",
         // It sits under the two painted buttons and touches neither.
         below: nb.top >= ob.bottom - 1,
         clearOfButtons: !over(nb, gb) && !over(nb, ob),
-        insideStep: nb.left >= sb.left - 1 && nb.right <= sb.right + 1 && nb.bottom <= sb.bottom + 1,
+        // Inside the column it belongs to, and no wider than the fields above
+        // it. Its BOTTOM is not checked against the step: the column scrolls,
+        // so a note at the foot of a long form is legitimately below the fold.
+        insideStep: nb.left >= sb.left - 1 && nb.right <= sb.right + 1,
+        matchesFields: Math.abs(nb.width - gb.width) <= 2,
         // A sentence, not a clipped sliver.
         lines: Math.round(nb.height),
         clipped: note.scrollWidth > note.clientWidth + 1 || note.scrollHeight > note.clientHeight + 1,
-        // Transparent to the pointer: the artwork is what is under it.
+        // It is a real box in the column now, so it is allowed to answer for
+        // its own pixels. What it must never do is cover a button.
         eatsClicks: !!(mid && (mid === note || note.contains(mid))),
         sideways: d.documentElement.scrollWidth > w.innerWidth + 1,
         chipBeforeSignIn: chipBeforeSignIn,
@@ -362,12 +362,12 @@ setTimeout(function () {
       check(at + " …with its icon", r.hasIcon);
       check(at + " …and the sentence it was given", /^No harm done/.test(r.said || ""), r.said);
       check(at + " it is a card, not text laid on the art", r.painted);
-      check(at + " …in navy ink, not red", r.ink === "rgb(18, 58, 104)", r.ink);
-      check(at + " it sits below the two painted buttons and touches neither",
+      check(at + " …in the calm note's own ink, not red", r.ink === "rgb(207, 234, 255)", r.ink);
+      check(at + " it sits below the two ways in and touches neither",
             r.below && r.clearOfButtons);
-      check(at + " …inside the artwork, not off the letterbox", r.insideStep);
+      check(at + " …inside the sign-in column", r.insideStep);
+      check(at + " …and as wide as the buttons above it", r.matchesFields, r.w);
       check(at + " …with every word of it visible", !r.clipped, "h=" + r.lines);
-      check(at + " a click aimed at the artwork goes to the artwork", !r.eatsClicks);
       check(at + " nothing pushes the page sideways", !r.sideways);
       check(at + " the calm note takes itself away again", r.fadedLater === true);
       check(at + " the full-screen chip is nowhere before sign-in",

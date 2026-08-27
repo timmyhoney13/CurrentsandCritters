@@ -10626,6 +10626,18 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "asset not found"}, status=HTTPStatus.NOT_FOUND)
             return
 
+        # auth-ocean.jpg: the sign-in painting. One baked panel, 1600x2000, shown
+        # at half that so it stays sharp on a retina screen. Short cache for the
+        # same reason login-bg.png has one: artwork updates should land at once.
+        # allow_webp picks up the .webp sibling, which is a quarter of the size.
+        if parsed.path == "/auth-ocean.jpg":
+            asset_path = os.path.join(CLIENT_DIR, "auth-ocean.jpg")
+            if os.path.exists(asset_path):
+                self._send_client_asset(asset_path, content_type="image/jpeg", cache_control="no-cache", allow_webp=True)
+            else:
+                self._send_json({"ok": False, "error": "asset not found"}, status=HTTPStatus.NOT_FOUND)
+            return
+
         # login-bg.png: short cache so artwork updates land quickly
         if parsed.path == "/login-bg.png":
             asset_path = os.path.join(CLIENT_DIR, "login-bg.png")

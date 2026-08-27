@@ -19,7 +19,7 @@
  * gone with it. This file now pins that it STAYS gone, and keeps the half of
  * the hazard that is still real:
  *
- *   login-bg.png is the only thing that makes the sign-in screen's invisible
+ *   The sign-in artwork is the only thing that makes the sign-in screen's
  *   boxes findable, so until it paints, the player is clicking a button they
  *   cannot see. #auth-step-choose is held inert until the artwork is up, and
  *   fails OPEN if it never arrives, so nobody is ever left with dead buttons.
@@ -68,15 +68,18 @@ console.log("\nthe guard that is still needed is still there");
 {
   check("the sign-in chooser is armed rather than born live",
         /function armChooseStep/.test(APP) && /armChooseStep\(\);/.test(APP));
-  check("…the CSS is what actually holds the buttons back",
-        /#auth-step-choose:not\(\.is-armed\) > \.pv-btn/.test(CSS)
-        && /#auth-step-choose:not\(\.is-armed\) > \.auth-btn-google/.test(CSS));
-  // > and not a descendant selector. The guest card is also a child of this
-  // step, and these rules strip a button of its colour and its background: a
-  // descendant selector reached into the card and made Dive In invisible.
-  check("…and it holds back the step's OWN buttons, not the guest card's",
-        !/#auth-step-choose(:not\(\.is-armed\))? \.pv-btn\b/.test(CSS)
-        && !/#auth-step-choose \.auth-btn-google\b/.test(CSS));
+  // The whole sign-in column is held back, not two buttons: it carries a
+  // username field, a password field and four ways in now, and every one of
+  // them is a thing a blind click can land on.
+  check("…the CSS is what actually holds the column back",
+        /#auth-step-choose:not\(\.is-armed\) > \.ao-form/.test(CSS)
+        && /#auth-step-choose:not\(\.is-armed\) > \.auth-pier-secret/.test(CSS));
+  // > and not a descendant selector. Both cards are children of this step too,
+  // and a descendant rule here would hold back the card that is meant to be
+  // live: a guest could not type their nickname.
+  check("…and it holds back the step's OWN column, not the cards inside it",
+        !/#auth-step-choose:not\(\.is-armed\) \.pv-btn\b/.test(CSS)
+        && !/#auth-step-choose:not\(\.is-armed\) \.ago-card\b/.test(CSS));
   check("…it arms on a slow image rather than only on a cached one",
         /addEventListener\("load", settle/.test(APP));
   check("…and it fails OPEN on an image that never arrives",
@@ -134,6 +137,10 @@ if (!CHROME) {
   }
   function guestBtnPt() {
     var gb = document.getElementById("auth-guest-btn");
+    // The sign-in column scrolls on a short window, so the button can be below
+    // the fold. What is being asked here is "does anything cover it", and a
+    // button you have not scrolled to is not covered, it is off screen.
+    try { gb.scrollIntoView({ block: "center" }); } catch (e) {}
     var rc = gb.getBoundingClientRect();
     return [rc.left + rc.width / 2, rc.top + rc.height / 2];
   }
@@ -152,7 +159,7 @@ if (!CHROME) {
   var log = {}, out = document.getElementById("out");
   function done() { out.textContent = JSON.stringify(log); }
   ${HELPERS}
-  ${o.breakArt ? 'try { document.querySelector(".auth-step-choose-img").src = "/definitely-not-here.png"; } catch (e) {}' : ""}
+  ${o.breakArt ? 'try { document.querySelector(".ao-art-img").src = "/definitely-not-here.png"; } catch (e) {}' : ""}
   var tick = 0;
   var iv = setInterval(function () {
     if (++tick > 400) { log.fatal = "timeout"; done(); clearInterval(iv); return; }
@@ -219,11 +226,15 @@ if (!CHROME) {
         log.deviceScreen = !!document.getElementById("cc-device-screen");
         log.shield = !!document.getElementById("cc-gate-shield");
         log.device = window.CC_DEVICE || "";
+        log.armed = armed();
         var p = guestBtnPt();
         log.overGuestBtn = (function(){var e=document.elementFromPoint(p[0],p[1]);return e?(e.id||e.className):"none";})();
         log.guestPrompt = guestOpen();
         done();
-      `, w, h, null, (r) => r.overGuestBtn !== undefined);
+        // A run that has not decided a device, or whose column is still held
+        // inert because the painting has not decoded, has not finished booting.
+        // Reading it measures the harness, not the screen: retry instead.
+      `, w, h, null, (r) => r.overGuestBtn !== undefined && !!r.device && r.armed === true);
       if (!r) { check(`${w}x${h}: the harness reached the sign-in screen`, false); continue; }
       check(`${w}x${h}: no device screen exists to be clicked through`,
             r.deviceScreen === false);

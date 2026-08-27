@@ -5563,7 +5563,7 @@
        scroll it away.
        It is still gated on body.cc-signed-in (set by revealLobby, cleared by
        showStep), so it can only ever appear once the player is through the
-       door: no floating chip on top of login-bg.png. And it stays out of a
+       door: no floating chip on top of the sign-in painting. And it stays out of a
        game entirely: the action bar in there already carries its own
        "⛶ Full Screen" button, so a floating one would be a second copy of it.
        Bottom-right is free on the menu; in a game it is not (the log and chat
@@ -5966,477 +5966,434 @@
       transition: background .15s;
     }
     .auth-btn-google:hover { background: rgba(255,255,255,.14); }
+    /* ══ STEP 1 · THE WAY IN ════════════════════════════════════════
+       Two halves of one screen, split on a slow diagonal at the halfway line:
+       the ocean on the left, every door into the game on the right.
+
+       What this replaces is worth writing down. The screen used to BE
+       login-bg.png: one flat painting with its title, its octagon and its two
+       buttons all painted into the same pixels, and invisible click boxes
+       positioned on top of them in the artwork's own 1556x1011 coordinates.
+       Every size on the screen was a fraction of the painting, a phone got a
+       second octagon redrawn in CSS because the printed one was cropped away,
+       and none of the lettering was text.
+
+       Now the painting is scenery and nothing else. auth-ocean.jpg carries no
+       words at all, so the lettering is real type at any size, the buttons are
+       real buttons wherever they land, and the phone layout is a stack instead
+       of a redrawn copy of the wide one. */
     #auth-step-choose.auth-box {
       position: relative;
-      /* The artwork is letterboxed to its own aspect ratio, so this is the box
-         it fills AND the scale of everything painted into it: one image pixel
-         is var(--auth-w)/1556 of the screen. Every size on this screen (the
-         two buttons, the rotted piling on the pier, the octagon a phone gets
-         drawn for it) is a fraction of it, so the whole panel grows and
-         shrinks with the painting instead of drifting out of it at the sizes
-         nobody tested. */
-      --auth-w: min(100vw, calc(100vh * 1556 / 1011));
-      /* The octagon PAINTED into the artwork, measured off it in the artwork's
-         own 1556x1011 coordinates: 511 wide, 544.5 tall, centred at
-         (786, 516.75). It is taller than it is wide, so it takes two sizes
-         rather than one. --oct-cy is a LENGTH from the top of the artwork
-         instead of a percentage, so everything measured from it stays glued to
-         the paint however large the screen is. */
-      --oct-size: calc(var(--auth-w) * 0.3284);    /* 511    / 1556 */
-      --oct-h:    calc(var(--oct-size) * 1.0656);  /* 544.5  / 511  */
-      --oct-cx:   50.53%;                          /* 786.3  / 1556 */
-      --oct-cy:   calc(var(--auth-w) * 0.3321);    /* 516.75 / 1556 */
-      width: var(--auth-w);
-      height: min(100vh, calc(100vw * 1011 / 1556));
+      /* The screen, not a letterboxed box of some picture's aspect ratio. */
+      width: 100vw;
+      height: 100vh;
       max-width: none;
       min-height: 0;
       padding: 0 !important;
       border-radius: 0 !important;
       border: 0 !important;
-      background: transparent !important;
+      background: #04101f !important;
       box-shadow: none !important;
       gap: 0 !important;
       backdrop-filter: none !important;
       display: block;
-      overflow: visible;
+      overflow: hidden;
     }
-    #auth-step-choose .auth-step-choose-img {
+
+    /* ── The ocean ──────────────────────────────────────────────────
+       Exactly half the width. The diagonal takes 12% off the bottom of that
+       half, so the cut leans the way the light in the painting does. */
+    #auth-step-choose > .ao-art {
       position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
+      top: 0; left: 0; bottom: 0;
+      width: 50%;
+      overflow: hidden;
+      z-index: 1;
+      background: #0c3550;
+      -webkit-clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%);
+              clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%);
+    }
+    #auth-step-choose .ao-art-img {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      object-position: 50% 50%;
       display: block;
       user-select: none;
       -webkit-user-drag: none;
       pointer-events: none;
     }
-    /* Everything from here down is scoped with > on purpose. #auth-step-choose
-       is one painted image with click boxes over it, so these rules strip a
-       button of its background, its colour and its font size. The guest card is
-       also a child of this step, and a descendant selector reached straight
-       into it: its Dive In button came out transparent-on-transparent,
-       absolutely positioned at the step's left:36.9%, i.e. gone. The two real
-       overlay buttons are direct children, so > says what was always meant. */
-    #auth-step-choose > .auth-title,
-    #auth-step-choose > .auth-subtitle,
-    #auth-step-choose > .auth-divider {
-      display: none !important;
-    }
-    /* ── The octagon, redrawn: scenery for ONE layout ────────────────
-       The artwork says everything this screen has to say. SIGN IN OR CREATE AN
-       ACCOUNT is painted into its octagon and the two buttons underneath carry
-       their own labels, so on any window wide enough to show the painting
-       whole, the painting IS the screen and this panel stays out of its way.
-
-       It comes back on a phone-shaped window, and only there, because down
-       there the artwork is cropped to its title strip: the printed octagon is
-       not on the screen at all, and something has to say the words at a size
-       somebody can read. Same eight-sided sea glass, drawn from the same two
-       variables as everything else, so it can never drift out of step with the
-       painting it stands in for.
-
-       It is aria-hidden and pointer-events:none wherever it shows: it is
-       scenery, and the buttons must stay the topmost thing at their own
-       pixels. */
-    #auth-step-choose > .auth-oct {
-      display: none;
-      position: absolute;
-      left: var(--oct-cx); top: var(--oct-cy);
-      width:  var(--oct-size);
-      height: var(--oct-h);
-      transform: translate(-50%, -50%);
-      /* The printed octagon's own bevels: 77 of 511 across, 82.5 of 544.5 down. */
-      clip-path: polygon(15.1% 0%, 84.9% 0%, 100% 15.2%, 100% 84.8%,
-                         84.9% 100%, 15.1% 100%, 0% 84.8%, 0% 15.2%);
-      background: rgba(255,255,255,.94);
-      filter: drop-shadow(0 0 calc(var(--oct-size) * 0.031) rgba(214,246,255,.6));
-      pointer-events: none;
-      z-index: 1;
-    }
-    /* The sea glass inside the rim: sunlit water at the top, deeper towards
-       the seabed, with two soft caustics drifting across it. Sampled from the
-       painted octagon so the panel reads as part of the same picture. */
-    #auth-step-choose > .auth-oct::after {
+    /* The pool of quiet the lettering sits in. The painting is deliberately
+       empty through its middle band so this only has to take the edge off the
+       light, not hide anything. */
+    #auth-step-choose > .ao-art::after {
       content: "";
-      position: absolute; inset: 0.85%;
-      clip-path: polygon(15.1% 0%, 84.9% 0%, 100% 15.2%, 100% 84.8%,
-                         84.9% 100%, 15.1% 100%, 0% 84.8%, 0% 15.2%);
-      background:
-        radial-gradient(ellipse 70% 42% at 28% 22%, rgba(255,255,255,.34), rgba(255,255,255,0) 62%),
-        radial-gradient(ellipse 58% 34% at 74% 62%, rgba(255,255,255,.20), rgba(255,255,255,0) 64%),
-        linear-gradient(168deg, #9fe2f8 0%, #74cdf1 44%, #55b9e8 100%);
-    }
-    /* The lettering the painted octagon carries, for the layout that cannot
-       show the painted octagon. Hidden with it on every other layout. */
-    #auth-step-choose > .auth-oct-copy {
-      display: none;
-      position: absolute;
-      left: var(--oct-cx);
-      top: calc(var(--oct-cy) - var(--oct-h) * 0.24);
-      width: calc(var(--oct-size) * 0.80);
-      transform: translate(-50%, -50%);
-      text-align: center;
+      position: absolute; inset: 0;
+      background: radial-gradient(64% 44% at 46% 44%,
+        rgba(3,30,64,.46) 0%, rgba(3,30,64,.22) 52%, rgba(3,30,64,0) 82%);
       pointer-events: none;
-      z-index: 2;
-      color: #123a68;
     }
-    #auth-step-choose > .auth-oct-copy .auth-oct-title {
-      font-family: "Baloo 2", "Nunito", sans-serif;
-      font-weight: 800;
-      font-size: calc(var(--oct-size) * 0.0684);
-      line-height: 1.1;
-      letter-spacing: .2px;
-      color: #0f3c73;
-      text-shadow: 0 1px 0 rgba(255,255,255,.7);
-    }
-    #auth-step-choose > .auth-oct-copy .auth-oct-sub {
-      margin-top: calc(var(--oct-size) * 0.0281);
-      font-family: "Baloo 2", "Nunito", sans-serif;
-      font-weight: 600;
-      font-size: calc(var(--oct-size) * 0.0337);
-      line-height: 1.42;
-      color: #17497f;
-      text-wrap: balance;
-    }
-
-    /* ── The two buttons ─────────────────────────────────────────────
-       Boxes over the two buttons PAINTED into the artwork, cut a few pixels
-       proud of them on every side (painted 438x82 and 438x79, drawn 450x84 on
-       the same centres) so no rounding difference can leave a printed edge
-       showing beside a drawn one.
-
-       The painting supplies the lettering, the gold, the lavender and the
-       shine. These supply the click, the hover, the focus ring and the
-       keyboard order. Their labels are still in the page, wrapped in
-       .auth-btn-label and hidden the accessible way rather than with
-       display:none, so a screen reader still reaches a button that says what
-       it does.
-
-       On a phone-shaped window the painting is cropped to its title strip and
-       there is nothing underneath to click, so down there they put their own
-       clothes back on and the labels come out of hiding. See the media query
-       at the bottom of this block. */
-    #auth-step-choose > .pv-btn,
-    #auth-step-choose > .auth-btn-google {
+    /* The lit edge that makes the diagonal read as a cut and not a crop. It is
+       a sibling of the art rather than a border on it, because a clip-path
+       clips borders too. */
+    #auth-step-choose::after {
+      content: "";
       position: absolute;
-      left: var(--oct-cx);
-      width:  calc(var(--oct-size) * 0.880);   /* 450 / 511 */
-      height: calc(var(--oct-size) * 0.164);   /*  84 / 511 */
-      transform: translateX(-50%);
-      display: flex !important;
-      align-items: center;
-      justify-content: center;
-      padding: 0 !important;
-      margin: 0 !important;
-      min-height: 0 !important;
-      border: 0 !important;
-      border-radius: calc(var(--oct-size) * 0.036);
-      background: transparent !important;
-      box-shadow: none !important;
-      color: transparent !important;
-      text-shadow: none !important;
-      font-family: "Baloo 2", "Nunito", sans-serif;
-      font-weight: 800 !important;
-      font-size: calc(var(--oct-size) * 0.050) !important;
-      letter-spacing: .3px;
-      line-height: 1.05;
-      text-align: center;
-      white-space: nowrap;
-      cursor: pointer;
-      transition: background .14s, box-shadow .14s, transform .08s;
-      -webkit-tap-highlight-color: rgba(255,255,255,.15);
+      top: -3%; left: 0; height: 106%; width: 100%;
       z-index: 3;
+      pointer-events: none;
+      background: linear-gradient(180deg,
+        rgba(232,250,255,.95), rgba(140,225,255,.85) 46%, rgba(42,169,232,.75));
+      -webkit-clip-path: polygon(50% 0, 50.28% 0, 44.28% 100%, 44% 100%);
+              clip-path: polygon(50% 0, 50.28% 0, 44.28% 100%, 44% 100%);
+      filter: drop-shadow(0 0 12px rgba(140,225,255,.55))
+              drop-shadow(0 0 30px rgba(60,170,255,.30));
     }
-    /* Hidden the accessible way: still read, still counted, no box.
-       pointer-events:none stays on it in BOTH layouts, including the phone one
-       where it is visible: the button has to be the topmost thing at its own
-       pixels, and a label that answers elementFromPoint in its place is a label
-       that can start answering other questions in its place too. */
-    #auth-step-choose > .pv-btn > .auth-btn-label,
-    #auth-step-choose > .auth-btn-google > .auth-btn-label {
+
+    /* ── The lettering ──────────────────────────────────────────────
+       Centred on the left half, nudged left of true centre because the diagonal
+       eats the right side of it. Cinzel is already loaded for the rulebook and
+       the card faces; the door into the game is set in the same voice. */
+    #auth-step-choose > .ao-copy {
       position: absolute;
-      width: 1px; height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
+      left: 0; width: 50%;
+      top: 47%;
+      transform: translate(-3%, -50%);
+      z-index: 4;
+      text-align: center;
+      padding: 0 clamp(20px, 3vw, 46px);
       pointer-events: none;
     }
-    /* A cursor on painted glass has to be told it is on something. A wash and
-       a rim of the artwork's own light, no colour of its own: the button
-       underneath is still the button you can see. */
-    #auth-step-choose > .pv-btn:hover,
-    #auth-step-choose > .auth-btn-google:hover {
-      background: rgba(255,255,255,.16) !important;
-      box-shadow: inset 0 0 0 max(2px, calc(var(--oct-size) * 0.005)) rgba(255,255,255,.66),
-                  0 0 calc(var(--oct-size) * 0.03) rgba(255,255,255,.35) !important;
-      transform: translateX(-50%);   /* .pv-btn:hover lifts; this screen does not */
+    #auth-step-choose .ao-title {
+      margin: 0;
+      font-family: "Cinzel", serif;
+      font-weight: 900;
+      color: #fff;
+      line-height: 1.02;
+      font-size: clamp(30px, 4.9vw, 78px);
+      letter-spacing: .025em;
+      text-shadow: 0 2px 3px rgba(2,24,52,.55), 0 10px 40px rgba(2,24,52,.75);
     }
-    #auth-step-choose > .pv-btn:focus-visible,
-    #auth-step-choose > .auth-btn-google:focus-visible {
-      outline: 3px solid rgba(255,255,255,.9);
-      outline-offset: 2px;
+    #auth-step-choose .ao-amp {
+      display: flex; align-items: center; justify-content: center;
+      gap: clamp(10px, 1.4vw, 22px);
+      margin: clamp(6px, .8vw, 12px) 0 clamp(3px, .4vw, 6px);
     }
-    #auth-step-choose > .pv-btn:active,
-    #auth-step-choose > .auth-btn-google:active {
-      transform: translateX(-50%) translateY(2px);
+    #auth-step-choose .ao-amp span {
+      font-family: "Cinzel", serif; font-weight: 600;
+      font-size: clamp(18px, 2.5vw, 40px); color: #fff;
+      text-shadow: 0 2px 20px rgba(2,24,52,.8);
     }
-    /* Both are top EDGES, offset down from the octagon's middle. They are not
-       nudged with margin-top: the shared rule above sets `margin: 0 !important`
-       (it must, or these inherit .pv-btn's spacing), so a margin here would
-       silently do nothing and drop each button half its own height. */
-    #auth-step-choose #auth-guest-btn         { top: calc(var(--oct-cy) + var(--oct-size) * 0.0612); }
-    #auth-step-choose #auth-choose-google-btn { top: calc(var(--oct-cy) + var(--oct-size) * 0.2657); }
+    #auth-step-choose .ao-amp i {
+      display: block; height: 1px; width: clamp(40px, 6vw, 96px);
+      background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.85));
+    }
+    #auth-step-choose .ao-amp i:last-child {
+      background: linear-gradient(90deg, rgba(255,255,255,.85), rgba(255,255,255,0));
+    }
+    #auth-step-choose .ao-tag {
+      margin: clamp(16px, 2.2vw, 30px) 0 0;
+      font-family: "Nunito", sans-serif;
+      font-weight: 800;
+      font-size: clamp(13px, 1.35vw, 21px);
+      letter-spacing: .14em;
+      color: #c9f0ff;
+      text-shadow: 0 2px 16px rgba(2,26,56,.9);
+    }
+    #auth-step-choose .ao-blurb {
+      margin: clamp(10px, 1.3vw, 18px) auto 0;
+      max-width: 30ch;
+      font-family: "Nunito", sans-serif;
+      font-size: clamp(13px, 1.25vw, 20px);
+      font-weight: 600; line-height: 1.55; color: #e8f6ff;
+      text-shadow: 0 2px 14px rgba(2,26,56,.9);
+    }
 
-    /* ── The rotted piling ───────────────────────────────────────────
-       One plank of the pier in the bottom-left ocean is painted rust red among
-       the blues and violets. This is a box over exactly that plank, measured
-       off the artwork (x 300..342, y 730..815 in its own 1556x1011
-       coordinates), so finding it means noticing the thing that is already
-       there rather than sweeping a cursor over a picture.
+    /* ── The rotted piling ──────────────────────────────────────────
+       Over the plank lying in the kelp at the bottom left of the painting.
+       Invisible on purpose: finding it is the point.
 
-       It keeps a minimum size so it stays a real target on a small window, and
-       it is gone entirely on a phone-shaped one, where the pier is cropped
-       away with the rest of the painting. */
+       These numbers are a FALLBACK. The painting is object-fit:cover, so where
+       the plank lands depends on how the window cropped it, and no CSS length
+       can read that crop: placePierBox() in preview-app.js measures the image
+       and writes left/top/width/height itself. What is here keeps the button in
+       the right corner for the moment before the art has decoded. It stays
+       under the lettering (z-index) so it can never eat a click meant for the
+       title. */
     #auth-step-choose > .auth-pier-secret {
       position: absolute;
-      left: 20.63%;                                     /* 321   / 1556 */
-      top:  76.41%;                                     /* 772.5 / 1011 */
-      width:  max(26px, calc(var(--auth-w) * 0.027));   /*  42   / 1556 */
-      height: max(40px, calc(var(--auth-w) * 0.0546));  /*  85   / 1556 */
-      transform: translate(-50%, -50%);
-      padding: 0; margin: 0; border: 0;
-      background: transparent;
-      border-radius: 4px;
+      z-index: 2;
+      left: 1.4%;
+      bottom: 8.0%;
+      width: max(44px, 17%);
+      height: max(30px, 8.4%);
+      padding: 0; margin: 0;
+      border: 0; background: transparent;
+      border-radius: 10px;
       cursor: pointer;
-      z-index: 4;
-      transition: background .16s, box-shadow .16s;
       -webkit-tap-highlight-color: transparent;
     }
-    /* A nibble for a cursor that wanders past it. Enough to say "this one is
-       different", not enough to give the whole thing away from the doorway. */
     #auth-step-choose > .auth-pier-secret:hover,
     #auth-step-choose > .auth-pier-secret:focus-visible {
-      background: rgba(255,226,170,.20);
-      box-shadow: 0 0 0 2px rgba(255,238,200,.8),
-                  0 0 18px rgba(255,204,110,.85);
       outline: none;
+      background: rgba(255,236,190,.12);
+      box-shadow: 0 0 0 2px rgba(255,224,150,.45), 0 0 22px rgba(255,214,120,.35);
     }
-    /* Every box on this screen is invisible, painted over artwork, so until
-       that artwork is actually up there is nothing here to aim at and a click
-       can only be a stray one: the tail of a double-click on the device screen
-       that was showing an instant ago, or a blind poke at a page whose 2MB
-       background has not arrived yet. Either way it landed on PLAY AS GUEST
-       and prompted for a guest nickname the player never asked for.
-       armChooseStep() in preview-app.js adds .is-armed once the art has
-       painted; it fails OPEN, so a blocked or missing image can never leave
-       these dead. */
-    #auth-step-choose:not(.is-armed) > .pv-btn,
-    #auth-step-choose:not(.is-armed) > .auth-btn-google,
-    #auth-step-choose:not(.is-armed) > .auth-pier-secret { pointer-events: none; }
-    /* ── The chooser's one status line ───────────────────────────────
-       This used to be bare red text laid straight onto login-bg.png, and the
-       most common thing it ever said was that the player had closed the Google
-       window: a decision, painted as a fault, in the one colour the game uses
-       for nothing else. It is a card now, cut from the same sea glass as the
-       guest card and CREATE YOUR USERNAME (pale gradient, white rim, navy
-       lettering), with the tone carried by a small line-art icon and one accent
-       ring: teal for "you backed out", gold for "you have to do something".
 
-       It sits just BELOW the octagon, on the same centre line as the two
-       buttons above it, because the octagon it used to sit inside is painted
-       now and this would be a card over that painting's own lettering.
-
-       Hidden state is opacity+visibility, not display, so it can fade both ways
-       and so an empty note takes up no space and casts no shadow. */
-    #auth-step-choose > .auth-err {
+    /* ── The sign-in column ─────────────────────────────────────────
+       Every door in one place. A username and a password, Google for the people
+       who have one, and the guest door for somebody who does not want an
+       account yet. */
+    #auth-step-choose > .ao-form {
       position: absolute;
-      left: var(--oct-cx);
-      top: calc(var(--oct-cy) + var(--oct-h) * 0.55);
-      transform: translateX(-50%) translateY(6px);
-      width: max-content;
-      max-width: min(46%, 460px);
-      box-sizing: border-box;
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      padding: 9px 14px;
-      /* No one-word last line under a two-line note. */
-      text-wrap: balance;
-      min-height: 0;
+      top: 0; right: 0; bottom: 0;
+      width: 50%;
+      z-index: 2;
+      overflow-y: auto;
+      display: flex; align-items: center; justify-content: center;
+      background:
+        radial-gradient(76% 58% at 82% 4%, rgba(32,116,192,.28), rgba(0,0,0,0) 62%),
+        radial-gradient(70% 52% at 12% 104%, rgba(16,84,150,.22), rgba(0,0,0,0) 60%),
+        linear-gradient(168deg, #0a1c33 0%, #061527 50%, #040f1e 100%);
+    }
+    #auth-step-choose .ao-form-inner {
+      width: min(560px, 80%);
+      margin-left: clamp(0px, 6vw, 96px);
+      padding: 40px 0;
       text-align: left;
-      text-shadow: none;
-      font-family: "Baloo 2", "Nunito", sans-serif;
-      font-size: clamp(11px, 1.05vw, 13px);
-      font-weight: 700;
-      line-height: 1.4;
-      color: #123a68;
-      border-radius: 14px;
-      border: 1.5px solid rgba(255,255,255,.85);
-      background: linear-gradient(168deg,
-                    rgba(250,253,255,.97) 0%,
-                    rgba(228,244,253,.96) 100%);
-      box-shadow: 0 0 0 1px rgba(20,80,130,.18),
-                  0 14px 32px rgba(3,26,52,.42),
-                  inset 0 1px 0 rgba(255,255,255,.95);
-      /* Never eats a click aimed at the artwork behind it. */
-      pointer-events: none;
-      opacity: 0;
-      visibility: hidden;
-      z-index: 3;
-      transition: opacity .22s ease, transform .22s ease, visibility 0s linear .22s;
     }
-    #auth-step-choose > .auth-err.is-on {
-      opacity: 1;
-      visibility: visible;
-      transform: translateX(-50%) translateY(0);
-      transition: opacity .22s ease,
-                  transform .28s cubic-bezier(.2,.9,.3,1.05),
-                  visibility 0s;
+    #auth-step-choose .ao-h {
+      font-family: "Cinzel", serif; font-weight: 700;
+      font-size: clamp(20px, 2.05vw, 33px);
+      text-wrap: balance;
+      color: #fff; line-height: 1.15;
     }
-    #auth-step-choose > .auth-err .auth-note-ico {
-      flex: 0 0 auto; margin-top: 1px;
-      width: 15px; height: 15px;
+    #auth-step-choose .ao-sub {
+      margin: 12px 0 0;
+      font-size: clamp(14px, 1.15vw, 18px);
+      font-weight: 500; color: #9db7d0;
     }
-    /* Backed out, nothing is wrong: the guest card's teal. */
-    #auth-step-choose > .auth-err.is-info .auth-note-ico { color: #1c7fab; }
-    #auth-step-choose > .auth-err.is-info {
-      box-shadow: 0 0 0 1px rgba(28,127,171,.35),
-                  0 14px 32px rgba(3,26,52,.42),
-                  inset 0 1px 0 rgba(255,255,255,.95);
+    #auth-step-choose .ao-lbl {
+      display: block;
+      margin: clamp(16px, 1.8vw, 28px) 0 8px;
+      font-size: 13px; font-weight: 800; color: #b9d1e6;
+      letter-spacing: .14em; text-transform: uppercase;
     }
-    /* Good news: the deep sea green the other auth screens already use. */
-    #auth-step-choose > .auth-err.is-ok .auth-note-ico { color: #10795c; }
-    /* Your move: the artwork's own butter gold, not a red the game never uses. */
-    #auth-step-choose > .auth-err.is-warn .auth-note-ico { color: #b07a10; }
-    #auth-step-choose > .auth-err.is-warn {
-      box-shadow: 0 0 0 1px rgba(184,128,26,.45),
-                  0 14px 32px rgba(3,26,52,.42),
-                  inset 0 1px 0 rgba(255,255,255,.95);
+    #auth-step-choose .ao-field {
+      display: flex; align-items: center; gap: 13px;
+      height: clamp(48px, 3.9vw, 60px);
+      padding: 0 18px;
+      border-radius: 12px;
+      border: 1px solid rgba(146,190,232,.20);
+      background: rgba(255,255,255,.030);
+      color: #8fadc7;
+      transition: border-color .15s, background .15s;
     }
-    @media (prefers-reduced-motion: reduce) {
-      #auth-step-choose > .auth-err,
-      #auth-step-choose > .auth-err.is-on { transition: opacity .01s linear; transform: translateX(-50%); }
+    #auth-step-choose .ao-field:focus-within {
+      border-color: rgba(94,200,255,.62);
+      background: rgba(255,255,255,.055);
     }
-    /* Phone-shaped windows letterbox the artwork small, so the note takes the
-       width it needs rather than the column's. */
-    @media (max-width: 700px) {
-      #auth-step-choose > .auth-err { max-width: 76%; padding: 8px 12px; }
+    #auth-step-choose .ao-field svg { flex: 0 0 auto; }
+    #auth-step-choose .ao-field input {
+      flex: 1 1 auto; min-width: 0;
+      border: 0; background: transparent; outline: none;
+      font-family: "Nunito", sans-serif;
+      font-size: clamp(15px, 1.2vw, 18px); font-weight: 500;
+      color: #eaf4ff;
     }
-    /* ── A phone-shaped window ───────────────────────────────────────
-       The artwork is one fixed-ratio painting, so a 430x932 phone letterboxes
-       it into a 430x279 band, and everything on it shrinks with it: the
-       octagon comes out 141px across and its second line of lettering about
-       five pixels tall. That is not a sign-in screen, it is a picture of one.
+    #auth-step-choose .ao-field input::placeholder { color: #728ea9; }
+    #auth-step-choose .ao-eye {
+      flex: 0 0 auto;
+      border: 0; background: transparent; cursor: pointer;
+      font-family: "Nunito", sans-serif;
+      font-size: 15px; font-weight: 700; color: #b9d1e6; letter-spacing: .04em;
+    }
+    #auth-step-choose .ao-eye:hover { color: #fff; }
+    #auth-step-choose .ao-primary {
+      display: flex; align-items: center; justify-content: center;
+      width: 100%;
+      margin-top: clamp(16px, 1.8vw, 26px);
+      height: clamp(48px, 3.9vw, 60px);
+      border: 0; border-radius: 12px; cursor: pointer;
+      font-family: "Nunito", sans-serif;
+      font-size: clamp(15px, 1.25vw, 19px); font-weight: 800;
+      letter-spacing: .06em; text-transform: uppercase; color: #04263c;
+      background: linear-gradient(180deg, #63dbff 0%, #1aabf1 54%, #0d8ad6 100%);
+      box-shadow: 0 12px 30px rgba(20,150,225,.34), inset 0 1px 0 rgba(255,255,255,.5);
+      transition: filter .15s, transform .08s;
+    }
+    #auth-step-choose .ao-primary:hover { filter: brightness(1.07); }
+    #auth-step-choose .ao-primary:active { transform: translateY(1px); }
+    #auth-step-choose .ao-primary[disabled] { opacity: .6; cursor: default; }
+    #auth-step-choose .ao-forgot {
+      display: block; width: 100%;
+      margin-top: 14px; padding: 4px 0;
+      border: 0; background: transparent; cursor: pointer;
+      font-family: "Nunito", sans-serif;
+      font-size: 15px; font-weight: 700; color: #5ec8ff; text-align: center;
+    }
+    #auth-step-choose .ao-forgot:hover { color: #9fe0ff; }
+    #auth-step-choose .ao-or {
+      display: flex; align-items: center; gap: 16px;
+      margin: clamp(14px, 1.6vw, 22px) 0;
+      color: #6f8ba5; font-size: 13px; font-weight: 800;
+      letter-spacing: .20em; text-transform: uppercase;
+    }
+    #auth-step-choose .ao-or::before,
+    #auth-step-choose .ao-or::after {
+      content: ""; flex: 1; height: 1px; background: rgba(146,190,232,.18);
+    }
+    /* The two doors that were painted into the old artwork. Same ids, same
+       handlers; they look like buttons now because they are the only thing on
+       this half of the screen that is one. */
+    #auth-step-choose .ao-ghost,
+    #auth-step-choose .ao-gold {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      width: 100%;
+      height: clamp(46px, 3.7vw, 58px);
+      border-radius: 12px;
+      font-family: "Nunito", sans-serif;
+      font-size: clamp(14px, 1.15vw, 17px); font-weight: 700;
+      cursor: pointer;
+      transition: background .15s, filter .15s, transform .08s;
+    }
+    #auth-step-choose .ao-ghost {
+      border: 1px solid rgba(146,190,232,.20);
+      background: rgba(255,255,255,.030);
+      color: #e6f2ff;
+      padding: 0 16px;
+    }
+    #auth-step-choose .ao-ghost:hover { background: rgba(255,255,255,.075); }
+    #auth-step-choose .ao-gold {
+      margin-top: 12px;
+      border: 0;
+      letter-spacing: .05em; color: #3a2708; font-weight: 800;
+      background: linear-gradient(180deg, #ffe9a2 0%, #ffd05a 56%, #f4b92f 100%);
+      box-shadow: 0 10px 24px rgba(150,110,15,.26), inset 0 1px 0 rgba(255,255,255,.55);
+    }
+    #auth-step-choose .ao-gold:hover { filter: brightness(1.05); }
+    #auth-step-choose .ao-ghost:active,
+    #auth-step-choose .ao-gold:active { transform: translateY(1px); }
+    #auth-step-choose .ao-ghost:focus-visible,
+    #auth-step-choose .ao-gold:focus-visible,
+    #auth-step-choose .ao-primary:focus-visible {
+      outline: 2px solid #7ee2ff; outline-offset: 3px;
+    }
+    /* The label is visible now, so the clipped-to-a-pixel treatment the painted
+       buttons needed is gone. It keeps pointer-events:none for the reason it
+       always had: the button has to be the topmost thing at its own pixels. */
+    #auth-step-choose .auth-btn-label { pointer-events: none; }
+    #auth-step-choose .ao-new {
+      margin: clamp(14px, 1.6vw, 22px) 0 0;
+      text-align: center;
+      font-size: 15px; font-weight: 600; color: #88a6c2;
+    }
+    #auth-step-choose .ao-new button {
+      border: 0; background: transparent; padding: 0; cursor: pointer;
+      font-family: "Nunito", sans-serif;
+      font-size: 15px; font-weight: 800; color: #5ec8ff;
+    }
+    #auth-step-choose .ao-new button:hover { color: #9fe0ff; }
 
-       WHERE THE LINE IS. The painting is 1556x1011, so it only letterboxes
-       badly once the window is taller than it is wide: at 4:5 it fills half
-       the height and there is real room underneath for a panel, and at 1024x768
-       it fills the screen and its own lettering is 20px tall. So the line is
-       4/5, not the 7/5 the old wider artwork needed, and a plain desktop window
-       keeps the painting. The second clause is for a window that is small
-       whatever shape it is: under 640px across, the painted lettering is
-       readable-in-theory and squinted-at in practice.
+    /* ── The column's status line ───────────────────────────────────
+       A dressed note rather than the bare red line the cards use, because it
+       lands under a form on a dark ground where bare red reads as damage.
 
-       Two changes, and only two:
-
-         1. The letterbox is no longer bare navy. The same painting fills the
-            window behind the band, blurred and dimmed, so the screen is deep
-            water from edge to edge instead of a strip on a slab.
-         2. Only the TOP of the painting is shown, and the octagon is REDRAWN
-            underneath it, larger than the band and centred on the screen,
-            with real text in it and the two buttons wearing the artwork's own
-            gold and lavender. Everything is measured from the same two
-            variables as the wide layout, so there is no second set of
-            positions to keep in step. */
-    #auth-step-choose::before {
-      content: "";
-      /* Fixed, not absolute: the band is the box, the window is what needs
-         filling. */
-      position: fixed; inset: -6vmax;
-      background: #0a1d3a url("/login-bg.png?v=45") center / cover no-repeat;
-      filter: blur(34px) saturate(1.12) brightness(.66);
-      pointer-events: none;
-      z-index: 0;
+       Scoped THROUGH .ao-form-inner, never as a plain descendant of the step.
+       Both cards are children of this step and both carry an .auth-err of their
+       own; a descendant rule here reaches into them and restyles the line that
+       tells a guest their nickname is taken. */
+    #auth-step-choose .ao-form-inner > .auth-err {
+      margin-top: 16px;
+      display: none;
+      align-items: flex-start; gap: 9px;
+      padding: 11px 14px;
+      border-radius: 11px;
+      border: 1px solid rgba(255,138,138,.34);
+      background: rgba(120,26,34,.30);
+      color: #ffd9d9;
+      font-size: 14.5px; font-weight: 700; line-height: 1.4;
+      text-align: left;
     }
-    /* The artwork itself must stay in FRONT of its own blurred copy. */
-    #auth-step-choose .auth-step-choose-img { z-index: 1; }
+    #auth-step-choose .ao-form-inner > .auth-err.is-on { display: flex; }
+    #auth-step-choose .ao-form-inner > .auth-err .auth-note-ico { flex: 0 0 auto; opacity: .95; }
+    #auth-step-choose .ao-form-inner > .auth-err.is-info {
+      border-color: rgba(94,200,255,.34);
+      background: rgba(16,70,116,.38); color: #cfeaff;
+    }
+    #auth-step-choose .ao-form-inner > .auth-err.is-ok {
+      border-color: rgba(96,220,170,.34);
+      background: rgba(12,74,58,.38); color: #ccf6e6;
+    }
+    #auth-step-choose .ao-form-inner > .auth-err.is-warn {
+      border-color: rgba(255,206,110,.34);
+      background: rgba(94,66,12,.38); color: #ffeec6;
+    }
 
-    @media (max-aspect-ratio: 4/5), (max-width: 640px) {
-      /* The screen is the box now, not the band. */
+    /* ── Held inert until the art has painted ───────────────────────
+       armChooseStep() in preview-app.js adds .is-armed once the painting has
+       decoded. Before that the whole screen takes no clicks: the device gate
+       that closes onto this one paints its own buttons at the same pixels, and
+       the second half of a double-click there used to land on a button here
+       that nobody could see yet. Fail-open is the rule; armChooseStep arms it
+       on a timer as well as on load. */
+    #auth-step-choose:not(.is-armed) > .ao-form,
+    #auth-step-choose:not(.is-armed) > .auth-pier-secret { pointer-events: none; }
+
+    /* ── A narrow or phone-shaped window ────────────────────────────
+       Below this the two halves stop being halves. The painting becomes a band
+       across the top with the lettering over it, and the column runs underneath
+       it down a scrolling page. No diagonal: a diagonal across a short band is
+       a wedge, and the lettering has nowhere to sit in it. */
+    @media (max-width: 820px), (max-aspect-ratio: 4/5) {
+      /* One band height, named once, because the art and the lettering over it
+         have to be the same height or the words hang off the bottom of the
+         painting and land on the form. */
       #auth-step-choose.auth-box {
-        width: 100vw;
-        height: 100vh;
-        height: 100dvh;
-        --oct-size: min(84vw, 46vh);
-        --oct-cy: 53%;
+        overflow-y: auto; overflow-x: hidden; height: 100vh;
+        --ao-band: clamp(230px, 40vh, 400px);
       }
-      /* The panel and its words, the pair the wide layout does not need. */
-      #auth-step-choose > .auth-oct,
-      #auth-step-choose > .auth-oct-copy { display: block; }
-      /* The pier is not on the screen down here, so neither is the plank. */
-      #auth-step-choose > .auth-pier-secret { display: none; }
-      /* Butter gold and pale lavender, the pair the artwork was painted with,
-         because the painted pair is above the crop line. */
-      #auth-step-choose > .pv-btn.gold {
-        color: #4a3208 !important;
-        text-shadow: 0 1px 0 rgba(255,255,255,.45);
-        background: linear-gradient(180deg, #ffdf9d 0%, #f5c261 52%, #eeb043 100%) !important;
-        border: max(1px, calc(var(--oct-size) * 0.004)) solid rgba(190,132,26,.6) !important;
-        box-shadow: 0 calc(var(--oct-size) * 0.0066) 0 rgba(184,128,26,.55),
-                    0 calc(var(--oct-size) * 0.0128) calc(var(--oct-size) * 0.031) rgba(20,60,100,.24),
-                    inset 0 1px 0 rgba(255,255,255,.75) !important;
+      #auth-step-choose > .ao-art {
+        position: relative;
+        width: 100%;
+        height: var(--ao-band);
+        -webkit-clip-path: none; clip-path: none;
       }
-      #auth-step-choose > .auth-btn-google {
-        color: #3a1a6a !important;
-        text-shadow: 0 1px 0 rgba(255,255,255,.5);
-        background: linear-gradient(180deg, #f4ecff 0%, #e6d9fb 55%, #dccbf7 100%) !important;
-        border: max(1px, calc(var(--oct-size) * 0.004)) solid rgba(138,106,196,.5) !important;
-        box-shadow: 0 calc(var(--oct-size) * 0.0066) 0 rgba(126,96,182,.45),
-                    0 calc(var(--oct-size) * 0.0128) calc(var(--oct-size) * 0.031) rgba(20,60,100,.24),
-                    inset 0 1px 0 rgba(255,255,255,.85) !important;
+      /* The band is a slice of a tall painting, so it has to be told WHICH
+         slice: the one with the sky and the birds in it, which is the top of
+         the picture and the whole shape of the thing. */
+      #auth-step-choose .ao-art-img { object-position: 50% 2%; }
+      #auth-step-choose::after { display: none; }
+      #auth-step-choose > .ao-copy {
+        position: absolute;
+        left: 0; width: 100%;
+        top: 0; height: var(--ao-band);
+        transform: none;
+        display: flex; flex-direction: column; justify-content: center;
+        padding: 0 22px;
       }
-      /* …so the labels come out of hiding and take their own room back. */
-      #auth-step-choose > .pv-btn > .auth-btn-label,
-      #auth-step-choose > .auth-btn-google > .auth-btn-label {
-        position: static;
-        width: auto; height: auto;
+      #auth-step-choose .ao-title { font-size: clamp(30px, 8.6vw, 54px); }
+      #auth-step-choose .ao-amp span { font-size: clamp(17px, 4.4vw, 28px); }
+      #auth-step-choose .ao-tag { font-size: clamp(12px, 3.1vw, 17px); }
+      /* Under a band this short there is no room for a second paragraph on the
+         art, and the column right below it says the same thing better. */
+      #auth-step-choose .ao-blurb { display: none; }
+      #auth-step-choose > .ao-form {
+        position: relative;
+        width: 100%;
+        min-height: 0;
         overflow: visible;
-        clip-path: none;
+        padding-top: clamp(30px, 8vh, 60px);
       }
-      #auth-step-choose > .pv-btn:hover,
-      #auth-step-choose > .auth-btn-google:hover {
-        background: none !important;
-        box-shadow: none !important;
-        filter: brightness(1.05);
+      #auth-step-choose .ao-form-inner {
+        width: min(440px, 88%);
+        margin-left: 0;
+        padding: 0 0 44px;
       }
-      #auth-step-choose > .pv-btn.gold:hover {
-        background: linear-gradient(180deg, #ffdf9d 0%, #f5c261 52%, #eeb043 100%) !important;
-      }
-      #auth-step-choose > .auth-btn-google:hover {
-        background: linear-gradient(180deg, #f4ecff 0%, #e6d9fb 55%, #dccbf7 100%) !important;
-      }
-      /* Only the TOP of the painting is shown: the title, its bubbles and its
-         shells, cut off above the octagon printed underneath (which starts at
-         about 24% of the artwork's height). So the words stay up top, at a
-         size somebody can actually read, and the painted panel they used to
-         sit above is not on the screen at all, which is the one thing the
-         redrawn octagon has to guarantee.
-
-         object-fit: cover with the box wider than the crop scales the image to
-         the full width and takes the slice off the top, which is exactly the
-         slice wanted. */
-      #auth-step-choose .auth-step-choose-img {
-        inset: 0 0 auto 0;
-        height: min(calc(100vw * 0.138), 15vh);
-        object-fit: cover;
-        object-position: 50% 0;
-        /* The crop ends on a hard horizontal line, which reads as a mistake.
-           Fading its last few pixels into the blurred water behind it makes
-           the strip look like the top of the painting rather than a cut. */
-        -webkit-mask-image: linear-gradient(180deg, #000 74%, transparent 100%);
-                mask-image: linear-gradient(180deg, #000 74%, transparent 100%);
-      }
+      /* The band is a slice of the TOP of the painting, so the plank is not on
+         the screen at all down here. A hidden button over water nobody can see
+         is not a secret, it is a trap. */
+      #auth-step-choose > .auth-pier-secret { display: none; }
     }
 
     /* ══ GUEST SIGN-IN CARD ═════════════════════════════════════════
@@ -6494,37 +6451,36 @@
     #auth-guest-overlay::before,
     #auth-account-overlay::before {
       content: ""; position: fixed; inset: -6vmax;
-      background: #0a1d3a url("/login-bg.png?v=45") center / cover no-repeat;
+      background: #0a1d3a url("/auth-ocean.jpg?v=2026-08-27.1") center / cover no-repeat;
       filter: blur(34px) saturate(1.12) brightness(.66);
       pointer-events: none;
     }
-    /* The painting itself, letterboxed to its own ratio exactly as the chooser
-       letterboxes it, with the scrim over it. The gradient is listed FIRST so
-       it paints IN FRONT of the image: one element, one declaration, no third
-       layer to keep in order.
+    /* The painting itself, with the scrim over it. The gradient is listed FIRST
+       so it paints IN FRONT of the image: one element, one declaration, no
+       third layer to keep in order.
 
-       The scrim is doing real work, not mood: the octagon underneath has PLAY
-       AS GUEST and SIGN IN / CREATE AN ACCOUNT painted into it, and two buttons
-       that still look like buttons behind a live card is the one way this
-       screen can be misread. Dimmed this far they read as the room, not as a
-       choice. */
+       cover, not contain: the sign-in painting is a tall panel that fills half
+       a wide screen, and letterboxing it whole behind a card would show the
+       card standing on two navy bars. Covering the window keeps it water.
+
+       The scrim is doing real work, not mood. The screen underneath carries a
+       live form and three buttons, and a form that still looks usable behind an
+       open card is the one way this screen can be misread. Dimmed this far it
+       reads as the room, not as a choice. */
     #auth-guest-overlay::after,
     #auth-account-overlay::after {
       content: ""; position: fixed; inset: 0;
       background:
-        /* The pool the card stands in. It is centred because the octagon is
-           centred, and it is about half the window across because that is what
-           the octagon is at every size the artwork letterboxes to. Everything
-           printed on that panel goes under it; the eight oceans around it stay
-           as bright as they were painted, which is the whole reason for using
-           this picture instead of a flat scrim. */
+        /* The pool the card stands in, centred on the card. The water around
+           it stays as bright as it was painted, which is the whole reason for
+           using the picture here instead of a flat scrim. */
         radial-gradient(ellipse 49% 66% at 50% 50%,
           rgba(3,20,42,.93) 0%, rgba(3,20,42,.90) 42%,
-          rgba(4,26,50,.42) 74%, rgba(4,26,50,.34) 100%),
+          rgba(4,26,50,.52) 74%, rgba(4,26,50,.44) 100%),
         /* …and a light vignette to settle the corners. */
         radial-gradient(ellipse 124% 106% at 50% 46%,
           rgba(6,32,60,.04) 0%, rgba(6,32,60,.13) 58%, rgba(4,24,48,.44) 100%),
-        url("/login-bg.png?v=45") center / contain no-repeat;
+        url("/auth-ocean.jpg?v=2026-08-27.1") center / cover no-repeat;
       pointer-events: none;
     }
 
@@ -6686,7 +6642,7 @@
     }
 
     /* ── The one button ────────────────────────────────
-       Butter gold with dark ink: PLAY AS GUEST as painted on login-bg.png, not
+       Butter gold with dark ink: PLAY AS GUEST on the screen before this, not
        the dark mustard .pv-btn.gold wears on the game's dark panels. */
     #auth-guest-overlay .pv-btn.gold,
     #auth-account-overlay .pv-btn.gold {
@@ -11442,7 +11398,7 @@
     .privacy-web-link:hover { text-decoration: underline; }
 
     /* ══ FIRST SIGN-IN: CREATE YOUR USERNAME ═════════════════════
-       This screen opens the instant login-bg.png closes, so it is built to read
+       This screen opens the instant the sign-in painting closes, so it reads
        as the next frame of that artwork rather than as a form: the SAME
        painting behind it, dimmed back, with a pale sea-glass card in front,
        navy lettering, one gold button.
@@ -11453,7 +11409,7 @@
        other three auth steps still use completely untouched.
        ═══════════════════════════════════════════════════════ */
     #auth-step-nickname {
-      /* Ink pulled off the lettering in login-bg.png so the two screens are
+      /* Ink pulled off the sign-in lettering so the two screens are
          written in the same colour, not two different blues. */
       --nk-ink:      #123a68;
       --nk-ink-soft: #3f6d96;
@@ -11482,7 +11438,7 @@
        a slideshow of three. */
     #auth-screen .auth-step-bg::before {
       content: ""; position: fixed; inset: -6vmax;
-      background: #0a1d3a url("/login-bg.png?v=45") center / cover no-repeat;
+      background: #0a1d3a url("/auth-ocean.jpg?v=2026-08-27.1") center / cover no-repeat;
       filter: blur(34px) saturate(1.12) brightness(.66);
     }
     /* The painting itself, letterboxed to its own ratio, with the scrim laid over
@@ -11491,19 +11447,16 @@
     #auth-screen .auth-step-bg::after {
       content: ""; position: fixed; inset: 0;
       background:
-        /* The pool the card stands in. It is centred because the octagon is
-           centred, and it is about half the window across because that is what
-           the octagon is at every size the artwork letterboxes to. Everything
-           printed on that panel goes under it; the eight oceans around it stay
-           as bright as they were painted, which is the whole reason for using
-           this picture instead of a flat scrim. */
+        /* The pool the card stands in, centred on the card. The water around
+           it stays as bright as it was painted, which is the whole reason for
+           using the picture here instead of a flat scrim. */
         radial-gradient(ellipse 49% 66% at 50% 50%,
           rgba(3,20,42,.93) 0%, rgba(3,20,42,.90) 42%,
-          rgba(4,26,50,.42) 74%, rgba(4,26,50,.34) 100%),
+          rgba(4,26,50,.52) 74%, rgba(4,26,50,.44) 100%),
         /* …and a light vignette to settle the corners. */
         radial-gradient(ellipse 124% 106% at 50% 46%,
           rgba(6,32,60,.04) 0%, rgba(6,32,60,.13) 58%, rgba(4,24,48,.44) 100%),
-        url("/login-bg.png?v=45") center / contain no-repeat;
+        url("/auth-ocean.jpg?v=2026-08-27.1") center / cover no-repeat;
     }
 
     /* A tall window used to need its own rule here, back when this screen stood
@@ -11649,7 +11602,7 @@
     #auth-step-nickname .auth-ref-note strong { color: #9a6a0c; font-weight: 800; }
 
     /* ── The one button ────────────────────────────────
-       Butter gold with dark ink, i.e. PLAY AS GUEST from login-bg.png, not the
+       Butter gold with dark ink, i.e. PLAY AS GUEST on the screen before, not the
        dark mustard .pv-btn.gold wears on the game's dark panels. */
     #auth-step-nickname .pv-btn.gold {
       margin-top: 20px; padding: 14px 18px;

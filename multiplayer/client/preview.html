@@ -58,7 +58,7 @@
     })();
   </script>
 
-  <script defer src="/js/error-logging.js?v=2026-08-26.5"></script>
+  <script defer src="/js/error-logging.js?v=2026-08-27.1"></script>
 
   <!-- Firebase config, generated at build time from VITE_FIREBASE_* env vars -->
   <script defer src="/firebase-config.js"></script>
@@ -66,24 +66,24 @@
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-08-26.5" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-08-27.1" />
   <!-- The printed rulebook's own stylesheet. Split out of preview.css so the
        standalone How to Play page (/rules) can render the very same book
        without pulling in the whole game stylesheet. Must load AFTER
        preview.css so the cascade is exactly what it was before the split. -->
-  <link rel="stylesheet" href="/css/rulebook.css?v=2026-08-26.5" />
+  <link rel="stylesheet" href="/css/rulebook.css?v=2026-08-27.1" />
   <!-- The privacy policy's own stylesheet, on the same split as the rulebook:
        the published /privacy page renders the very same document without
        pulling in the whole game stylesheet. Must load AFTER preview.css. -->
-  <link rel="stylesheet" href="/css/privacy.css?v=2026-08-26.5" />
+  <link rel="stylesheet" href="/css/privacy.css?v=2026-08-27.1" />
   <!-- Prestige: the Prestige page's own ocean scene, plus the .cc-pname /
        .cc-pbadge rules that draw a Prestige username and badge ANYWHERE in the
        game. Must load AFTER preview.css so those name styles win. -->
-  <link rel="stylesheet" href="/css/prestige.css?v=2026-08-26.5" />
+  <link rel="stylesheet" href="/css/prestige.css?v=2026-08-27.1" />
   <!-- Developer Analytics: the admin dashboard's own stylesheet, split out the
        same way, everything in it is scoped under #ccA-overlay, which nothing
        else on the page ever renders, so it cannot touch the game. -->
-  <link rel="stylesheet" href="/css/analytics.css?v=2026-08-26.5" />
+  <link rel="stylesheet" href="/css/analytics.css?v=2026-08-27.1" />
 </head>
 <body>
 
@@ -91,7 +91,7 @@
      There is no "choose your device" screen any more. js/device-select.js
      works it out: a touch means mobile, a mouse means computer, and a real
      input event outranks its own opening guess. Nothing is rendered here. -->
-<script defer src="/js/device-select.js?v=2026-08-26.5"></script>
+<script defer src="/js/device-select.js?v=2026-08-27.1"></script>
 
 <!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══
      The whole screen is the baked artwork (fullscreen-splash.png). #ccfs-play
@@ -153,59 +153,98 @@
        own art. -->
   <div class="auth-step-bg" aria-hidden="true"></div>
 
-  <!-- Step 1: choose mode. The whole panel is the login-bg.png painting, with
-       click boxes over the two buttons painted into it. -->
+  <!-- Step 1: the way in. Two halves of one screen: the ocean on the left,
+       the sign-in column on the right, split on a slow diagonal at exactly the
+       halfway line.
+
+       This used to be login-bg.png, one flat painting with invisible click
+       boxes positioned over the buttons painted into it. It is real markup now,
+       so the lettering scales, is read aloud, is selectable, and the phone
+       layout no longer needs an octagon redrawn on top of the art.
+
+       The painting is auth-ocean.jpg: the game's own kelp-forest water with the
+       game's own critters composited into it, each one graded to the colour of
+       the water behind it and lit from the surface. It is baked flat rather
+       than layered here, because a stack of forty positioned <img> tags is a
+       stack of forty things to keep in place at every window size. -->
   <div id="auth-step-choose" class="auth-box">
-    <img src="/login-bg.png?v=45" alt="Currents and Critters" class="auth-step-choose-img" />
-    <!-- THE OCTAGON, redrawn in CSS, for ONE layout.
-         login-bg.png is one flat painting: its eight oceans, its title, its
-         octagon and the two buttons in it are all the same pixels, and it says
-         exactly the right thing. So on any window wide enough to show the
-         painting whole, this panel is not drawn at all and the painting is the
-         screen.
-
-         It is drawn on a phone-shaped window, and only there, because down
-         there the painting is cropped to its title strip: the printed octagon
-         is off the screen entirely, and something has to carry the words at a
-         size somebody can read.
-
-         It is aria-hidden and pointer-events:none wherever it shows: it is
-         scenery, and the buttons must stay the topmost thing at their own
-         pixels. -->
-    <div class="auth-oct" aria-hidden="true"></div>
-    <div class="auth-oct-copy">
-      <div class="auth-oct-title">Sign In or<br>Create an Account</div>
-      <div class="auth-oct-sub">Play as a guest, or make an account to keep your
-        leaderboards, stats, friends, recent games and history.</div>
+    <div class="ao-art" aria-hidden="true">
+      <img src="/auth-ocean.jpg?v=2026-08-27.1" alt="" class="ao-art-img" />
+      <!-- ══ THE ROTTED PILING ═══════════════════════════════════════
+           One plank of an old pier lies in the kelp at the bottom left of the
+           painting, rust red among the greens. This box is over exactly that
+           plank. Clicking it says what you found and what it is worth, and the
+           reward is filed against the ACCOUNT, so a guest who finds it keeps
+           the find until there is an account to put it in.
+           See ccPierPiling() in preview-app.js. -->
     </div>
-    <!-- The two buttons. Each is a box over the one painted underneath it, so
-         the painting supplies the lettering and these supply the click, the
-         hover and the keyboard order. The label is wrapped so it can be hidden
-         the ACCESSIBLE way (clipped to a pixel, still read aloud, still the
-         button's name) on the layouts where the paint says it, and shown again
-         on the phone layout where the paint has been cropped away. -->
-    <button id="auth-guest-btn" class="pv-btn gold full"><span class="auth-btn-label">Play as Guest</span></button>
-    <!-- Historical id and class: this used to BE the Google button. It is now
-         the door to both ways in (username + password, or Google), and what is
-         behind it is #auth-account-overlay. The names are kept because the CSS
-         that holds the chooser inert until its artwork paints, and the tests
-         that pin that behaviour, address it by them. -->
-    <button id="auth-choose-google-btn" class="auth-btn-google"><span class="auth-btn-label">Sign In / Create an Account</span></button>
-    <!-- ══ THE ROTTED PILING ═══════════════════════════════════════
-         One plank of the pier, in the bottom-left ocean of the painting, is
-         painted rust red among the blues and violets. This box is over exactly
-         that plank. Clicking it says what you found and what it is worth, and
-         the reward is filed against the ACCOUNT, so a guest who finds it keeps
-         the find until they have an account to put it in.
-         See ccPierPiling() in preview-app.js. -->
     <button type="button" id="auth-pier-secret" class="auth-pier-secret"
-            aria-label="A rotted piling on the pier"></button>
-    <!-- The chooser's one status line. It lies on painted artwork, so .auth-note
-         makes setAuthMsg() render it as a dressed sea-glass note (icon + navy
-         lettering) instead of the bare red line every other auth field uses.
-         The class is the switch: setAuthMsg reads it, so this element and only
-         this element gets the treatment. -->
-    <div class="auth-err auth-note" id="auth-choose-err" role="status" aria-live="polite"></div>
+            aria-label="A rotted piling in the kelp"></button>
+
+    <!-- The lettering, over the water. Cinzel, the serif the rulebook and the
+         card faces already use, so the door into the game is set in the same
+         voice as the game. -->
+    <div class="ao-copy">
+      <h1 class="ao-title">Currents</h1>
+      <div class="ao-amp" aria-hidden="true"><i></i><span>&amp;</span><i></i></div>
+      <div class="ao-title" aria-hidden="true">Critters</div>
+      <p class="ao-tag">Build Your Ocean. Rule the Current.</p>
+      <p class="ao-blurb">Create powerful marine combinations and outplay the opponents.</p>
+    </div>
+
+    <!-- The sign-in column. Every door in one place: a username and password,
+         Google, and the guest door for somebody who does not want an account
+         yet. The two ids the rest of the app addresses this screen by
+         (#auth-guest-btn, #auth-choose-google-btn) are kept exactly as they
+         were; only what they look like has changed. -->
+    <div class="ao-form">
+      <div class="ao-form-inner">
+        <div class="ao-h">Sign In or Create an Account</div>
+        <p class="ao-sub">Welcome back. Sign in to continue your adventure.</p>
+
+        <label class="ao-lbl" for="ao-user">Username</label>
+        <div class="ao-field">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 19.5c1.6-3.6 4.3-5.4 7.5-5.4s5.9 1.8 7.5 5.4"/></svg>
+          <input id="ao-user" type="text" placeholder="Enter your username" maxlength="15"
+                 autocomplete="username" autocapitalize="off" spellcheck="false" />
+        </div>
+
+        <label class="ao-lbl" for="ao-pass">Password</label>
+        <div class="ao-field">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2.4"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/></svg>
+          <input id="ao-pass" type="password" placeholder="Enter your password" maxlength="72"
+                 autocomplete="current-password" />
+          <button type="button" class="ao-eye" id="ao-eye" aria-label="Show password">Show</button>
+        </div>
+
+        <button type="button" id="ao-signin" class="ao-primary">Sign In</button>
+        <button type="button" id="ao-forgot" class="ao-forgot">Forgot password?</button>
+
+        <div class="ao-or" aria-hidden="true">or</div>
+
+        <!-- Historical id: this used to BE the Google button, and is now the
+             door to the account card. The name is kept because the CSS that
+             holds the screen inert until its artwork paints, and the tests that
+             pin that behaviour, address it by it. -->
+        <button id="auth-choose-google-btn" class="auth-btn-google ao-ghost">
+          <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          <span class="auth-btn-label">Continue with Google</span>
+        </button>
+        <button id="auth-guest-btn" class="pv-btn gold full ao-gold">
+          <span class="auth-btn-label">Play as Guest</span>
+        </button>
+
+        <p class="ao-new">New to Currents &amp; Critters?
+          <button type="button" id="ao-create">Create an Account &rsaquo;</button></p>
+
+        <!-- The column's one status line. .auth-note makes setAuthMsg() render
+             it as a dressed note rather than the bare red line the fields in
+             the cards use. The class is the switch: setAuthMsg reads it. -->
+        <div class="auth-err auth-note" id="auth-choose-err" role="status" aria-live="polite"></div>
+      </div>
+    </div>
     <!-- Guest sign-in card.
          The screen behind this one is a single painted image, so the card
          cannot sit INSIDE the octagon printed on it: the artwork's own
@@ -389,7 +428,7 @@
        filled in from PHST_RENAME_COIN_PRICE at boot (see preview-app.js), so
        there is only one number to change if it ever moves.
 
-       This screen lands the instant you come off login-bg.png, so it does not
+       This screen lands the instant the sign-in painting closes, so it does not
        change the room: the same painting behind it, dimmed back, with a pale
        sea-glass card in front carrying navy lettering and one warm gold button,
        exactly the octagon you just clicked through. Scenery only, no critters:
@@ -3180,63 +3219,63 @@
 
 <!-- The printed rulebook, one shared source for the How to play tab and the
      in-game Rule Book modal. Must load before preview-app.js reads it. -->
-<script defer src="/js/rulebook.js?v=2026-08-26.5"></script>
+<script defer src="/js/rulebook.js?v=2026-08-27.1"></script>
 
 <!-- Family colours + the built-in strategy list, shared with the published
      How to Play page (/rules) so the two can never drift. Deferred scripts
      run in document order, so this lands before preview-app.js reads it. -->
-<script defer src="/js/gamedata.js?v=2026-08-26.5"></script>
+<script defer src="/js/gamedata.js?v=2026-08-27.1"></script>
 
 <!-- The privacy policy, one shared source for the published /privacy page and
      the in-game reader (Settings → 📜 Legal). Must load before preview-app.js
      reads window.CC_PRIVACY_HTML. -->
-<script defer src="/js/privacy-policy.js?v=2026-08-26.5"></script>
+<script defer src="/js/privacy-policy.js?v=2026-08-27.1"></script>
 
 <!-- Level Pass, the Invite-a-Friend card and the Avatar Gallery's level
      track. One stylesheet: they are one idea seen from three places. -->
-<link rel="stylesheet" href="/css/level-pass.css?v=2026-08-26.5">
+<link rel="stylesheet" href="/css/level-pass.css?v=2026-08-27.1">
 <!-- Game Night. Also served to the marketing site (Vercel rewrites /css/:file),
      so the banner looks identical on both hosts from one source. -->
-<link rel="stylesheet" href="/css/game-night.css?v=2026-08-26.5">
+<link rel="stylesheet" href="/css/game-night.css?v=2026-08-27.1">
 
-<script defer src="/js/preview-app.js?v=2026-08-26.5"></script>
+<script defer src="/js/preview-app.js?v=2026-08-27.1"></script>
 
 <!-- Level Pass: the reward track over levels 1-100. Every rule is server-side
      (/api/pass/*); this renders state and sends intents. -->
-<script defer src="/js/level-pass.js?v=2026-08-26.5"></script>
+<script defer src="/js/level-pass.js?v=2026-08-27.1"></script>
 <!-- Friend-code referral reward. Pays two accounts, so the server owns all of
      it (/api/referral/*); this collects digits and renders the answer. -->
-<script defer src="/js/referral.js?v=2026-08-26.5"></script>
+<script defer src="/js/referral.js?v=2026-08-27.1"></script>
 <!-- Game Night banner. Self-injects at the top of the Overview panel. -->
-<script defer src="/js/game-night.js?v=2026-08-26.5"></script>
+<script defer src="/js/game-night.js?v=2026-08-27.1"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
-<script defer src="/js/tournament-ui.js?v=2026-08-26.5"></script>
+<script defer src="/js/tournament-ui.js?v=2026-08-27.1"></script>
 
 <!-- Clan System (Clans tab below Leaderboard; renders into #cc-clans-root). -->
-<script defer src="/js/clans-ui.js?v=2026-08-26.5"></script>
+<script defer src="/js/clans-ui.js?v=2026-08-27.1"></script>
 
 <!-- Prestige System (Prestige page + the badge/name-colour renderer used by
      every username in the game; renders into #cc-prestige-root). -->
-<script defer src="/js/prestige-ui.js?v=2026-08-26.5"></script>
+<script defer src="/js/prestige-ui.js?v=2026-08-27.1"></script>
 
 <!-- Discord join reward, the "+250 Critter Coins" chip beside the Join the
      Discord button, and the verified claim behind it. It renders into the one
      #ph-discord-reward button and stays hidden until the server says the offer
      is switched on. -->
-<script defer src="/js/discord-reward.js?v=2026-08-26.5"></script>
+<script defer src="/js/discord-reward.js?v=2026-08-27.1"></script>
 
 <!-- Developer Analytics, a full-screen, admin-only dashboard. It builds no DOM
      and makes no request until the Analytics sidebar button is clicked, so it
      costs every player nothing but the parse. -->
-<script defer src="/js/analytics-ui.js?v=2026-08-26.5"></script>
+<script defer src="/js/analytics-ui.js?v=2026-08-27.1"></script>
 <!-- Custom bracket BUILDER, the host's design canvas. Inert until opened from
      the New Tournament modal, so it costs nothing on every other page. -->
-<script defer src="/js/tournament-builder.js?v=2026-08-26.5"></script>
+<script defer src="/js/tournament-builder.js?v=2026-08-27.1"></script>
 
-<script defer src="/js/challenge-of-challenges.js?v=2026-08-26.5"></script>
+<script defer src="/js/challenge-of-challenges.js?v=2026-08-27.1"></script>
 
-<script defer src="/js/hidden-cephalopods.js?v=2026-08-26.5"></script>
+<script defer src="/js/hidden-cephalopods.js?v=2026-08-27.1"></script>
 
 <!-- ══ CHALLENGE OF CHALLENGES MODALS ════════════════════════════ -->
 
@@ -3309,13 +3348,13 @@
      Visible ONLY for currentsandcritters@gmail.com. Every tool is gated
      behind its own ON/OFF toggle; OFF fully disables the tool.
      ══════════════════════════════════════════════════════════════════ -->
-<script defer src="/js/current-controller.js?v=2026-08-26.5"></script>
+<script defer src="/js/current-controller.js?v=2026-08-27.1"></script>
 <!-- ══════════════════════════════════════════════════════════════════
      TUTORIAL v2, three modes (Main Menu Tour · The Game · Practice B-Lob).
      Completing ALL THREE unlocks the Osprey avatar. Stage 1: launcher +
      completion tracking + the Main Menu Tour (spotlight coachmarks over the
      real lobby). The Game tour and B-Lob practice arrive in later stages.
      ══════════════════════════════════════════════════════════════════ -->
-<script defer src="/js/tutorials.js?v=2026-08-26.5"></script>
+<script defer src="/js/tutorials.js?v=2026-08-27.1"></script>
 </body>
 </html>

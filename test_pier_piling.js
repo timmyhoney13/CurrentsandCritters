@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* The rotted pier piling.
  *
- * login-bg.png is one flat painting of eight oceans. In the pier, bottom left,
+ * The sign-in painting is one flat picture of kelp water. In the kelp, bottom left,
  * one plank is rust red among the blues and violets. Clicking that plank is
  * worth the Pier background.
  *
@@ -61,18 +61,27 @@ console.log("\nthere is a plank on the pier, and it is a real button");
   check("…as a button, so it is reachable by keyboard and announced as one",
         /<button type="button" id="auth-pier-secret"/.test(HTML));
   check("…with a name, since it has no lettering of its own to be read",
-        /aria-label="A rotted piling on the pier"/.test(HTML));
-  check("it is positioned off the artwork's own coordinates, not eyeballed",
-        /#auth-step-choose > \.auth-pier-secret \{[\s\S]{0,400}?left: 20\.63%;[\s\S]{0,200}?top:  76\.41%;/.test(CSS));
-  check("…and keeps a minimum size, so a small window still leaves it tappable",
-        /#auth-step-choose > \.auth-pier-secret \{[\s\S]{0,400}?width:  max\(26px,/.test(CSS));
+        /aria-label="A rotted piling in the kelp"/.test(HTML));
+  // The art is object-fit:cover now, so where the plank lands on screen
+  // depends on how the window cropped the painting. CSS cannot read that crop,
+  // so the box is measured off the image itself.
+  check("it is placed from the painting's own geometry, not eyeballed in CSS",
+        /const PIER_SPOT = \{ x: \.092, y: \.8815/.test(APP)
+        && /function placePierBox\(\)/.test(APP));
+  check("…and it is placed again when the window changes shape",
+        /window\.addEventListener\("resize", placePierBox\)/.test(APP)
+        && /step\.classList\.add\("is-armed"\);\s*\n\s*placePierBox\(\);/.test(APP));
+  check("…keeping a minimum size, so a small window still leaves it tappable",
+        /Math\.max\(44, PIER_SPOT\.w/.test(APP) && /Math\.max\(30, PIER_SPOT\.h/.test(APP));
+  check("…and it never guesses at art that has not decoded yet",
+        /if \(!step \|\| !btn \|\| !img \|\| !img\.naturalWidth\) return;/.test(APP));
   check("a cursor that wanders onto it is told it is on something",
         /#auth-step-choose > \.auth-pier-secret:hover,[\s\S]{0,300}?box-shadow:/.test(CSS));
   // Every box on this screen is invisible paint-over, so all of them wait.
   check("it cannot take a click before the artwork has painted",
-        /#auth-step-choose:not\(\.is-armed\) > \.pv-btn,[\s\S]{0,300}?> \.auth-pier-secret \{ pointer-events: none; \}/.test(CSS));
-  check("it is gone on a phone, where the pier is cropped off the screen",
-        /@media \(max-aspect-ratio: 4\/5\)[\s\S]{0,2000}?#auth-step-choose > \.auth-pier-secret \{ display: none; \}/.test(CSS));
+        /#auth-step-choose:not\(\.is-armed\) > \.ao-form,[\s\S]{0,200}?> \.auth-pier-secret \{ pointer-events: none; \}/.test(CSS));
+  check("it is gone on a phone, where the plank is cropped off the screen",
+        /@media \(max-width: 820px\), \(max-aspect-ratio: 4\/5\)[\s\S]{0,4000}?#auth-step-choose > \.auth-pier-secret \{ display: none; \}/.test(CSS));
 }
 
 console.log("\nit says what you found, and what it is worth");
@@ -257,16 +266,22 @@ if (!CHROME) {
     console.log("\nthe box is on the red plank, read back out of the painting");
     for (const [w, h] of SIZES) {
       const r = run("_pier_hit.html", `
-        var img = document.querySelector(".auth-step-choose-img");
+        var img = document.querySelector(".ao-art-img");
         var box = R("#auth-pier-secret");
-        var ir  = R(".auth-step-choose-img");
+        var ir  = R(".ao-art-img");
         var c = document.createElement("canvas");
         c.width = img.naturalWidth; c.height = img.naturalHeight;
         c.getContext("2d").drawImage(img, 0, 0);
         log.nat = { w: img.naturalWidth, h: img.naturalHeight };
-        // Where the middle of the box lands in the painting's own pixels.
-        var ax = Math.round((box.l + box.w / 2 - ir.l) / ir.w * img.naturalWidth);
-        var ay = Math.round((box.t + box.h / 2 - ir.t) / ir.h * img.naturalHeight);
+        // object-fit: cover. The painting is scaled to fill the box and the
+        // overflow is cropped off both sides (object-position 50% 50%), so a
+        // screen pixel maps back through that scale and that crop, not through
+        // the box on its own.
+        var sc = Math.max(ir.w / img.naturalWidth, ir.h / img.naturalHeight);
+        var dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
+        var ox = ir.l - (dw - ir.w) / 2, oy = ir.t - (dh - ir.h) / 2;
+        var ax = Math.round((box.l + box.w / 2 - ox) / sc);
+        var ay = Math.round((box.t + box.h / 2 - oy) / sc);
         log.art = { x: ax, y: ay };
         var d = c.getContext("2d").getImageData(ax, ay, 1, 1).data;
         log.px = { r: d[0], g: d[1], b: d[2] };
@@ -275,12 +290,12 @@ if (!CHROME) {
       `, w, h, (r) => r.px);
       if (!r || !r.px) { check(`${w}x${h}: the harness could read the artwork`, false, r && (r.err || r.fatal)); continue; }
       check(`${w}x${h}: the middle of the box is a rust-red pixel, not blue water`,
-            r.px.r > 120 && r.px.r - r.px.g > 30 && r.px.r - r.px.b > 30,
+            r.px.r > 118 && r.px.r - r.px.g > 30 && r.px.r - r.px.b > 30,
             `rgb(${r.px.r},${r.px.g},${r.px.b}) at art ${r.art.x},${r.art.y}`);
-      check(`${w}x${h}: …and that is a point on the pier, not somewhere else`,
-            r.art.x > 290 && r.art.x < 350 && r.art.y > 720 && r.art.y < 825,
+      check(`${w}x${h}: …and that is a point on the plank, not somewhere else`,
+            r.art.x > 60 && r.art.x < 240 && r.art.y > 1700 && r.art.y < 1860,
             `art ${r.art.x},${r.art.y}`);
-      check(`${w}x${h}: it is big enough to hit`, r.box.w >= 20 && r.box.h >= 30,
+      check(`${w}x${h}: it is big enough to hit`, r.box.w >= 40 && r.box.h >= 28,
             `${Math.round(r.box.w)}x${Math.round(r.box.h)}`);
     }
 
@@ -325,14 +340,14 @@ if (!CHROME) {
         var e = document.getElementById("auth-pier-secret");
         log.display = getComputedStyle(e).display;
         log.box = R("#auth-pier-secret");
-        log.img = R(".auth-step-choose-img");
+        log.img = R(".ao-art-img");
         done();
       `, 500, 900, (r) => r.display);
       check("the plank is not on the screen at all",
             r && r.display === "none", r && r.display);
-      check("…and neither is the pier it is painted on",
-            r && r.img && r.img.h < r.img.w * (1011 / 1556) * 0.9,
-            r && r.img && `strip ${Math.round(r.img.h)} of ${Math.round(r.img.w * 1011 / 1556)}`);
+      check("…and neither is the water it lies in: the art is a band up top",
+            r && r.img && r.img.h < r.img.w * (2000 / 1600) * 0.9,
+            r && r.img && `band ${Math.round(r.img.h)} of ${Math.round(r.img.w * 2000 / 1600)}`);
     }
   } finally {
     try { process.kill(server.pid); } catch (_) {}

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* CREATE YOUR USERNAME: the first screen you fill in.
  *
- * It opens the instant login-bg.png closes, so it is dressed to be the next
+ * It opens the instant the sign-in screen closes, so it is dressed to be the next
  * frame of that artwork rather than a form on a navy void: the sign-in painting
  * behind a pale sea-glass card, navy lettering, one warm gold button. Scenery
  * only, no critters.
@@ -15,7 +15,7 @@
  *      sibling of the four steps, revealed by .on-nickname.
  *
  *   2. .on-nickname IS THE ONLY THING SCOPING IT. The other three steps bring
- *      artwork of their own (or none), and a second seabed under login-bg.png
+ *      artwork of their own (or none), and a second seabed under the sign-in art
  *      would be a mess, so showStep() must clear the class as well as set it.
  *
  *   3. THE GUTTER IS PADDING ON THE SCREEN, NOT vw ARITHMETIC. The card used
@@ -64,13 +64,13 @@ console.log("\nthe backdrop is scenery, and it is not inside the card");
   // and this screen all stand in the same painting, so the player never gets a
   // room change they did not ask for.
   check("…it is the sign-in painting, the same one every step before it shows",
-        /#auth-screen \.auth-step-bg::after \{[\s\S]{0,1400}?login-bg\.png/.test(CSS));
-  check("…letterboxed as the chooser letterboxes it, over its blurred copy",
-        /#auth-screen \.auth-step-bg::after[\s\S]{0,1400}?login-bg\.png[^;]*center \/ contain/.test(CSS)
-        && /#auth-screen \.auth-step-bg::before \{[\s\S]{0,300}?login-bg\.png[^;]*center \/ cover/.test(CSS));
-  // The octagon painted into it says SIGN IN OR CREATE AN ACCOUNT and carries
-  // two buttons. Behind a live card those are a screen asking to be misread.
-  check("…with the painted octagon sunk under a scrim",
+        /#auth-screen \.auth-step-bg::after \{[\s\S]{0,1400}?auth-ocean\.jpg/.test(CSS));
+  check("…covering the window as the cards cover it, over its blurred copy",
+        /#auth-screen \.auth-step-bg::after[\s\S]{0,1400}?auth-ocean\.jpg[^;]*center \/ cover/.test(CSS)
+        && /#auth-screen \.auth-step-bg::before \{[\s\S]{0,300}?auth-ocean\.jpg[^;]*center \/ cover/.test(CSS));
+  // The screen behind carries a live sign-in form. Behind a live card that is a
+  // second screen asking to be misread.
+  check("…with the screen behind it sunk under a scrim",
         /#auth-screen \.auth-step-bg::after[\s\S]{0,1400}?radial-gradient\(ellipse 49% 66% at 50% 50%/.test(CSS));
   check("the kelp forest is gone: it was a second painting for one step",
         !/url\("\/backgrounds\/kelp-forest\.png"\)/.test(CSS));

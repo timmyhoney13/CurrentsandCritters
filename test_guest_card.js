@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* PLAY AS A GUEST: the other half of first sign-in.
  *
- * Two people click two different buttons on login-bg.png and are asked for the
+ * Two people click two different buttons on the sign-in screen and are asked for the
  * same thing. One lands on CREATE YOUR USERNAME, the other lands here, so the
  * two screens are drawn the same way and this file pins that they stay that
  * way. What it really guards is the trap that made this card look homemade:
@@ -82,16 +82,19 @@ console.log("\nthe step's invisible-button rules stop at its own children");
         !/#auth-step-choose(:not\([^)]*\))?\s+\.auth-btn-google\b/.test(CSS));
   check("no descendant .auth-err rule, which absolutely positions it at top:72%",
         !/#auth-step-choose\s+\.auth-err\b/.test(CSS));
-  check("…they are all direct-child rules instead",
-        /#auth-step-choose > \.pv-btn/.test(CSS)
-        && /#auth-step-choose > \.auth-btn-google/.test(CSS)
-        && /#auth-step-choose > \.auth-err/.test(CSS));
-  // The window is generous because the redrawn octagon (the sea-glass panel
-  // that covers the one printed on login-bg.png, plus its lettering) now sits
-  // between the step and its first button. What is being pinned is that the
+  // The step's own things are addressed either as direct children or through
+  // .ao-form-inner, which is the sign-in column. Neither reaches a card: both
+  // cards are children of the step, and neither is inside that column.
+  check("…they are addressed through the column instead, which no card is in",
+        /#auth-step-choose > \.ao-form \{/.test(CSS)
+        && /#auth-step-choose \.ao-form-inner > \.auth-err \{/.test(CSS)
+        && !/<div id="auth-guest-overlay"[\s\S]{0,4000}?class="ao-form-inner"/.test(HTML));
+  // The window is generous because the sign-in column, its two fields and the
+  // lettering over the painting all sit between the step and its first button.
+  // What is being pinned is that the
   // button is INSIDE the step and not nested in something else.
-  check("…and the two buttons they aim at really are direct children",
-        /<div id="auth-step-choose"[\s\S]{0,2600}?<button id="auth-guest-btn"/.test(HTML));
+  check("…and the two ways in they aim at really are in that column",
+        /<div class="ao-form-inner">[\s\S]{0,4200}?<button id="auth-choose-google-btn"[\s\S]{0,900}?<button id="auth-guest-btn"/.test(HTML));
 }
 
 console.log("\nit opens ON the sign-in painting, the screen it was called from");
@@ -103,16 +106,19 @@ console.log("\nit opens ON the sign-in painting, the screen it was called from")
   // The card opens ON the chooser, so the room must not change when it does:
   // the same painting, letterboxed the same way, with a scrim over it.
   check("the scenery is the sign-in painting, not a flat dark scrim",
-        /#auth-guest-overlay::after[\s\S]{0,900}?login-bg\.png/.test(OL));
-  check("…letterboxed exactly as the chooser letterboxes it",
-        /#auth-guest-overlay::after[\s\S]{0,900}?login-bg\.png[^;]*center \/ contain no-repeat/.test(OL));
-  check("…over the same blurred copy that fills the chooser's letterbox",
-        /#auth-guest-overlay::before[\s\S]{0,400}?login-bg\.png[^;]*center \/ cover/.test(OL)
+        /#auth-guest-overlay::after[\s\S]{0,1100}?auth-ocean\.jpg/.test(OL));
+  // cover, not contain. The sign-in painting is a tall panel that fills half a
+  // wide screen; letterboxing it whole behind a card stands the card on two
+  // navy bars.
+  check("…covering the window, the way a room does",
+        /#auth-guest-overlay::after[\s\S]{0,1100}?auth-ocean\.jpg[^;]*center \/ cover no-repeat/.test(OL));
+  check("…over the same blurred copy the sign-in screen sits on",
+        /#auth-guest-overlay::before[\s\S]{0,400}?auth-ocean\.jpg[^;]*center \/ cover/.test(OL)
         && /#auth-guest-overlay::before[\s\S]{0,400}?filter: blur\(34px\)/.test(OL));
-  // The octagon underneath has PLAY AS GUEST painted into it. Two things that
-  // still look like buttons behind a live card is the one way this screen can
-  // be misread, so they go under a pool of deeper water.
-  check("…with the painted octagon sunk under a scrim so it cannot be misread",
+  // A live form and three buttons underneath. Anything that still looks usable
+  // behind an open card is the one way this screen can be misread, so it goes
+  // under a pool of deeper water.
+  check("…with the screen underneath sunk under a scrim so it cannot be misread",
         /#auth-guest-overlay::after[\s\S]{0,900}?radial-gradient\(ellipse 49% 66% at 50% 50%,\s*\n\s*rgba\(3,20,42,\.9/.test(OL));
   check("…and the oceans around it left bright, which is the point of using it",
         /rgba\(6,32,60,\.04\)/.test(OL));
@@ -125,14 +131,14 @@ console.log("\nit opens ON the sign-in painting, the screen it was called from")
   check("…and a guest and an account holder stand in the same room",
         /#auth-guest-overlay::after,\s*\n\s*#auth-account-overlay::after \{/.test(RAW));
   check("…as does CREATE YOUR USERNAME, the screen either of them opens onto",
-        /#auth-screen \.auth-step-bg::after \{[\s\S]{0,1400}?login-bg\.png/.test(RAW));
+        /#auth-screen \.auth-step-bg::after \{[\s\S]{0,1400}?auth-ocean\.jpg/.test(RAW));
   // A background that 404s is silent: the screen just goes flat navy. The
   // .webp sibling matters as much as the .png, because the server negotiates
   // it and every modern browser is served that one, not the PNG.
   check("the painting is really in the client",
-        fs.existsSync(path.join(CLIENT, "login-bg.png")));
+        fs.existsSync(path.join(CLIENT, "auth-ocean.jpg")));
   check("…with its WebP sibling, which is what most browsers are actually sent",
-        fs.existsSync(path.join(CLIENT, "login-bg.webp")));
+        fs.existsSync(path.join(CLIENT, "auth-ocean.webp")));
   check("…under a vignette, so the eye goes to the card",
         /#auth-guest-overlay::after[\s\S]{0,900}?radial-gradient/.test(OL));
   check("the scenery cannot take a click meant for the card",

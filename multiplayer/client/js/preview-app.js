@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.95";
-  const APP_BUILD   = "2026-08-26.5";
+  const APP_BUILD   = "2026-08-27.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,12 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🌊 A new way in", items: [
+      "The sign-in screen is two halves now. On the left, a painting of the kelp forest with the game's own animals in it: birds over the water, a manta and a narwhal below it, a salmon, a squid and a tang down in the kelp. On the right, every way into the game in one column.",
+      "Your username and password are on that screen. No dialog to open first: type them in and sign in. Continue with Google, Play as Guest and Create an Account are all right underneath.",
+      "Nothing on the screen is painted lettering any more, so the words are real type at any size and a phone gets the picture as a band across the top with the sign-in underneath it, instead of a title strip five pixels tall.",
+      "The rotted piling moved with it. There is a plank lying in the kelp, bottom left, that is not the colour of anything else down there.",
+    ]},
     { ver: "V1.7.0", title: "🌊 A new sign-in screen, and something hidden in it", items: [
       "The first screen is a new painting. Same eight oceans, but SIGN IN OR CREATE AN ACCOUNT and both buttons are drawn straight into it now, and CURRENTS & CRITTERS sits dead centre above them.",
       "Play as a Guest, Sign In / Create an Account and Create Your Username all open ON that painting: it dims back and the card stands in front of it. Signing in is one room now instead of three.",
@@ -18916,17 +18922,15 @@
       }
     }
 
-    // PLAY AS GUEST and CONTINUE WITH GOOGLE are invisible boxes positioned over
-    // the painted buttons in login-bg.png. A click there is only ever meant if
-    // the player can SEE what they are clicking, so the two boxes stay inert
+    // A click on the sign-in column is only ever meant if the player can SEE
+    // what they are clicking, so the whole column stays inert
     // (css: #auth-step-choose:not(.is-armed)) until the artwork has painted.
     //
     // This is the second half of the fix for "it prompted me for a username as
     // if I'd clicked Play as Guest": device-select.js stops the click that
     // closed the device screen falling through onto this one, and this stops a
     // blind click at a chooser that has not drawn itself yet. On a slow
-    // connection that window is seconds long, and PLAY AS GUEST sits dead
-    // centre of it.
+    // connection that window is seconds long.
     //
     // It FAILS OPEN in every direction: a cached image arms after one beat, a
     // slow one arms on load, and an image that never arrives at all still arms
@@ -18943,6 +18947,7 @@
         // Moved on to another step while we waited; that step arms itself.
         if (step.style.display === "none") return;
         step.classList.add("is-armed");
+        placePierBox();
       };
       // A short settle even once the art is up, so the tail of a click aimed at
       // whatever was on screen a moment ago cannot count as a choice here.
@@ -18950,12 +18955,46 @@
         if (_chooseArmTimer) clearTimeout(_chooseArmTimer);
         _chooseArmTimer = setTimeout(arm, 350);
       };
-      const img = step.querySelector(".auth-step-choose-img");
+      const img = step.querySelector(".ao-art-img");
       if (!img || (img.complete && img.naturalWidth > 0)) { settle(); return; }
       img.addEventListener("load", settle, { once: true });
       img.addEventListener("error", settle, { once: true });   // fail open
       _chooseArmTimer = setTimeout(arm, 4000);                 // backstop
     }
+
+    // ── Where the rotted piling is ──────────────────────────────────
+    // The plank is at one fixed spot in the painting. The painting is
+    // object-fit: cover, so how much of it is on screen, and where that spot
+    // lands, depends on the shape of the window: a wide short one crops the
+    // sides off, a tall one crops the top and bottom. No CSS length can read
+    // that crop, and a box written in percentages of the panel slides off the
+    // plank the moment the window stops being the panel's own 4:5.
+    //
+    // So the box is placed from the image's own geometry instead, and placed
+    // again whenever that geometry changes. It fails quiet: if the art has not
+    // decoded yet there is nothing to measure, and the CSS fallback keeps the
+    // button in the right corner until there is.
+    const PIER_SPOT = { x: .092, y: .8815, w: .155, h: .058 };  // of the painting
+    function placePierBox() {
+      const step = $a("auth-step-choose");
+      const btn  = $a("auth-pier-secret");
+      const img  = step && step.querySelector(".ao-art-img");
+      if (!step || !btn || !img || !img.naturalWidth) return;
+      if (getComputedStyle(btn).display === "none") return;     // the phone layout
+      const ir = img.getBoundingClientRect(), sr = step.getBoundingClientRect();
+      if (!ir.width || !ir.height) return;
+      const sc = Math.max(ir.width / img.naturalWidth, ir.height / img.naturalHeight);
+      const ox = ir.left - (img.naturalWidth  * sc - ir.width)  / 2;
+      const oy = ir.top  - (img.naturalHeight * sc - ir.height) / 2;
+      const w = Math.max(44, PIER_SPOT.w * img.naturalWidth  * sc);
+      const h = Math.max(30, PIER_SPOT.h * img.naturalHeight * sc);
+      btn.style.width  = Math.round(w) + "px";
+      btn.style.height = Math.round(h) + "px";
+      btn.style.left   = Math.round(ox + PIER_SPOT.x * img.naturalWidth  * sc - sr.left - w / 2) + "px";
+      btn.style.top    = Math.round(oy + PIER_SPOT.y * img.naturalHeight * sc - sr.top  - h / 2) + "px";
+      btn.style.bottom = "auto";
+    }
+    window.addEventListener("resize", placePierBox);
 
     function lockNameInputs(nick) {
       ["pv-host-name","pv-join-name","pv-join-name-home"].forEach(id => {
@@ -21576,11 +21615,22 @@
       }
     }
 
-    // SIGN IN / CREATE AN ACCOUNT. It used to run Google sign-in on the spot,
-    // which made Google the only way in. It opens the account card now, and
-    // Google is one of the two ways out of that card.
+    // Google sign-in, from wherever it is asked for. One path, so the launcher
+    // and the game window never drift apart on the thing hardest to test.
+    async function ccGoogleSignIn(errId) {
+      stageGuestMigration();
+      if (IS_GAME_WINDOW()) await beginGameWindowGoogleSignIn(errId);
+      else                  await beginCleanGoogleSignIn(errId);
+    }
+
+    // CONTINUE WITH GOOGLE. This button spent one release as the only way in,
+    // and one as a door onto the account card. It is neither now: the sign-in
+    // screen carries its own username and password field, so Google can go
+    // back to being one door among several and do the thing it says.
     const chooseAccountBtn = $a("auth-choose-google-btn");
-    if (chooseAccountBtn) chooseAccountBtn.addEventListener("click", () => openAccountCard("ask"));
+    if (chooseAccountBtn) {
+      chooseAccountBtn.addEventListener("click", () => { void ccGoogleSignIn("auth-choose-err"); });
+    }
 
     $a("auth-guest-go-btn").addEventListener("click", () => {
       const nick = ($a("auth-guest-nick").value || "").trim();
@@ -21747,14 +21797,21 @@
     }
 
     // ── Sign in with a username and a password ────────────────────────
-    async function ccPasswordSignIn() {
-      const errId = "aao-in-err";
+    // Two forms ask this same question: the one on the sign-in screen itself,
+    // and the one inside the account card. They hand over their own field ids
+    // rather than each carrying a copy of this, so there is one way a password
+    // sign-in happens and not two that drift apart.
+    async function ccPasswordSignIn(ids) {
+      const f = Object.assign(
+        { user: "aao-in-user", pass: "aao-in-pass", err: "aao-in-err", go: "aao-in-go" },
+        ids || {});
+      const errId = f.err;
       if (!_auth) { setAuthMsg(errId, "Sign-in is not configured on this server.", false); return; }
-      const user = ($a("aao-in-user").value || "").trim();
-      const pass = $a("aao-in-pass").value || "";
+      const user = (($a(f.user) || {}).value || "").trim();
+      const pass = ($a(f.pass) || {}).value || "";
       if (!user) { setAuthMsg(errId, "Enter your username.", false); return; }
       if (!pass) { setAuthMsg(errId, "Enter your password.", false); return; }
-      const go = $a("aao-in-go");
+      const go = $a(f.go);
       if (go) { go.disabled = true; go.setAttribute("aria-busy", "true"); }
       setAuthMsg(errId, "Signing you in…", true);
       try {
@@ -21903,15 +21960,10 @@
       $a("aao-in-go").addEventListener("click", () => { void ccPasswordSignIn(); });
       $a("aao-new-go").addEventListener("click", () => { void ccPasswordCreate(); });
 
-      // Google, from either form. Same two functions the chooser button used
-      // to call directly, so there is still exactly one Google sign-in path.
-      const googleFrom = async (errId) => {
-        stageGuestMigration();
-        if (IS_GAME_WINDOW()) await beginGameWindowGoogleSignIn(errId);
-        else                  await beginCleanGoogleSignIn(errId);
-      };
-      $a("aao-in-google").addEventListener("click",  () => { void googleFrom("aao-in-err"); });
-      $a("aao-new-google").addEventListener("click", () => { void googleFrom("aao-new-err"); });
+      // Google, from either form, through the same ccGoogleSignIn the sign-in
+      // screen uses, so there is exactly one Google sign-in path.
+      $a("aao-in-google").addEventListener("click",  () => { void ccGoogleSignIn("aao-in-err"); });
+      $a("aao-new-google").addEventListener("click", () => { void ccGoogleSignIn("aao-new-err"); });
 
       // Enter submits the pane you are standing in.
       const onEnter = (id, run) => $a(id).addEventListener("keydown", e => { if (e.key === "Enter") run(); });
@@ -21949,6 +22001,30 @@
       });
       wireEye("aao-in-eye", ["aao-in-pass"]);
       wireEye("aao-new-eye", ["aao-new-pass", "aao-new-pass2"]);
+
+      // ── The form on the sign-in screen itself ──────────────────────
+      // Same question as the card's sign-in pane, asked one screen earlier so
+      // somebody who already has an account never opens a dialog to type into.
+      // It hands ccPasswordSignIn its own fields rather than carrying a second
+      // copy of the sign-in.
+      const inlineSignIn = () => ccPasswordSignIn({
+        user: "ao-user", pass: "ao-pass", err: "auth-choose-err", go: "ao-signin",
+      });
+      if ($a("ao-signin")) {
+        $a("ao-signin").addEventListener("click", () => { void inlineSignIn(); });
+        onEnter("ao-user", () => { void inlineSignIn(); });
+        onEnter("ao-pass", () => { void inlineSignIn(); });
+        wireEye("ao-eye", ["ao-pass"]);
+        // CREATE AN ACCOUNT opens the card on the pane that makes one, rather
+        // than on the question the player has already answered by clicking it.
+        $a("ao-create").addEventListener("click", () => openAccountCard("create"));
+        // There is no email on an account here, which is the whole point of
+        // them, and it means there is nothing to mail a reset to. Saying so is
+        // better than a link that goes nowhere.
+        $a("ao-forgot").addEventListener("click", () => setAuthMsg("auth-choose-err",
+          "An account here has no email address, so a password cannot be mailed back to you. " +
+          "Play as a guest, or create a new account.", "info"));
+      }
 
       // Escape closes it, the way the guest card does, and for the same
       // reason a click on the scrim does not: what shows through the scrim is

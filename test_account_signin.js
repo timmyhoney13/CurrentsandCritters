@@ -7,19 +7,22 @@
  *
  * What this file pins, in the order a player meets it:
  *
- *   1. THE SIGN-IN SCREEN IS THE PAINTING. login-bg.png is one flat image:
- *      eight oceans, the title, an octagon, and two buttons in it that say
- *      PLAY AS GUEST and SIGN IN / CREATE AN ACCOUNT. Nothing is drawn over
- *      its lettering. The two buttons are BOXES over the painted pair, so what
- *      this file measures is that they land on them, at every window size: a
- *      box that has drifted is a button a player aims at and misses.
+ *   1. THE ARTWORK IS SCENERY. It used to BE the screen: login-bg.png was one
+ *      flat image carrying eight oceans, the title, an octagon and two buttons,
+ *      with invisible click boxes positioned over the painted pair in the
+ *      artwork's own 1556x1011 coordinates. A box that drifted was a button a
+ *      player aimed at and missed, and a phone got a whole second octagon
+ *      redrawn in CSS because the printed one came out 141px across.
  *
- *      The one exception is a phone-shaped window, where the painting is
- *      cropped to its title strip because the octagon in it comes out 141px
- *      across with lettering five pixels tall. There, and only there, the
- *      octagon is redrawn large in CSS and the buttons put their own clothes
- *      back on. The printed octagon must be off the screen entirely.
- *   2. THE SECOND BUTTON OPENS A CARD, not a Google popup.
+ *      auth-ocean.jpg carries no words at all. The screen is two halves split
+ *      at the middle: the painting on the left with real type over it, every
+ *      way in on the right. So what this file measures is not where a box
+ *      landed but that each control is there, whole, and reachable at seven
+ *      window sizes, and that a narrow window stacks the halves.
+ *   2. THERE IS ONE GOOGLE PATH AND ONE PASSWORD PATH. The screen carries its
+ *      own username and password field, and signs in through the same function
+ *      the card's form uses. CREATE AN ACCOUNT opens the card on the create
+ *      pane.
  *   3. THE CARD ASKS FIRST ("do you already have one?"), then shows the form
  *      for the answer. Google is at the bottom of BOTH forms.
  *   4. THE GREEN BAR IS THE RULE, not decoration: Create Account is disabled
@@ -63,52 +66,66 @@ function check(name, cond, extra) {
 //  SOURCE
 // ══════════════════════════════════════════════════════════════════════════
 
-console.log("\nthe artwork says it itself, and the buttons are boxes on it");
+console.log("\nthe artwork is scenery, and every way in is real markup");
 {
-  check("the sign-in screen is still the painted one, eight oceans and all",
-        /login-bg\.png/.test(HTML) && /class="auth-step-choose-img"/.test(HTML));
-  check("both buttons say what they do",
-        />Play as Guest</.test(HTML) && />Sign In \/ Create an Account</.test(HTML));
-  // The paint carries the lettering on any window that can show it, so the
-  // label in the page is hidden the ACCESSIBLE way: clipped to a pixel, still
-  // read aloud, still the button's name. display:none would take the name off
-  // the button and leave a screen reader announcing "button".
-  check("…and their labels are hidden by clipping, never by display:none",
+  check("the sign-in screen is the painting with no words baked into it",
+        /auth-ocean\.jpg/.test(HTML) && /class="ao-art-img"/.test(HTML)
+        && !/class="auth-step-choose-img"/.test(HTML));
+  // The old screen WAS login-bg.png: the title, the panel and both buttons were
+  // painted into one image with invisible boxes over them. Every one of those
+  // words is real type now, which is why none of the artwork-coordinate
+  // machinery below it exists any more.
+  check("…so the title is text a browser can set, not pixels",
+        /<h1 class="ao-title">Currents<\/h1>/.test(HTML)
+        && /#auth-step-choose \.ao-title \{[\s\S]{0,200}?font-family: "Cinzel"/.test(CSS));
+  check("…and the tagline is the game's own line",
+        />Build Your Ocean\. Rule the Current\.</.test(HTML)
+        && />Create powerful marine combinations and outplay the opponents\.</.test(HTML));
+  check("every way in is on the one screen",
+        /id="ao-user"/.test(HTML) && /id="ao-pass"/.test(HTML)
+        && /id="ao-signin"/.test(HTML) && /id="auth-choose-google-btn"/.test(HTML)
+        && /id="auth-guest-btn"/.test(HTML) && /id="ao-create"/.test(HTML));
+  check("…and their labels are shown, not clipped to a pixel",
         /class="auth-btn-label"/.test(HTML)
-        && /\.auth-btn-label \{[\s\S]{0,240}?clip-path: inset\(50%\)/.test(CSS)
-        && !/> \.auth-btn-label \{[\s\S]{0,240}?display: none/.test(CSS));
-  check("a redrawn octagon still exists, for the layout that needs one",
-        /<div class="auth-oct" aria-hidden="true">/.test(HTML)
-        && /#auth-step-choose > \.auth-oct \{/.test(CSS));
-  check("…but it is not drawn over the painting by default",
-        /#auth-step-choose > \.auth-oct \{\s*\n\s*display: none;/.test(CSS));
-  check("…and it is scenery wherever it does show, so it can never take a click",
-        /#auth-step-choose > \.auth-oct \{[\s\S]{0,900}?pointer-events: none/.test(CSS));
-  check("its lettering is real text, for the same one layout",
-        /class="auth-oct-title"/.test(HTML) && /class="auth-oct-sub"/.test(HTML));
-  // Everything on this screen is measured from the painted octagon, so one
-  // variable moves the whole panel when a phone letterboxes the artwork.
-  check("the panel is built from the octagon's size, not from scattered percentages",
-        /var\(--oct-size\)/.test(CSS) && /var\(--oct-cy\)/.test(CSS)
-        && /var\(--oct-cx\)/.test(CSS) && /var\(--oct-h\)/.test(CSS));
-  check("…measured off the artwork's own 1556x1011 coordinates",
-        /--auth-w: min\(100vw, calc\(100vh \* 1556 \/ 1011\)\)/.test(CSS));
-  check("…and a phone-shaped window grows it rather than shrinking the words",
-        /@media \(max-aspect-ratio: 4\/5\)[\s\S]{0,400}?--oct-size: min\(84vw/.test(CSS));
-  check("…where the panel and its words come back on together",
-        /#auth-step-choose > \.auth-oct,\s*\n\s*#auth-step-choose > \.auth-oct-copy \{ display: block; \}/.test(CSS));
-  // A box you cannot see is only ever meant when the thing under it is up.
-  check("nothing on the artwork is clickable until the artwork has painted",
-        /#auth-step-choose:not\(\.is-armed\) > \.pv-btn,[\s\S]{0,260}?pointer-events: none/.test(CSS)
+        && !/#auth-step-choose[\s\S]{0,120}?\.auth-btn-label \{[\s\S]{0,240}?clip-path: inset\(50%\)/.test(CSS));
+  check("the octagon redrawn for a phone is gone with the paint that needed it",
+        !/class="auth-oct"/.test(HTML) && !/auth-oct-copy/.test(HTML)
+        && !/--oct-size/.test(CSS) && !/--oct-cx/.test(CSS));
+  check("the split is the halfway line, and the art is half of it",
+        /#auth-step-choose > \.ao-art \{[\s\S]{0,300}?width: 50%;/.test(CSS)
+        && /#auth-step-choose > \.ao-form \{[\s\S]{0,300}?width: 50%;/.test(CSS));
+  check("…and a narrow window stacks them instead of halving them",
+        /@media \(max-width: 820px\), \(max-aspect-ratio: 4\/5\)[\s\S]{0,1400}?#auth-step-choose > \.ao-art \{[\s\S]{0,200}?width: 100%;/.test(CSS));
+  // A form you cannot see yet is only ever clicked by accident.
+  check("nothing in the column is clickable until the artwork has painted",
+        /#auth-step-choose:not\(\.is-armed\) > \.ao-form/.test(CSS)
         && /function armChooseStep\(\)/.test(APP));
 }
 
-console.log("\nthe second button opens a card, not a Google popup");
+console.log("\nthere is one Google path, and one password path");
 {
-  check("the chooser button opens the account card",
-        /chooseAccountBtn\.addEventListener\("click", \(\) => openAccountCard\("ask"\)\)/.test(APP));
-  check("…and no longer runs Google sign-in on the spot",
-        !/auth-choose-google-btn"\)[\s\S]{0,300}?beginCleanGoogleSignIn/.test(APP));
+  // This button spent one release as the only way in and one as a door onto
+  // the account card. Now that the screen carries its own username and password
+  // field, Google is one door among several and does the thing it says.
+  check("CONTINUE WITH GOOGLE runs Google",
+        /chooseAccountBtn\.addEventListener\("click", \(\) => \{ void ccGoogleSignIn\("auth-choose-err"\); \}\)/.test(APP));
+  check("…through the one path the cards use too",
+        /async function ccGoogleSignIn\(errId\)/.test(APP)
+        && /\$a\("aao-in-google"\)\.addEventListener\("click",  \(\) => \{ void ccGoogleSignIn\("aao-in-err"\); \}\)/.test(APP));
+  check("CREATE AN ACCOUNT opens the card on the pane that makes one",
+        /\$a\("ao-create"\)\.addEventListener\("click", \(\) => openAccountCard\("create"\)\)/.test(APP));
+  // Two forms ask for a username and a password now. They must be one function
+  // taking two sets of fields, not two copies drifting apart.
+  check("the screen's own form signs in through the card's own function",
+        /async function ccPasswordSignIn\(ids\)/.test(APP)
+        && /user: "ao-user", pass: "ao-pass", err: "auth-choose-err", go: "ao-signin"/.test(APP));
+  check("…and Enter in either field submits it",
+        /onEnter\("ao-user", \(\) => \{ void inlineSignIn\(\); \}\)/.test(APP)
+        && /onEnter\("ao-pass", \(\) => \{ void inlineSignIn\(\); \}\)/.test(APP));
+  // There is no email on an account here, so there is nothing to send a reset
+  // to. A link that goes nowhere is worse than saying so.
+  check("FORGOT PASSWORD says the true thing instead of going nowhere",
+        /\$a\("ao-forgot"\)\.addEventListener\("click", \(\) => setAuthMsg\("auth-choose-err",[\s\S]{0,220}?no email address/.test(APP));
   check("the card is a child of the step, so showStep hides it with the screen",
         /<div id="auth-step-choose"[\s\S]*?<div id="auth-account-overlay"/.test(HTML));
   check("…and showStep really does close it",
@@ -271,19 +288,6 @@ if (!CHROME) {
     }).listen(${PORT});
   `;
 
-  // The two buttons PAINTED into login-bg.png, measured off the image in its
-  // own 1556x1011 coordinates and written as fractions of the artwork box. The
-  // boxes a player actually clicks have to CONTAIN these at every window size:
-  // a box that has drifted is a button somebody aims at and misses.
-  const PAINTED_BTNS = {
-    guest: { l: 567.5 / 1556, r: 1005.5 / 1556, t: 549 / 1011, b: 631 / 1011 },
-    acct:  { l: 567.5 / 1556, r: 1005.5 / 1556, t: 655 / 1011, b: 734 / 1011 },
-  };
-  // The top edge of the octagon printed into it, as a fraction of the artwork's
-  // WIDTH, because the phone layout scales the strip to the full width and
-  // takes its slice off the top. Nothing of that octagon may be in the slice.
-  const PAINTED_OCT_TOP_OF_W = 244.5 / 1556;
-
   const HELPERS = `
   function R(sel){ var e=document.querySelector(sel); if(!e) return null;
     var r=e.getBoundingClientRect();
@@ -365,80 +369,68 @@ if (!CHROME) {
   const SIZES = [[1440, 900], [1920, 1080], [1280, 800], [1024, 768], [500, 900], [820, 1180], [900, 520]];
 
   try {
-    // ── 1. The click boxes land on the painted buttons ────────────────────
-    console.log("\nthe two boxes land on the two buttons painted underneath them");
+    // ── 1. Every way in is a real, whole, reachable control ───────────────
+    // There is nothing to "land on" any more: the buttons are not boxes over
+    // paint, they are buttons. What can still go wrong is a control that is
+    // clipped, off the screen, or pushing the page sideways at some size
+    // nobody opened, so that is what is measured, at seven of them.
+    console.log("\nevery way in is a real control at every window size");
     for (const [w, h] of SIZES) {
       const r = run("_acc_cover.html", `
-        log.img = R(".auth-step-choose-img");
-        log.oct = R(".auth-oct");
-        log.guest = R("#auth-guest-btn");
-        log.acct  = R("#auth-choose-google-btn");
-        log.guestOvf = (function(){var e=document.getElementById("auth-guest-btn");
-          return e.scrollWidth > e.clientWidth + 1;})();
-        log.acctOvf = (function(){var e=document.getElementById("auth-choose-google-btn");
-          return e.scrollWidth > e.clientWidth + 1;})();
-        // The name a screen reader gets, whether or not the label is painted.
+        var ids = ["ao-user","ao-pass","ao-signin","auth-choose-google-btn","auth-guest-btn","ao-create"];
+        log.ctl = {};
+        ids.forEach(function (id) {
+          var e = document.getElementById(id);
+          if (!e) { log.ctl[id] = null; return; }
+          var b = e.getBoundingClientRect(), cs = getComputedStyle(e);
+          log.ctl[id] = {
+            w: Math.round(b.width), h: Math.round(b.height),
+            shown: cs.display !== "none" && cs.visibility !== "hidden",
+            inside: b.left >= -1 && b.right <= window.innerWidth + 1,
+            ovf: e.scrollWidth > e.clientWidth + 1,
+          };
+        });
+        // The tap target for a field is the row it sits in, not the bare input:
+        // the input is one line of text inside a 60px row.
+        log.rows = Array.prototype.map.call(document.querySelectorAll("#auth-step-choose .ao-field"),
+          function (e) { return Math.round(e.getBoundingClientRect().height); });
         log.guestName = document.getElementById("auth-guest-btn").textContent.trim();
         log.acctName  = document.getElementById("auth-choose-google-btn").textContent.trim();
+        log.art = R(".ao-art-img");
         log.docW = document.documentElement.scrollWidth;
         log.vw = window.innerWidth;
         done();
-      `, w, h, (r) => r.img && r.guest);
-      if (!r || !r.img) { check(`${w}x${h}: the harness reached the sign-in screen`, false); continue; }
+      `, w, h, (r) => r.ctl && r.ctl["ao-signin"]);
+      if (!r || !r.ctl) { check(`${w}x${h}: the harness reached the sign-in screen`, false); continue; }
 
-      // In the phone layout only a title strip of the artwork is shown, so the
-      // painted buttons are not on the screen and there is nothing to land on.
-      const shrunk = r.img.h < r.img.w * (1011 / 1556) * 0.9;
-      if (!shrunk) {
-        const paintedBox = (f) => ({
-          l: r.img.l + f.l * r.img.w, r: r.img.l + f.r * r.img.w,
-          t: r.img.t + f.t * r.img.h, b: r.img.t + f.b * r.img.h,
-        });
-        [["PLAY AS GUEST", r.guest, PAINTED_BTNS.guest],
-         ["SIGN IN / CREATE AN ACCOUNT", r.acct, PAINTED_BTNS.acct]].forEach(([name, drawn, f]) => {
-          const px = paintedBox(f);
-          const covers = drawn.l <= px.l + 0.5 && drawn.r >= px.r - 0.5
-                      && drawn.t <= px.t + 0.5 && drawn.b >= px.b - 0.5;
-          check(`${w}x${h}: the box for ${name} covers the painted button`, covers,
-                `box ${Math.round(drawn.l)},${Math.round(drawn.t)}..${Math.round(drawn.r)},${Math.round(drawn.b)} `
-                + `vs paint ${Math.round(px.l)},${Math.round(px.t)}..${Math.round(px.r)},${Math.round(px.b)}`);
-        });
-        // The painting says everything here, so nothing may be drawn on top of
-        // its octagon: a panel over it would cover the artwork's own lettering.
-        check(`${w}x${h}: nothing is drawn over the painted octagon`,
-              r.oct.w === 0 && r.oct.h === 0,
-              `panel is ${Math.round(r.oct.w)}x${Math.round(r.oct.h)}`);
-      } else {
-        check(`${w}x${h}: the phone layout crops the printed octagon away entirely`,
-              r.img.h <= r.img.w * PAINTED_OCT_TOP_OF_W + 1,
-              `strip is ${Math.round(r.img.h)} tall, the printed octagon starts at `
-              + `${Math.round(r.img.w * PAINTED_OCT_TOP_OF_W)}`);
-        check(`${w}x${h}: …so the panel is redrawn, below the strip`,
-              r.oct.w > 0 && r.img.h <= r.oct.t + 1,
-              `strip ends ${Math.round(r.img.h)}, panel starts ${Math.round(r.oct.t)}`);
-        check(`${w}x${h}: both labels fit inside their buttons`,
-              r.guestOvf === false && r.acctOvf === false);
-      }
-      // Painted or drawn, the buttons keep the names they are read out by.
+      Object.keys(r.ctl).forEach((id) => {
+        const c = r.ctl[id];
+        check(`${w}x${h}: ${id} is there, whole, and on the screen`,
+              !!c && c.shown && c.w >= 40 && c.h >= 16 && c.inside && !c.ovf,
+              c ? `${c.w}x${c.h} inside=${c.inside} clipped=${c.ovf}` : "missing");
+      });
+      check(`${w}x${h}: both fields are a row big enough to tap`,
+            r.rows && r.rows.length === 2 && r.rows.every((x) => x >= 44), String(r.rows));
+      check(`${w}x${h}: the painting is on the screen too`, !!r.art && r.art.w > 0 && r.art.h > 0);
       check(`${w}x${h}: both buttons still say what they do`,
-            r.guestName === "Play as Guest" && r.acctName === "Sign In / Create an Account",
+            r.guestName === "Play as Guest" && r.acctName === "Continue with Google",
             `${r.guestName} / ${r.acctName}`);
       check(`${w}x${h}: nothing pushes the page sideways`, r.docW <= r.vw + 1,
             `${r.docW} > ${r.vw}`);
     }
 
-    // ── 2. The button opens the card ──────────────────────────────────────
-    console.log("\nSIGN IN / CREATE AN ACCOUNT opens the card");
+    // ── 2. CREATE AN ACCOUNT opens the card ───────────────────────────────
+    console.log("\nCREATE AN ACCOUNT opens the card");
     {
       const r = run("_acc_open.html", `
         setTimeout(function () {
           log.before = cardOpen();
-          document.getElementById("auth-choose-google-btn").click();
+          document.getElementById("ao-create").click();
           log.after = cardOpen();
           log.ask    = vis("aao-pane-ask");
           log.signin = vis("aao-pane-signin");
           log.create = vis("aao-pane-create");
-          // The two painted-over buttons underneath must be inert while it is up.
+          // The ways in underneath must be inert while the card is up.
           log.guestInert = getComputedStyle(document.getElementById("auth-guest-btn")).pointerEvents === "none";
           // …and the card, not the artwork, owns the pixel at its own centre.
           var c = R("#auth-account-overlay .ago-card");
@@ -449,8 +441,11 @@ if (!CHROME) {
       `, 1440, 900, (r) => r.after !== undefined);
       check("the card is shut until it is asked for", r && r.before === false);
       check("…the button opens it", r && r.after === true);
-      check("…on the question, not on a form", r && r.ask === true && r.signin === false && r.create === false);
-      check("…with the buttons underneath held inert", r && r.guestInert === true);
+      // Straight to the form that makes an account: the player answered the
+      // question by clicking a button that says which answer it is.
+      check("…on the form that makes one, not back on the question",
+            r && r.create === true && r.ask === false && r.signin === false);
+      check("…with the ways in underneath held inert", r && r.guestInert === true);
       check("…and it is really in front", r && r.topAtCard === true);
     }
 
