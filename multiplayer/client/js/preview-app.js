@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.98";
-  const APP_BUILD   = "2026-08-27.3";
+  const APP_VERSION = "1.6.99";
+  const APP_BUILD   = "2026-08-27.4";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -1246,7 +1246,10 @@
         + '<path d="M10.6 3.8h2.8v2.8" stroke="currentColor" stroke-width="1.6" '
         + 'stroke-linecap="round" stroke-linejoin="round"/></svg> Analytics';
       btn.addEventListener("click", () => {
-        try { window.__ccAnalyticsOpen && window.__ccAnalyticsOpen(); } catch (_) {}
+        // analytics-ui.js rides the late loader (see preview.html), so make
+        // sure it is here before reaching for the panel it defines.
+        const go = () => { try { window.__ccAnalyticsOpen && window.__ccAnalyticsOpen(); } catch (_) {} };
+        if (window.ccLateModules) window.ccLateModules().then(go); else go();
       });
       nav.appendChild(btn);
     }
@@ -17053,7 +17056,11 @@
       opts = opts || {};
       let q = "game_window=1";
       if (opts.auth) q += "&auth=" + encodeURIComponent(opts.auth);
-      return "/game?" + q;
+      // "/" and not "/game": the canonical-path script at the top of
+      // preview.html rewrites /game to / anyway, so asking for /game cost a
+      // whole extra document load, fetched and thrown away, before the game
+      // window could even start.
+      return "/?" + q;
     }
 
     // Open (or focus) the ONE dedicated game window, a separate, large,
@@ -17189,6 +17196,10 @@
         // This prevents a previously signed-in user from being auto-restored
         // when someone else opens the game on the same device.
         _auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(() => {});
+        // Feed the boot meter (preview.html) the real milestones, so the
+        // percentage on the loading screen is describing this sign-in rather
+        // than counting down a guessed duration.
+        try { window.ccBoot && window.ccBoot.stage("firebase"); } catch (_) {}
       } catch (e) {
         ccReport("firebase_init_failed", ccErrDetail(e), "error");
         console.warn("Firebase init failed:", e);
@@ -21144,6 +21155,7 @@
       // Firebase ready, wait for persisted auth state
       _auth.onAuthStateChanged(async (user) => {
         const authSeq = ++_authStateSeq;
+        try { window.ccBoot && window.ccBoot.stage("auth"); } catch (_) {}
 
         // ── LAUNCHER MODE ── Never reveal the lobby in the launcher tab; the
         // real game runs in the dedicated window. Just show the launch screen
@@ -21154,23 +21166,19 @@
             _authUser = user;
             _ccHadAccountUser = true;
             _guestSessionActive = false;
-            let nick = String(user.displayName || "").split(" ")[0] || "";
-            let avatarUrl = "";
-            try {
-              const { profile, reason } = await loadProfileWithFallbacks(user);
-              if (authSeq !== _authStateSeq) return;
-              if (reason !== "error" && profile) {
-                _activeProfile = profile;
-                if (profile.nickname) nick = profile.nickname;
-                _playerNickname = profile.nickname || "";
-                _friendCode = profile.friend_code || "";
-                avatarUrl = sanitizeSelectableAvatar(profile.avatar_url, user.uid) || "";
-              }
-            } catch (_) {}
             // Signed in on the launcher, go straight into the game in THIS tab
             // (the Firebase session carries over via this tab's sessionStorage).
             // No separate window, no "running" card.
-            _ccLaunchCtx = { type: "google", nick, avatarUrl, gameUrl: ccGameUrl({ auth: "google" }) };
+            //
+            // This used to read the whole Firestore profile first, to fill in a
+            // nickname and an avatar for a launch card that this navigation
+            // then throws away. Nothing downstream ever saw either one, and it
+            // was the FIRST Firestore call of the session, so it paid for
+            // opening the connection too: the better part of a second of
+            // loading screen bought nothing at all. The game window reads the
+            // profile itself a moment later, which is the read that counts.
+            const nick = String(user.displayName || "").split(" ")[0] || "";
+            _ccLaunchCtx = { type: "google", nick, avatarUrl: "", gameUrl: ccGameUrl({ auth: "google" }) };
             ccLaunchFromLauncher(_ccLaunchCtx);
           } else {
             _authUser = null;
@@ -21229,6 +21237,8 @@
               "Could not load your profile. Please check your connection and try signing in again.", false);
             return;
           }
+
+          try { window.ccBoot && window.ccBoot.stage("profile"); } catch (_) {}
 
           _activeProfile = profile || null;
           // Load unlocked animal icons before judging avatar validity.
@@ -22472,8 +22482,12 @@
 
     $a("stats-tutorial-btn").addEventListener("click", () => {
       // New 3-mode tutorial chooser, opens OVER the lobby (kept visible) so the
-      // Main Menu Tour can spotlight the real menu. Defined in the tutorial module.
-      if (window.__openTutorialChooser) window.__openTutorialChooser();
+      // Main Menu Tour can spotlight the real menu. Defined in the tutorial
+      // module, which is no longer on the boot critical path, so ask the late
+      // loader for it first: on the rare click that beats it here, this waits
+      // the fraction of a second instead of quietly doing nothing.
+      const go = () => { if (window.__openTutorialChooser) window.__openTutorialChooser(); };
+      if (window.ccLateModules) window.ccLateModules().then(go); else go();
     });
 
     // ── Leaderboard button, switches to the in-game leaderboard tab ─

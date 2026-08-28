@@ -2640,6 +2640,14 @@ ROOM_ID_RE = re.compile(r"[A-Z0-9]{4,12}")
 ROOM_ID_ACCEPT_RE = re.compile(r"[A-Z0-9]{4,12}")
 
 CLIENT_DIR = os.path.join(BASE_DIR, "multiplayer", "client")
+
+# Compressed copies of the static files, keyed by file version (ETag + path).
+# See _maybe_gzip: without this the app bundle was re-gzipped from scratch on
+# every page load, on the one interpreter lock everything else shares.
+_GZIP_CACHE: Dict[str, bytes] = {}
+_GZIP_CACHE_LOCK = threading.Lock()
+_GZIP_CACHE_MAX = 64
+
 MANIFEST_PATH = os.path.join(CLIENT_DIR, "manifest.webmanifest")
 VERSION_JSON_PATH = os.path.join(CLIENT_DIR, "version.json")
 SERVICE_WORKER_PATH = os.path.join(CLIENT_DIR, "sw.js")
@@ -10015,13 +10023,22 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         self.send_header("Cross-Origin-Opener-Policy", "unsafe-none")
         self._apply_cors_headers()
 
-    def _maybe_gzip(self, raw: bytes, ctype: str) -> Tuple[bytes, Optional[str]]:
+    def _maybe_gzip(self, raw: bytes, ctype: str, cache_key: Optional[str] = None) -> Tuple[bytes, Optional[str]]:
         """Gzip large text-like bodies when the client advertises support.
 
         Images, audio, fonts, and tiny payloads are returned untouched (gzip
         would only burn CPU on already-compressed or trivially small data).
         Any failure falls back to the original uncompressed bytes so serving
-        can never be broken by compression. Returns (body, encoding-or-None)."""
+        can never be broken by compression. Returns (body, encoding-or-None).
+
+        When a cache_key is given (static files pass their ETag, which already
+        folds in mtime and size), the compressed bytes are kept and reused.
+        They were being recomputed for every single request before: the app
+        bundle alone is 40ms of single-threaded work, on the same interpreter
+        lock that runs the bots, charged to every player's first byte on every
+        page load. Compressing a file that has not changed since the last time
+        we compressed it is pure waste, and it was the biggest single lump of
+        it left in the static path."""
         try:
             if not raw or len(raw) < 1400:
                 return raw, None
@@ -10039,6 +10056,23 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 or "css" in ct
             ):
                 return raw, None
+            if cache_key:
+                with _GZIP_CACHE_LOCK:
+                    hit = _GZIP_CACHE.get(cache_key)
+                    if hit is not None:
+                        return hit, "gzip"
+                # Level 9 rather than 6: it is paid once per file version now,
+                # not once per request, so the extra work is free and the bytes
+                # on the wire are smaller for everybody.
+                body = gzip.compress(raw, 9)
+                with _GZIP_CACHE_LOCK:
+                    # A hard bound, because this is keyed by file VERSION: a
+                    # long-running server that ships many builds would otherwise
+                    # hold on to every one of them forever.
+                    if len(_GZIP_CACHE) >= _GZIP_CACHE_MAX:
+                        _GZIP_CACHE.clear()
+                    _GZIP_CACHE[cache_key] = body
+                return body, "gzip"
             return gzip.compress(raw, 6), "gzip"
         except Exception:
             return raw, None
@@ -10124,7 +10158,9 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         ctype = ctype_override or content_type or guessed_type or "application/octet-stream"
         # Transparent gzip for text-like assets (JS/CSS/SVG/JSON); images,
         # audio, and fonts are left untouched by _maybe_gzip.
-        body, enc = self._maybe_gzip(raw, ctype)
+        # The ETag is derived from mtime + size, so it is exactly the identity
+        # of "this version of this file": the right key for the compressed copy.
+        body, enc = self._maybe_gzip(raw, ctype, cache_key=(etag + "|" + file_path) if etag else None)
         if enc:
             vary_parts.append("Accept-Encoding")
         self.send_response(HTTPStatus.OK)

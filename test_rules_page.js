@@ -321,9 +321,15 @@ check("loads css/rulebook.css AFTER css/preview.css", () => {
 });
 
 check("loads js/gamedata.js BEFORE js/preview-app.js", () => {
-  const a = previewHtml.indexOf("/js/gamedata.js");
-  const b = previewHtml.indexOf("/js/preview-app.js");
+  // Measured on the SCRIPT TAGS, not on the raw text. preview-app.js is also
+  // named by a <link rel="preload"> near the top of the head (it is the one
+  // file the whole boot waits on, so it is asked for first), and a preload
+  // fetches without executing: it cannot change the order these two run in.
+  const tags = previewHtml.match(/<script\b[^>]*\bsrc=[^>]*>/g) || [];
+  const a = tags.findIndex(t => t.includes("/js/gamedata.js"));
+  const b = tags.findIndex(t => t.includes("/js/preview-app.js"));
   assert(a !== -1, "gamedata.js script tag missing");
+  assert(b !== -1, "preview-app.js script tag missing");
   assert(a < b, "gamedata.js must be ordered before preview-app.js");
   // Both deferred, or the order stops being guaranteed.
   for (const f of ["gamedata.js", "preview-app.js", "rulebook.js"]) {

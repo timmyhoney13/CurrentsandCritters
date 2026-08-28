@@ -4,14 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Currents and Critters</title>
-  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <!-- Load fonts without blocking first paint: fetch as a print stylesheet,
-       then flip to all once it arrives (display=swap already shows fallback
-       text immediately). <noscript> keeps it working with JS disabled. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Cinzel:wght@600;900&family=Luckiest+Guy&family=Nunito:wght@400;600;700;800&display=swap" media="print" onload="this.media='all'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Cinzel:wght@600;900&family=Luckiest+Guy&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"></noscript>
 
   <!-- Always serve the game from the stable canonical domain so Firebase auth works -->
   <script>
@@ -33,32 +25,495 @@
         return "/";
       }
 
+      // ══ THE FAST DOOR ══════════════════════════════════════════════
+      // On a computer this page is opened twice. First as the LAUNCHER (a bare
+      // "/"), which loads the whole app, waits for Firebase to hand back the
+      // signed-in account, and then navigates this very tab to "/?game_window=1"
+      // so it can come back as the real game window. The second load repeats
+      // every one of those steps. That is two megabytes of JavaScript parsed
+      // twice and two round trips to Google's auth servers, and the player
+      // spends all of it looking at the loading screen.
+      //
+      // The launcher's whole job is to answer one question: is somebody already
+      // signed in here? That answer is sitting in storage, and storage can be
+      // read synchronously, before a single stylesheet or script has been asked
+      // for. Firebase keeps the session under a "firebase:authUser:" key (this
+      // app uses SESSION persistence, so it is in sessionStorage), and a guest
+      // is a saved nickname in localStorage. If either one is there, we know how
+      // the launcher was going to answer, so we skip it entirely and go straight
+      // to the game window. The first load never happens at all.
+      //
+      // Getting it wrong is cheap and self-correcting: a key that turns out to
+      // be a dead session lands on the sign-in screen, which is exactly what the
+      // launcher would have shown anyway.
+      function fastDoor() {
+        try {
+          var search = location.search || "";
+          var hash = location.hash || "";
+          // Already the game window, or a room link (which is one too).
+          if (/[?&]game_window=1(?:&|$)/.test(search)) return;
+          if (ROOM_PATH_RE.test(location.pathname || "")) return;
+          // Only the bare front door. Never a deep link (/rules, /privacy, ...).
+          if (normalizeRenderPath(location.pathname) !== "/") return;
+          if ((location.pathname || "/") !== "/") return;
+          // Phones already play inline in this one tab, so there is no second
+          // load to save them and the redirect would be pure cost. Same test
+          // js/device-select.js opens with.
+          if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return;
+          // One shot per tab, so a redirect can never chase its own tail.
+          try {
+            if (sessionStorage.getItem("cc_fast_door") === "1") return;
+          } catch (_) {}
+
+          var signedIn = false;
+          try {
+            for (var i = 0; i < sessionStorage.length; i++) {
+              var k = sessionStorage.key(i);
+              if (k && k.indexOf("firebase:authUser:") === 0) { signedIn = true; break; }
+            }
+          } catch (_) {}
+          if (!signedIn) {
+            try { signedIn = !!String(localStorage.getItem("fish_guest_nick") || "").trim(); } catch (_) {}
+          }
+          if (!signedIn) return;
+
+          try { sessionStorage.setItem("cc_fast_door", "1"); } catch (_) {}
+          window.location.replace("/" + (search ? search + "&" : "?") + "game_window=1" + hash);
+        } catch (_) {}
+      }
+
       // Local file open (file:///...) should always jump to a valid live URL.
       if (location.protocol === "file:") {
         window.location.replace("https://" + GAME_HOST + "/");
         return;
       }
 
-      // Keep local dev endpoints untouched.
-      if (LOCAL_HOSTS[location.hostname]) return;
+      // Keep local dev endpoints untouched (except for the fast door below,
+      // which is about this page's own boot, not about which host serves it).
+      if (!LOCAL_HOSTS[location.hostname]) {
+        var normalizedPath = normalizeRenderPath(location.pathname);
+        var search = location.search || "";
+        var hash = location.hash || "";
 
-      var normalizedPath = normalizeRenderPath(location.pathname);
-      var search = location.search || "";
-      var hash = location.hash || "";
+        if (location.hostname !== GAME_HOST) {
+          window.location.replace("https://" + GAME_HOST + normalizedPath + search + hash);
+          return;
+        }
 
-      if (location.hostname !== GAME_HOST) {
-        window.location.replace("https://" + GAME_HOST + normalizedPath + search + hash);
-        return;
+        // If we are already on Render but at a legacy/non-canonical path, normalize it.
+        if (location.pathname !== normalizedPath) {
+          window.location.replace(normalizedPath + search + hash);
+          return;
+        }
       }
 
-      // If we are already on Render but at a legacy/non-canonical path, normalize it.
-      if (location.pathname !== normalizedPath) {
-        window.location.replace(normalizedPath + search + hash);
-      }
+      fastDoor();
     })();
   </script>
 
-  <script defer src="/js/error-logging.js?v=2026-08-27.3"></script>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Load fonts without blocking first paint: fetch as a print stylesheet,
+       then flip to all once it arrives (display=swap already shows fallback
+       text immediately). <noscript> keeps it working with JS disabled. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Cinzel:wght@600;900&family=Luckiest+Guy&family=Nunito:wght@400;600;700;800&display=swap" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Cinzel:wght@600;900&family=Luckiest+Guy&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"></noscript>
+
+  <!-- The app itself, asked for before anything else on the page. The browser
+       finds it either way (it is a deferred script further down), but by then
+       it is queued behind every stylesheet and every piece of artwork, and it
+       is the ONE file the loading screen is actually waiting on: nothing can
+       happen until it has arrived and run. Asking for it here, first and at
+       high priority, puts it at the front of the queue where it belongs. -->
+  <link rel="preload" as="script" fetchpriority="high" href="/js/preview-app.js?v=2026-08-27.4">
+
+  <!-- The four hosts the sign-in talks to, opened now instead of when we get
+       there. Firebase's boot is a chain: fetch the SDK from gstatic, refresh
+       the token at securetoken, resolve the account at identitytoolkit, then
+       read the profile from firestore. Each of those is a different origin, so
+       without this each one starts with its own DNS lookup, TCP handshake and
+       TLS negotiation while the player watches the loading screen. Warming the
+       connections here overlaps all of that with the download of the app
+       itself, which is happening anyway. -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+
+
+  <!-- ══ THE BOOT METER ══════════════════════════════════════════════
+       Everything below is inline on purpose. It is the only thing on the page
+       that can paint before the 130KB stylesheet lands, so it cannot afford to
+       wait on a stylesheet or a script of its own. It is also the only honest
+       progress bar we can draw: it counts the real assets as they arrive and
+       the real sign-in steps as they finish, rather than animating a
+       fixed-length fake and hoping the app is ready when it ends.
+
+       The percentage is a weighted tally. Each file on the critical path is
+       worth roughly what it costs to fetch and run, and the four sign-in stages
+       after that (Firebase up, account resolved, profile read, screen painted)
+       carry the rest. The needle only ever moves forward, eases rather than
+       jumps, and is held back from 100% until the app actually says it is in. -->
+  <style id="cc-boot-style">
+    #cc-boot {
+      position: fixed; inset: 0; z-index: 99000;
+      /* The light shafts and the bubbles are both drawn deliberately larger
+         than this box so their edges never show. Without this they push the
+         page sideways and the whole app gets a horizontal scrollbar while it
+         is still loading. */
+      overflow: hidden;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 26px; padding: 24px;
+      background: linear-gradient(180deg, #52e2fb 0%, #3ed6f2 22%, #1d9fd4 58%, #0b4f8f 100%);
+      color: #f3fbff;
+      font-family: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      opacity: 1; transition: opacity .45s ease;
+    }
+    #cc-boot.cc-boot-gone { opacity: 0; pointer-events: none; }
+    /* While the boot screen is up the page beneath it is half-dressed: the
+       stylesheet is still on its way, so the raw markup is laid out at whatever
+       width it likes. Nobody can see it (the boot screen covers everything),
+       but they could see the scrollbars it puts on the window. Locked shut
+       until the app is in, then handed straight back to preview.css. */
+    html.cc-booting, html.cc-booting body { overflow: hidden; }
+    /* Sunlight coming down through the surface. Two soft cones, drifting, so
+       the screen is moving even when the network is not. */
+    #cc-boot::before {
+      content: ""; position: absolute; inset: -25% -25% auto -25%; height: 125%;
+      background: repeating-linear-gradient(
+        99deg,
+        rgba(255,255,255,0)    0px,
+        rgba(255,255,255,.13)  26px,
+        rgba(255,255,255,.20)  44px,
+        rgba(255,255,255,.05)  70px,
+        rgba(255,255,255,0)    116px,
+        rgba(255,255,255,0)    210px);
+      /* Brightest at the surface, gone by the time the water is deep. */
+      -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,.55) 46%, transparent 80%);
+      mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,.55) 46%, transparent 80%);
+      filter: blur(6px);
+      animation: cc-boot-rays 11s ease-in-out infinite alternate;
+      pointer-events: none;
+    }
+    @keyframes cc-boot-rays {
+      from { transform: translateX(-4%) skewX(0deg);    opacity: .7; }
+      to   { transform: translateX(4%)  skewX(-2.5deg); opacity: 1; }
+    }
+    /* A few bubbles rising through it, because a loading screen with nothing
+       alive on it reads as a frozen one. */
+    #cc-boot::after {
+      content: ""; position: absolute; left: 0; right: 0; bottom: -40px; height: 60%;
+      background:
+        radial-gradient(circle at 14% 90%, rgba(255,255,255,.5) 0 2.5px, transparent 3px),
+        radial-gradient(circle at 27% 96%, rgba(255,255,255,.36) 0 4px, transparent 4.5px),
+        radial-gradient(circle at 41% 88%, rgba(255,255,255,.42) 0 2px, transparent 2.5px),
+        radial-gradient(circle at 63% 94%, rgba(255,255,255,.5) 0 3px, transparent 3.5px),
+        radial-gradient(circle at 78% 90%, rgba(255,255,255,.34) 0 2.5px, transparent 3px),
+        radial-gradient(circle at 89% 97%, rgba(255,255,255,.44) 0 3.5px, transparent 4px);
+      animation: cc-boot-bubbles 7s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes cc-boot-bubbles {
+      from { transform: translateY(0);      opacity: 0; }
+      12%  { opacity: .9; }
+      to   { transform: translateY(-105vh); opacity: 0; }
+    }
+    .cc-boot-inner { position: relative; z-index: 1; width: min(420px, 86vw); text-align: center; }
+    .cc-boot-title {
+      font-family: Cinzel, Georgia, "Times New Roman", serif;
+      font-weight: 900; letter-spacing: .06em; line-height: 1.06;
+      font-size: clamp(26px, 5.2vw, 42px);
+      text-transform: uppercase;
+      text-shadow: 0 2px 0 rgba(6,52,92,.34), 0 10px 26px rgba(4,38,70,.4);
+      margin: 0 0 4px;
+    }
+    .cc-boot-amp { display: block; font-size: .52em; opacity: .82; margin: 2px 0; }
+    .cc-boot-track {
+      position: relative; height: 12px; margin: 26px 0 12px;
+      border-radius: 99px; overflow: hidden;
+      background: rgba(4,44,80,.32);
+      box-shadow: inset 0 2px 5px rgba(3,32,60,.45), 0 1px 0 rgba(255,255,255,.28);
+    }
+    .cc-boot-fill {
+      position: absolute; inset: 0 auto 0 0; width: 0%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #b8f3d6 0%, #6fe3c4 42%, #ffe9a8 100%);
+      box-shadow: 0 0 14px rgba(150,244,214,.7);
+      transition: width .18s linear;
+    }
+    /* A glint travelling along the filled part, so a slow stretch still reads
+       as working rather than as stuck. */
+    .cc-boot-fill::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(100deg, transparent 0 32%, rgba(255,255,255,.62) 50%, transparent 68% 100%);
+      animation: cc-boot-glint 1.5s linear infinite;
+    }
+    @keyframes cc-boot-glint { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+    .cc-boot-row {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    }
+    .cc-boot-pct {
+      font-weight: 800; font-size: 26px; letter-spacing: .02em;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 2px 8px rgba(4,38,70,.42);
+    }
+    .cc-boot-label {
+      font-size: 13px; font-weight: 700; letter-spacing: .04em;
+      opacity: .88; text-align: right; min-height: 1.2em;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #cc-boot::before, #cc-boot::after, .cc-boot-fill::after { animation: none; }
+      #cc-boot::after { display: none; }
+    }
+  </style>
+  <script>
+  (function () {
+    // What the critical path is made of, and what each piece is worth. The
+    // numbers are roughly the compressed kilobytes, except preview-app.js,
+    // which is scored above its download because it also has to be parsed and
+    // run and that is real time the player is waiting through.
+    var WEIGHTS = {
+      "/css/preview.css": 26, "/css/rulebook.css": 2, "/css/privacy.css": 1, "/css/prestige.css": 3,
+      "firebase-app-compat": 3, "firebase-auth-compat": 8, "firebase-firestore-compat": 16,
+      "/firebase-config.js": 1, "/js/error-logging.js": 1, "/js/device-select.js": 2,
+      "/js/rulebook.js": 3, "/js/gamedata.js": 3, "/js/privacy-policy.js": 2,
+      "/js/preview-app.js": 60,
+      "/js/level-pass.js": 3, "/js/referral.js": 2, "/js/game-night.js": 2,
+      "/js/tournament-ui.js": 8, "/js/clans-ui.js": 10, "/js/prestige-ui.js": 8,
+      "/js/discord-reward.js": 2, "/js/challenge-of-challenges.js": 1, "/js/hidden-cephalopods.js": 1
+    };
+    // The sign-in half of the boot, in the order it happens.
+    var STAGES = [
+      ["firebase", 10, "Charting the reef"],
+      ["auth",     30, "Checking your tags"],
+      ["profile",  25, "Finding your ocean"],
+      ["ready",    12, "Letting you in"]
+    ];
+
+    var TOTAL = 0, k;
+    for (k in WEIGHTS) TOTAL += WEIGHTS[k];
+    for (var i = 0; i < STAGES.length; i++) TOTAL += STAGES[i][1];
+
+    try { document.documentElement.classList.add("cc-booting"); } catch (_) {}
+
+    var earned = 0;
+    var counted = {};
+    var stageDone = {};
+    var shown = 0;          // the eased number actually on screen
+    var finished = false;
+    var cssReady = false;   // preview.css is live, so the page below is dressed
+    var lastArrival = Date.now();   // when something last actually landed
+    var leaving = false;    // the fade-out has been started and cannot be undone
+    var el = null, fillEl = null, pctEl = null, labelEl = null;
+    var label = "Filling the tank";
+
+    function grab() {
+      if (el) return el;
+      el = document.getElementById("cc-boot");
+      if (el) {
+        fillEl  = el.querySelector(".cc-boot-fill");
+        pctEl   = el.querySelector(".cc-boot-pct");
+        labelEl = el.querySelector(".cc-boot-label");
+      }
+      return el;
+    }
+
+    // Score one arriving file. Matched on a fragment of the URL so the
+    // hand-written ?v= cache-busters do not have to be repeated here.
+    function credit(url) {
+      if (!url) return;
+      for (var key in WEIGHTS) {
+        if (counted[key]) continue;
+        if (url.indexOf(key) !== -1) { counted[key] = 1; earned += WEIGHTS[key]; lastArrival = Date.now(); return; }
+      }
+    }
+
+    // One listener in the capture phase catches every <script> and <link> as it
+    // finishes, which beats hanging an onload on two dozen tags. Errors count
+    // too: a file that 404s is never going to arrive, and a meter that stalls
+    // on it is worse than one that moves on.
+    function onAsset(e) {
+      var t = e.target;
+      if (!t || !t.tagName) return;
+      var tag = t.tagName.toLowerCase();
+      if (tag !== "script" && tag !== "link") return;
+      credit(t.src || t.href || "");
+    }
+    document.addEventListener("load", onAsset, true);
+    document.addEventListener("error", onAsset, true);
+
+    // What has actually arrived, as a percentage.
+    function earnedPct() {
+      var pct = (earned / TOTAL) * 100;
+      return pct > 99.4 ? 99.4 : pct;
+    }
+
+    // Where the needle is allowed to reach. The app is one 460KB file, and
+    // while it is in flight nothing lands and nothing scores, so a bar that
+    // showed only what had arrived would sit dead still through the longest
+    // and most anxious stretch of the whole boot, which is the one moment it
+    // most needs to look alive.
+    //
+    // So it is allowed to drift into the gap ahead of itself, by an amount that
+    // grows the longer nothing arrives: barely at all at first, up to a little
+    // under half the remaining distance if the wait really drags. It always
+    // decelerates, it can never reach the end on drift alone, and it can never
+    // go backwards, because it is measured from a number that only goes up.
+    function target() {
+      var pct = earnedPct();
+      var stalled = (Date.now() - lastArrival) / 1000;
+      var reach = Math.min(0.44, 0.10 + stalled * 0.05);
+      return Math.min(99.4, pct + (100 - pct) * reach);
+    }
+
+    function paint() {
+      if (!grab()) return;
+      fillEl.style.width = shown.toFixed(1) + "%";
+      pctEl.textContent = Math.floor(shown) + "%";
+      if (labelEl.textContent !== label) labelEl.textContent = label;
+    }
+
+    // Ease toward the target instead of snapping to it, and always creep a
+    // little even when nothing has landed, so a slow connection still looks
+    // like progress rather than a hang.
+    function tick() {
+      if (leaving && shown >= 99.9) { paint(); return; }
+      advance(0.09, leaving ? 0.9 : 0.045);
+      paint();
+      requestAnimationFrame(tick);
+    }
+
+    // One place where the needle moves, so the two drivers below cannot
+    // disagree. Math.max is not decoration: the allowance in target() shrinks
+    // again each time something lands (the drift is measured from a fresh
+    // clock), which without this let the bar tick BACKWARDS at the exact moment
+    // it had just made real progress.
+    function advance(ease, floor) {
+      var to = leaving ? 100 : Math.min(target(), finished ? 99.4 : 100);
+      var step = Math.max((to - shown) * ease, floor);
+      shown = Math.max(shown, Math.min(to, shown + step));
+    }
+
+    var api = {
+      // Called by the app as each sign-in step completes. Stages are
+      // cumulative: reaching one banks every stage before it, so a path that
+      // skips a step (a guest never reads a profile) still lands on a full bar.
+      stage: function (name) {
+        var known = false;
+        for (var j = 0; j < STAGES.length; j++) { if (STAGES[j][0] === name) { known = true; break; } }
+        if (!known) return;
+        for (var m = 0; m < STAGES.length; m++) {
+          var st = STAGES[m];
+          if (!stageDone[st[0]]) { stageDone[st[0]] = 1; earned += st[1]; label = st[2]; lastArrival = Date.now(); }
+          if (st[0] === name) break;
+        }
+      },
+      // preview.css has been promoted from a preload to a live stylesheet.
+      css: function () { cssReady = true; if (finished) api.done(); },
+
+      // The app is up. Run the bar out to 100 and take the screen away. Never
+      // before the stylesheet is live, or it would lift onto an undressed page.
+      //
+      // How long that takes depends on how long the player has been waiting.
+      // A finish worth watching is a reward at the end of a long load and an
+      // insult at the end of a short one: on a fast connection the whole boot
+      // can be over in half a second, and a fixed flourish would then be most
+      // of the time the player spends here. So a quick boot gets out of the
+      // way almost at once, and only a slow one gets the full sweep.
+      done: function () {
+        if (leaving) return;
+        finished = true;
+        if (!cssReady) { label = "Painting the reef"; return; }
+        leaving = true;
+        label = "Dive in";
+        // The app is in. Now, and only now, is it worth spending bandwidth on
+        // the artwork and the modules that were held back for it.
+        ccHydrateArt();
+        try { window.ccLateModules && window.ccLateModules(); } catch (_) {}
+
+        // Three speeds, by how long the player has actually been here. Under a
+        // second the bar has not been on screen long enough to read, so there
+        // is nothing to run out and nothing to admire: go, immediately. Only a
+        // boot slow enough to have been noticed gets the full sweep.
+        var waited = performance.now();
+        var runMs  = waited < 900 ?  0 : waited < 2200 ? 130 : 260;
+        var holdMs = waited < 900 ?  0 : waited < 2200 ?  40 : 120;
+        var fadeMs = waited < 900 ? 90 : waited < 2200 ? 150 : 300;
+        try { document.documentElement.classList.remove("cc-booting"); } catch (_) {}
+        shown = 100;
+        if (grab()) {
+          fillEl.style.transition = "width " + runMs + "ms cubic-bezier(.32,.72,.32,1)";
+          el.style.transition = "opacity " + fadeMs + "ms ease";
+          paint();
+        }
+        setTimeout(function () {
+          if (!grab()) return;
+          el.classList.add("cc-boot-gone");
+          setTimeout(function () { if (el && el.parentNode) el.parentNode.removeChild(el); }, fadeMs + 60);
+        }, runMs + holdMs);
+      }
+    };
+    window.ccBoot = api;
+
+    // ══ THE HELD-BACK ARTWORK ═════════════════════════════════════════
+    // Every <img data-cc-src> on the page. They are all behind a panel that is
+    // hidden while the app boots (the sign-in screen's scrolling side strips,
+    // the full-screen launch splash), which is exactly why they must not be
+    // fetched during it: together they are a third of a megabyte, and every
+    // byte of it was competing with the app the player is waiting for. A
+    // hidden image is downloaded like any other, so the only way to hold one
+    // back is to not give it an address until it is wanted.
+    var hydrated = false;
+    function ccHydrateArt() {
+      if (hydrated) return;
+      hydrated = true;
+      var list = document.querySelectorAll("img[data-cc-src]");
+      for (var n = 0; n < list.length; n++) {
+        var img = list[n];
+        img.src = img.getAttribute("data-cc-src");
+        img.removeAttribute("data-cc-src");
+      }
+    }
+    window.ccHydrateArt = ccHydrateArt;
+
+    // Two ways the meter ends besides the app calling done(). The first is the
+    // app hiding its own "Diving in..." cover, which every sign-in path already
+    // does and which therefore cannot be forgotten. The second is a watchdog:
+    // if something goes wrong upstream the player must not be sealed behind a
+    // frozen bar, so after 25 seconds we get out of the way and let them see
+    // whatever the app is actually showing.
+    function watchLegacyCover() {
+      var cover = document.getElementById("auth-loading-screen");
+      if (!cover) { setTimeout(watchLegacyCover, 80); return; }
+      if (cover.classList.contains("hidden")) { api.stage("ready"); api.done(); return; }
+      new MutationObserver(function () {
+        if (cover.classList.contains("hidden")) { api.stage("ready"); api.done(); }
+      }).observe(cover, { attributes: true, attributeFilter: ["class"] });
+    }
+    watchLegacyCover();
+    setTimeout(function () {
+      try { document.documentElement.classList.remove("cc-booting"); } catch (_) {}
+      api.done();
+    }, 25000);
+    // Held-back art gets fetched no later than this even on a boot that stalls,
+    // so a sign-in screen is never permanently missing its scenery.
+    setTimeout(ccHydrateArt, 12000);
+
+    requestAnimationFrame(tick);
+    // A belt-and-braces second driver. requestAnimationFrame does not run until
+    // the browser has something to paint, and a timer does, so this keeps the
+    // needle honest through the very first moments of the page.
+    var beat = setInterval(function () {
+      if (leaving && shown >= 99.9) { clearInterval(beat); return; }
+      advance(0.16, leaving ? 2.2 : 0.12);
+      paint();
+    }, 40);
+  })();
+  </script>
+
+  <script defer src="/js/error-logging.js?v=2026-08-27.4"></script>
 
   <!-- Firebase config, generated at build time from VITE_FIREBASE_* env vars -->
   <script defer src="/firebase-config.js"></script>
@@ -66,32 +521,78 @@
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-08-27.3" />
+  <!-- ══ THE STYLESHEETS, AND WHY THEY DO NOT BLOCK ═══════════════════
+       A plain stylesheet link stops the browser painting ANYTHING until it has
+       arrived. preview.css is 130KB compressed, so on a phone that was several
+       seconds of a blank white window before even the words "Diving in" could
+       appear: the slowest part of this app's start was the part where it had
+       not started.
+
+       Each one is fetched as a preload instead, which is not render-blocking,
+       and promoted to a real stylesheet the moment it lands. The browser paints
+       immediately, and what it paints is the boot screen above, which carries
+       its own styles inline for exactly this reason. Whatever is half-dressed
+       underneath is behind that screen and nobody sees it.
+
+       Cascade order is unchanged, and does not depend on which file wins the
+       race: the cascade reads DOCUMENT order, and these tags are in the same
+       order they have always been in. The boot screen additionally refuses to
+       lift until preview.css is live, so the first thing a player actually
+       looks at is never unstyled.
+
+       <noscript> keeps the whole thing working with JavaScript off. -->
+  <link rel="preload" as="style" fetchpriority="high" href="/css/preview.css?v=2026-08-27.4"
+        onload="this.rel='stylesheet';window.ccBoot&&window.ccBoot.css()" />
   <!-- The printed rulebook's own stylesheet. Split out of preview.css so the
        standalone How to Play page (/rules) can render the very same book
        without pulling in the whole game stylesheet. Must load AFTER
        preview.css so the cascade is exactly what it was before the split. -->
-  <link rel="stylesheet" href="/css/rulebook.css?v=2026-08-27.3" />
+  <link rel="preload" as="style" href="/css/rulebook.css?v=2026-08-27.4"
+        onload="this.rel='stylesheet'" />
   <!-- The privacy policy's own stylesheet, on the same split as the rulebook:
        the published /privacy page renders the very same document without
        pulling in the whole game stylesheet. Must load AFTER preview.css. -->
-  <link rel="stylesheet" href="/css/privacy.css?v=2026-08-27.3" />
+  <link rel="preload" as="style" href="/css/privacy.css?v=2026-08-27.4"
+        onload="this.rel='stylesheet'" />
   <!-- Prestige: the Prestige page's own ocean scene, plus the .cc-pname /
        .cc-pbadge rules that draw a Prestige username and badge ANYWHERE in the
        game. Must load AFTER preview.css so those name styles win. -->
-  <link rel="stylesheet" href="/css/prestige.css?v=2026-08-27.3" />
-  <!-- Developer Analytics: the admin dashboard's own stylesheet, split out the
-       same way, everything in it is scoped under #ccA-overlay, which nothing
-       else on the page ever renders, so it cannot touch the game. -->
-  <link rel="stylesheet" href="/css/analytics.css?v=2026-08-27.3" />
+  <link rel="preload" as="style" fetchpriority="high" href="/css/prestige.css?v=2026-08-27.4"
+        onload="this.rel='stylesheet'" />
+  <noscript>
+    <link rel="stylesheet" href="/css/preview.css?v=2026-08-27.4" />
+    <link rel="stylesheet" href="/css/rulebook.css?v=2026-08-27.4" />
+    <link rel="stylesheet" href="/css/privacy.css?v=2026-08-27.4" />
+    <link rel="stylesheet" href="/css/prestige.css?v=2026-08-27.4" />
+  </noscript>
+  <!-- Developer Analytics' stylesheet is NOT here. Everything in it is scoped
+       under #ccA-overlay, an admin-only panel that no ordinary player ever
+       renders, and a stylesheet in the head blocks the first paint for
+       everyone. It is fetched with its script by the late loader at the bottom
+       of this file instead, long before any admin can open the panel. -->
 </head>
 <body>
+
+<!-- ══ THE BOOT METER ═════════════════════════════════════════════════
+     Driven by the inline script in <head>. Written out here rather than
+     created from JavaScript so it is on screen in the browser's very first
+     paint, before anything has been downloaded. It removes itself. -->
+<div id="cc-boot" role="progressbar" aria-label="Loading Currents and Critters" aria-live="polite">
+  <div class="cc-boot-inner">
+    <h1 class="cc-boot-title">Currents<span class="cc-boot-amp">&amp;</span>Critters</h1>
+    <div class="cc-boot-track"><div class="cc-boot-fill"></div></div>
+    <div class="cc-boot-row">
+      <div class="cc-boot-pct">0%</div>
+      <div class="cc-boot-label">Filling the tank</div>
+    </div>
+  </div>
+</div>
 
 <!-- ══ DEVICE MODE ════════════════════════════════════════════════════
      There is no "choose your device" screen any more. js/device-select.js
      works it out: a touch means mobile, a mouse means computer, and a real
      input event outranks its own opening guess. Nothing is rendered here. -->
-<script defer src="/js/device-select.js?v=2026-08-27.3"></script>
+<script defer src="/js/device-select.js?v=2026-08-27.4"></script>
 
 <!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══
      The whole screen is the baked artwork (fullscreen-splash.png). #ccfs-play
@@ -101,7 +602,11 @@
      browser actually blocks full screen, so the splash matches the art. -->
 <div id="cc-fs-splash">
   <div class="ccfs-stage">
-    <img class="ccfs-bg" src="/fullscreen-splash.png?v=2026-06-29.4" alt="Currents and Critters, your game is ready" />
+    <!-- No src: this panel is display:none until the boot is over, but a
+         browser will happily download a hidden image anyway (loading="lazy"
+         does not save it either), and this one is the heaviest file on the
+         site. ccHydrateArt() below fills it in once the page is up. -->
+    <img class="ccfs-bg" data-cc-src="/fullscreen-splash.png?v=2026-06-29.4" alt="Currents and Critters, your game is ready" decoding="async" />
     <button id="ccfs-play" class="ccfs-play" type="button" aria-label="Play Currents and Critters in full screen"></button>
     <!-- Hidden-click secret: the little sardine already painted into the
          California Gull's beak in the artwork. Invisible click target sits
@@ -134,14 +639,14 @@
        contains the strip image duplicated twice for a seamless loop. -->
   <div class="auth-side-strip auth-side-strip-left" aria-hidden="true">
     <div class="strip-track">
-      <img src="/moving-background-left.png" alt="">
-      <img src="/moving-background-left.png" alt="">
+      <img data-cc-src="/moving-background-left.png" alt="" decoding="async">
+      <img data-cc-src="/moving-background-left.png" alt="" decoding="async">
     </div>
   </div>
   <div class="auth-side-strip auth-side-strip-right" aria-hidden="true">
     <div class="strip-track">
-      <img src="/moving-background-right.png" alt="">
-      <img src="/moving-background-right.png" alt="">
+      <img data-cc-src="/moving-background-right.png" alt="" decoding="async">
+      <img data-cc-src="/moving-background-right.png" alt="" decoding="async">
     </div>
   </div>
   <!-- Step 1: the way in. Two halves of one screen: the ocean on the left,
@@ -160,7 +665,7 @@
        stack of forty things to keep in place at every window size. -->
   <div id="auth-step-choose" class="auth-box">
     <div class="ao-art">
-      <img src="/auth-ocean.jpg?v=2026-08-27.3" alt="" class="ao-art-img" />
+      <img src="/auth-ocean.jpg?v=2026-08-27.4" alt="" class="ao-art-img" decoding="async" fetchpriority="high" />
       <!-- ══ THE STAGHORN CORAL ══════════════════════════════════════
            A staghorn coral grows out of the kelp bed at the bottom left of the
            painting, warm rose among the greens. This box is over exactly that
@@ -511,7 +1016,7 @@
             <span class="ao-note-ico" aria-hidden="true">&#127991;&#65039;</span>
             <span>You can change your username <strong>once for free</strong>. After that, each
               change costs <strong><span id="auth-nick-price">100</span>
-              <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false"> Critter Coins</strong>.</span>
+              <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false" loading="lazy" decoding="async"> Critter Coins</strong>.</span>
           </div>
 
           <!-- Referral. Optional by design: leaving it empty must never stop
@@ -531,7 +1036,7 @@
           <div class="ao-note">
             <span class="ao-note-ico" aria-hidden="true">&#127873;</span>
             <span>Enter it now and <strong>you both get <span id="auth-ref-coins">40</span>
-              <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false">
+              <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false" loading="lazy" decoding="async">
               Critter Coins</strong>.</span>
           </div>
 
@@ -559,7 +1064,7 @@
        game opens in its own dedicated window (Steam-style). Doubles as the
        "game is running" screen and the pop-up-blocked fallback. -->
   <div id="auth-step-launch" class="auth-box" style="display:none">
-    <img class="auth-launch-logo" src="/icon.svg?v=cc-logo-1" alt="Currents and Critters" />
+    <img class="auth-launch-logo" src="/icon.svg?v=cc-logo-1" alt="Currents and Critters" loading="lazy" decoding="async" />
     <div id="auth-launch-avatar-wrap">
       <img id="auth-launch-avatar-img" alt="" style="display:none" onerror="this.style.display='none';document.getElementById('auth-launch-initials').style.display='';" />
       <span id="auth-launch-initials">🐙</span>
@@ -925,7 +1430,7 @@
       <div class="ph-ss-header">= Daily Streak =</div>
       <div class="ph-ss-sub">Keep the tide rolling!</div>
       <div class="ph-ss-main">
-        <div class="ph-ss-icon"><img src="/avatars/sea-star.png?v=ws12" alt="sea star" class="ph-ss-star-img" draggable="false"></div>
+        <div class="ph-ss-icon"><img src="/avatars/sea-star.png?v=ws12" alt="sea star" class="ph-ss-star-img" draggable="false" loading="lazy" decoding="async"></div>
         <div class="ph-ss-days" id="ph-ss-days">0 Days</div>
         <div class="ph-ss-label">Days played in a row</div>
       </div>
@@ -997,7 +1502,7 @@
             <span class="ph-discord-txt">Join the Discord server</span>
           </a>
           <button type="button" class="ph-discord-reward" id="ph-discord-reward" hidden>
-            <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false">
+            <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false" loading="lazy" decoding="async">
             <span class="ph-discord-reward-txt" id="ph-discord-reward-txt">+100 Critter Coins</span>
           </button>
         </div>
@@ -1011,7 +1516,7 @@
             <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Current Streak</span><span class="ph-meta-chip-val" id="hdr-streak">-</span></span>
           </span>
           <span class="ph-meta-chip" id="hdr-coins-chip">
-            <span class="ph-meta-chip-ico"><img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"></span>
+            <span class="ph-meta-chip-ico"><img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false" loading="lazy" decoding="async"></span>
             <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Critter Coins</span><span class="ph-meta-chip-val" id="hdr-coins">-</span></span>
           </span>
         </div>
@@ -1084,19 +1589,19 @@
          clickable and routes to its action exactly as before. -->
     <div class="ph-actions">
       <button class="ph-action-card ph-action-img-card" id="stats-quickmatch-btn" aria-label="Quick Match, Jump into a game">
-        <img class="ph-action-img" src="/action-card-quickmatch.png?v=2" alt="Quick Match" draggable="false">
+        <img class="ph-action-img" src="/action-card-quickmatch.png?v=2" alt="Quick Match" decoding="async" fetchpriority="low" draggable="false">
       </button>
 
       <button class="ph-action-card ph-action-img-card" id="stats-create-btn" aria-label="Create Game, Start a new adventure">
-        <img class="ph-action-img" src="/action-card-create.png?v=2" alt="Create Game" draggable="false">
+        <img class="ph-action-img" src="/action-card-create.png?v=2" alt="Create Game" decoding="async" fetchpriority="low" draggable="false">
       </button>
 
       <button class="ph-action-card ph-action-img-card" id="stats-join-toggle-btn" aria-label="Join Game, Play with friends">
-        <img class="ph-action-img" src="/action-card-join.png?v=1" alt="Join Game" draggable="false">
+        <img class="ph-action-img" src="/action-card-join.png?v=1" alt="Join Game" decoding="async" fetchpriority="low" draggable="false">
       </button>
 
       <button class="ph-action-card ph-action-img-card" id="stats-tutorial-btn" aria-label="Tutorial, Learn the ropes">
-        <img class="ph-action-img" src="/action-card-tutorial.png?v=1" alt="Tutorial" draggable="false">
+        <img class="ph-action-img" src="/action-card-tutorial.png?v=1" alt="Tutorial" decoding="async" fetchpriority="low" draggable="false">
       </button>
     </div>
 
@@ -1224,7 +1729,7 @@
               <div class="ph-scv" id="stat-hours-played">0 hrs</div>
             </div>
             <div class="ph-sc ph-sc-string">
-              <div class="ph-sci ph-sci-blue" id="ceph-octo-stat"><img src="/avatars/common-octopus.png?v=ws12" alt="" draggable="false" style="width:34px;height:34px;object-fit:contain;pointer-events:none;"></div>
+              <div class="ph-sci ph-sci-blue" id="ceph-octo-stat"><img src="/avatars/common-octopus.png?v=ws12" alt="" draggable="false" loading="lazy" decoding="async" style="width:34px;height:34px;object-fit:contain;pointer-events:none;"></div>
               <div class="ph-scl">Most Played Strategy</div>
               <div class="ph-scv" id="ph-ov-most-strategy">-</div>
             </div>
@@ -3103,7 +3608,7 @@
     <div class="seat-grid" id="sp-seat-grid"></div>
     <div id="seat-picker-err"></div>
     <button id="sp-join-btn" disabled>
-      <img id="sp-crab" src="/hermit-crab.png" alt="">
+      <img id="sp-crab" src="/hermit-crab.png" alt="" loading="lazy" decoding="async">
       <span id="sp-join-text">Choose a seat above</span>
     </button>
   </div>
@@ -3154,7 +3659,7 @@
 <!-- ══ GIANT SQUID CHALLENGE MODAL ════════════════════════════════ -->
 <div id="giant-squid-modal">
   <div id="gs-challenge-box">
-    <img id="gs-challenge-img" src="/avatars/giant-squid.png" alt="Giant Squid">
+    <img id="gs-challenge-img" src="/avatars/giant-squid.png" alt="Giant Squid" loading="lazy" decoding="async">
     <div id="gs-challenge-title">The Giant Squid</div>
     <div id="gs-challenge-msg">If you want to save the Red Beaded Anemone, you have to beat me in a fight.</div>
     <div id="gs-challenge-actions">
@@ -3322,63 +3827,61 @@
 
 <!-- The printed rulebook, one shared source for the How to play tab and the
      in-game Rule Book modal. Must load before preview-app.js reads it. -->
-<script defer src="/js/rulebook.js?v=2026-08-27.3"></script>
+<script defer src="/js/rulebook.js?v=2026-08-27.4"></script>
 
 <!-- Family colours + the built-in strategy list, shared with the published
      How to Play page (/rules) so the two can never drift. Deferred scripts
      run in document order, so this lands before preview-app.js reads it. -->
-<script defer src="/js/gamedata.js?v=2026-08-27.3"></script>
+<script defer src="/js/gamedata.js?v=2026-08-27.4"></script>
 
 <!-- The privacy policy, one shared source for the published /privacy page and
      the in-game reader (Settings → 📜 Legal). Must load before preview-app.js
      reads window.CC_PRIVACY_HTML. -->
-<script defer src="/js/privacy-policy.js?v=2026-08-27.3"></script>
+<script defer src="/js/privacy-policy.js?v=2026-08-27.4"></script>
 
 <!-- Level Pass, the Invite-a-Friend card and the Avatar Gallery's level
      track. One stylesheet: they are one idea seen from three places. -->
-<link rel="stylesheet" href="/css/level-pass.css?v=2026-08-27.3">
+<link rel="stylesheet" href="/css/level-pass.css?v=2026-08-27.4">
 <!-- Game Night. Also served to the marketing site (Vercel rewrites /css/:file),
      so the banner looks identical on both hosts from one source. -->
-<link rel="stylesheet" href="/css/game-night.css?v=2026-08-27.3">
+<link rel="stylesheet" href="/css/game-night.css?v=2026-08-27.4">
 
-<script defer src="/js/preview-app.js?v=2026-08-27.3"></script>
+<script defer fetchpriority="high" src="/js/preview-app.js?v=2026-08-27.4"></script>
 
 <!-- Level Pass: the reward track over levels 1-100. Every rule is server-side
      (/api/pass/*); this renders state and sends intents. -->
-<script defer src="/js/level-pass.js?v=2026-08-27.3"></script>
+<script defer src="/js/level-pass.js?v=2026-08-27.4"></script>
 <!-- Friend-code referral reward. Pays two accounts, so the server owns all of
      it (/api/referral/*); this collects digits and renders the answer. -->
-<script defer src="/js/referral.js?v=2026-08-27.3"></script>
+<script defer src="/js/referral.js?v=2026-08-27.4"></script>
 <!-- Game Night banner. Self-injects at the top of the Overview panel. -->
-<script defer src="/js/game-night.js?v=2026-08-27.3"></script>
+<script defer src="/js/game-night.js?v=2026-08-27.4"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
-<script defer src="/js/tournament-ui.js?v=2026-08-27.3"></script>
+<script defer src="/js/tournament-ui.js?v=2026-08-27.4"></script>
 
 <!-- Clan System (Clans tab below Leaderboard; renders into #cc-clans-root). -->
-<script defer src="/js/clans-ui.js?v=2026-08-27.3"></script>
+<script defer src="/js/clans-ui.js?v=2026-08-27.4"></script>
 
 <!-- Prestige System (Prestige page + the badge/name-colour renderer used by
      every username in the game; renders into #cc-prestige-root). -->
-<script defer src="/js/prestige-ui.js?v=2026-08-27.3"></script>
+<script defer src="/js/prestige-ui.js?v=2026-08-27.4"></script>
 
 <!-- Discord join reward, the "+250 Critter Coins" chip beside the Join the
      Discord button, and the verified claim behind it. It renders into the one
      #ph-discord-reward button and stays hidden until the server says the offer
      is switched on. -->
-<script defer src="/js/discord-reward.js?v=2026-08-27.3"></script>
+<script defer src="/js/discord-reward.js?v=2026-08-27.4"></script>
 
-<!-- Developer Analytics, a full-screen, admin-only dashboard. It builds no DOM
-     and makes no request until the Analytics sidebar button is clicked, so it
-     costs every player nothing but the parse. -->
-<script defer src="/js/analytics-ui.js?v=2026-08-27.3"></script>
-<!-- Custom bracket BUILDER, the host's design canvas. Inert until opened from
-     the New Tournament modal, so it costs nothing on every other page. -->
-<script defer src="/js/tournament-builder.js?v=2026-08-27.3"></script>
+<!-- Developer Analytics and the custom bracket BUILDER used to load here. Both
+     are inert until something is clicked, but "inert" was never free: as long
+     as they were plain deferred script tags they were downloaded with the app
+     competing for the same connection while the player waited on the loading
+     screen. They are in the late loader at the bottom of this file now. -->
 
-<script defer src="/js/challenge-of-challenges.js?v=2026-08-27.3"></script>
+<script defer src="/js/challenge-of-challenges.js?v=2026-08-27.4"></script>
 
-<script defer src="/js/hidden-cephalopods.js?v=2026-08-27.3"></script>
+<script defer src="/js/hidden-cephalopods.js?v=2026-08-27.4"></script>
 
 <!-- ══ CHALLENGE OF CHALLENGES MODALS ════════════════════════════ -->
 
@@ -3451,13 +3954,74 @@
      Visible ONLY for currentsandcritters@gmail.com. Every tool is gated
      behind its own ON/OFF toggle; OFF fully disables the tool.
      ══════════════════════════════════════════════════════════════════ -->
-<script defer src="/js/current-controller.js?v=2026-08-27.3"></script>
 <!-- ══════════════════════════════════════════════════════════════════
      TUTORIAL v2, three modes (Main Menu Tour · The Game · Practice B-Lob).
      Completing ALL THREE unlocks the Osprey avatar. Stage 1: launcher +
      completion tracking + the Main Menu Tour (spotlight coachmarks over the
      real lobby). The Game tour and B-Lob practice arrive in later stages.
      ══════════════════════════════════════════════════════════════════ -->
-<script defer src="/js/tutorials.js?v=2026-08-27.3"></script>
+<!-- ══ THE LATE LOADER ═══════════════════════════════════════════════
+     Four modules that no player needs to get through the door: the tutorial
+     launcher, the admin dashboard (and its stylesheet), the tournament design
+     canvas, and the Current Controller. Together they are a third of a
+     megabyte, and as ordinary deferred script tags every one of those bytes was
+     downloaded on the critical path, sharing the connection with the app the
+     player is actually waiting for.
+
+     They load here instead, once the page is up. Order is preserved (a
+     dynamically inserted script with async=false still runs in insertion
+     order), so nothing about how they behave changes, only when they arrive.
+
+     Anything that calls into them goes through window.ccLateModules(), which
+     both starts the load and resolves when it is finished, so a click that
+     lands in the second before they arrive waits for them rather than
+     silently doing nothing. -->
+<script>
+(function () {
+  var LATE = [
+    ["css", "/css/analytics.css?v=2026-08-27.4"],
+    ["js",  "/js/analytics-ui.js?v=2026-08-27.4"],
+    ["js",  "/js/tournament-builder.js?v=2026-08-27.4"],
+    ["js",  "/js/current-controller.js?v=2026-08-27.4"],
+    ["js",  "/js/tutorials.js?v=2026-08-27.4"]
+  ];
+  var started = false, settle = null;
+  var ready = new Promise(function (r) { settle = r; });
+
+  function fetchOne(kind, href) {
+    return new Promise(function (res) {
+      var e;
+      if (kind === "css") {
+        e = document.createElement("link");
+        e.rel = "stylesheet"; e.href = href;
+      } else {
+        e = document.createElement("script");
+        e.src = href;
+        e.async = false;          // keeps them running in the order listed
+      }
+      // A module that fails to load must not leave every caller hanging.
+      e.onload = e.onerror = function () { res(); };
+      document.head.appendChild(e);
+    });
+  }
+
+  function start() {
+    if (started) return ready;
+    started = true;
+    Promise.all(LATE.map(function (m) { return fetchOne(m[0], m[1]); })).then(function () { settle(); });
+    return ready;
+  }
+
+  // Started by the boot screen the moment the app is in (that is the whole
+  // point: not one byte of this competes with the boot). The load event and a
+  // long backstop are only there so a boot that never finishes still ends up
+  // with a working Tutorial button.
+  if (document.readyState === "complete") setTimeout(start, 0);
+  else window.addEventListener("load", function () { setTimeout(start, 0); });
+  setTimeout(start, 12000);
+
+  window.ccLateModules = start;
+})();
+</script>
 </body>
 </html>

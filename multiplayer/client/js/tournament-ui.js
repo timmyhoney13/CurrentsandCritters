@@ -517,7 +517,12 @@
     if (open) open.textContent = "🎨 Edit the design";
   }
 
-  function openDesigner() {
+  async function openDesigner() {
+    // The builder is loaded after the page is up (the late loader in
+    // preview.html), so wait for it rather than reporting it missing.
+    if (!window.__ccTourneyBuilder && window.ccLateModules) {
+      try { await window.ccLateModules(); } catch (_) {}
+    }
     const b = window.__ccTourneyBuilder;
     if (!b) { toast("The bracket builder didn't load: refresh the page.", "err"); return; }
     // The builder sits above the create modal, so cancelling it simply reveals the
