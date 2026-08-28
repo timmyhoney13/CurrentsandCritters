@@ -6015,8 +6015,13 @@
     }
 
     /* ── The ocean ──────────────────────────────────────────────────
-       Exactly half the width. The diagonal takes 12% off the bottom of that
-       half, so the cut leans the way the light in the painting does. */
+       Exactly half the width, cut straight down the halfway line. It used to
+       lean: a diagonal from 50% at the top to 44% at the bottom. Everything
+       else on this screen was built around that lean (the picture had to stop
+       at 88% so the cut could never bite it, the lit edge and the water beyond
+       it were both clipped to the same slope, and both of their gradients ran
+       at 96deg to lie along it), so making the line vertical is four numbers,
+       not one. */
     #auth-step-choose > .ao-art {
       position: absolute;
       top: 0; left: 0; bottom: 0;
@@ -6024,8 +6029,6 @@
       overflow: hidden;
       z-index: 1;
       background: #0c3550;
-      -webkit-clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%);
-              clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%);
     }
     /* The blurred copy of the same water, under the painting. object-fit:
        contain leaves room around a picture whose shape is not the panel's, and
@@ -6034,19 +6037,20 @@
     #auth-step-choose > .ao-art::before {
       content: "";
       position: absolute; inset: -8%;
-      background: url("/auth-ocean.jpg?v=2026-08-27.3") center/cover no-repeat;
+      background: url("/auth-ocean.jpg?v=2026-08-27.4") center/cover no-repeat;
       filter: blur(26px) saturate(1.12) brightness(.94);
       pointer-events: none;
     }
     /* CONTAIN, not cover. The painting is 1600x2000 and the panel is whatever
        shape the window makes it, so cover cropped the birds off the top, the
        coral off the bottom and both edges besides. The box it is contained in
-       stops at 88%, which is the narrowest the diagonal ever leaves the panel,
-       so the cut can never take a bite out of the picture either. */
+       is the WHOLE panel: it used to stop at 88%, which was the narrowest the
+       diagonal ever left the panel, and with the cut straight down there is
+       nothing for it to stop short of. */
     #auth-step-choose .ao-art-img {
       position: absolute;
       top: 0; bottom: 0; left: 0;
-      width: 88%; height: 100%;
+      width: 100%; height: 100%;
       object-fit: contain;
       object-position: 50% 50%;
       display: block;
@@ -6074,13 +6078,12 @@
     #auth-step-choose::after {
       content: "";
       position: absolute;
-      top: -3%; left: 0; height: 106%; width: 100%;
+      top: -3%; left: 50%; height: 106%; width: 2px;
+      margin-left: -1px;
       z-index: 3;
       pointer-events: none;
       background: linear-gradient(180deg,
         rgba(232,250,255,.95), rgba(140,225,255,.85) 46%, rgba(42,169,232,.75));
-      -webkit-clip-path: polygon(50% 0, 50.28% 0, 44.28% 100%, 44% 100%);
-              clip-path: polygon(50% 0, 50.28% 0, 44.28% 100%, 44% 100%);
       filter: drop-shadow(0 0 12px rgba(140,225,255,.55))
               drop-shadow(0 0 30px rgba(60,170,255,.30));
     }
@@ -6110,13 +6113,11 @@
                    the column instead of stopping it dead. */
     #auth-step-choose > .ao-seam {
       position: absolute;
-      top: 0; bottom: 0; left: 44%;
-      width: 22%;
+      top: 0; bottom: 0; left: 50%;
+      width: 18%;
       z-index: 1;
       pointer-events: none;
       overflow: hidden;
-      -webkit-clip-path: polygon(27.27% 0, 100% 0, 100% 100%, 0 100%);
-              clip-path: polygon(27.27% 0, 100% 0, 100% 100%, 0 100%);
     }
     /* The painting, continued. Blurred hard and sunk almost to the colour of
        the column, then masked away to nothing across the width of the wedge,
@@ -6126,22 +6127,19 @@
     #auth-step-choose > .ao-seam::before {
       content: "";
       position: absolute; inset: -40% -60%;
-      background: url("/auth-ocean.jpg?v=2026-08-27.3") center/cover no-repeat;
+      background: url("/auth-ocean.jpg?v=2026-08-27.4") center/cover no-repeat;
       filter: blur(38px) saturate(1.04) brightness(.42);
-      /* 96deg is not a guess: a gradient at that angle has iso-lines running
-         dx/dy = -0.105, and the cut runs -0.06W/H, which is -0.096 to -0.107
-         across every window shape this screen is used at. So the fade runs
-         PARALLEL to the cut, and the whole diagonal gets the same water from
-         top to bottom instead of the top being darker than the bottom.
-
-         The stops are read against this pseudo-element's own box (which is
-         much bigger than the wedge, so the blur has room to be a blur), where
-         the cut lands at ~37% and the wedge's far edge at ~60%. Gone by 58%,
-         so the water is already at nothing before the box it is in ends: a
-         mask that was still painting at the edge would draw the one hard line
-         this whole rule exists to remove. */
-      -webkit-mask-image: linear-gradient(96deg, #000 40%, rgba(0,0,0,.42) 49%, rgba(0,0,0,0) 58%);
-              mask-image: linear-gradient(96deg, #000 40%, rgba(0,0,0,.42) 49%, rgba(0,0,0,0) 58%);
+      /* The cut is vertical, so the fade that runs parallel to it is 90deg and
+         needs no arithmetic at all. (It was 96deg when the cut leaned: that
+         angle's iso-lines run dx/dy = -0.105 and the old cut ran -0.06W/H,
+         which is -0.096 to -0.107 at every window shape this screen is used
+         at.) The stops are read against this pseudo-element's own box, which
+         is much bigger than the wedge so the blur has room to be a blur; gone
+         by 58%, well before that box ends, because a mask still painting at
+         its own edge would draw the one hard line this rule exists to
+         remove. */
+      -webkit-mask-image: linear-gradient(90deg, #000 40%, rgba(0,0,0,.42) 49%, rgba(0,0,0,0) 58%);
+              mask-image: linear-gradient(90deg, #000 40%, rgba(0,0,0,.42) 49%, rgba(0,0,0,0) 58%);
     }
     /* The sun on it. A narrow, soft lift that sits ON the cut and is gone a
        fifth of the way across, so the lit line reads as light lying on water
@@ -6149,26 +6147,28 @@
     #auth-step-choose > .ao-seam::after {
       content: "";
       position: absolute; inset: 0;
-      /* Same angle, same reason. Held flat to 34% because that is as far along
-         its own box as the cut ever gets (a very wide window puts it at 19%, a
-         squarish one at 32%), so the light sits ON the diagonal at every shape
-         rather than a little to one side of it. */
-      background: linear-gradient(96deg,
+      /* Same angle, same reason. The plateau used to run to 34% because that
+         was as far along its own box as the leaning cut ever got; a vertical
+         cut is at 0% of the box at every height, so the light sits on it
+         without needing the plateau to cover a range. */
+      background: linear-gradient(90deg,
         rgba(150,222,255,.30) 0%,
-        rgba(126,206,250,.26) 34%,
-        rgba(58,142,206,.11) 52%,
+        rgba(126,206,250,.26) 22%,
+        rgba(58,142,206,.11) 46%,
         rgba(0,0,0,0) 74%);
     }
 
     /* ── The lettering ──────────────────────────────────────────────
-       Centred on the left half, nudged left of true centre because the diagonal
-       eats the right side of it. Cinzel is already loaded for the rulebook and
-       the card faces; the door into the game is set in the same voice. */
+       Centred on the left half. It used to be nudged left of true centre
+       because the diagonal ate the right side of it; with the cut straight
+       down there is nothing to nudge away from, so the words sit on the middle
+       of the picture. Cinzel is already loaded for the rulebook and the card
+       faces; the door into the game is set in the same voice. */
     #auth-step-choose > .ao-copy {
       position: absolute;
-      /* 44% = the painting's own box (88% of the left half), so the words are
-         centred on the picture and not on the panel the picture sits in. */
-      left: 0; width: 44%;
+      /* 50% = the painting's own box, which is the whole left half now, so the
+         words are centred on the picture and not beside it. */
+      left: 0; width: 50%;
       top: 47%;
       transform: translateY(-50%);
       z-index: 4;

@@ -59,8 +59,13 @@ console.log("\nthe whole painting, at every window shape");
 {
   check("the art is contained, not cropped",
         /#auth-step-choose \.ao-art-img \{[\s\S]{0,260}?object-fit: contain;/.test(CSS));
-  check("…inside a box that stops short of the diagonal",
-        /#auth-step-choose \.ao-art-img \{[\s\S]{0,200}?width: 88%;/.test(CSS));
+  check("…in a box that is the whole panel, now the cut is straight down",
+        /#auth-step-choose \.ao-art-img \{[\s\S]{0,200}?width: 100%;/.test(CSS));
+  check("…and the panel is not clipped on a slope any more",
+        !/#auth-step-choose > \.ao-art \{[\s\S]{0,400}?clip-path: polygon/.test(CSS));
+  check("the lit edge is a straight line on the halfway mark",
+        /#auth-step-choose::after \{[\s\S]{0,300}?left: 50%;[\s\S]{0,120}?width: 2px;/.test(CSS)
+        && !/clip-path: polygon\(50% 0, 50\.28% 0/.test(CSS));
   check("…standing in its own water, so the room around it is not a border",
         /#auth-step-choose > \.ao-art::before \{[\s\S]{0,300}?auth-ocean\.jpg[\s\S]{0,120}?filter: blur/.test(CSS));
   check("the phone band shows all of it too, not a slice of the top",
@@ -81,14 +86,14 @@ console.log("\none surface on the right, with the ocean carried across the cut")
   check("…and it is the painting itself, carried on out of focus",
         /#auth-step-choose > \.ao-seam::before \{[\s\S]{0,400}?auth-ocean\.jpg[\s\S]{0,200}?filter: blur\(/.test(CSS));
   check("…faded out before its own box ends, so it draws no second edge",
-        /mask-image: linear-gradient\(96deg, #000 40%, rgba\(0,0,0,\.42\) 49%, rgba\(0,0,0,0\) 58%\)/.test(CSS));
-  // The box hugs the cut by arithmetic, not by a guessed angle: the cut runs
-  // 50% -> 44% of the SCREEN, and a box at left:44% width:22% puts its top end
-  // at (50-44)/22 of the box. Change one of those three and the light slides
-  // off the diagonal at some window shape nobody tested.
-  check("the seam box is pinned to the cut at every window shape",
-        /#auth-step-choose > \.ao-seam \{[\s\S]{0,400}?left: 44%;[\s\S]{0,200}?width: 22%;/.test(CSS)
-        && /#auth-step-choose > \.ao-seam \{[\s\S]{0,500}?clip-path: polygon\(27\.27% 0, 100% 0, 100% 100%, 0 100%\)/.test(CSS));
+        /mask-image: linear-gradient\(90deg, #000 40%, rgba\(0,0,0,\.42\) 49%, rgba\(0,0,0,0\) 58%\)/.test(CSS));
+  // The cut is vertical, so the seam box simply starts on it. (It used to lean,
+  // and then the box had to hug the slope by arithmetic: left:44% width:22%
+  // with a clip-path putting the cut's top end at (50-44)/22 of the box.)
+  check("the seam box starts on the cut",
+        /#auth-step-choose > \.ao-seam \{[\s\S]{0,400}?left: 50%;[\s\S]{0,200}?width: 18%;/.test(CSS));
+  check("…and needs no clip-path to follow a slope any more",
+        !/#auth-step-choose > \.ao-seam \{[\s\S]{0,500}?clip-path: polygon/.test(CSS));
   check("…and it is scenery: under the column, taking no clicks",
         /#auth-step-choose > \.ao-seam \{[\s\S]{0,300}?z-index: 1;[\s\S]{0,120}?pointer-events: none;/.test(CSS));
   check("the phone layout, which has no diagonal, has no wedge to fill either",
@@ -316,9 +321,8 @@ def lum(c): return (c[0] + c[1] + c[2]) / 3.0
 out = []
 for frac in (0.30, 0.55, 0.80, 0.95):
     y = int(H * frac)
-    # the cut runs from 50% at the top to 44% at the bottom, in CSS pixels;
-    # the screenshot may be scaled, so work in fractions of the width.
-    cut = (0.50 - 0.06 * frac)
+    # the cut is straight down the halfway line at every height.
+    cut = 0.50
     x0 = int(W * (cut + 0.012))           # clear of the lit edge line
     # The GUTTER is what this is about: the empty field between the cut and
     # the first thing the column draws (.ao-form-inner starts at 56% of the
@@ -336,9 +340,14 @@ for frac in (0.30, 0.55, 0.80, 0.95):
     # darker than the field it lands in. The fade itself is not a dip, so the
     # thing to compare against is where the walk ENDS, not its own average.
     ends = walk[-1]
+    falloff = walk[0] - walk[-1]
+    # the step ACROSS the line: picture on one side, water on the other
+    left  = sum(lum(px[x, y]) for x in range(int(W*0.47), int(W*0.49))) / max(1,(int(W*0.49)-int(W*0.47)))
+    right = sum(lum(px[x, y]) for x in range(int(W*0.515), int(W*0.535))) / max(1,(int(W*0.535)-int(W*0.515)))
     jump = max(abs(b - a) for a, b in zip(walk, walk[1:])) if len(walk) > 1 else 0
     out.append({"y": frac, "colmean": colmean, "cutmean": cutmean,
-                "darkest": darkest, "ends": ends, "jump": jump})
+                "darkest": darkest, "ends": ends, "jump": jump,
+                "falloff": falloff, "cliff": abs(left - right)})
 print(json.dumps(out))
 `;
       let rows = [];
@@ -348,9 +357,12 @@ print(json.dumps(out))
         check(`at ${Math.round(row.y * 100)}% down: nothing beside the painting is a dark slit`,
               row.darkest > row.ends - 3,
               `darkest ${row.darkest.toFixed(1)} vs where it lands ${row.ends.toFixed(1)}`);
-        check(`…and the water at the cut is lit, not a hole punched in the page`,
-              row.cutmean > row.colmean + 12,
-              `at the cut ${row.cutmean.toFixed(1)} vs column ${row.colmean.toFixed(1)}`);
+        check(`…and the water at the cut is lit, and settles as it goes right`,
+              row.falloff > 3,
+              `falls ${row.falloff.toFixed(1)} from the cut to the column`);
+        check(`…and crossing the line is not a cliff`,
+              row.cliff < 42,
+              `${row.cliff.toFixed(1)} between the picture and the water beside it`);
         check(`…and the run from the cut across the field has no step in it`,
               row.jump < 9, `biggest jump ${row.jump.toFixed(1)}`);
       }
