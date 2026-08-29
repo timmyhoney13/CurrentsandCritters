@@ -396,6 +396,10 @@ serviceAccountKey.json
 # unlabelled "0 0" left on it.
 !test_guest_identity.js
 
+# A guest session is ONE session: it starts empty, it shows the guest
+# everything they do, and it is gone when the window closes.
+!test_guest_session_isolation.js
+
 # Newsletter tests + setup guide + the one-off OAuth helper.
 # (newsletter_server.py / newsletter_email.py are allowlisted further up, next
 # to the other server modules.) NOTE: .gitignore and .dockerignore are BOTH

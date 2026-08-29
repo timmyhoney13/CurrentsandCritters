@@ -130,7 +130,7 @@ console.log("\nthe field says what maxlength is enforcing");
   // it is primed however it was reached: the button, a deep link, or the column
   // being put back where it was.
   check("…and it is repainted when arriving writes the field",
-        /function ccPrimeGuestPane\(\)[\s\S]{0,600}?paintGuestCount\(\);/.test(APP)
+        /function ccPrimeGuestPane\(\)[\s\S]{0,1100}?paintGuestCount\(\);/.test(APP)
         && /if \(key === "guest"\)  ccPrimeGuestPane\(\);/.test(APP));
   check("the field is 16px or more, so iOS does not zoom the page on focus",
         /#auth-step-choose \.ao-field input \{[\s\S]{0,220}?font-size: clamp\(15px/.test(CSS));

@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.99";
-  const APP_BUILD   = "2026-08-27.4";
+  const APP_VERSION = "1.7.0";
+  const APP_BUILD   = "2026-08-29.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -140,6 +140,11 @@
       "A guest gets the whole game and keeps nothing, and now both halves of that are true. Your stats, XP, level and games update as you play and are waiting for you back on Player Home. Signing out erases every bit of it, and says so before it does.",
       "At the end of a game there is a CREATE AN ACCOUNT button. Make an account from there and everything you played as a guest comes with you: your XP, your level, your games and the critters you unlocked. Same from the \"Create a free account\" line on Player Home.",
       "Backing out of signing in no longer costs you your guest session. Closing the Google window, or a username already being taken, used to end it; now the session is still there, and PLAY AS GUEST hands your nickname back.",
+      "PLAY AS GUEST is a new player, every time. The nickname box used to open with the last guest's name already in it, and everything a guest builds up is filed under that name, so pressing one button could hand you a stranger's Player Home: their level, their unlocked critters, their coins, their game history. You type your own name now, and it is yours.",
+      "A guest session can no longer land you in somebody's account. Pressing PLAY AS GUEST left whoever was signed in before still signed in underneath, and they would come back on the next refresh, name, rewards and all. Signing in is now something you have to actually do.",
+      "When a guest session ends, it is gone: signing out, or simply closing the game, erases the whole lot. Nothing of yours is left on the computer for the next person to walk into, and nothing of theirs is waiting for you.",
+      "The critter you choose as a guest stays on. Coming back to Player Home, reloading, or sitting down at a table used to put the Mullet back on your face, and the critters you had unlocked went with it.",
+      "No red badge over Messages for a guest. It was showing the unread count belonging to whoever had signed in on that computer last.",
     ]},
     { ver: "V1.7.0", title: "🌊 The sign-in screen, readable on a phone", items: [
       "On a phone the sign-in artwork used to letterbox into a thin band with lettering about five pixels tall. It is cropped to its title strip now, the panel underneath is drawn large with real, readable words in it, and the same eight oceans fill the rest of the screen, blurred.",
@@ -16994,11 +16999,46 @@
     const GUEST_NICK_KEY = "fish_guest_nick";
     const GUEST_AVATAR_KEY = "fish_guest_avatar";
     const GUEST_STATS_KEY_PREFIX = "fish_guest_stats_v1::";
-    // The last guest nickname used on this device. Not a session: only what to
-    // pre-fill PLAY AS GUEST with, so backing out of a sign-in does not cost a
-    // returning guest their name (and with it, their stats, which are filed
-    // under it). Erased by a real sign-out along with everything else.
-    const LAST_GUEST_NICK_KEY = "cc_last_guest_nick";
+
+    // ══ A GUEST SESSION IS ONE SESSION ════════════════════════════════
+    // PLAY AS GUEST means a brand NEW person, every time. During the session
+    // they get the whole game and can see every bit of what they are doing;
+    // when the session is over, all of it goes.
+    //
+    // Both halves used to be untrue, and they failed together. The guest's
+    // name, critter, stats blob, unlocked critters and challenge progress all
+    // lived in localStorage, which has no idea what a session is: it survives
+    // the window being closed and it is shared with whoever opens the browser
+    // next. The nickname box was PRE-FILLED with the last guest's name, so the
+    // next person pressed one button and was handed a stranger's Player Home:
+    // their name, their level, their unlocked critters, their game history.
+    //
+    // The session marker below lives in sessionStorage, which is exactly the
+    // lifetime we mean: it survives a reload and the launcher's hand-off into
+    // the game window (both are same-tab navigations), and it dies with the
+    // window. A saved guest is only restored when THIS window is the session
+    // that created them; anything else is a dead session, and a dead session is
+    // erased rather than handed to a stranger.
+    const GUEST_SESSION_KEY = "cc_guest_session_v1";
+    // The nickname to hand BACK inside this one window, and nowhere else. A
+    // sign-in can be cancelled (a closed Google window, a username already
+    // taken), and backing out of a form must not cost a guest their afternoon,
+    // so the session that was standing down is offered again on the pane it
+    // left from. It goes with the window, so it can never reach anybody else.
+    const GUEST_RESUME_KEY  = "cc_guest_resume_v1";
+
+    function ccGuestSessionNick() {
+      try { return String(sessionStorage.getItem(GUEST_SESSION_KEY) || "").trim(); } catch (_) { return ""; }
+    }
+    function ccMarkGuestSession(nick) {
+      try { sessionStorage.setItem(GUEST_SESSION_KEY, String(nick || "")); } catch (_) {}
+    }
+    function ccForgetGuestSessionMark() {
+      try {
+        sessionStorage.removeItem(GUEST_SESSION_KEY);
+        sessionStorage.removeItem(GUEST_RESUME_KEY);
+      } catch (_) {}
+    }
 
     // ── Legal ────────────────────────────────────────────────────────
     // Nothing gates sign-in. First sign-in is ONE screen: pick a username.
@@ -17585,24 +17625,112 @@
       } catch (_) { /* private mode: nothing was saved to erase */ }
     }
 
-    // Everything a guest built up on this device: their stats blob, the
-    // critters they unlocked, and the challenge slots / win streaks /
-    // opponents met that ccScopedKey files under their name. All of it is
-    // filed per identity now, so this can no longer reach an account's
-    // progress the way it once could.
+    // Everything a guest built up on this device: their name, their critter,
+    // their stats blob, the critters they unlocked, and the challenge slots /
+    // win streaks / opponents met that ccScopedKey files under their name. All
+    // of it is filed per identity, so this can no longer reach an account's
+    // progress the way it once could. Nothing about ANY guest is left behind.
     function purgeGuestData() {
       purgeGuestProgressBlobs();
+      try {
+        localStorage.removeItem(GUEST_NICK_KEY);
+        localStorage.removeItem(GUEST_AVATAR_KEY);
+        // Written by builds that filed the returning guest's name on the
+        // device rather than in the window. Swept so an upgrade cannot hand
+        // one more stranger the last guest's name.
+        localStorage.removeItem("cc_last_guest_nick");
+      } catch (_) {}
+      ccForgetGuestSessionMark();
     }
 
     // A guest pressing Sign Out. This is the one action the "nothing is kept"
-    // promise is about, so it is the one place the whole lot goes.
+    // promise is about, so it is the one place the whole lot goes. Every
+    // sign-out button in the app calls this one, guest or account: for an
+    // account there is nothing of a guest's to erase, and the check below says
+    // so rather than trusting three separate handlers to remember.
     function signOutGuestForGood() {
       let wasGuest = _guestSessionActive === true;
       try { wasGuest = wasGuest || !!(localStorage.getItem(GUEST_NICK_KEY) || "").trim(); } catch (_) {}
+      wasGuest = wasGuest || !!ccGuestSessionNick();
       if (wasGuest) purgeGuestData();
-      try { localStorage.removeItem(LAST_GUEST_NICK_KEY); } catch (_) {}
       clearGuestMigration();
       clearGuestSessionStorage();
+      // LAST, because the stand-down above deliberately writes the resume
+      // nickname back for a cancelled sign-in. This is not a cancelled sign-in:
+      // it is the end, and leaving that name armed would hand it straight to
+      // whoever pressed PLAY AS GUEST next.
+      ccForgetGuestSessionMark();
+      // The name is also still sitting in the box they typed it into: nothing
+      // clears a form field on the way out, and ccPrimeGuestPane leaves a
+      // non-empty box alone (so a half-typed name survives flipping between
+      // panes). Left there, the next person opens PLAY AS GUEST and finds the
+      // last guest's name waiting, which is the whole bug in one input.
+      try {
+        const _gInp = $a("auth-guest-nick");
+        if (_gInp) { _gInp.value = ""; }
+        if (typeof paintGuestCount === "function") paintGuestCount();
+        setAuthMsg("auth-guest-err", "", false);
+      } catch (_) {}
+      _guestAvatarUrl = "";
+      _unlockedIcons = [];
+      _unlockedBackgrounds = [];
+    }
+
+    // PLAY AS GUEST, pressed. A guest session always starts EMPTY: whatever any
+    // earlier guest left on this device goes before this one gets a name, so
+    // nobody is ever handed a stranger's level, critters or history. The
+    // session is then stamped on THIS window, which is what makes it end when
+    // the window does.
+    function ccStartFreshGuestSession(nick) {
+      purgeGuestData();
+      clearGuestMigration();
+      _unlockedIcons = [];
+      _unlockedBackgrounds = [];
+      _userAchievements = {};
+      _achLoadedUid = null;
+      _guestAvatarUrl = DEFAULT_AVATAR_IMG;
+      _activeProfile = null;
+      // No account is standing behind this session, and none may arrive later
+      // claiming the transient-null exemption on its behalf.
+      _ccHadAccountUser = false;
+      ccMarkGuestSession(nick);
+      try {
+        localStorage.setItem(GUEST_NICK_KEY, nick);
+        localStorage.setItem(GUEST_AVATAR_KEY, _guestAvatarUrl);
+      } catch (_) {}
+    }
+
+    // A guest session saved on this device belongs to us only if THIS window is
+    // the one that started it. Anything else was left by a window that has
+    // since been closed: the session is over, so it is erased here rather than
+    // restored onto whoever opens the game next.
+    function ccLiveGuestNick() {
+      let saved = "";
+      try { saved = (localStorage.getItem(GUEST_NICK_KEY) || "").trim(); } catch (_) {}
+      if (!saved) return "";
+      if (ccGuestSessionNick().toLowerCase() === saved.toLowerCase()) return saved;
+      purgeGuestData();
+      return "";
+    }
+
+    // The critter and the unlocked critters belong to the guest, not to the
+    // page, so they are read back on every road into the lobby. _ccBecomeIdentity
+    // empties the unlock list as the session changes hands (it belongs to
+    // whoever is leaving), which on a reload meant the guest arriving lost the
+    // critters they had just earned; this puts their own back.
+    function ccRestoreGuestSessionState() {
+      const nick = String(_playerNickname || "").trim();
+      if (!nick) return;
+      try {
+        const raw = localStorage.getItem(GUEST_UNLOCKED_ICONS_PREFIX + nick.toLowerCase());
+        const list = raw ? JSON.parse(raw) : [];
+        _unlockedIcons = Array.isArray(list)
+          ? list.filter(s => typeof s === "string" && s.startsWith("/avatars/"))
+          : [];
+      } catch (_) { _unlockedIcons = []; }
+      if (!_guestAvatarUrl) {
+        try { _guestAvatarUrl = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", nick); } catch (_) {}
+      }
     }
 
     // ── Guest → account migration ─────────────────────────────────────
@@ -17621,7 +17749,10 @@
 
     function stageGuestMigration() {
       try {
-        const nick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
+        // The LIVE session's guest, never one left behind by a window that has
+        // since been closed: that session is over, and its afternoon is not
+        // somebody else's to carry into a brand new account.
+        const nick = ccLiveGuestNick();
         if (!nick) return false;
         const stats = loadGuestStats(nick);
         if (!stats || Number(stats.completed_games || 0) <= 0) return false;   // nothing played, nothing to carry
@@ -19731,6 +19862,14 @@
       // into a guest "Player" lobby. Guests keep their saved session.
       if (_authUser) {
         try { localStorage.removeItem(GUEST_NICK_KEY); localStorage.removeItem(GUEST_AVATAR_KEY); } catch (_) {}
+        ccForgetGuestSessionMark();
+      } else if (_guestSessionActive) {
+        // The wipe above belongs to whoever just LEFT. A guest arriving gets
+        // their own critter and their own unlocked list put back, so a reload
+        // no longer costs them the critters they just earned, and nothing they
+        // are wearing quietly reverts to the Mullet.
+        ccMarkGuestSession(_playerNickname);
+        ccRestoreGuestSessionState();
       }
       _activeProfile = {
         ...(_activeProfile || {}),
@@ -19826,8 +19965,7 @@
       // device-wide caches are left alone, because from this point on they
       // belong to the account standing in front of them.
       clearGuestMigration();
-      purgeGuestProgressBlobs();
-      try { localStorage.removeItem(LAST_GUEST_NICK_KEY); } catch (_) {}
+      purgeGuestData();
       revealLobby(nickname, code);
       // Signed in with a real account: warm the reward caches now, so the XP
       // boost is known before the first game finishes rather than after.
@@ -19846,17 +19984,22 @@
     // PLAY AS GUEST and the same session is still there.
     function clearGuestSessionStorage() {
       try {
-        const nick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
-        if (nick) localStorage.setItem(LAST_GUEST_NICK_KEY, nick);
+        const nick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim() || ccGuestSessionNick();
+        // Offered back on the guest pane of THIS window only, never written to
+        // the device: the next person to open the game is a different person
+        // and must type their own name.
+        if (nick) { try { sessionStorage.setItem(GUEST_RESUME_KEY, nick); } catch (_) {} }
+        // The nickname is what auto-restores a guest, so it goes while the
+        // sign-in is in flight. The critter is not: it belongs to the session,
+        // and a cancelled sign-in gives that session straight back, wearing
+        // what it was wearing.
         localStorage.removeItem(GUEST_NICK_KEY);
-        localStorage.removeItem(GUEST_AVATAR_KEY);
       } catch (_) {}
       _guestSessionActive = false;
       // Every caller of this is leaving the current identity behind. Drop the
       // Level Pass cache with it, so the sidebar's unclaimed badge cannot show
       // the last account's number to the next one.
       try { window.__ccLevelPassReset && window.__ccLevelPassReset(); } catch (_) {}
-      _guestAvatarUrl = "";
     }
 
     // ── Stats lobby helpers ───────────────────────────────────────
@@ -21128,7 +21271,10 @@
       try { if (window.ccDeviceReady) await window.ccDeviceReady; } catch (_) {}
 
       if (!_auth) {
-        const savedGuestNick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
+        // Only a session THIS window started. A guest who closed the game is
+        // gone, and ccLiveGuestNick erases what they left rather than restoring
+        // it onto whoever opens the game next.
+        const savedGuestNick = ccLiveGuestNick();
         // Same reason as the sign-out path below: mark the guest session before
         // the saved avatar is validated against it.
         if (savedGuestNick) _guestSessionActive = true;
@@ -21162,6 +21308,15 @@
         // (and route auth/onboarding into the game window).
         if (!IS_GAME_WINDOW()) {
           $a("auth-loading-screen").classList.add("hidden");
+          // A guest session running in this window outranks an account that is
+          // merely still in Firebase's storage: the guest is the person at the
+          // keyboard, and they did not ask to be signed in as anybody.
+          const liveGuestNick = ccLiveGuestNick();
+          if (user && liveGuestNick && !_ccWantsGoogleAuth && !_ccGoogleRedirectStarted) {
+            _ccExplicitSignOut = true;
+            try { await _auth.signOut(); } catch (_) {}
+            return;
+          }
           if (user) {
             _authUser = user;
             _ccHadAccountUser = true;
@@ -21182,7 +21337,7 @@
             ccLaunchFromLauncher(_ccLaunchCtx);
           } else {
             _authUser = null;
-            const gNick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
+            const gNick = liveGuestNick;
             if (gNick) {
               // Returning guest on the launcher, go straight into the game in
               // THIS tab, no interstitial "Open Game" screen.
@@ -21198,6 +21353,19 @@
 
         // ── GAME WINDOW MODE ── full auth / onboarding / lobby logic ──
         if (user) {
+          // A guest is still sitting here, and signing in is something a guest
+          // DOES: every road to an account (Google, username, sign-up) stands
+          // the guest session down before it starts. A guest still standing
+          // when an account arrives never asked for it, so the account goes
+          // rather than the guest. This is the last line of defence for the
+          // bug where PLAY AS GUEST landed you in somebody else's Player Home.
+          if (_guestSessionActive && ccGuestSessionNick()
+              && !_ccWantsGoogleAuth && !_ccGoogleRedirectStarted && !_pendingOnboardingUid) {
+            _ccExplicitSignOut = true;
+            try { await _auth.signOut(); } catch (_) {}
+            $a("auth-loading-screen").classList.add("hidden");
+            return;
+          }
           const prevUid = _authUser?.uid || "";
           if (prevUid && prevUid !== user.uid) {
             stopPresencePing(prevUid);
@@ -21332,7 +21500,10 @@
           // goes now, before a guest session can be restored on top of it.
           _guestSessionActive = false;
           _ccBecomeIdentity();
-          const savedGuestNick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
+          // A guest session belonging to THIS window, or nothing. One left
+          // behind by a window that has since been closed is over: it is erased
+          // here rather than restored onto the next person at this browser.
+          const savedGuestNick = ccLiveGuestNick();
           // A saved guest nickname IS a guest session, so say so BEFORE reading
           // the saved avatar back. sanitizeSelectableAvatar asks whether this is
           // a guest to decide what may be worn, and answering "no" here reset a
@@ -21352,17 +21523,23 @@
           const accountSignInPending = _ccWantsGoogleAuth || _ccGoogleRedirectStarted;
           if (savedGuestNick && !accountSignInPending) {
             _guestAvatarUrl = savedGuestAvatar;
-            try {
-              const _uiKey = GUEST_UNLOCKED_ICONS_PREFIX + savedGuestNick.toLowerCase();
-              const _uiRaw = localStorage.getItem(_uiKey);
-              if (_uiRaw) _unlockedIcons = JSON.parse(_uiRaw).filter(s => typeof s === "string" && s.startsWith("/avatars/"));
-            } catch { _unlockedIcons = []; }
+            // The critters this guest has unlocked are read back inside
+            // revealLobby (ccRestoreGuestSessionState), AFTER the identity wipe
+            // that would otherwise empty the list a line after it was filled.
             revealGuestLobby(savedGuestNick);
           } else {
             // Not signed in in this window. (For Google, the session is normally
             // inherited from the launcher; if it wasn't, the player finishes with
             // one tap on the Google button, which uses a reliable popup, never
             // the cross-domain redirect.)
+            //
+            // Player Home belongs to whoever was just here, so it comes down
+            // with them. It used to be left standing behind the sign-in screen
+            // with the last session's name and numbers still painted on it,
+            // which is a stranger's Player Home one dismissed overlay away.
+            const _slEl = $a("auth-stats-lobby"); if (_slEl) _slEl.classList.remove("visible");
+            const _pbEl = $a("auth-profile-bar"); if (_pbEl) _pbEl.style.display = "none";
+            document.body.classList.remove("cc-signed-in");
             showStep("auth-step-choose");
             if (accountSignInPending) {
               // Provider-neutral on purpose: the account waiting to be finished
@@ -21491,12 +21668,14 @@
     function ccPrimeGuestPane() {
       const inp = $a("auth-guest-nick");
       if (!inp) return;
-      // Pre-filled with the last nickname used on this device, if there is one.
-      // The stats are filed under the nickname, so handing it back is what
-      // makes backing out of a sign-in cost nothing.
-      let last = "";
-      try { last = (localStorage.getItem(LAST_GUEST_NICK_KEY) || "").trim(); } catch (_) {}
-      if (!inp.value) inp.value = validateNick(last) ? "" : last;
+      // Pre-filled ONLY from a session this same window stood down mid sign-in,
+      // so backing out of a form gives that session straight back. It is never
+      // filled from the device: this box used to hand the last guest's name to
+      // the next person who opened the game, and with it their level, their
+      // critters and their history, because the stats are filed under the name.
+      let resume = "";
+      try { resume = String(sessionStorage.getItem(GUEST_RESUME_KEY) || "").trim(); } catch (_) {}
+      if (!inp.value) inp.value = validateNick(resume) ? "" : resume;
       paintGuestCount();
     }
 
@@ -21693,16 +21872,27 @@
       chooseAccountBtn.addEventListener("click", () => { void ccGoogleSignIn("auth-choose-err"); });
     }
 
-    $a("auth-guest-go-btn").addEventListener("click", () => {
+    $a("auth-guest-go-btn").addEventListener("click", async () => {
       const nick = ($a("auth-guest-nick").value || "").trim();
       const err = validateNick(nick);
       if (err) { setAuthMsg("auth-guest-err", err, false); return; }
+      // An account is never allowed to ride along into a guest session. Firebase
+      // keeps its own copy of who is signed in, and this button only ever set
+      // _authUser to null: the account was still there, and the next token
+      // refresh fired onAuthStateChanged with it and handed the guest somebody
+      // else's Player Home, name, level and rewards included. Sign it out for
+      // real, and say the sign-out was meant, so the null is not read as one of
+      // Firebase's transient ones.
+      if (_auth && _auth.currentUser) {
+        _ccExplicitSignOut = true;
+        try { await _auth.signOut(); } catch (_) {}
+      }
       _authUser = null;
       _guestSessionActive = true;
       _friendCode = "";
-      _guestAvatarUrl = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", nick || "guest");
-      localStorage.setItem(GUEST_NICK_KEY, nick);
-      localStorage.setItem(GUEST_AVATAR_KEY, _guestAvatarUrl);
+      // A NEW person, every time: nothing any earlier guest left behind comes
+      // with them, and the session is stamped on this window so it ends with it.
+      ccStartFreshGuestSession(nick);
       _activeProfile = { nickname: nick, avatar_url: _guestAvatarUrl };
       if (IS_GAME_WINDOW()) {
         revealLobby(nick, "");
@@ -22285,8 +22475,7 @@
         // an account that already has a history behind it.
         try { await applyGuestMigration(_authUser.uid); } catch (_) {}
         // Migrated or not, the guest session that led here is over.
-        purgeGuestProgressBlobs();
-        try { localStorage.removeItem(LAST_GUEST_NICK_KEY); } catch (_) {}
+        purgeGuestData();
         fetch("/api/user/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -22880,8 +23069,14 @@
     });
     const settingsSignoutBtn = $a("settings-signout-btn");
     if (settingsSignoutBtn) settingsSignoutBtn.addEventListener("click", async () => {
+      // A guest signing out loses everything, so they are told before it goes.
+      if (!_authUser && !confirmGuestSignOut()) return;
       await cancelQuickMatch(true);
-      clearGuestSessionStorage();
+      // The real erase, not the soft stand-down that a cancelled sign-in uses.
+      // These two buttons used to keep the guest's stats, their unlocked
+      // critters and their name on the device, which is how the next guest was
+      // handed a stranger's Player Home.
+      signOutGuestForGood();
       if (_authUser) stopPresencePing(_authUser.uid);
       if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
       _playerNickname = ""; _friendCode = ""; _activeProfile = null;
@@ -22904,8 +23099,9 @@
     const statsSignoutBtn = $a("stats-signout-btn");
     if (statsSignoutBtn) {
       statsSignoutBtn.addEventListener("click", async () => {
+        if (!_authUser && !confirmGuestSignOut()) return;
         await cancelQuickMatch(true);
-        clearGuestSessionStorage();
+        signOutGuestForGood();
         if (_authUser) stopPresencePing(_authUser.uid);
         if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
         _playerNickname = ""; _friendCode = ""; _activeProfile = null;
@@ -22992,9 +23188,31 @@
     }
     function _msgTs(m) { return (m && m.ts && m.ts.toMillis) ? m.ts.toMillis() : Date.now(); }
 
+    // The session has changed hands. The Messages listener belongs to ONE
+    // account's subcollection and the unread count was never reset, so the last
+    // account's total sat there in red over the next person's Messages button,
+    // guest included, and a guest has no messages at all. Everything the panel
+    // remembers goes with the person who owned it.
+    function _msgResetForNewIdentity() {
+      if (_msgListUnsub) { try { _msgListUnsub(); } catch (_) {} _msgListUnsub = null; }
+      _msgAllMessages = [];
+      _msgConversations = [];
+      _msgOpenConvId = null;
+      _msgOpenPeer = null;
+      _msgOpenGroup = null;
+      _msgTotalUnread = 0;
+      _msgListRenderGen++;
+      try { _msgUpdateBadge(); } catch (_) {}
+      // The in-game chat button carries the same number.
+      try { if (typeof pvcUpdateBadges === "function") pvcUpdateBadges(); } catch (_) {}
+    }
+
     function _msgUpdateBadge() {
       const badge = $a("msg-unread-badge");
       if (!badge) return;
+      // A guest holds no Firestore session, so they can have no unread message
+      // and must never be shown a red number saying they do.
+      if (!_authUser) { badge.style.display = "none"; badge.textContent = "0"; return; }
       if (_msgTotalUnread > 0) {
         badge.textContent = _msgTotalUnread > 99 ? "99+" : String(_msgTotalUnread);
         badge.style.display = "";
@@ -30781,6 +30999,9 @@
       // Faces are cached BY NICKNAME, and the last session's own nickname is
       // in there pointing at the last session's critter.
       try { Object.keys(_nickAvatarCache).forEach(k => { delete _nickAvatarCache[k]; }); } catch (_) {}
+      // Messages: the live listener, the cached conversations, and the red
+      // unread number over the Messages button all belong to whoever is leaving.
+      try { if (typeof _msgResetForNewIdentity === "function") _msgResetForNewIdentity(); } catch (_) {}
       // The reward modules keep their own copy of "your" state.
       try { window.__ccLevelPassReset && window.__ccLevelPassReset(); } catch (_) {}
       try { window.__ccPrestigeReset && window.__ccPrestigeReset(); } catch (_) {}

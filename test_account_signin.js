@@ -267,15 +267,22 @@ console.log("\na guest keeps nothing, and loses nothing by accident");
   // The bug this replaced: clearGuestSessionStorage ran at the START of every
   // sign-in attempt, so closing the Google window cost a guest their session.
   check("a sign-in ATTEMPT is not a sign-out",
-        /function clearGuestSessionStorage\(\)[\s\S]{0,900}?LAST_GUEST_NICK_KEY, nick/.test(APP)
+        /function clearGuestSessionStorage\(\)[\s\S]{0,1200}?sessionStorage\.setItem\(GUEST_RESUME_KEY, nick\)/.test(APP)
         && !/function clearGuestSessionStorage\(\) \{[\s\S]{0,200}?purgeGuestData\(\)/.test(APP));
-  check("…so PLAY AS GUEST hands the nickname back",
-        /localStorage\.getItem\(LAST_GUEST_NICK_KEY\)/.test(APP));
+  // …and the nickname is handed back inside THIS WINDOW and nowhere else. It
+  // used to be filed on the device, so the box was pre-filled with the last
+  // guest's name for the next person to open the game, and pressing one button
+  // handed them that guest's level, critters and history.
+  check("…so PLAY AS GUEST hands the nickname back to the same session",
+        /sessionStorage\.getItem\(GUEST_RESUME_KEY\)/.test(APP));
+  check("…and never to anybody else",
+        !/LAST_GUEST_NICK_KEY/.test(APP)
+        && !/localStorage\.getItem\("cc_last_guest_nick"\)/.test(APP));
   check("the device-wide caches are only swept for a GUEST sign-out",
         /function purgeGuestProgressBlobs\(\)/.test(APP)
         && /purgeGuestData\(\) \{\s*\n\s*purgeGuestProgressBlobs\(\);/.test(APP));
   check("…and arriving in an account ends the guest session for real",
-        (APP.match(/purgeGuestProgressBlobs\(\);/g) || []).length >= 3);
+        (APP.match(/purgeGuestData\(\);/g) || []).length >= 3);
   check("Player Home says what a guest session is worth",
         /erased the moment you sign out/.test(HTML));
 }
@@ -296,7 +303,7 @@ console.log("\na guest can take their afternoon with them");
         /if \(!stats \|\| Number\(stats\.completed_games \|\| 0\) <= 0\) return false;/.test(APP));
   check("it is poured into a NEW profile only",
         /await applyGuestMigration\(_authUser\.uid\)/.test(APP)
-        && /clearGuestMigration\(\);\s*\n\s*purgeGuestProgressBlobs\(\);/.test(APP));
+        && /clearGuestMigration\(\);\s*\n\s*purgeGuestData\(\);/.test(APP));
   check("…through the write that can never downgrade an account",
         /await safeWriteProfile\(uid, icons\.length \? \{ stats: clean/.test(APP));
   check("…and a hand-edited blob cannot write NaN into a live account",
@@ -642,19 +649,26 @@ if (!CHROME) {
     }
 
     // ── 6. What a guest is told, and what happens to them ─────────────────
-    console.log("\nthe guest card hands a returning guest their name back");
+    console.log("\nthe guest card hands a session its own name back, and nobody else's");
     {
       const r = run("_acc_guest.html", `
         setTimeout(function () {
-          localStorage.setItem("cc_last_guest_nick", "Tidepool");
+          // Stood down mid sign-in IN THIS WINDOW: the same person is coming
+          // back, so their name is waiting for them.
+          sessionStorage.setItem("cc_guest_resume_v1", "Tidepool");
+          // Left on the DEVICE by an earlier guest, in a window that has since
+          // been closed. A different person is at the keyboard now.
+          localStorage.setItem("cc_last_guest_nick", "SomebodyElse");
           document.getElementById("auth-guest-btn").click();
           log.prefill = document.getElementById("auth-guest-nick").value;
           log.count   = document.getElementById("auth-guest-count").textContent;
           done();
         }, 1500);
       `, 1440, 900, (r) => r.prefill !== undefined);
-      check("PLAY AS GUEST remembers the last nickname used here",
+      check("PLAY AS GUEST hands back the session this window stood down",
             r && r.prefill === "Tidepool", r && r.prefill);
+      check("…and never the last guest left on the device",
+            r && r.prefill !== "SomebodyElse", r && r.prefill);
       check("…and the counter agrees with it", r && r.count === "8 / 15", r && r.count);
     }
   } finally {
