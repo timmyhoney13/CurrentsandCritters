@@ -151,6 +151,166 @@
     "Yellowfin Tuna + Mammals": ["Yellowfin Tuna Stack", "Mammals"],
   };
 
+
+  // ── Every remaining pair of cores, generated ────────────────────
+  // Ten combos above are hand-written, the classic named archetypes (B-Lob,
+  // B-Coral…). They are not the only ones that work: any two core plans can be
+  // run off one board, which is 66 pairs for 12 cores. Writing 56 more by hand
+  // would rot the moment a core changes, so the rest are BUILT from the two
+  // cores they bridge, at load, out of the same card lists the cores already
+  // carry. A hand-written combo always wins: a pair already in the table above
+  // is skipped, never overwritten.
+  //   Generated at runtime rather than baked into this file so the extra pairs
+  //   cost no download, and so a card added to a core turns up in all eleven of
+  //   that core's combos in the same deploy.
+
+  // Where each family is allowed to sit around an ocean. Two plans that want
+  // DIFFERENT zones never take a spot the other one wanted, which is the whole
+  // reason most pairs work; two that want the same zone are a race for room.
+  // (Crosscurrent is the wildcard: everywhere except the surface.)
+  const FAMILY_ZONES = {
+    ocean:        ["base"],
+    bird:         ["surface"],
+    baitfish:     ["surface"],
+    coral:        ["floor"],
+    crustacean:   ["floor"],
+    invertebrate: ["floor"],
+    cephalopod:   ["sides"],
+    "game fish":  ["sides"],
+    mammal:       ["sides"],
+    crosscurrent: ["floor", "sides"],
+  };
+  // The same zones said out loud, the way the List of Species names them:
+  // once as a NOUN ("both halves want the ocean floor") and once as a PLACE
+  // ("Birds on the surface"). Two forms rather than one because the sentences
+  // are built from strategy names of every shape, "Birds", "King Salmon",
+  // "Ocean All Blue", and a phrase that needs no verb after the name is the
+  // only one that stays grammatical for all of them.
+  const ZONE_NOUN = {
+    base: "the ocean bases", surface: "the surface",
+    floor: "the ocean floor", sides: "the left and right spots",
+  };
+  const ZONE_PLACE = {
+    base: "building out the oceans themselves", surface: "on the surface",
+    floor: "on the ocean floor", sides: "in the left and right spots",
+  };
+  // Short tags for the combined chip printed on a lit-up card in your hand.
+  // Two full core names would not fit; these are the same shortenings the
+  // hand-written combos already use ("Birds+Bait", "Mam+Ceph").
+  const CORE_ABBR = {
+    "Ocean All Blue": "Blue", "Birds": "Birds", "Crustaceans": "Crust",
+    "Cephalopods": "Cephs", "Mammals": "Mams", "Baitfish Barrage": "Bait",
+    "Yellowfin Tuna Stack": "Yellow", "Shooting the Moon": "Moon",
+    "King Salmon": "Salmon", "Coral": "Coral", "Invertebrates": "Inverts",
+    "Game Fish": "Game",
+  };
+
+  (function generateComboPairs() {
+    const zonesOf = (fam) => FAMILY_ZONES[normFamilyKey(fam)] || [];
+    const zoneWords = (fam) => {
+      const z = zonesOf(fam);
+      if (!z.length) return "its own spots";
+      if (z.length === 1) return ZONE_NOUN[z[0]];
+      return "the floor and both sides";
+    };
+    // Where a plan goes, as a phrase that can follow its name directly.
+    const zonePlace = (fam) => {
+      const z = zonesOf(fam);
+      if (!z.length) return "in its own spots";
+      if (z.length === 1) return ZONE_PLACE[z[0]];
+      return "on the floor and both sides";
+    };
+    const nameList = (names) =>
+      names.length === 1 ? names[0]
+      : names.length === 2 ? names[0] + " and " + names[1]
+      : names.slice(0, 2).join(", ") + " and " + (names.length - 2) + " more";
+
+    const cores = [];
+    BUILTIN_STRATEGIES.forEach((s, i) => { if (s.tier === "Core" && !s.custom) cores.push(i); });
+    // Pairs the hand-written table already covers, keyed the same way round
+    // both ways so "Birds + Coral" and "Coral + Birds" are one pair, not two.
+    const taken = new Set(Object.values(COMBO_PAIR_LABELS).map(p => p.slice().sort().join(" ")));
+
+    for (let a = 0; a < cores.length; a++) {
+      for (let b = a + 1; b < cores.length; b++) {
+        const A = BUILTIN_STRATEGIES[cores[a]], B = BUILTIN_STRATEGIES[cores[b]];
+        if (taken.has([A.label, B.label].sort().join(" "))) continue;
+        const famA = _STRAT_PRIMARY[cores[a]], famB = _STRAT_PRIMARY[cores[b]];
+        const aCards = Array.isArray(A.cards) ? A.cards : [];
+        const bCards = Array.isArray(B.cards) ? B.cards : [];
+
+        // The mechanical bridge: cards BOTH plans already list. Every copy of
+        // one of these scores for both halves, so they lead the card list, the
+        // blurb and the first step.
+        const inA = new Map(aCards.map(c => [c.name, c]));
+        const shared = bCards.filter(c => inA.has(c.name)).map(c => inA.get(c.name));
+        const sharedNames = shared.map(c => c.name);
+        const zA = zonesOf(famA), zB = zonesOf(famB);
+        const sameZone = zA.length === zB.length && zA.every(z => zB.indexOf(z) !== -1);
+        const clash = zA.some(z => zB.indexOf(z) !== -1);
+
+        let blurb, bridgeStep, bridgeTip;
+        if (sharedNames.length) {
+          blurb = "Both halves off one board: " + nameList(sharedNames) + " sit"
+            + (sharedNames.length === 1 ? "s" : "") + " in both card lists, so every copy you play scores for "
+            + A.label + " and " + B.label + " at once.";
+          bridgeStep = "Take " + nameList(sharedNames) + " ahead of anything else: "
+            + (sharedNames.length === 1 ? "it counts" : "they count") + " for both halves.";
+          bridgeTip = "The shared cards (" + sharedNames.slice(0, 3).join(", ") + ") are the ones worth spending a pool draw on.";
+        } else if (!clash) {
+          blurb = "Two halves, no overlap: " + A.label + " " + zonePlace(famA) + ", "
+            + B.label + " " + zonePlace(famB) + ", so neither one ever takes a spot the other wanted.";
+          bridgeStep = "Nothing here competes for room: " + zoneWords(famA) + " and " + zoneWords(famB)
+            + " sit on the same ocean, so build one ocean up instead of spreading thin.";
+          bridgeTip = "Different spots means one full ocean can carry both halves, count your open spots before you start another ocean.";
+        } else if (sameZone) {
+          blurb = "Both halves want " + zoneWords(famA)
+            + ", so this one is a race for room: give each half its own ocean and let whichever family you draw lead.";
+          bridgeStep = "These two compete for " + zoneWords(famA) + ", so spread them across oceans rather than crowding one.";
+          bridgeTip = "Same-spot plans: whichever half you are drawing more of should get the next ocean.";
+        } else {
+          // Partial clash: one half is Crosscurrent, welcome on the floor and
+          // both sides but never the surface, so it bends around the other one.
+          // Which half that is decides the sentence, never the pair's order.
+          const flexA = zA.length > zB.length;
+          const flex = flexA ? A : B, anchor = flexA ? B : A;
+          const anchorZone = zoneWords(flexA ? famB : famA);
+          blurb = flex.label + " goes almost anywhere, so it fills in wherever "
+            + anchor.label + " leaves " + anchorZone + " open.";
+          bridgeStep = "Play the " + anchor.label + " half first, then drop the "
+            + flex.label + " cards into whatever spots are still open.";
+          bridgeTip = flex.label + " is your filler here, hold it until you can see which spots "
+            + anchor.label + " will not use.";
+        }
+
+        // Card list: shared cards first (they pay twice), then each half's own,
+        // in the order that plan already lists them. Deck copies and uids come
+        // straight off the cores, so a combo lights up exactly what they do.
+        const cards = [], seen = new Set();
+        for (const c of shared.concat(aCards, bCards)) {
+          if (seen.has(c.name)) continue;
+          seen.add(c.name); cards.push(c);
+        }
+        const uids = [];
+        cards.forEach(c => (c.uids || []).forEach(u => uids.push(u)));
+        const steps = [(A.steps || [])[0], (A.steps || [])[1], (B.steps || [])[0], (B.steps || [])[1], bridgeStep].filter(Boolean);
+        const tips  = [bridgeTip, (A.tips || [])[0], (B.tips || [])[0]].filter(Boolean);
+        const label = A.label + " + " + B.label;
+
+        BUILTIN_STRATEGIES.push({
+          label: label, tier: "Combo", generated: true,
+          tag: (CORE_ABBR[A.label] || A.tag) + "+" + (CORE_ABBR[B.label] || B.tag),
+          blurb: blurb, cards: cards, uids: uids, steps: steps, tips: tips,
+        });
+        // Assign by INDEX, not push: the authored table above carries one
+        // trailing entry more than there are authored strategies, so a push
+        // would shift every generated combo's colour one place along.
+        _STRAT_PRIMARY[BUILTIN_STRATEGIES.length - 1] = famA;
+        COMBO_PAIR_LABELS[label] = [A.label, B.label];
+      }
+    }
+  })();
+
   // Species written any of the ways the card lists spell it, reduced to the
   // one key FAMILY_COLORS is filed under.
   function normFamilyKey(species) {

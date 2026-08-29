@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.7.0";
-  const APP_BUILD   = "2026-08-29.1";
+  const APP_VERSION = "1.7.1";
+  const APP_BUILD   = "2026-08-29.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,18 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "🧭 The strategy panel reads your board now", items: [
+      "The 💡 Strategies button used to answer from your hand alone, and it answered by counting matches, which handed the recommendation to whichever plan listed the most cards no matter what you were actually holding. It reads the board you have built, your hand, the pool and the cards already down in front of everybody else, and it tells you what it read: \u201c5 of the 6 cards on your board already belong to it\u201d.",
+      "It shows its working: a fit percentage on the pick, the three plans that came closest behind it, and a warning when the cards a plan needs are already sitting on other people's boards.",
+      "Every pair of core strategies is a combo now, 66 of them where there were 10. Pick any core and eleven partners come up under Suggested Combos, ordered by how well each one fits the cards in front of you.",
+      "Each combo says why its two halves go together: the cards they both want, or the fact that one works the surface while the other works the ocean floor and neither ever takes a spot the other wanted.",
+    ]},
+    { ver: "V1.7.0", title: "🖼️ A new way in, and one white line down it", items: [
+      "The sign-in screen has a new painting, and this one says the game's name itself: the title, the tagline and the animals are all in the picture. It stands on a flat black page as a framed plate, whole, never cropped, at every window size.",
+      "The line between the two halves is a white rule that runs the entire height of the screen now, top edge to bottom edge. It used to be a lit blue edge that stopped short of both ends.",
+      "On a phone or a tablet held upright the same screen re-lays itself: the painting is a band across the top, the rule turns and lies underneath it, and the sign-in column runs below. Nothing is dropped on the way down, and the picture is a good deal bigger on a tablet than it was.",
+      "The staghorn coral is retired with the artwork it grew in: the new painting has no kelp bed for it. If you found it and never made an account, the Coral Reef background is still waiting and still lands on the next account you sign into.",
+    ]},
     { ver: "V1.7.0", title: "🪸 The whole painting, and a coral in it", items: [
       "The picture on the sign-in screen is all there now. It used to be cropped to fill its half of the screen, which took the birds off the top and the kelp bed off the bottom on most windows; it is fitted whole into its own water instead, at every window size, on a phone as well.",
       "The rotted piling is gone. In its place, down in the kelp at the bottom left, a staghorn coral grows out of the sea floor: warm rose among all that green. Find it and the Coral Reef background is yours the moment there is an account to put it in.",
@@ -4942,10 +4954,15 @@
         .filter(x => x >= 0);
     }
     // Ordered list of combo indices relevant to the currently-selected cores.
-    // Combos that bridge TWO selected cores rank above combos touching just one.
+    // Combos that bridge TWO selected cores rank above combos touching just
+    // one; inside each group the ones that FIT THE TABLE YOU ARE LOOKING AT
+    // come first, so "pairs with" is an answer about your cards rather than a
+    // walk down the list. A hand-written combo breaks a tie against a generated
+    // one, because the named archetypes are the ones players recognise.
     function _suggestedCombos() {
       const sel = new Set([..._activeStrategies].filter(_isCore));
       if (!sel.size) return [];
+      const fits = _fitsNow();
       const scored = [];
       for (let i = 0; i < HELP_STRATEGIES.length; i++) {
         if (!_isCombo(i)) continue;
@@ -4954,93 +4971,289 @@
         const overlap = pair.filter(p => sel.has(p)).length;
         if (overlap <= 0) continue;
         const bridgesBoth = (pair.length >= 2 && pair.every(p => sel.has(p))) ? 1 : 0;
-        scored.push({ i, overlap, bridgesBoth });
+        const fit = (fits.byIdx.get(i) || {}).fit || 0;
+        const authored = HELP_STRATEGIES[i].generated ? 0 : 1;
+        scored.push({ i, overlap, bridgesBoth, fit, authored });
       }
-      scored.sort((a, b) => (b.bridgesBoth - a.bridgesBoth) || (b.overlap - a.overlap) || (a.i - b.i));
+      scored.sort((a, b) => (b.bridgesBoth - a.bridgesBoth) || (b.overlap - a.overlap)
+        || (b.fit - a.fit) || (b.authored - a.authored) || (a.i - b.i));
       return scored.map(x => x.i);
     }
 
     const HS_COMBO_PREVIEW = 3; // combos shown before "Show more combos"
 
-    // ── Best strategy for YOUR starting hand ────────────────────────
-    // Analyse the player's actual hand and pick the CORE strategy whose key
-    // cards they hold the most of. Deterministic (highest overlap wins, never
-    // random). Returns null when there's no hand yet (e.g. opened from lobby)
-    // or nothing in hand matches any core strategy.
-    function _recommendStrategyForHand() {
-      const me = _handRenderData && _handRenderData.me;
-      const hand = me && Array.isArray(me.hand) ? me.hand : null;
-      if (!hand || !hand.length) return { idx: -1, reason: "nohand" };
-      // Physical-card keys present in hand (pair key collapses both faces of a
-      // dual-faced card, so a card matches by either face it could be played as).
-      const handKeys = new Set();
-      for (const e of hand) {
-        const uids = [];
-        if (Array.isArray(e.faces)) for (const f of e.faces) { if (f && f.uid != null) uids.push(Number(f.uid)); }
-        if (e.entry_uid != null) uids.push(Number(e.entry_uid));
-        if (e.uid != null) uids.push(Number(e.uid));
-        for (const u of uids) handKeys.add(_stratPairKey(u));
-      }
-      if (!handKeys.size) return { idx: -1, reason: "nohand" };
-      let best = null;
-      for (let i = 0; i < HELP_STRATEGIES.length; i++) {
-        if (!_isCore(i)) continue;
-        const s = HELP_STRATEGIES[i];
-        const cards = Array.isArray(s.cards) ? s.cards : [];
-        let matchedCards = 0, matchedCopies = 0;
-        const names = [];
-        for (const c of cards) {
-          let hit = false;
-          for (const u of (c.uids || [])) {
-            if (handKeys.has(_stratPairKey(u))) { hit = true; matchedCopies++; }
+    // ── What the table actually looks like, right now ───────────────
+    // Everything the recommendation reads, gathered once per render:
+    //   board  the cards I have already COMMITTED, ocean bases included. These
+    //          are the ones that cannot be taken back, so they say more about
+    //          what I am playing than anything else on the table.
+    //   hand   what I can still play, matched by PHYSICAL card: either face of
+    //          a two-sided card is available, so both faces count as a match.
+    //   pool   the same, for the cards I could pick up.
+    //   taken  physical copies already sitting on somebody ELSE's board. A card
+    //          the deck list says there are four of is not four cards if three
+    //          of them are already down in front of other people.
+    function _tableSnapshot() {
+      const players = Array.isArray(_latestPlayers) ? _latestPlayers : [];
+      const me = players.find(p => Number(p.index) === Number(myIdx))
+        || (_handRenderData && _handRenderData.me) || null;
+      // Competitive is four seats owned by two people, so "mine" is a PAIR of
+      // seats, not one. Reading only myIdx would drop half my own board and
+      // then count the other half against me as a rival's cards.
+      const mySeats = new Set();
+      if (me && me.index != null) mySeats.add(Number(me.index));
+      if (Number.isInteger(myIdx)) mySeats.add(Number(myIdx));
+      if (compMode && Array.isArray(compMySeats)) for (const s of compMySeats) mySeats.add(Number(s));
+      const boardFaces = [];        // exact faces on MY board(s)
+      const taken = new Map();      // pairKey -> copies on OTHER boards
+      const facesOf = (p) => {
+        const out = [];
+        for (const ocean of (Array.isArray(p && p.board) ? p.board : [])) {
+          const base = Number((ocean.ocean && ocean.ocean.uid) != null ? ocean.ocean.uid : ocean.ocean_uid);
+          if (base) out.push(base);
+          for (const dir of ["up", "down", "left", "right"]) {
+            for (const c of (Array.isArray(ocean[dir]) ? ocean[dir] : [])) {
+              const u = Number(c.face_uid != null ? c.face_uid : c.uid);
+              if (u) out.push(u);
+            }
           }
-          if (hit) { matchedCards++; names.push(c.name); }
         }
-        // Distinct key cards held is the primary signal; copies break ties.
-        const score = matchedCards * 100 + matchedCopies;
-        if (score > 0 && (!best || score > best.score)) {
-          best = { idx: i, score, matchedCards, names };
+        return out;
+      };
+      for (const p of players) {
+        const faces = facesOf(p);
+        if (p === me || mySeats.has(Number(p.index))) { boardFaces.push(...faces); continue; }
+        // Either face of a played card means that physical copy is spent, so
+        // availability is counted by pair key, not by the face they chose.
+        for (const u of faces) {
+          const k = _stratPairKey(u);
+          taken.set(k, (taken.get(k) || 0) + 1);
         }
       }
-      if (!best) return { idx: -1, reason: "nomatch" };
-      return best;
+      // A hand/pool entry becomes the SET of physical cards it could be played
+      // as, so one card in hand counts once however many faces it has.
+      const entryKeys = (list) => {
+        const out = [];
+        for (const e of (Array.isArray(list) ? list : [])) {
+          const keys = new Set();
+          if (Array.isArray(e.faces)) for (const f of e.faces) { if (f && f.uid != null) keys.add(_stratPairKey(Number(f.uid))); }
+          if (e.entry_uid != null) keys.add(_stratPairKey(Number(e.entry_uid)));
+          if (e.uid != null) keys.add(_stratPairKey(Number(e.uid)));
+          keys.delete(0);
+          if (keys.size) out.push(keys);
+        }
+        return out;
+      };
+      if (!boardFaces.length && _handRenderData && _handRenderData.me && _handRenderData.me !== me) {
+        // Mid-reconnect: the players array can arrive before my seat is in it.
+        // Fall back to the board we last rendered rather than reading the table
+        // as empty and answering from the hand alone.
+        boardFaces.push(...facesOf(_handRenderData.me));
+      }
+      return {
+        board: boardFaces,
+        hand: entryKeys(me && me.hand),
+        pool: entryKeys(_latestPool),
+        taken: taken,
+      };
     }
 
-    // Build the prominent "best strategy for your hand" banner shown at the very
-    // top of the strategy list, the first and most noticeable hint option.
-    function _recoBannerHtml() {
-      const rec = _recommendStrategyForHand();
-      const head = `<div class="hs2-reco-kicker">💡 Best strategy to play for your starting hand</div>`;
-      if (!rec || rec.idx < 0) {
-        const msg = (rec && rec.reason === "nomatch")
-          ? "Your hand doesn't strongly fit one core plan yet, draw a couple of cards, then check back."
-          : "Open this once you've been dealt your hand and we'll recommend the strategy that fits your cards best.";
-        return `<section class="hs2-sec hs2-reco"><div class="hs2-reco-card empty">${head}<div class="hs2-reco-why">${msg}</div></div></section>`;
+    // How well ONE strategy fits that snapshot, as a 0-1 number plus the
+    // evidence behind it. Every term is a SHARE, never a raw count: the old
+    // version scored "how many of this plan's cards did I match", which handed
+    // the answer to whichever plan listed the most cards (Birds lists 12, Game
+    // Fish lists 3) no matter what was actually on the table.
+    //   board     how much of what I have built already serves this plan
+    //   hand      how much of what I can play next serves it
+    //   pool      how much of what I could pick up serves it
+    //   coverage  how much of the PLAN I hold, which is what stops a big card
+    //             list from winning by being big
+    //   supply    how many of its copies are still out there to be had
+    function _strategyFit(i, snap) {
+      const s = HELP_STRATEGIES[i];
+      const cards = (s && Array.isArray(s.cards)) ? s.cards : [];
+      if (!cards.length) return null;
+      const nameByFace = new Map(), nameByPair = new Map();
+      for (const c of cards) {
+        for (const u of (c.uids || [])) {
+          const n = Number(u);
+          if (!nameByFace.has(n)) nameByFace.set(n, c.name);
+          const k = _stratPairKey(n);
+          if (!nameByPair.has(k)) nameByPair.set(k, c.name);
+        }
       }
-      const i = rec.idx; const s = HELP_STRATEGIES[i]; const on = _activeStrategies.has(i);
-      const shownNames = rec.names.slice(0, 3).map(_hesc).join(", ");
-      const extra = rec.names.length > 3 ? ` +${rec.names.length - 3} more` : "";
-      const why = `You're holding <strong>${rec.matchedCards}</strong> of its key card${rec.matchedCards === 1 ? "" : "s"}` +
-        (shownNames ? `, ${shownNames}${extra}.` : ".");
+      const held = new Set();  // distinct listed cards I hold anywhere
+
+      const boardNames = [];
+      let boardHits = 0;
+      for (const u of snap.board) {
+        const n = nameByFace.get(u);
+        if (n == null) continue;
+        boardHits++; held.add(n);
+        if (boardNames.indexOf(n) === -1) boardNames.push(n);
+      }
+      const matchName = (keys) => {
+        for (const k of keys) { const n = nameByPair.get(k); if (n != null) return n; }
+        return null;
+      };
+      const handNames = [];
+      let handHits = 0;
+      for (const keys of snap.hand) {
+        const n = matchName(keys);
+        if (n == null) continue;
+        handHits++; held.add(n);
+        if (handNames.indexOf(n) === -1) handNames.push(n);
+      }
+      let poolHits = 0;
+      for (const keys of snap.pool) if (matchName(keys) != null) poolHits++;
+
+      // Copies of this plan's cards already committed to somebody else's board.
+      let copies = 0, gone = 0;
+      for (const c of cards) {
+        const seen = new Set();
+        for (const u of (c.uids || [])) seen.add(_stratPairKey(Number(u)));
+        copies += seen.size;
+        for (const k of seen) if (snap.taken.get(k)) gone++;
+      }
+      const supply = copies ? 1 - (gone / copies) : 1;
+      const coverage = held.size / cards.length;
+      const boardShare = snap.board.length ? boardHits / snap.board.length : 0;
+      const handShare  = snap.hand.length  ? handHits  / snap.hand.length  : 0;
+      const poolShare  = snap.pool.length  ? poolHits  / snap.pool.length  : 0;
+
+      // Only the terms this table can actually answer get a vote, so an opening
+      // hand is judged on the hand and an eighth-round board on the board.
+      const terms = [[1.6, coverage], [0.6, supply]];
+      if (snap.board.length) terms.push([3.2, boardShare]);
+      if (snap.hand.length)  terms.push([2.0, handShare]);
+      if (snap.pool.length)  terms.push([0.8, poolShare]);
+      let w = 0, v = 0;
+      for (const t of terms) { w += t[0]; v += t[0] * t[1]; }
+      return {
+        idx: i, fit: w ? v / w : 0,
+        boardHits, boardTotal: snap.board.length, boardNames,
+        handHits, handNames, poolHits,
+        coverage, supply, gone, copies,
+      };
+    }
+
+    // Rank every built-in plan against the table. Custom plans are left out:
+    // they are the player's own note to self, not one of the game's archetypes,
+    // and their card lists are whatever was typed in.
+    function _rankStrategies() {
+      const snap = _tableSnapshot();
+      const byIdx = new Map();
+      for (let i = 0; i < HELP_STRATEGIES.length; i++) {
+        if (!_isCore(i) && !_isCombo(i)) continue;
+        const r = _strategyFit(i, snap);
+        if (r) byIdx.set(i, r);
+      }
+      // A combo is only the best plan when BOTH of its halves are live. Without
+      // this a combo wins on the strength of one half plus a card list twice
+      // the size, which is exactly the wrong advice: it tells you to split a
+      // board that is already winning as a single plan.
+      for (const [i, r] of byIdx) {
+        if (!_isCombo(i)) continue;
+        const pair = _comboPairIdxs(i).map(p => byIdx.get(p)).filter(Boolean);
+        if (pair.length < 2) continue;
+        const ev = pair.map(p => (p.boardHits + p.handHits));
+        const hi = Math.max(ev[0], ev[1]), lo = Math.min(ev[0], ev[1]);
+        const balance = hi > 0 ? lo / hi : 1;
+        r.fit *= 0.55 + 0.45 * balance;
+        r.balance = balance;
+      }
+      const order = [...byIdx.keys()].sort((a, b) => {
+        const fa = byIdx.get(a).fit, fb = byIdx.get(b).fit;
+        if (fb !== fa) return fb - fa;
+        // Same fit: the simpler plan, then the hand-written one, then the list.
+        const ca = _isCore(a) ? 1 : 0, cb = _isCore(b) ? 1 : 0;
+        if (cb !== ca) return cb - ca;
+        const ga = HELP_STRATEGIES[a].generated ? 1 : 0, gb = HELP_STRATEGIES[b].generated ? 1 : 0;
+        if (ga !== gb) return ga - gb;
+        return a - b;
+      });
+      return { snap, byIdx, order };
+    }
+
+    // One ranking per list render, shared by the banner and the combo section
+    // so the two can never disagree about which plan is ahead.
+    let _fits = null;
+    function _fitsNow() { if (!_fits) _fits = _rankStrategies(); return _fits; }
+
+    // Build the prominent "best strategy" banner at the top of the strategy
+    // list. It names the evidence it used, because a recommendation you cannot
+    // check is one you stop believing the first time it looks wrong.
+    function _recoBannerHtml() {
+      const fits = _fitsNow();
+      const snap = fits.snap;
+      const seen = snap.board.length;
+      const head = `<div class="hs2-reco-kicker">💡 ${seen ? "Best strategy for the board you have built" : "Best strategy to play for your starting hand"}</div>`;
+      const empty = (msg) =>
+        `<section class="hs2-sec hs2-reco"><div class="hs2-reco-card empty">${head}<div class="hs2-reco-why">${msg}</div></div></section>`;
+      if (!snap.board.length && !snap.hand.length) {
+        return empty("Open this once you've been dealt your hand and we'll read your cards and recommend the strategy that fits them best.");
+      }
+      const top = fits.order[0];
+      const rec = top != null ? fits.byIdx.get(top) : null;
+      if (!rec || rec.fit <= 0) {
+        return empty("Nothing on the table points at one plan yet, draw a couple of cards, then check back.");
+      }
+      const i = rec.idx, s = HELP_STRATEGIES[i], on = _activeStrategies.has(i);
+      const nameList = (arr, n) => {
+        const shown = arr.slice(0, n).map(_hesc).join(", ");
+        return shown + (arr.length > n ? ` +${arr.length - n} more` : "");
+      };
+      // The reasons, strongest first, and only the ones that are actually true
+      // of this table. Board evidence outranks hand evidence outranks the pool.
+      const why = [];
+      if (rec.boardHits) {
+        why.push(`<strong>${rec.boardHits} of the ${rec.boardTotal} cards on your board</strong> already belong to it`
+          + (rec.boardNames.length ? ` (${nameList(rec.boardNames, 3)})` : ""));
+      }
+      if (rec.handHits) {
+        why.push(`you're holding <strong>${rec.handHits}</strong> more`
+          + (rec.handNames.length ? ` (${nameList(rec.handNames, 3)})` : ""));
+      }
+      if (rec.poolHits) why.push(`<strong>${rec.poolHits}</strong> of its cards ${rec.poolHits === 1 ? "is" : "are"} in the pool right now`);
+      const whyText = why.length
+        ? why.join(", ").replace(/^./, c => c.toUpperCase()) + "."
+        : `It covers <strong>${Math.round(rec.coverage * 100)}%</strong> of what you're holding.`;
+      // The one warning worth interrupting for: the plan is a good match but
+      // the cards it needs are already on other people's boards.
+      const warn = (rec.supply < 0.75 && rec.gone > 0)
+        ? `<div class="hs2-reco-warn">⚠ ${rec.gone} of its ${rec.copies} copies are already on other boards, the cheap ones may be gone.</div>`
+        : "";
+      // Runners-up, so the pick is a ranking you can argue with rather than a
+      // verdict. Combos included: two plans off one board is often the answer.
+      const alts = fits.order.slice(1, 4).map(j => {
+        const a = fits.byIdx.get(j);
+        return `<button class="hs2-reco-alt" data-detail="${j}" style="--strat-c:${STRAT_COLORS[j]}">`
+          + `${_hesc(HELP_STRATEGIES[j].label)} <span class="hs2-reco-pct">${Math.round(a.fit * 100)}%</span></button>`;
+      }).join("");
       return `
         <section class="hs2-sec hs2-reco">
           <div class="hs2-reco-card" data-strat="${i}" style="--strat-c:${STRAT_COLORS[i]}">
             ${_stratArtHtml(i, "hs2-reco-art")}
             <div class="hs2-reco-body">
               ${head}
-              <div class="hs2-reco-name">${_hesc(s.label)}</div>
-              <div class="hs2-reco-why">${why}</div>
+              <div class="hs2-reco-name">${_hesc(s.label)} <span class="hs2-reco-fit">${Math.round(rec.fit * 100)}% fit</span></div>
+              <div class="hs2-reco-why">${whyText}</div>
+              ${warn}
               <div class="hs2-reco-foot">
                 <span class="hs2-reco-view" data-detail="${i}">View cards &amp; plan ›</span>
                 <button class="hsc-toggle${on ? " on" : ""}" data-toggle="${i}">${on ? "✓ Playing" : "Play this"}</button>
               </div>
+              ${alts ? `<div class="hs2-reco-alts"><span class="hs2-reco-alts-cap">Close behind</span>${alts}</div>` : ""}
             </div>
           </div>
         </section>`;
     }
-
     function renderList() {
       _curDetail = -1;
+      // The table moves between opens (and between renders, when a card is
+      // played with the panel up), so the ranking is thrown away and re-read
+      // here rather than cached across renders.
+      _fits = null;
       modal.classList.remove("detail");
       titleEl.textContent = "Strategies";
       const _fav = _getMostPlayedStrategyLocal();
@@ -19110,7 +19323,6 @@
         // Moved on to another step while we waited; that step arms itself.
         if (step.style.display === "none") return;
         step.classList.add("is-armed");
-        placeCoralBoxSoon();
       };
       // A short settle even once the art is up, so the tail of a click aimed at
       // whatever was on screen a moment ago cannot count as a choice here.
@@ -19120,63 +19332,24 @@
       };
       const img = step.querySelector(".ao-art-img");
       if (!img || (img.complete && img.naturalWidth > 0)) { settle(); return; }
-      img.addEventListener("load", () => { placeCoralBoxSoon(); settle(); }, { once: true });
+      img.addEventListener("load", settle, { once: true });
       img.addEventListener("error", settle, { once: true });   // fail open
       _chooseArmTimer = setTimeout(arm, 4000);                 // backstop
     }
 
-    // ── Where the staghorn coral is ─────────────────────────────────
-    // The coral is at one fixed spot in the painting. The painting is
-    // object-fit: contain inside a panel of whatever shape the window makes
-    // it, so how big it is drawn, and where that spot lands, changes with
-    // every window size. No CSS length can read that fit, and a box written in
-    // percentages of the PANEL slides off the coral the moment the window
-    // stops being the picture's own 4:5.
+    // ── The staghorn coral used to be placed here ───────────────────
+    // The secret was an invisible box over a coral painted into the bottom
+    // left of the sign-in artwork, positioned from the image's own geometry
+    // because the picture is contained in a panel of whatever shape the window
+    // makes it. The artwork it was over has been replaced, and the new
+    // painting has no coral in it, so the box has nothing to sit on and is
+    // gone.
     //
-    // So the box is placed from the image's own geometry instead, and placed
-    // again whenever that geometry changes. Coordinates are the PANEL's, not
-    // the page's, because the button is a child of the panel: that is what
-    // makes it survive the phone layout, where the screen is a scrolling page.
-    // It fails quiet: if the art has not decoded yet there is nothing to
-    // measure, and the CSS fallback keeps the button in the corner until there
-    // is.
-    const CORAL_SPOT = { x: .126, y: .952, w: .150, h: .100 };  // of the painting
-    function placeCoralBox() {
-      const step = $a("auth-step-choose");
-      const btn  = $a("auth-coral-secret");
-      const img  = step && step.querySelector(".ao-art-img");
-      const art  = btn && btn.parentElement;
-      if (!step || !btn || !img || !art || !img.naturalWidth) return false;
-      if (getComputedStyle(btn).display === "none") return true;
-      const ir = img.getBoundingClientRect(), pr = art.getBoundingClientRect();
-      if (!ir.width || !ir.height) return false;
-      // min, not max: the picture is CONTAINED in its box, so the smaller of
-      // the two ratios is the one it was drawn at.
-      const sc = Math.min(ir.width / img.naturalWidth, ir.height / img.naturalHeight);
-      const ox = ir.left + (ir.width  - img.naturalWidth  * sc) / 2;
-      const oy = ir.top  + (ir.height - img.naturalHeight * sc) / 2;
-      const w = Math.max(40, CORAL_SPOT.w * img.naturalWidth  * sc);
-      const h = Math.max(30, CORAL_SPOT.h * img.naturalHeight * sc);
-      btn.style.width  = Math.round(w) + "px";
-      btn.style.height = Math.round(h) + "px";
-      btn.style.left   = Math.round(ox + CORAL_SPOT.x * img.naturalWidth  * sc - pr.left - w / 2) + "px";
-      btn.style.top    = Math.round(oy + CORAL_SPOT.y * img.naturalHeight * sc - pr.top  - h / 2) + "px";
-      btn.style.bottom = "auto";
-      return true;
-    }
-    // Placing it needs the art DECODED, not merely arrived: naturalWidth is 0
-    // until then, and the one call this used to make happened on arming, which
-    // can win that race. Losing it left the box on its CSS fallback, which is
-    // the right corner but the wrong pixels. So it asks again until it can.
-    let _coralPlaceTimer = null;
-    function placeCoralBoxSoon(tries) {
-      if (_coralPlaceTimer) { clearTimeout(_coralPlaceTimer); _coralPlaceTimer = null; }
-      if (placeCoralBox()) return;
-      const left = (tries == null ? 14 : tries) - 1;
-      if (left <= 0) return;                       // fail quiet: the fallback stands
-      _coralPlaceTimer = setTimeout(() => placeCoralBoxSoon(left), 120);
-    }
-    window.addEventListener("resize", placeCoralBox);
+    // ccCoralClaim() below is DELIBERATELY still here. A guest who found the
+    // coral before this change has the find in localStorage and no account to
+    // put it in yet; that note is still spent the next time they sign in.
+    // Nobody loses a background they already earned because the picture
+    // changed.
 
     function lockNameInputs(nick) {
       ["pv-host-name","pv-join-name","pv-join-name-home"].forEach(id => {
@@ -21705,7 +21878,9 @@
     const CORAL_FIND_KEY = "cc_staghorn_coral_found_v1";
     const CORAL_BG_IMG   = "/backgrounds/bg-coral-reef.png";
 
-    function ccCoralNoteFind() { try { localStorage.setItem(CORAL_FIND_KEY, "1"); } catch (_) {} }
+    // Nothing WRITES this note any more: the coral it belonged to is not in
+    // the painting the screen shows. It is still READ, so a note written
+    // before the artwork changed is still spent on the next account to arrive.
     function ccCoralFound()    { try { return localStorage.getItem(CORAL_FIND_KEY) === "1"; } catch (_) { return false; } }
 
     // Spend the note, if there is one, on the account that has just arrived.
@@ -21743,17 +21918,6 @@
       showToast("\uD83E\uDEB8 The staghorn coral paid out: the Coral Reef background is yours, "
               + "waiting in your Avatar Gallery.", "good", 6500);
     }
-
-    // The coral itself. Finding something is not an error, so it speaks through
-    // the chooser's own sea-glass note in the good-news tone rather than the
-    // one the screen uses to say a sign-in went wrong.
-    const _coralBtn = $a("auth-coral-secret");
-    if (_coralBtn) _coralBtn.addEventListener("click", () => {
-      ccCoralNoteFind();
-      setAuthMsg("auth-choose-err",
-        "You found the staghorn coral! Sign in or create an account and the Coral Reef background is yours.",
-        "ok");
-    });
 
     // Escape backs out of a pane you went INTO, the same as the Back button on
     // it. Never off the sign-in pane (there is nowhere behind it) and never off

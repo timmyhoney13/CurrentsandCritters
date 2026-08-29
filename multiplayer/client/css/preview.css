@@ -1002,6 +1002,31 @@
     .hs2-reco-foot { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
     .hs2-reco-view { font-size: 11.5px; font-weight: 800; color: var(--cr-gold, #f2c869); cursor: pointer; flex-shrink: 0; }
     .hs2-reco-view:hover { text-decoration: underline; }
+    /* The number behind the claim: how much of this table the plan fits. Sits
+       on the name line so it reads as part of the verdict, not as decoration. */
+    .hs2-reco-fit {
+      font-family: "Nunito", sans-serif; font-size: 11px; font-weight: 900; letter-spacing: .2px;
+      color: #0d1a2e; background: var(--cr-gold, #f2c869); border-radius: 9px;
+      padding: 2px 8px; vertical-align: 3px; white-space: nowrap;
+    }
+    /* Said only when the cards this plan needs are already on other boards. */
+    .hs2-reco-warn {
+      font-size: 11.5px; font-weight: 700; line-height: 1.35; color: #ffc9a8;
+      background: rgba(232,110,80,.14); border: 1px solid rgba(232,110,80,.34);
+      border-radius: 9px; padding: 4px 9px; margin-top: 2px;
+    }
+    /* Runners-up: the pick is a ranking, so the next three are one tap away. */
+    .hs2-reco-alts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+    .hs2-reco-alts-cap { font-size: 10px; font-weight: 900; letter-spacing: .4px; text-transform: uppercase; color: #9fb6cc; }
+    .hs2-reco-alt {
+      font-family: "Nunito", sans-serif; font-size: 11px; font-weight: 800; line-height: 1.2;
+      color: #e6f0fa; background: rgba(8,18,36,.6); cursor: pointer;
+      border: 1px solid color-mix(in srgb, var(--strat-c, #7fd8ff) 55%, transparent);
+      border-left: 3px solid var(--strat-c, #7fd8ff); border-radius: 9px; padding: 4px 8px;
+      transition: background .12s, transform .12s;
+    }
+    .hs2-reco-alt:hover { background: rgba(20,40,72,.85); transform: translateY(-1px); }
+    .hs2-reco-pct { color: #9fc0e0; font-weight: 900; }
 
     /* Bottom row: section 2 (selected) | section 3 (combos). Grows to fill the
        remaining page height so the panels reach the bottom of the screen. */
@@ -6136,40 +6161,11 @@
               clip-path: inset(50%);
     }
 
-    /* ── The staghorn coral ─────────────────────────────────────────
-       Over the coral growing out of the kelp bed at the bottom left of the
-       painting. Invisible on purpose: finding it is the point.
-
-       These numbers are a FALLBACK. The painting is object-fit:contain inside
-       a panel of whatever shape the window makes it, so where the coral lands
-       depends on how the picture was fitted, and no CSS length can read that
-       fit: placeCoralBox() in preview-app.js measures the image and writes
-       left/top/width/height itself. What is here keeps the button in the right
-       corner for the moment before the art has decoded.
-
-       It is a child of .ao-art, not of the step, so its coordinates are the
-       PANEL's. That is what lets it work on the phone layout too, where the
-       step is a scrolling page and a box placed against the step would slide
-       off the picture the moment anybody scrolled. */
-    #auth-step-choose .ao-art > .auth-coral-secret {
-      position: absolute;
-      z-index: 2;
-      left: 3%;
-      bottom: 1%;
-      width: max(44px, 15%);
-      height: max(30px, 10%);
-      padding: 0; margin: 0;
-      border: 0; background: transparent;
-      border-radius: 10px;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-    }
-    #auth-step-choose .ao-art > .auth-coral-secret:hover,
-    #auth-step-choose .ao-art > .auth-coral-secret:focus-visible {
-      outline: none;
-      background: rgba(255,236,190,.12);
-      box-shadow: 0 0 0 2px rgba(255,224,150,.45), 0 0 22px rgba(255,214,120,.35);
-    }
+    /* The staghorn coral secret was styled here: an invisible button over a
+       coral painted into the bottom left of the old artwork. The painting it
+       sat on has been replaced and the new one has no coral, so the button is
+       gone and there is nothing left to style. ccCoralClaim() in
+       preview-app.js still pays out a find made before the change. */
 
     /* ── The sign-in column ─────────────────────────────────────────
        Every door in one place. A username and a password, Google for the people
@@ -6602,8 +6598,7 @@
        the second half of a double-click there used to land on a button here
        that nobody could see yet. Fail-open is the rule; armChooseStep arms it
        on a timer as well as on load. */
-    #auth-step-choose:not(.is-armed) > .ao-form,
-    #auth-step-choose:not(.is-armed) .auth-coral-secret { pointer-events: none; }
+    #auth-step-choose:not(.is-armed) > .ao-form { pointer-events: none; }
 
     /* ── A SHORT, WIDE WINDOW ───────────────────────────────────────
        A laptop with a shallow window, and every phone held sideways: still two
@@ -6621,9 +6616,9 @@
       #auth-step-choose .ao-sub  { margin-top: 6px; font-size: clamp(12px, 2vh, 15px); }
       #auth-step-choose .ao-lbl  { margin: clamp(9px, 1.7vh, 15px) 0 5px; font-size: 11.5px; }
       #auth-step-choose .ao-field,
-      #auth-step-choose .ao-primary { height: clamp(38px, 7vh, 50px); }
+      #auth-step-choose .ao-primary { height: clamp(44px, 7vh, 50px); }
       #auth-step-choose .ao-ghost,
-      #auth-step-choose .ao-gold    { height: clamp(36px, 6.6vh, 48px); }
+      #auth-step-choose .ao-gold    { height: clamp(44px, 6.6vh, 48px); }
       #auth-step-choose .ao-primary { margin-top: clamp(10px, 2vh, 18px); }
       #auth-step-choose .ao-forgot  { margin-top: 8px; }
       #auth-step-choose .ao-or      { margin: clamp(8px, 1.6vh, 14px) 0; }
@@ -6704,11 +6699,6 @@
         margin-left: 0;
         padding: 0 0 44px;
       }
-      /* The coral IS on the screen down here now that the band shows the
-         whole painting, so the secret stays findable on a phone. It is placed
-         against the panel, not the page, so scrolling can never move it off
-         the thing it is over. */
-      #auth-step-choose .ao-art > .auth-coral-secret { width: max(38px, 15%); }
     }
 
     /* ── A SMALL PHONE ──────────────────────────────────────────────
@@ -6716,12 +6706,31 @@
        below the fold on a 667px-tall screen and the first thing the game asks
        a new player to do is scroll to find the way in. */
     @media (max-width: 400px) {
-      /* A notch tighter than the tablet band. The picture is still the first
-         thing on the screen, but SIGN IN has to be reachable without scrolling
-         for it: the way into the game is not something to go looking for. */
-      #auth-step-choose.auth-box { --ao-band: min(42vh, 112vw); }
       #auth-step-choose > .ao-form { padding-top: clamp(22px, 5vh, 38px); }
       #auth-step-choose .ao-form-inner { width: min(440px, 92%); }
+    }
+
+    /* ── A SHORT PHONE ──────────────────────────────────────────────
+       An older or smaller handset: 568px and 667px tall, held upright.
+
+       Here the band and the form are genuinely competing for the same
+       pixels, and the form wins the argument, because SIGN IN being on the
+       screen matters more than the poster being big: the way into the game is
+       not something a player should have to go looking for. It is paid for
+       from BOTH sides, a slightly shorter band and a tighter form, so neither
+       has to give up much. */
+    @media (max-width: 820px) and (max-height: 700px) {
+      #auth-step-choose.auth-box { --ao-band: min(44vh, 104vw); }
+      #auth-step-choose > .ao-form { padding-top: clamp(14px, 3vh, 26px); }
+      #auth-step-choose .ao-h    { font-size: clamp(19px, 5.4vw, 26px); }
+      #auth-step-choose .ao-sub  { margin-top: 6px; font-size: clamp(13px, 3.6vw, 16px); }
+      #auth-step-choose .ao-lbl  { margin: clamp(10px, 1.9vh, 16px) 0 6px; }
+      #auth-step-choose .ao-field,
+      #auth-step-choose .ao-primary { height: clamp(44px, 6.6vh, 52px); }
+      #auth-step-choose .ao-ghost,
+      #auth-step-choose .ao-gold    { height: clamp(44px, 6.2vh, 50px); }
+      #auth-step-choose .ao-primary { margin-top: clamp(12px, 2.2vh, 20px); }
+      #auth-step-choose .ao-or      { margin: clamp(10px, 1.8vh, 16px) 0; }
     }
 
     /* The guest sign-in CARD used to be here: a pale sea-glass dialog over a

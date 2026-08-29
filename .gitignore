@@ -236,6 +236,14 @@
 # resolves on both the Render game server and the Vercel marketing site.
 !test_rules_page.js
 
+# The 💡 Strategies panel: the plan it recommends, and the combos it pairs. The
+# recommendation is scored from the real board/hand/pool snapshot (raw counts
+# used to hand the answer to whichever plan listed the most cards), and all 66
+# core-to-core combos have to exist, so both halves are pinned here. The second
+# half drives the real renderList() markup through css/preview.css in headless
+# Chrome at five widths.
+!test_strategy_recommendation.js
+
 # The Player Home left sidebar. It is its own scroller, so the white nav card
 # inside it has to be as tall as its own content, otherwise you scroll down to
 # the Daily Streak block and the card has already ended above it, leaving "View

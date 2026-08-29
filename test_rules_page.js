@@ -188,12 +188,22 @@ check("a CORE plan wears exactly one symbol", () => {
 
 check("a COMBO wears BOTH of the symbols it bridges, and they differ", () => {
   let combos = 0;
+  const primaryOf = (label) => {
+    const j = W.CC_BUILTIN_STRATEGIES.findIndex(x => x.label === label);
+    return j >= 0 ? W.CC_STRAT_PRIMARY[j] : null;
+  };
   W.CC_BUILTIN_STRATEGIES.forEach((s, i) => {
     if (s.tier !== "Combo") return;
     combos++;
     const syms = symsFor(i);
-    eq(syms.length, 2, s.label + " is a combo and should wear two symbols");
-    assert(syms[0].key !== syms[1].key, s.label + " wears the same symbol twice");
+    // Two cores of the SAME family (Yellowfin Tuna Stack + King Salmon are both
+    // Game Fish) genuinely have one mark between them: printing it twice would
+    // be a lie about the cards. Every other combo wears both, and they differ.
+    const pair = W.CC_COMBO_PAIR_LABELS[s.label] || [];
+    const oneFamily = pair.length === 2 && primaryOf(pair[0]) === primaryOf(pair[1]);
+    eq(syms.length, oneFamily ? 1 : 2,
+      s.label + " is a combo and should wear " + (oneFamily ? "its one shared symbol" : "two symbols"));
+    if (!oneFamily) assert(syms[0].key !== syms[1].key, s.label + " wears the same symbol twice");
   });
   assert(combos >= 10, "expected 10+ combos, found " + combos);
 });
@@ -260,8 +270,17 @@ check("the four tables are IDENTICAL to the ones preview-app.js used to hold", (
   };
   eq(W.CC_FAMILY_COLORS, grab("FAMILY_COLORS", "{", "}"), "FAMILY_COLORS drifted");
   eq(W.CC_FAMILY_INK, grab("FAMILY_INK", "{", "}"), "FAMILY_INK drifted");
-  eq(W.CC_STRAT_PRIMARY, grab("_STRAT_PRIMARY", "[", "]"), "_STRAT_PRIMARY drifted");
-  eq(W.CC_BUILTIN_STRATEGIES, grab("BUILTIN_STRATEGIES", "[", "]"), "BUILTIN_STRATEGIES drifted");
+  // Only the AUTHORED strategies are compared. The pairs generated on top of
+  // them (every core-to-core combo the hand-written ten leave out) are new
+  // rows, not moved ones, so the guarantee this check exists for, that the
+  // split lost nothing, is about the prefix they sit behind.
+  const authored = grab("BUILTIN_STRATEGIES", "[", "]");
+  const kept = W.CC_BUILTIN_STRATEGIES.filter(s => !s.generated);
+  eq(kept, authored, "BUILTIN_STRATEGIES drifted");
+  eq(W.CC_STRAT_PRIMARY.slice(0, authored.length),
+     grab("_STRAT_PRIMARY", "[", "]").slice(0, authored.length), "_STRAT_PRIMARY drifted");
+  assert(W.CC_BUILTIN_STRATEGIES.slice(0, authored.length).every(s => !s.generated),
+    "the generated combos must sit AFTER the authored ones, indexes depend on it");
   // _FAMILY_AVATAR / _STRAT_AVATAR_OVERRIDE are deliberately gone: strategy
   // tiles wear the family SYMBOL now, so the portrait tables they picked have
   // no reader left. Nothing else in the split lost a row.
