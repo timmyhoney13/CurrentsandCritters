@@ -71,9 +71,11 @@ console.log("\nthe guard that is still needed is still there");
   // The whole sign-in column is held back, not two buttons: it carries a
   // username field, a password field and four ways in now, and every one of
   // them is a thing a blind click can land on.
+  // The coral secret used to be held back by the same rule. It was retired
+  // with the artwork it sat on in 1.7.0, so the column is all there is left to
+  // hold back, and it is still held.
   check("…the CSS is what actually holds the column back",
-        /#auth-step-choose:not\(\.is-armed\) > \.ao-form/.test(CSS)
-        && /#auth-step-choose:not\(\.is-armed\) \.auth-coral-secret/.test(CSS));
+        /#auth-step-choose:not\(\.is-armed\) > \.ao-form \{ pointer-events: none; \}/.test(CSS));
   // > and not a descendant selector. Both cards are children of this step too,
   // and a descendant rule here would hold back the card that is meant to be
   // live: a guest could not type their nickname.
@@ -81,7 +83,7 @@ console.log("\nthe guard that is still needed is still there");
         !/#auth-step-choose:not\(\.is-armed\) \.pv-btn\b/.test(CSS)
         && !/#auth-step-choose:not\(\.is-armed\) \.ago-card\b/.test(CSS));
   check("…it arms on a slow image rather than only on a cached one",
-        /img\.addEventListener\("load", \(\) => \{ placeCoralBoxSoon\(\); settle\(\); \}/.test(APP));
+        /img\.addEventListener\("load", settle, \{ once: true \}\);/.test(APP));
   check("…and it fails OPEN on an image that never arrives",
         /addEventListener\("error", settle/.test(APP) && /setTimeout\(arm, 4000\)/.test(APP));
 }

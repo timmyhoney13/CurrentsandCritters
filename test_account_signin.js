@@ -69,19 +69,26 @@ function check(name, cond, extra) {
 
 console.log("\nthe artwork is scenery, and every way in is real markup");
 {
-  check("the sign-in screen is the painting with no words baked into it",
+  check("the sign-in screen is the painting, shown whole",
         /auth-ocean\.jpg/.test(HTML) && /class="ao-art-img"/.test(HTML)
         && !/class="auth-step-choose-img"/.test(HTML));
   // The old screen WAS login-bg.png: the title, the panel and both buttons were
   // painted into one image with invisible boxes over them. Every one of those
   // words is real type now, which is why none of the artwork-coordinate
   // machinery below it exists any more.
-  check("…so the title is text a browser can set, not pixels",
-        /<h1 class="ao-title">Currents<\/h1>/.test(HTML)
-        && /#auth-step-choose \.ao-title \{[\s\S]{0,200}?font-family: "Cinzel"/.test(CSS));
-  check("…and the tagline is the game's own line",
+  // The words are painted INTO the artwork again, but the difference from
+  // login-bg.png is the one that mattered: they are still real text in the
+  // document as well, so the screen has a heading, a tagline and a blurb that
+  // a screen reader can read. CSS hides that copy from the eye, because the
+  // eye has it in the picture, and the <img> is alt="" so it is not said
+  // twice. None of the artwork-coordinate machinery is back.
+  check("…and the title is still text in the document, not only pixels",
+        /<h1 class="ao-title">Currents &amp; Critters<\/h1>/.test(HTML));
+  check("…kept for the reader and hidden from the eye",
+        /#auth-step-choose > \.ao-copy \{[\s\S]{0,400}?clip-path: inset\(50%\);/.test(CSS));
+  check("…and the tagline is the game's own line, word for word off the picture",
         />Build Your Ocean\. Rule the Current\.</.test(HTML)
-        && />Create powerful marine combinations and outplay the opponents\.</.test(HTML));
+        && />Play Animals\. Combine Species\. Build Ecosystems\. Rule The Ocean\.</.test(HTML));
   check("every way in is on the one screen",
         /id="ao-user"/.test(HTML) && /id="ao-pass"/.test(HTML)
         && /id="ao-signin"/.test(HTML) && /id="auth-choose-google-btn"/.test(HTML)
@@ -95,8 +102,11 @@ console.log("\nthe artwork is scenery, and every way in is real markup");
   check("the split is the halfway line, and the art is half of it",
         /#auth-step-choose > \.ao-art \{[\s\S]{0,300}?width: 50%;/.test(CSS)
         && /#auth-step-choose > \.ao-form \{[\s\S]{0,300}?width: 50%;/.test(CSS));
-  check("…and a narrow window stacks them instead of halving them",
-        /@media \(max-width: 820px\), \(max-aspect-ratio: 4\/5\)[\s\S]{0,1400}?#auth-step-choose > \.ao-art \{[\s\S]{0,200}?width: 100%;/.test(CSS));
+  // …but only a narrow window that has the HEIGHT for a band. A landscape
+  // phone is narrow and 360px tall: stacking it gives a sliver of picture and
+  // a scroll, so it stays two halves.
+  check("…and a narrow, tall window stacks them instead of halving them",
+        /@media \(max-width: 820px\) and \(min-height: 500px\), \(max-aspect-ratio: 4\/5\)[\s\S]{0,1800}?#auth-step-choose > \.ao-art \{[\s\S]{0,240}?width: 100%;/.test(CSS));
   // A form you cannot see yet is only ever clicked by accident.
   check("nothing in the column is clickable until the artwork has painted",
         /#auth-step-choose:not\(\.is-armed\) > \.ao-form/.test(CSS)

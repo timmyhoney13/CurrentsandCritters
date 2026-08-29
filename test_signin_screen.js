@@ -55,49 +55,81 @@ function check(name, cond, extra) {
 // ══════════════════════════════════════════════════════════════════════════
 //  SOURCE
 // ══════════════════════════════════════════════════════════════════════════
-console.log("\nthe whole painting, at every window shape");
+console.log("\nthe whole painting, on a flat black page");
 {
-  check("the art is contained, not cropped",
-        /#auth-step-choose \.ao-art-img \{[\s\S]{0,260}?object-fit: contain;/.test(CSS));
-  check("…in a box that is the whole panel, now the cut is straight down",
-        /#auth-step-choose \.ao-art-img \{[\s\S]{0,200}?width: 100%;/.test(CSS));
-  check("…and the panel is not clipped on a slope any more",
+  check("the art is sized by its box, so the drawn picture IS the element",
+        /#auth-step-choose \.ao-art-img \{[\s\S]{0,700}?max-width: 100%;[\s\S]{0,80}?max-height: 100%;/.test(CSS));
+  check("…which is why the panel is a flex box and not a grid",
+        /#auth-step-choose > \.ao-art \{[\s\S]{0,900}?display: flex;[\s\S]{0,140}?align-items: center;/.test(CSS));
+  check("…and it is still contained, never cropped",
+        /#auth-step-choose \.ao-art-img \{[\s\S]{0,900}?object-fit: contain;/.test(CSS));
+  check("…and the panel is not clipped on a slope",
         !/#auth-step-choose > \.ao-art \{[\s\S]{0,400}?clip-path: polygon/.test(CSS));
-  check("the lit edge is a straight line on the halfway mark",
-        /#auth-step-choose::after \{[\s\S]{0,300}?left: 50%;[\s\S]{0,120}?width: 2px;/.test(CSS)
-        && !/clip-path: polygon\(50% 0, 50\.28% 0/.test(CSS));
-  check("…standing in its own water, so the room around it is not a border",
-        /#auth-step-choose > \.ao-art::before \{[\s\S]{0,300}?auth-ocean\.jpg[\s\S]{0,120}?filter: blur/.test(CSS));
+  check("the picture is a framed plate, not a bare rectangle",
+        /#auth-step-choose \.ao-art-img \{[\s\S]{0,900}?border-radius: clamp\(/.test(CSS)
+        && /#auth-step-choose \.ao-art-img \{[\s\S]{0,1100}?box-shadow:/.test(CSS));
+  check("the blurred backing water is gone with the field it stood in",
+        !/#auth-step-choose > \.ao-art::before/.test(CSS));
   check("the phone band shows all of it too, not a slice of the top",
-        /#auth-step-choose \.ao-art-img \{ width: 100%; \}/.test(CSS)
+        /#auth-step-choose \.ao-art-img \{[\s\S]{0,400}?max-height: 100%;[\s\S]{0,120}?width: auto;[\s\S]{0,80}?height: 100%;/.test(CSS)
         && !/object-position: 50% 2%/.test(CSS));
+  // The band is a SHARE of the screen. A fixed pixel cap was written for a
+  // picture wider than it was tall; this one is 2:3, so a 400px cap is a
+  // 260px-wide poster on a 1024px tablet.
+  check("…and the band is a share of the screen, not a fixed range of pixels",
+        /--ao-band: min\(48vh, 116vw\);/.test(CSS)
+        && !/--ao-band: clamp\(230px, 40vh, 400px\);/.test(CSS));
+  check("a landscape phone is not stacked into a band it has no height for",
+        /@media \(max-width: 820px\) and \(min-height: 500px\), \(max-aspect-ratio: 4\/5\) \{/.test(CSS));
 }
 
-console.log("\none surface on the right, with the ocean carried across the cut");
+console.log("\none black page, and one white line down the middle of it");
 {
-  check("the step paints the column's field across the whole screen",
-        /#auth-step-choose\.auth-box \{[\s\S]{0,1800}?linear-gradient\(168deg, #0a1c33 0%, #061527 50%, #040f1e 100%\) !important;/.test(CSS));
+  check("the page is flat black on both sides of the line",
+        /#auth-step-choose\.auth-box \{[\s\S]{0,2200}?background: #000 !important;/.test(CSS));
+  check("…with none of the old gradient field left on it",
+        !/linear-gradient\(168deg, #0a1c33 0%, #061527 50%, #040f1e 100%\)/.test(CSS));
   check("…and the column itself paints nothing on top of it",
         /#auth-step-choose > \.ao-form \{[\s\S]{0,600}?background: transparent;/.test(CSS));
   check("the flat navy that used to fill the wedge is gone",
         !/background: #04101f !important;/.test(CSS));
-  // The wedge is FILLED now, not merely the same colour as its neighbour.
-  check("there is something painted in the wedge", /class="ao-seam"/.test(HTML));
-  check("…and it is the painting itself, carried on out of focus",
-        /#auth-step-choose > \.ao-seam::before \{[\s\S]{0,400}?auth-ocean\.jpg[\s\S]{0,200}?filter: blur\(/.test(CSS));
-  check("…faded out before its own box ends, so it draws no second edge",
-        /mask-image: linear-gradient\(90deg, #000 40%, rgba\(0,0,0,\.42\) 49%, rgba\(0,0,0,0\) 58%\)/.test(CSS));
-  // The cut is vertical, so the seam box simply starts on it. (It used to lean,
-  // and then the box had to hug the slope by arithmetic: left:44% width:22%
-  // with a clip-path putting the cut's top end at (50-44)/22 of the box.)
-  check("the seam box starts on the cut",
-        /#auth-step-choose > \.ao-seam \{[\s\S]{0,400}?left: 50%;[\s\S]{0,200}?width: 18%;/.test(CSS));
-  check("…and needs no clip-path to follow a slope any more",
-        !/#auth-step-choose > \.ao-seam \{[\s\S]{0,500}?clip-path: polygon/.test(CSS));
-  check("…and it is scenery: under the column, taking no clicks",
-        /#auth-step-choose > \.ao-seam \{[\s\S]{0,300}?z-index: 1;[\s\S]{0,120}?pointer-events: none;/.test(CSS));
-  check("the phone layout, which has no diagonal, has no wedge to fill either",
-        /#auth-step-choose > \.ao-seam \{ display: none; \}/.test(CSS));
+  // THE LINE. There is no cut for it to be the highlight on any more: it is a
+  // rule, it is white, and it runs the whole height of the page. A line that
+  // stops before the edge reads as an accident.
+  check("the line is white",
+        /#auth-step-choose::after \{[\s\S]{0,600}?background: #fff;/.test(CSS));
+  check("…on the halfway mark, two pixels wide",
+        /#auth-step-choose::after \{[\s\S]{0,400}?left: 50%;[\s\S]{0,120}?width: 2px;/.test(CSS));
+  check("…running the WHOLE height of the page, both ends on the edge",
+        /#auth-step-choose::after \{[\s\S]{0,300}?top: 0;[\s\S]{0,60}?bottom: 0;/.test(CSS)
+        && !/top: -3%;[\s\S]{0,80}?height: 106%;/.test(CSS));
+  check("…and it is not the old lit cyan edge",
+        !/rgba\(232,250,255,\.95\), rgba\(140,225,255,\.85\) 46%/.test(CSS));
+  // Stacked, the two halves are still two halves: the rule turns with them
+  // instead of being switched off.
+  check("on a phone the line turns rather than disappearing",
+        /#auth-step-choose::after \{[\s\S]{0,300}?top: var\(--ao-band\);[\s\S]{0,200}?width: 100%;[\s\S]{0,80}?height: 2px;/.test(CSS)
+        && !/#auth-step-choose::after \{ display: none; \}/.test(CSS));
+  check("the wedge, and everything that was painted into it, is gone",
+        !/ao-seam/.test(HTML) && !/ao-seam/.test(CSS) && !/ao-seam/.test(APP));
+}
+
+console.log("\nthe lettering is in the picture, so it is not drawn twice");
+{
+  // The artwork carries the title, the tagline and the blurb in its own
+  // pixels. The text stays in the document for a screen reader and is hidden
+  // from the eye; the <img> is alt="" so the words are not announced twice.
+  check("the words are still in the document",
+        /<h1 class="ao-title">Currents &amp; Critters<\/h1>/.test(HTML));
+  check("…saying what the picture says, word for word",
+        /Build Your Ocean\. Rule the Current\./.test(HTML)
+        && /Play Animals\. Combine Species\. Build Ecosystems\. Rule The Ocean\./.test(HTML));
+  check("…and hidden from the eye, not from the reader",
+        /#auth-step-choose > \.ao-copy \{[\s\S]{0,400}?clip-path: inset\(50%\);/.test(CSS));
+  check("…so the title is never painted over the painting's own title",
+        !/#auth-step-choose \.ao-title \{[\s\S]{0,300}?font-size: clamp\(30px, 4\.9vw, 78px\)/.test(CSS));
+  check("the picture is not announced as well as the text",
+        /class="ao-art-img"/.test(HTML) && /<img src="\/auth-ocean\.jpg\?v=[^"]*" alt=""/.test(HTML));
 }
 
 console.log("\ncreate an account is a pane, not a pop-up");
@@ -260,7 +292,7 @@ function run(name, body, w, h, ok, opts) {
 const server = spawn(process.execPath, ["-e", SERVER_SRC], { stdio: "ignore" });
 try { execFileSync(process.execPath, ["-e", "setTimeout(()=>{},900)"]); } catch (_) {}
 
-const ART_RATIO = 1600 / 2000;
+const ART_RATIO = 1024 / 1536;   // auth-ocean.jpg, and it carries the lettering
 
 try {
   // ── 1. The whole painting, at six shapes ──────────────────────────────
@@ -291,86 +323,88 @@ try {
     check(`${w}x${h}: the page never scrolls sideways`, r.overflowX === false);
   }
 
-  // ── 2. The seam, off a real screenshot ────────────────────────────────
-  console.log("\nthere is no dark slit between the two sides");
+  // ── 2. The line, off a real screenshot ────────────────────────────────
+  //
+  // This is the one the eye actually complained about. The rule used to be the
+  // highlight on a cut through a painting, and it stopped short of both edges
+  // of the screen, which read as an unfinished page. So this measures the two
+  // things a picture can prove: the line is WHITE, and it reaches the very
+  // first and very last row of pixels on the page.
+  console.log("\nthe line is white, and it runs the whole height of the page");
   {
     const shot = path.join(os.tmpdir(), `cc_signin_${process.pid}.png`);
-    const r = run("_ss_seam.html", `
+    const r = run("_ss_line.html", `
       log.art = R(".ao-art");
       log.form = R(".ao-form");
-      log.stepBg = getComputedStyle(document.getElementById("auth-step-choose")).backgroundImage;
+      log.stepBg = getComputedStyle(document.getElementById("auth-step-choose")).backgroundColor;
+      log.stepImg = getComputedStyle(document.getElementById("auth-step-choose")).backgroundImage;
       log.formBg = getComputedStyle(document.querySelector(".ao-form")).backgroundImage;
+      var c = document.querySelector(".ao-copy");
+      var cr = c && c.getBoundingClientRect();
+      log.copyHidden = !!cr && cr.width <= 2 && cr.height <= 2;
       done();
     `, 1440, 900, (r) => r.art, { shot });
     check("the column declares no background of its own", r && r.formBg === "none", r && r.formBg);
-    check("…and the step declares the gradient field", r && /linear-gradient/.test(r.stepBg || ""));
+    check("…and the page under it is flat black, not a gradient",
+          r && r.stepBg === "rgb(0, 0, 0)" && r.stepImg === "none",
+          r && `${r.stepBg} / ${r.stepImg}`);
+    check("…and the lettering takes up no room on it",
+          r && r.copyHidden === true);
     if (fs.existsSync(shot)) {
-      // The wedge is between the painting's cut edge and the column's left
-      // edge. Walk a row from just clear of the lit line all the way into the
-      // column and ask three things of it: nothing in it is darker than the
-      // column (that was the SLIT), the water right at the cut is genuinely
-      // lit rather than merely not-black (that was the HOLE), and the walk has
-      // no step in it anywhere (that would be a new edge).
       const py = `
-import json, sys
+import json
 from PIL import Image
 im = Image.open(${JSON.stringify(shot)}).convert("RGB")
 W, H = im.size
 px = im.load()
 def lum(c): return (c[0] + c[1] + c[2]) / 3.0
-out = []
-for frac in (0.30, 0.55, 0.80, 0.95):
-    y = int(H * frac)
-    # the cut is straight down the halfway line at every height.
-    cut = 0.50
-    x0 = int(W * (cut + 0.012))           # clear of the lit edge line
-    # The GUTTER is what this is about: the empty field between the cut and
-    # the first thing the column draws (.ao-form-inner starts at 56% of the
-    # width at this window size). Sampling past it walks over the SIGN IN
-    # button and measures the button.
-    col = [px[x, y] for x in range(int(W * 0.525), int(W * 0.55))]
-    at_cut = [px[x, y] for x in range(x0, x0 + max(2, int(W * 0.012)))]
-    if not col or not at_cut: continue
-    colmean = sum(lum(c) for c in col) / len(col)
-    cutmean = sum(lum(c) for c in at_cut) / len(at_cut)
-    # the whole run, cut -> column, in 0.4%-of-width samples
-    walk = [lum(px[x, y]) for x in range(x0, int(W * 0.55), max(1, int(W * 0.004)))]
-    darkest = min(walk)
-    # A slit is a DIP: somewhere between the painting and the column that is
-    # darker than the field it lands in. The fade itself is not a dip, so the
-    # thing to compare against is where the walk ENDS, not its own average.
-    ends = walk[-1]
-    falloff = walk[0] - walk[-1]
-    # the step ACROSS the line: picture on one side, water on the other
-    left  = sum(lum(px[x, y]) for x in range(int(W*0.47), int(W*0.49))) / max(1,(int(W*0.49)-int(W*0.47)))
-    right = sum(lum(px[x, y]) for x in range(int(W*0.515), int(W*0.535))) / max(1,(int(W*0.535)-int(W*0.515)))
-    jump = max(abs(b - a) for a, b in zip(walk, walk[1:])) if len(walk) > 1 else 0
-    out.append({"y": frac, "colmean": colmean, "cutmean": cutmean,
-                "darkest": darkest, "ends": ends, "jump": jump,
-                "falloff": falloff, "cliff": abs(left - right)})
-print(json.dumps(out))
+
+# Where the line actually is: the brightest column within a few px of centre.
+band = range(int(W * 0.49), int(W * 0.51))
+colsum = {x: sum(lum(px[x, y]) for y in range(0, H, 7)) for x in band}
+lx = max(colsum, key=colsum.get)
+
+# Every row must have white ON the line, including the first and the last.
+rows = []
+for y in (0, 1, int(H * 0.25), int(H * 0.5), int(H * 0.75), H - 2, H - 1):
+    best = max((px[x, y] for x in range(lx - 2, lx + 3)), key=lum)
+    rows.append({"y": y, "px": list(best), "lum": lum(best)})
+
+# The gutter: between the line and the first thing the column draws. On a black
+# page it is black, and that is the point: no wedge, no third colour.
+gut = [lum(px[x, y]) for y in range(int(H*0.2), int(H*0.9), 11)
+                     for x in range(int(W*0.515), int(W*0.55), 3)]
+# …and the same on the other side of the line, outside the plate.
+left = [lum(px[x, y]) for y in range(int(H*0.2), int(H*0.9), 11)
+                      for x in range(int(W*0.455), int(W*0.49), 3)]
+print(json.dumps({"lx": lx, "W": W, "H": H, "rows": rows,
+                  "gutterMax": max(gut), "leftMax": max(left)}))
 `;
-      let rows = [];
-      try { rows = JSON.parse(execFileSync("python3", ["-c", py], { encoding: "utf8" })); }
+      let d = null;
+      try { d = JSON.parse(execFileSync("python3", ["-c", py], { encoding: "utf8" })); }
       catch (e) { check("the screenshot could be read", false, String(e && e.message)); }
-      for (const row of rows) {
-        check(`at ${Math.round(row.y * 100)}% down: nothing beside the painting is a dark slit`,
-              row.darkest > row.ends - 3,
-              `darkest ${row.darkest.toFixed(1)} vs where it lands ${row.ends.toFixed(1)}`);
-        check(`…and the water at the cut is lit, and settles as it goes right`,
-              row.falloff > 3,
-              `falls ${row.falloff.toFixed(1)} from the cut to the column`);
-        check(`…and crossing the line is not a cliff`,
-              row.cliff < 42,
-              `${row.cliff.toFixed(1)} between the picture and the water beside it`);
-        check(`…and the run from the cut across the field has no step in it`,
-              row.jump < 9, `biggest jump ${row.jump.toFixed(1)}`);
+      if (d) {
+        check("the line is on the halfway mark",
+              Math.abs(d.lx - d.W / 2) <= 3, `at ${d.lx} of ${d.W}`);
+        for (const row of d.rows) {
+          const where = row.y <= 1 ? "the very top row"
+                      : row.y >= d.H - 2 ? "the very bottom row"
+                      : `${Math.round((row.y / d.H) * 100)}% down`;
+          check(`white at ${where}`,
+                row.lum > 200 && Math.max(...row.px) - Math.min(...row.px) < 26,
+                `rgb(${row.px.join(",")})`);
+        }
+        check("the field on the column's side of the line is black",
+              d.gutterMax < 22, `brightest ${d.gutterMax.toFixed(1)}`);
+        check("…and so is the field on the painting's side",
+              d.leftMax < 22, `brightest ${d.leftMax.toFixed(1)}`);
       }
       try { fs.unlinkSync(shot); } catch (_) {}
     } else {
       check("a screenshot was taken", false, "chrome wrote no file");
     }
   }
+
 
   // ── 3. The pane turns over, and the ocean does not move ───────────────
   console.log("\ncreate an account turns the column over, and the ocean stays put");

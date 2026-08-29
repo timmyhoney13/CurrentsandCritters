@@ -1,35 +1,31 @@
 #!/usr/bin/env node
-/* The staghorn coral.
+/* The staghorn coral, and what is left of it.
  *
- * The sign-in painting is one picture of kelp water. In the kelp, bottom left,
- * a staghorn coral stands warm rose among the blues and greens. Clicking that
- * coral is worth the Coral Reef background.
+ * THE SECRET IS RETIRED. It was an invisible box over a coral painted into the
+ * bottom left of the sign-in artwork, and clicking it was worth the Coral Reef
+ * background. The artwork was replaced in 1.7.0 by a painting that carries its
+ * own title and has no coral and no kelp in it, so the box had nothing left to
+ * sit on: it was over open water, under a message about a coral that is not
+ * there. The button, its copy and the geometry that placed it are gone.
  *
- * The interesting part is WHEN a player is allowed to find it: on the sign-in
- * screen, before anybody knows who they are. So the find cannot BE the reward.
- * It is a note on the device, and it is spent the first moment there is an
- * account to spend it on. That is the whole design, and it is what this file
- * pins:
+ * What this file pins now is the half that MUST NOT go with it. The find was
+ * never the reward: it was a note on the device, spent the first moment there
+ * was an account to spend it on. Somebody may have clicked that coral as a
+ * guest last week and still not made an account. Their note is still in
+ * localStorage, and it is still owed:
  *
- *   1. THE BOX IS ON THE CORAL. Not near it, not over the kelp in general: the
- *      artwork under the box is read back out of a canvas, and the coral has to
- *      be under it and centred in it. An art rebuild that moves the colony
- *      moves this test.
- *   2. IT IS INVISIBLE, SO IT IS GATED. Nothing on that screen may take a click
- *      before the artwork has painted, or the click is a stray one.
- *   3. IT SAYS BOTH THINGS: what you found, and what it is worth.
- *   4. NOBODY IS GRANTED ANYTHING ON THE SIGN-IN SCREEN, because there is
- *      nobody there. The find goes to localStorage.
- *   5. IT IS SPENT ON ONE ACCOUNT. revealLobby() is the one place both roads in
- *      end (signing into an old account, and finishing a new one), so the claim
- *      hangs there, and it writes to THAT account's unlocked_backgrounds.
- *   6. A FAILED WRITE KEEPS THE NOTE. Somebody who found it, read the message
- *      and lost their connection must not lose the coral with it.
- *   7. THE REWARD IS A REAL BACKGROUND, in the registry the gallery renders
- *      from and in the server's list of the eight.
+ *   1. THE BOX IS GONE, from the markup, the CSS and the app, and nothing
+ *      writes a new note any more.
+ *   2. THE CLAIM IS NOT GONE. ccCoralClaim() still reads the note and still
+ *      hangs on revealLobby(), the one place both roads in end.
+ *   3. IT IS SPENT ON ONE ACCOUNT, written to THAT account's document by uid.
+ *   4. A FAILED WRITE KEEPS THE NOTE, so a find is not lost with the wifi.
+ *   5. THE REWARD IS A REAL BACKGROUND, in the registry the gallery renders
+ *      from and in the server's list of the eight, so an account that is paid
+ *      out has somewhere to put it.
  *
- * (This replaced the rotted pier piling in 1.6.97: same machinery, a coral
- * instead of a plank, and the Coral Reef background instead of the Pier.)
+ * (The secret replaced a rotted pier piling in 1.6.97, and was retired with
+ * the artwork in 1.7.0.)
  *
  * Run:  node test_coral_secret.js       (needs Google Chrome / Chromium)
  */
@@ -58,73 +54,36 @@ function check(name, cond, extra) {
 //  SOURCE
 // ══════════════════════════════════════════════════════════════════════════
 
-console.log("\nthere is a coral in the kelp, and it is a real button");
+console.log("\nthe box is gone, and nothing writes a new note");
 {
-  check("the box exists on the sign-in screen",
-        /id="auth-coral-secret" class="auth-coral-secret"/.test(HTML));
-  check("…as a button, so it is reachable by keyboard and announced as one",
-        /<button type="button" id="auth-coral-secret"/.test(HTML));
-  check("…with a name, since it has no lettering of its own to be read",
-        /aria-label="A staghorn coral in the kelp"/.test(HTML));
-  // It lives inside the panel, not beside it: on the phone layout the screen
-  // is a scrolling page, and a box placed against the page slides off the
-  // picture the moment anybody scrolls.
-  check("it lives inside the painting's own panel, so scrolling cannot move it",
-        /<div class="ao-art">[\s\S]{0,1400}?<button type="button" id="auth-coral-secret"[\s\S]{0,200}?<\/div>/.test(HTML));
-  // The art is object-fit:contain now, so how big the painting is drawn
-  // changes with every window shape. CSS cannot read that fit, so the box is
-  // measured off the image itself.
-  check("it is placed from the painting's own geometry, not eyeballed in CSS",
-        /const CORAL_SPOT = \{ x: \.126, y: \.952/.test(APP)
-        && /function placeCoralBox\(\)/.test(APP));
-  check("…measured as CONTAINED art: the smaller ratio, not the larger",
-        /const sc = Math\.min\(ir\.width \/ img\.naturalWidth, ir\.height \/ img\.naturalHeight\);/.test(APP));
-  check("…against the panel it sits in, not the page that scrolls",
-        /const ir = img\.getBoundingClientRect\(\), pr = art\.getBoundingClientRect\(\);/.test(APP));
-  check("…and it is placed again when the window changes shape",
-        /window\.addEventListener\("resize", placeCoralBox\)/.test(APP)
-        && /step\.classList\.add\("is-armed"\);\s*\n\s*placeCoralBoxSoon\(\);/.test(APP));
-  // naturalWidth is 0 until the art has DECODED, not merely arrived. Asking
-  // once, on arming, can lose that race, and losing it leaves the box on its
-  // CSS fallback: the corner, the wrong pixels.
-  check("…and it keeps asking until the art has decoded",
-        /function placeCoralBoxSoon\(tries\)/.test(APP)
-        && /_coralPlaceTimer = setTimeout\(\(\) => placeCoralBoxSoon\(left\), 120\)/.test(APP)
-        && /img\.addEventListener\("load", \(\) => \{ placeCoralBoxSoon\(\); settle\(\); \}/.test(APP));
-  check("…keeping a minimum size, so a small window still leaves it tappable",
-        /Math\.max\(40, CORAL_SPOT\.w/.test(APP) && /Math\.max\(30, CORAL_SPOT\.h/.test(APP));
-  check("…and it never guesses at art that has not decoded yet",
-        /if \(!step \|\| !btn \|\| !img \|\| !art \|\| !img\.naturalWidth\) return false;/.test(APP));
-  check("a cursor that wanders onto it is told it is on something",
-        /#auth-step-choose \.ao-art > \.auth-coral-secret:hover,[\s\S]{0,300}?box-shadow:/.test(CSS));
-  // Every box on this screen is invisible paint-over, so all of them wait.
-  check("it cannot take a click before the artwork has painted",
-        /#auth-step-choose:not\(\.is-armed\) > \.ao-form,[\s\S]{0,200}?\.auth-coral-secret \{ pointer-events: none; \}/.test(CSS));
-  check("the plank it replaced is gone from every file that knew about it",
+  check("the button is out of the markup",
+        !/auth-coral-secret/.test(HTML) && !/A staghorn coral in the kelp/.test(HTML));
+  check("…and out of the CSS",
+        !/auth-coral-secret/.test(CSS));
+  check("…and the geometry that placed it on the painting is gone",
+        !/CORAL_SPOT/.test(APP) && !/placeCoralBox/.test(APP));
+  check("…including the resize handler that kept it in place",
+        !/window\.addEventListener\("resize", placeCoralBox\)/.test(APP));
+  check("nothing writes a find any more",
+        !/ccCoralNoteFind/.test(APP)
+        && !/localStorage\.setItem\(CORAL_FIND_KEY/.test(APP));
+  check("…and the message about a coral that is not in the picture is gone",
+        !/You found the staghorn coral!/.test(APP));
+  check("the column is still held inert until the artwork has painted",
+        /#auth-step-choose:not\(\.is-armed\) > \.ao-form \{ pointer-events: none; \}/.test(CSS)
+        && /function armChooseStep\(\)/.test(APP));
+  check("the plank it replaced is still gone from every file that knew about it",
         !/auth-pier-secret|PIER_SPOT|ccPierClaim|cc_pier_piling_found/.test(HTML + CSS + APP));
 }
 
-console.log("\nit says what you found, and what it is worth");
+console.log("\nbut a find already made is still owed, and still read");
 {
-  check("both halves are in the one sentence",
-        /You found the staghorn coral! Sign in or create an account and the Coral Reef background is yours\./.test(APP));
-  check("…said through the chooser's own note, in the good-news tone",
-        /setAuthMsg\("auth-choose-err",\s*\n\s*"You found the staghorn coral![\s\S]{0,160}?"ok"\);/.test(APP));
-  check("finding it is what puts the message up",
-        /_coralBtn\.addEventListener\("click", \(\) => \{\s*\n\s*ccCoralNoteFind\(\);/.test(APP));
-}
-
-console.log("\nnothing is granted on the sign-in screen, because nobody is there");
-{
-  check("the find is a note on the device",
-        /const CORAL_FIND_KEY = "cc_staghorn_coral_found_v1";/.test(APP)
-        && /function ccCoralNoteFind\(\) \{ try \{ localStorage\.setItem\(CORAL_FIND_KEY, "1"\); \}/.test(APP));
-  // The click handler must not reach for Firestore: on this screen there is no
-  // account to write to, and a grant that ran here would belong to nobody.
-  const at = APP.indexOf('const _coralBtn = $a("auth-coral-secret");');
-  const CLICK = APP.slice(at, at + 500);
-  check("…and nothing else, no write, no grant",
-        !/unlocked_backgrounds/.test(CLICK) && !/_db/.test(CLICK));
+  check("the note's key is unchanged, so an old find is still recognised",
+        /const CORAL_FIND_KEY = "cc_staghorn_coral_found_v1";/.test(APP));
+  check("…and it is still read",
+        /function ccCoralFound\(\)    \{ try \{ return localStorage\.getItem\(CORAL_FIND_KEY\) === "1"; \}/.test(APP));
+  check("…by a claim that is still in the file",
+        /async function ccCoralClaim\(\)/.test(APP));
 }
 
 console.log("\nit is spent on ONE account, the first one to turn up");
@@ -134,7 +93,7 @@ console.log("\nit is spent on ONE account, the first one to turn up");
   check("…on the account side of it, not the guest side",
         /if \(_authUser && _playerNickname\) \{[\s\S]{0,2200}?ccCoralClaim\(\)\.catch/.test(APP));
   const CLAIM = APP.slice(APP.indexOf("async function ccCoralClaim()"),
-                          APP.indexOf('const _coralBtn = $a("auth-coral-secret");'));
+                          APP.indexOf("// Escape backs out of a pane you went INTO"));
   check("it does nothing at all without a find to spend",
         /if \(!ccCoralFound\(\)\) return;/.test(CLAIM));
   check("…or without an account and a database to spend it on",
@@ -156,7 +115,7 @@ console.log("\nit is spent on ONE account, the first one to turn up");
 console.log("\na failed write keeps the note, so the find is not lost with the wifi");
 {
   const CLAIM = APP.slice(APP.indexOf("async function ccCoralClaim()"),
-                          APP.indexOf('const _coralBtn = $a("auth-coral-secret");'));
+                          APP.indexOf("// Escape backs out of a pane you went INTO"));
   const catchIdx = CLAIM.indexOf("} catch (_) {");
   const clearIdx = CLAIM.lastIndexOf("localStorage.removeItem(CORAL_FIND_KEY)");
   check("the write is awaited, so a failure is a failure and not a shrug",
@@ -181,8 +140,13 @@ console.log("\nthe Coral Reef is a real background, in both lists that have to k
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-//  DRIVE  (a real browser, reading the artwork back out of a canvas)
+//  DRIVE  (a real browser: the box is really gone, at every window shape)
 // ══════════════════════════════════════════════════════════════════════════
+//
+// The source half proves the markup no longer contains it. This proves the
+// screen no longer contains it: an invisible button that survived in some
+// branch of the layout would be worse than the one that was removed, because
+// it would take clicks over open water and say a coral had been found.
 const CHROME = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "/Applications/Chromium.app/Contents/MacOS/Chromium",
@@ -193,7 +157,7 @@ const CHROME = [
 if (!CHROME) {
   console.log("\nSKIP: no Chrome/Chromium found: skipping the drive half.");
 } else {
-  const PORT = 9680 + (process.pid % 300);
+  const PORT = 9640 + (process.pid % 300);
   const SERVER_SRC = `
     const fs=require("fs"),path=require("path"),http=require("http");
     const ROOT=${JSON.stringify(CLIENT)};
@@ -208,20 +172,18 @@ if (!CHROME) {
       fs.createReadStream(f).pipe(res);
     }).listen(${PORT});
   `;
-
-  function driver(body) {
-    return `
+  const tmp = [];
+  function run(name, body, w, h, ok) {
+    const f = path.join(CLIENT, name);
+    fs.writeFileSync(f, HTML + `
 <div id="out">PENDING</div>
 <script>
 (function () {
-  var st = document.createElement("style");
-  st.textContent = "*,*::before,*::after{transition:none!important;animation:none!important}";
+  var st=document.createElement("style");
+  st.textContent="*,*::before,*::after{transition:none!important;animation:none!important}";
   document.head.appendChild(st);
   var log = {}, out = document.getElementById("out");
   function done() { out.textContent = JSON.stringify(log); }
-  function R(sel){ var e=document.querySelector(sel); if(!e) return null;
-    var r=e.getBoundingClientRect();
-    return {l:r.left,t:r.top,w:r.width,h:r.height,r:r.right,b:r.bottom}; }
   var tick = 0;
   var iv = setInterval(function () {
     if (++tick > 400) { log.fatal = "timeout"; done(); clearInterval(iv); return; }
@@ -239,18 +201,11 @@ if (!CHROME) {
       if (tick < 25) return;
       clearInterval(iv);
       step.classList.add("is-armed");
-      try { localStorage.removeItem("cc_staghorn_coral_found_v1"); } catch (e) {}
       ${body}
     } catch (e) { log.err = String(e && e.message); done(); }
   }, 40);
 })();
-</script>`;
-  }
-
-  const tmp = [];
-  function run(name, body, w, h, ok) {
-    const f = path.join(CLIENT, name);
-    fs.writeFileSync(f, HTML + driver(body));
+</script>`);
     if (!tmp.includes(f)) tmp.push(f);
     let last = null;
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -275,113 +230,39 @@ if (!CHROME) {
 
   const server = spawn(process.execPath, ["-e", SERVER_SRC], { stdio: "ignore" });
   try { execFileSync(process.execPath, ["-e", "setTimeout(()=>{},900)"]); } catch (_) {}
-
-  // Five window shapes, including a phone: the box has to land on the coral in
-  // all of them, which is the whole reason it is measured and not written down.
-  const SIZES = [[1440, 900], [1920, 1080], [1280, 800], [1024, 768], [430, 900]];
-
-  // The reading half, shared by every size. The box is measured against the
-  // ARTWORK and then the artwork is read back: the box rectangle is converted
-  // into image coordinates and those pixels are sampled off a canvas.
-  const READ = `
-    var img = document.querySelector(".ao-art-img");
-    var box = R("#auth-coral-secret");
-    var ir  = R(".ao-art-img");
-    var c = document.createElement("canvas");
-    c.width = img.naturalWidth; c.height = img.naturalHeight;
-    var cx2 = c.getContext("2d");
-    cx2.drawImage(img, 0, 0);
-    log.nat = { w: img.naturalWidth, h: img.naturalHeight };
-    // object-fit: contain. The painting is scaled to FIT its box and centred
-    // in it, so a screen pixel maps back through the smaller ratio and the
-    // letterbox that leaves.
-    var sc = Math.min(ir.w / img.naturalWidth, ir.h / img.naturalHeight);
-    var ox = ir.l + (ir.w - img.naturalWidth  * sc) / 2;
-    var oy = ir.t + (ir.h - img.naturalHeight * sc) / 2;
-    var ax = Math.round((box.l - ox) / sc), ay = Math.round((box.t - oy) / sc);
-    var aw = Math.max(2, Math.round(box.w / sc)), ah = Math.max(2, Math.round(box.h / sc));
-    log.art = { x: ax, y: ay, w: aw, h: ah };
-    log.box = box;
-    var d = cx2.getImageData(ax, ay, aw, ah).data;
-    // Coral is the one warm thing down there: everything else is blue water or
-    // green kelp, and both have more blue in them than red.
-    var warm = 0, sx = 0, sy = 0, n = 0;
-    for (var i = 0; i < d.length; i += 4) {
-      var p = i / 4, px = p % aw, py = (p / aw) | 0;
-      if (d[i] - d[i + 2] > 10 && d[i] > 90) { warm++; sx += px; sy += py; }
-      n++;
-    }
-    log.warm = warm / Math.max(1, n);
-    log.cx = warm ? (sx / warm) / aw : -1;
-    log.cy = warm ? (sy / warm) / ah : -1;
-  `;
-
   try {
-    console.log("\nthe box is on the coral, read back out of the painting");
-    for (const [w, h] of SIZES) {
-      const r = run("_coral_hit.html", READ + "done();", w, h, (r) => r.warm != null);
-      if (!r || r.warm == null) { check(`${w}x${h}: the harness could read the artwork`, false, r && (r.err || r.fatal)); continue; }
-      check(`${w}x${h}: the box is over the coral, not open water`,
-            r.warm > 0.07, `only ${(r.warm * 100).toFixed(1)}% of it is coral`);
-      check(`${w}x${h}: …and the coral is CENTRED in it, not clipped by one edge`,
-            r.cx > 0.32 && r.cx < 0.68 && r.cy > 0.30 && r.cy < 0.70,
-            `centre of mass at ${r.cx.toFixed(2)}, ${r.cy.toFixed(2)} of the box`);
-      check(`${w}x${h}: …and that is the bottom-left corner of the painting`,
-            r.art.x > 40 && r.art.x < 200 && r.art.y > 1740 && r.art.y < 1960,
-            `art ${r.art.x},${r.art.y}`);
-      check(`${w}x${h}: it is big enough to hit`, r.box.w >= 36 && r.box.h >= 28,
-            `${Math.round(r.box.w)}x${Math.round(r.box.h)}`);
-    }
-
-    console.log("\nclicking it says both things, and the find survives the click");
-    {
-      const r = run("_coral_click.html", `
-        setTimeout(function () {
-          var note = document.getElementById("auth-choose-err");
-          // The harness has no Firebase behind it, so the screen may already be
-          // saying something about that. Clear it through the real renderer
-          // first: what is being measured is the click, not the environment.
-          log.saidAtLoad = note.textContent.trim();
-          window.__ccAuthNote("", "ok");
-          log.before = note.classList.contains("is-on");
-          document.getElementById("auth-coral-secret").click();
-          log.after = note.classList.contains("is-on");
-          log.tone  = note.classList.contains("is-ok");
-          log.said  = note.textContent.trim();
-          log.stored = localStorage.getItem("cc_staghorn_coral_found_v1");
-          done();
-        }, 900);
-      `, 1440, 900, (r) => r.after !== undefined);
-      check("the note is quiet until the coral is found", r && r.before === false,
-            r && ("it was saying: " + r.saidAtLoad));
-      check("…and up once it is", r && r.after === true);
-      check("…in the good-news tone, not the one used for a failed sign-in",
-            r && r.tone === true);
-      check("it says what was found", r && /found the staghorn coral/i.test(r.said || ""));
-      check("…and what it is worth, and how to get it",
-            r && /sign in or create an account/i.test(r.said || "")
-              && /coral reef background/i.test(r.said || ""));
-      check("the find is written down, because there is nobody to give it to yet",
-            r && r.stored === "1", r && String(r.stored));
-    }
-
-    console.log("\non a phone the coral is on the screen, so the secret is too");
-    {
-      const r = run("_coral_phone.html", `
-        var e = document.getElementById("auth-coral-secret");
-        log.display = getComputedStyle(e).display;
-        log.pe = getComputedStyle(e).pointerEvents;
+    console.log("\nthere is nothing invisible left on the painting");
+    // Both layouts, because the box used to be styled in both: the wide split
+    // and the stacked phone band.
+    for (const [w, h] of [[1440, 900], [1920, 1080], [1024, 768], [430, 900]]) {
+      const r = run("_coral_gone.html", `
+        log.btn = !!document.getElementById("auth-coral-secret");
+        log.any = document.querySelectorAll(".auth-coral-secret").length;
+        var art = document.querySelector(".ao-art");
+        // Anything inside the painting's panel that takes clicks and shows
+        // nothing would be the same trap under another name.
+        var ghosts = 0;
+        if (art) art.querySelectorAll("button, a, [role=button]").forEach(function (el) {
+          var cs = getComputedStyle(el);
+          if (cs.pointerEvents !== "none" && !el.textContent.trim()) ghosts++;
+        });
+        log.ghosts = ghosts;
+        log.stored = localStorage.getItem("cc_staghorn_coral_found_v1");
         done();
-      `, 430, 900, (r) => r.display);
-      check("the box is not hidden away down here", r && r.display !== "none", r && r.display);
-      check("…and it really takes clicks once the screen is armed",
-            r && r.pe !== "none", r && r.pe);
+      `, w, h, (r) => r.btn !== undefined);
+      check(`${w}x${h}: the coral button is not on the screen`,
+            r && r.btn === false && r.any === 0, r && `btn=${r.btn} matches=${r.any}`);
+      check(`${w}x${h}: …and nothing else invisible takes clicks on the painting`,
+            r && r.ghosts === 0, r && `${r.ghosts} silent click targets`);
+      check(`${w}x${h}: …and simply opening the screen writes no find`,
+            r && (r.stored === null || r.stored === undefined), r && String(r.stored));
     }
   } finally {
     try { process.kill(server.pid); } catch (_) {}
     tmp.forEach(f => { try { fs.unlinkSync(f); } catch (_) {} });
   }
 }
+
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
