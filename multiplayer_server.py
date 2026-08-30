@@ -3554,6 +3554,13 @@ class Seat:
     # 3=Yellow). None for non-team games. Assigned round-robin at room creation
     # and freely changed in the lobby via the /team and /swap endpoints.
     team: Optional[int] = None
+    # Removed from the game by a unanimous kick vote (see player_kick_vote).
+    # The seat keeps kind="human" so nothing that was decided at launch (turn
+    # order, the engine's human_indices) shifts underneath a running match; what
+    # changes is that its token is cleared, so the kicked player's client is
+    # ejected, and its turns are played out by a bot instead of parking the
+    # table on an empty chair forever.
+    kicked: bool = False
     # Tournament match rooms only: the bracket participant this seat belongs to.
     # Stamped on the Seat OBJECT at room creation, so it survives BOTH the
     # launch-time seat shuffle (which moves seat objects and renumbers indices)
@@ -3584,12 +3591,22 @@ class GameRoom:
         quick_play: bool = False,
         team_mode: bool = False,
         team_count: int = 2,
+        ranked: bool = False,
     ) -> None:
         self.room_id = room_id
         self.total_players = total_players
         self.human_players = human_players
         self.ai_players = ai_players
         self.competitive = competitive
+        # Competitive (free-for-all): an ordinary 2-8 player game that pays
+        # Competitive Points, NOT the 4-seat/2-hands ladder above. The two flags
+        # are mutually exclusive: `competitive` means one human owns a fixed PAIR
+        # of seats and drags in the whole hand-switch/forfeit machinery, none of
+        # which applies here. All this flag changes on the server is that bots
+        # are refused (see configure_lobby_seats) and that the room announces
+        # itself as ranked so the client pays CP at the end. Everything else
+        # about the room is a normal game.
+        self.ranked = bool(ranked)
         self.quick_play = bool(quick_play)
         # Team Mode: a normal game played in teams. team_count teams (2..4) are
         # opened; seats are assigned round-robin so Red/Blue start evenly split
@@ -3792,6 +3809,29 @@ class GameRoom:
         # kick votes: spectator_token → set of voter seat indices
         self._spectator_kick_votes: Dict[str, set] = {}
 
+        # ── Kicking a PLAYER (not a spectator) ──────────────────────
+        # target seat index → set of ballot seats voting to remove them. Unlike
+        # the AFK votes these are NOT cleared at a turn boundary: a kick is a
+        # decision about the whole match, not about one turn, so a tally part
+        # way there survives until it passes, the target leaves, or the game
+        # ends. Keyed by the ballot seat (the lowest seat a person owns) so
+        # competitive's two hands cast one vote between them.
+        self.kick_votes: Dict[int, set] = {}
+        # Seat tokens that were cleared by a kick, kept so the removed player's
+        # next poll can be answered with "you were removed" instead of the bare
+        # "invalid seat token" that every stale token gets. Trimmed on room end.
+        self.kicked_tokens: Dict[str, Dict[str, Any]] = {}
+        # Lower-cased names the room has voted out. A kick that let the player
+        # walk straight back into the open seat they just lost would not be a
+        # kick at all. A display name is the only identity a room has, so it is
+        # what the door is shut on: imperfect (a rename gets back in) but it is
+        # the same identity every other room rule is written against.
+        self.kicked_names: set = set()
+        # Bot policy stand-ins for kicked seats, built lazily from the brain
+        # maps _run_game stashes in _ai_policy_args. seat index → policy fn.
+        self._kicked_policies: Dict[int, Any] = {}
+        self._ai_policy_args: Optional[Dict[str, Any]] = None
+
     # ── Spectator helpers ────────────────────────────────────────────
     def spectator_join(self, name: str, avatar: Any = "", background: Any = "") -> Dict[str, Any]:
         """Add a spectator. Returns {ok, spectator_token} or {ok:False, error}."""
@@ -3876,6 +3916,22 @@ class GameRoom:
             return {"ok": True, "avatar": spec.get("avatar") or "",
                     "background": spec.get("background") or ""}
 
+    def _music_epoch_ms_locked(self) -> int:
+        """Epoch (ms) the theme song's loop is measured from, shared by the room.
+
+        Every client used to start the track at the top the second it walked in,
+        so four people in one game heard four different parts of the song at
+        once and the music began at whatever moment each of them happened to
+        arrive. The position in the loop is now
+        (server now - this epoch) modulo the track length, which is the same
+        number on every device in the room however late they joined.
+
+        It is the kickoff when there is one, so the theme opens the match for
+        everybody together (and opens it again on a Play Again re-launch);
+        before that it is room creation, so the lobby is in step too.
+        """
+        return int(self.started_unix or self.created_unix) * 1000
+
     def spectator_state_view(self, host_header: str, proto_hint: str = "") -> Dict[str, Any]:
         """State payload for spectators, same as a non-viewer but boards-only (no hand data)."""
         with self.cond:
@@ -3894,7 +3950,10 @@ class GameRoom:
                     "total_players": self.total_players, "visibility": str(self.visibility),
                     "share_url": self.room_link(host_header, proto_hint),
                     "team_mode": bool(self.team_mode), "team_count": int(self.team_count),
+                    "competitive": bool(self.competitive), "ranked": bool(self.ranked),
+                    "music_epoch_ms": self._music_epoch_ms_locked(),
                 },
+                "server_now_ms": int(time.time() * 1000),
                 "status_note": self.status_note,
                 "seats": self.seat_snapshot_locked(),
                 "viewer": {"seat_index": None, "can_act": False, "spectator": True},
@@ -4008,6 +4067,7 @@ class GameRoom:
             "human_players": int(self.human_players),
             "ai_players": int(self.ai_players),
             "competitive": bool(self.competitive),
+            "ranked": bool(self.ranked),
             "quick_play": bool(self.quick_play),
             "team_mode": bool(self.team_mode),
             "team_count": int(self.team_count),
@@ -4034,9 +4094,14 @@ class GameRoom:
                     "difficulty": str(seat.difficulty or "medium"),
                     "quick_play_ticket": seat.quick_play_ticket,
                     "team": seat.team,
+                    "kicked": bool(getattr(seat, "kicked", False)),
                 }
                 for seat in self.seats
             ],
+            # Without these two a restart would quietly undo every kick: the
+            # seat would come back as an ordinary empty human seat, which parks
+            # the table on its turn, and the door would be open again.
+            "kicked_names": sorted(self.kicked_names),
             "ai_speed": str(self.ai_speed or "normal"),
             "latest_public_state": copy.deepcopy(self.latest_public_state),
             "latest_private_hands": {str(k): copy.deepcopy(v) for k, v in self.latest_private_hands.items()},
@@ -4343,6 +4408,8 @@ class GameRoom:
                     "difficulty": str(seat.difficulty or "medium"),
                     "is_away": bool(getattr(seat, "is_away", False)),
                     "inactive_eligible": bool(getattr(seat, "inactive_eligible", False)),
+                    # Removed by vote: their chair is being played out by a bot.
+                    "kicked": bool(getattr(seat, "kicked", False)),
                     "team": seat.team,
                 }
             )
@@ -4373,6 +4440,7 @@ class GameRoom:
                     break
 
         competitive = bool(payload.get("competitive", False))
+        ranked = bool(payload.get("ranked", False))
         quick_play = bool(payload.get("quick_play", False))
         team_mode = bool(payload.get("team_mode", False))
         team_count = clamp_int(payload.get("team_count"), 2, 2, 4)
@@ -4386,6 +4454,7 @@ class GameRoom:
             human_players,
             ai_players,
             competitive=competitive,
+            ranked=ranked,
             visibility=visibility,
             password_hash=pw_hash,
             quick_play=quick_play,
@@ -4440,6 +4509,7 @@ class GameRoom:
                         if isinstance(raw_difficulty, str) and raw_difficulty.strip().lower() in {"easy", "medium", "hard"}
                         else "medium"
                     )
+                    seat_kicked = bool(seat_raw.get("kicked"))
                     raw_team = seat_raw.get("team")
                     if isinstance(raw_team, int) and 0 <= raw_team < team_count:
                         seat_team: Optional[int] = raw_team
@@ -4464,10 +4534,18 @@ class GameRoom:
                                 else None
                             ),
                             team=seat_team,
+                            kicked=seat_kicked,
                         )
                     )
             if parsed_seats:
                 room.seats = parsed_seats
+
+            kicked_names_raw = payload.get("kicked_names")
+            if isinstance(kicked_names_raw, list):
+                room.kicked_names = {
+                    str(n).strip().lower() for n in kicked_names_raw
+                    if isinstance(n, str) and str(n).strip()
+                }
 
             host_humans = [seat for seat in room.seats if seat.kind == "human" and seat.is_host]
             if not host_humans:
@@ -4767,6 +4845,13 @@ class GameRoom:
                         "seat_token": existing_seat.token,
                         "reconnected": True,
                     }
+
+            # Voted out of this room already: no seat, by any route.
+            if self.kicked_names and existing_seat is None:
+                _want = safe_name(player_name, "").strip().lower()
+                if _want and _want in self.kicked_names:
+                    return {"ok": False, "error": "you were removed from this game by a vote",
+                            "kicked": True}
 
             target: Optional[Seat] = None
             if seat_index is not None:
@@ -5104,6 +5189,185 @@ class GameRoom:
                 self._bump_locked()
                 return {"ok": True, "swapped": False}
 
+    def configure_lobby_seats(
+        self,
+        host_token: str,
+        seat_token: Optional[str],
+        human_players: Optional[int] = None,
+        ai_players: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Add or remove seats in the waiting room, for ANY room type.
+
+        The Quick Play lobby has always let its host pick 2-4 human spots, but
+        every other room was stuck with whatever it was created with: to play
+        with one more friend, or one fewer bot, you closed the room and made a
+        new one. This is that control, generalised: humans and bots each move
+        independently, the table can be anywhere from 2 to 8 seats, and a seat
+        somebody is already sitting in is never taken away underneath them.
+
+        Either count may be left as None to keep it where it is.
+        """
+        with self.cond:
+            if not self._is_host_authorized_locked(host_token, seat_token):
+                return {"ok": False, "error": "host authorization required"}
+            if self.phase != "lobby":
+                return {"ok": False, "error": "the player setup can only change in the lobby"}
+            if self.competitive:
+                # Competitive is four seats owned as two fixed pairs. Anything
+                # else is not competitive any more.
+                return {"ok": False, "error": "competitive rooms are always 2 players with 2 hands each"}
+            if getattr(self, "tournament_id", None) or any(
+                getattr(s, "tournament_pid", None) for s in self.seats
+            ):
+                return {"ok": False, "error": "a tournament match's seats are set by the bracket"}
+
+            claimed = [s for s in self.seats if s.kind == "human" and s.token is not None]
+            cur_humans = sum(1 for s in self.seats if s.kind == "human")
+            cur_ai = sum(1 for s in self.seats if s.kind == "ai")
+
+            want_humans = cur_humans if human_players is None else int(human_players)
+            want_ai = cur_ai if ai_players is None else int(ai_players)
+
+            if want_humans < 1:
+                return {"ok": False, "error": "a room needs at least one human seat"}
+            if want_ai < 0:
+                return {"ok": False, "error": "bots can't go below zero"}
+            if self.ranked and want_ai > 0:
+                # The whole point of the mode: Competitive Points are only worth
+                # something if every seat is a person. The host can still resize
+                # the human spots freely, 2 through 8.
+                return {"ok": False, "error": "a competitive game is people only, no bots"}
+            if want_humans < len(claimed):
+                return {
+                    "ok": False,
+                    "error": (
+                        f"{len(claimed)} player{'s are' if len(claimed) != 1 else ' is'} "
+                        f"already sitting here. Ask them to leave first, or keep "
+                        f"{len(claimed)} human spot{'s' if len(claimed) != 1 else ''}."
+                    ),
+                    "human_seats_filled": len(claimed),
+                }
+            total = want_humans + want_ai
+            if total < 2:
+                return {"ok": False, "error": "a game needs at least 2 players"}
+            if total > 8:
+                return {"ok": False, "error": "a game holds at most 8 players"}
+            if want_humans == cur_humans and want_ai == cur_ai:
+                return {
+                    "ok": True, "unchanged": True,
+                    "human_players": cur_humans, "ai_players": cur_ai,
+                    "total_players": len(self.seats),
+                    "seats": self.seat_snapshot_locked(),
+                }
+
+            # Rebuild the table: everyone already seated keeps their Seat object
+            # (and so their token, name, avatar and team), open human spots come
+            # next, bots fill the back. Indices are handed out fresh below, which
+            # is safe because a seat token is matched against the seat OBJECT,
+            # never against the number it happens to be wearing.
+            open_humans = [s for s in self.seats
+                           if s.kind == "human" and s.token is None]
+            bots = [s for s in self.seats if s.kind == "ai"]
+
+            new_seats: List[Seat] = list(claimed)
+            while len(new_seats) < want_humans:
+                if open_humans:
+                    new_seats.append(open_humans.pop(0))
+                elif bots:
+                    # Recycle a bot's seat into an open human spot.
+                    seat = bots.pop(0)
+                    seat.kind = "human"
+                    seat.claimed_name = None
+                    seat.token = None
+                    seat.is_host = False
+                    seat.avatar = None
+                    seat.background = None
+                    seat.left_at = None
+                    seat.quick_play_ticket = None
+                    seat.kicked = False
+                    new_seats.append(seat)
+                else:
+                    new_seats.append(Seat(index=len(new_seats), kind="human",
+                                          label=f"Player {len(new_seats) + 1}"))
+
+            ai_seats: List[Seat] = []
+            while len(ai_seats) < want_ai:
+                if bots:
+                    ai_seats.append(bots.pop(0))
+                elif open_humans:
+                    seat = open_humans.pop(0)
+                    seat.kind = "ai"
+                    seat.claimed_name = None
+                    seat.token = None
+                    seat.is_host = False
+                    seat.avatar = None
+                    seat.background = None
+                    seat.left_at = None
+                    seat.quick_play_ticket = None
+                    seat.kicked = False
+                    ai_seats.append(seat)
+                else:
+                    ai_seats.append(Seat(index=0, kind="ai", label="Player",
+                                         difficulty="medium"))
+            new_seats.extend(ai_seats)
+
+            # Renumber, and give the bots their names back in table order.
+            bot_number = 1
+            for i, seat in enumerate(new_seats):
+                seat.index = i
+                seat.label = f"Player {i + 1}"
+                if seat.kind == "ai":
+                    seat.claimed_name = f"Bot {bot_number}"
+                    seat.token = None
+                    seat.is_host = False
+                    seat.quick_play_ticket = None
+                    bot_number += 1
+            self.seats = new_seats
+
+            # Team Mode: any seat that arrived without a team gets one, and the
+            # whole table is re-checked against a team count that may no longer
+            # fit (dropping to 2 seats cannot keep 4 teams).
+            if self.team_mode:
+                self.team_count = max(2, min(self.team_count, len(self.seats)))
+                for seat in self.seats:
+                    if seat.team is None or seat.team >= self.team_count:
+                        seat.team = seat.index % self.team_count
+
+            # A room with no host cannot be started. Losing the host seat is not
+            # possible here (claimed seats are all kept), but a room whose host
+            # never claimed a seat can be, so re-seat it defensively.
+            if not any(s.is_host for s in self.seats if s.kind == "human" and s.token is not None):
+                live = self._active_human_seats_locked()
+                if live:
+                    live[0].is_host = True
+
+            # Votes are keyed by seat index, and the indices just moved.
+            self.kick_votes = {}
+            self.afk_votes = {}
+            self.swap_requests = []
+
+            self.total_players = len(self.seats)
+            self.human_players = want_humans
+            self.ai_players = want_ai
+            filled, total_h = self._human_seat_counts_locked()
+            self.status_note = (
+                f"Host set the table to {want_humans} human "
+                f"player{'s' if want_humans != 1 else ''} and "
+                f"{want_ai} bot{'s' if want_ai != 1 else ''}."
+            )
+            self._add_system_chat(self.status_note)
+            self._bump_locked(force_persist=True)
+            return {
+                "ok": True,
+                "human_players": self.human_players,
+                "ai_players": self.ai_players,
+                "total_players": self.total_players,
+                "human_seats_filled": filled,
+                "human_seats_total": total_h,
+                "can_start": bool(total_h > 0 and filled >= total_h and self._team_start_ok_locked()),
+                "seats": self.seat_snapshot_locked(),
+            }
+
     def configure_quick_play_seats(
         self,
         host_token: str,
@@ -5362,6 +5626,12 @@ class GameRoom:
         for s in self.seats:
             s.is_away = False
             s.inactive_eligible = False
+        # Reset the vote state for the fresh game. Kick votes go too: they are
+        # a decision about a match, and this is a new one. A seat that was
+        # actually kicked keeps its flag, the player really is gone, and the
+        # stand-in bot has to pick the seat up again in the rematch.
+        self.kick_votes = {}
+        self._kicked_policies = {}
         # Reset chat-based AFK voting state for the fresh game.
         self.afk_votes = {}
         self.afk_nominated_this_turn = set()
@@ -5575,6 +5845,14 @@ class GameRoom:
                     and self.undo_snapshot_gs is not None
                 ):
                     return {"kind": "__undo_armed__"}
+                # This seat's player was just kicked. Nobody is coming back to
+                # act for it, and the wait above is half an hour long, so
+                # without waking here the table would sit on an empty chair for
+                # 30 minutes before the stand-in bot got its first move.
+                if 0 <= seat_index < len(self.seats) and getattr(
+                    self.seats[seat_index], "kicked", False
+                ):
+                    return {"kind": "__kicked__"}
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     return None  # Timed out: caller will fall back to safe action
@@ -6402,6 +6680,29 @@ class GameRoom:
         # the stale `player` reference held by the caller is harmless.
         return fish.Action(kind="undo")
 
+    def _kicked_bot_policy(self, seat_index: int):
+        """A bot policy for a seat whose player was kicked, or None if one
+        cannot be built (a match resumed from a checkpoint never ran the block
+        in _run_game that stashes the brain maps). Built once per seat and
+        cached: _build_ai_policy closes over the maps, so rebuilding it every
+        turn would throw away the bot's per-seat state for nothing."""
+        seat = self.seats[seat_index] if 0 <= seat_index < len(self.seats) else None
+        if seat is None or not getattr(seat, "kicked", False):
+            return None
+        cached = self._kicked_policies.get(seat_index)
+        if cached is not None:
+            return cached
+        args = self._ai_policy_args
+        if not isinstance(args, dict):
+            return None
+        try:
+            policy = self._build_ai_policy(seat_index, **args)
+        except Exception as exc:
+            self._record_event(f"Could not build a bot for kicked seat {seat_index}: {exc}")
+            return None
+        self._kicked_policies[seat_index] = policy
+        return policy
+
     def _human_policy(self, seat_index: int):
         # Per-policy state: when a timeout-fallback fires during the draw phase,
         # auto-end the turn on the very next action request instead of waiting
@@ -6410,6 +6711,34 @@ class GameRoom:
 
         def policy(gs: fish.GameState, ms: fish.MatchState, player: fish.PlayerState) -> Optional[fish.Action]:
             while True:
+                # This seat's player was removed by a kick vote. Nobody is going
+                # to submit an action for it ever again, so hand the turn to a
+                # bot rather than wait out a timeout every single round. Checked
+                # first, and re-checked every pass, because a kick can land while
+                # this very call is parked in _wait_for_action below.
+                _seat_here = self.seats[seat_index] if 0 <= seat_index < len(self.seats) else None
+                if _seat_here is not None and getattr(_seat_here, "kicked", False):
+                    kicked_policy = self._kicked_bot_policy(seat_index)
+                    if kicked_policy is not None:
+                        try:
+                            chosen = kicked_policy(gs, ms, player)
+                        except Exception as exc:
+                            self._record_event(
+                                f"Bot playing kicked seat {seat_index} failed: {exc}"
+                            )
+                            chosen = None
+                        if chosen is not None:
+                            return chosen
+                    # No bot available (or it had nothing to say): keep the table
+                    # moving with the same safe action a timeout would take, so a
+                    # kicked seat can never park the game.
+                    if player.flags.get("_discard_mode"):
+                        return self._safe_fallback_action(gs, ms, player)
+                    fallback = self._safe_timeout_action(gs, ms, player)
+                    if fallback is not None:
+                        return fallback
+                    return self._safe_fallback_action(gs, ms, player)
+
                 # Honor a flag-armed undo (requested while no human was active, e.g.
                 # during a bot turn that has now ended) before this human acts.
                 undo_action = self._apply_pending_undo_restore(gs, ms)
@@ -6587,6 +6916,10 @@ class GameRoom:
                 )
                 wait_sec = 1800.0
                 cmd = self._wait_for_action(seat_index, timeout_sec=wait_sec)
+                if cmd is not None and cmd.get("kind") == "__kicked__":
+                    # Player removed by vote while we were parked here. Re-loop
+                    # so the top-of-loop branch hands the turn to the bot.
+                    continue
                 if cmd is not None and cmd.get("kind") == "__undo_armed__":
                     # A flag-driven undo was armed (by the previous player) while we
                     # were blocked waiting for input: e.g. they pressed Undo during
@@ -8113,7 +8446,9 @@ class GameRoom:
             record = {
                 "room_id": self.room_id,
                 "recorded_unix": now_unix(),
-                "mode": ("competitive" if self.competitive else "standard") if ended_normally else "truncated",
+                "mode": (("competitive" if self.competitive
+                          else "ranked" if self.ranked else "standard")
+                         if ended_normally else "truncated"),
                 "player_count": len(gs.players),
                 "human_count": len(human_indices),
                 "winner": winner_name,
@@ -8263,6 +8598,22 @@ class GameRoom:
                 if use_history and isinstance(cbrain.get("strategy_transition_count"), dict)
                 else {}
             )
+
+            # Keep the brain maps around for the rest of the match. A seat that
+            # is kicked mid-game needs a bot policy built right then, long after
+            # this block has run, and rebuilding the maps from disk on the game
+            # thread's behalf is neither cheap nor safe under the room lock.
+            self._ai_policy_args = {
+                "weights": ai_weights,
+                "synergy_map": synergy_map,
+                "species_map": species_map,
+                "same_ocean_map": same_ocean_map,
+                "strategy_value_map": strategy_value_map,
+                "strategy_count_map": strategy_count_map,
+                "strategy_transition_map": strategy_transition_map,
+                "strategy_transition_count_map": strategy_transition_count_map,
+            }
+            self._kicked_policies = {}
 
             # Competitive: interleave P1/P2 hands so turns go 0→2→1→3
             # (Player 1, Player 3, Player 2, Player 4)
@@ -8515,6 +8866,78 @@ class GameRoom:
             except Exception:
                 traceback.print_exc()
 
+    def _vote_payload_locked(self, viewer_seat: Optional[Seat]) -> Dict[str, Any]:
+        """Live tallies for the two vote buttons, from this viewer's side.
+
+        `mine` is what lets a button read "Voted (1/2)" instead of offering the
+        same vote again, and it has to be worked out here: one ballot per
+        person means a competitive player's vote may be filed under their other
+        hand's seat index, which the client has no way to resolve.
+        """
+        out: Dict[str, Any] = {"ballot_seat": None, "kick": [], "skip": None}
+        if self.phase not in ("lobby", "running") or viewer_seat is None:
+            return out
+        if viewer_seat.kind != "human" or not viewer_seat.claimed_name:
+            return out
+        ballot = self._vote_owner_key_locked(viewer_seat)
+        out["ballot_seat"] = ballot
+
+        for seat in self.seats:
+            if seat.kind != "human" or not seat.claimed_name:
+                continue
+            if getattr(seat, "kicked", False):
+                continue
+            if seat.index == viewer_seat.index or self._competitive_same_owner(seat.index, viewer_seat.index):
+                continue
+            if ballot not in self._kick_eligible_voter_indices_locked(seat.index):
+                continue    # this viewer has no ballot against that seat
+            tally = self._kick_tally_locked(seat.index)
+            if tally["needed"] <= 0:
+                continue
+            out["kick"].append({
+                "seat": seat.index,
+                "name": seat.claimed_name or seat.label,
+                "votes": tally["votes"],
+                "needed": tally["needed"],
+                "mine": bool(ballot in self.kick_votes.get(seat.index, set())),
+                # The host cannot be voted out of their own lobby (mid-game they
+                # are just another player), so the button says so rather than
+                # failing when it is pressed.
+                "blocked": bool(seat.is_host and self.phase == "lobby"),
+            })
+
+        active = self.active_action_seat
+        if (self.phase == "running" and active is not None
+                and 0 <= active < len(self.seats)):
+            target = self.seats[active]
+            if (target.kind == "human" and target.claimed_name
+                    and not getattr(target, "kicked", False)
+                    and target.index != viewer_seat.index
+                    and not self._competitive_same_owner(target.index, viewer_seat.index)):
+                voters = self._afk_eligible_voter_indices_locked(target.index)
+                my_ballot = next(
+                    (v for v in voters
+                     if v == viewer_seat.index or self._competitive_same_owner(v, viewer_seat.index)),
+                    None,
+                )
+                if my_ballot is not None and voters:
+                    cast = self.afk_votes.get(target.index, set())
+                    out["skip"] = {
+                        "seat": target.index,
+                        "name": target.claimed_name or target.label,
+                        "votes": len(cast),
+                        "needed": -(-len(voters) // 2),   # ceil(half)
+                        "mine": bool(my_ballot in cast),
+                        # Surf's Up and "already checked this turn" both make the
+                        # vote refuse; say so on the button instead.
+                        "blocked": bool(
+                            getattr(target, "is_away", False)
+                            or time.time() < float(self.afk_immune_until.get(target.index, 0.0))
+                            or target.index in self.afk_nominated_this_turn
+                        ),
+                    }
+        return out
+
     def _viewer_payload_locked(self, seat: Optional[Seat]) -> Dict[str, Any]:
         if seat is None:
             return {
@@ -8675,6 +9098,7 @@ class GameRoom:
                     "human_players": self.human_players,
                     "ai_players": self.ai_players,
                     "competitive": bool(self.competitive),
+                    "ranked": bool(self.ranked),
                     "quick_play": bool(self.quick_play),
                     "team_mode": bool(self.team_mode),
                     "team_count": int(self.team_count),
@@ -8685,7 +9109,17 @@ class GameRoom:
                     "visibility": str(self.visibility),
                     "has_password": self.password_hash is not None,
                     "allow_spectators": bool(self.allow_spectators),
+                    # A bracket match's seats belong to the tournament, so the
+                    # lobby's Table Setup has to stay out of them.
+                    "tournament": bool(getattr(self, "tournament_id", None)),
+                    # Read with server_now_ms below: the two of them are what
+                    # put every client's theme song on the same beat.
+                    "music_epoch_ms": self._music_epoch_ms_locked(),
                 },
+                # This reply's send time, so a browser whose own clock is wrong
+                # (or just off by a few seconds) can still work out where in the
+                # loop the room is. Measured per request, never cached.
+                "server_now_ms": int(time.time() * 1000),
                 "spectators": self.spectator_list(),
                 "status_note": self.status_note,
                 "error": self.error_message,
@@ -8718,6 +9152,15 @@ class GameRoom:
                     }
                     if self.afk_challenge_seat is not None and self.afk_challenge_deadline is not None
                     else None
+                ),
+                # Tallies behind the Vote Kick / Skip Turn buttons.
+                "votes": self._vote_payload_locked(viewer_seat),
+                # Set only when the polling token is one a kick cleared, so the
+                # removed player is told why their seat vanished instead of
+                # silently falling out of the room.
+                "kicked_notice": (
+                    dict(self.kicked_tokens[seat_token], reason="kicked")
+                    if seat_token and seat_token in self.kicked_tokens else None
                 ),
                 "log_tail": self.log_events[-120:],
                 "turn_summaries": self.turn_summaries[-80:],
@@ -8877,6 +9320,213 @@ class GameRoom:
         owned = self._owned_seats_locked(seat)
         return min((s.index for s in owned), default=seat.index)
 
+    # ── Kicking a player by unanimous vote ───────────────────────────────
+    # Two different tools, deliberately kept apart:
+    #   • Skip Turn is for a player who is not THERE. It costs them one turn
+    #     (draw 2, pass) and anyone can be talked round by a bare majority.
+    #   • Vote Kick is for a player who is there and is ruining the game. It
+    #     removes them for good, so it takes EVERY other person at the table.
+    def _kick_eligible_voter_indices_locked(self, target_idx: int) -> List[int]:
+        """Ballot seats of everyone who must agree to remove `target_idx`.
+
+        Everyone in the game except the bots, one ballot per PERSON: seated
+        humans who are actually present, minus the target and (in competitive)
+        the target's own other hand. A seat whose player left, was already
+        kicked, or never claimed is not a person at the table and cannot hold
+        the vote hostage.
+
+        Away players deliberately DO count. Surf's Up means "still here, back
+        in a minute", and dropping them from the denominator would let a table
+        remove somebody the moment they stepped away, on a smaller quorum than
+        the rule promises. A player who is gone rather than away is handled by
+        Skip Turn, which is what that tool is for.
+        """
+        out: List[int] = []
+        seen_owners: set = set()
+        for s in self.seats:
+            if s.index == target_idx:
+                continue                     # the target never votes on themselves
+            if s.kind != "human":
+                continue                     # bots can't vote
+            if not s.claimed_name or s.token is None:
+                continue                     # empty seat: nobody is sitting there
+            if getattr(s, "kicked", False):
+                continue                     # already removed
+            if s.left_at is not None:
+                continue                     # walked out, seat only reserved
+            if self._competitive_same_owner(s.index, target_idx):
+                continue                     # the target's own other hand
+            owner = self._vote_owner_key_locked(s)
+            if owner in seen_owners:
+                continue                     # one ballot per person, not per hand
+            seen_owners.add(owner)
+            out.append(owner)
+        return out
+
+    def _kick_tally_locked(self, target_idx: int) -> Dict[str, int]:
+        """Votes cast / votes needed to remove `target_idx` right now."""
+        voters = self._kick_eligible_voter_indices_locked(target_idx)
+        eligible = set(voters)
+        # Only ballots from people who are still eligible count. Someone who
+        # voted and then left the room must not carry the tally on their way
+        # out, or the last player standing inherits a passed vote.
+        cast = len(self.kick_votes.get(target_idx, set()) & eligible)
+        return {"votes": cast, "needed": len(voters)}
+
+    def _drop_kick_votes_for_seat_locked(self, seat_index: int) -> None:
+        """Forget everything a seat had to do with kick votes, as a target and
+        as a voter. Called whenever a seat empties out."""
+        self.kick_votes.pop(seat_index, None)
+        for ballots in self.kick_votes.values():
+            ballots.discard(seat_index)
+
+    def player_kick_vote(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Cast (or take back) one vote to remove a player from the game.
+
+        Passes the moment every other person at the table has voted, which for
+        a two-human game is a single vote: "everyone else" is one person there.
+        """
+        seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+        undo = bool(body.get("undo"))
+        try:
+            target_idx = int(body.get("target_seat_index"))
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "target_seat_index must be int"}
+        with self.cond:
+            if self.phase not in ("lobby", "running"):
+                return {"ok": False, "error": "the game is over"}
+            voter = self._seat_from_token_locked(seat_token)
+            if voter is None:
+                return {"ok": False, "error": "invalid seat token"}
+            if voter.kind != "human" or not voter.claimed_name:
+                return {"ok": False, "error": "only seated players can vote"}
+            if target_idx < 0 or target_idx >= len(self.seats):
+                return {"ok": False, "error": "invalid target seat"}
+            target = self.seats[target_idx]
+            if target.kind != "human" or not target.claimed_name:
+                return {"ok": False, "error": "that seat is not a player"}
+            if getattr(target, "kicked", False):
+                return {"ok": False, "error": "that player has already been removed"}
+            if target.index == voter.index or self._competitive_same_owner(voter.index, target.index):
+                return {"ok": False, "error": "you can't vote to kick yourself"}
+            if target.is_host and self.phase == "lobby":
+                # In the lobby the host owns the room: removing them would leave
+                # a room nobody can start. Mid-game the host is just a player.
+                return {"ok": False, "error": "the host can't be kicked from their own lobby"}
+
+            voters = self._kick_eligible_voter_indices_locked(target.index)
+            ballot_seat = self._vote_owner_key_locked(voter)
+            if ballot_seat not in voters:
+                return {"ok": False, "error": "you can't vote on this player"}
+
+            ballots = self.kick_votes.setdefault(target.index, set())
+            target_name = target.claimed_name or target.label
+            voter_name = voter.claimed_name or voter.label
+            if undo:
+                if ballot_seat not in ballots:
+                    tally = self._kick_tally_locked(target.index)
+                    return {"ok": True, "kicked": False, "name": target_name, **tally}
+                ballots.discard(ballot_seat)
+                tally = self._kick_tally_locked(target.index)
+                self._add_system_chat(
+                    f"{voter_name} took back their vote to remove {target_name} "
+                    f"({tally['votes']}/{tally['needed']})."
+                )
+                self._bump_locked()
+                return {"ok": True, "kicked": False, "name": target_name, **tally}
+
+            if ballot_seat in ballots:
+                tally = self._kick_tally_locked(target.index)
+                return {"ok": True, "kicked": False, "duplicate": True,
+                        "name": target_name, **tally}
+            ballots.add(ballot_seat)
+            tally = self._kick_tally_locked(target.index)
+            if tally["needed"] > 0 and tally["votes"] >= tally["needed"]:
+                self._apply_kick_locked(target)
+                self._bump_locked(force_persist=True)
+                return {"ok": True, "kicked": True, "name": target_name,
+                        "votes": tally["votes"], "needed": tally["needed"]}
+            self._add_system_chat(
+                f"{voter_name} voted to remove {target_name} "
+                f"({tally['votes']}/{tally['needed']} needed, everyone else must agree)."
+            )
+            self._bump_locked()
+            return {"ok": True, "kicked": False, "name": target_name, **tally}
+
+    def _apply_kick_locked(self, target: "Seat") -> None:
+        """Carry out a passed kick vote on `target` (and, in competitive, on the
+        other hand the same person owns).
+
+        In the lobby the seat simply opens back up. In a running game the seat
+        cannot just empty out: the engine bound its policy at launch and a human
+        policy with nobody behind it parks the table forever (that is exactly
+        what an abandoned seat already does). So the seat keeps its name and
+        turn slot, is flagged kicked, and a bot plays it out.
+        """
+        removed = self._owned_seats_locked(target)
+        name = removed[0].claimed_name or removed[0].label
+        was_host = any(s.is_host for s in removed)
+        running = self.phase == "running"
+
+        for s in removed:
+            if s.token:
+                # Remember the token so the removed player's next poll can be
+                # answered with a reason rather than a bare rejection.
+                self.kicked_tokens[s.token] = {"name": name, "at": time.time(),
+                                               "seat_index": s.index}
+            s.token = None
+            s.is_host = False
+            s.left_at = None
+            s.is_away = False
+            s.inactive_eligible = False
+            s.play_again_ready = False
+            s.quick_play_ticket = None
+            s.kicked = True
+            if s.claimed_name:
+                self.kicked_names.add(s.claimed_name.strip().lower())
+            self._drop_kick_votes_for_seat_locked(s.index)
+            self.afk_votes.pop(s.index, None)
+            if self.afk_challenge_seat == s.index:
+                self.afk_challenge_seat = None
+                self.afk_challenge_deadline = None
+                self.afk_challenge_id += 1
+            if not running:
+                # Lobby: the seat opens up again for somebody else.
+                s.claimed_name = None
+                s.kicked = False
+
+        # The room always needs a host. If the kicked player was holding it,
+        # hand it to whoever is still here.
+        if was_host:
+            remaining = self._active_human_seats_locked()
+            if remaining and not any(s.is_host for s in remaining):
+                remaining[0].is_host = True
+
+        if running:
+            self._add_system_chat(
+                f"{name} was removed from the game by a unanimous vote. "
+                f"A bot will play out their seat."
+            )
+            self.status_note = f"{name} was removed by vote; a bot is playing their seat."
+            # Nudge the turn loop: if it is parked waiting on the seat we just
+            # took over, it has to wake up and let the bot move.
+            self.cond.notify_all()
+        else:
+            self._add_system_chat(f"{name} was removed from the lobby by a unanimous vote.")
+            self.status_note = f"{name} was removed from the lobby."
+
+    def kicked_token_notice(self, seat_token: Optional[str]) -> Optional[Dict[str, Any]]:
+        """If `seat_token` was cleared by a kick, describe it so the removed
+        player's client can say why instead of silently losing its seat."""
+        if not seat_token:
+            return None
+        with self.cond:
+            info = self.kicked_tokens.get(seat_token)
+            if not info:
+                return None
+            return {"name": info.get("name") or "", "at": info.get("at"),
+                    "seat_index": info.get("seat_index")}
+
     def _afk_resolve_target_locked(self, raw: str) -> Optional["Seat"]:
         """Resolve a vote target string to a seat. Accepts 'P3'/'p3' (seat
         index N-1) or a (case-insensitive) claimed username, exact-first then
@@ -8914,28 +9564,49 @@ class GameRoom:
         target_seat = self._afk_resolve_target_locked(m.group(1))
         if target_seat is None:
             return  # not a recognizable player: treat as ordinary chat
+        # Typing it still works exactly as it always has, including the replies
+        # the room sees when the report cannot stand. The Skip Turn button goes
+        # through the same core with announce off: a button that refuses does
+        # not need to tell the whole table why.
+        self._afk_cast_vote_locked(voter, target_seat, announce=True)
+
+    def _afk_cast_vote_locked(self, voter: "Seat", target_seat: "Seat",
+                              announce: bool = False) -> Dict[str, Any]:
+        """One AFK / Skip Turn vote from `voter` against `target_seat`.
+
+        The single place the rule lives, shared by the chat line ("P3 is AFK")
+        and the Skip Turn button. `announce` posts the refusals to room chat,
+        which is the only way the chat path can answer at all; the button gets
+        them back as an error instead.
+        """
+        def _refuse(err: str, note: Optional[str] = None) -> Dict[str, Any]:
+            if announce and note:
+                self._add_system_chat(note)
+                self.cond.notify_all()
+            return {"ok": False, "error": err}
+
+        if self.phase != "running":
+            return _refuse("the game is not running")
         # Only the CURRENT active player can be reported.
         if self.active_action_seat is None or target_seat.index != self.active_action_seat:
-            self._add_system_chat("You can only report the current player as AFK.")
-            self.cond.notify_all()
-            return
+            return _refuse("you can only skip the turn of the player whose turn it is",
+                           "You can only report the current player as AFK.")
         if voter.kind != "human" or not voter.claimed_name or voter.token is None:
-            return
+            return _refuse("only seated players can vote")
         if voter.index == target_seat.index:
-            return  # can't vote yourself
+            return _refuse("you can't vote to skip your own turn")
         if self._competitive_same_owner(voter.index, target_seat.index):
-            self._add_system_chat("That's your own hand, you can't report yourself as AFK.")
-            self.cond.notify_all()
-            return
+            return _refuse("that's your own hand",
+                           "That's your own hand, you can't report yourself as AFK.")
         target_name = target_seat.claimed_name or self._afk_label_for_seat(target_seat)
         # Surf's Up immunity: can't be voted on for 10 minutes after pressing it.
         if time.time() < float(self.afk_immune_until.get(target_seat.index, 0.0)):
-            self._add_system_chat(f"{target_name} is protected by Surf's Up and can't be reported right now.")
-            self.cond.notify_all()
-            return
+            return _refuse(
+                f"{target_name} is on Surf's Up and can't be reported right now",
+                f"{target_name} is protected by Surf's Up and can't be reported right now.")
         # Already challenged this turn, no re-nomination until their next turn.
         if target_seat.index in self.afk_nominated_this_turn:
-            return
+            return _refuse(f"{target_name} has already been checked this turn")
         voters = self._afk_eligible_voter_indices_locked(target_seat.index)
         # One ballot per PERSON: a competitive player voting with either of their
         # hands casts the one vote their side gets (the eligible list holds only
@@ -8946,21 +9617,53 @@ class GameRoom:
             None,
         )
         if ballot_seat is None:
-            return
+            return _refuse("you can't vote on this player")
         denom = len(voters)
         if denom <= 0:
-            return
+            return _refuse("there is nobody else to vote")
+        needed = -(-denom // 2)  # ceil(denom / 2)
         ballots = self.afk_votes.setdefault(target_seat.index, set())
         if ballot_seat in ballots:
-            return  # one vote per player per target per turn
+            return {"ok": True, "duplicate": True, "name": target_name,
+                    "votes": len(ballots), "needed": needed, "challenge_started": False}
         ballots.add(ballot_seat)
         pct = int(round(100.0 * len(ballots) / denom))
         self._add_system_chat(f"{pct}% of players want {target_name} to draw 2 cards.")
         # >=50% of the other active players → start the 10-second challenge.
-        needed = -(-denom // 2)  # ceil(denom / 2)
+        started = False
         if len(ballots) >= needed:
+            before = self.afk_challenge_seat
             self._afk_start_challenge_locked(target_seat.index)
+            started = self.afk_challenge_seat == target_seat.index and before != target_seat.index
         self.cond.notify_all()
+        return {"ok": True, "name": target_name, "votes": len(ballots),
+                "needed": needed, "challenge_started": bool(started)}
+
+    def skip_turn_vote(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Button form of the AFK vote: "skip this player's turn", aimed at a
+        seat index instead of parsed out of a chat line."""
+        seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+        try:
+            target_idx = int(body.get("target_seat_index"))
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "target_seat_index must be int"}
+        with self.cond:
+            voter = self._seat_from_token_locked(seat_token)
+            if voter is None:
+                return {"ok": False, "error": "invalid seat token"}
+            if target_idx < 0 or target_idx >= len(self.seats):
+                return {"ok": False, "error": "invalid target seat"}
+            target = self.seats[target_idx]
+            if target.kind != "human" or not target.claimed_name:
+                return {"ok": False, "error": "that seat is not a player"}
+            if getattr(target, "kicked", False):
+                return {"ok": False, "error": "a bot is playing that seat now"}
+            if getattr(target, "is_away", False):
+                return {"ok": False, "error": "that player is on Surf's Up: the table waits for them"}
+            out = self._afk_cast_vote_locked(voter, target)
+            if out.get("ok"):
+                self._bump_locked()
+            return out
 
     def _afk_start_challenge_locked(self, target_idx: int) -> None:
         if self.afk_challenge_seat is not None:
@@ -9420,6 +10123,7 @@ class RoomManager:
         quick_play: bool = False,
         team_mode: bool = False,
         team_count: int = 2,
+        ranked: bool = False,
     ) -> GameRoom:
         with self.lock:
             if replace_active:
@@ -9446,6 +10150,7 @@ class RoomManager:
                     human_players,
                     ai_players,
                     competitive=competitive,
+                    ranked=ranked,
                     visibility=visibility,
                     password_hash=password_hash,
                     tutorial=tutorial,
@@ -9467,6 +10172,7 @@ class RoomManager:
                         human_players,
                         ai_players,
                         competitive=competitive,
+                        ranked=ranked,
                         visibility=visibility,
                         password_hash=password_hash,
                         tutorial=tutorial,
@@ -9611,7 +10317,8 @@ class RoomManager:
                 result.append({
                     "room_id": room.room_id,
                     "host_name": host_name,
-                    "mode": "competitive" if room.competitive else "normal",
+                    "mode": ("competitive" if room.competitive
+                             else "ranked" if room.ranked else "normal"),
                     "total_players": room.total_players,
                     "human_players": room.human_players,
                     "filled": filled,
@@ -10224,6 +10931,11 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     continue
                 mode = rec.get("mode", "standard")
                 is_comp = mode == "competitive"
+                # Competitive (free-for-all) is scored exactly like a standard
+                # game, one seat per person and no " 2" second hands, so it goes
+                # down the normal branch below. It also pays CP, so a 1st place
+                # counts as a competitive win the same way the client records it.
+                is_ranked = mode == "ranked"
                 pc = int(rec.get("player_count", 0))
                 winner = rec.get("winner")
                 ts = int(rec.get("recorded_unix", 0))
@@ -10243,6 +10955,9 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                         ps["highest_score_normal"] = max(ps["highest_score_normal"], score)
                         key = str(pc)
                         ps["normal_games_by_size"][key] = ps["normal_games_by_size"].get(key, 0) + 1
+                        if is_ranked:
+                            ps["competitive_wins"] += (1 if pname == winner else 0)
+                            ps["highest_score_competitive"] = max(ps["highest_score_competitive"], score)
                     else:
                         ps["competitive_wins"] += (1 if base_name == winner else 0)
                         ps["highest_score_competitive"] = max(ps["highest_score_competitive"], score)
@@ -11737,9 +12452,18 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     )
                     return
 
+            # Competitive (free-for-all) is a bot-free table. The seat counts are
+            # forced all-human right here, before the totals are checked, so a
+            # hand-written request can never open a ranked room with a bot in it.
+            # configure_lobby_seats applies the same rule to a lobby the host
+            # resizes later.
+            ranked = bool(body.get("ranked")) if isinstance(body.get("ranked"), bool) else False
             total_players = clamp_int(body.get("total_players"), 4, 2, 8)
             human_players = clamp_int(body.get("human_players"), 2, 1, 8)
             ai_players = clamp_int(body.get("ai_players"), total_players - human_players, 0, 8)
+            if ranked:
+                human_players = total_players
+                ai_players = 0
             if human_players + ai_players != total_players:
                 self._send_json(
                     {"ok": False, "error": "human_players + ai_players must equal total_players"},
@@ -11756,6 +12480,11 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             # A team game is always a normal (non-competitive) game.
             if team_mode:
                 competitive = False
+            # The three modes are exclusive. Competitive 1v1 and Team both own the
+            # whole shape of the table, so a request claiming either of them plus
+            # ranked is not a ranked room.
+            if competitive or team_mode:
+                ranked = False
             tutorial = bool(body.get("tutorial")) if isinstance(body.get("tutorial"), bool) else False
             tutorial_variant = body.get("tutorial_variant") if isinstance(body.get("tutorial_variant"), str) else None
             vis_raw = str(body.get("visibility") or "public").strip().lower()
@@ -11774,6 +12503,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     requested_room_id=requested_room_id,
                     replace_active=replace_active,
                     competitive=competitive,
+                    ranked=ranked,
                     visibility=visibility,
                     password_hash=password_hash,
                     tutorial=tutorial,
@@ -12101,6 +12831,61 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 return
             out = room.draw_for_inactive(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "kick_player":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            out = room.player_kick_vote(body)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "skip_turn":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            out = room.skip_turn_vote(body)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "lobby_seats":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            host_token = body.get("host_token") if isinstance(body.get("host_token"), str) else ""
+            seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+
+            def _count(field):
+                # Absent means "leave this one alone"; present but unreadable is
+                # a client bug and must not be silently read as zero.
+                raw = body.get(field)
+                if raw is None:
+                    return None, False
+                try:
+                    return int(raw), True
+                except (TypeError, ValueError):
+                    return None, None
+
+            humans, humans_ok = _count("human_players")
+            ai, ai_ok = _count("ai_players")
+            if humans_ok is None or ai_ok is None:
+                self._send_json({"ok": False, "error": "player counts must be whole numbers"},
+                                status=HTTPStatus.BAD_REQUEST)
+                return
+            out = room.configure_lobby_seats(host_token, seat_token, humans, ai)
+            if out.get("ok"):
+                status = HTTPStatus.OK
+            elif out.get("error") == "host authorization required":
+                status = HTTPStatus.FORBIDDEN
+            else:
+                status = HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return
 

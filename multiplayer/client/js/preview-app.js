@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-08-29.3";
+  const APP_BUILD   = "2026-08-30.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "🎵 The theme song plays on one clock for the whole table", items: [
+      "Everybody in a game is at the same place in the song now. It used to start at the top the moment each person walked in, so four players in one game were four different distances into the same track, and it began at whatever second you happened to arrive.",
+      "It opens with the match: the theme starts from the beginning as the game starts, for everyone at once, and again on Play Again. Join late, or drop in to spectate, and you come in where the room already is.",
+      "It stops turning itself on at odd moments. A tab you have not clicked in yet waits for you instead of blurting the song out at some unrelated click later, coming back from another tab catches the track up instead of leaving it minutes behind, and pushing the volume slider up mid-game joins the room where it is rather than starting over.",
+    ]},
     { ver: "V1.7.1", title: "🧭 The strategy panel reads your board now", items: [
       "The 💡 Strategies button used to answer from your hand alone, and it answered by counting matches, which handed the recommendation to whichever plan listed the most cards no matter what you were actually holding. It reads the board you have built, your hand, the pool and the cards already down in front of everybody else, and it tells you what it read: \u201c5 of the 6 cards on your board already belong to it\u201d.",
       "It shows its working: a fit percentage on the pick, the three plans that came closest behind it, and a warning when the cards a plan needs are already sitting on other people's boards.",
@@ -1676,6 +1681,10 @@
   // it's my turn when it isn't" / "my turn but won't let me play"). We drop any
   // payload whose version is strictly older than what we've already rendered.
   let _lastStateVersion = -1;
+  // Latched once the room says we were kicked: the notice keeps coming
+  // back for as long as the old token is remembered, and bouncing the
+  // player home on every poll would be its own bug.
+  let _kickedHandled = false;
   // Skip the full re-render when the payload is the SAME document we last drew.
   // "Same" is version + which seat fetched it, never the version alone: the
   // server's state_view is per-token (viewer.can_act, legal_actions and the
@@ -1771,10 +1780,27 @@
   // Returns true if applied, false if dropped as stale/out-of-order.
   function applyServerPayload(d) {
     if (!d || d.ok === false) return false;
+    // Which beat the room is on. Ahead of the stale-version drop below: an
+    // out-of-order payload still carries the same room-wide music epoch.
+    try { noteMusicEpoch(d); } catch {}
     const v = Number(d.version);
     if (Number.isFinite(v) && v < _lastStateVersion) return false; // stale, drop
     if (Number.isFinite(v)) _lastStateVersion = v;
+    // Removed from the game by a vote. The seat token this poll went out with
+    // has already been cleared server-side, so every control below is dead
+    // anyway; what matters is that the player is TOLD, rather than watching
+    // the board quietly stop answering. Handled once, ahead of everything.
+    if (d.kicked_notice && !_kickedHandled) {
+      _kickedHandled = true;
+      try { handleKickedOut(d.kicked_notice); } catch (e) {}
+      return false;
+    }
     latestPayload = d;
+    // Competitive (free-for-all): the room's own flag is the only source. Set on
+    // every poll so a room re-entered by URL, Rejoin or refresh is still ranked,
+    // and so it clears the moment the payload says the room isn't. Never
+    // inferred from the seats: a bot-free casual game is not a ranked one.
+    if (d && d.room && typeof d.room.ranked === "boolean") rankedMode = d.room.ranked;
     // A competitive room re-entered by any generic path (URL, Rejoin, refresh)
     // arrives here with compMode still off. Rebuild it from the payload BEFORE
     // anything below reads compMySeats/compTokens.
@@ -1830,7 +1856,15 @@
       const url = isSpectating()
         ? apiUrl(`/api/rooms/${_spectatorRoomId}/state?spectator_token=${encodeURIComponent(_spectatorToken)}`)
         : buildStateUrl();
+      const _sentAt = Date.now();
       const { ok, status, data } = await apiFetch(url.replace(apiUrl(""),""), { method:"GET", timeoutMs:6000 });
+      // The poll is the one path whose round trip we can measure, which is what
+      // makes the server-clock estimate (and so the shared music timeline)
+      // accurate. An SSE push carries the same stamp but no measurable latency.
+      const _gotAt = Date.now();
+      if (data && data.server_now_ms) {
+        try { noteServerClock(data.server_now_ms, _gotAt - _sentAt, _gotAt); } catch {}
+      }
       if (status === 503 || status === 502) {
         // Render free-tier server is starting up, show a one-time toast and
         // keep polling; it will come back on its own in ~30 seconds.
@@ -1892,6 +1926,9 @@
     _lastStateVersion = -1;
     _lastRenderedKey = "";
     _compRefetchKey = "";
+    // Fresh room, fresh latch: being voted out of one game must not make the
+    // next one unable to tell you the same thing.
+    _kickedHandled = false;
     _armPollTimer();
     // Keep the rejoin window alive: refresh the localStorage timestamp every 60 s while active
     if (_rejoinTouchTimer) clearInterval(_rejoinTouchTimer);
@@ -1969,6 +2006,14 @@
   let _themeGain = null;
   let _themeBufferLoading = false;
   let _themeStarting = false;
+  // Where the running source sits in the track: the buffer offset it started
+  // at, the AudioContext clock reading at that instant, and the rate it has
+  // been playing at since. Every sync decision below is measured off these.
+  let _themeStartedOffset = 0;
+  let _themeStartedAtCtx = 0;
+  let _themeRate = 1;
+  let _themeSyncTimer = null;
+  let _themeGestureArmed = false;
 
   // Music volume, 0..100 stored in localStorage, mapped onto the theme gain.
   // 100% == the old fixed loudness (gain 2.2); 0% == silent (song never starts).
@@ -2001,6 +2046,83 @@
   }
   window.__ccApplyThemeVolume = applyThemeVolume;
 
+  // ── One shared music timeline per room ─────────────────────────
+  // The theme used to start at the top the moment each player walked in, so
+  // four people in one game heard four different parts of the song at once,
+  // and it began at whatever second you happened to arrive: a refresh, a
+  // rejoin or nudging the volume slider off zero each restarted it from the
+  // top, alone. The server now stamps every state payload with the room's
+  // music epoch (kickoff, or room creation before that) and with its own
+  // clock, so the place in the loop is
+  //     (server now - epoch) modulo track length
+  // which is the same number on every device in the room, whatever their
+  // local clocks say and however late they joined.
+  let _musicEpoch = null;        // { room, ms }, keyed so another room's stamp is ignored
+  let _srvSkewMs = null;         // server clock minus this device's clock
+  let _srvSkewRttMs = Infinity;  // round trip of the sample that set it
+  let _srvSkewAtMs = 0;          // when that sample landed (local clock)
+  const SRV_SKEW_STALE_MS = 45000; // after this, any sample is better than none
+  const SRV_SKEW_JUMP_MS = 250;    // bigger than this is a real correction, not jitter
+  const SRV_SKEW_SMOOTH = 0.25;    // how far to ease toward an ordinary sample
+
+  // Fold one measured reply into the estimate of the server's clock.
+  // recvMs is when the reply landed here, rttMs how long the round trip took.
+  function noteServerClock(srvMs, rttMs, recvMs) {
+    const s = Number(srvMs), rtt = Number(rttMs), recv = Number(recvMs);
+    if (!Number.isFinite(s) || s <= 0) return false;
+    if (!Number.isFinite(rtt) || rtt < 0 || rtt > 8000) return false;
+    if (!Number.isFinite(recv)) return false;
+    // The server wrote that timestamp about half a round trip ago.
+    const sample = (s + rtt / 2) - recv;
+    const fresh = (recv - _srvSkewAtMs) <= SRV_SKEW_STALE_MS;
+    const slower = (_srvSkewMs !== null) && fresh && (rtt > _srvSkewRttMs);
+    // A slower sample than the one we already trust is mostly network jitter,
+    // and acting on it would drag the playhead about for no reason. Take it
+    // only when it disagrees by enough to be a real clock correction.
+    if (slower && Math.abs(sample - _srvSkewMs) <= SRV_SKEW_JUMP_MS) return false;
+    if (_srvSkewMs === null || Math.abs(sample - _srvSkewMs) > SRV_SKEW_JUMP_MS) {
+      _srvSkewMs = sample;
+    } else {
+      _srvSkewMs += (sample - _srvSkewMs) * SRV_SKEW_SMOOTH;
+    }
+    _srvSkewRttMs = rtt;
+    _srvSkewAtMs = recv;
+    return true;
+  }
+  function serverNowMs() { return Date.now() + (_srvSkewMs || 0); }
+
+  // Remember the epoch a state payload carries, tagged with the room it came
+  // from. If it moved (the match just started, or Play Again re-launched it)
+  // and the song is already playing, re-seat the loop right away so the theme
+  // opens the game on the same beat for everyone.
+  function noteMusicEpoch(d) {
+    const room = d && d.room;
+    const ms = Number(room && room.music_epoch_ms);
+    const rid = String((room && room.room_id) || "");
+    if (!rid || !Number.isFinite(ms) || ms <= 0) return;
+    const moved = !!_musicEpoch && _musicEpoch.room === rid && _musicEpoch.ms !== ms;
+    _musicEpoch = { room: rid, ms };
+    if (moved && _themeSource) { try { _themeResync(); } catch {} }
+  }
+  // The epoch only counts while we are still in the room that sent it.
+  function musicEpochMs() {
+    const active = String(roomId || _spectatorRoomId || "");
+    if (!_musicEpoch || !active || _musicEpoch.room !== active) return null;
+    return _musicEpoch.ms;
+  }
+  // Seconds into the track the room is right now, or null while we cannot
+  // answer it the same way every other client in the room would.
+  function themeTargetOffset() {
+    if (!_themeBuffer) return null;
+    const epoch = musicEpochMs();
+    if (epoch === null || _srvSkewMs === null) return null;
+    const dur = Number(_themeBuffer.duration);
+    if (!(dur > 0.5)) return null;
+    const elapsed = (serverNowMs() - epoch) / 1000;
+    if (!Number.isFinite(elapsed)) return null;
+    return ((elapsed % dur) + dur) % dur;
+  }
+
   async function _ensureThemeBuffer() {
     if (_themeBuffer) return _themeBuffer;
     if (_themeBufferLoading) return null;
@@ -2027,6 +2149,157 @@
     finally { _themeBufferLoading = false; }
   }
 
+  // ── Riding the shared timeline ─────────────────────────────────
+  const THEME_DEADBAND_SEC = 0.05; // closer than this, nobody can hear the gap
+  const THEME_NUDGE_MAX_SEC = 0.35; // up to here, glide back instead of jumping
+  const THEME_NUDGE_RATE = 0.005;   // 0.5%, about 9 cents of pitch: inaudible
+  const THEME_SYNC_MS = 12000;      // how often to check the drift
+  const THEME_FADE_SEC = 0.06;      // splice fade, so a re-seat is not a click
+
+  // Start a source at `offset` seconds into the track. fadeIn hides the splice
+  // when this is replacing a source we just faded out.
+  function _themeStartSource(offset, fadeIn) {
+    if (!_themeAudioCtx || !_themeBuffer) return;
+    const dur = Number(_themeBuffer.duration) || 0;
+    const at = dur > 0 ? Math.max(0, Math.min(dur - 0.001, Number(offset) || 0)) : 0;
+    const vol = MUSIC_MAX_GAIN * (musicVolumePct() / 100);
+    const src = _themeAudioCtx.createBufferSource();
+    src.buffer = _themeBuffer;
+    src.loop = true;
+    const gain = _themeAudioCtx.createGain();
+    if (fadeIn) {
+      try {
+        gain.gain.value = 0.0001;
+        gain.gain.linearRampToValueAtTime(vol, _themeAudioCtx.currentTime + THEME_FADE_SEC);
+      } catch { gain.gain.value = vol; }
+    } else {
+      gain.gain.value = vol;
+    }
+    src.connect(gain).connect(_themeAudioCtx.destination);
+    src.start(0, at);
+    _themeSource = src;
+    _themeGain = gain;
+    _themeRate = 1;
+    _themeStartedOffset = at;
+    _themeStartedAtCtx = _themeAudioCtx.currentTime;
+    _armThemeSync();
+  }
+
+  // Seconds into the track this device is actually playing.
+  function _themePlayhead() {
+    if (!_themeSource || !_themeAudioCtx || !_themeBuffer) return null;
+    const dur = Number(_themeBuffer.duration);
+    if (!(dur > 0)) return null;
+    const played = (_themeAudioCtx.currentTime - _themeStartedAtCtx) * _themeRate;
+    return ((_themeStartedOffset + played) % dur + dur) % dur;
+  }
+
+  // How far ahead (+) or behind (-) the room we are, taken the short way
+  // round the loop so a wrap does not read as most of a track's worth of drift.
+  function _themeDrift() {
+    const here = _themePlayhead(), there = themeTargetOffset();
+    if (here === null || there === null) return null;
+    const dur = Number(_themeBuffer.duration);
+    let d = here - there;
+    if (d > dur / 2) d -= dur;
+    if (d < -dur / 2) d += dur;
+    return d;
+  }
+
+  // Change speed without losing our place: the distance covered so far was
+  // covered at the OLD rate, so re-baseline before switching.
+  function _themeSetRate(rate) {
+    if (!_themeSource || !_themeAudioCtx) return;
+    if (Math.abs(rate - _themeRate) < 1e-6) return;
+    const here = _themePlayhead();
+    if (here !== null) {
+      _themeStartedOffset = here;
+      _themeStartedAtCtx = _themeAudioCtx.currentTime;
+    }
+    _themeRate = rate;
+    try { _themeSource.playbackRate.value = rate; } catch {}
+  }
+
+  // Too far out to glide back (a backgrounded tab froze the audio clock, or
+  // the room's epoch just moved). Fade the old source out and pick the track
+  // up where the room is, reading the target again at the moment we start so
+  // the fade itself doesn't put us behind.
+  function _themeReseek() {
+    if (!_themeAudioCtx || !_themeBuffer) return;
+    const ctx = _themeAudioCtx;
+    const old = _themeSource, oldGain = _themeGain;
+    if (oldGain) {
+      try {
+        oldGain.gain.cancelScheduledValues(ctx.currentTime);
+        oldGain.gain.setValueAtTime(oldGain.gain.value, ctx.currentTime);
+        oldGain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + THEME_FADE_SEC);
+      } catch {}
+    }
+    if (old) {
+      try { old.onended = () => { try { old.disconnect(); } catch {} try { oldGain && oldGain.disconnect(); } catch {} }; } catch {}
+      try { old.stop(ctx.currentTime + THEME_FADE_SEC); } catch { try { old.stop(0); } catch {} }
+    }
+    _themeSource = null;
+    _themeGain = null;
+    setTimeout(() => {
+      if (_themeSource || _themeStarting) return; // something else took the slot
+      if (!(roomId || _spectatorRoomId)) return;  // left the game mid-fade
+      try { if (musicVolumePct() <= 0) return; } catch {}
+      const target = themeTargetOffset();
+      if (target === null) return;
+      _themeStartSource(target, true);
+    }, Math.round(THEME_FADE_SEC * 1000) + 10);
+  }
+
+  // Hold the loop on the room's beat: ignore the inaudible, glide back from
+  // the small stuff, re-seat only when we are properly lost.
+  function _themeResync() {
+    if (!_themeSource) return;
+    const drift = _themeDrift();
+    if (drift === null) return;
+    const off = Math.abs(drift);
+    if (off <= THEME_DEADBAND_SEC) { _themeSetRate(1); return; }
+    if (off > THEME_NUDGE_MAX_SEC) { _themeReseek(); return; }
+    _themeSetRate(drift > 0 ? 1 - THEME_NUDGE_RATE : 1 + THEME_NUDGE_RATE);
+  }
+
+  function _armThemeSync() {
+    if (_themeSyncTimer) clearInterval(_themeSyncTimer);
+    _themeSyncTimer = setInterval(() => { try { _themeResync(); } catch {} }, THEME_SYNC_MS);
+  }
+
+  // A tab nobody has touched yet cannot play audio at all. Starting a source
+  // into a suspended context does not wait politely: it plays from the top the
+  // moment the browser lets go, which is some unrelated click minutes later,
+  // exactly the "the music just started on its own" this is meant to end.
+  // Wait for a real gesture, then start on the timeline like everyone else.
+  function _armThemeGesture() {
+    if (_themeGestureArmed) return;
+    _themeGestureArmed = true;
+    const go = () => {
+      document.removeEventListener("pointerdown", go, true);
+      document.removeEventListener("keydown", go, true);
+      _themeGestureArmed = false;
+      if (!(roomId || _spectatorRoomId)) return;
+      try { if (musicVolumePct() <= 0) return; } catch {}
+      startThemeSong();
+    };
+    document.addEventListener("pointerdown", go, true);
+    document.addEventListener("keydown", go, true);
+  }
+
+  // Give the first state poll a moment to land so the very first note is
+  // already on the shared timeline. If it never lands (an older server, an
+  // offline moment) we start anyway rather than sitting in silence.
+  async function _awaitMusicClock(maxMs) {
+    const deadline = Date.now() + maxMs;
+    while (Date.now() < deadline) {
+      if (themeTargetOffset() !== null) return true;
+      await new Promise(r => setTimeout(r, 60));
+    }
+    return themeTargetOffset() !== null;
+  }
+
   async function startThemeSong() {
     try {
       // Respect the player's music volume (Settings). If it's at 0, never
@@ -2038,24 +2311,27 @@
       // still in flight (e.g. a fast reconnect) can't slip past the
       // _themeSource guard and spin up a duplicate, out-of-phase source.
       _themeStarting = true;
+      const startedFor = String(roomId || _spectatorRoomId || "");
       const buffer = await _ensureThemeBuffer();
       if (!buffer || !_themeAudioCtx) return;
       if (_themeAudioCtx.state === "suspended") {
         try { await _themeAudioCtx.resume(); } catch {}
       }
-      _themeSource = _themeAudioCtx.createBufferSource();
-      _themeSource.buffer = buffer;
-      _themeSource.loop = true;
-      _themeGain = _themeAudioCtx.createGain();
-      _themeGain.gain.value = MUSIC_MAX_GAIN * (musicVolumePct() / 100);
-      _themeSource.connect(_themeGain).connect(_themeAudioCtx.destination);
-      _themeSource.start(0);
+      if (_themeAudioCtx.state === "suspended") { _armThemeGesture(); return; }
+      await _awaitMusicClock(2500);
+      // Anything can have changed across those awaits: the player can have
+      // left the room or turned the music off. Only the room we set out for.
+      if (_themeSource) return;
+      if (String(roomId || _spectatorRoomId || "") !== startedFor) return;
+      try { if (musicVolumePct() <= 0) return; } catch {}
+      _themeStartSource(themeTargetOffset() || 0, false);
     } catch {}
     finally { _themeStarting = false; }
   }
 
   function stopThemeSong() {
     try {
+      if (_themeSyncTimer) { clearInterval(_themeSyncTimer); _themeSyncTimer = null; }
       if (_themeSource) {
         try { _themeSource.stop(0); } catch {}
         try { _themeSource.disconnect(); } catch {}
@@ -2065,8 +2341,20 @@
         try { _themeGain.disconnect(); } catch {}
         _themeGain = null;
       }
+      _themeRate = 1;
     } catch {}
   }
+
+  // Coming back to a backgrounded tab: the browser suspends or throttles the
+  // audio clock while you are away, so the track is now behind the room by
+  // however long that was. Catch up the moment the player is looking again.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden || !_themeSource) return;
+    if (_themeAudioCtx && _themeAudioCtx.state === "suspended") {
+      try { _themeAudioCtx.resume().catch(() => {}); } catch {}
+    }
+    setTimeout(() => { try { _themeResync(); } catch {} }, 250);
+  });
 
   // ── Spectator state ───────────────────────────────────────────────
   let _spectatorToken = "";      // non-empty when we are spectating
@@ -2436,6 +2724,112 @@
     });
   });
 
+  // ── Table Setup: add or remove seats without closing the room ──
+  // Before this, the only way to play with one more friend (or one fewer bot)
+  // than the room was created with was to close it and make a new one, and
+  // everybody already waiting had to be re-invited. Quick Play keeps its own
+  // fixed 2/3/4 chooser: its matchmaking hands out a four-seat room, so the
+  // table size there is not the host's to move.
+  const WR_MIN_TABLE = 2, WR_MAX_TABLE = 8;
+  let _wrTableBusy = false;
+
+  function _wrCounts(seats) {
+    const safe = Array.isArray(seats) ? seats : [];
+    return {
+      humans: safe.filter(s => s && s.kind === "human").length,
+      bots:   safe.filter(s => s && s.kind === "ai").length,
+      filled: safe.filter(s => s && s.kind === "human" && s.claimed_name).length,
+    };
+  }
+
+  function updateTableSetup(seats, isHost, isQuickPlay, isCompetitive) {
+    const box = document.getElementById("wr-table-setup");
+    if (!box) return;
+    const room = (latestPayload && latestPayload.room) || {};
+    // Competitive is two players with two hands each, and a tournament match's
+    // seats come from the bracket. Neither is the host's to reshape.
+    const allowed = !isQuickPlay && !isCompetitive && !room.tournament;
+    box.style.display = allowed ? "" : "none";
+    if (!allowed) return;
+
+    const { humans, bots, filled } = _wrCounts(seats);
+    const total = humans + bots;
+    const hv = document.getElementById("wr-humans-value");
+    const bv = document.getElementById("wr-bots-value");
+    if (hv) hv.textContent = String(humans);
+    if (bv) bv.textContent = String(bots);
+    const totalEl = document.getElementById("wr-table-total");
+    if (totalEl) totalEl.textContent = `${total} at the table`;
+
+    // A seat somebody is already sitting in is never taken away, so the floor
+    // on humans is however many have joined (and at least one, a room with no
+    // human seats has no host).
+    const minHumans = Math.max(1, filled);
+    const setDisabled = (id, off) => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = Boolean(off) || _wrTableBusy || !isHost;
+    };
+    // Competitive (free-for-all) is people only: the human spots stay the
+    // host's to set, the bot controls do not. The server refuses bots in a
+    // ranked room either way; this stops the host asking.
+    const isRanked = Boolean(room.ranked);
+    setDisabled("wr-humans-minus", humans <= minHumans || total <= WR_MIN_TABLE);
+    setDisabled("wr-humans-plus",  total >= WR_MAX_TABLE);
+    setDisabled("wr-bots-minus",   isRanked || bots <= 0 || total <= WR_MIN_TABLE);
+    setDisabled("wr-bots-plus",    isRanked || total >= WR_MAX_TABLE);
+
+    const note = document.getElementById("wr-table-note");
+    if (note) {
+      note.textContent = isRanked
+        ? (isHost
+            ? `${filled} joined • People only, no bots. ${COMP_FFA_MIN_PLAYERS} or more earns Competitive Points.`
+            : `${filled} joined • People only. Only the host can change the table.`)
+        : (isHost
+            ? `${filled} joined • ${WR_MIN_TABLE} to ${WR_MAX_TABLE} at the table. A spot somebody is sitting in can't be taken away.`
+            : `${filled} joined • Only the host can change the table.`);
+    }
+  }
+
+  async function stepTableSeats(kind, delta) {
+    if (!roomId || _wrTableBusy) return;
+    const { humans, bots } = _wrCounts(latestPayload?.seats);
+    const next = {
+      human_players: kind === "humans" ? humans + delta : humans,
+      ai_players:    kind === "bots"   ? bots + delta   : bots,
+    };
+    const total = next.human_players + next.ai_players;
+    if (next.human_players < 1 || next.ai_players < 0) return;
+    if (total < WR_MIN_TABLE || total > WR_MAX_TABLE) return;
+    _wrTableBusy = true;
+    updateTableSetup(latestPayload?.seats, true, false, false);
+    try {
+      const res = await apiPost(`/api/rooms/${roomId}/lobby_seats`, Object.assign({
+        host_token: getHostToken(),
+        seat_token: getSeatToken(),
+      }, next), { timeoutMs: 7000 });
+      if (!res.ok || !res.data?.ok) {
+        showToast(res.data?.error || "Could not change the table.", "warn");
+      }
+      await refreshState();
+    } catch (_) {
+      showToast("Network error changing the table.", "err");
+    } finally {
+      _wrTableBusy = false;
+      updateTableSetup(
+        latestPayload?.seats,
+        Boolean(latestPayload?.viewer?.is_host || getHostToken()),
+        Boolean(latestPayload?.room?.quick_play),
+        Boolean(latestPayload?.room?.competitive)
+      );
+    }
+  }
+
+  document.querySelectorAll(".wr-step-btn").forEach(button => {
+    button.addEventListener("click", () => {
+      stepTableSeats(String(button.dataset.kind || ""), Number(button.dataset.step || 0));
+    });
+  });
+
   // ── Team Mode (lobby) ──────────────────────────────────────────
   const TEAM_META = [
     { key: "red",    name: "Red",    hex: "#e0463c" },
@@ -2586,15 +2980,21 @@
     const teamCount = Math.max(2, Math.min(4, Number(_room.team_count) || 2));
     const mySeatIndex = (latestPayload && latestPayload.viewer && typeof latestPayload.viewer.seat_index === "number")
       ? latestPayload.viewer.seat_index : null;
+    const isRankedRoom = !!_room.ranked;
     document.getElementById("wr-title").textContent = isQuickPlay
       ? "Quick Play Lobby"
       : (isHost
-          ? (isComp ? "⚔️ Competitive Room Created!" : (isTeam ? "🤝 Team Room Created!" : "Room Created!"))
-          : (isComp ? "⚔️ Competitive Lobby" : (isTeam ? "🤝 Team Lobby" : "Game Lobby")));
+          ? (isComp ? "⚔️ Competitive 1v1 Room Created!"
+             : isRankedRoom ? "🏅 Competitive Room Created!"
+             : (isTeam ? "🤝 Team Room Created!" : "Room Created!"))
+          : (isComp ? "⚔️ Competitive 1v1 Lobby"
+             : isRankedRoom ? "🏅 Competitive Lobby"
+             : (isTeam ? "🤝 Team Lobby" : "Game Lobby")));
 
     const list = document.getElementById("wr-players-list");
     list.innerHTML = '<div class="wr-players-title">Players in Room</div>';
     updateQuickPlaySetup(seats, isHost, isQuickPlay);
+    updateTableSetup(seats, isHost, isQuickPlay, isComp);
 
     if (isTeam) {
       renderTeamLobbyInto(list, seats, teamCount, mySeatIndex);
@@ -2891,11 +3291,13 @@
     let rooms = _lbAllRooms;
 
     if (_lbActiveTab === "public") {
-      rooms = rooms.filter(r => r.visibility === "public" && r.mode !== "competitive");
+      rooms = rooms.filter(r => r.visibility === "public" && r.mode !== "competitive" && r.mode !== "ranked");
     } else if (_lbActiveTab === "private") {
-      rooms = rooms.filter(r => r.visibility === "private" && r.mode !== "competitive");
+      rooms = rooms.filter(r => r.visibility === "private" && r.mode !== "competitive" && r.mode !== "ranked");
     } else if (_lbActiveTab === "competitive") {
-      rooms = rooms.filter(r => r.mode === "competitive");
+      // Both competitive modes live under the Competitive tab: the 1v1 ladder
+      // and the free-for-all that pays into the same rank.
+      rooms = rooms.filter(r => r.mode === "competitive" || r.mode === "ranked");
     }
 
     list.innerHTML = "";
@@ -2938,7 +3340,9 @@
       card.className = "room-card";
 
       const modeBadge = room.mode === "competitive"
-        ? `<span class="room-badge competitive">⚔ Competitive</span>`
+        ? `<span class="room-badge competitive">⚔ Competitive 1v1</span>`
+        : room.mode === "ranked"
+        ? `<span class="room-badge ranked">🏅 Competitive</span>`
         : `<span class="room-badge">🌊 Casual</span>`;
 
       const lockIcon = room.has_password ? "🔒 " : "";
@@ -3324,11 +3728,16 @@
 
 
   // ── New Current Modal ──────────────────────────────────────────
-  let _ncIsCompetitive = false; // tracks whether the modal was opened for a competitive game
-  let _ncMode = "normal";       // 'normal' | 'competitive' | 'team'
+  let _ncIsCompetitive = false; // tracks whether the modal was opened for a competitive 1v1 game
+  let _ncIsRanked = false;      // tracks whether the modal was opened for a Competitive (free-for-all) game
+  let _ncMode = "normal";       // 'normal' | 'ranked' | 'competitive' | 'team'
   let _ncTeamCount = 2;         // 2..4 (team mode only)
   // Apply the chosen Mode to the setup modal.
   //  • Normal     : a fully customizable game (all settings editable).
+  //  • Ranked     : "Competitive", an ordinary 2–8 player game that pays
+  //    Competitive Points. People only, so the AI field is pinned to 0 and
+  //    disabled; humans + privacy stay editable. CP is only paid from 3 humans
+  //    up (see COMP_FFA_MIN_PLAYERS), which the hint under the field says.
   //  • Competitive: a locked "quick-match" ranked 1v1: 4 humans (2 hands
   //    each), 0 AI, public match. Those settings are fixed + disabled so the
   //    host only has to press the main button to continue.
@@ -3338,9 +3747,10 @@
   function applyNcMode(mode) {
     if (mode === true) mode = "competitive";
     else if (mode === false || mode == null) mode = "normal";
-    if (mode !== "competitive" && mode !== "team") mode = "normal";
+    if (mode !== "competitive" && mode !== "team" && mode !== "ranked") mode = "normal";
     _ncMode = mode;
     _ncIsCompetitive = (mode === "competitive");
+    _ncIsRanked = (mode === "ranked");
     const isTeam  = (mode === "team");
     const box     = document.getElementById("new-current-box");
     const totalEl = document.getElementById("nc-total");
@@ -3351,10 +3761,12 @@
     const teamCountEl = document.getElementById("nc-team-count");
     const titleEl = document.getElementById("nc-modal-title");
     if (modeEl)  modeEl.value = mode;
-    if (box)     box.classList.toggle("nc-comp", _ncIsCompetitive);
+    if (box)     box.classList.toggle("nc-comp", _ncIsCompetitive || _ncIsRanked);
     if (box)     box.classList.toggle("nc-team", isTeam);
     if (titleEl) titleEl.textContent = _ncIsCompetitive
       ? "⚔️ Competitive 1v1, 2 hands per player"
+      : _ncIsRanked
+      ? `🏅 Competitive, people only, ${COMP_FFA_MIN_PLAYERS}+ for CP`
       : (isTeam ? "🤝 New Team Current" : "🌊 New Current");
     if (teamsField) teamsField.style.display = isTeam ? "" : "none";
     if (isTeam && teamCountEl) _ncTeamCount = Math.max(2, Math.min(4, Number(teamCountEl.value) || 2));
@@ -3369,6 +3781,12 @@
       if (visEl)   visEl.value   = "public";
       document.getElementById("nc-password-row").style.display = "none";
       document.getElementById("nc-password").value = "";
+    } else if (_ncIsRanked) {
+      // People only. The AI field is pinned to 0 and locked below; the human
+      // count opens at 4 and stays the host's to set, anywhere from 2 to 8.
+      if (aiEl) aiEl.value = "0";
+      const _humans = Number(totalEl && totalEl.value) || 0;
+      if (totalEl && (_humans < 2 || _humans > 8)) totalEl.value = "4";
     } else if (isTeam) {
       // A team game defaults to 4 humans so 2 teams start 2-v-2, but stays editable.
       if (totalEl && (Number(totalEl.value) || 0) < 2) totalEl.value = "4";
@@ -3377,9 +3795,11 @@
       if (totalEl) totalEl.value = "2";
       if (aiEl)    aiEl.value    = "0";
     }
-    // Only Competitive locks the base settings; Team leaves them editable.
+    // Competitive 1v1 locks every base setting; Competitive (free-for-all)
+    // locks only the bot count (that IS the mode's rule); Team leaves them all
+    // editable.
     lock("nc-field-humans",  totalEl, _ncIsCompetitive);
-    lock("nc-field-ai",      aiEl,    _ncIsCompetitive);
+    lock("nc-field-ai",      aiEl,    _ncIsCompetitive || _ncIsRanked);
     lock("nc-field-privacy", visEl,   _ncIsCompetitive);
   }
 
@@ -3388,7 +3808,9 @@
     document.getElementById("nc-password-row").style.display = "none";
     document.getElementById("nc-password").value = "";
     document.getElementById("nc-visibility").value = "public";
-    applyNcMode((opts && opts.competitive) ? "competitive" : (opts && opts.team) ? "team" : "normal");
+    applyNcMode((opts && opts.competitive) ? "competitive"
+              : (opts && opts.ranked)       ? "ranked"
+              : (opts && opts.team)         ? "team" : "normal");
     const _ncBtn = document.getElementById("nc-create-btn");
     _ncBtn.disabled = false;
     _ncBtn.classList.remove("generating");
@@ -3477,10 +3899,16 @@
     const name = (window.__fishNickname && window.__fishNickname()) || "Host";
     const isTeam = (_ncMode === "team");
     const teamCount = isTeam ? Math.max(2, Math.min(4, _ncTeamCount || 2)) : 2;
-    // Competitive games are always 4 humans (2 per player), 0 AI.
+    // Competitive 1v1 games are always 4 humans (2 per player), 0 AI.
     const human = _ncIsCompetitive ? 4 : Math.max(1, Number(document.getElementById("nc-total").value) || 2);
-    const ai    = _ncIsCompetitive ? 0 : Math.max(0, Number(document.getElementById("nc-ai").value) || 0);
+    // Competitive (free-for-all) is people only. The server refuses bots in a
+    // ranked room anyway; zeroing here means the request it refuses is never sent.
+    const ai    = (_ncIsCompetitive || _ncIsRanked) ? 0 : Math.max(0, Number(document.getElementById("nc-ai").value) || 0);
     const total = human + ai;
+    if (_ncIsRanked && (human < 2 || human > 8)) {
+      errEl.textContent = "A competitive game holds 2 to 8 players.";
+      return;
+    }
     // Team games need enough seats (players + bots) to fill every team.
     if (isTeam && total < teamCount) {
       document.getElementById("nc-current-err").textContent =
@@ -3542,7 +3970,8 @@
         create_key: createKey, host_name: name, room_id: rid,
         total_players: total, human_players: human, ai_players: ai,
         replace_active: false, visibility, password,
-        competitive: _ncIsCompetitive, tutorial: _isTutGame, tutorial_variant: _tutVariant,
+        competitive: _ncIsCompetitive, ranked: _ncIsRanked,
+        tutorial: _isTutGame, tutorial_variant: _tutVariant,
         team: isTeam, team_count: teamCount,
       }, { timeoutMs:10000 });
     } catch (e) {
@@ -5729,6 +6158,11 @@
   let _latestPlayers = [];
   let _latestRoundCount = 0;
   let _latestSeatsForSurf = [];      // seat snapshot from payload.seats (away/inactive)
+  // payload.votes: what the Vote Kick / Skip Turn buttons on the seat pills
+  // read. Worked out per viewer on the server (one ballot per PERSON, which
+  // in competitive is not the same thing as one per seat), so the client only
+  // ever renders what it is handed here.
+  let _latestVotes = { ballot_seat: null, kick: [], skip: null };
   let _prevActiveSeatForIdle = null; // last active_action_seat, used to reset idle timer on turn change
 
   // ── Per-payload challenge observer state ─────────────────────────
@@ -6466,6 +6900,12 @@
     try {
       const seatsArr = Array.isArray(payload.seats) ? payload.seats : [];
       _latestSeatsForSurf = seatsArr;
+      const _v = payload.votes;
+      _latestVotes = (_v && typeof _v === "object")
+        ? { ballot_seat: _v.ballot_seat ?? null,
+            kick: Array.isArray(_v.kick) ? _v.kick : [],
+            skip: (_v.skip && typeof _v.skip === "object") ? _v.skip : null }
+        : { ballot_seat: null, kick: [], skip: null };
       const mySeat = (Number.isInteger(myIdx)) ? seatsArr.find(s => s && s.index === myIdx) : null;
       const wasAway = _imAway;
       _imAway = Boolean(mySeat && mySeat.is_away);
@@ -7395,8 +7835,11 @@
     let _myBgKey = "";
     try { if (typeof window.__fishEquippedBackground === "function") _myBgKey = String(window.__fishEquippedBackground() || ""); } catch (_) { _myBgKey = ""; }
     const _seatsKey = JSON.stringify(
-      (players||[]).map(p=>{const _sm=(_latestSeatsForSurf||[]).find(s=>s&&s.index===p.index);return{i:p.index,n:p.name,s:p.score,hc:p.hand_count??(Array.isArray(p.hand)?p.hand.length:0),av:p.avatar,bg:String(p.background||""),aw:Boolean(_sm&&_sm.is_away)};})
-    ) + "|" + turnIndex + "|" + myAvatarUrl + "|" + _myBgKey;
+      (players||[]).map(p=>{const _sm=(_latestSeatsForSurf||[]).find(s=>s&&s.index===p.index);return{i:p.index,n:p.name,s:p.score,hc:p.hand_count??(Array.isArray(p.hand)?p.hand.length:0),av:p.avatar,bg:String(p.background||""),aw:Boolean(_sm&&_sm.is_away),kk:Boolean(_sm&&_sm.kicked)};})
+    ) + "|" + turnIndex + "|" + myAvatarUrl + "|" + _myBgKey
+      // A vote landing changes nothing else about a seat, so without the
+      // tallies in the key the pill keeps rendering yesterday's count.
+      + "|" + JSON.stringify(_latestVotes);
     if (_seatsKey === _seatsRenderKey && leftEl.children.length > 0) return;
     _seatsRenderKey = _seatsKey;
     leftEl.innerHTML  = "";
@@ -7509,6 +7952,21 @@
       const _seatMeta = (_latestSeatsForSurf || []).find(s => s && s.index === p.index) || null;
       const _isAway     = Boolean(_seatMeta && _seatMeta.is_away);
       const _isEligible = Boolean(_seatMeta && _seatMeta.inactive_eligible);
+      // Removed by vote: the chair is a bot now, and the pill has to say so or
+      // the table is left wondering why that player stopped answering.
+      if (_seatMeta && _seatMeta.kicked) {
+        const kb = document.createElement("div");
+        kb.className = "pv-seat-kicked-badge";
+        kb.textContent = "Removed";
+        kb.title = `${p.name || "This player"} was removed by a vote. A bot is playing their seat.`;
+        seat.appendChild(kb);
+      }
+      // The two vote buttons, behind a ⋯ so eight seat pills do not turn into
+      // a wall of red. Only ever drawn on somebody else's seat, and only when
+      // the server says this viewer actually holds a ballot against it.
+      if (!isMe && !(_seatMeta && _seatMeta.kicked)) {
+        try { attachSeatVoteMenu(seat, p); } catch (e) {}
+      }
       if (_isAway) {
         const ab = document.createElement("div");
         ab.className = "pv-seat-away-badge";
@@ -7549,6 +8007,190 @@
     // debounced and skips nodes it already painted, so calling it on every
     // seat re-render costs nothing.
     try { window.__ccRefreshNames?.(); } catch (_) {}
+  }
+
+  // ── Vote Kick / Skip Turn, on the seat pills ───────────────────
+  // Both of these used to be chat commands, or nothing at all: to pass a quiet
+  // player's turn you typed "P3 is AFK" (and had to know that), and to get rid
+  // of somebody who was ruining the game there was no way at all short of
+  // everyone leaving. They are buttons now, with the tallies drawn on them.
+  //
+  // The two rules are deliberately different, and the menu says which is which:
+  //   Skip Turn  costs one turn and needs HALF the other players.
+  //   Vote Kick  is permanent and needs EVERY other player.
+  let _voteMenuEl = null;
+  let _voteMenuSeat = null;
+  let _voteInFlight = false;
+
+  function closeSeatVoteMenu() {
+    if (_voteMenuEl && _voteMenuEl.parentNode) _voteMenuEl.parentNode.removeChild(_voteMenuEl);
+    _voteMenuEl = null;
+    _voteMenuSeat = null;
+  }
+  // Any click outside, or Escape, puts it away.
+  document.addEventListener("click", (e) => {
+    if (!_voteMenuEl) return;
+    if (_voteMenuEl.contains(e.target)) return;
+    if (e.target && e.target.closest && e.target.closest(".pv-seat-vote-dots")) return;
+    closeSeatVoteMenu();
+  }, true);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && _voteMenuEl) closeSeatVoteMenu();
+  });
+
+  function _kickInfoFor(seatIndex) {
+    return (_latestVotes.kick || []).find(k => k && k.seat === seatIndex) || null;
+  }
+  function _skipInfoFor(seatIndex) {
+    const sk = _latestVotes.skip;
+    return (sk && sk.seat === seatIndex) ? sk : null;
+  }
+
+  async function _sendVote(path, body, okMsg) {
+    if (!roomId || _voteInFlight) return;
+    const token = getSeatToken();
+    if (!token) { try { showToast("No seat token, re-join the game first.", "err"); } catch {} return; }
+    _voteInFlight = true;
+    try {
+      const r = await apiPost(`/api/rooms/${roomId}/${path}`,
+        Object.assign({ seat_token: token }, body), { timeoutMs: 8000 });
+      const d = r && r.data;
+      if (!d || !d.ok) {
+        try { showToast((d && d.error) || "That vote didn't go through.", "warn"); } catch {}
+      } else if (okMsg) {
+        try { showToast(okMsg(d), d.kicked ? "ok" : "info"); } catch {}
+      }
+      refreshState();
+    } catch (e) {
+      try { showToast("Could not reach the server, check your connection.", "err"); } catch {}
+    } finally {
+      _voteInFlight = false;
+      closeSeatVoteMenu();
+    }
+  }
+
+  // Build one row of the menu. `info` is the server's tally for this vote, or
+  // null when this viewer has no ballot to cast.
+  function _voteRow(cls, label, hint, info, onClick) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "pv-vote-row " + cls;
+    const top = document.createElement("span");
+    top.className = "pv-vote-row-label";
+    top.textContent = label;
+    const sub = document.createElement("span");
+    sub.className = "pv-vote-row-hint";
+    if (!info) {
+      btn.disabled = true;
+      sub.textContent = hint;
+    } else if (info.blocked) {
+      btn.disabled = true;
+      sub.textContent = info.reason || hint;
+    } else {
+      sub.textContent = `${info.votes}/${info.needed} · ${hint}`;
+      if (info.mine) {
+        btn.classList.add("voted");
+        top.textContent = label + " ✓";
+      }
+      btn.addEventListener("click", (ev) => { ev.stopPropagation(); onClick(info); });
+    }
+    btn.appendChild(top);
+    btn.appendChild(sub);
+    return btn;
+  }
+
+  // The menu is wider than a seat pill, and the pills sit in clusters against
+  // BOTH screen edges. Anchored to one corner it therefore hangs off the side
+  // of the window for every seat on that edge. Slide it back inside, measuring
+  // rather than guessing, because how far it hangs over depends on the window.
+  function _positionVoteMenu(menu, anchorEl) {
+    try {
+      const pad = 6;
+      const seat = anchorEl.getBoundingClientRect();
+      const box = menu.getBoundingClientRect();
+      const room = window.innerWidth;
+      // Where it should sit in the window: its current place, pulled inside
+      // whichever edge it is over. A menu wider than the window itself just
+      // starts at the left edge rather than being pushed off the right.
+      const maxLeft = Math.max(pad, room - box.width - pad);
+      const wantLeft = Math.min(Math.max(pad, box.left), maxLeft);
+      if (Math.abs(wantLeft - box.left) < 1) return;
+      menu.style.right = "auto";
+      menu.style.left = Math.round(wantLeft - seat.left) + "px";
+    } catch (_) {}
+  }
+
+  function openSeatVoteMenu(anchorEl, p) {
+    closeSeatVoteMenu();
+    const kick = _kickInfoFor(p.index);
+    const skip = _skipInfoFor(p.index);
+    const menu = document.createElement("div");
+    menu.className = "pv-seat-vote-menu";
+    menu.addEventListener("click", (e) => e.stopPropagation());
+
+    const head = document.createElement("div");
+    head.className = "pv-vote-head";
+    head.textContent = p.name || `Player ${p.index + 1}`;
+    menu.appendChild(head);
+
+    menu.appendChild(_voteRow(
+      "pv-vote-skip", "Skip Turn",
+      skip ? "half the table" : "only on their turn",
+      skip && Object.assign({}, skip, {
+        reason: skip.blocked ? "not right now" : "",
+      }),
+      () => _sendVote("skip_turn", { target_seat_index: p.index },
+        (d) => d.challenge_started
+          ? `${d.name} has 20 seconds to answer.`
+          : `Voted to skip ${d.name}'s turn (${d.votes}/${d.needed}).`)
+    ));
+
+    menu.appendChild(_voteRow(
+      "pv-vote-kick", kick && kick.mine ? "Take Back Kick Vote" : "Vote Kick",
+      kick ? "everyone must agree" : "not available here",
+      kick && Object.assign({}, kick, {
+        reason: kick.blocked ? "the host runs the lobby" : "",
+      }),
+      (info) => _sendVote("kick_player",
+        { target_seat_index: p.index, undo: Boolean(info.mine) },
+        (d) => d.kicked
+          ? `${d.name} was removed from the game.`
+          : `Kick vote: ${d.votes}/${d.needed}.`)
+    ));
+
+    const foot = document.createElement("div");
+    foot.className = "pv-vote-foot";
+    foot.textContent = "A kick is permanent. A skip costs one turn.";
+    menu.appendChild(foot);
+
+    anchorEl.appendChild(menu);
+    _positionVoteMenu(menu, anchorEl);
+    _voteMenuEl = menu;
+    _voteMenuSeat = p.index;
+  }
+
+  // The ⋯ handle. Hidden until there is at least one vote this viewer could
+  // actually cast, so a solo-vs-bots game never grows a menu it cannot use.
+  function attachSeatVoteMenu(seatEl, p) {
+    if (!_kickInfoFor(p.index) && !_skipInfoFor(p.index)) return;
+    const dots = document.createElement("button");
+    dots.type = "button";
+    dots.className = "pv-seat-vote-dots";
+    dots.textContent = "⋯";
+    dots.title = `Vote options for ${p.name || `Player ${p.index + 1}`}`;
+    dots.setAttribute("aria-label", `Vote options for ${p.name || `Player ${p.index + 1}`}`);
+    const kick = _kickInfoFor(p.index);
+    const skip = _skipInfoFor(p.index);
+    // A vote already under way is worth seeing without opening anything.
+    const live = Math.max(kick ? kick.votes : 0, skip ? skip.votes : 0);
+    if (live > 0) dots.classList.add("has-votes");
+    dots.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      if (_voteMenuSeat === p.index) { closeSeatVoteMenu(); return; }
+      openSeatVoteMenu(seatEl, p);
+    });
+    seatEl.appendChild(dots);
   }
 
   // ── Opponent renderer ──────────────────────────────────────────
@@ -8772,7 +9414,25 @@
     setTimeout(() => { try { _showNextAnimalUnlock(); } catch {} }, 500);
   }
 
-  // ── COMPETITIVE MODE ─────────────────────────────────────────────
+  // ── COMPETITIVE (FREE-FOR-ALL) ───────────────────────────────────
+  // The second competitive mode: an ordinary 2-8 player game, people only, that
+  // pays Competitive Points into the SAME comp_cp total and the same rank as
+  // Competitive 1v1 below. Nothing about how the game is played changes, so
+  // this is a plain boolean read off the room and nothing else: no seat pairs,
+  // no hand switching, no forfeit window.
+  //
+  // rankedMode is set from the authoritative room.ranked flag on every state
+  // poll (see the payload handler) and never inferred from seat composition,
+  // for the same reason compMode isn't: a bot-free 6-player casual game is not
+  // a competitive one.
+  let rankedMode = false;
+  // CP is only paid from this many humans up. Below it the game still plays and
+  // still saves like any other game, it just isn't worth CP: a 2-player table
+  // in this mode is Competitive 1v1 with extra steps, and the easiest thing in
+  // the game to farm with a friend.
+  const COMP_FFA_MIN_PLAYERS = 3;
+
+  // ── COMPETITIVE MODE (1v1) ───────────────────────────────────────
   // compMySeats: the seat indices this device owns (P1=[0,1], P2=[2,3])
   let compMode = false;
   let compTokens = {};       // seat index → seat token (only my seats)
@@ -9185,7 +9845,7 @@
     const el = document.getElementById("comp-lb-content");
     el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;">Loading…</div>';
     try {
-      const seasonId = typeof _compGetSeasonId === "function" ? _compGetSeasonId() : "";
+      const seasonId = typeof window._compGetSeasonId === "function" ? window._compGetSeasonId() : "";
       const [lbRes, histRes] = await Promise.all([
         apiFetch(`/api/competitive/leaderboard${seasonId ? "?season=" + seasonId : ""}`, { method: "GET" }),
         apiFetch(`/api/competitive/history${seasonId ? "?season=" + seasonId : ""}`,     { method: "GET" }),
@@ -11277,9 +11937,11 @@
     myIdx=null; mySeatIdx=null; _myIdxGlobal=null;
     _lastSavedWinner = null; _saveInFlight = false; _lastRankedProcessed = null; _latestPlayers = []; _latestRoundCount = 0;
     _lastCompCpDelta = null; _lastCompNewCp = null; _lastCompRankName = null;
+    _lastCompFfaPlace = null; _lastCompFfaCount = null; _lastCompFfaNoCp = false;
     try { _resetChallengeObservers(); } catch {}
     dismissEndGameCinematic();
     compMode=false; compTokens={}; compHostToken=""; compMySeats=[]; compHandNames={}; _compRenameOpen=-1; _compRefetchKey="";
+    rankedMode=false; _lastRankedFfaProcessed=null;
     if (_compWaitPollTimer) { clearInterval(_compWaitPollTimer); _compWaitPollTimer=null; }
     const compHandsSection = document.getElementById("pv-menu-comp-hands");
     if (compHandsSection) compHandsSection.style.display = "none";
@@ -11347,6 +12009,20 @@
     }
     // Surface any animal avatars unlocked during the game just played.
     setTimeout(() => { try { _showNextAnimalUnlock(); } catch {} }, 600);
+  }
+
+  // ── Being removed by a vote ────────────────────────────────────
+  function handleKickedOut(notice) {
+    try { hideWaitingRoom(); } catch (_) {}
+    try { closeMenu(); } catch (_) {}
+    // Never keep a rejoin token: the seat is not coming back.
+    returnToMenu(false);
+    const who = (notice && notice.name) ? String(notice.name) : "You";
+    setTimeout(() => {
+      try {
+        showToast(`${who} was removed from that game by a vote of the other players.`, "err");
+      } catch (_) {}
+    }, 400);
   }
 
   document.getElementById("pv-back-btn").addEventListener("click", async () => {
@@ -12069,9 +12745,21 @@
   let _drawPrevPlayer      = "";       // player name tracked for draw notifications
   let _drawNotifTimer     = null;
   let _lastRankedProcessed = null; // roomId of last game where ranked result was processed
+  let _lastRankedFfaProcessed = null; // same, for the Competitive free-for-all path
   let _lastCompCpDelta = null;     // CP delta from the most recent competitive game (for end-game display)
   let _lastCompNewCp   = null;     // CP total after the most recent competitive game
   let _lastCompRankName = null;    // Rank name after the most recent competitive game
+  let _lastCompFfaPlace = null;    // My finishing place in the most recent Competitive free-for-all
+  let _lastCompFfaCount = null;    // How many people that game was scored between
+  let _lastCompFfaNoCp  = false;   // That game was under COMP_FFA_MIN_PLAYERS, so it paid nothing
+  // "1st", "2nd", "3rd", "11th"… for the placement labels.
+  function _ordinal(n) {
+    const i = Math.floor(Number(n) || 0);
+    const rem100 = i % 100;
+    if (rem100 >= 11 && rem100 <= 13) return `${i}th`;
+    const suffix = { 1: "st", 2: "nd", 3: "rd" }[i % 10] || "th";
+    return `${i}${suffix}`;
+  }
   // Team Mode end-game state (computed in renderEndGame, read by saveGameStats)
   let _teamModeEnd = false;        // this game was a team game
   let _myTeamRank  = null;         // my team's placement (1 = best)
@@ -12777,7 +13465,8 @@
         t: Date.now(),
         opp: oppNames,
         pc: playerCount,
-        mode: isComp ? "competitive" : (_teamModeEnd ? "team" : "normal"),
+        mode: isComp ? "competitive"
+            : (rankedMode ? "ranked" : (_teamModeEnd ? "team" : "normal")),
         all: allScores,
         bds: boardSnaps,
         win: winner || "",
@@ -13442,7 +14131,9 @@
 
       // ── Season reset check ──────────────────────────────────────
       const rankFn     = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
-      const getSeasonId = typeof _compGetSeasonId === "function" ? _compGetSeasonId : () => "2026-Q2";
+      const getSeasonId = typeof window._compGetSeasonId === "function"
+        ? window._compGetSeasonId
+        : () => "2026-Q2";
       const curSeasonId    = getSeasonId();
       const storedSeasonId = cStats.comp_season_id || "";
       const seasonUpdates  = {};
@@ -13598,6 +14289,220 @@
     }
   }
 
+  // ── Competitive (free-for-all): CP by finishing place ──────────────
+  // The second competitive mode. An ordinary 2-8 player game, people only, that
+  // pays into the SAME comp_cp total, the same rank_competitive name and the
+  // same CP leaderboard as Competitive 1v1 above. It is deliberately not a
+  // separate ladder: one rank, two ways to climb it.
+  //
+  // The W/L record follows the shape of the game: 1st is a win, last is a loss,
+  // and every place between is a draw. So a 6-player game hands out one win,
+  // one loss and four draws, and nobody's record claims more than happened.
+  //
+  // Like processRankedGameEnd, this writes the player's OWN Firestore doc and
+  // nobody else's, so every seat records its own result independently, and the
+  // dedup key is only set after a SUCCESSFUL write so a failed one retries on
+  // the next poll instead of being lost.
+  // One game, not one room: Play Again re-launches in the SAME room, and the
+  // launch stamps a new started_unix. Keying the dedup on the room alone would
+  // pay out the first game of a room and nothing after it.
+  function _ffaGameKey() {
+    const started = Number(latestPayload && latestPayload.room && latestPayload.room.started_unix) || 0;
+    return `${roomId}:${started}`;
+  }
+
+  async function processRankedFfaGameEnd(finalScores) {
+    if (!rankedMode) return;
+    if (!roomId) return;
+    const gameKey = _ffaGameKey();
+    if (_lastRankedFfaProcessed === gameKey) return;
+
+    const authUser = typeof window.__fishAuthUser === "function" ? window.__fishAuthUser() : null;
+    const db       = typeof window.__fishDb       === "function" ? window.__fishDb()       : null;
+    const isGuest  = typeof window.__fishIsGuest  === "function" ? !!window.__fishIsGuest() : false;
+    if (isGuest || !authUser || !db) return;
+    // A real game, same bar the 1v1 ladder uses. A match abandoned in the first
+    // two rounds is not worth CP either way.
+    if (_latestRoundCount < 3) return;
+
+    try {
+      // Only PEOPLE count, both for the placement and for the head count. The
+      // server refuses bots in a ranked room, so this is here for a room made
+      // before that rule existed, and so a bot could never pad the table into
+      // paying out.
+      const lp = Array.isArray(_latestPlayers) ? _latestPlayers : [];
+      const _isBot = (p) => {
+        const q = lp.find(x => Number.isInteger(Number(p && p.seat_index))
+                               && Number(x.index) === Number(p.seat_index))
+               || lp.find(x => String(x.name || "") === String((p && p.name) || ""));
+        return !!(q && (q.kind === "ai" || q.is_ai === true || q.bot === true));
+      };
+      const humans = (Array.isArray(finalScores) ? finalScores : []).filter(p => p && !_isBot(p));
+      // Below the minimum the game still saves like any other game; it just
+      // isn't worth CP. Marked processed so it doesn't retry every poll.
+      if (humans.length < COMP_FFA_MIN_PLAYERS) {
+        _lastRankedFfaProcessed = gameKey;
+        _lastCompFfaNoCp = true;
+        console.info("[ffa] not enough people for CP:", humans.length, "<", COMP_FFA_MIN_PLAYERS);
+        return;
+      }
+
+      // Find my row. Seat index is canonical (players[i].index IS seat_idx in
+      // the server payload, and two people can share a nickname), so it leads;
+      // the name match is the fallback for a payload without seat indices.
+      const myNick = typeof window.__fishNickname === "function" ? (window.__fishNickname() || "") : "";
+      const nickLower = String(myNick).trim().toLowerCase();
+      const mySeat = Number.isInteger(mySeatIdx) ? mySeatIdx : null;
+      const myEntry =
+           (mySeat !== null ? humans.find(p => Number(p.seat_index) === mySeat) : null)
+        || humans.find(p => String(p.name || "") === myNick)
+        || (nickLower ? humans.find(p => String(p.name || "").trim().toLowerCase() === nickLower) : null)
+        || null;
+      if (!myEntry) {
+        // Not resolvable yet: DON'T mark processed, the next poll retries.
+        console.warn("[ffa] could not locate my row in the final scores; will retry");
+        return;
+      }
+
+      // Placement, highest score first, with ties sharing the better place
+      // (two firsts are followed by a third). A tie is genuinely a tie here:
+      // the free-for-all has no second-hand tiebreak to fall back on the way
+      // Competitive 1v1 does.
+      const myScore = Number(myEntry.score || 0);
+      const place   = 1 + humans.filter(p => Number(p.score || 0) > myScore).length;
+      const count   = humans.length;
+
+      const docRef = db.collection("users").doc(authUser.uid);
+      const snap   = await docRef.get();
+      const cStats = ((snap.data() || {}).stats) || {};
+
+      // ── Season reset check (same quarterly season as the 1v1 ladder) ──
+      const rankFn      = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
+      const getSeasonId = typeof window._compGetSeasonId === "function"
+        ? window._compGetSeasonId
+        : () => "2026-Q2";
+      const curSeasonId    = getSeasonId();
+      const storedSeasonId = cStats.comp_season_id || "";
+      const seasonUpdates  = {};
+      if (storedSeasonId && storedSeasonId !== curSeasonId) {
+        const oldEntry = {
+          id:          storedSeasonId,
+          final_rank:  cStats.rank_competitive || "Unranked",
+          final_cp:    Number(cStats.comp_cp || 0),
+          wins:        Number(cStats.competitive_wins || 0),
+          losses:      Number(cStats.competitive_losses || 0),
+          draws:       Number(cStats.competitive_draws || 0),
+          best_score:  Number(cStats.highest_score_competitive || 0),
+        };
+        const existing = Array.isArray(cStats.seasons_history) ? cStats.seasons_history : [];
+        if (!existing.some(e => e.id === storedSeasonId)) {
+          seasonUpdates["stats.seasons_history"] = [oldEntry, ...existing].slice(0, 20);
+        }
+        seasonUpdates["stats.comp_cp"]                   = 0;
+        seasonUpdates["stats.competitive_wins"]          = 0;
+        seasonUpdates["stats.competitive_losses"]        = 0;
+        seasonUpdates["stats.competitive_draws"]         = 0;
+        seasonUpdates["stats.competitive_streak"]        = 0;
+        seasonUpdates["stats.competitive_best_streak"]   = 0;
+        seasonUpdates["stats.average_competitive_score"] = 0;
+        seasonUpdates["stats.rank_competitive"]          = "Unranked";
+        seasonUpdates["stats.comp_season_id"]            = curSeasonId;
+        await docRef.update(seasonUpdates);
+      }
+      const wasReset = Object.keys(seasonUpdates).length > 0;
+
+      const curCp         = wasReset ? 0 : Number(cStats.comp_cp || 0);
+      const curWins       = wasReset ? 0 : Number(cStats.competitive_wins || 0);
+      const curLosses     = wasReset ? 0 : Number(cStats.competitive_losses || 0);
+      const curDraws      = wasReset ? 0 : Number(cStats.competitive_draws || 0);
+      const curStreak     = wasReset ? 0 : Number(cStats.competitive_streak || 0);
+      const curBestStreak = wasReset ? 0 : Number(cStats.competitive_best_streak || 0);
+      const curAvgBest    = wasReset ? 0 : Number(cStats.average_competitive_score || 0);
+      const curBestComp   = Number(cStats.highest_score_competitive || 0);
+      const curGames      = curWins + curLosses + curDraws;
+
+      // ── CP delta, from the player's CURRENT rank and their place ──
+      // _compGetFfaCpDelta reads ffaTop/ffaBottom off the rank table: at the low
+      // ranks even last place pays, and from Gold up the place you must beat to
+      // break even climbs with the division. CP never drops below 0.
+      const deltaFn = typeof window._compGetFfaCpDelta === "function" ? window._compGetFfaCpDelta : null;
+      const cpDelta = deltaFn ? deltaFn(curCp, place, count, curGames > 0) : 0;
+      const newCp   = Math.max(0, curCp + cpDelta);
+
+      // 1st is a win, last is a loss, everything between is a draw.
+      const iWon  = place === 1;
+      const iLost = place === count;
+      const isDraw = !iWon && !iLost;
+
+      const newWins       = iWon   ? curWins   + 1 : curWins;
+      const newLosses     = iLost  ? curLosses + 1 : curLosses;
+      const newDraws      = isDraw ? curDraws  + 1 : curDraws;
+      const newStreak     = iWon ? curStreak + 1 : 0;
+      const newBestStreak = Math.max(curBestStreak, newStreak);
+      const newGames      = newWins + newLosses + newDraws;
+      const newBestComp   = Math.max(curBestComp, myScore);
+      const newAvgBest    = newGames > 0 ? Math.round((curAvgBest * curGames + myScore) / newGames) : myScore;
+
+      const newRankDiv  = rankFn ? rankFn(newCp, true) : null;
+      const newRankName = newRankDiv ? newRankDiv.division : "Bronze Barracuda I";
+
+      // Surface to renderEndGame so the post-game card shows the delta + place.
+      _lastCompCpDelta  = cpDelta;
+      _lastCompNewCp    = newCp;
+      _lastCompRankName = newRankName;
+      _lastCompFfaPlace = place;
+      _lastCompFfaCount = count;
+
+      const lifetimeUpdates = {};
+      if (iWon)   lifetimeUpdates["stats.lifetime_comp_wins"]   = firebase.firestore.FieldValue.increment(1);
+      if (iLost)  lifetimeUpdates["stats.lifetime_comp_losses"] = firebase.firestore.FieldValue.increment(1);
+      if (isDraw) lifetimeUpdates["stats.lifetime_comp_draws"]  = firebase.firestore.FieldValue.increment(1);
+      const lifeBest = Number(cStats.lifetime_comp_best_score || 0);
+      if (myScore > lifeBest) lifetimeUpdates["stats.lifetime_comp_best_score"] = myScore;
+
+      await docRef.update({
+        "stats.comp_cp":                    newCp,
+        "stats.comp_season_id":             curSeasonId,
+        "stats.competitive_wins":           newWins,
+        "stats.competitive_losses":         newLosses,
+        "stats.competitive_draws":          newDraws,
+        "stats.competitive_streak":         newStreak,
+        "stats.competitive_best_streak":    newBestStreak,
+        "stats.highest_score_competitive":  newBestComp,
+        "stats.average_competitive_score":  newAvgBest,
+        "stats.rank_competitive":           newRankName,
+        ...lifetimeUpdates,
+      });
+      // Only now: a failed write above retries on the next poll.
+      _lastRankedFfaProcessed = gameKey;
+      console.info("[ffa] place", place, "of", count, "→", (cpDelta >= 0 ? "+" : "") + cpDelta, "CP →", newCp);
+
+      if (typeof window.__fishCheckRankAchievements === "function") {
+        // The rank achievements only read newRankName / iWon / isDraw; the
+        // hand-vs-hand scores below them are a 1v1 shape that has no meaning
+        // here, so they are passed as this player's own score on both sides.
+        window.__fishCheckRankAchievements({
+          newRankName, iWon, isDraw,
+          p1Best: myScore, p2Best: myScore, p1Second: myScore, p2Second: myScore, amP1: true,
+          uid: authUser.uid,
+        });
+      }
+
+      const sign  = cpDelta > 0 ? "+" : "";
+      const label = `${_ordinal(place)} of ${count}`;
+      const msg   = `${label} · ${sign}${cpDelta} CP → ${newCp} CP (${newRankName})`;
+      const banner = document.getElementById("pv-discard-banner");
+      if (banner) {
+        banner.textContent = msg;
+        banner.classList.add("visible");
+        setTimeout(() => banner.classList.remove("visible"), 5000);
+      }
+    } catch (e) {
+      // Not marked processed → next poll retries.
+      console.error("[ffa] SAVE FAILED (will retry on next poll):", (e && e.code) || "", e);
+    }
+  }
+
   // ── Pending forfeit losses (applied on lobby load) ─────────────────
   // When a player leaves a competitive match and doesn't return within 30s, the
   // server records a forfeit loss for them. They are offline at that moment, so
@@ -13628,7 +14533,7 @@
 
   async function _applyForfeitLoss(item, authUser, db, myName) {
     if (!item || !item.id) return;
-    const curSeasonId = (typeof _compGetSeasonId === "function") ? _compGetSeasonId() : "";
+    const curSeasonId = (typeof window._compGetSeasonId === "function") ? window._compGetSeasonId() : "";
     // Stale forfeit from a previous season, ack without touching this season's CP.
     if (item.season_id && curSeasonId && String(item.season_id) !== String(curSeasonId)) {
       try { await apiPost("/api/competitive/forfeit_ack", { id: item.id, name: myName, cp_delta: 0 }); } catch (_) {}
@@ -13672,6 +14577,12 @@
       _lastSavedWinner = null;
       try { _endSaveReset(); } catch (_) {}
       _endgameBarDone = false; _endgameCapturedOldXp = null; _gameTerminatedByMe = false;
+      // A new game is running in this room (Play Again keeps the room), so the
+      // last game's placement and CP must not survive into the next end screen.
+      if (rankedMode) {
+        _lastCompFfaPlace = null; _lastCompFfaCount = null; _lastCompFfaNoCp = false;
+        _lastCompCpDelta = null; _lastCompNewCp = null; _lastCompRankName = null;
+      }
       _teamModeEnd = false; _myTeamRank = null; _teamIsWin = false; _teamRevealDone = false;
       try { _closeTeamReveal(); } catch (_) {}
       const _cdWrap = document.getElementById("gs-challenges-done");
@@ -13685,6 +14596,7 @@
     // Keep the Play Again tally + "<name> left" notices in sync every poll.
     try { updatePlayAgainUI(latestPayload && latestPayload.play_again); } catch (_) {}
     if (compMode) processRankedGameEnd(finalScores);
+    if (rankedMode) processRankedFfaGameEnd(finalScores);
     // NOTE: we no longer early-return here when the overlay was dismissed,
     // saveGameStats (streak/XP/history) MUST still run on every end-game poll
     // until it succeeds. We only skip the *visual* overlay rendering below.
@@ -13965,13 +14877,31 @@
       }
     } catch (_) {}
 
+    // The CP row belongs to both competitive modes. Its label names which one,
+    // because "3rd of 6" only makes sense in the free-for-all.
     const cpItem = document.getElementById("gs-cp-item");
-    if (cpItem) cpItem.style.display = compMode ? "" : "none";
+    if (cpItem) cpItem.style.display = (compMode || rankedMode) ? "" : "none";
+    const cpLabelEl = cpItem ? cpItem.querySelector(".gs-meta-label") : null;
+    if (cpLabelEl) {
+      cpLabelEl.textContent = (rankedMode && _lastCompFfaPlace)
+        ? `CP Gained · ${_ordinal(_lastCompFfaPlace)} of ${_lastCompFfaCount}`
+        : "CP Gained";
+    }
     // Populate the actual CP delta / new CP total + rank from the just-processed
     // competitive result. Green for gain, red for loss, gold for draw.
-    if (compMode) {
+    if (compMode || rankedMode) {
       const cpValEl = document.getElementById("gs-cp-gained");
-      if (cpValEl) {
+      if (cpValEl && rankedMode && _lastCompFfaNoCp) {
+        // Played, saved, but under the head count this mode pays out at. Say so
+        // rather than leaving a "+0 CP" that reads like a scoring result.
+        cpValEl.innerHTML = `<span style="font-size:.8em;">No CP · needs ${COMP_FFA_MIN_PLAYERS}+ players</span>`;
+        cpValEl.style.color = "#b86800";
+      } else if (cpValEl && rankedMode && typeof _lastCompCpDelta !== "number") {
+        // The Firestore write is still in flight; the next end-game poll fills
+        // it in. Never show a "+0 CP" that the player would read as their result.
+        cpValEl.innerHTML = `<span style="opacity:.6;font-size:.85em;">Counting…</span>`;
+        cpValEl.style.color = "";
+      } else if (cpValEl) {
         const delta = (typeof _lastCompCpDelta === "number") ? _lastCompCpDelta : 0;
         const sign  = delta > 0 ? "+" : "";
         const color = delta > 0 ? "#1d9b4e" : (delta < 0 ? "#e84057" : "#b86800");
@@ -29652,22 +30582,22 @@
     // Emerald  = elite climb;               loss: -20 → -24
     // King     = hardest to keep;           loss: -28
     const _COMP_RANK_DIVS = [
-      { name: "Bronze Barracuda I",        tier: "bronze",  emoji: "🐠", minCp: 0,    maxCp: 44,   win: 26, draw: 5, loss: -3  },
-      { name: "Bronze Barracuda II",       tier: "bronze",  emoji: "🐠", minCp: 45,   maxCp: 89,   win: 26, draw: 5, loss: -3  },
-      { name: "Bronze Barracuda III",     tier: "bronze",  emoji: "🐠", minCp: 90,   maxCp: 134,  win: 26, draw: 5, loss: -3  },
-      { name: "Silver Spiny Lobster I",    tier: "silver",  emoji: "🦞", minCp: 135,  maxCp: 199,  win: 24, draw: 4, loss: -5  },
-      { name: "Silver Spiny Lobster II",   tier: "silver",  emoji: "🦞", minCp: 200,  maxCp: 264,  win: 24, draw: 4, loss: -5  },
-      { name: "Silver Spiny Lobster III",  tier: "silver",  emoji: "🦞", minCp: 265,  maxCp: 329,  win: 24, draw: 4, loss: -5  },
-      { name: "Golden Grouper I",          tier: "gold",    emoji: "🐡", minCp: 330,  maxCp: 419,  win: 22, draw: 3, loss: -7  },
-      { name: "Golden Grouper II",         tier: "gold",    emoji: "🐡", minCp: 420,  maxCp: 509,  win: 22, draw: 3, loss: -9  },
-      { name: "Golden Grouper III",        tier: "gold",    emoji: "🐡", minCp: 510,  maxCp: 599,  win: 22, draw: 3, loss: -12 },
-      { name: "Diamond Dolphin I",         tier: "diamond", emoji: "🐬", minCp: 600,  maxCp: 719,  win: 21, draw: 2, loss: -14 },
-      { name: "Diamond Dolphin II",        tier: "diamond", emoji: "🐬", minCp: 720,  maxCp: 839,  win: 21, draw: 2, loss: -16 },
-      { name: "Diamond Dolphin III",       tier: "diamond", emoji: "🐬", minCp: 840,  maxCp: 959,  win: 21, draw: 2, loss: -18 },
-      { name: "Emerald Emperor Penguin I",   tier: "emerald", emoji: "🐧", minCp: 960,  maxCp: 1039, win: 20, draw: 1, loss: -20 },
-      { name: "Emerald Emperor Penguin II",  tier: "emerald", emoji: "🐧", minCp: 1040, maxCp: 1119, win: 20, draw: 1, loss: -22 },
-      { name: "Emerald Emperor Penguin III", tier: "emerald", emoji: "🐧", minCp: 1120, maxCp: 1199, win: 20, draw: 1, loss: -24 },
-      { name: "King of the Critters",      tier: "king",    emoji: "👑", minCp: 1200, maxCp: Infinity, win: 18, draw: 0, loss: -28 },
+      { name: "Bronze Barracuda I",        tier: "bronze",  emoji: "🐠", minCp: 0,    maxCp: 44,   win: 26, draw: 5, loss: -3, ffaTop: 20, ffaBottom:   4 },
+      { name: "Bronze Barracuda II",       tier: "bronze",  emoji: "🐠", minCp: 45,   maxCp: 89,   win: 26, draw: 5, loss: -3, ffaTop: 20, ffaBottom:   4 },
+      { name: "Bronze Barracuda III",     tier: "bronze",  emoji: "🐠", minCp: 90,   maxCp: 134,  win: 26, draw: 5, loss: -3, ffaTop: 20, ffaBottom:   4 },
+      { name: "Silver Spiny Lobster I",    tier: "silver",  emoji: "🦞", minCp: 135,  maxCp: 199,  win: 24, draw: 4, loss: -5, ffaTop: 18, ffaBottom:   2 },
+      { name: "Silver Spiny Lobster II",   tier: "silver",  emoji: "🦞", minCp: 200,  maxCp: 264,  win: 24, draw: 4, loss: -5, ffaTop: 18, ffaBottom:   2 },
+      { name: "Silver Spiny Lobster III",  tier: "silver",  emoji: "🦞", minCp: 265,  maxCp: 329,  win: 24, draw: 4, loss: -5, ffaTop: 18, ffaBottom:   2 },
+      { name: "Golden Grouper I",          tier: "gold",    emoji: "🐡", minCp: 330,  maxCp: 419,  win: 22, draw: 3, loss: -7, ffaTop: 16, ffaBottom:   0 },
+      { name: "Golden Grouper II",         tier: "gold",    emoji: "🐡", minCp: 420,  maxCp: 509,  win: 22, draw: 3, loss: -9, ffaTop: 16, ffaBottom:  -1 },
+      { name: "Golden Grouper III",        tier: "gold",    emoji: "🐡", minCp: 510,  maxCp: 599,  win: 22, draw: 3, loss: -12, ffaTop: 16, ffaBottom:  -3 },
+      { name: "Diamond Dolphin I",         tier: "diamond", emoji: "🐬", minCp: 600,  maxCp: 719,  win: 21, draw: 2, loss: -14, ffaTop: 15, ffaBottom:  -6 },
+      { name: "Diamond Dolphin II",        tier: "diamond", emoji: "🐬", minCp: 720,  maxCp: 839,  win: 21, draw: 2, loss: -16, ffaTop: 15, ffaBottom:  -8 },
+      { name: "Diamond Dolphin III",       tier: "diamond", emoji: "🐬", minCp: 840,  maxCp: 959,  win: 21, draw: 2, loss: -18, ffaTop: 15, ffaBottom: -10 },
+      { name: "Emerald Emperor Penguin I",   tier: "emerald", emoji: "🐧", minCp: 960,  maxCp: 1039, win: 20, draw: 1, loss: -20, ffaTop: 14, ffaBottom: -12 },
+      { name: "Emerald Emperor Penguin II",  tier: "emerald", emoji: "🐧", minCp: 1040, maxCp: 1119, win: 20, draw: 1, loss: -22, ffaTop: 14, ffaBottom: -14 },
+      { name: "Emerald Emperor Penguin III", tier: "emerald", emoji: "🐧", minCp: 1120, maxCp: 1199, win: 20, draw: 1, loss: -24, ffaTop: 14, ffaBottom: -16 },
+      { name: "King of the Critters",      tier: "king",    emoji: "👑", minCp: 1200, maxCp: Infinity, win: 18, draw: 0, loss: -28, ffaTop: 12, ffaBottom: -20 },
     ];
 
     // Returns the rank info for a given CP. If hasPlayed is true, 0 CP still maps
@@ -29677,7 +30607,7 @@
       const cleanCp = Math.max(0, Number(cp) || 0);
       if (cleanCp === 0 && !hasPlayed) {
         return { division: "Unranked", tier: "bronze", emoji: "🐟", cp: 0, nextCp: 1, nextDiv: "Bronze Barracuda I", pct: 0,
-                 win: 26, draw: 5, loss: -3 };
+                 win: 26, draw: 5, loss: -3, ffaTop: 20, ffaBottom: 4 };
       }
       const idx = _COMP_RANK_DIVS.findIndex(d => cleanCp >= d.minCp && cleanCp <= d.maxCp);
       const div = idx >= 0 ? _COMP_RANK_DIVS[idx] : _COMP_RANK_DIVS[_COMP_RANK_DIVS.length - 1];
@@ -29686,7 +30616,8 @@
       const pct = div.maxCp === Infinity ? 100 : Math.min(100, Math.floor(((cleanCp - div.minCp) / range) * 100));
       return { division: div.name, tier: div.tier, emoji: div.emoji, cp: cleanCp,
                nextCp: next ? next.minCp : null, nextDiv: next ? next.name : null, pct,
-               win: div.win, draw: div.draw, loss: div.loss };
+               win: div.win, draw: div.draw, loss: div.loss,
+               ffaTop: div.ffaTop, ffaBottom: div.ffaBottom };
     }
     window._compGetRankFromCp = _compGetRankFromCp;
 
@@ -29703,6 +30634,48 @@
     }
     window._compGetCpDelta = _compGetCpDelta;
 
+    // Returns the CP delta for a Competitive (free-for-all) result: an ordinary
+    // 2-8 player game that pays CP by FINISHING PLACE rather than by win/loss.
+    //
+    // Every division carries its own pair of end points, ffaTop (what 1st place
+    // is worth) and ffaBottom (what last place is worth), and a placement lands
+    // on the straight line between them:
+    //
+    //   t  = (place - 1) / (playerCount - 1)      0 for 1st, 1 for last
+    //   cp = ffaTop + (ffaBottom - ffaTop) * t
+    //
+    // Two things follow from the table, and they are the whole design:
+    //
+    //  • At the low ranks ffaBottom is still POSITIVE (+4 in Bronze, +2 in
+    //    Silver), so every placement pays and a new player can never go
+    //    backwards in this mode. Nothing to be afraid of while you learn.
+    //  • From Golden Grouper up ffaBottom goes negative and keeps falling, so
+    //    the place you have to beat just to break even climbs with your rank:
+    //    dead last in Gold I, the bottom sixth in Gold III, the bottom half in
+    //    Emerald, and by King you need a top-third finish to gain anything.
+    //
+    // 1st place is always worth less than a Competitive 1v1 win (20 vs 26 at
+    // Bronze, 12 vs 18 at King): a big casual table is the gentler ladder, and
+    // the 1v1 stays the fastest way up.
+    //
+    // playerCount is the number of PEOPLE the game was scored between. A single
+    // player (or a missing count) has no placement to speak of and earns 0.
+    function _compGetFfaCpDelta(currentCp, place, playerCount, hasPlayed) {
+      const info = _compGetRankFromCp(currentCp, hasPlayed);
+      const top    = Number.isFinite(info.ffaTop)    ? info.ffaTop    : 20;
+      const bottom = Number.isFinite(info.ffaBottom) ? info.ffaBottom : 4;
+      const n = Math.floor(Number(playerCount) || 0);
+      const p = Math.floor(Number(place) || 0);
+      // A place at or below zero is not a placement at all, it is a caller that
+      // failed to work one out, and 0 CP is the safe answer to that.
+      if (n < 2 || p < 1) return 0;
+      // A place past the end of the table is last place.
+      const clamped = Math.min(p, n);
+      const t = (clamped - 1) / (n - 1);
+      return Math.round(top + (bottom - top) * t);
+    }
+    window._compGetFfaCpDelta = _compGetFfaCpDelta;
+
     function _compGetRankInfo(wins, losses) {
       const total = wins + losses;
       if (total === 0) return { division: "Unranked", tier: "bronze", emoji: "🐟", cp: 0, nextCp: 1, nextDiv: "Bronze Barracuda I", pct: 0 };
@@ -29716,6 +30689,11 @@
       const q = Math.floor(d.getUTCMonth() / 3) + 1;
       return `${year}-Q${q}`;
     }
+    // This lives inside this IIFE, but the end-of-game CP writers live outside
+    // it, so a bare `_compGetSeasonId` is not in scope for them and their
+    // `typeof` guard silently took the fallback every time. Export it, the same
+    // way _compGetRankFromCp is, and read it off window out there.
+    window._compGetSeasonId = _compGetSeasonId;
 
     function _compGetSeasonDates(seasonId) {
       const parts = (seasonId || "").split("-Q");

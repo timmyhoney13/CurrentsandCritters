@@ -221,6 +221,14 @@
 # hand's arrangement. This runs the real ordering lines, lifted out of
 # preview-app.js, over a player who owns two seats.
 !test_competitive_hand_order.js
+# The SECOND competitive mode: an ordinary 2-8 player people-only game that
+# pays CP by finishing place. The .js pins the payout curve as PROPERTIES of
+# the real rank table (low ranks can never lose CP, higher ranks must place
+# better to break even, and it never out-pays the 1v1 ladder); the .py pins
+# the no-bots rule at both doors and that `ranked` never turns on the 1v1
+# seat-pair machinery.
+!test_competitive_ffa_cp.js
+!test_competitive_ffa_server.py
 # Spectating: a spectator has no seat, and a player's equipped icon used to
 # travel only on their seat, so watchers showed up as a bare name and their
 # chat lines wore a hash of "[Spectator] Name" instead of the icon they equipped.
@@ -230,6 +238,18 @@
 # surface at once (seats, chat lines, draw notifications, final standings),
 # not just the one that happens to re-read the state.
 !test_ingame_avatar_live.js
+
+# One music timeline per room: the theme song is a position everybody in the
+# game shares, not a track each browser starts for itself when it walks in.
+!test_music_sync.py
+!test_music_sync.js
+
+# Vote Kick and Skip Turn, and the waiting room's Table Setup. The integration
+# half matters most: it runs a real match with the kicked seat empty, which is
+# the only way to catch the table parking on a chair nobody is coming back to.
+!test_kick_and_skip_votes.py
+!test_kick_integration.py
+!test_vote_buttons_ui.js
 
 # The published How to Play page (/rules): proves the rulebook stylesheet and
 # the shared data tables were MOVED out of the game, not copied (it compares
