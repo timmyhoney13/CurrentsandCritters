@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-08-29.2";
+  const APP_BUILD   = "2026-08-29.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -1551,6 +1551,30 @@
     if (e.key === "ArrowRight") { e.preventDefault(); _zoomNavTo(_zoomHandIdx + 1); }
     if (e.key === "Escape")     { e.preventDefault(); closeZoom(); }
   });
+  // Swipe navigation, the touch equivalent of the arrow keys. This matters
+  // more on a phone than anywhere else: the fan squeezes a big hand down to a
+  // ~22px aimable strip per card, so opening the zoom on the card next to the
+  // one you meant is ordinary, and paging across is how you fix it without
+  // closing the zoom and taking another go at the fan.
+  (function setupZoomSwipe() {
+    const modal = document.getElementById("pv-zoom-modal");
+    if (!modal) return;
+    let x0 = null, y0 = null;
+    modal.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1) { x0 = null; return; }   // a pinch is not a swipe
+      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+    }, { passive: true });
+    modal.addEventListener("touchend", (e) => {
+      if (x0 == null) return;
+      const t = e.changedTouches && e.changedTouches[0];
+      const dx = t ? t.clientX - x0 : 0;
+      const dy = t ? t.clientY - y0 : 0;
+      x0 = null;
+      // Horizontal and decisive, or it was a scroll of the rules text.
+      if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      _zoomNavTo(_zoomHandIdx + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+  })();
 
   // ── Pool overview modal ────────────────────────────────────────
   function openPoolModal() {
@@ -6489,6 +6513,12 @@
     renderActionBar(legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive);
     renderGuideBar(me, legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive);
     try { window._applyStrategyHighlights && window._applyStrategyHighlights(); } catch (e) {}
+    // The guide bar and the phase banners come and go on their own, and
+    // renderHand() early-returns when the hand itself did not change, so the
+    // column has to be re-fitted here as well: a banner appearing is exactly
+    // the moment the bottom of the screen used to eat the hand.
+    try { fitGameColumn(); } catch (e) {}
+    try { updateBottomDockOffset(); } catch (e) {}
 
     // Fire the animations after layout settles.
     requestAnimationFrame(() => {
@@ -10457,8 +10487,13 @@
       zone.appendChild(ov);
     }
 
+    // Fit the column BEFORE the fan is laid out: fitGameColumn() may shrink
+    // --hand-card-*, and applyHandLayout measures the real card box to decide
+    // the overlap, so doing it the other way round fans yesterday's card size.
+    try { fitGameColumn(); } catch (e) {}
     // apply base fan layout
     applyHandLayout(-1);
+    try { updateBottomDockOffset(); } catch (e) {}
     _prevHandUIDs = newHandUIDs;
     try { window._applyStrategyHighlights && window._applyStrategyHighlights(); } catch (e) {}
   }
@@ -16133,11 +16168,18 @@
     // leaves the cards squeezed for the old, narrower screen (or spilling off
     // the new one). Cheap: it only rewrites margins when they need to change.
     const refit = () => {
+      // force: the window moved, so the cached answer is stale by definition.
+      try { fitGameColumn(true); } catch (e) {}
       try { applyHandLayout(_handHoverIdx); } catch (e) {}
       try { updateBottomDockOffset(); } catch (e) {}
     };
     window.addEventListener("resize", refit);
     window.addEventListener("orientationchange", () => setTimeout(refit, 300));
+    // A mobile browser sliding its toolbars in or out changes how much of the
+    // page is really visible, and does not always fire a window resize for it.
+    try {
+      if (window.visualViewport) window.visualViewport.addEventListener("resize", refit);
+    } catch (e) {}
     const btn = document.getElementById("pv-board-scroll-btn");
     if (btn) btn.addEventListener("click", (ev) => {
       ev.preventDefault(); ev.stopPropagation();
@@ -16193,6 +16235,153 @@
     return Boolean(g) && g.style.display !== "none" && g.style.display !== "";
   }
 
+  // ── Nothing may be pushed off the bottom of the screen ────────────────────
+  // #pv-game is a flex COLUMN and #pv-table is its only shrinkable child
+  // (flex:1; min-height:0). Everything else, the notice bar, the turn banner,
+  // the guide bar, the two phase banners, the action bar and the hand zone, is
+  // flex-shrink:0. So once they add up to more than the window, the table
+  // collapses to zero and the rest keeps going straight off the bottom edge of
+  // a page whose html/body is overflow:hidden. Nothing scrolls there and no
+  // gesture reaches it: your hand is simply gone. Measured with the guide bar
+  // up (which is any turn of yours) and a phase banner showing:
+  //   320x568  iPhone SE            hand zone cut off by 59-157px, ALL cards
+  //   360x740  Galaxy S8, discard   cut off by 26px
+  //   844x390  phone held sideways  cut off by 23-99px, cards off screen
+  //
+  // The @media rules in preview.css get the common cases right before the
+  // first frame is painted. This is the measured guarantee underneath them,
+  // because the height that actually overflows depends on things no media
+  // query can see: how many rows the action bar wrapped onto, how many lines
+  // the guide text took, whether a phase banner is up.
+  //
+  // Who gives up height, in order. A smaller card is still a card; a card
+  // under the edge of the screen is not, and a hint nobody can read costs
+  // nothing next to a hand nobody can reach.
+  const _FIT_HAND_FLOOR_H = 92;   // below this a hand card stops being readable
+  const _FIT_TABLE_FLOOR  = 88;   // the board keeps a usable slice if it can
+  const _FIT_HINT_FLOOR   = 34;   // one readable line of guidance
+  // Round-2 floors: what the layout is allowed to spend to keep its promise
+  // that nothing ends up under the bottom edge. Still a card, still a line.
+  const _FIT_HAND_HARD_FLOOR = 68;
+  const _FIT_HINT_HARD_FLOOR = 20;
+  const _FIT_ADVISORY = ["pv-guide-bar", "pv-pool-pick-hint", "pv-discard-banner"];
+  let _fitColKey = "";
+
+  function fitGameColumn(force) {
+    const game = document.getElementById("pv-game");
+    if (!game || getComputedStyle(game).display === "none") return;
+    const H = game.clientHeight, W = game.clientWidth;
+    if (!H || !W) return;
+    const table = document.getElementById("pv-table");
+    if (!table) return;
+    const shown = (id) => {
+      const e = document.getElementById(id);
+      return (e && getComputedStyle(e).display !== "none") ? e : null;
+    };
+    const advisory = _FIT_ADVISORY.map(shown).filter(Boolean);
+    const cards = document.querySelectorAll(".pv-hand-card[data-entry-uid]");
+    // Only redo the work when one of the inputs really moved. This runs on
+    // every state tick, and a reset-measure-apply pass thrashes layout.
+    const key = [H, W, cards.length, advisory.map(a => a.id).join(",")].join("|");
+    if (!force && key === _fitColKey) return;
+    _fitColKey = key;
+
+    const root = document.documentElement;
+    // Natural size FIRST. Never measure a box this function already squeezed,
+    // or each call compounds the last one and the hand walks down to the floor
+    // on a screen that was fine to begin with (the same trap handRoomPx() has
+    // to avoid: what a thing is worth must not depend on the last measurement).
+    root.style.removeProperty("--hand-card-h");
+    root.style.removeProperty("--hand-card-w");
+    for (const a of advisory) { a.style.maxHeight = ""; a.style.overflowY = ""; }
+
+    // Everything in the column except the table, which is the flexible one.
+    // Fixed/absolute children (the side docks, every modal) are not in flow.
+    //
+    // The fan is re-laid-out first, every time. applyHandLayout() reserves the
+    // arc's underhang as padding INSIDE the hand zone (handFanUnderhang: the
+    // outer cards of a wide fan are painted ~35px below their row), so the
+    // zone's real height is only known once the fan has been fitted to the
+    // card size currently in force. Measuring before that reads the previous
+    // size's reserve and the fit comes up short by exactly that much, which is
+    // a phone held sideways with a full hand still losing the bottom 14px.
+    const columnFixedPx = () => {
+      try { applyHandLayout(_handHoverIdx); } catch (e) {}
+      let px = 0;
+      for (const kid of game.children) {
+        if (kid === table) continue;
+        const cs = getComputedStyle(kid);
+        if (cs.display === "none" || cs.position === "fixed" || cs.position === "absolute") continue;
+        px += kid.offsetHeight;
+      }
+      return px;
+    };
+
+    // Two rounds, because "the board keeps a slice" and "nothing is cut off"
+    // are not the same promise and must not be traded against each other.
+    //   Round 1 aims for the comfortable fit, the board keeps _FIT_TABLE_FLOOR
+    //   and nothing shrinks past the size it is still readable at.
+    //   Round 2 only runs if the column STILL does not fit inside the window,
+    //   and it is not optional: it spends the board's floor and then the last
+    //   of the hints, because a hand below the bottom edge of a page whose
+    //   html/body is overflow:hidden cannot be scrolled, panned or zoomed back
+    //   into view. It is gone until the phone is rotated.
+    const shrinkHand = (over, floor) => {
+      if (over <= 0 || !cards.length) return;
+      const baseH = cards[0].offsetHeight, baseW = cards[0].offsetWidth;
+      if (baseH <= floor) return;
+      const h = Math.max(floor, baseH - over);
+      root.style.setProperty("--hand-card-h", Math.round(h) + "px");
+      root.style.setProperty("--hand-card-w", Math.max(1, Math.round(baseW * h / baseH)) + "px");
+    };
+    const capHints = (over, floor) => {
+      for (const a of advisory) {
+        if (over <= 0) break;
+        const nat = a.offsetHeight;
+        const cap = Math.max(floor, nat - over);
+        if (cap < nat) {
+          a.style.maxHeight = Math.round(cap) + "px";
+          a.style.overflowY = "auto";
+          over -= (nat - cap);
+        }
+      }
+    };
+
+    // Settle to a fixed point rather than deciding in one shot. Shrinking the
+    // hand does NOT free its own height one-for-one: the zone also carries the
+    // seat row, its own padding, and the fan's underhang reserve, which is
+    // itself a function of the card size that just changed. One pass therefore
+    // lands short (measured: a phone held sideways with a full hand and a
+    // phase banner up was still 14px over after a single pass, and 14px is the
+    // whole bottom edge of the hand). Each pass reads the CURRENT card size,
+    // so the sequence only ever shrinks and both floors are hard stops: it
+    // converges in two, and three is the cap.
+    const settle = (slack, handFloor, hintFloor) => {
+      for (let pass = 0; pass < 3; pass++) {
+        let over = columnFixedPx() + slack - H;
+        if (over <= 0) return;
+        // The hand gives first. --hand-card-* only, so the board's cards keep
+        // their size: the board is inside #pv-table, which scrolls, so its
+        // height never fed this overflow in the first place.
+        shrinkHand(over, handFloor);
+        // Then the advisory text. The guide bar and the phase banners explain
+        // the move you are making, so they may scroll a line or two. Reaching
+        // your own hand is not a trade any hint is worth.
+        over = columnFixedPx() + slack - H;
+        if (over > 0) capHints(over, hintFloor);
+      }
+    };
+    // First the comfortable fit: the board keeps a usable slice and nothing
+    // shrinks past the size it is still readable at.
+    settle(_FIT_TABLE_FLOOR, _FIT_HAND_FLOOR_H, _FIT_HINT_FLOOR);
+    // Then the promise, which is not optional. The board may go to nothing and
+    // a hint may go to one line, but the bottom of the screen never eats the
+    // hand: below the edge of a page whose html/body is overflow:hidden there
+    // is no scrolling, panning or zooming it back into view.
+    settle(0, _FIT_HAND_HARD_FLOOR, _FIT_HINT_HARD_FLOOR);
+  }
+  window.__ccFitGameColumn = fitGameColumn;
+
   // ── Keep the floating side docks clear of the bottom UI ───────────────────
   // #bs-ctrl (Board Size + Chat) and #ig-challenge-panel are fixed to the
   // bottom corners of the screen, above the action bar and the hand. Both used
@@ -16223,7 +16412,10 @@
     // Switch the mobile game viewport on entering / leaving the in-game screen
     // (no-op on desktop). Done first so it runs even if the bs-ctrl is absent.
     try { window.ccGameViewport && window.ccGameViewport(visible); } catch {}
-    if (visible) { try { updateBottomDockOffset(); } catch (e) {} }
+    if (visible) {
+      try { fitGameColumn(true); } catch (e) {}
+      try { updateBottomDockOffset(); } catch (e) {}
+    }
     const ctrl = document.getElementById("bs-ctrl");
     if (!ctrl) return;
     ctrl.style.display = visible ? "flex" : "none";

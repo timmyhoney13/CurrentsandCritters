@@ -31,6 +31,15 @@
       --cr-gold-deep:  #c89320;
       --card-w:    98px;
       --card-h:    138px;
+      /* The HAND's card size, split off from --card-w/--card-h on purpose.
+         fitGameColumn() shrinks these (and only these) when a screen is too
+         short to hold the whole bottom stack, so the hand gives up height
+         before the bottom of the screen starts eating it. Shrinking
+         --card-h instead would drag every card on the BOARD down with it,
+         which is both unwanted and pointless: the board lives inside
+         #pv-table, which scrolls, so its height never fed the overflow. */
+      --hand-card-w: var(--card-w);
+      --hand-card-h: var(--card-h);
       --mini-w:    84px;
       --mini-h:    118px;
       --radius:    10px;
@@ -2174,7 +2183,10 @@
       display: grid;
       grid-template-columns: max-content 1fr max-content;
       align-items: end;
-      min-height: 168px;
+      /* The floor follows the hand it is holding (138 + 30 = the 168px this
+         always was), so when fitGameColumn() shrinks the cards on a short
+         screen the zone really gives the height back. */
+      min-height: calc(var(--hand-card-h) + 30px);
       position: relative;
       overflow: visible;
     }
@@ -2333,8 +2345,8 @@
     .pv-seat-score-empty::before { content: ""; }
 
     .pv-hand-card {
-      width: var(--card-w);
-      height: var(--card-h);
+      width: var(--hand-card-w);
+      height: var(--hand-card-h);
       position: relative;
       cursor: pointer;
       flex-shrink: 0;
@@ -2491,6 +2503,27 @@
     .log-entry:last-child { border: none; }
 
     /* ── CARD ZOOM MODAL ────────────────────────────────────────── */
+    /* ══ CARD ZOOM ═════════════════════════════════════════════════════
+       This is the only place in the game a card is shown big enough to read,
+       and on a phone it is the ONLY way to read one at all: the fan squeezes a
+       card down to ~50-65 device pixels wide, and the .pv-tooltip that carries
+       the rules text is painted on :hover, which a finger never produces.
+
+       It used to be cut off on exactly the screens that need it most.
+       #pv-zoom-inner is a flex COLUMN capped at 88vh holding a 70vh image plus
+       an unbounded info panel plus two 14px gaps, and it had no overflow rule,
+       so on anything short the rules text simply ran off the bottom of the
+       screen. Three more, all measured on a phone:
+         - the image was capped at 380px even where the screen offered 526,
+           so the "zoomed" card came out ~253 device px wide;
+         - the two nav arrows are position:fixed 48px from each edge, and a
+           90vw-wide card reaches within 19px of the edge, so they sat ON the
+           artwork they page through;
+         - the close button hangs at top/right -14px, i.e. off the corner of a
+           box that is already at the edge of a narrow screen.
+       Fixed below, and in dvh rather than vh: on iOS `vh` is the height with
+       the browser toolbars retracted, which over-reports the room by however
+       much toolbar is actually on screen. */
     #pv-zoom-modal {
       display: none;
       position: fixed; inset: 0;
@@ -2501,16 +2534,37 @@
       align-items: center;
       justify-content: center;
       backdrop-filter: blur(6px);
+      padding: 14px;
+      /* Last-resort escape hatch: if a card ever carries more text than even a
+         scrolling info panel can hold, the modal itself scrolls. Nothing in
+         here can end up somewhere the player cannot reach. */
+      overflow: auto;
+      overscroll-behavior: contain;
     }
     #pv-zoom-modal.open { display: flex; }
     #pv-zoom-inner {
       position: relative;
-      max-width: 90vw; max-height: 88vh;
+      /* Bigger than the old flat 380px wherever the screen allows it: the
+         whole point of the zoom is to be readable. */
+      max-width: min(92vw, 520px);
+      /* 100%, not a dvh fraction: the modal carries padding (and reserves a
+         strip along the bottom for the docked nav arrows on a small screen),
+         and a viewport-relative cap knows nothing about it, so on a short
+         phone the box was sized to 92dvh inside an 88px-smaller content area
+         and ran off the TOP. A percentage resolves against the modal's own
+         content box, which is the space that actually exists. */
+      max-height: 88vh;
+      max-height: 100%;
       display: flex; flex-direction: column; align-items: center; gap: 14px;
+      min-height: 0;
     }
     #pv-zoom-img {
-      max-width: min(380px, 90vw);
+      max-width: 100%;
       max-height: 70vh;
+      max-height: 56dvh;
+      /* Shrink to fit rather than push the rules text off the bottom. */
+      flex: 0 1 auto; min-height: 0;
+      width: auto; height: auto; object-fit: contain;
       border-radius: 14px;
       border: 3px solid var(--cyan);
       box-shadow: 0 0 60px rgba(61,214,245,.35), 0 20px 60px rgba(0,0,0,.8);
@@ -2522,7 +2576,10 @@
       border: 1px solid var(--border);
       border-radius: 10px;
       padding: 10px 18px;
-      max-width: 380px;
+      max-width: 100%;
+      /* The text scrolls inside its own panel instead of off the screen. */
+      flex: 0 1 auto; min-height: 0; overflow-y: auto;
+      overscroll-behavior: contain;
     }
     #pv-zoom-info .zm-name { font-family: "Cinzel", serif; font-size: 16px; font-weight: 900; color: var(--cyan); margin-bottom: 4px; }
     #pv-zoom-info .zm-species { font-size: 12px; color: var(--muted); margin-bottom: 5px; }
@@ -2555,6 +2612,36 @@
     #pv-zoom-counter {
       font-size: 11px; color: var(--muted); text-align: center;
       margin-top: -6px; letter-spacing: .5px;
+      flex-shrink: 0;
+    }
+
+    /* Narrow screens: the arrows come off the artwork and dock along the
+       bottom, and the modal reserves the strip they sit in so the info panel
+       can never end up underneath them. Both are also grown to a real touch
+       target. The close button comes INSIDE the box, because -14px off the
+       corner of a box that is already 92vw wide is off the screen. */
+    @media (max-width: 700px), (max-height: 620px) {
+      #pv-zoom-modal { padding-bottom: 74px; }
+      .pv-zoom-nav {
+        top: auto; bottom: 12px; transform: none;
+        width: 76px; height: 50px; font-size: 26px;
+      }
+      #pv-zoom-close {
+        top: 6px; right: 6px;
+        width: 40px; height: 40px; font-size: 20px;
+        background: rgba(6,18,48,.92); color: var(--text);
+      }
+    }
+    /* A phone held sideways has width and no height at all, so the card and
+       its rules text sit side by side instead of stacked. */
+    @media (max-height: 620px) and (min-aspect-ratio: 1 / 1) {
+      #pv-zoom-inner {
+        flex-direction: row; align-items: center;
+        max-width: min(96vw, 780px); gap: 16px;
+      }
+      #pv-zoom-img { max-height: 84dvh; }
+      #pv-zoom-info { text-align: left; max-height: 84dvh; }
+      #pv-zoom-counter { display: none !important; }
     }
 
     /* ── TOASTS ─────────────────────────────────────────────────── */
@@ -5404,7 +5491,16 @@
        past --igcp-room and the sideways-phone case loses a card again. */
     #igcp-cards { max-height: max(56px, calc(var(--igcp-room) - 88px)); overflow-y: auto; }
 
-    @media (max-width: 1180px) and (min-height: 620px) {
+    /* The seats stack ABOVE the hand when there is vertical room to spend
+       (>=620px tall), and ALSO on any screen too narrow to flank at all,
+       whatever its height. That second clause is the one a 320px phone needs:
+       four compact pills a side is ~212px of a 320px row, so the hand's column
+       was left ~108px and the fan spilled back under the z-index:20 seat
+       clusters, which is the original untappable-hand bug at a width the
+       height-gated rule never covered (measured: 3 of 8 cards off screen, all
+       8 failing the hit test). Below 700px there is no width to flank in, so
+       the extra row is not a trade any more, it is the only layout that fits. */
+    @media (max-width: 1180px) and (min-height: 620px), (max-width: 700px) {
       #pv-hand-zone {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         grid-template-areas:
@@ -5423,7 +5519,7 @@
       #pv-hand {
         grid-area: hand;
         align-self: end;
-        min-height: var(--card-h);
+        min-height: var(--hand-card-h);
         z-index: 25;
       }
     }
@@ -5481,6 +5577,72 @@
       .pv-pool-card img { min-width: 0; }
     }
 
+    /* Narrow AND short: the stacked seat row above is the only layout that
+       fits (see the rule above), so make the row itself cheap. The score line
+       stays, a phone losing every player's score and card count is exactly the
+       regression #pv-game's dvh height was introduced to fix. */
+    @media (max-width: 700px) and (max-height: 620px) {
+      .pv-seat-cluster { padding: 3px 3px; gap: 2px; border-radius: 12px; }
+      .pv-seat { width: 50px; padding: 3px 1px; gap: 1px; }
+      .pv-seat-avatar-wrap { width: 26px; height: 26px; }
+      .pv-seat-name { font-size: 9px; max-width: 46px; }
+      .pv-seat-score { font-size: 9px; }
+      .pv-seat-me-badge { font-size: 9px; }
+    }
+
+    /* ══ SHORT SCREENS: THE BOTTOM STACK MUST NEVER RUN OFF THE EDGE ═══
+       #pv-game is a flex COLUMN and #pv-table is the only child that can
+       shrink (flex:1; min-height:0). Every other child, the notice bar, the
+       turn banner, the guide bar, the two phase banners, the action bar and
+       the hand zone, is flex-shrink:0. So the moment they add up to more than
+       100dvh the table collapses to zero and the REST KEEPS GOING, straight
+       off the bottom of a screen whose html/body is overflow:hidden. There is
+       no scrollbar and no gesture that reaches it: the hand is simply gone.
+
+       Measured, with the guide bar up (which is any turn of YOURS) and a
+       phase banner showing (the draw prompt, or the hand-limit discard
+       prompt, which is exactly when you must tap a card):
+
+         320x568  (iPhone SE)          hand zone cut off by 59-157px, ALL cards
+         360x740  (Galaxy S8, discard) cut off by 26px
+         844x390  (phone held sideways) cut off by 23-99px, cards off screen
+
+       On a phone in MOBILE mode the widened game viewport (see ccGameViewport)
+       multiplies the layout height by 1.5 too, which hid this: it bought
+       enough slack to paper over the overflow, at the price of a card only
+       ~65 device pixels wide. Every other way onto a small screen, a phone
+       whose device detection said "computer", a phone held sideways, a
+       resized desktop window, a split-screen tablet, got the raw size and the
+       cut-off. "Every device" means this has to hold at the raw size too.
+
+       Two thresholds, both keyed on HEIGHT (the axis that actually overflows)
+       and gated on width so no real desktop window is compacted:
+         (1) short and narrow, trim the action bar and the hand.
+         (2) genuinely short (a phone on its side), trim harder.
+       fitGameColumn() in preview-app.js is the measured safety net underneath
+       both: CSS gets the common cases right before a single frame is painted,
+       JS guarantees the rest. */
+    @media (max-height: 900px) and (max-width: 1180px) {
+      /* The action bar was the single biggest waste: 4 wrapped rows and 207px
+         of a 568px-tall screen. Nothing here is a tap target getting smaller
+         than 34px, the (pointer: coarse) rules above still apply on top. */
+      #pv-action-bar { padding: 5px 8px; gap: 6px; }
+      #pv-action-bar .pv-btn { font-size: 12px; padding: 7px 11px; border-radius: 8px; }
+      #pv-help-btn { padding: 5px 11px; border-radius: 12px; }
+      #pv-help-btn .help-sub { display: none; }   /* "strategies & tips" */
+      #pv-help-btn .help-label { font-size: 12px; }
+      #pv-action-bar select { font-size: 12px; }
+      .pv-action-divider { display: none; }
+      /* The hand gives up height before the screen does. --hand-card-w/h only,
+         so the board's cards keep their size: the board is inside #pv-table,
+         which scrolls, so it never fed the overflow in the first place. */
+      :root { --hand-card-w: 84px; --hand-card-h: 118px; }
+    }
+    @media (max-height: 620px) {
+      #pv-action-bar { padding: 4px 7px; gap: 5px; }
+      #pv-action-bar .pv-btn { font-size: 11.5px; padding: 6px 9px; }
+      :root { --hand-card-w: 74px; --hand-card-h: 104px; }
+    }
     /* ── AUTH / LOGIN SYSTEM ───────────────────────────────── */
     #auth-loading-screen {
       position: fixed; inset: 0; z-index: 9200;

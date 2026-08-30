@@ -191,6 +191,7 @@
 # (which take the tap), every card in your hand was unclickable, two were off
 # the screen entirely, and the deck you draw from sat past the right edge.
 !test_mobile_layout.js
+!test_mobile_nothing_cut_off.js
 # Weekly Challenges: daily challenges were retired (1.6.54), and the weekly
 # strip now starts CLOSED. Proves the daily system left no stumps behind, no
 # pool, no state, no reporting hook, and none of the per-payload observer state
