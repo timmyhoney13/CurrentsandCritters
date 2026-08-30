@@ -13,14 +13,34 @@ abandoned seat today, and a kick makes one deliberately: without the stand-in,
 "remove the player who is ruining the game" would hand everyone left a game
 that stops dead every time the empty chair comes round.
 
-So this test kicks a seated player mid-match and then watches the turn actually
-come round to their seat and MOVE, on its own, with nobody submitting anything
-for it.
+So this test kicks the only human at the table on a running match and waits for
+the game to finish on its own. A seat played by the stand-in never becomes the
+"active action seat" (that flag means "a human is being waited on", and the
+whole point is that nobody is), so what gets measured is the thing that would
+actually break: the table continuing to go round, all the way to a real result.
 """
-import threading
+import atexit
+import os
+import shutil
+import tempfile
 import time
 
+# A real match WRITES: a training record into the shipped human-game dataset, a
+# game-history file, a leaderboard entry and a room state file. This test plays
+# a whole game out, and an all-bot game whose "human" was kicked is exactly the
+# sort of thing that must never be fed back into the AI as an example of how
+# people play. Redirect all of it before multiplayer_server is even imported,
+# because it resolves most of these paths once, at import time.
+_SANDBOX = tempfile.mkdtemp(prefix="cc-kick-test-")
+atexit.register(shutil.rmtree, _SANDBOX, True)
+os.environ["FISH_ROOM_STATE_DIR"] = os.path.join(_SANDBOX, "state")
+os.environ["FISH_GAMES_HISTORY_DIR"] = os.path.join(_SANDBOX, "games_history")
+os.environ["FISH_COMPETITIVE_GAMES_DIR"] = os.path.join(_SANDBOX, "competitive_games")
+
 import multiplayer_server as mp
+
+# DATASET_PATH has no environment knob, so it is redirected on the module.
+mp.DATASET_PATH = os.path.join(_SANDBOX, "human_game_dataset.jsonl")
 
 
 def _read(room, fn):

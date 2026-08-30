@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-08-30.3";
+  const APP_BUILD   = "2026-08-30.6";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -4289,12 +4289,29 @@
     return (entry && Array.isArray(entry.faces) && entry.faces.length) ? entry.faces[0] : entry;
   }
 
-  function _blockedPlayMessage(entryUid, faceUid, targetDir) {
+  // Why a drop was refused.
+  //
+  // A two-sided card is ONE hand entry holding TWO animals, and the lane you
+  // aim at is what decides which of them you are playing. Entry 105 is the
+  // Great White Shark (Diamond, cost 4) on its Left half and the Goliath
+  // Grouper (Square, cost 1) on its Right. So every reason below is worked out
+  // for the face that owns the TARGET lane, never for the entry as a whole.
+  //
+  // Reading it off the entry is what produced "this card only goes in the
+  // Right lane" for a player looking at a Great White Shark: the shark's own
+  // lane IS Left, but with only three other cards in hand its cost of 4 was
+  // unpayable, so the server offered no left-lane play, only the cheap
+  // Grouper's right-lane one, and the lane check then reported the Grouper's
+  // lane as if it were the card's. The lane a card can use is a property of
+  // the card; what you can pay for this turn is not. They are separate answers
+  // and this says which one actually blocked the play.
+  function _blockedPlayMessage(entryUid, faceUid, targetDir, targetOceanUid) {
     if (!_viewerCanActNow()) return "It is not your turn.";
     if (_imAway) return "You're on Surf's Up, tap 🌊 I'm Back before making a move.";
 
     const entry = handEntryMap.get(Number(entryUid)) || null;
     const face = _entryFirstFace(entry) || {};
+    const faces = (entry && Array.isArray(entry.faces) && entry.faces.length) ? entry.faces : [face];
     const species = String(face.species || entry?.species || "").trim();
     const me = latestPayload?.state?.players?.find(p => p.index === myIdx);
     const board = Array.isArray(me?.board) ? me.board : [];
@@ -4302,23 +4319,52 @@
       return "You need to play an Ocean first.";
     }
 
+    const tDir = String(targetDir || "").toLowerCase();
+    if (tDir && species === "Ocean") return "This Ocean goes in the Ocean drop zone.";
+
     const acts = (legalActions || []).filter(a =>
       (a.kind === "play_to_ocean" || a.kind === "play_ocean") &&
       (Number(a.card_uid) === Number(entryUid) || Number(a.face_uid) === Number(faceUid))
     );
+
+    // The lanes this card can EVER use, read off its own faces rather than off
+    // whatever happens to be affordable right now. An unaffordable half still
+    // owns its lane, and saying otherwise is the bug above.
+    const LANES = ["up", "down", "left", "right"];
+    const cardDirs = [...new Set(
+      faces.map(f => String(f?.direction || "").toLowerCase()).filter(d => LANES.includes(d))
+    )];
+    if (tDir && cardDirs.length && !cardDirs.includes(tDir)) {
+      return cardDirs.length === 1
+        ? `This card only goes in the ${_dirHuman(cardDirs[0])} lane.`
+        : `This card only goes in these lanes: ${cardDirs.map(_dirHuman).join(", ")}.`;
+    }
+
+    // Right lane, so name the animal that goes there and say what stopped it.
+    const laneFace = tDir ? faces.find(f => String(f?.direction || "").toLowerCase() === tDir) : null;
+    if (laneFace) {
+      const who = String(laneFace.name || "").trim() || "That side of this card";
+      const laneActs = acts.filter(a => Number(a.face_uid) === Number(laneFace.uid));
+      if (!laneActs.length) {
+        const cost  = Number(laneFace.cost ?? 0);
+        const spare = Array.isArray(me?.hand) ? Math.max(0, me.hand.length - 1) : null;
+        if (cost > 0 && spare !== null && spare < cost) {
+          return `${who} costs ${cost} card${cost === 1 ? "" : "s"} to play, and you have ${spare === 0 ? "no" : "only " + spare} other card${spare === 1 ? "" : "s"} to pay with.`;
+        }
+        if (cost > 0) return `${who} costs ${cost} card${cost === 1 ? "" : "s"} to play.`;
+        return `${who} can't be played right now.`;
+      }
+      // It plays fine somewhere, just not into this ocean's lane.
+      if (targetOceanUid != null && !laneActs.some(a => Number(a.ocean_uid) === Number(targetOceanUid))) {
+        return `That ${_dirHuman(tDir)} spot is taken. ${who} needs a free one on another ocean.`;
+      }
+    }
+
     if (!acts.length) {
       if (species === "Ocean") return "This Ocean goes in the Ocean drop zone.";
       return "That card cannot be played right now.";
     }
-
     const costs = [...new Set(acts.map(a => Number(a.cost_to_pay || 0)).filter(n => n > 0))];
-    const dirs = [...new Set(acts.map(a => String(a.face_direction || "").toLowerCase()).filter(Boolean))];
-    const tDir = String(targetDir || "").toLowerCase();
-    if (tDir && dirs.length && !dirs.includes(tDir)) {
-      return dirs.length === 1
-        ? `This card only goes in the ${_dirHuman(dirs[0])} lane.`
-        : `This card only goes in these lanes: ${dirs.map(_dirHuman).join(", ")}.`;
-    }
     if (costs.length) {
       const cost = Math.min(...costs);
       return `This card costs ${cost} card${cost === 1 ? "" : "s"} to play.`;
@@ -6606,7 +6652,13 @@
             const poolNow = Array.isArray(state.pool) ? state.pool : [];
             const nowUidSet = new Set(poolNow.map(e => Number(e.entry_uid)));
             const drawnFromPool = (_drawTurnStartPool || []).filter(e => !nowUidSet.has(Number(e.entry_uid)));
-            const deckCount = Math.max(0, 2 - drawnFromPool.length);
+            // Deck draws are COUNTED off deck_remaining, never inferred from
+            // "2 minus the pool draws". That assumption reported "Drew 2 from
+            // deck" over every turn that played a card and drew nothing.
+            const deckNow = Number(state.deck_remaining);
+            const deckCount = (_drawTurnStartDeck != null && Number.isFinite(deckNow))
+              ? Math.max(0, _drawTurnStartDeck - deckNow)
+              : 0;
             const prevBoardUids = _drawTurnStartBoards[_drawPrevPlayer] || new Set();
             const prevPlayerNow = players.find(p => p.name === _drawPrevPlayer);
             const prevBoardNow = Array.isArray(prevPlayerNow?.board) ? prevPlayerNow.board : [];
@@ -6619,6 +6671,8 @@
         }
         const poolNow = Array.isArray(state.pool) ? state.pool : [];
         _drawTurnStartPool = [...poolNow];
+        _drawTurnStartDeck = Number.isFinite(Number(state.deck_remaining))
+          ? Number(state.deck_remaining) : null;
         // Snapshot each player's board oceans for fallback diff
         _drawTurnStartBoards = {};
         players.forEach(p => {
@@ -6906,6 +6960,10 @@
             kick: Array.isArray(_v.kick) ? _v.kick : [],
             skip: (_v.skip && typeof _v.skip === "object") ? _v.skip : null }
         : { ballot_seat: null, kick: [], skip: null };
+      // The buttons live in the action bar, not on a seat, so nothing else
+      // redraws them: they have to be repainted here or they show the tally
+      // from whenever they were last touched.
+      try { updateVoteButtons(); } catch (_) {}
       const mySeat = (Number.isInteger(myIdx)) ? seatsArr.find(s => s && s.index === myIdx) : null;
       const wasAway = _imAway;
       _imAway = Boolean(mySeat && mySeat.is_away);
@@ -7836,10 +7894,7 @@
     try { if (typeof window.__fishEquippedBackground === "function") _myBgKey = String(window.__fishEquippedBackground() || ""); } catch (_) { _myBgKey = ""; }
     const _seatsKey = JSON.stringify(
       (players||[]).map(p=>{const _sm=(_latestSeatsForSurf||[]).find(s=>s&&s.index===p.index);return{i:p.index,n:p.name,s:p.score,hc:p.hand_count??(Array.isArray(p.hand)?p.hand.length:0),av:p.avatar,bg:String(p.background||""),aw:Boolean(_sm&&_sm.is_away),kk:Boolean(_sm&&_sm.kicked)};})
-    ) + "|" + turnIndex + "|" + myAvatarUrl + "|" + _myBgKey
-      // A vote landing changes nothing else about a seat, so without the
-      // tallies in the key the pill keeps rendering yesterday's count.
-      + "|" + JSON.stringify(_latestVotes);
+    ) + "|" + turnIndex + "|" + myAvatarUrl + "|" + _myBgKey;
     if (_seatsKey === _seatsRenderKey && leftEl.children.length > 0) return;
     _seatsRenderKey = _seatsKey;
     leftEl.innerHTML  = "";
@@ -7961,12 +8016,6 @@
         kb.title = `${p.name || "This player"} was removed by a vote. A bot is playing their seat.`;
         seat.appendChild(kb);
       }
-      // The two vote buttons, behind a ⋯ so eight seat pills do not turn into
-      // a wall of red. Only ever drawn on somebody else's seat, and only when
-      // the server says this viewer actually holds a ballot against it.
-      if (!isMe && !(_seatMeta && _seatMeta.kicked)) {
-        try { attachSeatVoteMenu(seat, p); } catch (e) {}
-      }
       if (_isAway) {
         const ab = document.createElement("div");
         ab.className = "pv-seat-away-badge";
@@ -8009,33 +8058,40 @@
     try { window.__ccRefreshNames?.(); } catch (_) {}
   }
 
-  // ── Vote Kick / Skip Turn, on the seat pills ───────────────────
+  // ── Vote Kick / Skip Turn, in the action bar ──────────────────
   // Both of these used to be chat commands, or nothing at all: to pass a quiet
   // player's turn you typed "P3 is AFK" (and had to know that), and to get rid
   // of somebody who was ruining the game there was no way at all short of
-  // everyone leaving. They are buttons now, with the tallies drawn on them.
+  // everyone leaving. They are buttons now, sat next to Surf's Up, which is
+  // the same kind of thing pointed the other way: that one says "I have
+  // stepped away", these two are about somebody else.
   //
-  // The two rules are deliberately different, and the menu says which is which:
+  // The two rules are deliberately different, and the buttons say which is
+  // which:
   //   Skip Turn  costs one turn and needs HALF the other players.
   //   Vote Kick  is permanent and needs EVERY other player.
-  let _voteMenuEl = null;
-  let _voteMenuSeat = null;
+  //
+  // Skip Turn needs no target picker: there is only ever one player whose turn
+  // it is. Vote Kick opens one, because any of the others could be the target.
+  let _kickPickerOpen = false;
   let _voteInFlight = false;
 
-  function closeSeatVoteMenu() {
-    if (_voteMenuEl && _voteMenuEl.parentNode) _voteMenuEl.parentNode.removeChild(_voteMenuEl);
-    _voteMenuEl = null;
-    _voteMenuSeat = null;
+  function closeKickPicker() {
+    const picker = document.getElementById("pv-kick-picker");
+    if (picker) picker.classList.remove("open");
+    const btn = document.getElementById("pv-kick-btn");
+    if (btn) btn.setAttribute("aria-expanded", "false");
+    _kickPickerOpen = false;
   }
   // Any click outside, or Escape, puts it away.
   document.addEventListener("click", (e) => {
-    if (!_voteMenuEl) return;
-    if (_voteMenuEl.contains(e.target)) return;
-    if (e.target && e.target.closest && e.target.closest(".pv-seat-vote-dots")) return;
-    closeSeatVoteMenu();
+    if (!_kickPickerOpen) return;
+    const wrap = document.getElementById("pv-kick-wrap");
+    if (wrap && wrap.contains(e.target)) return;
+    closeKickPicker();
   }, true);
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && _voteMenuEl) closeSeatVoteMenu();
+    if (e.key === "Escape" && _kickPickerOpen) closeKickPicker();
   });
 
   function _kickInfoFor(seatIndex) {
@@ -8065,48 +8121,72 @@
       try { showToast("Could not reach the server, check your connection.", "err"); } catch {}
     } finally {
       _voteInFlight = false;
-      closeSeatVoteMenu();
+      closeKickPicker();
     }
   }
 
-  // Build one row of the menu. `info` is the server's tally for this vote, or
-  // null when this viewer has no ballot to cast.
-  function _voteRow(cls, label, hint, info, onClick) {
+  // One row of the kick picker: a player, their tally, and what pressing it does.
+  function _kickRow(info) {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "pv-vote-row " + cls;
+    btn.className = "pv-vote-row pv-vote-kick" + (info.mine ? " voted" : "");
+    btn.setAttribute("role", "menuitem");
     const top = document.createElement("span");
     top.className = "pv-vote-row-label";
-    top.textContent = label;
+    top.textContent = (info.name || `Player ${info.seat + 1}`) + (info.mine ? " ✓" : "");
     const sub = document.createElement("span");
     sub.className = "pv-vote-row-hint";
-    if (!info) {
+    if (info.blocked) {
       btn.disabled = true;
-      sub.textContent = hint;
-    } else if (info.blocked) {
-      btn.disabled = true;
-      sub.textContent = info.reason || hint;
+      sub.textContent = "the host runs the lobby";
     } else {
-      sub.textContent = `${info.votes}/${info.needed} · ${hint}`;
-      if (info.mine) {
-        btn.classList.add("voted");
-        top.textContent = label + " ✓";
-      }
-      btn.addEventListener("click", (ev) => { ev.stopPropagation(); onClick(info); });
+      sub.textContent = info.mine
+        ? `${info.votes}/${info.needed} · tap to take your vote back`
+        : `${info.votes}/${info.needed} · everyone must agree`;
+      btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        _sendVote("kick_player",
+          { target_seat_index: info.seat, undo: Boolean(info.mine) },
+          (d) => d.kicked
+            ? `${d.name} was removed from the game.`
+            : `Kick vote: ${d.votes}/${d.needed}.`);
+      });
     }
     btn.appendChild(top);
     btn.appendChild(sub);
     return btn;
   }
 
-  // The menu is wider than a seat pill, and the pills sit in clusters against
-  // BOTH screen edges. Anchored to one corner it therefore hangs off the side
-  // of the window for every seat on that edge. Slide it back inside, measuring
-  // rather than guessing, because how far it hangs over depends on the window.
-  function _positionVoteMenu(menu, anchorEl) {
+  function openKickPicker() {
+    const picker = document.getElementById("pv-kick-picker");
+    if (!picker) return;
+    picker.innerHTML = "";
+    const head = document.createElement("div");
+    head.className = "pv-vote-head";
+    head.textContent = "Remove a player";
+    picker.appendChild(head);
+    (_latestVotes.kick || []).forEach(info => picker.appendChild(_kickRow(info)));
+    const foot = document.createElement("div");
+    foot.className = "pv-vote-foot";
+    foot.textContent = "Everyone else has to agree. This is permanent.";
+    picker.appendChild(foot);
+    picker.classList.add("open");
+    const btn = document.getElementById("pv-kick-btn");
+    if (btn) btn.setAttribute("aria-expanded", "true");
+    _kickPickerOpen = true;
+    _clampToWindow(picker, document.getElementById("pv-kick-wrap"));
+  }
+
+  // The picker hangs off a button that can sit anywhere along a full-width
+  // action bar, so anchoring it to one corner puts it off the side of the
+  // window at some window sizes. Slide it back inside, measuring rather than
+  // guessing, because how far it hangs over depends on the window.
+  function _clampToWindow(menu, anchorEl) {
     try {
       const pad = 6;
-      const seat = anchorEl.getBoundingClientRect();
+      menu.style.left = "";
+      menu.style.right = "";
+      const anchor = anchorEl.getBoundingClientRect();
       const box = menu.getBoundingClientRect();
       const room = window.innerWidth;
       // Where it should sit in the window: its current place, pulled inside
@@ -8116,82 +8196,73 @@
       const wantLeft = Math.min(Math.max(pad, box.left), maxLeft);
       if (Math.abs(wantLeft - box.left) < 1) return;
       menu.style.right = "auto";
-      menu.style.left = Math.round(wantLeft - seat.left) + "px";
+      menu.style.left = Math.round(wantLeft - anchor.left) + "px";
     } catch (_) {}
   }
 
-  function openSeatVoteMenu(anchorEl, p) {
-    closeSeatVoteMenu();
-    const kick = _kickInfoFor(p.index);
-    const skip = _skipInfoFor(p.index);
-    const menu = document.createElement("div");
-    menu.className = "pv-seat-vote-menu";
-    menu.addEventListener("click", (e) => e.stopPropagation());
+  // Repaint both buttons from the tallies the last payload carried. A button
+  // with nothing behind it is hidden outright rather than disabled: in a game
+  // against bots there is nobody to vote with, and a permanently dead control
+  // in the action bar is just clutter.
+  function updateVoteButtons() {
+    const skipBtn = document.getElementById("pv-skip-turn-btn");
+    const kickWrap = document.getElementById("pv-kick-wrap");
+    const kickBtn = document.getElementById("pv-kick-btn");
+    if (!skipBtn || !kickWrap || !kickBtn) return;
 
-    const head = document.createElement("div");
-    head.className = "pv-vote-head";
-    head.textContent = p.name || `Player ${p.index + 1}`;
-    menu.appendChild(head);
+    const skip = _latestVotes.skip;
+    if (!skip) {
+      skipBtn.style.display = "none";
+    } else {
+      skipBtn.style.display = "";
+      const who = skip.name || `Player ${skip.seat + 1}`;
+      skipBtn.disabled = Boolean(skip.blocked || skip.mine || _voteInFlight);
+      skipBtn.classList.toggle("voted", Boolean(skip.mine));
+      skipBtn.textContent = skip.mine
+        ? `⏭ Skipping ${who} ${skip.votes}/${skip.needed}`
+        : `⏭ Skip ${who}'s Turn${skip.votes ? ` ${skip.votes}/${skip.needed}` : ""}`;
+      skipBtn.title = skip.blocked
+        ? `${who} can't be skipped right now.`
+        : skip.mine
+          ? `You voted to skip ${who}'s turn (${skip.votes} of ${skip.needed} needed).`
+          : `Vote to make ${who} draw 2 and pass. Needs half the other players `
+            + `(${skip.votes} of ${skip.needed} so far).`;
+    }
 
-    menu.appendChild(_voteRow(
-      "pv-vote-skip", "Skip Turn",
-      skip ? "half the table" : "only on their turn",
-      skip && Object.assign({}, skip, {
-        reason: skip.blocked ? "not right now" : "",
-      }),
-      () => _sendVote("skip_turn", { target_seat_index: p.index },
-        (d) => d.challenge_started
-          ? `${d.name} has 20 seconds to answer.`
-          : `Voted to skip ${d.name}'s turn (${d.votes}/${d.needed}).`)
-    ));
-
-    menu.appendChild(_voteRow(
-      "pv-vote-kick", kick && kick.mine ? "Take Back Kick Vote" : "Vote Kick",
-      kick ? "everyone must agree" : "not available here",
-      kick && Object.assign({}, kick, {
-        reason: kick.blocked ? "the host runs the lobby" : "",
-      }),
-      (info) => _sendVote("kick_player",
-        { target_seat_index: p.index, undo: Boolean(info.mine) },
-        (d) => d.kicked
-          ? `${d.name} was removed from the game.`
-          : `Kick vote: ${d.votes}/${d.needed}.`)
-    ));
-
-    const foot = document.createElement("div");
-    foot.className = "pv-vote-foot";
-    foot.textContent = "A kick is permanent. A skip costs one turn.";
-    menu.appendChild(foot);
-
-    anchorEl.appendChild(menu);
-    _positionVoteMenu(menu, anchorEl);
-    _voteMenuEl = menu;
-    _voteMenuSeat = p.index;
+    const kicks = _latestVotes.kick || [];
+    if (!kicks.length) {
+      kickWrap.style.display = "none";
+      if (_kickPickerOpen) closeKickPicker();
+    } else {
+      kickWrap.style.display = "";
+      const cast = kicks.reduce((n, k) => n + (k.votes || 0), 0);
+      const mine = kicks.some(k => k.mine);
+      kickBtn.disabled = Boolean(_voteInFlight);
+      kickBtn.classList.toggle("has-votes", cast > 0);
+      kickBtn.textContent = cast > 0 ? `🚫 Vote Kick (${cast})` : "🚫 Vote Kick";
+      kickBtn.title = mine
+        ? "You have a kick vote running. Removing a player takes everyone else."
+        : "Vote to remove a player for good. Every other player has to agree.";
+      // Keep an open picker in step with the tallies that just landed.
+      if (_kickPickerOpen) openKickPicker();
+    }
   }
 
-  // The ⋯ handle. Hidden until there is at least one vote this viewer could
-  // actually cast, so a solo-vs-bots game never grows a menu it cannot use.
-  function attachSeatVoteMenu(seatEl, p) {
-    if (!_kickInfoFor(p.index) && !_skipInfoFor(p.index)) return;
-    const dots = document.createElement("button");
-    dots.type = "button";
-    dots.className = "pv-seat-vote-dots";
-    dots.textContent = "⋯";
-    dots.title = `Vote options for ${p.name || `Player ${p.index + 1}`}`;
-    dots.setAttribute("aria-label", `Vote options for ${p.name || `Player ${p.index + 1}`}`);
-    const kick = _kickInfoFor(p.index);
-    const skip = _skipInfoFor(p.index);
-    // A vote already under way is worth seeing without opening anything.
-    const live = Math.max(kick ? kick.votes : 0, skip ? skip.votes : 0);
-    if (live > 0) dots.classList.add("has-votes");
-    dots.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      ev.preventDefault();
-      if (_voteMenuSeat === p.index) { closeSeatVoteMenu(); return; }
-      openSeatVoteMenu(seatEl, p);
-    });
-    seatEl.appendChild(dots);
-  }
+  document.getElementById("pv-skip-turn-btn")?.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    const skip = _latestVotes.skip;
+    if (!skip || skip.blocked || skip.mine) return;
+    _sendVote("skip_turn", { target_seat_index: skip.seat },
+      (d) => d.challenge_started
+        ? `${d.name} has 20 seconds to answer.`
+        : `Voted to skip ${d.name}'s turn (${d.votes}/${d.needed}).`);
+  });
+
+  document.getElementById("pv-kick-btn")?.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    if (_kickPickerOpen) { closeKickPicker(); return; }
+    openKickPicker();
+  });
 
   // ── Opponent renderer ──────────────────────────────────────────
   function renderOpponents(opponents, turnIndex) {
@@ -10296,12 +10367,37 @@
                 String(a.face_direction||"").toLowerCase() === dir &&
                 (Number(a.card_uid) === entryUid || Number(a.face_uid) === faceUid)
               );
-              if (!matchingActs.length) { showToast(_blockedPlayMessage(entryUid, faceUid, dir), "warn"); return; }
+              if (!matchingActs.length) { showToast(_blockedPlayMessage(entryUid, faceUid, dir, Number(ocean.ocean_uid)), "warn"); return; }
               const useStarDrag = document.getElementById("pv-star-toggle")?.checked;
               const act = useStarDrag
                 ? (matchingActs.find(a => a.use_star) || matchingActs[0])
                 : (matchingActs.find(a => !a.use_star) || matchingActs[0]);
               _playOrConfirmStarSkip(act, actions);
+            });
+          } else if (isMyTurn) {
+            // An empty lane that nothing in hand can reach this turn still has
+            // to answer for itself. It used to have no drop listener at all, so
+            // a card let go over it just sprang back with no explanation, which
+            // is the same "it did not work" as a wrong toast, only quieter.
+            // Hand drags only: a board card being moved between oceans is aimed
+            // at the hub, and swallowing that drag here would break the move.
+            slot.addEventListener("dragover", (ev) => {
+              if (_handDragSrc === null) return;
+              // "move", not "none": a dragover that answers preventDefault with
+              // dropEffect "none" is a refused target, and the browser then
+              // never fires the drop, which is the silence this exists to end.
+              ev.preventDefault();
+              try { ev.dataTransfer.dropEffect = "move"; } catch (_) {}
+            });
+            slot.addEventListener("drop", (ev) => {
+              if (_handDragSrc === null) return;
+              ev.preventDefault();
+              let cardData = {};
+              try { cardData = JSON.parse(ev.dataTransfer.getData("application/x-fish-card") || "{}"); } catch {}
+              const entryUid = Number(cardData.entryUid);
+              const faceUid  = Number(cardData.faceUid);
+              if (!entryUid && !faceUid) return;
+              showToast(_blockedPlayMessage(entryUid, faceUid, dir, Number(ocean.ocean_uid)), "warn");
             });
           }
           lane.appendChild(slot);
@@ -10422,7 +10518,7 @@
                 String(a.face_direction||"").toLowerCase() === dir &&
                 (Number(a.card_uid) === entryUid || Number(a.face_uid) === faceUid)
               );
-              if (!act) { showToast(_blockedPlayMessage(entryUid, faceUid, dir), "warn"); return; }
+              if (!act) { showToast(_blockedPlayMessage(entryUid, faceUid, dir, Number(ocean.ocean_uid)), "warn"); return; }
               submitAction(act);
             });
             lane.appendChild(slot);
@@ -11752,6 +11848,19 @@
   });
 
   // ── Log renderer ───────────────────────────────────────────────
+  // How long the "Last Turn" pill stays up. A turn is a list, not a word: a
+  // player who played three cards and drew needs longer to read than one who
+  // drew once, so the hold grows with the number of lines. The old flat 5-6s
+  // was gone before a busy turn had finished being read.
+  const DN_HOLD_BASE_MS = 9000;
+  const DN_HOLD_PER_LINE_MS = 1200;
+  const DN_HOLD_MAX_MS = 16000;
+  const DN_MAX_LINES = 6;
+  function _drawNotifHoldMs(lineCount) {
+    const extra = Math.max(0, (Number(lineCount) || 1) - 1);
+    return Math.min(DN_HOLD_MAX_MS, DN_HOLD_BASE_MS + extra * DN_HOLD_PER_LINE_MS);
+  }
+
   function showDrawNotif(playerName, poolCards, deckCount, playedOceanName = null) {
     const el = document.getElementById("draw-notif");
     if (!el) return;
@@ -11839,28 +11948,39 @@
       el.classList.add("hiding");
       el.classList.remove("visible");
       _drawNotifTimer = setTimeout(() => { el.classList.remove("hiding"); _drawNotifTimer = null; }, 420);
-    }, 5000);
+    }, _drawNotifHoldMs(1));
   }
 
   // Show a turn notification built from the server's authoritative action list.
   // Each entry in `actions` is a plain string like
-  //   "Drew Emperor Penguin / Sea Urchin from pool"
-  //   "Played Manta Ray / Green Sea Turtle → Great Barrier Reef"
-  // Both sides of every two-sided card are already in the string.
+  //   "Drew Emperor Penguin / Staghorn Coral from the pool"
+  //   "Played Green Sea Turtle → Great Barrier Reef ★"
+  // A DRAWN card is named by both of its sides (you took the whole physical
+  // card, and it was face-up in the pool anyway); a PLAYED one is named by the
+  // single side that went down. Both are decided server-side, in
+  // GameRoom._describe_turn_action.
   function showTurnActionsNotif(playerName, actions) {
     const el = document.getElementById("draw-notif");
     if (!el) return;
-    const lines = actions.filter(Boolean);
+    let lines = actions.filter(Boolean);
     if (!lines.length) return;
+    // A Hermit Crab / Sea Turtle turn can be a dozen plays long. Show the first
+    // few and count the rest, so the pill stays a pill.
+    if (lines.length > DN_MAX_LINES) {
+      const hidden = lines.length - DN_MAX_LINES;
+      lines = lines.slice(0, DN_MAX_LINES).concat([`+${hidden} more`]);
+    }
 
     const nameEl = document.getElementById("dn-name");
     if (nameEl) nameEl.textContent = playerName;
 
     const actionEl = document.getElementById("dn-action");
     if (actionEl) {
+      // Each action is its own block, so a long line WRAPS instead of being
+      // clipped to an ellipsis halfway through the card's name.
       actionEl.innerHTML = lines
-        .map(l => `<span class="dn-cards">${l.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</span>`)
-        .join("<br>");
+        .map(l => `<span class="dn-line dn-cards">${l.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</span>`)
+        .join("");
     }
 
     // Avatar (same logic as showDrawNotif)
@@ -11894,7 +12014,7 @@
     _drawNotifTimer = setTimeout(() => {
       el.classList.add("hiding"); el.classList.remove("visible");
       _drawNotifTimer = setTimeout(() => { el.classList.remove("hiding"); _drawNotifTimer = null; }, 420);
-    }, 6000);
+    }, _drawNotifHoldMs(lines.length));
   }
 
   function renderLog(logTail) {
@@ -11952,7 +12072,7 @@
     _bestTurnPts=0; _bestTurnNames=[];
     _first100Crossings={}; _starCounts={}; _prevFreePlayActive=false;
     _prevCurrentPlayer=""; _shotTheMoonName=null; _prevGobyMap={};
-    _drawTurnStartPool=null; _drawTurnStartBoards={}; _drawPrevPlayer="";
+    _drawTurnStartPool=null; _drawTurnStartBoards={}; _drawTurnStartDeck=null; _drawPrevPlayer="";
     _prevDiscardCount=null;  // tide-sweep baseline resets per game/room
     if (_drawNotifTimer) { clearTimeout(_drawNotifTimer); _drawNotifTimer=null; }
     const _dnEl = document.getElementById("draw-notif"); if (_dnEl) _dnEl.classList.remove("visible", "hiding");
@@ -12742,6 +12862,8 @@
   let _preGameChallengeSnapshot = null; // {weekly: Set<id>} captured when game starts
   let _drawTurnStartPool   = null;     // pool snapshot at start of current player's turn
   let _drawTurnStartBoards = {};       // playerName → Set of ocean_uid numbers at turn start
+  let _drawTurnStartDeck   = null;     // deck_remaining at turn start, so the fallback
+                                       // MEASURES deck draws instead of assuming two
   let _drawPrevPlayer      = "";       // player name tracked for draw notifications
   let _drawNotifTimer     = null;
   let _lastRankedProcessed = null; // roomId of last game where ranked result was processed
