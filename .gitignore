@@ -244,6 +244,15 @@
 !test_music_sync.py
 !test_music_sync.js
 
+# The "Last Turn" pill in the top-right corner of the game. Its captions were
+# empty for every turn ever played (GameRoom._describe_action was defined twice
+# on the class and the later one silently won), so the client fell back to
+# guessing and announced draws that never happened. The .py half runs a real
+# match and reads the captions back out; the .js half proves the pill wraps
+# instead of clipping and holds long enough to read.
+!test_turn_notif_actions.py
+!test_turn_notif_pill.js
+
 # Vote Kick and Skip Turn, and the waiting room's Table Setup. The integration
 # half matters most: it runs a real match with the kicked seat empty, which is
 # the only way to catch the table parking on a chair nobody is coming back to.

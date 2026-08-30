@@ -6216,47 +6216,105 @@ class GameRoom:
             pass
         return "an ocean"
 
+    @staticmethod
+    def _played_face_name(gs: Any, action: Any) -> str:
+        """The name of the ONE face that was actually played.
+
+        Every non-ocean card is two-sided and exactly one side goes down, so
+        naming both sides is not a description of what happened, it is a guess
+        that is wrong half the time. `face_uid` is the side that was played;
+        `card_uid` is the hand entry, and an entry uid doubles as its own first
+        face, so it is the right fallback when the client sent no explicit face.
+        """
+        face_uid = getattr(action, "face_uid", None)
+        if face_uid is None:
+            face_uid = getattr(action, "card_uid", None)
+        try:
+            card = gs.card_db.get(int(face_uid))
+            if card is not None and getattr(card, "name", ""):
+                return card.name
+        except Exception:
+            pass
+        return "a card"
+
     @classmethod
-    def _describe_action(cls, gs: Any, ms: Any, action: Any) -> str:
-        """Build one human-readable line describing what an action did."""
+    def _describe_turn_action(cls, gs: Any, ms: Any, action: Any) -> str:
+        """One human-readable line saying what a committed action actually did.
+
+        This feeds the "Last Turn" pill in the corner of the game, so it is a
+        report, not a summary: it names the side of the card that was played,
+        the pool cards that were really taken, and the ocean they landed on.
+
+        Two things it must respect:
+          • It runs AFTER apply_action, so it can only read tables that outlive
+            the move. card_db and the pair maps are fixed at deck load, so
+            names still resolve once the card has left the hand or the pool.
+          • It is broadcast to the whole room, so a deck draw stays unnamed.
+            Only the drawer may know what came off the top.
+
+        Deliberately NOT called _describe_action: the admin Current Controller
+        owns that name on this class and, being defined further down, silently
+        won every lookup. Every description raised TypeError into a bare
+        `except`, so the server shipped an empty action list for every turn and
+        the client fell back to guessing from a board diff, which is what put
+        "Drew 2 from deck" over a turn that played a card.
+        """
         kind = str(getattr(action, "kind", ""))
         card_uid = getattr(action, "card_uid", None)
         ocean_uid = getattr(action, "ocean_uid", None)
-        draw_from_pool = int(getattr(action, "draw_from_pool", 0))
+        draw_from_pool = int(getattr(action, "draw_from_pool", 0) or 0)
         src_ocean = getattr(action, "source_ocean_uid", None)
+        star = " ★" if bool(getattr(action, "use_star", False)) else ""
 
         if kind == "draw":
-            if draw_from_pool and card_uid is not None:
-                return f"Drew {cls._entry_display_name(gs, ms, card_uid)} from pool"
-            return "Drew 1 card from deck"
+            if draw_from_pool:
+                # apply_action settles the real picks into pool_pick_uids. A
+                # draw never carries card_uid at all (it stays at its -1
+                # default), which is how every pool draw used to describe
+                # itself as the literal words "a card".
+                picks = list(getattr(action, "pool_pick_uids", []) or [])
+                if picks:
+                    names = [cls._entry_display_name(gs, ms, u) for u in picks]
+                    return "Drew " + ", ".join(names) + " from the pool"
+                return "Drew 1 card from the pool"
+            return "Drew 1 card from the deck"
 
         if kind == "play_ocean" and card_uid is not None:
-            return f"Played ocean: {cls._entry_display_name(gs, ms, card_uid)}"
+            return f"Played ocean: {cls._played_face_name(gs, action)}{star}"
 
         if kind == "play_to_ocean" and card_uid is not None:
-            card_desc = cls._entry_display_name(gs, ms, card_uid)
+            name = cls._played_face_name(gs, action)
             if ocean_uid is not None:
-                return f"Played {card_desc} → {cls._ocean_name(gs, ocean_uid)}"
-            return f"Played {card_desc}"
+                return f"Played {name} → {cls._ocean_name(gs, ocean_uid)}{star}"
+            return f"Played {name}{star}"
 
         if kind == "discard_to_pool" and card_uid is not None:
-            return f"Discarded {cls._entry_display_name(gs, ms, card_uid)} to pool"
+            # A discard hands over the whole physical card, both sides face-up
+            # in the pool, so both names are what the other players now see.
+            return f"Discarded {cls._entry_display_name(gs, ms, card_uid)} to the pool"
 
         if kind == "discard_batch_to_pool":
             uids = list(getattr(action, "pool_pick_uids", []) or [])
             if uids:
-                names = [cls._entry_display_name(gs, ms, u) for u in uids[:4]]
-                return "Discarded to pool: " + ", ".join(names)
-            return "Discarded cards to pool"
+                names = [cls._entry_display_name(gs, ms, u) for u in uids[:3]]
+                extra = len(uids) - len(names)
+                line = "Discarded to the pool: " + ", ".join(names)
+                return line + (f" +{extra} more" if extra > 0 else "")
+            return "Discarded cards to the pool"
 
-        if kind == "move_card" and card_uid is not None:
-            card_desc = cls._entry_display_name(gs, ms, card_uid)
+        # The engine's kind is move_between_oceans; move_card was never a real
+        # action kind, so this branch described nothing for years.
+        if kind in {"move_between_oceans", "move_card"} and card_uid is not None:
+            name = cls._played_face_name(gs, action)
             if ocean_uid is not None and src_ocean is not None:
-                return f"Moved {card_desc}: {cls._ocean_name(gs, src_ocean)} → {cls._ocean_name(gs, ocean_uid)}"
-            return f"Moved {card_desc}"
+                return (f"Moved {name}: {cls._ocean_name(gs, src_ocean)} → "
+                        f"{cls._ocean_name(gs, ocean_uid)}")
+            if ocean_uid is not None:
+                return f"Moved {name} → {cls._ocean_name(gs, ocean_uid)}"
+            return f"Moved {name}"
 
         if kind == "end_turn":
-            return ""  # don't clutter the log with end_turn
+            return ""  # ending a turn is not something that happened IN it
 
         return ""
 
@@ -10059,10 +10117,13 @@ class RoomLiveRecorder:
         except Exception:
             pass
         try:
-            desc = GameRoom._describe_action(gs, ms, action)
+            desc = GameRoom._describe_turn_action(gs, ms, action)
             self.room._append_turn_desc(player_name, desc)
-        except Exception:
-            pass
+        except Exception as exc:
+            # Never take the game down over a caption, but never swallow it in
+            # silence either: a bare `pass` here is what hid a method-name
+            # collision that emptied every turn summary in the game.
+            self.event(f"Turn description warning: {exc}")
 
     def snapshot(self, gs: fish.GameState, ms: fish.MatchState, turn_number: int, note: str) -> None:
         try:
