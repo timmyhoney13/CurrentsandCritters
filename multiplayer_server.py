@@ -11798,20 +11798,24 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_client_asset(ICON_PATH, content_type="image/svg+xml")
             return
 
+        # allow_webp on every player-home image: each has a pre-generated
+        # .webp sibling 60-95% smaller. The reference painting in particular is
+        # the full-viewport backdrop behind Player Home, so it is the single
+        # biggest image most players download.
         if parsed.path == "/player-home-reference.jpg":
-            self._send_client_asset(PLAYER_HOME_REFERENCE_PATH, content_type="image/jpeg")
+            self._send_client_asset(PLAYER_HOME_REFERENCE_PATH, content_type="image/jpeg", allow_webp=True)
             return
 
         if parsed.path == "/player-home-avatar.jpg":
-            self._send_client_asset(PLAYER_HOME_AVATAR_PATH, content_type="image/jpeg")
+            self._send_client_asset(PLAYER_HOME_AVATAR_PATH, content_type="image/jpeg", allow_webp=True)
             return
 
         if parsed.path == "/player-home-friend-twin.jpg":
-            self._send_client_asset(PLAYER_HOME_FRIEND_TWIN_PATH, content_type="image/jpeg")
+            self._send_client_asset(PLAYER_HOME_FRIEND_TWIN_PATH, content_type="image/jpeg", allow_webp=True)
             return
 
         if parsed.path == "/player-home-friend-mom.jpg":
-            self._send_client_asset(PLAYER_HOME_FRIEND_MOM_PATH, content_type="image/jpeg")
+            self._send_client_asset(PLAYER_HOME_FRIEND_MOM_PATH, content_type="image/jpeg", allow_webp=True)
             return
 
         if parsed.path.startswith("/avatars/"):
