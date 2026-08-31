@@ -219,8 +219,11 @@ console.log("\na username is an account");
         /isPasswordAccount \? "" : \(_authUser\.email \|\| ""\)/.test(APP));
   check("…and the name they type to get back in is stored, and shown in Settings",
         /login_username: nick/.test(APP) && /"Sign in as " \+ loginName/.test(APP));
+  // …and it tells that path which pane is on screen, because this one runs
+  // under CREATE, not under the nickname pane whose status line it reports
+  // into. See test_signup_entry.js for the failure that made that necessary.
   check("account creation reuses the one path an account is born on",
-        /const staged = takePendingSignup\(\);[\s\S]{0,800}?await finishNicknameSetup\(staged\.nick\)/.test(APP));
+        /const staged = takePendingSignup\(\);[\s\S]{0,800}?await finishNicknameSetup\(staged\.nick, \{ surfacePane: true \}\)/.test(APP));
   check("…and the chosen name survives the launcher's navigation into the game window",
         /CC_PENDING_SIGNUP_KEY = "cc_pending_signup_v1"/.test(APP)
         && /localStorage\.setItem\(CC_PENDING_SIGNUP_KEY/.test(APP));

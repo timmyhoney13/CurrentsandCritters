@@ -34,6 +34,14 @@ THE FOUR RULES
   4. Everything that writes proves ownership with a verified Firebase ID token;
      the uid always comes from the token and never from the body.
 
+THE OTHER WAY BACK IN
+An email is optional and most players never link one, so there is a second
+door that needs nothing but a piece of paper: a RECOVERY CODE, issued to every
+username-and-password account and stored only as an HMAC. Username + code +
+a new password gets a locked-out player back in without any mail at all. See
+THE RECOVERY CODE below for why it is single-use and why redeeming one hands
+back a fresh one in the same breath.
+
 Wired additively into multiplayer_server exactly like referral_server:
 
     import account_email
@@ -196,16 +204,49 @@ def _confirmed_elsewhere(db, email_lower: str, uid: str) -> bool:
     return False
 
 
+def _uid_by_login_email(username: str) -> str:
+    """The account that this username signs in as, asked of the thing that
+    actually decides: Firebase Auth.
+
+    SIGNING IN IS CASE-INSENSITIVE. ccLoginEmail lower-cases the name before it
+    becomes an address, so `Mermaid` and `mermaid` are one account. But
+    `login_username` is stored on the profile exactly as it was typed, so a
+    Firestore query for the typed string is case-SENSITIVE and disagrees with
+    the login it is supposed to be recovering: somebody who signed up as
+    `Mermaid` and typed `mermaid` here was told, truthfully as far as the query
+    knew, that there was no such account. Asking Auth for the synthetic address
+    is the same question the sign-in asks, so the two can no longer differ.
+    """
+    name = str(username or "").strip().lower()
+    if not name:
+        return ""
+    try:
+        from firebase_admin import auth as fb_auth
+        user = fb_auth.get_user_by_email("%s@%s" % (name, _login_domain))
+        return str(getattr(user, "uid", "") or "")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def _find_by_login_username(db, username: str) -> Optional[Tuple[str, Dict[str, Any]]]:
     """The account that signs in with this username, if there is one.
 
-    login_username is stored as the player typed it, so the lookup tries the
-    typed form and the lower-cased one. The synthetic login address is always
-    lower-cased, which is why a reset can be generated from either.
+    Auth first, for the reason above. The Firestore queries stay as the
+    fallback for the case where Admin cannot answer (no credentials, an
+    account whose Auth user is gone but whose profile is not), and they still
+    try the typed form and the lower-cased one.
     """
     name = str(username or "").strip()
     if not name:
         return None
+    uid = _uid_by_login_email(name)
+    if uid:
+        try:
+            snap = db.collection("users").document(uid).get()
+            if getattr(snap, "exists", False):
+                return uid, (snap.to_dict() or {})
+        except Exception:  # noqa: BLE001
+            pass
     seen = []
     for candidate in {name, name.lower()}:
         try:
@@ -433,6 +474,308 @@ def forgot_password(username: Any) -> Dict[str, Any]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+#  THE RECOVERY CODE
+#  ---------------------------------------------------------------------------
+#  The email above is optional, and most players will not link one. Without it
+#  a forgotten password was the end of the account: the address Firebase holds
+#  is synthetic, so there is nobody to mail. This is the way back in that needs
+#  nothing from the player except that they kept a piece of paper.
+#
+#  It is a SECOND CREDENTIAL, not a hint and not a question: username + code
+#  gets you in, exactly like username + password. So it is treated like a
+#  password everywhere it is handled.
+#
+#    users/{uid}.recovery_code_hash      HMAC(secret, "recovery-code:uid:CODE")
+#    users/{uid}.recovery_code_at        when it was issued
+#    users/{uid}.recovery_code_used_at   when it was last spent
+#
+#  THE HASH IS THE POINT. The plaintext code exists in exactly two places: on
+#  the player's paper, and in the one HTTP response that issued it. It is never
+#  stored, never logged, and never readable back out of Firestore, so a leaked
+#  database dump is not a pile of working credentials. The uid is inside the
+#  MAC, so a hash lifted from one account cannot be pasted onto another.
+#
+#  SPENDING ONE IS SINGLE-USE, and it does not "log you in" and leave you there
+#  with nothing: redeeming sets a NEW PASSWORD in the same call and issues a
+#  FRESH CODE. A player who used their only way back in must never walk away
+#  from that screen still holding nothing, or the next forgotten password is
+#  the end of the account after all.
+#
+#  ENUMERATION. redeem answers a wrong username and a wrong code with the SAME
+#  sentence, for the same reason forgot-password answers everybody identically:
+#  a sign-in screen must not become a way to ask which usernames are real.
+#
+#  THE SECRET is the one the tokens above use. Rotating it invalidates every
+#  outstanding code, which is why it falls back the way it does rather than
+#  being generated per boot.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# No 0/O/1/I/L: this is read off paper, often by a child, and those five are
+# where a transcription goes wrong.
+CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
+CODE_GROUPS = 4
+CODE_GROUP_LEN = 4
+CODE_LEN = CODE_GROUPS * CODE_GROUP_LEN        # 16 chars, ~79 bits
+
+ISSUE_COOLDOWN_SEC = 30           # per account: rotating is cheap, not free
+REDEEM_MAX_FAILS = 5              # per username, per window
+REDEEM_FAIL_WINDOW_SEC = 15 * 60
+
+# Said the same way for a username that does not exist and a code that is
+# wrong, so neither answer is a question about the other.
+REDEEM_ANSWER_BAD = (
+    "That username and recovery code don't match. Check both and try again."
+)
+
+_last_issue_at: Dict[str, float] = {}
+_redeem_fails: Dict[str, Tuple[int, float]] = {}
+
+
+def format_code(raw: str) -> str:
+    """The shape a player sees and writes down: ABCD-EFGH-JKMN-PQRS."""
+    s = str(raw or "")
+    return "-".join(s[i:i + CODE_GROUP_LEN]
+                    for i in range(0, len(s), CODE_GROUP_LEN))
+
+
+def normalize_code(value: Any) -> str:
+    """What the player typed, as the code they were given.
+
+    Dashes, spaces and case are decoration: people write codes down with
+    whatever separators they like and type them back in lower case. Anything
+    left that is not in the alphabet means it is not one of our codes.
+    """
+    s = str(value or "").upper()
+    s = re.sub(r"[\s\-_.]+", "", s)
+    if len(s) != CODE_LEN:
+        return ""
+    if any(ch not in CODE_ALPHABET for ch in s):
+        return ""
+    return s
+
+
+def make_code() -> str:
+    """A fresh code from the system CSPRNG. secrets.choice, never random."""
+    import secrets
+    return "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LEN))
+
+
+def code_hash(uid: str, code: str) -> str:
+    """What actually gets stored. Empty if this server has no secret, which is
+    checked by every caller: a code hashed with nothing is not a credential."""
+    key = _secret()
+    if not key or not uid or not code:
+        return ""
+    msg = "recovery-code:%s:%s" % (uid, code)
+    return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def code_matches(uid: str, code: str, stored: Any) -> bool:
+    """Constant-time, because this is a password comparison."""
+    want = code_hash(uid, code)
+    have = str(stored or "")
+    if not want or not have or len(want) != len(have):
+        return False
+    return hmac.compare_digest(want, have)
+
+
+def password_ok(pw: Any) -> bool:
+    """The floor the browser's green bar sits on, checked again where it counts.
+
+    Deliberately looser than the meter: the meter is advice about a password
+    somebody is inventing, this is a refusal. It only has to stop the ones that
+    are not passwords at all.
+    """
+    s = str(pw or "")
+    if not (8 <= len(s) <= 200):
+        return False
+    kinds = sum(bool(re.search(p, s)) for p in
+                (r"[a-z]", r"[A-Z]", r"[0-9]", r"[^A-Za-z0-9]"))
+    if kinds < 2:
+        return False
+    if re.match(r"^(?:p+a+s+s+w+o+r+d+|letmein|welcome|qwerty|abc123|iloveyou|"
+                r"admin|dragon|monkey|football|baseball|sunshine|princess|"
+                r"currents?(?:and)?critters?|critters?|fish|ocean)\d{0,4}!?$",
+                s, re.I):
+        return False
+    return True
+
+
+def _is_password_account(profile: Dict[str, Any]) -> bool:
+    """A recovery code is a way back into a PASSWORD. A Google account signs in
+    with Google and has no password here to be locked out of, so it is not
+    offered one and cannot redeem one."""
+    if str(profile.get("auth_provider") or "").strip().lower() == "google":
+        return False
+    return bool(str(profile.get("login_username") or "").strip())
+
+
+def _write_new_code(db, uid: str, now: float) -> Dict[str, Any]:
+    """Mint, store the hash, hand back the plaintext. The ONLY place plaintext
+    ever leaves this module, and it leaves as a return value, never a log."""
+    code = make_code()
+    digest = code_hash(uid, code)
+    if not digest:
+        return {"ok": False, "error": "not_configured",
+                "message": "Recovery codes are not switched on for this server yet."}
+    try:
+        db.collection("users").document(uid).set({
+            "recovery_code_hash": digest,
+            "recovery_code_at": int(now),
+        }, merge=True)
+    except Exception as exc:  # noqa: BLE001
+        print("[account] recovery code write failed: %s" % exc)
+        return {"ok": False, "error": "write_failed",
+                "message": "Could not save a recovery code. Try again in a moment."}
+    _last_issue_at[uid] = now
+    return {"ok": True, "code": format_code(code), "issued_at": int(now)}
+
+
+def issue_recovery_code(uid: str) -> Dict[str, Any]:
+    """Give this account a code, replacing whatever it had.
+
+    Rotating is destructive on purpose: an account has exactly one code, so
+    "I lost it, give me another" cannot leave the lost one working.
+    """
+    if not secret_configured():
+        return {"ok": False, "error": "not_configured",
+                "message": "Recovery codes are not switched on for this server yet."}
+    db = _db()
+    if db is None:
+        return {"ok": False, "error": "firestore_unavailable",
+                "message": "Could not reach the account store. Try again in a moment."}
+    try:
+        snap = db.collection("users").document(uid).get()
+        profile = (snap.to_dict() or {}) if getattr(snap, "exists", False) else {}
+    except Exception:  # noqa: BLE001
+        profile = {}
+    if not profile:
+        return {"ok": False, "error": "no_account",
+                "message": "That account does not exist yet."}
+    if not _is_password_account(profile):
+        return {"ok": False, "error": "not_password_account",
+                "message": "This account signs in with Google, so it has no password to recover."}
+    now = time.time()
+    if now - _last_issue_at.get(uid, 0.0) < ISSUE_COOLDOWN_SEC:
+        return {"ok": False, "error": "too_soon",
+                "message": "A code was just issued. Write that one down, then try again in a moment."}
+    return _write_new_code(db, uid, now)
+
+
+def recovery_code_state(uid: str) -> Dict[str, Any]:
+    """Whether there IS one, and when. Never the code: it is not readable."""
+    db = _db()
+    if db is None:
+        return {"ok": False, "error": "firestore_unavailable"}
+    try:
+        snap = db.collection("users").document(uid).get()
+        profile = (snap.to_dict() or {}) if getattr(snap, "exists", False) else {}
+    except Exception:  # noqa: BLE001
+        profile = {}
+    return {
+        "ok": True,
+        "eligible": _is_password_account(profile),
+        "has_code": bool(profile.get("recovery_code_hash")),
+        "issued_at": int(profile.get("recovery_code_at") or 0),
+        "used_at": int(profile.get("recovery_code_used_at") or 0),
+    }
+
+
+def _redeem_locked(key: str, now: float) -> bool:
+    fails, first = _redeem_fails.get(key, (0, 0.0))
+    if not fails:
+        return False
+    if now - first > REDEEM_FAIL_WINDOW_SEC:
+        _redeem_fails.pop(key, None)
+        return False
+    return fails >= REDEEM_MAX_FAILS
+
+
+def _redeem_failed(key: str, now: float) -> None:
+    fails, first = _redeem_fails.get(key, (0, 0.0))
+    if not fails or now - first > REDEEM_FAIL_WINDOW_SEC:
+        _redeem_fails[key] = (1, now)
+    else:
+        _redeem_fails[key] = (fails + 1, first)
+
+
+def redeem_recovery_code(username: Any, code: Any, new_password: Any) -> Dict[str, Any]:
+    """Username + code + a new password, and they are back in.
+
+    The three things that happen here happen in this order for a reason:
+    the password is changed FIRST, because that is the thing the player came
+    for; only then is the spent code replaced, so a failure to mint the next
+    one leaves them locked IN rather than out.
+    """
+    if not secret_configured():
+        return {"ok": False, "error": "not_configured",
+                "message": "Recovery codes are not switched on for this server yet."}
+
+    name = str(username or "").strip()
+    typed = normalize_code(code)
+    now = time.time()
+    key = name.lower()[:64]
+
+    # Rate limited on the TYPED username, whether or not it names an account:
+    # keying it on real accounts only would make the lockout itself an answer.
+    if _redeem_locked(key, now):
+        return {"ok": False, "error": "too_many",
+                "message": "Too many tries. Wait a quarter of an hour, then try again."}
+
+    # A weak new password is the player's own typing and safe to name exactly.
+    # It is checked before anything is looked up so that a good code is never
+    # spent on an attempt that was going to be refused anyway.
+    if not password_ok(new_password):
+        return {"ok": False, "error": "weak_password",
+                "message": "Pick a longer password: at least 8 characters, "
+                           "with more than one kind of character in it."}
+
+    db = _db()
+    if db is None:
+        return {"ok": False, "error": "firestore_unavailable",
+                "message": "Could not reach the account store. Try again in a moment."}
+
+    found = _find_by_login_username(db, name) if (name and typed) else None
+    if not found:
+        _redeem_failed(key, now)
+        return {"ok": False, "error": "no_match", "message": REDEEM_ANSWER_BAD}
+    uid, profile = found
+    if not _is_password_account(profile) or not code_matches(uid, typed, profile.get("recovery_code_hash")):
+        _redeem_failed(key, now)
+        return {"ok": False, "error": "no_match", "message": REDEEM_ANSWER_BAD}
+
+    login_name = str(profile.get("login_username") or name).strip().lower()
+    synthetic = "%s@%s" % (login_name, _login_domain)
+    try:
+        from firebase_admin import auth as fb_auth
+        fb_auth.update_user(uid, password=str(new_password))
+    except Exception as exc:  # noqa: BLE001
+        print("[account] recovery password set failed: %s" % exc)
+        return {"ok": False, "error": "set_failed",
+                "message": "Could not set that password just now. Try again in a moment."}
+
+    _redeem_fails.pop(key, None)
+    try:
+        db.collection("users").document(uid).set(
+            {"recovery_code_used_at": int(now)}, merge=True)
+    except Exception:  # noqa: BLE001
+        pass
+
+    # The spent code is replaced in the same breath. If minting the next one
+    # fails, they are still in: they signed in with the password they just set.
+    _last_issue_at.pop(uid, None)
+    fresh = _write_new_code(db, uid, now)
+    return {
+        "ok": True,
+        "username": login_name,
+        "email": synthetic,
+        "code": fresh.get("code") or "",
+        "message": ("Your password is set. Signing you in…" if fresh.get("code")
+                    else "Your password is set. Make a new recovery code in Settings."),
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 #  HTTP
 # ═══════════════════════════════════════════════════════════════════════════
 def _page(ok: bool, message: str) -> bytes:
@@ -461,8 +804,12 @@ def _page(ok: bool, message: str) -> bytes:
 
 
 def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
-    """POST /api/account/link-email       { idToken, email }
-       POST /api/account/forgot-password  { username }   (public, by design)
+    """POST /api/account/link-email            { idToken, email }
+       POST /api/account/forgot-password       { username }   (public, by design)
+       POST /api/account/recovery-code/issue   { idToken }
+       POST /api/account/recovery-code/state   { idToken }
+       POST /api/account/recovery-code/redeem  { username, code, new_password }
+                                                              (public, by design)
     """
     path = parsed.path
     if not path.startswith("/api/account/"):
@@ -483,6 +830,35 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
     # only ever goes to an address already confirmed on that account.
     if action == "forgot-password":
         handler._send_json(forgot_password(body.get("username")))
+        return True
+
+    # ── The recovery code ──────────────────────────────────────────────
+    # Issuing and asking about one are things only the account holder may do,
+    # so both take a token and read the uid off it. Redeeming cannot: the whole
+    # situation is that the player has nothing left to prove ownership with.
+    # What guards it instead is the code itself, plus a rate limit and one
+    # answer for every kind of miss.
+    if action == "recovery-code/issue":
+        uid = _auth_uid(body)
+        if not uid:
+            handler._send_json({"ok": False, "error": "unauthorized",
+                                "message": "You are not signed in."}, status=401)
+            return True
+        handler._send_json(issue_recovery_code(uid))
+        return True
+
+    if action == "recovery-code/state":
+        uid = _auth_uid(body)
+        if not uid:
+            handler._send_json({"ok": False, "error": "unauthorized",
+                                "message": "You are not signed in."}, status=401)
+            return True
+        handler._send_json(recovery_code_state(uid))
+        return True
+
+    if action == "recovery-code/redeem":
+        handler._send_json(redeem_recovery_code(
+            body.get("username"), body.get("code"), body.get("new_password")))
         return True
 
     return False

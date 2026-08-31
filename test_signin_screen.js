@@ -140,12 +140,16 @@ console.log("\ncreate an account is a pane, not a pop-up");
         /id="ao-pane-signin"/.test(HTML) && /id="ao-pane-create"/.test(HTML));
   check("…and one function decides which is showing",
         /function ccChooserPane\(which, opts\)/.test(APP)
-        && /const AO_PANE_ORDER = \["signin", "forgot", "create", "guest", "nickname"\];/.test(APP));
+        && /const AO_PANE_ORDER = \["signin", "forgot", "code", "create", "guest", "nickname"\];/.test(APP));
   // Everything this screen can ask somebody for is a face of the same column
   // now. Two of these used to be somewhere else entirely: PLAY AS GUEST was a
   // dialog laid over the artwork, and CREATE YOUR USERNAME was a whole screen
   // of its own with a second, blurred copy of the sea behind it.
-  ["ao-pane-signin", "ao-pane-forgot", "ao-pane-create", "ao-pane-guest", "ao-pane-nickname"]
+  // "code" joined them when recovery codes did: spending one is asking the
+  // column for a way back in, so it is a face of the same column and not a
+  // screen of its own.
+  ["ao-pane-signin", "ao-pane-forgot", "ao-pane-code", "ao-pane-create",
+   "ao-pane-guest", "ao-pane-nickname"]
     .forEach(id => check(`…including ${id.replace("ao-pane-", "")}`,
                          new RegExp(`id="${id}"`).test(HTML)));
   check("the guest dialog is gone from every file",

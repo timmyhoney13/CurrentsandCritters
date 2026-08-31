@@ -323,5 +323,372 @@ class TestRouting(Base):
         self.assertIs(self.profile("mermaid")["recovery_email_verified"], True)
 
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  THE RECOVERY CODE
+#  The email above is optional and most players never link one, so this is the
+#  way back in that needs nothing but a piece of paper. It is a SECOND
+#  CREDENTIAL, so what is pinned here is what you would pin about a password:
+#  that the plaintext is never stored, that a hash cannot be moved between
+#  accounts, that spending one is single-use and never leaves the player
+#  holding nothing, and that a wrong username and a wrong code are answered
+#  with the same sentence.
+# ═══════════════════════════════════════════════════════════════════════════
+class CodeBase(Base):
+    def setUp(self):
+        super().setUp()
+        ae._last_issue_at.clear()
+        ae._redeem_fails.clear()
+        self.passwords = {}
+        fb_auth = type("A", (), {
+            "update_user": staticmethod(lambda uid, **kw: self._set_pw(uid, **kw)),
+            "generate_password_reset_link": staticmethod(lambda addr: "https://x/"),
+            "get_user_by_email": staticmethod(lambda addr: self._by_email(addr)),
+        })
+        sys.modules["firebase_admin"] = type("M", (), {"auth": fb_auth})
+
+    def _by_email(self, addr):
+        """Firebase's own username -> uid mapping, which is the one signing in
+        uses: the local part is the login name, always lower-cased."""
+        local = str(addr or "").split("@")[0]
+        for uid, row in self.db.collection("users")._docs.items():
+            if str(row.get("login_username") or "").strip().lower() == local:
+                return type("U", (), {"uid": uid})
+        raise ValueError("no such user")
+
+    def _set_pw(self, uid, **kw):
+        self.passwords[uid] = kw.get("password")
+        return True
+
+    def give(self, uid="mermaid", **fields):
+        """An account with a code on it, and the plaintext for the test."""
+        self.account(uid, **fields)
+        made = ae.issue_recovery_code(uid)
+        self.assertTrue(made["ok"], made)
+        ae._last_issue_at.clear()      # cooldown is not what any of these test
+        return made["code"]
+
+
+class TestCodeShape(CodeBase):
+    def test_the_alphabet_has_no_lookalikes(self):
+        # Read off paper, often by a child: 0/O and 1/I/L are where a
+        # transcription goes wrong, so none of them can be in a code.
+        for ch in "01ILO":
+            self.assertNotIn(ch, ae.CODE_ALPHABET)
+
+    def test_a_code_is_long_enough_to_be_a_credential(self):
+        # 16 symbols from 31 is ~79 bits: not guessable, rate limit or no.
+        self.assertEqual(ae.CODE_LEN, 16)
+        self.assertGreaterEqual(len(ae.CODE_ALPHABET), 31)
+
+    def test_codes_do_not_repeat(self):
+        self.assertEqual(len({ae.make_code() for _ in range(400)}), 400)
+
+    def test_it_is_shown_in_groups_and_read_back_without_them(self):
+        raw = ae.make_code()
+        shown = ae.format_code(raw)
+        self.assertEqual(shown.count("-"), 3)
+        self.assertEqual(ae.normalize_code(shown), raw)
+
+    def test_people_type_it_however_they_like(self):
+        raw = ae.make_code()
+        shown = ae.format_code(raw)
+        for typed in (shown, shown.lower(), shown.replace("-", ""),
+                      shown.replace("-", " "), "  " + shown + "  ",
+                      shown.replace("-", "_")):
+            self.assertEqual(ae.normalize_code(typed), raw, typed)
+
+    def test_anything_that_is_not_one_of_ours_is_refused(self):
+        raw = ae.make_code()
+        for bad in ("", None, "hello", raw[:-1], raw + "X", "O" + raw[1:], 12345):
+            self.assertEqual(ae.normalize_code(bad), "", repr(bad))
+
+
+class TestCodeHash(CodeBase):
+    def test_the_plaintext_is_never_stored(self):
+        code = self.give("mermaid")
+        stored = self.profile("mermaid")
+        blob = repr(stored)
+        self.assertNotIn(ae.normalize_code(code), blob)
+        self.assertNotIn(code, blob)
+        self.assertTrue(stored.get("recovery_code_hash"))
+
+    def test_a_hash_cannot_be_moved_to_another_account(self):
+        # The uid is inside the MAC, so a hash lifted out of one row is not a
+        # working credential when pasted into another.
+        code = self.give("mermaid")
+        norm = ae.normalize_code(code)
+        stolen = self.profile("mermaid")["recovery_code_hash"]
+        self.assertTrue(ae.code_matches("mermaid", norm, stolen))
+        self.assertFalse(ae.code_matches("someone_else", norm, stolen))
+
+    def test_a_wrong_code_does_not_match(self):
+        self.give("mermaid")
+        stored = self.profile("mermaid")["recovery_code_hash"]
+        self.assertFalse(ae.code_matches("mermaid", ae.make_code(), stored))
+
+    def test_with_no_secret_nothing_is_a_credential(self):
+        # A code hashed with nothing must not be treated as one.
+        keys = ("ACCOUNT_EMAIL_SECRET", "NEWSLETTER_UNSUBSCRIBE_SECRET", "SESSION_SECRET")
+        saved = {k: os.environ.get(k) for k in keys}
+        try:
+            for k in keys:
+                os.environ.pop(k, None)
+            self.assertEqual(ae.code_hash("mermaid", ae.make_code()), "")
+            self.assertFalse(ae.code_matches("mermaid", ae.make_code(), "whatever"))
+            self.account("mermaid")
+            self.assertFalse(ae.issue_recovery_code("mermaid")["ok"])
+        finally:
+            for k, v in saved.items():
+                if v is not None:
+                    os.environ[k] = v
+
+
+class TestIssue(CodeBase):
+    def test_an_account_gets_one(self):
+        self.account("mermaid")
+        res = ae.issue_recovery_code("mermaid")
+        self.assertTrue(res["ok"])
+        self.assertEqual(ae.normalize_code(res["code"]) and True, True)
+        self.assertTrue(self.profile("mermaid")["recovery_code_hash"])
+
+    def test_a_new_one_kills_the_old_one(self):
+        # "I lost it, give me another" must not leave the lost one working.
+        first = self.give("mermaid")
+        second = ae.issue_recovery_code("mermaid")["code"]
+        stored = self.profile("mermaid")["recovery_code_hash"]
+        self.assertFalse(ae.code_matches("mermaid", ae.normalize_code(first), stored))
+        self.assertTrue(ae.code_matches("mermaid", ae.normalize_code(second), stored))
+
+    def test_a_google_account_is_not_offered_one(self):
+        # It signs in with Google and has no password here to be locked out of.
+        self.account("googler", auth_provider="google", login_username="")
+        res = ae.issue_recovery_code("googler")
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["error"], "not_password_account")
+
+    def test_an_account_that_does_not_exist_gets_nothing(self):
+        self.assertFalse(ae.issue_recovery_code("nobody")["ok"])
+
+    def test_rotating_has_a_cooldown(self):
+        self.account("mermaid")
+        self.assertTrue(ae.issue_recovery_code("mermaid")["ok"])
+        again = ae.issue_recovery_code("mermaid")
+        self.assertFalse(again["ok"])
+        self.assertEqual(again["error"], "too_soon")
+
+
+class TestState(CodeBase):
+    def test_it_never_hands_the_code_back(self):
+        # The server keeps only the hash; there is nothing to hand back, and
+        # this is the endpoint that would leak it if there were.
+        code = self.give("mermaid")
+        st = ae.recovery_code_state("mermaid")
+        self.assertTrue(st["has_code"])
+        self.assertTrue(st["eligible"])
+        self.assertNotIn("code", st)
+        self.assertNotIn(ae.normalize_code(code), repr(st))
+
+    def test_an_account_with_none_says_so(self):
+        self.account("mermaid")
+        st = ae.recovery_code_state("mermaid")
+        self.assertTrue(st["eligible"])
+        self.assertFalse(st["has_code"])
+
+    def test_a_google_account_is_not_eligible(self):
+        self.account("googler", auth_provider="google", login_username="")
+        self.assertFalse(ae.recovery_code_state("googler")["eligible"])
+
+
+class TestRedeem(CodeBase):
+    def test_the_right_code_sets_the_password(self):
+        code = self.give("mermaid")
+        res = ae.redeem_recovery_code("mermaid", code, "Reef-Tide-99")
+        self.assertTrue(res["ok"], res)
+        self.assertEqual(self.passwords["mermaid"], "Reef-Tide-99")
+        self.assertEqual(res["username"], "mermaid")
+        self.assertEqual(res["email"], "mermaid@players.currentsandcritters.com")
+
+    def test_it_works_once(self):
+        code = self.give("mermaid")
+        self.assertTrue(ae.redeem_recovery_code("mermaid", code, "Reef-Tide-99")["ok"])
+        ae._redeem_fails.clear()
+        again = ae.redeem_recovery_code("mermaid", code, "Other-Tide-77")
+        self.assertFalse(again["ok"])
+        self.assertEqual(again["message"], ae.REDEEM_ANSWER_BAD)
+
+    def test_spending_one_hands_back_a_fresh_one(self):
+        # Nobody may walk away from this screen holding nothing: the next
+        # forgotten password would be the end of the account.
+        code = self.give("mermaid")
+        res = ae.redeem_recovery_code("mermaid", code, "Reef-Tide-99")
+        fresh = res["code"]
+        self.assertTrue(fresh)
+        self.assertNotEqual(ae.normalize_code(fresh), ae.normalize_code(code))
+        stored = self.profile("mermaid")["recovery_code_hash"]
+        self.assertTrue(ae.code_matches("mermaid", ae.normalize_code(fresh), stored))
+
+    def test_the_typed_form_does_not_matter(self):
+        code = self.give("mermaid")
+        res = ae.redeem_recovery_code("mermaid", code.lower().replace("-", " "),
+                                      "Reef-Tide-99")
+        self.assertTrue(res["ok"], res)
+
+    def test_a_wrong_code_and_a_wrong_name_read_identically(self):
+        # Rule 5 again: this screen must not be a way to ask which usernames
+        # are real, so both misses say exactly the same thing.
+        self.give("mermaid")
+        wrong_code = ae.redeem_recovery_code("mermaid", ae.format_code(ae.make_code()),
+                                             "Reef-Tide-99")
+        ae._redeem_fails.clear()
+        wrong_name = ae.redeem_recovery_code("nobody_at_all", ae.format_code(ae.make_code()),
+                                             "Reef-Tide-99")
+        self.assertEqual(wrong_code["message"], wrong_name["message"])
+        self.assertEqual(wrong_code["ok"], wrong_name["ok"])
+        self.assertEqual(wrong_code["error"], wrong_name["error"])
+
+    def test_a_wrong_code_does_not_change_the_password(self):
+        self.give("mermaid")
+        ae.redeem_recovery_code("mermaid", ae.format_code(ae.make_code()), "Reef-Tide-99")
+        self.assertEqual(self.passwords, {})
+
+    def test_a_weak_password_is_refused_before_the_code_is_spent(self):
+        # A good code must not be burned on an attempt that was going to be
+        # refused anyway: they would have paid for nothing.
+        code = self.give("mermaid")
+        res = ae.redeem_recovery_code("mermaid", code, "abc")
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["error"], "weak_password")
+        stored = self.profile("mermaid")["recovery_code_hash"]
+        self.assertTrue(ae.code_matches("mermaid", ae.normalize_code(code), stored))
+
+    def test_a_google_account_cannot_redeem(self):
+        self.account("googler", auth_provider="google", login_username="googler")
+        ae.issue_recovery_code("googler")     # refused, so there is nothing to spend
+        res = ae.redeem_recovery_code("googler", ae.format_code(ae.make_code()), "Reef-Tide-99")
+        self.assertFalse(res["ok"])
+
+    def test_the_name_is_matched_case_insensitively(self):
+        self.account("mermaid", login_username="Mermaid")
+        code = ae.issue_recovery_code("mermaid")["code"]
+        res = ae.redeem_recovery_code("MERMAID", code, "Reef-Tide-99")
+        self.assertTrue(res["ok"], res)
+        # …and the synthetic address is built from the lower-cased login name,
+        # or the reset would be for an account nobody owns.
+        self.assertEqual(res["email"], "mermaid@players.currentsandcritters.com")
+
+    def test_guessing_is_rate_limited(self):
+        self.give("mermaid")
+        for _ in range(ae.REDEEM_MAX_FAILS):
+            res = ae.redeem_recovery_code("mermaid", ae.format_code(ae.make_code()),
+                                          "Reef-Tide-99")
+            self.assertEqual(res["error"], "no_match")
+        locked = ae.redeem_recovery_code("mermaid", ae.format_code(ae.make_code()),
+                                         "Reef-Tide-99")
+        self.assertEqual(locked["error"], "too_many")
+
+    def test_the_lockout_is_on_the_typed_name_even_when_it_is_nobody(self):
+        # Keying it on real accounts only would make the lockout itself the
+        # answer to "does this username exist?".
+        for _ in range(ae.REDEEM_MAX_FAILS):
+            ae.redeem_recovery_code("nobody_at_all", ae.format_code(ae.make_code()),
+                                    "Reef-Tide-99")
+        locked = ae.redeem_recovery_code("nobody_at_all", ae.format_code(ae.make_code()),
+                                         "Reef-Tide-99")
+        self.assertEqual(locked["error"], "too_many")
+
+    def test_getting_it_right_clears_the_failures(self):
+        code = self.give("mermaid")
+        for _ in range(ae.REDEEM_MAX_FAILS - 1):
+            ae.redeem_recovery_code("mermaid", ae.format_code(ae.make_code()), "Reef-Tide-99")
+        self.assertTrue(ae.redeem_recovery_code("mermaid", code, "Reef-Tide-99")["ok"])
+        self.assertNotIn("mermaid", ae._redeem_fails)
+
+
+class TestCaseInsensitiveLookup(CodeBase):
+    """Signing in lower-cases the username before it becomes an address, so
+    `Mermaid` and `mermaid` are ONE account. Recovery used to disagree: it
+    queried Firestore for `login_username` exactly as typed, and that field
+    holds whatever case the player used at sign-up. Somebody who signed up as
+    `Mermaid` and typed `mermaid` here was told there was no such account,
+    which was true of the query and false of their account."""
+
+    def test_a_reset_finds_the_account_whatever_case_is_typed(self):
+        self.account("mermaid", login_username="Mermaid",
+                     recovery_email="reef@example.com", recovery_email_verified=True)
+        for typed in ("Mermaid", "mermaid", "MERMAID", "MerMaid"):
+            SENT.clear()
+            ae.forgot_password(typed)
+            self.assertEqual(len(SENT), 1, typed)
+
+    def test_a_code_is_redeemed_whatever_case_is_typed(self):
+        self.account("mermaid", login_username="Mermaid")
+        for typed in ("Mermaid", "mermaid", "MERMAID", "MerMaid"):
+            # Cleared BEFORE issuing: redeeming mints the replacement, which
+            # arms the same cooldown this loop would otherwise trip over.
+            ae._last_issue_at.clear()
+            ae._redeem_fails.clear()
+            code = ae.issue_recovery_code("mermaid")["code"]
+            res = ae.redeem_recovery_code(typed, code, "Reef-Tide-99")
+            self.assertTrue(res["ok"], (typed, res))
+
+    def test_the_fallback_still_works_with_no_Admin_at_all(self):
+        # No credentials, or an Auth user that is gone: the Firestore queries
+        # are still there, and still answer for the form that was stored.
+        sys.modules.pop("firebase_admin", None)
+        self.account("mermaid", login_username="mermaid")
+        found = ae._find_by_login_username(self.db, "mermaid")
+        self.assertIsNotNone(found)
+        self.assertEqual(found[0], "mermaid")
+
+
+class TestPasswordFloor(CodeBase):
+    def test_the_floor_is_a_refusal_not_advice(self):
+        for good in ("Reef-Tide-99", "abcd1234", "seaHorse7", "kelp forest 12"):
+            self.assertTrue(ae.password_ok(good), good)
+        for bad in ("", "short1", "alllowercase", "12345678", "Password1",
+                    "password", "critters", None, "x" * 201):
+            self.assertFalse(ae.password_ok(bad), repr(bad))
+
+
+class TestCodeRouting(CodeBase):
+    def test_issue_needs_a_real_token(self):
+        self.account("mermaid")
+        h = FakeHandler()
+        ae.handle_post(h, Parsed("/api/account/recovery-code/issue"), {"idToken": "nope"})
+        self.assertEqual(h.status, 401)
+        self.assertFalse(self.profile("mermaid").get("recovery_code_hash"))
+
+    def test_issue_reads_the_uid_off_the_token_not_the_body(self):
+        # The body naming somebody else must not issue a code on their account.
+        self.account("mermaid")
+        self.account("victim")
+        h = FakeHandler()
+        ae.handle_post(h, Parsed("/api/account/recovery-code/issue"),
+                       {"idToken": "tok::mermaid", "uid": "victim"})
+        self.assertTrue(h.payload["ok"])
+        self.assertTrue(self.profile("mermaid").get("recovery_code_hash"))
+        self.assertFalse(self.profile("victim").get("recovery_code_hash"))
+
+    def test_state_needs_a_real_token(self):
+        h = FakeHandler()
+        ae.handle_post(h, Parsed("/api/account/recovery-code/state"), {})
+        self.assertEqual(h.status, 401)
+
+    def test_redeem_is_public_by_design(self):
+        # Somebody locked out has nothing to prove ownership with, so this one
+        # takes no token at all. The code is what guards it.
+        code = self.give("mermaid")
+        h = FakeHandler()
+        ae.handle_post(h, Parsed("/api/account/recovery-code/redeem"),
+                       {"username": "mermaid", "code": code, "new_password": "Reef-Tide-99"})
+        self.assertEqual(h.status, 200)
+        self.assertTrue(h.payload["ok"])
+        self.assertEqual(self.passwords["mermaid"], "Reef-Tide-99")
+
+    def test_an_unknown_account_action_is_still_not_ours(self):
+        h = FakeHandler()
+        self.assertFalse(ae.handle_post(h, Parsed("/api/account/recovery-code/steal"), {}))
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -12566,6 +12566,11 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # necessity (somebody who has forgotten a password can prove nothing)
         # and answers identically whatever it finds, so it cannot be used to
         # ask which usernames exist.
+        #
+        # The recovery codes live behind the same prefix and the same door.
+        # issue and state take a token; redeem cannot (that is the whole
+        # situation it exists for) and is guarded instead by the code itself,
+        # a per-username rate limit, and one answer for every kind of miss.
         if account_email.handle_post(self, parsed, body):
             return
 
@@ -13717,6 +13722,10 @@ def main() -> None:
     else:
         print("[account] account email ON: confirm links good for "
               f"{account_email.CONFIRM_TTL_SEC // 3600}h, resets mailed to confirmed addresses only")
+        print(f"[account] recovery codes ON: {account_email.CODE_LEN} chars from a "
+              f"{len(account_email.CODE_ALPHABET)}-symbol alphabet, stored hashed, single use, "
+              f"{account_email.REDEEM_MAX_FAILS} tries per "
+              f"{account_email.REDEEM_FAIL_WINDOW_SEC // 60} min")
 
     print(f"[referral] friend-code reward ON: {referral_server.reward_coins()} coins each side, "
           f"1 background per {referral_server.background_every()} referrals, "

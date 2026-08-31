@@ -1366,10 +1366,13 @@
       position: absolute;
       inset: -2.5%;
       background: url("/game-bg.png") center/cover no-repeat;
-      animation: pv-water-drift 26s ease-in-out infinite alternate;
+      /* Static. This used to drift forever via pv-water-drift, with
+         `will-change: transform` pinning a full-screen 2.2 MB texture in GPU
+         memory for the whole match. A permanent animation means the compositor
+         never idles, so laptops ran hot for a motion nobody watches. */
+      transform: translate(-0.9%, -0.6%) scale(1.015);
       z-index: 0;
       pointer-events: none;
-      will-change: transform;
     }
     /* Subtle shimmer overlay, extra "water" cue layered on top of the bg */
     #pv-game::after {
@@ -1379,31 +1382,22 @@
       background:
         linear-gradient(120deg, transparent 35%, rgba(120, 200, 230, 0.06) 50%, transparent 65%);
       background-size: 220% 220%;
-      animation: pv-water-shimmer 18s linear infinite;
+      /* Static, and the worst of the two: `background-position` is not a
+         compositable property, so this repainted the entire viewport every
+         single frame of the match to move a 0.06-alpha gradient. */
+      background-position: 40% 40%;
       z-index: 0;
       pointer-events: none;
-      will-change: background-position;
     }
     /* All immediate children of #pv-game must render above the bg layers */
     #pv-game > * { position: relative; z-index: 1; }
-    @keyframes pv-water-drift {
-      0%   { transform: translate(-0.9%, -0.6%) scale(1.015); }
-      50%  { transform: translate(0.5%, -0.4%) scale(1.02);  }
-      100% { transform: translate(0.9%, 0.6%)  scale(1.015); }
-    }
-    @keyframes pv-water-shimmer {
-      0%   { background-position: 0% 0%; }
-      100% { background-position: 220% 220%; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      #pv-game::before, #pv-game::after { animation: none; }
-    }
 
     /* ── NOTICE BAR ─────────────────────────────────────────────── */
     #pv-notice {
-      background: linear-gradient(90deg, rgba(254,245,230,.92) 0%, rgba(220,238,245,.94) 50%, rgba(254,245,230,.92) 100%);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      background: linear-gradient(90deg, rgba(254,245,230,.96) 0%, rgba(220,238,245,.97) 50%, rgba(254,245,230,.96) 100%);
+      /* No backdrop-filter: the gradient above it is ~93% opaque, so the
+         blur cost a full-viewport GPU re-blur every frame to show almost
+         nothing. This element is on screen for the entire match. */
       border-bottom: 1px solid rgba(95,179,214,.45);
       font-size: 12px;
       color: var(--cr-navy);
@@ -1559,8 +1553,11 @@
       padding: 5px 13px;
       border-radius: 999px;
       border: 1px solid rgba(126,205,240,.55);
-      background: rgba(8,32,66,.86);
-      -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+      background: rgba(8,32,66,.94);
+      /* No backdrop-filter: the gradient above it is ~86% opaque, so the
+         blur cost a full-viewport GPU re-blur every frame to show almost
+         nothing. This element is on screen for the entire match. */
+
       color: #cfeaf8;
       font-family: "Baloo 2", "Nunito", sans-serif;
       font-size: 12px; font-weight: 800; letter-spacing: .4px;
@@ -2185,9 +2182,10 @@
 
     /* ── ACTION BAR ─────────────────────────────────────────────── */
     #pv-action-bar {
-      background: linear-gradient(180deg, rgba(254,245,230,.92) 0%, rgba(245,232,208,.95) 100%);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      background: linear-gradient(180deg, rgba(254,245,230,.96) 0%, rgba(245,232,208,.98) 100%);
+      /* No backdrop-filter: the gradient above it is ~93% opaque, so the
+         blur cost a full-viewport GPU re-blur every frame to show almost
+         nothing. This element is on screen for the entire match. */
       border-top: 1.5px solid rgba(232,179,74,.55);
       border-radius: 12px 12px 0 0;
       padding: 9px 13px;
@@ -3188,8 +3186,11 @@
     /* ── GUIDE BAR ──────────────────────────────────────────────── */
     #pv-guide-bar {
       display: none;
-      background: linear-gradient(90deg, rgba(254,245,230,0) 0%, rgba(254,245,230,.88) 10%, rgba(220,238,245,.9) 50%, rgba(254,245,230,.88) 90%, rgba(254,245,230,0) 100%);
-      backdrop-filter: blur(8px);
+      background: linear-gradient(90deg, rgba(254,245,230,0) 0%, rgba(254,245,230,.94) 10%, rgba(220,238,245,.96) 50%, rgba(254,245,230,.94) 90%, rgba(254,245,230,0) 100%);
+      /* No backdrop-filter: the gradient above it is ~90% opaque, so the
+         blur cost a full-viewport GPU re-blur every frame to show almost
+         nothing. This element is on screen for the entire match. */
+
       padding: 7px 20px;
       font-size: 12px; font-weight: 700;
       color: var(--cr-navy);
@@ -4548,9 +4549,10 @@
       display: none;
       position: fixed;
       z-index: 9450;
-      background: linear-gradient(135deg, rgba(26,45,90,.97) 0%, rgba(44,90,138,.97) 100%);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      background: linear-gradient(135deg, rgba(26,45,90,.99) 0%, rgba(44,90,138,.99) 100%);
+      /* No backdrop-filter: the gradient above it is ~97% opaque, so the
+         blur cost a full-viewport GPU re-blur every frame to show almost
+         nothing. This element is on screen for the entire match. */
       border: 1.5px solid rgba(95,179,214,.6);
       border-radius: 12px;
       padding: 10px 12px 8px;
@@ -11413,6 +11415,46 @@
     .modal-title {
       font-family: 'Cinzel', serif; color: var(--cyan);
       font-size: 16px; text-align: center; font-weight: 700;
+    }
+
+    /* ── The recovery code ─────────────────────────────────────────
+       Read off a screen and copied onto paper, so it is set big, spaced and
+       monospaced: the whole value of the thing is that it survives being
+       written down by hand and typed back in a month later. It is selectable
+       (user-select) on purpose, because "copy" for most people is a drag and
+       a Ctrl-C, not a button. */
+    .rc-code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: clamp(17px, 4.4vw, 23px); font-weight: 700; letter-spacing: .08em;
+      color: #ffe6a8; text-align: center; word-break: break-all;
+      background: rgba(0,0,0,.34); border: 1px dashed rgba(232,179,74,.65);
+      border-radius: 10px; padding: 14px 10px;
+      user-select: all; -webkit-user-select: all;
+    }
+    .rc-actions { display: flex; gap: 8px; }
+    .rc-actions .pv-btn { flex: 1; font-size: 12px; padding: 9px 6px; }
+    .rc-ack {
+      display: flex; align-items: flex-start; gap: 9px; cursor: pointer;
+      font-size: 12.5px; line-height: 1.45; color: #cfe4f7;
+    }
+    .rc-ack input { margin-top: 2px; width: 17px; height: 17px; flex: 0 0 auto; cursor: pointer; }
+    #rc-done[disabled] { opacity: .45; cursor: not-allowed; }
+    /* The note styles are scoped to the sign-in column, and this modal is not
+       in it. Same look, said again where it is actually used. */
+    #rc-modal .ao-note {
+      display: flex; gap: 8px; align-items: flex-start;
+      font-size: 12px; line-height: 1.45; border-radius: 10px; padding: 9px 11px;
+      background: rgba(224,176,64,.11); border: 1px solid rgba(224,176,64,.34);
+      color: #f0d9a4;
+    }
+    #rc-modal .ao-note-ico { flex: 0 0 auto; }
+    /* Typed, not read: same monospace so a mistyped character is visible.
+       Written `.ao-field input.rc-input` because the generic
+       `#auth-step-choose .ao-field input` rule above sets a font-family too,
+       and out-specifies a plain class selector. */
+    #auth-step-choose .ao-field input.rc-input {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: .06em; text-transform: uppercase;
     }
 
     /* ── Challenge of Challenges ──────────────────────────────── */

@@ -126,7 +126,7 @@
        is the ONE file the loading screen is actually waiting on: nothing can
        happen until it has arrived and run. Asking for it here, first and at
        high priority, puts it at the front of the queue where it belongs. -->
-  <link rel="preload" as="script" fetchpriority="high" href="/js/preview-app.js?v=2026-08-30.8">
+  <link rel="preload" as="script" fetchpriority="high" href="/js/preview-app.js?v=2026-08-31.1">
 
   <!-- The four hosts the sign-in talks to, opened now instead of when we get
        there. Firebase's boot is a chain: fetch the SDK from gstatic, refresh
@@ -513,7 +513,7 @@
   })();
   </script>
 
-  <script defer src="/js/error-logging.js?v=2026-08-30.8"></script>
+  <script defer src="/js/error-logging.js?v=2026-08-31.1"></script>
 
   <!-- Firebase config, generated at build time from VITE_FIREBASE_* env vars -->
   <script defer src="/firebase-config.js"></script>
@@ -541,29 +541,29 @@
        looks at is never unstyled.
 
        <noscript> keeps the whole thing working with JavaScript off. -->
-  <link rel="preload" as="style" fetchpriority="high" href="/css/preview.css?v=2026-08-30.8"
+  <link rel="preload" as="style" fetchpriority="high" href="/css/preview.css?v=2026-08-31.1"
         onload="this.rel='stylesheet';window.ccBoot&&window.ccBoot.css()" />
   <!-- The printed rulebook's own stylesheet. Split out of preview.css so the
        standalone How to Play page (/rules) can render the very same book
        without pulling in the whole game stylesheet. Must load AFTER
        preview.css so the cascade is exactly what it was before the split. -->
-  <link rel="preload" as="style" href="/css/rulebook.css?v=2026-08-30.8"
+  <link rel="preload" as="style" href="/css/rulebook.css?v=2026-08-31.1"
         onload="this.rel='stylesheet'" />
   <!-- The privacy policy's own stylesheet, on the same split as the rulebook:
        the published /privacy page renders the very same document without
        pulling in the whole game stylesheet. Must load AFTER preview.css. -->
-  <link rel="preload" as="style" href="/css/privacy.css?v=2026-08-30.8"
+  <link rel="preload" as="style" href="/css/privacy.css?v=2026-08-31.1"
         onload="this.rel='stylesheet'" />
   <!-- Prestige: the Prestige page's own ocean scene, plus the .cc-pname /
        .cc-pbadge rules that draw a Prestige username and badge ANYWHERE in the
        game. Must load AFTER preview.css so those name styles win. -->
-  <link rel="preload" as="style" fetchpriority="high" href="/css/prestige.css?v=2026-08-30.8"
+  <link rel="preload" as="style" fetchpriority="high" href="/css/prestige.css?v=2026-08-31.1"
         onload="this.rel='stylesheet'" />
   <noscript>
-    <link rel="stylesheet" href="/css/preview.css?v=2026-08-30.8" />
-    <link rel="stylesheet" href="/css/rulebook.css?v=2026-08-30.8" />
-    <link rel="stylesheet" href="/css/privacy.css?v=2026-08-30.8" />
-    <link rel="stylesheet" href="/css/prestige.css?v=2026-08-30.8" />
+    <link rel="stylesheet" href="/css/preview.css?v=2026-08-31.1" />
+    <link rel="stylesheet" href="/css/rulebook.css?v=2026-08-31.1" />
+    <link rel="stylesheet" href="/css/privacy.css?v=2026-08-31.1" />
+    <link rel="stylesheet" href="/css/prestige.css?v=2026-08-31.1" />
   </noscript>
   <!-- Developer Analytics' stylesheet is NOT here. Everything in it is scoped
        under #ccA-overlay, an admin-only panel that no ordinary player ever
@@ -592,7 +592,7 @@
      There is no "choose your device" screen any more. js/device-select.js
      works it out: a touch means mobile, a mouse means computer, and a real
      input event outranks its own opening guess. Nothing is rendered here. -->
-<script defer src="/js/device-select.js?v=2026-08-30.8"></script>
+<script defer src="/js/device-select.js?v=2026-08-31.1"></script>
 
 <!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══
      The whole screen is the baked artwork (fullscreen-splash.png). #ccfs-play
@@ -669,7 +669,7 @@
        framed plate on a black page, in both layouts. -->
   <div id="auth-step-choose" class="auth-box">
     <div class="ao-art">
-      <img src="/auth-ocean.jpg?v=2026-08-30.8" alt="" class="ao-art-img" decoding="async" fetchpriority="high" />
+      <img src="/auth-ocean.jpg?v=2026-08-31.1" alt="" class="ao-art-img" decoding="async" fetchpriority="high" />
     </div>
 
 
@@ -776,11 +776,80 @@
           <div class="ao-note is-warn">
             <span class="ao-note-ico" aria-hidden="true">&#9888;&#65039;</span>
             <span>An account here has no email of its own, so one with nothing linked
-              cannot be reset. You can still play as a guest, or make a new account.</span>
+              cannot be reset this way. Use your recovery code instead.</span>
           </div>
+
+          <p class="ao-new">Got the code you wrote down?
+            <button type="button" id="ao-forgot-code">Use Recovery Code &rsaquo;</button></p>
 
           <p class="ao-new">Remembered it?
             <button type="button" id="ao-forgot-signin">Sign In &rsaquo;</button></p>
+        </div>
+
+        <!-- ── Back in with a recovery code ────────────────────────────────
+             The pane that makes a forgotten password survivable without any
+             email at all. Three fields, because getting in and choosing a new
+             password are one step here: the code is single-use, so a player
+             who spent it and did not set a password would be locked out again
+             the moment they closed the tab. Driven by ccRedeemCodePane(). -->
+        <div class="ao-pane" id="ao-pane-code" style="display:none">
+          <div class="ao-head-row">
+            <button type="button" class="ao-back" id="ao-back-code">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                   stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>
+              <span>Back</span>
+            </button>
+            <div class="ao-h">Use Your Recovery Code</div>
+          </div>
+          <p class="ao-sub">The code you wrote down when you made your account.
+            Type it with your username and pick a new password.</p>
+
+          <label class="ao-lbl" for="ao-code-user">Username</label>
+          <div class="ao-field">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 19.5c1.6-3.6 4.3-5.4 7.5-5.4s5.9 1.8 7.5 5.4"/></svg>
+            <input id="ao-code-user" type="text" placeholder="Enter your username" maxlength="15"
+                   autocomplete="username" autocapitalize="off" spellcheck="false" />
+          </div>
+
+          <label class="ao-lbl" for="ao-code-code">Recovery code</label>
+          <div class="ao-field">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="12" r="3.2"/><path d="M11.2 12H20"/><path d="M17 12v3"/><path d="M20 12v2.4"/></svg>
+            <input id="ao-code-code" class="rc-input" type="text" placeholder="ABCD-EFGH-JKMN-PQRS"
+                   maxlength="24" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" />
+          </div>
+
+          <div class="ao-lbl-row">
+            <label class="ao-lbl" for="ao-code-pass">New password</label>
+            <button type="button" class="ao-eye ao-eye-inline" id="ao-code-eye" aria-label="Show password">Show</button>
+          </div>
+          <div class="ao-field">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="9" rx="2.2"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></svg>
+            <input id="ao-code-pass" type="password" placeholder="Pick a new password"
+                   maxlength="72" autocomplete="new-password" />
+          </div>
+          <div class="ao-meter" id="ao-code-meter" role="img" aria-label="Password strength">
+            <div class="ao-meter-fill" id="ao-code-meter-fill"></div>
+          </div>
+          <div class="ao-meter-row">
+            <span class="ao-meter-word" id="ao-code-meter-word">Too short</span>
+            <span class="ao-meter-tip" id="ao-code-meter-tip">8+ characters, with letters and numbers.</span>
+          </div>
+
+          <button type="button" id="ao-code-go" class="ao-primary" disabled>Set Password &amp; Sign In</button>
+
+          <div class="auth-err auth-note" id="ao-code-err" role="status" aria-live="polite"></div>
+
+          <div class="ao-note is-warn">
+            <span class="ao-note-ico" aria-hidden="true">&#9888;&#65039;</span>
+            <span>A code works once. As soon as this one is used you get a fresh
+              one to write down.</span>
+          </div>
+
+          <p class="ao-new">Remembered your password?
+            <button type="button" id="ao-code-signin">Sign In &rsaquo;</button></p>
         </div>
 
         <!-- ── Pane 3: create an account ───────────────────────────────
@@ -1063,6 +1132,40 @@
 <!-- ══ FRIEND MODAL ════════════════════════════════════════════════ -->
 
 <!-- ══ SETTINGS MODAL ══════════════════════════════════════════════════ -->
+<!-- ── The recovery code, shown exactly once ──────────────────────────
+     An account here signs in with a username and a password, and its email is
+     synthetic, so a forgotten password used to be the end of it. This is the
+     way back in that needs no email at all: username + this code + a new
+     password. The server stores only an HMAC of it, so this modal is the one
+     and only time the code itself is ever readable. That is why it is
+     insistent, and why the button says "I've written it down" rather than
+     "OK". Painted by ccShowRecoveryCode(). -->
+<div id="rc-modal" class="overlay-modal">
+  <div class="modal-box">
+    <div class="modal-title">&#128273; Your Recovery Code</div>
+    <p id="rc-lead" style="margin:0 0 12px;line-height:1.55;color:#b9d1e6;font-size:13px;">
+      Write this down and keep it somewhere safe. If you ever forget your
+      password, your username and this code are the way back into your account.
+    </p>
+    <div id="rc-code" class="rc-code" role="text" aria-label="Your recovery code">----&#8209;----&#8209;----&#8209;----</div>
+    <div class="rc-actions">
+      <button type="button" class="pv-btn" id="rc-copy">&#128203; Copy</button>
+      <button type="button" class="pv-btn" id="rc-download">&#11015;&#65039; Save as file</button>
+    </div>
+    <div class="auth-err auth-note" id="rc-err" role="status" aria-live="polite"></div>
+    <div class="ao-note is-warn">
+      <span class="ao-note-ico" aria-hidden="true">&#9888;&#65039;</span>
+      <span>This is the only time it is shown. We cannot look it up for you later,
+        and a new code replaces this one.</span>
+    </div>
+    <label class="rc-ack">
+      <input type="checkbox" id="rc-ack-box" />
+      <span>I have written my recovery code down</span>
+    </label>
+    <button class="pv-btn gold full" id="rc-done" disabled>I&rsquo;ve written it down</button>
+  </div>
+</div>
+
 <div id="settings-modal" class="overlay-modal">
   <div class="modal-box">
     <div class="modal-title">⚙️ Settings</div>
@@ -1102,6 +1205,19 @@
       <button class="pv-btn gold full" id="settings-email-save-btn" aria-label="Send the confirmation email">Send Confirmation →</button>
       <span class="auth-link" id="settings-email-cancel" role="button" tabindex="0" aria-label="Cancel linking an email">Cancel</span>
     </div>
+    <!-- ── The recovery code on this account ──────────────────────────
+         The other way back in, and the one that needs no email. The code
+         itself is never shown here: the server keeps only its HMAC, so all
+         this row can say is whether there is one and when it was made.
+         "New code" mints a replacement and shows it once. -->
+    <div class="settings-row" id="settings-rc-row" style="display:none;">
+      <div class="settings-row-label">Recovery code</div>
+      <div style="display:flex;align-items:center;gap:8px;flex:1;">
+        <span id="settings-rc-status" style="color:var(--cyan);font-weight:700;">None</span>
+        <button class="auth-pbtn" id="settings-rc-btn" aria-label="Make a new recovery code">New code</button>
+      </div>
+    </div>
+
     <!-- Filled in by _openSettingsModal: "Your first change is free" or the
          coin price, depending on whether this account has ever renamed. -->
     <div id="settings-nick-cost" style="display:none;font-size:11px;line-height:1.45;padding:2px 0 6px;"></div>
@@ -3848,51 +3964,51 @@
 
 <!-- The printed rulebook, one shared source for the How to play tab and the
      in-game Rule Book modal. Must load before preview-app.js reads it. -->
-<script defer src="/js/rulebook.js?v=2026-08-30.8"></script>
+<script defer src="/js/rulebook.js?v=2026-08-31.1"></script>
 
 <!-- Family colours + the built-in strategy list, shared with the published
      How to Play page (/rules) so the two can never drift. Deferred scripts
      run in document order, so this lands before preview-app.js reads it. -->
-<script defer src="/js/gamedata.js?v=2026-08-30.8"></script>
+<script defer src="/js/gamedata.js?v=2026-08-31.1"></script>
 
 <!-- The privacy policy, one shared source for the published /privacy page and
      the in-game reader (Settings → 📜 Legal). Must load before preview-app.js
      reads window.CC_PRIVACY_HTML. -->
-<script defer src="/js/privacy-policy.js?v=2026-08-30.8"></script>
+<script defer src="/js/privacy-policy.js?v=2026-08-31.1"></script>
 
 <!-- Level Pass, the Invite-a-Friend card and the Avatar Gallery's level
      track. One stylesheet: they are one idea seen from three places. -->
-<link rel="stylesheet" href="/css/level-pass.css?v=2026-08-30.8">
+<link rel="stylesheet" href="/css/level-pass.css?v=2026-08-31.1">
 <!-- Game Night. Also served to the marketing site (Vercel rewrites /css/:file),
      so the banner looks identical on both hosts from one source. -->
-<link rel="stylesheet" href="/css/game-night.css?v=2026-08-30.8">
+<link rel="stylesheet" href="/css/game-night.css?v=2026-08-31.1">
 
-<script defer fetchpriority="high" src="/js/preview-app.js?v=2026-08-30.8"></script>
+<script defer fetchpriority="high" src="/js/preview-app.js?v=2026-08-31.1"></script>
 
 <!-- Level Pass: the reward track over levels 1-100. Every rule is server-side
      (/api/pass/*); this renders state and sends intents. -->
-<script defer src="/js/level-pass.js?v=2026-08-30.8"></script>
+<script defer src="/js/level-pass.js?v=2026-08-31.1"></script>
 <!-- Friend-code referral reward. Pays two accounts, so the server owns all of
      it (/api/referral/*); this collects digits and renders the answer. -->
-<script defer src="/js/referral.js?v=2026-08-30.8"></script>
+<script defer src="/js/referral.js?v=2026-08-31.1"></script>
 <!-- Game Night banner. Self-injects at the top of the Overview panel. -->
-<script defer src="/js/game-night.js?v=2026-08-30.8"></script>
+<script defer src="/js/game-night.js?v=2026-08-31.1"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
-<script defer src="/js/tournament-ui.js?v=2026-08-30.8"></script>
+<script defer src="/js/tournament-ui.js?v=2026-08-31.1"></script>
 
 <!-- Clan System (Clans tab below Leaderboard; renders into #cc-clans-root). -->
-<script defer src="/js/clans-ui.js?v=2026-08-30.8"></script>
+<script defer src="/js/clans-ui.js?v=2026-08-31.1"></script>
 
 <!-- Prestige System (Prestige page + the badge/name-colour renderer used by
      every username in the game; renders into #cc-prestige-root). -->
-<script defer src="/js/prestige-ui.js?v=2026-08-30.8"></script>
+<script defer src="/js/prestige-ui.js?v=2026-08-31.1"></script>
 
 <!-- Discord join reward, the "+250 Critter Coins" chip beside the Join the
      Discord button, and the verified claim behind it. It renders into the one
      #ph-discord-reward button and stays hidden until the server says the offer
      is switched on. -->
-<script defer src="/js/discord-reward.js?v=2026-08-30.8"></script>
+<script defer src="/js/discord-reward.js?v=2026-08-31.1"></script>
 
 <!-- Developer Analytics and the custom bracket BUILDER used to load here. Both
      are inert until something is clicked, but "inert" was never free: as long
@@ -3900,9 +4016,9 @@
      competing for the same connection while the player waited on the loading
      screen. They are in the late loader at the bottom of this file now. -->
 
-<script defer src="/js/challenge-of-challenges.js?v=2026-08-30.8"></script>
+<script defer src="/js/challenge-of-challenges.js?v=2026-08-31.1"></script>
 
-<script defer src="/js/hidden-cephalopods.js?v=2026-08-30.8"></script>
+<script defer src="/js/hidden-cephalopods.js?v=2026-08-31.1"></script>
 
 <!-- ══ CHALLENGE OF CHALLENGES MODALS ════════════════════════════ -->
 
@@ -4000,11 +4116,11 @@
 <script>
 (function () {
   var LATE = [
-    ["css", "/css/analytics.css?v=2026-08-30.8"],
-    ["js",  "/js/analytics-ui.js?v=2026-08-30.8"],
-    ["js",  "/js/tournament-builder.js?v=2026-08-30.8"],
-    ["js",  "/js/current-controller.js?v=2026-08-30.8"],
-    ["js",  "/js/tutorials.js?v=2026-08-30.8"]
+    ["css", "/css/analytics.css?v=2026-08-31.1"],
+    ["js",  "/js/analytics-ui.js?v=2026-08-31.1"],
+    ["js",  "/js/tournament-builder.js?v=2026-08-31.1"],
+    ["js",  "/js/current-controller.js?v=2026-08-31.1"],
+    ["js",  "/js/tutorials.js?v=2026-08-31.1"]
   ];
   var started = false, settle = null;
   var ready = new Promise(function (r) { settle = r; });

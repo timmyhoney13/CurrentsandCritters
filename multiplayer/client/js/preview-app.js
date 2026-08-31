@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-08-30.8";
+  const APP_BUILD   = "2026-08-31.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,12 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "\uD83D\uDD11 A recovery code, so a forgotten password is not the end", items: [
+      "Your account signs in with a username, not an email, which meant that if you forgot your password and had not linked an email, there was nobody for us to send anything to. Every account now gets a recovery code instead: write it down, and your username and that code will always get you back in.",
+      "You get yours the moment your account is made, and if you already had an account you get one the next time you sign in. It is shown once, with a Copy button and a Save as file button, because we keep only a scrambled copy and genuinely cannot look it up for you afterwards.",
+      "Forgot your password? Choose Forgot password, then Use Recovery Code, and type your username, your code and a new password. You are straight back in, and a fresh code is waiting for you on the other side, because each one works only once.",
+      "You can make a new code any time from Settings, which retires the old one. Signing in no longer minds how you capitalise your username either: Mermaid and mermaid have always been the same account, and now getting back into it agrees.",
+    ]},
     { ver: "V1.7.1", title: "🎵 The theme song plays on one clock for the whole table", items: [
       "Everybody in a game is at the same place in the song now. It used to start at the top the moment each person walked in, so four players in one game were four different distances into the same track, and it began at whatever second you happened to arrive.",
       "It opens with the match: the theme starts from the beginning as the game starts, for everyone at once, and again on Play Again. Join late, or drop in to spectate, and you come in where the room already is.",
@@ -1902,16 +1908,29 @@
   // forever, even when the page is hidden (a backgrounded tab, or a phone
   // with its screen locked). That constantly wakes the network radio and
   // needlessly drains battery. While hidden we drop to a slow trickle; the
-  // instant the player returns we restore the 1 s cadence and refresh right
-  // away so nothing feels stale. SSE still delivers live pushes whenever it
+  // instant the player returns we restore the visible cadence and refresh
+  // right away so nothing feels stale. SSE still delivers live pushes whenever it
   // is connected, so slowing the poll never loses an update; competitive mode
   // (poll-only, no SSE) still trickles while hidden and fully catches up on
   // return.
-  const POLL_MS_VISIBLE = 1000;
-  const POLL_MS_HIDDEN  = 15000;
+  // Two visible cadences, because the poll is doing two different jobs.
+  // When SSE is connected the server pushes every change, so the poll is only
+  // a safety net (and the one path whose round trip we can measure for the
+  // music clock): once every 2.5 s is plenty, and it saves a fetch + a full
+  // re-render every second for the whole match, which is real CPU on a laptop.
+  // Competitive mode has no SSE (startSSE returns early), so there the poll IS
+  // the update path and has to stay at 1 s.
+  const POLL_MS_VISIBLE      = 1000;   // poll-only: the sole update path
+  const POLL_MS_VISIBLE_SSE  = 2500;   // SSE live: backstop for the pushes
+  const POLL_MS_HIDDEN       = 15000;
+  function _pollIntervalMs() {
+    if (document.hidden) return POLL_MS_HIDDEN;
+    const sseLive = !!sseSource && sseSource.readyState !== 2;  // 2 === CLOSED
+    return sseLive ? POLL_MS_VISIBLE_SSE : POLL_MS_VISIBLE;
+  }
   function _armPollTimer() {
     if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(refreshState, document.hidden ? POLL_MS_HIDDEN : POLL_MS_VISIBLE);
+    pollTimer = setInterval(refreshState, _pollIntervalMs());
   }
   document.addEventListener("visibilitychange", () => {
     if (!pollTimer) return;                 // only manage the poll while in a live game
@@ -1972,6 +1991,11 @@
     const url = apiUrl(`/api/rooms/${roomId}/stream${qs?"?"+qs:""}`);
     try {
       sseSource = new EventSource(url);
+      // The poll cadence follows the stream: live SSE means the poll is only a
+      // backstop (2.5 s), a dead stream means it is the update path again (1 s).
+      // Re-arm on both edges, or a dropped stream would leave the game on the
+      // slow cadence and every move would take up to 2.5 s to appear.
+      sseSource.onopen = () => { if (pollTimer) _armPollTimer(); };
       sseSource.onmessage = (ev) => {
         try {
           const d = JSON.parse(ev.data);
@@ -1980,6 +2004,7 @@
         } catch {}
       };
       sseSource.onerror = () => {
+        if (pollTimer) _armPollTimer();
         const now = Date.now();
         if (now - _lastSseErrorLogMs > 15000) {
           _lastSseErrorLogMs = now;
@@ -20263,7 +20288,24 @@
       }
 
       // 3. Nickname-based lookup using Google display name (last resort)
-      const hint = (user.displayName || "").trim();
+      //
+      // GOOGLE ONLY, and the "Google" in that sentence is load-bearing. This
+      // step exists for a Google account whose UID moved, and it matches on
+      // `nickname`, which is the PUBLIC display name: not unique, renameable,
+      // and shared by as many players as fancy it. That is survivable when the
+      // hint is a real person's Google name and the tie-break on email usually
+      // settles it.
+      //
+      // It is not survivable for a username-and-password account. Their
+      // displayName is deliberately set to the LOGIN name, their stored
+      // `email` is "" so the email tie-break can never match, and the loser of
+      // that coin toss is handed docs[0]: a stranger's profile, which
+      // safeWriteProfile then copies onto their brand-new UID. A player would
+      // sign up and land in somebody else's Player Home, wearing their coins.
+      // Their UID never moves either, so step 1 is the whole story for them:
+      // no match here means a new account, which is exactly what it is.
+      const isPasswordAccount = String(user.email || "").toLowerCase().endsWith("@" + CC_LOGIN_DOMAIN);
+      const hint = isPasswordAccount ? "" : (user.displayName || "").trim();
       if (hint) {
         console.log(`[auth] Trying nickname lookup: ${hint}`);
         try {
@@ -21455,6 +21497,10 @@
       // Signed in with a real account: warm the reward caches now, so the XP
       // boost is known before the first game finishes rather than after.
       try { window.__ccPrimeRewardModules && window.__ccPrimeRewardModules(); } catch (_) {}
+      // Accounts that existed before recovery codes did get theirs here: a
+      // sign-in is the only moment we are sure it is really them. Does nothing
+      // for a Google account, or for one that already has a code.
+      try { void ccEnsureRecoveryCode(); } catch (_) {}
     }
 
     // Ends the guest session in this page. It deliberately does NOT erase what
@@ -22949,7 +22995,7 @@
                 // server files the address against an account document, and
                 // there is no account document yet.
                 _pendingLinkEmail = ccValidEmail(staged.email) ? staged.email : "";
-                await finishNicknameSetup(staged.nick);
+                await finishNicknameSetup(staged.nick, { surfacePane: true });
                 return;
               }
               // New account (doc doesn't exist): must choose nickname first.
@@ -23483,11 +23529,14 @@
     const AO_PANES = {
       signin:   "ao-pane-signin",
       forgot:   "ao-pane-forgot",
+      code:     "ao-pane-code",
       create:   "ao-pane-create",
       guest:    "ao-pane-guest",
       nickname: "ao-pane-nickname",
     };
-    const AO_PANE_ORDER = ["signin", "forgot", "create", "guest", "nickname"];
+    // "code" sits after "forgot" because that is where it is reached from:
+    // going deeper into asking for a way back in, so the pane slides forward.
+    const AO_PANE_ORDER = ["signin", "forgot", "code", "create", "guest", "nickname"];
     let _aoPane = "signin";
     let _aoPaneTimer = null;
 
@@ -23541,7 +23590,7 @@
       // line and the three a pane carries of its own are all wiped on the way
       // through, so nothing is ever read as an answer to the wrong question.
       setAuthMsg("auth-choose-err", "", true);
-      ["auth-guest-err", "auth-nick-err", "ao-forgot-err"].forEach(id => {
+      ["auth-guest-err", "auth-nick-err", "ao-forgot-err", "ao-code-err"].forEach(id => {
         if ($a(id)) setAuthMsg(id, "", true);
       });
       if (key === "create") {
@@ -23560,9 +23609,19 @@
         const from = $a("ao-user"), to = $a("ao-forgot-user");
         if (from && to && !to.value) to.value = (from.value || "").trim();
       }
+      if (key === "code") {
+        // Same courtesy, from either of the two panes this is reached from.
+        const to = $a("ao-code-user");
+        if (to && !to.value) {
+          to.value = ((($a("ao-forgot-user") || {}).value)
+                   || (($a("ao-user") || {}).value) || "").trim();
+        }
+        ccPaintCodePwMeter();
+      }
       const AO_PANE_FOCUS = {
         signin:   "ao-user",
         forgot:   "ao-forgot-user",
+        code:     "ao-code-user",
         create:   "ao-new-user",
         guest:    "auth-guest-nick",
         nickname: "auth-nick-input",
@@ -23582,9 +23641,16 @@
       ccPaintPwMeter();
     }
 
-    function ccPaintPwMeter() {
-      const inp = $a("ao-new-pass"), bar = $a("ao-meter");
-      const word = $a("ao-meter-word"), tip = $a("ao-meter-tip"), go = $a("ao-new-go");
+    // Two panes invent a password now: the create pane, and the one where a
+    // recovery code is spent. They hand over their own field ids rather than
+    // each carrying a copy of this, so the bar and the rule stay the same
+    // thing on both, and there is one place where the floor can be changed.
+    function ccPaintPwMeter(ids) {
+      const f = Object.assign({ pass: "ao-new-pass", meter: "ao-meter",
+                                word: "ao-meter-word", tip: "ao-meter-tip",
+                                go: "ao-new-go" }, ids || {});
+      const inp = $a(f.pass), bar = $a(f.meter);
+      const word = $a(f.word), tip = $a(f.tip), go = $a(f.go);
       if (!inp || !bar) return;
       const raw = inp.value || "";
       const r = ccPasswordScore(raw);
@@ -23794,6 +23860,265 @@
       return { ok: true, message: d.message || "Check your inbox for the confirmation link." };
     }
 
+    // ══ THE RECOVERY CODE ════════════════════════════════════════════
+    // The email above is optional and most players never link one, which left
+    // a forgotten password as the end of the account: the address Firebase
+    // holds for them is synthetic, so there is nobody to write to.
+    //
+    // A recovery code is the way back in that needs nothing but a piece of
+    // paper. It is a SECOND CREDENTIAL, not a hint: username + code + a new
+    // password, and they are in. So it is handled like a password everywhere.
+    //
+    // THE BROWSER NEVER STORES IT. The server keeps only an HMAC, and the
+    // plaintext exists in exactly one HTTP response and then on the player's
+    // paper. That is the whole reason the modal below is as insistent as it
+    // is: there is no second chance to read it, and nobody, including us, can
+    // look it up afterwards. It is not put in localStorage either, on purpose:
+    // a credential cached on a shared school computer is not a credential.
+    async function ccIssueRecoveryCode() {
+      const token = await ccIdToken();
+      if (!token) return { ok: false, message: "You are not signed in." };
+      let r;
+      try { r = await apiPost("/api/account/recovery-code/issue", { idToken: token }); }
+      catch (_) { return { ok: false, message: "Could not reach the server. Try again in a moment." }; }
+      const d = (r && r.data) || {};
+      if (!r.ok || !d.ok) return { ok: false, message: d.message || "Could not make a recovery code." };
+      return { ok: true, code: String(d.code || ""), issuedAt: Number(d.issued_at || 0) };
+    }
+
+    async function ccRecoveryCodeState() {
+      const token = await ccIdToken();
+      if (!token) return null;
+      let r;
+      try { r = await apiPost("/api/account/recovery-code/state", { idToken: token }); }
+      catch (_) { return null; }
+      const d = (r && r.data) || {};
+      return (r.ok && d.ok) ? d : null;
+    }
+
+    // Public by necessity: somebody locked out has nothing to prove ownership
+    // with. What guards it is the code, a server-side rate limit, and one
+    // answer for every kind of miss.
+    async function ccRedeemRecoveryCode(username, code, newPassword) {
+      let r;
+      try {
+        r = await apiPost("/api/account/recovery-code/redeem",
+                          { username, code, new_password: newPassword });
+      } catch (_) {
+        return { ok: false, message: "Could not reach the server. Try again in a moment." };
+      }
+      const d = (r && r.data) || {};
+      if (!r.ok || !d.ok) return { ok: false, message: d.message || "That code did not work." };
+      return { ok: true, username: String(d.username || ""), code: String(d.code || ""),
+               message: String(d.message || "") };
+    }
+
+    // ── Showing one, exactly once ─────────────────────────────────────
+    // The button stays dead until the checkbox is ticked. That is not a dark
+    // pattern in reverse, it is the only defence this screen has: a player who
+    // clicks straight through has thrown away the thing that gets them back
+    // into their account, and there is no way to show it to them again.
+    let _rcShownCode = "";
+    function ccShowRecoveryCode(code, opts) {
+      const o = opts || {};
+      const modal = $a("rc-modal");
+      if (!modal || !code) return;
+      _rcShownCode = String(code);
+      const out = $a("rc-code");
+      if (out) out.textContent = _rcShownCode;
+      const lead = $a("rc-lead");
+      if (lead && o.lead) lead.textContent = o.lead;
+      const box = $a("rc-ack-box"), done = $a("rc-done");
+      if (box)  box.checked = false;
+      if (done) done.disabled = true;
+      setAuthMsg("rc-err", "", true);
+      modal.classList.add("open");
+      try { $a("rc-copy").focus({ preventScroll: true }); } catch (_) {}
+    }
+
+    function ccCloseRecoveryCode() {
+      const modal = $a("rc-modal");
+      if (modal) modal.classList.remove("open");
+      // Out of the page as well as off the screen: it is a credential, and it
+      // has no business sitting in the DOM of a tab left open on a shared
+      // computer for the rest of the afternoon.
+      _rcShownCode = "";
+      const out = $a("rc-code");
+      if (out) out.textContent = "";
+    }
+
+    (function wireRecoveryCodeModal() {
+      const modal = $a("rc-modal");
+      if (!modal) return;
+      const box = $a("rc-ack-box"), done = $a("rc-done");
+      if (box && done) {
+        box.addEventListener("change", () => { done.disabled = !box.checked; });
+      }
+      if (done) done.addEventListener("click", () => {
+        if (done.disabled) return;
+        ccCloseRecoveryCode();
+      });
+      $a("rc-copy").addEventListener("click", async () => {
+        if (!_rcShownCode) return;
+        let ok = false;
+        try {
+          await navigator.clipboard.writeText(_rcShownCode);
+          ok = true;
+        } catch (_) {
+          // Clipboard is refused outright on plenty of phones and every
+          // insecure origin, so there is a way through that is not a button:
+          // the code is user-select:all, so one tap selects the whole thing.
+          try {
+            const r = document.createRange();
+            r.selectNodeContents($a("rc-code"));
+            const sel = window.getSelection();
+            sel.removeAllRanges(); sel.addRange(r);
+            ok = document.execCommand && document.execCommand("copy");
+          } catch (_) { ok = false; }
+        }
+        setAuthMsg("rc-err", ok ? "Copied. Now put it somewhere you will still have it in a month."
+                                : "Could not copy it. Select the code and copy it by hand.", ok);
+      });
+      $a("rc-download").addEventListener("click", () => {
+        if (!_rcShownCode) return;
+        const who = String(_activeProfile?.login_username || _playerNickname || "account").trim();
+        const text =
+          "Currents and Critters, recovery code\r\n" +
+          "=====================================\r\n\r\n" +
+          "Username:      " + who + "\r\n" +
+          "Recovery code: " + _rcShownCode + "\r\n\r\n" +
+          "If you forget your password, go to the sign-in screen, choose\r\n" +
+          "Forgot password, then Use Recovery Code, and type your username\r\n" +
+          "and this code. It works once, and you will be given a new one.\r\n\r\n" +
+          "Keep this file somewhere only you can read it.\r\n";
+        try {
+          const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "currents-and-critters-recovery-code.txt";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => { try { URL.revokeObjectURL(url); } catch (_) {} }, 4000);
+          setAuthMsg("rc-err", "Saved. Keep that file somewhere only you can read it.", true);
+        } catch (_) {
+          setAuthMsg("rc-err", "Could not save the file. Copy the code instead.", false);
+        }
+      });
+      // Deliberately NOT closable by clicking the backdrop or pressing Escape.
+      // Every other modal in the game is; this one is the only sight of a
+      // credential the player will ever get, and a stray click on the dark
+      // area is exactly how it would be lost.
+    })();
+
+    // ── Everybody gets one ────────────────────────────────────────────
+    // New accounts get theirs at sign-up. Accounts that existed before this
+    // feature get theirs on their next sign-in, which is the only moment we
+    // are certain it is really them. Runs once per page load, never blocks
+    // anything, and says nothing at all if the account is not eligible (a
+    // Google account has no password here to be locked out of) or if the
+    // server cannot answer.
+    let _rcEnsured = false;
+    async function ccEnsureRecoveryCode(opts) {
+      const o = opts || {};
+      // Checked BEFORE the once-per-load guard. This is not a check that can
+      // be "already done": it is a credential the player is owed, minted as
+      // the code they just spent was retired, and skipping it would leave
+      // them with no way back in at all.
+      //
+      // Showing it here rather than at the moment of redeeming is the point:
+      // then, it would have been painted over by the sign-in that follows and
+      // dismissed without ever being read.
+      if (_rcPendingCode) {
+        const fresh = _rcPendingCode;
+        _rcPendingCode = "";
+        ccShowRecoveryCode(fresh, {
+          lead: "You are back in, and your old code is now used up. This is its "
+              + "replacement: write this one down and keep it safe.",
+        });
+        return;
+      }
+      if (_rcEnsured && !o.force) return;
+      _rcEnsured = true;
+      if (!_authUser || !_isPasswordAccount()) return;
+      try {
+        const st = await ccRecoveryCodeState();
+        if (!st || !st.eligible || st.has_code) return;
+        const made = await ccIssueRecoveryCode();
+        if (!made.ok || !made.code) return;
+        ccShowRecoveryCode(made.code, {
+          lead: "Your account now has a recovery code. Write it down and keep it "
+              + "safe: if you ever forget your password, your username and this "
+              + "code are the way back in.",
+        });
+      } catch (_) { /* never in the way of playing */ }
+    }
+
+    // ── Spending a recovery code ──────────────────────────────────────
+    // Getting in and choosing a new password are ONE step here, deliberately.
+    // A code works once, so a player who spent it without setting a password
+    // would be locked out again the moment they closed the tab, holding
+    // nothing at all. The server enforces the same thing; this is the half
+    // that makes it a sentence rather than an error.
+    function ccPaintCodePwMeter() {
+      ccPaintPwMeter({ pass: "ao-code-pass", meter: "ao-code-meter",
+                       word: "ao-code-meter-word", tip: "ao-code-meter-tip",
+                       go: "ao-code-go" });
+    }
+
+    async function ccRedeemCodePane() {
+      const errId = "ao-code-err";
+      const user = (($a("ao-code-user") || {}).value || "").trim();
+      const code = (($a("ao-code-code") || {}).value || "").trim();
+      const pass = ($a("ao-code-pass") || {}).value || "";
+      if (!user) { setAuthMsg(errId, "Enter your username.", false); return; }
+      if (!code) { setAuthMsg(errId, "Enter your recovery code.", false); return; }
+      const strength = ccPasswordScore(pass);
+      if (strength.score < CC_PW_MIN_SCORE) {
+        setAuthMsg(errId, "Pick a stronger password: " + strength.tip, false); return;
+      }
+      const go = $a("ao-code-go");
+      if (go) { go.disabled = true; go.setAttribute("aria-busy", "true"); }
+      setAuthMsg(errId, "Checking your code…", true);
+
+      const r = await ccRedeemRecoveryCode(user, code, pass);
+      if (!r.ok) {
+        if (go) { go.removeAttribute("aria-busy"); }
+        ccPaintCodePwMeter();          // re-enables the button if the password still qualifies
+        setAuthMsg(errId, r.message, false);
+        return;
+      }
+
+      // The password is theirs again, so the ordinary sign-in path takes over
+      // from here: one way in, not a second one that drifts. The fields are
+      // filled and the real handler is run, which is also what clears the
+      // guest session and stands the old identity down.
+      setAuthMsg(errId, "Signing you in…", true);
+      const nameEl = $a("ao-user"), passEl = $a("ao-pass");
+      if (nameEl) nameEl.value = r.username || user;
+      if (passEl) passEl.value = pass;
+      // The fresh code, which the server minted as it spent the old one, is
+      // shown the moment they are actually in: putting it up now would have it
+      // covered by the sign-in, and dismissed without being read.
+      _rcPendingCode = r.code || "";
+      ccClearCodeFields();
+      await ccPasswordSignIn({});
+      if (go) { go.removeAttribute("aria-busy"); }
+    }
+
+    // A recovery code and a password do not stay in fields on a shared
+    // computer, the same rule the create pane already follows.
+    function ccClearCodeFields() {
+      ["ao-code-code", "ao-code-pass"].forEach(id => {
+        const el = $a(id);
+        if (el) el.value = "";
+      });
+      ccPaintCodePwMeter();
+    }
+
+    // Minted by the redeem, shown once the player is through the door.
+    let _rcPendingCode = "";
+
     // Forgot password, on its own pane. It used to be a button that did the
     // whole thing in place: one click, and the only thing that happened was a
     // sentence appearing under a form you had already half-filled. Asking for
@@ -23877,6 +24202,33 @@
       $a("ao-forgot-go").addEventListener("click", () => { void ccForgotPassword(); });
       onEnter("ao-forgot-user", () => { void ccForgotPassword(); });
 
+      // ── Pane: back in with a recovery code ─────────────────────────
+      $a("ao-forgot-code").addEventListener("click", () => ccChooserPane("code"));
+      const backFromCode = () => { ccClearCodeFields(); ccChooserPane("signin"); };
+      $a("ao-back-code").addEventListener("click", backFromCode);
+      $a("ao-code-signin").addEventListener("click", backFromCode);
+      $a("ao-code-go").addEventListener("click", () => { void ccRedeemCodePane(); });
+      $a("ao-code-pass").addEventListener("input", () => ccPaintCodePwMeter());
+      wireEye("ao-code-eye", ["ao-code-pass"]);
+      onEnter("ao-code-user", () => $a("ao-code-code").focus());
+      onEnter("ao-code-code", () => $a("ao-code-pass").focus());
+      onEnter("ao-code-pass", () => $a("ao-code-go").click());
+      // Typed off paper, so it is groomed as it is typed: upper-cased and
+      // re-grouped into fours. Somebody copying a code by hand should not have
+      // to get the dashes right as well.
+      $a("ao-code-code").addEventListener("input", (e) => {
+        const el = e.target;
+        const atEnd = el.selectionStart === el.value.length;
+        const raw = (el.value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
+        const grouped = (raw.match(/.{1,4}/g) || []).join("-");
+        if (grouped !== el.value) {
+          el.value = grouped;
+          // Only when they are typing at the end: re-homing the caret while
+          // somebody is fixing a character in the middle is maddening.
+          if (atEnd) { try { el.setSelectionRange(grouped.length, grouped.length); } catch (_) {} }
+        }
+      });
+
       // ── Pane 3: create an account ──────────────────────────────────
       // Two ways back off this pane, and they are not the same control: the
       // pill at the top left is where you came from, the line at the foot is
@@ -23896,7 +24248,9 @@
       onEnter("ao-new-email", () => $a("ao-new-go").click());
       onEnter("ao-new-ref",   () => $a("ao-new-go").click());
       wireEye("ao-new-eye", ["ao-new-pass", "ao-new-pass2"]);
-      $a("ao-new-pass").addEventListener("input", ccPaintPwMeter);
+      // Wrapped, not passed directly: the listener would hand the Event in as
+      // the field ids now that this function takes some.
+      $a("ao-new-pass").addEventListener("input", () => ccPaintPwMeter());
       $a("ao-ref-toggle").addEventListener("click", () => {
         const wrap = $a("ao-ref-wrap"), btn = $a("ao-ref-toggle");
         const open = wrap.style.display !== "none";
@@ -23953,7 +24307,7 @@
     // in the same tab can never inherit the first one's email.
     let _pendingLinkEmail = "";
 
-    async function finishNicknameSetup(nick) {
+    async function finishNicknameSetup(nick, opts) {
       if (!_authUser) { setAuthMsg("auth-nick-err", "Not signed in.", false); return; }
       setAuthMsg("auth-nick-err", "Saving…", true);
       try {
@@ -24031,8 +24385,29 @@
         // welcome bonus is paid on the account's first screen rather than
         // waiting for a second sign-in.
         try { window.__ccPrimeRewardModules && window.__ccPrimeRewardModules(); } catch (_) {}
+        // …and issues the recovery code itself, for the same reason. This is
+        // the moment it matters most: the account is one minute old and its
+        // password is the only thing holding it, so the way back in is handed
+        // over before the player has anything to lose.
+        try { void ccEnsureRecoveryCode(); } catch (_) {}
       } catch (e) {
         ccReport("firebase_profile_save_failed", ccErrDetail(e), "warn");
+        // This message lives on the NICKNAME pane, and the username-and-password
+        // sign-up runs this with the CREATE pane still on screen. Written there
+        // it would be invisible: the player would sit under "Creating your
+        // account\u2026" for good, with a Firebase account that exists and no
+        // profile behind it, and every retry from the create pane would answer
+        // "that username is taken". So the pane that owns the message comes up
+        // first, carrying the name, which makes the failure both readable and
+        // retryable: Create Username runs this again, onto the same account.
+        // Before setAuthMsg, never after: ccChooserPane wipes the line on the
+        // way through, so a message set first would be swept away by its own fix.
+        if (opts && opts.surfacePane) {
+          const inp = $a("auth-nick-input");
+          if (inp) inp.value = nick;
+          paintNickCount();
+          showStep("auth-step-nickname");
+        }
         setAuthMsg("auth-nick-err", "Could not save your username. Try again.", false);
       }
     }
@@ -24331,6 +24706,11 @@
       row.style.display = show ? "" : "none";
       const form = $a("settings-email-form");
       if (form) form.style.display = "none";
+      // The other way back in, painted beside this one so the two ways an
+      // account can be recovered are read together. Before the early return,
+      // not after: a Google account has to have this row HIDDEN, and one left
+      // painted would be showing the last account's answer.
+      void _paintSettingsRcRow();
       if (!show) return;
       const cur = String(_activeProfile?.recovery_email || "").trim();
       const ok  = !!_activeProfile?.recovery_email_verified;
@@ -24345,6 +24725,70 @@
       if (inp) inp.value = cur;
       setAuthMsg("settings-email-err", "", true);
     }
+    // ── Settings: the recovery code row ───────────────────────────────
+    // The code itself can never appear here. The server keeps only its HMAC,
+    // so all this row can honestly say is whether there IS one and roughly
+    // when it was made. "New code" mints a replacement, which is destructive
+    // on purpose: an account has exactly one code, so "I lost it, give me
+    // another" must not leave the lost one working.
+    async function _paintSettingsRcRow() {
+      const row = $a("settings-rc-row");
+      if (!row) return;
+      if (!_isPasswordAccount()) { row.style.display = "none"; return; }
+      row.style.display = "";
+      const val = $a("settings-rc-status");
+      if (val) {
+        val.textContent = "Checking\u2026";
+        val.style.color = "rgba(150,200,240,.75)";
+      }
+      const st = await ccRecoveryCodeState();
+      if (!val) return;
+      if (!st) {
+        val.textContent = "Could not check";
+        val.style.color = "#e0b040";
+      } else if (st.has_code) {
+        const when = Number(st.issued_at || 0);
+        val.textContent = when
+          ? ("Saved " + new Date(when * 1000).toLocaleDateString())
+          : "Saved";
+        val.style.color = "var(--cyan)";
+      } else {
+        val.textContent = "None yet";
+        val.style.color = "#e0b040";
+      }
+      const btn = $a("settings-rc-btn");
+      if (btn) btn.textContent = (st && st.has_code) ? "New code" : "Make one";
+    }
+
+    (function wireSettingsRc() {
+      const btn = $a("settings-rc-btn");
+      if (!btn) return;
+      btn.addEventListener("click", async () => {
+        // Replacing a code the player may still be relying on is not something
+        // to do on a mis-tap, so it is asked about first.
+        const st = await ccRecoveryCodeState();
+        if (st && st.has_code) {
+          const ok = window.confirm(
+            "Make a new recovery code?\n\n"
+            + "Your current code stops working straight away. Only do this if "
+            + "you have lost it, or think somebody else has seen it.");
+          if (!ok) return;
+        }
+        btn.disabled = true;
+        const made = await ccIssueRecoveryCode();
+        btn.disabled = false;
+        if (!made.ok || !made.code) {
+          showToast(made.message || "Could not make a recovery code.", "warn", 6000);
+          return;
+        }
+        ccShowRecoveryCode(made.code, {
+          lead: "Here is your new recovery code. The old one no longer works. "
+              + "Write this down and keep it safe.",
+        });
+        void _paintSettingsRcRow();
+      });
+    })();
+
     (function wireSettingsEmail() {
       const btn = $a("settings-edit-email-btn");
       if (!btn) return;
@@ -32734,6 +33178,9 @@
       if (now === _ccIdentityKey) return false;
       _ccIdentityKey = now;
       _ccWipeIdentityCaches();
+      // "Does this account have a recovery code?" was answered about the
+      // identity that is leaving, so the answer goes with them.
+      _rcEnsured = false;
       return true;
     }
     // The device-scoped progress blobs (challenges, streaks, opponents met)

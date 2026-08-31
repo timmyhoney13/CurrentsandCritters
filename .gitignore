@@ -102,7 +102,11 @@
 !account_email.py
 # Its tests: the forged / edited / expired / stale token refusals, the one
 # confirmed address per account rule, and the forgotten-password answer that
-# says the same thing whatever it finds.
+# says the same thing whatever it finds. Since the recovery code was added it
+# also pins the half that needs no email at all: that the plaintext is never
+# stored, that a hash cannot be moved between accounts, that spending a code
+# is single-use and hands back a replacement, and that a wrong username and a
+# wrong code are answered with the same sentence.
 !test_account_email.py
 
 # Friend-code referral reward. Module-scope import again, same consequence if
@@ -334,6 +338,14 @@
 # laptop, and that the green strength bar and the button it gates agree at the
 # exact score they change on.
 !test_account_signin.js
+# The half AFTER the account exists: that a profile save which fails does not
+# report itself into a pane nobody is looking at, and that a brand-new account
+# never loads a stranger's profile through the display-name lookup.
+!test_signup_entry.js
+# The way back in that needs no email: username + a recovery code + a new
+# password. Pins the code as a credential (never cached in the browser, hashed
+# on the server, shown once and only once) and the pane that spends one.
+!test_recovery_code.js
 # One-shot image surgery: CURRENTS & CRITTERS was painted 46px right of the
 # middle of login-bg.png, and this is what moved it. Kept because the next
 # redraw of that artwork will probably need it again and the awkward parts (the
