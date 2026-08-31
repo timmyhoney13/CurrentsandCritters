@@ -64,12 +64,30 @@ class Gen(T.AnalyticsTestCase):
          for d in range(1, 13)]
         + [T.game(NOW - d * DAY, completed=False) for d in (2, 5)]
         + [T.game(NOW - 3 * DAY, team=True, players=4)]
+        # Competitive free-for-all: ordinary game history carrying mode
+        # "ranked". It has to paint on the Competitive page, so the fixture
+        # includes it, plus one nobody finished.
+        # The finished free-for-alls are the same three matches the ledger
+        # below holds: on disk they really do appear in both places.
+        + [T.game(NOW - d * DAY, ranked=True, humans=3,
+                  names=("Reef", "Kelp", "Sun")) for d in (1, 4, 6)]
+        + [T.game(NOW - 7 * DAY, ranked=True, humans=3, completed=False,
+                  names=("Reef", "Kelp", "Sun"))]
     )
     comp_games = [{
         "room_id": "CCCCC", "recorded_unix": NOW - d * DAY,
         "p1_name": "Reef", "p2_name": "Kelp", "winner": "Reef", "loser": "Kelp",
         "is_draw": False, "forfeit": d == 4, "ranked": True, "turn_count": 12 + d,
-    } for d in range(1, 6)]
+    } for d in range(1, 6)] + [{
+        # The free-for-all half of the same ledger: a players list with
+        # places instead of p1/p2 sides. Both shapes have to paint one page.
+        "room_id": "FFAAA", "recorded_unix": NOW - d * DAY, "mode": "ranked",
+        "ranked": True, "winner": "Reef", "is_draw": False,
+        "turn_count": 10 + d, "player_count": 3,
+        "players": [{"name": "Reef", "seat_index": 0, "score": 50, "place": 1},
+                    {"name": "Kelp", "seat_index": 1, "score": 40, "place": 2},
+                    {"name": "Sun", "seat_index": 2, "score": 30, "place": 3}],
+    } for d in (1, 4, 6)]
 
     def runTest(self):
         pass
@@ -81,8 +99,11 @@ try:
     for name in list(an._SECTIONS) + ["search"]:
         out[name] = g.call(name, days=30, query="Reef").payload
     # An empty range too, the dashboard has to say "not enough data yet"
-    # rather than draw a chart of zeros.
-    out["_empty_overview"] = g.call("overview", days=1, mode="competitive").payload
+    # rather than draw a chart of zeros. The filter has to be one that genuinely
+    # matches nothing: this used to ask for mode="competitive" and got an empty
+    # page only because the free-for-all was being misfiled as Casual, so fixing
+    # that bug would have "broken" this test. No fixture game seats 7.
+    out["_empty_overview"] = g.call("overview", days=1, player_count=7).payload
 finally:
     g.tearDown()
 print(json.dumps(out))

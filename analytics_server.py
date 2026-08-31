@@ -256,9 +256,15 @@ def _load_users(force: bool = False) -> List[Dict[str, Any]]:
                 "last_active": _ts(d.get("last_active")),
                 "created_at": _ts(d.get("created_at")),
                 "games": _int(st.get("completed_games")),
-                "wins": _int(st.get("normal_wins")) + _int(st.get("competitive_wins")),
-                "comp_games": sum(_int(v) for v in (st.get("comp_games_by_size") or {}).values())
-                              if isinstance(st.get("comp_games_by_size"), dict) else 0,
+                # These two counters are NOT addable. `normal_wins` is a lifetime
+                # total that already includes free-for-all Competitive wins (only
+                # the paired 4-seat table is excluded from it), and
+                # `competitive_wins` is reset to 0 at every season rollover.
+                # Summing them double-counted every free-for-all win and made a
+                # player's total silently drop when a season ended, so they are
+                # reported as the two different things they are.
+                "wins": _int(st.get("normal_wins")),
+                "comp_wins": _int(st.get("competitive_wins")),
                 "total_xp": _int(st.get("total_xp")),
                 "level": _int(st.get("level") or st.get("player_level"), 1),
                 "coins": _int(st.get("critter_coins")),
@@ -416,6 +422,36 @@ def _game_duration(rec: Dict[str, Any]) -> Optional[int]:
     return None
 
 
+# The game writes four kinds of table into one history directory, and `mode`
+# alone does not name them: Team games are saved as "standard" (+team_mode) and
+# an abandoned game of ANY kind is saved as "truncated". Competitive is two
+# modes, the 4-seat paired game ("competitive") and the 2-8 player free-for-all
+# ("ranked"), and both are Competitive to the person who played them. This is
+# the ONE place that decides which is which, so a new mode can never again be
+# counted as Casual in one section and Competitive in another.
+def _game_mode(rec: Dict[str, Any]) -> str:
+    """One of "competitive", "ranked", "team", "casual"."""
+    mode = str(rec.get("mode") or "")
+    # A truncated record kept its real mode in these two booleans.
+    if mode == "competitive" or rec.get("competitive") is True:
+        return "competitive"
+    if mode == "ranked" or rec.get("ranked") is True:
+        return "ranked"
+    if rec.get("team_mode"):
+        return "team"
+    return "casual"
+
+
+# What each mode is called on screen. Both Competitive modes say "Competitive"
+# first, because that is the word the game itself puts in front of a player.
+_MODE_LABEL = {
+    "competitive": "Competitive (pairs)",
+    "ranked": "Competitive (free-for-all)",
+    "team": "Team",
+    "casual": "Casual",
+}
+
+
 def _filter_games(rows: List[Dict[str, Any]], f: Dict[str, Any],
                   start: int, end: int) -> List[Dict[str, Any]]:
     out = []
@@ -428,9 +464,13 @@ def _filter_games(rows: List[Dict[str, Any]], f: Dict[str, Any],
         if want_size and _int(rec.get("player_count")) != want_size:
             continue
         if want_mode != "all":
-            mode = "competitive" if rec.get("mode") == "competitive" else (
-                "team" if rec.get("team_mode") else "casual")
-            if mode != want_mode:
+            mode = _game_mode(rec)
+            # "Competitive" in the filter means the mode as a player knows it,
+            # so it matches BOTH competitive tables, not just the paired one.
+            if want_mode == "competitive":
+                if mode not in ("competitive", "ranked"):
+                    continue
+            elif mode != want_mode:
                 continue
         # "Include bot games" off means: only games at least two humans played.
         if not f.get("include_bots") and _int(rec.get("human_count")) < 2:
@@ -500,6 +540,24 @@ def _retention(users: List[Dict[str, Any]], day_n: int, now: int) -> Optional[Di
             "rate": _pct(len(returned), len(eligible))}
 
 
+# The live snapshot is the only thing on this page that reaches into the running
+# server, and Overview is the page the dashboard opens on. If that call raises,
+# an unguarded Overview fails while every other tab still works, which reads as
+# "analytics is broken" rather than "one number is missing". A failure here is
+# itself worth reporting, so it degrades into the "needs attention" state the
+# panel already knows how to draw.
+def _live() -> Dict[str, Any]:
+    if not _live_snapshot:
+        return {}
+    try:
+        snap = _live_snapshot()
+        return snap if isinstance(snap, dict) else {}
+    except Exception as exc:  # noqa: BLE001
+        print(f"[analytics] live snapshot failed: {exc}")
+        return {"ok": False,
+                "status_note": "The live server counters could not be read."}
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  SECTION: OVERVIEW
 # ═══════════════════════════════════════════════════════════════════════════
@@ -524,7 +582,7 @@ def _section_overview(f: Dict[str, Any]) -> Dict[str, Any]:
     prev_completed = [g for g in prev_games if _game_completed(g)]
     durations = [d for d in (_game_duration(g) for g in completed) if d]
 
-    live = _live_snapshot() if _live_snapshot else {}
+    live = _live()
     online = _int(live.get("online_players"), -1)
     if online < 0:
         online = len([u for u in users if u["online"] and now - u["last_active"] <= 300])
@@ -715,6 +773,7 @@ def _section_players(f: Dict[str, Any]) -> Dict[str, Any]:
                 {"key": "name", "label": "Player", "always": True},
                 {"key": "games", "label": "Games", "always": True},
                 {"key": "wins", "label": "Wins", "always": True},
+                {"key": "comp_wins", "label": "Comp wins (season)"},
                 {"key": "level", "label": "Level", "always": True},
                 {"key": "last_seen", "label": "Last seen", "always": True},
                 {"key": "joined", "label": "Joined"},
@@ -725,7 +784,8 @@ def _section_players(f: Dict[str, Any]) -> Dict[str, Any]:
             ],
             "rows": [{
                 "name": u["nickname"] or "Player",
-                "games": u["games"], "wins": u["wins"], "level": u["level"],
+                "games": u["games"], "wins": u["wins"],
+                "comp_wins": u["comp_wins"], "level": u["level"],
                 "last_seen": u["last_active"], "joined": u["created_at"],
                 "xp": u["total_xp"], "coins": u["coins"], "icons": u["icons"],
                 "prestige": u["prestige_level"],
@@ -754,8 +814,7 @@ def _section_gameplay(f: Dict[str, Any]) -> Dict[str, Any]:
     scores: List[int] = []
     for g in completed:
         sizes[_int(g.get("player_count"))] = sizes.get(_int(g.get("player_count")), 0) + 1
-        mode = "Competitive" if g.get("mode") == "competitive" else (
-            "Team" if g.get("team_mode") else "Casual")
+        mode = _MODE_LABEL[_game_mode(g)]
         modes[mode] = modes.get(mode, 0) + 1
         for p in _human_players(g):
             s = str(p.get("strategy") or "Unknown")
@@ -908,46 +967,114 @@ def _section_cards(f: Dict[str, Any]) -> Dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════
 #  SECTION: COMPETITIVE
 # ═══════════════════════════════════════════════════════════════════════════
+def _competitive_matches(f: Dict[str, Any], start: int, end: int) -> List[Dict[str, Any]]:
+    """Every competitive match in the window, from BOTH tables, flattened to one
+    shape and counted exactly once.
+
+    A finished Competitive game lands in the competitive directory whichever
+    table it was played on, in one of two shapes: the paired 4-seat game writes
+    p1/p2 sides, and the free-for-all writes a `players` list with places. That
+    directory is the ledger, so it is the only source for a match that finished.
+
+    A free-for-all nobody finished never reaches the ledger (_save_ranked_game
+    requires the end-game trigger), and it is the one thing the ledger cannot
+    answer, so abandoned matches come from ordinary game history instead. The
+    two sets are disjoint by construction: reading finished games from both
+    would count every free-for-all twice, since a completed one is written to
+    both directories.
+    """
+    out: List[Dict[str, Any]] = []
+
+    for r in _load_comp_games():
+        when = _game_when(r)
+        if not (start <= when <= end):
+            continue
+        if isinstance(r.get("players"), list):
+            # Free-for-all: 3 to 8 people, placed rather than sided.
+            names = [str(p.get("name") or "") for p in r["players"]
+                     if isinstance(p, dict) and p.get("name")]
+            kind = "ranked"
+        else:
+            names = [n for n in (str(r.get("p1_name") or ""),
+                                 str(r.get("p2_name") or "")) if n]
+            kind = "competitive"
+        out.append({
+            "when": when, "kind": kind, "players": names,
+            "winner": str(r.get("winner") or ""),
+            "draw": bool(r.get("is_draw")), "forfeit": bool(r.get("forfeit")),
+            # The paired writer hard-codes ranked=False until a client confirms
+            # the result; the free-for-all writer marks it at write time.
+            "counts_for_rank": bool(r.get("ranked")),
+            "turns": _int(r.get("turn_count")),
+        })
+
+    for g in _load_games():
+        when = _game_when(g)
+        if not (start <= when <= end) or _game_mode(g) != "ranked":
+            continue
+        if _game_completed(g):
+            continue          # already counted from the ledger above
+        if _int(f.get("player_count")) and _int(g.get("player_count")) != _int(f.get("player_count")):
+            continue
+        out.append({
+            "when": when, "kind": "ranked",
+            "players": [str(p.get("name") or "") for p in _human_players(g) if p.get("name")],
+            "winner": "", "draw": False, "forfeit": True,
+            "counts_for_rank": False,     # an abandoned match paid nobody
+            "turns": _int(g.get("rounds")),
+        })
+
+    out.sort(key=lambda m: m["when"])
+    return out
+
+
 def _section_competitive(f: Dict[str, Any]) -> Dict[str, Any]:
     start, end, pstart, pend = _window(f)
-    all_rows = _load_comp_games()
-    rows = [r for r in all_rows if start <= _game_when(r) <= end]
-    prev = [r for r in all_rows if pstart <= _game_when(r) < pend]
+    rows = _competitive_matches(f, start, end)
+    prev = _competitive_matches(f, pstart, pend)
     days = _day_series(start, end)
 
-    ranked = [r for r in rows if r.get("ranked")]
-    forfeits = [r for r in rows if r.get("forfeit")]
-    draws = [r for r in rows if r.get("is_draw")]
-    turns = [_int(r.get("turn_count")) for r in rows if _int(r.get("turn_count")) > 0]
+    ffa = [r for r in rows if r["kind"] == "ranked"]
+    paired = [r for r in rows if r["kind"] == "competitive"]
+    counted = [r for r in rows if r["counts_for_rank"]]
+    forfeits = [r for r in rows if r["forfeit"]]
+    draws = [r for r in rows if r["draw"]]
+    turns = [r["turns"] for r in rows if r["turns"] > 0]
 
     wins: Dict[str, int] = {}
     plays: Dict[str, int] = {}
+    kinds: Dict[str, set] = {}
     for r in rows:
-        for name in (str(r.get("p1_name") or ""), str(r.get("p2_name") or "")):
-            if name:
-                plays[name] = plays.get(name, 0) + 1
-        w = str(r.get("winner") or "")
-        if w:
-            wins[w] = wins.get(w, 0) + 1
+        for name in r["players"]:
+            plays[name] = plays.get(name, 0) + 1
+            kinds.setdefault(name, set()).add(r["kind"])
+        if r["winner"]:
+            wins[r["winner"]] = wins.get(r["winner"], 0) + 1
 
     table = []
     for name, n in plays.items():
         w = wins.get(name, 0)
-        table.append({"name": name, "matches": n, "wins": w, "win_rate": _pct(w, n)})
+        seen = kinds.get(name) or set()
+        table.append({"name": name, "matches": n, "wins": w, "win_rate": _pct(w, n),
+                      "mode": " + ".join(_MODE_LABEL[k] for k in sorted(seen)) or "-"})
     table.sort(key=lambda r: (-r["matches"], -r["wins"]))
 
     return {
         "cards": [
-            _card("Ranked matches", len(rows), delta=_delta(len(rows), len(prev)),
-                  spark=_bucket(days, [_game_when(r) for r in rows])),
-            _card("Matches counted for rank", len(ranked)),
+            _card("Competitive matches", len(rows), delta=_delta(len(rows), len(prev)),
+                  spark=_bucket(days, [r["when"] for r in rows]),
+                  hint="Both competitive tables: the paired game and the free-for-all."),
+            _card("Free-for-all matches", len(ffa),
+                  hint=f"The other {len(paired)} were the paired 4-seat game."),
+            _card("Matches counted for rank", len(counted),
+                  hint="Matches that paid out competitive points."),
             _card("Matches given up", len(forfeits),
                   tone="warn" if len(forfeits) > max(3, len(rows) * 0.2) else "neutral",
-                  hint="One player left before the end."),
+                  hint="Someone left before the end."),
             _card("Average turns", round(_mean(turns), 1) if turns else None),
         ],
-        "volume": {"days": days, "matches": _bucket(days, [_game_when(r) for r in rows]),
-                   "forfeits": _bucket(days, [_game_when(r) for r in forfeits])},
+        "volume": {"days": days, "matches": _bucket(days, [r["when"] for r in rows]),
+                   "forfeits": _bucket(days, [r["when"] for r in forfeits])},
         "outcomes": [
             {"label": "Played out", "value": len(rows) - len(forfeits) - len(draws)},
             {"label": "Given up", "value": len(forfeits)},
@@ -959,6 +1086,7 @@ def _section_competitive(f: Dict[str, Any]) -> Dict[str, Any]:
                 {"key": "matches", "label": "Matches", "always": True},
                 {"key": "wins", "label": "Wins", "always": True},
                 {"key": "win_rate", "label": "Win rate", "always": True},
+                {"key": "mode", "label": "Mode"},
             ],
             "rows": table[:50],
         },
@@ -1123,7 +1251,7 @@ def _section_events(f: Dict[str, Any]) -> Dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════
 def _section_technical(f: Dict[str, Any]) -> Dict[str, Any]:
     start, end, pstart, pend = _window(f)
-    live = _live_snapshot() if _live_snapshot else {}
+    live = _live()
     all_games = _load_games()
     games = _filter_games(all_games, f, start, end)
     prev = _filter_games(all_games, f, pstart, pend)
@@ -1207,15 +1335,15 @@ def _section_search(f: Dict[str, Any], query: str) -> Dict[str, Any]:
             "joined": u["created_at"],
             "last_seen": u["last_active"],
             "online": u["online"],
-            "games": u["games"], "wins": u["wins"], "level": u["level"],
+            "games": u["games"], "wins": u["wins"],
+            "comp_wins": u["comp_wins"], "level": u["level"],
             "xp": u["total_xp"], "coins": u["coins"], "icons": u["icons"],
             "backgrounds": u["backgrounds"], "prestige": u["prestige_level"],
             "highest_score": u["highest_score"],
             "clan_id": u["clan_id"],
             "recent": [{
                 "when": _game_when(g),
-                "mode": "Competitive" if g.get("mode") == "competitive" else (
-                    "Team" if g.get("team_mode") else "Casual"),
+                "mode": _MODE_LABEL[_game_mode(g)],
                 "players": _int(g.get("player_count")),
                 "won": str(g.get("winner") or "").lower() == (u["nickname"] or "").lower(),
                 "score": next((_int(p.get("score")) for p in _human_players(g)

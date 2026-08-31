@@ -114,6 +114,15 @@
 # every-fifth-friend background going to the REFERRER only.
 !test_referral_server.py
 !test_referral_ui.js
+
+# The welcome bonus (200 XP for creating an account, never for a guest) and the
+# dev's friends roster. Module-scope import in multiplayer_server, so a missing
+# file here is a server that will not boot, not a bonus that quietly goes
+# missing.
+!welcome_server.py
+# Its tests: paid once ever, the derived level fields moving with total_xp, a
+# guest getting nothing, and the roster being ONE-WAY into the dev's own list.
+!test_welcome_server.py
 # The Discord Developer Portal walkthrough for switching the reward on.
 !DISCORD_REWARD_SETUP.md
 

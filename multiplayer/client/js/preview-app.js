@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-08-30.6";
+  const APP_BUILD   = "2026-08-30.8";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -2761,18 +2761,21 @@
     const totalEl = document.getElementById("wr-table-total");
     if (totalEl) totalEl.textContent = `${total} at the table`;
 
+    // Competitive (free-for-all) is people only AND at least
+    // COMP_FFA_MIN_PLAYERS of them: the human spots stay the host's to set,
+    // but only down to that floor, and the bot controls are not theirs at all.
+    // The server refuses both in a ranked room either way; this stops the host
+    // asking.
+    const isRanked = Boolean(room.ranked);
     // A seat somebody is already sitting in is never taken away, so the floor
     // on humans is however many have joined (and at least one, a room with no
-    // human seats has no host).
-    const minHumans = Math.max(1, filled);
+    // human seats has no host, or three in a competitive room, which is not
+    // competitive below that).
+    const minHumans = Math.max(isRanked ? COMP_FFA_MIN_PLAYERS : 1, filled);
     const setDisabled = (id, off) => {
       const el = document.getElementById(id);
       if (el) el.disabled = Boolean(off) || _wrTableBusy || !isHost;
     };
-    // Competitive (free-for-all) is people only: the human spots stay the
-    // host's to set, the bot controls do not. The server refuses bots in a
-    // ranked room either way; this stops the host asking.
-    const isRanked = Boolean(room.ranked);
     setDisabled("wr-humans-minus", humans <= minHumans || total <= WR_MIN_TABLE);
     setDisabled("wr-humans-plus",  total >= WR_MAX_TABLE);
     setDisabled("wr-bots-minus",   isRanked || bots <= 0 || total <= WR_MIN_TABLE);
@@ -2782,7 +2785,7 @@
     if (note) {
       note.textContent = isRanked
         ? (isHost
-            ? `${filled} joined • People only, no bots. ${COMP_FFA_MIN_PLAYERS} or more earns Competitive Points.`
+            ? `${filled} joined • People only, no bots. ${COMP_FFA_MIN_PLAYERS} to ${WR_MAX_TABLE} at the table, so every competitive game earns Competitive Points.`
             : `${filled} joined • People only. Only the host can change the table.`)
         : (isHost
             ? `${filled} joined • ${WR_MIN_TABLE} to ${WR_MAX_TABLE} at the table. A spot somebody is sitting in can't be taken away.`
@@ -2798,7 +2801,9 @@
       ai_players:    kind === "bots"   ? bots + delta   : bots,
     };
     const total = next.human_players + next.ai_players;
-    if (next.human_players < 1 || next.ai_players < 0) return;
+    // Competitive keeps its own floor: three people, never fewer.
+    const minHumans = latestPayload?.room?.ranked ? COMP_FFA_MIN_PLAYERS : 1;
+    if (next.human_players < minHumans || next.ai_players < 0) return;
     if (total < WR_MIN_TABLE || total > WR_MAX_TABLE) return;
     _wrTableBusy = true;
     updateTableSetup(latestPayload?.seats, true, false, false);
@@ -3734,10 +3739,12 @@
   let _ncTeamCount = 2;         // 2..4 (team mode only)
   // Apply the chosen Mode to the setup modal.
   //  • Normal     : a fully customizable game (all settings editable).
-  //  • Ranked     : "Competitive", an ordinary 2–8 player game that pays
+  //  • Ranked     : "Competitive", an ordinary 3–8 player game that pays
   //    Competitive Points. People only, so the AI field is pinned to 0 and
-  //    disabled; humans + privacy stay editable. CP is only paid from 3 humans
-  //    up (see COMP_FFA_MIN_PLAYERS), which the hint under the field says.
+  //    disabled; humans + privacy stay editable within 3–8. Three people is
+  //    the mode's floor, not just the payout's (see COMP_FFA_MIN_PLAYERS): a
+  //    two-person table here is Competitive 1v1 with extra steps, so the count
+  //    can never be set below it, here or in the lobby's Table Setup.
   //  • Competitive: a locked "quick-match" ranked 1v1: 4 humans (2 hands
   //    each), 0 AI, public match. Those settings are fixed + disabled so the
   //    host only has to press the main button to continue.
@@ -3775,6 +3782,11 @@
       if (f)  f.classList.toggle("nc-locked", on);
       if (el) el.disabled = on;
     };
+    // Every mode but Competitive (free-for-all) allows a table from 1 human up,
+    // so the floor is reset here and raised again inside that one branch: a
+    // host who tries Competitive and then switches back to Normal must not be
+    // left with Competitive's minimum on the field.
+    if (totalEl) totalEl.min = "1";
     if (_ncIsCompetitive) {
       if (totalEl) totalEl.value = "4";
       if (aiEl)    aiEl.value    = "0";
@@ -3783,10 +3795,13 @@
       document.getElementById("nc-password").value = "";
     } else if (_ncIsRanked) {
       // People only. The AI field is pinned to 0 and locked below; the human
-      // count opens at 4 and stays the host's to set, anywhere from 2 to 8.
+      // count opens at 4 and stays the host's to set, anywhere from
+      // COMP_FFA_MIN_PLAYERS to 8. The field's own min moves with the mode so
+      // the number spinner can't step under the floor either.
       if (aiEl) aiEl.value = "0";
       const _humans = Number(totalEl && totalEl.value) || 0;
-      if (totalEl && (_humans < 2 || _humans > 8)) totalEl.value = "4";
+      if (totalEl) totalEl.min = String(COMP_FFA_MIN_PLAYERS);
+      if (totalEl && (_humans < COMP_FFA_MIN_PLAYERS || _humans > 8)) totalEl.value = "4";
     } else if (isTeam) {
       // A team game defaults to 4 humans so 2 teams start 2-v-2, but stays editable.
       if (totalEl && (Number(totalEl.value) || 0) < 2) totalEl.value = "4";
@@ -3905,8 +3920,8 @@
     // ranked room anyway; zeroing here means the request it refuses is never sent.
     const ai    = (_ncIsCompetitive || _ncIsRanked) ? 0 : Math.max(0, Number(document.getElementById("nc-ai").value) || 0);
     const total = human + ai;
-    if (_ncIsRanked && (human < 2 || human > 8)) {
-      errEl.textContent = "A competitive game holds 2 to 8 players.";
+    if (_ncIsRanked && (human < COMP_FFA_MIN_PLAYERS || human > 8)) {
+      errEl.textContent = `A competitive game needs ${COMP_FFA_MIN_PLAYERS} to 8 people.`;
       return;
     }
     // Team games need enough seats (players + bots) to fill every team.
@@ -9497,10 +9512,21 @@
   // for the same reason compMode isn't: a bot-free 6-player casual game is not
   // a competitive one.
   let rankedMode = false;
-  // CP is only paid from this many humans up. Below it the game still plays and
-  // still saves like any other game, it just isn't worth CP: a 2-player table
-  // in this mode is Competitive 1v1 with extra steps, and the easiest thing in
-  // the game to farm with a friend.
+  // The size of a competitive table, at its smallest: a 2-player table in this
+  // mode is Competitive 1v1 with extra steps, and the easiest thing in the game
+  // to farm with a friend. So this is now the floor on the ROOM, not only on
+  // the payout. A competitive room can't be created under it (the New Current
+  // modal, and the server's /api/rooms handler) and can't be shrunk under it in
+  // the lobby (Table Setup, and the server's configure_lobby_seats), which
+  // means a competitive game can never be played below it either.
+  //
+  // The payout check below stays exactly as it was. It is the last gate rather
+  // than the only one now: rooms created before this rule existed are still out
+  // there, and a table can still lose people between the lobby and the last
+  // round. Under the floor a game still plays and still saves like any other
+  // game, it just isn't worth CP.
+  //
+  // Mirrored server-side as COMP_FFA_MIN_PLAYERS in multiplayer_server.py.
   const COMP_FFA_MIN_PLAYERS = 3;
 
   // ── COMPETITIVE MODE (1v1) ───────────────────────────────────────
@@ -12874,6 +12900,15 @@
   let _lastCompFfaPlace = null;    // My finishing place in the most recent Competitive free-for-all
   let _lastCompFfaCount = null;    // How many people that game was scored between
   let _lastCompFfaNoCp  = false;   // That game was under COMP_FFA_MIN_PLAYERS, so it paid nothing
+  // A saved game's mode string names ONE of the two competitive modes:
+  // "competitive" is the 1v1 ladder, "ranked" is the free-for-all. Both pay CP
+  // into the same total and move the same rank, so anything asking "was that a
+  // competitive game?" has to accept either. Asking only for "competitive"
+  // filed every free-for-all under casual.
+  function _isCompetitiveMode(mode) {
+    const name = String(mode || "").trim().toLowerCase();
+    return name === "competitive" || name === "ranked";
+  }
   // "1st", "2nd", "3rd", "11th"… for the placement labels.
   function _ordinal(n) {
     const i = Math.floor(Number(n) || 0);
@@ -14599,6 +14634,26 @@
       _lastRankedFfaProcessed = gameKey;
       console.info("[ffa] place", place, "of", count, "→", (cpDelta >= 0 ? "+" : "") + cpDelta, "CP →", newCp);
 
+      // And tell the server, so the game appears in Competitive history with
+      // what it was worth. The 1v1 ladder has a host who reports the whole
+      // match; here every player reports their OWN row, because the CP is
+      // worked out from each player's own rank and nobody else knows it. The
+      // server counts a row once, so a retry is free.
+      try {
+        await apiPost("/api/competitive/ranked_result", {
+          room_id:    roomId,
+          season_id:  curSeasonId,
+          name:       myNick,
+          cp_after:   newCp,
+          cp_delta:   cpDelta,
+          rank_after: newRankName,
+        }, { timeoutMs: 8000 });
+      } catch (e) {
+        // The rank itself is already saved in Firestore: this only decorates
+        // the shared record, so it is never worth failing the payout over.
+        console.warn("[ffa] server result update failed:", e);
+      }
+
       if (typeof window.__fishCheckRankAchievements === "function") {
         // The rank achievements only read newRankName / iWon / isDraw; the
         // hand-vs-hand scores below them are a 1v1 shape that has no meaning
@@ -15533,9 +15588,19 @@
 
     const ready = Number(pa.ready_count || 0);
     const total = Number(pa.total || 0);
+    // Competitive is a table of at least COMP_FFA_MIN_PLAYERS people, and a
+    // rematch is a competitive game like any other. If leavers took the room
+    // under that floor the server will not start it, so the ready tally is no
+    // longer what anyone is waiting for: say what is instead. Every other room
+    // reports 0 here and reads exactly as it always did.
+    const needs = Number(pa.needs_players || 0);
     // Show the X/N tally as soon as anyone (me or another player) has readied.
     if (status) {
-      if (ready > 0 || _playAgainPressed) {
+      if (needs > 0) {
+        status.textContent = `Waiting for ${needs} more player${needs === 1 ? "" : "s"}: `
+                           + `a competitive game needs ${COMP_FFA_MIN_PLAYERS}`;
+        status.classList.add("show");
+      } else if (ready > 0 || _playAgainPressed) {
         status.textContent = `${ready}/${total} ready to play again`;
         status.classList.add("show");
       } else {
@@ -15546,7 +15611,10 @@
       if (_playAgainPressed || iAmReady) {
         btn.disabled = true;
         btn.classList.add("gs-btn-readied");
-        btn.innerHTML = total > 0 ? `✓ Ready (${ready}/${total})` : "✓ Ready";
+        // With the table short, "✓ Ready (2/2)" reads as "everyone is in, why
+        // hasn't it started": drop the tally and let the line above explain.
+        btn.innerHTML = needs > 0 ? "✓ Ready"
+                      : total > 0 ? `✓ Ready (${ready}/${total})` : "✓ Ready";
       } else {
         btn.disabled = false;
         btn.classList.remove("gs-btn-readied");
@@ -21749,6 +21817,11 @@
       renderPieChart("stat-normal-pie", safeStats.normal_games_by_size || {}, false);
     }
 
+    // How many friend profiles the four-row home preview will read to decide
+    // which four to show. Comfortably above any real friends list; it exists
+    // for the one account that is friends with everybody (see loadFriendsMini).
+    const FRIENDS_MINI_PROFILE_MAX = 80;
+
     async function loadFriendsMini(uid) {
       const miniBox     = $a("stats-friends-mini");
       const previewEl   = $a("stats-friends-preview");
@@ -21771,9 +21844,23 @@
       }
       // Sort every friend before taking the four-person preview so favorites
       // stay visible and everyone else appears by most recent activity.
-      const profiles = await Promise.all(friends.map(f => loadProfile(f.uid).catch(() => null)));
+      //
+      // Sorting needs each friend's live profile, and that is ONE Firestore
+      // read per friend, on every paint of Player Home. For an ordinary
+      // account that is a handful. For the dev account, which is friends with
+      // every player in the game, it would be one read per player just to
+      // choose four rows, so the preview reads a bounded slice: favorites
+      // first, because those are the people somebody chose to keep an eye on.
+      // The Friends TAB still reads every profile: its "N of M online" tally
+      // has to count everybody, and it only runs when the tab is opened.
+      const candidates = friends.length > FRIENDS_MINI_PROFILE_MAX
+        ? [...friends]
+            .sort((a, b) => Number(b?.favorite === true) - Number(a?.favorite === true))
+            .slice(0, FRIENDS_MINI_PROFILE_MAX)
+        : friends;
+      const profiles = await Promise.all(candidates.map(f => loadProfile(f.uid).catch(() => null)));
       const shown = sortFriendsByFavoriteAndLastActive(
-        friends.map((f, i) => ({ ...f, profile: profiles[i] }))
+        candidates.map((f, i) => ({ ...f, profile: profiles[i] }))
       ).slice(0, 4);
       previewEl.innerHTML = "";
       shown.forEach((f, i) => {
@@ -23939,6 +24026,11 @@
           }
         } catch (_) {}
         revealLobby(nick, code);
+        // The one way into the game that does NOT go through
+        // revealRegisteredLobby, so it primes the reward modules itself: the
+        // welcome bonus is paid on the account's first screen rather than
+        // waiting for a second sign-in.
+        try { window.__ccPrimeRewardModules && window.__ccPrimeRewardModules(); } catch (_) {}
       } catch (e) {
         ccReport("firebase_profile_save_failed", ccErrDetail(e), "warn");
         setAuthMsg("auth-nick-err", "Could not save your username. Try again.", false);
@@ -25749,8 +25841,73 @@
     function _ccPrimeRewardModules() {
       try { window.__ccLevelPassPrime && window.__ccLevelPassPrime(); } catch (_) {}
       try { window.__ccReferralPrime && window.__ccReferralPrime(); } catch (_) {}
+      try { void _ccClaimWelcomeBonus(); } catch (_) {}
+      try { void _ccSyncDevRoster(); } catch (_) {}
     }
     window.__ccPrimeRewardModules = _ccPrimeRewardModules;
+
+    // ── The welcome bonus ────────────────────────────────────────────────
+    // Making an account is worth XP; playing as a guest is worth nothing, and
+    // a guest cannot even ask (there is no Firebase session to sign the
+    // request with). The SERVER decides how much and whether it has already
+    // been paid: welcome_bonuses/{uid} is the ledger that makes "once, ever"
+    // true across tabs, devices and reinstalls, so this asks on every sign-in
+    // and is told "already had it" every time but the first.
+    let _welcomeAskedFor = "";
+    async function _ccClaimWelcomeBonus() {
+      const uid = (_authUser && _authUser.uid) || "";
+      if (!uid || _welcomeAskedFor === uid) return;
+      _welcomeAskedFor = uid;
+      const token = await ccIdToken();
+      // No token yet: leave it unasked so the next sign-in tries again rather
+      // than this account silently never being offered the bonus.
+      if (!token) { _welcomeAskedFor = ""; return; }
+      let r;
+      try { r = await apiPost("/api/welcome/claim", { idToken: token }); }
+      catch (_) { _welcomeAskedFor = ""; return; }
+      const d = (r && r.data) || {};
+      if (!d.ok || !d.granted) return;
+      // The XP landed on the account document, not in the cached profile this
+      // page is painting from, so re-read before saying so.
+      try { await window.__fishReloadProfile?.(); } catch (_) {}
+      try {
+        showToast("\uD83C\uDF89 Welcome bonus: +"
+          + Number(d.xp || 0).toLocaleString() + " XP for creating an account!",
+          "good", 7000);
+      } catch (_) {}
+    }
+
+    // ── The dev roster ───────────────────────────────────────────────────
+    // The developer account is friends with every player, which turns its
+    // Friends tab into the live "who is online right now" board for the whole
+    // game. One-way: the entries are written into the dev's OWN friends list
+    // and no player's account is touched. New sign-ups are added the moment
+    // they register; this is the sweep that picks up everyone who was already
+    // here. Server-side because a browser cannot write a friends entry for an
+    // account that has not asked for it, and it is rate-limited there, so
+    // calling it once per sign-in costs nothing on a reload.
+    let _rosterSyncedFor = "";
+    async function _ccSyncDevRoster() {
+      const uid = (_authUser && _authUser.uid) || "";
+      if (!uid || _rosterSyncedFor === uid) return;
+      let isDev = false;
+      try { isDev = !!(window.__ccAnalytics && window.__ccAnalytics.isAdmin()); } catch (_) {}
+      if (!isDev) return;
+      _rosterSyncedFor = uid;
+      const token = await ccIdToken();
+      if (!token) { _rosterSyncedFor = ""; return; }
+      let r;
+      try { r = await apiPost("/api/welcome/roster", { idToken: token }); }
+      catch (_) { _rosterSyncedFor = ""; return; }
+      const d = (r && r.data) || {};
+      if (!d.ok || !Number(d.added || 0)) return;
+      // Somebody new is in the list: repaint whatever is already on screen.
+      try {
+        const panel = $a("ph-panel-friends");
+        if (panel && panel.style.display !== "none") await renderPhFriendsList();
+        loadFriendsMini(uid);
+      } catch (_) {}
+    }
 
     window.__fishReloadProfile = async function () {
       await _trRefreshMyProfile();
@@ -28430,14 +28587,27 @@
       const casualTop = safeStats.highest_score_normal || safeStats.highest_score || 0;
       const compTop   = safeStats.highest_score_competitive || 0;
       const recentGames = Array.isArray(safeStats.recent_games) ? safeStats.recent_games : [];
-      const recentNormal = recentGames.filter((g) => String(g?.mode || "normal").toLowerCase() !== "competitive");
-      const recentComp = recentGames.filter((g) => String(g?.mode || "").toLowerCase() === "competitive");
+      // BOTH competitive modes count as competitive here. A game is saved under
+      // its own mode name ("competitive" for the 1v1 ladder, "ranked" for the
+      // free-for-all), and reading only the first one filed every free-for-all
+      // under casual: the player's rank went up on a game this grid counted as
+      // a casual one.
+      const recentNormal = recentGames.filter((g) => !_isCompetitiveMode(g?.mode));
+      const recentComp = recentGames.filter((g) => _isCompetitiveMode(g?.mode));
       const recentNormalScore = recentNormal.reduce((sum, g) => sum + (Number(g?.s) || 0), 0);
       const recentCompScore = recentComp.reduce((sum, g) => sum + (Number(g?.s) || 0), 0);
       const normalScoreBySize = Object.values(safeStats.total_score_by_size || {}).reduce((sum, v) => sum + (Number(v) || 0), 0);
       const overallScore = Number(safeStats.total_score || 0);
       let casualGames = byNormal > 0 ? byNormal : recentNormal.length;
       let compGames = byComp > 0 ? byComp : recentComp.length;
+      // comp_games_by_size is only written by the 1v1 ladder, so a free-for-all
+      // player could sit on a Competitive rank with "-" games beside it. The
+      // W/L/D record is the count the Competitive tab itself shows as Matches,
+      // and both modes write it: never show fewer games than that.
+      const compRecordGames = Number(safeStats.competitive_wins || 0)
+                            + Number(safeStats.competitive_losses || 0)
+                            + Number(safeStats.competitive_draws || 0);
+      if (compRecordGames > compGames) compGames = compRecordGames;
       const inferredCompGames = Math.max(0, totalGames - casualGames);
       const likelyHasCompData = byComp > 0 || recentComp.length > 0 || compWins > 0 || compTop > 0;
       if (compGames === 0 && inferredCompGames > 0 && likelyHasCompData) compGames = inferredCompGames;
@@ -28909,7 +29079,11 @@
 
       const casualTop  = s.highest_score_normal || s.highest_score || 0;
       const compTop    = s.highest_score_competitive || 0;
-      const compGames  = byComp;
+      // Same rule as the owner's own Quick Stats: both competitive modes count,
+      // and only the 1v1 one writes comp_games_by_size.
+      const compGames  = Math.max(byComp, Number(s.competitive_wins || 0)
+                                        + Number(s.competitive_losses || 0)
+                                        + Number(s.competitive_draws || 0));
       const scoreBySize = Object.values(s.total_score_by_size || {}).reduce((sum, v) => sum + (Number(v) || 0), 0);
       const casualGames = byNormal || Math.max(0, totalGames - compGames);
       const avgCasual   = casualGames > 0 && scoreBySize > 0
@@ -30624,6 +30798,67 @@
       renderPhRecentGamesTo($a("ph-recent-games"), games || [], 5);
     }
 
+    // ── One row of competitive history, whichever mode played it ──
+    // /api/competitive/history answers with the whole competitive ledger, and
+    // there are two kinds of record in it now:
+    //
+    //   • Competitive 1v1: p1_name / p2_name, two sides, a winner.
+    //   • Competitive (free-for-all): a `players` list of 3 to 8 people, each
+    //     with a score and a finishing place. It has no "opponent" to name.
+    //
+    // Both lists that show competitive history used to read the 1v1 shape and
+    // nothing else, which quietly dropped every free-for-all: a player whose
+    // competitive games were all free-for-alls had a rank, CP and a win count
+    // with an empty history underneath. This normalises either record into the
+    // one row both lists draw, and answers `mine` so they can filter on it.
+    function _compHistoryEntry(g, myName) {
+      const me = String(myName || "").trim();
+      const blank = { mine: false };
+      if (!g || typeof g !== "object") return blank;
+
+      if (Array.isArray(g.players)) {
+        const players = g.players.filter(p => p && typeof p === "object");
+        const row = me ? players.find(p => String(p.name || "") === me) : null;
+        if (!row) return blank;
+        const count = players.length;
+        const place = Number(row.place || 0) || count;
+        const last  = players.reduce((n, p) => Math.max(n, Number(p.place || 0)), 1);
+        // First is a win and last is a loss, the same line the CP payout draws.
+        const result = (place === 1 && last > 1) ? "win"
+                     : (place === last && last > 1) ? "loss" : "draw";
+        return {
+          mine: true, ffa: true,
+          label: `${_ordinal(place)} of ${count}`,
+          result,
+          resultLabel: result === "win" ? "Win" : result === "loss" ? "Loss" : "Draw",
+          myScore:  Number(row.score || 0) || 0,
+          oppScore: 0,
+          cpDelta:  (row.cp_delta === 0 || row.cp_delta) ? Number(row.cp_delta) : null,
+          rankAfter: row.rank_after || null,
+          recorded: Number(g.recorded_unix || 0) || 0,
+          ranked: g.ranked !== false,
+        };
+      }
+
+      const amP1 = me && g.p1_name === me;
+      const amP2 = me && g.p2_name === me;
+      if (!amP1 && !amP2) return blank;
+      const isDraw = Boolean(g.is_draw);
+      const result = isDraw ? "draw" : (g.winner === me ? "win" : "loss");
+      return {
+        mine: true, ffa: false,
+        label: `vs ${(amP1 ? g.p2_name : g.p1_name) || "Unknown"}`,
+        result,
+        resultLabel: result === "win" ? "Win" : result === "loss" ? "Loss" : "Draw",
+        myScore:  Number(amP1 ? g.p1_best_score : g.p2_best_score) || 0,
+        oppScore: Number(amP1 ? g.p2_best_score : g.p1_best_score) || 0,
+        cpDelta:  (amP1 ? g.p1_cp_delta : g.p2_cp_delta) ?? null,
+        rankAfter: (amP1 ? g.p1_rank_after : g.p2_rank_after) || null,
+        recorded: Number(g.recorded_unix || 0) || 0,
+        ranked: Boolean(g.ranked),
+      };
+    }
+
     // ── Player Home: full history tab ─────────────────────────────
     async function renderPhHistory() {
       // All-games section (casual / normal)
@@ -30638,7 +30873,7 @@
           renderPhRecentGamesTo(el, historyGames, 50);
         }
       }
-      // Competitive 1v1 section
+      // Competitive section: BOTH modes, 1v1 and free-for-all.
       const compEl = $a("ph-full-history-comp");
       if (!compEl) return;
       compEl.innerHTML = '<div class="ph-empty">Loading…</div>';
@@ -30651,42 +30886,32 @@
         // the whole ledger, and this list never filtered it, so it printed
         // strangers' matches under the heading "Competitive 1v1 History" and
         // scored every one of them as a loss. The Competitive tab has always
-        // filtered by seat name; this is the same filter.
+        // filtered by seat name; _compHistoryEntry applies that same filter to
+        // either kind of record.
         const myName = ($a("stats-lobby-nick")?.textContent || "").trim();
         const myGames = myName
-          ? data.games.filter(g => g.p1_name === myName || g.p2_name === myName)
+          ? data.games.map(g => [g, _compHistoryEntry(g, myName)]).filter(([, e]) => e.mine)
           : [];
         if (!myGames.length) {
           compEl.innerHTML = '<div class="ph-empty">No competitive games yet.</div>'; return;
         }
         compEl.innerHTML = "";
-        myGames.slice(0, 30).forEach(g => {
-          const isDraw   = Boolean(g.is_draw);
-          const isWin    = !isDraw && myName ? g.winner === myName : false;
-          const opp      = myName
-            ? (g.p1_name === myName ? g.p2_name : g.p1_name)
-            : `${g.p1_name} vs ${g.p2_name}`;
-          const myScore  = myName
-            ? Number(g.p1_name === myName ? g.p1_best_score : g.p2_best_score) || 0
-            : Math.max(Number(g.p1_best_score || 0), Number(g.p2_best_score || 0));
-          const oppScore = myName
-            ? Number(g.p1_name === myName ? g.p2_best_score : g.p1_best_score) || 0
-            : 0;
-          const cpDelta  = myName ? (g.p1_name === myName ? g.p1_cp_delta : g.p2_cp_delta) : null;
-          const rankAfter= myName ? (g.p1_name === myName ? g.p1_rank_after : g.p2_rank_after) : null;
+        myGames.slice(0, 30).forEach(([g, entry]) => {
+          const cpDelta  = entry.cpDelta;
+          const rankAfter= entry.rankAfter;
           const date     = g.recorded_unix
             ? new Date(g.recorded_unix * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
             : "";
-          const resultLabel = isDraw ? "Draw" : (isWin ? "Win" : "Loss");
-          const resultClass = isDraw ? "draw" : (isWin ? "win" : "loss");
-          const cpStr = cpDelta != null ? ` <span style="font-size:10.5px;font-weight:700;color:${cpDelta>0?"#1d9b4e":cpDelta<0?"#c0392b":"#7a6800"};">${cpDelta>0?"+":""}${cpDelta} CP</span>` : (g.ranked ? "" : ' <span style="font-size:10px;color:rgba(20,50,100,.4);">unranked</span>');
+          const resultLabel = entry.resultLabel;
+          const resultClass = entry.result;
+          const cpStr = cpDelta != null ? ` <span style="font-size:10.5px;font-weight:700;color:${cpDelta>0?"#1d9b4e":cpDelta<0?"#c0392b":"#7a6800"};">${cpDelta>0?"+":""}${cpDelta} CP</span>` : (entry.ranked ? "" : ' <span style="font-size:10px;color:rgba(20,50,100,.4);">unranked</span>');
           const d = document.createElement("div");
           d.className = "ph-rg";
           d.style.cssText = "flex-wrap:wrap;gap:4px 8px;align-items:center;";
-          d.innerHTML = `<span class="ph-rg-opp" style="font-weight:800;">vs ${escapeHtml(opp || "Unknown")}</span>`
+          d.innerHTML = `<span class="ph-rg-opp" style="font-weight:800;">${escapeHtml(entry.label)}</span>`
             + `<span class="ph-rg-badge ${resultClass}">${resultLabel}</span>${cpStr}`
-            + `<span class="ph-rg-pts">${myScore} pts</span>`
-            + (oppScore ? `<span style="font-size:10.5px;color:rgba(20,50,100,.55);">opp: ${oppScore} pts</span>` : "")
+            + `<span class="ph-rg-pts">${entry.myScore} pts</span>`
+            + (entry.oppScore ? `<span style="font-size:10.5px;color:rgba(20,50,100,.55);">opp: ${entry.oppScore} pts</span>` : "")
             + (rankAfter ? `<span style="font-size:10.5px;color:#7a5a10;font-weight:700;">${escapeHtml(rankAfter)}</span>` : "")
             + `<span class="ph-rg-date">${escapeHtml(date)}</span>`;
           compEl.appendChild(d);
@@ -31014,9 +31239,13 @@
       if (loadEl) loadEl.style.display = "none";
 
       const myName = ($a("stats-lobby-nick")?.textContent || "").trim();
-      const myGames = myName
-        ? games.filter(g => g.p1_name === myName || g.p2_name === myName)
-        : games;
+      // Both competitive modes land in the same ledger, so both are read out of
+      // it the same way: _compHistoryEntry knows which shape a record is and
+      // answers whether this player was in it.
+      const myEntries = myName
+        ? games.map(g => [g, _compHistoryEntry(g, myName)]).filter(([, e]) => e.mine)
+        : [];
+      const myGames = myEntries.map(([g]) => g);
 
       // Prefer Firebase-stored season stats; fall back to computing from game history
       const effWins   = wins;
@@ -31034,8 +31263,8 @@
 
       // Average best score, prefer Firebase, fallback to history
       const avgBest = Number(stats.average_competitive_score || 0) ||
-        (myGames.length > 0 && myName
-          ? Math.round(myGames.map(g => Number(g.p1_name === myName ? g.p1_best_score : g.p2_best_score) || 0).reduce((a, b) => a + b, 0) / myGames.length)
+        (myEntries.length > 0
+          ? Math.round(myEntries.reduce((sum, [, e]) => sum + e.myScore, 0) / myEntries.length)
           : 0);
 
       // Streak, prefer Firebase
@@ -31190,37 +31419,30 @@
         if (noKingCard) noKingCard.style.display = "";
       }
 
-      // Recent ranked games in sidebar
+      // Recent competitive games in the sidebar, from either mode.
       const recentEl = $a("ph-comp-recent-games");
       if (recentEl) {
-        const ranked = myGames.filter(g => g.ranked);
-        const displayGames = ranked.length > 0 ? ranked : myGames;
-        if (!displayGames.length) {
+        const ranked = myEntries.filter(([, e]) => e.ranked);
+        const display = ranked.length > 0 ? ranked : myEntries;
+        if (!display.length) {
           recentEl.innerHTML = '<div class="ph-empty">No ranked games yet.</div>';
         } else {
           recentEl.innerHTML = "";
-          const sorted = [...displayGames].sort((a, b) => (b.recorded_unix || 0) - (a.recorded_unix || 0));
-          sorted.slice(0, 5).forEach(g => {
-            const isDraw = Boolean(g.is_draw);
-            const isWin  = !isDraw && g.winner === myName;
-            const opp    = myName ? (g.p1_name === myName ? g.p2_name : g.p1_name) : (g.p1_name || "?");
-            const myScore = myName ? Number(g.p1_name === myName ? g.p1_best_score : g.p2_best_score) || 0 : 0;
-            const oppScore= myName ? Number(g.p1_name === myName ? g.p2_best_score : g.p1_best_score) || 0 : 0;
-            const cpDelta = myName ? (g.p1_name === myName ? g.p1_cp_delta : g.p2_cp_delta) : null;
-            const rankAfter = myName ? (g.p1_name === myName ? g.p1_rank_after : g.p2_rank_after) : null;
-            const date = g.recorded_unix
-              ? new Date(g.recorded_unix * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+          const sorted = [...display].sort((a, b) => b[1].recorded - a[1].recorded);
+          sorted.slice(0, 5).forEach(([, entry]) => {
+            const cpDelta = entry.cpDelta;
+            const rankAfter = entry.rankAfter;
+            const date = entry.recorded
+              ? new Date(entry.recorded * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })
               : "";
-            const resultLabel = isDraw ? "Draw" : (isWin ? "Win" : "Loss");
-            const resultClass = isDraw ? "draw" : (isWin ? "win" : "loss");
             const cpStr = cpDelta != null ? ` <span style="font-size:10px;font-weight:700;color:${cpDelta>0?"#1d9b4e":cpDelta<0?"#c0392b":"#7a6800"};">${cpDelta>0?"+":""}${cpDelta} CP</span>` : "";
             const d = document.createElement("div");
             d.className = "ph-rg";
             d.style.cssText = "flex-wrap:wrap;gap:4px 8px;";
-            d.innerHTML = `<span class="ph-rg-opp">vs ${escapeHtml(opp || "Unknown")}</span>`
-              + `<span class="ph-rg-badge ${resultClass}">${resultLabel}</span>${cpStr}`
-              + `<span class="ph-rg-pts">${myScore} pts</span>`
-              + (oppScore ? `<span style="font-size:10px;color:rgba(20,50,100,.5);">opp ${oppScore} pts</span>` : "")
+            d.innerHTML = `<span class="ph-rg-opp">${escapeHtml(entry.label)}</span>`
+              + `<span class="ph-rg-badge ${entry.result}">${entry.resultLabel}</span>${cpStr}`
+              + `<span class="ph-rg-pts">${entry.myScore} pts</span>`
+              + (entry.oppScore ? `<span style="font-size:10px;color:rgba(20,50,100,.5);">opp ${entry.oppScore} pts</span>` : "")
               + (rankAfter ? `<span style="font-size:10px;color:#7a5a10;">${escapeHtml(rankAfter)}</span>` : "")
               + `<span class="ph-rg-date">${escapeHtml(date)}</span>`;
             recentEl.appendChild(d);
@@ -31543,6 +31765,24 @@
     }
 
     // ── Player Home: friends tab ───────────────────────────────────
+    // "N of M online right now", above the list. It reads the SAME
+    // isFriendOnline() decision the dots on each row read, so the tally and
+    // the rows can never tell different stories. Called with null to hide it
+    // (no list, not signed in), which is why every exit of the renderer calls
+    // it rather than only the one that paints rows.
+    function paintFriendsOnlineCount(entries) {
+      const el = $a("ph-friends-online");
+      if (!el) return;
+      const rows = Array.isArray(entries) ? entries : null;
+      if (!rows || !rows.length) { el.style.display = "none"; el.textContent = ""; return; }
+      const online = rows.reduce((n, f) => n + (f && f.isOnline ? 1 : 0), 0);
+      el.style.display = "";
+      el.className = "ph-fr-status " + (online ? "ph-fr-online" : "ph-fr-offline");
+      el.innerHTML = '<div class="ph-fr-dot"></div>'
+        + escapeHtml(online.toLocaleString() + " of " + rows.length.toLocaleString()
+                     + (online === 1 ? " friend online right now" : " friends online right now"));
+    }
+
     async function renderPhFriendsList() {
       if (HOME_REFERENCE_MODE) {
         const fcEl = $a("ph-fc-display");
@@ -31562,6 +31802,7 @@
           d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name" data-cc-pname="${escapeHtml(f.uid || f.nickname || "")}">${friendName}</div><div class="ph-fr-meta">Level ${level} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
           list.appendChild(d);
         });
+        paintFriendsOnlineCount(HOME_REFERENCE_FRIENDS);
         return;
       }
       if (!_authUser) {
@@ -31571,6 +31812,7 @@
         if (reqSection) reqSection.style.display = "none";
         const list = $a("ph-friends-list");
         if (list) list.innerHTML = '<div class="ph-empty">No friends added yet.</div>';
+        paintFriendsOnlineCount(null);
         return;
       }
       // Populate friend code
@@ -31643,7 +31885,11 @@
       // a recently-accepted friendship shows up the first time this panel opens.
       await consumeAcceptedFriendships(_authUser.uid).catch(() => {});
       const friends = await loadFriends(_authUser.uid);
-      if (!friends.length) { list.innerHTML = '<div class="ph-empty">No friends added yet.</div>'; return; }
+      if (!friends.length) {
+        list.innerHTML = '<div class="ph-empty">No friends added yet.</div>';
+        paintFriendsOnlineCount(null);
+        return;
+      }
       const profiles = await Promise.all(friends.map(f => loadProfile(f.uid).catch(() => null)));
       const withStatus = sortFriendsByFavoriteAndLastActive(
         friends.map((f, i) => ({
@@ -31652,6 +31898,7 @@
           isOnline: isFriendOnline(profiles[i]),
         }))
       );
+      paintFriendsOnlineCount(withStatus);
       list.innerHTML = "";
       withStatus.forEach(f => {
         const d = document.createElement("div");

@@ -39,6 +39,7 @@ import newsletter_server
 import discord_server
 import level_pass_server
 import referral_server
+import welcome_server
 import account_email
 
 
@@ -93,6 +94,20 @@ COMPETITIVE_FORFEITS_PATH    = os.path.join(COMPETITIVE_GAMES_DIR, "forfeits_pen
 # Competitive: a player who leaves a running match and does not return within
 # this many seconds forfeits, the player still present wins.
 COMPETITIVE_FORFEIT_SEC = 30.0
+# Competitive (free-for-all, room.ranked): the table is people only AND it takes
+# at least this many of them. A two-person table in this mode is Competitive 1v1
+# with extra steps, and the easiest thing in the game to farm with a friend, so
+# the floor is a rule about the ROOM, not just about whether the game pays out:
+# a competitive room is never created below it and never resized below it (see
+# create_room's handler and configure_lobby_seats). The client mirrors the same
+# number as COMP_FFA_MIN_PLAYERS in preview-app.js.
+COMP_FFA_MIN_PLAYERS = 3
+
+
+def _ranked_floor_error() -> str:
+    """The one sentence every door that turns a small competitive table away
+    says, so the host is told the same thing wherever they hit it."""
+    return f"a competitive game needs at least {COMP_FFA_MIN_PLAYERS} people"
 # Team Mode: the fixed team roster. A team's index (0..3) maps to its color
 # name and swatch. A team game starts with 2 teams (Red vs Blue) and the host
 # can open up to 4 (adding Green, then Yellow).
@@ -2744,6 +2759,82 @@ def get_season_id(ts: Optional[int] = None) -> str:
     return f"{dt.year}-Q{q}"
 
 
+def _stamp_ranked_ffa_result(record: Dict[str, Any], fpath: str,
+                             body: Dict[str, Any]) -> Dict[str, Any]:
+    """Record ONE player's CP on a finished Competitive (free-for-all) game.
+
+    The 1v1 ladder has a host who knows both sides, so one client reports the
+    whole match. A free-for-all has 3 to 8 people and each of their clients
+    works out its own CP from its own rank, so each of them reports only its own
+    row: the record is the meeting place.
+
+    Idempotent by the record itself. A row that already carries a cp_after has
+    already been counted on the season board, so a re-post (a reload, a retry)
+    updates the numbers without counting the game a second time.
+
+    Caller must hold COMPETITIVE_LOCK: this reads and writes the two files under
+    it, and the lock is not reentrant.
+    """
+    name = str(body.get("name") or "").strip()
+    if not name:
+        return {"ok": False, "error": "name required"}
+    players = record.get("players")
+    if not isinstance(players, list):
+        return {"ok": False, "error": "not a free-for-all record"}
+    row = next((p for p in players
+                if isinstance(p, dict) and str(p.get("name") or "") == name), None)
+    if row is None:
+        return {"ok": False, "error": "you were not in this game"}
+
+    already_counted = "cp_after" in row
+    if "cp_after" in body:
+        row["cp_after"] = clamp_int(body.get("cp_after"), 0, 0, 1_000_000)
+    if "cp_delta" in body:
+        row["cp_delta"] = clamp_int(body.get("cp_delta"), 0, -10_000, 10_000)
+    if "rank_after" in body:
+        row["rank_after"] = str(body.get("rank_after") or "")[:64]
+    season_id = str(body.get("season_id") or record.get("season_id")
+                    or get_season_id(record.get("recorded_unix")))
+    record["season_id"] = season_id
+    record["ranked"] = True
+    atomic_write_json(fpath, record)
+
+    if already_counted:
+        return {"ok": True, "season_id": season_id, "counted": False}
+
+    # First and last are a win and a loss; the places between them are draws,
+    # the same line the CP payout draws.
+    places = [int(p.get("place", 0) or 0) for p in players if isinstance(p, dict)]
+    last_place = max(places) if places else 1
+    place = int(row.get("place", 0) or 0)
+    season_lb_path = os.path.join(COMPETITIVE_GAMES_DIR, f"leaderboard_{season_id}.json")
+    try:
+        with open(season_lb_path, "r", encoding="utf-8") as f:
+            season_board: Dict[str, Any] = json.load(f)
+        if not isinstance(season_board, dict):
+            season_board = {}
+    except (FileNotFoundError, json.JSONDecodeError):
+        season_board = {}
+    entry = season_board.setdefault(name, {"wins": 0, "losses": 0, "draws": 0,
+                                           "games": 0, "best_score": 0,
+                                           "best_streak": 0, "season_id": season_id})
+    entry["games"] = entry.get("games", 0) + 1
+    entry["best_score"] = max(int(entry.get("best_score", 0) or 0),
+                              int(row.get("score", 0) or 0))
+    if place == 1 and last_place > 1:
+        entry["wins"] = entry.get("wins", 0) + 1
+    elif place == last_place and last_place > 1:
+        entry["losses"] = entry.get("losses", 0) + 1
+    else:
+        entry["draws"] = entry.get("draws", 0) + 1
+    if "cp_after" in row:
+        entry["cp"] = int(row["cp_after"])
+    if row.get("rank_after"):
+        entry["rank"] = str(row["rank_after"])
+    atomic_write_json(season_lb_path, season_board)
+    return {"ok": True, "season_id": season_id, "counted": True}
+
+
 def clamp_int(value: Any, default: int, lo: int, hi: int) -> int:
     try:
         out = int(value)
@@ -3624,6 +3715,9 @@ class GameRoom:
         self.visibility = visibility  # "public" | "private"
         self.password_hash = password_hash  # sha256 hex, None if public
         self._competitive_saved = False
+        # Same guard for the OTHER competitive mode: a ranked free-for-all is
+        # written into the same competitive ledger, once.
+        self._ranked_saved = False
         # Set when a competitive match ends because a player left and did not
         # return within COMPETITIVE_FORFEIT_SEC. Surfaced in the state payload so
         # the remaining player's client records the win (and the right loser).
@@ -4325,8 +4419,8 @@ class GameRoom:
                 if card_db is not None:
                     started = self._maybe_start_play_again_locked(card_db)
                 if not started:
-                    ready, active, bots = self._play_again_counts_locked()
-                    self.status_note = f"{leaving_name} left. {ready}/{active + bots} ready to play again…"
+                    self.status_note = self._play_again_status_note_locked(
+                        f"{leaving_name} left. ")
                     self._bump_locked()
                 return {"ok": True, "action": "left", "post_game": True}
 
@@ -4964,6 +5058,17 @@ class GameRoom:
                     "human_seats_total": total,
                     "missing_seats": missing,
                 }
+            # The last word on the competitive floor. Creation and Table Setup
+            # both refuse a table under it, so reaching this needs a room that
+            # predates the rule; the point is that the number of people who
+            # actually PLAY a competitive game is the thing being guaranteed,
+            # not just the number the room was asked for. The host can add a
+            # spot in Table Setup and start again.
+            short = self._ranked_shortfall_locked(
+                sum(1 for seat in self.seats if seat.kind == "human"))
+            if short:
+                return {"ok": False, "error": _ranked_floor_error(),
+                        "needs_players": short}
             self._launch_game_locked(card_db, status_note="Game started. Waiting for first turn.")
             return {"ok": True}
 
@@ -5011,11 +5116,42 @@ class GameRoom:
         active = self._active_human_seats_locked()
         if not active:
             return False
+        if self._ranked_shortfall_locked(len(active)):
+            # A rematch is a competitive game like any other, so it is held to
+            # the same floor: below COMP_FFA_MIN_PLAYERS people this is not a
+            # competitive table, and it would not have paid CP anyway. The
+            # ready-up simply stays on screen, so the moment somebody takes the
+            # empty seat the rematch starts.
+            return False
         if not all(s.play_again_ready for s in active):
             return False
         # Everyone who is still here is ready: bots ready implicitly. Go.
         self._launch_game_locked(card_db, status_note="New game starting, everyone readied up!")
         return True
+
+    def _ranked_shortfall_locked(self, people: int) -> int:
+        """How many more people a competitive room needs before it can play.
+
+        0 for every other room type, and for a competitive one that already has
+        enough. This is the same floor the create handler and Table Setup
+        enforce, asked at the moments a table can be short without anybody
+        having resized it: the start button, a rematch, and the end screen a
+        player has just walked out of.
+        """
+        if not self.ranked:
+            return 0
+        return max(0, COMP_FFA_MIN_PLAYERS - int(people))
+
+    def _play_again_status_note_locked(self, prefix: str = "") -> str:
+        """The line under the Play Again button: either the ready count, or, in
+        a competitive room that is short, what it is actually waiting for."""
+        ready, active, bots = self._play_again_counts_locked()
+        short = self._ranked_shortfall_locked(active)
+        if short:
+            need = "player" if short == 1 else "players"
+            return (f"{prefix}Waiting for {short} more {need}: a competitive game "
+                    f"needs {COMP_FFA_MIN_PLAYERS}.")
+        return f"{prefix}{ready}/{active + bots} ready to play again…"
 
     def play_again(self, seat_token: Optional[str], card_db: Dict[int, fish.CardDef]) -> Dict[str, Any]:
         with self.cond:
@@ -5035,15 +5171,18 @@ class GameRoom:
 
             started = self._maybe_start_play_again_locked(card_db)
             ready, active, bots = self._play_again_counts_locked()
+            short = self._ranked_shortfall_locked(active)
             if not started:
-                total = active + bots
-                self.status_note = f"{ready}/{total} ready to play again…"
+                self.status_note = self._play_again_status_note_locked()
                 self._bump_locked()
             return {
                 "ok": True,
                 "started": bool(started),
                 "ready_count": ready,
                 "total": (active + bots),
+                # >0 means the room is ready but too small: a competitive table
+                # this short cannot rematch until somebody takes the open seat.
+                "needs_players": short,
             }
 
     def set_seat_difficulty(
@@ -5235,8 +5374,13 @@ class GameRoom:
             if self.ranked and want_ai > 0:
                 # The whole point of the mode: Competitive Points are only worth
                 # something if every seat is a person. The host can still resize
-                # the human spots freely, 2 through 8.
+                # the human spots freely, COMP_FFA_MIN_PLAYERS through 8.
                 return {"ok": False, "error": "a competitive game is people only, no bots"}
+            if self.ranked and want_humans < COMP_FFA_MIN_PLAYERS:
+                # The other half of the same rule. Three people is what makes a
+                # competitive result mean anything, so the table can never be
+                # shrunk under it: not at creation, and not here either.
+                return {"ok": False, "error": _ranked_floor_error()}
             if want_humans < len(claimed):
                 return {
                     "ok": False,
@@ -8260,6 +8404,125 @@ class GameRoom:
         except Exception as exc:
             self._record_event(f"Competitive save warning: {exc}")
 
+    def _save_ranked_game(self, gs: Any, ms: Any, standings: List[Dict[str, Any]]) -> None:
+        """Write a finished Competitive (free-for-all) game into the SAME
+        competitive ledger the 1v1 ladder uses.
+
+        One rank, two ways to climb it: a ranked game paid CP and moved the
+        player's rank, but it was only ever saved as a normal game, so it was
+        missing from every competitive history the app draws and a player whose
+        only competitive games were free-for-alls had a rank with nothing behind
+        it. It lands in COMPETITIVE_GAMES_DIR like a 1v1 match.
+
+        The record cannot be 1v1-shaped, though: there are 3 to 8 people here
+        and no p1/p2 sides. It carries ``mode: "ranked"`` and a ``players`` list
+        instead, which is exactly what tells the two readers apart, and it is
+        marked ranked at write time rather than waiting for a client to confirm
+        it: the ROOM was competitive, so the game was.
+        """
+        if self._ranked_saved:
+            return
+        self._ranked_saved = True
+        if not self.ranked:
+            # A casual game has no business in the competitive ledger, whoever
+            # called this. The room's own flag is the only thing that decides.
+            return
+        if not getattr(ms, "end_game_triggered", False):
+            return
+        if getattr(gs, "round_count", 0) < 1:
+            return
+        try:
+            # Score by SEAT, never by display name (see _save_competitive_game:
+            # a rename mid-match makes a name lookup miss). Bots cannot sit at a
+            # ranked table, but a room made before that rule could still hold
+            # one, so they are left out of the placement the same way the payout
+            # leaves them out.
+            name_by_seat = {
+                seat.index: (seat.claimed_name or seat.label)
+                for seat in self.seats if seat.kind == "human"
+            }
+            players: List[Dict[str, Any]] = []
+            for row in standings:
+                si = row.get("seat_index")
+                if not isinstance(si, int) or isinstance(si, bool):
+                    continue
+                if si not in name_by_seat:
+                    continue
+                players.append({
+                    "name": name_by_seat[si],
+                    "seat_index": si,
+                    "score": int(row.get("score", 0) or 0),
+                })
+            if not players:
+                return
+            players.sort(key=lambda p: -p["score"])
+            # Ties share the better place, so two firsts are followed by a third:
+            # the same rule the client's CP payout uses to decide a placement.
+            for player in players:
+                player["place"] = 1 + sum(1 for other in players
+                                          if other["score"] > player["score"])
+            firsts = [p for p in players if p["place"] == 1]
+            winner = firsts[0]["name"] if len(firsts) == 1 else None
+            ts = now_unix()
+            record = {
+                "room_id": self.room_id,
+                "recorded_unix": ts,
+                "season_id": get_season_id(ts),
+                "mode": "ranked",
+                "ranked": True,
+                "player_count": len(players),
+                "players": players,
+                "winner": winner,
+                "is_draw": winner is None,
+                "turn_count": getattr(gs, "round_count", 0),
+                "strategy": self._detect_strategy(gs),
+                "standings": standings,
+                "board_snapshot": (copy.deepcopy(self.latest_public_state)
+                                   if isinstance(self.latest_public_state, dict) else {}),
+            }
+            os.makedirs(COMPETITIVE_GAMES_DIR, exist_ok=True)
+            atomic_write_json(
+                os.path.join(COMPETITIVE_GAMES_DIR, f"game_{self.room_id}_{ts}.json"),
+                record,
+            )
+            self._update_ranked_leaderboard(players)
+        except Exception as exc:
+            self._record_event(f"Competitive (free-for-all) save warning: {exc}")
+
+    def _update_ranked_leaderboard(self, players: List[Dict[str, Any]]) -> None:
+        """The all-time competitive board, from a free-for-all's placements.
+
+        First is a win, last is a loss, everything between is a draw. That is
+        the same line the CP payout draws, so a player's board row and their
+        rank cannot tell two different stories.
+        """
+        if len(players) < 2:
+            return
+        last_place = max(p["place"] for p in players)
+        try:
+            with COMPETITIVE_LOCK:
+                try:
+                    with open(COMPETITIVE_LEADERBOARD_PATH, "r", encoding="utf-8") as f:
+                        board: Dict[str, Any] = json.load(f)
+                except (FileNotFoundError, json.JSONDecodeError):
+                    board = {}
+                for player in players:
+                    name = player["name"]
+                    row = board.setdefault(
+                        name, {"wins": 0, "losses": 0, "draws": 0, "games": 0})
+                    row["games"] = row.get("games", 0) + 1
+                    if player["place"] == 1:
+                        row["wins"] = row.get("wins", 0) + 1
+                    elif player["place"] == last_place:
+                        row["losses"] = row.get("losses", 0) + 1
+                    else:
+                        row["draws"] = row.get("draws", 0) + 1
+                    row["best_score"] = max(int(row.get("best_score", 0) or 0),
+                                            int(player.get("score", 0) or 0))
+                atomic_write_json(COMPETITIVE_LEADERBOARD_PATH, board)
+        except Exception as exc:
+            self._record_event(f"Competitive (free-for-all) leaderboard warning: {exc}")
+
     def _update_competitive_leaderboard(self, p1_name: str, p2_name: str, winner: Optional[str], is_draw: bool = False) -> None:
         try:
             with COMPETITIVE_LOCK:
@@ -8517,6 +8780,13 @@ class GameRoom:
                 # apart for the "play 10 games in team mode" challenges.
                 "team_mode": bool(self.team_mode),
                 "team_count": int(self.team_count) if self.team_mode else 0,
+                # `mode` above collapses to "truncated" when a game is
+                # abandoned, which would erase the one thing that says this was
+                # a Competitive table. Stored separately for the same reason
+                # `team_mode` is: so the mode survives a game nobody finished
+                # and the analytics dashboard can still count it.
+                "ranked": bool(self.ranked),
+                "competitive": bool(self.competitive),
                 # How long the game actually took. `recorded_unix` alone only
                 # says when it ENDED, so without these the analytics dashboard
                 # cannot answer "how long is a game" for any record. Older
@@ -8852,6 +9122,8 @@ class GameRoom:
 
             if self.competitive:
                 self._save_competitive_game(gs, ms, standings)
+            elif self.ranked:
+                self._save_ranked_game(gs, ms, standings)
 
             _game_saved = True
             with self.cond:
@@ -8902,6 +9174,8 @@ class GameRoom:
                         self._save_game_history(gs, ms, standings, human_indices)
                     if self.competitive:
                         self._save_competitive_game(gs, ms, standings)
+                    elif self.ranked:
+                        self._save_ranked_game(gs, ms, standings)
                 except Exception as save_exc:
                     self._record_event(f"Emergency save warning: {save_exc}")
             with self.cond:
@@ -9272,6 +9546,11 @@ class GameRoom:
                     "ready_count": self._play_again_counts_locked()[0],
                     "total": (self._play_again_counts_locked()[1] + self._play_again_counts_locked()[2]),
                     "left_names": list(self.post_game_left),
+                    # Competitive only, and only when people have left: how many
+                    # more are needed before a rematch can start at all. Every
+                    # other room reports 0.
+                    "needs_players": self._ranked_shortfall_locked(
+                        self._play_again_counts_locked()[1]),
                 },
             }
             return payload
@@ -10579,9 +10858,18 @@ def _analytics_live_snapshot() -> Dict[str, Any]:
         except Exception:  # noqa: BLE001, one odd room must not blank the panel
             continue
 
-    _reg, online, _games = get_live_user_counts()
-    with _DEEP_PLAN_STATS_LOCK:
-        planned = dict(_DEEP_PLAN_STATS)
+    # Both of these reach outside this process (Firestore, then a lock), and
+    # this snapshot feeds the dashboard's landing page. Neither is worth
+    # blanking the Overview over: an unreadable count is reported as unknown.
+    try:
+        _reg, online, _games = get_live_user_counts()
+    except Exception:  # noqa: BLE001
+        online = -1
+    try:
+        with _DEEP_PLAN_STATS_LOCK:
+            planned = dict(_DEEP_PLAN_STATS)
+    except Exception:  # noqa: BLE001
+        planned = {}
     load = {
         "rooms": len(rooms),
         "threads": threading.active_count(),
@@ -10594,7 +10882,11 @@ def _analytics_live_snapshot() -> Dict[str, Any]:
     # than a constant. Firestore down = the account half of the dashboard is
     # blind; bots shedding most of their planning = this box is at its ceiling.
     problems = []
-    if _get_firestore() is None:
+    try:
+        firestore_down = _get_firestore() is None
+    except Exception:  # noqa: BLE001
+        firestore_down = True
+    if firestore_down:
         problems.append("Firebase isn't connected, so account numbers are unavailable.")
     granted, skipped = load["deep_plan_granted"], load["deep_plan_skipped"]
     if granted and skipped > granted * 0.25:
@@ -12284,6 +12576,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if newsletter_server.handle_post(self, parsed, body):
             return
 
+        # The welcome bonus (200 XP for making an account, once ever) and the
+        # dev's friends roster. Both prove who the caller is with a verified ID
+        # token, because one hands out XP and the other writes into an account
+        # other than the one asking.
+        if welcome_server.handle_post(self, parsed, body):
+            return
+
         if parsed.path == "/api/user/register":
             # Called by the game client once per new Google account sign-up.
             # Body: { "uid": "<firebase_uid>" }
@@ -12293,6 +12592,18 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "uid required"}, status=HTTPStatus.BAD_REQUEST)
                 return
             uid_val = uid_val.strip()[:256]
+            # A brand-new account joins the dev's friends roster right away, so
+            # "everyone is a friend" is true the moment they sign up rather
+            # than at the next full sync. Off the request thread and wrapped:
+            # a roster that cannot be written is never allowed to be the reason
+            # a sign-up reports failure. welcome_server checks that the uid is
+            # a real account document before it writes anything.
+            try:
+                threading.Thread(
+                    target=lambda: welcome_server.add_dev_friend(_get_firestore(), uid_val),
+                    name="dev-roster-add", daemon=True).start()
+            except Exception:
+                pass
             try:
                 os.makedirs(os.path.dirname(STATS_PATH), exist_ok=True)
                 with STATS_LOCK:
@@ -12513,11 +12824,14 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     )
                     return
 
-            # Competitive (free-for-all) is a bot-free table. The seat counts are
-            # forced all-human right here, before the totals are checked, so a
-            # hand-written request can never open a ranked room with a bot in it.
-            # configure_lobby_seats applies the same rule to a lobby the host
-            # resizes later.
+            # Competitive (free-for-all) is a bot-free table of at least
+            # COMP_FFA_MIN_PLAYERS people. The seat counts are forced all-human
+            # right here, before the totals are checked, so a hand-written
+            # request can never open a ranked room with a bot in it, and a table
+            # under the floor is refused outright rather than quietly grown: the
+            # host asked for a size, and a room that is not the size they asked
+            # for should say so. configure_lobby_seats applies both rules to a
+            # lobby the host resizes later.
             ranked = bool(body.get("ranked")) if isinstance(body.get("ranked"), bool) else False
             total_players = clamp_int(body.get("total_players"), 4, 2, 8)
             human_players = clamp_int(body.get("human_players"), 2, 1, 8)
@@ -12525,6 +12839,12 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             if ranked:
                 human_players = total_players
                 ai_players = 0
+                if total_players < COMP_FFA_MIN_PLAYERS:
+                    self._send_json(
+                        {"ok": False, "error": _ranked_floor_error()},
+                        status=HTTPStatus.BAD_REQUEST,
+                    )
+                    return
             if human_players + ai_players != total_players:
                 self._send_json(
                     {"ok": False, "error": "human_players + ai_players must equal total_players"},
@@ -13124,6 +13444,16 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     except (FileNotFoundError, json.JSONDecodeError):
                         self._send_json({"ok": False, "error": "could not read game record"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
                         return
+                    # Competitive (free-for-all) has no p1/p2 sides, so it takes
+                    # the other branch: each player stamps their OWN row with the
+                    # CP their client just paid them. Everything below this is
+                    # the 1v1 shape and would write nonsense onto an N-player
+                    # record.
+                    if isinstance(record.get("players"), list):
+                        out = _stamp_ranked_ffa_result(record, fpath, body)
+                        self._send_json(out, status=HTTPStatus.OK if out.get("ok")
+                                        else HTTPStatus.BAD_REQUEST)
+                        return
                     confirmed_ts = now_unix()
                     record["ranked"] = True
                     record["ranked_confirmed_unix"] = confirmed_ts
@@ -13359,6 +13689,19 @@ def main() -> None:
         verify_token=_verify_firebase_id_token,
         background_paths=ALL_BACKGROUND_PATHS,
     )
+
+    # The welcome bonus + the dev's friends roster. Same injected Firestore
+    # accessor and token verifier as everything else, and the SAME level curve,
+    # so a bonus that moves an account's XP moves its level through the one
+    # table (a second copy is exactly the drift that demotes live players).
+    welcome_server.init(
+        get_firestore=_get_firestore,
+        verify_token=_verify_firebase_id_token,
+        level_progress=_level_progress_for_total_xp,
+    )
+    print(f"[welcome] account bonus ON: +{welcome_server.welcome_xp()} XP once per "
+          f"account (guests excluded); dev roster syncs at most every "
+          f"{int(welcome_server.SYNC_MIN_INTERVAL_SEC)}s")
     # The email on a username-and-password account. Same injected Firestore
     # accessor and token verifier as everything else; the login domain is
     # passed in so the synthetic address this module resets is built from the

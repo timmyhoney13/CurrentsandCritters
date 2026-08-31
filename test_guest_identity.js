@@ -157,8 +157,11 @@ check("the always-hidden summary grid went as well", !/stats-summary-grid/.test(
 check("the Normal tab's real block is untouched", /normalBlock\.style\.display = completed \? "" : "none";/.test(APP));
 
 console.log("\ncompetitive history is MY history");
+// The filter now runs through _compHistoryEntry, which reads BOTH competitive
+// record shapes (1v1's p1_name/p2_name and the free-for-all's players list) and
+// answers whether this player was in the game. Same rule, one more mode.
 check("the server's whole ledger is filtered to my seat name",
-      /const myGames = myName\s*\n\s*\? data\.games\.filter\(g => g\.p1_name === myName \|\| g\.p2_name === myName\)/.test(APP));
+      /const myGames = myName\s*\n\s*\? data\.games\.map\(g => \[g, _compHistoryEntry\(g, myName\)\]\)\.filter\(\(\[, e\]\) => e\.mine\)/.test(APP));
 check("and a nameless session lists nothing rather than everything",
       /: \[\];\s*\n\s*if \(!myGames\.length\) \{/.test(APP));
 

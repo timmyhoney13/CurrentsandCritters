@@ -152,7 +152,8 @@ def make_users():
 
 
 def game(when, *, completed=True, players=4, humans=2, winner="Reef",
-         names=("Reef", "Kelp"), duration=900, animals=None, team=False, boards=None):
+         names=("Reef", "Kelp"), duration=900, animals=None, team=False, boards=None,
+         ranked=False, competitive=False):
     """One game-history record shaped exactly like multiplayer_server writes.
 
     `animals` gives every player the same board; `boards` (a list, one entry per
@@ -165,7 +166,12 @@ def game(when, *, completed=True, players=4, humans=2, winner="Reef",
     return {
         "room_id": "AAAAA",
         "recorded_unix": when,
-        "mode": "standard" if completed else "truncated",
+        "mode": ("competitive" if competitive else "ranked" if ranked else "standard"
+                 ) if completed else "truncated",
+        # Written alongside `mode` so an abandoned game still says which table
+        # it was played on, the same way `team_mode` does.
+        "ranked": ranked,
+        "competitive": competitive,
         "player_count": players,
         "human_count": humans,
         "winner": winner,
@@ -562,6 +568,128 @@ class TestGameMetrics(AnalyticsTestCase):
         self.assertEqual(sum(vol["left_early"]), 1)
 
 
+class TestWinsAreNotDoubleCounted(AnalyticsTestCase):
+    """`normal_wins` and `competitive_wins` are not addable: the first is a
+    lifetime total that ALREADY counts free-for-all Competitive wins, and the
+    second is wiped at every season rollover."""
+    users = {
+        "u-comp": {
+            "nickname": "Reef", "created_at": NOW - 90 * DAY, "last_active": NOW - 3600,
+            "stats": {"completed_games": 20, "normal_wins": 8, "competitive_wins": 3,
+                      "total_xp": 900, "level": 10},
+        },
+    }
+
+    def row(self):
+        rows = self.call("players", days=365).payload["table"]["rows"]
+        return next(r for r in rows if r["name"] == "Reef")
+
+    def test_wins_is_the_lifetime_counter_not_a_sum(self):
+        self.assertEqual(self.row()["wins"], 8,
+                         "8 + 3 = 11 would count every free-for-all win twice")
+
+    def test_season_competitive_wins_are_reported_separately(self):
+        self.assertEqual(self.row()["comp_wins"], 3)
+
+    def test_the_season_counter_is_labelled_as_a_season_counter(self):
+        """It drops to zero every season, so the column has to say so."""
+        cols = {c["key"]: c["label"] for c in self.call("players", days=365).payload["table"]["columns"]}
+        self.assertIn("season", cols["comp_wins"].lower())
+
+
+class TestOverviewSurvivesALiveFailure(AnalyticsTestCase):
+    """Overview is the page the dashboard opens on, and the live snapshot is the
+    only thing it reads that the other pages do not. If that call can throw, the
+    landing page fails alone and the whole tool reads as broken."""
+    games = [game(NOW - DAY, humans=2)]
+
+    def test_a_throwing_live_snapshot_still_renders_the_overview(self):
+        def boom():
+            raise RuntimeError("room lock is wedged")
+        an._live_snapshot = boom
+        res = self.call("overview", days=30)
+        self.assertTrue(res.payload.get("cards"), "the overview must still build")
+        labels = {c["label"]: c for c in res.payload["cards"]}
+        self.assertEqual(labels["Server"]["value"], "Needs attention",
+                         "a snapshot that failed is not a healthy server")
+
+    def test_a_live_snapshot_that_is_not_a_dict_is_ignored(self):
+        an._live_snapshot = lambda: None
+        self.assertTrue(self.call("overview", days=30).payload.get("cards"))
+
+
+class TestCompetitiveIsTwoModes(AnalyticsTestCase):
+    """Competitive Mode is the paired 4-seat game AND the free-for-all.
+
+    A finished free-for-all is written TWICE: once into ordinary game history
+    (mode "ranked") and once into the competitive ledger (a `players` list).
+    The page has to show it once.
+    """
+    games = [
+        game(NOW - DAY, humans=2),                                   # casual
+        # The same two finished free-for-alls the ledger below holds.
+        game(NOW - DAY, humans=3, ranked=True, names=("Reef", "Kelp", "Sun")),
+        game(NOW - 2 * DAY, humans=3, ranked=True, names=("Reef", "Kelp", "Sun")),
+        # Abandoned: this one never reaches the ledger, so it is the only
+        # competitive match that has to come out of game history.
+        game(NOW - 2 * DAY, humans=3, ranked=True, completed=False,
+             names=("Reef", "Kelp", "Sun")),
+    ]
+    comp_games = [
+        {"room_id": "CMP01", "recorded_unix": NOW - DAY, "p1_name": "Reef",
+         "p2_name": "Kelp", "winner": "Reef", "is_draw": False, "forfeit": False,
+         "ranked": True, "turn_count": 14, "standings": []},
+    ] + [
+        {"room_id": f"FFA{i}", "recorded_unix": NOW - i * DAY, "mode": "ranked",
+         "ranked": True, "winner": "Reef", "is_draw": False, "turn_count": 11 + i,
+         "player_count": 3,
+         "players": [{"name": "Reef", "seat_index": 0, "score": 50, "place": 1},
+                     {"name": "Kelp", "seat_index": 1, "score": 40, "place": 2},
+                     {"name": "Sun", "seat_index": 2, "score": 30, "place": 3}]}
+        for i in (1, 2)
+    ]
+
+    def cards(self):
+        return {c["label"]: c["value"] for c in self.call("competitive", days=30).payload["cards"]}
+
+    def test_a_finished_free_for_all_is_counted_once_not_twice(self):
+        """It is on disk in two places. Reading finished games out of both
+        directories would double every free-for-all on the page."""
+        c = self.cards()
+        self.assertEqual(c["Free-for-all matches"], 3,
+                         "two finished from the ledger, one abandoned from history")
+        self.assertEqual(c["Competitive matches"], 4, "plus the one paired match")
+
+    def test_matches_counted_for_rank_is_not_always_zero(self):
+        """This card read 0 forever: the paired writer hard-codes ranked=False
+        and nothing ever looked at the free-for-all, which really does pay CP."""
+        self.assertEqual(self.cards()["Matches counted for rank"], 3,
+                         "the two finished free-for-alls plus the paired match")
+
+    def test_an_abandoned_free_for_all_counts_as_given_up_not_as_rank(self):
+        self.assertEqual(self.cards()["Matches given up"], 1)
+
+    def test_every_free_for_all_player_reaches_the_table(self):
+        rows = {r["name"]: r for r in self.call("competitive", days=30).payload["table"]["rows"]}
+        self.assertIn("Sun", rows, "a third-place finisher still played the match")
+        self.assertEqual(rows["Reef"]["wins"], 3, "two free-for-alls plus the paired match")
+
+    def test_the_mode_filter_means_the_mode_a_player_played(self):
+        """Filtering to Competitive has to return BOTH competitive tables."""
+        comp = self.call("gameplay", days=30, mode="competitive").payload
+        casual = self.call("gameplay", days=30, mode="casual").payload
+        got = lambda d: {c["label"]: c["value"] for c in d["cards"]}["Games completed"]
+        self.assertEqual(got(comp), 2, "the two completed ranked games")
+        self.assertEqual(got(casual), 1, "only the genuinely casual game")
+
+    def test_the_gameplay_mix_names_the_two_competitive_modes_apart(self):
+        labels = [m["label"] for m in self.call("gameplay", days=30,
+                                                mode="all").payload["modes"]]
+        self.assertIn("Competitive (free-for-all)", labels)
+        self.assertNotIn("Competitive", labels,
+                         "a bare 'Competitive' no longer says which table it was")
+
+
 class TestFilters(AnalyticsTestCase):
     games = [
         game(NOW - DAY, humans=2),
@@ -596,6 +724,23 @@ class TestFilters(AnalyticsTestCase):
         on = self.call("players", days=365, include_guests=True).payload
         self.assertEqual({c["label"]: c["value"] for c in on["cards"]}["Total accounts"],
                          {c["label"]: c["value"] for c in off["cards"]}["Total accounts"] + 1)
+
+    def test_a_competitive_free_for_all_is_not_filed_as_casual(self):
+        """Competitive is two modes. The free-for-all writes ordinary game
+        history with mode "ranked", and counting that as Casual is how the
+        dashboard came to report no competitive play on a week full of it."""
+        self.assertEqual(an._game_mode(game(NOW, ranked=True)), "ranked")
+        self.assertEqual(an._game_mode(game(NOW, competitive=True)), "competitive")
+        self.assertEqual(an._game_mode(game(NOW, team=True)), "team")
+        self.assertEqual(an._game_mode(game(NOW)), "casual")
+
+    def test_an_abandoned_game_still_knows_which_table_it_was(self):
+        """`mode` collapses to "truncated" when nobody finishes, so the mode has
+        to survive in its own field or an abandoned ranked match reads as
+        casual."""
+        self.assertEqual(an._game_mode(game(NOW, ranked=True, completed=False)), "ranked")
+        self.assertEqual(an._game_mode(game(NOW, competitive=True, completed=False)),
+                         "competitive")
 
     def test_range_is_clamped_to_something_sane(self):
         self.assertEqual(an._filters({"days": 0})["days"], 1)
@@ -826,6 +971,19 @@ class TestGameRecordContract(unittest.TestCase):
         start = src.index("def _save_game_history")
         body = src[start:start + 8000]
         for field in ('"started_unix"', '"ended_unix"', '"duration_sec"', '"rounds"'):
+            self.assertIn(field, body,
+                          f"_save_game_history must still write {field}: analytics reads it")
+
+    def test_save_game_history_records_which_table_was_played(self):
+        """`mode` becomes "truncated" on an abandoned game, taking the only
+        record of the mode with it. These two booleans are how a Competitive
+        match stays a Competitive match when nobody finished it."""
+        here = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(here, "multiplayer_server.py"), "r", encoding="utf-8") as fh:
+            src = fh.read()
+        start = src.index("def _save_game_history")
+        body = src[start:start + 8000]
+        for field in ('"ranked"', '"competitive"', '"team_mode"'):
             self.assertIn(field, body,
                           f"_save_game_history must still write {field}: analytics reads it")
 

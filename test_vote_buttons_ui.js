@@ -181,8 +181,9 @@ const allowed = APP.slice(APP.indexOf("function updateTableSetup"),
 check(/!isQuickPlay/.test(allowed), "Table Setup stays out of Quick Play");
 check(/!isCompetitive/.test(allowed), "Table Setup stays out of competitive rooms");
 check(/!room\.tournament/.test(allowed), "Table Setup stays out of a bracket match");
-check(/Math\.max\(1, filled\)/.test(allowed),
-      "the floor on human spots is however many people have joined");
+check(/Math\.max\(isRanked \? COMP_FFA_MIN_PLAYERS : 1, filled\)/.test(allowed),
+      "the floor on human spots is however many people have joined "
+      + "(or three in a competitive room, whichever is higher)");
 check(/WR_MIN_TABLE = 2, WR_MAX_TABLE = 8/.test(APP), "the table is 2 to 8 players");
 check(/updateTableSetup\(seats, isHost, isQuickPlay, isComp\)/.test(APP),
       "the waiting room renders it on every update");
