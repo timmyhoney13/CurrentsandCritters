@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-08-31.1";
+  const APP_BUILD   = "2026-08-31.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -3528,6 +3528,13 @@
   // soon as a second player joins, both clients enter the same lobby. Players
   // 3 and 4 may keep joining until those spots become bots.
   let _qmSearch = null;
+  // Quick Play never dead-ends. If nobody else is searching after this long we
+  // stop pretending and put the player in a game against bots. The server owns
+  // the real number (QUICK_PLAY_BOT_FALLBACK_SECONDS) and sends it down with
+  // the queue counts; this is only the value used before the first reply lands.
+  let _qmBotFallbackSecs = 45;
+  // How long the "starting a bot match" warning shows before it happens.
+  const QM_BOTS_SOON_SECS = 8;
 
   function _qmNewTicket() {
     try {
@@ -3539,9 +3546,49 @@
   }
 
   function _qmUpdateSecs() {
-    if (!_qmSearch) return;
+    const search = _qmSearch;
+    if (!search) return;
+    const elapsed = Math.floor((Date.now() - search.startTs) / 1000);
     const el = document.getElementById("qm-search-secs");
-    if (el) el.textContent = Math.floor((Date.now() - _qmSearch.startTs) / 1000) + "s";
+    if (el) el.textContent = elapsed + "s";
+
+    // Nothing to hand over to yet: the queue join is still in flight, or this
+    // player is not the host of their queued room (which only happens if they
+    // were matched, in which case the poll is about to open the lobby anyway).
+    if (search.botsRequested || !search.roomId || !search.hostToken) return;
+    if (search.botsRetryAt && Date.now() < search.botsRetryAt) return;
+
+    if (elapsed >= _qmBotFallbackSecs) {
+      _qmFallbackToBots(search);
+      return;
+    }
+    _qmWaitingStatus(search, true);
+  }
+
+  function _qmWaitingStatus(search, countdownOnly) {
+    if (!search || _qmSearch !== search || search.botsRequested) return;
+    const bar = document.getElementById("qm-search-bar");
+    // No room or not the host means there is nothing to hand to the bots yet,
+    // so there is no countdown to show, just the plain wait.
+    const armed = Boolean(search.roomId && search.hostToken);
+    const remaining = armed
+      ? Math.max(0, _qmBotFallbackSecs - Math.floor((Date.now() - search.startTs) / 1000))
+      : null;
+    if (remaining !== null && remaining <= QM_BOTS_SOON_SECS) {
+      if (bar) bar.classList.add("qm-bots-soon");
+      // Past the deadline the countdown is over, so drop the number: a handoff
+      // in flight (or backing off after a refusal) would otherwise sit on
+      // "starting in 0s" for seconds at a time.
+      _qmSetStatus(remaining > 0
+        ? `No one else is searching. Starting a bot match in ${remaining}s…`
+        : "No one else is searching. Starting a bot match…");
+      return;
+    }
+    // The 1s tick only owns the countdown; outside that window the room poll
+    // is the one that writes, so it keeps its reconnect messages.
+    if (countdownOnly) return;
+    if (bar) bar.classList.remove("qm-bots-soon");
+    _qmSetStatus("Waiting for another Quick Play player…");
   }
   function _qmSetStatus(message) {
     const statusEl = document.getElementById("qm-search-status");
@@ -3551,19 +3598,57 @@
     _qmSetStatus("Finding Quick Play players…");
     const secEl = document.getElementById("qm-search-secs");
     if (secEl) secEl.textContent = "0s";
+    const cntEl = document.getElementById("qm-search-counts");
+    if (cntEl) cntEl.textContent = "";
     const bar = document.getElementById("qm-search-bar");
-    if (bar) bar.style.display = "";
+    if (bar) { bar.classList.remove("qm-bots-soon"); bar.style.display = ""; }
   }
   function _qmHideBar() {
     const bar = document.getElementById("qm-search-bar");
-    if (bar) bar.style.display = "none";
+    if (bar) { bar.classList.remove("qm-bots-soon"); bar.style.display = "none"; }
+    const cntEl = document.getElementById("qm-search-counts");
+    if (cntEl) cntEl.textContent = "";
   }
 
   function _qmClearTimers(search) {
     if (!search) return;
     if (search.timerId) clearInterval(search.timerId);
     if (search.pollId) clearInterval(search.pollId);
+    if (search.countsId) clearInterval(search.countsId);
     if (search.retryId) clearTimeout(search.retryId);
+  }
+
+  function _qmRenderCounts(search) {
+    const el = document.getElementById("qm-search-counts");
+    if (!el || !search) return;
+    const bits = [];
+    if (Number.isFinite(search.queued) && search.queued > 0) {
+      // The searcher is in the queue themselves, so this is never 0 once a
+      // reply has landed, and "1 in queue" honestly means "just you".
+      bits.push(search.queued === 1 ? "just you in the queue"
+                                    : `${search.queued} in the queue`);
+    }
+    // Firestore being unreachable comes back as null, not 0: an unknown count
+    // is left off rather than shown as "0 online", which would be a lie.
+    if (Number.isFinite(search.online) && search.online > 0) {
+      bits.push(search.online === 1 ? "1 player online" : `${search.online} players online`);
+    }
+    el.textContent = bits.length ? `· ${bits.join(" · ")} ·` : "";
+  }
+
+  async function _qmFetchCounts(search) {
+    if (!search || _qmSearch !== search) return;
+    try {
+      const res = await apiFetch("/api/quickplay/status", { method: "GET", timeoutMs: 6000 });
+      if (_qmSearch !== search || !res.ok || !res.data?.ok) return;
+      const queued = Number(res.data.queued);
+      const online = Number(res.data.online);
+      search.queued = Number.isFinite(queued) ? queued : null;
+      search.online = res.data.online === null ? null : (Number.isFinite(online) ? online : null);
+      const fb = Number(res.data.bot_fallback_seconds);
+      if (Number.isFinite(fb) && fb > 0) _qmBotFallbackSecs = fb;
+      _qmRenderCounts(search);
+    } catch (_) { /* a missed count just leaves the last one on screen */ }
   }
 
   async function _qmReleaseSeat(queuedRoomId, queuedSeatToken) {
@@ -3586,7 +3671,7 @@
     if (!silent) { try { showToast("Stopped searching for a match.", "info"); } catch (_) {} }
   }
 
-  function _qmEnterLobby(search) {
+  function _qmEnterRoom(search, toastText) {
     if (!search || _qmSearch !== search || !search.roomId || !search.seatToken) return;
     _qmClearTimers(search);
     _qmSearch = null;
@@ -3600,8 +3685,48 @@
     compMode = false;
     document.getElementById("pv-my-name-badge").textContent =
       (window.__fishNickname ? window.__fishNickname() : "") || "Player";
-    try { showToast("Players found! Opening the Quick Play lobby…", "ok"); } catch (_) {}
+    try { showToast(toastText, "ok"); } catch (_) {}
     enterRoom(roomId);
+  }
+
+  function _qmEnterLobby(search) {
+    _qmEnterRoom(search, "Players found! Opening the Quick Play lobby…");
+  }
+
+  async function _qmFallbackToBots(search) {
+    if (!search || _qmSearch !== search || search.botsRequested) return;
+    if (!search.roomId || !search.seatToken || !search.hostToken) return;
+    search.botsRequested = true;
+    const bar = document.getElementById("qm-search-bar");
+    if (bar) bar.classList.add("qm-bots-soon");
+    _qmSetStatus("No one else is searching. Starting a bot match…");
+    try {
+      const res = await apiPost(`/api/rooms/${search.roomId}/quickplay_bots`, {
+        host_token: search.hostToken,
+        seat_token: search.seatToken,
+      }, { timeoutMs: 10000 });
+      if (_qmSearch !== search) return;
+      if (res.ok && res.data?.ok) {
+        _qmEnterRoom(search, "No one else was searching, so bots filled the table.");
+        return;
+      }
+      // Somebody claimed a seat while this was in flight. That is the human
+      // game the player wanted, so drop the bot plan and let the poll open it.
+      if (res.data?.matched) {
+        search.botsRequested = false;
+        if (bar) bar.classList.remove("qm-bots-soon");
+        _qmSetStatus("Someone joined! Opening the Quick Play lobby…");
+        return;
+      }
+      throw new Error(res.data?.error || "could not start a bot match");
+    } catch (_) {
+      if (_qmSearch !== search) return;
+      // Keep searching rather than stranding them, but back off: this runs
+      // off the 1s tick, and a server that is refusing must not be hammered.
+      search.botsRequested = false;
+      search.botsRetryAt = Date.now() + 5000;
+      _qmSetStatus("Setting up a bot match…");
+    }
   }
 
   async function _qmPollRoom() {
@@ -3631,7 +3756,7 @@
       if (res.data?.room?.quick_play && filled >= 2) {
         _qmEnterLobby(search);
       } else {
-        _qmSetStatus("Waiting for another Quick Play player…");
+        _qmWaitingStatus(search, false);
       }
     } catch (_) {
       if (_qmSearch === search) _qmSetStatus("Quick Play is reconnecting…");
@@ -3669,7 +3794,7 @@
         _qmEnterLobby(search);
         return;
       }
-      _qmSetStatus("Waiting for another Quick Play player…");
+      _qmWaitingStatus(search, false);
       if (search.pollId) clearInterval(search.pollId);
       search.pollId = setInterval(_qmPollRoom, 2500);
     } catch (_) {
@@ -3695,15 +3820,24 @@
       startTs: Date.now(),
       timerId: null,
       pollId: null,
+      countsId: null,
       retryId: null,
       busy: false,
       roomId: "",
       seatToken: "",
       hostToken: "",
+      queued: null,
+      online: null,
+      botsRequested: false,
+      botsRetryAt: 0,
     };
     _qmSearch = search;
     _qmShowBar();
     search.timerId = setInterval(_qmUpdateSecs, 1000);
+    // The queue/online counts move far slower than the room poll, so they get
+    // their own lazier interval instead of riding the 2.5s one.
+    search.countsId = setInterval(() => _qmFetchCounts(search), 5000);
+    _qmFetchCounts(search);
     await _qmJoinQueue(search);
   }
 

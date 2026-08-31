@@ -2648,6 +2648,11 @@ REJOIN_WINDOW_SEC = 8 * 60
 # Ignore abandoned one-player queues after this window so a new player is
 # never matched with a tab that has been closed or disconnected.
 QUICK_PLAY_STALE_SECONDS = 3 * 60
+# Quick Play must never be a dead end. A player alone in the queue for this
+# long is dropped into a game against bots rather than left watching a
+# counter climb: on a small playerbase "no one is searching" is the normal
+# case, and a button that can only ever fail is worse than no button.
+QUICK_PLAY_BOT_FALLBACK_SECONDS = 45
 # Room codes are 4–12 uppercase letters/numbers. Public rooms use a random
 # 5-char code; private rooms use the host's chosen code (which is also the
 # password). Both create and restore accept the full 4–12 range.
@@ -5619,6 +5624,85 @@ class GameRoom:
                 "can_start": bool(filled >= total),
                 "seats": self.seat_snapshot_locked(),
                 "unchanged": not changed,
+            }
+
+    def quick_play_fill_with_bots(
+        self,
+        host_token: str,
+        seat_token: Optional[str],
+        card_db: Dict[int, fish.CardDef],
+    ) -> Dict[str, Any]:
+        """Give up on matchmaking: bot out the empty seats and start.
+
+        This is the end of the Quick Play search, not a seat-count setting, so
+        unlike configure_quick_play_seats it accepts a single human. Everything
+        happens under one hold of self.cond: a second player claiming the last
+        open seat mid-conversion would otherwise be turned into a bot and lose
+        the game they just joined.
+        """
+        with self.cond:
+            if not self._is_host_authorized_locked(host_token, seat_token):
+                return {"ok": False, "error": "host authorization required"}
+            if not self.quick_play:
+                return {"ok": False, "error": "this is not a Quick Play room"}
+            if self.phase != "lobby":
+                return {"ok": False, "error": "the game has already started"}
+
+            claimed = [
+                seat for seat in self.seats
+                if seat.kind == "human" and seat.token is not None
+            ]
+            if not claimed:
+                return {"ok": False, "error": "nobody is seated in this room"}
+            # Somebody arrived while this request was in flight. That is the
+            # match the player asked for, so keep it and let the lobby open.
+            if len(claimed) > 1:
+                filled, total = self._human_seat_counts_locked()
+                return {
+                    "ok": False,
+                    "error": "another player joined this Quick Play room",
+                    "matched": True,
+                    "human_seats_filled": filled,
+                    "human_seats_total": total,
+                }
+
+            keep = {seat.index for seat in claimed}
+            bot_number = 1
+            for seat in self.seats:
+                if seat.index not in keep:
+                    seat.kind = "ai"
+                    seat.token = None
+                    seat.is_host = False
+                    seat.avatar = None
+                    seat.background = None
+                    seat.left_at = None
+                    seat.quick_play_ticket = None
+                if seat.kind == "ai":
+                    seat.claimed_name = f"Bot {bot_number}"
+                    bot_number += 1
+
+            self.human_players = len(keep)
+            self.ai_players = self.total_players - self.human_players
+            self.status_note = (
+                f"No other players were searching, so {self.ai_players} bots "
+                "filled the table."
+            )
+            self._add_system_chat(self.status_note)
+            self._bump_locked(force_persist=True)
+
+            # The room keeps its quick_play flag on purpose. Matchmaking only
+            # ever looks at lobby-phase rooms, so a started game is invisible
+            # to it anyway, and leaving the flag alone means a start that fails
+            # here leaves a room the client can simply ask again about instead
+            # of a half-converted one nobody owns. Converting seats is
+            # idempotent, so that retry is safe.
+            started = self.start_game(host_token, seat_token, card_db)
+            if not started.get("ok"):
+                return started
+            return {
+                "ok": True,
+                "human_players": self.human_players,
+                "ai_players": self.ai_players,
             }
 
     def terminate_game(self, host_token: str, seat_token: Optional[str]) -> Dict[str, Any]:
@@ -10640,6 +10724,40 @@ class RoomManager:
                 room._bump_locked(force_persist=True)
                 return response_for(room, host_seat)
 
+    def quick_play_queue_size(self) -> int:
+        """How many people are sitting in the Quick Play queue right now.
+
+        Counts claimed seats holding a Quick Play ticket in lobby-phase Quick
+        Play rooms, skipping rooms whose players have all gone quiet past
+        QUICK_PLAY_STALE_SECONDS (the same staleness rule matchmaking itself
+        uses, so the number on screen is the number you can actually match
+        with, not a tally of closed tabs).
+
+        Lock order is manager-then-room, matching quick_play_join.
+        """
+        now = time.time()
+        queued = 0
+        with self.lock:
+            for room in list(self.rooms.values()):
+                if not room.quick_play or room.phase != "lobby":
+                    continue
+                with room.cond:
+                    waiting = [
+                        seat for seat in room.seats
+                        if seat.kind == "human"
+                        and seat.token is not None
+                        and seat.quick_play_ticket
+                    ]
+                    if not waiting:
+                        continue
+                    latest_seen = max(
+                        float(seat.last_seen or room.created_unix) for seat in waiting
+                    )
+                    if now - latest_seen > QUICK_PLAY_STALE_SECONDS:
+                        continue
+                    queued += len(waiting)
+        return queued
+
     def list_open_rooms(self) -> List[Dict[str, Any]]:
         """Return metadata for all lobby-phase rooms that are not full."""
         with self.lock:
@@ -12333,6 +12451,30 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_json({"ok": True, "rooms": ROOMS.list_open_rooms()})
             return
 
+        if parsed.path == "/api/quickplay/status":
+            # What the searching player is told while they wait: how many
+            # people are in the queue with them, how many are on the site at
+            # all, and how long the search runs before bots take the table.
+            # Guest-readable on purpose, the search bar shows before sign-in
+            # state matters.
+            try:
+                queued = ROOMS.quick_play_queue_size()
+            except Exception:  # noqa: BLE001
+                queued = 0
+            try:
+                _reg, online, _games = get_live_user_counts()
+            except Exception:  # noqa: BLE001
+                online = None
+            self._send_json({
+                "ok": True,
+                "queued": queued,
+                # Firestore unreachable means "unknown", which the bar hides,
+                # never a confident 0 that reads as "nobody is here".
+                "online": online if isinstance(online, int) and online >= 0 else None,
+                "bot_fallback_seconds": QUICK_PLAY_BOT_FALLBACK_SECONDS,
+            })
+            return
+
         if parsed.path == "/api/stats":
             # Both counters live in STATS_PATH on the persistent disk.
             games_played = 0
@@ -13329,6 +13471,23 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 seat_token,
                 human_players,
             )
+            if out.get("ok"):
+                status = HTTPStatus.OK
+            elif out.get("error") == "host authorization required":
+                status = HTTPStatus.FORBIDDEN
+            else:
+                status = HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "quickplay_bots":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            host_token = body.get("host_token") if isinstance(body.get("host_token"), str) else ""
+            seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+            out = room.quick_play_fill_with_bots(host_token, seat_token, CARD_DB)
             if out.get("ok"):
                 status = HTTPStatus.OK
             elif out.get("error") == "host authorization required":

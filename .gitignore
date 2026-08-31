@@ -484,6 +484,10 @@ serviceAccountKey.json
 !test_store_perks.js
 !test_chat_emotes.py
 
+# Quick Play: the queue counter, and the bot table that ends a fruitless search.
+!test_quick_play_fallback.py
+!test_quick_play_ui.js
+
 # New marketing site files (Claude Design build)
 !styles.css
 !image-slot.js

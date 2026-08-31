@@ -12297,6 +12297,24 @@
       font-weight: 800; font-size: .98rem; color: #15539e; letter-spacing: .2px;
     }
     .qm-search-secs { color: #6a3fb0; font-variant-numeric: tabular-nums; }
+    /* Queue size + who is online. Empty until the first /api/quickplay/status
+       reply, and the margin has to come with the text so an empty span does
+       not leave a gap in the bar. */
+    .qm-search-counts {
+      color: #1b6fc4; font-weight: 700; font-variant-numeric: tabular-nums;
+    }
+    .qm-search-counts:not(:empty) { margin: 0 8px 0 6px; }
+    /* The last few seconds before bots take the table. */
+    .qm-search-bar.qm-bots-soon {
+      background: linear-gradient(90deg, rgba(240,170,46,.20), rgba(240,120,60,.16));
+      border-color: rgba(230,150,40,.55);
+    }
+    .qm-search-bar.qm-bots-soon .qm-spinner {
+      border-color: rgba(230,150,40,.28); border-top-color: #e08a1e;
+    }
+    .qm-search-bar.qm-bots-soon .qm-search-text { color: #8a4f06; }
+    .qm-search-bar.qm-bots-soon .qm-search-counts { color: #a1620a; }
+    .qm-search-bar.qm-bots-soon .qm-search-secs { color: #a1620a; }
     .qm-cancel-btn {
       flex: none; border: 1.5px solid rgba(200,60,80,.45);
       background: rgba(255,255,255,.85); color: #c0304a;
