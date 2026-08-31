@@ -140,6 +140,10 @@
 !test_tournament_server.py
 !test_tournament_integration.py
 !test_deck_shuffle_fairness.py
+# Deal fairness the shuffle test cannot cover: proves the card you are dealt
+# does not depend on the strategy you are playing (structural, causal and
+# statistical), plus a negative control so the suite can't pass vacuously.
+!test_deal_strategy_independence.py
 # Card symbols: reads the symbol back OUT of the printed badge on every
 # card sheet, because nothing else ties cards_*.txt to the art and a
 # rebuild silently left nine cards describing the wrong symbol.
