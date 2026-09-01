@@ -2812,7 +2812,6 @@
     #pv-waiting-room[data-wide="1"] .wr-box { max-width: 1120px; }
     /* The Start button is a 920x175 painting, so it scales with its container:
        in the wide seat-grid box that made it a 200px-tall banner. */
-    #pv-waiting-room[data-wide="1"] #wr-start-btn { max-width: 560px; }
     #pv-waiting-room[data-wide="1"] .wr-caption { max-width: 62ch; }
     .wr-box {
       background: linear-gradient(180deg, rgba(227,237,251,.95) 0%, rgba(216,228,247,.94) 100%);
@@ -3053,28 +3052,70 @@
     .wr-player-name { font-weight: 700; color: #1a3a72; }
     .wr-player-empty { color: #6a87b0; font-weight: 600; }
 
-    /* ══ Seat tiles ════════════════════════════════════════════════════
-       One tile per seat, showing the player the way the rest of the game
-       already shows them: their critter, the background they equipped behind
-       it, their Level, and their Prestige badge when they have one. Adding is
-       always a BOT: a person joins with the room code, and an empty human seat
-       only holds the game up (start_game refuses while one is unclaimed). */
+    /* ══ The waiting room ══════════════════════════════════════════════
+       Eight spots on the Tide Pool, with the chat, the cast-off and your own
+       look under them. The spots ARE the seat control: there is no separate
+       Table Setup panel, so nothing here has a second place to be changed. */
+
+    /* ── head: who we are, and how people get in ── */
+    .wr-head {
+      width: 100%; display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap;
+    }
+    .wr-head-titles { text-align: left; flex: 1; min-width: 200px; }
+    .wr-head-titles .wr-subtitle { margin: 4px 0 0; font-size: 13.5px; }
+    .wr-head-tools { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+    #pv-waiting-room .wr-head .wr-code {
+      width: auto; font-size: 1.55rem; letter-spacing: 6px;
+      padding: 9px 12px 9px 18px; border-radius: 13px;
+    }
+    #wr-copy-btn { padding: 10px 14px; font-size: 12.5px; border-radius: 12px; }
+    #wr-music-btn {
+      border: 1px solid rgba(44,77,128,.28); background: linear-gradient(180deg,#fff,#eef4fd);
+      border-radius: 12px; padding: 9px 12px; font-size: 15px; cursor: pointer; line-height: 1;
+    }
+    #wr-music-btn:hover { background: #fff; }
+
+    /* ── the read-out above the spots ── */
+    .wr-capacity {
+      width: 100%; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      padding: 11px 18px; border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(238,245,255,.88));
+      border: 1px solid rgba(44,77,128,.16);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+    }
+    .wr-cap-count { display: flex; align-items: baseline; gap: 8px; }
+    .wr-cap-count b {
+      font-family: "Cinzel", Georgia, serif; font-size: 27px; font-weight: 900; color: #17365a;
+      line-height: 1; font-variant-numeric: tabular-nums;
+    }
+    .wr-cap-count span {
+      font-size: 11px; font-weight: 900; letter-spacing: 1.8px; color: #5b83b5; text-transform: uppercase;
+    }
+    .wr-cap-pips { display: flex; gap: 5px; flex-wrap: wrap; }
+    .wr-pip { width: 30px; height: 14px; border-radius: 5px; box-sizing: border-box; display: inline-block; }
+    .wr-pip.player { background: linear-gradient(180deg,#6fc0f5,#2379c8); }
+    .wr-pip.bot    { background: linear-gradient(180deg,#b3a3f0,#6b57bd); }
+    .wr-pip.open   { background: rgba(255,255,255,.85); border: 2px dashed #9dbada; }
+    .wr-pip.spare  { background: rgba(44,77,128,.12); }
+    .wr-cap-legend { margin-left: auto; display: flex; gap: 13px; flex-wrap: wrap; }
+    .wr-cap-legend span {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11.5px; font-weight: 800; color: #4d6f97;
+    }
+    .wr-cap-legend .wr-pip { width: 13px; height: 13px; border-radius: 4px; }
+
+    /* ── the eight spots ── */
     .wr-seat-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(212px, 1fr));
-      gap: 12px;
-      margin-top: 4px;
+      display: grid; gap: 12px; margin-top: 4px;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     }
     .wr-seat {
-      position: relative;
-      display: flex; flex-direction: column; gap: 10px;
-      padding: 12px 13px 13px;
-      border-radius: 16px;
+      position: relative; display: flex; flex-direction: column; gap: 9px;
+      padding: 12px 13px 13px; border-radius: 16px; min-height: 150px;
       background: linear-gradient(180deg, #ffffff 0%, #eef5ff 100%);
       border: 1px solid rgba(44,77,128,.16);
       box-shadow: 0 3px 10px rgba(26,58,114,.10), inset 0 1px 0 rgba(255,255,255,.8);
       text-align: left;
-      min-height: 104px;
     }
     .wr-seat::before {
       content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px;
@@ -3083,38 +3124,34 @@
     }
     .wr-seat-bot::before { background: linear-gradient(90deg, #b3a3f0, #6b57bd); }
     .wr-seat-you::before { background: linear-gradient(90deg, #ffd257, #e0a41c); }
-    .wr-seat-you  { box-shadow: 0 0 0 2px rgba(224,164,28,.45), 0 4px 12px rgba(26,58,114,.12); }
-    .wr-seat-bot  { background: linear-gradient(180deg, #fbf9ff 0%, #efeaff 100%); }
+    .wr-seat-you { box-shadow: 0 0 0 2px rgba(224,164,28,.45), 0 4px 12px rgba(26,58,114,.12); }
+    .wr-seat-bot { background: linear-gradient(180deg, #fbf9ff 0%, #efeaff 100%); }
     .wr-seat-open {
-      background: rgba(255,255,255,.55);
-      border: 2px dashed rgba(44,77,128,.34);
-      box-shadow: none;
+      background: rgba(255,255,255,.5); border: 2px dashed rgba(44,77,128,.32);
+      box-shadow: none; align-items: center; text-align: center;
     }
     .wr-seat-open::before { display: none; }
 
-    .wr-seat-top { display: flex; align-items: center; gap: 11px; }
+    .wr-seat-top { display: flex; align-items: center; gap: 11px; width: 100%; }
+    .wr-seat-open .wr-seat-top { flex-direction: column; gap: 7px; }
     .wr-seat-av {
-      position: relative; width: 52px; height: 52px; border-radius: 50%;
+      position: relative; width: 50px; height: 50px; border-radius: 50%;
       flex: 0 0 auto; overflow: visible;
       background: linear-gradient(145deg, #1f66bc 0%, #3ec0ee 100%);
       border: 3px solid rgba(255,255,255,.96);
       box-shadow: 0 0 0 2px rgba(35,121,206,.5);
     }
-    .wr-seat-avbg {
-      position: absolute; inset: 0; border-radius: 50%; overflow: hidden;
-    }
+    .wr-seat-bot .wr-seat-av { background: linear-gradient(145deg, #b3a3f0 0%, #6b57bd 100%); }
+    .wr-seat-avbg { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; }
     .wr-seat-av > img {
       position: relative; width: 100%; height: 100%;
       object-fit: contain; display: block; border-radius: 50%;
     }
     .wr-seat-av-empty {
-      background: rgba(26,58,114,.10);
-      border: 3px dashed rgba(44,77,128,.35);
-      box-shadow: none;
+      background: rgba(26,58,114,.10); border: 3px dashed rgba(44,77,128,.35); box-shadow: none;
       display: flex; align-items: center; justify-content: center;
       font-size: 17px; font-weight: 900; color: #7d99bd;
     }
-    /* The pencil that changes your own critter, on your own seat only. */
     .wr-seat-edit {
       position: absolute; right: -4px; bottom: -4px; z-index: 3;
       width: 24px; height: 24px; border-radius: 50%; padding: 0;
@@ -3125,20 +3162,21 @@
     .wr-seat-edit:hover { transform: scale(1.08); }
 
     .wr-seat-id { min-width: 0; flex: 1; }
+    .wr-seat-open .wr-seat-id { flex: none; text-align: center; }
     .wr-seat-name {
       display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
       font-size: 15px; font-weight: 900; color: #1a3a72; line-height: 1.2;
     }
-    .wr-seat-name > span:first-child {
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
-    }
+    .wr-seat-open .wr-seat-name { justify-content: center; }
+    .wr-seat-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
     .wr-seat-pbadge { display: inline-flex; flex: 0 0 auto; }
     .wr-seat-pbadge .cc-pbadge { flex: 0 0 auto; max-width: none; }
     .wr-seat-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+    .wr-seat-open .wr-seat-chips { justify-content: center; }
+
     .wr-chip {
       display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
-      border-radius: 999px; padding: 2px 8px;
-      font-size: 10.5px; font-weight: 800;
+      border-radius: 999px; padding: 2px 8px; font-size: 10.5px; font-weight: 800;
       background: #fff; border: 1px solid rgba(44,77,128,.22); color: #2f6eba;
     }
     .wr-chip-lvl   { background: linear-gradient(180deg,#d9ecff,#bcdcfb); border-color: rgba(47,110,186,.4); color: #1c569c; }
@@ -3146,74 +3184,197 @@
     .wr-chip-ready { background: linear-gradient(180deg,#c8f5dd,#9fe9c2); border-color: #4cbe86; color: #14663f; }
     .wr-chip-bot   { background: linear-gradient(180deg,#e6ddff,#cfc0fb); border-color: #a48ce8; color: #46308c; }
     .wr-chip-you   { background: linear-gradient(180deg,#fff3d0,#ffe6a3); border-color: #e6b74a; color: #6b4b06; }
+    .wr-chip-bg    { background: linear-gradient(180deg,#dff1ff,#c4e4fb); border-color: #6ab3e8; color: #175da8; }
     .wr-chip-wait  { background: rgba(255,255,255,.75); border-color: rgba(44,77,128,.2); color: #7d99bd; }
 
-    .wr-seat-foot { margin-top: auto; display: flex; flex-direction: column; gap: 7px; }
-    .wr-seat-hint { font-size: 10.5px; font-weight: 700; color: #6b8fbb; line-height: 1.35; }
-    .wr-seat-tobot {
-      border-radius: 9px; padding: 6px 8px; cursor: pointer;
-      background: linear-gradient(180deg,#f0eaff,#ddd2fb);
-      border: 1px solid rgba(139,116,222,.5); color: #46308c;
-      font-size: 11px; font-weight: 900;
+    .wr-xp { width: 100%; }
+    .wr-xp-bar { height: 7px; border-radius: 99px; background: rgba(47,110,186,.18); overflow: hidden; }
+    .wr-xp-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg,#34a5f3,#22d8f8); box-shadow: 0 0 8px rgba(52,165,243,.5); }
+    .wr-xp-txt { font-size: 10px; font-weight: 800; color: #6b8fbb; margin-top: 4px; }
+    .wr-seat-stat { font-size: 10.5px; font-weight: 800; color: #6b8fbb; line-height: 1.4; }
+    .wr-seat-blurb { font-size: 11px; font-weight: 700; color: #5f7fa6; line-height: 1.4; }
+    .wr-seat-sublabel {
+      margin-top: auto; font-size: 9.5px; font-weight: 900; letter-spacing: 1.6px;
+      text-transform: uppercase; color: #8aa6c6;
     }
-    .wr-seat-tobot:disabled { opacity: .45; cursor: not-allowed; }
-    .wr-seat .wr-diff-box { width: 100%; }
+    .wr-seat-foot { margin-top: auto; display: flex; flex-wrap: wrap; gap: 4px; }
+    .wr-seat-hint { font-size: 10.5px; font-weight: 700; color: #6b8fbb; line-height: 1.35; }
+    .wr-seat-openbody { display: flex; flex-direction: column; gap: 7px; width: 100%; margin-top: auto; }
+    .wr-seat-invite, .wr-seat-tobot {
+      border-radius: 9px; padding: 7px 8px; cursor: pointer; font-size: 11px; font-weight: 900;
+    }
+    .wr-seat-invite { background: linear-gradient(180deg,#ffffff,#eaf2fd); border: 1px solid rgba(44,77,128,.28); color: #2f6eba; }
+    .wr-seat-tobot  { background: linear-gradient(180deg,#f0eaff,#ddd2fb); border: 1px solid rgba(139,116,222,.5); color: #46308c; }
+    .wr-seat-invite:hover { background: #fff; }
+    .wr-seat .wr-diff-box { width: 100%; margin: 0; }
     .wr-seat .wr-diff-pill { flex: 1; }
 
-    /* The one control that takes something away. Solid, always visible, never
-       hover-only: it is destructive, so it has to be findable and it has to
-       say what it does. */
+    /* The one control that takes something away: solid, always painted,
+       never hover-only, because it is destructive. */
     .wr-seat-remove {
       position: absolute; top: 8px; right: 8px; z-index: 4;
       width: 26px; height: 26px; border-radius: 50%; padding: 0;
       display: flex; align-items: center; justify-content: center;
       background: linear-gradient(180deg, #f26b7d, #d8324b);
-      border: 2px solid #fff;
-      box-shadow: 0 2px 7px rgba(176,32,56,.45);
-      color: #fff; font-size: 17px; font-weight: 900; line-height: 1;
-      cursor: pointer;
+      border: 2px solid #fff; box-shadow: 0 2px 7px rgba(176,32,56,.45);
+      color: #fff; font-size: 17px; font-weight: 900; line-height: 1; cursor: pointer;
     }
     .wr-seat-remove:hover { transform: scale(1.1); box-shadow: 0 3px 10px rgba(176,32,56,.6); }
     .wr-seat-remove:focus-visible { outline: 3px solid #ffd257; outline-offset: 2px; }
+    .wr-seat-lock { position: absolute; top: 9px; right: 10px; font-size: 12px; opacity: .5; }
 
-    /* Add a bot: a seat-shaped button, so it reads as the next seat along. */
+    /* A spot that is not in play: press it to seat a bot. */
     .wr-seat-add {
-      align-items: center; justify-content: center; text-align: center;
-      gap: 5px; cursor: pointer;
-      background: rgba(255,255,255,.42);
-      border: 2px dashed rgba(107,87,189,.5);
-      box-shadow: none;
-      font-family: inherit;
+      align-items: center; justify-content: center; text-align: center; gap: 6px;
+      cursor: pointer; font-family: inherit;
+      background: rgba(255,255,255,.34);
+      border: 2px dashed rgba(107,87,189,.45); box-shadow: none;
     }
     .wr-seat-add::before { display: none; }
-    .wr-seat-add:hover { background: rgba(255,255,255,.7); border-color: #6b57bd; }
+    .wr-seat-add:hover { background: rgba(255,255,255,.62); border-color: #6b57bd; }
+    .wr-seat-add-off { cursor: default; opacity: .6; border-color: rgba(44,77,128,.28); }
+    .wr-seat-add-off:hover { background: rgba(255,255,255,.34); border-color: rgba(44,77,128,.28); }
     .wr-seat-add-plus {
-      width: 38px; height: 38px; border-radius: 50%;
+      width: 40px; height: 40px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       background: linear-gradient(180deg, #e6ddff, #bda9f6);
-      color: #35237a; font-size: 22px; font-weight: 900; line-height: 1;
+      color: #35237a; font-size: 24px; font-weight: 900; line-height: 1;
       box-shadow: 0 3px 8px rgba(53,35,122,.28);
     }
+    .wr-seat-add-off .wr-seat-add-plus { background: linear-gradient(180deg,#e8eef7,#cfd9e8); color: #8aa6c6; box-shadow: none; }
     .wr-seat-add-t { font-size: 13px; font-weight: 900; color: #46308c; }
+    .wr-seat-add-off .wr-seat-add-t { color: #6b8fbb; }
     .wr-seat-add-s { font-size: 10.5px; font-weight: 700; color: #6b8fbb; }
 
-    /* Footer: watch instead, or leave outright. */
-    .wr-foot { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    /* ── the deck: chat | cast off + your look ── */
+    .wr-deck { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+    .wr-chat-panel {
+      display: flex; flex-direction: column; min-height: 232px;
+      border-radius: 18px; padding: 12px 14px 13px;
+      background: linear-gradient(180deg, rgba(20,58,110,.94), rgba(13,42,84,.95));
+      border: 1px solid rgba(150,200,240,.3);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
+      text-align: left;
+    }
+    .wr-chat-head { display: flex; align-items: center; gap: 9px; padding-bottom: 8px; }
+    .wr-chat-h {
+      font-size: 11.5px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #a9d2f5;
+      white-space: nowrap; flex: 0 0 auto;
+    }
+    .wr-chat-panel .wr-chip { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.3); color: #dceaf9; }
+    #wr-chat-btn {
+      margin-left: auto; position: relative; display: inline-flex; align-items: center; gap: 6px;
+      flex: 0 0 auto; white-space: nowrap;
+      background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.32);
+      color: #dceaf9; border-radius: 10px; padding: 6px 11px;
+      font-size: 11.5px; font-weight: 800; cursor: pointer;
+    }
+    #wr-chat-btn:hover { background: rgba(255,255,255,.24); }
+    .wr-chat-icon { font-size: 13px; line-height: 1; }
+    .wr-chat-log {
+      flex: 1; overflow-y: auto; min-height: 96px; max-height: 190px;
+      display: flex; flex-direction: column; gap: 2px; padding-right: 4px;
+    }
+    .wr-chat-empty { font-size: 12px; font-weight: 700; color: #8fb4d8; font-style: italic; padding: 8px 0; }
+    .wr-chat-sys { font-size: 11.5px; font-weight: 800; font-style: italic; color: #9dc2e6; padding: 4px 0 4px 38px; }
+    .wr-chat-line { display: flex; gap: 9px; align-items: flex-start; padding: 5px 0; }
+    .wr-chat-av {
+      position: relative; width: 29px; height: 29px; border-radius: 50%; overflow: hidden; flex: 0 0 auto;
+      border: 2px solid rgba(255,255,255,.9); background: linear-gradient(145deg,#1f66bc,#3ec0ee);
+    }
+    .wr-chat-av img { position: relative; width: 100%; height: 100%; object-fit: contain; display: block; }
+    .wr-chat-body { min-width: 0; }
+    .wr-chat-who { font-size: 11.5px; font-weight: 900; color: #9fd0ff; }
+    .wr-chat-msg { font-size: 13px; font-weight: 600; color: #e6f1fb; line-height: 1.35; overflow-wrap: anywhere; }
+    .wr-chat-foot { display: flex; flex-direction: column; gap: 8px; padding-top: 9px; }
+    .wr-emote-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .wr-emote {
+      width: 30px; height: 30px; border-radius: 9px; padding: 0; cursor: pointer; font-size: 15px; line-height: 1;
+      background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28);
+    }
+    .wr-emote:hover { background: rgba(255,255,255,.26); }
+    .wr-chat-input { display: flex; align-items: center; gap: 8px; }
+    #wr-chat-text {
+      flex: 1; min-width: 0; border-radius: 12px; padding: 10px 13px;
+      border: 2px solid rgba(150,200,240,.4); background: rgba(255,255,255,.96);
+      font: 600 13px/1 "Nunito", sans-serif; color: #17365a;
+    }
+    #wr-chat-text:focus { outline: none; border-color: #47b4f5; }
+    #wr-chat-send {
+      border: none; border-radius: 10px; padding: 10px 18px; cursor: pointer; flex: 0 0 auto;
+      background: linear-gradient(180deg, #47b4f5, #2379c8); color: #fff;
+      font: 900 12px/1 "Nunito", sans-serif;
+    }
+    #wr-chat-send:hover { filter: brightness(1.06); }
+
+    .wr-deck-right { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .wr-start-row { display: flex; align-items: center; gap: 13px; }
+    #pv-waiting-room .wr-start-row #wr-start-btn { flex: 1; max-width: 100%; }
+    .wr-start-note { flex: 0 0 auto; max-width: 190px; text-align: left; }
+    #pv-waiting-room .wr-start-row #wr-start-btn { min-width: 210px; }
+    #pv-waiting-room .wr-start-row .wr-btn-text {
+      font-size: 15.5px; line-height: 1.15; padding: 0 10px; letter-spacing: 0;
+    }
+    #pv-waiting-room .wr-start-row .wr-btn-text.with-play::before { font-size: 14px; margin-right: 8px; }
+    #pv-waiting-room .wr-start-note .wr-caption { margin: 0 0 8px; font-size: 12.5px; text-align: left; }
     #wr-spectate-btn {
       display: none; align-items: center; gap: 6px;
       background: rgba(47,110,186,.12); border: 1px solid rgba(47,110,186,.42);
-      color: #2f6eba; border-radius: 8px; padding: 7px 18px;
-      font-size: 12px; font-weight: 700; letter-spacing: .3px; cursor: pointer;
+      color: #2f6eba; border-radius: 8px; padding: 7px 14px;
+      font-size: 12px; font-weight: 700; cursor: pointer;
       transition: background .15s, border-color .15s;
     }
     #wr-spectate-btn:hover { background: rgba(47,110,186,.2); border-color: rgba(47,110,186,.7); }
     #wr-leave-btn {
       background: rgba(232,64,87,.15); border: 1px solid rgba(232,64,87,.4);
-      color: #e84057; border-radius: 8px; padding: 7px 18px;
-      font-size: 12px; font-weight: 700; letter-spacing: .3px; cursor: pointer;
+      color: #e84057; border-radius: 10px; padding: 9px 15px;
+      font-size: 12px; font-weight: 700; cursor: pointer;
       transition: background .15s, border-color .15s;
     }
     #wr-leave-btn:hover { background: rgba(232,64,87,.25); border-color: rgba(232,64,87,.7); }
+
+    /* ── your own look ── */
+    .wr-look {
+      border-radius: 16px; padding: 11px 14px 12px; text-align: left;
+      background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(238,245,255,.88));
+      border: 1px solid rgba(44,77,128,.16);
+    }
+    .wr-look-head { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
+    .wr-look-head .wr-chat-h { color: #2c5c9c; }
+    .wr-look-head .wr-chip { margin-left: auto; }
+    .wr-look-row { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+    .wr-look-row + .wr-look-row { margin-top: 8px; }
+    .wr-look-label { font-size: 10.5px; font-weight: 800; color: #6b8fbb; width: 74px; flex: 0 0 auto; }
+    .wr-look-bgrow { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+    .wr-look-tile {
+      width: 46px; height: 46px; border-radius: 12px; padding: 2px; cursor: pointer; flex: 0 0 auto;
+      background: rgba(255,255,255,.9); border: 2px solid rgba(44,77,128,.22);
+    }
+    .wr-look-tile img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .wr-look-tile.on, .wr-look-bg.on {
+      border-color: #ffb524; box-shadow: 0 0 0 3px rgba(255,181,36,.35); background: #fff8e6;
+    }
+    .wr-look-more {
+      width: 46px; height: 46px; border-radius: 12px; flex: 0 0 auto; cursor: pointer;
+      border: 2px dashed rgba(44,77,128,.3); background: transparent;
+      font: 900 8.5px/1.25 "Nunito", sans-serif; color: #5b83b5; text-align: center;
+    }
+    .wr-look-bg {
+      width: 40px; height: 40px; border-radius: 11px; flex: 0 0 auto; cursor: pointer;
+      background-size: cover; background-position: center;
+      border: 2px solid rgba(44,77,128,.22);
+    }
+    .wr-look-bg-none { background: rgba(255,255,255,.9); font-size: 14px; line-height: 1; }
+    .wr-look-none-note { font-size: 10.5px; font-weight: 700; color: #6b8fbb; }
+
+    /* ── narrow: one column, and the deck stacks ── */
+    @media (max-width: 720px) {
+      .wr-deck { grid-template-columns: 1fr; }
+      .wr-start-row { flex-direction: column; align-items: stretch; }
+      .wr-start-note { max-width: 100%; }
+      .wr-cap-legend { margin-left: 0; }
+      .wr-head-tools { width: 100%; }
+    }
     /* AI difficulty picker, three small pills (Easy/Medium/Hard) next to each bot */
     .wr-ai-name { flex: 1; min-width: 0; }
     .wr-diff-box {
@@ -3253,31 +3414,10 @@
     .wr-diff-pill.wr-diff-easy:hover:not(:disabled):not(.active)   { color: #2e9e4f; border-color: rgba(46,158,79,.45); }
     .wr-diff-pill.wr-diff-medium:hover:not(:disabled):not(.active) { color: #b88a18; border-color: rgba(184,138,24,.45); }
     .wr-diff-pill.wr-diff-hard:hover:not(:disabled):not(.active)   { color: #cc3636; border-color: rgba(204,54,54,.45); }
-    #wr-chat-btn {
-      position: relative;
-      width: 100%;
-      min-height: 48px;
-      border: 1.5px solid #5da3d7;
-      border-radius: 14px;
-      background: linear-gradient(180deg, #f8fcff 0%, #e4f3ff 100%);
-      color: #1c5d9c;
-      box-shadow: 0 3px 10px rgba(26,88,148,.12), inset 0 1px 0 rgba(255,255,255,.9);
-      font-family: "Nunito", sans-serif;
-      font-size: 14px;
-      font-weight: 900;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: transform .12s ease, background .15s ease, box-shadow .15s ease;
-    }
-    #wr-chat-btn:hover {
-      transform: translateY(-1px);
-      background: #fafdff;
-      box-shadow: 0 5px 14px rgba(26,88,148,.18);
-    }
-    .wr-chat-icon { font-size: 18px; line-height: 1; }
+    /* The lobby chat button used to be a full-width bar of its own, opening a
+       drawer. The chat is in the room now, and this is the way through to the
+       full panel (DMs, mute, who you are talking to), so it lives in that
+       panel's header and is sized there. Its unread badge is unchanged. */
     .wr-chat-badge {
       min-width: 18px;
       height: 18px;
@@ -3288,7 +3428,7 @@
       font-size: 10px;
       line-height: 18px;
       text-align: center;
-      box-shadow: 0 0 0 2px #edf7ff;
+      box-shadow: 0 0 0 2px rgba(16,49,95,.9);
       display: none;
     }
     .wr-caption {
