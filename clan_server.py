@@ -78,6 +78,30 @@ TRADE_PAIR_WEEK_FLAG      = 3          # >N completed trades same pair/week → 
 SEASON_REWARD_COINS       = [400, 300, 200]   # 1st / 2nd / 3rd place clans
 SEASON_REWARD_MIN_POINTS  = 10         # member contribution needed for the coin reward
 SEASON_BORDER_TOP_N       = 10         # top-10 clans get the seasonal border
+
+# The season's real-world prize: the clan that finishes #1 picks a board game up
+# to this much and it is bought and shipped to them. Unlike the coin rewards
+# NOTHING here pays it out: no server can post a parcel, so the payout is a
+# human one and _finalize_season_bonuses deliberately leaves it alone.
+#
+# It lives here anyway, next to the payouts it sits beside, because it is a
+# PROMISE repeated in four places (the marketing banner, Player Home, the Clans
+# tab and the published rules) and the coin rewards already taught us what
+# happens when a payout figure is typed in more than one place: the podium
+# advertised 400/300/200 for months while the server paid 150/100/50. Every
+# payload that carries a season carries this too, so the banner cannot promise
+# $150 while the rules page promises $100.
+SEASON_GRAND_PRIZE_USD    = 100
+# What the money is FOR, in the words the banner prints. "$100" alone reads as
+# cash, and this prize is not cash: it is a game, chosen by the winners, shipped.
+SEASON_GRAND_PRIZE_WHAT   = "a board game of their choice, shipped to them"
+# Who has to do something for it to arrive. Stated with the prize so it is never
+# advertised without the catch attached.
+SEASON_GRAND_PRIZE_CLAIM  = (
+    "The winning clan's owner is contacted after the season is finalized, picks "
+    "the game with their clan, and gives one shipping address. Claim within 30 "
+    "days. One prize per clan, per season, shipped to one address."
+)
 MVP_MIN_POINTS            = 25
 MVP_BONUS_COINS           = 50
 MVP_ICON_DAYS             = 14         # MVP chip shown for first 2 weeks of next season
@@ -631,6 +655,12 @@ def _season_public(sid: str) -> Dict[str, Any]:
         "mvp_min_points": MVP_MIN_POINTS,
         "border_top_n": SEASON_BORDER_TOP_N,
         "extra_days": CLAN_SEASON_EXTRA_DAYS,
+        # The real-world prize for finishing #1, for the banner that advertises
+        # it. Same reasoning as the coins directly above: one number, shipped
+        # with the season, so no screen can invent its own.
+        "grand_prize_usd": SEASON_GRAND_PRIZE_USD,
+        "grand_prize_what": SEASON_GRAND_PRIZE_WHAT,
+        "grand_prize_claim": SEASON_GRAND_PRIZE_CLAIM,
     }
 
 
@@ -3176,6 +3206,11 @@ def clan_rules() -> Dict[str, Any]:
             ],
         },
         "season_rewards": [
+            # First, because it is the biggest thing on offer and the only one
+            # that leaves the game. The claim terms ride with it: a prize with
+            # no stated way to collect it is the same as no prize.
+            f"1st place clan: ${SEASON_GRAND_PRIZE_USD} towards "
+            f"{SEASON_GRAND_PRIZE_WHAT}. {SEASON_GRAND_PRIZE_CLAIM}",
             f"1st place clan: {SEASON_REWARD_COINS[0]} Critter Coins each",
             f"2nd place clan: {SEASON_REWARD_COINS[1]} Critter Coins each",
             f"3rd place clan: {SEASON_REWARD_COINS[2]} Critter Coins each",
