@@ -82,15 +82,20 @@ console.log("\neight spots, and the + seats a bot");
   check(/const WR_SLOTS = 8/.test(APP), "the room draws eight spots");
   check(/for \(let i = rows\.length; i < WR_SLOTS; i\+\+\) grid\.appendChild\(_wrAddCard/.test(LOBBY),
         "every spot past the table's size is drawn as an add spot");
-  check(/Add a bot/.test(LOBBY), "the add spot offers a bot");
-  // Scoped to the lobby and the markup: the changelog entry legitimately says
-  // the phrase in the course of explaining that there is no such button.
-  check(!/Add a player seat/i.test(LOBBY) && !/Add a player seat/i.test(HTML),
-        "there is no 'add a player seat' button",
-        "an empty human seat blocks the start; it never becomes a bot");
+  // Pressing the + asks WHICH, because both answers are real and they behave
+  // differently at the Start button: a bot fills its seat, an empty player seat
+  // holds the game up until somebody takes it.
+  check(/wr-add-menu/.test(LOBBY) && /Spot /.test(LOBBY), "pressing it opens a chooser");
+  check(/Add a player seat/.test(LOBBY), "…offering a seat for a person");
+  check(/Add a bot/.test(LOBBY), "…and a bot");
+  check(/setTableSeats\(ctx\.humans \+ 1, ctx\.bots\)/.test(LOBBY),
+        "the player seat asks for one more human spot and the same bots");
   check(/setTableSeats\(ctx\.humans, ctx\.bots \+ 1\)/.test(LOBBY),
-        "pressing it asks for one more bot and the same human spots");
-  check(/!ctx\.room\.ranked/.test(LOBBY), "a competitive room is people only, so it offers none");
+        "the bot asks for one more bot and the same human spots");
+  check(/ctx\.room\.ranked[\s\S]{0,160}?bot\.disabled = true/.test(LOBBY),
+        "a competitive room is people only, so the bot option is shown unavailable",
+        "the server refuses it either way; this stops the host asking");
+  check(/wr-add-cancel/.test(LOBBY), "and the chooser can be backed out of");
 
   check(/Start is locked until/.test(LOBBY), "an open seat says the start is locked");
   check(/Make it a bot/.test(LOBBY) && /setTableSeats\(ctx\.humans - 1, ctx\.bots \+ 1\)/.test(LOBBY),
@@ -237,7 +242,8 @@ console.log("\nstyles exist");
    "wr-seat-add-plus", "wr-seat-add-t", "wr-seat-add-s", "wr-xp", "wr-xp-bar",
    "wr-xp-fill", "wr-xp-txt", "wr-pip", "wr-chat-line", "wr-chat-av", "wr-chat-body",
    "wr-chat-who", "wr-chat-msg", "wr-chat-sys", "wr-chat-empty", "wr-emote",
-   "wr-look-tile", "wr-look-more", "wr-look-bg"].forEach(cls => {
+   "wr-look-tile", "wr-look-more", "wr-look-bg",
+   "wr-add-menu", "wr-add-menu-h", "wr-add-opt", "wr-add-cancel"].forEach(cls => {
     check(APP.includes(cls), `the render makes .${cls}`);
     check(new RegExp("\\." + cls + "[\\s,{:.]").test(CSS), `.${cls} has a style`);
   });
@@ -345,6 +351,23 @@ _wrRenderChat();
   b.type = "button"; b.className = "wr-emote"; b.textContent = e;
   document.getElementById("wr-emote-row").appendChild(b);
 });
+// Levers the measuring page pulls, so it drives the real render rather than
+// asserting against a copy of it.
+window.__setChatCount = (n) => {
+  const out = [{ sender: "System", message: "ReefRunner joined the room", system: true, ts: 0 }];
+  for (let i = 0; i < n; i++) {
+    out.push({ sender: ["ReefRunner","KelpKaiya","TidePoolTim"][i % 3],
+               message: "message " + (i + 1) + ", long enough to wrap on a narrow lobby", ts: i + 1 });
+  }
+  latestPayload.chat_messages = out;
+  _wrChatFingerprint = "";
+  _wrRenderChat();
+};
+window.__redrawSpots = () => {
+  const l = document.getElementById("wr-players-list");
+  l.innerHTML = '<div class="wr-players-title">Players in Room</div>';
+  renderSeatTilesInto(l, latestPayload.seats, true);
+};
 `;
 
   const inner = `<!doctype html><html><head><meta charset="utf-8"><style>
@@ -425,6 +448,41 @@ function measure(w) {
   ok(r(bt).right <= sb.right + 1 && r(bt).bottom <= sb.bottom + 2, "its lettering stays inside it");
   const box = r(d.querySelector(".wr-box"));
   ok(box.left >= -1 && box.right <= vw + 1, "the lobby box fits the window");
+
+  // ── the chat must not grow with the conversation ──
+  // Six messages used to push the panel open and drag the whole right-hand
+  // column out of shape. It is a fixed pane now: the log scrolls inside it.
+  const panel = d.querySelector(".wr-chat-panel"), deck = d.querySelector(".wr-deck");
+  win.__setChatCount(3);
+  const panel3 = Math.round(r(panel).height), deck3 = Math.round(r(deck).height);
+  win.__setChatCount(30);
+  const panel30 = Math.round(r(panel).height), deck30 = Math.round(r(deck).height);
+  ok(panel3 === panel30, "thirty messages leave the chat panel the same height (" + panel3 + " vs " + panel30 + ")");
+  ok(deck3 === deck30, "…and the deck around it (" + deck3 + " vs " + deck30 + ")");
+  const cl = d.getElementById("wr-chat-log");
+  ok(cl.scrollHeight > cl.clientHeight + 2, "the messages scroll inside the log instead");
+  // Put the log back the way the next width expects to find it.
+  win.__setChatCount(2);
+
+  // ── the + asks which ──
+  const addTile = d.querySelector(".wr-seat-add");
+  ok(!!addTile, "there is a spot to add to");
+  addTile.click();
+  const opts = [...addTile.querySelectorAll(".wr-add-opt")];
+  ok(opts.length === 2, "pressing + offers two answers (" + opts.length + ")");
+  ok(/player seat/i.test(opts.map(o => o.textContent).join(" ")), "…a seat for a person");
+  ok(/bot/i.test(opts.map(o => o.textContent).join(" ")), "…and a bot");
+  opts.forEach((o, i) => {
+    const b = r(o);
+    ok(b.width >= 80 && b.height >= 28, "option " + i + " is tappable (" + Math.round(b.width) + "x" + Math.round(b.height) + ")");
+    ok(b.right <= r(addTile).right + 1 && b.left >= r(addTile).left - 1,
+       "option " + i + " stays inside its own spot");
+  });
+  const cancel = addTile.querySelector(".wr-add-cancel");
+  ok(!!cancel, "the chooser can be backed out of");
+  cancel.click();
+  ok(!!addTile.querySelector(".wr-seat-add-plus"), "…and the + comes back");
+  win.__redrawSpots();
 }
 f.onload = () => {
   WIDTHS.forEach(w => {

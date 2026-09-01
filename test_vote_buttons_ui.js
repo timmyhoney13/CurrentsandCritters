@@ -177,14 +177,16 @@ check(!/class="wr-step-btn"/.test(HTML), "no stepper buttons are left");
 check(!/function updateTableSetup/.test(APP), "and no renderer for them");
 
 // What replaced it: every spot up to eight is drawn, and a spot that is not in
-// play carries a + that seats a BOT. Never a player seat: a person joins with
-// the room code, and an empty human seat does not become a bot at kickoff, it
-// stops the game starting at all.
+// play carries a + that asks what goes there, a seat for a person or a bot.
+// The two are not the same at the Start button, which is why it asks: a bot
+// fills its seat, an empty player seat stops the game starting until somebody
+// takes it.
 check(/const WR_SLOTS = 8/.test(APP), "the room always draws eight spots");
 check(/for \(let i = rows\.length; i < WR_SLOTS; i\+\+\) grid\.appendChild\(_wrAddCard/.test(APP),
-      "every spot past the table's size is drawn as an add-a-bot spot");
+      "every spot past the table's size is drawn as an add spot");
 check(/function _wrAddCard/.test(APP) && /Add a bot/.test(APP), "that spot offers a bot");
-check(!/Add a player seat/.test(APP), "and never a player seat");
+check(/Add a player seat/.test(APP), "…and a seat for a person");
+check(/wr-add-menu/.test(APP), "the + asks which of the two rather than assuming");
 check(/setTableSeats\(ctx\.humans, ctx\.bots \+ 1\)/.test(APP),
       "pressing it asks for one more bot and the same human spots");
 
