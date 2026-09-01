@@ -12,6 +12,12 @@
      source. Two copies of an event time is how a site ends up advertising
      last season's schedule on one of them. -->
 <link rel="stylesheet" href="/css/game-night.css?v=2026-08-22.8"/>
+<!-- Clan Season Grand Prize band. Same arrangement as Game Night above: the
+     markup is built by /js/clan-prize.js, which the GAME serves too, so one
+     source states the prize on both hosts and the amount cannot drift between
+     them. The script also reads the live standings from the game server's
+     public clan leaderboard, so this band names the clan currently winning. -->
+<link rel="stylesheet" href="/css/clan-prize.css?v=2026-08-31.3"/>
 <!-- Luckiest Guy: the chunky display font for the Supporter Reef Wall donor names
      (see .scn-name in the inline styles below). Loaded here, page-local, so it
      doesn't weigh down the game app which shares colors_and_type.css. -->
@@ -20,6 +26,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap"/>
 <script src="image-slot.js"></script>
 <script defer src="/js/game-night.js?v=2026-08-22.8"></script>
+<script defer src="/js/clan-prize.js?v=2026-08-31.3"></script>
 <style>
   /* ── OLD-SITE NOTICE BAR ─────────────────────────────────────────── */
   .oldsite-bar {
@@ -364,6 +371,16 @@
   }
   .values-band .game-night-inner .ccGN { margin-bottom: 0; }
 
+  /* The prize band, riding under Game Night in the same sand band. Same
+     stacking bump for the same reason: .values-band::before is an absolutely
+     positioned speckle overlay and paints over anything that does not ask. */
+  .values-band .clan-prize-inner {
+    position: relative;
+    z-index: 2;
+    margin-top: 14px;
+  }
+  .values-band .clan-prize-inner .ccCP { margin-bottom: 0; }
+
   /* ── SUPPORTER REEF WALL: live names overlaid on the "Backed By People
         Who Care" illustration. Names are fetched from the game server and
         sized by the donor's lifetime total (bigger donation = bigger name).
@@ -584,6 +601,17 @@
        right after the reader has been told what the game is. -->
   <div class="game-night-inner" id="game-night">
     <div id="cc-game-night" class="ccGN"></div>
+  </div>
+
+  <!-- ============ CLAN SEASON GRAND PRIZE ============
+       Filled in by /js/clan-prize.js: the prize, the clan leading the season
+       right now, and the countdown to the moment it is awarded. It rides
+       directly under Game Night because the two are the same kind of thing, a
+       reason to be playing this week, and reading them together is the point.
+       They are deliberately different colours: two teal bands this close read
+       as one repeated element and the second stops being read. -->
+  <div class="clan-prize-inner" id="clan-prize">
+    <div id="cc-clan-prize" class="ccCP"></div>
   </div>
 </section>
 

@@ -146,6 +146,27 @@
     const arr = season && season.reward_coins;
     return (Array.isArray(arr) && arr.length === 3) ? arr : SEASON_COINS_FALLBACK;
   }
+  // The season's real-world grand prize band ($100 towards a board game for the
+  // #1 clan). Built by js/clan-prize.js, which also paints it on the marketing
+  // site and Player Home, so the promise is written once. Returns null when
+  // that module is not loaded: the Clans tab must still render completely
+  // without it, the banner is an advert, not a part of the page.
+  // standings:false because the two things the banner would say here are both
+  // already on this screen: the podium names the leader and the season block
+  // directly below counts the same clock down. On the Clans tab it states the
+  // prize and the terms; the page it sits on supplies the race.
+  function prizeBanner(season, rows, cta) {
+    try {
+      const m = window.__ccClanPrize;
+      if (!m || typeof m.node !== "function") return null;
+      return m.node(season, rows || [], { cta: cta || "none", standings: false });
+    } catch (_) { return null; }
+  }
+  function appendPrize(card, season, rows, cta) {
+    const n = prizeBanner(season, rows, cta);
+    if (n) card.appendChild(n);
+  }
+
   const medalFor = (rank) => (rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : "#" + rank);
   // The medal alone doesn't say which place it is, and "#1" alone isn't a
   // medal. Rank chips get both.
@@ -1190,6 +1211,11 @@
     // make a clan?" was to scroll past a leaderboard you have no part in yet.
     if (!H.my_clan) c.appendChild(joinCreateBar());
 
+    // What the season is actually FOR, above the countdown that measures it.
+    // top3 is the standings the server already sent, so the banner names the
+    // clan currently winning the prize without a second request.
+    appendPrize(c, H.season, H.top3 || []);
+
     c.appendChild(seasonBlock(H.season));
 
     // My clan FIRST, then the podium of everybody else.
@@ -1746,7 +1772,12 @@
     const res = await post("leaderboard", {});
     if (!res || !res.ok) { holder.innerHTML = `<div class="ccC-empty">${errMsg(res && res.error)}</div>`; return; }
     holder.innerHTML = "";
-    c.insertBefore(seasonBlock(res.season), holder);
+    const sb = seasonBlock(res.season);
+    c.insertBefore(sb, holder);
+    // The prize goes ABOVE the season block, because this table is the thing
+    // that decides who gets it.
+    const pz = prizeBanner(res.season, res.rows || []);
+    if (pz) c.insertBefore(pz, sb);
     const rows = res.rows || [];
     if (!rows.length) { holder.appendChild(el("div", "ccC-empty", "No clans yet: create the first one!")); return; }
 

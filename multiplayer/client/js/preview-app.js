@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-08-31.2";
+  const APP_BUILD   = "2026-08-31.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -27299,7 +27299,12 @@
         if (name === "friends")      { renderPhFriendsList(); if (_authUser && typeof window.__fishCheckFriendAchievements === "function") window.__fishCheckFriendAchievements(_authUser.uid); }
         if (name === "history")      renderPhHistory();
         if (name === "overview")     { renderPhOverview();
-                                     try { window.__ccGameNightRender && window.__ccGameNightRender(); } catch (_) {} }
+                                     try { window.__ccGameNightRender && window.__ccGameNightRender(); } catch (_) {}
+                                     // Must run AFTER Game Night: the prize band
+                                     // places itself directly below that one, and
+                                     // falls back to the top of the panel if it
+                                     // isn't there yet.
+                                     try { window.__ccClanPrizeRender && window.__ccClanPrizeRender(); } catch (_) {} }
         if (name === "achievements") renderPhAchievements();
         if (name === "competitive")  { checkAndApplySeasonReset().then(() => renderPhCompetitive()); }
         if (name === "leaderboard")  renderPhLeaderboard();
