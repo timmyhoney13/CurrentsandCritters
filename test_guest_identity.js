@@ -130,7 +130,15 @@ check("the server has the endpoint", /if parsed\.path == "\/api\/leaderboard":/.
 check("only whitelisted fields may be sorted on", /if board not in _LB_BOARD_FIELDS:/.test(SRV));
 check("rows are rebuilt from a whitelist, so nothing private can ride along",
       /stats = \{k: src\[k\] for k in _LB_STATS_FIELDS if k in src\}/.test(SRV));
-check("no email is in that whitelist", !/"email"/.test(SRV.slice(SRV.indexOf("_LB_STATS_FIELDS"), SRV.indexOf("_LB_CACHE"))));
+// Read the whitelist TUPLE itself, not "everything up to the next global":
+// that marker was _LB_CACHE, which no longer exists, and indexOf(-1) quietly
+// turned the slice into the whole file, so the check failed on an unrelated
+// mention of email hundreds of lines away.
+const _LB_WHITELIST = SRV.slice(SRV.indexOf("_LB_STATS_FIELDS"),
+                                SRV.indexOf("_LB_TTL_SEC"));
+check("the whitelist was actually found", _LB_WHITELIST.includes("total_xp")
+      && _LB_WHITELIST.length < 2000, String(_LB_WHITELIST.length));
+check("no email is in that whitelist", !/"email"/.test(_LB_WHITELIST));
 check("the dev account is dropped, as it is everywhere else",
       /_fetch_leaderboard_rows[\s\S]{0,900}currentsandcritters@gmail\.com/.test(SRV));
 check("'your rank' cards are cleared when the session changes hands",
