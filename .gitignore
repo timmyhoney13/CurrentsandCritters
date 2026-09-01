@@ -44,6 +44,13 @@
 !test_prestige_server.py
 !test_prestige_ui.js
 
+# The waiting room's seat tiles. The .py half pins the server rules the screen
+# rests on (the host's own lobby removal, and the look that now travels with a
+# seat); the .js half pins what the tiles say and that they really fit, at four
+# window sizes. Test-only, so these need this entry and no Dockerfile COPY.
+!test_lobby_seat_tiles.py
+!test_lobby_seat_tiles.js
+
 # The admin XP tool (/api/admin/set_xp): sets one account's lifetime XP to an
 # exact number and rewrites every level field derived from it in the same write.
 # The test pins the derivation AND that the server's level table still matches
