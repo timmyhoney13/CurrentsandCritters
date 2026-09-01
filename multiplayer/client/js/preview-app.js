@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-01.3";
+  const APP_BUILD   = "2026-09-01.4";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,10 +109,16 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "\uD83C\uDFA8 Chat backgrounds you can actually change", items: [
+      "Every conversation can wear an ocean, and now you can change it as many times as you like. Picking a second background used to look like it did nothing; it works on every tap, and the new scene appears the moment you choose it.",
+      "The scenes themselves are the full paintings this time. They used to be the round badge that sits behind your critter, which meant a circle floating in the middle of your chat. Now it is the whole ocean, edge to edge, behind your messages.",
+      "There are eight of them: Kelp Forest, Coral Reef, Artificial Reef, Tide Pool, Arctic Ocean, Deep Ocean, Pier and Open Water. All eight are free, for everybody, in every chat. No background is still there as the first tile whenever you want the plain view back.",
+      "Whoever changes it changes it for the whole conversation, so both of you are looking at the same ocean.",
+    ]},
     { ver: "V1.7.1", title: "\uD83E\uDE91 The waiting room shows who is actually at the table", items: [
-      "The lobby was a list of dots and names. It is now the Tide Pool, with all eight spots at the table on screen at once, and every one of them a card: the player's critter, the background they have equipped behind it, their Level and XP, their best score, and their Prestige badge if they have one. Your own spot has a pencil on it, so you can change your critter while you wait and everybody sees it straight away.",
-      "The chat is in the room now instead of behind a button, with quick emotes and the whole table's faces on it. Under it sits your own shelf: swap your critter or your background without leaving the lobby.",
-      "A spot nobody is using shows a +. Press it and a bot sits down there, and each bot's difficulty is set on its own card. There is no \u201cadd a player seat\u201d, because an empty seat for a person is the one thing that stops a game starting, and the room now says exactly that on the seat, and offers the host the one way past it: turn that seat into a bot. The old Table Setup panel is gone; the spots are the control.",
+      "The lobby was a list of dots and names on a flat blue panel. It is now the Tide Pool itself, filling the whole screen, with all eight spots at the table laid out on it and every one of them a card: the player's critter, the background they have equipped behind it, their Level and XP, their best score, and their Prestige badge if they have one. Your own spot has a pencil on it, so you can change your critter while you wait and everybody sees it straight away.",
+      "The chat is in the room now instead of behind a button, with quick emotes and the whole table's faces on it. It stays the same size however busy it gets: the conversation scrolls inside it rather than stretching the room out of shape. Under it sits your own shelf: swap your critter or your background without leaving the lobby.",
+      "A spot nobody is using shows a +. Press it and it asks what goes there: a seat for a person, or a bot. Each bot's difficulty is then set on its own card. An empty seat for a person is the one thing that stops a game starting, so the room says exactly that on the seat and offers the host the way past it, which is turning that seat into a bot. The old Table Setup panel is gone; the spots are the control now.",
       "The host can remove somebody from their own lobby, on a minus that is always visible rather than appearing on hover. That is the host\u2019s call before the game starts, and theirs alone: once a match is under way, removing a player still needs everyone else to agree. A removed player\u2019s seat opens straight back up.",
       "If you would rather watch than play, Watch instead gives your seat up and keeps you in the room, so the spot goes to somebody who wants it.",
     ]},
@@ -3229,20 +3235,84 @@
     return tile;
   }
 
-  // ── a spot that is not in play: press it to seat a bot ────────────────
+  // ── a spot that is not in play: press it, then say what goes in it ────
+  // The + asks WHICH, because both answers are real: a seat for a person who
+  // is on their way, or a bot that sits down straight away. It is worth being
+  // asked, because the two behave differently at the Start button: a bot fills
+  // its seat, an empty player seat holds the game up until somebody takes it.
   function _wrAddCard(ctx, slotNo) {
-    const canAdd = ctx.canShape && !ctx.room.ranked;
-    const tile = _wrEl(canAdd ? "button" : "div", "wr-seat wr-seat-add" + (canAdd ? "" : " wr-seat-add-off"));
-    if (canAdd) {
-      tile.type = "button";
-      tile.title = "Put a bot in spot " + slotNo;
-      tile.addEventListener("click", () => setTableSeats(ctx.humans, ctx.bots + 1));
+    const canAdd = ctx.canShape;
+    const tile = _wrEl("div", "wr-seat wr-seat-add" + (canAdd ? "" : " wr-seat-add-off"));
+
+    function face() {
+      tile.innerHTML = "";
+      tile.classList.remove("wr-seat-add-open");
+      const plus = _wrEl("span", "wr-seat-add-plus", "+");
+      tile.appendChild(plus);
+      tile.appendChild(_wrEl("span", "wr-seat-add-t", canAdd ? "Add to the table" : "Not in play"));
+      tile.appendChild(_wrEl("span", "wr-seat-add-s", canAdd
+        ? "A player seat or a bot for spot " + slotNo
+        : "Only the host can fill this spot"));
+      if (canAdd) {
+        tile.setAttribute("role", "button");
+        tile.setAttribute("tabindex", "0");
+        tile.title = "Add a player seat or a bot in spot " + slotNo;
+      }
     }
-    tile.appendChild(_wrEl("span", "wr-seat-add-plus", "+"));
-    tile.appendChild(_wrEl("span", "wr-seat-add-t", canAdd ? "Add a bot" : "Not in play"));
-    tile.appendChild(_wrEl("span", "wr-seat-add-s", canAdd
-      ? "Fills spot " + slotNo + " straight away"
-      : (ctx.room.ranked ? "A competitive game is people only" : "Only the host can add one")));
+
+    function menu() {
+      tile.innerHTML = "";
+      tile.classList.add("wr-seat-add-open");
+      tile.removeAttribute("role");
+      tile.removeAttribute("tabindex");
+      const box = _wrEl("div", "wr-add-menu");
+      box.appendChild(_wrEl("div", "wr-add-menu-h", "Spot " + slotNo));
+
+      const person = _wrEl("button", "wr-add-opt player");
+      person.type = "button";
+      person.appendChild(_wrEl("span", null, "👤 Add a player seat"));
+      person.appendChild(_wrEl("small", null, "One more spot for a person"));
+      person.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        setTableSeats(ctx.humans + 1, ctx.bots);
+      });
+
+      const bot = _wrEl("button", "wr-add-opt bot");
+      bot.type = "button";
+      bot.appendChild(_wrEl("span", null, "🤖 Add a bot"));
+      bot.appendChild(_wrEl("small", null, "Fills the spot straight away"));
+      bot.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        setTableSeats(ctx.humans, ctx.bots + 1);
+      });
+      // A competitive game is people only, and the server refuses a bot in one,
+      // so the option is shown as unavailable rather than offered and rejected.
+      if (ctx.room.ranked) {
+        bot.disabled = true;
+        bot.title = "A competitive game is people only.";
+        bot.style.opacity = ".45";
+        bot.style.cursor = "not-allowed";
+      }
+
+      const cancel = _wrEl("button", "wr-add-cancel", "Cancel");
+      cancel.type = "button";
+      cancel.addEventListener("click", (ev) => { ev.stopPropagation(); face(); });
+
+      box.appendChild(person);
+      box.appendChild(bot);
+      box.appendChild(cancel);
+      tile.appendChild(box);
+    }
+
+    face();
+    if (canAdd) {
+      tile.addEventListener("click", () => {
+        if (!tile.classList.contains("wr-seat-add-open")) menu();
+      });
+      tile.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); menu(); }
+      });
+    }
     return tile;
   }
 

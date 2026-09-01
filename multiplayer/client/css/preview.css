@@ -2804,12 +2804,38 @@
         url("/lobby-tide-pool.png?v=1") center / cover no-repeat,
         linear-gradient(180deg, #4a7bb8 0%, #2c5384 100%);
       z-index: 900;
-      align-items: center; justify-content: center;
-      padding: 20px;
+      align-items: flex-start; justify-content: center;
+      padding: 18px;
       overflow-y: auto;
     }
     #pv-waiting-room.open { display: flex; }
-    #pv-waiting-room[data-wide="1"] .wr-box { max-width: 1120px; }
+    #pv-waiting-room[data-wide="1"] .wr-box {
+      max-width: 1480px;
+      background: none;
+      border: none;
+      box-shadow: none;
+      backdrop-filter: none;
+      padding: 4px 2px 10px;
+      gap: 14px;
+      text-align: left;
+      align-items: stretch;
+    }
+    /* On the pool, the room's own name is white with the art behind it. */
+    #pv-waiting-room[data-wide="1"] .wr-box > h2,
+    #pv-waiting-room[data-wide="1"] .wr-head-titles h2 {
+      color: #fff; text-shadow: 0 3px 14px rgba(6,32,68,.6), 0 1px 0 rgba(9,44,92,.5);
+      font-size: 1.72rem; text-align: left;
+    }
+    #pv-waiting-room[data-wide="1"] .wr-head-titles .wr-subtitle {
+      color: rgba(255,255,255,.94); text-shadow: 0 2px 8px rgba(6,32,68,.6);
+      font-weight: 700;
+    }
+    /* The spots are their own cards; the list needs no plate under them, and
+       no heading: the capacity bar above already says what this is. */
+    #pv-waiting-room[data-wide="1"] .wr-players {
+      background: none; border: none; box-shadow: none; padding: 0;
+    }
+    #pv-waiting-room[data-wide="1"] .wr-players-title { display: none; }
     /* The Start button is a 920x175 painting, so it scales with its container:
        in the wide seat-grid box that made it a 200px-tall banner. */
     #pv-waiting-room[data-wide="1"] .wr-caption { max-width: 62ch; }
@@ -3105,10 +3131,17 @@
     .wr-cap-legend .wr-pip { width: 13px; height: 13px; border-radius: 4px; }
 
     /* ── the eight spots ── */
+    /* Four across, two down: eight spots in the shape the table actually has.
+       auto-fit would spread them into six columns on a wide screen, which is a
+       row of eight-and-a-bit and reads as a list, not a table. */
     .wr-seat-grid {
-      display: grid; gap: 12px; margin-top: 4px;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      display: grid; gap: 12px; margin-top: 2px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-auto-rows: 1fr;
     }
+    @media (max-width: 1120px) { .wr-seat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 860px)  { .wr-seat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 520px)  { .wr-seat-grid { grid-template-columns: minmax(0, 1fr); } }
     .wr-seat {
       position: relative; display: flex; flex-direction: column; gap: 9px;
       padding: 12px 13px 13px; border-radius: 16px; min-height: 150px;
@@ -3245,11 +3278,39 @@
     .wr-seat-add-t { font-size: 13px; font-weight: 900; color: #46308c; }
     .wr-seat-add-off .wr-seat-add-t { color: #6b8fbb; }
     .wr-seat-add-s { font-size: 10.5px; font-weight: 700; color: #6b8fbb; }
+    /* Pressing the + asks WHICH: a seat for a person, or a bot. The chooser
+       replaces the tile's own face rather than floating over it, so it can
+       never open off the edge of the screen or under another card. */
+    .wr-add-menu { display: flex; flex-direction: column; gap: 7px; width: 100%; padding: 2px 4px; }
+    .wr-add-menu-h {
+      font-size: 10px; font-weight: 900; letter-spacing: 1.4px; text-transform: uppercase;
+      color: #5b83b5; text-align: center;
+    }
+    .wr-add-opt {
+      display: flex; flex-direction: column; gap: 1px; align-items: center;
+      border-radius: 11px; padding: 8px 6px; cursor: pointer; width: 100%;
+      font-family: inherit; font-size: 12px; font-weight: 900;
+    }
+    .wr-add-opt small { font-size: 9.5px; font-weight: 700; opacity: .85; }
+    .wr-add-opt.player {
+      background: linear-gradient(180deg,#e4f1ff,#c9e2fb);
+      border: 1px solid rgba(47,110,186,.45); color: #175da8;
+    }
+    .wr-add-opt.bot {
+      background: linear-gradient(180deg,#f0eaff,#ddd2fb);
+      border: 1px solid rgba(139,116,222,.5); color: #46308c;
+    }
+    .wr-add-opt:hover { filter: brightness(1.04); }
+    .wr-add-cancel {
+      background: none; border: none; cursor: pointer;
+      font: 800 10.5px/1 "Nunito", sans-serif; color: #7d99bd; padding: 2px;
+    }
 
     /* ── the deck: chat | cast off + your look ── */
     .wr-deck { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
     .wr-chat-panel {
-      display: flex; flex-direction: column; min-height: 232px;
+      display: flex; flex-direction: column;
+      height: 268px; min-height: 268px; max-height: 268px;
       border-radius: 18px; padding: 12px 14px 13px;
       background: linear-gradient(180deg, rgba(20,58,110,.94), rgba(13,42,84,.95));
       border: 1px solid rgba(150,200,240,.3);
@@ -3271,10 +3332,16 @@
     }
     #wr-chat-btn:hover { background: rgba(255,255,255,.24); }
     .wr-chat-icon { font-size: 13px; line-height: 1; }
+    /* flex:1 with min-height:0 is what makes a flex child actually scroll
+       instead of growing its parent: without the 0 its min-content height
+       wins and the panel stretches to fit every message. */
     .wr-chat-log {
-      flex: 1; overflow-y: auto; min-height: 96px; max-height: 190px;
+      flex: 1 1 0; min-height: 0; overflow-y: auto;
       display: flex; flex-direction: column; gap: 2px; padding-right: 4px;
+      scrollbar-width: thin;
     }
+    .wr-chat-log::-webkit-scrollbar { width: 7px; }
+    .wr-chat-log::-webkit-scrollbar-thumb { background: rgba(255,255,255,.22); border-radius: 99px; }
     .wr-chat-empty { font-size: 12px; font-weight: 700; color: #8fb4d8; font-style: italic; padding: 8px 0; }
     .wr-chat-sys { font-size: 11.5px; font-weight: 800; font-style: italic; color: #9dc2e6; padding: 4px 0 4px 38px; }
     .wr-chat-line { display: flex; gap: 9px; align-items: flex-start; padding: 5px 0; }
@@ -3307,7 +3374,8 @@
     }
     #wr-chat-send:hover { filter: brightness(1.06); }
 
-    .wr-deck-right { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .wr-deck-right { display: flex; flex-direction: column; gap: 12px; min-width: 0; height: 268px; }
+    .wr-deck-right .wr-look { flex: 1 1 0; min-height: 0; overflow: hidden; }
     .wr-start-row { display: flex; align-items: center; gap: 13px; }
     #pv-waiting-room .wr-start-row #wr-start-btn { flex: 1; max-width: 100%; }
     .wr-start-note { flex: 0 0 auto; max-width: 190px; text-align: left; }
