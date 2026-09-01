@@ -180,6 +180,10 @@
 # Messages: chat-background docs share the messages subcollection with group
 # rosters, so this pins down that they never get mistaken for one another.
 !test_chat_backgrounds.js
+# The bug was in the SECOND pick, so this one drives the real picker in real
+# Chrome and changes the wallpaper nine times in a row, with a fake Firestore
+# that rejects every peer write.
+!test_chat_background_change.js
 # Chat mute silences NOTIFICATIONS ONLY, badges and dots, while messages keep
 # arriving and unread counters keep counting. Zeroing a counter instead of
 # hiding a badge would make everything received while muted look read.

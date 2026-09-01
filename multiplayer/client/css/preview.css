@@ -12202,8 +12202,16 @@
 
     /* ── Per-conversation ocean wallpaper ─────────────────────────
        --ccm-chat-bg is set inline by the JS from the conversation's shared
-       background pick; the ::before layer is the scrim that keeps bubbles
-       readable over a full-colour photo. */
+       background pick (a wide 1672x941 scene, see CHAT_BACKGROUNDS), and
+       `cover` lets it fill both the narrow in-game drawer and the far wider
+       Messages page from the same file.
+
+       The ::before layer is the scrim that keeps bubbles readable. It is kept
+       DELIBERATELY LIGHT: these scenes are already pale, low-contrast pastel
+       paintings, and the scrim it started with (.62 at the top) washed so much
+       of one out that picking a background barely looked like it had done
+       anything. Bubbles carry their own contrast instead, an opaque white
+       behind their text and a heavier shadow, so the art can stay the art. */
     .ccm-conv-view { position: relative; }
     .ccm-conv-view.has-bg {
       background-image: var(--ccm-chat-bg);
@@ -12211,14 +12219,14 @@
     }
     .ccm-conv-view.has-bg::before {
       content: ""; position: absolute; inset: 0; pointer-events: none;
-      background: linear-gradient(180deg, rgba(238,248,255,.62) 0%, rgba(226,243,255,.5) 60%, rgba(232,246,255,.72) 100%);
+      background: linear-gradient(180deg, rgba(238,248,255,.24) 0%, rgba(226,243,255,.12) 55%, rgba(232,246,255,.34) 100%);
     }
     .ccm-conv-view.has-bg > * { position: relative; z-index: 1; }
     .ccm-conv-view.has-bg .ccm-bubble.theirs {
-      background: rgba(255,255,255,.93); border-color: rgba(120,190,235,.6);
-      box-shadow: 0 2px 8px rgba(0,50,120,.12);
+      background: rgba(255,255,255,.97); border-color: rgba(120,190,235,.75);
+      box-shadow: 0 2px 10px rgba(0,40,100,.22);
     }
-    .ccm-conv-view.has-bg .ccm-bubble.mine { box-shadow: 0 2px 10px rgba(0,50,120,.22); }
+    .ccm-conv-view.has-bg .ccm-bubble.mine { box-shadow: 0 2px 12px rgba(0,40,100,.32); }
     .ccm-conv-view.has-bg .ccm-sys { color: #2d5c8e; font-weight: 700; }
     .ccm-conv-view.has-bg .ccm-input-row {
       background: rgba(240,249,255,.9); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);

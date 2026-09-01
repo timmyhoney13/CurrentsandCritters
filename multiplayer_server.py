@@ -677,6 +677,12 @@ CC_LOGIN_DOMAIN = "players.currentsandcritters.com"
 
 # The 8 cosmetic ocean backgrounds: KEEP IN SYNC with EXCLUSIVE_BACKGROUNDS in
 # preview-app.js. Granting a tier with "unlock all backgrounds" adds these.
+#
+# These are the profile MEDALLIONS, the circular art behind an avatar, and they
+# are the paid unlock. The chat wallpapers (CHAT_BACKGROUNDS in preview-app.js,
+# the wide `chat-*.png` scenes) are a different catalog and are free for
+# everyone, so they must NOT be added here: nothing grants them and nothing
+# checks them.
 ALL_BACKGROUND_PATHS = [
     "/backgrounds/bg-kelp.png",
     "/backgrounds/bg-coral-reef.png",
