@@ -5530,6 +5530,7 @@ class GameRoom:
                     seat.is_host = False
                     seat.avatar = None
                     seat.background = None
+                    seat.level = 0
                     seat.left_at = None
                     seat.quick_play_ticket = None
                     seat.kicked = False
@@ -5550,6 +5551,7 @@ class GameRoom:
                     seat.is_host = False
                     seat.avatar = None
                     seat.background = None
+                    seat.level = 0
                     seat.left_at = None
                     seat.quick_play_ticket = None
                     seat.kicked = False
@@ -5674,6 +5676,7 @@ class GameRoom:
                     seat.is_host = False
                     seat.avatar = None
                     seat.background = None
+                    seat.level = 0
                     seat.left_at = None
                     seat.quick_play_ticket = None
                     changed = True
@@ -5686,6 +5689,7 @@ class GameRoom:
                     seat.is_host = False
                     seat.avatar = None
                     seat.background = None
+                    seat.level = 0
                     seat.left_at = None
                     seat.quick_play_ticket = None
                     changed = True
@@ -5774,6 +5778,7 @@ class GameRoom:
                     seat.is_host = False
                     seat.avatar = None
                     seat.background = None
+                    seat.level = 0
                     seat.left_at = None
                     seat.quick_play_ticket = None
                 if seat.kind == "ai":
@@ -10014,8 +10019,13 @@ class GameRoom:
                 self.afk_challenge_deadline = None
                 self.afk_challenge_id += 1
             if not running:
-                # Lobby: the seat opens up again for somebody else.
+                # Lobby: the seat opens up again for somebody else, so the look
+                # goes with the name. (Mid-game it stays: the seat keeps that
+                # player's name and turn slot while a bot plays it out.)
                 s.claimed_name = None
+                s.avatar = None
+                s.background = None
+                s.level = 0
                 s.kicked = False
 
         # The room always needs a host. If the kicked player was holding it,
@@ -12085,7 +12095,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         # Serve general client PNG assets (game bg, button art, action cards, etc.)
-        if re.fullmatch(r"/(game-bg|nc-coral|nc-sil|nc-btn-full|hermit-crab|choose-device|fullscreen-splash|critter-coin|coral-background|moving-background|moving-background-left|moving-background-right|lobby-coral-(?:red|orange|yellow)|action-card-(?:create|join|tutorial|competitive|quickmatch))\.png", parsed.path):
+        if re.fullmatch(r"/(game-bg|nc-coral|nc-sil|nc-btn-full|hermit-crab|choose-device|fullscreen-splash|critter-coin|coral-background|moving-background|moving-background-left|moving-background-right|lobby-tide-pool|lobby-coral-(?:red|orange|yellow)|action-card-(?:create|join|tutorial|competitive|quickmatch))\.png", parsed.path):
             asset_path = os.path.join(CLIENT_DIR, os.path.basename(parsed.path))
             if os.path.exists(asset_path):
                 self._send_client_asset(asset_path, content_type="image/png", cache_control="public, max-age=86400", allow_webp=True)
