@@ -1281,15 +1281,23 @@ check("the rest of the season slot is untouched too",
 # A vote can't move the standings, so it must not throw the leaderboard scan
 # away, that whole-collection scan is the most expensive read on the page, and
 # chat lines and votes were dropping it dozens of times an evening for nothing.
+_LB_KEY = f"{FAKE_SID['cur']}|500"
 CS._leaderboard_rows(DB, FAKE_SID["cur"])          # warm it
-warm_at = CS._LB_CACHE["at"]
+warm_at = CS._LB_WARM.stored_at(_LB_KEY)
+check("...and warming it really did store something", warm_at > 0.0)
 CS._route_post(DB, "costM0", "vote-critter", {"icon": "/avatars/clownfish.png"}, FAKE_SID["cur"])
-check("voting leaves the leaderboard cache warm", CS._LB_CACHE["at"] == warm_at)
+check("voting leaves the leaderboard cache warm", CS._LB_WARM.stored_at(_LB_KEY) == warm_at)
 CS._route_post(DB, "costOwner", "chat-send", {"text": "nice one"}, FAKE_SID["cur"])
-check("chatting leaves it warm too", CS._LB_CACHE["at"] == warm_at)
+check("chatting leaves it warm too", CS._LB_WARM.stored_at(_LB_KEY) == warm_at)
 # ...but anything that DOES move the standings still drops it.
 CS._route_post(DB, "costOwner", "settings", {"description": "new blurb"}, FAKE_SID["cur"])
-check("a change the board can show still drops the cache", CS._LB_CACHE["at"] == 0.0)
+check("a change the board can show still drops the cache", CS._LB_WARM.stored_at(_LB_KEY) == 0.0)
+# ...and the very next read pays for a real scan rather than serving the
+# standings it was just told to forget.
+check("...and the next read really re-scans, it is not served stale",
+      CS._LB_WARM.stored_at(_LB_KEY) == 0.0
+      and (CS._leaderboard_rows(DB, FAKE_SID["cur"]) or True)
+      and CS._LB_WARM.stored_at(_LB_KEY) > 0.0)
 
 # A critter unlocked seconds ago must not be refused because the roster read
 # was cached: the gate re-checks against a fresh read before it says no.
@@ -1299,6 +1307,139 @@ DB.store["users/costM1"]["unlocked_icons"] = ["/avatars/narwhal.png", "/avatars/
 r = route("costOwner", "vote-critter", {"icon": "/avatars/lobster.png"})
 check("a just-unlocked critter is votable immediately, not in 3 seconds",
       r.get("ok"))
+
+# ══ 12c. Renaming a clan ═════════════════════════════════════════════════════
+# A clan's name is its identity on every screen, so a rename is only finished
+# when nothing anywhere is still saying the old one. Two halves to prove: the
+# uniqueness reservation MOVES with the name (or the old name is either lost
+# forever or free for someone to steal), and the copies written into other
+# documents get repainted.
+print("rename:")
+for _u in ("rex", "rita", "rolf", "ryan", "outsider"):
+    set_user(_u)
+RID = route("rex", "create", {"name": "Tide Turners", "icon": "/avatars/clownfish.png",
+                              "icon_name": "Clownfish", "privacy": "public"})["clan_id"]
+route("rita", "join", {"clan_id": RID})
+RID2 = route("rolf", "create", {"name": "Anchor Points", "icon": "/avatars/lobster.png",
+                                "privacy": "public"})["clan_id"]
+
+
+def _reset_rename_cooldown(cid=RID):
+    DB.store["clans/" + cid]["renamed_ts"] = 0
+
+
+r = route("rita", "rename", {"name": "Ritas Reef"})
+check("a member cannot rename the clan", not r.get("ok") and r.get("error") == "owner_only")
+check("...and the name is untouched", clan_doc(RID)["name"] == "Tide Turners")
+r = route("rex", "rename", {"name": "Sh1t Tide"})
+check("a profane rename is refused", not r.get("ok") and r.get("error") == "bad_name")
+r = route("rex", "rename", {"name": "ab"})
+check("a too-short rename is refused", not r.get("ok") and r.get("error") == "bad_name")
+r = route("rex", "rename", {"name": "Tide Turners"})
+check("renaming to the name it already has is refused", not r.get("ok") and r.get("error") == "same_name")
+r = route("rex", "rename", {"name": "anchor points"})
+check("another clan's name is refused (case-insensitive)",
+      not r.get("ok") and r.get("error") == "name_taken")
+check("...and the other clan keeps its reservation",
+      (DB.store.get("clan_names/anchor points") or {}).get("clan_id") == RID2)
+check("...and the rename that failed cost nothing",
+      clan_doc(RID)["name"] == "Tide Turners" and not clan_doc(RID).get("renamed_ts"))
+
+r = route("rex", "rename", {"name": "Riptide Regulars"})
+check("the owner renames the clan", r.get("ok") and r.get("old_name") == "Tide Turners")
+check("the clan doc carries the new name",
+      clan_doc(RID)["name"] == "Riptide Regulars"
+      and clan_doc(RID)["nameLower"] == "riptide regulars")
+check("the reservation moved to the new name",
+      (DB.store.get("clan_names/riptide regulars") or {}).get("clan_id") == RID)
+check("the old name is released", DB.store.get("clan_names/tide turners") is None)
+check("the rename is in the activity log",
+      (clan_doc(RID).get("activity") or [{}])[0].get("type") == "rename")
+check("the clan is told in its own chat",
+      any(k.startswith("clans/" + RID + "/chat/") and "is now called" in (v.get("text") or "")
+          for k, v in DB.store.items() if isinstance(v, dict)))
+check("a released name can be founded again by somebody else",
+      route("outsider", "create", {"name": "Tide Turners",
+                                   "icon": "/avatars/clownfish.png"}).get("ok"))
+
+r = route("rex", "rename", {"name": "Second Try Today"})
+check("a second rename the same day is refused", not r.get("ok") and r.get("error") == "rename_cooldown")
+check("...and says how long is left", int(r.get("retry_in") or 0) > 0)
+check("...and the name did not move", clan_doc(RID)["name"] == "Riptide Regulars")
+check("moderation is not held to the clan's daily rename",
+      CS._apply_rename(DB, RID, "Forced Name", cooldown=False).get("ok"))
+CS._apply_rename(DB, RID, "Riptide Regulars", cooldown=False)
+
+# Changing only the CASE keeps the one reservation document it already has:
+# deleting the "old" one would delete the row just written.
+_reset_rename_cooldown()
+r = route("rex", "rename", {"name": "RIPTIDE Regulars"})
+check("a case-only rename is allowed", r.get("ok"))
+check("...and keeps its reservation, not deletes it",
+      (DB.store.get("clan_names/riptide regulars") or {}).get("clan_id") == RID)
+check("...and the display name is the new casing", clan_doc(RID)["name"] == "RIPTIDE Regulars")
+
+check("the leaderboard shows the new name",
+      any(row["name"] == "RIPTIDE Regulars" for row in route("rex", "leaderboard")["rows"])
+      and not any(row["name"] == "Tide Turners" and row["id"] == RID
+                  for row in route("rex", "leaderboard")["rows"]))
+
+# A pending invite stores the name the clan had when it was SENT, and lives a
+# week: it has to read the clan, not its own copy.
+route("rex", "invite", {"to_name": "Ryan"})
+check("invite recorded", any(i.get("clan_id") == RID for i in user("ryan").get("clan_invites") or []))
+_reset_rename_cooldown()
+route("rex", "rename", {"name": "Kelp Cathedral"})
+_inv = route("ryan", "home").get("invites") or []
+check("a pending invite shows the clan's new name",
+      any(i.get("clan_id") == RID and i.get("name") == "Kelp Cathedral" for i in _inv))
+DB.store["users/ryan"]["clan_invites"] = list(DB.store["users/ryan"]["clan_invites"]) + [
+    {"clan_id": "c_gone_forever", "name": "Ghost Clan", "icon": "/avatars/clownfish.png",
+     "by": "Nobody", "ts": CS._now()}]
+CS._members_invalidate()
+check("an invite from a clan that no longer exists is dropped, not shown",
+      not any(i.get("clan_id") == "c_gone_forever" for i in (route("ryan", "home").get("invites") or [])))
+
+# The finished-season boards are snapshots: they keep whatever name was written
+# into them, and both the Clans home and the season-results screen draw them.
+CS._PREV_META_CACHE.clear()
+_PREV_SID = CS._prev_sid(FAKE_SID["cur"])
+DB.store["clan_meta/season_" + _PREV_SID] = {
+    "sid": _PREV_SID, "finalized": True,
+    "standings": [{"clan_id": RID, "name": "Riptide Regulars", "rank": 1},
+                  {"clan_id": RID2, "name": "Anchor Points", "rank": 2}]}
+route("rex", "home")            # primes the previous-season cache with the OLD name
+_reset_rename_cooldown()
+route("rex", "rename", {"name": "Coral Cathedral"})
+check("the finished season's standings are repainted",
+      DB.store["clan_meta/season_" + _PREV_SID]["standings"][0]["name"] == "Coral Cathedral")
+check("...and another clan's row is left alone",
+      DB.store["clan_meta/season_" + _PREV_SID]["standings"][1]["name"] == "Anchor Points")
+check("...and the cached copy the home screen serves is dropped too",
+      ((route("rex", "home").get("prev_season") or {}).get("standings") or [{}])[0].get("name")
+      == "Coral Cathedral")
+
+# "Season 1 · #2 with <clan>" is stamped onto the member, not read from the clan.
+DB.store["users/rita"]["clan_badges"] = [
+    {"type": "season", "place": 2, "season": 1, "sid": _PREV_SID,
+     "clan": "Coral Cathedral", "clan_id": RID},
+    {"type": "mvp", "season": 1, "sid": _PREV_SID, "clan": "Coral Cathedral"},
+    {"type": "season", "place": 3, "season": 1, "sid": _PREV_SID,
+     "clan": "Anchor Points", "clan_id": RID2}]
+DB.store["users/outsider"]["clan_badges"] = [
+    {"type": "season", "place": 2, "season": 1, "sid": _PREV_SID,
+     "clan": "Coral Cathedral", "clan_id": RID}]
+CS._members_invalidate()
+_reset_rename_cooldown()
+route("rex", "rename", {"name": "Lagoon Legends"})
+_rb = user("rita").get("clan_badges") or []
+check("a member's badge wears the new name", _rb[0].get("clan") == "Lagoon Legends")
+check("...including one stamped before badges carried a clan id",
+      _rb[1].get("clan") == "Lagoon Legends" and _rb[1].get("clan_id") == RID)
+check("...and a badge from a different clan is untouched", _rb[2].get("clan") == "Anchor Points")
+check("a badge held by someone who has left records the clan they were in",
+      (user("outsider").get("clan_badges") or [{}])[0].get("clan") == "Coral Cathedral")
+
 
 # ══ 13. One-shot roster moves (PENDING_MEMBER_MOVES) ═════════════════════════
 # Placing a player straight into a clan by name + friend code, no invite round

@@ -59,6 +59,10 @@ CLAN_MAX_CUSTOM_ROLES     = 5
 CLAN_MAX_EVENTS           = 10
 CLAN_INVITE_TTL_SEC       = 7 * 24 * 3600
 CLAN_INVITE_MAX           = 10         # pending invites per player
+# A rename is free and unlimited in every way that matters, but it releases the
+# old name for anyone to take and writes a line into chat and the activity log,
+# so it is held to one a day: enough to fix a name, not enough to churn one.
+CLAN_RENAME_COOLDOWN_SEC  = 24 * 3600
 
 POINTS_COMP_WIN           = 3
 POINTS_CASUAL_FIRST       = 2
@@ -635,6 +639,22 @@ def _clan_sid(ts: Optional[int] = None) -> str:
 def _prev_sid(sid: str) -> str:
     y, q = _sid_parse(sid)
     return f"{y - 1}-Q4" if q == 1 else f"{y}-Q{q - 1}"
+
+
+def _finished_sids(now_sid: str = "") -> List[str]:
+    """Every season id that has already ended, newest first.
+
+    Walks back a quarter at a time from the current one and stops at Season 1,
+    so it is exactly as long as the game is old (one entry per quarter) and
+    never invents a season that predates clans. The quarter immediately behind
+    us is always in the list, because that is the one /home draws, whether or
+    not the numbering agrees that a season ever ran in it."""
+    sid = _prev_sid(now_sid or _clan_sid())
+    out: List[str] = [sid]
+    while _season_number(sid) > 1:
+        sid = _prev_sid(sid)
+        out.append(sid)
+    return out
 
 
 def _season_public(sid: str) -> Dict[str, Any]:
@@ -1758,7 +1778,8 @@ def ensure_season_finalized(db) -> None:
                             blist = [b for b in (udoc.get("clan_badges") or []) if isinstance(b, dict)]
                             blist.append({"type": "season", "place": place,
                                           "season": _season_number(prev), "sid": prev,
-                                          "clan": clan.get("name"), "ts": _now()})
+                                          "clan": clan.get("name"), "clan_id": r["id"],
+                                          "ts": _now()})
                             updates["clan_badges"] = blist
                         if updates:
                             uref.set(updates, merge=True)
@@ -1798,6 +1819,7 @@ def ensure_season_finalized(db) -> None:
                         blist = [b for b in (udoc.get("clan_badges") or []) if isinstance(b, dict)]
                         blist.append({"type": "mvp", "season": _season_number(prev),
                                       "sid": prev, "clan": clan.get("name"),
+                                      "clan_id": r["id"],
                                       "title": f"Season {_season_number(prev)} Clan MVP",
                                       "ts": _now()})
                         uref.set({"clan_badges": blist,
@@ -2667,6 +2689,213 @@ def _create_clan(uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
     return res
 
 
+def _rename_wait(clan: Dict[str, Any]) -> int:
+    """Seconds left on this clan's rename cooldown (0 = rename away)."""
+    last = int(_num(clan.get("renamed_ts")) or 0)
+    if last <= 0:
+        return 0
+    return max(0, last + CLAN_RENAME_COOLDOWN_SEC - _now())
+
+
+def _clan_docs(db, clan_ids: Any) -> Dict[str, Dict[str, Any]]:
+    """{clan_id: clan doc} in ONE round-trip, {} for a clan that is gone.
+
+    Same get_all-with-fallback shape as _member_docs, but deliberately NOT
+    cached: the callers are the ones repairing a stale copy of a clan's name,
+    so reading a stale one back would defeat the point."""
+    want = [str(c) for c in (clan_ids or []) if c]
+    out: Dict[str, Dict[str, Any]] = {c: {} for c in want}
+    if not want:
+        return out
+    refs = [_clans(db).document(c) for c in want]
+    try:
+        get_all = getattr(db, "get_all", None)
+        docs = list(get_all(refs)) if get_all else [r.get() for r in refs]
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] clan batch read failed: {exc}")
+        return out
+    for snap in docs:
+        try:
+            cid = str(getattr(snap, "id", "") or "")
+            if cid and getattr(snap, "exists", False):
+                out[cid] = snap.to_dict() or {}
+        except Exception:  # noqa: BLE001
+            continue
+    return out
+
+
+def _fresh_invites(db, invites: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Pending clan invites, each carrying the inviting clan's CURRENT identity.
+
+    An invite stores the name and critter the clan had when it was sent, and an
+    invite lives for a week, so a clan that renames (or changes its icon) in
+    the meantime would go on inviting people under a name that no longer
+    exists. The clan document is the authority; an invite whose clan has since
+    been disbanded is dropped rather than shown as a button that can't work."""
+    rows = [i for i in (invites or []) if isinstance(i, dict)]
+    if not rows:
+        return []
+    docs = _clan_docs(db, {str(i.get("clan_id") or "") for i in rows})
+    out: List[Dict[str, Any]] = []
+    for inv in rows:
+        clan = docs.get(str(inv.get("clan_id") or "")) or {}
+        if not clan:
+            continue                      # clan disbanded while the invite sat there
+        out.append({**inv, "name": clan.get("name") or inv.get("name"),
+                    "icon": clan.get("icon") or inv.get("icon")})
+    return out
+
+
+def _propagate_clan_name(db, clan_id: str, old_name: str, new_name: str,
+                         member_uids: List[str]) -> None:
+    """Repaint the copies of a clan's name that live OUTSIDE its own document.
+
+    Almost nothing needs this: the leaderboard, Find a Clan, the clan page, its
+    chat header, the rival card, every toast and every pending invite all read
+    clans/{id} live (or through _fresh_invites), so they are already correct
+    the moment the rename commits. These two are snapshots, written with the
+    name baked in, that would otherwise show the old one forever:
+
+      • clan_meta/season_<sid>.standings[]: the finished-season boards the
+        Clans home and the season-results screen still draw.
+      • users/<uid>.clan_badges[]: "Season 1 · #2 with <clan>".
+
+    Badges are repainted for CURRENT members only. A badge held by someone who
+    has since left records the clan they were in at the time, and there is no
+    way to find those players anyway (an array of maps can't be queried).
+
+    Best effort from end to end: a rename that already committed must never
+    report failure because a snapshot could not be rewritten."""
+    # Every season that has ever ended, walked back one quarter at a time from
+    # the current one. Deliberately NOT a scan of clan_meta: that collection
+    # also holds a tradepair doc per trading pair, forever, so scanning it
+    # would get slower every week for the sake of a handful of season docs.
+    for sid in _finished_sids():
+        try:
+            ref = db.collection("clan_meta").document(f"season_{sid}")
+            snap = ref.get()
+            if not snap.exists:
+                continue
+            rows = [r for r in ((snap.to_dict() or {}).get("standings") or [])
+                    if isinstance(r, dict)]
+            hit = False
+            for row in rows:
+                if str(row.get("clan_id") or "") == clan_id and row.get("name") != new_name:
+                    row["name"] = new_name
+                    hit = True
+            if hit:
+                ref.set({"standings": rows}, merge=True)
+                _PREV_META_CACHE.pop(sid, None)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[clan] rename: season {sid} standings repaint failed: {exc}")
+
+    for uid in list(member_uids)[:CLAN_MAX_MEMBERS]:
+        try:
+            uref = _users(db).document(uid)
+            usnap = uref.get()
+            udoc = usnap.to_dict() or {} if usnap.exists else {}
+            badges = [b for b in (udoc.get("clan_badges") or []) if isinstance(b, dict)]
+            hit = False
+            for b in badges:
+                bid = str(b.get("clan_id") or "")
+                # Badges minted before this existed carry no clan_id, so they
+                # are matched on the name they were stamped with instead.
+                if bid == clan_id or (not bid and str(b.get("clan") or "") == old_name):
+                    b["clan"] = new_name
+                    b["clan_id"] = clan_id
+                    hit = True
+            if hit:
+                uref.set({"clan_badges": badges}, merge=True)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[clan] rename: badge repaint for {uid} failed: {exc}")
+    _members_invalidate(member_uids)
+
+
+def _apply_rename(db, clan_id: str, new_name: str, *, owner_uid: str = "",
+                  cooldown: bool = True) -> Dict[str, Any]:
+    """Rename one clan, name reservation and all. The single rename path: the
+    owner's button and the admin force-rename both come through here.
+
+    The name IS the clan's identity on every screen, so this has to move the
+    clan_names/{nameLower} reservation with it, in the same transaction that
+    changes the name: doing it in two writes would either leave the old name
+    reserved (nobody else can ever use it) or free the old one and then fail to
+    take the new one (the clan is left holding a name anybody can steal).
+
+    A rename to a different CASE of the same name ("reef riders" → "Reef
+    Riders") keeps the one reservation document it already has: the delete has
+    to be skipped there or it would remove the reservation just written.
+
+    `owner_uid` (when given) is re-checked INSIDE the transaction, so a
+    transfer of ownership landing at the same moment can't be raced past."""
+    transactional = _txn_helpers()
+    clan_ref = _clans(db).document(clan_id)
+    new_lower = new_name.lower()
+    new_ref = db.collection("clan_names").document(new_lower)
+    txn = db.transaction()
+    state: Dict[str, Any] = {}
+
+    @transactional
+    def _run(t) -> Dict[str, Any]:
+        csnap = clan_ref.get(transaction=t)
+        cur = (csnap.to_dict() or {}) if csnap.exists else {}
+        if not cur:
+            return {"ok": False, "error": "no_clan"}
+        if owner_uid and cur.get("owner_uid") != owner_uid:
+            return {"ok": False, "error": "owner_only"}
+        cur_name = str(cur.get("name") or "")
+        cur_lower = str(cur.get("nameLower") or cur_name.lower())
+        if cur_name == new_name:
+            return {"ok": False, "error": "same_name"}
+        wait = _rename_wait(cur) if cooldown else 0
+        if wait > 0:
+            return {"ok": False, "error": "rename_cooldown", "retry_in": wait}
+        if new_lower != cur_lower:
+            nsnap = new_ref.get(transaction=t)
+            if nsnap.exists and str((nsnap.to_dict() or {}).get("clan_id") or "") != clan_id:
+                return {"ok": False, "error": "name_taken"}
+        _activity_push(cur, "rename", f"✏️ {cur_name} is now called {new_name}")
+        t.set(clan_ref, {"name": new_name, "nameLower": new_lower,
+                         "renamed_ts": _now(), "activity": cur.get("activity")},
+              merge=True)
+        t.set(new_ref, {"clan_id": clan_id, "ts": _now()})
+        if cur_lower and new_lower != cur_lower:
+            t.delete(db.collection("clan_names").document(cur_lower))
+        state["old_name"] = cur_name
+        state["members"] = list((cur.get("members") or {}).keys())
+        return {"ok": True}
+
+    try:
+        res = _run(txn)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] rename failed: {exc}")
+        return {"ok": False, "error": "rename_failed"}
+    if not res.get("ok"):
+        return res
+    old_name = str(state.get("old_name") or "")
+    _chat_system(db, clan_id, f"✏️ {old_name} is now called {new_name}!")
+    _propagate_clan_name(db, clan_id, old_name, new_name, state.get("members") or [])
+    _lb_invalidate()
+    return {"ok": True, "name": new_name, "old_name": old_name,
+            "next_rename_in": CLAN_RENAME_COOLDOWN_SEC if cooldown else 0}
+
+
+def _rename_clan(db, uid: str, clan_id: str, clan: Dict[str, Any],
+                 body: Dict[str, Any]) -> Dict[str, Any]:
+    """The owner's Rename button: check the name they typed, then _apply_rename.
+    Every reason to refuse is answered before the transaction so the player
+    gets the actual reason, not a generic failure."""
+    new_name = str(body.get("name") or "").strip()
+    ok, why = clan_name_check(new_name)
+    if not ok:
+        return {"ok": False, "error": "bad_name", "reason": why}
+    if clan.get("owner_uid") != uid:
+        return {"ok": False, "error": "owner_only"}
+    if new_name == str(clan.get("name") or ""):
+        return {"ok": False, "error": "same_name"}
+    return _apply_rename(db, clan_id, new_name, owner_uid=uid)
+
+
 def _join_clan(uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
     db = _get_firestore()
     if db is None:
@@ -3196,6 +3425,10 @@ def clan_rules() -> Dict[str, Any]:
             "characters, changeable any time), ✉️ Request to Join (the owner "
             "or a recruiter approves each one) or 🔒 Invite Only. An invite "
             "always gets you in, whichever setting is on.",
+            f"The owner can rename the clan once every "
+            f"{CLAN_RENAME_COOLDOWN_SEC // 3600} hours. The new name replaces "
+            "the old one everywhere, and the old name is released for any "
+            "other clan to take.",
         ],
         "weekly_challenges": [
             {"id": c.get("id"), "name": c.get("name"), "desc": c.get("desc"),
@@ -3300,18 +3533,14 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:  # noqa: C901
                 rref = db.collection("clan_reports").document(rid)
                 rep = rref.get().to_dict() or {}
                 if action == "force_rename" and rep.get("clan_id"):
-                    cref = _clans(db).document(str(rep["clan_id"]))
-                    csnap = cref.get()
-                    if csnap.exists:
-                        clan = csnap.to_dict() or {}
-                        old_lower = str(clan.get("nameLower") or "")
-                        new_name = f"Clan {str(rep['clan_id'])[-6:].upper()}"
-                        cref.set({"name": new_name, "nameLower": new_name.lower(),
-                                  "description": ""}, merge=True)
-                        db.collection("clan_names").document(new_name.lower()).set(
-                            {"clan_id": rep["clan_id"], "ts": _now()})
-                        if old_lower:
-                            db.collection("clan_names").document(old_lower).delete()
+                    cid = str(rep["clan_id"])
+                    # Straight through the owner's own rename path, so a name
+                    # taken away by moderation lands in exactly the places a
+                    # chosen one does. No cooldown: this is moderation, not the
+                    # clan spending its once-a-day rename.
+                    if _apply_rename(db, cid, f"Clan {cid[-6:].upper()}",
+                                     cooldown=False).get("ok"):
+                        _clans(db).document(cid).set({"description": ""}, merge=True)
                 rref.set({"status": "resolved", "action": action,
                           "resolved_ts": _now()}, merge=True)
                 handler._send_json({"ok": True})
@@ -3376,8 +3605,9 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
             slot = (clan.get("seasons") or {}).get(sid) or {}
             contrib = (slot.get("contrib") or {}).get(uid) or {}
         prev_meta = _prev_season_meta(db, sid)
-        invites = [i for i in (udoc.get("clan_invites") or [])
-                   if isinstance(i, dict) and int(i.get("ts") or 0) > _now() - CLAN_INVITE_TTL_SEC]
+        invites = _fresh_invites(db, [i for i in (udoc.get("clan_invites") or [])
+                                      if isinstance(i, dict)
+                                      and int(i.get("ts") or 0) > _now() - CLAN_INVITE_TTL_SEC])
         return {"ok": True, "season": _season_public(sid),
                 "top3": rows[:3], "total_clans": len(rows),
                 "my_clan": mine,
@@ -3726,6 +3956,12 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
                                           "activity": clan.get("activity")}, merge=True)
         _chat_system(db, clan_id, f"👑 {tmem.get('name')} is the new clan owner!")
         return {"ok": True}
+
+    if action == "rename":
+        # Owner-only, like every other change to what the clan IS. The name is
+        # the one setting with a uniqueness reservation behind it, so it has
+        # its own action rather than riding along with "settings".
+        return _rename_clan(db, uid, clan_id, clan, body)
 
     if action == "settings":
         if clan.get("owner_uid") != uid:

@@ -154,6 +154,9 @@ const RESPONSES = {
   "/api/clan/browse": { ok: true, season: SEASON, rows: TOP3, recommended: [TOP3[1]] },
   // The server resolves the friend code and hands the name back for the toast.
   "/api/clan/invite": { ok: true, name: "LemmeSeeThemToes" },
+  // Renaming: the name field checks as you type, the button does the deed.
+  "/api/clan/check-name": { ok: true, clean: true, reason: "", available: true },
+  "/api/clan/rename": { ok: true, name: "Kelp Cathedral", old_name: "Reef Riders" },
   // A vote comes back with the RECOUNTED tally, so the client repaints from
   // this alone, no follow-up /home or /get. Narwhal overtakes clownfish here.
   "/api/clan/vote-critter": { ok: true, my_vote: "/avatars/narwhal.png",
@@ -523,6 +526,30 @@ function snapshot(name) {
         await wait(300);
         out.settings.calls = window.__ccPosts.slice(before).map(c => c.p);
         out.settings.blanked = /Loading clan/i.test(txt());
+      }
+      // Renaming the clan: its own field (pre-filled with the name it has now)
+      // and its own button, which must not spend a rename on the name the clan
+      // is already called.
+      window.confirm = () => true;
+      const nameInp = [...document.querySelectorAll(".ccC-inp")]
+        .find(i => Number(i.maxLength) === 30);
+      const renameBtn = [...document.querySelectorAll(".ccC-btn")]
+        .find(b => /Rename clan/i.test(b.textContent));
+      out.settings.foundRename = !!renameBtn;
+      out.settings.nameValue = nameInp ? nameInp.value : null;
+      if (renameBtn && nameInp) {
+        let mark = window.__ccPosts.length;
+        renameBtn.click(); await wait(150);
+        out.settings.renameNoop = window.__ccPosts.slice(mark).map(c => c.p);
+        out.settings.noopToast = window.__ccToasts.slice(-1)[0] || "";
+        nameInp.value = "Kelp Cathedral";
+        nameInp.dispatchEvent(new Event("input"));
+        mark = window.__ccPosts.length;
+        renameBtn.click(); await wait(400);
+        out.settings.renameCalls = window.__ccPosts.slice(mark).map(c => c.p);
+        out.settings.renameBody = (window.__ccPosts.filter(c => c.p === "/api/clan/rename")
+          .slice(-1)[0] || {}).b || null;
+        out.settings.renameBlanked = /Loading clan/i.test(txt());
       }
     }
 
@@ -1027,6 +1054,25 @@ check("saving settings costs ONE round trip, not two",
       JSON.stringify(SET.calls));
 check("...and the panel never blanks to \"Loading clan…\" while it saves",
       SET.blanked === false, String(SET.blanked));
+
+// ── Renaming the clan ────────────────────────────
+check("the owner gets a clan-name field, filled with the name it has now",
+      SET.nameValue === PROFILE.name, String(SET.nameValue));
+check("...and a Rename button of its own, separate from Save settings",
+      SET.foundRename === true);
+check("renaming to the name it already has never reaches the server",
+      Array.isArray(SET.renameNoop)
+      && SET.renameNoop.filter(p => /rename/.test(p)).length === 0,
+      JSON.stringify(SET.renameNoop));
+check("...and says why, instead of doing nothing at all",
+      /already your clan's name/i.test(SET.noopToast || ""), String(SET.noopToast));
+check("a new name posts the rename", Array.isArray(SET.renameCalls)
+      && SET.renameCalls.includes("/api/clan/rename"), JSON.stringify(SET.renameCalls));
+check("...with the name that was typed",
+      !!SET.renameBody && SET.renameBody.name === "Kelp Cathedral",
+      JSON.stringify(SET.renameBody));
+check("...and the panel never blanks while it renames",
+      SET.renameBlanked === false, String(SET.renameBlanked));
 
 console.log("phone (390×844):");
 const P = run(390, 844);

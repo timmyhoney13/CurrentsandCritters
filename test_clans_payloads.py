@@ -308,6 +308,46 @@ _rules = PAYLOADS["/api/clan/rules"]["rules"]
 check("/api/clan/rules lists all 51 challenges",
       len(_rules["weekly_challenges"]) + len(_rules["season_challenges"]) == 51)
 
+# ── A rename has to reach every payload the tab draws ───────────────────────
+# The whole promise of renaming a clan is that nothing is left calling it by
+# the old name, and every screen is fed by a different server action. So this
+# renames for real and then re-asks each of them. Done AFTER the payloads the
+# browser half renders are captured, so it can't disturb them.
+print("rename reaches every screen:")
+R("mia", "invite", {"to_uid": "newbie"})     # the box takes a friend code; the server takes a uid
+_ren = R("mia", "rename", {"name": "Coral Cathedral"})
+check("the real server renames the clan", _ren.get("ok") is True, json.dumps(_ren)[:160])
+_after = {
+    "home": R("mia", "home"),
+    "get": R("mia", "get", {"clan_id": CID}),
+    "browse": R("mia", "browse", {"q": ""}),
+    "leaderboard": R("mia", "leaderboard"),
+    "search by the new name": R("mia", "browse", {"q": "Coral"}),
+}
+check("my clan on the home screen", (_after["home"].get("my_clan") or {}).get("name") == "Coral Cathedral")
+check("the clan page header", ((_after["get"].get("clan")) or {}).get("name") == "Coral Cathedral")
+check("the home screen's copy of the clan page",
+      (_after["home"].get("my_clan_full") or {}).get("name") == "Coral Cathedral")
+check("the clan leaderboard",
+      any(r.get("id") == CID and r.get("name") == "Coral Cathedral"
+          for r in _after["leaderboard"].get("rows") or []))
+check("Find a Clan", any(r.get("id") == CID and r.get("name") == "Coral Cathedral"
+                         for r in _after["browse"].get("rows") or []))
+check("...and searching for the new name finds it",
+      any(r.get("id") == CID for r in _after["search by the new name"].get("rows") or []))
+check("the pending invite that was sent under the old name",
+      any(i.get("clan_id") == CID and i.get("name") == "Coral Cathedral"
+          for i in R("newbie", "home").get("invites") or []))
+_stale = [k for k in ("browse", "leaderboard")
+          if "Reef Riders" in json.dumps(_after[k], default=str)]
+check("no board is still calling it Reef Riders", not _stale, ",".join(_stale))
+check("the old name is free for another clan to take",
+      R("newbie", "create", {"name": "Reef Riders",
+                             "icon": "/avatars/clownfish.png"}).get("ok") is True)
+# Put the world back the way the browser half expects to find it.
+DB.store["clans/" + CID]["renamed_ts"] = 0
+R("mia", "rename", {"name": "Reef Riders 2"})
+
 if not CHROME:
     print("\nSKIP: no Chrome/Chromium: server payloads checked, render check skipped.")
     print(f"\n{'=' * 46}\nRESULT: {_PASS} passed, {_FAIL} failed")

@@ -79,6 +79,9 @@
     firestore_unavailable: "Clans are temporarily unavailable: try again shortly.",
     bad_name: "That clan name can't be used.",
     name_taken: "That clan name is already taken.",
+    same_name: "That's already your clan's name.",
+    rename_cooldown: "Your clan has already been renamed today: you can rename it again 24 hours after the last one.",
+    rename_failed: "Couldn't rename the clan: try again.",
     already_in_clan: "You're already in a clan: leave it first.",
     already_member: "Already a member of that clan.",
     clan_full: "That clan is full (25 members max).",
@@ -3121,6 +3124,78 @@
       const sec = el("div", "ccC-sec");
       sec.appendChild(el("div", "ccC-sec-h", "⚙️ Clan settings"));
       const b = el("div", "ccC-sec-b");
+
+      // Clan name. Its own field and its own button, deliberately not part of
+      // "Save settings": a rename puts the old name back on the shelf for
+      // anyone to take, and the server holds a clan to one a day, so it is not
+      // something to spend by accident while editing a description.
+      const fn = el("div", "ccC-field");
+      fn.innerHTML = "<label>Clan name</label>";
+      const inName = el("input", "ccC-inp");
+      inName.maxLength = 30; inName.value = cl.name || "";
+      inName.style.width = "100%"; inName.style.boxSizing = "border-box";
+      const NAME_HINT = "3\u201330 characters. The new name replaces the old one everywhere at once: the leaderboard, Find a Clan, invites, chat and every past season.";
+      const hName = el("div", "ccC-hint", NAME_HINT);
+      fn.appendChild(inName); fn.appendChild(hName);
+      let nameTimer = null;
+      const sameName = (v) => v === (cl.name || "");
+      const checkName = () => {
+        clearTimeout(nameTimer);
+        const v = inName.value.trim();
+        hName.className = "ccC-hint";
+        if (sameName(v)) { hName.textContent = NAME_HINT; return; }
+        if (v.length < 3) { hName.textContent = "At least 3 characters."; return; }
+        hName.textContent = "Checking\u2026";
+        nameTimer = setTimeout(async () => {
+          // A change of CASE only ("reef riders" \u2192 "Reef Riders") is still this
+          // clan's own reservation, so the server would report it taken. It is
+          // ours to take, so don't ask.
+          if (v.toLowerCase() === (cl.name || "").toLowerCase()) {
+            hName.className = "ccC-hint good"; hName.textContent = "\u2713 Available!"; return;
+          }
+          const res = await post("check-name", { name: v });
+          if (!res || !res.ok) { hName.textContent = "Couldn't check the name: try again."; return; }
+          if (!res.clean) {
+            hName.className = "ccC-hint bad";
+            hName.textContent = res.reason === "inappropriate" ? "That name isn't allowed."
+              : res.reason === "charset" ? "Letters, numbers and simple punctuation only."
+              : "Name must be 3\u201330 characters.";
+            return;
+          }
+          if (!res.available) { hName.className = "ccC-hint bad"; hName.textContent = "That name is already taken."; return; }
+          hName.className = "ccC-hint good"; hName.textContent = "\u2713 Available!";
+        }, 350);
+      };
+      inName.addEventListener("input", checkName);
+      const rename = el("button", "ccC-btn", "\u270F\uFE0F Rename clan");
+      rename.style.marginBottom = "12px";
+      rename.addEventListener("click", async () => {
+        const v = inName.value.trim();
+        const was = cl.name || "";
+        if (sameName(v)) { toast("That's already your clan's name.", "error"); inName.focus(); return; }
+        if (v.length < 3 || v.length > 30) { toast("A clan name is 3\u201330 characters.", "error"); inName.focus(); return; }
+        if (!confirm(`Rename \u201C${was}\u201D to \u201C${v}\u201D?\n\nIt changes everywhere at once, and \u201C${was}\u201D goes back on the shelf for any other clan to take. You can rename again in 24 hours.`)) return;
+        rename.disabled = true;
+        const res = await post("rename", { name: v });
+        rename.disabled = false;
+        if (res && res.ok) {
+          toast(`Your clan is now ${res.name || v} \u270F\uFE0F`, "success");
+          await reloadClan();
+        } else if (res && res.error === "rename_cooldown") {
+          // The server knows exactly how long is left, so say that rather than
+          // the generic sentence.
+          const mins = Math.ceil(Number(res.retry_in || 0) / 60);
+          toast(mins > 90 ? `Your clan was renamed recently: you can rename it again in ${Math.ceil(mins / 60)} hours.`
+                          : `Your clan was renamed recently: you can rename it again in ${Math.max(1, mins)} minutes.`,
+                "error");
+        } else {
+          toast(errMsg(res && res.error), "error");
+          if (res && res.error === "name_taken") { hName.className = "ccC-hint bad"; hName.textContent = "That name is already taken."; }
+        }
+      });
+      fn.appendChild(rename);
+      b.appendChild(fn);
+
       const ds = el("textarea", ""); ds.rows = 2; ds.maxLength = 240; ds.value = cl.description || "";
       ds.placeholder = "Clan description…";
       ds.style.cssText = "width:100%;box-sizing:border-box;margin-bottom:9px;";

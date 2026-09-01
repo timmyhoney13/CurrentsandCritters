@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-08-31.3";
+  const APP_BUILD   = "2026-09-01.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "\u270F\uFE0F Rename your clan, and it changes everywhere", items: [
+      "A clan's owner can rename it. Open your clan, go to Settings, and there's a Clan name box at the top with its own Rename button: it checks the name as you type, the same way founding a clan does, and tells you before you press it whether the name is free.",
+      "The new name lands everywhere at once: the clan leaderboard, Find a Clan, your clan's page and chat, invites you'd already sent that nobody had accepted yet, your clanmates' season badges, and the final standings of seasons already finished. Nothing is left calling you by the old name.",
+      "The old name goes straight back on the shelf, so another clan can found itself under it, and searching for your clan by the new name finds it immediately. A clan can be renamed once a day.",
+    ]},
     { ver: "V1.7.1", title: "\uD83D\uDD11 A recovery code, so a forgotten password is not the end", items: [
       "Your account signs in with a username, not an email, which meant that if you forgot your password and had not linked an email, there was nobody for us to send anything to. Every account now gets a recovery code instead: write it down, and your username and that code will always get you back in.",
       "You get yours the moment your account is made, and if you already had an account you get one the next time you sign in. It is shown once, with a Copy button and a Save as file button, because we keep only a scrambled copy and genuinely cannot look it up for you afterwards.",
