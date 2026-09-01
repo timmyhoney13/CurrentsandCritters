@@ -544,15 +544,27 @@ _LB_MAX_LIMIT = 150
 # leaderboard that is a few hours out of date for the ~200ms it takes to
 # refresh behind the reader is not worth making anyone wait for.
 _LB_WARM = warm_cache.WarmCache("leaderboard", ttl=_LB_TTL_SEC, hard_ttl=6 * 3600.0)
-# The boards Player Home actually asks for, as (field, limit). Prewarmed at
-# boot so even the first player after a deploy finds them ready. Kept in step
-# with the lbTopUsers() calls in js/preview-app.js.
+# EVERY board Player Home can ask for, as (field, limit), prewarmed at boot so
+# no player is ever the one who runs a cold query. Kept in step with the
+# lbTopUsersWarm() calls in js/preview-app.js: a pair missing from this list
+# still works, it just leaves one unlucky visitor per deploy paying the ~4.7s
+# cold read, which is the whole thing this exists to stop.
+#
+# It is 16 queries, run once per deploy on a background thread and then kept
+# warm only while somebody is actually looking at that board, so the standing
+# cost is a few hundred document reads per redeploy.
 _LB_PREWARM = (
-    ("stats.total_xp", 50),
-    ("stats.normal_wins", 75),
-    ("stats.total_score", 150),
-    ("stats.comp_cp", 25),
-)
+    ("stats.total_xp", 50),                  # XP board (the tab opens here)
+    ("stats.normal_wins", 75),               # Wins
+    ("stats.daily_streak", 75),              # 🔥 Streak, current
+    ("stats.streak_longest", 75),            # 🔥 Streak, longest ever
+    ("stats.tournament_wins", 75),           # Tournaments
+    ("stats.total_score", 150),              # Casual, overall (balanced avg)
+    ("stats.comp_cp", 25),                   # Competitive, CP
+    ("stats.comp_best_single_hand", 25),      # Competitive, best single hand
+    ("stats.comp_best_combined", 25),        # Competitive, best combined
+) + tuple((f"stats.highest_score_{n}p", 25)  # Casual, one board per table size
+          for n in range(2, 9))
 
 
 def _fetch_leaderboard_rows(field: str, limit: int):
@@ -3651,6 +3663,12 @@ class Seat:
     # The player's equipped exclusive background (e.g. "/backgrounds/bg-kelp.png"),
     # rendered behind their avatar on every seat. Empty/None = no background.
     background: Optional[str] = None
+    # The account Level this player is wearing, relayed with their avatar so the
+    # waiting room can show it beside their name. Self-reported, exactly like
+    # `avatar` and `background` above: it is decoration, never used to decide
+    # anything. Prestige is NOT here, that is looked up from the Prestige
+    # service, which is the authority on it.
+    level: int = 0
     difficulty: str = "medium"  # easy | medium | hard (only meaningful for ai seats)
     # Surf's Up! player explicitly marked themselves Away. Turn pauses
     # indefinitely on this seat; other seats cannot draw for them.
@@ -4533,6 +4551,12 @@ class GameRoom:
                     "status": seat.status(),
                     "claimed_name": seat.claimed_name,
                     "is_host": bool(seat.is_host),
+                    # The waiting room draws a real player card per seat, so the
+                    # look has to travel with the seat list, not only inside a
+                    # running game's public state.
+                    "avatar": seat.avatar or "",
+                    "background": seat.background or "",
+                    "level": int(getattr(seat, "level", 0) or 0),
                     "difficulty": str(seat.difficulty or "medium"),
                     "is_away": bool(getattr(seat, "is_away", False)),
                     "inactive_eligible": bool(getattr(seat, "inactive_eligible", False)),
@@ -5361,6 +5385,52 @@ class GameRoom:
                 self.swap_requests = [r for r in self.swap_requests if r is not match]
                 self._bump_locked()
                 return {"ok": True, "swapped": False}
+
+    def lobby_remove_player(
+        self,
+        host_token: str,
+        seat_token: Optional[str],
+        target_index: Any,
+    ) -> Dict[str, Any]:
+        """Host removes somebody from the WAITING ROOM. Lobby only.
+
+        Deliberately not the same thing as player_kick_vote, which is the
+        in-game removal and needs everybody else to agree. Before the game
+        starts the room is the host's: they opened it, they hand out the code,
+        and they are the one who has to decide who is at the table. The vote
+        stays what it is for a match already under way, where a majority taking
+        a seat off somebody mid-game is the only fair way to do it.
+
+        The seat opens straight back up, and the removed name is remembered
+        (kicked_names) so they cannot simply paste the code back in: a removal
+        the player can undo by pressing Join again is not a removal.
+        """
+        try:
+            target_idx = int(target_index)
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "target_seat_index must be int"}
+        with self.cond:
+            if not self._is_host_authorized_locked(host_token, seat_token):
+                return {"ok": False, "error": "host authorization required"}
+            if self.phase != "lobby":
+                return {"ok": False, "error": "players can only be removed before the game starts"}
+            if target_idx < 0 or target_idx >= len(self.seats):
+                return {"ok": False, "error": "invalid target seat"}
+            target = self.seats[target_idx]
+            if target.kind != "human" or not target.claimed_name:
+                return {"ok": False, "error": "that seat is not a player"}
+            if target.is_host:
+                # Whoever holds the host seat holds the room. Removing them
+                # would leave a lobby nobody can start.
+                return {"ok": False, "error": "the host can't remove themselves"}
+
+            host_seat = self._seat_from_token_locked(seat_token)
+            by_name = (host_seat.claimed_name or host_seat.label) if host_seat is not None else "the host"
+            name = target.claimed_name or target.label
+            self._apply_kick_locked(target, by_host_name=by_name)
+            self._bump_locked(force_persist=True)
+            return {"ok": True, "removed": True, "name": name,
+                    "seats": self.seat_snapshot_locked()}
 
     def configure_lobby_seats(
         self,
@@ -9903,9 +9973,12 @@ class GameRoom:
             self._bump_locked()
             return {"ok": True, "kicked": False, "name": target_name, **tally}
 
-    def _apply_kick_locked(self, target: "Seat") -> None:
-        """Carry out a passed kick vote on `target` (and, in competitive, on the
-        other hand the same person owns).
+    def _apply_kick_locked(self, target: "Seat", by_host_name: str = "") -> None:
+        """Carry out a kick on `target` (and, in competitive, on the other hand
+        the same person owns).
+
+        `by_host_name` names the host when this was a host's own lobby removal
+        rather than a passed vote; it only changes what the room is told.
 
         In the lobby the seat simply opens back up. In a running game the seat
         cannot just empty out: the engine bound its policy at launch and a human
@@ -9961,6 +10034,9 @@ class GameRoom:
             # Nudge the turn loop: if it is parked waiting on the seat we just
             # took over, it has to wake up and let the bot move.
             self.cond.notify_all()
+        elif by_host_name:
+            self._add_system_chat(f"{name} was removed from the lobby by {by_host_name}.")
+            self.status_note = f"{name} was removed from the lobby."
         else:
             self._add_system_chat(f"{name} was removed from the lobby by a unanimous vote.")
             self.status_note = f"{name} was removed from the lobby."
@@ -10207,6 +10283,9 @@ class GameRoom:
         seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
         # Only accept our own avatar image paths; ignore anything else.
         avatar = _clean_avatar_path(body.get("avatar"))
+        # Level rides along with the face (see Seat.level). Absent leaves it be,
+        # so an old client that only sends an avatar never blanks the number.
+        level = clamp_int(body.get("level"), 0, 0, 100) if body.get("level") is not None else None
         with self.cond:
             seat = self._seat_from_token_locked(seat_token)
             if seat is None:
@@ -10215,10 +10294,13 @@ class GameRoom:
             # only ever pushes with one token, so the other hand sat there under
             # a stranger's default icon for the whole match.
             owned = self._owned_seats_locked(seat)
-            if all(s.avatar == (avatar or None) for s in owned):
+            level_same = level is None or all(s.level == level for s in owned)
+            if level_same and all(s.avatar == (avatar or None) for s in owned):
                 return {"ok": True, "avatar": seat.avatar or ""}
             for s in owned:
                 s.avatar = avatar or None
+                if level is not None:
+                    s.level = level
             self._persist_dirty = True
             self._bump_locked()
         return {"ok": True, "avatar": seat.avatar or ""}
@@ -13412,6 +13494,23 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 return
             out = room.skip_turn_vote(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "lobby_kick":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            host_token = body.get("host_token") if isinstance(body.get("host_token"), str) else ""
+            seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+            out = room.lobby_remove_player(host_token, seat_token, body.get("target_seat_index"))
+            if out.get("ok"):
+                status = HTTPStatus.OK
+            elif out.get("error") == "host authorization required":
+                status = HTTPStatus.FORBIDDEN
+            else:
+                status = HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return
 

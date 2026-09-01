@@ -23,6 +23,11 @@
 # Imported at module scope by BOTH multiplayer_server.py and clan_server.py, so
 # a missing entry here is not a slower page, it is a server that cannot boot.
 !warm_cache.py
+# Its tests: the stale-while-revalidate promise every slow read now rests on,
+# plus the invariant that every board Player Home asks for is prewarmed (a
+# board added and forgotten there is invisible to everything else). Test-only,
+# so it needs this entry and no Dockerfile COPY.
+!test_warm_cache.py
 !test_clan_server.py
 !test_clans_ui.js
 
