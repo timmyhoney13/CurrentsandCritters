@@ -59,6 +59,7 @@ CLAN_MAX_CUSTOM_ROLES     = 5
 CLAN_MAX_EVENTS           = 10
 CLAN_INVITE_TTL_SEC       = 7 * 24 * 3600
 CLAN_INVITE_MAX           = 10         # pending invites per player
+CLAN_WRITE_BATCH          = 400        # documents per batched write (limit 500)
 # A rename is free and unlimited in every way that matters, but it releases the
 # old name for anyone to take and writes a line into chat and the activity log,
 # so it is held to one a day: enough to fix a name, not enough to churn one.
@@ -868,6 +869,29 @@ def _member_docs(db, uids: Any, fresh: bool = False) -> Dict[str, Dict[str, Any]
             if u not in seen:
                 out[u] = {}                  # read failed or no such user
     return out
+
+
+def _write_many(db, writes: List[Tuple[Any, Dict[str, Any]]]) -> None:
+    """A merge=True set() across many documents, in as few round trips as it
+    takes: the write-side twin of _member_docs' batched read.
+
+    Falls back to one set() per document when the client has no batch() (tests
+    / old SDKs), exactly like the get_all fallback, so behaviour is identical
+    either way and only the cost changes. Chunked because a Firestore batch
+    holds 500 operations."""
+    rows = [(ref, data) for ref, data in writes if ref is not None]
+    if not rows:
+        return
+    make_batch = getattr(db, "batch", None)
+    if make_batch is None:
+        for ref, data in rows:
+            ref.set(data, merge=True)
+        return
+    for start in range(0, len(rows), CLAN_WRITE_BATCH):
+        batch = make_batch()
+        for ref, data in rows[start:start + CLAN_WRITE_BATCH]:
+            batch.set(ref, data, merge=True)
+        batch.commit()
 
 
 def _clan_icon_pool(db, clan: Dict[str, Any],
@@ -2789,12 +2813,21 @@ def _propagate_clan_name(db, clan_id: str, old_name: str, new_name: str,
         except Exception as exc:  # noqa: BLE001
             print(f"[clan] rename: season {sid} standings repaint failed: {exc}")
 
-    for uid in list(member_uids)[:CLAN_MAX_MEMBERS]:
-        try:
-            uref = _users(db).document(uid)
-            usnap = uref.get()
-            udoc = usnap.to_dict() or {} if usnap.exists else {}
-            badges = [b for b in (udoc.get("clan_badges") or []) if isinstance(b, dict)]
+    # ONE batched read of the roster, then ONE batched write of the badges that
+    # actually changed. This was a get and a set PER MEMBER: 50 serial round
+    # trips for a full clan, every one of them inside the request the owner is
+    # staring at. Long enough that their browser gave up (it aborts at a few
+    # seconds) on a rename that had already committed, so the clan was renamed
+    # and the owner was told it had failed, with the day's rename spent.
+    uids = [str(u) for u in list(member_uids)[:CLAN_MAX_MEMBERS] if u]
+    try:
+        # fresh=True: this is the code REPAIRING the stale copies, so reading a
+        # cached one back would defeat the point (same reason as _clan_docs).
+        docs = _member_docs(db, uids, fresh=True)
+        repainted: List[Tuple[Any, Dict[str, Any]]] = []
+        for uid in uids:
+            badges = [b for b in ((docs.get(uid) or {}).get("clan_badges") or [])
+                      if isinstance(b, dict)]
             hit = False
             for b in badges:
                 bid = str(b.get("clan_id") or "")
@@ -2805,9 +2838,10 @@ def _propagate_clan_name(db, clan_id: str, old_name: str, new_name: str,
                     b["clan_id"] = clan_id
                     hit = True
             if hit:
-                uref.set({"clan_badges": badges}, merge=True)
-        except Exception as exc:  # noqa: BLE001
-            print(f"[clan] rename: badge repaint for {uid} failed: {exc}")
+                repainted.append((_users(db).document(uid), {"clan_badges": badges}))
+        _write_many(db, repainted)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] rename: badge repaint failed: {exc}")
     _members_invalidate(member_uids)
 
 
@@ -2873,8 +2907,15 @@ def _apply_rename(db, clan_id: str, new_name: str, *, owner_uid: str = "",
     if not res.get("ok"):
         return res
     old_name = str(state.get("old_name") or "")
-    _chat_system(db, clan_id, f"✏️ {old_name} is now called {new_name}!")
-    _propagate_clan_name(db, clan_id, old_name, new_name, state.get("members") or [])
+    # The name has MOVED: past this line the rename is a fact. Everything below
+    # is bookkeeping on copies of it, and none of it may turn a rename that
+    # happened into one the owner is told to try again, staring at the new name
+    # with the day's rename already spent.
+    try:
+        _chat_system(db, clan_id, f"✏️ {old_name} is now called {new_name}!")
+        _propagate_clan_name(db, clan_id, old_name, new_name, state.get("members") or [])
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] rename: post-commit repaint failed: {exc}")
     _lb_invalidate()
     return {"ok": True, "name": new_name, "old_name": old_name,
             "next_rename_in": CLAN_RENAME_COOLDOWN_SEC if cooldown else 0}

@@ -88,11 +88,16 @@ class FakeQuery:
 # Round-trip counters. Reading the roster one document at a time is what made
 # the Clans tab slow, so the suite can count what a call actually costs.
 READS = {"doc": 0, "batch": 0, "user_doc": 0, "user_batched": 0}
+# The same, for writes. Writing the roster one document at a time is what made
+# a RENAME slow enough that the browser gave up on it (see 12c).
+WRITES = {"doc": 0, "batch": 0, "user_doc": 0, "user_batched": 0}
 
 
 def reads_reset():
     for k in READS:
         READS[k] = 0
+    for k in WRITES:
+        WRITES[k] = 0
 
 
 class FakeDoc:
@@ -107,7 +112,13 @@ class FakeDoc:
         elif self._path.startswith("users/"):
             READS["user_batched"] += 1
         return FakeSnap(self._store.get(self._path), self._path.rsplit("/", 1)[-1])
-    def set(self, data, merge=False):
+    def set(self, data, merge=False, _batched=False):
+        if not _batched:
+            WRITES["doc"] += 1
+            if self._path.startswith("users/"):
+                WRITES["user_doc"] += 1
+        elif self._path.startswith("users/"):
+            WRITES["user_batched"] += 1
         if merge and self._path in self._store and isinstance(self._store[self._path], dict):
             _deep_merge(self._store[self._path], data)
         else:
@@ -145,6 +156,23 @@ class FakeTxn:
         self._store.pop(ref._path, None)
 
 
+class FakeBatch:
+    """Batched write, the write-side twin of get_all. The real client has this
+    and the badge repaint goes through it now, so the fake must too or the
+    tests only ever cover the one-at-a-time fallback. Nothing lands until
+    commit(), same as the real one."""
+    def __init__(self, store):
+        self._store = store
+        self._ops = []
+    def set(self, ref, data, merge=False):
+        self._ops.append((ref, data, merge))
+    def commit(self):
+        WRITES["batch"] += 1
+        for ref, data, merge in self._ops:
+            ref.set(data, merge=merge, _batched=True)
+        self._ops = []
+
+
 class FakeDB:
     def __init__(self):
         self.store = {}
@@ -161,6 +189,8 @@ class FakeDB:
         return iter(out)
     def transaction(self):
         return FakeTxn(self.store)
+    def batch(self):
+        return FakeBatch(self.store)
 
 
 # ── Load clan_server + the profanity tables from multiplayer_server ─────────
@@ -1439,6 +1469,61 @@ check("...including one stamped before badges carried a clan id",
 check("...and a badge from a different clan is untouched", _rb[2].get("clan") == "Anchor Points")
 check("a badge held by someone who has left records the clan they were in",
       (user("outsider").get("clan_badges") or [{}])[0].get("clan") == "Coral Cathedral")
+
+# ── What a rename COSTS, and what happens when the repaint breaks ───────────
+# The bug this pins: the badge repaint read and wrote the roster one document
+# at a time, ~50 serial Firestore round trips for a full clan, all of them
+# inside the request the owner was waiting on. From Render that runs past the
+# browser's abort, so the rename committed and the owner was told "something
+# went wrong", with the clan's once-a-day rename already spent.
+for _i in range(23):                       # fill the clan to its 25-member cap
+    _m = f"lagoon{_i}"
+    set_user(_m)
+    route(_m, "join", {"clan_id": RID})
+    DB.store["users/" + _m]["clan_badges"] = [
+        {"type": "season", "place": 2, "season": 1, "sid": _PREV_SID,
+         "clan": "Lagoon Legends", "clan_id": RID}]
+CS._members_invalidate()
+check("clan filled to the 25-member cap",
+      len(clan_doc(RID).get("members") or {}) == 25)
+
+_reset_rename_cooldown()
+reads_reset()
+r = route("rex", "rename", {"name": "Kelp Cathedral"})
+check("a full clan renames", r.get("ok"))
+# <= 1 rather than 0: the request legitimately reads the CALLER's own user
+# doc once (_with_clan). What must not happen is one read per member.
+check(f"...reading the roster in ONE batch, not a get per member "
+      f"(single-doc user reads={READS['user_doc']}, batches={READS['batch']})",
+      READS["user_doc"] <= 1 and READS["batch"] >= 1)
+check(f"...and writing the badges in ONE batch, not a set per member "
+      f"(per-member sets={WRITES['user_doc']}, batches={WRITES['batch']})",
+      WRITES["user_doc"] == 0 and WRITES["batch"] >= 1)
+_trips = READS["doc"] + WRITES["doc"] + READS["batch"] + WRITES["batch"]
+check(f"...so a full clan's rename costs {_trips} round trips, not ~50",
+      _trips <= 12)
+_badged = [u for u in clan_doc(RID).get("members") or {} if user(u).get("clan_badges")]
+check(f"...and all {len(_badged)} members' badges still say the new name",
+      len(_badged) == 24
+      and all((user(u).get("clan_badges") or [{}])[0].get("clan") == "Kelp Cathedral"
+              for u in _badged))
+
+# A rename commits BEFORE the copies of the name are repainted, so a repaint
+# that blows up must never be reported as a rename that did not happen: the
+# owner would be looking at the new name while being told to try again.
+_real_propagate = CS._propagate_clan_name
+def _boom(*_a, **_k):
+    raise RuntimeError("standings repaint exploded")
+CS._propagate_clan_name = _boom
+_reset_rename_cooldown()
+r = route("rex", "rename", {"name": "Storm Shallows"})
+CS._propagate_clan_name = _real_propagate
+check(f"a repaint that throws does NOT fail the rename ({json.dumps(r)[:80]})",
+      r.get("ok"))
+check("...and the name really did move", clan_doc(RID).get("name") == "Storm Shallows")
+check("...reservation and all",
+      DB.store.get("clan_names/storm shallows", {}).get("clan_id") == RID
+      and "clan_names/kelp cathedral" not in DB.store)
 
 
 # ══ 13. One-shot roster moves (PENDING_MEMBER_MOVES) ═════════════════════════
