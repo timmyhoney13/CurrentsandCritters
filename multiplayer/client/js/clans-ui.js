@@ -3181,6 +3181,15 @@
         if (res && res.ok) {
           toast(`Your clan is now ${res.name || v} \u270F\uFE0F`, "success");
           await reloadClan();
+        } else if (res === null) {
+          // No answer at all: the request timed out or never landed. A rename
+          // commits on the server BEFORE it finishes repainting the copies of
+          // the name, so "no answer" is not "it failed", and saying so would
+          // send the owner to retry a rename that already happened (and burn
+          // the day's rename arguing about it). Re-read and show them.
+          await reloadClan();
+          toast("The server took too long to answer. Reloading your clan to see whether the rename went through\u2026",
+                "info");
         } else if (res && res.error === "rename_cooldown") {
           // The server knows exactly how long is left, so say that rather than
           // the generic sentence.

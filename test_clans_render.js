@@ -207,6 +207,9 @@ window.__ccClans = {
   get:  async (p) => ({ ok: true, status: 200, data: RESPONSES[p] || { ok: true } }),
   post: async (p, b) => {
     window.__ccPosts.push({ p, b });
+    // apiFetch THROWS when the request never lands (an AbortController timeout
+    // is exactly this). The module must not read that as "the server said no".
+    if ((window.__ccThrow || {})[p]) throw new Error("aborted");
     // A deliberately slow endpoint, so the suite can watch what is on screen
     // WHILE the server is still thinking, which is the whole point of
     // painting from cache first.
@@ -550,6 +553,21 @@ function snapshot(name) {
         out.settings.renameBody = (window.__ccPosts.filter(c => c.p === "/api/clan/rename")
           .slice(-1)[0] || {}).b || null;
         out.settings.renameBlanked = /Loading clan/i.test(txt());
+
+        // A rename whose request never comes back. The server commits the
+        // rename BEFORE it repaints the copies of the name, so "no answer" is
+        // NOT "it failed": telling the owner it went wrong sends them to retry
+        // a rename that already happened, with the day's rename spent.
+        window.__ccThrow = { "/api/clan/rename": true };
+        nameInp.value = "Storm Shallows";
+        nameInp.dispatchEvent(new Event("input"));
+        window.__ccToasts.length = 0;
+        mark = window.__ccPosts.length;
+        renameBtn.click(); await wait(400);
+        window.__ccThrow = {};
+        out.settings.timeoutToasts = window.__ccToasts.slice();
+        out.settings.timeoutCalls = window.__ccPosts.slice(mark).map(c => c.p);
+        out.settings.timeoutBtnStuck = renameBtn.disabled;
       }
     }
 
@@ -1073,6 +1091,21 @@ check("...with the name that was typed",
       JSON.stringify(SET.renameBody));
 check("...and the panel never blanks while it renames",
       SET.renameBlanked === false, String(SET.renameBlanked));
+// A rename that times out: the request may well have landed, so the owner is
+// never told it "went wrong", and the clan is re-read so they see the truth.
+check("a rename that never answers is not reported as a failure",
+      Array.isArray(SET.timeoutToasts)
+      && SET.timeoutToasts.length > 0
+      && !SET.timeoutToasts.some(t => /went wrong/i.test(t)),
+      JSON.stringify(SET.timeoutToasts));
+check("...it says the server took too long, and re-reads the clan",
+      Array.isArray(SET.timeoutToasts)
+      && SET.timeoutToasts.some(t => /took too long/i.test(t))
+      && Array.isArray(SET.timeoutCalls)
+      && SET.timeoutCalls.some(p => /\/api\/clan\/(get|home)/.test(p)),
+      JSON.stringify(SET.timeoutToasts) + " " + JSON.stringify(SET.timeoutCalls));
+check("...and the Rename button is not left disabled",
+      SET.timeoutBtnStuck === false, String(SET.timeoutBtnStuck));
 
 console.log("phone (390×844):");
 const P = run(390, 844);
