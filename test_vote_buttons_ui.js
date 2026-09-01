@@ -160,34 +160,45 @@ check(/_kickedHandled = false;\s*\n\s*_armPollTimer\(\)/.test(APP),
 check(/function handleKickedOut[\s\S]{0,400}returnToMenu\(false\)/.test(APP),
       "a removed player goes home without a rejoin token");
 
-// ══ 6. Table Setup ═══════════════════════════════════════════════════════════
-console.log("table setup:");
+// ══ 6. Setting the size of the table ════════════════════════════════════════
+console.log("the size of the table:");
 
-const tableIds = ["wr-table-setup", "wr-table-total", "wr-table-note",
-                  "wr-humans-value", "wr-bots-value",
-                  "wr-humans-minus", "wr-humans-plus",
-                  "wr-bots-minus", "wr-bots-plus"];
-tableIds.forEach(id => {
-  check(HTML.includes(`id="${id}"`), `preview.html has #${id}`);
-  check(APP.includes(id), `preview-app.js drives #${id}`);
+// This used to be a "Table Setup" panel: two +/- steppers sitting above the
+// seat list. It is gone on purpose. The eight spots ARE the control now, so a
+// stepper panel would be a second place to change the same thing, and the two
+// could disagree about what the table is.
+["wr-table-setup", "wr-table-total", "wr-table-note", "wr-humans-value",
+ "wr-bots-value", "wr-humans-minus", "wr-humans-plus", "wr-bots-minus",
+ "wr-bots-plus"].forEach(id => {
+  check(!HTML.includes(`id="${id}"`), `the old #${id} stepper is gone from the markup`);
+  check(!APP.includes(id), `…and nothing in the app still reaches for it`);
 });
-check(/class="wr-step-btn"[\s\S]{0,200}data-kind="humans"/.test(HTML),
-      "the human steppers carry the kind the handler reads");
-check((HTML.match(/class="wr-step-btn"/g) || []).length === 4,
-      "four steppers: more/fewer humans, more/fewer bots");
+check(!/class="wr-step-btn"/.test(HTML), "no stepper buttons are left");
+check(!/function updateTableSetup/.test(APP), "and no renderer for them");
 
-const allowed = APP.slice(APP.indexOf("function updateTableSetup"),
-                          APP.indexOf("async function stepTableSeats"));
-check(/!isQuickPlay/.test(allowed), "Table Setup stays out of Quick Play");
-check(/!isCompetitive/.test(allowed), "Table Setup stays out of competitive rooms");
-check(/!room\.tournament/.test(allowed), "Table Setup stays out of a bracket match");
-check(/Math\.max\(isRanked \? COMP_FFA_MIN_PLAYERS : 1, filled\)/.test(allowed),
-      "the floor on human spots is however many people have joined "
-      + "(or three in a competitive room, whichever is higher)");
+// What replaced it: every spot up to eight is drawn, and a spot that is not in
+// play carries a + that seats a BOT. Never a player seat: a person joins with
+// the room code, and an empty human seat does not become a bot at kickoff, it
+// stops the game starting at all.
+check(/const WR_SLOTS = 8/.test(APP), "the room always draws eight spots");
+check(/for \(let i = rows\.length; i < WR_SLOTS; i\+\+\) grid\.appendChild\(_wrAddCard/.test(APP),
+      "every spot past the table's size is drawn as an add-a-bot spot");
+check(/function _wrAddCard/.test(APP) && /Add a bot/.test(APP), "that spot offers a bot");
+check(!/Add a player seat/.test(APP), "and never a player seat");
+check(/setTableSeats\(ctx\.humans, ctx\.bots \+ 1\)/.test(APP),
+      "pressing it asks for one more bot and the same human spots");
+
+const setter = APP.slice(APP.indexOf("async function setTableSeats"),
+                         APP.indexOf("async function setTableSeats") + 2000);
+check(/WR_MIN_TABLE \|\| total > WR_MAX_TABLE/.test(setter), "2 to 8 at the table is enforced");
+check(/COMP_FFA_MIN_PLAYERS/.test(setter), "a competitive table keeps its own floor");
 check(/WR_MIN_TABLE = 2, WR_MAX_TABLE = 8/.test(APP), "the table is 2 to 8 players");
-check(/updateTableSetup\(seats, isHost, isQuickPlay, isComp\)/.test(APP),
-      "the waiting room renders it on every update");
-check(/lobby_seats/.test(APP), "the steppers post to the lobby_seats endpoint");
+check(/lobby_seats/.test(APP), "the spots post to the lobby_seats endpoint");
+
+// The rooms whose shape is not the host's to change get no + or - at all.
+const shape = APP.slice(APP.indexOf("canShape: isHost"), APP.indexOf("canShape: isHost") + 220);
+check(/!room\.quick_play && !room\.competitive && !room\.tournament/.test(shape),
+      "Quick Play, competitive and bracket matches keep their own shape");
 check(/class="wr-human-option"/.test(HTML) && /quickplay_seats/.test(APP),
       "Quick Play keeps its own fixed 2/3/4 chooser");
 
@@ -196,8 +207,7 @@ console.log("styles exist:");
 
 ["pv-btn-skip", "pv-btn-kick", "pv-kick-wrap", "pv-kick-picker", "pv-vote-head",
  "pv-vote-row", "pv-vote-row-label", "pv-vote-row-hint", "pv-vote-foot",
- "pv-seat-kicked-badge", "wr-table-setup", "wr-stepper-row", "wr-stepper-label",
- "wr-step-btn", "wr-step-value"].forEach(cls => {
+ "pv-seat-kicked-badge"].forEach(cls => {
   check(CSS.includes("." + cls), `preview.css styles .${cls}`);
   check(APP.includes(cls) || HTML.includes(cls), `.${cls} is actually used`);
 });
@@ -254,9 +264,6 @@ function votePage() {
                       .replace(/style="display:none;"/g, "")
                       .replace(/<button class="pv-btn pv-btn-surf"[\s\S]*$/, "")
                   + '<button class="pv-btn pv-btn-surf">🏄 Surf\'s Up!!</button>';
-  const setupHtml = HTML.slice(HTML.indexOf('<div class="wr-table-setup"'),
-                               HTML.indexOf('<div class="wr-players"'))
-                        .replace('style="display:none;"', '');
   const page = `<!doctype html><html><head><meta charset="utf-8"><style>
 ${CSS}
 body{margin:0;background:#0b1c2c;}
@@ -264,7 +271,6 @@ body{margin:0;background:#0b1c2c;}
   gap:8px;padding:8px;background:#0d2438;}
 .wr-box{max-width:460px;margin:0 auto;}
 </style></head><body>
-<div class="wr-box">${setupHtml}</div>
 <div id="pv-action-bar"><div style="flex:1;"></div>${barHtml}</div>
 <div id="out"></div>
 <script>
@@ -305,18 +311,6 @@ function report(){
     ok(b.width>=110,"picker row "+i+" is wide enough ("+Math.round(b.width)+"px)");
   });
 
-  // Table Setup: the steppers must be real buttons on real rows.
-  const setup=document.getElementById("wr-table-setup");
-  ok(setup&&r(setup).height>80,"Table Setup has real height ("+Math.round(setup?r(setup).height:0)+"px)");
-  const btns=[...document.querySelectorAll(".wr-step-btn")];
-  ok(btns.length===4,"four steppers rendered");
-  btns.forEach((el,i)=>{
-    const b=r(el);
-    ok(b.width>=24&&b.height>=24,"stepper "+i+" is tappable ("+Math.round(b.width)+"x"+Math.round(b.height)+")");
-    ok(b.right<=innerWidth+1,"stepper "+i+" is on screen");
-  });
-  const rows=[...document.querySelectorAll(".wr-stepper-row")].map(r);
-  if(rows.length===2) ok(rows[0].bottom<=rows[1].top+1,"the two stepper rows do not overlap");
 
   document.getElementById("out").textContent=L.join("\\n");
 }

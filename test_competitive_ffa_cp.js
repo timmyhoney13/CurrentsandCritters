@@ -248,11 +248,14 @@ console.log("\n── three people is the floor ──");
   check(/if total_players < COMP_FFA_MIN_PLAYERS:/.test(SERVER),
         "the server's create handler refuses it too");
 
-  // Door 2: resizing the lobby. The minus button stops at the floor, the
-  // request it would have sent is refused anyway, and so is the same request
-  // typed by hand.
-  check(/Math\.max\(isRanked \? COMP_FFA_MIN_PLAYERS : 1, filled\)/.test(APP),
-        "Table Setup's humans-minus button stops at the floor");
+  // Door 2: resizing the lobby. The seat spots stop at the floor, the request
+  // they would have sent is refused anyway, and so is the same request typed
+  // by hand. (This used to be a Table Setup panel with +/- steppers. The eight
+  // spots are the control now, so the floor is enforced where they ask.)
+  check(/ctx\.humans > Math\.max\(1, ctx\.filled\)/.test(APP),
+        "a spot somebody is sitting in is never taken off the table");
+  check(/!ctx\.room\.ranked/.test(APP),
+        "and a competitive room is offered no bot at all");
   check(/const minHumans = latestPayload\?\.room\?\.ranked \? COMP_FFA_MIN_PLAYERS : 1;/.test(APP),
         "and the resize request itself is held to it");
   check(/if self\.ranked and want_humans < COMP_FFA_MIN_PLAYERS:/.test(SERVER),

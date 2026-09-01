@@ -246,17 +246,24 @@ class ThreeIsTheFloor(unittest.TestCase):
         self.assertIn("2 hands", res["error"])
 
     def test_the_client_mirrors_the_same_number(self):
-        """The New Current modal and the lobby's Table Setup both refuse the
-        same sizes this server does, and they refuse them with this constant.
-        Two numbers drifting apart is a lobby whose buttons let the host ask for
-        a table the server then rejects."""
+        """The New Current modal and the lobby's own seat spots refuse the same
+        sizes this server does, and they refuse them with this constant. Two
+        numbers drifting apart is a lobby whose buttons let the host ask for a
+        table the server then rejects.
+
+        (The lobby used to carry a separate Table Setup panel with +/- steppers.
+        The eight spots are the control now, so the floor is enforced where they
+        ask for a resize: setTableSeats.)"""
         app = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            "multiplayer", "client", "js", "preview-app.js")
         with open(app, encoding="utf-8") as fh:
             src = fh.read()
         self.assertIn(f"const COMP_FFA_MIN_PLAYERS = {mp.COMP_FFA_MIN_PLAYERS};", src)
         self.assertIn("_ncIsRanked && (human < COMP_FFA_MIN_PLAYERS", src)
-        self.assertIn("Math.max(isRanked ? COMP_FFA_MIN_PLAYERS : 1, filled)", src)
+        self.assertIn(
+            "const minHumans = latestPayload?.room?.ranked ? COMP_FFA_MIN_PLAYERS : 1;", src)
+        # A seat somebody is already sitting in is never taken off the table.
+        self.assertIn("ctx.humans > Math.max(1, ctx.filled)", src)
 
 
 class ThreeIsTheFloorAtTheStartButton(unittest.TestCase):

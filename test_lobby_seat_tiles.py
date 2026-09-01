@@ -79,11 +79,19 @@ for field in ("avatar", "background", "level"):
 check(snap[0]["avatar"] == "" and snap[0]["background"] == "" and snap[0]["level"] == 0,
       "a seat that has pushed nothing reports empties, never null")
 
-out = r.set_avatar({"seat_token": tok["Tim"], "avatar": "/avatars/clownfish.png", "level": 47})
-check(out["ok"], "a seat can push its avatar and level together")
+for field in ("xp", "xp_goal", "best", "games", "title"):
+    check(field in snap[0], f"the seat list carries {field}")
+
+out = r.set_avatar({"seat_token": tok["Tim"], "avatar": "/avatars/clownfish.png", "level": 47,
+                    "xp": 3120, "xp_goal": 4600, "best": 412, "games": 96,
+                    "title": "Reef Wanderer"})
+check(out["ok"], "a seat can push its whole name plate with its avatar")
 snap = r.seat_snapshot_locked()
 check(snap[0]["avatar"] == "/avatars/clownfish.png", "the pushed avatar is on the seat list")
 check(snap[0]["level"] == 47, "so is the level")
+check((snap[0]["xp"], snap[0]["xp_goal"]) == (3120, 4600), "so is the XP progress")
+check((snap[0]["best"], snap[0]["games"]) == (412, 96), "so is the record")
+check(snap[0]["title"] == "Reef Wanderer", "so is the level title")
 
 r.set_background({"seat_token": tok["Tim"], "background": "/backgrounds/bg-kelp.png"})
 check(r.seat_snapshot_locked()[0]["background"] == "/backgrounds/bg-kelp.png",
@@ -101,6 +109,20 @@ r.set_avatar({"seat_token": tok["Tim"], "avatar": "/avatars/mullet.png", "level"
 check(r.seat_snapshot_locked()[0]["level"] == 100, "a level over the cap is clamped to 100")
 r.set_avatar({"seat_token": tok["Tim"], "avatar": "/avatars/clownfish.png", "level": -5})
 check(r.seat_snapshot_locked()[0]["level"] == 0, "a negative level is clamped to 0")
+
+# The rest of the plate is decoration on the same terms, so it is clamped too:
+# nothing downstream may be handed a best score of a billion or a novel.
+r.set_avatar({"seat_token": tok["Tim"], "avatar": "/avatars/clownfish.png",
+              "best": 10 ** 9, "games": -4, "xp": -1, "title": "x" * 200})
+snap = r.seat_snapshot_locked()[0]
+check(snap["best"] == 100000, "an absurd best score is clamped")
+check(snap["games"] == 0 and snap["xp"] == 0, "negative counts are clamped to zero")
+check(len(snap["title"]) <= 32, "a long title is cut to something a card can hold")
+
+# An avatar push that mentions none of them leaves them all alone.
+r.set_avatar({"seat_token": tok["Tim"], "avatar": "/avatars/mullet.png"})
+check(r.seat_snapshot_locked()[0]["best"] == 100000,
+      "an avatar push with no plate leaves the plate where it was")
 
 # The look must not leak between seats: one push, one seat.
 check(r.seat_snapshot_locked()[1]["avatar"] == "",
@@ -121,7 +143,9 @@ check(not target.kicked, "and it is not left flagged as a played-out seat")
 check(sum(1 for s in r.seats if s.kind == "human") == 3,
       "removing a player does not shrink the table, it frees a seat")
 check(target.avatar is None and target.background is None and target.level == 0,
-      "the freed seat drops their look, so the tile is not left wearing their face")
+      "the freed seat drops their look, so the spot is not left wearing their face")
+check(target.xp == 0 and target.best == 0 and target.games == 0 and target.title == "",
+      "…and none of their numbers either")
 
 # A removal the player can undo by pressing Join again is not a removal.
 check("cy" in r.kicked_names, "the removed name is remembered")

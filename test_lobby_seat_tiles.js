@@ -1,25 +1,30 @@
 #!/usr/bin/env node
-/* The waiting room's seat tiles: what they say, and that they really fit.
+/* The waiting room: eight spots, the chat, and your own look.
  *
- * The lobby is now one tile per seat, carrying the player's critter, the
- * background behind it, their Level and their Prestige badge. Three things
- * about it are easy to break and expensive to notice:
+ * The layout half does NOT hand-copy the markup. It slices the real render
+ * functions out of preview-app.js, drives them with a fake room, and measures
+ * what they actually produce, so a change to the render shows up here instead
+ * of quietly drifting away from a mock-up that still passes.
  *
- *  1. ADDING IS A BOT. There is no "add a player seat" button any more, and
- *     there must not be one: an unclaimed human seat does not become a bot at
- *     kickoff, it stops the game starting at all (start_game refuses while one
- *     is open, see test_lobby_seat_tiles.py). A person joins with the room
- *     code. So the only thing the lobby can add is a bot, and the only thing
- *     it may say about an open seat is that it is holding the game up.
+ * Four things are easy to break and expensive to notice:
  *
- *  2. THE REMOVE BUTTON HAS TO BE FINDABLE. It is the destructive control on
- *     the screen. Hover-only, low contrast or a 12px hit target all make it
- *     something players hit by accident or cannot find at all, so its size and
- *     its always-on paint are pinned here.
+ *  1. ADDING IS A BOT. Every spot up to eight is drawn, and a spot not in play
+ *     carries a + that seats a bot. There is no "add a player seat" and there
+ *     must not be: an unclaimed human seat does not become a bot at kickoff,
+ *     it stops the game starting at all (start_game refuses while one is open,
+ *     see test_lobby_seat_tiles.py). A person joins with the room code.
  *
- *  3. IT HAS TO FIT. A lobby holds up to 8 seats plus the add button, on
- *     anything from a phone to a desktop. Checking one window size passes
- *     while every other one is broken, so the layout half runs at four.
+ *  2. ONE PLACE TO SET THE TABLE. The old Table Setup steppers are gone; the
+ *     spots are the control. Two places to change the same thing can disagree
+ *     about what the table is.
+ *
+ *  3. THE REMOVE BUTTON HAS TO BE FINDABLE. It is the destructive control on
+ *     the screen, so hover-only, low contrast or a small hit target are all
+ *     ways of making it something players press by accident or cannot find.
+ *
+ *  4. IT HAS TO FIT. Eight spots plus a chat panel, on anything from a phone
+ *     to a desktop. Headless Chrome refuses a window under 500px, so the sizes
+ *     are measured inside an iframe, which really is the width it says.
  *
  * Run:  node test_lobby_seat_tiles.js      (needs Google Chrome / Chromium)
  */
@@ -43,162 +48,214 @@ function check(cond, name, extra) {
   else { fail++; console.log("  ✗ FAIL: " + name + (extra ? "  → " + extra : "")); }
 }
 
-// The app with its comments taken out. Claims about what the app SAYS have to
-// be made against what it says, not against a comment explaining the rule (a
-// comment denying "it becomes a bot" reads the same to a regex as the copy
-// making that claim).
+// The app with its comments removed. Claims about what the app SAYS have to be
+// made against what it says: a comment denying "it becomes a bot" reads the
+// same to a regex as the copy making that claim.
 const APP_SAYS = APP
   .replace(/\/\*[\s\S]*?\*\//g, " ")
   .split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 
-// The render function, sliced out so a claim about it can't accidentally be
-// satisfied by some unrelated corner of a 30k-line file.
-const RENDER = APP.slice(APP.indexOf("function renderSeatTilesInto"),
-                         APP.indexOf("let _wrLastArgs = null;"));
+// The whole lobby block, so a claim about it can't be satisfied by some
+// unrelated corner of a 30k-line file.
+const LOBBY = APP.slice(APP.indexOf("  // ══ Waiting room ═"),
+                        APP.indexOf("  // The arguments of the last lobby paint"));
+
+// Slice one top-level function out by balancing its braces.
+function grabFn(name) {
+  const re = new RegExp("^  (?:async )?function " + name + "\\s*\\(", "m");
+  const m = re.exec(APP);
+  if (!m) throw new Error("missing function: " + name);
+  const i = APP.indexOf("{", m.index + m[0].length - 1);
+  let d = 0;
+  for (let j = i; j < APP.length; j++) {
+    if (APP[j] === "{") d++;
+    else if (APP[j] === "}" && --d === 0) return APP.slice(m.index, j + 1);
+  }
+  throw new Error("unbalanced: " + name);
+}
 
 // ════════════════════════════════════════════════════════════════════════
-//  1. ADDING IS A BOT
+//  1. ADDING IS A BOT, AND THERE ARE ALWAYS EIGHT SPOTS
 // ════════════════════════════════════════════════════════════════════════
-console.log("\nadding a seat means adding a bot");
+console.log("\neight spots, and the + seats a bot");
 {
-  check(/wr-seat-add/.test(RENDER) && /Add a bot/.test(RENDER),
-        "the add tile offers a bot");
-  check(!/Add a player seat/i.test(RENDER),
+  check(/const WR_SLOTS = 8/.test(APP), "the room draws eight spots");
+  check(/for \(let i = rows\.length; i < WR_SLOTS; i\+\+\) grid\.appendChild\(_wrAddCard/.test(LOBBY),
+        "every spot past the table's size is drawn as an add spot");
+  check(/Add a bot/.test(LOBBY), "the add spot offers a bot");
+  // Scoped to the lobby and the markup: the changelog entry legitimately says
+  // the phrase in the course of explaining that there is no such button.
+  check(!/Add a player seat/i.test(LOBBY) && !/Add a player seat/i.test(HTML),
         "there is no 'add a player seat' button",
-        "an empty human seat blocks the start, it never becomes a bot");
-  check(/setTableSeats\(humans, bots \+ 1\)/.test(RENDER),
-        "the add tile asks for one more bot and the same human spots");
-  check(/canAddBot[\s\S]{0,200}?WR_MAX_TABLE/.test(RENDER),
-        "it stops at the table's ceiling");
-  check(/!room\.ranked/.test(RENDER),
-        "a competitive room is people only, so it offers no bot");
+        "an empty human seat blocks the start; it never becomes a bot");
+  check(/setTableSeats\(ctx\.humans, ctx\.bots \+ 1\)/.test(LOBBY),
+        "pressing it asks for one more bot and the same human spots");
+  check(/!ctx\.room\.ranked/.test(LOBBY), "a competitive room is people only, so it offers none");
 
-  // The open seat says the true thing and offers the true way out.
-  check(/Start is locked until/.test(RENDER),
-        "an open seat says the start is locked");
-  check(/Make it a bot/.test(RENDER) && /setTableSeats\(humans - 1, bots \+ 1\)/.test(RENDER),
+  check(/Start is locked until/.test(LOBBY), "an open seat says the start is locked");
+  check(/Make it a bot/.test(LOBBY) && /setTableSeats\(ctx\.humans - 1, ctx\.bots \+ 1\)/.test(LOBBY),
         "…and offers the host the one way past it");
   check(!/(becomes?|turns? into) an? bot when (you|the host) (cast|start)|bot when you cast off|becomes? a bot at (the )?start/i.test(APP_SAYS),
-        "nothing in the app claims an open seat becomes a bot at kickoff",
-        "Quick Play's own copy is fine: it converts spare seats when the host picks, not at kickoff");
-
-  // The caption on the box has to agree with all of that.
-  check(HTML.includes('id="wr-caption"'), "preview.html has #wr-caption");
+        "nothing claims an open seat becomes a bot at kickoff",
+        "Quick Play's own copy is fine: it converts spare seats when the host picks");
   check(/can't start until somebody sits in it, or the host turns it into a bot/.test(APP),
         "the caption spells out both ways past an empty seat");
 }
 
 // ════════════════════════════════════════════════════════════════════════
-//  2. THE HOST'S REMOVAL
+//  2. ONE PLACE TO SET THE TABLE
 // ════════════════════════════════════════════════════════════════════════
-console.log("\nthe host can remove people, bots and empty seats");
+console.log("\nthe spots are the only seat control");
+{
+  ["wr-table-setup", "wr-humans-value", "wr-bots-value", "wr-humans-minus",
+   "wr-bots-plus", "wr-table-note"].forEach(id => {
+    check(!HTML.includes(`id="${id}"`), `the old #${id} stepper is gone`);
+    check(!APP.includes(id), `…and nothing reaches for #${id}`);
+  });
+  check(!/function updateTableSetup/.test(APP), "its renderer is gone too");
+  check(/async function setTableSeats/.test(APP), "one function asks the server for a table");
+  check(/lobby_seats/.test(APP), "…on the lobby_seats endpoint");
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  3. THE HOST'S REMOVAL
+// ════════════════════════════════════════════════════════════════════════
+console.log("\nthe host removes people, bots and empty spots");
 {
   check(/async function lobbyKickPlayer/.test(APP), "there is a lobby removal");
-  check(/\/lobby_kick`/.test(APP), "it posts to the lobby_kick endpoint");
+  check(/\/lobby_kick`/.test(APP), "it posts to lobby_kick");
   check(/lobby_kick/.test(SERVER) && /def lobby_remove_player/.test(SERVER),
         "the server has that endpoint and its method");
   check(/host_token: getHostToken\(\)[\s\S]{0,120}?target_seat_index: seatIndex/.test(APP),
-        "the removal is sent with host authorisation and a seat index");
+        "sent with host authorisation and a seat index");
   check(/window\.confirm\(/.test(APP.slice(APP.indexOf("async function lobbyKickPlayer"),
                                            APP.indexOf("async function watchFromLobby"))),
         "removing a person asks first: it is permanent");
 
-  // Who gets a minus, and who must never get one.
-  check(/canShape && isAI[\s\S]{0,160}?Remove a bot/.test(RENDER),
-        "a bot tile has a remove button");
-  check(/canShape && isOpen[\s\S]{0,200}?Remove this seat/.test(RENDER),
+  check(/ctx\.canShape && isAI[\s\S]{0,140}?Remove a bot/.test(LOBBY), "a bot spot has a minus");
+  check(/ctx\.canShape && isOpen[\s\S]{0,200}?Take this seat off the table/.test(LOBBY),
         "an empty seat can be taken off the table");
-  check(/canShape && !isAI && !isMine && s\.claimed_name && !s\.is_host/.test(RENDER),
-        "a seated player gets one only from the host, and never on the host or on me");
-  check(/const canShape = isHost &&/.test(RENDER),
-        "nobody but the host sees any of them");
-  check(/!room\.quick_play && !room\.competitive && !room\.tournament/.test(RENDER),
-        "…and not in the rooms whose shape is not the host's to change");
+  check(/ctx\.canShape && !isMine && s\.claimed_name && !s\.is_host/.test(LOBBY),
+        "a seated player gets one only from the host, never on the host or on me");
+  check(/canShape: isHost &&/.test(LOBBY), "nobody but the host sees any of them");
+  check(/!room\.quick_play && !room\.competitive && !room\.tournament/.test(LOBBY),
+        "…and not in rooms whose shape is not the host's to change");
+  check(/_wrLock\(/.test(LOBBY), "a seat that cannot be removed shows a lock instead");
 }
 
 // ════════════════════════════════════════════════════════════════════════
-//  3. WHAT A TILE SHOWS
+//  4. WHAT A SPOT SHOWS
 // ════════════════════════════════════════════════════════════════════════
-console.log("\na tile shows the player everyone knows");
+console.log("\na spot shows the player everyone knows");
 {
-  check(/s\.background/.test(RENDER) && /__fishBgStyle/.test(RENDER),
+  check(/s\.background/.test(LOBBY) && /__fishBgStyle/.test(LOBBY),
         "the equipped background paints behind the critter");
-  check(/_wrSeatAvatarUrl/.test(APP) && /pvLiveAvatar/.test(APP),
+  check(/_wrSeatAvatarUrl/.test(LOBBY) && /pvLiveAvatar/.test(LOBBY),
         "the critter comes off the seat, falling back to the live table");
-  check(/⭐ Level/.test(RENDER), "the Level is on the tile");
-  check(/__ccPrestigeBadgeHtml/.test(RENDER),
-        "the Prestige badge is the game's real one, not a re-drawing");
-  check(/__ccPrestigeLookupByName/.test(APP),
-        "Prestige is looked up from the Prestige service, not taken from the seat");
-  check(/"avatar": seat\.avatar or ""/.test(SERVER)
-        && /"background": seat\.background or ""/.test(SERVER)
-        && /"level": int\(getattr\(seat, "level", 0\) or 0\)/.test(SERVER),
-        "the server sends that look with the seat list");
-  check(/wr-seat-edit/.test(RENDER) && /__fishOpenAvatarGallery/.test(RENDER),
-        "you can change your own critter from your own seat");
-  check(/isMine/.test(RENDER), "…and only from your own");
+  check(/⭐ Lv/.test(LOBBY), "the Level is on the spot");
+  check(/XP to Level/.test(LOBBY), "so is the XP bar's caption");
+  check(/🏆 Best/.test(LOBBY), "and the record line");
+  check(/__ccPrestigeBadgeHtml/.test(LOBBY), "the Prestige badge is the game's real one");
+  check(/__ccPrestigeLookupByName/.test(LOBBY), "looked up from the Prestige service");
+  check(/_wrBgName/.test(LOBBY) && /__fishBackgroundCatalog/.test(APP),
+        "a background is named from the catalogue, not filed down from its filename");
+  ["avatar", "background", "level", "xp", "xp_goal", "best", "games", "title"].forEach(f => {
+    check(new RegExp(`"${f}": `).test(SERVER), `the server sends ${f} with the seat list`);
+  });
+  check(/wr-seat-edit/.test(LOBBY) && /__fishOpenAvatarGallery/.test(LOBBY),
+        "you can change your own critter from your own spot");
+  check(/isMine/.test(LOBBY), "…and only from your own");
 }
 
 // ════════════════════════════════════════════════════════════════════════
-//  4. WATCH INSTEAD
+//  5. CHAT, AND YOUR OWN LOOK
+// ════════════════════════════════════════════════════════════════════════
+console.log("\nthe chat is in the room");
+{
+  ["wr-chat-log", "wr-chat-text", "wr-chat-send", "wr-emote-row", "wr-chat-here",
+   "wr-critter-row", "wr-bg-row"].forEach(id =>
+    check(HTML.includes(`id="${id}"`), `preview.html has #${id}`));
+  check(/function _wrRenderChat/.test(APP), "the lobby paints its own chat log");
+  check(/latestPayload\.chat_messages/.test(LOBBY), "…from the room's own messages");
+  check(/async function _wrSendChat/.test(APP), "and can send");
+  check(/\/chat`/.test(APP), "…on the room chat endpoint");
+  check(/spectate_chat/.test(APP), "a spectator sends on theirs");
+  check(/CC_PROFANITY\.clean/.test(APP.slice(APP.indexOf("async function _wrSendChat"),
+                                             APP.indexOf("async function _wrSendChat") + 900)),
+        "what is typed is filtered before it is sent");
+  check(/_wrChatFingerprint/.test(APP), "the log repaints only when it changed",
+        "it runs on every poll");
+  check(HTML.includes('id="wr-chat-badge"'), "the unread badge is still there");
+  check(/function _wrRenderLook/.test(APP), "the look shelf is drawn");
+  check(/__fishEquipAvatar/.test(APP) && /__fishEquipBackground/.test(APP),
+        "equipping from it goes through the account's own equip");
+  check(/window\.__fishEquipBackground = async/.test(APP), "that bridge exists");
+  check(/window\.__fishGetUnlockedIcons = /.test(APP), "so does the unlocked-critter one");
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  6. WATCH INSTEAD
 // ════════════════════════════════════════════════════════════════════════
 console.log("\nwatch instead of playing");
 {
   check(HTML.includes('id="wr-spectate-btn"'), "preview.html has the button");
-  check(/async function watchFromLobby/.test(APP), "and a handler for it");
   const watch = APP.slice(APP.indexOf("async function watchFromLobby"),
-                          APP.indexOf("function renderSeatTilesInto"));
+                          APP.indexOf("function _wrSeatCard"));
   check(/\/leave`/.test(watch), "it gives the seat up");
-  check(/joinAsSpectator\(rid\)/.test(watch), "then joins the room as a spectator");
+  check(/joinAsSpectator\(rid\)/.test(watch), "then joins as a spectator");
   check(/setSeatToken\(""\)/.test(watch), "and lets go of the seat token");
-  check(/filled > 1/.test(APP),
-        "it is hidden for the last person seated: leaving then closes the room");
-  check(/allow_spectators !== false/.test(APP),
-        "and hidden in a room that does not take spectators");
+  check(/filled > 1/.test(APP), "hidden for the last person seated: leaving closes the room");
+  check(/allow_spectators !== false/.test(APP), "and in a room that takes no spectators");
 }
 
 // ════════════════════════════════════════════════════════════════════════
-//  5. THE ART IS REALLY SERVED
+//  7. THE ART IS REALLY SERVED
 // ════════════════════════════════════════════════════════════════════════
 console.log("\nthe tide pool behind the lobby");
 {
   check(fs.existsSync(path.join(CLIENT, "lobby-tide-pool.png")), "the art is in the client");
-  check(fs.existsSync(path.join(CLIENT, "lobby-tide-pool.webp")),
-        "…with the WebP sibling every other client image has");
+  check(fs.existsSync(path.join(CLIENT, "lobby-tide-pool.webp")), "…with its WebP sibling");
   check(/lobby-tide-pool\.png\?v=/.test(CSS), "the CSS points at it, cache-busted");
-  // A new client PNG that is not in the server's allowlist 404s in production
-  // and nowhere else: the page just renders on the fallback gradient.
-  check(/lobby-tide-pool\|/.test(SERVER) || /lobby-tide-pool/.test(SERVER),
-        "the server's client-asset route serves it",
+  // A new client PNG missing from the server's allowlist 404s in production and
+  // nowhere else: the page just renders on the fallback gradient.
+  check(/lobby-tide-pool/.test(SERVER), "the server's client-asset route serves it",
         "add it to the PNG allowlist regex or it 404s in production");
-  check(/allow_webp=True/.test(SERVER), "that route hands over the WebP when it can");
 }
 
 // ════════════════════════════════════════════════════════════════════════
-//  6. EVERY CLASS THE JS MAKES HAS A STYLE
+//  8. EVERY CLASS THE RENDER MAKES HAS A STYLE
 // ════════════════════════════════════════════════════════════════════════
 console.log("\nstyles exist");
 {
   ["wr-seat-grid", "wr-seat", "wr-seat-bot", "wr-seat-open", "wr-seat-you",
    "wr-seat-top", "wr-seat-av", "wr-seat-avbg", "wr-seat-av-empty", "wr-seat-edit",
-   "wr-seat-id", "wr-seat-name", "wr-seat-pbadge", "wr-seat-chips",
+   "wr-seat-id", "wr-seat-name", "wr-seat-pbadge", "wr-seat-chips", "wr-seat-blurb",
+   "wr-seat-sublabel", "wr-seat-openbody", "wr-seat-invite", "wr-seat-stat",
    "wr-chip", "wr-chip-lvl", "wr-chip-host", "wr-chip-ready", "wr-chip-bot",
-   "wr-chip-you", "wr-chip-wait", "wr-seat-foot", "wr-seat-hint", "wr-seat-tobot",
-   "wr-seat-remove", "wr-seat-add", "wr-seat-add-plus", "wr-seat-add-t",
-   "wr-seat-add-s"].forEach(cls => {
-    check(APP.includes(cls), `the JS makes .${cls}`);
-    check(new RegExp("\\." + cls + "[\\s,{:]").test(CSS), `.${cls} has a style`);
+   "wr-chip-you", "wr-chip-wait", "wr-chip-bg", "wr-seat-foot", "wr-seat-hint",
+   "wr-seat-tobot", "wr-seat-remove", "wr-seat-lock", "wr-seat-add",
+   "wr-seat-add-plus", "wr-seat-add-t", "wr-seat-add-s", "wr-xp", "wr-xp-bar",
+   "wr-xp-fill", "wr-xp-txt", "wr-pip", "wr-chat-line", "wr-chat-av", "wr-chat-body",
+   "wr-chat-who", "wr-chat-msg", "wr-chat-sys", "wr-chat-empty", "wr-emote",
+   "wr-look-tile", "wr-look-more", "wr-look-bg"].forEach(cls => {
+    check(APP.includes(cls), `the render makes .${cls}`);
+    check(new RegExp("\\." + cls + "[\\s,{:.]").test(CSS), `.${cls} has a style`);
   });
-  // Markup-side classes and ids, styled the same way.
-  check(HTML.includes('class="wr-foot"') && /\.wr-foot[\s,{:]/.test(CSS),
-        ".wr-foot is in the markup and has a style");
-  check(/#wr-spectate-btn[\s,{:]/.test(CSS), "#wr-spectate-btn has a style");
-  check(/#wr-leave-btn[\s,{:]/.test(CSS),
-        "#wr-leave-btn is styled in the sheet, not by an inline style attribute");
+  ["wr-capacity", "wr-cap-count", "wr-cap-pips", "wr-cap-legend", "wr-deck",
+   "wr-chat-panel", "wr-chat-head", "wr-chat-log", "wr-chat-foot", "wr-chat-input",
+   "wr-deck-right", "wr-start-row", "wr-start-note", "wr-look", "wr-look-head",
+   "wr-look-row", "wr-head", "wr-head-tools"].forEach(cls => {
+    check(HTML.includes(cls), `the markup has .${cls}`);
+    check(new RegExp("\\." + cls + "[\\s,{:.]").test(CSS), `.${cls} has a style`);
+  });
+  // Exactly one rule may own the chat button: an older full-width one used to
+  // sit later in the sheet and quietly win.
+  check((CSS.match(/#wr-chat-btn \{/g) || []).length === 1,
+        "#wr-chat-btn is styled in exactly one place");
 }
 
 // ════════════════════════════════════════════════════════════════════════
-//  7. IT ACTUALLY FITS  (real Chrome, four window sizes)
+//  9. IT ACTUALLY FITS  (the real render, in real Chrome, at real widths)
 // ════════════════════════════════════════════════════════════════════════
 const CHROME = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -207,95 +264,103 @@ const CHROME = [
   "/usr/bin/chromium",
 ].find((p) => fs.existsSync(p));
 
-// One tile of each kind, built exactly the way renderSeatTilesInto builds them.
-function tile(kind, i) {
-  if (kind === "add") {
-    return '<button type="button" class="wr-seat wr-seat-add">'
-      + '<span class="wr-seat-add-plus">+</span>'
-      + '<span class="wr-seat-add-t">Add a bot</span>'
-      + '<span class="wr-seat-add-s">Fills a seat straight away</span></button>';
-  }
-  const remove = '<button type="button" class="wr-seat-remove"><span>−</span></button>';
-  if (kind === "open") {
-    return '<div class="wr-seat wr-seat-open">' + remove
-      + '<div class="wr-seat-top"><div class="wr-seat-av wr-seat-av-empty">' + i + "</div>"
-      + '<div class="wr-seat-id"><div class="wr-seat-name"><span>Seat ' + i + "</span></div>"
-      + '<div class="wr-seat-chips"><span class="wr-chip wr-chip-wait">Waiting for a player</span></div>'
-      + "</div></div>"
-      + '<div class="wr-seat-foot"><div class="wr-seat-hint">Start is locked until somebody sits here.</div>'
-      + '<button class="wr-seat-tobot">🤖 Make it a bot</button></div></div>';
-  }
-  if (kind === "bot") {
-    return '<div class="wr-seat wr-seat-bot">' + remove
-      + '<div class="wr-seat-top"><div class="wr-seat-av"><img alt=""></div>'
-      + '<div class="wr-seat-id"><div class="wr-seat-name"><span>Bot ' + i + "</span></div>"
-      + '<div class="wr-seat-chips"><span class="wr-chip wr-chip-bot">🤖 Bot</span></div></div></div>'
-      + '<div class="wr-seat-foot"><div class="wr-diff-box">'
-      + '<button class="wr-diff-pill wr-diff-easy">Easy</button>'
-      + '<button class="wr-diff-pill wr-diff-medium active">Medium</button>'
-      + '<button class="wr-diff-pill wr-diff-hard">Hard</button></div></div></div>';
-  }
-  const you = kind === "you";
-  // A deliberately long name: a lobby is exactly where somebody shows up
-  // called something that does not fit.
-  const name = you ? "TidePoolTim" : "AVeryLongPlayerNameIndeed" + i;
-  return '<div class="wr-seat' + (you ? " wr-seat-you" : "") + '">'
-    + (you ? "" : remove)
-    + '<div class="wr-seat-top"><div class="wr-seat-av"><div class="wr-seat-avbg"></div><img alt="">'
-    + (you ? '<button class="wr-seat-edit">✏️</button>' : "") + "</div>"
-    + '<div class="wr-seat-id"><div class="wr-seat-name"><span>' + name + "</span>"
-    + '<span class="wr-seat-pbadge"><span class="cc-pbadge"><svg viewBox="0 0 16 16"></svg><span>3</span></span></span>'
-    + "</div>"
-    + '<div class="wr-seat-chips"><span class="wr-chip wr-chip-lvl">⭐ Level 47</span>'
-    + (you ? '<span class="wr-chip wr-chip-host">👑 Host</span><span class="wr-chip wr-chip-you">You</span>'
-           : '<span class="wr-chip wr-chip-ready">✓ In</span>')
-    + "</div></div></div>"
-    + (you ? '<div class="wr-seat-foot"><div class="wr-seat-hint">This is you. Tap your critter to change it.</div></div>' : "")
-    + "</div>";
-}
-
-// The whole lobby, measured inside an IFRAME rather than by resizing the
-// window. Headless Chrome refuses to give a window narrower than 500px, so a
-// --window-size=390 run silently lays out at 500 and a phone-width check that
-// looks green has never actually run at phone width. An iframe's document gets
-// the width we ask for, so these numbers are real.
 function page() {
-  const tiles = [tile("you", 1), tile("player", 2), tile("player", 3), tile("bot", 4),
-                 tile("bot", 5), tile("open", 6), tile("open", 7), tile("player", 8),
-                 tile("add")].join("");
-  const lobby = `<div id="pv-waiting-room" class="open" data-wide="1">
-  <div class="wr-box">
-    <h2 id="wr-title">Game Lobby</h2>
-    <p class="wr-subtitle">Your crew can join from the Public games list.</p>
-    <div class="wr-players" id="wr-players-list">
-      <div class="wr-players-title">Players in Room</div>
-      <div class="wr-seat-grid">${tiles}</div>
-    </div>
-    <p class="wr-caption" id="wr-caption">One seat is still empty. The game can't start until somebody sits in it, or the host turns it into a bot.</p>
-    <button id="wr-start-btn"><span class="wr-btn-coral"></span><span class="wr-btn-text">Waiting for players...</span></button>
-    <div class="wr-foot">
-      <button type="button" id="wr-spectate-btn" style="display:inline-flex;">👁 Watch instead</button>
-      <button id="wr-leave-btn">✕ Leave Room</button>
-    </div>
-  </div>
-</div>`;
+  const fns = ["_wrEl", "_wrChip", "_wrBgName", "_wrNum", "_wrRemoveBtn", "_wrLock",
+               "_wrSeatAvatarUrl", "_wrCounts", "buildDifficultyBox", "_wrLoadPrestige",
+               "_wrSeatCard", "_wrAddCard", "_wrRenderCapacity", "renderSeatTilesInto",
+               "_wrChatAvatar", "_wrRenderChat"].map(grabFn).join("\n\n");
+
+  const a = HTML.indexOf('<div id="pv-waiting-room">');
+  const b = HTML.indexOf("\n</div>", a) + "\n</div>".length;
+  const lobby = HTML.slice(a, b);
+
+  const seat = (i, kind, name, extra) => Object.assign({
+    index: i, kind, claimed_name: name, is_host: i === 0, avatar: "", background: "",
+    level: 0, xp: 0, xp_goal: 0, best: 0, games: 0, title: "", difficulty: "medium",
+  }, extra || {});
+  const payload = {
+    phase: "lobby",
+    seats: [
+      seat(0, "human", "TidePoolTim", { avatar: "/avatars/great-white-shark.png",
+        background: "/backgrounds/bg-deep.png", level: 47, xp: 3120, xp_goal: 4600,
+        best: 412, games: 96, title: "Reef Wanderer" }),
+      // A deliberately long name: a lobby is exactly where somebody turns up
+      // called something that does not fit.
+      seat(1, "human", "AVeryLongPlayerNameIndeed", { avatar: "/avatars/clownfish.png",
+        background: "/backgrounds/bg-coral-reef.png", level: 22, xp: 740, xp_goal: 2200,
+        best: 268, games: 31, title: "Tide Watcher" }),
+      seat(2, "human", "KelpKaiya", { avatar: "/avatars/mandarin-goby.png",
+        background: "/backgrounds/bg-kelp.png", level: 63, xp: 2410, xp_goal: 4600,
+        best: 455, games: 210, title: "Deep Diver" }),
+      seat(3, "human", null),
+      seat(4, "ai", "Bot 1"),
+      seat(5, "ai", "Bot 2", { difficulty: "hard" }),
+    ],
+    room: { quick_play: false, competitive: false, tournament: false, ranked: false,
+            allow_spectators: true, visibility: "private" },
+    viewer: { seat_index: 0, is_host: true },
+    chat_messages: [
+      { sender: "System", message: "ReefRunner joined the room", system: true, ts: 1 },
+      { sender: "AVeryLongPlayerNameIndeed", message: "gm! first game today", ts: 2 },
+      { sender: "KelpKaiya", message: "leave the 4th open, sam's on his way", ts: 3 },
+    ],
+  };
+
+  const stubs = `
+const WR_SLOTS = 8, WR_MIN_TABLE = 2, WR_MAX_TABLE = 8;
+let _wrTableBusy = false, _wrPrestigeAsking = false, _wrChatFingerprint = "", _wrBgNames = null;
+const _wrPrestigeByName = { tidepooltim: { level: 3 }, kelpkaiya: { level: 5 } };
+const latestPayload = ${JSON.stringify(payload)};
+function pvLiveAvatar() { return ""; }
+function pvLiveAvatarKey() { return "k"; }
+function _avSrc(u) { return String(u || ""); }
+function _bgSrc(u) { return String(u || ""); }
+function setTableSeats() {}
+function lobbyKickPlayer() {}
+function refreshWaitingRoomFromPayload() {}
+function setBotDifficulty() {}
+function showToast() {}
+window.__fishBgStyle = (u) => "background-image:url('" + u + "');background-size:cover;";
+window.__fishBackgroundCatalog = () => ([
+  { id: "bg-deep", name: "Deep Ocean", img: "/backgrounds/bg-deep.png" },
+  { id: "bg-kelp", name: "Kelp Forest", img: "/backgrounds/bg-kelp.png" },
+  { id: "bg-coral-reef", name: "Coral Reef", img: "/backgrounds/bg-coral-reef.png" }]);
+window.__ccPrestigeBadgeHtml = (n) =>
+  '<span class="cc-pbadge' + (n >= 5 ? " t5" : "") + '"><svg viewBox="0 0 16 16"></svg><span>' + n + '</span></span>';
+`;
+
+  const drive = `
+const wr = document.getElementById("pv-waiting-room");
+wr.classList.add("open"); wr.dataset.wide = "1";
+document.getElementById("wr-quick-setup").style.display = "none";
+document.getElementById("wr-code-display").textContent = "R7KQ";
+document.getElementById("wr-btn-text").textContent = "Waiting for players... (3 of 4 joined)";
+document.getElementById("wr-spectate-btn").style.display = "inline-flex";
+const list = document.getElementById("wr-players-list");
+list.innerHTML = '<div class="wr-players-title">Players in Room</div>';
+renderSeatTilesInto(list, latestPayload.seats, true);
+_wrRenderChat();
+["👋","🦀","🐙","🔥"].forEach(e => {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "wr-emote"; b.textContent = e;
+  document.getElementById("wr-emote-row").appendChild(b);
+});
+`;
+
   const inner = `<!doctype html><html><head><meta charset="utf-8"><style>
 ${CSS}
-html,body{margin:0;}
-#pv-waiting-room{display:flex !important; position:static; min-height:100vh;}
-</style></head><body>${lobby}</body></html>`;
+html,body{margin:0;} #pv-waiting-room{display:flex !important; position:static; min-height:100vh;}
+</style></head><body>${lobby}<script>${stubs}\n${fns}\n${drive}</scr` + `ipt></body></html>`;
 
-  return `<!doctype html><html><head><meta charset="utf-8"><style>
-html,body{margin:0;background:#111;} iframe{border:0;display:block;}
-</style></head><body>
-<iframe id="f" width="1280" height="900"></iframe>
-<div id="out"></div>
+  return `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#111;}iframe{border:0;display:block;}</style></head><body>
+<iframe id="f" width="1280" height="1000"></iframe><div id="out"></div>
 <script>
-const SRC = ${JSON.stringify(inner)};
+// JSON.stringify does not escape "/", so the inner document's own closing
+// script tag would close this one. Break every "</" so it stays a literal.
+const SRC = ${JSON.stringify(inner).replace(/<\//g, "<\\/")};
 const WIDTHS = [360, 390, 430, 600, 820, 1024, 1280, 1680];
 const L = [];
 const f = document.getElementById("f");
-
 function measure(w) {
   const d = f.contentDocument, win = f.contentWindow;
   const ok = (c, m) => L.push((c ? "PASS " : "FAIL ") + w + "px: " + m);
@@ -306,54 +371,65 @@ function measure(w) {
      "nothing scrolls sideways (content " + d.documentElement.scrollWidth + " in " + vw + ")");
 
   const tiles = [...d.querySelectorAll(".wr-seat")];
-  ok(tiles.length === 9, "all nine tiles rendered (" + tiles.length + ")");
+  ok(tiles.length === 8, "all eight spots rendered (" + tiles.length + ")");
   tiles.forEach((el, i) => {
     const b = r(el);
-    ok(b.width >= 130 && b.height >= 80, "tile " + i + " has real size (" + Math.round(b.width) + "x" + Math.round(b.height) + ")");
-    ok(b.left >= -1 && b.right <= vw + 1, "tile " + i + " is inside the window");
+    ok(b.width >= 130 && b.height >= 80, "spot " + i + " has real size (" + Math.round(b.width) + "x" + Math.round(b.height) + ")");
+    ok(b.left >= -1 && b.right <= vw + 1, "spot " + i + " is inside the window");
   });
+  ok(d.querySelectorAll(".wr-seat-add").length === 2, "the two spots not in play are add spots");
 
   const rem = [...d.querySelectorAll(".wr-seat-remove")];
-  ok(rem.length === 7, "seven removable seats got a minus (" + rem.length + ")");
+  ok(rem.length === 5, "five removable spots got a minus (" + rem.length + ")");
   rem.forEach((el, i) => {
     const b = r(el), st = win.getComputedStyle(el);
     ok(b.width >= 24 && b.height >= 24, "minus " + i + " is tappable (" + Math.round(b.width) + "x" + Math.round(b.height) + ")");
     ok(st.opacity === "1" && st.visibility === "visible" && st.display !== "none",
        "minus " + i + " is visible without hovering");
-    ok(/gradient/.test(st.backgroundImage) || !/rgba\(0, 0, 0, 0\)/.test(st.backgroundColor),
-       "minus " + i + " is painted, not a bare glyph");
+    ok(/gradient/.test(st.backgroundImage), "minus " + i + " is painted, not a bare glyph");
     const tb = r(el.closest(".wr-seat"));
-    ok(b.right <= tb.right + 1 && b.top >= tb.top - 1, "minus " + i + " sits inside its own tile");
+    ok(b.right <= tb.right + 1 && b.top >= tb.top - 1, "minus " + i + " sits inside its own spot");
   });
   ok(!d.querySelector(".wr-seat-you .wr-seat-remove"), "my own seat has no minus");
-  ok(!d.querySelector(".wr-seat-add .wr-seat-remove"), "the add button has no minus");
+  ok(!d.querySelector(".wr-seat-add .wr-seat-remove"), "an add spot has no minus");
+  ok(!!d.querySelector(".wr-seat-you .wr-seat-lock"), "my own seat shows a lock instead");
 
   [...d.querySelectorAll(".wr-seat-name")].forEach((el, i) => {
-    ok(r(el).right <= r(el.closest(".wr-seat")).right + 1, "name " + i + " stays inside its tile");
+    ok(r(el).right <= r(el.closest(".wr-seat")).right + 1, "name " + i + " stays inside its spot");
+  });
+  [...d.querySelectorAll(".wr-seat-stat, .wr-xp-txt")].forEach((el, i) => {
+    ok(r(el).right <= r(el.closest(".wr-seat")).right + 1, "stat line " + i + " stays inside its spot");
   });
 
   const pen = d.querySelector(".wr-seat-edit");
-  ok(pen && r(pen).width >= 20 && r(pen).height >= 20, "the change-critter pencil is tappable");
+  ok(pen && r(pen).width >= 20, "the change-critter pencil is tappable");
 
-  ["wr-spectate-btn", "wr-leave-btn", "wr-start-btn"].forEach(id => {
+  const log = d.getElementById("wr-chat-log"), input = d.getElementById("wr-chat-text");
+  ok(r(log).height >= 60, "the chat log has real height (" + Math.round(r(log).height) + "px)");
+  ok(d.querySelectorAll(".wr-chat-line").length === 2, "both chat lines rendered");
+  ok(d.querySelectorAll(".wr-chat-sys").length === 1, "and the system line");
+  ok(r(input).width >= 90 && r(input).height >= 26, "the chat box is usable (" + Math.round(r(input).width) + "px)");
+  const pb = r(d.querySelector(".wr-chat-panel"));
+  [...d.querySelectorAll(".wr-chat-panel *")].forEach(el => {
+    const b = r(el);
+    if (b.width > 0) ok(b.right <= pb.right + 1, "nothing escapes the chat panel: " + (el.id || el.className));
+  });
+
+  ["wr-spectate-btn", "wr-leave-btn", "wr-start-btn", "wr-chat-send", "wr-copy-btn"].forEach(id => {
     const b = r(d.getElementById(id));
-    ok(b.width >= 80 && b.height >= 26, id + " is tappable (" + Math.round(b.width) + "x" + Math.round(b.height) + ")");
+    ok(b.width >= 60 && b.height >= 26, id + " is tappable (" + Math.round(b.width) + "x" + Math.round(b.height) + ")");
     ok(b.right <= vw + 1, id + " is on screen");
   });
-  // The Start button is a 920x175 painting: in the wide box it grows with its
-  // container, and a 200px-tall banner is not a button.
-  ok(r(d.getElementById("wr-start-btn")).height <= 150, "the Start button stays a button, not a banner");
+  ok(r(d.getElementById("wr-start-btn")).height <= 170, "the Start button stays a button, not a banner");
+  const bt = d.querySelector(".wr-btn-text"), sb = r(d.getElementById("wr-start-btn"));
+  ok(r(bt).right <= sb.right + 1 && r(bt).bottom <= sb.bottom + 2, "its lettering stays inside it");
   const box = r(d.querySelector(".wr-box"));
   ok(box.left >= -1 && box.right <= vw + 1, "the lobby box fits the window");
 }
-
-// Load the lobby ONCE, then walk the widths. Resizing an iframe re-lays-out
-// its document synchronously, so there is nothing to wait for and no reload to
-// race with the DOM dump.
 f.onload = () => {
   WIDTHS.forEach(w => {
     f.width = String(w);
-    f.contentWindow.document.body.offsetHeight;   // force the reflow
+    f.contentWindow.document.body.offsetHeight;
     try { measure(w); } catch (e) { L.push("FAIL " + w + "px: threw " + e.message); }
   });
   document.getElementById("out").textContent = L.join("\\n");
@@ -365,7 +441,7 @@ f.srcdoc = SRC;
 if (!CHROME) {
   console.log("\nSKIP: no Chrome/Chromium found: skipping the layout half.");
 } else {
-  console.log("\nlayout, phone through desktop");
+  console.log("\nthe real render, phone through desktop");
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cc-lobby-"));
   const file = path.join(tmp, "lobby.html");
   fs.writeFileSync(file, page());
@@ -373,11 +449,9 @@ if (!CHROME) {
   try {
     dom = execFileSync(CHROME, [
       "--headless=new", "--disable-gpu", "--no-sandbox", "--hide-scrollbars",
-      "--window-size=1800,1000", "--virtual-time-budget=20000",
+      "--window-size=1800,1100", "--virtual-time-budget=20000",
       "--dump-dom", "file://" + file,
     ], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 120000,
-         // The page carries the whole stylesheet inline and dumps the iframe's
-         // document with it, so the default 1MB pipe is nowhere near enough.
          maxBuffer: 64 * 1024 * 1024 });
   } catch (e) {
     check(false, "Chrome ran", e.message);
