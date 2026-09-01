@@ -2794,15 +2794,28 @@
     #pv-waiting-room {
       display: none;
       position: fixed; inset: 0;
-      background: linear-gradient(180deg, #4a7bb8 0%, #2c5384 100%);
+      /* The Tide Pool, cropped out of the ocean card's own art (inside the
+         frame, below its baked lettering) so the room carries no words of its
+         own. The gradient under it is the fallback while the art loads and
+         the floor the scrim sits on. */
+      background:
+        linear-gradient(180deg, rgba(12,52,104,.42) 0%, rgba(12,52,104,0) 24%,
+                        rgba(10,44,92,0) 62%, rgba(9,40,86,.52) 100%),
+        url("/lobby-tide-pool.png?v=1") center / cover no-repeat,
+        linear-gradient(180deg, #4a7bb8 0%, #2c5384 100%);
       z-index: 900;
       align-items: center; justify-content: center;
       padding: 20px;
       overflow-y: auto;
     }
     #pv-waiting-room.open { display: flex; }
+    #pv-waiting-room[data-wide="1"] .wr-box { max-width: 1120px; }
+    /* The Start button is a 920x175 painting, so it scales with its container:
+       in the wide seat-grid box that made it a 200px-tall banner. */
+    #pv-waiting-room[data-wide="1"] #wr-start-btn { max-width: 560px; }
+    #pv-waiting-room[data-wide="1"] .wr-caption { max-width: 62ch; }
     .wr-box {
-      background: linear-gradient(180deg, #e3edfb 0%, #d8e4f7 100%);
+      background: linear-gradient(180deg, rgba(227,237,251,.95) 0%, rgba(216,228,247,.94) 100%);
       border: 3px solid #2c4d80;
       border-radius: 24px;
       box-shadow: 0 12px 40px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.6);
@@ -3039,6 +3052,168 @@
     }
     .wr-player-name { font-weight: 700; color: #1a3a72; }
     .wr-player-empty { color: #6a87b0; font-weight: 600; }
+
+    /* ══ Seat tiles ════════════════════════════════════════════════════
+       One tile per seat, showing the player the way the rest of the game
+       already shows them: their critter, the background they equipped behind
+       it, their Level, and their Prestige badge when they have one. Adding is
+       always a BOT: a person joins with the room code, and an empty human seat
+       only holds the game up (start_game refuses while one is unclaimed). */
+    .wr-seat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(212px, 1fr));
+      gap: 12px;
+      margin-top: 4px;
+    }
+    .wr-seat {
+      position: relative;
+      display: flex; flex-direction: column; gap: 10px;
+      padding: 12px 13px 13px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #ffffff 0%, #eef5ff 100%);
+      border: 1px solid rgba(44,77,128,.16);
+      box-shadow: 0 3px 10px rgba(26,58,114,.10), inset 0 1px 0 rgba(255,255,255,.8);
+      text-align: left;
+      min-height: 104px;
+    }
+    .wr-seat::before {
+      content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px;
+      border-radius: 16px 16px 0 0;
+      background: linear-gradient(90deg, #5cb6f2, #2379c8);
+    }
+    .wr-seat-bot::before { background: linear-gradient(90deg, #b3a3f0, #6b57bd); }
+    .wr-seat-you::before { background: linear-gradient(90deg, #ffd257, #e0a41c); }
+    .wr-seat-you  { box-shadow: 0 0 0 2px rgba(224,164,28,.45), 0 4px 12px rgba(26,58,114,.12); }
+    .wr-seat-bot  { background: linear-gradient(180deg, #fbf9ff 0%, #efeaff 100%); }
+    .wr-seat-open {
+      background: rgba(255,255,255,.55);
+      border: 2px dashed rgba(44,77,128,.34);
+      box-shadow: none;
+    }
+    .wr-seat-open::before { display: none; }
+
+    .wr-seat-top { display: flex; align-items: center; gap: 11px; }
+    .wr-seat-av {
+      position: relative; width: 52px; height: 52px; border-radius: 50%;
+      flex: 0 0 auto; overflow: visible;
+      background: linear-gradient(145deg, #1f66bc 0%, #3ec0ee 100%);
+      border: 3px solid rgba(255,255,255,.96);
+      box-shadow: 0 0 0 2px rgba(35,121,206,.5);
+    }
+    .wr-seat-avbg {
+      position: absolute; inset: 0; border-radius: 50%; overflow: hidden;
+    }
+    .wr-seat-av > img {
+      position: relative; width: 100%; height: 100%;
+      object-fit: contain; display: block; border-radius: 50%;
+    }
+    .wr-seat-av-empty {
+      background: rgba(26,58,114,.10);
+      border: 3px dashed rgba(44,77,128,.35);
+      box-shadow: none;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px; font-weight: 900; color: #7d99bd;
+    }
+    /* The pencil that changes your own critter, on your own seat only. */
+    .wr-seat-edit {
+      position: absolute; right: -4px; bottom: -4px; z-index: 3;
+      width: 24px; height: 24px; border-radius: 50%; padding: 0;
+      background: linear-gradient(180deg, #ffdf8a, #f5b93f);
+      border: 2px solid #fff; box-shadow: 0 2px 6px rgba(9,44,92,.35);
+      font-size: 11px; line-height: 1; cursor: pointer;
+    }
+    .wr-seat-edit:hover { transform: scale(1.08); }
+
+    .wr-seat-id { min-width: 0; flex: 1; }
+    .wr-seat-name {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      font-size: 15px; font-weight: 900; color: #1a3a72; line-height: 1.2;
+    }
+    .wr-seat-name > span:first-child {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+    }
+    .wr-seat-pbadge { display: inline-flex; flex: 0 0 auto; }
+    .wr-seat-pbadge .cc-pbadge { flex: 0 0 auto; max-width: none; }
+    .wr-seat-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+    .wr-chip {
+      display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+      border-radius: 999px; padding: 2px 8px;
+      font-size: 10.5px; font-weight: 800;
+      background: #fff; border: 1px solid rgba(44,77,128,.22); color: #2f6eba;
+    }
+    .wr-chip-lvl   { background: linear-gradient(180deg,#d9ecff,#bcdcfb); border-color: rgba(47,110,186,.4); color: #1c569c; }
+    .wr-chip-host  { background: linear-gradient(180deg,#ffe9b0,#ffd57a); border-color: #e6b74a; color: #6b4b06; }
+    .wr-chip-ready { background: linear-gradient(180deg,#c8f5dd,#9fe9c2); border-color: #4cbe86; color: #14663f; }
+    .wr-chip-bot   { background: linear-gradient(180deg,#e6ddff,#cfc0fb); border-color: #a48ce8; color: #46308c; }
+    .wr-chip-you   { background: linear-gradient(180deg,#fff3d0,#ffe6a3); border-color: #e6b74a; color: #6b4b06; }
+    .wr-chip-wait  { background: rgba(255,255,255,.75); border-color: rgba(44,77,128,.2); color: #7d99bd; }
+
+    .wr-seat-foot { margin-top: auto; display: flex; flex-direction: column; gap: 7px; }
+    .wr-seat-hint { font-size: 10.5px; font-weight: 700; color: #6b8fbb; line-height: 1.35; }
+    .wr-seat-tobot {
+      border-radius: 9px; padding: 6px 8px; cursor: pointer;
+      background: linear-gradient(180deg,#f0eaff,#ddd2fb);
+      border: 1px solid rgba(139,116,222,.5); color: #46308c;
+      font-size: 11px; font-weight: 900;
+    }
+    .wr-seat-tobot:disabled { opacity: .45; cursor: not-allowed; }
+    .wr-seat .wr-diff-box { width: 100%; }
+    .wr-seat .wr-diff-pill { flex: 1; }
+
+    /* The one control that takes something away. Solid, always visible, never
+       hover-only: it is destructive, so it has to be findable and it has to
+       say what it does. */
+    .wr-seat-remove {
+      position: absolute; top: 8px; right: 8px; z-index: 4;
+      width: 26px; height: 26px; border-radius: 50%; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(180deg, #f26b7d, #d8324b);
+      border: 2px solid #fff;
+      box-shadow: 0 2px 7px rgba(176,32,56,.45);
+      color: #fff; font-size: 17px; font-weight: 900; line-height: 1;
+      cursor: pointer;
+    }
+    .wr-seat-remove:hover { transform: scale(1.1); box-shadow: 0 3px 10px rgba(176,32,56,.6); }
+    .wr-seat-remove:focus-visible { outline: 3px solid #ffd257; outline-offset: 2px; }
+
+    /* Add a bot: a seat-shaped button, so it reads as the next seat along. */
+    .wr-seat-add {
+      align-items: center; justify-content: center; text-align: center;
+      gap: 5px; cursor: pointer;
+      background: rgba(255,255,255,.42);
+      border: 2px dashed rgba(107,87,189,.5);
+      box-shadow: none;
+      font-family: inherit;
+    }
+    .wr-seat-add::before { display: none; }
+    .wr-seat-add:hover { background: rgba(255,255,255,.7); border-color: #6b57bd; }
+    .wr-seat-add-plus {
+      width: 38px; height: 38px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(180deg, #e6ddff, #bda9f6);
+      color: #35237a; font-size: 22px; font-weight: 900; line-height: 1;
+      box-shadow: 0 3px 8px rgba(53,35,122,.28);
+    }
+    .wr-seat-add-t { font-size: 13px; font-weight: 900; color: #46308c; }
+    .wr-seat-add-s { font-size: 10.5px; font-weight: 700; color: #6b8fbb; }
+
+    /* Footer: watch instead, or leave outright. */
+    .wr-foot { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    #wr-spectate-btn {
+      display: none; align-items: center; gap: 6px;
+      background: rgba(47,110,186,.12); border: 1px solid rgba(47,110,186,.42);
+      color: #2f6eba; border-radius: 8px; padding: 7px 18px;
+      font-size: 12px; font-weight: 700; letter-spacing: .3px; cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    #wr-spectate-btn:hover { background: rgba(47,110,186,.2); border-color: rgba(47,110,186,.7); }
+    #wr-leave-btn {
+      background: rgba(232,64,87,.15); border: 1px solid rgba(232,64,87,.4);
+      color: #e84057; border-radius: 8px; padding: 7px 18px;
+      font-size: 12px; font-weight: 700; letter-spacing: .3px; cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    #wr-leave-btn:hover { background: rgba(232,64,87,.25); border-color: rgba(232,64,87,.7); }
     /* AI difficulty picker, three small pills (Easy/Medium/Hard) next to each bot */
     .wr-ai-name { flex: 1; min-width: 0; }
     .wr-diff-box {

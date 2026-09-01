@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-01.1";
+  const APP_BUILD   = "2026-09-01.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,12 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "\uD83E\uDE91 The waiting room shows who is actually at the table", items: [
+      "The lobby used to be a list of dots and names. Every seat is now a card of its own, showing the player the way the rest of the game already shows them: their critter, the background they have equipped behind it, their Level, and their Prestige badge if they have one. Your own seat has a pencil on it, so you can change your critter while you wait and everybody sees it straight away.",
+      "The host can add a bot to any spare seat, set each bot's difficulty on its own card, and take a bot or an empty seat back off the table. There is no \u201cadd a player seat\u201d button, because an empty seat for a person is the one thing that stops a game starting: the room now says so on the seat itself, and offers the host the one way past it, which is turning that seat into a bot.",
+      "The host can also remove somebody from their own lobby. That is the host\u2019s call before the game starts, and theirs alone: once a match is under way, removing a player still needs everyone else to agree, exactly as before. A removed player\u2019s seat opens straight back up for somebody else.",
+      "If you would rather watch than play, Watch instead gives your seat up and keeps you in the room, so the spot goes to somebody who wants it. And the whole thing now stands in the Tide Pool.",
+    ]},
     { ver: "V1.7.1", title: "\u270F\uFE0F Rename your clan, and it changes everywhere", items: [
       "A clan's owner can rename it. Open your clan, go to Settings, and there's a Clan name box at the top with its own Rename button: it checks the name as you type, the same way founding a clan does, and tells you before you press it whether the name is free.",
       "The new name lands everywhere at once: the clan leaderboard, Find a Clan, your clan's page and chat, invites you'd already sent that nobody had accepted yet, your clanmates' season badges, and the final standings of seasons already finished. Nothing is left calling you by the old name.",
@@ -2824,12 +2830,23 @@
   }
 
   async function stepTableSeats(kind, delta) {
-    if (!roomId || _wrTableBusy) return;
     const { humans, bots } = _wrCounts(latestPayload?.seats);
+    return setTableSeats(
+      kind === "humans" ? humans + delta : humans,
+      kind === "bots"   ? bots + delta   : bots,
+    );
+  }
+
+  // Ask the server for an exact table. stepTableSeats (the +/- steppers) and
+  // the seat tiles' own buttons both come through here, so there is one place
+  // that knows the floors, the ceiling and the busy guard.
+  async function setTableSeats(wantHumans, wantBots) {
+    if (!roomId || _wrTableBusy) return;
     const next = {
-      human_players: kind === "humans" ? humans + delta : humans,
-      ai_players:    kind === "bots"   ? bots + delta   : bots,
+      human_players: Math.round(Number(wantHumans)),
+      ai_players:    Math.round(Number(wantBots)),
     };
+    if (!Number.isFinite(next.human_players) || !Number.isFinite(next.ai_players)) return;
     const total = next.human_players + next.ai_players;
     // Competitive keeps its own floor: three people, never fewer.
     const minHumans = latestPayload?.room?.ranked ? COMP_FFA_MIN_PLAYERS : 1;
@@ -3003,7 +3020,290 @@
     el.classList.add("open");
   }
 
+  // ══ Waiting room seats ══════════════════════════════════════════════
+  // The lobby used to be a list of dots and names. It is now one tile per
+  // seat showing the same face everybody already knows the player by: their
+  // critter, the background they equipped behind it, their Level, and their
+  // Prestige badge when they have one.
+  //
+  // Where each of those comes from matters:
+  //   critter/background/level  ride along on the seat itself (the server puts
+  //                             them in seat_snapshot_locked). Self-reported,
+  //                             exactly like the avatar already was: decoration.
+  //   Prestige                  is looked up from the Prestige service, which
+  //                             is the only thing that can vouch for it.
+  const _wrPrestigeByName = Object.create(null);   // lower name → {level}
+  let _wrPrestigeAsking = false;
+
+  // Batch-resolve the Prestige of everyone at the table, then repaint once.
+  // Names that come back with nothing are cached as 0 so we stop asking.
+  function _wrLoadPrestige(names) {
+    const want = names
+      .map(n => String(n || "").trim().toLowerCase())
+      .filter(n => n && !(n in _wrPrestigeByName));
+    if (!want.length || _wrPrestigeAsking) return;
+    const lookup = window.__ccPrestigeLookupByName;
+    if (typeof lookup !== "function") return;
+    _wrPrestigeAsking = true;
+    Promise.resolve(lookup(want))
+      .then(map => {
+        want.forEach(n => {
+          const row = map && map[n];
+          _wrPrestigeByName[n] = { level: Number(row && row.level) || 0 };
+        });
+      })
+      .catch(() => { want.forEach(n => { _wrPrestigeByName[n] = { level: 0 }; }); })
+      .finally(() => {
+        _wrPrestigeAsking = false;
+        // Repaint with what we learned. Guarded by the cache above, so this
+        // can never turn into a lookup/repaint loop.
+        try { if (latestPayload && latestPayload.phase === "lobby") refreshWaitingRoomFromPayload(); } catch (_) {}
+      });
+  }
+
+  // The seat's own avatar wins (it is what the server relayed for this seat);
+  // fall back to the live table and finally to the default critter, so a seat
+  // never renders as a broken image.
+  function _wrSeatAvatarUrl(seat) {
+    const own = String((seat && seat.avatar) || "");
+    if (own) return own;
+    const live = pvLiveAvatar(String((seat && seat.claimed_name) || ""));
+    return live || "/avatars/mullet.png";
+  }
+
+  function _wrChip(text, cls) {
+    const el = document.createElement("span");
+    el.className = "wr-chip" + (cls ? " " + cls : "");
+    el.textContent = text;
+    return el;
+  }
+
+  // The one control that takes something away. Always drawn the same, always
+  // visible (never hover-only): it is destructive, so it has to be findable
+  // and it has to say what it does.
+  function _wrRemoveBtn(label, onClick) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "wr-seat-remove";
+    b.title = label;
+    b.setAttribute("aria-label", label);
+    b.innerHTML = '<span aria-hidden="true">−</span>';
+    b.addEventListener("click", (ev) => { ev.stopPropagation(); onClick(); });
+    return b;
+  }
+
+  // Host removes somebody from the waiting room. Before the game starts the
+  // room is the host's; the in-game removal is still the unanimous vote.
+  async function lobbyKickPlayer(seatIndex, name) {
+    if (!roomId || _wrTableBusy) return;
+    const who = name || `Seat ${seatIndex + 1}`;
+    if (!window.confirm(`Remove ${who} from the lobby?\n\nTheir seat opens back up and they can't rejoin this room.`)) return;
+    _wrTableBusy = true;
+    try {
+      const res = await apiPost(`/api/rooms/${roomId}/lobby_kick`, {
+        host_token: getHostToken(),
+        seat_token: getSeatToken(),
+        target_seat_index: seatIndex,
+      }, { timeoutMs: 7000 });
+      if (!res.ok || !res.data?.ok) {
+        showToast(res.data?.error || "Could not remove that player.", "warn");
+      } else {
+        showToast(`${res.data.name || who} was removed from the lobby.`, "ok");
+      }
+      await refreshState();
+    } catch (_) {
+      showToast("Network error removing that player.", "err");
+    } finally {
+      _wrTableBusy = false;
+    }
+  }
+
+  // Give up your seat and stay to watch. The seat opens back up for somebody
+  // else, and the room keeps this player in its spectator list.
+  async function watchFromLobby() {
+    if (!roomId) return;
+    if (!window.confirm("Give up your seat and watch instead?\n\nYour spot opens back up for somebody else.")) return;
+    const rid = roomId;
+    try {
+      await apiPost(`/api/rooms/${rid}/leave`, { seat_token: getSeatToken() }, { timeoutMs: 7000 });
+    } catch (_) { /* joining as a spectator below is what actually matters */ }
+    setSeatToken("");
+    await joinAsSpectator(rid);
+  }
+
+  function renderSeatTilesInto(list, seats, isHost) {
+    const rows = Array.isArray(seats) ? seats : [];
+    const mySeat = (latestPayload && latestPayload.viewer && typeof latestPayload.viewer.seat_index === "number")
+      ? latestPayload.viewer.seat_index : null;
+    const { humans, bots, filled } = _wrCounts(rows);
+    const room = (latestPayload && latestPayload.room) || {};
+    // Only rooms whose shape is the host's to change get the add/remove
+    // buttons: the same rule Table Setup uses.
+    const canShape = isHost && !room.quick_play && !room.competitive && !room.tournament && !_wrTableBusy;
+    const canAddBot = canShape && !room.ranked && (humans + bots) < WR_MAX_TABLE;
+
+    const grid = document.createElement("div");
+    grid.className = "wr-seat-grid";
+
+    _wrLoadPrestige(rows.filter(s => s.kind === "human" && s.claimed_name).map(s => s.claimed_name));
+
+    rows.forEach(s => {
+      const isAI    = s.kind === "ai";
+      const isMine  = mySeat !== null && s.index === mySeat;
+      const isOpen  = !isAI && !s.claimed_name;
+      const tile = document.createElement("div");
+      tile.className = "wr-seat"
+        + (isAI ? " wr-seat-bot" : "")
+        + (isOpen ? " wr-seat-open" : "")
+        + (isMine ? " wr-seat-you" : "");
+
+      // ── who is sitting here ──
+      const top = document.createElement("div");
+      top.className = "wr-seat-top";
+
+      const face = document.createElement("div");
+      face.className = "wr-seat-av" + (isOpen ? " wr-seat-av-empty" : "");
+      if (isOpen) {
+        face.textContent = String(s.index + 1);
+      } else {
+        if (s.background) {
+          const bg = document.createElement("div");
+          bg.className = "wr-seat-avbg";
+          bg.style.cssText = (typeof window.__fishBgStyle === "function")
+            ? window.__fishBgStyle(s.background) : "";
+          face.appendChild(bg);
+        }
+        const img = document.createElement("img");
+        img.alt = "";
+        img.loading = "lazy";
+        img.src = _avSrc(_wrSeatAvatarUrl(s));
+        img.onerror = function () { this.onerror = null; this.src = "/avatars/mullet.png"; };
+        face.appendChild(img);
+        if (isMine) {
+          const pen = document.createElement("button");
+          pen.type = "button";
+          pen.className = "wr-seat-edit";
+          pen.title = "Change your critter";
+          pen.setAttribute("aria-label", "Change your critter");
+          pen.textContent = "✏️";
+          pen.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            try { window.__fishOpenAvatarGallery?.(); } catch (_) {}
+          });
+          face.appendChild(pen);
+        }
+      }
+      top.appendChild(face);
+
+      const idBox = document.createElement("div");
+      idBox.className = "wr-seat-id";
+      const nameEl = document.createElement("div");
+      nameEl.className = "wr-seat-name";
+      const nameTxt = document.createElement("span");
+      nameTxt.textContent = isAI
+        ? (s.claimed_name || `Bot ${s.index + 1}`)
+        : (s.claimed_name || `Seat ${s.index + 1}`);
+      nameEl.appendChild(nameTxt);
+      if (!isAI && s.claimed_name) {
+        const pl = _wrPrestigeByName[String(s.claimed_name).trim().toLowerCase()];
+        if (pl && pl.level > 0 && typeof window.__ccPrestigeBadgeHtml === "function") {
+          const holder = document.createElement("span");
+          holder.className = "wr-seat-pbadge";
+          holder.innerHTML = window.__ccPrestigeBadgeHtml(pl.level, { decorative: true });
+          nameEl.appendChild(holder);
+        }
+      }
+      idBox.appendChild(nameEl);
+
+      const chips = document.createElement("div");
+      chips.className = "wr-seat-chips";
+      if (isAI) {
+        chips.appendChild(_wrChip("🤖 Bot", "wr-chip-bot"));
+      } else if (isOpen) {
+        chips.appendChild(_wrChip("Waiting for a player", "wr-chip-wait"));
+      } else {
+        const lvl = Number(s.level) || 0;
+        if (lvl > 0) chips.appendChild(_wrChip("⭐ Level " + lvl, "wr-chip-lvl"));
+        if (s.is_host) chips.appendChild(_wrChip("👑 Host", "wr-chip-host"));
+        if (isMine) chips.appendChild(_wrChip("You", "wr-chip-you"));
+        if (!s.is_host && !isMine) chips.appendChild(_wrChip("✓ In", "wr-chip-ready"));
+      }
+      idBox.appendChild(chips);
+      top.appendChild(idBox);
+      tile.appendChild(top);
+
+      // ── what can be done to this seat ──
+      const foot = document.createElement("div");
+      foot.className = "wr-seat-foot";
+      if (isAI) {
+        foot.appendChild(buildDifficultyBox(s, isHost));
+      } else if (isOpen) {
+        const hint = document.createElement("div");
+        hint.className = "wr-seat-hint";
+        // The truth, and it is worth saying plainly: an open human seat blocks
+        // Start outright (start_game refuses while any is unclaimed). It does
+        // NOT quietly become a bot when the host casts off.
+        hint.textContent = canShape
+          ? "Start is locked until somebody sits here."
+          : "Start is locked until every seat is filled.";
+        foot.appendChild(hint);
+        if (canShape) {
+          const toBot = document.createElement("button");
+          toBot.type = "button";
+          toBot.className = "wr-seat-tobot";
+          toBot.textContent = "🤖 Make it a bot";
+          toBot.title = "Turn this open seat into a bot so the game can start";
+          toBot.disabled = Boolean(room.ranked);
+          if (room.ranked) toBot.title = "A competitive game is people only.";
+          toBot.addEventListener("click", () => setTableSeats(humans - 1, bots + 1));
+          foot.appendChild(toBot);
+        }
+      } else if (isMine) {
+        const hint = document.createElement("div");
+        hint.className = "wr-seat-hint";
+        hint.textContent = "This is you. Tap your critter to change it.";
+        foot.appendChild(hint);
+      }
+      if (foot.childNodes.length) tile.appendChild(foot);
+
+      // ── the one destructive control ──
+      if (canShape && isAI) {
+        tile.appendChild(_wrRemoveBtn("Remove a bot", () => setTableSeats(humans, bots - 1)));
+      } else if (canShape && isOpen && humans > Math.max(1, filled) && (humans + bots) > WR_MIN_TABLE) {
+        tile.appendChild(_wrRemoveBtn("Remove this seat", () => setTableSeats(humans - 1, bots)));
+      } else if (canShape && !isAI && !isMine && s.claimed_name && !s.is_host) {
+        tile.appendChild(_wrRemoveBtn(`Remove ${s.claimed_name} from the lobby`,
+                                      () => lobbyKickPlayer(s.index, s.claimed_name)));
+      }
+
+      grid.appendChild(tile);
+    });
+
+    // Adding is a bot, never a person: a person joins with the code, and an
+    // empty human seat only holds the game up (see the open-seat hint above).
+    if (canAddBot) {
+      const add = document.createElement("button");
+      add.type = "button";
+      add.className = "wr-seat wr-seat-add";
+      add.innerHTML = '<span class="wr-seat-add-plus" aria-hidden="true">+</span>'
+        + '<span class="wr-seat-add-t">Add a bot</span>'
+        + '<span class="wr-seat-add-s">Fills a seat straight away</span>';
+      add.addEventListener("click", () => setTableSeats(humans, bots + 1));
+      grid.appendChild(add);
+    }
+
+    list.appendChild(grid);
+  }
+
+  // The arguments of the last lobby paint, so something that arrives later
+  // (a Prestige lookup) can repaint without a round trip to the server.
+  let _wrLastArgs = null;
+  function refreshWaitingRoomFromPayload() {
+    if (_wrLastArgs) updateWaitingRoom.apply(null, _wrLastArgs);
+  }
+
   function updateWaitingRoom(seats, canStart, startFn, isHost, isCompetitive, isQuickPlay) {
+    _wrLastArgs = [seats, canStart, startFn, isHost, isCompetitive, isQuickPlay];
     // A room is competitive ONLY if it was explicitly created that way. The
     // authoritative signal is the server's room.competitive flag (passed in as
     // isCompetitive); compMode is the local mirror of that for this client.
@@ -3030,6 +3330,13 @@
     list.innerHTML = '<div class="wr-players-title">Players in Room</div>';
     updateQuickPlaySetup(seats, isHost, isQuickPlay);
     updateTableSetup(seats, isHost, isQuickPlay, isComp);
+
+    // The seat grid needs a wide box; Team and Competitive keep their own
+    // narrow layouts, so the width follows whichever one is being drawn.
+    const wrEl = document.getElementById("pv-waiting-room");
+    if (wrEl) {
+      wrEl.dataset.wide = (!isTeam && !(isComp && seats && seats.length === 4)) ? "1" : "0";
+    }
 
     if (isTeam) {
       renderTeamLobbyInto(list, seats, teamCount, mySeatIndex);
@@ -3058,28 +3365,8 @@
         list.appendChild(row);
       });
     } else {
-      // Normal (non-competitive) seat list.
-      (seats||[]).forEach(s => {
-        const row = document.createElement("div"); row.className = "wr-player-row";
-        const dot = document.createElement("div");
-        dot.className = "wr-seat-dot" + (s.claimed_name ? " filled" : " empty");
-        const nm = document.createElement("span");
-        const isAI = (s.kind === "ai");
-        if (isAI) {
-          row.classList.add("wr-ai-row");
-          nm.className = "wr-player-name wr-ai-name";
-          nm.textContent = s.claimed_name || `Bot ${s.index}`;
-        } else if (s.claimed_name) {
-          nm.className = "wr-player-name";
-          nm.textContent = `Seat ${s.index+1}: ${s.claimed_name}`;
-        } else {
-          nm.className = "wr-player-empty";
-          nm.textContent = `Seat ${s.index+1}: Open`;
-        }
-        row.appendChild(dot); row.appendChild(nm);
-        if (isAI) row.appendChild(buildDifficultyBox(s, isHost));
-        list.appendChild(row);
-      });
+      // Normal (non-competitive) lobby: one tile per seat.
+      renderSeatTilesInto(list, seats, isHost);
     }
 
     // Only humans count toward "(X of Y joined)", bots auto-fill instantly.
@@ -3111,6 +3398,31 @@
       text.textContent = total > 1
         ? `Waiting for players... (${filled} of ${total} joined)`
         : `Waiting for players...`;
+    }
+
+    // Say why Start is or is not available. An empty human seat does NOT
+    // quietly become a bot at kickoff: start_game refuses outright while any
+    // one of them is unclaimed, so the only ways on are somebody sitting down
+    // or the host turning the seat into a bot.
+    const cap = document.getElementById("wr-caption");
+    if (cap) {
+      const short = Math.max(0, total - filled);
+      cap.textContent = short === 0
+        ? (isHost ? "Everyone's aboard. Cast off when you're ready."
+                  : "Everyone's aboard. Waiting on the host to start.")
+        : (short === 1
+            ? "One seat is still empty. The game can't start until somebody sits in it, or the host turns it into a bot."
+            : `${short} seats are still empty. The game can't start until they're filled, or the host turns them into bots.`);
+    }
+
+    // "Watch instead" gives this seat up and stays in the room to watch. It is
+    // hidden for the last person still seated: leaving then closes the room,
+    // and there would be nothing left to watch.
+    const specBtn = document.getElementById("wr-spectate-btn");
+    if (specBtn) {
+      const holdsSeat = !isSpectating() && !!getSeatToken();
+      const canWatch = holdsSeat && _room.allow_spectators !== false && filled > 1;
+      specBtn.style.display = canWatch ? "inline-flex" : "none";
     }
   }
 
@@ -7999,7 +8311,11 @@
     try {
       if (typeof window.__fishMyAvatarUrl === "function") myUrl = String(window.__fishMyAvatarUrl() || "");
     } catch (e) { myUrl = ""; }
-    const key = roomId + "|" + myUrl;   // include room so a new game re-pushes
+    let myLevel = 0;
+    try { myLevel = Math.max(0, Math.min(100, Math.round(Number(window.__ccMyLevel) || 0))); } catch (e) { myLevel = 0; }
+    // The level is part of the key: it changes without the avatar changing,
+    // and the throttle would otherwise never send the new one.
+    const key = roomId + "|" + myUrl + "|" + myLevel;   // include room so a new game re-pushes
     if (!myUrl || key === _lastPushedAvatar) return;
     // Spectating: no seat, but we still have a face in the spectator list and
     // on our chat lines: equip under the spectator token instead.
@@ -8015,7 +8331,12 @@
     if (!tok) return;
     _lastPushedAvatar = key;
     try {
-      apiPost(`/api/rooms/${roomId}/avatar`, { seat_token: tok, avatar: myUrl }, { timeoutMs: 6000 }).catch(() => {});
+      // Only send a level we actually know. The server reads an absent level as
+      // "leave it alone", so a client that has not worked its own out yet must
+      // not blank the number the seat is already showing.
+      const body = { seat_token: tok, avatar: myUrl };
+      if (myLevel > 0) body.level = myLevel;
+      apiPost(`/api/rooms/${roomId}/avatar`, body, { timeoutMs: 6000 }).catch(() => {});
     } catch (e) {}
   }
   window.__fishPushSeatAvatar = pushMySeatAvatar;
@@ -12364,6 +12685,8 @@
       try { _refreshRejoinButton(); } catch {}
     }
   });
+
+  document.getElementById("wr-spectate-btn").addEventListener("click", () => { watchFromLobby(); });
 
   document.getElementById("wr-leave-btn").addEventListener("click", async () => {
     if (!confirm("Leave this room?")) return;
@@ -21960,6 +22283,9 @@
 
       const levelLabelEl = $a("stat-level-label");
       if (levelLabelEl) levelLabelEl.textContent = `Level ${level}`;
+      // The waiting room shows this number beside my name on my seat, so it
+      // is published from the one place that already derives it.
+      try { window.__ccMyLevel = level; } catch (_) {}
       const levelTitleEl = $a("stat-level-title");
       if (levelTitleEl) levelTitleEl.textContent = levelTitle;
       const xpTextEl = $a("stat-level-xp-text");
