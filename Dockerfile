@@ -24,6 +24,9 @@ COPY fish_game_all_in_one.py /app/fish_game_all_in_one.py
 COPY tournament_engine.py /app/tournament_engine.py
 COPY tournament_server.py /app/tournament_server.py
 COPY clan_server.py /app/clan_server.py
+# Shared warm cache, imported at module scope by the two servers above,
+# so a missing COPY here is a server that will not start at all.
+COPY warm_cache.py /app/warm_cache.py
 COPY prestige_server.py /app/prestige_server.py
 COPY analytics_server.py /app/analytics_server.py
 # Both halves of the newsletter, or neither: multiplayer_server.py imports

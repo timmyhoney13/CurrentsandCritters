@@ -11,6 +11,7 @@
 !tournament_engine.py
 !tournament_server.py
 !clan_server.py
+!warm_cache.py
 !prestige_server.py
 !analytics_server.py
 !newsletter_server.py

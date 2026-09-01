@@ -45,6 +45,8 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import warm_cache
+
 # ── Tunables (spec'd values: see the Clan System design doc) ────────────────
 CLAN_MAX_MEMBERS          = 25
 CLAN_NAME_MIN             = 3
@@ -1553,26 +1555,49 @@ def _lb_sort_key(card: Dict[str, Any]) -> Tuple:
             -card["casual_wins"], -card.get("_contributors", 0), card.get("_last_gain_ts", 1 << 60))
 
 
-_LB_CACHE: Dict[str, Any] = {"sid": "", "at": 0.0, "rows": []}
 _LB_TTL_SEC = 20.0
+# The standings are a whole-collection read, they cost seconds from Render, and
+# opening the Clans tab needs them before it can draw anything: /home, /browse,
+# /leaderboard and every clan profile all ask. Cached briefly, and served
+# instantly even when that brief window has passed, with the refresh running
+# behind the reader instead of in front of them. hard_ttl is an hour: a podium
+# that is minutes old for the moment it takes to refresh beats a blank tab.
+_LB_WARM = warm_cache.WarmCache("clan-standings", ttl=_LB_TTL_SEC,
+                                hard_ttl=3600.0)
 
 
 def _lb_invalidate() -> None:
     """Drop the standings cache. Called after every write that can change what
     the leaderboard shows, so a brand-new clan (or a just-earned point) is
     never missing from the board the player looks at one second later."""
-    _LB_CACHE["at"] = 0.0
+    _LB_WARM.invalidate()
 
 
 def _leaderboard_rows(db, sid: str, cap: int = 500, fresh: bool = False) -> List[Dict[str, Any]]:
-    """Season standings for every clan. This is a whole-collection read, and
-    the Clans page, the leaderboard and each profile all want it, so results
-    are cached briefly. Anything that must observe its own write passes
-    fresh=True (nothing does today; points land well inside the TTL)."""
-    now = time.time()
-    if (not fresh and _LB_CACHE["sid"] == sid
-            and now - float(_LB_CACHE["at"] or 0) < _LB_TTL_SEC):
-        return copy.deepcopy(_LB_CACHE["rows"])
+    """Season standings for every clan, from the warm cache.
+
+    Anything that must observe its own write passes fresh=True, which really
+    does re-read (the season payout does; ordinary points land well inside the
+    TTL). Callers mutate the rows they get back (browse stamps `joinable`, home
+    stamps `rank`), so every caller gets its own deep copy."""
+    rows = _LB_WARM.get(f"{sid}|{cap}",
+                        lambda: _scan_leaderboard_rows(db, sid, cap),
+                        fresh=fresh)
+    return copy.deepcopy(rows or [])
+
+
+def prewarm_standings() -> None:
+    """Fill the current season's standings off the request path, at boot."""
+    db = _get_firestore()
+    if db is None:
+        return
+    sid = _clan_sid()
+    _LB_WARM.warm(f"{sid}|500", lambda: _scan_leaderboard_rows(db, sid, 500))
+
+
+def _scan_leaderboard_rows(db, sid: str, cap: int = 500) -> Optional[List[Dict[str, Any]]]:
+    """The real whole-collection scan. None means "the scan failed", which the
+    cache reads as "keep the standings you already have"."""
     rows: List[Dict[str, Any]] = []
     try:
         for doc in _clans(db).limit(cap).stream():
@@ -1585,6 +1610,7 @@ def _leaderboard_rows(db, sid: str, cap: int = 500, fresh: bool = False) -> List
             rows.append(card)
     except Exception as exc:  # noqa: BLE001
         print(f"[clan] leaderboard scan failed: {exc}")
+        return None
     rows.sort(key=_lb_sort_key)
     wl_record = lambda c: f"{c['comp_wins'] + c['casual_wins']}-{max(0, c['games'] - c['comp_wins'] - c['casual_wins'])}"
     for i, c in enumerate(rows):
@@ -1592,7 +1618,6 @@ def _leaderboard_rows(db, sid: str, cap: int = 500, fresh: bool = False) -> List
         c["record"] = wl_record(c)
         c.pop("_contributors", None)
         c.pop("_last_gain_ts", None)
-    _LB_CACHE.update({"sid": sid, "at": now, "rows": copy.deepcopy(rows)})
     return rows
 
 

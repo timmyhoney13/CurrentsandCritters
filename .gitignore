@@ -20,6 +20,9 @@
 # and its unit + integration tests (in-memory Firestore fake), plus the client
 # module smoke test (end-game claim dedup, bridge off-switch).
 !clan_server.py
+# Imported at module scope by BOTH multiplayer_server.py and clan_server.py, so
+# a missing entry here is not a slower page, it is a server that cannot boot.
+!warm_cache.py
 !test_clan_server.py
 !test_clans_ui.js
 

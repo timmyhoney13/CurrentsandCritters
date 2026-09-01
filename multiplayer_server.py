@@ -31,6 +31,7 @@ os.environ.setdefault("FISH_WEB_CONTROL", "1")
 
 import fish_game_all_in_one as fish
 import snap_score
+import warm_cache
 import tournament_server
 import clan_server
 import prestige_server
@@ -273,8 +274,12 @@ _FIRESTORE_DB = None
 _FIRESTORE_INIT_DONE = False
 _FIRESTORE_LOCK = threading.Lock()
 # Cache live counts so a burst of /api/stats hits doesn't hammer Firestore.
-_LIVE_COUNTS_CACHE = {"at": 0.0, "registered": None, "online": None, "games": None}
+# hard_ttl is short: an "online right now" number that is an hour old would be
+# a lie, so past ten minutes it is worth making one caller wait. Everything
+# inside that window is served instantly and refreshed behind them.
 _LIVE_COUNTS_TTL_SEC = 30.0
+_LIVE_COUNTS_WARM = warm_cache.WarmCache("live-counts", ttl=_LIVE_COUNTS_TTL_SEC,
+                                         hard_ttl=600.0)
 
 
 def _get_firestore():
@@ -400,26 +405,28 @@ def _fetch_live_user_counts():
         return None, None, games
 
 
-def get_live_user_counts():
-    """Cached (registered, online, games); refreshes at most every
-    _LIVE_COUNTS_TTL_SEC. `games` is the persisted Firestore games_played."""
-    now = time.time()
-    if now - _LIVE_COUNTS_CACHE["at"] < _LIVE_COUNTS_TTL_SEC:
-        return (_LIVE_COUNTS_CACHE["registered"],
-                _LIVE_COUNTS_CACHE["online"],
-                _LIVE_COUNTS_CACHE["games"])
+def _live_user_counts_merged():
+    """One refresh of (registered, online, games), each field falling back to
+    the last good one. Returns None if the query answered nothing at all, which
+    is how the cache is told to keep what it already has."""
+    prev, _age = _LIVE_COUNTS_WARM.peek("counts")
+    p_reg, p_online, p_games = prev if prev else (None, None, None)
     registered, online, games = _fetch_live_user_counts()
-    # Keep the last good values if a refresh fails transiently.
-    if registered is not None:
-        _LIVE_COUNTS_CACHE["registered"] = registered
-    if online is not None:
-        _LIVE_COUNTS_CACHE["online"] = online
-    if games is not None:
-        _LIVE_COUNTS_CACHE["games"] = games
-    _LIVE_COUNTS_CACHE["at"] = now
-    return (_LIVE_COUNTS_CACHE["registered"],
-            _LIVE_COUNTS_CACHE["online"],
-            _LIVE_COUNTS_CACHE["games"])
+    merged = (registered if registered is not None else p_reg,
+              online if online is not None else p_online,
+              games if games is not None else p_games)
+    return None if merged == (None, None, None) else merged
+
+
+def get_live_user_counts():
+    """(registered, online, games), served instantly from cache and refreshed
+    behind the caller. `games` is the persisted Firestore games_played.
+
+    This used to be an expire-then-block cache, so every ~30 seconds one
+    player's /api/stats or Quick Play poll ran the count aggregate plus the
+    whole online query and waited ~2.4s for it. Nobody waits for it now."""
+    counts = _LIVE_COUNTS_WARM.get("counts", _live_user_counts_merged)
+    return counts if counts else (None, None, None)
 
 
 # ── Avatar ownership ("% of people own this") ──────────────────────────────
@@ -431,8 +438,10 @@ def get_live_user_counts():
 # (unlocked for everyone) are shown as 100% on the client, not counted here.
 # The dev/admin account (which owns every icon) is excluded from both the
 # per-icon owner counts and the player total, so it never inflates the shares.
-_ICON_OWNERSHIP_CACHE = {"at": 0.0, "counts": None, "total": None}
 _ICON_OWNERSHIP_TTL_SEC = 120.0
+_ICON_OWNERSHIP_WARM = warm_cache.WarmCache("icon-ownership",
+                                            ttl=_ICON_OWNERSHIP_TTL_SEC,
+                                            hard_ttl=6 * 3600.0)
 
 
 def _fetch_icon_ownership():
@@ -480,18 +489,18 @@ def _fetch_icon_ownership():
 
 
 def get_icon_ownership():
-    """Cached (counts, total_players); refreshes at most every
-    _ICON_OWNERSHIP_TTL_SEC and keeps the last good values on a failed refresh."""
-    now = time.time()
-    if (now - _ICON_OWNERSHIP_CACHE["at"] < _ICON_OWNERSHIP_TTL_SEC
-            and _ICON_OWNERSHIP_CACHE["counts"] is not None):
-        return _ICON_OWNERSHIP_CACHE["counts"], _ICON_OWNERSHIP_CACHE["total"]
-    counts, total = _fetch_icon_ownership()
-    if counts is not None:
-        _ICON_OWNERSHIP_CACHE["counts"] = counts
-        _ICON_OWNERSHIP_CACHE["total"] = total
-        _ICON_OWNERSHIP_CACHE["at"] = now
-    return _ICON_OWNERSHIP_CACHE["counts"], _ICON_OWNERSHIP_CACHE["total"]
+    """(counts, total_players), served instantly and refreshed behind the
+    caller; keeps the last good values when a refresh fails.
+
+    This one reads EVERY user document to tally owners, so it is the most
+    expensive query on the server and the one nobody should ever wait on: an
+    ownership percentage that is a few minutes old is the same percentage."""
+    def refresh():
+        counts, total = _fetch_icon_ownership()
+        return None if counts is None else (counts, total)
+
+    got = _ICON_OWNERSHIP_WARM.get("all", refresh)
+    return got if got else (None, None)
 
 
 # ── Public leaderboards, read with the service account ─────────────────────
@@ -526,9 +535,24 @@ _LB_STATS_FIELDS = (
     "balanced_games", "balanced_score_sum",
     "total_score_by_size", "normal_games_by_size",
 ) + tuple(f"highest_score_{n}p" for n in range(2, 9))
-_LB_CACHE: Dict[str, Any] = {}          # "field|limit" -> {"at": ts, "rows": [...]}
 _LB_TTL_SEC = 60.0
 _LB_MAX_LIMIT = 150
+# Every board on Player Home is its own key, and each one costs 1.5-4.5s cold,
+# so with an expire-then-block cache the player opening the Leaderboard tab
+# essentially always WAS the request that paid for the refresh (measured live:
+# 4464ms to open the tab, 315ms once warm). hard_ttl is generous on purpose: a
+# leaderboard that is a few hours out of date for the ~200ms it takes to
+# refresh behind the reader is not worth making anyone wait for.
+_LB_WARM = warm_cache.WarmCache("leaderboard", ttl=_LB_TTL_SEC, hard_ttl=6 * 3600.0)
+# The boards Player Home actually asks for, as (field, limit). Prewarmed at
+# boot so even the first player after a deploy finds them ready. Kept in step
+# with the lbTopUsers() calls in js/preview-app.js.
+_LB_PREWARM = (
+    ("stats.total_xp", 50),
+    ("stats.normal_wins", 75),
+    ("stats.total_score", 150),
+    ("stats.comp_cp", 25),
+)
 
 
 def _fetch_leaderboard_rows(field: str, limit: int):
@@ -563,17 +587,22 @@ def _fetch_leaderboard_rows(field: str, limit: int):
 
 
 def get_leaderboard_rows(field: str, limit: int):
-    """Cached rows; keeps the last good answer when a refresh fails."""
-    key = f"{field}|{limit}"
-    entry = _LB_CACHE.get(key)
-    now = time.time()
-    if entry and now - entry["at"] < _LB_TTL_SEC:
-        return entry["rows"]
-    rows = _fetch_leaderboard_rows(field, limit)
-    if rows is not None:
-        _LB_CACHE[key] = {"at": now, "rows": rows}
-        return rows
-    return entry["rows"] if entry else None
+    """Rows for one board, served instantly and refreshed behind the reader;
+    keeps the last good answer when a refresh fails."""
+    return _LB_WARM.get(f"{field}|{limit}",
+                        lambda: _fetch_leaderboard_rows(field, limit))
+
+
+def prewarm_leaderboards() -> None:
+    """Fill the boards Player Home opens on, one at a time, off the request
+    path. Without this the first player after every deploy is the one who pays
+    for each cold query."""
+    for field, limit in _LB_PREWARM:
+        try:
+            _LB_WARM.warm(f"{field}|{limit}",
+                          lambda f=field, n=limit: _fetch_leaderboard_rows(f, n))
+        except Exception as exc:  # noqa: BLE001 - prewarming must never matter
+            print(f"[leaderboard] prewarm of {field} failed: {exc}")
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -13937,6 +13966,25 @@ def main() -> None:
                 print(f"[janitor] sweep warning: {exc}")
 
     threading.Thread(target=_room_janitor, daemon=True, name="room-janitor").start()
+
+    # Keep every WarmCache (public boards, clan standings, live counts, avatar
+    # ownership) refreshed off the request path, and fill the boards Player
+    # Home opens on before anybody asks for them. A Firestore query costs
+    # seconds from here, so the whole point is that no player is ever the one
+    # who runs one. Prewarm is its own thread: it must not delay listening.
+    warm_cache.start_sweeper()
+
+    def _prewarm() -> None:
+        try:
+            prewarm_leaderboards()
+            get_live_user_counts()
+            clan_server.prewarm_standings()
+        except Exception as exc:  # noqa: BLE001 - a cold cache is not fatal
+            print(f"[warm-cache] prewarm warning: {exc}")
+        else:
+            print("[warm-cache] boards, standings and live counts prewarmed")
+
+    threading.Thread(target=_prewarm, daemon=True, name="warm-prewarm").start()
 
     ACTIVE_SERVER = StableThreadingHTTPServer((args.host, args.port), MultiplayerHandler)
     bound_host = str(args.host or "").strip() or "0.0.0.0"

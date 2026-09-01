@@ -22140,6 +22140,13 @@
     }
     // Cache of friend UIDs so add-friend cells render instantly (refreshed each open).
     let _lbFriendUids = new Set();
+    // Which account the set above belongs to, and when it was read. The friend
+    // list only decides whether a leaderboard row shows an "add friend"
+    // button, so after the first read it must never hold a board up again:
+    // it is refreshed behind the draw instead. Keyed by uid so signing in as
+    // somebody else can never inherit the last account's friends.
+    let _lbFriendUidsFor = "";
+    let _lbFriendUidsAt  = 0;
 
     /* ── helpers ── */
     function escHtmlPH(s) {
@@ -22285,15 +22292,71 @@
       return rows.map(r => ({ id: String(r.id || ""), data: () => r }));
     }
 
+    // ── Boards open instantly, then correct themselves ──────────────────────
+    // Every board is one ordered query, and the tab used to run it and then
+    // sit on "Loading…" until it landed: measured at 4.4 seconds to open
+    // Leaderboard cold. The rows a player saw a minute ago are still very
+    // nearly the right rows, so they go back up IMMEDIATELY and the real query
+    // runs behind them; when it lands the board redraws itself, but only if
+    // the player is still looking at that board. Only the first open of a
+    // board in a session ever waits for anything.
+    //
+    // Signed-in and guest rows come from different sources (Firestore docs vs
+    // the server's trimmed rows), so they are cached under separate keys and a
+    // sign-in can never hand somebody the other one's shape.
+    const _lbSnapshot   = new Map();          // key → { docs, at }
+    const _lbRefreshing = new Set();
+    const LB_SNAP_TTL_MS = 60 * 1000;         // how long a snapshot is used as-is
+
+    function _lbSnapKey(field, limit) {
+      return `${_db && _authUser ? "acct" : "guest"}|${field}|${limit}`;
+    }
+    function _lbPanelOnScreen() {
+      const el = $a("ph-panel-leaderboard");
+      return !!(el && el.style.display !== "none" && el.offsetParent !== null);
+    }
+
+    async function lbTopUsersWarm(field, limit) {
+      const key  = _lbSnapKey(field, limit);
+      const snap = _lbSnapshot.get(key);
+      if (!snap) {                            // never seen: this one has to wait
+        const docs = await lbTopUsers(field, limit);
+        _lbSnapshot.set(key, { docs, at: Date.now() });
+        return docs;
+      }
+      if (Date.now() - snap.at >= LB_SNAP_TTL_MS && !_lbRefreshing.has(key)) {
+        _lbRefreshing.add(key);
+        // Remember which board asked, so a refresh that lands after the player
+        // has switched modes (or left the tab) never redraws over them.
+        const mode = _phLbMode, comp = _phLbCompTab, size = _phLbSize;
+        lbTopUsers(field, limit).then(docs => {
+          _lbSnapshot.set(key, { docs, at: Date.now() });
+          if (_lbPanelOnScreen() && _phLbMode === mode
+              && _phLbCompTab === comp && _phLbSize === size) renderPhLeaderboard();
+        }).catch(() => {}).finally(() => _lbRefreshing.delete(key));
+      }
+      return snap.docs;                       // instant, and correct within a minute
+    }
+
+    async function _lbRefreshFriendUids() {
+      const uid = _authUser && _authUser.uid;
+      if (!uid) return;
+      const read = () => loadFriends(uid)
+        .then(fl => { _lbFriendUids = new Set(fl.map(f => f.uid));
+                      _lbFriendUidsFor = uid; _lbFriendUidsAt = Date.now(); })
+        .catch(() => { _lbFriendUidsFor = uid; _lbFriendUidsAt = Date.now(); });
+      if (_lbFriendUidsFor !== uid) { _lbFriendUids = new Set(); return read(); }
+      if (Date.now() - _lbFriendUidsAt > 60000) read();   // behind the draw
+    }
+
     async function renderPhLeaderboard() {
       // No _db check any more: a guest never has one, and lbTopUsers() serves
       // them the same rows from the server. Bailing out here is what left the
       // whole tab reading "Loading…" for ever.
       phLbClearSumCards();
-      // Refresh friend UIDs so add-friend cells are accurate.
-      if (_authUser) {
-        try { const fl = await loadFriends(_authUser.uid); _lbFriendUids = new Set(fl.map(f => f.uid)); } catch { _lbFriendUids = new Set(); }
-      }
+      // Refresh friend UIDs so add-friend cells are accurate. Only the first
+      // read of a session is waited for; later ones land behind the board.
+      if (_authUser) await _lbRefreshFriendUids();
       if      (_phLbMode === "xp")           await _phLbRenderXp();
       else if (_phLbMode === "casual")       await _phLbRenderCasual();
       else if (_phLbMode === "wins")         await _phLbRenderWins();
@@ -22315,7 +22378,7 @@
       try {
         // Fetch by total_xp; fall back to level for accounts that only have level stored.
         // Fetch extra to filter out blank/guest accounts (no nickname or 0 XP).
-        const docs = await lbTopUsers("stats.total_xp", 50);
+        const docs = await lbTopUsersWarm("stats.total_xp", 50);
         let rows = [], myRank = 0, myRow = null, shown = 0;
         docs.forEach(doc => {
           const d     = doc.data();
@@ -22382,7 +22445,7 @@
       tbody.innerHTML = `<tr><td colspan="6" class="ph-lb-empty">Loading…</td></tr>`;
       try {
         // Fetch broadly by normal_wins; we'll add comp wins client-side and re-sort.
-        const snap = { docs: await lbTopUsers("stats.normal_wins", 75) };
+        const snap = { docs: await lbTopUsersWarm("stats.normal_wins", 75) };
         let rows = [], myRank = 0, myRow = null, shown = 0;
         snap.docs.forEach(doc => {
           const d     = doc.data();
@@ -22493,7 +22556,7 @@
       tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
       try {
         const field = byCurrent ? "stats.daily_streak" : "stats.streak_longest";
-        const snap = { docs: await lbTopUsers(field, 75) };
+        const snap = { docs: await lbTopUsersWarm(field, 75) };
         let rows = [];
         snap.docs.forEach(doc => {
           const d     = doc.data();
@@ -22568,7 +22631,7 @@
       if (!tbody) return;
       tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
       try {
-        const snap = { docs: await lbTopUsers("stats.tournament_wins", 75) };
+        const snap = { docs: await lbTopUsersWarm("stats.tournament_wins", 75) };
         let rows = [], myRank = 0, myRow = null, shown = 0;
         snap.docs.forEach(doc => {
           const d     = doc.data();
@@ -22636,7 +22699,7 @@
         // without needing the materialized field. Size tabs: orderBy best score.
         let candidates;
         if (_phLbSize === "all") {
-          const snap = { docs: await lbTopUsers("stats.total_score", 150) };
+          const snap = { docs: await lbTopUsersWarm("stats.total_score", 150) };
           candidates = snap.docs
             .map(doc => ({ doc, d: doc.data(), score: balancedAvgFromStats((doc.data()||{}).stats) }))
             .filter(c => c.score > 0)
@@ -22644,7 +22707,7 @@
             .slice(0, 25);
         } else {
           const field = phLbSizeField(_phLbSize);
-          const snap = { docs: await lbTopUsers(field, 25) };
+          const snap = { docs: await lbTopUsersWarm(field, 25) };
           candidates = snap.docs
             .map(doc => ({ doc, d: doc.data(), score: ((doc.data()||{}).stats || {})[`highest_score_${_phLbSize}p`] || 0 }))
             .filter(c => c.score > 0);
@@ -22728,7 +22791,7 @@
       if (!tbody) return;
       tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
       try {
-        const snap = { docs: await lbTopUsers("stats.comp_cp", 25) };
+        const snap = { docs: await lbTopUsersWarm("stats.comp_cp", 25) };
         let rows = [], myRank = 0, myRow = null, shown = 0;
         snap.docs.forEach(doc => {
           const d   = doc.data();
@@ -22779,7 +22842,7 @@
       if (!tbody) return;
       tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
       try {
-        const snap = { docs: await lbTopUsers("stats.comp_best_single_hand", 25) };
+        const snap = { docs: await lbTopUsersWarm("stats.comp_best_single_hand", 25) };
         let rows = [], myRank = 0, myRow = null, shown = 0;
         snap.docs.forEach(doc => {
           const d     = doc.data();
@@ -22828,7 +22891,7 @@
       if (!tbody) return;
       tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
       try {
-        const snap = { docs: await lbTopUsers("stats.comp_best_combined", 25) };
+        const snap = { docs: await lbTopUsersWarm("stats.comp_best_combined", 25) };
         let rows = [], myRank = 0, myRow = null, shown = 0;
         snap.docs.forEach(doc => {
           const d     = doc.data();
@@ -33279,6 +33342,10 @@
       _unlockedIcons = [];
       _unlockedBackgrounds = [];
       _lbFriendUids = new Set();
+      _lbFriendUidsFor = ""; _lbFriendUidsAt = 0;
+      // Signing out does not reload the page, so a board snapshot taken as one
+      // identity would be painted for the next one.
+      try { _lbSnapshot.clear(); _lbRefreshing.clear(); } catch (_) {}
       _galSavedState = null;
       _galReadOnly = false;
       try { window.__fishFriendNicksLower = new Set(); } catch (_) {}

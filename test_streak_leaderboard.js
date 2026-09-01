@@ -143,6 +143,12 @@ const LIFTED = [
   // /api/leaderboard for a guest. This harness is signed in, so it takes the
   // Firestore branch against the fake _db below.
   grabFn("lbTopUsers"),
+  // ...and the layer in front of it that repaints the last rows instantly and
+  // re-queries behind the draw. Lifted for real, so "a redraw inside the
+  // window costs no query" is checked against the shipped code.
+  grabFn("_lbSnapKey"),
+  grabFn("_lbPanelOnScreen"),
+  grabFn("lbTopUsersWarm"),
   // the board itself
   grabFn("_phLbStreakNums"),
   grabFn("_phLbRenderStreak"),
@@ -305,6 +311,13 @@ var _db = {
 var _phLbStreakTab = "longest";
 function renderPhLeaderboard() { return _phLbRenderStreak(); }
 
+// The instant-paint layer's module-level state. The FUNCTIONS are lifted from
+// preview-app.js above; only these three declarations are the harness's, the
+// same way _authUser and _lbFriendUids are.
+var _lbSnapshot   = new Map();
+var _lbRefreshing = new Set();
+var LB_SNAP_TTL_MS = 60 * 1000;
+
 ${LIFTED}
 
 // ── Drive it ────────────────────────────────────────────────────────────────
@@ -355,6 +368,7 @@ function snapshot() {
       rowScrollW: $a("ph-lb-streak-btn").parentElement.scrollWidth,
       rowClientW: $a("ph-lb-streak-btn").parentElement.clientWidth,
     };
+    _lbSnapshot.clear();
     QUERIES.length = 0;   // the click already rendered once; count from here
     // Default tab: longest ever.
     await _phLbRenderStreak();
@@ -363,10 +377,17 @@ function snapshot() {
     phLbSwitchStreakTab("current", $a("ph-lb-streak-current-tab"));
     await new Promise(function (r) { setTimeout(r, 60); });
     out.current = snapshot();
-    // …and back, to prove the toggle is not one-way.
+    // …and back, to prove the toggle is not one-way. This board was drawn
+    // moments ago, so it must come back INSTANTLY off the snapshot and cost no
+    // second query: that is the whole speed fix, measured here.
     phLbSwitchStreakTab("longest", $a("ph-lb-streak-longest-tab"));
     await new Promise(function (r) { setTimeout(r, 60); });
     out.backToLongest = snapshot();
+    out.queriesAfterToggleBack = QUERIES.slice();
+    // The phases below are about the board reflecting data that changed
+    // underneath it, so they need real reads: drop the snapshot the way
+    // signing out does.
+    _lbSnapshot.clear();
     // I fall off the fetched page (too many players ahead of me): the summary
     // card must still show MY numbers, from the profile already in memory.
     var ME = USERS.pop();
@@ -375,6 +396,7 @@ function snapshot() {
     out.offBoard = snapshot();
     USERS.push(ME);
     delete window.__fishGetMyStats;
+    _lbSnapshot.clear();
     // Empty state: nobody has any streak data at all.
     USERS = [];
     await _phLbRenderStreak();
@@ -429,8 +451,21 @@ check("clicking the 🔥 Streak pill reveals the section and marks the pill acti
 check("the longest board queries stats.streak_longest, the current board stats.daily_streak",
       D.queries[0] === "stats.streak_longest" && D.queries[1] === "stats.daily_streak",
       JSON.stringify(D.queries));
-check("each render costs ONE query, not a second pass over big user docs",
-      D.queries.length === 5, JSON.stringify(D.queries));
+// Five renders happen below; four of them read. The fifth (toggling back to a
+// board drawn seconds earlier) is served from the snapshot, checked next. What
+// this still pins is that no single render ever costs TWO passes over the user
+// documents.
+check("each render costs at most ONE query, never a second pass over big user docs",
+      D.queries.length === 4, JSON.stringify(D.queries));
+// Coming back to a board drawn seconds ago must not re-run its query: the rows
+// are already right, and the round trip is what made the tab feel slow.
+check("going back to a board just drawn costs NO second query",
+      D.queriesAfterToggleBack.length === 2,
+      JSON.stringify(D.queriesAfterToggleBack));
+check("...and it really did repaint that board's rows",
+      D.backToLongest.thPrimary === D.longest.thPrimary
+      && D.backToLongest.rows.length === D.longest.rows.length,
+      JSON.stringify(D.backToLongest.rows.length));
 
 // ── 2. LONGEST board ────────────────────────────────────────────────────────
 console.log("\nLongest streak ever:");
