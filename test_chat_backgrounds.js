@@ -1,16 +1,22 @@
 #!/usr/bin/env node
-/* Tests for the per-conversation chat backgrounds added to the Messages page
+/* Tests for the per-conversation chat backgrounds on the Messages page
  * (multiplayer/client/js/preview-app.js).
  *
  * Run:  node test_chat_backgrounds.js
  *
- * Why this file exists: a chat background is stored as ANOTHER doc in the same
- * users/{uid}/messages subcollection as real messages, carrying meta:true so it
- * never renders as a bubble. But `meta:true` is also how a GROUP roster doc is
- * marked, so without care, giving a plain DM a wallpaper would silently
- * reclassify it as a group chat (wrong title, wrong send path, wrong members).
- * The guard is _msgIsGroupMeta(); these tests pin it down, plus the "not a
- * message / not unread" invariants every filter depends on.
+ * Why this file exists, part 1: a chat background is stored as ANOTHER doc in
+ * the same users/{uid}/messages subcollection as real messages, carrying
+ * meta:true so it never renders as a bubble. But `meta:true` is also how a
+ * GROUP roster doc is marked, so without care, giving a plain DM a wallpaper
+ * would silently reclassify it as a group chat (wrong title, wrong send path,
+ * wrong members). The guard is _msgIsGroupMeta(); these tests pin it down, plus
+ * the "not a message / not unread" invariants every filter depends on.
+ *
+ * Part 2 (added when the picker was rebuilt): a chat wallpaper is a WIDE
+ * painting, not the circular medallion the profile frame uses, and every
+ * wallpaper is free so a conversation can be re-skinned as often as you like.
+ * Both of those are easy to regress by editing one list, so the catalog is
+ * checked against the files actually on disk.
  *
  * The functions live inside a 26k-line IIFE that needs Firebase to load, so we
  * lift the exact source text of the ones under test out of the file and run
@@ -22,8 +28,8 @@
 const fs = require("fs");
 const path = require("path");
 
-const SRC = fs.readFileSync(
-  path.join(__dirname, "multiplayer", "client", "js", "preview-app.js"), "utf8");
+const CLIENT = path.join(__dirname, "multiplayer", "client");
+const SRC = fs.readFileSync(path.join(CLIENT, "js", "preview-app.js"), "utf8");
 
 let failures = 0, checks = 0;
 function ok(cond, label) {
@@ -36,53 +42,61 @@ function eq(actual, expected, label) {
      label + "  (got " + JSON.stringify(actual) + ", want " + JSON.stringify(expected) + ")");
 }
 
-// ── Lift the functions under test out of the monolith ───────────────────────
+// ── Lift the code under test out of the monolith ────────────────────────────
 // Grabs `function <name>(...) { … }` by brace-matching from the opening brace.
+function balanced(from, open, close) {
+  let depth = 0, i = from;
+  for (; i < SRC.length; i++) {
+    if (SRC[i] === open) depth++;
+    else if (SRC[i] === close) { depth--; if (depth === 0) return i; }
+  }
+  throw new Error("unbalanced " + open + close + " from index " + from);
+}
 function extract(name) {
   const decl = "function " + name + "(";
   const start = SRC.indexOf(decl);
   if (start < 0) throw new Error("could not find function " + name + " in preview-app.js");
-  const open = SRC.indexOf("{", SRC.indexOf(")", start));
-  let depth = 0, i = open;
-  for (; i < SRC.length; i++) {
-    if (SRC[i] === "{") depth++;
-    else if (SRC[i] === "}") { depth--; if (depth === 0) break; }
-  }
-  if (depth !== 0) throw new Error("unbalanced braces extracting " + name);
-  return SRC.slice(start, i + 1);
+  return SRC.slice(start, balanced(SRC.indexOf("{", SRC.indexOf(")", start)), "{", "}") + 1);
+}
+// Grabs `const <name> = [ … ];` (the real catalog, not a copy of it).
+function extractArray(name) {
+  const decl = "const " + name + " = [";
+  const start = SRC.indexOf(decl);
+  if (start < 0) throw new Error("could not find const " + name + " in preview-app.js");
+  return SRC.slice(start, balanced(SRC.indexOf("[", start), "[", "]") + 1) + ";";
 }
 
-const SOURCES = ["_msgIsGroupMeta", "_msgRebuildConversations", "_msgChatBgFor", "_msgChatBgOwned"]
-  .map(extract).join("\n");
+const FN_SOURCES = ["_msgIsGroupMeta", "_msgGroupMeta", "_msgRebuildConversations",
+                    "_msgChatBgResolve", "_msgChatBgFor", "_msgChatBgMembers",
+                    "_msgChatBgCacheLocal"].map(extract).join("\n");
+const CATALOG = extractArray("CHAT_BACKGROUNDS");
+// The alias map is built by a forEach right after the catalog; take it verbatim
+// so the legacy-path aliases under test are the real ones.
+const ALIAS_MATCH = SRC.match(/const _CHAT_BG_BY_IMG = \{\};\s*CHAT_BACKGROUNDS\.forEach\(b => \{[\s\S]*?\}\);/);
+if (!ALIAS_MATCH) throw new Error("could not find the _CHAT_BG_BY_IMG builder in preview-app.js");
 
-// Catalog + free list must match the real ones, so read them from the source too.
-const CATALOG_MATCH = SRC.match(/const CHAT_BG_FREE = (\[[^\]]*\]);/);
-if (!CATALOG_MATCH) throw new Error("could not find CHAT_BG_FREE in preview-app.js");
-
-// ── Sandbox: the minimum state those four functions close over ──────────────
+// ── Sandbox: the minimum state those functions close over ───────────────────
 function makeEnv(messages, opts) {
   opts = opts || {};
   const env = {
     _msgAllMessages: messages,
     _msgConversations: [],
     _authUser: { uid: opts.me || "me" },
-    _unlockedBackgrounds: opts.unlocked || [],
-    _BG_BY_IMG: {
-      "/backgrounds/bg-kelp.png":   { id: "bg-kelp",   name: "Kelp Forest" },
-      "/backgrounds/bg-arctic.png": { id: "bg-arctic", name: "Arctic Ocean" },
-      "/backgrounds/bg-deep.png":   { id: "bg-deep",   name: "Deep Ocean" },
-    },
     _msgTs: (m) => (m && m.ts) || 0,
   };
   const body = `
-    ${CATALOG_MATCH[0]}
-    ${SOURCES}
+    ${CATALOG}
+    ${ALIAS_MATCH[0]}
+    ${FN_SOURCES}
     return {
       isGroupMeta: _msgIsGroupMeta,
       rebuild: () => { _msgRebuildConversations(); return _msgConversations; },
       chatBgFor: _msgChatBgFor,
-      chatBgOwned: _msgChatBgOwned,
-      CHAT_BG_FREE,
+      chatBgResolve: _msgChatBgResolve,
+      chatBgMembers: _msgChatBgMembers,
+      cacheLocal: _msgChatBgCacheLocal,
+      messages: () => _msgAllMessages,
+      CHAT_BACKGROUNDS,
     };`;
   const keys = Object.keys(env);
   // eslint-disable-next-line no-new-func
@@ -91,6 +105,11 @@ function makeEnv(messages, opts) {
   api._env = env;
   return api;
 }
+
+const CATALOG_LIST = makeEnv([]).CHAT_BACKGROUNDS;
+const KELP   = CATALOG_LIST.find(b => b.id === "chat-kelp").img;
+const ARCTIC = CATALOG_LIST.find(b => b.id === "chat-arctic").img;
+const DEEP   = CATALOG_LIST.find(b => b.id === "chat-deep").img;
 
 // Handy doc builders matching the real schemas.
 const dm   = (o) => Object.assign({ id: "m" + Math.random(), conv_id: "me__you",
@@ -106,7 +125,7 @@ console.log("\nchat background docs vs. group detection");
   // A DM that has been given a wallpaper must stay a DM.
   const api = makeEnv([
     dm({ ts: 2, text: "hey" }),
-    cbg("me__you", "/backgrounds/bg-kelp.png", 9),   // written AFTER the message
+    cbg("me__you", KELP, 9),                         // written AFTER the message
   ]);
   const convs = api.rebuild();
   eq(convs.length, 1, "DM with a wallpaper is still one conversation");
@@ -120,7 +139,7 @@ console.log("\nchat background docs vs. group detection");
   const api = makeEnv([
     gmeta("g_1", members, 1),
     { id: "x", conv_id: "g_1", group: true, sender: "a", sender_name: "Ann", text: "yo", ts: 2, read: true },
-    cbg("g_1", "/backgrounds/bg-arctic.png", 99),    // newest doc in the conv
+    cbg("g_1", ARCTIC, 99),                          // newest doc in the conv
   ]);
   const convs = api.rebuild();
   eq(convs.length, 1, "group with a wallpaper is one conversation");
@@ -133,20 +152,20 @@ console.log("\nchat background docs vs. group detection");
   const api = makeEnv([
     gmeta("g_2", [{ uid: "you", name: "You" }], 1),   // I am NOT a member
     { id: "y", conv_id: "g_2", group: true, sender: "you", sender_name: "You", text: "bye", ts: 2, read: true },
-    cbg("g_2", "/backgrounds/bg-kelp.png", 50),
+    cbg("g_2", KELP, 50),
   ]);
   eq(api.rebuild().length, 0, "a group I was removed from stays hidden despite a wallpaper doc");
 }
 {
   // A conversation that ONLY has a wallpaper doc is not a phantom chat.
-  const api = makeEnv([cbg("me__you", "/backgrounds/bg-kelp.png", 3)]);
+  const api = makeEnv([cbg("me__you", KELP, 3)]);
   eq(api.rebuild().length, 0, "a wallpaper alone does not create an empty conversation");
 }
 {
   // Wallpaper docs must never count as unread or as the last message.
   const api = makeEnv([
     dm({ ts: 2, sender: "you", receiver: "me", read: false, text: "unread!" }),
-    cbg("me__you", "/backgrounds/bg-deep.png", 40),
+    cbg("me__you", DEEP, 40),
   ]);
   const c = api.rebuild()[0];
   eq(c.unread, 1, "unread count ignores the wallpaper doc");
@@ -155,7 +174,7 @@ console.log("\nchat background docs vs. group detection");
 {
   const api = makeEnv([]);
   eq(api.isGroupMeta({ meta: true, members: [] }), true, "a group roster doc IS group metadata");
-  eq(api.isGroupMeta({ meta: true, chatbg: "/backgrounds/bg-kelp.png" }), false, "a wallpaper doc is NOT group metadata");
+  eq(api.isGroupMeta({ meta: true, chatbg: KELP }), false, "a wallpaper doc is NOT group metadata");
   eq(api.isGroupMeta({ meta: true, chatbg: "" }), false, "a CLEARED wallpaper doc is NOT group metadata");
   eq(api.isGroupMeta({ text: "hello" }), false, "a plain message is not group metadata");
   eq(api.isGroupMeta(null), false, "null is not group metadata");
@@ -164,10 +183,10 @@ console.log("\nchat background docs vs. group detection");
 console.log("\nreading a conversation's wallpaper");
 {
   const api = makeEnv([
-    cbg("me__you", "/backgrounds/bg-kelp.png", 1),
-    cbg("me__you", "/backgrounds/bg-arctic.png", 7),   // newer wins
+    cbg("me__you", KELP, 1),
+    cbg("me__you", ARCTIC, 7),                       // newer wins
   ]);
-  eq(api.chatBgFor("me__you"), "/backgrounds/bg-arctic.png", "the newest pick wins");
+  eq(api.chatBgFor("me__you"), ARCTIC, "the newest pick wins");
   eq(api.chatBgFor("me__other"), "", "another conversation is unaffected");
   eq(api.chatBgFor(null), "", "no conversation open → no wallpaper");
 }
@@ -181,21 +200,94 @@ console.log("\nreading a conversation's wallpaper");
   const api = makeEnv([cbg("me__you", "/not/a/background.png", 9)]);
   eq(api.chatBgFor("me__you"), "", "an unknown background path is ignored");
 }
-
-console.log("\nwho may set which background");
 {
-  const free = makeEnv([]).CHAT_BG_FREE;
-  ok(free.indexOf("/backgrounds/bg-kelp.png") !== -1, "Kelp Forest is a free chat background");
-  ok(free.indexOf("/backgrounds/bg-arctic.png") !== -1, "Arctic Ocean is a free chat background");
+  // Wallpapers picked before the wide art existed were stored as the circular
+  // medallion path. They must resolve FORWARD to the wide scene, not vanish.
+  const api = makeEnv([]);
+  CATALOG_LIST.filter(b => b.legacy).forEach(b => {
+    eq(api.chatBgResolve(b.legacy), b.img, "legacy " + b.legacy + " resolves to " + b.img);
+  });
+  eq(api.chatBgResolve(""), "", "no pick resolves to no wallpaper");
+  eq(api.chatBgResolve(null), "", "a null pick resolves to no wallpaper");
+  eq(api.chatBgResolve("/backgrounds/bg-mangrove.png"), "",
+     "a medallion with no wide painting resolves to nothing rather than a circle");
+}
+{
+  const api = makeEnv([cbg("me__you", "/backgrounds/bg-kelp.png", 4)]);
+  eq(api.chatBgFor("me__you"), KELP, "a conversation wearing the OLD kelp path paints the wide kelp art");
+}
 
-  const nobody = makeEnv([], { unlocked: [] });
-  eq(nobody.chatBgOwned(""), true, "everyone may clear the background");
-  eq(nobody.chatBgOwned("/backgrounds/bg-kelp.png"), true, "Kelp Forest needs no unlock");
-  eq(nobody.chatBgOwned("/backgrounds/bg-arctic.png"), true, "Arctic Ocean needs no unlock");
-  eq(nobody.chatBgOwned("/backgrounds/bg-deep.png"), false, "Deep Ocean is locked until unlocked");
+console.log("\nchanging the background, as many times as you like");
+{
+  // The bug this section exists for: after one pick, every later pick had to
+  // stay possible. Nothing in the catalog is gated, so every tile is pickable
+  // whatever the account owns.
+  const api = makeEnv([]);
+  CATALOG_LIST.forEach(b => {
+    eq(api.chatBgResolve(b.img), b.img, b.name + " is pickable by anyone");
+  });
+  ok(!/_msgChatBgOwned|CHAT_BG_FREE/.test(SRC),
+     "no ownership gate survives on chat wallpapers");
+  ok(!/ccm-bgtile-lock/.test(SRC), "no locked-tile padlock is rendered in the picker");
+}
+{
+  // Re-picking is just another write, so the same scene twice in a row is legal
+  // and each pick lands in the local cache under the one deterministic doc id.
+  const api = makeEnv([]);
+  api.cacheLocal("me__you", "cbg_me__you", KELP);
+  eq(api.chatBgFor("me__you"), KELP, "first pick paints immediately, before the snapshot");
+  api.cacheLocal("me__you", "cbg_me__you", DEEP);
+  eq(api.chatBgFor("me__you"), DEEP, "second pick replaces the first");
+  api.cacheLocal("me__you", "cbg_me__you", DEEP);
+  eq(api.chatBgFor("me__you"), DEEP, "picking the same scene again is not an error");
+  api.cacheLocal("me__you", "cbg_me__you", "");
+  eq(api.chatBgFor("me__you"), "", "picking No Background clears it");
+  eq(api.messages().filter(m => m.id === "cbg_me__you").length, 1,
+     "four picks leave ONE wallpaper doc, not four");
+}
+{
+  // My own copy is always written, so my wallpaper can never be blocked by a
+  // conv id the client cannot parse into members.
+  const api = makeEnv([]);
+  eq(api.chatBgMembers("me__you"), ["me", "you"], "a DM mirrors to both halves, me first");
+  eq(api.chatBgMembers("you__me"), ["me", "you"], "conv id order does not decide who is written first");
+  eq(api.chatBgMembers("room_ABCD"), ["me", "room_ABCD"], "an unparseable conv id still includes me");
+  eq(api.chatBgMembers("me__me"), ["me"], "I am never written twice");
+}
+{
+  const members = [{ uid: "me", name: "Me" }, { uid: "you", name: "You" }, { uid: "a", name: "Ann" }];
+  const api = makeEnv([gmeta("g_9", members, 1)]);
+  eq(api.chatBgMembers("g_9"), ["me", "you", "a"], "a group mirrors to its whole roster, me first");
+}
 
-  const owner = makeEnv([], { unlocked: ["/backgrounds/bg-deep.png"] });
-  eq(owner.chatBgOwned("/backgrounds/bg-deep.png"), true, "an unlocked background may be used");
+console.log("\nthe wallpaper art on disk");
+{
+  // "The backgrounds are not correct" was the profile MEDALLIONS (720x720
+  // circles with a ring vignette) being used as full-bleed chat wallpaper.
+  // Every catalog entry must be the wide painting, and must ship the .webp
+  // sibling the server content-negotiates, or clients get a stale/missing image.
+  CATALOG_LIST.forEach(b => {
+    const png  = path.join(CLIENT, b.img.replace(/^\//, ""));
+    const webp = png.replace(/\.png$/, ".webp");
+    ok(fs.existsSync(png),  b.name + " PNG exists: " + b.img);
+    ok(fs.existsSync(webp), b.name + " ships a .webp sibling");
+    if (!fs.existsSync(png)) return;
+    // PNG header: width/height are big-endian uint32 at bytes 16 and 20.
+    const head = Buffer.alloc(24);
+    const fd = fs.openSync(png, "r"); fs.readSync(fd, head, 0, 24, 0); fs.closeSync(fd);
+    const w = head.readUInt32BE(16), h = head.readUInt32BE(20);
+    ok(w / h > 1.4, b.name + " is a WIDE scene, not a square medallion (" + w + "x" + h + ")");
+    ok(w >= 1200, b.name + " is full size (" + w + "px wide)");
+  });
+  ok(/^[a-z0-9_\-]+\.png$/.test(path.basename(KELP)),
+     "wallpaper filenames match the server's /backgrounds/ route pattern");
+}
+{
+  // The picker renders CHAT_BACKGROUNDS, never the medallion catalog again.
+  const sheet = SRC.slice(SRC.indexOf("function _msgRenderBgSheet("));
+  const body  = sheet.slice(0, sheet.indexOf("\n    }\n"));
+  ok(body.includes("CHAT_BACKGROUNDS"), "the picker is built from CHAT_BACKGROUNDS");
+  ok(!body.includes("EXCLUSIVE_BACKGROUNDS"), "the picker no longer renders the profile medallions");
 }
 
 console.log("\n" + (failures ? "FAILED " + failures + "/" + checks : "PASSED " + checks + " checks"));

@@ -374,6 +374,22 @@ function makeEnvNav({ authed = true, homeResp, stored } = {}) {
   check("the crash message names the screen",
         /home screen/i.test(crash.rootEl.innerHTML));
 
+  // ── The REAL bridge's timeout (preview-app.js) ────────────────────────────
+  // Every clan call is Firestore work from Render: a rename moves a name
+  // reservation, repaints the finished seasons and rewrites the roster's
+  // badges. apiFetch defaults to a 5s abort, which is far too tight for that,
+  // and aborting is worse than waiting, the write has already landed and the
+  // owner is simply told it failed. Read out of the real source, because the
+  // stubs above cannot see it.
+  const APP = fs.readFileSync(
+    path.join(__dirname, "multiplayer/client/js/preview-app.js"), "utf8");
+  const bridgeSrc = (APP.split("window.__ccClans = {")[1] || "").slice(0, 1600);
+  const bridgeTimeouts = [...bridgeSrc.matchAll(/timeoutMs:\s*(\d+)/g)].map(m => +m[1]);
+  check("the clans bridge sets its own timeout on get AND post",
+        bridgeTimeouts.length >= 2);
+  check("...well clear of apiFetch's 5s default",
+        bridgeTimeouts.length >= 2 && bridgeTimeouts.every(t => t >= 15000));
+
   console.log(`\n${"=".repeat(40)}\nRESULT: ${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
