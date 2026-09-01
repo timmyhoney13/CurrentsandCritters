@@ -39,6 +39,13 @@ if (!CHROME) {
 
 const CSS = fs.readFileSync(path.join(ROOT, "multiplayer/client/css/preview.css"), "utf8");
 const MOD = fs.readFileSync(path.join(ROOT, "multiplayer/client/js/clans-ui.js"), "utf8");
+// The Clans tab renders the season grand-prize banner through js/clan-prize.js
+// (window.__ccClanPrize). Loading it here is the difference between "clans-ui
+// calls a function" and "the banner is actually on the screen": the module is
+// optional by design, so a wiring mistake fails silently and the tab just
+// quietly loses the advert.
+const PRIZE_MOD = fs.readFileSync(path.join(ROOT, "multiplayer/client/js/clan-prize.js"), "utf8");
+const PRIZE_CSS = fs.readFileSync(path.join(ROOT, "multiplayer/client/css/clan-prize.css"), "utf8");
 
 const NOW = Math.floor(Date.now() / 1000);
 
@@ -164,6 +171,7 @@ const RESPONSES = {
 const page = `<!doctype html><html><head><meta charset="utf-8">
 <title>clans render</title>
 <style>${CSS}</style>
+<style>${PRIZE_CSS}</style>
 <style>body{margin:0;font-family:"Nunito",sans-serif;} #cc-clans-root{padding:8px;}
 /* preview.css hides the lobby and every .ph-panel until sign-in picks a tab.
    Left hidden, EVERY getBoundingClientRect() here reads 0, the overflow and
@@ -216,6 +224,13 @@ window.__ccClans = {
   currentRoom: () => "",
 };
 </script>
+<script>
+// The prize banner polls the PUBLIC clan leaderboard to name the clan currently
+// winning. In here it must render from the payload clans-ui hands it and never
+// reach the network, so the fetch is stubbed before the module loads.
+window.fetch = () => Promise.reject(new Error("no network in tests"));
+</script>
+<script>${PRIZE_MOD}</script>
 <script>${MOD}</script>
 <script>
 const out = { errors: [], screens: {} };
@@ -231,6 +246,7 @@ function snapshot(name) {
     bad: ["undefined", "NaN", "[object Object]", "{{", "}}"].filter(w => t.includes(w)),
     counts: {
       podium: q(".ccC-pod"), myclan: q(".ccC-myclan"), sections: q(".ccC-sec"),
+      prize: q(".ccCP-inner"), prizeText: (document.querySelector(".ccCP-body") || {}).innerText || "",
       stats: q(".ccC-stat"), members: q(".ccC-member"), rows: q(".ccC-table tbody tr"),
       tabs: q(".ph-lb-mode-btn"), goalbars: q(".ccC-goalbar"),
       countdown: (document.querySelector(".ccC-count") || {}).innerText || "",
@@ -743,6 +759,21 @@ const home = D.screens.home || { counts: {}, bad: [] };
 // Your own clan is the hero card; the podium shows the clans that are NOT
 // yours. Drawing it in both places is what put two identically named clans on
 // one screen and read as a duplicate clan.
+// The season grand prize ($100 towards a board game for the #1 clan). It is
+// rendered through window.__ccClanPrize, which is OPTIONAL by design, so a
+// broken wiring does not throw: the advert just silently stops appearing.
+// These are the checks that would have caught that.
+check("home: the season prize banner is on the screen", home.counts.prize === 1,
+      "banners=" + home.counts.prize);
+check("home: it names the prize", (home.counts.prizeText || "").includes("$100"),
+      home.counts.prizeText);
+// ...and deliberately does NOT name the leader or repeat the countdown here.
+// The podium below already names the leader and the season block already runs
+// the clock, and saying either again puts the same clan on the screen twice.
+check("home: it does not repeat the leader the podium already names",
+      !(home.counts.prizeText || "").includes("Reef Riders"), home.counts.prizeText);
+check("home: it does not repeat the season block's countdown",
+      !/\d+d \d+h left/.test(home.counts.prizeText || ""), home.counts.prizeText);
 check("home: my clan row rendered", home.counts.myclan >= 1);
 check("home: the podium shows the OTHER clans, not yours too",
       home.counts.podium === 2, "podium=" + home.counts.podium);
@@ -859,6 +890,8 @@ check("activity log: trade line hides the items",
       (log.text || "").includes("completed a clan trade") && !/coins/i.test(log.text || ""));
 
 const lb = D.screens.leaderboard || { counts: {}, bad: [] };
+check("leaderboard: the prize banner is on the screen too", lb.counts.prize === 1,
+      "banners=" + lb.counts.prize);
 check("leaderboard: a row per clan", lb.counts.rows === 3, "rows=" + lb.counts.rows);
 // With three clans or fewer the podium IS the table: showing both put every
 // clan on the screen twice.

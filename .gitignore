@@ -140,6 +140,11 @@
 # time, and proved not to fire a step early, or to fire anything else by
 # accident. Also covers the telemetry multiplayer_server derives to feed them.
 !test_clan_challenges.py
+# Clans: the season grand prize banner ($100 towards a board game for the #1
+# clan). Mostly there to hold the banner's fallback copy equal to the
+# SEASON_GRAND_PRIZE_* constants in clan_server.py, so the advert can never
+# promise a prize the server does not name.
+!test_clan_prize.js
 !test_tournament_engine.py
 !test_tournament_server.py
 !test_tournament_integration.py
