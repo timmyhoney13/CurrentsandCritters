@@ -3669,6 +3669,15 @@ class Seat:
     # anything. Prestige is NOT here, that is looked up from the Prestige
     # service, which is the authority on it.
     level: int = 0
+    # The rest of the waiting-room card, on the same terms: XP progress toward
+    # the next level, this player's best score and how many games they have
+    # played, and their level title. All of it is drawn and nothing else, so a
+    # client that lies about it only lies about its own name plate.
+    xp: int = 0
+    xp_goal: int = 0
+    best: int = 0
+    games: int = 0
+    title: str = ""
     difficulty: str = "medium"  # easy | medium | hard (only meaningful for ai seats)
     # Surf's Up! player explicitly marked themselves Away. Turn pauses
     # indefinitely on this seat; other seats cannot draw for them.
@@ -4557,6 +4566,11 @@ class GameRoom:
                     "avatar": seat.avatar or "",
                     "background": seat.background or "",
                     "level": int(getattr(seat, "level", 0) or 0),
+                    "xp": int(getattr(seat, "xp", 0) or 0),
+                    "xp_goal": int(getattr(seat, "xp_goal", 0) or 0),
+                    "best": int(getattr(seat, "best", 0) or 0),
+                    "games": int(getattr(seat, "games", 0) or 0),
+                    "title": str(getattr(seat, "title", "") or ""),
                     "difficulty": str(seat.difficulty or "medium"),
                     "is_away": bool(getattr(seat, "is_away", False)),
                     "inactive_eligible": bool(getattr(seat, "inactive_eligible", False)),
@@ -5531,6 +5545,8 @@ class GameRoom:
                     seat.avatar = None
                     seat.background = None
                     seat.level = 0
+                    seat.xp = seat.xp_goal = seat.best = seat.games = 0
+                    seat.title = ""
                     seat.left_at = None
                     seat.quick_play_ticket = None
                     seat.kicked = False
@@ -5552,6 +5568,8 @@ class GameRoom:
                     seat.avatar = None
                     seat.background = None
                     seat.level = 0
+                    seat.xp = seat.xp_goal = seat.best = seat.games = 0
+                    seat.title = ""
                     seat.left_at = None
                     seat.quick_play_ticket = None
                     seat.kicked = False
@@ -5677,6 +5695,8 @@ class GameRoom:
                     seat.avatar = None
                     seat.background = None
                     seat.level = 0
+                    seat.xp = seat.xp_goal = seat.best = seat.games = 0
+                    seat.title = ""
                     seat.left_at = None
                     seat.quick_play_ticket = None
                     changed = True
@@ -5690,6 +5710,8 @@ class GameRoom:
                     seat.avatar = None
                     seat.background = None
                     seat.level = 0
+                    seat.xp = seat.xp_goal = seat.best = seat.games = 0
+                    seat.title = ""
                     seat.left_at = None
                     seat.quick_play_ticket = None
                     changed = True
@@ -5779,6 +5801,8 @@ class GameRoom:
                     seat.avatar = None
                     seat.background = None
                     seat.level = 0
+                    seat.xp = seat.xp_goal = seat.best = seat.games = 0
+                    seat.title = ""
                     seat.left_at = None
                     seat.quick_play_ticket = None
                 if seat.kind == "ai":
@@ -10026,6 +10050,8 @@ class GameRoom:
                 s.avatar = None
                 s.background = None
                 s.level = 0
+                s.xp = s.xp_goal = s.best = s.games = 0
+                s.title = ""
                 s.kicked = False
 
         # The room always needs a host. If the kicked player was holding it,
@@ -10293,9 +10319,17 @@ class GameRoom:
         seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
         # Only accept our own avatar image paths; ignore anything else.
         avatar = _clean_avatar_path(body.get("avatar"))
-        # Level rides along with the face (see Seat.level). Absent leaves it be,
-        # so an old client that only sends an avatar never blanks the number.
+        # The name plate rides along with the face (see Seat.level and friends).
+        # Absent leaves each one be, so an old client that only sends an avatar
+        # never blanks numbers it does not know about.
         level = clamp_int(body.get("level"), 0, 0, 100) if body.get("level") is not None else None
+        card: Dict[str, Any] = {}
+        for key, hi in (("xp", 10_000_000), ("xp_goal", 10_000_000),
+                        ("best", 100_000), ("games", 1_000_000)):
+            if body.get(key) is not None:
+                card[key] = clamp_int(body.get(key), 0, 0, hi)
+        if body.get("title") is not None:
+            card["title"] = safe_name(body.get("title"), "")[:32]
         with self.cond:
             seat = self._seat_from_token_locked(seat_token)
             if seat is None:
@@ -10305,12 +10339,15 @@ class GameRoom:
             # a stranger's default icon for the whole match.
             owned = self._owned_seats_locked(seat)
             level_same = level is None or all(s.level == level for s in owned)
-            if level_same and all(s.avatar == (avatar or None) for s in owned):
+            card_same = all(getattr(s, k, None) == v for s in owned for k, v in card.items())
+            if level_same and card_same and all(s.avatar == (avatar or None) for s in owned):
                 return {"ok": True, "avatar": seat.avatar or ""}
             for s in owned:
                 s.avatar = avatar or None
                 if level is not None:
                     s.level = level
+                for k, v in card.items():
+                    setattr(s, k, v)
             self._persist_dirty = True
             self._bump_locked()
         return {"ok": True, "avatar": seat.avatar or ""}
