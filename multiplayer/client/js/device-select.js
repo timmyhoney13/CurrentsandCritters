@@ -45,6 +45,7 @@
   }
   function apply(device) {
     var mobile = device === "mobile";
+    var changed = device !== _device;
     _device = device;
     window.CC_DEVICE = device;
     window.CC_IS_MOBILE = mobile;
@@ -57,7 +58,40 @@
     // The in-game viewport is built from CC_IS_MOBILE, so a mode that changes
     // after boot has to rebuild it or the player keeps the old one.
     try { if (typeof window.ccRefreshGameViewport === "function") window.ccRefreshGameViewport(); } catch (e) {}
+    // The rest of the room is told what we are on, so the chip on our seat is
+    // right for everybody else. Only on a real change: this fires on the first
+    // touch of a laptop that guessed "computer", which is exactly the moment
+    // the table's copy of us goes stale.
+    if (changed) {
+      try { if (typeof window.ccOnDeviceChange === "function") window.ccOnDeviceChange(device); } catch (e) {}
+    }
   }
+
+  // ── How a device is SAID, everywhere it is printed ───────────────────
+  // The waiting room, the in-game seats, the spectator list and the Friends
+  // tab all show this, and they must not each invent their own wording. One
+  // table, one answer. Returns null for "we were not told", which every caller
+  // draws as nothing at all rather than as a guess.
+  var LABELS = {
+    computer: { icon: "\uD83D\uDCBB", label: "Computer", short: "PC" },
+    mobile:   { icon: "\uD83D\uDCF1", label: "Mobile",   short: "Mobile" }
+  };
+  window.ccDeviceLabel = function (device) {
+    var key = String(device || "").trim().toLowerCase();
+    var row = LABELS[key];
+    if (!row) return null;
+    return {
+      device: key,
+      icon: row.icon,
+      label: row.label,
+      short: row.short,
+      text: row.icon + " " + row.label,
+      // Said in full on hover, because the icon alone is a rebus.
+      title: key === "mobile"
+        ? "Playing on a phone or tablet"
+        : "Playing on a computer"
+    };
+  };
   // read() is kept for callers that want the current answer.
   function read() { return _device; }
 

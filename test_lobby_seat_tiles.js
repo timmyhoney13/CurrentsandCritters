@@ -301,7 +301,8 @@ const CHROME = [
 ].find((p) => fs.existsSync(p));
 
 function page() {
-  const fns = ["_wrEl", "_wrChip", "_wrBgName", "_wrNum", "_wrRemoveBtn", "_wrLock",
+  const fns = ["_wrEl", "_wrChip", "_wrSeatDevice", "_wrDeviceChip", "_wrBgName",
+               "_wrNum", "_wrRemoveBtn", "_wrLock",
                "_wrSeatAvatarUrl", "_wrCounts", "buildDifficultyBox", "_wrLoadPrestige",
                "_wrSeatCard", "_wrAddCard", "_wrRenderCapacity", "renderSeatTilesInto",
                "_wrChatAvatar", "_wrRenderChat"].map(grabFn).join("\n\n");

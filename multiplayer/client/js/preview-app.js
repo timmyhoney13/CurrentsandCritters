@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-01.7";
+  const APP_BUILD   = "2026-09-02.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "\uD83D\uDCBB\uD83D\uDCF1 You can see who is on a phone", items: [
+      "Every screen that lists the people in a room now says what they are playing on. In the waiting room it is a chip on their card, Computer or Mobile. In the game it is a small badge on the corner of their critter. Watchers get one too.",
+      "The Friends tab says it as well, under the green dot, for anybody who is online right now. A friend who is offline does not show one: the last machine they were on is not where they are.",
+      "Nobody has to choose or set anything. Your browser already knows whether it is being tapped or clicked, and if you move from your laptop to your phone mid-game the table sees that the moment you touch the screen.",
+    ]},
     { ver: "V1.7.1", title: "\uD83C\uDF0A Competitive Points are now Ocean Points", items: [
       "The points you win and lose in ranked play are called Ocean Points, and they are shown as OP everywhere: the leaderboard and its tab, your rank panel and the bar toward the next division, the end-of-game screen, your match history, the season standings and the tutorial.",
       "Only the name changed. Every point you have already earned, your rank and your place on the ladder are exactly where you left them.",
@@ -2542,6 +2547,19 @@
       nameEl.className = "spec-name";
       nameEl.textContent = s.name;
       row.appendChild(nameEl);
+      // Watchers report a device too, on the same terms as the players.
+      try {
+        const _sd = (typeof window.ccDeviceLabel === "function")
+          ? window.ccDeviceLabel(String(s.device || "")) : null;
+        if (_sd) {
+          const dv = document.createElement("span");
+          dv.className = "spec-device";
+          dv.textContent = _sd.icon;
+          dv.title = (s.name || "This watcher") + ": " + _sd.title;
+          dv.setAttribute("aria-label", (s.name || "Watcher") + " is on " + _sd.label);
+          row.appendChild(dv);
+        }
+      } catch (e) {}
       if (s.kick_votes > 0) {
         const prog = document.createElement("span");
         prog.className = "spec-kick-progress";
@@ -2891,6 +2909,17 @@
                     : isOpen ? "Open"
                     : (s.claimed_name + (isMe ? " (You)" : ""));
         chip.innerHTML = `<span class="wr-chip-dot"></span><span class="wr-chip-name">${_hesc(label)}</span>`;
+        // These chips are a single line with no room for a word, so the team
+        // lobby prints the icon alone and puts the sentence on the tooltip.
+        const _tdev = _wrSeatDevice(s);
+        if (_tdev) {
+          const dv = document.createElement("span");
+          dv.className = "wr-chip-device-icon";
+          dv.textContent = _tdev.icon;
+          dv.title = (s.claimed_name || "This player") + ": " + _tdev.title;
+          dv.setAttribute("aria-label", (s.claimed_name || "Player") + " is on " + _tdev.label);
+          chip.appendChild(dv);
+        }
         const canSwap = iAmHuman && !isMe && !isAI && !isOpen && s.team !== myTeam;
         if (canSwap) {
           chip.classList.add("can-swap");
@@ -3028,6 +3057,28 @@
     return el;
   }
   function _wrChip(text, cls) { return _wrEl("span", "wr-chip" + (cls ? " " + cls : ""), text); }
+  // What a seat is playing ON, ready to print. Null when nobody said (a bot, an
+  // open chair, or a client too old to report one) and every caller then draws
+  // nothing rather than guessing. My OWN seat is answered from the local
+  // detection, which is a server round-trip ahead of the relayed copy.
+  function _wrSeatDevice(s) {
+    if (!s || s.kind === "ai") return null;
+    const mine = (latestPayload && latestPayload.viewer
+                  && typeof latestPayload.viewer.seat_index === "number"
+                  && latestPayload.viewer.seat_index === s.index);
+    const dev = mine ? String(window.CC_DEVICE || s.device || "") : String(s.device || "");
+    try { return (typeof window.ccDeviceLabel === "function") ? window.ccDeviceLabel(dev) : null; }
+    catch (e) { return null; }
+  }
+  // The same thing as a chip, so the lobby's three layouts (seat grid, team
+  // rows, competitive pairs) all say it identically.
+  function _wrDeviceChip(s) {
+    const d = _wrSeatDevice(s);
+    if (!d) return null;
+    const chip = _wrChip(d.text, "wr-chip-device wr-chip-device-" + d.device);
+    chip.title = (s.claimed_name || "This player") + ": " + d.title;
+    return chip;
+  }
   // A background's real name ("Deep Ocean"), from the catalogue that owns it.
   // Filing the filename down gives "Deep", which is not what it is called.
   let _wrBgNames = null;
@@ -3224,6 +3275,10 @@
     // ── the footer chips ──
     if (!isAI && !isOpen) {
       const foot = _wrEl("div", "wr-seat-foot");
+      // Computer or phone, first in the row: it is the one fact on this tile
+      // that changes how the person plays rather than how they look.
+      const _dchip = _wrDeviceChip(s);
+      if (_dchip) foot.appendChild(_dchip);
       if (s.background) foot.appendChild(_wrChip("🖼 " + _wrBgName(s.background), "wr-chip-bg"));
       if (s.is_host) foot.appendChild(_wrChip("👑 Host", "wr-chip-host"));
       else foot.appendChild(_wrChip("Seat " + (s.index + 1), null));
@@ -3624,6 +3679,16 @@
           const firstName = gs.find(s => s.claimed_name)?.claimed_name?.replace(/ 2$/, "") || label;
           nm.className = "wr-player-name";
           nm.textContent = `${label}: ${firstName} (2 hands)`;
+          // Both hands are one person on one device, so it is said once.
+          const _cdev = _wrSeatDevice(gs.find(s => s.claimed_name));
+          if (_cdev) {
+            const dv = document.createElement("span");
+            dv.className = "wr-chip-device-icon";
+            dv.textContent = _cdev.icon;
+            dv.title = firstName + ": " + _cdev.title;
+            dv.setAttribute("aria-label", firstName + " is on " + _cdev.label);
+            nm.appendChild(dv);
+          }
         } else {
           nm.className = "wr-player-empty";
           nm.textContent = `${label}: Waiting to join…`;
@@ -7983,7 +8048,7 @@
     renderHand(me, legalActions, mustDiscard, discardExcess);
     renderPlayerSeats(players, state.turn_index, myIdx);
     // Make sure the server has our current avatar + background for this seat (self-throttled).
-    if (myIdx != null) { try { pushMySeatAvatar(); } catch (e) {} try { pushMySeatBackground(); } catch (e) {} }
+    if (myIdx != null) { try { pushMySeatAvatar(); } catch (e) {} try { pushMySeatBackground(); } catch (e) {} try { pushMySeatDevice(); } catch (e) {} }
     renderActionBar(legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive);
     renderGuideBar(me, legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive);
     try { window._applyStrategyHighlights && window._applyStrategyHighlights(); } catch (e) {}
@@ -8096,6 +8161,7 @@
       // the same guarantee a seated player gets on every poll.
       try { pushMySeatAvatar(); } catch (e) {}
       try { pushMySeatBackground(); } catch (e) {}
+      try { pushMySeatDevice(); } catch (e) {}
       // Detect if we've been kicked (our token gone, server won't return ok)
       // The poll error path handles room not found; kicked spectators get a 403
       // which is caught by the applyServerPayload guard. If state has spectator:true
@@ -8840,7 +8906,7 @@
   // changes hands the next person may be wearing what the last one wore, and
   // the throttle would then send nothing at all, so the memory is cleared with
   // everything else that belonged to the previous identity.
-  window.__fishForgetPushedAvatar = function () { _lastPushedAvatar = ""; _lastPushedBg = ""; };
+  window.__fishForgetPushedAvatar = function () { _lastPushedAvatar = ""; _lastPushedBg = ""; _lastPushedDevice = ""; };
 
   // Push our equipped background to the server for this seat so every client
   // renders it behind our avatar. Self-throttled like the avatar push.
@@ -8870,6 +8936,47 @@
   // Called when the player equips/removes a background mid-session.
   window.__fishReportBackground = function () { _lastPushedBg = ""; try { pushMySeatBackground(); } catch (e) {} };
 
+  // Tell the room what we are playing ON, so every other client can show a
+  // 💻/📱 chip on our seat. Throttled like the two pushes above.
+  //
+  // Its own push rather than a field on the avatar one: that push is skipped
+  // whenever the avatar has not changed AND whenever the player has no avatar
+  // at all, so a device would have ridden on a request that often never goes.
+  // Detection can also flip after boot (a laptop that guessed "computer" and
+  // then got touched), which is a change to this and to nothing else.
+  let _lastPushedDevice = "";
+  function pushMySeatDevice() {
+    if (!roomId) return;
+    const dev = String(window.CC_DEVICE || "");
+    if (!dev) return;                       // nothing worked out yet: say nothing
+    const key = roomId + "|" + dev;
+    if (key === _lastPushedDevice) return;
+    if (isSpectating()) {                   // no seat: report under the watcher token
+      _lastPushedDevice = key;
+      try {
+        apiPost(`/api/rooms/${_spectatorRoomId}/device`,
+          { spectator_token: _spectatorToken, device: dev }, { timeoutMs: 6000 }).catch(() => {});
+      } catch (e) {}
+      return;
+    }
+    const tok = (typeof getSeatToken === "function") ? getSeatToken() : "";
+    if (!tok) return;
+    _lastPushedDevice = key;
+    try {
+      apiPost(`/api/rooms/${roomId}/device`, { seat_token: tok, device: dev }, { timeoutMs: 6000 }).catch(() => {});
+    } catch (e) {}
+  }
+  window.__fishPushSeatDevice = pushMySeatDevice;
+  // device-select.js calls this the moment a real finger or mouse changes the
+  // answer. Forget the throttle first, or the new answer is the one that never
+  // gets sent.
+  window.ccOnDeviceChange = function () {
+    _lastPushedDevice = "";
+    try { pushMySeatDevice(); } catch (e) {}
+    // Our own presence doc carries it too, for the Friends tab.
+    try { window.__fishReportPresenceDevice?.(); } catch (e) {}
+  };
+
   function renderPlayerSeats(players, turnIndex, myIdx) {
     const leftEl  = document.getElementById("pv-seats-left");
     const rightEl = document.getElementById("pv-seats-right");
@@ -8889,8 +8996,8 @@
     let _myBgKey = "";
     try { if (typeof window.__fishEquippedBackground === "function") _myBgKey = String(window.__fishEquippedBackground() || ""); } catch (_) { _myBgKey = ""; }
     const _seatsKey = JSON.stringify(
-      (players||[]).map(p=>{const _sm=(_latestSeatsForSurf||[]).find(s=>s&&s.index===p.index);return{i:p.index,n:p.name,s:p.score,hc:p.hand_count??(Array.isArray(p.hand)?p.hand.length:0),av:p.avatar,bg:String(p.background||""),aw:Boolean(_sm&&_sm.is_away),kk:Boolean(_sm&&_sm.kicked)};})
-    ) + "|" + turnIndex + "|" + myAvatarUrl + "|" + _myBgKey;
+      (players||[]).map(p=>{const _sm=(_latestSeatsForSurf||[]).find(s=>s&&s.index===p.index);return{i:p.index,n:p.name,s:p.score,hc:p.hand_count??(Array.isArray(p.hand)?p.hand.length:0),av:p.avatar,bg:String(p.background||""),aw:Boolean(_sm&&_sm.is_away),kk:Boolean(_sm&&_sm.kicked),dv:String((_sm&&_sm.device)||"")};})
+    ) + "|" + turnIndex + "|" + myAvatarUrl + "|" + _myBgKey + "|" + String(window.CC_DEVICE || "");
     if (_seatsKey === _seatsRenderKey && leftEl.children.length > 0) return;
     _seatsRenderKey = _seatsKey;
     leftEl.innerHTML  = "";
@@ -8967,6 +9074,34 @@
       }
       _applyAvBg(aw, seatBg);
 
+      // What they are playing on, on the rim of their face. The badge cannot
+      // live INSIDE the avatar wrap: that wrap is a circle with overflow
+      // hidden (it has to be, or an equipped background bleeds out of it), so
+      // anything on its edge would be sliced in half. It goes in a box around
+      // the wrap instead, which clips nothing.
+      //
+      // For MY seat the locally detected answer wins, exactly as it does for
+      // the avatar and the background above: the relayed copy is a server
+      // round-trip behind, so on the first touch of a laptop my own badge
+      // would otherwise still say Computer. A bot has no device and no badge.
+      const avBox = document.createElement("div");
+      avBox.className = "pv-seat-avbox";
+      avBox.appendChild(aw);
+      {
+        const _sMeta = (_latestSeatsForSurf || []).find(x => x && x.index === p.index) || null;
+        let _dev = String((_sMeta && _sMeta.device) || "");
+        if (isMe) _dev = String(window.CC_DEVICE || _dev || "");
+        const _dl = (typeof window.ccDeviceLabel === "function") ? window.ccDeviceLabel(_dev) : null;
+        if (_dl && !(_sMeta && _sMeta.kind === "ai")) {
+          const dchip = document.createElement("div");
+          dchip.className = "pv-seat-device pv-seat-device-" + _dl.device;
+          dchip.textContent = _dl.icon;
+          dchip.title = (p.name || "This player") + ": " + _dl.title;
+          dchip.setAttribute("aria-label", (p.name || "Player") + " is on " + _dl.label);
+          avBox.appendChild(dchip);
+        }
+      }
+
       const nm = document.createElement("div");
       nm.className = "pv-seat-name";
       const plabel = document.createElement("span");
@@ -8990,7 +9125,7 @@
       const hcSeat = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
       sc.textContent = (p.score ?? 0) + " pts · 🃏" + hcSeat;
 
-      seat.appendChild(aw);
+      seat.appendChild(avBox);
       seat.appendChild(nm);
       seat.appendChild(sc);
       if (isMe) {
@@ -21354,13 +21489,22 @@
       if (!_db || !uid) return;
       try {
         const payload = { online: isOnline };
-        if (isOnline) payload.last_active = firebase.firestore.FieldValue.serverTimestamp();
+        // What they are on rides along with the heartbeat, so the Friends tab
+        // can say "Online · 📱" without a second read or a second write. It is
+        // only ever written alongside a TRUE ping: a device recorded next to
+        // "offline" is a fact about a browser that is no longer there.
+        const dev = String(window.CC_DEVICE || "");
+        if (isOnline) {
+          payload.last_active = firebase.firestore.FieldValue.serverTimestamp();
+          if (dev) payload.device = dev;
+        }
         await _db.collection("users").doc(uid).update(payload);
         if (_authUser && _authUser.uid === uid) {
           _activeProfile = {
             ...(_activeProfile || {}),
             uid,
             online: !!isOnline,
+            ...(isOnline && dev ? { device: dev } : {}),
             last_active: isOnline ? new Date() : (_activeProfile?.last_active || null),
           };
           syncStatsHeader(_activeProfile);
@@ -21377,6 +21521,12 @@
       _presenceInterval = null;
       setOnlineStatus(uid, false);
     }
+    // Detection flipped after boot (a laptop that was guessed and then touched).
+    // The heartbeat is 90 seconds apart, which is a long time to be shown on the
+    // wrong machine, so the change is written straight away.
+    window.__fishReportPresenceDevice = function () {
+      try { if (_authUser && _authUser.uid) setOnlineStatus(_authUser.uid, true); } catch (e) {}
+    };
     function isFriendOnline(profile) {
       if (!profile) return false;
       if (!profile.online) return false;
@@ -21384,6 +21534,22 @@
       if (!ts) return false;
       const ms = typeof ts.toMillis === "function" ? ts.toMillis() : Number(ts) * 1000;
       return (Date.now() - ms) < 5 * 60 * 1000; // online within 5 min
+    }
+    // The device chunk of a friend row: "💻 Computer" while they are online,
+    // nothing at all otherwise. Offline is the important half of that rule. The
+    // device stored on a profile is where that person was when they were last
+    // here, and printing it under "Offline" would read as where they are now.
+    function friendDeviceHtml(profile, isOnline) {
+      if (!isOnline) return "";
+      let d = null;
+      try {
+        d = (typeof window.ccDeviceLabel === "function")
+          ? window.ccDeviceLabel(profile && profile.device) : null;
+      } catch (e) { d = null; }
+      if (!d) return "";
+      return '<span class="ph-fr-device ph-fr-device-' + d.device + '" title="'
+        + escapeHtml(d.title) + '" aria-label="' + escapeHtml("On " + d.label) + '">'
+        + d.icon + ' ' + escapeHtml(d.label) + '</span>';
     }
 
     // ── Friend requests ──────────────────────────────────────────
@@ -21704,8 +21870,8 @@
       { r: 1, s: 184, t: "2026-04-28T12:00:00Z", opp: "Starter Reef", pc: 4, mode: "normal" },
     ];
     const HOME_REFERENCE_FRIENDS = [
-      { uid: "__home_twin__", nickname: "TwinMidi", isOnline: true, avatarUrl: "player-home-friend-twin.jpg" },
-      { uid: "__home_mom__", nickname: "MomOfFishMan", isOnline: false, avatarUrl: "player-home-friend-mom.jpg" },
+      { uid: "__home_twin__", nickname: "TwinMidi", isOnline: true, device: "mobile", avatarUrl: "player-home-friend-twin.jpg" },
+      { uid: "__home_mom__", nickname: "MomOfFishMan", isOnline: false, device: "computer", avatarUrl: "player-home-friend-mom.jpg" },
     ];
     const HOME_REFERENCE_STATS = {
       completed_games: 24,
@@ -21770,7 +21936,7 @@
         row.className = "ph-fr";
         const level = Number.isFinite(Number(f.level)) ? Math.max(1, Math.floor(Number(f.level))) : 1;
         const activeText = f.isOnline ? "Active now" : (f.lastActiveLabel || "Last active: unknown");
-        row.innerHTML = `<div class="ph-fr-av"><img src="${escapeHtml(_avSrc(f.avatarUrl))}" alt="${escapeHtml(f.nickname)} avatar" loading="lazy"></div><div class="ph-fr-main"><div class="ph-fr-name" data-cc-pname="${escapeHtml(f.uid || f.nickname)}">${escapeHtml(f.nickname)}</div><div class="ph-fr-meta">Level ${level} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
+        row.innerHTML = `<div class="ph-fr-av"><img src="${escapeHtml(_avSrc(f.avatarUrl))}" alt="${escapeHtml(f.nickname)} avatar" loading="lazy"></div><div class="ph-fr-main"><div class="ph-fr-name" data-cc-pname="${escapeHtml(f.uid || f.nickname)}">${escapeHtml(f.nickname)}</div><div class="ph-fr-meta">Level ${level} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}${friendDeviceHtml(f, f.isOnline)}</div>`;
         previewEl.appendChild(row);
       });
     }
@@ -22906,7 +23072,7 @@
           : `<div class="ph-fr-av">${safeInitial(liveNick || "?")}</div>`;
         const d = document.createElement("div");
         d.className = "ph-fr";
-        d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name" data-cc-pname="${escapeHtml(f.uid || f.nickname || "")}">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${online ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${online ? "Online" : "Offline"}</div>`;
+        d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name" data-cc-pname="${escapeHtml(f.uid || f.nickname || "")}">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${online ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${online ? "Online" : "Offline"}${friendDeviceHtml(profile, online)}</div>`;
         previewEl.appendChild(d);
       });
     }
@@ -33351,7 +33517,7 @@
           const avatarHtml = `<div class="ph-fr-av"><img src="${escapeHtml(_avSrc(f.avatarUrl))}" alt="${friendName} avatar" loading="lazy"></div>`;
           const level = Number.isFinite(Number(f.level)) ? Math.max(1, Math.floor(Number(f.level))) : 1;
           const activeText = f.isOnline ? "Active now" : (f.lastActiveLabel || "Last active: unknown");
-          d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name" data-cc-pname="${escapeHtml(f.uid || f.nickname || "")}">${friendName}</div><div class="ph-fr-meta">Level ${level} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
+          d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name" data-cc-pname="${escapeHtml(f.uid || f.nickname || "")}">${friendName}</div><div class="ph-fr-meta">Level ${level} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}${friendDeviceHtml(f, f.isOnline)}</div>`;
           list.appendChild(d);
         });
         paintFriendsOnlineCount(HOME_REFERENCE_FRIENDS);
@@ -33488,13 +33654,14 @@
           ? String(avatarProfile.current_room_id).trim() : "";
         const inGame = f.isOnline && !!friendRoomId;
         let statusHtml, extraHtml = "";
+        const deviceHtml = friendDeviceHtml(avatarProfile, f.isOnline);
         if (inGame) {
-          statusHtml = `<div class="ph-fr-status ph-fr-ingame"><div class="ph-fr-dot"></div>In Game</div>`;
+          statusHtml = `<div class="ph-fr-status ph-fr-ingame"><div class="ph-fr-dot"></div>In Game${deviceHtml}</div>`;
           // Check if the game is publicly spectatable (we can't know allow_spectators without fetching state)
           // Offer a Spectate button; the join endpoint will tell us if spectators aren't allowed.
           extraHtml = `<button class="ph-fr-spectate-btn" data-rid="${escapeHtml(friendRoomId)}">👁 Spectate Game</button>`;
         } else {
-          statusHtml = `<div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
+          statusHtml = `<div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}${deviceHtml}</div>`;
         }
         d.innerHTML = `${favoriteHtml}<div class="ph-fr-main"><div class="ph-fr-name ph-fr-clickable" data-cc-pname="${escapeHtml(f.uid || f.nickname || "")}">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div>${extraHtml}</div>${statusHtml}`;
         // Clicking avatar or name opens public profile

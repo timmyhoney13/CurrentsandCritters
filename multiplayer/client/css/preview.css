@@ -2443,6 +2443,37 @@
       white-space: nowrap;
       box-shadow: 0 2px 4px rgba(208,56,56,.3);
     }
+    /* WHAT THEY ARE PLAYING ON, on the rim of the face.
+       It rides on the avatar rather than in the name row because the name row
+       is the tightest line on the board (P-label + name + prestige badge) and
+       a seat cluster is eight of these at once. Small on purpose: it is
+       background information, not a score.
+       .pv-seat-avbox is a plain box around the avatar wrap with no clipping of
+       its own. The wrap itself is a circle with overflow:hidden (which it has
+       to be, or an equipped background bleeds past it), so a badge parented to
+       the WRAP would be sliced in half by that circle. */
+    .pv-seat-avbox {
+      position: relative;
+      flex: 0 0 auto;
+      display: inline-flex;
+      line-height: 0;
+    }
+    .pv-seat-device {
+      position: absolute;
+      right: -2px; bottom: -2px;
+      z-index: 3;
+      width: 17px; height: 17px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; line-height: 1;
+      background: #ffffff;
+      border: 1.5px solid #cfe4f6;
+      box-shadow: 0 1px 3px rgba(8,30,55,.3);
+      pointer-events: none;
+    }
+    .pv-seat-device-mobile   { border-color: #7fd6a6; }
+    .pv-seat-device-computer { border-color: #7fbde8; }
+
     /* Own seat: avatar is clickable to open gallery when it's not your turn */
     .pv-seat.pv-seat-me-avatar-clickable { cursor: pointer; }
     .pv-seat.pv-seat-me-avatar-clickable .pv-seat-avatar-wrap {
@@ -3216,6 +3247,16 @@
     .wr-chip-you   { background: linear-gradient(180deg,#fff3d0,#ffe6a3); border-color: #e6b74a; color: #6b4b06; }
     .wr-chip-bg    { background: linear-gradient(180deg,#dff1ff,#c4e4fb); border-color: #6ab3e8; color: #175da8; }
     .wr-chip-wait  { background: rgba(255,255,255,.75); border-color: rgba(44,77,128,.2); color: #7d99bd; }
+    /* Computer / phone. Two shades so the two answers are told apart at a
+       glance across a grid of eight tiles, without reading either of them. */
+    .wr-chip-device-computer { background: linear-gradient(180deg,#e3ecf8,#cbdcf2); border-color: #8fb2da; color: #26548f; }
+    .wr-chip-device-mobile   { background: linear-gradient(180deg,#dcf6e8,#bfeed4); border-color: #63c795; color: #14663f; }
+    /* The same fact where there is only room for the icon: the team columns
+       and the competitive pair rows. */
+    .wr-chip-device-icon {
+      flex: 0 0 auto; margin-left: auto; padding-left: 4px;
+      font-size: 12px; line-height: 1; opacity: .95;
+    }
 
     .wr-xp { width: 100%; }
     .wr-xp-bar { height: 7px; border-radius: 99px; background: rgba(47,110,186,.18); overflow: hidden; }
@@ -6211,6 +6252,7 @@
     @media (max-width: 520px) {
       .pv-seat { width: 53px; padding: 5px 1px; }
       .pv-seat-avatar-wrap { width: 32px; height: 32px; }
+      .pv-seat-device { width: 14px; height: 14px; font-size: 7.5px; }
       .pv-seat-name { font-size: 9.5px; max-width: 50px; }
       .pv-seat-cluster { padding: 5px 3px; }
     }
@@ -6264,6 +6306,7 @@
       .pv-seat-cluster { padding: 3px 3px; gap: 2px; border-radius: 12px; }
       .pv-seat { width: 50px; padding: 3px 1px; gap: 1px; }
       .pv-seat-avatar-wrap { width: 26px; height: 26px; }
+      .pv-seat-device { width: 12px; height: 12px; font-size: 6.5px; border-width: 1px; }
       .pv-seat-name { font-size: 9px; max-width: 46px; }
       .pv-seat-score { font-size: 9px; }
       .pv-seat-me-badge { font-size: 9px; }
@@ -9465,6 +9508,25 @@
     .ph-fr-online .ph-fr-dot { background: #2ebf67; box-shadow: 0 0 6px rgba(46,191,103,.9); }
     .ph-fr-offline { color: #7d97b0; }
     .ph-fr-offline .ph-fr-dot { background: #c7d6e3; }
+    /* WHAT AN ONLINE FRIEND IS ON, under their status.
+       The row is a three-column grid whose last column is this status block,
+       so the device goes INSIDE that block and takes a line of its own
+       (flex-basis:100% on a wrapping flex row) rather than widening the
+       column and squeezing the name. Never shown for an offline friend: the
+       stored device is where they were when they were last here, and printed
+       under "Offline" it would read as where they are now. */
+    .ph-fr-status { flex-wrap: wrap; justify-content: flex-end; }
+    .ph-fr-device {
+      flex: 0 0 100%;
+      text-align: right;
+      margin-top: 1px;
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .1px;
+      color: #6f8dad;
+    }
+    .ph-fr-device-mobile   { color: #2c8f60; }
+    .ph-fr-device-computer { color: #3d78b8; }
     .ph-empty {
       padding: 20px;
       text-align: center;
@@ -13856,6 +13918,9 @@
     }
     .spec-list-row .spec-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
     .spec-list-row .spec-name { flex:1; }
+    /* A watcher reports a device too. Icon only: this list is a narrow strip
+       beside the board and the tooltip carries the sentence. */
+    .spec-list-row .spec-device { flex:0 0 auto; font-size:12px; line-height:1; opacity:.9; }
     .spec-kick-btn { font-size:.7rem; padding:2px 8px; border-radius:5px; cursor:pointer;
       background:rgba(232,64,87,.15); border:1px solid rgba(232,64,87,.4);
       color:#e84057; font-weight:800; font-family:"Nunito",sans-serif; }

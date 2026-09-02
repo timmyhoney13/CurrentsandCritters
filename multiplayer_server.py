@@ -253,6 +253,21 @@ def _clean_background_path(value: Any) -> str:
     return path if _BACKGROUND_PATH_RE.match(path) else ""
 
 
+def _clean_device(value: Any) -> str:
+    """Normalize a self-reported device type: "computer", "mobile", or "".
+
+    Only these two words are ever stored. The client works its own answer out
+    from the pointer hardware and from the first real touch/click (see
+    client/js/device-select.js), so this is decoration relayed between players
+    exactly like `avatar`: a client that lies about it only lies about the
+    little chip on its own name plate.
+    """
+    if not isinstance(value, str):
+        return ""
+    v = value.strip().lower()
+    return v if v in ("computer", "mobile") else ""
+
+
 # ── Firebase Admin: exact live "Registered Players" / "Players Online" ──────
 # Firestore is the persistent source of truth for accounts and presence, but
 # the marketing site cannot read it directly (security rules block public
@@ -3669,6 +3684,14 @@ class Seat:
     # The player's equipped exclusive background (e.g. "/backgrounds/bg-kelp.png"),
     # rendered behind their avatar on every seat. Empty/None = no background.
     background: Optional[str] = None
+    # What this player is playing ON: "computer", "mobile", or "" when they
+    # have not said (an old client, or a bot seat). Relayed to every other
+    # client so the waiting room and the in-game seats can show it, on the same
+    # decoration-only terms as `avatar` and `background` above. It is worth
+    # showing: a phone player is on a smaller board with finger drag-and-drop,
+    # so "why are they taking so long" and "why did they misplace that card"
+    # have an answer everybody at the table can see.
+    device: str = ""
     # The account Level this player is wearing, relayed with their avatar so the
     # waiting room can show it beside their name. Self-reported, exactly like
     # `avatar` and `background` above: it is decoration, never used to decide
@@ -4049,13 +4072,14 @@ class GameRoom:
                 result.append({"name": spec["name"], "joined_unix": spec["joined_unix"],
                                "avatar": spec.get("avatar") or "",
                                "background": spec.get("background") or "",
+                               "device": spec.get("device") or "",
                                "token_tail": token[-6:], "kick_votes": votes, "kick_needed": needed})
             return result
 
     def set_spectator_look(self, token: str, avatar: Any = None,
-                           background: Any = None) -> Dict[str, Any]:
-        """Update a spectator's equipped icon/background mid-session, so the
-        spectator list and their chat lines wear what they just equipped.
+                           background: Any = None, device: Any = None) -> Dict[str, Any]:
+        """Update a spectator's equipped icon/background/device mid-session, so
+        the spectator list and their chat lines wear what they just equipped.
         Only the fields actually passed are touched (None = leave alone)."""
         with self.cond:
             spec = self.spectators.get(str(token or ""))
@@ -4072,10 +4096,16 @@ class GameRoom:
                 if clean != (spec.get("background") or ""):
                     spec["background"] = clean
                     changed = True
+            if device is not None:
+                clean = _clean_device(device)
+                if clean != (spec.get("device") or ""):
+                    spec["device"] = clean
+                    changed = True
             if changed:
                 self._bump_locked()
             return {"ok": True, "avatar": spec.get("avatar") or "",
-                    "background": spec.get("background") or ""}
+                    "background": spec.get("background") or "",
+                    "device": spec.get("device") or ""}
 
     def _music_epoch_ms_locked(self) -> int:
         """Epoch (ms) the theme song's loop is measured from, shared by the room.
@@ -4571,6 +4601,10 @@ class GameRoom:
                     # running game's public state.
                     "avatar": seat.avatar or "",
                     "background": seat.background or "",
+                    # Computer or mobile. Every screen that lists players reads
+                    # it from here, so there is one answer per seat, not one
+                    # per screen.
+                    "device": str(getattr(seat, "device", "") or ""),
                     "level": int(getattr(seat, "level", 0) or 0),
                     "xp": int(getattr(seat, "xp", 0) or 0),
                     "xp_goal": int(getattr(seat, "xp_goal", 0) or 0),
@@ -10383,6 +10417,33 @@ class GameRoom:
             self._bump_locked()
         return {"ok": True, "background": seat.background or ""}
 
+    def set_device(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Set the calling seat's device type, so every screen that lists this
+        room's players can say who is on a computer and who is on a phone.
+
+        Its own endpoint rather than a field on set_avatar, because the avatar
+        push is throttled on the avatar having a value and having changed: a
+        player who never picked a critter would never have sent one, and a
+        player who switches to their phone mid-lobby is not changing their
+        face. An empty/unknown device is accepted and clears the chip, which is
+        what an old client that says nothing should look like."""
+        seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+        device = _clean_device(body.get("device"))
+        with self.cond:
+            seat = self._seat_from_token_locked(seat_token)
+            if seat is None:
+                return {"ok": False, "error": "invalid seat token"}
+            # One person, one device: in competitive a player owns two hands and
+            # pushes with one token, so both hands wear it (see set_avatar).
+            owned = self._owned_seats_locked(seat)
+            if all(str(getattr(s2, "device", "") or "") == device for s2 in owned):
+                return {"ok": True, "device": device}
+            for s2 in owned:
+                s2.device = device
+            self._persist_dirty = True
+            self._bump_locked()
+        return {"ok": True, "device": device}
+
     def set_away(self, body: Dict[str, Any]) -> Dict[str, Any]:
         """Toggle the calling seat's Surf's Up!! Away flag.
 
@@ -13510,6 +13571,22 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 out = room.set_spectator_look(spec_tok, background=body.get("background"))
             else:
                 out = room.set_background(body)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        # What this player is playing ON (computer / mobile), relayed to the
+        # rest of the room. Same shape as /avatar and /background above.
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "device":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            spec_tok = body.get("spectator_token")
+            if isinstance(spec_tok, str) and spec_tok:
+                out = room.set_spectator_look(spec_tok, device=body.get("device"))
+            else:
+                out = room.set_device(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return

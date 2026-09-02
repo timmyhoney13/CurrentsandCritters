@@ -51,6 +51,16 @@
 !test_lobby_seat_tiles.py
 !test_lobby_seat_tiles.js
 
+# Who is on a computer and who is on a phone, shown on every screen that lists
+# the people in a room: the waiting room's tiles, the in-game seat cluster, the
+# watcher list and the Friends tab. The .py half pins the server relay (two
+# words or nothing, one device per PERSON in competitive, its own endpoint);
+# the .js half renders all three surfaces in real Chrome at six widths, because
+# the in-game badge rides on an avatar wrap that clips anything inside it.
+# Test-only, so these need this entry and no Dockerfile COPY.
+!test_player_device.py
+!test_player_device.js
+
 # "＋ Invite a friend" on an open seat: the sheet that writes a note, picks
 # friends out of the chats you already have, and sends the room down the
 # in-game chat instead of copying a link into nowhere. Pins the send routing
