@@ -5629,7 +5629,10 @@ class GameRoom:
                 f"player{'s' if want_humans != 1 else ''} and "
                 f"{want_ai} bot{'s' if want_ai != 1 else ''}."
             )
-            self._add_system_chat(self.status_note)
+            # Deliberately NOT posted to chat. A host nudging the table size
+            # fires this on every click, and the seat tiles above the chat
+            # already show the result, so it only ever buried the conversation
+            # under a wall of System lines.
             self._bump_locked(force_persist=True)
             return {
                 "ok": True,
@@ -5743,8 +5746,9 @@ class GameRoom:
                     f"{human_players} human player{'s' if human_players != 1 else ''} "
                     f"and {self.ai_players} bot{'s' if self.ai_players != 1 else ''}"
                 )
+                # Same as configure_seats: the seat tiles say this already, and
+                # posting it per click drowns the lobby chat.
                 self.status_note = f"Host set the Quick Play lobby to {setup_text}."
-                self._add_system_chat(self.status_note)
                 self._bump_locked(force_persist=True)
             return {
                 "ok": True,

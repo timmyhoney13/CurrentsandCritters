@@ -103,8 +103,8 @@ console.log("\neight spots, and the + seats a bot");
   check(!/(becomes?|turns? into) an? bot when (you|the host) (cast|start)|bot when you cast off|becomes? a bot at (the )?start/i.test(APP_SAYS),
         "nothing claims an open seat becomes a bot at kickoff",
         "Quick Play's own copy is fine: it converts spare seats when the host picks");
-  check(/can't start until somebody sits in it, or the host turns it into a bot/.test(APP),
-        "the caption spells out both ways past an empty seat");
+  // The lobby-wide caption that used to spell this out is gone (its spot is the
+  // Watch instead button now); the open seat tile itself carries both ways past.
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -209,8 +209,38 @@ console.log("\nwatch instead of playing");
   check(/\/leave`/.test(watch), "it gives the seat up");
   check(/joinAsSpectator\(rid\)/.test(watch), "then joins as a spectator");
   check(/setSeatToken\(""\)/.test(watch), "and lets go of the seat token");
-  check(/filled > 1/.test(APP), "hidden for the last person seated: leaving closes the room");
-  check(/allow_spectators !== false/.test(APP), "and in a room that takes no spectators");
+  // A seat given up must not come back on its own: the rejoin mirror would
+  // offer it, and a host keeping their host token would still be handed Start
+  // Game for a game they are no longer in.
+  check(/setHostToken\(""\)/.test(watch), "and the host token with it");
+  check(/clearRejoinToken\(rid\)/.test(watch), "and the 8-minute rejoin mirror");
+  check(/allow_spectators !== false/.test(APP), "hidden in a room that takes no spectators");
+
+  // It stands where the "N seats are still empty" caption used to. That caption
+  // is gone: the Start button already counts the missing players.
+  check(!HTML.includes('id="wr-caption"'), "the empty-seat caption is gone from the markup");
+  check(!/wr-caption/.test(APP), "and nothing writes to it");
+  check(!/wr-caption/.test(CSS), "and it is not styled any more");
+  check(/seats are still empty/.test(APP) === false,
+        "the empty-seat sentence is not printed anywhere");
+  const spec = APP.slice(APP.indexOf('const specBtn = document.getElementById("wr-spectate-btn")'),
+                         APP.indexOf('document.getElementById("wr-copy-btn").addEventListener'));
+  check(/specBtn\.disabled = alone/.test(spec),
+        "the last person seated gets it greyed, not vanished");
+  check(/filled <= 1/.test(spec), "…which is what 'alone' means");
+  check(/#wr-spectate-btn:disabled/.test(CSS), "and a disabled style exists");
+
+  // The lobby chat is people talking. Nothing else.
+  const chat = APP.slice(APP.indexOf("function _wrRenderChat"),
+                         APP.indexOf("async function _wrSendChat"));
+  check(/\.filter\(m => !\(m && \(m\.system/.test(chat), "system chat is filtered out of the lobby log");
+  check(!/wr-chat-sys/.test(chat), "so no system line is ever built");
+
+  // Leaving is pressed by spectators too now that watching is one click away.
+  const leaveBtn = APP.slice(APP.indexOf('document.getElementById("wr-leave-btn").addEventListener'),
+                             APP.indexOf('document.getElementById("wr-leave-btn").addEventListener') + 900);
+  check(/isSpectating\(\)[\s\S]{0,120}leaveSpectator\(\)/.test(leaveBtn),
+        "a spectator's Leave releases the spectator slot, not a seat it never had");
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -241,7 +271,7 @@ console.log("\nstyles exist");
    "wr-seat-tobot", "wr-seat-remove", "wr-seat-lock", "wr-seat-add",
    "wr-seat-add-plus", "wr-seat-add-t", "wr-seat-add-s", "wr-xp", "wr-xp-bar",
    "wr-xp-fill", "wr-xp-txt", "wr-pip", "wr-chat-line", "wr-chat-av", "wr-chat-body",
-   "wr-chat-who", "wr-chat-msg", "wr-chat-sys", "wr-chat-empty", "wr-emote",
+   "wr-chat-who", "wr-chat-msg", "wr-chat-empty", "wr-emote",
    "wr-look-tile", "wr-look-more", "wr-look-bg",
    "wr-add-menu", "wr-add-menu-h", "wr-add-opt", "wr-add-cancel"].forEach(cls => {
     check(APP.includes(cls), `the render makes .${cls}`);
@@ -430,7 +460,11 @@ function measure(w) {
   const log = d.getElementById("wr-chat-log"), input = d.getElementById("wr-chat-text");
   ok(r(log).height >= 60, "the chat log has real height (" + Math.round(r(log).height) + "px)");
   ok(d.querySelectorAll(".wr-chat-line").length === 2, "both chat lines rendered");
-  ok(d.querySelectorAll(".wr-chat-sys").length === 1, "and the system line");
+  // The room's own bookkeeping ("Host set the table to 3 human players and 0
+  // bots", joins, leaves) is drawn as seat tiles, not as chat.
+  ok(d.querySelectorAll(".wr-chat-sys").length === 0, "and no System line in the lobby chat");
+  ok(!d.getElementById("wr-chat-log").textContent.includes("joined the room"),
+     "the System text is nowhere in the log");
   ok(r(input).width >= 90 && r(input).height >= 26, "the chat box is usable (" + Math.round(r(input).width) + "px)");
   const pb = r(d.querySelector(".wr-chat-panel"));
   [...d.querySelectorAll(".wr-chat-panel *")].forEach(el => {

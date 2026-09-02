@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-01.6";
+  const APP_BUILD   = "2026-09-01.7";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -3094,7 +3094,12 @@
     try {
       await apiPost(`/api/rooms/${rid}/leave`, { seat_token: getSeatToken() }, { timeoutMs: 7000 });
     } catch (_) { /* joining as a spectator below is what actually matters */ }
+    // Let go of the seat completely. The rejoin mirror in localStorage would
+    // otherwise offer the seat back, and a host who keeps their host token
+    // would still be handed Start Game for a game they are no longer in.
     setSeatToken("");
+    setHostToken("");
+    try { clearRejoinToken(rid); } catch (_) {}
     await joinAsSpectator(rid);
   }
 
@@ -3397,8 +3402,14 @@
   function _wrRenderChat() {
     const log = document.getElementById("wr-chat-log");
     if (!log) return;
-    const msgs = (latestPayload && Array.isArray(latestPayload.chat_messages))
-      ? latestPayload.chat_messages.slice(-40) : [];
+    // Lobby chat is people talking, nothing else. The room's own bookkeeping
+    // ("Host set the table to 3 human players and 0 bots", joins, leaves) is
+    // already drawn as seat tiles right above this panel, so repeating it here
+    // buried the actual conversation under a wall of System lines.
+    const msgs = ((latestPayload && Array.isArray(latestPayload.chat_messages))
+      ? latestPayload.chat_messages : [])
+      .filter(m => !(m && (m.system || String(m.sender || "") === "System")))
+      .slice(-40);
     const here = ((latestPayload && latestPayload.seats) || [])
       .filter(s => s.kind === "human" && s.claimed_name).length;
     const hereEl = document.getElementById("wr-chat-here");
@@ -3418,10 +3429,6 @@
       const who = String(m.sender || "");
       const text = String(m.message || "");
       if (!text) return;
-      if (m.system || who === "System") {
-        log.appendChild(_wrEl("div", "wr-chat-sys", text));
-        return;
-      }
       const line = _wrEl("div", "wr-chat-line");
       line.appendChild(_wrChatAvatar(who));
       const body = _wrEl("div", "wr-chat-body");
@@ -3659,32 +3666,27 @@
         : `Waiting for players...`;
     }
 
-    // Say why Start is or is not available. An empty human seat does NOT
-    // quietly become a bot at kickoff: start_game refuses outright while any
-    // one of them is unclaimed, so the only ways on are somebody sitting down
-    // or the host turning the seat into a bot.
-    const cap = document.getElementById("wr-caption");
-    if (cap) {
-      const short = Math.max(0, total - filled);
-      cap.textContent = short === 0
-        ? (isHost ? "Everyone's aboard. Cast off when you're ready."
-                  : "Everyone's aboard. Waiting on the host to start.")
-        : (short === 1
-            ? "One seat is still empty. The game can't start until somebody sits in it, or the host turns it into a bot."
-            : `${short} seats are still empty. The game can't start until they're filled, or the host turns them into bots.`);
-    }
-
     _wrRenderChat();
     _wrRenderLook();
 
-    // "Watch instead" gives this seat up and stays in the room to watch. It is
-    // hidden for the last person still seated: leaving then closes the room,
-    // and there would be nothing left to watch.
+    // Where the empty-seat caption used to be. The Start button already counts
+    // the players still missing, and each open tile already offers the host the
+    // way past it, so this spot offers the one thing anyone waiting can do:
+    // give the seat up and watch instead.
+    // It stays visible (greyed) for the last person still seated rather than
+    // vanishing, because a button that appears and disappears under you reads
+    // as a glitch. Leaving as the last one closes the room, so it is refused
+    // with the reason on it.
     const specBtn = document.getElementById("wr-spectate-btn");
     if (specBtn) {
       const holdsSeat = !isSpectating() && !!getSeatToken();
-      const canWatch = holdsSeat && _room.allow_spectators !== false && filled > 1;
-      specBtn.style.display = canWatch ? "inline-flex" : "none";
+      const roomTakesWatchers = _room.allow_spectators !== false;
+      specBtn.style.display = (holdsSeat && roomTakesWatchers) ? "inline-flex" : "none";
+      const alone = filled <= 1;
+      specBtn.disabled = alone;
+      specBtn.title = alone
+        ? "You are the only one seated, there would be nothing left to watch."
+        : "Give up your seat and watch this game instead.";
     }
   }
 
@@ -12963,6 +12965,14 @@
 
   document.getElementById("wr-leave-btn").addEventListener("click", async () => {
     if (!confirm("Leave this room?")) return;
+    // Watching the lobby is now one click away, so this button gets pressed by
+    // spectators too: they have no seat to hand back, they have a spectator
+    // slot to release.
+    if (isSpectating()) {
+      await leaveSpectator();
+      hideWaitingRoom();
+      return;
+    }
     const token = getSeatToken();
     if (token && roomId) {
       try {

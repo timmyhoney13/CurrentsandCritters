@@ -2836,9 +2836,6 @@
       background: none; border: none; box-shadow: none; padding: 0;
     }
     #pv-waiting-room[data-wide="1"] .wr-players-title { display: none; }
-    /* The Start button is a 920x175 painting, so it scales with its container:
-       in the wide seat-grid box that made it a 200px-tall banner. */
-    #pv-waiting-room[data-wide="1"] .wr-caption { max-width: 62ch; }
     .wr-box {
       background: linear-gradient(180deg, rgba(227,237,251,.95) 0%, rgba(216,228,247,.94) 100%);
       border: 3px solid #2c4d80;
@@ -3384,15 +3381,17 @@
       font-size: 15.5px; line-height: 1.15; padding: 0 10px; letter-spacing: 0;
     }
     #pv-waiting-room .wr-start-row .wr-btn-text.with-play::before { font-size: 14px; margin-right: 8px; }
-    #pv-waiting-room .wr-start-note .wr-caption { margin: 0 0 8px; font-size: 12.5px; text-align: left; }
     #wr-spectate-btn {
-      display: none; align-items: center; gap: 6px;
+      display: none; align-items: center; justify-content: center; gap: 6px;
+      width: 100%;
       background: rgba(47,110,186,.12); border: 1px solid rgba(47,110,186,.42);
-      color: #2f6eba; border-radius: 8px; padding: 7px 14px;
-      font-size: 12px; font-weight: 700; cursor: pointer;
+      color: #2f6eba; border-radius: 8px; padding: 9px 14px;
+      font-size: 12.5px; font-weight: 700; cursor: pointer;
       transition: background .15s, border-color .15s;
     }
-    #wr-spectate-btn:hover { background: rgba(47,110,186,.2); border-color: rgba(47,110,186,.7); }
+    #wr-spectate-btn:hover:not(:disabled) { background: rgba(47,110,186,.2); border-color: rgba(47,110,186,.7); }
+    /* The last player seated cannot walk out: leaving would close the room. */
+    #wr-spectate-btn:disabled { opacity: .5; cursor: not-allowed; }
     #wr-leave-btn {
       background: rgba(232,64,87,.15); border: 1px solid rgba(232,64,87,.4);
       color: #e84057; border-radius: 10px; padding: 9px 15px;
@@ -3498,12 +3497,6 @@
       text-align: center;
       box-shadow: 0 0 0 2px rgba(16,49,95,.9);
       display: none;
-    }
-    .wr-caption {
-      font-size: 15px;
-      color: #2c4d80;
-      font-weight: 500;
-      margin: -4px 0 0;
     }
     #wr-start-btn {
       width: 100%;
