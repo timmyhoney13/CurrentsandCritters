@@ -1563,7 +1563,7 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
     if path.startswith("/api/admin/prestige"):
         admin_key = body.get("admin_key") if isinstance(body.get("admin_key"), str) else ""
         env_key = os.environ.get("ADMIN_RECOVERY_KEY", "").strip()
-        if not env_key or not secrets.compare_digest(admin_key, env_key):
+        if not env_key or not secrets.compare_digest(admin_key.encode("utf-8"), env_key.encode("utf-8")):
             handler._send_json({"ok": False, "error": "unauthorized"}, status=403)
             return True
         db = _get_firestore() if _get_firestore else None

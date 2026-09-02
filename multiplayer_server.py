@@ -1062,6 +1062,28 @@ def _verify_firebase_id_token(id_token: str) -> Optional[dict]:
         return None
 
 
+def _admin_key_ok(supplied: Any, expected: Any) -> bool:
+    """Constant-time check of an admin key against the configured secret.
+
+    Two rules, in one place so no endpoint can forget either:
+
+    1. An unset secret authorises NOBODY. `expected` empty returns False, so a
+       server missing its env var has its admin endpoints off rather than open
+       to a matching empty string.
+    2. The comparison is constant-time, so the number of leading characters a
+       guess gets right cannot be read off the response time. Three of these
+       gates used a plain `!=`, which leaks exactly that.
+
+    Both sides are compared as bytes: secrets.compare_digest() raises TypeError
+    on a str holding non-ASCII, which would turn a junk key into a 500 instead
+    of a clean 403."""
+    exp = expected if isinstance(expected, str) else ""
+    got = supplied if isinstance(supplied, str) else ""
+    if not exp or not got:
+        return False
+    return secrets.compare_digest(got.encode("utf-8"), exp.encode("utf-8"))
+
+
 def _verify_stripe_signature(payload: bytes, sig_header: str, secret: str) -> bool:
     """Verify a Stripe webhook signature WITHOUT the stripe SDK.
 
@@ -12484,7 +12506,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             qs_a = parse_qs(parsed.query)
             supplied_key = qs_a.get("admin_key", [None])[0] or ""
             env_key = os.environ.get("ADMIN_RECOVERY_KEY", "").strip()
-            if not env_key or supplied_key != env_key:
+            if not _admin_key_ok(supplied_key, env_key):
                 self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
                 return
             filter_mode = (qs_a.get("filter", ["pending"])[0] or "pending").strip()
@@ -12648,7 +12670,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             qs_r = parse_qs(parsed.query)
             supplied_key = qs_r.get("admin_key", [None])[0] or ""
             env_key = os.environ.get("ADMIN_RECOVERY_KEY", "").strip()
-            if not env_key or supplied_key != env_key:
+            if not _admin_key_ok(supplied_key, env_key):
                 self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
                 return
             self._send_json(self._build_recovery_export())
@@ -12662,7 +12684,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             qs_r = parse_qs(parsed.query)
             supplied_key = qs_r.get("admin_key", [None])[0] or ""
             env_key = os.environ.get("ADMIN_RECOVERY_KEY", "").strip()
-            if not env_key or supplied_key != env_key:
+            if not _admin_key_ok(supplied_key, env_key):
                 self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
                 return
             priority_nick = (qs_r.get("priority_nick", [None])[0] or "TheFishManTim").strip()
@@ -13072,7 +13094,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/admin/supporters/update":
             admin_key = body.get("admin_key") if isinstance(body.get("admin_key"), str) else ""
             env_key = os.environ.get("ADMIN_RECOVERY_KEY", "").strip()
-            if not env_key or admin_key != env_key:
+            if not _admin_key_ok(admin_key, env_key):
                 self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
                 return
             kind = str(body.get("kind") or "supporter").strip()
@@ -13089,7 +13111,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/admin/revoke_item":
             admin_key = body.get("admin_key") if isinstance(body.get("admin_key"), str) else ""
             env_key = os.environ.get("ADMIN_RECOVERY_KEY", "").strip()
-            if not env_key or not secrets.compare_digest(admin_key, env_key):
+            if not _admin_key_ok(admin_key, env_key):
                 self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
                 return
             out = _admin_revoke_item(str(body.get("user") or ""),
@@ -13104,7 +13126,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/admin/set_xp":
             admin_key = body.get("admin_key") if isinstance(body.get("admin_key"), str) else ""
             env_key = os.environ.get("ADMIN_RECOVERY_KEY", "").strip()
-            if not env_key or not secrets.compare_digest(admin_key, env_key):
+            if not _admin_key_ok(admin_key, env_key):
                 self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
                 return
             out = _admin_set_xp(str(body.get("user") or ""),
@@ -13118,7 +13140,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             # Body: { "admin_key": "...", "games_played": N, "registered_players": N }
             # Protected by the same CREATE_KEY used elsewhere.
             admin_key = body.get("admin_key") if isinstance(body.get("admin_key"), str) else ""
-            if not admin_key or not secrets.compare_digest(admin_key, CREATE_KEY or ""):
+            if not _admin_key_ok(admin_key, CREATE_KEY):
                 self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
                 return
             new_games   = body.get("games_played")
@@ -13340,7 +13362,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             allow_takeover = bool(body.get("takeover")) if isinstance(body.get("takeover"), bool) else False
             req_create_key = body.get("create_key") if isinstance(body.get("create_key"), str) else ""
             allow_host_takeover = bool(
-                (CREATE_KEY and secrets.compare_digest(req_create_key, CREATE_KEY))
+                _admin_key_ok(req_create_key, CREATE_KEY)
                 or room.is_host_authorized(host_token, existing_token)
             )
             out = room.claim_seat(
@@ -13363,7 +13385,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             host_token = body.get("host_token") if isinstance(body.get("host_token"), str) else ""
             seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
             req_create_key = body.get("create_key") if isinstance(body.get("create_key"), str) else ""
-            allow_with_create_key = bool(CREATE_KEY and secrets.compare_digest(req_create_key, CREATE_KEY))
+            allow_with_create_key = _admin_key_ok(req_create_key, CREATE_KEY)
             out = room.start_game(host_token, seat_token, CARD_DB, allow_with_create_key=allow_with_create_key)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
