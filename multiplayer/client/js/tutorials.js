@@ -90,17 +90,6 @@
     80%  { transform:translate(var(--tut3-dx,0px),var(--tut3-dy,0px)) scale(.9); opacity:.95; }
     100% { transform:translate(var(--tut3-dx,0px),var(--tut3-dy,0px)) scale(.9); opacity:0; }
   }
-  /* Teaching card-row inside the popup: card images + glowing symbol badges, used
-     by the Star-ability lesson to show matching symbols side by side. */
-  .t2-row { display:flex; align-items:center; justify-content:center; gap:8px; margin:4px 0 12px; flex-wrap:wrap; }
-  .t2-card { display:flex; flex-direction:column; align-items:center; gap:5px; margin:0; }
-  .t2-card img { width:104px; max-width:32vw; height:auto; border-radius:9px; box-shadow:0 5px 16px rgba(8,40,80,.45); border:1px solid rgba(120,200,235,.55); background:#fff; display:block; }
-  .t2-row-single .t2-card img { width:158px; max-width:52vw; }
-  .t2-card figcaption { font-size:.72rem; font-weight:800; color:#1769b0; text-align:center; display:flex; align-items:center; gap:5px; line-height:1.1; }
-  .t2-sym { display:inline-flex; align-items:center; justify-content:center; min-width:21px; height:21px; padding:0 3px; border-radius:50%; font-size:.92rem; font-weight:900; background:#fffae8; border:2px solid #ffcf4d; box-shadow:0 0 10px rgba(255,200,60,.85); animation:tut3-glow-pulse 1.15s ease-in-out infinite; }
-  .t2-sym-heart, .t2-sym-diamond { color:#e23b5a; }
-  .t2-sym-triangle, .t2-sym-square, .t2-sym-circle { color:#1f7ad0; }
-  .t2-eq { font-size:1.5rem; font-weight:900; color:#2f8bd0; }
   #tut3-pop { position:fixed; max-width:440px; width:calc(100vw - 28px); background:linear-gradient(160deg,#fbfeff,#e9f5ff); border:1.5px solid rgba(120,200,235,.7); border-radius:20px; box-shadow:0 22px 58px rgba(8,40,80,.55); padding:20px 24px 18px; font-family:"Nunito",sans-serif; color:#0f3a5e; transition:top .28s ease, left .28s ease; box-sizing:border-box; pointer-events:auto; }
   #tut3-pop .t3-badge { font-size:.76rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:#2f8bd0; }
   #tut3-pop h3 { font-family:"Cinzel",serif; font-size:1.42rem; font-weight:900; color:#1769b0; margin:4px 0 10px; line-height:1.2; }
@@ -320,15 +309,6 @@
 
   // Called by an interactive mock element when the user performs an action.
   // If the current step is waiting for exactly that action, advance the tour.
-  function coachHit(action) {
-    if (!coach || !coach.classList.contains("open")) return;
-    if (coachWait && action === coachWait) {
-      coachWait = null;
-      if (coachIsLast(coachIdx)) coachFinish();
-      else setTimeout(() => gotoStep(coachIdx + 1), 350);
-    }
-  }
-
   function buildCoach() {
     if (coach) return coach;
     coach = document.createElement("div");
@@ -513,7 +493,15 @@
     // A second pass catches panels/modals whose content arrives asynchronously
     // (avatars, boards, lists) and changes the target's size after the first.
     const el = coachResolveEl(step);
-    if (el && el.scrollIntoView) { try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (_) {} }
+    // inline:"center" as well as block:"center". Several things a step points at
+    // live in a HORIZONTAL scroller, and the default inline:"nearest" leaves a
+    // partly-visible one exactly where it is. On a 390px phone the Strategy
+    // guide's card row put "Crustaceans" at x340-411, clipped by the right
+    // edge: the spotlight ring was drawn correctly over a control that could
+    // not be pressed, and the step could not be completed at all.
+    if (el && el.scrollIntoView) {
+      try { el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" }); } catch (_) {}
+    }
     setTimeout(positionCoach, 120);
     coachSettle = setTimeout(positionCoach, 520);
   }
@@ -649,12 +637,7 @@
   // ════════════════════════════════════════════════════════════════
   //  MAIN MENU TOUR
   // ════════════════════════════════════════════════════════════════
-  // Helpers used by the tour to drive the real menu.
   function navTab(name) { const b = document.getElementById("snav-" + name); if (b) try { b.click(); } catch (_) {} }
-  function openGallery() {
-    if (typeof window.__fishOpenAvatarGallery === "function") { try { window.__fishOpenAvatarGallery(); return; } catch (_) {} }
-    const av = document.getElementById("stats-avatar"); if (av) try { av.click(); } catch (_) {}
-  }
   function closeMenuOverlays() {
     const gal = document.getElementById("avatar-gallery");
     if (gal && gal.classList.contains("open")) {
@@ -691,7 +674,6 @@
     const c = document.getElementById("cc-fs-resume");
     if (c) c.classList.toggle("ccfs-peek", !!on);
   }
-  function openSettings() { const b = document.getElementById("stats-settings-top-btn"); if (b) try { b.click(); } catch (_) {} }
 
   // Signed out? A guest can still walk the menu, but the app locks a lot of it:
   // the Avatar Gallery refuses to open at all (openAvatarGallery bails for a
@@ -738,7 +720,16 @@
 
     // ── Trade (top-right, same area as profile card) ─────────────────
     { target: "#stats-trade-btn", badge: "Trade", title: "Trading",
-      text: "The <strong>Trade</strong> button sits at the top right. Pick any friend (or search a player) and you can swap <strong>avatars, backgrounds and Critter Coins</strong> with them, no need to open Messages first." },
+      text: "The <strong>Trade</strong> button sits at the top right. Pick any friend (or search a player) and you can swap <strong>avatars, backgrounds and Critter Coins</strong> with them, no need to open Messages first. A trade is between two <strong>accounts</strong>, so this is one a guest has to sign in for." },
+
+    // ── The four action cards ─────────────────────────────────────────
+    // The row every other screen in the game is reached through, and the tour
+    // opened by saying "this is where you start games" and then never showed
+    // them. Not interactive on purpose: three of the four leave the menu, and
+    // the tour has to still be standing on it.
+    { target: ".ph-actions", badge: "Starting a Game", title: "The Four Ways In",
+      before: () => { closeMenuOverlays(); navTab("overview"); },
+      text: "These four cards are how every game starts. <strong>Quick Match</strong> drops you in a queue and fills a table for you. <strong>Create Game</strong> opens the setup window, where you pick the mode (Normal, Competitive, Team), the number of people and computer opponents, and whether the room is public or private. <strong>Join Game</strong> opens <strong>🌊 Open Currents</strong>, the list of rooms you can walk into, and <strong>Tutorial</strong> is the button that brought you here." },
 
     // ── Avatar click (interactive, must actually open gallery) ──────
     { target: "#stats-avatar", badge: "Avatar Gallery", title: "Open Your Avatar Gallery",
@@ -753,7 +744,7 @@
 
     // ── Click the Osprey tile (interactive) ──────────────────────────
     { target: "[data-avatar-id='osprey']", badge: "Avatar Gallery", title: "Click an Animal",
-      before: () => { try { document.querySelector("[data-avatar-id='osprey']")?.scrollIntoView({ block: "center", behavior: "instant" }); } catch(_) {} },
+      before: () => { try { document.querySelector("[data-avatar-id='osprey']")?.scrollIntoView({ block: "center", inline: "center", behavior: "instant" }); } catch(_) {} },
       interactive: true,
       advanceWhen: () => !!document.querySelector("[data-avatar-id='osprey'].gal-selected"),
       text: "Click the <strong>Osprey</strong> to see its fun fact and unlock requirement." },
@@ -783,6 +774,20 @@
     { target: "#ph-panel-overview", badge: "Overview Tab", title: "Overview",
       before: () => { closeMenuOverlays(); navTab("overview"); },
       text: "This is the <strong>Overview</strong> tab. It shows your combined stats from every game you have ever played across all modes." },
+
+    // ── How to play tab (click to navigate) ──────────────────────────
+    // Second in the real sidebar, and the one place a player can look a rule
+    // up mid-doubt. A menu tour that never mentions it leaves the rulebook
+    // undiscoverable from inside the game.
+    { target: "#snav-howto", badge: "How to Play Tab", title: "How to Play",
+      before: closeMenuOverlays,
+      interactive: true,
+      advanceWhen: gtTabActive("snav-howto"),
+      text: "Click <strong>How to play</strong>." },
+
+    // ── How to play panel description ────────────────────────────────
+    { target: "#ph-panel-howto", badge: "How to Play Tab", title: "The Rules, Any Time",
+      text: "This tab is the whole game written down, in three parts. <strong>🚀 Quick Start</strong> is the one-screen version for your first game, <strong>📖 Full Rulebook</strong> is every rule in the box, and <strong>🧭 Strategies</strong> lists the combos worth building. It is all here whenever a card does something you did not expect, and <strong>Play the tutorial →</strong> at the top brings you straight back to these tutorials." },
 
     // ── Casual tab (click to navigate) ───────────────────────────────
     { target: "#snav-casual", badge: "Casual Tab", title: "Casual Stats",
@@ -838,7 +843,7 @@
 
     // ── Friends panel description ─────────────────────────────────────
     { target: "#ph-panel-friends", badge: "Friends Tab", title: "Friends",
-      text: "The <strong>Friends</strong> tab shows everyone you have added, with their rank and status. You can challenge them to a private game directly from here." },
+      text: "The <strong>Friends</strong> tab shows everyone you have added, each with their <strong>level</strong>, whether they are <strong>online</strong> right now and what they are up to. <strong>Tap a name</strong> to open that player's full public profile. Friend requests waiting for you appear at the top, and the box below is where you add someone new." },
 
     // ── Friend code ───────────────────────────────────────────────────
     { target: "#ph-fc-display", badge: "Friends Tab", title: "Your Friend Code",
@@ -854,7 +859,7 @@
 
     // ── Messages panel description ────────────────────────────────────
     { target: "#ph-panel-messages", badge: "Messages Tab", title: "Messages",
-      text: "<strong>Messages</strong> is your full-page chat. Search a player to start a conversation or a group, and tap a chat to open it across the whole page (the <strong>back arrow</strong> takes you to your other chats). The <strong>🎨</strong> button gives that chat an ocean background, and only one of you needs to own it." },
+      text: "<strong>Messages</strong> is your full-page chat. Search a player to start a conversation or a group, and tap a chat to open it across the whole page (the <strong>back arrow</strong> takes you to your other chats). The <strong>🎨</strong> button gives that chat an ocean background, and those are <strong>free to everyone</strong>, nobody has to own one. Whoever picks it, <strong>everyone in the chat sees it</strong>, and you can change it as often as you like." },
 
     // ── Achievements tab (click to navigate) ─────────────────────────
     { target: "#snav-achievements", badge: "Achievements Tab", title: "Achievements",
@@ -876,7 +881,44 @@
 
     // ── Leaderboard panel description ─────────────────────────────────
     { target: "#ph-panel-leaderboard", badge: "Leaderboard Tab", title: "Reading the Leaderboard",
-      text: "Each row shows a player's <strong>name, level, and score</strong>. The small <strong>button on the right of each row</strong> sends that player a friend request so you can add people straight from the board." },
+      text: "Each row shows a player's <strong>name, level, and score</strong>, and tapping a name opens their public profile. Once you are <strong>signed in</strong>, each row also grows a small <strong>button on the right</strong> that sends that player a friend request, so you can add people straight from the board." },
+
+    // ── Clans tab (click to navigate) ────────────────────────────────
+    { target: "#snav-clans", badge: "Clans Tab", title: "Clans",
+      before: closeMenuOverlays,
+      interactive: true,
+      advanceWhen: gtTabActive("snav-clans"),
+      text: "Click <strong>Clans</strong>." },
+
+    // ── Clans panel description ───────────────────────────────────────
+    // A guest still sees this page: clans-ui renders them the "what is this
+    // and what would I get" card rather than an error, so the step is shown to
+    // everyone and the text is the thing that tells a guest what they cannot
+    // do yet.
+    { target: "#ph-panel-clans", badge: "Clans Tab", title: "Play the Season With a Crew",
+      text: "A <strong>clan</strong> is a crew you play the season with. Every game you finish adds <strong>clan points</strong> to your clan's total, <strong>daily and weekly clan challenges</strong> pay out to everyone who took part, and the standings reset <strong>every quarter</strong> so a new clan can win one. You can create one, browse for one, or join by name. Clan membership belongs to an <strong>account</strong>, so this is one of the few things a guest cannot do." },
+
+    // ── Prestige tab (click to navigate) ─────────────────────────────
+    { target: "#snav-prestige", badge: "Prestige Tab", title: "Prestige",
+      before: closeMenuOverlays,
+      interactive: true,
+      advanceWhen: gtTabActive("snav-prestige"),
+      text: "Click <strong>Prestige</strong>." },
+
+    // ── Prestige panel description ────────────────────────────────────
+    { target: "#ph-panel-prestige", badge: "Prestige Tab", title: "Riding the Next Current",
+      text: "Level 100 is not the end of the ladder. Reach it and you can <strong>Prestige</strong>: your account goes <strong>back to Level 1</strong> and you keep a permanent <strong>XP bonus</strong> and <strong>Store bonus</strong> that never reset, plus a badge beside your name that everyone can see. This page shows the whole ladder and exactly how far along it you are, so it is worth a look long before you get there." },
+
+    // ── Level Pass tab (click to navigate) ───────────────────────────
+    { target: "#snav-levelpass", badge: "Level Pass Tab", title: "Level Pass",
+      before: closeMenuOverlays,
+      interactive: true,
+      advanceWhen: gtTabActive("snav-levelpass"),
+      text: "Click <strong>Level Pass</strong>." },
+
+    // ── Level Pass panel description ──────────────────────────────────
+    { target: "#ph-panel-levelpass", badge: "Level Pass Tab", title: "Rewards Along the Way",
+      text: "The <strong>Level Pass</strong> is a reward track laid over the levels you are already earning, so every level you pass hands you something: <strong>Critter Coins</strong>, <strong>backgrounds</strong>, <strong>stickers</strong>, <strong>Streak Shields</strong> that save a missed day, <strong>XP Boosts</strong>, and <strong>Weekly Swaps</strong> for trading out a challenge you do not want. A guest sees the whole track at their own level, but rewards are paid into an <strong>account</strong>." },
 
     // ── Store tab (click to navigate) ────────────────────────────────
     { target: "#snav-store", badge: "Store Tab", title: "Store",
@@ -887,7 +929,7 @@
 
     // ── Store panel description ───────────────────────────────────────
     { target: "#ph-panel-store", badge: "Store Tab", title: "The Store",
-      text: "The <strong>Store</strong> is where you buy <strong>backgrounds</strong> that frame your avatar, preview <strong>seasonal</strong> cosmetics, and redeem a donation code if you have one." },
+      text: "The <strong>Store</strong> is what <strong>Critter Coins</strong> are for, and it has a section each: <strong>🌊 Backgrounds</strong>, the ocean scenes that sit behind your avatar; <strong>🌴 Exclusive Skins</strong>, seasonal player icons everyone sees on your seat in a game; <strong>🐚 Player Perks</strong>, the things that help you play rather than things you wear; <strong>★ Supporter Tiers</strong>; and the <strong>📦 Physical Game</strong>, the real tabletop edition. You can top up your coins here too. <em>(A donation code is not redeemed here, it goes in the box at the bottom of your Avatar Gallery.)</em>" },
 
     // ── Settings (click to open; the gear now lives in the top right) ─
     { target: "#stats-settings-top-btn", badge: "Settings", title: "Settings",
@@ -1009,7 +1051,6 @@
   // ════════════════════════════════════════════════════════════════
   //  THE GAME TOUR (coaches the REAL create-game flow + real game)
   // ════════════════════════════════════════════════════════════════
-  const gtVisible = (sel) => { const e = document.querySelector(sel); return !!(e && e.offsetParent !== null && e.getBoundingClientRect().width > 0); };
   const gtModalOpen = () => { const m = document.getElementById("new-current-modal"); return !!(m && m.classList.contains("open")); };
   const gtWaitingOpen = () => { const m = document.getElementById("pv-waiting-room"); return !!(m && m.classList.contains("open")); };
   const gtGameOpen = () => {
@@ -1071,8 +1112,6 @@
   function gtZoomClosed() { const m = document.getElementById("pv-zoom-modal"); return !(m && m.classList.contains("open")); }
   function gtBoardFocusOpen() { const m = document.getElementById("pv-board-focus"); return !!(m && m.classList.contains("open")); }
   function gtBoardFocusClosed() { const m = document.getElementById("pv-board-focus"); return !(m && m.classList.contains("open")); }
-  function gtBoardPeek() { return gtBoardFocusOpen() || !!document.getElementById("pv-board-hover")?.classList.contains("visible"); }
-  function gtEndgameOpen() { const el = document.getElementById("pv-endgame-overlay"); return !!(el && el.classList.contains("open")); }
   // Snapshot of the hand's left-to-right order, for detecting a manual reorder.
   function gtHandSig() { return Array.from(document.querySelectorAll("#pv-hand .pv-hand-card")).map(c => c.dataset.entryUid).join(","); }
   let _tutHandSig = "";
@@ -1124,38 +1163,6 @@
     if (!entryUid) return null;
     return document.querySelector(`#pv-hand .pv-hand-card[data-entry-uid="${entryUid}"]`) || null;
   }
-  // The Mangrove ocean in the player's hand (rigged to always be present).
-  function gtMangroveEntry() {
-    const me = gtMe(); if (!me || !Array.isArray(me.hand)) return null;
-    return me.hand.find(e => {
-      const f = gtFirstFace(e);
-      return String(f?.name || "").trim().toLowerCase() === "mangrove";
-    }) || null;
-  }
-  function gtMangroveCardEl() { const e = gtMangroveEntry(); return e ? gtHandCardEl(gtEntryUid(e)) : null; }
-  // Pick ONE creature for the player to deploy: prefer a payable (cost ≥ 1)
-  // creature that has a real placement direction, so the "pay for it" step always
-  // has something to pay. Cached per play so the claim + pay sub-steps agree.
-  let _gtChosenCreatureUid = 0;
-  function gtPickChosenCreature() {
-    const me = gtMe(); if (!me || !Array.isArray(me.hand)) return 0;
-    let fallback = 0;
-    for (const e of me.hand) {
-      const f = gtFirstFace(e);
-      const sp = String(f?.species || "").toLowerCase();
-      if (sp.includes("ocean")) continue;
-      const dir = String(f?.direction || "").trim().toLowerCase();
-      if (!dir || dir === "n/a") continue;
-      const uid = gtEntryUid(e);
-      if (Number(f?.cost || 0) >= 1) return uid;   // payable creature, ideal
-      if (!fallback) fallback = uid;                // any placeable creature
-    }
-    return fallback;
-  }
-  function gtChosenCreatureEl() {
-    if (!_gtChosenCreatureUid) _gtChosenCreatureUid = gtPickChosenCreature();  // late-bind if before() ran before state loaded
-    return _gtChosenCreatureUid ? gtHandCardEl(_gtChosenCreatureUid) : null;
-  }
   // Is the player mid-payment for an Ocean / a creature right now?
   function gtPendingPay() { try { return (window.__ccPendingPay && window.__ccPendingPay()) || null; } catch (_) { return null; } }
   function gtPayingOcean()   { const a = gtPendingPay(); return !!(a && a.kind === "play_ocean"); }
@@ -1175,8 +1182,7 @@
   // hand, cache their face uids + symbols BEFORE they're played/discarded (so we
   // can show them side by side afterward), force the ★ toggle on, and render the
   // matching symbols as glowing badges.
-  const T2_GLYPH = { heart: "♥", diamond: "♦", triangle: "▲", square: "■", circle: "●" };
-  const _t2 = { mangrove: null, arctic: null, albatross: null, kelp: null };
+  const _t2 = { mangrove: null, arctic: null };
   function _t2FindByName(nameLc) {
     const me = gtMe(); if (!me || !Array.isArray(me.hand)) return null;
     for (const e of me.hand) {
@@ -1215,7 +1221,6 @@
     return (as.length && bs.length) ? [as[0], bs[0]] : null;
   }
   function t2CacheOceanPair() { const pr = _t2FindPair("mangrove", "arctic ocean"); if (pr) { _t2.mangrove = pr[0]; _t2.arctic = pr[1]; } }
-  function t2CacheBirdPair()  { const pr = _t2FindPair("great albatross", "kelp forest"); if (pr) { _t2.albatross = pr[0]; _t2.kelp = pr[1]; } }
   // Spotlight targets: the specific teaching card in the hand (cache or live).
   function t2HandEl(slot, nameLc) {
     const e = _t2[slot] || _t2FindByName(nameLc);
@@ -1223,77 +1228,30 @@
   }
   function gtMangroveHandEl()  { return t2HandEl("mangrove", "mangrove"); }
   function gtArcticHandEl()    { return t2HandEl("arctic", "arctic ocean"); }
-  function gtAlbatrossHandEl() { return t2HandEl("albatross", "great albatross"); }
-  function gtKelpHandEl()      { return t2HandEl("kelp", "kelp forest"); }
-  // Golden (star-ability) hand cards excluding the 4 teaching cards, used to spotlight
-  // valid payment options beyond the symbol-matched pair.
-  function gtGoldenHandEls() {
-    const me = gtMe();
-    if (!me || !Array.isArray(me.hand)) return [];
-    const skipUids = new Set([
-      _t2.arctic    ? _t2.arctic.entryUid    : 0,
-      _t2.mangrove  ? _t2.mangrove.entryUid  : 0,
-      _t2.albatross ? _t2.albatross.entryUid : 0,
-      _t2.kelp      ? _t2.kelp.entryUid      : 0,
-    ]);
-    const results = [];
-    for (const e of me.hand) {
-      const uid = gtEntryUid(e);
-      if (skipUids.has(uid)) continue;
-      const faces = Array.isArray(e.faces) && e.faces.length ? e.faces : [e];
-      for (const f of faces) {
-        if (starText(String(f && f.text || ""))) {
-          const el = gtHandCardEl(uid);
-          if (el) { results.push(el); break; }
-        }
-      }
-    }
-    return results;
-  }
-  // The player's own seat element.
-  function gtMySeat() {
-    const me = gtMe();
-    const myIdx = me ? me.index : -1;
-    return document.querySelector(`.pv-seat[data-player-index="${myIdx}"]`) || null;
-  }
-  // All opponent seat elements (every seat that isn't the viewer's).
-  function gtOtherSeats() {
-    const me = gtMe();
-    const myIdx = me ? me.index : 0;
-    return Array.from(document.querySelectorAll(".pv-seat[data-player-index]"))
-      .filter(s => Number(s.dataset.playerIndex) !== myIdx);
-  }
-  function t2Glyph(sym) { return T2_GLYPH[String(sym || "").toLowerCase()] || "★"; }
-  function t2Img(faceUid) { try { return (window.__ccCardImg && window.__ccCardImg(faceUid).url) || ""; } catch (_) { return ""; } }
-  // Build a row of card images, each with a glowing symbol badge underneath.
-  // `cards` = [{ rec:_t2.x, name:"…" }]; joined by an "=" to imply the match.
-  function t2Row(cards) {
-    const cells = cards.map(c => {
-      const rec = c.rec || {};
-      const glyph = t2Glyph(rec.sym), symCls = String(rec.sym || "").toLowerCase();
-      return `<figure class="t2-card"><img src="${t2Img(rec.faceUid)}" alt="${esc(c.name)}">`
-           + `<figcaption>${esc(c.name)} <span class="t2-sym t2-sym-${symCls}">${glyph}</span></figcaption></figure>`;
-    });
-    const single = cards.length === 1 ? " t2-row-single" : "";
-    return `<div class="t2-row${single}">${cells.join('<div class="t2-eq">=</div>')}</div>`;
-  }
-
   // ── New-tutorial helpers (Tutorial 2 free creature, B-Lob board state,
   //    Strategy-guide targeting). Function declarations so they hoist safely. ──
   // Tutorial 2: a simple FREE creature (the rigged Lobster) deployed via the
   // Mangrove's Play Again, free, so the step needs no separate payment.
+  // EVERY face, not just faces[0]. A card is two animals and the hand only ever
+  // paints the front one, so the rigged free Lobster is regularly the BACK of
+  // some bird. Reading only the front made this return null on those deals, and
+  // "Play a Creature" then spotlighted nothing, showed no drag demo, and told
+  // the player to drag a glowing creature that was not glowing: the one step in
+  // Tutorial 2 with no way to work out what it wanted.
   function gtFreeCreatureEntry() {
     const me = gtMe(); if (!me || !Array.isArray(me.hand)) return null;
     let fallback = null;
     for (const e of me.hand) {
-      const f = gtFirstFace(e);
-      const sp = String(f?.species || "").toLowerCase();
-      if (sp.includes("ocean")) continue;
-      const dir = String(f?.direction || "").trim().toLowerCase();
-      if (!dir || dir === "n/a") continue;
-      if (Number(f?.cost || 0) !== 0) continue;             // must be free
-      if (String(f?.name || "").trim().toLowerCase() === "lobster") return e;  // ideal
-      if (!fallback) fallback = e;                          // any free creature
+      const faces = (Array.isArray(e.faces) && e.faces.length) ? e.faces : [e];
+      for (const f of faces) {
+        const sp = String(f?.species || "").toLowerCase();
+        if (sp.includes("ocean")) continue;
+        const dir = String(f?.direction || "").trim().toLowerCase();
+        if (!dir || dir === "n/a") continue;
+        if (Number(f?.cost || 0) !== 0) continue;           // must be free
+        if (String(f?.name || "").trim().toLowerCase() === "lobster") return e;  // ideal
+        if (!fallback) fallback = e;                        // any free creature
+      }
     }
     return fallback;
   }
@@ -1613,7 +1571,7 @@
     { target: () => blHandElByName("artificial reef"), badge: "B-Lob", title: "Artificial Reef",
       text: "Artificial Reef scores +2 for every attached card." },
     { target: () => blHandElByName("lobster"), badge: "B-Lob", title: "Lobster",
-      text: "Lobsters are free, they go on the <strong>Ocean Floor</strong> (the bottom spot), and any number of them can share that one spot." },
+      text: "Lobsters are free, they go on the <strong>Ocean Floor</strong> (the bottom spot), and any number of them can share that one spot.<br><br>Look at the highlighted card and you may see a <strong>different animal's name</strong> on it. That is normal: <strong>every card is two animals, one on each side</strong>, and this card's Lobster is on the side you cannot see. The highlight is on the right card, and playing it into the bottom spot plays its <strong>Lobster</strong> side." },
     { target: () => blHandElByName("california gull"), badge: "B-Lob", title: "California Gull",
       text: "California Gull is a bird, so it goes on the <strong>Surface</strong> (the top spot), and it scores +2 per crustacean underneath." },
 
@@ -1638,13 +1596,13 @@
       interactive: true, popAnchor: "top", liveNote: tutTurnNote,
       dragDemo: { from: () => blHandElByName("lobster"), to: blReefFloorEl },
       advanceWhen: () => blLobstersOnReef() >= 1,
-      text: "Drag the <strong>Lobster</strong> into the <strong>bottom spot</strong> of your Artificial Reef, the glowing slot the ghost card is flying into. That bottom spot is the Ocean Floor, which is where crustaceans live. You can also play it from the <strong>Choose action…</strong> dropdown." },
+      text: "Drag the <strong>highlighted card</strong> into the <strong>bottom spot</strong> of your Artificial Reef, the glowing slot the ghost card is flying into. That bottom spot is the Ocean Floor, which is where crustaceans live, and dropping the card there is what plays its <strong>Lobster</strong> side, whichever animal the card is showing you right now. You can also pick <strong>Play Lobster on Floor</strong> in the <strong>Choose action…</strong> dropdown." },
 
     { target: () => blHandElByName("lobster"), glow: [blReefFloorEl], badge: "Turn 3", title: "Stack Another",
       interactive: true, popAnchor: "top", liveNote: tutTurnNote,
       dragDemo: { from: () => blHandElByName("lobster"), to: blReefFloorEl },
       advanceWhen: () => blLobstersOnReef() >= 2,
-      text: "Drag your second <strong>Lobster</strong> into that same bottom spot, right on top of the first one. Lobsters stack, so any number of them can share one spot." },
+      text: "Drag the second <strong>highlighted card</strong> into that same bottom spot, right on top of the first one. Lobsters stack, so any number of them can share one spot. Again, the card may be showing you its other animal: the <strong>bottom spot</strong> is what makes it a Lobster." },
     { target: null, badge: "B-Lob", title: "Lobsters Stacked!",
       text: "Two Lobsters now share one slot." },
     { target: null, badge: "Their Turn", title: "Waiting for the Others",
@@ -1664,7 +1622,7 @@
       interactive: true, popAnchor: "top", liveNote: tutTurnNote,
       dragDemo: { from: () => blHandElByName("california gull"), to: blReefSurfaceEl },
       advanceWhen: () => gtPayingCreature() || blGullOnReef(),
-      text: "The gull is a bird, so it goes in the <strong>top spot</strong> of the Artificial Reef, the Surface. Drag it from your hand into that glowing slot, exactly like the ghost card, or play it from the <strong>Choose action…</strong> dropdown." },
+      text: "The gull is a bird, so it goes in the <strong>top spot</strong> of the Artificial Reef, the Surface. Drag the <strong>highlighted card</strong> from your hand into that glowing slot, exactly like the ghost card, or play it from the <strong>Choose action…</strong> dropdown. As before, the card may be showing its other animal; the <strong>top spot</strong> is what makes it the gull." },
     { target: gtPayBarEl, glow: [() => blGullPayEls()[0], () => blGullPayEls()[1], "#pv-payment-confirm-btn", gtPayBarEl],
       badge: "Turn 4", title: "Pay Two Cards", interactive: true, popAnchor: "top",
       dragDemo: { from: () => blHandElByName("california gull"), to: blReefSurfaceEl },
@@ -1845,14 +1803,36 @@
   //  Walks the REAL competitive entry: Create Game opens the New Current
   //  setup modal, where Mode → ⚔️ Competitive locks it to the ranked format
   //  (4 humans = 2 players × 2 hands), then the standard waiting room. An
-  //  opponent joins via Quick Match → Competitive. No live game is created,
+  //  opponent joins via Join Game → Open Currents → 👥 Competitive, which
+  //  claims their pair of hands in one go. No live game is created,
   //  competitive needs two real human players, so we explain the setup
   //  and joining, then cover ranks, OP, the hand-switch, and strategy.
   // ════════════════════════════════════════════════════════════════
   const gtCompModalOpen   = () => !!document.getElementById("new-current-modal")?.classList.contains("open");
   const gtCompModalClosed = () => !document.getElementById("new-current-modal")?.classList.contains("open");
+  // ── Driving the New Current modal from out here ───────────────────────
+  // These two used to call closeNewCurrentModal() and applyNcMode() directly.
+  // Both of those live INSIDE preview-app.js's IIFE and are never put on
+  // window, so from this file they were plain ReferenceErrors, swallowed by
+  // the try/catch each sat in. The visible damage was the whole middle of the
+  // Competitive tour: "we've flipped it to Competitive for you" flipped
+  // nothing, and the three steps after it explained locked fields on a modal
+  // that was still sitting on 🐠 Normal with every field editable.
+  //
+  // So drive the real controls instead, exactly as the tour already drives
+  // #nc-visibility: set the value, fire `change`, and let the app's own
+  // listener do the work. That cannot go stale behind a rename it does not
+  // share, and it is the same path a player's own click takes.
   function closeCompTourModal() {
-    try { if (typeof closeNewCurrentModal === "function") closeNewCurrentModal(); } catch (_) {}
+    const btn = document.getElementById("nc-close");
+    if (btn) { try { btn.click(); return; } catch (_) {} }
+    document.getElementById("new-current-modal")?.classList.remove("open");
+  }
+  function setNcMode(mode) {
+    const sel = document.getElementById("nc-mode");
+    if (!sel || sel.value === mode) return;
+    sel.value = mode;
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
   const COMP_STEPS = [
@@ -1866,12 +1846,12 @@
     { target: "#stats-create-btn", badge: "Step 1", title: "Open Create Game",
       before: () => { closeMenuOverlays(); closeCompTourModal(); try { navTab("overview"); } catch (_) {} },
       interactive: true, advanceWhen: gtCompModalOpen,
-      text: "To <em>host</em> a ranked match you set one up from <strong>Create Game</strong>. <strong>Click it now</strong> to open the match-setup window. <em>(To instead <em>join</em> someone else's open match, use <strong>Quick Match → Competitive</strong>.)</em>" },
+      text: "To <em>host</em> a ranked match you set one up from <strong>Create Game</strong>. <strong>Click it now</strong> to open the match-setup window. <em>(To instead <em>join</em> someone else's open match, use <strong>Join Game → 👥 Competitive</strong>. We come back to that later.)</em>" },
 
     // ── 3. Switch Mode to Competitive ───────────────────────────────
     { target: "#nc-field-mode", badge: "Match Setup", title: "Switch to Competitive",
-      before: () => { try { applyNcMode(true); } catch (_) {} },
-      text: "The setup window has a <strong>Mode</strong> dropdown. Set it to <strong>⚔️ Competitive</strong> to lock the match to the ranked format, we've flipped it for you. The title now reads <strong>⚔️ Competitive 1v1, 2 hands per player</strong>. Let's look at why the settings are fixed." },
+      before: () => { setNcMode("competitive"); },
+      text: "The setup window has a <strong>Mode</strong> dropdown with four entries: <strong>🐠 Normal</strong>, <strong>🏅 Competitive</strong>, <strong>⚔️ Competitive 1v1</strong> and <strong>🤝 Team</strong>. This tour is about <strong>⚔️ Competitive 1v1</strong>, so pick that one, we've flipped it for you. Be careful not to grab <strong>🏅 Competitive</strong> just above it: that is the other ranked mode, a people-only free-for-all of <strong>3 to 8 players</strong> that pays OP by finishing place. The title now reads <strong>⚔️ Competitive 1v1, 2 hands per player</strong>. Let's look at why the settings are fixed." },
 
     // ── 4. Human Critters locked to 4 ───────────────────────────────
     { target: "#nc-total", badge: "Match Setup", title: "Four Hands = Two Players",
@@ -1884,7 +1864,7 @@
 
     // ── 6. Privacy locked to Public ─────────────────────────────────
     { target: "#nc-field-privacy", badge: "Match Setup", title: "Locked to Public",
-      text: "In Competitive, <strong>Privacy is locked to 🌊 Public</strong>, your match appears in <strong>Open Currents</strong> so an opponent can find and join it. Everything is fixed for ranked play, so all you have to do is press the main button. <em>(Switch Mode back to 🐠 Normal any time for a fully customizable game where you can pick Public or Private.)</em>" },
+      text: "In Competitive, <strong>Privacy is locked to 🌊 Public</strong>, your match appears in <strong>Open Currents</strong> so an opponent can find and join it. Everything is fixed for ranked play, so all you have to do is press the main button. <em>(Switch Mode back to 🐠 Normal any time for a fully customizable game where you can pick Public or Private, or to 🤝 Team for 2 to 4 teams sharing a table.)</em>" },
 
     // ── 7. Generate Current (explain, don't create) ────────────────
     { target: "#nc-create-btn", badge: "Match Setup", title: "Generate the Match",
@@ -1896,9 +1876,15 @@
       text: "Click the <strong>✕</strong> to close the setup window." },
 
     // ── 9. How Player 2 joins ───────────────────────────────────────
-    { target: "#stats-quickmatch-btn", badge: "Joining", title: "How Player 2 Joins",
+    // NOT Quick Match. Quick Match is the casual four-seat queue and has no
+    // mode picker at all (/api/quickplay takes a name and a ticket, nothing
+    // else), so "Quick Match → Competitive" sent every learner to a button
+    // that cannot do what they were told it does. The real door is Join Game,
+    // which opens Open Currents, whose 👥 Competitive tab lists both ranked
+    // modes and claims a whole PAIR of hands on the way in.
+    { target: "#stats-join-toggle-btn", badge: "Joining", title: "How Player 2 Joins",
       before: () => { closeMenuOverlays(); closeCompTourModal(); try { navTab("overview"); } catch (_) {} },
-      text: "Your opponent joins from <em>their</em> device. The easiest way: they tap <strong>Quick Match</strong> and choose <strong>⚔️ Competitive</strong>, the app finds your open match and <strong>automatically hands them BOTH of their seats</strong> (Hands 3 &amp; 4), no seat-picking. (They can also find it in <strong>Open Currents</strong> via Browse.) Once all four hands are filled, the host presses <strong>Start</strong> and the match begins." },
+      text: "Your opponent joins from <em>their</em> device. They tap <strong>Join Game</strong> to open <strong>🌊 Open Currents</strong>, switch to the <strong>👥 Competitive</strong> tab, and press <strong>Join</strong> on your match. It <strong>hands them BOTH of their seats</strong> (Hands 3 &amp; 4) in one go, there is no seat-picking, because a competitive player always owns a pair. If you send them your <strong>room code</strong> instead, that same code drops them straight in. Once all four hands are filled, the host presses <strong>Start</strong> and the match begins." },
 
     // ── 10. Navigate to Competitive stats tab (interactive) ─────────
     { target: "#snav-competitive", badge: "Your Stats", title: "Your Competitive Record",
@@ -1929,7 +1915,7 @@
     // ── 16. Done ───────────────────────────────────────────────────
     { target: "#stats-create-btn", badge: "All Done!", title: "Ready to Compete!",
       before: () => { closeMenuOverlays(); closeCompTourModal(); try { navTab("overview"); } catch (_) {} },
-      text: "That's Competitive 1v1! To host: tap <strong>Create Game</strong>, switch <strong>Mode</strong> to <strong>⚔️ Competitive</strong>, and <strong>Generate</strong> the match. To join someone else's, tap <strong>Quick Match → Competitive</strong>. Either way, once both players are in you start, build two strong hands and watch the scores. Climb from <strong>Bronze Barracuda</strong> all the way to <strong>👑 King of the Critters</strong>. Good luck! 🏆<br><br>Click <strong>Finish ✓</strong> to mark this tutorial complete." },
+      text: "That's Competitive 1v1! To host: tap <strong>Create Game</strong>, switch <strong>Mode</strong> to <strong>⚔️ Competitive 1v1</strong>, and <strong>Generate</strong> the match. To join someone else's, tap <strong>Join Game</strong> and open the <strong>👥 Competitive</strong> tab. Either way, once both players are in you start, build two strong hands and watch the scores. Climb from <strong>Bronze Barracuda</strong> all the way to <strong>👑 King of the Critters</strong>. Good luck! 🏆<br><br>Click <strong>Finish ✓</strong> to mark this tutorial complete." },
   ];
 
   function runCompTour() {
