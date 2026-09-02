@@ -6279,7 +6279,17 @@
        it was to begin with. Same reason the columns are minmax(0, 1fr) rather
        than 1fr. */
     @media (max-width: 700px) {
-      #pv-center-strip { gap: 8px; }
+      /* #bs-ctrl (Board Size + Chat) is position:fixed at right:12px, and on a
+         phone it landed exactly ON TOP of the draw deck: at 390px the deck ran
+         x304-380 and the cluster x318-378, so elementFromPoint at the centre of
+         the deck returned #bs-readout and the deck's own onclick could not be
+         reached at all. The guide bar said "click the deck to draw 1 card" and
+         tapping the deck did nothing, which also stranded the tutorial's
+         "Draw Two" step, the one step of Tutorial 2 with no other way through.
+         --pv-bottom-ui already reserves the VERTICAL room this same cluster
+         needs; this reserves the horizontal room, so the deck lays out beside
+         it instead of underneath it. */
+      #pv-center-strip { gap: 8px; padding-right: 78px; }
       #pv-pool-area { flex: 1 1 auto; min-width: 0; }
       .pv-deck-pile { flex-shrink: 0; }
       #pv-pool-wrap {
