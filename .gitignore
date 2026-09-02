@@ -560,3 +560,25 @@ multiplayer/public_links.json
 
 # Runtime state (persistent in hosted disk, local in dev).
 multiplayer/state/
+
+# The three IN-GAME tutorials, played end to end against a real
+# multiplayer_server.py over CDP. test_tutorials.js drives the two tours that
+# need no server; these three create a real room, start a real match and then
+# ask the player to draw, play, pay, scout and rearrange, none of which any
+# source grep can check. It also drives a TRUE 390px phone viewport
+# (Emulation.setDeviceMetricsOverride), which --window-size cannot do: headless
+# Chrome clamps its window to 500px wide, so every "phone" row that has ever
+# run under --dump-dom was really a second narrow-laptop row. Test-only, so
+# this needs this entry and no Dockerfile COPY.
+!test_tutorials_ingame.js
+
+# Scratch files the two tutorial harnesses write INTO multiplayer/client (they
+# have to be served from there: the app loads its scripts by absolute path).
+# Both delete them in a finally, but a run that is killed part-way leaves them
+# behind, and multiplayer/client is not otherwise ignored, so without this they
+# turn up in the next `git add -A` as a patched copy of preview-app.js.
+multiplayer/client/_tut_app.js
+multiplayer/client/_tut_drive_*.html
+multiplayer/client/_tutig_app.js
+multiplayer/client/_tutig_page.html
+multiplayer/client/_tutig_page_m.html

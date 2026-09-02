@@ -38,6 +38,7 @@ const read   = (p) => fs.readFileSync(path.join(CLIENT, p), "utf8");
 const TUT  = read("js/tutorials.js");
 const HTML = read("preview.html");
 const APP  = read("js/preview-app.js");
+const CSS  = read("css/preview.css");
 
 let pass = 0, fail = 0;
 function check(name, cond) {
@@ -269,6 +270,163 @@ check("Surf's Up gets a real explanation, not one line",
 check("the card viewer's ✕ is highlighted when the step says to click it",
       /glow: \["#pv-zoom-close"\], badge: "Cards", title: "Flip & Close"/.test(TUT));
 check("...and #pv-zoom-close is the real close button", /id="pv-zoom-close"/.test(HTML));
+
+console.log("\nthe tour only calls functions it can actually reach");
+{
+  // applyNcMode() and closeNewCurrentModal() are declared inside preview-app.js's
+  // IIFE and never put on window, so from tutorials.js (its own IIFE) they were
+  // ReferenceErrors, each swallowed by the try/catch it sat in. Nothing threw
+  // and nothing worked: "we've flipped it to Competitive for you" flipped
+  // nothing, and the three steps after it described locked fields on a modal
+  // still sitting on Normal. starText() was the same bug waiting to happen.
+  // Every cross-file call has to go through a window.* bridge.
+  let src = TUT
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/^\s*\/\/.*$/gm, " ")
+    .replace(/([^:])\/\/.*$/gm, "$1 ")
+    .replace(/`(?:\\.|[^`\\])*`/g, '""')
+    .replace(/"(?:\\.|[^"\\])*"/g, '""')
+    .replace(/'(?:\\.|[^'\\])*'/g, '""');
+  const declared = new Set(["async"]);
+  for (const m of src.matchAll(/\bfunction\s+([A-Za-z_$][\w$]*)/g)) declared.add(m[1]);
+  for (const m of src.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g)) declared.add(m[1]);
+  const BUILTIN = new Set(["Number", "String", "Boolean", "Array", "Object", "Set", "Map", "JSON",
+    "Math", "Date", "RegExp", "Error", "parseInt", "parseFloat", "isNaN", "setTimeout",
+    "setInterval", "clearTimeout", "clearInterval", "getComputedStyle", "Event", "Promise",
+    "Uint32Array", "if", "for", "while", "switch", "catch", "return", "typeof", "function"]);
+  const missing = [];
+  for (const m of src.matchAll(/(^|[^.\w$])([A-Za-z_$][\w$]*)\s*\(/gm)) {
+    const n = m[2];
+    if (!declared.has(n) && !BUILTIN.has(n) && !missing.includes(n)) missing.push(n);
+  }
+  check(`every function the tour calls is defined in tutorials.js${missing.length ? ": " + missing.join(", ") : ""}`,
+        missing.length === 0);
+  // Checked against the comment-stripped source: both names still appear in the
+  // comment that records why they are no longer CALLED, which is worth keeping.
+  check("...and the mode switch goes through the real dropdown, which cannot go stale",
+        /function setNcMode\(mode\)[\s\S]{0,260}?dispatchEvent\(new Event\("change"/.test(TUT)
+        && !/applyNcMode\s*\(/.test(src));
+  check("...and closing the setup window clicks the button a player would",
+        /function closeCompTourModal\(\)[\s\S]{0,220}?getElementById\("nc-close"\)/.test(TUT)
+        && !/closeNewCurrentModal\s*\(/.test(src));
+}
+
+console.log("\nthe Competitive tour names doors that exist");
+{
+  // Quick Match is the casual four-seat queue and has no mode picker at all:
+  // /api/quickplay takes a player name and a ticket, nothing else. "Quick
+  // Match → Competitive" was an instruction for a button that cannot do it.
+  const server = fs.readFileSync(path.join(ROOT, "multiplayer_server.py"), "utf8");
+  check("Quick Match really is mode-blind on the server",
+        /parsed\.path == "\/api\/quickplay"[\s\S]{0,320}?quick_play_join\(player_name, ticket\)/.test(server));
+  check("...and mode-blind in the client, so the tour must not offer it as a way into ranked",
+        /apiPost\("\/api\/quickplay", \{\s*player_name: name,\s*ticket: search\.ticket,\s*\}/.test(APP));
+  check("no tutorial sends a player to Quick Match for a Competitive game",
+        !/Quick Match[^"]{0,40}Competitive/.test(TUT.replace(/\/\/.*$/gm, "")));
+  check("the join step points at Join Game instead",
+        /target: "#stats-join-toggle-btn", badge: "Joining"/.test(TUT));
+  check("...which really opens Open Currents",
+        /"stats-join-toggle-btn"\)\.addEventListener\("click"[\s\S]{0,120}?openLobbyBrowser\(\)/.test(APP));
+  check("...and Open Currents really has a Competitive tab",
+        /data-tab="competitive">👥 Competitive/.test(HTML));
+  check("...whose list carries both ranked modes",
+        /_lbActiveTab === "competitive"[\s\S]{0,260}?r\.mode === "competitive" \|\| r\.mode === "ranked"/.test(APP));
+  check("...and joining one claims a whole PAIR of hands, which is what the step promises",
+        /Competitive: claim a whole PAIR of hands/.test(APP) && /BOTH of their seats/.test(TUT));
+  // Two entries in that dropdown now start with the word "Competitive".
+  check("the mode step names the exact option, not the ambiguous half",
+        /Set it to <strong>⚔️ Competitive<\/strong>/.test(TUT) === false
+        && /⚔️ Competitive 1v1<\/strong>/.test(TUT));
+  check("...and warns about the other ranked mode sitting next to it",
+        /🏅 Competitive<\/strong>/.test(TUT));
+  check("...both of which are real options in the real dropdown",
+        /<option value="ranked">🏅 Competitive<\/option>/.test(HTML)
+        && /<option value="competitive">⚔️ Competitive 1v1<\/option>/.test(HTML));
+}
+
+console.log("\nthe Main Menu Tour covers the whole Main Menu");
+{
+  // "You have now seen every part of the Main Menu" is a promise the tour has
+  // to keep. It was skipping How to play, Clans, Prestige and Level Pass, four
+  // of the thirteen tabs, including two whole progression systems.
+  const tabs = [...HTML.matchAll(/id="(snav-[a-z]+)" data-tab="([a-z]+)"/g)].map(m => m[1]);
+  check(`every sidebar tab was found (${tabs.length})`, tabs.length >= 12);
+  // A tab counts as covered if the tour spotlights its nav button OR its panel:
+  // Overview is arrived at with navTab() and explained on #ph-panel-overview.
+  const PANEL = { "snav-casual": "ph-panel-normal" };
+  const uncovered = tabs.filter(id => {
+    const panel = PANEL[id] || id.replace(/^snav-/, "ph-panel-");
+    return !TUT.includes(`target: "#${id}"`) && !TUT.includes(`target: "#${panel}"`);
+  });
+  check(`the tour visits every tab in the sidebar${uncovered.length ? ", missing: " + uncovered.join(", ") : ""}`,
+        uncovered.length === 0);
+  check("...and it still claims to, which is now true",
+        /seen every part of the Main Menu/.test(TUT));
+  check("the four action cards are shown too, since that is what the menu is FOR",
+        /target: "\.ph-actions"/.test(TUT) && /class="ph-actions"/.test(HTML));
+}
+
+console.log("\nwhat the menu steps say about the menu is still true");
+{
+  // Each of these was describing a screen the app has since changed.
+  check("a donation code is redeemed where it really is, in the gallery",
+        /id="gal-code-btn"/.test(HTML)
+        && /donation code is not redeemed here/.test(TUT));
+  check("chat backgrounds are not described as something you own",
+        !/only one of you needs to own it/.test(TUT)
+        && /free to everyone/.test(TUT));
+  check("...which is what the sheet really does: no ownership gate on any tile",
+        /const tiles = \[\{ id: "__none__"[\s\S]{0,120}?\.concat\(CHAT_BACKGROUNDS\)/.test(APP));
+  check("the Friends tab is not promised a button it does not have",
+        !/challenge them to a private game/.test(TUT));
+  check("the Store step lists the sections the Store really has",
+        ["🌊 Backgrounds", "🌴 Exclusive Skins", "🐚 Player Perks", "★ Supporter Tiers", "📦 Physical Game"]
+          .every(s => TUT.includes(s) && APP.includes(s)));
+  check("the leaderboard's add-friend button is described as the signed-in thing it is",
+        /Once you are <strong>signed in<\/strong>/.test(TUT)
+        && /if \(!_authUser \|\| isMe\) return `<td class="ph-lb-add-cell"><\/td>`/.test(APP));
+  check("Trade says it needs an account, because it does",
+        /Sign in to trade with other players/.test(APP)
+        && /A trade is between two <strong>accounts<\/strong>/.test(TUT));
+}
+
+console.log("\na card is two animals, and every lookup has to know it");
+{
+  // The hand only ever paints faces[0], so a card whose Lobster is on the back
+  // sits there showing a Razorbill Auk. Any helper that finds a card by name,
+  // cost or direction and reads only the first face will miss it on half the
+  // deals. It cost two separate bugs: "Play a Creature" spotlighting nothing
+  // (gtFreeCreatureEntry read one face), and the B-Lob steps naming an animal
+  // the highlighted card does not show.
+  check("the hand really does paint only the front face",
+        /const face\s*=\s*\(Array\.isArray\(entry\.faces\) && entry\.faces\.length > 0\) \? entry\.faces\[0\] : entry;/.test(APP));
+  check("the free-creature lookup walks every face",
+        /function gtFreeCreatureEntry\(\)[\s\S]{0,700}?const faces = \(Array\.isArray\(e\.faces\) && e\.faces\.length\) \? e\.faces : \[e\];/.test(TUT));
+  check("...as does the B-Lob by-name lookup",
+        /function blHandEntryByName\(nameLc\)[\s\S]{0,400}?const faces = \(Array\.isArray\(e\.faces\) && e\.faces\.length\) \? e\.faces : \[e\];/.test(TUT));
+  check("...and the Star teaching pair",
+        /function _t2FindAll\(nameLc\)[\s\S]{0,400}?const faces = Array\.isArray\(e\.faces\) && e\.faces\.length \? e\.faces : \[e\];/.test(TUT));
+  check("the B-Lob steps warn that the card may be showing its other animal",
+        (TUT.match(/other animal|different animal's name/g) || []).length >= 3);
+  check("...and Tutorial 2 teaches the two-sided deck before any of it",
+        /title: "Every Card Is Two Animals"/.test(TUT));
+}
+
+console.log("\na highlight has to be reachable, not just correctly placed");
+{
+  // A ring drawn in exactly the right place over something no finger can press
+  // is the hardest tutorial bug to see, and phones produce two kinds of it: a
+  // fixed overlay sitting on the target, and a horizontal scroller that has
+  // clipped the target off the edge.
+  check("targets are scrolled into view horizontally as well as vertically",
+        /scrollIntoView\(\{ block: "center", inline: "center"/.test(TUT));
+  check("...everywhere a step scrolls, including the gallery tile",
+        !/scrollIntoView\(\{ block: "center", behavior/.test(TUT));
+  check("the in-game deck is not laid out under the fixed Board Size cluster on a phone",
+        /#pv-center-strip \{ gap: 8px; padding-right: \d+px; \}/.test(CSS));
+  check("...which is the same cluster --pv-bottom-ui already reserves room for",
+        /#bs-ctrl \{[\s\S]{0,600}?bottom: var\(--pv-bottom-ui/.test(CSS));
+}
 
 console.log("\nno em dashes in anything the player reads");
 {
@@ -606,9 +764,16 @@ if (!CHROME) {
 
     // ── Every width, not just the one the laptop happens to be ─────────────
     // A tour that passes at 1440 and strands a phone player is not fixed.
-    console.log("\nMain Menu Tour at every width (signed in)");
+    // NOT a phone. Headless Chrome clamps its window to a 500px minimum width,
+    // so --window-size=390,844 lays the page out at 500 and reports 500: this
+    // list once ended in a "phone (390x844)" row that was really a second
+    // narrow row, passing while nothing under 500px had ever been rendered.
+    // The sizes below are the ones --dump-dom can honestly produce. A REAL
+    // phone viewport needs CDP's Emulation.setDeviceMetricsOverride, which is
+    // where test_tutorials_ingame.js drives every tour at 390x844.
+    console.log("\nMain Menu Tour at every width --dump-dom can really produce (signed in)");
     for (const [w, h, label] of [[1180, 900, "narrow laptop"], [1024, 900, "small laptop"],
-                                 [820, 1100, "tablet"], [390, 844, "phone"]]) {
+                                 [820, 1100, "tablet"], [500, 844, "smallest window Chrome will give"]]) {
       const rows = run("menu", true, w, h);
       if (!rows) { check(`${label} ${w}x${h}: the harness reached the tour`, false); continue; }
       const steps = rows.filter(r => r.step);
