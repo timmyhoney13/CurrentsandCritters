@@ -528,9 +528,9 @@ if (!D) {
         (/Animals Unlocked [^🏅]*/.exec(G.overview || "") || [""])[0]);
 
   console.log("\n  the Competitive tab has no stray numbers on it");
-  const compTail = (G.competitive || "").replace(/.*to earn CP\./, "").trim();
+  const compTail = (G.competitive || "").replace(/.*to earn OP\./, "").trim();
   check("nothing follows the empty state", compTail === "", compTail.slice(0, 60));
-  const acctTail = (A.competitive || "").replace(/.*to earn CP\./, "").trim();
+  const acctTail = (A.competitive || "").replace(/.*to earn OP\./, "").trim();
   check("nor on the account's", acctTail === "", acctTail.slice(0, 60));
 
   console.log("\n  the critter a guest equips is the critter they wear");

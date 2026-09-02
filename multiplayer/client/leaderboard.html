@@ -548,18 +548,18 @@
 
       <!-- Sub-tabs -->
       <div class="sub-tabs" role="tablist">
-        <button class="sub-tab active" role="tab" data-sub="cp" onclick="switchSub('cp',this)">CP Leaderboard</button>
+        <button class="sub-tab active" role="tab" data-sub="cp" onclick="switchSub('cp',this)">OP Leaderboard</button>
         <button class="sub-tab" role="tab" data-sub="single" onclick="switchSub('single',this)">Highest Single Hand</button>
         <button class="sub-tab" role="tab" data-sub="combined" onclick="switchSub('combined',this)">Highest Combined Hands</button>
       </div>
 
-      <!-- ── CP Leaderboard ───────────────────────────────────────── -->
+      <!-- ── OP Leaderboard ───────────────────────────────────────── -->
       <div id="sub-cp" class="sub-section visible">
         <div class="panel">
           <h2>Your Competitive Standing</h2>
           <div class="summary-card" id="cp-summary">
             <div class="summary-sign-in" style="margin: 0 auto; text-align:center; width:100%; padding: 8px 0;">
-              Sign in to see your CP rank and win/loss record.
+              Sign in to see your OP rank and win/loss record.
             </div>
           </div>
 
@@ -569,21 +569,21 @@
                 <tr>
                   <th>Rank</th>
                   <th>Player</th>
-                  <th>CP</th>
+                  <th>OP</th>
                   <th>Wins</th>
                   <th>Losses</th>
                   <th>Win Rate</th>
                 </tr>
               </thead>
               <tbody id="cp-tbody">
-                <tr class="empty-row"><td colspan="6">⚔️ No competitive games recorded yet, play ranked to earn CP!</td></tr>
+                <tr class="empty-row"><td colspan="6">⚔️ No competitive games recorded yet, play ranked to earn OP!</td></tr>
               </tbody>
             </table>
           </div>
 
           <div class="info-bar">
             <span class="info-icon">ℹ️</span>
-            <span>Competitive Points (CP) are earned in 2-player ranked games. Win to gain CP, lose to drop. Your season ranking is based on total CP earned, not win rate.</span>
+            <span>Ocean Points (OP) are earned in 2-player ranked games. Win to gain OP, lose to drop. Your season ranking is based on total OP earned, not win rate.</span>
           </div>
         </div>
       </div>
@@ -741,7 +741,7 @@
       const tbody = document.getElementById("cp-tbody");
       rows = rows || window.__lbCpRows || [];
       if (!rows.length) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">⚔️ No competitive games recorded yet, play ranked to earn CP!</td></tr>';
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">⚔️ No competitive games recorded yet, play ranked to earn OP!</td></tr>';
         return;
       }
       tbody.innerHTML = rows.map((r, i) => {
@@ -832,12 +832,12 @@
       const el = document.getElementById(id);
       if (!el || !data) return;
       const rankClass = data.rank === 1 ? "rank-1" : data.rank === 2 ? "rank-2" : data.rank === 3 ? "rank-3" : "";
-      const scoreLabel = type === "cp" ? "CP" : "Score";
+      const scoreLabel = type === "cp" ? "OP" : "Score";
       const scoreVal   = type === "cp" ? (data.cp||0).toLocaleString() : (data.score||0).toLocaleString();
       el.innerHTML = `
         <div class="summary-rank ${rankClass}">#${data.rank}</div>
         <div class="summary-details">
-          <div class="summary-label">Your Best ${type === "cp" ? "CP" : type === "single" ? "Single Hand" : type === "combined" ? "Combined Score" : "Game"}</div>
+          <div class="summary-label">Your Best ${type === "cp" ? "OP" : type === "single" ? "Single Hand" : type === "combined" ? "Combined Score" : "Game"}</div>
           <div class="summary-score">${scoreVal} <small style="font-size:14px;font-weight:600;color:var(--muted);">${scoreLabel}</small></div>
           <div class="summary-meta">
             ${data.size ? '<span>' + sizePill(data.size) + '</span>' : ""}

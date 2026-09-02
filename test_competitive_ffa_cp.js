@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-/* Competitive (free-for-all): CP by finishing place.
+/* Competitive (free-for-all): OP by finishing place.
  *
  * Run:  node test_competitive_ffa_cp.js
  *
  * The second competitive mode is an ordinary 3-8 player game, people only, that
- * pays Competitive Points into the SAME comp_cp total and the same rank as
+ * pays Ocean Points into the SAME comp_cp total and the same rank as
  * Competitive 1v1. What makes it its own thing is how it pays: by FINISHING
  * PLACE, on a straight line between two per-division end points, ffaTop (1st)
  * and ffaBottom (last).
@@ -87,7 +87,7 @@ vm.runInContext(`${TABLE}\n${FN_FROM_CP}\n${FN_DELTA}\n${FN_FFA}\n`
   + "this.ffaDelta = _compGetFfaCpDelta;", sandbox);
 
 const { DIVS, rankFromCp, cpDelta, ffaDelta } = sandbox;
-// A CP value comfortably inside each division, to ask the delta functions with.
+// A OP value comfortably inside each division, to ask the delta functions with.
 const probe = (d) => (d.maxCp === Infinity ? d.minCp + 50 : Math.floor((d.minCp + d.maxCp) / 2));
 const SIZES = [2, 3, 4, 5, 6, 7, 8];
 
@@ -135,12 +135,12 @@ for (const d of DIVS) {
   prevShare = share;
 }
 check(tightened, "the break-even placement actually tightens somewhere up the ladder");
-check(DIVS.filter(d => d.ffaBottom < 0).length > 0, "the upper ranks really can lose CP");
-check(DIVS[DIVS.length - 1].ffaBottom < 0, "King of the Critters loses CP for a bad finish");
+check(DIVS.filter(d => d.ffaBottom < 0).length > 0, "the upper ranks really can lose OP");
+check(DIVS[DIVS.length - 1].ffaBottom < 0, "King of the Critters loses OP for a bad finish");
 // At the very top, a mid-table finish is not good enough.
 {
   const king = DIVS[DIVS.length - 1];
-  check(ffaDelta(probe(king), 4, 8, true) < 0, "King: 4th of 8 is a CP LOSS");
+  check(ffaDelta(probe(king), 4, 8, true) < 0, "King: 4th of 8 is a OP LOSS");
   check(ffaDelta(probe(king), 1, 8, true) > 0, "King: 1st of 8 still gains");
 }
 
@@ -180,7 +180,7 @@ for (const d of DIVS) {
 }
 
 // ── The wiring: every link in the chain from the menu to the payout ──────────
-// The CP maths above is worthless if the mode never reaches it. Each of these
+// The OP maths above is worthless if the mode never reaches it. Each of these
 // is one link, and each has exactly one line holding it together.
 console.log("\n── the wiring, menu to payout ──");
 {
@@ -199,7 +199,7 @@ console.log("\n── the wiring, menu to payout ──");
   check(/if \(rankedMode\) processRankedFfaGameEnd\(finalScores\);/.test(APP),
         "the end of a game runs the free-for-all payout");
   check(/const COMP_FFA_MIN_PLAYERS = 3;/.test(APP),
-        "CP needs 3 people (COMP_FFA_MIN_PLAYERS)");
+        "OP needs 3 people (COMP_FFA_MIN_PLAYERS)");
   check(/if \(humans\.length < COMP_FFA_MIN_PLAYERS\)/.test(APP),
         "and the payout actually checks it");
 
@@ -294,13 +294,13 @@ console.log("\n── a free-for-all shows up in competitive history ──");
 
   // The server half: the game is written into the competitive ledger, marked
   // ranked at write time (the ROOM was competitive, so the game was), and each
-  // player's own client stamps their own CP onto their own row.
+  // player's own client stamps their own OP onto their own row.
   check(/elif self\.ranked:\n\s+self\._save_ranked_game\(gs, ms, standings\)/.test(SERVER),
         "a finished ranked game is saved into the competitive ledger");
   check(/"mode": "ranked",\n\s+"ranked": True,/.test(SERVER),
         "and is marked ranked at write time, with no client confirmation");
   check(/def _stamp_ranked_ffa_result/.test(SERVER),
-        "each player can stamp their own CP onto their own row");
+        "each player can stamp their own OP onto their own row");
   check(/if isinstance\(record\.get\("players"\), list\):/.test(SERVER),
         "ranked_result tells the two record shapes apart");
   check(/name:\s+myNick,/.test(APP) && /apiPost\("\/api\/competitive\/ranked_result"/.test(APP),
@@ -326,7 +326,7 @@ console.log("\n── a free-for-all shows up in competitive history ──");
   eq(entry(ffa, "Tim").result, "draw", "the middle of the table is a draw");
   eq(entry(ffa, "Ann").result, "win",  "first is a win");
   eq(entry(ffa, "Cid").result, "loss", "last is a loss");
-  eq(entry(ffa, "Ann").cpDelta, 12,    "the CP the game paid rides on the row");
+  eq(entry(ffa, "Ann").cpDelta, 12,    "the OP the game paid rides on the row");
   eq(entry(ffa, "Ann").rankAfter, "Golden Grouper I", "so does the rank it left you at");
   eq(entry(ffa, "Tim").myScore, 60,    "the score shown is mine");
   eq(entry(ffa, "Stranger").mine, false, "somebody else's game is not mine");
@@ -360,14 +360,14 @@ console.log("\n── a free-for-all shows up in competitive history ──");
         "Competitive Games never shows fewer games than the rank's own record");
 }
 
-// ── The season id has to be REACHABLE from the CP writers ────────────────────
-// _compGetSeasonId is declared inside a late IIFE. Both end-of-game CP writers
+// ── The season id has to be REACHABLE from the OP writers ────────────────────
+// _compGetSeasonId is declared inside a late IIFE. Both end-of-game OP writers
 // (the 1v1 one and the free-for-all one) live OUTSIDE that IIFE, so a bare
 // `typeof _compGetSeasonId === "function"` out there is always false and the
 // writer silently stamps its hardcoded fallback season onto comp_season_id.
 // That fights the Competitive tab, which uses the real function and resets the
 // season when the two disagree. It must be read off window.
-console.log("\n── the season id is reachable from the CP writers ──");
+console.log("\n── the season id is reachable from the OP writers ──");
 {
   const exported = /window\._compGetSeasonId\s*=\s*_compGetSeasonId\s*;/.test(APP);
   check(exported, "_compGetSeasonId is exported to window");

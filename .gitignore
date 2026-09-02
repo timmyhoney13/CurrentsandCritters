@@ -263,13 +263,18 @@
 # preview-app.js, over a player who owns two seats.
 !test_competitive_hand_order.js
 # The SECOND competitive mode: an ordinary 2-8 player people-only game that
-# pays CP by finishing place. The .js pins the payout curve as PROPERTIES of
-# the real rank table (low ranks can never lose CP, higher ranks must place
+# pays OP by finishing place. The .js pins the payout curve as PROPERTIES of
+# the real rank table (low ranks can never lose OP, higher ranks must place
 # better to break even, and it never out-pays the 1v1 ladder); the .py pins
 # the no-bots rule at both doors and that `ranked` never turns on the 1v1
 # seat-pair machinery.
 !test_competitive_ffa_cp.js
 !test_competitive_ffa_server.py
+# Ocean Points on every screen that prints them, at every device size: the rank
+# card, the sub-tab strips, the leaderboard tables and the end-game meta bar,
+# measured in real Chrome from iPhone SE through 2560px desktop, in iframes
+# because headless Chrome will not give a window narrower than about 500px.
+!test_ocean_points_devices.js
 # Spectating: a spectator has no seat, and a player's equipped icon used to
 # travel only on their seat, so watchers showed up as a bare name and their
 # chat lines wore a hash of "[Spectator] Name" instead of the icon they equipped.

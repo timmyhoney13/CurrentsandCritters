@@ -109,6 +109,10 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "\uD83C\uDF0A Competitive Points are now Ocean Points", items: [
+      "The points you win and lose in ranked play are called Ocean Points, and they are shown as OP everywhere: the leaderboard and its tab, your rank panel and the bar toward the next division, the end-of-game screen, your match history, the season standings and the tutorial.",
+      "Only the name changed. Every point you have already earned, your rank and your place on the ladder are exactly where you left them.",
+    ]},
     { ver: "V1.7.1", title: "\uD83C\uDFA8 Chat backgrounds you can actually change", items: [
       "Every conversation can wear an ocean, and now you can change it as many times as you like. Picking a second background used to look like it did nothing; it works on every tap, and the new scene appears the moment you choose it.",
       "The scenes themselves are the full paintings this time. They used to be the round badge that sits behind your critter, which meant a circle floating in the middle of your chat. Now it is the whole ocean, edge to edge, behind your messages.",
@@ -4474,7 +4478,7 @@
   // Apply the chosen Mode to the setup modal.
   //  • Normal     : a fully customizable game (all settings editable).
   //  • Ranked     : "Competitive", an ordinary 3–8 player game that pays
-  //    Competitive Points. People only, so the AI field is pinned to 0 and
+  //    Ocean Points. People only, so the AI field is pinned to 0 and
   //    disabled; humans + privacy stay editable within 3–8. Three people is
   //    the mode's floor, not just the payout's (see COMP_FFA_MIN_PLAYERS): a
   //    two-person table here is Competitive 1v1 with extra steps, so the count
@@ -4507,7 +4511,7 @@
     if (titleEl) titleEl.textContent = _ncIsCompetitive
       ? "⚔️ Competitive 1v1, 2 hands per player"
       : _ncIsRanked
-      ? `🏅 Competitive, people only, ${COMP_FFA_MIN_PLAYERS}+ for CP`
+      ? `🏅 Competitive, people only, ${COMP_FFA_MIN_PLAYERS}+ for OP`
       : (isTeam ? "🤝 New Team Current" : "🌊 New Current");
     if (teamsField) teamsField.style.display = isTeam ? "" : "none";
     if (isTeam && teamCountEl) _ncTeamCount = Math.max(2, Math.min(4, Number(teamCountEl.value) || 2));
@@ -10256,7 +10260,7 @@
 
   // ── COMPETITIVE (FREE-FOR-ALL) ───────────────────────────────────
   // The second competitive mode: an ordinary 2-8 player game, people only, that
-  // pays Competitive Points into the SAME comp_cp total and the same rank as
+  // pays Ocean Points into the SAME comp_cp total and the same rank as
   // Competitive 1v1 below. Nothing about how the game is played changes, so
   // this is a plain boolean read off the room and nothing else: no seat pairs,
   // no hand switching, no forfeit window.
@@ -10766,7 +10770,7 @@
         <span style="font-size:22px;">👑</span>
         <div>
           <div style="font-family:'Cinzel',serif;font-weight:900;color:#f5d060;font-size:13px;">${esc(king.name)}</div>
-          <div style="font-size:11px;color:rgba(255,255,255,.7);">${king.cp || 0} CP · ${king.wins || 0}W / ${king.losses || 0}L · ${esc(getRankName(king.cp))}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.7);">${king.cp || 0} OP · ${king.wins || 0}W / ${king.losses || 0}L · ${esc(getRankName(king.cp))}</div>
         </div>
       </div>` : `<div style="font-size:11px;color:rgba(255,255,255,.4);text-align:center;padding:8px;">No King of the Critters yet this season.</div>`;
 
@@ -10783,7 +10787,7 @@
               <span class="comp-lb-rank" style="color:${i===0?"#f5d060":i===1?"#c0c0c0":i===2?"#cd7f32":"rgba(255,255,255,.4)"};">${i+1}/${total}</span>
               <span class="comp-lb-name">${esc(r.name)}</span>
               <span class="comp-lb-cell-rank">${esc(r.rank || getRankName(r.cp))}</span>
-              <span class="comp-lb-cell-cp">${r.cp || 0} CP</span>
+              <span class="comp-lb-cell-cp">${r.cp || 0} OP</span>
               <span class="comp-lb-cell-pct">${(w+l)>0?pct+"%":"-"}</span>
             </div>`;
           }).join("");
@@ -15151,7 +15155,7 @@
       // comp_best_combined) persisted, mark processed ONLY now, so a failed
       // write above retries on the next poll instead of being permanently skipped.
       _lastRankedProcessed = roomId;
-      console.info("[processRankedGameEnd] saved ranked result for", myPhys, "CP→", newCp);
+      console.info("[processRankedGameEnd] saved ranked result for", myPhys, "OP→", newCp);
       // Check rank + competitive achievements
       if (typeof window.__fishCheckRankAchievements === "function") {
         window.__fishCheckRankAchievements({
@@ -15187,7 +15191,7 @@
       if (cpDelta !== 0 || isDraw) {
         const sign  = cpDelta > 0 ? "+" : "";
         const label = isDraw ? "Draw" : (iWon ? "Win" : "Loss");
-        const msg   = `${label} · ${sign}${cpDelta} CP → ${newCp} CP (${newRankName})`;
+        const msg   = `${label} · ${sign}${cpDelta} OP → ${newCp} OP (${newRankName})`;
         console.info("[Ranked]", msg);
         const banner = document.getElementById("pv-discard-banner");
         if (banner) {
@@ -15256,7 +15260,7 @@
       if (humans.length < COMP_FFA_MIN_PLAYERS) {
         _lastRankedFfaProcessed = gameKey;
         _lastCompFfaNoCp = true;
-        console.info("[ffa] not enough people for CP:", humans.length, "<", COMP_FFA_MIN_PLAYERS);
+        console.info("[ffa] not enough people for OP:", humans.length, "<", COMP_FFA_MIN_PLAYERS);
         return;
       }
 
@@ -15388,7 +15392,7 @@
       });
       // Only now: a failed write above retries on the next poll.
       _lastRankedFfaProcessed = gameKey;
-      console.info("[ffa] place", place, "of", count, "→", (cpDelta >= 0 ? "+" : "") + cpDelta, "CP →", newCp);
+      console.info("[ffa] place", place, "of", count, "→", (cpDelta >= 0 ? "+" : "") + cpDelta, "OP →", newCp);
 
       // And tell the server, so the game appears in Competitive history with
       // what it was worth. The 1v1 ladder has a host who reports the whole
@@ -15423,7 +15427,7 @@
 
       const sign  = cpDelta > 0 ? "+" : "";
       const label = `${_ordinal(place)} of ${count}`;
-      const msg   = `${label} · ${sign}${cpDelta} CP → ${newCp} CP (${newRankName})`;
+      const msg   = `${label} · ${sign}${cpDelta} OP → ${newCp} OP (${newRankName})`;
       const banner = document.getElementById("pv-discard-banner");
       if (banner) {
         banner.textContent = msg;
@@ -15497,9 +15501,9 @@
     // Mark processed so it never applies twice.
     try { await apiPost("/api/competitive/forfeit_ack", { id: item.id, name: myName, cp_delta: cpDelta }); } catch (_) {}
     try {
-      showToast(`Forfeit loss vs ${item.winner || "opponent"}: ${cpDelta} CP → ${newCp}`, "warn", 9000);
+      showToast(`Forfeit loss vs ${item.winner || "opponent"}: ${cpDelta} OP → ${newCp}`, "warn", 9000);
     } catch (_) {}
-    console.info("[forfeit] applied pending loss", item.id, "CP", curCp, "→", newCp);
+    console.info("[forfeit] applied pending loss", item.id, "OP", curCp, "→", newCp);
   }
 
   function renderEndGame(winner, finalScores) {
@@ -15817,8 +15821,8 @@
     const cpLabelEl = cpItem ? cpItem.querySelector(".gs-meta-label") : null;
     if (cpLabelEl) {
       cpLabelEl.textContent = (rankedMode && _lastCompFfaPlace)
-        ? `CP Gained · ${_ordinal(_lastCompFfaPlace)} of ${_lastCompFfaCount}`
-        : "CP Gained";
+        ? `OP Gained · ${_ordinal(_lastCompFfaPlace)} of ${_lastCompFfaCount}`
+        : "OP Gained";
     }
     // Populate the actual CP delta / new CP total + rank from the just-processed
     // competitive result. Green for gain, red for loss, gold for draw.
@@ -15827,7 +15831,7 @@
       if (cpValEl && rankedMode && _lastCompFfaNoCp) {
         // Played, saved, but under the head count this mode pays out at. Say so
         // rather than leaving a "+0 CP" that reads like a scoring result.
-        cpValEl.innerHTML = `<span style="font-size:.8em;">No CP · needs ${COMP_FFA_MIN_PLAYERS}+ players</span>`;
+        cpValEl.innerHTML = `<span style="font-size:.8em;">No OP · needs ${COMP_FFA_MIN_PLAYERS}+ players</span>`;
         cpValEl.style.color = "#b86800";
       } else if (cpValEl && rankedMode && typeof _lastCompCpDelta !== "number") {
         // The Firestore write is still in flight; the next end-game poll fills
@@ -15840,8 +15844,8 @@
         const color = delta > 0 ? "#1d9b4e" : (delta < 0 ? "#e84057" : "#b86800");
         const newCp = (typeof _lastCompNewCp === "number") ? _lastCompNewCp : null;
         const rank  = _lastCompRankName || "";
-        const cpText = `${sign}${delta} CP`;
-        const tailText = (newCp !== null) ? ` <span style="opacity:.7;font-size:.85em;">→ ${newCp} CP${rank ? " · " + rank : ""}</span>` : "";
+        const cpText = `${sign}${delta} OP`;
+        const tailText = (newCp !== null) ? ` <span style="opacity:.7;font-size:.85em;">→ ${newCp} OP${rank ? " · " + rank : ""}</span>` : "";
         cpValEl.innerHTML = cpText + tailText;
         cpValEl.style.color = color;
       }
@@ -23425,13 +23429,13 @@
           return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.shown)}</td>
             <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname" data-cc-pname="${escHtmlPH(r.doc.id)}">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
-            <td class="ph-lb-score-cell${sc}">${r.cp} CP</td>
+            <td class="ph-lb-score-cell${sc}">${r.cp} OP</td>
             <td class="ph-lb-meta-cell">${escHtmlPH(r.title)}</td>
             <td class="ph-lb-meta-cell">${r.strat}</td>
           ${phLbAddCell(r.doc.id, r.isMe)}</tr>`;
         }).join("");
         if (myRow) {
-          const v = `<div class="ph-lb-sum-val"><span>CP</span> ${myRow.cp}</div>
+          const v = `<div class="ph-lb-sum-val"><span>OP</span> ${myRow.cp}</div>
             <div class="ph-lb-sum-val"><span>Rank</span> ${escHtmlPH(myRow.title)}</div>
             <div class="ph-lb-sum-val"><span>Leaderboard Spot</span> #${myRow.shown}</div>
             <div class="ph-lb-sum-val"><span>Strategy</span> ${myRow.strat}</div>`;
@@ -23440,7 +23444,7 @@
           phLbSetSumCard("ph-lb-cp-summary","ph-lb-cp-rank","ph-lb-cp-sum-vals",false);
         }
       } catch(e) {
-        console.error("[LB] CP leaderboard error:", e);
+        console.error("[LB] OP leaderboard error:", e);
         tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load leaderboard.</td></tr>`;
       }
     }
@@ -32219,7 +32223,7 @@
             : "";
           const resultLabel = entry.resultLabel;
           const resultClass = entry.result;
-          const cpStr = cpDelta != null ? ` <span style="font-size:10.5px;font-weight:700;color:${cpDelta>0?"#1d9b4e":cpDelta<0?"#c0392b":"#7a6800"};">${cpDelta>0?"+":""}${cpDelta} CP</span>` : (entry.ranked ? "" : ' <span style="font-size:10px;color:rgba(20,50,100,.4);">unranked</span>');
+          const cpStr = cpDelta != null ? ` <span style="font-size:10.5px;font-weight:700;color:${cpDelta>0?"#1d9b4e":cpDelta<0?"#c0392b":"#7a6800"};">${cpDelta>0?"+":""}${cpDelta} OP</span>` : (entry.ranked ? "" : ' <span style="font-size:10px;color:rgba(20,50,100,.4);">unranked</span>');
           const d = document.createElement("div");
           d.className = "ph-rg";
           d.style.cssText = "flex-wrap:wrap;gap:4px 8px;align-items:center;";
@@ -32619,7 +32623,7 @@
         summBadge.className = "ph-ss-rank-badge-img ph-rank-prog-badge-wrap tier-" + (rankInfo.tier || "bronze");
       }
       set("ph-ss-rank-name", rankInfo.division === "Unranked" ? "No rank yet" : rankInfo.division);
-      set("ph-ss-rank-cp",   rankInfo.division === "Unranked" ? "0 CP" : `${rankInfo.cp} CP`);
+      set("ph-ss-rank-cp",   rankInfo.division === "Unranked" ? "0 OP" : `${rankInfo.cp} OP`);
       set("ph-ss-winrate",   (effWins + effLosses) > 0 ? `${winPct}%` : "-");
       set("ph-ss-matches",   total > 0 ? String(total) : "-");
       set("ph-ss-bstreak",   bestStreak > 0 ? String(bestStreak) : "-");
@@ -32696,9 +32700,9 @@
         fillEl.className = `ph-cp-fill tier-${rankInfo.tier || "bronze"}`;
         fillEl.style.width = `${rankInfo.pct}%`;
       }
-      set("ph-comp-cp-val", `${rankInfo.cp} CP`);
+      set("ph-comp-cp-val", `${rankInfo.cp} OP`);
       set("ph-comp-cp-next-label", rankInfo.nextDiv
-        ? `${rankInfo.nextCp - rankInfo.cp} CP until ${rankInfo.nextDiv}`
+        ? `${rankInfo.nextCp - rankInfo.cp} OP until ${rankInfo.nextDiv}`
         : "Max rank reached 🎉");
       set("ph-comp-season-row",   _compSeasonLabel());
       set("ph-comp-season-label", _compSeasonDisplayLabel());
@@ -32726,7 +32730,7 @@
         const kWinPct  = kTotal > 0 ? Math.round((kWins / kTotal) * 100) : 0;
         const kStreak  = king.best_streak || king.streak || 0;
         set("ph-comp-king-meta",   `${kWins}W · ${kLosses}L`);
-        set("ph-comp-king-cp",     `${king.cp || 0} CP`);
+        set("ph-comp-king-cp",     `${king.cp || 0} OP`);
         set("ph-comp-king-pct",    kTotal > 0 ? `${kWinPct}% win rate` : "");
         set("ph-comp-king-streak", kStreak > 0 ? `${kStreak} 🔥 streak` : "");
       } else {
@@ -32750,7 +32754,7 @@
             const date = entry.recorded
               ? new Date(entry.recorded * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })
               : "";
-            const cpStr = cpDelta != null ? ` <span style="font-size:10px;font-weight:700;color:${cpDelta>0?"#1d9b4e":cpDelta<0?"#c0392b":"#7a6800"};">${cpDelta>0?"+":""}${cpDelta} CP</span>` : "";
+            const cpStr = cpDelta != null ? ` <span style="font-size:10px;font-weight:700;color:${cpDelta>0?"#1d9b4e":cpDelta<0?"#c0392b":"#7a6800"};">${cpDelta>0?"+":""}${cpDelta} OP</span>` : "";
             const d = document.createElement("div");
             d.className = "ph-rg";
             d.style.cssText = "flex-wrap:wrap;gap:4px 8px;";
@@ -32818,10 +32822,10 @@
           row.innerHTML = `<div class="ph-season-hist-id">Q${qStr} ${yearStr}</div>`
             + `<div class="ph-season-hist-info">`
             + (kingName
-              ? `<div class="ph-season-hist-king">👑 ${escapeHtml(kingName)}${kingCp ? ` · ${kingCp} CP` : ""}</div>`
+              ? `<div class="ph-season-hist-king">👑 ${escapeHtml(kingName)}${kingCp ? ` · ${kingCp} OP` : ""}</div>`
               : `<div style="font-size:.78rem;color:rgba(22,70,160,.5);">No King crowned this season.</div>`)
             + `<div style="margin-top:3px;font-size:.78rem;">Your final rank: <b>${escapeHtml(p.final_rank || "Unranked")}</b></div>`
-            + (p.final_cp   != null ? `<div style="font-size:.78rem;">Final CP: <b>${p.final_cp}</b></div>` : "")
+            + (p.final_cp   != null ? `<div style="font-size:.78rem;">Final OP: <b>${p.final_cp}</b></div>` : "")
             + (p.wins != null ? `<div style="font-size:.78rem;color:rgba(22,70,160,.6);">${p.wins}W / ${p.losses || 0}L · ${
                 (p.wins + (p.losses || 0)) > 0
                   ? Math.round((p.wins / (p.wins + (p.losses || 0))) * 100) + "% win rate"

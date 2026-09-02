@@ -12869,7 +12869,7 @@
     .ph-rank-diamond  { background: rgba(60,160,220,.14); color: #1558a0; border: 1px solid rgba(60,160,220,.35); }
     .ph-rank-emerald  { background: rgba(30,165,100,.13); color: #0e6040; border: 1px solid rgba(30,165,100,.38); }
     .ph-rank-king     { background: linear-gradient(135deg,rgba(255,200,0,.22),rgba(255,140,0,.18)); color: #7a3e00; border: 1px solid rgba(255,160,0,.5); }
-    /* CP progress bar tier colors */
+    /* OP progress bar tier colors */
     .ph-cp-fill.tier-silver   { background: linear-gradient(90deg,#8fa8b8,#b8cdd8); }
     .ph-cp-fill.tier-gold     { background: linear-gradient(90deg,#d4a017,#f0c840); }
     .ph-cp-fill.tier-diamond  { background: linear-gradient(90deg,#1c82d6,#56c2f8); }

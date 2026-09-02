@@ -3757,7 +3757,7 @@ class GameRoom:
         self.ai_players = ai_players
         self.competitive = competitive
         # Competitive (free-for-all): an ordinary 2-8 player game that pays
-        # Competitive Points, NOT the 4-seat/2-hands ladder above. The two flags
+        # Ocean Points, NOT the 4-seat/2-hands ladder above. The two flags
         # are mutually exclusive: `competitive` means one human owns a fixed PAIR
         # of seats and drags in the whole hand-switch/forfeit machinery, none of
         # which applies here. All this flag changes on the server is that bots
@@ -5496,7 +5496,7 @@ class GameRoom:
             if want_ai < 0:
                 return {"ok": False, "error": "bots can't go below zero"}
             if self.ranked and want_ai > 0:
-                # The whole point of the mode: Competitive Points are only worth
+                # The whole point of the mode: Ocean Points are only worth
                 # something if every seat is a person. The host can still resize
                 # the human spots freely, COMP_FFA_MIN_PLAYERS through 8.
                 return {"ok": False, "error": "a competitive game is people only, no bots"}

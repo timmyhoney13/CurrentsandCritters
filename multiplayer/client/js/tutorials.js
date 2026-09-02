@@ -1847,7 +1847,7 @@
   //  (4 humans = 2 players × 2 hands), then the standard waiting room. An
   //  opponent joins via Quick Match → Competitive. No live game is created,
   //  competitive needs two real human players, so we explain the setup
-  //  and joining, then cover ranks, CP, the hand-switch, and strategy.
+  //  and joining, then cover ranks, OP, the hand-switch, and strategy.
   // ════════════════════════════════════════════════════════════════
   const gtCompModalOpen   = () => !!document.getElementById("new-current-modal")?.classList.contains("open");
   const gtCompModalClosed = () => !document.getElementById("new-current-modal")?.classList.contains("open");
@@ -1860,7 +1860,7 @@
     // ── 1. Welcome ──────────────────────────────────────────────────
     { target: null, badge: "Competitive 1v1", title: "What is Competitive?",
       before: () => { closeMenuOverlays(); closeCompTourModal(); try { navTab("overview"); } catch (_) {} },
-      text: "Welcome to <strong>Competitive 1v1</strong>, the ranked way to play Currents and Critters. Two players go head-to-head, but here's the twist: <strong>each player controls TWO hands</strong> at the same table, playing both on their own device. At the end, your <strong>best-scoring hand</strong> is compared to your opponent's best, the higher score <strong>wins the match and earns CP</strong> (Competitive Points) toward your rank." },
+      text: "Welcome to <strong>Competitive 1v1</strong>, the ranked way to play Currents and Critters. Two players go head-to-head, but here's the twist: <strong>each player controls TWO hands</strong> at the same table, playing both on their own device. At the end, your <strong>best-scoring hand</strong> is compared to your opponent's best, the higher score <strong>wins the match and earns OP</strong> (Ocean Points) toward your rank." },
 
     // ── 2. Open Create Game (interactive) → opens the setup modal ───
     { target: "#stats-create-btn", badge: "Step 1", title: "Open Create Game",
@@ -1880,7 +1880,7 @@
 
     // ── 5. AI Critters locked to 0 ──────────────────────────────────
     { target: "#nc-ai", badge: "Match Setup", title: "No Bots in Ranked",
-      text: "<strong>AI Critters is locked to 0.</strong> Competitive is strictly human-vs-human, there are no bots in a ranked match, because CP and your rank are on the line. Every hand at the table is controlled by a real player." },
+      text: "<strong>AI Critters is locked to 0.</strong> Competitive is strictly human-vs-human, there are no bots in a ranked match, because OP and your rank are on the line. Every hand at the table is controlled by a real player." },
 
     // ── 6. Privacy locked to Public ─────────────────────────────────
     { target: "#nc-field-privacy", badge: "Match Setup", title: "Locked to Public",
@@ -1908,11 +1908,11 @@
 
     // ── 11. Competitive panel, rank divisions ──────────────────────
     { target: "#ph-panel-competitive", badge: "Your Rank", title: "The Rank Ladder",
-      text: "Once you've played ranked games, this panel shows your <strong>Competitive Points (CP)</strong>, your current <strong>rank division</strong>, and a bar toward the next. The ladder climbs through six tiers:<br><strong>🐠 Bronze Barracuda → 🦞 Silver Spiny Lobster → 🐡 Golden Grouper → 🐬 Diamond Dolphin → 🐧 Emerald Emperor Penguin → 👑 King of the Critters</strong>.<br>Each tier (except King) has three sub-divisions: <strong>I, II, III</strong>." },
+      text: "Once you've played ranked games, this panel shows your <strong>Ocean Points (OP)</strong>, your current <strong>rank division</strong>, and a bar toward the next. The ladder climbs through six tiers:<br><strong>🐠 Bronze Barracuda → 🦞 Silver Spiny Lobster → 🐡 Golden Grouper → 🐬 Diamond Dolphin → 🐧 Emerald Emperor Penguin → 👑 King of the Critters</strong>.<br>Each tier (except King) has three sub-divisions: <strong>I, II, III</strong>." },
 
-    // ── 12. CP formula ─────────────────────────────────────────────
-    { target: null, badge: "How CP Works", title: "Earning and Losing CP",
-      text: "After every ranked match:<br>• <strong>Win</strong>, gain CP (about +18 to +26).<br>• <strong>Loss</strong>, lose CP.<br>• <strong>Draw</strong>, a small CP gain.<br>The higher your rank, the <strong>more CP a loss costs</strong> and the less a win gives, so the climb gets steeper near the top. If both players' best hands tie, the <strong>second hand breaks the tie</strong>. Reach <strong>1200 CP</strong> to become <strong>👑 King of the Critters</strong>, the season's top rank." },
+    // ── 12. OP formula ─────────────────────────────────────────────
+    { target: null, badge: "How OP Works", title: "Earning and Losing OP",
+      text: "After every ranked match:<br>• <strong>Win</strong>, gain OP (about +18 to +26).<br>• <strong>Loss</strong>, lose OP.<br>• <strong>Draw</strong>, a small OP gain.<br>The higher your rank, the <strong>more OP a loss costs</strong> and the less a win gives, so the climb gets steeper near the top. If both players' best hands tie, the <strong>second hand breaks the tie</strong>. Reach <strong>1200 OP</strong> to become <strong>👑 King of the Critters</strong>, the season's top rank." },
 
     // ── 13. Hand-switch in the game ────────────────────────────────
     { target: null, badge: "In the Game", title: "Switching Between Your Hands",
@@ -1968,7 +1968,7 @@
     { key: "game",        ico: "🎴",  title: "The Game",              desc: "Set up a real game, then play a card and fire a Star ability.",                       run: runGameTour,   ready: true },
     { key: "practice",    ico: "🦞",  title: "Practice Game (B-Lob)", desc: "Use the Strategy guide and build the Bird + Lobster combo on the real board.",        run: runBLobTour,   ready: true },
     { key: "online",      ico: "🛟",  title: "Online Play & Controls", desc: "Rooms, bots, chat, breaks, AFK rules, and card controls.",                            run: runOnlineTour, ready: true },
-    { key: "competitive", ico: "⚔️", title: "Competitive 1v1",       desc: "Ranked 1v1 play: two hands each, CP, rank divisions, the hand-switch, and strategy.", run: runCompTour,   ready: true },
+    { key: "competitive", ico: "⚔️", title: "Competitive 1v1",       desc: "Ranked 1v1 play: two hands each, OP, rank divisions, the hand-switch, and strategy.", run: runCompTour,   ready: true },
   ];
 
   function renderChooser() {

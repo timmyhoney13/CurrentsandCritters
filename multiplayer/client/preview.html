@@ -2017,7 +2017,7 @@
       </div>
       <!-- Empty state -->
       <div id="ph-comp-ranked-empty" class="ph-empty-panel" style="display:none;">
-        No ranked games yet.<small>Play Competitive or Competitive 1v1 to earn CP.</small>
+        No ranked games yet.<small>Play Competitive or Competitive 1v1 to earn OP.</small>
       </div>
       <!-- Full ranked dashboard -->
       <div id="ph-comp-ranked-dash" style="display:none;">
@@ -2056,7 +2056,7 @@
                 Ranked 1v1
               </div>
             </div>
-            <!-- Rank / Division / CP progress -->
+            <!-- Rank / Division / OP progress -->
             <div class="ph-comp-rank-section">
               <div>
                 <div class="ph-comp-rank-name" id="ph-comp-rank-name">-</div>
@@ -2064,7 +2064,7 @@
               </div>
               <div class="ph-comp-cp-wrap">
                 <div class="ph-comp-cp-row">
-                  <span id="ph-comp-cp-val">0 CP</span>
+                  <span id="ph-comp-cp-val">0 OP</span>
                   <span id="ph-comp-cp-next-label"></span>
                 </div>
                 <div class="ph-cp-bar">
@@ -2139,7 +2139,7 @@
                 <div class="ph-ss-rank-info">
                   <div class="ph-ss-rank-label">Current Rank</div>
                   <div class="ph-ss-rank-name" id="ph-ss-rank-name">-</div>
-                  <div class="ph-ss-rank-cp" id="ph-ss-rank-cp">- CP</div>
+                  <div class="ph-ss-rank-cp" id="ph-ss-rank-cp">- OP</div>
                 </div>
               </div>
               <div class="ph-ss-mini-stats">
@@ -2481,12 +2481,12 @@
         <div id="ph-lb-comp-section" style="display:none;">
           <!-- Competitive sub-tabs -->
           <div class="ph-lb-comp-tabs">
-            <button class="ph-lb-comp-tab active" id="ph-lb-cp-tab" onclick="phLbSwitchCompTab('cp',this)">CP Leaderboard</button>
+            <button class="ph-lb-comp-tab active" id="ph-lb-cp-tab" onclick="phLbSwitchCompTab('cp',this)">OP Leaderboard</button>
             <button class="ph-lb-comp-tab" id="ph-lb-single-tab" onclick="phLbSwitchCompTab('single',this)">Highest Single Hand</button>
             <button class="ph-lb-comp-tab" id="ph-lb-combined-tab" onclick="phLbSwitchCompTab('combined',this)">Highest Combined Hands</button>
           </div>
 
-          <!-- CP Leaderboard sub-section -->
+          <!-- OP Leaderboard sub-section -->
           <div id="ph-lb-cp-section">
             <div class="ph-lb-summary" id="ph-lb-cp-summary" style="display:none;">
               <div class="ph-lb-sum-rank" id="ph-lb-cp-rank">-</div>
@@ -2501,7 +2501,7 @@
                   <tr>
                     <th>Rank</th>
                     <th>Player</th>
-                    <th>CP</th>
+                    <th>OP</th>
                     <th>Rank Title</th>
                     <th>Strategy</th>
                   </tr>
@@ -3525,7 +3525,7 @@
         <div class="gs-meta-item"><div class="gs-meta-label">Final Score</div><div class="gs-meta-val gs-big gs-cyan" id="gs-my-score">-</div></div>
         <div class="gs-meta-item"><div class="gs-meta-label">Final Rank</div><div class="gs-meta-val gs-big gs-cyan" id="gs-my-rank">-</div></div>
         <div class="gs-meta-item"><div class="gs-meta-label">XP Gained</div><div class="gs-meta-val gs-gold" id="gs-xp-gained">+0 XP</div></div>
-        <div class="gs-meta-item" id="gs-cp-item" style="display:none;"><div class="gs-meta-label">CP Gained</div><div class="gs-meta-val gs-gold" id="gs-cp-gained">+0 CP</div></div>
+        <div class="gs-meta-item" id="gs-cp-item" style="display:none;"><div class="gs-meta-label">OP Gained</div><div class="gs-meta-val gs-gold" id="gs-cp-gained">+0 OP</div></div>
       </div>
       <!-- Save state. Silent while the results are on their way and once they
            land; loud the moment a dropped connection means this screen is not

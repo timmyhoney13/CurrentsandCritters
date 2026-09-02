@@ -1067,7 +1067,7 @@ def _section_competitive(f: Dict[str, Any]) -> Dict[str, Any]:
             _card("Free-for-all matches", len(ffa),
                   hint=f"The other {len(paired)} were the paired 4-seat game."),
             _card("Matches counted for rank", len(counted),
-                  hint="Matches that paid out competitive points."),
+                  hint="Matches that paid out Ocean Points."),
             _card("Matches given up", len(forfeits),
                   tone="warn" if len(forfeits) > max(3, len(rows) * 0.2) else "neutral",
                   hint="Someone left before the end."),

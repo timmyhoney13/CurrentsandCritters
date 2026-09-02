@@ -192,7 +192,7 @@ function fetch(url) {
     console.log(`  🔧  ${nick} (uid: ${uid})`);
     console.log(`       games: ${current.completed_games || 0} → ${rebuilt.completed_games}`);
     console.log(`       wins:  ${current.normal_wins || 0} → ${rebuilt.normal_wins}  |  comp wins: ${current.competitive_wins || 0} → ${rebuilt.competitive_wins}`);
-    console.log(`       best:  ${current.highest_score || 0} → ${rebuilt.highest_score}  |  CP: ${current.comp_cp || 0} → ${rebuilt.comp_cp}`);
+    console.log(`       best:  ${current.highest_score || 0} → ${rebuilt.highest_score}  |  OP: ${current.comp_cp || 0} → ${rebuilt.comp_cp}`);
 
     if (!DRY_RUN) {
       await db.collection("users").doc(uid).set({ stats: rebuilt }, { merge: true });

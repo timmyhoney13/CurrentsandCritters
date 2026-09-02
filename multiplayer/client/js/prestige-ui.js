@@ -1319,7 +1319,7 @@
       + "</ul></div>"
       + '<div class="ccP-panel keep"><div class="ccP-panel-h">🛡️ You keep</div>'
       + '<ul class="ccP-list">'
-      + li("🏆", "Competitive rank and Competitive Points")
+      + li("🏆", "Competitive rank and Ocean Points")
       + li("🛡️", "Clan membership, role, season points and clan stats")
       + li("👥", "Friends, messages and trade history")
       + li("📊", "Lifetime statistics, match history and completed achievements")

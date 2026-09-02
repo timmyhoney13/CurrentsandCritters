@@ -10,7 +10,7 @@ There are now TWO competitive modes and they are NOT variants of each other:
     forfeit window all hanging off it, every one of them gated on exactly four
     seats.
   • room.ranked is the free-for-all: an ORDINARY 2-8 player game that happens to
-    pay Competitive Points. Nothing about how it is played differs from a casual
+    pay Ocean Points. Nothing about how it is played differs from a casual
     game. Its one and only server-side rule is that it is people only.
 
 So the thing worth pinning down here is that the new flag stays its own flag: it
