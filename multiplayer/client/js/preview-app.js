@@ -25533,17 +25533,24 @@
         try { await applyGuestMigration(_authUser.uid); } catch (_) {}
         // Migrated or not, the guest session that led here is over.
         purgeGuestData();
-        fetch("/api/user/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ uid: _authUser.uid }),
-        }).catch((e) => {
-          ccReport("api_fetch_failed", {
-            path: "/api/user/register",
+        // Send the ID TOKEN, not the uid. The server reads the uid out of the
+        // verified token, so the public sign-up counter can only be moved by
+        // somebody who really did just sign up. Never allowed to stop a
+        // sign-up: a counter is not worth a lost player.
+        try {
+          const _regToken = await _authUser.getIdToken();
+          fetch("/api/user/register", {
             method: "POST",
-            error: e && (e.name || e.message || e)
-          }, "warn");
-        });
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken: _regToken }),
+          }).catch((e) => {
+            ccReport("api_fetch_failed", {
+              path: "/api/user/register",
+              method: "POST",
+              error: e && (e.name || e.message || e)
+            }, "warn");
+          });
+        } catch (_) {}
         // The email, if they gave one. Never allowed to stop a sign-up: a
         // failed link is a missing way back in, a blocked sign-up is a lost
         // player. It says so out loud either way, because somebody who typed

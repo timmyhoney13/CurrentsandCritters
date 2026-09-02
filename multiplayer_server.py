@@ -13051,14 +13051,23 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/user/register":
-            # Called by the game client once per new Google account sign-up.
-            # Body: { "uid": "<firebase_uid>" }
+            # Called by the game client once per new account sign-up.
+            # Body: { "idToken": "<firebase id token>" }
             # Idempotent: tracks seen UIDs so re-registrations don't inflate the count.
-            uid_val = body.get("uid") if isinstance(body.get("uid"), str) else ""
+            #
+            # The uid comes from the VERIFIED token, never from the body. It
+            # used to be whatever string the caller sent, and every new one was
+            # appended to seen_uids in site_stats.json forever: a loop posting
+            # random uids inflated the public "registered players" number on the
+            # marketing site and grew that file without limit, since nothing
+            # ever checked the uid belonged to a real account.
+            claims_reg = _verify_firebase_id_token(
+                body.get("idToken") if isinstance(body.get("idToken"), str) else "")
+            uid_val = str((claims_reg or {}).get("uid") or "").strip()[:256]
             if not uid_val:
-                self._send_json({"ok": False, "error": "uid required"}, status=HTTPStatus.BAD_REQUEST)
+                self._send_json({"ok": False, "error": "valid idToken required"},
+                                status=HTTPStatus.UNAUTHORIZED)
                 return
-            uid_val = uid_val.strip()[:256]
             # A brand-new account joins the dev's friends roster right away, so
             # "everyone is a friend" is true the moment they sign up rather
             # than at the next full sync. Off the request thread and wrapped:
