@@ -11437,7 +11437,31 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
     server_version = "FishMultiplayer/1.0"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, directory=BASE_DIR, **kwargs)
+        # The static-file root is the CLIENT directory, never BASE_DIR.
+        #
+        # do_GET() ends in super().do_GET(), so whatever this directory is set
+        # to is downloadable by anyone who guesses a filename. Rooted at
+        # BASE_DIR that included the whole project: every server .py file, and
+        # far worse, multiplayer/state/<ROOM>.json, which stores each seat's
+        # token, the host control token, latest_private_hands (every player's
+        # hidden hand) and the private-room password hash. A seat token is all
+        # it takes to play someone else's turns, so that one static route
+        # handed away every game in progress.
+        #
+        # Every asset the browser actually asks for lives under client/ (the
+        # card sprite sheets and avatars have their own narrow routes above),
+        # so serving from here loses nothing and exposes nothing.
+        super().__init__(*args, directory=CLIENT_DIR, **kwargs)
+
+    def list_directory(self, path):  # type: ignore[override]
+        """No directory indexes, ever.
+
+        SimpleHTTPRequestHandler renders a browsable index for any directory
+        without an index.html, which turned /multiplayer/state/ into a list of
+        every live room id. Nothing in the game needs an index page, so a
+        directory request is simply not found."""
+        self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
+        return None
 
     def _apply_cors_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", CORS_ALLOW_ORIGIN)
@@ -12161,6 +12185,25 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 else "application/javascript; charset=utf-8"
             )
             self._send_client_asset(asset_path, content_type=content_type, cache_control="public, max-age=86400")
+            return
+
+        # /multiplayer/client/<file> — the one legacy-shaped asset path.
+        # index.html loads the deck art as /multiplayer/client/card-back.png,
+        # which used to resolve through the old BASE_DIR static root. That root
+        # is gone (it was serving multiplayer/state/*.json, seat tokens and
+        # all), so this route replaces it: ONE path segment, an image/audio
+        # extension, and no dots or slashes in the name, which leaves no way to
+        # climb back out of the client directory.
+        _client_legacy = re.fullmatch(
+            r"/multiplayer/client/([A-Za-z0-9_-]+\.(?:png|jpe?g|webp|svg|gif|ico|m4a|mp3))",
+            parsed.path,
+        )
+        if _client_legacy:
+            legacy_path = os.path.join(CLIENT_DIR, _client_legacy.group(1))
+            if os.path.exists(legacy_path):
+                self._send_client_asset(legacy_path, cache_control="public, max-age=86400", allow_webp=True)
+            else:
+                self._send_json({"ok": False, "error": "asset not found"}, status=HTTPStatus.NOT_FOUND)
             return
 
         if parsed.path == "/icon.svg":
