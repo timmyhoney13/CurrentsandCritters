@@ -582,3 +582,11 @@ multiplayer/client/_tut_drive_*.html
 multiplayer/client/_tutig_app.js
 multiplayer/client/_tutig_page.html
 multiplayer/client/_tutig_page_m.html
+
+# The public-surface tests: what a stranger can download from the server, and
+# what the in-game admin door does when nobody set a key. It boots the real
+# MultiplayerHandler and asks it for multiplayer/state/<room>.json, for the
+# server source, and for admin_mod with the old built-in key, because both
+# holes it pins shut were found with curl and neither was visible in a source
+# read. Test-only, so this needs this entry and no Dockerfile COPY.
+!test_security_surface.py
