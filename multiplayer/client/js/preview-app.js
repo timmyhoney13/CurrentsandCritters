@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-02.1";
+  const APP_BUILD   = "2026-09-02.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
