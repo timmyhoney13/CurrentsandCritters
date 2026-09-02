@@ -11474,6 +11474,28 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # same-origin-allow-popups was causing "COOP would block window.closed"
         # console errors and broken auth popup teardown.
         self.send_header("Cross-Origin-Opener-Policy", "unsafe-none")
+
+        # Nobody may frame the game. There are no iframes anywhere in the
+        # client, so this costs nothing and takes away clickjacking: a hostile
+        # page cannot stack an invisible copy of the table under its own
+        # buttons and have a player click Resign or confirm a trade by
+        # accident. frame-ancestors is the modern spelling, X-Frame-Options is
+        # for browsers that only read the old one.
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
+        self.send_header("Content-Security-Policy", "frame-ancestors 'self'")
+
+        # Never send a full game URL to another site. Seat tokens and host
+        # tokens travel in query strings (?seat_token=…), and the default
+        # referrer policy would put that whole URL in the Referer header of
+        # every outbound click and third-party request, handing someone else's
+        # seat to whatever site was on the other end. Cross-origin requests now
+        # carry the origin only.
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+
+        # No MIME sniffing, so a file that is served as an image can never be
+        # re-interpreted as a script by the browser.
+        self.send_header("X-Content-Type-Options", "nosniff")
+
         self._apply_cors_headers()
 
     def _maybe_gzip(self, raw: bytes, ctype: str, cache_key: Optional[str] = None) -> Tuple[bytes, Optional[str]]:
