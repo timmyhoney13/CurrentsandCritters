@@ -13437,18 +13437,32 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         # ── Current Controller: hard-gated admin mod tools ──────────────────
-        # Requires BOTH (1) the admin key (constant-time compared) and (2) a
-        # valid seat token for THIS room. The key defaults to "dog" but can be
-        # overridden by the ADMIN_MOD_KEY env secret. Without the key, every op
-        # is rejected, so console/URL tampering by non-admins fails.
+        # Requires BOTH (1) the ADMIN_MOD_KEY secret (constant-time compared)
+        # and (2) a valid seat token for THIS room.
+        #
+        # This key used to fall back to the literal "dog" when the env var was
+        # unset. This repository is PUBLIC, so that fallback was a published
+        # password on a live endpoint whose ops include reveal (every
+        # opponent's hidden hand), hand_add / hand_copy_to_me, deck_place and
+        # mint. Anyone holding a seat in a game could read the default out of
+        # GitHub and deal themselves a winning hand.
+        #
+        # There is no default now: with no ADMIN_MOD_KEY set in the
+        # environment, the tools are OFF and every op is refused. A secret the
+        # server does not have is not a secret it can be tricked into
+        # accepting.
         if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "admin_mod":
             room = ROOMS.get(parts[2])
             if room is None:
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
-            effective_key = os.environ.get("ADMIN_MOD_KEY", "").strip() or "dog"
+            effective_key = os.environ.get("ADMIN_MOD_KEY", "").strip()
+            if not effective_key:
+                self._send_json({"ok": False, "error": "admin tools are disabled on this server"},
+                                status=HTTPStatus.FORBIDDEN)
+                return
             supplied = body.get("admin_key") if isinstance(body.get("admin_key"), str) else ""
-            if not supplied or not secrets.compare_digest(supplied, effective_key):
+            if not _admin_key_ok(supplied, effective_key):
                 self._send_json({"ok": False, "error": "not authorized"}, status=HTTPStatus.FORBIDDEN)
                 return
             seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
@@ -14177,6 +14191,16 @@ def main() -> None:
     print(f"[referral] friend-code reward ON: {referral_server.reward_coins()} coins each side, "
           f"1 background per {referral_server.background_every()} referrals, "
           f"{referral_server.window_days()}-day sign-up window")
+
+    # Say out loud whether the in-game admin tools are reachable. They no
+    # longer have a built-in default key, so silence here means OFF, and the
+    # Current Controller's server-backed tools will answer "admin tools are
+    # disabled on this server" until ADMIN_MOD_KEY is set in the environment.
+    if os.environ.get("ADMIN_MOD_KEY", "").strip():
+        print("[admin] Current Controller server tools ON (ADMIN_MOD_KEY set, "
+              "key required per request alongside a valid seat token)")
+    else:
+        print("[admin] Current Controller server tools OFF: set ADMIN_MOD_KEY to enable them")
 
     # Bootstrap the stats file with historical seed values if it doesn't exist yet.
     if STATS_SEED_GAMES > 0 or STATS_SEED_PLAYERS > 0:
