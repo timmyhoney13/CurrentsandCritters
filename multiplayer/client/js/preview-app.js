@@ -13844,7 +13844,7 @@
   }
 
   // ── Game Night XP ──────────────────────────────────────────────────────
-  // Every XP source pays 1.75x while Saturday's session is live. The schedule
+  // Every XP source pays 1.5x while Saturday's session is live. The schedule
   // and the multiplier both live in js/game-night.js (window.__ccGameNightXp),
   // which is the ONE place the event is defined; a second copy of "is it live
   // right now?" is how a bonus pays out an hour late twice a year at DST.
@@ -14296,7 +14296,7 @@
       // The login bonus is multiplied by hand here rather than through
       // prestigeXp (it keeps 2 decimal places), so the Level Pass boost and the
       // Game Night multiplier have to be applied here as well: "+20% XP from
-      // everything" and "1.75x on Game Night" both have to mean it.
+      // everything" and "1.5x on Game Night" both have to mean it.
       const _pxStreak = _streakBonusXp > 0
         ? Math.round(_streakBonusXp * (1 + prestigeLevelNow() * 0.25)
                      * passBoostNow().mult * gameNightXpNow().mult * 100) / 100

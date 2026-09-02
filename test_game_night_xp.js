@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Game Night pays 1.75x XP, and it has to pay it at the right hour.
+/* Game Night pays 1.5x XP, and it has to pay it at the right hour.
  *
  * Two halves, both running the REAL code:
  *
@@ -92,8 +92,8 @@ const MOMENTS = [
 ];
 for (const [label, iso, want] of MOMENTS) {
   const st = gnXp(new Date(iso));
-  check(`${label} (${chicago(iso)}): ${want ? "1.75x" : "1x"}`,
-        st.active === want && st.mult === (want ? 1.75 : 1),
+  check(`${label} (${chicago(iso)}): ${want ? "1.5x" : "1x"}`,
+        st.active === want && st.mult === (want ? 1.5 : 1),
         `active=${st.active} mult=${st.mult}`);
 }
 
@@ -171,7 +171,7 @@ check("garbage falls back to now, never to a bogus instant",
 
 console.log("\nthe banner promises what the code pays");
 check("the multiplier is one constant, not a number typed into the copy",
-      /const XP_MULT = 1\.75;/.test(GN));
+      /const XP_MULT = 1\.5;/.test(GN));
 check("the label is derived from that constant", /XP_LABEL = String\(Number\(XP_MULT/.test(GN));
 check("the chip is rendered from the label, never a literal",
       /class="ccGN-xp[^]{0,80}\$\{esc\(XP_LABEL\)\}/.test(GN));
@@ -203,23 +203,23 @@ function xpEngine({ prestige = 0, boost = null, night = null } = {}) {
   vm.runInContext(XP_SRC + "\n; this.prestigeXp = prestigeXp;", ctx);
   return ctx.prestigeXp;
 }
-const LIVE = { active: true, mult: 1.75, percent: 75, label: "1.75x" };
-const OFF  = { active: false, mult: 1, percent: 0, label: "1.75x" };
+const LIVE = { active: true, mult: 1.5, percent: 50, label: "1.5x" };
+const OFF  = { active: false, mult: 1, percent: 0, label: "1.5x" };
 const BOOST = { active: true, percent: 20, mult: 1.2 };
 
-console.log("\n1.75x, applied to the XP a game actually pays");
+console.log("\n1.5x, applied to the XP a game actually pays");
 {
   const plain = xpEngine();
   const live  = xpEngine({ night: LIVE });
   check("off Game Night nothing changes", plain(100).total === 100, plain(100).total);
-  check("a 100 XP game pays 175 during Game Night", live(100).total === 175, live(100).total);
+  check("a 100 XP game pays 150 during Game Night", live(100).total === 150, live(100).total);
   check("the bonus is broken out for the end screen",
-        live(100).gameNightBonus === 75 && live(100).gameNight === true,
+        live(100).gameNightBonus === 50 && live(100).gameNight === true,
         JSON.stringify(live(100)));
-  check("the label rides along so the screen can print '1.75x'",
-        live(100).gameNightLabel === "1.75x", live(100).gameNightLabel);
-  check("an odd number rounds down, never up (57 → 99)",
-        live(57).total === 99, live(57).total);
+  check("the label rides along so the screen can print '1.5x'",
+        live(100).gameNightLabel === "1.5x", live(100).gameNightLabel);
+  check("an odd number rounds down, never up (57 → 85)",
+        live(57).total === 85, live(57).total);
   check("zero XP stays zero", live(0).total === 0 && live(0).gameNightBonus === 0);
 }
 
@@ -228,21 +228,21 @@ console.log("\nit stacks on top of the other two, in that order");
   const p2   = xpEngine({ prestige: 2, night: LIVE });
   const both = xpEngine({ prestige: 2, boost: BOOST, night: LIVE });
   const bOnly = xpEngine({ boost: BOOST, night: LIVE });
-  // 100 → Prestige 2 (×1.5) = 150 → Game Night (×1.75) = 262
-  check("Prestige first, then Game Night (100 → 150 → 262)",
-        p2(100).total === 262, p2(100).total);
+  // 100 → Prestige 2 (×1.5) = 150 → Game Night (×1.5) = 225
+  check("Prestige first, then Game Night (100 → 150 → 225)",
+        p2(100).total === 225, p2(100).total);
   check("…and the Prestige share is still reported on its own",
-        p2(100).prestigeBonus === 50 && p2(100).gameNightBonus === 112,
+        p2(100).prestigeBonus === 50 && p2(100).gameNightBonus === 75,
         `${p2(100).prestigeBonus} / ${p2(100).gameNightBonus}`);
-  // 100 → ×1.5 = 150 → ×1.2 = 180 → ×1.75 = 315
-  check("all three stack (100 → 150 → 180 → 315)", both(100).total === 315, both(100).total);
+  // 100 → ×1.5 = 150 → ×1.2 = 180 → ×1.5 = 270
+  check("all three stack (100 → 150 → 180 → 270)", both(100).total === 270, both(100).total);
   check("the boost's own line is unchanged by the new multiplier",
         both(100).boostBonus === 30 && both(100).boostPercent === 20,
         `${both(100).boostBonus} / ${both(100).boostPercent}`);
   check("bonus is still everything above base",
         both(100).bonus === both(100).total - 100, both(100).bonus);
-  check("a boost with no Prestige still works (100 → 120 → 210)",
-        bOnly(100).total === 210, bOnly(100).total);
+  check("a boost with no Prestige still works (100 → 120 → 180)",
+        bOnly(100).total === 180, bOnly(100).total);
 }
 
 console.log("\na bonus that cannot be read is never allowed to remove XP");
@@ -250,7 +250,7 @@ console.log("\na bonus that cannot be read is never allowed to remove XP");
   const missing = xpEngine();                                   // module not loaded
   const broken  = xpEngine({ night: { active: true, mult: 0 } });
   const nan     = xpEngine({ night: { active: true, mult: "x" } });
-  const lying   = xpEngine({ night: { active: false, mult: 1.75 } });
+  const lying   = xpEngine({ night: { active: false, mult: 1.5 } });
   const thrower = (() => {
     const win = { get __ccGameNightXp() { throw new Error("boom"); } };
     const ctx = vm.createContext({ window: win, console, Number, Math, String });

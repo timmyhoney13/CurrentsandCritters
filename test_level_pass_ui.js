@@ -503,10 +503,10 @@ check("it says when the next one starts",
       /Starts in|Live right now/.test(D.gn.text), D.gn.text);
 // The XP bonus is half the reason to turn up, so it is a chip of its own next
 // to the countdown, not a clause buried in the note.
-check("the 1.75x XP bonus is on a chip of its own",
-      /1\.75x XP/.test(D.gn.xpChip), D.gn.xpChip);
+check("the 1.5x XP bonus is on a chip of its own",
+      /1\.5x XP/.test(D.gn.xpChip), D.gn.xpChip);
 check("…and the note says what it applies to",
-      /Games, challenges and your daily bonus all pay 1\.75x XP/.test(D.gn.text),
+      /Games, challenges and your daily bonus all pay 1\.5x XP/.test(D.gn.text),
       D.gn.text.slice(0, 220));
 
 // ══════════════════════════════════════════════════════════════════════════

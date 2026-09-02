@@ -1,7 +1,7 @@
 /* Currents and Critters: Game Night (one module, both hosts).
  *
  * "Game Night is every Saturday, 7–9 PM CST. Games, challenges and the daily
- * bonus pay 1.75x XP while it runs. RSVP here. RSVP isn't required, but it's
+ * bonus pay 1.5x XP while it runs. RSVP here. RSVP isn't required, but it's
  * recommended." That is the whole feature, and it has to be impossible to miss
  * in two places:
  *
@@ -50,9 +50,9 @@
   // challenges and their metas, events, clan challenge XP). One number, read
   // by the banner (so the promise is written from the same constant that pays
   // it) and by the app's XP grant.
-  const XP_MULT = 1.75;
-  const XP_PERCENT = Math.round((XP_MULT - 1) * 100);   // 75, for "+75%"
-  // "1.75x" without a trailing zero, and "2x" if it is ever a round number.
+  const XP_MULT = 1.5;
+  const XP_PERCENT = Math.round((XP_MULT - 1) * 100);   // 50, for "+50%"
+  // "1.5x" without a trailing zero, and "2x" if it is ever a round number.
   const XP_LABEL = String(Number(XP_MULT.toFixed(2))) + "x";
 
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g,
