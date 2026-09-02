@@ -2907,6 +2907,49 @@
       </div>
     </div>
   </div>
+
+  <!-- ── INVITE A FRIEND: write the note, pick the people, send it in chat ──
+       Copying a link only helps if the player already has somewhere to paste
+       it. The game has its own chat, so this sheet sends the invite straight
+       down it: a short editable message, the friends you already talk to as
+       one-tap picks, plus a search for anyone else. Copying is still here as
+       the way out to Discord and everywhere else. -->
+  <div id="wr-invite" style="display:none;" aria-hidden="true">
+    <div class="wri-sheet" role="dialog" aria-modal="true" aria-labelledby="wri-title">
+      <div class="wri-head">
+        <div class="wri-head-titles">
+          <h3 id="wri-title">Invite a friend</h3>
+          <p class="wri-sub" id="wri-sub">Send this room straight to a friend's chat.</p>
+        </div>
+        <button type="button" id="wri-close" title="Close" aria-label="Close">✕</button>
+      </div>
+
+      <div class="wri-body">
+        <div class="wri-guest" id="wri-guest" style="display:none;">
+          Sign in to send invites in chat. You can still copy the link.
+        </div>
+
+        <div class="wri-sect" id="wri-who">
+          <div class="wri-label">Who gets it</div>
+          <div id="wri-compose"></div>
+          <div class="wri-recents" id="wri-recents"></div>
+        </div>
+
+        <div class="wri-sect">
+          <div class="wri-label">The message</div>
+          <textarea id="wri-text" maxlength="300" rows="3" spellcheck="false"
+                    aria-label="Invite message"></textarea>
+          <div class="wri-link" id="wri-link"></div>
+        </div>
+      </div>
+
+      <div class="wri-foot">
+        <button type="button" id="wri-copy"><span>📋</span><span>Copy link</span></button>
+        <button type="button" id="wri-send" disabled><span>💬</span><span>Send in chat</span></button>
+      </div>
+      <div class="wri-status" id="wri-status" role="status"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ══ GAME ════════════════════════════════════════════════════════ -->

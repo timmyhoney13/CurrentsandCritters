@@ -3559,6 +3559,121 @@
       .wr-btn-text { font-size: 17px; }
     }
 
+    /* ── INVITE A FRIEND SHEET (send the room down the in-game chat) ──
+       Deep-ocean panel, because the recipient picker inside it is the SAME
+       widget as the chat panel's (FishCompose with the "pvc" prefix), and
+       those styles are written for a dark surface. Reusing them is the point:
+       one composer, one behaviour, no second copy to drift. */
+    #wr-invite {
+      position: fixed; inset: 0; z-index: 940;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px; background: rgba(5,22,48,.6); backdrop-filter: blur(3px);
+    }
+    #wr-invite.open { display: flex; }
+    .wri-sheet {
+      width: min(420px, 100%); max-height: min(86vh, 640px);
+      display: flex; flex-direction: column;
+      background: linear-gradient(180deg, #123563, #0c2547);
+      border: 1px solid rgba(95,179,214,.34); border-radius: 16px;
+      box-shadow: 0 18px 50px rgba(3,14,34,.6); overflow: hidden;
+      font-family: "Baloo 2", "Nunito", sans-serif;
+    }
+    .wri-head {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 14px 14px 10px; border-bottom: 1px solid rgba(95,179,214,.16);
+    }
+    .wri-head-titles { flex: 1; min-width: 0; }
+    .wri-head h3 { margin: 0; font-size: 17px; font-weight: 900; color: #eaf4ff; }
+    .wri-sub { margin: 3px 0 0; font-size: 11.5px; font-weight: 700; color: #8fb6da; line-height: 1.4; }
+    #wri-close {
+      flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+      background: rgba(255,255,255,.08); border: 1px solid rgba(95,179,214,.28);
+      color: #cfe4f8; font-size: 13px; font-weight: 900; line-height: 1;
+    }
+    #wri-close:hover { background: rgba(255,255,255,.16); }
+    .wri-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 14px; }
+    .wri-sect { display: flex; flex-direction: column; }
+    .wri-label {
+      font-size: 9.5px; font-weight: 900; letter-spacing: 1.6px; text-transform: uppercase;
+      color: #7fa6cc; margin-bottom: 7px;
+    }
+    .wri-guest {
+      font-size: 11.5px; font-weight: 800; color: #f0c674; line-height: 1.5;
+      background: rgba(232,179,74,.12); border: 1px solid rgba(232,179,74,.3);
+      border-radius: 10px; padding: 9px 11px;
+    }
+    /* The composer's own submit button and group-name field are hidden: this
+       sheet sends one invite per person from its own Send button, so a second
+       verb in the middle of the picker would be a second, wrong, way out. */
+    #wri-compose .pvc-compose-go, #wri-compose .pvc-compose-name { display: none !important; }
+
+    .wri-recents { display: flex; flex-direction: column; gap: 5px; margin-top: 9px; }
+    .wri-recents-h { font-size: 10.5px; font-weight: 800; color: #7fa6cc; margin-top: 2px; }
+    .wri-recent {
+      display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; cursor: pointer;
+      background: rgba(22,56,110,.6); border: 1px solid rgba(95,179,214,.18);
+      border-radius: 10px; padding: 6px 9px; font-family: inherit;
+    }
+    .wri-recent:hover { background: rgba(30,72,136,.75); }
+    .wri-recent.on { border-color: #2e90e0; background: rgba(46,144,224,.24); }
+    .wri-recent-av {
+      width: 26px; height: 26px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      background: linear-gradient(145deg,#2f8be3,#1f66bc);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 900; font-size: 12px;
+    }
+    .wri-recent-av img { width: 100%; height: 100%; object-fit: cover; }
+    .wri-recent-nm {
+      flex: 1; min-width: 0; font-size: 12.5px; font-weight: 800; color: #dcecfb;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .wri-recent-tick { flex: 0 0 auto; font-size: 12px; color: #6fc2ff; opacity: 0; }
+    .wri-recent.on .wri-recent-tick { opacity: 1; }
+    .wri-recents-empty { font-size: 11px; font-weight: 700; color: #7fa6cc; line-height: 1.5; }
+
+    #wri-text {
+      width: 100%; box-sizing: border-box; resize: vertical; min-height: 64px;
+      background: rgba(22,56,110,.8); border: 1px solid rgba(95,179,214,.28);
+      border-radius: 10px; padding: 9px 10px; color: #e6f0fa;
+      font-family: inherit; font-size: 12.5px; font-weight: 700; line-height: 1.5;
+    }
+    #wri-text:focus { outline: none; border-color: #2e90e0; }
+    .wri-link {
+      margin-top: 6px; font-size: 10.5px; font-weight: 800; color: #7fa6cc;
+      word-break: break-all; line-height: 1.45;
+    }
+    .wri-foot {
+      display: flex; gap: 8px; padding: 11px 14px;
+      border-top: 1px solid rgba(95,179,214,.16); background: rgba(8,28,58,.55);
+    }
+    .wri-foot button {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      border-radius: 10px; padding: 10px 12px; cursor: pointer;
+      font-family: inherit; font-size: 12.5px; font-weight: 900;
+    }
+    #wri-copy {
+      flex: 0 0 auto; background: rgba(255,255,255,.08);
+      border: 1px solid rgba(95,179,214,.3); color: #cfe4f8;
+    }
+    #wri-copy:hover { background: rgba(255,255,255,.16); }
+    #wri-send {
+      flex: 1; background: linear-gradient(135deg,#2e90e0,#1a6ad0);
+      border: none; color: #fff;
+    }
+    #wri-send:hover:not(:disabled) { filter: brightness(1.08); }
+    #wri-send:disabled { opacity: .45; cursor: default; filter: none; }
+    .wri-status {
+      display: none; padding: 0 14px 11px; font-size: 11.5px; font-weight: 800; color: #8fe0b4;
+    }
+    .wri-status.show { display: block; }
+    .wri-status.err { color: #ff9fb0; }
+
+    @media (max-width: 520px) {
+      .wri-sheet { width: 100%; max-height: 92vh; }
+      .wri-foot { flex-direction: column-reverse; }
+      #wri-copy { flex: 1 1 auto; }
+    }
+
     /* ── GUIDE BAR ──────────────────────────────────────────────── */
     #pv-guide-bar {
       display: none;

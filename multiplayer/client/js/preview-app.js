@@ -3189,7 +3189,8 @@
         "Start is locked until somebody sits here."));
       const inv = _wrEl("button", "wr-seat-invite", "＋ Invite a friend");
       inv.type = "button";
-      inv.addEventListener("click", () => { document.getElementById("wr-copy-btn")?.click(); });
+      inv.title = "Write a note and send this room down the in-game chat";
+      inv.addEventListener("click", () => wrInviteOpen());
       body.appendChild(inv);
       if (ctx.canShape && !ctx.room.ranked) {
         const toBot = _wrEl("button", "wr-seat-tobot", "🤖 Make it a bot");
@@ -3690,12 +3691,19 @@
     }
   }
 
+  // Always build the invite link from the real room id (works for public
+  // rooms whose code is hidden, and private rooms where code === room id).
+  function wrInviteCode() {
+    const disp = document.getElementById("wr-code-display");
+    return String(roomId || (disp ? disp.textContent : "") || "").trim();
+  }
+  function wrInviteLink() { return `${location.origin}/play/${wrInviteCode()}`; }
+  function wrInviteDefaultText() {
+    return `Come play Currents & Critters with me! Room ${wrInviteCode()}: ${wrInviteLink()}`;
+  }
+
   document.getElementById("wr-copy-btn").addEventListener("click", () => {
-    // Always build the invite link from the real room id (works for public
-    // rooms whose code is hidden, and private rooms where code === room id).
-    const code = roomId || document.getElementById("wr-code-display").textContent;
-    const link = `${location.origin}/play/${code}`;
-    navigator.clipboard?.writeText(link).catch(()=>{});
+    navigator.clipboard?.writeText(wrInviteLink()).catch(()=>{});
     const btn = document.getElementById("wr-copy-btn");
     btn.innerHTML = '<span class="wr-copy-icon">✓</span><span>Link Copied!</span>';
     setTimeout(() => {
@@ -3705,6 +3713,219 @@
   document.getElementById("wr-code-display").addEventListener("click", () => {
     document.getElementById("wr-copy-btn").click();
   });
+
+  // ══ INVITE A FRIEND: the room, sent down the game's own chat ═══════
+  // A copied link only helps somebody who already has somewhere to paste it.
+  // The game has chat, so the seat's "＋ Invite a friend" opens this sheet:
+  // an editable one-line note, the chats you already have as one-tap picks,
+  // a search for anybody else, and one Send that DMs each of them. Copying is
+  // still on it, because Discord and text messages live outside the game.
+  //
+  // The recipient picker is the SAME widget as the chat panel's, built by
+  // window.FishCompose with the "pvc" prefix, so there is one composer in the
+  // game, not a second one to drift. Sending goes through window.__fishMsg,
+  // the one bridge to the Firestore messaging layer.
+  let _wriCompose = null;    // FishCompose handle (built on first open)
+  let _wriPicked  = {};      // conv id → conversation, the tapped recent chats
+  let _wriBusy    = false;   // in-flight guard, so one Send is one send
+
+  const _wriMsg = () => window.__fishMsg || null;
+  const _wriEl  = (id) => document.getElementById(id);
+  function _wriCanSend() {
+    const M = _wriMsg();
+    return !!(M && M.ready && M.ready() && !(M.isGuest && M.isGuest()));
+  }
+  function _wriStatus(msg, isErr) {
+    const el = _wriEl("wri-status");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.classList.toggle("show", !!msg);
+    el.classList.toggle("err", !!isErr);
+  }
+
+  // Everyone this invite is addressed to, searched names and tapped chats
+  // together, deduped: picking the same person twice must not send twice.
+  function wrInviteTargets() {
+    const out = [], seen = {};
+    const add = (t) => {
+      const key = t.group ? ("g:" + t.convId) : ("d:" + t.uid);
+      if (!t || seen[key]) return;
+      seen[key] = true; out.push(t);
+    };
+    if (_wriCompose) {
+      _wriCompose.getRecipients().forEach(r => {
+        if (r && r.uid) add({ group: false, uid: r.uid, name: r.name || "Player" });
+      });
+    }
+    Object.keys(_wriPicked).forEach(id => {
+      const c = _wriPicked[id];
+      if (!c) return;
+      if (c.group) add({ group: true, convId: c.id, name: c.name || "Group" });
+      else if (c.peerUid) add({ group: false, uid: c.peerUid, name: c.peerName || "Player" });
+    });
+    return out;
+  }
+
+  function wrInviteSync() {
+    const btn = _wriEl("wri-send");
+    if (!btn) return;
+    const n = wrInviteTargets().length;
+    const text = (_wriEl("wri-text") || {}).value || "";
+    btn.disabled = _wriBusy || !_wriCanSend() || n === 0 || !text.trim();
+    const label = btn.lastElementChild;
+    if (label) label.textContent = n > 1 ? `Send to ${n} chats` : "Send in chat";
+  }
+
+  // The chats you already have, as one-tap picks. This is the whole point of
+  // sending in-game: the friend you want is nearly always one you have talked
+  // to before, and typing their name again is work the game can do for you.
+  function wrInviteRenderRecents() {
+    const host = _wriEl("wri-recents");
+    if (!host) return;
+    host.innerHTML = "";
+    const M = _wriMsg();
+    if (!_wriCanSend()) return;
+    const convs = (M.conversations() || []).slice(0, 8);
+    if (!convs.length) {
+      const note = _wrEl("div", "wri-recents-empty",
+        "No chats yet. Search a player above and the invite starts one.");
+      host.appendChild(note);
+      return;
+    }
+    host.appendChild(_wrEl("div", "wri-recents-h", "Recent chats"));
+    convs.forEach(c => {
+      const name = c.group ? (c.name || "Group") : (c.peerName || "Player");
+      const row = _wrEl("button", "wri-recent" + (_wriPicked[c.id] ? " on" : ""));
+      row.type = "button";
+      row.setAttribute("aria-pressed", _wriPicked[c.id] ? "true" : "false");
+      const av = _wrEl("span", "wri-recent-av");
+      av.textContent = c.group ? "👥" : (String(name)[0] || "?").toUpperCase();
+      row.appendChild(av);
+      row.appendChild(_wrEl("span", "wri-recent-nm", name));
+      row.appendChild(_wrEl("span", "wri-recent-tick", "✓"));
+      row.addEventListener("click", () => {
+        if (_wriPicked[c.id]) delete _wriPicked[c.id];
+        else _wriPicked[c.id] = c;
+        row.classList.toggle("on", !!_wriPicked[c.id]);
+        row.setAttribute("aria-pressed", _wriPicked[c.id] ? "true" : "false");
+        _wriStatus("");
+        wrInviteSync();
+      });
+      host.appendChild(row);
+      if (!c.group && M.avatarForNick) {
+        M.avatarForNick(c.peerName).then(url => {
+          if (!url) return;
+          av.textContent = "";
+          const im = document.createElement("img");
+          im.src = (typeof window.__fishAvSrc === "function") ? window.__fishAvSrc(url) : url;
+          im.alt = "";
+          av.appendChild(im);
+        }).catch(() => {});
+      }
+    });
+  }
+
+  function wrInviteOpen() {
+    const wrap = _wriEl("wr-invite");
+    if (!wrap) { document.getElementById("wr-copy-btn")?.click(); return; }
+    _wriPicked = {};
+    _wriBusy = false;
+    _wriStatus("");
+    const txt = _wriEl("wri-text");
+    if (txt) txt.value = wrInviteDefaultText();
+    const link = _wriEl("wri-link");
+    if (link) link.textContent = wrInviteLink();
+
+    const signedIn = _wriCanSend();
+    const guest = _wriEl("wri-guest");
+    if (guest) guest.style.display = signedIn ? "none" : "";
+    const who = _wriEl("wri-who");
+    if (who) who.style.display = signedIn ? "" : "none";
+
+    const host = _wriEl("wri-compose");
+    if (host && signedIn && typeof window.FishCompose === "function") {
+      try { _wriMsg().ensureListener(); } catch (_) {}
+      // onStart (the picker's own Enter/submit) sends, so the keyboard route
+      // ends where the button does instead of doing nothing.
+      _wriCompose = window.FishCompose(host, "pvc", () => wrInviteSend(), () => {
+        _wriStatus(""); wrInviteSync();
+      });
+    } else {
+      _wriCompose = null;
+      if (host) host.innerHTML = "";
+    }
+    wrInviteRenderRecents();
+    wrInviteSync();
+
+    wrap.style.display = "flex";
+    wrap.classList.add("open");
+    wrap.setAttribute("aria-hidden", "false");
+    if (_wriCompose) _wriCompose.focus();
+  }
+
+  function wrInviteClose() {
+    const wrap = _wriEl("wr-invite");
+    if (!wrap) return;
+    wrap.classList.remove("open");
+    wrap.style.display = "none";
+    wrap.setAttribute("aria-hidden", "true");
+    _wriPicked = {};
+    if (_wriCompose) { try { _wriCompose.reset(); } catch (_) {} }
+  }
+  function wrInviteIsOpen() {
+    const wrap = _wriEl("wr-invite");
+    return !!(wrap && wrap.classList.contains("open"));
+  }
+
+  async function wrInviteSend() {
+    if (_wriBusy) return;
+    const M = _wriMsg();
+    if (!_wriCanSend()) { _wriStatus("Sign in to send invites in chat.", true); return; }
+    const targets = wrInviteTargets();
+    const text = ((_wriEl("wri-text") || {}).value || "").trim();
+    if (!targets.length) { _wriStatus("Pick at least one friend.", true); return; }
+    if (!text) { _wriStatus("Write something to send.", true); return; }
+
+    _wriBusy = true; wrInviteSync();
+    _wriStatus("Sending…", false);
+    let sent = 0;
+    for (const t of targets) {
+      let ok = false;
+      try {
+        ok = t.group ? await M.sendGroup(t.convId, text) : await M.sendDM(t.uid, t.name, text);
+      } catch (_) { ok = false; }
+      if (ok) sent++;
+    }
+    _wriBusy = false;
+
+    if (!sent) {
+      _wriStatus("That invite did not send. Copy the link instead.", true);
+      wrInviteSync();
+      return;
+    }
+    // Say who it went to, not just that it went: "sent" with no name is the
+    // kind of message a player re-sends because they cannot tell if it worked.
+    const first = targets[0].name || "your friend";
+    _wriStatus(sent === 1 ? `Invite sent to ${first}.`
+                          : `Invite sent to ${first} and ${sent - 1} more.`, false);
+    try { showToast("Invite sent in chat 💬", "ok"); } catch (_) {}
+    setTimeout(() => { if (wrInviteIsOpen()) wrInviteClose(); }, 1200);
+  }
+
+  _wriEl("wri-close")?.addEventListener("click", wrInviteClose);
+  _wriEl("wri-send")?.addEventListener("click", wrInviteSend);
+  _wriEl("wri-text")?.addEventListener("input", () => { _wriStatus(""); wrInviteSync(); });
+  _wriEl("wri-copy")?.addEventListener("click", () => {
+    navigator.clipboard?.writeText(wrInviteLink()).catch(()=>{});
+    _wriStatus("Link copied. Paste it anywhere.", false);
+  });
+  // The backdrop closes it; a click inside the sheet must not.
+  _wriEl("wr-invite")?.addEventListener("click", (ev) => {
+    if (ev.target === _wriEl("wr-invite")) wrInviteClose();
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && wrInviteIsOpen()) { ev.stopPropagation(); wrInviteClose(); }
+  }, true);
 
   // Legacy #pv-create-btn handler removed with the old create/join lobby.
   // Room creation now lives in the New Current modal (#nc-create-btn).
@@ -17194,7 +17415,8 @@
           if (M.avatarForNick && m.sender_name) {
             M.avatarForNick(m.sender_name).then(url => {
               if (!url) return; cl(av); const im = document.createElement("img");
-              im.src = (window.__fishAvSrc ? window.__fishAvSrc(url) : url); im.alt = ""; av.appendChild(im);
+              im.src = (typeof window.__fishAvSrc === "function") ? window.__fishAvSrc(url) : url;
+          im.alt = ""; av.appendChild(im);
             }).catch(() => {});
           }
           const nm = document.createElement("span"); nm.textContent = m.sender_name || "Player";
@@ -17531,7 +17753,8 @@
             M.avatarForNick(p.name).then(url => {
               if (!url) return;
               cl(av); const im = document.createElement("img");
-              im.src = (window.__fishAvSrc ? window.__fishAvSrc(url) : url); im.alt = ""; av.appendChild(im);
+              im.src = (typeof window.__fishAvSrc === "function") ? window.__fishAvSrc(url) : url;
+          im.alt = ""; av.appendChild(im);
             }).catch(() => {});
           }
           const nm = document.createElement("span");

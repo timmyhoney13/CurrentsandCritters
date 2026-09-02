@@ -51,6 +51,14 @@
 !test_lobby_seat_tiles.py
 !test_lobby_seat_tiles.js
 
+# "＋ Invite a friend" on an open seat: the sheet that writes a note, picks
+# friends out of the chats you already have, and sends the room down the
+# in-game chat instead of copying a link into nowhere. Pins the send routing
+# (a group is not a DM), the one-person-one-invite dedup, the guest case, and
+# the real render from phone to desktop. Test-only, so this needs this entry
+# and no Dockerfile COPY.
+!test_invite_friend_chat.js
+
 # The admin XP tool (/api/admin/set_xp): sets one account's lifetime XP to an
 # exact number and rewrites every level field derived from it in the same write.
 # The test pins the derivation AND that the server's level table still matches
