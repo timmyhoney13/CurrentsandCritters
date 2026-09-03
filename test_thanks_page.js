@@ -240,14 +240,37 @@ check("a tier with no coin grant still reads cleanly", async () => {
   }
 });
 
-check("an unmatched payment points the buyer at the claim flow", async () => {
+check("an unmatched payment points the buyer at their emailed code", async () => {
+  // This is the buyer the whole redemption-code feature exists for: nobody
+  // could tie the payment to an account. The code is now the way in, and for
+  // a username-and-password account it is the ONLY way in, so the page has to
+  // name it rather than sending them hunting for the claim page.
   const { els } = makeEnv({
     search: "?session_id=cs_live_abc123",
     serverReply: { ok: true, processed: true, kind: "coins", value: 1000, matched: false },
   });
   await new Promise(r => setImmediate(r));
-  if (!/attach|claim|match/i.test(els["status-note"].textContent)) {
-    throw new Error("no claim guidance for an unmatched payment: " + els["status-note"].textContent);
+  const note = els["status-note"].textContent;
+  if (!/email/i.test(note) || !/code/i.test(note)) {
+    throw new Error("no code guidance for an unmatched payment: " + note);
+  }
+  if (!/friends/i.test(note)) {
+    throw new Error("the note does not say WHERE to paste the code: " + note);
+  }
+});
+
+check("the claim link is still there as the fallback", async () => {
+  // The email match did not go away, it just stopped being the headline.
+  const { els } = makeEnv({
+    search: "?session_id=cs_live_abc123",
+    serverReply: { ok: true, processed: true, kind: "coins", value: 1000, matched: false },
+  });
+  await new Promise(r => setImmediate(r));
+  if (els["claimLink"].style.fontWeight !== "700") {
+    throw new Error("the claim fallback is no longer emphasised for an unmatched buyer");
+  }
+  if (!HTML.includes("/claim-rewards")) {
+    throw new Error("thanks.html no longer links the claim flow at all");
   }
 });
 

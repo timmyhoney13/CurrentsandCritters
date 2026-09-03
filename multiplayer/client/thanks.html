@@ -176,7 +176,12 @@
           setStatus("is-ok", describe(d),
             d.matched
               ? "It's already on your account, no action needed."
-              : "We couldn't match this payment to a game account. Use the link below to attach it.");
+              // Not matched to an account. The code we just emailed is now the
+              // way in, and it is the ONLY way in for a player who signs in
+              // with a username rather than an email, so lead with it. The
+              // claim link below still works and stays as the fallback.
+              : "Check your email: we've sent you a code. Sign in to the game, "
+                + "open the Friends tab and paste it into Redeem a Code.");
           if(!d.matched) $("claimLink").style.fontWeight = "700";
           return;
         }
