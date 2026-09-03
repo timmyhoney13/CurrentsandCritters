@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-03.3";
+  const APP_BUILD   = "2026-09-03.4";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "\uD83C\uDFB2 Game Night is twice a week now", items: [
+      "Game Night now runs on Wednesday nights AND Saturday nights, 7:00\u20139:00 PM CST, instead of Saturdays only.",
+      "The banner at the top of Player Home and on the website says which of the two is coming next and counts down to it, so you never have to work out whether you are waiting for Wednesday or Saturday.",
+      "Everything else is the same on both nights: games, challenges and your daily bonus all pay 1.5x XP for the whole two hours, and RSVP is still recommended rather than required.",
+    ]},
     { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F Bought something on the website? Redeem it here", items: [
       "If you donate or buy coins on the website, we now email you a code the moment the payment goes through. Open the Friends tab on your Player Home, paste the code into the Redeem a Code box, and everything you bought lands on your account: coins, bonus XP, backgrounds, icons and your supporter badge.",
       "This is the fix for buying while you are not signed in. The website checkout has no way of knowing which account is yours, so before this your rewards sat waiting until you found the claim page, and if you sign in with a username rather than an email they could not be matched to you at all.",
@@ -14243,7 +14248,7 @@
   }
 
   // ── Game Night XP ──────────────────────────────────────────────────────
-  // Every XP source pays 1.5x while Saturday's session is live. The schedule
+  // Every XP source pays 1.5x while a Game Night session is live. The schedule
   // and the multiplier both live in js/game-night.js (window.__ccGameNightXp),
   // which is the ONE place the event is defined; a second copy of "is it live
   // right now?" is how a bonus pays out an hour late twice a year at DST.

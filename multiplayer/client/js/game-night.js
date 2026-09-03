@@ -1,9 +1,9 @@
 /* Currents and Critters: Game Night (one module, both hosts).
  *
- * "Game Night is every Saturday, 7–9 PM CST. Games, challenges and the daily
- * bonus pay 1.5x XP while it runs. RSVP here. RSVP isn't required, but it's
- * recommended." That is the whole feature, and it has to be impossible to miss
- * in two places:
+ * "Game Night is every Wednesday and Saturday, 7–9 PM CST. Games, challenges
+ * and the daily bonus pay 1.5x XP while it runs. RSVP here. RSVP isn't
+ * required, but it's recommended." That is the whole feature, and it has to be
+ * impossible to miss in two places:
  *
  *   • the marketing site (index.html)  → renders into <div id="cc-game-night">
  *   • the game's Player Home            → self-injects at the TOP of the
@@ -41,9 +41,33 @@
     : "https://discord.gg/T9V2eqxf8";
 
   const ZONE = "America/Chicago";   // what "CST" means to a person
-  const WEEKDAY = 6;                // 0=Sun … 6=Sat
+  // The nights, 0=Sun … 6=Sat. A LIST rather than one weekday because Game
+  // Night runs twice a week: everything downstream (the headline, the
+  // countdown, the XP window) is derived from this array, so adding or
+  // dropping a night is a one-line edit and cannot leave the copy saying one
+  // thing while the bonus pays on another.
+  const NIGHTS = [3, 6];            // Wednesday and Saturday
   const START_HOUR = 19;            // 7:00 PM
   const END_HOUR = 21;              // 9:00 PM
+
+  const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday",
+                     "Friday", "Saturday"];
+
+  // "Every Wednesday & Saturday", written from NIGHTS so the headline can
+  // never disagree with the days the code actually opens on.
+  const NIGHT_NAMES = NIGHTS.map((d) => DAY_NAMES[d]);
+  const SCHEDULE_LABEL = "Every " + (NIGHT_NAMES.length < 2
+    ? NIGHT_NAMES.join("")
+    : NIGHT_NAMES.slice(0, -1).join(", ") + " & " + NIGHT_NAMES[NIGHT_NAMES.length - 1]);
+
+  // "7:00–9:00 PM", written from the hours above for the same reason. The
+  // meridiem is printed once when both ends share it, which is the only case
+  // this event has ever had, and twice if it ever straddles noon.
+  const _ampm = (h) => (h < 12 ? "AM" : "PM");
+  const _h12 = (h) => ((h + 11) % 12) + 1;
+  const WINDOW_LABEL = _ampm(START_HOUR) === _ampm(END_HOUR)
+    ? `${_h12(START_HOUR)}:00–${_h12(END_HOUR)}:00 ${_ampm(END_HOUR)}`
+    : `${_h12(START_HOUR)}:00 ${_ampm(START_HOUR)}–${_h12(END_HOUR)}:00 ${_ampm(END_HOUR)}`;
 
   // XP pays this much while the session is live, everywhere the Prestige bonus
   // and the Level Pass boost apply (games, the daily login bonus, daily/weekly
@@ -103,21 +127,33 @@
     };
   }
 
-  // { start, end, live } for the session that is either running now or next.
+  // { start, end, live, dow } for the session that is either running now or
+  // next. Each night in NIGHTS is resolved to its own next occurrence and the
+  // soonest wins, so Wednesday evening correctly answers "Saturday" and
+  // Saturday night correctly answers "Wednesday" without a second schedule.
   function nextSession(now) {
     const t = zoneToday(now);
-    // This week's Saturday, measured from the Chicago date.
-    let delta = (WEEKDAY - t.dow + 7) % 7;
-    let start = instantFor(t.y, t.m, t.d + delta, START_HOUR);
-    let end = instantFor(t.y, t.m, t.d + delta, END_HOUR);
-    // Saturday, but the session already finished → roll to next week. (While
-    // it is RUNNING we deliberately keep it: "live now" is the whole point.)
-    if (now >= end) {
-      delta += 7;
-      start = instantFor(t.y, t.m, t.d + delta, START_HOUR);
-      end = instantFor(t.y, t.m, t.d + delta, END_HOUR);
+    let best = null;
+    for (const dow of NIGHTS) {
+      // This week's occurrence of that night, measured from the Chicago date.
+      let delta = (dow - t.dow + 7) % 7;
+      let start = instantFor(t.y, t.m, t.d + delta, START_HOUR);
+      let end = instantFor(t.y, t.m, t.d + delta, END_HOUR);
+      // Already finished → roll to next week. (While it is RUNNING we
+      // deliberately keep it: "live now" is the whole point.)
+      if (now >= end) {
+        delta += 7;
+        start = instantFor(t.y, t.m, t.d + delta, START_HOUR);
+        end = instantFor(t.y, t.m, t.d + delta, END_HOUR);
+      }
+      const cand = { start, end, live: now >= start && now < end, dow };
+      // A session running RIGHT NOW always wins, even over one that starts
+      // sooner on the clock, otherwise a bug in the ordering could hide a live
+      // night behind next week's. Otherwise the earliest start wins.
+      if (!best || (cand.live && !best.live)
+          || (!best.live && cand.start < best.start)) best = cand;
     }
-    return { start, end, live: now >= start && now < end };
+    return best;
   }
 
   // ── The XP bonus seam ────────────────────────────────────────────────────
@@ -170,7 +206,7 @@
   // ── Render ───────────────────────────────────────────────────────────────
   function innerHtml() {
     const now = new Date();
-    const { start, end, live } = nextSession(now);
+    const { start, end, live, dow } = nextSession(now);
     const local = localWindow(start, end);
     // Only worth showing when the reader is NOT already on Chicago time,
     // otherwise it repeats the headline back at them, and in summer it does it
@@ -187,10 +223,13 @@
     const localBit = (local && zoneMins !== readerMins)
       ? `<span class="ccGN-local">that's ${esc(local)} for you</span>` : "";
 
+    // Which night it is has to be in the countdown now that there are two of
+    // them: "starts in 2d 3h" alone leaves the reader counting days on their
+    // fingers to work out whether they are waiting for Wednesday or Saturday.
     const when = live
       ? `<span class="ccGN-live">● Live right now, until ${esc(
           new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(end))}</span>`
-      : `<span class="ccGN-count">Starts in ${esc(countdown(start - now))}</span>`;
+      : `<span class="ccGN-count">${esc(DAY_NAMES[dow] || "")} · starts in ${esc(countdown(start - now))}</span>`;
 
     // The reward, stated from the same constant that pays it. It is a separate
     // chip rather than a line of the note so it survives the narrow layout,
@@ -204,7 +243,7 @@
         <div class="ccGN-body">
           <div class="ccGN-title">Game Night</div>
           <div class="ccGN-when">
-            <b>Every Saturday, 7:00–9:00 PM CST</b>
+            <b>${esc(SCHEDULE_LABEL)}, ${esc(WINDOW_LABEL)} CST</b>
             ${localBit}
           </div>
           <div class="ccGN-status">${when}${xpChip}</div>

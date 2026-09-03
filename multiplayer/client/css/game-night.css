@@ -114,6 +114,10 @@
 .ccGN-count {
   background: rgba(255, 255, 255, .15);
   border: 1px solid rgba(255, 255, 255, .28);
+  /* The pill now names the night as well as the countdown ("Saturday · starts
+     in 2d 2h"), which is long enough to break across two lines inside its own
+     border on a phone. It wraps as a whole unit under the XP chip instead. */
+  white-space: nowrap;
 }
 .ccGN-live {
   background: var(--gn-mint);

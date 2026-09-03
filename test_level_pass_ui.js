@@ -493,14 +493,14 @@ check("a fresh account can enter a code", D.referral.hasInput === true);
 console.log("\n  Game Night:");
 check("the banner put itself on Player Home", D.gn.selfInjected === true);
 check("it is the FIRST thing in the Overview panel", D.gn.firstChild === true);
-check("the schedule is stated in full",
-      /Every Saturday, 7:00–9:00 PM CST/.test(D.gn.text), D.gn.text.slice(0, 160));
+check("the schedule is stated in full, both nights",
+      /Every Wednesday & Saturday, 7:00–9:00 PM CST/.test(D.gn.text), D.gn.text.slice(0, 160));
 check("RSVP is offered", /RSVP/i.test(D.gn.btnLabel), D.gn.btnLabel);
 check("the RSVP link points at Discord", /discord\.gg/.test(D.gn.href), D.gn.href);
 check("RSVP is described as recommended, not required",
       /isn't mandatory/i.test(D.gn.text) && /recommended/i.test(D.gn.text), D.gn.text);
-check("it says when the next one starts",
-      /Starts in|Live right now/.test(D.gn.text), D.gn.text);
+check("it says when the next one starts, and which night it is",
+      /(Wednesday|Saturday) · starts in|Live right now/.test(D.gn.text), D.gn.text);
 // The XP bonus is half the reason to turn up, so it is a chip of its own next
 // to the countdown, not a clause buried in the note.
 check("the 1.5x XP bonus is on a chip of its own",
