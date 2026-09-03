@@ -36,9 +36,11 @@ import tournament_server
 import clan_server
 import prestige_server
 import analytics_server
+import newsletter_email as nl_email
 import newsletter_server
 import discord_server
 import level_pass_server
+import redeem_codes
 import referral_server
 import welcome_server
 import account_email
@@ -919,6 +921,53 @@ def _supporter_tier_grant_updates(tier: Any, stats: Any) -> Tuple[Dict[str, Any]
     return updates, coins
 
 
+def _reward_grant_updates(kind: Any, value: Any,
+                          user_doc: Any) -> Tuple[Dict[str, Any], int]:
+    """A PURCHASED reward, as one Firestore update dict plus the coins credited.
+
+    THREE paths deliver a Stripe purchase: the webhook (buyer was identifiable
+    at checkout), the email claim in _claim_guest_rewards (they made an account
+    later), and a redemption code (redeem_codes.py). All three call this, so a
+    purchase is worth exactly the same however it is collected. Two of them had
+    their own copy of the coin arithmetic before, which is precisely how a late
+    claim once paid a different amount than the webhook would have.
+
+    Takes the WHOLE user document, not just its stats: the Prestige store bonus
+    is read off the account's own Prestige level, and that lives outside stats.
+    The founder number is deliberately NOT here, it needs the founders counter
+    and belongs to the transaction that owns it.
+    """
+    doc = user_doc if isinstance(user_doc, dict) else {}
+    stats = doc.get("stats") or {}
+    if kind == "coins":
+        # +5% per Prestige level on BOUGHT coin packs, computed from the
+        # account's own stored level AFTER Stripe confirmed the payment. A late
+        # claim is still a bought pack, so paying first and making the account
+        # after must not cost the buyer their bonus.
+        pack = int(value or 0)
+        bonus = prestige_server.store_bonus_for(doc, pack)
+        credited = pack + bonus
+        # Coerced the same way the tier grant coerces it. A balance that is
+        # somehow a string would otherwise raise INSIDE the webhook, which
+        # answers Stripe 500, which makes Stripe retry the same payment for
+        # days while the buyer never sees a coin.
+        try:
+            have = int(stats.get("critter_coins") or 0)
+        except (TypeError, ValueError):
+            have = 0
+        updates: Dict[str, Any] = {
+            "stats": {"critter_coins": max(0, have) + credited}
+        }
+        if bonus:
+            updates["stats"]["last_prestige_store_bonus"] = bonus
+        return updates, credited
+    if kind == "tier":
+        # The FULL tier grant, never just the badge: coins, XP + derived level,
+        # backgrounds and icons.
+        return _supporter_tier_grant_updates(value, stats)
+    return {}, 0
+
+
 # ── Supporter Reef Wall: LIFETIME-spend tiers ───────────────────────────────
 # A supporter's wall TIER and name SIZE come from their LIFETIME total (the sum
 # of every payment they've made), NOT a single purchase. Evaluated high→low;
@@ -1350,6 +1399,15 @@ def _process_stripe_checkout(event: dict) -> str:
     user_ref     = db.collection("users").document(matched_uid) if matched_uid else None
     founders_ref = db.collection("meta").document("founders")
 
+    # ── the redemption code for this purchase ────────────────────────────────
+    # DERIVED from the Stripe session id rather than drawn at random, so a
+    # retried or duplicated delivery computes the SAME code instead of minting
+    # a second live one for a payment that already has one. Empty when the
+    # server has no secret to fold it through, and then nothing below writes a
+    # pointer and no email goes out: the older email-claim path still works.
+    minted_code = redeem_codes.derive_code(stripe_session_id) if kind is not None else ""
+    minted_key  = redeem_codes.code_key(minted_code) if minted_code else ""
+
     transaction = db.transaction()
 
     @transactional
@@ -1438,40 +1496,39 @@ def _process_stripe_checkout(event: dict) -> str:
 
         # 3) credit the MATCHED game account (coins / tier perks). Cosmetic only.
         if matched_uid and kind is not None:
-            stats = existing_user.get("stats") or {}
-            updates: Dict[str, Any] = {}
+            # One helper for all three delivery paths (webhook / email claim /
+            # redemption code), so a purchase is worth the same however it is
+            # collected. See _reward_grant_updates.
+            updates, _credited = _reward_grant_updates(kind, value, existing_user)
             if kind == "coins":
-                # ── Prestige store bonus ────────────────────────────────────
-                # +5% per Prestige level on BOUGHT coin packs. Computed here,
-                # from the account's own stored Prestige level, AFTER Stripe
-                # confirmed the payment, the browser never sends an amount and
-                # the price the buyer paid is not changed by it. Deliberately
-                # not applied to tier grants, refunds, admin grants, challenge
-                # rewards or the Prestige coin reward itself.
-                pack = int(value)
-                prestige_bonus = prestige_server.store_bonus_for(existing_user, pack)
-                updates["stats"] = {
-                    "critter_coins": int(stats.get("critter_coins") or 0) + pack + prestige_bonus
-                }
-                if prestige_bonus:
-                    updates["stats"]["last_prestige_store_bonus"] = prestige_bonus
+                bonus = int((updates.get("stats") or {}).get("last_prestige_store_bonus") or 0)
+                if bonus:
                     print(f"[stripe] prestige store bonus for {matched_uid}: "
-                          f"+{prestige_bonus} on a {pack}-coin pack "
+                          f"+{bonus} on a {int(value)}-coin pack "
                           f"(P{prestige_server.prestige_level_of(existing_user)})")
-            elif kind == "tier":
-                # Coins, XP + derived level, backgrounds and icons, the same
-                # grant /claim-rewards applies, from the one helper.
-                updates, _tier_coins = _supporter_tier_grant_updates(value, stats)
-                if need_founder:
-                    fnum = int((f_snap.to_dict() or {}).get("count") or 0) + 1
-                    txn.set(founders_ref, {"count": fnum}, merge=True)
-                    updates["founder_number"] = fnum
+            elif kind == "tier" and need_founder:
+                fnum = int((f_snap.to_dict() or {}).get("count") or 0) + 1
+                txn.set(founders_ref, {"count": fnum}, merge=True)
+                updates["founder_number"] = fnum
             if updates:
                 txn.set(user_ref, updates, merge=True)
 
-        # 4) guest with a deliverable reward → file it to be claimed later.
-        if not matched_uid and kind is not None:
-            txn.set(db.collection("unclaimedRewards").document(stripe_session_id), {
+        # 4) file the reward record for EVERY deliverable purchase.
+        #
+        # This used to be written only for a buyer nobody could identify. It is
+        # now written always, because it is the ONE LOCK that stops a purchase
+        # being collected twice: the email claim and the redemption code both
+        # open this document inside a transaction and both refuse when it says
+        # "claimed". A matched buyer's record is therefore born already claimed,
+        # which is also what makes their code answer "already used" instead of
+        # paying a second time.
+        #
+        # The code itself is stored NOWHERE: `redeemCodes` is keyed by an HMAC
+        # of it (redeem_codes.code_key), so the plaintext exists only in the
+        # buyer's email. With no secret configured there is no key, and the
+        # purchase simply falls back to the older email-claim path.
+        if kind is not None:
+            reward_doc: Dict[str, Any] = {
                 "stripeSessionId":  stripe_session_id,
                 "stripeCustomerId": stripe_customer_id,
                 "email":            checkout_email,
@@ -1481,9 +1538,25 @@ def _process_stripe_checkout(event: dict) -> str:
                 "rewardName":       product_name,
                 "rewardKind":       kind,
                 "rewardValue":      value,
-                "status":           "waiting_for_account",
                 "createdAt":        SERVER_TIMESTAMP,
-            }, merge=True)
+            }
+            if matched_uid:
+                reward_doc.update({
+                    "status":       "claimed",
+                    "claimedByUid": matched_uid,
+                    "claimedVia":   "checkout",
+                    "claimedAt":    SERVER_TIMESTAMP,
+                })
+            else:
+                reward_doc["status"] = "waiting_for_account"
+            if minted_key:
+                reward_doc["redeemCodeKey"] = minted_key
+                txn.set(db.collection("redeemCodes").document(minted_key), {
+                    "stripeSessionId": stripe_session_id,
+                    "createdAt":       SERVER_TIMESTAMP,
+                }, merge=True)
+            txn.set(db.collection("unclaimedRewards").document(stripe_session_id),
+                    reward_doc, merge=True)
 
         # 5) audit marker (also a secondary idempotency key on the event id).
         txn.set(ev_ref, {
@@ -1505,6 +1578,33 @@ def _process_stripe_checkout(event: dict) -> str:
     result = _apply(transaction)
     print(f"[stripe] checkout {stripe_session_id}: {result} "
           f"(uid={matched_uid or '-'}, guest={guest_id or '-'}, kind={kind}, value={value})")
+
+    # ── mail the buyer their code ────────────────────────────────────────────
+    # AFTER the commit and never inside it: the purchase is settled at this
+    # point and an SMTP hiccup must not roll it back or make Stripe retry a
+    # payment that already landed. Skipped for "duplicate" (a redelivery of a
+    # session already fulfilled, whose email went out the first time) so a
+    # retry storm cannot mail the same person six times.
+    if result in ("fulfilled", "recorded_guest") and minted_code and checkout_email:
+        try:
+            subject, html_body, text_body = redeem_codes.build_email(
+                code=minted_code,
+                reward_name=product_name,
+                already_credited=bool(matched_uid),
+                account_hint=username_typed if matched_uid else "",
+                game_url=nl_email.app_base_url(),
+            )
+            nl_email.send_email(
+                to_email=checkout_email, subject=subject,
+                html_body=html_body, text_body=text_body,
+                is_bulk=False, stream="purchase-code")
+            print(f"[redeem] code mailed to {checkout_email} for {stripe_session_id}")
+        except Exception as exc:  # noqa: BLE001
+            # The reward is already filed and the code already resolves, so the
+            # buyer is not stuck: the code can be recomputed from the session id
+            # (redeem_codes.derive_code) and sent by hand. Loud, not fatal.
+            print(f"[redeem] !! could not mail the code for {stripe_session_id} "
+                  f"to {checkout_email}: {exc}")
 
     # ── one buyer, ONE name on the wall ──────────────────────────────────────
     # Someone who donated from the marketing site (no uid → a guestSupporters
@@ -1972,24 +2072,16 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
                 return 0
             usnap = user_ref.get(transaction=t)
             udoc_now = usnap.to_dict() or {}
-            stats = udoc_now.get("stats") or {}
-            credited = 0
-            if rdata.get("rewardKind") == "coins":
-                # A late claim is still a BOUGHT coin pack, so the Prestige
-                # store bonus applies here exactly as it does in the webhook:
-                # paying first and making the account after must not cost the
-                # buyer their bonus.
-                pack = int(rdata.get("rewardValue") or 0)
-                credited = pack + prestige_server.store_bonus_for(udoc_now, pack)
-                t.set(user_ref, {"stats": {"critter_coins": int(stats.get("critter_coins") or 0) + credited}}, merge=True)
-            elif rdata.get("rewardKind") == "tier":
-                # The FULL tier grant, not just the badge: coins, XP + level,
-                # backgrounds, icons. Identical to what the webhook gives a
-                # buyer who was already signed in.
-                tier_updates, credited = _supporter_tier_grant_updates(
-                    rdata.get("rewardValue"), stats)
-                t.set(user_ref, tier_updates, merge=True)
+            # The one shared helper, so a late claim is worth exactly what the
+            # webhook would have paid: the Prestige store bonus on a bought
+            # pack, or the FULL tier grant (coins, XP + level, backgrounds,
+            # icons) rather than just the badge.
+            updates, credited = _reward_grant_updates(
+                rdata.get("rewardKind"), rdata.get("rewardValue"), udoc_now)
+            if updates:
+                t.set(user_ref, updates, merge=True)
             t.set(reward_ref, {"status": "claimed", "claimedByUid": uid,
+                               "claimedVia": "email",
                                "claimedAt": SERVER_TIMESTAMP}, merge=True)
             return credited
 
@@ -13313,6 +13405,14 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if referral_server.handle_post(self, parsed, body):
             return
 
+        # Purchase redemption codes (/api/redeem/code). The code is a BEARER
+        # token: whoever holds it may spend it on whatever account they are
+        # signed into, which is the whole point (a website donation cannot know
+        # which account to pay). The uid comes off the verified token, and the
+        # reward document is the one lock that stops it paying twice.
+        if redeem_codes.handle_post(self, parsed, body):
+            return
+
         # The email on a username-and-password account: link it, and the
         # forgotten-password reset that address exists for. link-email proves
         # the account with a verified ID token; forgot-password is public by
@@ -14554,6 +14654,23 @@ def main() -> None:
         verify_token=_verify_firebase_id_token,
         background_paths=ALL_BACKGROUND_PATHS,
     )
+
+    # Purchase redemption codes. The grant helper is injected rather than
+    # reimplemented so a code pays exactly what the webhook would have paid.
+    redeem_codes.init(
+        get_firestore=_get_firestore,
+        verify_token=_verify_firebase_id_token,
+        grant_updates=_reward_grant_updates,
+    )
+    if redeem_codes.secret_configured():
+        print(f"[redeem] purchase codes ON: {redeem_codes.CODE_LEN} chars from a "
+              f"{len(redeem_codes.CODE_ALPHABET)}-symbol alphabet, stored as an HMAC, "
+              f"single use, {redeem_codes.REDEEM_MAX_FAILS} tries per "
+              f"{redeem_codes.REDEEM_FAIL_WINDOW_SEC // 60} min")
+    else:
+        print("[redeem] !! no REDEEM_CODE_SECRET (or ACCOUNT_EMAIL_SECRET / "
+              "NEWSLETTER_UNSUBSCRIBE_SECRET / SESSION_SECRET): purchase codes are OFF, "
+              "website buyers fall back to claiming by email at /claim")
 
     # The welcome bonus + the dev's friends roster. Same injected Firestore
     # accessor and token verifier as everything else, and the SAME level curve,

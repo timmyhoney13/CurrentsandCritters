@@ -67,6 +67,22 @@ services:
         sync: false
       - key: STRIPE_SECRET_KEY
         sync: false
+      # ── Purchase redemption codes (redeem_codes.py) ────────────────────
+      # A donation made on the MARKETING SITE carries no Firebase uid, so the
+      # webhook has no account to credit. The buyer is emailed a code instead
+      # and spends it in the game's Friends tab. The code is stored only as an
+      # HMAC, so this secret is what makes one resolvable at all.
+      #
+      # OPTIONAL: it falls back to ACCOUNT_EMAIL_SECRET, then
+      # NEWSLETTER_UNSUBSCRIBE_SECRET, then SESSION_SECRET, and only if NONE of
+      # them is set are codes off (the server says so at boot, and website
+      # buyers fall back to claiming by email at /claim).
+      #
+      # ⚠️ Changing it makes every UNSPENT code unreachable. Codes are derived
+      # from the Stripe session id, so an old one cannot be recomputed under a
+      # new secret.
+      - key: REDEEM_CODE_SECRET
+        sync: false
       # ── Discord join reward (discord_server.py) ─────────────────────────
       # 250 Critter Coins, once, for actually being in the Discord server.
       # Step-by-step setup is in DISCORD_REWARD_SETUP.md. Until all three of

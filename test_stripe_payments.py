@@ -393,6 +393,99 @@ class TestTierGrantUpdates(unittest.TestCase):
         self.assertNotIn("unlocked_backgrounds", updates)
 
 
+class TestOneGrantHelper(unittest.TestCase):
+    """_reward_grant_updates is the ONE place a purchase becomes account
+    changes. Three paths call it: the webhook (buyer identified at checkout),
+    the email claim, and a redemption code. Before it existed two of them kept
+    their own copy of the coin arithmetic, which is exactly how a late claim
+    ends up paying a different amount than the webhook would have."""
+
+    def test_a_coin_pack_credits_the_pack(self):
+        updates, credited = ms._reward_grant_updates("coins", 1000, {})
+        self.assertEqual(credited, 1000)
+        self.assertEqual(updates["stats"]["critter_coins"], 1000)
+
+    def test_a_coin_pack_adds_to_an_existing_balance(self):
+        updates, _ = ms._reward_grant_updates(
+            "coins", 1000, {"stats": {"critter_coins": 250}})
+        self.assertEqual(updates["stats"]["critter_coins"], 1250)
+
+    def test_a_tier_grants_exactly_what_the_tier_table_says(self):
+        for tier in ms.SUPPORTER_TIER_GRANTS:
+            want_updates, want_coins = ms._supporter_tier_grant_updates(tier, {})
+            got_updates, got_coins = ms._reward_grant_updates("tier", tier, {})
+            self.assertEqual(got_coins, want_coins, tier)
+            self.assertEqual(got_updates["stats"]["critter_coins"],
+                             want_updates["stats"]["critter_coins"], tier)
+
+    def test_a_tier_carries_its_xp_through_the_shared_helper(self):
+        """The bonus XP is the half most likely to be dropped by a refactor:
+        the coins are visible in the toast, the XP is not."""
+        for tier, grant in ms.SUPPORTER_TIER_GRANTS.items():
+            updates, _ = ms._reward_grant_updates("tier", tier, {"stats": {"total_xp": 0}})
+            self.assertEqual(updates["stats"]["total_xp"], grant["bonus_xp"], tier)
+
+    def test_an_unknown_kind_grants_nothing(self):
+        for kind in ("", None, "nonsense", "refund"):
+            updates, credited = ms._reward_grant_updates(kind, 5000, {})
+            self.assertEqual((updates, credited), ({}, 0), kind)
+
+    def test_garbage_balances_never_go_negative(self):
+        for junk in ({"stats": {"critter_coins": None}},
+                     {"stats": {"critter_coins": "x"}},
+                     {"stats": {"critter_coins": -50}}, {}, None):
+            updates, credited = ms._reward_grant_updates("coins", 1000, junk)
+            self.assertEqual(updates["stats"]["critter_coins"], credited, junk)
+
+    def test_it_reads_prestige_off_the_whole_document_not_just_stats(self):
+        """The Prestige level lives OUTSIDE stats, so a helper handed only
+        stats would silently pay every prestiged player the base pack."""
+        plain, _ = ms._reward_grant_updates("coins", 1000, {})
+        self.assertEqual(plain["stats"]["critter_coins"], 1000)
+        # Whatever the bonus curve is, feeding it a real account document must
+        # not pay LESS than feeding it nothing.
+        doc = {"stats": {"critter_coins": 0}, "prestige_level": 3}
+        rich, credited = ms._reward_grant_updates("coins", 1000, doc)
+        self.assertGreaterEqual(credited, 1000)
+        self.assertEqual(rich["stats"]["critter_coins"], credited)
+
+
+class TestPurchaseCodesAreWired(unittest.TestCase):
+    """The webhook mints a redemption code for every deliverable purchase. The
+    module that owns codes is unit-tested in test_redeem_codes.py; what matters
+    here is that multiplayer_server actually reaches for it, and that the two
+    agree on how a code is derived."""
+
+    def test_the_webhook_module_imports_the_code_module(self):
+        self.assertTrue(hasattr(ms, "redeem_codes"))
+
+    def test_a_code_is_derived_from_the_session_not_drawn_at_random(self):
+        """Stripe retries. Two deliveries of one payment must not produce two
+        live codes and two emails."""
+        os.environ.setdefault("REDEEM_CODE_SECRET", "test-secret")
+        self.assertEqual(ms.redeem_codes.derive_code("cs_live_x"),
+                         ms.redeem_codes.derive_code("cs_live_x"))
+
+    def test_the_grant_helper_is_what_gets_injected(self):
+        """A code has to pay what the webhook would have paid, which is only
+        true while this is the function handed over."""
+        src = self._source()
+        self.assertIn("grant_updates=_reward_grant_updates", src)
+
+    def test_the_reward_record_is_filed_for_matched_buyers_too(self):
+        """It is the ONE LOCK against a purchase being collected twice. If it
+        were still written only for unmatched buyers, a matched buyer's code
+        would point at nothing, or worse, pay again."""
+        src = self._source()
+        self.assertNotIn('if not matched_uid and kind is not None:', src)
+        self.assertIn('"claimedVia":   "checkout"', src)
+
+    def _source(self):
+        root = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(root, "multiplayer_server.py"), "r", encoding="utf-8") as f:
+            return f.read()
+
+
 class TestTierCoinsPrintedEverywhere(unittest.TestCase):
     """The server credits the coins; three separate pages PRINT the number.
     If any of them drifts, a player is promised an amount they don't receive."""

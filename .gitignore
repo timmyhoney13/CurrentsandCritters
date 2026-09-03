@@ -158,6 +158,19 @@
 # wrong code are answered with the same sentence.
 !test_account_email.py
 
+# Purchase redemption codes. Module-scope import again, same consequence if it
+# goes missing. It is what lets somebody who donated on the WEBSITE reach their
+# coins at all: from there Stripe has no Firebase uid to credit, and the older
+# email match cannot work for a username-and-password account, whose stored
+# email is "" and whose Firebase address is synthetic.
+!redeem_codes.py
+# Its tests: the one-lock rule that stops a purchase being collected twice
+# (by code and by email), the derived code being stable across Stripe retries,
+# the HMAC storage, the rate limit, and a code paying exactly what the webhook
+# would have paid.
+!test_redeem_codes.py
+!test_redeem_ui.js
+
 # Friend-code referral reward. Module-scope import again, same consequence if
 # it goes missing. It pays TWO accounts in one transaction, which is why none
 # of it can live in the browser.
