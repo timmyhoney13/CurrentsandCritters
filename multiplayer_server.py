@@ -12941,6 +12941,14 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             })
             return
 
+        # Can this server resolve a purchase code at all? Public, and it says
+        # only whether the feature is configured. Without it the single most
+        # important fact about the redemption path ("it is OFF because no
+        # secret is set") is written down nowhere but the boot log, and a
+        # deploy that lost its secret looks perfectly healthy from outside.
+        if redeem_codes.handle_get(self, parsed):
+            return
+
         # Did the webhook already fulfil this checkout? Polled by /thanks so the
         # buyer sees a confirmation only once the payment is really recorded.
         if parsed.path == "/api/stripe/session-status":

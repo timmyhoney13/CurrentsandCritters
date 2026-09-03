@@ -49,7 +49,14 @@ function makeEnv(opts) {
   function makeNode(tag, id) {
     const node = {
       tagName: String(tag || "div").toUpperCase(),
-      id: id || "",
+      _id: id || "",
+      // Assigning an id REGISTERS the node, the way appending a element with
+      // an id makes it findable. Without this, host()'s $("cc-redeem-root")
+      // never resolves, it builds a fresh root on every render, and ids from
+      // the previous render survive in the lookup: a stub bug that would hide
+      // a real "renders one state, wires another" bug.
+      get id() { return this._id; },
+      set id(v) { this._id = String(v || ""); if (this._id) byId.set(this._id, this); },
       value: "",
       disabled: false,
       textContent: "",
@@ -78,6 +85,7 @@ function makeEnv(opts) {
       keydown(key) { (this._listeners.keydown || []).forEach((fn) => fn({ key })); },
       insertBefore(kid) { kid.parentNode = this; return kid; },
     };
+    if (id) byId.set(id, node);
     return node;
   }
 
@@ -92,7 +100,14 @@ function makeEnv(opts) {
 
   const bridge = {
     APP_BUILD: "test",
-    get: async () => ({ ok: true, status: 200, data: { ok: true } }),
+    get: async (p) => {
+      if (String(p).indexOf("/api/redeem/state") === 0) {
+        if (o.stateThrows) throw new Error("network down");
+        return { ok: true, status: 200,
+                 data: { ok: true, enabled: o.disabled ? false : true } };
+      }
+      return { ok: true, status: 200, data: { ok: true } };
+    },
     // The REAL bridge resolves to an ENVELOPE and THROWS when the request
     // never lands. The stub must do both or it tests a contract that does not
     // exist.
@@ -271,12 +286,36 @@ function makeEnv(opts) {
     check("Enter in the box redeems", e.posts.length === 1);
   }
 
+  console.log("\n── the feature flag ───────────────────────────────────────");
+  {
+    const e = makeEnv({ disabled: true });
+    await e.win.__ccRedeemSync();
+    check("codes off: no box that would only ever refuse", !e.el("ccRD-code"));
+    const off = e.el("cc-redeem-root");
+    check("codes off: the card says why and names the fallback",
+          !!off && /isn't switched on/i.test(off.innerHTML)
+                && /Claim Rewards/i.test(off.innerHTML),
+          off ? off.innerHTML.slice(0, 120) : "no root");
+  }
+  {
+    const e = makeEnv({ disabled: false });
+    await e.win.__ccRedeemSync();
+    check("codes on: the box is there", !!e.el("ccRD-code"));
+  }
+  {
+    const e = makeEnv({ stateThrows: true });
+    await e.win.__ccRedeemSync();
+    check("a dead status check still shows the box (fail open)", !!e.el("ccRD-code"));
+  }
+
   console.log("\n── the module cannot pay anybody ──────────────────────────");
   {
     check("no coin amount is hard-coded in the module",
           !/\b(1000|7000|15000|30000)\b/.test(SRC));
-    check("the only endpoint it knows is /api/redeem/code",
-          (SRC.match(/\/api\//g) || []).length === 1 && SRC.includes("/api/redeem/code"));
+    check("it knows only the two /api/redeem endpoints",
+          (SRC.match(/"\/api\/[^"]+"/g) || []).sort().join(",")
+            === '"/api/redeem/code","/api/redeem/state"',
+          (SRC.match(/"\/api\/[^"]+"/g) || []).join(","));
   }
 
   console.log(`\n${pass} passed, ${fail} failed`);

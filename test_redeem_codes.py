@@ -394,6 +394,69 @@ class Endpoint(RedeemBase):
         self.assertFalse(handled)
 
 
+class StateEndpoint(RedeemBase):
+    """"Are codes even on?" has to be answerable from outside the box. Without
+    it that fact lives only in the boot log, and a deploy that lost its secret
+    looks perfectly healthy right up until a buyer's code bounces."""
+
+    class _P:
+        def __init__(self, path):
+            self.path = path
+
+    def test_the_get_says_enabled_when_a_secret_is_set(self):
+        h = FakeHandler()
+        self.assertTrue(rc.handle_get(h, self._P("/api/redeem/state")))
+        self.assertEqual(h.payload, {"ok": True, "enabled": True})
+
+    def test_the_get_says_disabled_with_no_secret(self):
+        saved = os.environ.pop("REDEEM_CODE_SECRET")
+        others = {k: os.environ.pop(k) for k in
+                  ("ACCOUNT_EMAIL_SECRET", "NEWSLETTER_UNSUBSCRIBE_SECRET", "SESSION_SECRET")
+                  if k in os.environ}
+        try:
+            h = FakeHandler()
+            rc.handle_get(h, self._P("/api/redeem/state"))
+            self.assertEqual(h.payload, {"ok": True, "enabled": False})
+        finally:
+            os.environ["REDEEM_CODE_SECRET"] = saved
+            os.environ.update(others)
+
+    def test_the_state_reply_carries_no_secret_material(self):
+        """It answers a yes/no question and must never become a way to ask
+        anything ABOUT the secret."""
+        self.assertEqual(set(rc.state()), {"ok", "enabled"})
+        self.assertIsInstance(rc.state()["enabled"], bool)
+
+    def test_the_post_form_answers_the_same(self):
+        h = FakeHandler()
+        self.assertTrue(rc.handle_post(h, self._P("/api/redeem/state"), {}))
+        self.assertEqual(h.payload, rc.state())
+
+    def test_state_needs_no_sign_in(self):
+        """The card asks before anyone has typed anything."""
+        h = FakeHandler()
+        rc.handle_post(h, self._P("/api/redeem/state"), {})
+        self.assertTrue(h.payload["ok"])
+        self.assertNotEqual(getattr(h, "status", 200), 401)
+
+    def test_the_get_ignores_other_paths(self):
+        h = FakeHandler()
+        self.assertFalse(rc.handle_get(h, self._P("/api/redeem/code")))
+        self.assertFalse(rc.handle_get(h, self._P("/api/health")))
+
+    def test_redeem_refuses_outright_with_no_secret(self):
+        saved = os.environ.pop("REDEEM_CODE_SECRET")
+        others = {k: os.environ.pop(k) for k in
+                  ("ACCOUNT_EMAIL_SECRET", "NEWSLETTER_UNSUBSCRIBE_SECRET", "SESSION_SECRET")
+                  if k in os.environ}
+        try:
+            self.make_user("me")
+            self.assertEqual(rc.redeem("me", rc.make_code())["error"], "no_secret")
+        finally:
+            os.environ["REDEEM_CODE_SECRET"] = saved
+            os.environ.update(others)
+
+
 # ══════════════════════════════════════════════════════════════════════════
 #  THE EMAIL
 # ══════════════════════════════════════════════════════════════════════════

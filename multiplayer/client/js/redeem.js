@@ -61,6 +61,20 @@
   }
 
   let _busy = false;
+  // null = not asked yet, true/false = what the server said. A dead /state
+  // request leaves it null and the box still renders: refusing to show the
+  // input because a status check failed would be worse than showing one that
+  // might refuse.
+  let _enabled = null;
+
+  async function syncState() {
+    const b = bridge();
+    if (!b) return;
+    try {
+      const res = unwrap(await b.get("/api/redeem/state"));
+      if (res && typeof res.enabled === "boolean") _enabled = res.enabled;
+    } catch (_) { /* leave it null: render the box anyway */ }
+  }
 
   // A friend code is 4 digits, optionally "Name#4985". A purchase code is 16
   // symbols from a no-confusables alphabet, usually pasted as CC-XXXX-…. They
@@ -102,6 +116,24 @@
     return el;
   }
 
+  function offHtml() {
+    // Codes are not configured on this server. Say so plainly rather than
+    // taking a code and refusing it: the player would assume THEIR code was
+    // bad and go looking for a replacement that does not exist.
+    return `
+      <div class="ccRD">
+        <div class="ccRD-head">
+          <span class="ccRD-ico" aria-hidden="true">🎟️</span>
+          <div>
+            <div class="ccRD-title">Redeem a Code</div>
+            <div class="ccRD-sub">Code redemption is being set up and isn't switched on yet.
+              If you bought something on the website, nothing is lost: use the Claim Rewards
+              page, or contact us and we'll add it by hand.</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
   function innerHtml() {
     return `
       <div class="ccRD">
@@ -133,10 +165,12 @@
       el.innerHTML = `<div class="ccRD"><div class="ccRD-empty">Sign in or create an account to redeem a purchase code.</div></div>`;
       return;
     }
+    if (_enabled === false) { el.innerHTML = offHtml(); return; }
     el.innerHTML = innerHtml();
     wire();
   }
   window.__ccRedeemRender = render;
+  window.__ccRedeemSync = async function () { await syncState(); render(); return _enabled; };
 
   function setErr(msg, good) {
     const e = $("ccRD-err");
@@ -215,9 +249,15 @@
   // The Friends panel is built after auth resolves, so paint on a short poll
   // the same way the referral card does rather than racing it.
   let _tries = 0;
+  let _asked = false;
   const _t = setInterval(() => {
     _tries += 1;
-    if ($("ph-panel-friends")) render();
+    if ($("ph-panel-friends")) {
+      render();
+      // Asked once, the first time the panel exists, so a signed-out visitor
+      // never costs a request and a signed-in one never polls.
+      if (!_asked) { _asked = true; syncState().then(render); }
+    }
     if (_tries > 40) clearInterval(_t);
   }, 500);
   if (document.readyState !== "loading") render();

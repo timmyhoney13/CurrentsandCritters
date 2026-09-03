@@ -428,12 +428,38 @@ def _auth_uid(body: Dict[str, Any]) -> str:
     return str((claims or {}).get("uid") or "")
 
 
+def state() -> Dict[str, Any]:
+    """Whether this server can resolve a code at all.
+
+    Public on purpose, and it carries no secret material: it says only whether
+    a feature is configured, the same way the Discord offer does. It exists
+    because the alternative is finding out from a paying customer. Without it
+    the only place "codes are OFF" is written down is the boot log, so a
+    deploy that lost its secret would look completely healthy from outside
+    while every buyer's code bounced.
+    """
+    return {"ok": True, "enabled": secret_configured()}
+
+
+def handle_get(handler, parsed) -> bool:
+    """GET /api/redeem/state  → {ok, enabled}"""
+    if parsed.path != "/api/redeem/state":
+        return False
+    handler._send_json(state())
+    return True
+
+
 def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
-    """POST /api/redeem/code  { idToken, code }"""
+    """POST /api/redeem/code   { idToken, code }
+       POST /api/redeem/state  (the same answer as the GET, for the client)"""
     path = parsed.path
     if not path.startswith("/api/redeem/"):
         return False
     action = path[len("/api/redeem/"):]
+
+    if action == "state":
+        handler._send_json(state())
+        return True
 
     if action == "code":
         uid = _auth_uid(body)
