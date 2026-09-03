@@ -20,6 +20,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import sys
 import time
 import unittest
@@ -415,6 +416,32 @@ class TestTierCoinsPrintedEverywhere(unittest.TestCase):
             coins = ms.SUPPORTER_TIER_GRANTS[tier]["coins"]
             self.assertIn(f"{coins:,} Critter Coins", html,
                           f"index.html never promises {tier}'s {coins:,} coins")
+
+    def test_both_tier_cards_list_the_server_bonus_xp(self):
+        """The bonus XP is the same kind of promise as the coins: the server
+        credits it, two pages PRINT it. It used to be pinned nowhere, so a
+        retune could quietly leave the cards advertising the old number."""
+        html = self._read("index.html")
+        js = self._read("multiplayer", "client", "js", "preview-app.js")
+        for tier in ms.SUPPORTER_TIER_GRANTS:
+            xp = ms.SUPPORTER_TIER_GRANTS[tier]["bonus_xp"]
+            self.assertIn(f"+{xp:,} bonus XP", html,
+                          f"index.html never promises {tier}'s +{xp:,} bonus XP")
+            self.assertIn(f"+{xp:,} bonus XP", js,
+                          f"the in-game Store never promises {tier}'s +{xp:,} bonus XP")
+
+    def test_no_card_advertises_a_bonus_xp_no_tier_grants(self):
+        """The other half of the same drift: a stale "+50,000 bonus XP" left
+        behind on a card is invisible to the test above, which only checks that
+        the CURRENT numbers appear."""
+        granted = {f"+{g['bonus_xp']:,} bonus XP"
+                   for g in ms.SUPPORTER_TIER_GRANTS.values()}
+        for path in (("index.html",),
+                     ("multiplayer", "client", "js", "preview-app.js")):
+            text = self._read(*path)
+            for printed in set(re.findall(r"\+[\d,]+ bonus XP", text)):
+                self.assertIn(printed, granted,
+                              f"{path[-1]} advertises {printed}, which no tier grants")
 
     def test_the_thanks_page_reads_the_amount_from_the_server(self):
         """/thanks must NOT keep its own copy of the numbers, it prints

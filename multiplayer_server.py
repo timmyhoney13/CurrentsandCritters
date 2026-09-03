@@ -798,7 +798,7 @@ SUPPORTER_TIERS_BY_CENTS = {
 # The `coins` grant is sized to a SHOPPING LIST at the shop's own prices
 # (background 1,000 each, 8 of them · seasonal skin 2,000), so each tier card
 # can say what the coins actually cover:
-#   wave-warrior  5,000  → 5 of the 8 backgrounds, the buyer's pick. This is the
+#   wave-warrior  7,000  → 7 of the 8 backgrounds, the buyer's pick. This is the
 #                          only tier that does NOT get backgrounds outright, so
 #                          its coins are what let it choose them.
 #   ocean-ally   15,000  → backgrounds already granted, so ~7 seasonal skins
@@ -811,9 +811,9 @@ SUPPORTER_TIERS_BY_CENTS = {
 # (PHST_SUPPORTER_TIERS in preview-app.js), the marketing site (index.html) and
 # the /thanks confirmation. test_stripe_payments.py fails if they drift apart.
 SUPPORTER_TIER_GRANTS = {
-    "wave-warrior": {"coins": 5000,  "bonus_xp": 10000, "unlock_all_backgrounds": False, "icons": []},
-    "ocean-ally":   {"coins": 15000, "bonus_xp": 25000, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png"]},
-    "tide-turner":  {"coins": 30000, "bonus_xp": 50000, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
+    "wave-warrior": {"coins": 7000,  "bonus_xp": 7000,  "unlock_all_backgrounds": False, "icons": []},
+    "ocean-ally":   {"coins": 15000, "bonus_xp": 20000, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png"]},
+    "tide-turner":  {"coins": 30000, "bonus_xp": 35000, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
 }
 
 # Player level curve: the CUMULATIVE total_xp required to REACH each level

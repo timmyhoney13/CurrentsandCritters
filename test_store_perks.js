@@ -632,7 +632,7 @@ console.log("3. The perk spend transactions");
             "the marketing site's note markup is gone, not just its text");
       // The coin AMOUNTS themselves stay: it's only the "this buys you…"
       // claim that was removed.
-      check(/5,000 Critter Coins/.test(INDEX) && /phst-tier-coins-amt/.test(APP),
+      check(/7,000 Critter Coins/.test(INDEX) && /phst-tier-coins-amt/.test(APP),
             "the tiers still show how many coins they include");
     }
 
