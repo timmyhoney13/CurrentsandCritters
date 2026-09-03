@@ -211,6 +211,15 @@
 !test_trade_logic.py
 !test_trade_integration.py
 !test_avatar_reearn.js
+
+# Equipping an icon must SAVE THAT ICON. Ownership is string equality against
+# unlocked_icons, and sanitizeSelectableAvatar answers "you do not own this"
+# with Mullet, so one entry stored as "/avatars/x.png?v=1" (the server has
+# always read these through split("?")[0].lower()) meant the player clicked
+# their critter and MULLET was written, with the modal reporting a save. The
+# test pins the canonical comparison AND that the ownership guard still refuses
+# an icon you genuinely do not own.
+!test_avatar_save.js
 # Messages: chat-background docs share the messages subcollection with group
 # rosters, so this pins down that they never get mistaken for one another.
 !test_chat_backgrounds.js
