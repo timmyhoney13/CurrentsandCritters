@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-02.3";
+  const APP_BUILD   = "2026-09-03.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "\uD83E\uDE99 Supporter Tier rewards retuned", items: [
+      "The coins and XP that come with a Supporter Tier have been rebalanced. Wave Warrior is now 7,000 Critter Coins and 7,000 bonus XP, Ocean Ally 15,000 coins and 20,000 bonus XP, and Tide Turner 30,000 coins and 35,000 bonus XP.",
+      "Every other perk is unchanged: the founder number, the Supporter Reef Wall name, the backgrounds and the icons all still come with the tier they always did.",
+      "If you already bought a tier, nothing is taken back. What you were credited at the time stays in your account.",
+    ]},
     { ver: "V1.7.1", title: "\uD83D\uDCBB\uD83D\uDCF1 You can see who is on a phone", items: [
       "Every screen that lists the people in a room now says what they are playing on. In the waiting room it is a chip on their card, Computer or Mobile. In the game it is a small badge on the corner of their critter. Watchers get one too.",
       "The Friends tab says it as well, under the green dot, for anybody who is online right now. A friend who is offline does not show one: the last machine they were on is not where they are.",
@@ -20045,10 +20050,37 @@
       if (typeof raw !== "string") return "";
       const trimmed = raw.trim();
       if (!trimmed) return "";
+      // An EXTERNAL url is returned untouched: a Google photoURL carries its
+      // size in the query string ("=s96-c"), so stripping it changes which
+      // image you get. Only our own /avatars/ paths are canonicalised.
       if (/^https?:\/\//i.test(trimmed)) return trimmed;
-      const absolute = trimmed.startsWith("/") ? trimmed : `/${trimmed.replace(/^\.?\//, "")}`;
+      // Drop any ?query / #hash BEFORE matching. This is the whole reason a
+      // player's icon would not save: ownership is decided by string equality
+      // against unlocked_icons, the server writes and reads those entries
+      // through `split("?")[0].lower()` (see multiplayer_server.py), and one
+      // entry stored as "/avatars/narwhal.png?v=1" therefore matched nothing
+      // here. sanitizeSelectableAvatar's answer to "you do not own this" is to
+      // silently hand back Mullet, so the pick was saved as Mullet instead.
+      const bare = trimmed.split(/[?#]/)[0];
+      if (!bare) return trimmed;
+      const absolute = bare.startsWith("/") ? bare : `/${bare.replace(/^\.?\//, "")}`;
       if (/^\/avatars\/[a-z0-9_-]+\.png$/i.test(absolute)) return absolute.toLowerCase();
       return trimmed;
+    }
+
+    // Every list of owned icons goes through here. Built by hand in five
+    // different places before, each with a raw `startsWith("/avatars/")`
+    // filter, so whether your icon survived depended on which code path had
+    // last written _unlockedIcons.
+    function normalizeIconList(arr) {
+      if (!Array.isArray(arr)) return [];
+      const out = [];
+      for (const raw of arr) {
+        if (typeof raw !== "string") continue;
+        const n = normalizeAvatarUrl(raw);
+        if (n && n.startsWith("/avatars/") && !out.includes(n)) out.push(n);
+      }
+      return out;
     }
 
     function getDefaultAvatar(seed) {
@@ -20377,9 +20409,7 @@
       try {
         const raw = localStorage.getItem(GUEST_UNLOCKED_ICONS_PREFIX + nick.toLowerCase());
         const list = raw ? JSON.parse(raw) : [];
-        _unlockedIcons = Array.isArray(list)
-          ? list.filter(s => typeof s === "string" && s.startsWith("/avatars/"))
-          : [];
+        _unlockedIcons = normalizeIconList(list);
       } catch (_) { _unlockedIcons = []; }
       if (!_guestAvatarUrl) {
         try { _guestAvatarUrl = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", nick); } catch (_) {}
@@ -20496,7 +20526,7 @@
       if (AVATAR_OPTIONS.includes(saved)) return true;
       if (saved && _unlockedIcons.includes(saved)) return true;
       const profileIcons = Array.isArray(profile?.unlocked_icons)
-        ? profile.unlocked_icons.map(s => normalizeAvatarUrl(String(s || "")))
+        ? normalizeIconList(profile.unlocked_icons)
         : [];
       return saved ? profileIcons.includes(saved) : false;
     }
@@ -20742,7 +20772,7 @@
       }
       _activeProfile  = profile;
       _unlockedIcons  = Array.isArray(profile.unlocked_icons)
-        ? profile.unlocked_icons.filter(s => typeof s === "string" && s.startsWith("/avatars/")) : [];
+        ? normalizeIconList(profile.unlocked_icons) : [];
       _unlockedBackgrounds = Array.isArray(profile.unlocked_backgrounds)
         ? profile.unlocked_backgrounds.map(s => normalizeBgUrl(s)).filter(Boolean) : [];
       _playerNickname = profile.nickname || "Player";
@@ -22384,7 +22414,20 @@
       _avatarModalSelection = sanitizeSelectableAvatar(currentAvatar, seed);
       const rerender = () => {
         renderAvatarGrid("avatar-modal-grid", _avatarModalSelection, (selected) => {
-          _avatarModalSelection = sanitizeSelectableAvatar(selected, seed);
+          // renderAvatarGrid only makes an OWNED critter clickable, so if the
+          // ownership check disagrees with the grid, something is wrong with
+          // the ownership list and the honest move is to say so. Silently
+          // selecting Mullet instead is what made a pick appear to save and
+          // then come back as Mullet.
+          const want = normalizeAvatarUrl(selected);
+          const safe = sanitizeSelectableAvatar(selected, seed);
+          if (want && safe !== want) {
+            setAuthMsg("avatar-modal-err",
+                       "That critter is not unlocked on this account yet.", false);
+            return;
+          }
+          setAuthMsg("avatar-modal-err", "", false);
+          _avatarModalSelection = safe;
           rerender();
         });
       };
@@ -22452,6 +22495,7 @@
           setTimeout(_showGiantSquidChallenge, 450);
         }
       } catch (_) {}
+      return true;
     }
 
     // ── Giant Squid challenge modal (King of the Critters gate) ──────────
@@ -22493,7 +22537,13 @@
       }
       setAuthMsg("avatar-modal-err", "Saving…", true);
       try {
-        await applyAvatarSelection(selected);
+        // A refusal (read-only gallery) returns false rather than throwing, and
+        // closing the modal on it reported a save that never happened.
+        const saved = await applyAvatarSelection(selected);
+        if (saved === false) {
+          setAuthMsg("avatar-modal-err", "Could not save avatar. Try again.", false);
+          return;
+        }
         _avatarSelectionRequired = false;
         const modal = $a("avatar-picker-modal");
         if (modal) modal.classList.remove("open");
@@ -22800,7 +22850,7 @@
       _activeProfile = profile || null;
       // Load unlocked icons from profile
       _unlockedIcons = Array.isArray(profile?.unlocked_icons)
-        ? profile.unlocked_icons.filter(s => typeof s === "string" && s.startsWith("/avatars/"))
+        ? normalizeIconList(profile.unlocked_icons)
         : [];
       // Pop an individual unlock popup for any icon granted out-of-band (e.g. a
       // Supporter-Tier purchase's Fish / Amberjack skins, credited by the webhook).
@@ -24169,7 +24219,7 @@
           _activeProfile = profile || null;
           // Load unlocked animal icons before judging avatar validity.
           _unlockedIcons = Array.isArray(profile?.unlocked_icons)
-            ? profile.unlocked_icons.filter(s => typeof s === "string" && s.startsWith("/avatars/"))
+            ? normalizeIconList(profile.unlocked_icons)
             : [];
           _unlockedBackgrounds = Array.isArray(profile?.unlocked_backgrounds)
             ? profile.unlocked_backgrounds.map(s => normalizeBgUrl(s)).filter(Boolean)
@@ -27543,7 +27593,7 @@
         if (!p) return;
         _activeProfile = p;
         _unlockedIcons = Array.isArray(p.unlocked_icons)
-          ? p.unlocked_icons.filter(s => typeof s === "string" && s.startsWith("/avatars/")) : [];
+          ? normalizeIconList(p.unlocked_icons) : [];
         _unlockedBackgrounds = Array.isArray(p.unlocked_backgrounds)
           ? p.unlocked_backgrounds.map(s => normalizeBgUrl(s)).filter(Boolean) : [];
         if (typeof syncStatsHeader === "function") { try { syncStatsHeader(_activeProfile); } catch (_) {} }
@@ -28567,7 +28617,7 @@
       //    this is only the display. test_stripe_payments.py checks both match.
       const PHST_SUPPORTER_TIERS = [
         {
-          name: "Wave Warrior", usd: 15, coins: 5000,
+          name: "Wave Warrior", usd: 15, coins: 7000,
           link: "https://buy.stripe.com/cNi6oI3sbfwggIV7ouds404",
           perks: [
             "Supporter email updates",
@@ -28575,7 +28625,7 @@
             "Founder Supporter number",
             "Name on the Supporter Reef Wall",
             "Personal thank-you email",
-            "+10,000 bonus XP",
+            "+7,000 bonus XP",
           ],
           note: "Cosmetic progression only",
         },
@@ -28590,7 +28640,7 @@
             "Personal thank-you email",
             "Unlock all backgrounds",
             "Exclusive Fish Icon",
-            "+25,000 bonus XP",
+            "+20,000 bonus XP",
           ],
           note: "Cosmetic progression only",
         },
@@ -28608,7 +28658,7 @@
             "Free physical copy of Currents and Critters",
             "Thank-you postcard",
             "Exclusive Amberjack player icon",
-            "+50,000 bonus XP",
+            "+35,000 bonus XP",
           ],
           note: "Cosmetic progression only",
         },
@@ -30830,7 +30880,7 @@
       // Animals unlocked (from the target's own unlocked_icons).
       const animals    = ANIMAL_AVATARS.filter(a => !!a.unlock);
       const theirIcons = Array.isArray(profile.unlocked_icons)
-        ? profile.unlocked_icons.filter(p => typeof p === "string" && p.startsWith("/avatars/")) : [];
+        ? normalizeIconList(profile.unlocked_icons) : [];
       const animalsDone = animals.filter(a => theirIcons.includes(a.img)).length;
 
       const noGames = totalGames === 0;
@@ -34672,7 +34722,7 @@
           const snap = await tx.get(ref);
           const data = snap.exists ? (snap.data() || {}) : {};
           const owned = Array.isArray(data.unlocked_icons)
-            ? data.unlocked_icons.map(s => normalizeAvatarUrl(String(s || ""))) : [];
+            ? normalizeIconList(data.unlocked_icons) : [];
           if (owned.includes(path)) throw new Error("owned");
           const coins = Math.floor(Number((data.stats || {}).critter_coins) || 0);
           if (coins < PHST_SKIN_COIN_PRICE) throw new Error("coins");
