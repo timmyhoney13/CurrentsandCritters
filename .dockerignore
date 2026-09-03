@@ -22,6 +22,7 @@
 !referral_server.py
 !welcome_server.py
 !account_email.py
+!partner_contact.py
 
 # Allow the AI brain and card data files.
 !fish_ai_brain.json

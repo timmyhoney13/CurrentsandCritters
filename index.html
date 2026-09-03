@@ -488,6 +488,206 @@
   @media (max-width: 640px) {
     .people-care-names { width: 90%; top: 33%; height: 46%; gap: 1px 2.0vw; }
   }
+
+  /* ── PARTNER WITH US FORM ────────────────────────────────────────
+     The Partner With Us button used to be a mailto:, which opens nothing at
+     all on a phone or in a webmail-only browser, and hands whoever it does
+     open a blank message. This is the same enquiry as a real form, sitting on
+     the dark sponsor section, so the colours are the .sponsor-cta-band ones.
+     Every input is border-box and min-width:0 inside its grid cell: a text
+     input's default width is ~180px of intrinsic size that a `1fr` column will
+     NOT shrink below, which is exactly how a two-column form ends up wider
+     than a phone. */
+  .partner-form-band {
+    margin-top: 22px;
+    background: linear-gradient(170deg, rgba(93, 214, 247, 0.08), rgba(42, 200, 143, 0.05));
+    border: 1px solid rgba(93, 214, 247, 0.25);
+    border-radius: var(--r-3xl);
+    padding: 30px 34px 32px;
+  }
+  .partner-form-band .eyebrow {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(93, 214, 247, 0.12);
+    border: 1px solid rgba(93, 214, 247, 0.3);
+    font-family: var(--font-body);
+    font-weight: 800;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--glow);
+    margin-bottom: 12px;
+  }
+  .partner-form-band h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 26px;
+    color: #fff;
+    margin: 0 0 8px;
+    letter-spacing: -0.5px;
+  }
+  .partner-form-band > p {
+    font-size: 15px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.78);
+    margin: 0 0 4px;
+    max-width: 640px;
+  }
+  /* The address itself, in plain sight. Somebody who would rather write from
+     their own work account should never have to hunt for it, and a link that
+     opens nothing is not an address. */
+  .pf-direct {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 10px 0 0;
+  }
+  .pf-direct a {
+    color: var(--glow);
+    font-weight: 700;
+    text-decoration: none;
+    border-bottom: 1px dashed rgba(93, 214, 247, 0.5);
+    word-break: break-word;
+  }
+  .pf-direct a:hover { color: #fff; border-bottom-color: #fff; }
+
+  .pf-form { margin-top: 22px; }
+  .pf-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 18px;
+  }
+  .pf-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .pf-field.pf-wide { grid-column: 1 / -1; }
+  .pf-field label {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.72);
+  }
+  .pf-field label .pf-opt {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.42);
+  }
+  .pf-field input,
+  .pf-field select,
+  .pf-field textarea {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+    color: #eaf8ff;
+    background: rgba(2, 13, 22, 0.55);
+    border: 1px solid rgba(93, 214, 247, 0.28);
+    border-radius: 12px;
+    padding: 11px 13px;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .pf-field select {
+    /* The native arrow is invisible on this background in Safari. */
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, #5dd6f7 50%),
+                      linear-gradient(135deg, #5dd6f7 50%, transparent 50%);
+    background-position: calc(100% - 20px) calc(50% + 2px), calc(100% - 14px) calc(50% + 2px);
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+    padding-right: 38px;
+  }
+  .pf-field select option { color: #0a2537; background: #fff; }
+  /* Tall enough that the whole template is visible without scrolling:
+     a template whose last two lines are hidden reads as a shorter
+     template, and the hidden blanks are the ones left unfilled. */
+  .pf-field textarea { min-height: 240px; resize: vertical; }
+  .pf-field input::placeholder,
+  .pf-field textarea::placeholder { color: rgba(255, 255, 255, 0.34); }
+  .pf-field input:focus,
+  .pf-field select:focus,
+  .pf-field textarea:focus {
+    outline: none;
+    border-color: var(--glow);
+    box-shadow: 0 0 0 3px rgba(93, 214, 247, 0.18);
+  }
+  .pf-field.pf-bad input,
+  .pf-field.pf-bad select,
+  .pf-field.pf-bad textarea { border-color: #ff8f7a; }
+  .pf-hint {
+    font-size: 12.5px;
+    color: rgba(255, 255, 255, 0.45);
+    line-height: 1.5;
+  }
+  /* The honeypot. Off-screen rather than display:none, because some bots skip
+     hidden inputs and fill everything else. A person never reaches it: it is
+     aria-hidden and out of the tab order. */
+  .pf-hp {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+  .pf-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+  }
+  .pf-actions .btn { cursor: pointer; border: none; }
+  .pf-actions .btn:disabled { opacity: 0.6; cursor: default; transform: none; }
+  /* A text button, but still a button somebody taps with a thumb: the padding
+     is what makes it a real target rather than an 18px-tall line of text.
+     The negative margin keeps it optically aligned with the Send button. */
+  .pf-reset {
+    background: none;
+    border: none;
+    padding: 9px 12px;
+    margin-left: -12px;
+    min-height: 38px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.5);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .pf-reset:hover { color: var(--glow); }
+  .pf-status {
+    font-size: 14px;
+    line-height: 1.55;
+    margin-top: 14px;
+    color: rgba(255, 255, 255, 0.8);
+    min-height: 1px;
+  }
+  .pf-status.pf-err { color: #ffb3a3; }
+  .pf-status.pf-ok { color: #8ff0c4; }
+  .pf-status a { color: var(--glow); font-weight: 700; }
+  /* The sent state: the whole form is replaced by what happened, because a
+     still-editable form under a "sent!" line is how the same message gets sent
+     three times. */
+  .pf-sent {
+    background: rgba(42, 200, 143, 0.1);
+    border: 1px solid rgba(42, 200, 143, 0.38);
+    border-radius: 16px;
+    padding: 22px 24px;
+    color: #d9fff0;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .pf-sent strong { color: #fff; }
+  @media (max-width: 760px) {
+    .partner-form-band { padding: 24px 18px 26px; }
+    .pf-grid { grid-template-columns: minmax(0, 1fr); }
+    .partner-form-band h3 { font-size: 22px; }
+    .pf-field textarea { min-height: 220px; }
+  }
   </style>
 </head>
 <body>
@@ -945,6 +1145,76 @@
       2% goes to ocean conservation.
     </p>
 
+
+    <!-- ============ PARTNER WITH US FORM ============
+         The enquiry form itself. It posts to the GAME server (Vercel serves
+         this page and cannot send mail; play.currentsandcritters.com already
+         holds the only configured email transport, see partner_contact.py),
+         and every failure path ends at the mailto: below with everything the
+         reader typed still in it, so a message can never be lost to a server
+         that is asleep or a mail provider that is down. -->
+    <div class="partner-form-band" id="partner-form">
+      <span class="eyebrow">★ Partner With Us</span>
+      <h3>Tell us what you have in mind</h3>
+      <p>Fill in the template below and it lands straight in Tim's inbox. Every message is read by a person, and you will get a reply at the address you give.</p>
+      <p class="pf-direct">Prefer your own email? Write to
+        <a id="pf-mailto" href="mailto:currentsandcritters@gmail.com?subject=Partner%20with%20Currents%20and%20Critters">currentsandcritters@gmail.com</a>
+        and it reaches the same inbox.</p>
+
+      <form class="pf-form" id="pf-form" novalidate>
+        <div class="pf-grid">
+          <div class="pf-field">
+            <label for="pf-name">Your name</label>
+            <input id="pf-name" name="name" type="text" autocomplete="name" maxlength="80" placeholder="Alex Rivera"/>
+          </div>
+          <div class="pf-field">
+            <label for="pf-org">Company or organization <span class="pf-opt">(optional)</span></label>
+            <input id="pf-org" name="org" type="text" autocomplete="organization" maxlength="120" placeholder="Blue Harbor Aquarium"/>
+          </div>
+          <div class="pf-field">
+            <label for="pf-email">Your email</label>
+            <input id="pf-email" name="email" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com"/>
+          </div>
+          <div class="pf-field">
+            <label for="pf-link">Website or social link <span class="pf-opt">(optional)</span></label>
+            <input id="pf-link" name="link" type="text" maxlength="200" placeholder="blueharbor.org"/>
+          </div>
+          <div class="pf-field pf-wide">
+            <label for="pf-kind">What kind of partnership?</label>
+            <!-- ⚠️ These option values are the SAME list as KINDS in
+                 partner_contact.py, and test_partner_contact.py compares the
+                 two. A value the server does not know arrives mislabelled. -->
+            <select id="pf-kind" name="kind">
+              <option value="brand">Brand or product collaboration</option>
+              <option value="retail">Retail, distribution or wholesale</option>
+              <option value="conservation">Ocean conservation partnership</option>
+              <option value="creator">Creator, press or content</option>
+              <option value="sponsor">Sponsorship or donation</option>
+              <option value="event">Event, convention or school</option>
+              <option value="other">Something else</option>
+            </select>
+          </div>
+          <div class="pf-field pf-wide">
+            <label for="pf-message">Your message</label>
+            <textarea id="pf-message" name="message" maxlength="4000"></textarea>
+            <span class="pf-hint">The template fills itself in from the partnership type above. Replace every ____ with your own words, or clear it all and write your own message.</span>
+          </div>
+        </div>
+
+        <!-- Honeypot: never seen, never focused, never filled by a person. -->
+        <div class="pf-hp" aria-hidden="true">
+          <label for="pf-company-site">Leave this empty</label>
+          <input id="pf-company-site" name="company_site" type="text" tabindex="-1" autocomplete="off"/>
+        </div>
+
+        <div class="pf-actions">
+          <button class="btn btn-mint btn-lg" type="submit" id="pf-send">Send to Tim →</button>
+          <button class="pf-reset" type="button" id="pf-restore">Reset the template</button>
+        </div>
+        <p class="pf-status" id="pf-status" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+
     <div class="sponsor-cta-band our-story">
       <div>
         <span class="eyebrow">★ Our Story</span>
@@ -953,7 +1223,7 @@
         <p>That passion is a big part of why I created Currents and Critters. I wanted to build something fun that also gives back - 2% goes to ocean conservation - so future generations can experience clean, healthy, and abundant oceans the same way I did growing up.</p>
       </div>
       <div class="cta-buttons">
-        <a class="btn btn-mint btn-lg" href="mailto:currentsandcritters@gmail.com?subject=Partner with Currents and Critters">Partner With Us →</a>
+        <a class="btn btn-mint btn-lg" href="#partner-form">Partner With Us →</a>
         <a class="btn btn-outline btn-lg" data-email-list href="mailto:currentsandcritters@gmail.com?subject=Add%20me%20to%20the%20email%20list">Join the Email List →</a>
       </div>
     </div>
@@ -987,7 +1257,7 @@
     <div>
       <h5>Support Us</h5>
       <ul>
-        <li><a href="#sponsor">Partner With Us</a></li>
+        <li><a href="#partner-form">Partner With Us</a></li>
         <li><a href="mailto:currentsandcritters@gmail.com">Get in Touch</a></li>
         <li><a href="#sponsor">Ocean Impact</a></li>
       </ul>
@@ -1415,6 +1685,271 @@ updateBetaBarClear();
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener noreferrer');
   });
+})();
+</script>
+
+<!-- ============ PARTNER WITH US FORM ============ -->
+<script>
+/* The Partner With Us enquiry form.
+ *
+ * WHY IT POSTS SOMEWHERE ELSE
+ * This page is served by Vercel, which is static hosting: it cannot send an
+ * email. The game server on Render is the one thing in the whole system with a
+ * configured mail transport (it sends the newsletter, the account resets and
+ * the purchase codes), so the enquiry is posted there, to
+ * /api/partner/contact, and partner_contact.py turns it into mail to Tim with
+ * the sender on Reply-To.
+ *
+ * WHY THE mailto: DID NOT SIMPLY STAY
+ * A mailto: opens nothing at all on a phone with no mail app configured, and
+ * nothing in a browser whose mail lives on a webmail tab. It is kept as the
+ * FALLBACK rather than the front door: every failure path below (validation
+ * aside) rebuilds it with everything the reader typed already in it, so a
+ * message is never lost to a sleeping server or a mail provider having a bad
+ * afternoon.
+ *
+ * THE TEMPLATE
+ * The point of the template is that nobody has to work out what to say. Each
+ * partnership type gets its own, and switching type rewrites it ONLY while the
+ * box still holds the template unedited: the moment somebody types their own
+ * words, those words are theirs and nothing overwrites them.
+ */
+(function () {
+  var form = document.getElementById("pf-form");
+  if (!form) return;
+
+  // The game server. Same host as the live stats above, and the only one that
+  // can send mail.
+  var API_BASE = "https://play.currentsandcritters.com";
+  var INBOX = "currentsandcritters@gmail.com";
+
+  var elName    = document.getElementById("pf-name");
+  var elOrg     = document.getElementById("pf-org");
+  var elEmail   = document.getElementById("pf-email");
+  var elLink    = document.getElementById("pf-link");
+  var elKind    = document.getElementById("pf-kind");
+  var elMsg     = document.getElementById("pf-message");
+  var elHp      = document.getElementById("pf-company-site");
+  var elSend    = document.getElementById("pf-send");
+  var elStatus  = document.getElementById("pf-status");
+  var elRestore = document.getElementById("pf-restore");
+  var elMailto  = document.getElementById("pf-mailto");
+
+  var TEMPLATES = {
+    brand:
+      "Hi Tim,\n\n" +
+      "I'm ____ from ____. We'd love to work with Currents and Critters on ____.\n\n" +
+      "What we had in mind: ____\n\n" +
+      "A bit about us: ____\n\n" +
+      "Thanks!",
+    retail:
+      "Hi Tim,\n\n" +
+      "I'm ____ from ____, a ____ (shop / distributor / online store) in ____.\n\n" +
+      "We'd like to carry Currents and Critters. We'd be looking at around ____ copies to start.\n\n" +
+      "Anything else worth knowing: ____\n\n" +
+      "Thanks!",
+    conservation:
+      "Hi Tim,\n\n" +
+      "I'm ____ from ____, and we work on ____ (what your organization protects).\n\n" +
+      "We'd like to partner with Currents and Critters on ____.\n\n" +
+      "What that could look like: ____\n\n" +
+      "Thanks!",
+    creator:
+      "Hi Tim,\n\n" +
+      "I'm ____ and I make ____ (videos / a podcast / articles) about ____.\n\n" +
+      "My audience is about ____ people, mostly ____.\n\n" +
+      "I'd like to cover Currents and Critters by ____.\n\n" +
+      "Thanks!",
+    sponsor:
+      "Hi Tim,\n\n" +
+      "I'm ____ from ____. We'd like to support Currents and Critters through ____.\n\n" +
+      "What we're hoping for in return: ____\n\n" +
+      "Budget or scale we have in mind: ____\n\n" +
+      "Thanks!",
+    event:
+      "Hi Tim,\n\n" +
+      "I'm ____ from ____. We're running ____ on ____ (date) in ____ (place).\n\n" +
+      "We'd love to have Currents and Critters there by ____.\n\n" +
+      "We're expecting about ____ people.\n\n" +
+      "Thanks!",
+    other:
+      "Hi Tim,\n\n" +
+      "I'm ____ from ____.\n\n" +
+      "I'd like to talk to you about ____.\n\n" +
+      "Thanks!"
+  };
+
+  // What was last written into the box by US. Anything else in there is the
+  // reader's own words and is never overwritten.
+  var lastTemplate = "";
+
+  function applyTemplate(force) {
+    var next = TEMPLATES[elKind.value] || TEMPLATES.other;
+    var current = elMsg.value || "";
+    if (force || !current.trim() || current === lastTemplate) {
+      elMsg.value = next;
+      lastTemplate = next;
+      syncMailto();
+    }
+  }
+
+  function kindLabel() {
+    var opt = elKind.options[elKind.selectedIndex];
+    return opt ? opt.textContent.trim() : "Partnership";
+  }
+
+  function val(el) { return (el.value || "").trim(); }
+
+  /* The message as an email, used both for the "prefer your own email" link
+     and for every fallback: whatever they typed survives the trip. */
+  function mailtoHref() {
+    var subject = "Partner with Currents and Critters: " + kindLabel();
+    var lines = [];
+    if (val(elName))  lines.push("Name: " + val(elName));
+    if (val(elOrg))   lines.push("Organization: " + val(elOrg));
+    if (val(elEmail)) lines.push("Email: " + val(elEmail));
+    if (val(elLink))  lines.push("Website or link: " + val(elLink));
+    lines.push("Partnership type: " + kindLabel());
+    var body = lines.join("\n") + "\n\n" + val(elMsg);
+    // Long mailto: URLs are truncated (and in a few clients dropped) by the
+    // OS, so the body is capped well inside every limit worth caring about.
+    if (body.length > 1800) body = body.slice(0, 1800) + "\n\n(continued...)";
+    return "mailto:" + INBOX +
+           "?subject=" + encodeURIComponent(subject) +
+           "&body=" + encodeURIComponent(body);
+  }
+
+  function syncMailto() {
+    if (elMailto) elMailto.href = mailtoHref();
+  }
+
+  function clearBad() {
+    Array.prototype.forEach.call(form.querySelectorAll(".pf-bad"), function (f) {
+      f.classList.remove("pf-bad");
+    });
+  }
+
+  function fail(el, message) {
+    clearBad();
+    if (el && el.parentNode) el.parentNode.classList.add("pf-bad");
+    elStatus.className = "pf-status pf-err";
+    elStatus.textContent = message;
+    if (el && el.focus) el.focus();
+    return false;
+  }
+
+  function looksLikeEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
+  }
+
+  /* The same checks the server makes, made here first so a mistake costs a
+     glance rather than a round trip. The server still makes them: this is the
+     convenience copy, not the authority. */
+  function validate() {
+    if (val(elName).length < 2) return fail(elName, "Please tell us your name.");
+    if (!looksLikeEmail(val(elEmail))) return fail(elEmail, "That email address doesn't look right.");
+    var body = val(elMsg);
+    if (!body) return fail(elMsg, "Please write a message.");
+    if (/_{3,}/.test(body)) {
+      return fail(elMsg, "The template still has blanks in it. Fill in the ____ parts (or delete them) and send again.");
+    }
+    if (body.length < 25) return fail(elMsg, "Tell us a little more, so there is something to reply to.");
+    clearBad();
+    return true;
+  }
+
+  /* A send that did not happen must not lose the message. The status line
+     becomes a link that opens the reader's own mail app with everything
+     already written. */
+  function offerMailto(message) {
+    elStatus.className = "pf-status pf-err";
+    elStatus.textContent = message + " ";
+    var a = document.createElement("a");
+    a.href = mailtoHref();
+    a.textContent = "Open it in your email app instead";
+    elStatus.appendChild(a);
+    elStatus.appendChild(document.createTextNode(" (nothing you typed is lost), or copy it to " + INBOX + "."));
+  }
+
+  var busy = false;
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (busy) return;
+    if (!validate()) return;
+
+    busy = true;
+    elSend.disabled = true;
+    elSend.textContent = "Sending...";
+    elStatus.className = "pf-status";
+    elStatus.textContent = "Sending your message...";
+
+    // Render's free tier sleeps, and a cold start is around 30 seconds. Say so
+    // rather than letting a spinner look like a hang.
+    var slow = setTimeout(function () {
+      if (busy) elStatus.textContent = "Still sending. The game server may be waking up, this can take up to 30 seconds...";
+    }, 6000);
+
+    // AbortSignal.timeout is not in Safari < 16.4.
+    var ctrl = new AbortController();
+    var kill = setTimeout(function () { ctrl.abort(); }, 45000);
+
+    fetch(API_BASE + "/api/partner/contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: val(elName),
+        org: val(elOrg),
+        email: val(elEmail),
+        link: val(elLink),
+        kind: elKind.value,
+        message: val(elMsg),
+        company_site: elHp ? elHp.value : ""
+      }),
+      signal: ctrl.signal
+    }).then(function (r) {
+      return r.json().catch(function () { return { ok: false }; });
+    }).then(function (d) {
+      clearTimeout(slow); clearTimeout(kill);
+      if (d && d.ok) {
+        var done = document.createElement("div");
+        done.className = "pf-sent";
+        done.id = "pf-sent";
+        var head = document.createElement("strong");
+        head.textContent = "Message sent.";
+        done.appendChild(head);
+        done.appendChild(document.createTextNode(" " + (d.message ||
+          "Thanks! Your message is on its way to Tim, and you will get a reply at the address you gave.")));
+        form.parentNode.replaceChild(done, form);
+      } else {
+        busy = false;
+        elSend.disabled = false;
+        elSend.textContent = "Send to Tim →";
+        var why = (d && (d.message || d.error)) || "Something went wrong sending that.";
+        // A validation answer from the server is the reader's to fix; anything
+        // else is ours, and gets the mailto: escape hatch.
+        if (d && d.error && /request|transport|send_failed/.test(String(d.error))) {
+          offerMailto(why);
+        } else {
+          elStatus.className = "pf-status pf-err";
+          elStatus.textContent = why;
+        }
+      }
+    }).catch(function () {
+      clearTimeout(slow); clearTimeout(kill);
+      busy = false;
+      elSend.disabled = false;
+      elSend.textContent = "Send to Tim →";
+      offerMailto("Couldn't reach the server.");
+    });
+  });
+
+  elKind.addEventListener("change", function () { applyTemplate(false); });
+  elRestore.addEventListener("click", function () { applyTemplate(true); elMsg.focus(); });
+  form.addEventListener("input", syncMailto);
+
+  applyTemplate(true);
+  syncMailto();
 })();
 </script>
 

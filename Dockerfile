@@ -50,6 +50,9 @@ COPY redeem_codes.py /app/redeem_codes.py
 COPY welcome_server.py /app/welcome_server.py
 # The email on an account (link, confirm, reset). Module-scope import too.
 COPY account_email.py /app/account_email.py
+# The website's Partner With Us form. Module-scope import too, so a missing
+# COPY here is a server that will not boot, not a form that quietly stops.
+COPY partner_contact.py /app/partner_contact.py
 COPY fish_ai_brain.json /app/fish_ai_brain.json
 COPY cards_vertical.txt /app/cards_vertical.txt
 COPY cards_lr.txt /app/cards_lr.txt

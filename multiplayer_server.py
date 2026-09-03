@@ -44,6 +44,7 @@ import redeem_codes
 import referral_server
 import welcome_server
 import account_email
+import partner_contact
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -12949,6 +12950,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if redeem_codes.handle_get(self, parsed):
             return
 
+        # Is the website's Partner With Us form actually able to send? Public,
+        # and it says only whether mail can leave this deploy. Same reason as
+        # the redemption state above: a form that quietly mails nowhere looks
+        # perfectly healthy from the website.
+        if partner_contact.handle_get(self, parsed):
+            return
+
         # Did the webhook already fulfil this checkout? Polled by /thanks so the
         # buyer sees a confirmation only once the payment is really recorded.
         if parsed.path == "/api/stripe/session-status":
@@ -13419,6 +13427,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # which account to pay). The uid comes off the verified token, and the
         # reward document is the one lock that stops it paying twice.
         if redeem_codes.handle_post(self, parsed, body):
+            return
+
+        # The website's Partner With Us form (/api/partner/contact). Public by
+        # necessity: whoever wants to partner does not have an account. The
+        # recipient is never in the request, only ADMIN_EMAIL, so nothing a
+        # caller sends can make this relay mail to somebody else.
+        if partner_contact.handle_post(self, parsed, body):
             return
 
         # The email on a username-and-password account: link it, and the
@@ -14679,6 +14694,17 @@ def main() -> None:
         print("[redeem] !! no REDEEM_CODE_SECRET (or ACCOUNT_EMAIL_SECRET / "
               "NEWSLETTER_UNSUBSCRIBE_SECRET / SESSION_SECRET): purchase codes are OFF, "
               "website buyers fall back to claiming by email at /claim")
+
+    # The website's Partner With Us form. It owns no state and no secret, it
+    # only needs a way to send mail, so the one thing worth saying at boot is
+    # whether that exists: with no transport the form on the website refuses
+    # rather than pretending, and every enquiry falls back to the mailto:.
+    if partner_contact.enabled():
+        print("[partner] Partner With Us form ON: enquiries go to %s via %s"
+              % (", ".join(partner_contact.recipients()), nl_email.transport_label()))
+    else:
+        print("[partner] !! no email transport: the website's Partner With Us form "
+              "cannot send, and falls back to a mailto: link")
 
     # The welcome bonus + the dev's friends roster. Same injected Firestore
     # accessor and token verifier as everything else, and the SAME level curve,

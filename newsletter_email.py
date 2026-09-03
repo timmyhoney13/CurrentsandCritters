@@ -1149,6 +1149,7 @@ def _build_message(
     one_click_url: str = "",
     is_bulk: bool = True,
     stream: str = "",
+    reply_to_override: str = "",
 ) -> Tuple[MIMEMultipart, str]:
     """The one place a message is assembled, whatever the transport.
 
@@ -1185,7 +1186,12 @@ def _build_message(
     msg["Subject"] = subject
     msg["From"] = formataddr((_clean_header(sender_name(), 120), sender_email()))
     msg["To"] = to_email
-    msg["Reply-To"] = reply_to()
+    # Reply-To is normally the site's own address. It is overridden for mail
+    # that is ABOUT somebody else: a partner enquiry forwarded from the website
+    # form answers to the person who wrote it, so hitting Reply in the inbox
+    # reaches them instead of bouncing off our own From address. The override is
+    # cleaned like every other header value; it can never carry a second header.
+    msg["Reply-To"] = _clean_header(reply_to_override or reply_to(), MAX_EMAIL_LEN)
     msg["Date"] = formatdate(localtime=True)
     message_id = make_msgid(domain=(sender_email().split("@")[-1] or "beardedsealstudios.com"))
     msg["Message-ID"] = message_id
@@ -1533,31 +1539,37 @@ def _http_headers(provider: str, key: str) -> Dict[str, str]:
 
 
 def _http_body(provider: str, *, to_email: str, subject: str, html_body: str,
-               text_body: str, headers: Dict[str, str]) -> bytes:
+               text_body: str, headers: Dict[str, str],
+               reply_to_addr: str = "") -> bytes:
     """Shape the request for one provider. The custom headers carry
     List-Unsubscribe, which every provider exposes differently and none of them
     add for you."""
     spec = HTTP_PROVIDERS[provider]
     frm = formataddr((_clean_header(sender_name(), 120), sender_email()))
+    # The four providers spell Reply-To four different ways, which is exactly
+    # why the value is resolved ONCE here: an override that reached the MIME
+    # path but not this one would work over SMTP and silently do nothing in
+    # production, where an HTTPS provider is what actually sends.
+    rto = _clean_header(reply_to_addr or reply_to(), MAX_EMAIL_LEN)
     style = spec["style"]
     if style == "resend":
         body = {"from": frm, "to": [to_email], "subject": subject,
                 "html": html_body, "text": text_body,
-                "reply_to": reply_to(), "headers": headers}
+                "reply_to": rto, "headers": headers}
     elif style == "postmark":
         body = {"From": frm, "To": to_email, "Subject": subject,
                 "HtmlBody": html_body, "TextBody": text_body,
-                "ReplyTo": reply_to(), "MessageStream": _env("POSTMARK_STREAM", "broadcast"),
+                "ReplyTo": rto, "MessageStream": _env("POSTMARK_STREAM", "broadcast"),
                 "Headers": [{"Name": k, "Value": v} for k, v in headers.items()]}
     elif style == "brevo":
         body = {"sender": {"email": sender_email(), "name": sender_name()},
                 "to": [{"email": to_email}], "subject": subject,
                 "htmlContent": html_body, "textContent": text_body,
-                "replyTo": {"email": reply_to()}, "headers": headers}
+                "replyTo": {"email": rto}, "headers": headers}
     else:  # sendgrid
         body = {"personalizations": [{"to": [{"email": to_email}]}],
                 "from": {"email": sender_email(), "name": sender_name()},
-                "reply_to": {"email": reply_to()}, "subject": subject,
+                "reply_to": {"email": rto}, "subject": subject,
                 "content": [{"type": "text/plain", "value": text_body},
                             {"type": "text/html", "value": html_body}],
                 "headers": headers}
@@ -1566,7 +1578,7 @@ def _http_body(provider: str, *, to_email: str, subject: str, html_body: str,
 
 def _send_http(*, to_email: str, subject: str, html_body: str, text_body: str,
                unsub: str, one_click: str, is_bulk: bool,
-               stream: str = "") -> Dict[str, Any]:
+               stream: str = "", reply_to_override: str = "") -> Dict[str, Any]:
     provider = http_provider()
     if not provider:
         raise SendError("No email API is configured (set NEWSLETTER_API_KEY).",
@@ -1578,7 +1590,8 @@ def _send_http(*, to_email: str, subject: str, html_body: str, text_body: str,
                                       is_bulk=is_bulk, stream=stream)
 
     body = _http_body(provider, to_email=to_email, subject=_clean_header(subject, 900),
-                      html_body=html_body, text_body=text_body, headers=headers)
+                      html_body=html_body, text_body=text_body, headers=headers,
+                      reply_to_addr=reply_to_override)
     status, data = _http_json(spec["url"], data=body,
                               headers=_http_headers(provider, key), method="POST")
 
@@ -2432,6 +2445,7 @@ def send_email(
     one_click_url: str = "",
     is_bulk: bool = True,
     stream: str = "",
+    reply_to_override: str = "",
 ) -> Dict[str, Any]:
     """Send exactly one message to exactly one recipient.
 
@@ -2442,6 +2456,12 @@ def send_email(
     `stream` names the kind of mail for Feedback-ID, which is how Google
     Postmaster Tools reports complaint rates per bucket rather than one blended
     number for the whole domain.
+
+    `reply_to_override` is for mail that is ABOUT somebody else and should be
+    answered TO them: the website's Partner With Us form sends the enquiry to
+    the inbox with the enquirer on Reply-To, so answering it is one keystroke.
+    Empty (the default) keeps the site's own reply address, which is what every
+    piece of bulk mail wants.
 
     Returns {"messageId": …, "gmailId": …}: `gmailId` keeps its name because
     the campaign records already store it; it now holds whichever id the active
@@ -2473,7 +2493,7 @@ def send_email(
     msg, message_id = _build_message(
         to_email=to_norm, subject=subject, html_body=html_body, text_body=text_body,
         unsubscribe_url=unsubscribe_url, one_click_url=one_click_url, is_bulk=is_bulk,
-        stream=stream,
+        stream=stream, reply_to_override=reply_to_override,
     )
 
     # Pace the wire. Done BEFORE the send and outside any transport lock, so a
@@ -2490,7 +2510,8 @@ def send_email(
         elif t == "http":
             res = _send_http(to_email=to_norm, subject=subject, html_body=html_body,
                              text_body=text_body, unsub=unsubscribe_url,
-                             one_click=one_click_url, is_bulk=is_bulk, stream=stream)
+                             one_click=one_click_url, is_bulk=is_bulk, stream=stream,
+                             reply_to_override=reply_to_override)
         else:
             res = _send_gmail_api(msg)
     except SendError as exc:
