@@ -84,6 +84,14 @@
 # so a re-run cannot credit one donation twice.
 !test_admin_grant.py
 
+# Leaderboards refresh when a game ENDS, not on a clock. The 60s TTL plus the
+# warm-cache sweeper re-queried all 16 boards every ~45s for five minutes after
+# anyone opened the tab, which emptied the 50,000/day Firestore free tier and
+# took the wall, the boards and the admin tools down with `429 Quota exceeded`.
+# The test backdates a cached board and sweeps: under the old TTL it re-queries,
+# and that is the whole outage in one assertion.
+!test_leaderboard_refresh.py
+
 # Developer Analytics (admin-only dashboard). multiplayer_server.py imports this
 # at module scope too, so dropping it from the allowlist kills the server on
 # startup rather than just hiding the dashboard. Read-only: it derives every

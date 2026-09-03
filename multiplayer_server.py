@@ -550,7 +550,24 @@ _LB_STATS_FIELDS = (
     "balanced_games", "balanced_score_sum",
     "total_score_by_size", "normal_games_by_size",
 ) + tuple(f"highest_score_{n}p" for n in range(2, 9))
-_LB_TTL_SEC = 60.0
+# A board only changes when somebody's stats change, and stats change when a
+# game ends, so the boards are refreshed by THAT event
+# (invalidate_leaderboards_after_game) and this TTL is only a safety net.
+#
+# It used to be 60s, which is what emptied the Firestore quota. The sweeper
+# refreshes any board asked for in the last 5 minutes once it passes 75% of its
+# TTL, so a single player opening the Leaderboard tab set all 16 boards
+# re-querying every ~45s for the next five minutes. Each board streams a full
+# document per player, so one warm minute cost 16 x <players> reads and bought
+# nothing: nobody's stats had moved. The free tier allows 50,000 reads a day
+# and this alone could spend that in an afternoon, after which EVERY Firestore
+# read on the server fails with 429 and the wall, the boards and sign-in all go
+# dark together.
+#
+# 300s now, and it only ever matters for the stats that move WITHOUT a game
+# finishing (a Level Pass payout, a clan reward, an admin grant), which no
+# event here can see.
+_LB_TTL_SEC = 300.0
 _LB_MAX_LIMIT = 150
 # Every board on Player Home is its own key, and each one costs 1.5-4.5s cold,
 # so with an expire-then-block cache the player opening the Leaderboard tab
@@ -620,7 +637,52 @@ def get_leaderboard_rows(field: str, limit: int):
                         lambda: _fetch_leaderboard_rows(field, limit))
 
 
+# How long after a game ends to drop the boards a SECOND time. The finishing
+# players' stats are written by their own clients, not by this server, so at the
+# moment the room ends the game those writes are still in flight.
+_LB_SETTLE_SEC = 15.0
+
+
+def invalidate_leaderboards_after_game() -> None:
+    """Drop every cached board when a game finishes. Costs no Firestore reads.
+
+    This is what keeps the boards current now that the TTL is only a safety
+    net. Invalidating is free: it forgets the cached rows, and the NEXT player
+    to open a board pays for one live query. A board nobody looks at is never
+    queried at all, which is the whole point, the old 60s TTL re-queried all 16
+    boards on a clock whether anyone was watching or not.
+
+    It fires TWICE, and the second pass is the one that matters. A finishing
+    player's stats are written by their own CLIENT (preview-app.js increments
+    stats.normal_wins / stats.total_xp), not by this server, so when the room
+    reaches this point those writes are still in flight. Dropping the boards
+    now leaves a window where a player opening the tab a second later re-caches
+    the PRE-game numbers and, with a 300s TTL, keeps showing them for five
+    minutes. The second pass, _LB_SETTLE_SEC later, throws that away once the
+    writes have landed. Both passes are free, so the belt and braces cost
+    nothing but the one extra cold query for whoever looks next.
+    """
+    try:
+        _LB_WARM.invalidate()
+    except Exception as exc:  # noqa: BLE001 - a board must never break a game
+        print(f"[leaderboard] invalidate after game failed: {exc}")
+
+    def _settle() -> None:
+        try:
+            _LB_WARM.invalidate()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[leaderboard] settle invalidate failed: {exc}")
+
+    try:
+        t = threading.Timer(_LB_SETTLE_SEC, _settle)
+        t.daemon = True          # never hold the process open on a timer
+        t.start()
+    except Exception as exc:  # noqa: BLE001
+        print(f"[leaderboard] settle timer failed: {exc}")
+
+
 def prewarm_leaderboards() -> None:
+
     """Fill the boards Player Home opens on, one at a time, off the request
     path. Without this the first player after every deploy is the one who pays
     for each cold query."""
@@ -9323,6 +9385,15 @@ class GameRoom:
             # Only count truncated games in leaderboard if they went a reasonable distance.
             if ended_normally or rounds_played >= 3:
                 self._update_history_leaderboard(player_details, winner_name)
+                # This game moved somebody's stats, so the cached Firestore
+                # boards are now wrong. Dropping them is what refreshes the
+                # leaderboards: no clock, no reads, and the next player to open
+                # a board gets one live query. See
+                # invalidate_leaderboards_after_game for why it fires twice.
+                try:
+                    invalidate_leaderboards_after_game()
+                except Exception as _le:
+                    self._record_event(f"Leaderboard invalidate warning: {_le}")
         except Exception as exc:
             import traceback as _tb
             self._record_event(f"Game history save ERROR: {exc} | {_tb.format_exc(limit=5)}")
