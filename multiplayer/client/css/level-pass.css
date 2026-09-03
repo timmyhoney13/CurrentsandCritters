@@ -5,6 +5,8 @@
  *
  *   .ccLP*    the Level Pass page (#cc-level-pass-root)
  *   .ccRF*    the "Invite a Friend" card (#cc-referral-root)
+ *   .ccRD*    the "Redeem a Code" card (#cc-redeem-root), its neighbour in
+ *             the Friends tab and deliberately the same card
  *
  * The palette is the Player Home's own: the same ocean-light blues, cream
  * glass, Nunito + Luckiest Guy and 20-26px corners that prestige.css already
@@ -518,11 +520,82 @@
 .ccRF-redeemed { background: rgba(18, 163, 124, .1); border: 1px solid rgba(18, 163, 124, .35); color: #0d7a5c; font-weight: 700; }
 .ccRF-closed { background: var(--lp-card-2); border: 1px solid var(--lp-line); color: var(--lp-ink-dim); }
 
+/* ══════════════════════════════════════════════════════════════════════
+   REDEEM A CODE  (#cc-redeem-root, js/redeem.js)
+   Deliberately the same card as "Invite a Friend" directly above it: the
+   two are one job to a player ("I have a code"), and a second visual
+   language would make the Friends tab look like it grew a bolt-on.
+   ══════════════════════════════════════════════════════════════════════ */
+#cc-redeem-root { display: block; margin-bottom: 16px; }
+
+.ccRD {
+  background: var(--lp-card);
+  border: 1px solid var(--lp-line);
+  border-radius: 22px;
+  padding: 18px 20px;
+  box-shadow: 0 5px 16px rgba(23, 54, 90, .08);
+}
+.ccRD-empty { padding: 22px 4px; text-align: center; color: var(--lp-ink-soft); }
+
+.ccRD-head { display: flex; gap: 13px; align-items: flex-start; }
+.ccRD-ico { font-size: 1.9rem; line-height: 1; flex: 0 0 auto; }
+.ccRD-title {
+  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-size: 1.25rem;
+  line-height: 1.15;
+}
+.ccRD-sub {
+  margin-top: 3px;
+  font-size: .9rem;
+  color: var(--lp-ink-soft);
+  line-height: 1.45;
+}
+
+.ccRD-row { display: flex; gap: 9px; margin-top: 15px; }
+.ccRD-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 11px 15px;
+  border-radius: 12px;
+  border: 1px solid var(--lp-line);
+  background: #fff;
+  /* Monospace and wide-tracked: this is 16 symbols read back off a screen,
+     and a proportional font is where O/0 and I/1 confusion starts. */
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .04em;
+  font-size: .94rem;
+  color: var(--lp-ink);
+  text-transform: uppercase;
+}
+.ccRD-input::placeholder { text-transform: none; letter-spacing: normal; color: var(--lp-ink-dim); }
+.ccRD-input:focus { outline: none; border-color: var(--lp-blue-lt); box-shadow: 0 0 0 3px rgba(46, 143, 224, .2); }
+.ccRD-btn {
+  flex: 0 0 auto;
+  padding: 11px 20px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  font-family: "Nunito", sans-serif;
+  font-weight: 900;
+  font-size: .9rem;
+  color: #fff;
+  background: linear-gradient(180deg, var(--lp-blue-lt), var(--lp-blue));
+  box-shadow: 0 4px 11px rgba(28, 112, 204, .3);
+}
+.ccRD-btn:hover { filter: brightness(1.07); }
+.ccRD-btn:disabled { opacity: .6; cursor: default; }
+
+.ccRD-err { margin-top: 7px; font-size: .84rem; min-height: 1.2em; }
+.ccRD-err.is-bad { color: var(--lp-coral); font-weight: 700; }
+.ccRD-err.is-good { color: var(--lp-teal); font-weight: 700; }
+
 @media (max-width: 620px) {
   .ccRF-redeem-row { flex-direction: column; }
   .ccRF-btn { width: 100%; }
   .ccRF-code-row { flex-wrap: wrap; }
   .ccRF-copy { margin-left: 0; }
+  .ccRD-row { flex-direction: column; }
+  .ccRD-btn { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

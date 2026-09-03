@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-03.1";
+  const APP_BUILD   = "2026-09-03.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,12 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F Bought something on the website? Redeem it here", items: [
+      "If you donate or buy coins on the website, we now email you a code the moment the payment goes through. Open the Friends tab on your Player Home, paste the code into the Redeem a Code box, and everything you bought lands on your account: coins, bonus XP, backgrounds, icons and your supporter badge.",
+      "This is the fix for buying while you are not signed in. The website checkout has no way of knowing which account is yours, so before this your rewards sat waiting until you found the claim page, and if you sign in with a username rather than an email they could not be matched to you at all.",
+      "The code works on any account, so it is fine to buy first and make your account afterwards. It can only be used once, and if you were already signed in when you bought, your rewards are added straight away and the email just says so.",
+      "The same box also takes a friend code, so there is one place to type a code instead of two.",
+    ]},
     { ver: "V1.7.1", title: "\uD83E\uDE99 Supporter Tier rewards retuned", items: [
       "The coins and XP that come with a Supporter Tier have been rebalanced. Wave Warrior is now 7,000 Critter Coins and 7,000 bonus XP, Ocean Ally 15,000 coins and 20,000 bonus XP, and Tide Turner 30,000 coins and 35,000 bonus XP.",
       "Every other perk is unchanged: the founder number, the Supporter Reef Wall name, the backgrounds and the icons all still come with the tier they always did.",
@@ -1289,6 +1295,28 @@
       try { const u = window.__fishAuthUser && window.__fishAuthUser();
             return (u && u.getIdToken) ? await u.getIdToken() : ""; } catch (_) { return ""; }
     },
+    onRedeemed: () => { try { window.__fishReloadProfile && window.__fishReloadProfile(); } catch (_) {} },
+  };
+
+  // ── Purchase-code bridge ───────────────────────────────────────────────
+  // js/redeem.js. A donation made on the marketing site cannot know which
+  // account to pay, so the buyer is emailed a code and spends it here
+  // (/api/redeem/code). Every rule is server-side; this bridge carries a
+  // string there and a sentence back.
+  window.__ccRedeem = {
+    APP_BUILD,
+    get:  (p) => apiFetch(p),
+    post: (p, b) => apiPost(p, b),
+    toast: (m, t) => { try { showToast(m, t); } catch (_) {} },
+    signedIn: () => { try { return !!(window.__fishAuthUser && window.__fishAuthUser()); } catch (_) { return false; } },
+    async idToken() {
+      try { const u = window.__fishAuthUser && window.__fishAuthUser();
+            return (u && u.getIdToken) ? await u.getIdToken() : ""; } catch (_) { return ""; }
+    },
+    // A redeemed code can move coins, XP + level, backgrounds, icons AND the
+    // supporter badge in one go, so re-read the account document the rest of
+    // the app renders from. Without this the reward is real but invisible
+    // until the next reload, which reads as "it didn't work".
     onRedeemed: () => { try { window.__fishReloadProfile && window.__fishReloadProfile(); } catch (_) {} },
   };
 
