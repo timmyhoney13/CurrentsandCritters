@@ -76,6 +76,14 @@
 # telling the same story about an account.
 !test_admin_set_xp.py
 
+# The additive admin tools (/api/admin/grant, /api/admin/record_donation):
+# handing an account coins/XP, and putting a donation that never went through
+# Stripe onto the Supporter Reef Wall. The test pins the two things that go
+# wrong unnoticed: coins are an Increment so a grant cannot erase a balance the
+# player moved a millisecond later, and a wall gift is deduped on its reference
+# so a re-run cannot credit one donation twice.
+!test_admin_grant.py
+
 # Developer Analytics (admin-only dashboard). multiplayer_server.py imports this
 # at module scope too, so dropping it from the allowlist kills the server on
 # startup rather than just hiding the dashboard. Read-only: it derives every

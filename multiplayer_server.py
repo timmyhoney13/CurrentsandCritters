@@ -1603,6 +1603,110 @@ def _admin_update_supporter(kind: str, doc_id: str, fields: Dict[str, Any]) -> D
     return {"ok": True, "updated": list(update.keys())}
 
 
+def _admin_record_donation(who: str, amount_cents: Any, display_name: Any = None,
+                           reference: Any = "", dry_run: bool = False) -> Dict[str, Any]:
+    """Put a REAL donation that did not arrive through Stripe (cash, a bank
+    transfer, money handed over in person) onto the Supporter Reef Wall.
+
+    The wall is a public record of money actually given: a name's SIZE is its
+    lifetime total, and the homepage shows "Donated $X" when you hover it. So
+    this writes the SAME document the Stripe webhook writes, in the same shape,
+    and is additive against the same lifetime total, which means a later card
+    payment from this person accumulates on top instead of starting over and
+    the two never appear as two people.
+
+    Idempotent the way Stripe's path is: the dedup key is a payments/{reference}
+    sub-document, so re-running with the same reference is refused rather than
+    crediting the gift twice. That sub-document doubles as the audit trail for
+    where an off-Stripe donation came from.
+
+    The name is approved and shown straight away, without _name_needs_review:
+    that filter exists to hold names a STRANGER typed at checkout until a human
+    looks at them, and here the admin typing it IS that human.
+    """
+    db = _get_firestore()
+    if db is None:
+        return {"ok": False, "error": "firestore_unavailable"}
+    cents = _admin_whole(amount_cents)
+    if cents is None:
+        return {"ok": False, "error": "amount_cents must be a whole number of cents"}
+    if cents <= 0:
+        return {"ok": False, "error": "amount_cents must be positive"}
+
+    snap, err = _admin_resolve_account(who)
+    if err:
+        return err
+    uid = snap.id
+    doc = snap.to_dict() or {}
+    name = str(display_name or doc.get("nickname") or doc.get("username") or "Supporter").strip()[:120]
+    if not name:
+        return {"ok": False, "error": "display_name is empty"}
+    # A reference becomes a Firestore document id, so it may not carry "/".
+    ref_id = re.sub(r"[^A-Za-z0-9_.-]+", "-", str(reference or "").strip()).strip("-")[:120]
+    if not ref_id:
+        ref_id = f"manual-{int(time.time())}"
+
+    sup_ref = db.collection("supporters").document(uid)
+    pay_ref = sup_ref.collection("payments").document(ref_id)
+    prev = sup_ref.get().to_dict() or {}
+
+    def _whole(value: Any) -> int:
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    had = _whole(prev.get("totalSpentCents"))
+    if pay_ref.get().exists:
+        return {"ok": False, "error": f"reference {ref_id!r} is already recorded",
+                "uid": uid, "reference": ref_id, "totalSpentCents": had}
+    new_total = had + cents
+    tier_name, wall_size = _supporter_tier_for_total(new_total)
+
+    if not dry_run:
+        from firebase_admin import firestore
+        SERVER_TIMESTAMP = getattr(firestore, "SERVER_TIMESTAMP", None)
+        # The payment record first: its existence is the dedup key, so writing
+        # it before the total means a crash in between leaves the gift
+        # UNCREDITED (re-runnable by hand) rather than credited twice.
+        pay_ref.set({
+            "amountCents":   cents,
+            "paymentStatus": "paid",
+            "source":        "admin_manual",
+            "reference":     ref_id,
+            "productName":   "Off-Stripe donation recorded by an admin",
+            "createdAt":     SERVER_TIMESTAMP,
+        })
+        sup_doc: Dict[str, Any] = {
+            "displayName":     name,
+            "anonymous":       False,
+            "totalSpentCents": new_total,
+            "tier":            tier_name,
+            "wallSize":        wall_size,
+            "paymentCount":    _whole(prev.get("paymentCount")) + 1,
+            "status":          "approved",
+            "visible":         True,
+            "hasGameAccount":  True,
+            "firebaseUid":     uid,
+            "username":        doc.get("username"),
+            "usernameLower":   doc.get("usernameLower") or str(doc.get("username") or "").strip().lower(),
+            "updatedAt":       SERVER_TIMESTAMP,
+        }
+        email = str(doc.get("email") or "").strip()
+        if email:
+            sup_doc["email"] = email
+            sup_doc["emailLower"] = email.lower()
+        if not prev:
+            sup_doc["createdAt"] = SERVER_TIMESTAMP
+        sup_ref.set(sup_doc, merge=True)
+        _WALL_CACHE["data"] = None      # the public wall rebuilds on the next read
+    return {"ok": True, "dry_run": dry_run, "uid": uid, "reference": ref_id,
+            "displayName": name, "addedCents": cents,
+            "before": {"totalSpentCents": had},
+            "after":  {"totalSpentCents": new_total, "tier": tier_name,
+                       "wallSize": wall_size}}
+
+
 def _claim_username(uid: str, username: str) -> Dict[str, Any]:
     """Reserve a unique Currents and Critters username for a verified account.
     Validates (3–20 chars, letters/numbers/underscore), then claims
@@ -2086,6 +2190,122 @@ def _admin_set_xp(who: str, total_xp: Any, dry_run: bool = False) -> Dict[str, A
             "before": {"total_xp": had_xp, "level": had_level},
             "after":  {"total_xp": want_xp, "level": lvl,
                        "xp_current": xp_cur, "xp_goal": xp_goal}}
+
+
+def _admin_whole(value: Any) -> Optional[int]:
+    """int(value) but ONLY when nothing is lost, else None.
+
+    int() truncates: int(12.5) is 12. On a coin grant, or on a donation counted
+    in cents, that is a silently wrong number rather than an error, so anything
+    fractional is refused instead of quietly rounded down. bool is refused too,
+    because True would otherwise read as a grant of 1.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value) if value.is_integer() else None
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return None
+    return None
+
+
+def _fs_increment(n: int) -> Any:
+    """firestore.Increment(n), from wherever this SDK version keeps it.
+
+    An Increment is applied by the SERVER against whatever the value is at the
+    moment the write lands, so it cannot lose a balance that changed between
+    our read and our write. Older SDKs expose it only on the v1 module.
+    """
+    from firebase_admin import firestore
+    Increment = getattr(firestore, "Increment", None)
+    if Increment is None:                       # older SDKs: v1 module only
+        from google.cloud.firestore_v1 import Increment
+    return Increment(n)
+
+
+def _admin_grant(who: str, coins: Any = 0, xp: Any = 0,
+                 dry_run: bool = False) -> Dict[str, Any]:
+    """ADD coins and/or XP to one account: the additive twin of _admin_set_xp.
+
+    The two halves are written differently, on purpose:
+
+      * coins go through firestore.Increment, so a grant that lands while the
+        player is mid-game cannot wipe out the coins that game just paid them.
+        Reading critter_coins here and writing back read+N would overwrite any
+        balance that moved in between, and a hand-out is exactly the moment a
+        player is likely to be online.
+      * XP cannot use Increment. level / player_level / xp_current /
+        level_xp_current / xp_goal / level_xp_goal are stored beside total_xp
+        and are what the header, the profile and the XP leaderboard actually
+        read, so the new total has to be known HERE to re-derive all six from
+        the same table the client uses. That makes it a read-then-write, which
+        is how every other XP writer in this project does it.
+
+    This tool only ever adds: both amounts must be >= 0. _admin_set_xp remains
+    the one tool with a downward path.
+    """
+    db = _get_firestore()
+    if db is None:
+        return {"ok": False, "error": "firestore_unavailable"}
+    add_coins = _admin_whole(coins if coins is not None else 0)
+    add_xp = _admin_whole(xp if xp is not None else 0)
+    if add_coins is None or add_xp is None:
+        return {"ok": False, "error": "coins and xp must be whole numbers"}
+    if add_coins < 0 or add_xp < 0:
+        return {"ok": False, "error": "a grant cannot be negative (use set_xp to lower XP)"}
+    if not add_coins and not add_xp:
+        return {"ok": False, "error": "nothing to grant"}
+
+    snap, err = _admin_resolve_account(who)
+    if err:
+        return err
+    uid = snap.id
+    doc = snap.to_dict() or {}
+    stats = doc.get("stats") if isinstance(doc.get("stats"), dict) else {}
+
+    def _whole(value: Any) -> int:
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    had_coins = _whole(stats.get("critter_coins"))
+    had_xp = _whole(stats.get("total_xp"))
+    had_level = stats.get("level", stats.get("player_level"))
+    new_xp = had_xp + add_xp
+    lvl, xp_cur, xp_goal = _level_progress_for_total_xp(new_xp)
+
+    if not dry_run:
+        update: Dict[str, Any] = {}
+        if add_coins:
+            update["critter_coins"] = _fs_increment(add_coins)
+        if add_xp:
+            update.update({
+                "total_xp":         new_xp,
+                "level":            lvl,
+                "player_level":     lvl,
+                "xp_current":       xp_cur,
+                "level_xp_current": xp_cur,
+                "xp_goal":          xp_goal,
+                "level_xp_goal":    xp_goal,
+            })
+        # merge=True deep-merges, so only the keys above move: games, wins,
+        # achievements and the rest of the stats map are untouched.
+        db.collection("users").document(uid).set({"stats": update}, merge=True)
+    return {"ok": True, "dry_run": dry_run, "uid": uid,
+            "nickname": doc.get("nickname") or doc.get("username"),
+            "granted": {"coins": add_coins, "xp": add_xp},
+            "before": {"critter_coins": had_coins, "total_xp": had_xp, "level": had_level},
+            # critter_coins here is what the balance SHOULD read: the increment
+            # is resolved by Firestore, so a game finishing at the same instant
+            # makes the real balance higher than this, never lower.
+            "after":  {"critter_coins": had_coins + add_coins, "total_xp": new_xp,
+                       "level": lvl, "xp_current": xp_cur, "xp_goal": xp_goal}}
 
 
 def _trade_id_for(uid_a: str, uid_b: str) -> str:
@@ -13206,6 +13426,40 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             out = _admin_set_xp(str(body.get("user") or ""),
                                 body.get("total_xp"),
                                 dry_run=bool(body.get("dry_run")))
+            self._send_json(out, status=HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST)
+            return
+
+        # ADD coins and/or XP to one account (never subtracts, see _admin_grant
+        # for why coins increment and XP is read-then-written).
+        # Body: { admin_key, user: "<nickname|uid>", coins?: N, xp?: N, dry_run?: true }
+        if parsed.path == "/api/admin/grant":
+            admin_key = body.get("admin_key") if isinstance(body.get("admin_key"), str) else ""
+            env_key = os.environ.get("ADMIN_RECOVERY_KEY", "").strip()
+            if not _admin_key_ok(admin_key, env_key):
+                self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
+                return
+            out = _admin_grant(str(body.get("user") or ""),
+                               body.get("coins") or 0,
+                               body.get("xp") or 0,
+                               dry_run=bool(body.get("dry_run")))
+            self._send_json(out, status=HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST)
+            return
+
+        # Record a donation that did not come through Stripe onto the Supporter
+        # Reef Wall. Additive against the same lifetime total the webhook writes,
+        # deduped on `reference`.
+        # Body: { admin_key, user, amount_cents: N, display_name?, reference?, dry_run?: true }
+        if parsed.path == "/api/admin/record_donation":
+            admin_key = body.get("admin_key") if isinstance(body.get("admin_key"), str) else ""
+            env_key = os.environ.get("ADMIN_RECOVERY_KEY", "").strip()
+            if not _admin_key_ok(admin_key, env_key):
+                self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
+                return
+            out = _admin_record_donation(str(body.get("user") or ""),
+                                         body.get("amount_cents"),
+                                         body.get("display_name"),
+                                         body.get("reference") or "",
+                                         dry_run=bool(body.get("dry_run")))
             self._send_json(out, status=HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST)
             return
 
