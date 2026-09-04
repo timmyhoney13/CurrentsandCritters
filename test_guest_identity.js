@@ -134,6 +134,18 @@ check("rows are rebuilt from a whitelist, so nothing private can ride along",
 // that marker was _LB_CACHE, which no longer exists, and indexOf(-1) quietly
 // turned the slice into the whole file, so the check failed on an unrelated
 // mention of email hundreds of lines away.
+// How many achievements are in the catalogue RIGHT NOW. The "3 / N Completed"
+// line below used to hard-pin N, so every release that added an achievement
+// failed this file for a reason that has nothing to do with guest identity.
+// Read it out of the source instead: what is being tested is that the account's
+// three do not follow the guest in, not how long the list is.
+const ACH_TOTAL = (() => {
+  const from = APP.indexOf("const ACHIEVEMENT_DEFS = [");
+  const body = APP.slice(from, APP.indexOf("\n  ];", from));
+  return (body.match(/\{ id:"[a-z0-9_]+",/g) || []).length;
+})();
+if (!ACH_TOTAL) { console.error("could not count ACHIEVEMENT_DEFS"); process.exit(1); }
+
 const _LB_WHITELIST = SRV.slice(SRV.indexOf("_LB_STATS_FIELDS"),
                                 SRV.indexOf("_LB_TTL_SEC"));
 check("the whitelist was actually found", _LB_WHITELIST.includes("total_xp")
@@ -504,7 +516,9 @@ if (!D) {
   console.log("\n  the account really was loaded first (or the rest proves nothing)");
   check("its hours are on screen", /Hours Played 42 hrs/.test(A.overview || ""), (A.overview || "").slice(0, 90));
   check("its games are on screen", /Total Games 77/.test(A.overview || ""));
-  check("its achievements are on screen", /3 \/ 59 Completed/.test(A.achievements || ""));
+  check(`its achievements are on screen (3 / ${ACH_TOTAL})`,
+        new RegExp(`3 / ${ACH_TOTAL} Completed`).test(A.achievements || ""),
+        (A.achievements || "").slice(0, 90));
   check("its history is on screen", /310 pts/.test(A.history || ""));
   check("its critter is on its face", A.myAvatar === "/avatars/great-white-shark.png", A.myAvatar);
 
@@ -514,7 +528,9 @@ if (!D) {
   check("their games start at zero", /Total Games 0/.test(G.overview || ""));
   check("no 77 games", !/Total Games 77/.test(G.overview || ""));
   check("their wins start at zero", /Total Wins 0/.test(G.overview || ""));
-  check("their achievements start at zero", /0 \/ 59 Completed/.test(G.achievements || ""));
+  check(`their achievements start at zero (0 / ${ACH_TOTAL})`,
+        new RegExp(`0 / ${ACH_TOTAL} Completed`).test(G.achievements || ""),
+        (G.achievements || "").slice(0, 90));
   check("nothing is marked unlocked", !/✓ Unlocked/.test(G.achievements || ""), (G.achievements || "").slice(0, 120));
   check("their game history is empty", /No games completed yet\./.test(G.history || ""));
   check("the account's two games are not in it", !/310 pts/.test(G.history || ""));

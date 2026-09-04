@@ -109,6 +109,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "\uD83D\uDCA7 New achievement: Every Last Drop", items: [
+      "Every Last Drop, worth 2,500 XP, is yours for having every printed copy of one Ocean type on your board at the same time in one game.",
+      "That means the whole run: all 6 Tide Pools, all 6 Artificial Reefs, all 8 Piers, Deep Oceans or Arctic Oceans, all 9 Mangroves, all 10 Kelp Forests or all 13 Coral Reefs. Finish the set and no one else at the table can have that Ocean at all.",
+      "It lands the moment the last copy hits your board, so a later move cannot take it back from you. It counts in every mode, and Snap & Score awards it from a photo of a finished physical board too.",
+    ]},
     { ver: "V1.7.1", title: "\uD83C\uDFB2 Game Night is twice a week now", items: [
       "Game Night now runs on Wednesday nights AND Saturday nights, 7:00\u20139:00 PM CST, instead of Saturdays only.",
       "The banner at the top of Player Home and on the website says which of the two is coming next and counts down to it, so you never have to work out whether you are waiting for Wednesday or Saturday.",
@@ -7329,6 +7334,24 @@
                                             //  (snapshotted on turn-boundary observer; used
                                             //   for breaker_turn at turn-end)
 
+  // Every copy of every Ocean type that exists in the deck, keyed by the
+  // lowercase card name the server puts on board[].ocean.name. This is the
+  // whole printed run of each Ocean, so holding one of these counts means
+  // NOBODY else can have that Ocean. Pinned by test_full_ocean_set.py against
+  // the real CARD_DB, if a card file ever adds a copy the table must follow or
+  // "Every Last Drop" starts firing early.
+  const OCEAN_FULL_SET = {
+    "coral reef": 13,
+    "kelp forest": 10,
+    "mangrove": 9,
+    "mangroves": 9,
+    "pier": 8,
+    "deep ocean": 8,
+    "arctic ocean": 8,
+    "artificial reef": 6,
+    "tide pool": 6,
+  };
+
   // Fires the matching *_start daily challenge for the player's first
   // ocean of the game. Idempotent, the report function only ticks ACTIVE
   // slots that match the id, so this is safe to call on rejoin/refresh.
@@ -7493,10 +7516,15 @@
     // on my board, with their species.
     const curCardUids = new Set();
     const speciesByUid = new Map();
+    const oceanCounts = new Map();   // lowercase ocean name -> copies on my board NOW
     for (const ocean of board) {
       // Track distinct ocean types this game.
       const oceanName = String(ocean?.ocean?.name || "").trim();
-      if (oceanName) _chObsOceanTypesPlayedGame.add(oceanName.toLowerCase());
+      if (oceanName) {
+        const key = oceanName.toLowerCase();
+        _chObsOceanTypesPlayedGame.add(key);
+        oceanCounts.set(key, (oceanCounts.get(key) || 0) + 1);
+      }
       // Achievement reef_reunion: a single Ocean holding both a Clownfish and
       // a Blue Tang.
       let hasClownfish = false, hasBlueTang = false;
@@ -7515,6 +7543,27 @@
         }
       }
       if (hasClownfish && hasBlueTang) _gameAchTracker.reefReunion = true;
+    }
+
+    // Achievement every_last_drop: every printed copy of one Ocean type on my
+    // board at once. Granted the moment it is true rather than at game end,
+    // because the board state that earns it is undone by a single move, and a
+    // player who spent a game hoarding Tide Pools should not lose it to a
+    // late shuffle. The tracker flag is the game-end backstop.
+    for (const [name, n] of oceanCounts) {
+      const need = OCEAN_FULL_SET[name];
+      if (!need || n < need) continue;
+      // Once per game: the board holds this set for every later payload too,
+      // and unlockAchievement is a Firestore write, not a free call.
+      if (_gameAchTracker.fullOceanSet) break;
+      _gameAchTracker.fullOceanSet = name;
+      try {
+        const _uid = window.__fishAuthUser?.()?.uid;
+        if (_uid && typeof window.__fishUnlockAchievement === "function") {
+          window.__fishUnlockAchievement(_uid, "every_last_drop");
+        }
+      } catch {}
+      break;
     }
 
     // Detect newly-placed cards (in curCardUids but not in _chObsPrevMyBoardCards).
@@ -19464,7 +19513,9 @@
   // ACHIEVEMENT DEFINITIONS (outer scope, shared with auth IIFE)
   // ═══════════════════════════════════════════════════════════════
   // ── Achievement system v2 (full reset 2026-05) ──────────────────
-  // Exactly 58 achievements. Order matches the canonical design list.
+  // Order matches the canonical design list. The COUNT is not written down
+  // here: it moved from 59 to 60 with Every Last Drop, and a number in a
+  // comment beside a list is a number that goes stale silently.
   // Secret achievements use hidden:true (UI shows "Secret Achievement"
   // until unlocked, then reveals name + requirement).
   const ACHIEVEMENT_DEFS = [
@@ -19511,6 +19562,7 @@
     { id:"close_current",           name:"Close Current",             icon:"🎯", cat:"Competitive", xp:2000,  desc:"Win a Competitive game by 5 points or less." },
     { id:"reef_regular",            name:"Reef Regular",              icon:"🪸", cat:"Casual",      xp:2000,  desc:"Finish 100 Casual games." },
     { id:"perfect_symbol",          name:"Perfect Symbol",            icon:"🔷", cat:"All Modes",   xp:2000,  desc:"Activate a ★ ability with a matching symbol 100 times." },
+    { id:"every_last_drop",         name:"Every Last Drop",           icon:"💧", cat:"Special",     xp:2500,  desc:"Have every copy of one Ocean type on your board in one game (all 6 Tide Pools, all 8 Deep Oceans, all 13 Coral Reefs…)." },
     { id:"daily_tide_sweep",        name:"Daily Tide Sweep",          icon:"📅", cat:"Challenges",  xp:400,   desc:"Complete all 3 of your daily challenges in one day." },
     { id:"weekly_tide_sweep",       name:"Weekly Tide Sweep",         icon:"🗓️", cat:"Challenges",  xp:1500,  desc:"Complete all 3 of your weekly challenges in one week." },
     { id:"reef_veteran",            name:"Reef Veteran",              icon:"⚓", cat:"Casual",      xp:4000,  desc:"Finish 250 Casual games." },
@@ -19610,6 +19662,7 @@
       noPoolCasualDone: false,
       noPoolCompDone: false,
       gotAllGobies: false,         // had all 4 Mandarin Gobies on board this game (shoot_the_moon)
+      fullOceanSet: null,          // ocean name whose every printed copy was on my board (every_last_drop)
       reefReunion: false,          // Clownfish + Blue Tang on the same Ocean (reef_reunion)
       movedDuringEndgame: false,   // moved an animal after End Game appeared (board_fixer)
       betterSpot: false,           // a move increased my score (better_spot)
@@ -34334,6 +34387,7 @@
 
       // Shoot the Moon: had all 4 Mandarin Gobies on your board at once
       if (!_isDone("shoot_the_moon") && tracker.gotAllGobies) await unlockAchievement(uid, "shoot_the_moon");
+      if (!_isDone("every_last_drop") && tracker.fullOceanSet) await unlockAchievement(uid, "every_last_drop");
 
       // Nothing But Deck: win without drawing from pool
       if (!_isDone("nothing_but_deck") && isWinner && !tracker.usedPool) await unlockAchievement(uid, "nothing_but_deck");
@@ -34460,6 +34514,7 @@
       _gameAchTracker.endGameSeen       = false;
       _gameAchTracker.starsActivated    = 0;
       _gameAchTracker.gotAllGobies      = false;
+      _gameAchTracker.fullOceanSet      = null;
       _gameAchTracker.reefReunion       = false;
       _gameAchTracker.movedDuringEndgame= false;
       _gameAchTracker.betterSpot        = false;

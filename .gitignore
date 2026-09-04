@@ -645,3 +645,9 @@ multiplayer/client/_tutig_page_m.html
 # holes it pins shut were found with curl and neither was visible in a source
 # read. Test-only, so this needs this entry and no Dockerfile COPY.
 !test_security_surface.py
+
+# Every Last Drop: the achievement for holding every printed copy of one Ocean
+# type. Its copy table is duplicated in preview-app.js and snap_score.py, and
+# this test is the only thing pinning both to the real deck, so it has to ship
+# with them. Test-only, so this needs this entry and no Dockerfile COPY.
+!test_full_ocean_set.py

@@ -387,6 +387,22 @@ def _board_view(board: Dict[str, Any], game_db: Dict[int, Any]) -> Dict[str, Any
 
 # ── final-board facts used by achievements / avatar unlocks ────────────────
 
+# Every printed copy of every Ocean type in the deck, keyed by lowercase card
+# name. Mirrors OCEAN_FULL_SET in preview-app.js; test_full_ocean_set.py pins
+# both against the real CARD_DB.
+OCEAN_FULL_SET = {
+    "coral reef": 13,
+    "kelp forest": 10,
+    "mangrove": 9,
+    "mangroves": 9,
+    "pier": 8,
+    "deep ocean": 8,
+    "arctic ocean": 8,
+    "artificial reef": 6,
+    "tide pool": 6,
+}
+
+
 def _board_facts(board: Dict[str, Any], game_db: Dict[int, Any]) -> Dict[str, Any]:
     name_counts: Dict[str, int] = {}
     species: set = set()
@@ -427,6 +443,9 @@ def _board_facts(board: Dict[str, Any], game_db: Dict[int, Any]) -> Dict[str, An
         "all_oceans_exactly_one": len(ocean_names) > 0 and oceans_exactly_one == len(ocean_names),
         "corals_on_coral_reef": corals_on_coral_reef,
         "animal_count": animals,
+        "has_full_ocean_set": any(
+            ocean_names.count(nm) >= need for nm, need in OCEAN_FULL_SET.items()
+        ),
     }
 
 
@@ -456,6 +475,8 @@ def _ach_defs() -> List[Dict[str, Any]]:
          "check": lambda f, ctx: f["name_counts"].get("mandarin goby", 0) >= 4},
         {"id": "the_all_blue", "name": "The All Blue", "xp": 150,
          "check": lambda f, ctx: f["distinct_ocean_types"] >= 8},
+        {"id": "every_last_drop", "name": "Every Last Drop", "xp": 2500,
+         "check": lambda f, ctx: f["has_full_ocean_set"]},
         {"id": "one_ocean_wonder", "name": "One Ocean Wonder", "xp": 250,
          "check": lambda f, ctx: ctx["winner"] and f["ocean_count"] >= 1
                   and len(set(f["ocean_names"])) == 1},
