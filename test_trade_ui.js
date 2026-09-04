@@ -150,6 +150,10 @@ check("a voucher row can be removed like a coin row",
       /r\.type === "passes"\) _trSetPasses\(0\)/.test(SRC));
 check("the balance comes off the account document, not stats",
       /function _trMyPasses\(\)[\s\S]{0,200}critter_pass_vouchers/.test(SRC));
+check("four tabs wrap, so the fourth is not pushed off a phone",
+      /\.cctr-pk-tabs \{[^}]*flex-wrap: wrap/.test(CSS));
+check("the voucher input reuses the coin foot's styling",
+      /class="cctr-pk-foot" id="cc-trade-pass-foot"/.test(HTML));
 check("you cannot offer more than you hold",
       /if \(n > have\) \{[\s\S]{0,200}Season Pass voucher/.test(SRC));
 

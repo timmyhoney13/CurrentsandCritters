@@ -14804,7 +14804,10 @@
       display: flex; align-items: center; gap: 8px; flex-shrink: 0;
       padding: 10px 12px; border-bottom: 1px solid rgba(95,179,214,.2);
     }
-    .cctr-pk-tabs { display: flex; gap: 6px; flex: 1; min-width: 0; }
+    /* Four tabs now, and "Season Passes" is the longest label of the four, so
+       they WRAP: three fitted a phone in one row and four do not, and a row
+       that overflows silently takes the last tab off the screen. */
+    .cctr-pk-tabs { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
     .cctr-pk-tab {
       padding: 7px 12px; border-radius: 999px; cursor: pointer; font-size: 12.5px; font-weight: 800;
       border: 1px solid rgba(95,179,214,.35); background: rgba(255,255,255,.05); color: #bfe6fb;
@@ -14857,6 +14860,9 @@
       #cc-trade-box { width: 100%; max-height: 100%; border-radius: 0; }
       #cc-trade-cols { grid-template-columns: 1fr; }
       .cctr-pk-body { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+      /* Tighter tabs, so the four of them take two rows on a phone rather
+         than three. They still wrap; this only decides how often. */
+      .cctr-pk-tab { padding: 6px 10px; font-size: 12px; }
     }
 
     /* ══════════════════════════════════════════════════════════════
