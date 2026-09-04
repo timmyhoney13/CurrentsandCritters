@@ -17,6 +17,12 @@
  * two pages sit next to each other in the sidebar, and one stylesheet reaching
  * into the other's classes is how a change to one silently repaints the other.
  * Shared LOOK, separate names.
+ *
+ * The ONE deliberate break from that shared look is the display font. The free
+ * Level Pass keeps "Luckiest Guy"; the paid track sets its big text in
+ * "Cinzel", the serif the rest of the game already uses for headings, so the
+ * two tabs do not read as the same page twice. That divergence is the point,
+ * not drift: do not re-sync it to level-pass.css.
  */
 
 /* Self-contained box model, for the same reason level-pass.css declares one:
@@ -115,7 +121,8 @@
   font-weight: 800;
 }
 .ccCP-lvl-num {
-  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-family: "Cinzel", serif;
+  font-weight: 900;
   font-size: 2.5rem;
   line-height: 1;
 }
@@ -123,7 +130,8 @@
 .ccCP-head-mid { flex: 1 1 auto; min-width: 0; }
 
 .ccCP-title {
-  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-family: "Cinzel", serif;
+  font-weight: 900;
   font-size: 1.8rem;
   color: #fff;
   line-height: 1.12;
@@ -300,7 +308,8 @@
   margin-bottom: 7px;
 }
 .ccCP-buy-title {
-  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-family: "Cinzel", serif;
+  font-weight: 900;
   font-size: 1.55rem;
   color: var(--cp-ink);
   margin: 0 0 5px;
@@ -432,7 +441,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-family: "Cinzel", serif;
+  font-weight: 900;
   font-size: 1rem;
   color: #fff;
   background: linear-gradient(160deg, #90b4d0, #6d94b4);
