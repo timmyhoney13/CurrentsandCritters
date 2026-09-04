@@ -37,6 +37,7 @@ import os
 import re
 import sys
 import unittest
+from datetime import timedelta
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
@@ -177,8 +178,15 @@ class TrackShapeTests(PassTestBase):
         self.assertGreater(cp.coin_total(), cp.CRITTER_PASS_PRICE)
 
     def test_the_whole_track_pays_exactly_the_xp_budget(self):
-        self.assertEqual(cp.xp_total(), 19000)
+        self.assertEqual(cp.xp_total(), 23750)
         self.assertEqual(cp.xp_total(), cp.TRACK_XP_BUDGET)
+
+    def test_the_xp_drops_were_raised_and_never_lowered(self):
+        # The drops went 20/level to 25/level once. This is a floor, not an
+        # equality: a retune may make the track pay MORE, but a player who
+        # bought the pass on the printed 23,750 must never be paid less than
+        # the page they bought from promised.
+        self.assertGreaterEqual(cp.TRACK_XP_BUDGET, 23750)
 
     def test_every_single_level_pays_something(self):
         # THE shape of this track: 100 tiers over 100 levels, nothing skipped.
@@ -190,12 +198,13 @@ class TrackShapeTests(PassTestBase):
         self.assertEqual(len(set(levels)), 100, "two tiers landed on one level")
 
     def test_the_xp_drop_is_the_formula_it_says_it_is(self):
-        # 20 XP per level, every 5 levels. It is a formula rather than a table
+        # 25 XP per level, every 5 levels. It is a formula rather than a table
         # so a drop is worth the same FRACTION of a level everywhere on the
-        # curve, and so the 19,000 total falls out instead of being tuned.
+        # curve, and so the 23,750 total falls out instead of being tuned. This
+        # is the test that catches a raise applied to one tier by hand.
         for t in cp.track():
             if t["type"] == "xp":
-                self.assertEqual(t["amount"], t["level"] * 20, t["id"])
+                self.assertEqual(t["amount"], t["level"] * 25, t["id"])
 
     def test_the_served_track_agrees_with_the_budgets(self):
         # coin_total() reads the SPEC; the client reads track(). If those two
@@ -722,6 +731,64 @@ class ClaimAllTests(PassTestBase):
 # ══════════════════════════════════════════════════════════════════════════
 #  STATE PAYLOAD
 # ══════════════════════════════════════════════════════════════════════════
+class SeasonClockTests(PassTestBase):
+    """The 30-day season window, and the one thing it must not be able to do."""
+
+    def test_a_season_is_thirty_days_long(self):
+        self.assertEqual(cp.SEASON_DAYS, 30)
+        self.assertEqual(
+            (cp.SEASON_ENDS_AT - cp.SEASON_STARTED_AT).days, 30,
+            "the end date has to be the start plus SEASON_DAYS, not a second "
+            "date somebody typed",
+        )
+
+    def test_the_countdown_rounds_up_so_the_last_day_still_says_one(self):
+        # Two hours left is still "1 day left". Rounding down would spend the
+        # whole final day telling players the season was already over.
+        near = cp.SEASON_ENDS_AT - timedelta(hours=2)
+        w = cp.season_window(near)
+        self.assertEqual(w["seasonDaysLeft"], 1)
+        self.assertFalse(w["seasonOver"])
+
+    def test_a_fresh_season_reports_the_full_thirty(self):
+        w = cp.season_window(cp.SEASON_STARTED_AT)
+        self.assertEqual(w["seasonDaysLeft"], 30)
+        self.assertFalse(w["seasonOver"])
+
+    def test_a_finished_season_reports_zero_and_never_goes_negative(self):
+        w = cp.season_window(cp.SEASON_ENDS_AT + timedelta(days=400))
+        self.assertEqual(w["seasonDaysLeft"], 0)
+        self.assertEqual(w["seasonSecondsLeft"], 0)
+        self.assertTrue(w["seasonOver"])
+
+    def test_the_clock_running_out_does_not_rotate_the_season(self):
+        # THE point of the whole design. SEASON_ID is what every ledger id and
+        # the ownership array are keyed by, so if the calendar could move it,
+        # a level-100 account would re-buy the track for 4,000 and take 8,500
+        # coins straight back out, every 30 days, for ever.
+        before = cp.SEASON_ID
+        cp.season_window(cp.SEASON_ENDS_AT + timedelta(days=400))
+        self.assertEqual(cp.SEASON_ID, before)
+
+    def test_a_lapsed_season_still_pays_out(self):
+        # A finished countdown is a DISPLAY. Nothing about claiming may key off
+        # it, or an owner would be locked out of a track they paid for while
+        # Season 2 was still being built.
+        self.make_user(level=100, owns=True)
+        tier = self.tier_of("coins")
+        res = cp.claim(self.db, "u1", tier["id"])
+        self.assertTrue(res.get("ok"), res)
+
+    def test_the_window_is_served_to_the_page(self):
+        # The browser must never subtract against its own clock: a device whose
+        # date is a week out would print a week of the wrong answer.
+        state = cp.state_payload(None)
+        for key in ("seasonDays", "seasonDaysLeft", "seasonEndsAt",
+                    "seasonStartsAt", "seasonSecondsLeft", "seasonOver"):
+            self.assertIn(key, state, key)
+        self.assertEqual(state["seasonDays"], 30)
+
+
 class StateTests(PassTestBase):
     def test_signed_out_gets_the_whole_track_and_no_account_data(self):
         state = cp.state_payload(None)

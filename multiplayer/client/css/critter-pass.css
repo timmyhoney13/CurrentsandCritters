@@ -33,7 +33,9 @@
   color: #eaf7ff;
   --cp-ink:       #12324f;
   --cp-ink-soft:  #4f7897;
-  --cp-ink-dim:   #6f95b0;
+  /* The small print (tier blurbs, chip captions). Darkened from #6f95b0,
+     which was 3.15:1 on a cream card: legible to nobody at .7rem. */
+  --cp-ink-dim:   #527a96;
   --cp-blue:      #1c70cc;
   --cp-blue-lt:   #2e8fe0;
   --cp-line:      rgba(150, 196, 226, .8);
@@ -151,6 +153,25 @@
   text-transform: uppercase;
   color: #b9ecd6;
   text-shadow: 0 1px 4px rgba(5, 47, 68, .65);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* "23 days left in the season", beside the season name. Its own chip rather
+   than more of the same sentence, because it is the only part of that line
+   that changes; white on a dark wash, not the pass's gold, which on this
+   scrim would read as an unreadable tan. */
+.ccCP-season-left {
+  color: #fff;
+  background: rgba(5, 47, 68, .5);
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: .7rem;
+  letter-spacing: .8px;
+  text-shadow: none;
+  white-space: nowrap;
 }
 
 .ccCP-next {
@@ -160,7 +181,11 @@
   text-shadow: 0 1px 4px rgba(5, 47, 68, .6);
 }
 .ccCP-next b { color: #fff; font-weight: 800; }
-.ccCP-next-xp { color: #ffe07a !important; }
+/* Aqua, not the pass's gold. Gold on this scrim washes out to a tan, and the
+   XP number is the one figure in the header nobody should have to squint at.
+   NOTHING on this page writes a WORD in a tan: the gold stays on buttons,
+   borders and washes, where it is a surface and not text. */
+.ccCP-next-xp { color: #8fe4ff !important; }
 .ccCP-next-lvl { color: #b8dcf0; font-size: .88rem; }
 .ccCP-next-done { color: #8ff0c6; font-weight: 800; }
 
@@ -194,7 +219,7 @@
   font-family: "Nunito", sans-serif;
   font-weight: 900;
   font-size: .98rem;
-  color: #3d2600;
+  color: #14212b;
   cursor: pointer;
   background: linear-gradient(180deg, var(--cp-gold-lt) 0%, var(--cp-gold) 100%);
   box-shadow: 0 5px 16px rgba(5, 47, 68, .4);
@@ -268,7 +293,7 @@
   font-weight: 900;
   letter-spacing: 1.4px;
   text-transform: uppercase;
-  color: #8a6410;
+  color: var(--cp-ink);
   background: rgba(232, 179, 74, .24);
   border-radius: 999px;
   padding: 3px 10px;
@@ -314,7 +339,7 @@
   font-family: "Nunito", sans-serif;
   font-weight: 900;
   font-size: 1.02rem;
-  color: #3d2600;
+  color: #14212b;
   background: linear-gradient(180deg, var(--cp-gold-lt) 0%, var(--cp-gold) 100%);
   box-shadow: 0 6px 16px rgba(200, 147, 32, .4);
   transition: transform .14s ease, filter .14s ease;
@@ -329,7 +354,7 @@
   flex: 1 1 180px;
   min-width: 0;
 }
-.ccCP-buy-note b { color: var(--cp-gold); }
+.ccCP-buy-note b { color: var(--cp-ink); }
 
 .ccCP-buy-art {
   flex: 0 0 auto;
@@ -353,7 +378,7 @@
   font-weight: 900;
   letter-spacing: 1.1px;
   text-transform: uppercase;
-  color: var(--cp-gold);
+  color: var(--cp-ink);
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -468,7 +493,7 @@
   font-family: "Nunito", sans-serif;
   font-weight: 900;
   font-size: .84rem;
-  color: #3d2600;
+  color: #14212b;
   background: linear-gradient(180deg, var(--cp-gold-lt) 0%, var(--cp-gold) 100%);
   box-shadow: 0 3px 9px rgba(200, 147, 32, .4);
 }
@@ -477,9 +502,10 @@
 .ccCP-tier-lock,
 .ccCP-tier-togo { font-size: .76rem; color: var(--cp-ink-dim); font-weight: 700; }
 .ccCP-tier-togo b { color: var(--cp-blue); }
-/* Reached, but the pass is not unlocked yet. Gold, because it is the sales
-   pitch: this is a reward the player has already earned the level for. */
-.ccCP-tier-wait { font-size: .76rem; color: #8a6410; font-weight: 800; }
+/* Reached, but the pass is not unlocked yet: the sales pitch. Blue, the same
+   accent .ccCP-tier-togo b uses one row over, because gold ink on a cream card
+   is a tan nobody can read. */
+.ccCP-tier-wait { font-size: .76rem; color: var(--cp-blue); font-weight: 800; }
 
 /* ── Tier states ──────────────────────────────────────────────────────── */
 .ccCP-tier.is-locked { opacity: .78; }

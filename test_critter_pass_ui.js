@@ -108,6 +108,97 @@ check("the art is under a scrim, so white text on it is legible",
 check("it does not borrow the Level Pass's class names",
       !/\.ccLP-/.test(PASSCSS) && !/ccLP/.test(PASSJS));
 
+// ══════════════════════════════════════════════════════════════════════════
+//  NOTHING ON THIS PAGE IS WRITTEN IN A TAN
+//  The pass is a gold-branded surface, and gold ink is the trap: #c89320 on a
+//  cream card is 2.7:1 and #ffe07a on the scrim reads as a washed-out tan.
+//  Gold is allowed on BORDERS, BACKGROUNDS and BUTTON FILLS, where it is a
+//  surface. It is not allowed to be a word. This reads the stylesheet's real
+//  `color:` declarations rather than grepping for a list of hexes somebody has
+//  to remember to update, so a tan reintroduced under a new name still fails.
+// ══════════════════════════════════════════════════════════════════════════
+console.log("\nlegibility: no tan text anywhere on the pass");
+
+const cssVars = {};
+for (const m of PASSCSS.matchAll(/(--cp-[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
+  cssVars[m[1]] = m[2].trim();
+}
+const hex = (c) => {
+  c = String(c).trim();
+  const v = /^var\((--[a-z0-9-]+)\)$/.exec(c);
+  if (v) return hex(cssVars[v[1]] || "");
+  if (/^#[0-9a-f]{3}$/i.test(c)) return "#" + c.slice(1).split("").map(x => x + x).join("");
+  return /^#[0-9a-f]{6}$/i.test(c) ? c.toLowerCase() : null;
+};
+const rgb = (h) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
+const hsl = (h) => {
+  const [r, g, b] = rgb(h), mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  const l = (mx + mn) / 2;
+  if (!d) return { h: 0, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const hu = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? ((b - r) / d + 2) : ((r - g) / d + 4);
+  return { h: hu * 60, s, l };
+};
+const lum = (h) => {
+  const f = (c) => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  const [r, g, b] = rgb(h).map(f);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const ratio = (a, b) => {
+  const la = lum(a), lb = lum(b), hi = Math.max(la, lb), lo = Math.min(la, lb);
+  return (hi + 0.05) / (lo + 0.05);
+};
+// Tan/gold/beige: an orange-yellow hue with enough saturation to read as a
+// colour and enough lightness that it is not simply a dark brown-black.
+const isTan = (h) => {
+  const c = hsl(h);
+  return c.h >= 20 && c.h <= 68 && c.s >= 0.18 && c.l >= 0.30;
+};
+
+// Every `color:` declaration in the stylesheet, excluding border-color.
+const fontColors = [];
+for (const m of PASSCSS.matchAll(/(^|[^-\w])color:\s*([^;!]+)/gm)) {
+  const h = hex(m[2]);
+  if (h) fontColors.push(h);
+}
+check("the stylesheet's font colours were actually found", fontColors.length > 20, fontColors.length);
+const tans = [...new Set(fontColors)].filter(isTan);
+check("not one of them is a tan", tans.length === 0, tans.join(", "));
+check("the gold IS still used, just never as a word",
+      /border-color: var\(--cp-gold\)/.test(PASSCSS)
+      && /background: linear-gradient\(180deg, var\(--cp-gold-lt\)/.test(PASSCSS));
+
+// The specific pairings that were unreadable, pinned as contrast so a future
+// "just a shade lighter" cannot walk them back.
+const CREAM = "#fffdf6";   // the purchase card / a cream tier
+const SCRIM = "#0d3a4f";   // the darkened kelp behind the header
+const contrastPairs = [
+  ["the purchase card's accent number", hex(cssVars["--cp-ink"]), CREAM, 4.5],
+  ["the season kicker", hex(cssVars["--cp-ink"]), CREAM, 4.5],
+  ["'Unlock to claim' on a cream tier", hex(cssVars["--cp-blue"]), CREAM, 4.5],
+  ["the tier blurbs' small print", hex(cssVars["--cp-ink-dim"]), CREAM, 4.5],
+  ["the caption under a tier card", hex(cssVars["--cp-ink-soft"]), CREAM, 4.5],
+  ["the header's XP number on the kelp", "#8fe4ff", SCRIM, 4.5],
+];
+for (const [what, fg, bg, min] of contrastPairs) {
+  const r = ratio(fg, bg);
+  check(`${what} passes contrast (${fg})`, r >= min, `${r.toFixed(2)}:1, want ${min}`);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  THE 30-DAY SEASON CLOCK
+// ══════════════════════════════════════════════════════════════════════════
+console.log("\nwiring: the season counts down 30 days");
+check("the server owns the countdown, the browser only prints it",
+      PASSJS.includes("_state.seasonDaysLeft")
+      && !/Date\.now\(\)\s*[-+][\s\S]{0,40}season/i.test(PASSJS));
+check("a payload without the field draws no countdown at all",
+      /_state\.seasonDaysLeft == null\) return "";/.test(PASSJS));
+check("a finished season promises a new one instead of a lock",
+      /New season coming soon/.test(PASSJS));
+check("'1 day' is singular", /d === 1 \? "" : "s"/.test(PASSJS));
+check("the chip has its own style, not tan", /\.ccCP-season-left \{/.test(PASSCSS));
+
 console.log("\nwiring: the challenge-slot seam");
 check("the pass publishes __ccPassExtraSlots", PASSJS.includes("window.__ccPassExtraSlots = function"));
 check("the challenge strip reads it", APP.includes("window.__ccPassExtraSlots ? window.__ccPassExtraSlots()"));
@@ -366,6 +457,7 @@ print("@@" + json.dumps({"locked": locked, "broke": broke, "owner": owner,
                          "price": cp.CRITTER_PASS_PRICE,
                          "coinTotal": cp.coin_total(),
                          "xpTotal": cp.xp_total(),
+                         "seasonDays": cp.SEASON_DAYS,
                          "maxExtraDaily": cp.MAX_EXTRA_DAILY}) + "@@")
 `;
   const out = execFileSync("python3", ["-c", script],
@@ -493,6 +585,8 @@ const MAIN = \`
       level: txt(document.querySelector(".ccCP-lvl-num")),
       ownedPill: $$(".ccCP-owned-pill").length,
       next: txt(document.querySelector(".ccCP-next")),
+      season: txt(document.querySelector(".ccCP-season")),
+      seasonLeft: txt(document.querySelector(".ccCP-season-left")),
       togo: $$(".ccCP-tier-togo").slice(0, 2).map(txt),
       rootClass: (root.querySelector(".ccCP") || {}).className || "",
     };
@@ -701,6 +795,13 @@ check("waiting + locked accounts for the whole track",
       D.locked.waiting + D.locked.locked === serverTiers,
       `${D.locked.waiting}+${D.locked.locked} vs ${serverTiers}`);
 check("the player's own level is shown", D.locked.level === "30", D.locked.level);
+check("the season name is shown", /Season 1/.test(D.locked.season), D.locked.season);
+check("the countdown says how long is left in the season",
+      new RegExp(`^${P.locked.seasonDaysLeft} days? left in the season$`).test(D.locked.seasonLeft),
+      `${D.locked.seasonLeft} vs ${P.locked.seasonDaysLeft} from the server`);
+check("that is a 30-day season", P.seasonDays === 30, P.seasonDays);
+check("the countdown never exceeds the season length",
+      P.locked.seasonDaysLeft <= P.seasonDays, P.locked.seasonDaysLeft);
 check("locked tiers still say how much XP is to go",
       D.locked.togo.length === 2 && D.locked.togo.every(t => /XP to go$/.test(t)),
       JSON.stringify(D.locked.togo));

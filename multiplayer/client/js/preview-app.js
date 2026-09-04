@@ -110,7 +110,9 @@
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
     { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F The Critter Pass is here", items: [
-      "A new tab under Level Pass: the Critter Pass, a paid reward track laid over the same levels 1\u2013100 you are already climbing. It costs 4,000 Critter Coins once, and then EVERY level pays you something: 100 tiers, 100 levels, nothing skipped. Across the track that is 8,500 Critter Coins and 19,000 XP.",
+      "A new tab under Level Pass: the Critter Pass, a paid reward track laid over the same levels 1\u2013100 you are already climbing. It costs 4,000 Critter Coins once, and then EVERY level pays you something: 100 tiers, 100 levels, nothing skipped. Across the track that is 8,500 Critter Coins and 23,750 XP.",
+      "Every XP drop on the track got bigger: 25 XP per level instead of 20, so the drop at Level 95 is now 2,375 and the whole track pays 23,750 XP.",
+      "A season runs 30 days. The header counts down to the end of it, and nothing you have already unlocked or claimed goes anywhere when a new one starts.",
       "Three of its tiers give you an EXTRA daily challenge, and three more give you an extra weekly challenge. Not for a week, for keeps: get all six and you have six challenges a day and six a week instead of three and three. The Tide Sweep still only asks for three, so the extras are pure bonus.",
       "Ten more critter chat emotes are spread along it, one every ten levels, along with XP Boosts, Streak Shields, Weekly Swaps and two avatar backgrounds. At Level 100 the Summer Skin Gull is yours.",
       "You can read the whole track before you buy it, at your real level, so you can see exactly what is waiting. Everything you have already levelled past becomes claimable the moment you unlock it.",

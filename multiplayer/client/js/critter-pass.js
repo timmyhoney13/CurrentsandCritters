@@ -46,6 +46,25 @@
   const num = (v, d) => { const n = Number(v); return Number.isFinite(n) ? n : (d || 0); };
   const fmt = (n) => Math.round(num(n)).toLocaleString();
   const toast = (m, t) => { try { bridge().toast(m, t); } catch (_) {} };
+
+  /* How long is left in the 30-day season, as the header says it.
+   *
+   * The count comes from the SERVER (state.seasonDaysLeft), never from a
+   * subtraction against the device clock: a phone whose date is a week out
+   * would otherwise print a week's worth of the wrong answer. It says NOTHING
+   * when the field is missing, so an older cached payload just draws the
+   * season line it always drew rather than "NaN days left".
+   *
+   * A finished season is not a lock. The track stays claimable when the clock
+   * runs out (the server keeps serving Season 1 until Season 2 actually
+   * ships), so the copy promises a new season, it does not take this one away.
+   */
+  function seasonLeftHtml() {
+    if (!_state || _state.seasonDaysLeft == null) return "";
+    if (_state.seasonOver) return `<span class="ccCP-season-left">New season coming soon</span>`;
+    const d = Math.max(0, num(_state.seasonDaysLeft));
+    return `<span class="ccCP-season-left">${d} day${d === 1 ? "" : "s"} left in the season</span>`;
+  }
   const avSrc = (u) => { try { return bridge().avSrc(u); } catch (_) { return u; } };
 
   // The bridge's post() resolves to an ENVELOPE: { ok, status, data }, where
@@ -508,7 +527,7 @@
           </div>
           <div class="ccCP-head-mid">
             <div class="ccCP-title">Critter Pass${owned() ? `<span class="ccCP-owned-pill">Unlocked</span>` : ""}</div>
-            <div class="ccCP-season">${esc((_state && _state.seasonName) || "")}</div>
+            <div class="ccCP-season">${esc((_state && _state.seasonName) || "")}${seasonLeftHtml()}</div>
             <div class="ccCP-next">${nextLine}</div>
             <div class="ccCP-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
               <div class="ccCP-bar-fill" style="width:${pct}%"></div>

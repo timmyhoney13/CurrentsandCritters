@@ -27,7 +27,7 @@ the ledger ids, the ownership array) is already keyed by it, so Season 2 is a
 new constant and a new _TRACK_SPEC, not a rewrite.
 
 WHY THE SERVER OWNS THIS
-Same reason as the Level Pass, doubled: 8,500 Critter Coins, 19,000 XP, extra
+Same reason as the Level Pass, doubled: 8,500 Critter Coins, 23,750 XP, extra
 challenge slots and a 2,000-coin avatar are on this track. The account's level
 is RE-DERIVED here from `stats.total_xp` on its own document, inside the same
 transaction that writes the reward, and the purchase re-reads the coin balance
@@ -53,7 +53,7 @@ from __future__ import annotations
 
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
 # The free pass owns the consumable hoard caps and the XP-boost numbers. Both
@@ -99,6 +99,42 @@ def init(*, get_firestore, verify_token, level_for_xp, level_totals,
 SEASON_ID = "S1"
 SEASON_NAME = "Season 1: Kelp Forest"
 
+# HOW LONG A SEASON LASTS, and the one thing the clock deliberately does NOT do.
+# A season runs SEASON_DAYS from SEASON_STARTED_AT and the page counts down to
+# the end of it. The countdown is a DISPLAY, not a trigger: when it reaches zero
+# this module keeps serving Season 1 until somebody ships Season 2 by moving
+# SEASON_ID and SEASON_STARTED_AT together. That is on purpose, for the reason
+# in the docstring above: rotating SEASON_ID re-opens all 100 tiers, so a
+# level-100 account would re-buy the track for 4,000 and take 8,500 straight
+# back out. A calendar must never be able to do that on its own.
+#
+# Both are UTC, and the start is the day the track shipped, so the number the
+# page prints is the real remaining time and not an offset from whenever a
+# server last restarted.
+SEASON_DAYS = 30
+SEASON_STARTED_AT = datetime(2026, 9, 4, tzinfo=timezone.utc)
+SEASON_ENDS_AT = SEASON_STARTED_AT + timedelta(days=SEASON_DAYS)
+
+
+def season_window(now: Optional[datetime] = None) -> Dict[str, Any]:
+    """The season clock, as the page paints it.
+
+    `daysLeft` is rounded UP, because "1 day left" has to keep saying that for
+    the whole of the last day; only a season that is actually over reports 0.
+    `over` is the honest flag: the track stays claimable either way, so nothing
+    downstream may treat it as a lock.
+    """
+    now = now or datetime.now(timezone.utc)
+    secs = int((SEASON_ENDS_AT - now).total_seconds())
+    return {
+        "seasonDays": SEASON_DAYS,
+        "seasonStartsAt": int(SEASON_STARTED_AT.timestamp() * 1000),
+        "seasonEndsAt": int(SEASON_ENDS_AT.timestamp() * 1000),
+        "seasonSecondsLeft": max(0, secs),
+        "seasonDaysLeft": max(0, -(-secs // 86400)),
+        "seasonOver": secs <= 0,
+    }
+
 # What the pass costs, once. Tim's number, and the reason
 # test_the_pass_costs_exactly_the_asking_price pins it as an equality.
 CRITTER_PASS_PRICE = 4000
@@ -107,7 +143,7 @@ CRITTER_PASS_PRICE = 4000
 # are promises printed on the page, not dials somebody can nudge in a rebalance
 # without noticing the page now lies.
 TRACK_COIN_BUDGET = 8500     # 4,000 in → 8,500 back
-TRACK_XP_BUDGET = 19000
+TRACK_XP_BUDGET = 23750
 
 # The extra challenge slots. Three tiers grant a daily each and three grant a
 # weekly each, so the cap IS the number of tiers: the clamp exists so a future
@@ -151,11 +187,15 @@ MAX_REROLLS = _lp.MAX_REROLLS
 # three perk slots turned into milestone payouts (L29 225, L59 400, L99 1,000),
 # so the run into the Level 100 critter pays like the end of a track.
 #
-# The XP DROP IS A FORMULA, not a table: 20 XP per level, every 5 levels. So
-# level 5 pays 100 and level 95 pays 1,900, and the whole thing sums to 19,000
-# on its own. A drop is always worth roughly a third to a half of the level it
-# lands on, at every point on the curve, which is what keeps it feeling the
-# same at level 90 as at level 10.
+# The XP DROP IS A FORMULA, not a table: 25 XP per level, every 5 levels. So
+# level 5 pays 125 and level 95 pays 2,375, and the whole thing sums to 23,750
+# on its own. (It was 20/level for 19,000 and was raised, once: the drops were
+# paying a smaller share of the climb than the track looked like it did.) A drop
+# is worth roughly a third to two thirds of the level it lands on, at every
+# point on the curve, which is what keeps it feeling the same at level 90 as at
+# level 10. Raising this rule is the ONLY way to move the XP on this track:
+# hand-editing one tier puts the table and TRACK_XP_BUDGET out of step, and
+# test_the_xp_drops_follow_the_formula fails on exactly that.
 #
 # THE PERK SLOTS ARE COUNTED AGAINST THE HOARD CAPS, NOT SPRINKLED.
 # There are exactly MAX_BOOSTS boost tiers, MAX_SHIELDS shield tiers and
@@ -184,97 +224,97 @@ _TRACK_SPEC: Sequence[Dict[str, Any]] = (
     {"level": 2,  "type": "coins",      "amount": 25},
     {"level": 3,  "type": "boost",      "amount": 1},
     {"level": 4,  "type": "coins",      "amount": 25},
-    {"level": 5,  "type": "xp",         "amount": 100},
+    {"level": 5,  "type": "xp",         "amount": 125},
     {"level": 6,  "type": "coins",      "amount": 25},
     {"level": 7,  "type": "emote",      "amount": 1},
     {"level": 8,  "type": "coins",      "amount": 25},
     {"level": 9,  "type": "shield",     "amount": 1},
-    {"level": 10, "type": "xp",         "amount": 200},
+    {"level": 10, "type": "xp",         "amount": 250},
     {"level": 11, "type": "coins",      "amount": 50},
     {"level": 12, "type": "coins",      "amount": 50},
     {"level": 13, "type": "daily_slot", "amount": 1},
     {"level": 14, "type": "coins",      "amount": 50},
-    {"level": 15, "type": "xp",         "amount": 300},
+    {"level": 15, "type": "xp",         "amount": 375},
     {"level": 16, "type": "coins",      "amount": 50},
     {"level": 17, "type": "emote",      "amount": 1},
     {"level": 18, "type": "coins",      "amount": 50},
     {"level": 19, "type": "swap",       "amount": 1},
-    {"level": 20, "type": "xp",         "amount": 400},
+    {"level": 20, "type": "xp",         "amount": 500},
     {"level": 21, "type": "coins",      "amount": 75},
     {"level": 22, "type": "coins",      "amount": 75},
     {"level": 23, "type": "weekly_slot","amount": 1},
     {"level": 24, "type": "coins",      "amount": 75},
-    {"level": 25, "type": "xp",         "amount": 500},
+    {"level": 25, "type": "xp",         "amount": 625},
     {"level": 26, "type": "coins",      "amount": 75},
     {"level": 27, "type": "emote",      "amount": 1},
     {"level": 28, "type": "coins",      "amount": 75},
     {"level": 29, "type": "coins",      "amount": 225},
-    {"level": 30, "type": "xp",         "amount": 600},
+    {"level": 30, "type": "xp",         "amount": 750},
     {"level": 31, "type": "coins",      "amount": 100},
     {"level": 32, "type": "coins",      "amount": 100},
     {"level": 33, "type": "boost",      "amount": 1},
     {"level": 34, "type": "coins",      "amount": 100},
-    {"level": 35, "type": "xp",         "amount": 700},
+    {"level": 35, "type": "xp",         "amount": 875},
     {"level": 36, "type": "coins",      "amount": 100},
     {"level": 37, "type": "emote",      "amount": 1},
     {"level": 38, "type": "coins",      "amount": 100},
     {"level": 39, "type": "shield",     "amount": 1},
-    {"level": 40, "type": "xp",         "amount": 800},
+    {"level": 40, "type": "xp",         "amount": 1000},
     {"level": 41, "type": "coins",      "amount": 125},
     {"level": 42, "type": "coins",      "amount": 125},
     {"level": 43, "type": "daily_slot", "amount": 1},
     {"level": 44, "type": "coins",      "amount": 125},
-    {"level": 45, "type": "xp",         "amount": 900},
+    {"level": 45, "type": "xp",         "amount": 1125},
     {"level": 46, "type": "coins",      "amount": 125},
     {"level": 47, "type": "emote",      "amount": 1},
     {"level": 48, "type": "coins",      "amount": 125},
     {"level": 49, "type": "background", "amount": 1},
-    {"level": 50, "type": "xp",         "amount": 1000},
+    {"level": 50, "type": "xp",         "amount": 1250},
     {"level": 51, "type": "coins",      "amount": 150},
     {"level": 52, "type": "coins",      "amount": 150},
     {"level": 53, "type": "weekly_slot","amount": 1},
     {"level": 54, "type": "coins",      "amount": 150},
-    {"level": 55, "type": "xp",         "amount": 1100},
+    {"level": 55, "type": "xp",         "amount": 1375},
     {"level": 56, "type": "coins",      "amount": 150},
     {"level": 57, "type": "emote",      "amount": 1},
     {"level": 58, "type": "coins",      "amount": 150},
     {"level": 59, "type": "coins",      "amount": 400},
-    {"level": 60, "type": "xp",         "amount": 1200},
+    {"level": 60, "type": "xp",         "amount": 1500},
     {"level": 61, "type": "coins",      "amount": 175},
     {"level": 62, "type": "coins",      "amount": 175},
     {"level": 63, "type": "swap",       "amount": 1},
     {"level": 64, "type": "coins",      "amount": 175},
-    {"level": 65, "type": "xp",         "amount": 1300},
+    {"level": 65, "type": "xp",         "amount": 1625},
     {"level": 66, "type": "coins",      "amount": 175},
     {"level": 67, "type": "emote",      "amount": 1},
     {"level": 68, "type": "coins",      "amount": 175},
     {"level": 69, "type": "shield",     "amount": 1},
-    {"level": 70, "type": "xp",         "amount": 1400},
+    {"level": 70, "type": "xp",         "amount": 1750},
     {"level": 71, "type": "coins",      "amount": 200},
     {"level": 72, "type": "coins",      "amount": 200},
     {"level": 73, "type": "daily_slot", "amount": 1},
     {"level": 74, "type": "coins",      "amount": 200},
-    {"level": 75, "type": "xp",         "amount": 1500},
+    {"level": 75, "type": "xp",         "amount": 1875},
     {"level": 76, "type": "coins",      "amount": 200},
     {"level": 77, "type": "emote",      "amount": 1},
     {"level": 78, "type": "coins",      "amount": 200},
     {"level": 79, "type": "boost",      "amount": 1},
-    {"level": 80, "type": "xp",         "amount": 1600},
+    {"level": 80, "type": "xp",         "amount": 2000},
     {"level": 81, "type": "coins",      "amount": 225},
     {"level": 82, "type": "coins",      "amount": 225},
     {"level": 83, "type": "weekly_slot","amount": 1},
     {"level": 84, "type": "coins",      "amount": 225},
-    {"level": 85, "type": "xp",         "amount": 1700},
+    {"level": 85, "type": "xp",         "amount": 2125},
     {"level": 86, "type": "coins",      "amount": 225},
     {"level": 87, "type": "emote",      "amount": 1},
     {"level": 88, "type": "coins",      "amount": 225},
     {"level": 89, "type": "background", "amount": 1},
-    {"level": 90, "type": "xp",         "amount": 1800},
+    {"level": 90, "type": "xp",         "amount": 2250},
     {"level": 91, "type": "coins",      "amount": 250},
     {"level": 92, "type": "coins",      "amount": 250},
     {"level": 93, "type": "swap",       "amount": 1},
     {"level": 94, "type": "coins",      "amount": 250},
-    {"level": 95, "type": "xp",         "amount": 1900},
+    {"level": 95, "type": "xp",         "amount": 2375},
     {"level": 96, "type": "coins",      "amount": 250},
     {"level": 97, "type": "emote",      "amount": 1},
     {"level": 98, "type": "coins",      "amount": 250},
@@ -602,6 +642,10 @@ def state_payload(uid: Optional[str]) -> Dict[str, Any]:
         "seasonId": SEASON_ID,
         "seasonName": SEASON_NAME,
         "price": CRITTER_PASS_PRICE,
+        # The 30-day clock. Served rather than computed in the browser so the
+        # countdown cannot drift with a wrong device clock, and merged in whole
+        # so a new field on the window reaches the page without a second edit.
+        **season_window(),
         # Derived from the track, never typed twice: the purchase card sells
         # "4,000 in, 8,500 back" and both halves have to be the real numbers.
         "coinTotal": coin_total(),
