@@ -388,6 +388,16 @@
     const signedIn = !!(_state && _state.signedIn);
     const finale = String((_state && _state.finaleAvatarName) || "the finale critter");
     const finaleImg = (_state && _state.finaleAvatar) || "";
+    // "A reward on every level" is the headline of this track, but it is a
+    // claim about the SERVED data, not a slogan: only say it when the track
+    // really does put exactly one tier on every level up to the cap. A retune
+    // that leaves a level empty falls back to the plain count instead of
+    // printing something the rail then contradicts.
+    const track = (_state && _state.track) || [];
+    const tierCount = track.length;
+    const maxLvl = num(_state && _state.maxLevel, 100);
+    const everyLevel = tierCount === maxLvl
+      && new Set(track.map(t => num(t.level))).size === maxLvl;
 
     // Every number here is derived from the served track, so a retune moves the
     // sales pitch with it instead of leaving a promise the track no longer keeps.
@@ -434,8 +444,10 @@
             <span class="ccCP-buy-kicker">${esc((_state && _state.seasonName) || "Critter Pass")}</span>
             <h2 class="ccCP-buy-title">Unlock the Critter Pass</h2>
             <p class="ccCP-buy-sub">
-              One payment, ${esc(((_state && _state.track) || []).length)} rewards, every level you
-              have already earned counts. Spend ${fmt(price)} and the track pays back
+              One payment, ${esc(everyLevel
+                ? `a reward on every one of the ${fmt(tierCount)} levels`
+                : `${fmt(tierCount)} rewards`)}, and every level you have already
+              earned counts. Spend ${fmt(price)} and the track pays back
               <b>${fmt(num(_state && _state.coinTotal))}</b> Critter Coins alone.
             </p>
           </div>
@@ -649,29 +661,56 @@
     render();
   }
 
+  // The server pays at most CLAIM_ALL_LIMIT tiers per request, because each
+  // tier is its own Firestore transaction and a hundred of them in one request
+  // is a request that can outlive its own timeout. So this LOOPS while the
+  // server says there is more, accumulating as it goes and reporting ONCE at
+  // the end: four rounds covers a full 100-tier track, and the rest is headroom
+  // for the XP drops that unlock further tiers mid-sweep.
+  const CLAIM_ALL_ROUNDS = 8;
+
   async function claimAll() {
     const btn = $("ccCP-claimall");
     if (btn) { btn.disabled = true; btn.textContent = "Claiming…"; }
-    const res = await post("claim-all", {});
-    if (res && res.ok) {
-      const n = num(res.count);
-      const claimed = res.claimed || [];
-      const coins = claimed.reduce((sum, r) => sum + num(r.granted && r.granted.coins), 0);
-      const xp = claimed.reduce((sum, r) => sum + num(r.granted && r.granted.xp), 0);
+
+    let total = 0, coins = 0, xp = 0, failed = null;
+    // Tier → the code it refused with, NOT a bare set of codes. A tier can
+    // refuse in one batch and succeed in the next (claiming the Level 100
+    // critter gives the emote tiers something new to draw from, and an XP drop
+    // can unlock a tier that was locked), so a refusal has to be cancellable
+    // by a later payout. Reporting "you already have every emote" about a tier
+    // that then worked is a warning about nothing.
+    const refusals = new Map();
+    for (let round = 0; round < CLAIM_ALL_ROUNDS; round++) {
+      const res = await post("claim-all", {});
+      if (!res || !res.ok) { failed = res; break; }
+      const got = res.claimed || [];
+      total += num(res.count);
+      coins += got.reduce((sum, r) => sum + num(r.granted && r.granted.coins), 0);
+      xp    += got.reduce((sum, r) => sum + num(r.granted && r.granted.xp), 0);
+      (res.skipped || []).forEach(s => refusals.set(String(s.tier || ""), String(s.error || "error")));
+      got.forEach(r => refusals.delete(String(r.tier || "")));
+      if (!res.more || !num(res.count)) break;
+      // Show it climbing rather than hanging on one spinner.
+      if (btn) btn.textContent = `Claiming… ${fmt(total)}`;
+    }
+
+    if (failed) {
+      toast(msgFor(failed), "warn");
+    } else {
       const bits = [];
       if (coins) bits.push(`+${fmt(coins)} Critter Coins`);
       if (xp) bits.push(`+${fmt(xp)} XP`);
-      toast(n
-        ? `Claimed ${n} reward${n === 1 ? "" : "s"}${bits.length ? " · " + bits.join(" · ") : ""}`
-        : "Nothing new to claim just yet.", n ? "good" : "info");
-      // A tier that refused (a full hoard, no backgrounds left) is reported
-      // honestly instead of being swallowed: the rest still paid out.
-      (res.skipped || []).forEach(s => toast(msgFor({ error: s.error }), "warn"));
-      await sync();
-      afterGrant();
-    } else {
-      toast(msgFor(res), "warn");
+      toast(total
+        ? `Claimed ${fmt(total)} reward${total === 1 ? "" : "s"}${bits.length ? " · " + bits.join(" · ") : ""}`
+        : "Nothing new to claim just yet.", total ? "good" : "info");
     }
+    // A tier that refused (a full hoard, no backgrounds left) is reported
+    // honestly instead of being swallowed: the rest still paid out. Deduped by
+    // CODE at the last moment, because ten emote tiers with nothing left to
+    // give is one thing to tell the player, not ten identical toasts.
+    new Set(refusals.values()).forEach(code => toast(msgFor({ error: code }), "warn"));
+    if (total || !failed) { await sync(); afterGrant(); }
     render();
   }
 

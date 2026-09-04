@@ -119,6 +119,31 @@ class PassTestBase(unittest.TestCase):
     def purchase_ids(self):
         return sorted(self.db.collection("critter_pass_purchases")._docs.keys())
 
+    def sweep(self, uid="u1", rounds=12):
+        """Claim everything, the way the CLIENT does: claim_all pays at most
+        CLAIM_ALL_LIMIT tiers per call and reports `more`, so a full sweep is a
+        loop. Returns the merged result."""
+        claimed, skipped, calls = [], {}, 0
+        last = {}
+        for _ in range(rounds):
+            calls += 1
+            last = cp.claim_all(self.db, uid)
+            if not last.get("ok"):
+                return last
+            claimed.extend(last.get("claimed") or [])
+            for sk in last.get("skipped") or []:
+                skipped[sk["tier"]] = sk["error"]
+            # A tier can refuse in one batch and pay in the next, so a payout
+            # CANCELS an earlier refusal. claim_all already does this within one
+            # call; a caller that loops has to do it across calls.
+            for r in last.get("claimed") or []:
+                skipped.pop(r["tier"], None)
+            if not last.get("more") or not last.get("count"):
+                break
+        return {"ok": True, "claimed": claimed, "count": len(claimed),
+                "skipped": [{"tier": k, "error": v} for k, v in sorted(skipped.items())],
+                "calls": calls, "more": bool(last.get("more"))}
+
     def tier_of(self, rtype, level=None):
         """The lowest-level tier of a type, or the one at `level`.
 
@@ -152,8 +177,25 @@ class TrackShapeTests(PassTestBase):
         self.assertGreater(cp.coin_total(), cp.CRITTER_PASS_PRICE)
 
     def test_the_whole_track_pays_exactly_the_xp_budget(self):
-        self.assertEqual(cp.xp_total(), 16000)
+        self.assertEqual(cp.xp_total(), 19000)
         self.assertEqual(cp.xp_total(), cp.TRACK_XP_BUDGET)
+
+    def test_every_single_level_pays_something(self):
+        # THE shape of this track: 100 tiers over 100 levels, nothing skipped.
+        # A level with no reward on a pass somebody paid 4,000 coins for is a
+        # level that feels like nothing happened.
+        levels = [t["level"] for t in cp.track()]
+        self.assertEqual(len(levels), 100)
+        self.assertEqual(sorted(levels), list(range(1, 101)))
+        self.assertEqual(len(set(levels)), 100, "two tiers landed on one level")
+
+    def test_the_xp_drop_is_the_formula_it_says_it_is(self):
+        # 20 XP per level, every 5 levels. It is a formula rather than a table
+        # so a drop is worth the same FRACTION of a level everywhere on the
+        # curve, and so the 19,000 total falls out instead of being tuned.
+        for t in cp.track():
+            if t["type"] == "xp":
+                self.assertEqual(t["amount"], t["level"] * 20, t["id"])
 
     def test_the_served_track_agrees_with_the_budgets(self):
         # coin_total() reads the SPEC; the client reads track(). If those two
@@ -208,6 +250,19 @@ class TrackShapeTests(PassTestBase):
         self.assertGreaterEqual(len(coins), 10)
         self.assertLess(min(coins), 10)
         self.assertGreaterEqual(max(coins), 99)
+
+    def test_the_coin_ramp_never_goes_backwards(self):
+        # Two coin tiers ten levels apart must not pay LESS the higher one is:
+        # a track that gets stingier as it gets harder reads as a bug. Compared
+        # decade to decade rather than tier to tier, because the three
+        # milestone payouts deliberately spike above their neighbours.
+        by_decade = {}
+        for t in cp.track():
+            if t["type"] != "coins":
+                continue
+            by_decade.setdefault((t["level"] - 1) // 10, []).append(t["amount"])
+        floors = [min(v) for _, v in sorted(by_decade.items())]
+        self.assertEqual(floors, sorted(floors), floors)
 
     def test_the_finale_is_the_avatar_at_level_100(self):
         avatars = [t for t in cp.track() if t["type"] == "avatar"]
@@ -543,7 +598,7 @@ class ClaimAllTests(PassTestBase):
         self.make_user(level=100, coins=0, owns=True,
                        unlocked_icons=list(self.COLLECTION))
         start_xp = self.total_xp()
-        res = cp.claim_all(self.db, "u1")
+        res = self.sweep()
         self.assertTrue(res.get("ok"), res)
         self.assertEqual(res.get("skipped"), [], res.get("skipped"))
         self.assertEqual(self.coins(), cp.TRACK_COIN_BUDGET)
@@ -555,7 +610,7 @@ class ClaimAllTests(PassTestBase):
     def test_a_maxed_pass_hands_over_every_perk_too(self):
         self.make_user(level=100, coins=0, owns=True,
                        unlocked_icons=list(self.COLLECTION))
-        cp.claim_all(self.db, "u1")
+        self.sweep()
         doc = self.user()
         self.assertEqual(doc.get("bonus_daily_slots"), cp.MAX_EXTRA_DAILY)
         self.assertEqual(doc.get("bonus_weekly_slots"), cp.MAX_EXTRA_WEEKLY)
@@ -564,14 +619,14 @@ class ClaimAllTests(PassTestBase):
     def test_claim_all_twice_pays_once(self):
         self.make_user(level=100, coins=0, owns=True,
                        unlocked_icons=list(self.COLLECTION))
-        cp.claim_all(self.db, "u1")
-        second = cp.claim_all(self.db, "u1")
+        self.sweep()
+        second = self.sweep()
         self.assertEqual(second["count"], 0)
         self.assertEqual(self.coins(), cp.TRACK_COIN_BUDGET)
 
     def test_claim_all_never_pays_a_tier_above_the_level(self):
         self.make_user(level=20, coins=0, owns=True)
-        cp.claim_all(self.db, "u1")
+        self.sweep()
         paid_levels = [rec["level"] for rec in
                        self.db.collection("critter_pass_claims")._docs.values()]
         # An XP drop can RAISE the level mid-sweep, which is the point of the
@@ -588,7 +643,7 @@ class ClaimAllTests(PassTestBase):
         self.db.collection("users")._docs["u1"]["stats"]["total_xp"] = xp_for_level(11) - 100
         self.assertEqual(level_progress(self.total_xp())[0], 10)
 
-        res = cp.claim_all(self.db, "u1")
+        res = self.sweep()
         self.assertTrue(res.get("ok"), res)
         end_level = level_progress(self.total_xp())[0]
         self.assertGreaterEqual(end_level, 11)
@@ -602,7 +657,7 @@ class ClaimAllTests(PassTestBase):
         self.make_user(level=100, coins=0, owns=True,
                        unlocked_icons=list(self.COLLECTION),
                        unlocked_backgrounds=list(BACKGROUNDS))
-        res = cp.claim_all(self.db, "u1")
+        res = self.sweep()
         self.assertTrue(res.get("ok"))
         errs = {s["error"] for s in res["skipped"]}
         self.assertIn("backgrounds_full", errs)
@@ -615,17 +670,53 @@ class ClaimAllTests(PassTestBase):
         # Nothing in claim_all can free a shield, so it stays skipped: what is
         # being pinned is that a tier is never in BOTH lists.
         self.make_user(level=100, coins=0, owns=True, streak_shields=cp.MAX_SHIELDS)
-        res = cp.claim_all(self.db, "u1")
+        res = self.sweep()
         paid = {r["tier"] for r in res["claimed"]}
         skipped = {s["tier"] for s in res["skipped"]}
         self.assertFalse(paid & skipped)
 
     def test_claim_all_terminates_on_a_level_1_account(self):
         self.make_user(level=1, coins=0, owns=True)
-        res = cp.claim_all(self.db, "u1")
+        res = self.sweep()
         self.assertTrue(res.get("ok"))
         # Level 1 has exactly one tier on it.
         self.assertGreaterEqual(res["count"], 1)
+
+    # ── The per-request cap ───────────────────────────────────────────────
+    # Each tier is its own Firestore transaction, so a hundred of them in one
+    # request is a request that can outlive its own timeout: the server pays a
+    # bounded batch and says there is more, and the client loops.
+    def test_one_request_pays_no_more_than_the_limit(self):
+        self.make_user(level=100, coins=0, owns=True,
+                       unlocked_icons=list(self.COLLECTION))
+        first = cp.claim_all(self.db, "u1")
+        self.assertTrue(first.get("ok"))
+        self.assertLessEqual(first["count"], cp.CLAIM_ALL_LIMIT)
+        self.assertTrue(first.get("more"), "a 100-tier track did not report more")
+
+    def test_looping_the_way_the_client_does_still_pays_the_whole_track(self):
+        self.make_user(level=100, coins=0, owns=True,
+                       unlocked_icons=list(self.COLLECTION))
+        res = self.sweep()
+        self.assertEqual(res["count"], len(cp.track()))
+        self.assertEqual(self.coins(), cp.TRACK_COIN_BUDGET)
+        self.assertFalse(res["more"], "the last call still claimed there was more")
+
+    def test_the_client_loop_is_long_enough_for_the_whole_track(self):
+        # The client gives up after CLAIM_ALL_ROUNDS. If the track ever grew
+        # past what that many bounded batches can pay, "Claim all" would stop
+        # part way and look like it had finished.
+        js = _read(CRITTER_JS)
+        m = re.search(r"const CLAIM_ALL_ROUNDS = (\d+);", js)
+        self.assertIsNotNone(m, "CLAIM_ALL_ROUNDS vanished from critter-pass.js")
+        self.assertGreaterEqual(int(m.group(1)) * cp.CLAIM_ALL_LIMIT, len(cp.track()))
+
+    def test_a_bounded_batch_still_never_pays_a_tier_twice(self):
+        self.make_user(level=100, coins=0, owns=True,
+                       unlocked_icons=list(self.COLLECTION))
+        res = self.sweep()
+        tiers = [r["tier"] for r in res["claimed"]]
+        self.assertEqual(len(tiers), len(set(tiers)))
 
 
 # ══════════════════════════════════════════════════════════════════════════

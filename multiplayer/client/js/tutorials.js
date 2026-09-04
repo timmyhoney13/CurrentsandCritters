@@ -929,7 +929,7 @@
 
     // ── Critter Pass panel description ────────────────────────────────
     { target: "#ph-panel-critterpass", badge: "Critter Pass Tab", title: "The Paid Track",
-      text: "The <strong>Critter Pass</strong> is the Level Pass's bigger sibling: the same levels, a much heavier track, unlocked once for <strong>4,000 Critter Coins</strong>. It pays back <strong>8,500 Critter Coins</strong> and <strong>16,000 XP</strong> on the way up, hands you <strong>ten chat emotes</strong>, and at <strong>Level 100</strong> the <strong>Summer Skin Gull</strong>. Six of its tiers are the thing nothing else in the game sells: <strong>three extra daily challenges</strong> and <strong>three extra weekly challenges</strong>, for keeps. You can read the whole track before you buy it, and every level you have already passed is claimable the moment you unlock it." },
+      text: "The <strong>Critter Pass</strong> is the Level Pass's bigger sibling: the same levels, a much heavier track, unlocked once for <strong>4,000 Critter Coins</strong>. <strong>Every single level from 1 to 100 pays you something</strong>, and across the track that is <strong>8,500 Critter Coins</strong> and <strong>19,000 XP</strong>, plus <strong>ten chat emotes</strong>, and at <strong>Level 100</strong> the <strong>Summer Skin Gull</strong>. Six of its tiers are the thing nothing else in the game sells: <strong>three extra daily challenges</strong> and <strong>three extra weekly challenges</strong>, for keeps. You can read the whole track before you buy it, and every level you have already passed is claimable the moment you unlock it." },
 
     // ── Store tab (click to navigate) ────────────────────────────────
     { target: "#snav-store", badge: "Store Tab", title: "Store",

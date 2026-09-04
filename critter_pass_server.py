@@ -27,7 +27,7 @@ the ledger ids, the ownership array) is already keyed by it, so Season 2 is a
 new constant and a new _TRACK_SPEC, not a rewrite.
 
 WHY THE SERVER OWNS THIS
-Same reason as the Level Pass, doubled: 8,500 Critter Coins, 16,000 XP, extra
+Same reason as the Level Pass, doubled: 8,500 Critter Coins, 19,000 XP, extra
 challenge slots and a 2,000-coin avatar are on this track. The account's level
 is RE-DERIVED here from `stats.total_xp` on its own document, inside the same
 transaction that writes the reward, and the purchase re-reads the coin balance
@@ -107,7 +107,7 @@ CRITTER_PASS_PRICE = 4000
 # are promises printed on the page, not dials somebody can nudge in a rebalance
 # without noticing the page now lies.
 TRACK_COIN_BUDGET = 8500     # 4,000 in → 8,500 back
-TRACK_XP_BUDGET = 16000
+TRACK_XP_BUDGET = 19000
 
 # The extra challenge slots. Three tiers grant a daily each and three grant a
 # weekly each, so the cap IS the number of tiers: the clamp exists so a future
@@ -136,21 +136,28 @@ MAX_REROLLS = _lp.MAX_REROLLS
 # ═══════════════════════════════════════════════════════════════════════════
 #  THE TRACK
 # ═══════════════════════════════════════════════════════════════════════════
-# 58 tiers over 100 levels, laid out on a repeating decade so a player can
-# predict what is coming without reading the whole rail:
+# ONE REWARD ON EVERY LEVEL: 100 tiers over 100 levels, nothing skipped. Laid
+# out on a single repeating decade rule, so a player can predict what is coming
+# without reading the whole rail. By the level's last digit:
 #
-#   …4, …9    Critter Coins        21 tiers, 8,500 coins EXACTLY
-#   …0        an XP drop           9 tiers, one every 10 levels, 16,000 XP EXACTLY
-#   …5        a chat emote         10 tiers, one every 10 levels
-#   1/41/81   a 24-hour XP Boost   3 tiers
-#   6/46/96   a Streak Shield      3 tiers
-#   11/51/91  a Weekly Swap token  3 tiers
-#   26/86     an avatar background 2 tiers
-#   12/42/72  an EXTRA daily challenge slot
-#   22/52/82  an EXTRA weekly challenge slot
-#   100       the Summer Skin Gull, and the track's last 1,500 coins
+#   1, 2, 4, 6, 8   Critter Coins   53 tiers, 8,500 coins EXACTLY
+#   5 and 0         an XP drop      19 tiers, one every 5 levels
+#   7               a chat emote    10 tiers, one every 10 levels
+#   3 and 9         a PERK          20 slots, see the table below
+#   100             the Summer Skin Gull
 #
-# THE CONSUMABLE TIERS ARE COUNTED AGAINST THE HOARD CAPS, NOT SPRINKLED.
+# The COIN RAMP is per decade: 25, 50, 75, 100, 125, 150, 175, 200, 225, 250,
+# five tiers of it in each decade. That is 6,875; the remaining 1,625 sits on
+# three perk slots turned into milestone payouts (L29 225, L59 400, L99 1,000),
+# so the run into the Level 100 critter pays like the end of a track.
+#
+# The XP DROP IS A FORMULA, not a table: 20 XP per level, every 5 levels. So
+# level 5 pays 100 and level 95 pays 1,900, and the whole thing sums to 19,000
+# on its own. A drop is always worth roughly a third to a half of the level it
+# lands on, at every point on the curve, which is what keeps it feeling the
+# same at level 90 as at level 10.
+#
+# THE PERK SLOTS ARE COUNTED AGAINST THE HOARD CAPS, NOT SPRINKLED.
 # There are exactly MAX_BOOSTS boost tiers, MAX_SHIELDS shield tiers and
 # MAX_REROLLS swap tiers, because a fourth of any of them could never be
 # claimed in one sweep: the hoard would already be full and the tier would
@@ -173,67 +180,107 @@ MAX_REROLLS = _lp.MAX_REROLLS
 #   weekly_slot  → +1 weekly challenge slot, for good
 #   avatar       → the finale critter, granted into unlocked_icons
 _TRACK_SPEC: Sequence[Dict[str, Any]] = (
-    {"level": 1,  "type": "boost",      "amount": 1},
-    {"level": 4,  "type": "coins",      "amount": 100},
-    {"level": 5,  "type": "emote",      "amount": 1},
-    {"level": 6,  "type": "shield",     "amount": 1},
-    {"level": 9,  "type": "coins",      "amount": 125},
-    {"level": 10, "type": "xp",         "amount": 750},
-    {"level": 11, "type": "swap",       "amount": 1},
-    {"level": 12, "type": "daily_slot", "amount": 1},
-    {"level": 14, "type": "coins",      "amount": 150},
-    {"level": 15, "type": "emote",      "amount": 1},
-    {"level": 19, "type": "coins",      "amount": 175},
-    {"level": 20, "type": "xp",         "amount": 1000},
-    {"level": 22, "type": "weekly_slot","amount": 1},
-    {"level": 24, "type": "coins",      "amount": 200},
-    {"level": 25, "type": "emote",      "amount": 1},
-    {"level": 26, "type": "background", "amount": 1},
+    {"level": 1,  "type": "coins",      "amount": 25},
+    {"level": 2,  "type": "coins",      "amount": 25},
+    {"level": 3,  "type": "boost",      "amount": 1},
+    {"level": 4,  "type": "coins",      "amount": 25},
+    {"level": 5,  "type": "xp",         "amount": 100},
+    {"level": 6,  "type": "coins",      "amount": 25},
+    {"level": 7,  "type": "emote",      "amount": 1},
+    {"level": 8,  "type": "coins",      "amount": 25},
+    {"level": 9,  "type": "shield",     "amount": 1},
+    {"level": 10, "type": "xp",         "amount": 200},
+    {"level": 11, "type": "coins",      "amount": 50},
+    {"level": 12, "type": "coins",      "amount": 50},
+    {"level": 13, "type": "daily_slot", "amount": 1},
+    {"level": 14, "type": "coins",      "amount": 50},
+    {"level": 15, "type": "xp",         "amount": 300},
+    {"level": 16, "type": "coins",      "amount": 50},
+    {"level": 17, "type": "emote",      "amount": 1},
+    {"level": 18, "type": "coins",      "amount": 50},
+    {"level": 19, "type": "swap",       "amount": 1},
+    {"level": 20, "type": "xp",         "amount": 400},
+    {"level": 21, "type": "coins",      "amount": 75},
+    {"level": 22, "type": "coins",      "amount": 75},
+    {"level": 23, "type": "weekly_slot","amount": 1},
+    {"level": 24, "type": "coins",      "amount": 75},
+    {"level": 25, "type": "xp",         "amount": 500},
+    {"level": 26, "type": "coins",      "amount": 75},
+    {"level": 27, "type": "emote",      "amount": 1},
+    {"level": 28, "type": "coins",      "amount": 75},
     {"level": 29, "type": "coins",      "amount": 225},
-    {"level": 30, "type": "xp",         "amount": 1250},
-    {"level": 34, "type": "coins",      "amount": 250},
-    {"level": 35, "type": "emote",      "amount": 1},
-    {"level": 39, "type": "coins",      "amount": 275},
-    {"level": 40, "type": "xp",         "amount": 1500},
-    {"level": 41, "type": "boost",      "amount": 1},
-    {"level": 42, "type": "daily_slot", "amount": 1},
-    {"level": 44, "type": "coins",      "amount": 300},
-    {"level": 45, "type": "emote",      "amount": 1},
-    {"level": 46, "type": "shield",     "amount": 1},
-    {"level": 49, "type": "coins",      "amount": 325},
-    {"level": 50, "type": "xp",         "amount": 1750},
-    {"level": 51, "type": "swap",       "amount": 1},
-    {"level": 52, "type": "weekly_slot","amount": 1},
-    {"level": 54, "type": "coins",      "amount": 350},
-    {"level": 55, "type": "emote",      "amount": 1},
-    {"level": 59, "type": "coins",      "amount": 375},
-    {"level": 60, "type": "xp",         "amount": 2000},
-    {"level": 64, "type": "coins",      "amount": 400},
-    {"level": 65, "type": "emote",      "amount": 1},
-    {"level": 69, "type": "coins",      "amount": 425},
-    {"level": 70, "type": "xp",         "amount": 2250},
-    {"level": 72, "type": "daily_slot", "amount": 1},
-    {"level": 74, "type": "coins",      "amount": 450},
-    {"level": 75, "type": "emote",      "amount": 1},
-    {"level": 79, "type": "coins",      "amount": 475},
-    {"level": 80, "type": "xp",         "amount": 2500},
-    {"level": 81, "type": "boost",      "amount": 1},
-    {"level": 82, "type": "weekly_slot","amount": 1},
-    {"level": 84, "type": "coins",      "amount": 525},
-    {"level": 85, "type": "emote",      "amount": 1},
-    {"level": 86, "type": "background", "amount": 1},
-    {"level": 89, "type": "coins",      "amount": 575},
-    {"level": 90, "type": "xp",         "amount": 3000},
-    {"level": 91, "type": "swap",       "amount": 1},
-    {"level": 94, "type": "coins",      "amount": 625},
-    {"level": 95, "type": "emote",      "amount": 1},
-    {"level": 96, "type": "shield",     "amount": 1},
-    {"level": 99, "type": "coins",      "amount": 675},
-    # The end of the track: the critter first, then the money, because that is
-    # the order a player reads them in.
+    {"level": 30, "type": "xp",         "amount": 600},
+    {"level": 31, "type": "coins",      "amount": 100},
+    {"level": 32, "type": "coins",      "amount": 100},
+    {"level": 33, "type": "boost",      "amount": 1},
+    {"level": 34, "type": "coins",      "amount": 100},
+    {"level": 35, "type": "xp",         "amount": 700},
+    {"level": 36, "type": "coins",      "amount": 100},
+    {"level": 37, "type": "emote",      "amount": 1},
+    {"level": 38, "type": "coins",      "amount": 100},
+    {"level": 39, "type": "shield",     "amount": 1},
+    {"level": 40, "type": "xp",         "amount": 800},
+    {"level": 41, "type": "coins",      "amount": 125},
+    {"level": 42, "type": "coins",      "amount": 125},
+    {"level": 43, "type": "daily_slot", "amount": 1},
+    {"level": 44, "type": "coins",      "amount": 125},
+    {"level": 45, "type": "xp",         "amount": 900},
+    {"level": 46, "type": "coins",      "amount": 125},
+    {"level": 47, "type": "emote",      "amount": 1},
+    {"level": 48, "type": "coins",      "amount": 125},
+    {"level": 49, "type": "background", "amount": 1},
+    {"level": 50, "type": "xp",         "amount": 1000},
+    {"level": 51, "type": "coins",      "amount": 150},
+    {"level": 52, "type": "coins",      "amount": 150},
+    {"level": 53, "type": "weekly_slot","amount": 1},
+    {"level": 54, "type": "coins",      "amount": 150},
+    {"level": 55, "type": "xp",         "amount": 1100},
+    {"level": 56, "type": "coins",      "amount": 150},
+    {"level": 57, "type": "emote",      "amount": 1},
+    {"level": 58, "type": "coins",      "amount": 150},
+    {"level": 59, "type": "coins",      "amount": 400},
+    {"level": 60, "type": "xp",         "amount": 1200},
+    {"level": 61, "type": "coins",      "amount": 175},
+    {"level": 62, "type": "coins",      "amount": 175},
+    {"level": 63, "type": "swap",       "amount": 1},
+    {"level": 64, "type": "coins",      "amount": 175},
+    {"level": 65, "type": "xp",         "amount": 1300},
+    {"level": 66, "type": "coins",      "amount": 175},
+    {"level": 67, "type": "emote",      "amount": 1},
+    {"level": 68, "type": "coins",      "amount": 175},
+    {"level": 69, "type": "shield",     "amount": 1},
+    {"level": 70, "type": "xp",         "amount": 1400},
+    {"level": 71, "type": "coins",      "amount": 200},
+    {"level": 72, "type": "coins",      "amount": 200},
+    {"level": 73, "type": "daily_slot", "amount": 1},
+    {"level": 74, "type": "coins",      "amount": 200},
+    {"level": 75, "type": "xp",         "amount": 1500},
+    {"level": 76, "type": "coins",      "amount": 200},
+    {"level": 77, "type": "emote",      "amount": 1},
+    {"level": 78, "type": "coins",      "amount": 200},
+    {"level": 79, "type": "boost",      "amount": 1},
+    {"level": 80, "type": "xp",         "amount": 1600},
+    {"level": 81, "type": "coins",      "amount": 225},
+    {"level": 82, "type": "coins",      "amount": 225},
+    {"level": 83, "type": "weekly_slot","amount": 1},
+    {"level": 84, "type": "coins",      "amount": 225},
+    {"level": 85, "type": "xp",         "amount": 1700},
+    {"level": 86, "type": "coins",      "amount": 225},
+    {"level": 87, "type": "emote",      "amount": 1},
+    {"level": 88, "type": "coins",      "amount": 225},
+    {"level": 89, "type": "background", "amount": 1},
+    {"level": 90, "type": "xp",         "amount": 1800},
+    {"level": 91, "type": "coins",      "amount": 250},
+    {"level": 92, "type": "coins",      "amount": 250},
+    {"level": 93, "type": "swap",       "amount": 1},
+    {"level": 94, "type": "coins",      "amount": 250},
+    {"level": 95, "type": "xp",         "amount": 1900},
+    {"level": 96, "type": "coins",      "amount": 250},
+    {"level": 97, "type": "emote",      "amount": 1},
+    {"level": 98, "type": "coins",      "amount": 250},
+    {"level": 99, "type": "coins",      "amount": 1000},
     {"level": 100, "type": "avatar",      "amount": 1,
      "critter": FINALE_AVATAR_NAME, "img": FINALE_AVATAR},
-    {"level": 100, "type": "coins",       "amount": 1500, "key": "100c"},
 )
 
 # How each reward type describes itself. One place, so the tier card, the claim
@@ -267,10 +314,11 @@ SLOT_TYPES = frozenset({"daily_slot", "weekly_slot"})
 
 
 def _tier_id(spec: Dict[str, Any]) -> str:
-    """Stable identifier for a tier. Level 100 carries two rewards, so the level
-    alone is not unique: `key` disambiguates, and the pair (season, tier id) is
-    what the ledger document is named after. Changing a key re-opens that tier
-    for claiming, so keys are append-only in practice."""
+    """Stable identifier for a tier, and the name of its ledger document (with
+    the season). Every level carries exactly one reward now, so the level alone
+    IS unique; `key` stays because a future track that doubles a level would
+    otherwise silently collide two tiers onto one ledger row. Changing a tier id
+    re-opens that tier for claiming, so they are append-only in practice."""
     extra = str(spec.get("key") or "")
     return f"L{int(spec['level'])}" + (f"_{extra}" if extra else "")
 
@@ -855,6 +903,16 @@ def claim(db, uid: str, tier_id: str) -> Dict[str, Any]:
 # than this would be a track whose XP drops out-run its own levels.
 _CLAIM_ALL_PASSES = 4
 
+# How many tiers ONE claim-all request will pay before handing back "there is
+# more". Each tier is its own transaction, which is exactly what stops a tier
+# that refuses from rolling back the ones that worked, but a transaction is a
+# Firestore round trip: a level-100 player sweeping a hundred of them in a
+# single request is a request that can outlive its own timeout, and a timeout
+# here reads as "Claim all did nothing" while half the track was actually paid.
+# So the request is bounded and the CLIENT loops (js/critter-pass.js), which
+# also lets it show the count climbing instead of hanging on one spinner.
+CLAIM_ALL_LIMIT = 25
+
 
 def claim_all(db, uid: str) -> Dict[str, Any]:
     """Claim every unlocked, unclaimed tier.
@@ -865,8 +923,12 @@ def claim_all(db, uid: str) -> Dict[str, Any]:
     leaves every other payout intact. A partial result is reported honestly
     instead of rolling back rewards that were legitimately earned.
 
-    The outer loop exists for the XP tiers: claiming 3,000 XP can raise the
-    account's level, which unlocks tiers that were locked when the sweep began."""
+    The outer loop exists for the XP tiers: claiming 1,900 XP can raise the
+    account's level, which unlocks tiers that were locked when the sweep began.
+
+    Pays at most CLAIM_ALL_LIMIT tiers and then reports `more: True`. The caller
+    is expected to ask again; everything already paid is paid, and the ledger
+    makes asking again safe."""
     if not _SAFE_ID.match(str(uid or "")):
         return {"ok": False, "error": "bad_request"}
     try:
@@ -883,6 +945,7 @@ def claim_all(db, uid: str) -> Dict[str, Any]:
     already = set(claimed_ids(db, uid))
     results: List[Dict[str, Any]] = []
     skipped: Dict[str, str] = {}
+    more = False
 
     for _ in range(_CLAIM_ALL_PASSES):
         try:
@@ -893,6 +956,9 @@ def claim_all(db, uid: str) -> Dict[str, Any]:
             break
         paid_this_pass = 0
         for spec in _TRACK_SPEC:
+            if len(results) >= CLAIM_ALL_LIMIT:
+                more = True
+                break
             tid = _tier_id(spec)
             if str(spec["type"]) not in CLAIMABLE_TYPES:
                 continue
@@ -910,12 +976,12 @@ def claim_all(db, uid: str) -> Dict[str, Any]:
                 # Keyed by tier, so a tier that refuses on pass 1 and succeeds
                 # on pass 2 is not reported as both paid and skipped.
                 skipped[tid] = str(res.get("error") or "error")
-        if not paid_this_pass:
+        if more or not paid_this_pass:
             break
 
     return {"ok": True, "claimed": results,
             "skipped": [{"tier": k, "error": v} for k, v in sorted(skipped.items())],
-            "count": len(results)}
+            "count": len(results), "more": more}
 
 
 # ═══════════════════════════════════════════════════════════════════════════

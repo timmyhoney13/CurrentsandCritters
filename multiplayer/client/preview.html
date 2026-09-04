@@ -126,7 +126,7 @@
        is the ONE file the loading screen is actually waiting on: nothing can
        happen until it has arrived and run. Asking for it here, first and at
        high priority, puts it at the front of the queue where it belongs. -->
-  <link rel="preload" as="script" fetchpriority="high" href="/js/preview-app.js?v=2026-09-04.1">
+  <link rel="preload" as="script" fetchpriority="high" href="/js/preview-app.js?v=2026-09-04.2">
 
   <!-- The four hosts the sign-in talks to, opened now instead of when we get
        there. Firebase's boot is a chain: fetch the SDK from gstatic, refresh
@@ -514,7 +514,7 @@
   })();
   </script>
 
-  <script defer src="/js/error-logging.js?v=2026-09-04.1"></script>
+  <script defer src="/js/error-logging.js?v=2026-09-04.2"></script>
 
   <!-- Firebase config, generated at build time from VITE_FIREBASE_* env vars -->
   <script defer src="/firebase-config.js"></script>
@@ -542,29 +542,29 @@
        looks at is never unstyled.
 
        <noscript> keeps the whole thing working with JavaScript off. -->
-  <link rel="preload" as="style" fetchpriority="high" href="/css/preview.css?v=2026-09-04.1"
+  <link rel="preload" as="style" fetchpriority="high" href="/css/preview.css?v=2026-09-04.2"
         onload="this.rel='stylesheet';window.ccBoot&&window.ccBoot.css()" />
   <!-- The printed rulebook's own stylesheet. Split out of preview.css so the
        standalone How to Play page (/rules) can render the very same book
        without pulling in the whole game stylesheet. Must load AFTER
        preview.css so the cascade is exactly what it was before the split. -->
-  <link rel="preload" as="style" href="/css/rulebook.css?v=2026-09-04.1"
+  <link rel="preload" as="style" href="/css/rulebook.css?v=2026-09-04.2"
         onload="this.rel='stylesheet'" />
   <!-- The privacy policy's own stylesheet, on the same split as the rulebook:
        the published /privacy page renders the very same document without
        pulling in the whole game stylesheet. Must load AFTER preview.css. -->
-  <link rel="preload" as="style" href="/css/privacy.css?v=2026-09-04.1"
+  <link rel="preload" as="style" href="/css/privacy.css?v=2026-09-04.2"
         onload="this.rel='stylesheet'" />
   <!-- Prestige: the Prestige page's own ocean scene, plus the .cc-pname /
        .cc-pbadge rules that draw a Prestige username and badge ANYWHERE in the
        game. Must load AFTER preview.css so those name styles win. -->
-  <link rel="preload" as="style" fetchpriority="high" href="/css/prestige.css?v=2026-09-04.1"
+  <link rel="preload" as="style" fetchpriority="high" href="/css/prestige.css?v=2026-09-04.2"
         onload="this.rel='stylesheet'" />
   <noscript>
-    <link rel="stylesheet" href="/css/preview.css?v=2026-09-04.1" />
-    <link rel="stylesheet" href="/css/rulebook.css?v=2026-09-04.1" />
-    <link rel="stylesheet" href="/css/privacy.css?v=2026-09-04.1" />
-    <link rel="stylesheet" href="/css/prestige.css?v=2026-09-04.1" />
+    <link rel="stylesheet" href="/css/preview.css?v=2026-09-04.2" />
+    <link rel="stylesheet" href="/css/rulebook.css?v=2026-09-04.2" />
+    <link rel="stylesheet" href="/css/privacy.css?v=2026-09-04.2" />
+    <link rel="stylesheet" href="/css/prestige.css?v=2026-09-04.2" />
   </noscript>
   <!-- Developer Analytics' stylesheet is NOT here. Everything in it is scoped
        under #ccA-overlay, an admin-only panel that no ordinary player ever
@@ -593,7 +593,7 @@
      There is no "choose your device" screen any more. js/device-select.js
      works it out: a touch means mobile, a mouse means computer, and a real
      input event outranks its own opening guess. Nothing is rendered here. -->
-<script defer src="/js/device-select.js?v=2026-09-04.1"></script>
+<script defer src="/js/device-select.js?v=2026-09-04.2"></script>
 
 <!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══
      The whole screen is the baked artwork (fullscreen-splash.png). #ccfs-play
@@ -670,7 +670,7 @@
        framed plate on a black page, in both layouts. -->
   <div id="auth-step-choose" class="auth-box">
     <div class="ao-art">
-      <img src="/auth-ocean.jpg?v=2026-09-04.1" alt="" class="ao-art-img" decoding="async" fetchpriority="high" />
+      <img src="/auth-ocean.jpg?v=2026-09-04.2" alt="" class="ao-art-img" decoding="async" fetchpriority="high" />
     </div>
 
 
@@ -4066,72 +4066,72 @@
 
 <!-- The printed rulebook, one shared source for the How to play tab and the
      in-game Rule Book modal. Must load before preview-app.js reads it. -->
-<script defer src="/js/rulebook.js?v=2026-09-04.1"></script>
+<script defer src="/js/rulebook.js?v=2026-09-04.2"></script>
 
 <!-- Family colours + the built-in strategy list, shared with the published
      How to Play page (/rules) so the two can never drift. Deferred scripts
      run in document order, so this lands before preview-app.js reads it. -->
-<script defer src="/js/gamedata.js?v=2026-09-04.1"></script>
+<script defer src="/js/gamedata.js?v=2026-09-04.2"></script>
 
 <!-- The privacy policy, one shared source for the published /privacy page and
      the in-game reader (Settings → 📜 Legal). Must load before preview-app.js
      reads window.CC_PRIVACY_HTML. -->
-<script defer src="/js/privacy-policy.js?v=2026-09-04.1"></script>
+<script defer src="/js/privacy-policy.js?v=2026-09-04.2"></script>
 
 <!-- Level Pass, the Invite-a-Friend card and the Avatar Gallery's level
      track. One stylesheet: they are one idea seen from three places. -->
-<link rel="stylesheet" href="/css/level-pass.css?v=2026-09-04.1">
+<link rel="stylesheet" href="/css/level-pass.css?v=2026-09-04.2">
 <!-- Critter Pass, the paid track. Its own stylesheet rather than a section of
      level-pass.css: it is the one Player Home page painted on the full kelp
      forest, so almost nothing about it is shared beyond the shapes. -->
-<link rel="stylesheet" href="/css/critter-pass.css?v=2026-09-04.1">
+<link rel="stylesheet" href="/css/critter-pass.css?v=2026-09-04.2">
 <!-- Game Night. Also served to the marketing site (Vercel rewrites /css/:file),
      so the banner looks identical on both hosts from one source. -->
-<link rel="stylesheet" href="/css/game-night.css?v=2026-09-04.1">
+<link rel="stylesheet" href="/css/game-night.css?v=2026-09-04.2">
 <!-- Clan Season Grand Prize ($100 towards a board game for the #1 clan). Shared
      with the marketing site the same way Game Night is. -->
-<link rel="stylesheet" href="/css/clan-prize.css?v=2026-09-04.1">
+<link rel="stylesheet" href="/css/clan-prize.css?v=2026-09-04.2">
 
-<script defer fetchpriority="high" src="/js/preview-app.js?v=2026-09-04.1"></script>
+<script defer fetchpriority="high" src="/js/preview-app.js?v=2026-09-04.2"></script>
 
 <!-- Level Pass: the reward track over levels 1-100. Every rule is server-side
      (/api/pass/*); this renders state and sends intents. -->
-<script defer src="/js/level-pass.js?v=2026-09-04.1"></script>
+<script defer src="/js/level-pass.js?v=2026-09-04.2"></script>
 <!-- Critter Pass: the PAID reward track over the same levels 1-100. Every rule
      is server-side (/api/critterpass/*), including the 4,000-coin purchase;
      this renders state and sends intents. -->
-<script defer src="/js/critter-pass.js?v=2026-09-04.1"></script>
+<script defer src="/js/critter-pass.js?v=2026-09-04.2"></script>
 <!-- Friend-code referral reward. Pays two accounts, so the server owns all of
      it (/api/referral/*); this collects digits and renders the answer. -->
-<script defer src="/js/referral.js?v=2026-09-04.1"></script>
+<script defer src="/js/referral.js?v=2026-09-04.2"></script>
 <!-- Purchase code redemption. A website donation has no Firebase uid to credit,
      so the buyer is emailed a code and spends it in the Friends tab; the server
      owns all of it (/api/redeem/code). -->
-<script defer src="/js/redeem.js?v=2026-09-04.1"></script>
+<script defer src="/js/redeem.js?v=2026-09-04.2"></script>
 <!-- Game Night banner. Self-injects at the top of the Overview panel. -->
-<script defer src="/js/game-night.js?v=2026-09-04.1"></script>
+<script defer src="/js/game-night.js?v=2026-09-04.2"></script>
 <!-- Clan Season Grand Prize banner. Self-injects into Overview directly under
      the Game Night band, and clans-ui.js renders the Clans tab's copy through
      the same module (window.__ccClanPrize), so the promise is written once.
      Loads AFTER preview-app.js so window.__ccApiUrl is set: that is what points
      its public leaderboard read at the right server on a dev build. -->
-<script defer src="/js/clan-prize.js?v=2026-09-04.1"></script>
+<script defer src="/js/clan-prize.js?v=2026-09-04.2"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
-<script defer src="/js/tournament-ui.js?v=2026-09-04.1"></script>
+<script defer src="/js/tournament-ui.js?v=2026-09-04.2"></script>
 
 <!-- Clan System (Clans tab below Leaderboard; renders into #cc-clans-root). -->
-<script defer src="/js/clans-ui.js?v=2026-09-04.1"></script>
+<script defer src="/js/clans-ui.js?v=2026-09-04.2"></script>
 
 <!-- Prestige System (Prestige page + the badge/name-colour renderer used by
      every username in the game; renders into #cc-prestige-root). -->
-<script defer src="/js/prestige-ui.js?v=2026-09-04.1"></script>
+<script defer src="/js/prestige-ui.js?v=2026-09-04.2"></script>
 
 <!-- Discord join reward, the "+250 Critter Coins" chip beside the Join the
      Discord button, and the verified claim behind it. It renders into the one
      #ph-discord-reward button and stays hidden until the server says the offer
      is switched on. -->
-<script defer src="/js/discord-reward.js?v=2026-09-04.1"></script>
+<script defer src="/js/discord-reward.js?v=2026-09-04.2"></script>
 
 <!-- Developer Analytics and the custom bracket BUILDER used to load here. Both
      are inert until something is clicked, but "inert" was never free: as long
@@ -4139,9 +4139,9 @@
      competing for the same connection while the player waited on the loading
      screen. They are in the late loader at the bottom of this file now. -->
 
-<script defer src="/js/challenge-of-challenges.js?v=2026-09-04.1"></script>
+<script defer src="/js/challenge-of-challenges.js?v=2026-09-04.2"></script>
 
-<script defer src="/js/hidden-cephalopods.js?v=2026-09-04.1"></script>
+<script defer src="/js/hidden-cephalopods.js?v=2026-09-04.2"></script>
 
 <!-- ══ CHALLENGE OF CHALLENGES MODALS ════════════════════════════ -->
 
@@ -4239,11 +4239,11 @@
 <script>
 (function () {
   var LATE = [
-    ["css", "/css/analytics.css?v=2026-09-04.1"],
-    ["js",  "/js/analytics-ui.js?v=2026-09-04.1"],
-    ["js",  "/js/tournament-builder.js?v=2026-09-04.1"],
-    ["js",  "/js/current-controller.js?v=2026-09-04.1"],
-    ["js",  "/js/tutorials.js?v=2026-09-04.1"]
+    ["css", "/css/analytics.css?v=2026-09-04.2"],
+    ["js",  "/js/analytics-ui.js?v=2026-09-04.2"],
+    ["js",  "/js/tournament-builder.js?v=2026-09-04.2"],
+    ["js",  "/js/current-controller.js?v=2026-09-04.2"],
+    ["js",  "/js/tutorials.js?v=2026-09-04.2"]
   ];
   var started = false, settle = null;
   var ready = new Promise(function (r) { settle = r; });

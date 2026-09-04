@@ -350,7 +350,12 @@ db.collection("users")._docs["maxed"] = {
     "critter_pass_seasons": [cp.SEASON_ID],
     "unlocked_icons": ["/avatars/a%d.png" % i for i in range(1, 15)],
 }
-cp.claim_all(db, "maxed")
+# claim_all pays a bounded batch and reports "more", so a full sweep is a loop:
+# exactly what js/critter-pass.js does.
+for _ in range(12):
+    r = cp.claim_all(db, "maxed")
+    if not r.get("more") or not r.get("count"):
+        break
 maxed = cp.state_payload("maxed")
 
 # SIGNED OUT.
@@ -431,6 +436,27 @@ const BOOT = \`
         if (!st.claimed.includes(b.tier)) st.claimed = st.claimed.concat([b.tier]);
         return envelope({ ok: true, tier: b.tier, level: 4,
           granted: { type: "coins", coins: 100 }, inventory: st.inventory });
+      }
+      if (p === "/api/critterpass/claim-all") {
+        // A server that pays a bounded batch and says there is more, the way
+        // the real one does on a 100-tier track. Round 2 PAYS the tier round 1
+        // refused (claiming the Level 100 critter gives the emote tiers
+        // something new to draw from), which is the case the client has to
+        // stop warning about.
+        window.__caCalls = (window.__caCalls || 0) + 1;
+        const mk = (n, from) => Array.from({ length: n }, (_, i) =>
+          ({ tier: "T" + (from + i), granted: { type: "coins", coins: 10 } }));
+        if (window.__caCalls === 1) {
+          return envelope({ ok: true, count: 25, more: true, claimed: mk(25, 0),
+            skipped: [{ tier: "L7", error: "emotes_full" }] });
+        }
+        if (window.__caCalls === 2) {
+          return envelope({ ok: true, count: 25, more: true,
+            claimed: mk(24, 100).concat([{ tier: "L7", granted: { type: "emote" } }]),
+            skipped: [] });
+        }
+        return envelope({ ok: true, count: 5, more: false, claimed: mk(5, 200),
+          skipped: [{ tier: "L26", error: "backgrounds_full" }] });
       }
       return envelope({ ok: false, error: "server_error" });
     },
@@ -541,6 +567,20 @@ const MAIN = \`
         return b.style.display === "none" ? null : txt(b);
       })();
     }
+
+    // ── CLAIM ALL, which the server pays in bounded batches ──────────
+    window.__toasts.length = 0;
+    window.__caCalls = 0;
+    const allBtn = document.getElementById("ccCP-claimall");
+    if (allBtn) {
+      allBtn.click();
+      for (let i = 0; i < 60; i++) await new Promise(r => setTimeout(r, 0));
+    }
+    out.claimAll = {
+      calls: window.__caCalls,
+      toasts: window.__toasts.map(t => t[0]),
+      kinds: window.__toasts.map(t => t[1]),
+    };
 
     // ── MAXED ────────────────────────────────────────────────────────
     window.__CP_STATE = JSON.parse(JSON.stringify(parent.__PAYLOADS.maxed));
@@ -672,8 +712,8 @@ check("the button is live for somebody who can afford it", D.locked.buyEnabled);
 check("the price on the button is the server's price",
       D.locked.buyText.includes(P.price.toLocaleString()),
       `${D.locked.buyText} vs ${P.price}`);
-check("the pitch counts the real number of rewards, not a typed one",
-      D.locked.buySub.includes(`${serverTiers} rewards`),
+check("the pitch says there is a reward on every level, because there is",
+      D.locked.buySub.includes(`every one of the ${serverTiers} levels`),
       `${D.locked.buySub} vs ${serverTiers}`);
 check("the pitch names the coins the track pays back",
       D.locked.buySub.includes(P.coinTotal.toLocaleString()),
@@ -724,9 +764,33 @@ check("the chips report the extra challenge slots",
       D.owner.chips.join(" | ").includes("Daily Challenge")
       && D.owner.chips.join(" | ").includes("Weekly Challenge"),
       D.owner.chips.join(" | "));
-check("the rail scrolls rather than squashing 58 tiers", D.owner.railScrolls === true);
+check(`the rail scrolls rather than squashing ${serverTiers} tiers`, D.owner.railScrolls === true);
+check("there is a reward on every one of the 100 levels",
+      serverTiers === 100
+      && JSON.stringify(P.locked.track.map(t => t.level)) === JSON.stringify(
+           Array.from({ length: 100 }, (_, i) => i + 1)),
+      serverTiers);
 check("every tier card is the same height, so the track line lines up",
       D.owner.heights.length === 1, JSON.stringify(D.owner.heights));
+
+console.log("\nclaim all, paid in bounded batches");
+check("it keeps asking until the server stops saying there is more",
+      D.claimAll.calls === 3, D.claimAll.calls);
+check("it reports the running total ONCE, not once per batch",
+      D.claimAll.toasts.filter(t => /^Claimed /.test(t)).length === 1,
+      JSON.stringify(D.claimAll.toasts));
+check("the total is every batch added up (25 + 25 + 5)",
+      /^Claimed 55 rewards/.test(D.claimAll.toasts.find(t => /^Claimed /.test(t)) || ""),
+      JSON.stringify(D.claimAll.toasts));
+check("a refusal that a LATER batch paid is not warned about",
+      !D.claimAll.toasts.some(t => /emote for every critter/.test(t)),
+      JSON.stringify(D.claimAll.toasts));
+check("a refusal that really stood IS warned about",
+      D.claimAll.toasts.some(t => /every background/.test(t)),
+      JSON.stringify(D.claimAll.toasts));
+check("exactly one warning, not one per refusing tier",
+      D.claimAll.kinds.filter(k => k === "warn").length === 1,
+      JSON.stringify(D.claimAll.kinds));
 
 console.log("\nthe sidebar badge");
 check("it shows the claimable count when the pass is owned",
