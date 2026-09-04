@@ -773,7 +773,7 @@
   // refreshed avatar image (same /avatars/x.png path) is never served stale.
   // Only touches /avatars/ paths, external (Google) avatar URLs are left as-is.
   // Stored/compared paths stay clean; the server ignores the query (basename match).
-  const _AVATAR_ART_VERSION = "ws15";
+  const _AVATAR_ART_VERSION = "ws16";
   function _avSrc(url) {
     const u = String(url || "");
     // Cache-bust both avatar AND background art so a version bump always refreshes
