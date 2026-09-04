@@ -682,10 +682,19 @@ class EndToEnd(unittest.TestCase):
         want = self.ms.SUPPORTER_TIER_GRANTS["wave-warrior"]
         self.assertEqual(self.coins("me"), want["coins"])
         acct = self.db.docs["users/me"]
-        self.assertEqual(acct["stats"]["total_xp"], want["bonus_xp"])
         self.assertEqual(acct["supporter_tier"], "wave-warrior")
-        self.assertEqual(acct["stats"]["level"],
-                         self.ms._level_progress_for_total_xp(want["bonus_xp"])[0])
+        # Wave Warrior grants no XP, so it must not have written an XP field
+        # (nor the level fields derived from one). A tier that DOES grant XP is
+        # pinned by test_stripe_payments.py.
+        if want["bonus_xp"]:
+            self.assertEqual(acct["stats"]["total_xp"], want["bonus_xp"])
+            self.assertEqual(acct["stats"]["level"],
+                             self.ms._level_progress_for_total_xp(want["bonus_xp"])[0])
+        else:
+            self.assertNotIn("total_xp", acct["stats"])
+        # The tier's Season Pass vouchers land on the account too, however the
+        # purchase was collected: this is the LATE claim path.
+        self.assertIn("critter_pass_vouchers", acct)
 
     def test_a_coin_pack_bought_on_the_website_reaches_an_account(self):
         self.ms._process_stripe_checkout(self.event(session_id="cs_p", cents=2000))

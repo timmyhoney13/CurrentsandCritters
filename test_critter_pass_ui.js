@@ -415,6 +415,15 @@ db.collection("users")._docs["locked"] = {
 }
 locked = cp.state_payload("locked")
 
+# VOUCHER HOLDER: no coins at all, but two Season Pass vouchers from a
+# Supporter Tier. The purchase card must offer to REDEEM, never to spend.
+db.collection("users")._docs["voucher"] = {
+    "nickname": "Backer",
+    "stats": {"total_xp": xp_for_level(30), "critter_coins": 0},
+    "critter_pass_vouchers": 2,
+}
+voucher = cp.state_payload("voucher")
+
 # LOCKED AND SHORT: the same player, 12 coins to their name.
 db.collection("users")._docs["broke"] = {
     "nickname": "Skint", "stats": {"total_xp": xp_for_level(30), "critter_coins": 12},
@@ -453,6 +462,7 @@ maxed = cp.state_payload("maxed")
 out = cp.state_payload(None)
 
 print("@@" + json.dumps({"locked": locked, "broke": broke, "owner": owner,
+                         "voucher": voucher,
                          "maxed": maxed, "out": out,
                          "price": cp.CRITTER_PASS_PRICE,
                          "coinTotal": cp.coin_total(),
@@ -601,6 +611,37 @@ const MAIN = \`
       note: txt(document.querySelector(".ccCP-buy-note")),
       claimBtns: $$(".ccCP-claim").length,
     };
+
+    // ── A SEASON PASS VOUCHER IN HAND ────────────────────────────────
+    // The Supporter Tier way in. The card must offer to REDEEM, must not quote
+    // a coin price to somebody who is not paying one, and must post
+    // { voucher: true } so the server spends the voucher and not the wallet.
+    window.__CP_STATE = JSON.parse(JSON.stringify(parent.__PAYLOADS.voucher));
+    await window.__ccCritterPassSync();
+    out.voucher = {
+      inventory: (window.__CP_STATE.inventory || {}).vouchers,
+      btn: txt(document.getElementById("ccCP-buy")),
+      btnDisabled: !!(document.getElementById("ccCP-buy") && document.getElementById("ccCP-buy").disabled),
+      note: txt(document.querySelector(".ccCP-buy-note")),
+      sub: txt(document.querySelector(".ccCP-buy-sub")),
+      chip: $$(".ccCP-chip").map(txt).join(" | "),
+    };
+    {
+      const vb = document.getElementById("ccCP-buy");
+      window.__modals.length = 0;
+      window.__posts.length = 0;
+      window.__modalAnswer = { action: "confirm", selected: [] };
+      if (vb) vb.click();
+      for (let i = 0; i < 24; i++) await new Promise(r => setTimeout(r, 0));
+      const buys = window.__posts.filter(p => p[0] === "/api/critterpass/buy");
+      out.voucher.posted = buys.length;
+      out.voucher.postedVoucherFlag = !!(buys[0] && buys[0][1] && buys[0][1].voucher);
+      out.voucher.modal = JSON.stringify(window.__modals[0] || {});
+      // Leave the recorders empty so the coin-purchase block below still counts
+      // only its own modals and posts.
+      window.__modals.length = 0;
+      window.__posts.length = 0;
+    }
 
     // ── BUYING IT ────────────────────────────────────────────────────
     window.__CP_STATE = JSON.parse(JSON.stringify(parent.__PAYLOADS.locked));
@@ -835,6 +876,25 @@ console.log("\nlocked and short of coins");
 check("the button is disabled", D.broke.buyDisabled);
 check("it says how many coins short", /short/i.test(D.broke.note), D.broke.note);
 check("still no claim buttons", D.broke.claimBtns === 0);
+
+console.log("\nholding a Season Pass voucher");
+check("the served state carries the voucher count", D.voucher.inventory === 2, D.voucher.inventory);
+check("the button offers to REDEEM, not to buy",
+      /redeem/i.test(D.voucher.btn) && /voucher/i.test(D.voucher.btn), D.voucher.btn);
+check("with no coins at all, the button is still live", D.voucher.btnDisabled === false);
+check("nothing on the card says the player is short of coins",
+      !/short/i.test(D.voucher.note), D.voucher.note);
+check("the card does not quote the coin price to a voucher holder",
+      !/4,000/.test(D.voucher.sub), D.voucher.sub);
+check("it says how many vouchers are in hand", /\b2\b/.test(D.voucher.note), D.voucher.note);
+check("a chip counts them in the header",
+      /Season Pass Voucher/i.test(D.voucher.chip), D.voucher.chip);
+check("it asks before spending one", /redeem/i.test(D.voucher.modal), D.voucher.modal);
+check("the question is about a voucher, not about coins",
+      !/4,000/.test(D.voucher.modal), D.voucher.modal);
+check("confirming posts exactly one buy", D.voucher.posted === 1, D.voucher.posted);
+check("and it posts voucher:true, so the wallet is never charged",
+      D.voucher.postedVoucherFlag === true);
 
 console.log("\nbuying it");
 check("it asks before it spends 4,000 coins", D.buy.askedFirst >= 1, D.buy.askedFirst);

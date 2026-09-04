@@ -420,10 +420,42 @@ class TestOneGrantHelper(unittest.TestCase):
 
     def test_a_tier_carries_its_xp_through_the_shared_helper(self):
         """The bonus XP is the half most likely to be dropped by a refactor:
-        the coins are visible in the toast, the XP is not."""
+        the coins are visible in the toast, the XP is not.
+
+        A tier that grants NO XP must write no XP field at all, not zero: the
+        write also re-derives level / xp_current / xp_goal, and doing that for a
+        bonus of nothing is a pointless chance to disagree with the client."""
         for tier, grant in ms.SUPPORTER_TIER_GRANTS.items():
             updates, _ = ms._reward_grant_updates("tier", tier, {"stats": {"total_xp": 0}})
-            self.assertEqual(updates["stats"]["total_xp"], grant["bonus_xp"], tier)
+            if grant["bonus_xp"]:
+                self.assertEqual(updates["stats"]["total_xp"], grant["bonus_xp"], tier)
+            else:
+                self.assertNotIn("total_xp", updates["stats"], tier)
+                self.assertNotIn("level", updates["stats"], tier)
+
+    def test_every_tier_grants_season_pass_vouchers(self):
+        """The Season Pass voucher is the headline perk of every tier: one
+        voucher unlocks the Critter Pass for one season of the holder's
+        choosing. It is written as an INCREMENT so a second purchase stacks
+        onto the first instead of replacing it."""
+        for tier, grant in ms.SUPPORTER_TIER_GRANTS.items():
+            n = grant.get("pass_vouchers")
+            self.assertIsInstance(n, int, f"{tier} has no pass_vouchers")
+            self.assertGreater(n, 0, f"{tier} grants no Season Pass voucher")
+            updates, _ = ms._reward_grant_updates("tier", tier, {})
+            inc = updates.get("critter_pass_vouchers")
+            self.assertIsNotNone(inc, f"{tier} never writes critter_pass_vouchers")
+            # The sentinel carries the amount; read it back whichever way this
+            # SDK version exposes it.
+            got = getattr(inc, "value", None)
+            if got is None:
+                got = getattr(getattr(inc, "_value", None), "integer_value", None)
+            self.assertEqual(got, n, tier)
+
+    def test_voucher_counts_climb_with_price(self):
+        by_price = [ms.SUPPORTER_TIERS_BY_CENTS[c] for c in sorted(ms.SUPPORTER_TIERS_BY_CENTS)]
+        got = [ms.SUPPORTER_TIER_GRANTS[t]["pass_vouchers"] for t in by_price]
+        self.assertEqual(got, sorted(got), f"vouchers not monotonic: {got}")
 
     def test_an_unknown_kind_grants_nothing(self):
         for kind in ("", None, "nonsense", "refund"):
@@ -518,10 +550,56 @@ class TestTierCoinsPrintedEverywhere(unittest.TestCase):
         js = self._read("multiplayer", "client", "js", "preview-app.js")
         for tier in ms.SUPPORTER_TIER_GRANTS:
             xp = ms.SUPPORTER_TIER_GRANTS[tier]["bonus_xp"]
+            if not xp:
+                # A tier that grants no XP must not print an XP line at all,
+                # least of all "+0 bonus XP".
+                continue
             self.assertIn(f"+{xp:,} bonus XP", html,
                           f"index.html never promises {tier}'s +{xp:,} bonus XP")
             self.assertIn(f"+{xp:,} bonus XP", js,
                           f"the in-game Store never promises {tier}'s +{xp:,} bonus XP")
+
+    def test_no_card_advertises_a_zero_xp_bonus(self):
+        for path in (("index.html",),
+                     ("multiplayer", "client", "js", "preview-app.js")):
+            self.assertNotIn("+0 bonus XP", self._read(*path), path[-1])
+
+    def test_both_tier_cards_list_the_server_voucher_count(self):
+        """Same promise as the coins: the server grants the vouchers, two pages
+        PRINT the number, and the word "voucher" has to appear on both or a
+        buyer cannot tell they are getting the Battle Pass at all."""
+        html = self._read("index.html")
+        js = self._read("multiplayer", "client", "js", "preview-app.js")
+        for tier in ms.SUPPORTER_TIER_GRANTS:
+            n = ms.SUPPORTER_TIER_GRANTS[tier]["pass_vouchers"]
+            phrase = f"{n} Season Pass voucher" + ("" if n == 1 else "s")
+            self.assertIn(phrase, html, f"index.html never promises {tier}'s {phrase}")
+            self.assertIn(phrase, js, f"the in-game Store never promises {tier}'s {phrase}")
+
+    def test_no_card_advertises_a_voucher_count_no_tier_grants(self):
+        granted = {f"{g['pass_vouchers']} Season Pass voucher" + ("" if g["pass_vouchers"] == 1 else "s")
+                   for g in ms.SUPPORTER_TIER_GRANTS.values()}
+        for path in (("index.html",),
+                     ("multiplayer", "client", "js", "preview-app.js")):
+            text = self._read(*path)
+            for printed in set(re.findall(r"\d+ Season Pass vouchers?", text)):
+                self.assertIn(printed, granted,
+                              f"{path[-1]} advertises {printed}, which no tier grants")
+
+    def test_no_tier_still_sells_free_simulation_access(self):
+        """"Online simulation access" was a perk when the online game was going
+        to be paid. It is not, and a paid card must not list a perk that means
+        nothing.
+
+        Scoped to the PERK LISTS, not the whole file: the What's New entry that
+        records the removal has to be able to name the thing it removed."""
+        html = self._read("index.html")
+        cards = html[html.index('<div class="tiers">'):html.index("</section>", html.index('<div class="tiers">'))]
+        self.assertNotIn("Online simulation access", cards, "index.html tier cards")
+        js = self._read("multiplayer", "client", "js", "preview-app.js")
+        tiers = js[js.index("const PHST_SUPPORTER_TIERS = ["):]
+        tiers = tiers[:tiers.index("\n      ];")]
+        self.assertNotIn("Online simulation access", tiers, "the in-game Store's tier cards")
 
     def test_no_card_advertises_a_bonus_xp_no_tier_grants(self):
         """The other half of the same drift: a stale "+50,000 bonus XP" left

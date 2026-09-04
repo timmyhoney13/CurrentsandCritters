@@ -366,6 +366,73 @@ class BuyTests(PassTestBase):
         self.assertTrue(cp.buy(self.db, "u1").get("ok"))
         self.assertEqual(self.total_xp(), before_xp)
 
+    # ── Season Pass vouchers ─────────────────────────────────────────────
+    # The Supporter Tiers hand these out (SUPPORTER_TIER_GRANTS.pass_vouchers).
+    # One redeems the pass for ONE season, whichever season the holder spends it
+    # on, and it must never cost coins as well.
+    def test_redeeming_a_voucher_costs_no_coins_and_switches_the_track_on(self):
+        self.make_user(coins=0, critter_pass_vouchers=1)
+        res = cp.buy(self.db, "u1", use_voucher=True)
+        self.assertTrue(res.get("ok"), res)
+        self.assertEqual(res.get("paid"), 0)
+        self.assertEqual(res.get("paidWith"), "voucher")
+        self.assertEqual(self.coins(), 0)
+        self.assertEqual(self.user()["critter_pass_vouchers"], 0)
+        self.assertIn(cp.SEASON_ID, self.user()["critter_pass_seasons"])
+
+    def test_redeeming_spends_exactly_one_voucher(self):
+        self.make_user(coins=0, critter_pass_vouchers=5)
+        self.assertTrue(cp.buy(self.db, "u1", use_voucher=True).get("ok"))
+        self.assertEqual(self.user()["critter_pass_vouchers"], 4)
+
+    def test_redeeming_with_no_voucher_is_refused_and_spends_nothing(self):
+        self.make_user(coins=cp.CRITTER_PASS_PRICE)
+        res = cp.buy(self.db, "u1", use_voucher=True)
+        self.assertFalse(res.get("ok"))
+        self.assertEqual(res.get("error"), "no_vouchers")
+        # Crucially it does NOT silently fall back to charging coins.
+        self.assertEqual(self.coins(), cp.CRITTER_PASS_PRICE)
+        self.assertEqual(self.purchase_ids(), [])
+        self.assertNotIn("critter_pass_seasons", self.user())
+
+    def test_a_voucher_and_coins_cannot_both_buy_the_same_season(self):
+        self.make_user(coins=cp.CRITTER_PASS_PRICE, critter_pass_vouchers=2)
+        self.assertTrue(cp.buy(self.db, "u1", use_voucher=True).get("ok"))
+        second = cp.buy(self.db, "u1")
+        self.assertEqual(second.get("error"), "already_owned")
+        self.assertEqual(self.coins(), cp.CRITTER_PASS_PRICE)
+        self.assertEqual(self.user()["critter_pass_vouchers"], 1)
+
+    def test_paying_coins_never_touches_a_held_voucher(self):
+        """A voucher is worth a whole season: buying with coins must leave it
+        for the season its holder actually wants it for."""
+        self.make_user(coins=cp.CRITTER_PASS_PRICE, critter_pass_vouchers=3)
+        self.assertTrue(cp.buy(self.db, "u1").get("ok"))
+        self.assertEqual(self.user()["critter_pass_vouchers"], 3)
+
+    def test_the_ledger_records_which_way_it_was_paid(self):
+        self.make_user(coins=0, critter_pass_vouchers=1)
+        cp.buy(self.db, "u1", use_voucher=True)
+        rec = self.db.collection("critter_pass_purchases")._docs[f"u1__{cp.SEASON_ID}"]
+        self.assertEqual(rec["paid_with"], "voucher")
+        self.assertEqual(rec["price"], 0)
+        self.assertEqual(rec["vouchers_before"] - rec["vouchers_after"], 1)
+
+    def test_the_voucher_count_reaches_the_page(self):
+        self.make_user(coins=0, critter_pass_vouchers=4)
+        inv = cp.state_payload("u1")["inventory"]
+        self.assertEqual(inv["vouchers"], 4)
+
+    def test_a_signed_out_payload_reports_no_vouchers(self):
+        self.assertEqual(cp.state_payload(None)["inventory"]["vouchers"], 0)
+
+    def test_a_junk_voucher_count_reads_as_none(self):
+        for junk in (None, "", "three", -2, {}):
+            self.make_user(coins=0, critter_pass_vouchers=junk)
+            self.assertEqual(cp.state_payload("u1")["inventory"]["vouchers"], 0, junk)
+            self.assertEqual(cp.buy(self.db, "u1", use_voucher=True).get("error"),
+                             "no_vouchers", junk)
+
     def test_no_account_cannot_buy(self):
         res = cp.buy(self.db, "ghost")
         self.assertEqual(res.get("error"), "no_account")

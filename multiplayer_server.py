@@ -814,10 +814,15 @@ SUPPORTER_TIERS_BY_CENTS = {
 # ⚠️ These numbers are printed on THREE tier cards, the in-game Store
 # (PHST_SUPPORTER_TIERS in preview-app.js), the marketing site (index.html) and
 # the /thanks confirmation. test_stripe_payments.py fails if they drift apart.
+# `pass_vouchers` is the Critter Pass (Battle Pass) voucher count. One voucher
+# unlocks the Critter Pass for ONE season, whichever season the holder chooses
+# to spend it on, so a voucher kept past Season 1 still buys Season 2. It is a
+# balance on the account (`critter_pass_vouchers`), which is what lets it be
+# traded like Critter Coins: see _trade_clean_offer / _trade_compute_apply.
 SUPPORTER_TIER_GRANTS = {
-    "wave-warrior": {"coins": 7000,  "bonus_xp": 7000,  "unlock_all_backgrounds": False, "icons": []},
-    "ocean-ally":   {"coins": 15000, "bonus_xp": 20000, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png"]},
-    "tide-turner":  {"coins": 30000, "bonus_xp": 35000, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
+    "wave-warrior": {"coins": 7000,  "bonus_xp": 0,     "pass_vouchers": 1, "unlock_all_backgrounds": False, "icons": []},
+    "ocean-ally":   {"coins": 15000, "bonus_xp": 10000, "pass_vouchers": 2, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png"]},
+    "tide-turner":  {"coins": 30000, "bonus_xp": 20000, "pass_vouchers": 5, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
 }
 
 # Player level curve: the CUMULATIVE total_xp required to REACH each level
@@ -914,7 +919,17 @@ def _supporter_tier_grant_updates(tier: Any, stats: Any) -> Tuple[Dict[str, Any]
         stats_update["xp_goal"]          = xp_goal
         stats_update["level_xp_goal"]    = xp_goal
 
+    # Critter Pass vouchers. Counted on the ACCOUNT, not inside `stats`, for the
+    # same reason the pass's own season array is: it is an entitlement balance,
+    # and critter_pass_server.buy() spends it inside its own transaction.
+    # Written as an INCREMENT rather than a computed total because this balance
+    # also moves in trades: a total computed from a stats map read seconds ago
+    # would silently undo a voucher that arrived in between.
+    vouchers = int(grant.get("pass_vouchers") or 0)
+
     updates: Dict[str, Any] = {"stats": stats_update, "supporter_tier": tier}
+    if vouchers:
+        updates["critter_pass_vouchers"] = _fs_increment(vouchers)
     if grant.get("unlock_all_backgrounds"):
         updates["unlocked_backgrounds"] = ArrayUnion(ALL_BACKGROUND_PATHS)
     icons = list(grant.get("icons") or [])

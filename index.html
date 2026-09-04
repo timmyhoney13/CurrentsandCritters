@@ -312,6 +312,19 @@
   .tier .perks li.perk-coins-row::before {
     color: rgba(255, 205, 90, 0.95) !important;
   }
+  /* Season Pass voucher row - the headline perk of every tier now, so it reads
+     in the game's own teal rather than borrowing the coin row's gold. Same two
+     grid slots as .perk-xp-row (main on row 1, note on row 2). */
+  .tier .perks li.perk-pass-row .perk-main {
+    color: rgba(120, 230, 240, 1);
+    font-weight: 700;
+  }
+  .tier .perks li.perk-pass-row::before {
+    color: rgba(120, 230, 240, 0.95) !important;
+  }
+  .tier .perks li.perk-pass-row .perk-xp-note {
+    color: rgba(120, 230, 240, 0.6);
+  }
   /* XP perk row - gold-tinted but subtle; clearly cosmetic, not pay-to-win */
   .tier .perks li.perk-xp-row .perk-main {
     color: rgba(255, 210, 100, 0.92);
@@ -1047,7 +1060,6 @@
         <p class="desc">Support Currents and Critters at the easiest entry level and help launch the first wave.</p>
         <ul class="perks">
           <li><span class="perk-main">Supporter email updates</span></li>
-          <li><span class="perk-main">Online simulation access</span></li>
           <li>
             <span class="perk-main"><strong>Founder Supporter number</strong></span>
           </li>
@@ -1055,12 +1067,12 @@
             <span class="perk-main">Name on the <strong>Supporter Reef Wall</strong></span>
           </li>
           <li><span class="perk-main">Personal thank-you email</span></li>
+          <li class="perk-pass-row">
+            <span class="perk-main"><strong>1 Season Pass voucher</strong></span>
+            <span class="perk-xp-note">Redeem it for the Critter Pass (Battle Pass) on any one season you choose</span>
+          </li>
           <li class="perk-coins-row">
             <span class="perk-main"><strong>7,000 Critter Coins</strong></span>
-          </li>
-          <li class="perk-xp-row">
-            <span class="perk-main">+7,000 bonus XP</span>
-            <span class="perk-xp-note">Cosmetic progression only</span>
           </li>
         </ul>
         <!-- ⚠️ LIVE Stripe Payment Link ($15). The webhook grants the tier by
@@ -1078,7 +1090,6 @@
         <p class="desc">Join the first wave of supporters and help bring Currents and Critters to life.</p>
         <ul class="perks">
           <li><span class="perk-main">Supporter email updates</span></li>
-          <li><span class="perk-main">Online simulation access</span></li>
           <li>
             <span class="perk-main"><strong>Founder Supporter number</strong></span>
           </li>
@@ -1088,11 +1099,15 @@
           <li><span class="perk-main">Personal thank-you email</span></li>
           <li><span class="perk-main">Unlock all backgrounds</span></li>
           <li><span class="perk-main">Exclusive Fish Icon</span></li>
+          <li class="perk-pass-row">
+            <span class="perk-main"><strong>2 Season Pass vouchers</strong></span>
+            <span class="perk-xp-note">Two Critter Passes (Battle Passes), on any two seasons you choose</span>
+          </li>
           <li class="perk-coins-row">
             <span class="perk-main"><strong>15,000 Critter Coins</strong></span>
           </li>
           <li class="perk-xp-row">
-            <span class="perk-main">+20,000 bonus XP</span>
+            <span class="perk-main">+10,000 bonus XP</span>
             <span class="perk-xp-note">Cosmetic progression only</span>
           </li>
         </ul>
@@ -1110,7 +1125,6 @@
         <p class="desc">Help build the reef and get a physical copy of Currents and Critters.</p>
         <ul class="perks">
           <li><span class="perk-main">Supporter email updates</span></li>
-          <li><span class="perk-main">Online simulation access</span></li>
           <li>
             <span class="perk-main"><strong>Founder Supporter number</strong></span>
           </li>
@@ -1123,11 +1137,15 @@
           <li><span class="perk-main">Free physical copy of Currents and Critters</span></li>
           <li><span class="perk-main">Thank-you postcard</span></li>
           <li><span class="perk-main">Exclusive Amberjack player icon</span></li>
+          <li class="perk-pass-row">
+            <span class="perk-main"><strong>5 Season Pass vouchers</strong></span>
+            <span class="perk-xp-note">Five Critter Passes (Battle Passes), on any five seasons you choose</span>
+          </li>
           <li class="perk-coins-row">
             <span class="perk-main"><strong>30,000 Critter Coins</strong></span>
           </li>
           <li class="perk-xp-row">
-            <span class="perk-main">+35,000 bonus XP</span>
+            <span class="perk-main">+20,000 bonus XP</span>
             <span class="perk-xp-note">Cosmetic progression only</span>
           </li>
         </ul>

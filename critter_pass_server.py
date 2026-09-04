@@ -539,6 +539,18 @@ def _owns_pass(doc: Dict[str, Any]) -> bool:
     return False
 
 
+def _vouchers_of(doc: Dict[str, Any]) -> int:
+    """How many Critter Pass vouchers this account is holding.
+
+    A voucher is the paid-tier way onto this track: one of them unlocks the
+    pass for ONE season, whichever season its holder decides to spend it on, so
+    a voucher kept past Season 1 still opens Season 2. It is a plain count on
+    the account document (`critter_pass_vouchers`) rather than a per-season
+    entitlement precisely so it can be held, saved, and traded away like any
+    other balance."""
+    return max(0, _int(doc.get("critter_pass_vouchers")))
+
+
 def _str_list(value: Any, pattern: "re.Pattern[str]") -> List[str]:
     """Normalise a Firestore array of asset paths, dropping anything that is not
     a well-formed path. A junk entry must never make the "first thing you don't
@@ -607,6 +619,9 @@ def _inventory(doc: Dict[str, Any]) -> Dict[str, Any]:
         # ask the browser for nine daily challenges.
         "extraDaily": max(0, min(MAX_EXTRA_DAILY, _int(doc.get("bonus_daily_slots")))),
         "extraWeekly": max(0, min(MAX_EXTRA_WEEKLY, _int(doc.get("bonus_weekly_slots")))),
+        # Season Pass vouchers in hand. The purchase card reads this to decide
+        # whether it offers "Redeem Season Pass Voucher" or the coin price.
+        "vouchers": _vouchers_of(doc),
     }
 
 
@@ -673,7 +688,7 @@ def state_payload(uid: Optional[str]) -> Dict[str, Any]:
         "inventory": {"shields": 0, "boosts": 0, "rerolls": 0, "boostUntil": 0,
                       "boostActive": False, "boostPercent": BOOST_PERCENT,
                       "rerollWeek": 0, "coins": 0,
-                      "extraDaily": 0, "extraWeekly": 0},
+                      "extraDaily": 0, "extraWeekly": 0, "vouchers": 0},
     }
     if not uid:
         return out
@@ -703,13 +718,19 @@ def state_payload(uid: Optional[str]) -> Dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════
 #  BUY
 # ═══════════════════════════════════════════════════════════════════════════
-def buy(db, uid: str) -> Dict[str, Any]:
-    """Charge CRITTER_PASS_PRICE Critter Coins and switch the track on.
+def buy(db, uid: str, use_voucher: bool = False) -> Dict[str, Any]:
+    """Unlock the track: either for CRITTER_PASS_PRICE Critter Coins, or for one
+    Season Pass voucher.
 
-    The balance is RE-READ inside the transaction, so a client that thinks it
-    has 4,000 coins and does not gets refused rather than credited. The purchase
-    ledger is create()d in the same transaction, which is what makes two tabs
-    double-tapping "Unlock" end with one charge and one loser."""
+    The balance (coins or vouchers) is RE-READ inside the transaction, so a
+    client that thinks it can pay and cannot gets refused rather than credited.
+    The purchase ledger is create()d in the same transaction, which is what
+    makes two tabs double-tapping "Unlock" end with one charge and one loser.
+
+    A voucher is spent the same way coins are, and against the SAME once-per-
+    season ledger, so the two ways in can never both fire for one season. Which
+    one was used is recorded on the purchase (`paid_with`) because they are
+    worth different things to a refund."""
     if not _SAFE_ID.match(str(uid or "")):
         return {"ok": False, "error": "bad_request"}
     transactional = _transactional()
@@ -731,11 +752,36 @@ def buy(db, uid: str) -> Dict[str, Any]:
             # player HAS the pass) and refuse rather than charge a second time.
             return {"ok": False, "error": "already_owned"}
         have = max(0, _int(_stats_of(doc).get("critter_coins")))
+        vouchers = _vouchers_of(doc)
+        now = time.time()
+        if use_voucher:
+            if vouchers < 1:
+                return {"ok": False, "error": "no_vouchers"}
+            after_v = vouchers - 1
+            t.set(user_ref, {
+                "critter_pass_vouchers": after_v,
+                "critter_pass_seasons": _array_union()([SEASON_ID]),
+            }, merge=True)
+            t.create(buy_ref, {
+                "uid": uid,
+                "season": SEASON_ID,
+                "price": 0,
+                "paid_with": "voucher",
+                "vouchers_before": vouchers,
+                "vouchers_after": after_v,
+                "coins_before": have,
+                "coins_after": have,
+                "username": str(doc.get("nickname") or doc.get("username") or ""),
+                "at": now,
+                "at_iso": _iso(now),
+            })
+            return {"ok": True, "season": SEASON_ID, "paid": 0,
+                    "paidWith": "voucher", "coins": have, "vouchers": after_v}
         if have < CRITTER_PASS_PRICE:
             return {"ok": False, "error": "not_enough_coins",
-                    "have": have, "need": CRITTER_PASS_PRICE}
+                    "have": have, "need": CRITTER_PASS_PRICE,
+                    "vouchers": vouchers}
         after = have - CRITTER_PASS_PRICE
-        now = time.time()
         t.set(user_ref, {
             # merge=True, so the coin write never clobbers the rest of `stats`.
             "stats": {"critter_coins": after},
@@ -745,6 +791,7 @@ def buy(db, uid: str) -> Dict[str, Any]:
             "uid": uid,
             "season": SEASON_ID,
             "price": CRITTER_PASS_PRICE,
+            "paid_with": "coins",
             "coins_before": have,
             "coins_after": after,
             "username": str(doc.get("nickname") or doc.get("username") or ""),
@@ -752,7 +799,7 @@ def buy(db, uid: str) -> Dict[str, Any]:
             "at_iso": _iso(now),
         })
         return {"ok": True, "season": SEASON_ID, "paid": CRITTER_PASS_PRICE,
-                "coins": after}
+                "paidWith": "coins", "coins": after, "vouchers": vouchers}
 
     try:
         return _run(txn)
@@ -1040,6 +1087,7 @@ ERROR_MESSAGES = {
     "already_owned": "You already own the Critter Pass.",
     "not_owned": f"Unlock the Critter Pass first ({CRITTER_PASS_PRICE:,} Critter Coins).",
     "not_enough_coins": f"You need {CRITTER_PASS_PRICE:,} Critter Coins to unlock the Critter Pass.",
+    "no_vouchers": "You don't have a Season Pass voucher to redeem.",
     "level_locked": "You haven't reached that level yet.",
     "shields_full": "Your Streak Shields are full: spend one first.",
     "boosts_full": "You're holding as many XP Boosts as you can: use one first.",
@@ -1066,7 +1114,8 @@ def _auth_uid(body: Dict[str, Any]) -> Optional[str]:
 
 def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
     """POST /api/critterpass/state       the track + this account's progress
-       POST /api/critterpass/buy         unlock the pass for CRITTER_PASS_PRICE
+       POST /api/critterpass/buy         unlock the pass for CRITTER_PASS_PRICE,
+                                         or for one voucher with { voucher:true }
        POST /api/critterpass/claim       claim one tier   { tier }
        POST /api/critterpass/claim-all   claim everything unlocked
     """
@@ -1091,7 +1140,7 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
         return True
 
     if action == "buy":
-        res = buy(db, uid)
+        res = buy(db, uid, use_voucher=bool(body.get("voucher")))
         if res.get("ok"):
             state = state_payload(uid)
             res["inventory"] = state.get("inventory")

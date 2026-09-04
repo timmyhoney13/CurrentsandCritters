@@ -96,6 +96,7 @@
     already_owned: "You already own the Critter Pass.",
     not_owned: "Unlock the Critter Pass first.",
     not_enough_coins: "You don't have enough Critter Coins yet.",
+    no_vouchers: "You don't have a Season Pass voucher to redeem.",
     level_locked: "You haven't reached that level yet.",
     shields_full: "Your Streak Shields are full: spend one first.",
     boosts_full: "You're holding as many XP Boosts as you can: use one first.",
@@ -403,6 +404,7 @@
     const price = num(_state && _state.price, 4000);
     const coins = num(inventory().coins);
     const short = Math.max(0, price - coins);
+    const vouchers = num(inventory().vouchers);
     const guest = isGuestView();
     const signedIn = !!(_state && _state.signedIn);
     const finale = String((_state && _state.finaleAvatarName) || "the finale critter");
@@ -442,6 +444,17 @@
     let action;
     if (guest || !signedIn) {
       action = `<div class="ccCP-buy-note">The Critter Pass is bought and kept on an account. Make one (it's free) and it comes with you.</div>`;
+    } else if (vouchers > 0) {
+      // A Season Pass voucher is the Supporter Tier way in. It costs no coins,
+      // and it is spendable on ANY season, so the button says redeem and the
+      // note says what redeeming here actually uses up.
+      action = `
+        <button class="ccCP-buy" type="button" id="ccCP-buy">
+          🎟️ Redeem Season Pass Voucher
+        </button>
+        <div class="ccCP-buy-note">You have <b>${fmt(vouchers)}</b> Season Pass voucher${vouchers === 1 ? "" : "s"}.
+          Redeeming here spends one on <b>${esc((_state && _state.seasonName) || "this season")}</b>${vouchers > 1 ? ", and the rest keep for a future season" : ""}.
+          No Critter Coins needed.</div>`;
     } else if (short > 0) {
       action = `
         <button class="ccCP-buy" type="button" id="ccCP-buy" disabled>
@@ -466,7 +479,9 @@
               One payment, ${esc(everyLevel
                 ? `a reward on every one of the ${fmt(tierCount)} levels`
                 : `${fmt(tierCount)} rewards`)}, and every level you have already
-              earned counts. Spend ${fmt(price)} and the track pays back
+              earned counts. ${vouchers > 0
+                ? `Your voucher covers it`
+                : `Spend ${fmt(price)}`} and the track pays back
               <b>${fmt(num(_state && _state.coinTotal))}</b> Critter Coins alone.
             </p>
           </div>
@@ -517,6 +532,7 @@
     const eD = num(inv.extraDaily), eW = num(inv.extraWeekly);
     const maxD = num(_state && _state.extraDailyMax, 3);
     const maxW = num(_state && _state.extraWeeklyMax, 3);
+    const vouchers = num(inv.vouchers);
 
     return `
       <div class="ccCP-head">
@@ -549,6 +565,12 @@
             <span class="ccCP-chip-ico">🗝️</span>
             <span class="ccCP-chip-txt"><b>+${eW} Weekly Challenge${eW === 1 ? "" : "s"}</b><span>${eW} of ${maxW} unlocked</span></span>
           </div>
+          ${vouchers > 0 ? `
+          <div class="ccCP-chip">
+            <span class="ccCP-chip-ico">🎟️</span>
+            <span class="ccCP-chip-txt"><b>${fmt(vouchers)} Season Pass Voucher${vouchers === 1 ? "" : "s"}</b><span>${owned()
+              ? "spendable on a future season, or tradable" : "redeem one for this season"}</span></span>
+          </div>` : ""}
         </div>
       </div>`;
   }
@@ -617,6 +639,11 @@
   async function buyPass() {
     if (_buying) return;
     const price = num(_state && _state.price, 4000);
+    const vouchers = num(inventory().vouchers);
+    // A voucher holder never sees the coin price: redeeming spends a thing they
+    // were given, not a balance they saved, so the dialog says so and the POST
+    // carries voucher:true (the server refuses if the balance is really zero).
+    if (vouchers > 0) return redeemVoucher(vouchers);
     // Ask first. This is the biggest single spend in the game, and a mis-tap
     // that empties a wallet is not something a toast can undo.
     //
@@ -656,6 +683,44 @@
       // "Already owned" means this tab was stale: resync so the card stops
       // offering something the account already has.
       if (res && res.error === "already_owned") await sync();
+    }
+    render();
+  }
+
+  // Redeem one Season Pass voucher for THIS season. Kept separate from the coin
+  // purchase so neither dialog can ever quote the other's cost.
+  async function redeemVoucher(vouchers) {
+    const season = String((_state && _state.seasonName) || "this season");
+    let answer = null;
+    try { answer = bridge().modal ? await bridge().modal({
+      icon: "🎟️",
+      title: "Redeem a Season Pass voucher?",
+      body: `This spends 1 of your ${fmt(vouchers)} voucher${vouchers === 1 ? "" : "s"} `
+          + `on ${season} and unlocks the Critter Pass straight away. `
+          + `${vouchers > 1 ? `The other ${fmt(vouchers - 1)} keep for a future season. ` : ""}`
+          + `No Critter Coins are spent.`,
+      actions: [
+        { key: "cancel", label: "Not yet" },
+        { key: "confirm", label: "Redeem voucher", primary: true },
+      ],
+    }) : null; } catch (_) { answer = null; }
+    const go = (answer && typeof answer === "object")
+      ? answer.action === "confirm"
+      : window.confirm(`Redeem a Season Pass voucher for ${season}?`);
+    if (!go) return;
+
+    _buying = true;
+    const btn = $("ccCP-buy");
+    if (btn) { btn.disabled = true; btn.textContent = "Redeeming…"; }
+    const res = await post("buy", { voucher: true });
+    _buying = false;
+    if (res && res.ok) {
+      toast("🎟️ Voucher redeemed. The Critter Pass is unlocked, and everything you have already earned is waiting on the track.", "good");
+      await sync();
+      afterGrant();
+    } else {
+      toast(msgFor(res), "warn");
+      if (res && (res.error === "already_owned" || res.error === "no_vouchers")) await sync();
     }
     render();
   }

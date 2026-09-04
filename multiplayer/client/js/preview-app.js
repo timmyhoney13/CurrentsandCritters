@@ -109,6 +109,18 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F Supporter Tiers now come with Season Pass vouchers", items: [
+      "Every Supporter Tier now hands you Season Pass vouchers, and one voucher unlocks the Critter Pass outright. Wave Warrior gets 1, Ocean Ally 2, and Tide Turner 5.",
+      "A voucher is not tied to a season. Redeem it whenever you like: hold one through Season 1 and it still opens Season 2. On the Critter Pass tab the Unlock button becomes \u201cRedeem Season Pass Voucher\u201d while you are holding one, and it costs you no Critter Coins at all.",
+      "Vouchers are tradable. They sit in the trade screen next to Critter Coins under a Season Passes tab, so you can hand a spare one to a friend the same way you would hand over coins.",
+      "The bonus XP on the tiers moved with them: Ocean Ally is now 10,000 bonus XP and Tide Turner 20,000. Wave Warrior trades its XP for its voucher. \u201cOnline simulation access\u201d is gone from all three, because the online game is free and always has been, so it was never a perk.",
+      "If you already bought a tier, nothing is taken back. What you were credited at the time stays in your account.",
+    ]},
+    { ver: "V1.7.1", title: "\uD83D\uDD04 Trading opens properly again", items: [
+      "Opening a trade could fail on the server and tell you only \u201cSomething went wrong with the trade\u201d, after which tapping Add item answered \u201cOpen a trade first\u201d, which was the thing you had just done. There was no way forward from that screen.",
+      "Now a trade that will not open says why, in words, and gives you a Try again button. Opening a trade also no longer depends on anything that can fail that way: it moves nothing, so it is written the simple way if the safe way is unavailable. The swap itself is still one all-or-nothing transaction and always will be.",
+      "Add item is properly switched off until a trade really is open, instead of looking ready on a trade that does not exist.",
+    ]},
     { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F The Critter Pass is here", items: [
       "A new tab under Level Pass: the Critter Pass, a paid reward track laid over the same levels 1\u2013100 you are already climbing. It costs 4,000 Critter Coins once, and then EVERY level pays you something: 100 tiers, 100 levels, nothing skipped. Across the track that is 8,500 Critter Coins and 23,750 XP.",
       "Every XP drop on the track got bigger: 25 XP per level instead of 20, so the drop at Level 95 is now 2,375 and the whole track pays 23,750 XP.",
@@ -28883,11 +28895,10 @@
           link: "https://buy.stripe.com/cNi6oI3sbfwggIV7ouds404",
           perks: [
             "Supporter email updates",
-            "Online simulation access (free now, and free for you when it becomes paid)",
             "Founder Supporter number",
             "Name on the Supporter Reef Wall",
             "Personal thank-you email",
-            "+7,000 bonus XP",
+            "1 Season Pass voucher: redeem it for the Critter Pass (Battle Pass) on any one season you choose",
           ],
           note: "Cosmetic progression only",
         },
@@ -28896,13 +28907,13 @@
           link: "https://buy.stripe.com/5kQcN6geX83O2S5gZ4ds405",
           perks: [
             "Supporter email updates",
-            "Online simulation access",
             "Founder Supporter number",
             "Name on the Supporter Reef Wall",
             "Personal thank-you email",
             "Unlock all backgrounds",
             "Exclusive Fish Icon",
-            "+20,000 bonus XP",
+            "2 Season Pass vouchers: two Critter Passes (Battle Passes), on any two seasons you choose",
+            "+10,000 bonus XP",
           ],
           note: "Cosmetic progression only",
         },
@@ -28911,7 +28922,6 @@
           link: "https://buy.stripe.com/00wfZi6EnfwgcsFcIOds406",
           perks: [
             "Supporter email updates",
-            "Online simulation access",
             "Founder Supporter number",
             "Name on the Supporter Reef Wall",
             "Personal thank-you email",
@@ -28920,7 +28930,8 @@
             "Free physical copy of Currents and Critters",
             "Thank-you postcard",
             "Exclusive Amberjack player icon",
-            "+35,000 bonus XP",
+            "5 Season Pass vouchers: five Critter Passes (Battle Passes), on any five seasons you choose",
+            "+20,000 bonus XP",
           ],
           note: "Cosmetic progression only",
         },
