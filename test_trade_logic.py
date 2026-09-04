@@ -7,6 +7,7 @@ reset, and every mixed combination of avatars / backgrounds / coins.
 Run:  python3 test_trade_logic.py
 """
 import importlib.util
+import io
 import os
 import sys
 
@@ -40,11 +41,13 @@ def check(name, cond):
         print(f"  ✗ FAIL: {name}")
 
 
-def user(avatars=(), backgrounds=(), coins=0, avatar_url="", background_url=""):
+def user(avatars=(), backgrounds=(), coins=0, avatar_url="", background_url="",
+         passes=0):
     return {
         "unlocked_icons": list(avatars),
         "unlocked_backgrounds": list(backgrounds),
         "stats": {"critter_coins": coins},
+        "critter_pass_vouchers": passes,
         "avatar_url": avatar_url,
         "background_url": background_url,
     }
@@ -63,8 +66,9 @@ def trade(a, b, offer_a, offer_b, version=2, status="open"):
     }
 
 
-def offer(coins=0, avatars=(), backgrounds=()):
-    return {"coins": coins, "avatars": list(avatars), "backgrounds": list(backgrounds)}
+def offer(coins=0, avatars=(), backgrounds=(), passes=0):
+    return {"coins": coins, "passes": passes,
+            "avatars": list(avatars), "backgrounds": list(backgrounds)}
 
 
 print("clean_offer:")
@@ -256,6 +260,126 @@ err10, ch10 = M._trade_compute_apply(t10,
 check("no error", err10 == "")
 check("only the valid new entry survives",
       len(ch10[A]["traded_away"]) == 1 and ch10[A]["traded_away"][0]["item"] == PUFFIN)
+
+# ══════════════════════════════════════════════════════════════════════════
+#  SEASON PASS VOUCHERS
+#  A count on the account, not a path, so it behaves like a second currency:
+#  validated against the giver's live balance, moved by arithmetic, and with no
+#  "the receiver already owns one" rule (holding several is the point).
+# ══════════════════════════════════════════════════════════════════════════
+print("clean_offer: Season Pass vouchers:")
+check("coerces the count to int", M._trade_clean_offer({"passes": "3"})["passes"] == 3)
+check("a missing count is zero", M._trade_clean_offer({})["passes"] == 0)
+check("junk reads as zero", M._trade_clean_offer({"passes": "lots"})["passes"] == 0)
+check("negative clamps to 0", M._trade_clean_offer({"passes": -4})["passes"] == 0)
+check("caps at the ceiling",
+      M._trade_clean_offer({"passes": 10 ** 9})["passes"] == M.TRADE_MAX_PASSES)
+
+print("assets: Season Pass vouchers:")
+check("reads the account balance", M._trade_assets(user(passes=7))["passes"] == 7)
+check("a missing field is zero", M._trade_assets({})["passes"] == 0)
+check("junk is zero", M._trade_assets({"critter_pass_vouchers": "x"})["passes"] == 0)
+check("a negative balance floors at zero",
+      M._trade_assets({"critter_pass_vouchers": -3})["passes"] == 0)
+
+print("validate_side: Season Pass vouchers:")
+holder = M._trade_assets(user(passes=2))
+empty = M._trade_assets(user())
+check("giving what you hold is fine",
+      M._trade_validate_side(offer(passes=2), holder, empty) == "")
+check("one more than you hold is refused",
+      M._trade_validate_side(offer(passes=3), holder, empty) == "not_enough_passes")
+check("holding none refuses any",
+      M._trade_validate_side(offer(passes=1), empty, holder) == "not_enough_passes")
+check("a receiver who already holds vouchers is NOT a duplicate",
+      M._trade_validate_side(offer(passes=1), holder, holder) == "")
+
+print("compute_apply: vouchers move both ways:")
+tv = trade(A, B, None, None)
+tv["offers"] = {A: offer(passes=2), B: offer(coins=100)}
+dA = user(passes=3, coins=0)
+dB = user(passes=1, coins=100)
+first, second = tv["participants"]
+errv, chv = M._trade_compute_apply(tv,
+                                   dA if first == A else dB,
+                                   dB if second == B else dA)
+check("no error", errv == "")
+check("giver's voucher count drops", chv[A]["critter_pass_vouchers"] == 1)
+check("receiver's voucher count climbs", chv[B]["critter_pass_vouchers"] == 3)
+check("coins still move alongside", chv[A]["critter_coins"] == 100 and chv[B]["critter_coins"] == 0)
+
+print("compute_apply: a voucher you do not have stops the whole trade:")
+tv2 = trade(A, B, None, None)
+tv2["offers"] = {A: offer(passes=1), B: offer(coins=50)}
+dA2 = user(passes=0)
+dB2 = user(coins=50)
+errv2, chv2 = M._trade_compute_apply(tv2,
+                                     dA2 if tv2["participants"][0] == A else dB2,
+                                     dB2 if tv2["participants"][1] == B else dA2)
+check("refused", errv2 == "not_enough_passes")
+check("nothing computed", chv2 is None)
+
+print("compute_apply: a voucher is a consumable, not a re-earnable unlock:")
+tv3 = trade(A, B, None, None)
+tv3["offers"] = {A: offer(passes=1), B: offer()}
+dA3 = user(passes=1, coins=0)
+errv3, chv3 = M._trade_compute_apply(tv3,
+                                     dA3 if tv3["participants"][0] == A else user(),
+                                     user() if tv3["participants"][1] == B else dA3)
+check("no error", errv3 == "")
+check("giving a voucher writes no traded_away entry", chv3[A]["traded_away"] == [])
+
+print("summary text names the vouchers:")
+tv4 = trade(A, B, offer(passes=2), offer())
+check("plural", "2 Critter Pass vouchers" in M._trade_summary_text(tv4))
+tv5 = trade(A, B, offer(passes=1), offer())
+check("singular", "1 Critter Pass voucher" in M._trade_summary_text(tv5)
+      and "vouchers" not in M._trade_summary_text(tv5))
+
+print("a peer id that could not be a Firestore document id is refused up front:")
+check("a plain uid is fine", M._trade_uid_ok("AbC123_-.@") is True)
+check("a slash is not", M._trade_uid_ok("a/b") is False)
+check("empty is not", M._trade_uid_ok("") is False)
+check("whitespace is not", M._trade_uid_ok("   ") is False)
+check("a reserved __x__ id is not", M._trade_uid_ok("__proto__") is False)
+check("1500 bytes of id is not", M._trade_uid_ok("a" * 400) is False)
+
+# ══════════════════════════════════════════════════════════════════════════
+#  EVERY SERVER ERROR CODE HAS A SENTENCE IN THE BROWSER
+#  This is the test the reported bug needed. A real, nameable server failure
+#  ("open_failed") had no entry in the client's map, so it reached the player as
+#  the generic fallback "Something went wrong with the trade" and left them with
+#  nothing to do about it. A new code with no sentence must fail here instead.
+# ══════════════════════════════════════════════════════════════════════════
+print("every trade error code the server can send is spelled out in the client:")
+import inspect  # noqa: E402
+import re as _re  # noqa: E402
+
+_src = "".join(inspect.getsource(fn) for fn in (
+    M._trade_get_state, M._trade_open, M._trade_set_offer,
+    M._trade_confirm, M._trade_cancel, M._trade_validate_side,
+    M._trade_compute_apply,
+))
+_codes = set(_re.findall(r'"error":\s*"([a-z_]+)"', _src))
+_codes |= set(_re.findall(r'"__err__":\s*"([a-z_]+)"', _src))    # the in-transaction refusals
+_codes |= set(_re.findall(r'return "([a-z_]+)"', _src))          # _trade_validate_side
+_codes |= set(_re.findall(r'return \("([a-z_]+)", None\)', _src))  # _trade_compute_apply
+# _trade_failure builds these from the action name.
+_codes |= {f"{a}_failed" for a in ("get", "open", "offer", "confirm", "cancel")}
+# The dispatcher's own refusals, and the ones the browser makes up for itself.
+_codes |= {"unauthorized", "unknown_action", "network", "bad_response", "auth"}
+_codes.discard("")
+
+_client = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "multiplayer", "client", "js", "preview-app.js"),
+                  encoding="utf-8").read()
+_start = _client.index("function _trErrText(")
+_map = _client[_start:_client.index("return m[code]", _start)]
+# Anchored, so a near-miss key ("xopen_failed") cannot satisfy "open_failed".
+_missing = sorted(c for c in _codes
+                  if not _re.search(r"(?<![A-Za-z0-9_])" + c + r"\s*:", _map))
+check("no unmapped code (would print the generic sentence): " + (", ".join(_missing) or "none"),
+      not _missing)
 
 print(f"\n{_PASS} passed, {_FAIL} failed")
 sys.exit(1 if _FAIL else 0)

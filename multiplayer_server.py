@@ -2139,6 +2139,12 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
 
 TRADE_MAX_ITEMS_PER_SIDE = 12          # avatars + backgrounds cap per side
 TRADE_MAX_COINS = 100_000_000          # sanity ceiling on a single offer
+# Critter Pass (Battle Pass) vouchers are tradable too. They are a COUNT on the
+# account (`critter_pass_vouchers`), not a path, so they behave like coins in
+# every part of this file: validated against the giver's live balance, moved by
+# arithmetic, and never checked against "does the receiver already own one"
+# (you can hold several, one per season you mean to unlock).
+TRADE_MAX_PASSES = 1000                # sanity ceiling on one side's vouchers
 
 # ── Re-earn after trading an item AWAY ──────────────────────────────────────
 # Handing an item over does NOT undo the progress that unlocked it: lifetime
@@ -2479,9 +2485,47 @@ def _admin_grant(who: str, coins: Any = 0, xp: Any = 0,
                        "level": lvl, "xp_current": xp_cur, "xp_goal": xp_goal}}
 
 
+# A uid we are willing to build a Firestore document id out of. Firestore
+# refuses an id containing "/", one over 1500 bytes, and one of the form
+# __…__; a request carrying any of those used to travel all the way into the
+# transaction and come back as a bare "open_failed", which the browser could
+# only render as "Something went wrong with the trade". Checking the shape here
+# turns that into an honest "couldn't start a trade with that player".
+_TRADE_UID_OK = re.compile(r"^[A-Za-z0-9_.@:+-]{1,180}$")
+
+
+def _trade_uid_ok(uid: Any) -> bool:
+    u = str(uid or "").strip()
+    return bool(u) and bool(_TRADE_UID_OK.match(u)) and not (u.startswith("__") and u.endswith("__"))
+
+
 def _trade_id_for(uid_a: str, uid_b: str) -> str:
     """Deterministic id for the (only) active trade between two accounts."""
     return "__".join(sorted([str(uid_a or ""), str(uid_b or "")]))
+
+
+def _trade_doc(db, tid: str):
+    """The trades/{tid} reference. Split out so every caller can build it INSIDE
+    its own try: naming a document is a call that can fail (a dead client, an id
+    the backend refuses), and an unguarded failure here answered the browser
+    with a dropped connection rather than a reason."""
+    return db.collection("trades").document(tid)
+
+
+def _trade_failure(action: str, exc: BaseException) -> Dict[str, Any]:
+    """One shape for every trade action that dies inside Firestore.
+
+    `detail` is the point of this: a trade that fails on the server used to
+    reach the player as the generic fallback sentence, with the real reason
+    only ever printed into a log nobody can read from a phone. It carries the
+    exception TYPE and a truncated message, which is enough to tell a quota
+    from a permission from a bad document id, and nothing that isn't already
+    visible to the account making the request."""
+    import traceback
+    print(f"[trade] {action} failed: {type(exc).__name__}: {exc}\n"
+          f"{traceback.format_exc(limit=6)}")
+    detail = f"{type(exc).__name__}: {exc}".strip()
+    return {"ok": False, "error": f"{action}_failed", "detail": detail[:300]}
 
 
 def _trade_clean_offer(raw: Any) -> Dict[str, Any]:
@@ -2507,7 +2551,14 @@ def _trade_clean_offer(raw: Any) -> Dict[str, Any]:
                     out.append(s)
         return out[:TRADE_MAX_ITEMS_PER_SIDE]
 
+    try:
+        passes = int(raw.get("passes") or 0)
+    except (TypeError, ValueError):
+        passes = 0
+    passes = max(0, min(TRADE_MAX_PASSES, passes))
+
     return {"coins": coins,
+            "passes": passes,
             "avatars": _paths("avatars", "/avatars/"),
             "backgrounds": _paths("backgrounds", "/backgrounds/")}
 
@@ -2533,9 +2584,14 @@ def _trade_assets(doc: Any) -> Dict[str, Any]:
         coins = int(stats.get("critter_coins") or 0)
     except (TypeError, ValueError):
         coins = 0
+    try:
+        passes = int(doc.get("critter_pass_vouchers") or 0)
+    except (TypeError, ValueError):
+        passes = 0
     return {"avatars": _norm(doc.get("unlocked_icons"), "/avatars/"),
             "backgrounds": _norm(doc.get("unlocked_backgrounds"), "/backgrounds/"),
-            "coins": max(0, coins)}
+            "coins": max(0, coins),
+            "passes": max(0, passes)}
 
 
 def _trade_validate_side(offer: Dict[str, Any], giver: Dict[str, Any],
@@ -2548,6 +2604,11 @@ def _trade_validate_side(offer: Dict[str, Any], giver: Dict[str, Any],
         return "negative_coins"
     if coins > giver["coins"]:
         return "not_enough_coins"
+    passes = offer.get("passes", 0)
+    if not isinstance(passes, int) or passes < 0:
+        return "negative_passes"
+    if passes > giver.get("passes", 0):
+        return "not_enough_passes"
     for a in offer.get("avatars", []):
         if a not in giver["avatars"]:
             return "avatar_not_owned"
@@ -2562,7 +2623,7 @@ def _trade_validate_side(offer: Dict[str, Any], giver: Dict[str, Any],
 
 
 def _trade_default_offer() -> Dict[str, Any]:
-    return {"coins": 0, "avatars": [], "backgrounds": []}
+    return {"coins": 0, "passes": 0, "avatars": [], "backgrounds": []}
 
 
 def _trade_public(trade: Dict[str, Any]) -> Dict[str, Any]:
@@ -2599,7 +2660,8 @@ def _trade_compute_apply(trade: Dict[str, Any], doc_a: Dict[str, Any],
 
     Returns (error, changes) where changes = { uid: {
         "unlocked_icons": [...], "unlocked_backgrounds": [...],
-        "critter_coins": int, "traded_away": [...],
+        "critter_coins": int, "critter_pass_vouchers": int,
+        "traded_away": [...],
         "avatar_url"?: str, "background_url"?: str } }."""
     parts = trade.get("participants") or []
     if len(parts) != 2:
@@ -2630,10 +2692,18 @@ def _trade_compute_apply(trade: Dict[str, Any], doc_a: Dict[str, Any],
         new_coins = assets["coins"] - int(give["coins"]) + int(recv["coins"])
         if new_coins < 0:
             return None
+        # Critter Pass vouchers move exactly like coins: a count out, a count in.
+        # There is no "already owns one" rule, holding several is the point (one
+        # per season you mean to unlock).
+        new_passes = (assets.get("passes", 0) - int(give.get("passes", 0))
+                      + int(recv.get("passes", 0)))
+        if new_passes < 0:
+            return None
         change = {
             "unlocked_icons": sorted(new_av),
             "unlocked_backgrounds": sorted(new_bg),
             "critter_coins": int(new_coins),
+            "critter_pass_vouchers": int(new_passes),
             # Progress snapshot per item handed over, so the unlock requirement
             # has to be met all over again before an automatic grant returns it.
             "traded_away": _trade_away_after(doc, removed_av | removed_bg,
@@ -2736,6 +2806,9 @@ def _trade_summary_text(trade: Dict[str, Any]) -> str:
         bits = []
         if o["coins"]:
             bits.append(f"{o['coins']:,} Critter Coins")
+        if o.get("passes"):
+            k = int(o["passes"])
+            bits.append(f"{k} Critter Pass voucher" + ("s" if k != 1 else ""))
         n = len(o["avatars"]); m = len(o["backgrounds"])
         if n:
             bits.append(f"{n} avatar" + ("s" if n != 1 else ""))
@@ -2755,8 +2828,13 @@ def _trade_get_state(uid: str, peer_uid: str) -> Dict[str, Any]:
     db = _get_firestore()
     if db is None:
         return {"ok": False, "error": "firestore_unavailable"}
+    if not _trade_uid_ok(uid) or not _trade_uid_ok(peer_uid):
+        return {"ok": False, "error": "bad_peer"}
     tid = _trade_id_for(uid, peer_uid)
-    snap = db.collection("trades").document(tid).get()
+    try:
+        snap = _trade_doc(db, tid).get()
+    except Exception as exc:  # noqa: BLE001
+        return _trade_failure("get", exc)
     if not snap.exists:
         return {"ok": True, "state": None}
     trade = snap.to_dict() or {}
@@ -2776,6 +2854,10 @@ def _trade_open(uid: str, uid_name: str, peer_uid: str, peer_name: str) -> Dict[
     peer_uid = str(peer_uid or "").strip()
     if not peer_uid or peer_uid == uid:
         return {"ok": False, "error": "bad_peer"}
+    # Both ids have to be usable as one half of a Firestore document id BEFORE
+    # anything is written, or a malformed peer comes back as a mystery failure.
+    if not _trade_uid_ok(uid) or not _trade_uid_ok(peer_uid):
+        return {"ok": False, "error": "bad_peer"}
     from firebase_admin import firestore
     transactional = getattr(firestore, "transactional", None)
     if transactional is None:
@@ -2785,23 +2867,14 @@ def _trade_open(uid: str, uid_name: str, peer_uid: str, peer_name: str) -> Dict[
     tid = _trade_id_for(uid, peer_uid)
     parts = sorted([uid, peer_uid])
     names = {uid: safe_name(uid_name, "Player"), peer_uid: safe_name(peer_name, "Player")}
-    trade_ref = db.collection("trades").document(tid)
-    transaction = db.transaction()
+    try:
+        trade_ref = _trade_doc(db, tid)
+    except Exception as exc:  # noqa: BLE001
+        return _trade_failure("open", exc)
     created = {"new": False}
 
-    @transactional
-    def _apply(txn) -> Dict[str, Any]:
-        snap = trade_ref.get(transaction=txn)
-        cur = snap.to_dict() if snap.exists else None
-        if cur and cur.get("status") == "open":
-            # Resume, just refresh display names in case someone renamed.
-            merged_names = dict(cur.get("names") or {})
-            merged_names.update(names)
-            cur["names"] = merged_names
-            txn.set(trade_ref, {"names": merged_names,
-                                "updated_ts": SERVER_TIMESTAMP}, merge=True)
-            return cur
-        fresh = {
+    def _fresh() -> Dict[str, Any]:
+        return {
             "tradeId": tid,
             "conv_id": tid,
             "participants": parts,
@@ -2817,15 +2890,61 @@ def _trade_open(uid: str, uid_name: str, peer_uid: str, peer_name: str) -> Dict[
             "created_ts": SERVER_TIMESTAMP,
             "updated_ts": SERVER_TIMESTAMP,
         }
+
+    def _resume(cur: Dict[str, Any]) -> Dict[str, Any]:
+        """The names half of a resume, shared by both paths below."""
+        merged_names = dict(cur.get("names") or {})
+        merged_names.update(names)
+        cur["names"] = merged_names
+        return {"names": merged_names, "updated_ts": SERVER_TIMESTAMP}
+
+    @transactional
+    def _apply(txn) -> Dict[str, Any]:
+        snap = trade_ref.get(transaction=txn)
+        cur = snap.to_dict() if snap.exists else None
+        if cur and cur.get("status") == "open":
+            # Resume, just refresh display names in case someone renamed.
+            txn.set(trade_ref, _resume(cur), merge=True)
+            return cur
+        fresh = _fresh()
         txn.set(trade_ref, fresh)
         created["new"] = True
         return fresh
 
     try:
-        trade = _apply(transaction)
+        # db.transaction() is INSIDE the try on purpose: opening the transaction
+        # is itself a call that can fail, and a failure there used to escape
+        # this function entirely and kill the request with no JSON at all.
+        trade = _apply(db.transaction())
     except Exception as exc:  # noqa: BLE001
-        print(f"[trade] open failed: {exc}")
-        return {"ok": False, "error": "open_failed"}
+        # OPENING a trade moves nothing: it creates an EMPTY trade with both
+        # offers at zero, so it is the one action here that does not need the
+        # transaction to be safe. Two simultaneous opens racing to write the
+        # same empty document produce the same empty document. The swap itself
+        # (_trade_confirm) stays transactional and always will.
+        #
+        # This fallback exists because a failure in the transaction machinery
+        # used to be indistinguishable, from the player's seat, from "trading is
+        # switched off": the overlay opened, the banner said something went
+        # wrong, and every later tap answered "Open a trade first."
+        first = _trade_failure("open", exc)
+        try:
+            snap = trade_ref.get()
+            cur = snap.to_dict() if snap.exists else None
+            if cur and cur.get("status") == "open":
+                trade_ref.set(_resume(cur), merge=True)
+                trade = cur
+            else:
+                trade = _fresh()
+                trade_ref.set(trade)
+                created["new"] = True
+        except Exception as exc2:  # noqa: BLE001
+            second = _trade_failure("open", exc2)
+            # Report the FIRST failure's detail: it is the one that describes
+            # why the normal path could not run.
+            second["detail"] = first.get("detail") or second.get("detail")
+            return second
+        print("[trade] open recovered without a transaction")
     _trade_mirror(db, trade)
     if created["new"]:
         _trade_post_message(db, trade, f"🔄 {names[uid]} started a trade.",
@@ -2858,8 +2977,10 @@ def _trade_set_offer(uid: str, uid_name: str, peer_uid: str, raw_offer: Any) -> 
     SERVER_TIMESTAMP = getattr(firestore, "SERVER_TIMESTAMP", None)
 
     tid = _trade_id_for(uid, peer_uid)
-    trade_ref = db.collection("trades").document(tid)
-    transaction = db.transaction()
+    try:
+        trade_ref = _trade_doc(db, tid)
+    except Exception as exc:  # noqa: BLE001
+        return _trade_failure("offer", exc)
 
     @transactional
     def _apply(txn) -> Dict[str, Any]:
@@ -2890,10 +3011,9 @@ def _trade_set_offer(uid: str, uid_name: str, peer_uid: str, raw_offer: Any) -> 
         return trade
 
     try:
-        trade = _apply(transaction)
+        trade = _apply(db.transaction())
     except Exception as exc:  # noqa: BLE001
-        print(f"[trade] set_offer failed: {exc}")
-        return {"ok": False, "error": "offer_failed"}
+        return _trade_failure("offer", exc)
     if trade.get("__err__"):
         return {"ok": False, "error": trade["__err__"]}
     _trade_mirror(db, trade)
@@ -2922,10 +3042,12 @@ def _trade_confirm(uid: str, peer_uid: str, version: int, confirm: bool) -> Dict
     SERVER_TIMESTAMP = getattr(firestore, "SERVER_TIMESTAMP", None)
 
     tid = _trade_id_for(uid, peer_uid)
-    trade_ref = db.collection("trades").document(tid)
+    try:
+        trade_ref = _trade_doc(db, tid)
+    except Exception as exc:  # noqa: BLE001
+        return _trade_failure("confirm", exc)
     parts_sorted = sorted([uid, peer_uid])
     user_refs = {p: db.collection("users").document(p) for p in parts_sorted}
-    transaction = db.transaction()
     outcome: Dict[str, Any] = {}
 
     @transactional
@@ -2983,6 +3105,7 @@ def _trade_confirm(uid: str, peer_uid: str, version: int, confirm: bool) -> Dict
                 "unlocked_icons": ch["unlocked_icons"],
                 "unlocked_backgrounds": ch["unlocked_backgrounds"],
                 "stats": {"critter_coins": ch["critter_coins"]},
+                "critter_pass_vouchers": ch["critter_pass_vouchers"],
                 "traded_away": ch["traded_away"],
             }
             if "avatar_url" in ch:
@@ -3001,10 +3124,9 @@ def _trade_confirm(uid: str, peer_uid: str, version: int, confirm: bool) -> Dict
         return {"trade": trade, "__completed__": True}
 
     try:
-        outcome = _apply(transaction)
+        outcome = _apply(db.transaction())
     except Exception as exc:  # noqa: BLE001
-        print(f"[trade] confirm failed: {exc}")
-        return {"ok": False, "error": "confirm_failed"}
+        return _trade_failure("confirm", exc)
 
     trade = outcome.get("trade")
     if trade is not None:
@@ -3044,8 +3166,10 @@ def _trade_cancel(uid: str, peer_uid: str) -> Dict[str, Any]:
     SERVER_TIMESTAMP = getattr(firestore, "SERVER_TIMESTAMP", None)
 
     tid = _trade_id_for(uid, peer_uid)
-    trade_ref = db.collection("trades").document(tid)
-    transaction = db.transaction()
+    try:
+        trade_ref = _trade_doc(db, tid)
+    except Exception as exc:  # noqa: BLE001
+        return _trade_failure("cancel", exc)
 
     @transactional
     def _apply(txn) -> Dict[str, Any]:
@@ -3065,10 +3189,9 @@ def _trade_cancel(uid: str, peer_uid: str) -> Dict[str, Any]:
         return {"trade": trade, "__canceled__": True}
 
     try:
-        outcome = _apply(transaction)
+        outcome = _apply(db.transaction())
     except Exception as exc:  # noqa: BLE001
-        print(f"[trade] cancel failed: {exc}")
-        return {"ok": False, "error": "cancel_failed"}
+        return _trade_failure("cancel", exc)
     trade = outcome.get("trade")
     if trade is not None:
         _trade_mirror(db, trade)

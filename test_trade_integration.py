@@ -140,7 +140,8 @@ def check(name, cond):
         print(f"  ✗ FAIL: {name}")
 
 
-def set_user(uid, avatars=(), backgrounds=(), coins=0, avatar_url="", background_url="", other_stats=None):
+def set_user(uid, avatars=(), backgrounds=(), coins=0, avatar_url="", background_url="",
+             other_stats=None, passes=0):
     stats = {"critter_coins": coins}
     if other_stats:
         stats.update(other_stats)
@@ -149,9 +150,14 @@ def set_user(uid, avatars=(), backgrounds=(), coins=0, avatar_url="", background
         "unlocked_icons": list(avatars),
         "unlocked_backgrounds": list(backgrounds),
         "stats": stats,
+        "critter_pass_vouchers": passes,
         "avatar_url": avatar_url,
         "background_url": background_url,
     }
+
+
+def passes_of(uid):
+    return int((user(uid) or {}).get("critter_pass_vouchers") or 0)
 
 
 def user(uid):
@@ -293,7 +299,101 @@ check("gwen still owns her crab (nothing moved)", user("gwen")["unlocked_icons"]
 r = M._trade_open("gwen", "Gwen", "hugo", "Hugo")
 check("re-open after cancel is fresh + empty",
       r["state"]["status"] == "open"
-      and M._trade_clean_offer(r["state"]["offers"]["gwen"]) == {"coins": 0, "avatars": [], "backgrounds": []})
+      and M._trade_clean_offer(r["state"]["offers"]["gwen"]) == {"coins": 0, "passes": 0, "avatars": [], "backgrounds": []})
+
+# ══ Season Pass vouchers ═══════════════════════════════════════════════════
+# The Supporter Tiers hand these out and they are tradable, so the whole
+# lifecycle has to work end to end: offered, seen by both sides, and MOVED by
+# the same one transaction that moves everything else.
+print("trading a Season Pass voucher:")
+set_user("ivy", coins=0, passes=3)
+set_user("jonah", avatars=["/avatars/mackerel.png"], coins=0, passes=0)
+tid_v = M._trade_id_for("ivy", "jonah")
+check("open ok", M._trade_open("ivy", "Ivy", "jonah", "Jonah").get("ok"))
+r = M._trade_set_offer("ivy", "Ivy", "jonah", {"passes": 2})
+check("a voucher offer is accepted", r.get("ok"))
+check("the offer carries the count",
+      M._trade_clean_offer(r["state"]["offers"]["ivy"])["passes"] == 2)
+r = M._trade_set_offer("jonah", "Jonah", "ivy", {"avatars": ["/avatars/mackerel.png"]})
+check("the other side offers an avatar", r.get("ok"))
+v = r["state"]["version"]
+check("ivy confirms", M._trade_confirm("ivy", "jonah", v, True).get("ok"))
+r = M._trade_confirm("jonah", "ivy", v, True)
+check("both confirmed → completed", r.get("ok") and r.get("completed"))
+check("ivy's vouchers dropped by 2", passes_of("ivy") == 1)
+check("jonah's vouchers rose by 2", passes_of("jonah") == 2)
+check("the avatar came back the other way",
+      user("ivy")["unlocked_icons"] == ["/avatars/mackerel.png"])
+check("the DM summary names the vouchers",
+      any("Critter Pass voucher" in (d.get("text") or "")
+          for k, d in DB.store.items()
+          if k.startswith("users/ivy/messages/tradelog_") and isinstance(d, dict)))
+
+print("offering more vouchers than you hold:")
+set_user("kit", coins=0, passes=1)
+set_user("lena", coins=0, passes=0)
+M._trade_open("kit", "Kit", "lena", "Lena")
+r = M._trade_set_offer("kit", "Kit", "lena", {"passes": 2})
+check("refused at offer time", (not r.get("ok")) and r.get("error") == "not_enough_passes")
+check("nothing moved", passes_of("kit") == 1 and passes_of("lena") == 0)
+
+print("a voucher spent between the offer and the confirm:")
+set_user("mo", coins=0, passes=1)
+set_user("nia", coins=500, passes=0)
+M._trade_open("mo", "Mo", "nia", "Nia")
+M._trade_set_offer("mo", "Mo", "nia", {"passes": 1})
+r = M._trade_set_offer("nia", "Nia", "mo", {"coins": 500})
+v = r["state"]["version"]
+M._trade_confirm("mo", "nia", v, True)
+DB.store["users/mo"]["critter_pass_vouchers"] = 0     # redeemed it in another tab
+r = M._trade_confirm("nia", "mo", v, True)
+check("the swap is refused at commit", (not r.get("ok")) and r.get("error") == "not_enough_passes")
+check("nia keeps her coins", int(user("nia")["stats"]["critter_coins"]) == 500)
+check("confirmations were reset", r["state"]["confirmed"]["mo"] is False)
+
+# ══ Opening a trade must not be able to fail silently ══════════════════════
+# A transaction that dies used to reach the player as "Something went wrong
+# with the trade", after which every later tap answered "Open a trade first".
+# Opening moves nothing (both offers start empty), so it now falls back to a
+# plain write, and only a SECOND failure is reported, with the reason attached.
+print("opening a trade survives a broken transaction:")
+set_user("orin", coins=0)
+set_user("pia", coins=0)
+_real_txn = DB.transaction
+DB.transaction = lambda: (_ for _ in ()).throw(RuntimeError("BeginTransaction refused"))
+r = M._trade_open("orin", "Orin", "pia", "Pia")
+DB.transaction = _real_txn
+check("the trade still opens", r.get("ok") and r["state"]["status"] == "open")
+check("it is a real, empty, open trade",
+      M._trade_clean_offer(r["state"]["offers"]["orin"]) == {"coins": 0, "passes": 0, "avatars": [], "backgrounds": []})
+check("both sides were mirrored", mirror("orin", M._trade_id_for("orin", "pia")) is not None)
+
+print("a trade that cannot be written at all says WHY:")
+
+
+class _DeadColl:
+    def document(self, doc_id):
+        raise RuntimeError("PermissionDenied: trades is closed")
+
+
+_real_coll = DB.collection
+DB.collection = (lambda name: _DeadColl() if name == "trades" else _real_coll(name))
+try:
+    DB.transaction = lambda: (_ for _ in ()).throw(RuntimeError("BeginTransaction refused"))
+    r = M._trade_open("orin", "Orin", "pia", "Pia")
+finally:
+    DB.collection = _real_coll
+    DB.transaction = _real_txn
+check("it fails honestly", (not r.get("ok")) and r.get("error") == "open_failed")
+check("and carries the reason the player can report",
+      "PermissionDenied" in str(r.get("detail") or "") or "RuntimeError" in str(r.get("detail") or ""))
+
+print("a peer id Firestore would reject never reaches Firestore:")
+set_user("quin", coins=0)
+r = M._trade_open("quin", "Quin", "a/b", "Slashy")
+check("refused as a bad peer", (not r.get("ok")) and r.get("error") == "bad_peer")
+check("no trade document was created",
+      not any(k.startswith("trades/") and "a/b" in k for k in DB.store))
 
 print("admin revoke: take a cosmetic back and require the requirement again:")
 PUFFIN = "/avatars/horned-puffin.png"

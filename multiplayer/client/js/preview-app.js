@@ -27802,6 +27802,10 @@
 
     function _trToast(msg, kind) { if (typeof showToast === "function") showToast(msg, kind || "info"); }
     function _trMyCoins() { return Math.max(0, Math.floor(Number((_activeProfile && _activeProfile.stats || {}).critter_coins) || 0)); }
+    // Season Pass (Critter Pass) vouchers. A COUNT on the account document, not
+    // inside stats, and the server moves it the same way it moves coins, so the
+    // whole picker treats it as a second currency rather than a third item list.
+    function _trMyPasses() { return Math.max(0, Math.floor(Number(_activeProfile && _activeProfile.critter_pass_vouchers) || 0)); }
     // Canonical form the SERVER stores an offered path as: it strips any ?query
     // and surrounding whitespace (see _trade_clean_offer). The picker MUST show,
     // compare, and submit paths in this exact form, otherwise a tile's
@@ -27959,8 +27963,30 @@
         firestore_unavailable: "Trading is temporarily unavailable, try again shortly.",
         network: "Network hiccup, check your connection and try again.",
         bad_response: "Unexpected response from the server, try again.",
+        not_enough_passes: "You don't have that many Season Pass vouchers.",
+        negative_passes: "Voucher count can't be negative.",
+        // The server's own failure codes. Every one of these used to fall
+        // through to the generic sentence below, which is how a real, nameable
+        // server error reached players as "Something went wrong with the trade"
+        // and left them with nothing to do about it.
+        open_failed: "The trade couldn't be opened. Tap Try again.",
+        offer_failed: "That change to your offer didn't save. Try it again.",
+        confirm_failed: "The confirmation didn't go through. Nothing was traded.",
+        cancel_failed: "Couldn't cancel the trade just now, try again.",
+        get_failed: "Couldn't read the trade just now, try again.",
+        unknown_action: "This version of the game asked for something the server doesn't know. Refresh the page.",
+        bad_participants: "This trade is missing a player, close it and start a new one.",
+        bad_request: "That request wasn't valid. Nothing was traded.",
       };
       return m[code] || "Something went wrong with the trade.";
+    }
+
+    // The sentence, plus the server's own account of what failed when it sent
+    // one. `detail` is only ever set on the *_failed codes.
+    function _trErrFull(res) {
+      const base = _trErrText(res && res.error);
+      const detail = String((res && res.detail) || "").trim();
+      return detail ? (base + " (" + detail + ")") : base;
     }
 
     // POST to a /api/trade/<action> endpoint with a fresh Firebase ID token.
@@ -27996,11 +28022,11 @@
     function _trOverlayOpen() { const o = _trOverlay(); return !!(o && o.style.display !== "none"); }
     function _trMyOffer() {
       const o = (_trState && _trState.offers && _authUser) ? _trState.offers[_authUser.uid] : null;
-      return o || { coins: 0, avatars: [], backgrounds: [] };
+      return o || { coins: 0, passes: 0, avatars: [], backgrounds: [] };
     }
     function _trPeerOffer() {
       const o = (_trState && _trState.offers) ? _trState.offers[_trPeerUid] : null;
-      return o || { coins: 0, avatars: [], backgrounds: [] };
+      return o || { coins: 0, passes: 0, avatars: [], backgrounds: [] };
     }
 
     function _trBanner(text, kind) {
@@ -28036,12 +28062,33 @@
       const title = $a("cc-trade-title");
       if (title) title.textContent = "Trade with " + _trPeerName;
       _trBanner("Opening trade…", "info");
+      _trShowRetry(false);
       _trRender();
       const res = await _trPost("open", { peerName: _trPeerName });
-      if (!res || res.error) { _trBanner(_trErrText(res && res.error), "err"); return; }
+      if (!res || res.error) {
+        // The overlay stays up (closing it would look like a crash), but it now
+        // says what went wrong AND offers the one action that can help. It also
+        // stops pretending a trade is open: _trState is null, so Add item is
+        // disabled instead of answering "Open a trade first" to every tap.
+        _trBanner(_trErrFull(res), "err");
+        _trShowRetry(true);
+        _trRender();
+        return;
+      }
       _trState = res.state;
       _trBanner("", "");
+      _trShowRetry(false);
       _trRender();
+    }
+
+    // The Try again button under the banner. Only ever shown for a failed open.
+    function _trShowRetry(on) {
+      const w = $a("cc-trade-retry-wrap");
+      if (w) w.style.display = on ? "flex" : "none";
+    }
+    async function _trRetryOpen() {
+      if (!_trPeerUid) { _trClose(); return; }
+      await _trOpen(_trPeerUid, _trPeerName);
     }
 
     async function _trClose() {
@@ -28055,6 +28102,7 @@
         try { await _trPost("confirm", { confirm: false }); } catch (_) {}
       }
       _trState = null; _trPeerUid = null; _trConvId = null; _trBusy = false;
+      _trShowRetry(false);
       _trRefreshButtons();
     }
 
@@ -28064,7 +28112,10 @@
       const recvWrap = $a("cctr-recv-items");
       if (!giveWrap || !recvWrap) return;
       const myUid = _authUser ? _authUser.uid : null;
-      const status = _trState ? _trState.status : "open";
+      // "none" when the open never landed. It used to default to "open", which
+      // left Add item enabled on a trade that does not exist, so every tap
+      // answered "Open a trade first" with no way to open one.
+      const status = _trState ? _trState.status : "none";
       // Fire the "trade completed" profile refresh exactly once per completion.
       if (status === "completed" && _trLastStatus !== "completed") _trRefreshMyProfile();
       _trLastStatus = status;
@@ -28100,7 +28151,12 @@
       const confirmBtn = $a("cc-trade-confirm");
       const bothEmpty = _trOfferEmpty(myOffer) && _trOfferEmpty(peerOffer);
 
-      if (status === "completed") {
+      if (status === "none") {
+        // The banner already carries the reason (set by _trOpen), so don't
+        // overwrite it here; just make the footer honest.
+        if (cancelBtn) { cancelBtn.textContent = "Close"; cancelBtn.disabled = false; cancelBtn.className = "cctr-btn"; }
+        if (confirmBtn) { confirmBtn.style.display = "none"; }
+      } else if (status === "completed") {
         _trBanner("✅ Trade Completed! Items and coins have been exchanged.", "ok");
         if (cancelBtn) { cancelBtn.textContent = "Close"; cancelBtn.disabled = false; cancelBtn.className = "cctr-btn"; }
         if (confirmBtn) { confirmBtn.style.display = "none"; }
@@ -28112,6 +28168,7 @@
         // open
         if (_trState && _trState.last_error) {
           _trBanner(_trErrText(_trState.last_error) + " Both confirmations were reset.", "err");
+          _trShowRetry(false);
         } else if (peerConfirmed && !myConfirmed) {
           _trBanner("🔔 " + _trPeerName + " confirmed. Review the trade and confirm to complete it.", "info");
         } else if (myConfirmed && !peerConfirmed) {
@@ -28133,7 +28190,7 @@
     }
 
     function _trOfferEmpty(o) {
-      return !o || ((Number(o.coins) || 0) <= 0
+      return !o || ((Number(o.coins) || 0) <= 0 && (Number(o.passes) || 0) <= 0
         && !(o.avatars && o.avatars.length) && !(o.backgrounds && o.backgrounds.length));
     }
 
@@ -28143,6 +28200,8 @@
       const rows = [];
       const coins = Number(offer.coins) || 0;
       if (coins > 0) rows.push({ type: "coins", coins });
+      const passes = Number(offer.passes) || 0;
+      if (passes > 0) rows.push({ type: "passes", passes });
       (offer.avatars || []).forEach(p => rows.push({ type: "avatar", path: p }));
       (offer.backgrounds || []).forEach(p => rows.push({ type: "background", path: p }));
       if (!rows.length) {
@@ -28160,6 +28219,16 @@
           const nm = document.createElement("div"); nm.className = "cctr-item-name"; nm.textContent = "Critter Coins";
           const sub = document.createElement("div"); sub.className = "cctr-item-sub"; sub.textContent = r.coins.toLocaleString();
           body.appendChild(nm); body.appendChild(sub); row.appendChild(body);
+        } else if (r.type === "passes") {
+          const ic = document.createElement("div"); ic.className = "cctr-item-coin";
+          ic.textContent = "🎟️";
+          row.appendChild(ic);
+          const body = document.createElement("div"); body.className = "cctr-item-body";
+          const nm = document.createElement("div"); nm.className = "cctr-item-name";
+          nm.textContent = r.passes.toLocaleString() + " Season Pass Voucher" + (r.passes === 1 ? "" : "s");
+          const sub = document.createElement("div"); sub.className = "cctr-item-sub";
+          sub.textContent = "Unlocks the Critter Pass for one season each";
+          body.appendChild(nm); body.appendChild(sub); row.appendChild(body);
         } else {
           const img = document.createElement("img"); img.className = "cctr-item-img";
           img.src = _trImgSrc(r.path); img.alt = ""; img.loading = "lazy";
@@ -28176,6 +28245,7 @@
           rm.textContent = "✕"; rm.title = "Remove";
           rm.addEventListener("click", () => {
             if (r.type === "coins") _trSetCoins(0);
+            else if (r.type === "passes") _trSetPasses(0);
             else _trToggleItem(r.type, r.path);
           });
           row.appendChild(rm);
@@ -28193,7 +28263,7 @@
       const res = await _trPost("offer", { offer });
       _trBusy = false;
       if (!res || res.error) {
-        const msg = _trErrText(res && res.error);
+        const msg = _trErrFull(res);
         _trBanner(msg, "err"); _trPickerNote(msg, "err");
         _trRender(); _trRenderPicker(); return;
       }
@@ -28208,20 +28278,29 @@
       }
     }
 
+    // My whole offer, in the exact shape the server stores. Every mutation
+    // below starts from THIS: an offer is replaced wholesale by /api/trade/offer,
+    // so a builder that forgets a field silently drops what was in it.
+    function _trOfferCopy() {
+      const cur = _trMyOffer();
+      return {
+        coins: Number(cur.coins) || 0,
+        passes: Number(cur.passes) || 0,
+        avatars: (cur.avatars || []).map(_trCanon),
+        backgrounds: (cur.backgrounds || []).map(_trCanon),
+      };
+    }
+
     function _trToggleItem(kind, path) {
       if (_trBusy) { _trPickerNote("One moment, saving your last change…", "info"); return; }
       if (!_trState || _trState.status !== "open") { _trPickerNote("This trade is no longer open.", "err"); return; }
       const key = kind === "avatar" ? "avatars" : "backgrounds";
       const canonPath = _trCanon(path);
-      const cur = _trMyOffer();
-      const list = (cur[key] || []).map(_trCanon);
+      const offer = _trOfferCopy();
+      const list = offer[key];
       const i = list.indexOf(canonPath);
       const adding = i < 0;
       if (adding) list.push(canonPath); else list.splice(i, 1);
-      const offer = { coins: Number(cur.coins) || 0,
-                      avatars: (cur.avatars || []).map(_trCanon),
-                      backgrounds: (cur.backgrounds || []).map(_trCanon) };
-      offer[key] = list;
       const name = kind === "avatar" ? _trAvatarName(canonPath) : _trBgName(canonPath);
       _trSubmitOffer(offer, { adding, name });
     }
@@ -28231,11 +28310,28 @@
       if (!_trState || _trState.status !== "open") { _trPickerNote("This trade is no longer open.", "err"); return; }
       n = Math.max(0, Math.floor(Number(n) || 0));
       if (n > _trMyCoins()) { _trPickerNote("You only have " + _trMyCoins().toLocaleString() + " Critter Coins.", "err"); return; }
-      const cur = _trMyOffer();
-      _trSubmitOffer(
-        { coins: n, avatars: (cur.avatars || []).map(_trCanon), backgrounds: (cur.backgrounds || []).map(_trCanon) },
-        { adding: n > 0, name: n.toLocaleString() + " Critter Coins", coins: true }
-      );
+      const offer = _trOfferCopy();
+      offer.coins = n;
+      _trSubmitOffer(offer, { adding: n > 0, name: n.toLocaleString() + " Critter Coins", coins: true });
+    }
+
+    // Season Pass vouchers, offered by count exactly like coins.
+    function _trSetPasses(n) {
+      if (_trBusy) { _trPickerNote("One moment, saving your last change…", "info"); return; }
+      if (!_trState || _trState.status !== "open") { _trPickerNote("This trade is no longer open.", "err"); return; }
+      n = Math.max(0, Math.floor(Number(n) || 0));
+      const have = _trMyPasses();
+      if (n > have) {
+        _trPickerNote("You only have " + have.toLocaleString() + " Season Pass voucher" + (have === 1 ? "" : "s") + ".", "err");
+        return;
+      }
+      const offer = _trOfferCopy();
+      offer.passes = n;
+      _trSubmitOffer(offer, {
+        adding: n > 0,
+        name: n.toLocaleString() + " Season Pass voucher" + (n === 1 ? "" : "s"),
+        coins: true,
+      });
     }
 
     async function _trDoConfirm() {
@@ -28248,7 +28344,7 @@
       if (!res || res.error) {
         if (res && res.state) _trState = res.state;
         if (res && res.error === "changed") _trBanner("The offer changed, review it and confirm again.", "warn");
-        else _trBanner(_trErrText(res && res.error), "err");
+        else _trBanner(_trErrFull(res), "err");
         _trRender(); return;
       }
       _trState = res.state;
@@ -28274,7 +28370,15 @@
 
     // ── Item picker sheet ────────────────────────────────────────────
     function _trShowPicker() {
-      if (!_trState || _trState.status !== "open") { _trToast("Open a trade first.", "info"); return; }
+      if (!_trState) {
+        // The trade never opened. Saying "Open a trade first" here was the
+        // dead end the player kept hitting: they HAD opened one, the server
+        // refused, and this was the only thing the screen would say afterwards.
+        _trToast("This trade hasn't opened yet. Tap Try again.", "info");
+        _trShowRetry(true);
+        return;
+      }
+      if (_trState.status !== "open") { _trToast("This trade is no longer open.", "info"); return; }
       const pk = $a("cc-trade-picker");
       if (pk) pk.style.display = "flex";
       _trPickerNote("", "");
@@ -28294,17 +28398,34 @@
     function _trRenderPicker() {
       const body = $a("cc-trade-picker-body");
       const foot = $a("cc-trade-picker-foot");
+      const passFoot = $a("cc-trade-pass-foot");
       if (!body) return;
       const mine = _trMyOffer();
       if (_trPickerTab === "coins") {
         body.innerHTML = "<div class=\"cctr-coin-note\">You have " + _trMyCoins().toLocaleString()
           + " Critter Coins. Enter how many to include in this trade.</div>";
         if (foot) foot.style.display = "flex";
+        if (passFoot) passFoot.style.display = "none";
         const input = $a("cc-trade-coin-input");
         if (input) { input.max = String(_trMyCoins()); input.value = (Number(mine.coins) || 0) ? String(mine.coins) : ""; }
         return;
       }
+      if (_trPickerTab === "passes") {
+        const have = _trMyPasses();
+        body.innerHTML = "<div class=\"cctr-coin-note\">You have " + have.toLocaleString()
+          + " Season Pass voucher" + (have === 1 ? "" : "s") + ". "
+          + (have
+             ? "Each one unlocks the Critter Pass for one season, whichever season the holder spends it on. Enter how many to include in this trade."
+             : "Season Pass vouchers come with the Supporter Tiers, and can be traded like Critter Coins.")
+          + "</div>";
+        if (foot) foot.style.display = "none";
+        if (passFoot) passFoot.style.display = have ? "flex" : "none";
+        const pinput = $a("cc-trade-pass-input");
+        if (pinput) { pinput.max = String(have); pinput.value = (Number(mine.passes) || 0) ? String(mine.passes) : ""; }
+        return;
+      }
       if (foot) foot.style.display = "none";
+      if (passFoot) passFoot.style.display = "none";
       body.innerHTML = "";
       const isAvatar = _trPickerTab === "avatars";
       const items = isAvatar ? _trMyAvatars() : _trMyBackgrounds();
@@ -28395,6 +28516,15 @@
       if (coinInput) coinInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") { e.preventDefault(); _trSetCoins(coinInput.value); }
       });
+      on("cc-trade-pass-set", () => {
+        const input = $a("cc-trade-pass-input");
+        _trSetPasses(input ? input.value : 0);
+      });
+      const passInput = $a("cc-trade-pass-input");
+      if (passInput) passInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); _trSetPasses(passInput.value); }
+      });
+      on("cc-trade-retry", _trRetryOpen);
       // Tapping the dim backdrop (outside the box) closes the overlay.
       const ov = _trOverlay();
       if (ov) ov.addEventListener("click", (e) => { if (e.target === ov) _trClose(); });

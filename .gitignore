@@ -256,6 +256,9 @@
 !test_trade_logic.py
 !test_trade_integration.py
 !test_avatar_reearn.js
+# …and the client half: the dead end a failed /api/trade/open used to leave
+# behind, plus Season Pass vouchers as a tradable balance.
+!test_trade_ui.js
 
 # Equipping an icon must SAVE THAT ICON. Ownership is string equality against
 # unlocked_icons, and sanitizeSelectableAvatar answers "you do not own this"

@@ -3480,16 +3480,17 @@
       <div class="cctp-title">🔄 Trade</div>
       <button class="cctp-x" id="cc-trade-pick-close" aria-label="Close">✕</button>
     </div>
-    <div class="cctp-sub">Choose who you want to trade avatars, backgrounds or Critter Coins with.</div>
+    <div class="cctp-sub">Choose who you want to trade avatars, backgrounds, Critter Coins or Season Pass vouchers with.</div>
     <input class="pv-input cctp-search" id="cc-trade-pick-search" placeholder="Search any player by name…" maxlength="20" autocomplete="off" aria-label="Search players" />
     <div class="cctp-list" id="cc-trade-pick-list"></div>
   </div>
 </div>
 
 <!-- ══ SECURE TRADE OVERLAY (1-on-1 DM trades) ════════════════════ -->
-<!-- Two players swap avatars / backgrounds / Critter Coins. All ownership
-     transfers happen server-side (/api/trade/*); this screen only builds the
-     offer, shows both sides live, and takes the two-step confirmation. -->
+<!-- Two players swap avatars / backgrounds / Critter Coins / Season Pass
+     vouchers. All ownership transfers happen server-side (/api/trade/*); this
+     screen only builds the offer, shows both sides live, and takes the two-step
+     confirmation. -->
 <div id="cc-trade-overlay" role="dialog" aria-modal="true" aria-label="Trade" style="display:none;">
   <div id="cc-trade-box">
     <div id="cc-trade-head">
@@ -3498,6 +3499,13 @@
     </div>
 
     <div id="cc-trade-banner" class="cctr-banner" style="display:none;"></div>
+    <!-- Shown only when OPENING the trade failed. Without it a server-side
+         failure left an overlay that looked switched on and answered every
+         later tap with "Open a trade first", which is not something a player
+         can act on. -->
+    <div id="cc-trade-retry-wrap" style="display:none;">
+      <button class="cctr-btn primary" id="cc-trade-retry" type="button">Try again</button>
+    </div>
 
     <div id="cc-trade-cols">
       <!-- YOU GIVE (my offer, editable) -->
@@ -3529,6 +3537,7 @@
           <button class="cctr-pk-tab active" data-tab="avatars" type="button">Avatars</button>
           <button class="cctr-pk-tab" data-tab="backgrounds" type="button">Backgrounds</button>
           <button class="cctr-pk-tab" data-tab="coins" type="button">Coins</button>
+          <button class="cctr-pk-tab" data-tab="passes" type="button">Season Passes</button>
         </div>
         <button id="cc-trade-picker-close" class="cctr-x" title="Close" aria-label="Close picker">✕</button>
       </div>
@@ -3539,6 +3548,10 @@
       <div class="cctr-pk-foot" id="cc-trade-picker-foot" style="display:none;">
         <input id="cc-trade-coin-input" type="number" min="0" step="1" inputmode="numeric" placeholder="Critter Coins to offer" />
         <button id="cc-trade-coin-set" class="cctr-btn primary" type="button">Set Coins</button>
+      </div>
+      <div class="cctr-pk-foot" id="cc-trade-pass-foot" style="display:none;">
+        <input id="cc-trade-pass-input" type="number" min="0" step="1" inputmode="numeric" placeholder="Season Pass vouchers to offer" />
+        <button id="cc-trade-pass-set" class="cctr-btn primary" type="button">Set Vouchers</button>
       </div>
     </div>
   </div>
