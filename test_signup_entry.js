@@ -87,7 +87,7 @@ console.log("\na sign-up that fails says so on a pane that is on screen");
   // THE ORDER. ccChooserPane wipes this exact line on the way through, so a
   // message written before the pane switch is a message the fix deletes.
   const iPane = FINISH.indexOf('showStep("auth-step-nickname")');
-  const iMsg  = FINISH.indexOf('setAuthMsg("auth-nick-err", "Could not save your username');
+  const iMsg  = FINISH.indexOf('setAuthMsg("auth-nick-err", ccProfileSaveErr(e)');
   check("the pane comes up BEFORE the message, because the pane switch wipes it",
         iPane > 0 && iMsg > 0 && iPane < iMsg, `pane@${iPane} msg@${iMsg}`);
   // Matched loosely on the list, which grows: "ao-code-err" joined it when the
@@ -100,6 +100,32 @@ console.log("\na sign-up that fails says so on a pane that is on screen");
   // create pane that can only answer "that username is taken".
   check("the failed sign-up is never sent back to the create pane",
         !/surfacePane[\s\S]{0,400}?ccChooserPane\("create"/.test(FINISH));
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  1b. AND IT SAYS WHICH OF THE TWO SERVICES LET GO
+// ══════════════════════════════════════════════════════════════════════════
+// Auth and Firestore fail separately, and a sign-up needs both: Auth makes the
+// account, Firestore gives it somewhere to live. On 2026-09-04, driving the
+// real sign-up screen against the live site, Firestore was answering 429
+// RESOURCE_EXHAUSTED for the whole project while Auth was healthy, so every
+// sign-up made an account and then had nowhere to put the profile. What the
+// player was told was "Could not save your username. Try again.", which is
+// wrong twice: trying again cannot work while the database is down, and it
+// leaves out the fact that decides what to do next — THE ACCOUNT EXISTS.
+// Somebody who goes back and re-types that username is told it is taken, by
+// themselves.
+console.log("\nand it says which of the two services let go");
+{
+  check("the message is a function of the error, not one sentence for all of them",
+        /function ccProfileSaveErr\(err\)/.test(APP)
+        && /setAuthMsg\("auth-nick-err", ccProfileSaveErr\(e\), false\)/.test(APP));
+  check("…reachable by name, so it can be asked rather than read",
+        /window\.__ccProfileSaveErr\s*=/.test(APP));
+  // The four Firestore codes that mean "the database, not you".
+  check("…and an outage is one of the answers it knows",
+        /resource-exhausted/.test(APP) && /unavailable/.test(APP)
+        && /deadline-exceeded/.test(APP));
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -278,11 +304,34 @@ if (!CHROME) {
             setTimeout(function () {
               log.panes2 = pane();
               log.note2  = seen("auth-nick-err");
+              // Asked by name, one answer per way the write can fail.
+              log.said = {
+                busy:   window.__ccProfileSaveErr("resource-exhausted"),
+                down:   window.__ccProfileSaveErr("unavailable"),
+                denied: window.__ccProfileSaveErr("permission-denied"),
+                other:  window.__ccProfileSaveErr("something-else"),
+              };
               done();
             }, 400);
           }, 200);
         }, 400);
       `, 1440, 900, (r) => r && r.panes && r.panes2);
+
+      // An outage has to say the account EXISTS, or the player goes back and
+      // tries to create it again with the name they have just taken.
+      const said = (r && r.said) || {};
+      check("an outage says the account was created, not that it failed",
+            /was created/i.test(said.busy || "") && /was created/i.test(said.down || ""),
+            said.busy);
+      check("…and that the username is already theirs",
+            /already yours/i.test(said.busy || ""), said.busy);
+      check("…and never tells them to sign up a second time",
+            !/sign up again|create (another|a new) account/i.test(said.busy || ""), said.busy);
+      check("a refusal reads differently from an outage",
+            (said.denied || "") !== (said.busy || "") && (said.denied || "").length > 0,
+            said.denied);
+      check("…and an error nobody has met still names the way back",
+            /Create Username/i.test(said.other || ""), said.other);
 
       check("the nickname pane is the one on screen",
             r && Array.isArray(r.panes) && r.panes.length === 1 && r.panes[0] === "nickname",

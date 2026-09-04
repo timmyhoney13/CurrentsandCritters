@@ -107,8 +107,17 @@ console.log("\nthe note is rendered, not just coloured");
   // Every pane the column can turn to carries its own line, and turning the
   // column over wipes all of them. Whatever a pane was saying was an answer to
   // that pane's question; left up, it reads as an answer to the next one.
-  check("turning the column over clears what the last pane was saying",
-        /setAuthMsg\("auth-choose-err", "", true\);\s*\n\s*\["auth-guest-err", "auth-nick-err", "ao-forgot-err"\]\.forEach/.test(APP));
+  // Matched on the MEMBERS, not on the exact list: it grows. "ao-code-err"
+  // joined it when the recovery-code pane did, and pinning the literal list
+  // made this fail for the one reason a test must never fail, a new pane
+  // behaving correctly. What has to hold is that the shared line is wiped
+  // first and that every pane's own line is wiped with it.
+  check("turning the column over clears what the last pane was saying", (() => {
+    const m = /setAuthMsg\("auth-choose-err", "", true\);\s*\n\s*\[([^\]]*)\]\.forEach\(id => \{[\s\S]{0,90}?setAuthMsg\(id, "", true\)/.exec(APP);
+    if (!m) return false;
+    return ["auth-guest-err", "auth-nick-err", "ao-forgot-err"]
+      .every(id => m[1].includes('"' + id + '"'));
+  })());
 }
 
 console.log("\nthe note is dressed like the column it sits in");

@@ -493,6 +493,13 @@
 # thing you can read in a stylesheet), and that CREATE AN ACCOUNT turns the
 # column over without moving the ocean by a pixel.
 !test_signin_screen.js
+# The same screen at the widths a phone actually has. The other two drive
+# Chrome with --window-size, which will not go below about 500px, so no phone
+# width was ever measured and CONTINUE WITH GOOGLE, PLAY AS GUEST and CREATE
+# AN ACCOUNT sat below the fold on every handset made without one test
+# noticing. This one sets the layout viewport itself, and asks whether every
+# way in is on the screen rather than merely reachable by scrolling.
+!test_signin_phone.js
 # The sign-in screen's status line, and the full-screen chip. What it pins is
 # all measurement: that the note is a card and not red text, that it never eats
 # a click meant for the artwork, that a calm note takes itself away, and that

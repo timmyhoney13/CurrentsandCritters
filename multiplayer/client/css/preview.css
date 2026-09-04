@@ -7552,8 +7552,28 @@
            stamp on a 1024px tablet and still small on a phone. So the band is
            a share of the screen instead, with a second bound in vw for the
            one case the first gets wrong: a wide-but-short window, where half
-           the height is more picture than the width can hold. */
-        --ao-band: min(48vh, 116vw);
+           the height is more picture than the width can hold.
+
+           THE THIRD BOUND IS THE ONE THAT MATTERS. A share of the screen is
+           what the picture would LIKE; it is not what is going. The column
+           below it is a fixed stack of controls, so on a phone 48vh of poster
+           left the last of them painted past the bottom edge: measured on the
+           live site, CONTINUE WITH GOOGLE, PLAY AS GUEST and CREATE AN ACCOUNT
+           were all off the screen on every handset from a 320x568 upwards, by
+           99px on the largest phone sold and 215px on the smallest. The column
+           does scroll, so they were reachable, but nothing on the screen said
+           so: a new player, who is the one person here who needs CREATE AN
+           ACCOUNT, met a screen whose only visible way in was a sign-in form
+           for the account they have not got.
+
+           So the picture takes what is LEFT once the form has what it needs,
+           and --ao-form-needs is that measured height (the tallest the sign-in
+           pane gets, plus the rule under the band). The floor keeps it a
+           picture rather than a sliver on the shortest phones, where the two
+           genuinely cannot both fit and scrolling is the honest answer. */
+        --ao-form-needs: 574px;
+        --ao-band: max(112px, min(48vh, 116vw, 100vh - var(--ao-form-needs)));
+        --ao-band: max(112px, min(48vh, 116vw, 100dvh - var(--ao-form-needs)));
       }
       #auth-step-choose > .ao-art {
         position: relative;
@@ -7603,6 +7623,15 @@
         margin-left: 0;
         padding: 0 0 44px;
       }
+      /* Every pixel taken out of the rhythm here is a pixel the picture keeps,
+         because the band is now whatever is left over (--ao-form-needs above).
+         These are the gaps BETWEEN controls, never the controls themselves:
+         a field and a button stay the size a thumb needs. */
+      #auth-step-choose .ao-lbl     { margin: clamp(12px, 1.5vh, 16px) 0 6px; }
+      #auth-step-choose .ao-primary { margin-top: clamp(12px, 1.5vh, 16px); }
+      #auth-step-choose .ao-forgot  { margin-top: 10px; }
+      #auth-step-choose .ao-or      { margin: clamp(10px, 1.3vh, 14px) 0; }
+      #auth-step-choose .ao-new     { margin-top: clamp(10px, 1.3vh, 14px); }
     }
 
     /* ── A SMALL PHONE ──────────────────────────────────────────────
@@ -7622,9 +7651,20 @@
        screen matters more than the poster being big: the way into the game is
        not something a player should have to go looking for. It is paid for
        from BOTH sides, a slightly shorter band and a tighter form, so neither
-       has to give up much. */
+       has to give up much.
+
+       This block carries the leftover-space bound too, and it has to: it
+       re-declares --ao-band, so without it the one rule that keeps CREATE AN
+       ACCOUNT on the screen would be switched off by the very screens that
+       need it most. The floor is lower here, because on a 568px handset the
+       poster and the whole column genuinely do not both fit and a strip of
+       picture is better than a form nobody can finish reading. */
     @media (max-width: 820px) and (max-height: 700px) {
-      #auth-step-choose.auth-box { --ao-band: min(44vh, 104vw); }
+      #auth-step-choose.auth-box {
+        --ao-form-needs: 516px;
+        --ao-band: max(60px, min(44vh, 104vw, 100vh - var(--ao-form-needs)));
+        --ao-band: max(60px, min(44vh, 104vw, 100dvh - var(--ao-form-needs)));
+      }
       #auth-step-choose > .ao-form { padding-top: clamp(14px, 3vh, 26px); }
       #auth-step-choose .ao-h    { font-size: clamp(19px, 5.4vw, 26px); }
       #auth-step-choose .ao-sub  { margin-top: 6px; font-size: clamp(13px, 3.6vw, 16px); }
@@ -7635,6 +7675,20 @@
       #auth-step-choose .ao-gold    { height: clamp(44px, 6.2vh, 50px); }
       #auth-step-choose .ao-primary { margin-top: clamp(12px, 2.2vh, 20px); }
       #auth-step-choose .ao-or      { margin: clamp(10px, 1.8vh, 16px) 0; }
+    }
+
+    /* ── THE SHORTEST HANDSET THERE IS ──────────────────────────────
+       568px and 667px of height, upright. Even with the band at its floor the
+       column below it is taller than the screen, so something has to go, and
+       the thing that goes is the line that is only being polite: the sign-in
+       pane's "Welcome back" tagline. Every other pane keeps its own, because
+       theirs says what the pane is FOR, which is not decoration. What is
+       bought with it is CREATE AN ACCOUNT on the screen at 320x568, which is
+       the smallest screen anybody is holding. */
+    @media (max-width: 820px) and (max-height: 620px) {
+      #ao-pane-signin > .ao-sub    { display: none; }
+      #auth-step-choose .ao-forgot { margin-top: 6px; }
+      #auth-step-choose .ao-new    { margin-top: 8px; }
     }
 
     /* The guest sign-in CARD used to be here: a pale sea-glass dialog over a

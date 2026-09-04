@@ -24957,9 +24957,39 @@
         void next.offsetWidth;
         // A pane that arrives below the fold on a short window is a pane
         // nobody can see the top of.
-        const col = $a("auth-step-choose") && $a("auth-step-choose").querySelector(".ao-form");
-        if (col && typeof col.scrollTo === "function") col.scrollTo({ top: 0, behavior: "smooth" });
-        else if (col) col.scrollTop = 0;
+        //
+        // This used to scroll .ao-form, which is not the box that scrolls.
+        // On a wide screen nothing scrolls at all and it was harmless; on a
+        // phone the column IS #auth-step-choose (css: overflow-y:auto in the
+        // stacked layout), so the intent never reached anything and a pane
+        // opened wherever the last one was left.
+        //
+        // Landing at the top is right for a pane that fits: the picture is
+        // the top of this screen and it belongs to every pane. A pane that
+        // does NOT fit is a different question, and the create pane is the
+        // one that asks it: a form of six fields under a poster is a form
+        // whose last field and whose Create Account button are off the
+        // bottom. So that one arrives with its own heading at the top of the
+        // screen, the poster scrolled up out of the way, and the whole form
+        // in front of the person filling it in.
+        const box = $a("auth-step-choose");
+        if (box) {
+          const scrolls = box.scrollHeight > box.clientHeight + 1;
+          let top = 0;
+          if (scrolls) {
+            const r     = next.getBoundingClientRect();
+            const head  = r.top - box.getBoundingClientRect().top + box.scrollTop;
+            // The test is whether this pane can be seen WHOLE from the top of
+            // the screen, not whether it is taller than the screen: the create
+            // pane is shorter than a phone and still ends below the bottom
+            // edge, because the poster is standing on top of it.
+            // 10px of air above the heading, so it reads as the top of a
+            // screen rather than a line cut off by the edge.
+            if (head + r.height > box.clientHeight - 8) top = Math.max(0, head - 10);
+          }
+          if (typeof box.scrollTo === "function") box.scrollTo({ top, behavior: "smooth" });
+          else box.scrollTop = top;
+        }
       };
 
       if (cur && cur !== next && cur.style.display !== "none" && !quiet) {
@@ -25123,7 +25153,6 @@
 
     async function ccPasswordCreate() {
       const errId = "auth-choose-err";
-      if (!_auth) { setAuthMsg(errId, "Sign-in is not configured on this server.", false); return; }
       const nick  = ($a("ao-new-user").value || "").trim();
       const pass  = $a("ao-new-pass").value || "";
       const pass2 = $a("ao-new-pass2").value || "";
@@ -25143,6 +25172,12 @@
         setAuthMsg(errId, "That email address doesn't look right. Check it, or leave it empty.", false);
         return;
       }
+      // Last, not first. What somebody typed is wrong whether or not this
+      // server has Firebase behind it, and the form's own answer is the one
+      // they can act on; a configuration notice in its place tells a player
+      // with a six-letter password that the game is broken. It still gets
+      // said, to the person whose form is otherwise ready to send.
+      if (!_auth) { setAuthMsg(errId, "Sign-in is not configured on this server.", false); return; }
 
       const go = $a("ao-new-go");
       if (go) { go.disabled = true; go.setAttribute("aria-busy", "true"); }
@@ -25552,6 +25587,8 @@
     window.__ccChooserPane    = (w)    => ccChooserPane(w);
     window.__ccLoginNameCheck = (name) => validateLoginName(name);
     window.__ccLoginEmail     = (name) => ccLoginEmail(name);
+    // Declared later in this scope; the arrow does not read it until called.
+    window.__ccProfileSaveErr = (code) => ccProfileSaveErr({ code });
 
     // ── Wiring ────────────────────────────────────────────────────────
     (function wireChooserPanes() {
@@ -25563,6 +25600,34 @@
         const el = $a(id);
         if (el) el.addEventListener("keydown", e => { if (e.key === "Enter") run(); });
       };
+      // ── A DISABLED BUTTON HAS TO SAY WHY ───────────────────────────
+      // The green bar is the rule, and the rule is enforced by disabling
+      // Create Account below it. What that costs is the one thing a person
+      // does when a screen will not go on: they press the button. A disabled
+      // button answers with nothing at all — no message, no movement, not
+      // even a cursor — so the reading is not "my password is too short", it
+      // is "this game is broken".
+      //
+      // Chrome swallows the CLICK on a disabled control but still delivers
+      // the POINTERDOWN to the ancestor, with the button as its target, which
+      // is the one hook there is. It runs the pane's own submit function,
+      // never a copy of its rules: those functions validate before they touch
+      // the network, and a button is only ever disabled in a state their
+      // validation already rejects, so the answer can never drift from the
+      // reason. aria-busy means a submit is already in flight, and that press
+      // is not a question, it is impatience.
+      const explainDisabled = (paneId, goId, submit) => {
+        const pane = $a(paneId);
+        if (!pane) return;
+        pane.addEventListener("pointerdown", (e) => {
+          const go = $a(goId);
+          if (!go || !go.disabled || go.hasAttribute("aria-busy")) return;
+          const t = e.target;
+          if (t !== go && !(t && t.nodeType === 1 && go.contains(t))) return;
+          void submit();
+        });
+      };
+
       // Show / Hide, one handler for every field it applies to.
       const wireEye = (btnId, fieldIds) => {
         const btn = $a(btnId);
@@ -25662,8 +25727,49 @@
       // a password is never left sitting in a field on a shared computer.
       _aoEscapeCreate = backFromCreate;
 
+      explainDisabled("ao-pane-create", "ao-new-go", ccPasswordCreate);
+      explainDisabled("ao-pane-code",   "ao-code-go", ccRedeemCodePane);
+
       ccPaintPwMeter();
     })();
+
+    // ── When the profile could not be written ─────────────────────────
+    // Firebase Auth and Firestore are two different services, and a sign-up
+    // uses both: Auth makes the account, Firestore gives it somewhere to
+    // live. They fail SEPARATELY, and the gap between them is the worst
+    // place in the whole app to be vague.
+    //
+    // Found live on 2026-09-04, driving the real sign-up screen: Firestore
+    // was answering 429 RESOURCE_EXHAUSTED for the entire project (the free
+    // daily quota), Auth was perfectly healthy, so every sign-up made an
+    // account and then had nowhere to put the profile. What the player was
+    // told was "Could not save your username. Try again." — which is wrong
+    // twice over. Trying again cannot work while the database is down, and it
+    // does not mention the one fact that decides what they should do next:
+    // THE ACCOUNT EXISTS. Somebody who goes back and types the same username
+    // into Create Account is told it is taken, which it is, by them.
+    //
+    // So say which of the two it was, and in the outage case say the account
+    // is already theirs, because that is the difference between waiting five
+    // minutes and concluding the game is broken.
+    function ccProfileSaveErr(err) {
+      const code = String((err && err.code) || "").toLowerCase();
+      const busy = code === "resource-exhausted" || code === "unavailable"
+                || code === "deadline-exceeded" || code === "aborted";
+      if (busy) {
+        return "Your account was created, but the game's database is not "
+             + "answering right now, so your profile could not be saved. "
+             + "Your username is already yours — wait a few minutes and press "
+             + "Create Username again. Don't sign up a second time.";
+      }
+      if (code === "permission-denied" || code === "unauthenticated") {
+        return "Your account was created, but the game would not let it save a "
+             + "profile. Sign out and sign in again, and if it happens twice "
+             + "tell us — this one is our end, not yours.";
+      }
+      return "Your account was created, but your username could not be saved. "
+           + "Press Create Username to try again — you are already signed in.";
+    }
 
     // Google sign-in is wired up earlier via #auth-choose-google-btn (chooser screen)
     // Play as Guest is wired up via #auth-guest-btn → #ao-pane-guest → #auth-guest-go-btn.
@@ -25804,7 +25910,7 @@
           paintNickCount();
           showStep("auth-step-nickname");
         }
-        setAuthMsg("auth-nick-err", "Could not save your username. Try again.", false);
+        setAuthMsg("auth-nick-err", ccProfileSaveErr(e), false);
       }
     }
     $a("auth-nick-input").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-nick-go-btn").click(); });

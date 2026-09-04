@@ -77,8 +77,20 @@ console.log("\nthe whole painting, on a flat black page");
   // picture wider than it was tall; this one is 2:3, so a 400px cap is a
   // 260px-wide poster on a 1024px tablet.
   check("…and the band is a share of the screen, not a fixed range of pixels",
-        /--ao-band: min\(48vh, 116vw\);/.test(CSS)
+        /--ao-band: max\([\s\S]{0,60}?min\(48vh, 116vw,/.test(CSS)
         && !/--ao-band: clamp\(230px, 40vh, 400px\);/.test(CSS));
+  // …but a share it can be TALKED OUT OF. A share of the screen is what the
+  // picture would like; what it gets is whatever the column below it does not
+  // need, because 48vh of poster put CREATE AN ACCOUNT, PLAY AS GUEST and
+  // CONTINUE WITH GOOGLE off the bottom of every phone made. The leftover
+  // bound has to be on BOTH declarations: the short-phone block re-declares
+  // --ao-band, so a bound written only once is switched off by the screens
+  // that need it most. test_signin_phone.js measures the result.
+  check("…and the picture takes what is left once the form has what it needs",
+        (CSS.match(/--ao-band: max\([^;]*100dvh - var\(--ao-form-needs\)\)\);/g) || []).length >= 2
+        && (CSS.match(/--ao-form-needs: \d+px;/g) || []).length >= 2);
+  check("…with a vh fallback under every dvh one, for a browser without dvh",
+        (CSS.match(/--ao-band: max\([^;]*100vh - var\(--ao-form-needs\)\)\);/g) || []).length >= 2);
   check("a landscape phone is not stacked into a band it has no height for",
         /@media \(max-width: 820px\) and \(min-height: 500px\), \(max-aspect-ratio: 4\/5\) \{/.test(CSS));
 }

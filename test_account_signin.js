@@ -106,7 +106,7 @@ console.log("\nthe artwork is scenery, and every way in is real markup");
   // phone is narrow and 360px tall: stacking it gives a sliver of picture and
   // a scroll, so it stays two halves.
   check("…and a narrow, tall window stacks them instead of halving them",
-        /@media \(max-width: 820px\) and \(min-height: 500px\), \(max-aspect-ratio: 4\/5\)[\s\S]{0,1800}?#auth-step-choose > \.ao-art \{[\s\S]{0,240}?width: 100%;/.test(CSS));
+        /@media \(max-width: 820px\) and \(min-height: 500px\), \(max-aspect-ratio: 4\/5\)[\s\S]{0,3200}?#auth-step-choose > \.ao-art \{[\s\S]{0,240}?width: 100%;/.test(CSS));
   // A form you cannot see yet is only ever clicked by accident.
   check("nothing in the column is clickable until the artwork has painted",
         /#auth-step-choose:not\(\.is-armed\) > \.ao-form/.test(CSS)
@@ -577,6 +577,17 @@ if (!CHROME) {
             empty: window.__ccValidEmail(""),
             space: window.__ccValidEmail("reef @example.com"),
           };
+          // A disabled button pressed anyway. Chrome swallows the click on a
+          // disabled control but delivers the pointerdown to the ancestor, so
+          // that is the press this reproduces, and the answer has to be the
+          // pane's own reason rather than nothing at all.
+          document.getElementById("ao-new-user").value = "tidepool";
+          typePw("password123");
+          var go = document.getElementById("ao-new-go");
+          var line = document.getElementById("auth-choose-err");
+          log.dead = { off: go.disabled, before: (line.textContent || "").trim() };
+          go.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+          log.dead.after = (line.textContent || "").trim();
           done();
         }, 1500);
       `, 1440, 900, (r) => r.strong !== undefined);
@@ -608,6 +619,17 @@ if (!CHROME) {
             ok && r.emails.good === true && r.emails.typo === false
               && r.emails.empty === false && r.emails.space === false,
             ok && JSON.stringify(r.emails));
+      // The gate is right; what it used to cost is the only thing a person
+      // does when a screen will not go on. A disabled button answers with
+      // nothing at all, so "my password is too short" reads as "this game is
+      // broken", and the sign-up is abandoned over a rule nobody was told.
+      check("a disabled Create Account, pressed, is silent no longer",
+            ok && r.dead && r.dead.off === true && r.dead.before === ""
+              && r.dead.after.length > 0,
+            ok && r.dead && JSON.stringify(r.dead));
+      check("…and what it says is the rule that disabled it",
+            ok && r.dead && /stronger password/i.test(r.dead.after || ""),
+            ok && r.dead && r.dead.after);
     }
 
     // ── 5. The create pane fits the column it opens in ────────────────────
