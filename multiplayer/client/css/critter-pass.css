@@ -1,0 +1,589 @@
+/* Currents and Critters: the Critter Pass (#cc-critter-pass-root).
+ *
+ * The paid track's own tab, and the one Player Home page that does NOT sit on
+ * the app's flat blue: it is painted on the full kelp-forest scene
+ * (/backgrounds/kelp-forest.png), which is what makes it read as a place you
+ * bought your way into rather than another list.
+ *
+ * The art is bright cyan-and-green, so nothing is written straight onto it. A
+ * single dark-teal scrim sits between the photo and the content, every card is
+ * cream glass, and the only white text is the header, which sits on the
+ * darkest part of the scrim. Change the scrim and you are changing the
+ * legibility of every word on the page.
+ *
+ *   .ccCP*   the Critter Pass page
+ *
+ * Class prefix is deliberately NOT .ccLP: the free Level Pass owns that, the
+ * two pages sit next to each other in the sidebar, and one stylesheet reaching
+ * into the other's classes is how a change to one silently repaints the other.
+ * Shared LOOK, separate names.
+ */
+
+/* Self-contained box model, for the same reason level-pass.css declares one:
+   this surface must not depend on a reset that lives in another file. */
+#cc-critter-pass-root, #cc-critter-pass-root * { box-sizing: border-box; }
+
+/* The palette. Kept in one block so a retheme is one edit. */
+#cc-critter-pass-root {
+  font-family: "Nunito", system-ui, -apple-system, sans-serif;
+  display: block;
+  /* The page sits on a dark scrim, so the DEFAULT ink is light and every card
+     turns it back to dark for itself. The other way round leaves any text
+     nobody styled invisible on the kelp. */
+  color: #eaf7ff;
+  --cp-ink:       #12324f;
+  --cp-ink-soft:  #4f7897;
+  --cp-ink-dim:   #6f95b0;
+  --cp-blue:      #1c70cc;
+  --cp-blue-lt:   #2e8fe0;
+  --cp-line:      rgba(150, 196, 226, .8);
+  --cp-card:      rgba(253, 255, 255, .96);
+  --cp-card-2:    rgba(240, 250, 255, .94);
+  --cp-gold:      #c89320;
+  --cp-gold-lt:   #e8b34a;
+  --cp-teal:      #0e8f6c;
+  --cp-kelp:      #1f7a52;
+  /* The scrim over the kelp art. Everything on the page is legible because of
+     these two numbers; treat them as load-bearing. */
+  --cp-scrim-top: rgba(5, 47, 68, .62);
+  --cp-scrim-bot: rgba(5, 47, 68, .40);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE PAGE, on the kelp forest
+   ══════════════════════════════════════════════════════════════════════ */
+.ccCP {
+  position: relative;
+  border-radius: 26px;
+  padding: 20px 20px 26px;
+  overflow: hidden;
+  /* Scrim first, art second: one background shorthand, so the two can never
+     be separated by a later rule that only sets background-image. The .png is
+     requested; the server negotiates the .webp sibling from the Accept header,
+     so there is no second URL to keep in step. */
+  background:
+    linear-gradient(180deg, var(--cp-scrim-top) 0%, var(--cp-scrim-bot) 100%),
+    url("/backgrounds/kelp-forest.png") center top / cover no-repeat,
+    #0d5f7d;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18), 0 8px 26px rgba(9, 45, 66, .22);
+}
+
+/* The rail scrolls sideways INSIDE the page; the page itself never does. */
+.ccCP, .ccCP * { max-width: 100%; }
+
+.ccCP-empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: #eaf7ff;
+  font-size: .98rem;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(5, 47, 68, .55);
+}
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+/* The one block written directly on the art, so it is white on the darkest
+   part of the scrim and carries its own shadow. */
+.ccCP-head { margin-bottom: 18px; }
+
+.ccCP-head-top {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.ccCP-lvl-badge {
+  flex: 0 0 auto;
+  width: 92px;
+  height: 92px;
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(160deg, #37c48c 0%, var(--cp-kelp) 100%);
+  box-shadow: 0 6px 16px rgba(5, 47, 68, .42);
+  border: 2px solid rgba(255, 255, 255, .62);
+}
+.ccCP-lvl-word {
+  font-size: .68rem;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  opacity: .9;
+  font-weight: 800;
+}
+.ccCP-lvl-num {
+  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.ccCP-head-mid { flex: 1 1 auto; min-width: 0; }
+
+.ccCP-title {
+  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-size: 1.8rem;
+  color: #fff;
+  line-height: 1.12;
+  text-shadow: 0 2px 8px rgba(5, 47, 68, .6);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ccCP-owned-pill {
+  font-family: "Nunito", sans-serif;
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #05372a;
+  background: linear-gradient(180deg, #6fe0b2, #2bb887);
+  border-radius: 999px;
+  padding: 4px 11px;
+  text-shadow: none;
+  box-shadow: 0 2px 7px rgba(5, 47, 68, .3);
+}
+.ccCP-season {
+  font-size: .8rem;
+  font-weight: 800;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: #b9ecd6;
+  text-shadow: 0 1px 4px rgba(5, 47, 68, .65);
+}
+
+.ccCP-next {
+  margin-top: 5px;
+  font-size: 1rem;
+  color: #e6f6ff;
+  text-shadow: 0 1px 4px rgba(5, 47, 68, .6);
+}
+.ccCP-next b { color: #fff; font-weight: 800; }
+.ccCP-next-xp { color: #ffe07a !important; }
+.ccCP-next-lvl { color: #b8dcf0; font-size: .88rem; }
+.ccCP-next-done { color: #8ff0c6; font-weight: 800; }
+
+.ccCP-bar {
+  margin-top: 10px;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(5, 47, 68, .45);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .35);
+}
+.ccCP-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #6fe0b2, #2bb887);
+  transition: width .5s ease;
+}
+.ccCP-bar-txt {
+  margin-top: 5px;
+  font-size: .82rem;
+  color: #cfe9f7;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(5, 47, 68, .55);
+}
+
+.ccCP-head-actions { flex: 0 0 auto; }
+.ccCP-claimall {
+  padding: 13px 22px;
+  border: none;
+  border-radius: 999px;
+  font-family: "Nunito", sans-serif;
+  font-weight: 900;
+  font-size: .98rem;
+  color: #3d2600;
+  cursor: pointer;
+  background: linear-gradient(180deg, var(--cp-gold-lt) 0%, var(--cp-gold) 100%);
+  box-shadow: 0 5px 16px rgba(5, 47, 68, .4);
+  transition: transform .14s ease, box-shadow .14s ease;
+  animation: ccCP-nudge 2.6s ease-in-out infinite;
+}
+.ccCP-claimall:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(5, 47, 68, .48); }
+.ccCP-claimall:disabled { opacity: .6; cursor: default; animation: none; transform: none; }
+@keyframes ccCP-nudge {
+  0%, 92%, 100% { transform: translateY(0); }
+  96%           { transform: translateY(-3px); }
+}
+.ccCP-allclear {
+  font-size: .88rem;
+  color: #cfe9f7;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(5, 47, 68, .55);
+}
+
+/* ── Inventory chips ──────────────────────────────────────────────────── */
+.ccCP-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 15px;
+  border-top: 1px dashed rgba(255, 255, 255, .38);
+}
+.ccCP-chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 14px;
+  border-radius: 16px;
+  background: var(--cp-card-2);
+  border: 1px solid var(--cp-line);
+  min-height: 46px;
+  color: var(--cp-ink);
+  box-shadow: 0 3px 10px rgba(5, 47, 68, .18);
+}
+.ccCP-chip.is-empty { opacity: .72; }
+.ccCP-chip-ico { font-size: 1.25rem; line-height: 1; display: flex; }
+.ccCP-chip-ico .cc-coin { width: 20px; height: 20px; }
+.ccCP-chip-txt { display: flex; flex-direction: column; line-height: 1.25; }
+.ccCP-chip-txt b { font-size: .92rem; color: var(--cp-ink); }
+.ccCP-chip-txt span { font-size: .74rem; color: var(--cp-ink-dim); }
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE PURCHASE CARD
+   Shown until the pass is unlocked, and it never covers the rail: the whole
+   track stays readable underneath, because a locked feature you cannot even
+   look at does not sell itself.
+   ══════════════════════════════════════════════════════════════════════ */
+.ccCP-buycard {
+  display: flex;
+  align-items: stretch;
+  gap: 18px;
+  background: linear-gradient(165deg, rgba(255, 253, 246, .97), rgba(246, 253, 255, .95));
+  border: 1px solid rgba(232, 179, 74, .7);
+  border-radius: 24px;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+  color: var(--cp-ink);
+  box-shadow: 0 10px 26px rgba(5, 47, 68, .28);
+}
+.ccCP-buy-main { flex: 1 1 auto; min-width: 0; }
+
+.ccCP-buy-kicker {
+  display: inline-block;
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #8a6410;
+  background: rgba(232, 179, 74, .24);
+  border-radius: 999px;
+  padding: 3px 10px;
+  margin-bottom: 7px;
+}
+.ccCP-buy-title {
+  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-size: 1.55rem;
+  color: var(--cp-ink);
+  margin: 0 0 5px;
+  line-height: 1.12;
+}
+.ccCP-buy-sub {
+  margin: 0;
+  font-size: .93rem;
+  color: var(--cp-ink-soft);
+  line-height: 1.42;
+}
+.ccCP-buy-sub b { color: var(--cp-ink); }
+
+.ccCP-hls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 9px 16px;
+  margin: 15px 0 16px;
+}
+.ccCP-hl { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ccCP-hl-ico { font-size: 1.2rem; line-height: 1; display: flex; flex: 0 0 auto; }
+.ccCP-hl-coin { width: 20px; height: 20px; }
+.ccCP-hl-txt { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.ccCP-hl-txt b { font-size: 1.02rem; color: var(--cp-ink); font-weight: 900; }
+.ccCP-hl-txt span { font-size: .76rem; color: var(--cp-ink-dim); }
+
+.ccCP-buy-act { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.ccCP-buy {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 26px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: "Nunito", sans-serif;
+  font-weight: 900;
+  font-size: 1.02rem;
+  color: #3d2600;
+  background: linear-gradient(180deg, var(--cp-gold-lt) 0%, var(--cp-gold) 100%);
+  box-shadow: 0 6px 16px rgba(200, 147, 32, .4);
+  transition: transform .14s ease, filter .14s ease;
+}
+.ccCP-buy:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.06); }
+.ccCP-buy:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+.ccCP-buy .cc-coin { width: 21px; height: 21px; }
+.ccCP-buy-note {
+  font-size: .82rem;
+  color: var(--cp-ink-soft);
+  font-weight: 700;
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.ccCP-buy-note b { color: var(--cp-gold); }
+
+.ccCP-buy-art {
+  flex: 0 0 auto;
+  width: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-left: 1px dashed rgba(200, 147, 32, .45);
+  padding-left: 16px;
+}
+.ccCP-buy-art img {
+  width: 122px;
+  height: 122px;
+  object-fit: contain;
+  filter: drop-shadow(0 5px 9px rgba(5, 47, 68, .26));
+}
+.ccCP-buy-art span {
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--cp-gold);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE TRACK
+   ══════════════════════════════════════════════════════════════════════ */
+.ccCP-rail-wrap { position: relative; }
+
+.ccCP-rail {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  padding: 6px 4px 16px;
+  /* The connecting line every reward track has, drawn behind the cards so a
+     player reads them as one road rather than a row of tiles. Positioned on
+     the same 96px as the nav arrows below. */
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, .55))
+    center 96px / 100% 3px no-repeat;
+  scrollbar-width: thin;
+}
+.ccCP-rail::-webkit-scrollbar { height: 9px; }
+.ccCP-rail::-webkit-scrollbar-track { background: rgba(5, 47, 68, .3); border-radius: 999px; }
+.ccCP-rail::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .6); border-radius: 999px; }
+
+.ccCP-tier {
+  scroll-snap-align: center;
+  flex: 0 0 auto;
+  width: 168px;
+  padding: 12px 12px 14px;
+  border-radius: 20px;
+  background: var(--cp-card);
+  border: 1px solid var(--cp-line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  position: relative;
+  color: var(--cp-ink);
+  box-shadow: 0 4px 14px rgba(5, 47, 68, .2);
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+.ccCP-tier:hover { transform: translateY(-3px); box-shadow: 0 9px 22px rgba(5, 47, 68, .3); }
+
+.ccCP-tier-lvl {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-size: 1rem;
+  color: #fff;
+  background: linear-gradient(160deg, #90b4d0, #6d94b4);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(5, 47, 68, .28);
+}
+
+.ccCP-tier-face {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ccCP-tier-ico { font-size: 2.1rem; line-height: 1; }
+/* The minted Critter Coin on a coin tier. Sized to sit where the 2.1rem glyph
+   would, so a coin tier is exactly as tall as every other card. */
+.ccCP-tier-coin {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  -webkit-user-select: none; user-select: none;
+  filter: drop-shadow(0 3px 5px rgba(5, 47, 68, .24));
+}
+.ccCP-tier-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 5px rgba(5, 47, 68, .24));
+}
+
+.ccCP-tier-label {
+  font-weight: 900;
+  font-size: .88rem;
+  color: var(--cp-ink);
+  line-height: 1.2;
+}
+.ccCP-tier-blurb {
+  font-size: .7rem;
+  color: var(--cp-ink-dim);
+  line-height: 1.3;
+  /* Two lines, then ellipsis: the cards must stay the same height or the
+     connecting line behind them stops lining up. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 1.82em;
+}
+.ccCP-tier-foot { margin-top: auto; padding-top: 6px; min-height: 32px; display: flex; align-items: center; }
+
+.ccCP-claim {
+  padding: 7px 18px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: "Nunito", sans-serif;
+  font-weight: 900;
+  font-size: .84rem;
+  color: #3d2600;
+  background: linear-gradient(180deg, var(--cp-gold-lt) 0%, var(--cp-gold) 100%);
+  box-shadow: 0 3px 9px rgba(200, 147, 32, .4);
+}
+.ccCP-claim:hover { filter: brightness(1.06); }
+.ccCP-tier-done { font-size: .8rem; font-weight: 800; color: var(--cp-teal); }
+.ccCP-tier-lock,
+.ccCP-tier-togo { font-size: .76rem; color: var(--cp-ink-dim); font-weight: 700; }
+.ccCP-tier-togo b { color: var(--cp-blue); }
+/* Reached, but the pass is not unlocked yet. Gold, because it is the sales
+   pitch: this is a reward the player has already earned the level for. */
+.ccCP-tier-wait { font-size: .76rem; color: #8a6410; font-weight: 800; }
+
+/* ── Tier states ──────────────────────────────────────────────────────── */
+.ccCP-tier.is-locked { opacity: .78; }
+.ccCP-tier.is-locked .ccCP-tier-face { filter: grayscale(1); opacity: .55; }
+
+.ccCP-tier.is-waiting {
+  border-color: rgba(200, 147, 32, .55);
+  background: linear-gradient(170deg, rgba(255, 252, 240, .97), rgba(253, 255, 255, .95));
+}
+
+.ccCP-tier.is-ready {
+  border-color: var(--cp-gold);
+  box-shadow: 0 0 0 3px rgba(232, 179, 74, .34), 0 6px 18px rgba(5, 47, 68, .28);
+}
+.ccCP-tier.is-ready .ccCP-tier-lvl { background: linear-gradient(160deg, var(--cp-gold-lt), var(--cp-gold)); }
+
+.ccCP-tier.is-claimed { background: var(--cp-card-2); }
+.ccCP-tier.is-claimed .ccCP-tier-lvl { background: linear-gradient(160deg, #34c79c, var(--cp-teal)); }
+
+.ccCP-tier.is-busy { opacity: .6; pointer-events: none; }
+
+/* The two rewards nothing else in the game hands out. They read green, the
+   colour the challenge strip already uses for a completed job. */
+.ccCP-tier.is-perk {
+  border-color: rgba(14, 143, 108, .55);
+  background: linear-gradient(170deg, rgba(238, 255, 249, .97), rgba(250, 255, 255, .95));
+}
+.ccCP-tier.is-perk .ccCP-tier-label { color: var(--cp-kelp); }
+
+/* The Level 100 critter is the arrival at the end of the track. */
+.ccCP-tier.is-finale {
+  width: 190px;
+  background: linear-gradient(170deg, rgba(255, 250, 235, .98), rgba(253, 255, 255, .96));
+  border-color: rgba(200, 147, 32, .6);
+}
+.ccCP-tier.is-finale .ccCP-tier-face { width: 84px; height: 84px; }
+.ccCP-tier.is-finale .ccCP-tier-label { font-size: .95rem; }
+
+/* ── Rail arrows ──────────────────────────────────────────────────────── */
+.ccCP-nav {
+  position: absolute;
+  top: 96px;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--cp-line);
+  background: rgba(255, 255, 255, .96);
+  color: var(--cp-blue);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 3px 12px rgba(5, 47, 68, .32);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 3px;
+}
+.ccCP-nav:hover { background: #fff; color: var(--cp-blue-lt); }
+.ccCP-nav-prev { left: -6px; }
+.ccCP-nav-next { right: -6px; }
+
+.ccCP-foot-note {
+  margin-top: 6px;
+  text-align: center;
+  font-size: .82rem;
+  color: #d8eefb;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(5, 47, 68, .6);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   NARROW SCREENS
+   Measured, not guessed: a check at one window size once passed here while
+   every screen under 1100px was unusable. The purchase card is the piece that
+   breaks first, because its art column and its highlight grid both want room.
+   ══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .ccCP { padding: 16px 14px 22px; border-radius: 22px; }
+  .ccCP-head-top { flex-wrap: wrap; gap: 14px; }
+  .ccCP-lvl-badge { width: 72px; height: 72px; border-radius: 20px; }
+  .ccCP-lvl-num { font-size: 2rem; }
+  .ccCP-title { font-size: 1.55rem; }
+  .ccCP-head-actions { width: 100%; }
+  .ccCP-claimall { width: 100%; }
+  .ccCP-buycard { flex-direction: column; padding: 18px; }
+  .ccCP-buy-art {
+    width: 100%;
+    border-left: none;
+    border-top: 1px dashed rgba(200, 147, 32, .45);
+    padding-left: 0;
+    padding-top: 14px;
+    flex-direction: row;
+    gap: 12px;
+  }
+  .ccCP-buy-art img { width: 84px; height: 84px; }
+  .ccCP-buy { width: 100%; justify-content: center; }
+  .ccCP-nav { display: none; }   /* touch scrolling is the better control here */
+}
+
+@media (max-width: 520px) {
+  .ccCP { padding: 14px 10px 20px; }
+  .ccCP-hls { grid-template-columns: 1fr; }
+  .ccCP-tier { width: 152px; }
+  .ccCP-tier.is-finale { width: 168px; }
+}

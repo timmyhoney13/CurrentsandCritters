@@ -40,6 +40,7 @@ import newsletter_email as nl_email
 import newsletter_server
 import discord_server
 import level_pass_server
+import critter_pass_server
 import redeem_codes
 import referral_server
 import welcome_server
@@ -13415,6 +13416,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if level_pass_server.handle_post(self, parsed, body):
             return
 
+        # Critter Pass (/api/critterpass/*), the PAID track over the same
+        # levels. Same level re-derivation as the free pass, plus one more
+        # thing the browser cannot be trusted with: the 4,000-coin purchase,
+        # whose balance is re-read inside the transaction that spends it.
+        if critter_pass_server.handle_post(self, parsed, body):
+            return
+
         # Friend-code referral (/api/referral/*). Pays TWO accounts in one
         # transaction, which is exactly why the browser cannot be the one
         # deciding who gets paid.
@@ -14668,6 +14676,23 @@ def main() -> None:
     )
     print(f"[pass] level pass ON: {len(level_pass_server.track())} tiers, "
           f"+{level_pass_server.BOOST_PERCENT}% XP boost for {level_pass_server.BOOST_HOURS}h")
+
+    # Critter Pass, the paid track. Same injected curve and background
+    # catalogue as the free pass, for the same reason: neither may own a copy
+    # of the level table, and neither may hand out a background path the
+    # gallery cannot render.
+    critter_pass_server.init(
+        get_firestore=_get_firestore,
+        verify_token=_verify_firebase_id_token,
+        level_for_xp=_level_progress_for_total_xp,
+        level_totals=LEVEL_XP_TOTALS,
+        background_paths=ALL_BACKGROUND_PATHS,
+    )
+    print(f"[critterpass] critter pass ON ({critter_pass_server.SEASON_ID}): "
+          f"{len(critter_pass_server.track())} tiers, "
+          f"{critter_pass_server.CRITTER_PASS_PRICE:,} coins to unlock, "
+          f"{critter_pass_server.coin_total():,} coins + "
+          f"{critter_pass_server.xp_total():,} XP on the track")
 
     # Friend-code referral reward. Same injected Firestore accessor and token
     # verifier as everything else; the background catalogue is shared with the

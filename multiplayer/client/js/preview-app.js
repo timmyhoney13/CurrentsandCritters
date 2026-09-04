@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-03.4";
+  const APP_BUILD   = "2026-09-04.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,12 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F The Critter Pass is here", items: [
+      "A new tab under Level Pass: the Critter Pass, a paid reward track laid over the same levels 1\u2013100 you are already climbing. It costs 4,000 Critter Coins once, and the track pays back 8,500 Critter Coins on the way up, plus 16,000 XP dropped over nine tiers.",
+      "Three of its tiers give you an EXTRA daily challenge, and three more give you an extra weekly challenge. Not for a week, for keeps: get all six and you have six challenges a day and six a week instead of three and three. The Tide Sweep still only asks for three, so the extras are pure bonus.",
+      "Ten more critter chat emotes are spread along it, one every ten levels, along with XP Boosts, Streak Shields, Weekly Swaps and two avatar backgrounds. At Level 100 the Summer Skin Gull is yours.",
+      "You can read the whole track before you buy it, at your real level, so you can see exactly what is waiting. Everything you have already levelled past becomes claimable the moment you unlock it.",
+    ]},
     { ver: "V1.7.1", title: "\uD83D\uDCA7 New achievement: Every Last Drop", items: [
       "Every Last Drop, worth 2,500 XP, is yours for having every printed copy of one Ocean type on your board at the same time in one game.",
       "That means the whole run: all 6 Tide Pools, all 6 Artificial Reefs, all 8 Piers, Deep Oceans or Arctic Oceans, all 9 Mangroves, all 10 Kelp Forests or all 13 Coral Reefs. Finish the set and no one else at the table can have that Ocean at all.",
@@ -1289,6 +1295,36 @@
     // A claim moves coins, backgrounds and stickers on the account document the
     // rest of the app renders from, so re-read it rather than letting the
     // header keep painting the old balance.
+    onGranted: () => { try { window.__fishReloadProfile && window.__fishReloadProfile(); } catch (_) {} },
+  };
+
+  // ── Critter Pass bridge ────────────────────────────────────────────────
+  // The page lives in js/critter-pass.js. Same shape as the Level Pass bridge
+  // and for the same reason: every rule is server-authoritative
+  // (/api/critterpass/*), including the 4,000-coin purchase, whose coin balance
+  // is re-read inside the transaction that spends it. The one addition is
+  // `modal`: this pass is the biggest single spend in the game, so it asks
+  // before it charges.
+  window.__ccCritterPass = {
+    APP_BUILD,
+    get:  (p) => apiFetch(p),
+    post: (p, b) => apiPost(p, b),
+    toast: (m, t) => { try { showToast(m, t); } catch (_) {} },
+    avSrc: (u) => { try { return _avSrc(u); } catch (_) { return u; } },
+    // Resolves to { action, selected }. A NULL answer means the modal never
+    // loaded, and critter-pass.js treats that as "ask another way", never as a
+    // confirmation.
+    modal: (opts) => {
+      try { return window.ccPerkModal ? window.ccPerkModal(opts) : Promise.resolve(null); }
+      catch (_) { return Promise.resolve(null); }
+    },
+    async idToken() {
+      try { const u = window.__fishAuthUser && window.__fishAuthUser();
+            return (u && u.getIdToken) ? await u.getIdToken() : ""; } catch (_) { return ""; }
+    },
+    // A buy or a claim moves coins, XP, backgrounds, emotes and unlocked_icons
+    // on the account document the rest of the app renders from, so re-read it
+    // rather than letting the header keep painting the old balance.
     onGranted: () => { try { window.__fishReloadProfile && window.__fishReloadProfile(); } catch (_) {} },
   };
 
@@ -19218,9 +19254,15 @@
     // Seasonal player icons. Behave exactly like any other avatar: equip one
     // from the Avatar Gallery and everyone sees it on your seat in-game. The
     // ONLY way to unlock them is buying in the Store for 2,000 Critter Coins.
+    // TWO routes to this one: the Store, and Level 100 of the Critter Pass. The
+    // unlock TYPE stays "shop", because that is what decides whether a guest may
+    // wear it (PAID_UNLOCK_TYPES) and whether Prestige relocks it: the pass is a
+    // second door onto the same shop item, not a different kind of unlock. Only
+    // the label mentions both, so a pass owner climbing to 100 is not told the
+    // Store is the only way.
     { id:"summer-skin-gull", name:"Summer Skin Gull", species:"Summer Skins", img:"/avatars/summer-skin-gull.png",
       facts:"A beach-day gull dive-bombing for a sandcastle bucket, summer's cheekiest snack thief.",
-      unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins." } },
+      unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins, or reach Level 100 on the Critter Pass." } },
     { id:"summer-skin-hermit-crab", name:"Summer Skin Hermit Crab", species:"Summer Skins", img:"/avatars/summer-skin-hermit-crab.png",
       facts:"Sun hat on, shades down, this hermit crab is fully moved into vacation mode.",
       unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins." } },
@@ -22801,6 +22843,7 @@
       // Level Pass cache with it, so the sidebar's unclaimed badge cannot show
       // the last account's number to the next one.
       try { window.__ccLevelPassReset && window.__ccLevelPassReset(); } catch (_) {}
+      try { window.__ccCritterPassReset && window.__ccCritterPassReset(); } catch (_) {}
     }
 
     // ── Stats lobby helpers ───────────────────────────────────────
@@ -27696,6 +27739,11 @@
     // they just activated on their first game back.
     function _ccPrimeRewardModules() {
       try { window.__ccLevelPassPrime && window.__ccLevelPassPrime(); } catch (_) {}
+      // The Critter Pass cache feeds __ccPassExtraSlots(), which the challenge
+      // strip reads SYNCHRONOUSLY on every repaint. Unprimed it reports "no
+      // extra slots", so a player who bought the perk would see three dailies
+      // until something else happened to sync the pass.
+      try { window.__ccCritterPassPrime && window.__ccCritterPassPrime(); } catch (_) {}
       try { window.__ccReferralPrime && window.__ccReferralPrime(); } catch (_) {}
       try { void _ccClaimWelcomeBonus(); } catch (_) {}
       try { void _ccSyncDevRoster(); } catch (_) {}
@@ -28408,7 +28456,7 @@
     // ── Player Home: tab switching ───────────────────────────────
     (function() {
       const tabs = document.querySelectorAll("#ph-tabs .ph-tab");
-      const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", messages:"ph-panel-messages", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", clans:"ph-panel-clans", prestige:"ph-panel-prestige", levelpass:"ph-panel-levelpass", store:"ph-panel-store" };
+      const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", messages:"ph-panel-messages", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", clans:"ph-panel-clans", prestige:"ph-panel-prestige", levelpass:"ph-panel-levelpass", critterpass:"ph-panel-critterpass", store:"ph-panel-store" };
       const statsLobby = document.getElementById("auth-stats-lobby");
       // ── Guests are not locked out of the menu ────────────────────────
       // Every tab opens for a guest. What a guest does NOT get is a saved
@@ -28432,6 +28480,7 @@
         clans:        "Clans are played from an account: sign in to join one or start your own.",
         prestige:     "Prestige is tracked on your account. Sign in to keep a run.",
         levelpass:    "Your level and rewards show here. Claiming them needs an account.",
+        critterpass:  "This is the whole Critter Pass at your level. Buying and claiming it needs an account.",
       };
       // The Clans panel is empty markup that js/clans-ui.js fills in, so if that
       // module hasn't registered, doing nothing here is indistinguishable from
@@ -28453,6 +28502,24 @@
         if (root) {
           root.innerHTML = '<div class="ccLP"><div class="ccLP-empty">'
             + "The Level Pass didn't finish loading. Please refresh the page."
+            + "</div></div>";
+        }
+      }
+
+      // js/critter-pass.js is a separate deferred script too, so the same wait
+      // and the same honest give-up applies: a blank tab that explains nothing
+      // is the failure being avoided here, not a slow one.
+      function _renderCritterPassTab(attempt) {
+        const n = attempt || 0;
+        if (typeof window.__ccCritterPassRender === "function") {
+          window.__ccCritterPassRender();
+          return;
+        }
+        if (n < 20) { setTimeout(() => _renderCritterPassTab(n + 1), 100); return; }
+        const root = document.getElementById("cc-critter-pass-root");
+        if (root) {
+          root.innerHTML = '<div class="ccCP"><div class="ccCP-empty">'
+            + "The Critter Pass didn't finish loading. Please refresh the page."
             + "</div></div>";
         }
       }
@@ -28589,6 +28656,7 @@
         if (name === "clans")        _renderClansTab();
         if (name === "prestige")     _renderPrestigeTab();
         if (name === "levelpass")    _renderLevelPassTab();
+        if (name === "critterpass")  _renderCritterPassTab();
         if (name === "store")        renderPhStore();
       }
       window._switchPhTab = switchTab;
@@ -31368,9 +31436,14 @@
       try { dailyMeta  = _getDailyMeta(); }  catch { dailyMeta  = null; }
       try { weeklyMeta = _getWeeklyMeta(); } catch { weeklyMeta = null; }
       meta = (weekly ? weeklyMeta : dailyMeta)
-             || { completedCount: 0, totalCount: 3, sweepDone: false, resetsInMs: 0 };
-      const done  = meta.completedCount;
-      const total = meta.totalCount;
+             || { completedCount: 0, totalCount: _CS_BASE_SLOTS,
+                  sweepTarget: _CS_BASE_SLOTS, sweepDone: false, resetsInMs: 0 };
+      const done   = meta.completedCount;
+      const total  = meta.totalCount;
+      // What the Tide Sweep asks for, which is the base three however many
+      // slots the player owns. Every "how close am I to the reward" number
+      // below measures against THIS, not against total.
+      const sweepN = Number(meta.sweepTarget) || _CS_BASE_SLOTS;
 
       // The pill and the calendar are the SAME switch, and a switch has to
       // advertise the other side, not the side you are already on.
@@ -31403,7 +31476,7 @@
       if (_csOpen) {
         const base = weekly
           ? "Complete weekly challenges to earn bigger XP rewards."
-          : `Three fresh challenges every day. ${_formatResetIn(meta.resetsInMs || 0)}.`;
+          : `${_csCountWord(total)} fresh challenges every day. ${_formatResetIn(meta.resetsInMs || 0)}.`;
         // With the tab row gone, this line is the only place the OTHER set's
         // progress is written down, so it carries it, and says which button
         // hands it to you.
@@ -31446,8 +31519,18 @@
       // closed. (It used to be display:none in the markup and nothing ever
       // turned it back on, so opening the strip showed challenges with no
       // reward attached to them at all.)
-      const sweepPct = Math.min(100, Math.round((done / Math.max(1, total)) * 100));
-      if (countEl) countEl.textContent = `${done} / ${total} Completed`;
+      // The whole reward block is about the Tide Sweep, so its bar AND its
+      // caption both measure against the sweep target, not against how many
+      // slots the player owns. Reading "2 / 6" over a 67%-full bar is the bug
+      // this avoids: a Critter Pass owner has six jobs but the Sweep still
+      // wants three, and the block has to say which number it is counting.
+      const sweepDone = Math.min(done, sweepN);
+      const sweepPct = Math.min(100, Math.round((sweepDone / Math.max(1, sweepN)) * 100));
+      if (countEl) {
+        countEl.textContent = total > sweepN
+          ? `${sweepDone} / ${sweepN} for the Sweep`
+          : `${done} / ${total} Completed`;
+      }
       if (fillEl)  fillEl.style.width  = sweepPct + "%";
       if (ricoEl)  ricoEl.textContent  = weekly ? "🗝️" : "📅";
       if (rewardEl) {
@@ -31455,7 +31538,9 @@
         rewardEl.classList.toggle("is-done", Boolean(meta.sweepDone));
         rewardEl.title = meta.sweepDone
           ? `${weekly ? "Weekly" : "Daily"} Tide Sweep complete: see it in Achievements`
-          : `Complete all ${total} ${weekly ? "weekly" : "daily"} challenges for ${weekly ? "1,500" : "400"} XP`;
+          : (total > sweepN
+              ? `Complete any ${sweepN} of your ${total} ${weekly ? "weekly" : "daily"} challenges for ${weekly ? "1,500" : "400"} XP`
+              : `Complete all ${total} ${weekly ? "weekly" : "daily"} challenges for ${weekly ? "1,500" : "400"} XP`);
       }
       if (rlabelEl) {
         if (weekly) {
@@ -31478,7 +31563,7 @@
             : `Perfect Week: play all 7 days for +5,000 XP (${(weeklyMeta && weeklyMeta.daysPlayedCount) || 0}/7)`;
         } else {
           rsubEl.textContent = _formatResetIn(meta.resetsInMs || 0)
-            + ", three new challenges at midnight";
+            + `, ${_csCountWord(total).toLowerCase()} new challenges at midnight`;
         }
       }
 
@@ -31541,6 +31626,63 @@
       return { weekly: newWeekly, daily: newDaily };
     };
 
+    // ── Extra challenge slots (a Critter Pass reward) ─────────────
+    // Three Critter Pass tiers each add one DAILY challenge and three more add
+    // one WEEKLY, for keeps. The COUNT is server-owned (bonus_daily_slots /
+    // bonus_weekly_slots on the account, raised only inside a claim
+    // transaction); the challenges themselves stay local, because they roll on
+    // this browser's own midnight and no server can compute that.
+    // window.__ccPassExtraSlots() is that seam, and it is read synchronously on
+    // every strip repaint, so it can never await anything. An unloaded pass
+    // reports zero extras, which is the safe direction: three slots that grow
+    // to four reads as a reward arriving, four that shrink to three reads as
+    // one being taken away.
+    //
+    // _CS_BASE_SLOTS is what everybody gets AND what the Tide Sweep asks for.
+    // Those are deliberately the same number: an extra slot must never make
+    // the sweep harder, or the reward somebody paid for would be a punishment.
+    const _CS_BASE_SLOTS = 3;
+    const _CS_MAX_EXTRA  = 3;
+    function _csExtraSlots(kind) {
+      try {
+        const e = window.__ccPassExtraSlots ? window.__ccPassExtraSlots() : null;
+        const n = Math.floor(Number(e && e[kind]));
+        return Number.isFinite(n) ? Math.max(0, Math.min(_CS_MAX_EXTRA, n)) : 0;
+      } catch (_) { return 0; }
+    }
+    const _dailySlotCount  = () => _CS_BASE_SLOTS + _csExtraSlots("daily");
+    const _weeklySlotCount = () => _CS_BASE_SLOTS + _csExtraSlots("weekly");
+    // "Three fresh challenges every day" has to keep reading like English when
+    // it becomes four, five or six of them.
+    const _CS_COUNT_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six"];
+    const _csCountWord = (n) => _CS_COUNT_WORDS[n] || String(n);
+
+    // Grow or trim a stored slot array to the count the player is entitled to.
+    // Called on every load, not only when the day rolls, because the
+    // entitlement can arrive mid-session (the pass syncs after boot, a tier is
+    // claimed, an account signs out). A slot ADDED starts empty: a fresh job to
+    // go and do. A slot REMOVED comes off the end of a list ordered
+    // completed-first, so shrinking can never throw away XP already earned.
+    function _csReconcileSlots(state, want, poolLen) {
+      if (!state || !Array.isArray(state.slots)) return false;
+      const target = Math.max(1, Math.min(poolLen, want));
+      if (state.slots.length === target) return false;
+      if (state.slots.length > target) {
+        const done = state.slots.filter(s => s.completedAt);
+        const todo = state.slots.filter(s => !s.completedAt);
+        state.slots = [...done, ...todo].slice(0, target);
+        return true;
+      }
+      const held = new Set(state.slots.map(s => Number(s.idx)));
+      const pool = [];
+      for (let i = 0; i < poolLen; i++) if (!held.has(i)) pool.push(i);
+      while (state.slots.length < target && pool.length) {
+        const j = Math.floor(Math.random() * pool.length);
+        state.slots.push({ idx: pool.splice(j, 1)[0], progress: 0, completedAt: null });
+      }
+      return true;
+    }
+
     // ── DAILY state management ────────────────────────────────────
     const _DAILY_STATE_KEY = "cc_daily_state_v1";
 
@@ -31569,26 +31711,36 @@
     function _freshDailyState() {
       return {
         dayStartMs: _getTodayMidnight(),
-        slots: _rollDailyIndices(3).map(idx => ({ idx, progress: 0, completedAt: null })),
+        slots: _rollDailyIndices(_dailySlotCount()).map(idx => ({ idx, progress: 0, completedAt: null })),
         sweepClaimed: false,
       };
     }
 
     function _loadDailyState() {
+      let state = null;
       try {
         const raw = localStorage.getItem(ccScopedKey(_DAILY_STATE_KEY));
         if (raw) {
           const obj = JSON.parse(raw);
-          if (obj && Array.isArray(obj.slots) && obj.slots.length === 3
+          // A RANGE, not an equality: the count is a Critter Pass entitlement
+          // now, so a saved day can legitimately hold more than three.
+          if (obj && Array.isArray(obj.slots)
+              && obj.slots.length >= 1 && obj.slots.length <= _CS_BASE_SLOTS + _CS_MAX_EXTRA
               && obj.slots.every(s => Number.isInteger(s.idx) && s.idx >= 0 && s.idx < _DAILY_CHALLENGES.length)
               && Number.isFinite(obj.dayStartMs)) {
-            return obj;
+            state = obj;
           }
         }
       } catch {}
-      const fresh = _freshDailyState();
-      _saveDailyState(fresh);
-      return fresh;
+      if (!state) {
+        state = _freshDailyState();
+        _saveDailyState(state);
+        return state;
+      }
+      if (_csReconcileSlots(state, _dailySlotCount(), _DAILY_CHALLENGES.length)) {
+        _saveDailyState(state);
+      }
+      return state;
     }
 
     function _saveDailyState(state) {
@@ -31622,11 +31774,13 @@
       });
     }
 
-    // 3 active dailies, uncompleted first, same ordering rule as the weeklies
-    // so the two views read identically.
+    // Every active daily, uncompleted first, same ordering rule as the weeklies
+    // so the two views read identically. The slice is a safety clamp against a
+    // stored array the reconcile has not reached yet, never a limit of its own.
     function _getDailyDisplaySlots() {
       const all = _getCurrentDailySlots();
-      return [...all.filter(s => !s.completed), ...all.filter(s => s.completed)].slice(0, 3);
+      return [...all.filter(s => !s.completed), ...all.filter(s => s.completed)]
+        .slice(0, _CS_BASE_SLOTS + _CS_MAX_EXTRA);
     }
 
     function _getDailyMeta() {
@@ -31635,8 +31789,12 @@
       const completedCount = state.slots.filter(s => s.completedAt).length;
       return {
         completedCount,
-        totalCount: 3,
-        sweepDone:    completedCount >= 3,
+        // What you actually have today (3, or up to 6 with the Critter Pass)…
+        totalCount: state.slots.length,
+        // …and what the Tide Sweep asks for, which never moves. An extra slot
+        // is a bonus job, not a raised bar.
+        sweepTarget:  _CS_BASE_SLOTS,
+        sweepDone:    completedCount >= _CS_BASE_SLOTS,
         sweepClaimed: Boolean(state.sweepClaimed),
         resetsInMs:   Math.max(0, (_getTodayMidnight() + 24 * 60 * 60 * 1000) - Date.now()),
       };
@@ -31732,7 +31890,7 @@
     function _freshWeeklyState() {
       return {
         weekStartMs: _getThisMondayMidnight(),
-        slots: _rollWeeklyIndices(3).map(idx => ({ idx, progress: 0, completedAt: null })),
+        slots: _rollWeeklyIndices(_weeklySlotCount()).map(idx => ({ idx, progress: 0, completedAt: null })),
         daysPlayed: { 0: false, 1: false, 2: false, 3: false, 4: false, 5: false, 6: false },
         sweepClaimed: false,
         perfectClaimed: false,
@@ -31740,20 +31898,29 @@
     }
 
     function _loadWeeklyState() {
+      let state = null;
       try {
         const raw = localStorage.getItem(ccScopedKey(_WEEKLY_STATE_KEY));
         if (raw) {
           const obj = JSON.parse(raw);
-          if (obj && Array.isArray(obj.slots) && obj.slots.length === 3
+          // A RANGE, not an equality, for the same reason as the dailies.
+          if (obj && Array.isArray(obj.slots)
+              && obj.slots.length >= 1 && obj.slots.length <= _CS_BASE_SLOTS + _CS_MAX_EXTRA
               && obj.slots.every(s => Number.isInteger(s.idx) && s.idx >= 0 && s.idx < _WEEKLY_CHALLENGES.length)
               && Number.isFinite(obj.weekStartMs)) {
-            return obj;
+            state = obj;
           }
         }
       } catch {}
-      const fresh = _freshWeeklyState();
-      _saveWeeklyState(fresh);
-      return fresh;
+      if (!state) {
+        state = _freshWeeklyState();
+        _saveWeeklyState(state);
+        return state;
+      }
+      if (_csReconcileSlots(state, _weeklySlotCount(), _WEEKLY_CHALLENGES.length)) {
+        _saveWeeklyState(state);
+      }
+      return state;
     }
     function _saveWeeklyState(state) {
       try { localStorage.setItem(ccScopedKey(_WEEKLY_STATE_KEY), JSON.stringify(state)); } catch {}
@@ -31792,13 +31959,14 @@
       });
     }
 
-    // 3 active weeklies. Show uncompleted ones first (so the player can see
-    // what's still to do), then completed. (slice(0,3) is a safety clamp.)
+    // Every active weekly. Show uncompleted ones first (so the player can see
+    // what's still to do), then completed. The slice is a safety clamp against
+    // a stored array the reconcile has not reached yet, not a limit of its own.
     function _getWeeklyDisplaySlots() {
       const all = _getCurrentWeeklySlots();
       const incomplete = all.filter(s => !s.completed);
       const complete   = all.filter(s => s.completed);
-      return [...incomplete, ...complete].slice(0, 3);
+      return [...incomplete, ...complete].slice(0, _CS_BASE_SLOTS + _CS_MAX_EXTRA);
     }
 
     function _getWeeklyMeta() {
@@ -31808,10 +31976,13 @@
       const daysPlayedCount = Object.values(state.daysPlayed || {}).filter(Boolean).length;
       return {
         completedCount,
-        totalCount: 3,
-        sweepDone:      completedCount >= 3,
+        totalCount: state.slots.length,
+        // The sweep and Perfect Week both ask for the BASE three, whatever the
+        // player owns: see _CS_BASE_SLOTS.
+        sweepTarget:    _CS_BASE_SLOTS,
+        sweepDone:      completedCount >= _CS_BASE_SLOTS,
         sweepClaimed:   Boolean(state.sweepClaimed),
-        perfectDone:    completedCount >= 3 && daysPlayedCount >= 7,
+        perfectDone:    completedCount >= _CS_BASE_SLOTS && daysPlayedCount >= 7,
         perfectClaimed: Boolean(state.perfectClaimed),
         daysPlayedCount,
       };
@@ -31866,8 +32037,10 @@
         // "X of 3 complete" count, which is exactly what just changed.
         renderChallengeStrip();
         try { window._renderIgChallengePanel?.(); } catch {}
-        // Achievement weekly_tide_sweep: all 3 weekly slots completed.
-        if (state.slots.length === 3 && state.slots.every(s => s.completedAt)) {
+        // Achievement weekly_tide_sweep: the base three weekly slots done.
+        // Counted, not "every slot completed": a Critter Pass owner with six
+        // slots must not have to clear twice as many for the same achievement.
+        if (state.slots.filter(s => s.completedAt).length >= _CS_BASE_SLOTS) {
           try { window.__fishUnlockAchievementById?.("weekly_tide_sweep"); } catch {}
         }
       }
@@ -31909,9 +32082,10 @@
         // repaints even while the strip is closed, same rule as weekly.
         renderChallengeStrip();
         try { window._renderIgChallengePanel?.(); } catch {}
-        // Achievement daily_tide_sweep: all 3 daily slots completed. Guarded so
-        // it fires once per day rather than on every later report.
-        if (state.slots.length === 3 && state.slots.every(s => s.completedAt)
+        // Achievement daily_tide_sweep: the base three daily slots done, the
+        // same count rule as the weekly one. Guarded by sweepClaimed so it
+        // fires once per day rather than on every later report.
+        if (state.slots.filter(s => s.completedAt).length >= _CS_BASE_SLOTS
             && !state.sweepClaimed) {
           state.sweepClaimed = true;
           _saveDailyState(state);
@@ -32068,7 +32242,7 @@
               const which = weekly ? "Weekly" : "Daily";
               rewardEl.textContent = meta.sweepDone
                 ? `✓ ${which} Tide Sweep complete: ${xp} XP`
-                : `${weekly ? "🗝️" : "📅"} All ${meta.totalCount} = ${which} Tide Sweep · +${xp} XP  (${meta.completedCount}/${meta.totalCount})`;
+                : `${weekly ? "🗝️" : "📅"} ${meta.totalCount > (meta.sweepTarget || 3) ? "Any" : "All"} ${meta.sweepTarget || 3} = ${which} Tide Sweep · +${xp} XP  (${Math.min(meta.completedCount, meta.sweepTarget || 3)}/${meta.sweepTarget || 3})`;
             } else {
               rewardEl.textContent = "";
             }
@@ -32527,7 +32701,7 @@
       const completedCount  = state.slots.filter(s => s.completedAt).length;
       const daysPlayedCount = Object.values(state.daysPlayed || {}).filter(Boolean).length;
       let changed = false;
-      if (completedCount >= 3 && !state.sweepClaimed) {
+      if (completedCount >= _CS_BASE_SLOTS && !state.sweepClaimed) {
         // Weekly Tide Sweep's 1500 XP is paid by the weekly_tide_sweep
         // ACHIEVEMENT (unlocked in reportWeeklyChallengeProgress when all 3
         // weeklies complete). Just mark it claimed here for the reward UI, no
@@ -32535,7 +32709,7 @@
         state.sweepClaimed = true;
         changed = true;
       }
-      if (completedCount >= 3 && daysPlayedCount >= 7 && !state.perfectClaimed) {
+      if (completedCount >= _CS_BASE_SLOTS && daysPlayedCount >= 7 && !state.perfectClaimed) {
         state.perfectClaimed = true;
         changed = true;
         _grantWeeklyMetaXp("Perfect Week", _WEEKLY_META.perfectWeekXp);
@@ -34575,6 +34749,7 @@
       try { if (typeof _msgResetForNewIdentity === "function") _msgResetForNewIdentity(); } catch (_) {}
       // The reward modules keep their own copy of "your" state.
       try { window.__ccLevelPassReset && window.__ccLevelPassReset(); } catch (_) {}
+      try { window.__ccCritterPassReset && window.__ccCritterPassReset(); } catch (_) {}
       try { window.__ccPrestigeReset && window.__ccPrestigeReset(); } catch (_) {}
       // The in-game seat pushes are throttled on "same avatar as last time";
       // a new person wearing the last one's critter would push nothing.

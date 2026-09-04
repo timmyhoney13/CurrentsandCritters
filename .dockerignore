@@ -18,6 +18,7 @@
 !newsletter_email.py
 !discord_server.py
 !level_pass_server.py
+!critter_pass_server.py
 !redeem_codes.py
 !referral_server.py
 !welcome_server.py

@@ -42,6 +42,7 @@ COPY discord_server.py /app/discord_server.py
 # so a missing COPY here is a server that will not boot, not a feature that
 # quietly goes missing.
 COPY level_pass_server.py /app/level_pass_server.py
+COPY critter_pass_server.py /app/critter_pass_server.py
 COPY referral_server.py /app/referral_server.py
 # Purchase redemption codes: how a website donation reaches an account.
 # Module-scope import too, so a missing COPY here is a server that will not boot.

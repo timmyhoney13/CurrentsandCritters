@@ -143,6 +143,21 @@
 # plus the avatar-gallery level track and the XP-boost multiplier.
 !test_level_pass_ui.js
 
+# Critter Pass (the PAID track over the same levels 1-100). multiplayer_server.py
+# imports this at module scope too, so dropping it from the allowlist kills the
+# whole server on startup with an ImportError, not just the pass. It holds the
+# track, the 4,000-coin purchase transaction, and the two counters
+# (bonus_daily_slots / bonus_weekly_slots) the challenge strip mirrors.
+!critter_pass_server.py
+# Its tests: the entitlement check that makes it paid at all, the purchase that
+# cannot be made twice or on an empty wallet, the exactly-8,500-coin and
+# exactly-16,000-XP budgets, the level gate that ignores whatever the client
+# claimed, and claim-all re-reading the level after an XP drop moves it.
+!test_critter_pass_server.py
+# The client half: the REAL critter-pass renderer against REAL server payloads,
+# at five widths, plus the challenge-slot seam the strip reads.
+!test_critter_pass_ui.js
+
 # The email address on a username-and-password account. Module-scope import
 # again, same consequence if it goes missing: the whole server fails to boot on
 # ImportError, not just the email. It holds the signed confirmation token, the
