@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-04.7";
+  const APP_BUILD   = "2026-09-04.8";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -14041,6 +14041,30 @@
   let _endSaveArgs   = null;     // [winner, finalScores, xp] for the retry
   const _END_SAVE_MAX_TRIES = 40;    // ~5 min of retries, then it waits for a tap
 
+  // ── RETRYING A DATABASE THAT IS REFUSING EVERYTHING MAKES IT WORSE ────────
+  // saveGameStats opens with a READ of the user doc (it needs the current
+  // stats before it can add to them), so every retry is itself another billed
+  // Firestore operation. When the refusal IS the quota, a fixed 4-second loop
+  // spends the very thing it is waiting to get back: 40 tries per finished
+  // game, each one buying nothing. Firestore's daily allowance was exhausted
+  // this way on 2026-09-04, which took XP, game history and both passes down
+  // together (they all hang off the total_xp this save writes).
+  //
+  // So a "the database is busy" refusal backs off geometrically and a normal
+  // one (a dropped connection, which costs the database nothing) keeps the
+  // fast retry it always had. Same code family ccProfileSaveErr treats as
+  // busy on the sign-up screen, for the same reason.
+  const _END_SAVE_BUSY_CODES = new Set([
+    "resource-exhausted",   // over quota: the one that matters
+    "unavailable", "deadline-exceeded", "aborted",
+  ]);
+  const _END_SAVE_BASE_RETRY_MS = 4000;
+  const _END_SAVE_MAX_RETRY_MS  = 300000;   // 5 min between attempts at the cap
+  let _endSaveNextTryAt = 0;     // no attempt before this timestamp
+  let _endSaveBackoffMs = _END_SAVE_BASE_RETRY_MS;
+  let _endSaveLastCode  = "";    // lowercased code of the last failure
+  const _endSaveIsBusy = () => _END_SAVE_BUSY_CODES.has(_endSaveLastCode);
+
   function _endSaveSyncBanner() {
     const box = document.getElementById("gs-save-state");
     if (!box) return;
@@ -14052,9 +14076,18 @@
     } else if (_endSaveState === "failed") {
       box.classList.add("failed");
       if (txt) {
+        // Three different failures, three different things to do about them.
+        // "Couldn't reach the server" is a lie when the server answered and
+        // the DATABASE is what refused: nothing the player does to their
+        // connection will help, and the honest version is the only one that
+        // stops them retrying into a wall.
         txt.textContent = navigator.onLine === false
           ? "You're offline, your XP and stats aren't saved yet."
-          : "Couldn't reach the server, your XP and stats aren't saved yet.";
+          : _endSaveIsBusy()
+            ? "The game's database is over its limit right now, so this game "
+              + "hasn't been saved. Keep this screen open and it will save "
+              + "itself as soon as the database is back."
+            : "Couldn't reach the server, your XP and stats aren't saved yet.";
       }
       const btn = document.getElementById("gs-save-retry");
       if (btn) btn.disabled = false;
@@ -14088,6 +14121,14 @@
       if (_endSaveState === "saved" || !_endSaveArgs) { _endSaveStop(); return; }
       if (_endSaveTries >= _END_SAVE_MAX_TRIES) { _endSaveSyncBanner(); return; }
       if (_saveInFlight) return;               // give the in-flight attempt its turn
+      if (Date.now() < _endSaveNextTryAt) {
+        // Backing off the DATABASE, not the game server. The room poll is a
+        // Render call and was never the thing being rate limited, so the end
+        // screen's live parts ("x/N ready to play again", "<name> left") keep
+        // updating on every tick even while the save is waiting one out.
+        try { refreshState(); } catch (_) {}
+        return;
+      }
       _endSaveRetryNow();
     }, 4000);
   }
@@ -14103,6 +14144,11 @@
     if (_endSaveState === "idle" && !_endSaveTimer && !_endSaveArgs) return;
     _endSaveStop();
     _endSaveState = "idle"; _endSaveTries = 0; _endSaveArgs = null;
+    // A new game is not owed the last one's back-off, or the first save after
+    // an outage would sit out a five-minute wait it did nothing to earn.
+    _endSaveNextTryAt = 0;
+    _endSaveBackoffMs = _END_SAVE_BASE_RETRY_MS;
+    _endSaveLastCode  = "";
     const box = document.getElementById("gs-save-state");
     if (box) box.classList.remove("saving", "failed");
   }
@@ -14112,12 +14158,16 @@
   window.addEventListener("online", () => {
     if (_endSaveArgs && _endSaveState !== "saved" && _endSaveState !== "na" && !_saveInFlight) {
       _endSaveTries = 0;
+      _endSaveNextTryAt = 0;           // connectivity is back: try it right now
       _endSaveRetryNow();
     }
   });
   document.getElementById("gs-save-retry")?.addEventListener("click", (e) => {
     e.currentTarget.disabled = true;   // re-enabled by _endSaveSyncBanner if it fails again
     _endSaveTries = 0;
+    // A person pressing Retry outranks any back-off this code chose for them.
+    _endSaveNextTryAt = 0;
+    _endSaveBackoffMs = _END_SAVE_BASE_RETRY_MS;
     _endSaveRetryNow();
     if (!_endSaveTimer && _endSaveArgs) _endSaveWatch(..._endSaveArgs);
   });
@@ -15450,14 +15500,20 @@
       const _code = (e && e.code) || (e && e.name) || "error";
       const _msg  = (e && e.message) ? String(e.message) : String(e);
       console.error("[saveGameStats] SAVE FAILED:", _code, "|", _msg, "|", e);
+      // The banner and the back-off both read this, so it is set before either
+      // of them runs (the finally block below is what schedules the retry).
+      _endSaveLastCode = String(_code || "").toLowerCase();
       // Expose for inspection from the console: window.__lastSaveError
       try { window.__lastSaveError = { code: _code, message: _msg, error: e, at: new Date().toISOString() }; } catch (_) {}
       // Show the full reason on screen, long enough to read/screenshot. The
       // message states the exact cause (e.g. 'Missing or insufficient
       // permissions' = rules; 'maximum entity size' / 'longer than 1048487
-      // bytes' = 1MB doc; 'invalid data' = bad field).
+      // bytes' = 1MB doc; 'invalid data' = bad field). A quota refusal is the
+      // exception: the raw code means nothing to a player, the banner already
+      // says the useful version, and repeating it as an error toast every few
+      // seconds only makes an outage look like a bug in their game.
       try {
-        if (Date.now() - _saveFailToastAt > 8000) {
+        if (!_endSaveIsBusy() && Date.now() - _saveFailToastAt > 8000) {
           _saveFailToastAt = Date.now();
           showToast(`⚠️ Save failed [${_code}]: ${_msg.slice(0, 140)}`, "err", 12000);
         }
@@ -15469,8 +15525,24 @@
       // the write above: _lastSavedWinner is the only proof the results landed.
       if (_endSaveState !== "na") {
         _endSaveState = (_lastSavedWinner === winner) ? "saved" : "failed";
-        if (_endSaveState === "saved") _endSaveStop();
-        else _endSaveSyncBanner();
+        if (_endSaveState === "saved") {
+          _endSaveLastCode  = "";
+          _endSaveNextTryAt = 0;
+          _endSaveBackoffMs = _END_SAVE_BASE_RETRY_MS;
+          _endSaveStop();
+        } else {
+          // Schedule the next attempt HERE, where the outcome is known, so
+          // every exit from the write agrees on when to try again. A busy
+          // database doubles the wait (from 30s, capped at 5 min) because
+          // each attempt costs it another read; anything else keeps the
+          // 4-second retry, which is the behaviour a dropped connection
+          // has always had and should keep.
+          _endSaveBackoffMs = _endSaveIsBusy()
+            ? Math.min(Math.max(_endSaveBackoffMs * 2, 30000), _END_SAVE_MAX_RETRY_MS)
+            : _END_SAVE_BASE_RETRY_MS;
+          _endSaveNextTryAt = Date.now() + _endSaveBackoffMs;
+          _endSaveSyncBanner();
+        }
       }
     }
   }

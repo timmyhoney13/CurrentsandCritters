@@ -296,7 +296,19 @@ _FIRESTORE_LOCK = threading.Lock()
 # hard_ttl is short: an "online right now" number that is an hour old would be
 # a lie, so past ten minutes it is worth making one caller wait. Everything
 # inside that window is served instantly and refreshed behind them.
-_LIVE_COUNTS_TTL_SEC = 30.0
+#
+# ⚠️ THIS TTL IS A STANDING COST, NOT A PER-REQUEST ONE. The sweeper refreshes
+# any key asked for in the last `keep_warm_window` (300s) once it reaches
+# ttl * 0.75, so while ANYONE has the homepage open this query runs on a timer
+# forever, whether or not a second person ever asks. At 30s that was a refresh
+# every 22.5s, ~3,800 a day, and each one is a count aggregate plus the online
+# query plus a games_played read against a free tier that allows 50k reads a
+# day in total. It ran out on 2026-09-04 and took XP, game history and both
+# passes with it. At 120s it is a refresh every 90s, a quarter of the reads,
+# and the number it serves is at worst two minutes stale: nobody can tell the
+# difference between "online now" and "online two minutes ago" on a marketing
+# counter, and the in-game surfaces that show it are cosmetic too.
+_LIVE_COUNTS_TTL_SEC = 120.0
 _LIVE_COUNTS_WARM = warm_cache.WarmCache("live-counts", ttl=_LIVE_COUNTS_TTL_SEC,
                                          hard_ttl=600.0)
 
@@ -1654,7 +1666,11 @@ def _process_stripe_checkout(event: dict) -> str:
 #  SUPPORTER REEF WALL: public read, admin review, guest claim, usernames
 # ══════════════════════════════════════════════════════════════════════════
 _WALL_CACHE = {"at": 0.0, "data": None}
-_WALL_TTL_SEC = 45.0
+# A donation does not arrive every 45 seconds, and this cache is read by the
+# homepage on a timer, so the TTL is what decides how often two Firestore
+# queries run forever in the background rather than how fresh the wall is.
+# Five minutes is well inside "a new supporter appears while they watch".
+_WALL_TTL_SEC = 300.0
 
 
 def _build_supporter_wall() -> List[Dict[str, Any]]:
@@ -1707,6 +1723,15 @@ def _supporter_wall_cached() -> List[Dict[str, Any]]:
     if _WALL_CACHE["data"] is not None and (now - _WALL_CACHE["at"]) < _WALL_TTL_SEC:
         return _WALL_CACHE["data"]
     data = _build_supporter_wall()
+    # An EMPTY result is how this function reports "I could not read Firestore":
+    # _build_supporter_wall returns [] when the client is missing and skips a
+    # collection whose query raised. Caching that would erase the wall for the
+    # whole TTL and drop the homepage donation total to $0 during an outage,
+    # which is the one moment supporters are most likely to look at it. Keep
+    # the last good answer instead and let the next call try again, the same
+    # convention WarmCache uses (see warm_cache._store).
+    if not data and _WALL_CACHE["data"]:
+        return _WALL_CACHE["data"]
     _WALL_CACHE["data"] = data
     _WALL_CACHE["at"] = now
     return data

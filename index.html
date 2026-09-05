@@ -1590,8 +1590,33 @@ updateBetaBarClear();
     } catch (_) { /* server sleeping - keep the latest visible values */ }
   }
 
+  // ── POLLING THAT STOPS WHEN NOBODY IS LOOKING ───────────────────────────
+  // Every number on this page comes from the game server, and the game server
+  // has to read Firestore to answer. A background tab left open for a day used
+  // to ask 1,440 times per poller whether anything had changed, and a tab
+  // nobody is looking at gets exactly as many answers as it can use: none.
+  //
+  // That is not a rounding error. Firestore's free daily allowance ran out on
+  // 2026-09-04 and took XP, game history, the Level Pass and the Critter Pass
+  // down with it (they all hang off the same account doc), while the thing
+  // spending it was an idle homepage. A hidden tab now polls nothing and
+  // catches up the moment it is looked at again, which is the only moment the
+  // freshness was ever worth anything.
+  const LIVE_POLL_MS = 300000;   // 5 min: these are slow counters, not a scoreboard
+  function pollWhileVisible(fn, ms) {
+    let timer = null;
+    const stop  = () => { if (timer) { clearInterval(timer); timer = null; } };
+    const start = () => { if (!timer) timer = setInterval(fn, ms); };
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) { stop(); return; }
+      fn();                      // catch up on whatever was missed while hidden
+      start();
+    });
+    if (!document.hidden) start();
+  }
+
   refreshRenderStats();
-  setInterval(refreshRenderStats, 60000);
+  pollWhileVisible(refreshRenderStats, LIVE_POLL_MS);
 
   // ── Supporter Reef Wall names ("Backed By People Who Care") ──────────
   // Live from the game server, the only thing allowed to read Firestore.
@@ -1664,7 +1689,7 @@ updateBetaBarClear();
     } catch (_) { /* server sleeping, leave the scene as-is */ }
   }
   refreshSupporterWall();
-  setInterval(refreshSupporterWall, 60000);
+  pollWhileVisible(refreshSupporterWall, LIVE_POLL_MS);
 
   // Touchscreens have no :hover state, so the CSS popup (.scn-name::after)
   // would never show on tap alone, this toggles a class that the CSS also

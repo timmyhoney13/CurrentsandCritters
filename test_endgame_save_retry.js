@@ -97,6 +97,33 @@ check("being offline is named as being offline, not as a mystery",
       /You're offline, your XP and stats aren't saved yet\./.test(APP));
 check("a reachability failure says the results are not saved YET",
       /Couldn't reach the server, your XP and stats aren't saved yet\./.test(APP));
+
+// ── A refusing database is not retried at 4 seconds ─────────────────────────
+// saveGameStats opens by READING the user doc, so every retry is another
+// billed Firestore operation. When the refusal is the quota itself, the fast
+// loop spends exactly what it is waiting to get back: 40 reads per finished
+// game, buying nothing. This is the half that keeps an outage from being made
+// worse by the code that noticed it.
+check("over-quota is one of the codes that means 'the database is busy'",
+      /_END_SAVE_BUSY_CODES = new Set\(\[[\s\S]{0,200}"resource-exhausted"/.test(APP));
+check("a busy database backs off geometrically, and is capped",
+      /_endSaveBackoffMs \* 2[\s\S]{0,60}_END_SAVE_MAX_RETRY_MS/.test(APP));
+check("an ordinary failure keeps the fast retry it always had",
+      /: _END_SAVE_BASE_RETRY_MS;/.test(APP));
+check("the next attempt is scheduled where the outcome is known (the finally)",
+      /_endSaveNextTryAt = Date\.now\(\) \+ _endSaveBackoffMs;/.test(APP));
+check("the watchdog actually honours the back-off",
+      /if \(Date\.now\(\) < _endSaveNextTryAt\) \{/.test(APP));
+check("but the room poll keeps running while the save waits",
+      /if \(Date\.now\(\) < _endSaveNextTryAt\) \{[\s\S]{0,400}refreshState\(\)/.test(APP));
+check("a person pressing Retry outranks the back-off",
+      /_endSaveNextTryAt = 0;[\s\S]{0,120}_endSaveRetryNow\(\)/.test(APP));
+check("a new game does not inherit the last one's back-off",
+      /_endSaveNextTryAt = 0;[\s\S]{0,160}_endSaveLastCode  = "";/.test(APP));
+check("a success clears the back-off",
+      /_endSaveLastCode  = "";[\s\S]{0,140}_endSaveStop\(\);/.test(APP));
+check("an over-quota failure does not also spam an error toast",
+      /if \(!_endSaveIsBusy\(\) && Date\.now\(\) - _saveFailToastAt > 8000\)/.test(APP));
 check("success says nothing (a per-game 'saved!' banner is noise)",
       /"saved" and "na" show nothing/.test(APP));
 check("the spinner stops for reduced motion",
@@ -122,7 +149,19 @@ if (!CHROME) {
   const fnStart = APP.indexOf("  function _endSaveSyncBanner() {");
   const fnEnd   = APP.indexOf("\n  }", fnStart) + 4;
   if (ms < 0 || fnStart < 0) { console.log("FAIL: could not slice the banner"); process.exit(1); }
-  const SYNC = "var _endSaveState = 'idle';\n" + APP.slice(fnStart, fnEnd);
+  // The banner asks _endSaveIsBusy() which of the two "it did not save"
+  // sentences to print, so the real back-off block is lifted alongside it
+  // rather than stubbed: a code moving in or out of _END_SAVE_BUSY_CODES has
+  // to move the rendered message with it, or this test is theatre.
+  const bcTail  = "_END_SAVE_BUSY_CODES.has(_endSaveLastCode);";
+  const bcStart = APP.indexOf("  const _END_SAVE_BUSY_CODES = new Set([");
+  const bcEnd   = APP.indexOf(bcTail, bcStart) + bcTail.length;
+  if (bcStart < 0 || bcEnd < bcTail.length) {
+    console.log("FAIL: could not slice the busy-code block"); process.exit(1);
+  }
+  const SYNC = "var _endSaveState = 'idle';\n"
+             + APP.slice(bcStart, bcEnd) + "\n"
+             + APP.slice(fnStart, fnEnd);
 
   const page = `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style>
 <style>html,body{margin:0}</style></head><body>
@@ -148,6 +187,12 @@ ${BANNER}
   out.idle    = (_endSaveState = "idle",    _endSaveSyncBanner(), rec());
   out.pending = (_endSaveState = "pending", _endSaveSyncBanner(), rec());
   out.failed  = (_endSaveState = "failed",  _endSaveSyncBanner(), rec());
+  // The same "failed" state, but the database said it was over quota. Set the
+  // code the way the real catch block does, then put it back so the states
+  // after this one are read on a clean slate.
+  _endSaveLastCode = "resource-exhausted";
+  out.failedBusy = (_endSaveState = "failed", _endSaveSyncBanner(), rec());
+  _endSaveLastCode = "";
   out.saved   = (_endSaveState = "saved",   _endSaveSyncBanner(), rec());
   out.na      = (_endSaveState = "na",      _endSaveSyncBanner(), rec());
   document.getElementById("out").textContent = JSON.stringify(out);
@@ -168,6 +213,13 @@ ${BANNER}
   check("failed:  on screen, with the retry",      r.failed  && r.failed.boxShown && r.failed.btnShown);
   check("failed:  no spinner (nothing is spinning)", r.failed && !r.failed.spinShown);
   check("failed:  it says the stats are not saved", r.failed && /aren't saved yet/.test(r.failed.text));
+  check("quota:   still the loud failed state, with the retry",
+        r.failedBusy && r.failedBusy.boxShown && r.failedBusy.btnShown);
+  check("quota:   blames the database, not the player's connection",
+        r.failedBusy && /database is over its limit/.test(r.failedBusy.text)
+                     && !/Couldn't reach the server/.test(r.failedBusy.text));
+  check("quota:   says the game will save itself, so nobody replays it",
+        r.failedBusy && /save itself/.test(r.failedBusy.text));
   check("saved:   back to nothing on screen",      r.saved   && !r.saved.boxShown);
   check("guest:   nothing on screen either",       r.na      && !r.na.boxShown);
 }

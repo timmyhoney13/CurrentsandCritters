@@ -1354,6 +1354,13 @@
 
   async function refreshLive() {
     if (!S.open || S.section !== "overview") return;
+    // The overview costs a full scan of the users collection on the server
+    // (analytics_server._load_users, behind a 120s cache), so a dashboard left
+    // open in a background tab quietly rescans every account all day for
+    // nobody. The panel is re-rendered on the next tick after it is looked at
+    // again, which is the only time its numbers are read. See the free-tier
+    // read allowance this helped exhaust on 2026-09-04.
+    if (document.hidden) return;
     const res = await post("overview");
     if (!res || !res.ok || S.section !== "overview") return;
     S.data.overview = res;
