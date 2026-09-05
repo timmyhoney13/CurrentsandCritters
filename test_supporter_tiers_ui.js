@@ -3,13 +3,12 @@
  *
  * Run:  node test_supporter_tiers_ui.js
  *
- * There are five tiers now (Wave Warrior → Tsunami) and the two dearest have
- * no Stripe Payment Link yet. That is the whole risk this file exists for: a
- * tier is granted by the PRICE of the link its button opens, so a locked tier
- * that renders a live-looking Buy button pointed at some other product would
- * charge the wrong amount and grant the wrong tier with no visible symptom.
- * Grepping the source for "soon: true" proves the DATA says so; only rendering
- * proves the BUTTON does.
+ * The dearest tier (Tsunami, $100) has no Stripe Payment Link yet. That is the
+ * whole risk this file exists for: a tier is granted by the PRICE of the link
+ * its button opens, so a locked tier that renders a live-looking Buy button
+ * pointed at some other product would charge the wrong amount and grant the
+ * wrong tier with no visible symptom. Grepping the source for "soon: true"
+ * proves the DATA says so; only rendering proves the BUTTON does.
  *
  * Above $100 there is no button at all, by design: renderPhStore paints a card
  * that opens a ready-written email instead, and that template has to keep the
@@ -116,16 +115,29 @@ for (const m of pyTable("SUPPORTER_TIER_GRANTS").matchAll(
 }
 
 console.log("\nthe shelf");
-// One card per name badge, bounded by the tier grid itself: `phst-tier` is
-// also the prefix of half the classes INSIDE a card, so splitting on it splits
-// every card into confetti.
+// One card per opening <div>, bounded by the tier grid itself. `phst-tier` is
+// also the prefix of half the classes INSIDE a card, so the split has to
+// require a quote or a space straight after it (`phst-tier"` / `phst-tier `)
+// or every card comes apart into confetti at its own badge and name.
 const shelfHtml = HTML.slice(HTML.indexOf('class="phst-tier-grid"'),
                              HTML.indexOf('class="phst-custom-tier"'));
-const cards = shelfHtml.split('<div class="phst-tier-name">').slice(1);
+const cards = shelfHtml.split(/<div class="phst-tier[" ]/).slice(1);
 check(cards.length === Object.keys(byCents).length,
       `one card per tier (${cards.length} of ${Object.keys(byCents).length})`);
-check(/Wave Warrior/.test(HTML) && /Riptide/.test(HTML) && /Tsunami/.test(HTML),
+check(/Wave Warrior/.test(HTML) && /Tsunami/.test(HTML),
       "every tier name reaches the page");
+check(!/Riptide/.test(HTML), "the retired Riptide tier is gone from the shelf");
+
+// Two ribbons, two claims, one each: MOST POPULAR on what people pick, BEST
+// VALUE on what the money buys. Both on one card reads as neither.
+const popCards  = cards.filter((c) => /MOST POPULAR/.test(c));
+const bestCards = cards.filter((c) => /BEST VALUE/.test(c));
+check(popCards.length === 1 && /\$35\.00/.test(popCards[0]),
+      "MOST POPULAR sits on the $35 tier, and only there");
+check(bestCards.length === 1 && /\$100\.00/.test(bestCards[0]),
+      "BEST VALUE sits on the $100 tier, and only there");
+check(!popCards.some((c) => /BEST VALUE/.test(c)),
+      "no card wears both ribbons at once");
 
 console.log("\nprices and grants, as painted");
 for (const [cents, tier] of Object.entries(byCents)) {
@@ -152,8 +164,8 @@ for (const [cents, tier] of Object.entries(byCents)) {
     check(links.length === 0,
           `${tier}: locked, so it opens NO Payment Link`);
     check(/disabled/.test(card), `${tier}: locked, so the button is disabled`);
-    check(/data-custom-tier/.test(card),
-          `${tier}: locked, but still offers a way to ask for it`);
+    check(!/data-custom-tier/.test(card),
+          `${tier}: locked, with no "email us" line hung under it`);
   } else {
     check(links.length === 1, `${tier}: exactly one Buy link`);
     check(/buy\.stripe\.com/.test(links[0] || ""),
@@ -184,11 +196,17 @@ check(/data-act="mail"/.test(D) && /data-act="copy"/.test(D),
       "both ways out are offered (a mailto: opens nothing for some readers)");
 
 console.log("\nthe styles the render depends on");
-for (const cls of ["phst-tier-soon", "phst-tier-soonnote", "phst-custom-tier",
-                   "phst-custom-btn", "cctm-card", "cctm-text"]) {
-  check(CSS.includes("." + cls) || CSS.includes("#cc-custom-tier"),
-        `preview.css styles .${cls}`);
+// Every class the render actually emits, checked ON ITS OWN. An `||` fallback
+// here would have let a deleted rule pass on the strength of its neighbour.
+const emitted = new Set();
+for (const m of (HTML + dlg.innerHTML).matchAll(/class="([^"]+)"/g)) {
+  for (const c of m[1].split(/\s+/)) if (/^(phst-|cctm-)/.test(c)) emitted.add(c);
 }
+for (const cls of emitted) {
+  check(CSS.includes("." + cls), `preview.css styles .${cls}`);
+}
+check(!CSS.includes(".phst-tier-soonnote"),
+      "the retired soonnote rule went with the markup that used it");
 
 console.log(`\nsupporter-tier UI checks: ${checks}`);
 if (failures) { console.log(`${failures} FAILED`); process.exit(1); }

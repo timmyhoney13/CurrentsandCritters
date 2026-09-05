@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-05.2";
+  const APP_BUILD   = "2026-09-05.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,12 +109,12 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
-    { ver: "V1.7.1", title: "\uD83C\uDF0A Two bigger Supporter Tiers, and a way to give more than $100", items: [
-      "There are five Supporter Tiers now. Riptide is $75: everything the Tide Turner gets, plus a signed postcard, 8 Season Pass vouchers, 50,000 Critter Coins and +12,500 bonus XP.",
-      "Tsunami is $100 and is the biggest tier you can buy outright: TWO physical copies of the game (keep one, gift one), a hand-written signed thank-you card, your name in the game's supporter credits, first look at every expansion, 15 Season Pass vouchers, 75,000 Critter Coins and +20,000 bonus XP.",
-      "Both new tiers are on the site and in the Store, but their buttons say \u201cOpening soon\u201d until their checkout is switched on. Want one now? The card has an Email us link and we will set it up by hand.",
-      "The bonus XP on the first three tiers was rebalanced to sit under the new ones: Wave Warrior now gives +1,000 (it gave none before), Ocean Ally +5,000 and Tide Turner +7,500. Coins and vouchers are unchanged, and nothing already credited to your account is taken back.",
-      "Giving more than $100 is now a conversation instead of a checkout. Both the website and the Store hand you a message that is already written, with the amount and your name marked out to replace, and it goes straight to Tim.",
+    { ver: "V1.7.1", title: "\uD83C\uDF0A A $100 Supporter Tier, and a way to give more than that", items: [
+      "There is a fourth Supporter Tier. Tsunami is $100 and is the biggest tier you can buy outright: TWO physical copies of the game (keep one, gift one), a hand-written signed thank-you card, a thank-you postcard, your name in the game's supporter credits, first look at every expansion, 15 Season Pass vouchers, 75,000 Critter Coins and +20,000 bonus XP.",
+      "Its button says \u201cOpening soon\u201d until its checkout is switched on, so nothing can be charged at the wrong price in the meantime.",
+      "The bonus XP on the other three tiers was rebalanced to sit under it: Wave Warrior now gives +1,000 (it gave none before), Ocean Ally +5,000 and Tide Turner +7,500. Coins and vouchers are unchanged, and nothing already credited to your account is taken back.",
+      "The cards say which is which again: Most Popular sits on the Ocean Ally, Best Value on the Tsunami.",
+      "Giving more than $100 is a conversation instead of a checkout. Both the website and the Store hand you a message that is already written, with the amount and your name marked out to replace, and it goes straight to Tim.",
     ]},
     { ver: "V1.7.1", title: "\uD83C\uDFA3 The Level Pass knows what level you are", items: [
       "The Level Pass could tell you it thought you were Level 1 when the game had you at Level 39. It was never your progress that was missing: the database refused to answer for a day, and the pass read that silence as a brand-new account. It now shows the level the rest of the game is already showing you, and says so instead of guessing.",
@@ -29462,7 +29462,7 @@
           note: "Cosmetic progression only",
         },
         {
-          name: "Ocean Ally", usd: 35, coins: 15000,
+          name: "Ocean Ally", usd: 35, coins: 15000, popular: true,
           link: "https://buy.stripe.com/5kQcN6geX83O2S5gZ4ds405",
           perks: [
             "Supporter email updates",
@@ -29477,7 +29477,7 @@
           note: "Cosmetic progression only",
         },
         {
-          name: "Tide Turner", usd: 50, coins: 30000, best: true,
+          name: "Tide Turner", usd: 50, coins: 30000,
           link: "https://buy.stripe.com/00wfZi6EnfwgcsFcIOds406",
           perks: [
             "Supporter email updates",
@@ -29494,7 +29494,7 @@
           ],
           note: "Cosmetic progression only",
         },
-        // ── The two big tiers ──────────────────────────────────────
+        // ── The top tier ───────────────────────────────────────────
         // `soon: true` means NO Stripe Payment Link exists yet, so the card
         // renders with a locked button instead of a Buy. It is deliberately
         // not wired to a placeholder URL: a tier is granted by the PRICE of the
@@ -29503,24 +29503,7 @@
         // To go live: create a Payment Link at EXACTLY this `usd` (with the 3
         // custom questions), drop it in as `link:` and delete `soon`.
         {
-          name: "Riptide", usd: 75, coins: 50000, soon: true,
-          perks: [
-            "Supporter email updates",
-            "Founder Supporter number",
-            "Name on the Supporter Reef Wall",
-            "Personal thank-you email",
-            "Unlock all backgrounds",
-            "Exclusive Fish Icon",
-            "Exclusive Amberjack player icon",
-            "Free physical copy of Currents and Critters",
-            "Thank-you postcard, signed",
-            "8 Season Pass vouchers: eight Critter Passes (Battle Passes), on any eight seasons you choose",
-            "+12,500 bonus XP",
-          ],
-          note: "Cosmetic progression only",
-        },
-        {
-          name: "Tsunami", usd: 100, coins: 75000, soon: true,
+          name: "Tsunami", usd: 100, coins: 75000, soon: true, best: true,
           perks: [
             "Supporter email updates",
             "Founder Supporter number",
@@ -29743,8 +29726,13 @@
         html += `<div class="phst-section-sub">Back the launch and earn permanent founder recognition. Cosmetic &amp; progression rewards only.</div>`;
         html += `<div class="phst-tier-grid">`;
         for (const t of PHST_SUPPORTER_TIERS) {
-          html += `<div class="phst-tier${t.best ? " phst-tier-best" : ""}">
-            ${t.best ? `<div class="phst-tier-badge">BEST VALUE</div>` : ""}
+          // Two ribbons, two different claims: MOST POPULAR is what people
+          // actually pick, BEST VALUE is what the money buys. A card can only
+          // wear one, so `popular` is ignored on a `best` card rather than
+          // stacking two badges on the same corner.
+          html += `<div class="phst-tier${t.best ? " phst-tier-best" : ""}${t.popular && !t.best ? " phst-tier-pop" : ""}">
+            ${t.best ? `<div class="phst-tier-badge">BEST VALUE</div>`
+                     : t.popular ? `<div class="phst-tier-badge phst-tier-badge-pop">MOST POPULAR</div>` : ""}
             <div class="phst-tier-name">${esc(t.name)}</div>
             <div class="phst-tier-price">$${t.usd.toFixed(2)}<span class="phst-tier-once">one-time</span></div>
             ${t.coins ? `<div class="phst-tier-coins">
@@ -29755,8 +29743,7 @@
           html += `</ul>
             <div class="phst-tier-fine">${esc(t.note)}</div>
             ${t.soon
-              ? `<button class="phst-tier-buy phst-tier-soon" type="button" disabled>Opening soon</button>
-                 <div class="phst-tier-soonnote">Want this one now? <a href="#" data-custom-tier="1">Email us</a> and we'll set it up.</div>`
+              ? `<button class="phst-tier-buy phst-tier-soon" type="button" disabled>Opening soon</button>`
               : `<button class="phst-tier-buy" data-stripe="${esc(t.link)}">Become ${/^[aeiou]/i.test(t.name) ? "an" : "a"} ${esc(t.name)}</button>`}
           </div>`;
         }
@@ -29784,7 +29771,7 @@
             <div class="phst-physical-ico">🐢</div>
             <div>
               <div class="phst-physical-title">Coming soon</div>
-              <div class="phst-physical-desc">A physical copy of Currents and Critters is on the way. Tide Turner and Riptide supporters get one free, Tsunami supporters get two!</div>
+              <div class="phst-physical-desc">A physical copy of Currents and Critters is on the way. Tide Turner supporters get one free, Tsunami supporters get two!</div>
             </div>
           </div>`;
         } else {

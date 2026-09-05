@@ -9837,6 +9837,15 @@
       padding: 3px 12px; border-radius: 999px; white-space: nowrap;
       box-shadow: 0 2px 8px rgba(220,110,40,.35);
     }
+    .phst-tier-pop { border-color: rgba(40,190,150,.75); box-shadow: 0 4px 18px rgba(30,170,130,.26); }
+    .phst-tier-badge-pop {
+      background: linear-gradient(120deg,#2ecf9b,#17a97c);
+      box-shadow: 0 2px 8px rgba(20,140,105,.35);
+    }
+    .phst-tier-pop .phst-tier-buy {
+      background: linear-gradient(120deg,#2ecf9b 0%,#17a97c 100%);
+      box-shadow: 0 3px 12px rgba(20,150,110,.32);
+    }
     .phst-tier-name { font-family: "Cinzel", serif; font-size: 1.1rem; font-weight: 900; color: #11588f; }
     .phst-tier-price {
       font-size: 1.7rem; font-weight: 900; color: #e8736a; margin: 2px 0 12px;
@@ -9883,11 +9892,6 @@
       color: #4c6c85; box-shadow: none; cursor: default;
     }
     .phst-tier-buy.phst-tier-soon:hover { filter: none; transform: none; }
-    .phst-tier-soonnote {
-      font-size: .68rem; color: #6d8fab; font-weight: 700;
-      text-align: center; margin-top: 7px; line-height: 1.4;
-    }
-    .phst-tier-soonnote a { color: #1f8fcf; text-decoration: underline; }
 
     /* Over the top tier: no checkout, a conversation. */
     .phst-custom-tier {

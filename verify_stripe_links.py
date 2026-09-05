@@ -58,6 +58,7 @@ EXPECTED = [
 # amount and the webhook grants another tier. Create the link (with the three
 # custom questions), then move the row up into EXPECTED and into
 # TestLivePaymentLinks.LINKS in test_stripe_payments.py.
+# Derived, not typed: a tier that gains a link disappears from here on its own.
 PENDING = [(cents, tier) for cents, tier in sorted(ms.SUPPORTER_TIERS_BY_CENTS.items())
            if tier not in {"wave-warrior", "ocean-ally", "tide-turner"}]
 

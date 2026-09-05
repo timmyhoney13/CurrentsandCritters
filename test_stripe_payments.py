@@ -286,7 +286,7 @@ class TestSupporterTierCoinGrants(unittest.TestCase):
     """Supporter Tiers credit Critter Coins. The amounts are printed on three
     separate tier cards, so the danger is not the maths: it's drift."""
 
-    ORDER = ("wave-warrior", "ocean-ally", "tide-turner", "riptide", "tsunami")
+    ORDER = ("wave-warrior", "ocean-ally", "tide-turner", "tsunami")
 
     def test_every_tier_grants_coins(self):
         for tier in ms.SUPPORTER_TIER_GRANTS:
@@ -530,8 +530,8 @@ class TestTierCoinsPrintedEverywhere(unittest.TestCase):
 
     def test_the_in_game_store_lists_the_server_amounts(self):
         js = self._read("multiplayer", "client", "js", "preview-app.js")
-        for tier, usd in (("wave-warrior", 15), ("ocean-ally", 35), ("tide-turner", 50),
-                          ("riptide", 75), ("tsunami", 100)):
+        for tier, usd in (("wave-warrior", 15), ("ocean-ally", 35),
+                          ("tide-turner", 50), ("tsunami", 100)):
             coins = ms.SUPPORTER_TIER_GRANTS[tier]["coins"]
             self.assertIn(f"usd: {usd}, coins: {coins}", js,
                           f"store card for {tier} does not say {coins} coins")
@@ -887,14 +887,13 @@ class TestRepeatGiftsGrowOneName(unittest.TestCase):
 #  A tier with no Payment Link yet, and the amounts above the top tier
 # ══════════════════════════════════════════════════════════════════════════
 class TestTiersWithoutALinkAreLocked(unittest.TestCase):
-    """Riptide ($75) and Tsunami ($100) exist server-side before their Stripe
-    Payment Links do.
+    """Tsunami ($100) exists server-side before its Stripe Payment Link does.
 
-    The dangerous shortcut here is wiring their buttons to SOME link so the
-    card looks finished. The webhook grants a tier by the order PRICE, so a
-    Riptide button opening the $50 link charges $50 and grants tide-turner,
-    and nothing anywhere says so. Until a real link exists at the exact price,
-    the button must not be a button.
+    The dangerous shortcut here is wiring its button to SOME link so the card
+    looks finished. The webhook grants a tier by the order PRICE, so a Tsunami
+    button opening the $50 link charges $50 and grants tide-turner, and nothing
+    anywhere says so. Until a real link exists at the exact price, the button
+    must not be a button.
     """
 
     LIVE = set(TestLivePaymentLinks.LINKS)
@@ -906,8 +905,8 @@ class TestTiersWithoutALinkAreLocked(unittest.TestCase):
     def _unlinked(self):
         return [t for t in ms.SUPPORTER_TIERS_BY_CENTS.values() if t not in self.LIVE]
 
-    def test_the_two_new_tiers_are_the_unlinked_ones(self):
-        self.assertEqual(sorted(self._unlinked()), ["riptide", "tsunami"])
+    def test_the_top_tier_is_the_unlinked_one(self):
+        self.assertEqual(sorted(self._unlinked()), ["tsunami"])
 
     def test_every_tier_is_either_linked_or_marked_soon_in_the_store(self):
         """One card per tier in the in-game store, and a card with no live link

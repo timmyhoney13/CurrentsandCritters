@@ -227,18 +227,18 @@
 
   /* Tier-card details - add small extras the existing .tier styles don’t cover. */
   /* ── The tier ladder, laid out across the screen, side-by-side.
-        Each card stays a tall column; the GRID is horizontal. Five cards now
-        (Wave Warrior → Tsunami), so the widest layout is five columns and it
-        steps down to three, two and one rather than jumping straight to a
-        stack: read left to right, the row IS the price ladder. ── */
+        Each card stays a tall column; the GRID is horizontal. Four cards
+        (Wave Warrior → Tsunami), so the widest layout is four columns and it
+        steps down to two and one rather than jumping straight to a stack:
+        read left to right, the row IS the price ladder. ── */
   .tiers {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 16px;
-    max-width: 1500px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+    max-width: 1320px;
     align-items: stretch;
   }
   .tier {
-    padding: 24px 20px;
+    padding: 26px 22px;
     gap: 14px;
   }
   .tier .head {
@@ -252,12 +252,9 @@
   .tier .btn { width: 100%; padding: 12px 18px; font-size: 14px; }
   /* Step down a column at a time, and stack to one only at phone widths so the
      side-by-side layout survives on most tablets/laptops. */
-  @media (max-width: 1320px) {
-    .tiers { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; max-width: 1240px; }
+  @media (max-width: 1180px) {
+    .tiers { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; max-width: 820px; }
     .tier  { padding: 26px 24px; }
-  }
-  @media (max-width: 980px) {
-    .tiers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 720px) {
     .tiers { grid-template-columns: 1fr; }
@@ -387,15 +384,18 @@
     border: 1px dashed rgba(255,255,255,0.25);
     cursor: default;
   }
-  .tier-soonnote {
-    margin: 10px 0 0;
-    font-family: var(--font-body);
-    font-size: 12px;
-    line-height: 1.5;
-    text-align: center;
-    color: rgba(255,255,255,0.55);
+  /* Two ribbons, two different claims: "Most Popular" on the Ocean Ally is what
+     people actually pick, "Best Value" on the Tsunami is what the money buys.
+     The mint ribbon is spoken for, so this one is warm gold: at a glance the
+     two cards are making different promises, not the same one twice. */
+  .tier.best-value {
+    background: linear-gradient(170deg, rgba(255, 190, 90, 0.16), rgba(255, 140, 60, 0.10));
+    border-color: rgba(255, 180, 80, 0.5);
   }
-  .tier-soonnote a { color: var(--glow); text-decoration: underline; }
+  .tier .ribbon.ribbon-best {
+    background: linear-gradient(120deg, #ffb63c, #f08a2a);
+    box-shadow: 0 6px 18px rgba(230, 140, 40, 0.35);
+  }
 
   /* Over the top tier: a conversation, not a checkout. */
   .tier-custom {
@@ -1117,7 +1117,7 @@
     <div class="tier-intro">
       <span class="eyebrow">★ Supporter Tiers</span>
       <h3>Every tier makes a ripple.</h3>
-      <p>Five ways to back the launch. Pick the one that fits - each comes with permanent supporter recognition and a profile frame in the online game. Giving more than $100? Scroll past the cards and tell us what you have in mind.</p>
+      <p>Four ways to back the launch. Pick the one that fits - each comes with permanent supporter recognition and a profile frame in the online game. Giving more than $100? Scroll past the cards and tell us what you have in mind.</p>
     </div>
 
     <div class="tiers">
@@ -1229,54 +1229,17 @@
         <a class="btn btn-outline" href="https://buy.stripe.com/00wfZi6EnfwgcsFcIOds406">Become a Tide Turner →</a>
       </div>
 
-      <!-- ── Riptide ──
+      <!-- ── Tsunami ──
            NO Payment Link yet, and deliberately no placeholder href. A tier is
            granted by the PRICE of the link the button opens, so pointing this
            at any existing link would charge the wrong amount and grant the
            wrong tier without a single visible symptom. To go live: create a
-           Stripe Payment Link at EXACTLY $75 (with the three custom questions,
+           Stripe Payment Link at EXACTLY $100 (with the three custom questions,
            see CF_WALL_NAME_LABEL in multiplayer_server.py), then replace the
            locked span below with the same <a class="btn"> the tiers above use
            and drop the price into TestLivePaymentLinks. -->
-      <div class="tier">
-        <div class="head">
-          <div class="name">Riptide</div>
-          <div class="price">$75<small>/one-time</small></div>
-        </div>
-        <p class="desc">Pull the whole reef forward: everything the Tide Turner gets, with the coins, passes and XP doubled down on.</p>
-        <ul class="perks">
-          <li><span class="perk-main">Supporter email updates</span></li>
-          <li>
-            <span class="perk-main"><strong>Founder Supporter number</strong></span>
-          </li>
-          <li>
-            <span class="perk-main">Name on the <strong>Supporter Reef Wall</strong></span>
-          </li>
-          <li><span class="perk-main">Personal thank-you email</span></li>
-          <li><span class="perk-main">Unlock all backgrounds</span></li>
-          <li><span class="perk-main">Exclusive Fish Icon</span></li>
-          <li><span class="perk-main">Exclusive Amberjack player icon</span></li>
-          <li><span class="perk-main">Free physical copy of Currents and Critters</span></li>
-          <li><span class="perk-main">Thank-you postcard, signed</span></li>
-          <li class="perk-pass-row">
-            <span class="perk-main"><strong>8 Season Pass vouchers</strong></span>
-            <span class="perk-xp-note">Eight Critter Passes (Battle Passes), on any eight seasons you choose</span>
-          </li>
-          <li class="perk-coins-row">
-            <span class="perk-main"><strong>50,000 Critter Coins</strong></span>
-          </li>
-          <li class="perk-xp-row">
-            <span class="perk-main">+12,500 bonus XP</span>
-            <span class="perk-xp-note">Cosmetic progression only</span>
-          </li>
-        </ul>
-        <span class="btn btn-locked" aria-disabled="true">Opening soon</span>
-        <p class="tier-soonnote">Want it now? <a href="#partner-form" data-tier-enquiry="Riptide ($75)">Email us</a> and we'll set it up by hand.</p>
-      </div>
-
-      <!-- ── Tsunami ──
-           Same story as Riptide: locked until a $100 Payment Link exists. -->
-      <div class="tier">
+      <div class="tier best-value">
+        <div class="ribbon ribbon-best">Best Value</div>
         <div class="head">
           <div class="name">Tsunami</div>
           <div class="price">$100<small>/one-time</small></div>
@@ -1315,7 +1278,6 @@
           </li>
         </ul>
         <span class="btn btn-locked" aria-disabled="true">Opening soon</span>
-        <p class="tier-soonnote">Want it now? <a href="#partner-form" data-tier-enquiry="Tsunami ($100)">Email us</a> and we'll set it up by hand.</p>
       </div>
 
     </div>
@@ -2211,20 +2173,14 @@ updateBetaBarClear();
   elRestore.addEventListener("click", function () { applyTemplate(true); elMsg.focus(); });
   form.addEventListener("input", syncMailto);
 
-  /* The tier cards that have no Buy button (the two waiting on a Payment Link,
-     and every amount above $100) land here instead. They set the partnership
-     type, drop the matching template in and put the cursor on the first thing
-     the reader has to replace, so "Email us a custom amount" opens a message
-     that is already 90% written rather than an empty box. */
-  function openEnquiry(which) {
+  /* "Email us a custom amount" lands here: an amount above the top tier has no
+     Buy button anywhere, so this form is its product page. It sets the
+     partnership type, drops the matching template in and puts the cursor on the
+     first thing the reader has to replace, so the card opens a message that is
+     already 90% written rather than an empty box. */
+  function openEnquiry() {
     elKind.value = "major";
     applyTemplate(true);
-    if (which && which !== "custom") {
-      elMsg.value = elMsg.value.replace(
-        "[INSERT AMOUNT HERE, for example $250]",
-        "the " + which + " tier, which has no button on the site yet");
-      lastTemplate = elMsg.value;
-    }
     syncMailto();
     // Focus AFTER the anchor jump so the browser doesn't fight the scroll.
     setTimeout(function () {
@@ -2241,9 +2197,7 @@ updateBetaBarClear();
 
   Array.prototype.forEach.call(
     document.querySelectorAll("[data-tier-enquiry]"), function (a) {
-      a.addEventListener("click", function () {
-        openEnquiry(a.getAttribute("data-tier-enquiry"));
-      });
+      a.addEventListener("click", function () { openEnquiry(); });
     });
 
   applyTemplate(true);

@@ -170,11 +170,10 @@ const SCENARIOS = {
     ok(missing.length === 0, "every partnership type has a template: " + missing.join(","));
   `,
 
-  /* The way in from the tier cards: the two tiers whose checkout is not
-     switched on yet, and every amount above the top tier. None of them has a
-     Buy button, so this form IS their product page. If the link stops filling
-     the box in, the reader lands on an empty form with no idea what to write,
-     which is exactly the moment the biggest contributions are lost. */
+  /* The way in for an amount above the top tier. Nothing above $100 has a Buy
+     button anywhere, so this form IS its product page. If the link stops
+     filling the box in, the reader lands on an empty form with no idea what to
+     write, which is exactly the moment the biggest contributions are lost. */
   enquiry: `
     var msg  = document.getElementById("pf-message");
     var kind = document.getElementById("pf-kind");
@@ -190,12 +189,10 @@ const SCENARIOS = {
     ok(hint && hint.textContent.indexOf("[INSERT") > 0,
        "the hint names the blanks THIS template has, not the ____ it doesn't");
 
-    var riptide = document.querySelector('[data-tier-enquiry="Riptide ($75)"]');
-    ok(!!riptide, "a locked tier card offers the same door");
-    riptide.click();
-    await sleep(500);
-    ok(msg.value.indexOf("the Riptide ($75) tier") > 0,
-       "...and the message already names the tier being asked for");
+    // The locked tier card has no "email us" line of its own: the only door is
+    // the band under the cards, and there must be exactly one of it.
+    ok(document.querySelectorAll("[data-tier-enquiry]").length === 1,
+       "one way in, not one hung under every locked card");
 
     var form = document.getElementById("pf-form");
     var status = document.getElementById("pf-status");
