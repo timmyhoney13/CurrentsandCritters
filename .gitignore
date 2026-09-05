@@ -682,3 +682,9 @@ multiplayer/client/_tutig_page_m.html
 # this test is the only thing pinning both to the real deck, so it has to ship
 # with them. Test-only, so this needs this entry and no Dockerfile COPY.
 !test_full_ocean_set.py
+
+# The Supporter Tier shelf, rendered. Five tiers now, and the two dearest have
+# no Stripe Payment Link yet: this is what proves a locked tier paints a dead
+# button instead of one pointed at another product's price. Test-only, so this
+# needs this entry and no Dockerfile COPY.
+!test_supporter_tiers_ui.js

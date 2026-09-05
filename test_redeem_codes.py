@@ -683,9 +683,10 @@ class EndToEnd(unittest.TestCase):
         self.assertEqual(self.coins("me"), want["coins"])
         acct = self.db.docs["users/me"]
         self.assertEqual(acct["supporter_tier"], "wave-warrior")
-        # Wave Warrior grants no XP, so it must not have written an XP field
-        # (nor the level fields derived from one). A tier that DOES grant XP is
-        # pinned by test_stripe_payments.py.
+        # Whatever the tier's XP is worth today it has to arrive here too, and
+        # a tier worth ZERO XP must write no XP field at all rather than a
+        # zero (nor the level fields derived from one). The amounts themselves
+        # are pinned by test_stripe_payments.py.
         if want["bonus_xp"]:
             self.assertEqual(acct["stats"]["total_xp"], want["bonus_xp"])
             self.assertEqual(acct["stats"]["level"],
