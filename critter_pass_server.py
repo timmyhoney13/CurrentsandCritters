@@ -201,7 +201,12 @@ SEASON_XP_TO_EARN = SEASON_XP_TO_MAX - TRACK_XP_BUDGET          # 35,650
 # day's play as the Level Pass and gives you 100 levels for thirty of them
 # instead of a hundred for seven months. test_the_pass_is_a_thirty_day_climb
 # pins it, so a retune that quietly doubles the climb fails there first.
-SEASON_XP_PER_DAY = SEASON_XP_TO_EARN // SEASON_DAYS            # 1,188
+#
+# Rounded UP, and that is not a rounding preference. This number is a promise
+# ("about 1,189 XP a day and you finish"), so it has to be enough: floored, a
+# player who hits it exactly every day lands 20 XP short and finishes on day
+# 31, which makes the headline on the purchase card false by a day.
+SEASON_XP_PER_DAY = -(-SEASON_XP_TO_EARN // SEASON_DAYS)        # 1,189
 
 
 def season_progress(season_xp: Any) -> tuple:
@@ -594,10 +599,23 @@ def _stats_of(doc: Dict[str, Any]) -> Dict[str, Any]:
     return s if isinstance(s, dict) else {}
 
 
+def _total_xp(doc: Dict[str, Any]) -> int:
+    """The account's lifetime XP, through the ONE fallback both passes share
+    (level_pass_server.stored_total_xp): `stats.total_xp` when it is there, the
+    older `level` + `xp_current` pair when it is not.
+
+    Used for the season MARK and the season DELTA as well as the account-level
+    chip, and that consistency is the point. The delta is `total_xp - mark`, so
+    a mark stamped from one reading and a delta measured from another is a
+    climb that jumps or freezes for reasons nobody can see.
+    """
+    return _lp.stored_total_xp(_stats_of(doc), _level_totals)
+
+
 def _level_of(doc: Dict[str, Any]) -> int:
-    """The account's level, derived from its OWN stored total_xp through the one
+    """The account's level, derived from its OWN stored XP through the one
     shared curve. Never from anything the request carried."""
-    total_xp = _int(_stats_of(doc).get("total_xp"))
+    total_xp = _total_xp(doc)
     if _level_for_xp is None:
         return 1
     try:
@@ -669,7 +687,7 @@ def _season_xp(doc: Dict[str, Any]) -> int:
     rec = _season_record(doc)
     if rec is None:
         return _grandfathered_xp(doc)
-    total = _int(_stats_of(doc).get("total_xp"))
+    total = _total_xp(doc)
     return max(0, rec["xp"] + max(0, total - rec["mark"]))
 
 
@@ -726,7 +744,7 @@ def _needs_fold(doc: Dict[str, Any]) -> bool:
     rec = _season_record(doc)
     if rec is None:
         return True
-    return _int(_stats_of(doc).get("total_xp")) < rec["mark"]
+    return _total_xp(doc) < rec["mark"]
 
 
 def _repair_season(db, uid: str, doc: Dict[str, Any]) -> Dict[str, Any]:
@@ -749,7 +767,7 @@ def _repair_season(db, uid: str, doc: Dict[str, Any]) -> Dict[str, Any]:
         fresh = snap.to_dict() or {}
         if not _needs_fold(fresh):
             return fresh
-        total = _int(_stats_of(fresh).get("total_xp"))
+        total = _total_xp(fresh)
         update = _season_write(_season_xp(fresh), total)
         t.set(user_ref, update, merge=True)
         fresh[SEASON_FIELD] = dict(fresh.get(SEASON_FIELD) or {})
@@ -918,6 +936,13 @@ def state_payload(uid: Optional[str]) -> Dict[str, Any]:
         "boostPercent": BOOST_PERCENT,
         "boostHours": BOOST_HOURS,
         "signedIn": bool(uid),
+        # Whether the account below was really read. See the same flag in
+        # level_pass_server.state_payload: an unreadable Firestore must not be
+        # indistinguishable from a brand-new account, or every number under
+        # here is a confident zero. The client paints the ACCOUNT chip from
+        # what the app already knows when this is False. It does NOT invent a
+        # pass level: season XP is a delta only the server holds the mark for.
+        "accountRead": False,
         "owned": False,
         # The PASS level and its bar: what gates every tier.
         "passLevel": 1,
@@ -949,7 +974,7 @@ def state_payload(uid: Optional[str]) -> Dict[str, Any]:
         # pulled out from under the season record. See _needs_fold.
         if _needs_fold(doc):
             doc = _repair_season(db, uid, doc)
-        total_xp = _int(_stats_of(doc).get("total_xp"))
+        total_xp = _total_xp(doc)
         level, into, goal = (_level_for_xp(total_xp) if _level_for_xp else (1, 0, 1))
         out["level"] = max(1, int(level))
         out["totalXp"] = total_xp
@@ -967,6 +992,9 @@ def state_payload(uid: Optional[str]) -> Dict[str, Any]:
         # construction (nothing can be claimed without the entitlement), so this
         # also saves a Firestore query on every page open before purchase.
         out["claimed"] = claimed_ids(db, uid) if out["owned"] else []
+        # Last, so a throw part-way down cannot leave it saying the account
+        # was read when half these fields are still the defaults.
+        out["accountRead"] = True
     except Exception as exc:  # noqa: BLE001
         print(f"[critterpass] state failed for {uid}: {exc}")
     return out
@@ -1018,7 +1046,7 @@ def buy(db, uid: str, use_voucher: bool = False) -> Dict[str, Any]:
             t.set(user_ref, {
                 "critter_pass_vouchers": after_v,
                 "critter_pass_seasons": _array_union()([SEASON_ID]),
-                **_season_write(0, _int(_stats_of(doc).get("total_xp"))),
+                **_season_write(0, _total_xp(doc)),
             }, merge=True)
             t.create(buy_ref, {
                 "uid": uid,
@@ -1049,7 +1077,7 @@ def buy(db, uid: str, use_voucher: bool = False) -> Dict[str, Any]:
             # is standing on. Written in the same transaction as the
             # entitlement, so an owner can never exist without a start line and
             # _grandfathered_xp can never mistake a fresh buyer for a legacy one.
-            **_season_write(0, _int(_stats_of(doc).get("total_xp"))),
+            **_season_write(0, _total_xp(doc)),
         }, merge=True)
         t.create(buy_ref, {
             "uid": uid,
@@ -1132,7 +1160,7 @@ def claim(db, uid: str, tier_id: str) -> Dict[str, Any]:
         # total_xp, or an XP drop would mark itself out of its own season.
         if _needs_fold(doc):
             update.update(_season_write(_season_xp(doc),
-                                        _int(_stats_of(doc).get("total_xp"))))
+                                        _total_xp(doc)))
 
         if rtype == "coins":
             before = max(0, _int(_stats_of(doc).get("critter_coins")))
@@ -1146,7 +1174,7 @@ def claim(db, uid: str, tier_id: str) -> Dict[str, Any]:
             # leaderboard and the header see the new level immediately instead
             # of after the player's next game. It can also push them past the
             # next tier's level, which is deliberate and is why claim_all loops.
-            before = max(0, _int(_stats_of(doc).get("total_xp")))
+            before = max(0, _total_xp(doc))
             after = before + amount
             lvl, xp_cur, xp_goal = (_level_for_xp(after) if _level_for_xp else (1, 0, 1))
             update["stats"] = {

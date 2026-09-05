@@ -182,13 +182,14 @@ def level_progress(total_xp):
     return (lvl, xp - LEVEL_TOTALS[lvl - 1], LEVEL_TOTALS[lvl] - LEVEL_TOTALS[lvl - 1])
 
 
-def install(db, *, uid_by_name=None):
+def install(db, *, uid_by_name=None, pass_carry_updates=None):
     ps.init(
         get_firestore=lambda: db,
         verify_token=lambda tok: {"uid": tok[5:]} if str(tok).startswith("token") else None,
         level_progress=level_progress,
         max_level=MAX_LEVEL,
         find_uid_by_username=(uid_by_name or (lambda _db, n: None)),
+        pass_carry_updates=pass_carry_updates,
     )
     ps._txn_helpers = lambda: _fake_transactional  # type: ignore[assignment]
     ps._XP_FOR_MAX_CACHE.clear()
@@ -540,6 +541,51 @@ class TestCommit(unittest.TestCase):
         self.assertEqual(u["prestige"]["level"], 1)
         self.assertAlmostEqual(u["prestige"]["xp_multiplier"], 1.25)
         self.assertEqual(u["prestige"]["store_bonus_pct"], 5)
+
+    # ── the Critter Pass carry ────────────────────────────────────────────
+    # Prestige zeroes stats.total_xp, and the Critter Pass measures its season
+    # as a DELTA against that number. So the fold has to happen INSIDE this
+    # transaction: afterwards the delta is gone and a paid-for climb with it.
+    def test_the_pass_carry_runs_inside_the_reset_and_lands_in_the_write(self):
+        seen = {}
+
+        def carry(doc, new_total_xp):
+            # The doc handed over must still be the PRE-reset one, or there is
+            # nothing left to carry.
+            seen["xp_before"] = int((doc.get("stats") or {}).get("total_xp") or 0)
+            seen["new_total_xp"] = new_total_xp
+            return {"critter_pass_season": {"S1": {"xp": 4242, "mark": 0}}}
+
+        self.db = FakeDb()
+        install(self.db, pass_carry_updates=carry)
+        make_account(self.db)
+        before = self.user()["stats"]["total_xp"]
+
+        res = ps._commit(self.db, "u1", good_body(self.db))
+        self.assertTrue(res.get("ok"), res)
+        self.assertEqual(seen["xp_before"], before)
+        self.assertEqual(seen["new_total_xp"], 0)
+        u = self.user()
+        self.assertEqual(u["stats"]["total_xp"], 0)
+        self.assertEqual(u["critter_pass_season"]["S1"], {"xp": 4242, "mark": 0})
+
+    def test_a_carry_that_throws_does_not_lose_the_prestige(self):
+        # A pass bug must never cost somebody the reset they typed PRESTIGE for.
+        def boom(doc, new_total_xp):
+            raise RuntimeError("nope")
+
+        self.db = FakeDb()
+        install(self.db, pass_carry_updates=boom)
+        make_account(self.db)
+        res = ps._commit(self.db, "u1", good_body(self.db))
+        self.assertTrue(res.get("ok"), res)
+        self.assertEqual(self.user()["stats"]["total_xp"], 0)
+        self.assertEqual(self.user()["prestige"]["level"], 1)
+
+    def test_no_carry_injected_is_simply_no_extra_write(self):
+        res = ps._commit(self.db, "u1", good_body(self.db))
+        self.assertTrue(res.get("ok"), res)
+        self.assertNotIn("critter_pass_season", self.user())
 
     def test_nothing_that_must_survive_is_touched(self):
         before = self.user()

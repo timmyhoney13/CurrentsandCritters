@@ -1,10 +1,18 @@
 /* Currents and Critters: Critter Pass (self-contained module).
  *
  * The PAID track that sits under the free Level Pass, rendered into
- * #cc-critter-pass-root: a horizontal reward rail over the same 1-100 level
- * curve, a purchase card in front of it until the pass is unlocked, and the
- * two perks nothing else in the game hands out (an extra daily challenge and
- * an extra weekly challenge, for keeps).
+ * #cc-critter-pass-root: a horizontal reward rail over 100 PASS LEVELS, a
+ * purchase card in front of it until the pass is unlocked, and the two perks
+ * nothing else in the game hands out (an extra daily challenge and an extra
+ * weekly challenge, for keeps).
+ *
+ * A PASS LEVEL IS NOT THE ACCOUNT LEVEL, and getting that wrong here is the
+ * one bug that would make every card on the rail lie. The account climbs a
+ * 250,000-XP lifetime curve; the pass climbs a flat state.seasonXpPerLevel of
+ * SEASON XP (the XP earned since the pass was unlocked), which is what makes
+ * Level 100 about a month rather than most of a year. Everything that decides
+ * what is claimable reads passLevel(); state.level is the account, and it is
+ * used in exactly one place, for a chip.
  *
  *   window.__ccCritterPassRender()   the page itself
  *   window.__ccCritterPassSync()     re-read state from the server
@@ -15,8 +23,9 @@
  *   window.__ccCritterPassOwned()    does this account own the pass?
  *
  * NOTHING here decides anything. The server owns the track, owns the 4,000-coin
- * purchase, re-derives the player's level from their own stored total_xp inside
- * every payout, and writes the goods. This file renders that state and sends
+ * purchase, owns the pass curve (it is served, never typed here), re-derives
+ * the pass level from the account's own stored XP inside every payout, and
+ * writes the goods. This file renders that state and sends
  * intents. Editing a number in here changes what one player sees for one paint
  * and is then thrown away by the server's own re-check (critter_pass_server.py).
  *
@@ -190,35 +199,39 @@
     return !!(root && root.offsetParent !== null);
   }
 
-  // ── XP maths ─────────────────────────────────────────────────────────────
-  // levelTotals[i] is the cumulative total_xp needed to REACH level i+1. It is
-  // served by the pass endpoint rather than copied into this file, so the
-  // "N XP to go" on a card is computed from the same table the server grants
-  // levels from.
-  function levelTotals() {
-    const t = _state && _state.levelTotals;
-    return Array.isArray(t) && t.length ? t : null;
+  // ── XP maths: THE PASS CURVE, WHICH IS NOT THE ACCOUNT CURVE ─────────────
+  // A Critter Pass tier is gated on the PASS level, and a pass level costs a
+  // flat state.seasonXpPerLevel of SEASON XP (the XP earned since the pass was
+  // unlocked). The account's own 1-100 climb is a different, far longer curve
+  // and is shown only as a chip: mixing the two is what would make a rail card
+  // promise "3,800 XP to go" for a level that really costs 600.
+  //
+  // Everything comes off the served state rather than a number typed here, so
+  // a server-side retune moves the rail with it.
+  function passLevel() { return num(_state && _state.passLevel, 1); }
+  function passMaxLevel() { return num(_state && _state.passMaxLevel, 100); }
+  function xpPerPassLevel() { return num(_state && _state.seasonXpPerLevel, 0); }
+
+  // Season XP that REACHES pass `level`. null when the curve has not loaded
+  // (an older cached payload), so the caller says nothing rather than zero.
+  function seasonXpToReach(level) {
+    const per = xpPerPassLevel();
+    if (!per) return null;
+    const l = Math.max(1, Math.min(passMaxLevel(), Math.floor(num(level, 1))));
+    return (l - 1) * per;
   }
-  function xpToReach(level) {
-    const totals = levelTotals();
-    if (!totals) return null;
-    const idx = Math.max(1, Math.min(totals.length, Math.floor(level))) - 1;
-    return num(totals[idx]);
-  }
-  // XP the player still needs before `level` is reached. null when the curve
-  // has not loaded: the caller must then say nothing rather than say zero.
   function xpUntil(level) {
-    const need = xpToReach(level);
+    const need = seasonXpToReach(level);
     if (need == null) return null;
-    return Math.max(0, need - num(_state && _state.totalXp));
+    return Math.max(0, need - num(_state && _state.seasonXp));
   }
 
   // "How much XP till the next thing": the nearest tier above the player's
-  // level. Every Critter Pass tier is claimable, so unlike the free pass there
-  // is no milestone-versus-reward distinction to make here.
+  // PASS level. Every Critter Pass tier is claimable, so unlike the free pass
+  // there is no milestone-versus-reward distinction to make here.
   function nextTier() {
     const track = (_state && _state.track) || [];
-    const lvl = num(_state && _state.level, 1);
+    const lvl = passLevel();
     let best = null;
     for (const t of track) {
       if (num(t.level) <= lvl) continue;
@@ -230,7 +243,7 @@
   function unclaimedReady() {
     if (!(_state && _state.owned)) return [];
     const track = (_state && _state.track) || [];
-    const lvl = num(_state && _state.level, 1);
+    const lvl = passLevel();
     return track.filter(t => t.claimable && num(t.level) <= lvl && !_claimedSet.has(t.id));
   }
 
@@ -294,14 +307,23 @@
     // and reports the login daily) against the identity being left behind.
   };
 
-  // ── A guest's own level ──────────────────────────────────────────────────
-  // The server answers a signed-out /api/critterpass/state with the full track
-  // and level 1, because it has no account to look the level up in. A guest
-  // DOES have a level though: their XP is banked in this browser. Showing them
-  // the real track at their real level is the honest version of "this is what
-  // you would be buying".
+  // ── A guest's own ACCOUNT level ──────────────────────────────────────────
+  // The server answers a signed-out /api/critterpass/state with level 1,
+  // because it has no account to look the level up in. A guest DOES have an
+  // account level though: their XP is banked in this browser, and the chip
+  // that shows it should be right.
+  //
+  // It deliberately does NOT touch the pass level. Nobody has a pass level
+  // until they unlock the pass, guests included: the climb starts at unlock,
+  // so showing a guest pass level 40 would advertise a head start that does
+  // not exist. A guest sees the track from Level 1, which is exactly what they
+  // would really be buying.
+  function accountLevelTotals() {
+    const t = _state && _state.levelTotals;
+    return Array.isArray(t) && t.length ? t : null;
+  }
   function guestLevelFromXp(totalXp) {
-    const totals = levelTotals();
+    const totals = accountLevelTotals();
     if (!totals) return 1;
     const xp = num(totalXp);
     let lvl = 1;
@@ -320,21 +342,49 @@
       const gs = (typeof window.__fishGuestStatsGet === "function") ? (window.__fishGuestStatsGet() || {}) : {};
       xp = num(gs.total_xp);
     } catch (_) { xp = 0; }
+    applyAccountLevelFromXp(xp);
+  }
+
+  // The ACCOUNT level and its numbers, from an XP figure. It writes the four
+  // account fields and nothing else: passLevel / seasonXp are the season's,
+  // and no amount of lifetime XP tells you what a pass has earned since it was
+  // unlocked. This is the whole reason the two curves have separate fields.
+  function applyAccountLevelFromXp(xp) {
     const lvl = guestLevelFromXp(xp);
-    const totals = levelTotals() || [];
+    const totals = accountLevelTotals() || [];
     const prev = num(totals[lvl - 1]);            // XP that reached this level
     const next = num(totals[lvl], prev);          // XP that reaches the next one
     _state.level = lvl;
-    _state.totalXp = xp;
-    _state.xpIntoLevel = Math.max(0, xp - prev);
+    _state.totalXp = num(xp);
+    _state.xpIntoLevel = Math.max(0, num(xp) - prev);
     _state.xpForLevel = Math.max(1, next - prev);
+  }
+
+  // When the server could not read the account (accountRead:false, a refusing
+  // Firestore rather than a signed-out visitor) the Account Level chip would
+  // otherwise say 1 to a Level 39 player. The app already loaded that profile,
+  // so the chip says what the header says. See the same fallback in
+  // js/level-pass.js, which is the page this chip points people at.
+  function applyLiveAccountLevel() {
+    if (!_state || !_state.signedIn || _state.accountRead !== false) return;
+    let xp = null;
+    try {
+      const st = (typeof window.__fishGetMyStats === "function") ? window.__fishGetMyStats() : null;
+      if (st && typeof st === "object") {
+        const v = (typeof window.__fishStoredTotalXp === "function")
+          ? Number(window.__fishStoredTotalXp(st)) : Number(st.total_xp);
+        if (Number.isFinite(v) && v >= 0) xp = Math.floor(v);
+      }
+    } catch (_) { xp = null; }
+    if (xp == null) return;
+    applyAccountLevelFromXp(xp);
   }
 
   // ── Rendering ────────────────────────────────────────────────────────────
   function owned() { return !!(_state && _state.owned); }
 
   function tierState(t) {
-    const lvl = num(_state && _state.level, 1);
+    const lvl = passLevel();
     if (_claimedSet.has(t.id)) return "claimed";
     if (!owned()) return num(t.level) <= lvl ? "waiting" : "locked";
     return num(t.level) <= lvl ? "ready" : "locked";
@@ -417,12 +467,20 @@
     const track = (_state && _state.track) || [];
     const tierCount = track.length;
     const maxLvl = num(_state && _state.maxLevel, 100);
+    const perPassLevel = xpPerPassLevel();
     const everyLevel = tierCount === maxLvl
       && new Set(track.map(t => num(t.level))).size === maxLvl;
 
-    // Every number here is derived from the served track, so a retune moves the
-    // sales pitch with it instead of leaving a promise the track no longer keeps.
+    // Every number here is derived from the served track and the served pass
+    // curve, so a retune moves the sales pitch with it instead of leaving a
+    // promise the track no longer keeps. The 30-day line leads because it is
+    // the whole reason this track has a curve of its own: on the account's
+    // lifetime curve, 100 levels is most of a year.
+    const days = num(_state && _state.seasonDays, 0);
+    const perDay = num(_state && _state.seasonXpPerDay, 0);
     const highlights = [
+      ...(days && perDay ? [{ ico: "⏱️", big: "~" + fmt(days) + " days",
+        txt: `of play to Level ${fmt(maxLvl)}, at about ${fmt(perDay)} XP a day` }] : []),
       { ico: `<img class="ccCP-hl-coin" src="/critter-coin.png?v=1" alt="" draggable="false">`,
         big: fmt(num(_state && _state.coinTotal)),
         txt: "Critter Coins across the track" },
@@ -466,7 +524,7 @@
         <button class="ccCP-buy" type="button" id="ccCP-buy">
           Unlock &middot; ${fmt(price)} <img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coins" draggable="false">
         </button>
-        <div class="ccCP-buy-note">You have ${fmt(coins)} Critter Coins. Every reward below is yours to claim as you level up.</div>`;
+        <div class="ccCP-buy-note">You have ${fmt(coins)} Critter Coins. Your Pass Level starts at 1 and climbs on the XP you earn from here: every reward below is yours to claim on the way up.</div>`;
     }
 
     return `
@@ -478,10 +536,13 @@
             <p class="ccCP-buy-sub">
               One payment, ${esc(everyLevel
                 ? `a reward on every one of the ${fmt(tierCount)} levels`
-                : `${fmt(tierCount)} rewards`)}, and every level you have already
-              earned counts. ${vouchers > 0
+                : `${fmt(tierCount)} rewards`)}, and a climb of its own:
+              ${perPassLevel ? `a Pass Level costs a flat <b>${fmt(perPassLevel)} XP</b>, so the
+              whole track is about <b>${fmt(days)} days</b> of play` : `a season-long track`},
+              not the years the account's own Level 100 takes.
+              ${vouchers > 0
                 ? `Your voucher covers it`
-                : `Spend ${fmt(price)}`} and the track pays back
+                : `Spend ${fmt(price)}`} and it pays back
               <b>${fmt(num(_state && _state.coinTotal))}</b> Critter Coins alone.
             </p>
           </div>
@@ -497,13 +558,18 @@
 
   function headerHtml() {
     const inv = inventory();
-    const lvl = num(_state && _state.level, 1);
-    const into = num(_state && _state.xpIntoLevel);
-    const goal = Math.max(1, num(_state && _state.xpForLevel, 1));
+    // The badge, the bar and the "next up" line are all the PASS level. The
+    // account level is a chip further down: it gates nothing on this page, and
+    // it is only there so "Pass Level 3" on a level-47 account cannot read as a
+    // bug. See the XP maths block above for why they are two different curves.
+    const lvl = passLevel();
+    const into = num(_state && _state.passXpIntoLevel);
+    const goal = Math.max(1, num(_state && _state.passXpForLevel, xpPerPassLevel() || 1));
     const pct = Math.max(0, Math.min(100, Math.round((into / goal) * 100)));
-    const maxLvl = num(_state && _state.maxLevel, 100);
+    const maxLvl = passMaxLevel();
     const nxt = nextTier();
     const ready = unclaimedReady();
+    const acctLvl = num(_state && _state.level, 1);
 
     // The headline sentence. A player at the cap has no "next thing", and
     // saying "0 XP until nothing" is worse than saying they are finished.
@@ -514,8 +580,8 @@
       const left = xpUntil(num(nxt.level));
       const what = `<b>${esc(nxt.label)}</b>`;
       nextLine = left == null
-        ? `Next up at Level ${esc(nxt.level)}: ${what}`
-        : `<b class="ccCP-next-xp">${fmt(left)} XP</b> until ${what} <span class="ccCP-next-lvl">&middot; Level ${esc(nxt.level)}</span>`;
+        ? `Next up at Pass Level ${esc(nxt.level)}: ${what}`
+        : `<b class="ccCP-next-xp">${fmt(left)} XP</b> until ${what} <span class="ccCP-next-lvl">&middot; Pass Level ${esc(nxt.level)}</span>`;
     }
 
     let actions;
@@ -538,7 +604,7 @@
       <div class="ccCP-head">
         <div class="ccCP-head-top">
           <div class="ccCP-lvl-badge">
-            <span class="ccCP-lvl-word">Level</span>
+            <span class="ccCP-lvl-word">Pass Level</span>
             <span class="ccCP-lvl-num">${esc(lvl)}</span>
           </div>
           <div class="ccCP-head-mid">
@@ -548,11 +614,15 @@
             <div class="ccCP-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
               <div class="ccCP-bar-fill" style="width:${pct}%"></div>
             </div>
-            <div class="ccCP-bar-txt">${fmt(into)} / ${fmt(goal)} XP to Level ${esc(Math.min(maxLvl, lvl + 1))}</div>
+            <div class="ccCP-bar-txt">${fmt(into)} / ${fmt(goal)} XP to Pass Level ${esc(Math.min(maxLvl, lvl + 1))}</div>
           </div>
           <div class="ccCP-head-actions">${actions}</div>
         </div>
         <div class="ccCP-chips">
+          <div class="ccCP-chip">
+            <span class="ccCP-chip-ico">🎣</span>
+            <span class="ccCP-chip-txt"><b>Account Level ${esc(acctLvl)}</b><span>your lifetime level, on the Level Pass</span></span>
+          </div>
           <div class="ccCP-chip">
             <span class="ccCP-chip-ico"><img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false"></span>
             <span class="ccCP-chip-txt"><b>${fmt(inv.coins)}</b><span>Critter Coins</span></span>
@@ -578,6 +648,7 @@
   function render() {
     const root = $("cc-critter-pass-root");
     if (!root) return;
+    const perPassLevelFoot = xpPerPassLevel() ? fmt(xpPerPassLevel()) + " XP" : "a fixed amount";
 
     if (!_state) {
       root.innerHTML = `<div class="ccCP"><div class="ccCP-empty">Loading the Critter Pass…</div></div>`;
@@ -592,6 +663,7 @@
       return;
     }
     applyGuestLevel();
+    applyLiveAccountLevel();
 
     const track = (_state.track || []).slice().sort((a, b) => num(a.level) - num(b.level));
     root.innerHTML = `
@@ -605,10 +677,10 @@
         </div>
         <div class="ccCP-foot-note">
           ${isGuestView()
-            ? "You are playing as a guest: your level is kept in this browser. The Critter Pass is bought and kept on an account, so make one and everything you have earned comes with you."
+            ? "You are playing as a guest: your level is kept in this browser. The Critter Pass is bought and kept on an account, so make one first, and the XP you earn from then on is what climbs the track."
             : owned()
-              ? "Rewards are yours the moment you reach the level: claim them whenever you like, they never expire."
-              : "Unlock it once and every tier you have already passed is waiting for you."}
+              ? `Pass Levels are their own climb: ${perPassLevelFoot} of the XP you earn, per level, whatever your account level is. Rewards are yours the moment you reach one, and they never expire.`
+              : "Unlock it once and the climb starts there: every reward below comes from the XP you earn afterwards."}
         </div>
       </div>`;
 
@@ -622,7 +694,7 @@
   function scrollToCurrent() {
     const rail = $("ccCP-rail");
     if (!rail) return;
-    const lvl = num(_state && _state.level, 1);
+    const lvl = passLevel();
     let target = null;
     for (const card of rail.querySelectorAll(".ccCP-tier")) {
       if (num(card.getAttribute("data-level")) <= lvl) target = card;
@@ -656,9 +728,12 @@
     try { answer = bridge().modal ? await bridge().modal({
       icon: "🎟️",
       title: "Unlock the Critter Pass?",
-      body: `This spends ${fmt(price)} Critter Coins, once. Every tier you have `
-          + `already reached becomes claimable straight away, and the track pays `
-          + `back ${fmt(num(_state && _state.coinTotal))} Critter Coins as you level up.`,
+      body: `This spends ${fmt(price)} Critter Coins, once. Your Pass Level starts at 1 `
+          + `and climbs on the XP you earn from here${xpPerPassLevel()
+              ? ` (a flat ${fmt(xpPerPassLevel())} XP a level, about `
+                + `${fmt(num(_state && _state.seasonDays, 30))} days to Level ${fmt(passMaxLevel())})`
+              : ""}`
+          + `, and the track pays back ${fmt(num(_state && _state.coinTotal))} Critter Coins on the way up.`,
       actions: [
         { key: "cancel", label: "Not yet" },
         { key: "confirm", label: `Spend ${fmt(price)}`, primary: true },
@@ -675,7 +750,7 @@
     const res = await post("buy", {});
     _buying = false;
     if (res && res.ok) {
-      toast("🎉 Critter Pass unlocked. Everything you have already earned is waiting on the track.", "good");
+      toast("🎉 Critter Pass unlocked. You are at Pass Level 1: every reward on the track is now yours to climb for.", "good");
       await sync();
       afterGrant();
     } else {
@@ -697,6 +772,7 @@
       title: "Redeem a Season Pass voucher?",
       body: `This spends 1 of your ${fmt(vouchers)} voucher${vouchers === 1 ? "" : "s"} `
           + `on ${season} and unlocks the Critter Pass straight away. `
+          + `Your Pass Level starts at 1 and climbs on the XP you earn from here. `
           + `${vouchers > 1 ? `The other ${fmt(vouchers - 1)} keep for a future season. ` : ""}`
           + `No Critter Coins are spent.`,
       actions: [
@@ -715,7 +791,7 @@
     const res = await post("buy", { voucher: true });
     _buying = false;
     if (res && res.ok) {
-      toast("🎟️ Voucher redeemed. The Critter Pass is unlocked, and everything you have already earned is waiting on the track.", "good");
+      toast("🎟️ Voucher redeemed. The Critter Pass is unlocked at Pass Level 1: every reward on the track is now yours to climb for.", "good");
       await sync();
       afterGrant();
     } else {

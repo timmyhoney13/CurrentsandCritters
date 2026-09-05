@@ -14,9 +14,9 @@ them. The tests that matter are therefore:
                                             settles a double tap
   3. A tier cannot pay twice, or at a level the account has not reached.
                                           → the ledger create() guard, and the
-                                            level re-derived from the account's
-                                            OWN total_xp (the request carries
-                                            no level at all)
+                                            PASS level re-derived from the
+                                            account's OWN season XP (the
+                                            request carries no level at all)
   4. A tier that CANNOT pay writes no ledger entry, so it stays claimable.
   5. The numbers Tim asked for are exactly the numbers on the track:
                                           → 4,000 in, 8,500 coins back, pinned
@@ -24,6 +24,20 @@ them. The tests that matter are therefore:
   6. An XP drop that raises the level unlocks the tiers above it in the SAME
      "Claim all", because a player who pressed the button once should not have
      to press it four more times to collect what that press unlocked.
+
+And, since the pass stopped riding the account's lifetime curve, the half that
+makes it a SEASON pass (PassCurveTests / SeasonXpTests):
+
+  7. A pass level is its own flat SEASON_XP_PER_LEVEL, and the whole climb is
+     SEASON_DAYS of play once the track's own XP drops are counted. Pinned as
+     arithmetic, because "doable in 30 days" is printed on the purchase card.
+  8. The ACCOUNT level unlocks nothing. A level-100 account that buys the pass
+     starts at pass level 1 and claims exactly one tier, which is what closes
+     the "4,000 in, 8,500 straight back out" printer the old gate had.
+  9. Except once: an owner from before this curve keeps the levels they were
+     already sold, written in on first sight and never again.
+ 10. total_xp going DOWN (Prestige) must not wipe a paid-for climb, and must
+     never make it negative.
 
 Plus the drift checks that keep the three halves honest: the finale avatar has
 to be a real avatar in preview-app.js, the extra-slot maxima have to match the
@@ -94,13 +108,29 @@ class PassTestBase(unittest.TestCase):
     # than the track. A real level-100 account has at least this many.
     COLLECTION = [f"/avatars/critter-{i}.png" for i in range(1, 15)]
 
-    def make_user(self, uid="u1", level=1, coins=0, owns=False, **extra):
+    def make_user(self, uid="u1", level=1, coins=0, owns=False,
+                  pass_level=None, season_record=True, **extra):
+        """An account at ACCOUNT level `level`, optionally owning the pass.
+
+        `pass_level` is the separate thing this track actually gates on, and it
+        defaults to `level` only so the tests written before the pass had a
+        curve of its own still mean what they meant. Pass the two different
+        numbers to prove which one a payout really reads.
+
+        `season_record=False` writes the entitlement WITHOUT the season record,
+        which is exactly the shape of an account that bought the pass before
+        this curve existed: the grandfather path."""
+        total_xp = xp_for_level(level)
         doc = {
             "nickname": uid.upper(),
-            "stats": {"total_xp": xp_for_level(level), "critter_coins": coins},
+            "stats": {"total_xp": total_xp, "critter_coins": coins},
         }
         if owns:
             doc["critter_pass_seasons"] = [cp.SEASON_ID]
+            if season_record:
+                want = level if pass_level is None else pass_level
+                doc[cp.SEASON_FIELD] = {cp.SEASON_ID: {
+                    "xp": cp.season_xp_to_reach(want), "mark": total_xp}}
         doc.update(extra)
         self.db.collection("users")._docs[uid] = doc
         return doc
@@ -113,6 +143,21 @@ class PassTestBase(unittest.TestCase):
 
     def total_xp(self, uid="u1"):
         return int((self.user(uid).get("stats") or {}).get("total_xp") or 0)
+
+    def season_xp(self, uid="u1"):
+        return cp._season_xp(self.user(uid))
+
+    def pass_level(self, uid="u1"):
+        return cp._pass_level_of(self.user(uid))
+
+    def set_season_xp(self, value, uid="u1"):
+        """Move the pass climb without touching the account's XP, which is the
+        only way to prove the two are really separate curves."""
+        doc = self.db.collection("users")._docs[uid]
+        doc[cp.SEASON_FIELD] = {cp.SEASON_ID: {
+            "xp": int(value),
+            "mark": int((doc.get("stats") or {}).get("total_xp") or 0),
+        }}
 
     def ledger_ids(self):
         return sorted(self.db.collection("critter_pass_claims")._docs.keys())
@@ -705,23 +750,25 @@ class ClaimAllTests(PassTestBase):
         self.sweep()
         paid_levels = [rec["level"] for rec in
                        self.db.collection("critter_pass_claims")._docs.values()]
-        # An XP drop can RAISE the level mid-sweep, which is the point of the
-        # outer loop, so the bound is the level at the END, not the start.
-        end_level = level_progress(self.total_xp())[0]
+        # An XP drop can RAISE the PASS level mid-sweep, which is the point of
+        # the outer loop, so the bound is the level at the END, not the start.
+        # Measured on the pass curve, deliberately: the account curve would let
+        # this pass while the sweep was paying tiers nobody had reached.
         self.assertTrue(paid_levels)
-        self.assertLessEqual(max(paid_levels), end_level)
+        self.assertLessEqual(max(paid_levels), self.pass_level())
 
     def test_an_xp_drop_unlocks_the_next_tiers_in_the_same_sweep(self):
-        # Level 10 with 100 XP to spare before level 11. The level-10 XP drop
-        # is 750, so claiming it crosses the boundary: a single-pass sweep
-        # would stop at 10 and leave the level-11 tier sitting there.
+        # Pass level 10 with 100 XP to spare before 11. The level-10 XP drop is
+        # 750, more than a pass level costs, so claiming it crosses the
+        # boundary: a single-pass sweep would stop at 10 and leave the level-11
+        # tier sitting there.
         self.make_user(level=1, coins=0, owns=True)
-        self.db.collection("users")._docs["u1"]["stats"]["total_xp"] = xp_for_level(11) - 100
-        self.assertEqual(level_progress(self.total_xp())[0], 10)
+        self.set_season_xp(cp.season_xp_to_reach(11) - 100)
+        self.assertEqual(self.pass_level(), 10)
 
         res = self.sweep()
         self.assertTrue(res.get("ok"), res)
-        end_level = level_progress(self.total_xp())[0]
+        end_level = self.pass_level()
         self.assertGreaterEqual(end_level, 11)
         paid = {rec["tier"] for rec in
                 self.db.collection("critter_pass_claims")._docs.values()}
@@ -798,6 +845,243 @@ class ClaimAllTests(PassTestBase):
 # ══════════════════════════════════════════════════════════════════════════
 #  STATE PAYLOAD
 # ══════════════════════════════════════════════════════════════════════════
+class PassCurveTests(PassTestBase):
+    """The pass level is its OWN curve, and it is tuned to thirty days.
+
+    This is the half that makes the Critter Pass a season pass rather than a
+    second view of the account's lifetime level, so the tests are about the two
+    curves being genuinely different, not about the numbers being pretty."""
+
+    def test_the_pass_is_a_thirty_day_climb(self):
+        # THE promise on the page, as arithmetic. The track pays part of its own
+        # climb back through XP drops, so what a player has to go and earn is
+        # the difference, and that divided by the season is the daily rate the
+        # purchase card quotes. An equality, not a range: if a retune moves any
+        # of the three numbers this has to be looked at on purpose.
+        self.assertEqual(cp.SEASON_XP_TO_MAX,
+                         cp.SEASON_XP_PER_LEVEL * (cp.PASS_MAX_LEVEL - 1))
+        self.assertEqual(cp.SEASON_XP_TO_EARN,
+                         cp.SEASON_XP_TO_MAX - cp.TRACK_XP_BUDGET)
+        self.assertEqual(cp.SEASON_XP_PER_DAY,
+                         -(-cp.SEASON_XP_TO_EARN // cp.SEASON_DAYS))
+        # The promise has to actually hold: a player who earns exactly the
+        # quoted rate every day for the whole season, and claims the track's
+        # own XP drops on the way, has to REACH Level 100 inside SEASON_DAYS.
+        # Floored division fails this by twenty XP and one day.
+        self.assertGreaterEqual(
+            cp.SEASON_XP_PER_DAY * cp.SEASON_DAYS + cp.TRACK_XP_BUDGET,
+            cp.SEASON_XP_TO_MAX)
+        # And the rate is a day's play, not a job. The lifetime curve was tuned
+        # at ~1,175 XP a day (250,000 over about seven months); asking much more
+        # than that for thirty days would make "doable in 30 days" a lie.
+        self.assertLessEqual(cp.SEASON_XP_PER_DAY, 1500)
+        self.assertGreaterEqual(cp.SEASON_XP_PER_DAY, 800)
+
+    def test_the_pass_curve_is_far_cheaper_than_the_account_curve(self):
+        # The whole point of the change. Reaching Level 100 on the account curve
+        # is the long game; reaching it on the pass is a season.
+        self.assertLess(cp.SEASON_XP_TO_MAX, LEVEL_TOTALS[MAX_LEVEL - 1] // 3)
+
+    def test_every_pass_level_costs_the_same(self):
+        # Flat, on purpose: "600 XP a level" is a promise a player can hold in
+        # their head, and it is what makes the header bar mean the same thing at
+        # level 9 and at level 90.
+        costs = {cp.season_xp_to_reach(n + 1) - cp.season_xp_to_reach(n)
+                 for n in range(1, cp.PASS_MAX_LEVEL)}
+        self.assertEqual(costs, {cp.SEASON_XP_PER_LEVEL})
+
+    def test_the_track_ends_exactly_where_the_curve_does(self):
+        # A tier above PASS_MAX_LEVEL could never be claimed, and a curve that
+        # ran past the last tier would leave the bar climbing towards nothing.
+        self.assertEqual(cp.max_level(), cp.PASS_MAX_LEVEL)
+
+    def test_progress_boundaries(self):
+        self.assertEqual(cp.season_progress(0), (1, 0, cp.SEASON_XP_PER_LEVEL))
+        self.assertEqual(cp.season_progress(cp.SEASON_XP_PER_LEVEL - 1)[0], 1)
+        self.assertEqual(cp.season_progress(cp.SEASON_XP_PER_LEVEL)[0], 2)
+        self.assertEqual(cp.season_progress(cp.SEASON_XP_TO_MAX)[0], cp.PASS_MAX_LEVEL)
+        # Past the cap the bar reads FULL, never empty: (goal, goal), not
+        # (0, goal), or Level 100 would paint as 0% done.
+        lvl, into, goal = cp.season_progress(cp.SEASON_XP_TO_MAX * 10)
+        self.assertEqual((lvl, into), (cp.PASS_MAX_LEVEL, goal))
+        # Junk in is level 1, never a crash and never a free track.
+        self.assertEqual(cp.season_progress(None)[0], 1)
+        self.assertEqual(cp.season_progress(-5000)[0], 1)
+
+    def test_reaching_a_level_is_clamped_at_both_ends(self):
+        self.assertEqual(cp.season_xp_to_reach(1), 0)
+        self.assertEqual(cp.season_xp_to_reach(0), 0)
+        self.assertEqual(cp.season_xp_to_reach(10 ** 6), cp.SEASON_XP_TO_MAX)
+
+
+class SeasonXpTests(PassTestBase):
+    """Season XP: the delta, the fold, and the reset that must not wipe it."""
+
+    def test_buying_starts_the_climb_at_zero_even_at_account_level_100(self):
+        # THE reason the pass has a curve of its own. Keyed on lifetime level, a
+        # maxed account would buy the track for 4,000 and take 8,500 straight
+        # back out; that is a coin printer, and it is what stopped the pass ever
+        # being re-buyable. Keyed on season XP, everybody starts at 1.
+        self.make_user(level=MAX_LEVEL, coins=cp.CRITTER_PASS_PRICE)
+        res = cp.buy(self.db, "u1")
+        self.assertTrue(res.get("ok"), res)
+        self.assertEqual(res["passLevel"], 1)
+        self.assertEqual(self.pass_level(), 1)
+        self.assertEqual(self.season_xp(), 0)
+        # And nothing above level 1 pays out.
+        sweep = cp.claim_all(self.db, "u1")
+        self.assertTrue(sweep.get("ok"), sweep)
+        paid = {rec["level"] for rec in
+                self.db.collection("critter_pass_claims")._docs.values()}
+        self.assertEqual(paid, {1})
+
+    def test_a_voucher_starts_the_climb_at_zero_too(self):
+        self.make_user(level=MAX_LEVEL, coins=0, critter_pass_vouchers=2)
+        res = cp.buy(self.db, "u1", use_voucher=True)
+        self.assertTrue(res.get("ok"), res)
+        self.assertEqual(self.pass_level(), 1)
+        self.assertEqual(self.season_xp(), 0)
+
+    def test_a_tier_is_gated_on_the_pass_level_not_the_account_level(self):
+        # The two are moved in opposite directions on purpose: an account level
+        # nowhere near the tier, a pass level past it. Only one of them may
+        # decide, and it is not the account.
+        self.make_user(level=2, coins=0, owns=True, pass_level=40)
+        res = cp.claim(self.db, "u1", "L31")
+        self.assertTrue(res.get("ok"), res)
+        self.assertEqual(res["level"], 31)
+
+    def test_a_high_account_level_does_not_unlock_a_tier(self):
+        self.make_user(level=MAX_LEVEL, coins=0, owns=True, pass_level=3)
+        res = cp.claim(self.db, "u1", "L31")
+        self.assertFalse(res.get("ok"))
+        self.assertEqual(res["error"], "level_locked")
+        self.assertEqual(res["level"], 3)
+
+    def test_earned_xp_moves_the_pass_because_it_is_a_delta(self):
+        # No writes to the season record at all: playing raises total_xp, and
+        # season XP is the difference since the mark. This is what let the
+        # feature ship without touching a single XP award path.
+        self.make_user(level=1, coins=0, owns=True, pass_level=1)
+        self.assertEqual(self.pass_level(), 1)
+        doc = self.db.collection("users")._docs["u1"]
+        doc["stats"]["total_xp"] += cp.SEASON_XP_PER_LEVEL * 4
+        self.assertEqual(self.pass_level(), 5)
+        self.assertEqual(self.season_xp(), cp.SEASON_XP_PER_LEVEL * 4)
+
+    def test_an_xp_drop_counts_towards_the_pass(self):
+        # A drop is real XP on stats.total_xp, so it moves the season as well as
+        # the account. The 30-day arithmetic assumes exactly this.
+        self.make_user(level=1, coins=0, owns=True, pass_level=5)
+        before = self.season_xp()
+        res = cp.claim(self.db, "u1", "L5")           # 125 XP
+        self.assertTrue(res.get("ok"), res)
+        self.assertEqual(self.season_xp(), before + 125)
+
+    def test_the_claim_ledger_records_the_pass_level_it_paid_at(self):
+        self.make_user(level=2, coins=0, owns=True, pass_level=20)
+        cp.claim(self.db, "u1", "L11")
+        rec = list(self.db.collection("critter_pass_claims")._docs.values())[0]
+        self.assertEqual(rec["pass_level"], 20)
+        self.assertEqual(rec["season_xp"], cp.season_xp_to_reach(20))
+
+    # ── the grandfather ───────────────────────────────────────────────────
+    def test_an_owner_from_before_the_curve_keeps_what_they_were_sold(self):
+        # The pass shipped gated on lifetime level, so anybody who bought it
+        # then paid 4,000 coins for "every level you have already earned
+        # counts". Their record is missing, and they must NOT be reset to 1.
+        self.make_user(level=47, coins=0, owns=True, season_record=False)
+        self.assertEqual(self.pass_level(), 47)
+        self.assertTrue(cp._needs_fold(self.user()))
+
+    def test_the_grandfather_is_written_once_and_then_behaves_normally(self):
+        self.make_user(level=47, coins=0, owns=True, season_record=False)
+        state = cp.state_payload("u1")
+        self.assertEqual(state["passLevel"], 47)
+        self.assertFalse(cp._needs_fold(self.user()))
+        # From here it is an ordinary delta: account XP no longer moves the pass
+        # by the account curve, it moves it by the pass curve.
+        doc = self.db.collection("users")._docs["u1"]
+        doc["stats"]["total_xp"] += cp.SEASON_XP_PER_LEVEL * 2
+        self.assertEqual(self.pass_level(), 49)
+
+    def test_a_non_owner_is_never_grandfathered(self):
+        # The locked track is a sales pitch, and it has to show what a new buyer
+        # would really start from. A level-100 account that has not bought the
+        # pass is looking at pass level 1.
+        self.make_user(level=MAX_LEVEL, coins=0)
+        self.assertEqual(cp.state_payload("u1")["passLevel"], 1)
+        self.assertFalse(cp._needs_fold(self.user()))
+
+    # ── total_xp going DOWN (Prestige, an admin correction) ───────────────
+    def test_a_reset_total_xp_never_makes_the_climb_negative(self):
+        self.make_user(level=MAX_LEVEL, coins=0, owns=True, pass_level=60)
+        self.db.collection("users")._docs["u1"]["stats"]["total_xp"] = 0
+        self.assertGreaterEqual(self.season_xp(), 0)
+        self.assertGreaterEqual(self.pass_level(), 1)
+
+    def test_prestige_carries_the_climb_across_the_reset(self):
+        # season_carry_updates is what multiplayer_server injects into
+        # prestige_server, and it has to run INSIDE the reset transaction: after
+        # total_xp is zero the delta is gone for good.
+        self.make_user(level=MAX_LEVEL, coins=0, owns=True, pass_level=60)
+        doc = self.user()
+        earned = cp.SEASON_XP_PER_LEVEL * 3
+        doc["stats"]["total_xp"] += earned                 # some play since the mark
+        want = cp.season_xp_to_reach(60) + earned
+
+        updates = cp.season_carry_updates(doc, 0)
+        stored = self.db.collection("users")._docs["u1"]
+        stored["stats"]["total_xp"] = 0
+        stored[cp.SEASON_FIELD] = updates[cp.SEASON_FIELD]
+
+        self.assertEqual(self.season_xp(), want)
+        self.assertEqual(self.pass_level(), 63)
+        self.assertFalse(cp._needs_fold(self.user()))
+
+    def test_the_carry_is_idempotent_and_skips_accounts_with_no_pass(self):
+        self.make_user(level=10, coins=0, owns=False)
+        self.assertEqual(cp.season_carry_updates(self.user(), 0), {})
+        self.make_user(level=10, coins=0, owns=True, pass_level=10)
+        once = cp.season_carry_updates(self.user(), 0)
+        self.db.collection("users")._docs["u1"][cp.SEASON_FIELD] = once[cp.SEASON_FIELD]
+        self.db.collection("users")._docs["u1"]["stats"]["total_xp"] = 0
+        self.assertEqual(cp.season_carry_updates(self.user(), 0), once)
+
+    def test_an_unfolded_reset_freezes_the_climb_rather_than_losing_it(self):
+        # The backstop, for a reset that reached the read path without a carry.
+        # Progress is frozen at the last fold, which is the safe direction: a
+        # frozen climb is a support ticket, a negative one is a refund.
+        self.make_user(level=MAX_LEVEL, coins=0, owns=True, pass_level=60)
+        self.db.collection("users")._docs["u1"]["stats"]["total_xp"] = 0
+        state = cp.state_payload("u1")
+        self.assertEqual(state["passLevel"], 60)
+        # …and the repair re-marks it, so play from zero starts counting again.
+        self.assertFalse(cp._needs_fold(self.user()))
+        self.db.collection("users")._docs["u1"]["stats"]["total_xp"] = cp.SEASON_XP_PER_LEVEL
+        self.assertEqual(self.pass_level(), 61)
+
+    def test_a_repair_writes_nothing_for_an_account_that_does_not_need_one(self):
+        self.make_user(level=10, coins=0, owns=True, pass_level=10)
+        before = dict(self.user()[cp.SEASON_FIELD][cp.SEASON_ID])
+        cp.state_payload("u1")
+        self.assertEqual(self.user()[cp.SEASON_FIELD][cp.SEASON_ID], before)
+
+    def test_the_state_payload_carries_both_levels_and_the_curve(self):
+        self.make_user(level=47, coins=0, owns=True, pass_level=12)
+        state = cp.state_payload("u1")
+        self.assertEqual(state["level"], 47)               # the account, a chip
+        self.assertEqual(state["passLevel"], 12)           # the pass, the gate
+        self.assertEqual(state["seasonXp"], cp.season_xp_to_reach(12))
+        self.assertEqual(state["passXpIntoLevel"], 0)
+        self.assertEqual(state["passXpForLevel"], cp.SEASON_XP_PER_LEVEL)
+        self.assertEqual(state["seasonXpPerLevel"], cp.SEASON_XP_PER_LEVEL)
+        self.assertEqual(state["passMaxLevel"], cp.PASS_MAX_LEVEL)
+        self.assertEqual(state["seasonXpToMax"], cp.SEASON_XP_TO_MAX)
+        self.assertEqual(state["seasonXpToEarn"], cp.SEASON_XP_TO_EARN)
+        self.assertEqual(state["seasonXpPerDay"], cp.SEASON_XP_PER_DAY)
+
+
 class SeasonClockTests(PassTestBase):
     """The 30-day season window, and the one thing it must not be able to do."""
 
@@ -910,6 +1194,63 @@ class StateTests(PassTestBase):
         self.assertEqual(state["caps"]["boosts"], cp.MAX_BOOSTS)
         self.assertEqual(state["caps"]["rerolls"], cp.MAX_REROLLS)
 
+    def test_a_read_that_succeeds_says_so(self):
+        self.make_user(level=12)
+        self.assertTrue(cp.state_payload("u1")["accountRead"])
+
+    def test_a_refusing_database_does_not_claim_the_player_is_level_1(self):
+        # The same 2026-09-04 quota outage the Level Pass carries a test for.
+        # Here it is the ACCOUNT chip that would lie; the pass level stays 1
+        # either way, because season XP is a delta only the server holds.
+        self.make_user(level=39, owns=True, pass_level=30)
+
+        class Boom:
+            def collection(self, *_a, **_k):
+                raise RuntimeError("429 Quota exceeded")
+
+        cp._get_firestore = lambda: Boom()                # type: ignore[assignment]
+        state = cp.state_payload("u1")
+        self.assertTrue(state["ok"])
+        self.assertTrue(state["signedIn"])
+        self.assertFalse(state["accountRead"])
+
+    def test_signed_out_is_not_a_failed_read(self):
+        self.assertFalse(cp.state_payload(None)["accountRead"])
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  THE OLDER XP SHAPE
+#  An account that stores `level` + `xp_current` and no total_xp. The client
+#  has always read those (preview-app.js getStoredTotalXp); both passes now
+#  read them through ONE shared function, so the game and the track cannot
+#  disagree about what level somebody is.
+# ══════════════════════════════════════════════════════════════════════════
+class StoredTotalXpTests(PassTestBase):
+    def test_the_account_chip_is_not_level_1(self):
+        self.db.collection("users")._docs["u1"] = {
+            "stats": {"level": 39, "xp_current": 1550},
+        }
+        self.assertEqual(cp.state_payload("u1")["level"], 39)
+
+    def test_both_passes_read_it_through_the_same_function(self):
+        # Not "they happen to agree": the same object. A second copy of this
+        # fallback is a second place for the two tracks to drift.
+        import level_pass_server as lp
+        self.assertIs(cp._lp.stored_total_xp, lp.stored_total_xp)
+
+    def test_the_season_mark_is_stamped_from_the_same_reading(self):
+        # Season XP is total_xp minus a mark. If buy() stamped the mark from a
+        # raw 0 while the state read answered 57,400, the new owner's first
+        # sight of their pass would be 57,400 season XP: the whole track, free.
+        self.db.collection("users")._docs["u1"] = {
+            "stats": {"level": 39, "xp_current": 1550, "critter_coins": 9999},
+        }
+        res = cp.buy(self.db, "u1")
+        self.assertTrue(res.get("ok"), res)
+        state = cp.state_payload("u1")
+        self.assertEqual(state["seasonXp"], 0)
+        self.assertEqual(state["passLevel"], 1)
+
 
 # ══════════════════════════════════════════════════════════════════════════
 #  HTTP
@@ -1001,6 +1342,7 @@ class DriftTests(unittest.TestCase):
         self.js = _read(CRITTER_JS)
         self.css = _read(CRITTER_CSS)
         self.server = _read(SERVER_PY)
+        self.server_mod = _read(os.path.join(ROOT, "critter_pass_server.py"))
 
     def test_the_finale_avatar_is_a_real_avatar(self):
         slug = cp.FINALE_AVATAR.rsplit("/", 1)[-1][: -len(".png")]
@@ -1091,6 +1433,61 @@ class DriftTests(unittest.TestCase):
         self.assertIn("import critter_pass_server", self.server)
         self.assertIn("critter_pass_server.init(", self.server)
         self.assertIn("critter_pass_server.handle_post(self, parsed, body)", self.server)
+
+    def test_prestige_is_wired_to_carry_the_season_across_a_reset(self):
+        # Prestige zeroes stats.total_xp and the pass measures its season as a
+        # delta against it, so without this injection a Prestige silently
+        # freezes a climb somebody paid 4,000 coins for. It is a wiring check
+        # because the bug it prevents cannot be seen from either module alone.
+        self.assertIn("pass_carry_updates=critter_pass_server.season_carry_updates",
+                      self.server)
+        self.assertIn("pass_carry_updates=None", _read(os.path.join(ROOT, "prestige_server.py")))
+
+    def test_the_client_reads_the_pass_curve_off_the_server(self):
+        # Every "N XP to go" on the rail is the PASS curve. A number typed into
+        # the client is a card that keeps quoting the old curve after a retune,
+        # and the account curve would have it quoting thousands for a level
+        # that costs SEASON_XP_PER_LEVEL.
+        js = _read(CRITTER_JS)
+        self.assertIn("_state.seasonXpPerLevel", js)
+        self.assertIn("_state.seasonXp", js)
+        self.assertIn("_state.passLevel", js)
+        self.assertNotIn(str(cp.SEASON_XP_PER_LEVEL) + " * ", js)
+        # The rail must not gate a tier on the ACCOUNT level any more. Exactly
+        # ONE read of it survives, and it is the chip that stops "Pass Level 1"
+        # on a level-47 account reading as a bug.
+        # TWO reads survive, and neither gates anything: the chip that stops
+        # "Pass Level 1" on a level-47 account reading as a bug, and the guest
+        # branch that fills that same chip in from browser-banked XP.
+        self.assertEqual(len(re.findall(r"_state\.level\b", js)), 2,
+                         "the account level gates something again")
+        self.assertIn("const acctLvl = num(_state && _state.level, 1);", js)
+        self.assertIn("_state.level = lvl;", js)
+        # …and the four places that decide what is claimable all read the pass.
+        for fn in ("function tierState", "function nextTier",
+                   "function unclaimedReady", "function scrollToCurrent"):
+            body = js.split(fn, 1)[1].split("\n  }", 1)[0]
+            self.assertIn("passLevel()", body, f"{fn} does not gate on the pass level")
+
+    def test_the_account_chip_falls_back_to_what_the_app_knows(self):
+        # The server flags a failed read (accountRead:false) and the page has
+        # to act on it, or the chip goes on saying Level 1 to a Level 39
+        # account for as long as Firestore is refusing.
+        self.assertIn("_state.accountRead !== false", self.js)
+        self.assertIn("applyLiveAccountLevel();", self.js)
+        # …and it must touch the ACCOUNT fields only. A lifetime XP figure says
+        # nothing about what a pass has earned since it was unlocked, so a
+        # fallback that wrote passLevel would hand out the track.
+        body = self.js.split("function applyAccountLevelFromXp", 1)[1].split("\n  }", 1)[0]
+        for field in ("passLevel", "seasonXp", "passXpIntoLevel", "passXpForLevel"):
+            self.assertNotIn(field, body,
+                             f"the account-level fallback writes {field}")
+
+    def test_both_passes_read_stored_xp_through_one_function(self):
+        # Not a copied fallback: the same callable, called with THIS module's
+        # own curve rather than whichever one the other module was inited with.
+        self.assertIn("_lp.stored_total_xp(_stats_of(doc), _level_totals)", self.server_mod)
+        self.assertNotIn('_int(_stats_of(doc).get("total_xp"))', self.server_mod)
 
     def test_the_module_ships_in_the_docker_image(self):
         # Module-scope import: a missing COPY or a missing allowlist entry is a
