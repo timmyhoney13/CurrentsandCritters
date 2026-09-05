@@ -2030,6 +2030,11 @@ updateBetaBarClear();
   // reader's own words and is never overwritten.
   var lastTemplate = "";
 
+  var elHint = form.querySelector(".pf-hint");
+  var HINT_BLANKS = elHint ? elHint.textContent : "";
+  var HINT_INSERTS = "The template fills itself in from the partnership type above. " +
+    "Replace every [INSERT ...] with your own words, or clear it all and write your own message.";
+
   function applyTemplate(force) {
     var next = TEMPLATES[elKind.value] || TEMPLATES.other;
     var current = elMsg.value || "";
@@ -2037,6 +2042,11 @@ updateBetaBarClear();
       elMsg.value = next;
       lastTemplate = next;
       syncMailto();
+    }
+    // The hint has to name the blanks the box actually holds, or it sends the
+    // reader hunting for ____ in a template that has none.
+    if (elHint) {
+      elHint.textContent = /\[INSERT/.test(elMsg.value) ? HINT_INSERTS : HINT_BLANKS;
     }
   }
 
@@ -2222,6 +2232,9 @@ updateBetaBarClear();
       elMsg.focus();
       if (at >= 0 && elMsg.setSelectionRange) {
         elMsg.setSelectionRange(at, elMsg.value.indexOf("]", at) + 1);
+        // focus() alone parks a long template at its LAST line, which hides the
+        // very placeholder we just selected. The first one is at the top.
+        elMsg.scrollTop = 0;
       }
     }, 350);
   }

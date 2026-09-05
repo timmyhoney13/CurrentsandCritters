@@ -170,6 +170,47 @@ const SCENARIOS = {
     ok(missing.length === 0, "every partnership type has a template: " + missing.join(","));
   `,
 
+  /* The way in from the tier cards: the two tiers whose checkout is not
+     switched on yet, and every amount above the top tier. None of them has a
+     Buy button, so this form IS their product page. If the link stops filling
+     the box in, the reader lands on an empty form with no idea what to write,
+     which is exactly the moment the biggest contributions are lost. */
+  enquiry: `
+    var msg  = document.getElementById("pf-message");
+    var kind = document.getElementById("pf-kind");
+    var hint = document.querySelector(".pf-hint");
+
+    var custom = document.querySelector('[data-tier-enquiry="custom"]');
+    ok(!!custom, "the over-$100 card has a way into the form");
+    custom.click();
+    await sleep(500);
+    ok(kind.value === "major", "it picks the over-$100 partnership type: " + kind.value);
+    ok(msg.value.indexOf("[INSERT YOUR NAME HERE]") > 0, "the template says where the name goes");
+    ok(msg.value.indexOf("[INSERT AMOUNT HERE") > 0, "...and where the amount goes");
+    ok(hint && hint.textContent.indexOf("[INSERT") > 0,
+       "the hint names the blanks THIS template has, not the ____ it doesn't");
+
+    var riptide = document.querySelector('[data-tier-enquiry="Riptide ($75)"]');
+    ok(!!riptide, "a locked tier card offers the same door");
+    riptide.click();
+    await sleep(500);
+    ok(msg.value.indexOf("the Riptide ($75) tier") > 0,
+       "...and the message already names the tier being asked for");
+
+    var form = document.getElementById("pf-form");
+    var status = document.getElementById("pf-status");
+    var posted = 0;
+    window.fetch = function () {
+      posted++;
+      return Promise.resolve({ json: function () { return Promise.resolve({ ok: true }); } });
+    };
+    document.getElementById("pf-name").value  = "Alex Rivera";
+    document.getElementById("pf-email").value = "alex@blueharbor.org";
+    form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    ok(posted === 0 && /INSERT/i.test(status.textContent),
+       "a message still holding [INSERT ...] is refused, not mailed: " + status.textContent);
+  `,
+
   refusals: `
     var form = document.getElementById("pf-form");
     var status = document.getElementById("pf-status");
@@ -425,7 +466,7 @@ async function run(scenario, width, height) {
   for (const [w, h] of [[375, 812], [393, 852], [768, 1024], [1280, 800], [1600, 900]]) {
     lines.push(...await run("layout", w, h));
   }
-  for (const name of ["template", "refusals", "posts", "fallback"]) {
+  for (const name of ["template", "enquiry", "refusals", "posts", "fallback"]) {
     lines.push(...await run(name, 393, 852));
   }
 
