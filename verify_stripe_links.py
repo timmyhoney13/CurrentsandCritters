@@ -1,4 +1,4 @@
-"""Check the 7 LIVE Payment Links against what the code expects, for real.
+"""Check the LIVE Payment Links against what the code expects, for real.
 
 test_stripe_payments.py proves the BUTTONS point at the right URLs. It cannot
 prove what those URLs actually DO, because that lives in your Stripe account.
@@ -52,6 +52,15 @@ EXPECTED = [
     ("https://buy.stripe.com/00wfZi6EnfwgcsFcIOds406", 5000, "Tide Turner"),
 ]
 
+# Tiers the code sells that have NO Payment Link yet. Their cards render a
+# locked button rather than a Buy, so nothing is broken today, but the moment
+# you create a link its price has to be EXACTLY this or the button charges one
+# amount and the webhook grants another tier. Create the link (with the three
+# custom questions), then move the row up into EXPECTED and into
+# TestLivePaymentLinks.LINKS in test_stripe_payments.py.
+PENDING = [(cents, tier) for cents, tier in sorted(ms.SUPPORTER_TIERS_BY_CENTS.items())
+           if tier not in {"wave-warrior", "ocean-ally", "tide-turner"}]
+
 OK, BAD, WARN = "  ✓", "  ✗", "  !"
 
 
@@ -103,7 +112,7 @@ def main() -> int:
         return 2
 
     mode = "LIVE" if key.startswith("sk_live_") else "TEST"
-    print(f"Checking 7 Payment Links against a {mode}-mode key.\n")
+    print(f"Checking {len(EXPECTED)} Payment Links against a {mode}-mode key.\n")
     if mode == "TEST":
         print("! A test key cannot see live links, every one will read as MISSING.\n")
 
@@ -180,11 +189,19 @@ def main() -> int:
     if not whsec:
         print(f"{WARN} STRIPE_WEBHOOK_SECRET is not set in THIS shell: check it "
               f"on Render, and that it's the LIVE endpoint's signing secret.")
+    if PENDING:
+        print("Tiers still waiting on a Payment Link (their buttons are locked):")
+        for cents, tier in PENDING:
+            print(f"{WARN} {tier}: needs a link priced EXACTLY ${cents / 100:,.2f}, "
+                  f"with the three custom questions")
+        print()
+
     print("=" * 66)
     if failures:
         print(f"{failures} problem(s) found: fix these in the Stripe Dashboard.")
         return 1
-    print("All 7 links check out: right price, right product, wall questions present.")
+    print(f"All {len(EXPECTED)} links check out: right price, right product, "
+          f"wall questions present.")
     return 0
 
 
