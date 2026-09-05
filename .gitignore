@@ -260,6 +260,12 @@
 # behind, plus Season Pass vouchers as a tradable balance.
 !test_trade_ui.js
 
+# Looking at another player's Critter Gallery must never rename you. The 90s
+# presence heartbeat stamped MY uid onto THEIR swapped-in profile, which
+# defeated every "is this mine?" check downstream and left my Player Home
+# header wearing their name and their critter after the gallery closed.
+!test_gallery_identity_leak.js
+
 # Equipping an icon must SAVE THAT ICON. Ownership is string equality against
 # unlocked_icons, and sanitizeSelectableAvatar answers "you do not own this"
 # with Mullet, so one entry stored as "/avatars/x.png?v=1" (the server has
