@@ -3397,6 +3397,34 @@
     .wr-chat-msg { font-size: 13px; font-weight: 600; color: #e6f1fb; line-height: 1.35; overflow-wrap: anywhere; }
     .wr-chat-foot { display: flex; flex-direction: column; gap: 8px; padding-top: 9px; }
     .wr-emote-row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* ── The Current Controller row (lobby chat foot) ────────────────
+       Sits where the emotes sit and replaces them while the table is
+       deciding. Deliberately loud: a game somebody can read every hand in
+       must not look like an ordinary game. */
+    .wr-cc-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      font-size: .78rem; font-weight: 700; color: #d8ecfb;
+    }
+    .wr-cc-ask, .wr-cc-yes, .wr-cc-no {
+      border: none; border-radius: 999px; padding: 7px 14px;
+      font-size: .76rem; font-weight: 900; cursor: pointer;
+      transition: filter .12s, transform .1s;
+    }
+    .wr-cc-ask:hover, .wr-cc-yes:hover, .wr-cc-no:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .wr-cc-ask { background: linear-gradient(120deg,#2bb8d8,#1f8fcf); color: #fff; }
+    .wr-cc-yes { background: linear-gradient(120deg,#2ecf9b,#17a97c); color: #fff; }
+    .wr-cc-no  { background: rgba(255,255,255,.14); color: #ffd9d9; border: 1px solid rgba(255,140,140,.5); }
+    .wr-cc-ask[disabled] { opacity: .55; cursor: default; filter: none; transform: none; }
+    .wr-cc-text { flex: 1; min-width: 140px; line-height: 1.4; }
+    .wr-cc-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 999px;
+      font-size: .72rem; font-weight: 900; letter-spacing: .3px;
+    }
+    .wr-cc-chip.on   { background: linear-gradient(120deg,#f0a93c,#e8862a); color: #3a1f00; }
+    .wr-cc-chip.off  { background: rgba(255,255,255,.12); color: #cfe4f5; }
+    .wr-cc-note { font-size: .68rem; font-weight: 700; color: #9fc0da; width: 100%; line-height: 1.45; }
     .wr-emote {
       width: 30px; height: 30px; border-radius: 9px; padding: 0; cursor: pointer; font-size: 15px; line-height: 1;
       background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28);
@@ -9913,6 +9941,43 @@
       transition: filter .12s, transform .1s;
     }
     .phst-custom-btn:hover { filter: brightness(1.04); transform: translateY(-1px); }
+
+    /* Choose-your-friend-code dialog */
+    #cc-code-modal {
+      position: fixed; inset: 0; z-index: 4000;
+      display: none; align-items: center; justify-content: center;
+      background: rgba(4,26,44,.62); padding: 18px;
+    }
+    #cc-code-modal.open { display: flex; }
+    .cccode-card {
+      width: min(420px, 100%);
+      background: linear-gradient(160deg, #f6fbff 0%, #e8f4ff 100%);
+      border: 1px solid rgba(120,190,225,.6); border-radius: 18px;
+      padding: 22px 24px; text-align: center;
+      box-shadow: 0 18px 60px rgba(4,30,60,.45);
+    }
+    .cccode-ico { font-size: 2rem; }
+    .cccode-title { font-family: "Cinzel", serif; font-size: 1.15rem; font-weight: 900; color: #11588f; margin-top: 4px; }
+    .cccode-body { font-size: .82rem; color: #4f7ba6; font-weight: 600; line-height: 1.5; margin: 8px 0 14px; }
+    .cccode-input {
+      width: 100%; text-align: center;
+      font-size: 1.15rem; font-weight: 900; letter-spacing: 1px; color: #11588f;
+      background: #fff; border: 1px solid rgba(120,190,225,.7);
+      border-radius: 12px; padding: 11px 12px;
+    }
+    .cccode-err { min-height: 18px; font-size: .74rem; font-weight: 800; color: #c9483c; margin-top: 7px; }
+    .cccode-actions { display: flex; gap: 10px; justify-content: center; margin-top: 8px; }
+    .cccode-btn {
+      font-size: .85rem; font-weight: 900; border-radius: 10px;
+      padding: 10px 18px; cursor: pointer; border: 1px solid rgba(120,190,225,.7);
+      background: #fff; color: #1f6a9e;
+    }
+    .cccode-btn.cccode-primary {
+      background: linear-gradient(120deg,#2bb8d8 0%,#1f8fcf 100%);
+      border-color: transparent; color: #fff;
+      box-shadow: 0 3px 12px rgba(31,143,207,.32);
+    }
+    .cccode-btn:hover { filter: brightness(1.05); }
 
     /* The ready-written email template dialog */
     #cc-custom-tier {

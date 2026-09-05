@@ -3,12 +3,31 @@
   const ADMIN_EMAIL = "currentsandcritters@gmail.com";
 
   // ── Access control ───────────────────────────────────────────────
+  // TWO ways to hold the Controller, and they are not the same thing.
+  //
+  //   isAdmin()      the developer account. Works anywhere, any room, and is
+  //                  gated on the server by ADMIN_MOD_KEY.
+  //   tableArmed()   a table voted yes in the lobby (see the Current
+  //                  Controller row there). No key, casual rooms only, only
+  //                  for the seat that asked, and only for that one game.
+  //
+  // Both are re-checked on EVERY action rather than cached: a vote belongs to
+  // one game, so the panel has to close itself when that game ends.
   function isAdmin() {
     try {
       const u = window.__fishAuthUser && window.__fishAuthUser();
       return !!(u && u.email && String(u.email).toLowerCase() === ADMIN_EMAIL);
     } catch (_) { return false; }
   }
+  // The server's own answer, mirrored into every state payload. `is_mine` is
+  // what stops one armed table handing the panel to everybody at it.
+  function tableArmed() {
+    try {
+      const cc = (payload() || {}).controller;
+      return !!(cc && cc.armed && cc.is_mine);
+    } catch (_) { return false; }
+  }
+  function mayControl() { return isAdmin() || tableArmed(); }
 
   // ── Tool registry ────────────────────────────────────────────────
   // phase "live"  = fully working client-side now.
@@ -25,6 +44,10 @@
   ];
   const TOOL_BY_ID = {};
   TOOLS.forEach(t => { TOOL_BY_ID[t.id] = t; });
+  // The How to Play tab lists these rather than keeping its own copy, so a tool
+  // added here cannot end up undocumented there. Read only: the panel is still
+  // built from TOOLS itself.
+  window.CC_CONTROLLER_TOOLS = TOOLS.map(t => ({ id: t.id, icon: t.icon, name: t.name, desc: t.desc }));
 
   // ── Toggle persistence ───────────────────────────────────────────
   const LS_KEY = "cc_toggles_v1";
@@ -220,7 +243,7 @@
   }
 
   function toggleTool(id) {
-    if (!isAdmin()) { close(); return; }      // hard re-check on every action
+    if (!mayControl()) { close(); return; }   // hard re-check on every action
     toggles[id] = !toggles[id];
     saveToggles();
     const tool = overlay && overlay.querySelector(`#cc-tool-${id}`);
@@ -234,10 +257,11 @@
   function onToolStateChange(_id) {}
 
   function open() {
-    if (!isAdmin()) return;
-    // Ask for the admin key once; it's cached for the rest of the session, so
-    // every server-backed tool unlocks silently after this single prompt.
-    if (!ccAdminKey()) {
+    if (!mayControl()) return;
+    // The admin key is the DEVELOPER's way in. A table that voted yes needs no
+    // key at all (the server authorizes that seat from the vote it watched),
+    // so a Supporter must never be asked for a secret they do not have.
+    if (!tableArmed() && !ccAdminKey()) {
       const v = prompt("Enter the Current Controller admin key:", "");
       if (v === null) return;            // cancelled, leave the panel closed
       ccSetAdminKey(v.trim());
@@ -267,8 +291,9 @@
     const room = window.__ccRoomId && window.__ccRoomId();
     const token = window.__ccSeatToken && window.__ccSeatToken();
     const key = ccAdminKey();
+    const armed = tableArmed();
     if (!room) return { ok: false, error: "no active game, join a game first" };
-    if (!key) return { ok: false, error: "no admin key set" };
+    if (!key && !armed) return { ok: false, error: "no admin key set" };
     const url = window.__ccApiUrl ? window.__ccApiUrl("/api/rooms/" + room + "/admin_mod") : ("/api/rooms/" + room + "/admin_mod");
     try {
       const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
@@ -731,7 +756,7 @@
     const drop = document.getElementById("pv-menu-drop");
     if (!drop) return;
     let item = document.getElementById("cc-menu-item");
-    const admin = isAdmin();
+    const admin = mayControl();
     if (admin && !item) {
       const div = document.createElement("div");
       div.className = "pv-menu-divider";

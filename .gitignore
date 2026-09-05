@@ -688,3 +688,17 @@ multiplayer/client/_tutig_page_m.html
 # button instead of one pointed at another product's price. Test-only, so this
 # needs this entry and no Dockerfile COPY.
 !test_supporter_tiers_ui.js
+
+# The Current Controller (the mod menu) and what holding it costs a table. The
+# permission half is a unanimous lobby vote the SERVER counts; the price half is
+# an allowlist of the only stat keys a modded game may still write. Both are
+# invisible by reading the feature alone, and both pay out silently when wrong.
+# Test-only, so these need these entries and no Dockerfile COPY.
+!test_current_controller.py
+!test_current_controller.js
+
+# Custom friend codes: chosen, RESERVED, and paid for exactly once. The one
+# Store purchase the browser cannot do for itself (a client cannot reserve a
+# name against everybody else's account), so the whole thing is one server
+# transaction and this is what pins it. Test-only, no Dockerfile COPY.
+!test_custom_friend_code.py
