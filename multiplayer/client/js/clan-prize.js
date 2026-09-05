@@ -158,7 +158,7 @@
       : "this season";
 
     const countPill = s.ends_ts
-      ? `<span class="${final ? "ccCP-final" : "ccCP-count"}">${
+      ? `<span class="${final ? "ccPrize-final" : "ccPrize-count"}">${
           final ? "🔥 Final stretch: " : "⏳ "}${esc(countdownText(s.ends_ts))}</span>`
       : "";
 
@@ -173,38 +173,38 @@
     const heard = Array.isArray(rows);
     const gap = lead ? gapText(rows) : "";
     const leadPill = lead
-      ? `<span class="ccCP-lead">${lead.icon
+      ? `<span class="ccPrize-lead">${lead.icon
             ? `<img src="${esc(avSrc(lead.icon))}" alt="" loading="lazy" decoding="async">` : "🥇"}
            <span class="nm">${esc(lead.name)}</span> ${esc(Number(lead.points).toLocaleString())} pts${
            gap ? ` · ${esc(gap)}` : ""}</span>`
       : heard
-        ? `<span class="ccCP-count">🥇 Nobody has scored yet: first points take the lead</span>`
+        ? `<span class="ccPrize-count">🥇 Nobody has scored yet: first points take the lead</span>`
         : "";
 
     let cta = "";
     if (o.cta === "play") {
-      cta = `<div class="ccCP-cta"><a class="ccCP-btn" href="${esc(PLAY_URL)}">Join a clan</a></div>`;
+      cta = `<div class="ccPrize-cta"><a class="ccPrize-btn" href="${esc(PLAY_URL)}">Join a clan</a></div>`;
     } else if (o.cta === "clans") {
-      cta = `<div class="ccCP-cta"><button type="button" class="ccCP-btn" data-cc-clan-prize-go="1">Open Clans</button></div>`;
+      cta = `<div class="ccPrize-cta"><button type="button" class="ccPrize-btn" data-cc-clan-prize-go="1">Open Clans</button></div>`;
     }
 
     return `
-      <div class="ccCP-inner">
-        <div class="ccCP-ico" aria-hidden="true">🏆</div>
-        <div class="ccCP-body">
-          <div class="ccCP-title"><span class="amt">${esc(money(p.usd))}</span> to the #1 clan</div>
-          <div class="ccCP-what">
+      <div class="ccPrize-inner">
+        <div class="ccPrize-ico" aria-hidden="true">🏆</div>
+        <div class="ccPrize-body">
+          <div class="ccPrize-title"><span class="amt">${esc(money(p.usd))}</span> to the #1 clan</div>
+          <div class="ccPrize-what">
             <b>${esc(money(p.usd))} towards ${esc(p.what)}</b>, for the clan that
             finishes 1st in ${seasonBit}.
           </div>
-          <div class="ccCP-status">${showStandings ? leadPill + countPill : ""}</div>
-          <div class="ccCP-note">${esc(p.claim)}</div>
+          <div class="ccPrize-status">${showStandings ? leadPill + countPill : ""}</div>
+          <div class="ccPrize-note">${esc(p.claim)}</div>
         </div>
         ${cta}
       </div>`;
   }
 
-  // A ready-made .ccCP element with its own self-cancelling minute timer, for
+  // A ready-made .ccPrize element with its own self-cancelling minute timer, for
   // callers that already hold a season payload (clans-ui.js). Self-cancelling
   // the same way the Clans season block does it: the tab detaches the node
   // without telling anyone, so the timer has to notice on its own. It may only
@@ -213,7 +213,7 @@
   // detached.
   function prizeNode(season, rows, opts) {
     const n = document.createElement("div");
-    n.className = "ccCP";
+    n.className = "ccPrize";
     let attached = false;
     const tick = () => {
       if (document.body.contains(n)) attached = true;
@@ -273,7 +273,7 @@
     if (!overview) return null;
     el = document.createElement("div");
     el.id = "cc-clan-prize";
-    el.className = "ccCP";
+    el.className = "ccPrize";
     const gn = document.getElementById("cc-game-night");
     if (gn && gn.parentNode === overview) overview.insertBefore(el, gn.nextSibling);
     else overview.insertBefore(el, overview.firstChild);
@@ -283,7 +283,7 @@
   function tick() {
     const el = host();
     if (!el) return;
-    el.classList.add("ccCP");
+    el.classList.add("ccPrize");
     // In the game the CTA opens the Clans tab; on the marketing site it sends
     // the reader to the game, which is the only action available there.
     const inGame = !!document.getElementById("ph-panel-overview");

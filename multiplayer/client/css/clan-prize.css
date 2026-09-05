@@ -5,8 +5,20 @@
  * marketing site gets it through Vercel's /css/:file rewrite and the game loads
  * it directly, so one file styles the banner everywhere it appears.
  *
- * Everything is scoped under .ccCP and every colour carries its own fallback,
+ * Everything is scoped under .ccPrize and every colour carries its own fallback,
  * the marketing site defines the brand tokens and Player Home does not.
+ *
+ * THE PREFIX IS .ccPrize AND MUST NEVER GO BACK TO .ccCP
+ * It was .ccCP, and so is the Critter Pass page, which the game loads on the
+ * same document. The collision was not a shape one: this file's `.ccCP` block
+ * set --cp-ink to cream, and because the pass's own dark --cp-ink is declared
+ * one level up on #cc-critter-pass-root, a custom property set on the closer
+ * element wins by inheritance no matter how specific the outer selector is.
+ * Every word on the Critter Pass that reads var(--cp-ink) came out cream on a
+ * cream card: 1.05:1, invisible. This file also loads last, so its .ccCP-title
+ * quietly took the pass's title font and size too. Hence both halves of the
+ * fix: a prefix nothing else uses, and tokens named --pz-* rather than the
+ * --cp-* the pass had first.
  *
  * WHY IT IS GOLD AND NOT TEAL
  * On the marketing page this band sits a few hundred pixels from the Game Night
@@ -22,25 +34,25 @@
 /* Self-contained box model, for the same reason game-night.css declares one:
    this renders on two hosts with two different CSS resets, and a `width:100%`
    button plus padding overflows its card on whichever host is not border-box. */
-.ccCP, .ccCP *, .ccCP *::before, .ccCP *::after { box-sizing: border-box; }
+.ccPrize, .ccPrize *, .ccPrize *::before, .ccPrize *::after { box-sizing: border-box; }
 
-.ccCP {
-  --cp-ink:    #fff6e2;
-  --cp-gold:   #ffc861;
-  --cp-gold-d: #e09a24;
-  --cp-deep:   #2a1a04;
-  --cp-mint:   var(--brand-mint, #2ac88f);
+.ccPrize {
+  --pz-ink:    #fff6e2;
+  --pz-gold:   #ffc861;
+  --pz-gold-d: #e09a24;
+  --pz-deep:   #2a1a04;
+  --pz-mint:   var(--brand-mint, #2ac88f);
   margin: 0 0 18px;
   font-family: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-.ccCP-inner {
+.ccPrize-inner {
   display: flex;
   align-items: center;
   gap: 18px;
   padding: 18px 22px;
   border-radius: 22px;
-  color: var(--cp-ink);
+  color: var(--pz-ink);
   background:
     radial-gradient(120% 160% at 0% 0%, rgba(255, 233, 176, .22) 0%, rgba(255, 233, 176, 0) 55%),
     linear-gradient(120deg, #3b2408 0%, #7a5312 44%, #b8862a 100%);
@@ -51,26 +63,26 @@
 }
 /* The same slow sheen as the Game Night band, so the two read as a matched
    pair of announcements. Decorative, behind the text, off with reduced motion. */
-.ccCP-inner::after {
+.ccPrize-inner::after {
   content: "";
   position: absolute;
   inset: -40% -60%;
   background: linear-gradient(75deg, transparent 42%, rgba(255, 240, 200, .13) 50%, transparent 58%);
-  animation: ccCP-sheen 9s linear infinite;
+  animation: ccPrize-sheen 9s linear infinite;
   pointer-events: none;
 }
-@keyframes ccCP-sheen { from { transform: translateX(-30%); } to { transform: translateX(30%); } }
+@keyframes ccPrize-sheen { from { transform: translateX(-30%); } to { transform: translateX(30%); } }
 
-.ccCP-ico {
+.ccPrize-ico {
   font-size: 2.6rem;
   line-height: 1;
   flex: 0 0 auto;
   filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .35));
 }
 
-.ccCP-body { flex: 1 1 auto; min-width: 0; }
+.ccPrize-body { flex: 1 1 auto; min-width: 0; }
 
-.ccCP-title {
+.ccPrize-title {
   font-family: "Luckiest Guy", "Nunito", sans-serif;
   font-size: 1.5rem;
   letter-spacing: .5px;
@@ -80,16 +92,16 @@
 }
 /* The money. Big enough to be the thing the eye lands on first, because the
    amount IS the announcement. */
-.ccCP-title .amt { color: var(--cp-gold); }
+.ccPrize-title .amt { color: var(--pz-gold); }
 
-.ccCP-what {
+.ccPrize-what {
   margin-top: 3px;
   font-size: 1rem;
   color: rgba(255, 246, 226, .96);
 }
-.ccCP-what b { font-weight: 800; color: #fff; }
+.ccPrize-what b { font-weight: 800; color: #fff; }
 
-.ccCP-status {
+.ccPrize-status {
   margin-top: 7px;
   display: flex;
   flex-wrap: wrap;
@@ -99,10 +111,10 @@
 /* Before the server answers there is neither a leader nor a countdown, so the
    whole status row is empty and would otherwise leave a 7px gap floating
    between two paragraphs. */
-.ccCP-status:empty { display: none; }
-.ccCP-count,
-.ccCP-lead,
-.ccCP-final {
+.ccPrize-status:empty { display: none; }
+.ccPrize-count,
+.ccPrize-lead,
+.ccPrize-final {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -117,51 +129,51 @@
 /* Who is winning right now. The one pill that changes between page loads, so
    it is the one that has to survive a long clan name without pushing the
    countdown off the row. */
-.ccCP-lead {
+.ccPrize-lead {
   min-width: 0;
-  background: linear-gradient(180deg, var(--cp-gold) 0%, var(--cp-gold-d) 100%);
-  color: var(--cp-deep);
+  background: linear-gradient(180deg, var(--pz-gold) 0%, var(--pz-gold-d) 100%);
+  color: var(--pz-deep);
   border-color: rgba(255, 255, 255, .5);
 }
-.ccCP-lead .nm {
+.ccPrize-lead .nm {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
 }
-.ccCP-lead img {
+.ccPrize-lead img {
   width: 20px; height: 20px; border-radius: 50%; object-fit: cover;
   border: 1.5px solid rgba(255, 255, 255, .85);
   flex: 0 0 auto;
 }
 /* The last stretch of the season: the pill turns urgent rather than just
    counting down, because this is when a clan can still overtake. */
-.ccCP-final {
-  background: var(--cp-mint);
+.ccPrize-final {
+  background: var(--pz-mint);
   color: #06301f;
   border-color: rgba(255, 255, 255, .5);
-  animation: ccCP-pulse 2.2s ease-in-out infinite;
+  animation: ccPrize-pulse 2.2s ease-in-out infinite;
 }
-@keyframes ccCP-pulse {
+@keyframes ccPrize-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(42, 200, 143, .55); }
   50%      { box-shadow: 0 0 0 9px rgba(42, 200, 143, 0); }
 }
 
 /* The claim terms. Quiet, but never absent: a real-world prize with no stated
    way to collect it is the sentence people ask about instead of playing. */
-.ccCP-note {
+.ccPrize-note {
   margin-top: 7px;
   font-size: .86rem;
   color: rgba(255, 243, 219, .8);
   line-height: 1.35;
 }
 
-.ccCP-cta { flex: 0 0 auto; }
-.ccCP-btn {
+.ccPrize-cta { flex: 0 0 auto; }
+.ccPrize-btn {
   display: inline-block;
   padding: 12px 24px;
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--cp-gold) 0%, var(--cp-gold-d) 100%);
+  background: linear-gradient(180deg, var(--pz-gold) 0%, var(--pz-gold-d) 100%);
   color: #3d2600;
   font-weight: 900;
   font-size: 1rem;
@@ -173,55 +185,55 @@
   font-family: inherit;
   transition: transform .14s ease, box-shadow .14s ease;
 }
-.ccCP-btn:hover {
+.ccPrize-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(0, 0, 0, .36);
 }
-.ccCP-btn:active { transform: translateY(0); }
-.ccCP-btn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.ccPrize-btn:active { transform: translateY(0); }
+.ccPrize-btn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 
 /* ── Narrow screens ─────────────────────────────────────────────────────
    Stacks rather than shrinking, same as the Game Night band: at 380px a
    3-column layout turns the CTA into an untappable sliver. */
 @media (max-width: 720px) {
-  .ccCP-inner {
+  .ccPrize-inner {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
     padding: 16px 18px;
     border-radius: 18px;
   }
-  .ccCP-ico { font-size: 2.1rem; }
-  .ccCP-title { font-size: 1.3rem; }
-  .ccCP-what { font-size: .94rem; }
+  .ccPrize-ico { font-size: 2.1rem; }
+  .ccPrize-title { font-size: 1.3rem; }
+  .ccPrize-what { font-size: .94rem; }
   /* Column direction + align-items:flex-start sizes each child to fit-content,
      and `flex:1 1 auto` on the body only governs the main axis, which is now
      vertical. fit-content never goes below MIN-content, and the leader pill's
      clan name is `white-space:nowrap` (it has to be, it ellipsizes), so a long
      clan name makes the body's min-content wider than the phone and the whole
-     banner overflows. Because .ccCP-inner clips its overflow the failure is
+     banner overflows. Because .ccPrize-inner clips its overflow the failure is
      silent: no sideways scroll to notice, just every line cut off at the right
      edge. Forcing the width lets the name ellipsize instead, which is what the
      nowrap was for. Measured, not assumed: a 50-character clan name took the
      body to 476px in 424px of room. */
-  .ccCP-body { width: 100%; }
-  .ccCP-cta { width: 100%; }
-  .ccCP-btn { display: block; text-align: center; width: 100%; }
+  .ccPrize-body { width: 100%; }
+  .ccPrize-cta { width: 100%; }
+  .ccPrize-btn { display: block; text-align: center; width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ccCP-inner::after { animation: none; }
-  .ccCP-final { animation: none; }
-  .ccCP-btn { transition: none; }
+  .ccPrize-inner::after { animation: none; }
+  .ccPrize-final { animation: none; }
+  .ccPrize-btn { transition: none; }
 }
 
 /* ── Inside the Clans tab ───────────────────────────────────────────────
    The tab's cards have their own 16px gutter and the banner is inserted
    between the tab strip and the season block, so it takes the gutter rather
    than the page-level margin it uses on the two Home screens. */
-#cc-clans-root .ccCP { margin: 10px 16px 0; }
-#cc-clans-root .ccCP-inner { border-radius: 16px; padding: 15px 18px; }
-#cc-clans-root .ccCP-title { font-size: 1.28rem; }
+#cc-clans-root .ccPrize { margin: 10px 16px 0; }
+#cc-clans-root .ccPrize-inner { border-radius: 16px; padding: 15px 18px; }
+#cc-clans-root .ccPrize-title { font-size: 1.28rem; }
 
 /* ══════════════════════════════════════════════════════════════════════
    MARKETING SITE BAND
@@ -230,7 +242,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 .clan-prize-band { padding: 10px 24px; }
 .clan-prize-inner { max-width: 1180px; margin: 0 auto; }
-.clan-prize-band .ccCP { margin-bottom: 0; }
+.clan-prize-band .ccPrize { margin-bottom: 0; }
 
 @media (max-width: 720px) {
   .clan-prize-band { padding: 8px 16px; }

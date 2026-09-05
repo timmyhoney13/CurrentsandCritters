@@ -252,7 +252,7 @@ function snapshot(name) {
     bad: ["undefined", "NaN", "[object Object]", "{{", "}}"].filter(w => t.includes(w)),
     counts: {
       podium: q(".ccC-pod"), myclan: q(".ccC-myclan"), sections: q(".ccC-sec"),
-      prize: q(".ccCP-inner"), prizeText: (document.querySelector(".ccCP-body") || {}).innerText || "",
+      prize: q(".ccPrize-inner"), prizeText: (document.querySelector(".ccPrize-body") || {}).innerText || "",
       stats: q(".ccC-stat"), members: q(".ccC-member"), rows: q(".ccC-table tbody tr"),
       tabs: q(".ph-lb-mode-btn"), goalbars: q(".ccC-goalbar"),
       countdown: (document.querySelector(".ccC-count") || {}).innerText || "",

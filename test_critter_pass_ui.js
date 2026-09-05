@@ -108,6 +108,26 @@ check("the art is under a scrim, so white text on it is legible",
 check("it does not borrow the Level Pass's class names",
       !/\.ccLP-/.test(PASSCSS) && !/ccLP/.test(PASSJS));
 
+// ── .ccCP AND --cp-* BELONG TO THIS PAGE ALONE ────────────────────────────
+// css/clan-prize.css was also prefixed .ccCP, and both files load on Player
+// Home. Its `.ccCP { --cp-ink: #fff6e2 }` landed on the pass's own wrapper,
+// one level BELOW #cc-critter-pass-root, and a custom property set on the
+// closer element wins by inheritance however specific the outer selector is:
+// every word on the pass reading var(--cp-ink) came out cream on a cream
+// card at 1.05:1. Its .ccCP-title also loads later, so it took the title's
+// font and size with it. None of the contrast arithmetic below can see that,
+// because it reads this stylesheet alone; only a namespace check can.
+const OTHER_CSS = fs.readdirSync(path.join(CLIENT, "css"))
+  .filter(f => f.endsWith(".css") && f !== "critter-pass.css");
+// Comments stripped first: clan-prize.css names .ccCP in its header precisely
+// to say it must never use it again, and that sentence is not a selector.
+const rules = (f) => read("css/" + f).replace(/\/\*[\s\S]*?\*\//g, "");
+const squatters = OTHER_CSS.filter(f => /(^|[\s,>+~{])\.ccCP[\s.,:{[>+~-]/.test(rules(f)));
+check("no other stylesheet styles a .ccCP class", squatters.length === 0, squatters.join(", "));
+const tokenSquatters = OTHER_CSS.filter(f => /--cp-[a-z0-9-]+\s*:/.test(rules(f)));
+check("no other stylesheet defines a --cp-* token", tokenSquatters.length === 0,
+      tokenSquatters.join(", "));
+
 // ══════════════════════════════════════════════════════════════════════════
 //  NOTHING ON THIS PAGE IS WRITTEN IN A TAN
 //  The pass is a gold-branded surface, and gold ink is the trap: #c89320 on a

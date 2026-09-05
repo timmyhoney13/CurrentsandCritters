@@ -17,7 +17,7 @@
      source states the prize on both hosts and the amount cannot drift between
      them. The script also reads the live standings from the game server's
      public clan leaderboard, so this band names the clan currently winning. -->
-<link rel="stylesheet" href="/css/clan-prize.css?v=2026-08-31.3"/>
+<link rel="stylesheet" href="/css/clan-prize.css?v=2026-09-05.4"/>
 <!-- Luckiest Guy: the chunky display font for the Supporter Reef Wall donor names
      (see .scn-name in the inline styles below). Loaded here, page-local, so it
      doesn't weigh down the game app which shares colors_and_type.css. -->
@@ -26,7 +26,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap"/>
 <script src="image-slot.js"></script>
 <script defer src="/js/game-night.js?v=2026-09-03.4"></script>
-<script defer src="/js/clan-prize.js?v=2026-08-31.3"></script>
+<script defer src="/js/clan-prize.js?v=2026-09-05.4"></script>
 <style>
   /* ── OLD-SITE NOTICE BAR ─────────────────────────────────────────── */
   .oldsite-bar {
@@ -463,7 +463,7 @@
     z-index: 2;
     margin-top: 14px;
   }
-  .values-band .clan-prize-inner .ccCP { margin-bottom: 0; }
+  .values-band .clan-prize-inner .ccPrize { margin-bottom: 0; }
 
   /* ── SUPPORTER REEF WALL: live names overlaid on the "Backed By People
         Who Care" illustration. Names are fetched from the game server and
@@ -895,7 +895,7 @@
        They are deliberately different colours: two teal bands this close read
        as one repeated element and the second stops being read. -->
   <div class="clan-prize-inner" id="clan-prize">
-    <div id="cc-clan-prize" class="ccCP"></div>
+    <div id="cc-clan-prize" class="ccPrize"></div>
   </div>
 </section>
 

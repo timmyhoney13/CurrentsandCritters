@@ -182,13 +182,13 @@ check("...and that state still shows the prize and the countdown",
       /\d+d \d+h left/.test(M.html(SEASON, null, {})));
 // A clan name is up to 24 characters of player text inside a nowrap pill, and
 // the phone layout sizes the banner body to its min-content. See the
-// .ccCP-body width rule in clan-prize.css: without it a long name silently
+// .ccPrize-body width rule in clan-prize.css: without it a long name silently
 // pushed every line of the banner off the right edge of the screen.
 const CSS = fs.readFileSync(path.join(ROOT, "multiplayer/client/css/clan-prize.css"), "utf8");
 check("the phone layout pins the banner body's width (long clan names)",
-      /@media \(max-width: 720px\)[\s\S]*\.ccCP-body \{ width: 100%; \}/.test(CSS));
+      /@media \(max-width: 720px\)[\s\S]*\.ccPrize-body \{ width: 100%; \}/.test(CSS));
 check("...and the clan name is the thing allowed to ellipsize",
-      /\.ccCP-lead \.nm \{[\s\S]*text-overflow: ellipsis;/.test(CSS));
+      /\.ccPrize-lead \.nm \{[\s\S]*text-overflow: ellipsis;/.test(CSS));
 
 console.log("\nthe countdown:");
 // NOW is floored to the second, so "44 days out" renders as 43d 23h by the
@@ -213,7 +213,7 @@ const inGame = M.html(SEASON, ROWS, { cta: "clans" });
 check("the in-game CTA opens the Clans tab instead",
       inGame.indexOf("data-cc-clan-prize-go") !== -1 && inGame.indexOf("play.currents") === -1);
 check("on the Clans tab itself there is no CTA at all",
-      M.html(SEASON, ROWS, { cta: "none" }).indexOf("ccCP-btn") === -1);
+      M.html(SEASON, ROWS, { cta: "none" }).indexOf("ccPrize-btn") === -1);
 // On the Clans tab the podium already names the leader and the season block
 // already runs the same clock, a few hundred pixels below. Repeating either
 // puts the same clan on the screen twice, which is the duplicate-clan problem
@@ -226,7 +226,7 @@ check("...and the countdown the season block already runs",
 check("...but still states the prize and the terms, which is its whole job",
       inTab.indexOf("$100") !== -1 && inTab.indexOf("shipping address") !== -1);
 check("...and the empty status row is hidden rather than left as a gap",
-      /\.ccCP-status:empty \{ display: none; \}/.test(
+      /\.ccPrize-status:empty \{ display: none; \}/.test(
         fs.readFileSync(path.join(ROOT, "multiplayer/client/css/clan-prize.css"), "utf8")));
 check("everywhere else the standings stay ON by default",
       M.html(SEASON, ROWS, {}).indexOf("Reef Raiders") !== -1);
