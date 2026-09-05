@@ -508,7 +508,18 @@ print("@@" + json.dumps({"locked": locked, "broke": broke, "owner": owner,
 }
 
 const P = serverPayloads();
-const SRC = { css: PASSCSS, js: PASSJS };
+// EVERY stylesheet Player Home loads, in preview.html's own order. The harness
+// used to inject critter-pass.css alone, and that is exactly how the pass
+// shipped with every word on it painted cream: clan-prize.css was prefixed
+// .ccCP too, its `--cp-ink: #fff6e2` landed on the pass's own wrapper, and it
+// loads last. A one-stylesheet harness cannot see a cross-file bleed, so it
+// gets all of them and measures the result.
+const CSS_ORDER = [...HTML.matchAll(/<link[^>]+href="\/css\/([^"?]+)/g)].map(m => m[1]);
+const ALLCSS = CSS_ORDER
+  .filter(f => fs.existsSync(path.join(CLIENT, "css", f)))
+  .map(f => "/* " + f + " */\n" + read("css/" + f))
+  .join("\n");
+const SRC = { css: ALLCSS, js: PASSJS };
 const WIDTHS = [1440, 1280, 1024, 820, 390];
 
 // ── The harness page ──────────────────────────────────────────────────────
@@ -602,6 +613,73 @@ const MAIN = \`
   const txt = (el) => (el ? (el.textContent || "").replace(/\\\\s+/g, " ").trim() : "");
   const $$ = (s) => [...document.querySelectorAll(s)];
   try {
+    // ── EVERY WORD ON THE PAGE, MEASURED ─────────────────────────────
+    // Not the stylesheet's list of colour declarations: the COMPUTED colour
+    // of every text node against the background actually painted behind it,
+    // which is the only check that sees a token overwritten by another file, a
+    // colour inherited from somewhere unexpected, or a card whose background
+    // moved out from under its ink.
+    const auditInk = () => {
+      const rgb = (c) => (String(c).match(/[\\\\d.]+/g) || []).slice(0, 3).map(Number);
+      const alpha = (c) => { const m = String(c).match(/[\\\\d.]+/g) || []; return m.length > 3 ? Number(m[3]) : 1; };
+      const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      const lum = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+      const ratio = (a, b) => { const la = lum(a), lb = lum(b), hi = Math.max(la, lb), lo = Math.min(la, lb);
+                                return (hi + 0.05) / (lo + 0.05); };
+      // The background a reader actually sees. Almost every surface on this
+      // page is a GRADIENT, so reading background-color alone walks straight
+      // past the cream card and lands on the kelp underneath, which is how a
+      // first pass at this check called black-on-cream a failure. Take the
+      // nearest ancestor that paints anything opaque, gradient stops
+      // included, and score the ink against the WORST stop: a card whose
+      // ink only works at one end of its own gradient is not readable.
+      const bgAt = (el, ink) => {
+        for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+          const cs = getComputedStyle(n);
+          const cand = (cs.backgroundImage.match(/rgba?\\([^)]+\\)/g) || [])
+            .concat(cs.backgroundColor)
+            .filter(c => alpha(c) > 0.5)
+            .map(rgb);
+          if (cand.length) {
+            return cand.reduce((w, c) => ratio(ink, c) < ratio(ink, w) ? c : w);
+          }
+        }
+        return [255, 255, 255];
+      };
+      const rows = [];
+      const walk = document.createTreeWalker(
+        document.getElementById("cc-critter-pass-root"), NodeFilter.SHOW_TEXT);
+      for (let t = walk.nextNode(); t; t = walk.nextNode()) {
+        const words = (t.nodeValue || "").replace(/\\\\s+/g, " ").trim();
+        // Emoji carry their own colour; a contrast ratio on one measures
+        // nothing. Only text with real letters or digits is scored.
+        if (!words || !/[A-Za-z0-9]/.test(words)) continue;
+        const el = t.parentElement;
+        if (!el) continue;
+        const cs = getComputedStyle(el);
+        if (cs.visibility === "hidden" || cs.display === "none") continue;
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) continue;
+        const ink = rgb(cs.color);
+        const bg = bgAt(el, ink);
+        const px = parseFloat(cs.fontSize) || 16;
+        const bold = (parseInt(cs.fontWeight, 10) || 400) >= 700;
+        // WCAG large text: 24px, or 18.66px bold.
+        const large = px >= 24 || (bold && px >= 18.66);
+        rows.push({
+          cls: ((el.className || "") + "").split(" ")[0] || el.tagName,
+          words: words.slice(0, 60),
+          color: cs.color,
+          bg: "rgb(" + bg.join(", ") + ")",
+          px: Math.round(px * 10) / 10,
+          large,
+          shadow: cs.textShadow !== "none",
+          r: Math.round(ratio(ink, bg) * 100) / 100,
+        });
+      }
+      return rows;
+    };
+
     // ── Before ANY state has loaded, the seam must answer zero ───────
     out.slots.beforeLoad = window.__ccPassExtraSlots();
 
@@ -725,6 +803,10 @@ const MAIN = \`
                   .map(t => Math.round(t.getBoundingClientRect().height)))],
       minTierW: Math.min(...$$(".ccCP-tier").map(t => Math.round(t.getBoundingClientRect().width))),
     };
+    // The gold "ready" and teal "claimed" circles only exist on an UNLOCKED
+    // pass, so a locked-only audit never sees the two states most likely to
+    // put white on a light fill.
+    out.inkOwner = auditInk();
     out.badge.whenOwned = (() => {
       const b = document.getElementById("snav-critterpass-badge");
       return b.style.display === "none" ? null : txt(b);
@@ -831,6 +913,8 @@ const MAIN = \`
       };
     })();
 
+    out.ink = auditInk();
+
     const page = document.querySelector(".ccCP");
     const buy = document.getElementById("ccCP-buy");
     out.layout = {
@@ -887,6 +971,47 @@ const R = JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&")
 
 // ══════════════════════════════════════════════════════════════════════════
 const D = R[1280];
+
+// ══════════════════════════════════════════════════════════════════════════
+//  EVERY WORD ON THE PAGE, AT EVERY WIDTH
+//  The measured half of the "no tan" rules above. Those read the stylesheet;
+//  this reads the pixels, with every Player Home stylesheet loaded, so a
+//  colour that arrives from another file, from inheritance, or from a token
+//  somebody else redefined still fails here.
+// ══════════════════════════════════════════════════════════════════════════
+console.log("\nlegibility: every rendered word, measured against its background");
+{
+  // 4.5:1 is the AA floor for body text, 3:1 for large text. Text written
+  // straight onto the kelp carries a shadow that the maths cannot see, so it
+  // is held to the large-text floor and no lower.
+  const floor = (row) => (row.large || row.shadow ? 3 : 4.5);
+  let worst = null, rowsSeen = 0;
+  const failures = [];
+  for (const w of WIDTHS) {
+    for (const row of (R[w].ink || []).concat(R[w].inkOwner || [])) {
+      rowsSeen++;
+      if (!worst || row.r < worst.r) worst = { ...row, w };
+      // Keyed on the STYLE, not the words: a hundred tier numbers painted the
+      // same wrong colour are one problem, and a list that says so is the one
+      // somebody can act on.
+      if (row.r < floor(row)) failures.push(`.${row.cls} ${row.color} on ${row.bg} = ${row.r}:1 (${row.px}px${row.large ? " large" : ""})`);
+    }
+  }
+  check("every word on the page was measured", rowsSeen > 400, rowsSeen);
+  const uniq = [...new Set(failures)];
+  check("not one of them fails contrast", uniq.length === 0,
+        `${failures.length} across ${rowsSeen} words\n      ` + uniq.slice(0, 20).join("\n      "));
+  check("…and the worst one on the whole page still has room",
+        worst && worst.r >= 3, worst && `.${worst.cls} "${worst.words}" ${worst.r}:1`);
+  // The specific thing that was wrong: the cards' ink is BLACK, and it is
+  // black because a navy on cream is the shade that keeps getting called
+  // washed out. Read off the rendered title, not the stylesheet.
+  const title = (R[1280].ink || []).find(r => r.cls === "ccCP-buy-title");
+  check("'Unlock the Critter Pass' is painted black", title && title.color === "rgb(0, 0, 0)",
+        title && title.color);
+  check("…on a card it reads at better than 15:1", title && title.r >= 15, title && title.r);
+}
+
 console.log("\ndesktop (1280px): the module runs");
 check("the module rendered without throwing", D.errors.length === 0, D.errors.join(" | "));
 check("the iframe really is 1280 wide", D.layout.vw === 1280, D.layout.vw);
@@ -934,12 +1059,28 @@ check("the button is live for somebody who can afford it", D.locked.buyEnabled);
 check("the price on the button is the server's price",
       D.locked.buyText.includes(P.price.toLocaleString()),
       `${D.locked.buyText} vs ${P.price}`);
-check("the pitch says there is a reward on every level, because there is",
-      D.locked.buySub.includes(`every one of the ${serverTiers} levels`),
-      `${D.locked.buySub} vs ${serverTiers}`);
+// The pitch is ONE sentence: what it costs and what it hands back. It used to
+// open with a paragraph about the tier count, the XP a Pass Level costs and
+// the 30-day climb, all three of which the highlight row underneath already
+// says one line at a time. Whatever else moves onto this card, it does not go
+// back into this paragraph.
 check("the pitch names the coins the track pays back",
       D.locked.buySub.includes(P.coinTotal.toLocaleString()),
       `${D.locked.buySub} vs ${P.coinTotal}`);
+check("…and the price being paid for them",
+      D.locked.buySub.includes(P.price.toLocaleString()),
+      `${D.locked.buySub} vs ${P.price}`);
+check("…in one sentence, not a paragraph",
+      D.locked.buySub.length < 90 && (D.locked.buySub.match(/\./g) || []).length === 1,
+      `${D.locked.buySub.length} chars: ${D.locked.buySub}`);
+check("…and the prose it replaced is gone",
+      !/One payment|climb of its own|not the years/.test(D.locked.buySub), D.locked.buySub);
+// The claim the paragraph used to make is still TRUE and still visible: the
+// track really does put one tier on every level, and the rail draws them all.
+check("there really is a reward on every one of the levels",
+      serverTiers === P.passMaxLevel
+      && new Set(P.locked.track.map(t => t.level)).size === serverTiers,
+      `${serverTiers} tiers over ${P.passMaxLevel} levels`);
 check("8,500 really is what the track pays", P.coinTotal === 8500, P.coinTotal);
 check("4,000 really is what it costs", P.price === 4000, P.price);
 const hl = D.locked.highlights.join(" | ");
@@ -956,11 +1097,16 @@ check("…the 30-day climb leads the highlights",
       new RegExp(`~${P.seasonDays} days`).test(hl), hl);
 check("…and it quotes the server's own daily rate",
       hl.includes(P.seasonXpPerDay.toLocaleString()), hl);
-check("the pitch says what a Pass Level costs",
-      D.locked.buySub.includes(P.seasonXpPerLevel.toLocaleString() + " XP"),
-      D.locked.buySub);
-check("the pitch says how long the whole track takes",
-      D.locked.buySub.includes(`${P.seasonDays} days`), D.locked.buySub);
+// What a Pass Level costs left the paragraph, so it has to still be somewhere
+// a player can read it: the progress bar says it to everybody, and the foot
+// note says it again to an owner.
+check("the page still says what a Pass Level costs",
+      D.locked.barTxt.includes(P.seasonXpPerLevel.toLocaleString() + " XP"),
+      D.locked.barTxt);
+check("…and says it again in the owner's foot note",
+      D.owner.foot.includes(P.seasonXpPerLevel.toLocaleString() + " XP"), D.owner.foot);
+check("how long the whole track takes is on the card as a highlight",
+      new RegExp(`~${P.seasonDays} days`).test(hl), hl);
 check("the pitch no longer promises a head start it cannot give",
       !/already earned counts|already reached|already passed/i.test(D.locked.buySub),
       D.locked.buySub);

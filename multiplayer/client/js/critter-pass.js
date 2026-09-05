@@ -459,23 +459,15 @@
     const signedIn = !!(_state && _state.signedIn);
     const finale = String((_state && _state.finaleAvatarName) || "the finale critter");
     const finaleImg = (_state && _state.finaleAvatar) || "";
-    // "A reward on every level" is the headline of this track, but it is a
-    // claim about the SERVED data, not a slogan: only say it when the track
-    // really does put exactly one tier on every level up to the cap. A retune
-    // that leaves a level empty falls back to the plain count instead of
-    // printing something the rail then contradicts.
-    const track = (_state && _state.track) || [];
-    const tierCount = track.length;
     const maxLvl = num(_state && _state.maxLevel, 100);
-    const perPassLevel = xpPerPassLevel();
-    const everyLevel = tierCount === maxLvl
-      && new Set(track.map(t => num(t.level))).size === maxLvl;
 
     // Every number here is derived from the served track and the served pass
     // curve, so a retune moves the sales pitch with it instead of leaving a
     // promise the track no longer keeps. The 30-day line leads because it is
     // the whole reason this track has a curve of its own: on the account's
-    // lifetime curve, 100 levels is most of a year.
+    // lifetime curve, 100 levels is most of a year. It is a HIGHLIGHT and not
+    // a sentence: the paragraph that used to say the same thing in prose was
+    // the longest thing on the card and said it twice.
     const days = num(_state && _state.seasonDays, 0);
     const perDay = num(_state && _state.seasonXpPerDay, 0);
     const highlights = [
@@ -533,13 +525,11 @@
           <div class="ccCP-buy-head">
             <span class="ccCP-buy-kicker">${esc((_state && _state.seasonName) || "Critter Pass")}</span>
             <h2 class="ccCP-buy-title">Unlock the Critter Pass</h2>
+            <!-- ONE sentence. What the pass costs and what it hands back, and
+                 nothing else: the timing, the tier count and the reward mix are
+                 all in the highlight row directly underneath, where each is one
+                 line the eye can land on instead of a paragraph to read. -->
             <p class="ccCP-buy-sub">
-              One payment, ${esc(everyLevel
-                ? `a reward on every one of the ${fmt(tierCount)} levels`
-                : `${fmt(tierCount)} rewards`)}, and a climb of its own:
-              ${perPassLevel ? `a Pass Level costs a flat <b>${fmt(perPassLevel)} XP</b>, so the
-              whole track is about <b>${fmt(days)} days</b> of play` : `a season-long track`},
-              not the years the account's own Level 100 takes.
               ${vouchers > 0
                 ? `Your voucher covers it`
                 : `Spend ${fmt(price)}`} and it pays back

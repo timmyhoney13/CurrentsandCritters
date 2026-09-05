@@ -110,8 +110,11 @@
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
     { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F The Critter Pass is readable again", items: [
-      "Nearly every word on the Critter Pass was coming out a pale tan on a cream card: the purchase pitch, the season name, the reward names on the track and the small print under them. It was not a colour anybody chose. The Clan Grand Prize banner, which is a different page entirely, happened to share a name with the pass in the stylesheet, and its cream lettering landed on the pass's text. The pass is back to its dark ink, which reads at 13:1 against the card.",
-      "The page title is back in the serif it was meant to be set in, at the size it was meant to be, for the same reason.",
+      "Nearly every word on the Critter Pass was coming out a pale tan on a cream card: the purchase pitch, the season name, the reward names on the track and the small print under them. It was not a colour anybody chose. The Clan Grand Prize banner, which is a different page entirely, happened to share a name with the pass in the stylesheet, and its cream lettering landed on the pass's text.",
+      "The writing on the pass is BLACK now, top to bottom. \u201cUnlock the Critter Pass\u201d, the reward names, the blurbs under them and the small print all read at better than 10:1 against the card they sit on.",
+      "The level number on every tier was white on a pale blue circle, and on a claimed or ready tier white on green or gold. All three were harder to read than the writing around them. The circles are deep enough to carry a white numeral now, and the gold one carries a dark one.",
+      "The page title is back in the serif it was meant to be set in, at the size it was meant to be, for the same reason the ink went wrong.",
+      "The purchase card leads with one line instead of a paragraph: what the pass costs and what it pays back. The 30-day climb, the reward count and everything else is in the row of highlights underneath, where each is one line to land on.",
       "Nothing about the Clan Grand Prize banner changed on either the website or the Clans tab.",
     ]},
     { ver: "V1.7.1", title: "\uD83C\uDF0A A $100 Supporter Tier, and a way to give more than that", items: [

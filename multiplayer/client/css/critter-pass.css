@@ -37,11 +37,20 @@
      turns it back to dark for itself. The other way round leaves any text
      nobody styled invisible on the kelp. */
   color: #eaf7ff;
-  --cp-ink:       #12324f;
-  --cp-ink-soft:  #4f7897;
-  /* The small print (tier blurbs, chip captions). Darkened from #6f95b0,
-     which was 3.15:1 on a cream card: legible to nobody at .7rem. */
-  --cp-ink-dim:   #527a96;
+  /* THE INK IS BLACK, and the three tokens are one family on purpose.
+     It was a navy (#12324f) with two blue-greys under it. On a cream card
+     that is a soft, low-contrast voice, and on the page it read as washed
+     out next to the gold and the kelp. Black at 20.9:1 is the only value
+     nothing can wash out, and the two quieter tokens are near-blacks rather
+     than a different hue, so the whole card reads as one ink at three
+     weights. Do not put a tint back into these: the hue is what made the
+     small print hard to read at .7rem. */
+  --cp-ink:       #000000;
+  /* The body copy (the buy pitch, the note under the button). 13.6:1. */
+  --cp-ink-soft:  #23303a;
+  /* The small print (tier blurbs, chip captions). 10.5:1, and it started as
+     #6f95b0, which was 3.15:1: legible to nobody at .7rem. */
+  --cp-ink-dim:   #33414d;
   --cp-blue:      #1c70cc;
   --cp-blue-lt:   #2e8fe0;
   --cp-line:      rgba(150, 196, 226, .8);
@@ -49,7 +58,9 @@
   --cp-card-2:    rgba(240, 250, 255, .94);
   --cp-gold:      #c89320;
   --cp-gold-lt:   #e8b34a;
-  --cp-teal:      #0e8f6c;
+  /* Only ever used as INK ("Claimed", on a cream card). #0e8f6c measured
+     3.84:1 there, under the 4.5 floor; this is 6.1:1 and the same green. */
+  --cp-teal:      #0a6b4f;
   --cp-kelp:      #1f7a52;
   /* The scrim over the kelp art. Everything on the page is legible because of
      these two numbers; treat them as load-bearing. */
@@ -459,7 +470,12 @@
   font-weight: 900;
   font-size: 1rem;
   color: #fff;
-  background: linear-gradient(160deg, #90b4d0, #6d94b4);
+  /* DEEP slate, and like the badge above it that is a legibility number.
+     This was #90b4d0 at the top, where white measured 2.18:1: the level
+     number is the one thing every tier card has, and on a hundred cards it
+     was a smudge. Both stops carry white now (5.2:1 and 7.7:1). Lighten
+     either and the numeral goes. */
+  background: linear-gradient(160deg, #4a7291, #35566f);
   border: 2px solid #fff;
   box-shadow: 0 2px 6px rgba(5, 47, 68, .28);
 }
@@ -544,10 +560,19 @@
   border-color: var(--cp-gold);
   box-shadow: 0 0 0 3px rgba(232, 179, 74, .34), 0 6px 18px rgba(5, 47, 68, .28);
 }
-.ccCP-tier.is-ready .ccCP-tier-lvl { background: linear-gradient(160deg, var(--cp-gold-lt), var(--cp-gold)); }
+/* Gold is a surface, never a word, and that cuts both ways: white ON gold was
+   1.91:1, the worst contrast on the whole page. Every other gold fill here
+   (the Unlock button, Claim, Claim all) carries the same near-black ink, and
+   this one now does too: 8.6:1. */
+.ccCP-tier.is-ready .ccCP-tier-lvl {
+  background: linear-gradient(160deg, var(--cp-gold-lt), var(--cp-gold));
+  color: #14212b;
+}
 
 .ccCP-tier.is-claimed { background: var(--cp-card-2); }
-.ccCP-tier.is-claimed .ccCP-tier-lvl { background: linear-gradient(160deg, #34c79c, var(--cp-teal)); }
+/* Deep enough for the white numeral (5.0:1 and 6.6:1). The bright #34c79c
+   this replaces was 2.14:1, the same mistake as the header badge. */
+.ccCP-tier.is-claimed .ccCP-tier-lvl { background: linear-gradient(160deg, #167f5e, #0c6b4f); }
 
 .ccCP-tier.is-busy { opacity: .6; pointer-events: none; }
 
