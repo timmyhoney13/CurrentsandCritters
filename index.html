@@ -226,16 +226,19 @@
   }
 
   /* Tier-card details - add small extras the existing .tier styles don’t cover. */
-  /* ── Three tier cards laid out across the screen, side-by-side.
-        Each card stays a tall column; the GRID is horizontal. ── */
+  /* ── The tier ladder, laid out across the screen, side-by-side.
+        Each card stays a tall column; the GRID is horizontal. Five cards now
+        (Wave Warrior → Tsunami), so the widest layout is five columns and it
+        steps down to three, two and one rather than jumping straight to a
+        stack: read left to right, the row IS the price ladder. ── */
   .tiers {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 22px;
-    max-width: 1240px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 16px;
+    max-width: 1500px;
     align-items: stretch;
   }
   .tier {
-    padding: 26px 24px;
+    padding: 24px 20px;
     gap: 14px;
   }
   .tier .head {
@@ -247,8 +250,15 @@
   .tier .price { font-size: 26px; line-height: 1; }
   .tier .desc { font-size: 13.5px; line-height: 1.55; }
   .tier .btn { width: 100%; padding: 12px 18px; font-size: 14px; }
-  /* Stack to one column only at phone widths so the side-by-side layout
-     survives on most tablets/laptops. */
+  /* Step down a column at a time, and stack to one only at phone widths so the
+     side-by-side layout survives on most tablets/laptops. */
+  @media (max-width: 1320px) {
+    .tiers { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; max-width: 1240px; }
+    .tier  { padding: 26px 24px; }
+  }
+  @media (max-width: 980px) {
+    .tiers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
   @media (max-width: 720px) {
     .tiers { grid-template-columns: 1fr; }
   }
@@ -359,6 +369,67 @@
   }
   .sponsor-cta-band.our-story p + p { margin-top: 12px; }
   .sponsor-cta-band.our-story p { line-height: 1.65; }
+  /* A tier with no Payment Link yet. It looks like a button's twin so the card
+     keeps its shape, but it is a <span>: nothing to click, nothing to charge
+     the wrong amount. */
+  .btn-locked {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 12px 18px;
+    font-family: var(--font-body);
+    font-weight: 800;
+    font-size: 14px;
+    border-radius: 999px;
+    color: rgba(255,255,255,0.55);
+    background: rgba(255,255,255,0.06);
+    border: 1px dashed rgba(255,255,255,0.25);
+    cursor: default;
+  }
+  .tier-soonnote {
+    margin: 10px 0 0;
+    font-family: var(--font-body);
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: center;
+    color: rgba(255,255,255,0.55);
+  }
+  .tier-soonnote a { color: var(--glow); text-decoration: underline; }
+
+  /* Over the top tier: a conversation, not a checkout. */
+  .tier-custom {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    max-width: 1000px;
+    margin: 4px auto 0;
+    padding: 22px 26px;
+    border-radius: var(--r-2xl);
+    background: rgba(93, 214, 247, 0.08);
+    border: 1px solid rgba(93, 214, 247, 0.3);
+  }
+  .tier-custom-ico { font-size: 34px; line-height: 1; flex-shrink: 0; }
+  .tier-custom-body { flex: 1; min-width: 240px; }
+  .tier-custom h4 {
+    margin: 0 0 6px;
+    font-size: 19px;
+    line-height: 1.2;
+    color: #fff;
+  }
+  .tier-custom p {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.68);
+  }
+  .tier-custom .btn { flex-shrink: 0; }
+  @media (max-width: 720px) {
+    .tier-custom { flex-direction: column; text-align: center; }
+    .tier-custom .btn { width: 100%; }
+  }
   .tier-fineprint {
     max-width: 760px;
     margin: 28px auto 0;
@@ -1046,7 +1117,7 @@
     <div class="tier-intro">
       <span class="eyebrow">★ Supporter Tiers</span>
       <h3>Every tier makes a ripple.</h3>
-      <p>Three ways to back the launch. Pick the one that fits - each comes with permanent supporter recognition and a profile frame in the online game.</p>
+      <p>Five ways to back the launch. Pick the one that fits - each comes with permanent supporter recognition and a profile frame in the online game. Giving more than $100? Scroll past the cards and tell us what you have in mind.</p>
     </div>
 
     <div class="tiers">
@@ -1073,6 +1144,10 @@
           </li>
           <li class="perk-coins-row">
             <span class="perk-main"><strong>7,000 Critter Coins</strong></span>
+          </li>
+          <li class="perk-xp-row">
+            <span class="perk-main">+1,000 bonus XP</span>
+            <span class="perk-xp-note">Cosmetic progression only</span>
           </li>
         </ul>
         <!-- ⚠️ LIVE Stripe Payment Link ($15). The webhook grants the tier by
@@ -1107,7 +1182,7 @@
             <span class="perk-main"><strong>15,000 Critter Coins</strong></span>
           </li>
           <li class="perk-xp-row">
-            <span class="perk-main">+10,000 bonus XP</span>
+            <span class="perk-main">+5,000 bonus XP</span>
             <span class="perk-xp-note">Cosmetic progression only</span>
           </li>
         </ul>
@@ -1145,7 +1220,7 @@
             <span class="perk-main"><strong>30,000 Critter Coins</strong></span>
           </li>
           <li class="perk-xp-row">
-            <span class="perk-main">+20,000 bonus XP</span>
+            <span class="perk-main">+7,500 bonus XP</span>
             <span class="perk-xp-note">Cosmetic progression only</span>
           </li>
         </ul>
@@ -1154,6 +1229,110 @@
         <a class="btn btn-outline" href="https://buy.stripe.com/00wfZi6EnfwgcsFcIOds406">Become a Tide Turner →</a>
       </div>
 
+      <!-- ── Riptide ──
+           NO Payment Link yet, and deliberately no placeholder href. A tier is
+           granted by the PRICE of the link the button opens, so pointing this
+           at any existing link would charge the wrong amount and grant the
+           wrong tier without a single visible symptom. To go live: create a
+           Stripe Payment Link at EXACTLY $75 (with the three custom questions,
+           see CF_WALL_NAME_LABEL in multiplayer_server.py), then replace the
+           locked span below with the same <a class="btn"> the tiers above use
+           and drop the price into TestLivePaymentLinks. -->
+      <div class="tier">
+        <div class="head">
+          <div class="name">Riptide</div>
+          <div class="price">$75<small>/one-time</small></div>
+        </div>
+        <p class="desc">Pull the whole reef forward: everything the Tide Turner gets, with the coins, passes and XP doubled down on.</p>
+        <ul class="perks">
+          <li><span class="perk-main">Supporter email updates</span></li>
+          <li>
+            <span class="perk-main"><strong>Founder Supporter number</strong></span>
+          </li>
+          <li>
+            <span class="perk-main">Name on the <strong>Supporter Reef Wall</strong></span>
+          </li>
+          <li><span class="perk-main">Personal thank-you email</span></li>
+          <li><span class="perk-main">Unlock all backgrounds</span></li>
+          <li><span class="perk-main">Exclusive Fish Icon</span></li>
+          <li><span class="perk-main">Exclusive Amberjack player icon</span></li>
+          <li><span class="perk-main">Free physical copy of Currents and Critters</span></li>
+          <li><span class="perk-main">Thank-you postcard, signed</span></li>
+          <li class="perk-pass-row">
+            <span class="perk-main"><strong>8 Season Pass vouchers</strong></span>
+            <span class="perk-xp-note">Eight Critter Passes (Battle Passes), on any eight seasons you choose</span>
+          </li>
+          <li class="perk-coins-row">
+            <span class="perk-main"><strong>50,000 Critter Coins</strong></span>
+          </li>
+          <li class="perk-xp-row">
+            <span class="perk-main">+12,500 bonus XP</span>
+            <span class="perk-xp-note">Cosmetic progression only</span>
+          </li>
+        </ul>
+        <span class="btn btn-locked" aria-disabled="true">Opening soon</span>
+        <p class="tier-soonnote">Want it now? <a href="#partner-form" data-tier-enquiry="Riptide ($75)">Email us</a> and we'll set it up by hand.</p>
+      </div>
+
+      <!-- ── Tsunami ──
+           Same story as Riptide: locked until a $100 Payment Link exists. -->
+      <div class="tier">
+        <div class="head">
+          <div class="name">Tsunami</div>
+          <div class="price">$100<small>/one-time</small></div>
+        </div>
+        <p class="desc">The biggest tier you can buy outright. Two physical copies, everything in the game, and your name in the credits.</p>
+        <ul class="perks">
+          <li><span class="perk-main">Supporter email updates</span></li>
+          <li>
+            <span class="perk-main"><strong>Founder Supporter number</strong></span>
+          </li>
+          <li>
+            <span class="perk-main">Your name <strong>high on the Supporter Reef Wall</strong></span>
+          </li>
+          <li><span class="perk-main">Personal thank-you email</span></li>
+          <li><span class="perk-main">Unlock all backgrounds</span></li>
+          <li><span class="perk-main">Exclusive Fish Icon</span></li>
+          <li><span class="perk-main">Exclusive Amberjack player icon</span></li>
+          <li>
+            <span class="perk-main"><strong>TWO free physical copies</strong> of Currents and Critters</span>
+            <span class="perk-xp-note">Keep one, gift one</span>
+          </li>
+          <li><span class="perk-main">Hand-written thank-you card, signed</span></li>
+          <li><span class="perk-main">Thank-you postcard</span></li>
+          <li><span class="perk-main">Your name in the game's supporter credits</span></li>
+          <li><span class="perk-main">First look at every expansion before it ships</span></li>
+          <li class="perk-pass-row">
+            <span class="perk-main"><strong>15 Season Pass vouchers</strong></span>
+            <span class="perk-xp-note">Fifteen Critter Passes (Battle Passes), on any fifteen seasons you choose</span>
+          </li>
+          <li class="perk-coins-row">
+            <span class="perk-main"><strong>75,000 Critter Coins</strong></span>
+          </li>
+          <li class="perk-xp-row">
+            <span class="perk-main">+20,000 bonus XP</span>
+            <span class="perk-xp-note">Cosmetic progression only</span>
+          </li>
+        </ul>
+        <span class="btn btn-locked" aria-disabled="true">Opening soon</span>
+        <p class="tier-soonnote">Want it now? <a href="#partner-form" data-tier-enquiry="Tsunami ($100)">Email us</a> and we'll set it up by hand.</p>
+      </div>
+
+    </div>
+
+    <!-- ── Above $100 there is no button, on purpose ──
+         The perks at that size (bulk copies, a sponsor credit, a school or
+         event set) cannot be fulfilled by a webhook, so this points at the
+         Partner With Us template below rather than a checkout. The button
+         pre-fills that form with a message that only needs the reader's name
+         and the amount typed in. -->
+    <div class="tier-custom">
+      <div class="tier-custom-ico" aria-hidden="true">🌊</div>
+      <div class="tier-custom-body">
+        <h4>Giving more than $100?</h4>
+        <p>Above the Tsunami we arrange it by hand. Tell us the amount and we'll write back with a plan: bulk copies for a shop or a classroom, a sponsor credit, event sets, or whatever you have in mind.</p>
+      </div>
+      <a class="btn btn-mint" href="#partner-form" data-tier-enquiry="custom">Email us a custom amount →</a>
     </div>
 
     <p class="tier-fineprint">
@@ -1208,6 +1387,7 @@
               <option value="conservation">Ocean conservation partnership</option>
               <option value="creator">Creator, press or content</option>
               <option value="sponsor">Sponsorship or donation</option>
+              <option value="major">Supporter contribution over $100</option>
               <option value="event">Event, convention or school</option>
               <option value="other">Something else</option>
             </select>
@@ -1817,6 +1997,22 @@ updateBetaBarClear();
       "What we're hoping for in return: ____\n\n" +
       "Budget or scale we have in mind: ____\n\n" +
       "Thanks!",
+    /* Over $100 there is no Buy button anywhere on the site, so this template
+       IS the product page: it has to carry everything a purchase would have
+       carried, and nothing in it may be left as a blank the sender doesn't
+       notice. Hence the shouted [INSERT ... HERE] placeholders rather than the
+       quiet ____ the other templates use, and hence the extra check in
+       validate() that refuses to send while one of them is still in the box. */
+    major:
+      "Hi Tim,\n\n" +
+      "My name is [INSERT YOUR NAME HERE] and I'd like to support Currents and\n" +
+      "Critters with [INSERT AMOUNT HERE, for example $250].\n\n" +
+      "Why I want to: [INSERT YOUR REASON HERE]\n\n" +
+      "What I'm hoping for in return: [INSERT WHAT YOU'D LIKE HERE, or write\n" +
+      "\"whatever you think is fair\"]\n\n" +
+      "My Currents and Critters username: [INSERT YOUR USERNAME HERE]\n\n" +
+      "Thanks!\n" +
+      "[INSERT YOUR NAME HERE]",
     event:
       "Hi Tim,\n\n" +
       "I'm ____ from ____. We're running ____ on ____ (date) in ____ (place).\n\n" +
@@ -1903,6 +2099,12 @@ updateBetaBarClear();
     if (!body) return fail(elMsg, "Please write a message.");
     if (/_{3,}/.test(body)) {
       return fail(elMsg, "The template still has blanks in it. Fill in the ____ parts (or delete them) and send again.");
+    }
+    // The over-$100 template shouts its blanks instead of underlining them, so
+    // it needs its own check: an enquiry that still says INSERT YOUR NAME HERE
+    // is a message nobody can reply to.
+    if (/\[INSERT/i.test(body)) {
+      return fail(elMsg, "The template still has [INSERT ...] parts in it. Replace them with your own words and send again.");
     }
     if (body.length < 25) return fail(elMsg, "Tell us a little more, so there is something to reply to.");
     clearBad();
@@ -1998,6 +2200,38 @@ updateBetaBarClear();
   elKind.addEventListener("change", function () { applyTemplate(false); });
   elRestore.addEventListener("click", function () { applyTemplate(true); elMsg.focus(); });
   form.addEventListener("input", syncMailto);
+
+  /* The tier cards that have no Buy button (the two waiting on a Payment Link,
+     and every amount above $100) land here instead. They set the partnership
+     type, drop the matching template in and put the cursor on the first thing
+     the reader has to replace, so "Email us a custom amount" opens a message
+     that is already 90% written rather than an empty box. */
+  function openEnquiry(which) {
+    elKind.value = "major";
+    applyTemplate(true);
+    if (which && which !== "custom") {
+      elMsg.value = elMsg.value.replace(
+        "[INSERT AMOUNT HERE, for example $250]",
+        "the " + which + " tier, which has no button on the site yet");
+      lastTemplate = elMsg.value;
+    }
+    syncMailto();
+    // Focus AFTER the anchor jump so the browser doesn't fight the scroll.
+    setTimeout(function () {
+      var at = elMsg.value.indexOf("[INSERT");
+      elMsg.focus();
+      if (at >= 0 && elMsg.setSelectionRange) {
+        elMsg.setSelectionRange(at, elMsg.value.indexOf("]", at) + 1);
+      }
+    }, 350);
+  }
+
+  Array.prototype.forEach.call(
+    document.querySelectorAll("[data-tier-enquiry]"), function (a) {
+      a.addEventListener("click", function () {
+        openEnquiry(a.getAttribute("data-tier-enquiry"));
+      });
+    });
 
   applyTemplate(true);
   syncMailto();

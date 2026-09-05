@@ -9876,6 +9876,76 @@
       box-shadow: 0 3px 12px rgba(220,130,40,.32);
     }
 
+    /* A tier whose Stripe Payment Link does not exist yet. Locked, never a
+       live-looking button pointed at the wrong price. */
+    .phst-tier-buy.phst-tier-soon {
+      background: linear-gradient(120deg,#c3d5e2 0%,#a9c1d4 100%);
+      color: #4c6c85; box-shadow: none; cursor: default;
+    }
+    .phst-tier-buy.phst-tier-soon:hover { filter: none; transform: none; }
+    .phst-tier-soonnote {
+      font-size: .68rem; color: #6d8fab; font-weight: 700;
+      text-align: center; margin-top: 7px; line-height: 1.4;
+    }
+    .phst-tier-soonnote a { color: #1f8fcf; text-decoration: underline; }
+
+    /* Over the top tier: no checkout, a conversation. */
+    .phst-custom-tier {
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      background: linear-gradient(120deg, rgba(20,110,170,.95) 0%, rgba(45,80,160,.95) 100%);
+      border: 1px solid rgba(255,255,255,.3);
+      border-radius: 16px; padding: 18px 22px; margin: 4px 0 8px;
+      box-shadow: 0 6px 24px rgba(20,80,140,.28);
+    }
+    .phst-custom-ico { font-size: 2rem; flex-shrink: 0; }
+    .phst-custom-body { flex: 1; min-width: 200px; }
+    .phst-custom-title { font-family: "Cinzel", serif; font-size: 1.05rem; font-weight: 900; color: #fff; }
+    .phst-custom-desc { font-size: .8rem; color: #d8ecfb; line-height: 1.45; margin-top: 3px; }
+    .phst-custom-btn {
+      font-size: .85rem; font-weight: 900; color: #10456f;
+      background: linear-gradient(120deg,#ffffff,#dff1ff);
+      border: none; border-radius: 10px; padding: 11px 18px; cursor: pointer;
+      box-shadow: 0 3px 12px rgba(0,40,80,.3);
+      transition: filter .12s, transform .1s;
+    }
+    .phst-custom-btn:hover { filter: brightness(1.04); transform: translateY(-1px); }
+
+    /* The ready-written email template dialog */
+    #cc-custom-tier {
+      position: fixed; inset: 0; z-index: 4000;
+      display: none; align-items: center; justify-content: center;
+      background: rgba(4,26,44,.62); padding: 18px;
+    }
+    #cc-custom-tier.open { display: flex; }
+    .cctm-card {
+      width: min(620px, 100%); max-height: 88vh; overflow: auto;
+      background: linear-gradient(160deg, #f6fbff 0%, #e8f4ff 100%);
+      border: 1px solid rgba(120,190,225,.6); border-radius: 18px;
+      padding: 22px 24px; box-shadow: 0 18px 60px rgba(4,30,60,.45);
+    }
+    .cctm-title { font-family: "Cinzel", serif; font-size: 1.2rem; font-weight: 900; color: #11588f; }
+    .cctm-sub { font-size: .82rem; color: #4f7ba6; font-weight: 600; line-height: 1.5; margin: 6px 0 12px; }
+    .cctm-text {
+      width: 100%; min-height: 230px; resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .82rem; line-height: 1.5; color: #22405c;
+      background: #fff; border: 1px solid rgba(120,190,225,.7);
+      border-radius: 12px; padding: 12px 14px;
+    }
+    .cctm-hint { font-size: .72rem; color: #7d9ab3; font-weight: 700; margin: 8px 0 0; line-height: 1.45; }
+    .cctm-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    .cctm-btn {
+      font-size: .85rem; font-weight: 900; border-radius: 10px;
+      padding: 10px 16px; cursor: pointer; border: 1px solid rgba(120,190,225,.7);
+      background: #fff; color: #1f6a9e;
+    }
+    .cctm-btn.cctm-primary {
+      background: linear-gradient(120deg,#2bb8d8 0%,#1f8fcf 100%);
+      border-color: transparent; color: #fff;
+      box-shadow: 0 3px 12px rgba(31,143,207,.32);
+    }
+    .cctm-btn:hover { filter: brightness(1.05); }
+
     /* Physical Game, coming soon placeholder */
     .phst-physical-soon {
       display: flex; align-items: center; gap: 14px;

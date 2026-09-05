@@ -154,11 +154,18 @@ const SCENARIOS = {
     ok(/_{3,}/.test(msg.value), "Reset the template puts a fresh template back");
 
     // Every partnership type has one, and it is about that type.
+    // A template counts as a template if it opens the letter AND leaves the
+    // sender something to fill in. There are two ways it says that now: the
+    // quiet ____ blanks, and the shouted [INSERT ... HERE] the over-$100 one
+    // uses because at that size a blank the sender skims past is a real cost.
+    // Matching only ____ would fail a template that has a validate() rule of
+    // its own refusing to send while its placeholders are still there.
+    var blanks = function (v) { return /_{3,}/.test(v) || v.indexOf("[INSERT") >= 0; };
     var missing = [];
     Array.prototype.forEach.call(kind.options, function (opt) {
       kind.value = opt.value;
       document.getElementById("pf-restore").click();
-      if (msg.value.indexOf("Hi Tim") !== 0 || !/_{3,}/.test(msg.value)) missing.push(opt.value);
+      if (msg.value.indexOf("Hi Tim") !== 0 || !blanks(msg.value)) missing.push(opt.value);
     });
     ok(missing.length === 0, "every partnership type has a template: " + missing.join(","));
   `,

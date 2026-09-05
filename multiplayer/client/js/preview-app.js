@@ -29450,6 +29450,7 @@
             "Name on the Supporter Reef Wall",
             "Personal thank-you email",
             "1 Season Pass voucher: redeem it for the Critter Pass (Battle Pass) on any one season you choose",
+            "+1,000 bonus XP",
           ],
           note: "Cosmetic progression only",
         },
@@ -29464,7 +29465,7 @@
             "Unlock all backgrounds",
             "Exclusive Fish Icon",
             "2 Season Pass vouchers: two Critter Passes (Battle Passes), on any two seasons you choose",
-            "+10,000 bonus XP",
+            "+5,000 bonus XP",
           ],
           note: "Cosmetic progression only",
         },
@@ -29482,6 +29483,51 @@
             "Thank-you postcard",
             "Exclusive Amberjack player icon",
             "5 Season Pass vouchers: five Critter Passes (Battle Passes), on any five seasons you choose",
+            "+7,500 bonus XP",
+          ],
+          note: "Cosmetic progression only",
+        },
+        // ── The two big tiers ──────────────────────────────────────
+        // `soon: true` means NO Stripe Payment Link exists yet, so the card
+        // renders with a locked button instead of a Buy. It is deliberately
+        // not wired to a placeholder URL: a tier is granted by the PRICE of the
+        // link it opens, so a button pointing at some other product's link
+        // would charge the wrong amount and grant the wrong tier, silently.
+        // To go live: create a Payment Link at EXACTLY this `usd` (with the 3
+        // custom questions), drop it in as `link:` and delete `soon`.
+        {
+          name: "Riptide", usd: 75, coins: 50000, soon: true,
+          perks: [
+            "Supporter email updates",
+            "Founder Supporter number",
+            "Name on the Supporter Reef Wall",
+            "Personal thank-you email",
+            "Unlock all backgrounds",
+            "Exclusive Fish Icon",
+            "Exclusive Amberjack player icon",
+            "Free physical copy of Currents and Critters",
+            "Thank-you postcard, signed",
+            "8 Season Pass vouchers: eight Critter Passes (Battle Passes), on any eight seasons you choose",
+            "+12,500 bonus XP",
+          ],
+          note: "Cosmetic progression only",
+        },
+        {
+          name: "Tsunami", usd: 100, coins: 75000, soon: true,
+          perks: [
+            "Supporter email updates",
+            "Founder Supporter number",
+            "Your name high on the Supporter Reef Wall",
+            "Personal thank-you email",
+            "Unlock all backgrounds",
+            "Exclusive Fish Icon",
+            "Exclusive Amberjack player icon",
+            "TWO free physical copies of Currents and Critters: keep one, gift one",
+            "Hand-written thank-you card, signed",
+            "Thank-you postcard",
+            "Your name in the game's supporter credits",
+            "First look at every expansion before it ships",
+            "15 Season Pass vouchers: fifteen Critter Passes (Battle Passes), on any fifteen seasons you choose",
             "+20,000 bonus XP",
           ],
           note: "Cosmetic progression only",
@@ -29701,10 +29747,27 @@
           for (const perk of t.perks) html += `<li>${esc(perk)}</li>`;
           html += `</ul>
             <div class="phst-tier-fine">${esc(t.note)}</div>
-            <button class="phst-tier-buy" data-stripe="${esc(t.link)}">Become a ${esc(t.name)}</button>
+            ${t.soon
+              ? `<button class="phst-tier-buy phst-tier-soon" type="button" disabled>Opening soon</button>
+                 <div class="phst-tier-soonnote">Want this one now? <a href="#" data-custom-tier="1">Email us</a> and we'll set it up.</div>`
+              : `<button class="phst-tier-buy" data-stripe="${esc(t.link)}">Become a ${esc(t.name)}</button>`}
           </div>`;
         }
         html += `</div>`;
+
+        // ── 4b) Above the top tier: a conversation, not a checkout ────
+        // Nothing over $100 has a Buy button on purpose: the perks at that size
+        // (multiple copies, a credit, a call) can't be fulfilled by a webhook,
+        // so this card opens a ready-written email template instead. See
+        // CUSTOM_TIER_MIN_CENTS in multiplayer_server.py.
+        html += `<div class="phst-custom-tier">
+          <div class="phst-custom-ico" aria-hidden="true">🌊</div>
+          <div class="phst-custom-body">
+            <div class="phst-custom-title">Giving more than $100?</div>
+            <div class="phst-custom-desc">Above the Tsunami we do it properly, by hand. Tell us the amount and we'll write back with a plan: bulk copies, a sponsor credit, classroom or event sets, or whatever you have in mind.</div>
+          </div>
+          <button class="phst-custom-btn" type="button" data-custom-tier="1">Email us a custom amount</button>
+        </div>`;
 
         // ── 5) Physical Game ──────────────────────────────────────────
         html += `<div class="phst-section-title">📦 Physical Game<span class="phst-sec-rule"></span></div>`;
@@ -29714,7 +29777,7 @@
             <div class="phst-physical-ico">🐢</div>
             <div>
               <div class="phst-physical-title">Coming soon</div>
-              <div class="phst-physical-desc">A physical copy of Currents and Critters is on the way. Tide Turner supporters get one free!</div>
+              <div class="phst-physical-desc">A physical copy of Currents and Critters is on the way. Tide Turner and Riptide supporters get one free, Tsunami supporters get two!</div>
             </div>
           </div>`;
         } else {
@@ -29740,6 +29803,11 @@
         el.querySelectorAll("[data-stripe]").forEach((btn) => {
           btn.addEventListener("click", () => window._phstGoToStripe(btn.getAttribute("data-stripe")));
         });
+        // The over-$100 template, opened from the big card and from the
+        // "email us" line under each tier that has no link yet.
+        el.querySelectorAll("[data-custom-tier]").forEach((btn) => {
+          btn.addEventListener("click", (e) => { e.preventDefault(); window._phstCustomTier(); });
+        });
         // Wire every background Buy button to the Critter-Coins spend flow.
         el.querySelectorAll("[data-bg]").forEach((btn) => {
           btn.addEventListener("click", () => window._phstBuyBg(btn.getAttribute("data-bg"), btn));
@@ -29754,6 +29822,97 @@
         });
       }
       window.renderPhStore = renderPhStore;
+
+      // ── Over-$100 contributions: a template, not a checkout ────────
+      // The one thing a Buy button cannot do at this size is ASK. Anything
+      // above the Tsunami is arranged by hand (bulk copies, a sponsor credit,
+      // a school or event set), so the card opens a message that is already
+      // written: the reader replaces the bracketed parts and sends it. It is
+      // editable text on purpose, and BOTH ways out are offered, because a
+      // mailto: opens nothing at all on a phone with no mail app and nothing in
+      // a browser whose mail lives in a webmail tab, so "Copy the message" has
+      // to be there or the whole card is a dead end for those readers.
+      const PHST_CONTACT_EMAIL = "currentsandcritters@gmail.com";
+      const PHST_CUSTOM_TEMPLATE = [
+        "Hi Tim,",
+        "",
+        "My name is [INSERT YOUR NAME HERE] and I'd like to support Currents and",
+        "Critters with [INSERT AMOUNT HERE, for example $250].",
+        "",
+        "Why I want to: [INSERT YOUR REASON HERE]",
+        "",
+        "What I'm hoping for in return: [INSERT WHAT YOU'D LIKE HERE, or write",
+        "\"whatever you think is fair\"]",
+        "",
+        "My Currents and Critters username: [INSERT YOUR USERNAME HERE]",
+        "The best email to reach me: [INSERT YOUR EMAIL HERE]",
+        "",
+        "Thanks!",
+        "[INSERT YOUR NAME HERE]",
+      ].join("\n");
+
+      window._phstCustomTier = function () {
+        const esc = (typeof escapeHtml === "function") ? escapeHtml : (s2)=>String(s2);
+        let host = document.getElementById("cc-custom-tier");
+        if (!host) {
+          host = document.createElement("div");
+          host.id = "cc-custom-tier";
+          document.body.appendChild(host);
+        }
+        host.innerHTML = `
+          <div class="cctm-card" role="dialog" aria-modal="true" aria-labelledby="cctm-title">
+            <div class="cctm-title" id="cctm-title">Giving more than $100</div>
+            <div class="cctm-sub">Above the Tsunami tier we set it up by hand, so there's no button, just a message. Everything in [BRACKETS] is yours to replace, then send it to <strong>${esc(PHST_CONTACT_EMAIL)}</strong>. Tim reads every one and replies.</div>
+            <textarea class="cctm-text" id="cctm-text" spellcheck="false">${esc(PHST_CUSTOM_TEMPLATE)}</textarea>
+            <p class="cctm-hint">Edit it however you like. "Open my email app" carries whatever is in the box; if that does nothing on your device, use "Copy the message" and paste it into your mail.</p>
+            <div class="cctm-actions">
+              <button type="button" class="cctm-btn cctm-primary" data-act="mail">Open my email app</button>
+              <button type="button" class="cctm-btn" data-act="copy">Copy the message</button>
+              <button type="button" class="cctm-btn" data-act="close">Close</button>
+            </div>
+          </div>`;
+        host.classList.add("open");
+
+        const box = host.querySelector("#cctm-text");
+        const close = () => {
+          host.classList.remove("open");
+          host.innerHTML = "";
+          document.removeEventListener("keydown", onKey, true);
+        };
+        const onKey = (e) => { if (e.key === "Escape") { e.preventDefault(); close(); } };
+        document.addEventListener("keydown", onKey, true);
+        host.addEventListener("click", (e) => { if (e.target === host) close(); });
+
+        host.querySelectorAll(".cctm-btn").forEach((b) => {
+          b.addEventListener("click", async () => {
+            const act = b.getAttribute("data-act");
+            const body = (box && box.value) || PHST_CUSTOM_TEMPLATE;
+            if (act === "copy") {
+              try {
+                await navigator.clipboard.writeText(body);
+                if (typeof showToast === "function") showToast("Message copied. Paste it into an email to " + PHST_CONTACT_EMAIL, "ok");
+              } catch (_) {
+                // No clipboard permission (or an insecure context): select it
+                // so a manual copy is one keystroke rather than a dead button.
+                if (box) { box.focus(); box.select(); }
+                if (typeof showToast === "function") showToast("Press Ctrl/Cmd+C to copy the selected message.", "info");
+              }
+              return;
+            }
+            if (act === "mail") {
+              // Long mailto: bodies get truncated (and in a few clients dropped
+              // outright) by the OS, so cap it well inside every limit.
+              let b2 = body;
+              if (b2.length > 1800) b2 = b2.slice(0, 1800) + "\n\n(continued...)";
+              window.location.href = "mailto:" + PHST_CONTACT_EMAIL +
+                "?subject=" + encodeURIComponent("Supporting Currents and Critters (custom amount)") +
+                "&body=" + encodeURIComponent(b2);
+              return;
+            }
+            close();
+          });
+        });
+      };
 
       // Buy a background with Critter Coins (spends from the wallet, grants the
       // unlock, refreshes the store + header). Safe: the deduction is a server-

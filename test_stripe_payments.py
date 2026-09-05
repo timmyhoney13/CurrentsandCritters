@@ -286,7 +286,7 @@ class TestSupporterTierCoinGrants(unittest.TestCase):
     """Supporter Tiers credit Critter Coins. The amounts are printed on three
     separate tier cards, so the danger is not the maths: it's drift."""
 
-    ORDER = ("wave-warrior", "ocean-ally", "tide-turner")
+    ORDER = ("wave-warrior", "ocean-ally", "tide-turner", "riptide", "tsunami")
 
     def test_every_tier_grants_coins(self):
         for tier in ms.SUPPORTER_TIER_GRANTS:
@@ -530,7 +530,8 @@ class TestTierCoinsPrintedEverywhere(unittest.TestCase):
 
     def test_the_in_game_store_lists_the_server_amounts(self):
         js = self._read("multiplayer", "client", "js", "preview-app.js")
-        for tier, usd in (("wave-warrior", 15), ("ocean-ally", 35), ("tide-turner", 50)):
+        for tier, usd in (("wave-warrior", 15), ("ocean-ally", 35), ("tide-turner", 50),
+                          ("riptide", 75), ("tsunami", 100)):
             coins = ms.SUPPORTER_TIER_GRANTS[tier]["coins"]
             self.assertIn(f"usd: {usd}, coins: {coins}", js,
                           f"store card for {tier} does not say {coins} coins")
@@ -880,6 +881,131 @@ class TestRepeatGiftsGrowOneName(unittest.TestCase):
             self.assertEqual(kind, "coins")
         # $20 + $20 + $20 crosses the $50 band no single pack reaches.
         self.assertEqual(ms._supporter_tier_for_total(6000)[0], "tide_turner")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  A tier with no Payment Link yet, and the amounts above the top tier
+# ══════════════════════════════════════════════════════════════════════════
+class TestTiersWithoutALinkAreLocked(unittest.TestCase):
+    """Riptide ($75) and Tsunami ($100) exist server-side before their Stripe
+    Payment Links do.
+
+    The dangerous shortcut here is wiring their buttons to SOME link so the
+    card looks finished. The webhook grants a tier by the order PRICE, so a
+    Riptide button opening the $50 link charges $50 and grants tide-turner,
+    and nothing anywhere says so. Until a real link exists at the exact price,
+    the button must not be a button.
+    """
+
+    LIVE = set(TestLivePaymentLinks.LINKS)
+
+    def setUp(self):
+        self.js   = _read("multiplayer", "client", "js", "preview-app.js")
+        self.home = _read("index.html")
+
+    def _unlinked(self):
+        return [t for t in ms.SUPPORTER_TIERS_BY_CENTS.values() if t not in self.LIVE]
+
+    def test_the_two_new_tiers_are_the_unlinked_ones(self):
+        self.assertEqual(sorted(self._unlinked()), ["riptide", "tsunami"])
+
+    def test_every_tier_is_either_linked_or_marked_soon_in_the_store(self):
+        """One card per tier in the in-game store, and a card with no live link
+        carries `soon: true` (which is what renders the locked button)."""
+        block = self.js[self.js.index("const PHST_SUPPORTER_TIERS = ["):]
+        block = block[:block.index("\n      ];")]
+        rows = re.findall(r'name:\s*"([^"]+)",\s*usd:\s*(\d+),\s*coins:\s*(\d+)([^}]*)',
+                          block)
+        self.assertEqual(len(rows), len(ms.SUPPORTER_TIERS_BY_CENTS),
+                         "the store does not show one card per tier")
+        for name, usd, coins, rest in rows:
+            tier = name.lower().replace(" ", "-")
+            self.assertIn(tier, ms.SUPPORTER_TIER_GRANTS, f"{name} is not a real tier")
+            self.assertEqual(ms.SUPPORTER_TIERS_BY_CENTS[int(usd) * 100], tier,
+                             f"{name}'s ${usd} is another tier's price")
+            self.assertEqual(int(coins), ms.SUPPORTER_TIER_GRANTS[tier]["coins"], name)
+            if tier in self.LIVE:
+                self.assertIn("link:", rest, f"{name} should have a live link")
+                self.assertNotIn("soon:", rest, f"{name} is live but marked soon")
+            else:
+                self.assertIn("soon: true", rest, f"{name} has no link and is not locked")
+                self.assertNotIn("buy.stripe.com", rest,
+                                 f"{name} has no price of its own on Stripe yet, "
+                                 f"so it must not open ANY Payment Link")
+
+    def test_the_marketing_site_locks_them_too(self):
+        """No Become-a-<tier> button, and the card says so out loud."""
+        cards = self.home[self.home.index('<div class="tiers">'):]
+        cards = cards[:cards.index('<div class="tier-custom">')]
+        for tier in self._unlinked():
+            label = tier.capitalize()
+            self.assertIn(f'<div class="name">{label}</div>', cards,
+                          f"{label} has no card on the marketing site")
+            self.assertIsNone(re.search(r'href="([^"]+)"[^>]*>Become an? ' + label, cards),
+                              f"{label} has a Buy button but no Payment Link")
+        self.assertEqual(cards.count('class="btn btn-locked"'), len(self._unlinked()))
+
+    def test_a_locked_tier_still_prints_its_own_numbers(self):
+        """Locked is not unfinished: the card has to promise exactly what the
+        server will grant the day the link is switched on."""
+        for tier in self._unlinked():
+            g = ms.SUPPORTER_TIER_GRANTS[tier]
+            usd = [c for c, t in ms.SUPPORTER_TIERS_BY_CENTS.items() if t == tier][0] // 100
+            # The marketing card prints the coins; the store card carries them
+            # as the number the renderer formats.
+            self.assertTrue(f"{g['coins']:,} Critter Coins" in self.home,
+                            f"index.html never promises {tier}'s coins")
+            self.assertTrue(f"usd: {usd}, coins: {g['coins']}" in self.js,
+                            f"the in-game Store card for {tier} has the wrong coins")
+            for blob, where in ((self.home, "index.html"), (self.js, "the in-game Store")):
+                self.assertTrue(f"+{g['bonus_xp']:,} bonus XP" in blob,
+                                f"{where} never promises {tier}'s bonus XP")
+
+    def test_no_price_is_claimed_twice(self):
+        cents = list(ms.SUPPORTER_TIERS_BY_CENTS) + list(ms.COIN_PACKS_BY_CENTS)
+        self.assertEqual(len(cents), len(set(cents)),
+                         "two products share a price, so the webhook cannot tell them apart")
+
+
+class TestAboveTheTopTierIsAConversation(unittest.TestCase):
+    """Over $100 there is no checkout anywhere, by design: both storefronts
+    hand the reader a pre-written message instead."""
+
+    def setUp(self):
+        self.js   = _read("multiplayer", "client", "js", "preview-app.js")
+        self.home = _read("index.html")
+
+    def test_the_cut_off_is_the_dearest_tier(self):
+        self.assertEqual(ms.CUSTOM_TIER_MIN_CENTS, max(ms.SUPPORTER_TIERS_BY_CENTS),
+                         "the 'talk to a human' floor drifted from the top tier's price")
+
+    def test_nothing_over_the_cut_off_is_sold_by_price(self):
+        for cents in list(ms.SUPPORTER_TIERS_BY_CENTS) + list(ms.COIN_PACKS_BY_CENTS):
+            self.assertLessEqual(cents, ms.CUSTOM_TIER_MIN_CENTS)
+
+    def test_both_storefronts_offer_the_template(self):
+        self.assertIn("data-tier-enquiry", self.home,
+                      "index.html has no way into the custom-amount template")
+        self.assertIn("_phstCustomTier", self.js,
+                      "the in-game Store has no way into the custom-amount template")
+
+    def test_the_template_says_exactly_what_to_replace(self):
+        """The whole point of the template is that nothing is left to invent:
+        the name and the amount are named placeholders, in both copies."""
+        for blob, where in ((self.home, "index.html"), (self.js, "preview-app.js")):
+            self.assertIn("[INSERT YOUR NAME HERE]", blob, where)
+            self.assertIn("[INSERT AMOUNT HERE", blob, where)
+
+    def test_an_unreplaced_placeholder_cannot_be_sent(self):
+        """A message that still says INSERT YOUR NAME HERE is one nobody can
+        reply to, so the website form refuses it the way it refuses ____."""
+        self.assertIn(r"/\[INSERT/i", self.home,
+                      "index.html no longer blocks an unfilled [INSERT ...] template")
+
+    def test_the_website_kind_matches_the_server(self):
+        import partner_contact as pc
+        self.assertIn("major", pc.KIND_VALUES)
+        self.assertIn('<option value="major">', self.home)
 
 
 if __name__ == "__main__":

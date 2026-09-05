@@ -75,6 +75,7 @@ KINDS: List[Tuple[str, str]] = [
     ("conservation", "Ocean conservation partnership"),
     ("creator",      "Creator, press or content"),
     ("sponsor",      "Sponsorship or donation"),
+    ("major",        "Supporter contribution over $100"),
     ("event",        "Event, convention or school"),
     ("other",        "Something else"),
 ]

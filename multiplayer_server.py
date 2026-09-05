@@ -789,7 +789,7 @@ ALL_BACKGROUND_PATHS = [
 
 # Map a completed checkout to what it grants, keyed by the order TOTAL in cents
 # (Stripe `amount_total`). This is unambiguous because every product has a
-# distinct price: coin packs $1/$5/$10/$20 and tiers $15/$35/$50.
+# distinct price: coin packs $1/$5/$10/$20 and tiers $15/$35/$50/$75/$100.
 # ⚠️ These cents MUST match the prices on your Stripe Payment Links. If you
 # change a price for launch, update the matching key here. (If you ever add two
 # products that share a price, set metadata.cc_coins / metadata.cc_tier on the
@@ -801,10 +801,22 @@ COIN_PACKS_BY_CENTS = {
     2000: 25000,   # $20.00 → 25,000 coins
 }
 SUPPORTER_TIERS_BY_CENTS = {
-    1500: "wave-warrior",   # $15.00
-    3500: "ocean-ally",     # $35.00
-    5000: "tide-turner",    # $50.00
+    1500:  "wave-warrior",   # $15.00
+    3500:  "ocean-ally",     # $35.00
+    5000:  "tide-turner",    # $50.00
+    7500:  "riptide",        # $75.00
+    10000: "tsunami",        # $100.00  ← the top tier that can be bought
 }
+
+# ABOVE THE TOP TIER THERE IS NO BUTTON, ON PURPOSE.
+# A contribution larger than the Tsunami is a conversation, not a checkout: the
+# perks at that size (multiple copies, a credit, a call) can't be fulfilled by a
+# webhook, and a stranger paying $500 into a Payment Link nobody reads is worse
+# than no button at all. Both storefronts point past this amount at the
+# Partner With Us template instead (index.html #partner-form, and the in-game
+# Store's "Beyond the Tsunami" card), which lands in Tim's inbox with the amount
+# and the sender already written into it.
+CUSTOM_TIER_MIN_CENTS = 10000   # $100: over this, talk to a human
 
 # What each Supporter Tier grants automatically in Firestore. The remaining
 # perks (thank-you email, postcard, physical copy, Supporter Reef Wall name) are
@@ -819,6 +831,8 @@ SUPPORTER_TIERS_BY_CENTS = {
 #                          its coins are what let it choose them.
 #   ocean-ally   15,000  → backgrounds already granted, so ~7 seasonal skins
 #   tide-turner  30,000  → a full year of seasonal skins, plus a buffer
+#   riptide      50,000  → every skin in the shop with room to spare
+#   tsunami      75,000  → the whole catalogue, twice over
 # (There is no "All Backgrounds bundle" product, an old changelog line mentions
 # one at 4,990 coins, but the store only ever sells them one at a time.)
 # Deliberately BELOW the coin-pack rate ($1 = 1,000 coins, best pack 1,250/$):
@@ -832,9 +846,11 @@ SUPPORTER_TIERS_BY_CENTS = {
 # balance on the account (`critter_pass_vouchers`), which is what lets it be
 # traded like Critter Coins: see _trade_clean_offer / _trade_compute_apply.
 SUPPORTER_TIER_GRANTS = {
-    "wave-warrior": {"coins": 7000,  "bonus_xp": 0,     "pass_vouchers": 1, "unlock_all_backgrounds": False, "icons": []},
-    "ocean-ally":   {"coins": 15000, "bonus_xp": 10000, "pass_vouchers": 2, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png"]},
-    "tide-turner":  {"coins": 30000, "bonus_xp": 20000, "pass_vouchers": 5, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
+    "wave-warrior": {"coins": 7000,  "bonus_xp": 1000,  "pass_vouchers": 1,  "unlock_all_backgrounds": False, "icons": []},
+    "ocean-ally":   {"coins": 15000, "bonus_xp": 5000,  "pass_vouchers": 2,  "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png"]},
+    "tide-turner":  {"coins": 30000, "bonus_xp": 7500,  "pass_vouchers": 5,  "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
+    "riptide":      {"coins": 50000, "bonus_xp": 12500, "pass_vouchers": 8,  "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
+    "tsunami":      {"coins": 75000, "bonus_xp": 20000, "pass_vouchers": 15, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
 }
 
 # Player level curve: the CUMULATIVE total_xp required to REACH each level
