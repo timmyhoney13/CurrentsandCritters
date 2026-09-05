@@ -131,7 +131,7 @@ check("retrying re-opens with the same peer",
 check("it is styled, so it is not an unstyled button on a dark overlay",
       CSS.includes("#cc-trade-retry-wrap"));
 const open = slice("async function _trOpen(peerUid, peerName) {", "// The Try again button");
-check("a failed open shows it", /_trShowRetry\(true\)/.test(open));
+check("a failed open shows it", /_trShowRetry\(!busy\)/.test(open));
 check("a successful open hides it again", /_trShowRetry\(false\)/.test(open));
 check("a failed open reports the server's detail", /_trErrFull\(res\)/.test(open));
 check("closing the overlay puts it away",
@@ -150,20 +150,86 @@ check("a voucher row can be removed like a coin row",
       /r\.type === "passes"\) _trSetPasses\(0\)/.test(SRC));
 check("the balance comes off the account document, not stats",
       /function _trMyPasses\(\)[\s\S]{0,200}critter_pass_vouchers/.test(SRC));
-check("four tabs wrap, so the fourth is not pushed off a phone",
+check("the tabs wrap, so the last one is not pushed off a phone",
       /\.cctr-pk-tabs \{[^}]*flex-wrap: wrap/.test(CSS));
 check("the voucher input reuses the coin foot's styling",
       /class="cctr-pk-foot" id="cc-trade-pass-foot"/.test(HTML));
 check("you cannot offer more than you hold",
       /if \(n > have\) \{[\s\S]{0,200}Season Pass voucher/.test(SRC));
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Lifetime XP is offerable, and it is the ONE tradable thing that can leave the
+// giver worse off: it is the number every level is derived from, so handing it
+// over drops levels and can relock level-gated critters. That has to be said on
+// screen BEFORE an amount is set, not discovered afterwards.
+section("XP is offerable, and says what it costs");
+check("the picker has a tab for it", /data-tab="xp"[^>]*>XP</.test(HTML));
+check("with its own amount input", HTML.includes('id="cc-trade-xp-input"'));
+check("and its own Set button", HTML.includes('id="cc-trade-xp-set"'));
+check("both are wired", SRC.includes('on("cc-trade-xp-set"')
+      && /xpInput\.addEventListener\("keydown"/.test(SRC));
+check("the tab renders its own body", /_trPickerTab === "xp"/.test(SRC));
+check("an XP row can be removed like a coin row",
+      /r\.type === "xp"\) _trSetXp\(0\)/.test(SRC));
+check("the balance is LIFETIME xp, read the same way the header reads it",
+      /function _trMyXp\(\)[\s\S]{0,300}getStoredTotalXp/.test(SRC));
+check("you cannot offer more than you have",
+      /if \(n > have\) \{[\s\S]{0,200}You only have " \+ have\.toLocaleString\(\) \+ " XP/.test(SRC));
+const xpPane = slice('if (_trPickerTab === "xp") {', "hideFeet();");
+check("the pane warns that the level goes down",
+      /really does lower your level/.test(xpPane), xpPane);
+check("and that both passes move back with it", /Critter Pass move back/.test(xpPane));
+// Ownership is a GRANTED list (unlocked_icons), not a live level check, so a
+// level that goes down does NOT take an already-unlocked critter with it. The
+// pane must not claim it does: a warning that overstates the cost is still a
+// wrong warning, and this one would stop people making a trade that is safe.
+check("and does NOT claim critters get relocked, because they do not",
+      !/relock/i.test(xpPane), xpPane);
+check("it says the critters you already have stay yours",
+      /already unlocked stay yours/.test(xpPane));
+check("the confirmation names the level you would drop to",
+      /Level " \+ before \+ " → " \+ after/.test(slice("function _trSetXp(", "async function _trDoConfirm")));
+check("an offer of only XP is not treated as an empty offer",
+      _trOfferEmpty({ coins: 0, passes: 0, xp: 500, avatars: [], backgrounds: [] }) === false);
+check("an offer of nothing at all still is",
+      _trOfferEmpty({ coins: 0, passes: 0, xp: 0, avatars: [], backgrounds: [] }) === true);
+check("each side's column shows the XP row",
+      /rows\.push\(\{ type: "xp", xp \}\)/.test(SRC));
+check("and labels it as lifetime XP on both columns",
+      /Lifetime XP, so this moves the level too/.test(SRC));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// The 2026-09-04 outage: Firestore's free daily allowance ran out and every
+// trade said "The trade couldn't be opened. Tap Try again. (ResourceExhausted:
+// 429 Quota exceeded.)". Try again is the one thing that cannot help, because
+// the retry is itself another request against an allowance already spent.
+section("a database that is refusing everybody reads as exactly that");
+check("db_busy has its own sentence",
+      _trErrText("db_busy") !== _trErrText("__nope__"));
+check("it says the whole database, not this trade",
+      /database/i.test(_trErrText("db_busy")));
+check("it says nothing was lost", /nothing was lost/i.test(_trErrText("db_busy")));
+check("it does NOT tell the player to try again",
+      !/try again/i.test(_trErrText("db_busy")), _trErrText("db_busy"));
+check("the raw 429 text is not appended to it",
+      _trErrFull({ error: "db_busy", busy: true,
+                   detail: "ResourceExhausted: 429 Quota exceeded." })
+        === _trErrText("db_busy"));
+check("an ordinary failure still carries its detail",
+      _trErrFull({ error: "open_failed", detail: "ValueError: bad id" })
+        === _trErrText("open_failed") + " (ValueError: bad id)");
+check("open_failed still tells you to try again, because there a retry can work",
+      /try again/i.test(_trErrText("open_failed")));
+check("the Try again button is withheld for a busy database",
+      /const busy = !!\(res && \(res\.error === "db_busy" \|\| res\.busy\)\)/.test(SRC));
+
 section("every offer this client builds carries every field");
 // /api/trade/offer REPLACES a side, so a builder that omits a field wipes it.
 const copy = slice("function _trOfferCopy() {", "function _trToggleItem");
-for (const f of ["coins", "passes", "avatars", "backgrounds"]) {
+for (const f of ["coins", "passes", "xp", "avatars", "backgrounds"]) {
   check(`_trOfferCopy carries ${f}`, new RegExp(`${f}:`).test(copy));
 }
-for (const fn of ["_trToggleItem", "_trSetCoins", "_trSetPasses"]) {
+for (const fn of ["_trToggleItem", "_trSetCoins", "_trSetPasses", "_trSetXp"]) {
   const body = slice(`function ${fn}(`, "\n    }\n");
   check(`${fn} starts from _trOfferCopy()`, body.includes("_trOfferCopy()"), body);
 }

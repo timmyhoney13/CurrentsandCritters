@@ -28826,10 +28826,10 @@
           + (lvl != null ? " (Level " + lvl + ")" : "") + ". "
           + (have
              ? "This is your LIFETIME XP, the number your level is worked out from, "
-             + "so trading it away lowers your level and can relock critters you "
-             + "unlocked by levelling. It moves both passes too. Nothing is hidden "
-             + "and nothing is refunded: you can earn it back by playing. Enter how "
-             + "much to include in this trade."
+             + "so trading it away really does lower your level, and both the Level "
+             + "Pass and the Critter Pass move back with it. Critters you have "
+             + "already unlocked stay yours. Nothing is refunded: you earn it back "
+             + "by playing. Enter how much to include in this trade."
              : "You have no XP to trade yet. Finish a game and it starts adding up.")
           + "</div>";
         hideFeet();
