@@ -59,14 +59,26 @@ _find_uid_by_username: Optional[Callable[[Any, str], Optional[str]]] = None
 _max_level: int = 100
 
 
+_pass_carry_updates: Optional[Callable[..., Dict[str, Any]]] = None
+
+
 def init(*, get_firestore, verify_token, level_progress, max_level,
-         find_uid_by_username=None) -> None:
+         find_uid_by_username=None, pass_carry_updates=None) -> None:
+    """`pass_carry_updates(doc, new_total_xp)` is critter_pass_server's
+    season_carry_updates, injected rather than imported so neither module knows
+    the other exists. Prestige resets stats.total_xp to zero, and the Critter
+    Pass measures its season as a DELTA against that number, so the only moment
+    a season climb can be carried across the reset is inside THIS transaction:
+    afterwards the delta is gone. Optional, and a missing one only means the
+    pass freezes until its own read path repairs it, never that it goes
+    negative."""
     global _get_firestore, _verify_token, _level_progress, _max_level
-    global _find_uid_by_username
+    global _find_uid_by_username, _pass_carry_updates
     _get_firestore = get_firestore
     _verify_token = verify_token
     _level_progress = level_progress
     _find_uid_by_username = find_uid_by_username
+    _pass_carry_updates = pass_carry_updates
     _max_level = int(max_level)
 
 
@@ -1065,6 +1077,16 @@ def _commit(db, uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
             "unlocked_icons": surviving,
             "stats": stats_update,
         }
+        # A Critter Pass season is measured as XP earned since the pass was
+        # unlocked, i.e. as a delta against the total_xp being zeroed on the
+        # line above. Fold it here, in the same write, or the player loses a
+        # climb they paid 4,000 coins for. Returns {} for an account with no
+        # pass, so this is unconditional on purpose.
+        if _pass_carry_updates:
+            try:
+                updates.update(_pass_carry_updates(udoc, 0) or {})
+            except Exception as exc:  # noqa: BLE001
+                print(f"[prestige] critter pass carry failed for {uid}: {exc}")
         if next_avatar != udoc.get("avatar_url"):
             updates["avatar_url"] = next_avatar
 

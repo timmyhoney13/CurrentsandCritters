@@ -1,9 +1,9 @@
 """Currents and Critters, the Critter Pass (server-authoritative).
 
-The PAID track that sits under the free Level Pass. Both are laid over the same
-1-100 level curve; the difference is that this one has to be bought once, for
-CRITTER_PASS_PRICE Critter Coins, and pays far more back. Wired additively into
-multiplayer_server exactly like level_pass_server / clan_server / prestige_server:
+The PAID track that sits under the free Level Pass, bought once for
+CRITTER_PASS_PRICE Critter Coins (or one Season Pass voucher) and paying far
+more back. Wired additively into multiplayer_server exactly like
+level_pass_server / clan_server / prestige_server:
 
     import critter_pass_server
     critter_pass_server.init(get_firestore=..., verify_token=...,
@@ -13,25 +13,55 @@ multiplayer_server exactly like level_pass_server / clan_server / prestige_serve
 
 This is the "premium row" level_pass_server.py's docstring anticipated: every
 Level Pass tier carries row "free" so that a paid track would be one entitlement
-check away. That check is _owns_pass() below, and it is the only structural
-difference between the two files.
+check away. That check is _owns_pass() below.
 
-WHY IT IS A ONE-TIME PURCHASE AND NOT A REBUYABLE SEASON
-The track is keyed on the account's LIFETIME level, not on XP earned inside a
-season, because that is the only level this game stores. A pass that could be
-re-bought each season would therefore pay a level-100 player the whole 8,500
-coins for 4,000, again, every season: a coin printer, not a battle pass. So the
-purchase is once, ever, per SEASON_ID, and SEASON_ID is a constant that only
-moves when a genuinely new track ships beside this one. Everything (the price,
-the ledger ids, the ownership array) is already keyed by it, so Season 2 is a
-new constant and a new _TRACK_SPEC, not a rewrite.
+THE PASS LEVEL IS NOT THE ACCOUNT LEVEL. THIS IS THE WHOLE DESIGN.
+The Level Pass is laid over the account's LIFETIME level: 250,000 XP to reach
+100, tuned at roughly seven months for a dedicated player. That curve is the
+right shape for a lifetime track and the wrong shape for a season, so this file
+does NOT reuse it. A Critter Pass tier is gated on a SEASON LEVEL of its own:
+
+    season XP  = the XP this account has earned SINCE it unlocked the pass
+    pass level = season XP / SEASON_XP_PER_LEVEL + 1, capped at PASS_MAX_LEVEL
+
+A flat SEASON_XP_PER_LEVEL, deliberately: "every pass level costs the same" is
+a promise a player can hold in their head, and it makes the rail's progress bar
+mean exactly what it looks like. The whole climb is SEASON_XP_TO_MAX, of which
+the track's own XP drops pay TRACK_XP_BUDGET back, so the XP a player has to go
+out and EARN is the difference: SEASON_DAYS days at roughly the same daily rate
+the 250,000 lifetime curve was tuned around. Thirty days instead of seven
+months, for the same effort per day. test_the_pass_is_a_thirty_day_climb pins
+that arithmetic, because "doable in 30 days" is printed on the page.
+
+Measuring from unlock rather than from the account's lifetime XP is also what
+makes the track safe to re-run. Keyed on lifetime level, a re-buyable season
+would pay a level-100 player the whole 8,500 coins for 4,000 again, every
+season: a coin printer, not a battle pass. Keyed on season XP, every buyer
+starts at pass level 1 and has to play for it, so Season 2 is a new SEASON_ID
+plus a new _TRACK_SPEC and nothing else.
+
+HOW SEASON XP IS STORED, AND WHY IT IS NOT A COUNTER
+Nothing in this game increments a "season XP" number: XP is awarded down a
+dozen paths that all end at `stats.total_xp`. So season XP is a DELTA, folded
+into a per-season record on the account document:
+
+    critter_pass_season: { "<season>": { "xp": <folded>, "mark": <total_xp> } }
+    season XP = xp + max(0, total_xp - mark)
+
+which needs no change to a single XP award path. The `max(0, …)` matters:
+total_xp can go DOWN (Prestige resets it to zero), and a bare subtraction would
+turn a paid-for climb negative. A drop is handled by folding the progress into
+`xp` and re-marking, which Prestige does inside its own reset transaction
+through season_carry_updates() and which _repair_season() does as a backstop.
+Between a drop and its fold the climb FREEZES rather than vanishing or
+inflating, which is the safe direction in both.
 
 WHY THE SERVER OWNS THIS
 Same reason as the Level Pass, doubled: 8,500 Critter Coins, 23,750 XP, extra
-challenge slots and a 2,000-coin avatar are on this track. The account's level
-is RE-DERIVED here from `stats.total_xp` on its own document, inside the same
-transaction that writes the reward, and the purchase re-reads the coin balance
-inside its own transaction. Nothing the browser sends can move a payout.
+challenge slots and a 2,000-coin avatar are on this track. Season XP is
+RE-DERIVED here from `stats.total_xp` on the account's own document, inside the
+same transaction that writes the reward, and the purchase re-reads the coin
+balance inside its own transaction. Nothing the browser sends can move a payout.
 
 EXACTLY ONCE, EVER
 Two ledgers, both written with create() INSIDE the transaction they guard:
@@ -144,6 +174,55 @@ CRITTER_PASS_PRICE = 4000
 # without noticing the page now lies.
 TRACK_COIN_BUDGET = 8500     # 4,000 in → 8,500 back
 TRACK_XP_BUDGET = 23750
+
+# ── THE PASS LEVEL CURVE ────────────────────────────────────────────────────
+# This track's own weighting, and the reason this file no longer reads
+# LEVEL_XP_TOTALS to gate a tier. See the docstring: pass levels are bought with
+# SEASON XP (earned since unlock), not with the account's lifetime XP.
+#
+# FLAT, on purpose. The lifetime curve ramps (cost ∝ √L, 1,650 XP a level at 15
+# rising to 3,800 at 100) because it is a seven-month climb and the late levels
+# have to stay worth something. A season is thirty days: a player should be able
+# to look at the bar, see "600", and know that every one of the ninety-nine
+# level-ups ahead costs exactly that. It also means the rail's progress bar is
+# honest at every point on the track instead of only near the start.
+PASS_MAX_LEVEL = 100
+SEASON_XP_PER_LEVEL = 600
+SEASON_XP_TO_MAX = SEASON_XP_PER_LEVEL * (PASS_MAX_LEVEL - 1)   # 59,400
+
+# THE 30-DAY PROMISE, as arithmetic rather than a slogan.
+# The track pays TRACK_XP_BUDGET of the climb back through its own XP drops (and
+# those count: a drop is real XP on stats.total_xp, so it moves the pass as well
+# as the account), which leaves this much for the player to actually go and earn:
+SEASON_XP_TO_EARN = SEASON_XP_TO_MAX - TRACK_XP_BUDGET          # 35,650
+# …spread over the season, which is the daily rate the page quotes. It lands
+# within a couple of percent of the ~1,175 XP a day the 250,000 lifetime curve
+# was measured against, which is the point: the Critter Pass asks for the SAME
+# day's play as the Level Pass and gives you 100 levels for thirty of them
+# instead of a hundred for seven months. test_the_pass_is_a_thirty_day_climb
+# pins it, so a retune that quietly doubles the climb fails there first.
+SEASON_XP_PER_DAY = SEASON_XP_TO_EARN // SEASON_DAYS            # 1,188
+
+
+def season_progress(season_xp: Any) -> tuple:
+    """(pass level, XP into that level, XP the level costs) for a season XP
+    total. The shape mirrors _level_progress_for_total_xp so the client can
+    paint the two bars with the same code, and a capped pass reports a FULL
+    level (goal, goal) rather than (0, goal), or the bar empties at 100."""
+    xp = max(0, _int(season_xp))
+    level = min(PASS_MAX_LEVEL, xp // SEASON_XP_PER_LEVEL + 1)
+    if level >= PASS_MAX_LEVEL:
+        return (PASS_MAX_LEVEL, SEASON_XP_PER_LEVEL, SEASON_XP_PER_LEVEL)
+    return (level, xp - (level - 1) * SEASON_XP_PER_LEVEL, SEASON_XP_PER_LEVEL)
+
+
+def season_xp_to_reach(level: Any) -> int:
+    """The season XP that REACHES `level`. Level 1 is free, level 100 is the
+    whole climb, and it is clamped at both ends so a caller cannot ask for a
+    level off the end of the track and get a negative answer."""
+    lvl = max(1, min(PASS_MAX_LEVEL, _int(level, 1)))
+    return (lvl - 1) * SEASON_XP_PER_LEVEL
+
 
 # The extra challenge slots. Three tiers grant a daily each and three grant a
 # weekly each, so the cap IS the number of tiers: the clamp exists so a future
@@ -539,6 +618,153 @@ def _owns_pass(doc: Dict[str, Any]) -> bool:
     return False
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  SEASON XP: THIS TRACK'S OWN PROGRESSION
+# ═══════════════════════════════════════════════════════════════════════════
+# One field on the account document, keyed by season so a future track starts
+# its own climb without touching this one:
+#
+#   critter_pass_season: { "S1": { "xp": <folded>, "mark": <total_xp then> } }
+#
+# and season XP is `xp + max(0, total_xp - mark)`. The delta is what makes this
+# free: every XP path in the game already ends at stats.total_xp, so none of
+# them had to learn about the pass.
+SEASON_FIELD = "critter_pass_season"
+
+
+def _season_record(doc: Dict[str, Any]) -> Optional[Dict[str, int]]:
+    """This account's folded record for the CURRENT season, or None when it has
+    never had one. None is not zero: see _grandfathered_xp."""
+    seasons = doc.get(SEASON_FIELD)
+    rec = seasons.get(SEASON_ID) if isinstance(seasons, dict) else None
+    if not isinstance(rec, dict):
+        return None
+    return {"xp": max(0, _int(rec.get("xp"))), "mark": max(0, _int(rec.get("mark")))}
+
+
+def _grandfathered_xp(doc: Dict[str, Any]) -> int:
+    """What an owner with no season record is worth, and the ONLY place the
+    account's lifetime level still gates a Critter Pass tier.
+
+    The pass shipped keyed on lifetime level, so anybody who bought it under
+    those rules paid 4,000 coins for "every level you have already earned
+    counts". Starting them from pass level 1 would take back something they had
+    already been sold. So an owner whose record is missing is credited with
+    exactly the climb their account level had already bought them, once, and
+    from then on they are on the season curve like everybody else.
+
+    A NON-owner is worth zero: the locked track is a sales pitch and it should
+    show what a new buyer would really start from, which is level 1."""
+    if not _owns_pass(doc):
+        return 0
+    return season_xp_to_reach(min(PASS_MAX_LEVEL, _level_of(doc)))
+
+
+def _season_xp(doc: Dict[str, Any]) -> int:
+    """Season XP as of this document. Pure: no writes, no clock, no request
+    data. `max(0, …)` on the delta is load-bearing, not defensive: Prestige
+    resets total_xp to zero and a bare subtraction would go negative and wipe a
+    paid-for climb. A total_xp that has moved DOWN freezes the climb at the last
+    fold instead, and season_carry_updates() / _repair_season() unfreeze it."""
+    rec = _season_record(doc)
+    if rec is None:
+        return _grandfathered_xp(doc)
+    total = _int(_stats_of(doc).get("total_xp"))
+    return max(0, rec["xp"] + max(0, total - rec["mark"]))
+
+
+def _pass_progress(doc: Dict[str, Any]) -> tuple:
+    """(pass level, XP into it, XP it costs). THE gate for every tier."""
+    return season_progress(_season_xp(doc))
+
+
+def _pass_level_of(doc: Dict[str, Any]) -> int:
+    return int(_pass_progress(doc)[0])
+
+
+def season_carry_updates(doc: Dict[str, Any], new_total_xp: Any = 0) -> Dict[str, Any]:
+    """The Firestore update that carries a season climb across a total_xp RESET.
+
+    Public because Prestige is the thing that resets total_xp, and it has to
+    fold inside its OWN transaction: by the time anything else looks, total_xp
+    is zero and the delta since the last mark is unrecoverable. multiplayer_server
+    injects this into prestige_server.init(), so neither module imports the
+    other. Returns {} for an account with no pass, so the caller can merge it
+    unconditionally.
+
+    It is idempotent: folding a record that is already folded rewrites the same
+    two numbers."""
+    if not _owns_pass(doc):
+        return {}
+    return _season_write(_season_xp(doc), new_total_xp)
+
+
+def _season_write(season_xp: Any, mark_total_xp: Any) -> Dict[str, Any]:
+    """One shape for every write to the season record, so the fold, the repair,
+    the purchase and Prestige can never store it three different ways."""
+    return {SEASON_FIELD: {SEASON_ID: {
+        "xp": max(0, _int(season_xp)),
+        "mark": max(0, _int(mark_total_xp)),
+    }}}
+
+
+def _needs_fold(doc: Dict[str, Any]) -> bool:
+    """Does this owner's record need writing before it can be trusted to keep
+    counting? Two cases, and only these two:
+
+      • no record at all  → an account that owns the pass from before the season
+                            curve existed, or one whose write was lost. Fold to
+                            grandfather it in.
+      • total_xp < mark   → total_xp was reset underneath us (Prestige, or an
+                            admin XP correction). The climb is frozen until the
+                            mark comes back down.
+
+    Normal play never lands here: total_xp only goes up, and the delta handles
+    that without a write."""
+    if not _owns_pass(doc):
+        return False
+    rec = _season_record(doc)
+    if rec is None:
+        return True
+    return _int(_stats_of(doc).get("total_xp")) < rec["mark"]
+
+
+def _repair_season(db, uid: str, doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Write the fold _needs_fold asked for, and hand back the repaired doc.
+
+    A backstop, not the main path: Prestige folds inside its own transaction and
+    a claim folds inside its own, so this fires once for a grandfathered owner
+    and after a reset that somehow reached here unfolded. It is a transaction
+    because a claim may be folding the same field at the same moment, and it
+    re-reads inside so it cannot overwrite a fresher fold with a staler one."""
+    transactional = _transactional()
+    user_ref = _users(db).document(uid)
+    txn = db.transaction()
+
+    @transactional
+    def _run(t) -> Dict[str, Any]:
+        snap = user_ref.get(transaction=t)
+        if not snap.exists:
+            return {}
+        fresh = snap.to_dict() or {}
+        if not _needs_fold(fresh):
+            return fresh
+        total = _int(_stats_of(fresh).get("total_xp"))
+        update = _season_write(_season_xp(fresh), total)
+        t.set(user_ref, update, merge=True)
+        fresh[SEASON_FIELD] = dict(fresh.get(SEASON_FIELD) or {})
+        fresh[SEASON_FIELD][SEASON_ID] = dict(update[SEASON_FIELD][SEASON_ID])
+        return fresh
+
+    try:
+        return _run(txn) or doc
+    except Exception as exc:  # noqa: BLE001
+        # A failed repair must not break the page: the un-repaired document
+        # still reads as a frozen climb, never as a lost one.
+        print(f"[critterpass] season repair failed for {uid}: {exc}")
+        return doc
+
+
 def _vouchers_of(doc: Dict[str, Any]) -> int:
     """How many Critter Pass vouchers this account is holding.
 
@@ -669,9 +895,22 @@ def state_payload(uid: Optional[str]) -> Dict[str, Any]:
         "extraWeeklyMax": MAX_EXTRA_WEEKLY,
         "finaleAvatar": FINALE_AVATAR,
         "finaleAvatarName": FINALE_AVATAR_NAME,
-        # The cumulative XP to REACH each level, index 0 = level 1. Served so
-        # the pass can say "12,400 XP until the gull" from the same numbers the
-        # server levels people up with.
+        # ── THE PASS CURVE, served rather than copied into the client ────────
+        # Every "N XP to go" on the rail is computed from these three numbers,
+        # so a retune moves the whole page at once instead of leaving the cards
+        # quoting a curve the server no longer gates on.
+        "passMaxLevel": PASS_MAX_LEVEL,
+        "seasonXpPerLevel": SEASON_XP_PER_LEVEL,
+        "seasonXpToMax": SEASON_XP_TO_MAX,
+        # The 30-day promise, as the two numbers behind it: what the player has
+        # to EARN once the track's own XP drops are counted, and the daily rate
+        # that turns into. The page prints them; it does not compute them.
+        "seasonXpToEarn": SEASON_XP_TO_EARN,
+        "seasonXpPerDay": SEASON_XP_PER_DAY,
+        # The cumulative ACCOUNT XP to reach each account level, index 0 = level
+        # 1. Nothing on this track is gated on it any more; it is served so the
+        # page can show the account level beside the pass level without a second
+        # copy of the lifetime table.
         "levelTotals": list(_level_totals),
         # The hoard caps, served rather than copied into the client, so the
         # badge and the payout agree on what "full" means.
@@ -680,6 +919,13 @@ def state_payload(uid: Optional[str]) -> Dict[str, Any]:
         "boostHours": BOOST_HOURS,
         "signedIn": bool(uid),
         "owned": False,
+        # The PASS level and its bar: what gates every tier.
+        "passLevel": 1,
+        "seasonXp": 0,
+        "passXpIntoLevel": 0,
+        "passXpForLevel": SEASON_XP_PER_LEVEL,
+        # The ACCOUNT level, for the chip that stops "Pass Level 1" reading as a
+        # bug on a level-47 account. It gates nothing here.
         "level": 1,
         "totalXp": 0,
         "xpIntoLevel": 0,
@@ -698,12 +944,23 @@ def state_payload(uid: Optional[str]) -> Dict[str, Any]:
     try:
         snap = _users(db).document(uid).get()
         doc = (snap.to_dict() or {}) if snap.exists else {}
+        # The one write on the read path, and it fires at most once per account
+        # per reset: a grandfathered owner or an account whose total_xp was
+        # pulled out from under the season record. See _needs_fold.
+        if _needs_fold(doc):
+            doc = _repair_season(db, uid, doc)
         total_xp = _int(_stats_of(doc).get("total_xp"))
         level, into, goal = (_level_for_xp(total_xp) if _level_for_xp else (1, 0, 1))
         out["level"] = max(1, int(level))
         out["totalXp"] = total_xp
         out["xpIntoLevel"] = int(into)
         out["xpForLevel"] = int(goal)
+        season_xp = _season_xp(doc)
+        p_lvl, p_into, p_goal = season_progress(season_xp)
+        out["seasonXp"] = season_xp
+        out["passLevel"] = p_lvl
+        out["passXpIntoLevel"] = p_into
+        out["passXpForLevel"] = p_goal
         out["owned"] = _owns_pass(doc)
         out["inventory"] = _inventory(doc)
         # Only an owner has claims worth a query. A non-owner's list is empty by
@@ -761,6 +1018,7 @@ def buy(db, uid: str, use_voucher: bool = False) -> Dict[str, Any]:
             t.set(user_ref, {
                 "critter_pass_vouchers": after_v,
                 "critter_pass_seasons": _array_union()([SEASON_ID]),
+                **_season_write(0, _int(_stats_of(doc).get("total_xp"))),
             }, merge=True)
             t.create(buy_ref, {
                 "uid": uid,
@@ -776,7 +1034,8 @@ def buy(db, uid: str, use_voucher: bool = False) -> Dict[str, Any]:
                 "at_iso": _iso(now),
             })
             return {"ok": True, "season": SEASON_ID, "paid": 0,
-                    "paidWith": "voucher", "coins": have, "vouchers": after_v}
+                    "paidWith": "voucher", "coins": have, "vouchers": after_v,
+                    "passLevel": 1, "seasonXp": 0}
         if have < CRITTER_PASS_PRICE:
             return {"ok": False, "error": "not_enough_coins",
                     "have": have, "need": CRITTER_PASS_PRICE,
@@ -786,6 +1045,11 @@ def buy(db, uid: str, use_voucher: bool = False) -> Dict[str, Any]:
             # merge=True, so the coin write never clobbers the rest of `stats`.
             "stats": {"critter_coins": after},
             "critter_pass_seasons": _array_union()([SEASON_ID]),
+            # The climb starts HERE, at zero, marked against the XP the account
+            # is standing on. Written in the same transaction as the
+            # entitlement, so an owner can never exist without a start line and
+            # _grandfathered_xp can never mistake a fresh buyer for a legacy one.
+            **_season_write(0, _int(_stats_of(doc).get("total_xp"))),
         }, merge=True)
         t.create(buy_ref, {
             "uid": uid,
@@ -799,7 +1063,8 @@ def buy(db, uid: str, use_voucher: bool = False) -> Dict[str, Any]:
             "at_iso": _iso(now),
         })
         return {"ok": True, "season": SEASON_ID, "paid": CRITTER_PASS_PRICE,
-                "paidWith": "coins", "coins": after, "vouchers": vouchers}
+                "paidWith": "coins", "coins": after, "vouchers": vouchers,
+                "passLevel": 1, "seasonXp": 0}
 
     try:
         return _run(txn)
@@ -850,14 +1115,24 @@ def claim(db, uid: str, tier_id: str) -> Dict[str, Any]:
         if not _owns_pass(doc):
             # Read off the account inside the transaction, not off the request.
             return {"ok": False, "error": "not_owned"}
-        level = _level_of(doc)
+        level = _pass_level_of(doc)
         if level < need_level:
-            # The check that makes the whole feature safe: the level came off
-            # this account's own total_xp a few lines ago, not off the request.
+            # The check that makes the whole feature safe: the PASS level came
+            # off this account's own season XP a few lines ago (which came off
+            # its own total_xp), not off the request.
             return {"ok": False, "error": "level_locked", "level": level, "need": need_level}
 
         update: Dict[str, Any] = {}
         granted: Dict[str, Any] = {"type": rtype, "amount": amount}
+
+        # A pending fold rides along in this transaction for free: a
+        # grandfathered owner's record is written the first time they claim,
+        # and a post-Prestige mark comes back down here as well as on the read
+        # path. Computed from the doc AS READ, before the XP branch below moves
+        # total_xp, or an XP drop would mark itself out of its own season.
+        if _needs_fold(doc):
+            update.update(_season_write(_season_xp(doc),
+                                        _int(_stats_of(doc).get("total_xp"))))
 
         if rtype == "coins":
             before = max(0, _int(_stats_of(doc).get("critter_coins")))
@@ -880,7 +1155,10 @@ def claim(db, uid: str, tier_id: str) -> Dict[str, Any]:
                 "xp_current": int(xp_cur), "level_xp_current": int(xp_cur),
                 "xp_goal": int(xp_goal), "level_xp_goal": int(xp_goal),
             }
-            granted.update({"xp": amount, "xpTotal": after, "level": int(lvl)})
+            # An XP drop is season XP as well as account XP, which is exactly
+            # what makes the late track accelerate: it is why claim_all loops.
+            granted.update({"xp": amount, "xpTotal": after, "level": int(lvl),
+                            "passLevel": season_progress(_season_xp(doc) + amount)[0]})
 
         elif rtype == "shield":
             held = max(0, _int(doc.get("streak_shields")))
@@ -960,6 +1238,11 @@ def claim(db, uid: str, tier_id: str) -> Dict[str, Any]:
             "type": rtype,
             "amount": amount,
             "granted": {k: v for k, v in granted.items() if k != "type"},
+            # The PASS level at payout. Recorded because the account level is no
+            # longer what unlocked this, so a support question about a tier can
+            # be answered from the ledger alone.
+            "pass_level": level,
+            "season_xp": _season_xp(doc),
             "username": str(doc.get("nickname") or doc.get("username") or ""),
             "at": now,
             "at_iso": _iso(now),
@@ -1014,8 +1297,9 @@ def claim_all(db, uid: str) -> Dict[str, Any]:
     leaves every other payout intact. A partial result is reported honestly
     instead of rolling back rewards that were legitimately earned.
 
-    The outer loop exists for the XP tiers: claiming 1,900 XP can raise the
-    account's level, which unlocks tiers that were locked when the sweep began.
+    The outer loop exists for the XP tiers: an XP drop is season XP too, so
+    claiming 2,375 of it raises the PASS level by four and unlocks tiers that
+    were locked when the sweep began.
 
     Pays at most CLAIM_ALL_LIMIT tiers and then reports `more: True`. The caller
     is expected to ask again; everything already paid is paid, and the ledger
@@ -1029,6 +1313,11 @@ def claim_all(db, uid: str) -> Dict[str, Any]:
         doc = snap.to_dict() or {}
         if not _owns_pass(doc):
             return {"ok": False, "error": "not_owned"}
+        # Fold before the sweep, not during it: every pass below re-reads the
+        # pass level, and a frozen record would have the whole sweep measuring
+        # the wrong climb.
+        if _needs_fold(doc):
+            _repair_season(db, uid, doc)
     except Exception as exc:  # noqa: BLE001
         print(f"[critterpass] claim_all read failed for {uid}: {exc}")
         return {"ok": False, "error": "server_error"}
@@ -1041,7 +1330,7 @@ def claim_all(db, uid: str) -> Dict[str, Any]:
     for _ in range(_CLAIM_ALL_PASSES):
         try:
             snap = _users(db).document(uid).get()
-            level = _level_of(snap.to_dict() or {}) if snap.exists else 0
+            level = _pass_level_of(snap.to_dict() or {}) if snap.exists else 0
         except Exception as exc:  # noqa: BLE001
             print(f"[critterpass] claim_all level read failed for {uid}: {exc}")
             break

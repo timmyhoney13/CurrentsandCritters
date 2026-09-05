@@ -253,6 +253,81 @@ check("every board the client asks for is one the server allows",
       {f for f, _ in (literal | computed)} <= M._LB_BOARD_FIELDS,
       str({f for f, _ in (literal | computed)} - M._LB_BOARD_FIELDS))
 
+# ── The STANDING read cost: what runs when nobody is playing ────────────────
+# A TTL here is not "how fresh is this answer". The sweeper keeps refreshing
+# any key asked for in the last keep_warm_window, so while ONE person has the
+# homepage open these queries run on a timer forever, and the TTL is how often.
+# At 30s/45s that was ~15k reads a day against a 50k free ceiling, spent with
+# nobody playing. It ran out on 2026-09-04 and took XP, game history and both
+# passes with it (they all hang off the same account doc).
+print("\nthe standing read cost, with nobody playing")
+check("live counts are not re-queried every half minute",
+      M._LIVE_COUNTS_TTL_SEC >= 120.0, f"ttl={M._LIVE_COUNTS_TTL_SEC}")
+check("...but are still fresh enough to call 'online now'",
+      M._LIVE_COUNTS_TTL_SEC <= 300.0, f"ttl={M._LIVE_COUNTS_TTL_SEC}")
+check("the supporter wall is not re-queried every 45 seconds",
+      M._WALL_TTL_SEC >= 300.0, f"ttl={M._WALL_TTL_SEC}")
+
+# An unreadable Firestore makes _build_supporter_wall return []. Caching that
+# blanks the wall AND drops the homepage donation total to $0 for the whole
+# TTL, during exactly the outage when supporters go looking.
+M._WALL_CACHE["data"] = [{"displayName": "Reef Keeper", "amountCents": 5000}]
+M._WALL_CACHE["at"] = 0.0                      # force it past the TTL
+_real_build = M._build_supporter_wall
+try:
+    M._build_supporter_wall = lambda: []       # "I could not read Firestore"
+    kept = M._supporter_wall_cached()
+    check("an unreadable wall keeps the last good names, not an empty page",
+          kept and kept[0]["displayName"] == "Reef Keeper", repr(kept))
+finally:
+    M._build_supporter_wall = _real_build
+    M._WALL_CACHE["data"], M._WALL_CACHE["at"] = None, 0.0
+
+# A longer TTL is only safe because every event that changes the wall drops it.
+# The Stripe webhook is the one that matters: a clean public name is approved
+# AND visible the moment it is paid for, with no admin step behind which the
+# cache would have been rebuilt anyway, and the donor is the person most likely
+# to go looking immediately.
+SRV = open(os.path.join(ROOT, "multiplayer_server.py"), encoding="utf-8").read()
+_after_txn = SRV.split("result = _apply(transaction)", 1)
+check("the checkout webhook exists to hang the invalidation off", len(_after_txn) == 2)
+check("a new supporter drops the wall cache, so the TTL never delays a donor",
+      len(_after_txn) == 2
+      and re.search(r'if result != "duplicate":\s*\n\s*_WALL_CACHE\["data"\] = None',
+                    _after_txn[1]) is not None)
+check("...after the commit, never inside the transaction",
+      len(_after_txn) == 2 and '_WALL_CACHE["data"] = None' not in _after_txn[0].rsplit(
+          "def _apply(txn)", 1)[-1])
+
+# The homepage half. A poller that keeps running in a hidden tab is the thing
+# that actually spent the quota, and one that refetches on every tab flip is
+# the same runaway wearing a hat.
+HOME = open(os.path.join(ROOT, "index.html"), encoding="utf-8").read()
+check("the homepage pollers are visibility-gated",
+      re.search(r"function pollWhileVisible\(fn, ms\)", HOME) is not None)
+check("a hidden tab stops its timer outright",
+      re.search(r"if \(document\.hidden\) \{ stop\(\); return; \}", HOME) is not None)
+check("returning to the tab catches up",
+      re.search(r"Date\.now\(\) - lastRun >= MIN_REFETCH_MS\) run\(\)", HOME) is not None)
+check("...but a burst of tab flips cannot become a burst of requests",
+      re.search(r"MIN_REFETCH_MS = (\d+)", HOME) is not None
+      and int(re.search(r"MIN_REFETCH_MS = (\d+)", HOME).group(1)) >= 5000)
+check("neither poller is left on a bare interval",
+      not re.search(r"setInterval\(\s*(refreshRenderStats|refreshSupporterWall)", HOME))
+check("both of them go through the gate",
+      len(re.findall(r"pollWhileVisible\((refreshRenderStats|refreshSupporterWall),", HOME)) == 2)
+check("a page opened in a background tab fetches nothing",
+      re.search(r"if \(!document\.hidden\) \{ run\(\); start\(\); \}", HOME) is not None)
+
+# The admin dashboard's live panel costs a full users scan on the server.
+ANA = open(os.path.join(ROOT, "multiplayer/client/js/analytics-ui.js"),
+           encoding="utf-8").read()
+check("a hidden analytics dashboard stops rescanning every account",
+      re.search(r"if \(document\.hidden\) return;\s*\n\s*const res = await post\(\"overview\"\)",
+                ANA) is not None)
+check("...and re-opening it cannot stack a second live timer",
+      re.search(r"clearInterval\(S\.liveTimer\);\s*\n\s*S\.liveTimer = setInterval", ANA) is not None)
+
 print("=" * 46)
 print(f"RESULT: {PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)

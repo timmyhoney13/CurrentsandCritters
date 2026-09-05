@@ -1603,19 +1603,28 @@ updateBetaBarClear();
   // catches up the moment it is looked at again, which is the only moment the
   // freshness was ever worth anything.
   const LIVE_POLL_MS = 300000;   // 5 min: these are slow counters, not a scoreboard
+  // Coming back to the tab refetches at once, EXCEPT within this window of the
+  // last fetch. Flipping between two tabs is not new information, and without
+  // a floor a person moving back and forth turns one poller into one request
+  // per flip, which is the same runaway this whole block exists to remove.
+  // Short enough that a real return (away for longer than a glance) still
+  // refreshes immediately rather than waiting out the 5 minute interval.
+  const MIN_REFETCH_MS = 15000;
   function pollWhileVisible(fn, ms) {
-    let timer = null;
+    let timer = null, lastRun = 0;
+    const run   = () => { lastRun = Date.now(); fn(); };
     const stop  = () => { if (timer) { clearInterval(timer); timer = null; } };
-    const start = () => { if (!timer) timer = setInterval(fn, ms); };
+    const start = () => { if (!timer) timer = setInterval(run, ms); };
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) { stop(); return; }
-      fn();                      // catch up on whatever was missed while hidden
+      if (Date.now() - lastRun >= MIN_REFETCH_MS) run();   // catch up on the way in
       start();
     });
-    if (!document.hidden) start();
+    // A page that opens in a background tab fetches nothing until it is looked
+    // at: the cached values from the last visit are already on screen.
+    if (!document.hidden) { run(); start(); }
   }
 
-  refreshRenderStats();
   pollWhileVisible(refreshRenderStats, LIVE_POLL_MS);
 
   // ── Supporter Reef Wall names ("Backed By People Who Care") ──────────
@@ -1688,7 +1697,6 @@ updateBetaBarClear();
       writeCachedStats(saved);
     } catch (_) { /* server sleeping, leave the scene as-is */ }
   }
-  refreshSupporterWall();
   pollWhileVisible(refreshSupporterWall, LIVE_POLL_MS);
 
   // Touchscreens have no :hover state, so the CSS popup (.scn-name::after)

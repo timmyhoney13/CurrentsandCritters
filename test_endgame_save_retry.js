@@ -55,8 +55,8 @@ check("it stands down for a session with no account to save to",
 check("it never fights the attempt already in flight", /if \(_saveInFlight\) return;/.test(APP));
 check("it gives up into a button rather than retrying forever",
       /_END_SAVE_MAX_TRIES/.test(APP));
-check("coming back online retries immediately",
-      /addEventListener\("online"[\s\S]{0,320}_endSaveRetryNow\(\)/.test(APP));
+check("coming back online retries immediately (a reachability failure)",
+      /addEventListener\("online"[\s\S]{0,900}_endSaveRetryNow\(\)/.test(APP));
 check("the retry also re-pulls room state, which the same drop interrupted",
       /_endSaveRetryNow[\s\S]{0,700}refreshState\(\)/.test(APP));
 
@@ -118,6 +118,11 @@ check("but the room poll keeps running while the save waits",
       /if \(Date\.now\(\) < _endSaveNextTryAt\) \{[\s\S]{0,400}refreshState\(\)/.test(APP));
 check("a person pressing Retry outranks the back-off",
       /_endSaveNextTryAt = 0;[\s\S]{0,120}_endSaveRetryNow\(\)/.test(APP));
+// "online" also zeroes _endSaveTries, so honouring every flap would strip the
+// bound AND the wait at once and put the 4-second hammering straight back.
+// Wifi returning says nothing about a database that refused on quota.
+check("a flapping connection cannot bypass the back-off",
+      /if \(_endSaveIsBusy\(\)\) return;[\s\S]{0,80}_endSaveTries = 0;/.test(APP));
 check("a new game does not inherit the last one's back-off",
       /_endSaveNextTryAt = 0;[\s\S]{0,160}_endSaveLastCode  = "";/.test(APP));
 check("a success clears the back-off",

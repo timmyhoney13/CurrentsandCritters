@@ -1608,6 +1608,18 @@ def _process_stripe_checkout(event: dict) -> str:
     print(f"[stripe] checkout {stripe_session_id}: {result} "
           f"(uid={matched_uid or '-'}, guest={guest_id or '-'}, kind={kind}, value={value})")
 
+    # A clean public name is approved AND visible the moment it is paid for
+    # (see the auto-show rules above): there is no admin step behind which the
+    # wall would have been rebuilt anyway. So the ONE thing standing between a
+    # donor and their own name on the homepage is this cache, and the donor is
+    # the person most likely to go looking right now. Drop it after the commit,
+    # never inside it, for the same reason the receipt email is sent out here:
+    # the payment is settled and nothing after this point may roll it back.
+    # "duplicate" is a Stripe redelivery of an event already applied, which
+    # changed no supporter record and needs no rebuild.
+    if result != "duplicate":
+        _WALL_CACHE["data"] = None
+
     # ── mail the buyer their code ────────────────────────────────────────────
     # AFTER the commit and never inside it: the purchase is settled at this
     # point and an SMTP hiccup must not roll it back or make Stripe retry a

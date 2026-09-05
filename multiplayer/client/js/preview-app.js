@@ -14157,6 +14157,15 @@
   // than waiting out the rest of the interval.
   window.addEventListener("online", () => {
     if (_endSaveArgs && _endSaveState !== "saved" && _endSaveState !== "na" && !_saveInFlight) {
+      // A database that refused on quota does not care that this laptop found
+      // its wifi again, and "online" FLAPS: a bad connection can fire it over
+      // and over. Since this handler also zeroes _endSaveTries, treating each
+      // flap as permission to retry would strip both the bound and the wait
+      // and turn the back-off straight back into the hammering it replaced.
+      // A reachability failure is the one this event genuinely fixes, so it
+      // is the only one that gets the instant retry. Anything busy just waits
+      // for its already-scheduled attempt, which is at most 5 minutes away.
+      if (_endSaveIsBusy()) return;
       _endSaveTries = 0;
       _endSaveNextTryAt = 0;           // connectivity is back: try it right now
       _endSaveRetryNow();
@@ -14205,7 +14214,7 @@
                                        // MEASURES deck draws instead of assuming two
   let _drawPrevPlayer      = "";       // player name tracked for draw notifications
   let _drawNotifTimer     = null;
-  let _lastRankedProcessed = null; // roomId of last game where ranked result was processed
+  let _lastRankedProcessed = null; // "<roomId>:<started_unix>" of the last 1v1 match paid out
   let _lastRankedFfaProcessed = null; // same, for the Competitive free-for-all path
   let _lastCompCpDelta = null;     // CP delta from the most recent competitive game (for end-game display)
   let _lastCompNewCp   = null;     // CP total after the most recent competitive game
@@ -15546,12 +15555,25 @@
       }
     }
   }
+  // The 1v1 ladder's dedup key: this MATCH, not this room. See the note inside
+  // processRankedGameEnd, and _ffaGameKey, which is the same idea for the
+  // free-for-all.
+  function _compGameKey() {
+    const started = Number(latestPayload && latestPayload.room && latestPayload.room.started_unix) || 0;
+    return `${roomId}:${started}`;
+  }
+
   async function processRankedGameEnd(finalScores) {
     if (!compMode) return;
     if (!roomId) return;
+    // ONE GAME, NOT ONE ROOM. Play Again re-launches in the SAME room and only
+    // stamps a new started_unix, so a room-keyed dedup paid the first match of
+    // a room and silently nothing after it, which is exactly how a rematch
+    // ended with "nobody got any OP". Same key the free-for-all uses.
+    const gameKey = _compGameKey();
     // Dedup is keyed on a SUCCESSFUL write (set after docRef.update below), so a
     // failed competitive write retries on the next poll instead of being skipped.
-    if (_lastRankedProcessed === roomId) return;
+    if (_lastRankedProcessed === gameKey) return;
 
     const authUser = typeof window.__fishAuthUser === "function" ? window.__fishAuthUser() : null;
     const db       = typeof window.__fishDb       === "function" ? window.__fishDb()       : null;
@@ -15615,7 +15637,7 @@
       // lobby load, the single source of truth. This avoids double-counting if
       // the loser happens to still be connected when the forfeit fires. (The
       // forfeit WINNER continues through the normal win path below.)
-      if (_isForfeit && iLost) { _lastRankedProcessed = roomId; return; }
+      if (_isForfeit && iLost) { _lastRankedProcessed = gameKey; return; }
 
       const docRef = db.collection("users").doc(authUser.uid);
       const snap   = await docRef.get();
@@ -15729,7 +15751,7 @@
       // Competitive stats + leaderboard fields (comp_cp, comp_best_single_hand,
       // comp_best_combined) persisted, mark processed ONLY now, so a failed
       // write above retries on the next poll instead of being permanently skipped.
-      _lastRankedProcessed = roomId;
+      _lastRankedProcessed = gameKey;
       console.info("[processRankedGameEnd] saved ranked result for", myPhys, "OP→", newCp);
       // Check rank + competitive achievements
       if (typeof window.__fishCheckRankAchievements === "function") {
@@ -16059,7 +16081,12 @@
     const curLosses = Number(cStats.competitive_losses || 0);
     const curDraws  = Number(cStats.competitive_draws  || 0);
     const hasPlayedBefore = (curWins + curLosses + curDraws) > 0;
-    const cpDelta = (typeof _compGetCpDelta === "function") ? _compGetCpDelta(curCp, "loss", hasPlayedBefore) : 0;
+    // Low down the ladder a LOSS now pays a little (see _COMP_RANK_DIVS), which
+    // is right for a game somebody played and lost, and wrong for one they
+    // walked out of: uncapped, a Bronze player could print 4 OP a go by
+    // quitting. Walking out is worth 0 at best, never a payout.
+    const rawDelta = (typeof _compGetCpDelta === "function") ? _compGetCpDelta(curCp, "loss", hasPlayedBefore) : 0;
+    const cpDelta  = Math.min(0, rawDelta);
     const newCp   = Math.max(0, curCp + cpDelta);
     const rankFn  = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
     const newRankDiv  = rankFn ? rankFn(newCp, true) : null;
@@ -16076,7 +16103,9 @@
     // Mark processed so it never applies twice.
     try { await apiPost("/api/competitive/forfeit_ack", { id: item.id, name: myName, cp_delta: cpDelta }); } catch (_) {}
     try {
-      showToast(`Forfeit loss vs ${item.winner || "opponent"}: ${cpDelta} OP → ${newCp}`, "warn", 9000);
+      showToast(cpDelta === 0
+        ? `Forfeit loss vs ${item.winner || "opponent"}: no OP lost → ${newCp} OP`
+        : `Forfeit loss vs ${item.winner || "opponent"}: ${cpDelta} OP → ${newCp}`, "warn", 9000);
     } catch (_) {}
     console.info("[forfeit] applied pending loss", item.id, "OP", curCp, "→", newCp);
   }
@@ -33278,29 +33307,42 @@
     }
 
     // ── Competitive Tab: Ranked Dashboard ────────────────────────
-    // Bronze   = easy / forgiving;          loss: -3
-    // Silver   = still friendly;            loss: -5
-    // Golden   = competitive starts;        loss: -7 → -12 (I gets serious)
-    // Diamond  = high risk;                 loss: -14 → -18
-    // Emerald  = elite climb;               loss: -20 → -24
-    // King     = hardest to keep;           loss: -28
+    // EVERY competitive 1v1 game pays the people who played it something. A
+    // draw is never worth 0 at any rank, and low down the ladder even a LOSS
+    // pays a little: nobody is punished for turning up while they are still
+    // learning the game.
+    //
+    // How much a loss costs is the thing the ranks are FOR, so it is the
+    // column that moves with them, the same shape the free-for-all's
+    // ffaBottom already has:
+    //
+    //   Bronze   = a loss still PAYS  (+4);  you can only climb
+    //   Silver   = a loss still PAYS  (+2)
+    //   Golden   = break even (0), then it starts to cost:  -2 → -5
+    //   Diamond  = high risk;                 loss:  -8 → -14
+    //   Emerald  = elite climb;               loss: -17 → -22
+    //   King     = hardest to keep;           loss: -26
+    //
+    // So the ladder is one-way up to 330 OP and only bites above it. A game
+    // you walked out of is NOT a game you played: the forfeit path clamps this
+    // to at most 0 (see _applyForfeitLoss), or quitting would print OP.
     const _COMP_RANK_DIVS = [
-      { name: "Bronze Barracuda I",        tier: "bronze",  emoji: "🐠", minCp: 0,    maxCp: 44,   win: 26, draw: 5, loss: -3, ffaTop: 20, ffaBottom:   4 },
-      { name: "Bronze Barracuda II",       tier: "bronze",  emoji: "🐠", minCp: 45,   maxCp: 89,   win: 26, draw: 5, loss: -3, ffaTop: 20, ffaBottom:   4 },
-      { name: "Bronze Barracuda III",     tier: "bronze",  emoji: "🐠", minCp: 90,   maxCp: 134,  win: 26, draw: 5, loss: -3, ffaTop: 20, ffaBottom:   4 },
-      { name: "Silver Spiny Lobster I",    tier: "silver",  emoji: "🦞", minCp: 135,  maxCp: 199,  win: 24, draw: 4, loss: -5, ffaTop: 18, ffaBottom:   2 },
-      { name: "Silver Spiny Lobster II",   tier: "silver",  emoji: "🦞", minCp: 200,  maxCp: 264,  win: 24, draw: 4, loss: -5, ffaTop: 18, ffaBottom:   2 },
-      { name: "Silver Spiny Lobster III",  tier: "silver",  emoji: "🦞", minCp: 265,  maxCp: 329,  win: 24, draw: 4, loss: -5, ffaTop: 18, ffaBottom:   2 },
-      { name: "Golden Grouper I",          tier: "gold",    emoji: "🐡", minCp: 330,  maxCp: 419,  win: 22, draw: 3, loss: -7, ffaTop: 16, ffaBottom:   0 },
-      { name: "Golden Grouper II",         tier: "gold",    emoji: "🐡", minCp: 420,  maxCp: 509,  win: 22, draw: 3, loss: -9, ffaTop: 16, ffaBottom:  -1 },
-      { name: "Golden Grouper III",        tier: "gold",    emoji: "🐡", minCp: 510,  maxCp: 599,  win: 22, draw: 3, loss: -12, ffaTop: 16, ffaBottom:  -3 },
-      { name: "Diamond Dolphin I",         tier: "diamond", emoji: "🐬", minCp: 600,  maxCp: 719,  win: 21, draw: 2, loss: -14, ffaTop: 15, ffaBottom:  -6 },
-      { name: "Diamond Dolphin II",        tier: "diamond", emoji: "🐬", minCp: 720,  maxCp: 839,  win: 21, draw: 2, loss: -16, ffaTop: 15, ffaBottom:  -8 },
-      { name: "Diamond Dolphin III",       tier: "diamond", emoji: "🐬", minCp: 840,  maxCp: 959,  win: 21, draw: 2, loss: -18, ffaTop: 15, ffaBottom: -10 },
-      { name: "Emerald Emperor Penguin I",   tier: "emerald", emoji: "🐧", minCp: 960,  maxCp: 1039, win: 20, draw: 1, loss: -20, ffaTop: 14, ffaBottom: -12 },
-      { name: "Emerald Emperor Penguin II",  tier: "emerald", emoji: "🐧", minCp: 1040, maxCp: 1119, win: 20, draw: 1, loss: -22, ffaTop: 14, ffaBottom: -14 },
-      { name: "Emerald Emperor Penguin III", tier: "emerald", emoji: "🐧", minCp: 1120, maxCp: 1199, win: 20, draw: 1, loss: -24, ffaTop: 14, ffaBottom: -16 },
-      { name: "King of the Critters",      tier: "king",    emoji: "👑", minCp: 1200, maxCp: Infinity, win: 18, draw: 0, loss: -28, ffaTop: 12, ffaBottom: -20 },
+      { name: "Bronze Barracuda I",        tier: "bronze",  emoji: "🐠", minCp: 0,    maxCp: 44,   win: 26, draw: 8, loss:   4, ffaTop: 20, ffaBottom:   4 },
+      { name: "Bronze Barracuda II",       tier: "bronze",  emoji: "🐠", minCp: 45,   maxCp: 89,   win: 26, draw: 8, loss:   4, ffaTop: 20, ffaBottom:   4 },
+      { name: "Bronze Barracuda III",     tier: "bronze",  emoji: "🐠", minCp: 90,   maxCp: 134,  win: 26, draw: 8, loss:   4, ffaTop: 20, ffaBottom:   4 },
+      { name: "Silver Spiny Lobster I",    tier: "silver",  emoji: "🦞", minCp: 135,  maxCp: 199,  win: 24, draw: 7, loss:   2, ffaTop: 18, ffaBottom:   2 },
+      { name: "Silver Spiny Lobster II",   tier: "silver",  emoji: "🦞", minCp: 200,  maxCp: 264,  win: 24, draw: 7, loss:   2, ffaTop: 18, ffaBottom:   2 },
+      { name: "Silver Spiny Lobster III",  tier: "silver",  emoji: "🦞", minCp: 265,  maxCp: 329,  win: 24, draw: 7, loss:   2, ffaTop: 18, ffaBottom:   2 },
+      { name: "Golden Grouper I",          tier: "gold",    emoji: "🐡", minCp: 330,  maxCp: 419,  win: 22, draw: 6, loss:   0, ffaTop: 16, ffaBottom:   0 },
+      { name: "Golden Grouper II",         tier: "gold",    emoji: "🐡", minCp: 420,  maxCp: 509,  win: 22, draw: 6, loss:  -2, ffaTop: 16, ffaBottom:  -1 },
+      { name: "Golden Grouper III",        tier: "gold",    emoji: "🐡", minCp: 510,  maxCp: 599,  win: 22, draw: 6, loss:  -5, ffaTop: 16, ffaBottom:  -3 },
+      { name: "Diamond Dolphin I",         tier: "diamond", emoji: "🐬", minCp: 600,  maxCp: 719,  win: 21, draw: 5, loss:  -8, ffaTop: 15, ffaBottom:  -6 },
+      { name: "Diamond Dolphin II",        tier: "diamond", emoji: "🐬", minCp: 720,  maxCp: 839,  win: 21, draw: 5, loss: -11, ffaTop: 15, ffaBottom:  -8 },
+      { name: "Diamond Dolphin III",       tier: "diamond", emoji: "🐬", minCp: 840,  maxCp: 959,  win: 21, draw: 5, loss: -14, ffaTop: 15, ffaBottom: -10 },
+      { name: "Emerald Emperor Penguin I",   tier: "emerald", emoji: "🐧", minCp: 960,  maxCp: 1039, win: 20, draw: 3, loss: -17, ffaTop: 14, ffaBottom: -12 },
+      { name: "Emerald Emperor Penguin II",  tier: "emerald", emoji: "🐧", minCp: 1040, maxCp: 1119, win: 20, draw: 3, loss: -20, ffaTop: 14, ffaBottom: -14 },
+      { name: "Emerald Emperor Penguin III", tier: "emerald", emoji: "🐧", minCp: 1120, maxCp: 1199, win: 20, draw: 3, loss: -22, ffaTop: 14, ffaBottom: -16 },
+      { name: "King of the Critters",      tier: "king",    emoji: "👑", minCp: 1200, maxCp: Infinity, win: 18, draw: 2, loss: -26, ffaTop: 12, ffaBottom: -20 },
     ];
 
     // Returns the rank info for a given CP. If hasPlayed is true, 0 CP still maps
@@ -33310,7 +33352,7 @@
       const cleanCp = Math.max(0, Number(cp) || 0);
       if (cleanCp === 0 && !hasPlayed) {
         return { division: "Unranked", tier: "bronze", emoji: "🐟", cp: 0, nextCp: 1, nextDiv: "Bronze Barracuda I", pct: 0,
-                 win: 26, draw: 5, loss: -3, ffaTop: 20, ffaBottom: 4 };
+                 win: 26, draw: 8, loss: 4, ffaTop: 20, ffaBottom: 4 };
       }
       const idx = _COMP_RANK_DIVS.findIndex(d => cleanCp >= d.minCp && cleanCp <= d.maxCp);
       const div = idx >= 0 ? _COMP_RANK_DIVS[idx] : _COMP_RANK_DIVS[_COMP_RANK_DIVS.length - 1];
@@ -33330,9 +33372,14 @@
     // hasPlayed controls how a 0-CP player is treated (Unranked vs Bronze III).
     function _compGetCpDelta(currentCp, result, hasPlayed) {
       const info = _compGetRankFromCp(currentCp, hasPlayed);
-      if (result === "win")  return info.win  || 26;
-      if (result === "draw") return info.draw || 5;
-      if (result === "loss") return info.loss || -3;
+      // `x || fallback` is wrong here: Golden Grouper I's loss is a real, meant
+      // ZERO (break even), and `0 || -3` would quietly charge that player 3 OP
+      // for the one result the table is most careful about. Only a value that
+      // is genuinely missing may fall back.
+      const pick = (v, fallback) => (Number.isFinite(v) ? v : fallback);
+      if (result === "win")  return pick(info.win,  26);
+      if (result === "draw") return pick(info.draw,  8);
+      if (result === "loss") return pick(info.loss,  4);
       return 0;
     }
     window._compGetCpDelta = _compGetCpDelta;
