@@ -364,8 +364,10 @@ _codes = set(_re.findall(r'"error":\s*"([a-z_]+)"', _src))
 _codes |= set(_re.findall(r'"__err__":\s*"([a-z_]+)"', _src))    # the in-transaction refusals
 _codes |= set(_re.findall(r'return "([a-z_]+)"', _src))          # _trade_validate_side
 _codes |= set(_re.findall(r'return \("([a-z_]+)", None\)', _src))  # _trade_compute_apply
-# _trade_failure builds these from the action name.
+# _trade_failure builds these from the action name, and answers db_busy
+# instead whenever the failure is "the database is refusing everybody".
 _codes |= {f"{a}_failed" for a in ("get", "open", "offer", "confirm", "cancel")}
+_codes |= {"db_busy"}
 # The dispatcher's own refusals, and the ones the browser makes up for itself.
 _codes |= {"unauthorized", "unknown_action", "network", "bad_response", "auth"}
 _codes.discard("")

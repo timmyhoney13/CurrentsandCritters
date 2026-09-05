@@ -299,7 +299,7 @@ check("gwen still owns her crab (nothing moved)", user("gwen")["unlocked_icons"]
 r = M._trade_open("gwen", "Gwen", "hugo", "Hugo")
 check("re-open after cancel is fresh + empty",
       r["state"]["status"] == "open"
-      and M._trade_clean_offer(r["state"]["offers"]["gwen"]) == {"coins": 0, "passes": 0, "avatars": [], "backgrounds": []})
+      and M._trade_clean_offer(r["state"]["offers"]["gwen"]) == {"coins": 0, "passes": 0, "xp": 0, "avatars": [], "backgrounds": []})
 
 # ══ Season Pass vouchers ═══════════════════════════════════════════════════
 # The Supporter Tiers hand these out and they are tradable, so the whole
@@ -351,6 +351,164 @@ check("the swap is refused at commit", (not r.get("ok")) and r.get("error") == "
 check("nia keeps her coins", int(user("nia")["stats"]["critter_coins"]) == 500)
 check("confirmations were reset", r["state"]["confirmed"]["mo"] is False)
 
+# ══ Lifetime XP ════════════════════════════════════════════════════════════
+# XP is the only tradable thing that can make an account WORSE: it is the number
+# every level is derived from, so handing it over really does drop levels. That
+# is intended. What is NOT allowed is an account left disagreeing with itself,
+# so the five stored level fields have to move in the same write as total_xp.
+def xp_of(uid):
+    return int(((user(uid) or {}).get("stats") or {}).get("total_xp") or 0)
+
+
+def level_of(uid):
+    return int(((user(uid) or {}).get("stats") or {}).get("level") or 0)
+
+
+L = M.LEVEL_XP_TOTALS
+print("trading XP moves the level with it:")
+set_user("rae", coins=0, other_stats={"total_xp": L[39], "level": 40,
+                                      "games_played": 12, "completed_games": 12})
+set_user("sol", avatars=["/avatars/crab.png"], coins=0,
+         other_stats={"total_xp": 0, "level": 1})
+give = L[39] - L[9]                    # exactly enough to fall from 40 to 10
+check("open ok", M._trade_open("rae", "Rae", "sol", "Sol").get("ok"))
+r = M._trade_set_offer("rae", "Rae", "sol", {"xp": give})
+check("an XP offer is accepted", r.get("ok"))
+check("the offer carries the amount",
+      M._trade_clean_offer(r["state"]["offers"]["rae"])["xp"] == give)
+r = M._trade_set_offer("sol", "Sol", "rae", {"avatars": ["/avatars/crab.png"]})
+v = r["state"]["version"]
+M._trade_confirm("rae", "sol", v, True)
+r = M._trade_confirm("sol", "rae", v, True)
+check("both confirmed → completed", r.get("ok") and r.get("completed"))
+check("the giver's lifetime XP dropped", xp_of("rae") == L[9])
+check("the receiver's lifetime XP rose", xp_of("sol") == give)
+check("the giver's stored level fell to match", level_of("rae") == 10)
+check("the receiver's stored level rose to match",
+      level_of("sol") == M._level_progress_for_total_xp(give)[0])
+check("every derived level field moved together, on both sides",
+      all(user(u)["stats"]["player_level"] == user(u)["stats"]["level"]
+          and user(u)["stats"]["xp_current"] == user(u)["stats"]["level_xp_current"]
+          and user(u)["stats"]["xp_goal"] == user(u)["stats"]["level_xp_goal"]
+          and (user(u)["stats"]["level"], user(u)["stats"]["xp_current"],
+               user(u)["stats"]["xp_goal"]) == M._level_progress_for_total_xp(xp_of(u))
+          for u in ("rae", "sol")))
+check("the rest of the stats map survived the deep merge",
+      int(user("rae")["stats"]["games_played"]) == 12
+      and int(user("rae")["stats"]["completed_games"]) == 12)
+check("the avatar came back the other way",
+      user("rae")["unlocked_icons"] == ["/avatars/crab.png"])
+check("the DM summary names the XP",
+      any(" XP" in (d.get("text") or "")
+          for k, d in DB.store.items()
+          if k.startswith("users/rae/messages/tradelog_") and isinstance(d, dict)))
+
+print("XP is a consumable, not a re-earnable unlock:")
+check("giving XP away writes no traded_away entry",
+      not [e for e in (user("rae").get("traded_away") or [])
+           if str(e.get("item") or "").lower() in ("xp", "total_xp")])
+
+print("offering more XP than you have:")
+set_user("tam", coins=0, other_stats={"total_xp": 500})
+set_user("uma", coins=0, other_stats={"total_xp": 0})
+M._trade_open("tam", "Tam", "uma", "Uma")
+r = M._trade_set_offer("tam", "Tam", "uma", {"xp": 501})
+check("refused at offer time", (not r.get("ok")) and r.get("error") == "not_enough_xp")
+check("nothing moved", xp_of("tam") == 500 and xp_of("uma") == 0)
+
+print("XP spent between the offer and the confirm:")
+set_user("vic", coins=0, other_stats={"total_xp": 5000})
+set_user("wren", coins=800, other_stats={"total_xp": 0})
+M._trade_open("vic", "Vic", "wren", "Wren")
+M._trade_set_offer("vic", "Vic", "wren", {"xp": 5000})
+r = M._trade_set_offer("wren", "Wren", "vic", {"coins": 800})
+v = r["state"]["version"]
+M._trade_confirm("vic", "wren", v, True)
+DB.store["users/vic"]["stats"]["total_xp"] = 100   # prestiged in another tab
+r = M._trade_confirm("wren", "vic", v, True)
+check("the swap is refused at commit",
+      (not r.get("ok")) and r.get("error") == "not_enough_xp")
+check("wren keeps her coins", int(user("wren")["stats"]["critter_coins"]) == 800)
+check("confirmations were reset", r["state"]["confirmed"]["vic"] is False)
+
+print("XP can go BOTH ways in one trade, and nets out:")
+set_user("xan", coins=0, other_stats={"total_xp": 10000})
+set_user("yuri", coins=0, other_stats={"total_xp": 4000})
+M._trade_open("xan", "Xan", "yuri", "Yuri")
+M._trade_set_offer("xan", "Xan", "yuri", {"xp": 3000})
+r = M._trade_set_offer("yuri", "Yuri", "xan", {"xp": 1000})
+v = r["state"]["version"]
+M._trade_confirm("xan", "yuri", v, True)
+r = M._trade_confirm("yuri", "xan", v, True)
+check("completed", r.get("ok") and r.get("completed"))
+check("xan is down by the net 2,000", xp_of("xan") == 8000)
+check("yuri is up by the net 2,000", xp_of("yuri") == 6000)
+check("no XP was created or destroyed",
+      xp_of("xan") + xp_of("yuri") == 14000)
+
+print("an offer of zero XP is still an empty offer:")
+check("a bare xp:0 cleans to the default offer",
+      M._trade_clean_offer({"xp": 0}) == M._trade_default_offer())
+check("junk in the xp field is not a crash",
+      M._trade_clean_offer({"xp": "loads"})["xp"] == 0)
+check("a negative amount is floored at zero",
+      M._trade_clean_offer({"xp": -9000})["xp"] == 0)
+check("an absurd amount is capped, not accepted whole",
+      M._trade_clean_offer({"xp": 10 ** 12})["xp"] == M.TRADE_MAX_XP)
+
+# ══ A database that is refusing EVERYBODY ══════════════════════════════════
+# The 2026-09-04 outage: Firestore's free daily allowance ran out project-wide
+# and every trade came back "The trade couldn't be opened. Tap Try again.
+# (ResourceExhausted: 429 Quota exceeded.)". Retrying is the one thing that
+# cannot help, so this failure has to be TOLD APART from an ordinary one.
+print("a quota refusal is classified as busy, not as a broken trade:")
+
+
+class ResourceExhausted(Exception):
+    pass
+
+
+check("the 429 exception type is recognised",
+      M._trade_is_busy(ResourceExhausted("429 Quota exceeded.")) is True)
+check("so is a 503", M._trade_is_busy(Exception("503 Service Unavailable")) is True)
+check("so is a deadline", M._trade_is_busy(Exception("Deadline Exceeded")) is True)
+check("an ordinary error is NOT busy",
+      M._trade_is_busy(ValueError("bad document id")) is False)
+check("neither is a permission problem",
+      M._trade_is_busy(Exception("403 Missing or insufficient permissions")) is False)
+
+set_user("zed", coins=0)
+set_user("ada", coins=0)
+_real_txn = DB.transaction
+_reads = {"n": 0}
+_real_get = M._trade_doc
+
+
+def _counting_doc(db, tid):
+    ref = _real_get(db, tid)
+    orig = ref.get
+
+    def _get(*a, **k):
+        _reads["n"] += 1
+        raise ResourceExhausted("429 Quota exceeded.")
+    ref.get = _get
+    return ref
+
+
+DB.transaction = lambda: (_ for _ in ()).throw(ResourceExhausted("429 Quota exceeded."))
+M._trade_doc = _counting_doc
+r = M._trade_open("zed", "Zed", "ada", "Ada")
+DB.transaction = _real_txn
+M._trade_doc = _real_get
+check("the open reports db_busy, not open_failed",
+      (not r.get("ok")) and r.get("error") == "db_busy")
+check("it is flagged busy for the browser", r.get("busy") is True)
+check("it still says which action met it", r.get("action") == "open")
+check("the raw reason is kept for anyone reading the response",
+      "429" in str(r.get("detail") or ""))
+check("and it did NOT spend another read proving the database is still down",
+      _reads["n"] == 0)
+
 # ══ Opening a trade must not be able to fail silently ══════════════════════
 # A transaction that dies used to reach the player as "Something went wrong
 # with the trade", after which every later tap answered "Open a trade first".
@@ -365,7 +523,7 @@ r = M._trade_open("orin", "Orin", "pia", "Pia")
 DB.transaction = _real_txn
 check("the trade still opens", r.get("ok") and r["state"]["status"] == "open")
 check("it is a real, empty, open trade",
-      M._trade_clean_offer(r["state"]["offers"]["orin"]) == {"coins": 0, "passes": 0, "avatars": [], "backgrounds": []})
+      M._trade_clean_offer(r["state"]["offers"]["orin"]) == {"coins": 0, "passes": 0, "xp": 0, "avatars": [], "backgrounds": []})
 check("both sides were mirrored", mirror("orin", M._trade_id_for("orin", "pia")) is not None)
 
 print("a trade that cannot be written at all says WHY:")

@@ -2182,6 +2182,17 @@ TRADE_MAX_COINS = 100_000_000          # sanity ceiling on a single offer
 # arithmetic, and never checked against "does the receiver already own one"
 # (you can hold several, one per season you mean to unlock).
 TRADE_MAX_PASSES = 1000                # sanity ceiling on one side's vouchers
+# LIFETIME XP is tradable too, and it is the only tradable thing that can make
+# an account WORSE. Coins, vouchers, avatars and backgrounds are all things you
+# have; XP is the number every level in the game is derived from, so handing it
+# over LOWERS YOUR LEVEL, and a level going down relocks level-gated avatars and
+# moves both the Level Pass and the Critter Pass. That is a real consequence and
+# it is the intended one: XP is worth something to trade precisely because
+# giving it up costs you. What must never happen is an account left INCOHERENT
+# by the move (total_xp saying one level and the header saying another), so
+# every derived level field is rewritten from the new total in the same atomic
+# write, exactly as _admin_set_xp does. See _trade_compute_apply.
+TRADE_MAX_XP = 250_000                 # the level-100 total: nobody holds more
 
 # ── Re-earn after trading an item AWAY ──────────────────────────────────────
 # Handing an item over does NOT undo the progress that unlocked it: lifetime
@@ -2549,6 +2560,42 @@ def _trade_doc(db, tid: str):
     return db.collection("trades").document(tid)
 
 
+# A database that is refusing EVERYTHING, as opposed to one that refused this.
+#
+# On 2026-09-04 Firestore's free daily allowance (50k reads / 20k writes for the
+# whole project, resetting midnight Pacific) ran out, and every trade came back
+# as "The trade couldn't be opened. Tap Try again. (ResourceExhausted: 429
+# Quota exceeded.)". Both halves of that sentence are wrong to say to a player.
+# Nothing is wrong with the trade, and Try again is the one thing that cannot
+# help: the retry is itself another billed operation against an allowance that
+# is already spent, so a room full of people tapping it is how the outage lasts
+# until midnight rather than ending. Tell them it is the game and not them, and
+# stop charging them for the diagnosis.
+#
+# Matched on the exception NAME rather than the class, because the concrete
+# type comes from google.api_core.exceptions, which this module does not import
+# and which is free to move.
+_TRADE_BUSY_EXC_NAMES = {
+    "ResourceExhausted",       # 429, the quota one
+    "ServiceUnavailable",      # 503
+    "DeadlineExceeded",        # 504
+    "Aborted",                 # transaction contention
+    "TooManyRequests",
+}
+
+
+def _trade_is_busy(exc: BaseException) -> bool:
+    """True when the failure is "the database is not answering anybody"."""
+    if type(exc).__name__ in _TRADE_BUSY_EXC_NAMES:
+        return True
+    # Some wrappers (retry helpers, the transaction runner) re-raise something
+    # plainer whose text is all that survives, so read that too.
+    text = f"{type(exc).__name__}: {exc}".lower()
+    return any(k in text for k in
+               ("resource_exhausted", "resourceexhausted", "quota exceeded",
+                "429", "service unavailable", "deadline exceeded"))
+
+
 def _trade_failure(action: str, exc: BaseException) -> Dict[str, Any]:
     """One shape for every trade action that dies inside Firestore.
 
@@ -2557,11 +2604,21 @@ def _trade_failure(action: str, exc: BaseException) -> Dict[str, Any]:
     only ever printed into a log nobody can read from a phone. It carries the
     exception TYPE and a truncated message, which is enough to tell a quota
     from a permission from a bad document id, and nothing that isn't already
-    visible to the account making the request."""
+    visible to the account making the request.
+
+    A busy database gets its own code, `db_busy`, INSTEAD of `<action>_failed`:
+    it is the same sentence whichever action met it, it is nobody's fault, it
+    is temporary, and it is the one failure where the browser must not offer a
+    Try again button."""
     import traceback
-    print(f"[trade] {action} failed: {type(exc).__name__}: {exc}\n"
+    busy = _trade_is_busy(exc)
+    print(f"[trade] {action} failed{' (db busy)' if busy else ''}: "
+          f"{type(exc).__name__}: {exc}\n"
           f"{traceback.format_exc(limit=6)}")
     detail = f"{type(exc).__name__}: {exc}".strip()
+    if busy:
+        return {"ok": False, "error": "db_busy", "busy": True,
+                "action": action, "detail": detail[:300]}
     return {"ok": False, "error": f"{action}_failed", "detail": detail[:300]}
 
 
@@ -2594,8 +2651,15 @@ def _trade_clean_offer(raw: Any) -> Dict[str, Any]:
         passes = 0
     passes = max(0, min(TRADE_MAX_PASSES, passes))
 
+    try:
+        xp = int(raw.get("xp") or 0)
+    except (TypeError, ValueError):
+        xp = 0
+    xp = max(0, min(TRADE_MAX_XP, xp))
+
     return {"coins": coins,
             "passes": passes,
+            "xp": xp,
             "avatars": _paths("avatars", "/avatars/"),
             "backgrounds": _paths("backgrounds", "/backgrounds/")}
 
@@ -2625,10 +2689,18 @@ def _trade_assets(doc: Any) -> Dict[str, Any]:
         passes = int(doc.get("critter_pass_vouchers") or 0)
     except (TypeError, ValueError):
         passes = 0
+    # LIFETIME xp, the same stats.total_xp every level in the game is derived
+    # from. Not xp_current: that is a position inside the current level and is
+    # itself derived, so trading it would mean nothing.
+    try:
+        xp = int(stats.get("total_xp") or 0)
+    except (TypeError, ValueError):
+        xp = 0
     return {"avatars": _norm(doc.get("unlocked_icons"), "/avatars/"),
             "backgrounds": _norm(doc.get("unlocked_backgrounds"), "/backgrounds/"),
             "coins": max(0, coins),
-            "passes": max(0, passes)}
+            "passes": max(0, passes),
+            "xp": max(0, xp)}
 
 
 def _trade_validate_side(offer: Dict[str, Any], giver: Dict[str, Any],
@@ -2646,6 +2718,11 @@ def _trade_validate_side(offer: Dict[str, Any], giver: Dict[str, Any],
         return "negative_passes"
     if passes > giver.get("passes", 0):
         return "not_enough_passes"
+    xp = offer.get("xp", 0)
+    if not isinstance(xp, int) or xp < 0:
+        return "negative_xp"
+    if xp > giver.get("xp", 0):
+        return "not_enough_xp"
     for a in offer.get("avatars", []):
         if a not in giver["avatars"]:
             return "avatar_not_owned"
@@ -2660,7 +2737,7 @@ def _trade_validate_side(offer: Dict[str, Any], giver: Dict[str, Any],
 
 
 def _trade_default_offer() -> Dict[str, Any]:
-    return {"coins": 0, "passes": 0, "avatars": [], "backgrounds": []}
+    return {"coins": 0, "passes": 0, "xp": 0, "avatars": [], "backgrounds": []}
 
 
 def _trade_public(trade: Dict[str, Any]) -> Dict[str, Any]:
@@ -2698,6 +2775,7 @@ def _trade_compute_apply(trade: Dict[str, Any], doc_a: Dict[str, Any],
     Returns (error, changes) where changes = { uid: {
         "unlocked_icons": [...], "unlocked_backgrounds": [...],
         "critter_coins": int, "critter_pass_vouchers": int,
+        "total_xp": int, "level": int, "xp_current": int, "xp_goal": int,
         "traded_away": [...],
         "avatar_url"?: str, "background_url"?: str } }."""
     parts = trade.get("participants") or []
@@ -2736,11 +2814,30 @@ def _trade_compute_apply(trade: Dict[str, Any], doc_a: Dict[str, Any],
                       + int(recv.get("passes", 0)))
         if new_passes < 0:
             return None
+        # LIFETIME XP moves by the same arithmetic, and then every field that
+        # is DERIVED from it is rewritten from the new total in this same
+        # change. total_xp is the single source of truth, but level /
+        # xp_current / xp_goal are stored beside it and read directly by the
+        # header, the profile, the XP leaderboard and both passes. Moving the
+        # total on its own would leave an account saying one level in one place
+        # and another everywhere else, and the direction that matters is DOWN:
+        # a player who trades XP away really does drop levels, and every
+        # surface has to agree about that immediately. Same derivation table
+        # the client uses, so the two never disagree.
+        new_xp = (assets.get("xp", 0) - int(give.get("xp", 0))
+                  + int(recv.get("xp", 0)))
+        if new_xp < 0:
+            return None
+        new_level, new_xp_cur, new_xp_goal = _level_progress_for_total_xp(new_xp)
         change = {
             "unlocked_icons": sorted(new_av),
             "unlocked_backgrounds": sorted(new_bg),
             "critter_coins": int(new_coins),
             "critter_pass_vouchers": int(new_passes),
+            "total_xp": int(new_xp),
+            "level": int(new_level),
+            "xp_current": int(new_xp_cur),
+            "xp_goal": int(new_xp_goal),
             # Progress snapshot per item handed over, so the unlock requirement
             # has to be met all over again before an automatic grant returns it.
             "traded_away": _trade_away_after(doc, removed_av | removed_bg,
@@ -2846,6 +2943,8 @@ def _trade_summary_text(trade: Dict[str, Any]) -> str:
         if o.get("passes"):
             k = int(o["passes"])
             bits.append(f"{k} Critter Pass voucher" + ("s" if k != 1 else ""))
+        if o.get("xp"):
+            bits.append(f"{int(o['xp']):,} XP")
         n = len(o["avatars"]); m = len(o["backgrounds"])
         if n:
             bits.append(f"{n} avatar" + ("s" if n != 1 else ""))
@@ -2965,6 +3064,13 @@ def _trade_open(uid: str, uid_name: str, peer_uid: str, peer_name: str) -> Dict[
         # switched off": the overlay opened, the banner said something went
         # wrong, and every later tap answered "Open a trade first."
         first = _trade_failure("open", exc)
+        # …unless the database is refusing everybody. The fallback is another
+        # billed read against an allowance that is already spent: it cannot
+        # succeed, and spending it is how a quota outage gets deeper. Report
+        # the busy failure straight away, which is also the one the browser
+        # knows not to offer a Try again button for.
+        if first.get("busy"):
+            return first
         try:
             snap = trade_ref.get()
             cur = snap.to_dict() if snap.exists else None
@@ -3141,7 +3247,21 @@ def _trade_confirm(uid: str, peer_uid: str, version: int, confirm: bool) -> Dict
             update = {
                 "unlocked_icons": ch["unlocked_icons"],
                 "unlocked_backgrounds": ch["unlocked_backgrounds"],
-                "stats": {"critter_coins": ch["critter_coins"]},
+                # merge=True DEEP-merges the stats map, so only these keys move
+                # and games / wins / achievements / streaks are untouched. The
+                # six XP keys travel together on purpose: total_xp is the truth
+                # and the other five are its stored derivations, so writing any
+                # subset is what leaves an account disagreeing with itself.
+                "stats": {
+                    "critter_coins":    ch["critter_coins"],
+                    "total_xp":         ch["total_xp"],
+                    "level":            ch["level"],
+                    "player_level":     ch["level"],
+                    "xp_current":       ch["xp_current"],
+                    "level_xp_current": ch["xp_current"],
+                    "xp_goal":          ch["xp_goal"],
+                    "level_xp_goal":    ch["xp_goal"],
+                },
                 "critter_pass_vouchers": ch["critter_pass_vouchers"],
                 "traded_away": ch["traded_away"],
             }
@@ -14796,6 +14916,11 @@ def main() -> None:
         # In-game seats, the end-game summary and tournament brackets only ever
         # know a display NAME, so the badge lookup has to resolve one.
         find_uid_by_username=_find_uid_by_username,
+        # Prestige zeroes stats.total_xp, and the Critter Pass measures its
+        # season as a delta against that number: without this the reset would
+        # silently freeze a climb somebody paid 4,000 coins for. Injected, so
+        # prestige_server still knows nothing about critter_pass_server.
+        pass_carry_updates=critter_pass_server.season_carry_updates,
     )
 
     # Developer Analytics: read-only. It is handed the same Firestore accessor
@@ -14868,6 +14993,13 @@ def main() -> None:
           f"{critter_pass_server.CRITTER_PASS_PRICE:,} coins to unlock, "
           f"{critter_pass_server.coin_total():,} coins + "
           f"{critter_pass_server.xp_total():,} XP on the track")
+    print(f"[critterpass] pass levels are their OWN curve: "
+          f"{critter_pass_server.SEASON_XP_PER_LEVEL:,} XP a level, "
+          f"{critter_pass_server.SEASON_XP_TO_MAX:,} to Level "
+          f"{critter_pass_server.PASS_MAX_LEVEL} "
+          f"({critter_pass_server.SEASON_XP_TO_EARN:,} to earn = "
+          f"{critter_pass_server.SEASON_XP_PER_DAY:,} XP a day for "
+          f"{critter_pass_server.SEASON_DAYS} days)")
 
     # Friend-code referral reward. Same injected Firestore accessor and token
     # verifier as everything else; the background catalogue is shared with the
