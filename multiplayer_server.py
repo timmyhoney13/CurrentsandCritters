@@ -843,12 +843,25 @@ CUSTOM_TIER_MIN_CENTS = 10000   # $100: over this, talk to a human
 # to spend it on, so a voucher kept past Season 1 still buys Season 2. It is a
 # balance on the account (`critter_pass_vouchers`), which is what lets it be
 # traded like Critter Coins: see _trade_clean_offer / _trade_compute_apply.
+# `custom_codes` is the number of CUSTOM FRIEND CODES the tier hands over. A
+# friend code is normally four random digits and is NOT unique (two accounts can
+# hold the same one, which is why a bare code can be ambiguous, see
+# _uid_by_friend_code in referral_server.py). A custom one is the opposite: you
+# choose it, and it is RESERVED, so nobody else can ever take it. That is what
+# makes it worth paying for, and it is why the reservation has to be a server
+# transaction rather than anything the browser does for itself.
 SUPPORTER_TIER_GRANTS = {
-    "wave-warrior": {"coins": 7000,  "bonus_xp": 1000,  "pass_vouchers": 1,  "unlock_all_backgrounds": False, "icons": []},
-    "ocean-ally":   {"coins": 15000, "bonus_xp": 5000,  "pass_vouchers": 2,  "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png"]},
-    "tide-turner":  {"coins": 30000, "bonus_xp": 7500,  "pass_vouchers": 5,  "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
-    "tsunami":      {"coins": 75000, "bonus_xp": 20000, "pass_vouchers": 15, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
+    "wave-warrior": {"coins": 7000,  "bonus_xp": 1000,  "pass_vouchers": 1,  "custom_codes": 1, "unlock_all_backgrounds": False, "icons": []},
+    "ocean-ally":   {"coins": 15000, "bonus_xp": 5000,  "pass_vouchers": 2,  "custom_codes": 2, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png"]},
+    "tide-turner":  {"coins": 30000, "bonus_xp": 7500,  "pass_vouchers": 5,  "custom_codes": 4, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
+    "tsunami":      {"coins": 75000, "bonus_xp": 20000, "pass_vouchers": 15, "custom_codes": 8, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
 }
+
+# What one custom friend code costs in the Store, and the shape one may take.
+# 3–9 characters: long enough to be a name, short enough to read out loud.
+CUSTOM_CODE_COIN_PRICE = 1000
+CUSTOM_CODE_MIN = 3
+CUSTOM_CODE_MAX = 9
 
 # Player level curve: the CUMULATIVE total_xp required to REACH each level
 # (index 0 = level 1). ⚠️ KEEP IN SYNC with LEVEL_XP_TOTALS in preview-app.js:
@@ -951,10 +964,16 @@ def _supporter_tier_grant_updates(tier: Any, stats: Any) -> Tuple[Dict[str, Any]
     # also moves in trades: a total computed from a stats map read seconds ago
     # would silently undo a voucher that arrived in between.
     vouchers = int(grant.get("pass_vouchers") or 0)
+    # Custom friend codes are a balance too, and for the same reason: one gets
+    # SPENT the moment it is used, so a total computed from a doc read seconds
+    # ago would hand back a code the account had already claimed.
+    custom_codes = int(grant.get("custom_codes") or 0)
 
     updates: Dict[str, Any] = {"stats": stats_update, "supporter_tier": tier}
     if vouchers:
         updates["critter_pass_vouchers"] = _fs_increment(vouchers)
+    if custom_codes:
+        updates["custom_code_tokens"] = _fs_increment(custom_codes)
     if grant.get("unlock_all_backgrounds"):
         updates["unlocked_backgrounds"] = ArrayUnion(ALL_BACKGROUND_PATHS)
     icons = list(grant.get("icons") or [])
@@ -1983,6 +2002,137 @@ def _claim_username(uid: str, username: str) -> Dict[str, Any]:
     if res == "taken":
         return {"ok": False, "error": "taken", "message": "That username is already taken."}
     return {"ok": True, "username": uname}
+
+
+def _custom_code_error(code: str) -> str:
+    """Why this string cannot be a friend code, or "" if it can.
+
+    Deliberately strict about SHAPE and deliberately silent about ownership:
+    whether somebody already holds it is decided inside the transaction, where
+    the answer cannot go stale between the check and the write.
+    """
+    c = str(code or "").strip()
+    if len(c) < CUSTOM_CODE_MIN or len(c) > CUSTOM_CODE_MAX:
+        return f"A custom friend code is {CUSTOM_CODE_MIN}\u2013{CUSTOM_CODE_MAX} characters."
+    if not re.match(r"^[A-Za-z0-9]+$", c):
+        return "Letters and numbers only, with no spaces."
+    if c.isdigit() and len(c) == 4:
+        # Four digits is exactly what the random codes look like. Letting one be
+        # RESERVED would mean an existing account's ordinary code suddenly
+        # belonged to somebody else, and every lookup of it became ambiguous.
+        return "Four digits is what a random code looks like. Pick something else."
+    return ""
+
+
+def _claim_custom_friend_code(uid: str, code: str) -> Dict[str, Any]:
+    """Take a custom friend code for a verified account, and pay for it.
+
+    A friend code is normally four random digits handed out at sign-up, and two
+    accounts can hold the same one. A CUSTOM code is reserved: it is written
+    into `customFriendCodes/{codeLower}` inside the same transaction that puts
+    it on the account, so two people racing for the same code cannot both win.
+
+    Paid for with ONE of:
+      * a custom-code token (`custom_code_tokens`), which the Supporter Tiers
+        hand out, or
+      * CUSTOM_CODE_COIN_PRICE Critter Coins.
+    The token is spent first, because it is the thing that has no other use.
+
+    Everything happens in one transaction on purpose: reserving the name,
+    releasing the account's previous reservation, taking the payment and moving
+    the code onto the account are one decision, and any half of it landing on
+    its own is either a code somebody paid for and did not get, or a code
+    nobody paid for.
+    """
+    db = _get_firestore()
+    if db is None:
+        return {"ok": False, "error": "firestore unavailable"}
+    wanted = str(code or "").strip()
+    why = _custom_code_error(wanted)
+    if why:
+        return {"ok": False, "error": "invalid", "message": why}
+    lower = wanted.lower()
+
+    from firebase_admin import firestore
+    transactional = getattr(firestore, "transactional", None)
+    if transactional is None:
+        from google.cloud.firestore_v1 import transactional
+    SERVER_TIMESTAMP = getattr(firestore, "SERVER_TIMESTAMP", None)
+
+    code_ref = db.collection("customFriendCodes").document(lower)
+    user_ref = db.collection("users").document(uid)
+    transaction = db.transaction()
+
+    @transactional
+    def _apply(txn) -> Dict[str, Any]:
+        code_snap = code_ref.get(transaction=txn)
+        user_snap = user_ref.get(transaction=txn)
+        if not user_snap.exists:
+            return {"ok": False, "error": "no_account"}
+        udoc = user_snap.to_dict() or {}
+        if code_snap.exists and (code_snap.to_dict() or {}).get("uid") != uid:
+            return {"ok": False, "error": "taken"}
+        if str(udoc.get("friend_code") or "").strip().lower() == lower:
+            return {"ok": False, "error": "already_yours"}
+
+        stats = udoc.get("stats") if isinstance(udoc.get("stats"), dict) else {}
+        try:
+            tokens = int(udoc.get("custom_code_tokens") or 0)
+        except (TypeError, ValueError):
+            tokens = 0
+        try:
+            coins = int(stats.get("critter_coins") or 0)
+        except (TypeError, ValueError):
+            coins = 0
+
+        paid_with = ""
+        if tokens > 0:
+            paid_with = "token"
+        elif coins >= CUSTOM_CODE_COIN_PRICE:
+            paid_with = "coins"
+        else:
+            return {"ok": False, "error": "cannot_afford", "coins": coins, "tokens": tokens}
+
+        # Free the account's own previous custom code, so a player who renames
+        # does not sit on codes they no longer use.
+        old_lower = str(udoc.get("custom_friend_code") or "").strip().lower()
+        if old_lower and old_lower != lower:
+            old_ref = db.collection("customFriendCodes").document(old_lower)
+            old_snap = old_ref.get(transaction=txn)
+            if old_snap.exists and (old_snap.to_dict() or {}).get("uid") == uid:
+                txn.delete(old_ref)
+
+        txn.set(code_ref, {"uid": uid, "code": wanted, "codeLower": lower,
+                           "createdAt": SERVER_TIMESTAMP}, merge=True)
+        account: Dict[str, Any] = {
+            "friend_code": wanted,
+            "custom_friend_code": wanted,
+            # The lower-cased copy is what the ADD FRIEND box searches on, so
+            # typing "reefking" finds "ReefKing". Firestore compares strings
+            # exactly, and a code somebody says out loud is going to be typed in
+            # whatever case the listener felt like.
+            "friend_code_lower": lower,
+        }
+        if paid_with == "token":
+            account["custom_code_tokens"] = max(0, tokens - 1)
+        else:
+            account["stats"] = {"critter_coins": max(0, coins - CUSTOM_CODE_COIN_PRICE)}
+        txn.set(user_ref, account, merge=True)
+        return {"ok": True, "code": wanted, "paid_with": paid_with,
+                "tokens_left": max(0, tokens - 1) if paid_with == "token" else tokens,
+                "coins_left": (coins - CUSTOM_CODE_COIN_PRICE) if paid_with == "coins" else coins}
+
+    out = _apply(transaction)
+    if out.get("ok"):
+        return out
+    msgs = {
+        "taken": "Somebody already has that friend code. Custom codes are one to an account.",
+        "already_yours": "That is already your friend code.",
+        "cannot_afford": f"A custom friend code costs {CUSTOM_CODE_COIN_PRICE:,} Critter Coins, "
+                         f"or one of the custom codes that come with a Supporter Tier.",
+        "no_account": "Sign in first.",
+    }
+    return dict(out, message=out.get("message") or msgs.get(out.get("error"), "That did not work."))
 
 
 def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
@@ -4707,6 +4857,28 @@ class GameRoom:
         # ends. Keyed by the ballot seat (the lowest seat a person owns) so
         # competitive's two hands cast one vote between them.
         self.kick_votes: Dict[int, set] = {}
+
+        # ── The Current Controller, and the table's permission to use it ──
+        # The Controller is the mod menu (see js/current-controller.js): it can
+        # read every hand, deal cards, drive the bots. That is not something one
+        # player may switch on over the table's head, so it is a UNANIMOUS
+        # decision taken in the LOBBY, before anybody has seen a card:
+        #   cc_seat     the seat that asked for it (None = nobody asked)
+        #   cc_votes    ballot seat → True/False, one per PERSON (not per hand)
+        #   cc_armed    every other human said yes, so that seat may open it
+        #   cc_denied   somebody said no; the request is closed for this game
+        # A "no" is final for the game rather than re-openable, so a table
+        # cannot be worn down by the same request over and over.
+        #
+        # ⚠️ Arming is PERMISSION, not proof of use. What actually voids a
+        # game's rewards is `_admin_active`, which flips the first time a mod op
+        # really lands (see admin_activate). A player who asks, is allowed, and
+        # then never opens the panel keeps a completely normal game.
+        self.cc_seat: Optional[int] = None
+        self.cc_token: Optional[str] = None
+        self.cc_votes: Dict[int, bool] = {}
+        self.cc_armed = False
+        self.cc_denied = False
         # Seat tokens that were cleared by a kick, kept so the removed player's
         # next poll can be answered with "you were removed" instead of the bare
         # "invalid seat token" that every stale token gets. Trimmed on room end.
@@ -6738,6 +6910,14 @@ class GameRoom:
         # stand-in bot has to pick the seat up again in the rematch.
         self.kick_votes = {}
         self._kicked_policies = {}
+        # The Controller decision belongs to ONE game. A rematch is a new game,
+        # so the table is asked again rather than inheriting a yes nobody gave
+        # for this one. (A "no" clears too: it closed one request, not the room.)
+        self.cc_seat = None
+        self.cc_token = None
+        self.cc_votes = {}
+        self.cc_armed = False
+        self.cc_denied = False
         # Reset chat-based AFK voting state for the fresh game.
         self.afk_votes = {}
         self.afk_nominated_this_turn = set()
@@ -9749,6 +9929,11 @@ class GameRoom:
                 # and the analytics dashboard can still count it.
                 "ranked": bool(self.ranked),
                 "competitive": bool(self.competitive),
+                # A game somebody actually used the Current Controller in. Kept
+                # on the record because the room is gone an hour later and the
+                # analytics dashboard would otherwise count a modded game as an
+                # ordinary one for ever.
+                "modded": bool(self._admin_active),
                 # How long the game actually took. `recorded_unix` alone only
                 # says when it ENDED, so without these the analytics dashboard
                 # cannot answer "how long is a game" for any record. Older
@@ -10458,6 +10643,9 @@ class GameRoom:
                 ),
                 # Tallies behind the Vote Kick / Skip Turn buttons.
                 "votes": self._vote_payload_locked(viewer_seat),
+                # The lobby's Current Controller row: who asked, how the table
+                # voted, and whether the game has actually been modded.
+                "controller": self._cc_payload_locked(viewer_seat),
                 # Set only when the polling token is one a kick cleared, so the
                 # removed player is told why their seat vanished instead of
                 # silently falling out of the room.
@@ -10627,6 +10815,217 @@ class GameRoom:
         the first of their pair in competitive)."""
         owned = self._owned_seats_locked(seat)
         return min((s.index for s in owned), default=seat.index)
+
+    # ── The Current Controller: one table, one unanimous decision ────────
+    # The mod menu can read every hand and deal cards, so the only honest way
+    # to let a non-developer hold it is to ask the people it would be used on,
+    # in the lobby, before anyone has seen a card. Every other human has to say
+    # yes. One "no" closes it for the game.
+    def _cc_casual_locked(self) -> bool:
+        """A Controller may only ever be armed in a CASUAL room.
+
+        Competitive and ranked games pay Ocean Points and move a public ladder,
+        and a tournament game decides a bracket. None of those is a table's own
+        game to agree to modify, so the vote is not offered there at all.
+        """
+        if self.competitive or self.ranked:
+            return False
+        if getattr(self, "tournament_id", None):
+            return False
+        return not bool(getattr(self, "is_tutorial", False))
+
+    def _cc_eligible_voter_indices_locked(self) -> List[int]:
+        """Ballot seats of everyone whose permission is needed, one per PERSON.
+
+        The asker is not on this list: pressing the button IS their yes. Bots
+        cannot object to being driven, empty seats hold nobody, and a player who
+        has walked out is not at the table. Away players DO count, exactly as
+        they do for a kick: "back in a minute" is not consent.
+        """
+        out: List[int] = []
+        seen_owners: set = set()
+        asker = self.cc_seat
+        for s in self.seats:
+            if s.kind != "human":
+                continue
+            if not s.claimed_name or s.token is None:
+                continue
+            if getattr(s, "kicked", False) or s.left_at is not None:
+                continue
+            if asker is not None and self._competitive_same_owner(s.index, asker):
+                continue                     # the asker's own other hand
+            owner = self._vote_owner_key_locked(s)
+            if asker is not None and owner == self._vote_owner_key_locked(self.seats[asker]):
+                continue                     # the asker themselves
+            if owner in seen_owners:
+                continue
+            seen_owners.add(owner)
+            out.append(owner)
+        return out
+
+    def _cc_tally_locked(self) -> Dict[str, int]:
+        voters = self._cc_eligible_voter_indices_locked()
+        eligible = set(voters)
+        # Only ballots from people still at the table count, so somebody who
+        # voted and then left cannot carry the tally out of the room with them.
+        yes = sum(1 for k, v in self.cc_votes.items() if v and k in eligible)
+        no = sum(1 for k, v in self.cc_votes.items() if (not v) and k in eligible)
+        return {"yes": yes, "no": no, "needed": len(voters)}
+
+    def _cc_resolve_locked(self) -> None:
+        """Arm or deny the request from the votes cast so far.
+
+        Unanimous yes arms it. A single no denies it outright. Nothing happens
+        while the table is still deciding, which is also what an empty table
+        (one human, bots) looks like: needed == 0, so it arms at once.
+        """
+        if self.cc_seat is None or self.cc_denied or self.cc_armed:
+            return
+        tally = self._cc_tally_locked()
+        if tally["no"] > 0:
+            self.cc_denied = True
+            self.cc_armed = False
+            self._record_event("Current Controller: refused by the table")
+            return
+        if tally["yes"] >= tally["needed"]:
+            self.cc_armed = True
+            name = ""
+            try:
+                name = self.seats[self.cc_seat].claimed_name or ""
+            except (IndexError, TypeError):
+                name = ""
+            self._record_event(f"Current Controller: the table agreed{f' ({name})' if name else ''}")
+
+    def _cc_payload_locked(self, viewer_seat: Optional["Seat"]) -> Dict[str, Any]:
+        """What every client needs to paint the lobby's Controller row.
+
+        `modded` is the one field the END SCREEN cares about, and it is
+        deliberately read off `_admin_active` (a mod op really landed) rather
+        than off `armed` (permission granted): a game nobody actually modified
+        counts for everything, however the vote went.
+        """
+        # A request outlives nobody. If the asker has left (or was kicked), the
+        # request goes with them rather than sitting on the lobby for the next
+        # person to inherit. And a request still open is re-resolved here
+        # because the ANSWER depends on who is still at the table: a voter
+        # leaving can complete a unanimous yes, and without this the asker would
+        # wait for a vote that can no longer be cast.
+        if self.cc_seat is not None and not self.cc_armed:
+            asker = self.seats[self.cc_seat] if 0 <= self.cc_seat < len(self.seats) else None
+            gone = (asker is None or asker.token != self.cc_token
+                    or getattr(asker, "kicked", False) or asker.left_at is not None)
+            if gone:
+                self.cc_seat = None
+                self.cc_token = None
+                self.cc_votes = {}
+                self.cc_denied = False
+            elif not self.cc_denied:
+                self._cc_resolve_locked()
+        tally = self._cc_tally_locked() if self.cc_seat is not None else {"yes": 0, "no": 0, "needed": 0}
+        asker_name = ""
+        if self.cc_seat is not None:
+            try:
+                asker_name = self.seats[self.cc_seat].claimed_name or ""
+            except (IndexError, TypeError):
+                asker_name = ""
+        my_ballot = None
+        mine = None
+        if viewer_seat is not None:
+            my_ballot = self._vote_owner_key_locked(viewer_seat)
+            if my_ballot in self.cc_votes:
+                mine = bool(self.cc_votes[my_ballot])
+        eligible = set(self._cc_eligible_voter_indices_locked()) if self.cc_seat is not None else set()
+        return {
+            "allowed_here": bool(self._cc_casual_locked()),
+            "seat": self.cc_seat,
+            "asker": asker_name,
+            "armed": bool(self.cc_armed),
+            "denied": bool(self.cc_denied),
+            "modded": bool(self._admin_active),
+            "yes": tally["yes"],
+            "no": tally["no"],
+            "needed": tally["needed"],
+            "can_vote": bool(self.cc_seat is not None
+                             and not self.cc_armed and not self.cc_denied
+                             and my_ballot is not None and my_ballot in eligible),
+            "my_vote": mine,
+            "is_mine": bool(viewer_seat is not None and self.cc_seat is not None
+                            and self._vote_owner_key_locked(viewer_seat)
+                            == self._vote_owner_key_locked(self.seats[self.cc_seat])),
+        }
+
+    def controller_request(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Ask the table for the Current Controller. Lobby only, casual only."""
+        seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+        with self.cond:
+            seat = self._seat_from_token_locked(seat_token)
+            if seat is None:
+                return {"ok": False, "error": "valid seat token required"}
+            if not self._cc_casual_locked():
+                return {"ok": False, "error": "the Current Controller is casual games only"}
+            if self.phase != "lobby":
+                # Asking mid-game would mean a table agreeing to a change to a
+                # game already half played, with cards already seen.
+                return {"ok": False, "error": "ask before the game starts"}
+            if self.cc_denied:
+                return {"ok": False, "error": "the table already said no this game"}
+            if self.cc_seat is not None and self.cc_seat != seat.index:
+                return {"ok": False, "error": "somebody else already asked"}
+            self.cc_seat = seat.index
+            # The TOKEN, not just the chair. A seat is furniture: the asker can
+            # leave and somebody else can sit down in it, and without this the
+            # newcomer would inherit a permission the table gave to a different
+            # person. A re-claimed seat always has a new token.
+            self.cc_token = seat.token
+            self.cc_votes = {}
+            self.cc_armed = False
+            self._record_event(f"{seat.claimed_name or seat.label} asked to use the Current Controller")
+            self._cc_resolve_locked()        # a table of one arms immediately
+            self._bump_locked()
+            out = self._cc_payload_locked(seat)
+        return dict(out, ok=True)
+
+    def controller_vote(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Say yes or no to the request. One ballot per person; no take-backs
+        on a no, because a no has already closed the request."""
+        seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+        vote = bool(body.get("vote"))
+        with self.cond:
+            seat = self._seat_from_token_locked(seat_token)
+            if seat is None:
+                return {"ok": False, "error": "valid seat token required"}
+            if self.cc_seat is None:
+                return {"ok": False, "error": "nobody asked for it"}
+            if self.phase != "lobby":
+                return {"ok": False, "error": "the game already started"}
+            if self.cc_armed or self.cc_denied:
+                return {"ok": False, "error": "already decided"}
+            ballot = self._vote_owner_key_locked(seat)
+            if ballot not in set(self._cc_eligible_voter_indices_locked()):
+                return {"ok": False, "error": "you are not voting on this"}
+            self.cc_votes[ballot] = vote
+            self._cc_resolve_locked()
+            self._bump_locked()
+            out = self._cc_payload_locked(seat)
+        return dict(out, ok=True)
+
+    def _cc_may_mod_locked(self, seat: Optional["Seat"]) -> bool:
+        """Is THIS the person the table armed? The gate on every mod op that
+        arrives without the server's admin key.
+
+        Matched on the seat TOKEN the request was made with, never on the seat
+        index alone: the asker can walk out and a stranger can claim the empty
+        chair, and an index match would hand that stranger the table's yes.
+        """
+        if not self.cc_armed or self.cc_seat is None or seat is None:
+            return False
+        if not self._cc_casual_locked():
+            return False
+        if not self.cc_token or seat.token != self.cc_token:
+            return False
+        if getattr(seat, "kicked", False) or seat.left_at is not None:
+            return False
+        return True
 
     # ── Kicking a player by unanimous vote ───────────────────────────────
     # Two different tools, deliberately kept apart:
@@ -13841,6 +14240,19 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_json(_claim_username(claims["uid"], username))
             return
 
+        # Take a CUSTOM friend code (3-9 characters, reserved to one account).
+        # Paid for with a Supporter-Tier token or Critter Coins, both spent
+        # inside the same transaction that reserves it.
+        # Body: { "idToken": "<firebase id token>", "code": "ReefKing" }
+        if parsed.path == "/api/friendcode/custom":
+            claims = _verify_firebase_id_token(body.get("idToken") if isinstance(body.get("idToken"), str) else "")
+            if not claims or not claims.get("uid"):
+                self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            wanted = body.get("code") if isinstance(body.get("code"), str) else ""
+            self._send_json(_claim_custom_friend_code(claims["uid"], wanted))
+            return
+
         # Claim past guest payments/rewards into the signed-in account. Requires
         # a verified Firebase ID token; only guest records whose CHECKOUT email
         # matches the token's verified email are merged in.
@@ -14294,21 +14706,35 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             if room is None:
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
-            effective_key = os.environ.get("ADMIN_MOD_KEY", "").strip()
-            if not effective_key:
-                self._send_json({"ok": False, "error": "admin tools are disabled on this server"},
-                                status=HTTPStatus.FORBIDDEN)
-                return
-            supplied = body.get("admin_key") if isinstance(body.get("admin_key"), str) else ""
-            if not _admin_key_ok(supplied, effective_key):
-                self._send_json({"ok": False, "error": "not authorized"}, status=HTTPStatus.FORBIDDEN)
-                return
+            # TWO ways in, and they are not the same door.
+            #
+            #  1. ADMIN_MOD_KEY, the developer's key, which works in any room.
+            #  2. A seat the TABLE armed by unanimous vote in the lobby (see
+            #     controller_request / controller_vote). No key, casual rooms
+            #     only, only the seat that asked, and only while the vote holds.
+            #
+            # Route 2 is what lets a Supporter hold the Controller without ever
+            # being given a server secret, and it is deliberately checked
+            # against the ROOM's own state rather than anything the client says
+            # about itself: a browser claiming to be a Tsunami holder proves
+            # nothing, a table that voted yes is a fact the server watched.
             seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
             with room.cond:
                 seat = room._seat_from_token_locked(seat_token)
+                table_armed = room._cc_may_mod_locked(seat)
             if seat is None:
                 self._send_json({"ok": False, "error": "valid seat token required"}, status=HTTPStatus.FORBIDDEN)
                 return
+            if not table_armed:
+                effective_key = os.environ.get("ADMIN_MOD_KEY", "").strip()
+                if not effective_key:
+                    self._send_json({"ok": False, "error": "admin tools are disabled on this server"},
+                                    status=HTTPStatus.FORBIDDEN)
+                    return
+                supplied = body.get("admin_key") if isinstance(body.get("admin_key"), str) else ""
+                if not _admin_key_ok(supplied, effective_key):
+                    self._send_json({"ok": False, "error": "not authorized"}, status=HTTPStatus.FORBIDDEN)
+                    return
             # Authorized: turn on hidden-state capture for this room (and capture
             # immediately so the first reveal already has data).
             room.admin_activate()
@@ -14334,6 +14760,20 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     out = {"ok": False, "error": f"unknown op {op}"}
             except Exception as exc:
                 out = {"ok": False, "error": f"{exc}"}
+            self._send_json(out, status=HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST)
+            return
+
+        # Ask the table for the Current Controller, and answer that question.
+        # No admin key: these are the vote itself, and the vote is what grants
+        # the key-less access above.
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" \
+                and parts[3] in ("controller_request", "controller_vote"):
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            out = (room.controller_request(body) if parts[3] == "controller_request"
+                   else room.controller_vote(body))
             self._send_json(out, status=HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST)
             return
 
