@@ -652,6 +652,101 @@ class State(PassTestBase):
 
 
 # ══════════════════════════════════════════════════════════════════════════
+#  "THE PASS SAYS I AM LEVEL 1"
+#  Two different ways a real account was told it was Level 1 while the rest of
+#  the game had it at 39, and the flag that lets the page tell them apart from
+#  a genuinely new account.
+# ══════════════════════════════════════════════════════════════════════════
+class AccountLevelIsTheGameLevel(PassTestBase):
+    def test_an_account_that_stores_only_level_and_xp_current_is_not_level_1(self):
+        # The shape preview-app.js's getStoredTotalXp has always fallen back to.
+        # This module used to read total_xp alone and answer 1.
+        self.db.collection("users")._docs["u1"] = {
+            "stats": {"level": 39, "xp_current": 1550, "critter_coins": 0},
+        }
+        out = lp.state_payload("u1")
+        self.assertEqual(out["level"], 39)
+        self.assertEqual(out["totalXp"], LEVEL_TOTALS[38] + 1550)
+
+    def test_total_xp_still_wins_when_both_are_stored(self):
+        # The derived pair is a FALLBACK, never a correction: total_xp is what
+        # every write path sets and what claims are re-derived from.
+        self.db.collection("users")._docs["u1"] = {
+            "stats": {"total_xp": xp_for_level(12), "level": 99, "xp_current": 5},
+        }
+        self.assertEqual(lp.state_payload("u1")["level"], 12)
+
+    def test_a_zero_total_xp_is_a_real_zero_not_a_missing_field(self):
+        # Prestige writes total_xp: 0 deliberately. Falling back to a stale
+        # `level` there would undo the reset the player just chose.
+        self.db.collection("users")._docs["u1"] = {
+            "stats": {"total_xp": 0, "level": 100, "xp_current": 0},
+        }
+        out = lp.state_payload("u1")
+        self.assertEqual(out["level"], 1)
+        self.assertEqual(out["totalXp"], 0)
+
+    def test_a_read_that_succeeds_says_so(self):
+        self.make_user(level=12)
+        self.assertTrue(lp.state_payload("u1")["accountRead"])
+
+    def test_a_refusing_database_does_not_claim_the_player_is_level_1(self):
+        # 2026-09-04: Firestore's daily quota ran out, every read threw, and the
+        # payload's level-1 default went out with ok:true. The flag is what lets
+        # the page paint the level the app already knows instead.
+        self.make_user(level=39)
+
+        class Boom:
+            def collection(self, *_a, **_k):
+                raise RuntimeError("429 Quota exceeded")
+
+        lp._get_firestore = lambda: Boom()                # type: ignore[assignment]
+        out = lp.state_payload("u1")
+        self.assertTrue(out["ok"], "the reward catalogue is still servable")
+        self.assertTrue(out["signedIn"])
+        self.assertFalse(out["accountRead"],
+                         "a failed read must not look like a brand-new account")
+
+    def test_signed_out_is_not_a_failed_read(self):
+        # Nobody to read is a true answer, but it is not "we tried and could
+        # not": the client must not go looking for a level that isn't there.
+        self.assertFalse(lp.state_payload(None)["accountRead"])
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  THE WIRING BEHIND IT
+#  A flag the server sends and the page ignores is the same bug with an extra
+#  field in it, so both halves are pinned here.
+# ══════════════════════════════════════════════════════════════════════════
+class LiveLevelWiring(unittest.TestCase):
+    def setUp(self):
+        with open(os.path.join(ROOT, "multiplayer", "client", "js", "level-pass.js"),
+                  encoding="utf-8") as fh:
+            self.js = fh.read()
+        with open(PREVIEW_JS, encoding="utf-8") as fh:
+            self.app = fh.read()
+
+    def test_the_page_falls_back_to_the_level_the_app_already_knows(self):
+        self.assertIn("_state.accountRead !== false", self.js)
+        self.assertIn("applyLiveAccountLevel", self.js)
+        # …and it is actually called on the render path, not just defined.
+        self.assertIn("applyLiveAccountLevel();", self.js)
+
+    def test_it_only_fires_when_the_read_failed(self):
+        # A successful read is authoritative even when the browser's copy is
+        # newer: reconciling an unlanded XP write is the server's job.
+        body = self.js.split("function applyLiveAccountLevel", 1)[1].split("\n  }", 1)[0]
+        self.assertIn("!_state.signedIn", body)
+        self.assertIn("accountRead !== false", body)
+
+    def test_the_seams_it_reads_are_real_and_at_module_scope(self):
+        # Both live in preview-app.js OUTSIDE the auth IIFE. Inside it, these
+        # calls are a silent ReferenceError and the fallback never fires.
+        self.assertIn("window.__fishGetMyStats     =", self.app)
+        self.assertIn("window.__fishStoredTotalXp = ", self.app)
+
+
+# ══════════════════════════════════════════════════════════════════════════
 #  HTTP
 # ══════════════════════════════════════════════════════════════════════════
 class FakeHandler:

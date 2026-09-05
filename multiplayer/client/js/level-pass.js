@@ -292,14 +292,54 @@
       const gs = (typeof window.__fishGuestStatsGet === "function") ? (window.__fishGuestStatsGet() || {}) : {};
       xp = num(gs.total_xp);
     } catch (_) { xp = 0; }
+    applyLevelFromXp(xp);
+  }
+
+  // The one place the level and its bar are written from an XP number, so the
+  // guest path and the fallback below cannot drift into disagreeing about
+  // which end of levelTotals a level starts at.
+  function applyLevelFromXp(xp) {
     const lvl = guestLevelFromXp(xp);
     const totals = levelTotals() || [];
     const prev = num(totals[lvl - 1]);            // XP that reached this level
     const next = num(totals[lvl], prev);          // XP that reaches the next one
     _state.level = lvl;
-    _state.totalXp = xp;
-    _state.xpIntoLevel = Math.max(0, xp - prev);
+    _state.totalXp = num(xp);
+    _state.xpIntoLevel = Math.max(0, num(xp) - prev);
     _state.xpForLevel = Math.max(1, next - prev);
+  }
+
+  // ── WHEN THE SERVER COULD NOT READ THE ACCOUNT ───────────────────────────
+  // state_payload() sends level 1 when its Firestore read throws, because
+  // there is nothing else to put in the field, and it flags that with
+  // accountRead:false. Painting that 1 is how a Level 39 player spent a day
+  // being told the Level Pass thought they were Level 1: Firestore's daily
+  // quota ran out, every read refused, and an unreadable account looked
+  // exactly like a brand-new one.
+  //
+  // The app itself is not in the dark. It loaded the profile at sign-in and is
+  // painting that level in the header right now, so the pass shows the SAME
+  // level rather than a number it knows is wrong. Nothing is claimable off
+  // this: the claim is a separate request that re-reads the account inside its
+  // own transaction, so the worst case is a Claim button whose server refuses
+  // it, and the best case is the page telling the truth during an outage.
+  function liveAccountXp() {
+    try {
+      const st = (typeof window.__fishGetMyStats === "function") ? window.__fishGetMyStats() : null;
+      if (!st || typeof st !== "object") return null;
+      const xp = (typeof window.__fishStoredTotalXp === "function")
+        ? Number(window.__fishStoredTotalXp(st)) : Number(st.total_xp);
+      return (Number.isFinite(xp) && xp >= 0) ? Math.floor(xp) : null;
+    } catch (_) { return null; }
+  }
+  function applyLiveAccountLevel() {
+    // Only when the server SAID it could not read: a successful read is
+    // authoritative even when it is lower than the browser's copy (an XP write
+    // that has not landed yet is the server's to reconcile, not ours).
+    if (!_state || !_state.signedIn || _state.accountRead !== false) return;
+    const xp = liveAccountXp();
+    if (xp == null) return;
+    applyLevelFromXp(xp);
   }
 
   // ── Rendering ────────────────────────────────────────────────────────────
@@ -482,6 +522,7 @@
       return;
     }
     applyGuestLevel();
+    applyLiveAccountLevel();
 
     const track = (_state.track || []).slice().sort((a, b) => num(a.level) - num(b.level));
     root.innerHTML = `

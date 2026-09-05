@@ -107,6 +107,23 @@ db.collection("users")._docs["u3"] = {
 }
 fresh = lp.state_payload("u3")
 
+# THE OUTAGE PAYLOAD, produced by the real server with a Firestore that
+# refuses: level 1, accountRead False. Built here rather than hand-edited so
+# a rename of the flag fails this test instead of quietly disarming it.
+class _Refuses:
+    def collection(self, *a, **k):
+        raise RuntimeError("429 Quota exceeded")
+
+_real_get = lp._get_firestore
+lp._get_firestore = lambda: _Refuses()
+unreadable = lp.state_payload("u1")
+lp._get_firestore = _real_get
+assert unreadable["accountRead"] is False, unreadable["accountRead"]
+assert unreadable["level"] == 1, unreadable["level"]
+
+# What the APP knows while that read is failing: this account is level 39.
+live_total_xp = xp_for_level(39) + 1550
+
 rdb = FakeDb()
 rs.init(get_firestore=lambda: rdb, verify_token=lambda t: None,
         background_paths=list(BACKGROUNDS))
@@ -117,6 +134,7 @@ rdb.collection("users")._docs["r1"] = {
 referral = rs.state_payload("r1")
 
 print("@@" + json.dumps({"state": state, "boosted": boosted, "fresh": fresh,
+                         "unreadable": unreadable, "liveTotalXp": live_total_xp,
                          "referral": referral}) + "@@")
 `;
   const out = execFileSync("python3", ["-c", script],
@@ -273,6 +291,31 @@ const MAIN = \`
       allclear: txt(document.querySelector(".ccLP-allclear")),
       next: txt(document.querySelector(".ccLP-next")),
     };
+
+    // ── A REFUSING DATABASE ──────────────────────────────────────────
+    // The server could not read the account, so its payload carries level 1
+    // and accountRead:false. The app itself is NOT in the dark: it loaded the
+    // profile at sign-in and the header is painting Level 39 right now. The
+    // pass has to agree with the header, because "the Level Pass says I am
+    // Level 1" is what a whole day of Firestore refusals looked like.
+    window.__fishGetMyStats = () => ({ total_xp: parent.__PAYLOADS.liveTotalXp });
+    window.__fishStoredTotalXp = (st) => Number(st && st.total_xp) || 0;
+    window.__PASS_STATE = JSON.parse(JSON.stringify(parent.__PAYLOADS.unreadable));
+    await window.__ccLevelPassSync();
+    out.unreadable = {
+      level: txt(document.querySelector(".ccLP-lvl-num")),
+      barTxt: txt(document.querySelector(".ccLP-bar-txt")),
+      ready: document.querySelectorAll(".ccLP-tier.is-ready").length,
+    };
+
+    // …and a read that SUCCEEDED stays authoritative, even though the same
+    // live stats are still sitting there. A browser copy does not get to
+    // overrule the account the payout is derived from.
+    window.__PASS_STATE = JSON.parse(JSON.stringify(parent.__PAYLOADS.fresh));
+    await window.__ccLevelPassSync();
+    out.serverWins = { level: txt(document.querySelector(".ccLP-lvl-num")) };
+    delete window.__fishGetMyStats;
+    delete window.__fishStoredTotalXp;
 
     window.__PASS_STATE = parent.__PAYLOADS.boosted;
     await window.__ccLevelPassSync();
@@ -444,6 +487,16 @@ check("no Claim buttons are offered", D.fresh.claimBtns === 0, D.fresh.claimBtns
 check("it says so instead of showing an empty button",
       /Nothing to claim/i.test(D.fresh.allclear), D.fresh.allclear);
 check("it still says what is coming next", /XP until/.test(D.fresh.next), D.fresh.next);
+
+console.log("\n  when the database refuses (the level the app already knows):");
+check("the badge is the account's real level, not 1",
+      D.unreadable.level === "39", D.unreadable.level);
+check("the XP bar counts to the next real level, not level 2",
+      /to Level 40$/.test(D.unreadable.barTxt), D.unreadable.barTxt);
+check("the track unlocks the tiers that level has earned",
+      D.unreadable.ready > 0, D.unreadable.ready);
+check("a read that SUCCEEDED still wins over the browser's copy",
+      D.serverWins.level === "1", D.serverWins.level);
 
 console.log("\n  XP boost:");
 check("a running boost paints a live chip", /\+20% XP/.test(D.boost.chip), D.boost.chip);

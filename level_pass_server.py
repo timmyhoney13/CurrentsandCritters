@@ -295,10 +295,51 @@ def _stats_of(doc: Dict[str, Any]) -> Dict[str, Any]:
     return s if isinstance(s, dict) else {}
 
 
+def stored_total_xp(stats: Dict[str, Any], totals: Optional[List[Any]] = None) -> int:
+    """The account's lifetime XP, read the way the CLIENT reads it.
+
+    `stats.total_xp` is the source of truth and is what every current write
+    path sets. It is not what every account HAS: accounts that predate it
+    stored `level` + `xp_current` instead, and preview-app.js has always
+    fallen back to those (getStoredTotalXp) so the header, the leaderboard and
+    the end screen agree. This module did not, so one of those accounts was
+    Level 39 everywhere in the game and Level 1 on the pass, which is worse
+    than either answer on its own: the track locks tiers the player has
+    genuinely earned.
+
+    Kept here rather than in each pass because critter_pass_server imports it,
+    the same way it already imports the hoard caps: one fallback, both passes.
+
+    `totals` is the curve to read a stored level against, and the CALLER passes
+    its own rather than letting this fall through to the module's. Both passes
+    are injected with the same table by multiplayer_server, but a function that
+    silently depends on the OTHER module's init() having run is a wiring bug
+    waiting for the day something imports one pass without the other: it would
+    not raise, it would just answer a lower level.
+    """
+    if not isinstance(stats, dict):
+        return 0
+    direct = stats.get("total_xp")
+    if isinstance(direct, (int, float)) and not isinstance(direct, bool) and direct >= 0:
+        return int(direct)
+    table = totals if totals else _level_totals
+    raw = stats.get("level", stats.get("player_level"))
+    level = _int(raw, 1)
+    if level < 1:
+        level = 1
+    if table:
+        level = min(level, len(table))
+        start = _int(table[level - 1])
+    else:
+        start = 0
+    into = _int(stats.get("xp_current", stats.get("level_xp_current")))
+    return max(0, start + max(0, into))
+
+
 def _level_of(doc: Dict[str, Any]) -> int:
-    """The account's level, derived from its OWN stored total_xp through the
-    one shared curve. Never from anything the request carried."""
-    total_xp = _int(_stats_of(doc).get("total_xp"))
+    """The account's level, derived from its OWN stored XP through the one
+    shared curve. Never from anything the request carried."""
+    total_xp = stored_total_xp(_stats_of(doc))
     if _level_for_xp is None:
         return 1
     try:
@@ -408,6 +449,15 @@ def state_payload(uid: Optional[str]) -> Dict[str, Any]:
         "boostPercent": BOOST_PERCENT,
         "boostHours": BOOST_HOURS,
         "signedIn": bool(uid),
+        # DID THE ACCOUNT ACTUALLY GET READ? The level below is 1 in this
+        # default because there is nothing else to put there, and for a
+        # signed-out visitor that is the honest answer. For a signed-in player
+        # whose read FAILED it is a lie, and it is the lie that made the pass
+        # say "Level 1" to a Level 39 account for a whole day when Firestore's
+        # daily quota ran out: an unreadable database looked exactly like a
+        # brand-new one. The client checks this flag and paints the level the
+        # app already knows rather than the 1 in here.
+        "accountRead": False,
         "level": 1,
         "totalXp": 0,
         "xpIntoLevel": 0,
@@ -425,7 +475,7 @@ def state_payload(uid: Optional[str]) -> Dict[str, Any]:
     try:
         snap = _users(db).document(uid).get()
         doc = (snap.to_dict() or {}) if snap.exists else {}
-        total_xp = _int(_stats_of(doc).get("total_xp"))
+        total_xp = stored_total_xp(_stats_of(doc))
         level, into, goal = (_level_for_xp(total_xp) if _level_for_xp else (1, 0, 1))
         out["level"] = max(1, int(level))
         out["totalXp"] = total_xp
@@ -433,6 +483,10 @@ def state_payload(uid: Optional[str]) -> Dict[str, Any]:
         out["xpForLevel"] = int(goal)
         out["claimed"] = claimed_ids(db, uid)
         out["inventory"] = _inventory(doc)
+        # Last, and only on the way out of the try: every field above came
+        # back. Set earlier it would survive a throw halfway down and promise
+        # a level that was never read.
+        out["accountRead"] = True
     except Exception as exc:  # noqa: BLE001
         print(f"[pass] state failed for {uid}: {exc}")
     return out
