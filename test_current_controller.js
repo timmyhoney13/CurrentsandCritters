@@ -153,12 +153,77 @@ check(HTML.indexOf('id="wr-cc-row"') < HTML.indexOf('id="wr-emote-row"'),
       "…and sits where the emotes are");
 check(/\.wr-cc-row \{/.test(CSS) && /\.wr-cc-ask/.test(CSS) && /\.wr-cc-chip/.test(CSS),
       "preview.css styles the row, the ask and the chip");
+// RUN the real renderer against a stub DOM, once per state the server can be
+// in. Grepping its source would pass on a row that paints nothing.
 const lobby = grabFn("_ccLobbyRender", 2);
-check(/emotes\.hidden = true/.test(lobby), "it hides the emotes while it has something to say");
-check(/cc\.armed/.test(lobby) && /cc\.denied/.test(lobby) && /cc\.can_vote/.test(lobby),
-      "it paints all three states the server can be in");
-check(/will not count/.test(lobby), "…and says out loud that the game will not count");
-check(/every hand/.test(lobby), "…and what the voter is agreeing to");
+function paint(controller, mayAsk) {
+  const row = { innerHTML: "", hidden: false, listeners: [],
+                querySelectorAll: () => [], addEventListener() {} };
+  const emotes = { hidden: false };
+  const box = {
+    console,
+    document: { getElementById: (id) =>
+      id === "wr-cc-row" ? row : (id === "wr-emote-row" ? emotes : null) },
+    window: { __fishAuthUser: () => null,
+              __fishSupporterTier: () => (mayAsk ? "tsunami" : "") },
+    latestPayload: controller ? { controller } : null,
+    escapeHtml: (v) => String(v).replace(/[&<>"']/g, c =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])),
+    showToast() {}, refreshState() {},
+  };
+  box.window.window = box.window;
+  vm.createContext(box);
+  vm.runInContext([
+    "const CC_TIER_WITH_CONTROLLER = \"tsunami\";",
+    "const CC_DEV_EMAIL = \"currentsandcritters@gmail.com\";",
+    grabFn("ccMayAskForController", 2),
+    "async function _ccPost() { return { ok: true }; }",
+    lobby,
+    "_ccLobbyRender();",
+  ].join("\n"), box);
+  return { html: row.innerHTML, rowHidden: row.hidden, emotesHidden: emotes.hidden };
+}
+
+const base = { allowed_here: true, seat: null, asker: "", armed: false, denied: false,
+               modded: false, yes: 0, no: 0, needed: 0, can_vote: false,
+               my_vote: null, is_mine: false };
+
+let r = paint({ ...base, allowed_here: false }, true);
+check(r.rowHidden && !r.emotesHidden,
+      "a competitive room shows the emotes and no Controller row at all");
+
+r = paint({ ...base }, false);
+check(r.rowHidden && !r.emotesHidden,
+      "a player who cannot hold it never sees the ask");
+
+r = paint({ ...base }, true);
+check(!r.rowHidden && r.emotesHidden && /wr-cc-ask/.test(r.html),
+      "a Tsunami holder gets the ask, in place of the emotes");
+check(/will not count/.test(r.html), "…which says the game will not count");
+
+r = paint({ ...base, seat: 0, asker: "Sam", needed: 2, can_vote: true }, false);
+check(/wr-cc-yes/.test(r.html) && /wr-cc-no/.test(r.html), "a voter gets Yes and No");
+check(/Sam/.test(r.html), "…and is told who asked");
+check(/every hand/.test(r.html), "…and what they would be agreeing to");
+check(/no leaderboard|not count/.test(r.html), "…and what it costs them");
+
+r = paint({ ...base, seat: 0, asker: "Sam", needed: 2, yes: 1, is_mine: true }, true);
+check(/Waiting for the table/.test(r.html) && /1\/2/.test(r.html),
+      "the asker sees the tally, not a vote button");
+check(!/wr-cc-yes/.test(r.html), "…and cannot vote on their own request");
+
+r = paint({ ...base, seat: 0, asker: "Sam", armed: true, needed: 1, yes: 1 }, false);
+check(/wr-cc-chip on/.test(r.html) && /Sam/.test(r.html), "armed shows a loud chip");
+check(r.emotesHidden, "…and keeps the row while the game is modded");
+
+r = paint({ ...base, seat: 0, asker: "Sam", denied: true, needed: 1, no: 1 }, false);
+check(/said no/.test(r.html), "denied says so");
+check(!r.emotesHidden, "…and gives the emotes back, because nothing more will happen");
+
+// The name a voter sees is theirs, not the page's: it has to be escaped.
+r = paint({ ...base, seat: 0, asker: '<img src=x onerror=alert(1)>', needed: 2, can_vote: true }, false);
+check(!/<img/.test(r.html) && /&lt;img/.test(r.html),
+      "a player's own name cannot inject markup into the row");
 
 console.log("\nthe panel opens for a voted table without any key");
 check(/function tableArmed\(\)/.test(CCJS), "current-controller.js knows what an armed table is");
