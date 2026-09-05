@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-05.3";
+  const APP_BUILD   = "2026-09-05.4";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F The Critter Pass is readable again", items: [
+      "Nearly every word on the Critter Pass was coming out a pale tan on a cream card: the purchase pitch, the season name, the reward names on the track and the small print under them. It was not a colour anybody chose. The Clan Grand Prize banner, which is a different page entirely, happened to share a name with the pass in the stylesheet, and its cream lettering landed on the pass's text. The pass is back to its dark ink, which reads at 13:1 against the card.",
+      "The page title is back in the serif it was meant to be set in, at the size it was meant to be, for the same reason.",
+      "Nothing about the Clan Grand Prize banner changed on either the website or the Clans tab.",
+    ]},
     { ver: "V1.7.1", title: "\uD83C\uDF0A A $100 Supporter Tier, and a way to give more than that", items: [
       "There is a fourth Supporter Tier. Tsunami is $100 and is the biggest tier you can buy outright: TWO physical copies of the game (keep one, gift one), a hand-written signed thank-you card, a thank-you postcard, your name in the game's supporter credits, first look at every expansion, 15 Season Pass vouchers, 75,000 Critter Coins and +20,000 bonus XP.",
       "Its button says \u201cOpening soon\u201d until its checkout is switched on, so nothing can be charged at the wrong price in the meantime.",
