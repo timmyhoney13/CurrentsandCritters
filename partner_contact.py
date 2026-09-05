@@ -283,7 +283,7 @@ ACK_HTML = (
 # ═══════════════════════════════════════════════════════════════════════════
 #  SENDING
 # ═══════════════════════════════════════════════════════════════════════════
-_SENT_MESSAGE = ("Thanks! Your message is on its way to Tim, and a copy of the "
+_SENT_MESSAGE = ("Thanks! Your message is on its way to Timothy, and a copy of the "
                  "confirmation is in your inbox. You'll get a reply at the "
                  "address you gave.")
 

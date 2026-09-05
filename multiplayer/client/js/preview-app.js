@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-05.4";
+  const APP_BUILD   = "2026-09-05.5";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,15 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F Custom friend codes, and the Current Controller", items: [
+      "You can pick your own friend code. Three to nine letters or numbers instead of four random digits, and unlike the random ones it is RESERVED: nobody else can ever take it, and anyone who types it can send you a friend request. It is in the Store for 1,000 Critter Coins.",
+      "Every Supporter Tier hands them out too: Wave Warrior 1, Ocean Ally 2, Tide Turner 4 and Tsunami 8. A tier code is spent before any coins are, and changing your code frees the one you were holding.",
+      "The Tsunami tier now comes with the Current Controller, the game's mod menu. It can read every hand, deal cards from the deck, drive the bots and take cards out of a hand.",
+      "Nobody can switch it on over the table's head. In the lobby, where the emotes are, there is a Current Controller button: press it and every other human has to say Yes before a card is dealt. One No and it stays shut for that game. It is casual games only, never Competitive, ranked or tournament play, and the table is asked again every game.",
+      "If it is actually used, the game stops counting for everyone: nothing on the leaderboard, no achievements, no new critters, and no entry in your match history. Everybody who finishes still earns the base XP, and the day still counts toward your streak. Being allowed to use it and never opening it leaves the game completely normal.",
+      "There is a new Current Controller tab under How to Play that explains what a mod menu is, lists every tool it has, and spells out what it costs the table.",
+      "Every cosmetic you own can be given to another account, and the Store and the tier cards now say so: avatars, skins and backgrounds all trade, along with Critter Coins, Season Passes and XP.",
+    ]},
     { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F The Critter Pass is readable again", items: [
       "Nearly every word on the Critter Pass was coming out a pale tan on a cream card: the purchase pitch, the season name, the reward names on the track and the small print under them. It was not a colour anybody chose. The Clan Grand Prize banner, which is a different page entirely, happened to share a name with the pass in the stylesheet, and its cream lettering landed on the pass's text.",
       "The writing on the pass is BLACK now, top to bottom. \u201cUnlock the Critter Pass\u201d, the reward names, the blurbs under them and the small print all read at better than 10:1 against the card they sit on.",
@@ -122,7 +131,7 @@
       "Its button says \u201cOpening soon\u201d until its checkout is switched on, so nothing can be charged at the wrong price in the meantime.",
       "The bonus XP on the other three tiers was rebalanced to sit under it: Wave Warrior now gives +1,000 (it gave none before), Ocean Ally +5,000 and Tide Turner +7,500. Coins and vouchers are unchanged, and nothing already credited to your account is taken back.",
       "The cards say which is which again: Most Popular sits on the Ocean Ally, Best Value on the Tsunami.",
-      "Giving more than $100 is a conversation instead of a checkout. Both the website and the Store hand you a message that is already written, with the amount and your name marked out to replace, and it goes straight to Tim.",
+      "Giving more than $100 is a conversation instead of a checkout. Both the website and the Store hand you a message that is already written, with the amount and your name marked out to replace, and it goes straight to Timothy.",
     ]},
     { ver: "V1.7.1", title: "\uD83C\uDFA3 The Level Pass knows what level you are", items: [
       "The Level Pass could tell you it thought you were Level 1 when the game had you at Level 39. It was never your progress that was missing: the database refused to answer for a day, and the pass read that silence as a brand-new account. It now shows the level the rest of the game is already showing you, and says so instead of guessing.",
@@ -3877,6 +3886,120 @@
     }
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  //  THE CURRENT CONTROLLER, asked for in the lobby
+  // ══════════════════════════════════════════════════════════════════
+  // The Controller is the mod menu: it reads every hand, deals cards and
+  // drives the bots. Nobody gets to switch that on over the table's head, so
+  // it is asked for HERE, before a card is dealt, and every other human has to
+  // say yes. The server owns the decision (controller_request /
+  // controller_vote in multiplayer_server.py); this is only the row that asks.
+  //
+  // Two separate questions, deliberately not merged:
+  //   MAY I ASK?  the developer account, or an account holding the Tsunami
+  //               Supporter Tier. Cosmetic-adjacent, so it is checked in the
+  //               browser and means nothing on its own.
+  //   MAY I USE?  the server's `armed`, which it worked out from real votes it
+  //               watched. That is the one that actually opens anything.
+  const CC_TIER_WITH_CONTROLLER = "tsunami";
+  const CC_DEV_EMAIL = "currentsandcritters@gmail.com";
+
+  function ccMayAskForController() {
+    try {
+      // Both of these are bridges on purpose: the account lives inside the
+      // auth IIFE and nothing out here can reach into it directly.
+      const u = window.__fishAuthUser && window.__fishAuthUser();
+      const email = String((u && u.email) || "").toLowerCase();
+      if (email && email === CC_DEV_EMAIL) return true;
+      const tier = (window.__fishSupporterTier && window.__fishSupporterTier()) || "";
+      return tier === CC_TIER_WITH_CONTROLLER;
+    } catch (_) { return false; }
+  }
+  // Read by current-controller.js, which is a separate <script> and cannot see
+  // anything in here without a bridge.
+  window.__ccMayAskForController = ccMayAskForController;
+
+  async function _ccPost(path, body) {
+    const rid = roomId, tok = getSeatToken();
+    if (!rid || !tok) return { ok: false, error: "not in a room" };
+    try {
+      const r = await apiPost(`/api/rooms/${rid}/${path}`, { seat_token: tok, ...(body || {}) },
+                              { timeoutMs: 8000 });
+      return (r && r.data) || { ok: false, error: "no reply" };
+    } catch (e) {
+      return { ok: false, error: String((e && e.message) || e) };
+    }
+  }
+
+  function _ccLobbyRender() {
+    const row = document.getElementById("wr-cc-row");
+    const emotes = document.getElementById("wr-emote-row");
+    if (!row) return;
+    const cc = (latestPayload && latestPayload.controller) || null;
+    const show = (html) => {
+      row.innerHTML = html;
+      row.hidden = false;
+      if (emotes) emotes.hidden = true;
+    };
+    const hide = () => {
+      row.innerHTML = "";
+      row.hidden = true;
+      if (emotes) emotes.hidden = false;
+    };
+
+    // Competitive, ranked, tournament and tutorial rooms never offer it.
+    if (!cc || !cc.allowed_here) { hide(); return; }
+
+    if (cc.armed) {
+      show(`<span class="wr-cc-chip on">\u{1F30A} Current Controller ON</span>
+        <span class="wr-cc-text">${escapeHtml(cc.asker || "A player")} can use the mod menu this game.</span>
+        <span class="wr-cc-note">This game will not count: no leaderboard, no achievements, no new critters. Everyone still earns the base XP for finishing.</span>`);
+      return;
+    }
+    if (cc.denied) {
+      // Decided, and nothing more will happen, so the emotes come back and the
+      // chip just records the answer.
+      row.innerHTML = `<span class="wr-cc-chip off">Current Controller: the table said no</span>`;
+      row.hidden = false;
+      if (emotes) emotes.hidden = false;
+      return;
+    }
+    if (cc.seat === null || cc.seat === undefined) {
+      if (!ccMayAskForController()) { hide(); return; }
+      show(`<button type="button" class="wr-cc-ask" id="wr-cc-ask">\u{1F30A} Ask to use the Current Controller</button>
+        <span class="wr-cc-note">The mod menu. Every other player has to agree, and the game will not count toward the leaderboard, achievements or critter unlocks.</span>`);
+      document.getElementById("wr-cc-ask")?.addEventListener("click", async (e) => {
+        e.currentTarget.disabled = true;
+        const r = await _ccPost("controller_request");
+        if (!r.ok) showToast(r.error || "Could not ask right now.", "err");
+        try { refreshState(); } catch (_) {}
+      });
+      return;
+    }
+    // A request is live.
+    const tally = `${cc.yes}/${cc.needed} said yes`;
+    if (cc.is_mine) {
+      show(`<span class="wr-cc-text">\u{1F30A} Waiting for the table to agree \u2014 ${escapeHtml(tally)}.</span>`);
+      return;
+    }
+    if (cc.can_vote) {
+      show(`<span class="wr-cc-text">${escapeHtml(cc.asker || "A player")} wants the <b>Current Controller</b> (the mod menu) this game.</span>
+        <button type="button" class="wr-cc-yes" id="wr-cc-yes">Yes</button>
+        <button type="button" class="wr-cc-no" id="wr-cc-no">No</button>
+        <span class="wr-cc-note">They would be able to see every hand, deal cards and drive the bots. Say yes and the game stops counting for everyone: no leaderboard, no achievements, no new critters, just the base XP for finishing.</span>`);
+      const cast = async (vote) => {
+        row.querySelectorAll("button").forEach(b => { b.disabled = true; });
+        const r = await _ccPost("controller_vote", { vote });
+        if (!r.ok) showToast(r.error || "Vote did not register.", "err");
+        try { refreshState(); } catch (_) {}
+      };
+      document.getElementById("wr-cc-yes")?.addEventListener("click", () => cast(true));
+      document.getElementById("wr-cc-no")?.addEventListener("click", () => cast(false));
+      return;
+    }
+    show(`<span class="wr-cc-text">${escapeHtml(cc.asker || "A player")} asked for the Current Controller \u2014 ${escapeHtml(tally)}.</span>`);
+  }
+
   // ── one-time wiring for the lobby's own controls ──────────────────────
   (function wireLobbyControls() {
     const send = () => {
@@ -3937,6 +4060,9 @@
           : (isComp ? "⚔️ Competitive 1v1 Lobby"
              : isRankedRoom ? "🏅 Competitive Lobby"
              : (isTeam ? "🤝 Team Lobby" : "Game Lobby")));
+
+    // The Current Controller row, wherever the table has got to with it.
+    try { _ccLobbyRender(); } catch (_) {}
 
     const list = document.getElementById("wr-players-list");
     list.innerHTML = '<div class="wr-players-title">Players in Room</div>';
@@ -14442,6 +14568,53 @@
     return idx >= 0 ? (idx + 1) : uniqueScores.length + 1;
   }
 
+  // ── A game somebody used the Current Controller in ───────────────────
+  // The server sets this the first time a mod op really lands in the room
+  // (`_admin_active`), NOT when the table votes: a player who was allowed to
+  // use it and never opened it played an ordinary game.
+  //
+  // What it costs, and this is the whole promise the lobby makes:
+  //   • nothing that feeds a leaderboard is written (score, wins, averages,
+  //     best-game replays, games played),
+  //   • no achievements, and no critters unlock,
+  //   • everyone who finishes still earns CC_MODDED_GAME_XP.
+  // The daily streak still counts the day: showing up and playing a game with
+  // friends is what a streak measures, and it cannot be farmed (one day is one
+  // day however many games you play).
+  const CC_MODDED_GAME_XP = 25;      // the same as a last-place finish
+  function ccGameWasModded() {
+    try { return !!(latestPayload && latestPayload.controller && latestPayload.controller.modded); }
+    catch (_) { return false; }
+  }
+  // The keys a modded game may still write: XP, the level fields derived from
+  // it, and the daily streak. An ALLOWLIST, not a blocklist, because a new stat
+  // added later must default to "does not count" rather than silently leaking
+  // onto the leaderboard.
+  const CC_MODDED_KEEP = new Set([
+    "stats.total_xp", "stats.level", "stats.player_level", "stats.level_title",
+    "stats.xp_current", "stats.level_xp_current", "stats.xp_goal",
+    "stats.level_xp_goal", "stats.last_game_xp",
+    "stats.streak_days", "stats.daily_streak", "stats.streak_longest",
+  ]);
+  // The guest half of the same rule. The signed-in path collects a dict of
+  // updates that can simply be filtered; the guest path mutates a whole stats
+  // object, so this puts back everything that was not on the allowlist.
+  function ccKeepModdedGuestStats(before, after) {
+    const out = { ...(before && typeof before === "object" ? before : {}) };
+    for (const k of CC_MODDED_KEEP) {
+      const bare = k.replace(/^stats\./, "");
+      if (after && Object.prototype.hasOwnProperty.call(after, bare)) out[bare] = after[bare];
+    }
+    return out;
+  }
+  function ccPruneModdedUpdates(updates) {
+    const kept = {};
+    for (const k of Object.keys(updates || {})) {
+      if (CC_MODDED_KEEP.has(k)) kept[k] = updates[k];
+    }
+    return kept;
+  }
+
   function getGameXpAward(finalScores, myScore) {
     const rank = getPlacementRank(finalScores, myScore);
     const hasAi = (Array.isArray(finalScores)?finalScores:[]).some(p=>isLikelyAiName(p?.name))
@@ -15000,9 +15173,14 @@
       return (Number.isFinite(h) && h > 0) ? Math.min(h, 24) : 0;
     })();
     const _modeKey = isComp ? "competitive" : "normal";
+    const _modded = ccGameWasModded();
     const xpAward = (typeof xpOverride === "number" && xpOverride >= 0)
       ? xpOverride
-      : (isComp ? Math.floor(getGameXpAward(finalScores, myScore) / 2) : getGameXpAward(finalScores, myScore));
+      : _modded
+        // Flat, and the same for everyone at the table: placement means
+        // nothing in a game where a player could deal themselves the deck.
+        ? CC_MODDED_GAME_XP
+        : (isComp ? Math.floor(getGameXpAward(finalScores, myScore) / 2) : getGameXpAward(finalScores, myScore));
     try {
       const guestStatsGetter = (typeof window.__fishGuestStatsGet === "function") ? window.__fishGuestStatsGet : null;
       const cStats = (authUser && db)
@@ -15286,6 +15464,15 @@
         // the history separately, trimming it down on size failure.
         const _recentGamesValue = updates["stats.recent_games"];
         delete updates["stats.recent_games"];
+        // A modded game keeps its XP and its streak day and nothing else. Done
+        // by pruning the finished object rather than by guarding thirty
+        // separate assignments above: one gate is one thing to get right, and
+        // the allowlist makes a stat added next year safe by default.
+        if (_modded) {
+          const _kept = ccPruneModdedUpdates(updates);
+          for (const _k of Object.keys(updates)) delete updates[_k];
+          Object.assign(updates, _kept);
+        }
         // Firestore rejects undefined and non-finite (NaN/Infinity) values and
         // fails the WHOLE update if any field has one. Strip/repair top-level
         // fields so a single bad value can never block the core save. (Numeric
@@ -15300,7 +15487,10 @@
         // room and fails. _saveRecentGamesResilient REPLACES recent_games with a
         // trimmed (and, if needed, board-stripped) array, only ever removing
         // bytes, which frees space so the core write fits. It never throws.
-        await _saveRecentGamesResilient(docRef, _recentGamesValue);
+        // A modded game is not written into the match history either: every
+        // entry there carries a score and a placement, and a replay the
+        // leaderboard can open. None of that means anything in this game.
+        if (!_modded) await _saveRecentGamesResilient(docRef, _recentGamesValue);
         try {
           await docRef.update(updates);               // core stats, now has room
         } catch (eCore) {
@@ -15340,7 +15530,15 @@
         // Immediately update in-memory stats so History tab + streak UI show the
         // new game without requiring a page reload or navigation away.
         if (typeof updatePhStats === "function" && typeof _phStats !== "undefined") {
-          const updatedStats = Object.assign({}, _phStats || {}, {
+          const updatedStats = Object.assign({}, _phStats || {}, _modded ? {
+            // Mirror only what was actually written, or the History tab shows a
+            // game the database does not have until the next reload.
+            total_xp: levelProgress.totalXp,
+            level: levelProgress.level,
+            streak_days:    _newStreakDays,
+            daily_streak:   _streakInfo.current,
+            streak_longest: Math.max(_streakInfo.longest, Number(cStats.streak_longest || 0)),
+          } : {
             recent_games: nextRecent,
             completed_games: Number((_phStats || {}).completed_games || 0) + 1,
             total_score: Number((_phStats || {}).total_score || 0) + myScore,
@@ -15358,8 +15556,9 @@
         // stats object if missing, patch it, then drive every streak UI updater.
         _refreshStreakUiAfterSave(_newStreakDays, _streakInfo.current,
           Math.max(_streakInfo.longest, Number(cStats.streak_longest || 0)));
-        // Check game-end achievements for authenticated users
-        if (typeof window.__fishCheckAchievementsAfterGame === "function") {
+        // Check game-end achievements for authenticated users. Not in a modded
+        // game: an achievement earned with the deck in your hand is not one.
+        if (!_modded && typeof window.__fishCheckAchievementsAfterGame === "function") {
           window.__fishCheckAchievementsAfterGame({
             isComp, isWinner, myScore, playerCount, finalScores,
             boardSnaps, uid: authUser.uid,
@@ -15461,11 +15660,16 @@
           nextStats.playtime_by_mode = modeMap;
         }
 
-        if (saveGuest) saveGuest(nextStats);
+        // Same rule for a guest as for an account: a modded game keeps its XP
+        // and its streak day and touches nothing else. Rebuilt from the stats
+        // this game STARTED with, because the guest path mutates a copy in
+        // place rather than collecting a set of updates.
+        const _guestOut = _modded ? ccKeepModdedGuestStats(cStats, nextStats) : nextStats;
+        if (saveGuest) saveGuest(_guestOut);
         // Guest history persisted to localStorage, mark saved (only on success).
         _lastSavedWinner = winner;
         // Update in-memory stats so History tab shows the new game immediately
-        if (typeof updatePhStats === "function") updatePhStats(nextStats);
+        if (typeof updatePhStats === "function") updatePhStats(_guestOut);
         // Refresh the streak UI right now (guests read from localStorage via the
         // guest getter, but we still drive every updater for an instant refresh).
         _refreshStreakUiAfterSave(nextStats.streak_days, nextStats.daily_streak, nextStats.streak_longest);
@@ -19597,6 +19801,13 @@
   const PHST_EMOTE_PACK_PRICE   = 500;   // one pack of critter chat emotes
   const PHST_EMOTE_PACK_SIZE    = 5;     // critters granted per Emote Pack
   const PHST_REEARN_COIN_PRICE  = 2500;  // buy back one traded-away critter
+  // A CUSTOM friend code: you choose it, and it is reserved to your account.
+  // ⚠️ Must equal CUSTOM_CODE_COIN_PRICE in multiplayer_server.py, which is what
+  // actually takes the coins. The Supporter Tiers hand these out too (1/2/4/8),
+  // and a held token is spent before any coins are.
+  const PHST_CUSTOM_CODE_PRICE  = 1000;
+  const PHST_CUSTOM_CODE_MIN    = 3;
+  const PHST_CUSTOM_CODE_MAX    = 9;
   const PHST_PERK_STACK_MAX     = 3;     // hoard cap per stackable consumable
 
   // ── Username changes ───────────────────────────────────────────
@@ -22113,15 +22324,37 @@
       await _db.collection("users").doc(myUid).collection("friend_requests").doc(fromUid).delete();
     }
 
-    // ── Add friend (supports digit-only code OR Nickname#Code) ───
+    // ── Add friend (digit code, CUSTOM code, or Nickname#Code) ───
+    // Three shapes reach this box and they are looked up in three different
+    // ways, because they are three different things:
+    //   1234       a random sign-up code. NOT unique, so several accounts can
+    //              answer and the caller is asked which one they meant.
+    //   ReefKing   a custom code somebody paid for. Reserved, so exactly one
+    //              account can ever answer, and it is matched case-insensitively
+    //              off friend_code_lower (a code read out loud is typed in
+    //              whatever case the listener felt like).
+    //   Name#1234  the nickname form, resolved through friend_lookup.
+    const CC_CUSTOM_CODE_RE = /^[A-Za-z0-9]{3,9}$/;
     async function addFriend(myUid, rawCode, myNick) {
       if (!_db) return { error: "Not signed in." };
       const input = rawCode.trim();
 
       let targetUid = null, targetNick = null;
 
+      // A custom friend code: letters and numbers, and not the four digits a
+      // random code is made of.
+      if (CC_CUSTOM_CODE_RE.test(input) && !/^\d{4}$/.test(input) && /[A-Za-z]/.test(input)) {
+        try {
+          const snap = await _db.collection("users")
+            .where("friend_code_lower", "==", input.toLowerCase()).limit(2).get();
+          if (snap.empty) return { error: "No player has that friend code." };
+          const d = snap.docs[0];
+          targetUid  = d.id;
+          targetNick = d.data().nickname || "Unknown";
+        } catch (e) { return { error: e.message || "Lookup failed." }; }
+      }
       // Pure digits → look up by friend_code field
-      if (/^\d+$/.test(input)) {
+      else if (/^\d+$/.test(input)) {
         try {
           const snap = await _db.collection("users").where("friend_code", "==", input).get();
           if (snap.empty) return { error: "No user found with that code." };
@@ -22134,16 +22367,27 @@
           targetNick = d.data().nickname || "Unknown";
         } catch(e) { return { error: e.message || "Lookup failed." }; }
       } else {
-        // Nickname#Code format
-        const m = input.match(/^(.+)#(\d{1,6})$/);
-        if (!m) return { error: "Enter a 4-digit code." };
-        const [, nick, digits] = m;
-        const fcKey = nick.trim().toLowerCase() + "_" + digits;
+        // Nickname#Code format. The code half may be custom now, so it is not
+        // digits-only any more.
+        const m = input.match(/^(.+)#([A-Za-z0-9]{1,9})$/);
+        if (!m) return { error: "Enter a friend code, or Name#Code." };
+        const [, nick, codePart] = m;
+        const fcKey = nick.trim().toLowerCase() + "_" + codePart;
         try {
           const snap = await _db.collection("friend_lookup").doc(fcKey).get();
-          if (!snap.exists) return { error: "Friend code not found." };
-          targetUid  = snap.data().uid;
-          targetNick = snap.data().nickname;
+          if (snap.exists) {
+            targetUid  = snap.data().uid;
+            targetNick = snap.data().nickname;
+          } else {
+            // friend_lookup is written at sign-up and holds the RANDOM code, so
+            // a custom code never has an entry there. Fall back to the code
+            // itself, which is reserved and therefore unambiguous.
+            const alt = await _db.collection("users")
+              .where("friend_code_lower", "==", codePart.toLowerCase()).limit(2).get();
+            if (alt.empty) return { error: "Friend code not found." };
+            targetUid  = alt.docs[0].id;
+            targetNick = alt.docs[0].data().nickname || "Unknown";
+          }
         } catch(e) { return { error: e.message || "Lookup failed." }; }
       }
 
@@ -29465,6 +29709,7 @@
             "Name on the Supporter Reef Wall",
             "Personal thank-you email",
             "1 Season Pass voucher: redeem it for the Critter Pass (Battle Pass) on any one season you choose",
+            "1 custom friend code: pick your own, reserved to you",
             "+1,000 bonus XP",
           ],
           note: "Cosmetic progression only",
@@ -29480,6 +29725,7 @@
             "Unlock all backgrounds",
             "Exclusive Fish Icon",
             "2 Season Pass vouchers: two Critter Passes (Battle Passes), on any two seasons you choose",
+            "2 custom friend codes: pick your own, reserved to you",
             "+5,000 bonus XP",
           ],
           note: "Cosmetic progression only",
@@ -29498,6 +29744,7 @@
             "Thank-you postcard",
             "Exclusive Amberjack player icon",
             "5 Season Pass vouchers: five Critter Passes (Battle Passes), on any five seasons you choose",
+            "4 custom friend codes: pick your own, reserved to you",
             "+7,500 bonus XP",
           ],
           note: "Cosmetic progression only",
@@ -29520,12 +29767,13 @@
             "Unlock all backgrounds",
             "Exclusive Fish Icon",
             "Exclusive Amberjack player icon",
-            "TWO free physical copies of Currents and Critters: keep one, gift one",
+            "TWO free physical copies of Currents and Critters",
             "Hand-written thank-you card, signed",
-            "Thank-you postcard",
             "Your name in the game's supporter credits",
             "First look at every expansion before it ships",
+            "The Current Controller: the game's mod menu, in casual games your table agrees to",
             "15 Season Pass vouchers: fifteen Critter Passes (Battle Passes), on any fifteen seasons you choose",
+            "8 custom friend codes: pick your own, reserved to you",
             "+20,000 bonus XP",
           ],
           note: "Cosmetic progression only",
@@ -29684,6 +29932,9 @@
           const _packSize = (typeof PHST_EMOTE_PACK_SIZE !== "undefined") ? PHST_EMOTE_PACK_SIZE : 5;
           const _coinImg  = `<img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false">`;
 
+          const _ccCodeMin = (typeof PHST_CUSTOM_CODE_MIN !== "undefined") ? PHST_CUSTOM_CODE_MIN : 3;
+          const _ccCodeMax = (typeof PHST_CUSTOM_CODE_MAX !== "undefined") ? PHST_CUSTOM_CODE_MAX : 9;
+
           const _perks = [
             {
               key: "shield", ico: "🛡️", name: "Streak Shield",
@@ -29697,6 +29948,21 @@
               price: (typeof PHST_EMOTE_PACK_PRICE !== "undefined") ? PHST_EMOTE_PACK_PRICE : 500,
               desc: `Pick ${_packSize} critters you've unlocked and send them as pictures in game chat. Every animal in the game can be an emote, you just have to own it first.`,
               stat: `${_emotes.length} emote${_emotes.length !== 1 ? "s" : ""} owned · ${_eligible.length} critter${_eligible.length !== 1 ? "s" : ""} available`,
+              cta: "Choose",
+            },
+            {
+              key: "code", ico: "🎫", name: "Custom Friend Code",
+              price: (typeof PHST_CUSTOM_CODE_PRICE !== "undefined") ? PHST_CUSTOM_CODE_PRICE : 1000,
+              // Guarded the same way every other value this renderer reads out
+              // of the outer scope is, so the card still paints if the block
+              // that declares them has not run yet.
+              desc: `Swap your four random digits for a code you choose, ${_ccCodeMin}\u2013${_ccCodeMax} letters or numbers. Nobody else can ever take it, and anyone who types it sends you a friend request.`,
+              stat: (() => {
+                const t = (typeof window.__fishCustomCodeTokens === "function") ? window.__fishCustomCodeTokens() : 0;
+                const mine = (typeof window.__fishMyFriendCode === "function") ? window.__fishMyFriendCode() : "";
+                if (t > 0) return `You hold ${t} custom code${t !== 1 ? "s" : ""} from a Supporter Tier`;
+                return mine ? `Your code is ${mine}` : "You hold no custom codes";
+              })(),
               cta: "Choose",
             },
             {
@@ -29731,7 +29997,7 @@
 
         // ── 4) Supporter Tiers ────────────────────────────────────────
         html += `<div class="phst-section-title">★ Supporter Tiers<span class="phst-sec-rule"></span></div>`;
-        html += `<div class="phst-section-sub">Back the launch and earn permanent founder recognition. Cosmetic &amp; progression rewards only.</div>`;
+        html += `<div class="phst-section-sub">Back the launch and earn permanent founder recognition. Cosmetic &amp; progression rewards only, and every cosmetic you own can be given to another account: avatars, skins and backgrounds all trade, along with coins, Season Passes and XP.</div>`;
         html += `<div class="phst-tier-grid">`;
         for (const t of PHST_SUPPORTER_TIERS) {
           // Two ribbons, two different claims: MOST POPULAR is what people
@@ -29836,7 +30102,7 @@
       // to be there or the whole card is a dead end for those readers.
       const PHST_CONTACT_EMAIL = "currentsandcritters@gmail.com";
       const PHST_CUSTOM_TEMPLATE = [
-        "Hi Tim,",
+        "Hi Timothy,",
         "",
         "My name is [INSERT YOUR NAME HERE] and I'd like to support Currents and",
         "Critters with [INSERT AMOUNT HERE, for example $250].",
@@ -29864,7 +30130,7 @@
         host.innerHTML = `
           <div class="cctm-card" role="dialog" aria-modal="true" aria-labelledby="cctm-title">
             <div class="cctm-title" id="cctm-title">Giving more than $100</div>
-            <div class="cctm-sub">Above the Tsunami tier we set it up by hand, so there's no button, just a message. Everything in [BRACKETS] is yours to replace, then send it to <strong>${esc(PHST_CONTACT_EMAIL)}</strong>. Tim reads every one and replies.</div>
+            <div class="cctm-sub">Above the Tsunami tier we set it up by hand, so there's no button, just a message. Everything in [BRACKETS] is yours to replace, then send it to <strong>${esc(PHST_CONTACT_EMAIL)}</strong>. Timothy reads every one and replies.</div>
             <textarea class="cctm-text" id="cctm-text" spellcheck="false">${esc(PHST_CUSTOM_TEMPLATE)}</textarea>
             <p class="cctm-hint">Edit it however you like. "Open my email app" carries whatever is in the box; if that does nothing on your device, use "Copy the message" and paste it into your mail.</p>
             <div class="cctm-actions">
@@ -30089,6 +30355,7 @@
           if (key === "shield")  await _perkBuyShield();
           if (key === "emotes")  await _perkBuyEmotes();
           if (key === "reearn")  await _perkBuyReEarn();
+          if (key === "code")    await _perkBuyCustomCode();
         } catch (e) {
           console.warn("[store] perk purchase failed", e);
           showToast("Purchase failed, try again.", "err");
@@ -30096,6 +30363,122 @@
         if (btn) btn.disabled = false;
         renderPhStore();
       };
+
+      // ── Custom friend code ────────────────────────────────────────
+      // The ONE purchase in the Store that cannot be a Firestore transaction in
+      // the browser: it has to RESERVE the code so two people racing for
+      // "ReefKing" cannot both get it, and a client may only write its own user
+      // document. So the whole thing (reserve, take the payment, move the code
+      // onto the account) is one server transaction behind /api/friendcode/custom.
+      async function _perkBuyCustomCode() {
+        const price  = (typeof PHST_CUSTOM_CODE_PRICE !== "undefined") ? PHST_CUSTOM_CODE_PRICE : 1000;
+        const tokens = (typeof window.__fishCustomCodeTokens === "function") ? window.__fishCustomCodeTokens() : 0;
+        const coins  = _myCritterCoins();
+        const free   = tokens > 0;
+        if (!free && coins < price) {
+          showToast(`A custom friend code costs ${phstFmtCoins(price)} Critter Coins and you have ${phstFmtCoins(coins)}.`, "err");
+          return;
+        }
+        const wanted = await ccPromptCustomCode(free, price, tokens);
+        if (!wanted) return;
+        let token = "";
+        try { token = await _authUser.getIdToken(); } catch (_) { showToast("Sign in again and try that once more.", "err"); return; }
+        let res = null;
+        try {
+          const r = await fetch(String(window.__FISH_API_BASE__ || "") + "/api/friendcode/custom", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken: token, code: wanted }),
+          });
+          res = await r.json();
+        } catch (_) {
+          showToast("Could not reach the server. Try again in a moment.", "err");
+          return;
+        }
+        if (!res || !res.ok) {
+          showToast((res && res.message) || "That code could not be claimed.", "err");
+          return;
+        }
+        // Mirror what the server just wrote so the header, the profile and the
+        // Store card all read the new code without a reload.
+        try { window.__fishNoteCustomCode(res.code, res.paid_with, price); } catch (_) {}
+        showToast(`\u{1F3AB} Your friend code is now ${res.code}. Anyone who types it can send you a friend request.`, "ok");
+      }
+
+      // The picker. Validates the SHAPE here (instantly, no round trip) and
+      // leaves "is it taken" to the server, which is the only place that can
+      // answer it without the answer going stale.
+      function ccPromptCustomCode(free, price, tokens) {
+        const min = (typeof PHST_CUSTOM_CODE_MIN !== "undefined") ? PHST_CUSTOM_CODE_MIN : 3;
+        const max = (typeof PHST_CUSTOM_CODE_MAX !== "undefined") ? PHST_CUSTOM_CODE_MAX : 9;
+        const esc = (typeof escapeHtml === "function") ? escapeHtml : (x)=>String(x);
+        let host = document.getElementById("cc-code-modal");
+        if (!host) {
+          host = document.createElement("div");
+          host.id = "cc-code-modal";
+          document.body.appendChild(host);
+        }
+        const cost = free
+          ? `Using one of your ${tokens} Supporter custom code${tokens !== 1 ? "s" : ""} \u2014 no coins.`
+          : `Costs ${phstFmtCoins(price)} Critter Coins.`;
+        host.innerHTML = `
+          <div class="cccode-card" role="dialog" aria-modal="true" aria-labelledby="cccode-title">
+            <div class="cccode-ico" aria-hidden="true">\u{1F3AB}</div>
+            <div class="cccode-title" id="cccode-title">Choose your friend code</div>
+            <div class="cccode-body">${min}\u2013${max} letters or numbers. It replaces your four random digits, it is reserved to you, and anyone who types it can send you a friend request. ${esc(cost)}</div>
+            <input class="cccode-input" id="cccode-input" maxlength="${max}" autocomplete="off"
+                   spellcheck="false" placeholder="ReefKing" aria-label="Your custom friend code">
+            <div class="cccode-err" id="cccode-err"></div>
+            <div class="cccode-actions">
+              <button type="button" class="cccode-btn" data-act="cancel">Cancel</button>
+              <button type="button" class="cccode-btn cccode-primary" data-act="ok">Claim it</button>
+            </div>
+          </div>`;
+        host.classList.add("open");
+        const input = host.querySelector("#cccode-input");
+        const err = host.querySelector("#cccode-err");
+        setTimeout(() => { try { input.focus(); } catch (_) {} }, 30);
+
+        // The same three rules the server enforces, checked here so a mistake
+        // costs a glance instead of a round trip. The server still checks: this
+        // is the convenience copy, not the authority.
+        const why = (v) => {
+          const c = String(v || "").trim();
+          if (c.length < min || c.length > max) return `${min}\u2013${max} characters.`;
+          if (!/^[A-Za-z0-9]+$/.test(c)) return "Letters and numbers only, no spaces.";
+          if (/^\d{4}$/.test(c)) return "Four digits is what a random code looks like. Pick something else.";
+          return "";
+        };
+
+        return new Promise((resolve) => {
+          let done = false;
+          const finish = (val) => {
+            if (done) return;
+            done = true;
+            host.classList.remove("open");
+            host.innerHTML = "";
+            document.removeEventListener("keydown", onKey, true);
+            resolve(val);
+          };
+          const submit = () => {
+            const v = String(input.value || "").trim();
+            const bad = why(v);
+            if (bad) { err.textContent = bad; return; }
+            finish(v);
+          };
+          const onKey = (e) => {
+            if (e.key === "Escape") { e.preventDefault(); finish(""); }
+            if (e.key === "Enter" && document.activeElement === input) { e.preventDefault(); submit(); }
+          };
+          document.addEventListener("keydown", onKey, true);
+          input.addEventListener("input", () => { err.textContent = ""; });
+          host.addEventListener("click", (e) => { if (e.target === host) finish(""); });
+          host.querySelectorAll(".cccode-btn").forEach((b) => {
+            b.addEventListener("click", () => {
+              if (b.getAttribute("data-act") === "ok") submit(); else finish("");
+            });
+          });
+        });
+      }
 
       async function _perkBuyShield() {
         const price = PHST_SHIELD_COIN_PRICE;
@@ -31632,6 +32015,74 @@
         + '</div>';
     }
 
+    // ── How to Play: the Current Controller ────────────────────────
+    // A mod menu is an unusual thing to sell, so this tab has to do three jobs
+    // and in this order: say plainly what a mod menu IS (most people have never
+    // used one), list what this one can actually do, and be honest about the
+    // price, which is that the game stops counting for everybody at the table.
+    // The tool list is generated from the SAME registry current-controller.js
+    // renders its panel from, so a tool added there cannot go undocumented here.
+    function _htpControllerHtml() {
+      const tools = (window.CC_CONTROLLER_TOOLS || []).map(t =>
+        '<div class="htp-key"><span class="htp-key-btn">' + escapeHtml(t.icon + " " + t.name)
+        + '</span><span>' + escapeHtml(t.desc) + '</span></div>').join("");
+      return ''
+        + '<p class="htp-p htp-p-lead">'
+        +   '<b>The Current Controller is a mod menu.</b> A mod menu is a panel that lets one '
+        +   'player reach past the rules and change the game while it is being played: look at '
+        +   'things the rules keep hidden, move cards that are not theirs to move, and play the '
+        +   'bots\' turns for them. It is not a way to win. It is a way to build the game you '
+        +   'wanted for an evening, whether that is teaching somebody, setting up a silly '
+        +   'situation on purpose, or finding out what a card really does.'
+        + '</p>'
+
+        + '<div class="htp-sec-head"><span class="htp-sec-ico">\u{1F513}</span>How you get it</div>'
+        + '<p class="htp-p htp-p-lead">'
+        +   'It comes with the <b>Tsunami Supporter Tier</b>, and it unlocks the moment that '
+        +   'purchase lands on your account: there is nothing to earn and no level to reach. '
+        +   'The developer account has it always, which is what it was built for.'
+        + '</p>'
+
+        + '<div class="htp-sec-head"><span class="htp-sec-ico">\u{1F91D}</span>Everybody has to say yes</div>'
+        + '<p class="htp-p htp-p-lead">'
+        +   'You cannot simply switch it on. In the <b>lobby</b>, where the emotes are, there is a '
+        +   '<b>Current Controller</b> button. Press it and every other human at the table is asked '
+        +   'to say <b>Yes</b> or <b>No</b>, before a single card is dealt.'
+        + '</p>'
+        + '<ul class="htp-list">'
+        +   '<li><b>Everyone says yes</b> \u2192 the menu appears in your in-game <b>\u2630 Menu</b> and you can '
+        +     'use it however you like for that whole game.</li>'
+        +   '<li><b>Anyone says no</b> \u2192 it stays shut for that game, it is not in your menu at all, '
+        +     'and the game counts for everything exactly as normal.</li>'
+        + '</ul>'
+        + '<p class="htp-p">'
+        +   'It is asked again every game, including a rematch, and only in <b>casual</b> games: never in '
+        +   'Competitive, ranked or tournament play, where the result is worth Ocean Points.'
+        + '</p>'
+
+        + '<div class="htp-sec-head"><span class="htp-sec-ico">\u{1F6E0}\uFE0F</span>What it can do</div>'
+        + '<div class="htp-keys">' + tools + '</div>'
+
+        + '<div class="htp-sec-head"><span class="htp-sec-ico">\u{1F6AB}</span>What it costs the table</div>'
+        + '<p class="htp-p htp-p-lead">'
+        +   'If you actually open it, the game <b>stops counting</b>, for everyone:'
+        + '</p>'
+        + '<ul class="htp-list">'
+        +   '<li>nothing goes on the <b>leaderboard</b>: no high score, no win, no average, no saved replay;</li>'
+        +   '<li>no <b>achievements</b> unlock;</li>'
+        +   '<li>no <b>critters</b> unlock, and nothing counts toward one;</li>'
+        +   '<li>the game is not added to your match history or your games played.</li>'
+        + '</ul>'
+        + '<p class="htp-p">'
+        +   'Everybody who finishes still earns the <b>base XP</b> for playing a game, and the day '
+        +   'still counts toward your daily streak. You played a game together; it just is not a result.'
+        + '</p>'
+        + '<p class="htp-p">'
+        +   'Being <i>allowed</i> to use it costs nothing. If the table says yes and you never '
+        +   'open the menu, the game counts completely normally.'
+        + '</p>';
+    }
+
     // Strategies: rendered from the very same HELP_STRATEGIES the in-game 💡 Help
     // button uses, so a plan reads identically in both places.
     function _htpStratCardHtml(i) {
@@ -31781,6 +32232,11 @@
       // themselves, which can change between visits.
       const strats = $a("htp-pane-strats");
       if (strats) strats.innerHTML = _htpStratsHtml();
+
+      // Rebuilt too, because its tool list comes from current-controller.js,
+      // which is a separate <script> and may not have loaded on the first paint.
+      const ctrl = $a("htp-pane-controller");
+      if (ctrl) ctrl.innerHTML = _htpControllerHtml();
 
       _htpShow(_htpView);
     }
@@ -35745,6 +36201,53 @@
     };
     // The critters this account has unlocked, for the same shelf.
     window.__fishGetUnlockedIcons = () => [..._unlockedIcons];
+    // The Supporter Tier on the signed-in account, lower-cased ("" when signed
+    // out or on a guest). Read by the lobby's Current Controller row, which
+    // lives in the outer scope and cannot see _activeProfile. Cosmetic gate
+    // only: the server never trusts it, it decides from the table's vote.
+    // How many custom friend codes the account is holding (Supporter Tiers hand
+    // them out; one is spent before any coins are).
+    window.__fishCustomCodeTokens = () => {
+      try { return Math.max(0, Number((_activeProfile || {}).custom_code_tokens || 0)); }
+      catch (_) { return 0; }
+    };
+    window.__fishMyFriendCode = () => {
+      try { return String((_activeProfile || {}).friend_code || "").trim(); }
+      catch (_) { return ""; }
+    };
+    // Mirror a claimed code into the live profile so the header, the profile
+    // panel and the Store card all agree with the database immediately, instead
+    // of after the next reload.
+    window.__fishNoteCustomCode = (code, paidWith, price) => {
+      try {
+        _friendCode = String(code || "").trim();
+        _activeProfile = { ...(_activeProfile || {}),
+          friend_code: _friendCode,
+          custom_friend_code: _friendCode,
+          friend_code_lower: _friendCode.toLowerCase(),
+        };
+        if (paidWith === "token") {
+          _activeProfile.custom_code_tokens =
+            Math.max(0, Number(_activeProfile.custom_code_tokens || 0) - 1);
+        } else {
+          const st = { ...(_activeProfile.stats || {}) };
+          st.critter_coins = Math.max(0, Number(st.critter_coins || 0) - Number(price || 0));
+          _activeProfile.stats = st;
+          if (typeof _phStats !== "undefined" && _phStats) {
+            updatePhStats({ ..._phStats, critter_coins: st.critter_coins });
+          }
+        }
+        syncStatsHeader(_activeProfile);
+        if (typeof renderPhStore === "function") renderPhStore();
+      } catch (_) {}
+    };
+    window.__fishSupporterTier = () => {
+      try {
+        const p = _activeProfile || {};
+        return String(p.supporter_tier || (p.stats && p.stats.supporter_tier) || "")
+          .trim().toLowerCase();
+      } catch (_) { return ""; }
+    };
     // The whole critter catalogue, so the shelf can show what is still locked.
     window.__fishAvatarCatalog = () => ANIMAL_AVATARS.map(a => ({ id: a.id, name: a.name, img: a.img }));
     window.__fishBackgroundCatalog = () => EXCLUSIVE_BACKGROUNDS.map(b => ({ id: b.id, name: b.name, img: b.img }));
