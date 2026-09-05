@@ -109,16 +109,30 @@
   align-items: center;
   justify-content: center;
   color: #fff;
-  background: linear-gradient(160deg, #37c48c 0%, var(--cp-kelp) 100%);
+  /* DEEP kelp green, and that is a legibility number, not a taste one. The
+     badge was #37c48c at the top, which is where the word sits: white on it
+     measured 2.4:1 and "PASS LEVEL" read as a smudge at every width. Both
+     stops are dark enough for white now (5.4:1 at the top, 9.3:1 at the
+     bottom), so the word and the numeral are both readable on the same
+     surface. Lighten either stop and the word goes first. */
+  background: linear-gradient(160deg, #17795a 0%, #0d5138 100%);
   box-shadow: 0 6px 16px rgba(5, 47, 68, .42);
   border: 2px solid rgba(255, 255, 255, .62);
 }
 .ccCP-lvl-word {
-  font-size: .68rem;
-  letter-spacing: 1.4px;
+  font-size: .6rem;
+  letter-spacing: 1px;
   text-transform: uppercase;
-  opacity: .9;
+  /* No opacity fade. It is the smallest type in the header, so every point of
+     contrast it has it needs; the shadow is what separates it from the green
+     rather than a wash that takes contrast away. */
+  color: #fff;
   font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  max-width: 100%;
+  padding: 0 4px;
+  text-shadow: 0 1px 2px rgba(3, 32, 22, .55);
 }
 .ccCP-lvl-num {
   font-family: "Cinzel", serif;
@@ -598,6 +612,7 @@
   .ccCP { padding: 16px 14px 22px; border-radius: 22px; }
   .ccCP-head-top { flex-wrap: wrap; gap: 14px; }
   .ccCP-lvl-badge { width: 72px; height: 72px; border-radius: 20px; }
+  .ccCP-lvl-word { font-size: .52rem; letter-spacing: .5px; padding: 0 2px; }
   .ccCP-lvl-num { font-size: 2rem; }
   .ccCP-title { font-size: 1.55rem; }
   .ccCP-head-actions { width: 100%; }

@@ -430,12 +430,17 @@ db.collection("users")._docs["broke"] = {
 }
 broke = cp.state_payload("broke")
 
-# OWNED, mid-track: bought it, claimed everything up to level 12, two extra
-# challenge slots already banked.
+# OWNED, mid-track: bought it, PASS level 30 on an ACCOUNT level 12, and
+# claimed everything up to 12, so tiers 13-30 are sitting there ready. The two
+# levels are deliberately BOTH different and crossed over: the rail has to be
+# drawn from the pass level, the chip from the account level, and a fixture
+# where they happened to match would prove neither.
 db.collection("users")._docs["owner"] = {
     "nickname": "Pass Holder",
-    "stats": {"total_xp": xp_for_level(30) + 500, "critter_coins": 2200},
+    "stats": {"total_xp": xp_for_level(12) + 500, "critter_coins": 2200},
     "critter_pass_seasons": [cp.SEASON_ID],
+    cp.SEASON_FIELD: {cp.SEASON_ID: {"xp": cp.season_xp_to_reach(30),
+                                     "mark": xp_for_level(12) + 500}},
     "unlocked_icons": ["/avatars/narwhal.png", "/avatars/orca.png"],
 }
 for t in cp.track():
@@ -443,11 +448,13 @@ for t in cp.track():
         cp.claim(db, "owner", t["id"])
 owner = cp.state_payload("owner")
 
-# MAXED: level 100, whole track claimed.
+# MAXED: PASS level 100, whole track claimed.
 db.collection("users")._docs["maxed"] = {
     "nickname": "Done",
     "stats": {"total_xp": xp_for_level(100), "critter_coins": 0},
     "critter_pass_seasons": [cp.SEASON_ID],
+    cp.SEASON_FIELD: {cp.SEASON_ID: {"xp": cp.SEASON_XP_TO_MAX,
+                                     "mark": xp_for_level(100)}},
     "unlocked_icons": ["/avatars/a%d.png" % i for i in range(1, 15)],
 }
 # claim_all pays a bounded batch and reports "more", so a full sweep is a loop:
@@ -468,6 +475,9 @@ print("@@" + json.dumps({"locked": locked, "broke": broke, "owner": owner,
                          "coinTotal": cp.coin_total(),
                          "xpTotal": cp.xp_total(),
                          "seasonDays": cp.SEASON_DAYS,
+                         "passMaxLevel": cp.PASS_MAX_LEVEL,
+                         "seasonXpPerLevel": cp.SEASON_XP_PER_LEVEL,
+                         "seasonXpPerDay": cp.SEASON_XP_PER_DAY,
                          "maxExtraDaily": cp.MAX_EXTRA_DAILY}) + "@@")
 `;
   const out = execFileSync("python3", ["-c", script],
@@ -593,6 +603,9 @@ const MAIN = \`
       highlights: $$(".ccCP-hl").map(txt),
       finaleArt: !!document.querySelector(".ccCP-buy-art img"),
       level: txt(document.querySelector(".ccCP-lvl-num")),
+      levelWord: txt(document.querySelector(".ccCP-lvl-word")),
+      barTxt: txt(document.querySelector(".ccCP-bar-txt")),
+      chips: $$(".ccCP-chip").map(txt).join(" | "),
       ownedPill: $$(".ccCP-owned-pill").length,
       next: txt(document.querySelector(".ccCP-next")),
       season: txt(document.querySelector(".ccCP-season")),
@@ -677,6 +690,12 @@ const MAIN = \`
       claimOnClaimed: $$(".ccCP-tier.is-claimed .ccCP-claim").length,
       ownedPill: txt(document.querySelector(".ccCP-owned-pill")),
       claimAll: txt(document.querySelector("#ccCP-claimall")),
+      level: txt(document.querySelector(".ccCP-lvl-num")),
+      levelWord: txt(document.querySelector(".ccCP-lvl-word")),
+      barTxt: txt(document.querySelector(".ccCP-bar-txt")),
+      next: txt(document.querySelector(".ccCP-next")),
+      togo: $$(".ccCP-tier-togo").slice(0, 2).map(txt),
+      foot: txt(document.querySelector(".ccCP-foot-note")),
       chips: $$(".ccCP-chip-txt").map(txt),
       perks: $$(".ccCP-tier.is-perk").length,
       finale: $$(".ccCP-tier.is-finale").length,
@@ -763,6 +782,35 @@ const MAIN = \`
         overflow.push(((el.className || "") + "").split(" ")[0] + "@" + Math.round(r.right));
       }
     });
+    // ── THE BADGE HAS TO BE READABLE ─────────────────────────────────
+    // "PASS LEVEL" is the smallest type on the page and it sits on the
+    // lightest part of a green badge, which is how it shipped as white on
+    // #37c48c: 2.2:1, a smudge at every width. Measured rather than eyeballed,
+    // against the badge's own painted gradient, because the next person to
+    // brighten that green will not think of this.
+    out.lvlBadge = (() => {
+      const word = document.querySelector(".ccCP-lvl-word");
+      const badge = document.querySelector(".ccCP-lvl-badge");
+      if (!word || !badge) return null;
+      const rgb = (c) => (String(c).match(/[\\\\d.]+/g) || []).slice(0, 3).map(Number);
+      const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      const lum = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+      const ratio = (a, b) => { const la = lum(a), lb = lum(b), hi = Math.max(la, lb), lo = Math.min(la, lb);
+                                return (hi + 0.05) / (lo + 0.05); };
+      const cs = getComputedStyle(word);
+      // Both ends of the gradient: the word sits at the TOP, which is the end
+      // that was failing, so the worst of the two is the one that counts.
+      const stops = (getComputedStyle(badge).backgroundImage.match(/rgba?\\\\([^)]+\\\\)/g) || []);
+      const ink = rgb(cs.color);
+      const rs = stops.map(st => ratio(ink, rgb(st)));
+      return {
+        stops: stops.length,
+        opacity: Number(cs.opacity),
+        worst: rs.length ? Math.min(...rs) : 0,
+        shadow: cs.textShadow !== "none",
+      };
+    })();
+
     const page = document.querySelector(".ccCP");
     const buy = document.getElementById("ccCP-buy");
     out.layout = {
@@ -835,7 +883,19 @@ check("tiers not yet reached are locked", D.locked.locked > 0, D.locked.locked);
 check("waiting + locked accounts for the whole track",
       D.locked.waiting + D.locked.locked === serverTiers,
       `${D.locked.waiting}+${D.locked.locked} vs ${serverTiers}`);
-check("the player's own level is shown", D.locked.level === "30", D.locked.level);
+// THE headline of the whole change: the badge is the PASS level, which is its
+// own curve. A level-30 account that has not unlocked the pass is looking at
+// Pass Level 1, and the track it is being sold really does start there.
+check("the badge is labelled as the PASS level, not just 'Level'",
+      /pass level/i.test(D.locked.levelWord), D.locked.levelWord);
+check("a non-owner is at Pass Level 1 whatever their account level is",
+      D.locked.level === "1" && P.locked.level === 30,
+      `badge ${D.locked.level}, account ${P.locked.level}`);
+check("the account level is still shown, so Pass Level 1 cannot read as a bug",
+      /Account Level 30/.test(D.locked.chips), D.locked.chips);
+check("the bar counts XP towards the next PASS level",
+      new RegExp(`/ ${P.seasonXpPerLevel.toLocaleString()} XP to Pass Level 2$`).test(D.locked.barTxt),
+      D.locked.barTxt);
 check("the season name is shown", /Season 1/.test(D.locked.season), D.locked.season);
 check("the countdown says how long is left in the season",
       new RegExp(`^${P.locked.seasonDaysLeft} days? left in the season$`).test(D.locked.seasonLeft),
@@ -869,6 +929,24 @@ check("…the extra daily challenges", /\+3\s*daily challenges/i.test(hl), hl);
 check("…the extra weekly challenges", /\+3\s*weekly challenges/i.test(hl), hl);
 check("…the emotes", /emote/i.test(hl), hl);
 check("…and the Level 100 critter", /Level 100/.test(hl), hl);
+// The 30-day climb is the pitch now, so it has to be ON the card and it has to
+// be the SERVER's numbers. A hard-coded "30 days" in the markup would keep
+// promising thirty after a retune moved the curve.
+check("…the 30-day climb leads the highlights",
+      new RegExp(`~${P.seasonDays} days`).test(hl), hl);
+check("…and it quotes the server's own daily rate",
+      hl.includes(P.seasonXpPerDay.toLocaleString()), hl);
+check("the pitch says what a Pass Level costs",
+      D.locked.buySub.includes(P.seasonXpPerLevel.toLocaleString() + " XP"),
+      D.locked.buySub);
+check("the pitch says how long the whole track takes",
+      D.locked.buySub.includes(`${P.seasonDays} days`), D.locked.buySub);
+check("the pitch no longer promises a head start it cannot give",
+      !/already earned counts|already reached|already passed/i.test(D.locked.buySub),
+      D.locked.buySub);
+check("the pass curve really is far cheaper than the account curve",
+      P.seasonXpPerLevel * (P.passMaxLevel - 1) < P.locked.levelTotals[99] / 3,
+      `${P.seasonXpPerLevel * (P.passMaxLevel - 1)} vs ${P.locked.levelTotals[99]}`);
 check("the finale critter's art is on the card", D.locked.finaleArt);
 check("the badge is hidden while the pass is locked", D.badge.whenLocked === "none");
 
@@ -919,6 +997,29 @@ check("already-claimed tiers show as claimed",
 check("Claim-all offers the right count",
       D.owner.claimAll === `Claim ${D.owner.ready} reward${D.owner.ready === 1 ? "" : "s"}`,
       D.owner.claimAll);
+// The owner fixture is PASS level 30 on an ACCOUNT level 12: crossed over, so
+// a renderer that read the wrong one would be caught either way round.
+check("an owner's badge is their PASS level, not their account level",
+      D.owner.level === String(P.owner.passLevel) && P.owner.passLevel === 30
+        && P.owner.level === 12,
+      `badge ${D.owner.level}, pass ${P.owner.passLevel}, account ${P.owner.level}`);
+check("an owner sees their account level on the chip too",
+      D.owner.chips.join(" | ").includes("Account Level 12"), D.owner.chips.join(" | "));
+check("the bar counts XP towards the next PASS level",
+      /XP to Pass Level 31$/.test(D.owner.barTxt), D.owner.barTxt);
+check("the next-up line names a Pass Level",
+      /Pass Level 31/.test(D.owner.next), D.owner.next);
+// A locked tier's "N XP to go" has to be measured on the pass curve. On the
+// account curve the same card would quote thousands, for a level that really
+// costs seasonXpPerLevel.
+check("a locked tier's XP-to-go is on the PASS curve",
+      D.owner.togo.length > 0 && D.owner.togo.every(t => {
+        const n = Number((t.match(/([\d,]+)/) || [])[1].replace(/,/g, ""));
+        return n > 0 && n <= P.seasonXpPerLevel * (P.passMaxLevel - 30);
+      }), D.owner.togo.join(" | "));
+check("the foot note explains the pass climbs on its own curve",
+      /own climb/i.test(D.owner.foot) && D.owner.foot.includes(P.seasonXpPerLevel.toLocaleString()),
+      D.owner.foot);
 check("the six perk tiers read as perks", D.owner.perks === 6, D.owner.perks);
 check("the level-100 critter reads as the finale", D.owner.finale === 1, D.owner.finale);
 check("the chips report the extra challenge slots",
@@ -995,6 +1096,7 @@ check("back to zero on sign-out, so the next account inherits nothing",
 console.log("\nthe page, at every screen width");
 const MIN_TIER_W = 140;   // below this a tier's name and blurb stop being readable
 const MIN_TAP = 40;       // a button below this is not a tap target
+const MIN_INK = 4.5;      // WCAG AA for small text, and this word is the smallest
 for (const w of WIDTHS) {
   const r = R[w] || { errors: ["missing"] };
   const label = `${String(w).padStart(4)}px`;
@@ -1014,6 +1116,14 @@ for (const w of WIDTHS) {
         r.layout.buyH >= MIN_TAP, r.layout.buyH + "px tall");
   check(`${label}: tiers stay wide enough to read`,
         (r.owner || {}).minTierW >= MIN_TIER_W, (r.owner || {}).minTierW + "px");
+  // The word on the badge, at every width. It is 9.6px at the widest and
+  // 8.3px on a phone: small type, so it is held to the full 4.5:1 rather than
+  // the large-text 3:1, on the DARKEST it ever gets against its own gradient.
+  const b = r.lvlBadge;
+  check(`${label}: "PASS LEVEL" is readable on the badge`,
+        !!b && Number(b.worst) >= MIN_INK, JSON.stringify(b));
+  check(`${label}: …and is not faded by an opacity on top of that`,
+        !!b && b.opacity === 1, b ? b.opacity : "no badge");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
