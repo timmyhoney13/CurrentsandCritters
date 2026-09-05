@@ -26,6 +26,13 @@
  *     to a desktop. Headless Chrome refuses a window under 500px, so the sizes
  *     are measured inside an iframe, which really is the width it says.
  *
+ *  5. THERE IS ONE PLAYER CARD, AND EVERY LOBBY USES IT. Competitive 1v1 was
+ *     the last screen still drawing the OLD lobby, a coloured dot and a line
+ *     of text per player, long after every other lobby had moved on. It draws
+ *     the same card now, told that a card there is a PERSON holding two hands.
+ *     A second renderer is how the old one survived, so this file measures the
+ *     competitive room at every width too, through the real function.
+ *
  * Run:  node test_lobby_seat_tiles.js      (needs Google Chrome / Chromium)
  */
 "use strict";
@@ -305,6 +312,8 @@ function page() {
                "_wrNum", "_wrRemoveBtn", "_wrLock",
                "_wrSeatAvatarUrl", "_wrCounts", "buildDifficultyBox", "_wrLoadPrestige",
                "_wrSeatCard", "_wrAddCard", "_wrRenderCapacity", "renderSeatTilesInto",
+               "_wrRankChip", "_wrLoadCompRanks", "_wrResetCompRanks", "renderCompLobbyInto",
+               "renderTeamLobbyInto", "teamName", "teamHex",
                "_wrChatAvatar", "_wrRenderChat"].map(grabFn).join("\n\n");
 
   const a = HTML.indexOf('<div id="pv-waiting-room">');
@@ -347,7 +356,34 @@ function page() {
 const WR_SLOTS = 8, WR_MIN_TABLE = 2, WR_MAX_TABLE = 8;
 let _wrTableBusy = false, _wrPrestigeAsking = false, _wrChatFingerprint = "", _wrBgNames = null;
 const _wrPrestigeByName = { tidepooltim: { level: 3 }, kelpkaiya: { level: 5 } };
+// The rank cache, pre-filled: the fetch itself is stubbed out, what is being
+// measured is the chip it paints.
+let _wrRankAsking = false, _wrRankFetched = true;
+const _wrRankByName = {
+  tidepooltim: { cp: 512,  division: "Golden Grouper III",   tier: "gold", emoji: "\u{1F421}" },
+  kelpkaiya:   { cp: 1240, division: "King of the Critters", tier: "king", emoji: "\u{1F451}" },
+};
+const TEAM_META = [
+  { key: "red", name: "Red", hex: "#e0463c" }, { key: "blue", name: "Blue", hex: "#3d7be0" },
+  { key: "green", name: "Green", hex: "#3fb26b" }, { key: "yellow", name: "Yellow", hex: "#e6b32e" }];
+function apiFetch() { return Promise.resolve({ ok: false, data: null }); }
+function compGetHandName(i) { return "Hand " + (i + 1); }
+function _hesc(t) { return String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function _teamSwitch() {} function _teamSwapRequest() {}
+window.ccDeviceLabel = (d) => d === "mobile"
+  ? { device: "mobile", icon: "\u{1F4F1}", text: "Mobile", label: "a phone", title: "playing on a phone" }
+  : { device: "computer", icon: "\u{1F5A5}\uFE0F", text: "Computer", label: "a computer", title: "playing on a computer" };
+window._compGetRankFromCp = () => ({ division: "Golden Grouper III", tier: "gold", emoji: "\u{1F421}" });
+window.__fishGetMyStats = () => ({ comp_cp: 512, competitive_wins: 40, competitive_losses: 22, competitive_draws: 3 });
 const latestPayload = ${JSON.stringify(payload)};
+// The two other lobbies, as the same room would arrive from the server.
+const SPOT_SEATS = latestPayload.seats;
+const COMP_SEATS = [0, 1, 2, 3].map(i => Object.assign({}, latestPayload.seats[i < 2 ? 0 : 2], {
+  index: i, is_host: i === 0, device: i < 2 ? "computer" : "mobile",
+}));
+const TEAM_SEATS = [0, 1, 2, 3].map(i => Object.assign({}, latestPayload.seats[i % 3], {
+  index: i, is_host: i === 0, team: i % 2, device: i % 2 ? "mobile" : "computer",
+}));
 function pvLiveAvatar() { return ""; }
 function pvLiveAvatarKey() { return "k"; }
 function _avSrc(u) { return String(u || ""); }
@@ -395,9 +431,28 @@ window.__setChatCount = (n) => {
   _wrRenderChat();
 };
 window.__redrawSpots = () => {
+  latestPayload.room.competitive = false;
+  latestPayload.room.team_mode = false;
+  latestPayload.seats = SPOT_SEATS;
   const l = document.getElementById("wr-players-list");
   l.innerHTML = '<div class="wr-players-title">Players in Room</div>';
   renderSeatTilesInto(l, latestPayload.seats, true);
+};
+// Draw the SAME lobby the real client would for a competitive 1v1 room: four
+// seats, two people, and the room flag the server sets.
+window.__drawComp = () => {
+  latestPayload.room.competitive = true;
+  latestPayload.seats = COMP_SEATS;
+  const l = document.getElementById("wr-players-list");
+  l.innerHTML = '<div class="wr-players-title">Players in Room</div>';
+  renderCompLobbyInto(l, COMP_SEATS, true);
+};
+window.__drawTeam = () => {
+  latestPayload.room.competitive = false;
+  latestPayload.room.team_mode = true;
+  latestPayload.seats = TEAM_SEATS;
+  const l = document.getElementById("wr-players-list");
+  renderTeamLobbyInto(l, TEAM_SEATS, 2, 0);
 };
 `;
 
@@ -518,6 +573,72 @@ function measure(w) {
   cancel.click();
   ok(!!addTile.querySelector(".wr-seat-add-plus"), "…and the + comes back");
   win.__redrawSpots();
+
+  // ── the competitive 1v1 lobby, the same card ──
+  // This room used to be two coloured dots and a line of text each. Measured
+  // here at every width, through the real render, so it cannot quietly go back
+  // to a layout of its own.
+  win.__drawComp();
+  {
+    const cards = [...d.querySelectorAll(".wr-seat")];
+    ok(cards.length === 2, "competitive: two cards, one per PERSON (" + cards.length + ")");
+    ok(!!d.querySelector(".wr-grid-pair"), "competitive: on the pair grid");
+    ok(d.querySelectorAll(".wr-seat-add").length === 0, "competitive: no add spot, a bot may never sit here");
+    ok(!d.querySelector(".wr-seat-remove"), "competitive: nobody can be removed from a ranked room");
+    cards.forEach((el, i) => {
+      const b = r(el);
+      ok(b.width >= 150 && b.height >= 110, "competitive card " + i + " has real size (" + Math.round(b.width) + "x" + Math.round(b.height) + ")");
+      ok(b.left >= -1 && b.right <= vw + 1, "competitive card " + i + " is inside the window");
+      // Everything on it, chips included, has to stay on it.
+      [...el.querySelectorAll("*")].forEach(kid => {
+        const kb = r(kid);
+        if (kb.width > 0) ok(kb.right <= b.right + 1 && kb.left >= b.left - 1,
+                             "competitive card " + i + ": " + (kid.className || kid.tagName) + " stays inside it");
+      });
+    });
+    ok(d.documentElement.scrollWidth <= vw + 1,
+       "competitive: nothing scrolls sideways (" + d.documentElement.scrollWidth + " in " + vw + ")");
+    const txt = d.getElementById("wr-players-list").textContent;
+    ok(/TidePoolTim/.test(txt) && /KelpKaiya/.test(txt), "competitive: both people are named");
+    ok(/Hand 1 & Hand 2/.test(txt) && /Hand 3 & Hand 4/.test(txt),
+       "competitive: each card says which two hands are theirs");
+    ok(/Golden Grouper III/.test(txt) && /King of the Critters/.test(txt),
+       "competitive: the rank you are playing for is on the card");
+    ok(/OP/.test(txt) && !/\bCP\b/.test(txt), "competitive: the currency reads OP");
+    ok(d.querySelectorAll(".wr-chip-rank").length === 2, "competitive: a rank chip each");
+    ok(d.querySelectorAll(".wr-seat-av img").length === 2, "competitive: both critters are shown");
+    ok(d.querySelectorAll(".wr-chip-device-computer, .wr-chip-device-mobile").length === 2,
+       "competitive: what each of them is playing on");
+    ok(!!d.querySelector(".wr-seat-you"), "competitive: my own card is marked");
+    ok(!!d.querySelector(".wr-seat-you .wr-seat-lock"), "…and locked, not removable");
+    ok(d.querySelectorAll(".wr-xp").length === 2, "competitive: level progress on both");
+    ok(d.querySelectorAll(".wr-seat-pbadge").length === 2, "competitive: prestige on both");
+    ok(!d.querySelector(".wr-player-row, .wr-player-name, .wr-player-empty"),
+       "competitive: not one piece of the old lobby is left");
+    ok(win.getComputedStyle(d.getElementById("pv-waiting-room")).getPropertyValue("display") !== "none",
+       "competitive: the room is on screen");
+  }
+
+  // ── the team lobby: its own columns, but a player is still a face ──
+  win.__drawTeam();
+  {
+    const chips = [...d.querySelectorAll(".wr-team-chip")];
+    ok(chips.length === 4, "team: four players in the columns (" + chips.length + ")");
+    ok(d.querySelectorAll(".wr-team-chip .wr-chip-av").length === 4, "team: every player shows their critter");
+    chips.forEach((el, i) => {
+      const b = r(el), col = r(el.closest(".wr-team-col"));
+      ok(b.right <= col.right + 1 && b.left >= col.left - 1, "team chip " + i + " stays in its column");
+      [...el.children].forEach(kid => {
+        const kb = r(kid);
+        if (kb.width > 0) ok(kb.right <= b.right + 1, "team chip " + i + ": " + (kid.className || kid.tagName) + " stays on it");
+      });
+    });
+    ok(d.documentElement.scrollWidth <= vw + 1,
+       "team: nothing scrolls sideways (" + d.documentElement.scrollWidth + " in " + vw + ")");
+  }
+
+  // Put the eight spots back the way the next width expects to find them.
+  win.__redrawSpots();
 }
 f.onload = () => {
   WIDTHS.forEach(w => {
@@ -529,6 +650,67 @@ f.onload = () => {
 };
 f.srcdoc = SRC;
 </scr` + `ipt></body></html>`;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  9. EVERY LOBBY IS THE SAME CARD
+// ════════════════════════════════════════════════════════════════════════
+console.log("\ncompetitive 1v1 is on the new card, like every other lobby");
+{
+  // The old lobby, gone from the app AND from the stylesheet. Leaving the CSS
+  // behind is how a deleted screen comes back.
+  ["wr-player-row", "wr-player-name", "wr-player-empty", "wr-seat-dot"].forEach(cls => {
+    check(!new RegExp('"' + cls).test(APP) && !new RegExp("className = \"" + cls).test(APP),
+          "the old lobby's ." + cls + " is not drawn any more");
+  });
+  ["wr-player-row", "wr-player-name", "wr-player-empty"].forEach(cls => {
+    check(!new RegExp("\\." + cls + "\\b").test(CSS), "…and ." + cls + " is out of the stylesheet");
+  });
+
+  check(/function renderCompLobbyInto/.test(APP), "competitive has its own arrangement of the cards");
+  const COMP = APP.slice(APP.indexOf("function renderCompLobbyInto"),
+                         APP.indexOf("function renderSeatTilesInto"));
+  check(/_wrSeatCard\(/.test(COMP),
+        "…drawn with the SAME card as every other lobby, not a second one");
+  // Ownership is fixed by seat and must never be "the first two that are
+  // taken": that can hand out {1,2} and split a person across both players.
+  check(/s\.index < 2/.test(COMP) && /s\.index >= 2/.test(COMP),
+        "the two players are the fixed seat pairs {0,1} and {2,3}");
+  check(/canShape: false/.test(COMP), "a competitive room's shape is not the host's to change");
+  check(/compGetHandName/.test(COMP), "hand names come from the one source of truth, so a rename shows");
+  check(/showRank: true/.test(COMP), "the competitive lobby shows the rank being played for");
+  check(/showRank: !!room\.ranked/.test(LOBBY), "…and so does the free-for-all, the other mode that pays OP");
+  check(/function _wrRankChip/.test(APP) && /wr-chip-rank/.test(CSS),
+        "there is a rank chip, and it is styled");
+  check(/\.wr-chip-rank-king/.test(CSS), "…in each division's own colours");
+  // A rank belongs to the person, not to the seat, so it cannot ride on the
+  // seat snapshot: it is looked up once per lobby and cached.
+  check(/function _wrLoadCompRanks/.test(APP) && /competitive\/leaderboard/.test(APP),
+        "ranks are looked up from the season leaderboard");
+  check(/_wrRankFetched/.test(APP), "…once, not once per repaint");
+  check(/_wrResetCompRanks/.test(APP.slice(APP.indexOf("function hideWaitingRoom"),
+                                           APP.indexOf("function hideWaitingRoom") + 400)),
+        "…and cleared with the lobby, so the next room is not painted with this one's OP");
+
+  // Only Team keeps the narrow plate now; competitive joined the cards. These
+  // two live in updateWaitingRoom, which is past the end of LOBBY, and the
+  // definition of renderCompLobbyInto would answer a bare name search, so ask
+  // the function that actually does the routing.
+  const UWR = APP.slice(APP.indexOf("function updateWaitingRoom"),
+                        APP.indexOf("function wrInviteCode"));
+  check(/dataset\.wide = isTeam \? "0" : "1"/.test(UWR),
+        "the wide card layout is on for every lobby except Team's columns");
+  check(/renderCompLobbyInto\(list, seats, isHost\)/.test(UWR),
+        "a competitive room routes to it");
+  check(!/wr-player-row/.test(UWR), "…instead of the dot-and-a-line rows it used to draw");
+
+  // The team columns are their own shape, but a player there is a face too.
+  const TEAM = APP.slice(APP.indexOf("function renderTeamLobbyInto"),
+                         APP.indexOf("// ── Incoming swap-request popup"));
+  check(/wr-chip-av/.test(TEAM) && /_wrSeatAvatarUrl/.test(TEAM),
+        "the team lobby shows the player's critter, not just a dot");
+  check(/wr-chip-lv/.test(TEAM), "…and their level");
+  check(/\.wr-chip-av/.test(CSS), "the team chip's face is styled");
 }
 
 if (!CHROME) {

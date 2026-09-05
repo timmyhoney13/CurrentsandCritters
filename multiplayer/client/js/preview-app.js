@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-04.8";
+  const APP_BUILD   = "2026-09-05.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,20 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.1", title: "\uD83C\uDFA3 The Level Pass knows what level you are", items: [
+      "The Level Pass could tell you it thought you were Level 1 when the game had you at Level 39. It was never your progress that was missing: the database refused to answer for a day, and the pass read that silence as a brand-new account. It now shows the level the rest of the game is already showing you, and says so instead of guessing.",
+      "Older accounts that never stored a total XP figure were also being read as Level 1. Both passes now read your level exactly the way the header, the leaderboard and the end screen do.",
+      "The Critter Pass is a separate climb and stays one: a Pass Level costs a flat 600 XP of whatever you earn after you unlock it, which is what makes Level 100 about a month. Your account level is on the page as its own chip so the two can never be mistaken for each other.",
+      "\"PASS LEVEL\" on the Critter Pass badge was near enough invisible: white lettering on a bright green tile. The tile is a deeper green now and the words read cleanly, on a phone as well as a desktop.",
+    ]},
+    { ver: "V1.7.1", title: "\u2694\uFE0F Competitive 1v1 pays both players, and its lobby caught up", items: [
+      "Every Competitive 1v1 match now pays the people who played it. A draw is worth Ocean Points at every rank, and in Bronze and Silver even a loss pays you a little, so while you are learning the ladder only goes up.",
+      "Your rank decides what a loss costs. From Golden Grouper a loss breaks even, and above that it starts to cost, more and more the higher you climb: -8 in Diamond, -22 in Emerald, -26 as King of the Critters. A draw is never worth nothing again, where it used to pay 0 at the top.",
+      "A rematch pays out. Press Play Again and the next match earned nobody any OP, because the payout thought a room only had one game in it. Every match in a room is paid now.",
+      "Walking out of a match still costs you. The new floor is for a game you played, so a forfeit is never worth Ocean Points.",
+      "The Competitive 1v1 waiting room is the same player card every other lobby uses. It was still the old lobby: a coloured dot and a line of text each. Both players now show their critter, their level and XP bar, their prestige, what they are playing on, which two hands are theirs, and the rank and OP total you are about to play for.",
+      "The Competitive free-for-all lobby shows everyone's rank too, and the Team lobby shows each player's critter and level instead of a plain dot.",
+    ]},
     { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F Supporter Tiers now come with Season Pass vouchers", items: [
       "Every Supporter Tier now hands you Season Pass vouchers, and one voucher unlocks the Critter Pass outright. Wave Warrior gets 1, Ocean Ally 2, and Tide Turner 5.",
       "A voucher is not tied to a season. Redeem it whenever you like: hold one through Season 1 and it still opens Season 2. On the Critter Pass tab the Unlock button becomes \u201cRedeem Season Pass Voucher\u201d while you are holding one, and it costs you no Critter Coins at all.",
@@ -2763,6 +2777,9 @@
   function hideWaitingRoom() {
     document.getElementById("pv-waiting-room").classList.remove("open");
     try { _closeSwapPopup(); } catch (_) {}
+    // Ocean Points move every match. Letting the cache out of this room would
+    // paint the next lobby with totals from the last one.
+    try { _wrResetCompRanks(); } catch (_) {}
   }
   // Three difficulty pills (Easy/Medium/Hard) shown next to AI bot seats in
   // the lobby. Only the host can click them; non-hosts see them as static.
@@ -3001,7 +3018,23 @@
         const label = isAI ? (s.claimed_name || `Bot ${s.index + 1}`)
                     : isOpen ? "Open"
                     : (s.claimed_name + (isMe ? " (You)" : ""));
-        chip.innerHTML = `<span class="wr-chip-dot"></span><span class="wr-chip-name">${_hesc(label)}</span>`;
+        // A face, not a dot. The team columns are narrow, so this is the
+        // player card's information at chip size: who, and what level.
+        if (isOpen) {
+          chip.innerHTML = `<span class="wr-chip-dot"></span>`;
+        } else {
+          const av = document.createElement("img");
+          av.className = "wr-chip-av";
+          av.alt = ""; av.loading = "lazy";
+          av.src = _avSrc(_wrSeatAvatarUrl(s));
+          av.onerror = function () { this.onerror = null; this.src = "/avatars/mullet.png"; };
+          chip.appendChild(av);
+        }
+        const nmEl = _wrEl("span", "wr-chip-name", label);
+        chip.appendChild(nmEl);
+        if (!isAI && !isOpen && Number(s.level) > 0) {
+          chip.appendChild(_wrEl("span", "wr-chip-lv", "Lv " + Number(s.level)));
+        }
         // These chips are a single line with no room for a word, so the team
         // lobby prints the icon alone and puts the sentence on the tooltip.
         const _tdev = _wrSeatDevice(s);
@@ -3133,6 +3166,76 @@
       });
   }
 
+  // Ocean Points ride on the SEASON LEADERBOARD, not on the seat, because a
+  // rank belongs to the person and the seat snapshot only knows this room.
+  // One fetch per lobby, cached by name, then a repaint: the same shape as
+  // _wrLoadPrestige above, and for the same reason (a lookup per paint would
+  // be a loop). Missing is missing, a name with no row is drawn without a
+  // rank chip rather than guessed at Bronze.
+  const _wrRankByName = Object.create(null);
+  let _wrRankAsking = false;
+  let _wrRankFetched = false;
+
+  function _wrLoadCompRanks(names) {
+    const want = names.map(n => String(n || "").trim()).filter(Boolean);
+    if (!want.length || _wrRankAsking || _wrRankFetched) return;
+    const rankFn = window._compGetRankFromCp;
+    if (typeof rankFn !== "function") return;
+    _wrRankAsking = true;
+    const season = (typeof window._compGetSeasonId === "function") ? window._compGetSeasonId() : "";
+    apiFetch(`/api/competitive/leaderboard${season ? "?season=" + encodeURIComponent(season) : ""}`,
+             { method: "GET", timeoutMs: 8000 })
+      .then(res => {
+        const rows = (res && res.ok && res.data && Array.isArray(res.data.leaderboard))
+          ? res.data.leaderboard : [];
+        rows.forEach(r => {
+          const nm = String((r && r.name) || "").trim().toLowerCase();
+          if (!nm) return;
+          const cp = Number(r.cp || 0);
+          const info = rankFn(cp, true);
+          _wrRankByName[nm] = { cp, division: info.division, tier: info.tier, emoji: info.emoji };
+        });
+        _wrRankFetched = true;
+      })
+      .catch(() => { _wrRankFetched = true; })
+      .finally(() => {
+        _wrRankAsking = false;
+        try { if (latestPayload && latestPayload.phase === "lobby") refreshWaitingRoomFromPayload(); } catch (_) {}
+      });
+  }
+  // Cleared when a lobby opens, so the next competitive room asks again rather
+  // than painting last room's totals.
+  function _wrResetCompRanks() {
+    Object.keys(_wrRankByName).forEach(k => { delete _wrRankByName[k]; });
+    _wrRankFetched = false;
+  }
+
+  // The chip itself. My OWN row is answered from my live stats first: I may
+  // have just finished a match the leaderboard has not caught up with.
+  function _wrRankChip(name, isMine) {
+    const key = String(name || "").trim().toLowerCase();
+    if (!key) return null;
+    let row = _wrRankByName[key] || null;
+    const rankFn = window._compGetRankFromCp;
+    if (isMine && typeof rankFn === "function") {
+      // My own stats come through the bridge, not off _phStats: that lives
+      // inside the Player Home IIFE and is not in scope out here.
+      let st = null;
+      try { st = (typeof window.__fishGetMyStats === "function") ? window.__fishGetMyStats() : null; } catch (_) {}
+      const played = st ? (Number(st.competitive_wins || 0) + Number(st.competitive_losses || 0)
+                           + Number(st.competitive_draws || 0)) > 0 : false;
+      if (st && (played || Number(st.comp_cp || 0) > 0)) {
+        const info = rankFn(Number(st.comp_cp || 0), played);
+        row = { cp: Number(st.comp_cp || 0), division: info.division, tier: info.tier, emoji: info.emoji };
+      }
+    }
+    if (!row) return null;
+    const chip = _wrChip(`${row.emoji || "🐟"} ${row.division} · ${_wrNum(row.cp)} OP`,
+                         "wr-chip-rank wr-chip-rank-" + (row.tier || "bronze"));
+    chip.title = `${name}: ${row.division}, ${_wrNum(row.cp)} Ocean Points this season`;
+    return chip;
+  }
+
   // The seat's own avatar wins (it is what the server relayed for this seat);
   // fall back to the live table, then to the default critter, so a seat never
   // renders as a broken image.
@@ -3250,7 +3353,15 @@
   // ── one seat ──────────────────────────────────────────────────────────
   function _wrSeatCard(s, ctx) {
     const isAI = s.kind === "ai";
-    const isMine = ctx.mySeat !== null && s.index === ctx.mySeat;
+    // Competitive 1v1 is two PEOPLE holding four hands, so one card there is
+    // one person, and `s` is the seat that speaks for them (the claimed one of
+    // their pair, else the first). `pair` carries what the card needs to say
+    // that is true of the person rather than the seat. Everywhere else it is
+    // null and this is the plain per-seat card it has always been.
+    const pair = (ctx.pair && ctx.pair.get(s.index)) || null;
+    const isMine = pair
+      ? pair.seats.some(x => ctx.mySeat !== null && x.index === ctx.mySeat)
+      : (ctx.mySeat !== null && s.index === ctx.mySeat);
     const isOpen = !isAI && !s.claimed_name;
 
     const tile = _wrEl("div", "wr-seat"
@@ -3262,7 +3373,7 @@
     const top = _wrEl("div", "wr-seat-top");
     const face = _wrEl("div", "wr-seat-av" + (isOpen ? " wr-seat-av-empty" : ""));
     if (isOpen) {
-      face.textContent = String(s.index + 1);
+      face.textContent = pair ? String(pair.no) : String(s.index + 1);
     } else {
       if (s.background) {
         const bg = _wrEl("div", "wr-seat-avbg");
@@ -3293,7 +3404,7 @@
     const nameRow = _wrEl("div", "wr-seat-name");
     nameRow.appendChild(_wrEl("span", null, isAI
       ? (s.claimed_name || `Bot ${s.index + 1}`)
-      : (s.claimed_name || "Open seat")));
+      : (s.claimed_name || (pair ? pair.label : "Open seat"))));
     if (!isAI && s.claimed_name) {
       const pl = _wrPrestigeByName[String(s.claimed_name).trim().toLowerCase()];
       if (pl && pl.level > 0 && typeof window.__ccPrestigeBadgeHtml === "function") {
@@ -3310,8 +3421,15 @@
     } else if (!isOpen && Number(s.level) > 0) {
       chips.appendChild(_wrChip("⭐ Lv " + Number(s.level), "wr-chip-lvl"));
     } else if (isOpen) {
-      chips.appendChild(_wrChip("Waiting for a player", "wr-chip-wait"));
+      chips.appendChild(_wrChip(pair ? "Waiting for this player" : "Waiting for a player", "wr-chip-wait"));
     }
+    // What this room pays out in is what it should say about the people in it.
+    // Both competitive modes, so the 1v1 ladder and the free-for-all agree.
+    if (!isAI && !isOpen && ctx.showRank) {
+      const rc = _wrRankChip(s.claimed_name, isMine);
+      if (rc) chips.appendChild(rc);
+    }
+    if (pair && !isOpen) chips.appendChild(_wrChip("🃏 " + pair.handLabel, "wr-chip-hands"));
     idBox.appendChild(chips);
     top.appendChild(idBox);
     tile.appendChild(top);
@@ -3329,8 +3447,9 @@
       const body = _wrEl("div", "wr-seat-openbody");
       // The truth, and worth saying plainly: an open human seat blocks Start
       // outright. It does NOT become a bot when the host casts off.
-      body.appendChild(_wrEl("div", "wr-seat-hint",
-        "Start is locked until somebody sits here."));
+      body.appendChild(_wrEl("div", "wr-seat-hint", pair
+        ? "Start is locked until your opponent takes these two hands."
+        : "Start is locked until somebody sits here."));
       const inv = _wrEl("button", "wr-seat-invite", "＋ Invite a friend");
       inv.type = "button";
       inv.title = "Write a note and send this room down the in-game chat";
@@ -3374,7 +3493,7 @@
       if (_dchip) foot.appendChild(_dchip);
       if (s.background) foot.appendChild(_wrChip("🖼 " + _wrBgName(s.background), "wr-chip-bg"));
       if (s.is_host) foot.appendChild(_wrChip("👑 Host", "wr-chip-host"));
-      else foot.appendChild(_wrChip("Seat " + (s.index + 1), null));
+      else foot.appendChild(_wrChip(pair ? pair.label : "Seat " + (s.index + 1), null));
       foot.appendChild(_wrChip(isMine ? "You" : "✓ Ready", isMine ? "wr-chip-you" : "wr-chip-ready"));
       tile.appendChild(foot);
     }
@@ -3388,7 +3507,9 @@
       tile.appendChild(_wrRemoveBtn(`Remove ${s.claimed_name} from the lobby`,
                                     () => lobbyKickPlayer(s.index, s.claimed_name)));
     } else if (!isOpen) {
-      tile.appendChild(_wrLock(isMine ? "This is your seat" : "Somebody is sitting here"));
+      tile.appendChild(_wrLock(isMine
+        ? (pair ? "These two hands are yours" : "This is your seat")
+        : (pair ? "Your opponent is here" : "Somebody is sitting here")));
     }
     return tile;
   }
@@ -3503,6 +3624,63 @@
     }
   }
 
+  // ── Competitive 1v1: two cards, one per PERSON ────────────────────────
+  // This used to be the last piece of the OLD lobby anywhere in the app: two
+  // rows of a coloured dot and a line of text, while every other lobby had
+  // moved to the player cards. It is the same card now, told that a card here
+  // is a person holding two hands, so the competitive room finally shows the
+  // things you actually want to know before a ranked match: who they are, what
+  // they are playing on, their level and XP, their prestige, and the Ocean
+  // Points rank you are about to play for.
+  function renderCompLobbyInto(list, seats, isHost) {
+    const rows  = Array.isArray(seats) ? seats : [];
+    const room  = (latestPayload && latestPayload.room) || {};
+    const mySeat = (latestPayload && latestPayload.viewer && typeof latestPayload.viewer.seat_index === "number")
+      ? latestPayload.viewer.seat_index : null;
+
+    // Ownership is fixed by seat: {0,1} is Player 1 and {2,3} is Player 2.
+    // Never "the first two seats that are taken", that can hand out {1,2}.
+    const pairs = [
+      { no: 1, label: "Player 1", seats: rows.filter(s => s.index < 2)  },
+      { no: 2, label: "Player 2", seats: rows.filter(s => s.index >= 2) },
+    ];
+
+    const pairBySeat = new Map();
+    const faces = [];
+    pairs.forEach(pr => {
+      if (!pr.seats.length) return;
+      // compGetHandName is the ONE source of truth for a hand's name and
+      // honours a rename, so the card says "Hand 3 & Hand 4", not "1 & 2".
+      const nameOf = (typeof compGetHandName === "function")
+        ? compGetHandName
+        : (i) => "Hand " + (i + 1);
+      pr.handLabel = pr.seats.map(x => nameOf(x.index)).join(" & ");
+      // The seat that speaks for this person: the claimed one, else the first.
+      const face = pr.seats.find(x => x.claimed_name) || pr.seats[0];
+      pr.seats.forEach(x => pairBySeat.set(x.index, pr));
+      faces.push(face);
+    });
+
+    const ctx = {
+      seats: rows, humans: rows.length, bots: 0,
+      filled: rows.filter(s => s.claimed_name).length,
+      isHost, room, mySeat,
+      // A competitive room's shape is fixed at four seats: there is nothing
+      // here for the +/- to change, and no bot may ever sit down.
+      canShape: false,
+      showRank: true,
+      pair: pairBySeat,
+    };
+
+    _wrLoadPrestige(rows.filter(s => s.kind === "human" && s.claimed_name).map(s => s.claimed_name));
+    _wrLoadCompRanks(rows.filter(s => s.claimed_name).map(s => s.claimed_name));
+    _wrRenderCapacity(ctx);
+
+    const grid = _wrEl("div", "wr-seat-grid wr-grid-pair");
+    faces.forEach(f => grid.appendChild(_wrSeatCard(f, ctx)));
+    list.appendChild(grid);
+  }
+
   // ── the eight spots ───────────────────────────────────────────────────
   function renderSeatTilesInto(list, seats, isHost) {
     const rows = Array.isArray(seats) ? seats : [];
@@ -3514,9 +3692,12 @@
         ? latestPayload.viewer.seat_index : null,
       // Only rooms whose shape is the host's to change get the +/- at all.
       canShape: isHost && !room.quick_play && !room.competitive && !room.tournament && !_wrTableBusy,
+      // The free-for-all pays Ocean Points too, so its lobby shows the rank.
+      showRank: !!room.ranked,
     };
 
     _wrLoadPrestige(rows.filter(s => s.kind === "human" && s.claimed_name).map(s => s.claimed_name));
+    if (ctx.showRank) _wrLoadCompRanks(rows.filter(s => s.claimed_name).map(s => s.claimed_name));
     _wrRenderCapacity(ctx);
 
     const grid = _wrEl("div", "wr-seat-grid");
@@ -3746,58 +3927,32 @@
     list.innerHTML = '<div class="wr-players-title">Players in Room</div>';
     updateQuickPlaySetup(seats, isHost, isQuickPlay);
 
-    // The seat grid needs a wide box; Team and Competitive keep their own
-    // narrow layouts, so the width follows whichever one is being drawn.
+    // Player cards need the wide box. Competitive draws them too now, so the
+    // only layout still on the narrow plate is Team, whose columns want it.
     const wrEl = document.getElementById("pv-waiting-room");
-    if (wrEl) {
-      wrEl.dataset.wide = (!isTeam && !(isComp && seats && seats.length === 4)) ? "1" : "0";
-    }
+    if (wrEl) wrEl.dataset.wide = isTeam ? "0" : "1";
 
     if (isTeam) {
       renderTeamLobbyInto(list, seats, teamCount, mySeatIndex);
       _syncIncomingSwap(_room.swap_requests, mySeatIndex);
     } else if (isComp && seats && seats.length === 4) {
-      // Show as two grouped players instead of four individual seats.
-      const groups = [
-        { label: "Player 1", seats: seats.filter(s => s.index < 2) },
-        { label: "Player 2", seats: seats.filter(s => s.index >= 2) },
-      ];
-      groups.forEach(({ label, seats: gs }) => {
-        const row = document.createElement("div"); row.className = "wr-player-row";
-        const dot = document.createElement("div");
-        const anyJoined = gs.some(s => s.claimed_name);
-        dot.className = "wr-seat-dot" + (anyJoined ? " filled" : " empty");
-        const nm = document.createElement("span");
-        if (anyJoined) {
-          const firstName = gs.find(s => s.claimed_name)?.claimed_name?.replace(/ 2$/, "") || label;
-          nm.className = "wr-player-name";
-          nm.textContent = `${label}: ${firstName} (2 hands)`;
-          // Both hands are one person on one device, so it is said once.
-          const _cdev = _wrSeatDevice(gs.find(s => s.claimed_name));
-          if (_cdev) {
-            const dv = document.createElement("span");
-            dv.className = "wr-chip-device-icon";
-            dv.textContent = _cdev.icon;
-            dv.title = firstName + ": " + _cdev.title;
-            dv.setAttribute("aria-label", firstName + " is on " + _cdev.label);
-            nm.appendChild(dv);
-          }
-        } else {
-          nm.className = "wr-player-empty";
-          nm.textContent = `${label}: Waiting to join…`;
-        }
-        row.appendChild(dot); row.appendChild(nm);
-        list.appendChild(row);
-      });
+      // Two people, four hands: the same player card, one per person.
+      renderCompLobbyInto(list, seats, isHost);
     } else {
       // Normal (non-competitive) lobby: one tile per seat.
       renderSeatTilesInto(list, seats, isHost);
     }
 
     // Only humans count toward "(X of Y joined)", bots auto-fill instantly.
+    // In a competitive 1v1 room the unit is a PERSON, not a seat: one player
+    // holds two hands, so counting seats told the first person to arrive they
+    // were "2 of 4 joined" in a game of two.
     const humanSeats = (seats||[]).filter(s => s.kind === "human");
-    const filled = humanSeats.filter(s => s.claimed_name).length;
-    const total  = humanSeats.length;
+    const compPairs  = isComp && humanSeats.length === 4;
+    const filled = compPairs
+      ? [[0, 1], [2, 3]].filter(pr => humanSeats.some(s => pr.includes(s.index) && s.claimed_name)).length
+      : humanSeats.filter(s => s.claimed_name).length;
+    const total  = compPairs ? 2 : humanSeats.length;
     const btn = document.getElementById("wr-start-btn");
     const text = document.getElementById("wr-btn-text");
     btn.onclick = null;
@@ -20961,6 +21116,32 @@
         })();
       }
     }
+    // The ONE way out of read-only. Two places used to hand-roll this restore
+    // and neither repainted anything, so a header that had been painted with
+    // the other player's name and critter while the gallery was open simply
+    // stayed that way after it closed: the globals were right and the screen
+    // was wrong. Restoring and repainting are the same act, so they live in
+    // one function that both exits call.
+    function _galRestoreMine() {
+      if (!_galReadOnly) return false;
+      _galReadOnly = false;
+      if (_galSavedState) {
+        _activeProfile  = _galSavedState.activeProfile;
+        _unlockedIcons  = _galSavedState.unlockedIcons;
+        _unlockedBackgrounds = _galSavedState.unlockedBackgrounds || [];
+        _playerNickname = _galSavedState.playerNickname;
+        _galSavedState  = null;
+      }
+      // Repaint from my own profile unconditionally. This is cheap, it is
+      // local (no Firestore read), and it is the difference between "the leak
+      // is fixed" and "the leak is fixed unless something we have not thought
+      // of painted the header first".
+      try { syncStatsHeader(_activeProfile); } catch (_) {}
+      try { renderPhOverview(); } catch (_) {}
+      try { window.__ccRefreshNames?.(); } catch (_) {}
+      return true;
+    }
+
     function closeAvatarGallery() {
       const gal = $a("avatar-gallery");
       if (gal) {
@@ -20978,15 +21159,7 @@
       }
       // If we were viewing another player's collection, restore our own state
       // and return to their public-profile modal.
-      if (_galReadOnly) {
-        _galReadOnly = false;
-        if (_galSavedState) {
-          _activeProfile  = _galSavedState.activeProfile;
-          _unlockedIcons  = _galSavedState.unlockedIcons;
-          _unlockedBackgrounds = _galSavedState.unlockedBackgrounds || [];
-          _playerNickname = _galSavedState.playerNickname;
-          _galSavedState  = null;
-        }
+      if (_galRestoreMine()) {
         const ov = $a("pub-profile-overlay");
         if (ov && _pubProfileData) {
           ov.style.display = "";
@@ -21031,15 +21204,7 @@
     // swapped-in state is restored so the viewer never inherits the other
     // player's profile. Fully exits (does not reopen the profile modal).
     window.__fishExitGalleryViewOnly = function () {
-      if (!_galReadOnly) return;
-      _galReadOnly = false;
-      if (_galSavedState) {
-        _activeProfile  = _galSavedState.activeProfile;
-        _unlockedIcons  = _galSavedState.unlockedIcons;
-        _unlockedBackgrounds = _galSavedState.unlockedBackgrounds || [];
-        _playerNickname = _galSavedState.playerNickname;
-        _galSavedState  = null;
-      }
+      if (!_galRestoreMine()) return;
       const ov = $a("pub-profile-overlay");
       if (ov) ov.style.display = "none";
       _pubProfileData = null;
@@ -21772,7 +21937,21 @@
           if (dev) payload.device = dev;
         }
         await _db.collection("users").doc(uid).update(payload);
-        if (_authUser && _authUser.uid === uid) {
+        // The WRITE above is always safe: it names _authUser.uid and carries
+        // only presence fields. Patching the in-memory profile is not, and
+        // this is the leak that made you come back from someone else's
+        // collection wearing their name and their critter.
+        //
+        // While _galReadOnly, _activeProfile IS THE OTHER PLAYER (see
+        // openPublicCritterGallery). This spread used to stamp `uid: mine`
+        // onto their data, which defeats every "is this my profile?" check
+        // downstream: syncStatsHeader then read the incoming uid as a match,
+        // took their nickname as _playerNickname and painted their avatar into
+        // MY Player Home header. A 90-second heartbeat meant simply looking at
+        // a gallery for a minute and a half was enough. The restore on close
+        // put the globals back and nothing repainted the header, so their name
+        // and icon just stayed there.
+        if (_authUser && _authUser.uid === uid && !_galReadOnly) {
           _activeProfile = {
             ...(_activeProfile || {}),
             uid,
@@ -22508,6 +22687,15 @@
     }
 
     function syncStatsHeader(profile) {
+      // Nothing repaints MY name, MY critter and MY level while another
+      // player's collection is swapped into the globals. Every caller here
+      // passes _activeProfile, which in read-only mode is THEM, and the uid
+      // checks below can only tell them apart while the uid is still theirs,
+      // which is one stray spread away from not being true. The header is
+      // repainted from my restored profile the moment read-only ends (see
+      // closeAvatarGallery / __fishExitGalleryViewOnly), so nothing is lost by
+      // declining to paint it now.
+      if (_galReadOnly) return;
       const incomingProfile = (profile && typeof profile === "object") ? profile : null;
       const currentAccountProfile = (_authUser && _activeProfile && _activeProfile.uid === _authUser.uid)
         ? _activeProfile
@@ -22593,7 +22781,12 @@
       // Weekly Mon→Sun dots, driven by the same streak data.
       if (typeof window._renderStreakWeek === "function") window._renderStreakWeek();
 
-      renderStatsAvatar(headerProfile || _activeProfile, nick);
+      // headerProfile is null when the loaded profile is not this account's.
+      // Falling back to _activeProfile there is how a stranger's critter got
+      // painted into my header; signed in, resolve from the auth user instead
+      // and let renderStatsAvatar's own seeded default answer. Signed OUT there
+      // is no account to confuse it with, so a guest still reads its own.
+      renderStatsAvatar(headerProfile || (_authUser ? null : _activeProfile), nick);
 
       // The Discord reward chip sits in this same profile card and its text
       // depends on who is signed in ("+250 to claim" vs "250 claimed"), so it
@@ -25717,8 +25910,8 @@
       // The green bar is the rule, and the rule is enforced by disabling
       // Create Account below it. What that costs is the one thing a person
       // does when a screen will not go on: they press the button. A disabled
-      // button answers with nothing at all — no message, no movement, not
-      // even a cursor — so the reading is not "my password is too short", it
+      // button answers with nothing at all: no message, no movement, not
+      // even a cursor, so the reading is not "my password is too short", it
       // is "this game is broken".
       //
       // Chrome swallows the CLICK on a disabled control but still delivers
@@ -25856,7 +26049,7 @@
     // was answering 429 RESOURCE_EXHAUSTED for the entire project (the free
     // daily quota), Auth was perfectly healthy, so every sign-up made an
     // account and then had nowhere to put the profile. What the player was
-    // told was "Could not save your username. Try again." — which is wrong
+    // told was "Could not save your username. Try again.", which is wrong
     // twice over. Trying again cannot work while the database is down, and it
     // does not mention the one fact that decides what they should do next:
     // THE ACCOUNT EXISTS. Somebody who goes back and types the same username
@@ -25872,16 +26065,16 @@
       if (busy) {
         return "Your account was created, but the game's database is not "
              + "answering right now, so your profile could not be saved. "
-             + "Your username is already yours — wait a few minutes and press "
+             + "Your username is already yours: wait a few minutes and press "
              + "Create Username again. Don't sign up a second time.";
       }
       if (code === "permission-denied" || code === "unauthenticated") {
         return "Your account was created, but the game would not let it save a "
              + "profile. Sign out and sign in again, and if it happens twice "
-             + "tell us — this one is our end, not yours.";
+             + "tell us. This one is our end, not yours.";
       }
       return "Your account was created, but your username could not be saved. "
-           + "Press Create Username to try again — you are already signed in.";
+           + "Press Create Username to try again: you are already signed in.";
     }
 
     // Google sign-in is wired up earlier via #auth-choose-google-btn (chooser screen)
@@ -27907,6 +28100,21 @@
     // inside stats, and the server moves it the same way it moves coins, so the
     // whole picker treats it as a second currency rather than a third item list.
     function _trMyPasses() { return Math.max(0, Math.floor(Number(_activeProfile && _activeProfile.critter_pass_vouchers) || 0)); }
+    // LIFETIME XP, the same stats.total_xp the header, the leaderboard and both
+    // passes read. Read through getStoredTotalXp so an older account that stored
+    // its total under a different key is not read as zero and told it has
+    // nothing to trade. This is the ONE tradable thing that can take something
+    // away from you: XP is what your level is derived from, so giving it up
+    // really does drop levels, and the picker says so before you set a number.
+    function _trMyXp() {
+      try { return Math.max(0, Math.floor(getStoredTotalXp((_activeProfile && _activeProfile.stats) || {}))); }
+      catch (_) { return 0; }
+    }
+    // What the account would be left at, so the warning can name the real cost.
+    function _trLevelAfterGiving(n) {
+      try { return getLevelProgressFromTotalXp(Math.max(0, _trMyXp() - (Number(n) || 0))).level; }
+      catch (_) { return null; }
+    }
     // Canonical form the SERVER stores an offered path as: it strips any ?query
     // and surrounding whitespace (see _trade_clean_offer). The picker MUST show,
     // compare, and submit paths in this exact form, otherwise a tile's
@@ -27951,6 +28159,17 @@
         _unlockedBackgrounds = Array.isArray(p.unlocked_backgrounds)
           ? p.unlocked_backgrounds.map(s => normalizeBgUrl(s)).filter(Boolean) : [];
         if (typeof syncStatsHeader === "function") { try { syncStatsHeader(_activeProfile); } catch (_) {} }
+        // A trade can now move LIFETIME XP, so a completed one changes the
+        // player's LEVEL, and the level is not a header detail: Player Home's
+        // stat cache, the Level Pass and the Critter Pass all re-derive from
+        // stats.total_xp. Re-reading the profile without pushing it through
+        // these would leave a player who just traded 30 levels away looking at
+        // their old level everywhere except the one chip this used to repaint.
+        // Same re-read the welcome bonus does for the same reason: XP landed on
+        // the account document, not in the snapshot this page is painting from.
+        try { if (typeof renderStats === "function") renderStats(p.stats || null); } catch (_) {}
+        try { window.__ccLevelPassPrime && window.__ccLevelPassPrime(); } catch (_) {}
+        try { window.__ccCritterPassPrime && window.__ccCritterPassPrime(); } catch (_) {}
       } catch (_) {}
     }
     // Anything that changes MY account server-side needs this same re-read.
@@ -28066,6 +28285,18 @@
         bad_response: "Unexpected response from the server, try again.",
         not_enough_passes: "You don't have that many Season Pass vouchers.",
         negative_passes: "Voucher count can't be negative.",
+        not_enough_xp: "You don't have that much XP.",
+        negative_xp: "XP amount can't be negative.",
+        // Not "the trade failed": the whole game's database is refusing
+        // everybody, and the player has done nothing wrong. Deliberately does
+        // NOT say "try again", because the retry is itself another request
+        // against an allowance that is already spent, and a screen full of
+        // people tapping it is how the outage lasts all day instead of
+        // clearing. See _trade_is_busy in multiplayer_server.py.
+        db_busy: "The game's database is over its limit right now, so nothing "
+               + "can be saved for anyone, not just this trade. Nothing was "
+               + "traded and nothing was lost. It clears on its own, usually "
+               + "within a few hours.",
         // The server's own failure codes. Every one of these used to fall
         // through to the generic sentence below, which is how a real, nameable
         // server error reached players as "Something went wrong with the trade"
@@ -28087,6 +28318,11 @@
     function _trErrFull(res) {
       const base = _trErrText(res && res.error);
       const detail = String((res && res.detail) || "").trim();
+      // db_busy already SAYS what happened, in words a player can act on.
+      // Appending "(ResourceExhausted: 429 Quota exceeded.)" to it only makes
+      // the sentence look like a crash. The detail is still in the response for
+      // anyone reading it, and still printed server-side.
+      if (res && (res.error === "db_busy" || res.busy)) return base;
       return detail ? (base + " (" + detail + ")") : base;
     }
 
@@ -28123,11 +28359,11 @@
     function _trOverlayOpen() { const o = _trOverlay(); return !!(o && o.style.display !== "none"); }
     function _trMyOffer() {
       const o = (_trState && _trState.offers && _authUser) ? _trState.offers[_authUser.uid] : null;
-      return o || { coins: 0, passes: 0, avatars: [], backgrounds: [] };
+      return o || { coins: 0, passes: 0, xp: 0, avatars: [], backgrounds: [] };
     }
     function _trPeerOffer() {
       const o = (_trState && _trState.offers) ? _trState.offers[_trPeerUid] : null;
-      return o || { coins: 0, passes: 0, avatars: [], backgrounds: [] };
+      return o || { coins: 0, passes: 0, xp: 0, avatars: [], backgrounds: [] };
     }
 
     function _trBanner(text, kind) {
@@ -28171,8 +28407,15 @@
         // says what went wrong AND offers the one action that can help. It also
         // stops pretending a trade is open: _trState is null, so Add item is
         // disabled instead of answering "Open a trade first" to every tap.
+        // Try again is offered for a failure a retry could actually fix. When
+        // the database is refusing everybody (db_busy), the retry is another
+        // billed request against an allowance that is already spent: it cannot
+        // work, and offering it invites the player to make the outage worse.
+        // The overlay still says exactly what happened, and closing it is the
+        // one useful thing to do.
+        const busy = !!(res && (res.error === "db_busy" || res.busy));
         _trBanner(_trErrFull(res), "err");
-        _trShowRetry(true);
+        _trShowRetry(!busy);
         _trRender();
         return;
       }
@@ -28292,6 +28535,7 @@
 
     function _trOfferEmpty(o) {
       return !o || ((Number(o.coins) || 0) <= 0 && (Number(o.passes) || 0) <= 0
+        && (Number(o.xp) || 0) <= 0
         && !(o.avatars && o.avatars.length) && !(o.backgrounds && o.backgrounds.length));
     }
 
@@ -28303,6 +28547,8 @@
       if (coins > 0) rows.push({ type: "coins", coins });
       const passes = Number(offer.passes) || 0;
       if (passes > 0) rows.push({ type: "passes", passes });
+      const xp = Number(offer.xp) || 0;
+      if (xp > 0) rows.push({ type: "xp", xp });
       (offer.avatars || []).forEach(p => rows.push({ type: "avatar", path: p }));
       (offer.backgrounds || []).forEach(p => rows.push({ type: "background", path: p }));
       if (!rows.length) {
@@ -28330,6 +28576,18 @@
           const sub = document.createElement("div"); sub.className = "cctr-item-sub";
           sub.textContent = "Unlocks the Critter Pass for one season each";
           body.appendChild(nm); body.appendChild(sub); row.appendChild(body);
+        } else if (r.type === "xp") {
+          const ic = document.createElement("div"); ic.className = "cctr-item-coin";
+          ic.textContent = "⭐";
+          row.appendChild(ic);
+          const body = document.createElement("div"); body.className = "cctr-item-body";
+          const nm = document.createElement("div"); nm.className = "cctr-item-name";
+          nm.textContent = r.xp.toLocaleString() + " XP";
+          const sub = document.createElement("div"); sub.className = "cctr-item-sub";
+          // Said on BOTH columns, because it is as important to the receiver
+          // (they gain levels) as to the giver (they lose them).
+          sub.textContent = "Lifetime XP, so this moves the level too";
+          body.appendChild(nm); body.appendChild(sub); row.appendChild(body);
         } else {
           const img = document.createElement("img"); img.className = "cctr-item-img";
           img.src = _trImgSrc(r.path); img.alt = ""; img.loading = "lazy";
@@ -28347,6 +28605,7 @@
           rm.addEventListener("click", () => {
             if (r.type === "coins") _trSetCoins(0);
             else if (r.type === "passes") _trSetPasses(0);
+            else if (r.type === "xp") _trSetXp(0);
             else _trToggleItem(r.type, r.path);
           });
           row.appendChild(rm);
@@ -28387,6 +28646,7 @@
       return {
         coins: Number(cur.coins) || 0,
         passes: Number(cur.passes) || 0,
+        xp: Number(cur.xp) || 0,
         avatars: (cur.avatars || []).map(_trCanon),
         backgrounds: (cur.backgrounds || []).map(_trCanon),
       };
@@ -28433,6 +28693,34 @@
         name: n.toLocaleString() + " Season Pass voucher" + (n === 1 ? "" : "s"),
         coins: true,
       });
+    }
+
+    // XP, offered by amount exactly like coins, with one difference that earns
+    // its own sentence: this is the only offer that makes the giver's account
+    // smaller. The level it would leave them on is computed and shown BEFORE
+    // the amount is set, because "12,000 XP" means nothing next to "Level 41 →
+    // Level 28", and a player who is about to relock their level-gated critters
+    // is entitled to read that first.
+    function _trSetXp(n) {
+      if (_trBusy) { _trPickerNote("One moment, saving your last change…", "info"); return; }
+      if (!_trState || _trState.status !== "open") { _trPickerNote("This trade is no longer open.", "err"); return; }
+      n = Math.max(0, Math.floor(Number(n) || 0));
+      const have = _trMyXp();
+      if (n > have) {
+        _trPickerNote("You only have " + have.toLocaleString() + " XP.", "err");
+        return;
+      }
+      const offer = _trOfferCopy();
+      offer.xp = n;
+      let name = n.toLocaleString() + " XP";
+      if (n > 0) {
+        const before = _trLevelAfterGiving(0);
+        const after  = _trLevelAfterGiving(n);
+        if (before != null && after != null && after < before) {
+          name += " (Level " + before + " → " + after + ")";
+        }
+      }
+      _trSubmitOffer(offer, { adding: n > 0, name, coins: true });
     }
 
     async function _trDoConfirm() {
@@ -28500,13 +28788,19 @@
       const body = $a("cc-trade-picker-body");
       const foot = $a("cc-trade-picker-foot");
       const passFoot = $a("cc-trade-pass-foot");
+      const xpFoot = $a("cc-trade-xp-foot");
+      const hideFeet = () => {
+        if (foot) foot.style.display = "none";
+        if (passFoot) passFoot.style.display = "none";
+        if (xpFoot) xpFoot.style.display = "none";
+      };
       if (!body) return;
       const mine = _trMyOffer();
       if (_trPickerTab === "coins") {
         body.innerHTML = "<div class=\"cctr-coin-note\">You have " + _trMyCoins().toLocaleString()
           + " Critter Coins. Enter how many to include in this trade.</div>";
+        hideFeet();
         if (foot) foot.style.display = "flex";
-        if (passFoot) passFoot.style.display = "none";
         const input = $a("cc-trade-coin-input");
         if (input) { input.max = String(_trMyCoins()); input.value = (Number(mine.coins) || 0) ? String(mine.coins) : ""; }
         return;
@@ -28519,14 +28813,32 @@
              ? "Each one unlocks the Critter Pass for one season, whichever season the holder spends it on. Enter how many to include in this trade."
              : "Season Pass vouchers come with the Supporter Tiers, and can be traded like Critter Coins.")
           + "</div>";
-        if (foot) foot.style.display = "none";
+        hideFeet();
         if (passFoot) passFoot.style.display = have ? "flex" : "none";
         const pinput = $a("cc-trade-pass-input");
         if (pinput) { pinput.max = String(have); pinput.value = (Number(mine.passes) || 0) ? String(mine.passes) : ""; }
         return;
       }
-      if (foot) foot.style.display = "none";
-      if (passFoot) passFoot.style.display = "none";
+      if (_trPickerTab === "xp") {
+        const have = _trMyXp();
+        const lvl = _trLevelAfterGiving(0);
+        body.innerHTML = "<div class=\"cctr-coin-note\">You have " + have.toLocaleString() + " XP"
+          + (lvl != null ? " (Level " + lvl + ")" : "") + ". "
+          + (have
+             ? "This is your LIFETIME XP, the number your level is worked out from, "
+             + "so trading it away lowers your level and can relock critters you "
+             + "unlocked by levelling. It moves both passes too. Nothing is hidden "
+             + "and nothing is refunded: you can earn it back by playing. Enter how "
+             + "much to include in this trade."
+             : "You have no XP to trade yet. Finish a game and it starts adding up.")
+          + "</div>";
+        hideFeet();
+        if (xpFoot) xpFoot.style.display = have ? "flex" : "none";
+        const xinput = $a("cc-trade-xp-input");
+        if (xinput) { xinput.max = String(have); xinput.value = (Number(mine.xp) || 0) ? String(mine.xp) : ""; }
+        return;
+      }
+      hideFeet();
       body.innerHTML = "";
       const isAvatar = _trPickerTab === "avatars";
       const items = isAvatar ? _trMyAvatars() : _trMyBackgrounds();
@@ -28624,6 +28936,14 @@
       const passInput = $a("cc-trade-pass-input");
       if (passInput) passInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") { e.preventDefault(); _trSetPasses(passInput.value); }
+      });
+      on("cc-trade-xp-set", () => {
+        const input = $a("cc-trade-xp-input");
+        _trSetXp(input ? input.value : 0);
+      });
+      const xpInput = $a("cc-trade-xp-input");
+      if (xpInput) xpInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); _trSetXp(xpInput.value); }
       });
       on("cc-trade-retry", _trRetryOpen);
       // Tapping the dim backdrop (outside the box) closes the overlay.

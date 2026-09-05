@@ -144,6 +144,73 @@ check(DIVS[DIVS.length - 1].ffaBottom < 0, "King of the Critters loses OP for a 
   check(ffaDelta(probe(king), 1, 8, true) > 0, "King: 1st of 8 still gains");
 }
 
+console.log("\n── the 1v1 ladder pays everybody who played ──");
+// The rule Tim asked for, and the reason the loss column is shaped the way it
+// is: a competitive 1v1 hands both people something. A DRAW is never worth
+// nothing at any rank, and low down the ladder even a LOSS pays, so nobody is
+// punished for turning up while they are still learning.
+for (const d of DIVS) {
+  const cp = probe(d);
+  check(cpDelta(cp, "draw", true) > 0, `${d.name}: a draw always pays (${cpDelta(cp, "draw", true)})`);
+  check(cpDelta(cp, "win", true) > cpDelta(cp, "draw", true),
+        `${d.name}: a win beats a draw (${cpDelta(cp, "win", true)} > ${cpDelta(cp, "draw", true)})`);
+  check(cpDelta(cp, "draw", true) > cpDelta(cp, "loss", true),
+        `${d.name}: a draw beats a loss (${cpDelta(cp, "draw", true)} > ${cpDelta(cp, "loss", true)})`);
+}
+for (const d of SAFE) {
+  check(cpDelta(probe(d), "loss", true) > 0,
+        `${d.name}: even a LOSS pays here (+${cpDelta(probe(d), "loss", true)})`);
+}
+// A first-ever game, before the player has a rank at all.
+check(cpDelta(0, "loss", false) > 0, `Unranked: a first game never costs OP (+${cpDelta(0, "loss", false)})`);
+check(cpDelta(0, "draw", false) > 0, "Unranked: a first draw pays");
+
+console.log("\n── …and it still costs something to lose at the top ──");
+// The other half: rank is what makes a loss expensive, so the loss column has
+// to fall as you climb and really go negative up there. A ladder you can only
+// climb is not a ladder.
+let prevLoss = Infinity;
+for (const d of DIVS) {
+  const l = cpDelta(probe(d), "loss", true);
+  check(l <= prevLoss + 1e-9, `${d.name}: losing never costs LESS than the rank below (${l})`);
+  prevLoss = l;
+}
+check(DIVS.filter(d => d.loss < 0).length > 0, "the upper ranks really do lose OP for a loss");
+check(DIVS[DIVS.length - 1].loss < 0, "King of the Critters pays for a loss");
+check(DIVS.some(d => d.loss === 0), "…and there is a break-even rank between the two");
+
+// The break-even rank is exactly the trap `x || fallback` sets: 0 is falsy, so
+// `info.loss || -3` would quietly charge that division 3 OP for the one result
+// the table is most careful about. Ask for it by value.
+for (const d of DIVS) {
+  eq(cpDelta(probe(d), "loss", true), d.loss, `${d.name}: the loss delta IS the table's value`);
+  eq(cpDelta(probe(d), "draw", true), d.draw, `${d.name}: so is the draw`);
+  eq(cpDelta(probe(d), "win",  true), d.win,  `${d.name}: so is the win`);
+}
+check(!/info\.(win|draw|loss)\s*\|\|/.test(FN_DELTA),
+      "no `||` fallback in the delta: it would eat a legitimate 0");
+
+console.log("\n── walking out is not a game you played ──");
+// Uncapped, the new floor would print OP for quitting: a Bronze player could
+// forfeit over and over for +4 a go. The forfeit path clamps to at most 0.
+{
+  const FORFEIT = APP.slice(APP.indexOf("async function _applyForfeitLoss"),
+                            APP.indexOf("function renderEndGame"));
+  check(/Math\.min\(0,/.test(FORFEIT), "the forfeit loss is clamped to at most 0");
+  check(/_compGetCpDelta\(curCp, "loss"/.test(FORFEIT), "…on top of the normal loss delta");
+}
+
+console.log("\n── one game, not one room ──");
+// Play Again re-launches in the SAME room and only stamps a new started_unix,
+// so a room-keyed dedup paid the first match and silently nothing after it.
+{
+  const PROC = APP.slice(APP.indexOf("function _compGameKey"),
+                         APP.indexOf("function processRankedFfaGameEnd"));
+  check(/started_unix/.test(PROC), "the 1v1 dedup key includes the match's start time");
+  check(!/_lastRankedProcessed === roomId/.test(APP), "…and is not the bare room id any more");
+  check(/_lastRankedProcessed = gameKey/.test(APP), "the key it stores is the same one it checks");
+}
+
 console.log("\n── the free-for-all never out-pays the 1v1 ladder ──");
 for (const d of DIVS) {
   const cp = probe(d);

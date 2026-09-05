@@ -1909,7 +1909,7 @@
 
     // ── 12. OP formula ─────────────────────────────────────────────
     { target: null, badge: "How OP Works", title: "Earning and Losing OP",
-      text: "After every ranked match:<br>• <strong>Win</strong>, gain OP (about +18 to +26).<br>• <strong>Loss</strong>, lose OP.<br>• <strong>Draw</strong>, a small OP gain.<br>The higher your rank, the <strong>more OP a loss costs</strong> and the less a win gives, so the climb gets steeper near the top. If both players' best hands tie, the <strong>second hand breaks the tie</strong>. Reach <strong>1200 OP</strong> to become <strong>👑 King of the Critters</strong>, the season's top rank." },
+      text: "<strong>Every ranked match pays both players something.</strong><br>• <strong>Win</strong>, a big gain (about +18 to +26).<br>• <strong>Draw</strong>, a small gain, at every rank.<br>• <strong>Loss</strong>, this is the one your rank decides.<br>In <strong>🐠 Bronze</strong> and <strong>🦞 Silver</strong> even a loss still pays you a little, so while you are learning the ladder only goes up. From <strong>🐡 Golden Grouper</strong> a loss breaks even, and above that it starts to cost, more and more the higher you climb, while a win gives less. If both players' best hands tie, the <strong>second hand breaks the tie</strong>. Reach <strong>1200 OP</strong> to become <strong>👑 King of the Critters</strong>, the season's top rank." },
 
     // ── 13. Hand-switch in the game ────────────────────────────────
     { target: null, badge: "In the Game", title: "Switching Between Your Hands",

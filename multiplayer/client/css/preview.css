@@ -3080,31 +3080,9 @@
       letter-spacing: 2px;
       margin-bottom: 16px;
     }
-    .wr-player-row {
-      display: flex; align-items: center; gap: 14px;
-      padding: 12px 0;
-      border-bottom: 1px solid rgba(26,58,114,.10);
-      font-size: 18px;
-      font-weight: 700;
-      color: #1a3a72;
-    }
-    .wr-player-row:last-child { border: none; padding-bottom: 4px; }
-    .wr-player-row:first-of-type { padding-top: 4px; }
-    .wr-seat-dot {
-      width: 14px; height: 14px; border-radius: 50%;
-      flex-shrink: 0;
-    }
-    .wr-seat-dot.filled {
-      background: radial-gradient(circle at 30% 30%, #5aa2e8 0%, #2868c4 100%);
-      box-shadow: 0 1px 3px rgba(40,104,196,.4);
-    }
-    .wr-seat-dot.empty {
-      background: #c4d4ec;
-      border: 2px solid #94b3d6;
-      box-sizing: border-box;
-    }
-    .wr-player-name { font-weight: 700; color: #1a3a72; }
-    .wr-player-empty { color: #6a87b0; font-weight: 600; }
+    /* The dot-and-a-line-of-text player row is GONE. It was the old lobby, and
+       Competitive 1v1 was the last screen still drawing it; that room is on
+       the player cards now like every other lobby. */
 
     /* ══ The waiting room ══════════════════════════════════════════════
        Eight spots on the Tide Pool, with the chat, the cast-off and your own
@@ -3167,6 +3145,14 @@
       grid-template-columns: repeat(4, minmax(0, 1fr));
       grid-auto-rows: 1fr;
     }
+    /* Competitive 1v1 is two cards, not eight. Four columns would strand them
+       in the left quarter of a wide screen, so the pair gets its own track and
+       a width that keeps them a readable size instead of a stretched one. */
+    .wr-seat-grid.wr-grid-pair {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      max-width: 1100px; margin-inline: auto;
+    }
+    @media (max-width: 560px) { .wr-seat-grid.wr-grid-pair { grid-template-columns: minmax(0, 1fr); } }
     @media (max-width: 1120px) { .wr-seat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (max-width: 860px)  { .wr-seat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 520px)  { .wr-seat-grid { grid-template-columns: minmax(0, 1fr); } }
@@ -3247,6 +3233,24 @@
     .wr-chip-you   { background: linear-gradient(180deg,#fff3d0,#ffe6a3); border-color: #e6b74a; color: #6b4b06; }
     .wr-chip-bg    { background: linear-gradient(180deg,#dff1ff,#c4e4fb); border-color: #6ab3e8; color: #175da8; }
     .wr-chip-wait  { background: rgba(255,255,255,.75); border-color: rgba(44,77,128,.2); color: #7d99bd; }
+    .wr-chip-hands { background: linear-gradient(180deg,#e9e2ff,#d6c8fb); border-color: #a48ce8; color: #46308c; }
+    /* The Ocean Points rank, in its own division's colours, so a competitive
+       lobby says at a glance what you are about to play against. The tiers use
+       the same five colours the rank card and the leaderboards already use. */
+    /* Every other chip is two or three words and never needs to bend. This one
+       can be "King of the Critters · 1,240 OP", which is wider than a card on a
+       mid-size screen, so it is the one chip allowed to wrap instead of running
+       off the edge of the player it belongs to. */
+    .wr-chip-rank {
+      font-weight: 900; letter-spacing: .1px;
+      max-width: 100%; white-space: normal; text-align: center; line-height: 1.3;
+    }
+    .wr-chip-rank-bronze   { background: linear-gradient(180deg,#f6ddc0,#e8bf93); border-color: #c58f57; color: #6d4415; }
+    .wr-chip-rank-silver   { background: linear-gradient(180deg,#eef1f6,#d4dbe6); border-color: #9fadc0; color: #414d5e; }
+    .wr-chip-rank-gold     { background: linear-gradient(180deg,#ffeeb4,#f7d474); border-color: #d9ac33; color: #6b4b06; }
+    .wr-chip-rank-diamond  { background: linear-gradient(180deg,#d7f0ff,#aadcf7); border-color: #55aede; color: #14567f; }
+    .wr-chip-rank-emerald  { background: linear-gradient(180deg,#cdf4dc,#a2e6bd); border-color: #4cbe86; color: #0f5c39; }
+    .wr-chip-rank-king     { background: linear-gradient(180deg,#ffe9a8,#f3c04b); border-color: #c99516; color: #5c3d02; }
     /* Computer / phone. Two shades so the two answers are told apart at a
        glance across a grid of eight tiles, without reading either of them. */
     .wr-chip-device-computer { background: linear-gradient(180deg,#e3ecf8,#cbdcf2); border-color: #8fb2da; color: #26548f; }
@@ -3591,8 +3595,6 @@
       .wr-code { font-size: 2.6rem; letter-spacing: 10px; padding: 18px 20px 18px 30px; }
       .wr-subtitle { font-size: 15px; }
       .wr-players { padding: 18px 20px; }
-      .wr-player-row { font-size: 16px; }
-      .wr-player-row.wr-ai-row { flex-wrap: wrap; }
       .wr-diff-box { width: 100%; margin-left: 28px; justify-content: stretch; }
       .wr-diff-pill { flex: 1; }
       .wr-quick-setup, .wr-table-setup { padding: 14px; }
@@ -14533,6 +14535,19 @@
       width: 9px; height: 9px; border-radius: 50%;
       background: var(--team-hex); flex: 0 0 auto;
       box-shadow: 0 0 0 2px rgba(255,255,255,.7);
+    }
+    /* The player's own critter, in the team's colour, at chip size. An open
+       spot keeps the plain dot: there is no face to show yet. */
+    .wr-team-chip .wr-chip-av {
+      width: 22px; height: 22px; flex: 0 0 auto;
+      border-radius: 50%; object-fit: cover; background: #dce8f7;
+      box-shadow: 0 0 0 2px var(--team-hex);
+    }
+    .wr-team-chip .wr-chip-lv {
+      flex: 0 0 auto; margin-left: 2px;
+      font-size: 10px; font-weight: 800; color: #4a688f;
+      background: rgba(255,255,255,.85); border: 1px solid rgba(44,77,128,.18);
+      border-radius: 999px; padding: 1px 6px; line-height: 1.35;
     }
     .wr-team-chip.is-me {
       background: #fff; border-color: var(--team-hex);
