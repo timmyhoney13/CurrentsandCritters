@@ -1145,6 +1145,10 @@
           <li class="perk-coins-row">
             <span class="perk-main"><strong>7,000 Critter Coins</strong></span>
           </li>
+          <li>
+            <span class="perk-main"><strong>1 custom friend code</strong></span>
+            <span class="perk-xp-note">Pick your own instead of four random digits, reserved to you</span>
+          </li>
           <li class="perk-xp-row">
             <span class="perk-main">+1,000 bonus XP</span>
             <span class="perk-xp-note">Cosmetic progression only</span>
@@ -1180,6 +1184,10 @@
           </li>
           <li class="perk-coins-row">
             <span class="perk-main"><strong>15,000 Critter Coins</strong></span>
+          </li>
+          <li>
+            <span class="perk-main"><strong>2 custom friend codes</strong></span>
+            <span class="perk-xp-note">Pick your own instead of four random digits, reserved to you</span>
           </li>
           <li class="perk-xp-row">
             <span class="perk-main">+5,000 bonus XP</span>
@@ -1218,6 +1226,10 @@
           </li>
           <li class="perk-coins-row">
             <span class="perk-main"><strong>30,000 Critter Coins</strong></span>
+          </li>
+          <li>
+            <span class="perk-main"><strong>4 custom friend codes</strong></span>
+            <span class="perk-xp-note">Pick your own instead of four random digits, reserved to you</span>
           </li>
           <li class="perk-xp-row">
             <span class="perk-main">+7,500 bonus XP</span>
@@ -1259,18 +1271,24 @@
           <li><span class="perk-main">Exclusive Amberjack player icon</span></li>
           <li>
             <span class="perk-main"><strong>TWO free physical copies</strong> of Currents and Critters</span>
-            <span class="perk-xp-note">Keep one, gift one</span>
           </li>
           <li><span class="perk-main">Hand-written thank-you card, signed</span></li>
-          <li><span class="perk-main">Thank-you postcard</span></li>
           <li><span class="perk-main">Your name in the game's supporter credits</span></li>
           <li><span class="perk-main">First look at every expansion before it ships</span></li>
+          <li>
+            <span class="perk-main">The <strong>Current Controller</strong>: the game's mod menu</span>
+            <span class="perk-xp-note">Casual games only, and every other player has to agree first. See How to Play.</span>
+          </li>
           <li class="perk-pass-row">
             <span class="perk-main"><strong>15 Season Pass vouchers</strong></span>
             <span class="perk-xp-note">Fifteen Critter Passes (Battle Passes), on any fifteen seasons you choose</span>
           </li>
           <li class="perk-coins-row">
             <span class="perk-main"><strong>75,000 Critter Coins</strong></span>
+          </li>
+          <li>
+            <span class="perk-main"><strong>8 custom friend codes</strong></span>
+            <span class="perk-xp-note">Pick your own instead of four random digits, reserved to you</span>
           </li>
           <li class="perk-xp-row">
             <span class="perk-main">+20,000 bonus XP</span>
@@ -1300,6 +1318,7 @@
     <p class="tier-fineprint">
       Critter Coins, bonus XP, profile frames, and player icons are cosmetic/progression rewards only and do not affect gameplay.
       Critter Coins are the online game's cosmetic currency and are credited to your game account automatically after checkout.
+      Every cosmetic you own can be given away: avatars, skins and backgrounds all trade to another account, along with Critter Coins, Season Pass vouchers and XP.
       Supporter Reef Wall placement is based on contribution amount, with the highest supporters featured first.
       2% goes to ocean conservation.
     </p>
@@ -1315,7 +1334,7 @@
     <div class="partner-form-band" id="partner-form">
       <span class="eyebrow">★ Partner With Us</span>
       <h3>Tell us what you have in mind</h3>
-      <p>Fill in the template below and it lands straight in Tim's inbox. Every message is read by a person, and you will get a reply at the address you give.</p>
+      <p>Fill in the template below and it lands straight in Timothy's inbox. Every message is read by a person, and you will get a reply at the address you give.</p>
       <p class="pf-direct">Prefer your own email? Write to
         <a id="pf-mailto" href="mailto:currentsandcritters@gmail.com?subject=Partner%20with%20Currents%20and%20Critters">currentsandcritters@gmail.com</a>
         and it reaches the same inbox.</p>
@@ -1368,7 +1387,7 @@
         </div>
 
         <div class="pf-actions">
-          <button class="btn btn-mint btn-lg" type="submit" id="pf-send">Send to Tim →</button>
+          <button class="btn btn-mint btn-lg" type="submit" id="pf-send">Send to Timothy →</button>
           <button class="pf-reset" type="button" id="pf-restore">Reset the template</button>
         </div>
         <p class="pf-status" id="pf-status" role="status" aria-live="polite"></p>
@@ -1890,7 +1909,7 @@ updateBetaBarClear();
  * email. The game server on Render is the one thing in the whole system with a
  * configured mail transport (it sends the newsletter, the account resets and
  * the purchase codes), so the enquiry is posted there, to
- * /api/partner/contact, and partner_contact.py turns it into mail to Tim with
+ * /api/partner/contact, and partner_contact.py turns it into mail to Timothy with
  * the sender on Reply-To.
  *
  * WHY THE mailto: DID NOT SIMPLY STAY
@@ -1930,31 +1949,31 @@ updateBetaBarClear();
 
   var TEMPLATES = {
     brand:
-      "Hi Tim,\n\n" +
+      "Hi Timothy,\n\n" +
       "I'm ____ from ____. We'd love to work with Currents and Critters on ____.\n\n" +
       "What we had in mind: ____\n\n" +
       "A bit about us: ____\n\n" +
       "Thanks!",
     retail:
-      "Hi Tim,\n\n" +
+      "Hi Timothy,\n\n" +
       "I'm ____ from ____, a ____ (shop / distributor / online store) in ____.\n\n" +
       "We'd like to carry Currents and Critters. We'd be looking at around ____ copies to start.\n\n" +
       "Anything else worth knowing: ____\n\n" +
       "Thanks!",
     conservation:
-      "Hi Tim,\n\n" +
+      "Hi Timothy,\n\n" +
       "I'm ____ from ____, and we work on ____ (what your organization protects).\n\n" +
       "We'd like to partner with Currents and Critters on ____.\n\n" +
       "What that could look like: ____\n\n" +
       "Thanks!",
     creator:
-      "Hi Tim,\n\n" +
+      "Hi Timothy,\n\n" +
       "I'm ____ and I make ____ (videos / a podcast / articles) about ____.\n\n" +
       "My audience is about ____ people, mostly ____.\n\n" +
       "I'd like to cover Currents and Critters by ____.\n\n" +
       "Thanks!",
     sponsor:
-      "Hi Tim,\n\n" +
+      "Hi Timothy,\n\n" +
       "I'm ____ from ____. We'd like to support Currents and Critters through ____.\n\n" +
       "What we're hoping for in return: ____\n\n" +
       "Budget or scale we have in mind: ____\n\n" +
@@ -1966,7 +1985,7 @@ updateBetaBarClear();
        quiet ____ the other templates use, and hence the extra check in
        validate() that refuses to send while one of them is still in the box. */
     major:
-      "Hi Tim,\n\n" +
+      "Hi Timothy,\n\n" +
       "My name is [INSERT YOUR NAME HERE] and I'd like to support Currents and\n" +
       "Critters with [INSERT AMOUNT HERE, for example $250].\n\n" +
       "Why I want to: [INSERT YOUR REASON HERE]\n\n" +
@@ -1976,13 +1995,13 @@ updateBetaBarClear();
       "Thanks!\n" +
       "[INSERT YOUR NAME HERE]",
     event:
-      "Hi Tim,\n\n" +
+      "Hi Timothy,\n\n" +
       "I'm ____ from ____. We're running ____ on ____ (date) in ____ (place).\n\n" +
       "We'd love to have Currents and Critters there by ____.\n\n" +
       "We're expecting about ____ people.\n\n" +
       "Thanks!",
     other:
-      "Hi Tim,\n\n" +
+      "Hi Timothy,\n\n" +
       "I'm ____ from ____.\n\n" +
       "I'd like to talk to you about ____.\n\n" +
       "Thanks!"
@@ -2144,12 +2163,12 @@ updateBetaBarClear();
         head.textContent = "Message sent.";
         done.appendChild(head);
         done.appendChild(document.createTextNode(" " + (d.message ||
-          "Thanks! Your message is on its way to Tim, and you will get a reply at the address you gave.")));
+          "Thanks! Your message is on its way to Timothy, and you will get a reply at the address you gave.")));
         form.parentNode.replaceChild(done, form);
       } else {
         busy = false;
         elSend.disabled = false;
-        elSend.textContent = "Send to Tim →";
+        elSend.textContent = "Send to Timothy →";
         var why = (d && (d.message || d.error)) || "Something went wrong sending that.";
         // A validation answer from the server is the reader's to fix; anything
         // else is ours, and gets the mailto: escape hatch.
@@ -2164,7 +2183,7 @@ updateBetaBarClear();
       clearTimeout(slow); clearTimeout(kill);
       busy = false;
       elSend.disabled = false;
-      elSend.textContent = "Send to Tim →";
+      elSend.textContent = "Send to Timothy →";
       offerMailto("Couldn't reach the server.");
     });
   });

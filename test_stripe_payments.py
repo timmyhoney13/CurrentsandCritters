@@ -452,6 +452,24 @@ class TestOneGrantHelper(unittest.TestCase):
                 got = getattr(getattr(inc, "_value", None), "integer_value", None)
             self.assertEqual(got, n, tier)
 
+    def test_custom_code_counts_climb_with_price(self):
+        by_price = [ms.SUPPORTER_TIERS_BY_CENTS[c] for c in sorted(ms.SUPPORTER_TIERS_BY_CENTS)]
+        got = [ms.SUPPORTER_TIER_GRANTS[t]["custom_codes"] for t in by_price]
+        self.assertEqual(got, sorted(got), f"custom codes not monotonic: {got}")
+        self.assertTrue(all(n > 0 for n in got), "every tier grants at least one")
+
+    def test_custom_codes_are_written_as_an_increment(self):
+        """A code is SPENT when it is used, so a total computed from a stats map
+        read seconds ago would hand back one the account had already claimed."""
+        for tier, grant in ms.SUPPORTER_TIER_GRANTS.items():
+            updates, _ = ms._reward_grant_updates("tier", tier, {})
+            inc = updates.get("custom_code_tokens")
+            self.assertIsNotNone(inc, f"{tier} never writes custom_code_tokens")
+            got = getattr(inc, "value", None)
+            if got is None:
+                got = getattr(getattr(inc, "_value", None), "integer_value", None)
+            self.assertEqual(got, grant["custom_codes"], tier)
+
     def test_voucher_counts_climb_with_price(self):
         by_price = [ms.SUPPORTER_TIERS_BY_CENTS[c] for c in sorted(ms.SUPPORTER_TIERS_BY_CENTS)]
         got = [ms.SUPPORTER_TIER_GRANTS[t]["pass_vouchers"] for t in by_price]
@@ -576,6 +594,35 @@ class TestTierCoinsPrintedEverywhere(unittest.TestCase):
             phrase = f"{n} Season Pass voucher" + ("" if n == 1 else "s")
             self.assertIn(phrase, html, f"index.html never promises {tier}'s {phrase}")
             self.assertIn(phrase, js, f"the in-game Store never promises {tier}'s {phrase}")
+
+    def test_both_tier_cards_list_the_server_custom_code_count(self):
+        """A custom friend code is bought in the Store for coins AND handed out
+        by every tier, so the count is a promise printed in two places while the
+        server is what actually credits it."""
+        html = self._read("index.html")
+        js = self._read("multiplayer", "client", "js", "preview-app.js")
+        for tier in ms.SUPPORTER_TIER_GRANTS:
+            n = ms.SUPPORTER_TIER_GRANTS[tier]["custom_codes"]
+            phrase = f"{n} custom friend code" + ("" if n == 1 else "s")
+            self.assertIn(phrase, html, f"index.html never promises {tier}'s {phrase}")
+            self.assertIn(phrase, js, f"the in-game Store never promises {tier}'s {phrase}")
+
+    def test_no_card_advertises_a_code_count_no_tier_grants(self):
+        granted = {f"{g['custom_codes']} custom friend code" + ("" if g["custom_codes"] == 1 else "s")
+                   for g in ms.SUPPORTER_TIER_GRANTS.values()}
+        for path in (("index.html",),
+                     ("multiplayer", "client", "js", "preview-app.js")):
+            text = self._read(*path)
+            for printed in set(re.findall(r"\d+ custom friend codes?", text)):
+                self.assertIn(printed, granted,
+                              f"{path[-1]} advertises {printed}, which no tier grants")
+
+    def test_the_store_price_matches_the_server_price(self):
+        """The Store card prints the price; the server takes the coins."""
+        js = self._read("multiplayer", "client", "js", "preview-app.js")
+        self.assertIn(f"const PHST_CUSTOM_CODE_PRICE  = {ms.CUSTOM_CODE_COIN_PRICE};", js)
+        self.assertIn(f"const PHST_CUSTOM_CODE_MIN    = {ms.CUSTOM_CODE_MIN};", js)
+        self.assertIn(f"const PHST_CUSTOM_CODE_MAX    = {ms.CUSTOM_CODE_MAX};", js)
 
     def test_no_card_advertises_a_voucher_count_no_tier_grants(self):
         granted = {f"{g['pass_vouchers']} Season Pass voucher" + ("" if g["pass_vouchers"] == 1 else "s")
