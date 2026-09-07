@@ -3401,10 +3401,27 @@ def _trade_confirm(uid: str, peer_uid: str, version: int, confirm: bool) -> Dict
         both = all(bool(confirmed.get(p)) for p in parts)
 
         if not both:
-            txn.set(trade_ref, {"confirmed": confirmed,
-                                "updated_ts": SERVER_TIMESTAMP}, merge=True)
+            # One side has confirmed and the trade is now waiting on the OTHER
+            # one, who is very often not looking at the trade screen — they may
+            # have closed it, or be in a game. Nothing used to tell them: the
+            # only messages posted were "started", "completed" and "canceled",
+            # so a partner who confirmed and walked away left a trade sitting
+            # there with no chat line and no badge over Messages, and the usual
+            # end of that is both people waiting on each other.
+            #
+            # Pinged at most ONCE PER VERSION, which is exactly the right unit:
+            # any change to either offer bumps the version and resets both
+            # confirmations, so this is one nudge per distinct offer, and
+            # toggling confirm off and on again cannot spam the DM.
+            update = {"confirmed": confirmed, "updated_ts": SERVER_TIMESTAMP}
+            ver = int(trade.get("version") or 1)
+            notify = bool(confirm) and int(trade.get("confirm_pinged_version") or 0) != ver
+            if notify:
+                update["confirm_pinged_version"] = ver
+                trade["confirm_pinged_version"] = ver
+            txn.set(trade_ref, update, merge=True)
             trade["confirmed"] = confirmed
-            return {"trade": trade}
+            return {"trade": trade, "__notify_confirm__": notify}
 
         # Both confirmed at this version → execute the swap now. All the reads
         # we need must happen before any write (Firestore txn rule).
@@ -3473,6 +3490,17 @@ def _trade_confirm(uid: str, peer_uid: str, version: int, confirm: bool) -> Dict
     trade = outcome.get("trade")
     if trade is not None:
         _trade_mirror(db, trade)
+    if outcome.get("__notify_confirm__") and trade is not None:
+        names = trade.get("names") or {}
+        other = None
+        for p in (trade.get("participants") or []):
+            if p != uid:
+                other = p
+        _trade_post_message(
+            db, trade,
+            f"✅ {names.get(uid, 'A player')} confirmed the trade. "
+            f"It is waiting on {names.get(other, 'you')} now.",
+            actor=uid, ping=True)
     clan_award: Dict[str, Any] = {}
     if outcome.get("__completed__") and trade is not None:
         _trade_post_message(db, trade, _trade_summary_text(trade),

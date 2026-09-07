@@ -635,6 +635,113 @@ try:
 finally:
     M._get_firestore = _real_get_fs
 
+# ══ The DM line and the red number over Messages ══════════════════════════
+# Every trade event has to reach the other player somewhere they will actually
+# see it. Two separate things carry that, and neither was covered before:
+#   • a system line in the pair's DM (system:true, trade_log:true), and
+#   • the unread flag on the RECIPIENT's copy, which is the only thing the
+#     Messages badge counts.
+# The badge predicate is duplicated here on purpose, verbatim from
+# preview-app.js `_msgTotalUnread`. The live trade mirror doc is excluded by
+# `!m.trade` and the log doc must NOT be — the two flags are one character
+# apart, and getting it wrong silently stops every trade notification.
+print("a trade tells the other player, in chat and on the Messages badge:")
+
+
+def _logs(uid):
+    return [d for k, d in DB.store.items()
+            if k.startswith(f"users/{uid}/messages/tradelog_") and isinstance(d, dict)]
+
+
+def _badge(uid):
+    """Verbatim `_msgTotalUnread` from preview-app.js."""
+    return len([d for k, d in DB.store.items()
+                if k.startswith(f"users/{uid}/messages/") and isinstance(d, dict)
+                and not d.get("meta") and not d.get("trade")
+                and d.get("sender") != uid and not d.get("read")])
+
+
+def _read_everything(uid):
+    for k, d in DB.store.items():
+        if k.startswith(f"users/{uid}/messages/") and isinstance(d, dict):
+            d["read"] = True
+
+
+S1, S2 = "sam", "tess"
+set_user(S1, avatars=["/avatars/sardine.png"], coins=500)
+set_user(S2, avatars=["/avatars/lobster.png"], coins=0)
+
+M._trade_open(S1, "Sam", S2, "Tess")
+check("opening posts one system line to BOTH inboxes",
+      len(_logs(S1)) == 1 and len(_logs(S2)) == 1)
+check("it is a centered system line, not a chat bubble",
+      all(d.get("system") is True and d.get("trade_log") is True for d in _logs(S2)))
+check("it lands in the pair's REAL DM, the same conv id a typed message uses",
+      _logs(S2)[0]["conv_id"] == M._trade_id_for(S1, S2))
+check("the opener's own copy is already read", _logs(S1)[0]["read"] is True)
+check("and the other player's is not", _logs(S2)[0]["read"] is False)
+check("so Tess has a number over Messages", _badge(S2) == 1)
+check("and Sam, who did it, does not", _badge(S1) == 0)
+
+# The live mirror doc shares the subcollection and must never badge.
+check("the live trade mirror is flagged trade:true",
+      (mirror(S2, M._trade_id_for(S1, S2)) or {}).get("trade") is True)
+_pre = _badge(S2)
+M._trade_mirror(DB, M._trade_get_state(S1, S2) and
+                {"tradeId": M._trade_id_for(S1, S2), "conv_id": M._trade_id_for(S1, S2),
+                 "participants": sorted([S1, S2])})
+check("and re-mirroring adds nothing to the badge", _badge(S2) == _pre)
+
+_read_everything(S1)
+_read_everything(S2)
+
+M._trade_set_offer(S1, "Sam", S2, {"avatars": ["/avatars/sardine.png"]})
+M._trade_set_offer(S2, "Tess", S1, {"avatars": ["/avatars/lobster.png"]})
+check("editing an offer does NOT post a line (that would be one per keystroke)",
+      len(_logs(S2)) == 1)
+check("and does not badge anybody", _badge(S1) == 0 and _badge(S2) == 0)
+
+_v = M._trade_get_state(S1, S2)["state"]["version"]
+M._trade_confirm(S1, S2, _v, True)
+check("ONE side confirming tells the other, who now has to act",
+      len(_logs(S2)) == 2 and _badge(S2) == 1)
+check("the line says who confirmed and who it waits on",
+      "Sam confirmed" in _logs(S2)[-1]["text"] and "Tess" in _logs(S2)[-1]["text"])
+check("the confirmer is not notified of their own tap", _badge(S1) == 0)
+
+M._trade_confirm(S1, S2, _v, False)
+M._trade_confirm(S1, S2, _v, True)
+check("un-confirming and confirming again cannot spam the DM",
+      len(_logs(S2)) == 2)
+
+M._trade_set_offer(S1, "Sam", S2, {"avatars": ["/avatars/sardine.png"], "coins": 25})
+_v2 = M._trade_get_state(S1, S2)["state"]["version"]
+check("a changed offer resets both confirmations",
+      not any((M._trade_get_state(S1, S2)["state"]["confirmed"] or {}).values()))
+M._trade_confirm(S1, S2, _v2, True)
+check("a NEW offer earns a fresh nudge", len(_logs(S2)) == 3)
+
+_read_everything(S2)
+_r = M._trade_confirm(S2, S1, _v2, True)
+check("the trade completes", _r.get("ok") and _r.get("completed") is True)
+check("both inboxes get the summary", len(_logs(S1)) >= 4 and len(_logs(S2)) >= 4)
+check("the summary says what each side gave",
+      "Trade completed" in _logs(S1)[-1]["text"] and "gave" in _logs(S1)[-1]["text"])
+check("Sam, who did not press the last button, is notified", _badge(S1) >= 1)
+check("Tess, who did, is not notified of her own tap", _badge(S2) == 0)
+
+# Cancel, on a fresh trade between the same two.
+set_user("uma", coins=0)
+set_user("vic", coins=0)
+M._trade_open("uma", "Uma", "vic", "Vic")
+_read_everything("uma")
+_read_everything("vic")
+M._trade_cancel("uma", "vic")
+check("canceling posts a line to both", len(_logs("uma")) >= 2 and len(_logs("vic")) >= 2)
+check("it names who canceled", "Uma" in _logs("vic")[-1]["text"])
+check("and the other player is told", _badge("vic") == 1)
+check("the canceller is not", _badge("uma") == 0)
+
 print("admin revoke: take a cosmetic back and require the requirement again:")
 PUFFIN = "/avatars/horned-puffin.png"
 set_user("tim", avatars=[PUFFIN, "/avatars/bunker.png"], coins=10,
