@@ -15000,11 +15000,19 @@
     .cctr-pk-foot {
       display: flex; gap: 8px; flex-shrink: 0; padding: 12px; border-top: 1px solid rgba(95,179,214,.2);
     }
-    #cc-trade-coin-input {
+    /* All THREE picker inputs, not just the coin one. The vouchers and XP feet
+       were added later and inherited nothing, so two of the three rendered as
+       default white browser boxes on the dark sheet — square, black-texted, and
+       not even stretching to fill the row. */
+    #cc-trade-coin-input,
+    #cc-trade-pass-input,
+    #cc-trade-xp-input {
       flex: 1; min-width: 0; padding: 11px 12px; border-radius: 10px; font-size: 15px;
       background: rgba(9,26,58,.8); border: 1px solid rgba(95,179,214,.45); color: #eaf6ff;
     }
-    #cc-trade-coin-input:focus { outline: none; border-color: var(--cyan); }
+    #cc-trade-coin-input:focus,
+    #cc-trade-pass-input:focus,
+    #cc-trade-xp-input:focus { outline: none; border-color: var(--cyan); }
     .cctr-pk-foot .cctr-btn { flex: 0 0 auto; padding: 11px 16px; }
     .cctr-coin-note { padding: 0 14px 4px; font-size: 12px; color: var(--muted); text-align: center; }
 
@@ -15014,7 +15022,7 @@
       #cc-trade-box { width: 100%; max-height: 100%; border-radius: 0; }
       #cc-trade-cols { grid-template-columns: 1fr; }
       .cctr-pk-body { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
-      /* Tighter tabs, so the four of them take two rows on a phone rather
+      /* Tighter tabs, so the five of them take two rows on a phone rather
          than three. They still wrap; this only decides how often. */
       .cctr-pk-tab { padding: 6px 10px; font-size: 12px; }
     }

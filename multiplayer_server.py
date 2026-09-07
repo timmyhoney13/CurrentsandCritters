@@ -2787,8 +2787,9 @@ def _trade_failure(action: str, exc: BaseException) -> Dict[str, Any]:
 
 def _trade_clean_offer(raw: Any) -> Dict[str, Any]:
     """Normalise one side's offer from an untrusted client into
-    {coins:int>=0, avatars:[/avatars/…], backgrounds:[/backgrounds/…]} with
-    duplicates removed and both lists capped. Never raises."""
+    {coins:int>=0, passes:int>=0, xp:int>=0, avatars:[/avatars/…],
+    backgrounds:[/backgrounds/…]} with duplicates removed, every count clamped
+    to its TRADE_MAX_* ceiling and both lists capped. Never raises."""
     raw = raw if isinstance(raw, dict) else {}
     try:
         coins = int(raw.get("coins") or 0)
@@ -2960,6 +2961,12 @@ def _trade_compute_apply(trade: Dict[str, Any], doc_a: Dict[str, Any],
     if err:
         return (err, None)
 
+    # Which field sent _resolve back empty-handed, so the player is told about
+    # the right one. Belt-and-braces behind _trade_validate_side, which has
+    # already proved each giver has what they offered; without it every one of
+    # the three read out as "Coin amount can't be negative."
+    bad_field = {"v": "negative_coins"}
+
     def _resolve(doc, assets, give, recv):
         removed_av = set(give["avatars"])
         added_av = set(recv["avatars"])
@@ -2969,6 +2976,7 @@ def _trade_compute_apply(trade: Dict[str, Any], doc_a: Dict[str, Any],
         new_bg = (assets["backgrounds"] - removed_bg) | added_bg
         new_coins = assets["coins"] - int(give["coins"]) + int(recv["coins"])
         if new_coins < 0:
+            bad_field["v"] = "negative_coins"
             return None
         # Critter Pass vouchers move exactly like coins: a count out, a count in.
         # There is no "already owns one" rule, holding several is the point (one
@@ -2976,6 +2984,7 @@ def _trade_compute_apply(trade: Dict[str, Any], doc_a: Dict[str, Any],
         new_passes = (assets.get("passes", 0) - int(give.get("passes", 0))
                       + int(recv.get("passes", 0)))
         if new_passes < 0:
+            bad_field["v"] = "negative_passes"
             return None
         # LIFETIME XP moves by the same arithmetic, and then every field that
         # is DERIVED from it is rewritten from the new total in this same
@@ -2990,6 +2999,7 @@ def _trade_compute_apply(trade: Dict[str, Any], doc_a: Dict[str, Any],
         new_xp = (assets.get("xp", 0) - int(give.get("xp", 0))
                   + int(recv.get("xp", 0)))
         if new_xp < 0:
+            bad_field["v"] = "negative_xp"
             return None
         new_level, new_xp_cur, new_xp_goal = _level_progress_for_total_xp(new_xp)
         change = {
@@ -3020,7 +3030,7 @@ def _trade_compute_apply(trade: Dict[str, Any], doc_a: Dict[str, Any],
     change_a = _resolve(doc_a, assets_a, offer_a, offer_b)
     change_b = _resolve(doc_b, assets_b, offer_b, offer_a)
     if change_a is None or change_b is None:
-        return ("negative_coins", None)
+        return (bad_field["v"], None)
     return ("", {a: change_a, b: change_b})
 
 
@@ -3268,10 +3278,20 @@ def _trade_set_offer(uid: str, uid_name: str, peer_uid: str, raw_offer: Any) -> 
     peer_uid = str(peer_uid or "").strip()
     if not peer_uid or peer_uid == uid:
         return {"ok": False, "error": "bad_peer"}
+    if not _trade_uid_ok(uid) or not _trade_uid_ok(peer_uid):
+        return {"ok": False, "error": "bad_peer"}
     offer = _trade_clean_offer(raw_offer)
 
-    my_doc = (db.collection("users").document(uid).get().to_dict()) or {}
-    peer_doc = (db.collection("users").document(peer_uid).get().to_dict()) or {}
+    # Both reads guarded. This was the one trade action that began its Firestore
+    # work outside a try, so a database refusing everybody — the quota outage
+    # _trade_is_busy exists for — raised straight out through do_POST, which has
+    # no handler of its own, and the browser got a closed connection instead of
+    # the db_busy sentence every other action answers with.
+    try:
+        my_doc = (db.collection("users").document(uid).get().to_dict()) or {}
+        peer_doc = (db.collection("users").document(peer_uid).get().to_dict()) or {}
+    except Exception as exc:  # noqa: BLE001
+        return _trade_failure("offer", exc)
     reason = _trade_validate_side(offer, _trade_assets(my_doc), _trade_assets(peer_doc))
     if reason:
         return {"ok": False, "error": reason}
@@ -3340,6 +3360,8 @@ def _trade_confirm(uid: str, peer_uid: str, version: int, confirm: bool) -> Dict
         return {"ok": False, "error": "firestore_unavailable"}
     peer_uid = str(peer_uid or "").strip()
     if not peer_uid or peer_uid == uid:
+        return {"ok": False, "error": "bad_peer"}
+    if not _trade_uid_ok(uid) or not _trade_uid_ok(peer_uid):
         return {"ok": False, "error": "bad_peer"}
     from firebase_admin import firestore
     transactional = getattr(firestore, "transactional", None)
@@ -3478,6 +3500,8 @@ def _trade_cancel(uid: str, peer_uid: str) -> Dict[str, Any]:
         return {"ok": False, "error": "firestore_unavailable"}
     peer_uid = str(peer_uid or "").strip()
     if not peer_uid or peer_uid == uid:
+        return {"ok": False, "error": "bad_peer"}
+    if not _trade_uid_ok(uid) or not _trade_uid_ok(peer_uid):
         return {"ok": False, "error": "bad_peer"}
     from firebase_admin import firestore
     transactional = getattr(firestore, "transactional", None)

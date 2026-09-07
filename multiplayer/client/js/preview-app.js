@@ -28777,7 +28777,7 @@
         } else if (myConfirmed && !peerConfirmed) {
           _trBanner("Waiting for " + _trPeerName + " to confirm…", "info");
         } else if (bothEmpty) {
-          _trBanner("Add avatars, backgrounds, or Critter Coins to trade.", "info");
+          _trBanner("Add avatars, backgrounds, Critter Coins, Season Passes or XP to trade.", "info");
         } else {
           _trBanner("", "");
         }

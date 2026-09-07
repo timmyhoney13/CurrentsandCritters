@@ -30,6 +30,11 @@ M = _load()
 _PASS = 0
 _FAIL = 0
 
+with io.open(os.path.join(os.path.dirname(__file__),
+                          "multiplayer/client/js/preview-app.js"),
+             encoding="utf-8") as _f:
+    _CLIENT_SRC = _f.read()
+
 
 def check(name, cond):
     global _PASS, _FAIL
@@ -42,11 +47,11 @@ def check(name, cond):
 
 
 def user(avatars=(), backgrounds=(), coins=0, avatar_url="", background_url="",
-         passes=0):
+         passes=0, xp=0):
     return {
         "unlocked_icons": list(avatars),
         "unlocked_backgrounds": list(backgrounds),
-        "stats": {"critter_coins": coins},
+        "stats": {"critter_coins": coins, "total_xp": xp},
         "critter_pass_vouchers": passes,
         "avatar_url": avatar_url,
         "background_url": background_url,
@@ -66,8 +71,8 @@ def trade(a, b, offer_a, offer_b, version=2, status="open"):
     }
 
 
-def offer(coins=0, avatars=(), backgrounds=(), passes=0):
-    return {"coins": coins, "passes": passes,
+def offer(coins=0, avatars=(), backgrounds=(), passes=0, xp=0):
+    return {"coins": coins, "passes": passes, "xp": xp,
             "avatars": list(avatars), "backgrounds": list(backgrounds)}
 
 
@@ -335,6 +340,32 @@ check("plural", "2 Critter Pass vouchers" in M._trade_summary_text(tv4))
 tv5 = trade(A, B, offer(passes=1), offer())
 check("singular", "1 Critter Pass voucher" in M._trade_summary_text(tv5)
       and "vouchers" not in M._trade_summary_text(tv5))
+
+# Each of the three balances is refused under its OWN name, because the client
+# turns the code straight into a sentence: "negative_coins" reads as "Coin
+# amount can't be negative.", which is the wrong noun for a voucher or for XP.
+# (The identical guard inside _trade_compute_apply's _resolve now names its own
+# field too; it sits behind this check and is not reachable while this one
+# holds.)
+print("a balance that goes short is named by ITS OWN field:")
+_short_p = trade(A, B, offer(passes=3), offer())
+_err, _ch = M._trade_compute_apply(_short_p, user(coins=0, passes=0), user())
+check("a voucher shortfall is not reported as a coin problem",
+      _err not in ("negative_coins", "not_enough_coins"))
+check("a voucher shortfall is named as one", _err == "not_enough_passes")
+check("and computes no change", _ch is None)
+_short_x = trade(A, B, offer(xp=500), offer())
+_err, _ch = M._trade_compute_apply(_short_x, user(coins=0), user())
+check("an XP shortfall is named as one", _err == "not_enough_xp")
+check("and computes no change too", _ch is None)
+_short_c = trade(A, B, offer(coins=99), offer())
+_err, _ch = M._trade_compute_apply(_short_c, user(coins=0), user())
+check("and coins are still named as coins", _err == "not_enough_coins")
+# Every one of those codes has to survive the trip to the player as a sentence.
+for _code in ("not_enough_passes", "not_enough_xp", "not_enough_coins",
+              "negative_passes", "negative_xp", "negative_coins"):
+    check(f"{_code} has its own sentence in the client",
+          f"{_code}:" in _CLIENT_SRC)
 
 print("a peer id that could not be a Firestore document id is refused up front:")
 check("a plain uid is fine", M._trade_uid_ok("AbC123_-.@") is True)

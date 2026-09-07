@@ -553,6 +553,88 @@ check("refused as a bad peer", (not r.get("ok")) and r.get("error") == "bad_peer
 check("no trade document was created",
       not any(k.startswith("trades/") and "a/b" in k for k in DB.store))
 
+# ...and the same is true of the four actions that are NOT open. Three of them
+# used to skip the check entirely: a peer like "bob/sub/doc" was pasted straight
+# into a Firestore path, and the player got back "no_trade" — which reads as
+# "your trade expired" — for what was really a malformed request.
+print("every trade action refuses a peer id Firestore could not use:")
+_bad_peers = ["a/b", "bob/sub/doc", "__proto__", "   ", ""]
+_before = set(DB.store)
+for _bad in _bad_peers:
+    _calls = {
+        "get":     lambda b=_bad: M._trade_get_state("quin", b),
+        "open":    lambda b=_bad: M._trade_open("quin", "Quin", b, "Nope"),
+        "offer":   lambda b=_bad: M._trade_set_offer("quin", "Quin", b, {"coins": 0}),
+        "confirm": lambda b=_bad: M._trade_confirm("quin", b, 1, True),
+        "cancel":  lambda b=_bad: M._trade_cancel("quin", b),
+    }
+    for _name, _fn in _calls.items():
+        try:
+            _r = _fn()
+            _got = _r.get("error")
+        except Exception as _exc:  # noqa: BLE001
+            _got = f"RAISED {type(_exc).__name__}"
+        check(f"{_name} refuses {_bad!r}", _got == "bad_peer")
+check("and not one of them wrote anything", set(DB.store) == _before)
+
+# The quota outage of 2026-09-04 is the scenario: Firestore refuses EVERY read
+# and write for the whole project. Four actions answered with the db_busy
+# sentence; `offer` began its two user-doc reads outside any try, so it raised
+# through do_POST — which has no handler of its own — and the browser got a
+# dropped connection rather than any JSON at all.
+print("a database refusing everybody is db_busy for EVERY action, never a crash:")
+
+
+class _Refuses:
+    """Every read and write raises, like the day the daily quota ran out."""
+    def __init__(self, path=""):
+        self._path = path
+
+    def document(self, doc_id):
+        return _Refuses(self._path + "/" + str(doc_id))
+
+    def collection(self, name):
+        return _Refuses(self._path + "/" + name)
+
+    def get(self, transaction=None):
+        raise _ResourceExhausted("429 Quota exceeded.")
+
+    def set(self, data, merge=False):
+        raise _ResourceExhausted("429 Quota exceeded.")
+
+
+class _ResourceExhausted(Exception):
+    """Carries the NAME _trade_is_busy matches on (the real class lives in
+    google.api_core.exceptions, which the server deliberately does not import)."""
+
+
+class _RefusingTxn:
+    def set(self, ref, data, merge=False):
+        ref.set(data, merge=merge)
+
+
+_real_get_fs = M._get_firestore
+M._get_firestore = lambda: types.SimpleNamespace(
+    collection=lambda name: _Refuses(name), transaction=lambda: _RefusingTxn())
+try:
+    for _name, _fn in [
+        ("get",     lambda: M._trade_get_state("quin", "rhea")),
+        ("open",    lambda: M._trade_open("quin", "Quin", "rhea", "Rhea")),
+        ("offer",   lambda: M._trade_set_offer("quin", "Quin", "rhea", {"coins": 5})),
+        ("confirm", lambda: M._trade_confirm("quin", "rhea", 1, True)),
+        ("cancel",  lambda: M._trade_cancel("quin", "rhea")),
+    ]:
+        try:
+            _r = _fn()
+        except Exception as _exc:  # noqa: BLE001
+            _r = {"__raised__": f"{type(_exc).__name__}: {_exc}"}
+        check(f"{_name} answers db_busy instead of raising",
+              _r.get("error") == "db_busy" and _r.get("busy") is True)
+        check(f"{_name} names itself and carries the reason",
+              _r.get("action") == _name and "429" in str(_r.get("detail") or ""))
+finally:
+    M._get_firestore = _real_get_fs
+
 print("admin revoke: take a cosmetic back and require the requirement again:")
 PUFFIN = "/avatars/horned-puffin.png"
 set_user("tim", avatars=[PUFFIN, "/avatars/bunker.png"], coins=10,

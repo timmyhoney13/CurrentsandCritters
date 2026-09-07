@@ -236,5 +236,31 @@ for (const fn of ["_trToggleItem", "_trSetCoins", "_trSetPasses", "_trSetXp"]) {
 check("no mutation hand-rolls a partial offer literal",
       !/\{ coins: Number\(cur\.coins\) \|\| 0,/.test(SRC));
 
+section("every tradable thing the picker offers is dressed the same");
+// The coin foot was styled when it was the only one. The voucher and XP feet
+// were added later and matched nothing, so two of the three number inputs
+// rendered as default white browser boxes on the dark blue sheet.
+const pickerInputs = [...HTML.matchAll(/<input id="(cc-trade-[a-z]+-input)"/g)].map(m => m[1]);
+check("the markup declares all three number inputs", pickerInputs.length === 3, pickerInputs.join(", "));
+for (const id of pickerInputs) {
+  check(`#${id} is styled, not left as a browser default`,
+        new RegExp(`#${id}\\s*[,{]`).test(CSS));
+  check(`#${id} has a focus state`,
+        new RegExp(`#${id}:focus\\s*[,{]`).test(CSS));
+}
+
+section("the empty-trade hint names everything you can actually trade");
+// Five picker tabs, so five things. The hint listed the original three for as
+// long as it was the only copy nobody re-read after vouchers and XP landed.
+const tabs = [...HTML.matchAll(/class="cctr-pk-tab[^"]*" data-tab="([a-z]+)"/g)].map(m => m[1]);
+check("the picker still offers five tabs", tabs.length === 5, tabs.join(", "));
+const hint = (SRC.match(/_trBanner\("Add [^"]+", "info"\)/) || [""])[0];
+check("there is an empty-offer hint", !!hint);
+for (const [tab, word] of [["avatars", /avatars/i], ["backgrounds", /backgrounds/i],
+                           ["coins", /Critter Coins/i], ["passes", /Season Pass/i],
+                           ["xp", /XP/]]) {
+  check(`the hint mentions the ${tab} tab`, word.test(hint), hint);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
