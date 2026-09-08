@@ -155,7 +155,7 @@ class TestTheRebuildFromHistory(_StatsDirCase):
         self._game("game_a_1.json", duration_sec=1800, rounds=40)
         self._game("game_b_2.json", duration_sec=900, rounds=40)
         self._game("game_c_3.json", duration_sec=300, rounds=40)
-        self.assertEqual(self._sync(), (3, 3000))
+        self.assertEqual(self._sync(), (3, 3000, 3))
         self.assertEqual(self._stored()["play_seconds"], 3000)
         self.assertEqual(self._stored()["games_played"], 3)
 
@@ -164,7 +164,7 @@ class TestTheRebuildFromHistory(_StatsDirCase):
         self._game("game_a_1.json", duration_sec=600, rounds=40)
         self._game("leaderboard.json", duration_sec=999999, rounds=40)
         self._game("notes.txt", duration_sec=1, rounds=40)
-        self.assertEqual(self._sync(), (1, 600))
+        self.assertEqual(self._sync(), (1, 600, 1))
 
     def test_an_unreadable_record_is_skipped_not_fatal(self):
         """One corrupt file used to be enough to lose the whole rebuild."""
@@ -172,7 +172,7 @@ class TestTheRebuildFromHistory(_StatsDirCase):
         with open(os.path.join(self.games, "game_bad_2.json"), "w") as f:
             f.write("{not json")
         self._game("game_c_3.json", duration_sec=400, rounds=40)
-        self.assertEqual(self._sync(), (2, 1000))
+        self.assertEqual(self._sync(), (2, 1000, 2))
 
     def test_rooms_nobody_played_are_left_out_of_both_totals(self):
         """The games number used to be the FILE COUNT, so an opened-and-left
@@ -180,13 +180,13 @@ class TestTheRebuildFromHistory(_StatsDirCase):
         self._game("game_real_1.json", duration_sec=1800, rounds=44)
         self._game("game_empty_2.json", mode="truncated", rounds=0, duration_sec=50000)
         self._game("game_empty_3.json", mode="truncated", rounds=1, duration_sec=50000)
-        self.assertEqual(self._sync(), (1, 1800))
+        self.assertEqual(self._sync(), (1, 1800, 1))
 
     def test_the_hours_are_clamped_per_game_not_in_total(self):
         self._game("game_a_1.json", duration_sec=413175, rounds=47)
         self._game("game_b_2.json", duration_sec=256222, rounds=42)
         self._game("game_c_3.json", duration_sec=1874, rounds=24)
-        games, seconds = self._sync()
+        games, seconds, _timed = self._sync()
         self.assertEqual(games, 3)
         self.assertEqual(seconds, ms.MAX_COUNTED_GAME_SECONDS * 2 + 1874)
 
@@ -250,25 +250,25 @@ class TestTheRecountIsCheapToAskFor(_StatsDirCase):
 
     def test_a_second_ask_is_throttled(self):
         self._game("game_a_1.json", duration_sec=600, rounds=40)
-        self.assertEqual(ms.recount_history_totals(force=True), (1, 600))
+        self.assertEqual(ms.recount_history_totals(force=True), (1, 600, 1))
         self._game("game_b_2.json", duration_sec=600, rounds=40)
-        self.assertEqual(ms.recount_history_totals(), (1, 600),
+        self.assertEqual(ms.recount_history_totals(), (1, 600, 1),
                          "it re-read the directory inside the throttle window")
 
     def test_an_unchanged_directory_is_not_re_summed(self):
         self._game("game_a_1.json", duration_sec=600, rounds=40)
-        self.assertEqual(ms.recount_history_totals(force=True), (1, 600))
+        self.assertEqual(ms.recount_history_totals(force=True), (1, 600, 1))
         # Same fingerprint, so the cached answer stands even though the files
         # would now sum to something else if they were opened again.
         with open(os.path.join(self.games, "game_a_1.json"), "r+") as f:
             pass
-        self.assertEqual(ms.recount_history_totals(force=True), (1, 600))
+        self.assertEqual(ms.recount_history_totals(force=True), (1, 600, 1))
 
     def test_a_new_game_changes_the_fingerprint_and_is_picked_up(self):
         self._game("game_a_1.json", duration_sec=600, rounds=40)
-        self.assertEqual(ms.recount_history_totals(force=True), (1, 600))
+        self.assertEqual(ms.recount_history_totals(force=True), (1, 600, 1))
         self._game("game_b_2.json", duration_sec=400, rounds=40)
-        self.assertEqual(ms.recount_history_totals(force=True), (2, 1000))
+        self.assertEqual(ms.recount_history_totals(force=True), (2, 1000, 2))
 
     def test_the_fingerprint_opens_no_files(self):
         self._game("game_a_1.json", duration_sec=600, rounds=40)
@@ -437,24 +437,134 @@ class TestTheSeatCarriesTheToken(unittest.TestCase):
         self.assertNotIn("localStorage", token_fn)
 
 
-class TestTheLiveCountsTuple(unittest.TestCase):
-    """The guest counter rides along with the other live counts, so every
-    caller unpacks five values now. A caller left on four raises at runtime, in
-    a handler, on a page nobody is watching."""
+class TestTheGamesNobodyTimed(unittest.TestCase):
+    """The site said "101 games played" and "0 hours played" on the same row.
+    Both cannot be true, and the second one was the lie: the hours counter was
+    added long after the games counter and the earlier games were never timed.
 
-    def test_every_caller_unpacks_five(self):
+    The rule is that a game the site claims is counted at
+    AVERAGE_GAME_SECONDS if nothing ever measured it, and at its real duration
+    if something did -- never both."""
+
+    def _split(self, games_played, timed_games, measured):
+        untimed = max(0, games_played - timed_games)
+        estimated = untimed * ms.AVERAGE_GAME_SECONDS
+        return measured + estimated, estimated, untimed
+
+    def test_a_site_claiming_games_never_claims_zero_hours(self):
+        total, _est, _u = self._split(games_played=107, timed_games=0, measured=0)
+        self.assertGreater(total, 0)
+        self.assertGreater(total // 3600, 0, "107 games still rounded down to 0 hours")
+
+    def test_a_measured_game_is_not_also_estimated(self):
+        """The double-count this whole split exists to prevent."""
+        total, estimated, untimed = self._split(
+            games_played=1, timed_games=1, measured=1800)
+        self.assertEqual(untimed, 0)
+        self.assertEqual(estimated, 0)
+        self.assertEqual(total, 1800, "the one measured game was counted twice")
+
+    def test_the_estimate_shrinks_as_real_durations_arrive(self):
+        totals = [self._split(games_played=100, timed_games=t, measured=t * 1800)[1]
+                  for t in (0, 25, 50, 100)]
+        self.assertEqual(totals, sorted(totals, reverse=True))
+        self.assertEqual(totals[-1], 0, "fully measured and still estimating")
+
+    def test_a_fully_measured_site_reports_only_what_it_measured(self):
+        total, estimated, _u = self._split(
+            games_played=40, timed_games=40, measured=54321)
+        self.assertEqual(estimated, 0)
+        self.assertEqual(total, 54321)
+
+    def test_more_timed_games_than_claimed_never_goes_negative(self):
+        """games_played is floored at a baseline, so a server that has measured
+        more games than the baseline claims must not produce a negative."""
+        total, estimated, untimed = self._split(
+            games_played=101, timed_games=150, measured=500000)
+        self.assertEqual(untimed, 0)
+        self.assertEqual(estimated, 0)
+        self.assertEqual(total, 500000)
+
+    def test_the_average_is_a_believable_length_for_one_game(self):
+        """The only cleanly-timed game in the saved history ran 24 rounds in
+        31 minutes, and a full game is 41-47 rounds."""
+        self.assertGreaterEqual(ms.AVERAGE_GAME_SECONDS, 20 * 60)
+        self.assertLessEqual(ms.AVERAGE_GAME_SECONDS, 90 * 60)
+        self.assertLess(ms.AVERAGE_GAME_SECONDS, ms.MAX_COUNTED_GAME_SECONDS)
+
+    def test_the_endpoint_publishes_the_split(self):
+        src = _read("multiplayer_server.py")
+        for field in ('"play_seconds_measured"', '"play_seconds_estimated"',
+                      '"timed_games"', '"untimed_games"', '"average_game_seconds"'):
+            self.assertIn(field, src, f"{field} is not on the wire")
+
+    def test_the_endpoint_computes_it_the_way_this_test_does(self):
+        src = _read("multiplayer_server.py")
+        self.assertIn("untimed_games = max(0, games_played - timed_games)", src)
+        self.assertIn("play_seconds_estimated = untimed_games * AVERAGE_GAME_SECONDS", src)
+        self.assertIn("play_seconds = play_seconds_measured + play_seconds_estimated", src)
+
+
+class TestTimedGamesIsTracked(_StatsDirCase):
+    """The counter that keeps a measured game from also being estimated."""
+
+    def test_the_rebuild_counts_the_games_it_timed(self):
+        self._game("game_a_1.json", duration_sec=1800, rounds=40)
+        self._game("game_b_2.json", duration_sec=900, rounds=40)
+        self._game("game_c_3.json", rounds=40)          # no timing at all
+        games, seconds, timed = self._sync()
+        self.assertEqual((games, seconds), (3, 2700))
+        self.assertEqual(timed, 2, "an untimed game was counted as timed")
+        self.assertEqual(self._stored()["timed_games"], 2)
+
+    def test_a_game_worth_zero_seconds_is_not_a_timed_game(self):
+        self._game("game_a_1.json", duration_sec=0, rounds=40)
+        _g, _s, timed = self._sync()
+        self.assertEqual(timed, 0)
+
+    def test_a_finished_game_bumps_it_beside_the_seconds(self):
+        src = _read("multiplayer_server.py")
+        self.assertIn('_stats["timed_games"] = int(_stats.get("timed_games", 0) or 0) + 1', src)
+        self.assertIn('payload["timed_games"] = Increment(int(n))', src)
+
+
+class TestTheHoursTileNeverReadsZeroForRealPlay(unittest.TestCase):
+    def test_short_playtimes_are_not_floored_away(self):
+        """Whole hours are still right ABOVE ten; the bug was flooring
+        everything, so 40 minutes of real play published a 0 that looked
+        exactly like a server nobody had played."""
+        home = _read("index.html")
+        self.assertIn("Math.round(liveSeconds / 360) / 10", home,
+                      "there is no sub-ten-hour branch")
+
+    def test_small_values_keep_a_decimal(self):
+        home = _read("index.html")
+        self.assertIn("const decimals = (target > 0 && target < 10) ? 1 : 0;", home)
+        self.assertIn("maximumFractionDigits: places", home)
+
+    def test_whole_hours_above_ten(self):
+        home = _read("index.html")
+        self.assertIn("liveSeconds >= 36000", home)
+
+
+class TestTheLiveCountsTuple(unittest.TestCase):
+    """These counters ride along with the other live counts, so every caller
+    unpacks six values now. A caller left on five raises at runtime, in a
+    handler, on a page nobody is watching."""
+
+    def test_every_caller_unpacks_six(self):
         src = _read("multiplayer_server.py")
         for line in re.findall(r"^.*=\s*get_live_user_counts\(\).*$", src, re.M):
-            self.assertEqual(line.split("=")[0].count(","), 4,
+            self.assertEqual(line.split("=")[0].count(","), 5,
                              f"unpacks the wrong number of values: {line.strip()}")
 
     def test_a_shorter_tuple_left_by_an_old_build_is_tolerated(self):
         """The warm cache survives a deploy. A cache written by the previous
-        build holds four values, and unpacking it into five names would raise
+        build holds five values, and unpacking it into six names would raise
         on the first refresh and leave every live count empty."""
         src = _read("multiplayer_server.py")
-        self.assertIn("(tuple(prev) + (None,) * 5)[:5]", src)
-        self.assertIn("(tuple(counts) + (None,) * 5)[:5]", src)
+        self.assertIn("(tuple(prev) + (None,) * 6)[:6]", src)
+        self.assertIn("(tuple(counts) + (None,) * 6)[:6]", src)
 
 
 class TestWhatTheEndpointSends(unittest.TestCase):

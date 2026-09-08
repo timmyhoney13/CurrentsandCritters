@@ -42,6 +42,45 @@
 (function () {
   "use strict";
 
+  // ═══════════════════════════════════════════════════════════════════
+  //  THE CRITTER PASS IS ON STANDBY, 2026-09-08 — ONE WORD SWITCHES IT BACK
+  //
+  //      const CCCP_PASS_CLOSED = false;   ← opens the page again
+  //
+  //  render() paints a single "Coming soon" cover over the page's own art
+  //  and returns BEFORE it builds the rail, the purchase card or wire(), so
+  //  the page emits no button at all: nothing that spends 4,000 Critter
+  //  Coins, nothing that spends a Season Pass voucher, and nothing that
+  //  claims a tier. There is no interactive element left to reach.
+  //
+  //  THE THREE ACTIONS ARE ALSO GUARDED at the top of buyPass(), claimTier()
+  //  and claimAll(). Nothing renders a button that calls them, so those
+  //  guards are unreachable through the page. They are there because this
+  //  module hangs its entry points off `window`, and a page that can only be
+  //  trusted not to spend somebody's coins while its own markup is intact is
+  //  not a page that has been switched off.
+  //
+  //  WHAT IS DELIBERATELY LEFT ALONE. This closes the PAGE, not the pass.
+  //  Anyone who already owns it keeps it: __ccPassExtraSlots() still hands
+  //  the challenge strip their extra daily and weekly slots, and
+  //  __ccCritterPassOwned() still answers true, so every perk already paid
+  //  for still works everywhere else in the game. Nothing is revoked and
+  //  nothing expires. Unclaimed tiers stay unclaimed on the server and are
+  //  still there to claim on the day this flips back.
+  //
+  //  THE SERVER IS UNCHANGED, on purpose. critter_pass_server.py still
+  //  serves the track and still honours /buy and /claim, the same way the
+  //  Store's own standby leaves its live Payment Links in place. This is the
+  //  page being taken down, not the pass being cancelled.
+  //
+  //  The nav badge is held at zero while this is on (see paintNavBadge), so
+  //  nothing sends a player to a page that cannot pay out.
+  //
+  //  In step with the in-game Store (PHST_STORE_CLOSED in preview-app.js).
+  //  See _standby/README.md.
+  // ═══════════════════════════════════════════════════════════════════
+  const CCCP_PASS_CLOSED = true;
+
   function bridge() { return window.__ccCritterPass; }
   // A MISSING bridge means preview-app.js never reached the line that defines
   // one. Registering anyway (and re-checking at click time) is what stops the
@@ -279,7 +318,9 @@
     const el = $("snav-critterpass-badge");
     if (!el) return;
     let n = 0;
-    try { n = (_state && _state.signedIn && _state.owned) ? claimableNow().length : 0; }
+    // Held at zero while the page is on standby: a red "3 ready to claim" that
+    // opens a page with no Claim button on it is worse than no badge at all.
+    try { n = (!CCCP_PASS_CLOSED && _state && _state.signedIn && _state.owned) ? claimableNow().length : 0; }
     catch (_) { n = 0; }
     if (n > 0) {
       el.textContent = n > 99 ? "99+" : String(n);
@@ -689,9 +730,38 @@
       </div>`;
   }
 
+  /* The whole page while CCCP_PASS_CLOSED is on.
+   *
+   * It keeps the .ccCP wrapper, so the kelp forest and its scrim still paint
+   * and the page still reads as the Critter Pass: the notice sits OVER the
+   * page's own art rather than replacing it with a blank card. What it does
+   * not keep is a single button, link or focusable element, which is the part
+   * that matters. There is nothing behind it to tab into either, because the
+   * rail and the purchase card are never built.
+   */
+  function closedHtml() {
+    return `
+      <div class="ccCP ccCP-is-closed">
+        <div class="ccCP-closed" role="status">
+          <div class="ccCP-closed-ico" aria-hidden="true">\u{1F422}</div>
+          <div class="ccCP-closed-title">Coming soon</div>
+          <div class="ccCP-closed-desc">The Critter Pass is closed while we get it ready, so it can't be unlocked or claimed here right now.</div>
+          <div class="ccCP-closed-note">Nothing is lost. If you already own the pass it is still yours, your extra daily and weekly challenges still work, and every reward you haven't claimed yet is held on your account, waiting for you when the track opens back up.</div>
+        </div>
+      </div>`;
+  }
+
   function render() {
     const root = $("cc-critter-pass-root");
     if (!root) return;
+
+    // Closed. One cover, no buttons, and none of the wiring below runs, so
+    // there is nothing on the page to click.
+    if (CCCP_PASS_CLOSED) {
+      root.innerHTML = closedHtml();
+      return;
+    }
+
     const perPassLevelFoot = xpPerPassLevel() ? fmt(xpPerPassLevel()) + " XP" : "a fixed amount";
 
     if (!_state) {
@@ -753,6 +823,10 @@
 
   // ── Actions ──────────────────────────────────────────────────────────────
   async function buyPass() {
+    // Standby: nothing on the page calls this any more (no button is drawn),
+    // but this module's entry points are on `window`, so the spend is refused
+    // here too. See CCCP_PASS_CLOSED at the top.
+    if (CCCP_PASS_CLOSED) return;
     if (_buying) return;
     const price = num(_state && _state.price, 4000);
     const vouchers = num(inventory().vouchers);
@@ -809,6 +883,10 @@
   // Redeem one Season Pass voucher for THIS season. Kept separate from the coin
   // purchase so neither dialog can ever quote the other's cost.
   async function redeemVoucher(vouchers) {
+    // Standby: nothing on the page calls this any more (no button is drawn),
+    // but this module's entry points are on `window`, so the spend is refused
+    // here too. See CCCP_PASS_CLOSED at the top.
+    if (CCCP_PASS_CLOSED) return;
     const season = String((_state && _state.seasonName) || "this season");
     let answer = null;
     try { answer = bridge().modal ? await bridge().modal({
@@ -846,6 +924,9 @@
   }
 
   async function claimTier(tierId) {
+    // Standby: no Claim button is drawn, and a claim is refused here too.
+    // See CCCP_PASS_CLOSED at the top.
+    if (CCCP_PASS_CLOSED) return;
     if (!tierId || _busyTier) return;
     _busyTier = tierId;
     render();
@@ -874,6 +955,9 @@
   const CLAIM_ALL_ROUNDS = 8;
 
   async function claimAll() {
+    // Standby: no Claim button is drawn, and a claim is refused here too.
+    // See CCCP_PASS_CLOSED at the top.
+    if (CCCP_PASS_CLOSED) return;
     const btn = $("ccCP-claimall");
     if (btn) { btn.disabled = true; btn.textContent = "Claiming…"; }
 

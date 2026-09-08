@@ -153,6 +153,32 @@ STATS_SEED_PLAYERS = max(_STATS_SEED_PLAYERS_FLOOR, max(0, int(os.environ.get("F
 # far below any room left open overnight.
 MAX_COUNTED_GAME_SECONDS = 4 * 3600
 
+# ── The games nobody timed ─────────────────────────────────────────────────
+# games_played and play_seconds were allowed to describe different worlds, and
+# the site ended up claiming 101 games played and 0 hours played on the same
+# row. Any visitor can see that cannot both be true.
+#
+# The cause is that the hours counter was added long after the games counter,
+# and the time those earlier games took was never recorded anywhere. It is not
+# recoverable: the game-history files that carried duration_sec are gone from
+# the live disk, and the per-player copies in Firestore keep only the moment a
+# game ENDED (`t: Date.now()`), never how long it ran.
+#
+# So the ones that were measured are reported as measured, and the ones that
+# were never timed are counted at this average rather than at zero. The only
+# cleanly-timed game in the saved history ran 24 rounds in 31 minutes (78s a
+# round), and a full game is 41-47 rounds, so an unhurried table lands near an
+# hour and a brisk one under half of one. 45 minutes is deliberately the
+# conservative end of that: this is a public claim, and it should be a number
+# the real counter overtakes rather than one it spends years chasing.
+#
+# The estimate SHRINKS as measurement takes over: `timed_games` records how
+# many games the measured seconds actually cover, so a game is never counted
+# both ways. Once every game has a duration behind it the estimate is zero and
+# the number is wholly measured.
+AVERAGE_GAME_SECONDS = max(
+    60, int(os.environ.get("FISH_AVERAGE_GAME_SECONDS", "0") or "0") or 45 * 60)
+
 # ── Chat profanity guard (server-authoritative) ─────────────────────────────
 # Keeps room + spectator chat family-friendly. Swear words are masked with
 # asterisks (the message still sends, minus the swear) so a swear can never
@@ -360,12 +386,12 @@ def _get_firestore():
 
 
 def _fetch_firestore_counters(db):
-    """(games_played, play_seconds, guest_players) from the Firestore stats doc;
-    any of them is None if absent. All three live in the SAME document and are
+    """(games_played, play_seconds, guest_players, timed_games) from the
+    Firestore stats doc; any of them is None if absent. All three live in the SAME document and are
     read in ONE get(): they are shown side by side on the marketing site and
     written as a game ends, so splitting them would multiply the reads to say
     the same thing."""
-    games = seconds = guests = None
+    games = seconds = guests = timed = None
     try:
         coll, doc = FIRESTORE_STATS_DOC
         snap = db.collection(coll).document(doc).get()
@@ -380,9 +406,12 @@ def _fetch_firestore_counters(db):
             gst = data.get("guest_players")
             if isinstance(gst, (int, float)):
                 guests = int(gst)
+            tg = data.get("timed_games")
+            if isinstance(tg, (int, float)):
+                timed = int(tg)
     except Exception as exc:  # noqa: BLE001
         print(f"[stats] firestore counters read failed: {exc}")
-    return games, seconds, guests
+    return games, seconds, guests, timed
 
 
 def _fetch_firestore_games_played(db):
@@ -429,6 +458,9 @@ def bump_firestore_games_played(n=1, seconds=0):
         payload = {"games_played": Increment(n)}
         if seconds:
             payload["play_seconds"] = Increment(int(seconds))
+            # How many games those seconds cover, so the estimate for the
+            # untimed ones never counts a game that was already measured.
+            payload["timed_games"] = Increment(int(n))
         coll, doc = FIRESTORE_STATS_DOC
         db.collection(coll).document(doc).set(payload, merge=True)
     except Exception as exc:  # noqa: BLE001
@@ -523,8 +555,10 @@ def _history_fingerprint():
 
 
 def recount_history_totals(force=False):
-    """(games, play_seconds) rebuilt from the saved games, or None when the
-    files have nothing to say.
+    """(games, play_seconds, timed_games) rebuilt from the saved games, or None
+    when the files have nothing to say. `timed_games` is how many of them
+    actually carried a duration, which is what keeps the estimate for the
+    untimed ones from double-counting a game that was measured.
 
     None is NOT zero, and the difference is the whole point. An empty or
     unreadable history directory means this server holds no record to check
@@ -547,6 +581,7 @@ def recount_history_totals(force=False):
 
     games = 0
     seconds = 0
+    timed = 0
     try:
         for fname in os.listdir(GAMES_HISTORY_DIR):
             if not (fname.startswith("game_") and fname.endswith(".json")):
@@ -559,14 +594,17 @@ def recount_history_totals(force=False):
             if not game_counts_as_played(record):
                 continue
             games += 1
-            seconds += counted_play_seconds(record)
+            _game_seconds = counted_play_seconds(record)
+            seconds += _game_seconds
+            if _game_seconds > 0:
+                timed += 1
     except OSError:
         return _HISTORY_TOTALS
 
     with _HISTORY_RECOUNT_LOCK:
         _HISTORY_FINGERPRINT = fingerprint
-        _HISTORY_TOTALS = (games, seconds)
-    return (games, seconds)
+        _HISTORY_TOTALS = (games, seconds, timed)
+    return (games, seconds, timed)
 
 
 def sync_totals_from_history(force=False):
@@ -588,7 +626,7 @@ def sync_totals_from_history(force=False):
     totals = recount_history_totals(force=force)
     if totals is None:
         return None
-    games, seconds = totals
+    games, seconds, timed = totals
 
     try:
         os.makedirs(os.path.dirname(STATS_PATH), exist_ok=True)
@@ -605,6 +643,9 @@ def sync_totals_from_history(force=False):
             if seconds != int(existing.get("play_seconds", 0) or 0):
                 existing["play_seconds"] = seconds
                 changed = True
+            if timed > int(existing.get("timed_games", 0) or 0):
+                existing["timed_games"] = timed
+                changed = True
             if changed:
                 atomic_write_json(STATS_PATH, existing)
     except Exception as exc:  # noqa: BLE001
@@ -613,9 +654,9 @@ def sync_totals_from_history(force=False):
     # Mirror into Firestore, the copy that survives a disk reset.
     db = _get_firestore()
     if db is None:
-        return (games, seconds)
+        return (games, seconds, timed)
     try:
-        fs_games, fs_seconds, _fs_guests = _fetch_firestore_counters(db)
+        fs_games, fs_seconds, _fs_guests, _fs_timed = _fetch_firestore_counters(db)
         payload = {}
         if games > int(fs_games or 0):
             payload["games_played"] = games
@@ -627,13 +668,14 @@ def sync_totals_from_history(force=False):
         history_is_complete = games >= int(fs_games or 0)
         if seconds > int(fs_seconds or 0) or history_is_complete:
             payload["play_seconds"] = seconds
+            payload["timed_games"] = timed
         if payload:
             coll, doc = FIRESTORE_STATS_DOC
             db.collection(coll).document(doc).set(payload, merge=True)
             print(f"[stats] firestore totals synced from history: {payload}")
     except Exception as exc:  # noqa: BLE001
         print(f"[stats] firestore history sync failed: {exc}")
-    return (games, seconds)
+    return (games, seconds, timed)
 
 
 # How many guest tokens the stats file remembers. Deduping needs to recognise a
@@ -704,13 +746,13 @@ def record_guest_players(tokens) -> int:
 
 
 def _fetch_live_user_counts():
-    """(registered, online, games, play_seconds, guests) straight from
-    Firestore, or all None if unavailable. `games`, `play_seconds` and `guests`
-    are the persisted cross-deploy counters."""
+    """(registered, online, games, play_seconds, guests, timed_games) straight
+    from Firestore, or all None if unavailable. Everything but `registered` and
+    `online` is a persisted cross-deploy counter."""
     db = _get_firestore()
     if db is None:
-        return None, None, None, None, None
-    games, play_seconds, guests = _fetch_firestore_counters(db)
+        return None, None, None, None, None, None
+    games, play_seconds, guests, timed = _fetch_firestore_counters(db)
     try:
         users = db.collection("users")
         # Exact account total via server-side aggregate count (no doc data read).
@@ -738,10 +780,10 @@ def _fetch_live_user_counts():
             la_sec = la.timestamp() if hasattr(la, "timestamp") else 0
             if la_sec >= fresh_after:
                 online += 1
-        return registered, online, games, play_seconds, guests
+        return registered, online, games, play_seconds, guests, timed
     except Exception as exc:  # noqa: BLE001
         print(f"[stats] live user count query failed: {exc}")
-        return None, None, games, play_seconds, guests
+        return None, None, games, play_seconds, guests, timed
 
 
 def _live_user_counts_merged():
@@ -753,30 +795,31 @@ def _live_user_counts_merged():
     # a 3-tuple, then a 4-tuple). Pad it instead of unpacking straight into
     # five names, which would raise on the first refresh after a deploy and
     # leave every live count empty.
-    p_reg, p_online, p_games, p_secs, p_guests = (
-        (tuple(prev) + (None,) * 5)[:5] if prev else (None,) * 5)
-    registered, online, games, play_seconds, guests = _fetch_live_user_counts()
+    p_reg, p_online, p_games, p_secs, p_guests, p_timed = (
+        (tuple(prev) + (None,) * 6)[:6] if prev else (None,) * 6)
+    registered, online, games, play_seconds, guests, timed = _fetch_live_user_counts()
     merged = (registered if registered is not None else p_reg,
               online if online is not None else p_online,
               games if games is not None else p_games,
               play_seconds if play_seconds is not None else p_secs,
-              guests if guests is not None else p_guests)
-    return None if merged == (None,) * 5 else merged
+              guests if guests is not None else p_guests,
+              timed if timed is not None else p_timed)
+    return None if merged == (None,) * 6 else merged
 
 
 def get_live_user_counts():
-    """(registered, online, games, play_seconds, guests), served instantly from
-    cache and refreshed behind the caller. `games`, `play_seconds` and `guests`
-    are the persisted Firestore counters.
+    """(registered, online, games, play_seconds, guests, timed_games), served
+    instantly from cache and refreshed behind the caller. Everything but
+    `registered` and `online` is a persisted Firestore counter.
 
     This used to be an expire-then-block cache, so every ~30 seconds one
     player's /api/stats or Quick Play poll ran the count aggregate plus the
     whole online query and waited ~2.4s for it. Nobody waits for it now."""
     counts = _LIVE_COUNTS_WARM.get("counts", _live_user_counts_merged)
     if not counts:
-        return (None, None, None, None, None)
+        return (None, None, None, None, None, None)
     # Tolerate a shorter tuple left in the warm cache by a previous build.
-    return (tuple(counts) + (None,) * 5)[:5]
+    return (tuple(counts) + (None,) * 6)[:6]
 
 
 # ── Avatar ownership ("% of people own this") ──────────────────────────────
@@ -10441,6 +10484,8 @@ class GameRoom:
                         # the rebuild would derive from the record above, so the
                         # counter and the history files cannot disagree.
                         _stats["play_seconds"] = int(_stats.get("play_seconds", 0)) + _secs
+                        if _secs > 0:
+                            _stats["timed_games"] = int(_stats.get("timed_games", 0) or 0) + 1
                         atomic_write_json(STATS_PATH, _stats)
                 except Exception as _se:
                     self._record_event(f"Stats games_played update warning: {_se}")
@@ -12813,7 +12858,7 @@ def _analytics_live_snapshot() -> Dict[str, Any]:
     # this snapshot feeds the dashboard's landing page. Neither is worth
     # blanking the Overview over: an unreadable count is reported as unknown.
     try:
-        _reg, online, _games, _secs, _guests = get_live_user_counts()
+        _reg, online, _games, _secs, _guests, _timed = get_live_user_counts()
     except Exception:  # noqa: BLE001
         online = -1
     try:
@@ -14402,7 +14447,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             except Exception:  # noqa: BLE001
                 queued = 0
             try:
-                _reg, online, _games, _secs, _guests = get_live_user_counts()
+                _reg, online, _games, _secs, _guests, _timed = get_live_user_counts()
             except Exception:  # noqa: BLE001
                 online = None
             self._send_json({
@@ -14421,6 +14466,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             registered_players = 0
             play_seconds = 0
             guest_players = 0
+            timed_games = 0
             # Check the saved games before reading the counters, so a stats
             # file that has drifted from the record is corrected rather than
             # published. Throttled and fingerprinted: the usual answer is
@@ -14438,6 +14484,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                         registered_players = int(_s.get("registered_players", 0))
                         play_seconds = int(_s.get("play_seconds", 0))
                         guest_players = int(_s.get("guest_players", 0) or 0)
+                        timed_games = int(_s.get("timed_games", 0) or 0)
             except (FileNotFoundError, json.JSONDecodeError):
                 pass
             # Exact registered + live online counts straight from Firestore (the
@@ -14447,7 +14494,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             # seen-uid counter / 0 when Firebase isn't configured. The persisted
             # Firestore games counter is folded in too so the games number keeps
             # climbing even if the Render disk lost its game-history files.
-            live_registered, live_online, live_games, live_seconds, live_guests = get_live_user_counts()
+            live_registered, live_online, live_games, live_seconds, live_guests, live_timed = get_live_user_counts()
             if isinstance(live_registered, int) and live_registered >= 0:
                 registered_players = live_registered
             online_players = live_online if isinstance(live_online, int) and live_online >= 0 else 0
@@ -14457,6 +14504,8 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 play_seconds = live_seconds
             if isinstance(live_guests, int) and live_guests > guest_players:
                 guest_players = live_guests
+            if isinstance(live_timed, int) and live_timed > timed_games:
+                timed_games = live_timed
             # What the saved games actually add up to on THIS server, published
             # beside the headline number so the headline can be checked rather
             # than taken on trust.
@@ -14479,9 +14528,20 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             # Never report below the historical baseline.
             if games_played < STATS_SEED_GAMES:
                 games_played = STATS_SEED_GAMES
+            # The games this site claims that nobody ever timed still took time
+            # to play, and reporting them as zero is what had the page saying
+            # "101 games played" and "0 hours played" side by side. They are
+            # counted at AVERAGE_GAME_SECONDS instead. timed_games is how many
+            # games the measured seconds already cover, so no game is ever
+            # counted both ways, and the estimate shrinks to nothing as real
+            # durations take over.
+            play_seconds_measured = play_seconds
+            untimed_games = max(0, games_played - timed_games)
+            play_seconds_estimated = untimed_games * AVERAGE_GAME_SECONDS
+            play_seconds = play_seconds_measured + play_seconds_estimated
             # Seconds on the wire, not hours. The exact figure is what the
             # server has, and rounding it is the caller's decision: the site
-            # shows whole hours, the analytics dashboard wants the remainder.
+            # shows hours, the analytics dashboard wants the remainder.
             #
             # players_total is the one the homepage prints. Everybody who has
             # played is in it, which until now the site had no way of saying:
@@ -14500,6 +14560,14 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 "online_players": online_players,
                 "play_seconds": play_seconds,
                 "hours_played": play_seconds // 3600,
+                # The split, so the headline can be checked rather than
+                # trusted: what was actually timed, and what is standing in for
+                # games that never were.
+                "play_seconds_measured": play_seconds_measured,
+                "play_seconds_estimated": play_seconds_estimated,
+                "timed_games": timed_games,
+                "untimed_games": untimed_games,
+                "average_game_seconds": AVERAGE_GAME_SECONDS,
             })
             return
 
@@ -14533,7 +14601,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             # registered-account count when the stream total is unavailable.
             counts, total = get_icon_ownership()
             if not isinstance(total, int) or total <= 0:
-                reg, _online, _games, _secs, _guests = get_live_user_counts()
+                reg, _online, _games, _secs, _guests, _timed = get_live_user_counts()
                 total = reg if isinstance(reg, int) and reg > 0 else 0
             self._send_json({
                 "ok": True,

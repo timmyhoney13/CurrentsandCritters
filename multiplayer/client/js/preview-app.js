@@ -29470,7 +29470,16 @@
         clans:        "Clans are played from an account: sign in to join one or start your own.",
         prestige:     "Prestige is tracked on your account. Sign in to keep a run.",
         levelpass:    "Your level and rewards show here. Claiming them needs an account.",
-        critterpass:  "This is the whole Critter Pass at your level. Buying and claiming it needs an account.",
+        // ── critterpass: ON STANDBY ─────────────────────────────────────
+        // It read: "This is the whole Critter Pass at your level. Buying and
+        // claiming it needs an account." Put that line back verbatim when
+        // CCCP_PASS_CLOSED in js/critter-pass.js goes false.
+        //
+        // It is out for two reasons while the page is closed. It is no longer
+        // true (nobody is buying or claiming there, account or not), and the
+        // note is not just text: _ensureGuestNote inserts a "Sign in" BUTTON
+        // into the panel, which would be the one thing left to click on a page
+        // that is supposed to have nothing on it.
       };
       // The Clans panel is empty markup that js/clans-ui.js fills in, so if that
       // module hasn't registered, doing nothing here is indistinguishable from

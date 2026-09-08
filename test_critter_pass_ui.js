@@ -519,7 +519,32 @@ const ALLCSS = CSS_ORDER
   .filter(f => fs.existsSync(path.join(CLIENT, "css", f)))
   .map(f => "/* " + f + " */\n" + read("css/" + f))
   .join("\n");
-const SRC = { css: ALLCSS, js: PASSJS };
+// ── THE PAGE IS CLOSED RIGHT NOW (CCCP_PASS_CLOSED in js/critter-pass.js) ──
+// So it is rendered TWICE here, exactly the way test_supporter_tiers_ui.js
+// renders the closed Store:
+//
+//   1. AS SHIPPED, in its own iframe (results.closed). The whole point of a
+//      closed page is that nothing on it can be reached, and the only proof of
+//      that is rendering it and finding no button, no link and nothing
+//      focusable anywhere in the output.
+//   2. WITH THE FLAG FORCED OFF, at all five widths. The rail, the purchase
+//      card, the pass curve and every contrast measurement below are still in
+//      the file waiting to be switched back on, and a page nobody renders is a
+//      page nobody notices going wrong. These keep the standby copy honest
+//      while it is switched off.
+//
+// The replace is asserted, not hoped for: if the flag is ever renamed, this
+// test must fail loudly rather than quietly measure a Coming soon card at five
+// widths and report the pass green.
+const CLOSED_DECL = "const CCCP_PASS_CLOSED = true;";
+if (!PASSJS.includes(CLOSED_DECL)) {
+  console.error("critter-pass.js no longer declares " + CLOSED_DECL
+              + " — update this harness before trusting it.");
+  process.exit(1);
+}
+const PASSJS_OPEN = PASSJS.replace(CLOSED_DECL, "const CCCP_PASS_CLOSED = false;");
+
+const SRC = { css: ALLCSS, js: PASSJS_OPEN, jsShipped: PASSJS };
 const WIDTHS = [1440, 1280, 1024, 820, 390];
 
 // ── The harness page ──────────────────────────────────────────────────────
@@ -535,7 +560,7 @@ window.__SRC = ${JSON.stringify(SRC)};
 window.__PAYLOADS = ${JSON.stringify(P)};
 window.__WIDTHS = ${JSON.stringify(WIDTHS)};
 
-function innerHtml() {
+function innerHtml(shipped) {
   const S = window.__SRC;
   return '<!doctype html><html><head><meta charset="utf-8">'
     + '<style>body{margin:0;font-family:Nunito,sans-serif;background:#dff1ff}'
@@ -545,8 +570,8 @@ function innerHtml() {
     + '<button><span id="snav-critterpass-badge" style="display:none">0</span></button>'
     + '<div class="panel"><div id="cc-critter-pass-root"></div></div>'
     + '<scr' + 'ipt>' + BOOT + '</scr' + 'ipt>'
-    + '<scr' + 'ipt>' + S.js + '</scr' + 'ipt>'
-    + '<scr' + 'ipt>' + MAIN + '</scr' + 'ipt>'
+    + '<scr' + 'ipt>' + (shipped ? S.jsShipped : S.js) + '</scr' + 'ipt>'
+    + '<scr' + 'ipt>' + (shipped ? MAIN_CLOSED : MAIN) + '</scr' + 'ipt>'
     + '</body></html>';
 }
 
@@ -978,6 +1003,72 @@ const MAIN = \`
 })();
 \`;
 
+// ── The audit of the page AS SHIPPED ──────────────────────────────────────
+// It asks one question in several ways: is there anything on this page a
+// person could act on? Not "is the buy button hidden" — hidden buttons are
+// still tabbable, still clickable from the console and still there when a
+// stylesheet fails to load. The check is that the ELEMENTS DO NOT EXIST.
+const MAIN_CLOSED = \`
+(async () => {
+  const out = { errors: [] };
+  try {
+    const $$ = (s) => Array.from(document.querySelectorAll(s));
+    const txt = (el) => (el ? (el.textContent || "").replace(/\\s+/g, " ").trim() : "");
+
+    // The owner payload: the state with the most to click on.
+    window.__CP_STATE = JSON.parse(JSON.stringify(parent.__PAYLOADS.owner));
+    await window.__ccCritterPassRender();
+
+    const root = document.getElementById("cc-critter-pass-root");
+    const badge = document.getElementById("snav-critterpass-badge");
+    out.closed = {
+      cover:        $$(".ccCP-closed").length,
+      title:        txt(document.querySelector(".ccCP-closed-title")),
+      desc:         txt(document.querySelector(".ccCP-closed-desc")),
+      note:         txt(document.querySelector(".ccCP-closed-note")),
+      // Nothing to act on, counted three ways.
+      buttons:      root ? root.querySelectorAll("button").length : -1,
+      links:        root ? root.querySelectorAll("a").length : -1,
+      focusable:    root ? root.querySelectorAll(
+                      "button, a[href], input, select, textarea, [tabindex], [onclick], [contenteditable]"
+                    ).length : -1,
+      // The page itself is gone, not merely covered.
+      tiers:        $$(".ccCP-tier").length,
+      buyCard:      $$(".ccCP-buycard").length,
+      rail:         $$(".ccCP-rail").length,
+      header:       $$(".ccCP-head").length,
+      // The art is still painted: the notice sits OVER the page, not instead of it.
+      hasKelp:      (() => { const pg = document.querySelector(".ccCP");
+                             return pg ? /kelp-forest/.test(getComputedStyle(pg).backgroundImage) : false; })(),
+      // The nav badge is held down, so nothing points at a page that cannot pay out.
+      badgeText:    txt(badge),
+      badgeShown:   !!(badge && badge.style.display !== "none"),
+    };
+
+    // The entitlement is NOT revoked with the page. An owner still owns it and
+    // still gets the extra challenge slots they paid for.
+    out.stillOwned = window.__ccCritterPassOwned();
+    out.stillSlots = window.__ccPassExtraSlots();
+
+    // Calling the actions directly, the way a console can, spends nothing.
+    window.__posts.length = 0;
+    try { await window.__ccCritterPassSync(); } catch (e) {}
+    const postsAfterSync = window.__posts.map(p => p[0]);
+    out.postsAfterSync = postsAfterSync;
+    out.buysAfterSync = postsAfterSync.filter(p => /buy|claim/.test(p)).length;
+
+    // And the cover survives a re-render, rather than being a first-paint state
+    // that the state-loaded paint replaces with a live page.
+    await window.__ccCritterPassRender();
+    out.coverAfterRerender = $$(".ccCP-closed").length;
+    out.buttonsAfterRerender = root ? root.querySelectorAll("button, a[href]").length : -1;
+  } catch (e) {
+    out.errors.push("THREW: " + (e && e.message ? e.message : String(e)));
+  }
+  window.__RESULT = out;
+})();
+\`;
+
 (async () => {
   const results = {};
   for (const w of window.__WIDTHS) {
@@ -991,6 +1082,28 @@ const MAIN = \`
     }
     results[w] = ifr.contentWindow.__RESULT || { errors: ["never reported in"] };
   }
+
+  // ── The page EXACTLY as shipped, in its own frame ──────────────────
+  // Its own frame because critter-pass.js is an IIFE that registers window
+  // globals: two copies in one document would fight over them, and the
+  // second one to load would decide what every check above measured.
+  //
+  // It is driven with the OWNER payload on purpose. An owner at a level with
+  // rewards ready is the state with the most to click on: a Claim button on
+  // every reached tier, a Claim-all, and a nav badge counting them. If even
+  // that state paints nothing reachable, no state does.
+  {
+    const ifr = document.createElement("iframe");
+    ifr.width = 1280;
+    document.body.appendChild(ifr);
+    const doc = ifr.contentDocument;
+    doc.open(); doc.write(innerHtml(true)); doc.close();
+    for (let i = 0; i < 500 && !ifr.contentWindow.__RESULT; i++) {
+      await new Promise(r => setTimeout(r, 25));
+    }
+    results.closed = ifr.contentWindow.__RESULT || { errors: ["never reported in"] };
+  }
+
   document.getElementById("RESULT").textContent = "@@" + JSON.stringify(results) + "@@";
 })();
 </script>

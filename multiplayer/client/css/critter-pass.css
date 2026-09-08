@@ -99,6 +99,69 @@
   text-shadow: 0 1px 3px rgba(5, 47, 68, .55);
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   ON STANDBY: the Coming soon cover  (CCCP_PASS_CLOSED in js/critter-pass.js)
+   ══════════════════════════════════════════════════════════════════════
+   The page keeps its kelp forest and its scrim, and this ONE card sits over
+   the middle of it, so the tab still reads as the Critter Pass instead of
+   going blank. It is the same cream glass as every other card on the page,
+   for the same reason: dark ink on cream is the only thing that stays legible
+   over that art.
+
+   There is nothing to make un-clickable here. The rail and the purchase card
+   are never built while the flag is on, so this card is the entire page and
+   the page has no button, link or focusable element on it. `pointer-events`
+   is deliberately NOT used as the lock: a cover that only stops the mouse is
+   still tabbable, still readable to a screen reader as a shop, and still one
+   devtools line from being lifted off. The markup simply is not there. */
+.ccCP-is-closed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 340px;
+  padding: 44px 20px;
+}
+.ccCP-closed {
+  width: 100%;
+  max-width: 560px;
+  text-align: center;
+  background: var(--cp-card);
+  border: 1px dashed var(--cp-line);
+  border-radius: 22px;
+  padding: 34px 26px;
+  box-shadow: 0 10px 30px rgba(9, 45, 66, .28);
+}
+.ccCP-closed-ico { font-size: 3rem; line-height: 1; }
+.ccCP-closed-title {
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  font-size: 1.55rem;
+  color: var(--cp-ink);
+  margin-top: 10px;
+  line-height: 1.12;
+}
+.ccCP-closed-desc {
+  font-size: .93rem;
+  color: var(--cp-ink-soft);
+  line-height: 1.5;
+  margin: 8px auto 0;
+  max-width: 44ch;
+}
+.ccCP-closed-note {
+  font-size: .8rem;
+  color: var(--cp-ink-dim);
+  line-height: 1.5;
+  margin: 16px auto 0;
+  max-width: 46ch;
+  padding-top: 14px;
+  border-top: 1px solid var(--cp-line);
+}
+@media (max-width: 520px) {
+  .ccCP-is-closed { min-height: 260px; padding: 28px 12px; }
+  .ccCP-closed { padding: 26px 18px; border-radius: 18px; }
+  .ccCP-closed-title { font-size: 1.3rem; }
+}
+
 /* ── Header ───────────────────────────────────────────────────────────── */
 /* The one block written directly on the art, so it is white on the darkest
    part of the scrim and carries its own shadow. */

@@ -1392,13 +1392,22 @@ updateBetaBarClear();
     try { localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(obj)); } catch (_) {}
   }
 
-  function animateTo(el, target, duration) {
+  // `decimals` exists for one reason: a real number of hours played must never
+  // render as "0". Rounding to whole hours meant a server with 40 minutes of
+  // genuine play on it published a zero, indistinguishable from a server
+  // nobody had ever played, and it stayed that way until a full hour had
+  // accumulated. Below 10 the tile carries one decimal place instead.
+  function animateTo(el, target, duration, decimals) {
     const start = performance.now();
+    const places = decimals || 0;
     const initial = Number(String(el.textContent || '').replace(/,/g, '')) || 0;
+    const fmt = (n) => n.toLocaleString(undefined, {
+      minimumFractionDigits: places, maximumFractionDigits: places });
     function tick(now) {
       const t = Math.min((now - start) / duration, 1);
       const eased = 1 - Math.pow(1 - t, 3);
-      el.textContent = Math.round(initial + ((target - initial) * eased)).toLocaleString();
+      const v = initial + ((target - initial) * eased);
+      el.textContent = fmt(places ? Math.round(v * 10) / 10 : Math.round(v));
       if (t < 1) requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
@@ -1409,7 +1418,9 @@ updateBetaBarClear();
     if (!el) return;
     const target = Number(value);
     if (!isFinite(target) || target < 0) return;
-    animateTo(el, target, fast ? 600 : 1400);
+    // Small non-zero values keep a decimal so they cannot read as nothing.
+    const decimals = (target > 0 && target < 10) ? 1 : 0;
+    animateTo(el, target, fast ? 600 : 1400, decimals);
   }
 
   // Show the last cached real numbers if we have them (returning visitor),
@@ -1449,7 +1460,13 @@ updateBetaBarClear();
       // Seconds on the wire, hours on the page: the server counts the thing it
       // can count exactly, and rounding to whole hours is a display decision.
       const liveSeconds  = Number(data.play_seconds);
-      const liveHours    = Number.isFinite(liveSeconds) ? Math.floor(liveSeconds / 3600) : NaN;
+      // Not floored any more: floor() turned every real figure under an hour
+      // into a 0 on the public page. Kept to one decimal below 10 hours by
+      // setStatEl, whole hours above it.
+      const liveHours    = Number.isFinite(liveSeconds)
+        ? (liveSeconds >= 36000 ? Math.floor(liveSeconds / 3600)
+                                : Math.round(liveSeconds / 360) / 10)
+        : NaN;
       const saved = readCachedStats();
       if (Number.isFinite(liveGames))   { setStatEl('games',   liveGames,   true); saved.games   = liveGames; }
       if (Number.isFinite(livePlayers)) { setStatEl('players', livePlayers, true); saved.players = livePlayers; }

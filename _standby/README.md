@@ -165,6 +165,25 @@ verify, so an open counter would be a curl loop away from printing anything it
 was told, which is exactly what happened to registered players before that
 endpoint required a verified token.
 
+**The games nobody timed.** The hours counter was added long after the games
+counter, and the time those earlier games took was never recorded anywhere -
+the history files are gone from the live disk, and the per-player copies in
+Firestore keep only the moment a game *ended* (`t: Date.now()`), never how long
+it ran. So the page said "101 games played" and "0 hours played" on the same
+row, which cannot both be true.
+
+A game the site claims is now counted at `AVERAGE_GAME_SECONDS` (45 min,
+`FISH_AVERAGE_GAME_SECONDS` to override) when nothing ever measured it, and at
+its real duration when something did - never both. `timed_games` is how many
+games the measured seconds already cover, so the estimate **shrinks to nothing**
+as real durations take over. `/api/stats` publishes the whole split:
+`play_seconds_measured`, `play_seconds_estimated`, `timed_games`,
+`untimed_games`, `average_game_seconds`.
+
+The page no longer floors hours to a whole number either: `Math.floor` turned
+40 minutes of genuine play into a `0` indistinguishable from a server nobody
+had ever touched. Below ten hours the tile carries one decimal.
+
 `/api/stats` also publishes `games_recorded` and `games_baseline` so the
 headline games number can be **checked**: `games_played` is floored at
 `STATS_SEED_GAMES`, a baseline hardcoded twice (80 in May 2026, raised to 101
