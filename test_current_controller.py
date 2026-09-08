@@ -227,6 +227,61 @@ class TestArmedIsNotModded(unittest.TestCase):
         self.assertTrue(r._cc_payload_locked(None)["modded"])
 
 
+class TestTheYesSurvivesTheDeal(unittest.TestCase):
+    """The vote is cast in the LOBBY and used during the GAME, so the launch
+    sits in the middle of it and is the one place it can be lost.
+
+    It was lost there. _launch_game_locked cleared the whole vote on every
+    launch, meaning to expire a rematch's inherited yes, and so it wiped the
+    permission between the table agreeing and the first card being dealt. The
+    keyless door never opened once: every mod op after that answered "no key,
+    not armed". Nothing caught it because every test in this file stops at the
+    lobby, which is why test_current_controller_integration.py now starts a
+    real game.
+
+    These two run the real launch with the match thread stubbed out: what is
+    under test is the reset branch, not a game.
+    """
+
+    def _launch(self, r, phase):
+        r._run_game_thread = lambda *a, **k: None    # no engine, no bots, no wait
+        with r.cond:                                 # _locked: the caller holds it
+            r.phase = phase
+            r._launch_game_locked(ms.CARD_DB, status_note="test")
+        if r.game_thread is not None:
+            r.game_thread.join(timeout=5.0)
+
+    def test_the_game_the_table_voted_on_keeps_the_yes(self):
+        r = room(humans=1, bots=3)
+        tok = humans_of(r)[0].token
+        r.controller_request({"seat_token": tok})
+        self.assertTrue(r.cc_armed)
+        self._launch(r, "lobby")
+        self.assertTrue(r.cc_armed, "the deal wiped the table's own yes")
+        seat = next(s for s in r.seats if s.token == tok)
+        self.assertTrue(r._cc_may_mod_locked(seat),
+                        "armed through the launch but the mod gate still says no")
+
+    def test_a_later_game_starts_from_nothing(self):
+        r = room(humans=1, bots=3)
+        r.controller_request({"seat_token": humans_of(r)[0].token})
+        self.assertTrue(r.cc_armed)
+        self._launch(r, "ended")             # a rematch or a host restart
+        self.assertFalse(r.cc_armed, "a rematch inherited the last game's yes")
+        self.assertIsNone(r.cc_seat)
+        self.assertIsNone(r.cc_token)
+
+    def test_a_no_does_not_outlive_its_game_either(self):
+        r = room(humans=3, bots=1)
+        h = humans_of(r)
+        r.controller_request({"seat_token": h[0].token})
+        r.controller_vote({"seat_token": h[1].token, "vote": False})
+        self.assertTrue(r.cc_denied)
+        self._launch(r, "ended")
+        self.assertFalse(r.cc_denied,
+                         "a refusal closed one request, not the room forever")
+
+
 class TestThePayload(unittest.TestCase):
     def test_a_voter_is_told_it_is_their_call(self):
         r = room()

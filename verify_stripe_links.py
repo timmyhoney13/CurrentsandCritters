@@ -15,14 +15,15 @@ Why each check matters:
      CF_WALL_NAME_LABEL). Miss the wall-name questions and the buyer defaults to
      ANONYMOUS, they pay and never appear on the Reef Wall. Miss the username
      question and a signed-out purchase can never be matched to their account.
-     ⚠️ These belong on ALL SEVEN links, coin packs included: every purchase
-     counts toward the lifetime total that sizes a name on the wall.
+     ⚠️ These belong on EVERY link, coin packs included: every purchase counts
+     toward the lifetime total that sizes a name on the wall.
   3. ACTIVE. A deactivated link is a dead button.
   4. REDIRECT. Without ?session_id={CHECKOUT_SESSION_ID} the /thanks page can't
      confirm the purchase landed.
 
 Run:
-    STRIPE_SECRET_KEY=sk_live_... python3 verify_stripe_links.py
+    STRIPE_SECRET_KEY=rk_live_... python3 verify_stripe_links.py   # a read-only
+                                                                   # restricted key is enough
 
 Read-only: it only ever issues GETs. Exits non-zero if anything is wrong.
 """
@@ -50,6 +51,7 @@ EXPECTED = [
     ("https://buy.stripe.com/cNi6oI3sbfwggIV7ouds404", 1500, "Wave Warrior"),
     ("https://buy.stripe.com/5kQcN6geX83O2S5gZ4ds405", 3500, "Ocean Ally"),
     ("https://buy.stripe.com/00wfZi6EnfwgcsFcIOds406", 5000, "Tide Turner"),
+    ("https://buy.stripe.com/eVq28s0fZdo8akxeQWds407", 10000, "Tsunami"),
 ]
 
 # Tiers the code sells that have NO Payment Link yet. Their cards render a
@@ -59,8 +61,9 @@ EXPECTED = [
 # custom questions), then move the row up into EXPECTED and into
 # TestLivePaymentLinks.LINKS in test_stripe_payments.py.
 # Derived, not typed: a tier that gains a link disappears from here on its own.
+_LINKED = {label.lower().replace(" ", "-") for _url, _cents, label in EXPECTED}
 PENDING = [(cents, tier) for cents, tier in sorted(ms.SUPPORTER_TIERS_BY_CENTS.items())
-           if tier not in {"wave-warrior", "ocean-ally", "tide-turner"}]
+           if tier not in _LINKED]
 
 OK, BAD, WARN = "  ✓", "  ✗", "  !"
 
@@ -112,7 +115,13 @@ def main() -> int:
         print("Set STRIPE_SECRET_KEY (sk_live_… to check the live links).")
         return 2
 
-    mode = "LIVE" if key.startswith("sk_live_") else "TEST"
+    # A RESTRICTED key (rk_live_…) is the right one to run this with: the script
+    # only ever reads, so a key that can only read is all it needs, and it is the
+    # safe thing to hand to anyone verifying the money path. It is live-mode just
+    # as much as sk_live_ is, so mode is decided by the _live_ suffix rather than
+    # the sk_ prefix. Getting this wrong printed the "test key" warning below
+    # over a perfectly good live run.
+    mode = "LIVE" if key.startswith(("sk_live_", "rk_live_")) else "TEST"
     print(f"Checking {len(EXPECTED)} Payment Links against a {mode}-mode key.\n")
     if mode == "TEST":
         print("! A test key cannot see live links, every one will read as MISSING.\n")
@@ -152,11 +161,22 @@ def main() -> int:
 
         # 2) the three questions that carry the buyer onto the Reef Wall.
         have = _labels(link)
-        for required in (ms.CF_WALL_NAME_LABEL, ms.CF_WALL_PUBLIC_LABEL):
-            if required.strip().lower() in have:
-                print(f'{OK} asks "{required}"')
+        # Each question is accepted under ANY of its live spellings, because the
+        # webhook reads it that way: only the newest link asks the two wall
+        # questions by their current names, and the seven older ones ask the
+        # same two things in older words. Checking the newest spelling alone
+        # reported seven working links as broken. The WARN branch is the useful
+        # half now: the link works, and it is worth knowing it is the old one.
+        for alts in (ms.CF_WALL_NAME_LABELS, ms.CF_WALL_PUBLIC_LABELS):
+            match = next((a for a in alts if a.strip().lower() in have), None)
+            if match == alts[0]:
+                print(f'{OK} asks "{match}"')
+            elif match:
+                print(f'{WARN} asks "{match}", the older wording. The webhook '
+                      f'reads it, so this is not broken; renaming it in Stripe '
+                      f'to "{alts[0]}" is tidying, not a fix.')
             else:
-                print(f'{BAD} MISSING "{required}" → this buyer defaults to '
+                print(f'{BAD} MISSING "{alts[0]}" → this buyer defaults to '
                       f'ANONYMOUS and never reaches the Reef Wall')
                 failures += 1
         if any(u.strip().lower() in have for u in ms.CF_USERNAME_LABELS):

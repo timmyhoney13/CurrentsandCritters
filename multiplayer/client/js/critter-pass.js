@@ -391,17 +391,41 @@
   }
 
   function tierFaceHtml(t) {
-    // The face of the card: the finale critter's portrait, the minted Critter
-    // Coin on a coin tier, the reward's own glyph for everything else. Coins
-    // get the real coin art rather than the generic emoji, because this is the
-    // same currency the Store, the wallet chip and the trade window all show.
+    // The face of the card: the finale critter's portrait, the AMOUNT on the
+    // tiers that are just a quantity, the reward's own glyph for everything
+    // else.
+    //
+    // The coin tiers used to paint the minted Critter Coin here, on the
+    // reasoning that it is the same currency the Store and the wallet show.
+    // That art is a 256px silver coin with a turtle and a date on it, and at
+    // the 40px this face gives it, none of that survives: 53 of the 100 cards
+    // were a muddy grey disc, identical to each other, and the greyscale on a
+    // locked tier took them the rest of the way to looking like an image that
+    // had failed to load. The number is the reward, so the number is the face,
+    // and the coin comes back at the size it can actually be read at, beside
+    // the unit underneath. It also makes the rail SCANNABLE: a player flicking
+    // along it reads 75, 225, 100 instead of comparing discs.
     if (t.type === "avatar" && t.img) {
       return `<img class="ccCP-tier-img" src="${esc(avSrc(t.img))}" alt="" loading="lazy">`;
     }
-    if (t.type === "coins") {
-      return `<img class="ccCP-tier-coin" src="/critter-coin.png?v=1" alt="" draggable="false" loading="lazy">`;
+    if (QUANTITY.has(t.type)) {
+      return `<span class="ccCP-tier-amt">${fmt(num(t.amount))}</span>`;
     }
     return `<span class="ccCP-tier-ico" aria-hidden="true">${esc(t.icon || "🎁")}</span>`;
+  }
+
+  // The tiers whose whole reward is "how many": the face shows the number and
+  // the label shows the unit, instead of both showing "75 Critter Coins".
+  const QUANTITY = new Set(["coins", "xp"]);
+
+  function tierLabelHtml(t) {
+    if (t.type === "coins") {
+      const n = num(t.amount);
+      return `<img class="ccCP-tier-unit-coin" src="/critter-coin.png?v=1" alt=""`
+           + ` draggable="false" loading="lazy">Critter Coin${n === 1 ? "" : "s"}`;
+    }
+    if (t.type === "xp") return "XP";
+    return esc(t.label);
   }
 
   function tierCardHtml(t) {
@@ -433,13 +457,43 @@
     }
 
     return `
-      <div class="${cls.join(" ")}" data-tier="${esc(t.id)}" data-level="${esc(t.level)}">
+      <div class="${cls.join(" ")}" data-tier="${esc(t.id)}" data-level="${esc(t.level)}"
+           title="${esc(t.blurb || t.label || "")}">
         <div class="ccCP-tier-lvl">${esc(t.level)}</div>
         <div class="ccCP-tier-face">${tierFaceHtml(t)}</div>
-        <div class="ccCP-tier-label" title="${esc(t.label)}">${esc(t.label)}</div>
-        <div class="ccCP-tier-blurb">${esc(t.blurb || "")}</div>
+        <div class="ccCP-tier-label" title="${esc(t.label)}">${tierLabelHtml(t)}</div>
+        ${tierBlurbHtml(t)}
         <div class="ccCP-tier-foot">${foot}</div>
       </div>`;
+  }
+
+  // The types whose blurb says nothing the label has not already said. 72 of
+  // the 100 tiers are coins or XP, so printing the same sentence under each of
+  // them turned the rail into a wall of one repeated line, clipped mid-word by
+  // the two-line clamp: "Spend them in the Store on skins, backgrounds and…"
+  // fifty-three times over. The label ("225 Critter Coins") is the whole
+  // reward; the sentence is kept as the card's tooltip, where a player who
+  // wants it can still get it, and the server still ships one for every tier.
+  const SELF_EVIDENT = new Set(["coins", "xp"]);
+
+  // "+0 Daily Challenges / 0 of 3 unlocked" is what every player sees before
+  // they claim a slot tier, and a headline reading "+0" looks like the number
+  // failed to load rather than like a thing you have not earned yet. Nought is
+  // said in words, and it says where the slots come from, which is the only
+  // useful thing a chip at zero can do. Both arms keep the words "Daily
+  // Challenge"/"Weekly Challenge": that is what the chip is, in either state.
+  function slotChipHtml(have, max, noun) {
+    if (have > 0) {
+      return `<b>+${have} ${esc(noun)}${have === 1 ? "" : "s"}</b>`
+           + `<span>${have} of ${max} unlocked</span>`;
+    }
+    return `<b>${esc(noun)} Slots</b><span>${max} to unlock on the track</span>`;
+  }
+
+  function tierBlurbHtml(t) {
+    const blurb = String(t.blurb || "");
+    if (!blurb || SELF_EVIDENT.has(t.type)) return "";
+    return `<div class="ccCP-tier-blurb">${esc(blurb)}</div>`;
   }
 
   // ── The purchase card ────────────────────────────────────────────────────
@@ -619,11 +673,11 @@
           </div>
           <div class="ccCP-chip${eD ? "" : " is-empty"}">
             <span class="ccCP-chip-ico">📅</span>
-            <span class="ccCP-chip-txt"><b>+${eD} Daily Challenge${eD === 1 ? "" : "s"}</b><span>${eD} of ${maxD} unlocked</span></span>
+            <span class="ccCP-chip-txt">${slotChipHtml(eD, maxD, "Daily Challenge")}</span>
           </div>
           <div class="ccCP-chip${eW ? "" : " is-empty"}">
             <span class="ccCP-chip-ico">🗝️</span>
-            <span class="ccCP-chip-txt"><b>+${eW} Weekly Challenge${eW === 1 ? "" : "s"}</b><span>${eW} of ${maxW} unlocked</span></span>
+            <span class="ccCP-chip-txt">${slotChipHtml(eW, maxW, "Weekly Challenge")}</span>
           </div>
           ${vouchers > 0 ? `
           <div class="ccCP-chip">

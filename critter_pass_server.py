@@ -57,7 +57,7 @@ Between a drop and its fold the climb FREEZES rather than vanishing or
 inflating, which is the safe direction in both.
 
 WHY THE SERVER OWNS THIS
-Same reason as the Level Pass, doubled: 8,500 Critter Coins, 23,750 XP, extra
+Same reason as the Level Pass, doubled: 8,500 Critter Coins, 33,250 XP, extra
 challenge slots and a 2,000-coin avatar are on this track. Season XP is
 RE-DERIVED here from `stats.total_xp` on the account's own document, inside the
 same transaction that writes the reward, and the purchase re-reads the coin
@@ -173,7 +173,12 @@ CRITTER_PASS_PRICE = 4000
 # are promises printed on the page, not dials somebody can nudge in a rebalance
 # without noticing the page now lies.
 TRACK_COIN_BUDGET = 8500     # 4,000 in → 8,500 back
-TRACK_XP_BUDGET = 23750
+# The XP drop rule, as a number rather than a sentence in a comment, because
+# three other things are derived from it and a hand-edited tier puts the table
+# and the budget out of step. 19 drops on levels 5,10…95 → 950 level-units, so
+# the budget is exactly 950 × this.
+XP_DROP_PER_LEVEL = 35
+TRACK_XP_BUDGET = 33250
 
 # ── THE PASS LEVEL CURVE ────────────────────────────────────────────────────
 # This track's own weighting, and the reason this file no longer reads
@@ -194,19 +199,23 @@ SEASON_XP_TO_MAX = SEASON_XP_PER_LEVEL * (PASS_MAX_LEVEL - 1)   # 59,400
 # The track pays TRACK_XP_BUDGET of the climb back through its own XP drops (and
 # those count: a drop is real XP on stats.total_xp, so it moves the pass as well
 # as the account), which leaves this much for the player to actually go and earn:
-SEASON_XP_TO_EARN = SEASON_XP_TO_MAX - TRACK_XP_BUDGET          # 35,650
-# …spread over the season, which is the daily rate the page quotes. It lands
-# within a couple of percent of the ~1,175 XP a day the 250,000 lifetime curve
-# was measured against, which is the point: the Critter Pass asks for the SAME
-# day's play as the Level Pass and gives you 100 levels for thirty of them
-# instead of a hundred for seven months. test_the_pass_is_a_thirty_day_climb
-# pins it, so a retune that quietly doubles the climb fails there first.
+SEASON_XP_TO_EARN = SEASON_XP_TO_MAX - TRACK_XP_BUDGET          # 26,150
+# …spread over the season, which is the daily rate the page quotes. It sits
+# comfortably UNDER the ~1,175 XP a day the 250,000 lifetime curve was measured
+# against, which is the point: the Critter Pass never asks for more than a
+# Level Pass day's play, and gives you 100 levels for thirty of them instead of
+# a hundred for seven months. It used to ask for almost exactly that 1,175; the
+# raise to XP_DROP_PER_LEVEL = 35 is what bought the margin, so a player at the
+# ordinary rate now finishes with days to spare rather than on the last one.
+# test_the_pass_is_a_thirty_day_climb pins it, so a retune that quietly doubles
+# the climb fails there first, and its >= 800 floor is what stops the track
+# paying so much of its own climb that the season is over in a fortnight.
 #
 # Rounded UP, and that is not a rounding preference. This number is a promise
-# ("about 1,189 XP a day and you finish"), so it has to be enough: floored, a
+# ("about 872 XP a day and you finish"), so it has to be enough: floored, a
 # player who hits it exactly every day lands 20 XP short and finishes on day
 # 31, which makes the headline on the purchase card false by a day.
-SEASON_XP_PER_DAY = -(-SEASON_XP_TO_EARN // SEASON_DAYS)        # 1,189
+SEASON_XP_PER_DAY = -(-SEASON_XP_TO_EARN // SEASON_DAYS)        # 872
 
 
 def season_progress(season_xp: Any) -> tuple:
@@ -271,15 +280,23 @@ MAX_REROLLS = _lp.MAX_REROLLS
 # three perk slots turned into milestone payouts (L29 225, L59 400, L99 1,000),
 # so the run into the Level 100 critter pays like the end of a track.
 #
-# The XP DROP IS A FORMULA, not a table: 25 XP per level, every 5 levels. So
-# level 5 pays 125 and level 95 pays 2,375, and the whole thing sums to 23,750
-# on its own. (It was 20/level for 19,000 and was raised, once: the drops were
-# paying a smaller share of the climb than the track looked like it did.) A drop
-# is worth roughly a third to two thirds of the level it lands on, at every
-# point on the curve, which is what keeps it feeling the same at level 90 as at
-# level 10. Raising this rule is the ONLY way to move the XP on this track:
-# hand-editing one tier puts the table and TRACK_XP_BUDGET out of step, and
-# test_the_xp_drops_follow_the_formula fails on exactly that.
+# The XP DROP IS A FORMULA, not a table: XP_DROP_PER_LEVEL per level, every 5
+# levels. So at 35 a drop on level 5 pays 175 and level 95 pays 3,325, and the
+# whole thing sums to 33,250 on its own. A drop is worth the same FRACTION of a
+# level everywhere on the curve, which is what keeps it feeling the same at
+# level 90 as at level 10. Raising this rule is the ONLY way to move the XP on
+# this track: hand-editing one tier puts the table and TRACK_XP_BUDGET out of
+# step, and test_the_xp_drop_is_the_formula_it_says_it_is fails on exactly that.
+#
+# It has been raised twice, 20 → 25 → 35, and the second raise is the reason
+# the daily rate below fell from 1,189 to 872. That is not a separate decision:
+# a drop is real XP on stats.total_xp, so it moves the pass as well as the
+# account, and paying more of the climb from the track necessarily leaves less
+# for the player to go and earn. The 30-day promise is still exactly true, it is
+# derived; the pass is simply more generous than it was. The floor that stops
+# this going further is test_the_pass_is_a_thirty_day_climb's >= 800 XP a day:
+# past about 37 a season stops being something you play for and becomes
+# something the track hands you.
 #
 # THE PERK SLOTS ARE COUNTED AGAINST THE HOARD CAPS, NOT SPRINKLED.
 # There are exactly MAX_BOOSTS boost tiers, MAX_SHIELDS shield tiers and
@@ -308,97 +325,97 @@ _TRACK_SPEC: Sequence[Dict[str, Any]] = (
     {"level": 2,  "type": "coins",      "amount": 25},
     {"level": 3,  "type": "boost",      "amount": 1},
     {"level": 4,  "type": "coins",      "amount": 25},
-    {"level": 5,  "type": "xp",         "amount": 125},
+    {"level": 5,  "type": "xp",         "amount": 175},
     {"level": 6,  "type": "coins",      "amount": 25},
     {"level": 7,  "type": "emote",      "amount": 1},
     {"level": 8,  "type": "coins",      "amount": 25},
     {"level": 9,  "type": "shield",     "amount": 1},
-    {"level": 10, "type": "xp",         "amount": 250},
+    {"level": 10, "type": "xp",         "amount": 350},
     {"level": 11, "type": "coins",      "amount": 50},
     {"level": 12, "type": "coins",      "amount": 50},
     {"level": 13, "type": "daily_slot", "amount": 1},
     {"level": 14, "type": "coins",      "amount": 50},
-    {"level": 15, "type": "xp",         "amount": 375},
+    {"level": 15, "type": "xp",         "amount": 525},
     {"level": 16, "type": "coins",      "amount": 50},
     {"level": 17, "type": "emote",      "amount": 1},
     {"level": 18, "type": "coins",      "amount": 50},
     {"level": 19, "type": "swap",       "amount": 1},
-    {"level": 20, "type": "xp",         "amount": 500},
+    {"level": 20, "type": "xp",         "amount": 700},
     {"level": 21, "type": "coins",      "amount": 75},
     {"level": 22, "type": "coins",      "amount": 75},
     {"level": 23, "type": "weekly_slot","amount": 1},
     {"level": 24, "type": "coins",      "amount": 75},
-    {"level": 25, "type": "xp",         "amount": 625},
+    {"level": 25, "type": "xp",         "amount": 875},
     {"level": 26, "type": "coins",      "amount": 75},
     {"level": 27, "type": "emote",      "amount": 1},
     {"level": 28, "type": "coins",      "amount": 75},
     {"level": 29, "type": "coins",      "amount": 225},
-    {"level": 30, "type": "xp",         "amount": 750},
+    {"level": 30, "type": "xp",         "amount": 1050},
     {"level": 31, "type": "coins",      "amount": 100},
     {"level": 32, "type": "coins",      "amount": 100},
     {"level": 33, "type": "boost",      "amount": 1},
     {"level": 34, "type": "coins",      "amount": 100},
-    {"level": 35, "type": "xp",         "amount": 875},
+    {"level": 35, "type": "xp",         "amount": 1225},
     {"level": 36, "type": "coins",      "amount": 100},
     {"level": 37, "type": "emote",      "amount": 1},
     {"level": 38, "type": "coins",      "amount": 100},
     {"level": 39, "type": "shield",     "amount": 1},
-    {"level": 40, "type": "xp",         "amount": 1000},
+    {"level": 40, "type": "xp",         "amount": 1400},
     {"level": 41, "type": "coins",      "amount": 125},
     {"level": 42, "type": "coins",      "amount": 125},
     {"level": 43, "type": "daily_slot", "amount": 1},
     {"level": 44, "type": "coins",      "amount": 125},
-    {"level": 45, "type": "xp",         "amount": 1125},
+    {"level": 45, "type": "xp",         "amount": 1575},
     {"level": 46, "type": "coins",      "amount": 125},
     {"level": 47, "type": "emote",      "amount": 1},
     {"level": 48, "type": "coins",      "amount": 125},
     {"level": 49, "type": "background", "amount": 1},
-    {"level": 50, "type": "xp",         "amount": 1250},
+    {"level": 50, "type": "xp",         "amount": 1750},
     {"level": 51, "type": "coins",      "amount": 150},
     {"level": 52, "type": "coins",      "amount": 150},
     {"level": 53, "type": "weekly_slot","amount": 1},
     {"level": 54, "type": "coins",      "amount": 150},
-    {"level": 55, "type": "xp",         "amount": 1375},
+    {"level": 55, "type": "xp",         "amount": 1925},
     {"level": 56, "type": "coins",      "amount": 150},
     {"level": 57, "type": "emote",      "amount": 1},
     {"level": 58, "type": "coins",      "amount": 150},
     {"level": 59, "type": "coins",      "amount": 400},
-    {"level": 60, "type": "xp",         "amount": 1500},
+    {"level": 60, "type": "xp",         "amount": 2100},
     {"level": 61, "type": "coins",      "amount": 175},
     {"level": 62, "type": "coins",      "amount": 175},
     {"level": 63, "type": "swap",       "amount": 1},
     {"level": 64, "type": "coins",      "amount": 175},
-    {"level": 65, "type": "xp",         "amount": 1625},
+    {"level": 65, "type": "xp",         "amount": 2275},
     {"level": 66, "type": "coins",      "amount": 175},
     {"level": 67, "type": "emote",      "amount": 1},
     {"level": 68, "type": "coins",      "amount": 175},
     {"level": 69, "type": "shield",     "amount": 1},
-    {"level": 70, "type": "xp",         "amount": 1750},
+    {"level": 70, "type": "xp",         "amount": 2450},
     {"level": 71, "type": "coins",      "amount": 200},
     {"level": 72, "type": "coins",      "amount": 200},
     {"level": 73, "type": "daily_slot", "amount": 1},
     {"level": 74, "type": "coins",      "amount": 200},
-    {"level": 75, "type": "xp",         "amount": 1875},
+    {"level": 75, "type": "xp",         "amount": 2625},
     {"level": 76, "type": "coins",      "amount": 200},
     {"level": 77, "type": "emote",      "amount": 1},
     {"level": 78, "type": "coins",      "amount": 200},
     {"level": 79, "type": "boost",      "amount": 1},
-    {"level": 80, "type": "xp",         "amount": 2000},
+    {"level": 80, "type": "xp",         "amount": 2800},
     {"level": 81, "type": "coins",      "amount": 225},
     {"level": 82, "type": "coins",      "amount": 225},
     {"level": 83, "type": "weekly_slot","amount": 1},
     {"level": 84, "type": "coins",      "amount": 225},
-    {"level": 85, "type": "xp",         "amount": 2125},
+    {"level": 85, "type": "xp",         "amount": 2975},
     {"level": 86, "type": "coins",      "amount": 225},
     {"level": 87, "type": "emote",      "amount": 1},
     {"level": 88, "type": "coins",      "amount": 225},
     {"level": 89, "type": "background", "amount": 1},
-    {"level": 90, "type": "xp",         "amount": 2250},
+    {"level": 90, "type": "xp",         "amount": 3150},
     {"level": 91, "type": "coins",      "amount": 250},
     {"level": 92, "type": "coins",      "amount": 250},
     {"level": 93, "type": "swap",       "amount": 1},
     {"level": 94, "type": "coins",      "amount": 250},
-    {"level": 95, "type": "xp",         "amount": 2375},
+    {"level": 95, "type": "xp",         "amount": 3325},
     {"level": 96, "type": "coins",      "amount": 250},
     {"level": 97, "type": "emote",      "amount": 1},
     {"level": 98, "type": "coins",      "amount": 250},

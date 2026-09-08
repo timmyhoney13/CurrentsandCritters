@@ -277,10 +277,9 @@
   .beat-flow .arrow { color: var(--brand-mint-deep); }
   @media (max-width: 760px) { .beat-strip { grid-template-columns: 1fr; gap: 26px; } }
 
-  /* ── Card grids used all over the Quick Start pane ────────────── */
+  /* ── The three-up card grid the Quick Start pane uses ─────────── */
   .cards-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .cards-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-  @media (max-width: 860px) { .cards-3 { grid-template-columns: 1fr; } .cards-2 { grid-template-columns: 1fr; } }
+  @media (max-width: 860px) { .cards-3 { grid-template-columns: 1fr; } }
   .card {
     background: linear-gradient(180deg, #fff 0%, #f7fcff 100%);
     border: 1px solid var(--line); border-radius: var(--r-xl);
@@ -292,24 +291,6 @@
   .card h3 {
     font-family: var(--font-display); font-size: 17px; font-weight: 700;
     color: var(--ink-deep); margin: 0 0 7px; letter-spacing: -0.2px;
-  }
-
-  /* Numbered steps (paying for a card). */
-  .steps { display: grid; gap: 12px; }
-  .step {
-    display: flex; gap: 15px; align-items: flex-start;
-    background: #fff; border: 1px solid var(--line); border-radius: var(--r-xl);
-    padding: 18px 20px; box-shadow: var(--shadow-sm);
-  }
-  .step-n {
-    flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%;
-    display: grid; place-items: center; background: var(--grad-cyan-btn); color: #fff;
-    font-family: var(--font-display); font-weight: 700; font-size: 15px;
-    box-shadow: 0 4px 16px rgba(10, 143, 184, 0.34);
-  }
-  .step h3 {
-    font-family: var(--font-display); font-size: 16px; font-weight: 700;
-    color: var(--ink-deep); margin: 4px 0 6px; letter-spacing: -0.2px;
   }
 
   /* Bulleted rule lists. */
@@ -331,78 +312,21 @@
   }
   .tip b { color: #5e4604; }
 
-  /* ── The nine families ────────────────────────────────────────── */
-  .species { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-  @media (max-width: 980px) { .species { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 640px) { .species { grid-template-columns: 1fr; } }
-  .spec {
-    display: flex; gap: 14px; align-items: flex-start;
+  /* ── The nine families: one chip each ─────────────────────────── */
+  .fam-chips { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 16px; }
+  .fam {
+    display: inline-flex; align-items: center; gap: 8px;
     background: #fff; border: 1px solid var(--line);
     border-left: 5px solid var(--si, var(--brand-cyan));
-    border-radius: var(--r-xl); padding: 16px 16px 16px 14px; box-shadow: var(--shadow-sm);
-    transition: transform 170ms var(--ease-out), box-shadow 170ms var(--ease-out);
+    border-radius: var(--r-pill); padding: 8px 14px 8px 11px; box-shadow: var(--shadow-sm);
   }
-  .spec:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
-  .spec-art {
-    flex: 0 0 auto; width: 58px; height: 58px; border-radius: 15px; overflow: hidden;
-    background: color-mix(in srgb, var(--sc, #7fd8ff) 20%, #eef8ff);
-    border: 2px solid color-mix(in srgb, var(--sc, #7fd8ff) 60%, transparent);
+  .fam-sym  { width: 18px; height: 18px; object-fit: contain; opacity: 0.9; }
+  .fam-name { font-family: var(--font-display); font-size: 14.5px; font-weight: 700; color: var(--ink-deep); }
+  .fam-n {
+    font-size: 11.5px; font-weight: 800; color: var(--si, var(--muted));
+    background: color-mix(in srgb, var(--sc, #b388ff) 14%, #fff);
+    border-radius: var(--r-pill); padding: 2px 8px;
   }
-  .spec-art img { width: 100%; height: 100%; object-fit: cover; }
-  .spec-body { min-width: 0; }
-  .spec-name {
-    display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
-    font-family: var(--font-display); font-size: 16px; font-weight: 700;
-    color: var(--si, var(--ink-deep)); margin: 0 0 4px; letter-spacing: -0.2px;
-  }
-  .spec-sym { width: 18px; height: 18px; object-fit: contain; opacity: 0.9; }
-  .spec-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; }
-  .spec-meta span {
-    font-size: 10.5px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase;
-    padding: 3px 8px; border-radius: var(--r-pill);
-    background: color-mix(in srgb, var(--sc, #7fd8ff) 16%, #f4fbff);
-    border: 1px solid color-mix(in srgb, var(--sc, #7fd8ff) 45%, transparent);
-    color: var(--si, var(--muted-strong));
-  }
-  .spec-txt { font-size: 13.5px; line-height: 1.5; color: var(--muted); margin: 0; }
-
-  .ocean-strip {
-    display: flex; gap: 18px; align-items: center; margin-top: 14px;
-    background: linear-gradient(140deg, #effbfd 0%, #e8f7ff 60%, #f7fdff 100%);
-    border: 1px solid #a9e0ea; border-left: 5px solid #0b7f88;
-    border-radius: var(--r-2xl); padding: 18px 22px 18px 18px; box-shadow: var(--shadow-sm);
-  }
-  .ocean-strip-art {
-    flex: 0 0 auto; width: 92px; border-radius: 10px; overflow: hidden;
-    box-shadow: 0 8px 20px rgba(8, 60, 90, 0.22);
-  }
-  @media (max-width: 640px) { .ocean-strip { flex-direction: column; align-items: flex-start; } }
-
-  /* ── Scoring row + endgame ────────────────────────────────────── */
-  .score-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-  @media (max-width: 860px) { .score-row { grid-template-columns: 1fr; } }
-  .score-kind {
-    background: #fff; border: 1px solid var(--line); border-radius: var(--r-xl);
-    padding: 18px 18px 16px; text-align: center; box-shadow: var(--shadow-sm);
-  }
-  .score-tag {
-    display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: 0.7px;
-    text-transform: uppercase; padding: 3px 10px; border-radius: var(--r-pill);
-    background: var(--brand-cyan-soft); border: 1px solid #9ddaf0; color: var(--brand-cyan-deep);
-    margin-bottom: 10px;
-  }
-  .score-eg {
-    font-family: var(--font-display); font-size: 20px; font-weight: 700;
-    color: var(--ink-deep); margin-bottom: 8px; letter-spacing: -0.4px;
-  }
-  .endgame {
-    border: 1px solid rgba(232, 115, 106, 0.42); border-radius: var(--r-2xl);
-    background: linear-gradient(160deg, #fff4f2 0%, #fff8f6 65%, #fffdfc 100%);
-    padding: 24px; box-shadow: 0 10px 26px rgba(190, 70, 55, 0.08);
-  }
-  .endgame .p b { color: #a63c30; }
-  .endgame .tip { border-color: rgba(232, 115, 106, 0.5); color: #a63c30; }
-  .endgame .tip b { color: #7d2a20; }
 
   /* ── Big call-to-action blocks ────────────────────────────────── */
   .cta-block {
@@ -671,17 +595,17 @@
       <article class="beat">
         <div class="n">1</div>
         <h3>Draw or Play</h3>
-        <p>Take two cards, put one card down, or slide one animal to a better home. A turn is exactly one of those.</p>
+        <p>Draw two cards, play one card, or move one animal. A turn is exactly one of those.</p>
       </article>
       <article class="beat">
         <div class="n">2</div>
         <h3>Build Your Reef</h3>
-        <p>Oceans are the foundation. Every animal you play attaches to one, and matching families pay you more and more.</p>
+        <p>Every animal attaches to an Ocean, and matching families pay you more and more.</p>
       </article>
       <article class="beat">
         <div class="n">3</div>
         <h3>Score &amp; Win</h3>
-        <p>When the END&nbsp;GAME card is drawn, everyone takes one last turn and the biggest ecosystem takes it.</p>
+        <p>When the END&nbsp;GAME card surfaces everyone takes one last turn, and the biggest ecosystem takes it.</p>
       </article>
     </div>
     <div class="beat-flow">
@@ -691,200 +615,92 @@
     </div>
 
     <div class="sec-head"><span class="ico">🌊</span><h2>Setting up</h2></div>
-    <p class="lead">
-      Five minutes, once, and then you are playing. Online, the game does every one of these for you.
-    </p>
-    <div class="steps">
-      <div class="step">
-        <div class="step-n">1</div>
-        <div>
-          <h3>Prepare the deck</h3>
-          <p class="p">Take the <b>END&nbsp;GAME</b> card out and shuffle everything else.</p>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-n">2</div>
-        <div>
-          <h3>Deal eight cards each</h3>
-          <p class="p">If you are dealt no Ocean cards at all, you may discard your hand and draw eight fresh ones.</p>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-n">3</div>
-        <div>
-          <h3>Hide the ending</h3>
-          <p class="p">Take the <b>bottom 15 cards</b> of the deck, shuffle the END&nbsp;GAME card into them, and put that
-            stack back on the bottom. Now nobody knows exactly when the game ends.</p>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-n">4</div>
-        <div>
-          <h3>Make room</h3>
-          <p class="p">A face-down draw pile, a space for the <b>Pool</b> (the face-up discard board everyone can draw
-            from), and a graveyard for the cards the Pool sweeps away.</p>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-n">5</div>
-        <div>
-          <h3>Pick a first player</h3>
-          <p class="p">Whoever visited an ocean most recently goes first, or, if nobody can settle it, the youngest
-            player. Play passes clockwise.</p>
-        </div>
-      </div>
-    </div>
+    <p class="lead">Five minutes once, and then you are playing. Online, the game does every one of these for you.</p>
+    <ol class="list">
+      <li>Take the <b>END&nbsp;GAME</b> card out and shuffle everything else.</li>
+      <li>Deal <b>eight cards</b> each. Dealt no Oceans at all, you may discard your hand and draw eight fresh.</li>
+      <li>Shuffle the END&nbsp;GAME card into the <b>bottom 15 cards</b> and put them back on the bottom, so nobody
+        knows exactly when the game ends.</li>
+      <li>Leave room for the draw pile, the <b>Pool</b> (the face-up discard everyone may draw from) and a graveyard
+        for what the Pool sweeps away.</li>
+      <li>Whoever visited an ocean most recently goes first, or the youngest player. Play passes clockwise.</li>
+    </ol>
 
     <div class="sec-head"><span class="ico">🐚</span><h2>Your turn: pick one thing</h2></div>
-    <p class="lead">
-      A turn is <b>one</b> of these three. That is the whole engine of the game, everything else is what
-      you choose to build with it.
-    </p>
     <div class="cards-3">
       <article class="card">
         <div class="card-ico">🎣</div>
         <h3>Draw 2 cards</h3>
-        <p class="p">Two cards total, in any mix: blind off the deck, or exactly the card you want out of the
-          face-up Pool. Two from the Pool, one of each, or two off the deck, your call.</p>
+        <p class="p">Any mix of blind off the deck and face-up out of the Pool.</p>
       </article>
       <article class="card">
         <div class="card-ico">🐠</div>
         <h3>Play 1 card</h3>
-        <p class="p">Lay a new Ocean down, or attach an animal to an Ocean you already own. Then pay the card's
-          cost by discarding into the Pool.</p>
+        <p class="p">Lay an Ocean, or attach an animal to one you own, then pay its cost into the Pool.</p>
       </article>
       <article class="card">
         <div class="card-ico">⇄</div>
         <h3>Move 1 animal</h3>
-        <p class="p">Relocate one animal already on your board to a free slot on a different Ocean. It has to keep
-          the same side it was on, and it uses your whole turn. Oceans themselves never move.</p>
+        <p class="p">Slide one animal to a free slot on another Ocean, same side, whole turn. Oceans never move.</p>
       </article>
     </div>
 
-    <div class="sec-head"><span class="ico">🏖️</span><h2>Paying for a card</h2></div>
-    <div class="steps">
-      <div class="step">
-        <div class="step-n">1</div>
-        <div>
-          <h3>Read the cost</h3>
-          <p class="p">The sand dollars in a card's top-left corner are its price: one sand dollar means discard one
-            card from your hand, two means two. Plenty of cards are free.</p>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-n">2</div>
-        <div>
-          <h3>Choose the payment</h3>
-          <p class="p"><b>Any</b> card in your hand can pay a base cost. Symbols only matter when you want to switch
-            on a ★ Star ability: see below.</p>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-n">3</div>
-        <div>
-          <h3>Everything you pay goes to the Pool</h3>
-          <p class="p">Discards land face-up in the Pool in the middle of the table, where anyone, including you,
-            next turn, can draw them. When the Pool reaches 10 cards it is swept into a face-down pile and
-            starts fresh.</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="sec-head"><span class="ico">★</span><h2>Star abilities</h2></div>
+    <div class="sec-head"><span class="ico">★</span><h2>Paying, and the ★ abilities</h2></div>
     <div class="star-panel">
-      <p class="p">A gold ★ on a card marks an <b>optional</b> bonus, and it is where the big turns come from:
-        a free extra play, a fistful of cards, a free animal.</p>
       <ul class="list">
-        <li>To fire it, pay with a card whose <b>symbol matches</b> the card you are playing (♥ ◆ ● ▲ ■).</li>
-        <li>Pay with anything else and the card still lands and still scores, you just skip the ★.</li>
-        <li>Stars happen immediately. You can never bank one for a later turn.</li>
-        <li>"Play a free animal" always means from <b>your hand</b>, never from the deck or the Pool, and it
-          needs an open spot to go to.</li>
+        <li>The <b>sand dollars</b> in the top-left corner are the price: discard that many cards from your hand.
+          Plenty of cards are free, and <b>any</b> card can pay a base cost.</li>
+        <li>Everything you pay lands face-up in the <b>Pool</b>, where anyone, you included next turn, can draw it.
+          At 10 cards the Pool is swept into a face-down pile and starts fresh.</li>
+        <li>A gold <b>★</b> is an optional bonus, and where the big turns come from. Fire it by paying with a card
+          whose <b>symbol matches</b> the one you are playing (♥ ◆ ● ▲ ■); pay with anything else and the card still
+          lands and still scores, you just skip the star.</li>
+        <li>Stars resolve immediately and can never be banked. "Play a free animal" always means
+          <b>from your hand</b>, never the deck or the Pool, and it needs an open slot to go to.</li>
       </ul>
-      <div class="tip"><b>Online:</b> the ★ Star ability tick-box sits in the action bar. Leave it on and the game
-        reaches for the star whenever it can; if you are about to waste one, it stops and checks with you first.</div>
+      <div class="tip"><b>Online:</b> leave the ★ tick-box on and the game reaches for the star whenever it can, and
+        stops to check with you first if you are about to waste one.</div>
     </div>
 
     <div class="sec-head"><span class="ico">🗺️</span><h2>Your board</h2></div>
-    <div class="cards-2">
-      <article class="card">
-        <h3>Oceans are the foundation</h3>
-        <p class="p">Every animal has to hang off an Ocean, so your first play is almost always an Ocean. New Oceans
-          line up left to right and never move again. Play one and you flip a card off the deck into the Pool.</p>
-      </article>
-      <article class="card">
-        <h3>Four slots per ocean</h3>
-        <p class="p">Each Ocean has an <b>Up</b>, <b>Down</b>, <b>Left</b> and <b>Right</b> slot, and each card can only
-          go on its own side: birds and baitfish at the surface, crustaceans and coral on the floor, the big swimmers
-          left and right. One card per slot, except Lobsters and Yellowfin Tuna, which stack with their own kind
-          without limit.</p>
-      </article>
-      <article class="card">
-        <h3>Reading a card</h3>
-        <p class="p">Cost sits top-left, symbol top-right, name and species along the bottom, points and ability in the
-          bottom box. Every animal card carries a creature at each end, the side you attach it on decides which one
-          you are playing.</p>
-      </article>
-      <article class="card">
-        <h3>Ten cards, no more</h3>
-        <p class="p">If you finish a turn holding more than 10 cards, discard down to 10. Those go to the Pool too.</p>
-      </article>
-    </div>
+    <ul class="list">
+      <li><b>Oceans are the foundation.</b> Every animal hangs off one, so your first play is almost always an Ocean.
+        They line up left to right and never move again, and playing one flips a card off the deck into the Pool.</li>
+      <li><b>Four slots each,</b> Up, Down, Left and Right, and a card only goes on its own side: birds and baitfish at
+        the surface, crustaceans and coral on the floor, the big swimmers left and right. One card per slot, except
+        Lobsters and Yellowfin Tuna, which stack with their own kind without limit.</li>
+      <li><b>Reading a card:</b> cost top-left, symbol top-right, name and species along the bottom, points and ability
+        in the bottom box. Every animal card carries a creature at each end, and the side you attach it on decides
+        which one you are playing.</li>
+      <li><b>Ten cards, no more.</b> Finish a turn holding more than 10 and discard down to 10, into the Pool.</li>
+    </ul>
 
     <div class="sec-head"><span class="ico">🐚</span><h2>The nine families</h2></div>
     <p class="lead">
-      Every animal in the game belongs to one of these nine families. Each family has its own colour, and that is the
-      colour the online game lights a card up in once you switch on a strategy, in your hand and in the Pool alike.
-      The small mark beside each name is the family's symbol, the one stamped in the bottom-right corner of every card
-      it owns, so you can tell a card's family at a glance without reading a word.
+      Every animal belongs to one of these nine. Each has its own colour, the one the online game lights a card up in
+      once you switch on a strategy, and its own symbol, stamped in the bottom-right corner of every card it owns.
     </p>
-    <div class="species" id="species-grid"></div>
-    <div class="ocean-strip" style="--sc:#14c7d4;--si:#0b7f88">
-      <span class="ocean-strip-art">
-        <img src="/oceans_cards/page_17.png?v=20260717-v12b" alt="A Coral Reef ocean card" loading="lazy" />
-      </span>
-      <div class="spec-body">
-        <h3 class="spec-name">Oceans</h3>
-        <div class="spec-meta"><span>68 cards</span><span>8 kinds of ocean</span></div>
-        <p class="spec-txt">Not a species, the thing the other nine hang off. Oceans go down left to right, never move
-          again, and each kind scores by its own rule: a Coral Reef pays more the more reefs you own, an Artificial
-          Reef pays for every card hanging off it, a Tide Pool just counts your oceans.</p>
-      </div>
-    </div>
+    <div class="fam-chips" id="species-grid"></div>
+    <p class="p">Oceans are the tenth thing on the table and not a family at all: 68 cards, 8 kinds, each scoring by
+      its own rule. A Coral Reef pays more the more reefs you own, an Artificial Reef pays for every card hanging off
+      it, a Tide Pool just counts your oceans.</p>
 
-    <div class="sec-head"><span class="ico">🧮</span><h2>How points work</h2></div>
-    <div class="score-row">
-      <article class="score-kind">
-        <div class="score-tag">Flat</div>
-        <div class="score-eg">+3</div>
-        <p class="p">Worth the same every time. Easy, reliable points.</p>
-      </article>
-      <article class="score-kind">
-        <div class="score-tag">Per type</div>
-        <div class="score-eg">+2 per Bird</div>
-        <p class="p">Counts everything of that kind on your board, so it grows as your reef grows.</p>
-      </article>
-      <article class="score-kind">
-        <div class="score-tag">Threshold</div>
-        <div class="score-eg">1 = 5 · 2 = 15 · 3 = 30</div>
-        <p class="p">Pays off only once you collect a set. Commit early or leave it alone.</p>
-      </article>
-    </div>
-
-    <div class="sec-head"><span class="ico">🏁</span><h2>How the game ends</h2></div>
-    <div class="endgame">
-      <p class="p">One <b>END GAME</b> card is shuffled at random into the <b>bottom 15 cards</b> of the deck, so nobody
-        knows exactly when it lands. The moment somebody draws it, every player, including the one who drew it, gets
-        one final turn. Then everyone totals their reef and the highest score wins. Extra plays still work during those
-        last turns.</p>
-      <div class="tip"><b>Because you cannot see it coming,</b> a lead you already have is worth more than a plan you
-        have not finished.</div>
-    </div>
+    <div class="sec-head"><span class="ico">🧮</span><h2>Points, and the end</h2></div>
+    <ul class="list">
+      <li><b>Flat</b> (+3) pays the same every time. <b>Per type</b> (+2 per Bird) counts everything of that kind on
+        your board, so it grows as your reef grows. <b>Threshold</b> (1 = 5 · 2 = 15 · 3 = 30) pays off only once you
+        collect the set, so commit early or leave it alone.</li>
+      <li>The moment somebody draws the <b>END&nbsp;GAME</b> card, every player, including the one who drew it, gets
+        one final turn. Then everyone totals their reef and the highest score wins. Extra plays still work during
+        those last turns.</li>
+    </ul>
+    <div class="tip"><b>Because you cannot see it coming,</b> a lead you already have is worth more than a
+      plan you have not finished.</div>
 
     <div class="cta-block">
       <h3>That is the whole game.</h3>
-      <p>Read the printed rulebook for every last detail, or jump straight into a free online match, the tutorial
-        deals you a real hand and walks you through it, which is the fastest way to make it stick.</p>
+      <p>The printed rulebook has every last detail, and the tutorial deals you a real hand and walks you through it,
+        which is the fastest way to make it stick.</p>
       <div class="cta-btns">
         <button type="button" class="btn btn-ghost" data-goto="rulebook">📖 Read the Full Rulebook</button>
         <button type="button" class="btn btn-ghost" data-goto="strategies">🧭 See the Strategies</button>
@@ -1030,7 +846,10 @@
     btn.addEventListener("click", function () { showPane(btn.getAttribute("data-goto")); });
   });
 
-  // ── Quick Start: the nine family tiles ─────────────────────────
+  // ── Quick Start: the nine family chips ─────────────────────────
+  // Name, symbol and card count, nothing more. The Quick Start is meant to be
+  // read standing over the table; the write-up of what each family actually
+  // does belongs to the rulebook and the strategies, so it lives there.
   function buildSpecies() {
     var grid = document.getElementById("species-grid");
     var list = window.CC_SPECIES_GUIDE;
@@ -1041,16 +860,13 @@
     }
     grid.innerHTML = list.map(function (s) {
       var symbol = s.key.replace(/ /g, "-");
-      return '<article class="spec" style="--sc:' + familyColor(s.key) + ';--si:' + familyInk(s.key) + '">'
-        + '<span class="spec-art"><img src="/avatars/' + esc(s.art) + '.png" alt="' + esc(s.name) + '" loading="lazy"></span>'
-        + '<div class="spec-body">'
-        +   '<h3 class="spec-name">' + esc(s.name)
-        +     '<img class="spec-sym" src="/species/' + esc(symbol) + '.png" alt=""'
-        +       ' title="The ' + esc(s.name) + ' symbol, printed in the bottom-right corner of every card in this family" loading="lazy">'
-        +   '</h3>'
-        +   '<div class="spec-meta"><span>' + esc(s.n) + ' cards</span><span>' + s.slot + '</span></div>'
-        +   '<p class="spec-txt">' + s.txt + '</p>'
-        + '</div></article>';
+      return '<span class="fam" style="--sc:' + familyColor(s.key) + ';--si:' + familyInk(s.key) + '">'
+        + '<img class="fam-sym" src="/species/' + esc(symbol) + '.png" alt=""'
+        +   ' title="The ' + esc(s.name) + ' symbol, printed in the bottom-right corner of every card in this family"'
+        +   ' loading="lazy">'
+        + '<b class="fam-name">' + esc(s.name) + '</b>'
+        + '<span class="fam-n">' + esc(s.n) + ' cards</span>'
+        + '</span>';
     }).join("");
   }
 

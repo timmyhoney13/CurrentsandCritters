@@ -427,12 +427,13 @@
   overflow-y: hidden;
   scroll-snap-type: x proximity;
   padding: 6px 4px 16px;
-  /* The connecting line every reward track has, drawn behind the cards so a
-     player reads them as one road rather than a row of tiles. Positioned on
-     the same 96px as the nav arrows below. */
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, .55))
-    center 96px / 100% 3px no-repeat;
+  /* NO full-width line here any more. It was painted across the whole rail and
+     meant to sit BEHIND the cards, but --cp-card is rgba(…, .96): four percent
+     of a bright white rule still shows through four percent of a near-white
+     card sitting on a dark page, so the line came through every single card as
+     a white slash across the reward art. "Behind" is not a thing a translucent
+     card can do. The connector is drawn per card now, into the gap only, by
+     .ccCP-tier::after. */
   scrollbar-width: thin;
 }
 .ccCP-rail::-webkit-scrollbar { height: 9px; }
@@ -458,6 +459,27 @@
   transition: transform .16s ease, box-shadow .16s ease;
 }
 .ccCP-tier:hover { transform: translateY(-3px); box-shadow: 0 9px 22px rgba(5, 47, 68, .3); }
+
+/* The connector, drawn only in the 12px gap to this card's right, so it joins
+   the cards into one road without ever crossing a face. 84px is where the art
+   sits: 12 padding + 34 level badge + 6 gap + half of the 64px face, measured
+   from the card's own top edge, so it lines up whatever height the row settles
+   at. The last card has nothing to its right and draws nothing. */
+.ccCP-tier::after {
+  content: "";
+  position: absolute;
+  left: 100%;
+  top: 84px;
+  width: 12px;                 /* exactly the rail's gap */
+  height: 3px;
+  background: rgba(255, 255, 255, .5);
+  pointer-events: none;
+}
+.ccCP-tier:last-child::after { content: none; }
+/* The card lifts 3px on hover and would carry its segment up with it, kinking
+   the road at whichever card the pointer is over. Push the segment back down
+   by the same 3px so the line stays level while the card moves. */
+.ccCP-tier:hover::after { transform: translateY(3px); }
 
 .ccCP-tier-lvl {
   width: 34px;
@@ -488,14 +510,34 @@
   justify-content: center;
 }
 .ccCP-tier-ico { font-size: 2.1rem; line-height: 1; }
-/* The minted Critter Coin on a coin tier. Sized to sit where the 2.1rem glyph
-   would, so a coin tier is exactly as tall as every other card. */
-.ccCP-tier-coin {
-  width: 40px;
-  height: 40px;
+
+/* THE NUMBER, on the 72 tiers that are only a quantity. It fills the same 64px
+   face every other reward's art does, so a coin tier is exactly as tall as an
+   emote one and the connector still meets every card at the same height.
+   Cinzel because the level badge and the page title are already in it: the two
+   numerals on a card then read as the same voice at two weights. */
+.ccCP-tier-amt {
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  font-size: 1.6rem;
+  line-height: 1;
+  letter-spacing: -.01em;
+  color: var(--cp-ink);
+  text-align: center;
+  /* A five-digit drop (33,250 is on this track's own sales pitch) has to shrink
+     rather than break the card. */
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+/* The coin, back at a size it can be read at, sitting with the unit rather
+   than standing in for it. */
+.ccCP-tier-unit-coin {
+  width: 17px;
+  height: 17px;
   object-fit: contain;
+  vertical-align: -3px;
+  margin-right: 5px;
   -webkit-user-select: none; user-select: none;
-  filter: drop-shadow(0 3px 5px rgba(5, 47, 68, .24));
 }
 .ccCP-tier-img {
   width: 100%;
@@ -549,7 +591,15 @@
 
 /* ── Tier states ──────────────────────────────────────────────────────── */
 .ccCP-tier.is-locked { opacity: .78; }
-.ccCP-tier.is-locked .ccCP-tier-face { filter: grayscale(1); opacity: .55; }
+/* The ART fades on a locked tier, and the NUMBER never does. Greying art says
+   "not yet"; greying the amount says "unreadable", and on a locked track that
+   amount is the entire sales pitch, the thing a non-owner is deciding whether
+   to unlock the pass for. Desaturating a near-black numeral does nothing
+   anyway, so the old rule on .ccCP-tier-face only cost it half its contrast.
+   Listed per element rather than reset on the child, because a parent's filter
+   and opacity cannot be undone further down. */
+.ccCP-tier.is-locked .ccCP-tier-ico,
+.ccCP-tier.is-locked .ccCP-tier-img { filter: grayscale(1); opacity: .55; }
 
 .ccCP-tier.is-waiting {
   border-color: rgba(200, 147, 32, .55);

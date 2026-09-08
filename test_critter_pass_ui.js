@@ -802,6 +802,47 @@ const MAIN = \`
       heights: [...new Set($$(".ccCP-tier").slice(0, 12)
                   .map(t => Math.round(t.getBoundingClientRect().height)))],
       minTierW: Math.min(...$$(".ccCP-tier").map(t => Math.round(t.getBoundingClientRect().width))),
+      // ── THE CONNECTING ROAD, and whether it crosses the cards ──────
+      // The rail used to paint one full-width rule as its own background,
+      // meaning it to sit behind the cards. --cp-card is rgba(…, .96), so it
+      // came through all hundred of them as a white slash across the reward
+      // art. "Behind" is not something a translucent card can do, so what is
+      // measured is that the rail paints NO background image at all and that
+      // the segment is drawn per card, into the gap.
+      railBg: (() => { const r = document.getElementById("ccCP-rail");
+                       return r ? getComputedStyle(r).backgroundImage : "none"; })(),
+      connector: (() => {
+        const t = document.querySelector(".ccCP-tier");
+        if (!t) return null;
+        const cs = getComputedStyle(t, "::after");
+        // The left offset computes to px, so it is compared against the
+        // card's own width rather than the "100%" the stylesheet says.
+        return { content: cs.content, left: parseFloat(cs.left),
+                 cardW: t.getBoundingClientRect().width,
+                 width: cs.width, height: cs.height, top: cs.top };
+      })(),
+      lastConnector: (() => {
+        const all = $$(".ccCP-tier");
+        const t = all[all.length - 1];
+        return t ? getComputedStyle(t, "::after").content : null;
+      })(),
+      // ── THE CARD ITSELF ────────────────────────────────────────────
+      // 72 of the 100 tiers are a quantity, and they used to print the same
+      // sentence under every one of them, clipped mid-word by a two-line
+      // clamp. The number is the reward, so the number is the face.
+      amounts: $$(".ccCP-tier-amt").slice(0, 4).map(txt),
+      amountCount: $$(".ccCP-tier-amt").length,
+      blurbCount: $$(".ccCP-tier-blurb").length,
+      // A card that still has something to say keeps saying it.
+      blurbTypes: $$(".ccCP-tier").filter(t => t.querySelector(".ccCP-tier-blurb"))
+                    .map(t => txt(t.querySelector(".ccCP-tier-label"))).slice(0, 6),
+      unitCoins: $$(".ccCP-tier-unit-coin").length,
+      // The locked half of the track is what a non-owner is deciding on, so
+      // its amounts must not be faded along with the art.
+      lockedAmtFaded: $$(".ccCP-tier.is-locked .ccCP-tier-amt").some(a => {
+        const f = getComputedStyle(a.parentElement);
+        return f.filter !== "none" || Number(f.opacity) < 1;
+      }),
     };
     // The gold "ready" and teal "claimed" circles only exist on an UNLOCKED
     // pass, so a locked-only audit never sees the two states most likely to
@@ -1200,6 +1241,57 @@ check("there is a reward on every one of the 100 levels",
       serverTiers);
 check("every tier card is the same height, so the track line lines up",
       D.owner.heights.length === 1, JSON.stringify(D.owner.heights));
+
+// ══════════════════════════════════════════════════════════════════════════
+//  THE CONNECTING ROAD, AND THE CARD IT USED TO BE PAINTED ACROSS
+// ══════════════════════════════════════════════════════════════════════════
+// The rail drew one full-width white rule as its own background and called it
+// "behind the cards". A card at rgba(…, .96) does not have a behind: four
+// percent of a bright rule over four percent of a near-white card on a dark
+// page is a visible line, so it came through every card as a slash across the
+// reward art, level after level. There is no version of this that a
+// stylesheet-reading test catches, because the CSS was doing exactly what it
+// said; it is the alpha on a token in the same file that made it wrong.
+check("the rail paints no full-width line of its own",
+      D.owner.railBg === "none", D.owner.railBg);
+check("the connector is drawn per card instead",
+      !!D.owner.connector && D.owner.connector.content !== "none",
+      JSON.stringify(D.owner.connector));
+check("…starting at the card's right edge, so it can never cross a face",
+      D.owner.connector
+        && D.owner.connector.left >= D.owner.connector.cardW - 3,
+      D.owner.connector
+        && `starts at ${D.owner.connector.left} on a ${D.owner.connector.cardW} card`);
+check("…and exactly as wide as the gap it has to bridge",
+      D.owner.connector && D.owner.connector.width === "12px",
+      D.owner.connector && D.owner.connector.width);
+check("the last card has nothing to its right and draws no stub",
+      D.owner.lastConnector === "none", D.owner.lastConnector);
+
+// ── The card ──────────────────────────────────────────────────────────────
+// 72 of the 100 tiers are a quantity. Printing the type's one blurb under all
+// of them made the rail a wall of the same sentence, cut mid-word by the
+// two-line clamp: "Spend them in the Store on skins, backgrounds and…" 53
+// times over. The label already IS the reward.
+const coinsAndXp = P.locked.track.filter(t => t.type === "coins" || t.type === "xp").length;
+check(`the ${coinsAndXp} quantity tiers show their amount as the card's face`,
+      D.owner.amountCount === coinsAndXp,
+      `${D.owner.amountCount} amounts vs ${coinsAndXp} coin/XP tiers`);
+check("…as a plain number, so the rail can be read at a glance",
+      D.owner.amounts.every(a => /^[\d,]+$/.test(a)), D.owner.amounts.join(" | "));
+check("…and none of them repeats a blurb underneath",
+      D.owner.blurbCount === 100 - coinsAndXp,
+      `${D.owner.blurbCount} blurbs, expected ${100 - coinsAndXp}`);
+check("a tier that has something to explain still explains it",
+      D.owner.blurbCount > 0 && D.owner.blurbTypes.length > 0,
+      D.owner.blurbTypes.join(" | "));
+check("the coin tiers still show the Critter Coin, beside the unit",
+      D.owner.unitCoins === P.locked.track.filter(t => t.type === "coins").length,
+      D.owner.unitCoins);
+// The locked half of the track is the sales pitch: greying the art says "not
+// yet", greying the AMOUNT says the number failed to load.
+check("a locked tier's amount is not faded with its art",
+      D.owner.lockedAmtFaded === false);
 
 console.log("\nclaim all, paid in bounded batches");
 check("it keeps asking until the server stops saying there is more",

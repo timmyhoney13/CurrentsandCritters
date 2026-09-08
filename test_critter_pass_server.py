@@ -223,15 +223,18 @@ class TrackShapeTests(PassTestBase):
         self.assertGreater(cp.coin_total(), cp.CRITTER_PASS_PRICE)
 
     def test_the_whole_track_pays_exactly_the_xp_budget(self):
-        self.assertEqual(cp.xp_total(), 23750)
+        self.assertEqual(cp.xp_total(), 33250)
         self.assertEqual(cp.xp_total(), cp.TRACK_XP_BUDGET)
+        # …and the budget really is the rule, not a number typed beside it.
+        # 19 drops on levels 5,10…95 is 950 level-units.
+        self.assertEqual(cp.TRACK_XP_BUDGET, 950 * cp.XP_DROP_PER_LEVEL)
 
     def test_the_xp_drops_were_raised_and_never_lowered(self):
-        # The drops went 20/level to 25/level once. This is a floor, not an
-        # equality: a retune may make the track pay MORE, but a player who
-        # bought the pass on the printed 23,750 must never be paid less than
+        # The drops went 20/level to 25/level to 35/level. This is a floor, not
+        # an equality: a retune may make the track pay MORE, but a player who
+        # bought the pass on the printed 33,250 must never be paid less than
         # the page they bought from promised.
-        self.assertGreaterEqual(cp.TRACK_XP_BUDGET, 23750)
+        self.assertGreaterEqual(cp.TRACK_XP_BUDGET, 33250)
 
     def test_every_single_level_pays_something(self):
         # THE shape of this track: 100 tiers over 100 levels, nothing skipped.
@@ -243,13 +246,15 @@ class TrackShapeTests(PassTestBase):
         self.assertEqual(len(set(levels)), 100, "two tiers landed on one level")
 
     def test_the_xp_drop_is_the_formula_it_says_it_is(self):
-        # 25 XP per level, every 5 levels. It is a formula rather than a table
-        # so a drop is worth the same FRACTION of a level everywhere on the
-        # curve, and so the 23,750 total falls out instead of being tuned. This
-        # is the test that catches a raise applied to one tier by hand.
+        # XP_DROP_PER_LEVEL per level, every 5 levels. It is a formula rather
+        # than a table so a drop is worth the same FRACTION of a level
+        # everywhere on the curve, and so the budget falls out instead of being
+        # tuned. This is the test that catches a raise applied to one tier by
+        # hand, so it reads the CONSTANT and never a number typed here.
         for t in cp.track():
             if t["type"] == "xp":
-                self.assertEqual(t["amount"], t["level"] * 25, t["id"])
+                self.assertEqual(t["amount"], t["level"] * cp.XP_DROP_PER_LEVEL,
+                                 t["id"])
 
     def test_the_served_track_agrees_with_the_budgets(self):
         # coin_total() reads the SPEC; the client reads track(). If those two
@@ -974,9 +979,14 @@ class SeasonXpTests(PassTestBase):
         # the account. The 30-day arithmetic assumes exactly this.
         self.make_user(level=1, coins=0, owns=True, pass_level=5)
         before = self.season_xp()
-        res = cp.claim(self.db, "u1", "L5")           # 125 XP
+        # Read what L5 really pays rather than typing it: the drop rule has been
+        # raised twice, and a number typed here fails the retune instead of the
+        # behaviour it is meant to be about.
+        drop = next(t["amount"] for t in cp.track() if t["id"] == "L5")
+        self.assertEqual(drop, 5 * cp.XP_DROP_PER_LEVEL)
+        res = cp.claim(self.db, "u1", "L5")
         self.assertTrue(res.get("ok"), res)
-        self.assertEqual(self.season_xp(), before + 125)
+        self.assertEqual(self.season_xp(), before + drop)
 
     def test_the_claim_ledger_records_the_pass_level_it_paid_at(self):
         self.make_user(level=2, coins=0, owns=True, pass_level=20)
