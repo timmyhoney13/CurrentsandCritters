@@ -46,13 +46,50 @@ Restore: `_standby/website/12-shop.html.original` is the whole file as it was.
 (The buttons never took a real payment — they only raised a toast — but a shop
 that looks open is a shop people expect to order from.)
 
-### 3. index.html — the tiers, the donation goal, the wall, the form
+### 3. The Supporter Reef Wall — one word, server-side
+
+`multiplayer_server.py`
+
+```python
+SUPPORTER_WALL_ON_STANDBY = True    # ← flip to False to put the wall back up
+```
+
+`/api/supporters/wall` answers `{"ok": true, "standby": true, "supporters": [],
+"totalRaisedCents": 0}` and never reaches Firestore. Off at the source, not
+just hidden in the page that draws it: a wall taken off the site whose names
+are still one fetch away has not been taken off the site.
+
+`/supporter-wall` (and its `/wall` and `/reef-wall` aliases) still answers
+**200** with a short "the wall is resting" notice. Those URLs are printed on
+the thank-you page every past buyer has already seen, so a 404 there is a worse
+answer than "not right now". The page's legend, grid and renderer are gone;
+the original file is `13-supporter-wall.html.original`.
+
+**Only the display is off.** The webhook still records every supporter, still
+reads their wall name off the checkout, still keeps their lifetime total and
+still resolves the tier and the size their name will be
+(`_supporter_tier_for_total`). The reef comes back with everyone on it, at the
+size they earned, including anyone who gives while it is resting.
+
+**The admin review page is deliberately unaffected.** `supporter-admin.html`
+reads `/api/admin/supporters`, a different endpoint behind an `ADMIN_EMAIL`
+check, so names can still be approved while nobody can see the wall. Its
+"Public wall ↗" link is left in place on purpose — the admin is the one person
+who should be able to see what the public wall currently says.
+
+Also removed: the **View the Supporter Reef Wall** link on `thanks.html` and on
+`claim-rewards.html`, and the claim page's promise to "place you on the
+Supporter Reef Wall (pending approval)" now says the placement is recorded
+ready for when the wall is back.
+
+### 4. index.html — the tiers, the donation goal, the wall band, the form
 
 Removed from the page and archived here, in the order they appeared:
 
 | file | what it is | where it went back into |
 |---|---|---|
 | `01-supporter-reef-wall.section.html` | the "Backed By People Who Care" band | between the Clan Prize band and How to Play |
+| `13-supporter-wall.html.original` | the standalone `/supporter-wall` page | replaces `multiplayer/client/supporter-wall.html` |
 | `02-impact-band.html` | the **old four** stats, incl. `$ Donated` and `Players Online Now` | top of `#sponsor` |
 | `03-donation-goal.html` | the `$X / $25,000` bar | under the stats |
 | `04-tier-intro.html` | "★ Supporter Tiers / Every tier makes a ripple." | under the goal bar |
@@ -117,14 +154,17 @@ Covered by `test_hours_played.py`.
 ## Putting it back
 
 1. `preview-app.js`: `const PHST_STORE_CLOSED = false;`
-2. `shop.html`: `cp _standby/website/12-shop.html.original shop.html`
-3. `index.html`: paste files 01–11 back at the rows in the table above, restore
+2. `multiplayer_server.py`: `SUPPORTER_WALL_ON_STANDBY = False`, then
+   `cp _standby/website/13-supporter-wall.html.original multiplayer/client/supporter-wall.html`
+   and put the wall links back on `thanks.html` and `claim-rewards.html`.
+3. `shop.html`: `cp _standby/website/12-shop.html.original shop.html`
+4. `index.html`: paste files 01–11 back at the rows in the table above, restore
    the Luckiest Guy `<link>` tags, and put the three Partner links back.
-4. Decide what the stats band should show — the old four (file 02) or the
+5. Decide what the stats band should show — the old four (file 02) or the
    current three, or five. They are the same markup either way; if you keep
    Hours, keep `grid-template-columns` in step with how many stats there are
    (it is `repeat(3, 1fr)` in the inline styles now).
-5. Run `python3 test_stripe_payments.py`, `node test_supporter_tiers_ui.js`,
+6. Run `python3 test_stripe_payments.py`, `node test_supporter_tiers_ui.js`,
    `node test_partner_form.js` and `python3 test_warm_cache.py`. Several of them
    check for the standby state on purpose and will fail loudly until they are
    pointed back at the restored page — that is the point of them.

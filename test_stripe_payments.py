@@ -1174,6 +1174,55 @@ class TestTheWebsiteSellsNothing(unittest.TestCase):
         self.assertNotIn("buy.stripe.com", self.shop)
         self.assertNotIn("checkout.stripe.com", self.shop)
 
+    # ── the Supporter Reef Wall ─────────────────────────────────────────
+    def test_the_public_wall_serves_no_names(self):
+        """Off at the source, not just hidden in the page that draws it. A wall
+        taken off the site whose names are still one fetch away from
+        /api/supporters/wall has not been taken off the site."""
+        self.assertTrue(ms.SUPPORTER_WALL_ON_STANDBY,
+                        "the public Supporter Reef Wall is switched back on")
+        server = _read("multiplayer_server.py")
+        self.assertIn("if SUPPORTER_WALL_ON_STANDBY:", server,
+                      "/api/supporters/wall does not check the standby flag")
+
+    def test_the_wall_page_draws_no_wall(self):
+        page = _read("multiplayer", "client", "supporter-wall.html")
+        self.assertNotIn("/api/supporters/wall", page,
+                         "the wall page still fetches the names")
+        self.assertNotIn("<script", page, "the wall page still runs a renderer")
+        self.assertIn("coming back", page.lower(),
+                      "the wall page does not say it is temporary")
+
+    def test_the_wall_url_still_answers(self):
+        """/supporter-wall is printed on the thank-you page every past buyer has
+        already seen. A 404 there is a worse answer than 'not right now'."""
+        server = _read("multiplayer_server.py")
+        self.assertIn('parts[0] in {"supporter-wall", "wall", "reef-wall"}', server)
+
+    def test_nothing_buyer_facing_still_points_at_the_wall(self):
+        for page in ("thanks.html", "claim-rewards.html"):
+            self.assertNotIn('href="/supporter-wall"',
+                             _read("multiplayer", "client", page), page)
+
+    def test_supporters_are_still_recorded_while_it_is_off(self):
+        """Only the DISPLAY is off. The webhook still reads the wall name off
+        the checkout and still works out the tier and the size the name will
+        be, or the reef comes back empty for everyone who gave while it was
+        resting."""
+        self.assertTrue(ms.CF_WALL_NAME_LABEL,
+                        "the checkout stopped asking for a wall name")
+        self.assertEqual(ms._supporter_tier_for_total(1500),
+                         ("wave_warrior", "small"))
+        self.assertEqual(ms._supporter_tier_for_total(25000)[0], "ocean_legend")
+        self.assertEqual(ms._supporter_tier_for_total(0), (None, None))
+
+    def test_the_admin_review_page_is_not_affected(self):
+        """Names still have to be approvable while nobody can see the wall, and
+        the admin page reads a different, ADMIN_EMAIL-checked endpoint."""
+        admin = _read("multiplayer", "client", "supporter-admin.html")
+        self.assertIn("/api/admin/supporters", admin)
+        self.assertNotIn("/api/supporters/wall", admin)
+
     # ── the in-game Store ───────────────────────────────────────────────
     def test_the_in_game_store_is_shut(self):
         """The flag itself. What it actually renders is proved by rendering it,

@@ -1136,6 +1136,21 @@ SUPPORTER_WALL_TIERS: List[Tuple[int, str, str]] = [
 # Critters" everywhere it is displayed now, "Currents & Critters" on anything
 # older), so the username question accepts BOTH spellings and a link created
 # either way keeps working. Keep both entries.
+# ── The Supporter Reef Wall is on standby ───────────────────────────────────
+# While this is True the public wall serves NO names: /api/supporters/wall
+# answers with an empty list, and /supporter-wall says the wall is resting.
+#
+# Only the DISPLAY is off. Everything below still runs exactly as it did: the
+# webhook still records each supporter, still reads their wall name off the
+# checkout, still keeps their lifetime total and still works out the tier and
+# the size their name will be. The reef comes back with everyone on it.
+#
+# The admin review page is deliberately unaffected: it reads /api/admin/
+# supporters, which is a different endpoint behind an ADMIN_EMAIL check, so
+# names can still be approved while nobody can see the wall.
+# See _standby/README.md.
+SUPPORTER_WALL_ON_STANDBY = True
+
 CF_WALL_NAME_LABEL   = "Name for Supporter Reef Wall"
 CF_WALL_PUBLIC_LABEL = "Show my name publicly on the Supporter Wall?"
 CF_USERNAME_LABEL    = "Currents and Critters Online Username"
@@ -13813,6 +13828,19 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # Public Supporter Reef Wall data: approved + visible records only,
         # exposing just displayName / wallSize / tier (no emails/ids/history).
         if parsed.path == "/api/supporters/wall":
+            # Off at the source, not just hidden in the page that draws it: a
+            # wall taken off the site whose names are still one fetch away has
+            # not been taken off the site. Answers 200 with an empty wall
+            # rather than 404 so an older cached page renders "nobody yet"
+            # instead of an error, and skips the Firestore read entirely.
+            if SUPPORTER_WALL_ON_STANDBY:
+                self._send_json({
+                    "ok": True,
+                    "standby": True,
+                    "supporters": [],
+                    "totalRaisedCents": 0,
+                })
+                return
             wall = _supporter_wall_cached()
             # Total raised = the sum of EXACTLY the names shown on the wall, so
             # the homepage donation bar can never disagree with the wall it sits
