@@ -93,8 +93,15 @@ check("the bridge can open a confirm modal (4,000 coins is not a mis-tap)",
 check("it is primed on sign-in", APP.includes("window.__ccCritterPassPrime && window.__ccCritterPassPrime()"));
 check("it is reset on BOTH identity-change paths",
       (APP.match(/window\.__ccCritterPassReset && window\.__ccCritterPassReset\(\)/g) || []).length === 2);
-check("a guest is told what the tab needs an account for",
-      /critterpass:\s*"[^"]*account/.test(APP));
+// The guest note is OUT while the page is closed, and it is not only a
+// sentence that stopped being true: _ensureGuestNote inserts a "Sign in"
+// BUTTON into the panel, which would be the one clickable thing left on a page
+// that is meant to have none. The line to put back is recorded next to it, so
+// reopening the page is a paste and not a rewrite.
+check("no guest note is inserted into the closed panel",
+      !/^\s*critterpass:\s*"/m.test(APP));
+check("…and the line to restore is written down where it was",
+      /critterpass: ON STANDBY[\s\S]{0,400}Buying and\s*\/\/\s*claiming it needs an account/.test(APP));
 
 console.log("\nwiring: the kelp forest really is the background");
 check("the page paints /backgrounds/kelp-forest.png",
@@ -1013,10 +1020,17 @@ const MAIN_CLOSED = \`
   const out = { errors: [] };
   try {
     const $$ = (s) => Array.from(document.querySelectorAll(s));
-    const txt = (el) => (el ? (el.textContent || "").replace(/\\s+/g, " ").trim() : "");
+    const txt = (el) => (el ? (el.textContent || "").replace(/\\\\s+/g, " ").trim() : "");
 
-    // The owner payload: the state with the most to click on.
-    window.__CP_STATE = JSON.parse(JSON.stringify(parent.__PAYLOADS.owner));
+    // The owner payload: the state with the most to click on. The extra
+    // challenge slots are set on it deliberately, because those are the
+    // entitlement that must SURVIVE the page closing: a paid perk read
+    // synchronously by the challenge strip on a page nobody can open.
+    const st = JSON.parse(JSON.stringify(parent.__PAYLOADS.owner));
+    st.inventory = st.inventory || {};
+    st.inventory.extraDaily = 2;
+    st.inventory.extraWeekly = 1;
+    window.__CP_STATE = st;
     await window.__ccCritterPassRender();
 
     const root = document.getElementById("cc-critter-pass-root");
@@ -1122,6 +1136,63 @@ const m = dom.match(/@@([\s\S]*?)@@/);
 if (!m) { console.error("no result payload in the DOM dump"); process.exit(1); }
 const R = JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&")
                          .replace(/&lt;/g, "<").replace(/&gt;/g, ">"));
+
+// ══════════════════════════════════════════════════════════════════════════
+//  THE PAGE AS SHIPPED: CLOSED
+//  Everything below this block runs with CCCP_PASS_CLOSED forced OFF, so this
+//  is the only section measuring what a player actually gets today. It is
+//  first on purpose: if the page is not really shut, nothing else here matters.
+// ══════════════════════════════════════════════════════════════════════════
+console.log("\nthe Critter Pass is shut");
+{
+  const C = R.closed || { errors: ["no closed render"] };
+  const c = C.closed || {};
+  check("the closed render reported in", (C.errors || []).length === 0,
+        (C.errors || []).join(" | "));
+  check("the flag in the shipped file is ON",
+        /const CCCP_PASS_CLOSED = true;/.test(PASSJS));
+  check("the page paints one Coming soon cover", c.cover === 1 && /Coming soon/i.test(c.title || ""),
+        `${c.cover} cover(s), title ${JSON.stringify(c.title)}`);
+  check("it says why, in plain words", /closed/i.test(c.desc || "") && /can't be unlocked|cannot be unlocked/i.test(c.desc || ""),
+        c.desc);
+  check("…and promises that nothing already earned is lost",
+        /nothing is lost/i.test(c.note || "") && /still/i.test(c.note || ""), c.note);
+
+  // The three ways of asking the same question.
+  check("there is no button of any kind on the page", c.buttons === 0, c.buttons);
+  check("there is no link either", c.links === 0, c.links);
+  check("and nothing on it can even be tabbed to", c.focusable === 0, c.focusable);
+
+  // Not hidden. Gone.
+  check("the reward rail is not built at all", c.tiers === 0 && c.rail === 0,
+        `${c.tiers} tiers, ${c.rail} rails`);
+  check("neither is the purchase card", c.buyCard === 0, c.buyCard);
+  check("nor the header with its claim-all", c.header === 0, c.header);
+
+  // It is a cover OVER the page, not a blank card instead of it.
+  check("the kelp forest is still painted behind the notice", c.hasKelp === true);
+
+  // Nothing points at a page that cannot pay out.
+  check("the sidebar's unclaimed badge is held at zero",
+        c.badgeShown === false && !/[1-9]/.test(c.badgeText || ""),
+        `shown ${c.badgeShown}, text ${JSON.stringify(c.badgeText)}`);
+
+  // Closing the PAGE is not revoking the PASS.
+  check("an owner still owns the pass", C.stillOwned === true, C.stillOwned);
+  check("…and still gets the extra challenge slots they paid for",
+        !!(C.stillSlots && C.stillSlots.daily === 2 && C.stillSlots.weekly === 1),
+        JSON.stringify(C.stillSlots));
+
+  // A re-render is where a "first paint" placeholder would give itself away.
+  check("the cover survives the state-loaded repaint",
+        C.coverAfterRerender === 1 && C.buttonsAfterRerender === 0,
+        `${C.coverAfterRerender} cover(s), ${C.buttonsAfterRerender} button(s)`);
+
+  // Syncing is deliberately still allowed: it is what keeps the extra slot
+  // counts fresh for people who own the pass. It must not spend anything.
+  check("syncing spends nothing", C.buysAfterSync === 0,
+        (C.postsAfterSync || []).join(", "));
+}
 
 // ══════════════════════════════════════════════════════════════════════════
 const D = R[1280];

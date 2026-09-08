@@ -127,6 +127,13 @@ check(/phst-closed/.test(CLOSED.html) && /Coming soon/.test(CLOSED.html),
       "the shelf paints one Coming soon panel");
 check(!/<button/.test(CLOSED.html),
       "there is no button of any kind on the closed shelf");
+// Same three ways of asking as the Critter Pass's own closed check: a page is
+// only shut when there is nothing on it to reach, and "no <button>" alone
+// would miss a link, an input or anything given a tabindex.
+check(!/<a\s/.test(CLOSED.html),
+      "there is no link either");
+check(!/tabindex|<input|<select|<textarea|onclick=|contenteditable/.test(CLOSED.html),
+      "and nothing on it can even be tabbed to");
 check(!/data-stripe/.test(CLOSED.html),
       "nothing on it opens a Stripe checkout");
 check(!/data-skin=|data-bg=|data-perk=|data-custom-tier/.test(CLOSED.html),

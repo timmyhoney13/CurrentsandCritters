@@ -36,6 +36,9 @@ so the shelf on standby is proved right while it is switched off.
 
 Styles: `.phst-closed*` in `multiplayer/client/css/preview.css`.
 
+`test_closed_pages.js` opens it the way a player does (see the Critter Pass
+section below, which covers both).
+
 ### 2. The Critter Pass — one word
 
 `multiplayer/client/js/critter-pass.js`
@@ -86,6 +89,25 @@ is server-side, the way `SUPPORTER_WALL_ON_STANDBY` is.
 
 Styles: `.ccCP-is-closed` and `.ccCP-closed*` in
 `multiplayer/client/css/critter-pass.css`.
+
+**Both closed pages are also opened the way a player opens them**, by
+`test_closed_pages.js`: it boots the real app in a real browser, clicks the
+real sidebar item for each, and audits **the whole panel** rather than the
+module's own root. That is a different question from the ones the two suites
+below answer, and it catches a different kind of mistake — `switchTab` does
+more than render, and for a guest it inserts a note carrying a **Sign In
+button** into the panel. A page can be perfectly empty and still be handed a
+button by the thing that opened it.
+
+It reads each element's real `tabIndex` instead of matching a list of tags, so
+a focusable div, an `<a href>` or a stray `onclick` fails it too; it opens each
+page twice, through the sidebar and through `_switchPhTab` (the deep-link
+door), so a cover that only survives the first paint is caught; it dispatches a
+click at every element in the panel and checks that nothing navigates and
+nothing is sent; and it asserts that neither page has a horizontal `.ph-tab`,
+so if one ever gains a third door, that is a door this suite is not opening and
+it says so. It also checks both pages still **open** — "nothing to interact
+with" is one mistake away from "nothing at all".
 
 `test_critter_pass_ui.js` renders the page twice on every run — once exactly as
 shipped, in its own frame, driven with the OWNER payload (the state with the
@@ -295,13 +317,17 @@ Covered by `test_hours_played.py`.
    Hours, keep `grid-template-columns` in step with how many stats there are
    (it is `repeat(3, 1fr)` in the inline styles now).
 7. Run `python3 test_stripe_payments.py`, `node test_supporter_tiers_ui.js`,
-   `node test_critter_pass_ui.js`, `node test_partner_form.js` and
-   `python3 test_warm_cache.py`. Several of them
+   `node test_critter_pass_ui.js`, `node test_closed_pages.js`,
+   `node test_partner_form.js` and `python3 test_warm_cache.py`. Several of them
    check for the standby state on purpose and will fail loudly until they are
    pointed back at the restored page — that is the point of them.
 
 `test_partner_form.js` needs nothing: it gates on the form's own `id` and
 starts testing it again the moment the band is back.
+
+`test_closed_pages.js` is the suite to **delete** when both pages reopen: every
+check in it asserts a page is shut, so there is nothing in it to re-point. It
+fails on its first two lines until then, naming the switch that is still on.
 
 `test_critter_pass_ui.js` needs one edit and it tells you which: it asserts the
 shipped file still declares `const CCCP_PASS_CLOSED = true;` and **exits**

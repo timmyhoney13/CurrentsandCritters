@@ -158,6 +158,15 @@
 # at five widths, plus the challenge-slot seam the strip reads.
 !test_critter_pass_ui.js
 
+# Both pages that are on standby (the Critter Pass and the in-game Store),
+# opened the way a player opens them: the real app in a real browser, the real
+# sidebar item clicked, and THE WHOLE PANEL audited rather than the module's
+# own root. switchTab does more than render, and for a guest it inserts a note
+# carrying a Sign In button into the panel, so a page can be perfectly empty
+# and still be handed a button by the thing that opened it. Delete this file
+# when both pages reopen: every check in it asserts a page is shut.
+!test_closed_pages.js
+
 # The email address on a username-and-password account. Module-scope import
 # again, same consequence if it goes missing: the whole server fails to boot on
 # ImportError, not just the email. It holds the signed confirmation token, the
