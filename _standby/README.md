@@ -5,8 +5,9 @@ come back. Nothing was deleted: the markup, the styles and the scripts are all
 either still in the files they came from or archived verbatim beside this note.
 
 **The one-line version:** the site and the in-game Store take no money right
-now, the Supporter Reef Wall is off, and the homepage shows three live play
-numbers where the donation total and the tiers used to be.
+now, the Critter Pass page is shut with it, the Supporter Reef Wall is off, and
+the homepage shows three live play numbers where the donation total and the
+tiers used to be.
 
 ---
 
@@ -35,7 +36,68 @@ so the shelf on standby is proved right while it is switched off.
 
 Styles: `.phst-closed*` in `multiplayer/client/css/preview.css`.
 
-### 2. shop.html — the website storefront
+### 2. The Critter Pass — one word
+
+`multiplayer/client/js/critter-pass.js`
+
+```js
+const CCCP_PASS_CLOSED = true;      // ← flip to false to open the Critter Pass
+```
+
+`render()` reads it, paints a single "Coming soon" cover and returns before it
+builds the reward rail, the purchase card, the header or `wire()`, so the page
+emits no button at all: nothing that spends 4,000 Critter Coins, nothing that
+spends a Season Pass voucher, and nothing that claims a tier. The page keeps
+its kelp forest and its scrim, so the notice sits **over** the page's own art
+rather than replacing it with a blank card, but there is nothing behind it —
+the rail is never built, so there is nothing to tab into either.
+
+`buyPass()`, `redeemVoucher()`, `claimTier()` and `claimAll()` each refuse at
+their first line as well. Nothing draws a button that reaches them, so those
+guards are unreachable through the page; they are there because this module
+hangs its entry points off `window`, and a page that can only be trusted while
+its own markup is intact has not really been switched off.
+
+**The sidebar badge is held at zero** (`paintNavBadge`). A red "3 ready to
+claim" that opens a page with no Claim button on it is worse than no badge.
+
+**The guest note is out of `preview-app.js`.** `GUEST_NOTES.critterpass` said
+"This is the whole Critter Pass at your level. Buying and claiming it needs an
+account." That stopped being true, and it is not only a sentence:
+`_ensureGuestNote` inserts a **Sign in button** into the panel, which would
+have been the one clickable thing left on the page. The line is written down
+verbatim in the comment that replaced it.
+
+**This closes the page, not the pass.** Anyone who already owns it keeps it:
+`__ccPassExtraSlots()` still hands the challenge strip their extra daily and
+weekly slots, `__ccCritterPassOwned()` still answers true, and every perk
+already paid for still works everywhere else in the game. Unclaimed tiers stay
+unclaimed **on the server** and are still there to claim on the day this flips
+back. Nothing is revoked and nothing expires.
+
+**`critter_pass_server.py` is deliberately unchanged.** It still serves the
+track and still honours `/api/critterpass/buy` and `/claim`, the same way the
+Store's own standby leaves its live Payment Links in place: this is the page
+being taken down, not the pass being cancelled. `__ccCritterPassSync()` is
+still allowed to run, because that is what keeps the extra-slot counts fresh
+for the people who own the pass, and the test proves a sync spends nothing.
+If the intent ever changes from "not yet" to "not at all", the switch for that
+is server-side, the way `SUPPORTER_WALL_ON_STANDBY` is.
+
+Styles: `.ccCP-is-closed` and `.ccCP-closed*` in
+`multiplayer/client/css/critter-pass.css`.
+
+`test_critter_pass_ui.js` renders the page twice on every run — once exactly as
+shipped, in its own frame, driven with the OWNER payload (the state with the
+most to click on: a Claim on every reached tier, a Claim-all and a counting
+badge), and once with the flag forced `false` at all five widths — so the page
+on standby is proved shut while the 977 lines waiting behind it are proved
+still right. The closed frame counts buttons, links **and** anything focusable,
+because "no `<button>`" alone would miss a link or a stray `tabindex`.
+
+---
+
+### 3. shop.html — the website storefront
 
 The quantity picker, **Add to Cart**, **Buy Now**, the toast and the whole
 `<script>` that drove them are gone; the page has no button and no script left
@@ -46,7 +108,7 @@ Restore: `_standby/website/12-shop.html.original` is the whole file as it was.
 (The buttons never took a real payment — they only raised a toast — but a shop
 that looks open is a shop people expect to order from.)
 
-### 3. The Supporter Reef Wall — one word, server-side
+### 4. The Supporter Reef Wall — one word, server-side
 
 `multiplayer_server.py`
 
@@ -82,7 +144,7 @@ Also removed: the **View the Supporter Reef Wall** link on `thanks.html` and on
 Supporter Reef Wall (pending approval)" now says the placement is recorded
 ready for when the wall is back.
 
-### 4. index.html — the tiers, the donation goal, the wall band, the form
+### 5. index.html — the tiers, the donation goal, the wall band, the form
 
 Removed from the page and archived here, in the order they appeared:
 
@@ -165,6 +227,25 @@ verify, so an open counter would be a curl loop away from printing anything it
 was told, which is exactly what happened to registered players before that
 endpoint required a verified token.
 
+**The real totals live on the accounts.** Every account carries its own games
+and hours in Firestore (`stats.completed_games`, `stats.hours_played`, and the
+`*_games_by_size` maps), and the site was not reading them: it published 107
+games and 0 hours while one account's own Player Home showed 155 games and 290
+hours. `get_player_stat_totals()` sums them across every account and those
+totals **outrank** anything derived on the server, because they have been
+counting since long before the server kept a single duration. The per-account
+games rule is copied from the client (`Math.max(completed_games, byNormal +
+byComp)`) so the site total and the pages it sums cannot disagree. The two
+sources are never ADDED - a game counted on the server was counted on the
+account too. `/api/stats` publishes `account_games`, `account_play_seconds` and
+`accounts_counted` alongside the headline.
+
+⚠️ That scan is one Firestore read per account per refresh, against a free tier
+that ran out once already. Hence `PLAYER_TOTALS_TTL_SEC` (30 min), a cache with
+`keep_warm_window=0` so no sweeper rescans the collection on a timer, and
+`PLAYER_TOTALS_MAX_ACCOUNTS`. Nobody can tell a half-hour-old lifetime total
+from a live one.
+
 **The games nobody timed.** The hours counter was added long after the games
 counter, and the time those earlier games took was never recorded anywhere -
 the history files are gone from the live disk, and the per-player copies in
@@ -200,22 +281,33 @@ Covered by `test_hours_played.py`.
 ## Putting it back
 
 1. `preview-app.js`: `const PHST_STORE_CLOSED = false;`
-2. `multiplayer_server.py`: `SUPPORTER_WALL_ON_STANDBY = False`, then
+2. `js/critter-pass.js`: `const CCCP_PASS_CLOSED = false;`, and paste
+   `GUEST_NOTES.critterpass` back into `preview-app.js` from the comment
+   standing in its place.
+3. `multiplayer_server.py`: `SUPPORTER_WALL_ON_STANDBY = False`, then
    `cp _standby/website/13-supporter-wall.html.original multiplayer/client/supporter-wall.html`
    and put the wall links back on `thanks.html` and `claim-rewards.html`.
-3. `shop.html`: `cp _standby/website/12-shop.html.original shop.html`
-4. `index.html`: paste files 01–11 back at the rows in the table above, restore
+4. `shop.html`: `cp _standby/website/12-shop.html.original shop.html`
+5. `index.html`: paste files 01–11 back at the rows in the table above, restore
    the Luckiest Guy `<link>` tags, and put the three Partner links back.
-5. Decide what the stats band should show — the old four (file 02) or the
+6. Decide what the stats band should show — the old four (file 02) or the
    current three, or five. They are the same markup either way; if you keep
    Hours, keep `grid-template-columns` in step with how many stats there are
    (it is `repeat(3, 1fr)` in the inline styles now).
-6. Run `python3 test_stripe_payments.py`, `node test_supporter_tiers_ui.js`,
-   `node test_partner_form.js` and `python3 test_warm_cache.py`. Several of them
+7. Run `python3 test_stripe_payments.py`, `node test_supporter_tiers_ui.js`,
+   `node test_critter_pass_ui.js`, `node test_partner_form.js` and
+   `python3 test_warm_cache.py`. Several of them
    check for the standby state on purpose and will fail loudly until they are
    pointed back at the restored page — that is the point of them.
 
 `test_partner_form.js` needs nothing: it gates on the form's own `id` and
 starts testing it again the moment the band is back.
+
+`test_critter_pass_ui.js` needs one edit and it tells you which: it asserts the
+shipped file still declares `const CCCP_PASS_CLOSED = true;` and **exits**
+rather than quietly measuring a Coming soon card at five widths and reporting
+the pass green. Delete its "the Critter Pass is shut" block and the
+`PASSJS_OPEN` replace above it, and the remaining 240-odd checks are the ones
+that were always testing the open page.
 
 Everything here is also in git, in the commit that removed it and its parent.

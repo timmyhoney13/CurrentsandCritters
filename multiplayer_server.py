@@ -745,6 +745,94 @@ def record_guest_players(tokens) -> int:
     return added
 
 
+# ── The real totals, read off the accounts themselves ──────────────────────
+# The game has been keeping per-player games and hours in Firestore the whole
+# time, on every account's `stats` map, and the site was not reading them. It
+# published 107 games and 0 hours while a single account showed 155 games and
+# 290 hours on its own Player Home page.
+#
+# These are the numbers each player is already shown, so the site total and the
+# sum of what everybody sees agree by construction. The games rule is copied
+# from the client's own (preview-app.js: `Math.max(completed_games, byNormal +
+# byComp)`) rather than reinvented, because a total that disagrees with the
+# pages it is summing is worse than no total.
+#
+# ⚠️ COST. This reads every user document, so it is one read per account per
+# refresh, against a free tier that allows 50k a day and ran out once already
+# (2026-09-04, which took XP, history and both passes down with it). Hence the
+# 30-minute TTL, no keep-warm sweeping, and PLAYER_TOTALS_MAX_ACCOUNTS: these
+# are lifetime counters that move slowly, and nobody can tell a half-hour-old
+# lifetime total from a live one. At 43 accounts that is ~2k reads a day.
+PLAYER_TOTALS_TTL_SEC = 1800.0
+PLAYER_TOTALS_MAX_ACCOUNTS = 5000
+_PLAYER_TOTALS_WARM = warm_cache.WarmCache(
+    "player-stat-totals", ttl=PLAYER_TOTALS_TTL_SEC, hard_ttl=6 * 3600.0,
+    # Not kept warm: a sweeper refreshing this on a timer would run the whole
+    # collection scan for as long as one homepage is open anywhere.
+    keep_warm_window=0.0)
+
+
+def _player_total_games(stats):
+    """One account's total games, by the client's own rule."""
+    total = int(stats.get("completed_games", 0) or 0)
+    by_size = 0
+    for field in ("normal_games_by_size", "comp_games_by_size"):
+        sizes = stats.get(field)
+        if isinstance(sizes, dict):
+            for val in sizes.values():
+                if isinstance(val, (int, float)):
+                    by_size += int(val)
+    return max(total, by_size)
+
+
+def _fetch_player_stat_totals():
+    """(games, play_seconds, accounts) summed over every account, or None if
+    Firestore cannot be reached. None means "keep what you had", never zero."""
+    db = _get_firestore()
+    if db is None:
+        return None
+    games = 0
+    hours = 0.0
+    accounts = 0
+    fields = ["stats.completed_games", "stats.hours_played",
+              "stats.normal_games_by_size", "stats.comp_games_by_size"]
+    try:
+        users = db.collection("users")
+        # A projection costs the same reads but carries far less over the wire.
+        # Not every SDK build accepts dotted field paths, and a total that
+        # silently never appears is worse than a slightly fatter query, so a
+        # rejected projection falls back to the whole document.
+        try:
+            stream = users.select(fields).stream()
+        except Exception:  # noqa: BLE001
+            stream = users.stream()
+        for doc in stream:
+            data = doc.to_dict() or {}
+            stats = data.get("stats")
+            if not isinstance(stats, dict):
+                continue
+            accounts += 1
+            games += _player_total_games(stats)
+            h = stats.get("hours_played")
+            if isinstance(h, (int, float)) and h > 0:
+                hours += float(h)
+            if accounts >= PLAYER_TOTALS_MAX_ACCOUNTS:
+                print(f"[stats] player totals stopped at {PLAYER_TOTALS_MAX_ACCOUNTS} accounts")
+                break
+    except Exception as exc:  # noqa: BLE001
+        print(f"[stats] player stat totals query failed: {exc}")
+        return None
+    return (games, int(round(hours * 3600)), accounts)
+
+
+def get_player_stat_totals():
+    """(games, play_seconds, accounts) from the accounts, cached hard."""
+    totals = _PLAYER_TOTALS_WARM.get("totals", _fetch_player_stat_totals)
+    if not totals:
+        return (None, None, None)
+    return (tuple(totals) + (None,) * 3)[:3]
+
+
 def _fetch_live_user_counts():
     """(registered, online, games, play_seconds, guests, timed_games) straight
     from Firestore, or all None if unavailable. Everything but `registered` and
@@ -14528,15 +14616,27 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             # Never report below the historical baseline.
             if games_played < STATS_SEED_GAMES:
                 games_played = STATS_SEED_GAMES
-            # The games this site claims that nobody ever timed still took time
-            # to play, and reporting them as zero is what had the page saying
-            # "101 games played" and "0 hours played" side by side. They are
-            # counted at AVERAGE_GAME_SECONDS instead. timed_games is how many
-            # games the measured seconds already cover, so no game is ever
-            # counted both ways, and the estimate shrinks to nothing as real
-            # durations take over.
+            # ── What the accounts themselves say ───────────────────────
+            # The real answer, and the one that was being ignored: every
+            # account carries its own games and hours, and the site was
+            # publishing 107 games and 0 hours while one player's own page
+            # showed 155 games and 290 hours. Summed, these ARE the totals,
+            # so they win outright over anything derived on this box.
+            acct_games, acct_seconds, acct_accounts = get_player_stat_totals()
+            if isinstance(acct_games, int) and acct_games > games_played:
+                games_played = acct_games
             play_seconds_measured = play_seconds
-            untimed_games = max(0, games_played - timed_games)
+            if isinstance(acct_seconds, int) and acct_seconds > play_seconds_measured:
+                # Not added to the server-side figure: a game counted here was
+                # counted there too, and adding them would count it twice.
+                # Whichever saw more of the game's life is the better answer,
+                # and it is the accounts, which have been counting since long
+                # before this server kept a single duration.
+                play_seconds_measured = acct_seconds
+            # Only games with NOTHING behind them fall back to an average.
+            # With the account totals in hand this is normally zero, and it
+            # exists for the case Firestore cannot be reached at all.
+            untimed_games = max(0, games_played - max(timed_games, acct_games or 0))
             play_seconds_estimated = untimed_games * AVERAGE_GAME_SECONDS
             play_seconds = play_seconds_measured + play_seconds_estimated
             # Seconds on the wire, not hours. The exact figure is what the
@@ -14568,6 +14668,11 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 "timed_games": timed_games,
                 "untimed_games": untimed_games,
                 "average_game_seconds": AVERAGE_GAME_SECONDS,
+                # What the accounts themselves add up to, published so the
+                # headline can be checked against the pages it is summing.
+                "account_games": acct_games,
+                "account_play_seconds": acct_seconds,
+                "accounts_counted": acct_accounts,
             })
             return
 

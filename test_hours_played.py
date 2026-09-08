@@ -437,6 +437,104 @@ class TestTheSeatCarriesTheToken(unittest.TestCase):
         self.assertNotIn("localStorage", token_fn)
 
 
+class TestTheTotalsTheAccountsAlreadyHeld(unittest.TestCase):
+    """The whole point. The game has been keeping per-player games and hours in
+    Firestore all along, and the site was not reading them: it published 107
+    games and 0 hours while one account's own Player Home showed 155 and 290."""
+
+    def test_one_account_totals_the_way_the_game_does(self):
+        """Copied from the client rather than reinvented, so the site total and
+        the sum of the pages it is summing cannot disagree."""
+        self.assertEqual(ms._player_total_games({"completed_games": 155}), 155)
+
+    def test_it_falls_back_to_the_by_size_counts(self):
+        """preview-app.js: Math.max(completed_games, byNormal + byComp)."""
+        stats = {"completed_games": 0,
+                 "normal_games_by_size": {"2": 10, "4": 5},
+                 "comp_games_by_size": {"4": 3}}
+        self.assertEqual(ms._player_total_games(stats), 18)
+
+    def test_the_larger_of_the_two_wins(self):
+        stats = {"completed_games": 155, "normal_games_by_size": {"2": 3}}
+        self.assertEqual(ms._player_total_games(stats), 155)
+        stats = {"completed_games": 2, "normal_games_by_size": {"2": 40}}
+        self.assertEqual(ms._player_total_games(stats), 40)
+
+    def test_an_account_with_no_stats_counts_nothing(self):
+        for stats in ({}, {"completed_games": 0}, {"normal_games_by_size": {}}):
+            self.assertEqual(ms._player_total_games(stats), 0, stats)
+
+    def test_junk_in_a_by_size_map_is_skipped_not_fatal(self):
+        stats = {"normal_games_by_size": {"2": 5, "4": None, "8": "x"}}
+        self.assertEqual(ms._player_total_games(stats), 5)
+
+    def test_a_by_size_field_that_is_not_a_map_is_ignored(self):
+        self.assertEqual(ms._player_total_games(
+            {"completed_games": 7, "normal_games_by_size": 99}), 7)
+
+    def test_it_reads_the_field_the_player_is_shown(self):
+        """Player Home prints stats.hours_played, so that is what is summed:
+        any other field would make the site disagree with the pages."""
+        src = _read("multiplayer_server.py")
+        self.assertIn('stats.get("hours_played")', src)
+        self.assertIn('"stats.completed_games"', src)
+
+    def test_unreachable_firestore_answers_none_never_zero(self):
+        old = ms._get_firestore
+        ms._get_firestore = lambda: None
+        try:
+            self.assertIsNone(ms._fetch_player_stat_totals())
+        finally:
+            ms._get_firestore = old
+
+    def test_the_account_totals_outrank_anything_derived_here(self):
+        src = _read("multiplayer_server.py")
+        self.assertIn("if isinstance(acct_games, int) and acct_games > games_played:", src)
+        self.assertIn("if isinstance(acct_seconds, int) and acct_seconds > play_seconds_measured:", src)
+
+    def test_the_two_sources_are_not_added_together(self):
+        """A game counted on this server was counted on the account too."""
+        src = _read("multiplayer_server.py")
+        self.assertNotIn("play_seconds_measured + acct_seconds", src)
+        self.assertNotIn("games_played + acct_games", src)
+
+    def test_accounts_with_totals_are_not_also_estimated(self):
+        src = _read("multiplayer_server.py")
+        self.assertIn(
+            "untimed_games = max(0, games_played - max(timed_games, acct_games or 0))", src)
+
+    def test_the_split_is_published_for_checking(self):
+        src = _read("multiplayer_server.py")
+        for field in ('"account_games"', '"account_play_seconds"', '"accounts_counted"'):
+            self.assertIn(field, src)
+
+
+class TestTheAccountScanCannotBurnTheReadBudget(unittest.TestCase):
+    """Firestore's free daily allowance ran out once already (2026-09-04) and
+    took XP, game history and both passes with it. This query is one read per
+    account per refresh, so it is the most expensive thing on the endpoint."""
+
+    def test_it_is_cached_for_a_long_time(self):
+        self.assertGreaterEqual(ms.PLAYER_TOTALS_TTL_SEC, 900.0)
+
+    def test_nothing_keeps_it_warm_on_a_timer(self):
+        """A sweeper refreshing this would rescan the whole collection for as
+        long as one homepage is open anywhere."""
+        self.assertEqual(ms._PLAYER_TOTALS_WARM.keep_warm_window, 0.0)
+
+    def test_the_scan_is_bounded(self):
+        self.assertTrue(hasattr(ms, "PLAYER_TOTALS_MAX_ACCOUNTS"))
+        self.assertGreater(ms.PLAYER_TOTALS_MAX_ACCOUNTS, 0)
+        src = _read("multiplayer_server.py")
+        self.assertIn("if accounts >= PLAYER_TOTALS_MAX_ACCOUNTS:", src)
+
+    def test_it_asks_for_only_the_fields_it_needs(self):
+        src = _read("multiplayer_server.py")
+        self.assertIn("users.select(fields).stream()", src)
+        self.assertIn("stream = users.stream()", src,
+                      "no fallback if the projection is rejected")
+
+
 class TestTheGamesNobodyTimed(unittest.TestCase):
     """The site said "101 games played" and "0 hours played" on the same row.
     Both cannot be true, and the second one was the lie: the hours counter was
@@ -499,8 +597,12 @@ class TestTheGamesNobodyTimed(unittest.TestCase):
             self.assertIn(field, src, f"{field} is not on the wire")
 
     def test_the_endpoint_computes_it_the_way_this_test_does(self):
+        """The endpoint subtracts the account totals as well as the server's
+        own timed games, so a game the accounts have already counted is not
+        also estimated. With the accounts reachable this is normally zero."""
         src = _read("multiplayer_server.py")
-        self.assertIn("untimed_games = max(0, games_played - timed_games)", src)
+        self.assertIn(
+            "untimed_games = max(0, games_played - max(timed_games, acct_games or 0))", src)
         self.assertIn("play_seconds_estimated = untimed_games * AVERAGE_GAME_SECONDS", src)
         self.assertIn("play_seconds = play_seconds_measured + play_seconds_estimated", src)
 
