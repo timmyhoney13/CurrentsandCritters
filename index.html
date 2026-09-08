@@ -1092,11 +1092,17 @@
 
     <!-- Three live numbers, straight from the game server's /api/stats. See the
          "Live stats from Render server" script at the bottom of this file: the
-         placeholders below are filled by data-placeholder name. -->
+         placeholders below are filled by data-placeholder name.
+
+         "Players" is everybody who has played, accounts AND guests, which is
+         what the server's players_total field carries. It used to read
+         "Registered Players" and show only the account list, and the whole
+         game is open to guests: every one of them played a game this band was
+         claiming credit for and was left out of the number describing them. -->
     <div class="impact-band big-impact">
       <div class="impact">
         <div class="num"><span class="placeholder" data-placeholder="players">-</span></div>
-        <div class="label">Registered Players</div>
+        <div class="label">Players</div>
       </div>
       <div class="impact">
         <div class="num"><span class="placeholder" data-placeholder="hours">-</span></div>
@@ -1433,7 +1439,13 @@ updateBetaBarClear();
       if (!resp.ok) return;
       const data = await resp.json();
       const liveGames    = Number(data.games_played);
-      const livePlayers  = Number(data.registered_players);
+      // Everybody who has played: accounts plus guests. players_total is what
+      // this build's server sends; an older one (or one mid-deploy) sends only
+      // registered_players, and falling back to it shows a real, smaller
+      // number rather than a blank tile.
+      const livePlayers  = Number.isFinite(Number(data.players_total))
+        ? Number(data.players_total)
+        : Number(data.registered_players);
       // Seconds on the wire, hours on the page: the server counts the thing it
       // can count exactly, and rounding to whole hours is a display decision.
       const liveSeconds  = Number(data.play_seconds);

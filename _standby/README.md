@@ -129,23 +129,50 @@ The homepage stats band is **three live numbers** instead of four:
 
 | shown | comes from |
 |---|---|
-| Registered Players | `/api/stats` → `registered_players` (unchanged) |
+| **Players** | `/api/stats` → `players_total` (accounts **plus guests**) |
 | **Hours Played Online** | `/api/stats` → `play_seconds`, divided by 3600 on the page |
 | Online Games Played | `/api/stats` → `games_played` (unchanged) |
 
-`play_seconds` is new. It is built the same way `games_played` is:
+All three go through `sync_totals_from_history()`, which rebuilds the totals
+from the saved `game_*.json` records:
 
-- **every finished game** adds its own `duration_sec` — the figure already
-  written onto that game's history record — to `site_stats.json` and to the
-  Firestore counter, in the same place the games counter is bumped;
-- **on boot**, `heal_play_seconds_from_history()` sums `duration_sec` across
-  every `game_*.json` and applies it as a **floor** to both stores, so a Render
-  disk reset cannot walk the public number backwards. It runs on its own thread
-  and only at startup: counting filenames is cheap enough to do per request, but
-  opening every record is not.
+- **every finished game** adds `counted_play_seconds(record)` to
+  `site_stats.json` and to the Firestore counter, in the same place the games
+  counter is bumped. `game_counts_as_played()` decides whether it counts at
+  all — the same bar the leaderboard uses, so the increment and the rebuild
+  cannot disagree about what a game is, which they used to;
+- a game's `duration_sec` is wall clock, so a room left open records 40, 71 or
+  114 hours for an ordinary 47-round game. `MAX_COUNTED_GAME_SECONDS` (4h) caps
+  each game's contribution. Nine saved games claimed 255 hours between them
+  before this; the same nine are worth 28;
+- **on boot and whenever a player boots the game** (`/api/health`), the rebuild
+  runs again, throttled to 30s and skipped entirely unless the history
+  directory's fingerprint has changed. It used to run only at server startup,
+  so on a box that stays up for weeks the figure was as old as the deploy.
+  Hours follow the rebuild **in both directions**; games only ever climb.
+- an **empty or unreadable** history directory returns `None`, meaning "no
+  information", never 0. The live server's directory is empty, and read as
+  "nobody has played" it would wipe the totals Firestore is holding.
 
-`get_live_user_counts()` returns four values now, not three, and tolerates a
-three-tuple left in the warm cache by the previous build.
+Guests are counted too. They never sign up, so `/api/user/register` never hears
+about them and they were missing from the public player number entirely. The
+client sends one random per-session token with its `/join`
+(`ccGuestPlayToken()`, sessionStorage so it dies with the sitting), the server
+stamps it on the seat, and `record_guest_players()` counts it **once, ever** at
+the end of a game that was actually finished. There is deliberately **no
+endpoint** that takes somebody's word for a guest: a guest has no account to
+verify, so an open counter would be a curl loop away from printing anything it
+was told, which is exactly what happened to registered players before that
+endpoint required a verified token.
+
+`/api/stats` also publishes `games_recorded` and `games_baseline` so the
+headline games number can be **checked**: `games_played` is floored at
+`STATS_SEED_GAMES`, a baseline hardcoded twice (80 in May 2026, raised to 101
+in June) while the Render disk was failing to keep history files.
+`games_recorded` is the part with saved records behind it.
+
+`get_live_user_counts()` returns five values now, not four, and tolerates a
+shorter tuple left in the warm cache by a previous build.
 
 Covered by `test_hours_played.py`.
 

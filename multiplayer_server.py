@@ -137,6 +137,22 @@ _STATS_SEED_PLAYERS_FLOOR = 18
 STATS_SEED_GAMES   = max(_STATS_SEED_GAMES_FLOOR,   max(0, int(os.environ.get("FISH_STATS_SEED_GAMES",   "0") or "0")))
 STATS_SEED_PLAYERS = max(_STATS_SEED_PLAYERS_FLOOR, max(0, int(os.environ.get("FISH_STATS_SEED_PLAYERS", "0") or "0")))
 
+# ── How long a game is allowed to have taken ───────────────────────────────
+# A saved game's duration_sec is wall clock: ended_unix minus started_unix. It
+# only describes time somebody spent playing while somebody was still at the
+# table, and rooms get left open. The saved history holds 41-47 round games,
+# ordinary complete ones, stamped 40, 71 and 114 hours long, sitting beside a
+# real 24-round game that took 31 minutes. Added up as they stand, nine games
+# claimed 255 hours between them, and that is the number the website was being
+# asked to print as "Hours Played Online".
+#
+# Past this ceiling the clock is describing an abandoned room rather than a
+# game. Such a game is counted AS the ceiling instead of being dropped: it
+# really was played, all 41-47 rounds of it, and only the wall clock stopped
+# describing how long that took. Four hours sits far above any real game and
+# far below any room left open overnight.
+MAX_COUNTED_GAME_SECONDS = 4 * 3600
+
 # ── Chat profanity guard (server-authoritative) ─────────────────────────────
 # Keeps room + spectator chat family-friendly. Swear words are masked with
 # asterisks (the message still sends, minus the swear) so a swear can never
@@ -344,11 +360,12 @@ def _get_firestore():
 
 
 def _fetch_firestore_counters(db):
-    """(games_played, play_seconds) from the Firestore stats doc; either is None
-    if absent. Both live in the SAME document and are read in ONE get(): they
-    are shown side by side on the marketing site and bumped together when a game
-    ends, so splitting them would double the reads to say the same thing."""
-    games = seconds = None
+    """(games_played, play_seconds, guest_players) from the Firestore stats doc;
+    any of them is None if absent. All three live in the SAME document and are
+    read in ONE get(): they are shown side by side on the marketing site and
+    written as a game ends, so splitting them would multiply the reads to say
+    the same thing."""
+    games = seconds = guests = None
     try:
         coll, doc = FIRESTORE_STATS_DOC
         snap = db.collection(coll).document(doc).get()
@@ -360,14 +377,40 @@ def _fetch_firestore_counters(db):
             secs = data.get("play_seconds")
             if isinstance(secs, (int, float)):
                 seconds = int(secs)
+            gst = data.get("guest_players")
+            if isinstance(gst, (int, float)):
+                guests = int(gst)
     except Exception as exc:  # noqa: BLE001
         print(f"[stats] firestore counters read failed: {exc}")
-    return games, seconds
+    return games, seconds, guests
 
 
 def _fetch_firestore_games_played(db):
     """Just the games counter, for the seed path."""
     return _fetch_firestore_counters(db)[0]
+
+
+def bump_firestore_guest_players(n=1):
+    """Add n to the durable guest-player counter (no-op without Firebase).
+
+    Separate from bump_firestore_games_played because it fires on a different
+    question: that one is "a game finished", this one is "somebody who has
+    never been counted played one". Most finished games add nothing here."""
+    if n <= 0:
+        return
+    db = _get_firestore()
+    if db is None:
+        return
+    try:
+        from firebase_admin import firestore
+        Increment = getattr(firestore, "Increment", None)
+        if Increment is None:  # older SDKs expose it only on the v1 module
+            from google.cloud.firestore_v1 import Increment
+        coll, doc = FIRESTORE_STATS_DOC
+        db.collection(coll).document(doc).set(
+            {"guest_players": Increment(int(n))}, merge=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[stats] firestore guest counter increment failed: {exc}")
 
 
 def bump_firestore_games_played(n=1, seconds=0):
@@ -408,33 +451,145 @@ def seed_firestore_games_played(floor):
         print(f"[stats] firestore games_played seed failed: {exc}")
 
 
-def heal_play_seconds_from_history():
-    """Rebuild the play-time counter from the game-history files and apply it as
-    a FLOOR to both stores.
+def game_counts_as_played(record) -> bool:
+    """Whether one saved game belongs in the public games/hours totals.
 
-    Every finished game writes one game_*.json carrying its own duration_sec, so
-    the files are the ground truth, exactly as their count is for games_played.
-    This runs ONCE at startup rather than per request: the games number self-
-    heals inside /api/stats because counting filenames is cheap, and summing a
-    field means opening every file, which is not something to do on the request
-    path. A counter that only ever climbs cannot be walked backwards by a
-    half-written history directory, so both writes take the larger value."""
-    total = 0
+    The same bar the leaderboard already applies (see the end of
+    _save_game_history): a game counts if it ran to the end, or got at least
+    three rounds in before it was abandoned. Below that it is a room somebody
+    opened and walked away from, and the file it leaves behind is not a game
+    anybody played.
+
+    It exists because the two public totals used to disagree about their own
+    subject. The live counter incremented only when a game `ended_normally`,
+    while /api/stats healed itself by COUNTING FILENAMES, which includes every
+    abandoned room, and the larger of the two won: the published number was the
+    file count, and the rule the increment was applying had no effect on it.
+    Both go through here now, so there is one answer to "what is a game"."""
+    if not isinstance(record, dict):
+        return False
+    if record.get("mode") != "truncated":
+        return True
+    return int(record.get("rounds", 0) or 0) >= 3
+
+
+def counted_play_seconds(record) -> int:
+    """One game's contribution to hours-played, clamped to a length a game can
+    actually take. See MAX_COUNTED_GAME_SECONDS for why the raw duration_sec
+    cannot be added up as it stands."""
+    if not game_counts_as_played(record):
+        return 0
+    return max(0, min(int(record.get("duration_sec", 0) or 0),
+                      MAX_COUNTED_GAME_SECONDS))
+
+
+# The last recount and the fingerprint of the directory it was taken from.
+# Re-summing opens every saved game, so it is done only when the directory has
+# actually changed; the fingerprint is (file count, newest mtime, total bytes),
+# which os.scandir answers from the directory entries without opening anything.
+_HISTORY_RECOUNT_LOCK = threading.Lock()
+_HISTORY_FINGERPRINT = None
+_HISTORY_TOTALS = None            # (games, play_seconds), or None: never counted
+_HISTORY_RECOUNT_AT = 0.0
+# A client asks for this check when the game boots, and then every four minutes
+# it stays open, so asking has to be cheap even when the answer is "nothing has
+# changed". This is the floor between two answers.
+HISTORY_RECOUNT_MIN_INTERVAL_SEC = 30.0
+
+
+def _history_fingerprint():
+    """(count, newest mtime, total bytes) over the saved games, or None if the
+    directory cannot be read. Opens no files."""
+    count = 0
+    size = 0
+    newest = 0.0
+    try:
+        with os.scandir(GAMES_HISTORY_DIR) as it:
+            for entry in it:
+                name = entry.name
+                if not (name.startswith("game_") and name.endswith(".json")):
+                    continue
+                try:
+                    st = entry.stat()
+                except OSError:
+                    continue
+                count += 1
+                size += int(st.st_size)
+                if st.st_mtime > newest:
+                    newest = st.st_mtime
+    except OSError:
+        return None
+    return (count, newest, size)
+
+
+def recount_history_totals(force=False):
+    """(games, play_seconds) rebuilt from the saved games, or None when the
+    files have nothing to say.
+
+    None is NOT zero, and the difference is the whole point. An empty or
+    unreadable history directory means this server holds no record to check
+    against, which is the live server's actual situation today: its disk is
+    persistent and its games_history directory is still empty, so /api/stats
+    self-heals from nothing. Read as "nobody has played", it would wipe totals
+    that only survive because Firestore is holding them. Only a directory with
+    games in it is allowed to correct anything."""
+    global _HISTORY_FINGERPRINT, _HISTORY_TOTALS, _HISTORY_RECOUNT_AT
+    now = time.time()
+    with _HISTORY_RECOUNT_LOCK:
+        if not force and (now - _HISTORY_RECOUNT_AT) < HISTORY_RECOUNT_MIN_INTERVAL_SEC:
+            return _HISTORY_TOTALS
+        _HISTORY_RECOUNT_AT = now
+        fingerprint = _history_fingerprint()
+        if fingerprint is None or fingerprint[0] == 0:
+            return _HISTORY_TOTALS
+        if fingerprint == _HISTORY_FINGERPRINT and _HISTORY_TOTALS is not None:
+            return _HISTORY_TOTALS
+
+    games = 0
+    seconds = 0
     try:
         for fname in os.listdir(GAMES_HISTORY_DIR):
             if not (fname.startswith("game_") and fname.endswith(".json")):
                 continue
             try:
                 with open(os.path.join(GAMES_HISTORY_DIR, fname), "r", encoding="utf-8") as f:
-                    total += max(0, int((json.load(f) or {}).get("duration_sec", 0) or 0))
+                    record = json.load(f) or {}
             except (OSError, json.JSONDecodeError, TypeError, ValueError):
                 continue
+            if not game_counts_as_played(record):
+                continue
+            games += 1
+            seconds += counted_play_seconds(record)
     except OSError:
-        return
-    if total <= 0:
-        return
+        return _HISTORY_TOTALS
 
-    stored = 0
+    with _HISTORY_RECOUNT_LOCK:
+        _HISTORY_FINGERPRINT = fingerprint
+        _HISTORY_TOTALS = (games, seconds)
+    return (games, seconds)
+
+
+def sync_totals_from_history(force=False):
+    """Recount the saved games and write the answer into both stores. Returns
+    the (games, play_seconds) it settled on, or None if it had nothing to go on.
+
+    Runs at startup and again whenever somebody boots the game, so hours played
+    is CHECKED against the record rather than only ever accumulated forward.
+
+    The two totals are corrected differently on purpose:
+
+      * Hours follow the recount in BOTH directions. They have to: the stored
+        figure was summed from an unclamped wall clock that counted rooms
+        nobody had closed, and a total that can only ever rise can never shed
+        that. Going down here is a correction, not a loss.
+      * Games only ever climb. A game that was played stays played, and a
+        history directory that has lost files (the live one has lost all of
+        them) must not be able to un-play them."""
+    totals = recount_history_totals(force=force)
+    if totals is None:
+        return None
+    games, seconds = totals
+
     try:
         os.makedirs(os.path.dirname(STATS_PATH), exist_ok=True)
         with STATS_LOCK:
@@ -443,36 +598,119 @@ def heal_play_seconds_from_history():
                     existing = json.load(f)
             except (FileNotFoundError, json.JSONDecodeError):
                 existing = {}
-            stored = int(existing.get("play_seconds", 0) or 0)
-            if total > stored:
-                existing["play_seconds"] = total
+            changed = False
+            if games > int(existing.get("games_played", 0) or 0):
+                existing["games_played"] = games
+                changed = True
+            if seconds != int(existing.get("play_seconds", 0) or 0):
+                existing["play_seconds"] = seconds
+                changed = True
+            if changed:
                 atomic_write_json(STATS_PATH, existing)
-                stored = total
     except Exception as exc:  # noqa: BLE001
-        print(f"[stats] play_seconds heal warning: {exc}")
+        print(f"[stats] history recount write warning: {exc}")
 
-    # Mirror it into Firestore, which is the copy that survives a disk reset.
+    # Mirror into Firestore, the copy that survives a disk reset.
     db = _get_firestore()
     if db is None:
-        return
+        return (games, seconds)
     try:
-        _games, fs_secs = _fetch_firestore_counters(db)
-        if stored > int(fs_secs or 0):
+        fs_games, fs_seconds, _fs_guests = _fetch_firestore_counters(db)
+        payload = {}
+        if games > int(fs_games or 0):
+            payload["games_played"] = games
+        # Lowering the durable figure needs more than a local recount: these
+        # files are only the truth about the hours if they are also the truth
+        # about the GAMES. Where Firestore has counted more games than are on
+        # this disk, it is holding time from games whose files are gone, and
+        # overwriting it would throw that away. Then the recount may only raise.
+        history_is_complete = games >= int(fs_games or 0)
+        if seconds > int(fs_seconds or 0) or history_is_complete:
+            payload["play_seconds"] = seconds
+        if payload:
             coll, doc = FIRESTORE_STATS_DOC
-            db.collection(coll).document(doc).set({"play_seconds": stored}, merge=True)
-            print(f"[stats] firestore play_seconds healed to {stored}")
+            db.collection(coll).document(doc).set(payload, merge=True)
+            print(f"[stats] firestore totals synced from history: {payload}")
     except Exception as exc:  # noqa: BLE001
-        print(f"[stats] firestore play_seconds heal failed: {exc}")
+        print(f"[stats] firestore history sync failed: {exc}")
+    return (games, seconds)
+
+
+# How many guest tokens the stats file remembers. Deduping needs to recognise a
+# session it has already counted and nothing else, so the list is capped and the
+# oldest fall off the front. Unbounded was not an option: seen_uids grew without
+# limit once already, and what exposed it was a loop posting made-up ids. A
+# guest token lives for one sitting, so a few thousand is far more overlap than
+# the dedupe ever has to see.
+GUEST_TOKEN_MEMORY = 5000
+# What a guest token is allowed to look like. Anything else is not from our
+# client and is dropped rather than counted.
+_GUEST_TOKEN_RE = re.compile(r"[A-Za-z0-9_-]{8,64}")
+
+
+def record_guest_players(tokens) -> int:
+    """Count the guests in a finished game, once each, ever. Returns how many
+    of them had never been counted before.
+
+    This mirrors the registered-player counter deliberately: a bounded set of
+    the tokens already counted sits beside the total in the stats file, and the
+    total is mirrored into Firestore so it outlives the disk.
+
+    It is called from the end of a real, finished game and from nowhere else.
+    There is deliberately NO endpoint that takes somebody's word for a guest.
+    /api/user/register can demand a verified Firebase token because there is an
+    account behind every caller; a guest has no account to verify, so an open
+    guest endpoint would be one curl loop away from printing whatever number
+    its caller liked on the front page: which is exactly what happened to
+    registered players before that token check existed. Reached this way, the
+    most a forged token can claim is one extra guest at a table where a real
+    game was really played."""
+    fresh = []
+    for tok in (tokens or []):
+        tok = str(tok or "").strip()
+        if tok and _GUEST_TOKEN_RE.fullmatch(tok):
+            fresh.append(tok)
+    if not fresh:
+        return 0
+
+    added = 0
+    try:
+        os.makedirs(os.path.dirname(STATS_PATH), exist_ok=True)
+        with STATS_LOCK:
+            try:
+                with open(STATS_PATH, "r", encoding="utf-8") as f:
+                    stats = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                stats = {}
+            seen = list(stats.get("seen_guest_tokens") or [])
+            known = set(seen)
+            for tok in fresh:
+                if tok in known:
+                    continue
+                known.add(tok)
+                seen.append(tok)
+                added += 1
+            if not added:
+                return 0
+            stats["guest_players"] = int(stats.get("guest_players", 0) or 0) + added
+            stats["seen_guest_tokens"] = seen[-GUEST_TOKEN_MEMORY:]
+            atomic_write_json(STATS_PATH, stats)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[stats] guest count write failed: {exc}")
+        return 0
+
+    bump_firestore_guest_players(added)
+    return added
 
 
 def _fetch_live_user_counts():
-    """(registered, online, games, play_seconds) straight from Firestore, or all
-    None if unavailable. `games` and `play_seconds` are the persisted
-    cross-deploy counters."""
+    """(registered, online, games, play_seconds, guests) straight from
+    Firestore, or all None if unavailable. `games`, `play_seconds` and `guests`
+    are the persisted cross-deploy counters."""
     db = _get_firestore()
     if db is None:
-        return None, None, None, None
-    games, play_seconds = _fetch_firestore_counters(db)
+        return None, None, None, None, None
+    games, play_seconds, guests = _fetch_firestore_counters(db)
     try:
         users = db.collection("users")
         # Exact account total via server-side aggregate count (no doc data read).
@@ -500,42 +738,45 @@ def _fetch_live_user_counts():
             la_sec = la.timestamp() if hasattr(la, "timestamp") else 0
             if la_sec >= fresh_after:
                 online += 1
-        return registered, online, games, play_seconds
+        return registered, online, games, play_seconds, guests
     except Exception as exc:  # noqa: BLE001
         print(f"[stats] live user count query failed: {exc}")
-        return None, None, games, play_seconds
+        return None, None, games, play_seconds, guests
 
 
 def _live_user_counts_merged():
-    """One refresh of (registered, online, games), each field falling back to
-    the last good one. Returns None if the query answered nothing at all, which
-    is how the cache is told to keep what it already has."""
+    """One refresh of the live counts, each field falling back to the last good
+    one. Returns None if the query answered nothing at all, which is how the
+    cache is told to keep what it already has."""
     prev, _age = _LIVE_COUNTS_WARM.peek("counts")
-    # A cache written by the previous build holds a 3-tuple. Pad it instead of
-    # unpacking straight into four names, which would raise on the first refresh
-    # after a deploy and leave every live count empty.
-    p_reg, p_online, p_games, p_secs = (tuple(prev) + (None,) * 4)[:4] if prev else (None,) * 4
-    registered, online, games, play_seconds = _fetch_live_user_counts()
+    # A cache written by a previous build holds a SHORTER tuple (this has been
+    # a 3-tuple, then a 4-tuple). Pad it instead of unpacking straight into
+    # five names, which would raise on the first refresh after a deploy and
+    # leave every live count empty.
+    p_reg, p_online, p_games, p_secs, p_guests = (
+        (tuple(prev) + (None,) * 5)[:5] if prev else (None,) * 5)
+    registered, online, games, play_seconds, guests = _fetch_live_user_counts()
     merged = (registered if registered is not None else p_reg,
               online if online is not None else p_online,
               games if games is not None else p_games,
-              play_seconds if play_seconds is not None else p_secs)
-    return None if merged == (None, None, None, None) else merged
+              play_seconds if play_seconds is not None else p_secs,
+              guests if guests is not None else p_guests)
+    return None if merged == (None,) * 5 else merged
 
 
 def get_live_user_counts():
-    """(registered, online, games, play_seconds), served instantly from cache
-    and refreshed behind the caller. `games` and `play_seconds` are the
-    persisted Firestore counters.
+    """(registered, online, games, play_seconds, guests), served instantly from
+    cache and refreshed behind the caller. `games`, `play_seconds` and `guests`
+    are the persisted Firestore counters.
 
     This used to be an expire-then-block cache, so every ~30 seconds one
     player's /api/stats or Quick Play poll ran the count aggregate plus the
     whole online query and waited ~2.4s for it. Nobody waits for it now."""
     counts = _LIVE_COUNTS_WARM.get("counts", _live_user_counts_merged)
     if not counts:
-        return (None, None, None, None)
-    # Tolerate a 3-tuple left in the warm cache by the previous build.
-    return (tuple(counts) + (None,) * 4)[:4]
+        return (None, None, None, None, None)
+    # Tolerate a shorter tuple left in the warm cache by a previous build.
+    return (tuple(counts) + (None,) * 5)[:5]
 
 
 # ── Avatar ownership ("% of people own this") ──────────────────────────────
@@ -4717,6 +4958,16 @@ class Seat:
     # so "why are they taking so long" and "why did they misplace that card"
     # have an answer everybody at the table can see.
     device: str = ""
+    # Set when this seat is being played by a GUEST, to a random token the
+    # client makes once per guest session and sends with its join. Guests never
+    # sign up, so /api/user/register never hears about them and they have never
+    # appeared in the public player count, even though the whole game is open
+    # to them. The token is the only way to tell "one guest who played four
+    # games" from "four guests", and it is all it is for: it identifies nobody,
+    # it is never stored against a name, a game or a score, and the server
+    # keeps it only long enough to avoid counting the same session twice.
+    # Empty on a signed-in player and on every bot.
+    guest_token: str = ""
     # The account Level this player is wearing, relayed with their avatar so the
     # waiting room can show it beside their name. Self-reported, exactly like
     # `avatar` and `background` above: it is decoration, never used to decide
@@ -6065,6 +6316,24 @@ class GameRoom:
         the bracket, the scoreboard and the standings always agree.
         """
         return bool(getattr(self, "tournament_id", None) and getattr(seat, "tournament_pid", None))
+
+    def set_seat_guest_token(self, seat_index, guest_token: str) -> None:
+        """Mark the seat this caller ended up in as being played by a guest.
+
+        Applied AFTER claim_seat rather than inside it, because claim_seat
+        returns from five different places (a fresh claim, a takeover, a seat
+        switch, an explicit re-claim of the seat you already hold, and a plain
+        reconnect) and every one of them is a guest sitting down. One stamp on
+        the seat_index it hands back covers all five and cannot fall out of step
+        with a sixth."""
+        token = str(guest_token or "").strip()[:64]
+        if not token or not isinstance(seat_index, int):
+            return
+        with self.cond:
+            for seat in self.seats:
+                if seat.index == seat_index and seat.kind == "human":
+                    seat.guest_token = token
+                    return
 
     def claim_seat(
         self,
@@ -10134,8 +10403,30 @@ class GameRoom:
             fname = f"game_{self.room_id}_{now_unix()}.json"
             atomic_write_json(os.path.join(GAMES_HISTORY_DIR, fname), record)
             self._record_event(f"Game history saved: {fname} (rounds={rounds_played})")
-            # Increment persistent games_played counter for the marketing site stats.
-            if ended_normally:
+            # Increment the persistent counters behind the marketing site.
+            #
+            # What qualifies, and how many seconds it is worth, are both asked
+            # of the record that was just written, through the same two
+            # functions the rebuild uses. They used to be decided here and
+            # nowhere else, with a different rule from the one /api/stats
+            # applied when it healed itself, and the disagreement is what let
+            # the site publish a games number the increment had never agreed to
+            # and an hours number summed from rooms nobody had closed.
+            # Who at this table was a guest. Read off the seats rather than
+            # the record: a guest token identifies a session so it can be
+            # counted once, and it is never written into a game's history,
+            # where it would outlive the sitting it belongs to and sit next to
+            # the name and score of the person who used it.
+            try:
+                guest_tokens = [
+                    s.guest_token for s in self.seats
+                    if s.kind == "human" and getattr(s, "guest_token", "")
+                ]
+            except Exception:
+                guest_tokens = []
+            _counts = game_counts_as_played(record)
+            _secs = counted_play_seconds(record)
+            if _counts:
                 try:
                     os.makedirs(os.path.dirname(STATS_PATH), exist_ok=True)
                     with STATS_LOCK:
@@ -10147,9 +10438,9 @@ class GameRoom:
                         _stats["games_played"] = int(_stats.get("games_played", 0)) + 1
                         # Hours played, counted in the one place that knows how
                         # long the game actually took. It is the same number
-                        # already written onto the record above, so the counter
-                        # and the history files can never disagree.
-                        _stats["play_seconds"] = int(_stats.get("play_seconds", 0)) + int(record.get("duration_sec", 0) or 0)
+                        # the rebuild would derive from the record above, so the
+                        # counter and the history files cannot disagree.
+                        _stats["play_seconds"] = int(_stats.get("play_seconds", 0)) + _secs
                         atomic_write_json(STATS_PATH, _stats)
                 except Exception as _se:
                     self._record_event(f"Stats games_played update warning: {_se}")
@@ -10157,9 +10448,17 @@ class GameRoom:
                 # numbers survive Render redeploys / disk resets and keep
                 # climbing as games finish.
                 try:
-                    bump_firestore_games_played(1, int(record.get("duration_sec", 0) or 0))
+                    bump_firestore_games_played(1, _secs)
                 except Exception as _fe:
                     self._record_event(f"Firestore games_played bump warning: {_fe}")
+                # Everyone at this table who was playing as a guest, counted
+                # once each, ever. Guests never sign up, so /api/user/register
+                # never hears about them and the public player number has been
+                # counting only half the people who have played.
+                try:
+                    record_guest_players(guest_tokens)
+                except Exception as _ge:
+                    self._record_event(f"Guest count update warning: {_ge}")
             # Only count truncated games in leaderboard if they went a reasonable distance.
             if ended_normally or rounds_played >= 3:
                 self._update_history_leaderboard(player_details, winner_name)
@@ -12514,7 +12813,7 @@ def _analytics_live_snapshot() -> Dict[str, Any]:
     # this snapshot feeds the dashboard's landing page. Neither is worth
     # blanking the Overview over: an unreadable count is reported as unknown.
     try:
-        _reg, online, _games, _secs = get_live_user_counts()
+        _reg, online, _games, _secs, _guests = get_live_user_counts()
     except Exception:  # noqa: BLE001
         online = -1
     try:
@@ -13684,6 +13983,20 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/health":
+            # Somebody is booting the game (this is the client's first call,
+            # and its keep-alive after that), so check the play totals against
+            # the saved games while we know a player is arriving. Hours played
+            # used to be rebuilt ONCE, at server startup, which on a box that
+            # stays up for weeks meant the rebuilt figure was as old as the
+            # deploy. Off the request thread: booting the game waits for the
+            # health check, and the health check must not wait for a directory.
+            # sync_totals_from_history throttles itself, so the four-minute
+            # keep-alives behind this cost a listing at most.
+            try:
+                threading.Thread(target=sync_totals_from_history,
+                                 name="stats-recount", daemon=True).start()
+            except Exception:  # noqa: BLE001
+                pass
             # Load telemetry, so a struggling server can be SEEN struggling
             # instead of only being reported as "the game feels slow".
             # deep_plan_skipped climbing fast = bots are shedding their rollout
@@ -14089,7 +14402,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             except Exception:  # noqa: BLE001
                 queued = 0
             try:
-                _reg, online, _games, _secs = get_live_user_counts()
+                _reg, online, _games, _secs, _guests = get_live_user_counts()
             except Exception:  # noqa: BLE001
                 online = None
             self._send_json({
@@ -14103,10 +14416,20 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/stats":
-            # All three counters live in STATS_PATH on the persistent disk.
+            # Every counter lives in STATS_PATH on the persistent disk.
             games_played = 0
             registered_players = 0
             play_seconds = 0
+            guest_players = 0
+            # Check the saved games before reading the counters, so a stats
+            # file that has drifted from the record is corrected rather than
+            # published. Throttled and fingerprinted: the usual answer is
+            # "nothing has changed since the last caller" and costs one
+            # directory listing. See recount_history_totals.
+            try:
+                sync_totals_from_history()
+            except Exception:  # noqa: BLE001
+                pass
             try:
                 with STATS_LOCK:
                     with open(STATS_PATH, "r", encoding="utf-8") as f:
@@ -14114,22 +14437,8 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                         games_played = int(_s.get("games_played", 0))
                         registered_players = int(_s.get("registered_players", 0))
                         play_seconds = int(_s.get("play_seconds", 0))
+                        guest_players = int(_s.get("guest_players", 0) or 0)
             except (FileNotFoundError, json.JSONDecodeError):
-                pass
-            # Self-heal games_played from the actual game-history files on disk:
-            # every finished game writes one game_*.json record, so the file
-            # count is the ground truth. The stored counter can lag if the
-            # in-game increment ever missed a game, so report whichever is
-            # larger. This keeps the marketing-site number exact and always
-            # moving as new games complete.
-            try:
-                history_games = sum(
-                    1 for _fn in os.listdir(GAMES_HISTORY_DIR)
-                    if _fn.startswith("game_") and _fn.endswith(".json")
-                )
-                if history_games > games_played:
-                    games_played = history_games
-            except OSError:
                 pass
             # Exact registered + live online counts straight from Firestore (the
             # real account list), when a service account is configured. Every
@@ -14138,7 +14447,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             # seen-uid counter / 0 when Firebase isn't configured. The persisted
             # Firestore games counter is folded in too so the games number keeps
             # climbing even if the Render disk lost its game-history files.
-            live_registered, live_online, live_games, live_seconds = get_live_user_counts()
+            live_registered, live_online, live_games, live_seconds, live_guests = get_live_user_counts()
             if isinstance(live_registered, int) and live_registered >= 0:
                 registered_players = live_registered
             online_players = live_online if isinstance(live_online, int) and live_online >= 0 else 0
@@ -14146,16 +14455,48 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 games_played = live_games
             if isinstance(live_seconds, int) and live_seconds > play_seconds:
                 play_seconds = live_seconds
+            if isinstance(live_guests, int) and live_guests > guest_players:
+                guest_players = live_guests
+            # What the saved games actually add up to on THIS server, published
+            # beside the headline number so the headline can be checked rather
+            # than taken on trust.
+            #
+            # It is worth being able to check. games_played is floored at
+            # STATS_SEED_GAMES, a baseline hardcoded twice (80 in May 2026,
+            # raised to 101 in June) to stop the counter reading zero while the
+            # Render disk was failing to keep game-history files. The floor
+            # works, and it is still here because lowering a public number is
+            # not this code's decision to make: but it means the published
+            # figure is a floor plus whatever has been counted since, and
+            # nothing on the wire said so. games_recorded is the part with
+            # records behind it. On a server whose history directory is empty
+            # it is 0, which is the honest description of what that server can
+            # actually prove.
+            games_recorded = 0
+            _recount = recount_history_totals()
+            if _recount is not None:
+                games_recorded = int(_recount[0])
             # Never report below the historical baseline.
             if games_played < STATS_SEED_GAMES:
                 games_played = STATS_SEED_GAMES
             # Seconds on the wire, not hours. The exact figure is what the
             # server has, and rounding it is the caller's decision: the site
             # shows whole hours, the analytics dashboard wants the remainder.
+            #
+            # players_total is the one the homepage prints. Everybody who has
+            # played is in it, which until now the site had no way of saying:
+            # `registered_players` is the account list, and the whole game is
+            # open to guests who never appear in it. The two halves are still
+            # sent separately, because a total is not a substitute for knowing
+            # which is which.
             self._send_json({
                 "ok": True,
                 "games_played": games_played,
+                "games_recorded": games_recorded,
+                "games_baseline": STATS_SEED_GAMES,
                 "registered_players": registered_players,
+                "guest_players": guest_players,
+                "players_total": registered_players + guest_players,
                 "online_players": online_players,
                 "play_seconds": play_seconds,
                 "hours_played": play_seconds // 3600,
@@ -14192,7 +14533,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             # registered-account count when the stream total is unavailable.
             counts, total = get_icon_ownership()
             if not isinstance(total, int) or total <= 0:
-                reg, _online, _games, _secs = get_live_user_counts()
+                reg, _online, _games, _secs, _guests = get_live_user_counts()
                 total = reg if isinstance(reg, int) and reg > 0 else 0
             self._send_json({
                 "ok": True,
@@ -14835,6 +15176,16 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 allow_takeover=allow_takeover,
                 allow_host_takeover=allow_host_takeover,
             )
+            # A guest says so as they sit down, and that is the only way the
+            # server ever finds out: a guest has no account, so nothing else
+            # about this request distinguishes them from a signed-in player.
+            # It is counted at the END of a finished game, not here, so the
+            # public number means "guests who have played" rather than "guests
+            # who once opened a lobby".
+            if out.get("ok"):
+                room.set_seat_guest_token(
+                    out.get("seat_index"),
+                    body.get("guest_token") if isinstance(body.get("guest_token"), str) else "")
 
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
@@ -15776,13 +16127,15 @@ def main() -> None:
         except Exception as _fe:
             print(f"Firestore stats seed warning: {_fe}")
 
-    # Rebuild hours-played from the history files. Its own block, not folded
+    # Recount games and hours from the history files. Its own block, not folded
     # into the seed above: the seed is gated on the baselines being set, and
     # this has to run on every boot to pick up games finished before the
     # counter existed. Threaded because it opens every game record, and
-    # nothing should wait on that to start listening.
-    threading.Thread(target=heal_play_seconds_from_history, daemon=True,
-                     name="stats-play-seconds-heal").start()
+    # nothing should wait on that to start listening. force=True because the
+    # throttle exists to protect the per-boot check on /api/health, and a
+    # server that has just started has nothing to be protected from.
+    threading.Thread(target=lambda: sync_totals_from_history(force=True), daemon=True,
+                     name="stats-history-recount").start()
 
     restore_stats = ROOMS.load_persisted_rooms(CARD_DB)
 

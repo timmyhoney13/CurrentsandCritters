@@ -1107,7 +1107,49 @@
       } finally { if (tid) clearTimeout(tid); }
     }
   }
-  async function apiPost(path, body, opts={}) { return apiFetch(path, { ...opts, method:"POST", body }); }
+  // ── The guest half of the public player count ───────────────────────────
+  // The homepage says how many people have played. Until now it could only
+  // count accounts, because signing up is the only thing that ever told the
+  // server a person existed, and the whole game is open to guests who never
+  // sign up: every one of them was played and never counted.
+  //
+  // This is the smallest thing that fixes that: one opaque random token per
+  // guest sitting, sent as they sit down, counted once by the server at the
+  // end of a game they actually finished. It identifies nobody, is attached to
+  // no name, score or game, and the server keeps it only long enough not to
+  // count the same sitting twice.
+  //
+  // sessionStorage, not localStorage, and deliberately: a guest is promised
+  // that closing the game leaves nothing of theirs on the computer, and this
+  // keeps that promise true. It also happens to be the right grain for the
+  // count, because PLAY AS GUEST is a new player every time.
+  const CC_GUEST_PLAY_TOKEN_KEY = "cc_guest_play_token";
+  function ccGuestPlayToken() {
+    try {
+      if (!(typeof window.__fishIsGuest === "function" && window.__fishIsGuest())) return "";
+      let t = sessionStorage.getItem(CC_GUEST_PLAY_TOKEN_KEY);
+      if (!t) {
+        t = "g" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+        sessionStorage.setItem(CC_GUEST_PLAY_TOKEN_KEY, t);
+      }
+      return t;
+    } catch (_) { return ""; }
+  }
+
+  async function apiPost(path, body, opts={}) {
+    // Attached here rather than at the call sites because there are nine ways
+    // into a seat (Quick Play, a room code, a rejoin, single player, both of
+    // competitive's seats, the tournament bridge, the practice table...) and
+    // they all come through this one function. A tenth cannot be written that
+    // forgets to carry it.
+    let payload = body;
+    if (typeof path === "string" && String(path).split("?")[0].endsWith("/join")
+        && payload && typeof payload === "object" && !Array.isArray(payload)) {
+      const guestToken = ccGuestPlayToken();
+      if (guestToken) payload = { ...payload, guest_token: guestToken };
+    }
+    return apiFetch(path, { ...opts, method:"POST", body: payload });
+  }
 
   // ── Tournament Mode bridge ─────────────────────────────────────────────
   // Tournament Mode lives in its own module (js/tournament-ui.js). LIVE for
