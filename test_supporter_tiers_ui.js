@@ -3,12 +3,22 @@
  *
  * Run:  node test_supporter_tiers_ui.js
  *
- * The dearest tier (Tsunami, $100) has no Stripe Payment Link yet. That is the
- * whole risk this file exists for: a tier is granted by the PRICE of the link
- * its button opens, so a locked tier that renders a live-looking Buy button
- * pointed at some other product would charge the wrong amount and grant the
- * wrong tier with no visible symptom. Grepping the source for "soon: true"
- * proves the DATA says so; only rendering proves the BUTTON does.
+ * The Store is CLOSED right now (PHST_STORE_CLOSED in preview-app.js), so the
+ * shelf is rendered TWICE here:
+ *
+ *   1. As shipped. The whole point of a closed store is that nothing on it can
+ *      be bought, and the only proof of that is rendering it and finding no
+ *      button, no Payment Link and no coin-spend anywhere in the output.
+ *   2. With the flag forced off. Every tier, price and grant below is still in
+ *      the file, waiting to be switched back on, and a shelf nobody renders is
+ *      a shelf nobody notices going wrong. These checks keep the standby copy
+ *      honest while it is switched off.
+ *
+ * A tier is granted by the PRICE of the link its button opens, so a tier whose
+ * checkout is not live yet must render a locked button and NOT a live-looking
+ * one pointed at some other product, which would charge the wrong amount and
+ * grant the wrong tier with no visible symptom. Grepping the source for
+ * "soon: true" proves the DATA says so; only rendering proves the BUTTON does.
  *
  * Above $100 there is no button at all, by design: renderPhStore paints a card
  * that opens a ready-written email instead, and that template has to keep the
@@ -56,6 +66,7 @@ function grabFn(name, indent) {
   throw new Error("unbalanced braces reading " + name);
 }
 
+const CLOSED_FLAG = grabBlock("const PHST_STORE_CLOSED = ", ";");
 const PACKS  = grabBlock("const PHST_COIN_PACKS = [", "\n      ];");
 const TIERS  = grabBlock("const PHST_SUPPORTER_TIERS = [", "\n      ];");
 const PHYS   = grabBlock("const PHST_PHYSICAL = [", "];");
@@ -77,27 +88,53 @@ function fakeNode() {
     focus() {}, select() {},
   };
 }
-const shelf = fakeNode();
-const sandbox = {
-  console,
-  document: {
-    getElementById: (id) => (id === "ph-store-content" ? shelf : null),
-    createElement: () => fakeNode(),
-    body: { appendChild() {} },
-    addEventListener() {}, removeEventListener() {},
-  },
-  window: {},
-  navigator: {},
-  phstFmtCoins: (n) => Number(n).toLocaleString("en-US"),
-  escapeHtml: (s) => String(s).replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])),
-  _authUser: { uid: "u1" },
-};
-sandbox.window.window = sandbox.window;
-vm.createContext(sandbox);
-vm.runInContext([EMAIL, TPL, PACKS, TIERS, PHYS, RENDER, CUSTOM].join("\n"), sandbox);
-vm.runInContext("renderPhStore();", sandbox);
-const HTML = shelf.innerHTML;
+// One fresh context per render: PHST_STORE_CLOSED is a `const`, so the open
+// and closed shelves cannot share a sandbox.
+function renderWith(flagSource) {
+  const shelf = fakeNode();
+  const sandbox = {
+    console,
+    document: {
+      getElementById: (id) => (id === "ph-store-content" ? shelf : null),
+      createElement: () => fakeNode(),
+      body: { appendChild() {} },
+      addEventListener() {}, removeEventListener() {},
+    },
+    window: {},
+    navigator: {},
+    phstFmtCoins: (n) => Number(n).toLocaleString("en-US"),
+    escapeHtml: (s) => String(s).replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])),
+    _authUser: { uid: "u1" },
+  };
+  sandbox.window.window = sandbox.window;
+  vm.createContext(sandbox);
+  vm.runInContext([EMAIL, TPL, PACKS, TIERS, PHYS, flagSource, RENDER, CUSTOM].join("\n"), sandbox);
+  vm.runInContext("renderPhStore();", sandbox);
+  return { html: shelf.innerHTML, sandbox, shelf };
+}
+
+const CLOSED = renderWith(CLOSED_FLAG);                        // exactly as shipped
+const OPEN   = renderWith("const PHST_STORE_CLOSED = false;"); // the shelf on standby
+const sandbox = OPEN.sandbox;
+const shelf = OPEN.shelf;
+const HTML = OPEN.html;
+
+console.log("\nthe store is shut");
+check(/const PHST_STORE_CLOSED = true;/.test(APP),
+      "the flag in the shipped file is ON");
+check(/phst-closed/.test(CLOSED.html) && /Coming soon/.test(CLOSED.html),
+      "the shelf paints one Coming soon panel");
+check(!/<button/.test(CLOSED.html),
+      "there is no button of any kind on the closed shelf");
+check(!/data-stripe/.test(CLOSED.html),
+      "nothing on it opens a Stripe checkout");
+check(!/data-skin=|data-bg=|data-perk=|data-custom-tier/.test(CLOSED.html),
+      "and nothing on it spends Critter Coins either");
+check(!/phst-tier-grid|phst-coin-grid|phst-perk-grid/.test(CLOSED.html),
+      "no tier grid, no coin packs, no perks: the shelf itself is gone");
+check(!/buy\.stripe\.com/.test(CLOSED.html),
+      "no Payment Link reaches the page while the store is shut");
 
 /* ── what the server says the shelf must sell ────────────────────────── */
 function pyTable(name) {
@@ -199,7 +236,7 @@ console.log("\nthe styles the render depends on");
 // Every class the render actually emits, checked ON ITS OWN. An `||` fallback
 // here would have let a deleted rule pass on the strength of its neighbour.
 const emitted = new Set();
-for (const m of (HTML + dlg.innerHTML).matchAll(/class="([^"]+)"/g)) {
+for (const m of (HTML + CLOSED.html + dlg.innerHTML).matchAll(/class="([^"]+)"/g)) {
   for (const c of m[1].split(/\s+/)) if (/^(phst-|cctm-)/.test(c)) emitted.add(c);
 }
 for (const cls of emitted) {

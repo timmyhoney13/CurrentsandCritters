@@ -343,24 +343,38 @@ def _get_firestore():
         return _FIRESTORE_DB
 
 
-def _fetch_firestore_games_played(db):
-    """Persisted games_played from the Firestore stats doc, or None if absent."""
+def _fetch_firestore_counters(db):
+    """(games_played, play_seconds) from the Firestore stats doc; either is None
+    if absent. Both live in the SAME document and are read in ONE get(): they
+    are shown side by side on the marketing site and bumped together when a game
+    ends, so splitting them would double the reads to say the same thing."""
+    games = seconds = None
     try:
         coll, doc = FIRESTORE_STATS_DOC
         snap = db.collection(coll).document(doc).get()
         if snap.exists:
-            val = (snap.to_dict() or {}).get("games_played")
+            data = snap.to_dict() or {}
+            val = data.get("games_played")
             if isinstance(val, (int, float)):
-                return int(val)
+                games = int(val)
+            secs = data.get("play_seconds")
+            if isinstance(secs, (int, float)):
+                seconds = int(secs)
     except Exception as exc:  # noqa: BLE001
-        print(f"[stats] firestore games_played read failed: {exc}")
-    return None
+        print(f"[stats] firestore counters read failed: {exc}")
+    return games, seconds
 
 
-def bump_firestore_games_played(n=1):
-    """Atomically add n to the persisted games_played counter (no-op if Firebase
-    isn't configured). Called once per finished game so the marketing counter
-    keeps climbing even across Render redeploys / disk resets."""
+def _fetch_firestore_games_played(db):
+    """Just the games counter, for the seed path."""
+    return _fetch_firestore_counters(db)[0]
+
+
+def bump_firestore_games_played(n=1, seconds=0):
+    """Atomically add n games and `seconds` of play time to the persisted
+    counters (no-op if Firebase isn't configured). Called once per finished game
+    so the marketing numbers keep climbing even across Render redeploys / disk
+    resets. One set() carries both: they are always bumped together."""
     db = _get_firestore()
     if db is None:
         return
@@ -369,15 +383,13 @@ def bump_firestore_games_played(n=1):
         Increment = getattr(firestore, "Increment", None)
         if Increment is None:  # older SDKs expose it only on the v1 module
             from google.cloud.firestore_v1 import Increment
+        payload = {"games_played": Increment(n)}
+        if seconds:
+            payload["play_seconds"] = Increment(int(seconds))
         coll, doc = FIRESTORE_STATS_DOC
-        db.collection(coll).document(doc).set(
-            {"games_played": Increment(n)}, merge=True
-        )
-        # Reflect the bump immediately instead of waiting for the cache TTL.
-        if isinstance(_LIVE_COUNTS_CACHE.get("games"), int):
-            _LIVE_COUNTS_CACHE["games"] += n
+        db.collection(coll).document(doc).set(payload, merge=True)
     except Exception as exc:  # noqa: BLE001
-        print(f"[stats] firestore games_played increment failed: {exc}")
+        print(f"[stats] firestore counter increment failed: {exc}")
 
 
 def seed_firestore_games_played(floor):
@@ -396,13 +408,71 @@ def seed_firestore_games_played(floor):
         print(f"[stats] firestore games_played seed failed: {exc}")
 
 
-def _fetch_live_user_counts():
-    """(registered, online, games) straight from Firestore, or (None, None, None)
-    if unavailable. `games` is the persisted cross-deploy games_played counter."""
+def heal_play_seconds_from_history():
+    """Rebuild the play-time counter from the game-history files and apply it as
+    a FLOOR to both stores.
+
+    Every finished game writes one game_*.json carrying its own duration_sec, so
+    the files are the ground truth, exactly as their count is for games_played.
+    This runs ONCE at startup rather than per request: the games number self-
+    heals inside /api/stats because counting filenames is cheap, and summing a
+    field means opening every file, which is not something to do on the request
+    path. A counter that only ever climbs cannot be walked backwards by a
+    half-written history directory, so both writes take the larger value."""
+    total = 0
+    try:
+        for fname in os.listdir(GAMES_HISTORY_DIR):
+            if not (fname.startswith("game_") and fname.endswith(".json")):
+                continue
+            try:
+                with open(os.path.join(GAMES_HISTORY_DIR, fname), "r", encoding="utf-8") as f:
+                    total += max(0, int((json.load(f) or {}).get("duration_sec", 0) or 0))
+            except (OSError, json.JSONDecodeError, TypeError, ValueError):
+                continue
+    except OSError:
+        return
+    if total <= 0:
+        return
+
+    stored = 0
+    try:
+        os.makedirs(os.path.dirname(STATS_PATH), exist_ok=True)
+        with STATS_LOCK:
+            try:
+                with open(STATS_PATH, "r", encoding="utf-8") as f:
+                    existing = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                existing = {}
+            stored = int(existing.get("play_seconds", 0) or 0)
+            if total > stored:
+                existing["play_seconds"] = total
+                atomic_write_json(STATS_PATH, existing)
+                stored = total
+    except Exception as exc:  # noqa: BLE001
+        print(f"[stats] play_seconds heal warning: {exc}")
+
+    # Mirror it into Firestore, which is the copy that survives a disk reset.
     db = _get_firestore()
     if db is None:
-        return None, None, None
-    games = _fetch_firestore_games_played(db)
+        return
+    try:
+        _games, fs_secs = _fetch_firestore_counters(db)
+        if stored > int(fs_secs or 0):
+            coll, doc = FIRESTORE_STATS_DOC
+            db.collection(coll).document(doc).set({"play_seconds": stored}, merge=True)
+            print(f"[stats] firestore play_seconds healed to {stored}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[stats] firestore play_seconds heal failed: {exc}")
+
+
+def _fetch_live_user_counts():
+    """(registered, online, games, play_seconds) straight from Firestore, or all
+    None if unavailable. `games` and `play_seconds` are the persisted
+    cross-deploy counters."""
+    db = _get_firestore()
+    if db is None:
+        return None, None, None, None
+    games, play_seconds = _fetch_firestore_counters(db)
     try:
         users = db.collection("users")
         # Exact account total via server-side aggregate count (no doc data read).
@@ -430,10 +500,10 @@ def _fetch_live_user_counts():
             la_sec = la.timestamp() if hasattr(la, "timestamp") else 0
             if la_sec >= fresh_after:
                 online += 1
-        return registered, online, games
+        return registered, online, games, play_seconds
     except Exception as exc:  # noqa: BLE001
         print(f"[stats] live user count query failed: {exc}")
-        return None, None, games
+        return None, None, games, play_seconds
 
 
 def _live_user_counts_merged():
@@ -441,23 +511,31 @@ def _live_user_counts_merged():
     the last good one. Returns None if the query answered nothing at all, which
     is how the cache is told to keep what it already has."""
     prev, _age = _LIVE_COUNTS_WARM.peek("counts")
-    p_reg, p_online, p_games = prev if prev else (None, None, None)
-    registered, online, games = _fetch_live_user_counts()
+    # A cache written by the previous build holds a 3-tuple. Pad it instead of
+    # unpacking straight into four names, which would raise on the first refresh
+    # after a deploy and leave every live count empty.
+    p_reg, p_online, p_games, p_secs = (tuple(prev) + (None,) * 4)[:4] if prev else (None,) * 4
+    registered, online, games, play_seconds = _fetch_live_user_counts()
     merged = (registered if registered is not None else p_reg,
               online if online is not None else p_online,
-              games if games is not None else p_games)
-    return None if merged == (None, None, None) else merged
+              games if games is not None else p_games,
+              play_seconds if play_seconds is not None else p_secs)
+    return None if merged == (None, None, None, None) else merged
 
 
 def get_live_user_counts():
-    """(registered, online, games), served instantly from cache and refreshed
-    behind the caller. `games` is the persisted Firestore games_played.
+    """(registered, online, games, play_seconds), served instantly from cache
+    and refreshed behind the caller. `games` and `play_seconds` are the
+    persisted Firestore counters.
 
     This used to be an expire-then-block cache, so every ~30 seconds one
     player's /api/stats or Quick Play poll ran the count aggregate plus the
     whole online query and waited ~2.4s for it. Nobody waits for it now."""
     counts = _LIVE_COUNTS_WARM.get("counts", _live_user_counts_merged)
-    return counts if counts else (None, None, None)
+    if not counts:
+        return (None, None, None, None)
+    # Tolerate a 3-tuple left in the warm cache by the previous build.
+    return (tuple(counts) + (None,) * 4)[:4]
 
 
 # ── Avatar ownership ("% of people own this") ──────────────────────────────
@@ -1066,6 +1144,30 @@ CF_USERNAME_LABELS   = (
     "Currents & Critters Online Username",   # the original wording, still live
 )
 
+# ⚠️ THE SAME TOLERANCE, FOR THE TWO WALL QUESTIONS, AND IT IS NOT THEORETICAL.
+# Only the Tsunami link (the newest) asks the two questions above by these
+# names. The other SEVEN live links, the three cheaper tiers and all four coin
+# packs, were built earlier and ask the same two things in the wording below.
+# Matching the new spelling alone read every one of those answers as "", so a
+# Wave Warrior / Ocean Ally / Tide Turner / coin-pack buyer typed a name, paid,
+# and landed on the Reef Wall as ANONYMOUS: `_is_affirmative("")` is false, so
+# the public-choice question failing takes the name down with it even when the
+# name itself was answered. The money and the tier were always right (those come
+# from amount_total), which is exactly why nothing ever looked broken.
+#
+# So both questions accept both wordings, first match wins, newest first. This
+# is the same fix already made for the username question, for the same reason:
+# a label is a behaviour key, and the key on a link that is already live cannot
+# be changed retroactively for purchases that already happened.
+CF_WALL_NAME_LABELS = (
+    CF_WALL_NAME_LABEL,
+    "What do you want the name to be?",      # the 7 older links, still live
+)
+CF_WALL_PUBLIC_LABELS = (
+    CF_WALL_PUBLIC_LABEL,
+    "Add a custom name to our website Donation Wall?",   # ditto
+)
+
 
 def _supporter_tier_for_total(total_cents: Any) -> Tuple[Optional[str], Optional[str]]:
     """(tier, wall_size) for a LIFETIME total in cents, or (None, None) below $10."""
@@ -1413,8 +1515,8 @@ def _process_stripe_checkout(event: dict) -> str:
 
     # (7) the three custom questions, read by their EXACT Stripe labels.
     custom_fields = session.get("custom_fields")
-    supporter_wall_name  = _custom_field_value(custom_fields, CF_WALL_NAME_LABEL)
-    public_wall_choice   = _custom_field_value(custom_fields, CF_WALL_PUBLIC_LABEL)
+    supporter_wall_name  = _custom_field_value(custom_fields, CF_WALL_NAME_LABELS)
+    public_wall_choice   = _custom_field_value(custom_fields, CF_WALL_PUBLIC_LABELS)
     username_typed       = _custom_field_value(custom_fields, CF_USERNAME_LABELS).strip()
     username_typed_lower = username_typed.lower()
 
@@ -6893,6 +6995,12 @@ class GameRoom:
         # Must run before anything below reads self.seats. No-op for
         # competitive/tutorial (see _randomize_seat_positions_locked).
         self._randomize_seat_positions_locked()
+        # WHOSE game is this? The Controller is asked for in the LOBBY, so a
+        # launch out of the lobby is the very game the table voted on and the
+        # arming has to survive it; a launch out of "ended" is a rematch or a
+        # restart, which is a different game and inherits nothing. Read before
+        # anything below moves the phase. See the reset further down.
+        _cc_from_lobby = (self.phase == "lobby")
         # Ensure every game start/restart gets a fresh random shuffle seed.
         self.seed = secrets.randbits(64)
         self.phase = "running"
@@ -6965,11 +7073,22 @@ class GameRoom:
         # The Controller decision belongs to ONE game. A rematch is a new game,
         # so the table is asked again rather than inheriting a yes nobody gave
         # for this one. (A "no" clears too: it closed one request, not the room.)
-        self.cc_seat = None
-        self.cc_token = None
-        self.cc_votes = {}
-        self.cc_armed = False
-        self.cc_denied = False
+        #
+        # ⚠️ ONLY when this launch is NOT the game the table voted on. Clearing
+        # unconditionally here was a reset at the wrong end of the decision: the
+        # vote can only be cast in the lobby, so wiping it at launch wiped it
+        # between the yes and the first card, every time. The permission was
+        # gone before the game it was granted for had dealt a hand, and
+        # `_cc_may_mod_locked` then said no for the rest of the match, which
+        # made the whole Supporter half of the feature dead on arrival while
+        # every unit test still passed: they all stop at the lobby. Covered now
+        # by test_current_controller_integration.py, which starts a real game.
+        if not _cc_from_lobby:
+            self.cc_seat = None
+            self.cc_token = None
+            self.cc_votes = {}
+            self.cc_armed = False
+            self.cc_denied = False
         # Reset chat-based AFK voting state for the fresh game.
         self.afk_votes = {}
         self.afk_nominated_this_turn = set()
@@ -10011,14 +10130,19 @@ class GameRoom:
                         except (FileNotFoundError, json.JSONDecodeError):
                             _stats = {"registered_players": 0, "seen_uids": [], "games_played": 0}
                         _stats["games_played"] = int(_stats.get("games_played", 0)) + 1
+                        # Hours played, counted in the one place that knows how
+                        # long the game actually took. It is the same number
+                        # already written onto the record above, so the counter
+                        # and the history files can never disagree.
+                        _stats["play_seconds"] = int(_stats.get("play_seconds", 0)) + int(record.get("duration_sec", 0) or 0)
                         atomic_write_json(STATS_PATH, _stats)
                 except Exception as _se:
                     self._record_event(f"Stats games_played update warning: {_se}")
-                # Also bump the persisted Firestore counter so the marketing
-                # number survives Render redeploys / disk resets and keeps
+                # Also bump the persisted Firestore counters so the marketing
+                # numbers survive Render redeploys / disk resets and keep
                 # climbing as games finish.
                 try:
-                    bump_firestore_games_played(1)
+                    bump_firestore_games_played(1, int(record.get("duration_sec", 0) or 0))
                 except Exception as _fe:
                     self._record_event(f"Firestore games_played bump warning: {_fe}")
             # Only count truncated games in leaderboard if they went a reasonable distance.
@@ -12375,7 +12499,7 @@ def _analytics_live_snapshot() -> Dict[str, Any]:
     # this snapshot feeds the dashboard's landing page. Neither is worth
     # blanking the Overview over: an unreadable count is reported as unknown.
     try:
-        _reg, online, _games = get_live_user_counts()
+        _reg, online, _games, _secs = get_live_user_counts()
     except Exception:  # noqa: BLE001
         online = -1
     try:
@@ -13937,7 +14061,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             except Exception:  # noqa: BLE001
                 queued = 0
             try:
-                _reg, online, _games = get_live_user_counts()
+                _reg, online, _games, _secs = get_live_user_counts()
             except Exception:  # noqa: BLE001
                 online = None
             self._send_json({
@@ -13951,15 +14075,17 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/stats":
-            # Both counters live in STATS_PATH on the persistent disk.
+            # All three counters live in STATS_PATH on the persistent disk.
             games_played = 0
             registered_players = 0
+            play_seconds = 0
             try:
                 with STATS_LOCK:
                     with open(STATS_PATH, "r", encoding="utf-8") as f:
                         _s = json.load(f)
                         games_played = int(_s.get("games_played", 0))
                         registered_players = int(_s.get("registered_players", 0))
+                        play_seconds = int(_s.get("play_seconds", 0))
             except (FileNotFoundError, json.JSONDecodeError):
                 pass
             # Self-heal games_played from the actual game-history files on disk:
@@ -13984,20 +14110,27 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             # seen-uid counter / 0 when Firebase isn't configured. The persisted
             # Firestore games counter is folded in too so the games number keeps
             # climbing even if the Render disk lost its game-history files.
-            live_registered, live_online, live_games = get_live_user_counts()
+            live_registered, live_online, live_games, live_seconds = get_live_user_counts()
             if isinstance(live_registered, int) and live_registered >= 0:
                 registered_players = live_registered
             online_players = live_online if isinstance(live_online, int) and live_online >= 0 else 0
             if isinstance(live_games, int) and live_games > games_played:
                 games_played = live_games
+            if isinstance(live_seconds, int) and live_seconds > play_seconds:
+                play_seconds = live_seconds
             # Never report below the historical baseline.
             if games_played < STATS_SEED_GAMES:
                 games_played = STATS_SEED_GAMES
+            # Seconds on the wire, not hours. The exact figure is what the
+            # server has, and rounding it is the caller's decision: the site
+            # shows whole hours, the analytics dashboard wants the remainder.
             self._send_json({
                 "ok": True,
                 "games_played": games_played,
                 "registered_players": registered_players,
                 "online_players": online_players,
+                "play_seconds": play_seconds,
+                "hours_played": play_seconds // 3600,
             })
             return
 
@@ -14031,7 +14164,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             # registered-account count when the stream total is unavailable.
             counts, total = get_icon_ownership()
             if not isinstance(total, int) or total <= 0:
-                reg, _online, _games = get_live_user_counts()
+                reg, _online, _games, _secs = get_live_user_counts()
                 total = reg if isinstance(reg, int) and reg > 0 else 0
             self._send_json({
                 "ok": True,
@@ -15614,6 +15747,14 @@ def main() -> None:
             seed_firestore_games_played(STATS_SEED_GAMES)
         except Exception as _fe:
             print(f"Firestore stats seed warning: {_fe}")
+
+    # Rebuild hours-played from the history files. Its own block, not folded
+    # into the seed above: the seed is gated on the baselines being set, and
+    # this has to run on every boot to pick up games finished before the
+    # counter existed. Threaded because it opens every game record, and
+    # nothing should wait on that to start listening.
+    threading.Thread(target=heal_play_seconds_from_history, daemon=True,
+                     name="stats-play-seconds-heal").start()
 
     restore_stats = ROOMS.load_persisted_rooms(CARD_DB)
 

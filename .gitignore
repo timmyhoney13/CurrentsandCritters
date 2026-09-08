@@ -696,9 +696,28 @@ multiplayer/client/_tutig_page_m.html
 # Test-only, so these need these entries and no Dockerfile COPY.
 !test_current_controller.py
 !test_current_controller.js
+!test_current_controller_integration.py
 
 # Custom friend codes: chosen, RESERVED, and paid for exactly once. The one
 # Store purchase the browser cannot do for itself (a client cannot reserve a
 # name against everybody else's account), so the whole thing is one server
 # transaction and this is what pins it. Test-only, no Dockerfile COPY.
 !test_custom_friend_code.py
+
+# Hours played online: the third live number on the marketing site. Rebuilt from
+# the duration_sec on every game record, so the check that matters is that a
+# corrupt or half-lost history directory cannot walk the public figure
+# backwards. Test-only, no Dockerfile COPY.
+!test_hours_played.py
+
+# The Supporter Tiers, the donation goal, the Reef Wall and the Partner With Us
+# form, taken off the site on 2026-09-08 and meant to come back. README.md there
+# says where each piece went back into and what to run afterwards. Tracked on
+# purpose: it is the restore instructions, and test_partner_contact.py reads the
+# archived form to keep its <select> in step with the server's KINDS.
+#
+# ⚠️ Also listed in .vercelignore. These are the real tier cards with the real
+# LIVE Payment Links in them, and Vercel serves any .html it is handed: without
+# that entry the shelf we just took down is still buyable at its own URL.
+!_standby/
+!_standby/**

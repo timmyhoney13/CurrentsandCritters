@@ -19,3 +19,10 @@ render.yaml
 requirements*.txt
 __pycache__/
 *.pyc
+
+# Archived markup for the Supporter Tiers / Reef Wall / Partner form while they
+# are on standby (see _standby/README.md). ⚠️ MUST stay ignored: 05-supporter-
+# tiers.html holds the four real tier cards with their LIVE Stripe Payment Links,
+# and anything deployed here is a public URL. Taking the tiers off the homepage
+# and then serving them from /_standby/ would undo the whole thing.
+_standby/

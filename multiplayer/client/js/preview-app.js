@@ -109,6 +109,24 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.2", title: "\uD83D\uDEA7 The Store is closed for a bit", items: [
+      "The Store is shut while we get it ready, so nothing in it can be bought right now: no Critter Coin packs, no Supporter Tiers, no skins, backgrounds or Player Perks. It shows a Coming soon panel instead of the shelf.",
+      "Everything you already own is untouched. Your Critter Coins, skins, backgrounds, emotes, streak shields and custom friend codes are all still on your account and all still work, and so does everything that spends coins outside the Store, the Critter Pass included.",
+      "The website went quiet in step with it. The Supporter Tiers, the donation goal and the Supporter Reef Wall are all off the home page for now, and the shop page is not taking orders.",
+      "In their place the site shows three live numbers instead: how many players are registered, how many hours have been played online, and how many games have been played. Hours is new, worked out from the length of every game ever finished.",
+      "None of this is a goodbye. All of it is coming back.",
+    ]},
+    { ver: "V1.7.1", title: "\u2728 The Critter Pass pays more XP, and the Controller vote works", items: [
+      "The Critter Pass drops more XP than it did. Every XP tier went up by 40%: the whole track now pays 33,250 XP instead of 23,750, and the drop on Level 95 is 3,325 where it used to be 2,375.",
+      "That makes the season easier, not just richer. The track pays part of its own climb, so the play it asks for to reach Pass Level 100 in thirty days falls from about 1,189 XP a day to about 872. Everything on the purchase card is worked out from the track itself, so those numbers moved together.",
+      "The reward track reads properly now. The number IS the card on a coins or XP tier, big enough to read at a glance, so flicking along the rail shows you 75, 225, 1,050 instead of a hundred near identical silver discs. The Critter Coin is still there, at a size where you can actually see the turtle on it.",
+      "The same sentence is no longer printed under 72 of the 100 cards, cut off mid word. \u201CSpend them in the Store on skins, backgrounds and\u2026\u201D was under every single coin tier; the amount on the card already said it. Rewards that genuinely need a line of explanation still have one.",
+      "The line joining the rewards together stopped being drawn across them. It was meant to run behind the cards, but the cards are very slightly see through, so it came through all hundred of them as a white slash over the artwork.",
+      "Before you have unlocked any extra challenge slots, the two chips said \u201C+0 Daily Challenges\u201D, which reads like a number that failed to load. They now say what they are and how many are on the track.",
+      "A locked reward's amount is no longer greyed out along with its picture. On a pass you have not bought yet, that number is the entire point of looking.",
+      "The Current Controller vote genuinely works now. The table's Yes was being thrown away the instant the game started, so everyone could agree and the menu still would not open for the person who asked. It was asked for in the lobby and then forgotten before the first card. It now lasts exactly its own game, and a rematch asks again the way it always said it would.",
+      "Supporter names are reaching the Reef Wall again. Every checkout except the newest asked for your wall name in slightly different words than the game was listening for, so the answer was read as blank and the buyer went up as Anonymous. Your money and your tier were never affected. Names given at checkout from here on land properly.",
+    ]},
     { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F Custom friend codes, and the Current Controller", items: [
       "You can pick your own friend code. Three to nine letters or numbers instead of four random digits, and unlike the random ones it is RESERVED: nobody else can ever take it, and anyone who types it can send you a friend request. It is in the Store for 1,000 Critter Coins.",
       "Every Supporter Tier hands them out too: Wave Warrior 1, Ocean Ally 2, Tide Turner 4 and Tsunami 8. A tier code is spent before any coins are, and changing your code frees the one you were holding.",
@@ -128,7 +146,7 @@
     ]},
     { ver: "V1.7.1", title: "\uD83C\uDF0A A $100 Supporter Tier, and a way to give more than that", items: [
       "There is a fourth Supporter Tier. Tsunami is $100 and is the biggest tier you can buy outright: TWO physical copies of the game (keep one, gift one), a hand-written signed thank-you card, a thank-you postcard, your name in the game's supporter credits, first look at every expansion, 15 Season Pass vouchers, 75,000 Critter Coins and +20,000 bonus XP.",
-      "Its button says \u201cOpening soon\u201d until its checkout is switched on, so nothing can be charged at the wrong price in the meantime.",
+      "Its checkout has since been switched off along with the rest of the Store, see the newest entry above.",
       "The bonus XP on the other three tiers was rebalanced to sit under it: Wave Warrior now gives +1,000 (it gave none before), Ocean Ally +5,000 and Tide Turner +7,500. Coins and vouchers are unchanged, and nothing already credited to your account is taken back.",
       "The cards say which is which again: Most Popular sits on the Ocean Ally, Best Value on the Tsunami.",
       "Giving more than $100 is a conversation instead of a checkout. Both the website and the Store hand you a message that is already written, with the amount and your name marked out to replace, and it goes straight to Timothy.",
@@ -29671,6 +29689,27 @@
       const phstFmtCoins = (n) => Number(n).toLocaleString("en-US");
 
       // ═══════════════════════════════════════════════════════════════════
+      //  THE STORE IS CLOSED
+      //  While this is true renderPhStore paints one "Coming soon" panel and
+      //  returns, so the shelf emits NO buy button of any kind: nothing that
+      //  charges a card (coin packs, Supporter Tiers, the physical game) and
+      //  nothing that spends Critter Coins either (skins, backgrounds, perks).
+      //  Coins, skins and backgrounds already owned are untouched, and every
+      //  other coin-spend elsewhere in the app (the Critter Pass, the streak
+      //  shield prompt) is unaffected.
+      //
+      //  EVERYTHING BELOW IS LEFT INTACT ON PURPOSE. The packs, the tiers and
+      //  their live Payment Links are still here and still correct, so opening
+      //  the Store again is this one word. test_supporter_tiers_ui.js renders
+      //  the shelf BOTH ways: closed, and with this forced to false, so the
+      //  shelf that comes back is proved right while it is switched off.
+      //
+      //  The website is switched off in step with it: index.html has no
+      //  Supporter Tiers and shop.html takes no orders. See _standby/README.md.
+      // ═══════════════════════════════════════════════════════════════════
+      const PHST_STORE_CLOSED = true;
+
+      // ═══════════════════════════════════════════════════════════════════
       //  STRIPE PAYMENT LINKS
       //  ⚠️ LIVE MODE. Every URL below is a LIVE Stripe Payment Link and takes
       //  REAL money. Do NOT swap these for a custom/fake checkout, only ever
@@ -29750,15 +29789,16 @@
           note: "Cosmetic progression only",
         },
         // ── The top tier ───────────────────────────────────────────
-        // `soon: true` means NO Stripe Payment Link exists yet, so the card
-        // renders with a locked button instead of a Buy. It is deliberately
-        // not wired to a placeholder URL: a tier is granted by the PRICE of the
+        // Live since 2026-09-05. The `soon: true` lock it used to carry is
+        // still wired in the renderer for the next product that gets a card
+        // before it gets a checkout: a tier is granted by the PRICE of the
         // link it opens, so a button pointing at some other product's link
         // would charge the wrong amount and grant the wrong tier, silently.
-        // To go live: create a Payment Link at EXACTLY this `usd` (with the 3
-        // custom questions), drop it in as `link:` and delete `soon`.
+        // ⚠️ This link must stay the $100 one, and nothing above $100 may ever
+        // gain a button (see the custom-amount card below).
         {
-          name: "Tsunami", usd: 100, coins: 75000, soon: true, best: true,
+          name: "Tsunami", usd: 100, coins: 75000, best: true,
+          link: "https://buy.stripe.com/eVq28s0fZdo8akxeQWds407",
           perks: [
             "Supporter email updates",
             "Founder Supporter number",
@@ -29789,6 +29829,18 @@
         const el = document.getElementById("ph-store-content");
         if (!el) return;
         const esc = (typeof escapeHtml === "function") ? escapeHtml : (s)=>String(s);
+
+        // Closed. One panel, no buttons, and none of the wiring at the bottom
+        // of this function runs, so there is nothing on the shelf to click.
+        if (PHST_STORE_CLOSED) {
+          el.innerHTML = `<div class="phst-closed">
+            <div class="phst-closed-ico" aria-hidden="true">\u{1F422}</div>
+            <div class="phst-closed-title">Coming soon</div>
+            <div class="phst-closed-desc">The Store is closed while we get it ready, so nothing can be bought here right now.</div>
+            <div class="phst-closed-note">Everything you already own is safe. Your Critter Coins, skins, backgrounds and perks are all still on your account, and everything you own still works.</div>
+          </div>`;
+          return;
+        }
 
         // No reassurance line. It used to open the Store with a paragraph
         // about who handles the card and where the rewards go, which is the

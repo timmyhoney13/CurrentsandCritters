@@ -1,0 +1,23 @@
+  // ── Donation goal ──────────────────────────────────────────────
+  // The raised amount is the LIVE total of every name on the Supporter Reef
+  // Wall (server sums exactly the wall rows, so the bar can never disagree with
+  // the wall and no donor/payment is ever double-counted). refreshSupporterWall
+  // below feeds the real total in; until it returns we show the last cached
+  // value (or $0) so the bar never flashes a wrong number.
+  const DONATION_GOAL = 25000;
+  function renderDonationGoal(donatedDollars) {
+    const donated   = Math.max(0, Number(donatedDollars) || 0);
+    const raised    = document.querySelector('[data-donation="raised"]');
+    const goal      = document.querySelector('[data-donation="goal"]');
+    const remaining = document.querySelector('[data-donation="remaining"]');
+    const fill      = document.querySelector('.donation-goal-fill');
+    const left      = Math.max(0, DONATION_GOAL - donated);
+    setStatEl('donated', donated, false);
+    if (raised)    raised.textContent    = '$' + donated.toLocaleString();
+    if (goal)      goal.textContent      = '$' + DONATION_GOAL.toLocaleString();
+    if (remaining) remaining.textContent = '$' + left.toLocaleString();
+    if (fill)      requestAnimationFrame(() => {
+      fill.style.width = Math.min(100, (donated / DONATION_GOAL) * 100) + '%';
+    });
+  }
+  renderDonationGoal(Number(cached.donated) || 0);

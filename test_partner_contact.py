@@ -343,14 +343,29 @@ class ReplyTo(Base):
 # ══════════════════════════════════════════════════════════════════════════
 class KindsMatchTheWebsite(unittest.TestCase):
     def test_the_select_on_the_website_is_the_servers_list(self):
-        with open(os.path.join(ROOT, "index.html"), encoding="utf-8") as fh:
-            html = fh.read()
-        block = re.search(r'<select id="pf-kind"[^>]*>(.*?)</select>', html, re.S)
-        self.assertTrue(block, "the partnership-type <select> is gone from index.html")
-        options = re.findall(r'<option value="([^"]+)"[^>]*>([^<]+)</option>',
-                             block.group(1))
-        self.assertEqual([(v, l.strip()) for v, l in options], pc.KINDS,
-                         "index.html and partner_contact.KINDS have drifted apart")
+        """The <select> and pc.KINDS are two copies of one list, and a value the
+        server does not know arrives mislabelled.
+
+        The form is on standby (_standby/website/08-partner-form.html), so there
+        is no second copy to drift right now. This checks the archived copy
+        instead of skipping: the form that comes back has to come back correct,
+        and an archive nobody checks is an archive that rots."""
+        for candidate in ("index.html",
+                          os.path.join("_standby", "website", "08-partner-form.html")):
+            path = os.path.join(ROOT, candidate)
+            if not os.path.exists(path):
+                continue
+            with open(path, encoding="utf-8") as fh:
+                html = fh.read()
+            block = re.search(r'<select id="pf-kind"[^>]*>(.*?)</select>', html, re.S)
+            if not block:
+                continue
+            options = re.findall(r'<option value="([^"]+)"[^>]*>([^<]+)</option>',
+                                 block.group(1))
+            self.assertEqual([(v, l.strip()) for v, l in options], pc.KINDS,
+                             f"{candidate} and partner_contact.KINDS have drifted apart")
+            return
+        self.fail("the partnership-type <select> is in neither index.html nor _standby/")
 
     def test_every_kind_has_a_label(self):
         for value in pc.KIND_VALUES:

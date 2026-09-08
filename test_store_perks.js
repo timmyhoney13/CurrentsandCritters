@@ -613,6 +613,10 @@ console.log("3. The perk spend transactions");
     // These lines told players exactly what their tier coins would buy. They
     // were wrong the moment prices moved, so they are gone from BOTH surfaces
     // (the marketing site and the in-game Store) and must not creep back.
+    //
+    // The marketing site no longer sells tiers at all, so the checks below ask
+    // less of it than of the Store: it must still not say these things, but it
+    // is no longer expected to print a coin amount. See _standby/README.md.
     {
       const INDEX = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
       const gone = [
@@ -632,8 +636,12 @@ console.log("3. The perk spend transactions");
             "the marketing site's note markup is gone, not just its text");
       // The coin AMOUNTS themselves stay: it's only the "this buys you…"
       // claim that was removed.
-      check(/7,000 Critter Coins/.test(INDEX) && /phst-tier-coins-amt/.test(APP),
-            "the tiers still show how many coins they include");
+      check(/phst-tier-coins-amt/.test(APP),
+            "the Store's tier cards still show how many coins they include");
+      // An amount, not the words: a CSS comment naming the perk row is not a
+      // promise to anybody, "7,000 Critter Coins" on a card is.
+      check(!/[\d,]+ Critter Coins/.test(INDEX),
+            "the marketing site promises no tier coins while the tiers are on standby");
     }
 
     console.log(`\nplayer-perk checks: ${checks}`);

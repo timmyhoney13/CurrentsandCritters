@@ -10026,6 +10026,31 @@
     .phst-physical-title { font-size: 1rem; font-weight: 900; color: #11588f; }
     .phst-physical-desc { font-size: .8rem; color: #5b82a3; line-height: 1.45; margin-top: 2px; }
 
+    /* The whole shelf while PHST_STORE_CLOSED is on (preview-app.js). Same
+       dashed "not yet" language as .phst-physical-soon above, centred and
+       given the room of a full panel because it IS the panel. */
+    .phst-closed {
+      text-align: center;
+      background: linear-gradient(120deg, rgba(235,247,255,.85) 0%, rgba(224,238,255,.85) 100%);
+      border: 1px dashed rgba(120,180,215,.6);
+      border-radius: 16px;
+      padding: 44px 26px;
+    }
+    .phst-closed-ico { font-size: 3rem; line-height: 1; }
+    .phst-closed-title {
+      font-size: 1.5rem; font-weight: 900; color: #11588f;
+      margin-top: 12px; letter-spacing: -.01em;
+    }
+    .phst-closed-desc {
+      font-size: .92rem; color: #40749b; line-height: 1.55;
+      margin: 8px auto 0; max-width: 46ch;
+    }
+    .phst-closed-note {
+      font-size: .8rem; color: #5b82a3; line-height: 1.5;
+      margin: 14px auto 0; max-width: 46ch;
+      padding-top: 14px; border-top: 1px solid rgba(120,180,215,.35);
+    }
+
     /* Bundle hero */
     .phst-hero {
       display: flex; align-items: center; justify-content: space-between;

@@ -1,0 +1,323 @@
+<!-- ============ PARTNER WITH US FORM ============ -->
+<script>
+/* The Partner With Us enquiry form.
+ *
+ * WHY IT POSTS SOMEWHERE ELSE
+ * This page is served by Vercel, which is static hosting: it cannot send an
+ * email. The game server on Render is the one thing in the whole system with a
+ * configured mail transport (it sends the newsletter, the account resets and
+ * the purchase codes), so the enquiry is posted there, to
+ * /api/partner/contact, and partner_contact.py turns it into mail to Timothy with
+ * the sender on Reply-To.
+ *
+ * WHY THE mailto: DID NOT SIMPLY STAY
+ * A mailto: opens nothing at all on a phone with no mail app configured, and
+ * nothing in a browser whose mail lives on a webmail tab. It is kept as the
+ * FALLBACK rather than the front door: every failure path below (validation
+ * aside) rebuilds it with everything the reader typed already in it, so a
+ * message is never lost to a sleeping server or a mail provider having a bad
+ * afternoon.
+ *
+ * THE TEMPLATE
+ * The point of the template is that nobody has to work out what to say. Each
+ * partnership type gets its own, and switching type rewrites it ONLY while the
+ * box still holds the template unedited: the moment somebody types their own
+ * words, those words are theirs and nothing overwrites them.
+ */
+(function () {
+  var form = document.getElementById("pf-form");
+  if (!form) return;
+
+  // The game server. Same host as the live stats above, and the only one that
+  // can send mail.
+  var API_BASE = "https://play.currentsandcritters.com";
+  var INBOX = "currentsandcritters@gmail.com";
+
+  var elName    = document.getElementById("pf-name");
+  var elOrg     = document.getElementById("pf-org");
+  var elEmail   = document.getElementById("pf-email");
+  var elLink    = document.getElementById("pf-link");
+  var elKind    = document.getElementById("pf-kind");
+  var elMsg     = document.getElementById("pf-message");
+  var elHp      = document.getElementById("pf-company-site");
+  var elSend    = document.getElementById("pf-send");
+  var elStatus  = document.getElementById("pf-status");
+  var elRestore = document.getElementById("pf-restore");
+  var elMailto  = document.getElementById("pf-mailto");
+
+  var TEMPLATES = {
+    brand:
+      "Hi Timothy,\n\n" +
+      "I'm ____ from ____. We'd love to work with Currents and Critters on ____.\n\n" +
+      "What we had in mind: ____\n\n" +
+      "A bit about us: ____\n\n" +
+      "Thanks!",
+    retail:
+      "Hi Timothy,\n\n" +
+      "I'm ____ from ____, a ____ (shop / distributor / online store) in ____.\n\n" +
+      "We'd like to carry Currents and Critters. We'd be looking at around ____ copies to start.\n\n" +
+      "Anything else worth knowing: ____\n\n" +
+      "Thanks!",
+    conservation:
+      "Hi Timothy,\n\n" +
+      "I'm ____ from ____, and we work on ____ (what your organization protects).\n\n" +
+      "We'd like to partner with Currents and Critters on ____.\n\n" +
+      "What that could look like: ____\n\n" +
+      "Thanks!",
+    creator:
+      "Hi Timothy,\n\n" +
+      "I'm ____ and I make ____ (videos / a podcast / articles) about ____.\n\n" +
+      "My audience is about ____ people, mostly ____.\n\n" +
+      "I'd like to cover Currents and Critters by ____.\n\n" +
+      "Thanks!",
+    sponsor:
+      "Hi Timothy,\n\n" +
+      "I'm ____ from ____. We'd like to support Currents and Critters through ____.\n\n" +
+      "What we're hoping for in return: ____\n\n" +
+      "Budget or scale we have in mind: ____\n\n" +
+      "Thanks!",
+    /* Over $100 there is no Buy button anywhere on the site, so this template
+       IS the product page: it has to carry everything a purchase would have
+       carried, and nothing in it may be left as a blank the sender doesn't
+       notice. Hence the shouted [INSERT ... HERE] placeholders rather than the
+       quiet ____ the other templates use, and hence the extra check in
+       validate() that refuses to send while one of them is still in the box. */
+    major:
+      "Hi Timothy,\n\n" +
+      "My name is [INSERT YOUR NAME HERE] and I'd like to support Currents and\n" +
+      "Critters with [INSERT AMOUNT HERE, for example $250].\n\n" +
+      "Why I want to: [INSERT YOUR REASON HERE]\n\n" +
+      "What I'm hoping for in return: [INSERT WHAT YOU'D LIKE HERE, or write\n" +
+      "\"whatever you think is fair\"]\n\n" +
+      "My Currents and Critters username: [INSERT YOUR USERNAME HERE]\n\n" +
+      "Thanks!\n" +
+      "[INSERT YOUR NAME HERE]",
+    event:
+      "Hi Timothy,\n\n" +
+      "I'm ____ from ____. We're running ____ on ____ (date) in ____ (place).\n\n" +
+      "We'd love to have Currents and Critters there by ____.\n\n" +
+      "We're expecting about ____ people.\n\n" +
+      "Thanks!",
+    other:
+      "Hi Timothy,\n\n" +
+      "I'm ____ from ____.\n\n" +
+      "I'd like to talk to you about ____.\n\n" +
+      "Thanks!"
+  };
+
+  // What was last written into the box by US. Anything else in there is the
+  // reader's own words and is never overwritten.
+  var lastTemplate = "";
+
+  var elHint = form.querySelector(".pf-hint");
+  var HINT_BLANKS = elHint ? elHint.textContent : "";
+  var HINT_INSERTS = "The template fills itself in from the partnership type above. " +
+    "Replace every [INSERT ...] with your own words, or clear it all and write your own message.";
+
+  function applyTemplate(force) {
+    var next = TEMPLATES[elKind.value] || TEMPLATES.other;
+    var current = elMsg.value || "";
+    if (force || !current.trim() || current === lastTemplate) {
+      elMsg.value = next;
+      lastTemplate = next;
+      syncMailto();
+    }
+    // The hint has to name the blanks the box actually holds, or it sends the
+    // reader hunting for ____ in a template that has none.
+    if (elHint) {
+      elHint.textContent = /\[INSERT/.test(elMsg.value) ? HINT_INSERTS : HINT_BLANKS;
+    }
+  }
+
+  function kindLabel() {
+    var opt = elKind.options[elKind.selectedIndex];
+    return opt ? opt.textContent.trim() : "Partnership";
+  }
+
+  function val(el) { return (el.value || "").trim(); }
+
+  /* The message as an email, used both for the "prefer your own email" link
+     and for every fallback: whatever they typed survives the trip. */
+  function mailtoHref() {
+    var subject = "Partner with Currents and Critters: " + kindLabel();
+    var lines = [];
+    if (val(elName))  lines.push("Name: " + val(elName));
+    if (val(elOrg))   lines.push("Organization: " + val(elOrg));
+    if (val(elEmail)) lines.push("Email: " + val(elEmail));
+    if (val(elLink))  lines.push("Website or link: " + val(elLink));
+    lines.push("Partnership type: " + kindLabel());
+    var body = lines.join("\n") + "\n\n" + val(elMsg);
+    // Long mailto: URLs are truncated (and in a few clients dropped) by the
+    // OS, so the body is capped well inside every limit worth caring about.
+    if (body.length > 1800) body = body.slice(0, 1800) + "\n\n(continued...)";
+    return "mailto:" + INBOX +
+           "?subject=" + encodeURIComponent(subject) +
+           "&body=" + encodeURIComponent(body);
+  }
+
+  function syncMailto() {
+    if (elMailto) elMailto.href = mailtoHref();
+  }
+
+  function clearBad() {
+    Array.prototype.forEach.call(form.querySelectorAll(".pf-bad"), function (f) {
+      f.classList.remove("pf-bad");
+    });
+  }
+
+  function fail(el, message) {
+    clearBad();
+    if (el && el.parentNode) el.parentNode.classList.add("pf-bad");
+    elStatus.className = "pf-status pf-err";
+    elStatus.textContent = message;
+    if (el && el.focus) el.focus();
+    return false;
+  }
+
+  function looksLikeEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
+  }
+
+  /* The same checks the server makes, made here first so a mistake costs a
+     glance rather than a round trip. The server still makes them: this is the
+     convenience copy, not the authority. */
+  function validate() {
+    if (val(elName).length < 2) return fail(elName, "Please tell us your name.");
+    if (!looksLikeEmail(val(elEmail))) return fail(elEmail, "That email address doesn't look right.");
+    var body = val(elMsg);
+    if (!body) return fail(elMsg, "Please write a message.");
+    if (/_{3,}/.test(body)) {
+      return fail(elMsg, "The template still has blanks in it. Fill in the ____ parts (or delete them) and send again.");
+    }
+    // The over-$100 template shouts its blanks instead of underlining them, so
+    // it needs its own check: an enquiry that still says INSERT YOUR NAME HERE
+    // is a message nobody can reply to.
+    if (/\[INSERT/i.test(body)) {
+      return fail(elMsg, "The template still has [INSERT ...] parts in it. Replace them with your own words and send again.");
+    }
+    if (body.length < 25) return fail(elMsg, "Tell us a little more, so there is something to reply to.");
+    clearBad();
+    return true;
+  }
+
+  /* A send that did not happen must not lose the message. The status line
+     becomes a link that opens the reader's own mail app with everything
+     already written. */
+  function offerMailto(message) {
+    elStatus.className = "pf-status pf-err";
+    elStatus.textContent = message + " ";
+    var a = document.createElement("a");
+    a.href = mailtoHref();
+    a.textContent = "Open it in your email app instead";
+    elStatus.appendChild(a);
+    elStatus.appendChild(document.createTextNode(" (nothing you typed is lost), or copy it to " + INBOX + "."));
+  }
+
+  var busy = false;
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (busy) return;
+    if (!validate()) return;
+
+    busy = true;
+    elSend.disabled = true;
+    elSend.textContent = "Sending...";
+    elStatus.className = "pf-status";
+    elStatus.textContent = "Sending your message...";
+
+    // Render's free tier sleeps, and a cold start is around 30 seconds. Say so
+    // rather than letting a spinner look like a hang.
+    var slow = setTimeout(function () {
+      if (busy) elStatus.textContent = "Still sending. The game server may be waking up, this can take up to 30 seconds...";
+    }, 6000);
+
+    // AbortSignal.timeout is not in Safari < 16.4.
+    var ctrl = new AbortController();
+    var kill = setTimeout(function () { ctrl.abort(); }, 45000);
+
+    fetch(API_BASE + "/api/partner/contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: val(elName),
+        org: val(elOrg),
+        email: val(elEmail),
+        link: val(elLink),
+        kind: elKind.value,
+        message: val(elMsg),
+        company_site: elHp ? elHp.value : ""
+      }),
+      signal: ctrl.signal
+    }).then(function (r) {
+      return r.json().catch(function () { return { ok: false }; });
+    }).then(function (d) {
+      clearTimeout(slow); clearTimeout(kill);
+      if (d && d.ok) {
+        var done = document.createElement("div");
+        done.className = "pf-sent";
+        done.id = "pf-sent";
+        var head = document.createElement("strong");
+        head.textContent = "Message sent.";
+        done.appendChild(head);
+        done.appendChild(document.createTextNode(" " + (d.message ||
+          "Thanks! Your message is on its way to Timothy, and you will get a reply at the address you gave.")));
+        form.parentNode.replaceChild(done, form);
+      } else {
+        busy = false;
+        elSend.disabled = false;
+        elSend.textContent = "Send to Timothy →";
+        var why = (d && (d.message || d.error)) || "Something went wrong sending that.";
+        // A validation answer from the server is the reader's to fix; anything
+        // else is ours, and gets the mailto: escape hatch.
+        if (d && d.error && /request|transport|send_failed/.test(String(d.error))) {
+          offerMailto(why);
+        } else {
+          elStatus.className = "pf-status pf-err";
+          elStatus.textContent = why;
+        }
+      }
+    }).catch(function () {
+      clearTimeout(slow); clearTimeout(kill);
+      busy = false;
+      elSend.disabled = false;
+      elSend.textContent = "Send to Timothy →";
+      offerMailto("Couldn't reach the server.");
+    });
+  });
+
+  elKind.addEventListener("change", function () { applyTemplate(false); });
+  elRestore.addEventListener("click", function () { applyTemplate(true); elMsg.focus(); });
+  form.addEventListener("input", syncMailto);
+
+  /* "Email us a custom amount" lands here: an amount above the top tier has no
+     Buy button anywhere, so this form is its product page. It sets the
+     partnership type, drops the matching template in and puts the cursor on the
+     first thing the reader has to replace, so the card opens a message that is
+     already 90% written rather than an empty box. */
+  function openEnquiry() {
+    elKind.value = "major";
+    applyTemplate(true);
+    syncMailto();
+    // Focus AFTER the anchor jump so the browser doesn't fight the scroll.
+    setTimeout(function () {
+      var at = elMsg.value.indexOf("[INSERT");
+      elMsg.focus();
+      if (at >= 0 && elMsg.setSelectionRange) {
+        elMsg.setSelectionRange(at, elMsg.value.indexOf("]", at) + 1);
+        // focus() alone parks a long template at its LAST line, which hides the
+        // very placeholder we just selected. The first one is at the top.
+        elMsg.scrollTop = 0;
+      }
+    }, 350);
+  }
+
+  Array.prototype.forEach.call(
+    document.querySelectorAll("[data-tier-enquiry]"), function (a) {
+      a.addEventListener("click", function () { openEnquiry(); });
+    });
+
+  applyTemplate(true);
+  syncMailto();
+})();
+</script>

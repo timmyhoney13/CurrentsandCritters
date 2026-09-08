@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Coming Soon - Currents and Critters</title>
+<title>Buy the Game - Currents and Critters</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="icon" href="assets/logo-icon.svg"/>
 <link rel="stylesheet" href="styles.css"/>
@@ -48,21 +48,6 @@
     color: var(--sand-ink); margin: 0 0 8px; line-height: 1;
   }
   .shop-head p { color: var(--sand-ink-soft); font-size: 17px; margin: 0; }
-
-  /* Where the quantity picker and the two order buttons used to be. */
-  .stock.stock-soon .dot { background: #c8963c; }
-  .shop-closed {
-    background: rgba(255, 255, 255, 0.72);
-    border: 1px dashed rgba(200, 150, 60, 0.55);
-    border-radius: 16px;
-    padding: 22px;
-    margin: 22px 0 18px;
-  }
-  .shop-closed-title { font-size: 18px; font-weight: 800; color: var(--sand-ink); }
-  .shop-closed-desc {
-    font-size: 14px; line-height: 1.6; color: var(--sand-ink-soft);
-    margin: 8px 0 16px;
-  }
 
   .shop-grid {
     display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 32px;
@@ -274,16 +259,16 @@
     <a href="index.html#critters">The Critters</a>
     <a href="index.html#oceans">Oceans</a>
     <a href="score.html">Snap &amp; Score</a>
-    <a href="index.html#sponsor">Our Story</a>
+    <a href="index.html#sponsor">Sponsor</a>
   </div>
-  <a class="nav-cta" href="https://play.currentsandcritters.com/">Play Free →</a>
+  <a class="nav-cta" href="shop.html">Buy the Game →</a>
 </nav>
 
 <div class="shop-wrap">
   <a class="back-link" href="index.html">← Back to home</a>
 
   <div class="shop-head">
-    <span class="eyebrow">Coming Soon</span>
+    <span class="eyebrow">Pre-Order · Ships May 2026</span>
     <h1>Currents and Critters</h1>
     <p>The full base game · 251 cards · 8 oceans · 2–8 players</p>
   </div>
@@ -308,8 +293,10 @@
       <div class="subtitle">Educational Strategic Card Game</div>
       <div class="price-row">
         <div class="price">$24.99</div>
+        <div class="price-strike">$29.99</div>
+        <div class="save-badge">Save 17%</div>
       </div>
-      <div class="stock stock-soon"><span class="dot"></span>Not on sale yet · Free US shipping when it opens</div>
+      <div class="stock"><span class="dot"></span>In stock · Free US shipping on orders over $35</div>
 
       <ul class="feats">
         <li>251 hand-illustrated cards across 9 species groups</li>
@@ -319,18 +306,23 @@
         <li>2% goes to ocean conservation</li>
       </ul>
 
-      <!-- The store is closed: no quantity picker, no Add to Cart, no Buy Now.
-           The originals are kept verbatim in _standby/website/12-shop.html.original
-           so putting the shop back is a paste. Their script is gone too, so
-           there is nothing left on this page that can start an order. -->
-      <div class="shop-closed">
-        <div class="shop-closed-title">🐢 The store isn't open yet</div>
-        <div class="shop-closed-desc">Currents and Critters isn't taking orders right now. The online game is free to play in the meantime, and we'll open the shop here when the box is ready.</div>
-        <a class="btn btn-mint btn-lg" href="https://play.currentsandcritters.com/">Play Online Free →</a>
+      <div class="qty-row">
+        <span class="qty-label">Quantity</span>
+        <div class="qty-control">
+          <button id="dec" type="button">−</button>
+          <div class="n" id="qtyN">1</div>
+          <button id="inc" type="button">+</button>
+        </div>
+        <div style="margin-left:auto; font-size:15px; color:var(--muted-strong); font-weight:700;">Total: <span id="totalPrice" style="color:var(--ink-deep);">$24.99</span></div>
+      </div>
+
+      <div class="add-row">
+        <button class="btn btn-mint btn-lg" id="addToCart" type="button">🛒 Add to Cart</button>
+        <button class="btn btn-primary btn-lg" id="buyNow" type="button">Buy Now →</button>
       </div>
 
       <div class="impact-note">
-        <strong>★ 2% goes to ocean conservation.</strong> That doesn't change when the shop opens - it comes out of every game sold.
+        <strong>★ Your purchase makes waves.</strong> 2% goes to ocean conservation. Help us hit our 2026 goal: $25k donated.
       </div>
     </div>
   </div>
@@ -368,6 +360,29 @@
     </div>
   </section>
 </div>
+
+<div class="toast" id="toast"><span class="check">✓</span><span id="toastMsg">Added to cart</span></div>
+
+<script>
+let qty = 1;
+const price = 24.99;
+function update() {
+  document.getElementById('qtyN').textContent = qty;
+  document.getElementById('totalPrice').textContent = '$' + (qty * price).toFixed(2);
+}
+document.getElementById('inc').addEventListener('click', () => { qty = Math.min(qty + 1, 10); update(); });
+document.getElementById('dec').addEventListener('click', () => { qty = Math.max(qty - 1, 1); update(); });
+
+const toast = document.getElementById('toast');
+const toastMsg = document.getElementById('toastMsg');
+function showToast(msg) {
+  toastMsg.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2400);
+}
+document.getElementById('addToCart').addEventListener('click', () => showToast(`Added ${qty} × Currents and Critters to cart`));
+document.getElementById('buyNow').addEventListener('click', () => showToast('Pre-order confirmed - thanks for making waves 🌊'));
+</script>
 
 </body>
 </html>
