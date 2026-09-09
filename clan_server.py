@@ -3522,6 +3522,200 @@ def clan_rules() -> Dict[str, Any]:
     }
 
 
+# ── Admin correction: set ONE clan's season Clan Points to an exact number ───
+# This lives in the server, not only in scripts/set_clan_points.py, because the
+# only machine that can write to Firestore IS the server: the service account
+# is an env var on Render and no laptop here has credentials, so a script that
+# needs GOOGLE_APPLICATION_CREDENTIALS can be run by nobody and the number on
+# the board never moves. The script and POST /api/admin/clan-set-points both
+# call _admin_set_points below, so there is ONE correction, not two that drift.
+
+
+def scaled_contrib(contrib: Dict[str, Any], target: Any):
+    """({uid: new points}, uid_that_absorbed_the_remainder, remainder) for a
+    proportional scale onto an exact total.
+
+    Rounding each member to one decimal does NOT land on the total (555.5 split
+    six ways and scaled to 95 sums to 95.1), and a roster that adds up to more
+    than the clan it belongs to is exactly the inconsistency this exists to
+    avoid. The remainder goes to the largest contributor, whose share can
+    absorb it without crossing anybody's reward threshold. That member's
+    per-bucket breakdown has to absorb the same remainder, or their "games"
+    line ends up larger than their own new total, hence the uid and amount."""
+    rows = {u: _num((c or {}).get("points")) for u, c in contrib.items()}
+    total = _num(sum(rows.values()))
+    if not total:
+        return rows, "", 0
+    ratio = float(target) / float(total)
+    out = {u: _num(p * ratio) for u, p in rows.items()}
+    drift = _num(_num(target) - _num(sum(out.values())))
+    biggest = max(out, key=lambda u: (out[u], u)) if out else ""
+    if drift and biggest:
+        out[biggest] = _num(out[biggest] + drift)
+    return out, biggest, drift
+
+
+def resolve_clan(db, who: str):
+    """(clan_id, clan_dict, error) for ONE clan by id or exact/ci name.
+
+    Never guesses between two clans sharing a name: that answers "ambiguous"
+    and the caller passes the clan id instead."""
+    who = str(who or "").strip()
+    if not who:
+        return "", {}, "clan_required"
+    try:
+        snap = _clans(db).document(who).get()
+        if snap.exists:
+            return snap.id, (snap.to_dict() or {}), ""
+        hits = []
+        for doc in _clans(db).limit(500).stream():
+            c = doc.to_dict() or {}
+            if str(c.get("name") or "").strip().lower() == who.lower():
+                hits.append((doc.id, c))
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] resolve {who!r} failed: {exc}")
+        return "", {}, "lookup_failed"
+    if len(hits) > 1:
+        return "", {}, "ambiguous:" + ",".join(cid for cid, _ in hits)
+    if hits:
+        return hits[0][0], hits[0][1], ""
+    return "", {}, "no_clan"
+
+
+def set_points_preview(clan: Dict[str, Any], sid: str, target: Any,
+                       scale: bool = False) -> Dict[str, Any]:
+    """What the correction WOULD do: the numbers a caller checks before
+    writing, and the same numbers --dry-run prints. Reads only."""
+    slot = (clan.get("seasons") or {}).get(sid) or {}
+    before = _num(slot.get("points"))
+    contrib = slot.get("contrib") or {}
+    scaled = scaled_contrib(contrib, target)[0] if scale else {}
+    members = []
+    for uid, c in sorted(contrib.items(),
+                         key=lambda kv: -_num((kv[1] or {}).get("points"))):
+        c = c or {}
+        was = _num(c.get("points"))
+        now = scaled.get(uid, was) if scale else was
+        members.append({
+            "uid": uid, "name": c.get("name") or uid, "before": was, "after": now,
+            # Named because scaling contributions is what quietly takes season
+            # coins and the MVP badge off players who earned them.
+            "loses_coins": bool(scale and was >= SEASON_REWARD_MIN_POINTS > now),
+            "loses_mvp": bool(scale and was >= MVP_MIN_POINTS > now),
+        })
+    return {
+        "clan": clan.get("name"), "season": sid,
+        "before": before, "after": _num(target), "delta": _num(_num(target) - before),
+        "lifetime_before": _num((clan.get("lifetime") or {}).get("points")),
+        # The columns the standings table prints NEXT TO the total: a total
+        # below one of its own components reads as a bug to anyone looking.
+        "kept_as_history": {k: _num(slot.get(k)) for k in (
+            "challenge_points", "challenges_completed", "trade_points",
+            "gameplay_points", "bonus_points", "games")},
+        "contrib_sum": _num(sum(_num((c or {}).get("points")) for c in contrib.values())),
+        "members": members,
+    }
+
+
+def _admin_set_points(db, clan_id: str, target: Any, scale_contrib: bool = False,
+                      lifetime: bool = False, note: str = "",
+                      sid: str = "") -> Dict[str, Any]:
+    """Move one clan's season total TO `target`, up or down. Pays nobody.
+
+    Every place a clan's total is shown to anybody — the Clans tab hero, the
+    standings, browse rows, clan home, rival compare, and the signed-out
+    marketing prize band — reads ONE field, seasons/{sid}/points, through
+    _clan_card(). Setting that field is what makes the new number register.
+
+    What is deliberately NOT touched: challenge_points, challenges_completed,
+    challenges_done, games and the win counters are the RECORD OF WHAT
+    HAPPENED. A correction to the headline is not a claim that those games were
+    never played. Two of them are also dangerous to tidy: clearing
+    challenges_done un-completes those challenges and the sweep then awards
+    them all over again, pushing the total straight back up."""
+    sid = sid or _clan_sid()
+    target = _num(target)
+    if target < 0:
+        return {"ok": False, "error": "negative_points"}
+    dedup_id = f"admin_set_{_now()}_{secrets.token_hex(4)}"
+    clan_ref = _clans(db).document(clan_id)
+    ledger_ref = clan_ref.collection("ledger").document(dedup_id)
+    transactional = _txn_helpers()
+
+    @transactional
+    def _run(t):
+        if ledger_ref.get(transaction=t).exists:
+            return {"ok": False, "error": "already_applied"}
+        s = clan_ref.get(transaction=t)
+        if not s.exists:
+            return {"ok": False, "error": "no_clan"}
+        c = s.to_dict() or {}
+        slot = _season_slot(c, sid)
+        # Re-read inside the transaction: the live total can move between the
+        # preview and now, and the ask is an exact VALUE, not a delta.
+        live_before = _num(slot.get("points"))
+        if live_before == target:
+            return {"ok": True, "noop": True, "before": live_before, "after": target,
+                    "name": c.get("name")}
+        slot["points"] = target
+        # Parked in its own counter so "earned by playing" stays readable and
+        # the correction is reversible from the ledger alone.
+        slot["admin_adjust"] = _num(_num(slot.get("admin_adjust"))
+                                    + _num(target - live_before))
+        slot["last_gain_ts"] = _now()
+        if scale_contrib:
+            live_contrib = slot.get("contrib") or {}
+            fresh, drift_uid, drift = scaled_contrib(live_contrib, target)
+            live_total = _num(sum(_num((r or {}).get("points"))
+                                  for r in live_contrib.values()))
+            sub_ratio = (float(target) / float(live_total)) if live_total else 0.0
+            for uid, row in live_contrib.items():
+                if not isinstance(row, dict):
+                    continue
+                row["points"] = fresh.get(uid, _num(row.get("points")))
+                # The roster prints each member as "N pts (games A · trades B ·
+                # challenges C)". Moving N without moving A/B/C just pushes the
+                # same contradiction one line down, so the buckets travel too.
+                buckets = [b for b in ("game_points", "trade_points",
+                                       "challenge_points", "bonus_points") if b in row]
+                for bucket in buckets:
+                    row[bucket] = _num(_num(row.get(bucket)) * sub_ratio)
+                if uid == drift_uid and drift and buckets:
+                    top = max(buckets, key=lambda b: (_num(row[b]), b))
+                    row[top] = _num(_num(row[top]) + drift)
+        if lifetime:
+            life = c.setdefault("lifetime", {})
+            life["points"] = _num(_num(life.get("points")) + _num(target - live_before))
+        _activity_push(c, "bonus", f"⚙️ Clan Points set to {target} by an admin"
+                       + (f": {note}" if note else ""))
+        t.set(ledger_ref, {
+            "ts": _now(), "uid": "", "name": "admin", "kind": "admin_set",
+            "points": _num(target - live_before), "requested": target,
+            "before": live_before, "after": target,
+            "week": _week_key(), "date": _date_key(), "season": sid,
+            "meta": {"tool": "admin_set_points", "note": note,
+                     "scaled_contrib": bool(scale_contrib), "lifetime": bool(lifetime)},
+        })
+        t.set(clan_ref, c)
+        return {"ok": True, "before": live_before, "after": target, "name": c.get("name")}
+
+    try:
+        out = _run(db.transaction())
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] admin set points failed for {clan_id}: {exc}")
+        return {"ok": False, "error": str(exc)[:160]}
+    if out.get("ok") and not out.get("noop"):
+        out["ledger"] = f"clans/{clan_id}/ledger/{dedup_id}"
+        # The standings are served from a warm cache that hands back the value
+        # it already has while it refreshes behind the reader. Without this the
+        # site keeps answering with the OLD total after a correction, which is
+        # indistinguishable from the write never happening.
+        _lb_invalidate()
+    out["clan_id"] = clan_id
+    out["season"] = sid
+    return out
+
+
 def handle_get(handler, parsed) -> bool:
     """GET /api/clan/leaderboard and /api/clan/rules: public reads."""
     if parsed.path == "/api/clan/rules":
@@ -3587,6 +3781,44 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:  # noqa: C901
                 handler._send_json({"ok": True})
             except Exception as exc:  # noqa: BLE001
                 handler._send_json({"ok": False, "error": str(exc)[:120]})
+            return True
+        if path == "/api/admin/clan-set-points":
+            # Set one clan's season total to an exact number, from the machine
+            # that actually holds the Firestore credentials. `dry_run` reads
+            # and writes nothing, and is how the caller checks the before
+            # number and who a --scale-contrib would push under a reward
+            # threshold BEFORE anything is committed.
+            cid, clan, err = resolve_clan(db, str(body.get("clan") or ""))
+            if err:
+                handler._send_json({"ok": False, "error": err}, status=404)
+                return True
+            try:
+                target = float(body.get("points"))
+            except (TypeError, ValueError):
+                handler._send_json({"ok": False, "error": "points_required"}, status=400)
+                return True
+            sid = str(body.get("season") or "") or _clan_sid()
+            scale = bool(body.get("scale_contrib"))
+            preview = set_points_preview(clan, sid, _num(target), scale)
+            if body.get("dry_run"):
+                handler._send_json({"ok": True, "dry_run": True, "clan_id": cid,
+                                    "preview": preview})
+                return True
+            out = _admin_set_points(db, cid, target, scale_contrib=scale,
+                                    lifetime=bool(body.get("lifetime")),
+                                    note=str(body.get("note") or "")[:200], sid=sid)
+            out["preview"] = preview
+            if out.get("ok"):
+                # Read it back through the SAME function every page reads
+                # through, so the answer is what the site will show and not
+                # what this endpoint hopes it wrote.
+                fresh = _clans(db).document(cid).get().to_dict() or {}
+                out["now_reads"] = _clan_card(cid, fresh, sid).get("points")
+                rows = _leaderboard_rows(db, sid, fresh=True)
+                row = ([r for r in rows if r.get("id") == cid] or [{}])[0]
+                out["leaderboard_reads"] = row.get("points")
+                out["rank"] = row.get("rank")
+            handler._send_json(out, status=200 if out.get("ok") else 400)
             return True
         handler._send_json({"ok": False, "error": "unknown_action"}, status=404)
         return True
