@@ -772,6 +772,28 @@ _PLAYER_TOTALS_WARM = warm_cache.WarmCache(
     keep_warm_window=0.0)
 
 
+def _stats_map(data):
+    """One account document's `stats`, however the SDK chose to shape it.
+
+    A projected read is documented to keep the nesting
+    ({"stats": {"completed_games": 155}}), but some builds hand back the field
+    paths flat ({"stats.completed_games": 155}) instead. Reading only the
+    nested shape against a server that returns the flat one finds nothing, sums
+    zero, and publishes it as a confident total: a silent wrong number, which
+    is the failure this whole endpoint has been having. Both shapes are
+    accepted so neither can produce one."""
+    if not isinstance(data, dict):
+        return {}
+    nested = data.get("stats")
+    if isinstance(nested, dict) and nested:
+        return nested
+    flat = {}
+    for key, val in data.items():
+        if isinstance(key, str) and key.startswith("stats."):
+            flat[key[len("stats."):]] = val
+    return flat
+
+
 def _player_total_games(stats):
     """One account's total games, by the client's own rule."""
     total = int(stats.get("completed_games", 0) or 0)
@@ -808,8 +830,8 @@ def _fetch_player_stat_totals():
             stream = users.stream()
         for doc in stream:
             data = doc.to_dict() or {}
-            stats = data.get("stats")
-            if not isinstance(stats, dict):
+            stats = _stats_map(data)
+            if not stats:
                 continue
             accounts += 1
             games += _player_total_games(stats)

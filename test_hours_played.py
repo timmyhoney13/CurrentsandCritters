@@ -472,6 +472,30 @@ class TestTheTotalsTheAccountsAlreadyHeld(unittest.TestCase):
         self.assertEqual(ms._player_total_games(
             {"completed_games": 7, "normal_games_by_size": 99}), 7)
 
+    def test_a_flattened_projection_still_reads(self):
+        """Some SDK builds return projected fields as flat paths. Reading only
+        the nested shape would find nothing, sum zero, and publish it as a
+        confident total: exactly the silent wrong number this is all about."""
+        flat = {"stats.completed_games": 155, "stats.hours_played": 290}
+        stats = ms._stats_map(flat)
+        self.assertEqual(ms._player_total_games(stats), 155)
+        self.assertEqual(stats.get("hours_played"), 290)
+
+    def test_the_nested_shape_still_reads(self):
+        nested = {"stats": {"completed_games": 155, "hours_played": 290}}
+        stats = ms._stats_map(nested)
+        self.assertEqual(ms._player_total_games(stats), 155)
+        self.assertEqual(stats.get("hours_played"), 290)
+
+    def test_a_document_with_no_stats_at_all_is_skipped(self):
+        for doc in ({}, {"email": "x@y.z"}, None, "nonsense"):
+            self.assertEqual(ms._stats_map(doc), {}, doc)
+
+    def test_a_flattened_by_size_map_still_totals(self):
+        stats = ms._stats_map({"stats.completed_games": 0,
+                               "stats.normal_games_by_size": {"2": 6, "4": 3}})
+        self.assertEqual(ms._player_total_games(stats), 9)
+
     def test_it_reads_the_field_the_player_is_shown(self):
         """Player Home prints stats.hours_played, so that is what is summed:
         any other field would make the site disagree with the pages."""
