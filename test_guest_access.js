@@ -127,9 +127,17 @@ if (!CHROME) {
 // ══════════════════════════════════════════════════════════════════════════
 // Live: boot the real app as a guest and walk the whole menu
 // ══════════════════════════════════════════════════════════════════════════
+// Every panel a guest can actually reach from the sidebar.
+//
+// The Store and the Critter Pass are deliberately NOT here: both are off the
+// menu while they are on standby (PH_CLOSED_TABS in js/preview-app.js), so
+// there is no sidebar item to click and asking for either by name lands on the
+// Overview. That is not a guest restriction — nobody gets them, signed in or
+// not — so it is not this suite's subject; test_closed_pages.js is where the
+// removal is proved, and it is the file to update when they come back.
 const TABS = ["overview","howto","normal","competitive","history","friends",
               "messages","achievements","leaderboard","clans","prestige",
-              "levelpass","store"];
+              "levelpass"];
 
 // The six that cost money. Everything else in the catalogue is earnable.
 const PAID_IDS = ["summer-skin-gull","summer-skin-hermit-crab","summer-skin-goby",

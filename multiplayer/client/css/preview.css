@@ -14839,217 +14839,363 @@
       100% { box-shadow: 0 0 0 0 rgba(240,200,64,0); }
     }
 
-    /* ══ SECURE TRADE, full-screen overlay ══════════════════════════ */
+    /* ══ SECURE TRADE, full-screen overlay ══════════════════════════
+       Painted to match the game, not to be its own app. It used to be a dark
+       navy glass panel opened FROM #cc-trade-pick, which is light ocean blue
+       with a Cinzel title, so picking a player and then trading with them
+       crossed a theme boundary for no reason. Everything below now uses the
+       Player Home palette: near-white cards, #15407e headings, the cornflower
+       borders and the same soft blue shadows.
+
+       Widths follow from the same decision. Offers are laid out ACROSS the
+       screen in a grid rather than stacked in two thin columns, because a
+       trade is a comparison and a comparison wants to be read side by side.  */
     #cc-trade-overlay {
       position: fixed; inset: 0; z-index: 9800;
       display: none; align-items: center; justify-content: center;
       padding: 16px; box-sizing: border-box;
-      background: rgba(4,14,30,.72);
+      background: rgba(8,38,86,.55);
       backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
     }
     #cc-trade-overlay.open { display: flex; }
     #cc-trade-box {
-      width: min(720px, 96vw); max-height: 92vh;
+      /* Wide on purpose: the ledger is two player cards side by side and the
+         offers are a grid, and neither reads in a 720px column. */
+      width: min(1180px, 96vw); max-height: 92vh;
       display: flex; flex-direction: column; overflow: hidden;
-      background: linear-gradient(160deg, rgba(22,58,118,.99) 0%, rgba(11,30,68,.99) 100%);
-      border: 1.5px solid rgba(95,179,214,.45); border-radius: 16px;
-      box-shadow: 0 20px 70px rgba(0,0,0,.6);
-      color: var(--text);
+      position: relative;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(255,255,255,.75) 0%, rgba(255,255,255,0) 42%),
+        linear-gradient(180deg, #f2fbff 0%, #e2f1fe 55%, #d7ebfb 100%);
+      border: 1px solid rgba(140,200,240,.75); border-radius: 22px;
+      box-shadow: 0 22px 70px rgba(0,45,115,.38);
+      color: #15407e;
     }
     #cc-trade-head {
       display: flex; align-items: center; gap: 10px; flex-shrink: 0;
-      padding: 13px 14px; border-bottom: 1px solid rgba(95,179,214,.2);
-      background: linear-gradient(180deg, rgba(30,72,140,.6), rgba(20,52,108,.28));
+      padding: 14px 18px; border-bottom: 1px solid rgba(140,200,240,.55);
+      background: linear-gradient(180deg, rgba(255,255,255,.75), rgba(255,255,255,.25));
     }
     #cc-trade-title {
       flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      font-family: "Cinzel", serif; font-size: 17px; font-weight: 900; color: #cdeeff;
+      font-family: "Cinzel", serif; font-size: 1.2rem; font-weight: 900; color: #15407e;
     }
     .cctr-x {
       width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
-      border: 1px solid rgba(120,190,235,.4); background: rgba(255,255,255,.06);
-      color: #bfe6fb; font-size: 17px; cursor: pointer;
+      border: 1px solid rgba(120,190,235,.55); background: rgba(255,255,255,.7);
+      color: #1a5cbf; font-size: 17px; cursor: pointer;
     }
-    .cctr-x:hover { color: var(--red); border-color: var(--red); }
+    .cctr-x:hover { color: var(--red); border-color: var(--red); background: #fff; }
 
     .cctr-banner {
-      flex-shrink: 0; margin: 10px 14px 0; padding: 9px 12px; border-radius: 10px;
+      flex-shrink: 0; margin: 12px 18px 0; padding: 10px 13px; border-radius: 11px;
       font-size: 13px; font-weight: 700; text-align: center; line-height: 1.35;
     }
-    .cctr-banner.info    { background: rgba(34,216,248,.12); border: 1px solid rgba(34,216,248,.32); color: #bfeffb; }
-    .cctr-banner.warn    { background: rgba(240,200,64,.14); border: 1px solid rgba(240,200,64,.4);  color: #ffe9a8; }
-    .cctr-banner.err     { background: rgba(232,64,87,.15);  border: 1px solid rgba(232,64,87,.45);  color: #ffc3cc; }
-    .cctr-banner.ok      { background: rgba(66,200,120,.16); border: 1px solid rgba(66,200,120,.5);   color: #baf3d0; }
+    .cctr-banner.info    { background: rgba(34,140,220,.1);  border: 1px solid rgba(34,140,220,.32); color: #14538f; }
+    .cctr-banner.warn    { background: rgba(232,179,74,.16); border: 1px solid rgba(200,147,32,.45); color: #7a5504; }
+    .cctr-banner.err     { background: rgba(232,64,87,.1);   border: 1px solid rgba(232,64,87,.4);   color: #9d1f31; }
+    .cctr-banner.ok      { background: rgba(37,165,124,.12); border: 1px solid rgba(37,165,124,.42); color: #14663f; }
 
     /* Only shown when OPENING the trade failed, directly under the banner that
        says why. A failed open used to leave a screen with no next step on it. */
     #cc-trade-retry-wrap {
       flex-shrink: 0; display: flex; justify-content: center;
-      margin: 8px 14px 0;
+      margin: 8px 18px 0;
+    }
+
+    /* ── The ledger: both players, and what the trade does to them ──── */
+    #cc-trade-ledger {
+      flex-shrink: 0;
+      display: grid; grid-template-columns: 1fr auto 1fr; align-items: stretch; gap: 12px;
+      padding: 14px 18px 0;
+    }
+    .cctr-side {
+      display: flex; flex-direction: column; gap: 8px; min-width: 0;
+      border: 1px solid rgba(169,203,230,.85); border-radius: 16px;
+      background: rgba(252,255,255,.95);
+      box-shadow: 0 5px 16px rgba(44,111,166,.09);
+      padding: 12px 14px;
+    }
+    /* Whose side is whose, at a glance and without reading a word. */
+    #cctr-side-me   { border-color: rgba(232,179,74,.75); }
+    #cctr-side-them { border-color: rgba(95,179,214,.85); }
+    .cctr-side-top { display: flex; align-items: center; gap: 11px; min-width: 0; }
+    .cctr-side-av {
+      width: 54px; height: 54px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+      background: linear-gradient(160deg,#dcefff,#bcdde6);
+      border: 2px solid #fff; box-shadow: 0 3px 10px rgba(30,90,160,.28);
+    }
+    #cctr-side-me   .cctr-side-av { box-shadow: 0 3px 10px rgba(200,147,32,.4); }
+    .cctr-side-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .cctr-side-id { min-width: 0; flex: 1; }
+    .cctr-side-who {
+      font-weight: 900; font-size: 15px; color: #15407e;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cctr-side-lvl { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 2px; }
+    .cctr-lvl-now { font-size: 13px; font-weight: 800; color: #2e6bb0; }
+    /* "Level 12 → 9". The arrow and the new number are one chip so they can
+       never wrap apart from each other. */
+    .cctr-lvl-after {
+      font-size: 13px; font-weight: 900; border-radius: 999px; padding: 1px 9px;
+      white-space: nowrap;
+    }
+    .cctr-lvl-after.up   { background: rgba(37,165,124,.16); color: #14663f; }
+    .cctr-lvl-after.down { background: rgba(232,64,87,.14);  color: #9d1f31; }
+    .cctr-lvl-bar {
+      position: relative; height: 9px; border-radius: 999px; overflow: hidden;
+      background: rgba(150,195,230,.35); border: 1px solid rgba(150,195,230,.5);
+    }
+    .cctr-lvl-fill {
+      position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px;
+      background: linear-gradient(90deg,#3aa0e0,#2c76c8); transition: width .18s ease;
+    }
+    /* The projection, drawn OVER the bar: green where the level is being
+       climbed, red over the part that is about to be given away. */
+    .cctr-lvl-ghost {
+      position: absolute; top: 0; bottom: 0; border-radius: 999px; transition: all .18s ease;
+    }
+    .cctr-lvl-ghost.up   { background: linear-gradient(90deg,#3fd39a,#25a57c); }
+    .cctr-lvl-ghost.down { background: repeating-linear-gradient(135deg,#e8657a 0 5px,#c94055 5px 10px); }
+    .cctr-lvl-xp { font-size: 11.5px; font-weight: 700; color: #5b8bb8; }
+    .cctr-purse { display: flex; flex-wrap: wrap; gap: 6px; }
+    .cctr-purse-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 800;
+      background: rgba(226,241,254,.9); border: 1px solid rgba(169,203,230,.9); color: #2e6bb0;
+      white-space: nowrap; max-width: 100%;
+    }
+    .cctr-purse-chip .cc-coin { width: 15px; height: 15px; }
+    .cctr-purse-chip.up   { background: rgba(37,165,124,.14); border-color: rgba(37,165,124,.5); color: #14663f; }
+    .cctr-purse-chip.down { background: rgba(232,64,87,.12);  border-color: rgba(232,64,87,.45); color: #9d1f31; }
+    .cctr-purse-was { text-decoration: line-through; opacity: .55; font-weight: 700; }
+    .cctr-swap {
+      display: flex; align-items: center; justify-content: center;
+      color: #6ea8da; flex-shrink: 0; padding: 0 2px;
     }
 
     #cc-trade-cols {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
-      padding: 14px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+      padding: 14px 18px; overflow-y: auto; -webkit-overflow-scrolling: touch;
     }
     .cctr-col {
       display: flex; flex-direction: column; min-width: 0;
-      background: rgba(9,26,58,.5); border: 1px solid rgba(95,179,214,.22);
-      border-radius: 12px; padding: 10px;
+      background: rgba(252,255,255,.95); border: 1px solid rgba(169,203,230,.85);
+      border-radius: 16px; padding: 12px;
+      box-shadow: 0 5px 16px rgba(44,111,166,.09);
     }
     .cctr-col-head {
-      font-family: "Cinzel", serif; font-weight: 900; font-size: 14px;
-      text-align: center; padding: 6px 4px 9px; letter-spacing: .3px;
+      font-family: "Cinzel", serif; font-weight: 900; font-size: 15px;
+      text-align: center; padding: 4px 4px 11px; letter-spacing: .3px;
     }
-    .cctr-col-head.cctr-give { color: #ffd9a8; }
-    .cctr-col-head.cctr-recv { color: #a8e0ff; }
-    .cctr-items { display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
+    .cctr-col-head.cctr-give { color: #9a6b0c; }
+    .cctr-col-head.cctr-recv { color: #15407e; }
+    /* ACROSS, not down. Offered items used to stack in a single-file column
+       inside a narrow panel, so four avatars became a long thin scroll with
+       most of the screen empty either side of it. */
+    .cctr-items {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
+      gap: 9px; min-height: 64px; align-content: start;
+    }
     .cctr-item {
-      display: flex; align-items: center; gap: 10px;
-      background: rgba(16,44,92,.7); border: 1px solid rgba(95,179,214,.25);
-      border-radius: 10px; padding: 7px 9px;
+      display: flex; align-items: center; gap: 9px; min-width: 0;
+      background: rgba(234,245,255,.9); border: 1px solid rgba(169,203,230,.9);
+      border-radius: 12px; padding: 8px 9px;
     }
     .cctr-item-img {
-      width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
-      object-fit: cover; background: rgba(0,0,0,.25) center/cover no-repeat;
-      border: 1px solid rgba(255,255,255,.14);
+      width: 42px; height: 42px; border-radius: 9px; flex-shrink: 0;
+      object-fit: cover; background: rgba(255,255,255,.7) center/cover no-repeat;
+      border: 1px solid rgba(169,203,230,.9);
     }
     .cctr-item-coin {
-      width: 40px; height: 40px; flex-shrink: 0;
+      width: 42px; height: 42px; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
     }
     .cctr-item-coin .cc-coin { width: 38px; height: 38px; vertical-align: middle; }
     .cctr-item-body { flex: 1; min-width: 0; }
+    /* Two lines, not an ellipsis. "Common Octopus" and "Critter Coins" both
+       lost their last word to a single nowrap line, and a trade screen that
+       cannot say what is in the trade is not much of one. */
     .cctr-item-name {
-      font-size: 13px; font-weight: 800; color: #eaf6ff;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-size: 13px; font-weight: 800; color: #15407e; line-height: 1.22;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden; overflow-wrap: anywhere;
     }
-    .cctr-item-sub { font-size: 11px; color: var(--muted); }
+    .cctr-item-sub { font-size: 11.5px; font-weight: 700; color: #5b8bb8; }
     .cctr-item-rm {
-      width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0; cursor: pointer;
-      border: 1px solid rgba(232,64,87,.4); background: rgba(232,64,87,.14);
-      color: #ffb3bf; font-size: 15px; line-height: 1;
+      width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0; cursor: pointer;
+      border: 1px solid rgba(232,64,87,.45); background: rgba(232,64,87,.1);
+      color: #c22f45; font-size: 15px; line-height: 1;
     }
-    .cctr-item-rm:hover { background: rgba(232,64,87,.28); }
+    .cctr-item-rm:hover { background: rgba(232,64,87,.22); }
     .cctr-empty {
-      text-align: center; color: var(--muted); font-size: 12px; font-style: italic;
-      padding: 16px 4px;
+      grid-column: 1/-1;
+      text-align: center; color: #6c9cc6; font-size: 12.5px; font-style: italic;
+      padding: 18px 4px;
     }
     .cctr-add {
-      margin-top: 10px; padding: 9px; border-radius: 9px; cursor: pointer;
-      border: 1px dashed rgba(95,179,214,.5); background: rgba(34,216,248,.08);
-      color: #bfeffb; font-size: 13px; font-weight: 800;
+      margin-top: 11px; padding: 10px; border-radius: 11px; cursor: pointer;
+      border: 1.5px dashed rgba(120,180,225,.85); background: rgba(226,241,254,.75);
+      color: #1a5cbf; font-size: 13px; font-weight: 800;
     }
-    .cctr-add:hover { background: rgba(34,216,248,.16); }
-    .cctr-add:disabled { opacity: .4; cursor: not-allowed; }
+    .cctr-add:hover { background: rgba(200,229,252,.95); border-color: #3aa0e0; }
+    .cctr-add:disabled { opacity: .45; cursor: not-allowed; }
     .cctr-conf {
-      margin-top: 9px; min-height: 20px; text-align: center;
-      font-size: 12px; font-weight: 800;
+      margin-top: 10px; min-height: 20px; text-align: center;
+      font-size: 12.5px; font-weight: 800;
     }
-    .cctr-conf.yes { color: var(--green); }
-    .cctr-conf.no  { color: var(--muted); }
+    .cctr-conf.yes { color: #14663f; }
+    .cctr-conf.no  { color: #6c9cc6; }
 
     #cc-trade-foot {
       display: flex; gap: 10px; flex-shrink: 0;
-      padding: 12px 14px; border-top: 1px solid rgba(95,179,214,.2);
-      background: rgba(9,26,58,.4);
+      padding: 13px 18px; border-top: 1px solid rgba(140,200,240,.55);
+      background: rgba(255,255,255,.5);
     }
     .cctr-btn {
-      flex: 1; padding: 12px; border-radius: 11px; cursor: pointer;
+      flex: 1; padding: 12px; border-radius: 12px; cursor: pointer;
       font-size: 14px; font-weight: 800; border: 1px solid transparent;
+      background: rgba(255,255,255,.8); color: #1a5cbf;
     }
-    .cctr-btn.primary { background: linear-gradient(135deg, #18c8a8, #0e9e78); color: #052018; }
+    .cctr-btn.primary { background: linear-gradient(135deg, #25a57c, #17825f); color: #fff; border-color: rgba(0,0,0,.06); }
     .cctr-btn.primary:hover { filter: brightness(1.08); }
-    .cctr-btn.primary.confirmed { background: linear-gradient(135deg, #f0c840, #d4a820); color: #3a2a00; }
-    .cctr-btn.danger { background: rgba(232,64,87,.16); border-color: rgba(232,64,87,.5); color: #ffc3cc; }
-    .cctr-btn.danger:hover { background: rgba(232,64,87,.28); }
+    .cctr-btn.primary.confirmed { background: linear-gradient(135deg, #e8b34a, #c89320); color: #4a3400; }
+    .cctr-btn.danger { background: rgba(232,64,87,.1); border-color: rgba(232,64,87,.5); color: #c22f45; }
+    .cctr-btn.danger:hover { background: rgba(232,64,87,.2); }
     .cctr-btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
 
     /* ── Item picker sheet ─────────────────────────────────────────── */
+    /* Deliberately does NOT cover the ledger: the whole point of typing an
+       amount here is watching both players' numbers move, and a sheet over
+       inset:0 with a dark scrim hid exactly the thing being changed. */
     #cc-trade-picker {
       position: absolute; inset: 0; z-index: 2;
       display: none; align-items: flex-end; justify-content: center;
-      background: rgba(4,14,30,.55);
+      background: rgba(20,70,130,.28);
     }
     #cc-trade-picker.open { display: flex; }
     #cc-trade-picker-box {
-      width: min(560px, 100%); max-height: 78vh; margin: 0 8px 8px;
+      width: min(720px, 100%); max-height: 62vh; margin: 0 10px 10px;
       display: flex; flex-direction: column; overflow: hidden;
-      background: linear-gradient(160deg, rgba(26,66,128,.99), rgba(13,34,74,.99));
-      border: 1.5px solid rgba(95,179,214,.45); border-radius: 16px 16px 12px 12px;
-      box-shadow: 0 -10px 40px rgba(0,0,0,.5);
+      background: linear-gradient(180deg, #f7fcff, #e4f2fe);
+      border: 1px solid rgba(140,200,240,.85); border-radius: 18px 18px 14px 14px;
+      box-shadow: 0 -12px 44px rgba(0,45,115,.28);
     }
     .cctr-pk-head {
       display: flex; align-items: center; gap: 8px; flex-shrink: 0;
-      padding: 10px 12px; border-bottom: 1px solid rgba(95,179,214,.2);
+      padding: 11px 13px; border-bottom: 1px solid rgba(140,200,240,.55);
     }
-    /* Four tabs now, and "Season Passes" is the longest label of the four, so
-       they WRAP: three fitted a phone in one row and four do not, and a row
-       that overflows silently takes the last tab off the screen. */
+    /* Five tabs, and "Season Passes" is the longest label, so they WRAP:
+       a row that overflows silently takes the last tab off the screen. */
     .cctr-pk-tabs { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
     .cctr-pk-tab {
-      padding: 7px 12px; border-radius: 999px; cursor: pointer; font-size: 12.5px; font-weight: 800;
-      border: 1px solid rgba(95,179,214,.35); background: rgba(255,255,255,.05); color: #bfe6fb;
+      padding: 7px 13px; border-radius: 999px; cursor: pointer; font-size: 12.5px; font-weight: 800;
+      border: 1px solid rgba(120,190,235,.6); background: rgba(255,255,255,.75); color: #1a5cbf;
     }
-    .cctr-pk-tab.active { background: linear-gradient(135deg, #22d8f8, #1594c8); color: #06232e; border-color: transparent; }
+    .cctr-pk-tab:hover { background: #fff; border-color: #3aa0e0; }
+    .cctr-pk-tab.active { background: linear-gradient(135deg, #3aa0e0, #2c76c8); color: #fff; border-color: transparent; }
     /* Feedback line inside the picker (the sheet covers the box's own banner). */
     .cctr-pk-note {
-      flex-shrink: 0; margin: 8px 10px 0; padding: 8px 11px; border-radius: 9px;
+      flex-shrink: 0; margin: 9px 11px 0; padding: 8px 11px; border-radius: 10px;
       font-size: 12.5px; font-weight: 700; text-align: center; line-height: 1.3;
     }
-    .cctr-pk-note.info { background: rgba(34,216,248,.12); border: 1px solid rgba(34,216,248,.32); color: #bfeffb; }
-    .cctr-pk-note.ok   { background: rgba(66,200,120,.16); border: 1px solid rgba(66,200,120,.5);  color: #baf3d0; }
-    .cctr-pk-note.err  { background: rgba(232,64,87,.15);  border: 1px solid rgba(232,64,87,.45);  color: #ffc3cc; }
+    .cctr-pk-note.info { background: rgba(34,140,220,.1);  border: 1px solid rgba(34,140,220,.32); color: #14538f; }
+    .cctr-pk-note.ok   { background: rgba(37,165,124,.12); border: 1px solid rgba(37,165,124,.42); color: #14663f; }
+    .cctr-pk-note.err  { background: rgba(232,64,87,.1);   border: 1px solid rgba(232,64,87,.4);   color: #9d1f31; }
     .cctr-pk-body {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px;
       padding: 14px; overflow-y: auto; -webkit-overflow-scrolling: touch;
     }
     .cctr-pk-tile {
       display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer;
-      background: rgba(16,44,92,.6); border: 1.5px solid rgba(95,179,214,.28);
-      border-radius: 11px; padding: 9px 6px; text-align: center;
+      background: rgba(255,255,255,.85); border: 1.5px solid rgba(169,203,230,.9);
+      border-radius: 13px; padding: 9px 6px; text-align: center;
     }
-    .cctr-pk-tile:hover { border-color: var(--cyan); background: rgba(34,216,248,.12); }
-    .cctr-pk-tile.picked { border-color: var(--green); background: rgba(66,200,120,.16); }
-    .cctr-pk-tile.disabled { opacity: .38; cursor: not-allowed; }
+    .cctr-pk-tile:hover { border-color: #3aa0e0; background: #fff; }
+    .cctr-pk-tile.picked { border-color: #25a57c; background: rgba(37,165,124,.12); }
+    .cctr-pk-tile.disabled { opacity: .4; cursor: not-allowed; }
     .cctr-pk-tile-img {
-      width: 62px; height: 62px; border-radius: 10px; object-fit: cover;
-      background: rgba(0,0,0,.25) center/cover no-repeat; border: 1px solid rgba(255,255,255,.12);
+      width: 64px; height: 64px; border-radius: 11px; object-fit: cover;
+      background: rgba(240,248,255,.9) center/cover no-repeat; border: 1px solid rgba(169,203,230,.9);
     }
     .cctr-pk-tile-name {
-      font-size: 11.5px; font-weight: 700; color: #eaf6ff; line-height: 1.2;
+      font-size: 11.5px; font-weight: 700; color: #15407e; line-height: 1.2;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     }
-    .cctr-pk-tile-badge { font-size: 10px; font-weight: 800; color: var(--green); }
-    .cctr-pk-empty { grid-column: 1/-1; text-align: center; color: var(--muted); font-size: 13px; padding: 26px 8px; font-style: italic; }
+    .cctr-pk-tile-badge { font-size: 10px; font-weight: 900; color: #14663f; }
+    .cctr-pk-empty { grid-column: 1/-1; text-align: center; color: #6c9cc6; font-size: 13px; padding: 26px 8px; font-style: italic; }
+
+    /* ── The swing: what the number in the box would do, live ───────── */
+    /* Repeated here because the sheet sits over the ledger. Same two sides,
+       same colours, in the place the player is already looking. */
+    .cctr-pk-swing {
+      flex-shrink: 0; display: grid; grid-template-columns: 1fr auto 1fr;
+      align-items: center; gap: 10px;
+      margin: 10px 11px 0; padding: 9px 12px; border-radius: 12px;
+      background: rgba(255,255,255,.8); border: 1px solid rgba(169,203,230,.9);
+    }
+    .cctr-swing-side { min-width: 0; text-align: center; }
+    .cctr-swing-who {
+      font-size: 11px; font-weight: 800; color: #5b8bb8; text-transform: uppercase;
+      letter-spacing: .4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cctr-swing-val { font-size: 14px; font-weight: 900; color: #15407e; }
+    .cctr-swing-val .cctr-purse-was { font-size: 12.5px; }
+    .cctr-swing-side.up   .cctr-swing-val { color: #14663f; }
+    .cctr-swing-side.down .cctr-swing-val { color: #9d1f31; }
+    .cctr-swing-lvl { font-size: 11.5px; font-weight: 800; margin-top: 1px; }
+    .cctr-swing-side.up   .cctr-swing-lvl { color: #14663f; }
+    .cctr-swing-side.down .cctr-swing-lvl { color: #9d1f31; }
+    .cctr-swing-arrow { color: #6ea8da; font-weight: 900; font-size: 16px; }
+
     .cctr-pk-foot {
-      display: flex; gap: 8px; flex-shrink: 0; padding: 12px; border-top: 1px solid rgba(95,179,214,.2);
+      display: flex; gap: 8px; flex-shrink: 0; padding: 12px; border-top: 1px solid rgba(140,200,240,.55);
     }
     /* All THREE picker inputs, not just the coin one. The vouchers and XP feet
        were added later and inherited nothing, so two of the three rendered as
-       default white browser boxes on the dark sheet — square, black-texted, and
-       not even stretching to fill the row. */
+       default white browser boxes — square, and not even stretching to fill. */
     #cc-trade-coin-input,
     #cc-trade-pass-input,
     #cc-trade-xp-input {
-      flex: 1; min-width: 0; padding: 11px 12px; border-radius: 10px; font-size: 15px;
-      background: rgba(9,26,58,.8); border: 1px solid rgba(95,179,214,.45); color: #eaf6ff;
+      flex: 1; min-width: 0; padding: 11px 13px; border-radius: 11px; font-size: 15px;
+      font-weight: 700;
+      background: #fff; border: 1px solid rgba(120,190,235,.7); color: #15407e;
     }
     #cc-trade-coin-input:focus,
     #cc-trade-pass-input:focus,
-    #cc-trade-xp-input:focus { outline: none; border-color: var(--cyan); }
-    .cctr-pk-foot .cctr-btn { flex: 0 0 auto; padding: 11px 16px; }
-    .cctr-coin-note { padding: 0 14px 4px; font-size: 12px; color: var(--muted); text-align: center; }
+    #cc-trade-xp-input:focus { outline: none; border-color: #3aa0e0; box-shadow: 0 0 0 3px rgba(58,160,224,.18); }
+    .cctr-pk-foot .cctr-btn { flex: 0 0 auto; padding: 11px 18px; }
+    /* The Coins / Season Passes / XP explainer is a CHILD OF THE TILE GRID, so
+       without this it is laid into one 104px column and reads one word per
+       line down a thin ribbon with the rest of the sheet empty beside it.
+       Full width, like the empty-state message below it. */
+    .cctr-coin-note {
+      grid-column: 1 / -1;
+      padding: 2px 16px 6px; font-size: 12.5px; font-weight: 600; color: #3c6f9e;
+      text-align: center; line-height: 1.5; max-width: 60ch; margin: 0 auto;
+    }
 
-    /* ── Mobile: stack the two sides + go edge-to-edge ─────────────── */
+    /* ── Narrow: stack the sides, then go edge-to-edge ─────────────── */
+    /* 900px, not 560: the ledger is two cards and the offers are a grid, and
+       both need real width before they are worth keeping side by side. */
+    @media (max-width: 900px) {
+      #cc-trade-cols { grid-template-columns: 1fr; }
+      #cc-trade-ledger { grid-template-columns: 1fr; gap: 8px; }
+      .cctr-swap { transform: rotate(90deg); padding: 2px 0; }
+      .cctr-items { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    }
     @media (max-width: 560px) {
       #cc-trade-overlay { padding: 0; align-items: stretch; }
       #cc-trade-box { width: 100%; max-height: 100%; border-radius: 0; }
-      #cc-trade-cols { grid-template-columns: 1fr; }
-      .cctr-pk-body { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+      #cc-trade-head, #cc-trade-foot { padding-left: 12px; padding-right: 12px; }
+      #cc-trade-ledger, #cc-trade-cols { padding-left: 12px; padding-right: 12px; }
+      .cctr-items { grid-template-columns: 1fr; }
+      .cctr-pk-body { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
+      #cc-trade-picker-box { max-height: 72vh; }
       /* Tighter tabs, so the five of them take two rows on a phone rather
          than three. They still wrap; this only decides how often. */
       .cctr-pk-tab { padding: 6px 10px; font-size: 12px; }
+      .cctr-side-av { width: 46px; height: 46px; }
     }
 
     /* ══════════════════════════════════════════════════════════════

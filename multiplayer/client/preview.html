@@ -1512,8 +1512,24 @@
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12.5V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M2 12.5h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M5.5 9.5V7M8 9.5V5.5M10.5 9.5V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         Level Pass<span class="ph-snav-badge" id="snav-levelpass-badge" style="display:none;">0</span>
       </button>
-      <!-- Critter Pass, the PAID track. Deliberately the next line down from the
-           free Level Pass: they are the same idea, one of them costs coins. -->
+      <!-- ── Critter Pass and Store: OFF THE MENU, ON STANDBY ──────────────
+           Both sidebar items are commented out, not deleted. Taking the button
+           out is what actually removes the page: while it was here, the page
+           was only shut, and a shut page is still a door with a "Coming soon"
+           sign on it. Now there is nothing to click.
+
+           The markup below is the real thing, verbatim, including the Critter
+           Pass badge span. To put both pages back:
+             1. uncomment the two <button> blocks below,
+             2. empty PH_CLOSED_TABS in js/preview-app.js,
+             3. flip CCCP_PASS_CLOSED (js/critter-pass.js) and
+                PHST_STORE_CLOSED (js/preview-app.js) to false,
+             4. drop skipIf: gtOnStandby from the four steps in js/tutorials.js.
+           _standby/README.md is the full procedure. The panels themselves
+           (#ph-panel-critterpass, #ph-panel-store) are left where they are,
+           further down this file: nothing shows them while PH_CLOSED_TABS
+           holds these two names.
+
       <button class="ph-snav-item" id="snav-critterpass" data-tab="critterpass">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2.5 4.5h11a1 1 0 0 1 1 1V7a1.4 1.4 0 0 0 0 2.8v1.7a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V9.8A1.4 1.4 0 0 0 1.5 7V5.5a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M6.2 4.5v7.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="1.6 1.7"/></svg>
         Critter Pass<span class="ph-snav-badge" id="snav-critterpass-badge" style="display:none;">0</span>
@@ -1522,6 +1538,7 @@
         <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M2 3h13l-1.5 7H3.5L2 3z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="5.5" cy="14.5" r="1.2" stroke="currentColor" stroke-width="1.3"/><circle cx="12.5" cy="14.5" r="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M1 1h1.5l.5 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Store
       </button>
+      ────────────────────────────────────────────────────────────────── -->
       <!-- Settings moved OUT of the sidebar (build 1.6.34): it now lives as the
            gear button in the top-right of the home screen, and Help & Feedback
            is a section inside the Settings modal. -->
@@ -3514,6 +3531,61 @@
       <button class="cctr-btn primary" id="cc-trade-retry" type="button">Try again</button>
     </div>
 
+    <!-- ══ THE LEDGER ═══════════════════════════════════════════════
+         Both players, side by side, with what this trade DOES to each of
+         them. A trade screen that only lists items answers "what is being
+         swapped" and never "what does that leave me at", which is the only
+         question a player actually has: giving XP away lowers your level,
+         and that used to be a sentence of small print in a picker nobody
+         read twice.
+
+         Every number here is shown as NOW → AFTER the moment the offer
+         makes it change, on both sides at once, so handing something over
+         is visibly one player's loss and the other's gain. -->
+    <div id="cc-trade-ledger">
+      <div class="cctr-side" id="cctr-side-me">
+        <div class="cctr-side-top">
+          <div class="cctr-side-av"><img id="cctr-me-av" alt="" /></div>
+          <div class="cctr-side-id">
+            <div class="cctr-side-who">You</div>
+            <div class="cctr-side-lvl">
+              <span class="cctr-lvl-now" id="cctr-me-lvl">Level -</span>
+              <span class="cctr-lvl-after" id="cctr-me-lvl-after" hidden></span>
+            </div>
+          </div>
+        </div>
+        <div class="cctr-lvl-bar" id="cctr-me-bar">
+          <div class="cctr-lvl-fill" id="cctr-me-fill"></div>
+          <div class="cctr-lvl-ghost" id="cctr-me-ghost" hidden></div>
+        </div>
+        <div class="cctr-lvl-xp" id="cctr-me-xp"></div>
+        <div class="cctr-purse" id="cctr-me-purse"></div>
+      </div>
+
+      <div class="cctr-swap" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M4 9h15l-4-4M22 17H7l4 4" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+
+      <div class="cctr-side" id="cctr-side-them">
+        <div class="cctr-side-top">
+          <div class="cctr-side-av"><img id="cctr-them-av" alt="" /></div>
+          <div class="cctr-side-id">
+            <div class="cctr-side-who" id="cctr-them-who">Them</div>
+            <div class="cctr-side-lvl">
+              <span class="cctr-lvl-now" id="cctr-them-lvl">Level -</span>
+              <span class="cctr-lvl-after" id="cctr-them-lvl-after" hidden></span>
+            </div>
+          </div>
+        </div>
+        <div class="cctr-lvl-bar" id="cctr-them-bar">
+          <div class="cctr-lvl-fill" id="cctr-them-fill"></div>
+          <div class="cctr-lvl-ghost" id="cctr-them-ghost" hidden></div>
+        </div>
+        <div class="cctr-lvl-xp" id="cctr-them-xp"></div>
+        <div class="cctr-purse" id="cctr-them-purse"></div>
+      </div>
+    </div>
+
     <div id="cc-trade-cols">
       <!-- YOU GIVE (my offer, editable) -->
       <div class="cctr-col" id="cctr-give-col">
@@ -3553,6 +3625,10 @@
            banner), so every tap's result MUST be shown here or it looks dead. -->
       <div id="cc-trade-picker-note" class="cctr-pk-note" style="display:none;"></div>
       <div class="cctr-pk-body" id="cc-trade-picker-body"></div>
+      <!-- What the number in the box would do, updated on every keystroke.
+           The picker sheet sits over the ledger, so the swing has to be
+           repeated here or it happens somewhere the player cannot see. -->
+      <div class="cctr-pk-swing" id="cc-trade-swing" hidden></div>
       <div class="cctr-pk-foot" id="cc-trade-picker-foot" style="display:none;">
         <input id="cc-trade-coin-input" type="number" min="0" step="1" inputmode="numeric" placeholder="Critter Coins to offer" />
         <button id="cc-trade-coin-set" class="cctr-btn primary" type="button">Set Coins</button>

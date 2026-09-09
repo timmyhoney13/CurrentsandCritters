@@ -159,12 +159,12 @@
 !test_critter_pass_ui.js
 
 # Both pages that are on standby (the Critter Pass and the in-game Store),
-# opened the way a player opens them: the real app in a real browser, the real
-# sidebar item clicked, and THE WHOLE PANEL audited rather than the module's
-# own root. switchTab does more than render, and for a guest it inserts a note
-# carrying a Sign In button into the panel, so a page can be perfectly empty
-# and still be handed a button by the thing that opened it. Delete this file
-# when both pages reopen: every check in it asserts a page is shut.
+# reached for the way a player would reach for them: the real app in a real
+# browser, asking whether the sidebar button EXISTS at all (not whether it is
+# hidden), and where _switchPhTab lands someone who knows the tab name. Both
+# pages are off the menu, not merely shut, so the whole panel is audited for
+# anything reachable rather than the module's own root. Delete this file when
+# both pages reopen: every check in it asserts a page is unreachable.
 !test_closed_pages.js
 
 # The email address on a username-and-password account. Module-scope import
@@ -268,6 +268,21 @@
 # …and the client half: the dead end a failed /api/trade/open used to leave
 # behind, plus Season Pass vouchers as a tradable balance.
 !test_trade_ui.js
+# The trade LEDGER: both players' levels and purses, and the arithmetic behind
+# "you give 5,000 XP, you drop to Level 11 and they climb to Level 9". Pure
+# maths lifted out of preview-app.js and fuzzed, because a wrong number here
+# costs somebody a level. Also pins the layout decisions the ledger needs: the
+# offers laid ACROSS the screen, and the picker note spanning its tile grid
+# instead of reading one word per line down a ribbon.
+!test_trade_ledger.js
+# The red number over Messages. It counted the raw message cache while the
+# conversation list was built from a filtered view of it, so anything the list
+# drops — a doc with no conv_id, a group whose roster no longer lists you — was
+# counted and unreachable: a badge no amount of reading could clear. The count
+# is now the sum of the rows on screen, and this fuzzes the two invariants that
+# keeps: the badge equals what is visible, and nothing unread is ever both
+# uncounted and unswept.
+!test_message_unread.js
 
 # Looking at another player's Critter Gallery must never rename you. The 90s
 # presence heartbeat stamped MY uid onto THEIR swapped-in profile, which

@@ -1,40 +1,38 @@
 #!/usr/bin/env node
-/* The two pages that are shut, opened the way a player opens them.
+/* The two pages that are gone, reached for the way a player would reach them.
  *
  * Run:  node test_closed_pages.js        (needs Google Chrome)
  *
- * The Critter Pass (CCCP_PASS_CLOSED in js/critter-pass.js) and the in-game
- * Store (PHST_STORE_CLOSED in js/preview-app.js) are both on standby. Their
- * own suites already render each one's CONTENT and find no button in it.
- * This file tests the thing neither of those can: what a person actually gets
- * when they CLICK the tab in the real app.
+ * The Critter Pass and the in-game Store are OFF THE MENU. They used to be
+ * shut — on the menu, opening onto a "Coming soon" cover — and that is a
+ * weaker thing than this: a shut page is still a door, and a door with a sign
+ * on it is still something a player walks up to and pushes. Now the two
+ * sidebar items are commented out of preview.html and PH_CLOSED_TABS in
+ * js/preview-app.js sends anything that still asks for those tabs by name to
+ * the Overview instead.
  *
- * Why that is a different test, and worth its own file:
+ * So this suite asks two questions a static read of the files cannot:
  *
- *   1. Those suites call the render function directly. Nobody reaches a page
- *      that way. switchTab() is the real door, and it does more than render:
- *      it repaints the panel, sets the background, and INSERTS A GUEST NOTE
- *      into the panel for guests — a note that carries a Sign In button.
- *      A page can be perfectly empty and still be handed a button by the
- *      thing that opened it. Rendering the module alone cannot see that.
- *   2. They audit the module's own root element. This audits THE WHOLE PANEL,
- *      which is a bigger box: the panel holds the module root, the guest note
- *      and the Store's card header. Anything clickable in any of them is a
- *      way to interact with a page that is supposed to have none.
- *   3. "No <button>" is not the same as "cannot be reached". This walks every
- *      element in the panel and reads its real tabIndex, so a div someone
- *      made focusable, an <a href>, an input or an onclick all fail here.
+ *   1. IS THERE A DOOR? Not "is the button hidden" but "is the button there
+ *      at all", asked of the live DOM after the app has booted and built its
+ *      sidebar. A hidden button can be un-hidden by any stylesheet; a button
+ *      that was never rendered cannot be clicked by anyone.
+ *   2. WHAT HAPPENS TO SOMEONE WHO KNOWS THE NAME? _switchPhTab is published
+ *      on window, and every deep-link, old shortcut and endgame jump goes
+ *      through it. Called with "store" or "critterpass" it must land the
+ *      player on a real page and leave the closed panel unshown — not show an
+ *      empty panel, and not throw.
  *
- * Every door is used. For these two pages that is the sidebar item (neither
- * has a horizontal .ph-tab, which is asserted below so a new one cannot be
- * added without this list being brought up to date) and _switchPhTab, the
- * public jump API any deep-link into a tab would go through. Each page is
- * also opened, left, and opened again, because a cover that only survives the
- * first paint is not a closed page.
+ * The panels are still in the HTML and the renderers are still in the app,
+ * because none of this is deleted; what is tested is that nothing shows them.
+ * Both standby flags (CCCP_PASS_CLOSED, PHST_STORE_CLOSED) are ALSO still on,
+ * and still asserted here: the pages are shut as well as unreachable, so that
+ * uncommenting a sidebar item by accident cannot put a live checkout back on
+ * screen. test_supporter_tiers_ui.js renders each shelf directly and proves
+ * the Coming soon cover is still what they would paint.
  *
- * The pages must still OPEN. "Nothing to interact with" is one failure away
- * from "nothing at all", and a blank panel is not what was asked for: the
- * Coming soon notice has to be on screen and readable.
+ * And the whole session is watched at fetch level: nothing may be bought,
+ * claimed or redeemed at any point, through any of this.
  */
 "use strict";
 
@@ -62,6 +60,7 @@ function check(name, cond, detail) {
 const HTML   = read("preview.html");
 const APP    = read("js/preview-app.js");
 const PASSJS = read("js/critter-pass.js");
+const TUT    = read("js/tutorials.js");
 
 // The two pages under test, and the panel each one lives in.
 const CLOSED = [
@@ -69,32 +68,78 @@ const CLOSED = [
   { tab: "store",       panel: "ph-panel-store",       label: "Store" },
 ];
 
+// Every panel the app can show, so the driver can answer "where did the player
+// actually land" by looking at the screen instead of trusting the tab name.
+const PANEL_IDS = [
+  "overview", "howto", "normal", "competitive", "history", "friends", "messages",
+  "achievements", "leaderboard", "clans", "prestige", "levelpass",
+  "critterpass", "store",
+].map(t => ({ tab: t, id: "ph-panel-" + t }));
+
 // ══════════════════════════════════════════════════════════════════════════
 //  BOTH SWITCHES ARE ON
 //  Read from the shipped files, so this suite cannot pass by testing a page
 //  that somebody quietly reopened.
 // ══════════════════════════════════════════════════════════════════════════
-console.log("\nboth switches are on in the shipped files");
-check("the Critter Pass is closed", /const CCCP_PASS_CLOSED = true;/.test(PASSJS));
-check("the Store is closed", /const PHST_STORE_CLOSED = true;/.test(APP));
-check("both tabs are still in the tab map, so both still OPEN",
-      APP.includes('critterpass:"ph-panel-critterpass"') && APP.includes('store:"ph-panel-store"'));
-check("clicking either one still runs its renderer",
+console.log("\nthe two pages are off the menu in the shipped files");
+check("the Critter Pass is still shut too", /const CCCP_PASS_CLOSED = true;/.test(PASSJS));
+check("the Store is still shut too", /const PHST_STORE_CLOSED = true;/.test(APP));
+check("PH_CLOSED_TABS names both pages",
+      /const PH_CLOSED_TABS = \["store", "critterpass"\];/.test(APP));
+check("…and switchTab sends them somewhere that exists",
+      APP.includes("name = phTabOrFallback(name);")
+      && /PH_CLOSED_FALLBACK = "overview"/.test(APP));
+check("both are normalised on the sidebar-aware wrapper as well, not just the inner one",
+      (APP.match(/name = phTabOrFallback\(name\);/g) || []).length >= 2);
+
+// Nothing is deleted. The panels and the renderers stay exactly where they
+// were, so putting the pages back is uncommenting, not rebuilding. What is
+// asserted is that nothing REACHES them.
+check("both panels are still in the HTML, untouched",
+      HTML.includes('id="ph-panel-critterpass"') && HTML.includes('id="ph-panel-store"'));
+check("both renderers are still wired behind the redirect",
       APP.includes('if (name === "critterpass")  _renderCritterPassTab();')
       && APP.includes('if (name === "store")        renderPhStore();'));
+check("both are still in the tab map, so restoring is one array away",
+      APP.includes('critterpass:"ph-panel-critterpass"') && APP.includes('store:"ph-panel-store"'));
 
-// THE DOOR LIST BELOW HAS TO BE COMPLETE, so the two ways in are pinned here.
-// Both pages are sidebar-only today. If either ever gains a horizontal tab,
-// that is a third door this suite is not opening, and this is the check that
-// says so rather than letting the new one go untested.
+// THE DOOR LIST HAS TO BE COMPLETE. Neither page may have a sidebar item or a
+// horizontal tab in the shipped markup. The commented-out block is not a door:
+// what matters is that no LIVE button carries the data-tab, which the DOM
+// checks below confirm for real.
+// Comments stripped the way the browser strips them, so a button inside a
+// multi-line <!-- --> block counts as absent rather than as a line that merely
+// does not start with "<!--". The live-DOM checks below are the real proof;
+// this one catches a restore that puts the markup back without meaning to.
+const HTML_LIVE = HTML.replace(/<!--[\s\S]*?-->/g, "");
+check("stripping comments left the file mostly intact, so the regex is not eating the page",
+      HTML_LIVE.length > HTML.length * 0.8, `${HTML_LIVE.length} of ${HTML.length}`);
 for (const page of CLOSED) {
-  check(`the ${page.label} has a sidebar item to click`,
-        new RegExp(`ph-snav-item[^>]*data-tab="${page.tab}"`).test(HTML));
-  check(`…and no horizontal tab, so the sidebar is the only way a player opens it`,
+  const live = HTML_LIVE.split("\n").filter(l =>
+    new RegExp(`ph-snav-item[^>]*data-tab="${page.tab}"`).test(l));
+  check(`the ${page.label} sidebar item is commented out, so there is nothing to click`,
+        live.length === 0, live.join(" | ").slice(0, 120));
+  check(`…and it has no horizontal tab either`,
         !new RegExp(`class="ph-tab[^"]*" data-tab="${page.tab}"`).test(HTML));
+  check(`…and the real markup is kept verbatim for the day it comes back`,
+        new RegExp(`id="snav-${page.tab}"`).test(HTML));
 }
-check("_switchPhTab is published, so a deep-link has a door too",
+check("_switchPhTab is still published, so the redirect is what a deep-link meets",
       APP.includes("window._switchPhTab = switchTab;"));
+
+// The menu tour visited both pages. Those steps must be stepped over, or the
+// tour tells the player to click a button that is not there and then waits on
+// a tab that can never go active.
+console.log("\nthe menu tour does not walk into them");
+check("the four steps that visit them are skipped",
+      (TUT.match(/skipIf: gtOnStandby,/g) || []).length === 4,
+      (TUT.match(/skipIf: gtOnStandby,/g) || []).length);
+check("gtOnStandby is on, and is a one-line restore",
+      /const gtOnStandby = \(\) => true;/.test(TUT));
+for (const t of ["snav-critterpass", "snav-store"]) {
+  const step = TUT.slice(TUT.indexOf(`target: "#${t}"`), TUT.indexOf(`target: "#${t}"`) + 200);
+  check(`the "click ${t}" step is one of them`, step.includes("skipIf: gtOnStandby"));
+}
 
 // ══════════════════════════════════════════════════════════════════════════
 //  THE DRIVER
@@ -166,13 +211,20 @@ const DRIVER = `
           tag: tag,
           cls: (el.className || "") + "",
           why: why.join(","),
+          reachable: !!el.offsetParent || el === document.activeElement,
           text: (el.innerText || el.textContent || "").replace(/\\s+/g, " ").trim().slice(0, 50),
         });
       }
     });
+    // Reachable, not merely present: an element inside a display:none panel
+    // has no offsetParent, so it cannot be clicked or tabbed to however many
+    // buttons the panel's markup still contains.
+    var reachable = actionable.filter(function (a) { return a.reachable; });
     var text = panel ? (panel.innerText || panel.textContent || "").replace(/\\s+/g, " ").trim() : "";
     return {
       visible: vis(panel),
+      reachableCount: reachable.length,
+      reachable: reachable,
       actionable: actionable,
       count: actionable.length,
       text: text.slice(0, 400),
@@ -212,8 +264,22 @@ const DRIVER = `
   };
 
   var PAGES = ${JSON.stringify(CLOSED)};
+  // Which panel is on screen right now, so "where did the player land" is
+  // answered by looking, not assumed.
+  var PANELS = ${JSON.stringify(PANEL_IDS)};
+  function shownPanel() {
+    for (var i = 0; i < PANELS.length; i++) {
+      if (vis(document.getElementById(PANELS[i].id))) return PANELS[i].tab;
+    }
+    return null;
+  }
+
   var phase = 1, tick = 0, idx = 0, guard = 0, round = 0;
-  var DOORS = ["snav", "api"];
+  // ROUND 0 looks for the door in the live DOM: after the app has booted and
+  // built its sidebar, is there anything a player could click? ROUND 1 and 2
+  // are the deep-link, the only way left to ask for these tabs by name, done
+  // twice because a redirect that only holds on the first call is not one.
+  var DOORS = ["snav", "api", "api-again"];
 
   var iv = setInterval(function () {
     tick++;
@@ -241,19 +307,18 @@ const DRIVER = `
       }
       if (phase === 3) {
         var lob = q("#auth-stats-lobby");
-        if (lob && lob.classList.contains("visible")) { phase = 4; guard = 0; }
+        if (lob && lob.classList.contains("visible")) {
+          phase = 4; guard = 0;
+          // Where the sidebar can actually take a player, for the record: the
+          // two removed tabs must not be in it.
+          out.sidebar = Array.prototype.map.call(
+            document.querySelectorAll(".ph-snav-item[data-tab]"),
+            function (b) { return b.dataset.tab; });
+        }
         return;
       }
 
-      // ── Open each closed page, through each door, twice ──────────────
-      // ROUND 0 clicks the sidebar item, which is the only thing a player can
-      // click: neither of these two pages has a horizontal .ph-tab (asserted
-      // in the static checks, so a new one cannot be added without this list
-      // being brought up to date). ROUND 1 goes through _switchPhTab, the
-      // public jump API any deep-link into a tab would use.
-      //
-      // Between the two rounds every page has been left and come back to,
-      // which is where a first-paint-only cover would give itself away.
+      // ── Reach for each removed page, through each door ───────────────
       if (phase === 4) {
         var page = PAGES[idx];
         if (!page) {
@@ -264,29 +329,49 @@ const DRIVER = `
         }
         var door = DOORS[round];
         var sel = '.ph-snav-item[data-tab="' + page.tab + '"]';
-        var btn = document.querySelector(sel);
-        if (door === "snav" && !btn) {
-          out.pages[page.tab + ":" + door] = { missingDoor: sel };
+
+        // ── The door itself ──────────────────────────────────────────
+        // Not "is it hidden" but "is it there". Any button carrying this tab,
+        // plus the badge span that used to hang off the Critter Pass item.
+        if (door === "snav") {
+          var btn = document.querySelector(sel);
+          out.pages[page.tab + ":" + door] = {
+            door: door,
+            buttonExists: !!btn,
+            anyElementWithTab: document.querySelectorAll('[data-tab="' + page.tab + '"]').length,
+            idExists: !!document.getElementById("snav-" + page.tab),
+          };
+          out.order.push(page.tab + ":" + door);
           idx++; guard = 0; return;
         }
+
+        // ── The deep-link ────────────────────────────────────────────
         if (guard === 0) {
-          if (door === "snav") click(btn);
-          else window._switchPhTab(page.tab);
+          // Stand somewhere else first, so "it stayed put" cannot pass by
+          // accident: the player is on Achievements and asks for the Store.
+          try { window._switchPhTab("achievements"); } catch (_) {}
           guard = 1; return;
         }
+        if (guard === 1) {
+          out.pages[page.tab + ":" + door] = { door: door, from: shownPanel() };
+          try { window._switchPhTab(page.tab); }
+          catch (e) { out.pages[page.tab + ":" + door].threw = String(e && e.message); }
+          guard = 2; return;
+        }
         guard++;
-        if (guard < 18) return;            // let the async renders land
+        if (guard < 18) return;            // let any async render land
 
         var panel = document.getElementById(page.panel);
-        var res = audit(panel);
-        res.door = door;
-        // Only on the second round, once everything has been seen once: a
-        // synthetic click storm changes the page, so it must not run before
-        // the honest audits are taken.
-        if (round === 1) res.clickStorm = clickEverything(panel);
-        // Re-audit after the storm to prove it did not open anything.
-        if (round === 1) res.afterStorm = audit(panel).count;
-        out.pages[page.tab + ":" + door] = res;
+        var res = out.pages[page.tab + ":" + door];
+        var a = audit(panel);
+        for (var k in a) res[k] = a[k];
+        res.landedOn = shownPanel();
+        // Only on the last round, once the honest audits are taken: a
+        // synthetic click storm changes the page.
+        if (door === "api-again") {
+          res.clickStorm = clickEverything(panel);
+          res.afterStorm = audit(panel).reachableCount;
+        }
         out.order.push(page.tab + ":" + door);
         idx++; guard = 0;
         return;
@@ -363,40 +448,52 @@ try {
   try { fs.unlinkSync(tmp); } catch (_) {}
 }
 
-console.log("\nclicking the real tabs in the real app (guest session)");
+console.log("\nreaching for the removed pages in the real app (guest session)");
 if (!D) {
-  check("the harness reached the lobby and clicked the tabs", false, "no result");
+  check("the harness reached the lobby", false, "no result");
 } else {
   check("the walkthrough ran to the end", D.phase === "done", D.phase);
   check("nothing threw anywhere in the session",
         (D.errors || []).length === 0, (D.errors || []).slice(0, 3).join(" | "));
 
+  console.log("\n  the sidebar a player is actually given");
+  const nav = D.sidebar || [];
+  check("it has items on it, so this is a real sidebar and not an empty read",
+        nav.length >= 8, JSON.stringify(nav));
+  check("the Critter Pass is not one of them", nav.indexOf("critterpass") === -1, JSON.stringify(nav));
+  check("the Store is not one of them", nav.indexOf("store") === -1, JSON.stringify(nav));
+
   for (const page of CLOSED) {
-    for (const door of ["snav", "api"]) {
-      const key = page.tab + ":" + door;
-      const r = D.pages[key] || {};
-      const via = door === "snav" ? "from the sidebar" : "by deep-link (_switchPhTab)";
-      console.log(`\n  ${page.label}, opened ${via}`);
+    // ── Is there a door at all? ────────────────────────────────────
+    const d = D.pages[page.tab + ":snav"] || {};
+    console.log(`\n  ${page.label}: is there anything to click?`);
+    check("no sidebar button for it exists in the live DOM",
+          d.buttonExists === false, JSON.stringify(d));
+    check("nothing at all in the app carries its data-tab",
+          d.anyElementWithTab === 0, d.anyElementWithTab);
+    check("its old sidebar id resolves to nothing",
+          d.idExists === false, d.idExists);
 
-      // It has to OPEN. A page nobody can interact with is not the same
-      // thing as a page that is not there.
-      check("the page opens", r.visible === true, JSON.stringify(r).slice(0, 120));
-      check("it says Coming soon", r.comingSoon === true, (r.text || "").slice(0, 120));
-      check("there is something to read, not a blank panel",
-            (r.chars || 0) > 60, r.chars);
+    // ── And what happens to someone who knows the name? ────────────
+    for (const door of ["api", "api-again"]) {
+      const r = D.pages[page.tab + ":" + door] || {};
+      const nth = door === "api" ? "asked for by name (_switchPhTab)" : "asked for a second time";
+      console.log(`\n  ${page.label}, ${nth}`);
 
-      // And nothing on it can be acted on, anywhere in the panel.
-      check("nothing in the whole panel can be clicked or tabbed to",
-            r.count === 0,
-            (r.actionable || []).map(a => `${a.tag}.${a.cls}(${a.why})"${a.text}"`).join(" | "));
-      check("no guest note was inserted into it",
+      check("the call does not throw", r.threw == null, r.threw);
+      check("the player was standing somewhere else first",
+            r.from === "achievements", r.from);
+      check("the page does not open", r.visible === false, JSON.stringify(r).slice(0, 140));
+      check("they land on a real page instead of a blank screen",
+            r.landedOn === "overview", r.landedOn);
+      check("nothing in the panel can be clicked or tabbed to",
+            r.reachableCount === 0,
+            (r.reachable || []).map(a => `${a.tag}.${a.cls}(${a.why})"${a.text}"`).join(" | "));
+      check("no guest note with a Sign in button was inserted into it",
             r.guestNote === 0, r.guestNote);
       check("no Payment Link is anywhere in its markup", r.stripe === false);
 
-      if (door === "api") {
-        // Second visit: it was opened, left for the other page, and opened
-        // again. A cover that only survives the first paint fails here.
-        check("it is still shut on the second visit", r.comingSoon === true);
+      if (door === "api-again") {
         const cs = r.clickStorm || {};
         check("clicking every element in it navigates nowhere",
               cs.navigated === false, JSON.stringify(cs));
@@ -407,10 +504,10 @@ if (!D) {
     }
   }
 
-  console.log("\n  nothing points at the closed pages either");
+  console.log("\n  nothing points at the removed pages either");
   const b = D.badge || {};
-  check("the sidebar's Critter Pass badge is not showing a count",
-        b.shown === false && !/[1-9]/.test(b.text || ""), JSON.stringify(b));
+  check("the Critter Pass sidebar badge is gone with the item it hung off",
+        b.present === false, JSON.stringify(b));
 
   console.log("\n  nothing was bought, claimed or redeemed in the whole session");
   check("no spend request was sent at any point",

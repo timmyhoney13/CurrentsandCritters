@@ -700,6 +700,27 @@
   const gtStreakCalOpen = ()  => !!document.getElementById("streak-cal-modal")?.classList.contains("open");
   const gtChallengesOpen = () => !document.getElementById("ph-cs-strip")?.classList.contains("is-collapsed");
 
+  // ── Steps for a page that is not on the menu ──────────────────────
+  // The Critter Pass and the Store have been taken off the sidebar while they
+  // are on standby (PH_CLOSED_TABS in js/preview-app.js). Four steps of the
+  // menu tour visit them: two say "click this sidebar item", which is now not
+  // there, and two describe the panel it opens.
+  //
+  // They are marked skipIf rather than deleted, which is the mechanism built
+  // for exactly this: a skipped step is stepped over in BOTH directions and is
+  // left out of the "Step N of M" count, so the tour reads as though it never
+  // had them. Deleting them instead would mean rewriting four paragraphs when
+  // the pages come back.
+  //
+  // Leaving them in would be worse than untidy. Both are interactive with
+  // advanceWhen: gtTabActive(...), so the tour would tell the player to click
+  // a button that does not exist and then wait on a tab that can never go
+  // active. The anti-dead-end timer would eventually offer a way past, but
+  // only after four seconds of pointing at nothing, twice.
+  //
+  //      const gtOnStandby = () => false;   ← puts the four steps back
+  const gtOnStandby = () => true;
+
   const MENU_STEPS = [
 
     // ── Welcome ──────────────────────────────────────────────────────
@@ -922,6 +943,7 @@
 
     // ── Critter Pass tab (click to navigate) ─────────────────────────
     { target: "#snav-critterpass", badge: "Critter Pass Tab", title: "Critter Pass",
+      skipIf: gtOnStandby,
       before: closeMenuOverlays,
       interactive: true,
       advanceWhen: gtTabActive("snav-critterpass"),
@@ -929,10 +951,12 @@
 
     // ── Critter Pass panel description ────────────────────────────────
     { target: "#ph-panel-critterpass", badge: "Critter Pass Tab", title: "The Paid Track",
+      skipIf: gtOnStandby,
       text: "The <strong>Critter Pass</strong> is the Level Pass's bigger sibling: the same levels, a much heavier track, unlocked once for <strong>4,000 Critter Coins</strong>. <strong>Every single level from 1 to 100 pays you something</strong>, and across the track that is <strong>8,500 Critter Coins</strong> and <strong>23,750 XP</strong>, plus <strong>ten chat emotes</strong>, and at <strong>Level 100</strong> the <strong>Summer Skin Gull</strong>. Six of its tiers are the thing nothing else in the game sells: <strong>three extra daily challenges</strong> and <strong>three extra weekly challenges</strong>, for keeps. You can read the whole track before you buy it, and every level you have already passed is claimable the moment you unlock it." },
 
     // ── Store tab (click to navigate) ────────────────────────────────
     { target: "#snav-store", badge: "Store Tab", title: "Store",
+      skipIf: gtOnStandby,
       before: closeMenuOverlays,
       interactive: true,
       advanceWhen: gtTabActive("snav-store"),
@@ -940,6 +964,7 @@
 
     // ── Store panel description ───────────────────────────────────────
     { target: "#ph-panel-store", badge: "Store Tab", title: "The Store",
+      skipIf: gtOnStandby,
       text: "The <strong>Store</strong> is what <strong>Critter Coins</strong> are for, and it has a section each: <strong>🌊 Backgrounds</strong>, the ocean scenes that sit behind your avatar; <strong>🌴 Exclusive Skins</strong>, seasonal player icons everyone sees on your seat in a game; <strong>🐚 Player Perks</strong>, the things that help you play rather than things you wear; <strong>★ Supporter Tiers</strong>; and the <strong>📦 Physical Game</strong>, the real tabletop edition. You can top up your coins here too. <em>(A donation code is not redeemed here, it goes in the box at the bottom of your Avatar Gallery.)</em>" },
 
     // ── Settings (click to open; the gear now lives in the top right) ─

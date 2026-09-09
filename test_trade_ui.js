@@ -143,8 +143,10 @@ check("the picker has a tab for them",
       /data-tab="passes"[^>]*>Season Passes</.test(HTML));
 check("with its own count input", HTML.includes('id="cc-trade-pass-input"'));
 check("and its own Set button", HTML.includes('id="cc-trade-pass-set"'));
-check("both are wired", SRC.includes('on("cc-trade-pass-set"')
-      && /passInput\.addEventListener\("keydown"/.test(SRC));
+// The three amount boxes (coins / vouchers / XP) are wired by ONE helper now,
+// so this asks for the wiring rather than for three copies of it: Set commits,
+// Enter commits, and typing moves the ledger without committing anything.
+check("both are wired", /wireAmount\("cc-trade-pass-input",\s*"cc-trade-pass-set",\s*"passes",\s*_trSetPasses\)/.test(SRC));
 check("the tab renders its own body", /_trPickerTab === "passes"/.test(SRC));
 check("a voucher row can be removed like a coin row",
       /r\.type === "passes"\) _trSetPasses\(0\)/.test(SRC));
@@ -162,12 +164,19 @@ check("you cannot offer more than you hold",
 // giver worse off: it is the number every level is derived from, so handing it
 // over drops levels and can relock level-gated critters. That has to be said on
 // screen BEFORE an amount is set, not discovered afterwards.
+section("every amount box commits the same three ways");
+check("the coin box goes through the same helper",
+      /wireAmount\("cc-trade-coin-input",\s*"cc-trade-coin-set",\s*"coins",\s*_trSetCoins\)/.test(SRC));
+check("Set commits", /const wireAmount[\s\S]{0,400}on\(setBtnId, \(\) => \{ const el = \$a\(inputId\); commit\(el \? el\.value : 0\); \}\);/.test(SRC));
+check("Enter commits too", /const wireAmount[\s\S]{0,700}if \(e\.key === "Enter"\) \{ e\.preventDefault\(\); commit\(el\.value\); \}/.test(SRC));
+check("typing only previews, it never commits",
+      /const live = \(\) => _trSetDraft\(kind, el\.value\);/.test(SRC));
+
 section("XP is offerable, and says what it costs");
 check("the picker has a tab for it", /data-tab="xp"[^>]*>XP</.test(HTML));
 check("with its own amount input", HTML.includes('id="cc-trade-xp-input"'));
 check("and its own Set button", HTML.includes('id="cc-trade-xp-set"'));
-check("both are wired", SRC.includes('on("cc-trade-xp-set"')
-      && /xpInput\.addEventListener\("keydown"/.test(SRC));
+check("both are wired", /wireAmount\("cc-trade-xp-input",\s*"cc-trade-xp-set",\s*"xp",\s*_trSetXp\)/.test(SRC));
 check("the tab renders its own body", /_trPickerTab === "xp"/.test(SRC));
 check("an XP row can be removed like a coin row",
       /r\.type === "xp"\) _trSetXp\(0\)/.test(SRC));

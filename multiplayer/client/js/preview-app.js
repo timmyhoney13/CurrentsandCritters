@@ -27230,6 +27230,15 @@
     let _msgOpenPeer = null;        // { uid, name }  (DM only)
     let _msgOpenGroup = null;       // { id, name, members:[{uid,name}] }  (group only)
     let _msgTotalUnread = 0;
+    // Ids I have already marked read on THIS device, held so the badge can drop
+    // the moment a chat is opened instead of waiting on the Firestore write and
+    // the snapshot that follows it. A slow or failed write used to leave the
+    // number sitting there after the messages had plainly been read.
+    const _msgLocallyRead = new Set();
+    // Orphan ids already swept, so a doc that cannot be written (rules, a
+    // deleted conversation) is retried once per session and not on every
+    // snapshot for ever.
+    const _msgSweptOrphans = new Set();
     let _msgListRenderGen = 0;      // generation counter, stale async renders bail out
     const _msgChangeCbs = [];       // external subscribers (in-game panel) notified on cache update
 
@@ -27272,6 +27281,8 @@
       _msgOpenPeer = null;
       _msgOpenGroup = null;
       _msgTotalUnread = 0;
+      _msgLocallyRead.clear();
+      _msgSweptOrphans.clear();
       _msgListRenderGen++;
       try { _msgUpdateBadge(); } catch (_) {}
       // The in-game chat button carries the same number.
@@ -27307,42 +27318,131 @@
         : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     }
 
-    // Group my cached messages into per-conversation summaries (newest first).
-    // Handles both 2-party DMs and multi-party group chats.
-    function _msgRebuildConversations() {
+    // ── ONE source of truth for "how many unread" ─────────────────────
+    //
+    // The badge used to count the RAW message cache while the conversation list
+    // was built from a filtered view of the same cache. Every doc the list drops
+    // and the badge does not is a number nobody can clear: an unread message
+    // with no conv_id belongs to no conversation, and one in a group whose
+    // roster no longer lists me belongs to a row that is deliberately hidden.
+    // Either way the player is shown a red 2 over Messages, opens every chat
+    // they have, reads everything, and the 2 stays — because the thing being
+    // counted is not on the screen at all.
+    //
+    // So the list is built FIRST and the badge is the sum of what it shows. The
+    // number can now only ever name conversations that exist and can be opened.
+    // Anything unread that no conversation accounts for comes back as an ORPHAN
+    // and is marked read in Firestore (see _msgSweepOrphans), so the docs are
+    // cleaned up instead of sitting there invisible for ever.
+    //
+    // Pure on purpose: messages in, summary out, no DOM and no Firestore. It is
+    // the one piece of this that is worth testing directly, and test_message_
+    // unread.js lifts it straight out of this file and runs it.
+    function _msgSummarize(all, myUid, locallyRead) {
+      const readSet = locallyRead || new Set();
+      const isRead = (m) => !!m.read || readSet.has(m.id);
+      // Everything that could be unread: a real message (not a group meta doc,
+      // not a chat-background doc, not the live trade mirror), from someone
+      // else, that I have not read. This is the ONLY definition of unread in
+      // the file now, used for the per-conversation counts and the total alike.
+      const countable = (m) => !!m && !m.meta && !m.trade && m.sender !== myUid && !isRead(m);
+
       const byConv = {};
-      _msgAllMessages.forEach(m => {
-        if (!m || !m.conv_id) return;
+      const noConv = [];        // unread that names no conversation at all
+      (all || []).forEach(m => {
+        if (!m) return;
+        if (!m.conv_id) { if (countable(m)) noConv.push(m.id); return; }
         (byConv[m.conv_id] = byConv[m.conv_id] || []).push(m);
       });
-      _msgConversations = Object.keys(byConv).map(cid => {
-        const all  = byConv[cid];
-        const meta = all.filter(_msgIsGroupMeta).sort((a, b) => _msgTs(a) - _msgTs(b)).pop() || null;
-        const isGroup = !!meta || all.some(m => m.group);
+
+      const orphans = noConv.slice();
+      const conversations = Object.keys(byConv).map(cid => {
+        const all2 = byConv[cid];
+        const meta = all2.filter(_msgIsGroupMeta).sort((a, b) => _msgTs(a) - _msgTs(b)).pop() || null;
+        const isGroup = !!meta || all2.some(m => m.group);
         // Exclude the live trade mirror doc (trade:true), it's not a chat message.
-        const msgs = all.filter(m => !m.meta && !m.trade).sort((a, b) => _msgTs(a) - _msgTs(b));
+        const msgs = all2.filter(m => !m.meta && !m.trade).sort((a, b) => _msgTs(a) - _msgTs(b));
         const last = msgs[msgs.length - 1];
-        const unread = msgs.filter(m => m.sender !== _authUser.uid && !m.read).length;
+        const unreadMsgs = msgs.filter(countable);
+        const unread = unreadMsgs.length;
+        // A row this function is about to drop takes its unread with it, so
+        // every id in it is handed back to be swept rather than counted.
+        const drop = () => { unreadMsgs.forEach(m => orphans.push(m.id)); return null; };
 
         if (isGroup) {
           // Hide groups I've been removed from / left (meta no longer lists me).
           if (meta && Array.isArray(meta.members)
-              && !meta.members.some(p => p && p.uid === _authUser.uid)) return null;
+              && !meta.members.some(p => p && p.uid === myUid)) return drop();
           const name    = (meta && meta.name) || "Group";
           const members = (meta && Array.isArray(meta.members)) ? meta.members : [];
           const preview = last
-            ? ((last.sender === _authUser.uid ? "You: " : ((last.sender_name || "") + ": ")) + (last.text || ""))
+            ? ((last.sender === myUid ? "You: " : ((last.sender_name || "") + ": ")) + (last.text || ""))
             : "New group";
           return { id: cid, group: true, name, peerName: name, members,
                    last_text: preview, last_ts: (last ? last.ts : (meta && meta.ts)), unread };
         }
 
-        if (!last) return null;            // DM with no surviving messages
-        const iSent    = last.sender === _authUser.uid;
+        if (!last) return drop();          // DM with no surviving messages
+        const iSent    = last.sender === myUid;
         const peerUid  = iSent ? last.receiver : last.sender;
         const peerName = (iSent ? last.receiver_name : last.sender_name) || "Player";
         return { id: cid, peerUid, peerName, last_text: last.text, last_ts: last.ts, unread };
       }).filter(Boolean).sort((a, b) => _msgTs({ ts: b.last_ts }) - _msgTs({ ts: a.last_ts }));
+
+      return {
+        conversations,
+        totalUnread: conversations.reduce((n, c) => n + (c.unread || 0), 0),
+        orphans,
+      };
+    }
+
+    // Group my cached messages into per-conversation summaries (newest first).
+    // Handles both 2-party DMs and multi-party group chats, and sets the badge
+    // total from the very same pass so the two can never disagree.
+    function _msgRebuildConversations() {
+      const summary = _msgSummarize(_msgAllMessages, _authUser ? _authUser.uid : null, _msgLocallyRead);
+      _msgConversations = summary.conversations;
+      _msgTotalUnread = summary.totalUnread;
+      return summary;
+    }
+
+    // Mark read the unread docs that belong to no conversation on screen. Left
+    // alone they are permanent: nothing lists them, so nothing can open them,
+    // so nothing ever clears them. Each id is attempted once per session.
+    function _msgSweepOrphans(ids) {
+      if (!_db || !_authUser || !ids || !ids.length) return;
+      const todo = ids.filter(id => id && !_msgSweptOrphans.has(id));
+      if (!todo.length) return;
+      todo.forEach(id => { _msgSweptOrphans.add(id); _msgLocallyRead.add(id); });
+      _msgWriteRead(todo, "orphan sweep");
+    }
+
+    // Write read:true for a list of my own message docs. Batched: the old code
+    // awaited one update per message in a loop and threw every failure away, so
+    // a chat with several unread lines took several round trips and a rules or
+    // network failure was indistinguishable from success.
+    async function _msgWriteRead(ids, why) {
+      if (!_db || !_authUser || !ids || !ids.length) return;
+      const col = _db.collection("users").doc(_authUser.uid).collection("messages");
+      for (let i = 0; i < ids.length; i += 400) {
+        const slice = ids.slice(i, i + 400);
+        try {
+          const batch = _db.batch();
+          slice.forEach(id => batch.update(col.doc(id), { read: true }));
+          await batch.commit();
+        } catch (e) {
+          // One bad id (a doc deleted underneath us) fails the whole batch, so
+          // fall back to writing them one at a time and let the good ones land.
+          for (const id of slice) {
+            try { await col.doc(id).update({ read: true }); }
+            catch (e2) {
+              // Keep the local mark: the player HAS read it, and the badge must
+              // not creep back up because the server refused the write.
+              console.warn("[msg] could not mark read (" + (why || "read") + "):", id, (e2 && e2.code) || e2);
+            }
+          }
+        }
+      }
     }
 
     // Single listener on my own messages subcollection, drives everything.
@@ -27353,9 +27453,15 @@
         _msgListUnsub = _db.collection("users").doc(_authUser.uid).collection("messages")
           .onSnapshot({ includeMetadataChanges: false }, snap => {
             _msgAllMessages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            _msgTotalUnread = _msgAllMessages.filter(m => !m.meta && !m.trade && m.sender !== _authUser.uid && !m.read).length;
+            // A doc that has come back read:true no longer needs its local mark.
+            _msgAllMessages.forEach(m => { if (m && m.read && _msgLocallyRead.has(m.id)) _msgLocallyRead.delete(m.id); });
+            // The list FIRST, then the badge from what the list actually shows.
+            const summary = _msgRebuildConversations();
             _msgUpdateBadge();
-            _msgRebuildConversations();
+            // Anything unread that no visible conversation accounts for gets
+            // cleared at the source, so the badge cannot be stuck by a doc the
+            // player has no way to open.
+            _msgSweepOrphans(summary.orphans);
             const drawer = $a("cc-msg-drawer");
             if (drawer && drawer.classList.contains("open")) {
               if (_msgOpenConvId) { _msgRenderOpenConversation(); _msgApplyChatBg(); }
@@ -27741,16 +27847,24 @@
     }
 
     // Mark my received messages in this conversation as read.
+    //
+    // The local mark goes on FIRST and the badge is repainted straight away, so
+    // opening a chat drops the number then and there. It used to wait for one
+    // Firestore update per message and then for the snapshot to come back, and
+    // every one of those failures was swallowed: a write the rules refused left
+    // the count sitting over Messages with the chat plainly read on screen.
     async function _msgMarkConvRead(convId) {
       if (!_db || !_authUser || !convId) return;
       const unread = _msgAllMessages.filter(m =>
-        m.conv_id === convId && !m.meta && !m.trade && m.sender !== _authUser.uid && !m.read);
-      for (const m of unread) {
-        try {
-          await _db.collection("users").doc(_authUser.uid)
-            .collection("messages").doc(m.id).update({ read: true });
-        } catch {}
-      }
+        m.conv_id === convId && !m.meta && !m.trade
+        && m.sender !== _authUser.uid && !m.read && !_msgLocallyRead.has(m.id));
+      if (!unread.length) return;
+      unread.forEach(m => _msgLocallyRead.add(m.id));
+      _msgRebuildConversations();
+      _msgUpdateBadge();
+      try { if (typeof pvcUpdateBadges === "function") pvcUpdateBadges(); } catch (_) {}
+      _msgChangeCbs.forEach(cb => { try { cb(); } catch (_) {} });
+      await _msgWriteRead(unread.map(m => m.id), "conversation opened");
     }
 
     // Drawer send button, dispatches to a DM or group based on the open conv.
@@ -28365,8 +28479,12 @@
       ensureListener: () => { if (_authUser) _msgStartListListener(); },
       conversations: () => _msgConversations.slice(),
       totalUnread:  () => _msgTotalUnread,
-      unreadFor:    (convId) => _msgAllMessages.filter(m =>
-                       m.conv_id === convId && !m.meta && !m.trade && m.sender !== _authUser.uid && !m.read).length,
+      // Read off the SAME summary the sidebar badge uses, so the in-game panel
+      // and the Player Home can never show two different numbers for one chat.
+      unreadFor:    (convId) => {
+                       const c = _msgConversations.find(x => x && x.id === convId);
+                       return c ? (c.unread || 0) : 0;
+                     },
       messagesFor:  (convId) => _msgAllMessages
                        .filter(m => m.conv_id === convId && !m.meta && !m.trade)
                        .sort((a, b) => _msgTs(a) - _msgTs(b)),
@@ -28462,6 +28580,298 @@
     function _trAvatarName(p) { const a = animalByImg(p); return (a && a.name) || "Avatar"; }
     function _trBgName(p) { const b = _BG_BY_IMG[p]; return (b && b.name) || "Background"; }
     function _trImgSrc(p) { return (typeof window.__fishAvSrc === "function") ? window.__fishAvSrc(p) : p; }
+
+    // ══ THE LEDGER ═══════════════════════════════════════════════════
+    //
+    // What this trade DOES to the two people in it. The screen used to list
+    // the items being swapped and nothing else, so the one question a player
+    // actually has — "what does that leave me at?" — was answered only by a
+    // paragraph of small print in the XP picker. Giving XP away lowers your
+    // level; that is the whole reason XP is worth trading, and it should be
+    // impossible to miss.
+    //
+    // Every figure is NOW → AFTER, on BOTH sides at once, so a handover reads
+    // as one player's loss and the other's gain rather than as a number in a
+    // box. The projection includes what the peer is offering me as well, so
+    // the "after" is the real after, not just my own side of it.
+
+    // The peer's public profile (the same users/{uid} doc the profile viewer
+    // reads), cached per trade so the ledger can show THEIR level and purse.
+    let _trPeer = null;          // { uid, name, avatar, xp, level, coins, passes } | null
+    let _trPeerLoading = false;
+    // What is currently typed into a picker input but not yet submitted, so the
+    // ledger can move while the player types instead of only after they commit.
+    let _trDraft = null;         // { kind: "coins"|"passes"|"xp", n } | null
+
+    async function _trLoadPeer(uid) {
+      if (!uid || _trPeerLoading) return;
+      _trPeerLoading = true;
+      try {
+        const prof = (typeof loadProfile === "function") ? await loadProfile(uid) : null;
+        // A trade that has moved on (closed, or reopened with someone else)
+        // must not be repainted with the answer to an old question.
+        if (!prof || String(uid) !== String(_trPeerUid)) return;
+        const st = (prof.stats && typeof prof.stats === "object") ? prof.stats : {};
+        let xp = 0;
+        try { xp = Math.max(0, Math.floor(getStoredTotalXp(st))); } catch (_) { xp = 0; }
+        _trPeer = {
+          uid: String(uid),
+          name: prof.nickname || _trPeerName || "Player",
+          avatar: prof.avatar_url || "",
+          xp,
+          coins: Math.max(0, Math.floor(Number(st.critter_coins) || 0)),
+          passes: Math.max(0, Math.floor(Number(prof.critter_pass_vouchers) || 0)),
+        };
+        _trRender();
+      } catch (_) {
+        // A ledger with one side unknown is still worth showing: the peer keeps
+        // their name and avatar and the trade works exactly as before.
+      } finally {
+        _trPeerLoading = false;
+      }
+    }
+
+    function _trLevelOf(totalXp) {
+      try { return getLevelProgressFromTotalXp(Math.max(0, Math.floor(Number(totalXp) || 0))); }
+      catch (_) { return null; }
+    }
+
+    // My offer with the half-typed number folded in, so the ledger reflects the
+    // box the player is looking at rather than the last value they submitted.
+    function _trOfferWithDraft(offer) {
+      const o = {
+        coins: Math.max(0, Math.floor(Number(offer && offer.coins) || 0)),
+        passes: Math.max(0, Math.floor(Number(offer && offer.passes) || 0)),
+        xp: Math.max(0, Math.floor(Number(offer && offer.xp) || 0)),
+      };
+      if (_trDraft && _trDraft.kind) o[_trDraft.kind] = Math.max(0, Math.floor(Number(_trDraft.n) || 0));
+      return o;
+    }
+
+    // Everything the ledger needs, as plain numbers. Pure: it takes the two
+    // purses and the two offers and returns before/after for each side, so the
+    // arithmetic can be tested without a browser (test_trade_ledger.js).
+    function _trLedgerModel(mine, theirs, give, recv) {
+      // Finite as well as positive. A number input will hand you Infinity for
+      // "1e999", and Math.floor(Infinity) is Infinity, which would paint the
+      // word "Infinity" onto a player's own card.
+      const clamp = (n) => { const v = Math.floor(Number(n)); return Number.isFinite(v) ? Math.max(0, v) : 0; };
+      const side = (purse, out, inn) => {
+        if (!purse) return null;
+        const after = {
+          coins:  Math.max(0, clamp(purse.coins)  - clamp(out.coins)  + clamp(inn.coins)),
+          passes: Math.max(0, clamp(purse.passes) - clamp(out.passes) + clamp(inn.passes)),
+          xp:     Math.max(0, clamp(purse.xp)     - clamp(out.xp)     + clamp(inn.xp)),
+        };
+        return { now: { coins: clamp(purse.coins), passes: clamp(purse.passes), xp: clamp(purse.xp) }, after };
+      };
+      return { me: side(mine, give, recv), them: side(theirs, recv, give) };
+    }
+
+    function _trFmt(n) { return Math.max(0, Math.floor(Number(n) || 0)).toLocaleString(); }
+
+    // now → after, as a chip that colours itself by direction. When nothing
+    // moves it is just the current number, so the ledger is not a wall of
+    // arrows before the player has offered anything.
+    function _trChipHtml(icon, now, after, opts) {
+      const o = opts || {};
+      const same = now === after;
+      const dir = same ? "" : (after > now ? " up" : " down");
+      const body = same
+        ? _trFmt(now)
+        : '<span class="cctr-purse-was">' + _trFmt(now) + '</span> → ' + _trFmt(after);
+      return '<span class="cctr-purse-chip' + dir + '" title="' + escapeHtml(o.title || "") + '">'
+        + icon + ' ' + body + (o.suffix ? ' ' + escapeHtml(o.suffix) : '') + '</span>';
+    }
+
+    const _TR_COIN_ICO = '<img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coins" draggable="false">';
+
+    // Paint one side of the ledger.
+    //
+    // `reveal` is false for the peer, and that is a deliberate line. Their LEVEL
+    // is public — it is on the leaderboard, on their profile and beside their
+    // name in a game — so it is shown in full, before and after, which is the
+    // number this screen exists to make obvious. Their Critter Coin and voucher
+    // BALANCES are not public anywhere in the game, and opening a trade with
+    // somebody must not be a way to read their wallet. So their side shows what
+    // this trade GIVES them (+1,200) rather than what they hold.
+    function _trPaintSide(which, who, avatarUrl, purse, reveal) {
+      const q = (id) => $a("cctr-" + which + "-" + id);
+      if (which === "them") { const whoEl = $a("cctr-them-who"); if (whoEl) whoEl.textContent = who; }
+      const av = q("av");
+      if (av) {
+        let src = avatarUrl || "";
+        try { if (typeof normalizeAvatarUrl === "function") src = normalizeAvatarUrl(src) || src; } catch (_) {}
+        if (!src) src = "/avatars/mullet.png";
+        const finalSrc = _trImgSrc(src);
+        if (av.getAttribute("data-src") !== finalSrc) {
+          av.setAttribute("data-src", finalSrc);
+          av.src = finalSrc;
+        }
+        av.alt = who + " avatar";
+      }
+
+      const lvlEl = q("lvl"), afterEl = q("lvl-after");
+      const fill = q("fill"), ghost = q("ghost"), xpEl = q("xp"), purseEl = q("purse");
+
+      // Unknown side: name and avatar only. Better than inventing a level.
+      if (!purse) {
+        if (lvlEl) lvlEl.textContent = "Level -";
+        if (afterEl) { afterEl.hidden = true; afterEl.textContent = ""; }
+        if (fill) fill.style.width = "0%";
+        if (ghost) ghost.hidden = true;
+        if (xpEl) xpEl.textContent = "Level not loaded";
+        if (purseEl) purseEl.innerHTML = "";
+        return;
+      }
+
+      const pNow = _trLevelOf(purse.now.xp), pAfter = _trLevelOf(purse.after.xp);
+      const lvlNow = pNow ? pNow.level : null, lvlAfter = pAfter ? pAfter.level : null;
+      if (lvlEl) lvlEl.textContent = (lvlNow != null) ? ("Level " + lvlNow) : "Level -";
+      if (afterEl) {
+        if (lvlAfter != null && lvlNow != null && lvlAfter !== lvlNow) {
+          afterEl.hidden = false;
+          afterEl.className = "cctr-lvl-after " + (lvlAfter > lvlNow ? "up" : "down");
+          afterEl.textContent = "→ Level " + lvlAfter;
+        } else {
+          afterEl.hidden = true; afterEl.textContent = "";
+        }
+      }
+
+      // The bar shows progress through the CURRENT level; the ghost shows where
+      // the trade would leave it. A level change is drawn as a full bar in the
+      // direction of travel, because "72% of level 9" means nothing next to
+      // "68% of level 12" — what matters is which way it went.
+      const pct = (p) => (p && p.xpGoal > 0) ? Math.max(0, Math.min(100, (p.xpCurrent / p.xpGoal) * 100)) : 0;
+      const nowPct = pct(pNow), afterPct = pct(pAfter);
+      if (fill) fill.style.width = nowPct + "%";
+      if (ghost) {
+        if (!pAfter || purse.after.xp === purse.now.xp) {
+          ghost.hidden = true;
+        } else {
+          ghost.hidden = false;
+          const up = purse.after.xp > purse.now.xp;
+          ghost.className = "cctr-lvl-ghost " + (up ? "up" : "down");
+          if (lvlAfter !== lvlNow) {
+            // Crossed a level boundary: fill the whole bar in the direction.
+            ghost.style.left = "0%"; ghost.style.right = "0%"; ghost.style.width = "";
+          } else if (up) {
+            ghost.style.left = nowPct + "%"; ghost.style.right = ""; ghost.style.width = Math.max(0, afterPct - nowPct) + "%";
+          } else {
+            ghost.style.left = afterPct + "%"; ghost.style.right = ""; ghost.style.width = Math.max(0, nowPct - afterPct) + "%";
+          }
+        }
+      }
+      if (xpEl) {
+        const xpChanged = purse.after.xp !== purse.now.xp;
+        if (reveal) {
+          xpEl.textContent = pNow
+            ? (_trFmt(pNow.xpCurrent) + " / " + _trFmt(pNow.xpGoal) + " XP this level"
+               + (xpChanged ? "  ·  " + _trFmt(purse.now.xp) + " → " + _trFmt(purse.after.xp) + " total" : ""))
+            : "";
+        } else {
+          const d = purse.after.xp - purse.now.xp;
+          xpEl.textContent = d === 0 ? "" : (d > 0 ? "Gains " : "Gives up ") + _trFmt(Math.abs(d)) + " XP";
+        }
+      }
+
+      if (purseEl) {
+        const chips = [];
+        if (reveal) {
+          chips.push(_trChipHtml(_TR_COIN_ICO, purse.now.coins, purse.after.coins, { title: "Critter Coins" }));
+          chips.push(_trChipHtml("⭐", purse.now.xp, purse.after.xp, { title: "Lifetime XP", suffix: "XP" }));
+          // Vouchers only when somebody actually has or is being given one: an
+          // always-on "0" chip is noise on the great majority of trades.
+          if (purse.now.passes || purse.after.passes) {
+            chips.push(_trChipHtml("🎟️", purse.now.passes, purse.after.passes, { title: "Season Pass vouchers" }));
+          }
+        } else {
+          chips.push(_trDeltaChipHtml(_TR_COIN_ICO, purse.after.coins - purse.now.coins, ""));
+          chips.push(_trDeltaChipHtml("⭐", purse.after.xp - purse.now.xp, "XP"));
+          chips.push(_trDeltaChipHtml("🎟️", purse.after.passes - purse.now.passes, ""));
+        }
+        purseEl.innerHTML = chips.filter(Boolean).join("");
+      }
+    }
+
+    // The peer's side of a currency: what they get, not what they have.
+    // Returns "" when nothing moves, so their card stays quiet until it does.
+    function _trDeltaChipHtml(icon, delta, suffix) {
+      const d = Math.floor(Number(delta) || 0);
+      if (!d) return "";
+      return '<span class="cctr-purse-chip ' + (d > 0 ? "up" : "down") + '">'
+        + icon + ' ' + (d > 0 ? "+" : "-") + _trFmt(Math.abs(d)) + (suffix ? ' ' + suffix : '') + '</span>';
+    }
+
+    function _trRenderLedger() {
+      const led = $a("cc-trade-ledger");
+      if (!led) return;
+      const give = _trOfferWithDraft(_trMyOffer());
+      const recv = _trPeerOffer();
+      const mine = { coins: _trMyCoins(), passes: _trMyPasses(), xp: _trMyXp() };
+      const theirs = _trPeer ? { coins: _trPeer.coins, passes: _trPeer.passes, xp: _trPeer.xp } : null;
+      const model = _trLedgerModel(mine, theirs, give, recv);
+
+      const myAvatar = (_activeProfile && _activeProfile.avatar_url) || "";
+      _trPaintSide("me", "You", myAvatar, model.me, true);
+      _trPaintSide("them", (_trPeer && _trPeer.name) || _trPeerName || "Them",
+                   (_trPeer && _trPeer.avatar) || "", model.them, false);
+      _trRenderSwing(model);
+    }
+
+    // The same swing, repeated inside the picker sheet: the sheet sits over the
+    // ledger, and the whole point of typing a number is watching both sides
+    // move, so it has to be visible where the player is actually looking.
+    function _trRenderSwing(model) {
+      const el = $a("cc-trade-swing");
+      if (!el) return;
+      const kind = _trDraft && _trDraft.kind;
+      const pk = $a("cc-trade-picker");
+      const pickerOpen = !!(pk && pk.style.display !== "none");
+      if (!kind || !pickerOpen || !model || !model.me) { el.hidden = true; el.innerHTML = ""; return; }
+
+      const label = kind === "coins" ? "Critter Coins" : (kind === "passes" ? "Season Passes" : "Lifetime XP");
+      const sideHtml = (who, s, reveal) => {
+        if (!s) {
+          return '<div class="cctr-swing-side"><div class="cctr-swing-who">' + escapeHtml(who) + '</div>'
+               + '<div class="cctr-swing-val">-</div></div>';
+        }
+        const now = s.now[kind], after = s.after[kind];
+        const dir = after === now ? "" : (after > now ? " up" : " down");
+        // Their level moves in public; their balance does not. Same line as
+        // the ledger draws, for the same reason.
+        let lvl = "";
+        if (kind === "xp") {
+          const a = _trLevelOf(now), b = _trLevelOf(after);
+          if (a && b) {
+            lvl = '<div class="cctr-swing-lvl">'
+                + (a.level === b.level ? ("Level " + a.level) : ("Level " + a.level + " → " + b.level))
+                + '</div>';
+          }
+        }
+        const val = reveal
+          ? (after === now ? _trFmt(now)
+             : '<span class="cctr-purse-was">' + _trFmt(now) + '</span> → ' + _trFmt(after))
+          : (after === now ? "-" : (after > now ? "+" : "-") + _trFmt(Math.abs(after - now)));
+        return '<div class="cctr-swing-side' + dir + '">'
+             + '<div class="cctr-swing-who">' + escapeHtml(who) + '</div>'
+             + '<div class="cctr-swing-val">' + val + '</div>' + lvl + '</div>';
+      };
+      el.hidden = false;
+      el.innerHTML = sideHtml("You", model.me, true)
+        + '<div class="cctr-swing-arrow" aria-hidden="true">→</div>'
+        + sideHtml((_trPeer && _trPeer.name) || _trPeerName || "Them", model.them, false)
+        + '<div class="cctr-swing-who" style="grid-column:1/-1;text-align:center;margin-top:2px;">'
+        + escapeHtml(label) + '</div>';
+    }
+
+    // Called on every keystroke in a picker input.
+    function _trSetDraft(kind, raw) {
+      const n = Math.max(0, Math.floor(Number(raw) || 0));
+      _trDraft = { kind, n };
+      _trRenderLedger();
+    }
+    function _trClearDraft() { _trDraft = null; _trRenderLedger(); }
 
     // After a trade completes the server has changed MY coins / unlocked items,
     // so re-read my user doc and refresh the local caches + header. Guarded by
@@ -28711,6 +29121,8 @@
       _trConvId = _convIdFor(_authUser.uid, peerUid);
       _trState = null; _trPickerTab = "avatars"; _trLastStatus = null;
       _trBusy = false;                 // never inherit a stuck-busy from a prior trade
+      // The ledger belongs to THIS pairing: never show the last peer's level.
+      _trPeer = null; _trDraft = null;
       _trPickerNote("", "");
       _trHidePicker();
       const o = _trOverlay();
@@ -28720,6 +29132,9 @@
       _trBanner("Opening trade…", "info");
       _trShowRetry(false);
       _trRender();
+      // Their side of the ledger. Fired without awaiting so a slow profile read
+      // never holds up opening the trade: the ledger fills in when it lands.
+      _trLoadPeer(_trPeerUid);
       const res = await _trPost("open", { peerName: _trPeerName });
       if (!res || res.error) {
         // The overlay stays up (closing it would look like a crash), but it now
@@ -28765,6 +29180,7 @@
         try { await _trPost("confirm", { confirm: false }); } catch (_) {}
       }
       _trState = null; _trPeerUid = null; _trConvId = null; _trBusy = false;
+      _trPeer = null; _trDraft = null;
       _trShowRetry(false);
       _trRefreshButtons();
     }
@@ -28789,6 +29205,7 @@
 
       _trRenderColumn(giveWrap, myOffer, true);
       _trRenderColumn(recvWrap, peerOffer, false);
+      _trRenderLedger();
 
       const recvHead = $a("cctr-recv-head");
       if (recvHead) recvHead.textContent = _trPeerName ? ("You Receive, " + _trPeerName) : "You Receive";
@@ -29092,11 +29509,17 @@
       _trPickerNote("", "");
       _trRenderPicker();
     }
-    function _trHidePicker() { const pk = $a("cc-trade-picker"); if (pk) pk.style.display = "none"; }
+    function _trHidePicker() {
+      const pk = $a("cc-trade-picker"); if (pk) pk.style.display = "none";
+      // A number left in a box is not an offer. Leaving the sheet drops it, so
+      // the ledger goes back to showing what has actually been put on the table.
+      _trClearDraft();
+    }
 
     function _trSetPickerTab(tab) {
       _trPickerTab = tab;
       _trPickerNote("", "");
+      _trDraft = null;                 // the number in the old tab's box is gone
       document.querySelectorAll("#cc-trade-picker .cctr-pk-tab").forEach(b => {
         b.classList.toggle("active", b.getAttribute("data-tab") === tab);
       });
@@ -29122,6 +29545,9 @@
         if (foot) foot.style.display = "flex";
         const input = $a("cc-trade-coin-input");
         if (input) { input.max = String(_trMyCoins()); input.value = (Number(mine.coins) || 0) ? String(mine.coins) : ""; }
+        // Seed the swing from whatever is in the box, so it is on screen the
+        // moment the tab opens rather than after the first keystroke.
+        _trSetDraft("coins", input ? input.value : 0);
         return;
       }
       if (_trPickerTab === "passes") {
@@ -29136,6 +29562,7 @@
         if (passFoot) passFoot.style.display = have ? "flex" : "none";
         const pinput = $a("cc-trade-pass-input");
         if (pinput) { pinput.max = String(have); pinput.value = (Number(mine.passes) || 0) ? String(mine.passes) : ""; }
+        _trSetDraft("passes", pinput ? pinput.value : 0);
         return;
       }
       if (_trPickerTab === "xp") {
@@ -29155,9 +29582,11 @@
         if (xpFoot) xpFoot.style.display = have ? "flex" : "none";
         const xinput = $a("cc-trade-xp-input");
         if (xinput) { xinput.max = String(have); xinput.value = (Number(mine.xp) || 0) ? String(mine.xp) : ""; }
+        _trSetDraft("xp", xinput ? xinput.value : 0);
         return;
       }
       hideFeet();
+      _trClearDraft();                 // avatars/backgrounds are not an amount
       body.innerHTML = "";
       const isAvatar = _trPickerTab === "avatars";
       const items = isAvatar ? _trMyAvatars() : _trMyBackgrounds();
@@ -29240,30 +29669,25 @@
       document.querySelectorAll("#cc-trade-picker .cctr-pk-tab").forEach(b => {
         b.addEventListener("click", () => _trSetPickerTab(b.getAttribute("data-tab")));
       });
-      on("cc-trade-coin-set", () => {
-        const input = $a("cc-trade-coin-input");
-        _trSetCoins(input ? input.value : 0);
-      });
-      const coinInput = $a("cc-trade-coin-input");
-      if (coinInput) coinInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") { e.preventDefault(); _trSetCoins(coinInput.value); }
-      });
-      on("cc-trade-pass-set", () => {
-        const input = $a("cc-trade-pass-input");
-        _trSetPasses(input ? input.value : 0);
-      });
-      const passInput = $a("cc-trade-pass-input");
-      if (passInput) passInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") { e.preventDefault(); _trSetPasses(passInput.value); }
-      });
-      on("cc-trade-xp-set", () => {
-        const input = $a("cc-trade-xp-input");
-        _trSetXp(input ? input.value : 0);
-      });
-      const xpInput = $a("cc-trade-xp-input");
-      if (xpInput) xpInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") { e.preventDefault(); _trSetXp(xpInput.value); }
-      });
+      // Each currency box: Set/Enter commits, and every keystroke moves the
+      // ledger. Typing is where the player decides how much to give, so the
+      // consequence has to be on screen WHILE they type — one side going down
+      // and the other going up — not only after they press a button.
+      const wireAmount = (inputId, setBtnId, kind, commit) => {
+        on(setBtnId, () => { const el = $a(inputId); commit(el ? el.value : 0); });
+        const el = $a(inputId);
+        if (!el) return;
+        el.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { e.preventDefault(); commit(el.value); }
+        });
+        const live = () => _trSetDraft(kind, el.value);
+        el.addEventListener("input", live);
+        el.addEventListener("change", live);
+        el.addEventListener("focus", live);
+      };
+      wireAmount("cc-trade-coin-input", "cc-trade-coin-set", "coins", _trSetCoins);
+      wireAmount("cc-trade-pass-input", "cc-trade-pass-set", "passes", _trSetPasses);
+      wireAmount("cc-trade-xp-input",   "cc-trade-xp-set",   "xp",    _trSetXp);
       on("cc-trade-retry", _trRetryOpen);
       // Tapping the dim backdrop (outside the box) closes the overlay.
       const ov = _trOverlay();
@@ -29447,6 +29871,27 @@
     (function() {
       const tabs = document.querySelectorAll("#ph-tabs .ph-tab");
       const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", messages:"ph-panel-messages", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", clans:"ph-panel-clans", prestige:"ph-panel-prestige", levelpass:"ph-panel-levelpass", critterpass:"ph-panel-critterpass", store:"ph-panel-store" };
+      // ── Store and Critter Pass: OFF THE MENU, ON STANDBY ─────────────
+      // Both pages are gone rather than shut: the sidebar items that opened
+      // them are commented out in preview.html, so there is no door to walk
+      // through, and this list closes the corridor behind them. Anything that
+      // still asks for one of these tabs by name — a deep-link, an old
+      // shortcut, a tutorial step, window._switchPhTab from the console —
+      // lands on the Overview instead of on a panel nobody can leave.
+      //
+      // Their panels, their renderers, their coin prices and the live Stripe
+      // Payment Links are all still in the files, untouched. Emptying this
+      // array and uncommenting the two sidebar items in preview.html puts both
+      // pages back exactly as they were.
+      //
+      //      const PH_CLOSED_TABS = [];   ← puts both pages back on the menu
+      //
+      // See _standby/README.md, and CCCP_PASS_CLOSED / PHST_STORE_CLOSED,
+      // which stay on so the pages are shut as well as unreachable.
+      const PH_CLOSED_TABS = ["store", "critterpass"];
+      const PH_CLOSED_FALLBACK = "overview";
+      const phTabOrFallback = (name) =>
+        PH_CLOSED_TABS.indexOf(name) === -1 ? name : PH_CLOSED_FALLBACK;
       const statsLobby = document.getElementById("auth-stats-lobby");
       // ── Guests are not locked out of the menu ────────────────────────
       // Every tab opens for a guest. What a guest does NOT get is a saved
@@ -29619,6 +30064,9 @@
         if (note) note.style.display = "none";
       }
       function switchTab(name) {
+        // A tab that has been taken off the menu is not a tab any more: send
+        // the player somewhere that exists. See PH_CLOSED_TABS above.
+        name = phTabOrFallback(name);
         // Changing tabs returns every hidden critter to its untouched state.
         try { if (typeof window.__fishResetSecrets === "function") window.__fishResetSecrets(); } catch (_) {}
         if (statsLobby) statsLobby.setAttribute("data-bg-tab", name || "normal");
@@ -29667,6 +30115,9 @@
       // Extend switchTab to also update sidebar active state
       const _origSwitchTab = switchTab;
       switchTab = function(name) {
+        // Normalised here too, so the sidebar's active state follows the tab
+        // the player actually landed on rather than the one they asked for.
+        name = phTabOrFallback(name);
         _origSwitchTab(name);
         snavItems.forEach(b => b.classList.toggle("active", b.dataset.tab === name));
       };

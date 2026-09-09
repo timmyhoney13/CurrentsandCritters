@@ -66,7 +66,11 @@ function extractArray(name) {
   return SRC.slice(start, balanced(SRC.indexOf("[", start), "[", "]") + 1) + ";";
 }
 
-const FN_SOURCES = ["_msgIsGroupMeta", "_msgGroupMeta", "_msgRebuildConversations",
+// _msgRebuildConversations is a thin wrapper now: the grouping and the unread
+// counting both live in _msgSummarize (see test_message_unread.js), so that
+// has to come along or the wrapper has nothing to call.
+const FN_SOURCES = ["_msgIsGroupMeta", "_msgGroupMeta", "_msgSummarize",
+                    "_msgRebuildConversations",
                     "_msgChatBgResolve", "_msgChatBgFor", "_msgChatBgMembers",
                     "_msgChatBgCacheLocal"].map(extract).join("\n");
 const CATALOG = extractArray("CHAT_BACKGROUNDS");
@@ -83,6 +87,8 @@ function makeEnv(messages, opts) {
     _msgConversations: [],
     _authUser: { uid: opts.me || "me" },
     _msgTs: (m) => (m && m.ts) || 0,
+    _msgTotalUnread: 0,
+    _msgLocallyRead: new Set(),
   };
   const body = `
     ${CATALOG}

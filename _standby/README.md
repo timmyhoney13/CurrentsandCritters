@@ -9,9 +9,64 @@ now, the Critter Pass page is shut with it, the Supporter Reef Wall is off, and
 the homepage shows three live play numbers where the donation total and the
 tiers used to be.
 
+**Since 2026-09-09 the Store and the Critter Pass are also OFF THE MENU.** They
+were shut before — on the sidebar, opening onto a "Coming soon" cover. They are
+now gone from it: the two sidebar items are commented out, so there is no door
+to walk up to. Both switches below stay on as well, so the pages are shut *and*
+unreachable, and nothing is deleted. See section 0.
+
 ---
 
 ## What is switched off, and where the switch is
+
+### 0. Both pages are off the menu — one array and two HTML comments
+
+This is the newest layer and the one to undo first, because while it is on, the
+two switches in sections 1 and 2 are not what a player meets: they never get as
+far as the page.
+
+**The doors.** `multiplayer/client/preview.html`, in the sidebar `<nav>`: the
+`snav-critterpass` and `snav-store` `<button>` blocks are inside one HTML
+comment, verbatim, badge span and all. Taking the button out is what actually
+removes a page — a shut page is still a door with a sign on it.
+
+**The corridor behind them.** `multiplayer/client/js/preview-app.js`:
+
+```js
+const PH_CLOSED_TABS = ["store", "critterpass"];   // ← empty it to restore
+const PH_CLOSED_FALLBACK = "overview";
+```
+
+`switchTab()` runs every tab name through `phTabOrFallback()` — in the inner
+function *and* in the sidebar-aware wrapper that replaces it, so the nav's
+active state follows where the player actually landed. Anything that still asks
+for one of these tabs by name lands on the Overview: a deep-link, an old
+shortcut, `window._switchPhTab` typed into the console, an endgame jump. Not an
+error and not an empty panel — a real page.
+
+The panels (`#ph-panel-critterpass`, `#ph-panel-store`), the renderers, the coin
+prices and the live Payment Links are all still exactly where they were.
+
+**The tutorial.** `multiplayer/client/js/tutorials.js`: four steps of the menu
+tour visited these two pages, two of them interactive with
+`advanceWhen: gtTabActive(...)`. Left alone they would tell the player to click
+a button that is not there and then wait on a tab that can never go active.
+They carry `skipIf: gtOnStandby` instead:
+
+```js
+const gtOnStandby = () => true;    // ← () => false puts the four steps back
+```
+
+`skipIf` is the mechanism built for this: a skipped step is stepped over in
+both directions and left out of the "Step N of M" count, so the tour reads as
+though it never had them, and the four paragraphs do not have to be rewritten
+when the pages come back. `test_tutorials.js` walks the whole tour at several
+window sizes and asserts no step traps the player.
+
+`test_closed_pages.js` is the proof, and it no longer tests that the pages open
+— it tests that there is no button in the live DOM carrying either `data-tab`,
+that the deep-link lands on the Overview with the panel unshown, and that
+nothing in either panel can be reached, clicked or tabbed to.
 
 ### 1. The in-game Store — one word
 
@@ -302,21 +357,27 @@ Covered by `test_hours_played.py`.
 
 ## Putting it back
 
-1. `preview-app.js`: `const PHST_STORE_CLOSED = false;`
-2. `js/critter-pass.js`: `const CCCP_PASS_CLOSED = false;`, and paste
+1. **Put the two pages back on the menu first** (section 0), or the rest of
+   this list changes nothing a player can see:
+   - `preview.html`: uncomment the `snav-critterpass` and `snav-store`
+     `<button>` blocks in the sidebar `<nav>`.
+   - `preview-app.js`: `const PH_CLOSED_TABS = [];`
+   - `js/tutorials.js`: `const gtOnStandby = () => false;`
+2. `preview-app.js`: `const PHST_STORE_CLOSED = false;`
+3. `js/critter-pass.js`: `const CCCP_PASS_CLOSED = false;`, and paste
    `GUEST_NOTES.critterpass` back into `preview-app.js` from the comment
    standing in its place.
-3. `multiplayer_server.py`: `SUPPORTER_WALL_ON_STANDBY = False`, then
+4. `multiplayer_server.py`: `SUPPORTER_WALL_ON_STANDBY = False`, then
    `cp _standby/website/13-supporter-wall.html.original multiplayer/client/supporter-wall.html`
    and put the wall links back on `thanks.html` and `claim-rewards.html`.
-4. `shop.html`: `cp _standby/website/12-shop.html.original shop.html`
-5. `index.html`: paste files 01–11 back at the rows in the table above, restore
+5. `shop.html`: `cp _standby/website/12-shop.html.original shop.html`
+6. `index.html`: paste files 01–11 back at the rows in the table above, restore
    the Luckiest Guy `<link>` tags, and put the three Partner links back.
-6. Decide what the stats band should show — the old four (file 02) or the
+7. Decide what the stats band should show — the old four (file 02) or the
    current three, or five. They are the same markup either way; if you keep
    Hours, keep `grid-template-columns` in step with how many stats there are
    (it is `repeat(3, 1fr)` in the inline styles now).
-7. Run `python3 test_stripe_payments.py`, `node test_supporter_tiers_ui.js`,
+8. Run `python3 test_stripe_payments.py`, `node test_supporter_tiers_ui.js`,
    `node test_critter_pass_ui.js`, `node test_closed_pages.js`,
    `node test_partner_form.js` and `python3 test_warm_cache.py`. Several of them
    check for the standby state on purpose and will fail loudly until they are
@@ -326,8 +387,14 @@ Covered by `test_hours_played.py`.
 starts testing it again the moment the band is back.
 
 `test_closed_pages.js` is the suite to **delete** when both pages reopen: every
-check in it asserts a page is shut, so there is nothing in it to re-point. It
-fails on its first two lines until then, naming the switch that is still on.
+check in it asserts a page is unreachable, so there is nothing in it to
+re-point. Until then it fails loudly and names what is still on. It is also the
+file that lists the doors, so if either page ever gains a new way in, that list
+is where it has to be added.
+
+`test_guest_access.js` walks every panel a guest can reach. Its `TABS` array
+has the Store and the Critter Pass **left out**, with a comment saying why: add
+both back to it when the pages return, and it will walk them again.
 
 `test_critter_pass_ui.js` needs one edit and it tells you which: it asserts the
 shipped file still declares `const CCCP_PASS_CLOSED = true;` and **exits**
