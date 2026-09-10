@@ -1106,6 +1106,123 @@ FREE_PLAY_FLAGS = (
 PLAYSTYLE_SET = {"RANDOM", "AGGRESSIVE", "CONSERVATIVE", "OPPORTUNISTIC", "RISK_SEEKING"}
 
 
+# ── Cloning a game, cheaply ─────────────────────────────────────────────────
+# Every rollout the bots run starts by copying the game, and until this existed
+# they all used copy.deepcopy. That was over half of all the time the AI spent
+# thinking, and most of it was wasted on things that never change.
+#
+# Measured on the live chooser, profiling one grade-A bot's rollouts:
+# 4.4 MILLION deepcopy calls, 53% of total runtime. Two reasons.
+#
+#   1. card_db is 253 frozen CardDefs that no game ever edits, and deepcopy
+#      rebuilt every one of them on every copy: 0.86 ms of the 1.15 ms it took
+#      to clone a GameState, or 75% of the cost, to reproduce a constant.
+#      A dict() of it is 1100x faster and just as safe, because CardDef is
+#      frozen and _mint_card_clone only ever ADDS keys (its own copy-on-write
+#      check still fires, since a copied dict is not the shared CARD_DB).
+#
+#   2. simulated_point_delta cloned the whole game once PER CANDIDATE MOVE to
+#      read off a tie-break worth 0.08 of a score, and it is called from inside
+#      every simulated turn of every rollout. That is where the millions came
+#      from.
+#
+# So: clone by hand. The state is lists of ints, dicts of small objects and a
+# flags dict of scalars, which is a shape deepcopy's generality is entirely
+# wasted on. This is 17.7x faster and produces a state that compares equal to
+# deepcopy's, field for field, on every state sampled from real games.
+#
+# It is NOT a general-purpose deepcopy and must not become one. It knows these
+# five shapes and nothing else. If a field that is not a list/dict/set/tuple of
+# scalars is ever added to one of these dataclasses, teach the cloner about it.
+
+def _clone_flag_value(value: Any) -> Any:
+    """Deep-copy a flags value. Handles the plain containers flags actually
+    hold (they nest three deep: _opp_snapshot -> per-player -> counts), and
+    returns anything else as-is because everything else in there is a scalar."""
+    cls = value.__class__
+    if cls is dict:
+        return {k: _clone_flag_value(v) for k, v in value.items()}
+    if cls is list:
+        return [_clone_flag_value(v) for v in value]
+    if cls is set:
+        return set(value)
+    if cls is tuple:
+        return tuple(_clone_flag_value(v) for v in value)
+    return value
+
+
+def clone_ocean_slots(src: OceanSlots) -> OceanSlots:
+    out = OceanSlots.__new__(OceanSlots)
+    out.up = src.up[:]
+    out.down = src.down[:]
+    out.left = src.left[:]
+    out.right = src.right[:]
+    return out
+
+
+def clone_player_state(src: PlayerState) -> PlayerState:
+    out = PlayerState.__new__(PlayerState)
+    out.name = src.name
+    out.hand = src.hand[:]
+    out.discard = src.discard[:]
+    out.board_oceans = src.board_oceans[:]
+    out.ocean_slots = {k: clone_ocean_slots(v) for k, v in src.ocean_slots.items()}
+    out.score = src.score
+    out.energy = src.energy
+    out.flags = _clone_flag_value(src.flags)
+    return out
+
+
+def clone_game_state(src: GameState, keep_log: bool = False) -> GameState:
+    """A private copy of the game, safe to play forward and throw away.
+
+    card_db is copied SHALLOW on purpose: CardDefs are frozen, so sharing them
+    is safe, and a fresh dict means a clone that mints a card puts the new uid
+    in its own copy rather than in the real game's.
+
+    The log is dropped unless asked for: nothing reads it back out of a
+    rollout, and copying it grows with the game.
+    """
+    out = GameState.__new__(GameState)
+    out.card_db = dict(src.card_db)
+    out.players = [clone_player_state(p) for p in src.players]
+    out.deck = src.deck[:]
+    out.turn_index = src.turn_index
+    out.round_count = src.round_count
+    out.end_game_triggered = src.end_game_triggered
+    out.end_game_trigger_turn_player = src.end_game_trigger_turn_player
+    out.turns_remaining_after_trigger = src.turns_remaining_after_trigger
+    out.log = list(src.log) if keep_log else []
+    return out
+
+
+def clone_match_state(src: MatchState) -> MatchState:
+    out = MatchState.__new__(MatchState)
+    out.pool = src.pool[:]
+    out.discard_pile = src.discard_pile[:]
+    out.end_game_uid = src.end_game_uid
+    out.end_game_triggered = src.end_game_triggered
+    out.final_turns_remaining = src.final_turns_remaining
+    # Values are tuples of ints, so the outer dict is the only mutable layer.
+    out.pair_primary_to_faces = dict(src.pair_primary_to_faces)
+    out.face_to_primary = dict(src.face_to_primary)
+    return out
+
+
+def clone_action(src: Action) -> Action:
+    out = Action.__new__(Action)
+    out.kind = src.kind
+    out.card_uid = src.card_uid
+    out.face_uid = src.face_uid
+    out.ocean_uid = src.ocean_uid
+    out.source_ocean_uid = src.source_ocean_uid
+    out.draw_from_pool = src.draw_from_pool
+    out.pool_pick_uids = src.pool_pick_uids[:]
+    out.use_star = src.use_star
+    out.payment_uids = src.payment_uids[:]
+    return out
+
+
 class BrainFileCorruptionError(RuntimeError):
     """Raised when the persisted AI brain file is unreadable/corrupt."""
 
@@ -3627,6 +3744,24 @@ def _difficulty_rank(label: str) -> int:
     return STRATEGY_DIFFICULTY_RANK.get(str(label or "").strip().lower(), 2)
 
 
+# Built once, on first use, and handed back to every caller after that.
+#
+# It reads as a plain constant, so it was written as one: a literal rebuilt
+# from scratch on every call. That cost more than it looks. Profiling one
+# bot's rollouts caught 5,432 calls to it, 13% of all the time the AI spent
+# thinking, reconstructing the same fourteen dictionaries over and over.
+#
+# Worse, it silently defeated the optimisation directly below it:
+# _ensure_profile_sets caches normalised name-sets ONTO each profile dict and
+# skips the work when it finds them, but a caller that got a brand-new list
+# every time never had them, so the "lazy cache" was rebuilt on every single
+# card score. Building the list once makes that cache real.
+#
+# Callers only ever read these, and the `names` backfill at the bottom is
+# idempotent, so sharing one copy is safe. Treat the result as read-only.
+_STRATEGY_FAMILY_PROFILES: Optional[List[Dict[str, Any]]] = None
+
+
 def strategy_family_profiles() -> List[Dict[str, Any]]:
     """High-level strategy families used for AI plan picking + scoring.
 
@@ -3639,6 +3774,10 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
       * text_keywords: synergy text the AI should reward
       * difficulty: beginner / intermediate / advanced / expert
     """
+    global _STRATEGY_FAMILY_PROFILES
+    if _STRATEGY_FAMILY_PROFILES is not None:
+        return _STRATEGY_FAMILY_PROFILES
+
     profiles = [
         # ── Beginner ────────────────────────────────────────────────
         {
@@ -3857,6 +3996,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
                     merged.append(key)
         prof["names"] = merged
 
+    _STRATEGY_FAMILY_PROFILES = profiles
     return profiles
 
 
@@ -3885,58 +4025,412 @@ def strategies_allowed_for_skill(skill_level: str) -> set[str]:
     return STRATEGY_SKILL_ALLOWLIST.get(key, STRATEGY_SKILL_ALLOWLIST["advanced"])
 
 
-# Mapping from lobby difficulty (host-chosen per bot) to AI behavior knobs.
-# Keeping this here so all difficulty tuning lives in one place.
-AI_DIFFICULTY_CONFIGS: Dict[str, Dict[str, Any]] = {
-    # Design principle: harder bots COMMIT to their opening-hand strategy and
-    # execute it. They don't switch faster, a great player picks a plan and
-    # carries it through unless the board genuinely demands a pivot.
-    "easy": {
-        "difficulty":      "easy",
-        "skill_level":     "beginner",      # only Ocean / Yellowfin / Mammals
-        "switch_margin":   3.0,             # easier to flip: easy bots wander
-        "block_weight":    0.0,             # ignores opponents entirely
-        "strategy_weight": 0.55,            # weak strategy signal → looser play
-        "explore_chance":  0.30,            # picks a near-best (not the best) often
-        "payment_smart":   False,           # uses naive payment (no strategy keep)
-        # Deep planning (rollout confirmation), off for easy bots.
-        "plan_candidates": 0,               # how many top moves get full rollouts
-        "plan_samples":    0,               # determinized worlds averaged per move
-        "confirm_weight":  0.0,             # rollout score share in the final blend
-    },
-    "medium": {
-        "difficulty":      "medium",
-        "skill_level":     "advanced",      # all strategies except Goby Moon Shot
-        "switch_margin":   4.0,             # commits but adapts to real shifts
-        "block_weight":    1.0,
-        "strategy_weight": 1.35,            # strategy signal noticeably stronger
-        "explore_chance":  0.05,            # almost always best, very rare slip
-        "payment_smart":   True,
-        "plan_candidates": 4,
-        "plan_samples":    1,
-        "confirm_weight":  0.55,
-    },
-    "hard": {
-        "difficulty":      "hard",
-        "skill_level":     "expert",        # full strategy book including Goby
-        "switch_margin":   6.0,             # commits hard, only pivots when board
-                                            # genuinely demands it (overwhelming shift)
-        "block_weight":    1.5,             # blocks opponents who threaten combos
-        "strategy_weight": 1.8,             # strategy fit strongly weighted but not
-                                            # so high it overrides actual point value
-        "explore_chance":  0.0,             # never random, always picks best
-        "payment_smart":   True,            # protects strategy heavy hitters from payment
-        "plan_candidates": 8,
-        "plan_samples":    3,
-        "confirm_weight":  0.68,
-    },
+# ── The bot grade ladder ────────────────────────────────────────────────────
+# Every bot in the game wears a GRADE, F at the bottom to SS+ at the top, and
+# each grade carries an Elo. The Elo is not decoration: the numbers below were
+# measured, not guessed. calibrate_bots.py sits the grades down against each
+# other for hundreds of real matches, fits a Plackett-Luce rating to the
+# finishing order, and writes the fitted numbers back here, so the gap between
+# two grades really does predict how often the higher one wins. Re-run that
+# script after touching any knob in this table.
+#
+# WHY TEN RUNGS AND NOT NINETEEN. An earlier version of this ladder had
+# nineteen. It was measured, and the measurement killed it: across 153 matches
+# the whole nineteen-grade ladder spanned 317 Elo, because even its weakest bot
+# was still 170 Elo BETTER than a player who picks a legal move at random. The
+# rungs were 17 Elo apart and the error bars were ±70. They were not nineteen
+# opponents; they were one opponent wearing nineteen labels.
+#
+# What the game actually supports is about 900 Elo of range: from ~230 below
+# random (a bot with no foresight, no plan, and a taste for the wrong move) to
+# the engine's ceiling. Ten rungs divide that into ~100-point steps, which is
+# a step a player can feel and a step this many games can actually measure.
+#
+# The ladder is ONE strong engine wearing graded handicaps, not ten separate
+# bots. The top is the engine playing its best, with more rollout confirmation
+# the higher you go; the bottom is that same engine made to think like a
+# beginner: it cannot see past this turn (future_w), it ignores everybody else
+# (block_w), it considers moves the good bots refuse to look at (raw), and it
+# leans towards the wrong one (bias). Handicaps are cheap, so a lobby of low
+# grades costs the server almost nothing; only the S grades buy the expensive
+# rollout passes.
+#
+# Columns, in order:
+#   grade            what the player sees
+#   elo              measured strength (see calibrate_bots.py)
+#   skill            which strategy families this bot may commit to
+#   bias             how strongly it prefers a better-ranked move, per rank
+#                    step. 6 is "the best move, always"; 1 is "usually";
+#                    0 is a coin flip among every legal move; negative leans
+#                    towards the WORSE move on purpose, which is what a
+#                    beginner who has misread the game actually looks like and
+#                    is the only way to get below a random opponent. Measured:
+#                    it saturates below about -0.45, so there is no point
+#                    going further, and F sits on that floor.
+#   raw              how OFTEN this bot considers every legal move, including
+#                    the ones the curated candidate list drops for overbuilding
+#                    an ocean or feeding a dead engine. Beginners make those
+#                    moves; the low grades are allowed to find them.
+#
+#                    It is a probability rather than a switch, and that is
+#                    measured, not stylistic. As a boolean it was the single
+#                    biggest step on the whole ladder: the grade that had it on
+#                    and the grade that had it off measured 458 Elo apart, when
+#                    every other rung was worth about 120. One rung being four
+#                    times the others is not a ladder, it is a wall with steps
+#                    painted on it. Rolled per move, the same 458 points spread
+#                    across three rungs instead of falling down one.
+#   strat_w          how strongly the strategy/archetype signal is weighted
+#   block_w          how much it cares about what opponents are building
+#   future_w         foresight: 1.0 sees the whole game, 0.0 only sees this turn
+#                    (it never goes ABOVE 1.0: the scorer's own weights were
+#                    trained, and inflating them past what training found is a
+#                    guess, not an improvement)
+#   switch           margin before it reconsiders its opening plan
+#   pay_smart        protects its strategy's heavy hitters when paying costs
+#   plan_c/plan_s    rollout shortlist size / determinized worlds per move
+#   confirm_w        how much of the final score comes from those rollouts
+#   runoff           extra rollouts spent deciding between the top two moves
+#   budget           per-move wall-clock ceiling for rollouts, in seconds
+#   unlock           "" a rung anyone can pick · "ladder" beat the rung below
+#                    · "story" the Giant Squid's own chain. Derived for every
+#                    rung but the Squid, so inserting a rung cannot leave a
+#                    hole in the climb.
+#
+# MORE SAMPLES ARE NOT WORTH BUYING. The obvious thing to do with a rollout
+# pass that got 2.1x cheaper is to spend it: raise plan_s and runoff and let
+# each grade sample its shortlist harder inside the same budget. It was tried,
+# at Rachel Carson (plan_s 2 -> 4, runoff 1 -> 3, comfortably inside her 1.8s),
+# same table, same deck, half the seats each way:
+#
+#     240 games   deeper wins 55.8%   (+41 Elo)
+#     320 games   deeper wins 49.2%   ( -5 Elo)
+#     ---------------------------------------------
+#     560 games   deeper wins 52.1%   (+14 Elo, 95% CI -15..+44)
+#
+# The first run on its own looks like a real improvement and is the reason
+# this note exists: it did not replicate. Pooled, deeper sampling is worth
+# nothing measurable, so plan_s and runoff stay where the calibration put
+# them. Deeper sampling does lift mean SCORE a little in both runs (58.8 vs
+# 57.1, then 59.3 vs 58.1) without lifting the win rate, which is worth
+# remembering: this game is scored on finishing ORDER, and a bot that scores
+# more points without finishing higher has not got better at anything that
+# counts.
+#
+# ⚠ THE TOP OF THIS LADDER IS NOT MEASURING AS FIVE DIFFERENT OPPONENTS.
+# Two independent calibration runs, 420 matches each, one on a busy box and one
+# on an idle one, agree closely. The Elo in the table is what the ladder
+# CLAIMS; this is what it measures:
+#
+#     Gilbert Thomas Carter  F      805 ±42        claims  500
+#     Jeanne Villepreux-Power E     859 ±36        claims  600
+#     Edward Forbes          D     1091 ±28        claims  700
+#     Steve Irwin            C     1200 (anchor)   claims  900
+#     William Beebe          B     1318 ±26        claims 1100
+#     Eugenie Clark          A     1416 ±29        claims 1300
+#     Rachel Carson          S     1413 ±29        claims 1500
+#     Jacques Cousteau       S+    1491 ±33        claims 1700
+#     Charles Darwin         S++   1462 ±31        claims 1900
+#     Giant Squid            GS    1431 ±32        claims 2150
+#
+# The bottom half is a real ladder: 805, 859, 1091, 1200, 1318 are five
+# opponents a player can tell apart. From Eugenie Clark up it stops. Those top
+# five span 78 Elo with ±30 error bars on each, which is one opponent wearing
+# five labels, and the Giant Squid — advertised at 2150, the reward at the end
+# of the story — measures WEAKER than Jacques Cousteau.
+#
+# The cause is that both remaining knobs are spent:
+#
+#   • pick_bias saturates. It is exp(-bias) per rank step, so Rachel Carson at
+#     2.50 already takes the scorer's top move 91.8% of the time, Jacques
+#     Cousteau 97.3%, Charles Darwin 99.3%, the Squid 99.8%. Once a bot plays
+#     the best move it can see almost every time, "handicapped less" has
+#     nothing left to give.
+#
+#   • rollout depth buys nothing measurable. See the 560-game result above:
+#     doubling the samples and tripling the runoff was +14 Elo, CI -15..+44.
+#
+# So above Eugenie Clark the only thing that varies is the one knob that does
+# not work, which is exactly why the top is flat. Making the top of this ladder
+# real needs a BETTER SCORER, not a less handicapped one: the ceiling here is
+# the evaluation function's judgement, and every rung above A has already
+# reached it. The Elo column is left as the ladder's intended shape rather than
+# overwritten with the measurement, because compressing ten named opponents
+# into six is a design decision, not a calibration.
+#
+# The budget column is capped at 3.0s on purpose, and the top grades are tuned
+# to be smarter per second rather than simply slower. A player sits through
+# every bot's thinking: three top-grade opponents at 3s is already nine seconds
+# between their own turns, and the grade above that would not be a better
+# opponent, it would be a worse evening. The strength above A is bought with
+# more sampled worlds and the runoff, not with more clock.
+# Every rung is a PERSON, and the people are the point: the ladder used to be
+# eight letters, and a letter tells a player nothing except that there is
+# another letter above it. These are the people who actually built marine
+# science, weakest first, so climbing the ladder walks you forward through the
+# field and the bot you cannot beat yet has a name and a reason to exist. The
+# letter survives as the TIER: it is the badge colour and the shorthand, and it
+# is what makes "S++" mean something next to "A".
+#
+#   F    Gilbert Thomas Carter      collected specimens on the Challenger
+#                                   Expedition, the voyage modern oceanography
+#                                   is dated from
+#   E    Jeanne Villepreux-Power    invented the aquarium, in 1832, to watch
+#                                   living argonaut octopuses instead of dead
+#                                   ones
+#   D    Edward Forbes              a founding father of marine biology; put
+#                                   dredges to systematic use and asked what
+#                                   lives at which depth
+#   C    Steve Irwin                the Crocodile Hunter, who taught millions
+#                                   of people to care about apex predators
+#   B    William Beebe              co-built the Bathysphere and was the first
+#                                   to look at deep-ocean animals alive, at
+#                                   home, through a window
+#   A    Eugenie Clark              the Shark Lady: a diving pioneer whose work
+#                                   on shark behaviour and intelligence was the
+#                                   first of its kind
+#   S    Rachel Carson              a marine biologist who wrote the sea into
+#                                   bestsellers, then started the environmental
+#                                   movement
+#   S+   Jacques Cousteau           co-invented the Aqua-Lung and showed the
+#                                   ocean to everyone who never went in it
+#   S++  Charles Darwin             known for evolution, but his coral reef and
+#                                   atoll theory is the ground modern marine
+#                                   science is built on
+#   GS   the Giant Squid            not a person, and not for the taking
+_BOT_GRADE_LADDER: "List[tuple]" = [
+    # id       grade                    tier  elo   skill           bias   raw   strat_w block_w future_w switch pay   plan_c plan_s conf  runoff budget unlock
+    ("gilbert_carter", "Gilbert Thomas Carter", "F", 500, "beginner", -0.45, 1.00,  0.00,   0.00,   0.00,    2.0,  False,  0,     0,    0.00,  0,    0.0,  ""),
+    # The E rung is new, and its knobs sit halfway between F and D on every
+    # column: nine names needed nine letters, and F-D-C-B-A-S-S+-S++ is eight.
+    # Its Elo is a placeholder until calibrate_bots.py measures it, like every
+    # other number in this column.
+    ("jeanne_villepreux_power", "Jeanne Villepreux-Power", "E", 600, "beginner", -0.18, 0.78, 0.07, 0.00, 0.10, 2.3, False, 0, 0, 0.00, 0, 0.0, ""),
+    ("edward_forbes", "Edward Forbes",         "D",   700, "beginner",     0.10, 0.55,   0.15,   0.00,   0.20,    2.6,  False,  0,     0,    0.00,  0,    0.0,  ""),
+    ("steve_irwin",   "Steve Irwin",           "C",   900, "intermediate", 0.45, 0.18,   0.42,   0.25,   0.42,    3.2,  False,  0,     0,    0.00,  0,    0.0,  ""),
+    ("william_beebe", "William Beebe",         "B",  1100, "advanced",     0.95, 0.00,   0.70,   0.50,   0.62,    3.8,  True,   3,     1,    0.38,  0,    0.8,  ""),
+    ("eugenie_clark", "Eugenie Clark",         "A",  1300, "advanced",     1.60, 0.00,   1.00,   0.80,   0.80,    4.4,  True,   5,     2,    0.52,  0,    1.3,  ""),
+    ("rachel_carson", "Rachel Carson",         "S",  1500, "expert",       2.50, 0.00,   1.30,   1.10,   0.92,    5.2,  True,   7,     2,    0.62,  1,    1.8,  ""),
+    ("jacques_cousteau", "Jacques Cousteau",   "S+", 1700, "expert",       3.60, 0.00,   1.60,   1.40,   1.00,    6.0,  True,   8,     3,    0.72,  2,    2.3,  ""),
+    ("charles_darwin", "Charles Darwin",       "S++",1900, "expert",       5.00, 0.00,   1.80,   1.62,   1.00,    6.6,  True,   9,     3,    0.80,  3,    2.7,  ""),
+    # ── The Giant Squid ─────────────────────────────────────────────────────
+    # The end of the ladder, and the only rung that is not simply the next one
+    # along. It is the engine with every handicap off and every rollout paid
+    # for. It is SHOWN to everyone, always, because a locked thing nobody can
+    # see is not a reward, it is just an absence.
+    ("giant_squid", "Giant Squid",             "GS", 2150, "expert",       6.00, 0.00,   1.98,   1.80,   1.00,    7.2,  True,  12,     4,    0.86,  4,    3.0,  "story"),
+]
+
+# Grades in ladder order, weakest first. The lobby, the Bot Match screen and
+# every validator read this instead of hard-coding a list.
+BOT_GRADE_ORDER: List[str] = [row[0] for row in _BOT_GRADE_LADDER]
+
+
+def _build_difficulty_configs() -> Dict[str, Dict[str, Any]]:
+    out: Dict[str, Dict[str, Any]] = {}
+    prev_key = ""
+    for (key, grade, tier, elo, skill, bias, raw, strat_w, block_w,
+         future_w, switch, pay_smart, plan_c, plan_s, conf_w, runoff,
+         budget, unlock) in _BOT_GRADE_LADDER:
+        out[key] = {
+            # Who you have to have beaten to sit down with this one. It is
+            # DERIVED from ladder order rather than written into the table,
+            # because a chain written down by hand is a chain that goes stale
+            # the first time a rung is inserted, and one just was.
+            "requires": prev_key,
+            "difficulty":      key,
+            "grade":           grade,
+            "tier":            tier,
+            "elo":             int(elo),
+            "skill_level":     skill,
+            "pick_bias":       float(bias),
+            "raw_chance":      float(raw),
+            "strategy_weight": float(strat_w),
+            "block_weight":    float(block_w),
+            "future_weight":   float(future_w),
+            "switch_margin":   float(switch),
+            "payment_smart":   bool(pay_smart),
+            "plan_candidates": int(plan_c),
+            "plan_samples":    int(plan_s),
+            "confirm_weight":  float(conf_w),
+            "runoff_samples":  int(runoff),
+            "plan_budget":     float(budget),
+            # "" nothing to earn · "ladder" beat the rung below · "story" the
+            # Giant Squid's own chain. The bottom rung is always open: a ladder
+            # you cannot get onto is not a ladder.
+            "unlock":          str(unlock or ("ladder" if prev_key else "")),
+        }
+        prev_key = key
+    return out
+
+
+# Mapping from a bot's grade to its behavior knobs. All difficulty tuning lives
+# in the ladder above; this is just the lookup shape the rest of the code uses.
+AI_DIFFICULTY_CONFIGS: Dict[str, Dict[str, Any]] = _build_difficulty_configs()
+
+# What the ladder ids used to be, before the rungs were named after people.
+# These are NOT decoration: a room saved to disk, a tournament bracket, a
+# Current Controller vote and an old client all store the id, and every one of
+# them says "ss_plus" or "a". Each one maps to the rung that has its Elo and
+# its exact knobs, so a game that was set up yesterday plays today the way it
+# was set up to.
+#
+# The single-letter ids happen to agree with the new TIER letters ("a" was
+# 1300 Elo and tier A is still 1300 Elo), so the two lookups below can never
+# disagree. The two-letter ones cannot: "ss" is now the tier "S+".
+LEGACY_BOT_GRADE_IDS: Dict[str, str] = {
+    "f":       "gilbert_carter",
+    "d":       "edward_forbes",
+    "c":       "steve_irwin",
+    "b":       "william_beebe",
+    "a":       "eugenie_clark",
+    "s":       "rachel_carson",
+    "ss":      "jacques_cousteau",
+    "ss+":     "charles_darwin",
+    "ss_plus": "charles_darwin",
 }
+
+# The three words the game used before grades existed. Rooms saved to disk,
+# tournament brackets, the Current Controller and every old test still say
+# "easy"/"medium"/"hard", and they still have to mean something, so each one
+# names the grade that plays closest to how it used to. Easy keeps its promise
+# of costing no rollouts; hard lands where the old expert bot did, which the
+# ladder now has several grades ABOVE.
+LEGACY_DIFFICULTY_ALIASES: Dict[str, str] = {
+    "easy":   "edward_forbes",
+    "medium": "steve_irwin",
+    "hard":   "eugenie_clark",
+}
+
+# Grades that have to be earned rather than chosen, and what earns them. The
+# Giant Squid is the end of the game's story: you unlock its avatar at King of
+# the Critters, equipping the Spinner Dolphin summons it, and beating it 1v1
+# gives you the Red Beaded Anemone. Finish that and the Squid will sit down at
+# your table as an opponent.
+#
+# This is a REWARD GATE, not a security boundary, and it is enforced where
+# every other unlock in this game is enforced: on the client, against the
+# player's own collection. The server publishes which grades are gated (so no
+# client carries its own copy of the list) and will still seat a Squid if a
+# hand-written request asks for one, exactly as it will seat a bot with any
+# other cosmetic a client claims. Nothing is at stake but the surprise.
+STORY_LOCKED_GRADES: Dict[str, str] = {
+    "giant_squid": "story",
+}
+
+DEFAULT_BOT_GRADE = "steve_irwin"
+
+
+def _compact_grade_key(text: str) -> str:
+    """Squash a written grade to letters and signs: "S S +" -> "s+", and
+    "Charles Darwin" -> "charlesdarwin". Lets a caller write a grade the way a
+    person would and still land on the right rung."""
+    return re.sub(r"[^a-z+\-]", "", str(text or "").strip().lower())
+
+
+def resolve_bot_grade(raw: Optional[str]) -> Optional[str]:
+    """Any spelling of a grade -> its ladder id, or None if it is not one.
+
+    Accepts, in order: the ladder id ("charles_darwin"), an id the ladder used
+    to use ("ss_plus", "a"), the three legacy words ("hard"), the tier ("S++",
+    "s + +", "GS") and the printed name ("Charles Darwin", "giant squid").
+
+    This is the ONE place that decides what a written grade means. Callers who
+    must not fail (a room coming back from disk) use normalize_bot_grade and
+    get the default; callers who must not guess (a host pressing a button)
+    check for None and say so. There used to be a second, hand-written copy of
+    this matching in the lobby's setter, and the moment the rungs were renamed
+    it started rejecting every real name in the game.
+    """
+    key = str(raw or "").strip().lower()
+    if not key:
+        return None
+    if key in AI_DIFFICULTY_CONFIGS:
+        return key
+    if key in LEGACY_BOT_GRADE_IDS:
+        return LEGACY_BOT_GRADE_IDS[key]
+    if key in LEGACY_DIFFICULTY_ALIASES:
+        return LEGACY_DIFFICULTY_ALIASES[key]
+    compact = _compact_grade_key(key)
+    if not compact:
+        return None
+    # Tier before name. They cannot collide (no rung is named "S++" and none
+    # is tiered "Charles Darwin"), but the tier is the shorter, more typed one.
+    for cfg in AI_DIFFICULTY_CONFIGS.values():
+        if _compact_grade_key(cfg.get("tier", "")) == compact:
+            return str(cfg["difficulty"])
+    for cfg in AI_DIFFICULTY_CONFIGS.values():
+        if _compact_grade_key(cfg["grade"]) == compact:
+            return str(cfg["difficulty"])
+    return None
+
+
+def bot_grade_is_known(raw: Optional[str]) -> bool:
+    """Is this a grade the game recognises? Blank is not."""
+    return resolve_bot_grade(raw) is not None
+
+
+def normalize_bot_grade(raw: Optional[str]) -> str:
+    """Any spelling of a grade -> its ladder id. Unknown -> DEFAULT_BOT_GRADE."""
+    return resolve_bot_grade(raw) or DEFAULT_BOT_GRADE
+
+
+def bot_grade_label(raw: Optional[str]) -> str:
+    """The grade as a player sees it: "Charles Darwin", or "Giant Squid"."""
+    return str(AI_DIFFICULTY_CONFIGS[normalize_bot_grade(raw)]["grade"])
+
+
+def bot_grade_tier(raw: Optional[str]) -> str:
+    """The short badge next to the name: "S++", "GS"."""
+    return str(AI_DIFFICULTY_CONFIGS[normalize_bot_grade(raw)].get("tier", ""))
+
+
+def bot_grade_unlock(raw: Optional[str]) -> str:
+    """What has to be earned before this grade can be chosen. "" = nothing."""
+    return str(AI_DIFFICULTY_CONFIGS[normalize_bot_grade(raw)].get("unlock", ""))
+
+
+def bot_grade_requires(raw: Optional[str]) -> str:
+    """The rung you have to have BEATEN first. "" for the bottom of the ladder."""
+    return str(AI_DIFFICULTY_CONFIGS[normalize_bot_grade(raw)].get("requires", ""))
+
+
+def bot_grade_elo(raw: Optional[str]) -> int:
+    """The measured Elo behind a grade."""
+    return int(AI_DIFFICULTY_CONFIGS[normalize_bot_grade(raw)]["elo"])
+
+
+def bot_grade_rank(raw: Optional[str]) -> int:
+    """Where a grade sits on the ladder: 0 at the bottom, 9 for the Giant Squid."""
+    return BOT_GRADE_ORDER.index(normalize_bot_grade(raw))
+
+
+def bot_grade_fraction(raw: Optional[str]) -> float:
+    """The same position as 0.0 (F) → 1.0 (Giant Squid), for interpolation."""
+    last = max(1, len(BOT_GRADE_ORDER) - 1)
+    return bot_grade_rank(raw) / float(last)
+
+
+def bot_grade_table() -> List[Dict[str, Any]]:
+    """The whole ladder, weakest first, in the shape the clients want."""
+    return [
+        {
+            "id":       key,
+            "grade":    AI_DIFFICULTY_CONFIGS[key]["grade"],
+            "elo":      AI_DIFFICULTY_CONFIGS[key]["elo"],
+            "tier":     AI_DIFFICULTY_CONFIGS[key]["tier"],
+            "unlock":   AI_DIFFICULTY_CONFIGS[key].get("unlock", ""),
+            # The client draws the chain from this, so it never carries its own
+            # copy of who comes after whom.
+            "requires": AI_DIFFICULTY_CONFIGS[key].get("requires", ""),
+        }
+        for key in BOT_GRADE_ORDER
+    ]
 
 
 def ai_difficulty_config(raw: Optional[str]) -> Dict[str, Any]:
-    """Look up the per-difficulty behavior dict. Unknown -> medium."""
-    key = str(raw or "medium").strip().lower()
-    return dict(AI_DIFFICULTY_CONFIGS.get(key, AI_DIFFICULTY_CONFIGS["medium"]))
+    """Look up the per-grade behavior dict. Unknown -> the default grade."""
+    return dict(AI_DIFFICULTY_CONFIGS[normalize_bot_grade(raw)])
 
 
 def strategy_family_profile_by_label(label: str) -> Optional[Dict[str, Any]]:
@@ -4364,11 +4858,12 @@ def assign_strategy_families_from_opening_hands(
             # attractive, so bots fan out unless a hand is overwhelmingly suited.
             fit -= 3.0 * taken.get(label, 0)
             hist = strategy_family_stats_bias(family_stats, label)
-            # Easy bots tolerate a noisier opening pick (fuzzy commitment).
-            # Medium/Hard pick with near-zero noise so the starting plan is
-            # deterministic and they can actually follow through on it.
-            diff_for_noise = str(p.flags.get("_ai_difficulty", "medium")).strip().lower()
-            jitter = 0.15 if diff_for_noise == "easy" else 0.05 if diff_for_noise == "medium" else 0.02
+            # Low grades tolerate a noisier opening pick (fuzzy commitment).
+            # High grades pick with near-zero noise so the starting plan is
+            # deterministic and they can actually follow through on it. It
+            # slides down the whole ladder rather than stepping between tiers.
+            frac_noise = bot_grade_fraction(p.flags.get("_ai_difficulty"))
+            jitter = 0.20 - 0.18 * frac_noise
             total = fit + hist + rng.uniform(-jitter, jitter)
             if total > best_total:
                 best_total = total
@@ -4428,10 +4923,10 @@ def maybe_reassess_strategy_family(
         if isinstance(maybe_stats, dict):
             family_stats = maybe_stats
 
-    # Per-difficulty board weight: hard bots weight already-built board higher,
-    # so once they've committed cards to the chosen plan, switching is much harder.
-    diff = str(player.flags.get("_ai_difficulty", "medium")).strip().lower()
-    board_weight = 2.2 if diff == "hard" else 1.7 if diff == "medium" else 1.4
+    # Per-grade board weight: high grades weight the board they have already
+    # built higher, so once they've committed cards to the chosen plan,
+    # switching away from it is much harder.
+    board_weight = 1.30 + 1.10 * bot_grade_fraction(player.flags.get("_ai_difficulty"))
 
     scores: Dict[str, float] = {}
     for fam in families:
@@ -6572,13 +7067,13 @@ def expand_draw_actions_for_ai(gs: GameState, ms: MatchState, player: PlayerStat
         # happens to be at the top of the pool stack.
         if a.draw_from_pool == 1:
             for uid in top:
-                b = copy.deepcopy(a)
+                b = clone_action(a)
                 b.pool_pick_uids = [uid]
                 out.append(b)
         elif a.draw_from_pool == 2 and len(top) >= 2:
             for i in range(len(top)):
                 for j in range(i + 1, len(top)):
-                    b = copy.deepcopy(a)
+                    b = clone_action(a)
                     b.pool_pick_uids = [top[i], top[j]]
                     out.append(b)
         else:
@@ -6638,11 +7133,11 @@ def simulated_point_delta(gs: GameState, ms: MatchState, player: PlayerState, ac
     except StopIteration:
         return 0.0
 
-    gs2 = copy.deepcopy(gs)
-    ms2 = copy.deepcopy(ms)
+    gs2 = clone_game_state(gs)
+    ms2 = clone_match_state(ms)
     p2 = gs2.players[player_index]
     before = final_points(gs2, p2)
-    action_copy = copy.deepcopy(action)
+    action_copy = clone_action(action)
     ok = apply_action(gs2, ms2, p2, action_copy, TurnState(), choose_payment_ai, verbose=False)
     if not ok:
         return -4.0
@@ -6653,6 +7148,57 @@ def simulated_point_delta(gs: GameState, ms: MatchState, player: PlayerState, ac
     if delta < -15.0:
         return -15.0
     return delta
+
+
+# ── How developed a game has to be before the AI learns from it ────────────
+# There used to be two of these thresholds, one here and one in the live
+# server, both written from intuition and never checked against a real game.
+# They were checked, over 159 complete 4-player matches played by the shipped
+# engine:
+#
+#     top score:  min 38   median 70   mean 70   max 115
+#     >= 60 : 81% of games      >= 100: 4% of games      >= 120: none at all
+#
+# Re-checked on 58 games of the current nine-grade ladder: median 72, max 95,
+# and the floor below admits 74% of them. Same picture, different ladder.
+#
+# Both gates were set at 100, and the one below was multiplied by 1.15 for
+# human games, putting it at 115 — which is the highest score ANY of those 159
+# games reached. So four-player games were teaching the AI essentially nothing,
+# and the human games it most wanted to learn from were the ones it threw away.
+# The floor below takes the share of games the AI learns from up from 0.6% (one
+# game in 159 cleared BOTH old gates) to 86%, which is over a hundred times the
+# training data from exactly the same amount of play.
+#
+# The old floors also had the direction backwards: they assumed smaller tables
+# score lower. They score HIGHER. Four players share one deck, so each player
+# gets fewer turns and a smaller board than two players do. The numbers below
+# follow the measurement instead of the intuition.
+#
+# This lives in ONE function on purpose. Two copies of a number like this is
+# how it went stale the first time.
+_LEARN_TOP_FLOOR_BY_COUNT: Dict[int, float] = {
+    2: 65.0,    # two-player games run long and score high
+    3: 60.0,
+}
+# 4+. The four-player distribution is min 45, median 72, max 95. A floor of 55
+# keeps out the genuinely stunted games at the bottom of that and admits ~93%
+# of the rest, which is what a "developed board" bar is supposed to do. It was
+# briefly set at 60, which sat close enough to the median that ordinary games
+# fell on either side of it depending on the deck.
+_LEARN_TOP_FLOOR_DEFAULT = 55.0
+
+
+def learning_top_score_floor(n_players: int, is_human_game: bool = False) -> float:
+    """The winning score a game must reach before it is worth learning from.
+
+    `is_human_game` asks for a slightly higher bar, because a human game is
+    weighted ~10x and a marginal one would be amplified rather than diluted.
+    It is a nudge (5%), not the 15% that used to push the bar past what a game
+    of that size can actually score.
+    """
+    floor = _LEARN_TOP_FLOOR_BY_COUNT.get(int(n_players), _LEARN_TOP_FLOOR_DEFAULT)
+    return floor * (1.05 if is_human_game else 1.0)
 
 
 def update_brain_from_match(
@@ -6697,16 +7243,9 @@ def update_brain_from_match(
     # so we no longer restrict learning to 4P/5P, we just require a developed
     # game. Smaller tables score lower, so the winner floor scales with size.
     n_players = len(gs.players)
-    min_top = 100.0
-    if n_players <= 2:
-        min_top = 55.0
-    elif n_players == 3:
-        min_top = 80.0
+    min_top = learning_top_score_floor(n_players, is_human_game)
     if is_human_game:
-        # Human games train the maps 10× harder, so only well-developed human
-        # games qualify: discard marginal ones rather than amplify their noise.
-        min_top *= 1.15
-        # And require a real margin: a near-tie human game is low-signal.
+        # A near-tie human game is low-signal whatever it scored.
         if len(ranked) >= 2 and (top_score - scores[ranked[-1].name]) < 0.20 * min_top:
             return
     if top_score < min_top:
@@ -9667,8 +10206,8 @@ def double_check_action_score(
     except StopIteration:
         return -1e9
 
-    gs2 = copy.deepcopy(gs)
-    ms2 = copy.deepcopy(ms)
+    gs2 = clone_game_state(gs)
+    ms2 = clone_match_state(ms)
     if determinize_rng is not None:
         # Honest planning: don't peek at opponents' real hands or the true
         # deck order: roll the line forward against a plausible world instead.
@@ -9677,7 +10216,7 @@ def double_check_action_score(
     before_score = final_points(gs2, p2)
     before_adv = relative_advantage(gs2, player_index)
     ts = TurnState()
-    ok = apply_action(gs2, ms2, p2, copy.deepcopy(action), ts, choose_payment_ai, verbose=False)
+    ok = apply_action(gs2, ms2, p2, clone_action(action), ts, choose_payment_ai, verbose=False)
     if not ok:
         return -1e9
 
@@ -9805,15 +10344,27 @@ def double_check_action_score(
         threat_w = 0.62
         score_w = 0.065
 
+    # How much this bot cares about what the rest of the table is building.
+    # It is the same knob the pool-denial scorer reads, so a grade that blocks
+    # in the draft also blocks in its lookahead, instead of the two halves of
+    # its opponent awareness disagreeing.
+    block_flag = player.flags.get("_ai_block_weight")
+    block_mult = float(block_flag) if isinstance(block_flag, (int, float)) else 1.0
+    # Foresight again: a bot that cannot see past this turn cannot see the
+    # turns it is being punished for either, so its lookahead terms fade with
+    # the same knob rather than leaking full-strength planning into a beginner.
+    fut_flag = player.flags.get("_ai_future_weight")
+    fut_mult = float(fut_flag) if isinstance(fut_flag, (int, float)) else 1.0
+
     return (
         point_gain * point_w
-        + next_gain * next_w
-        + next2_gain * (0.55 - 0.25 * pressure)
+        + next_gain * next_w * fut_mult
+        + next2_gain * (0.55 - 0.25 * pressure) * fut_mult
         + adv_gain * 0.65
         + board_development * board_w
-        + future_bias * (1.2 - 0.7 * pressure)
+        + future_bias * (1.2 - 0.7 * pressure) * fut_mult
         + after_score * score_w
-        - opponent_threat * threat_w
+        - opponent_threat * threat_w * max(0.0, block_mult)
     )
 
 
@@ -11041,11 +11592,17 @@ def run_match(
             p.flags["_ai_switch_margin"]   = float(cfg["switch_margin"])
             p.flags["_ai_block_weight"]    = float(cfg["block_weight"])
             p.flags["_ai_strategy_weight"] = float(cfg["strategy_weight"])
-            p.flags["_ai_explore_chance"]  = float(cfg["explore_chance"])
             p.flags["_ai_payment_smart"]   = bool(cfg["payment_smart"])
             p.flags["_ai_plan_candidates"] = int(cfg.get("plan_candidates", 0))
             p.flags["_ai_plan_samples"]    = int(cfg.get("plan_samples", 0))
             p.flags["_ai_confirm_weight"]  = float(cfg.get("confirm_weight", 0.0))
+            p.flags["_ai_grade"]           = str(cfg.get("grade", ""))
+            p.flags["_ai_elo"]             = int(cfg.get("elo", 0))
+            p.flags["_ai_pick_bias"]       = float(cfg.get("pick_bias", 6.0))
+            p.flags["_ai_raw_chance"]      = float(cfg.get("raw_chance", 0.0))
+            p.flags["_ai_future_weight"]   = float(cfg.get("future_weight", 1.0))
+            p.flags["_ai_runoff_samples"]  = int(cfg.get("runoff_samples", 0))
+            p.flags["_ai_plan_budget"]     = float(cfg.get("plan_budget", 0.0))
 
     # Turtle learning gate, snapshotted per-player so concurrent games (a live
     # server hosting different table sizes at once) never clobber each other.
@@ -13041,16 +13598,16 @@ def _bench_worker(task: Tuple[int, int, str, int]) -> Dict[str, Any]:
     for i in range(count):
         if i == new_seat:
             policies.append(_train_make_policy(new_maps, epsilon=0.0))
-            diffs.append("medium")
+            diffs.append(DEFAULT_BOT_GRADE)
         elif matchup == "random":
             policies.append(choose_action_random)
-            diffs.append("medium")
+            diffs.append(DEFAULT_BOT_GRADE)
         elif matchup == "mixed":
             policies.append(_train_make_policy(old_maps, epsilon=0.0))
-            diffs.append(rng.choice(["easy", "medium", "hard"]))
+            diffs.append(rng.choice(BOT_GRADE_ORDER))
         else:  # 'old'
             policies.append(_train_make_policy(old_maps, epsilon=0.0))
-            diffs.append("medium")
+            diffs.append(DEFAULT_BOT_GRADE)
     try:
         gs, ms = run_match(
             card_db=card_db,

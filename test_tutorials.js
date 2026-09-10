@@ -313,16 +313,16 @@ console.log("\nthe tour only calls functions it can actually reach");
 
 console.log("\nthe Competitive tour names doors that exist");
 {
-  // Quick Match is the casual four-seat queue and has no mode picker at all:
+  // Head to Head is the casual four-seat queue and has no mode picker at all:
   // /api/quickplay takes a player name and a ticket, nothing else. "Quick
   // Match → Competitive" was an instruction for a button that cannot do it.
   const server = fs.readFileSync(path.join(ROOT, "multiplayer_server.py"), "utf8");
-  check("Quick Match really is mode-blind on the server",
+  check("Head to Head really is mode-blind on the server",
         /parsed\.path == "\/api\/quickplay"[\s\S]{0,320}?quick_play_join\(player_name, ticket\)/.test(server));
   check("...and mode-blind in the client, so the tour must not offer it as a way into ranked",
         /apiPost\("\/api\/quickplay", \{\s*player_name: name,\s*ticket: search\.ticket,\s*\}/.test(APP));
-  check("no tutorial sends a player to Quick Match for a Competitive game",
-        !/Quick Match[^"]{0,40}Competitive/.test(TUT.replace(/\/\/.*$/gm, "")));
+  check("no tutorial sends a player to Head to Head for a Competitive game",
+        !/Head to Head[^"]{0,40}Competitive/.test(TUT.replace(/\/\/.*$/gm, "")));
   check("the join step points at Join Game instead",
         /target: "#stats-join-toggle-btn", badge: "Joining"/.test(TUT));
   check("...which really opens Open Currents",

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Quick Play's searching bar: the queue counts, and the countdown to bots.
+/* Head to Head's searching bar: the queue counts, and the countdown to bots.
  *
  * The bar is the only thing a searching player can see, and until now the only
  * thing it could ever say was "waiting", forever. It now carries three facts,
@@ -111,7 +111,7 @@ console.log("\nthe search always ends in a game");
   check("a late joiner cancels the bot plan instead of being botted",
         /res\.data\?\.matched/.test(fallback) && /botsRequested = false/.test(fallback));
   check("…and the player is told the lobby is opening instead",
-        /Someone joined! Opening the Quick Play lobby…/.test(fallback));
+        /Someone joined! Opening the Head to Head lobby…/.test(fallback));
   check("a refused handoff backs off instead of retrying every second",
         /botsRetryAt = Date\.now\(\) \+ \d+/.test(fallback));
   check("…and the tick honours that backoff",
@@ -129,13 +129,13 @@ console.log("\nthe search always ends in a game");
 console.log("\nthe countdown is not wiped by the room poll");
 {
   // The bug this guards: the 1s tick wrote the countdown, then the 2.5s poll
-  // wrote "Waiting for another Quick Play player…" straight over it.
-  const writers = (APP.match(/_qmSetStatus\("Waiting for another Quick Play player…"\)/g) || []).length;
+  // wrote "Waiting for another Head to Head player…" straight over it.
+  const writers = (APP.match(/_qmSetStatus\("Waiting for another Head to Head player…"\)/g) || []).length;
   check("only one place writes the waiting line", writers === 1, `${writers} writers`);
   const waiting = APP.slice(APP.indexOf("function _qmWaitingStatus"),
                             APP.indexOf("function _qmShowBar"));
   check("…and it is _qmWaitingStatus",
-        /_qmSetStatus\("Waiting for another Quick Play player…"\)/.test(waiting));
+        /_qmSetStatus\("Waiting for another Head to Head player…"\)/.test(waiting));
   check("the room poll goes through it",
         /_qmWaitingStatus\(search, false\)/.test(APP));
   check("the 1s tick only ever writes the countdown",

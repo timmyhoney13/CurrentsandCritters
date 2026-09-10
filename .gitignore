@@ -50,6 +50,10 @@
 # window sizes. Test-only, so these need this entry and no Dockerfile COPY.
 !test_lobby_seat_tiles.py
 !test_lobby_seat_tiles.js
+!test_bot_grades.py
+!test_bot_match.js
+!calibrate_bots.py
+!test_ai_learning.py
 
 # Who is on a computer and who is on a phone, shown on every screen that lists
 # the people in a room: the waiting room's tiles, the in-game seat cluster, the
@@ -698,6 +702,14 @@ multiplayer/client/_tut_drive_*.html
 multiplayer/client/_tutig_app.js
 multiplayer/client/_tutig_page.html
 multiplayer/client/_tutig_page_m.html
+
+# Same thing, from the sign-in gate harness (test_auth_gate.js). It writes its
+# driver pages into multiplayer/client for the same reason and deletes them in
+# a finally, so they are only ever seen when a run is interrupted, which is
+# exactly when nobody is looking for them. One of these did turn up as an
+# untracked file after a killed run; it is a copy of preview.html with a test
+# driver stapled on, and it must never be committed as if it were a page.
+multiplayer/client/_gate_*.html
 
 # The public-surface tests: what a stranger can download from the server, and
 # what the in-game admin door does when nobody set a key. It boots the real

@@ -9,6 +9,7 @@ import gzip
 import hashlib
 import hmac
 import json
+import math
 import mimetypes
 import os
 import random
@@ -923,7 +924,7 @@ def get_live_user_counts():
     `registered` and `online` is a persisted Firestore counter.
 
     This used to be an expire-then-block cache, so every ~30 seconds one
-    player's /api/stats or Quick Play poll ran the count aggregate plus the
+    player's /api/stats or Head to Head poll ran the count aggregate plus the
     whole online query and waited ~2.4s for it. Nobody waits for it now."""
     counts = _LIVE_COUNTS_WARM.get("counts", _live_user_counts_merged)
     if not counts:
@@ -4125,11 +4126,11 @@ ROOM_ID_LENGTH = 5
 # A player who leaves a running game keeps their seat RESERVED for this long;
 # only they (they hold the seat token) can rejoin it, into the same seat.
 REJOIN_WINDOW_SEC = 8 * 60
-# A home-screen Quick Play client polls its queued room every few seconds.
+# A home-screen Head to Head client polls its queued room every few seconds.
 # Ignore abandoned one-player queues after this window so a new player is
 # never matched with a tab that has been closed or disconnected.
 QUICK_PLAY_STALE_SECONDS = 3 * 60
-# Quick Play must never be a dead end. A player alone in the queue for this
+# Head to Head must never be a dead end. A player alone in the queue for this
 # long is dropped into a game against bots rather than left watching a
 # counter climb: on a small playerbase "no one is searching" is the normal
 # case, and a button that can only ever fail is worse than no button.
@@ -4685,6 +4686,70 @@ def board_to_dict(player: fish.PlayerState, gs: fish.GameState) -> List[Dict[str
     return payload
 
 
+# ── What the recorded games said about tempo, and what happened when we
+#    believed it ──────────────────────────────────────────────────────────────
+# Every game the server has written down was re-read looking for what separates
+# a winning player from a losing one. Two things track the final score harder
+# than anything else in the logs, per player:
+#
+#   drawing more   → scoring LESS   (r = -0.58 for bots, -0.71 for people)
+#   playing oceans → scoring MORE   (r = +0.34 for bots, +0.65 for people)
+#
+# and the bots sat on the wrong side of both: they spent 51.7% of their actions
+# drawing, while the players who beat them spent 42.6% (median). In the widest
+# game on file a player took 833 points to the bot's 314 while drawing 41 times
+# to its 57. It reads like an open goal, and it is not one.
+#
+# It was built and measured: a tempo charge on every draw, scaled by hand size
+# and endgame pressure, plus a bonus for putting an ocean down. Four seats of
+# the same grade at one table, the charge on for some and off for others, so
+# every comparison is the same deck and the same pool:
+#
+#   4p, strength 0 / 0.7 / 1.6 / 3.2  → win 0.319 / 0.188 / 0.275 / 0.219  (80 games)
+#   4p, strength -2 / -0.8 / 0 / 0.8  → win 0.219 / 0.212 / 0.281 / 0.287  (80 games)
+#   2p, strength 0 vs 1.6             → win 0.533 / 0.467                  (60 games)
+#   4p, ocean bonus 0/0.8/1.8/3.5     → win 0.237 / 0.275 / 0.267 / 0.221  (120 games)
+#
+# Charging for draws does not help, and charging a lot for them hurts. Drawing
+# MORE hurts too, so the bots are already sitting near the best draw rate the
+# scorer can find. The correlation in the logs runs the other way: a player who
+# is behind has nothing playable and draws because there is nothing else to do.
+# Drawing does not cause the losing; the losing causes the drawing.
+#
+# Left here so the next person to read those logs, and they are convincing
+# logs, does not spend the afternoon re-deriving it. The bots' real weakness
+# was never tempo; it was how few candidate moves they confirmed before
+# committing, which is what the grade ladder's rollout budget buys.
+
+
+def _pick_by_rank(scored: List["tuple[fish.Action, float]"], bias: float) -> "fish.Action":
+    """Choose from a best-first list, preferring better ranks by `bias`.
+
+    Weight of the move at rank i is exp(-bias * i), so `bias` is exactly "how
+    many times less likely is the next move down". A large bias is
+    deterministic, zero is a coin flip among everything legal, and a negative
+    bias leans towards the bad end on purpose. See the note in the light
+    chooser for why this is done on rank rather than on score.
+    """
+    if len(scored) == 1:
+        return scored[0][0]
+    if bias >= 6.0:
+        # exp(-6) is under a quarter of a percent; at that point the arithmetic
+        # is just an expensive way of saying "the best one".
+        return scored[0][0]
+    weights = [math.exp(-bias * i) for i in range(len(scored))]
+    total = sum(weights)
+    if not (total > 0.0) or math.isinf(total):
+        return scored[0][0]
+    r = random.random() * total
+    acc = 0.0
+    for i, w in enumerate(weights):
+        acc += w
+        if r <= acc:
+            return scored[i][0]
+    return scored[-1][0]
+
+
 def choose_action_weighted_light(
     gs: fish.GameState,
     ms: fish.MatchState,
@@ -4707,17 +4772,60 @@ def choose_action_weighted_light(
     If out_scored is provided, the full (action, score) list (sorted best-first)
     is copied into it: used by the Current Controller's Bot Brain Viewer.
     """
-    acts = fish.candidate_actions_for_ai(gs, ms, player)
-    acts = fish.filter_overbuild_ocean_actions(gs, ms, player, acts)
-    non_dead = [a for a in acts if not fish.action_is_dead_engine_play(gs, ms, player, a)]
-    if non_dead:
-        acts = non_dead
-    if not acts:
-        return None
+    # What this bot is even willing to consider. The curated list drops moves
+    # that overbuild an ocean or feed a dead engine, which is exactly the sort
+    # of mistake a beginner makes constantly. The bottom of the grade ladder
+    # therefore does NOT get the curation: it sees every legal move, including
+    # the bad ones, because that is what makes a beginner a beginner.
+    # A probability, not a switch. As a switch it was worth 458 Elo in one
+    # step while every other rung was worth about 120, which made the ladder a
+    # wall with steps painted on it. Rolled per move, the same handicap spreads
+    # across three grades.
+    if random.random() < float(player.flags.get("_ai_raw_chance", 0.0) or 0.0):
+        acts = fish.legal_actions(gs, ms, player, include_draw=True)
+        if not acts:
+            return None
+    else:
+        acts = fish.candidate_actions_for_ai(gs, ms, player)
+        acts = fish.filter_overbuild_ocean_actions(gs, ms, player, acts)
+        non_dead = [a for a in acts if not fish.action_is_dead_engine_play(gs, ms, player, a)]
+        if non_dead:
+            acts = non_dead
+        if not acts:
+            return None
 
-    # Per-bot difficulty knobs (set when the game launches; defaults if missing).
+    # Per-bot grade knobs (set when the game launches; defaults if missing).
     strategy_mult = float(player.flags.get("_ai_strategy_weight", 1.0) or 1.0)
-    explore_chance = float(player.flags.get("_ai_explore_chance", 0.0) or 0.0)
+    # How strongly this bot prefers a better move, per step down the ranking.
+    # It is one signed number covering the whole ladder, which the three
+    # overlapping "mistake" knobs it replaced could not do:
+    #
+    #   bias 6      the best move, essentially always
+    #   bias 1      usually the best, sometimes the second
+    #   bias 0      no preference at all: a legal move, chosen by coin flip
+    #   bias -0.5   actively drawn to the worse move, which is what a beginner
+    #               who has misunderstood the game looks like from across the
+    #               table, and is genuinely below random
+    #
+    # Rank, not score: the scorer's numbers are on no fixed scale and their
+    # spread changes every turn, so a softmax over raw scores would mean
+    # something different on every move. A rank step always means the same
+    # thing, which is what makes this knob calibratable.
+    pick_bias = float(player.flags.get("_ai_pick_bias", 6.0))
+    # Foresight. 1.0 sees the whole game; 0.0 is a beginner who only counts the
+    # points on the table in front of them right now. This is the single
+    # biggest thing separating the bottom of the grade ladder from the top,
+    # and it is free: a myopic bot does LESS work, not more.
+    future_w = float(player.flags.get("_ai_future_weight", 1.0) or 0.0)
+
+    # Myopia is applied to the weights themselves, so it reaches every feature
+    # that is about later turns rather than this one.
+    if future_w < 0.999:
+        weights = dict(weights)
+        weights["future_value"] = weights.get("future_value", 0.0) * future_w
+        weights["plan_fit_bonus"] = weights.get("plan_fit_bonus", 0.0) * future_w
+        weights["stack_bonus"] = weights.get("stack_bonus", 0.0) * (0.45 + 0.55 * future_w)
+        weights["branch_bonus"] = weights.get("branch_bonus", 0.0) * future_w
 
     scored: List[tuple[fish.Action, float]] = []
     for action in acts:
@@ -4745,7 +4853,7 @@ def choose_action_weighted_light(
         score += weights.get("strategy_bonus", 0.0) * strategy_v
         score += weights.get("novelty_bonus", 0.0) * novelty_v
         score += weights.get("branch_bonus", 0.0) * branch_v
-        score += fish.action_engine_timing_bonus(gs, ms, player, action)
+        score += future_w * fish.action_engine_timing_bonus(gs, ms, player, action)
         score += fish.human_realism_action_adjustment(gs, ms, player, action, feats)
         # Strategy + opponent-awareness signal (scaled by per-bot difficulty).
         # action_archetype_bonus internally pulls _strategy_family and
@@ -4754,10 +4862,11 @@ def choose_action_weighted_light(
         score += strategy_mult * fish.action_archetype_bonus(gs, ms, player, action, None)
         # Board-fit: rewards plays that build on the current board's plan
         # (e.g. dropping baitfish into an ocean already stacked with baitfish).
-        score += strategy_mult * fish.action_plan_fit_bonus(gs, player, action)
-        # Future value: rewards plays that set up scoring on later turns,
-        # not just this turn. Makes medium/hard bots think ahead.
-        score += strategy_mult * fish.action_future_value_bonus(gs, ms, player, action)
+        score += strategy_mult * future_w * fish.action_plan_fit_bonus(gs, player, action)
+        # Future value: rewards plays that set up scoring on later turns, not
+        # just this turn. This is what a high grade is buying with its
+        # foresight, and what a low grade is blind to.
+        score += strategy_mult * future_w * fish.action_future_value_bonus(gs, ms, player, action)
         scored.append((action, score))
 
     scored.sort(key=lambda x: x[1], reverse=True)
@@ -4765,27 +4874,12 @@ def choose_action_weighted_light(
         out_scored.clear()
         out_scored.extend(scored)
 
-    # Easy bots occasionally pick a near-best action instead of the best one
-    # so they feel beatable. Hard bots always lock onto the top score.
-    if explore_chance > 0.0 and len(scored) > 1 and random.random() < explore_chance:
-        # Pick from the top 3 with mild softmax-like preference for higher scores.
-        topk = scored[: min(3, len(scored))]
-        weights_pick = [max(0.05, s) for _, s in topk]
-        total = sum(weights_pick) or 1.0
-        r = random.random() * total
-        acc = 0.0
-        chosen_idx = 0
-        for i, w in enumerate(weights_pick):
-            acc += w
-            if r <= acc:
-                chosen_idx = i
-                break
-        best = topk[chosen_idx][0]
-    else:
-        best = scored[0][0]
+    best = _pick_by_rank(scored, pick_bias)
 
-    # Keep board-first behavior if a draw only barely wins.
-    if best.kind == "draw":
+    # Board-first: keep playing rather than hoarding when a draw only barely
+    # wins. It is a good habit, so only a bot good enough to have habits gets
+    # it: below that the guard would quietly undo the wandering above it.
+    if pick_bias >= 0.8 and best.kind == "draw":
         play_opts = [(a, s) for a, s in scored if a.kind != "draw"]
         if play_opts:
             best_play, best_play_score = max(play_opts, key=lambda x: x[1])
@@ -4800,13 +4894,12 @@ _DEEP_BOTS_ENABLED = str(os.environ.get("FISH_DEEP_BOTS", "1")).strip().lower() 
     "0", "false", "no", "off",
 }
 
-# Per-move wall-clock budget (seconds) for rollout confirmation, by difficulty.
-# Candidates are confirmed best-first, so running out of budget just means the
-# weakest shortlist entries keep their one-pass score.
-_DEEP_PLAN_TIME_BUDGET: Dict[str, float] = {
-    "medium": 1.2,
-    "hard": 2.2,
-}
+# Per-move wall-clock budget (seconds) for rollout confirmation. Every grade
+# carries its own (`plan_budget` in the ladder); this is the fallback for a bot
+# whose flags predate grades. Candidates are confirmed best-first, so running
+# out of budget just means the weakest shortlist entries keep their one-pass
+# score.
+_DEEP_PLAN_FALLBACK_BUDGET = 1.2
 
 # ── Deep-planning admission control (site-wide) ─────────────────────────────
 # Rollout confirmation is the single most expensive thing this server does: a
@@ -4920,14 +5013,17 @@ def choose_action_weighted_deep(
         and confirm_weight > 0.0
     )
 
-    # Roll the per-difficulty "human slip" here (not in the light pass) so a
-    # light-chooser draw-guard pick is never mistaken for a deliberate slip and
-    # deep confirmation only skips when the slip genuinely fired.
-    explore_chance = float(player.flags.get("_ai_explore_chance", 0.0) or 0.0)
-    slip_fired = deep_enabled and explore_chance > 0.0 and random.random() < explore_chance
-    saved_explore = player.flags.get("_ai_explore_chance")
-    if deep_enabled and not slip_fired:
-        player.flags["_ai_explore_chance"] = 0.0
+    # Which move the light pass WANDERED to is the bot's own mistake, and the
+    # confirmation pass must not quietly undo it: rollouts would hand every
+    # low grade the top bot's judgement back. So the wander is rolled here, by
+    # asking the light pass for its honest ranking (bias silenced) and then
+    # applying this bot's own bias to the confirmed ranking at the end. Only
+    # grades that pay for rollouts reach this at all, and those all sit high
+    # enough on the ladder that the bias is nearly deterministic anyway.
+    pick_bias = float(player.flags.get("_ai_pick_bias", 6.0))
+    saved_bias = player.flags.get("_ai_pick_bias")
+    if deep_enabled:
+        player.flags["_ai_pick_bias"] = 6.0
 
     scored: List["tuple[fish.Action, float]"] = []
     try:
@@ -4946,14 +5042,14 @@ def choose_action_weighted_deep(
             out_scored=scored,
         )
     finally:
-        if deep_enabled and not slip_fired:
-            player.flags["_ai_explore_chance"] = saved_explore
+        if deep_enabled:
+            player.flags["_ai_pick_bias"] = saved_bias
     if out_scored is not None:
         out_scored.clear()
         out_scored.extend(scored)
     if base_best is None or not scored:
         return base_best
-    if not deep_enabled or slip_fired or len(scored) < 2:
+    if not deep_enabled or len(scored) < 2:
         return base_best
 
     # Admission control, two layers (see _DEEP_PLAN_SEM / _deep_plan_scale):
@@ -5005,8 +5101,9 @@ def _confirm_with_rollouts(
 ) -> Optional["fish.Action"]:
     """The rollout-confirmation pass, split out so the deep-planning slot it
     needs (_DEEP_PLAN_SEM) is held for exactly this work and nothing else."""
-    difficulty = str(player.flags.get("_ai_difficulty", "medium")).strip().lower()
-    budget = _DEEP_PLAN_TIME_BUDGET.get(difficulty, 1.2)
+    budget = float(player.flags.get("_ai_plan_budget", 0.0) or 0.0)
+    if budget <= 0.0:
+        budget = _DEEP_PLAN_FALLBACK_BUDGET
     # Never below 150 ms: a token budget that confirms one or two moves is
     # still better than none, and the shortlist/sample taper has already cut
     # the real cost.
@@ -5028,43 +5125,77 @@ def _confirm_with_rollouts(
                 if a.kind != "draw" and id(a) not in in_short
             ]
             shortlist.extend(extra[: want_plays - n_plays])
-    blended: List["tuple[fish.Action, float]"] = []
-    for action, base_score in shortlist:
-        if time.monotonic() >= deadline and blended:
-            # Out of budget: leave the rest unconfirmed. Their raw one-pass
-            # scores aren't on the blended scale, so ranking them together
-            # would be apples-to-oranges; they were lower-ranked anyway.
+    # ── Sampling: every candidate in the SAME worlds ────────────────────────
+    # A rollout's score is a move's worth plus the luck of the world it was
+    # rolled in, and until this loop was written each candidate got its own
+    # freshly shuffled world. So comparing two candidates compared two moves
+    # AND two different decks, and with only two or three samples apiece the
+    # deck was frequently the louder of the two. The bot picked the move that
+    # got dealt the better hypothetical, not the better move.
+    #
+    # The fix is the standard one for this: common random numbers. Draw the
+    # worlds ONCE, and play every candidate through the same list of them.
+    # Whatever the world does for one move it does for all of them, so the
+    # luck cancels in the comparison and what is left is the difference
+    # between the moves, which is the only thing being ranked. It costs
+    # nothing: the same rollouts, seeded from a shared list instead of
+    # independently.
+    #
+    # And sample ROUND-ROBIN, one world across all candidates before starting
+    # the next, rather than finishing one candidate before starting the next.
+    # Running out of budget used to mean the first candidates got the full
+    # sample count and the rest got dropped where they stood, so a candidate
+    # was ranked partly on where it happened to sit in the queue. Now the
+    # rounds are what run out: every candidate that is compared has been
+    # rolled through exactly the same worlds as every other.
+    #
+    # A budget too small to finish even the first round still cuts the
+    # shortlist short, and there is no way round that with a hard deadline.
+    # But the shortlist is in one-pass rank order, so what a short budget buys
+    # is the best-ranked candidates confirmed and the tail left alone, which
+    # is the right way to spend it.
+    world_seeds = [random.getrandbits(64) for _ in range(max(1, plan_samples))]
+    # action id -> [one-pass score, per-world confirm scores in world order]
+    evidence: Dict[int, List] = {id(a): [s, []] for a, s in shortlist}
+    for seed in world_seeds:
+        if time.monotonic() >= deadline:
             break
-        confirm_total = 0.0
-        samples_run = 0
-        for _ in range(plan_samples):
-            confirm_total += fish.double_check_action_score(
-                gs,
-                ms,
-                player,
-                action,
-                weights,
-                synergy_map=synergy_map,
-                species_map=species_map,
+        for action, _base in shortlist:
+            if time.monotonic() >= deadline:
+                break
+            evidence[id(action)][1].append(fish.double_check_action_score(
+                gs, ms, player, action, weights,
+                synergy_map=synergy_map, species_map=species_map,
                 same_ocean_map=same_ocean_map,
                 strategy_value_map=strategy_value_map,
                 strategy_count_map=strategy_count_map,
                 strategy_transition_map=strategy_transition_map,
                 strategy_transition_count_map=strategy_transition_count_map,
                 archetype_profile=None,
-                determinize_rng=random.Random(random.getrandbits(64)),
-            )
-            samples_run += 1
-            if time.monotonic() >= deadline:
-                break
-        confirm = confirm_total / max(1, samples_run)
+                determinize_rng=random.Random(seed),
+            ))
+
+    # Compare on the worlds every candidate actually saw. A deadline landing
+    # mid-round leaves one or two candidates a sample ahead; counting that
+    # extra world would hand those candidates a different measurement from
+    # everyone else's, which is exactly what this loop exists to avoid.
+    depths = [len(ev[1]) for ev in evidence.values() if ev[1]]
+    n_common = min(depths) if depths else 0
+    if n_common <= 0:
+        # Not one world finished. The one-pass pick is still a real move.
+        return base_best
+
+    blended: List["tuple[fish.Action, float]"] = []
+    for action, base_score in shortlist:
+        samples = evidence[id(action)][1]
+        if len(samples) < n_common:
+            continue
+        confirm = sum(samples[:n_common]) / float(n_common)
         blended.append(
             (action, base_score * (1.0 - confirm_weight) + confirm * confirm_weight)
         )
 
     if not blended:
-        # Nothing got confirmed (empty shortlist / budget gone on the first
-        # entry). The one-pass pick is still a valid move.
         return base_best
 
     blended.sort(key=lambda x: x[1], reverse=True)
@@ -5076,7 +5207,70 @@ def _confirm_with_rollouts(
         out_scored.extend(blended)
         out_scored.extend((a, s) for a, s in scored if id(a) not in confirmed_ids)
 
-    best_action, best_total = blended[0]
+    # ── The runoff ──────────────────────────────────────────────────────────
+    # One or two sampled worlds is a noisy estimate, and the noise only matters
+    # where it can change the answer: between the two moves at the top. So the
+    # highest grades spend a few more rollouts on exactly that pair, and on
+    # nothing else. It is the cheapest real strength on the ladder: a handful
+    # of extra samples where they decide the move, instead of spreading them
+    # thinly over a shortlist whose bottom half was never going to win.
+    #
+    # Paired here too, and it matters more here than anywhere: this is a
+    # two-horse race being decided by a handful of samples, so one lucky deck
+    # for one of them is the whole verdict. Both moves run the same new world.
+    runoff_samples = int(player.flags.get("_ai_runoff_samples", 0) or 0)
+    if runoff_samples > 0 and len(blended) >= 2 and time.monotonic() < deadline:
+        pair = blended[:2]
+        # Only worth doing when the pair is genuinely close. A clear winner is
+        # a clear winner, and the samples are better left unspent.
+        if abs(pair[0][1] - pair[1][1]) <= 2.5:
+            extra: Dict[int, List[float]] = {id(a): [] for a, _ in pair}
+            for _ in range(runoff_samples):
+                if time.monotonic() >= deadline:
+                    break
+                seed = random.getrandbits(64)
+                for action, _t in pair:
+                    if time.monotonic() >= deadline:
+                        break
+                    extra[id(action)].append(fish.double_check_action_score(
+                        gs, ms, player, action, weights,
+                        synergy_map=synergy_map, species_map=species_map,
+                        same_ocean_map=same_ocean_map,
+                        strategy_value_map=strategy_value_map,
+                        strategy_count_map=strategy_count_map,
+                        strategy_transition_map=strategy_transition_map,
+                        strategy_transition_count_map=strategy_transition_count_map,
+                        archetype_profile=None,
+                        determinize_rng=random.Random(seed),
+                    ))
+            # However deep the runoff got, both moves are re-scored over the
+            # same number of the same extra worlds, pooled with the shared
+            # worlds from the first pass. More samples, same scale, still paired.
+            deep = min(len(v) for v in extra.values())
+            if deep > 0:
+                rerun: List["tuple[fish.Action, float]"] = []
+                for action, _t in pair:
+                    ev = evidence[id(action)]
+                    pooled = ev[1][:n_common] + extra[id(action)][:deep]
+                    confirm = sum(pooled) / float(len(pooled))
+                    rerun.append((action,
+                                  ev[0] * (1.0 - confirm_weight) + confirm * confirm_weight))
+                rerun.sort(key=lambda x: x[1], reverse=True)
+                blended = rerun + blended[2:]
+                if out_scored is not None:
+                    confirmed_ids = {id(a) for a, _ in blended}
+                    out_scored.clear()
+                    out_scored.extend(blended)
+                    out_scored.extend((a, sc) for a, sc in scored
+                                      if id(a) not in confirmed_ids)
+
+    # The bot's own hand on the confirmed ranking: everything above was about
+    # working out the true order, and this is where THIS grade decides how
+    # faithfully it follows it. The caller silences the bias while the light
+    # pass builds its ranking and puts it back before calling this, so the flag
+    # read here is the bot's real one.
+    best_action = _pick_by_rank(blended, float(player.flags.get("_ai_pick_bias", 6.0)))
+    best_total = next(t for a, t in blended if a is best_action)
     # Board-first guard on confirmed totals: a hoarding draw must clearly beat
     # the best real play, mirroring the light chooser's anti-over-draft rule.
     if best_action.kind == "draw":
@@ -5136,7 +5330,12 @@ class Seat:
     best: int = 0
     games: int = 0
     title: str = ""
-    difficulty: str = "medium"  # easy | medium | hard (only meaningful for ai seats)
+    # The bot's GRADE, a ladder id from fish.BOT_GRADE_ORDER
+    # ("gilbert_carter" … "giant_squid"). Older saves hold the ids the ladder
+    # used before the rungs were named; fish.normalize_bot_grade maps those.
+    # Only meaningful for ai seats. The three old words (easy/medium/hard) still
+    # arrive from saved rooms and old clients and are normalized on the way in.
+    difficulty: str = fish.DEFAULT_BOT_GRADE
     # Surf's Up! player explicitly marked themselves Away. Turn pauses
     # indefinitely on this seat; other seats cannot draw for them.
     is_away: bool = False
@@ -5157,7 +5356,7 @@ class Seat:
     # Again on the end screen; cleared on every fresh game launch. When all
     # active human seats are ready, the game auto-restarts (bots ready implicitly).
     play_again_ready: bool = False
-    # Client-generated idempotency key for dedicated Quick Play matchmaking.
+    # Client-generated idempotency key for dedicated Head to Head matchmaking.
     # It prevents a retried request from claiming a second seat.
     quick_play_ticket: Optional[str] = None
     # Team Mode only: which team this seat belongs to (0=Red, 1=Blue, 2=Green,
@@ -5168,8 +5367,10 @@ class Seat:
     # The seat keeps kind="human" so nothing that was decided at launch (turn
     # order, the engine's human_indices) shifts underneath a running match; what
     # changes is that its token is cleared, so the kicked player's client is
-    # ejected, and its turns are played out by a bot instead of parking the
-    # table on an empty chair forever.
+    # ejected, and its turns are passed straight back out. NOBODY takes the
+    # chair over: no bot, no stand-in, no cards played on their behalf. The
+    # seat is dead for the rest of the match and only ever takes the shortest
+    # legal exit from its own turn, so it can never park the table either.
     kicked: bool = False
     # Tournament match rooms only: the bracket participant this seat belongs to.
     # Stamped on the Seat OBJECT at room creation, so it survives BOTH the
@@ -5462,10 +5663,6 @@ class GameRoom:
         # what the door is shut on: imperfect (a rename gets back in) but it is
         # the same identity every other room rule is written against.
         self.kicked_names: set = set()
-        # Bot policy stand-ins for kicked seats, built lazily from the brain
-        # maps _run_game stashes in _ai_policy_args. seat index → policy fn.
-        self._kicked_policies: Dict[int, Any] = {}
-        self._ai_policy_args: Optional[Dict[str, Any]] = None
 
     # ── Spectator helpers ────────────────────────────────────────────
     def spectator_join(self, name: str, avatar: Any = "", background: Any = "") -> Dict[str, Any]:
@@ -5733,7 +5930,7 @@ class GameRoom:
                     "claimed_name": seat.claimed_name,
                     "token": seat.token,
                     "is_host": bool(seat.is_host),
-                    "difficulty": str(seat.difficulty or "medium"),
+                    "difficulty": fish.normalize_bot_grade(seat.difficulty),
                     "quick_play_ticket": seat.quick_play_ticket,
                     "team": seat.team,
                     "kicked": bool(getattr(seat, "kicked", False)),
@@ -6062,7 +6259,16 @@ class GameRoom:
                     "best": int(getattr(seat, "best", 0) or 0),
                     "games": int(getattr(seat, "games", 0) or 0),
                     "title": str(getattr(seat, "title", "") or ""),
-                    "difficulty": str(seat.difficulty or "medium"),
+                    "difficulty": fish.normalize_bot_grade(seat.difficulty),
+                    # Only a bot has a grade. Sending one for a person would
+                    # invite a client to badge their face with a letter.
+                    "grade": (fish.bot_grade_label(seat.difficulty)
+                              if seat.kind == "ai" else ""),
+                    "grade_elo": (fish.bot_grade_elo(seat.difficulty)
+                                  if seat.kind == "ai" else 0),
+                    "grade_tier": (str(fish.ai_difficulty_config(
+                        seat.difficulty).get("tier", ""))
+                        if seat.kind == "ai" else ""),
                     "is_away": bool(getattr(seat, "is_away", False)),
                     "inactive_eligible": bool(getattr(seat, "inactive_eligible", False)),
                     # Removed by vote: their chair is being played out by a bot.
@@ -6160,11 +6366,11 @@ class GameRoom:
                         if isinstance(raw_human_name, str) and raw_human_name.strip():
                             claimed_name = safe_name(raw_human_name, seat_label)
                     token = seat_raw.get("token") if seat_kind == "human" and isinstance(seat_raw.get("token"), str) else None
+                    # A room saved before grades existed says "medium" here;
+                    # normalize_bot_grade knows what each old word became.
                     raw_difficulty = seat_raw.get("difficulty")
-                    seat_difficulty = (
-                        str(raw_difficulty).strip().lower()
-                        if isinstance(raw_difficulty, str) and raw_difficulty.strip().lower() in {"easy", "medium", "hard"}
-                        else "medium"
+                    seat_difficulty = fish.normalize_bot_grade(
+                        raw_difficulty if isinstance(raw_difficulty, str) else None
                     )
                     seat_kicked = bool(seat_raw.get("kicked"))
                     raw_team = seat_raw.get("team")
@@ -6783,15 +6989,31 @@ class GameRoom:
             target = self.seats[seat_index]
             if target.kind != "ai":
                 return {"ok": False, "error": "only AI seats have a difficulty"}
-            normalized = str(difficulty or "").strip().lower()
-            if normalized not in {"easy", "medium", "hard"}:
-                return {"ok": False, "error": "difficulty must be easy, medium, or hard"}
+            raw = str(difficulty or "").strip()
+            # normalize_bot_grade falls back to the default grade rather than
+            # failing, which is right for a saved room and wrong for a button
+            # press: a host who asks for a grade that does not exist should be
+            # told so, not quietly given a different bot. So ask the resolver
+            # itself, rather than re-deriving what it accepts out here, which
+            # is what this used to do and how it came to reject "Charles
+            # Darwin" the day the rungs were named after people.
+            if raw and not fish.bot_grade_is_known(raw):
+                return {"ok": False, "error": "unknown bot grade"}
+            normalized = fish.normalize_bot_grade(raw)
             if target.difficulty == normalized:
-                return {"ok": True, "difficulty": normalized, "unchanged": True}
+                return {"ok": True, "difficulty": normalized,
+                        "grade": fish.bot_grade_label(normalized),
+                        "grade_elo": fish.bot_grade_elo(normalized), "unchanged": True}
             target.difficulty = normalized
-            self.status_note = f"{target.claimed_name or target.label} set to {normalized.title()} difficulty."
+            label = fish.bot_grade_label(normalized)
+            self.status_note = (
+                f"{target.claimed_name or target.label} set to grade {label} "
+                f"({fish.bot_grade_elo(normalized)} Elo)."
+            )
             self._bump_locked()
-            return {"ok": True, "difficulty": normalized}
+            return {"ok": True, "difficulty": normalized, "grade": label,
+                    "grade_elo": fish.bot_grade_elo(normalized),
+                    "unlock": fish.bot_grade_unlock(normalized)}
 
     # ── Team Mode: lobby team switching + cross-team swaps ──────────────
     def _prune_swap_requests_locked(self) -> bool:
@@ -6964,7 +7186,7 @@ class GameRoom:
     ) -> Dict[str, Any]:
         """Add or remove seats in the waiting room, for ANY room type.
 
-        The Quick Play lobby has always let its host pick 2-4 human spots, but
+        The Head to Head lobby has always let its host pick 2-4 human spots, but
         every other room was stuck with whatever it was created with: to play
         with one more friend, or one fewer bot, you closed the room and made a
         new one. This is that control, generalised: humans and bots each move
@@ -7085,7 +7307,7 @@ class GameRoom:
                     ai_seats.append(seat)
                 else:
                     ai_seats.append(Seat(index=0, kind="ai", label="Player",
-                                         difficulty="medium"))
+                                         difficulty=fish.DEFAULT_BOT_GRADE))
             new_seats.extend(ai_seats)
 
             # Renumber, and give the bots their names back in table order.
@@ -7154,7 +7376,7 @@ class GameRoom:
         seat_token: Optional[str],
         human_players: int,
     ) -> Dict[str, Any]:
-        """Change a Quick Play lobby between 2–4 human seats.
+        """Change a Head to Head lobby between 2–4 human seats.
 
         The room always has four total seats. Unselected, unclaimed human seats
         become bots; adding human capacity converts bots back into open seats.
@@ -7164,7 +7386,7 @@ class GameRoom:
             if not self._is_host_authorized_locked(host_token, seat_token):
                 return {"ok": False, "error": "host authorization required"}
             if not self.quick_play:
-                return {"ok": False, "error": "seat setup is only available in Quick Play"}
+                return {"ok": False, "error": "seat setup is only available in Head to Head"}
             if self.phase != "lobby":
                 return {"ok": False, "error": "seat setup can only change in the lobby"}
             if human_players not in {2, 3, 4}:
@@ -7251,7 +7473,7 @@ class GameRoom:
                 )
                 # Same as configure_seats: the seat tiles say this already, and
                 # posting it per click drowns the lobby chat.
-                self.status_note = f"Host set the Quick Play lobby to {setup_text}."
+                self.status_note = f"Host set the Head to Head lobby to {setup_text}."
                 self._bump_locked(force_persist=True)
             return {
                 "ok": True,
@@ -7272,7 +7494,7 @@ class GameRoom:
     ) -> Dict[str, Any]:
         """Give up on matchmaking: bot out the empty seats and start.
 
-        This is the end of the Quick Play search, not a seat-count setting, so
+        This is the end of the Head to Head search, not a seat-count setting, so
         unlike configure_quick_play_seats it accepts a single human. Everything
         happens under one hold of self.cond: a second player claiming the last
         open seat mid-conversion would otherwise be turned into a bot and lose
@@ -7282,7 +7504,7 @@ class GameRoom:
             if not self._is_host_authorized_locked(host_token, seat_token):
                 return {"ok": False, "error": "host authorization required"}
             if not self.quick_play:
-                return {"ok": False, "error": "this is not a Quick Play room"}
+                return {"ok": False, "error": "this is not a Head to Head room"}
             if self.phase != "lobby":
                 return {"ok": False, "error": "the game has already started"}
 
@@ -7298,7 +7520,7 @@ class GameRoom:
                 filled, total = self._human_seat_counts_locked()
                 return {
                     "ok": False,
-                    "error": "another player joined this Quick Play room",
+                    "error": "another player joined this Head to Head room",
                     "matched": True,
                     "human_seats_filled": filled,
                     "human_seats_total": total,
@@ -7503,10 +7725,9 @@ class GameRoom:
             s.inactive_eligible = False
         # Reset the vote state for the fresh game. Kick votes go too: they are
         # a decision about a match, and this is a new one. A seat that was
-        # actually kicked keeps its flag, the player really is gone, and the
-        # stand-in bot has to pick the seat up again in the rematch.
+        # actually kicked keeps its flag: the player really is gone, so the
+        # chair sits out the rematch as well rather than coming back as a bot.
         self.kick_votes = {}
-        self._kicked_policies = {}
         # The Controller decision belongs to ONE game. A rematch is a new game,
         # so the table is asked again rather than inheriting a yes nobody gave
         # for this one. (A "no" clears too: it closed one request, not the room.)
@@ -7742,7 +7963,7 @@ class GameRoom:
                 # This seat's player was just kicked. Nobody is coming back to
                 # act for it, and the wait above is half an hour long, so
                 # without waking here the table would sit on an empty chair for
-                # 30 minutes before the stand-in bot got its first move.
+                # 30 minutes before that dead turn got passed.
                 if 0 <= seat_index < len(self.seats) and getattr(
                     self.seats[seat_index], "kicked", False
                 ):
@@ -8632,28 +8853,49 @@ class GameRoom:
         # the stale `player` reference held by the caller is harmless.
         return fish.Action(kind="undo")
 
-    def _kicked_bot_policy(self, seat_index: int):
-        """A bot policy for a seat whose player was kicked, or None if one
-        cannot be built (a match resumed from a checkpoint never ran the block
-        in _run_game that stashes the brain maps). Built once per seat and
-        cached: _build_ai_policy closes over the maps, so rebuilding it every
-        turn would throw away the bot's per-seat state for nothing."""
-        seat = self.seats[seat_index] if 0 <= seat_index < len(self.seats) else None
-        if seat is None or not getattr(seat, "kicked", False):
-            return None
-        cached = self._kicked_policies.get(seat_index)
-        if cached is not None:
-            return cached
-        args = self._ai_policy_args
-        if not isinstance(args, dict):
-            return None
+    def _kicked_seat_action(
+        self,
+        gs: "fish.GameState",
+        ms: "fish.MatchState",
+        player: "fish.PlayerState",
+    ) -> Optional["fish.Action"]:
+        """The only thing a kicked seat is ever allowed to do: leave its own
+        turn by the shortest legal route.
+
+        NO bot plays a kicked chair. Nothing here reads the brain, weights or
+        strategy maps, and, unlike _safe_fallback_action, this can never fall
+        through to "first legal action", which would be a card play. The whole
+        allow-list is three kinds:
+
+          • end_turn        when the rules already permit passing;
+          • discard_to_pool only in the forced over-the-hand-limit phase, where
+                            the engine offers nothing else at all;
+          • draw            the mandatory draw, because outside the final round
+                            the engine will not let ANY turn end before it, so
+                            without this the dead chair parks the table forever.
+
+        None means "nothing legal that is allowed here": the engine then ends
+        the turn on its own, which is exactly the intent.
+        """
         try:
-            policy = self._build_ai_policy(seat_index, **args)
-        except Exception as exc:
-            self._record_event(f"Could not build a bot for kicked seat {seat_index}: {exc}")
+            actions = fish.legal_actions(gs, ms, player, include_draw=True)
+        except Exception:
             return None
-        self._kicked_policies[seat_index] = policy
-        return policy
+        if not actions:
+            return None
+        for action in actions:
+            if action.kind == "end_turn":
+                return action
+        for action in actions:
+            if action.kind == "discard_to_pool":
+                return action
+        for action in actions:
+            if action.kind == "draw" and int(getattr(action, "draw_from_pool", 0)) == 0:
+                return action
+        for action in actions:
+            if action.kind == "draw":
+                return action
+        return None
 
     def _human_policy(self, seat_index: int):
         # Per-policy state: when a timeout-fallback fires during the draw phase,
@@ -8664,32 +8906,15 @@ class GameRoom:
         def policy(gs: fish.GameState, ms: fish.MatchState, player: fish.PlayerState) -> Optional[fish.Action]:
             while True:
                 # This seat's player was removed by a kick vote. Nobody is going
-                # to submit an action for it ever again, so hand the turn to a
-                # bot rather than wait out a timeout every single round. Checked
-                # first, and re-checked every pass, because a kick can land while
-                # this very call is parked in _wait_for_action below.
+                # to submit an action for it ever again, and nobody takes it
+                # over either: the chair is out of the game. It just passes its
+                # turn straight back out so the table keeps going round instead
+                # of waiting out a timeout every single round. Checked first,
+                # and re-checked every pass, because a kick can land while this
+                # very call is parked in _wait_for_action below.
                 _seat_here = self.seats[seat_index] if 0 <= seat_index < len(self.seats) else None
                 if _seat_here is not None and getattr(_seat_here, "kicked", False):
-                    kicked_policy = self._kicked_bot_policy(seat_index)
-                    if kicked_policy is not None:
-                        try:
-                            chosen = kicked_policy(gs, ms, player)
-                        except Exception as exc:
-                            self._record_event(
-                                f"Bot playing kicked seat {seat_index} failed: {exc}"
-                            )
-                            chosen = None
-                        if chosen is not None:
-                            return chosen
-                    # No bot available (or it had nothing to say): keep the table
-                    # moving with the same safe action a timeout would take, so a
-                    # kicked seat can never park the game.
-                    if player.flags.get("_discard_mode"):
-                        return self._safe_fallback_action(gs, ms, player)
-                    fallback = self._safe_timeout_action(gs, ms, player)
-                    if fallback is not None:
-                        return fallback
-                    return self._safe_fallback_action(gs, ms, player)
+                    return self._kicked_seat_action(gs, ms, player)
 
                 # Honor a flag-armed undo (requested while no human was active, e.g.
                 # during a bot turn that has now ended) before this human acts.
@@ -8870,7 +9095,7 @@ class GameRoom:
                 cmd = self._wait_for_action(seat_index, timeout_sec=wait_sec)
                 if cmd is not None and cmd.get("kind") == "__kicked__":
                     # Player removed by vote while we were parked here. Re-loop
-                    # so the top-of-loop branch hands the turn to the bot.
+                    # so the top-of-loop branch passes this dead seat's turn.
                     continue
                 if cmd is not None and cmd.get("kind") == "__undo_armed__":
                     # A flag-driven undo was armed (by the previous player) while we
@@ -9750,6 +9975,13 @@ class GameRoom:
                     if seat_index is not None and 0 <= seat_index < len(self.seats)
                     else None
                 )
+                # A kicked seat is out of the game, and an ERROR is not a reason
+                # to start playing it. _safe_fallback_action's last resort is
+                # "the first legal action", which can be a card play: that is a
+                # stand-in move, which is the exact thing a kick removes. Keep
+                # the dead seat on its own pass-only route even here.
+                if seat_obj is not None and getattr(seat_obj, "kicked", False):
+                    return self._kicked_seat_action(gs, ms, player)
                 if seat_obj is not None and getattr(seat_obj, "is_away", False):
                     self._record_event(
                         f"Blocked auto-draw fallback for away player {player.name} "
@@ -10728,22 +10960,6 @@ class GameRoom:
                 else {}
             )
 
-            # Keep the brain maps around for the rest of the match. A seat that
-            # is kicked mid-game needs a bot policy built right then, long after
-            # this block has run, and rebuilding the maps from disk on the game
-            # thread's behalf is neither cheap nor safe under the room lock.
-            self._ai_policy_args = {
-                "weights": ai_weights,
-                "synergy_map": synergy_map,
-                "species_map": species_map,
-                "same_ocean_map": same_ocean_map,
-                "strategy_value_map": strategy_value_map,
-                "strategy_count_map": strategy_count_map,
-                "strategy_transition_map": strategy_transition_map,
-                "strategy_transition_count_map": strategy_transition_count_map,
-            }
-            self._kicked_policies = {}
-
             # Competitive: interleave P1/P2 hands so turns go 0→2→1→3
             # (Player 1, Player 3, Player 2, Player 4)
             if self.competitive and len(self.seats) == 4:
@@ -10796,7 +11012,7 @@ class GameRoom:
                     policies.append(
                         self._wrap_policy_with_fallback(seat.claimed_name or seat.label, ai_policy, seat_index=seat.index)
                     )
-                    ai_difficulties_by_game_idx.append(str(seat.difficulty or "medium").strip().lower())
+                    ai_difficulties_by_game_idx.append(fish.normalize_bot_grade(seat.difficulty))
 
             human_game = bool(human_indices)
 
@@ -10856,8 +11072,9 @@ class GameRoom:
                 self._save_game_history(gs, ms, standings, human_indices)
 
             if human_game and not self.competitive:
-                # Learn from real human gameplay in every live game.
-                # For mixed human+AI tables, avoid full-match updates that may amplify AI-only patterns.
+                # Learn from real human gameplay in every live game. A mixed
+                # human+bot table (every Head to Head is one) learns too, at a
+                # reduced weight: see the human_only_game branch below.
                 valuable = bool(training_record.get("valuable"))
                 human_names = {
                     gs.players[i].name
@@ -10873,20 +11090,26 @@ class GameRoom:
                     demo_boost += 0.2
                 # ── Quality gate: only learn from GOOD 4-/5-player games ───
                 # Scores aren't comparable across player counts, so we only
-                # train on the balanced 4P/5P format with a real developed
-                # board (top score >= 100) that ended naturally. Learning there
-                # applies to every player count (the AI brain is global).
+                # train on the balanced 4P/5P format, with a board that really
+                # developed and a game that ended naturally. Each table size
+                # learns into its own per-count brain.
                 _top_score = int(standings[0].get("score", 0)) if standings else 0
                 _pcount = len(gs.players)
                 _ended_naturally = bool(getattr(ms, "end_game_triggered", False))
+                # The floor comes from fish.learning_top_score_floor, which is
+                # the SAME function update_brain_from_match uses. It used to be
+                # a 100 written here and a 100 written there; both were set
+                # from intuition, both were far above what a four-player game
+                # actually scores, and between them they threw away 96% of the
+                # games this server played. See that function for the numbers.
+                _floor = fish.learning_top_score_floor(_pcount, bool(human_indices))
                 _game_good_to_learn = (
-                    _pcount in (4, 5) and _ended_naturally and _top_score >= 100
+                    _pcount in (4, 5) and _ended_naturally and _top_score >= _floor
                 )
                 if not _game_good_to_learn:
                     self._record_event(
-                        f"AI learning skipped, only 4P/5P games with top>=100 train "
-                        f"the AI (players={_pcount}, top={_top_score}, "
-                        f"ended_naturally={_ended_naturally})."
+                        f"AI learning skipped (players={_pcount}, top={_top_score}, "
+                        f"floor={_floor:.0f}, ended_naturally={_ended_naturally})."
                     )
                 elif _game_good_to_learn:
                     try:
@@ -10903,6 +11126,20 @@ class GameRoom:
                             if human_only_game:
                                 fish.update_brain_from_match(
                                     gs, cbrain2, human_weight=max(10.0, demo_boost * 4.0)
+                                )
+                            else:
+                                # A table of one person and three bots used to
+                                # teach the synergy maps NOTHING, on the grounds
+                                # that a mixed game would amplify AI-only
+                                # patterns. It is now the commonest game on the
+                                # server (every Head to Head is one), so throwing
+                                # it away throws away most of the training data
+                                # there is. It learns at a low weight instead:
+                                # the winning board still teaches, and whatever
+                                # the bots did in it is diluted rather than
+                                # amplified the way a 10x human game would be.
+                                fish.update_brain_from_match(
+                                    gs, cbrain2, human_weight=2.5
                                 )
                             # Move-sequence learning runs for every human game.
                             fish.update_strategy_memory_from_match(gs, cbrain2, boost=demo_boost)
@@ -11816,7 +12053,9 @@ class GameRoom:
         cannot just empty out: the engine bound its policy at launch and a human
         policy with nobody behind it parks the table forever (that is exactly
         what an abandoned seat already does). So the seat keeps its name and
-        turn slot, is flagged kicked, and a bot plays it out.
+        turn slot and is flagged kicked, and from then on it does nothing but
+        pass its own turn (see _kicked_seat_action). No bot inherits the chair,
+        and no card is ever played for the removed player again.
         """
         removed = self._owned_seats_locked(target)
         name = removed[0].claimed_name or removed[0].label
@@ -11867,11 +12106,11 @@ class GameRoom:
         if running:
             self._add_system_chat(
                 f"{name} was removed from the game by a unanimous vote. "
-                f"A bot will play out their seat."
+                f"Their seat is out: nobody plays it, their turns are skipped."
             )
-            self.status_note = f"{name} was removed by vote; a bot is playing their seat."
+            self.status_note = f"{name} was removed by vote; their seat is out of the game."
             # Nudge the turn loop: if it is parked waiting on the seat we just
-            # took over, it has to wake up and let the bot move.
+            # emptied, it has to wake up and pass that turn.
             self.cond.notify_all()
         elif by_host_name:
             self._add_system_chat(f"{name} was removed from the lobby by {by_host_name}.")
@@ -11958,6 +12197,8 @@ class GameRoom:
                            "You can only report the current player as AFK.")
         if voter.kind != "human" or not voter.claimed_name or voter.token is None:
             return _refuse("only seated players can vote")
+        if getattr(target_seat, "kicked", False):
+            return _refuse("that player was kicked out: their seat is out of the game")
         if voter.index == target_seat.index:
             return _refuse("you can't vote to skip your own turn")
         if self._competitive_same_owner(voter.index, target_seat.index):
@@ -12059,6 +12300,12 @@ class GameRoom:
                 return
             if 0 <= target_idx < len(self.seats):
                 seat = self.seats[target_idx]
+                # A kick landing during the 10-second challenge window wins: the
+                # seat is out, so nothing gets drawn or played for it.
+                if getattr(seat, "kicked", False):
+                    self.afk_challenge_seat = None
+                    self.afk_challenge_deadline = None
+                    return
                 # Last-moment Surf's Up wins, never auto-draw an Away player.
                 if getattr(seat, "is_away", False):
                     self.afk_challenge_seat = None
@@ -12315,6 +12562,13 @@ class GameRoom:
             target = self.seats[target_idx]
             if target.kind != "human":
                 return {"ok": False, "error": "target is not a human seat"}
+            # A kicked seat is out: it never becomes the active action seat and
+            # its inactive_eligible flag is cleared by the kick, so this is
+            # already unreachable. It is stated anyway, because "draw 2 cards
+            # for them" is the one remaining way anybody could still play a
+            # removed player's chair, and that must stay impossible.
+            if getattr(target, "kicked", False):
+                return {"ok": False, "error": "that player was kicked out: their seat is out of the game"}
             if target.is_away:
                 return {"ok": False, "error": "target is on protected Surf's Up: wait for them to come back"}
             if not target.inactive_eligible:
@@ -12508,7 +12762,7 @@ def _ago(seconds: int) -> str:
 
 class RoomManager:
     def __init__(self) -> None:
-        # Quick Play performs an atomic "find-or-create" while reusing the
+        # Head to Head performs an atomic "find-or-create" while reusing the
         # normal create_room path, so this lock must be safely re-entrant.
         self.lock = threading.RLock()
         self.rooms: Dict[str, GameRoom] = {}
@@ -12602,7 +12856,7 @@ class RoomManager:
         """Atomically rejoin, join, or create a dedicated four-seat queue."""
         clean_ticket = str(ticket or "").strip()[:96]
         if not re.fullmatch(r"[A-Za-z0-9_-]{8,96}", clean_ticket):
-            return {"ok": False, "error": "invalid Quick Play ticket"}
+            return {"ok": False, "error": "invalid Head to Head ticket"}
         clean_name = safe_name(player_name, "Player")
 
         def response_for(room: GameRoom, seat: Seat) -> Dict[str, Any]:
@@ -12679,7 +12933,7 @@ class RoomManager:
                     seat = room.seats[int(joined["seat_index"])]
                     seat.quick_play_ticket = clean_ticket
                     seat.last_seen = now
-                    room._add_system_chat(f"{seat.claimed_name or seat.label} joined the Quick Play lobby.")
+                    room._add_system_chat(f"{seat.claimed_name or seat.label} joined the Head to Head lobby.")
                     room._bump_locked(force_persist=True)
                     return response_for(room, seat)
 
@@ -12688,7 +12942,7 @@ class RoomManager:
                 if stale is not None:
                     with stale.cond:
                         stale.phase = "ended"
-                        stale.status_note = "Quick Play search expired."
+                        stale.status_note = "Head to Head search expired."
                         stale._bump_locked(force_persist=True)
                     remove_room_state_file(room_id)
 
@@ -12703,20 +12957,20 @@ class RoomManager:
             )
             host_seat = room.host_seat()
             if host_seat is None:
-                return {"ok": False, "error": "failed to create Quick Play host seat"}
+                return {"ok": False, "error": "failed to create Head to Head host seat"}
             with room.cond:
                 host_seat.quick_play_ticket = clean_ticket
                 host_seat.last_seen = now
-                room.status_note = "Quick Play is searching for another player."
-                room._add_system_chat(f"{host_seat.claimed_name or host_seat.label} opened the Quick Play lobby.")
+                room.status_note = "Head to Head is searching for another player."
+                room._add_system_chat(f"{host_seat.claimed_name or host_seat.label} opened the Head to Head lobby.")
                 room._bump_locked(force_persist=True)
                 return response_for(room, host_seat)
 
     def quick_play_queue_size(self) -> int:
-        """How many people are sitting in the Quick Play queue right now.
+        """How many people are sitting in the Head to Head queue right now.
 
-        Counts claimed seats holding a Quick Play ticket in lobby-phase Quick
-        Play rooms, skipping rooms whose players have all gone quiet past
+        Counts claimed seats holding a Head to Head ticket in lobby-phase
+        Head to Head rooms, skipping rooms whose players have all gone quiet past
         QUICK_PLAY_STALE_SECONDS (the same staleness rule matchmaking itself
         uses, so the number on screen is the number you can actually match
         with, not a tally of closed tabs).
@@ -14546,6 +14800,23 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_json({"ok": True, "rooms": ROOMS.list_open_rooms()})
             return
 
+        if parsed.path == "/api/bot_grades":
+            # The grade ladder, weakest first, with the Elo behind each grade.
+            # The Head to Head screen and the lobby both draw themselves from this
+            # rather than carrying their own copy of the table, so a re-tuned
+            # ladder reaches every client the moment the server restarts.
+            self._send_json({
+                "ok": True,
+                "grades": fish.bot_grade_table(),
+                "default": fish.DEFAULT_BOT_GRADE,
+                # Which grades have to be earned. Published so no client keeps
+                # its own copy of the list; the unlock itself is checked on the
+                # client against the player's own collection, exactly like
+                # every other reward in this game.
+                "locked": dict(fish.STORY_LOCKED_GRADES),
+            })
+            return
+
         if parsed.path == "/api/quickplay/status":
             # What the searching player is told while they wait: how many
             # people are in the queue with them, how many are on the site at
@@ -15312,6 +15583,32 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "failed to create host seat"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
                 return
 
+            # Per-seat bot grades, in table order. A Head to Head sends three of
+            # them here rather than opening the room and then making three more
+            # round trips to set them, which a player would watch happen.
+            raw_grades = body.get("ai_difficulties")
+            applied_grades: List[str] = []
+            if isinstance(raw_grades, list) and raw_grades:
+                wanted = [fish.normalize_bot_grade(g if isinstance(g, str) else None)
+                          for g in raw_grades[:8]]
+                with room.cond:
+                    ai_seats = [seat for seat in room.seats if seat.kind == "ai"]
+                    for seat, grade in zip(ai_seats, wanted):
+                        seat.difficulty = grade
+                        applied_grades.append(grade)
+                    if applied_grades:
+                        room._bump_locked(force_persist=True)
+
+            # A Head to Head has nobody to wait for, so it can open already
+            # running. Everything else still starts from the lobby.
+            started_now = False
+            start_error = ""
+            if bool(body.get("start_now")):
+                started = room.start_game(room.host_control_token, host_seat.token, CARD_DB)
+                started_now = bool(started.get("ok"))
+                if not started_now:
+                    start_error = str(started.get("error") or "could not start the game")
+
             host_header = self.headers.get("Host", "127.0.0.1:8777")
             proto_hint = self.headers.get("X-Forwarded-Proto", "")
             self._send_json(
@@ -15324,6 +15621,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     "host_token": room.host_control_token,
                     "seat_token": host_seat.token,
                     "seat_index": host_seat.index,
+                    "ai_difficulties": applied_grades,
+                    "ai_grades": [fish.bot_grade_label(g) for g in applied_grades],
+                    "ai_elos": [fish.bot_grade_elo(g) for g in applied_grades],
+                    "ai_tiers": [str(fish.ai_difficulty_config(g).get("tier", ""))
+                                 for g in applied_grades],
+                    "started": started_now,
+                    "start_error": start_error,
                 }
             )
             return
@@ -15339,7 +15643,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     already_seated = room._seat_from_token_locked(existing_tok) is not None
                 if not already_seated:
                     self._send_json(
-                        {"ok": False, "error": "Join this room through Quick Play."},
+                        {"ok": False, "error": "Join this room through Head to Head."},
                         status=HTTPStatus.FORBIDDEN,
                     )
                     return

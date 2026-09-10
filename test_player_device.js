@@ -195,7 +195,11 @@ function page() {
   const lobbyFns = ["_wrEl", "_wrChip", "_wrSeatDevice", "_wrDeviceChip", "_wrBgName",
                     "_wrNum", "_wrRemoveBtn", "_wrLock", "_wrSeatAvatarUrl", "_wrCounts",
                     "buildDifficultyBox", "_wrLoadPrestige", "_wrSeatCard", "_wrAddCard",
-                    "_wrRenderCapacity", "renderSeatTilesInto"].map(f => grabFn(f)).join("\n\n");
+                    "_wrRenderCapacity", "renderSeatTilesInto",
+                    // A bot seat wears its grade, in the lobby and at the table
+                    // alike, so both renders need the grade helpers.
+                    "bmGradeById", "bmIndexOf", "bmTierLetter", "bmTierClass", "bmBadge",
+                    "bmGradeBlurb"].map(f => grabFn(f)).join("\n\n");
   const gameFns = ["pvSeatHash", "pvSeatDefaultAvatar", "_applyAvBg",
                    "renderPlayerSeats"].map(f => grabFn(f)).join("\n\n");
   const friendFns = grabFn("friendDeviceHtml", 4);
@@ -207,7 +211,8 @@ function page() {
   const seat = (i, kind, name, extra) => Object.assign({
     index: i, kind, claimed_name: name, is_host: i === 0, avatar: "", background: "",
     device: "", level: 0, xp: 0, xp_goal: 0, best: 0, games: 0, title: "",
-    difficulty: "medium", is_away: false, kicked: false,
+    difficulty: "steve_irwin", grade: "Steve Irwin", grade_elo: 900,
+    grade_tier: "C", is_away: false, kicked: false,
   }, extra || {});
 
   // One room, drawn twice: as a lobby and as a running game. Deliberately
@@ -224,7 +229,7 @@ function page() {
       device: "", level: 63, xp: 2410, xp_goal: 4600, best: 455, games: 210 }),
     seat(3, "human", null),
     seat(4, "ai", "Bot 1"),
-    seat(5, "ai", "Bot 2", { difficulty: "hard" }),
+    seat(5, "ai", "Bot 2", { difficulty: "ss", grade: "SS", grade_elo: 1700 }),
   ];
   const payload = {
     phase: "lobby",
@@ -264,6 +269,42 @@ function setTableSeats() {}
 function lobbyKickPlayer() {}
 function refreshWaitingRoomFromPayload() {}
 function setBotDifficulty() {}
+// The grade ladder, as /api/bot_grades serves it.
+const _bmGrades = [
+  { id: "gilbert_carter",          grade: "Gilbert Thomas Carter",   elo: 500,  tier: "F",   unlock: "",       requires: "" },
+  { id: "jeanne_villepreux_power", grade: "Jeanne Villepreux-Power", elo: 600,  tier: "E",   unlock: "ladder", requires: "gilbert_carter" },
+  { id: "edward_forbes",           grade: "Edward Forbes",           elo: 700,  tier: "D",   unlock: "ladder", requires: "jeanne_villepreux_power" },
+  { id: "steve_irwin",             grade: "Steve Irwin",             elo: 900,  tier: "C",   unlock: "ladder", requires: "edward_forbes" },
+  { id: "william_beebe",           grade: "William Beebe",           elo: 1100, tier: "B",   unlock: "ladder", requires: "steve_irwin" },
+  { id: "eugenie_clark",           grade: "Eugenie Clark",           elo: 1300, tier: "A",   unlock: "ladder", requires: "william_beebe" },
+  { id: "rachel_carson",           grade: "Rachel Carson",           elo: 1500, tier: "S",   unlock: "ladder", requires: "eugenie_clark" },
+  { id: "jacques_cousteau",        grade: "Jacques Cousteau",        elo: 1700, tier: "S+",  unlock: "ladder", requires: "rachel_carson" },
+  { id: "charles_darwin",          grade: "Charles Darwin",          elo: 1900, tier: "S++", unlock: "ladder", requires: "jacques_cousteau" },
+  { id: "giant_squid",             grade: "Giant Squid",             elo: 2150, tier: "GS",  unlock: "story",  requires: "charles_darwin" },
+];
+// This page is a seat tile in isolation, not a signed-in player, so the climb
+// record is empty and only the bottom rung is open. That is the point: the
+// tile has to render a locked rung as readily as an open one.
+function bmBeatenIds() { return []; }
+function bmTopUnlockedIndex() { return 0; }
+function bmLoadGrades() { return Promise.resolve(); }
+// The story gate. A seat tile draws a locked grade differently, so the tile
+// under test needs to know what is locked. No story finished here.
+function bmStoryUnlocked() { return false; }
+function bmGradeLocked(id) {
+  const g = _bmGrades.find(x => x.id === id);
+  if (!g) return false;
+  if (g.unlock === "story") return !bmStoryUnlocked();
+  return !!g.requires && !bmBeatenIds().includes(g.requires);
+}
+function bmLockNote(id) {
+  const g = _bmGrades.find(x => x.id === id);
+  if (g && g.unlock === "story") return "Beat the Giant Squid to bring it to your table.";
+  const need = g && _bmGrades.find(x => x.id === g.requires);
+  // Concatenated, not a template literal: this whole fixture is pasted into
+  // the page through a template literal, and a nested backtick ends it.
+  return need ? ("Win a game against " + need.grade + " to unlock " + g.grade + ".") : "";
+}
 function showToast() {}
 function escapeHtml(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, c =>

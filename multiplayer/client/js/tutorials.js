@@ -750,7 +750,7 @@
     // the tour has to still be standing on it.
     { target: ".ph-actions", badge: "Starting a Game", title: "The Four Ways In",
       before: () => { closeMenuOverlays(); navTab("overview"); },
-      text: "These four cards are how every game starts. <strong>Quick Match</strong> drops you in a queue and fills a table for you. <strong>Create Game</strong> opens the setup window, where you pick the mode (Normal, Competitive, Team), the number of people and computer opponents, and whether the room is public or private. <strong>Join Game</strong> opens <strong>🌊 Open Currents</strong>, the list of rooms you can walk into, and <strong>Tutorial</strong> is the button that brought you here." },
+      text: "These four cards are how every game starts. <strong>Head to Head</strong> sits you down against three bots straight away, each one a named opponent you unlock by beating the one below it (there is still a button there to wait for real people instead). <strong>Create Game</strong> opens the setup window, where you pick the mode (Normal, Competitive, Team), the number of people and computer opponents, and whether the room is public or private. <strong>Join Game</strong> opens <strong>🌊 Open Currents</strong>, the list of rooms you can walk into, and <strong>Tutorial</strong> is the button that brought you here." },
 
     // ── Avatar click (interactive, must actually open gallery) ──────
     { target: "#stats-avatar", badge: "Avatar Gallery", title: "Open Your Avatar Gallery",
@@ -1106,14 +1106,39 @@
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
   }
-  // Click every "Easy" difficulty pill that is not already active. Retries a few
-  // times because the bot seats render asynchronously after the room is created.
+  // Put every bot on the tutorial's opponent. This used to click an "Easy"
+  // pill; the lobby carries the whole named ladder in a list now, so it
+  // selects by ladder id. Retries a few times because the bot seats render
+  // asynchronously after the room is created.
+  //
+  // A LIST, not one id, and that is the whole lesson here. The rungs were
+  // renamed (the ladder id "d" became "edward_forbes") and this kept asking
+  // for "d". It did not throw: the guard below found no option with that
+  // value and returned, quietly, every time — so the tutorial silently
+  // stopped setting the grade at all and taught itself against whatever the
+  // room defaulted to. A learner's first game is not the place to meet a
+  // stronger bot than the tutorial was written for.
+  //
+  // So: the current id first, the id it used to have after it, and the tier
+  // last. Whichever the lobby is actually offering is the one that gets used,
+  // and if a future rename happens the one after it still matches.
+  const TUTORIAL_BOT_GRADES = ["edward_forbes", "d", "D"];  // Edward Forbes:
+                                    // no rollouts, and he does lose.
   function gtAllBotsEasy() {
     let tries = 0;
     const t = setInterval(() => {
       tries++;
-      const pills = document.querySelectorAll(".wr-diff-easy:not(.active)");
-      pills.forEach(p => { try { p.click(); } catch (_) {} });
+      document.querySelectorAll("#wr-players-list .wr-grade-box .bm-grade-select")
+        .forEach(sel => {
+          try {
+            if (sel.disabled) return;
+            const values = [...sel.options].map(o => o.value);
+            const want = TUTORIAL_BOT_GRADES.find(g => values.includes(g));
+            if (!want || sel.value === want) return;
+            sel.value = want;
+            sel.dispatchEvent(new Event("change", { bubbles: true }));
+          } catch (_) {}
+        });
       if (tries > 8) clearInterval(t);
     }, 400);
   }
@@ -1717,7 +1742,7 @@
   //  out of Tutorial 2: rooms (public/private + code), bot difficulty,
   //  chat, Surf's Up, AFK rules, and the card viewer + hand rearrange.
   // ════════════════════════════════════════════════════════════════
-  const wrDiffBoxEl = () => document.querySelector("#wr-players-list .wr-diff-box");
+  const wrDiffBoxEl = () => document.querySelector("#wr-players-list .wr-grade-box");
   // The room code the Online tour puts in the box. Generated once per run and
   // reused, because the step that says "this is your room code" and the room
   // that actually gets created have to be talking about the same code. A fixed
@@ -1770,8 +1795,8 @@
         tutFillRoomCode();
       },
       text: "Click <strong>Generate Current</strong>." },
-    { target: "#wr-players-list", glow: [wrDiffBoxEl], badge: "Rooms", title: "Bot Difficulty",
-      text: "Each bot can be Easy, Medium, or Hard. As host, change any bot's difficulty here." },
+    { target: "#wr-players-list", glow: [wrDiffBoxEl], badge: "Rooms", title: "Bot Grades",
+      text: "Every bot is graded, <strong>F-</strong> at the bottom to <strong>S+</strong> at the top, and each grade shows the <strong>Elo</strong> it was measured at. As host you set any bot's grade here, and they do not all have to be the same." },
     { target: "#wr-start-btn", badge: "Rooms", title: "Start the Game", interactive: true, advanceWhen: gtGameOpen,
       before: gtAllBotsEasy,
       text: "Click <strong>Start Game</strong>." },
@@ -1912,9 +1937,9 @@
       text: "Click the <strong>✕</strong> to close the setup window." },
 
     // ── 9. How Player 2 joins ───────────────────────────────────────
-    // NOT Quick Match. Quick Match is the casual four-seat queue and has no
+    // NOT Head to Head. Head to Head is the casual four-seat queue and has no
     // mode picker at all (/api/quickplay takes a name and a ticket, nothing
-    // else), so "Quick Match → Competitive" sent every learner to a button
+    // else), so "Head to Head → Competitive" sent every learner to a button
     // that cannot do what they were told it does. The real door is Join Game,
     // which opens Open Currents, whose 👥 Competitive tab lists both ranked
     // modes and claims a whole PAIR of hands on the way in.

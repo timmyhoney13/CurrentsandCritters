@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Player Home: the four action cards, and the Friends tab's reef.
  *
- * 1. THE CARDS ARE THEIR ARTWORK. Quick Match, Create Game, Join Game and
+ * 1. THE CARDS ARE THEIR ARTWORK. Head to Head, Create Game, Join Game and
  *    Tutorial are each ONE baked PNG, with the coral creature and the
  *    lettering painted into it. That art is the row players know, so this
  *    guards it: the markup points at the four files, the files are on disk,
@@ -54,7 +54,7 @@ const ROW = (() => {
 console.log("\nthe four cards are their artwork");
 {
   const WANT = [
-    ["stats-quickmatch-btn",  "action-card-quickmatch.png", "Quick Match"],
+    ["stats-quickmatch-btn",  "action-card-quickmatch.png", "Head to Head"],
     ["stats-create-btn",      "action-card-create.png",     "Create Game"],
     ["stats-join-toggle-btn", "action-card-join.png",       "Join Game"],
     ["stats-tutorial-btn",    "action-card-tutorial.png",   "Tutorial"],
@@ -207,10 +207,21 @@ setTimeout(function () {
   if (!ov || ov.err) { console.log("  ✗ FAIL: Player Home never reported" + (ov && ov.err ? ": " + ov.err : "")); fail++; }
   else {
     check("four action cards", ov.cards.length === 4, String(ov.cards.length));
-    const want = ["Quick Match", "Create Game", "Join Game", "Tutorial"];
+    // The card's NAME and the card's FILE are two different things now: the
+    // first card is called Head to Head and its artwork is still
+    // action-card-quickmatch.png, because renaming a shipped asset is how you
+    // get a card that silently goes blank. So each card names its own file
+    // rather than the test guessing one from the first word of the label.
+    const want = [
+      ["Head to Head", "quickmatch"],
+      ["Create Game",  "create"],
+      ["Join Game",    "join"],
+      ["Tutorial",     "tutorial"],
+    ];
     ov.cards.forEach((c, i) => {
-      check(`card ${i + 1} is the ${want[i]} artwork`,
-            c.hasImg && new RegExp(want[i].split(" ")[0], "i").test(c.src), c.src);
+      check(`card ${i + 1} is the ${want[i][0]} artwork`,
+            c.hasImg && new RegExp("action-card-" + want[i][1] + "\\.png", "i").test(c.src),
+            c.src);
       check(`  …and the image really decoded`, c.loaded,
             c.loaded ? "" : "the PNG did not load: the card is blank");
       check(`  …it covers the whole card`, c.covers, `${c.w}x${c.h}`);

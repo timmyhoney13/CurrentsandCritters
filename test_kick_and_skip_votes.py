@@ -176,7 +176,7 @@ check(payload_other.get("kicked_notice") is None, "nobody else sees a kicked not
 
 
 # ══ 4. A kicked seat never parks the table ════════════════════════════════════
-print("a kicked seat keeps playing:")
+print("a kicked seat passes its own turn:")
 
 r, tok = seated(humans=3, bots=1)
 r.phase = "running"
@@ -185,7 +185,10 @@ r.player_kick_vote({"seat_token": tok["Bo"], "target_seat_index": 2})
 
 # The policy is bound at launch, so a human seat with nobody behind it waits
 # out a 30-minute window every single turn. _wait_for_action has to hand back
-# at once instead, so the stand-in bot can move.
+# at once instead, so the dead seat's turn can be passed rather than the table
+# sitting on an empty chair for half an hour. Nobody takes the seat over: what
+# it is allowed to do is _kicked_seat_action, and test_kick_integration.py
+# watches every action it takes across a whole match.
 # _wait_for_action is only ever reached on the match thread, so it expects the
 # per-game scratch state that _launch_game_locked sets up. Stand it in here
 # rather than run a whole match to exercise one wake-up.
@@ -196,7 +199,7 @@ check(cmd is not None and cmd.get("kind") == "__kicked__",
 cmd_live = r._wait_for_action(1, timeout_sec=0.05)
 check(cmd_live is None, "a seat whose player is still here keeps waiting normally")
 
-# The seat is reported as kicked so the pill can say a bot has the chair.
+# The seat is reported as kicked so the board can stamp it KICKED OUT.
 snap = {s["index"]: s for s in r.seat_snapshot_locked()}
 check(snap[2]["kicked"] is True, "the seat snapshot reports the kick")
 check(snap[1]["kicked"] is False, "other seats are not marked kicked")
@@ -367,11 +370,11 @@ check(out["ok"], "a team lobby can be resized")
 check(all(s.team is not None and 0 <= s.team < rt.team_count for s in rt.seats),
       "every seat comes out of a resize on a real team")
 
-# Quick Play keeps its own fixed chooser, and it still works.
+# Head to Head keeps its own fixed chooser, and it still works.
 rq = Room(room_id="MNOP", host_name="Tim", total_players=4, human_players=2,
           ai_players=2, quick_play=True)
 check(rq.configure_quick_play_seats(rq.host_control_token, None, 3)["ok"],
-      "the Quick Play chooser is untouched")
+      "the Head to Head chooser is untouched")
 
 
 print()

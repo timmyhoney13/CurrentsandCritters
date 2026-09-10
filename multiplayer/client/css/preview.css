@@ -438,23 +438,50 @@
       padding-top: 2px;
     }
 
-    /* The seat of somebody the table voted out: a bot has the chair now. */
+    /* The seat of somebody the table kicked out. Nobody took the chair over:
+       it is out of the game, and it has to look it. The stamp sits ACROSS the
+       avatar (parented to .pv-seat-avbox, which clips nothing, so it can run
+       past the 48px circle without being sliced by it) and the face goes grey
+       and dim behind it. */
+    .pv-seat-kicked .pv-seat-avatar-wrap {
+      /* Grey, but still recognisable: the table should be able to see WHO was
+         removed, so this dims the face rather than blacking it out. */
+      filter: grayscale(1) brightness(.72) contrast(.95);
+      border-color: rgba(240, 150, 150, .55);
+      box-shadow: none;
+    }
+    .pv-seat-kicked .pv-seat-name,
+    .pv-seat-kicked .pv-seat-score {
+      opacity: .55;
+      text-decoration: line-through;
+      text-decoration-color: rgba(240, 120, 120, .8);
+    }
     .pv-seat-kicked-badge {
       position: absolute;
-      bottom: 18px; left: 50%;
-      transform: translateX(-50%);
-      background: rgba(60, 18, 22, .92);
-      color: #ffc9c9;
-      border: 1px solid rgba(240, 150, 150, .45);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      /* "KICKED OUT" does not fit one line across a 36px face and is not
+         meant to: the render gives it two, one span each. They are nowrap so
+         the break can only fall on the space, never mid-word ("KICKE / D
+         OUT"), and the box is then only as wide as the word KICKED, which is
+         narrower than the face at every size. Nothing is clamped: a max-width
+         here is what squeezed the word into breaking in the first place. */
+      box-sizing: border-box;
+      text-align: center;
+      background: rgba(122, 22, 28, .95);
+      color: #ffe1e1;
+      border: 1px solid rgba(255, 175, 175, .75);
       font-family: "Nunito", sans-serif;
-      font-weight: 900; font-size: 9px;
-      letter-spacing: .4px; text-transform: uppercase;
-      padding: 2px 7px;
-      border-radius: 8px;
+      font-weight: 900; font-size: 8px;
+      letter-spacing: .3px; text-transform: uppercase;
+      line-height: 1.15;
+      padding: 2px 3px;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.5);
       pointer-events: none;
-      z-index: 6;
-      white-space: nowrap;
+      z-index: 7;
     }
+    .pv-seat-kicked-badge span { display: block; white-space: nowrap; }
 
     .pv-seat { position: relative; }
 
@@ -2951,7 +2978,7 @@
       letter-spacing: .7px;
       white-space: nowrap;
     }
-    /* Table Setup: the same panel as Quick Play's chooser, with steppers.
+    /* Table Setup: the same panel as Head to Head's chooser, with steppers.
        Shares .wr-quick-heading / .wr-quick-total / .wr-quick-note with it. */
     .wr-table-setup {
       width: 100%;
@@ -3281,8 +3308,7 @@
     .wr-seat-invite { background: linear-gradient(180deg,#ffffff,#eaf2fd); border: 1px solid rgba(44,77,128,.28); color: #2f6eba; }
     .wr-seat-tobot  { background: linear-gradient(180deg,#f0eaff,#ddd2fb); border: 1px solid rgba(139,116,222,.5); color: #46308c; }
     .wr-seat-invite:hover { background: #fff; }
-    .wr-seat .wr-diff-box { width: 100%; margin: 0; }
-    .wr-seat .wr-diff-pill { flex: 1; }
+    .wr-seat .wr-grade-box { width: 100%; margin: 0; }
 
     /* The one control that takes something away: solid, always painted,
        never hover-only, because it is destructive. */
@@ -3515,45 +3541,11 @@
       .wr-cap-legend { margin-left: 0; }
       .wr-head-tools { width: 100%; }
     }
-    /* AI difficulty picker, three small pills (Easy/Medium/Hard) next to each bot */
+    /* The bot's grade sits at the end of its seat's name row. The three
+       Easy/Medium/Hard pills that used to live here are gone with the words
+       they named: nineteen grades do not fit in a row of pills, and the
+       control is .wr-grade-box (badge + list + Elo) further down. */
     .wr-ai-name { flex: 1; min-width: 0; }
-    .wr-diff-box {
-      display: inline-flex; align-items: center; gap: 4px;
-      padding: 3px; border-radius: 10px;
-      background: rgba(255,255,255,.55);
-      border: 1px solid rgba(26,58,114,.18);
-      margin-left: auto; flex-shrink: 0;
-    }
-    .wr-diff-pill {
-      font-family: "Baloo 2", "Nunito", sans-serif;
-      font-size: 11px; font-weight: 700;
-      letter-spacing: .3px;
-      padding: 5px 10px;
-      border-radius: 7px;
-      border: 1.5px solid transparent;
-      background: transparent;
-      cursor: pointer;
-      color: #6a87b0;
-      transition: transform .08s ease, background .12s ease, color .12s ease, border-color .12s ease;
-      user-select: none;
-    }
-    .wr-diff-pill:hover:not(:disabled) { transform: translateY(-1px); }
-    .wr-diff-pill:disabled { cursor: default; opacity: .55; }
-    .wr-diff-pill.wr-diff-easy.active {
-      background: #2e9e4f; color: #fff; border-color: #1f7a3a;
-      box-shadow: 0 2px 6px rgba(46,158,79,.4);
-    }
-    .wr-diff-pill.wr-diff-medium.active {
-      background: #e8b73a; color: #5a3a00; border-color: #b88a18;
-      box-shadow: 0 2px 6px rgba(232,183,58,.5);
-    }
-    .wr-diff-pill.wr-diff-hard.active {
-      background: #cc3636; color: #fff; border-color: #8a1f1f;
-      box-shadow: 0 2px 6px rgba(204,54,54,.5);
-    }
-    .wr-diff-pill.wr-diff-easy:hover:not(:disabled):not(.active)   { color: #2e9e4f; border-color: rgba(46,158,79,.45); }
-    .wr-diff-pill.wr-diff-medium:hover:not(:disabled):not(.active) { color: #b88a18; border-color: rgba(184,138,24,.45); }
-    .wr-diff-pill.wr-diff-hard:hover:not(:disabled):not(.active)   { color: #cc3636; border-color: rgba(204,54,54,.45); }
     /* The lobby chat button used to be a full-width bar of its own, opening a
        drawer. The chat is in the room now, and this is the way through to the
        full panel (DMs, mute, who you are talking to), so it lives in that
@@ -3623,8 +3615,7 @@
       .wr-code { font-size: 2.6rem; letter-spacing: 10px; padding: 18px 20px 18px 30px; }
       .wr-subtitle { font-size: 15px; }
       .wr-players { padding: 18px 20px; }
-      .wr-diff-box { width: 100%; margin-left: 28px; justify-content: stretch; }
-      .wr-diff-pill { flex: 1; }
+      .wr-grade-box { width: 100%; margin-left: 28px; }
       .wr-quick-setup, .wr-table-setup { padding: 14px; }
       .wr-human-option { padding-inline: 3px; }
       .wr-btn-text { font-size: 17px; }
@@ -6185,6 +6176,8 @@
       .pv-seat-score { font-size: 10px; }
       .pv-seat.active-turn .pv-seat-score { padding: 1px 5px; }
       .pv-seat-empty .pv-seat-avatar-wrap { font-size: 16px; }
+      /* Smaller face, smaller stamp: it still has to wrap inside 36px. */
+      .pv-seat-kicked-badge { font-size: 7px; letter-spacing: .1px; padding: 1px 2px; }
 
     }
 
@@ -6350,6 +6343,7 @@
       .pv-seat-name { font-size: 9px; max-width: 46px; }
       .pv-seat-score { font-size: 9px; }
       .pv-seat-me-badge { font-size: 9px; }
+      .pv-seat-kicked-badge { font-size: 6px; letter-spacing: 0; padding: 1px; border-radius: 3px; }
     }
 
     /* ══ SHORT SCREENS: THE BOTTOM STACK MUST NEVER RUN OFF THE EDGE ═══
@@ -10582,7 +10576,7 @@
          Player Home stacks the full desktop sidebar (logo + 12-item nav +
          Daily Streak) above the content on a phone. As one column that card
          alone was 928px tall on an iPhone 12: taller than the screen, and
-         pushed Quick Match / Create Game to y=1494, nearly two full scrolls
+         pushed Head to Head / Create Game to y=1494, nearly two full scrolls
          below the fold. Two columns halves the nav's height and keeps every
          item on the same card, in the same order. */
       .ph-sidebar-nav {
@@ -12951,6 +12945,263 @@
     #lb-pw-prompt.open { display: flex; }
     #lb-pw-err { color: #c0202a; font-size: 12px; min-height: 16px; }
 
+    /* ── BOT MATCH MODAL ────────────────────────────────────────── */
+    /* Shares the New Current modal's shape on purpose: same glass panel, same
+       Cinzel heading, so the two front-door buttons feel like one game. */
+    #bot-match-modal {
+      display: none; position: fixed; inset: 0; z-index: 9100;
+      background: rgba(10,40,100,.72); backdrop-filter: blur(8px);
+      align-items: center; justify-content: center; padding: 16px;
+    }
+    #bot-match-modal.open { display: flex; }
+    #bot-match-box {
+      background: linear-gradient(180deg, #cce6f8 0%, #b4d4ee 55%, #9ec4e4 100%);
+      border: 1.5px solid rgba(130,195,240,.55);
+      border-radius: 26px;
+      box-shadow: 0 10px 48px rgba(8,50,130,.22), 0 2px 8px rgba(8,50,130,.10);
+      padding: 26px 24px 20px; width: 100%; max-width: 560px;
+      max-height: calc(100vh - 32px); overflow-y: auto;
+      position: relative; display: flex; flex-direction: column; gap: 16px;
+    }
+    #bot-match-box h2 {
+      font-family: "Cinzel", serif; font-size: 1.5rem; font-weight: 700;
+      color: #0c3472; letter-spacing: 1.5px; margin: 0;
+    }
+    #bot-match-box .bm-sub {
+      font-size: 13px; color: #2c5c96; line-height: 1.45; margin-top: -8px;
+    }
+    #bm-close {
+      position: absolute; top: 16px; right: 16px;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: rgba(190,220,248,.72); border: 1.5px solid rgba(120,185,235,.55);
+      color: #2a5888; font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: background .15s, border-color .15s; z-index: 2;
+    }
+    #bm-close:hover { background: rgba(210,235,255,.9); border-color: rgba(70,150,230,.65); }
+
+    /* Strength bands: one press sets all three opponents at once. */
+    .bm-bands { display: flex; flex-wrap: wrap; gap: 7px; }
+    .bm-band {
+      flex: 1 1 auto; min-width: 88px;
+      padding: 9px 10px; border-radius: 13px; cursor: pointer;
+      background: rgba(255,255,255,.62);
+      border: 1.5px solid rgba(140,200,240,.5);
+      font-family: "Nunito", sans-serif; font-size: 12.5px; font-weight: 800;
+      color: #21548f; letter-spacing: .2px; line-height: 1.25;
+      transition: background .14s, border-color .14s, transform .1s;
+    }
+    .bm-band .bm-band-range {
+      display: block; font-size: 10.5px; font-weight: 700; opacity: .65; margin-top: 2px;
+    }
+    .bm-band:hover { background: rgba(255,255,255,.85); transform: translateY(-1px); }
+    .bm-band.active {
+      background: linear-gradient(180deg, #ffffff 0%, #dcefff 100%);
+      border-color: rgba(40,130,225,.75);
+      box-shadow: 0 0 0 3px rgba(50,140,240,.15);
+      color: #0c3472;
+    }
+
+    /* One card per opponent. */
+    .bm-bots { display: flex; flex-direction: column; gap: 9px; }
+    .bm-bot {
+      display: flex; align-items: center; gap: 11px;
+      padding: 10px 12px; border-radius: 16px;
+      background: rgba(255,255,255,.72);
+      border: 1.5px solid rgba(140,200,240,.5);
+    }
+    .bm-bot-face {
+      width: 42px; height: 42px; flex: 0 0 42px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; background: rgba(190,222,248,.75);
+      border: 1.5px solid rgba(120,185,235,.5);
+    }
+    .bm-bot-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+    .bm-bot-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    /* "Jeanne Villepreux-Power" is a great deal longer than "Bot 2" was, so
+       the name is allowed to take the room it needs and the Elo stays pinned
+       right rather than being shoved off the row. */
+    .bm-bot-name {
+      font-size: 13.5px; font-weight: 800; color: #123a70;
+      min-width: 0; overflow-wrap: anywhere;
+    }
+    .bm-bot-elo { font-size: 12px; font-weight: 800; color: #3a6ba6; margin-left: auto; }
+    .bm-bot-elo b { font-size: 14px; color: #123a70; }
+    .bm-grade-select {
+      width: 100%; appearance: none; -webkit-appearance: none;
+      background: rgba(255,255,255,.9);
+      border: 1.5px solid rgba(140,200,240,.55);
+      border-radius: 11px; padding: 7px 28px 7px 11px;
+      font-family: "Nunito", sans-serif; font-size: 12.5px; font-weight: 700;
+      color: #0d3070; cursor: pointer;
+    }
+    .bm-grade-select:focus {
+      outline: none; border-color: rgba(50,140,240,.65);
+      box-shadow: 0 0 0 3px rgba(50,140,240,.15);
+    }
+    .bm-select-wrap { position: relative; }
+    .bm-select-wrap::after {
+      content: "⌄"; position: absolute; right: 11px; top: 50%;
+      transform: translateY(-60%); font-size: 15px; color: #2050a0;
+      pointer-events: none; line-height: 1;
+    }
+
+    /* The grade badge: the TIER, not the name. The rungs are named after
+       people now, and "Jeanne Villepreux-Power" is not a badge; the letter it
+       replaced still is, so the letter is what stays here. One colour per
+       tier, so the ladder reads at a glance and a Rachel Carson is visibly not
+       a Steve Irwin from across the room.
+
+       The class is the tier with "+" spelled "P" (S+ -> SP, S++ -> SPP): a
+       bare "+" is not a class name a selector can match without escaping it,
+       and a badge that silently loses its colour is worse than an ugly token. */
+    .bm-grade-badge, .wr-grade-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 40px; height: 24px; padding: 0 8px; border-radius: 8px;
+      font-family: "Cinzel", serif; font-weight: 700; font-size: 13px;
+      letter-spacing: .5px; color: #fff; border: 1.5px solid rgba(0,0,0,.12);
+      text-shadow: 0 1px 2px rgba(0,0,0,.25);
+    }
+    .bm-tier-F, .wr-tier-F { background: linear-gradient(180deg,#a8615c,#8d423d); }
+    /* E is new, and sits between F's clay and D's amber. */
+    .bm-tier-E, .wr-tier-E { background: linear-gradient(180deg,#b3714a,#95522a); }
+    .bm-tier-D, .wr-tier-D { background: linear-gradient(180deg,#c8853a,#a5651f); }
+    .bm-tier-C, .wr-tier-C { background: linear-gradient(180deg,#41a05f,#26773f); }
+    .bm-tier-B, .wr-tier-B { background: linear-gradient(180deg,#3f86d8,#1f5cae); }
+    .bm-tier-A, .wr-tier-A { background: linear-gradient(180deg,#8a55d6,#6229ac); }
+    .bm-tier-S, .wr-tier-S {
+      background: linear-gradient(180deg,#f3d27a,#d09a1c);
+      color: #4a3200; text-shadow: 0 1px 1px rgba(255,255,255,.5);
+      box-shadow: 0 0 10px rgba(224,176,48,.55);
+    }
+    /* S+ and S++ are past gold, so they go white-hot rather than more gold.
+       (These were .bm-tier-SS back when the tiers were SS and SS+.) */
+    .bm-tier-SP, .wr-tier-SP {
+      background: linear-gradient(180deg,#fff6d8,#f0c33c 55%,#c98a08);
+      color: #4a3200; text-shadow: 0 1px 1px rgba(255,255,255,.6);
+      box-shadow: 0 0 14px rgba(240,200,70,.75);
+    }
+    /* S++ is the last rung a person can be handed, and the one directly below
+       the Squid: whiter and hotter still. */
+    .bm-tier-SPP, .wr-tier-SPP {
+      background: linear-gradient(180deg,#ffffff,#ffe9a8 45%,#e0a516);
+      color: #4a3200; text-shadow: 0 1px 1px rgba(255,255,255,.7);
+      box-shadow: 0 0 18px rgba(255,225,120,.9);
+    }
+    /* The Giant Squid: the end of the story, and it should not look like a
+       letter grade at all. Deep ink with a slow pulse. */
+    .bm-tier-GS, .wr-tier-GS {
+      background: linear-gradient(180deg,#6d2f8f 0%,#3a1257 55%,#1b0a2b 100%);
+      color: #ffd9f4; letter-spacing: .3px;
+      border-color: rgba(224,150,255,.55);
+      box-shadow: 0 0 14px rgba(170,70,220,.6), inset 0 1px 0 rgba(255,190,255,.28);
+      animation: bm-squid-pulse 2.8s ease-in-out infinite;
+    }
+    @keyframes bm-squid-pulse {
+      0%, 100% { box-shadow: 0 0 10px rgba(170,70,220,.45), inset 0 1px 0 rgba(255,190,255,.28); }
+      50%      { box-shadow: 0 0 20px rgba(200,90,255,.85), inset 0 1px 0 rgba(255,190,255,.28); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .bm-tier-GS, .wr-tier-GS { animation: none; }
+    }
+    /* A locked grade in a list still has to be readable: it is the thing the
+       player is being shown on purpose. */
+    .bm-grade-select option:disabled { color: #7d93b3; }
+
+    /* The Giant Squid panel: deep water, and it looks like the end of
+       something rather than another row in a list. */
+    .bm-squid {
+      display: flex; align-items: center; gap: 11px;
+      padding: 11px 13px; border-radius: 16px;
+      background: linear-gradient(135deg, #2b1046 0%, #46196b 55%, #24123f 100%);
+      border: 1.5px solid rgba(190,120,240,.45);
+      box-shadow: inset 0 1px 0 rgba(255,190,255,.16);
+      color: #f0dcff;
+    }
+    .bm-squid.is-open { border-color: rgba(230,170,255,.8); }
+    .bm-squid-face {
+      width: 42px; height: 42px; flex: 0 0 42px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; background: rgba(255,255,255,.10);
+      border: 1.5px solid rgba(210,150,250,.4);
+    }
+    .bm-squid-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .bm-squid-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .bm-squid-name {
+      font-family: "Cinzel", serif; font-size: 14px; font-weight: 700;
+      letter-spacing: .6px; color: #ffeaff;
+    }
+    .bm-squid-elo { font-size: 12px; font-weight: 800; color: #d7b6f0; margin-left: auto; }
+    .bm-squid-elo b { font-size: 14px; color: #fff0ff; }
+    .bm-squid-note { font-size: 11.5px; line-height: 1.4; color: #cdb0e4; }
+    .bm-squid-btn {
+      flex: 0 0 auto; align-self: center;
+      background: linear-gradient(180deg,#b06ce0,#7d2fb8);
+      border: 1.5px solid rgba(230,180,255,.6); border-radius: 12px;
+      padding: 9px 14px; min-height: 34px; cursor: pointer;
+      font-family: "Nunito", sans-serif; font-size: 12.5px; font-weight: 800;
+      color: #fff; white-space: nowrap;
+      transition: filter .14s, transform .1s;
+    }
+    .bm-squid-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+    .bm-squid.is-locked .bm-squid-face { filter: grayscale(.55) brightness(.8); }
+
+    .bm-table-line {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      font-size: 12.5px; font-weight: 700; color: #2c5c96;
+    }
+    .bm-elo-big { font-size: 17px; font-weight: 900; color: #0c3472; }
+    .bm-shuffle {
+      background: rgba(255,255,255,.72); border: 1.5px solid rgba(140,200,240,.55);
+      border-radius: 11px; padding: 7px 13px; cursor: pointer;
+      font-family: "Nunito", sans-serif; font-size: 12.5px; font-weight: 800; color: #21548f;
+      transition: background .14s, transform .1s;
+    }
+    .bm-shuffle:hover { background: rgba(255,255,255,.95); transform: translateY(-1px); }
+    #bm-err { color: #c01830; font-size: 12px; min-height: 14px; }
+    #bm-play {
+      /* The panel is a column flexbox with a max-height, so every child is
+         shrinkable by default and this one has a FIXED height that says
+         otherwise. On a short screen the taller opponent rows squeezed it from
+         62px down to 18: still there, still clickable in theory, and far too
+         small to hit. It keeps its height and the panel scrolls instead. */
+      flex: 0 0 auto;
+      width: 100%; height: 62px; border: none; border-radius: 18px;
+      background: linear-gradient(180deg,#ffd479 0%,#f0a52c 55%,#d8880f 100%);
+      font-family: "Cinzel", serif; font-size: 1.15rem; font-weight: 700;
+      color: #4a2c00; letter-spacing: .5px; cursor: pointer;
+      box-shadow: 0 4px 20px rgba(200,110,0,.3);
+      transition: filter .15s, transform .12s;
+    }
+    #bm-play:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-2px); }
+    #bm-play:active:not(:disabled) { transform: translateY(0); filter: brightness(.97); }
+    #bm-play:disabled { opacity: .65; cursor: wait; }
+    .bm-people-link {
+      background: none; border: none; cursor: pointer;
+      /* A real tap target, not a line of text: this is a finger on a phone. */
+      padding: 8px 12px; min-height: 32px;
+      font-family: "Nunito", sans-serif; font-size: 12.5px; font-weight: 700;
+      color: #2c5c96; text-decoration: underline; text-underline-offset: 3px;
+      align-self: center;
+    }
+    .bm-people-link:hover { color: #0c3472; }
+
+    /* The same grade control, in a lobby seat tile. The old Easy/Medium/Hard
+       pills could not carry nineteen grades, so a seat shows its badge and a
+       list instead. */
+    .wr-grade-box { display: flex; align-items: center; gap: 7px; width: 100%; }
+    .wr-grade-box .bm-select-wrap { flex: 1 1 auto; min-width: 0; }
+    .wr-grade-box .bm-grade-select:disabled {
+      opacity: .75; cursor: default; background: rgba(240,246,252,.75);
+    }
+    .wr-grade-elo { font-size: 11px; font-weight: 800; color: #3a6ba6; white-space: nowrap; }
+    /* The same badge on an in-game seat, where space is tight and it sits on
+       the dark board rather than a pale panel. */
+    .pv-seat-grade {
+      min-width: 0; height: 16px; padding: 0 5px; margin-left: 5px;
+      font-size: 10px; border-radius: 5px; vertical-align: middle;
+    }
+
     /* ── NEW CURRENT MODAL ──────────────────────────────────────── */
     #new-current-modal {
       display: none; position: fixed; inset: 0; z-index: 9100;
@@ -14859,8 +15110,8 @@
     }
     #cc-trade-overlay.open { display: flex; }
     #cc-trade-box {
-      /* Wide on purpose: the ledger is two player cards side by side and the
-         offers are a grid, and neither reads in a 720px column. */
+      /* Wide on purpose: the two offers sit side by side and each is a grid
+         of tiles, which does not read in a 720px column. */
       width: min(1180px, 96vw); max-height: 92vh;
       display: flex; flex-direction: column; overflow: hidden;
       position: relative;
@@ -14903,76 +15154,8 @@
       margin: 8px 18px 0;
     }
 
-    /* ── The ledger: both players, and what the trade does to them ──── */
-    #cc-trade-ledger {
-      flex-shrink: 0;
-      display: grid; grid-template-columns: 1fr auto 1fr; align-items: stretch; gap: 12px;
-      padding: 14px 18px 0;
-    }
-    .cctr-side {
-      display: flex; flex-direction: column; gap: 8px; min-width: 0;
-      border: 1px solid rgba(169,203,230,.85); border-radius: 16px;
-      background: rgba(252,255,255,.95);
-      box-shadow: 0 5px 16px rgba(44,111,166,.09);
-      padding: 12px 14px;
-    }
-    /* Whose side is whose, at a glance and without reading a word. */
-    #cctr-side-me   { border-color: rgba(232,179,74,.75); }
-    #cctr-side-them { border-color: rgba(95,179,214,.85); }
-    .cctr-side-top { display: flex; align-items: center; gap: 11px; min-width: 0; }
-    .cctr-side-av {
-      width: 54px; height: 54px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
-      background: linear-gradient(160deg,#dcefff,#bcdde6);
-      border: 2px solid #fff; box-shadow: 0 3px 10px rgba(30,90,160,.28);
-    }
-    #cctr-side-me   .cctr-side-av { box-shadow: 0 3px 10px rgba(200,147,32,.4); }
-    .cctr-side-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .cctr-side-id { min-width: 0; flex: 1; }
-    .cctr-side-who {
-      font-weight: 900; font-size: 15px; color: #15407e;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .cctr-side-lvl { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 2px; }
-    .cctr-lvl-now { font-size: 13px; font-weight: 800; color: #2e6bb0; }
-    /* "Level 12 → 9". The arrow and the new number are one chip so they can
-       never wrap apart from each other. */
-    .cctr-lvl-after {
-      font-size: 13px; font-weight: 900; border-radius: 999px; padding: 1px 9px;
-      white-space: nowrap;
-    }
-    .cctr-lvl-after.up   { background: rgba(37,165,124,.16); color: #14663f; }
-    .cctr-lvl-after.down { background: rgba(232,64,87,.14);  color: #9d1f31; }
-    .cctr-lvl-bar {
-      position: relative; height: 9px; border-radius: 999px; overflow: hidden;
-      background: rgba(150,195,230,.35); border: 1px solid rgba(150,195,230,.5);
-    }
-    .cctr-lvl-fill {
-      position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px;
-      background: linear-gradient(90deg,#3aa0e0,#2c76c8); transition: width .18s ease;
-    }
-    /* The projection, drawn OVER the bar: green where the level is being
-       climbed, red over the part that is about to be given away. */
-    .cctr-lvl-ghost {
-      position: absolute; top: 0; bottom: 0; border-radius: 999px; transition: all .18s ease;
-    }
-    .cctr-lvl-ghost.up   { background: linear-gradient(90deg,#3fd39a,#25a57c); }
-    .cctr-lvl-ghost.down { background: repeating-linear-gradient(135deg,#e8657a 0 5px,#c94055 5px 10px); }
-    .cctr-lvl-xp { font-size: 11.5px; font-weight: 700; color: #5b8bb8; }
-    .cctr-purse { display: flex; flex-wrap: wrap; gap: 6px; }
-    .cctr-purse-chip {
-      display: inline-flex; align-items: center; gap: 5px;
-      border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 800;
-      background: rgba(226,241,254,.9); border: 1px solid rgba(169,203,230,.9); color: #2e6bb0;
-      white-space: nowrap; max-width: 100%;
-    }
-    .cctr-purse-chip .cc-coin { width: 15px; height: 15px; }
-    .cctr-purse-chip.up   { background: rgba(37,165,124,.14); border-color: rgba(37,165,124,.5); color: #14663f; }
-    .cctr-purse-chip.down { background: rgba(232,64,87,.12);  border-color: rgba(232,64,87,.45); color: #9d1f31; }
+    /* Struck-through "before" number, used by the projection panel below. */
     .cctr-purse-was { text-decoration: line-through; opacity: .55; font-weight: 700; }
-    .cctr-swap {
-      display: flex; align-items: center; justify-content: center;
-      color: #6ea8da; flex-shrink: 0; padding: 0 2px;
-    }
 
     #cc-trade-cols {
       display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
@@ -15065,9 +15248,9 @@
     .cctr-btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
 
     /* ── Item picker sheet ─────────────────────────────────────────── */
-    /* Deliberately does NOT cover the ledger: the whole point of typing an
-       amount here is watching both players' numbers move, and a sheet over
-       inset:0 with a dark scrim hid exactly the thing being changed. */
+    /* A sheet at the bottom of the trade box, not a full-screen takeover: it
+       leaves both offer columns visible behind it, so what you are adding to
+       and what you are adding it to stay on screen together. */
     #cc-trade-picker {
       position: absolute; inset: 0; z-index: 2;
       display: none; align-items: flex-end; justify-content: center;
@@ -15125,28 +15308,51 @@
     .cctr-pk-tile-badge { font-size: 10px; font-weight: 900; color: #14663f; }
     .cctr-pk-empty { grid-column: 1/-1; text-align: center; color: #6c9cc6; font-size: 13px; padding: 26px 8px; font-style: italic; }
 
-    /* ── The swing: what the number in the box would do, live ───────── */
-    /* Repeated here because the sheet sits over the ledger. Same two sides,
-       same colours, in the place the player is already looking. */
+    /* ── The projection: what the number in the box would do, live ──── */
+    /* Directly above the input, because typing an amount and watching what it
+       does to both players is the whole job of this sheet. On the XP tab the
+       LEVEL is the headline on each side — before → after — since XP is the
+       one tradable thing that can take something away from you, and "how many
+       levels does this cost me" used to be answered only by a paragraph of
+       small print further up the sheet.
+
+       The [hidden] rule is not decoration: display:grid below beats the
+       browser's own [hidden] handling, so without it the Avatars and
+       Backgrounds tabs carry an empty bordered box under their tiles. */
+    .cctr-pk-swing[hidden] { display: none; }
     .cctr-pk-swing {
       flex-shrink: 0; display: grid; grid-template-columns: 1fr auto 1fr;
-      align-items: center; gap: 10px;
-      margin: 10px 11px 0; padding: 9px 12px; border-radius: 12px;
-      background: rgba(255,255,255,.8); border: 1px solid rgba(169,203,230,.9);
+      align-items: stretch; gap: 10px;
+      margin: 10px 11px 0; padding: 10px 12px 11px; border-radius: 14px;
+      background: rgba(255,255,255,.86); border: 1px solid rgba(169,203,230,.9);
     }
-    .cctr-swing-side { min-width: 0; text-align: center; }
+    /* "Giving 4,000 XP", or the prompt to type something. Spans both sides. */
+    .cctr-swing-head {
+      grid-column: 1 / -1; text-align: center; line-height: 1.35;
+      font-size: 12.5px; font-weight: 800; color: #3c6f9e;
+    }
+    .cctr-swing-side {
+      min-width: 0; text-align: center; border-radius: 11px; padding: 8px 10px;
+      background: rgba(226,241,254,.6); border: 1px solid rgba(169,203,230,.7);
+    }
+    .cctr-swing-side.up   { background: rgba(37,165,124,.12); border-color: rgba(37,165,124,.45); }
+    .cctr-swing-side.down { background: rgba(232,64,87,.1);   border-color: rgba(232,64,87,.4); }
     .cctr-swing-who {
       font-size: 11px; font-weight: 800; color: #5b8bb8; text-transform: uppercase;
       letter-spacing: .4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .cctr-swing-val { font-size: 14px; font-weight: 900; color: #15407e; }
-    .cctr-swing-val .cctr-purse-was { font-size: 12.5px; }
+    /* The level, before → after: the biggest thing in the panel on the XP tab. */
+    .cctr-swing-lvl {
+      font-size: 15px; font-weight: 900; color: #15407e; line-height: 1.2; margin-top: 3px;
+    }
+    .cctr-swing-lvl.up    { color: #14663f; }
+    .cctr-swing-lvl.down  { color: #9d1f31; }
+    .cctr-swing-lvl.muted { font-size: 12.5px; font-weight: 700; color: #7ba3c8; font-style: italic; }
+    .cctr-swing-val { font-size: 12.5px; font-weight: 800; color: #3c6f9e; margin-top: 2px; }
+    .cctr-swing-val .cctr-purse-was { font-size: 12px; }
     .cctr-swing-side.up   .cctr-swing-val { color: #14663f; }
     .cctr-swing-side.down .cctr-swing-val { color: #9d1f31; }
-    .cctr-swing-lvl { font-size: 11.5px; font-weight: 800; margin-top: 1px; }
-    .cctr-swing-side.up   .cctr-swing-lvl { color: #14663f; }
-    .cctr-swing-side.down .cctr-swing-lvl { color: #9d1f31; }
-    .cctr-swing-arrow { color: #6ea8da; font-weight: 900; font-size: 16px; }
+    .cctr-swing-arrow { align-self: center; color: #6ea8da; font-weight: 900; font-size: 16px; }
 
     .cctr-pk-foot {
       display: flex; gap: 8px; flex-shrink: 0; padding: 12px; border-top: 1px solid rgba(140,200,240,.55);
@@ -15165,37 +15371,43 @@
     #cc-trade-pass-input:focus,
     #cc-trade-xp-input:focus { outline: none; border-color: #3aa0e0; box-shadow: 0 0 0 3px rgba(58,160,224,.18); }
     .cctr-pk-foot .cctr-btn { flex: 0 0 auto; padding: 11px 18px; }
-    /* The Coins / Season Passes / XP explainer is a CHILD OF THE TILE GRID, so
-       without this it is laid into one 104px column and reads one word per
-       line down a thin ribbon with the rest of the sheet empty beside it.
-       Full width, like the empty-state message below it. */
+    /* The Coins / Season Passes / XP explainer. The body it lives in is a TILE
+       GRID, so a paragraph dropped into it is laid out in one ~104px column and
+       reads one word per line down a thin ribbon with the rest of the sheet
+       empty beside it. `grid-column: 1 / -1` is not enough on its own: the
+       Coins, Season Pass and XP tabs put nothing but this note in the body, so
+       the body stops being a grid for them and the paragraph is simply a
+       paragraph, at the width of the sheet. */
+    .cctr-pk-body.cctr-pk-prose { display: block; }
     .cctr-coin-note {
       grid-column: 1 / -1;
       padding: 2px 16px 6px; font-size: 12.5px; font-weight: 600; color: #3c6f9e;
-      text-align: center; line-height: 1.5; max-width: 60ch; margin: 0 auto;
+      text-align: center; line-height: 1.55; max-width: 62ch; margin: 0 auto;
     }
 
     /* ── Narrow: stack the sides, then go edge-to-edge ─────────────── */
-    /* 900px, not 560: the ledger is two cards and the offers are a grid, and
-       both need real width before they are worth keeping side by side. */
+    /* 900px, not 560: the two offer columns are each a grid, and they need
+       real width before they are worth keeping side by side. */
     @media (max-width: 900px) {
       #cc-trade-cols { grid-template-columns: 1fr; }
-      #cc-trade-ledger { grid-template-columns: 1fr; gap: 8px; }
-      .cctr-swap { transform: rotate(90deg); padding: 2px 0; }
       .cctr-items { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
     }
     @media (max-width: 560px) {
       #cc-trade-overlay { padding: 0; align-items: stretch; }
       #cc-trade-box { width: 100%; max-height: 100%; border-radius: 0; }
       #cc-trade-head, #cc-trade-foot { padding-left: 12px; padding-right: 12px; }
-      #cc-trade-ledger, #cc-trade-cols { padding-left: 12px; padding-right: 12px; }
+      #cc-trade-cols { padding-left: 12px; padding-right: 12px; }
       .cctr-items { grid-template-columns: 1fr; }
       .cctr-pk-body { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
       #cc-trade-picker-box { max-height: 72vh; }
       /* Tighter tabs, so the five of them take two rows on a phone rather
          than three. They still wrap; this only decides how often. */
       .cctr-pk-tab { padding: 6px 10px; font-size: 12px; }
-      .cctr-side-av { width: 46px; height: 46px; }
+      /* Both sides of the projection, one above the other, with the arrow
+         turned to match. Side by side they are ~130px each on a phone, which
+         is not enough for "Level 14 → Level 11" to stay on one line. */
+      .cctr-pk-swing { grid-template-columns: 1fr; }
+      .cctr-swing-arrow { transform: rotate(90deg); justify-self: center; }
     }
 
     /* ══════════════════════════════════════════════════════════════
@@ -15684,4 +15896,372 @@
     @media (max-width: 820px) {
       .htp-body { max-height: calc(100vh - 170px); padding: 14px 13px 22px; }
       .htp-hero { padding: 16px 15px; }
+    }
+
+    /* ══ THE LIGHT LOOK, CARRIED INTO THE LAST DARK CORNERS ═══════════
+       The game settled on one palette a while ago and most of it already
+       wears it: the Player Home, the New Current modal and the Competitive
+       box are all pale water — a #cce6f8 → #9ec4e4 panel, white fields, deep
+       blue type, gold on the one thing you are meant to press. A handful of
+       older screens never made the move and were still painted in the
+       original navy. On its own that navy was moody; with daylight on every
+       side of it, it just reads as a screen someone forgot.
+
+       Every rule below is pinned to an ID or to the one row it belongs to,
+       because the classes underneath (.modal-box, .pv-input, .ao-field) are
+       shared with screens that ARE meant to be dark — the avatar gallery's
+       night water, the sign-in page's flat black — and a bare class here
+       would drag those into the light with them.
+
+       The tokens are the values the light screens already use, written down
+       once so the late arrivals stay in step with them from here on. */
+    :root {
+      --lt-panel:       linear-gradient(180deg, #cce6f8 0%, #b4d4ee 55%, #9ec4e4 100%);
+      --lt-panel-edge:  rgba(130,195,240,.55);
+      --lt-panel-shade: 0 10px 48px rgba(8,50,130,.22), 0 2px 8px rgba(8,50,130,.10);
+      --lt-scrim:       rgba(10,40,100,.72);
+      --lt-ink:         #0c2858;   /* headings and labels            */
+      --lt-ink-field:   #0d3070;   /* what you type                  */
+      --lt-ink-soft:    #5a82b0;   /* helper lines                   */
+      --lt-ink-place:   #7793b0;   /* placeholders                   */
+      --lt-tile:        rgba(255,255,255,.72);
+      --lt-tile-edge:   rgba(150,200,240,.40);
+      --lt-field:       rgba(255,255,255,.88);
+      --lt-field-edge:  rgba(140,200,240,.55);
+      --lt-focus-edge:  rgba(50,140,240,.65);
+      --lt-focus-ring:  0 0 0 3px rgba(50,140,240,.15);
+      --lt-blue:        linear-gradient(135deg, #1a60c0, #0e3a80);
+      --lt-gold:        linear-gradient(100deg, #f7a927 0%, #e98d10 60%, #d97a08 100%);
+      --lt-err:         #c0202a;
+      --lt-ok:          #0f7a46;
+    }
+
+    /* ── Settings ────────────────────────────────────────────────────
+       Reached from the Player Home footer and from the in-game menu, so it
+       lands on top of a light screen in both places. */
+    #settings-modal { background: var(--lt-scrim); backdrop-filter: blur(8px); }
+    #settings-modal .modal-box {
+      background: var(--lt-panel);
+      border: 1.5px solid var(--lt-panel-edge);
+      border-radius: 26px;
+      box-shadow: var(--lt-panel-shade);
+      padding: 24px 22px 20px;
+      max-width: 400px;
+      /* The longest box in the game: account rows, the volume slider and
+         three Help cards. Centred in a fixed overlay with no height of its
+         own, it was clipped at BOTH ends on a short window with nothing to
+         scroll — the Close button included. */
+      max-height: 92vh;
+      overflow-y: auto;
+    }
+    #settings-modal .modal-title {
+      color: var(--lt-ink); font-size: 1.4rem; letter-spacing: .5px;
+    }
+    #settings-modal .settings-row { border-bottom: 1px solid rgba(120,175,225,.5); }
+    #settings-modal .settings-row-label {
+      color: var(--lt-ink); font-size: 11.5px; font-weight: 800;
+    }
+    #settings-modal .settings-row-val { color: #2b486f; font-weight: 700; }
+
+    /* Change / Link / New code. These carry .auth-pbtn, which until now was
+       only ever styled inside #auth-profile-bar — in here they were three
+       raw browser buttons. */
+    #settings-modal .auth-pbtn {
+      border: 1px solid rgba(120,185,235,.7);
+      border-radius: 999px;
+      background: rgba(255,255,255,.82);
+      color: #1a5aa8;
+      font-family: "Nunito", sans-serif;
+      font-size: 11.5px; font-weight: 800;
+      padding: 5px 12px; cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    #settings-modal .auth-pbtn:hover { background: #fff; border-color: var(--lt-focus-edge); }
+
+    #settings-modal .pv-input {
+      background: var(--lt-field);
+      border: 1.5px solid var(--lt-field-edge);
+      border-radius: 12px;
+      color: var(--lt-ink-field);
+      font-weight: 700;
+      padding: 11px 14px;
+    }
+    #settings-modal .pv-input::placeholder { color: var(--lt-ink-place); font-weight: 600; }
+    #settings-modal .pv-input:focus {
+      border-color: var(--lt-focus-edge);
+      box-shadow: var(--lt-focus-ring);
+    }
+
+    #settings-modal .pv-btn {
+      background: var(--lt-blue);
+      border: 1px solid rgba(120,185,235,.55);
+      border-radius: 12px;
+      color: #f7fbff;
+      text-shadow: none;
+      padding: 11px 18px;
+    }
+    #settings-modal .pv-btn.gold {
+      background: var(--lt-gold);
+      border-color: #d97a08;
+      color: var(--lt-ink);
+    }
+    /* Close is the way out, not the thing to press: quiet, like the
+       Leaderboard and Settings buttons it was opened from. */
+    #settings-modal #settings-close-btn {
+      background: rgba(255,255,255,.72);
+      border: 1.5px solid rgba(140,200,240,.7);
+      color: #2a5888;
+      text-shadow: none;
+    }
+    #settings-modal #settings-close-btn:hover:not(:disabled) {
+      background: #fff; border-color: var(--lt-focus-edge);
+      box-shadow: 0 4px 14px rgba(8,50,130,.16);
+    }
+
+    #settings-modal .auth-link { color: #1a5aa8; font-weight: 700; }
+    #settings-modal .auth-err  { color: var(--lt-err); font-weight: 700; }
+    #settings-modal .auth-ok   { color: var(--lt-ok);  font-weight: 700; }
+
+    #settings-modal .settings-help {
+      background: rgba(255,255,255,.55);
+      border: 1.5px solid var(--lt-tile-edge);
+      border-radius: 16px;
+    }
+    #settings-modal .settings-help-title { color: var(--lt-ink); }
+    #settings-modal .settings-help-sub   { color: var(--lt-ink-soft); }
+    #settings-modal .settings-help-card {
+      background: var(--lt-tile);
+      border: 1.5px solid var(--lt-tile-edge);
+      border-radius: 12px;
+    }
+    #settings-modal .settings-help-card:hover {
+      background: #fff; border-color: rgba(60,130,220,.5);
+    }
+    #settings-modal .settings-help-ct    { color: var(--lt-ink); }
+    #settings-modal .settings-help-cd    { color: var(--lt-ink-soft); }
+    #settings-modal .settings-help-arrow { color: var(--lt-ink-soft); }
+
+    /* The volume slider: the same track, repainted for a pale panel. The
+         thumb's own hover scale is left where it is, one rule up. */
+    #settings-modal .settings-slider {
+      background: linear-gradient(90deg,
+        #2c8ce7 0%, #1a60c0 var(--fill, 100%),
+        rgba(120,175,225,.45) var(--fill, 100%), rgba(120,175,225,.45) 100%);
+    }
+    #settings-modal .settings-slider::-webkit-slider-thumb {
+      background: #fff; border: 2px solid #1a60c0;
+      box-shadow: 0 1px 6px rgba(8,50,130,.35);
+    }
+    #settings-modal .settings-slider::-webkit-slider-thumb:hover {
+      box-shadow: 0 2px 11px rgba(8,50,130,.45);
+    }
+    #settings-modal .settings-slider:focus-visible::-webkit-slider-thumb {
+      box-shadow: var(--lt-focus-ring);
+    }
+    #settings-modal .settings-slider::-moz-range-track { background: rgba(120,175,225,.45); }
+    #settings-modal .settings-slider::-moz-range-progress {
+      background: linear-gradient(90deg, #2c8ce7, #1a60c0);
+    }
+    #settings-modal .settings-slider::-moz-range-thumb {
+      background: #fff; border: 2px solid #1a60c0;
+      box-shadow: 0 1px 6px rgba(8,50,130,.35);
+    }
+    #settings-modal .settings-slider-val { color: var(--lt-ink); }
+
+    /* ── The recovery code, shown once ───────────────────────────────
+       Opened straight out of Settings → New code, so it cannot stay navy
+       while the box behind it is water. */
+    #rc-modal { background: var(--lt-scrim); backdrop-filter: blur(8px); }
+    #rc-modal .modal-box {
+      background: var(--lt-panel);
+      border: 1.5px solid var(--lt-panel-edge);
+      border-radius: 26px;
+      box-shadow: var(--lt-panel-shade);
+      padding: 24px 22px 20px;
+      max-height: 92vh; overflow-y: auto;
+    }
+    #rc-modal .modal-title { color: var(--lt-ink); font-size: 1.4rem; }
+    /* The code itself keeps its dark plate ON PURPOSE. It is the one thing
+       on this screen you have to copy onto paper by hand, and the contrast
+       is what keeps a 0 apart from an O. Everything around it is water so
+       that the plate is now the loudest thing in the box, which is right. */
+    #rc-modal .rc-code {
+      background: #0b2448;
+      border: 1px dashed rgba(232,179,74,.85);
+      color: #ffe6a8;
+    }
+    #rc-modal .rc-ack { color: var(--lt-ink); font-weight: 700; }
+    #rc-modal .rc-actions .pv-btn {
+      background: rgba(255,255,255,.78);
+      border: 1.5px solid rgba(140,200,240,.7);
+      border-radius: 12px;
+      color: #1a5aa8; text-shadow: none;
+    }
+    #rc-modal .rc-actions .pv-btn:hover:not(:disabled) {
+      background: #fff; border-color: var(--lt-focus-edge);
+    }
+    #rc-modal .pv-btn.gold {
+      background: var(--lt-gold);
+      border: 1px solid #d97a08;
+      border-radius: 12px;
+      color: var(--lt-ink); text-shadow: none;
+    }
+    #rc-modal .ao-note {
+      background: rgba(224,176,64,.26);
+      border: 1px solid rgba(190,130,10,.5);
+      color: #6b4a06;
+    }
+    #rc-modal .auth-err { color: var(--lt-err); font-weight: 700; }
+
+    /* ── The Current code, on the Player Home ────────────────────────
+       Same 44px white pill and blue key as Friends → add by code, one panel
+       down the same page: the two places you type a code on this screen
+       should not be two different designs. */
+    .stats-join-row .pv-input {
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid #bdd6ea;
+      background: #fff;
+      color: #1b4679;
+      font-family: "Nunito", sans-serif;
+      font-size: .98rem; font-weight: 800; letter-spacing: .08em;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.85);
+    }
+    .stats-join-row .pv-input::placeholder {
+      color: var(--lt-ink-place); font-weight: 600; letter-spacing: normal;
+    }
+    .stats-join-row .pv-input:focus {
+      border-color: var(--lt-focus-edge);
+      box-shadow: var(--lt-focus-ring);
+    }
+    .stats-join-row .pv-btn {
+      height: 44px;
+      padding: 0 18px;
+      border-radius: 12px;
+      border: 1px solid #79afe0;
+      background: linear-gradient(135deg, #2c8ce7 0%, #1e71d4 100%);
+      color: #f7fbff;
+      font-size: .94rem;
+      text-shadow: none;
+    }
+
+    /* ── Redeem a code, in the Avatar Gallery ────────────────────────
+       The gallery around it stays deep ocean: that screen is night water
+       behind lit portraits and it is meant to be. The FIELD was navy on
+       navy though, so it becomes a white field like every other field in the
+       game. The gold button beside it is left alone — gold is the one colour
+       that carries on both. */
+    .gal-code-input {
+      background: rgba(255,255,255,.94);
+      border: 1.5px solid rgba(255,211,107,.75);
+      color: var(--lt-ink-field);
+    }
+    .gal-code-input::placeholder { color: var(--lt-ink-place); }
+    .gal-code-input:focus {
+      background: #fff;
+      border-color: #ffd36b;
+      box-shadow: 0 0 12px rgba(255,211,107,.45);
+    }
+
+    /* ── "Use your recovery code", on the sign-in page ───────────────
+       The sign-in page stays flat black: one painting, one white rule down
+       the middle, and test_signin_screen.js measures that. What changes is
+       the pane you TYPE THE CODE INTO — it becomes a pale card standing on
+       the black, so the one screen where you are already anxious about a
+       string of letters is lit like the rest of the game. Its two sibling
+       panes, sign in and create an account, are deliberately untouched.
+
+       Scoped #auth-step-choose #ao-pane-code because every rule it is
+       overriding is ID-led already. */
+    #auth-step-choose #ao-pane-code {
+      background: var(--lt-panel);
+      border: 1.5px solid var(--lt-panel-edge);
+      border-radius: 22px;
+      box-shadow: var(--lt-panel-shade);
+      padding: clamp(18px, 2vw, 28px) clamp(16px, 1.8vw, 26px) clamp(20px, 2vw, 26px);
+    }
+    #auth-step-choose #ao-pane-code .ao-h   { color: var(--lt-ink); }
+    #auth-step-choose #ao-pane-code .ao-sub { color: #3f6392; }
+    #auth-step-choose #ao-pane-code .ao-lbl { color: var(--lt-ink); }
+    #auth-step-choose #ao-pane-code .ao-back {
+      border: 1px solid rgba(120,185,235,.6);
+      background: rgba(255,255,255,.66);
+      color: #2a5888;
+    }
+    #auth-step-choose #ao-pane-code .ao-back:hover {
+      background: #fff; border-color: var(--lt-focus-edge); color: var(--lt-ink);
+    }
+    #auth-step-choose #ao-pane-code .ao-field {
+      background: var(--lt-field);
+      border: 1.5px solid var(--lt-field-edge);
+      color: #4a6c8c;
+    }
+    #auth-step-choose #ao-pane-code .ao-field:focus-within {
+      background: #fff;
+      border-color: var(--lt-focus-edge);
+      box-shadow: var(--lt-focus-ring);
+    }
+    #auth-step-choose #ao-pane-code .ao-field input {
+      color: var(--lt-ink-field); font-weight: 700;
+    }
+    #auth-step-choose #ao-pane-code .ao-field input::placeholder {
+      color: var(--lt-ink-place); font-weight: 600;
+    }
+    #auth-step-choose #ao-pane-code .ao-eye       { color: #1a5aa8; }
+    #auth-step-choose #ao-pane-code .ao-eye:hover { color: var(--lt-ink); }
+    #auth-step-choose #ao-pane-code .ao-primary {
+      background: var(--lt-blue);
+      color: #f7fbff;
+      box-shadow: 0 10px 26px rgba(8,50,130,.28), inset 0 1px 0 rgba(255,255,255,.28);
+    }
+    /* The strength meter: the four fills are already saturated enough to
+       read on water, so only the empty track and the two labels move. */
+    #auth-step-choose #ao-pane-code .ao-meter { background: rgba(120,175,225,.42); }
+    #auth-step-choose #ao-pane-code .ao-meter-word,
+    #auth-step-choose #ao-pane-code .ao-meter-tip { color: #4a6c96; }
+    #auth-step-choose #ao-pane-code .ao-meter[data-s="1"] ~ .ao-meter-row .ao-meter-word { color: #b93c18; }
+    #auth-step-choose #ao-pane-code .ao-meter[data-s="2"] ~ .ao-meter-row .ao-meter-word { color: #8a6010; }
+    #auth-step-choose #ao-pane-code .ao-meter[data-s="3"] ~ .ao-meter-row .ao-meter-word,
+    #auth-step-choose #ao-pane-code .ao-meter[data-s="4"] ~ .ao-meter-row .ao-meter-word { color: #0f7a46; }
+    /* The warning keeps its amber, darkened until it reads on the panel. */
+    #auth-step-choose #ao-pane-code .ao-note.is-warn {
+      background: rgba(224,176,64,.28);
+      box-shadow: inset 3px 0 0 rgba(190,130,10,.85);
+      color: #6b4a06;
+    }
+    #auth-step-choose #ao-pane-code > .auth-err {
+      border-color: rgba(192,32,42,.42);
+      background: rgba(192,32,42,.12);
+      color: #8e1820;
+    }
+    #auth-step-choose #ao-pane-code > .auth-err.is-info {
+      border-color: rgba(50,140,240,.42);
+      background: rgba(50,140,240,.13); color: #12457f;
+    }
+    #auth-step-choose #ao-pane-code > .auth-err.is-ok {
+      border-color: rgba(15,122,70,.42);
+      background: rgba(15,122,70,.13); color: #0b5a34;
+    }
+    #auth-step-choose #ao-pane-code > .auth-err.is-warn {
+      border-color: rgba(190,130,10,.45);
+      background: rgba(224,176,64,.20); color: #6b4a06;
+    }
+    #auth-step-choose #ao-pane-code .ao-new        { color: #3f6392; }
+    #auth-step-choose #ao-pane-code .ao-new button { color: #1a5aa8; }
+    #auth-step-choose #ao-pane-code .ao-new button:hover { color: var(--lt-ink); }
+
+    /* Sign out is the one red thing in the box. A translucent red wash over
+       the panel gradient came out grey-lavender — it read as a dead button,
+       not a careful one — so it is an opaque pale field with the red carried
+       by the border and the type. */
+    #settings-modal #settings-signout-btn {
+      background: rgba(255,241,241,.94);
+      border: 1.5px solid rgba(192,32,42,.5);
+      color: #a81d26;
+      text-shadow: none;
+    }
+    #settings-modal #settings-signout-btn:hover:not(:disabled) {
+      background: #fff;
+      border-color: rgba(192,32,42,.75);
+      box-shadow: 0 4px 14px rgba(192,32,42,.18);
     }

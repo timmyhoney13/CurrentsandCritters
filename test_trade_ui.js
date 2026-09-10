@@ -186,8 +186,9 @@ check("you cannot offer more than you have",
       /if \(n > have\) \{[\s\S]{0,200}You only have " \+ have\.toLocaleString\(\) \+ " XP/.test(SRC));
 const xpPane = slice('if (_trPickerTab === "xp") {', "hideFeet();");
 check("the pane warns that the level goes down",
-      /really does lower your level/.test(xpPane), xpPane);
-check("and that both passes move back with it", /Critter Pass move back/.test(xpPane));
+      /really does drop your level/.test(xpPane), xpPane);
+check("and that both passes move back with it",
+      /Level Pass and Critter Pass back with it/.test(xpPane), xpPane);
 // Ownership is a GRANTED list (unlocked_icons), not a live level check, so a
 // level that goes down does NOT take an already-unlocked critter with it. The
 // pane must not claim it does: a warning that overstates the cost is still a

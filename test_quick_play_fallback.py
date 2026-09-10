@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Quick Play: the queue counter, and the bot table that ends the search.
+"""Head to Head: the queue counter, and the bot table that ends the search.
 
 Run:  python3 -m unittest test_quick_play_fallback -v
 
-Quick Play used to be able to fail and nothing else. You pressed it, the server
+Head to Head used to be able to fail and nothing else. You pressed it, the server
 parked you alone in a four-seat room, the client polled forever, and the only
 exit was Cancel. On a small playerbase that is what happens EVERY time, so the
 button could only ever waste your time. Two things fix it and both are pinned
@@ -169,12 +169,12 @@ class BotFallback(unittest.TestCase):
 
     def test_it_refuses_an_ordinary_room(self):
         """This bypasses the normal all-seats-claimed rule, so it must only ever
-        apply to a Quick Play room the player is alone in."""
+        apply to a Head to Head room the player is alone in."""
         room = mp.GameRoom("QPX1", "Host", 4, 4, 0)
         host = room.host_seat()
         res = room.quick_play_fill_with_bots(room.host_control_token, host.token, mp.CARD_DB)
         self.assertFalse(res.get("ok"))
-        self.assertEqual(res.get("error"), "this is not a Quick Play room")
+        self.assertEqual(res.get("error"), "this is not a Head to Head room")
 
     def test_the_room_leaves_the_queue_once_it_is_playing(self):
         """A later searcher must never be dropped into the bot game that just

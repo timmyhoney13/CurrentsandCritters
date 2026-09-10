@@ -22,7 +22,7 @@
  *
  * The rest pins the shape of the thing: the two votes go to two different
  * endpoints, a button with nothing behind it is hidden rather than left dead,
- * Table Setup stays out of Quick Play / competitive / tournament rooms, and
+ * Table Setup stays out of Head to Head / competitive / tournament rooms, and
  * every id the JS reaches for is really in preview.html with a style behind it.
  */
 "use strict";
@@ -200,9 +200,9 @@ check(/lobby_seats/.test(APP), "the spots post to the lobby_seats endpoint");
 // The rooms whose shape is not the host's to change get no + or - at all.
 const shape = APP.slice(APP.indexOf("canShape: isHost"), APP.indexOf("canShape: isHost") + 220);
 check(/!room\.quick_play && !room\.competitive && !room\.tournament/.test(shape),
-      "Quick Play, competitive and bracket matches keep their own shape");
+      "Head to Head, competitive and bracket matches keep their own shape");
 check(/class="wr-human-option"/.test(HTML) && /quickplay_seats/.test(APP),
-      "Quick Play keeps its own fixed 2/3/4 chooser");
+      "Head to Head keeps its own fixed 2/3/4 chooser");
 
 // ══ 7. Every class the JS makes has a style ══════════════════════════════════
 console.log("styles exist:");

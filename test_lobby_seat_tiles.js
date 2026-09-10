@@ -109,7 +109,7 @@ console.log("\neight spots, and the + seats a bot");
         "…and offers the host the one way past it");
   check(!/(becomes?|turns? into) an? bot when (you|the host) (cast|start)|bot when you cast off|becomes? a bot at (the )?start/i.test(APP_SAYS),
         "nothing claims an open seat becomes a bot at kickoff",
-        "Quick Play's own copy is fine: it converts spare seats when the host picks");
+        "Head to Head's own copy is fine: it converts spare seats when the host picks");
   // The lobby-wide caption that used to spell this out is gone (its spot is the
   // Watch instead button now); the open seat tile itself carries both ways past.
 }
@@ -311,6 +311,8 @@ function page() {
   const fns = ["_wrEl", "_wrChip", "_wrSeatDevice", "_wrDeviceChip", "_wrBgName",
                "_wrNum", "_wrRemoveBtn", "_wrLock",
                "_wrSeatAvatarUrl", "_wrCounts", "buildDifficultyBox", "_wrLoadPrestige",
+               "bmGradeById", "bmIndexOf", "bmTierLetter", "bmTierClass", "bmBadge",
+               "bmGradeBlurb",
                "_wrSeatCard", "_wrAddCard", "_wrRenderCapacity", "renderSeatTilesInto",
                "_wrRankChip", "_wrLoadCompRanks", "_wrResetCompRanks", "renderCompLobbyInto",
                "renderTeamLobbyInto", "teamName", "teamHex",
@@ -322,7 +324,7 @@ function page() {
 
   const seat = (i, kind, name, extra) => Object.assign({
     index: i, kind, claimed_name: name, is_host: i === 0, avatar: "", background: "",
-    level: 0, xp: 0, xp_goal: 0, best: 0, games: 0, title: "", difficulty: "medium",
+    level: 0, xp: 0, xp_goal: 0, best: 0, games: 0, title: "", difficulty: "c", grade: "C", grade_elo: 900,
   }, extra || {});
   const payload = {
     phase: "lobby",
@@ -339,8 +341,10 @@ function page() {
         background: "/backgrounds/bg-kelp.png", level: 63, xp: 2410, xp_goal: 4600,
         best: 455, games: 210, title: "Deep Diver" }),
       seat(3, "human", null),
-      seat(4, "ai", "Bot 1"),
-      seat(5, "ai", "Bot 2", { difficulty: "hard" }),
+      seat(4, "ai", "Bot 1", { difficulty: "c", grade: "C", grade_elo: 900 }),
+      // The widest grade on the ladder, in the tile least able to hold it: a
+      // three-character badge next to a nineteen-entry list.
+      seat(5, "ai", "Bot 2", { difficulty: "ss_plus", grade: "SS+", grade_elo: 1900 }),
     ],
     room: { quick_play: false, competitive: false, tournament: false, ranked: false,
             allow_spectators: true, visibility: "private" },
@@ -392,6 +396,30 @@ function setTableSeats() {}
 function lobbyKickPlayer() {}
 function refreshWaitingRoomFromPayload() {}
 function setBotDifficulty() {}
+// The grade ladder, as /api/bot_grades serves it. buildDifficultyBox draws a
+// seat's badge and its list of grades from this, so the tile under test needs
+// the real nineteen, not a placeholder: a two-entry ladder would not catch a
+// dropdown that overflows its seat.
+const _bmGrades = [
+  { id: "f",  grade: "F",  elo: 500,  tier: "F",  unlock: "" },
+  { id: "d",  grade: "D",  elo: 700,  tier: "D",  unlock: "" },
+  { id: "c",  grade: "C",  elo: 900,  tier: "C",  unlock: "" },
+  { id: "b",  grade: "B",  elo: 1100, tier: "B",  unlock: "" },
+  { id: "a",  grade: "A",  elo: 1300, tier: "A",  unlock: "" },
+  { id: "s",  grade: "S",  elo: 1500, tier: "S",  unlock: "" },
+  { id: "ss", grade: "SS", elo: 1700, tier: "SS", unlock: "" },
+  { id: "ss_plus", grade: "SS+", elo: 1900, tier: "SS", unlock: "" },
+  { id: "giant_squid", grade: "Giant Squid", elo: 2150, tier: "GS", unlock: "story" },
+];
+function bmLoadGrades() { return Promise.resolve(); }
+// The story gate. A seat tile draws a locked grade differently, so the tile
+// under test needs to know what is locked. No story finished here.
+function bmStoryUnlocked() { return false; }
+function bmGradeLocked(id) {
+  const g = _bmGrades.find(x => x.id === id);
+  return !!(g && g.unlock) && !bmStoryUnlocked();
+}
+function bmLockNote() { return "Beat the Giant Squid to bring it to your table."; }
 function showToast() {}
 window.__fishBgStyle = (u) => "background-image:url('" + u + "');background-size:cover;";
 window.__fishBackgroundCatalog = () => ([

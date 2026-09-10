@@ -144,8 +144,21 @@ console.log("\npermission is per game, and casual only");
 const room = SERVER.slice(SERVER.indexOf("def _cc_casual_locked"), SERVER.indexOf("def _cc_eligible_voter_indices_locked"));
 check(/self\.competitive or self\.ranked/.test(room), "competitive and ranked rooms never offer it");
 check(/tournament_id/.test(room), "…nor a tournament match");
-check(/self\.cc_armed = False/.test(SERVER.slice(SERVER.indexOf("self.kick_votes = {}\n        self._kicked_policies = {}"))),
-      "a rematch asks the table again instead of inheriting a yes");
+// The launch path clears the Controller decision, but ONLY when this launch is
+// not the game the table voted on: the vote is cast in the lobby, so clearing
+// it unconditionally wiped it between the yes and the first card.
+//
+// Anchored on the guard itself rather than on the line above it. It used to be
+// found by slicing from `self.kick_votes = {}` plus a `self._kicked_policies`
+// line that no longer follows it, so the slice came back empty and the check
+// passed or failed on where an unrelated block happened to sit.
+{
+  const reset = SERVER.slice(SERVER.indexOf("if not _cc_from_lobby:"));
+  check(reset.length > 0 && /^if not _cc_from_lobby:[\s\S]{0,400}?self\.cc_armed = False/m.test(reset.trim()),
+        "a rematch asks the table again instead of inheriting a yes");
+  check(/self\.cc_votes = \{\}/.test(reset.slice(0, 400)),
+        "…and the votes that granted it are cleared with it");
+}
 
 console.log("\nthe lobby row, where the emotes were");
 check(/id="wr-cc-row"/.test(HTML), "the row exists in the lobby markup");

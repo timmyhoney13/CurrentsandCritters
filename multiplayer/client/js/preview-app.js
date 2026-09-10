@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-05.5";
+  const APP_BUILD   = "2026-09-10.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,21 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.3", title: "\uD83E\uDD91 Head to Head: nine marine scientists, then the Giant Squid", items: [
+      "The card on the home screen is called HEAD TO HEAD now, and it opens a table straight away: four at the table, you and three bots, and the game is running the moment you press Dive In. It used to put you in a queue for other people and, on a quiet evening, hand you bots anyway after a spinner. The queue for real people is still there, on the same screen.",
+      "Every opponent is a PERSON now, not a letter. Gilbert Thomas Carter, who collected specimens on the Challenger Expedition. Jeanne Villepreux-Power, who invented the aquarium in 1832 to watch living argonaut octopuses. Edward Forbes, who put dredges to systematic use. Steve Irwin. William Beebe of the Bathysphere. Eugenie Clark, the Shark Lady. Rachel Carson. Jacques Cousteau. And Charles Darwin, whose coral reef and atoll theory is the ground modern marine science stands on.",
+      "They are in order of strength, weakest first, and each one still wears its tier: F, E, D, C, B, A, S, S+ and S++. Darwin is the S++, and the tier is the badge you see beside the name.",
+      "YOU HAVE TO CLIMB IT. Only Gilbert Thomas Carter is open when you start. Win a game against the opponent you are on and the next one unlocks; every rung above that is shown to you, locked, with its rating, so you can always see who is next. Winning means winning the game outright, on your own score, so beating a table of three hands you all three at once.",
+      "And past Charles Darwin there is the Giant Squid. It sits on the Head to Head screen from the first time you open it, locked, with its rating showing. Beating Darwin AND finishing the Squid's story in the game is what brings it to your table, and it is the strongest thing in the game: every handicap off, every simulation paid for.",
+      "Each opponent carries an Elo, and the number is measured rather than decorated. They are sat down against each other for hundreds of real matches and rated on how they actually finish, so the gap between two of them tells you how often the higher one wins.",
+      "The bots think roughly twice as fast as they did, and they spend it on thinking rather than on waiting. More than half of all the time they spent deciding a move was going into copying the game to try a move out, and three quarters of THAT was rebuilding the card list, which never changes. Same decisions, half the clock, so the same time limit now buys about twice as many simulations.",
+      "And the simulations are compared honestly. Every candidate move used to be tried out in its own separately shuffled hypothetical game, so choosing between two moves was partly choosing between two lucky decks. Now every candidate is played through the SAME set of hypothetical games, which is the only way the comparison is about the moves.",
+      "The bottom of the ladder is genuinely bad, and not by being slow. Gilbert Thomas Carter cannot see past the turn he is on, ignores what everyone else is building, considers the moves the better opponents refuse to look at, and leans towards the wrong one. He plays worse than a coin flip, which is what makes beating him mean nothing and losing to him sting.",
+      "The bots learn from a hundred times more of their own games. Two separate quality gates decided which finished games were worth learning from, and both were set far above what a four-player game actually scores, one of them above the highest score ever recorded. Between them they threw away all but one game in a hundred and fifty. They are set from the real numbers now.",
+      "Games with a mix of people and bots teach the AI too. They used to be skipped entirely, which since every Head to Head is one of them meant skipping most of the evidence there was.",
+      "Everything that was already set up still works. A half-set-up room, a tournament bracket, an older phone: they all still seat the opponent they were set to, at the rating and the exact settings that opponent has always had. Easy, Medium and Hard still work too.",
+      "The lobby seat shows each opponent's name, its tier, its rating and a line about what it is like to play against, and every bot wears its tier at the table too, so you can see who you are up against mid-game.",
+    ]},
     { ver: "V1.7.2", title: "\uD83D\uDEA7 The Store is closed for a bit", items: [
       "The Store is shut while we get it ready, so nothing in it can be bought right now: no Critter Coin packs, no Supporter Tiers, no skins, backgrounds or Player Perks. It shows a Coming soon panel instead of the shelf.",
       "Everything you already own is untouched. Your Critter Coins, skins, backgrounds, emotes, streak shields and custom friend codes are all still on your account and all still work, and so does everything that spends coins outside the Store, the Critter Pass included.",
@@ -303,7 +318,7 @@
       "Inside a game nothing changes: the action bar keeps its own \u26F6 Full Screen button. The Main Menu tutorial now points the chip out too.",
     ]},
     { ver: "V1.7.0", title: "🪸 The four home cards have their coral back", items: [
-      "Quick Match, Create Game, Join Game and Tutorial are their painted artwork again. They were briefly flattened to a plain colour and a text label; that was a mistake and it's undone. The cards are exactly the ones you knew.",
+      "Head to Head, Create Game, Join Game and Tutorial are their painted artwork again. They were briefly flattened to a plain colour and a text label; that was a mistake and it's undone. The cards are exactly the ones you knew.",
     ]},
     { ver: "V1.7.0", title: "💬 Clan chat works, and it comes to find you", items: [
       "Clan chat was losing messages. Anything a clanmate wrote in the same second as the last message you'd already seen was skipped, and it never came back: you'd have had to reload the page to find out it existed. Two people replying at once was enough to do it. Fixed, and messages are now tracked one by one so none can slip through that gap again.",
@@ -657,9 +672,9 @@
     { ver: "V1.6.3", title: "Daily & Weekly challenge tracking fixes", items: [
       "Fixed the Pool-based challenges so they credit the right player, challenges like Deny the Setup, Stolen Setup, Set It Up and Pool Cleaner now track correctly when a card is taken right after an opponent discards it.",
     ]},
-    { ver: "V1.6.3", title: "Dedicated Quick Play lobbies", items: [
-      "The main menu now leads with four cards, Quick Match, Create Game, Join Game and Tutorial, each with its own colour and critter.",
-      "Quick Play now matches only with other Quick Play players. The first player can keep using the home screen while searching; once a second player joins, both enter the same four-spot lobby.",
+    { ver: "V1.6.3", title: "Dedicated Head to Head lobbies", items: [
+      "The main menu now leads with four cards, Head to Head, Create Game, Join Game and Tutorial, each with its own colour and critter.",
+      "Head to Head now matches only with other Head to Head players. The first player can keep using the home screen while searching; once a second player joins, both enter the same four-spot lobby.",
       "The host can choose 2, 3 or 4 human spots, fill every remaining spot with a bot, set each bot to Easy, Medium or Hard, chat with the lobby, and start manually when all selected human spots are filled.",
       "Competitive is now a Mode toggle on the Create Game setup screen (next to Privacy): switch it to ⚔️ Competitive and the match settings lock to the ranked 1v1 format, just press the button to go.",
     ]},
@@ -1138,7 +1153,7 @@
 
   async function apiPost(path, body, opts={}) {
     // Attached here rather than at the call sites because there are nine ways
-    // into a seat (Quick Play, a room code, a rejoin, single player, both of
+    // into a seat (Head to Head, a room code, a rejoin, single player, both of
     // competitive's seats, the tournament bridge, the practice table...) and
     // they all come through this one function. A tenth cannot be written that
     // forgets to carry it.
@@ -2803,7 +2818,7 @@
   function _refreshRejoinButton() { /* replaced by in-list rejoin card */ }
 
   function enterRoom(id) {
-    // Entering any room ends an in-progress Quick Match search.
+    // Entering any room ends an in-progress Head to Head search.
     try { if (typeof cancelQuickMatch === "function") cancelQuickMatch(true); } catch (_) {}
     roomId = id;
     document.getElementById("pv-room-id-badge").textContent = id;
@@ -2834,7 +2849,7 @@
     const copyEl = document.getElementById("wr-copy-btn");
     const subEl  = document.getElementById("wr-subtitle");
     document.getElementById("wr-title").textContent = isQuickPlay
-      ? "Quick Play Lobby"
+      ? "Head to Head Lobby"
       : (isHost ? "Room Created!" : "Game Lobby");
     if (isQuickPlay) {
       if (codeEl) codeEl.style.display = "none";
@@ -2865,45 +2880,76 @@
     // paint the next lobby with totals from the last one.
     try { _wrResetCompRanks(); } catch (_) {}
   }
-  // Three difficulty pills (Easy/Medium/Hard) shown next to AI bot seats in
-  // the lobby. Only the host can click them; non-hosts see them as static.
+  // The grade control on an AI seat in the lobby. This used to be three pills
+  // (Easy / Medium / Hard); the ladder is ten named opponents now, which no
+  // row of pills can hold, so a seat shows its badge, its Elo and a list. Only
+  // the host can change it; everyone else reads it.
   function buildDifficultyBox(seat, isHost) {
     const box = document.createElement("div");
-    box.className = "wr-diff-box";
-    const current = String(seat.difficulty || "medium").toLowerCase();
-    [
-      { id: "easy",   label: "Easy"   },
-      { id: "medium", label: "Medium" },
-      { id: "hard",   label: "Hard"   },
-    ].forEach(opt => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = `wr-diff-pill wr-diff-${opt.id}` + (current === opt.id ? " active" : "");
-      btn.textContent = opt.label;
-      btn.disabled = !isHost;
-      if (isHost) {
-        btn.title = `Set ${seat.claimed_name || ("Seat " + (seat.index + 1))} to ${opt.label}`;
-        btn.addEventListener("click", async () => {
-          if (current === opt.id) return;
-          await setBotDifficulty(seat.index, opt.id, btn);
-        });
-      } else {
-        btn.title = `${opt.label}${current === opt.id ? " (selected)" : ""}`;
-      }
-      box.appendChild(btn);
+    box.className = "wr-grade-box";
+    // The server always sends `difficulty`; an empty one only happens against
+    // an older build, and bmGradeById lands it somewhere sensible rather than
+    // leaving the list with nothing selected.
+    const g = bmGradeById(String(seat.difficulty || "").toLowerCase());
+    box.appendChild(bmBadge(seat.grade || g.grade, "wr"));
+
+    const selWrap = document.createElement("div");
+    selWrap.className = "bm-select-wrap";
+    const sel = document.createElement("select");
+    sel.className = "bm-grade-select";
+    sel.disabled = !isHost;
+    sel.setAttribute("aria-label",
+      `Grade for ${seat.claimed_name || ("Seat " + (seat.index + 1))}`);
+    _bmGrades.forEach(opt => {
+      const o = document.createElement("option");
+      o.value = opt.id;
+      const locked = bmGradeLocked(opt.id);
+      o.textContent = (locked ? "🔒 " : "")
+          + `${opt.grade}  ·  ${opt.tier}  ·  ${opt.elo} Elo`;
+      o.disabled = locked;
+      if (opt.id === g.id) o.selected = true;
+      sel.appendChild(o);
     });
+    if (isHost) {
+      sel.addEventListener("change", async () => {
+        if (sel.value === g.id) return;
+        if (bmGradeLocked(sel.value)) {
+          sel.value = g.id;
+          try { showToast(bmLockNote(sel.value) || "That grade is locked.", "info"); } catch (_) {}
+          return;
+        }
+        await setBotDifficulty(seat.index, sel.value, sel);
+      });
+    }
+    selWrap.appendChild(sel);
+    box.appendChild(selWrap);
+
+    const elo = document.createElement("span");
+    elo.className = "wr-grade-elo";
+    elo.textContent = `${Number(seat.grade_elo) || g.elo} Elo`;
+    box.appendChild(elo);
+    // A lobby can open before the ladder has been fetched; once it lands the
+    // next seat render draws the real grades.
+    bmLoadGrades();
     return box;
   }
 
-  async function setBotDifficulty(seatIndex, difficulty, originBtn) {
+  async function setBotDifficulty(seatIndex, difficulty, originEl) {
     if (!roomId) return;
-    // Optimistic UI: mark selected pill immediately so the host gets instant feedback,
-    // then sync via the next state poll if the server rejects it.
-    const wrap = originBtn?.parentElement;
-    if (wrap) {
-      wrap.querySelectorAll(".wr-diff-pill").forEach(b => b.classList.remove("active"));
-      originBtn.classList.add("active");
-    }
+    // Optimistic UI: the badge beside the list changes the moment the host
+    // picks, and the next state poll is what makes it official.
+    try {
+      const box = originEl?.closest?.(".wr-grade-box");
+      const badge = box?.querySelector(".wr-grade-badge");
+      if (badge) {
+        const g = bmGradeById(difficulty);
+        const tier = bmTierLetter(g.id);
+        badge.textContent = tier;
+        badge.className = `wr-grade-badge wr-tier-${bmTierClass(tier)}`;
+        const eloEl = box.querySelector(".wr-grade-elo");
+        if (eloEl) eloEl.textContent = `${g.elo} Elo`;
+      }
+    } catch (_) {}
     try {
       const hostToken = getHostToken();
       const seatToken = getSeatToken();
@@ -2913,10 +2959,10 @@
       const r = await apiPost(`/api/rooms/${roomId}/seat_difficulty`, payload, { timeoutMs: 6000 });
       if (!r.ok) {
         const msg = r.data?.error || ("HTTP " + r.status);
-        showToast("Failed to set difficulty: " + msg, "err");
+        showToast("Failed to set the bot's grade: " + msg, "err");
       }
     } catch (e) {
-      showToast("Network error setting difficulty.", "err");
+      showToast("Network error setting the bot's grade.", "err");
     }
   }
 
@@ -2990,7 +3036,7 @@
   // ── Table Setup: add or remove seats without closing the room ──
   // Before this, the only way to play with one more friend (or one fewer bot)
   // than the room was created with was to close it and make a new one, and
-  // everybody already waiting had to be re-invited. Quick Play keeps its own
+  // everybody already waiting had to be re-invited. Head to Head keeps its own
   // fixed 2/3/4 chooser: its matchmaking hands out a four-seat room, so the
   // table size there is not the host's to move.
   const WR_MIN_TABLE = 2, WR_MAX_TABLE = 8;
@@ -3520,11 +3566,10 @@
 
     // ── the body ──
     if (isAI) {
-      tile.appendChild(_wrEl("div", "wr-seat-blurb",
-        String(s.difficulty || "medium").toLowerCase() === "hard"
-          ? "Hard bots hate-draft, deny your pairs and remember what you grabbed last round."
-          : "Plays a full hand and never leaves early, so a seat it holds can't stall the game."));
-      const dl = _wrEl("div", "wr-seat-sublabel", "Difficulty");
+      // What this particular grade is actually like to play against. It reads
+      // off the ladder position, so it stays true as the ladder is re-tuned.
+      tile.appendChild(_wrEl("div", "wr-seat-blurb", bmGradeBlurb(s.difficulty)));
+      const dl = _wrEl("div", "wr-seat-sublabel", "Grade");
       tile.appendChild(dl);
       tile.appendChild(buildDifficultyBox(s, ctx.isHost));
     } else if (isOpen) {
@@ -3683,7 +3728,7 @@
   function _wrRenderCapacity(ctx) {
     const wrap = document.getElementById("wr-capacity");
     if (!wrap) return;
-    // Quick Play, competitive and bracket matches own their own shape, so the
+    // Head to Head, competitive and bracket matches own their own shape, so the
     // spots are not theirs to change and this read-out would only mislead.
     const show = !ctx.room.quick_play && !ctx.room.competitive && !ctx.room.tournament;
     wrap.style.display = show ? "" : "none";
@@ -4112,7 +4157,7 @@
       ? latestPayload.viewer.seat_index : null;
     const isRankedRoom = !!_room.ranked;
     document.getElementById("wr-title").textContent = isQuickPlay
-      ? "Quick Play Lobby"
+      ? "Head to Head Lobby"
       : (isHost
           ? (isComp ? "⚔️ Competitive 1v1 Room Created!"
              : isRankedRoom ? "🏅 Competitive Room Created!"
@@ -4839,12 +4884,12 @@
   // The New Current modal owns visibility, and Browse Open Currents is wired
   // from the Player Home (#stats-join-toggle-btn / #stats-join-go-btn).
 
-  // ── Quick Play: dedicated four-seat matchmaking queue ─────────
+  // ── Head to Head: dedicated four-seat matchmaking queue ─────────
   // The first player stays on the home page while their queue room waits. As
   // soon as a second player joins, both clients enter the same lobby. Players
   // 3 and 4 may keep joining until those spots become bots.
   let _qmSearch = null;
-  // Quick Play never dead-ends. If nobody else is searching after this long we
+  // Head to Head never dead-ends. If nobody else is searching after this long we
   // stop pretending and put the player in a game against bots. The server owns
   // the real number (QUICK_PLAY_BOT_FALLBACK_SECONDS) and sends it down with
   // the queue counts; this is only the value used before the first reply lands.
@@ -4904,14 +4949,14 @@
     // is the one that writes, so it keeps its reconnect messages.
     if (countdownOnly) return;
     if (bar) bar.classList.remove("qm-bots-soon");
-    _qmSetStatus("Waiting for another Quick Play player…");
+    _qmSetStatus("Waiting for another Head to Head player…");
   }
   function _qmSetStatus(message) {
     const statusEl = document.getElementById("qm-search-status");
     if (statusEl) statusEl.textContent = message;
   }
   function _qmShowBar() {
-    _qmSetStatus("Finding Quick Play players…");
+    _qmSetStatus("Finding Head to Head players…");
     const secEl = document.getElementById("qm-search-secs");
     if (secEl) secEl.textContent = "0s";
     const cntEl = document.getElementById("qm-search-counts");
@@ -5006,7 +5051,7 @@
   }
 
   function _qmEnterLobby(search) {
-    _qmEnterRoom(search, "Players found! Opening the Quick Play lobby…");
+    _qmEnterRoom(search, "Players found! Opening the Head to Head lobby…");
   }
 
   async function _qmFallbackToBots(search) {
@@ -5031,7 +5076,7 @@
       if (res.data?.matched) {
         search.botsRequested = false;
         if (bar) bar.classList.remove("qm-bots-soon");
-        _qmSetStatus("Someone joined! Opening the Quick Play lobby…");
+        _qmSetStatus("Someone joined! Opening the Head to Head lobby…");
         return;
       }
       throw new Error(res.data?.error || "could not start a bot match");
@@ -5063,7 +5108,7 @@
         search.roomId = "";
         search.seatToken = "";
         search.hostToken = "";
-        _qmSetStatus("Reconnecting to Quick Play…");
+        _qmSetStatus("Reconnecting to Head to Head…");
         search.busy = false;
         await _qmJoinQueue(search);
         return;
@@ -5075,7 +5120,7 @@
         _qmWaitingStatus(search, false);
       }
     } catch (_) {
-      if (_qmSearch === search) _qmSetStatus("Quick Play is reconnecting…");
+      if (_qmSearch === search) _qmSetStatus("Head to Head is reconnecting…");
     } finally {
       if (_qmSearch === search) search.busy = false;
     }
@@ -5098,13 +5143,13 @@
         return;
       }
       if (!res.ok || !res.data?.ok) {
-        throw new Error(res.data?.error || "Quick Play is unavailable.");
+        throw new Error(res.data?.error || "Head to Head is unavailable.");
       }
       search.roomId = normalizeRoomId(res.data.room_id);
       search.seatToken = String(res.data.seat_token || "");
       search.hostToken = String(res.data.host_token || "");
       if (!search.roomId || !search.seatToken) {
-        throw new Error("Quick Play returned an incomplete room.");
+        throw new Error("Head to Head returned an incomplete room.");
       }
       if (res.data.matched) {
         _qmEnterLobby(search);
@@ -5115,7 +5160,7 @@
       search.pollId = setInterval(_qmPollRoom, 2500);
     } catch (_) {
       if (_qmSearch !== search) return;
-      _qmSetStatus("Quick Play is reconnecting…");
+      _qmSetStatus("Head to Head is reconnecting…");
       if (search.retryId) clearTimeout(search.retryId);
       search.retryId = setTimeout(() => {
         search.retryId = null;
@@ -5128,7 +5173,7 @@
 
   async function startQuickMatch() {
     if (_qmSearch) {
-      try { showToast("Quick Play is already searching.", "info"); } catch (_) {}
+      try { showToast("Head to Head is already searching.", "info"); } catch (_) {}
       return;
     }
     const search = {
@@ -5158,6 +5203,554 @@
   }
 
   document.getElementById("qm-cancel-btn").addEventListener("click", () => cancelQuickMatch(false));
+
+  // ── Head to Head ───────────────────────────────────────────────────────────
+  // The Head to Head card opens this: a four-critter table, you and three bots,
+  // and the three bots are deliberately NOT the same as each other. Every bot
+  // wears a grade from F- to S+ and the Elo behind that grade is shown next to
+  // it, because the Elo is measured rather than decorative: calibrate_bots.py
+  // sits the grades down against each other for hundreds of matches and fits
+  // the ratings to how they actually finish. The ladder is served by
+  // /api/bot_grades so this screen never carries its own copy of it; the list
+  // below is only what to draw in the half-second before that answers, and if
+  // the request fails outright.
+  const BM_FALLBACK_GRADES = [
+    { id: "gilbert_carter",          grade: "Gilbert Thomas Carter",   elo: 500,  tier: "F",   unlock: "",       requires: "" },
+    { id: "jeanne_villepreux_power", grade: "Jeanne Villepreux-Power", elo: 600,  tier: "E",   unlock: "ladder", requires: "gilbert_carter" },
+    { id: "edward_forbes",           grade: "Edward Forbes",           elo: 700,  tier: "D",   unlock: "ladder", requires: "jeanne_villepreux_power" },
+    { id: "steve_irwin",             grade: "Steve Irwin",             elo: 900,  tier: "C",   unlock: "ladder", requires: "edward_forbes" },
+    { id: "william_beebe",           grade: "William Beebe",           elo: 1100, tier: "B",   unlock: "ladder", requires: "steve_irwin" },
+    { id: "eugenie_clark",           grade: "Eugenie Clark",           elo: 1300, tier: "A",   unlock: "ladder", requires: "william_beebe" },
+    { id: "rachel_carson",           grade: "Rachel Carson",           elo: 1500, tier: "S",   unlock: "ladder", requires: "eugenie_clark" },
+    { id: "jacques_cousteau",        grade: "Jacques Cousteau",        elo: 1700, tier: "S+",  unlock: "ladder", requires: "rachel_carson" },
+    { id: "charles_darwin",          grade: "Charles Darwin",          elo: 1900, tier: "S++", unlock: "ladder", requires: "jacques_cousteau" },
+    { id: "giant_squid",             grade: "Giant Squid",             elo: 2150, tier: "GS",  unlock: "story",  requires: "charles_darwin" },
+  ];
+  // Bands are ladder POSITIONS, not ids, so re-tuning the ladder never leaves a
+  // band pointing at a grade that moved. lo/hi are inclusive, and no band ever
+  // reaches the Giant Squid: it is not something you can be handed by pressing
+  // a preset, it is something you go and beat.
+  const BM_BANDS = [
+    { id: "warmup", label: "Warm Up", lo: 0, hi: 2, note: "learning the tides" },
+    { id: "rising", label: "Rising",  lo: 2, hi: 4, note: "a real game" },
+    { id: "sharp",  label: "Sharp",   lo: 4, hi: 6, note: "they punish mistakes" },
+    { id: "abyss",  label: "Abyss",   lo: 6, hi: 8, note: "the deep end" },
+    { id: "ladder", label: "Full Ladder", lo: 0, hi: 8, note: "anything can turn up" },
+  ];
+  const BM_FACES = ["\ud83d\udc19", "\ud83e\udd88", "\ud83d\udc21"];
+  let _bmGrades = BM_FALLBACK_GRADES.slice();
+  let _bmPick = [];            // three ladder ids, weakest first
+  let _bmBand = "rising";
+  let _bmBusy = false;
+  let _bmGradesLoaded = false;
+
+  // ── Climbing the ladder ─────────────────────────────────────────────────
+  // Every rung is earned by BEATING the one below it: not placing above it,
+  // winning the game it was sitting in. The bottom rung is always open, or
+  // there would be no way onto the ladder at all.
+  //
+  // The record lives on the player's own account, next to the rest of their
+  // progress (`stats.bots_beaten`), and it is written by the same end-of-game
+  // save that writes their score. Like every other unlock in this game it is
+  // a REWARD GATE, not a security boundary: it is checked here, on the
+  // client, against the player's own collection, and the server will still
+  // seat whatever a hand-written request asks for. Nothing is at stake but
+  // the climb.
+  function bmBeatenIds() {
+    try {
+      const fromStats = (typeof window.__ccBotsBeaten === "function")
+        ? window.__ccBotsBeaten() : [];
+      return Array.isArray(fromStats) ? fromStats.map(String) : [];
+    } catch (_) { return []; }
+  }
+
+  // Has this player finished the story? The chain ends with the Giant Squid
+  // 1v1: beat it and the Red Beaded Anemone is yours. Owning that critter is
+  // the proof, and it is the only thing that opens the Squid as an opponent.
+  // Read through the window bridge rather than the gallery's own scope, which
+  // is not in reach from here.
+  function bmStoryUnlocked() {
+    try {
+      const icons = (typeof window.__fishGetUnlockedIcons === "function")
+        ? window.__fishGetUnlockedIcons() : [];
+      return icons.some(p => String(p || "").includes("sea-anemone"));
+    } catch (_) { return false; }
+  }
+
+  function bmGradeLocked(id) {
+    const g = bmGradeById(id);
+    if (!g) return false;
+    // The Squid keeps its own story gate AND has to be at the top of a ladder
+    // you have actually climbed. It is the last rung; it is not a shortcut.
+    if (g.unlock === "story" && !bmStoryUnlocked()) return true;
+    if (!g.requires) return false;   // the bottom rung is always open
+    return !bmBeatenIds().includes(String(g.requires));
+  }
+
+  function bmLockNote(id) {
+    const g = bmGradeById(id);
+    if (!g) return "";
+    if (g.unlock === "story" && !bmStoryUnlocked()) {
+      return "Beat the Giant Squid to bring it to your table.";
+    }
+    const need = g.requires ? bmGradeById(g.requires) : null;
+    if (!need) return "";
+    return `Win a game against ${need.grade} to unlock ${g.grade}.`;
+  }
+
+  // The highest rung this player has actually opened. Everything at or below
+  // it is theirs to pick; everything above is shown, locked, on purpose.
+  function bmTopUnlockedIndex() {
+    let top = 0;
+    for (let i = 0; i < _bmGrades.length; i++) {
+      if (!bmGradeLocked(_bmGrades[i].id)) top = i;
+    }
+    return top;
+  }
+
+  function bmGradeById(id) {
+    return _bmGrades.find(g => g.id === id) || _bmGrades[Math.floor(_bmGrades.length / 2)];
+  }
+  function bmIndexOf(id) {
+    const i = _bmGrades.findIndex(g => g.id === id);
+    return i < 0 ? Math.floor(_bmGrades.length / 2) : i;
+  }
+  // The letter drives the badge colour: F red, D amber, C green, B blue,
+  // A purple, S gold.
+  // The badge colour key. It comes off the ladder rather than off the first
+  // letter of the name, because "SS" and "S" share a letter and share nothing
+  // else, and "Giant Squid" has no letter to share at all.
+  function bmTierLetter(gradeOrId) {
+    const q = String(gradeOrId || "").trim();
+    const hit = _bmGrades.find(g => g.id === q || g.grade === q || g.tier === q);
+    if (hit && hit.tier) return hit.tier;
+    const c = q.charAt(0).toUpperCase();
+    // "".includes("") is true for every string, so an empty grade would have
+    // walked out of here as an empty tier and painted an unstyled badge.
+    return (c && "FEDCBAS".includes(c)) ? c : "C";
+  }
+  // The tier as a CSS class token. "S+" and "S++" are real tiers and a bare
+  // "+" cannot appear in a selector unescaped, so it is spelled "P": the
+  // stylesheet defines .bm-tier-SP and .bm-tier-SPP to match.
+  function bmTierClass(tier) {
+    return String(tier || "").trim().replace(/\+/g, "P").replace(/[^A-Za-z0-9_-]/g, "");
+  }
+  // The badge carries the TIER, never the name: the rungs are people now, and
+  // "Jeanne Villepreux-Power" is not something that fits in a 40px badge.
+  function bmBadge(gradeOrId, prefix) {
+    const el = document.createElement("span");
+    const p = prefix || "bm";
+    const tier = bmTierLetter(gradeOrId);
+    el.className = `${p}-grade-badge ${p}-tier-${bmTierClass(tier)}`;
+    el.textContent = tier;
+    return el;
+  }
+
+  // A sentence per stretch of the ladder, so a grade says something a player
+  // can act on rather than just being a letter.
+  // The boundaries follow the knobs, not the letters: rollout confirmation
+  // starts at C+, the runoff at B+, so the sentences change where the bot
+  // actually changes.
+  // The boundaries follow the knobs, not the letters: rollout confirmation
+  // starts at B, the runoff at S, so the sentences change where the bot
+  // actually changes.
+  // A sentence per rung, so a bot says something a player can act on rather
+  // than just wearing a name. They follow the KNOBS, not the letters: rollout
+  // confirmation starts at William Beebe, the runoff at Rachel Carson, so the
+  // sentences change where the bot actually changes.
+  // A sentence per rung, so a bot says something a player can act on rather
+  // than just wearing a name. They follow the KNOBS, not the letters: rollout
+  // confirmation starts at William Beebe, the runoff at Rachel Carson, so the
+  // sentences change where the bot actually changes.
+  //
+  // The table lives INSIDE the function on purpose. The lobby-tile tests build
+  // a cut-down page out of named functions lifted from this file, so anything
+  // this one reaches for outside itself is simply not there when they run it,
+  // and the seat tiles throw instead of rendering.
+  function bmGradeBlurb(id) {
+    const g = bmGradeById(id);
+    if (!g) return "";
+    const blurbs = {
+      gilbert_carter:
+        "Plays whatever catches its eye, including the moves better bots refuse to look at.",
+      jeanne_villepreux_power:
+        "Picks close to at random, and cannot see past the turn it is on.",
+      edward_forbes:
+        "Has the beginnings of a method, but no follow-up and no idea what you are building.",
+      steve_irwin:
+        "Knows the basics, misses the follow-up, and can be out-planned.",
+      william_beebe:
+        "Picks a plan, checks its move by playing it out, and punishes a careless pool.",
+      eugenie_clark:
+        "Commits to a strategy, watches what you draft, and rarely gives a turn away.",
+      rachel_carson:
+        "Plans several turns ahead, denies the cards you want, and re-checks its best two.",
+      jacques_cousteau:
+        "Reads the whole table, blocks the card you needed, and is hard to surprise.",
+      charles_darwin:
+        "Simulates several possible games before every move. Mistakes are the only way past it.",
+      giant_squid:
+        "Every handicap off and every rollout paid for. It plays the game the way the engine actually sees it.",
+    };
+    const named = blurbs[g.id];
+    if (named) return named;
+    // A rung the ladder grew since this build shipped: fall back to position.
+    if (g.unlock === "story") return blurbs.giant_squid;
+    const i = bmIndexOf(id);
+    const last = Math.max(1, _bmGrades.length - 1);
+    if (i / last < 0.25) return blurbs.jeanne_villepreux_power;
+    if (i / last < 0.55) return blurbs.steve_irwin;
+    if (i / last < 0.80) return blurbs.eugenie_clark;
+    return blurbs.charles_darwin;
+  }
+
+  async function bmLoadGrades() {
+    if (_bmGradesLoaded) return;
+    try {
+      const r = await apiFetch("/api/bot_grades", { method: "GET", timeoutMs: 6000 });
+      const list = r.ok && Array.isArray(r.data?.grades) ? r.data.grades : null;
+      if (list && list.length) {
+        // Carry the WHOLE row across. This used to keep only id/grade/elo and
+        // drop tier, unlock and requires on the floor, so the moment the
+        // server answered, every badge lost its colour and every locked rung
+        // quietly unlocked itself: the gate held only while the request was
+        // still in flight.
+        _bmGrades = list.map(g => ({
+          id: String(g.id || ""),
+          grade: String(g.grade || "?"),
+          elo: Number(g.elo) || 0,
+          tier: String(g.tier || ""),
+          unlock: String(g.unlock || ""),
+          requires: String(g.requires || ""),
+        })).filter(g => g.id);
+        _bmGradesLoaded = true;
+      }
+    } catch (_) { /* the fallback ladder above is a fine thing to draw */ }
+  }
+
+  // Three DIFFERENT opponents from a band. Different is the point: a table of
+  // three identical bots is one opponent copied three times, and the whole
+  // reason to have ten of them is that a game can hold several at once.
+  function bmRoll(bandId) {
+    const band = BM_BANDS.find(b => b.id === bandId) || BM_BANDS[1];
+    // A band never reaches a rung this player has not opened. Pressing a
+    // preset is not how you skip the climb, and it is certainly not how you
+    // meet the Squid: the Squid is never in a band at all, earned or not.
+    const openTop = (() => {
+      const climbed = bmTopUnlockedIndex();
+      for (let i = Math.min(climbed, _bmGrades.length - 1); i >= 0; i--) {
+        if (_bmGrades[i].unlock !== "story" && !bmGradeLocked(_bmGrades[i].id)) return i;
+      }
+      return 0;
+    })();
+    const hi = Math.min(band.hi, openTop);
+    const lo = Math.max(0, Math.min(band.lo, hi));
+    // Every rung in the band that this player may actually be dealt. Clamping
+    // to the top of the climb is not enough on its own: a record can name a
+    // rung out of order (an old save, a table dealt before the chain existed),
+    // which opens the one above it while leaving the ones below shut, and a
+    // range that only checks its ENDS would deal one of those shut rungs.
+    // So every candidate is asked, one at a time.
+    const pool = [];
+    for (let i = lo; i <= hi; i++) {
+      if (_bmGrades[i].unlock === "story") continue;
+      if (bmGradeLocked(_bmGrades[i].id)) continue;
+      pool.push(i);
+    }
+    // A player who has opened nothing in this band still gets a table: the
+    // bottom rung is open to everyone, and an empty roll would be a dead
+    // screen with no opponents on it.
+    if (!pool.length) pool.push(0);
+    let picks;
+    if (pool.length <= 3) {
+      // A band exactly three wide IS the answer; a narrower one repeats its
+      // top grade rather than inventing one outside the band the player chose.
+      picks = pool.slice();
+      while (picks.length < 3) picks.push(pool[pool.length - 1]);
+    } else {
+      const bag = pool.slice();
+      picks = [];
+      for (let n = 0; n < 3; n++) {
+        picks.push(bag.splice(Math.floor(Math.random() * bag.length), 1)[0]);
+      }
+    }
+    picks.sort((a, b) => a - b);
+    _bmPick = picks.map(i => _bmGrades[i].id);
+  }
+
+  function bmRenderBands() {
+    const wrap = document.getElementById("bm-bands");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    const climbed = bmTopUnlockedIndex();
+    BM_BANDS.forEach(band => {
+      // Show the band only as far as this player has actually climbed, so a
+      // preset never advertises an opponent it is not allowed to deal.
+      const hi = Math.max(0, Math.min(band.hi, _bmGrades.length - 1, climbed));
+      const lo = Math.max(0, Math.min(band.lo, hi));
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "bm-band" + (_bmBand === band.id ? " active" : "");
+      // The tier, not the name: "F to C" is a preset chip, "Gilbert Thomas
+      // Carter to Steve Irwin" is a paragraph.
+      const span = (lo === hi)
+        ? _bmGrades[lo].tier
+        : `${_bmGrades[lo].tier} to ${_bmGrades[hi].tier}`;
+      btn.innerHTML =
+        `${band.label}<span class="bm-band-range">${span} · ${band.note}</span>`;
+      btn.addEventListener("click", () => {
+        _bmBand = band.id;
+        bmRoll(band.id);
+        bmRender();
+      });
+      wrap.appendChild(btn);
+    });
+  }
+
+  function bmRenderBots() {
+    const wrap = document.getElementById("bm-bots");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    _bmPick.forEach((id, i) => {
+      const g = bmGradeById(id);
+      const row = document.createElement("div");
+      row.className = "bm-bot";
+
+      const face = document.createElement("div");
+      face.className = "bm-bot-face";
+      face.textContent = BM_FACES[i] || "🤖";
+      row.appendChild(face);
+
+      const main = document.createElement("div");
+      main.className = "bm-bot-main";
+
+      const top = document.createElement("div");
+      top.className = "bm-bot-top";
+      const nm = document.createElement("span");
+      nm.className = "bm-bot-name";
+      nm.textContent = g.grade;
+      top.appendChild(nm);
+      top.appendChild(bmBadge(g.id, "bm"));
+      const elo = document.createElement("span");
+      elo.className = "bm-bot-elo";
+      elo.innerHTML = `<b>${g.elo}</b> Elo`;
+      top.appendChild(elo);
+      main.appendChild(top);
+
+      const selWrap = document.createElement("div");
+      selWrap.className = "bm-select-wrap";
+      const sel = document.createElement("select");
+      sel.className = "bm-grade-select";
+      sel.setAttribute("aria-label", `Opponent ${i + 1}`);
+      _bmGrades.forEach(opt => {
+        const o = document.createElement("option");
+        o.value = opt.id;
+        const locked = bmGradeLocked(opt.id);
+        // Shown, always, and shown as locked rather than hidden: the whole
+        // point of the Squid is that you can see it before you can have it.
+        o.textContent = (locked ? "🔒 " : "")
+          + `${opt.grade}  ·  ${opt.tier}  ·  ${opt.elo} Elo`;
+        o.disabled = locked;
+        if (opt.id === id) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.addEventListener("change", () => {
+        if (bmGradeLocked(sel.value)) {
+          // A disabled <option> should never be selectable, but a keyboard, a
+          // stale render or an old browser can all get past that, and the one
+          // thing that must not happen is a locked grade quietly sitting down.
+          sel.value = _bmPick[i];
+          try { showToast(bmLockNote(sel.value) || "That grade is locked.", "info"); } catch (_) {}
+          return;
+        }
+        _bmPick[i] = sel.value;
+        // Hand-picking a grade is no longer any band's roll, so no band is lit.
+        _bmBand = "";
+        bmRender();
+      });
+      selWrap.appendChild(sel);
+      main.appendChild(selWrap);
+
+      row.appendChild(main);
+      wrap.appendChild(row);
+    });
+  }
+
+  // The Giant Squid, on the screen whether or not it has been earned. Locked,
+  // it tells you what to go and do; unlocked, it takes the last seat.
+  function bmRenderSquid() {
+    const host = document.getElementById("bm-squid");
+    if (!host) return;
+    const squid = _bmGrades.find(g => g.unlock === "story");
+    if (!squid) { host.style.display = "none"; return; }
+    host.style.display = "";
+    const locked = bmGradeLocked(squid.id);
+    const seated = _bmPick.includes(squid.id);
+    host.className = "bm-squid" + (locked ? " is-locked" : " is-open");
+    host.innerHTML = "";
+
+    const face = document.createElement("div");
+    face.className = "bm-squid-face";
+    face.textContent = locked ? "🔒" : "🦑";
+    host.appendChild(face);
+
+    const main = document.createElement("div");
+    main.className = "bm-squid-main";
+    const top = document.createElement("div");
+    top.className = "bm-squid-top";
+    const nm = document.createElement("span");
+    nm.className = "bm-squid-name";
+    nm.textContent = squid.grade;
+    top.appendChild(nm);
+    const elo = document.createElement("span");
+    elo.className = "bm-squid-elo";
+    elo.innerHTML = `<b>${squid.elo}</b> Elo`;
+    top.appendChild(elo);
+    main.appendChild(top);
+    const note = document.createElement("div");
+    note.className = "bm-squid-note";
+    note.textContent = locked
+      ? bmLockNote(squid.id)
+      : (seated ? "At your table. Good luck."
+                : "Every handicap off. It plays the game the way the engine sees it.");
+    main.appendChild(note);
+    host.appendChild(main);
+
+    if (!locked && !seated) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "bm-squid-btn";
+      btn.id = "bm-squid-seat";
+      btn.textContent = "Bring it in →";
+      btn.addEventListener("click", () => {
+        // It takes the last chair, so the other two opponents stay whatever
+        // the player had already chosen.
+        if (_bmPick.length !== 3) bmRoll(_bmBand || "rising");
+        _bmPick[2] = squid.id;
+        _bmBand = "";
+        bmRender();
+      });
+      host.appendChild(btn);
+    }
+  }
+
+  function bmRender() {
+    bmRenderBands();
+    bmRenderBots();
+    bmRenderSquid();
+    const avgEl = document.getElementById("bm-avg-elo");
+    if (avgEl && _bmPick.length) {
+      const sum = _bmPick.reduce((t, id) => t + (bmGradeById(id).elo || 0), 0);
+      avgEl.textContent = String(Math.round(sum / _bmPick.length));
+    }
+  }
+
+  async function openBotMatch() {
+    const modal = document.getElementById("bot-match-modal");
+    if (!modal) return;
+    // A search still running would keep polling behind this screen and could
+    // yank the player into a lobby mid-choice.
+    try { await cancelQuickMatch(true); } catch (_) {}
+    document.getElementById("bm-err").textContent = "";
+    if (!_bmPick.length) bmRoll(_bmBand || "rising");
+    bmRender();
+    modal.classList.add("open");
+    // The ladder usually arrives before the player has read the first band.
+    bmLoadGrades().then(() => {
+      if (!modal.classList.contains("open")) return;
+      // Ids survive a reload of the ladder; positions might not.
+      _bmPick = _bmPick.filter(id => _bmGrades.some(g => g.id === id));
+      if (_bmPick.length < 3) bmRoll(_bmBand || "rising");
+      bmRender();
+    });
+  }
+
+  function closeBotMatch() {
+    const modal = document.getElementById("bot-match-modal");
+    if (modal) modal.classList.remove("open");
+  }
+
+  async function bmStart() {
+    if (_bmBusy) return;
+    if (_bmPick.length !== 3) { bmRoll(_bmBand || "rising"); bmRender(); }
+    // Last gate before it leaves the browser. Anything locked that reached the
+    // table would be a reward handed out by accident.
+    if (_bmPick.some(bmGradeLocked)) {
+      const err = document.getElementById("bm-err");
+      if (err) err.textContent = bmLockNote(_bmPick.find(bmGradeLocked))
+        || "One of those grades is still locked.";
+      return;
+    }
+    const btn = document.getElementById("bm-play");
+    const label = btn ? btn.querySelector(".bm-btn-label") : null;
+    const err = document.getElementById("bm-err");
+    _bmBusy = true;
+    if (btn) btn.disabled = true;
+    if (label) label.textContent = "Casting off…";
+    if (err) err.textContent = "";
+    const name = (window.__fishNickname ? window.__fishNickname() : "") || "Player";
+    const code = freshRoomCode(5);
+    const createKey = `ck_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    try { localStorage.setItem(createKeyKey(), createKey); } catch (_) {}
+    try {
+      // One request: open the table, seat the three graded bots, and start.
+      // A bot match has nobody to wait for, so a lobby would only be a screen
+      // the player has to press past.
+      const r = await apiPost("/api/rooms", {
+        create_key: createKey, host_name: name, room_id: code,
+        total_players: 4, human_players: 1, ai_players: 3,
+        visibility: "private", password: code,
+        ai_difficulties: _bmPick.slice(),
+        start_now: true,
+      }, { timeoutMs: 15000 });
+      if (!r.ok || !r.data?.ok) {
+        throw new Error(r.data?.error || ("HTTP " + r.status));
+      }
+      if (r.data.started === false && r.data.start_error) {
+        throw new Error(r.data.start_error);
+      }
+      const rId = normalizeRoomId(r.data.room_id || code);
+      if (!rId) throw new Error("the table came back without a code");
+      roomId = rId;
+      if (r.data.host_token) setHostToken(r.data.host_token);
+      if (r.data.seat_token) setSeatToken(r.data.seat_token);
+      _myRoomVisibility = "private";
+      _myRoomCode = code;
+      compMode = false;
+      const badge = document.getElementById("pv-my-name-badge");
+      if (badge) badge.textContent = name;
+      closeBotMatch();
+      const grades = Array.isArray(r.data.ai_grades) && r.data.ai_grades.length
+        ? r.data.ai_grades
+        : _bmPick.map(id => bmGradeById(id).grade);
+      try { showToast(`Head to Head: you vs ${grades.join(", ")}.`, "ok"); } catch (_) {}
+      enterRoom(rId);
+    } catch (e) {
+      ccReport("bot_match_failed", {
+        grades: _bmPick.join(","),
+        error: (e && (e.message || e.name)) || String(e),
+      }, "warn");
+      if (err) err.textContent = "Could not start the match: " + ((e && e.message) || "try again.");
+    } finally {
+      _bmBusy = false;
+      if (btn) btn.disabled = false;
+      if (label) label.textContent = "Dive In →";
+    }
+  }
+
+  document.getElementById("bm-close").addEventListener("click", closeBotMatch);
+  document.getElementById("bot-match-modal").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("bot-match-modal")) closeBotMatch();
+  });
+  document.getElementById("bm-shuffle").addEventListener("click", () => {
+    bmRoll(_bmBand || "ladder");
+    bmRender();
+  });
+  document.getElementById("bm-play").addEventListener("click", bmStart);
+  document.getElementById("bm-people-btn").addEventListener("click", () => {
+    closeBotMatch();
+    startQuickMatch();
+  });
 
   // Modal close
   document.getElementById("lb-browser-close").addEventListener("click", closeLobbyBrowser);
@@ -9611,6 +10204,21 @@
       }
       nm.appendChild(plabel);
       nm.appendChild(nmText);
+      // A bot wears its tier at the table, not only in the lobby. In a Head
+      // to Head the game starts without a lobby at all, so this is the only
+      // place the player can see WHICH of the ten they are up against,
+      // and it is worth knowing mid-game: an S+ across the table is a
+      // different game from a D.
+      {
+        const _gMeta = (_latestSeatsForSurf || []).find(x => x && x.index === p.index) || null;
+        if (_gMeta && _gMeta.kind === "ai" && _gMeta.grade) {
+          const gb = bmBadge(_gMeta.grade, "wr");
+          gb.classList.add("pv-seat-grade");
+          gb.title = `${p.name || "This bot"} plays at grade ${_gMeta.grade}`
+            + (_gMeta.grade_elo ? ` (${_gMeta.grade_elo} Elo)` : "");
+          nm.appendChild(gb);
+        }
+      }
       nm.title = `${p.name || `Player ${p.index + 1}`}, report by typing "P${p.index + 1} is AFK"`;
 
       const sc = document.createElement("div");
@@ -9631,16 +10239,36 @@
       const _seatMeta = (_latestSeatsForSurf || []).find(s => s && s.index === p.index) || null;
       const _isAway     = Boolean(_seatMeta && _seatMeta.is_away);
       const _isEligible = Boolean(_seatMeta && _seatMeta.inactive_eligible);
-      // Removed by vote: the chair is a bot now, and the pill has to say so or
-      // the table is left wondering why that player stopped answering.
-      if (_seatMeta && _seatMeta.kicked) {
+      // Removed by vote. Nobody took the chair over, so the seat has to READ as
+      // out of the game: the stamp goes straight over the face, not off to one
+      // side where it could be mistaken for an ordinary status pill, and the
+      // avatar goes grey behind it. Otherwise the table is left wondering why
+      // that player stopped answering.
+      const _isKicked = Boolean(_seatMeta && _seatMeta.kicked);
+      if (_isKicked) {
+        seat.classList.add("pv-seat-kicked");
         const kb = document.createElement("div");
         kb.className = "pv-seat-kicked-badge";
-        kb.textContent = "Removed";
-        kb.title = `${p.name || "This player"} was removed by a vote. A bot is playing their seat.`;
-        seat.appendChild(kb);
+        // Two explicit lines, not a wrap. "KICKED OUT" does not fit one line
+        // across a 36px face, and left to wrap on its own the browser breaks
+        // it wherever it runs out of room: "KICKE / D OUT". Each line is its
+        // own element with nowrap, so the break can only ever land on the
+        // space. (The element's textContent is still "KICKED OUT".)
+        const kbTop = document.createElement("span");
+        kbTop.textContent = "KICKED";
+        const kbBot = document.createElement("span");
+        kbBot.textContent = " OUT";
+        kb.appendChild(kbTop);
+        kb.appendChild(kbBot);
+        kb.title = `${p.name || "This player"} was kicked out. Their seat is out of the game: nobody plays it, and their turns are skipped.`;
+        kb.setAttribute("aria-label", `${p.name || "This player"} was kicked out of the game`);
+        avBox.appendChild(kb);
       }
-      if (_isAway) {
+      if (_isKicked) {
+        // Nothing else belongs on a seat that is out: no Away pill, and no
+        // "Draw 2 Cards" affordance, because drawing for them would be exactly
+        // the stand-in play that a kick is supposed to put a stop to.
+      } else if (_isAway) {
         const ab = document.createElement("div");
         ab.className = "pv-seat-away-badge";
         ab.textContent = "🌊 Away";
@@ -15234,6 +15862,34 @@
     })();
     const _modeKey = isComp ? "competitive" : "normal";
     const _modded = ccGameWasModded();
+    // ── Climbing the bot ladder ────────────────────────────────────────────
+    // A rung is beaten by WINNING the game it sat in, outright: finishing top
+    // of the table on your own score. Not placing above it, not sharing the
+    // top with it. So a table of three bots hands over all three at once if
+    // you win, and hands over nothing if you do not, which is what makes the
+    // rung above worth the next game.
+    //
+    // A modded game does not count. A player who could deal themselves the
+    // deck did not beat anybody, and the achievements take the same view.
+    const _botsBeatenNow = (() => {
+      try {
+        if (_modded || !isWinner) return [];
+        const scores = (finalScores || [])
+          .map(x => Number(x && x.score || 0))
+          .filter(n => Number.isFinite(n));
+        if (!scores.length) return [];
+        // "Outright" is the whole rule: a tie for the top is not a win over
+        // the bot you tied with.
+        const top = Math.max(...scores);
+        if (!(Number(myScore) >= top)) return [];
+        if (scores.filter(n => n === top).length > 1) return [];
+        const ids = (_latestSeatsForSurf || [])
+          .filter(st => st && st.kind === "ai")
+          .map(st => String(st.difficulty || "").trim())
+          .filter(Boolean);
+        return Array.from(new Set(ids));
+      } catch (_) { return []; }
+    })();
     const xpAward = (typeof xpOverride === "number" && xpOverride >= 0)
       ? xpOverride
       : _modded
@@ -15408,6 +16064,14 @@
         const docRef = db.collection("users").doc(authUser.uid);
         const updates = {
           "stats.completed_games": firebase.firestore.FieldValue.increment(1),
+          // Merged rather than incremented: it is a SET of rungs, and beating
+          // the same bot twice does not open anything new. Read-modify-write
+          // is safe here because one player owns this document and finishes
+          // one game at a time.
+          ...(_botsBeatenNow.length ? { "stats.bots_beaten": Array.from(new Set([
+            ...((Array.isArray(cStats.bots_beaten) ? cStats.bots_beaten : []).map(String)),
+            ..._botsBeatenNow,
+          ])) } : {}),
           "stats.total_score": firebase.firestore.FieldValue.increment(myScore),
           "stats.total_xp": levelProgress.totalXp,
           "stats.level": levelProgress.level,
@@ -15579,6 +16243,21 @@
         // Core stats persisted → mark saved so polls don't re-write. (Set ONLY
         // after success; a failed write above leaves it unset and retries.)
         _lastSavedWinner = winner;
+        // Reflect the climb in memory too, so the Head to Head screen opens with
+        // the next rung already unlocked instead of after a reload.
+        if (_botsBeatenNow.length) {
+          try {
+            const merged = Array.from(new Set([
+              ...((Array.isArray(_activeProfile?.stats?.bots_beaten)
+                   ? _activeProfile.stats.bots_beaten : []).map(String)),
+              ..._botsBeatenNow,
+            ]));
+            _activeProfile = {
+              ...(_activeProfile || {}),
+              stats: { ...((_activeProfile && _activeProfile.stats) || {}), bots_beaten: merged },
+            };
+          } catch (_) {}
+        }
         console.info("[saveGameStats] core stats saved for", myGameName, "score", myScore, "players", playerCount, "comp", isComp);
         try { showToast("✓ Game saved to your stats & leaderboard", "info"); } catch (_) {}
         // Clan System: ask the server to score this finished game for my clan.
@@ -15645,6 +16324,14 @@
         nextStats.streak_days    = _newStreakDays;
         nextStats.daily_streak   = _streakInfo.current;
         nextStats.streak_longest = Math.max(_streakInfo.longest, Number(nextStats.streak_longest || 0));
+        // The ladder is a guest's to climb as well, and it comes with them if
+        // they make an account: guest migration copies the stats wholesale.
+        if (_botsBeatenNow.length) {
+          nextStats.bots_beaten = Array.from(new Set([
+            ...((Array.isArray(nextStats.bots_beaten) ? nextStats.bots_beaten : []).map(String)),
+            ..._botsBeatenNow,
+          ]));
+        }
         // Strategy tracking (guests): aggregate stats come from the end-game
         // strategy confirmation (_saveConfirmedStrategyStats), not the auto-
         // detected strategy here, see the signed-in note above. recent_games
@@ -17991,7 +18678,7 @@
     const isLobby = (latestPayload?.room?.phase || latestPayload?.phase) === "lobby";
     const isQuickPlayLobby = isLobby && Boolean(latestPayload?.room?.quick_play);
     return {
-      title: isQuickPlayLobby ? "Quick Play Lobby Chat" : (isLobby ? "Lobby Chat" : "Current Game Chat"),
+      title: isQuickPlayLobby ? "Head to Head Lobby Chat" : (isLobby ? "Lobby Chat" : "Current Game Chat"),
       subtitle: isLobby ? "Everyone in this lobby" : "Everyone in this match",
     };
   }
@@ -26647,10 +27334,15 @@
     });
 
     // ── Stats lobby buttons ───────────────────────────────────────
-    // Quick Play goes directly into the dedicated four-seat queue.
+    // The Head to Head card opens a four-critter table against three bots
+    // of three different grades, playable the second it is pressed. It used to
+    // put the player in a queue for other people, which on a quiet evening
+    // meant sitting in front of a spinner and then getting bots anyway. The
+    // queue is still there for anyone who wants a lobby of people, under
+    // Join Game; this button is the one that always has a game behind it.
     const _qmBtn = $a("stats-quickmatch-btn");
     if (_qmBtn) _qmBtn.addEventListener("click", () => {
-      startQuickMatch();
+      openBotMatch();
     });
 
     $a("stats-create-btn").addEventListener("click", () => {
@@ -26783,7 +27475,7 @@
           costEl.textContent = free
             ? "Your first username change is free."
             : `Changing your username costs ${PHST_RENAME_COIN_PRICE} Critter Coins. You have ${_myCritterCoins()}.`;
-          costEl.style.color = free ? "#4ec97a" : "#e0b040";
+          costEl.style.color = free ? "#0f7a46" : "#8a6010";
           costEl.style.display = "";
         }
         if (editBtn) {
@@ -27130,7 +27822,7 @@
         const costEl = $a("settings-nick-cost");
         if (costEl) {
           costEl.textContent = `Changing your username costs ${PHST_RENAME_COIN_PRICE} Critter Coins. You have ${_myCritterCoins()}.`;
-          costEl.style.color = "#e0b040";
+          costEl.style.color = "#8a6010";
           costEl.style.display = "";
         }
       } catch (e) {
@@ -28596,11 +29288,12 @@
     // the "after" is the real after, not just my own side of it.
 
     // The peer's public profile (the same users/{uid} doc the profile viewer
-    // reads), cached per trade so the ledger can show THEIR level and purse.
+    // reads), cached per trade so the projection can show THEIR level move.
     let _trPeer = null;          // { uid, name, avatar, xp, level, coins, passes } | null
     let _trPeerLoading = false;
     // What is currently typed into a picker input but not yet submitted, so the
-    // ledger can move while the player types instead of only after they commit.
+    // projection can move while the player types instead of only after they
+    // commit to a number.
     let _trDraft = null;         // { kind: "coins"|"passes"|"xp", n } | null
 
     async function _trLoadPeer(uid) {
@@ -28624,8 +29317,8 @@
         };
         _trRender();
       } catch (_) {
-        // A ledger with one side unknown is still worth showing: the peer keeps
-        // their name and avatar and the trade works exactly as before.
+        // The projection with one side unknown is still worth showing: it says
+        // their level is not loaded, and the trade works exactly as before.
       } finally {
         _trPeerLoading = false;
       }
@@ -28636,8 +29329,8 @@
       catch (_) { return null; }
     }
 
-    // My offer with the half-typed number folded in, so the ledger reflects the
-    // box the player is looking at rather than the last value they submitted.
+    // My offer with the half-typed number folded in, so the projection reflects
+    // the box the player is looking at rather than the last value submitted.
     function _trOfferWithDraft(offer) {
       const o = {
         coins: Math.max(0, Math.floor(Number(offer && offer.coins) || 0)),
@@ -28648,7 +29341,7 @@
       return o;
     }
 
-    // Everything the ledger needs, as plain numbers. Pure: it takes the two
+    // Everything the projection needs, as plain numbers. Pure: it takes the two
     // purses and the two offers and returns before/after for each side, so the
     // arithmetic can be tested without a browser (test_trade_ledger.js).
     function _trLedgerModel(mine, theirs, give, recv) {
@@ -28670,158 +29363,43 @@
 
     function _trFmt(n) { return Math.max(0, Math.floor(Number(n) || 0)).toLocaleString(); }
 
-    // now → after, as a chip that colours itself by direction. When nothing
-    // moves it is just the current number, so the ledger is not a wall of
-    // arrows before the player has offered anything.
-    function _trChipHtml(icon, now, after, opts) {
-      const o = opts || {};
-      const same = now === after;
-      const dir = same ? "" : (after > now ? " up" : " down");
-      const body = same
-        ? _trFmt(now)
-        : '<span class="cctr-purse-was">' + _trFmt(now) + '</span> → ' + _trFmt(after);
-      return '<span class="cctr-purse-chip' + dir + '" title="' + escapeHtml(o.title || "") + '">'
-        + icon + ' ' + body + (o.suffix ? ' ' + escapeHtml(o.suffix) : '') + '</span>';
+    // "Level 14 → Level 11", from two lifetime-XP totals. A LEVEL is public —
+    // it is on the leaderboard, on a profile and beside a name in a game — so
+    // this is drawn for both players. A BALANCE is public nowhere, so it is
+    // drawn only for the player whose balance it is.
+    function _trLevelLine(nowXp, afterXp) {
+      const a = _trLevelOf(nowXp), b = _trLevelOf(afterXp);
+      if (!a || !b) return '<div class="cctr-swing-lvl muted">Level unavailable</div>';
+      const same = a.level === b.level;
+      const cls = same ? "" : (b.level > a.level ? " up" : " down");
+      const txt = same ? ("Level " + a.level) : ("Level " + a.level + " → Level " + b.level);
+      return '<div class="cctr-swing-lvl' + cls + '">' + txt + '</div>';
     }
 
-    const _TR_COIN_ICO = '<img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coins" draggable="false">';
-
-    // Paint one side of the ledger.
-    //
-    // `reveal` is false for the peer, and that is a deliberate line. Their LEVEL
-    // is public — it is on the leaderboard, on their profile and beside their
-    // name in a game — so it is shown in full, before and after, which is the
-    // number this screen exists to make obvious. Their Critter Coin and voucher
-    // BALANCES are not public anywhere in the game, and opening a trade with
-    // somebody must not be a way to read their wallet. So their side shows what
-    // this trade GIVES them (+1,200) rather than what they hold.
-    function _trPaintSide(which, who, avatarUrl, purse, reveal) {
-      const q = (id) => $a("cctr-" + which + "-" + id);
-      if (which === "them") { const whoEl = $a("cctr-them-who"); if (whoEl) whoEl.textContent = who; }
-      const av = q("av");
-      if (av) {
-        let src = avatarUrl || "";
-        try { if (typeof normalizeAvatarUrl === "function") src = normalizeAvatarUrl(src) || src; } catch (_) {}
-        if (!src) src = "/avatars/mullet.png";
-        const finalSrc = _trImgSrc(src);
-        if (av.getAttribute("data-src") !== finalSrc) {
-          av.setAttribute("data-src", finalSrc);
-          av.src = finalSrc;
-        }
-        av.alt = who + " avatar";
-      }
-
-      const lvlEl = q("lvl"), afterEl = q("lvl-after");
-      const fill = q("fill"), ghost = q("ghost"), xpEl = q("xp"), purseEl = q("purse");
-
-      // Unknown side: name and avatar only. Better than inventing a level.
-      if (!purse) {
-        if (lvlEl) lvlEl.textContent = "Level -";
-        if (afterEl) { afterEl.hidden = true; afterEl.textContent = ""; }
-        if (fill) fill.style.width = "0%";
-        if (ghost) ghost.hidden = true;
-        if (xpEl) xpEl.textContent = "Level not loaded";
-        if (purseEl) purseEl.innerHTML = "";
-        return;
-      }
-
-      const pNow = _trLevelOf(purse.now.xp), pAfter = _trLevelOf(purse.after.xp);
-      const lvlNow = pNow ? pNow.level : null, lvlAfter = pAfter ? pAfter.level : null;
-      if (lvlEl) lvlEl.textContent = (lvlNow != null) ? ("Level " + lvlNow) : "Level -";
-      if (afterEl) {
-        if (lvlAfter != null && lvlNow != null && lvlAfter !== lvlNow) {
-          afterEl.hidden = false;
-          afterEl.className = "cctr-lvl-after " + (lvlAfter > lvlNow ? "up" : "down");
-          afterEl.textContent = "→ Level " + lvlAfter;
-        } else {
-          afterEl.hidden = true; afterEl.textContent = "";
-        }
-      }
-
-      // The bar shows progress through the CURRENT level; the ghost shows where
-      // the trade would leave it. A level change is drawn as a full bar in the
-      // direction of travel, because "72% of level 9" means nothing next to
-      // "68% of level 12" — what matters is which way it went.
-      const pct = (p) => (p && p.xpGoal > 0) ? Math.max(0, Math.min(100, (p.xpCurrent / p.xpGoal) * 100)) : 0;
-      const nowPct = pct(pNow), afterPct = pct(pAfter);
-      if (fill) fill.style.width = nowPct + "%";
-      if (ghost) {
-        if (!pAfter || purse.after.xp === purse.now.xp) {
-          ghost.hidden = true;
-        } else {
-          ghost.hidden = false;
-          const up = purse.after.xp > purse.now.xp;
-          ghost.className = "cctr-lvl-ghost " + (up ? "up" : "down");
-          if (lvlAfter !== lvlNow) {
-            // Crossed a level boundary: fill the whole bar in the direction.
-            ghost.style.left = "0%"; ghost.style.right = "0%"; ghost.style.width = "";
-          } else if (up) {
-            ghost.style.left = nowPct + "%"; ghost.style.right = ""; ghost.style.width = Math.max(0, afterPct - nowPct) + "%";
-          } else {
-            ghost.style.left = afterPct + "%"; ghost.style.right = ""; ghost.style.width = Math.max(0, nowPct - afterPct) + "%";
-          }
-        }
-      }
-      if (xpEl) {
-        const xpChanged = purse.after.xp !== purse.now.xp;
-        if (reveal) {
-          xpEl.textContent = pNow
-            ? (_trFmt(pNow.xpCurrent) + " / " + _trFmt(pNow.xpGoal) + " XP this level"
-               + (xpChanged ? "  ·  " + _trFmt(purse.now.xp) + " → " + _trFmt(purse.after.xp) + " total" : ""))
-            : "";
-        } else {
-          const d = purse.after.xp - purse.now.xp;
-          xpEl.textContent = d === 0 ? "" : (d > 0 ? "Gains " : "Gives up ") + _trFmt(Math.abs(d)) + " XP";
-        }
-      }
-
-      if (purseEl) {
-        const chips = [];
-        if (reveal) {
-          chips.push(_trChipHtml(_TR_COIN_ICO, purse.now.coins, purse.after.coins, { title: "Critter Coins" }));
-          chips.push(_trChipHtml("⭐", purse.now.xp, purse.after.xp, { title: "Lifetime XP", suffix: "XP" }));
-          // Vouchers only when somebody actually has or is being given one: an
-          // always-on "0" chip is noise on the great majority of trades.
-          if (purse.now.passes || purse.after.passes) {
-            chips.push(_trChipHtml("🎟️", purse.now.passes, purse.after.passes, { title: "Season Pass vouchers" }));
-          }
-        } else {
-          chips.push(_trDeltaChipHtml(_TR_COIN_ICO, purse.after.coins - purse.now.coins, ""));
-          chips.push(_trDeltaChipHtml("⭐", purse.after.xp - purse.now.xp, "XP"));
-          chips.push(_trDeltaChipHtml("🎟️", purse.after.passes - purse.now.passes, ""));
-        }
-        purseEl.innerHTML = chips.filter(Boolean).join("");
-      }
-    }
-
-    // The peer's side of a currency: what they get, not what they have.
-    // Returns "" when nothing moves, so their card stays quiet until it does.
-    function _trDeltaChipHtml(icon, delta, suffix) {
-      const d = Math.floor(Number(delta) || 0);
-      if (!d) return "";
-      return '<span class="cctr-purse-chip ' + (d > 0 ? "up" : "down") + '">'
-        + icon + ' ' + (d > 0 ? "+" : "-") + _trFmt(Math.abs(d)) + (suffix ? ' ' + suffix : '') + '</span>';
-    }
-
-    function _trRenderLedger() {
-      const led = $a("cc-trade-ledger");
-      if (!led) return;
+    // The two purses, the two offers, and the half-typed number, folded into
+    // the one model the projection draws from.
+    function _trRenderProjection() {
       const give = _trOfferWithDraft(_trMyOffer());
       const recv = _trPeerOffer();
       const mine = { coins: _trMyCoins(), passes: _trMyPasses(), xp: _trMyXp() };
       const theirs = _trPeer ? { coins: _trPeer.coins, passes: _trPeer.passes, xp: _trPeer.xp } : null;
-      const model = _trLedgerModel(mine, theirs, give, recv);
-
-      const myAvatar = (_activeProfile && _activeProfile.avatar_url) || "";
-      _trPaintSide("me", "You", myAvatar, model.me, true);
-      _trPaintSide("them", (_trPeer && _trPeer.name) || _trPeerName || "Them",
-                   (_trPeer && _trPeer.avatar) || "", model.them, false);
-      _trRenderSwing(model);
+      _trRenderSwing(_trLedgerModel(mine, theirs, give, recv));
     }
 
-    // The same swing, repeated inside the picker sheet: the sheet sits over the
-    // ledger, and the whole point of typing a number is watching both sides
-    // move, so it has to be visible where the player is actually looking.
+    // What the number in the box would do, to BOTH players, on every keystroke.
+    //
+    // The XP tab is why this exists. XP is the only tradable thing that can
+    // take something away from you — your level is derived from it — so "which
+    // level does this leave me at, and which does it leave them at" has to be
+    // on screen and moving while the number is typed, in the place the player
+    // is already looking, rather than described in a paragraph above.
+    //
+    // What each side may say is not symmetric. Their LEVEL is public: it is on
+    // the leaderboard, on their profile and beside their name in a game, so it
+    // is shown in full, before and after. Their coin and voucher BALANCES are
+    // public nowhere, and opening a trade with somebody must not become a way
+    // to read their wallet, so their side shows what this trade GIVES them
+    // (+1,200) rather than what they hold.
     function _trRenderSwing(model) {
       const el = $a("cc-trade-swing");
       if (!el) return;
@@ -28830,48 +29408,64 @@
       const pickerOpen = !!(pk && pk.style.display !== "none");
       if (!kind || !pickerOpen || !model || !model.me) { el.hidden = true; el.innerHTML = ""; return; }
 
-      const label = kind === "coins" ? "Critter Coins" : (kind === "passes" ? "Season Passes" : "Lifetime XP");
-      const sideHtml = (who, s, reveal) => {
-        if (!s) {
-          return '<div class="cctr-swing-side"><div class="cctr-swing-who">' + escapeHtml(who) + '</div>'
-               + '<div class="cctr-swing-val">-</div></div>';
-        }
-        const now = s.now[kind], after = s.after[kind];
-        const dir = after === now ? "" : (after > now ? " up" : " down");
-        // Their level moves in public; their balance does not. Same line as
-        // the ledger draws, for the same reason.
-        let lvl = "";
-        if (kind === "xp") {
-          const a = _trLevelOf(now), b = _trLevelOf(after);
-          if (a && b) {
-            lvl = '<div class="cctr-swing-lvl">'
-                + (a.level === b.level ? ("Level " + a.level) : ("Level " + a.level + " → " + b.level))
-                + '</div>';
-          }
-        }
-        const val = reveal
-          ? (after === now ? _trFmt(now)
-             : '<span class="cctr-purse-was">' + _trFmt(now) + '</span> → ' + _trFmt(after))
-          : (after === now ? "-" : (after > now ? "+" : "-") + _trFmt(Math.abs(after - now)));
-        return '<div class="cctr-swing-side' + dir + '">'
-             + '<div class="cctr-swing-who">' + escapeHtml(who) + '</div>'
-             + '<div class="cctr-swing-val">' + val + '</div>' + lvl + '</div>';
-      };
+      const isXp = kind === "xp";
+      const unit = kind === "coins" ? "Critter Coins"
+                 : (kind === "passes" ? "Season Pass vouchers" : "XP");
+      const typed = Math.max(0, Math.floor(Number(_trDraft.n) || 0));
+      const themWho = (_trPeer && _trPeer.name) || _trPeerName || "them";
+      const dirClass = (now, after) => after === now ? "" : (after > now ? " up" : " down");
+
+      // My side, in full: it is my own balance.
+      const meNow = model.me.now[kind], meAfter = model.me.after[kind];
+      const meHtml = '<div class="cctr-swing-side' + dirClass(meNow, meAfter) + '">'
+        + '<div class="cctr-swing-who">You</div>'
+        + (isXp ? _trLevelLine(meNow, meAfter) : "")
+        + '<div class="cctr-swing-val">'
+        + (meAfter === meNow
+            ? _trFmt(meNow)
+            : '<span class="cctr-purse-was">' + _trFmt(meNow) + '</span> → ' + _trFmt(meAfter))
+        + " " + escapeHtml(unit) + '</div></div>';
+
+      // Their side. Without their profile their level cannot be worked out, so
+      // it says so rather than inventing one, and the panel still shows what
+      // they are being given.
+      const th = model.them;
+      let themHtml;
+      if (!th) {
+        themHtml = '<div class="cctr-swing-side' + (typed ? " up" : "") + '">'
+          + '<div class="cctr-swing-who">' + escapeHtml(themWho) + '</div>'
+          + '<div class="cctr-swing-lvl muted">Level still loading…</div>'
+          + '<div class="cctr-swing-val">' + (typed ? "+" + _trFmt(typed) + " " + escapeHtml(unit) : "No change") + '</div>'
+          + '</div>';
+      } else {
+        const tNow = th.now[kind], tAfter = th.after[kind];
+        const d = tAfter - tNow;
+        themHtml = '<div class="cctr-swing-side' + dirClass(tNow, tAfter) + '">'
+          + '<div class="cctr-swing-who">' + escapeHtml(themWho) + '</div>'
+          + (isXp ? _trLevelLine(tNow, tAfter) : "")
+          + '<div class="cctr-swing-val">'
+          + (d === 0 ? "No change" : (d > 0 ? "+" : "−") + _trFmt(Math.abs(d)) + " " + escapeHtml(unit))
+          + '</div></div>';
+      }
+
+      const head = typed > 0
+        ? "Giving " + _trFmt(typed) + " " + escapeHtml(unit)
+        : "Type an amount below to see where it leaves you both.";
+
       el.hidden = false;
-      el.innerHTML = sideHtml("You", model.me, true)
+      el.innerHTML = '<div class="cctr-swing-head">' + head + '</div>'
+        + meHtml
         + '<div class="cctr-swing-arrow" aria-hidden="true">→</div>'
-        + sideHtml((_trPeer && _trPeer.name) || _trPeerName || "Them", model.them, false)
-        + '<div class="cctr-swing-who" style="grid-column:1/-1;text-align:center;margin-top:2px;">'
-        + escapeHtml(label) + '</div>';
+        + themHtml;
     }
 
     // Called on every keystroke in a picker input.
     function _trSetDraft(kind, raw) {
       const n = Math.max(0, Math.floor(Number(raw) || 0));
       _trDraft = { kind, n };
-      _trRenderLedger();
+      _trRenderProjection();
     }
-    function _trClearDraft() { _trDraft = null; _trRenderLedger(); }
+    function _trClearDraft() { _trDraft = null; _trRenderProjection(); }
 
     // After a trade completes the server has changed MY coins / unlocked items,
     // so re-read my user doc and refresh the local caches + header. Guarded by
@@ -29121,7 +29715,7 @@
       _trConvId = _convIdFor(_authUser.uid, peerUid);
       _trState = null; _trPickerTab = "avatars"; _trLastStatus = null;
       _trBusy = false;                 // never inherit a stuck-busy from a prior trade
-      // The ledger belongs to THIS pairing: never show the last peer's level.
+      // The projection belongs to THIS pairing: never show the last peer's level.
       _trPeer = null; _trDraft = null;
       _trPickerNote("", "");
       _trHidePicker();
@@ -29132,8 +29726,8 @@
       _trBanner("Opening trade…", "info");
       _trShowRetry(false);
       _trRender();
-      // Their side of the ledger. Fired without awaiting so a slow profile read
-      // never holds up opening the trade: the ledger fills in when it lands.
+      // Their side of the projection. Fired without awaiting so a slow profile
+      // read never holds up opening the trade: it fills in when it lands.
       _trLoadPeer(_trPeerUid);
       const res = await _trPost("open", { peerName: _trPeerName });
       if (!res || res.error) {
@@ -29205,7 +29799,7 @@
 
       _trRenderColumn(giveWrap, myOffer, true);
       _trRenderColumn(recvWrap, peerOffer, false);
-      _trRenderLedger();
+      _trRenderProjection();
 
       const recvHead = $a("cctr-recv-head");
       if (recvHead) recvHead.textContent = _trPeerName ? ("You Receive, " + _trPeerName) : "You Receive";
@@ -29512,7 +30106,7 @@
     function _trHidePicker() {
       const pk = $a("cc-trade-picker"); if (pk) pk.style.display = "none";
       // A number left in a box is not an offer. Leaving the sheet drops it, so
-      // the ledger goes back to showing what has actually been put on the table.
+      // the columns go back to showing what is actually on the table.
       _trClearDraft();
     }
 
@@ -29537,6 +30131,11 @@
         if (xpFoot) xpFoot.style.display = "none";
       };
       if (!body) return;
+      // Coins / Season Passes / XP put a paragraph where the tile grid usually
+      // is. Left as a grid it is laid into one ~104px column and reads one word
+      // per line down a thin ribbon, so those tabs turn the grid off.
+      const prose = (_trPickerTab === "coins" || _trPickerTab === "passes" || _trPickerTab === "xp");
+      body.classList.toggle("cctr-pk-prose", prose);
       const mine = _trMyOffer();
       if (_trPickerTab === "coins") {
         body.innerHTML = "<div class=\"cctr-coin-note\">You have " + _trMyCoins().toLocaleString()
@@ -29568,14 +30167,16 @@
       if (_trPickerTab === "xp") {
         const have = _trMyXp();
         const lvl = _trLevelAfterGiving(0);
+        // Short on purpose. The consequence of the number is drawn under this,
+        // in the panel that moves while it is typed, which is a better answer
+        // than a paragraph asking the player to work it out for themselves.
         body.innerHTML = "<div class=\"cctr-coin-note\">You have " + have.toLocaleString() + " XP"
           + (lvl != null ? " (Level " + lvl + ")" : "") + ". "
           + (have
-             ? "This is your LIFETIME XP, the number your level is worked out from, "
-             + "so trading it away really does lower your level, and both the Level "
-             + "Pass and the Critter Pass move back with it. Critters you have "
-             + "already unlocked stay yours. Nothing is refunded: you earn it back "
-             + "by playing. Enter how much to include in this trade."
+             ? "This is your lifetime XP, which is what your level is worked out "
+             + "from, so giving it away really does drop your level and takes the "
+             + "Level Pass and Critter Pass back with it. Critters you have "
+             + "already unlocked stay yours."
              : "You have no XP to trade yet. Finish a game and it starts adding up.")
           + "</div>";
         hideFeet();
@@ -29670,7 +30271,7 @@
         b.addEventListener("click", () => _trSetPickerTab(b.getAttribute("data-tab")));
       });
       // Each currency box: Set/Enter commits, and every keystroke moves the
-      // ledger. Typing is where the player decides how much to give, so the
+      // projection. Typing is where they decide how much to give, so the
       // consequence has to be on screen WHILE they type — one side going down
       // and the other going up — not only after they press a button.
       const wireAmount = (inputId, setBtnId, kind, commit) => {
@@ -31530,7 +32131,7 @@
         // "Go to Ranked" link in history tab comp section
         const compTabFromHist = $a("ph-hist-comp-tab-btn");
         if (compTabFromHist) compTabFromHist.addEventListener("click", () => switchTab("competitive"));
-        // Competitive is now entered via Quick Match / Create Game → Mode: Competitive
+        // Competitive is now entered via Head to Head / Create Game → Mode: Competitive
         // (and the "Play Competitive" button in this panel), so there is no standalone
         // Competitive action card / listener to wire here.
       }, 0);
@@ -37345,6 +37946,23 @@
     window.__fishIsGuest        = () => !_authUser && _guestSessionActive;
     window.__fishGuestStatsGet  = () => loadGuestStats(_playerNickname || "guest");
     window.__fishGetMyStats     = () => (_activeProfile && typeof _activeProfile.stats === "object") ? _activeProfile.stats : null;
+    // Which rungs of the bot ladder this player has beaten, for the Head to Head
+    // screen's climb gate. Signed in it is stats.bots_beaten on the account;
+    // as a guest it is the same field in guest storage, so a guest climbs too
+    // and carries the climb with them if they make an account. Never throws
+    // and never returns anything but an array of ladder ids: a screen that
+    // cannot read the record shows the bottom rung, which is always open.
+    window.__ccBotsBeaten = () => {
+      const pull = (st) => (st && Array.isArray(st.bots_beaten)) ? st.bots_beaten : [];
+      try {
+        const mine = (_activeProfile && typeof _activeProfile.stats === "object")
+          ? pull(_activeProfile.stats) : [];
+        const guest = (!_authUser && _guestSessionActive)
+          ? pull(loadGuestStats(_playerNickname || "guest")) : [];
+        return Array.from(new Set([...mine, ...guest]
+          .map(v => String(v || "").trim()).filter(Boolean)));
+      } catch (_) { return []; }
+    };
     window.__fishGuestStatsSave = (stats) => saveGuestStats(_playerNickname || "guest", stats);
     // Leaving a guest session to make a real one. `opts.migrate` means the
     // guest is being invited to keep what they have played (the link under
