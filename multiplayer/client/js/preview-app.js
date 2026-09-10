@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-10.1";
+  const APP_BUILD   = "2026-09-10.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,14 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.4", title: "\uD83E\uDEB8 Head to Head is a reef you climb", items: [
+      "Head to Head is a coral reef now, with seven spots up it. Press a spot and the table beside it fills itself with that spot's opponents; press Dive In and the game is already running. There are no Warm Up / Rising / Abyss buttons any more, because a place on a reef is a clearer thing to press than a word.",
+      "Every spot is a cephalopod. The first two are Cuttlefish, the next two Bobtail Squid, the next two Common Octopus, and the seventh is the Giant Squid. Your opponents wear the animal of the spot they came from, so you can see what you are sitting down with before you sit down.",
+      "The names and the ratings are gone from the screen. An opponent is its RANK now, the letter on its badge, and nothing else: no Elo beside it, no name above it, and the table line reads Table average rank with a letter instead of a number. The ratings are still measured behind the scenes, they are what puts the ladder in order, they are just not printed at you any more.",
+      "Spots you have not climbed to wear a lock, and they are still on the screen: you can always see what is above you. Win a game at the spot you are on and the next one opens.",
+      "The Giant Squid is the seventh spot, and it asks for three things: beat the ladder below it, finish the Squid's story, and be LEVEL 60 or above. It does not fight below that.",
+      "And its fight is bigger than the rest. The last fight is FIVE at one table: you, one Cuttlefish, one Bobtail Squid, one Common Octopus, and the Giant Squid itself, each of the three at the top of its own stretch of the ladder.",
+    ]},
     { ver: "V1.7.3", title: "\uD83E\uDD91 Head to Head: nine marine scientists, then the Giant Squid", items: [
       "The card on the home screen is called HEAD TO HEAD now, and it opens a table straight away: four at the table, you and three bots, and the game is running the moment you press Dive In. It used to put you in a queue for other people and, on a quiet evening, hand you bots anyway after a spinner. The queue for real people is still there, on the same screen.",
       "Every opponent is a PERSON now, not a letter. Gilbert Thomas Carter, who collected specimens on the Challenger Expedition. Jeanne Villepreux-Power, who invented the aquarium in 1832 to watch living argonaut octopuses. Edward Forbes, who put dredges to systematic use. Steve Irwin. William Beebe of the Bathysphere. Eugenie Clark, the Shark Lady. Rachel Carson. Jacques Cousteau. And Charles Darwin, whose coral reef and atoll theory is the ground modern marine science stands on.",
@@ -2881,8 +2889,8 @@
     try { _wrResetCompRanks(); } catch (_) {}
   }
   // The grade control on an AI seat in the lobby. This used to be three pills
-  // (Easy / Medium / Hard); the ladder is ten named opponents now, which no
-  // row of pills can hold, so a seat shows its badge, its Elo and a list. Only
+  // (Easy / Medium / Hard); the ladder is ten rungs now, which no row of
+  // pills can hold, so a seat shows its rank badge and a list of ranks. Only
   // the host can change it; everyone else reads it.
   function buildDifficultyBox(seat, isHost) {
     const box = document.createElement("div");
@@ -2904,8 +2912,7 @@
       const o = document.createElement("option");
       o.value = opt.id;
       const locked = bmGradeLocked(opt.id);
-      o.textContent = (locked ? "🔒 " : "")
-          + `${opt.grade}  ·  ${opt.tier}  ·  ${opt.elo} Elo`;
+      o.textContent = (locked ? "🔒 " : "") + `Rank ${opt.tier}`;
       o.disabled = locked;
       if (opt.id === g.id) o.selected = true;
       sel.appendChild(o);
@@ -2924,10 +2931,6 @@
     selWrap.appendChild(sel);
     box.appendChild(selWrap);
 
-    const elo = document.createElement("span");
-    elo.className = "wr-grade-elo";
-    elo.textContent = `${Number(seat.grade_elo) || g.elo} Elo`;
-    box.appendChild(elo);
     // A lobby can open before the ladder has been fetched; once it lands the
     // next seat render draws the real grades.
     bmLoadGrades();
@@ -2946,8 +2949,6 @@
         const tier = bmTierLetter(g.id);
         badge.textContent = tier;
         badge.className = `wr-grade-badge wr-tier-${bmTierClass(tier)}`;
-        const eloEl = box.querySelector(".wr-grade-elo");
-        if (eloEl) eloEl.textContent = `${g.elo} Elo`;
       }
     } catch (_) {}
     try {
@@ -5205,12 +5206,21 @@
   document.getElementById("qm-cancel-btn").addEventListener("click", () => cancelQuickMatch(false));
 
   // ── Head to Head ───────────────────────────────────────────────────────────
-  // The Head to Head card opens this: a four-critter table, you and three bots,
-  // and the three bots are deliberately NOT the same as each other. Every bot
-  // wears a grade from F- to S+ and the Elo behind that grade is shown next to
-  // it, because the Elo is measured rather than decorative: calibrate_bots.py
-  // sits the grades down against each other for hundreds of matches and fits
-  // the ratings to how they actually finish. The ladder is served by
+  // The Head to Head card opens this: a coral reef with seven spots up it, and
+  // a table beside it. Press a spot and the table fills with that spot's
+  // opponents: four at the table, you and three bots, and the three bots are
+  // deliberately NOT the same as each other. The top spot is the Giant Squid,
+  // and its fight is five at one table instead of four.
+  //
+  // Nothing on this screen has a name or a rating on it. An opponent is a
+  // RANK — the letter on its badge — and a cephalopod, because that is the
+  // part a player can act on: the names were nine marine scientists, which is
+  // a lovely thing to read once and nothing at all to choose between.
+  //
+  // The Elo behind each rank is still measured (calibrate_bots.py sits the
+  // rungs down against each other for hundreds of matches and fits the
+  // ratings to how they actually finish); it is what ORDERS the ladder, it is
+  // just no longer printed at the player. The ladder itself is served by
   // /api/bot_grades so this screen never carries its own copy of it; the list
   // below is only what to draw in the half-second before that answers, and if
   // the request fails outright.
@@ -5226,21 +5236,37 @@
     { id: "charles_darwin",          grade: "Charles Darwin",          elo: 1900, tier: "S++", unlock: "ladder", requires: "jacques_cousteau" },
     { id: "giant_squid",             grade: "Giant Squid",             elo: 2150, tier: "GS",  unlock: "story",  requires: "charles_darwin" },
   ];
-  // Bands are ladder POSITIONS, not ids, so re-tuning the ladder never leaves a
-  // band pointing at a grade that moved. lo/hi are inclusive, and no band ever
-  // reaches the Giant Squid: it is not something you can be handed by pressing
-  // a preset, it is something you go and beat.
-  const BM_BANDS = [
-    { id: "warmup", label: "Warm Up", lo: 0, hi: 2, note: "learning the tides" },
-    { id: "rising", label: "Rising",  lo: 2, hi: 4, note: "a real game" },
-    { id: "sharp",  label: "Sharp",   lo: 4, hi: 6, note: "they punish mistakes" },
-    { id: "abyss",  label: "Abyss",   lo: 6, hi: 8, note: "the deep end" },
-    { id: "ladder", label: "Full Ladder", lo: 0, hi: 8, note: "anything can turn up" },
+
+  // ── The reef ────────────────────────────────────────────────────────────
+  // Seven spots up a coral reef, and four cephalopods standing on them: two
+  // Cuttlefish at the bottom, two Bobtail Squid, two Common Octopus, and the
+  // Giant Squid at the top. A spot is what a player presses; the rungs behind
+  // it are what the engine is actually handed.
+  //
+  // lo/hi are ladder POSITIONS, not ids, so re-tuning the ladder never leaves
+  // a spot pointing at a rung that moved. `lo` is the rung a spot OPENS with,
+  // which is what its lock is measured against: you reach spot 2 by beating
+  // the top rung spot 1 deals, and so on all the way up. Together the six
+  // climbing spots cover the whole ladder, so no rung is unreachable.
+  const BM_TIERS = [
+    { n: 1, animal: "cuttlefish",     name: "Cuttlefish",     lo: 0, hi: 1 },
+    { n: 2, animal: "cuttlefish",     name: "Cuttlefish",     lo: 2, hi: 3 },
+    { n: 3, animal: "bobtail-squid",  name: "Bobtail Squid",  lo: 4, hi: 5 },
+    { n: 4, animal: "bobtail-squid",  name: "Bobtail Squid",  lo: 6, hi: 6 },
+    { n: 5, animal: "common-octopus", name: "Common Octopus", lo: 7, hi: 7 },
+    { n: 6, animal: "common-octopus", name: "Common Octopus", lo: 8, hi: 8 },
+    { n: 7, animal: "giant-squid",    name: "Giant Squid",    lo: 9, hi: 9, final: true },
   ];
-  const BM_FACES = ["\ud83d\udc19", "\ud83e\udd88", "\ud83d\udc21"];
+  // The Giant Squid does not fight children. Beating the story and climbing
+  // the whole reef is not enough on its own; the last fight is for accounts
+  // that have actually played the game.
+  const BM_SQUID_LEVEL = 60;
+  // The last fight is five at one table rather than four: you, one of every
+  // cephalopod on the reef, and the Squid itself.
+  const BM_FINAL_SEATS = 5;
   let _bmGrades = BM_FALLBACK_GRADES.slice();
-  let _bmPick = [];            // three ladder ids, weakest first
-  let _bmBand = "rising";
+  let _bmPick = [];            // ladder ids, weakest first
+  let _bmTier = 0;             // which spot on the reef is standing lit
   let _bmBusy = false;
   let _bmGradesLoaded = false;
 
@@ -5277,25 +5303,49 @@
     } catch (_) { return false; }
   }
 
+  // The player's account level, for the Squid's own gate. A level that cannot
+  // be read is a level of 0, which locks: exactly like the collection above,
+  // a reward handed out because a lookup failed is a reward destroyed.
+  function bmPlayerLevel() {
+    try {
+      const n = (typeof window.__ccPlayerLevel === "function")
+        ? Number(window.__ccPlayerLevel()) : 0;
+      return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+    } catch (_) { return 0; }
+  }
+
   function bmGradeLocked(id) {
     const g = bmGradeById(id);
     if (!g) return false;
-    // The Squid keeps its own story gate AND has to be at the top of a ladder
-    // you have actually climbed. It is the last rung; it is not a shortcut.
-    if (g.unlock === "story" && !bmStoryUnlocked()) return true;
+    // The Squid keeps its own story gate, its own level gate, AND has to be at
+    // the top of a ladder you have actually climbed. It is the last rung; it
+    // is not a shortcut.
+    if (g.unlock === "story") {
+      if (!bmStoryUnlocked()) return true;
+      if (bmPlayerLevel() < BM_SQUID_LEVEL) return true;
+    }
     if (!g.requires) return false;   // the bottom rung is always open
     return !bmBeatenIds().includes(String(g.requires));
   }
 
+  // Why a rung is shut, in ranks rather than names: nobody on this screen has
+  // a name any more, so "beat Jeanne Villepreux-Power" would be pointing at
+  // something the player cannot see.
   function bmLockNote(id) {
     const g = bmGradeById(id);
     if (!g) return "";
-    if (g.unlock === "story" && !bmStoryUnlocked()) {
-      return "Beat the Giant Squid to bring it to your table.";
+    if (g.unlock === "story") {
+      if (!bmStoryUnlocked()) {
+        return "Beat the Giant Squid in the story to bring it to your table.";
+      }
+      if (bmPlayerLevel() < BM_SQUID_LEVEL) {
+        return `The Giant Squid only fights at level ${BM_SQUID_LEVEL} and above.`
+          + ` You are level ${bmPlayerLevel()}.`;
+      }
     }
     const need = g.requires ? bmGradeById(g.requires) : null;
     if (!need) return "";
-    return `Win a game against ${need.grade} to unlock ${g.grade}.`;
+    return `Win a game against a rank ${need.tier} opponent to open rank ${g.tier}.`;
   }
 
   // The highest rung this player has actually opened. Everything at or below
@@ -5315,8 +5365,12 @@
     const i = _bmGrades.findIndex(g => g.id === id);
     return i < 0 ? Math.floor(_bmGrades.length / 2) : i;
   }
-  // The letter drives the badge colour: F red, D amber, C green, B blue,
-  // A purple, S gold.
+  // A ladder position, clamped to a ladder that may have grown or shrunk
+  // since these spots were written down.
+  function bmAt(i) {
+    const n = _bmGrades.length;
+    return _bmGrades[Math.max(0, Math.min(Math.floor(i) || 0, n - 1))];
+  }
   // The badge colour key. It comes off the ladder rather than off the first
   // letter of the name, because "SS" and "S" share a letter and share nothing
   // else, and "Giant Squid" has no letter to share at all.
@@ -5335,8 +5389,8 @@
   function bmTierClass(tier) {
     return String(tier || "").trim().replace(/\+/g, "P").replace(/[^A-Za-z0-9_-]/g, "");
   }
-  // The badge carries the TIER, never the name: the rungs are people now, and
-  // "Jeanne Villepreux-Power" is not something that fits in a 40px badge.
+  // The badge carries the RANK, and now it is the only thing that does: the
+  // rungs have no names on this screen, so the letter is the opponent.
   function bmBadge(gradeOrId, prefix) {
     const el = document.createElement("span");
     const p = prefix || "bm";
@@ -5346,22 +5400,57 @@
     return el;
   }
 
+  // Which cephalopod a rung belongs to. The reef is the map: whichever spot's
+  // stretch of ladder a rung falls in, that is the animal it wears, both on
+  // the reef and in the lineup beside it.
+  function bmAnimalFor(id) {
+    const g = bmGradeById(id);
+    if (g && g.unlock === "story") return "giant-squid";
+    const i = bmIndexOf(id);
+    const t = BM_TIERS.find(s => !s.final && i >= s.lo && i <= s.hi);
+    return t ? t.animal : "common-octopus";
+  }
+  function bmSquidId() {
+    const squid = _bmGrades.find(g => g.unlock === "story");
+    return (squid || _bmGrades[_bmGrades.length - 1]).id;
+  }
+  function bmSpot(i) {
+    return BM_TIERS[Math.max(0, Math.min(Math.floor(i) || 0, BM_TIERS.length - 1))];
+  }
+  // The rank a spot wears: the top rung it can deal. It is what the spot is
+  // worth climbing to, so it is the letter on its plaque.
+  function bmSpotRank(i) {
+    const t = bmSpot(i);
+    return t.final ? bmGradeById(bmSquidId()).tier : bmAt(t.hi).tier;
+  }
+  // A spot is open once the weakest rung it deals is open, which is to say
+  // once you have beaten the top rung of the spot below it.
+  function bmSpotLocked(i) {
+    const t = bmSpot(i);
+    return t.final ? bmGradeLocked(bmSquidId()) : bmGradeLocked(bmAt(t.lo).id);
+  }
+  function bmSpotLockNote(i) {
+    const t = bmSpot(i);
+    return (t.final ? bmLockNote(bmSquidId()) : bmLockNote(bmAt(t.lo).id))
+      || "That spot is not open yet.";
+  }
+  function bmTopUnlockedSpot() {
+    let top = 0;
+    for (let i = 0; i < BM_TIERS.length; i++) {
+      if (!BM_TIERS[i].final && !bmSpotLocked(i)) top = i;
+    }
+    return top;
+  }
+  function bmIsFinal() { return !!bmSpot(_bmTier).final; }
+  // How many chairs the spot you are standing on puts at the table, the
+  // player's own included. Everywhere that counts seats asks here.
+  function bmSeatCount() { return bmIsFinal() ? BM_FINAL_SEATS : 4; }
+
   // A sentence per stretch of the ladder, so a grade says something a player
   // can act on rather than just being a letter.
-  // The boundaries follow the knobs, not the letters: rollout confirmation
-  // starts at C+, the runoff at B+, so the sentences change where the bot
-  // actually changes.
-  // The boundaries follow the knobs, not the letters: rollout confirmation
-  // starts at B, the runoff at S, so the sentences change where the bot
-  // actually changes.
-  // A sentence per rung, so a bot says something a player can act on rather
-  // than just wearing a name. They follow the KNOBS, not the letters: rollout
-  // confirmation starts at William Beebe, the runoff at Rachel Carson, so the
-  // sentences change where the bot actually changes.
-  // A sentence per rung, so a bot says something a player can act on rather
-  // than just wearing a name. They follow the KNOBS, not the letters: rollout
-  // confirmation starts at William Beebe, the runoff at Rachel Carson, so the
-  // sentences change where the bot actually changes.
+  // The boundaries follow the KNOBS, not the letters: rollout confirmation
+  // starts at the B rung, the runoff at S, so the sentences change where the
+  // bot actually changes.
   //
   // The table lives INSIDE the function on purpose. The lobby-tile tests build
   // a cut-down page out of named functions lifted from this file, so anything
@@ -5428,43 +5517,59 @@
     } catch (_) { /* the fallback ladder above is a fine thing to draw */ }
   }
 
-  // Three DIFFERENT opponents from a band. Different is the point: a table of
-  // three identical bots is one opponent copied three times, and the whole
-  // reason to have ten of them is that a game can hold several at once.
-  function bmRoll(bandId) {
-    const band = BM_BANDS.find(b => b.id === bandId) || BM_BANDS[1];
-    // A band never reaches a rung this player has not opened. Pressing a
-    // preset is not how you skip the climb, and it is certainly not how you
-    // meet the Squid: the Squid is never in a band at all, earned or not.
-    const openTop = (() => {
-      const climbed = bmTopUnlockedIndex();
-      for (let i = Math.min(climbed, _bmGrades.length - 1); i >= 0; i--) {
-        if (_bmGrades[i].unlock !== "story" && !bmGradeLocked(_bmGrades[i].id)) return i;
-      }
-      return 0;
-    })();
-    const hi = Math.min(band.hi, openTop);
-    const lo = Math.max(0, Math.min(band.lo, hi));
-    // Every rung in the band that this player may actually be dealt. Clamping
-    // to the top of the climb is not enough on its own: a record can name a
-    // rung out of order (an old save, a table dealt before the chain existed),
-    // which opens the one above it while leaving the ones below shut, and a
-    // range that only checks its ENDS would deal one of those shut rungs.
-    // So every candidate is asked, one at a time.
+  // The last fight: one of every cephalopod on the reef, and the Giant Squid.
+  // Each of the three that come with it is the TOP rung of its animal's
+  // stretch of the ladder, so the Squid does not turn up flanked by beginners.
+  function bmFinalLineup() {
+    // One row per cephalopod, in reef order. Walking UP the reef and letting
+    // each spot overwrite its own animal leaves the TOP spot of every stretch
+    // holding the seat, which is the point: the first Cuttlefish spot deals
+    // rank E, and rank E is not who you bring to the last fight.
+    const seen = [];   // [animal, ladder id], in reef order
+    BM_TIERS.forEach(t => {
+      if (t.final) return;
+      const id = bmAt(t.hi).id;
+      const hit = seen.find(row => row[0] === t.animal);
+      if (hit) hit[1] = id;
+      else seen.push([t.animal, id]);
+    });
+    const ids = seen.map(row => row[1]);
+    ids.push(bmSquidId());
+    return ids;
+  }
+
+  // Three DIFFERENT opponents from a spot on the reef. Different is the
+  // point: a table of three identical bots is one opponent copied three
+  // times, and the whole reason to have ten of them is that a game can hold
+  // several at once. A spot deals its own top rung and the two below it, so
+  // neighbouring spots overlap and every rung on the ladder gets dealt
+  // somewhere.
+  function bmRoll(spotIdx) {
+    const idx = Number.isFinite(spotIdx) ? spotIdx : _bmTier;
+    const t = bmSpot(idx);
+    if (t.final) { _bmPick = bmFinalLineup(); return; }
+    const hi = Math.max(0, Math.min(t.hi, _bmGrades.length - 1));
+    const lo = Math.max(0, hi - 2);
+    // Every rung in the spot's reach that this player may actually be dealt.
+    // Clamping to the top of the climb is not enough on its own: a record can
+    // name a rung out of order (an old save, a table dealt before the chain
+    // existed), which opens the one above it while leaving the ones below
+    // shut, and a range that only checks its ENDS would deal one of those
+    // shut rungs. So every candidate is asked, one at a time.
     const pool = [];
     for (let i = lo; i <= hi; i++) {
-      if (_bmGrades[i].unlock === "story") continue;
+      if (_bmGrades[i].unlock === "story") continue;   // never dealt by a spot
       if (bmGradeLocked(_bmGrades[i].id)) continue;
       pool.push(i);
     }
-    // A player who has opened nothing in this band still gets a table: the
-    // bottom rung is open to everyone, and an empty roll would be a dead
-    // screen with no opponents on it.
+    // A player who has opened nothing here still gets a table: the bottom rung
+    // is open to everyone, and an empty roll would be a dead screen with no
+    // opponents on it.
     if (!pool.length) pool.push(0);
     let picks;
     if (pool.length <= 3) {
-      // A band exactly three wide IS the answer; a narrower one repeats its
-      // top grade rather than inventing one outside the band the player chose.
+      // A reach exactly three wide IS the answer; a narrower one repeats its
+      // top rung rather than inventing one outside the spot the player chose.
       picks = pool.slice();
       while (picks.length < 3) picks.push(pool[pool.length - 1]);
     } else {
@@ -5478,78 +5583,114 @@
     _bmPick = picks.map(i => _bmGrades[i].id);
   }
 
-  function bmRenderBands() {
-    const wrap = document.getElementById("bm-bands");
-    if (!wrap) return;
-    wrap.innerHTML = "";
-    const climbed = bmTopUnlockedIndex();
-    BM_BANDS.forEach(band => {
-      // Show the band only as far as this player has actually climbed, so a
-      // preset never advertises an opponent it is not allowed to deal.
-      const hi = Math.max(0, Math.min(band.hi, _bmGrades.length - 1, climbed));
-      const lo = Math.max(0, Math.min(band.lo, hi));
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "bm-band" + (_bmBand === band.id ? " active" : "");
-      // The tier, not the name: "F to C" is a preset chip, "Gilbert Thomas
-      // Carter to Steve Irwin" is a paragraph.
-      const span = (lo === hi)
-        ? _bmGrades[lo].tier
-        : `${_bmGrades[lo].tier} to ${_bmGrades[hi].tier}`;
-      btn.innerHTML =
-        `${band.label}<span class="bm-band-range">${span} · ${band.note}</span>`;
-      btn.addEventListener("click", () => {
-        _bmBand = band.id;
-        bmRoll(band.id);
-        bmRender();
-      });
-      wrap.appendChild(btn);
-    });
+  // Standing on a spot. Everything the player does on this screen is this:
+  // press a place on the reef, and the table below fills itself in.
+  function bmPickSpot(i) {
+    const err = document.getElementById("bm-err");
+    if (bmSpotLocked(i)) {
+      const note = bmSpotLockNote(i);
+      if (err) err.textContent = note;
+      try { showToast(note, "info"); } catch (_) {}
+      return;
+    }
+    _bmTier = Math.max(0, Math.min(Math.floor(i) || 0, BM_TIERS.length - 1));
+    if (err) err.textContent = "";
+    bmRoll(_bmTier);
+    bmRender();
   }
 
+  // The reef, drawn top rung first so the climb reads upwards. Every spot is
+  // on the screen whether or not it has been earned, and the ones that have
+  // not wear a lock: a reward nobody can see is not a reward, it is an
+  // absence.
+  function bmRenderLadder() {
+    const wrap = document.getElementById("bm-ladder");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    for (let i = BM_TIERS.length - 1; i >= 0; i--) {
+      const t = BM_TIERS[i];
+      const locked = bmSpotLocked(i);
+      const rank = bmSpotRank(i);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "bm-spot"
+        + (locked ? " is-locked" : "")
+        + (i === _bmTier ? " is-current" : "");
+      btn.style.setProperty("--i", String(i));
+      btn.setAttribute("aria-label",
+        `Spot ${t.n}, ${t.name}, rank ${rank}${locked ? ", locked" : ""}`);
+      if (locked) btn.setAttribute("aria-disabled", "true");
+      else if (i === _bmTier) btn.setAttribute("aria-current", "true");
+
+      const art = document.createElement("span");
+      art.className = "bm-spot-art";
+      const img = document.createElement("img");
+      img.className = "bm-spot-animal";
+      img.src = `/avatars/${t.animal}.png`;
+      img.alt = "";
+      img.loading = "lazy"; img.decoding = "async"; img.draggable = false;
+      art.appendChild(img);
+      btn.appendChild(art);
+
+      const plaque = document.createElement("span");
+      plaque.className = "bm-spot-plaque";
+      const num = document.createElement("span");
+      num.className = "bm-spot-num";
+      num.textContent = String(t.n);
+      plaque.appendChild(num);
+      plaque.appendChild(bmBadge(rank, "bm"));
+      btn.appendChild(plaque);
+
+      if (locked) {
+        const lock = document.createElement("span");
+        lock.className = "bm-spot-lock";
+        lock.textContent = "🔒";
+        btn.appendChild(lock);
+      }
+
+      btn.addEventListener("click", () => bmPickSpot(i));
+      wrap.appendChild(btn);
+    }
+  }
+
+  // One card per opponent: the cephalopod it belongs to, and its rank. No
+  // name and no rating anywhere on it.
   function bmRenderBots() {
     const wrap = document.getElementById("bm-bots");
     if (!wrap) return;
+    const final = bmIsFinal();
     wrap.innerHTML = "";
     _bmPick.forEach((id, i) => {
       const g = bmGradeById(id);
       const row = document.createElement("div");
       row.className = "bm-bot";
 
-      const face = document.createElement("div");
+      const face = document.createElement("img");
       face.className = "bm-bot-face";
-      face.textContent = BM_FACES[i] || "🤖";
+      face.src = `/avatars/${bmAnimalFor(id)}.png`;
+      face.alt = "";
+      face.loading = "lazy"; face.decoding = "async"; face.draggable = false;
       row.appendChild(face);
 
       const main = document.createElement("div");
       main.className = "bm-bot-main";
-
-      const top = document.createElement("div");
-      top.className = "bm-bot-top";
-      const nm = document.createElement("span");
-      nm.className = "bm-bot-name";
-      nm.textContent = g.grade;
-      top.appendChild(nm);
-      top.appendChild(bmBadge(g.id, "bm"));
-      const elo = document.createElement("span");
-      elo.className = "bm-bot-elo";
-      elo.innerHTML = `<b>${g.elo}</b> Elo`;
-      top.appendChild(elo);
-      main.appendChild(top);
+      main.appendChild(bmBadge(g.id, "bm"));
 
       const selWrap = document.createElement("div");
       selWrap.className = "bm-select-wrap";
       const sel = document.createElement("select");
       sel.className = "bm-grade-select";
       sel.setAttribute("aria-label", `Opponent ${i + 1}`);
+      // The Squid's own fight is a fixed table. Everywhere else a player can
+      // still hand-pick a rung they have earned.
+      sel.disabled = final;
       _bmGrades.forEach(opt => {
         const o = document.createElement("option");
         o.value = opt.id;
         const locked = bmGradeLocked(opt.id);
         // Shown, always, and shown as locked rather than hidden: the whole
         // point of the Squid is that you can see it before you can have it.
-        o.textContent = (locked ? "🔒 " : "")
-          + `${opt.grade}  ·  ${opt.tier}  ·  ${opt.elo} Elo`;
+        o.textContent = (locked ? "🔒 " : "") + `Rank ${opt.tier}`;
         o.disabled = locked;
         if (opt.id === id) o.selected = true;
         sel.appendChild(o);
@@ -5560,12 +5701,10 @@
           // stale render or an old browser can all get past that, and the one
           // thing that must not happen is a locked grade quietly sitting down.
           sel.value = _bmPick[i];
-          try { showToast(bmLockNote(sel.value) || "That grade is locked.", "info"); } catch (_) {}
+          try { showToast(bmLockNote(sel.value) || "That rank is locked.", "info"); } catch (_) {}
           return;
         }
         _bmPick[i] = sel.value;
-        // Hand-picking a grade is no longer any band's roll, so no band is lit.
-        _bmBand = "";
         bmRender();
       });
       selWrap.appendChild(sel);
@@ -5576,72 +5715,50 @@
     });
   }
 
-  // The Giant Squid, on the screen whether or not it has been earned. Locked,
-  // it tells you what to go and do; unlocked, it takes the last seat.
-  function bmRenderSquid() {
-    const host = document.getElementById("bm-squid");
-    if (!host) return;
-    const squid = _bmGrades.find(g => g.unlock === "story");
-    if (!squid) { host.style.display = "none"; return; }
-    host.style.display = "";
-    const locked = bmGradeLocked(squid.id);
-    const seated = _bmPick.includes(squid.id);
-    host.className = "bm-squid" + (locked ? " is-locked" : " is-open");
-    host.innerHTML = "";
-
-    const face = document.createElement("div");
-    face.className = "bm-squid-face";
-    face.textContent = locked ? "🔒" : "🦑";
-    host.appendChild(face);
-
-    const main = document.createElement("div");
-    main.className = "bm-squid-main";
-    const top = document.createElement("div");
-    top.className = "bm-squid-top";
-    const nm = document.createElement("span");
-    nm.className = "bm-squid-name";
-    nm.textContent = squid.grade;
-    top.appendChild(nm);
-    const elo = document.createElement("span");
-    elo.className = "bm-squid-elo";
-    elo.innerHTML = `<b>${squid.elo}</b> Elo`;
-    top.appendChild(elo);
-    main.appendChild(top);
-    const note = document.createElement("div");
-    note.className = "bm-squid-note";
-    note.textContent = locked
-      ? bmLockNote(squid.id)
-      : (seated ? "At your table. Good luck."
-                : "Every handicap off. It plays the game the way the engine sees it.");
-    main.appendChild(note);
-    host.appendChild(main);
-
-    if (!locked && !seated) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "bm-squid-btn";
-      btn.id = "bm-squid-seat";
-      btn.textContent = "Bring it in →";
-      btn.addEventListener("click", () => {
-        // It takes the last chair, so the other two opponents stay whatever
-        // the player had already chosen.
-        if (_bmPick.length !== 3) bmRoll(_bmBand || "rising");
-        _bmPick[2] = squid.id;
-        _bmBand = "";
-        bmRender();
-      });
-      host.appendChild(btn);
-    }
+  // The average of the ranks on the screen, printed as the rank it lands on.
+  // A rating would be a number nobody on this screen is shown any more.
+  function bmAvgRankTier() {
+    if (!_bmPick.length) return "";
+    const sum = _bmPick.reduce((t, id) => t + bmIndexOf(id), 0);
+    return bmAt(Math.round(sum / _bmPick.length)).tier;
   }
 
   function bmRender() {
-    bmRenderBands();
+    bmRenderLadder();
     bmRenderBots();
-    bmRenderSquid();
-    const avgEl = document.getElementById("bm-avg-elo");
-    if (avgEl && _bmPick.length) {
-      const sum = _bmPick.reduce((t, id) => t + (bmGradeById(id).elo || 0), 0);
-      avgEl.textContent = String(Math.round(sum / _bmPick.length));
+    const final = bmIsFinal();
+    const count = document.getElementById("bm-count");
+    if (count) count.textContent = `${_bmPick.length} / ${_bmPick.length} selected`;
+    const sub = document.getElementById("bm-lineup-sub");
+    if (sub) {
+      sub.textContent = final
+        ? "The last fight: five at one table. One of every cephalopod, and the Giant Squid."
+        : "These are the opponents you'll face. Press a spot on the reef to change them.";
+    }
+    const shuffle = document.getElementById("bm-shuffle");
+    if (shuffle) shuffle.disabled = final;
+    const play = document.getElementById("bm-play");
+    if (play) play.classList.toggle("is-final", final);
+    const label = play ? play.querySelector(".bm-btn-label") : null;
+    if (label && !_bmBusy) label.textContent = final ? "Face the Giant Squid →" : "Dive In →";
+    const avg = document.getElementById("bm-avg-rank");
+    if (avg) {
+      avg.innerHTML = "";
+      if (_bmPick.length) avg.appendChild(bmBadge(bmAvgRankTier(), "bm"));
+    }
+    // What the spot you are standing on plays like. It reads off the top rung
+    // the spot deals, so it stays true as the ladder is re-tuned, and it is
+    // the one place on this screen with a sentence on it.
+    const spot = bmSpot(_bmTier);
+    const note = document.getElementById("bm-note");
+    const noteArt = document.getElementById("bm-note-art");
+    const noteText = document.getElementById("bm-note-text");
+    if (note) note.classList.toggle("is-final", final);
+    if (noteArt) noteArt.src = `/avatars/${spot.animal}.png`;
+    if (noteText) {
+      noteText.textContent = final
+        ? bmGradeBlurb(bmSquidId())
+        : bmGradeBlurb(bmAt(spot.hi).id);
     }
   }
 
@@ -5652,15 +5769,23 @@
     // yank the player into a lobby mid-choice.
     try { await cancelQuickMatch(true); } catch (_) {}
     document.getElementById("bm-err").textContent = "";
-    if (!_bmPick.length) bmRoll(_bmBand || "rising");
+    // Open on the highest spot this player has climbed to, but never on the
+    // Squid: the last fight is something you go and press, not something the
+    // screen puts you in front of.
+    if (bmSpotLocked(_bmTier) || bmIsFinal()) _bmTier = bmTopUnlockedSpot();
+    // Not just "is there a table": the table left over from the Squid's fight
+    // is four bots long, and drawing four rows under an ordinary spot for the
+    // frame before the ladder lands is a table nobody chose.
+    if (_bmPick.length !== bmSeatCount() - 1) bmRoll(_bmTier);
     bmRender();
     modal.classList.add("open");
-    // The ladder usually arrives before the player has read the first band.
+    // The ladder usually arrives before the player has read the first spot.
     bmLoadGrades().then(() => {
       if (!modal.classList.contains("open")) return;
       // Ids survive a reload of the ladder; positions might not.
       _bmPick = _bmPick.filter(id => _bmGrades.some(g => g.id === id));
-      if (_bmPick.length < 3) bmRoll(_bmBand || "rising");
+      if (bmSpotLocked(_bmTier)) _bmTier = bmTopUnlockedSpot();
+      if (_bmPick.length !== bmSeatCount() - 1) bmRoll(_bmTier);
       bmRender();
     });
   }
@@ -5672,13 +5797,16 @@
 
   async function bmStart() {
     if (_bmBusy) return;
-    if (_bmPick.length !== 3) { bmRoll(_bmBand || "rising"); bmRender(); }
+    const final = bmIsFinal();
+    const seats = bmSeatCount();
+    const bots = seats - 1;
+    if (_bmPick.length !== bots) { bmRoll(_bmTier); bmRender(); }
     // Last gate before it leaves the browser. Anything locked that reached the
     // table would be a reward handed out by accident.
     if (_bmPick.some(bmGradeLocked)) {
       const err = document.getElementById("bm-err");
       if (err) err.textContent = bmLockNote(_bmPick.find(bmGradeLocked))
-        || "One of those grades is still locked.";
+        || "One of those ranks is still locked.";
       return;
     }
     const btn = document.getElementById("bm-play");
@@ -5693,12 +5821,13 @@
     const createKey = `ck_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     try { localStorage.setItem(createKeyKey(), createKey); } catch (_) {}
     try {
-      // One request: open the table, seat the three graded bots, and start.
-      // A bot match has nobody to wait for, so a lobby would only be a screen
-      // the player has to press past.
+      // One request: open the table, seat the graded bots, and start. A bot
+      // match has nobody to wait for, so a lobby would only be a screen the
+      // player has to press past. The Squid's fight is the same request with
+      // five chairs at it instead of four.
       const r = await apiPost("/api/rooms", {
         create_key: createKey, host_name: name, room_id: code,
-        total_players: 4, human_players: 1, ai_players: 3,
+        total_players: seats, human_players: 1, ai_players: bots,
         visibility: "private", password: code,
         ai_difficulties: _bmPick.slice(),
         start_now: true,
@@ -5720,10 +5849,14 @@
       const badge = document.getElementById("pv-my-name-badge");
       if (badge) badge.textContent = name;
       closeBotMatch();
-      const grades = Array.isArray(r.data.ai_grades) && r.data.ai_grades.length
-        ? r.data.ai_grades
-        : _bmPick.map(id => bmGradeById(id).grade);
-      try { showToast(`Head to Head: you vs ${grades.join(", ")}.`, "ok"); } catch (_) {}
+      // Ranks, not names: the names are gone from this screen, and a toast
+      // that used them would be the only place they came back.
+      const ranks = _bmPick.map(id => bmGradeById(id).tier);
+      try {
+        showToast(final
+          ? `The Giant Squid's table: you and ${ranks.length} of them.`
+          : `Head to Head: you vs rank ${ranks.join(", ")}.`, "ok");
+      } catch (_) {}
       enterRoom(rId);
     } catch (e) {
       ccReport("bot_match_failed", {
@@ -5734,7 +5867,7 @@
     } finally {
       _bmBusy = false;
       if (btn) btn.disabled = false;
-      if (label) label.textContent = "Dive In →";
+      if (label) label.textContent = bmIsFinal() ? "Face the Giant Squid →" : "Dive In →";
     }
   }
 
@@ -5743,7 +5876,8 @@
     if (e.target === document.getElementById("bot-match-modal")) closeBotMatch();
   });
   document.getElementById("bm-shuffle").addEventListener("click", () => {
-    bmRoll(_bmBand || "ladder");
+    if (bmIsFinal()) return;   // the last fight is a fixed table
+    bmRoll(_bmTier);
     bmRender();
   });
   document.getElementById("bm-play").addEventListener("click", bmStart);
@@ -10214,8 +10348,7 @@
         if (_gMeta && _gMeta.kind === "ai" && _gMeta.grade) {
           const gb = bmBadge(_gMeta.grade, "wr");
           gb.classList.add("pv-seat-grade");
-          gb.title = `${p.name || "This bot"} plays at grade ${_gMeta.grade}`
-            + (_gMeta.grade_elo ? ` (${_gMeta.grade_elo} Elo)` : "");
+          gb.title = `This bot plays at rank ${bmTierLetter(_gMeta.grade)}`;
           nm.appendChild(gb);
         }
       }
@@ -37962,6 +38095,23 @@
         return Array.from(new Set([...mine, ...guest]
           .map(v => String(v || "").trim()).filter(Boolean)));
       } catch (_) { return []; }
+    };
+    // This player's account level, for the Giant Squid's own gate: it will
+    // not fight below level 60. Signed in it is the level their XP works out
+    // to on the account; as a guest it is the same sum over guest storage.
+    // A level that cannot be read comes back as 0, which locks: the screen
+    // treats an unreadable account exactly like an unfinished one.
+    window.__ccPlayerLevel = () => {
+      try {
+        const st = (_activeProfile && typeof _activeProfile.stats === "object")
+          ? _activeProfile.stats
+          : ((!_authUser && _guestSessionActive)
+              ? loadGuestStats(_playerNickname || "guest") : null);
+        if (!st) return 0;
+        const lp = window.__fishLevelFromXp(window.__fishStoredTotalXp(st));
+        const n = Number(lp && lp.level);
+        return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+      } catch (_) { return 0; }
     };
     window.__fishGuestStatsSave = (stats) => saveGuestStats(_playerNickname || "guest", stats);
     // Leaving a guest session to make a real one. `opts.migrate` means the

@@ -12946,8 +12946,10 @@
     #lb-pw-err { color: #c0202a; font-size: 12px; min-height: 16px; }
 
     /* ── BOT MATCH MODAL ────────────────────────────────────────── */
-    /* Shares the New Current modal's shape on purpose: same glass panel, same
-       Cinzel heading, so the two front-door buttons feel like one game. */
+    /* Two panels side by side: a coral reef you climb on the left, and the
+       table you have picked on the right. The reef is the whole difficulty
+       control — there are no preset chips any more, because a spot on a reef
+       is a clearer thing to press than a word like "Abyss". */
     #bot-match-modal {
       display: none; position: fixed; inset: 0; z-index: 9100;
       background: rgba(10,40,100,.72); backdrop-filter: blur(8px);
@@ -12959,74 +12961,177 @@
       border: 1.5px solid rgba(130,195,240,.55);
       border-radius: 26px;
       box-shadow: 0 10px 48px rgba(8,50,130,.22), 0 2px 8px rgba(8,50,130,.10);
-      padding: 26px 24px 20px; width: 100%; max-width: 560px;
+      padding: 14px; width: 100%; max-width: 940px;
       max-height: calc(100vh - 32px); overflow-y: auto;
-      position: relative; display: flex; flex-direction: column; gap: 16px;
+      position: relative;
+      display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+      gap: 14px; align-items: stretch;
     }
+    /* One column on a phone: the reef first, because it is what you press. */
+    @media (max-width: 760px) {
+      #bot-match-box { grid-template-columns: minmax(0, 1fr); max-width: 560px; }
+    }
+
+    /* ── the reef ───────────────────────────────────────────────── */
+    #bm-reef {
+      position: relative; min-width: 0; border-radius: 20px; overflow: hidden;
+      padding: 18px 14px 14px;
+      /* The art is 1672x941 and the panel is nowhere near that shape, so
+         `cover` cropped both banks of coral off and left nothing but sand.
+         The reef is laid in at its full WIDTH instead, sitting on the bottom,
+         and open water fills whatever is left above it: the gradient's bottom
+         colour is the image's own top row (#81bde6), so the seam does not
+         show. */
+      background: url('/coral-background.png') center bottom / 100% auto no-repeat,
+                  linear-gradient(180deg, #a9e2f5 0%, #81bde6 100%);
+      border: 1.5px solid rgba(120,185,235,.55);
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    /* The art is bright, and Cinzel over open water is not readable. A soft
+       wash from the top gives the heading something to sit on without hiding
+       the reef. */
+    #bm-reef::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(180deg, rgba(226,244,255,.92) 0%,
+                                          rgba(226,244,255,.45) 26%,
+                                          rgba(226,244,255,0) 52%);
+    }
+    .bm-head { position: relative; z-index: 1; }
     #bot-match-box h2 {
       font-family: "Cinzel", serif; font-size: 1.5rem; font-weight: 700;
       color: #0c3472; letter-spacing: 1.5px; margin: 0;
     }
     #bot-match-box .bm-sub {
-      font-size: 13px; color: #2c5c96; line-height: 1.45; margin-top: -8px;
+      font-size: 13px; font-weight: 700; color: #2c5c96; line-height: 1.4; margin-top: 4px;
     }
+    #bot-match-box .bm-sub-tiny { font-size: 11.5px; font-weight: 600; opacity: .85; }
     #bm-close {
-      position: absolute; top: 16px; right: 16px;
+      position: absolute; top: 14px; right: 14px;
       width: 40px; height: 40px; border-radius: 50%;
-      background: rgba(190,220,248,.72); border: 1.5px solid rgba(120,185,235,.55);
+      background: rgba(190,220,248,.85); border: 1.5px solid rgba(120,185,235,.55);
       color: #2a5888; font-size: 18px;
       display: flex; align-items: center; justify-content: center;
-      cursor: pointer; transition: background .15s, border-color .15s; z-index: 2;
+      cursor: pointer; transition: background .15s, border-color .15s; z-index: 4;
     }
-    #bm-close:hover { background: rgba(210,235,255,.9); border-color: rgba(70,150,230,.65); }
+    #bm-close:hover { background: rgba(210,235,255,.95); border-color: rgba(70,150,230,.65); }
 
-    /* Strength bands: one press sets all three opponents at once. */
-    .bm-bands { display: flex; flex-wrap: wrap; gap: 7px; }
-    .bm-band {
-      flex: 1 1 auto; min-width: 88px;
-      padding: 9px 10px; border-radius: 13px; cursor: pointer;
-      background: rgba(255,255,255,.62);
-      border: 1.5px solid rgba(140,200,240,.5);
-      font-family: "Nunito", sans-serif; font-size: 12.5px; font-weight: 800;
-      color: #21548f; letter-spacing: .2px; line-height: 1.25;
-      transition: background .14s, border-color .14s, transform .1s;
+    /* Seven spots up the reef, the top one drawn first so the climb reads
+       upwards. Each one steps further right than the one below it. */
+    .bm-ladder {
+      position: relative; z-index: 1;
+      display: flex; flex-direction: column; gap: 6px;
+      margin-top: auto;
     }
-    .bm-band .bm-band-range {
-      display: block; font-size: 10.5px; font-weight: 700; opacity: .65; margin-top: 2px;
+    .bm-spot {
+      /* --i is the spot's height on the reef, 0 at the bottom. */
+      margin-left: calc(var(--i, 0) * 5.5%);
+      /* As wide as its own critter and plaque. A column flexbox stretches its
+         children by default, which put every locked spot's scrim right across
+         the reef. */
+      align-self: flex-start; max-width: 100%;
+      display: flex; align-items: center; gap: 8px;
+      background: none; border: none; padding: 2px; cursor: pointer;
+      position: relative; text-align: left;
+      border-radius: 16px;
+      transition: transform .12s;
     }
-    .bm-band:hover { background: rgba(255,255,255,.85); transform: translateY(-1px); }
-    .bm-band.active {
-      background: linear-gradient(180deg, #ffffff 0%, #dcefff 100%);
-      border-color: rgba(40,130,225,.75);
-      box-shadow: 0 0 0 3px rgba(50,140,240,.15);
-      color: #0c3472;
+    .bm-spot:hover:not(.is-locked) { transform: translateX(3px); }
+    .bm-spot-art {
+      position: relative; flex: 0 0 auto;
+      width: 54px; height: 54px;
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    .bm-spot-animal {
+      width: 100%; height: 100%; object-fit: contain;
+      filter: drop-shadow(0 3px 5px rgba(6,40,90,.35));
+    }
+    /* The lit pad the critter stands on, so a spot reads as somewhere you can
+       stand rather than a sticker on the background. */
+    .bm-spot-art::after {
+      content: ""; position: absolute; left: 50%; bottom: -5px;
+      transform: translateX(-50%);
+      width: 46px; height: 13px; border-radius: 50%;
+      background: radial-gradient(ellipse at center, rgba(140,225,255,.95), rgba(90,190,245,0) 70%);
+    }
+    .bm-spot-plaque {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 6px 10px; border-radius: 12px;
+      background: rgba(255,255,255,.88);
+      border: 1.5px solid rgba(130,195,240,.6);
+      box-shadow: 0 2px 8px rgba(8,50,130,.14);
+    }
+    .bm-spot-num {
+      font-family: "Cinzel", serif; font-size: 14px; font-weight: 700; color: #0c3472;
+      min-width: 14px;
+    }
+    .bm-spot.is-current .bm-spot-plaque {
+      background: #fff; border-color: rgba(40,130,225,.8);
+      box-shadow: 0 0 0 3px rgba(50,140,240,.22);
+    }
+    /* A spot you have not climbed to. It is SHOWN, and shown as shut: the
+       point of the reef is that you can see what is above you. */
+    .bm-spot.is-locked { cursor: not-allowed; }
+    .bm-spot.is-locked .bm-spot-animal { filter: grayscale(.75) brightness(.72); }
+    .bm-spot.is-locked .bm-spot-plaque { background: rgba(226,236,246,.8); opacity: .8; }
+    .bm-spot-lock {
+      position: absolute; inset: 0; border-radius: 16px;
+      /* The padlock sits over the CRITTER, not over the plaque: a lock on top
+         of the rank is a lock you cannot read the rank through, and the rank
+         is the thing worth seeing before you have earned it. */
+      display: flex; align-items: center; justify-content: flex-start;
+      padding-left: 15px;
+      background: rgba(18,40,78,.28);
+      font-size: 22px; line-height: 1;
+      text-shadow: 0 2px 5px rgba(0,0,0,.55);
     }
 
-    /* One card per opponent. */
-    .bm-bots { display: flex; flex-direction: column; gap: 9px; }
+    /* ── the lineup ─────────────────────────────────────────────── */
+    #bm-lineup {
+      min-width: 0; border-radius: 20px; padding: 16px 14px 14px;
+      background: rgba(233,245,255,.9);
+      border: 1.5px solid rgba(130,195,240,.5);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .bm-lineup-hdr { display: flex; align-items: center; gap: 8px; padding-right: 44px; }
+    .bm-lineup-title {
+      font-family: "Cinzel", serif; font-size: 1.15rem; font-weight: 700; color: #0c3472;
+    }
+    .bm-lineup-count {
+      margin-left: auto; font-family: "Nunito", sans-serif;
+      font-size: 11.5px; font-weight: 800; color: #14508f;
+      background: rgba(180,220,250,.85); border-radius: 999px; padding: 4px 10px;
+      white-space: nowrap;
+    }
+    .bm-lineup-sub { font-size: 12px; font-weight: 600; color: #2c5c96; line-height: 1.4; }
+
+    /* One card per opponent: the animal it belongs to, and its rank. No name
+       and no rating — the letter is the opponent. */
+    .bm-bots { display: flex; flex-direction: column; gap: 8px; }
     .bm-bot {
-      display: flex; align-items: center; gap: 11px;
-      padding: 10px 12px; border-radius: 16px;
-      background: rgba(255,255,255,.72);
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 16px;
+      background: rgba(255,255,255,.85);
       border: 1.5px solid rgba(140,200,240,.5);
     }
     .bm-bot-face {
-      width: 42px; height: 42px; flex: 0 0 42px; border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; background: rgba(190,222,248,.75);
-      border: 1.5px solid rgba(120,185,235,.5);
+      width: 40px; height: 40px; flex: 0 0 auto; object-fit: contain;
+      filter: drop-shadow(0 2px 3px rgba(6,40,90,.28));
     }
-    .bm-bot-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
-    .bm-bot-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    /* "Jeanne Villepreux-Power" is a great deal longer than "Bot 2" was, so
-       the name is allowed to take the room it needs and the Elo stays pinned
-       right rather than being shoved off the row. */
-    .bm-bot-name {
-      font-size: 13.5px; font-weight: 800; color: #123a70;
-      min-width: 0; overflow-wrap: anywhere;
+    .bm-bot-main { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; }
+    .bm-bot-main .bm-select-wrap { flex: 1 1 auto; min-width: 0; }
+
+    /* A phone. The reef keeps all seven spots; it is the critters and the
+       stagger that give way, not the climb. */
+    @media (max-width: 460px) {
+      #bm-reef { padding: 14px 10px 10px; }
+      #bot-match-box h2 { font-size: 1.25rem; letter-spacing: 1px; }
+      .bm-spot { margin-left: calc(var(--i, 0) * 3.2%); gap: 6px; }
+      .bm-spot-art { width: 40px; height: 40px; }
+      .bm-spot-art::after { width: 34px; height: 10px; }
+      .bm-spot-plaque { padding: 5px 8px; gap: 5px; }
+      .bm-bot-face { width: 34px; height: 34px; }
     }
-    .bm-bot-elo { font-size: 12px; font-weight: 800; color: #3a6ba6; margin-left: auto; }
-    .bm-bot-elo b { font-size: 14px; color: #123a70; }
+
     .bm-grade-select {
       width: 100%; appearance: none; -webkit-appearance: none;
       background: rgba(255,255,255,.9);
@@ -13108,56 +13213,43 @@
        player is being shown on purpose. */
     .bm-grade-select option:disabled { color: #7d93b3; }
 
-    /* The Giant Squid panel: deep water, and it looks like the end of
-       something rather than another row in a list. */
-    .bm-squid {
-      display: flex; align-items: center; gap: 11px;
-      padding: 11px 13px; border-radius: 16px;
-      background: linear-gradient(135deg, #2b1046 0%, #46196b 55%, #24123f 100%);
-      border: 1.5px solid rgba(190,120,240,.45);
-      box-shadow: inset 0 1px 0 rgba(255,190,255,.16);
-      color: #f0dcff;
+    /* The table line: a rank, not a rating. The average of the three letters
+       on the screen, printed as the letter it lands on. */
+    /* What this spot is actually like to play against. It used to sit on the
+       lobby seat tiles only, which is after the choice has been made. */
+    .bm-note {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 16px;
+      background: linear-gradient(180deg, rgba(207,235,255,.95), rgba(184,222,250,.95));
+      border: 1.5px solid rgba(130,195,240,.55);
     }
-    .bm-squid.is-open { border-color: rgba(230,170,255,.8); }
-    .bm-squid-face {
-      width: 42px; height: 42px; flex: 0 0 42px; border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 24px; background: rgba(255,255,255,.10);
-      border: 1.5px solid rgba(210,150,250,.4);
+    .bm-note-art { width: 44px; height: 44px; flex: 0 0 auto; object-fit: contain; }
+    .bm-note-text {
+      flex: 1 1 auto; min-width: 0;
+      font-size: 11.5px; font-weight: 700; color: #1c4d88; line-height: 1.4;
     }
-    .bm-squid-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-    .bm-squid-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .bm-squid-name {
-      font-family: "Cinzel", serif; font-size: 14px; font-weight: 700;
-      letter-spacing: .6px; color: #ffeaff;
+    .bm-note.is-final {
+      background: linear-gradient(180deg, rgba(96,40,140,.95), rgba(44,13,71,.95));
+      border-color: rgba(190,110,235,.6);
     }
-    .bm-squid-elo { font-size: 12px; font-weight: 800; color: #d7b6f0; margin-left: auto; }
-    .bm-squid-elo b { font-size: 14px; color: #fff0ff; }
-    .bm-squid-note { font-size: 11.5px; line-height: 1.4; color: #cdb0e4; }
-    .bm-squid-btn {
-      flex: 0 0 auto; align-self: center;
-      background: linear-gradient(180deg,#b06ce0,#7d2fb8);
-      border: 1.5px solid rgba(230,180,255,.6); border-radius: 12px;
-      padding: 9px 14px; min-height: 34px; cursor: pointer;
-      font-family: "Nunito", sans-serif; font-size: 12.5px; font-weight: 800;
-      color: #fff; white-space: nowrap;
-      transition: filter .14s, transform .1s;
-    }
-    .bm-squid-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
-    .bm-squid.is-locked .bm-squid-face { filter: grayscale(.55) brightness(.8); }
+    .bm-note.is-final .bm-note-text { color: #f2dcff; }
 
     .bm-table-line {
-      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      display: flex; align-items: center; gap: 8px;
       font-size: 12.5px; font-weight: 700; color: #2c5c96;
     }
-    .bm-elo-big { font-size: 17px; font-weight: 900; color: #0c3472; }
+    .bm-avg-label { white-space: nowrap; }
+    .bm-avg-slot { display: inline-flex; }
     .bm-shuffle {
-      background: rgba(255,255,255,.72); border: 1.5px solid rgba(140,200,240,.55);
+      margin-left: auto;
+      background: rgba(255,255,255,.85); border: 1.5px solid rgba(140,200,240,.55);
       border-radius: 11px; padding: 7px 13px; cursor: pointer;
       font-family: "Nunito", sans-serif; font-size: 12.5px; font-weight: 800; color: #21548f;
       transition: background .14s, transform .1s;
+      white-space: nowrap;
     }
-    .bm-shuffle:hover { background: rgba(255,255,255,.95); transform: translateY(-1px); }
+    .bm-shuffle:hover { background: rgba(255,255,255,.98); transform: translateY(-1px); }
+    .bm-shuffle:disabled { opacity: .5; cursor: default; transform: none; }
     #bm-err { color: #c01830; font-size: 12px; min-height: 14px; }
     #bm-play {
       /* The panel is a column flexbox with a max-height, so every child is
@@ -13165,13 +13257,18 @@
          otherwise. On a short screen the taller opponent rows squeezed it from
          62px down to 18: still there, still clickable in theory, and far too
          small to hit. It keeps its height and the panel scrolls instead. */
-      flex: 0 0 auto;
+      flex: 0 0 auto; margin-top: auto;
       width: 100%; height: 62px; border: none; border-radius: 18px;
       background: linear-gradient(180deg,#ffd479 0%,#f0a52c 55%,#d8880f 100%);
       font-family: "Cinzel", serif; font-size: 1.15rem; font-weight: 700;
       color: #4a2c00; letter-spacing: .5px; cursor: pointer;
       box-shadow: 0 4px 20px rgba(200,110,0,.3);
       transition: filter .15s, transform .12s;
+    }
+    /* The Squid's own fight does not get the same daylight button. */
+    #bm-play.is-final {
+      background: linear-gradient(180deg,#a24fd0 0%,#5e2088 55%,#2c0d47 100%);
+      color: #ffe6fb; box-shadow: 0 4px 22px rgba(120,40,180,.45);
     }
     #bm-play:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-2px); }
     #bm-play:active:not(:disabled) { transform: translateY(0); filter: brightness(.97); }
@@ -13194,7 +13291,6 @@
     .wr-grade-box .bm-grade-select:disabled {
       opacity: .75; cursor: default; background: rgba(240,246,252,.75);
     }
-    .wr-grade-elo { font-size: 11px; font-weight: 800; color: #3a6ba6; white-space: nowrap; }
     /* The same badge on an in-game seat, where space is tight and it sits on
        the dark board rather than a pale panel. */
     .pv-seat-grade {
