@@ -5,40 +5,54 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Claim My Supporter Rewards, Currents and Critters</title>
 <style>
-  :root{ --deep:#04263b; --teal:#0fb6c4; --gold:#ffd479; --ink:#eaf6fb; --muted:#9fc6d6; }
+  /* Painted in the game's daylight palette, the same pale water the Player
+     Home, the New Current modal and the Competitive box are in: a
+     #eaf6ff → #b4d4ee ground, white cards, deep blue type, and one gold
+     heading per card. This page used to be the deep-ocean navy the game as a
+     whole moved away from, which made arriving here from the game feel like
+     leaving it. */
+  :root{
+    --ink:#0c2858; --ink-2:#0d3070; --muted:#4a6c96;
+    --gold:#9a6a06; --blue:#1a5aa8; --edge:rgba(150,200,240,.55);
+  }
   *{box-sizing:border-box}
   body{
     margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     color:var(--ink);min-height:100vh;
-    background:radial-gradient(120% 90% at 50% 0%,#0a4d6b 0%,#063a54 45%,#04263b 100%) fixed;
+    background:radial-gradient(120% 90% at 50% 0%,#eaf6ff 0%,#cce6f8 45%,#b4d4ee 100%) fixed;
   }
   .wrap{max-width:620px;margin:0 auto;padding:36px 20px 80px}
-  h1{font-size:clamp(1.6rem,5vw,2.4rem);text-align:center;margin:.2em 0}
+  h1{font-size:clamp(1.6rem,5vw,2.4rem);text-align:center;margin:.2em 0;color:var(--ink)}
   .sub{color:var(--muted);text-align:center;line-height:1.55;margin:0 auto 22px;max-width:520px}
   .card{
-    background:rgba(3,30,46,.55);border:1px solid rgba(79,193,213,.28);border-radius:16px;
+    background:rgba(255,255,255,.72);border:1.5px solid var(--edge);border-radius:16px;
+    box-shadow:0 6px 22px rgba(8,50,130,.10);
     padding:22px 22px;margin:16px 0;
   }
   .card h2{margin:.1em 0 .4em;font-size:1.1rem;color:var(--gold)}
   .card p{color:var(--muted);line-height:1.5;margin:.3em 0 1em;font-size:.92rem}
+  .card p b{color:var(--ink)}
   button{
-    font:inherit;font-weight:700;border:0;border-radius:10px;padding:12px 18px;cursor:pointer;
-    background:linear-gradient(180deg,#15c1cf,#0a96a3);color:#022; transition:filter .15s;
+    font:inherit;font-weight:700;border:1px solid #79afe0;border-radius:10px;padding:12px 18px;cursor:pointer;
+    background:linear-gradient(135deg,#2c8ce7,#1e71d4);color:#f7fbff; transition:filter .15s;
   }
   button:hover{filter:brightness(1.07)}
   button:disabled{opacity:.55;cursor:default}
-  button.ghost{background:transparent;border:1px solid rgba(79,193,213,.5);color:var(--ink)}
+  button.ghost{background:rgba(255,255,255,.8);border:1.5px solid rgba(140,200,240,.75);color:#2a5888}
   input{
-    font:inherit;width:100%;padding:11px 12px;border-radius:10px;border:1px solid rgba(79,193,213,.4);
-    background:rgba(2,20,32,.6);color:var(--ink);margin:6px 0 12px;
+    font:inherit;width:100%;padding:11px 12px;border-radius:10px;border:1.5px solid rgba(140,200,240,.7);
+    background:#fff;color:var(--ink-2);margin:6px 0 12px;
   }
+  input:focus{outline:none;border-color:rgba(50,140,240,.65);box-shadow:0 0 0 3px rgba(50,140,240,.15)}
+  input::placeholder{color:#7793b0}
   .who{display:flex;align-items:center;gap:12px;margin-bottom:8px}
-  .who img{width:40px;height:40px;border-radius:50%;border:2px solid var(--teal)}
-  .msg{margin-top:10px;font-size:.9rem;min-height:1.2em}
-  .ok{color:#8af3b0}.err{color:#ff9a9a}
+  .who img{width:40px;height:40px;border-radius:50%;border:2px solid #2c8ce7;background:#fff}
+  .msg{margin-top:10px;font-size:.9rem;min-height:1.2em;font-weight:700}
+  .ok{color:#0f7a46}.err{color:#c0202a}
   .hidden{display:none}
   .links{text-align:center;margin-top:24px;font-size:.9rem}
-  .links a{color:var(--teal);text-decoration:none;margin:0 10px}
+  .links a{color:var(--blue);text-decoration:none;margin:0 10px;font-weight:700}
+  .links a:hover{text-decoration:underline}
 </style>
 </head>
 <body>
