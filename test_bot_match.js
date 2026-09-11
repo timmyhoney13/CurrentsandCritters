@@ -76,7 +76,7 @@ const FNS = ["bmBeatenIds", "bmStoryUnlocked", "bmPlayerLevel",
              "bmGradeById", "bmIndexOf", "bmAt", "bmTierLetter", "bmTierClass",
              "bmBadge", "bmAnimalFor", "bmSquidId", "bmSpot", "bmSpotRank",
              "bmSpotLocked", "bmSpotLockNote", "bmTopUnlockedSpot", "bmIsFinal",
-             "bmSeatCount", "bmGradeBlurb", "bmLoadGrades", "bmFinalLineup", "bmRoll",
+             "bmSeatCount", "bmGradeBlurb", "bmLoadGrades", "bmFinalLineup", "bmRoll", "bmRollRandom",
              "bmPickSpot", "bmSpotPos", "bmMeasureArt", "bmFitArt",
              "bmReduceMotion", "bmClimbKnown", "bmReefKey", "bmReefLoad", "bmReefSave",
              "bmTopReachableSpot", "bmMyAvatar", "bmDiverEl", "bmDiverMark", "bmDiverPlace",
@@ -459,7 +459,7 @@ console.log("\nhome from a Head to Head win, the reef opens and walks you up");
 // ════════════════════════════════════════════════════════════════════════
 //  3. THE REEF  (the logic, run for real, thousands of times)
 // ════════════════════════════════════════════════════════════════════════
-console.log("\nevery platform rolls different opponents, inside its reach");
+console.log("\nevery platform seats its own rank, and the dice draw from every rank you have");
 const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
                  "steve_irwin", "william_beebe", "eugenie_clark",
                  "rachel_carson", "jacques_cousteau", "charles_darwin"];
@@ -477,6 +477,7 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
       ${grabFn("bmIndexOf")}
       ${grabFn("bmAt")}
       ${grabFn("bmRoll")}
+      ${grabFn("bmRollRandom")}
       ${grabFn("bmFinalLineup")}
       ${grabFn("bmTierLetter")}
       ${grabFn("bmTierClass")}
@@ -501,6 +502,7 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
       ${grabFn("bmOpenPlan")}
       return {
         roll: (i) => { bmRoll(i); return _bmPick.slice(); },
+        random: () => { bmRollRandom(); return _bmPick.slice(); },
         spots: BM_TIERS, grades: _bmGrades,
         squidLevel: BM_SQUID_LEVEL, finalSeats: BM_FINAL_SEATS,
         tier: bmTierLetter, tierClass: bmTierClass, animal: bmAnimalFor,
@@ -561,32 +563,45 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
   check(P[9].x === 50 && P[9].y === Math.min(...P.map(p => p.y)),
         "…and the Squid has the summit to itself", JSON.stringify(P[9]));
 
-  // ── every spot deals three different, in-reach, unlocked opponents ──
+  // ── every platform seats three of its own rank, and nothing else ──
+  // Press C and you face three C's: every seat, every time. It used to deal
+  // the rank and the two below it, so the first seat came up a rank nobody
+  // pressed.
   const dealt = new Set();
   SPOTS.forEach((t, i) => {
     if (t.final) return;
-    let distinct = true, inReach = true, sorted = true, squid = false, lockedOne = false;
     const hi = Math.min(t.hi, ids.length - 1);
-    const lo = Math.max(0, hi - 2);
-    const wide = hi - lo + 1 >= 3;
-    for (let n = 0; n < 400; n++) {
+    let same = true;
+    for (let n = 0; n < 50; n++) {
       const pick = run.roll(i);
-      if (pick.length !== 3) { distinct = false; break; }
+      pick.forEach(id => dealt.add(ids.indexOf(id)));
+      if (pick.length !== 3 || pick.some(id => id !== ids[hi])) { same = false; break; }
+    }
+    check(same, `platform ${t.tier}: all three opponents are rank ${t.tier}, every time`,
+          run.roll(i).map(run.tier).join(","));
+  });
+
+  // ── the dice: every seat from every rank you have opened ──
+  {
+    const seen = new Set();
+    let three = true, squid = false, locked = false, sorted = true;
+    for (let n = 0; n < 2000; n++) {
+      const pick = run.random();
+      if (pick.length !== 3) three = false;
       const idx = pick.map(id => ids.indexOf(id));
-      idx.forEach(x => dealt.add(x));
-      if (wide && new Set(pick).size !== 3) distinct = false;
-      if (idx.some(x => x < lo || x > hi)) inReach = false;
+      idx.forEach(x => seen.add(x));
       if (idx[0] > idx[1] || idx[1] > idx[2]) sorted = false;
       if (pick.includes("giant_squid")) squid = true;
-      if (pick.some(id => run.locked(id))) lockedOne = true;
+      if (pick.some(id => run.locked(id))) locked = true;
     }
-    check(distinct, `platform ${t.tier}: ${wide ? "three DIFFERENT ranks every time" : "three opponents every time"}`);
-    check(inReach, `platform ${t.tier}: never reaches outside the rungs it advertises`);
-    check(sorted, `platform ${t.tier}: listed weakest first, so the table reads in order`);
-    check(!squid, `platform ${t.tier}: never rolls the Giant Squid`);
-    check(!lockedOne, `platform ${t.tier}: deals nobody this player has not earned`);
-    check(run.roll(i).includes(ids[hi]), `platform ${t.tier}: always deals its own rank`);
-  });
+    check(three, "Random seats three opponents every time");
+    check(seen.size === 9,
+          "…drawn from EVERY rank this player has opened, F to S++, not just the top one",
+          [...seen].sort((a, b) => a - b).map(x => run.tier(ids[x])).join(","));
+    check(!squid, "…never the Giant Squid: it has its own fight");
+    check(!locked, "…and nobody this player has not earned");
+    check(sorted, "…listed weakest first");
+  }
 
   // A ladder rung no spot ever deals is a difficulty nobody can play.
   const climbing = ids.length - 1;   // everything but the Squid
@@ -897,10 +912,14 @@ console.log("\nthe screen is really in the page");
   // not its middle alone (bare sand and open water), and not pieces of it
   // laid over each other.
   const reefRule = (CSS.match(/#bm-reef \{[^}]*\}/) || [""])[0];
-  check(/url\('\/coral-background\.png'\) center \/ 100% 100% no-repeat/.test(reefRule),
-        "the reef is the coral reef painting, the whole of it", reefRule.replace(/\s+/g, " "));
-  check((CSS.match(/coral-background\.png/g) || []).length === 1,
+  check(/url\('\/h2h-reef\.png'\) center \/ 100% 100% no-repeat/.test(reefRule),
+        "the reef is the Head to Head reef painting, the whole of it, 100% by 100%",
+        reefRule.replace(/\s+/g, " "));
+  check((CSS.match(/h2h-reef\.png/g) || []).length === 1,
         "…laid in once, not in pieces over each other");
+  check(!/coral-background\.png/.test(reefRule), "…and not the old landscape painting");
+  check(/\|h2h-reef\|/.test(fs.readFileSync(path.join(__dirname, "multiplayer_server.py"), "utf8")),
+        "…and the game server will actually hand it out");
   check(!/#bm-reef::(before|after)/.test(CSS), "…with nothing laid over it");
   // Nothing drawn on the painting but the platforms and who stands on them:
   // no walls, no coral, no weed, no bubbles, no trail.
@@ -922,8 +941,8 @@ console.log("\nthe screen is really in the page");
   // And the default animal a player with none stands there as.
   check(fs.existsSync(path.join(CLIENT, "avatars", "mullet.png")),
         "/avatars/mullet.png is on disk");
-  check(fs.existsSync(path.join(CLIENT, "coral-background.png")),
-        "and so is the coral reef");
+  check(fs.existsSync(path.join(CLIENT, "h2h-reef.png")) && fs.existsSync(path.join(CLIENT, "h2h-reef.webp")),
+        "and so is the reef painting, with its WebP twin");
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -965,8 +984,13 @@ let _reduce = true;
 window.matchMedia = (q) => ({ matches: /reduce/.test(q) ? _reduce : false,
   addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} });
 `;
+  // The Random button's own click handler, lifted from the source like the
+  // functions are, so the dice tested are the dice that ship.
+  const SHUFFLE_START = APP.indexOf('document.getElementById("bm-shuffle").addEventListener("click"');
+  const SHUFFLE = APP.slice(SHUFFLE_START, APP.indexOf("});", SHUFFLE_START) + 3);
   const drive = `
 openBotMatch();
+${SHUFFLE}
 // Press a platform the way a player does: the real click handler on the
 // real button, so what is tested is what ships.
 window.__press = (rank) => {
@@ -1064,7 +1088,7 @@ function measure(w) {
   // The painting covers the reef from above the summit to below the bottom
   // platform, and nothing but platforms and your diver is drawn on it.
   const reefBg = win.getComputedStyle(reef);
-  ok(/coral-background\.png/.test(reefBg.backgroundImage) && /100% 100%/.test(reefBg.backgroundSize),
+  ok(/h2h-reef\.png/.test(reefBg.backgroundImage) && /100% 100%/.test(reefBg.backgroundSize),
      "the reef is the whole painting, stretched to it (" + reefBg.backgroundSize + ")");
   ok(r(reef).top <= r(spots[0]).top && r(reef).bottom >= r(spots[9]).bottom,
      "…from above the summit to below the bottom platform");
@@ -1144,14 +1168,45 @@ function measure(w) {
   const high = [...d.querySelectorAll(".bm-bot .bm-grade-badge")].map(e => e.textContent);
   ok(high.length === 3, "the S++ platform seats three too");
   ok(high.join() !== low.join(), "…and a higher platform is a different table (" + low.join() + " → " + high.join() + ")");
-  ok(new Set(high).size === 3, "…three DIFFERENT ranks (" + high.join() + ")");
+  ok(high.every(t => t === "S++"), "…every one of them rank S++, the rank pressed (" + high.join() + ")");
   ok(d.querySelectorAll(".bm-spot.is-current").length === 1, "exactly one platform is lit");
   ok(d.querySelector(".bm-spot.is-current").dataset.rank === "S++",
      "…and it is the one that was pressed");
   ok(onSpot("S++"), "…and your animal moved up to it");
   const faces = [...d.querySelectorAll(".bm-bot .bm-bot-face")].map(e => e.getAttribute("src"));
-  ok(faces.join() === "/avatars/mandarin-goby.png,/avatars/bunker.png,/avatars/sea-star.png",
+  ok(faces.every(f => f === "/avatars/sea-star.png"),
      "…and each opponent wears its rank's animal (" + faces.join(" ") + ")");
+  // Every platform, one after another, up the reef: the whole table turns
+  // to the rank pressed, the first seat included.
+  ["F", "E", "D", "C", "B", "A", "S", "S+", "S++"].forEach(rk => {
+    win.__press(rk);
+    const t = [...d.querySelectorAll(".bm-bot .bm-grade-badge")].map(e => e.textContent);
+    ok(t.length === 3 && t.every(x => x === rk), "press " + rk + ": all three are rank " + rk + " (" + t.join() + ")");
+  });
+
+  // ── Random: every seat from every rank you have opened ──
+  {
+    const shuffle = d.getElementById("bm-shuffle");
+    ok(/Random/.test(shuffle.textContent), "the dice button says Random (" + shuffle.textContent.trim() + ")");
+    win.__press("F");   // standing on the Start must not keep the draw at F
+    const seen = new Set();
+    for (let n = 0; n < 300; n++) {
+      shuffle.click();
+      [...d.querySelectorAll(".bm-bot .bm-grade-badge")].forEach(e => seen.add(e.textContent));
+    }
+    ok(seen.size === 9, "Random draws from every rank opened, F to S++ (" + [...seen].join() + ")");
+    ok(!seen.has("GS"), "…and never the Giant Squid");
+    win.__setBeaten(${JSON.stringify(CLIMBED.slice(0, 2))});   // F and E beaten: F, E, D open
+    win.__press("F");
+    const few = new Set();
+    for (let n = 0; n < 200; n++) {
+      shuffle.click();
+      [...d.querySelectorAll(".bm-bot .bm-grade-badge")].forEach(e => few.add(e.textContent));
+    }
+    ok([...few].sort().join() === "D,E,F", "…and only the ranks opened: F, E and D (" + [...few].join() + ")");
+    win.__setBeaten(${JSON.stringify(CLIMBED)});
+    win.__press("S++");
+  }
 
   // ── a casual lobby's bot seat ──
   // A casual table seats any rank from F to S++, climbed or not. A player

@@ -12976,15 +12976,14 @@
     }
 
     /* ── the reef ───────────────────────────────────────────────── */
-    /* The coral reef painting, the whole of it, as one picture: stretched to
-       the panel so both banks of coral climb its sides from the sand to the
-       top, and nothing drawn over it but the platforms and who stands on
-       them. (Fitted by height instead, a panel this shape keeps only the
-       painting's middle, which is open water over bare sand.) */
+    /* The Head to Head reef painting, the whole of it, as one picture. It is
+       painted upright, the same shape as this panel, so it fills the panel
+       edge to edge (100% by 100%) with nothing cut off, and nothing is drawn
+       over it but the platforms and who stands on them. */
     #bm-reef {
       position: relative; min-width: 0; border-radius: 20px; overflow: hidden;
       padding: 18px 14px 14px;
-      background: #81bde6 url('/coral-background.png') center / 100% 100% no-repeat;
+      background: #8fd3ee url('/h2h-reef.png') center / 100% 100% no-repeat;
       border: 1.5px solid rgba(120,185,235,.55);
       display: flex; flex-direction: column; gap: 4px;
     }

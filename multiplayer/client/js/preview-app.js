@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-10.4";
+  const APP_BUILD   = "2026-09-10.5";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -5563,47 +5563,37 @@
     return ids;
   }
 
-  // Three opponents from a platform on the reef, as different from each other
-  // as the platform allows: a table of three identical bots is one opponent
-  // copied three times, and the whole reason to have ten of them is that a
-  // game can hold several at once. A platform deals its own rung and the two
-  // below it, so neighbouring platforms overlap and every rung on the ladder
-  // gets dealt somewhere.
+  // The table a platform seats: three opponents, every one of them the
+  // platform's own rank. Press C and you face three C's. It used to deal the
+  // rank and the two below it, so the first seat or two came up a rank the
+  // player had not pressed and the table never matched the platform.
   function bmRoll(spotIdx) {
     const idx = Number.isFinite(spotIdx) ? spotIdx : _bmTier;
     const t = bmSpot(idx);
     if (t.final) { _bmPick = bmFinalLineup(); return; }
-    const hi = Math.max(0, Math.min(t.hi, _bmGrades.length - 1));
-    const lo = Math.max(0, hi - 2);
-    // Every rung in the spot's reach that this player may actually be dealt.
-    // Clamping to the top of the climb is not enough on its own: a record can
-    // name a rung out of order (an old save, a table dealt before the chain
-    // existed), which opens the one above it while leaving the ones below
-    // shut, and a range that only checks its ENDS would deal one of those
-    // shut rungs. So every candidate is asked, one at a time.
+    let rung = Math.max(0, Math.min(t.hi, _bmGrades.length - 1));
+    // A record can name a rung out of order (an old save, a table dealt
+    // before the chain existed), so the rung is asked, not assumed: a shut
+    // one steps down to the nearest open rung below it, and the bottom rung
+    // is open to everyone, so there is always a table.
+    while (rung > 0 && (_bmGrades[rung].unlock === "story" || bmGradeLocked(_bmGrades[rung].id))) rung--;
+    const id = _bmGrades[rung].id;
+    _bmPick = [id, id, id];
+  }
+
+  // The dice: every seat drawn on its own from EVERY rank this player has
+  // opened, not only the top one. The Giant Squid is not in the draw; it has
+  // its own fight at the summit, five at the table.
+  function bmRollRandom() {
     const pool = [];
-    for (let i = lo; i <= hi; i++) {
-      if (_bmGrades[i].unlock === "story") continue;   // never dealt by a spot
+    for (let i = 0; i < _bmGrades.length; i++) {
+      if (_bmGrades[i].unlock === "story") continue;
       if (bmGradeLocked(_bmGrades[i].id)) continue;
       pool.push(i);
     }
-    // A player who has opened nothing here still gets a table: the bottom rung
-    // is open to everyone, and an empty roll would be a dead screen with no
-    // opponents on it.
     if (!pool.length) pool.push(0);
-    let picks;
-    if (pool.length <= 3) {
-      // A reach exactly three wide IS the answer; a narrower one repeats its
-      // top rung rather than inventing one outside the spot the player chose.
-      picks = pool.slice();
-      while (picks.length < 3) picks.push(pool[pool.length - 1]);
-    } else {
-      const bag = pool.slice();
-      picks = [];
-      for (let n = 0; n < 3; n++) {
-        picks.push(bag.splice(Math.floor(Math.random() * bag.length), 1)[0]);
-      }
-    }
+    const picks = [];
+    for (let n = 0; n < 3; n++) picks.push(pool[Math.floor(Math.random() * pool.length)]);
     picks.sort((a, b) => a - b);
     _bmPick = picks.map(i => _bmGrades[i].id);
   }
@@ -6118,10 +6108,10 @@
     const plan = bmOpenPlan(bmClimbKnown() ? bmReefLoad() : null);
     const from = plan.from;
     _bmTier = plan.tier;
-    // Not just "is there a table": the table left over from the Squid's fight
-    // is four bots long, and drawing four rows under an ordinary spot for the
-    // frame before the ladder lands is a table nobody chose.
-    if (from >= 0 || _bmPick.length !== bmSeatCount() - 1) bmRoll(_bmTier);
+    // The reef always opens on the table of the platform you stand on. A
+    // table kept from last time could belong to another platform (or be the
+    // Squid's four), and then the lineup would not match where you are.
+    bmRoll(_bmTier);
     bmRender();
     bmDiverPlace(from >= 0 ? from : _bmTier);
     modal.classList.add("open");
@@ -6139,11 +6129,15 @@
       if (!modal.classList.contains("open")) return;
       // Ids survive a reload of the ladder; positions might not.
       _bmPick = _bmPick.filter(id => _bmGrades.some(g => g.id === id));
+      const was = _bmTier;
       if (bmSpotLocked(_bmTier)) {
         _bmTier = bmTopUnlockedSpot();
         bmDiverWalk(_bmTier);
       }
-      if (_bmPick.length !== bmSeatCount() - 1) bmRoll(_bmTier);
+      // Moved off a shut platform: the table moves with you, or it would be
+      // the old platform's rank sitting under the new one.
+      if (_bmTier !== was || _bmPick.length !== bmSeatCount() - 1
+          || _bmPick.some(bmGradeLocked)) bmRoll(_bmTier);
       bmRender();
     });
   }
@@ -6289,7 +6283,7 @@
   });
   document.getElementById("bm-shuffle").addEventListener("click", () => {
     if (bmIsFinal()) return;   // the last fight is a fixed table
-    bmRoll(_bmTier);
+    bmRollRandom();
     bmRender();
   });
   document.getElementById("bm-play").addEventListener("click", bmStart);
