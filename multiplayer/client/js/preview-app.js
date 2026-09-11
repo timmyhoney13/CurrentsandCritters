@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-10.5";
+  const APP_BUILD   = "2026-09-11.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.7", title: "\uD83E\uDDED The menu slides out from the left", items: [
+      "On a computer, the side menu tucks away off the left edge of the screen, so every page gets the whole width. Move your mouse to the left edge, where the little tab is, and it slides out over the page; move away and it slides back.",
+      "Each tab steps out a little as your mouse goes over it.",
+      "On a phone or a tablet nothing changes: the menu stays right where it always was, so it is never hard to find.",
+    ]},
     { ver: "V1.7.6", title: "\uD83E\uDD80 Your diver climbs the reef", items: [
       "You are on the reef now. Your own animal stands on the platform you have picked, and when you press another one it hops there, one platform at a time, up or down. Win a game that opens the next platform and, the next time you open Head to Head, you watch it walk up onto it.",
       "Everybody starts on the first platform, and it says so.",

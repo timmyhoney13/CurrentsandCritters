@@ -350,7 +350,17 @@
     gotoStep(0);
   }
 
+  // On a computer with a mouse the Player Home side menu is tucked off the left
+  // edge until the cursor reaches for it (preview.css, "TUCKED AWAY"). A step
+  // that points into it has to hold it out, or the spotlight rings a button
+  // that is off the screen. Any other step, or the end of the tour, lets go.
+  function coachHoldSidebar(el) {
+    const sb = document.getElementById("ph-sidebar");
+    if (sb) sb.classList.toggle("ph-sidebar-held", !!(el && sb.contains(el)));
+  }
+
   function endCoach() {
+    coachHoldSidebar(null);
     if (coach) {
       coach.classList.remove("open");
       const ce = coach.querySelector("#tut3-catch"); if (ce) ce.style.pointerEvents = "none";
@@ -493,6 +503,7 @@
     // A second pass catches panels/modals whose content arrives asynchronously
     // (avatars, boards, lists) and changes the target's size after the first.
     const el = coachResolveEl(step);
+    coachHoldSidebar(el);
     // inline:"center" as well as block:"center". Several things a step points at
     // live in a HORIZONTAL scroller, and the default inline:"nearest" leaves a
     // partly-visible one exactly where it is. On a 390px phone the Strategy
@@ -532,6 +543,8 @@
     const pop = coach.querySelector("#tut3-pop");
     const arrow = coach.querySelector("#tut3-arrow");
     const el = coachResolveEl(step);
+    // Again here: a step's target can render after the step opened.
+    coachHoldSidebar(el);
     const vw = window.innerWidth, vh = window.innerHeight;
     const pr = pop.getBoundingClientRect();
     const popW = pr.width || 320, popH = pr.height || 160;

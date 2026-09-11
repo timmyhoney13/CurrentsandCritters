@@ -452,6 +452,7 @@
 # sizes (including the Streak Rescue worst case), and again along the path the
 # Main Menu tutorial takes to those same two elements.
 !test_sidebar_scroll.js
+!test_sidebar_hover.js
 
 # The Stripe money path. The .py half covers the server's decision functions , 
 # webhook signature verification (the only thing between a stranger's POST and
