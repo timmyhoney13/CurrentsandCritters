@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-10.2";
+  const APP_BUILD   = "2026-09-10.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,12 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.5", title: "\uD83E\uDEB8 Ten platforms up the reef", items: [
+      "The Quick Match card on the home screen is the Head to Head card now, and it says what it is for: climb the ladder and take on tougher opponents.",
+      "The reef has a platform for every rank, and an animal standing on each one. F is the Bobtail Squid, E the Staghorn Coral, D the Peruvian Pelican, C the Staghorn Coral, B the Narwhal, A the Great White Shark, S the Goby, S+ the Bunker and S++ the Sea Star. The Giant Squid has the summit.",
+      "The coral runs the whole way up now, and the platform you are standing on has YOUR animal on it, beside the one you are about to face.",
+      "The Giant Squid's fight is still five at one table: you, the Goby, the Bunker, the Sea Star and the Squid itself.",
+    ]},
     { ver: "V1.7.4", title: "\uD83E\uDEB8 Head to Head is a reef you climb", items: [
       "Head to Head is a coral reef now, with seven spots up it. Press a spot and the table beside it fills itself with that spot's opponents; press Dive In and the game is already running. There are no Warm Up / Rising / Abyss buttons any more, because a place on a reef is a clearer thing to press than a word.",
       "Every spot is a cephalopod. The first two are Cuttlefish, the next two Bobtail Squid, the next two Common Octopus, and the seventh is the Giant Squid. Your opponents wear the animal of the spot they came from, so you can see what you are sitting down with before you sit down.",
@@ -5206,16 +5212,17 @@
   document.getElementById("qm-cancel-btn").addEventListener("click", () => cancelQuickMatch(false));
 
   // ── Head to Head ───────────────────────────────────────────────────────────
-  // The Head to Head card opens this: a coral reef with seven spots up it, and
-  // a table beside it. Press a spot and the table fills with that spot's
-  // opponents: four at the table, you and three bots, and the three bots are
-  // deliberately NOT the same as each other. The top spot is the Giant Squid,
-  // and its fight is five at one table instead of four.
+  // The Head to Head card opens this: a coral reef with ten platforms up it,
+  // one per rank, and a table beside it. Press a platform and the table fills
+  // with that rank's opponents: four at the table, you and three bots, and
+  // the three bots are deliberately NOT the same as each other. The top
+  // platform is the Giant Squid, and its fight is five at one table instead
+  // of four.
   //
   // Nothing on this screen has a name or a rating on it. An opponent is a
-  // RANK — the letter on its badge — and a cephalopod, because that is the
-  // part a player can act on: the names were nine marine scientists, which is
-  // a lovely thing to read once and nothing at all to choose between.
+  // RANK — the letter on its badge — and an animal, because that is the part
+  // a player can act on: the names were nine marine scientists, which is a
+  // lovely thing to read once and nothing at all to choose between.
   //
   // The Elo behind each rank is still measured (calibrate_bots.py sits the
   // rungs down against each other for hundreds of matches and fits the
@@ -5238,35 +5245,39 @@
   ];
 
   // ── The reef ────────────────────────────────────────────────────────────
-  // Seven spots up a coral reef, and four cephalopods standing on them: two
-  // Cuttlefish at the bottom, two Bobtail Squid, two Common Octopus, and the
-  // Giant Squid at the top. A spot is what a player presses; the rungs behind
-  // it are what the engine is actually handed.
+  // Ten platforms up a coral reef, one per rank, each with its own animal
+  // standing on it, and the Giant Squid at the top. A platform is what a
+  // player presses; the rung behind it is what the engine is actually handed.
   //
-  // lo/hi are ladder POSITIONS, not ids, so re-tuning the ladder never leaves
-  // a spot pointing at a rung that moved. `lo` is the rung a spot OPENS with,
-  // which is what its lock is measured against: you reach spot 2 by beating
-  // the top rung spot 1 deals, and so on all the way up. Together the six
-  // climbing spots cover the whole ladder, so no rung is unreachable.
+  // `tier` is the rank the platform stands for, and it is also how an
+  // opponent in the lineup knows which animal to wear: a rank C bot is a
+  // Staghorn Coral wherever it turns up. lo/hi are ladder POSITIONS, not ids,
+  // so re-tuning the ladder never leaves a platform pointing at a rung that
+  // moved. `lo` is the rung a platform OPENS with, which is what its lock is
+  // measured against: you reach the E platform by beating rank F, and so on
+  // all the way up. One platform per rung, so no rung is unreachable.
   const BM_TIERS = [
-    { n: 1, animal: "cuttlefish",     name: "Cuttlefish",     lo: 0, hi: 1 },
-    { n: 2, animal: "cuttlefish",     name: "Cuttlefish",     lo: 2, hi: 3 },
-    { n: 3, animal: "bobtail-squid",  name: "Bobtail Squid",  lo: 4, hi: 5 },
-    { n: 4, animal: "bobtail-squid",  name: "Bobtail Squid",  lo: 6, hi: 6 },
-    { n: 5, animal: "common-octopus", name: "Common Octopus", lo: 7, hi: 7 },
-    { n: 6, animal: "common-octopus", name: "Common Octopus", lo: 8, hi: 8 },
-    { n: 7, animal: "giant-squid",    name: "Giant Squid",    lo: 9, hi: 9, final: true },
+    { n: 1,  tier: "F",   animal: "bobtail-squid",     name: "Bobtail Squid",     lo: 0, hi: 0 },
+    { n: 2,  tier: "E",   animal: "staghorn-coral",    name: "Staghorn Coral",    lo: 1, hi: 1 },
+    { n: 3,  tier: "D",   animal: "peruvian-pelican",  name: "Peruvian Pelican",  lo: 2, hi: 2 },
+    { n: 4,  tier: "C",   animal: "staghorn-coral",    name: "Staghorn Coral",    lo: 3, hi: 3 },
+    { n: 5,  tier: "B",   animal: "narwhal",           name: "Narwhal",           lo: 4, hi: 4 },
+    { n: 6,  tier: "A",   animal: "great-white-shark", name: "Great White Shark", lo: 5, hi: 5 },
+    { n: 7,  tier: "S",   animal: "mandarin-goby",     name: "Goby",              lo: 6, hi: 6 },
+    { n: 8,  tier: "S+",  animal: "bunker",            name: "Bunker",            lo: 7, hi: 7 },
+    { n: 9,  tier: "S++", animal: "sea-star",          name: "Sea Star",          lo: 8, hi: 8 },
+    { n: 10, tier: "GS",  animal: "giant-squid",       name: "Giant Squid",       lo: 9, hi: 9, final: true },
   ];
   // The Giant Squid does not fight children. Beating the story and climbing
   // the whole reef is not enough on its own; the last fight is for accounts
   // that have actually played the game.
   const BM_SQUID_LEVEL = 60;
-  // The last fight is five at one table rather than four: you, one of every
-  // cephalopod on the reef, and the Squid itself.
+  // The last fight is five at one table rather than four: you, the three
+  // platforms directly under the Squid, and the Squid itself.
   const BM_FINAL_SEATS = 5;
   let _bmGrades = BM_FALLBACK_GRADES.slice();
   let _bmPick = [];            // ladder ids, weakest first
-  let _bmTier = 0;             // which spot on the reef is standing lit
+  let _bmTier = 0;             // which platform on the reef you are standing on
   let _bmBusy = false;
   let _bmGradesLoaded = false;
 
@@ -5400,15 +5411,18 @@
     return el;
   }
 
-  // Which cephalopod a rung belongs to. The reef is the map: whichever spot's
-  // stretch of ladder a rung falls in, that is the animal it wears, both on
-  // the reef and in the lineup beside it.
+  // Which animal a rung wears. The reef is the map: the platform for a rung's
+  // rank is the animal it is, both on the reef and in the lineup beside it.
+  // A rank this build has never heard of falls back to the platform covering
+  // its place on the ladder, so a re-tuned ladder still draws an animal.
   function bmAnimalFor(id) {
     const g = bmGradeById(id);
     if (g && g.unlock === "story") return "giant-squid";
+    const byRank = g ? BM_TIERS.find(s => !s.final && s.tier === g.tier) : null;
+    if (byRank) return byRank.animal;
     const i = bmIndexOf(id);
     const t = BM_TIERS.find(s => !s.final && i >= s.lo && i <= s.hi);
-    return t ? t.animal : "common-octopus";
+    return t ? t.animal : BM_TIERS[0].animal;
   }
   function bmSquidId() {
     const squid = _bmGrades.find(g => g.unlock === "story");
@@ -5417,8 +5431,8 @@
   function bmSpot(i) {
     return BM_TIERS[Math.max(0, Math.min(Math.floor(i) || 0, BM_TIERS.length - 1))];
   }
-  // The rank a spot wears: the top rung it can deal. It is what the spot is
-  // worth climbing to, so it is the letter on its plaque.
+  // The rank a platform wears: the top rung it can deal. It is what the
+  // platform is worth climbing to, so it is the letter on its ledge.
   function bmSpotRank(i) {
     const t = bmSpot(i);
     return t.final ? bmGradeById(bmSquidId()).tier : bmAt(t.hi).tier;
@@ -5517,33 +5531,22 @@
     } catch (_) { /* the fallback ladder above is a fine thing to draw */ }
   }
 
-  // The last fight: one of every cephalopod on the reef, and the Giant Squid.
-  // Each of the three that come with it is the TOP rung of its animal's
-  // stretch of the ladder, so the Squid does not turn up flanked by beginners.
+  // The last fight: the three platforms directly under the Squid, and the
+  // Giant Squid itself. They are the top of the climb, so the Squid does not
+  // turn up flanked by beginners.
   function bmFinalLineup() {
-    // One row per cephalopod, in reef order. Walking UP the reef and letting
-    // each spot overwrite its own animal leaves the TOP spot of every stretch
-    // holding the seat, which is the point: the first Cuttlefish spot deals
-    // rank E, and rank E is not who you bring to the last fight.
-    const seen = [];   // [animal, ladder id], in reef order
-    BM_TIERS.forEach(t => {
-      if (t.final) return;
-      const id = bmAt(t.hi).id;
-      const hit = seen.find(row => row[0] === t.animal);
-      if (hit) hit[1] = id;
-      else seen.push([t.animal, id]);
-    });
-    const ids = seen.map(row => row[1]);
+    const climb = BM_TIERS.filter(t => !t.final);
+    const ids = climb.slice(-(BM_FINAL_SEATS - 2)).map(t => bmAt(t.hi).id);
     ids.push(bmSquidId());
     return ids;
   }
 
-  // Three DIFFERENT opponents from a spot on the reef. Different is the
-  // point: a table of three identical bots is one opponent copied three
-  // times, and the whole reason to have ten of them is that a game can hold
-  // several at once. A spot deals its own top rung and the two below it, so
-  // neighbouring spots overlap and every rung on the ladder gets dealt
-  // somewhere.
+  // Three opponents from a platform on the reef, as different from each other
+  // as the platform allows: a table of three identical bots is one opponent
+  // copied three times, and the whole reason to have ten of them is that a
+  // game can hold several at once. A platform deals its own rung and the two
+  // below it, so neighbouring platforms overlap and every rung on the ladder
+  // gets dealt somewhere.
   function bmRoll(spotIdx) {
     const idx = Number.isFinite(spotIdx) ? spotIdx : _bmTier;
     const t = bmSpot(idx);
@@ -5599,61 +5602,197 @@
     bmRender();
   }
 
-  // The reef, drawn top rung first so the climb reads upwards. Every spot is
-  // on the screen whether or not it has been earned, and the ones that have
-  // not wear a lock: a reward nobody can see is not a reward, it is an
-  // absence.
+  // Where a platform stands, in percent of the reef's own box: x is the
+  // middle of its ledge, y is the top of the ledge, where the animals' feet
+  // go. The climb zig-zags left and right, so two neighbouring platforms
+  // never stand over each other, and the Squid has the summit to itself.
+  function bmSpotPos(i) {
+    const t = bmSpot(i);
+    if (t.final) return { x: 50, y: 19 };
+    const climb = BM_TIERS.filter(s => !s.final).length;
+    const k = BM_TIERS.indexOf(t);
+    const y = 93 - k * (93 - 38) / Math.max(1, climb - 1);
+    return { x: k % 2 ? 71 : 29, y: Math.round(y * 10) / 10 };
+  }
+
+  // The reef itself: two walls of coral rock that run the whole height of the
+  // box, a shelf under every platform, a rock bridge at the top for the Squid,
+  // and the dotted trail between the platforms, bright as far as this player
+  // has climbed. It is drawn in percent (viewBox 0 0 100 100, stretched to
+  // the box) so the shelves land under the platforms at any size. Strokes are
+  // non-scaling, so the coral branches keep their thickness when it stretches.
+  function bmReefArt() {
+    const f = (n) => Math.round(n * 100) / 100;
+    const climb = BM_TIERS.map((t, i) => i).filter(i => !BM_TIERS[i].final);
+    // Mirror an x across the channel, for the right-hand wall.
+    const mx = (x, right) => f(right ? 100 - x : x);
+    const shelf = (i) => {
+      const p = bmSpotPos(i);
+      const r = p.x > 50;
+      const x = r ? 100 - p.x : p.x, y = p.y;
+      return `<path fill="url(#bm-reef-rock-${r ? "r" : "l"})" d="`
+        + `M${mx(0, r)},${f(y - 1)} Q${mx(8, r)},${f(y + 0.2)} ${mx(x - 4, r)},${f(y + 0.8)} `
+        + `L${mx(x + 4, r)},${f(y + 0.8)} Q${mx(x + 3, r)},${f(y + 3)} ${mx(x - 5, r)},${f(y + 3.6)} `
+        + `Q${mx(13, r)},${f(y + 4.2)} ${mx(0, r)},${f(y + 7.5)} Z"/>`;
+    };
+    // A staghorn coral growing out of the rock at (x, y): a trunk and four
+    // branches, drawn as round-capped strokes.
+    const coral = (x, y, w, h, color) => {
+      const B = [[[0, 0], [0.02, -0.55], [-0.04, -1]],
+                 [[0, -0.3], [-0.38, -0.55], [-0.46, -0.86]],
+                 [[0, -0.36], [0.36, -0.62], [0.42, -0.95]],
+                 [[-0.3, -0.56], [-0.14, -0.8]],
+                 [[0.3, -0.62], [0.56, -0.76]]];
+      const pt = ([a, b]) => `${f(x + a * w)},${f(y + b * h)}`;
+      const d = B.map(s => s.length === 3
+        ? `M${pt(s[0])} Q${pt(s[1])} ${pt(s[2])}` : `M${pt(s[0])} L${pt(s[1])}`).join(" ");
+      return `<path class="bm-reef-coral" stroke="${color}" d="${d}"/>`;
+    };
+    const weed = (x, y, h, color) =>
+      `<path class="bm-reef-weed" stroke="${color}" d="M${x},${y} q1.6,${f(-h / 3 / 2)} 0,${f(-h / 3)} `
+      + `t0,${f(-h / 3)} t0,${f(-h / 3)}"/>`;
+    // A sea fan: a spray of thin branches from one foot.
+    const fan = (x, y, w, h, color) => {
+      const d = [-0.9, -0.5, -0.15, 0.2, 0.55, 0.9].map(k =>
+        `M${x},${y} Q${f(x + k * w * 0.4)},${f(y - h * 0.55)} ${f(x + k * w * 0.5)},${f(y - h * (1 - Math.abs(k) * 0.25))}`).join(" ");
+      return `<path class="bm-reef-fan" stroke="${color}" d="${d}"/>`;
+    };
+    const bubbles = (x, y, fill) =>
+      `<g fill="${fill}"><ellipse cx="${x}" cy="${y}" rx="2.3" ry="1.7"/>`
+      + `<ellipse cx="${f(x + 2.6)}" cy="${f(y + 0.6)}" rx="1.8" ry="1.35"/>`
+      + `<ellipse cx="${f(x + 1)}" cy="${f(y - 1.3)}" rx="1.6" ry="1.2"/></g>`;
+
+    // The trail, platform to platform. A leg is bright once the platform it
+    // climbs to is open.
+    let trail = "";
+    for (let k = 1; k < BM_TIERS.length; k++) {
+      const a = bmSpotPos(k - 1), b = bmSpotPos(k);
+      trail += `<path class="bm-reef-trail${bmSpotLocked(k) ? " is-dim" : ""}" `
+        + `d="M${a.x},${f(a.y - 2)} L${b.x},${f(b.y - 2)}"/>`;
+    }
+
+    return `<svg class="bm-reef-art" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="bm-reef-rock-l" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#1b3f80"/><stop offset=".7" stop-color="#2a58a6"/><stop offset="1" stop-color="#3a6cbd"/>
+        </linearGradient>
+        <linearGradient id="bm-reef-rock-r" x1="1" y1="0" x2="0" y2="0">
+          <stop offset="0" stop-color="#1b3f80"/><stop offset=".7" stop-color="#2a58a6"/><stop offset="1" stop-color="#3a6cbd"/>
+        </linearGradient>
+        <linearGradient id="bm-reef-rock-top" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#3a6cbd"/><stop offset="1" stop-color="#1f4689"/>
+        </linearGradient>
+        <filter id="bm-reef-grain" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="2.4" numOctaves="1" seed="4" result="n"/>
+          <feColorMatrix in="n" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .09 0" result="w"/>
+          <feComposite in="w" in2="SourceGraphic" operator="in" result="g"/>
+          <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="g"/></feMerge>
+        </filter>
+      </defs>
+      <g class="bm-reef-trails">${trail}</g>
+      <g filter="url(#bm-reef-grain)">
+        <path fill="url(#bm-reef-rock-l)" d="M0,0 L12,0 Q8,5 10,10 T12.5,20 T9.5,30 T12,40 T9,50 T11.5,60 T9.5,70 T12.5,80 T16,90 T26,100 L0,100 Z"/>
+        <path fill="url(#bm-reef-rock-r)" d="M100,0 L88,0 Q92,5 90,10 T87.5,20 T90.5,30 T88,40 T91,50 T88.5,60 T90.5,70 T87.5,80 T84,90 T74,100 L100,100 Z"/>
+        <path fill="url(#bm-reef-rock-top)" d="M0,10 Q50,26 100,10 L100,25 Q50,19 0,25 Z"/>
+        ${climb.map(shelf).join("")}
+      </g>
+      <path class="bm-reef-rim" d="M12,0 Q8,5 10,10 T12.5,20 T9.5,30 T12,40 T9,50 T11.5,60 T9.5,70 T12.5,80 T16,90 T26,100"/>
+      <path class="bm-reef-rim" d="M88,0 Q92,5 90,10 T87.5,20 T90.5,30 T88,40 T91,50 T88.5,60 T90.5,70 T87.5,80 T84,90 T74,100"/>
+      <path class="bm-reef-rim" d="M0,10 Q50,26 100,10"/>
+      ${fan(5, 91, 9, 10, "#c9a2f2")}${fan(95, 80, 8, 9, "#ff9fb0")}
+      ${fan(4, 49, 7, 8, "#ffb46b")}${fan(96, 33, 7, 8, "#c9a2f2")}
+      ${coral(6, 97, 9, 9, "#ff7f93")}${coral(20, 99, 6, 6, "#ffb14e")}
+      ${coral(5, 72, 7, 7, "#b784e8")}${coral(7, 45, 7, 6.5, "#ff9a62")}
+      ${coral(10, 64, 5, 5, "#ffc857")}${coral(6, 22, 6, 6, "#ffc857")}
+      ${coral(94, 96, 8, 8.5, "#b784e8")}${coral(81, 99, 5, 5.5, "#ff7f93")}
+      ${coral(94, 64, 7, 7, "#ff7f93")}${coral(90, 55, 5, 5, "#ff9a62")}
+      ${coral(93, 37, 6.5, 6, "#ffb14e")}${coral(94, 17, 6, 5.5, "#d7b3f5")}
+      ${coral(22, 15.5, 5, 4.5, "#ff7f93")}${coral(78, 15.5, 5, 4.5, "#b784e8")}
+      ${coral(33, 18.5, 3.5, 3.2, "#ffb14e")}${coral(67, 18.5, 3.5, 3.2, "#ffc857")}
+      ${weed(14, 99, 12, "#3fc5b0")}${weed(89, 84, 10, "#69d48c")}
+      ${weed(8, 60, 8, "#3fc5b0")}${weed(92, 50, 9, "#3fc5b0")}
+      ${weed(11, 38, 7, "#69d48c")}${weed(90, 27, 7, "#3fc5b0")}
+      ${bubbles(3, 84, "#c7a8ef")}${bubbles(94, 72, "#f5a3b5")}
+      ${bubbles(4, 34, "#f5a3b5")}${bubbles(92, 24, "#c7a8ef")}
+      ${bubbles(13, 21, "#f5a3b5")}${bubbles(84, 21, "#c7a8ef")}
+    </svg>`;
+  }
+
+  // The reef, drawn top platform first so the climb reads upwards in a
+  // screen reader too. Every platform is on the screen whether or not it has
+  // been earned, and the ones that have not wear a lock: a reward nobody can
+  // see is not a reward, it is an absence. The platform you are standing on
+  // has your own animal on it, beside the one you are about to face.
   function bmRenderLadder() {
     const wrap = document.getElementById("bm-ladder");
     if (!wrap) return;
-    wrap.innerHTML = "";
+    wrap.innerHTML = bmReefArt();
+    let mine = "";
+    try { mine = String(window.__fishMyAvatarUrl?.() || ""); } catch (_) {}
+    if (!mine.startsWith("/avatars/")) mine = "/avatars/mullet.png";
     for (let i = BM_TIERS.length - 1; i >= 0; i--) {
       const t = BM_TIERS[i];
       const locked = bmSpotLocked(i);
+      const here = !locked && i === _bmTier;
       const rank = bmSpotRank(i);
+      const pos = bmSpotPos(i);
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "bm-spot"
         + (locked ? " is-locked" : "")
-        + (i === _bmTier ? " is-current" : "");
-      btn.style.setProperty("--i", String(i));
+        + (here ? " is-current" : "")
+        + (t.final ? " is-summit" : "");
+      btn.dataset.rank = rank;
+      btn.style.setProperty("--x", String(pos.x));
+      btn.style.setProperty("--y", String(pos.y));
       btn.setAttribute("aria-label",
-        `Spot ${t.n}, ${t.name}, rank ${rank}${locked ? ", locked" : ""}`);
+        `Rank ${rank}, ${t.name}${locked ? ", locked" : ""}${here ? ", you are here" : ""}`);
       if (locked) btn.setAttribute("aria-disabled", "true");
-      else if (i === _bmTier) btn.setAttribute("aria-current", "true");
+      else if (here) btn.setAttribute("aria-current", "true");
 
       const art = document.createElement("span");
       art.className = "bm-spot-art";
+      if (here) {
+        const you = document.createElement("span");
+        you.className = "bm-spot-you";
+        const face = document.createElement("img");
+        face.className = "bm-spot-you-img";
+        face.src = (typeof window.__fishAvSrc === "function") ? window.__fishAvSrc(mine) : mine;
+        face.alt = "";
+        face.decoding = "async"; face.draggable = false;
+        const tag = document.createElement("span");
+        tag.className = "bm-spot-you-tag";
+        tag.textContent = "You";
+        you.appendChild(tag);
+        you.appendChild(face);
+        art.appendChild(you);
+      }
       const img = document.createElement("img");
       img.className = "bm-spot-animal";
       img.src = `/avatars/${t.animal}.png`;
       img.alt = "";
       img.loading = "lazy"; img.decoding = "async"; img.draggable = false;
       art.appendChild(img);
-      btn.appendChild(art);
-
-      const plaque = document.createElement("span");
-      plaque.className = "bm-spot-plaque";
-      const num = document.createElement("span");
-      num.className = "bm-spot-num";
-      num.textContent = String(t.n);
-      plaque.appendChild(num);
-      plaque.appendChild(bmBadge(rank, "bm"));
-      btn.appendChild(plaque);
-
       if (locked) {
         const lock = document.createElement("span");
         lock.className = "bm-spot-lock";
         lock.textContent = "🔒";
-        btn.appendChild(lock);
+        art.appendChild(lock);
       }
+      btn.appendChild(art);
+
+      // The platform: a ledge of reef rock with the rank on its face.
+      const ledge = document.createElement("span");
+      ledge.className = "bm-spot-ledge";
+      ledge.appendChild(bmBadge(rank, "bm"));
+      btn.appendChild(ledge);
 
       btn.addEventListener("click", () => bmPickSpot(i));
       wrap.appendChild(btn);
     }
   }
 
-  // One card per opponent: the cephalopod it belongs to, and its rank. No
+  // One card per opponent: the animal its rank belongs to, and its rank. No
   // name and no rating anywhere on it.
   function bmRenderBots() {
     const wrap = document.getElementById("bm-bots");
@@ -5732,8 +5871,8 @@
     const sub = document.getElementById("bm-lineup-sub");
     if (sub) {
       sub.textContent = final
-        ? "The last fight: five at one table. One of every cephalopod, and the Giant Squid."
-        : "These are the opponents you'll face. Press a spot on the reef to change them.";
+        ? "The last fight: five at one table. The top three ranks, and the Giant Squid."
+        : "These are the opponents you'll face. Press a platform on the reef to change them.";
     }
     const shuffle = document.getElementById("bm-shuffle");
     if (shuffle) shuffle.disabled = final;
