@@ -423,7 +423,9 @@ console.log("\n── a free-for-all shows up in competitive history ──");
   // And the Quick Stats counter, which only ever counted the 1v1 ladder.
   check(/name === "competitive" \|\| name === "ranked"/.test(APP),
         "a saved game in either mode counts as competitive");
-  check(/if \(compRecordGames > compGames\) compGames = compRecordGames;/.test(APP),
+  // The Overview no longer has a Competitive Games card (it keeps eight
+  // numbers); the public profile's card is the one that still counts them.
+  check(/const compGames\s*=\s*Math\.max\(byComp, Number\(s\.competitive_wins \|\| 0\)\s*\n\s*\+ Number\(s\.competitive_losses \|\| 0\)\s*\n\s*\+ Number\(s\.competitive_draws \|\| 0\)\);/.test(APP),
         "Competitive Games never shows fewer games than the rank's own record");
 }
 

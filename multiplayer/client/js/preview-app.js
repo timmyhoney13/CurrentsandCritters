@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-11.1";
+  const APP_BUILD   = "2026-09-11.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,12 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.8", title: "\uD83D\uDC65 Your friends' stats, right next to yours", items: [
+      "Quick Stats on the Overview is down to the eight numbers that matter most: hours played, most played strategy, games, wins, win rate, achievements, competitive rank and animals unlocked.",
+      "Beside it is a card with the same eight numbers for one of your friends, lined up card for card so you can see who is ahead. Use the arrows to flip through your friends; your favorites come first.",
+      "Tap a friend's name on that card to open their full profile.",
+      "Scores, casual wins and competitive games are still on the Casual and Competitive tabs.",
+    ]},
     { ver: "V1.7.7", title: "\uD83E\uDDED The menu slides out from the left", items: [
       "On a computer, the side menu tucks away off the left edge of the screen, so every page gets the whole width. Move your mouse to the left edge, where the little tab is, and it slides out over the page; move away and it slides back.",
       "Each tab steps out a little as your mouse goes over it.",
@@ -32863,7 +32869,9 @@
       return "";
     }
 
-    function getOverallMostPlayedStrategy(stats) {
+    // isMine=false for anybody else's stats: the local fallback below is what
+    // THIS device has played, and would print the viewer's favourite as theirs.
+    function getOverallMostPlayedStrategy(stats, isMine = true) {
       const source = (stats && typeof stats === "object") ? stats : {};
       const direct = String(source.most_played_strategy || source.favorite_strategy || "").trim();
       if (direct) return direct;
@@ -32880,6 +32888,7 @@
         if (top && top[0]) return top[0];
       }
       // Fall back to locally-tracked guide activations if server has no data
+      if (!isMine) return "";
       try {
         const localFav = (typeof _getMostPlayedStrategyLocal === "function") ? _getMostPlayedStrategyLocal() : "";
         if (localFav) return localFav;
@@ -33461,75 +33470,21 @@
       const explicitTotalWins = Number(safeStats.total_wins);
       const totalWins = Number.isFinite(explicitTotalWins) ? explicitTotalWins : (normalWins + compWins);
 
-      const mostPlayedCard = getOverallMostPlayedCard(safeStats);
       const mostPlayedStrategy = getOverallMostPlayedStrategy(safeStats);
-      const mostPlayedPlayerCount = getMostPlayedPlayerCountLabel(safeStats);
       const noGames = totalGames === 0;
 
       const set = (id, val) => { const el = $a(id); if (el) el.textContent = val; };
 
+      // The Overview keeps eight numbers, the same eight the friend card beside
+      // it shows. The per-mode detail (casual/competitive scores, games, XP)
+      // lives on the Casual and Competitive tabs.
       const hoursOv = Number(safeStats.hours_played || 0);
       set("stat-hours-played", hoursOv === 1 ? "1 hr" : `${hoursOv} hrs`);
       set("ph-ov-most-strategy", mostPlayedStrategy || (noGames ? "No games completed yet." : "-"));
       set("ph-ov-total-games",   String(Math.max(0, totalGames)));
       set("ph-ov-total-wins",    String(Math.max(0, totalWins)));
       set("ph-ov-win-rate",      totalGames > 0 ? `${Math.round((totalWins / totalGames) * 100)}%` : "-");
-      set("ph-ov-most-pcount",   mostPlayedPlayerCount || (noGames ? "No games completed yet." : "-"));
-
-      // Per-mode overview stats
-      const casualTop = safeStats.highest_score_normal || safeStats.highest_score || 0;
-      const compTop   = safeStats.highest_score_competitive || 0;
-      const recentGames = Array.isArray(safeStats.recent_games) ? safeStats.recent_games : [];
-      // BOTH competitive modes count as competitive here. A game is saved under
-      // its own mode name ("competitive" for the 1v1 ladder, "ranked" for the
-      // free-for-all), and reading only the first one filed every free-for-all
-      // under casual: the player's rank went up on a game this grid counted as
-      // a casual one.
-      const recentNormal = recentGames.filter((g) => !_isCompetitiveMode(g?.mode));
-      const recentComp = recentGames.filter((g) => _isCompetitiveMode(g?.mode));
-      const recentNormalScore = recentNormal.reduce((sum, g) => sum + (Number(g?.s) || 0), 0);
-      const recentCompScore = recentComp.reduce((sum, g) => sum + (Number(g?.s) || 0), 0);
-      const normalScoreBySize = Object.values(safeStats.total_score_by_size || {}).reduce((sum, v) => sum + (Number(v) || 0), 0);
-      const overallScore = Number(safeStats.total_score || 0);
-      let casualGames = byNormal > 0 ? byNormal : recentNormal.length;
-      let compGames = byComp > 0 ? byComp : recentComp.length;
-      // comp_games_by_size is only written by the 1v1 ladder, so a free-for-all
-      // player could sit on a Competitive rank with "-" games beside it. The
-      // W/L/D record is the count the Competitive tab itself shows as Matches,
-      // and both modes write it: never show fewer games than that.
-      const compRecordGames = Number(safeStats.competitive_wins || 0)
-                            + Number(safeStats.competitive_losses || 0)
-                            + Number(safeStats.competitive_draws || 0);
-      if (compRecordGames > compGames) compGames = compRecordGames;
-      const inferredCompGames = Math.max(0, totalGames - casualGames);
-      const likelyHasCompData = byComp > 0 || recentComp.length > 0 || compWins > 0 || compTop > 0;
-      if (compGames === 0 && inferredCompGames > 0 && likelyHasCompData) compGames = inferredCompGames;
-      let casualScoreTotal = normalScoreBySize;
-      if (!(casualScoreTotal > 0) && recentNormalScore > 0) casualScoreTotal = recentNormalScore;
-      if (!(casualScoreTotal > 0) && overallScore > 0 && compGames === 0) casualScoreTotal = overallScore;
-      let compScoreTotal = recentCompScore > 0 ? recentCompScore : 0;
-      if (!(compScoreTotal > 0) && overallScore > 0 && casualScoreTotal >= 0 && compGames > 0) {
-        const inferredCompScore = overallScore - casualScoreTotal;
-        if (inferredCompScore > 0) compScoreTotal = inferredCompScore;
-      }
-      const avgCasual = casualGames > 0
-        ? Math.round((casualScoreTotal > 0 ? casualScoreTotal : recentNormalScore) / Math.max(1, casualGames))
-        : null;
-      const avgComp = compGames > 0
-        ? Math.round((compScoreTotal > 0 ? compScoreTotal : recentCompScore) / Math.max(1, compGames))
-        : null;
-      set("ph-ov-casual-wins", String(normalWins));
-      set("ph-ov-casual-top",  casualTop > 0 ? String(casualTop) : "-");
-      set("ph-ov-avg-casual", avgCasual != null && Number.isFinite(avgCasual) ? String(avgCasual) : "-");
-      // Overview competitive summary (rank, top score, total comp games)
-      const compRankLabel = safeStats.rank_competitive || "No rank yet";
-      set("ph-ov-comp-rank", compRankLabel);
-      set("ph-ov-comp-top",  compTop > 0 ? String(compTop) : "-");
-      set("ph-ov-comp-games", compGames > 0 ? String(compGames) : "-");
-
-      // Total XP Earned
-      const totalXpVal = Number(safeStats.total_xp || 0);
-      set("ph-ov-total-xp", totalXpVal > 0 ? totalXpVal.toLocaleString() : "-");
+      set("ph-ov-comp-rank",     safeStats.rank_competitive || "No rank yet");
 
       // Achievements unlocked
       const userAchs = (typeof window.__fishGetUserAchievements === "function") ? window.__fishGetUserAchievements() : {};
@@ -34009,6 +33964,8 @@
       const allUnlockable = ANIMAL_AVATARS.filter(a => !!a.unlock);
       const animalsDone   = allUnlockable.filter(a => isAvatarEarned(a.img)).length;
       set("ph-ov-animals", `${animalsDone} / ${allUnlockable.length}`);
+      // Last, and on its own: its state is declared further down the file.
+      try { renderOverviewFriend(); } catch (_) {}
     }
 
     // ── Public Profile Modal ──────────────────────────────────────
@@ -34026,9 +33983,9 @@
       </div>`;
     }
 
-    // Mirrors the real Overview "Quick Stats" grid exactly (same cards, order,
-    // icons, and .ph-sc-string classes), populated with the target player's
-    // data. Read-only; touches no global state.
+    // The full set of a player's stats, in the Overview's card style. The
+    // Overview itself now shows eight of these (see _ovfQuickStatsHtml).
+    // Read-only; touches no global state.
     function _renderPublicStats(profile) {
       const grid = $a("pub-stats-grid");
       if (!grid) return;
@@ -34057,7 +34014,7 @@
 
       const hours = Number(s.hours_played || 0);
       let strat = "-";
-      try { strat = getOverallMostPlayedStrategy(s) || "-"; }
+      try { strat = getOverallMostPlayedStrategy(s, false) || "-"; }
       catch { strat = s.most_played_strategy || s.favorite_strategy || "-"; }
       let mostPCount = "-";
       try { mostPCount = getMostPlayedPlayerCountLabel(s) || "-"; }
@@ -34096,6 +34053,201 @@
         _pubSc("🎮", "Competitive Games", compGames > 0 ? compGames : "-", "ph-sci-blue"),
         _pubSc("🐠", "Animals Unlocked", `${animalsDone} / ${animals.length}`, "ph-sci-teal"),
       ].join("");
+    }
+
+    // ── Player Home: the friend card beside Quick Stats ─────────────
+    // The same eight numbers as the player's own Quick Stats, for one friend at
+    // a time, with arrows to step through them.
+    //
+    // Firestore reads are the budget here (the free tier has run out once). The
+    // friend LIST is one read per friend and is kept for OVF_TTL_MS; a PROFILE is
+    // read only when that friend is actually put on screen, and kept just as
+    // long. Opening the Friends tab, which reads every profile anyway, hands
+    // both over through _ovfAdopt(), so coming back from it costs nothing.
+    const OVF_TTL_MS = 10 * 60 * 1000;
+    let _ovfList = [];              // this account's friend docs, in display order
+    let _ovfListFor = "";           // the uid that list belongs to
+    let _ovfListAt = 0;
+    let _ovfListLoading = "";       // uid whose list is being read right now
+    let _ovfUid = "";               // the friend on screen, kept across re-orders
+    const _ovfProfiles = new Map(); // friend uid -> { profile, at }
+    const _ovfProfileLoading = new Set();
+
+    function _ovfReset() {
+      _ovfList = []; _ovfListFor = ""; _ovfListAt = 0; _ovfListLoading = ""; _ovfUid = "";
+      _ovfProfiles.clear(); _ovfProfileLoading.clear();
+    }
+
+    // The Friends tab already holds every friend with a fresh profile.
+    function _ovfAdopt(uid, entries) {
+      if (!uid) return;
+      const now = Date.now();
+      _ovfList = (entries || []).map(({ profile, isOnline, ...doc }) => doc);
+      _ovfListFor = uid; _ovfListAt = now;
+      (entries || []).forEach(e => { if (e && e.uid && e.profile) _ovfProfiles.set(e.uid, { profile: e.profile, at: now }); });
+    }
+
+    // Favorites first, as everywhere else; then by name, because the friend
+    // docs alone carry no last-active time and reading every profile to sort
+    // by it is exactly the cost this card avoids.
+    function _ovfSort(list) {
+      return [...list].sort((a, b) =>
+        (Number(b?.favorite === true) - Number(a?.favorite === true))
+        || String(a?.nickname || "").localeCompare(String(b?.nickname || ""), undefined, { sensitivity: "base" }));
+    }
+
+    // The friend's eight cards, in the order and style of the player's own.
+    // Without a profile (still loading, or the account is gone) every value is
+    // a dash: zeros would read as a friend who has never played.
+    function _ovfQuickStatsHtml(profile) {
+      const s = (profile && typeof profile.stats === "object") ? profile.stats : {};
+      const v = (val) => profile ? val : "-";
+      const byNormal   = Object.values(s.normal_games_by_size || {}).reduce((a, n) => a + Number(n || 0), 0);
+      const byComp     = Object.values(s.comp_games_by_size   || {}).reduce((a, n) => a + Number(n || 0), 0);
+      const totalGames = Math.max(Number(s.completed_games || 0), byNormal + byComp);
+      const expTotal   = Number(s.total_wins);
+      const totalWins  = Number.isFinite(expTotal) ? expTotal
+                       : Number(s.normal_wins || 0) + Number(s.competitive_wins || 0);
+      const hours = Number(s.hours_played || 0);
+      let strat = "";
+      try { strat = getOverallMostPlayedStrategy(s, false) || ""; } catch { strat = ""; }
+      const tAch = (profile && profile.achievements && typeof profile.achievements === "object") ? profile.achievements : {};
+      const achDone = ACHIEVEMENT_DEFS.filter(d => tAch[d.id] && tAch[d.id].completed).length;
+      const animals = ANIMAL_AVATARS.filter(a => !!a.unlock);
+      const icons = Array.isArray(profile && profile.unlocked_icons) ? normalizeIconList(profile.unlocked_icons) : [];
+      const animalsDone = animals.filter(a => icons.includes(a.img)).length;
+      return [
+        _pubSc(`<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#25a57c" stroke-width="1.8"/><path d="M12 7v5l3 3" stroke="#25a57c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+          "Hours Played", v(hours === 1 ? "1 hr" : `${hours} hrs`), "ph-sci-teal"),
+        _pubSc(`<img src="/avatars/common-octopus.png?v=ws12" alt="" draggable="false" loading="lazy" decoding="async" style="width:34px;height:34px;object-fit:contain;pointer-events:none;">`,
+          "Most Played Strategy", v(strat || (totalGames === 0 ? "No games yet" : "-")), "ph-sci-blue", true),
+        _pubSc("🧮", "Total Games", v(Math.max(0, totalGames)), "ph-sci-purple"),
+        _pubSc("🥇", "Total Wins",  v(Math.max(0, totalWins)),  "ph-sci-gold"),
+        _pubSc("📈", "Win Rate", v(totalGames > 0 ? `${Math.round((totalWins / totalGames) * 100)}%` : "-"), "ph-sci-teal"),
+        _pubSc("🏆", "Achievements", v(`${achDone} / ${ACHIEVEMENT_DEFS.length}`), "ph-sci-gold"),
+        _pubSc("⚔️", "Competitive Rank", v(s.rank_competitive || "No rank yet"), "ph-sci-gold", true),
+        _pubSc("🐠", "Animals Unlocked", v(`${animalsDone} / ${animals.length}`), "ph-sci-teal"),
+      ].join("");
+    }
+
+    function _ovfEmpty(title, sub, showAdd) {
+      const set = (id, v) => { const el = $a(id); if (el) el.textContent = v; };
+      set("ph-ovf-empty-title", title);
+      set("ph-ovf-empty-sub", sub || "");
+      const add = $a("ph-ovf-add"); if (add) add.hidden = !showAdd;
+      const empty = $a("ph-ovf-empty"); if (empty) empty.hidden = false;
+      const grid = $a("ph-ovf-grid"); if (grid) grid.hidden = true;
+      const nav = $a("ph-ovf-nav"); if (nav) nav.hidden = true;
+      const who = $a("ph-ovf-who");
+      if (who && !who.querySelector(".ph-stats-title")) {
+        who.innerHTML = `<div class="ph-stats-title">${_OVF_TITLE_ICON} Friend Stats</div>`;
+      }
+    }
+    const _OVF_TITLE_ICON = `<svg width="20" height="16" viewBox="0 0 20 16" fill="none"><circle cx="7" cy="5" r="3" stroke="#2680c8" stroke-width="1.9"/><path d="M1.5 14.5c.6-3 2.8-4.7 5.5-4.7s4.9 1.7 5.5 4.7" stroke="#2680c8" stroke-width="1.9" stroke-linecap="round"/><circle cx="14.2" cy="5.6" r="2.4" stroke="#2680c8" stroke-width="1.7"/><path d="M14.6 9.9c2 .3 3.4 1.8 3.9 4.6" stroke="#2680c8" stroke-width="1.7" stroke-linecap="round"/></svg>`;
+
+    function renderOverviewFriend() {
+      const card = $a("ph-ovf-card");
+      if (!card) return;
+      if (!card.dataset.wired) {
+        card.dataset.wired = "1";
+        const step = (d) => {
+          const n = _ovfList.length;
+          if (n < 2) return;
+          const i = Math.max(0, _ovfList.findIndex(f => f.uid === _ovfUid));
+          _ovfUid = _ovfList[(i + d + n) % n].uid;
+          renderOverviewFriend();
+        };
+        $a("ph-ovf-prev")?.addEventListener("click", () => step(-1));
+        $a("ph-ovf-next")?.addEventListener("click", () => step(1));
+        $a("ph-ovf-add")?.addEventListener("click", () => {
+          if (typeof window._switchPhTab === "function") window._switchPhTab("friends");
+        });
+        card.addEventListener("click", (ev) => {
+          const b = ev.target.closest("[data-ovf-profile]");
+          if (b && card.contains(b)) openPublicProfile(b.getAttribute("data-ovf-profile"));
+        });
+      }
+
+      const uid = _authUser && _authUser.uid;
+      if (!uid || !_db) {
+        _ovfEmpty("Friends need an account", "Sign in to add friends and see their stats next to yours.", false);
+        return;
+      }
+
+      // The list: read once, then only again once it has gone stale.
+      const listFresh = _ovfListFor === uid && (Date.now() - _ovfListAt) < OVF_TTL_MS;
+      if (!listFresh && _ovfListLoading !== uid) {
+        _ovfListLoading = uid;
+        loadFriends(uid).then(fl => {
+          if (!_authUser || _authUser.uid !== uid) return;   // the session changed hands
+          _ovfList = _ovfSort(fl.filter(f => f && f.uid));
+          _ovfListFor = uid; _ovfListAt = Date.now();
+        }).catch(() => {}).finally(() => {
+          if (_ovfListLoading === uid) _ovfListLoading = "";
+          if (_authUser && _authUser.uid === uid) renderOverviewFriend();
+        });
+      }
+      if (_ovfListFor !== uid) { _ovfEmpty("Loading your friends…", "", false); return; }
+      if (!_ovfList.length) {
+        _ovfEmpty("No friends yet", "Add a friend and their stats show up here, next to yours.", true);
+        return;
+      }
+
+      let idx = _ovfList.findIndex(f => f.uid === _ovfUid);
+      if (idx < 0) { idx = 0; _ovfUid = _ovfList[0].uid; }
+      const f = _ovfList[idx];
+
+      // The profile: only this friend's, and only if it is not already here.
+      const cached = _ovfProfiles.get(f.uid);
+      const profile = cached ? cached.profile : null;
+      if ((!cached || (Date.now() - cached.at) >= OVF_TTL_MS) && !_ovfProfileLoading.has(f.uid)) {
+        _ovfProfileLoading.add(f.uid);
+        loadProfile(f.uid).then(p => {
+          if (!_authUser || _authUser.uid !== uid) return;
+          // loadProfile answers null for a failed read as well as a missing
+          // account, so a null is only trusted for a minute, not the full TTL.
+          _ovfProfiles.set(f.uid, { profile: p, at: p ? Date.now() : Date.now() - OVF_TTL_MS + 60000 });
+        }).catch(() => {}).finally(() => {
+          _ovfProfileLoading.delete(f.uid);
+          if (_authUser && _authUser.uid === uid && _ovfUid === f.uid) renderOverviewFriend();
+        });
+      }
+
+      const liveNick = (profile && profile.nickname) || f.nickname || "Friend";
+      const name = escapeHtml(liveNick);
+      const avatarUrl = resolveFriendAvatarUrl(resolveAvatarUrl(
+        { ...(profile || {}), avatar_url: (profile && profile.avatar_url) || f.avatar_url || "" },
+        { seed: f.uid }
+      ), f.uid);
+      let bgn = ""; try { bgn = normalizeBgUrl(profile && profile.background_url || ""); if (!_BG_BY_IMG[bgn]) bgn = ""; } catch {}
+      const avatar = avatarUrl
+        ? `<span class="ph-fr-av ph-ovf-av"${bgn ? ` style="${_bgStyle(bgn)}"` : ""}><img src="${escapeHtml(_avSrc(avatarUrl))}" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`
+        : `<span class="ph-fr-av ph-ovf-av">${escapeHtml(safeInitial(liveNick))}</span>`;
+      const online = isFriendOnline(profile);
+      const meta = profile
+        ? `${getFriendLevelLabel(profile)} · ${online ? "Online now" : formatFriendLastActiveLabel(profile, false)}`
+        : (cached ? "Profile unavailable" : "Loading…");
+      const who = $a("ph-ovf-who");
+      if (who) who.innerHTML = `
+        <button class="ph-ovf-person" type="button" data-ovf-profile="${escapeHtml(f.uid)}" title="View ${name}'s profile">
+          ${avatar}
+          <span class="ph-ovf-id">
+            <span class="ph-ovf-name">${name}${f.favorite === true ? ' <span class="ph-ovf-fav" aria-label="Favorite">★</span>' : ""}</span>
+            <span class="ph-ovf-meta">${online ? '<span class="ph-ovf-dot" aria-hidden="true"></span>' : ""}${escapeHtml(meta)}</span>
+          </span>
+        </button>`;
+
+      const nav = $a("ph-ovf-nav");
+      if (nav) nav.hidden = _ovfList.length < 2;
+      const count = $a("ph-ovf-count");
+      if (count) count.textContent = `${idx + 1} / ${_ovfList.length}`;
+      const grid = $a("ph-ovf-grid");
+      if (grid) {
+        grid.innerHTML = _ovfQuickStatsHtml(profile);
+        grid.classList.toggle("is-loading", !cached);
+        grid.hidden = false;
+      }
+      const empty = $a("ph-ovf-empty"); if (empty) empty.hidden = true;
     }
 
     async function openPublicProfile(uid) {
@@ -36978,6 +37130,7 @@
       if (!friends.length) {
         list.innerHTML = '<div class="ph-empty">No friends added yet.</div>';
         paintFriendsOnlineCount(null);
+        _ovfAdopt(_authUser.uid, []);
         return;
       }
       const profiles = await Promise.all(friends.map(f => loadProfile(f.uid).catch(() => null)));
@@ -36988,6 +37141,8 @@
           isOnline: isFriendOnline(profiles[i]),
         }))
       );
+      // The Overview's friend card gets these for free.
+      _ovfAdopt(_authUser.uid, withStatus);
       paintFriendsOnlineCount(withStatus);
       list.innerHTML = "";
       withStatus.forEach(f => {
@@ -37790,6 +37945,8 @@
       _unlockedBackgrounds = [];
       _lbFriendUids = new Set();
       _lbFriendUidsFor = ""; _lbFriendUidsAt = 0;
+      // The Overview's friend card: whose friends, and their profiles.
+      try { _ovfReset(); } catch (_) {}
       // Signing out does not reload the page, so a board snapshot taken as one
       // identity would be painted for the next one.
       try { _lbSnapshot.clear(); _lbRefreshing.clear(); } catch (_) {}

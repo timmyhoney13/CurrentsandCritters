@@ -16542,3 +16542,198 @@
       border-color: rgba(192,32,42,.75);
       box-shadow: 0 4px 14px rgba(192,32,42,.18);
     }
+
+    /* ── Overview: Quick Stats beside a friend's ──────────────────────
+       Two cards of the same eight numbers, yours on the left and one friend's
+       on the right, 4 × 2 each so the cells line up across the gap and read as
+       a comparison. They stack once there is no longer room for four readable
+       cells a side. Everything else about the cells (glass, colours, icons) is
+       the Overview's own .ph-sc styling, untouched. */
+    #ph-panel-overview .ph-main.ph-ov-duo {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: stretch;
+      gap: 14px;
+    }
+    #ph-panel-overview .ph-ov-duo .ph-sg {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      padding: 14px;
+    }
+    #ph-panel-overview .ph-ov-duo .ph-stats-top {
+      min-height: 68px;
+      padding: 12px 16px 4px 18px;
+    }
+    /* Tall enough for a two-line value ("Bronze Barracuda I", "No games
+       completed yet."), so a row is the same height in both cards whatever
+       either player's numbers say. */
+    #auth-stats-lobby #ph-panel-overview .ph-ov-duo .ph-sc {
+      min-height: 150px;
+      padding: 14px 16px;
+      gap: 6px;
+    }
+    #auth-stats-lobby #ph-panel-overview .ph-ov-duo .ph-sc .ph-scl {
+      font-size: .82rem;
+    }
+    #auth-stats-lobby #ph-panel-overview .ph-ov-duo .ph-sc:not(.ph-sc-string) .ph-scv {
+      font-size: clamp(1.2rem, 1.6vw, 1.95rem);
+    }
+    #auth-stats-lobby #ph-panel-overview .ph-ov-duo .ph-sc-string .ph-scv {
+      font-size: clamp(.98rem, 1.05vw, 1.2rem);
+    }
+
+    /* The friend card */
+    .ph-ovf { display: flex; flex-direction: column; }
+    .ph-ovf .ph-ovf-nav[hidden],
+    .ph-ovf #ph-ovf-grid[hidden],
+    .ph-ovf .ph-ovf-empty[hidden],
+    .ph-ovf .ph-ovf-add[hidden] { display: none !important; }
+    .ph-ovf-who {
+      display: flex;
+      align-items: center;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .ph-ovf-person {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      max-width: 100%;
+      margin-left: -6px;
+      padding: 4px 12px 4px 6px;
+      border: 0;
+      border-radius: 14px;
+      background: transparent;
+      font-family: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: background .15s ease;
+    }
+    .ph-ovf-person:hover,
+    .ph-ovf-person:focus-visible {
+      background: rgba(255,255,255,.6);
+      outline: none;
+    }
+    .ph-ovf-person .ph-ovf-av {
+      width: 44px;
+      height: 44px;
+    }
+    .ph-ovf-id {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .ph-ovf-name {
+      font-size: 1.3rem;
+      font-weight: 800;
+      line-height: 1.15;
+      color: #154b98;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ph-ovf-fav { color: #e0a82e; font-size: .85em; }
+    .ph-ovf-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .8rem;
+      font-weight: 700;
+      color: #4a6a8d;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ph-ovf-dot {
+      width: 8px;
+      height: 8px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      background: #22b573;
+      box-shadow: 0 0 0 3px rgba(34,181,115,.18);
+    }
+    .ph-ovf-nav {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+      padding: 3px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.62);
+      border: 1px solid rgba(120,180,225,.5);
+    }
+    .ph-ovf-step {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      padding: 0 0 2px;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: #1f65be;
+      font: 800 1.35rem/1 "Nunito", sans-serif;
+      cursor: pointer;
+      transition: background .15s ease, color .15s ease;
+    }
+    .ph-ovf-step:hover,
+    .ph-ovf-step:focus-visible {
+      background: linear-gradient(180deg, #3a94f0 0%, #1f73dd 100%);
+      color: #fff;
+      outline: none;
+    }
+    .ph-ovf-count {
+      min-width: 46px;
+      text-align: center;
+      font-size: .82rem;
+      font-weight: 800;
+      color: #315a86;
+      font-variant-numeric: tabular-nums;
+    }
+    #ph-ovf-grid.is-loading .ph-scv { opacity: .45; }
+    .ph-ovf-empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 200px;
+      margin: 8px 14px 14px;
+      padding: 28px 24px;
+      text-align: center;
+      border-radius: 16px;
+      background: rgba(230,250,255,.55);
+      border: 1.5px dashed rgba(120,180,225,.6);
+    }
+    .ph-ovf-empty-ico { font-size: 2rem; line-height: 1; margin-bottom: 4px; }
+    .ph-ovf-empty-title { font-size: 1.12rem; font-weight: 800; color: #154b98; }
+    .ph-ovf-empty-sub { max-width: 320px; font-size: .9rem; font-weight: 600; color: #4a6a8d; }
+    .ph-ovf-empty-sub:empty { display: none; }
+    .ph-ovf-add {
+      margin-top: 8px;
+      padding: 9px 22px;
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #3a94f0 0%, #1f73dd 100%);
+      color: #fff;
+      font: 800 .92rem "Nunito", sans-serif;
+      box-shadow: 0 4px 12px rgba(31,115,221,.28);
+      cursor: pointer;
+    }
+    .ph-ovf-add:hover { filter: brightness(1.06); }
+
+    @media (max-width: 1240px) {
+      #ph-panel-overview .ph-main.ph-ov-duo { grid-template-columns: minmax(0, 1fr); }
+      #auth-stats-lobby #ph-panel-overview .ph-ov-duo .ph-sc:not(.ph-sc-string) .ph-scv {
+        font-size: clamp(1.3rem, 2.6vw, 2rem);
+      }
+    }
+    @media (max-width: 760px) {
+      #ph-panel-overview .ph-ov-duo .ph-sg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #auth-stats-lobby #ph-panel-overview .ph-ov-duo .ph-sc:not(.ph-sc-string) .ph-scv {
+        font-size: 1.5rem;
+      }
+      .ph-ovf-name { font-size: 1.1rem; }
+    }

@@ -77,6 +77,7 @@ for (const [what, re] of [
   ["the achievements",      /_userAchievements = \{\};\s*\n\s*_achLoadedUid = null;/],
   ["the unlocked critters", /_unlockedIcons = \[\];\s*\n\s*_unlockedBackgrounds = \[\];/],
   ["the friend list",       /_lbFriendUids = new Set\(\);/],
+  ["the Overview's friend card", /try \{ _ovfReset\(\); \} catch \(_\) \{\}/],
   ["the Level Pass",        /window\.__ccLevelPassReset && window\.__ccLevelPassReset\(\)/],
   ["Prestige",              /window\.__ccPrestigeReset && window\.__ccPrestigeReset\(\)/],
   ["the seat-avatar push",  /window\.__fishForgetPushedAvatar && window\.__fishForgetPushedAvatar\(\)/],
@@ -348,6 +349,13 @@ window.__STUB_DOCS = {
       first_catch:   { completed: true, unlockedAt: 1750000000000 },
       ranked_waters: { completed: true, unlockedAt: 1750000000000 }
     }
+  },
+  // A friend, whose numbers sit beside the account's on the Overview. They are
+  // the account's friend, not the guest's.
+  "users/ACC-UID-1/friends/PAL-UID-1": { uid: "PAL-UID-1", nickname: "ReefPal", favorite: true },
+  "users/PAL-UID-1": {
+    nickname: "ReefPal", nickname_lower: "reefpal", avatar_url: "/avatars/orca.png",
+    stats: { completed_games: 55, hours_played: 777, total_wins: 30, rank_competitive: "Silver Sailfish II" }
   }
 };
 </script>
@@ -516,6 +524,8 @@ if (!D) {
   console.log("\n  the account really was loaded first (or the rest proves nothing)");
   check("its hours are on screen", /Hours Played 42 hrs/.test(A.overview || ""), (A.overview || "").slice(0, 90));
   check("its games are on screen", /Total Games 77/.test(A.overview || ""));
+  check("its friend's stats are beside them", /ReefPal[\s\S]*Hours Played 777 hrs/.test(A.overview || ""),
+        (A.overview || "").slice(-260));
   check(`its achievements are on screen (3 / ${ACH_TOTAL})`,
         new RegExp(`3 / ${ACH_TOTAL} Completed`).test(A.achievements || ""),
         (A.achievements || "").slice(0, 90));
@@ -527,6 +537,8 @@ if (!D) {
   check("no 42 hours anywhere on their Player Home", !/42 hrs/.test(G.overview || ""));
   check("their games start at zero", /Total Games 0/.test(G.overview || ""));
   check("no 77 games", !/Total Games 77/.test(G.overview || ""));
+  check("nor the account's friend", !/ReefPal|777 hrs/.test(G.overview || ""), (G.overview || "").slice(-260));
+  check("a guest is told friends need an account", /Friends need an account/.test(G.overview || ""));
   check("their wins start at zero", /Total Wins 0/.test(G.overview || ""));
   check(`their achievements start at zero (0 / ${ACH_TOTAL})`,
         new RegExp(`0 / ${ACH_TOTAL} Completed`).test(G.achievements || ""),
