@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-10.3";
+  const APP_BUILD   = "2026-09-10.4";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,15 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.6", title: "\uD83E\uDD80 Your diver climbs the reef", items: [
+      "You are on the reef now. Your own animal stands on the platform you have picked, and when you press another one it hops there, one platform at a time, up or down. Win a game that opens the next platform and, the next time you open Head to Head, you watch it walk up onto it.",
+      "Everybody starts on the first platform, and it says so.",
+      "Rank E is the Hermit Crab now.",
+      "Every animal on the reef is the same size. The art is drawn to fit its frame, so a long thin Narwhal used to look half the size of a Staghorn Coral beside it; now each one is sized by how much of it there actually is.",
+      "The reef is just the coral reef painting now, the whole of it, with nothing drawn on it but the platforms and whoever is standing on them.",
+      "Beating the bots pays XP now, and the harder the bot, the more: +25 for a rank F, up to +275 for a rank S++ and +400 for the Giant Squid, on top of your placement XP. It goes by the hardest bot you beat, and you have to win outright.",
+      "Casual games grade their bots F to S++ as well, and every one of those ranks is yours to pick in a casual lobby, whether or not you have climbed to it in Head to Head.",
+    ]},
     { ver: "V1.7.5", title: "\uD83E\uDEB8 Ten platforms up the reef", items: [
       "The Quick Match card on the home screen is the Head to Head card now, and it says what it is for: climb the ladder and take on tougher opponents.",
       "The reef has a platform for every rank, and an animal standing on each one. F is the Bobtail Squid, E the Staghorn Coral, D the Peruvian Pelican, C the Staghorn Coral, B the Narwhal, A the Great White Shark, S the Goby, S+ the Bunker and S++ the Sea Star. The Giant Squid has the summit.",
@@ -2898,6 +2907,12 @@
   // (Easy / Medium / Hard); the ladder is ten rungs now, which no row of
   // pills can hold, so a seat shows its rank badge and a list of ranks. Only
   // the host can change it; everyone else reads it.
+  //
+  // A casual table seats any rank from F to S++, climbed or not: the climb
+  // belongs to Head to Head, and a casual game is for playing whoever you
+  // like. The Giant Squid is the one exception. It keeps its own gates
+  // everywhere, so it is only on this list once it is earned (or already
+  // sitting in the seat).
   function buildDifficultyBox(seat, isHost) {
     const box = document.createElement("div");
     box.className = "wr-grade-box";
@@ -2914,10 +2929,16 @@
     sel.disabled = !isHost;
     sel.setAttribute("aria-label",
       `Grade for ${seat.claimed_name || ("Seat " + (seat.index + 1))}`);
+    // Shut here means the Squid, not yet earned. Nothing else is.
+    const shut = (id) => {
+      const x = _bmGrades.find(q => q.id === id);
+      return !!(x && x.unlock === "story" && bmGradeLocked(id));
+    };
     _bmGrades.forEach(opt => {
+      const locked = shut(opt.id);
+      if (locked && opt.id !== g.id) return;
       const o = document.createElement("option");
       o.value = opt.id;
-      const locked = bmGradeLocked(opt.id);
       o.textContent = (locked ? "🔒 " : "") + `Rank ${opt.tier}`;
       o.disabled = locked;
       if (opt.id === g.id) o.selected = true;
@@ -2926,9 +2947,10 @@
     if (isHost) {
       sel.addEventListener("change", async () => {
         if (sel.value === g.id) return;
-        if (bmGradeLocked(sel.value)) {
+        if (shut(sel.value)) {
+          const wanted = sel.value;
           sel.value = g.id;
-          try { showToast(bmLockNote(sel.value) || "That grade is locked.", "info"); } catch (_) {}
+          try { showToast(bmLockNote(wanted) || "That grade is locked.", "info"); } catch (_) {}
           return;
         }
         await setBotDifficulty(seat.index, sel.value, sel);
@@ -5250,15 +5272,15 @@
   // player presses; the rung behind it is what the engine is actually handed.
   //
   // `tier` is the rank the platform stands for, and it is also how an
-  // opponent in the lineup knows which animal to wear: a rank C bot is a
-  // Staghorn Coral wherever it turns up. lo/hi are ladder POSITIONS, not ids,
+  // opponent in the lineup knows which animal to wear: a rank E bot is a
+  // Hermit Crab wherever it turns up. lo/hi are ladder POSITIONS, not ids,
   // so re-tuning the ladder never leaves a platform pointing at a rung that
   // moved. `lo` is the rung a platform OPENS with, which is what its lock is
   // measured against: you reach the E platform by beating rank F, and so on
   // all the way up. One platform per rung, so no rung is unreachable.
   const BM_TIERS = [
     { n: 1,  tier: "F",   animal: "bobtail-squid",     name: "Bobtail Squid",     lo: 0, hi: 0 },
-    { n: 2,  tier: "E",   animal: "staghorn-coral",    name: "Staghorn Coral",    lo: 1, hi: 1 },
+    { n: 2,  tier: "E",   animal: "hermit-crab",       name: "Hermit Crab",       lo: 1, hi: 1 },
     { n: 3,  tier: "D",   animal: "peruvian-pelican",  name: "Peruvian Pelican",  lo: 2, hi: 2 },
     { n: 4,  tier: "C",   animal: "staghorn-coral",    name: "Staghorn Coral",    lo: 3, hi: 3 },
     { n: 5,  tier: "B",   animal: "narwhal",           name: "Narwhal",           lo: 4, hi: 4 },
@@ -5586,8 +5608,9 @@
     _bmPick = picks.map(i => _bmGrades[i].id);
   }
 
-  // Standing on a spot. Everything the player does on this screen is this:
-  // press a place on the reef, and the table below fills itself in.
+  // Standing on a platform. Everything the player does on this screen is
+  // this: press a place on the reef, the table beside it fills itself in, and
+  // your diver walks there, one platform at a time.
   function bmPickSpot(i) {
     const err = document.getElementById("bm-err");
     if (bmSpotLocked(i)) {
@@ -5600,6 +5623,7 @@
     if (err) err.textContent = "";
     bmRoll(_bmTier);
     bmRender();
+    bmDiverWalk(_bmTier);
   }
 
   // Where a platform stands, in percent of the reef's own box: x is the
@@ -5611,185 +5635,365 @@
     if (t.final) return { x: 50, y: 19 };
     const climb = BM_TIERS.filter(s => !s.final).length;
     const k = BM_TIERS.indexOf(t);
-    const y = 93 - k * (93 - 38) / Math.max(1, climb - 1);
+    const y = 90 - k * (90 - 34) / Math.max(1, climb - 1);
     return { x: k % 2 ? 71 : 29, y: Math.round(y * 10) / 10 };
   }
 
-  // The reef itself: two walls of coral rock that run the whole height of the
-  // box, a shelf under every platform, a rock bridge at the top for the Squid,
-  // and the dotted trail between the platforms, bright as far as this player
-  // has climbed. It is drawn in percent (viewBox 0 0 100 100, stretched to
-  // the box) so the shelves land under the platforms at any size. Strokes are
-  // non-scaling, so the coral branches keep their thickness when it stretches.
-  function bmReefArt() {
-    const f = (n) => Math.round(n * 100) / 100;
-    const climb = BM_TIERS.map((t, i) => i).filter(i => !BM_TIERS[i].final);
-    // Mirror an x across the channel, for the right-hand wall.
-    const mx = (x, right) => f(right ? 100 - x : x);
-    const shelf = (i) => {
-      const p = bmSpotPos(i);
-      const r = p.x > 50;
-      const x = r ? 100 - p.x : p.x, y = p.y;
-      return `<path fill="url(#bm-reef-rock-${r ? "r" : "l"})" d="`
-        + `M${mx(0, r)},${f(y - 1)} Q${mx(8, r)},${f(y + 0.2)} ${mx(x - 4, r)},${f(y + 0.8)} `
-        + `L${mx(x + 4, r)},${f(y + 0.8)} Q${mx(x + 3, r)},${f(y + 3)} ${mx(x - 5, r)},${f(y + 3.6)} `
-        + `Q${mx(13, r)},${f(y + 4.2)} ${mx(0, r)},${f(y + 7.5)} Z"/>`;
+  // ── Every animal the same size ─────────────────────────────────────────
+  // The avatar art is boxed, not weighed: each critter is scaled to fill
+  // about 87% of its canvas along its LONGER side, so a Narwhal, long and
+  // thin, covers half the paint a Staghorn Coral does and looks half the size
+  // standing next to it. So a figure is sized by how much of it there is: its
+  // painted area is measured once per image (the alpha channel, on a small
+  // canvas) and every figure is scaled to the same area, centred in its slot
+  // with its feet on the slot's floor. Sizes are in percent of the slot, so
+  // the same numbers hold on a phone. An image that cannot be measured is
+  // drawn at a sensible default rather than not at all.
+  const _bmArtMetrics = new Map();   // src -> metrics, or the Promise of them
+  const BM_ART_DEFAULT = { area: 0.3, cx: 0.5, y1: 0.86, w: 0.86, h: 0.6, ar: 1 };
+  function bmMeasureArt(src) {
+    const hit = _bmArtMetrics.get(src);
+    if (hit) return Promise.resolve(hit);
+    const p = new Promise((resolve) => {
+      const done = (m) => { _bmArtMetrics.set(src, m); resolve(m); };
+      const im = new Image();
+      im.onload = () => {
+        let m = BM_ART_DEFAULT;
+        try {
+          const N = 96;
+          const c = document.createElement("canvas");
+          c.width = N; c.height = N;
+          const g = c.getContext("2d", { willReadFrequently: true });
+          g.drawImage(im, 0, 0, N, N);
+          const a = g.getImageData(0, 0, N, N).data;
+          let n = 0, x0 = N, x1 = -1, y0 = N, y1 = -1;
+          for (let y = 0; y < N; y++) {
+            for (let x = 0; x < N; x++) {
+              if (a[(y * N + x) * 4 + 3] <= 24) continue;
+              n++;
+              if (x < x0) x0 = x;
+              if (x > x1) x1 = x;
+              if (y < y0) y0 = y;
+              if (y > y1) y1 = y;
+            }
+          }
+          if (n > 20) {
+            m = { area: n / (N * N), cx: (x0 + x1 + 1) / 2 / N, y1: (y1 + 1) / N,
+                  w: (x1 - x0 + 1) / N, h: (y1 - y0 + 1) / N,
+                  ar: (im.naturalHeight / im.naturalWidth) || 1 };
+          }
+        } catch (_) { /* a canvas that will not be read: the default */ }
+        done(m);
+      };
+      im.onerror = () => done(BM_ART_DEFAULT);
+      im.src = src;
+    });
+    _bmArtMetrics.set(src, p);
+    return p;
+  }
+  // Size and seat one figure in its slot (.bm-fig): the painted area of a
+  // square `lin` slots on a side, never longer than `max` slots either way.
+  function bmFitArt(img, src, lin, max) {
+    const apply = (m) => {
+      if (img.dataset.fit !== src) return;   // re-pointed since; a newer fit owns it
+      const ar = m.ar || 1;
+      let d = lin / Math.sqrt(Math.max(0.02, m.area) * ar);
+      const longest = Math.max(m.w, m.h * ar) * d;
+      if (longest > max) d *= max / longest;
+      const pc = (v) => (Math.round(v * 10000) / 100) + "%";
+      img.style.width = pc(d);
+      img.style.height = pc(d * ar);
+      img.style.left = pc(0.5 - m.cx * d);
+      img.style.top = pc(1 - m.y1 * d * ar);
+      // Where the painted figure's head is, for anything that sits on it
+      // (the diver's "You" tag), whatever shape the animal is.
+      const holder = img.parentElement && img.parentElement.parentElement;
+      if (holder) holder.style.setProperty("--art-top", pc(1 - m.h * d * ar));
+      img.classList.add("is-fit");
     };
-    // A staghorn coral growing out of the rock at (x, y): a trunk and four
-    // branches, drawn as round-capped strokes.
-    const coral = (x, y, w, h, color) => {
-      const B = [[[0, 0], [0.02, -0.55], [-0.04, -1]],
-                 [[0, -0.3], [-0.38, -0.55], [-0.46, -0.86]],
-                 [[0, -0.36], [0.36, -0.62], [0.42, -0.95]],
-                 [[-0.3, -0.56], [-0.14, -0.8]],
-                 [[0.3, -0.62], [0.56, -0.76]]];
-      const pt = ([a, b]) => `${f(x + a * w)},${f(y + b * h)}`;
-      const d = B.map(s => s.length === 3
-        ? `M${pt(s[0])} Q${pt(s[1])} ${pt(s[2])}` : `M${pt(s[0])} L${pt(s[1])}`).join(" ");
-      return `<path class="bm-reef-coral" stroke="${color}" d="${d}"/>`;
-    };
-    const weed = (x, y, h, color) =>
-      `<path class="bm-reef-weed" stroke="${color}" d="M${x},${y} q1.6,${f(-h / 3 / 2)} 0,${f(-h / 3)} `
-      + `t0,${f(-h / 3)} t0,${f(-h / 3)}"/>`;
-    // A sea fan: a spray of thin branches from one foot.
-    const fan = (x, y, w, h, color) => {
-      const d = [-0.9, -0.5, -0.15, 0.2, 0.55, 0.9].map(k =>
-        `M${x},${y} Q${f(x + k * w * 0.4)},${f(y - h * 0.55)} ${f(x + k * w * 0.5)},${f(y - h * (1 - Math.abs(k) * 0.25))}`).join(" ");
-      return `<path class="bm-reef-fan" stroke="${color}" d="${d}"/>`;
-    };
-    const bubbles = (x, y, fill) =>
-      `<g fill="${fill}"><ellipse cx="${x}" cy="${y}" rx="2.3" ry="1.7"/>`
-      + `<ellipse cx="${f(x + 2.6)}" cy="${f(y + 0.6)}" rx="1.8" ry="1.35"/>`
-      + `<ellipse cx="${f(x + 1)}" cy="${f(y - 1.3)}" rx="1.6" ry="1.2"/></g>`;
+    if (img.dataset.fit === src && img.classList.contains("is-fit")) return;
+    img.dataset.fit = src;
+    if (img.getAttribute("src") !== src) img.src = src;
+    const known = _bmArtMetrics.get(src);
+    if (known && !(known instanceof Promise)) apply(known);
+    else { img.classList.remove("is-fit"); bmMeasureArt(src).then(apply); }
+  }
+  const BM_FIG_LIN = 0.56;   // every figure's painted area, as the side of a square
+  const BM_FIG_MAX = 1.12;   // …and no figure longer than this, either way
 
-    // The trail, platform to platform. A leg is bright once the platform it
-    // climbs to is open.
-    let trail = "";
-    for (let k = 1; k < BM_TIERS.length; k++) {
-      const a = bmSpotPos(k - 1), b = bmSpotPos(k);
-      trail += `<path class="bm-reef-trail${bmSpotLocked(k) ? " is-dim" : ""}" `
-        + `d="M${a.x},${f(a.y - 2)} L${b.x},${f(b.y - 2)}"/>`;
+  // ── The diver ───────────────────────────────────────────────────────────
+  // You, on the reef: your own animal, standing on the platform you have
+  // picked. It walks. Press a platform above or below and it hops there one
+  // platform at a time; win a game that opens the next platform and, the
+  // next time you open the reef, it walks up onto it.
+  //
+  // Where it last stood, and how far up the reef was open at the time, are
+  // kept per account in this browser, so a new platform can be told apart
+  // from an old one. Only once the account's own record has been read,
+  // though: a reef drawn in the second before the stats land would look like
+  // a reef nobody has climbed, and saving THAT would replay the whole climb
+  // as a "win" the next time.
+  const _bmDiver = { at: -1, target: -1, walking: false, gen: 0 };
+  function bmReduceMotion() {
+    try { return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }
+    catch (_) { return false; }
+  }
+  function bmClimbKnown() {
+    try {
+      if (typeof window.__fishIsGuest === "function" && window.__fishIsGuest()) return true;
+      const st = (typeof window.__fishGetMyStats === "function") ? window.__fishGetMyStats() : null;
+      return !!(st && typeof st === "object");
+    } catch (_) { return false; }
+  }
+  function bmReefKey() {
+    let who = "guest";
+    try {
+      const u = (typeof window.__fishAuthUser === "function") ? window.__fishAuthUser() : null;
+      who = (u && u.uid) ? "u:" + u.uid
+        : "g:" + String((typeof window.__fishNickname === "function" && window.__fishNickname()) || "guest");
+    } catch (_) {}
+    return "cc_h2h_reef_v1:" + who;
+  }
+  function bmReefLoad() {
+    try {
+      const v = JSON.parse(localStorage.getItem(bmReefKey()) || "null");
+      if (v && Number.isInteger(v.at) && Number.isInteger(v.top)) return v;
+    } catch (_) {}
+    return null;
+  }
+  function bmReefSave(at) {
+    if (!bmClimbKnown()) return;
+    try {
+      localStorage.setItem(bmReefKey(), JSON.stringify({
+        at: Math.max(0, Math.min(Math.floor(at) || 0, BM_TIERS.length - 1)),
+        top: bmTopReachableSpot(),
+      }));
+    } catch (_) {}
+  }
+  // The highest platform this player can stand on, the summit included.
+  function bmTopReachableSpot() {
+    let top = 0;
+    for (let i = 0; i < BM_TIERS.length; i++) if (!bmSpotLocked(i)) top = i;
+    return top;
+  }
+  function bmMyAvatar() {
+    let mine = "";
+    try { mine = String(window.__fishMyAvatarUrl?.() || ""); } catch (_) {}
+    return mine.startsWith("/avatars/") ? mine : "/avatars/mullet.png";
+  }
+  function bmDiverEl() {
+    return document.querySelector("#bm-ladder .bm-diver");
+  }
+  // Mark which platform the diver is standing on, so its animal steps aside.
+  function bmDiverMark(i) {
+    document.querySelectorAll("#bm-ladder .bm-spot").forEach(el => {
+      el.classList.toggle("has-diver", Number(el.dataset.spot) === i);
+    });
+  }
+  // Stand the diver on a platform at once, with no walk.
+  function bmDiverPlace(i) {
+    const el = bmDiverEl();
+    if (!el) return;
+    const p = bmSpotPos(i);
+    _bmDiver.gen++;   // any walk under way stops where it is told to
+    try { el.getAnimations().forEach(a => a.cancel()); } catch (_) {}
+    el.style.left = p.x + "%";
+    el.style.top = p.y + "%";
+    _bmDiver.at = i;
+    _bmDiver.target = i;
+    bmDiverMark(i);
+  }
+  // One hop, platform to platform: across on the outside, up and down on
+  // the inside, so it arcs like a jump rather than sliding.
+  function bmDiverHop(from, to, ms) {
+    const el = bmDiverEl();
+    const bob = el && el.querySelector(".bm-diver-bob");
+    if (!el || !bob || typeof el.animate !== "function") return Promise.resolve();
+    const a = bmSpotPos(from), b = bmSpotPos(to);
+    el.style.left = b.x + "%";
+    el.style.top = b.y + "%";
+    const move = el.animate([
+      { left: a.x + "%", top: a.y + "%" },
+      { left: b.x + "%", top: b.y + "%" },
+    ], { duration: ms, easing: "cubic-bezier(.3,.1,.7,.9)" });
+    // Up decelerating, down accelerating, and a squash as it lands.
+    const jump = bob.animate([
+      { transform: "translateY(0) scale(1, 1)", easing: "ease-out" },
+      { transform: "translateY(-26px) scale(.96, 1.05)", offset: 0.45, easing: "ease-in" },
+      { transform: "translateY(0) scale(1.08, .9)", offset: 0.88, easing: "ease-out" },
+      { transform: "translateY(0) scale(1, 1)" },
+    ], { duration: ms });
+    // A hop always lands. An animation that never reports finishing (a tab
+    // in the background can hold its clock still) is finished by the timer
+    // instead, so the diver is never left stranded halfway between two
+    // platforms with the walk waiting on it.
+    return new Promise((resolve) => {
+      let landed = false;
+      const land = () => {
+        if (landed) return;
+        landed = true;
+        try { move.finish(); jump.finish(); } catch (_) {}
+        resolve();
+      };
+      move.finished.then(land, land);
+      setTimeout(land, ms + 250);
+    });
+  }
+  // Walk to a platform, one hop per platform in between. Pressing somewhere
+  // else mid-walk just changes where it is going: it finishes the hop it is
+  // in, then turns towards the new one.
+  async function bmDiverWalk(to, onArrive) {
+    _bmDiver.target = to;
+    if (_bmDiver.walking) return;
+    const el = bmDiverEl();
+    if (!el || _bmDiver.at < 0 || bmReduceMotion()) {
+      bmDiverPlace(to);
+      bmReefSave(to);
+      if (onArrive) onArrive();
+      return;
     }
-
-    return `<svg class="bm-reef-art" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-      <defs>
-        <linearGradient id="bm-reef-rock-l" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stop-color="#1b3f80"/><stop offset=".7" stop-color="#2a58a6"/><stop offset="1" stop-color="#3a6cbd"/>
-        </linearGradient>
-        <linearGradient id="bm-reef-rock-r" x1="1" y1="0" x2="0" y2="0">
-          <stop offset="0" stop-color="#1b3f80"/><stop offset=".7" stop-color="#2a58a6"/><stop offset="1" stop-color="#3a6cbd"/>
-        </linearGradient>
-        <linearGradient id="bm-reef-rock-top" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#3a6cbd"/><stop offset="1" stop-color="#1f4689"/>
-        </linearGradient>
-        <filter id="bm-reef-grain" x="0" y="0" width="100%" height="100%">
-          <feTurbulence type="fractalNoise" baseFrequency="2.4" numOctaves="1" seed="4" result="n"/>
-          <feColorMatrix in="n" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .09 0" result="w"/>
-          <feComposite in="w" in2="SourceGraphic" operator="in" result="g"/>
-          <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="g"/></feMerge>
-        </filter>
-      </defs>
-      <g class="bm-reef-trails">${trail}</g>
-      <g filter="url(#bm-reef-grain)">
-        <path fill="url(#bm-reef-rock-l)" d="M0,0 L12,0 Q8,5 10,10 T12.5,20 T9.5,30 T12,40 T9,50 T11.5,60 T9.5,70 T12.5,80 T16,90 T26,100 L0,100 Z"/>
-        <path fill="url(#bm-reef-rock-r)" d="M100,0 L88,0 Q92,5 90,10 T87.5,20 T90.5,30 T88,40 T91,50 T88.5,60 T90.5,70 T87.5,80 T84,90 T74,100 L100,100 Z"/>
-        <path fill="url(#bm-reef-rock-top)" d="M0,10 Q50,26 100,10 L100,25 Q50,19 0,25 Z"/>
-        ${climb.map(shelf).join("")}
-      </g>
-      <path class="bm-reef-rim" d="M12,0 Q8,5 10,10 T12.5,20 T9.5,30 T12,40 T9,50 T11.5,60 T9.5,70 T12.5,80 T16,90 T26,100"/>
-      <path class="bm-reef-rim" d="M88,0 Q92,5 90,10 T87.5,20 T90.5,30 T88,40 T91,50 T88.5,60 T90.5,70 T87.5,80 T84,90 T74,100"/>
-      <path class="bm-reef-rim" d="M0,10 Q50,26 100,10"/>
-      ${fan(5, 91, 9, 10, "#c9a2f2")}${fan(95, 80, 8, 9, "#ff9fb0")}
-      ${fan(4, 49, 7, 8, "#ffb46b")}${fan(96, 33, 7, 8, "#c9a2f2")}
-      ${coral(6, 97, 9, 9, "#ff7f93")}${coral(20, 99, 6, 6, "#ffb14e")}
-      ${coral(5, 72, 7, 7, "#b784e8")}${coral(7, 45, 7, 6.5, "#ff9a62")}
-      ${coral(10, 64, 5, 5, "#ffc857")}${coral(6, 22, 6, 6, "#ffc857")}
-      ${coral(94, 96, 8, 8.5, "#b784e8")}${coral(81, 99, 5, 5.5, "#ff7f93")}
-      ${coral(94, 64, 7, 7, "#ff7f93")}${coral(90, 55, 5, 5, "#ff9a62")}
-      ${coral(93, 37, 6.5, 6, "#ffb14e")}${coral(94, 17, 6, 5.5, "#d7b3f5")}
-      ${coral(22, 15.5, 5, 4.5, "#ff7f93")}${coral(78, 15.5, 5, 4.5, "#b784e8")}
-      ${coral(33, 18.5, 3.5, 3.2, "#ffb14e")}${coral(67, 18.5, 3.5, 3.2, "#ffc857")}
-      ${weed(14, 99, 12, "#3fc5b0")}${weed(89, 84, 10, "#69d48c")}
-      ${weed(8, 60, 8, "#3fc5b0")}${weed(92, 50, 9, "#3fc5b0")}
-      ${weed(11, 38, 7, "#69d48c")}${weed(90, 27, 7, "#3fc5b0")}
-      ${bubbles(3, 84, "#c7a8ef")}${bubbles(94, 72, "#f5a3b5")}
-      ${bubbles(4, 34, "#f5a3b5")}${bubbles(92, 24, "#c7a8ef")}
-      ${bubbles(13, 21, "#f5a3b5")}${bubbles(84, 21, "#c7a8ef")}
-    </svg>`;
+    _bmDiver.walking = true;
+    const gen = _bmDiver.gen;
+    el.classList.add("is-walking");
+    try {
+      while (_bmDiver.at !== _bmDiver.target) {
+        const from = _bmDiver.at;
+        const next = from + Math.sign(_bmDiver.target - from);
+        const steps = Math.abs(_bmDiver.target - from);
+        bmDiverMark(-1);
+        await bmDiverHop(from, next, Math.max(190, Math.min(360, 1500 / steps)));
+        // Stood somewhere else meanwhile (the reef reopened): that wins.
+        if (gen !== _bmDiver.gen || !bmDiverEl()) return;
+        _bmDiver.at = next;
+        bmDiverMark(next);   // the animal it lands beside steps aside for it
+      }
+    } finally {
+      _bmDiver.walking = false;
+      el.classList.remove("is-walking");
+      if (gen === _bmDiver.gen) {
+        bmDiverMark(_bmDiver.at);
+        bmReefSave(_bmDiver.at);
+      }
+    }
+    if (onArrive) onArrive();
   }
 
-  // The reef, drawn top platform first so the climb reads upwards in a
-  // screen reader too. Every platform is on the screen whether or not it has
-  // been earned, and the ones that have not wear a lock: a reward nobody can
-  // see is not a reward, it is an absence. The platform you are standing on
-  // has your own animal on it, beside the one you are about to face.
+  // The platforms on the reef, top first so the climb reads upwards in a
+  // screen reader too. The reef itself is the painting behind them, and
+  // nothing else is drawn on it. Every platform is on the screen whether or
+  // not it has been earned, and the ones that have not wear a lock: a reward
+  // nobody can see is not a reward, it is an absence.
+  //
+  // It is built once and then only brought up to date, because the diver
+  // walking across it has to outlive every re-render the table beside it
+  // causes.
   function bmRenderLadder() {
     const wrap = document.getElementById("bm-ladder");
     if (!wrap) return;
-    wrap.innerHTML = bmReefArt();
-    let mine = "";
-    try { mine = String(window.__fishMyAvatarUrl?.() || ""); } catch (_) {}
-    if (!mine.startsWith("/avatars/")) mine = "/avatars/mullet.png";
-    for (let i = BM_TIERS.length - 1; i >= 0; i--) {
+    if (wrap.querySelectorAll(".bm-spot").length !== BM_TIERS.length || !bmDiverEl()) {
+      wrap.innerHTML = "";
+      for (let i = BM_TIERS.length - 1; i >= 0; i--) {
+        const t = BM_TIERS[i];
+        const pos = bmSpotPos(i);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "bm-spot" + (t.final ? " is-summit" : "") + (i === 0 ? " is-start" : "");
+        btn.dataset.spot = String(i);
+        btn.style.setProperty("--x", String(pos.x));
+        btn.style.setProperty("--y", String(pos.y));
+
+        const art = document.createElement("span");
+        art.className = "bm-spot-art";
+        const fig = document.createElement("span");
+        fig.className = "bm-fig bm-spot-fig";
+        const img = document.createElement("img");
+        img.className = "bm-spot-animal";
+        img.alt = "";
+        img.decoding = "async"; img.draggable = false;
+        fig.appendChild(img);
+        art.appendChild(fig);
+        btn.appendChild(art);
+        bmFitArt(img, `/avatars/${t.animal}.png`, BM_FIG_LIN, BM_FIG_MAX);
+
+        // The platform: a stepping stone with the rank on its face.
+        const ledge = document.createElement("span");
+        ledge.className = "bm-spot-ledge";
+        btn.appendChild(ledge);
+        if (i === 0) {
+          const start = document.createElement("span");
+          start.className = "bm-spot-start";
+          start.textContent = "Start";
+          btn.appendChild(start);
+        }
+
+        btn.addEventListener("click", () => bmPickSpot(i));
+        wrap.appendChild(btn);
+      }
+      const diver = document.createElement("div");
+      diver.className = "bm-diver";
+      diver.setAttribute("aria-hidden", "true");
+      const bob = document.createElement("div");
+      bob.className = "bm-diver-bob";
+      const tag = document.createElement("span");
+      tag.className = "bm-diver-tag";
+      tag.textContent = "You";
+      const fig = document.createElement("span");
+      fig.className = "bm-fig bm-diver-fig";
+      const img = document.createElement("img");
+      img.className = "bm-diver-img";
+      img.alt = "";
+      img.decoding = "async"; img.draggable = false;
+      fig.appendChild(img);
+      bob.appendChild(tag);
+      bob.appendChild(fig);
+      diver.appendChild(bob);
+      wrap.appendChild(diver);
+      _bmDiver.at = -1;
+      _bmDiver.walking = false;
+    }
+
+    wrap.querySelectorAll(".bm-spot").forEach(btn => {
+      const i = Number(btn.dataset.spot);
       const t = BM_TIERS[i];
       const locked = bmSpotLocked(i);
       const here = !locked && i === _bmTier;
       const rank = bmSpotRank(i);
-      const pos = bmSpotPos(i);
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "bm-spot"
-        + (locked ? " is-locked" : "")
-        + (here ? " is-current" : "")
-        + (t.final ? " is-summit" : "");
+      btn.classList.toggle("is-locked", locked);
+      btn.classList.toggle("is-current", here);
       btn.dataset.rank = rank;
-      btn.style.setProperty("--x", String(pos.x));
-      btn.style.setProperty("--y", String(pos.y));
       btn.setAttribute("aria-label",
         `Rank ${rank}, ${t.name}${locked ? ", locked" : ""}${here ? ", you are here" : ""}`);
       if (locked) btn.setAttribute("aria-disabled", "true");
-      else if (here) btn.setAttribute("aria-current", "true");
+      else btn.removeAttribute("aria-disabled");
+      if (here) btn.setAttribute("aria-current", "true");
+      else btn.removeAttribute("aria-current");
 
-      const art = document.createElement("span");
-      art.className = "bm-spot-art";
-      if (here) {
-        const you = document.createElement("span");
-        you.className = "bm-spot-you";
-        const face = document.createElement("img");
-        face.className = "bm-spot-you-img";
-        face.src = (typeof window.__fishAvSrc === "function") ? window.__fishAvSrc(mine) : mine;
-        face.alt = "";
-        face.decoding = "async"; face.draggable = false;
-        const tag = document.createElement("span");
-        tag.className = "bm-spot-you-tag";
-        tag.textContent = "You";
-        you.appendChild(tag);
-        you.appendChild(face);
-        art.appendChild(you);
+      const ledge = btn.querySelector(".bm-spot-ledge");
+      const badge = ledge.querySelector(".bm-grade-badge");
+      if (!badge || badge.textContent !== rank) {
+        if (badge) badge.remove();
+        ledge.appendChild(bmBadge(rank, "bm"));
       }
-      const img = document.createElement("img");
-      img.className = "bm-spot-animal";
-      img.src = `/avatars/${t.animal}.png`;
-      img.alt = "";
-      img.loading = "lazy"; img.decoding = "async"; img.draggable = false;
-      art.appendChild(img);
-      if (locked) {
-        const lock = document.createElement("span");
+      const art = btn.querySelector(".bm-spot-art");
+      let lock = art.querySelector(".bm-spot-lock");
+      if (locked && !lock) {
+        lock = document.createElement("span");
         lock.className = "bm-spot-lock";
         lock.textContent = "🔒";
         art.appendChild(lock);
+      } else if (!locked && lock) {
+        lock.remove();
       }
-      btn.appendChild(art);
+    });
 
-      // The platform: a ledge of reef rock with the rank on its face.
-      const ledge = document.createElement("span");
-      ledge.className = "bm-spot-ledge";
-      ledge.appendChild(bmBadge(rank, "bm"));
-      btn.appendChild(ledge);
-
-      btn.addEventListener("click", () => bmPickSpot(i));
-      wrap.appendChild(btn);
+    const img = wrap.querySelector(".bm-diver-img");
+    if (img) {
+      const mine = bmMyAvatar();
+      bmFitArt(img, (typeof window.__fishAvSrc === "function") ? window.__fishAvSrc(mine) : mine,
+               BM_FIG_LIN, BM_FIG_MAX);
     }
+    if (_bmDiver.at < 0) bmDiverPlace(_bmTier);
+    else if (!_bmDiver.walking) bmDiverMark(_bmDiver.at);
   }
 
   // One card per opponent: the animal its rank belongs to, and its rank. No
@@ -5804,12 +6008,15 @@
       const row = document.createElement("div");
       row.className = "bm-bot";
 
+      const faceBox = document.createElement("span");
+      faceBox.className = "bm-fig bm-bot-fig";
       const face = document.createElement("img");
       face.className = "bm-bot-face";
-      face.src = `/avatars/${bmAnimalFor(id)}.png`;
       face.alt = "";
-      face.loading = "lazy"; face.decoding = "async"; face.draggable = false;
-      row.appendChild(face);
+      face.decoding = "async"; face.draggable = false;
+      faceBox.appendChild(face);
+      row.appendChild(faceBox);
+      bmFitArt(face, `/avatars/${bmAnimalFor(id)}.png`, BM_FIG_LIN, BM_FIG_MAX);
 
       const main = document.createElement("div");
       main.className = "bm-bot-main";
@@ -5893,7 +6100,7 @@
     const noteArt = document.getElementById("bm-note-art");
     const noteText = document.getElementById("bm-note-text");
     if (note) note.classList.toggle("is-final", final);
-    if (noteArt) noteArt.src = `/avatars/${spot.animal}.png`;
+    if (noteArt) bmFitArt(noteArt, `/avatars/${spot.animal}.png`, BM_FIG_LIN, BM_FIG_MAX);
     if (noteText) {
       noteText.textContent = final
         ? bmGradeBlurb(bmSquidId())
@@ -5908,30 +6115,92 @@
     // yank the player into a lobby mid-choice.
     try { await cancelQuickMatch(true); } catch (_) {}
     document.getElementById("bm-err").textContent = "";
-    // Open on the highest spot this player has climbed to, but never on the
-    // Squid: the last fight is something you go and press, not something the
-    // screen puts you in front of.
-    if (bmSpotLocked(_bmTier) || bmIsFinal()) _bmTier = bmTopUnlockedSpot();
+    const plan = bmOpenPlan(bmClimbKnown() ? bmReefLoad() : null);
+    const from = plan.from;
+    _bmTier = plan.tier;
     // Not just "is there a table": the table left over from the Squid's fight
     // is four bots long, and drawing four rows under an ordinary spot for the
     // frame before the ladder lands is a table nobody chose.
-    if (_bmPick.length !== bmSeatCount() - 1) bmRoll(_bmTier);
+    if (from >= 0 || _bmPick.length !== bmSeatCount() - 1) bmRoll(_bmTier);
     bmRender();
+    bmDiverPlace(from >= 0 ? from : _bmTier);
     modal.classList.add("open");
+    if (from >= 0 && from !== _bmTier) {
+      const goal = _bmTier;
+      setTimeout(() => {
+        if (!modal.classList.contains("open")) { bmDiverPlace(goal); bmReefSave(goal); return; }
+        bmDiverWalk(goal, () => bmCelebrate(goal));
+      }, 500);
+    } else {
+      bmReefSave(_bmTier);
+    }
     // The ladder usually arrives before the player has read the first spot.
     bmLoadGrades().then(() => {
       if (!modal.classList.contains("open")) return;
       // Ids survive a reload of the ladder; positions might not.
       _bmPick = _bmPick.filter(id => _bmGrades.some(g => g.id === id));
-      if (bmSpotLocked(_bmTier)) _bmTier = bmTopUnlockedSpot();
+      if (bmSpotLocked(_bmTier)) {
+        _bmTier = bmTopUnlockedSpot();
+        bmDiverWalk(_bmTier);
+      }
       if (_bmPick.length !== bmSeatCount() - 1) bmRoll(_bmTier);
       bmRender();
     });
   }
 
+  // Where to stand when the reef opens, and where to walk from, given where
+  // the diver stood last time and how far up the reef was open then. A
+  // platform open now that was not open then is a win since: stand where you
+  // stood, and walk up to it. Otherwise stand where you stood. With nothing
+  // to go on, the highest platform this player has climbed to, which for
+  // somebody new is the Start. Never the Squid, though: the last fight is
+  // something you go and press, not something the screen puts you in front
+  // of unless you have just walked up to it.
+  function bmOpenPlan(saved) {
+    const top = bmTopReachableSpot();
+    if (saved && top > saved.top) {
+      return { tier: top, from: Math.max(0, Math.min(saved.at, BM_TIERS.length - 1)) };
+    }
+    if (saved && saved.at >= 0 && saved.at < BM_TIERS.length && !bmSpotLocked(saved.at)) {
+      return { tier: saved.at, from: -1 };
+    }
+    return { tier: bmTopUnlockedSpot(), from: -1 };
+  }
+
+  // Back home from a Head to Head game that opened a new platform: the reef
+  // opens by itself, so the walk up to it is the first thing you see rather
+  // than something waiting behind a button. Only after a game this screen
+  // started, and only when there is something new to walk to.
+  window.__ccReefHomecoming = () => {
+    let flag = null;
+    try {
+      flag = sessionStorage.getItem("cc_h2h_homecoming");
+      sessionStorage.removeItem("cc_h2h_homecoming");
+    } catch (_) {}
+    if (!flag || !bmClimbKnown()) return;
+    if (bmOpenPlan(bmReefLoad()).from < 0) return;
+    setTimeout(() => {
+      const modal = document.getElementById("bot-match-modal");
+      if (modal && !modal.classList.contains("open")) openBotMatch();
+    }, 700);
+  };
+
+  // A platform the diver has just walked up to for the first time.
+  function bmCelebrate(i) {
+    const el = document.querySelector(`#bm-ladder .bm-spot[data-spot="${i}"]`);
+    if (el) {
+      el.classList.remove("just-opened");
+      void el.offsetWidth;   // restart the pulse if it is already running
+      el.classList.add("just-opened");
+      setTimeout(() => el.classList.remove("just-opened"), 1600);
+    }
+    try { showToast(`Rank ${bmSpotRank(i)} unlocked! On to the next one.`, "ok"); } catch (_) {}
+  }
+
   function closeBotMatch() {
     const modal = document.getElementById("bot-match-modal");
     if (modal) modal.classList.remove("open");
+    bmReefSave(_bmTier);
   }
 
   async function bmStart() {
@@ -5951,6 +6220,8 @@
     const btn = document.getElementById("bm-play");
     const label = btn ? btn.querySelector(".bm-btn-label") : null;
     const err = document.getElementById("bm-err");
+    // Where the diver dives in from: a win at this table walks it up from here.
+    bmReefSave(_bmTier);
     _bmBusy = true;
     if (btn) btn.disabled = true;
     if (label) label.textContent = "Casting off…";
@@ -5988,6 +6259,8 @@
       const badge = document.getElementById("pv-my-name-badge");
       if (badge) badge.textContent = name;
       closeBotMatch();
+      // Coming home from this game is a homecoming to the reef, if it is won.
+      try { sessionStorage.setItem("cc_h2h_homecoming", "1"); } catch (_) {}
       // Ranks, not names: the names are gone from this screen, and a toast
       // that used them would be the only place they came back.
       const ranks = _bmPick.map(id => bmGradeById(id).tier);
@@ -15575,6 +15848,57 @@
     return kept;
   }
 
+  // ── Climbing the bot ladder ────────────────────────────────────────────
+  // A rung is beaten by WINNING the game it sat in, outright: finishing top
+  // of the table on your own score. Not placing above it, not sharing the
+  // top with it. So a table of three bots hands over all three at once if
+  // you win, and hands over nothing if you do not, which is what makes the
+  // rung above worth the next game.
+  //
+  // A modded game does not count. A player who could deal themselves the
+  // deck did not beat anybody, and the achievements take the same view.
+  //
+  // The end-of-game save asks this to record the climb, and the end screen
+  // asks it to pay the XP for beating the bots, so the two can never
+  // disagree about whether a game was a win.
+  function ccBotsBeatenBy(modded, isWinner, finalScores, myScore, seats) {
+    try {
+      if (modded || !isWinner) return [];
+      const scores = (finalScores || [])
+        .map(x => Number(x && x.score || 0))
+        .filter(n => Number.isFinite(n));
+      if (!scores.length) return [];
+      // "Outright" is the whole rule: a tie for the top is not a win over
+      // the bot you tied with.
+      const top = Math.max(...scores);
+      if (!(Number(myScore) >= top)) return [];
+      if (scores.filter(n => n === top).length > 1) return [];
+      const ids = (seats || [])
+        .filter(st => st && st.kind === "ai")
+        .map(st => String(st.difficulty || "").trim())
+        .filter(Boolean);
+      return Array.from(new Set(ids));
+    } catch (_) { return []; }
+  }
+
+  // ── XP for beating the bots ────────────────────────────────────────────
+  // Winning against bots pays on top of the placement XP, and the harder the
+  // bot, the more it pays. One bonus per game, for the hardest rank you beat:
+  // a table of three is one win, and "you beat a rank S++" is the sentence
+  // worth reading. Only a rank this ladder knows pays anything, so a seat
+  // from an older room ("medium") is not guessed into one.
+  const BM_WIN_XP = { F: 25, E: 40, D: 60, C: 80, B: 110, A: 140,
+                      S: 180, "S+": 225, "S++": 275, GS: 400 };
+  function bmWinXp(ids) {
+    let best = { tier: "", xp: 0 };
+    (ids || []).forEach(id => {
+      const g = _bmGrades.find(x => x.id === String(id || "").trim());
+      const xp = (g && BM_WIN_XP[g.tier]) || 0;
+      if (xp > best.xp) best = { tier: g.tier, xp };
+    });
+    return best;
+  }
+
   function getGameXpAward(finalScores, myScore) {
     const rank = getPlacementRank(finalScores, myScore);
     const hasAi = (Array.isArray(finalScores)?finalScores:[]).some(p=>isLikelyAiName(p?.name))
@@ -16134,34 +16458,7 @@
     })();
     const _modeKey = isComp ? "competitive" : "normal";
     const _modded = ccGameWasModded();
-    // ── Climbing the bot ladder ────────────────────────────────────────────
-    // A rung is beaten by WINNING the game it sat in, outright: finishing top
-    // of the table on your own score. Not placing above it, not sharing the
-    // top with it. So a table of three bots hands over all three at once if
-    // you win, and hands over nothing if you do not, which is what makes the
-    // rung above worth the next game.
-    //
-    // A modded game does not count. A player who could deal themselves the
-    // deck did not beat anybody, and the achievements take the same view.
-    const _botsBeatenNow = (() => {
-      try {
-        if (_modded || !isWinner) return [];
-        const scores = (finalScores || [])
-          .map(x => Number(x && x.score || 0))
-          .filter(n => Number.isFinite(n));
-        if (!scores.length) return [];
-        // "Outright" is the whole rule: a tie for the top is not a win over
-        // the bot you tied with.
-        const top = Math.max(...scores);
-        if (!(Number(myScore) >= top)) return [];
-        if (scores.filter(n => n === top).length > 1) return [];
-        const ids = (_latestSeatsForSurf || [])
-          .filter(st => st && st.kind === "ai")
-          .map(st => String(st.difficulty || "").trim())
-          .filter(Boolean);
-        return Array.from(new Set(ids));
-      } catch (_) { return []; }
-    })();
+    const _botsBeatenNow = ccBotsBeatenBy(_modded, isWinner, finalScores, myScore, _latestSeatsForSurf);
     const xpAward = (typeof xpOverride === "number" && xpOverride >= 0)
       ? xpOverride
       : _modded
@@ -17683,7 +17980,26 @@
     // applied separately via the pending-forfeit mechanism.
     const _amForfeitLoser = !!(_forfeitResult && _forfeitResult.forfeit && compMySeats.length
       && ((compMySeats[0] < 2 ? compP1Name : compP2Name) === _forfeitResult.loser));
-    const totalXp = (_gameTerminatedByMe || _amForfeitLoser) ? 0 : (xpBase + myStatWins * 15);
+    // Beating the bots: casual games only (not competitive, ranked, team or
+    // modded ones), and only for an entry that is really this player. The
+    // placement code above can fall back to the winner's row when it cannot
+    // find the viewer, which is fine for a headline and would hand this bonus
+    // to somebody who lost.
+    const _botWin = (() => {
+      if (compMode || rankedMode || _teamModeEnd || _gameTerminatedByMe || ccGameWasModded()) {
+        return { tier: "", xp: 0 };
+      }
+      const nick = String(myName || "").trim().toLowerCase();
+      let me = nick ? sorted.find(p => String(p.name || "").trim().toLowerCase() === nick) : null;
+      if (!me && myIdx !== null && myIdx !== undefined) {
+        const sp = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(p => p.index === myIdx);
+        if (sp && sp.name) me = sorted.find(p => String(p.name || "") === String(sp.name)) || null;
+      }
+      if (!me) return { tier: "", xp: 0 };
+      const won = String(winner || "").trim().toLowerCase() === String(me.name || "").trim().toLowerCase();
+      return bmWinXp(ccBotsBeatenBy(false, won, finalScores, Number(me.score || 0), _latestSeatsForSurf));
+    })();
+    const totalXp = (_gameTerminatedByMe || _amForfeitLoser) ? 0 : (xpBase + myStatWins * 15 + _botWin.xp);
 
     // Save stats with the total XP including stat bonuses (kept in sync with display).
     // This runs on every end-game poll until it succeeds, even if the overlay was
@@ -17780,6 +18096,12 @@
             ? ("Team " + _myTeamRank + rankSuffix(_myTeamRank) + " place")
             : (myRank + rankSuffix(myRank) + " place");
           addReward("🏆", "Placement Reward", _placeDesc, xpBase, false);
+        }
+        // Beating the bots, by the hardest rank at the table.
+        if (_botWin.xp > 0 && totalXp > 0) {
+          addReward("🏅", "Beat the Bots",
+            _botWin.tier === "GS" ? "You beat the Giant Squid" : ("You beat a rank " + _botWin.tier + " bot"),
+            _botWin.xp, false);
         }
         // Per-stat +15 bonuses the viewer won.
         const statRewards = [
@@ -24490,6 +24812,8 @@
       // Surface the "Rejoin Game" button if a recently-left game is still open.
       try { if (typeof _refreshRejoinButton === "function") _refreshRejoinButton(); } catch (e) {}
       syncStatsHeader(_activeProfile);
+      // Back from a Head to Head win: the reef walks you up to what it opened.
+      try { if (typeof window.__ccReefHomecoming === "function") window.__ccReefHomecoming(); } catch (_) {}
       const nick = _playerNickname || "Player";
       // Show sign out for everyone; show Friends only for signed-in users
       const signedEl = $a("stats-lobby-signed-actions");

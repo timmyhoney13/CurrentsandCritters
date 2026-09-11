@@ -77,10 +77,24 @@ const FNS = ["bmBeatenIds", "bmStoryUnlocked", "bmPlayerLevel",
              "bmBadge", "bmAnimalFor", "bmSquidId", "bmSpot", "bmSpotRank",
              "bmSpotLocked", "bmSpotLockNote", "bmTopUnlockedSpot", "bmIsFinal",
              "bmSeatCount", "bmGradeBlurb", "bmLoadGrades", "bmFinalLineup", "bmRoll",
-             "bmPickSpot", "bmSpotPos", "bmReefArt", "bmRenderLadder", "bmRenderBots",
-             "bmAvgRankTier",
+             "bmPickSpot", "bmSpotPos", "bmMeasureArt", "bmFitArt",
+             "bmReduceMotion", "bmClimbKnown", "bmReefKey", "bmReefLoad", "bmReefSave",
+             "bmTopReachableSpot", "bmMyAvatar", "bmDiverEl", "bmDiverMark", "bmDiverPlace",
+             "bmDiverHop", "bmDiverWalk", "bmOpenPlan", "bmCelebrate",
+             "bmRenderLadder", "bmRenderBots", "bmAvgRankTier", "buildDifficultyBox",
              "bmRender", "openBotMatch", "closeBotMatch", "bmStart"]
             .map(grabFn).join("\n\n");
+
+// The module-level state those functions share, taken line for line from the
+// source rather than restated here.
+function grabLine(prefix) {
+  const i = APP.indexOf(prefix);
+  if (i < 0) throw new Error("missing line: " + prefix);
+  return APP.slice(i, APP.indexOf("\n", i));
+}
+const REEF_STATE = ["  const _bmArtMetrics = new Map();", "  const BM_ART_DEFAULT = {",
+                    "  const BM_FIG_LIN =", "  const BM_FIG_MAX =", "  const _bmDiver = {"]
+  .map(grabLine).join("\n");
 
 // ════════════════════════════════════════════════════════════════════════
 //  1. THE BUTTON OPENS A BOT GAME, NOT A QUEUE
@@ -156,29 +170,18 @@ console.log("\nthe fallback ladder matches the server's");
 //  2b. WHAT COUNTS AS BEATING ONE  (the real rule, run for real)
 // ════════════════════════════════════════════════════════════════════════
 // The rung above only opens if you WIN, outright, at a table that rung was
-// sitting at. This is the block inside saveGameStats that decides it, lifted
-// out of the source and run against tables it never saw, because every other
-// part of the climb trusts whatever this returns.
+// sitting at. ccBotsBeatenBy decides it, for the end-of-game save (the climb)
+// and the end screen (the XP for beating the bots) alike, so it is lifted out
+// of the source and run against tables it never saw: every other part of the
+// climb trusts whatever it returns.
 console.log("\na rung is only beaten by winning the game outright");
 {
-  const start = APP.indexOf("const _botsBeatenNow = (() => {");
-  check(start > 0, "the beat-recorder is where the climb says it is");
-  // Balance the parens from the arrow function to its own "})();".
-  let d = 0, end = -1;
-  for (let j = APP.indexOf("{", start); j < APP.length; j++) {
-    if (APP[j] === "{") d++;
-    else if (APP[j] === "}" && --d === 0) { end = APP.indexOf(";", j) + 1; break; }
-  }
-  check(end > start, "…and it is one self-contained block");
-  const src = APP.slice(start, end);
-
-  const beaten = (opts) => {
-    const fn = new Function(
-      "_modded", "isWinner", "finalScores", "myScore", "_latestSeatsForSurf",
-      src + "\nreturn _botsBeatenNow;");
-    return fn(opts.modded || false, opts.isWinner, opts.finalScores,
-              opts.myScore, opts.seats || []);
-  };
+  const save = grabFn("saveGameStats");
+  check(/const _botsBeatenNow = ccBotsBeatenBy\(_modded, isWinner, finalScores, myScore, _latestSeatsForSurf\);/.test(save),
+        "the end-of-game save records the climb through the one rule");
+  const ccBotsBeatenBy = new Function(grabFn("ccBotsBeatenBy") + "\nreturn ccBotsBeatenBy;")();
+  const beaten = (opts) => ccBotsBeatenBy(opts.modded || false, opts.isWinner, opts.finalScores,
+                                          opts.myScore, opts.seats || []);
   const AI = (id) => ({ kind: "ai", difficulty: id });
   const HUMAN = { kind: "human", claimed_name: "Diver" };
   const THREE = [HUMAN, AI("edward_forbes"), AI("steve_irwin"), AI("william_beebe")];
@@ -222,6 +225,238 @@ console.log("\na rung is only beaten by winning the game outright");
 }
 
 // ════════════════════════════════════════════════════════════════════════
+//  2c. XP FOR BEATING THE BOTS
+// ════════════════════════════════════════════════════════════════════════
+// A win against bots pays on top of the placement XP, more for a harder bot,
+// once per game, by the hardest rank at the table.
+console.log("\nbeating the bots pays XP, more for the harder ones");
+{
+  const run = new Function(`
+    ${STATE}
+    ${APP.slice(APP.indexOf("  const BM_WIN_XP = {"), APP.indexOf("  function bmWinXp("))}
+    ${grabFn("bmWinXp")}
+    return { bmWinXp, BM_WIN_XP, grades: _bmGrades };
+  `)();
+  const ORDER = run.grades.map(g => g.id);
+  const paid = ORDER.map(id => run.bmWinXp([id]).xp);
+  check(paid.every(x => x > 0), "every rank pays something", paid.join(","));
+  check(paid.every((x, i) => i === 0 || x > paid[i - 1]),
+        "…and every rank pays more than the one below it", paid.join(","));
+  check(run.bmWinXp(["giant_squid"]).xp === Math.max(...paid) && run.bmWinXp(["giant_squid"]).tier === "GS",
+        "…the Giant Squid most of all", String(run.bmWinXp(["giant_squid"]).xp));
+  check(run.bmWinXp(["gilbert_carter"]).xp === 25 && run.bmWinXp(["charles_darwin"]).xp === 275,
+        "F pays 25 and S++ pays 275");
+  const table = run.bmWinXp(["gilbert_carter", "charles_darwin", "steve_irwin"]);
+  check(table.xp === 275 && table.tier === "S++",
+        "a table pays once, for the hardest rank at it", JSON.stringify(table));
+  check(run.bmWinXp([]).xp === 0, "no bots beaten, no bonus");
+  check(run.bmWinXp(["medium", "", "nonsense"]).xp === 0,
+        "a grade this ladder does not know is not guessed into one");
+
+  const end = grabFn("renderEndGame");
+  check(/const _botWin = \(\(\) => \{/.test(end), "the end screen works the bonus out");
+  check(/ccBotsBeatenBy\(false, won, finalScores, Number\(me\.score \|\| 0\), _latestSeatsForSurf\)/.test(end),
+        "…by the same rule the climb uses");
+  check(/compMode \|\| rankedMode \|\| _teamModeEnd \|\| _gameTerminatedByMe \|\| ccGameWasModded\(\)/.test(end),
+        "…only in casual games, and never in a modded one");
+  check(/xpBase \+ myStatWins \* 15 \+ _botWin\.xp/.test(end),
+        "…it is in the XP the end screen shows");
+  check(/saveGameStats\(winner, finalScores, totalXp\)/.test(end),
+        "…which is the XP that gets saved");
+  check(/addReward\("🏅", "Beat the Bots"/.test(end), "…and it gets its own line in the rewards");
+
+  // The block itself, run against end screens it never saw.
+  const bStart = end.indexOf("const _botWin = (() => {");
+  const bEnd = end.indexOf("})();", bStart) + "})();".length;
+  const botWinSrc = end.slice(bStart, bEnd);
+  const botWin = (o) => new Function(
+    "compMode", "rankedMode", "_teamModeEnd", "_gameTerminatedByMe", "ccGameWasModded",
+    "myName", "sorted", "myIdx", "_latestPlayers", "winner", "finalScores", "_latestSeatsForSurf",
+    "ccBotsBeatenBy", "bmWinXp",
+    botWinSrc + "\nreturn _botWin;")(
+      !!o.comp, !!o.ranked, !!o.team, false, () => !!o.modded,
+      o.me, [...o.scores].sort((a, b) => b.score - a.score), o.idx === undefined ? null : o.idx,
+      o.players || [], o.winner, o.scores, o.seats,
+      new Function(grabFn("ccBotsBeatenBy") + "\nreturn ccBotsBeatenBy;")(), run.bmWinXp);
+  const SEATS = [{ kind: "human" }, { kind: "ai", difficulty: "steve_irwin" },
+                 { kind: "ai", difficulty: "charles_darwin" }, { kind: "ai", difficulty: "gilbert_carter" }];
+  const SC = (a, b, c, d) => [{ name: "Diver", score: a }, { name: "Bot 2", score: b },
+                              { name: "Bot 3", score: c }, { name: "Bot 4", score: d }];
+  check(botWin({ me: "Diver", winner: "Diver", scores: SC(90, 70, 60, 50), seats: SEATS }).xp === 275,
+        "win outright against a rank S++ and it pays the S++ bonus");
+  check(botWin({ me: "diver", winner: "Diver", scores: SC(90, 70, 60, 50), seats: SEATS }).xp === 275,
+        "…whatever case the nickname is in");
+  check(botWin({ me: "Diver", winner: "Bot 3", scores: SC(60, 70, 90, 50), seats: SEATS }).xp === 0,
+        "lose and it pays nothing");
+  check(botWin({ me: "Diver", winner: "Diver", scores: SC(90, 90, 60, 50), seats: SEATS }).xp === 0,
+        "share the top with a bot and it pays nothing");
+  check(botWin({ me: "", winner: "Bot 3", scores: SC(60, 70, 90, 50), seats: SEATS }).xp === 0,
+        "a viewer it cannot find is paid nothing, not the winner's bonus");
+  check(botWin({ me: "", idx: 0, players: [{ index: 0, name: "Diver" }], winner: "Diver",
+                 scores: SC(90, 70, 60, 50), seats: SEATS }).xp === 275,
+        "…but found by seat, a winner is still paid");
+  check(botWin({ comp: true, me: "Diver", winner: "Diver", scores: SC(90, 70, 60, 50), seats: SEATS }).xp === 0,
+        "a competitive game pays no bot bonus");
+  check(botWin({ modded: true, me: "Diver", winner: "Diver", scores: SC(90, 70, 60, 50), seats: SEATS }).xp === 0,
+        "…and neither does a modded one");
+  check(botWin({ me: "Diver", winner: "Diver", scores: SC(90, 70, 60, 50),
+                 seats: SEATS.slice(0, 1).concat([{ kind: "ai", difficulty: "gilbert_carter" }]) }).xp === 25,
+        "beat only a rank F and it pays the F bonus");
+  check(!/sorted\[0\]/.test(end.slice(end.indexOf("const _botWin"), end.indexOf("const totalXp"))),
+        "…paid only to an entry that really is this player, never to the top of the table by default");
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  2d. EVERY ANIMAL THE SAME SIZE
+// ════════════════════════════════════════════════════════════════════════
+// bmFitArt sizes a figure by how much of it there is. Run for real against
+// measurements of the actual art: a long thin Narwhal and a bushy Staghorn
+// Coral must come out covering the same area, standing on the same floor,
+// centred in the same slot.
+console.log("\nevery animal is drawn the same size");
+{
+  const src = APP.slice(APP.indexOf("  const _bmArtMetrics = new Map();"), APP.indexOf("  function bmMeasureArt("))
+    + APP.slice(APP.indexOf("  const BM_FIG_LIN ="), APP.indexOf("  // ── The diver ─"))
+    + grabFn("bmFitArt");
+  const run = new Function(src + "\nreturn { bmFitArt, _bmArtMetrics, BM_FIG_LIN, BM_FIG_MAX };")();
+  // Measured from the PNGs themselves (alpha > 24): painted area, the middle
+  // of the figure, where its feet are, and how wide and tall it is.
+  const ART = {
+    narwhal:          { area: 0.192, cx: 0.500, y1: 0.715, w: 0.86, h: 0.43, ar: 1 },
+    "staghorn-coral": { area: 0.422, cx: 0.497, y1: 0.948, w: 0.76, h: 0.90, ar: 1 },
+    "giant-squid":    { area: 0.195, cx: 0.498, y1: 0.932, w: 0.49, h: 0.87, ar: 1 },
+    "sea-star":       { area: 0.322, cx: 0.499, y1: 0.861, w: 0.73, h: 0.72, ar: 1 },
+  };
+  const fitted = {};
+  Object.entries(ART).forEach(([name, m]) => {
+    run._bmArtMetrics.set("/avatars/" + name + ".png", m);
+    const img = { style: {}, dataset: {}, parentElement: null, _src: "",
+      classList: { _c: new Set(), add(c) { this._c.add(c); }, remove(c) { this._c.delete(c); },
+                   contains(c) { return this._c.has(c); } },
+      getAttribute() { return this._src; }, set src(v) { this._src = v; }, get src() { return this._src; } };
+    run.bmFitArt(img, "/avatars/" + name + ".png", run.BM_FIG_LIN, run.BM_FIG_MAX);
+    const n = (v) => parseFloat(v) / 100;
+    const d = n(img.style.width);
+    fitted[name] = { d, area: m.area * d * d * m.ar, feet: n(img.style.top) + m.y1 * d * m.ar,
+                     mid: n(img.style.left) + m.cx * d, longest: Math.max(m.w, m.h * m.ar) * d,
+                     shown: img.classList.contains("is-fit") };
+  });
+  const areas = Object.values(fitted).map(f => f.area);
+  check(Object.values(fitted).every(f => f.shown), "every measured figure is shown");
+  check(Math.max(...areas) / Math.min(...areas) < 1.02,
+        "the Narwhal, the Staghorn Coral, the Giant Squid and the Sea Star cover the same area",
+        Object.entries(fitted).map(([k, f]) => k + " " + f.area.toFixed(3)).join(", "));
+  check(Object.values(fitted).every(f => Math.abs(f.feet - 1) < 0.002),
+        "…all of them standing on the floor of their slot");
+  check(Object.values(fitted).every(f => Math.abs(f.mid - 0.5) < 0.002),
+        "…in the middle of it");
+  check(Object.values(fitted).every(f => f.longest <= run.BM_FIG_MAX + 1e-9),
+        "…and none of them longer than the cap");
+  check(fitted.narwhal.d > fitted["staghorn-coral"].d * 1.3,
+        "the Narwhal really is drawn bigger than its frame suggests, and the Coral smaller");
+  check(/function bmMeasureArt\(src\)/.test(APP) && /getImageData\(0, 0, N, N\)/.test(APP),
+        "the measuring is done from the image itself, so any avatar can be sized");
+  check(/im\.onerror = \(\) => done\(BM_ART_DEFAULT\)/.test(APP),
+        "…and an image that cannot be measured is still drawn, at a default");
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  2e. THE DIVER WALKS ONE PLATFORM AT A TIME
+// ════════════════════════════════════════════════════════════════════════
+console.log("\nthe diver walks, one platform at a time");
+// The walk is asynchronous, so its checks finish before the summary is
+// printed rather than after the process has already exited.
+let walkDone = Promise.resolve();
+{
+  const hops = [];
+  const saves = [];
+  const run = new Function("hops", "saves", `
+    const BM_TIERS = new Array(10).fill(0).map((_, i) => ({ n: i + 1 }));
+    ${APP.slice(APP.indexOf("  const _bmDiver = {"), APP.indexOf("  function bmReduceMotion("))}
+    let reduce = false;
+    function bmReduceMotion() { return reduce; }
+    const el = { classList: { add() {}, remove() {} }, style: {}, getAnimations: () => [] };
+    function bmDiverEl() { return el; }
+    function bmSpotPos(i) { return { x: i % 2 ? 71 : 29, y: 90 - i * 7 }; }
+    function bmDiverMark() {}
+    ${grabFn("bmDiverPlace").replace("_bmDiver.gen++;", "_bmDiver.gen++; hops.push(\"place \" + i);")}
+    function bmReefSave(i) { saves.push(i); }
+    function bmDiverHop(a, b) { hops.push(a + ">" + b); return Promise.resolve(); }
+    ${grabFn("bmDiverWalk")}
+    return { walk: bmDiverWalk, state: _bmDiver, place: bmDiverPlace, setReduce: (v) => { reduce = v; } };
+  `)(hops, saves);
+  walkDone = (async () => {
+    run.state.at = 0;
+    let arrived = false;
+    await run.walk(5, () => { arrived = true; });
+    check(hops.join(" ") === "0>1 1>2 2>3 3>4 4>5", "up the reef it hops through every platform in between", hops.join(" "));
+    check(arrived && run.state.at === 5, "…arrives where it was sent");
+    check(saves[saves.length - 1] === 5, "…and remembers where it is standing");
+    hops.length = 0;
+    await run.walk(2);
+    check(hops.join(" ") === "5>4 4>3 3>2", "down the reef too, one at a time", hops.join(" "));
+    // Sent somewhere else mid-walk: it turns round after the hop it is in.
+    hops.length = 0;
+    const first = run.walk(6);
+    run.walk(1);
+    await first;
+    check(hops.join(" ") === "2>3 3>2 2>1", "sent somewhere else mid-walk, it turns round at the next platform",
+          hops.join(" "));
+    check(run.state.at === 1 && !run.state.walking, "…and ends up where it was sent last");
+    // Stood somewhere else mid-walk (the reef reopened): the walk gives way.
+    hops.length = 0;
+    const third = run.walk(4);
+    run.place(7);
+    await third;
+    check(run.state.at === 7 && !run.state.walking && hops.join(" ") === "1>2 place 7",
+          "standing it somewhere mid-walk stops the walk there", hops.join(" ") + " at " + run.state.at);
+    hops.length = 0;
+    run.setReduce(true);
+    await run.walk(8);
+    check(hops.join(" ") === "place 8", "with reduced motion on, it goes straight there", hops.join(" "));
+    console.log("  (walk checks done)");
+  })().catch(e => check(false, "the walk ran", e.message));
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  2f. HOME FROM A WIN, THE REEF OPENS BY ITSELF
+// ════════════════════════════════════════════════════════════════════════
+console.log("\nhome from a Head to Head win, the reef opens and walks you up");
+{
+  const i0 = APP.indexOf("  window.__ccReefHomecoming = () => {");
+  const i1 = APP.indexOf("\n  };", i0) + "\n  };".length;
+  const src = APP.slice(i0, i1);
+  check(i0 > 0, "there is a homecoming");
+  check(/sessionStorage\.setItem\("cc_h2h_homecoming", "1"\)/.test(grabFn("bmStart")),
+        "a Head to Head game that starts marks the way home");
+  const bmStart = grabFn("bmStart");
+  check(bmStart.indexOf('sessionStorage.setItem("cc_h2h_homecoming"') > bmStart.indexOf("r.data.started === false"),
+        "…only once the game has really started");
+  check(/window\.__ccReefHomecoming\(\)/.test(APP.slice(APP.indexOf("function showStatsLobby()"), APP.indexOf("function showStatsLobby()") + 4000)),
+        "coming home asks whether there is a walk to watch");
+  const home = (flag, from, known) => {
+    const store = new Map(flag ? [["cc_h2h_homecoming", "1"]] : []);
+    const opened = [];
+    const window = {};
+    new Function("window", "sessionStorage", "setTimeout", "document", "bmClimbKnown", "bmReefLoad",
+                 "bmOpenPlan", "openBotMatch", src)(
+      window,
+      { getItem: (k) => store.has(k) ? store.get(k) : null, removeItem: (k) => store.delete(k) },
+      (fn) => fn(),
+      { getElementById: () => ({ classList: { contains: () => false } }) },
+      () => known !== false, () => ({ at: 1, top: 1 }), () => ({ tier: 2, from }),
+      () => opened.push("open"));
+    window.__ccReefHomecoming();
+    return { opened: opened.length, left: store.has("cc_h2h_homecoming") };
+  };
+  check(home(true, 1).opened === 1, "home from a game that opened a platform: the reef opens");
+  check(home(true, -1).opened === 0, "home from a game that opened nothing: it does not");
+  check(home(false, 1).opened === 0, "home from anything else: it does not");
+  check(home(true, 1, false).opened === 0, "…nor before the account's record can be read");
+  check(!home(true, 1).left && !home(true, -1).left, "…and it only asks once");
+}
+
+// ════════════════════════════════════════════════════════════════════════
 //  3. THE REEF  (the logic, run for real, thousands of times)
 // ════════════════════════════════════════════════════════════════════════
 console.log("\nevery platform rolls different opponents, inside its reach");
@@ -262,6 +497,8 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
       ${grabFn("bmLockNote")}
       ${grabFn("bmTopUnlockedIndex")}
       ${grabFn("bmSpotPos")}
+      ${grabFn("bmTopReachableSpot")}
+      ${grabFn("bmOpenPlan")}
       return {
         roll: (i) => { bmRoll(i); return _bmPick.slice(); },
         spots: BM_TIERS, grades: _bmGrades,
@@ -274,6 +511,7 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
         avg: () => { const a = bmAvgRankTier(); return a; },
         setPick: (ids) => { _bmPick = ids.slice(); },
         setTier: (i) => { _bmTier = i; }, isFinal: bmIsFinal, pos: bmSpotPos,
+        plan: bmOpenPlan,
       };
     }
   `)(sandbox);
@@ -283,13 +521,13 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
 
   // ── the shape of the reef ──
   // The animal on each rank is the one that was asked for, rank by rank.
-  const WANT = [["F", "bobtail-squid"], ["E", "staghorn-coral"], ["D", "peruvian-pelican"],
+  const WANT = [["F", "bobtail-squid"], ["E", "hermit-crab"], ["D", "peruvian-pelican"],
                 ["C", "staghorn-coral"], ["B", "narwhal"], ["A", "great-white-shark"],
                 ["S", "mandarin-goby"], ["S+", "bunker"], ["S++", "sea-star"],
                 ["GS", "giant-squid"]];
   check(SPOTS.length === 10, "the reef has ten platforms, one per rank", String(SPOTS.length));
   check(SPOTS.map(t => t.tier + ":" + t.animal).join() === WANT.map(w => w.join(":")).join(),
-        "F Bobtail Squid, E Staghorn Coral, D Peruvian Pelican, C Staghorn Coral, B Narwhal, "
+        "F Bobtail Squid, E Hermit Crab, D Peruvian Pelican, C Staghorn Coral, B Narwhal, "
         + "A Great White Shark, S Goby, S+ Bunker, S++ Sea Star, then the Giant Squid",
         SPOTS.map(t => t.tier + ":" + t.animal).join());
   check(SPOTS.map(t => t.n).join() === "1,2,3,4,5,6,7,8,9,10", "…numbered 1 to 10");
@@ -380,9 +618,9 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
   const animals = ids.map(run.animal);
   check(animals.join() === WANT.map(w => w[1]).join(),
         "every rank's opponents wear that rank's animal", animals.join(","));
-  check(run.animal("steve_irwin") === "staghorn-coral"
-     && run.animal("jeanne_villepreux_power") === "staghorn-coral",
-        "…so rank C and rank E are both the Staghorn Coral, as asked");
+  check(run.animal("jeanne_villepreux_power") === "hermit-crab",
+        "…so a rank E opponent is a Hermit Crab, wherever it is dealt");
+  check(new Set(animals).size === 10, "…and no two ranks share an animal", animals.join(","));
 
   // ── the last fight ──
   const fin = run.finalLineup();
@@ -520,6 +758,28 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
           leaked || "");
   });
 
+  // ── where the diver stands when the reef opens ──
+  asPlayer([], false, 99);
+  check(JSON.stringify(run.plan(null)) === '{"tier":0,"from":-1}',
+        "somebody new starts on the first platform, the Start", JSON.stringify(run.plan(null)));
+  asPlayer(ORDER.slice(0, 4), false, 99);
+  check(JSON.stringify(run.plan(null)) === '{"tier":4,"from":-1}',
+        "with nothing saved, the top of the climb", JSON.stringify(run.plan(null)));
+  check(JSON.stringify(run.plan({ at: 3, top: 3 })) === '{"tier":4,"from":3}',
+        "a platform opened since the last visit: stand where you stood, and walk up to it",
+        JSON.stringify(run.plan({ at: 3, top: 3 })));
+  check(JSON.stringify(run.plan({ at: 1, top: 3 })) === '{"tier":4,"from":1}',
+        "…from wherever you stood, one platform at a time", JSON.stringify(run.plan({ at: 1, top: 3 })));
+  check(JSON.stringify(run.plan({ at: 1, top: 4 })) === '{"tier":1,"from":-1}',
+        "nothing new: you stay where you left off", JSON.stringify(run.plan({ at: 1, top: 4 })));
+  check(JSON.stringify(run.plan({ at: 7, top: 7 })) === '{"tier":4,"from":-1}',
+        "a saved place that is shut now is not stood on", JSON.stringify(run.plan({ at: 7, top: 7 })));
+  asPlayer(CLIMBED, true, 60);
+  check(JSON.stringify(run.plan({ at: 8, top: 8 })) === '{"tier":9,"from":8}',
+        "open the summit and you walk up onto it", JSON.stringify(run.plan({ at: 8, top: 8 })));
+  check(JSON.stringify(run.plan(null)) === '{"tier":8,"from":-1}',
+        "…but it never opens there on its own", JSON.stringify(run.plan(null)));
+
   // The Squid needs all three gates: it is the summit, not a side door.
   asPlayer(ORDER.slice(0, ORDER.length - 1), false, 99);
   check(run.spotLocked(9) === true,
@@ -628,12 +888,25 @@ console.log("\nthe screen is really in the page");
    "bm-avg-rank", "bm-shuffle", "bm-play", "bm-err", "bm-close"]
     .forEach(id => check(new RegExp(`id="${id}"`).test(HTML), `#${id} exists`));
   check(/#bot-match-modal\.open \{ display: flex; \}/.test(CSS), "it opens");
-  ["bm-spot", "bm-spot-animal", "bm-spot-ledge", "bm-spot-lock", "bm-spot-you",
-   "bm-spot-you-tag", "bm-reef-art", "bm-reef-trail", "bm-bot",
-   "bm-bot-face", "bm-grade-badge", "bm-grade-select", "bm-shuffle"]
+  ["bm-spot", "bm-spot-animal", "bm-spot-ledge", "bm-spot-lock", "bm-spot-fig",
+   "bm-spot-start", "bm-diver", "bm-diver-bob", "bm-diver-tag", "bm-fig",
+   "bm-bot", "bm-bot-fig", "bm-note-fig",
+   "bm-grade-badge", "bm-grade-select", "bm-shuffle"]
     .forEach(c => check(new RegExp(`\\.${c}[ ,{:.]`).test(CSS), `.${c} is styled`));
-  check(/#bm-reef \{[^}]*coral-background\.png/.test(CSS.replace(/\n/g, " ")),
-        "the reef really is the coral reef background");
+  // The reef is the coral reef painting, the whole of it, as ONE picture:
+  // not its middle alone (bare sand and open water), and not pieces of it
+  // laid over each other.
+  const reefRule = (CSS.match(/#bm-reef \{[^}]*\}/) || [""])[0];
+  check(/url\('\/coral-background\.png'\) center \/ 100% 100% no-repeat/.test(reefRule),
+        "the reef is the coral reef painting, the whole of it", reefRule.replace(/\s+/g, " "));
+  check((CSS.match(/coral-background\.png/g) || []).length === 1,
+        "…laid in once, not in pieces over each other");
+  check(!/#bm-reef::(before|after)/.test(CSS), "…with nothing laid over it");
+  // Nothing drawn on the painting but the platforms and who stands on them:
+  // no walls, no coral, no weed, no bubbles, no trail.
+  check(!/function bmReefArt/.test(APP) && !/<svg class="bm-reef/.test(APP),
+        "nothing is drawn on the painting");
+  check(!/\.bm-reef-(coral|weed|fan|rim|trail|art)/.test(CSS), "…and none of the drawn-reef styles are left");
   check(/\.bm-spot\.is-locked/.test(CSS), "a locked platform looks locked");
   "FDCBAS".split("").forEach(t =>
     check(new RegExp(`\\.bm-tier-${t}[ ,{]`).test(CSS), `tier ${t} has its own colour`));
@@ -674,6 +947,7 @@ function cancelQuickMatch() { return Promise.resolve(); }
 function startQuickMatch() {}
 function showToast() {} function ccReport() {} function enterRoom() {}
 function setHostToken() {} function setSeatToken() {}
+function setBotDifficulty() { return Promise.resolve(); }
 function normalizeRoomId(x) { return String(x || ""); }
 function freshRoomCode() { return "ABCDE"; }
 function createKeyKey() { return "k"; }
@@ -684,7 +958,12 @@ window.__fishGetUnlockedIcons = () => _storyDone ? ["/avatars/sea-anemone.png"] 
 window.__ccBotsBeaten = () => _beaten.slice();
 window.__ccPlayerLevel = () => _level;
 window.__fishNickname = () => "Diver";
-window.__fishMyAvatarUrl = () => "/avatars/hermit-crab.png";
+window.__fishMyAvatarUrl = () => "/avatars/clownfish.png";
+// Reduced motion while the widths are measured, so a pressed platform has the
+// diver on it at once; the walk itself is driven with motion on, at the end.
+let _reduce = true;
+window.matchMedia = (q) => ({ matches: /reduce/.test(q) ? _reduce : false,
+  addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} });
 `;
   const drive = `
 openBotMatch();
@@ -695,6 +974,7 @@ window.__press = (rank) => {
   el.click();
   return el;
 };
+window.__setReduce = (v) => { _reduce = !!v; };
 window.__setStory = (v) => { _storyDone = !!v; bmRender(); };
 window.__setLevel = (v) => { _level = v; bmRender(); };
 window.__setBeaten = (list) => { _beaten = list.slice(); bmRender(); };
@@ -713,7 +993,7 @@ ${CSS}
 html,body{margin:0;} #bot-match-modal{position:static;min-height:100vh;}
 /* The art is not served in this harness; the boxes it would fill are. */
 .bm-spot-animal,.bm-spot-you-img,.bm-bot-face{background:#9ec4e4;}
-</style></head><body>${modal}<script>${stubs}\n${STATE}\n${FNS}\n${drive}</scr` + `ipt></body></html>`;
+</style></head><body>${modal}<script>${stubs}\n${STATE}\n${REEF_STATE}\n${FNS}\n${drive}</scr` + `ipt></body></html>`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#111;}iframe{border:0;display:block;}</style></head><body>
 <iframe id="f" width="1280" height="1000"></iframe><div id="out"></div>
@@ -744,7 +1024,7 @@ function measure(w) {
   ok(spots.length === 10, "ten platforms are drawn (" + spots.length + ")");
   const ranks = spots.map(s => s.dataset.rank);
   ok(ranks.join() === "GS,S++,S+,S,A,B,C,D,E,F", "…top of the reef first (" + ranks.join() + ")");
-  const WANT = { F: "bobtail-squid", E: "staghorn-coral", D: "peruvian-pelican",
+  const WANT = { F: "bobtail-squid", E: "hermit-crab", D: "peruvian-pelican",
                  C: "staghorn-coral", B: "narwhal", A: "great-white-shark",
                  S: "mandarin-goby", "S+": "bunker", "S++": "sea-star", GS: "giant-squid" };
   spots.forEach((el, i) => {
@@ -758,9 +1038,10 @@ function measure(w) {
     ok(!!img && img.getAttribute("src") === "/avatars/" + WANT[rk] + ".png",
        "platform " + rk + " has the " + WANT[rk] + " standing on it (" + (img && img.getAttribute("src")) + ")");
     const ledge = el.querySelector(".bm-spot-ledge");
-    ok(!!ledge && r(ledge).width >= 60, "platform " + rk + " has a ledge to stand on");
-    ok(!!ledge && r(img).bottom >= r(ledge).top - 2 && r(img).bottom <= r(ledge).top + 12,
-       "…and the animal is standing ON it (feet " + Math.round(r(img).bottom) + ", ledge " + Math.round(r(ledge).top) + ")");
+    const fig = el.querySelector(".bm-spot-fig");
+    ok(!!ledge && r(ledge).width >= 60, "platform " + rk + " has a stone to stand on");
+    ok(!!ledge && !!fig && r(fig).bottom >= r(ledge).top && r(fig).bottom <= r(ledge).top + 10,
+       "…and the animal is standing ON it (feet " + Math.round(r(fig).bottom) + ", stone " + Math.round(r(ledge).top) + ")");
     const badge = el.querySelector(".bm-spot-ledge .bm-grade-badge");
     ok(!!badge && badge.textContent === rk && r(badge).width >= 30,
        "platform " + rk + " wears its rank on the ledge");
@@ -780,24 +1061,48 @@ function measure(w) {
   const tops = spots.map(s => r(s.querySelector(".bm-spot-ledge")).top);
   ok(tops.every((y, i) => i === 0 || y > tops[i - 1]),
      "every platform is higher than the one below it");
-  // The coral runs the whole way up: the wall art covers the reef from the
-  // summit to the floor, not just the bottom of it.
-  const art = d.querySelector("#bm-ladder .bm-reef-art");
-  ok(!!art, "the reef walls are drawn");
-  ok(!!art && r(art).top <= r(spots[0]).top && r(art).bottom >= r(spots[9]).bottom - 1,
+  // The painting covers the reef from above the summit to below the bottom
+  // platform, and nothing but platforms and your diver is drawn on it.
+  const reefBg = win.getComputedStyle(reef);
+  ok(/coral-background\.png/.test(reefBg.backgroundImage) && /100% 100%/.test(reefBg.backgroundSize),
+     "the reef is the whole painting, stretched to it (" + reefBg.backgroundSize + ")");
+  ok(r(reef).top <= r(spots[0]).top && r(reef).bottom >= r(spots[9]).bottom,
      "…from above the summit to below the bottom platform");
+  const extras = [...d.getElementById("bm-ladder").children]
+    .filter(el => !el.classList.contains("bm-spot") && !el.classList.contains("bm-diver"));
+  ok(extras.length === 0, "nothing else is on the reef (" + extras.map(e => e.tagName + "." + e.className).join(" ") + ")");
   // Only the top one is the Squid.
   const squidArt = spots.filter(s => /giant-squid/.test(s.querySelector(".bm-spot-animal").getAttribute("src")));
   ok(squidArt.length === 1, "exactly one platform is the Giant Squid (" + squidArt.length + ")");
   ok(squidArt[0] === spots[0], "…and it is the summit");
-  // Your own animal stands on the platform you are on, and nowhere else.
-  const you = [...d.querySelectorAll(".bm-spot-you")];
-  ok(you.length === 1, "your own animal is on the reef exactly once (" + you.length + ")");
-  ok(you.length === 1 && you[0].closest(".bm-spot").dataset.rank === "F",
-     "…on the platform you are standing on");
-  ok(you.length === 1 && /hermit-crab/.test(you[0].querySelector("img").getAttribute("src")),
-     "…and it is YOUR animal (" + (you[0] && you[0].querySelector("img").getAttribute("src")) + ")");
-  ok(you.length === 1 && you[0].textContent.trim() === "You", "…with a You tag on it");
+  // You: your own animal, standing on the platform you picked.
+  const divers = [...d.querySelectorAll(".bm-diver")];
+  ok(divers.length === 1, "your own animal is on the reef exactly once (" + divers.length + ")");
+  const onSpot = (rk) => {
+    const sp = d.querySelector('.bm-spot[data-rank="' + rk + '"]');
+    const dv = d.querySelector(".bm-diver .bm-diver-fig");
+    if (!sp || !dv) return false;
+    const L = r(sp.querySelector(".bm-spot-ledge")), D = r(dv);
+    return D.bottom >= L.top && D.bottom <= L.top + 10
+        && (D.left + D.right) / 2 > L.left && (D.left + D.right) / 2 < L.right;
+  };
+  ok(onSpot("F"), "…standing on the platform you picked");
+  ok(d.querySelector('.bm-spot[data-rank="F"]').classList.contains("has-diver"),
+     "…whose animal steps aside for you");
+  const dImg = d.querySelector(".bm-diver img");
+  ok(!!dImg && /clownfish/.test(dImg.getAttribute("src")),
+     "…and it is YOUR animal (" + (dImg && dImg.getAttribute("src")) + ")");
+  ok(d.querySelector(".bm-diver-tag").textContent.trim() === "You", "…with a You tag on it");
+  const dvr = r(d.querySelector(".bm-diver .bm-diver-fig"));
+  const anr = r(d.querySelector('.bm-spot[data-rank="F"] .bm-spot-fig'));
+  ok(Math.abs(dvr.width - anr.width) < 1 && Math.abs(dvr.height - anr.height) < 1,
+     "…the same size as the animals (" + Math.round(dvr.width) + " vs " + Math.round(anr.width) + ")");
+  // Where everybody starts.
+  const starts = [...d.querySelectorAll(".bm-spot-start")];
+  ok(starts.length === 1 && starts[0].closest(".bm-spot").dataset.rank === "F",
+     "the first platform is marked as the Start");
+  ok(starts.length === 1 && r(starts[0]).bottom <= r(reef).bottom + 1 && /start/i.test(starts[0].textContent),
+     "…and the mark is on the reef, readable");
 
   // ── the locks ──
   // A player who has beaten nobody: F open, everything above it locked and
@@ -810,7 +1115,7 @@ function measure(w) {
   ok(!fresh[9].classList.contains("is-locked"), "…and the bottom one open");
   ok(locked.every(s => s.querySelector(".bm-spot-lock")),
      "…each locked platform wearing a lock");
-  ok(locked.every(s => !s.querySelector(".bm-spot-you")), "…and you are not standing on any of them");
+  ok(locked.every(s => !s.classList.contains("has-diver")), "…and you are not standing on any of them");
   locked.forEach(s => {
     const lk = s.querySelector(".bm-spot-lock"), an = s.querySelector(".bm-spot-animal");
     const badge = s.querySelector(".bm-grade-badge");
@@ -843,11 +1148,29 @@ function measure(w) {
   ok(d.querySelectorAll(".bm-spot.is-current").length === 1, "exactly one platform is lit");
   ok(d.querySelector(".bm-spot.is-current").dataset.rank === "S++",
      "…and it is the one that was pressed");
-  ok(d.querySelector(".bm-spot-you").closest(".bm-spot").dataset.rank === "S++",
-     "…and your animal moved up to it");
+  ok(onSpot("S++"), "…and your animal moved up to it");
   const faces = [...d.querySelectorAll(".bm-bot .bm-bot-face")].map(e => e.getAttribute("src"));
   ok(faces.join() === "/avatars/mandarin-goby.png,/avatars/bunker.png,/avatars/sea-star.png",
      "…and each opponent wears its rank's animal (" + faces.join(" ") + ")");
+
+  // ── a casual lobby's bot seat ──
+  // A casual table seats any rank from F to S++, climbed or not. A player
+  // who has beaten nobody (so every Head to Head platform above F is shut)
+  // still gets all nine, and the Squid only once it is earned.
+  if (w === 1280) {
+    win.__setBeaten([]); win.__setStory(false); win.__setLevel(99);
+    const box = win.buildDifficultyBox({ index: 1, difficulty: "steve_irwin", grade: "", claimed_name: "Bot 2" }, true);
+    const opts = [...box.querySelectorAll("option")];
+    ok(opts.map(o => o.textContent.trim()).join() === "Rank F,Rank E,Rank D,Rank C,Rank B,Rank A,Rank S,Rank S+,Rank S++",
+       "a casual bot seat is graded F to S++ (" + opts.map(o => o.textContent.trim()).join() + ")");
+    ok(opts.every(o => !o.disabled), "…every one of them open, whether or not it has been climbed");
+    ok(box.querySelector("select").value === "steve_irwin", "…with the seat's own rank selected");
+    win.__setBeaten(${JSON.stringify(CLIMBED)}); win.__setStory(true); win.__setLevel(60);
+    const box2 = win.buildDifficultyBox({ index: 1, difficulty: "steve_irwin", grade: "", claimed_name: "Bot 2" }, true);
+    ok([...box2.querySelectorAll("option")].some(o => o.value === "giant_squid" && !o.disabled),
+       "…and the Giant Squid joins the list once it is earned");
+    win.__setBeaten(${JSON.stringify(CLIMBED)}); win.__setStory(false); win.__setLevel(99);
+  }
 
   // ── the lineup rows ──
   [...d.querySelectorAll(".bm-bot")].forEach((el, i) => {
@@ -910,7 +1233,7 @@ function measure(w) {
     const arts = line.map(el => el.querySelector(".bm-bot-face").getAttribute("src"));
     ok(arts.join() === "/avatars/mandarin-goby.png,/avatars/bunker.png,/avatars/sea-star.png,/avatars/giant-squid.png",
        "…the Goby, the Bunker, the Sea Star and the Squid itself (" + arts.join(" ") + ")");
-    ok(squidSpot().querySelector(".bm-spot-you"), "…and you are standing on the summit");
+    ok(onSpot("GS"), "…and you are standing on the summit");
     ok(d.getElementById("bm-count").textContent.indexOf("4 / 4") === 0,
        "…and the count says four (" + d.getElementById("bm-count").textContent + ")");
     ok(line.every(el => el.querySelector(".bm-grade-select").disabled),
@@ -931,13 +1254,62 @@ function measure(w) {
     win.__setStory(false); win.__setLevel(99);
   }
 }
+// The walk, with motion on: press a platform five up the reef and watch the
+// diver cross every platform in between, left and right, before it lands.
+function walk(done) {
+  const d = f.contentDocument, win = f.contentWindow;
+  const ok = (c, m) => L.push((c ? "PASS " : "FAIL ") + "walk: " + String(m).replace(/\\s+/g, " ").trim());
+  win.__setReduce(true);
+  win.__setStory(false); win.__setLevel(99);
+  win.__setBeaten(${JSON.stringify(CLIMBED)});
+  win.__press("F");
+  win.__setReduce(false);
+  const ledgeOf = (rk) => d.querySelector('.bm-spot[data-rank="' + rk + '"] .bm-spot-ledge').getBoundingClientRect();
+  const RANKS = ["F", "E", "D", "C", "B", "A"];
+  const visits = [];
+  const sides = new Set();
+  const midX = d.getElementById("bm-ladder").getBoundingClientRect();
+  win.__press("A");
+  ok(d.querySelector(".bm-diver").classList.contains("is-walking"), "pressing a platform sets the diver walking");
+  const t0 = Date.now();
+  (function sample() {
+    const fig = d.querySelector(".bm-diver .bm-diver-fig").getBoundingClientRect();
+    const cx = (fig.left + fig.right) / 2;
+    sides.add(cx < (midX.left + midX.right) / 2 ? "left" : "right");
+    RANKS.forEach(rk => {
+      const L2 = ledgeOf(rk);
+      if (cx > L2.left && cx < L2.right && Math.abs(fig.bottom - L2.top) < 8 && visits[visits.length - 1] !== rk) visits.push(rk);
+    });
+    if (d.querySelector(".bm-diver").classList.contains("is-walking") && Date.now() - t0 < 8000) {
+      setTimeout(sample, 16);
+      return;
+    }
+    ok(visits.join() === "F,E,D,C,B,A", "it lands on every platform on the way, in order (" + visits.join() + ")");
+    ok(sides.size === 2, "…zig-zagging across the reef to get there");
+    const fig2 = d.querySelector(".bm-diver .bm-diver-fig").getBoundingClientRect();
+    const LA = ledgeOf("A");
+    ok(Math.abs(fig2.bottom - LA.top - 6) < 3, "…and it ends standing on the platform it was sent to");
+    ok(d.querySelector('.bm-spot[data-rank="A"]').classList.contains("has-diver"),
+       "…where that platform's animal steps aside for it");
+    ok([...d.querySelectorAll(".bm-fig > img")].every(im => im.classList.contains("is-fit")),
+       "every figure is showing, even the ones whose image could not load here");
+    done();
+  })();
+}
 f.onload = () => {
   WIDTHS.forEach(w => {
     f.width = String(w);
     f.contentWindow.document.body.offsetHeight;
     try { measure(w); } catch (e) { L.push("FAIL " + w + "px: threw " + e.message); }
   });
-  document.getElementById("out").textContent = L.join("\\n");
+  f.width = "1280";
+  f.contentWindow.document.body.offsetHeight;
+  try {
+    walk(() => { document.getElementById("out").textContent = L.join("\\n"); });
+  } catch (e) {
+    L.push("FAIL walk: threw " + e.message);
+    document.getElementById("out").textContent = L.join("\\n");
+  }
 };
 f.srcdoc = SRC;
 </scr` + `ipt></body></html>`;
@@ -968,5 +1340,7 @@ if (!CHROME) {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
 
-console.log(`\n${fail ? "FAILED" : "All"} ${fail ? fail + " of " + (pass + fail) : pass} checks${fail ? "" : " passed"}.`);
-process.exit(fail ? 1 : 0);
+walkDone.finally(() => {
+  console.log(`\n${fail ? "FAILED" : "All"} ${fail ? fail + " of " + (pass + fail) : pass} checks${fail ? "" : " passed"}.`);
+  process.exit(fail ? 1 : 0);
+});

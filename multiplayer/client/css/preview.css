@@ -12967,22 +12967,24 @@
       display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
       gap: 14px; align-items: stretch;
     }
-    /* One column on a phone: the reef first, because it is what you press. */
+    /* One column on a phone: the reef first, because it is what you press.
+       The close button then sits over the reef, so the heading keeps clear
+       of it. */
     @media (max-width: 760px) {
       #bot-match-box { grid-template-columns: minmax(0, 1fr); max-width: 560px; }
+      #bm-reef .bm-head { max-width: calc(100% - 46px); }
     }
 
     /* ── the reef ───────────────────────────────────────────────── */
+    /* The coral reef painting, the whole of it, as one picture: stretched to
+       the panel so both banks of coral climb its sides from the sand to the
+       top, and nothing drawn over it but the platforms and who stands on
+       them. (Fitted by height instead, a panel this shape keeps only the
+       painting's middle, which is open water over bare sand.) */
     #bm-reef {
       position: relative; min-width: 0; border-radius: 20px; overflow: hidden;
       padding: 18px 14px 14px;
-      /* The painted reef, fitted to the panel's HEIGHT: the sand floor across
-         the bottom and open water above it. Its own coral banks fall off the
-         sides at this shape, and that is fine, because the walls drawn over
-         it (.bm-reef-art) are the banks now, and they run the whole way up
-         instead of stopping halfway. */
-      background: url('/coral-background.png') center bottom / auto 100% no-repeat,
-                  linear-gradient(180deg, #a9e2f5 0%, #81bde6 100%);
+      background: #81bde6 url('/coral-background.png') center / 100% 100% no-repeat;
       border: 1.5px solid rgba(120,185,235,.55);
       display: flex; flex-direction: column; gap: 4px;
     }
@@ -12990,11 +12992,11 @@
     #bot-match-box h2 {
       font-family: "Cinzel", serif; font-size: 1.5rem; font-weight: 700;
       color: #0c3472; letter-spacing: 1.5px; margin: 0;
-      text-shadow: 0 1px 0 rgba(255,255,255,.6);
+      text-shadow: 0 0 6px rgba(255,255,255,.9), 0 1px 0 rgba(255,255,255,.8);
     }
     #bot-match-box .bm-sub {
-      font-size: 13px; font-weight: 700; color: #1d4f8c; line-height: 1.4; margin-top: 4px;
-      text-shadow: 0 1px 0 rgba(255,255,255,.55);
+      font-size: 13px; font-weight: 700; color: #123f78; line-height: 1.4; margin-top: 3px;
+      text-shadow: 0 0 5px rgba(255,255,255,.95), 0 1px 0 rgba(255,255,255,.8);
     }
     #bm-close {
       position: absolute; top: 14px; right: 14px;
@@ -13006,55 +13008,36 @@
     }
     #bm-close:hover { background: rgba(210,235,255,.95); border-color: rgba(70,150,230,.65); }
 
-    /* The climb: ten platforms zig-zagging up between two walls of coral,
-       placed by bmSpotPos() in percent of this box. It bleeds to the panel's
-       edges so the walls meet its border. */
+    /* The climb: ten platforms zig-zagging up the reef, placed by bmSpotPos()
+       in percent of this box, and the diver hopping between them. */
     .bm-ladder {
+      --fig: 54px;        /* every figure's slot: the animals and you */
+      --ledge-w: 118px;   /* a platform, wide enough for two to stand on */
+      --shift: 23px;      /* how far each of the two stands off the middle */
       position: relative; z-index: 1; flex: 1 1 auto;
       min-height: 620px; margin: 0 -14px -14px;
     }
-    /* The walls, shelves, bridge and trail. Stretched to the box, so it is
-       drawn in percent; its strokes do not stretch with it. The top fades
-       into open water, under the heading. */
-    .bm-reef-art {
-      position: absolute; inset: 0; width: 100%; height: 100%;
-      pointer-events: none; overflow: visible;
-      -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 8%);
-              mask-image: linear-gradient(180deg, transparent 0, #000 8%);
+    /* A figure's slot. What is in it is sized by bmFitArt so that every animal
+       covers the same amount of it, feet on its floor; until an image has
+       been measured it stays out of sight rather than jumping size. */
+    .bm-fig {
+      position: relative; display: block; flex: 0 0 auto;
+      width: var(--fig, 54px); height: var(--fig, 54px);
     }
-    .bm-reef-rim {
-      fill: none; stroke: rgba(126,176,242,.8); stroke-width: 2.5;
-      stroke-linecap: round; vector-effect: non-scaling-stroke;
+    .bm-fig > img {
+      position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+      max-width: none; object-fit: fill;
+      filter: drop-shadow(0 3px 4px rgba(6,40,90,.38));
+      opacity: 0; transition: opacity .18s;
     }
-    .bm-reef-coral {
-      fill: none; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round;
-      vector-effect: non-scaling-stroke;
-    }
-    .bm-reef-fan {
-      fill: none; stroke-width: 2.5; stroke-linecap: round; opacity: .9;
-      vector-effect: non-scaling-stroke;
-    }
-    .bm-reef-weed {
-      fill: none; stroke-width: 3.5; stroke-linecap: round; opacity: .9;
-      vector-effect: non-scaling-stroke;
-    }
-    /* A dotted trail of bubbles from platform to platform: bright as far as
-       this player has climbed, faint above that. */
-    .bm-reef-trail {
-      fill: none; stroke: rgba(255,255,255,.92); stroke-width: 4.5;
-      stroke-linecap: round; stroke-dasharray: 0 11;
-      vector-effect: non-scaling-stroke;
-    }
-    .bm-reef-trail.is-dim { stroke: rgba(255,255,255,.38); }
+    .bm-fig > img.is-fit { opacity: 1; }
 
-    /* A platform: the animals standing on it, and the ledge of rock they
-       stand on. (--x, --y) is where the TOP of the ledge goes, so the
-       platform is lifted by the height of the animals above it. */
+    /* A platform: its animal, and the stepping stone it stands on.
+       (--x, --y) is where the TOP of the stone goes. */
     .bm-spot {
-      --art: 60px;
       position: absolute; z-index: 2;
       left: calc(var(--x, 50) * 1%); top: calc(var(--y, 50) * 1%);
-      transform: translate(-50%, calc(var(--art) * -1 + 5px));
+      transform: translate(-50%, calc(var(--fig) * -1 + 6px));
       display: flex; flex-direction: column; align-items: center;
       background: none; border: none; padding: 0; margin: 0;
       cursor: pointer; -webkit-tap-highlight-color: transparent;
@@ -13062,94 +13045,99 @@
     .bm-spot:focus-visible { outline: none; }
     .bm-spot-art {
       position: relative; z-index: 1;
-      height: var(--art); margin-bottom: -5px;
-      display: flex; align-items: flex-end; justify-content: center; gap: 2px;
-      transition: transform .14s;
+      width: var(--ledge-w); height: var(--fig); margin-bottom: -6px;
     }
-    .bm-spot:not(.is-locked):hover .bm-spot-art { transform: translateY(-3px); }
-    .bm-spot-animal {
-      width: var(--art); height: var(--art); object-fit: contain; flex: 0 0 auto;
-      filter: drop-shadow(0 3px 4px rgba(6,40,90,.38));
+    .bm-spot-fig {
+      position: absolute; left: 50%; bottom: 0;
+      transform: translateX(-50%);
+      transition: transform .22s cubic-bezier(.3,.7,.4,1);
     }
-    /* Your own animal, on the platform you are standing on. */
-    .bm-spot-you { position: relative; display: flex; flex: 0 0 auto; }
-    .bm-spot-you-img {
-      width: calc(var(--art) * .86); height: calc(var(--art) * .86); object-fit: contain;
-      filter: drop-shadow(0 3px 4px rgba(6,40,90,.38));
+    /* The diver is standing here: the animal steps aside to make room. */
+    .bm-spot.has-diver .bm-spot-fig { transform: translateX(calc(-50% + var(--shift))); }
+    .bm-spot:not(.is-locked):hover .bm-spot-fig { transform: translateX(-50%) translateY(-3px); }
+    .bm-spot.has-diver:not(.is-locked):hover .bm-spot-fig {
+      transform: translateX(calc(-50% + var(--shift))) translateY(-3px);
     }
-    .bm-spot-you-tag {
-      position: absolute; left: 50%; top: -9px; transform: translateX(-50%);
-      font-family: "Nunito", sans-serif; font-size: 10px; font-weight: 900;
-      letter-spacing: .4px; line-height: 1; white-space: nowrap;
-      color: #fff; background: linear-gradient(180deg, #3b9bf2, #1c6ed6);
-      border: 1.5px solid #fff; border-radius: 999px; padding: 2px 6px;
-      box-shadow: 0 2px 6px rgba(6,40,110,.35);
-    }
-    /* The ledge: a slab of the same reef rock as the walls, with a lit top
-       face where the feet go, a sprig of coral growing off its back, and the
-       rank on its front. */
+    /* The stepping stone: a round, pale stone with its own thickness, so it
+       reads as somewhere to stand on the painted reef rather than part of
+       it. The rank is on its face. */
     .bm-spot-ledge {
       position: relative; display: flex; align-items: flex-end; justify-content: center;
-      width: 100px; height: 26px; padding-bottom: 1px;
-      border-radius: 44% 44% 50% 50% / 34% 34% 66% 66%;
-      background: linear-gradient(180deg, #3f71bf 0%, #2b58a4 45%, #1c4183 100%);
-      box-shadow: 0 6px 10px rgba(6,30,80,.36), inset 0 -4px 0 rgba(8,24,60,.26);
-      transition: box-shadow .15s, width .15s;
-    }
-    .bm-spot-ledge::before {
-      content: ""; position: absolute; left: 4%; right: 4%; top: 1px; height: 12px;
-      border-radius: 50%;
-      background: radial-gradient(ellipse at 50% 40%, #b4d6ff 0%, #78a8e8 58%, #5a8bd4 100%);
-      box-shadow: inset 0 1px 0 rgba(232,246,255,.85);
-    }
-    .bm-spot-ledge::after {
-      content: ""; position: absolute; right: 2px; top: -13px; width: 16px; height: 18px;
-      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 18'%3E%3Cg fill='none' stroke='%23ff7f93' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M8 17 Q8 10 7 3'/%3E%3Cpath d='M8 12 Q4 9 3 5'/%3E%3Cpath d='M8 10 Q12 8 13 4'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
-      z-index: -1;
-    }
-    .bm-spot:nth-of-type(even) .bm-spot-ledge::after {
-      right: auto; left: 3px;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 18'%3E%3Cg fill='none' stroke='%23b784e8' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M8 17 Q8 10 9 3'/%3E%3Cpath d='M8 12 Q4 8 3 4'/%3E%3Cpath d='M8 10 Q12 9 13 5'/%3E%3C/g%3E%3C/svg%3E");
+      width: var(--ledge-w); height: 24px; border-radius: 50%;
+      background: radial-gradient(ellipse 60% 70% at 50% 34%, #ffffff 0%, #f1f8ff 45%, #d3e5f8 78%, #b3cdeb 100%);
+      border: 2px solid rgba(255,255,255,.95);
+      box-shadow: 0 5px 0 #86a9d4, 0 10px 14px rgba(8,40,100,.34),
+                  inset 0 -3px 4px rgba(40,90,160,.16);
+      transition: box-shadow .18s, filter .18s;
     }
     .bm-spot-ledge .bm-grade-badge {
       position: relative; z-index: 1;
       height: 19px; min-width: 36px; padding: 0 7px; font-size: 12px;
-      border-radius: 7px; transform: translateY(4px);
+      border-radius: 7px; transform: translateY(9px);
     }
     .bm-spot.is-current .bm-spot-ledge {
-      width: 122px;
-      box-shadow: 0 0 0 2.5px #fff, 0 0 18px 5px rgba(120,225,255,.9),
-                  0 6px 10px rgba(6,30,80,.36), inset 0 -4px 0 rgba(8,24,60,.26);
-    }
-    .bm-spot.is-current .bm-spot-ledge::before {
-      background: radial-gradient(ellipse at 50% 40%, #f0fdff 0%, #9fe6ff 55%, #5cbdf2 100%);
+      background: radial-gradient(ellipse 60% 70% at 50% 34%, #ffffff 0%, #e6fbff 45%, #a8e8ff 80%, #6fcdf6 100%);
+      box-shadow: 0 5px 0 #4fa7dc, 0 0 0 3px rgba(255,255,255,.9),
+                  0 0 20px 6px rgba(110,220,255,.85), 0 10px 14px rgba(8,40,100,.34);
     }
     .bm-spot:focus-visible .bm-spot-ledge {
-      box-shadow: 0 0 0 3px #ffd479, 0 5px 10px rgba(6,30,80,.38);
+      box-shadow: 0 5px 0 #86a9d4, 0 0 0 3px #ffd479, 0 10px 14px rgba(8,40,100,.34);
     }
-    /* The summit: the Giant Squid, bigger, on a ledge of its own colour. */
-    .bm-spot.is-summit { --art: 74px; }
+    /* The summit: the Giant Squid's stone is violet, and it glows. */
     .bm-spot.is-summit .bm-spot-ledge {
-      width: 118px;
-      background: linear-gradient(180deg, #7a4fc4 0%, #55309a 45%, #331a66 100%);
-      box-shadow: 0 6px 12px rgba(40,10,80,.4), 0 0 16px rgba(170,70,220,.45),
-                  inset 0 -4px 0 rgba(20,6,40,.3);
+      background: radial-gradient(ellipse 60% 70% at 50% 34%, #fbf2ff 0%, #e7cdfb 45%, #c79ef0 80%, #9f6fdc 100%);
+      box-shadow: 0 5px 0 #7348b3, 0 0 16px rgba(170,70,220,.55), 0 10px 14px rgba(40,10,80,.35);
     }
-    .bm-spot.is-summit .bm-spot-ledge::before {
-      background: radial-gradient(ellipse at 50% 40%, #f1dcff 0%, #b98ae8 58%, #8c5fd0 100%);
+    .bm-spot.is-summit.is-current .bm-spot-ledge {
+      box-shadow: 0 5px 0 #7348b3, 0 0 0 3px rgba(255,255,255,.9),
+                  0 0 22px 7px rgba(200,120,255,.85), 0 10px 14px rgba(40,10,80,.35);
     }
-    .bm-spot.is-summit.is-current .bm-spot-ledge { width: 136px; }
+    /* Where everybody starts. */
+    .bm-spot-start {
+      position: absolute; left: 50%; top: calc(100% + 12px); transform: translateX(-50%);
+      font-family: "Nunito", sans-serif; font-size: 10.5px; font-weight: 900;
+      letter-spacing: 1.2px; text-transform: uppercase; white-space: nowrap;
+      color: #0c3472; background: rgba(255,255,255,.9);
+      border-radius: 999px; padding: 2px 9px;
+      box-shadow: 0 2px 6px rgba(8,40,100,.25);
+    }
+    /* A platform the diver has just walked up to for the first time. */
+    .bm-spot.just-opened .bm-spot-ledge { animation: bm-opened 1.5s ease-out; }
+    @keyframes bm-opened {
+      0%   { box-shadow: 0 5px 0 #4fa7dc, 0 0 0 0 rgba(255,236,140,.95), 0 10px 14px rgba(8,40,100,.34); }
+      40%  { box-shadow: 0 5px 0 #4fa7dc, 0 0 0 16px rgba(255,236,140,.35), 0 10px 14px rgba(8,40,100,.34); }
+      100% { box-shadow: 0 5px 0 #4fa7dc, 0 0 0 26px rgba(255,236,140,0), 0 10px 14px rgba(8,40,100,.34); }
+    }
     /* A platform you have not climbed to. It is SHOWN, and shown as shut: the
        point of the reef is that you can see what is above you. The padlock
-       sits over the ANIMAL, not over the rank, because the rank is the thing
+       sits by the ANIMAL, not over the rank, because the rank is the thing
        worth seeing before you have earned it. */
     .bm-spot.is-locked { cursor: not-allowed; }
-    .bm-spot.is-locked .bm-spot-animal { filter: grayscale(.8) brightness(.72) drop-shadow(0 3px 4px rgba(6,40,90,.3)); }
-    .bm-spot.is-locked .bm-spot-ledge { filter: saturate(.55) brightness(.88); }
+    .bm-spot.is-locked .bm-spot-animal { filter: grayscale(.85) brightness(.75) drop-shadow(0 3px 4px rgba(6,40,90,.3)); }
+    .bm-spot.is-locked .bm-spot-ledge { filter: saturate(.4) brightness(.88); }
     .bm-spot-lock {
-      position: absolute; right: -4px; bottom: 2px;
+      position: absolute; left: calc(50% + 14px); bottom: 2px;
       font-size: 17px; line-height: 1;
       text-shadow: 0 2px 4px rgba(0,0,0,.5);
+    }
+
+    /* You. It stands on the platform you have picked, beside that
+       platform's animal, and hops from platform to platform (bmDiverWalk). */
+    .bm-diver {
+      position: absolute; z-index: 3; pointer-events: none;
+      left: 50%; top: 50%;
+      transform: translate(calc(-50% - var(--shift)), calc(-100% + 6px));
+    }
+    .bm-diver-bob { position: relative; transform-origin: 50% 100%; }
+    /* The tag sits on the figure's head, wherever that is in its slot. */
+    .bm-diver-tag {
+      position: absolute; z-index: 1; left: 50%; transform: translate(-50%, -100%);
+      top: calc(var(--art-top, 20%) + 2px);
+      font-family: "Nunito", sans-serif; font-size: 10px; font-weight: 900;
+      letter-spacing: .4px; line-height: 1; white-space: nowrap;
+      color: #fff; background: linear-gradient(180deg, #3b9bf2, #1c6ed6);
+      border: 1.5px solid #fff; border-radius: 999px; padding: 2px 7px;
+      box-shadow: 0 2px 6px rgba(6,40,110,.35);
     }
 
     /* ── the lineup ─────────────────────────────────────────────── */
@@ -13180,26 +13168,18 @@
       background: rgba(255,255,255,.85);
       border: 1.5px solid rgba(140,200,240,.5);
     }
-    .bm-bot-face {
-      width: 40px; height: 40px; flex: 0 0 auto; object-fit: contain;
-      filter: drop-shadow(0 2px 3px rgba(6,40,90,.28));
-    }
+    .bm-bot-fig { --fig: 40px; }
     .bm-bot-main { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; }
     .bm-bot-main .bm-select-wrap { flex: 1 1 auto; min-width: 0; }
 
-    /* A phone. The reef keeps all ten platforms; it is the animals and the
-       ledges that get smaller, not the climb. */
+    /* A phone. The reef keeps all ten platforms; it is the figures and the
+       stones that get smaller, not the climb. */
     @media (max-width: 460px) {
       #bm-reef { padding: 14px 10px 10px; }
       #bot-match-box h2 { font-size: 1.25rem; letter-spacing: 1px; }
-      .bm-ladder { margin: 0 -10px -10px; min-height: 600px; }
-      .bm-spot { --art: 48px; }
-      .bm-spot.is-summit { --art: 60px; }
-      .bm-spot-ledge { width: 84px; height: 24px; }
-      .bm-spot.is-current .bm-spot-ledge { width: 100px; }
-      .bm-spot.is-summit .bm-spot-ledge { width: 96px; }
-      .bm-spot.is-summit.is-current .bm-spot-ledge { width: 110px; }
-      .bm-bot-face { width: 34px; height: 34px; }
+      .bm-ladder { margin: 0 -10px -10px; min-height: 600px; --fig: 44px; --ledge-w: 94px; --shift: 19px; }
+      .bm-spot-ledge { height: 21px; }
+      .bm-bot-fig { --fig: 34px; }
     }
 
     .bm-grade-select {
@@ -13293,7 +13273,7 @@
       background: linear-gradient(180deg, rgba(207,235,255,.95), rgba(184,222,250,.95));
       border: 1.5px solid rgba(130,195,240,.55);
     }
-    .bm-note-art { width: 44px; height: 44px; flex: 0 0 auto; object-fit: contain; }
+    .bm-note-fig { --fig: 44px; }
     .bm-note-text {
       flex: 1 1 auto; min-width: 0;
       font-size: 11.5px; font-weight: 700; color: #1c4d88; line-height: 1.4;
