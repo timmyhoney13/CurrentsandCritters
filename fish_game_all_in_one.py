@@ -10573,8 +10573,28 @@ def compute_n_step_returns(
 
     The first term accumulates the concrete point rewards the move helped cause
     over the next ``lookahead`` of the player's own moves; the second bootstraps
-    the eventual win/loss margin, discounted by how far the move is from the end
-    (so late moves lean on the outcome, early moves lean on what they set up).
+    the eventual win/loss margin at the edge of that window.
+
+    The bootstrap is discounted by the WINDOW, not by the move's distance from
+    the end of the game. Discounting by the distance is what an n-step return
+    does only when it bootstraps off a value function at t+W; there is no value
+    function here, so `terminal` stands in for it and belongs at the same place.
+
+    It used to be gamma ** (n - t), and that quietly broke strategy learning. A
+    player makes ~100 moves in a game, so an early move received 0.90^95 of the
+    outcome: 0.000045 of it. Roughly nine moves in ten were trained on nothing
+    but the points they scored within the next ten moves, and whether the game
+    was actually WON was invisible to them. Every weight that pays off later
+    rather than now decayed to its floor over 2,500 self-play games --
+    stack_bonus and deny_bonus to exactly 0.0, plan_fit_bonus 1.40 -> 0.12,
+    future_value 1.95 -> 0.70 -- while has_plus, which is immediate points,
+    climbed. The bots were being taught to grab and stop building, and it showed:
+    they beat a mirror of themselves no better than chance and LOST to mixed
+    tables, 0.475.
+
+    (The same decay-to-zero is already documented on pool_pick_value's floor in
+    stabilize_weights, which was the first symptom of this and was treated
+    there with a floor rather than at the cause.)
     """
     n = len(rewards)
     returns: List[float] = []
@@ -10585,7 +10605,7 @@ def compute_n_step_returns(
         for k in range(steps):
             g += w * rewards[t + k]
             w *= gamma
-        g += (gamma ** (n - t)) * terminal
+        g += (gamma ** min(lookahead, n - t)) * terminal
         returns.append(g)
     return returns
 
@@ -13534,10 +13554,16 @@ def _train_gen_worker(task: Tuple[int, int, int]) -> Dict[str, Any]:
     maps = _TRAIN_WORKER_POLICY[count]
     base_w = maps["weights"]
     rng = random.Random(seed ^ 0x5DEECE66D)
+    # Which seat plays the UNMUTATED reference weights rotates with the game
+    # index. It used to be seat 0 in every single game, which means any real
+    # advantage to going first (or last) was credited to the reference policy
+    # rather than to the seat, and over a long run the learner would bank it.
+    base_seat = idx % count
     policies = []
     for i in range(count):
-        seat_w = dict(base_w) if i == 0 else mutate_weights_rng(dict(base_w), rng, scale=0.18)
-        eps = 0.03 if i == 0 else max(0.02, min(0.12, 0.05 + rng.uniform(-0.02, 0.04)))
+        is_base = (i == base_seat)
+        seat_w = dict(base_w) if is_base else mutate_weights_rng(dict(base_w), rng, scale=0.18)
+        eps = 0.03 if is_base else max(0.02, min(0.12, 0.05 + rng.uniform(-0.02, 0.04)))
         policies.append(_train_make_policy(maps, weights=seat_w, epsilon=eps))
     out: Dict[str, Any] = {}
     try:
@@ -13562,6 +13588,7 @@ def _train_gen_worker(task: Tuple[int, int, int]) -> Dict[str, Any]:
     out["count"] = int(count)
     out["idx"] = int(idx)
     out["seed"] = int(seed)
+    out["base_seat"] = int(base_seat)
     return out
 
 
@@ -13762,7 +13789,17 @@ def _train_learn_one(candidate_brain: Dict[str, Any], record: Dict[str, Any], qu
             if not isinstance(feats, dict):
                 continue
             g = returns_i[step] if step < len(returns_i) else terminal
-            g = max(-6.0, min(6.0, g))
+            # This cap has to clear the return's real range or it stops being a
+            # learning signal at all. It was +/-6, which is about the size of
+            # `terminal` alone (+/-4) -- but an n-step return is terminal PLUS a
+            # ten-move discounted reward window, and measured over 55,584 real
+            # training moves that lands at median 10.0, reaching 38.3. So 79.9%
+            # of every move the AI has ever learned from arrived with the exact
+            # same target, +6.0: four moves in five were told they were equally
+            # good, and a brilliant setup was indistinguishable from a wasted
+            # turn. The cap now sits clear of the distribution and only exists
+            # to stop a freak game from dominating a batch.
+            g = max(-60.0, min(60.0, g))
             fv = max(0.0, float(feats.get("future_value", 0.0)))
             sv = max(0.0, float(feats.get("plan_fit_bonus", 0.0)) + float(feats.get("synergy_bonus", 0.0))
                      + float(feats.get("species_bonus", 0.0)) + float(feats.get("same_ocean_bonus", 0.0))
