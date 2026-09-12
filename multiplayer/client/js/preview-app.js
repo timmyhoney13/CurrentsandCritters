@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-11.2";
+  const APP_BUILD   = "2026-09-11.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -34055,26 +34055,33 @@
       ].join("");
     }
 
-    // ── Player Home: the friend card beside Quick Stats ─────────────
-    // The same eight numbers as the player's own Quick Stats, for one friend at
-    // a time, with arrows to step through them.
+    // ── Player Home: Friends Quick Stats, beside Quick Stats ────────
+    // Two levels. First the general one: every friend in a list, each row their
+    // level, games and hours and when they were last online. Picking a friend
+    // gives the specific one: that friend's eight numbers, the same eight as the
+    // player's own Quick Stats and lined up with them, and their name there
+    // opens the full profile.
     //
     // Firestore reads are the budget here (the free tier has run out once). The
-    // friend LIST is one read per friend and is kept for OVF_TTL_MS; a PROFILE is
-    // read only when that friend is actually put on screen, and kept just as
-    // long. Opening the Friends tab, which reads every profile anyway, hands
-    // both over through _ovfAdopt(), so coming back from it costs nothing.
+    // friend LIST is one read per friend, and each friend's PROFILE (where the
+    // last-online time lives) is one more, capped at FRIENDS_MINI_PROFILE_MAX
+    // for the one account that is friends with everybody. Both are kept for
+    // OVF_TTL_MS. Opening the Friends tab, which reads every profile anyway,
+    // hands both over through _ovfAdopt(), so coming back from it costs nothing.
     const OVF_TTL_MS = 10 * 60 * 1000;
     let _ovfList = [];              // this account's friend docs, in display order
     let _ovfListFor = "";           // the uid that list belongs to
     let _ovfListAt = 0;
     let _ovfListLoading = "";       // uid whose list is being read right now
-    let _ovfUid = "";               // the friend on screen, kept across re-orders
+    let _ovfUid = "";               // the friend picked, kept across re-orders
+    let _ovfView = "list";          // "list" (every friend) or "friend" (one friend's eight)
+    let _ovfListScroll = 0;         // where the list was, to come back to it
     const _ovfProfiles = new Map(); // friend uid -> { profile, at }
     const _ovfProfileLoading = new Set();
 
     function _ovfReset() {
       _ovfList = []; _ovfListFor = ""; _ovfListAt = 0; _ovfListLoading = ""; _ovfUid = "";
+      _ovfView = "list"; _ovfListScroll = 0;
       _ovfProfiles.clear(); _ovfProfileLoading.clear();
     }
 
@@ -34087,28 +34094,36 @@
       (entries || []).forEach(e => { if (e && e.uid && e.profile) _ovfProfiles.set(e.uid, { profile: e.profile, at: now }); });
     }
 
-    // Favorites first, as everywhere else; then by name, because the friend
-    // docs alone carry no last-active time and reading every profile to sort
-    // by it is exactly the cost this card avoids.
+    // The same order as the Friends tab: favorites first, then whoever was
+    // online most recently, then by name. A friend whose profile has not been
+    // read yet has no last-online time and sorts after those who do.
     function _ovfSort(list) {
+      const prof = (f) => { const c = _ovfProfiles.get(f?.uid); return c ? c.profile : null; };
+      const nick = (f) => String(prof(f)?.nickname || f?.nickname || "");
       return [...list].sort((a, b) =>
         (Number(b?.favorite === true) - Number(a?.favorite === true))
-        || String(a?.nickname || "").localeCompare(String(b?.nickname || ""), undefined, { sensitivity: "base" }));
+        || (getFriendLastActiveMs(prof(b)) - getFriendLastActiveMs(prof(a)))
+        || nick(a).localeCompare(nick(b), undefined, { sensitivity: "base" }));
     }
 
-    // The friend's eight cards, in the order and style of the player's own.
-    // Without a profile (still loading, or the account is gone) every value is
-    // a dash: zeros would read as a friend who has never played.
-    function _ovfQuickStatsHtml(profile) {
-      const s = (profile && typeof profile.stats === "object") ? profile.stats : {};
-      const v = (val) => profile ? val : "-";
+    // Games, wins and hours by the same rules as the player's own card.
+    function _ovfTotals(profile) {
+      const s = (profile && profile.stats && typeof profile.stats === "object") ? profile.stats : {};
       const byNormal   = Object.values(s.normal_games_by_size || {}).reduce((a, n) => a + Number(n || 0), 0);
       const byComp     = Object.values(s.comp_games_by_size   || {}).reduce((a, n) => a + Number(n || 0), 0);
       const totalGames = Math.max(Number(s.completed_games || 0), byNormal + byComp);
       const expTotal   = Number(s.total_wins);
       const totalWins  = Number.isFinite(expTotal) ? expTotal
                        : Number(s.normal_wins || 0) + Number(s.competitive_wins || 0);
-      const hours = Number(s.hours_played || 0);
+      return { s, totalGames, totalWins, hours: Number(s.hours_played || 0) };
+    }
+
+    // The friend's eight cards, in the order and style of the player's own.
+    // Without a profile (still loading, or the account is gone) every value is
+    // a dash: zeros would read as a friend who has never played.
+    function _ovfQuickStatsHtml(profile) {
+      const { s, totalGames, totalWins, hours } = _ovfTotals(profile);
+      const v = (val) => profile ? val : "-";
       let strat = "";
       try { strat = getOverallMostPlayedStrategy(s, false) || ""; } catch { strat = ""; }
       const tAch = (profile && profile.achievements && typeof profile.achievements === "object") ? profile.achievements : {};
@@ -34130,39 +34145,100 @@
       ].join("");
     }
 
+    // Which of the card's bodies is showing: "list", "grid" or "empty".
+    function _ovfShow(part) {
+      const show = (id, on) => { const el = $a(id); if (el) el.hidden = !on; };
+      show("ph-ovf-listwrap", part === "list");
+      show("ph-ovf-tally", part === "list");
+      show("ph-ovf-grid", part === "grid");
+      show("ph-ovf-empty", part === "empty");
+    }
+
+    // The card's title, in the header whenever no one friend is picked.
+    function _ovfTitle() {
+      const who = $a("ph-ovf-who");
+      if (who && !who.querySelector(".ph-stats-title")) {
+        who.innerHTML = `<div class="ph-stats-title">${_OVF_TITLE_ICON} Friends Quick Stats</div>`;
+      }
+    }
+
     function _ovfEmpty(title, sub, showAdd) {
       const set = (id, v) => { const el = $a(id); if (el) el.textContent = v; };
       set("ph-ovf-empty-title", title);
       set("ph-ovf-empty-sub", sub || "");
       const add = $a("ph-ovf-add"); if (add) add.hidden = !showAdd;
-      const empty = $a("ph-ovf-empty"); if (empty) empty.hidden = false;
-      const grid = $a("ph-ovf-grid"); if (grid) grid.hidden = true;
-      const nav = $a("ph-ovf-nav"); if (nav) nav.hidden = true;
-      const who = $a("ph-ovf-who");
-      if (who && !who.querySelector(".ph-stats-title")) {
-        who.innerHTML = `<div class="ph-stats-title">${_OVF_TITLE_ICON} Friend Stats</div>`;
-      }
+      _ovfShow("empty");
+      _ovfTitle();
     }
     const _OVF_TITLE_ICON = `<svg width="20" height="16" viewBox="0 0 20 16" fill="none"><circle cx="7" cy="5" r="3" stroke="#2680c8" stroke-width="1.9"/><path d="M1.5 14.5c.6-3 2.8-4.7 5.5-4.7s4.9 1.7 5.5 4.7" stroke="#2680c8" stroke-width="1.9" stroke-linecap="round"/><circle cx="14.2" cy="5.6" r="2.4" stroke="#2680c8" stroke-width="1.7"/><path d="M14.6 9.9c2 .3 3.4 1.8 3.9 4.6" stroke="#2680c8" stroke-width="1.7" stroke-linecap="round"/></svg>`;
+
+    // A friend's face, drawn the way the Friends tab draws it.
+    function _ovfAvatarHtml(f, profile) {
+      const nick = (profile && profile.nickname) || f.nickname || "Friend";
+      const url = resolveFriendAvatarUrl(resolveAvatarUrl(
+        { ...(profile || {}), avatar_url: (profile && profile.avatar_url) || f.avatar_url || "" },
+        { seed: f.uid }
+      ), f.uid);
+      let bgn = ""; try { bgn = normalizeBgUrl(profile && profile.background_url || ""); if (!_BG_BY_IMG[bgn]) bgn = ""; } catch {}
+      return url
+        ? `<span class="ph-fr-av ph-ovf-av"${bgn ? ` style="${_bgStyle(bgn)}"` : ""}><img src="${escapeHtml(_avSrc(url))}" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`
+        : `<span class="ph-fr-av ph-ovf-av">${escapeHtml(safeInitial(nick))}</span>`;
+    }
+
+    // Read the profiles in `friends` that are not already here (or have gone
+    // stale), together, and paint once when the last one lands. loadProfile
+    // answers null for a failed read as well as a missing account, so a null
+    // is only trusted for a minute, not the full TTL.
+    function _ovfLoadProfiles(uid, friends) {
+      const now = Date.now();
+      const want = friends.filter(f => {
+        const c = _ovfProfiles.get(f.uid);
+        return (!c || (now - c.at) >= OVF_TTL_MS) && !_ovfProfileLoading.has(f.uid);
+      });
+      if (!want.length) return;
+      want.forEach(f => _ovfProfileLoading.add(f.uid));
+      Promise.all(want.map(f => loadProfile(f.uid).then(p => {
+        if (!_authUser || _authUser.uid !== uid) return;
+        _ovfProfiles.set(f.uid, { profile: p, at: p ? Date.now() : Date.now() - OVF_TTL_MS + 60000 });
+      }).catch(() => {}).finally(() => { _ovfProfileLoading.delete(f.uid); })))
+        .then(() => {
+          if (!_authUser || _authUser.uid !== uid) return;   // the session changed hands
+          if (_ovfListFor === uid) _ovfList = _ovfSort(_ovfList);
+          renderOverviewFriend();
+        });
+    }
 
     function renderOverviewFriend() {
       const card = $a("ph-ovf-card");
       if (!card) return;
       if (!card.dataset.wired) {
         card.dataset.wired = "1";
-        const step = (d) => {
-          const n = _ovfList.length;
-          if (n < 2) return;
-          const i = Math.max(0, _ovfList.findIndex(f => f.uid === _ovfUid));
-          _ovfUid = _ovfList[(i + d + n) % n].uid;
-          renderOverviewFriend();
-        };
-        $a("ph-ovf-prev")?.addEventListener("click", () => step(-1));
-        $a("ph-ovf-next")?.addEventListener("click", () => step(1));
         $a("ph-ovf-add")?.addEventListener("click", () => {
           if (typeof window._switchPhTab === "function") window._switchPhTab("friends");
         });
         card.addEventListener("click", (ev) => {
+          const list = $a("ph-ovf-list");
+          const open = ev.target.closest("[data-ovf-open]");
+          if (open && card.contains(open)) {
+            // General to specific: this one friend's eight numbers.
+            _ovfListScroll = list ? list.scrollTop : 0;
+            _ovfUid = open.getAttribute("data-ovf-open");
+            _ovfView = "friend";
+            renderOverviewFriend();
+            $a("ph-ovf-back")?.focus({ preventScroll: true });
+            return;
+          }
+          if (ev.target.closest("[data-ovf-back]")) {
+            _ovfView = "list";
+            renderOverviewFriend();
+            if (list) {
+              list.scrollTop = _ovfListScroll;
+              [...list.querySelectorAll("[data-ovf-open]")]
+                .find(r => r.getAttribute("data-ovf-open") === _ovfUid)
+                ?.focus({ preventScroll: true });
+            }
+            return;
+          }
           const b = ev.target.closest("[data-ovf-profile]");
           if (b && card.contains(b)) openPublicProfile(b.getAttribute("data-ovf-profile"));
         });
@@ -34193,61 +34269,99 @@
         return;
       }
 
-      let idx = _ovfList.findIndex(f => f.uid === _ovfUid);
-      if (idx < 0) { idx = 0; _ovfUid = _ovfList[0].uid; }
-      const f = _ovfList[idx];
+      // A friend who has since gone from the list takes the card back to it.
+      const picked = _ovfView === "friend" ? _ovfList.find(f => f.uid === _ovfUid) : null;
+      if (picked) _ovfRenderFriend(uid, picked);
+      else { _ovfView = "list"; _ovfRenderList(uid); }
+    }
 
-      // The profile: only this friend's, and only if it is not already here.
+    // General: every friend, one row each, with when they were last online.
+    function _ovfRenderList(uid) {
+      _ovfLoadProfiles(uid, _ovfList.slice(0, FRIENDS_MINI_PROFILE_MAX));
+      _ovfTitle();
+      let online = 0;
+      const rows = _ovfList.map(f => {
+        const c = _ovfProfiles.get(f.uid);
+        const p = c ? c.profile : null;
+        const on = isFriendOnline(p);
+        if (on) online++;
+        const name = escapeHtml((p && p.nickname) || f.nickname || "Friend");
+        let meta, seen = "";
+        if (p) {
+          const { totalGames, hours } = _ovfTotals(p);
+          meta = `${getFriendLevelLabel(p)} · ${totalGames} ${totalGames === 1 ? "game" : "games"} · ${hours} ${hours === 1 ? "hr" : "hrs"}`;
+          seen = on ? "Online now" : formatFriendLastActiveLabel(p, false);
+        } else {
+          meta = _ovfProfileLoading.has(f.uid) ? "Loading…" : (c ? "Profile unavailable" : "See their stats");
+        }
+        return `
+          <button class="ph-ovf-row" type="button" data-ovf-open="${escapeHtml(f.uid)}" title="See ${name}'s stats">
+            ${_ovfAvatarHtml(f, p)}
+            <span class="ph-ovf-id">
+              <span class="ph-ovf-name">${name}${f.favorite === true ? ' <span class="ph-ovf-fav" aria-label="Favorite">★</span>' : ""}</span>
+              <span class="ph-ovf-meta">${escapeHtml(meta)}</span>
+            </span>
+            <span class="ph-ovf-seen${on ? " is-online" : ""}">${on ? '<span class="ph-ovf-dot" aria-hidden="true"></span>' : ""}${escapeHtml(seen)}</span>
+            <span class="ph-ovf-go" aria-hidden="true">&#8250;</span>
+          </button>`;
+      });
+      const list = $a("ph-ovf-list");
+      if (list) {
+        // A repaint lands while somebody is moving through the rows with the
+        // keyboard (profiles arriving): keep them on the row they were on.
+        const focused = document.activeElement && list.contains(document.activeElement)
+          ? document.activeElement.getAttribute("data-ovf-open") : null;
+        list.innerHTML = rows.join("");
+        if (focused) {
+          [...list.querySelectorAll("[data-ovf-open]")]
+            .find(r => r.getAttribute("data-ovf-open") === focused)
+            ?.focus({ preventScroll: true });
+        }
+      }
+      const n = _ovfList.length;
+      const tally = $a("ph-ovf-tally");
+      if (tally) {
+        tally.classList.toggle("has-online", online > 0);
+        tally.textContent = _ovfProfileLoading.size
+          ? `${n} ${n === 1 ? "friend" : "friends"}`
+          : `${online} of ${n} online`;
+      }
+      _ovfShow("list");
+    }
+
+    // Specific: one friend's eight numbers, lined up with the player's own.
+    // Their profile is usually here already from the list; it is read only
+    // when it is not (past the list's cap, or gone stale).
+    function _ovfRenderFriend(uid, f) {
+      _ovfLoadProfiles(uid, [f]);
       const cached = _ovfProfiles.get(f.uid);
       const profile = cached ? cached.profile : null;
-      if ((!cached || (Date.now() - cached.at) >= OVF_TTL_MS) && !_ovfProfileLoading.has(f.uid)) {
-        _ovfProfileLoading.add(f.uid);
-        loadProfile(f.uid).then(p => {
-          if (!_authUser || _authUser.uid !== uid) return;
-          // loadProfile answers null for a failed read as well as a missing
-          // account, so a null is only trusted for a minute, not the full TTL.
-          _ovfProfiles.set(f.uid, { profile: p, at: p ? Date.now() : Date.now() - OVF_TTL_MS + 60000 });
-        }).catch(() => {}).finally(() => {
-          _ovfProfileLoading.delete(f.uid);
-          if (_authUser && _authUser.uid === uid && _ovfUid === f.uid) renderOverviewFriend();
-        });
-      }
-
       const liveNick = (profile && profile.nickname) || f.nickname || "Friend";
       const name = escapeHtml(liveNick);
-      const avatarUrl = resolveFriendAvatarUrl(resolveAvatarUrl(
-        { ...(profile || {}), avatar_url: (profile && profile.avatar_url) || f.avatar_url || "" },
-        { seed: f.uid }
-      ), f.uid);
-      let bgn = ""; try { bgn = normalizeBgUrl(profile && profile.background_url || ""); if (!_BG_BY_IMG[bgn]) bgn = ""; } catch {}
-      const avatar = avatarUrl
-        ? `<span class="ph-fr-av ph-ovf-av"${bgn ? ` style="${_bgStyle(bgn)}"` : ""}><img src="${escapeHtml(_avSrc(avatarUrl))}" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`
-        : `<span class="ph-fr-av ph-ovf-av">${escapeHtml(safeInitial(liveNick))}</span>`;
       const online = isFriendOnline(profile);
       const meta = profile
         ? `${getFriendLevelLabel(profile)} · ${online ? "Online now" : formatFriendLastActiveLabel(profile, false)}`
         : (cached ? "Profile unavailable" : "Loading…");
       const who = $a("ph-ovf-who");
-      if (who) who.innerHTML = `
-        <button class="ph-ovf-person" type="button" data-ovf-profile="${escapeHtml(f.uid)}" title="View ${name}'s profile">
-          ${avatar}
-          <span class="ph-ovf-id">
-            <span class="ph-ovf-name">${name}${f.favorite === true ? ' <span class="ph-ovf-fav" aria-label="Favorite">★</span>' : ""}</span>
-            <span class="ph-ovf-meta">${online ? '<span class="ph-ovf-dot" aria-hidden="true"></span>' : ""}${escapeHtml(meta)}</span>
-          </span>
-        </button>`;
-
-      const nav = $a("ph-ovf-nav");
-      if (nav) nav.hidden = _ovfList.length < 2;
-      const count = $a("ph-ovf-count");
-      if (count) count.textContent = `${idx + 1} / ${_ovfList.length}`;
+      if (who) {
+        const backFocused = document.activeElement && document.activeElement.id === "ph-ovf-back";
+        who.innerHTML = `
+          <button class="ph-ovf-back" id="ph-ovf-back" type="button" data-ovf-back aria-label="Back to all friends" title="All friends">&#8249;</button>
+          <button class="ph-ovf-person" type="button" data-ovf-profile="${escapeHtml(f.uid)}" title="View ${name}'s profile">
+            ${_ovfAvatarHtml(f, profile)}
+            <span class="ph-ovf-id">
+              <span class="ph-ovf-name">${name}${f.favorite === true ? ' <span class="ph-ovf-fav" aria-label="Favorite">★</span>' : ""}</span>
+              <span class="ph-ovf-meta">${online ? '<span class="ph-ovf-dot" aria-hidden="true"></span>' : ""}${escapeHtml(meta)}</span>
+            </span>
+          </button>`;
+        if (backFocused) $a("ph-ovf-back")?.focus({ preventScroll: true });
+      }
       const grid = $a("ph-ovf-grid");
       if (grid) {
         grid.innerHTML = _ovfQuickStatsHtml(profile);
         grid.classList.toggle("is-loading", !cached);
-        grid.hidden = false;
       }
-      const empty = $a("ph-ovf-empty"); if (empty) empty.hidden = true;
+      _ovfShow("grid");
     }
 
     async function openPublicProfile(uid) {

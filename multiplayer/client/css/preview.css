@@ -16581,9 +16581,11 @@
       font-size: clamp(.98rem, 1.05vw, 1.2rem);
     }
 
-    /* The friend card */
+    /* Friends Quick Stats: a list of every friend first, then one friend's
+       eight numbers when a row is picked. */
     .ph-ovf { display: flex; flex-direction: column; }
-    .ph-ovf .ph-ovf-nav[hidden],
+    .ph-ovf .ph-ovf-tally[hidden],
+    .ph-ovf .ph-ovf-listwrap[hidden],
     .ph-ovf #ph-ovf-grid[hidden],
     .ph-ovf .ph-ovf-empty[hidden],
     .ph-ovf .ph-ovf-add[hidden] { display: none !important; }
@@ -16653,44 +16655,118 @@
       background: #22b573;
       box-shadow: 0 0 0 3px rgba(34,181,115,.18);
     }
-    .ph-ovf-nav {
-      display: flex;
+    /* "2 of 5 online", beside the title while the list is showing. */
+    .ph-ovf-tally {
+      display: inline-flex;
       align-items: center;
-      gap: 2px;
+      gap: 7px;
       flex-shrink: 0;
-      padding: 3px;
+      padding: 5px 12px;
       border-radius: 999px;
       background: rgba(255,255,255,.62);
       border: 1px solid rgba(120,180,225,.5);
-    }
-    .ph-ovf-step {
-      width: 32px;
-      height: 32px;
-      display: grid;
-      place-items: center;
-      padding: 0 0 2px;
-      border: 0;
-      border-radius: 50%;
-      background: transparent;
-      color: #1f65be;
-      font: 800 1.35rem/1 "Nunito", sans-serif;
-      cursor: pointer;
-      transition: background .15s ease, color .15s ease;
-    }
-    .ph-ovf-step:hover,
-    .ph-ovf-step:focus-visible {
-      background: linear-gradient(180deg, #3a94f0 0%, #1f73dd 100%);
-      color: #fff;
-      outline: none;
-    }
-    .ph-ovf-count {
-      min-width: 46px;
-      text-align: center;
       font-size: .82rem;
       font-weight: 800;
       color: #315a86;
+      white-space: nowrap;
       font-variant-numeric: tabular-nums;
     }
+    .ph-ovf-tally.has-online::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22b573;
+      box-shadow: 0 0 0 3px rgba(34,181,115,.18);
+    }
+
+    /* Back to every friend, from one friend's numbers. */
+    .ph-ovf-who { gap: 6px; }
+    .ph-ovf-back {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      padding: 0 2px 3px 0;
+      border: 1px solid rgba(120,180,225,.5);
+      border-radius: 50%;
+      background: rgba(255,255,255,.62);
+      color: #1f65be;
+      font: 800 1.5rem/1 "Nunito", sans-serif;
+      cursor: pointer;
+      transition: background .15s ease, color .15s ease;
+    }
+    .ph-ovf-back:hover,
+    .ph-ovf-back:focus-visible {
+      background: linear-gradient(180deg, #3a94f0 0%, #1f73dd 100%);
+      border-color: transparent;
+      color: #fff;
+      outline: none;
+    }
+    .ph-ovf-back + .ph-ovf-person { margin-left: 0; }
+
+    /* The list. Absolutely placed inside its wrapper so however many friends
+       there are, it scrolls inside the height the player's own card sets
+       instead of stretching the pair. */
+    .ph-ovf-listwrap {
+      position: relative;
+      flex: 1 1 auto;
+      min-height: 240px;
+    }
+    .ph-ovf-list {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 6px 14px 14px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    .ph-ovf-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
+      align-items: center;
+      column-gap: 12px;
+      flex-shrink: 0;
+      width: 100%;
+      padding: 10px 12px 10px 10px;
+      border: 1px solid #d9e8f4;
+      border-radius: 16px;
+      background: #fff;
+      font-family: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
+    }
+    .ph-ovf-row:hover,
+    .ph-ovf-row:focus-visible {
+      border-color: #8fc0ea;
+      background: #f3f9ff;
+      box-shadow: 0 3px 10px rgba(31,115,221,.12);
+      outline: none;
+    }
+    .ph-ovf-row .ph-ovf-av { width: 44px; height: 44px; }
+    .ph-ovf-row .ph-ovf-name { font-size: 1.05rem; }
+    .ph-ovf-seen {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: .8rem;
+      font-weight: 700;
+      color: #6a89aa;
+      white-space: nowrap;
+    }
+    .ph-ovf-seen.is-online { color: #1e9b50; }
+    .ph-ovf-go {
+      font: 800 1.45rem/1 "Nunito", sans-serif;
+      color: #8fb3d6;
+      transition: color .15s ease, transform .15s ease;
+    }
+    .ph-ovf-row:hover .ph-ovf-go,
+    .ph-ovf-row:focus-visible .ph-ovf-go { color: #1f65be; transform: translateX(2px); }
+
     #ph-ovf-grid.is-loading .ph-scv { opacity: .45; }
     .ph-ovf-empty {
       flex: 1;
@@ -16729,6 +16805,10 @@
       #auth-stats-lobby #ph-panel-overview .ph-ov-duo .ph-sc:not(.ph-sc-string) .ph-scv {
         font-size: clamp(1.3rem, 2.6vw, 2rem);
       }
+      /* Stacked, there is no neighbour to take a height from: the list is
+         as tall as its rows, up to a point, and scrolls past it. */
+      .ph-ovf-listwrap { min-height: 0; }
+      .ph-ovf-list { position: static; max-height: 420px; }
     }
     @media (max-width: 760px) {
       #ph-panel-overview .ph-ov-duo .ph-sg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -16736,4 +16816,14 @@
         font-size: 1.5rem;
       }
       .ph-ovf-name { font-size: 1.1rem; }
+    }
+    /* A phone: when they were online moves under the name, so the name keeps
+       the width. */
+    @media (max-width: 560px) {
+      .ph-ovf-list { padding: 4px 10px 10px; }
+      .ph-ovf-row { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 3px; }
+      .ph-ovf-row .ph-ovf-av { grid-row: span 2; width: 40px; height: 40px; }
+      .ph-ovf-row .ph-ovf-seen { grid-column: 2; grid-row: 2; }
+      .ph-ovf-row .ph-ovf-go { grid-column: 3; grid-row: 1 / span 2; }
+      .ph-ovf-row .ph-ovf-name { font-size: 1rem; }
     }

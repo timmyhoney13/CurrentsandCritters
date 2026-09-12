@@ -350,12 +350,20 @@ window.__STUB_DOCS = {
       ranked_waters: { completed: true, unlockedAt: 1750000000000 }
     }
   },
-  // A friend, whose numbers sit beside the account's on the Overview. They are
-  // the account's friend, not the guest's.
+  // Two friends, listed on the Overview's Friends Quick Stats with when they
+  // were last online; picking one shows their numbers beside the account's.
+  // They are the account's friends, not the guest's.
   "users/ACC-UID-1/friends/PAL-UID-1": { uid: "PAL-UID-1", nickname: "ReefPal", favorite: true },
   "users/PAL-UID-1": {
     nickname: "ReefPal", nickname_lower: "reefpal", avatar_url: "/avatars/orca.png",
+    last_active: { seconds: Math.floor(Date.now() / 1000) - 3 * 3600 },
     stats: { completed_games: 55, hours_played: 777, total_wins: 30, rank_competitive: "Silver Sailfish II" }
+  },
+  "users/ACC-UID-1/friends/KELP-UID-1": { uid: "KELP-UID-1", nickname: "KelpKid" },
+  "users/KELP-UID-1": {
+    nickname: "KelpKid", nickname_lower: "kelpkid", avatar_url: "/avatars/orca.png",
+    last_active: { seconds: Math.floor(Date.now() / 1000) - 2 * 86400 },
+    stats: { completed_games: 4, hours_played: 3, total_wins: 1 }
   }
 };
 </script>
@@ -376,6 +384,7 @@ const DRIVER = `
   function mark() { var d = document.getElementById("out"); if (!d) { d = document.createElement("div"); d.id = "out"; document.body.appendChild(d); } return d; }
   function finish() { mark().textContent = JSON.stringify(out); }
   function panelText(n) { var p = document.getElementById("ph-panel-" + n); return p ? (p.innerText || "").replace(/\\s+/g, " ").trim() : ""; }
+  function cardText() { var c = document.getElementById("ph-ovf-card"); return c ? (c.innerText || "").replace(/\\s+/g, " ").trim() : ""; }
 
   var phase = 1, tick = 0, tabIdx = 0, guard = 0, bag = null;
   var iv = setInterval(function () {
@@ -396,13 +405,34 @@ const DRIVER = `
       }
       if (phase === 3 || phase === 7) {
         var name = ${JSON.stringify(TABS)}[tabIdx];
-        if (!name) { phase = (phase === 3) ? 4 : 8; guard = 0; return; }
+        if (!name) { phase = (phase === 3) ? 3.5 : 8; guard = 0; return; }
         var btn = document.querySelector('.ph-snav-item[data-tab="' + name + '"]');
         if (!btn) { bag[name] = "NO BTN"; tabIdx++; return; }
         if (guard === 0) { click(btn); guard = 1; return; }
         guard++; if (guard < 26) return;
         bag[name] = panelText(name);
         tabIdx++; guard = 0; return;
+      }
+      // ── Friends Quick Stats: every friend, then one friend, then back ──
+      if (phase === 3.5) {
+        if (guard === 0) { click(document.querySelector('.ph-snav-item[data-tab="overview"]')); guard = 1; return; }
+        guard++; if (guard < 16) return;
+        out.account.friendList = cardText();
+        var row = q('#ph-ovf-list [data-ovf-open="PAL-UID-1"]');
+        if (!row) { out.errors.push("no row for ReefPal in Friends Quick Stats"); phase = 4; guard = 0; return; }
+        click(row); phase = 3.6; guard = 0; return;
+      }
+      if (phase === 3.6) {
+        if (++guard < 10) return;
+        out.account.friendStats = cardText();
+        var back = q("#ph-ovf-back");
+        if (!back) { out.errors.push("no way back to the friend list"); phase = 4; guard = 0; return; }
+        click(back); phase = 3.7; guard = 0; return;
+      }
+      if (phase === 3.7) {
+        if (++guard < 6) return;
+        out.account.friendBack = cardText();
+        phase = 4; guard = 0; return;
       }
       if (phase === 4) {
         bag.myAvatar = window.__fishMyAvatarUrl();
@@ -524,8 +554,18 @@ if (!D) {
   console.log("\n  the account really was loaded first (or the rest proves nothing)");
   check("its hours are on screen", /Hours Played 42 hrs/.test(A.overview || ""), (A.overview || "").slice(0, 90));
   check("its games are on screen", /Total Games 77/.test(A.overview || ""));
-  check("its friend's stats are beside them", /ReefPal[\s\S]*Hours Played 777 hrs/.test(A.overview || ""),
-        (A.overview || "").slice(-260));
+  const FL = A.friendList || "", FS = A.friendStats || "", FB = A.friendBack || "";
+  check("the friend card is called Friends Quick Stats", /Friends Quick Stats/.test(FL), FL.slice(0, 120));
+  check("it lists every friend", /ReefPal/.test(FL) && /KelpKid/.test(FL), FL.slice(0, 260));
+  check("favorite first, then by who was online last", FL.indexOf("ReefPal") < FL.indexOf("KelpKid"), FL.slice(0, 260));
+  check("with when each was last online", /Last active 3h ago/.test(FL) && /Last active 2d ago/.test(FL), FL.slice(0, 260));
+  check("and a little about each", /55 games · 777 hrs/.test(FL) && /4 games · 3 hrs/.test(FL), FL.slice(0, 260));
+  check("and how many are online", /0 of 2 online/.test(FL), FL.slice(0, 120));
+  check("the list is general: no stat grid yet", !/Hours Played/.test(FL), FL.slice(0, 260));
+  check("picking a friend shows their stats", /ReefPal[\s\S]*Hours Played 777 hrs/.test(FS) && /Total Games 55/.test(FS),
+        FS.slice(0, 260));
+  check("only theirs", !/KelpKid/.test(FS), FS.slice(0, 260));
+  check("and back goes to every friend again", /KelpKid/.test(FB) && !/Hours Played/.test(FB), FB.slice(0, 260));
   check(`its achievements are on screen (3 / ${ACH_TOTAL})`,
         new RegExp(`3 / ${ACH_TOTAL} Completed`).test(A.achievements || ""),
         (A.achievements || "").slice(0, 90));
