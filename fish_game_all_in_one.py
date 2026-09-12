@@ -534,9 +534,9 @@ def _execute_main_pattern(
         player.score += int(m.group(1))
 
     # Register reactive draw listeners ("when ... is played") as persistent board effects.
-    if "draw one when a game fish is played" in t or "draw one when a gamefish is played" in t:
-        player.flags["trigger_draw_on_game_fish"] = int(player.flags.get("trigger_draw_on_game_fish", 0)) + 1
-        gs.log.append(f"{player.name} enables: draw 1 when a Game Fish is played ({card.name}).")
+    if "draw one when you play a yellowfin tuna" in t:
+        player.flags["trigger_draw_on_yellowfin"] = int(player.flags.get("trigger_draw_on_yellowfin", 0)) + 1
+        gs.log.append(f"{player.name} enables: draw 1 when they play a Yellowfin Tuna ({card.name}).")
     if "draw one when you play an animal on the ocean surface" in t:
         player.flags["trigger_draw_on_surface_play"] = int(player.flags.get("trigger_draw_on_surface_play", 0)) + 1
         gs.log.append(f"{player.name} enables: draw 1 when they play on ocean surface ({card.name}).")
@@ -856,7 +856,10 @@ def resolve_reactive_draw_triggers(
     species = card_species_lc(played_card)
     direction = normalize_direction(played_card.direction)
 
-    is_game_fish_play = species == "game fish"
+    # Johnson's Sea Cucumber draws on a YELLOWFIN TUNA, not on any game fish.
+    # It used to read "a game fish", which is 44 cards in the deck rather than
+    # the 14 Yellowfin, so it drew about three times as often as the card says.
+    is_yellowfin_play = card_name_lc(played_card) == "yellowfin tuna"
     is_cephalopod_play = species == "cephalopod"
     is_surface_play = action_kind == "play_to_ocean" and direction == "up"
     is_floor_play = action_kind == "play_to_ocean" and direction == "down"
@@ -870,16 +873,16 @@ def resolve_reactive_draw_triggers(
                     f"{owner.name} draws {n} from reactive trigger (cephalopod played)."
                 )
 
-        if owner is played_by and is_game_fish_play:
-            # Skip reactive draw if the game fish itself already draws from its main ability.
+        if owner is played_by and is_yellowfin_play:
+            # Skip the reactive draw if the played card already draws itself.
             _main_text, _ = split_main_and_star(played_card.text)
             _card_draws = any(k in _main_text.lower() for k in ("draw one", "draw two", "draw 2", "draw three"))
             if not _card_draws:
-                n = int(owner.flags.get("trigger_draw_on_game_fish", 0))
+                n = int(owner.flags.get("trigger_draw_on_yellowfin", 0))
                 if n > 0:
                     draw(gs, owner, n, ms)
                     gs.log.append(
-                        f"{owner.name} draws {n} from reactive trigger (game fish played)."
+                        f"{owner.name} draws {n} from reactive trigger (Yellowfin Tuna played)."
                     )
 
         if owner is played_by and is_surface_play:
@@ -911,16 +914,15 @@ def resolve_reactive_draw_triggers(
 
 def sync_reactive_trigger_flags(gs: GameState, player: PlayerState) -> None:
     """Rebuild reactive listener counts from the player's current board state."""
-    game_fish = 0
+    yellowfin = 0
     surface = 0
     floor = 0
     cephalopod = 0
     for uid in all_board_cards(player):
         c = gs.card_db[uid]
         t = c.text.lower()
-        if ("draw one when a game fish is played" in t or "draw one when a gamefish is played" in t
-                or "draw one when you play a game fish" in t):
-            game_fish += 1
+        if "draw one when you play a yellowfin tuna" in t:
+            yellowfin += 1
         if "draw one when you play an animal on the ocean surface" in t:
             surface += 1
         if "draw one when you play a card on the ocean floor" in t:
@@ -928,10 +930,10 @@ def sync_reactive_trigger_flags(gs: GameState, player: PlayerState) -> None:
         if "draw one when you play a cephalopod" in t:
             cephalopod += 1
 
-    if game_fish > 0:
-        player.flags["trigger_draw_on_game_fish"] = game_fish
+    if yellowfin > 0:
+        player.flags["trigger_draw_on_yellowfin"] = yellowfin
     else:
-        player.flags.pop("trigger_draw_on_game_fish", None)
+        player.flags.pop("trigger_draw_on_yellowfin", None)
 
     if surface > 0:
         player.flags["trigger_draw_on_surface_play"] = surface
@@ -2786,12 +2788,12 @@ ANIMAL_SYNERGY_GRID_PATH = "animal_synergy_grid.json"
 
 # Main anchor combos from user guidance.
 PRIORITY_CARD_SYNERGY: Dict[str, set[str]] = {
-    "whale shark": {"mullet", "bunker", "sardine", "flying fish", "bonito", "hermit crab", "johnson's sea cucumber", "sea urchin", "roosterfish"},
+    "whale shark": {"mullet", "bunker", "sardine", "flying fish", "bonito", "hermit crab", "sea urchin", "roosterfish"},
     "hermit crab": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark", "roosterfish"},
     "reef trigger fish": {"common octopus", "bobtail squid", "cuttlefish", "giant squid"},
     "california gull": {"lobster", "spiny lobster", "mantis shrimp", "king crab", "hermit crab"},
     "great white shark": {"spinner dolphin", "bottlenose dolphin", "narwhal"},
-    "johnson's sea cucumber": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark", "roosterfish"},
+    "johnson's sea cucumber": {"yellowfin tuna", "bigeye tuna", "big eye tuna"},
     "common sea star": {"mandarin goby", "spiny lobster", "lobster", "mantis shrimp", "king crab", "hermit crab"},
     "sea star": {"mandarin goby", "spiny lobster", "lobster", "mantis shrimp", "king crab", "hermit crab"},
     "sea urchin": {"emperor penguin", "horned puffin", "california gull", "peruvian pelican", "great albatross", "osprey", "mullet", "bunker", "sardine", "flying fish", "bonito"},
@@ -2832,7 +2834,7 @@ PRIORITY_CARD_TO_STRATEGIES: Dict[str, set[str]] = {
     "reef trigger fish": {"Cephalopods"},
     "california gull": {"Crustaceans", "Birds"},
     "great white shark": {"Mammals"},
-    "johnson's sea cucumber": {"Baitfish Engine"},
+    "johnson's sea cucumber": {"Yellowfin"},
     "common sea star": {"Goby Spiny Combo", "Bottom Engine"},
     "sea star": {"Goby Spiny Combo", "Bottom Engine"},
     "sea urchin": {"Birds", "Baitfish Engine"},
@@ -3064,7 +3066,7 @@ def _card_strategy_tags_uncached(card: CardDef) -> set:
     if name == "great white shark":
         tags.add("engine:mammal")
     if name == "johnson's sea cucumber":
-        tags.add("engine:baitfish")
+        tags.add("engine:yellowfin")
     if name in {"sea star", "common sea star"}:
         tags.add("engine:goby-spiny")
     if name == "sea urchin":
@@ -3455,7 +3457,9 @@ def action_future_value_bonus(gs: GameState, ms: MatchState, player: PlayerState
         crust_support = sum(1 for s in board_species if s == "crustacean") + hand_species_counts.get("crustacean", 0)
         bonus += min(3.0, 0.60 * crust_support)
     if cname == "johnson's sea cucumber":
-        bonus += min(2.2, 0.48 * gamefish_support)
+        yellowfin_support = (board_names.count("yellowfin tuna")
+                             + hand_name_counts.get("yellowfin tuna", 0))
+        bonus += min(2.2, 0.48 * yellowfin_support)
     if cname == "loggerhead sea turtle":
         cheap_hand = 0
         for entry_uid in player.hand:

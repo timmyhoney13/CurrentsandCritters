@@ -15,7 +15,7 @@
 15	Horned Puffin	+3 | *play again*	Bird	1	Up	Circle
 16	Mantis Shrimp	| 1 = 5 points | 2 = 15 points | 3 = 30 points |	Crustacean	0	Down	Square
 17	California Gull	+2 per crustacean	Bird	2	Up	Diamond
-18	Johnson's Sea Cucumber	Draw one when you play a game fish	Invertebrate	1	Down	Triangle
+18	Johnson's Sea Cucumber	Draw one when you play a yellowfin tuna	Invertebrate	1	Down	Triangle
 19	California Gull	+2 per crustacean	Bird	2	Up	Square
 20	Deep Sea Coral	+10 if this is the only creature on this ocean	Coral	2	Down	Circle
 21	California Gull	+2 per crustacean	Bird	2	Up	Triangle
@@ -51,7 +51,7 @@
 51	Magnificent Frigatebird	+2 per coral | *Play a free coral*	Bird	2	Up	Heart
 52	Loggerhead Sea Turtle	Play any number of cards by paying the costs	Crosscurrent	3	Down	Circle
 53	Mullet	# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30	Baitfish	0	Up	Triangle
-54	Johnson's Sea Cucumber	Draw one when you play a game fish	Invertebrate	1	Down	Diamond
+54	Johnson's Sea Cucumber	Draw one when you play a yellowfin tuna	Invertebrate	1	Down	Diamond
 55	Mullet	# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30	Baitfish	0	Up	Circle
 56	Lobster	+4 | Any number of lobsters can share the same spot	Crustacean	0	Down	Square
 57	Mullet	# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30	Baitfish	0	Up	Diamond
