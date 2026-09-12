@@ -119,7 +119,18 @@ class GameState:
 
 STAR_RE = re.compile(r"\*(.*?)\*", flags=re.DOTALL)
 
+_SPLIT_CACHE: Dict[str, Tuple[str, str]] = {}
+
+
 def split_main_and_star(text: str) -> Tuple[str, str]:
+    got = _SPLIT_CACHE.get(text)
+    if got is None:
+        got = _split_main_and_star_uncached(text)
+        _SPLIT_CACHE[text] = got
+    return got
+
+
+def _split_main_and_star_uncached(text: str) -> Tuple[str, str]:
     """
     Your rule: '|' separates normal ability text from star ability text,
     and star ability is wrapped in * *.
@@ -1542,27 +1553,42 @@ def adaptive_exploration_rate(gs: GameState, player: PlayerState, base_epsilon: 
     return eps
 
 
-def human_realism_action_adjustment(
-    gs: GameState,
-    ms: MatchState,
-    player: PlayerState,
-    action: Action,
-    features: Optional[Dict[str, float]] = None,
-) -> float:
-    if not human_realism_enabled():
-        return 0.0
+def human_realism_context(gs: GameState, ms: MatchState, player: PlayerState) -> tuple:
+    """The half of the realism adjustment that depends on the STATE, not on the
+    action being scored.
 
-    style = player_playstyle(player)
-    s = style_params(style)
-    deck_remaining = len(gs.deck)
-    pressure = endgame_pressure(deck_remaining)
+    Every caller below scores a list of candidate actions against one unchanged
+    game state, and this half is identical for all of them, but it used to be
+    rebuilt for each candidate. score_gap_vs_table alone rescores every player at
+    the table, so on a 4-player board that was four full final_points calls per
+    candidate move per rollout turn: it measured as 37% of a whole game."""
+    s = style_params(player_playstyle(player))
+    pressure = endgame_pressure(len(gs.deck))
     gap = score_gap_vs_table(gs, player)
     open_slots = open_slot_count(player)
     role_counts = hand_role_balance(gs, ms, player)
     tempo = float(player.flags.get("_tempo_score", 0.0))
     threat_score, threat_label = estimate_opponent_threat_level(gs, player)
     need_symbols, need_species = star_prep_needs(gs, ms, player)
-    hand_n = len(player.hand)
+    return (s, pressure, gap, open_slots, role_counts, tempo,
+            threat_score, threat_label, need_symbols, need_species, len(player.hand))
+
+
+def human_realism_action_adjustment(
+    gs: GameState,
+    ms: MatchState,
+    player: PlayerState,
+    action: Action,
+    features: Optional[Dict[str, float]] = None,
+    ctx: Optional[tuple] = None,
+) -> float:
+    if not human_realism_enabled():
+        return 0.0
+
+    if ctx is None:
+        ctx = human_realism_context(gs, ms, player)
+    (s, pressure, gap, open_slots, role_counts, tempo,
+     threat_score, threat_label, need_symbols, need_species, hand_n) = ctx
 
     f = features or {}
     immediate = float(f.get("immediate_delta", 0.0))
@@ -2405,8 +2431,77 @@ def turtle_is_effective(cbrain: Dict[str, object]) -> bool:
     return float(ts.get("attempts", 0.0)) >= TURTLE_MIN_ATTEMPTS and float(ts.get("wins", 0.0)) >= TURTLE_MIN_WINS
 
 
+# ── Card property cache ─────────────────────────────────────────────────────
+# Cards are built ONCE, by load_cards_from_lines out of the three card .txt
+# files, and CardDef is frozen, so a uid's name/species/direction/text never
+# change for the life of the process. Everything below is therefore derived
+# once per uid instead of re-derived on every call.
+#
+# Why this exists: profiling a single 4-player self-play game measured 36.4
+# MILLION str.lower() calls and 33.4 million str.strip(). is_ocean ran 3.86
+# million times and card_strategy_tags 1.88 million, each re-lowercasing text
+# that had not changed since startup. Scoring is the hot path (final_points
+# runs 135,038 times in one game) and most of its time went on that.
+#
+# The invariant these caches rest on: nothing mints a CardDef at runtime. The
+# only CardDef(...) call is in parse_card_line, reached from
+# load_cards_from_lines at startup. If a card is ever created mid-game, it must
+# get a uid that has never been used, or these caches will hand back the old
+# card's properties.
+
+# One flat dict per property rather than one dict of tuples: these are read
+# millions of times per game and a nested helper call plus a tuple index cost
+# more than the lookup they wrap.
+_CARD_NAME_LC: Dict[int, str] = {}
+_CARD_SPECIES_LC: Dict[int, str] = {}
+_CARD_DIR_LC: Dict[int, str] = {}
+_CARD_IS_OCEAN: Dict[int, bool] = {}
+_CARD_IS_CLOWNFISH: Dict[int, bool] = {}
+
+
+def card_name_lc(card: CardDef) -> str:
+    got = _CARD_NAME_LC.get(card.uid)
+    if got is None:
+        got = card.name.strip().lower()
+        _CARD_NAME_LC[card.uid] = got
+    return got
+
+
+def card_species_lc(card: CardDef) -> str:
+    got = _CARD_SPECIES_LC.get(card.uid)
+    if got is None:
+        got = card.species.strip().lower()
+        _CARD_SPECIES_LC[card.uid] = got
+    return got
+
+
+def card_direction_lc(card: CardDef) -> str:
+    got = _CARD_DIR_LC.get(card.uid)
+    if got is None:
+        got = card.direction.strip().lower()
+        _CARD_DIR_LC[card.uid] = got
+    return got
+
+
+def card_is_clownfish(card: CardDef) -> bool:
+    got = _CARD_IS_CLOWNFISH.get(card.uid)
+    if got is None:
+        got = card_name_lc(card) == CLOWNFISH_NAME
+        _CARD_IS_CLOWNFISH[card.uid] = got
+    return got
+
+
+def card_lc(card: CardDef) -> Tuple[str, str, str]:
+    """(name, species, direction), stripped and lowercased, computed once per uid."""
+    return (card_name_lc(card), card_species_lc(card), card_direction_lc(card))
+
+
 def is_ocean(card: CardDef) -> bool:
-    return card.species.strip().lower() == "ocean" or card.direction.strip().lower() == "n/a"
+    got = _CARD_IS_OCEAN.get(card.uid)
+    if got is None:
+        got = (card_species_lc(card) == "ocean") or (card_direction_lc(card) == "n/a")
+        _CARD_IS_OCEAN[card.uid] = got
+    return got
 
 
 def has_star_text(card: CardDef) -> bool:
@@ -2496,7 +2591,7 @@ def effective_ocean_names(gs: GameState, player: PlayerState) -> List[str]:
         host = gs.card_db.get(ocean_uid)
         if host is None:
             continue
-        host_name = host.name.strip().lower()
+        host_name = card_name_lc(host)
         names.append(host_name)
         if not is_ocean(host):
             continue
@@ -2505,7 +2600,7 @@ def effective_ocean_names(gs: GameState, player: PlayerState) -> List[str]:
             continue
         for face_uid in slots.all_cards():
             face = gs.card_db.get(face_uid)
-            if face is not None and face.name.strip().lower() == CLOWNFISH_NAME:
+            if face is not None and card_is_clownfish(face):
                 names.append(host_name)
     return names
 
@@ -2908,10 +3003,26 @@ def action_symbol_bonus(gs: GameState, ms: MatchState, player: PlayerState, acti
     return bonus
 
 
-def card_strategy_tags(card: CardDef) -> set[str]:
-    tags: set[str] = set()
-    name = card.name.strip().lower()
-    species = card.species.strip().lower()
+_CARD_STRATEGY_TAGS: Dict[int, "frozenset[str]"] = {}
+
+
+def card_strategy_tags(card: CardDef) -> "frozenset[str]":
+    """The card's engine/species tags. Pure function of a frozen CardDef, so it
+    is computed once per uid and shared: this ran 1.88 million times in a single
+    profiled game, re-lowercasing the same 253 cards' text every time.
+
+    Returns a frozenset, not a set, so a future caller that tries to mutate it
+    fails loudly instead of quietly poisoning every later reader of this uid."""
+    got = _CARD_STRATEGY_TAGS.get(card.uid)
+    if got is None:
+        got = frozenset(_card_strategy_tags_uncached(card))
+        _CARD_STRATEGY_TAGS[card.uid] = got
+    return got
+
+
+def _card_strategy_tags_uncached(card: CardDef) -> set:
+    tags: set = set()
+    name, species, _direction = card_lc(card)
     text = card.text.strip().lower()
 
     if species and species not in {"n/a"}:
@@ -7125,7 +7236,13 @@ def candidate_actions_for_ai(gs: GameState, ms: MatchState, player: PlayerState)
     return expand_draw_actions_for_ai(gs, ms, player, filtered)
 
 
-def simulated_point_delta(gs: GameState, ms: MatchState, player: PlayerState, action: Action) -> float:
+def simulated_point_delta(gs: GameState, ms: MatchState, player: PlayerState, action: Action,
+                         baseline: Optional[float] = None) -> float:
+    """Points this action would add, by playing it on a throwaway copy.
+
+    `baseline` is the player's CURRENT score. It does not depend on the action,
+    so a caller scoring a list of candidates against one state computes it once
+    and passes it here rather than paying a full re-score per candidate."""
     if action.kind not in {"play_ocean", "play_to_ocean"}:
         return 0.0
     try:
@@ -7136,7 +7253,7 @@ def simulated_point_delta(gs: GameState, ms: MatchState, player: PlayerState, ac
     gs2 = clone_game_state(gs)
     ms2 = clone_match_state(ms)
     p2 = gs2.players[player_index]
-    before = final_points(gs2, p2)
+    before = final_points(gs2, p2) if baseline is None else baseline
     action_copy = clone_action(action)
     ok = apply_action(gs2, ms2, p2, action_copy, TurnState(), choose_payment_ai, verbose=False)
     if not ok:
@@ -9579,6 +9696,7 @@ def action_features(
     species_map: Optional[Dict[str, float]] = None,
     same_ocean_map: Optional[Dict[str, float]] = None,
     include_sim_delta: bool = True,
+    sim_baseline: Optional[float] = None,
 ) -> Dict[str, float]:
     def _safe_zero_features() -> Dict[str, float]:
         return {
@@ -9914,7 +10032,7 @@ def action_features(
                 feat["overbuild_ocean_penalty"] = 1.5
 
     feat["immediate_delta"] = float(base_plus)
-    feat["sim_point_delta"] = simulated_point_delta(gs, ms, player, action) if include_sim_delta else 0.0
+    feat["sim_point_delta"] = simulated_point_delta(gs, ms, player, action, sim_baseline) if include_sim_delta else 0.0
     return feat
 
 
@@ -9944,6 +10062,10 @@ def choose_action_greedy_quick(
     if not acts:
         return None
     limited_hidden = human_realism_enabled() and bool(HUMAN_REALISM_CONFIG.get("human_limited_inference", False))
+    realism_ctx = human_realism_context(gs, ms, player) if human_realism_enabled() else None
+    # The player's current score: the "before" half of every candidate's point
+    # delta, and identical for all of them.
+    sim_base = float(final_points(gs, player))
     best_a: Optional[Action] = None
     best_score = float("-inf")
     for a in acts:
@@ -9973,10 +10095,10 @@ def choose_action_greedy_quick(
         score += weights.get("branch_bonus", 0.0) * branch_v
         score += 1.1 * action_archetype_bonus(gs, ms, player, a, archetype_profile)
         score += action_engine_timing_bonus(gs, ms, player, a)
-        score += human_realism_action_adjustment(gs, ms, player, a, feats)
+        score += human_realism_action_adjustment(gs, ms, player, a, feats, realism_ctx)
         # Add tiny point-delta signal for tie breaks.
         if not limited_hidden:
-            score += 0.08 * simulated_point_delta(gs, ms, player, a)
+            score += 0.08 * simulated_point_delta(gs, ms, player, a, sim_base)
         if score > best_score:
             best_score = score
             best_a = a
@@ -10480,6 +10602,8 @@ def choose_action_weighted(
     limited_hidden = human_realism_enabled() and bool(HUMAN_REALISM_CONFIG.get("human_limited_inference", False))
     eps = adaptive_exploration_rate(gs, player, epsilon)
     include_sim_delta = not limited_hidden
+    realism_ctx = human_realism_context(gs, ms, player) if human_realism_enabled() else None
+    sim_base = float(final_points(gs, player)) if include_sim_delta else None
 
     if random.random() < eps:
         # Explore inside high-quality strategic lines instead of random isolated plays.
@@ -10511,7 +10635,7 @@ def choose_action_weighted(
             score += weights.get("branch_bonus", 0.0) * branch_v
             score += 1.35 * action_archetype_bonus(gs, ms, player, a, archetype_profile)
             score += action_engine_timing_bonus(gs, ms, player, a)
-            score += human_realism_action_adjustment(gs, ms, player, a, feats)
+            score += human_realism_action_adjustment(gs, ms, player, a, feats, realism_ctx)
             score += 0.55 * max(0.0, float(feats.get("future_value", 0.0)))
             explore_scored.append((a, score))
         explore_scored.sort(key=lambda x: x[1], reverse=True)
@@ -10534,6 +10658,7 @@ def choose_action_weighted(
                     species_map=species_map,
                     same_ocean_map=same_ocean_map,
                     include_sim_delta=include_sim_delta,
+                    sim_baseline=sim_base,
                 )
                 score = weighted_score(feats, weights)
                 strategy_v, novelty_v, branch_v, _ = strategy_signal(
@@ -10551,7 +10676,7 @@ def choose_action_weighted(
                 score += weights.get("branch_bonus", 0.0) * branch_v
                 score += 1.1 * action_archetype_bonus(gs, ms, player, a, archetype_profile)
                 score += action_engine_timing_bonus(gs, ms, player, a)
-                score += human_realism_action_adjustment(gs, ms, player, a, feats)
+                score += human_realism_action_adjustment(gs, ms, player, a, feats, realism_ctx)
                 if score > best_ocean_score:
                     best_ocean_score = score
                     best_ocean = a
@@ -10569,6 +10694,7 @@ def choose_action_weighted(
             species_map=species_map,
             same_ocean_map=same_ocean_map,
             include_sim_delta=include_sim_delta,
+            sim_baseline=sim_base,
         )
         score = weighted_score(feats, weights)
         strategy_v, novelty_v, branch_v, _ = strategy_signal(
@@ -10586,7 +10712,7 @@ def choose_action_weighted(
         score += weights.get("branch_bonus", 0.0) * branch_v
         score += 1.1 * action_archetype_bonus(gs, ms, player, a, archetype_profile)
         score += action_engine_timing_bonus(gs, ms, player, a)
-        score += human_realism_action_adjustment(gs, ms, player, a, feats)
+        score += human_realism_action_adjustment(gs, ms, player, a, feats, realism_ctx)
         scored.append((a, score))
 
     scored.sort(key=lambda x: x[1], reverse=True)
@@ -10713,10 +10839,179 @@ def choose_action_human(gs: GameState, ms: MatchState, player: PlayerState) -> O
         print("Invalid choice.")
 
 
+# ── Scoring profiles ────────────────────────────────────────────────────────
+# final_points ran 135,038 times in ONE profiled 4-player game, and every call
+# re-lowercased each board card's ability text and re-ran ~60 substring tests
+# and a dozen regexes against it: roughly 121 million substring tests per game,
+# all of them re-deriving rules from text that is fixed at startup.
+#
+# A profile is that same set of tests, run ONCE per distinct card (and once per
+# Clownfish/host pair, since a Clownfish scores its host ocean's text too) and
+# kept. The scoring loop below reads the answers instead of re-deriving them.
+# The tests are deliberately the same literals in the same order as before, so
+# this stays a pure speedup and not a rules change.
+
+class _ScoreProfile:
+    __slots__ = (
+        "flat", "pier", "per_species", "per_name", "coral_reef_attached",
+        "share_goliath", "share_salmon", "share_ceph", "share_bait", "share_mahi",
+        "only_creature", "ceph3", "ceph4", "most_oceans", "most_animals", "all8",
+        "two_oceans", "full_ocean", "per_attached", "kelp4",
+        "match_symbol", "uniq_symbol_ocean", "uniq_species_ocean",
+        "baitfish_chart", "num_table", "table_pairs", "trivial",
+    )
+
+
+_NA_GROUP = "::na-group"
+_SCORE_PROFILES: Dict[Tuple[int, int], _ScoreProfile] = {}
+_CARD_TEXT_LC: Dict[int, str] = {}
+_TABLE_RE = re.compile(r"(\d+)\+?\s*=\s*(\d+)")
+_NUM_TABLE_RE = re.compile(r"\d+\s*=\s*\d+")
+_FLAT_RE = re.compile(r"\+(\d+)\b")
+_FLAT_SKIP = (" if ", " per ", " or ", " most ", " only ", " at least ", " every ")
+
+
+def _card_text_lc(card: CardDef) -> str:
+    got = _CARD_TEXT_LC.get(card.uid)
+    if got is None:
+        got = card.text.lower()
+        _CARD_TEXT_LC[card.uid] = got
+    return got
+
+
+def _amount(t: str, pattern: str, default: int) -> int:
+    m = re.search(pattern, t)
+    return int(m.group(1)) if m else default
+
+
+def _build_score_profile(t: str) -> _ScoreProfile:
+    p = _ScoreProfile()
+    p.share_goliath = "if sharing an ocean with a goliath grouper" in t
+    p.share_salmon = "if sharing an ocean with a king salmon" in t
+    p.share_ceph = (_amount(t, r"\+(\d+)\s*if sharing the ocean with a cephalopod", 5)
+                    if "if sharing the ocean with a cephalopod" in t else None)
+    p.share_bait = (_amount(t, r"\+(\d+)\s*if sharing an ocean with baitfish", 4)
+                    if "if sharing an ocean with baitfish" in t else None)
+    p.share_mahi = "if sharing an ocean with a mahi mahi" in t
+    p.only_creature = "if this is the only creature on this ocean" in t
+    p.ceph3 = (_amount(t, r"\+(\d+)\s*if you have at least three cephalopods", 4)
+               if "if you have at least three cephalopods" in t else None)
+    p.ceph4 = (_amount(t, r"\+(\d+)\s*if you have at least four cephalopods", 6)
+               if "if you have at least four cephalopods" in t else None)
+    p.most_oceans = (_amount(t, r"\+(\d+)\s*if you have the most oceans", 6)
+                     if "if you have the most oceans" in t else None)
+    p.most_animals = "if you have the most animals" in t
+    p.all8 = (_amount(t, r"\+(\d+)\s*if you have all 8 oceans", 8)
+              if "if you have all 8 oceans" in t else None)
+    pier_m = re.search(r"\+2 or \+(\d+) if you have the most piers", t)
+    p.pier = int(pier_m.group(1)) if pier_m else None
+    p.two_oceans = "+1 per every two oceans you control" in t
+    p.full_ocean = "+5 per fully occupied ocean" in t
+    p.per_attached = "+2 per card attached" in t
+    p.kelp4 = "kelp forest" in t and (">= 4" in t or "≥ 4" in t or "at least 4" in t
+                                      or "4 or more" in t or "4+" in t)
+
+    per_species: List[Tuple[int, str]] = []
+    coral_free = "attached to a coral reef" not in t
+    for lit, mult, spec in (
+        ("+2 per bird", 2, "bird"), ("+3 per bird", 3, "bird"),
+        ("+1 per crustacean", 1, "crustacean"), ("+2 per crustacean", 2, "crustacean"),
+        ("+5 per invertebrate", 5, "invertebrate"), ("+2 per invertebrate", 2, "invertebrate"),
+        ("+4 per baitfish", 4, "baitfish"), ("+1 per game fish", 1, "game fish"),
+        ("+2 per cephalopod", 2, "cephalopod"),
+        ("+2 per mammal", 2, "mammal"), ("+3 per mammal", 3, "mammal"),
+        ("+3 per coral", 3, "coral"), ("+5 per coral", 5, "coral"),
+        ("+3 per invertebrate", 3, "invertebrate"),
+    ):
+        if lit in t:
+            per_species.append((mult, spec))
+    if "+1 per coral" in t and coral_free:
+        per_species.append((1, "coral"))
+    if "+2 per coral" in t and coral_free:
+        per_species.append((2, "coral"))
+    if "+2 per n/a animal" in t or "+2 per uncharted animal" in t or "+2 per crosscurrent animal" in t:
+        per_species.append((2, _NA_GROUP))
+    if "+3 per n/a animal" in t or "+3 per uncharted animal" in t or "+3 per crosscurrent animal" in t:
+        per_species.append((3, _NA_GROUP))
+    p.per_species = tuple(per_species)
+
+    per_name: List[Tuple[int, str]] = []
+    for lit, mult, nm in (
+        ("+6 per mandarin goby", 6, "mandarin goby"),
+        ("+3 per mahi mahi", 3, "mahi mahi"),
+        ("+10 per each mahi mahi you control", 10, "mahi mahi"),
+        ("+9 per each mahi mahi you control", 9, "mahi mahi"),
+        ("+3 per yellowfin tuna", 3, "yellowfin tuna"),
+    ):
+        if lit in t:
+            per_name.append((mult, nm))
+    p.per_name = tuple(per_name)
+
+    p.coral_reef_attached = 2 if "+2 per coral that is attached to a coral reef" in t else None
+    p.match_symbol = "+2 per matching symbol" in t
+    p.uniq_symbol_ocean = "+2 per each unique symbol attached to this ocean" in t
+    p.uniq_species_ocean = "+2 per each unique species attached to this ocean" in t
+
+    p.baitfish_chart = "different species of baitfish" in t
+    p.num_table = bool(_NUM_TABLE_RE.search(t))
+    p.table_pairs = tuple((int(a), int(b)) for a, b in _TABLE_RE.findall(t))
+
+    flat = 0
+    for chunk in t.split("|"):
+        chunk = chunk.strip()
+        if not chunk.startswith("+"):
+            continue
+        if any(w in chunk for w in _FLAT_SKIP):
+            continue
+        m = _FLAT_RE.match(chunk)
+        if m:
+            flat += int(m.group(1))
+    p.flat = flat
+
+    p.trivial = not (
+        p.share_goliath or p.share_salmon or p.share_ceph is not None
+        or p.share_bait is not None or p.share_mahi or p.only_creature
+        or p.ceph3 is not None or p.ceph4 is not None or p.most_oceans is not None
+        or p.most_animals or p.all8 is not None or p.pier is not None
+        or p.two_oceans or p.full_ocean or p.per_attached or p.kelp4
+        or p.per_species or p.per_name or p.coral_reef_attached is not None
+        or p.match_symbol or p.uniq_symbol_ocean or p.uniq_species_ocean
+        or p.baitfish_chart or p.num_table
+    )
+    return p
+
+
+def _score_profile(card: CardDef, host: Optional[CardDef]) -> _ScoreProfile:
+    """Profile for this card, or for a Clownfish continuously copying `host`."""
+    key = (card.uid, host.uid if host is not None else -1)
+    got = _SCORE_PROFILES.get(key)
+    if got is None:
+        t = _card_text_lc(card)
+        if host is not None:
+            t = f"{t} | {_card_text_lc(host)}"
+        got = _build_score_profile(t)
+        _SCORE_PROFILES[key] = got
+    return got
+
+
+def _threshold_value(pairs: Tuple[Tuple[int, int], ...], base_value: int) -> int:
+    if not pairs:
+        return 0
+    table = {need: pts for need, pts in pairs}
+    hit = table.get(base_value)
+    if hit is not None:
+        return hit
+    eligible = [need for need in table if need <= base_value]
+    if not eligible:
+        return 0
+    return table[max(eligible)]
+
+
 def final_points(gs: GameState, player: PlayerState) -> int:
     board: List[Tuple[int, CardDef, int]] = []
+    card_db = gs.card_db
     for ocean_uid in player.board_oceans:
-        ocean = gs.card_db.get(ocean_uid)
+        ocean = card_db.get(ocean_uid)
         if ocean is None:
             continue
         board.append((ocean_uid, ocean, ocean_uid))
@@ -10724,7 +11019,7 @@ def final_points(gs: GameState, player: PlayerState) -> int:
         if not isinstance(slots, OceanSlots):
             continue
         for uid in slots.all_cards():
-            face = gs.card_db.get(uid)
+            face = card_db.get(uid)
             if face is None:
                 continue
             board.append((uid, face, ocean_uid))
@@ -10733,29 +11028,83 @@ def final_points(gs: GameState, player: PlayerState) -> int:
         return 0
 
     all_cards = [c for _, c, _ in board]
-    non_ocean_cards = [c for c in all_cards if c.direction.strip().lower() != "n/a"]
+    non_ocean_cards = [c for c in all_cards if card_direction_lc(c) != "n/a"]
 
-    # Every ocean count below is taken over effective_ocean_names, so a Clownfish
-    # counts as one more of the Ocean it is attached to, the same way it already
-    # counted on the Coral Reef chart.
     my_ocean_names = effective_ocean_names(gs, player)
     ocean_count = len(my_ocean_names)
-    other_ocean_counts = [len(effective_ocean_names(gs, p)) for p in gs.players if p is not player]
-    has_most_oceans = ocean_count >= max(other_ocean_counts) if other_ocean_counts else True
-    # Distinct ocean TYPES for the Mangrove "+10 if you have all 8 oceans" bonus.
-    # Must be 8 DIFFERENT ocean types, not just 8 ocean cards, and a Clownfish
-    # only ever duplicates a name it is already sitting on, so it can never be
-    # the missing eighth type.
+    others = [p for p in gs.players if p is not player]
     distinct_ocean_types = len(set(my_ocean_names))
 
+    memo: Dict[str, Any] = {}
+
+    # Scanning every opponent's board is only needed when a card on THIS board
+    # actually asks who has the most of something, which most boards never do.
+    # It used to run eagerly on every call, three or seven opponents at a time.
+    def other_ocean_names() -> List[List[str]]:
+        got = memo.get("oon")
+        if got is None:
+            got = [effective_ocean_names(gs, p) for p in others]
+            memo["oon"] = got
+        return got
+
+    def has_most_oceans() -> bool:
+        got = memo.get("mostoceans")
+        if got is None:
+            rest = other_ocean_names()
+            got = ocean_count >= max(len(n) for n in rest) if rest else True
+            memo["mostoceans"] = got
+        return got
+
+    def species_counts() -> Dict[str, int]:
+        got = memo.get("spec")
+        if got is None:
+            got = {}
+            for c in non_ocean_cards:
+                s = card_species_lc(c)
+                got[s] = got.get(s, 0) + 1
+            memo["spec"] = got
+        return got
+
+    def species_count(spec: str) -> int:
+        if spec is _NA_GROUP:
+            sc = species_counts()
+            return sc.get("n/a", 0) + sc.get("uncharted", 0) + sc.get("crosscurrent", 0)
+        return species_counts().get(spec, 0)
+
+    def name_counts() -> Dict[str, int]:
+        got = memo.get("name")
+        if got is None:
+            got = {}
+            for c in all_cards:
+                n = card_name_lc(c)
+                got[n] = got.get(n, 0) + 1
+            memo["name"] = got
+        return got
+
+    def name_count(name: str) -> int:
+        return name_counts().get(name, 0)
+
+    def by_ocean() -> Dict[int, List[CardDef]]:
+        got = memo.get("byocean")
+        if got is None:
+            got = {}
+            for _uid, c, o_uid in board:
+                if card_direction_lc(c) != "n/a":
+                    got.setdefault(o_uid, []).append(c)
+            memo["byocean"] = got
+        return got
+
+    def cards_on_same_ocean(target_ocean_uid: int) -> List[CardDef]:
+        return by_ocean().get(target_ocean_uid, [])
+
     def has_most_piers() -> bool:
-        my = sum(1 for n in my_ocean_names if n == "pier")
-        others = []
-        for p in gs.players:
-            if p is player:
-                continue
-            others.append(sum(1 for n in effective_ocean_names(gs, p) if n == "pier"))
-        return my >= max(others) if others else True
+        got = memo.get("piers")
+        if got is None:
+            my = sum(1 for n in my_ocean_names if n == "pier")
+            rest = [sum(1 for n in names if n == "pier") for names in other_ocean_names()]
+            got = my >= max(rest) if rest else True
+            memo["piers"] = got
+        return got
 
     def count_animals(owner: PlayerState) -> int:
         total_animals = 0
@@ -10764,255 +11113,151 @@ def final_points(gs: GameState, player: PlayerState) -> int:
             if not slots:
                 continue
             for uid in slots.all_cards():
-                c = gs.card_db.get(uid)
-                if c is None:
-                    continue
-                if c.direction.strip().lower() != "n/a":
+                c = card_db.get(uid)
+                if c is not None and card_direction_lc(c) != "n/a":
                     total_animals += 1
         return total_animals
 
     def has_most_animals() -> bool:
-        my = count_animals(player)
-        others = []
-        for p in gs.players:
-            if p is player:
-                continue
-            others.append(count_animals(p))
-        return my >= max(others) if others else True
+        got = memo.get("animals")
+        if got is None:
+            mine = count_animals(player)
+            rest = [count_animals(p) for p in others]
+            got = mine >= max(rest) if rest else True
+            memo["animals"] = got
+        return got
 
     def fully_occupied_ocean_count() -> int:
-        full = 0
-        for ocean_uid in player.board_oceans:
-            slots = player.ocean_slots.get(ocean_uid)
-            if not slots:
-                continue
-            if slots.up and slots.down and slots.left and slots.right:
-                full += 1
-        return full
+        got = memo.get("full")
+        if got is None:
+            full = 0
+            for ocean_uid in player.board_oceans:
+                slots = player.ocean_slots.get(ocean_uid)
+                if not slots:
+                    continue
+                if slots.up and slots.down and slots.left and slots.right:
+                    full += 1
+            got = full
+            memo["full"] = got
+        return got
 
     def coral_attached_to_coral_reef_count() -> int:
-        total_coral = 0
-        for ocean_uid in player.board_oceans:
-            ocean = gs.card_db.get(ocean_uid)
-            if ocean is None:
-                continue
-            if ocean.name.lower() != "coral reef":
-                continue
-            slots = player.ocean_slots.get(ocean_uid)
-            if not slots:
-                continue
-            for uid in slots.all_cards():
-                c = gs.card_db.get(uid)
-                if c is None:
+        got = memo.get("coralreef")
+        if got is None:
+            total_coral = 0
+            for ocean_uid in player.board_oceans:
+                ocean = card_db.get(ocean_uid)
+                if ocean is None or card_name_lc(ocean) != "coral reef":
                     continue
-                if c.species.lower() == "coral":
-                    total_coral += 1
-        return total_coral
+                slots = player.ocean_slots.get(ocean_uid)
+                if not slots:
+                    continue
+                for uid in slots.all_cards():
+                    c = card_db.get(uid)
+                    if c is not None and card_species_lc(c) == "coral":
+                        total_coral += 1
+            got = total_coral
+            memo["coralreef"] = got
+        return got
 
-    def species_count(spec: str) -> int:
-        s = spec.lower()
-        return sum(1 for c in non_ocean_cards if c.species.lower() == s)
-
-    def name_count(name: str) -> int:
-        n = name.lower()
-        return sum(1 for c in all_cards if c.name.lower() == n)
-
-    def cards_on_same_ocean(target_ocean_uid: int) -> List[CardDef]:
-        return [c for _, c, ocean_uid in board if ocean_uid == target_ocean_uid and c.direction.strip().lower() != "n/a"]
-
-    def value_from_threshold_table(text: str, base_value: int) -> int:
-        pairs = [(int(a), int(b)) for a, b in re.findall(r"(\d+)\+?\s*=\s*(\d+)", text)]
-        if not pairs:
-            return 0
-        table = {need: pts for need, pts in pairs}
-        if base_value in table:
-            return table[base_value]
-        eligible = [need for need in table.keys() if need <= base_value]
-        if not eligible:
-            return 0
-        best_need = max(eligible)
-        return table[best_need]
-
-    # Same source as every other ocean count: a Clownfish on one of these is one
-    # more of it.
     coral_reef_count_total = sum(1 for n in my_ocean_names if n == "coral reef")
     kelp_forest_count_total = sum(1 for n in my_ocean_names if n == "kelp forest")
     coral_reef_table_applied = False
-    count_table_applied: set = set()  # tracks card names whose threshold table has been scored once
+    count_table_applied: set = set()
 
     total = 0
     for uid, card, ocean_uid in board:
-        t = card.text.lower()
-        # Updated Clownfish: continuous copy of attached ocean's ability text.
-        if card.name.lower() == "clownfish":
-            ocean_card = gs.card_db.get(ocean_uid)
-            if ocean_card is not None:
-                t = f"{t} | {ocean_card.text.lower()}"
-        pts = 0
+        name_lc = card_name_lc(card)
+        host = card_db.get(ocean_uid) if name_lc == "clownfish" else None
+        p = _score_profile(card, host)
+        # The Coral Reef chart branch keys off the card NAME, not off anything in
+        # the profile, so a Coral Reef never takes the fast path even if its text
+        # somehow carried no rules.
+        if p.trivial and name_lc != "coral reef":
+            total += p.flat
+            continue
+        pts = p.flat
 
-        # Common conditional patterns.
-        if "if sharing an ocean with a goliath grouper" in t:
-            same = cards_on_same_ocean(ocean_uid)
-            if any(c.name.lower() == "goliath grouper" for c in same):
+        if p.share_goliath:
+            if any(card_name_lc(c) == "goliath grouper" for c in cards_on_same_ocean(ocean_uid)):
                 pts += 8
-        if "if sharing an ocean with a king salmon" in t:
-            same = cards_on_same_ocean(ocean_uid)
-            if any(c.name.lower() == "king salmon" for c in same):
+        if p.share_salmon:
+            if any(card_name_lc(c) == "king salmon" for c in cards_on_same_ocean(ocean_uid)):
                 pts += 4
-        if "if sharing the ocean with a cephalopod" in t:
-            same = cards_on_same_ocean(ocean_uid)
-            if any(c.species.lower() == "cephalopod" for c in same):
-                m = re.search(r"\+(\d+)\s*if sharing the ocean with a cephalopod", t)
-                pts += int(m.group(1)) if m else 5
-        if "if sharing an ocean with baitfish" in t:
-            same = cards_on_same_ocean(ocean_uid)
-            if any(c.species.lower() in {"baitfish", "bait fish"} for c in same):
-                m = re.search(r"\+(\d+)\s*if sharing an ocean with baitfish", t)
-                pts += int(m.group(1)) if m else 4
-        if "if sharing an ocean with a mahi mahi" in t:
-            same = cards_on_same_ocean(ocean_uid)
-            if any(c.name.lower() == "mahi mahi" for c in same):
+        if p.share_ceph is not None:
+            if any(card_species_lc(c) == "cephalopod" for c in cards_on_same_ocean(ocean_uid)):
+                pts += p.share_ceph
+        if p.share_bait is not None:
+            if any(card_species_lc(c) in {"baitfish", "bait fish"} for c in cards_on_same_ocean(ocean_uid)):
+                pts += p.share_bait
+        if p.share_mahi:
+            if any(card_name_lc(c) == "mahi mahi" for c in cards_on_same_ocean(ocean_uid)):
                 pts += 9
-        if "if this is the only creature on this ocean" in t:
-            same = cards_on_same_ocean(ocean_uid)
-            if len(same) == 1:
+        if p.only_creature:
+            if len(cards_on_same_ocean(ocean_uid)) == 1:
                 pts += 10
-        if "if you have at least three cephalopods" in t:
-            if species_count("cephalopod") >= 3:
-                m = re.search(r"\+(\d+)\s*if you have at least three cephalopods", t)
-                pts += int(m.group(1)) if m else 4
-        if "if you have at least four cephalopods" in t:
-            if species_count("cephalopod") >= 4:
-                m = re.search(r"\+(\d+)\s*if you have at least four cephalopods", t)
-                pts += int(m.group(1)) if m else 6
-        if "if you have the most oceans" in t:
-            if has_most_oceans:
-                m = re.search(r"\+(\d+)\s*if you have the most oceans", t)
-                pts += int(m.group(1)) if m else 6
-        if "if you have the most animals" in t:
-            if has_most_animals():
-                pts += 4
-        if "if you have all 8 oceans" in t:
-            if distinct_ocean_types >= 8:
-                m = re.search(r"\+(\d+)\s*if you have all 8 oceans", t)
-                pts += int(m.group(1)) if m else 8
-        pier_m = re.search(r"\+2 or \+(\d+) if you have the most piers", t)
-        if pier_m:
-            pts += int(pier_m.group(1)) if has_most_piers() else 2
-        if "+1 per every two oceans you control" in t:
+        if p.ceph3 is not None and species_count("cephalopod") >= 3:
+            pts += p.ceph3
+        if p.ceph4 is not None and species_count("cephalopod") >= 4:
+            pts += p.ceph4
+        if p.most_oceans is not None and has_most_oceans():
+            pts += p.most_oceans
+        if p.most_animals and has_most_animals():
+            pts += 4
+        if p.all8 is not None and distinct_ocean_types >= 8:
+            pts += p.all8
+        if p.pier is not None:
+            pts += p.pier if has_most_piers() else 2
+        if p.two_oceans:
             pts += ocean_count // 2
-        if "+5 per fully occupied ocean" in t:
+        if p.full_ocean:
             pts += 5 * fully_occupied_ocean_count()
-        if "+2 per card attached" in t:
-            attached = len(cards_on_same_ocean(ocean_uid))
-            pts += 2 * attached
-        if "kelp forest" in t and (">= 4" in t or "\u2265 4" in t or "at least 4" in t or "4 or more" in t or "4+" in t):
-            kelp_total = kelp_forest_count_total
-            if kelp_total >= 4:
-                # "+5 per kelp forest if you control 4+" = flat +5 per Kelp Forest
-                # (linear): 4 Kelp Forests = 20, 5 = 25. Scored per-card in this loop.
-                pts += 5
+        if p.per_attached:
+            pts += 2 * len(cards_on_same_ocean(ocean_uid))
+        if p.kelp4 and kelp_forest_count_total >= 4:
+            pts += 5
 
-        # Generic "+N per X" patterns.
-        if "+2 per bird" in t:
-            pts += 2 * species_count("bird")
-        if "+3 per bird" in t:
-            pts += 3 * species_count("bird")
-        if "+1 per crustacean" in t:
-            pts += species_count("crustacean")
-        if "+2 per crustacean" in t:
-            pts += 2 * species_count("crustacean")
-        if "+2 per coral that is attached to a coral reef" in t:
-            pts += 2 * coral_attached_to_coral_reef_count()
-        if "+1 per coral" in t and "attached to a coral reef" not in t:
-            pts += species_count("coral")
-        if "+2 per coral" in t and "attached to a coral reef" not in t:
-            pts += 2 * species_count("coral")
-        if "+5 per coral" in t:
-            pts += 5 * species_count("coral")
-        if "+5 per invertebrate" in t:
-            pts += 5 * species_count("invertebrate")
-        if "+2 per invertebrate" in t:
-            pts += 2 * species_count("invertebrate")
-        if "+4 per baitfish" in t:
-            pts += 4 * species_count("baitfish")
-        if "+1 per game fish" in t:
-            pts += species_count("game fish")
-        if "+2 per cephalopod" in t:
-            pts += 2 * species_count("cephalopod")
-        if "+2 per mammal" in t:
-            pts += 2 * species_count("mammal")
-        if "+3 per mammal" in t:
-            pts += 3 * species_count("mammal")
-        if "+3 per coral" in t:
-            pts += 3 * species_count("coral")
-        if "+6 per mandarin goby" in t:
-            pts += 6 * name_count("mandarin goby")
-        if "+3 per invertebrate" in t:
-            pts += 3 * species_count("invertebrate")
-        if "+2 per n/a animal" in t or "+2 per uncharted animal" in t or "+2 per crosscurrent animal" in t:
-            pts += 2 * (species_count("n/a") + species_count("uncharted") + species_count("crosscurrent"))
-        if "+3 per n/a animal" in t or "+3 per uncharted animal" in t or "+3 per crosscurrent animal" in t:
-            pts += 3 * (species_count("n/a") + species_count("uncharted") + species_count("crosscurrent"))
-        if "+3 per mahi mahi" in t:
-            pts += 3 * name_count("mahi mahi")
-        if "+2 per matching symbol" in t:
+        if p.coral_reef_attached is not None:
+            pts += p.coral_reef_attached * coral_attached_to_coral_reef_count()
+        for mult, spec in p.per_species:
+            pts += mult * species_count(spec)
+        for mult, nm in p.per_name:
+            pts += mult * name_count(nm)
+
+        if p.match_symbol:
             sym = normalize_symbol(card.symbol)
             if sym not in {"", "n/a"}:
-                pts += 2 * sum(1 for c in non_ocean_cards if normalize_symbol(c.symbol) == sym and c.uid != card.uid)
-        if "+10 per each mahi mahi you control" in t:
-            pts += 10 * name_count("mahi mahi")
-        if "+9 per each mahi mahi you control" in t:
-            pts += 9 * name_count("mahi mahi")
-        if "+3 per yellowfin tuna" in t:
-            pts += 3 * name_count("yellowfin tuna")
-        if "+2 per each unique symbol attached to this ocean" in t:
-            same = cards_on_same_ocean(ocean_uid)
-            syms = {normalize_symbol(c.symbol) for c in same if normalize_symbol(c.symbol) not in {"", "n/a"}}
+                pts += 2 * sum(1 for c in non_ocean_cards
+                               if normalize_symbol(c.symbol) == sym and c.uid != card.uid)
+        if p.uniq_symbol_ocean:
+            syms = {normalize_symbol(c.symbol) for c in cards_on_same_ocean(ocean_uid)}
+            syms.discard("")
+            syms.discard("n/a")
             pts += 2 * len(syms)
-        if "+2 per each unique species attached to this ocean" in t:
-            same = cards_on_same_ocean(ocean_uid)
-            spp = {c.species.lower() for c in same if c.species.strip()}
+        if p.uniq_species_ocean:
+            spp = {card_species_lc(c) for c in cards_on_same_ocean(ocean_uid) if c.species.strip()}
             pts += 2 * len(spp)
 
-        # Threshold table cards.
-        if "different species of baitfish" in t:
-            # Chart card: one total score for the whole set, not per-card.
+        if p.baitfish_chart:
             if "baitfish_species_chart" not in count_table_applied:
                 count_table_applied.add("baitfish_species_chart")
-                kinds = {c.name.lower() for c in non_ocean_cards if c.species.lower() == "baitfish"}
-                pts += value_from_threshold_table(t, len(kinds))
-        elif card.name.lower() == "coral reef":
-            # Coral Reef table is a global count score, not per-Coral-Reef multiplier.
+                kinds = {card_name_lc(c) for c in non_ocean_cards if card_species_lc(c) == "baitfish"}
+                pts += _threshold_value(p.table_pairs, len(kinds))
+        elif name_lc == "coral reef":
             if not coral_reef_table_applied:
-                pts += value_from_threshold_table(t, coral_reef_count_total)
+                pts += _threshold_value(p.table_pairs, coral_reef_count_total)
                 coral_reef_table_applied = True
-        elif re.search(r"\d+\s*=\s*\d+", t):
-            # Table score is a global bracket (e.g. 2 Mantis Shrimps = 15 total, not 30).
-            # Clownfish on a Coral Reef is already counted in coral_reef_count_total: skip.
-            if (card.name.lower() == "clownfish"
-                    and gs.card_db.get(ocean_uid) is not None
-                    and gs.card_db.get(ocean_uid).name.lower() == "coral reef"):
-                pass
-            else:
-                card_name_key = card.name.lower()
-                if card_name_key not in count_table_applied:
-                    count_table_applied.add(card_name_key)
-                    pts += value_from_threshold_table(t, name_count(card.name))
-
-        # Flat +N pieces (exclude conditional/per-table text).
-        for chunk in [x.strip() for x in t.split("|")]:
-            if not chunk.startswith("+"):
-                continue
-            if any(w in chunk for w in [" if ", " per ", " or ", " most ", " only ", " at least ", " every "]):
-                continue
-            m = re.match(r"\+(\d+)\b", chunk)
-            if m:
-                pts += int(m.group(1))
+        elif p.num_table:
+            host_is_coral_reef = (name_lc == "clownfish" and host is not None
+                                  and card_name_lc(host) == "coral reef")
+            if not host_is_coral_reef and name_lc not in count_table_applied:
+                count_table_applied.add(name_lc)
+                pts += _threshold_value(p.table_pairs, name_count(name_lc))
 
         total += pts
 
     return total
+
 
 
 def full_score_breakdown(gs: GameState, player: PlayerState) -> Dict[str, Any]:
