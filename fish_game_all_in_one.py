@@ -685,7 +685,7 @@ def _execute_main_pattern(
             count = sum(
                 1
                 for c in board
-                if c.species.lower() in {"uncharted", "n/a", "crosscurrent"} and c.direction.strip().lower() != "n/a"
+                if c.species.lower() in {"uncharted", "n/a", "crosscurrent"} and card_direction_lc(c) != "n/a"
             )
             player.score += n * count
             continue
@@ -853,7 +853,7 @@ def resolve_reactive_draw_triggers(
     ms=None,
 ) -> None:
     """Resolve persistent 'draw one when ...' listeners after a successful play."""
-    species = played_card.species.strip().lower()
+    species = card_species_lc(played_card)
     direction = normalize_direction(played_card.direction)
 
     is_game_fish_play = species == "game fish"
@@ -1146,19 +1146,28 @@ PLAYSTYLE_SET = {"RANDOM", "AGGRESSIVE", "CONSERVATIVE", "OPPORTUNISTIC", "RISK_
 # five shapes and nothing else. If a field that is not a list/dict/set/tuple of
 # scalars is ever added to one of these dataclasses, teach the cloner about it.
 
+_FLAG_CONTAINERS = frozenset((dict, list, set, tuple))
+
+
 def _clone_flag_value(value: Any) -> Any:
     """Deep-copy a flags value. Handles the plain containers flags actually
     hold (they nest three deep: _opp_snapshot -> per-player -> counts), and
     returns anything else as-is because everything else in there is a scalar."""
     cls = value.__class__
+    # Almost every value in here is a scalar sitting inside a dict, so the
+    # containers test their children inline rather than paying a recursive call
+    # per leaf: that call was happening 7.5 million times per game.
     if cls is dict:
-        return {k: _clone_flag_value(v) for k, v in value.items()}
+        return {k: (_clone_flag_value(v) if v.__class__ in _FLAG_CONTAINERS else v)
+                for k, v in value.items()}
     if cls is list:
-        return [_clone_flag_value(v) for v in value]
+        return [(_clone_flag_value(v) if v.__class__ in _FLAG_CONTAINERS else v)
+                for v in value]
     if cls is set:
         return set(value)
     if cls is tuple:
-        return tuple(_clone_flag_value(v) for v in value)
+        return tuple((_clone_flag_value(v) if v.__class__ in _FLAG_CONTAINERS else v)
+                     for v in value)
     return value
 
 
@@ -1380,9 +1389,9 @@ def open_slot_count(player: PlayerState) -> int:
 
 
 def classify_card_role(card: CardDef) -> str:
-    name = card.name.strip().lower()
+    name = card_name_lc(card)
     text = card.text.lower()
-    species = card.species.strip().lower()
+    species = card_species_lc(card)
     if is_ocean(card):
         if any(k in text for k in ("draw one", "draw two", "draw 2", "play again", "card attached")):
             return "ENGINE"
@@ -1458,15 +1467,15 @@ def _visible_card_names_for_player(gs: GameState, ms: MatchState, player: Player
     # Own hand is known.
     for entry_uid in player.hand:
         for face_uid in entry_faces(ms, entry_uid):
-            names.append(gs.card_db[face_uid].name.strip().lower())
+            names.append(card_name_lc(gs.card_db[face_uid]))
     # Public board state.
     for p in gs.players:
         for c in _board_cards(gs, p):
-            names.append(c.name.strip().lower())
+            names.append(card_name_lc(c))
     # Pool is public.
     for entry_uid in ms.pool:
         for face_uid in entry_faces(ms, entry_uid):
-            names.append(gs.card_db[face_uid].name.strip().lower())
+            names.append(card_name_lc(gs.card_db[face_uid]))
     return names
 
 
@@ -1623,7 +1632,7 @@ def human_realism_action_adjustment(
                     sym = normalize_symbol(c.symbol)
                     if sym in need_symbols:
                         adj += 0.2
-                    sp = c.species.strip().lower()
+                    sp = card_species_lc(c)
                     if sp in need_species:
                         adj += 0.2
         if future_value > 0.0:
@@ -1635,7 +1644,7 @@ def human_realism_action_adjustment(
     card = gs.card_db.get(play_face_uid)
     if card is None:
         return 0.0
-    lname = card.name.strip().lower()
+    lname = card_name_lc(card)
 
     # Human-limited scarcity urgency.
     tier = scarcity_tier_for_name(player, lname)
@@ -1649,7 +1658,7 @@ def human_realism_action_adjustment(
     # Concealment: keep Goby hidden until burst windows.
     if lname == "mandarin goby":
         gobies_on_board = sum(
-            1 for uid in player_board_face_uids(player) if gs.card_db[uid].name.strip().lower() == "mandarin goby"
+            1 for uid in player_board_face_uids(player) if card_name_lc(gs.card_db[uid]) == "mandarin goby"
         )
         if pressure < 0.70 and gobies_on_board < 2:
             adj -= 0.85
@@ -1837,7 +1846,7 @@ def ai_choose_replay_pickup(
         score = pool_entry_value_for_player(ms, gs, entry_uid, player)
         score += 0.60 * entry_keep_priority_for_strategy(ms, gs, player, entry_uid)
         score += 0.15 * float(card.cost)
-        if card.name.strip().lower() in PAYMENT_HEAVY_HITTER_NAMES:
+        if card_name_lc(card) in PAYMENT_HEAVY_HITTER_NAMES:
             score += 0.90
         txt = card.text.lower()
         if "draw" in txt:
@@ -2048,8 +2057,8 @@ class LiveRecorder:
 
 
 def is_free_play_eligible(player: PlayerState, card: CardDef) -> bool:
-    species = card.species.strip().lower()
-    if card.name.strip().lower() == "yellowfin tuna" and int(player.flags.get("free_yellowfin_tuna", 0)) > 0:
+    species = card_species_lc(card)
+    if card_name_lc(card) == "yellowfin tuna" and int(player.flags.get("free_yellowfin_tuna", 0)) > 0:
         return True
     if player.flags.get("free_mammal", False) and species == "mammal":
         return True
@@ -2416,7 +2425,7 @@ def record_turtle_outcome(cbrain: Dict[str, object], gs: "GameState", winners: L
         cbrain["turtle_stats"] = ts
     winner_set = set(id(w) for w in winners)
     for p in gs.players:
-        names = [gs.card_db[uid].name.strip().lower() for uid in player_board_face_uids(p)]
+        names = [card_name_lc(gs.card_db[uid]) for uid in player_board_face_uids(p)]
         if "loggerhead sea turtle" in names:
             ts["attempts"] = float(ts.get("attempts", 0.0)) + 1.0
             if id(p) in winner_set:
@@ -2552,7 +2561,7 @@ def clownfish_host_ocean(gs: GameState, card: CardDef, ocean_uid: Optional[int])
     """
     if card is None or ocean_uid is None:
         return None
-    if card.name.strip().lower() != CLOWNFISH_NAME:
+    if card_name_lc(card) != CLOWNFISH_NAME:
         return None
     host = gs.card_db.get(ocean_uid)
     if host is None or not is_ocean(host):
@@ -2915,11 +2924,11 @@ def action_species_bonus(
     if face_uid not in gs.card_db:
         return 0.0
     card = gs.card_db[face_uid]
-    my_species = card.species.strip().lower()
+    my_species = card_species_lc(card)
     if not my_species or my_species == "n/a":
         return 0.0
 
-    board_species = [gs.card_db[uid].species.strip().lower() for uid in player_board_face_uids(player)]
+    board_species = [card_species_lc(gs.card_db[uid]) for uid in player_board_face_uids(player)]
     board_species = [s for s in board_species if s and s != "n/a"]
     if not board_species:
         return 0.0
@@ -3110,10 +3119,10 @@ def build_animal_synergy_grid(card_db: Dict[int, CardDef]) -> Dict[str, object]:
     unique_by_name: Dict[str, CardDef] = {}
     for uid in sorted(card_db.keys()):
         c = card_db[uid]
-        name = c.name.strip().lower()
+        name = card_name_lc(c)
         if not name or name in unique_by_name:
             continue
-        sp = c.species.strip().lower()
+        sp = card_species_lc(c)
         if sp in {"ocean", "end game"}:
             continue
         unique_by_name[name] = c
@@ -3203,7 +3212,7 @@ def action_plan_fit_bonus(gs: GameState, player: PlayerState, action: Action) ->
     if action.kind == "play_to_ocean" and action.ocean_uid is not None:
         local_cards = [gs.card_db[uid] for uid in player.ocean_slots[action.ocean_uid].all_cards()]
         local_species_match = sum(
-            1 for c in local_cards if c.species.strip().lower() == card.species.strip().lower() and c.species.strip().lower() != "ocean"
+            1 for c in local_cards if card_species_lc(c) == card_species_lc(card) and card_species_lc(c) != "ocean"
         )
         if local_species_match > 0:
             pivot_hint += min(0.45, 0.20 * local_species_match)
@@ -3221,12 +3230,12 @@ def action_plan_fit_bonus(gs: GameState, player: PlayerState, action: Action) ->
 
     board_cards = [gs.card_db[uid] for uid in player_board_face_uids(player)]
     board_names = [c.name.lower() for c in board_cards]
-    board_species = [c.species.strip().lower() for c in board_cards]
+    board_species = [card_species_lc(c) for c in board_cards]
     non_ocean_cards = [c for c in board_cards if not is_ocean(c)]
     symbol_less_animals = sum(
         1
         for c in non_ocean_cards
-        if normalize_symbol(c.symbol) in {"", "n/a"} and c.species.strip().lower() != "ocean"
+        if normalize_symbol(c.symbol) in {"", "n/a"} and card_species_lc(c) != "ocean"
     )
     coral_count = sum(1 for s in board_species if s == "coral")
     invertebrate_count = sum(1 for s in board_species if s == "invertebrate")
@@ -3248,12 +3257,12 @@ def action_plan_fit_bonus(gs: GameState, player: PlayerState, action: Action) ->
         bonus += 0.35 + min(1.8, 0.45 * baitfish_count + 0.10 * gamefish_count)
     if "blue tang" in card.name.lower():
         bonus += min(2.2, 0.60 * symbol_less_animals)
-    if card.species.strip().lower() == "coral":
+    if card_species_lc(card) == "coral":
         bonus += min(1.8, 0.18 * invertebrate_count + 0.08 * coral_count)
-    if card.species.strip().lower() == "invertebrate":
+    if card_species_lc(card) == "invertebrate":
         bonus += min(1.8, 0.16 * coral_count + 0.10 * invertebrate_count)
     if "clownfish" in card.name.lower() and action.kind == "play_to_ocean" and action.ocean_uid is not None:
-        ocean_name = gs.card_db[action.ocean_uid].name.strip().lower()
+        ocean_name = card_name_lc(gs.card_db[action.ocean_uid])
         bonus += clownfish_ocean_value(ocean_name)
 
     if action.kind == "play_ocean":
@@ -3311,8 +3320,8 @@ def action_future_value_bonus(gs: GameState, ms: MatchState, player: PlayerState
             continue
         for face_uid in entry_faces(ms, entry_uid):
             c = gs.card_db[face_uid]
-            hand_name_counts[c.name.strip().lower()] = hand_name_counts.get(c.name.strip().lower(), 0) + 1
-            sp = c.species.strip().lower()
+            hand_name_counts[card_name_lc(c)] = hand_name_counts.get(card_name_lc(c), 0) + 1
+            sp = card_species_lc(c)
             hand_species_counts[sp] = hand_species_counts.get(sp, 0) + 1
             for t in card_strategy_tags(c):
                 hand_tag_counts[t] = hand_tag_counts.get(t, 0) + 1
@@ -3361,13 +3370,13 @@ def action_future_value_bonus(gs: GameState, ms: MatchState, player: PlayerState
     if card is None:
         return 0.0
 
-    cname = card.name.strip().lower()
-    cspecies = card.species.strip().lower()
+    cname = card_name_lc(card)
+    cspecies = card_species_lc(card)
     tags = card_strategy_tags(card)
     engine_tags = {t for t in tags if t in LONG_TERM_ENGINE_TAGS}
     board_cards = [gs.card_db[uid] for uid in player_board_face_uids(player)]
-    board_names = [c.name.strip().lower() for c in board_cards]
-    board_species = [c.species.strip().lower() for c in board_cards]
+    board_names = [card_name_lc(c) for c in board_cards]
+    board_species = [card_species_lc(c) for c in board_cards]
 
     bonus = 0.0
     if action.kind == "play_ocean":
@@ -3476,7 +3485,7 @@ def action_future_value_bonus(gs: GameState, ms: MatchState, player: PlayerState
     if action.kind == "play_to_ocean" and action.ocean_uid is not None:
         local_cards = [gs.card_db[uid] for uid in player.ocean_slots[action.ocean_uid].all_cards()]
         local_species_match = sum(
-            1 for c in local_cards if c.species.strip().lower() == cspecies and c.species.strip().lower() != "ocean"
+            1 for c in local_cards if card_species_lc(c) == cspecies and card_species_lc(c) != "ocean"
         )
         if local_species_match > 0:
             pivot_credit += min(0.80, 0.25 * local_species_match)
@@ -3511,7 +3520,7 @@ def action_stack_bonus(gs: GameState, player: PlayerState, action: Action) -> fl
     if not can_share_slot(card):
         return 0.0
 
-    direction = card.direction.strip().lower()
+    direction = card_direction_lc(card)
     if direction not in {"up", "down", "left", "right"}:
         return 0.0
 
@@ -3622,7 +3631,7 @@ def action_signature(gs: GameState, ms: MatchState, player: PlayerState, action:
     symbol = normalize_symbol(card.symbol) or "n/a"
     tags = sorted(card_strategy_tags(card))
     tag_part = ",".join(tags[:3]) if tags else "none"
-    dir_part = card.direction.strip().lower()
+    dir_part = card_direction_lc(card)
     star_part = "star" if action.use_star else "plain"
     return f"{kind}|{species}|{symbol}|{dir_part}|{star_part}|{tag_part}"
 
@@ -4544,8 +4553,19 @@ def ai_difficulty_config(raw: Optional[str]) -> Dict[str, Any]:
     return dict(AI_DIFFICULTY_CONFIGS[normalize_bot_grade(raw)])
 
 
+_FAMILY_BY_LABEL: Dict[str, Optional[Dict[str, Any]]] = {}
+
+
 def strategy_family_profile_by_label(label: str) -> Optional[Dict[str, Any]]:
+    """Look up a strategy family by label. Indexed on first use rather than
+    rescanned: this was a linear walk of every profile, 108,820 times a game."""
     key = str(label or "").strip().lower()
+    if not _FAMILY_BY_LABEL:
+        for prof in strategy_family_profiles():
+            _FAMILY_BY_LABEL[str(prof.get("label", "")).strip().lower()] = prof
+    got = _FAMILY_BY_LABEL.get(key)
+    if got is not None:
+        return got
     for p in strategy_family_profiles():
         if str(p.get("label", "")).strip().lower() == key:
             return p
@@ -4577,8 +4597,8 @@ def strategy_family_card_score(card: CardDef, family_profile: Optional[Dict[str,
     names_set   = family_profile["_names_set"]
     keywords    = family_profile["_keywords"]
 
-    name = card.name.strip().lower()
-    species = card.species.strip().lower()
+    name = card_name_lc(card)
+    species = card_species_lc(card)
     text = card.text.lower()
     score = 0.0
     # Tiered priority: heavy hitter > stack engine > generic core > support > species/text.
@@ -4653,7 +4673,7 @@ def detect_player_strategy(gs: GameState, player: PlayerState) -> str:
     if not cards:
         return "Best Guess"
 
-    species_present = {c.species.strip().lower() for c in cards}
+    species_present = {card_species_lc(c) for c in cards}
     scores: Dict[str, float] = {}
     heavy_hits: Dict[str, int] = {}
     for prof in strategy_family_profiles():
@@ -4666,7 +4686,7 @@ def detect_player_strategy(gs: GameState, player: PlayerState) -> str:
         support = prof["_support_set"]; species = prof["_species_set"]
         s = 0.0; h = 0
         for c in cards:
-            nm = c.name.strip().lower(); sp = c.species.strip().lower()
+            nm = card_name_lc(c); sp = card_species_lc(c)
             if nm in heavy:
                 s += 3.0; h += 1
             elif nm in engine:
@@ -4696,14 +4716,14 @@ def strategy_family_label_for_card(card: CardDef, family_profile: Optional[Dict[
     """Classify a card within a strategy: heavy / engine / support / off."""
     if not isinstance(family_profile, dict):
         return "off"
-    name = card.name.strip().lower()
+    name = card_name_lc(card)
     if name in {str(x).strip().lower() for x in family_profile.get("heavy_hitters", [])}:
         return "heavy"
     if name in {str(x).strip().lower() for x in family_profile.get("stack_engines", [])}:
         return "engine"
     if name in {str(x).strip().lower() for x in family_profile.get("support_names", [])}:
         return "support"
-    species = card.species.strip().lower()
+    species = card_species_lc(card)
     if species in {str(x).strip().lower() for x in family_profile.get("species", [])}:
         return "support"
     return "off"
@@ -4756,8 +4776,8 @@ def hand_strategy_family_fit_score(
         best_anchor = False
         for face_uid in entry_faces(ms, entry_uid):
             c = gs.card_db[face_uid]
-            nm = c.name.strip().lower()
-            sp = c.species.strip().lower()
+            nm = card_name_lc(c)
+            sp = card_species_lc(c)
             tx = c.text.lower()
             v = 0.0
             is_anchor = False
@@ -4818,7 +4838,7 @@ def _hand_anchor_count(gs: GameState, ms: MatchState, hand_uids: List[int],
     cnt = 0
     for entry_uid in hand_uids:
         for face_uid in entry_faces(ms, entry_uid):
-            nm = gs.card_db[face_uid].name.strip().lower()
+            nm = card_name_lc(gs.card_db[face_uid])
             if nm in heavy or nm in engine:
                 cnt += 1
                 break
@@ -4836,7 +4856,7 @@ def _board_anchor_count(gs: GameState, player: PlayerState,
     engine = family_profile["_engine_set"]
     cnt = 0
     for uid in player_board_face_uids(player):
-        nm = gs.card_db[uid].name.strip().lower()
+        nm = card_name_lc(gs.card_db[uid])
         if nm in heavy or nm in engine:
             cnt += 1
     return cnt
@@ -4853,7 +4873,7 @@ def _board_heavy_count(gs: GameState, player: PlayerState,
     heavy = family_profile["_heavy_set"]
     cnt = 0
     for uid in player_board_face_uids(player):
-        if gs.card_db[uid].name.strip().lower() in heavy:
+        if card_name_lc(gs.card_db[uid]) in heavy:
             cnt += 1
     return cnt
 
@@ -4869,7 +4889,7 @@ def strategy_pick_penalty(gs: GameState, ms: MatchState, hand_uids: List[int],
         has_payoff = False
         for entry_uid in hand_uids:
             for face_uid in entry_faces(ms, entry_uid):
-                if gs.card_db[face_uid].name.strip().lower() in oc_heavy:
+                if card_name_lc(gs.card_db[face_uid]) in oc_heavy:
                     has_payoff = True
                     break
             if has_payoff:
@@ -4950,7 +4970,7 @@ def assign_strategy_families_from_opening_hands(
                 committed = 0
                 for entry_uid in p.hand:
                     for face_uid in entry_faces(ms, entry_uid):
-                        nm = gs.card_db[face_uid].name.strip().lower()
+                        nm = card_name_lc(gs.card_db[face_uid])
                         if nm in heavy_set or nm in engine_set:
                             committed += 1
                 if committed < 2:
@@ -5217,7 +5237,7 @@ def opponent_strategy_snapshot(
         # second-copy / pair denial keys off concrete copies of a single card,
         # not the inferred strategy. Without this, "they grabbed one auk, board
         # still empty" would be invisible to the blocker.
-        board_names_all = [gs.card_db[u].name.strip().lower() for u in player_board_face_uids(opp)]
+        board_names_all = [card_name_lc(gs.card_db[u]) for u in player_board_face_uids(opp)]
         board_name_counts: Dict[str, int] = {}
         for n in board_names_all:
             board_name_counts[n] = board_name_counts.get(n, 0) + 1
@@ -5301,7 +5321,7 @@ def card_is_pair_or_stack_threat(card: CardDef) -> bool:
     play copy #1, without ever reading their hidden hand."""
     if card is None:
         return False
-    nm = card.name.strip().lower()
+    nm = card_name_lc(card)
     if nm in _INTRINSIC_PAIR_STACK_CARDS:
         return True
     if can_share_slot(card):
@@ -5341,7 +5361,7 @@ def pool_card_blocking_value(
 
     best = 0.0
     for face_uid in entry_faces(ms, entry_uid):
-        nm = gs.card_db[face_uid].name.strip().lower()
+        nm = card_name_lc(gs.card_db[face_uid])
         for opp_name, opp in snap.items():
             conf = float(opp.get("confidence", 0.0))
             heavy   = opp.get("heavy_hitters", set())
@@ -5458,7 +5478,7 @@ def infer_player_strategy_family_label(gs: GameState, player: PlayerState) -> st
         for uid in board_uids:
             c = gs.card_db[uid]
             score += strategy_family_card_score(c, fam)
-            sp = c.species.strip().lower()
+            sp = card_species_lc(c)
             if sp == "bird":
                 birds += 1
             if sp == "crustacean":
@@ -5739,8 +5759,8 @@ def card_archetype_score(card: CardDef, profile: Optional[Dict[str, Any]]) -> fl
     name_contains = [str(x).strip().lower() for x in profile.get("name_contains", [])]
     text_keywords = [str(x).strip().lower() for x in profile.get("text_keywords", [])]
 
-    name = card.name.strip().lower()
-    species = card.species.strip().lower()
+    name = card_name_lc(card)
+    species = card_species_lc(card)
     text = card.text.lower()
 
     score = 0.0
@@ -5813,13 +5833,13 @@ def action_archetype_bonus(
     card = gs.card_db.get(face_uid)
     if card is None:
         return 0.0
-    cname = card.name.strip().lower()
-    cspecies = card.species.strip().lower()
+    cname = card_name_lc(card)
+    cspecies = card_species_lc(card)
     score = card_archetype_score(card, profile) if isinstance(profile, dict) else 0.0
     label = str(profile.get("label", "")).strip().lower() if isinstance(profile, dict) else ""
     board_cards = [gs.card_db[uid] for uid in player_board_face_uids(player)]
-    board_names = [c.name.strip().lower() for c in board_cards]
-    board_species = [c.species.strip().lower() for c in board_cards]
+    board_names = [card_name_lc(c) for c in board_cards]
+    board_species = [card_species_lc(c) for c in board_cards]
     card_tags = card_strategy_tags(card)
 
     hand_name_counts: Dict[str, int] = {}
@@ -5830,8 +5850,8 @@ def action_archetype_bonus(
             continue
         for face_uid2 in entry_faces(ms, entry_uid):
             c2 = gs.card_db[face_uid2]
-            n2 = c2.name.strip().lower()
-            s2 = c2.species.strip().lower()
+            n2 = card_name_lc(c2)
+            s2 = card_species_lc(c2)
             hand_name_counts[n2] = hand_name_counts.get(n2, 0) + 1
             hand_species_counts[s2] = hand_species_counts.get(s2, 0) + 1
             for t2 in card_strategy_tags(c2):
@@ -5845,7 +5865,7 @@ def action_archetype_bonus(
         # is rewarded here rather than penalized for stacking extra oceans.
         if family_label == "ocean_all_blue":
             ocean_count = len(player.board_oceans)
-            cn = card.name.strip().lower()
+            cn = card_name_lc(card)
             b = 0.0
             if ocean_count < 8:
                 b += 0.8 + 0.20 * (8 - ocean_count)   # most valuable while short of 8
@@ -5860,7 +5880,7 @@ def action_archetype_bonus(
             elif cn in {"coral reef", "kelp forest", "pier"}:
                 b += 0.7
             # Favor a distinct ocean type not already on the board.
-            board_ocean_names = {gs.card_db[uid].name.strip().lower() for uid in player.board_oceans}
+            board_ocean_names = {card_name_lc(gs.card_db[uid]) for uid in player.board_oceans}
             if cn and cn not in board_ocean_names:
                 b += 0.6
             return max(-0.5, min(6.0, b))
@@ -5870,7 +5890,7 @@ def action_archetype_bonus(
         # Loggerhead, so reward Artificial Reef strongly and other oceans
         # only mildly (and only when there's a real need for board space).
         if family_label == "yellowfin_tuna":
-            cn = card.name.strip().lower()
+            cn = card_name_lc(card)
             engine_count = (
                 board_names.count("yellowfin tuna")
                 + board_names.count("bigeye tuna") + board_names.count("big eye tuna")
@@ -5895,7 +5915,7 @@ def action_archetype_bonus(
         # it strongly; other oceans only mildly (bottom-side space for other
         # crustaceans).
         if family_label == "crustaceans":
-            cn = card.name.strip().lower()
+            cn = card_name_lc(card)
             engine_count = (
                 sum(1 for s in board_species if s == "crustacean")
                 + board_names.count("california gull")
@@ -5915,7 +5935,7 @@ def action_archetype_bonus(
         # Artificial Reef hosts the Lobster side; but B-Lob also needs top-side
         # bird space, so it is more ocean-tolerant than pure Crustaceans.
         if family_label == "birds_crustaceans":
-            cn = card.name.strip().lower()
+            cn = card_name_lc(card)
             engine_count = (
                 sum(1 for s in board_species if s == "crustacean")
                 + board_names.count("california gull")
@@ -5935,7 +5955,7 @@ def action_archetype_bonus(
         # and Coral Reefs should roughly match the coral count. Reward Coral
         # Reefs (more when more corals are available); other oceans only mild.
         if family_label == "coral":
-            cn = card.name.strip().lower()
+            cn = card_name_lc(card)
             reef_count = board_names.count("coral reef")
             coral_on_board = sum(1 for s in board_species if s == "coral")
             hand_corals = hand_species_counts.get("coral", 0)
@@ -5952,7 +5972,7 @@ def action_archetype_bonus(
         # Coral is the main focus, so Coral Reef is the key ocean; but Birds
         # also need top-side space, so other oceans are a bit more tolerated.
         if family_label == "birds_coral":
-            cn = card.name.strip().lower()
+            cn = card_name_lc(card)
             reef_count = board_names.count("coral reef")
             coral_on_board = sum(1 for s in board_species if s == "coral")
             hand_corals = hand_species_counts.get("coral", 0)
@@ -5978,7 +5998,7 @@ def action_archetype_bonus(
         # Coral Reef is the key ocean (Coral base), but also leave room for the
         # Cephalopod burst, so build oceans while holding cephalopods.
         if family_label == "coral_cephalopods":
-            cn = card.name.strip().lower()
+            cn = card_name_lc(card)
             reef_count = board_names.count("coral reef")
             coral_on_board = sum(1 for s in board_species if s == "coral")
             hand_corals = hand_species_counts.get("coral", 0)
@@ -6001,7 +6021,7 @@ def action_archetype_bonus(
             if count_empty_oceans(player) > 0:
                 return -0.3
             return 0.15
-        if label == "yellowfin bigeye cleaner" and card.name.strip().lower() == "artificial reef":
+        if label == "yellowfin bigeye cleaner" and card_name_lc(card) == "artificial reef":
             engine_count = (
                 board_names.count("yellowfin tuna")
                 + board_names.count("bigeye tuna") + board_names.count("big eye tuna")
@@ -6190,7 +6210,7 @@ def action_archetype_bonus(
             if action.ocean_uid is not None:
                 local_cards = [gs.card_db[uid] for uid in player.ocean_slots[action.ocean_uid].all_cards()]
                 if any(
-                    c.species.strip().lower() == cspecies and c.species.strip().lower() != "ocean"
+                    card_species_lc(c) == cspecies and card_species_lc(c) != "ocean"
                     for c in local_cards
                 ):
                     innovation_credit += 0.35
@@ -6275,7 +6295,7 @@ def action_archetype_bonus(
             if action.card_uid != -1 and entry_uid == action.card_uid:
                 continue
             for face_uid2 in entry_faces(ms, entry_uid):
-                if gs.card_db[face_uid2].species.strip().lower() == "game fish":
+                if card_species_lc(gs.card_db[face_uid2]) == "game fish":
                     hand_game_fish += 1
                     break
         if cname == "yellowfin tuna":
@@ -6292,7 +6312,7 @@ def action_archetype_bonus(
             bonus += min(3.2, 0.55 * core_engine)
             bonus += min(2.8, 1.0 * artificial_reef_count)
             if action.ocean_uid is not None:
-                ocean_name = gs.card_db[action.ocean_uid].name.strip().lower()
+                ocean_name = card_name_lc(gs.card_db[action.ocean_uid])
                 bonus += clownfish_ocean_value(ocean_name)
                 if ocean_name == "artificial reef":
                     bonus += 2.0
@@ -6309,14 +6329,14 @@ def action_archetype_bonus(
         if cname in {"yellowfin tuna", "bigeye tuna", "big eye tuna", "cleaner wrasse", "johnson's sea cucumber", "clownfish"}:
             bonus += min(2.2, 0.6 * artificial_reef_count)
             if action.ocean_uid is not None:
-                ocean_name = gs.card_db[action.ocean_uid].name.strip().lower()
+                ocean_name = card_name_lc(gs.card_db[action.ocean_uid])
                 if ocean_name == "artificial reef":
                     bonus += 1.8
         if cname in {"yellowfin tuna", "bigeye tuna", "big eye tuna"} and clownfish_count > 0:
             bonus += min(2.4, 0.8 * clownfish_count)
             if action.ocean_uid is not None:
                 local_names = [
-                    gs.card_db[uid].name.strip().lower()
+                    card_name_lc(gs.card_db[uid])
                     for uid in player.ocean_slots[action.ocean_uid].all_cards()
                 ]
                 if "clownfish" in local_names:
@@ -6351,7 +6371,7 @@ def action_archetype_bonus(
             bonus += min(2.6, 0.9 * red_tree_count)
             bonus += min(2.0, 0.6 * full_oceans)
         if action.ocean_uid is not None and cname in {"red tree coral", "king salmon"}:
-            local_names = [gs.card_db[uid].name.strip().lower() for uid in player.ocean_slots[action.ocean_uid].all_cards()]
+            local_names = [card_name_lc(gs.card_db[uid]) for uid in player.ocean_slots[action.ocean_uid].all_cards()]
             if cname == "red tree coral" and "king salmon" in local_names:
                 bonus += 2.0
             if cname == "king salmon" and "red tree coral" in local_names:
@@ -6386,7 +6406,7 @@ def action_archetype_bonus(
         symbol_less_non_ocean = sum(
             1
             for c in board_cards
-            if normalize_symbol(c.symbol) in {"", "n/a"} and c.species.strip().lower() != "ocean"
+            if normalize_symbol(c.symbol) in {"", "n/a"} and card_species_lc(c) != "ocean"
         )
         if cname == "sea star":
             bonus += min(3.2, 0.9 * spiny_count + 0.35 * crust_count)
@@ -6432,7 +6452,7 @@ def action_archetype_bonus(
             bonus += min(2.4, 0.5 * (king_salmon_count + red_tree_count + coral_count))
 
         if action.ocean_uid is not None:
-            local_names = [gs.card_db[uid].name.strip().lower() for uid in player.ocean_slots[action.ocean_uid].all_cards()]
+            local_names = [card_name_lc(gs.card_db[uid]) for uid in player.ocean_slots[action.ocean_uid].all_cards()]
             slots = player.ocean_slots[action.ocean_uid]
             occupied_dirs = sum(1 for d in ("up", "down", "left", "right") if len(slots.slot(d)) > 0)
             # Reward finishing/packing oceans for King Salmon.
@@ -6445,7 +6465,7 @@ def action_archetype_bonus(
             if cname == "king salmon" and "red tree coral" in local_names:
                 bonus += 2.2
             if cname == "clownfish":
-                ocean_name = gs.card_db[action.ocean_uid].name.strip().lower()
+                ocean_name = card_name_lc(gs.card_db[action.ocean_uid])
                 bonus += 0.8 * clownfish_ocean_value(ocean_name)
 
     # ── Complete Current (ocean_all_blue) animal payoffs ────────────────
@@ -6457,7 +6477,7 @@ def action_archetype_bonus(
         if cname == "great albatross":
             bonus += 1.4 + min(3.0, 0.30 * ocean_count)
         if cname == "clownfish" and action.ocean_uid is not None:
-            ocean_name = gs.card_db[action.ocean_uid].name.strip().lower()
+            ocean_name = card_name_lc(gs.card_db[action.ocean_uid])
             bonus += 1.0 + clownfish_ocean_value(ocean_name)
             if ocean_name == "mangrove":
                 bonus += 1.6        # clone the all-8 Mangrove bonus, the ideal Clownfish host
@@ -6476,8 +6496,8 @@ def action_archetype_bonus(
         target_ocean = ""
         on_reef = False
         if action.ocean_uid is not None:
-            target_ocean = gs.card_db[action.ocean_uid].name.strip().lower()
-            local_names = [gs.card_db[uid].name.strip().lower()
+            target_ocean = card_name_lc(gs.card_db[action.ocean_uid])
+            local_names = [card_name_lc(gs.card_db[uid])
                            for uid in player.ocean_slots[action.ocean_uid].all_cards()]
             on_reef = (target_ocean == "artificial reef")
 
@@ -6616,7 +6636,7 @@ def action_archetype_bonus(
         target_ocean = ""
         on_reef = False
         if action.ocean_uid is not None:
-            target_ocean = gs.card_db[action.ocean_uid].name.strip().lower()
+            target_ocean = card_name_lc(gs.card_db[action.ocean_uid])
             on_reef = (target_ocean == "artificial reef")
         artreef_on_board = "artificial reef" in board_names
 
@@ -6665,7 +6685,7 @@ def action_archetype_bonus(
         hand_birds       = hand_species_counts.get("bird", 0)
         hand_crust       = hand_species_counts.get("crustacean", 0)
         on_reef = (action.ocean_uid is not None
-                   and gs.card_db[action.ocean_uid].name.strip().lower() == "artificial reef")
+                   and card_name_lc(gs.card_db[action.ocean_uid]) == "artificial reef")
         artreef_on_board = "artificial reef" in board_names
 
         # California Gull, the bridge: scales with crustaceans (boost) and
@@ -6716,7 +6736,7 @@ def action_archetype_bonus(
         on_reef = False
         others_on_target = 0
         if action.ocean_uid is not None:
-            tgt = gs.card_db[action.ocean_uid].name.strip().lower()
+            tgt = card_name_lc(gs.card_db[action.ocean_uid])
             on_reef = (tgt == "coral reef")
             others_on_target = len(player.ocean_slots[action.ocean_uid].all_cards())
 
@@ -6757,7 +6777,7 @@ def action_archetype_bonus(
         on_reef = False
         others_on_target = 0
         if action.ocean_uid is not None:
-            tgt = gs.card_db[action.ocean_uid].name.strip().lower()
+            tgt = card_name_lc(gs.card_db[action.ocean_uid])
             on_reef = (tgt == "coral reef")
             others_on_target = len(player.ocean_slots[action.ocean_uid].all_cards())
 
@@ -6837,7 +6857,7 @@ def action_archetype_bonus(
         on_reef = False
         others_on_target = 0
         if action.ocean_uid is not None:
-            tgt = gs.card_db[action.ocean_uid].name.strip().lower()
+            tgt = card_name_lc(gs.card_db[action.ocean_uid])
             on_reef = (tgt == "coral reef")
             others_on_target = len(player.ocean_slots[action.ocean_uid].all_cards())
 
@@ -6887,7 +6907,7 @@ def action_archetype_bonus(
     if family_label == "goby_moon_shot":
         goby_on_board = board_names.count("mandarin goby")
         hand_gobies   = hand_name_counts.get("mandarin goby", 0)   # excludes the played card
-        crosscurrent_on_board = sum(1 for c in board_cards if c.species.strip().lower() == "crosscurrent")
+        crosscurrent_on_board = sum(1 for c in board_cards if card_species_lc(c) == "crosscurrent")
         if cname == "mandarin goby":
             # Marginal value mirrors the 0/14/30/80 payoff curve.
             if goby_on_board >= 3:
@@ -6962,10 +6982,11 @@ def owned_plan_context(
         oc = gs.card_db.get(fu)
         if oc is None:
             continue
-        sp = oc.species.strip().lower()
+        sp = card_species_lc(oc)
         if sp and sp not in {"n/a", "ocean"}:
             owned_species[sp] = owned_species.get(sp, 0) + 1
-        owned_names[oc.name.strip().lower()] = owned_names.get(oc.name.strip().lower(), 0) + 1
+        nm = card_name_lc(oc)
+        owned_names[nm] = owned_names.get(nm, 0) + 1
         for t in card_strategy_tags(oc):
             owned_tags[t] = owned_tags.get(t, 0) + 1
     return owned_species, owned_tags, owned_names
@@ -6999,12 +7020,12 @@ def pool_entry_value_for_player(ms: MatchState, gs: GameState, entry_uid: int, p
         sym = normalize_symbol(c.symbol)
         if sym in need_symbols:
             v += 2.4
-        if c.species.strip().lower() in need_species:
+        if card_species_lc(c) in need_species:
             v += 2.6
             v += 0.10 * max(0, 4 - c.cost)
 
         # ── Plan-completion value (the core "does this advance my plan" term) ─
-        cspecies = c.species.strip().lower()
+        cspecies = card_species_lc(c)
         # Species I'm already stacking: each existing copy makes another one
         # more valuable (engines/payoffs scale with same-species count).
         if cspecies and cspecies not in {"n/a", "ocean"}:
@@ -7050,7 +7071,7 @@ ENGINE_TIMING_CARDS = {"loggerhead sea turtle", "hermit crab"}
 
 def entry_has_engine_timing_card(ms: MatchState, gs: GameState, entry_uid: int) -> bool:
     for face_uid in entry_faces(ms, entry_uid):
-        if gs.card_db[face_uid].name.strip().lower() in ENGINE_TIMING_CARDS:
+        if card_name_lc(gs.card_db[face_uid]) in ENGINE_TIMING_CARDS:
             return True
     return False
 
@@ -7081,7 +7102,7 @@ def action_engine_timing_bonus(gs: GameState, ms: MatchState, player: PlayerStat
     if card is None:
         return 0.0
 
-    name = card.name.strip().lower()
+    name = card_name_lc(card)
     if name in ENGINE_TIMING_CARDS:
         if name == "hermit crab":
             # Hermit Crab only has true value when it can immediately release baitfish.
@@ -7113,7 +7134,7 @@ def action_is_dead_engine_play(gs: GameState, ms: MatchState, player: PlayerStat
     if card is None:
         return False
 
-    name = card.name.strip().lower()
+    name = card_name_lc(card)
     hand_name_counts: Dict[str, int] = {}
     hand_species_counts: Dict[str, int] = {}
     for entry_uid in player.hand:
@@ -7121,14 +7142,14 @@ def action_is_dead_engine_play(gs: GameState, ms: MatchState, player: PlayerStat
             continue
         for face_uid2 in entry_faces(ms, entry_uid):
             c2 = gs.card_db[face_uid2]
-            n2 = c2.name.strip().lower()
-            s2 = c2.species.strip().lower()
+            n2 = card_name_lc(c2)
+            s2 = card_species_lc(c2)
             hand_name_counts[n2] = hand_name_counts.get(n2, 0) + 1
             hand_species_counts[s2] = hand_species_counts.get(s2, 0) + 1
 
     board_cards = [gs.card_db[uid] for uid in player_board_face_uids(player)]
-    board_names = [c.name.strip().lower() for c in board_cards]
-    board_species = [c.species.strip().lower() for c in board_cards]
+    board_names = [card_name_lc(c) for c in board_cards]
+    board_species = [card_species_lc(c) for c in board_cards]
 
     if name == "hermit crab":
         baitfish_ready = hand_species_counts.get("baitfish", 0) + sum(1 for s in board_species if s == "baitfish")
@@ -7560,7 +7581,7 @@ def entry_keep_priority_for_strategy(ms: MatchState, gs: GameState, player: Play
 
     for face_uid in entry_faces(ms, entry_uid):
         c = gs.card_db[face_uid]
-        name = c.name.strip().lower()
+        name = card_name_lc(c)
         text = c.text.lower()
         keep = 0.0
 
@@ -7632,7 +7653,7 @@ def add_to_pool(ms: MatchState, uid: int) -> None:
 
 
 def share_stack_key(card: CardDef) -> Optional[str]:
-    name = card.name.strip().lower()
+    name = card_name_lc(card)
     if name == "lobster":
         return "lobster"
     if name == "yellowfin tuna":
@@ -7650,7 +7671,7 @@ def can_attach_to_ocean(gs: GameState, player: PlayerState, card_uid: int, ocean
     card = gs.card_db.get(card_uid)
     if card is None:
         return False
-    direction = card.direction.strip().lower()
+    direction = card_direction_lc(card)
     if direction not in {"up", "down", "left", "right"}:
         return False
     slot_cards = player.ocean_slots[ocean_uid].slot(direction)
@@ -7977,7 +7998,7 @@ def sanitize_runtime_state(
 
 
 def free_flag_for_card(card: CardDef) -> Optional[str]:
-    species = card.species.strip().lower()
+    species = card_species_lc(card)
     if species == "mammal":
         return "free_mammal"
     if species == "baitfish":
@@ -7996,11 +8017,11 @@ def free_flag_for_card(card: CardDef) -> Optional[str]:
 
 
 def consume_free_flag_if_applicable(player: PlayerState, card: CardDef) -> bool:
-    if card.name.strip().lower() == "yellowfin tuna" and int(player.flags.get("free_yellowfin_tuna", 0)) > 0:
+    if card_name_lc(card) == "yellowfin tuna" and int(player.flags.get("free_yellowfin_tuna", 0)) > 0:
         player.flags["free_yellowfin_tuna"] = int(player.flags.get("free_yellowfin_tuna", 0)) - 1
         return True
 
-    if player.flags.get("free_baitfish_chain", False) and card.species.strip().lower() == "baitfish":
+    if player.flags.get("free_baitfish_chain", False) and card_species_lc(card) == "baitfish":
         return True
 
     key = free_flag_for_card(card)
@@ -8008,7 +8029,7 @@ def consume_free_flag_if_applicable(player: PlayerState, card: CardDef) -> bool:
         return False
 
     # Single-use free cephalopod (Grooved Brain Coral star): consumed after one play.
-    if player.flags.get("free_cephalopod_once", False) and card.species.strip().lower() == "cephalopod":
+    if player.flags.get("free_cephalopod_once", False) and card_species_lc(card) == "cephalopod":
         player.flags["free_cephalopod_once"] = False
         return True
 
@@ -8063,7 +8084,7 @@ def has_playable_followup_species(
             c = gs.card_db[face_uid]
             if is_ocean(c):
                 continue
-            if c.species.strip().lower() != target:
+            if card_species_lc(c) != target:
                 continue
             if any(can_attach_to_ocean(gs, player, face_uid, ocean_uid) for ocean_uid in player.board_oceans):
                 return True
@@ -8249,7 +8270,7 @@ def build_deck_with_late_end_game(
     face_to_primary: Dict[int, int],
     rng: random.Random,
 ) -> Tuple[List[int], Optional[int]]:
-    end_uids = [uid for uid, c in card_db.items() if c.name.strip().lower() == "end game"]
+    end_uids = [uid for uid, c in card_db.items() if card_name_lc(c) == "end game"]
     end_uid = end_uids[0] if end_uids else None
 
     deck_entries: List[int] = []
@@ -8296,7 +8317,7 @@ def validate_end_game_placement(gs: GameState, ms: MatchState, where: str = "") 
     try:
         eg = getattr(ms, "end_game_uid", None)
         # Count how many END GAME-named cards exist in the card_db.
-        named = [uid for uid, c in gs.card_db.items() if c.name.strip().lower() == "end game"]
+        named = [uid for uid, c in gs.card_db.items() if card_name_lc(c) == "end game"]
         if len(named) != 1:
             problems.append(f"expected exactly 1 END GAME card in card_db, found {len(named)}")
         if eg is None:
@@ -8373,7 +8394,7 @@ def _note_pool_acquired(gs: Optional["GameState"], player: PlayerState, uid: int
         if not isinstance(acq, dict):
             acq = {}
             player.flags["_pool_acquired"] = acq
-        nm = card.name.strip().lower()
+        nm = card_name_lc(card)
         acq[nm] = int(acq.get(nm, 0)) + 1
     except Exception:
         pass
@@ -8446,7 +8467,7 @@ def _rig_blob_tutorial_hand(
         return [gs.card_db.get(u) for u in entry_faces(ms, entry_uid)]
 
     def entry_face_names(entry_uid: int):
-        return {(c.name.strip().lower()) for c in faces_of(entry_uid) if c is not None}
+        return {(card_name_lc(c)) for c in faces_of(entry_uid) if c is not None}
 
     def is_end(entry_uid: int) -> bool:
         return end_uid is not None and entry_uid == end_uid
@@ -8624,7 +8645,7 @@ def rig_tutorial_opening_hand(
             c = gs.card_db.get(fu)
             if c is None:
                 continue
-            if c.name.strip().lower() == name_lc and (sym_lc is None or normalize_symbol(c.symbol) == sym_lc):
+            if card_name_lc(c) == name_lc and (sym_lc is None or normalize_symbol(c.symbol) == sym_lc):
                 return True
         return False
 
@@ -8796,9 +8817,9 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
                 continue
             if is_ocean(card):
                 continue
-            if multi_baitfish and card.species.strip().lower() != "baitfish":
+            if multi_baitfish and card_species_lc(card) != "baitfish":
                 continue
-            if multi_cephalopods and card.species.strip().lower() != "cephalopod":
+            if multi_cephalopods and card_species_lc(card) != "cephalopod":
                 continue
             if free_only and not is_free_play_eligible(player, card):
                 continue
@@ -9049,7 +9070,7 @@ def discard_keep_score(gs: GameState, ms: MatchState, player: PlayerState, entry
         if is_ocean(c):
             # Oceans are board capacity; keep them unless we already have plenty.
             face_keep += 1.4 if len(player.board_oceans) < 4 else 0.4
-        sp = c.species.strip().lower()
+        sp = card_species_lc(c)
         # ── Plan completion: this card extends species / tags I already own ──
         if sp and sp not in {"n/a", "ocean"}:
             face_keep += min(2.2, 0.50 * owned_species.get(sp, 0))
@@ -9057,7 +9078,7 @@ def discard_keep_score(gs: GameState, ms: MatchState, player: PlayerState, entry
             face_keep += min(1.4, 0.32 * owned_tags.get(t, 0))
         # Redundancy: keep the first couple of copies (engines want multiples),
         # but extra duplicates beyond that are the safest thing to dump.
-        dupes = owned_names.get(c.name.strip().lower(), 0)
+        dupes = owned_names.get(card_name_lc(c), 0)
         if dupes >= 2:
             face_keep -= min(1.8, 0.6 * (dupes - 1))
         # Deployability: a card I cannot pay for any time soon is a weaker hold.
@@ -9570,7 +9591,7 @@ def _apply_action_uncommitted(
                 if drew > 0:
                     print(f"{player.name} draws {drew} from {card.uid}:{card.name} ability.")
         elif action.kind == "play_to_ocean":
-            direction = card.direction.strip().lower()
+            direction = card_direction_lc(card)
             if direction not in {"up", "down", "left", "right"}:
                 return fail(f"invalid direction '{card.direction}' for card {card.uid}:{card.name}")
             slots_obj = player.ocean_slots.get(action.ocean_uid)
@@ -9822,11 +9843,11 @@ def action_features(
             c2 = gs.card_db.get(face_uid2)
             if c2 is None:
                 continue
-            n2 = c2.name.strip().lower()
-            s2 = c2.species.strip().lower()
+            n2 = card_name_lc(c2)
+            s2 = card_species_lc(c2)
             hand_name_counts[n2] = hand_name_counts.get(n2, 0) + 1
             hand_species_counts[s2] = hand_species_counts.get(s2, 0) + 1
-            if c2.direction.strip().lower() == "down" and s2 != "ocean":
+            if card_direction_lc(c2) == "down" and s2 != "ocean":
                 hand_floor_total += 1
 
     if "+3 per bird" in t:
@@ -9859,13 +9880,13 @@ def action_features(
         base_plus += 2 * sum(
             1
             for c in board
-            if c.species.lower() in {"uncharted", "n/a", "crosscurrent"} and c.direction.strip().lower() != "n/a"
+            if c.species.lower() in {"uncharted", "n/a", "crosscurrent"} and card_direction_lc(c) != "n/a"
         )
     if "+3 per n/a animal" in t or "+3 per uncharted animal" in t or "+3 per crosscurrent animal" in t:
         base_plus += 3 * sum(
             1
             for c in board
-            if c.species.lower() in {"uncharted", "n/a", "crosscurrent"} and c.direction.strip().lower() != "n/a"
+            if c.species.lower() in {"uncharted", "n/a", "crosscurrent"} and card_direction_lc(c) != "n/a"
         )
     if "+9 per each mahi mahi you control" in t:
         base_plus += 9 * sum(1 for c in board if c.name.lower() == "mahi mahi")
@@ -9998,7 +10019,7 @@ def action_features(
 
     if card.name.lower() == "clownfish" and action.kind == "play_to_ocean" and action.ocean_uid is not None:
         ocean_card = gs.card_db.get(action.ocean_uid)
-        ocean_name = ocean_card.name.strip().lower() if ocean_card is not None else ""
+        ocean_name = card_name_lc(ocean_card) if ocean_card is not None else ""
         current_v = clownfish_ocean_value(ocean_name)
         best_v = current_v
         for candidate_ocean_uid in player.board_oceans:
@@ -10006,7 +10027,7 @@ def action_features(
                 candidate = gs.card_db.get(candidate_ocean_uid)
                 if candidate is None:
                     continue
-                candidate_name = candidate.name.strip().lower()
+                candidate_name = card_name_lc(candidate)
                 best_v = max(best_v, clownfish_ocean_value(candidate_name))
         base_plus += 2.0 * current_v
         if best_v > current_v:
@@ -11299,7 +11320,7 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
         return {"total": 0, "card_rows": []}
 
     all_cards = [c for _, c, _ in board]
-    non_ocean_cards = [c for c in all_cards if c.direction.strip().lower() != "n/a"]
+    non_ocean_cards = [c for c in all_cards if card_direction_lc(c) != "n/a"]
 
     # Mirrors final_points exactly: every ocean count is taken over
     # effective_ocean_names, so a Clownfish counts as one more of its host Ocean.
@@ -11324,7 +11345,7 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
                 continue
             for uid in sl.all_cards():
                 c = gs.card_db.get(uid)
-                if c is not None and c.direction.strip().lower() != "n/a":
+                if c is not None and card_direction_lc(c) != "n/a":
                     n += 1
         return n
 
@@ -11365,7 +11386,7 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
 
     def _same_ocean_cards(target_ocean_uid: int) -> List[CardDef]:
         return [c for _, c, o_uid in board
-                if o_uid == target_ocean_uid and c.direction.strip().lower() != "n/a"]
+                if o_uid == target_ocean_uid and card_direction_lc(c) != "n/a"]
 
     def _threshold(text: str, value: int) -> int:
         pairs = [(int(a), int(b)) for a, b in re.findall(r"(\d+)\+?\s*=\s*(\d+)", text)]
@@ -11591,7 +11612,7 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
             if m2:
                 add(int(m2.group(1)), f"flat +{m2.group(1)}")
 
-        is_ocean_card = card.direction.strip().lower() == "n/a"
+        is_ocean_card = card_direction_lc(card) == "n/a"
         card_rows.append({
             "card_uid": int(uid),
             "card_name": card.name,
@@ -11633,7 +11654,7 @@ def mandarin_goby_score_breakdown(
             if c is not None:
                 board_cards.append(c)
 
-    goby_count = sum(1 for c in board_cards if c.name.strip().lower() == "mandarin goby")
+    goby_count = sum(1 for c in board_cards if card_name_lc(c) == "mandarin goby")
     if goby_count <= 1:
         points = 0
     elif goby_count == 2:
