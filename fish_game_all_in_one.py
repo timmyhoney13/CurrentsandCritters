@@ -1956,6 +1956,7 @@ def stabilize_weights(weights: Dict[str, float]) -> Dict[str, float]:
         "ocean_threshold": (0.25, 3.5),
         "placement_fit": (0.0, 3.5),
         "combo_timing": (0.0, 3.5),
+        "ocean_completion": (0.0, 3.5),
         "sim_point_delta": (0.8, 4.0),
     }
     for k, (lo, hi) in bounds.items():
@@ -2137,6 +2138,9 @@ def default_weights() -> Dict[str, float]:
         # Whether this card's free-play / draw ability is worth anything YET.
         # See combo_timing_value.
         "combo_timing": 1.0,
+        # How much this bot values closing an ocean off. See
+        # ocean_completion_value: the King Salmon plan.
+        "ocean_completion": 1.0,
         "sim_point_delta": 0.8,
     }
 
@@ -3429,6 +3433,51 @@ def combo_timing_value(gs: GameState, ms: MatchState,
         gained += float(min(have, room))
 
     return gained
+
+
+def ocean_completion_value(gs: GameState, ms: MatchState,
+                           player: PlayerState, action: Action) -> float:
+    """What filling this side of this ocean is worth toward a FINISHED ocean.
+
+    King Salmon pays "+5 per fully occupied ocean" -- all four sides filled.
+    Until a King Salmon is down, completing an ocean scores nothing at all, so a
+    bot had no reason to finish one: the same blind spot that stranded boards on
+    two Kelp Forests. The plan is not about salmon, it is about closing oceans.
+
+    Worth +5 per King Salmon you hold or have played when this play is the one
+    that finishes the ocean, and a share of that for getting it closer. Only the
+    salmon you can actually see count, so an ocean closed with no salmon in
+    sight is worth nothing here.
+    """
+    if action.kind != "play_to_ocean" or action.ocean_uid is None:
+        return 0.0
+    slots = player.ocean_slots.get(action.ocean_uid)
+    face_uid = action.face_uid if action.face_uid is not None else action.card_uid
+    card = gs.card_db.get(face_uid)
+    if slots is None or card is None:
+        return 0.0
+    side = card_direction_lc(card)
+    if side not in ("up", "down", "left", "right"):
+        return 0.0
+
+    filled_before = sum(1 for d in ("up", "down", "left", "right") if slots.slot(d))
+    if slots.slot(side):
+        return 0.0          # stacking onto a side already taken does not close anything
+    filled_after = filled_before + 1
+
+    salmon = 0
+    for uid in list(all_board_cards(player)) + list(player.hand):
+        c = gs.card_db.get(uid)
+        if c is not None and _score_profile(c, None).full_ocean:
+            salmon += 1
+    if salmon == 0:
+        return 0.0
+
+    payoff = 5.0 * salmon
+    if filled_after == 4:
+        return payoff
+    # progress toward closing it, weighted toward the last sides
+    return payoff * (filled_after / 4.0) ** 2 * 0.5
 
 
 def placement_marginal(gs: GameState, ms: MatchState,
@@ -10341,6 +10390,8 @@ def action_features(
             feat["ocean_threshold"] = max(-3.0, min(4.0,
                 ocean_threshold_marginal(gs, ms, player, _oc) / 10.0))
     feat["placement_fit"] = max(0.0, min(3.0, placement_marginal(gs, ms, player, action) / 4.0))
+    feat["ocean_completion"] = max(0.0, min(3.0,
+        ocean_completion_value(gs, ms, player, action) / 5.0))
     feat["combo_timing"] = 0.0
     if action.kind in ("play_to_ocean", "play_ocean"):
         _tc = gs.card_db.get(action.face_uid if action.face_uid is not None else action.card_uid)
