@@ -1949,6 +1949,11 @@ def stabilize_weights(weights: Dict[str, float]) -> Dict[str, float]:
         "strategy_bonus": (0.0, 3.5),
         "novelty_bonus": (0.0, 1.8),
         "branch_bonus": (0.0, 2.8),
+        # Floored above zero on purpose: this weight carries the only signal
+        # that tells a bot the fifth Coral Reef scores nothing and the fourth
+        # Kelp Forest is worth twenty. Decaying it to zero would put back the
+        # behaviour it exists to fix.
+        "ocean_threshold": (0.25, 3.5),
         "sim_point_delta": (0.8, 4.0),
     }
     for k, (lo, hi) in bounds.items():
@@ -2121,6 +2126,9 @@ def default_weights() -> Dict[str, float]:
         "strategy_bonus": 1.15,
         "novelty_bonus": 0.45,
         "branch_bonus": 0.75,
+        # How much the bot trusts the exact chart arithmetic on an Ocean it is
+        # about to play. See ocean_threshold_marginal.
+        "ocean_threshold": 1.0,
         "sim_point_delta": 0.8,
     }
 
@@ -3307,6 +3315,68 @@ STRATEGY_FAMILY_TO_ENGINE_TAG = {
     "coral_cephalopods": "engine:cephalopod",
     "goby_moon_shot": "engine:goby-spiny",
 }
+
+
+def ocean_threshold_marginal(gs: GameState, ms: MatchState,
+                             player: PlayerState, card: CardDef) -> float:
+    """What playing ONE more of this Ocean is really worth, in points.
+
+    Several Oceans pay on a chart rather than per copy, and the bots were
+    valuing every copy the same. Measured over 10,000 four-player boards, that
+    is expensive in both directions:
+
+      Kelp Forest pays nothing at all until the fourth, then +5 each. So the
+      fourth copy is worth +20 in a single play and the first three are worth
+      zero. 1.9% of boards ever reached four (and won 57% of their games);
+      22% stopped on exactly two, having spent real cards for nothing.
+
+      Coral Reef runs 1, 4, 9, 16 -- and then FIVE scores nothing at all,
+      before six jumps to 35. The fifth copy is worth -16. No board in 10,000
+      ever reached three, so the bots were only ever paying the entry fee.
+
+    The numbers are read off the card's own text, so a change to a chart
+    changes the bots with it. Returns the exact marginal, plus partial credit
+    for progress toward a threshold still within reach of the copies that
+    remain unseen.
+    """
+    if not is_ocean(card):
+        return 0.0
+    name = card_name_lc(card)
+    have = effective_ocean_names(gs, player).count(name)
+
+    prof = _score_profile(card, None)
+
+    def value_at(n: int) -> float:
+        if n <= 0:
+            return 0.0
+        if prof.table_pairs:
+            return float(_threshold_value(prof.table_pairs, n))
+        if prof.kelp4:
+            return 5.0 * n if n >= 4 else 0.0
+        return 0.0
+
+    if not prof.table_pairs and not prof.kelp4:
+        return 0.0
+
+    marginal = value_at(have + 1) - value_at(have)
+    if marginal != 0.0:
+        return marginal
+
+    # Flat step: worth something only if the next payoff is still reachable.
+    # Count what is actually gettable -- this hand and the face-up pool -- so a
+    # bot does not start a climb the deck can no longer finish.
+    gettable = sum(1 for u in player.hand
+                   if card_name_lc(gs.card_db[u]) == name if u in gs.card_db)
+    gettable += sum(1 for u in ms.pool
+                    if u in gs.card_db and card_name_lc(gs.card_db[u]) == name)
+    best = 0.0
+    for target in range(have + 2, have + 2 + max(0, gettable) + 1):
+        gain = value_at(target) - value_at(have)
+        if gain <= 0.0:
+            continue
+        steps = target - have
+        best = max(best, gain / float(steps * steps))
+    return best
 
 
 def action_future_value_bonus(gs: GameState, ms: MatchState, player: PlayerState, action: Action) -> float:
@@ -10057,6 +10127,15 @@ def action_features(
                 feat["overbuild_ocean_penalty"] = 1.5
 
     feat["immediate_delta"] = float(base_plus)
+    # The chart arithmetic on an Ocean. Scaled down by ten so it sits in the
+    # same range as the other features rather than swamping them: the raw
+    # numbers run from -16 (the fifth Coral Reef) to +35 (the sixth).
+    feat["ocean_threshold"] = 0.0
+    if action.kind == "play_ocean":
+        _oc = gs.card_db.get(action.card_uid)
+        if _oc is not None:
+            feat["ocean_threshold"] = max(-3.0, min(4.0,
+                ocean_threshold_marginal(gs, ms, player, _oc) / 10.0))
     feat["sim_point_delta"] = simulated_point_delta(gs, ms, player, action, sim_baseline) if include_sim_delta else 0.0
     return feat
 
