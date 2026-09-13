@@ -3993,7 +3993,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
         },
         {
             "label": "yellowfin_tuna",
-            "display_name": "Yellowfin Tuna Stack",
+            "display_name": "Yellowfin Tuna",
             "difficulty": "beginner",
             "species": ["game fish"],
             "heavy_hitters": ["bigeye tuna", "big eye tuna"],
@@ -4018,7 +4018,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
         # ── Intermediate ─────────────────────────────────────────────
         {
             "label": "baitfish_barrage",
-            "display_name": "Baitfish Barrage",
+            "display_name": "Baitfish",
             "difficulty": "intermediate",
             "species": ["baitfish"],
             "heavy_hitters": ["whale shark"],
@@ -4035,7 +4035,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
         # ── Advanced ─────────────────────────────────────────────────
         {
             "label": "birds_of_a_feather",
-            "display_name": "Birds of a Feather",
+            "display_name": "Birds",
             "difficulty": "advanced",
             "species": ["bird"],
             "heavy_hitters": ["emperor penguin", "razorbill auk"],
@@ -4051,7 +4051,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
         },
         {
             "label": "crustaceans",
-            "display_name": "Crustaceans (Lobster Stack)",
+            "display_name": "Crustaceans",
             "difficulty": "advanced",
             "species": ["crustacean"],
             "heavy_hitters": ["lobster", "mantis shrimp"],
@@ -4084,7 +4084,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
         },
         {
             "label": "coral",
-            "display_name": "Coral Reef Stack",
+            "display_name": "Coral",
             "difficulty": "advanced",
             "species": ["coral"],
             "heavy_hitters": ["magnificent frigatebird"],
@@ -4116,7 +4116,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
         },
         {
             "label": "invertebrates",
-            "display_name": "Invertebrates (flexible support)",
+            "display_name": "Invertebrates",
             "difficulty": "advanced",
             "species": ["invertebrate"],
             "heavy_hitters": ["red beaded anemone", "barracuda"],
@@ -4130,7 +4130,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
         },
         {
             "label": "cephalopods",
-            "display_name": "Cephalopods (Reef Triggerfish Burst)",
+            "display_name": "Cephalopods",
             "difficulty": "advanced",
             "species": ["cephalopod"],
             "heavy_hitters": [
@@ -4165,7 +4165,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
         # ── Expert ────────────────────────────────────────────────────
         {
             "label": "goby_moon_shot",
-            "display_name": "Goby Moon Shot",
+            "display_name": "Shooting the Moon",
             "difficulty": "expert",
             "species": ["crosscurrent", "n/a"],
             "heavy_hitters": ["mandarin goby", "spiny lobster"],
@@ -4173,6 +4173,26 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             "support_names": ["blue tang", "clownfish", "artificial reef", "california gull"],
             "text_keywords": [
                 "mandarin goby", "spiny lobster", "crosscurrent animal",
+            ],
+        },
+        {
+            # King Salmon pays +5 per FULLY OCCUPIED ocean, so this plan is not
+            # about salmon at all -- it is about finishing oceans. Every side of
+            # an ocean has to be filled, and an ocean has four, so the engine is
+            # the "play again" and "play a free <thing>" cards that let you fill
+            # more than one side in a turn, plus cheap floor and surface bodies
+            # to close them out.
+            "label": "king_salmon",
+            "display_name": "King Salmon",
+            "difficulty": "advanced",
+            "species": ["game fish"],
+            "heavy_hitters": ["king salmon"],
+            "stack_engines": ["horned puffin", "bottlenose dolphin", "sailfish",
+                              "goliath grouper", "arctic ocean", "mangrove"],
+            "support_names": ["staghorn coral", "elk horn coral", "common sea star",
+                              "sea urchin", "lobster", "artificial reef", "clownfish"],
+            "text_keywords": [
+                "fully occupied", "play again", "play a free", "per fully occupied ocean",
             ],
         },
     ]
@@ -4195,28 +4215,34 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
 
 
 # Strategies usable at each skill level (cumulative: expert can pick any).
-# NOTE: "ocean_all_blue" is intentionally NOT a bot-pickable MAIN strategy.
-# You can't win off the Ocean / All-Blue payoff alone, so bots never commit to
-# it as their primary plan, they still place oceans and use ocean cards as
-# support within every other strategy. (The ocean_all_blue profile still exists
-# for detecting/labelling a HUMAN player's ocean strategy in stats & avatars.)
+# The ten strategies a bot may commit to. Combinations (B-Lob, B-Coral, Coral /
+# Cephalopods) are NOT in here: a combo is two of these played together, not a
+# thing you pick instead of them, and their profiles stay defined only so a
+# board that ends up looking like one can still be named. "Ocean All Blue" is
+# not here either -- it is the Mangrove OCEAN plan, and every strategy needs
+# oceans, so it is not an alternative to picking one.
 STRATEGY_SKILL_ALLOWLIST = {
-    "beginner":     {"yellowfin_tuna", "mammals"},
-    "intermediate": {"yellowfin_tuna", "mammals", "baitfish_barrage"},
-    "advanced":     {"yellowfin_tuna", "mammals", "baitfish_barrage",
-                     "birds_of_a_feather", "crustaceans", "coral", "cephalopods",
-                     "invertebrates", "birds_crustaceans", "birds_coral",
-                     "coral_cephalopods"},
-    "expert":       {"yellowfin_tuna", "mammals", "baitfish_barrage",
-                     "birds_of_a_feather", "crustaceans", "coral", "cephalopods",
-                     "invertebrates", "birds_crustaceans", "birds_coral",
-                     "coral_cephalopods", "goby_moon_shot"},
+    "beginner":     {"mammals", "yellowfin_tuna"},
+    "intermediate": {"mammals", "yellowfin_tuna", "baitfish_barrage", "birds_of_a_feather"},
+    "advanced":     {"mammals", "yellowfin_tuna", "baitfish_barrage", "birds_of_a_feather",
+                     "crustaceans", "cephalopods", "coral", "king_salmon", "invertebrates"},
+    "expert":       {"mammals", "yellowfin_tuna", "baitfish_barrage", "birds_of_a_feather",
+                     "crustaceans", "cephalopods", "coral", "king_salmon", "invertebrates",
+                     "goby_moon_shot"},
 }
 
+# Invertebrates is a support plan: it wants a long game and a crowded board to
+# be worth committing to, which is what a big table gives you. Below this many
+# players it is not a plan, it is filler.
+INVERTEBRATE_MIN_PLAYERS = 5
 
-def strategies_allowed_for_skill(skill_level: str) -> set[str]:
+
+def strategies_allowed_for_skill(skill_level: str, num_players: int = 0) -> set[str]:
     key = str(skill_level or "advanced").strip().lower()
-    return STRATEGY_SKILL_ALLOWLIST.get(key, STRATEGY_SKILL_ALLOWLIST["advanced"])
+    out = set(STRATEGY_SKILL_ALLOWLIST.get(key, STRATEGY_SKILL_ALLOWLIST["advanced"]))
+    if num_players and num_players < INVERTEBRATE_MIN_PLAYERS:
+        out.discard("invertebrates")
+    return out
 
 
 # ── The bot grade ladder ────────────────────────────────────────────────────
@@ -5026,7 +5052,7 @@ def assign_strategy_families_from_opening_hands(
         if i in human_indices:
             continue
         skill = str(p.flags.get("_ai_skill_level", "advanced")).strip().lower()
-        allowlist = strategies_allowed_for_skill(skill)
+        allowlist = strategies_allowed_for_skill(skill, len(gs.players))
         # The Goby moon shot requires real opening fit: gate strictly even for experts.
         best_label = ""
         best_fit = float("-inf")
