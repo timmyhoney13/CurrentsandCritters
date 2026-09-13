@@ -137,7 +137,39 @@ def _wilson_low(wins: float, n: int) -> float:
     return (c - m) / d
 
 
-def _mutate(w: Dict[str, float], rng: random.Random, sigma: float) -> Dict[str, float]:
+# The weights each strategy actually lives or dies by. A Coral bot is decided by
+# where its coral lands and whether it respects the reef chart; a Cephalopod bot
+# by whether it banks cards for the Reef Trigger Fish dump. Mutating at random
+# across all 26 weights mostly tests things a given plan does not care about, so
+# most mutants are null and the search crawls. Aim it: most mutations touch the
+# plan's own weights, a few still roam so nothing is ruled out by assumption.
+STRATEGY_FOCUS: Dict[str, Tuple[str, ...]] = {
+    "coral":              ("placement_fit", "ocean_threshold", "stack_bonus",
+                           "strategy_bonus", "plan_fit_bonus"),
+    "cephalopods":        ("combo_timing", "stack_bonus", "future_value",
+                           "strategy_bonus", "immediate_delta"),
+    "yellowfin_tuna":     ("combo_timing", "placement_fit", "stack_bonus",
+                           "strategy_bonus", "future_value"),
+    "crustaceans":        ("placement_fit", "stack_bonus", "synergy_bonus",
+                           "strategy_bonus", "species_bonus"),
+    "king_salmon":        ("fills_empty_ocean", "target_occupancy", "plan_fit_bonus",
+                           "combo_timing", "future_value"),
+    "baitfish_barrage":   ("combo_timing", "species_bonus", "stack_bonus",
+                           "strategy_bonus", "synergy_bonus"),
+    "mammals":            ("combo_timing", "species_bonus", "stack_bonus",
+                           "strategy_bonus", "synergy_bonus"),
+    "birds_of_a_feather": ("species_bonus", "stack_bonus", "synergy_bonus",
+                           "strategy_bonus", "plan_fit_bonus"),
+    "goby_moon_shot":     ("synergy_bonus", "plan_fit_bonus", "stack_bonus",
+                           "future_value", "strategy_bonus"),
+    "invertebrates":      ("species_bonus", "synergy_bonus", "fills_empty_ocean",
+                           "stack_bonus", "combo_timing"),
+}
+_FOCUS_SHARE = 0.75
+
+
+def _mutate(w: Dict[str, float], rng: random.Random, sigma: float,
+            focus: Tuple[str, ...] = ()) -> Dict[str, float]:
     """Change one to three weights, not a third of them.
 
     A mutant that moves eight weights at once is not a hypothesis, it is a
@@ -149,9 +181,15 @@ def _mutate(w: Dict[str, float], rng: random.Random, sigma: float) -> Dict[str, 
     eight on 40 games is a maximum, not a measurement, and the wider each
     mutant is the more of that apparent edge is luck waiting to evaporate."""
     out = dict(w)
-    keys = [k for k in out if k in fish.default_weights()]
-    rng.shuffle(keys)
-    for k in keys[: rng.randint(1, 3)]:
+    all_keys = [k for k in out if k in fish.default_weights()]
+    focus_keys = [k for k in focus if k in out]
+    chosen: List[str] = []
+    for _ in range(rng.randint(1, 3)):
+        pool = focus_keys if (focus_keys and rng.random() < _FOCUS_SHARE) else all_keys
+        k = rng.choice(pool)
+        if k not in chosen:
+            chosen.append(k)
+    for k in chosen:
         out[k] = float(out[k]) + rng.gauss(0.0, sigma) * (abs(float(out[k])) + 0.35)
     return fish.stabilize_weights(out)
 
@@ -284,7 +322,8 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
 
     promotions = 0
     for gen in range(1, generations + 1):
-        cands = [_mutate(champion, rng, sigma) for _ in range(mutants)]
+        focus = STRATEGY_FOCUS.get(strategy or "", ())
+        cands = [_mutate(champion, rng, sigma, focus) for _ in range(mutants)]
         screen_seeds = [rng.randrange(1 << 30) for _ in range(screen)]
         t0 = time.time()
         with mp.Pool(jobs, initializer=_init,
