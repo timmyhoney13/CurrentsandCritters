@@ -65,13 +65,15 @@ def _init(maps, champion, candidates, count):
 
 
 def _play(task: Tuple[int, int, int]) -> Tuple[int, float, float]:
-    """One game: candidate `ci` at `seat`, champions elsewhere. Returns its win."""
+    """One game. `ci` >= 0 puts that candidate in `seat` against champions;
+    ci == -1 plays the all-champion version of the same deal, which is the
+    baseline every candidate on this seed is measured against."""
     ci, seed, seat = task
     random.seed(seed)
-    cand = _W_CANDIDATES[ci]
+    cand = _W_CANDIDATES[ci] if ci >= 0 else None
     policies = []
     for i in range(_W_COUNT):
-        w = cand if i == seat else _W_CHAMPION
+        w = cand if (cand is not None and i == seat) else _W_CHAMPION
         policies.append(fish._train_make_policy(_W_MAPS, weights=dict(w), epsilon=0.0))
     try:
         gs, _ms = fish.run_match(
@@ -131,14 +133,61 @@ def _wilson_high(wins: float, n: int) -> float:
     return (c + m) / d
 
 
-def _round_wins(pool, n_cands, seeds, count) -> List[float]:
-    """Play every candidate over the same seeds, rotating seats. Returns raw wins."""
-    tasks = [(ci, s, (gi + ci) % count)
-             for ci in range(n_cands) for gi, s in enumerate(seeds)]
-    wins = [0.0] * n_cands
-    for ci, win, _m in pool.imap_unordered(_play, tasks, chunksize=4):
-        wins[ci] += win
-    return wins
+def _play_all_champion(seed: int) -> Tuple[int, List[float]]:
+    """The all-champion version of one deal. Every seat holds the same policy,
+    so ONE game settles the baseline for all of them at once."""
+    random.seed(seed)
+    pol = fish._train_make_policy(_W_MAPS, weights=dict(_W_CHAMPION), epsilon=0.0)
+    try:
+        gs, _ms = fish.run_match(
+            card_db=_W_CARD_DB,
+            player_names=[f"P{i}" for i in range(_W_COUNT)],
+            action_policies=[pol] * _W_COUNT,
+            seed=seed, max_turns=500, human_index=None,
+            verbose=False, verbose_state=False,
+            ai_difficulties=[fish.DEFAULT_BOT_GRADE] * _W_COUNT,
+            online_weights=None, online_state=None, online_state_path=None,
+        )
+        finals = [float(fish.final_points(gs, p)) for p in gs.players]
+    except Exception:
+        return seed, [1.0 / _W_COUNT] * _W_COUNT
+    top = max(finals)
+    tied = finals.count(top)
+    return seed, [(1.0 if tied == 1 else 0.5) if abs(f - top) < 1e-9 else 0.0
+                  for f in finals]
+
+
+def _baseline(pool, seeds, count) -> Dict[Tuple[int, int], float]:
+    """What a CHAMPION achieves on each (seed, seat). One game per deal, shared
+    by every candidate in the generation, so pairing costs ~10% more games."""
+    out: Dict[Tuple[int, int], float] = {}
+    for seed, wins in pool.map(_play_all_champion, seeds, chunksize=4):
+        for k, w in enumerate(wins):
+            out[(seed, k)] = w
+    return out
+
+
+def _paired(pool, n_cands, seeds, count, base) -> List[List[float]]:
+    """Each candidate's per-game result MINUS what a champion got on that same
+    deal from that same seat. Removing the deal is the point: it is the largest
+    source of variance in a card game, and it is shared, so it can be cancelled
+    instead of averaged away over thousands of games."""
+    plan = [(ci, s, (gi + ci) % count)
+            for ci in range(n_cands) for gi, s in enumerate(seeds)]
+    diffs: List[List[float]] = [[] for _ in range(n_cands)]
+    for (ci, s, k), (_c, win, _m) in zip(plan, pool.map(_play, plan, chunksize=4)):
+        diffs[ci].append(win - base[(s, k)])
+    return diffs
+
+
+def _lower_bound(d: List[float]) -> Tuple[float, float]:
+    """(mean, 95% lower bound) of the paired difference."""
+    n = len(d)
+    if n < 2:
+        return 0.0, -1.0
+    m = sum(d) / n
+    var = sum((x - m) ** 2 for x in d) / (n - 1)
+    return m, m - 1.96 * math.sqrt(var / n)
 
 
 def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int,
@@ -179,11 +228,12 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
         t0 = time.time()
         with mp.Pool(jobs, initializer=_init,
                      initargs=(maps, champion, cands, count)) as pool:
-            swins = _round_wins(pool, len(cands), screen_seeds, count)
-        order = sorted(range(len(cands)), key=lambda i: -swins[i])
+            base = _baseline(pool, screen_seeds, count)
+            sdiff = _paired(pool, len(cands), screen_seeds, count, base)
+        order = sorted(range(len(cands)), key=lambda i: -(sum(sdiff[i]) / len(sdiff[i])))
         keep = order[:3]
-        log(f"gen {gen:>3} screen: best raw {swins[keep[0]]/screen:.3f} "
-            f"(neutral {neutral:.3f}) · {time.time()-t0:.0f}s")
+        log(f"gen {gen:>3} screen: best edge {sum(sdiff[keep[0]])/len(sdiff[keep[0]]):+.4f} "
+            f"vs the same deals · {time.time()-t0:.0f}s")
 
         # Staged confirmation. A mutant only has to be PROVED better, and how
         # many games that takes depends on how much better it is. Playing a
@@ -193,7 +243,7 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
         # playing the ones that still could prove it, and stop early on the
         # ones that provably cannot.
         finals = [cands[i] for i in keep]
-        wins = [0.0] * len(finals)
+        acc: List[List[float]] = [[] for _ in finals]
         played = 0
         alive = list(range(len(finals)))
         lo = rate = 0.0
@@ -204,36 +254,38 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
             sub = [finals[i] for i in alive]
             with mp.Pool(jobs, initializer=_init,
                          initargs=(maps, champion, sub, count)) as pool:
-                bw = _round_wins(pool, len(sub), conf_seeds, count)
+                cbase = _baseline(pool, conf_seeds, count)
+                bd = _paired(pool, len(sub), conf_seeds, count, cbase)
             for k, i in enumerate(alive):
-                wins[i] += bw[k]
+                acc[i].extend(bd[k])
             played += batch
-            ranked = sorted(alive, key=lambda i: -_wilson_low(wins[i], played))
-            best_i = ranked[0]
-            lo = _wilson_low(wins[best_i], played)
-            rate = wins[best_i] / played
-            if lo > neutral:
+            stats = {i: _lower_bound(acc[i]) for i in alive}
+            best_i = max(alive, key=lambda i: stats[i][1])
+            rate, lo = stats[best_i]
+            if lo > 0.0:
                 break
-            # drop any challenger that can no longer reach the bar
-            alive = [i for i in alive if _wilson_high(wins[i], played) > neutral]
+            # drop anyone whose edge is now provably negative
+            alive = [i for i in alive if stats[i][0] + 1.96 * (
+                (sum((x - stats[i][0]) ** 2 for x in acc[i]) / max(1, len(acc[i]) - 1))
+                / max(1, len(acc[i]))) ** 0.5 > 0.0]
             if alive:
-                log(f"gen {gen:>3}   +{played} games: best {rate:.3f} "
-                    f"(low {lo:.3f}) · {len(alive)} still alive")
+                log(f"gen {gen:>3}   +{played} games: best edge {rate:+.4f} "
+                    f"(low {lo:+.4f}) · {len(alive)} still alive")
 
-        if lo > neutral:
+        if lo > 0.0:
             champion = finals[best_i]
             promotions += 1
             changed = {k: round(champion[k], 3) for k in champion
                        if abs(champion[k] - maps["weights"].get(k, 0.0)) > 0.01}
-            log(f"gen {gen:>3} NEW CHAMPION · win {rate:.3f} over {played} games "
-                f"(95% low {lo:.3f} > {neutral:.3f})")
+            log(f"gen {gen:>3} NEW CHAMPION · edge {rate:+.4f} over {played} paired "
+                f"games (95% low {lo:+.4f} > 0)")
             log(f"          drifted: {changed}")
             json.dump({"count": count, "generation": gen, "weights": champion,
-                       "win_rate": rate, "wilson_low": lo, "neutral": neutral},
+                       "edge_vs_champion": rate, "edge_low": lo, "games": played},
                       open(ck_path, "w"), indent=2)
         else:
-            log(f"gen {gen:>3} champion holds · best challenger {rate:.3f} over "
-                f"{played} games (95% low {lo:.3f}, needs > {neutral:.3f})")
+            log(f"gen {gen:>3} champion holds · best edge {rate:+.4f} over "
+                f"{played} paired games (95% low {lo:+.4f}, needs > 0)")
 
     log(f"Done. {promotions}/{generations} generations produced a new champion.")
     if promote and promotions:
