@@ -8413,7 +8413,18 @@
             </div>
           </div>`;
       };
-      const coreRail = coreIdx.map(coreCard).join("");
+      // Oceans first, then animals. Every animal you play sits on an ocean, so
+      // the ocean plan is the one you choose before the scoring plan.
+      const oceanIdx = coreIdx.filter(i => HELP_STRATEGIES[i].group === "ocean");
+      const animalIdx = coreIdx.filter(i => HELP_STRATEGIES[i].group !== "ocean");
+      const railGroup = (title, sub, idxs) => idxs.length
+        ? `<div class="hs2-core-group"><div class="hs2-core-group-head">${_hesc(title)}`
+          + `<span class="hs2-core-group-sub">${_hesc(sub)}</span></div>`
+          + `<div class="hs2-core-rail">${idxs.map(coreCard).join("")}</div></div>`
+        : "";
+      const coreRail =
+        railGroup("Ocean strategies", "Choose where you are building", oceanIdx)
+        + railGroup("Animal strategies", "Choose what you are scoring", animalIdx);
 
       // ── Section 2: your selected strategies (cores, combos & customs you've turned on),
       //    plus any saved-but-inactive custom plans so they stay reachable ──
@@ -8478,7 +8489,7 @@
         ${_recoBannerHtml()}
         <section class="hs2-sec">
           <div class="hs2-sec-head"><span class="hs2-num">1</span> Choose Your Core Strategy <span class="hs2-sec-sub">Foundational plans, pick one or more to build around.</span></div>
-          <div class="hs2-core-rail">${coreRail}</div>
+          ${coreRail}
         </section>
         <div class="hs2-bottom">
           <section class="hs2-sec hs2-panel">
@@ -33826,13 +33837,16 @@
     }
 
     function _htpStratsHtml() {
-      const core = [], combo = [], custom = [];
+      // Oceans come first: you cannot play an animal without an ocean under
+      // it, so the ocean plan is the one you pick before anything else.
+      const ocean = [], animal = [], combo = [], custom = [];
       for (let i = 0; i < HELP_STRATEGIES.length; i++) {
         const s = HELP_STRATEGIES[i];
         if (!s) continue;
         if (s.custom) custom.push(i);
         else if (s.tier === "Combo") combo.push(i);
-        else core.push(i);
+        else if (s.group === "ocean") ocean.push(i);
+        else animal.push(i);
       }
       const sec = (title, sub, idxs) => idxs.length
         ? `<div class="htp-sec-head"><span class="htp-sec-ico">🧭</span>${title}</div>`
@@ -33867,8 +33881,10 @@
             + 'built-in one, glow and all, and it stays on this device.</p>')
         + '</div>'
 
-        + sec("Core strategies", "Start here. Each one is a complete plan on its own.", core)
-        + sec("Combos", "Two cores that feed each other. Suggested to you once a core is switched on.", combo)
+        + sec("Ocean strategies", "Pick one of these first. Every animal you play needs an ocean "
+              + "under it, so your oceans decide what the rest of your board can even do.", ocean)
+        + sec("Animal strategies", "Your scoring plan, played on top of your oceans.", animal)
+        + sec("Combos", "Two plans that feed each other. Suggested to you once a core is switched on.", combo)
         + sec("Your own strategies", "Plans you saved on this device.", custom);
     }
 

@@ -1027,6 +1027,19 @@
     .hs2-clear:hover { background: rgba(232,110,80,.26); border-color: #e86e50; }
 
     /* Section 1: horizontal rail of full core cards */
+    /* Ocean plans and animal plans are chosen for different reasons, so each
+       rail gets its own heading rather than running them together. */
+    .hs2-core-group { margin-bottom: 4px; }
+    .hs2-core-group + .hs2-core-group { margin-top: 14px; }
+    .hs2-core-group-head {
+      display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+      font-weight: 700; font-size: 15px; letter-spacing: .2px;
+      color: #f4a574; margin: 0 0 7px 2px;
+    }
+    .hs2-core-group-sub {
+      font-weight: 500; font-size: 12.5px; letter-spacing: 0;
+      color: rgba(255,255,255,.62);
+    }
     .hs2-core-rail {
       display: flex; flex-direction: row; flex-wrap: nowrap; gap: 13px;
       overflow-x: auto; overflow-y: hidden; padding: 2px 2px 12px;
