@@ -13973,7 +13973,14 @@ def _bench_aggregate(results: List[Dict[str, Any]], counts: List[int], matchups:
                 "avg_score": round(avg_score, 2), "avg_margin": round(avg_margin, 2),
             }
             if m == "old":
-                entry["is_better"] = bool(lo > 0.5)
+                # ONE new bot sits against (count - 1) old ones, so an evenly
+                # matched bot wins 1/count of the time, not half. This gate read
+                # `lo > 0.5` at every table size, which asks a 4-player bot to
+                # win twice its fair share and an 8-player bot four times its
+                # own -- so no count above 2 could ever be promoted, however
+                # much better it got.
+                entry["neutral"] = round(1.0 / c, 4)
+                entry["is_better"] = bool(lo > 1.0 / c)
             by_count[str(c)][m] = entry
             if m == "old":
                 for r in cell:
@@ -13986,9 +13993,13 @@ def _bench_aggregate(results: List[Dict[str, Any]], counts: List[int], matchups:
     n_all = len(old_cells)
     wins_all = sum(float(r["win"]) for r in old_cells)
     p_all, lo_all, hi_all = _wilson(wins_all, n_all)
+    # Counts are pooled here, and each one has its own neutral rate, so the bar
+    # is the games-weighted average of them.
+    neutral_all = ((sum(1.0 / int(r["count"]) for r in old_cells) / n_all) if n_all else 0.5)
     aggregate = {
         "old_win_rate": round(p_all, 4), "old_ci_low": round(lo_all, 4), "old_ci_high": round(hi_all, 4),
-        "old_is_better": bool(lo_all > 0.5), "games": n_all,
+        "neutral": round(neutral_all, 4),
+        "old_is_better": bool(lo_all > neutral_all), "games": n_all,
     }
     return {"by_count": by_count, "seat_advantage": seat_adv, "aggregate": aggregate, "matchups": matchups}
 
