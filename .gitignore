@@ -55,6 +55,7 @@
 !calibrate_bots.py
 !bot_evolve.py
 !overnight_evolve.sh
+!strategy_rotation.sh
 !test_ai_learning.py
 
 # Who is on a computer and who is on a phone, shown on every screen that lists
