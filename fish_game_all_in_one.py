@@ -3189,12 +3189,45 @@ def save_animal_synergy_grid(card_db: Dict[int, CardDef], path: str = ANIMAL_SYN
     os.replace(tmp_path, abs_path)
 
 
+_CARD_PLUS_SUM: Dict[int, int] = {}
+_PLUS_RE = re.compile(r"\+(\d+)")
+
+
+def card_plus_sum(card: CardDef) -> int:
+    """Every "+N" in a card's text, added up. Fixed per card, and it was being
+    re-parsed with an uncompiled regex each time a pool card was valued."""
+    got = _CARD_PLUS_SUM.get(card.uid)
+    if got is None:
+        got = sum(int(m.group(1)) for m in _PLUS_RE.finditer(card.text))
+        _CARD_PLUS_SUM[card.uid] = got
+    return got
+
+
+# board_strategy_profile depends on nothing but which cards are on the board,
+# and a board does not change while one decision is being weighed -- yet it was
+# rebuilt 81,360 times in a single profiled game, mostly from inside the pool
+# valuation, once per pool card per opponent per candidate move. Rollouts
+# produce an enormous number of DISTINCT boards over a long run, so the cache is
+# bounded and simply cleared when full rather than allowed to grow for hours.
+_BOARD_PROFILE_CACHE: Dict[Tuple[int, ...], Dict[str, int]] = {}
+_BOARD_PROFILE_CACHE_MAX = 8192
+
+
 def board_strategy_profile(gs: GameState, player: PlayerState) -> Dict[str, int]:
+    """Tag counts over the player's board. The returned dict is shared: read it,
+    never write into it."""
+    key = tuple(player_board_face_uids(player))
+    got = _BOARD_PROFILE_CACHE.get(key)
+    if got is not None:
+        return got
     prof: Dict[str, int] = {}
-    for uid in player_board_face_uids(player):
+    for uid in key:
         c = gs.card_db[uid]
         for t in card_strategy_tags(c):
             prof[t] = prof.get(t, 0) + 1
+    if len(_BOARD_PROFILE_CACHE) >= _BOARD_PROFILE_CACHE_MAX:
+        _BOARD_PROFILE_CACHE.clear()
+    _BOARD_PROFILE_CACHE[key] = prof
     return prof
 
 
@@ -7258,7 +7291,7 @@ def pool_entry_value_for_player(ms: MatchState, gs: GameState, entry_uid: int, p
         v = 0.0
         if is_ocean(c):
             v += 2.2 if len(player.board_oceans) < 3 else 1.1
-        v += 0.12 * sum(int(m.group(1)) for m in re.finditer(r"\+(\d+)", c.text))
+        v += 0.12 * card_plus_sum(c)
         v += 0.08 * max(0, 3 - c.cost)
         for t in card_strategy_tags(c):
             v += 0.10 * min(profile.get(t, 0), 4)
@@ -7876,7 +7909,7 @@ def sort_hand_for_payment(
 ) -> List[int]:
     def face_score(face_uid: int) -> float:
         c = gs.card_db[face_uid]
-        plus = sum(int(m.group(1)) for m in re.finditer(r"\+(\d+)", c.text))
+        plus = card_plus_sum(c)
         return c.cost * 2 + plus + (2 if is_ocean(c) else 0)
 
     def pay_score(entry_uid: int) -> float:
@@ -9309,7 +9342,7 @@ def discard_keep_score(gs: GameState, ms: MatchState, player: PlayerState, entry
         face_keep = 0.0
         # Raw card power: pluses and a modest cost term (expensive payoffs are
         # worth holding for when we can afford them).
-        plus = sum(int(m.group(1)) for m in re.finditer(r"\+(\d+)", c.text))
+        plus = card_plus_sum(c)
         face_keep += 0.45 * plus
         face_keep += 0.18 * c.cost
         if is_ocean(c):
