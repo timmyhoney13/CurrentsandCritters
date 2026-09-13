@@ -1954,6 +1954,7 @@ def stabilize_weights(weights: Dict[str, float]) -> Dict[str, float]:
         # Kelp Forest is worth twenty. Decaying it to zero would put back the
         # behaviour it exists to fix.
         "ocean_threshold": (0.25, 3.5),
+        "placement_fit": (0.0, 3.5),
         "sim_point_delta": (0.8, 4.0),
     }
     for k, (lo, hi) in bounds.items():
@@ -2129,6 +2130,9 @@ def default_weights() -> Dict[str, float]:
         # How much the bot trusts the exact chart arithmetic on an Ocean it is
         # about to play. See ocean_threshold_marginal.
         "ocean_threshold": 1.0,
+        # How much this bot cares WHICH ocean a card lands on. See
+        # placement_marginal: coral squared, and the Artificial Reef stack.
+        "placement_fit": 1.0,
         "sim_point_delta": 0.8,
     }
 
@@ -3315,6 +3319,61 @@ STRATEGY_FAMILY_TO_ENGINE_TAG = {
     "coral_cephalopods": "engine:cephalopod",
     "goby_moon_shot": "engine:goby-spiny",
 }
+
+
+def placement_marginal(gs: GameState, ms: MatchState,
+                       player: PlayerState, action: Action) -> float:
+    """Points gained by putting THIS card on THIS ocean rather than another.
+
+    Two placements in this game pay for themselves and the bots had no way to
+    say so, because which ocean a card lands on was scored only by learned
+    synergy maps rather than by what the cards actually do:
+
+      Coral squared. Elk Horn Coral pays "+2 per coral that is attached to a
+      coral reef", so a coral placed on a Coral Reef is worth +2 for every Elk
+      Horn you hold, and a coral placed anywhere else is worth none of it.
+
+      The stacking host. Artificial Reef pays "+2 per card attached", and
+      Lobster and Yellowfin Tuna are the two cards that may share a spot with
+      any number of their own kind. Stacking them onto an Artificial Reef is
+      therefore +2 each, without end -- which is why that one ocean is the
+      backbone of Yellowfin, B-Lob and Crustaceans.
+
+    Read off the cards, so a change to either text changes this with it.
+    """
+    if action.kind != "play_to_ocean" or action.ocean_uid is None:
+        return 0.0
+    face_uid = action.face_uid if action.face_uid is not None else action.card_uid
+    card = gs.card_db.get(face_uid)
+    ocean = gs.card_db.get(action.ocean_uid)
+    if card is None or ocean is None:
+        return 0.0
+
+    ocean_name = card_name_lc(ocean)
+    pts = 0.0
+
+    # The ocean's own "+2 per card attached" pays for anything you put on it.
+    oprof = _score_profile(ocean, None)
+    if oprof.per_attached:
+        pts += 2.0
+
+    # Coral on a Coral Reef, once per Elk Horn you hold or have played.
+    if card_species_lc(card) == "coral" and ocean_name == "coral reef":
+        elk = 0
+        for uid in list(all_board_cards(player)) + list(player.hand):
+            c = gs.card_db.get(uid)
+            if c is None:
+                continue
+            if _score_profile(c, None).coral_reef_attached is not None:
+                elk += 1
+        pts += 2.0 * elk
+        # A coral already placed cannot be moved to a reef later, so putting it
+        # on one is worth something even before an Elk Horn shows up: it keeps
+        # the payoff available. Three Elk Horn exist, so this is priced as a
+        # fraction of one, not as a whole one you do not have.
+        if elk == 0:
+            pts += 0.9
+    return pts
 
 
 def ocean_threshold_marginal(gs: GameState, ms: MatchState,
@@ -10171,6 +10230,7 @@ def action_features(
         if _oc is not None:
             feat["ocean_threshold"] = max(-3.0, min(4.0,
                 ocean_threshold_marginal(gs, ms, player, _oc) / 10.0))
+    feat["placement_fit"] = max(0.0, min(3.0, placement_marginal(gs, ms, player, action) / 4.0))
     feat["sim_point_delta"] = simulated_point_delta(gs, ms, player, action, sim_baseline) if include_sim_delta else 0.0
     return feat
 
