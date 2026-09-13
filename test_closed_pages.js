@@ -112,8 +112,12 @@ check("both are still in the tab map, so restoring is one array away",
 // does not start with "<!--". The live-DOM checks below are the real proof;
 // this one catches a restore that puts the markup back without meaning to.
 const HTML_LIVE = HTML.replace(/<!--[\s\S]*?-->/g, "");
+// preview.html is a heavily commented file: about a fifth of it is comments,
+// so a regex that ran away would take far more than that. The bar was 0.8,
+// which the file sat half a percent above until the Casual panel's live
+// markup was replaced by the (empty) Stats panel.
 check("stripping comments left the file mostly intact, so the regex is not eating the page",
-      HTML_LIVE.length > HTML.length * 0.8, `${HTML_LIVE.length} of ${HTML.length}`);
+      HTML_LIVE.length > HTML.length * 0.7, `${HTML_LIVE.length} of ${HTML.length}`);
 for (const page of CLOSED) {
   const live = HTML_LIVE.split("\n").filter(l =>
     new RegExp(`ph-snav-item[^>]*data-tab="${page.tab}"`).test(l));

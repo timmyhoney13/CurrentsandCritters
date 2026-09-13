@@ -10815,55 +10815,59 @@
       -webkit-backdrop-filter: none;
     }
 
-    /* ── Casual tab: soft seafoam green ── */
-    /* ── Casual tab: beachside pier illustration ── */
-    #auth-stats-lobby[data-bg-tab="normal"] {
-      background: url("/multiplayer/client/ph-bg-casual-art.png") center center / cover no-repeat !important;
+    /* ── Stats tab: the beachside pier illustration ──────────────────
+       The Casual tab's painting (ph-bg-casual-art.png): Stats took Casual's
+       place in the menu and wears its background. Attached FIXED, as Friends
+       is, because Stats is a long page: painted against the scrolling box the
+       pier would be blown up over the whole scroll height and only its top
+       strip would ever be on screen. */
+    #auth-stats-lobby[data-bg-tab="stats"] {
+      background: #bfe8f6 url("/multiplayer/client/ph-bg-casual-art.png") center center / cover no-repeat fixed !important;
     }
-    #auth-stats-lobby[data-bg-tab="normal"]::before,
-    #auth-stats-lobby[data-bg-tab="normal"]::after {
+    #auth-stats-lobby[data-bg-tab="stats"]::before,
+    #auth-stats-lobby[data-bg-tab="stats"]::after {
       content: none !important;
     }
     /* Cards, warm sandy-cream frosted glass matching the pier's peach tones */
-    #auth-stats-lobby[data-bg-tab="normal"] .ph-profile-card,
-    #auth-stats-lobby[data-bg-tab="normal"] .ph-stats-card,
-    #auth-stats-lobby[data-bg-tab="normal"] .ph-scard {
+    #auth-stats-lobby[data-bg-tab="stats"] .ph-profile-card,
+    #auth-stats-lobby[data-bg-tab="stats"] .ph-stats-card,
+    #auth-stats-lobby[data-bg-tab="stats"] .ph-scard {
       background: rgba(255,244,228,0.80) !important;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(200,170,130,0.45) !important;
       box-shadow: 0 6px 28px rgba(80,50,20,0.14) !important;
     }
-    #auth-stats-lobby[data-bg-tab="normal"] .ph-tabs {
+    #auth-stats-lobby[data-bg-tab="stats"] .ph-tabs {
       background: rgba(255,242,220,0.78) !important;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(200,170,130,0.40) !important;
       box-shadow: 0 4px 18px rgba(80,50,20,0.12) !important;
     }
-    #auth-stats-lobby[data-bg-tab="normal"] .ph-tab.active {
+    #auth-stats-lobby[data-bg-tab="stats"] .ph-tab.active {
       background: rgba(255,252,244,0.94) !important;
     }
-    #auth-stats-lobby[data-bg-tab="normal"] .ph-action-card {
+    #auth-stats-lobby[data-bg-tab="stats"] .ph-action-card {
       background: rgba(255,244,228,0.78) !important;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(200,170,130,0.45) !important;
       box-shadow: 0 4px 18px rgba(80,50,20,0.12) !important;
     }
-    #auth-stats-lobby[data-bg-tab="normal"] .ph-action-card.ph-action-gold {
+    #auth-stats-lobby[data-bg-tab="stats"] .ph-action-card.ph-action-gold {
       background: rgba(255,242,200,0.84) !important;
     }
-    #auth-stats-lobby[data-bg-tab="normal"] .ph-sg {
+    #auth-stats-lobby[data-bg-tab="stats"] .ph-sg {
       background: rgba(200,160,100,0.08) !important;
     }
-    #auth-stats-lobby[data-bg-tab="normal"] .ph-sc {
+    #auth-stats-lobby[data-bg-tab="stats"] .ph-sc {
       background: rgba(255,247,234,0.80) !important;
     }
-    #auth-stats-lobby[data-bg-tab="normal"] .ph-sh {
+    #auth-stats-lobby[data-bg-tab="stats"] .ph-sh {
       background: rgba(255,244,228,0.80) !important;
     }
-    #auth-stats-lobby[data-bg-tab="normal"] .ph-topbar {
+    #auth-stats-lobby[data-bg-tab="stats"] .ph-topbar {
       background: transparent;
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
@@ -11546,12 +11550,6 @@
     .ph-side {
       gap: 12px;
     }
-    #stats-normal-block .ph-stats-card {
-      min-height: 432px;
-    }
-    #stats-normal-block .ph-side > .ph-scard:first-child {
-      min-height: 239px;
-    }
     #stats-friends-mini {
       min-height: 181px;
     }
@@ -11793,59 +11791,6 @@
       #auth-stats-lobby .ph-stats-title { font-size: 1.4rem; }
       /* Daily challenge strip cards, larger */
       #auth-stats-lobby .ph-cs-cards { gap: 14px; }
-    }
-
-    /* ── Casual tab: match Overview's compact wide-grid dimensions ── */
-    /* The Casual stats grid was cramped because the base .ph-sg uses
-       only 3 columns and 152px-tall cards. We give it the same compact
-       layout as the Overview Quick Stats so all stats fit cleanly on
-       one screen without scrolling. */
-    #ph-panel-normal .ph-main {
-      grid-template-columns: minmax(0, 1fr) 380px;
-      gap: 12px;
-      align-items: start;
-    }
-    #ph-panel-normal .ph-stats-card { min-height: 0; }
-    #ph-panel-normal .ph-sg {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      grid-auto-rows: 1fr;
-      gap: 10px;
-      padding: 10px;
-    }
-    #ph-panel-normal .ph-sc {
-      min-height: 110px;
-      padding: 12px 14px;
-    }
-    #ph-panel-normal .ph-sc .ph-scl { min-height: 2.45em; }
-    #ph-panel-normal .ph-sc:not(.ph-sc-string) .ph-scv {
-      font-size: clamp(1.7rem, 2.2vw, 2.5rem);
-      line-height: 1.02;
-    }
-    #ph-panel-normal .ph-sc-string .ph-scv {
-      font-size: clamp(1.05rem, 1.3vw, 1.45rem);
-      line-height: 1.24;
-      margin-top: 2px;
-      word-break: break-word;
-    }
-    #ph-panel-normal .ph-side > .ph-scard { min-height: 0; }
-    /* Compact side cards so the whole Casual layout fits one screen */
-    #ph-panel-normal .ph-side .ph-sh {
-      padding: 10px 14px;
-    }
-    #ph-panel-normal .ph-side .ph-rg,
-    #ph-panel-normal .ph-side .ph-fr {
-      padding: 8px 12px;
-    }
-    /* On narrower screens, drop the side panel below the stats card */
-    @media (max-width: 1100px) {
-      #ph-panel-normal .ph-main { grid-template-columns: minmax(0, 1fr); }
-    }
-    @media (max-width: 720px) {
-      #ph-panel-normal .ph-sg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-
-    #stat-normal-pie {
-      display: none !important;
     }
 
     .ph-sh {
@@ -12282,38 +12227,6 @@
     }
     .stats-nav-btn:hover { background: rgba(34,72,140,.7); }
     .stats-nav-btn.primary:hover { background: linear-gradient(135deg,#0e5aa0,#0f3a70); }
-    .stats-pie-wrap {
-      display: none; flex-direction: row; align-items: center; gap: 14px;
-      margin-top: 10px; padding: 12px 14px;
-      background: rgba(11,36,72,.6); border: 1px solid rgba(58,120,204,.25);
-      border-radius: 12px; position: relative;
-    }
-    .stats-pie-wrap-comp { background: rgba(42,28,8,.6); border-color: rgba(240,200,64,.2); }
-    .stats-pie-wrap.visible { display: flex; }
-    .stats-pie-svg { flex-shrink: 0; cursor: pointer; }
-    .stats-pie-svg path { transition: transform .15s, filter .15s; transform-origin: 60px 60px; }
-    .stats-pie-svg path:hover { transform: scale(1.08); filter: brightness(1.25); }
-    .stats-pie-legend { display: flex; flex-direction: column; gap: 5px; flex: 1; }
-    .stats-pie-legend-item {
-      display: flex; align-items: center; gap: 6px;
-      font-size: 11px; color: var(--text); cursor: default;
-      padding: 3px 6px; border-radius: 6px; transition: background .12s;
-    }
-    .stats-pie-legend-item:hover { background: rgba(255,255,255,.06); }
-    .stats-pie-legend-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
-    .stats-pie-legend-label { font-weight: 700; min-width: 22px; }
-    .stats-pie-legend-count { color: var(--muted); font-size: 10px; }
-    .stats-pie-tooltip {
-      position: fixed; background: rgba(4,20,35,.96);
-      border: 1px solid rgba(34,216,248,.4); border-radius: 8px;
-      padding: 6px 11px; font-size: 12px; font-weight: 700; color: #fff;
-      pointer-events: none; display: none; z-index: 9999;
-      white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,.5);
-    }
-    .stats-pie-title {
-      font-size: 9px; font-weight: 700; color: var(--muted);
-      text-transform: uppercase; letter-spacing: .8px; margin-bottom: 4px;
-    }
     .stats-join-row {
       display: none; flex-direction: row; gap: 8px; align-items: center;
       width: 100%; max-width: none;

@@ -175,7 +175,10 @@ check("stat-comp-top went with them", !/stat-comp-top/.test(HTML + APP));
 check("stat-comp-wins too", !/stat-comp-wins/.test(HTML + APP));
 check("nothing un-hides them any more", !/compBlock\.style\.display/.test(APP));
 check("the always-hidden summary grid went as well", !/stats-summary-grid/.test(HTML + APP));
-check("the Normal tab's real block is untouched", /normalBlock\.style\.display = completed \? "" : "none";/.test(APP));
+// This used to guard the Casual ("Normal") tab's block. Stats replaced that
+// tab, so what is guarded now is that the page it became is really there.
+check("the Stats page took the Casual tab's place", /id="ph-panel-stats"/.test(HTML) && !/id="ph-panel-normal"/.test(HTML)
+      && /if \(name === "stats"\)\s+_renderStatsTab\(\);/.test(APP));
 
 console.log("\ncompetitive history is MY history");
 // The filter now runs through _compHistoryEntry, which reads BOTH competitive
@@ -369,7 +372,7 @@ window.__STUB_DOCS = {
 </script>
 <script>${STUB}</script>`;
 
-const TABS = ["overview", "history", "achievements", "competitive"];
+const TABS = ["overview", "stats", "history", "achievements", "competitive"];
 const DRIVER = `
 <script>
 (function () {
@@ -570,6 +573,8 @@ if (!D) {
         new RegExp(`3 / ${ACH_TOTAL} Completed`).test(A.achievements || ""),
         (A.achievements || "").slice(0, 90));
   check("its history is on screen", /310 pts/.test(A.history || ""));
+  check("its Stats page has its games", /Games played 77/.test(A.stats || ""), (A.stats || "").slice(0, 160));
+  check("…and its hours", /Hours played 42 hrs/.test(A.stats || ""));
   check("its critter is on its face", A.myAvatar === "/avatars/great-white-shark.png", A.myAvatar);
 
   console.log("\n  and none of it followed the guest in");
@@ -586,6 +591,8 @@ if (!D) {
   check("nothing is marked unlocked", !/✓ Unlocked/.test(G.achievements || ""), (G.achievements || "").slice(0, 120));
   check("their game history is empty", /No games completed yet\./.test(G.history || ""));
   check("the account's two games are not in it", !/310 pts/.test(G.history || ""));
+  check("their Stats page starts empty", /No games yet/.test(G.stats || ""), (G.stats || "").slice(0, 160));
+  check("with none of the account's games or hours on it", !/Games played 77|42 hrs|310/.test(G.stats || ""));
   check("no competitive matches either", /No competitive games yet\./.test(G.history || ""));
   check("their name is their own", (G.nick || "").trim() === "FreshGuest", G.nick);
   check("the header XP chip is not the account's", !/249|250/.test(G.hdrXp || ""), G.hdrXp);

@@ -353,7 +353,9 @@ console.log("\nthe Main Menu Tour covers the whole Main Menu");
   check(`every sidebar tab was found (${tabs.length})`, tabs.length >= 12);
   // A tab counts as covered if the tour spotlights its nav button OR its panel:
   // Overview is arrived at with navTab() and explained on #ph-panel-overview.
-  const PANEL = { "snav-casual": "ph-panel-normal" };
+  // Every nav button is snav-<x> over ph-panel-<x>, so the map is empty; it
+  // held "snav-casual": "ph-panel-normal" until Stats replaced Casual.
+  const PANEL = {};
   const uncovered = tabs.filter(id => {
     const panel = PANEL[id] || id.replace(/^snav-/, "ph-panel-");
     return !TUT.includes(`target: "#${id}"`) && !TUT.includes(`target: "#${panel}"`);

@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-13.1";
+  const APP_BUILD   = "2026-09-13.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,13 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.9", title: "📊 A Stats page for every account", items: [
+      "Stats is new in the menu, in the spot where Casual used to be, on the same beachside pier.",
+      "Your score over your last 50 games is drawn as a line with your wins marked in gold. Next to it is a chart of where you finish.",
+      "Table Sizes has everything the Casual tab showed: your record at every table size from 2 to 8 players. Tap a column to see that size up close.",
+      "You also get your Strategy Playbook, the modes you play, a Tide Calendar of the days you played, your Competitive rank, your climb up the Head to Head reef, your collection and lifetime counts from around the reef.",
+      "Hover over or tap any bar, dot or day to see its numbers.",
+    ]},
     { ver: "V1.7.8", title: "\uD83D\uDC65 Your friends' stats, right next to yours", items: [
       "Quick Stats on the Overview is down to the eight numbers that matter most: hours played, most played strategy, games, wins, win rate, achievements, competitive rank and animals unlocked.",
       "Beside it is a card with the same eight numbers for one of your friends, lined up card for card so you can see who is ahead. Use the arrows to flip through your friends; your favorites come first.",
@@ -24946,109 +24953,6 @@
       } catch {}
     }
 
-    const PIE_COLORS = ["#22d8f8","#f0c840","#2ecc71","#e06c75","#c678dd","#e5c07b","#56b6c2","#d19a66"];
-    const PIE_COLORS_COMP = ["#f0c840","#e06c75","#c678dd","#22d8f8","#2ecc71","#e5c07b"];
-
-    function renderPieChart(containerId, sizeData, isComp) {
-      const el = $a(containerId);
-      if (!el) return;
-      el.innerHTML = "";
-      const entries = Object.entries(sizeData || {})
-        .map(([k, v]) => ({ n: parseInt(k), count: Number(v) }))
-        .filter(e => e.count > 0)
-        .sort((a, b) => a.n - b.n);
-      if (!entries.length) { el.classList.remove("visible"); return; }
-      el.classList.add("visible");
-
-      const total = entries.reduce((s, e) => s + e.count, 0);
-      const colors = isComp ? PIE_COLORS_COMP : PIE_COLORS;
-      const S = 120, cx = 60, cy = 60, r = 44, ri = 18; // donut hole
-      let angle = -Math.PI / 2;
-
-      // Tooltip (appended to body so it's never clipped)
-      const tip = document.createElement("div");
-      tip.className = "stats-pie-tooltip";
-      document.body.appendChild(tip);
-
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      svg.setAttribute("viewBox", `0 0 ${S} ${S}`);
-      svg.setAttribute("class", "stats-pie-svg");
-      svg.style.width = svg.style.height = "120px";
-
-      entries.forEach((e, i) => {
-        const slice = (e.count / total) * 2 * Math.PI;
-        const end = angle + slice;
-        const x1 = cx + r * Math.cos(angle),  y1 = cy + r * Math.sin(angle);
-        const x2 = cx + r * Math.cos(end),    y2 = cy + r * Math.sin(end);
-        const ix1 = cx + ri * Math.cos(end),  iy1 = cy + ri * Math.sin(end);
-        const ix2 = cx + ri * Math.cos(angle),iy2 = cy + ri * Math.sin(angle);
-        const large = slice > Math.PI ? 1 : 0;
-        const d = `M${x1},${y1} A${r},${r} 0 ${large} 1 ${x2},${y2} L${ix1},${iy1} A${ri},${ri} 0 ${large} 0 ${ix2},${iy2} Z`;
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", d);
-        path.setAttribute("fill", colors[i % colors.length]);
-        path.setAttribute("stroke", "rgba(4,20,35,.6)");
-        path.setAttribute("stroke-width", "1.5");
-        const pct = Math.round((e.count / total) * 100);
-        path.addEventListener("mouseenter", () => {
-          tip.textContent = `${e.n} Players, ${e.count} game${e.count !== 1 ? "s" : ""} (${pct}%)`;
-          tip.style.display = "block";
-        });
-        path.addEventListener("mousemove", ev => {
-          tip.style.left = (ev.clientX + 12) + "px";
-          tip.style.top  = (ev.clientY - 32) + "px";
-        });
-        path.addEventListener("mouseleave", () => { tip.style.display = "none"; });
-        svg.appendChild(path);
-        angle = end;
-      });
-
-      // Center label: total games
-      const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      txt.setAttribute("x", cx); txt.setAttribute("y", cy + 1);
-      txt.setAttribute("text-anchor", "middle"); txt.setAttribute("dominant-baseline", "middle");
-      txt.setAttribute("fill", "#fff"); txt.setAttribute("font-size", "13");
-      txt.setAttribute("font-weight", "800"); txt.setAttribute("font-family", "Nunito, sans-serif");
-      txt.textContent = total;
-      svg.appendChild(txt);
-      const sub = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      sub.setAttribute("x", cx); sub.setAttribute("y", cy + 13);
-      sub.setAttribute("text-anchor", "middle"); sub.setAttribute("dominant-baseline", "middle");
-      sub.setAttribute("fill", "rgba(255,255,255,.45)"); sub.setAttribute("font-size", "7");
-      sub.setAttribute("font-family", "Nunito, sans-serif");
-      sub.textContent = "games";
-      svg.appendChild(sub);
-
-      // Legend
-      const legend = document.createElement("div");
-      legend.className = "stats-pie-legend";
-      const title = document.createElement("div");
-      title.className = "stats-pie-title";
-      title.textContent = "Players per game";
-      legend.appendChild(title);
-      entries.forEach((e, i) => {
-        const pct = Math.round((e.count / total) * 100);
-        const item = document.createElement("div");
-        item.className = "stats-pie-legend-item";
-        item.innerHTML = `<span class="stats-pie-legend-dot" style="background:${colors[i % colors.length]}"></span>
-          <span class="stats-pie-legend-label">${e.n}P</span>
-          <span class="stats-pie-legend-count">${e.count} game${e.count !== 1 ? "s" : ""} · ${pct}%</span>`;
-        item.addEventListener("mouseenter", () => {
-          tip.textContent = `${e.n} Players, ${e.count} game${e.count !== 1 ? "s" : ""} (${pct}%)`;
-          tip.style.display = "block";
-        });
-        item.addEventListener("mousemove", ev => {
-          tip.style.left = (ev.clientX + 12) + "px";
-          tip.style.top  = (ev.clientY - 32) + "px";
-        });
-        item.addEventListener("mouseleave", () => { tip.style.display = "none"; });
-        legend.appendChild(item);
-      });
-
-      el.appendChild(svg);
-      el.appendChild(legend);
-    }
-
     function setProfileLevelCard(stats) {
       const source = (stats && typeof stats === "object") ? stats : {};
       const progress = getLevelProgressFromTotalXp(getStoredTotalXp(source));
@@ -25081,15 +24985,6 @@
 
     function renderStats(stats) {
       const safeStats = getHomeReferenceStats(stats);
-      // Show stats block if completed_games > 0, or if any per-size game counts exist
-      const anyBySize = Object.values(safeStats.normal_games_by_size || {}).some(n => Number(n) > 0)
-        || Object.values(safeStats.comp_games_by_size || {}).some(n => Number(n) > 0);
-      const completed = (safeStats.completed_games || 0) > 0 || anyBySize;
-      const noGamesEl = $a("stats-no-games");
-      const normalBlock = $a("stats-normal-block");
-      if (noGamesEl) noGamesEl.style.display = completed ? "none" : "";
-      if (normalBlock) normalBlock.style.display = completed ? "" : "none";
-
       const s = (id, val, opts) => {
         const options = opts || {};
         const fallback = options.fallback ?? "-";
@@ -25101,16 +24996,9 @@
       };
       setProfileLevelCard(safeStats);
       s("stat-comp-rank", safeStats.rank_competitive || null, { fallback: "No rank yet." });
-
-      if (!completed) {
-        renderPieChart("stat-normal-pie", {}, false);
-        return;
-      }
-
-      s("stat-normal-wins", safeStats.normal_wins ?? 0, { allowZero: true });
-      s("stat-completed", safeStats.completed_games ?? 0, { allowZero: true });
-      s("stat-strategy", safeStats.most_played_strategy || null, { fallback: "No games completed yet." });
-      renderPieChart("stat-normal-pie", safeStats.normal_games_by_size || {}, false);
+      // The per-mode numbers that used to be filled in here belonged to the
+      // Casual tab. They are drawn by the Stats page now (js/stats-page.js),
+      // which updatePhStats() asks to redraw.
     }
 
     // How many friend profiles the four-row home preview will read to decide
@@ -31083,7 +30971,7 @@
     // ── Player Home: tab switching ───────────────────────────────
     (function() {
       const tabs = document.querySelectorAll("#ph-tabs .ph-tab");
-      const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", messages:"ph-panel-messages", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", clans:"ph-panel-clans", prestige:"ph-panel-prestige", levelpass:"ph-panel-levelpass", critterpass:"ph-panel-critterpass", store:"ph-panel-store" };
+      const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", stats:"ph-panel-stats", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", messages:"ph-panel-messages", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", clans:"ph-panel-clans", prestige:"ph-panel-prestige", levelpass:"ph-panel-levelpass", critterpass:"ph-panel-critterpass", store:"ph-panel-store" };
       // ── Store and Critter Pass: OFF THE MENU, ON STANDBY ─────────────
       // Both pages are gone rather than shut: the sidebar items that opened
       // them are commented out in preview.html, so there is no door to walk
@@ -31103,8 +30991,14 @@
       // which stay on so the pages are shut as well as unreachable.
       const PH_CLOSED_TABS = ["store", "critterpass"];
       const PH_CLOSED_FALLBACK = "overview";
-      const phTabOrFallback = (name) =>
-        PH_CLOSED_TABS.indexOf(name) === -1 ? name : PH_CLOSED_FALLBACK;
+      // Tabs that were renamed. "normal" was the Casual tab, and the Stats
+      // page took its place in the menu and its table-size record with it, so
+      // anything still asking for Casual by its old name opens Stats.
+      const PH_RENAMED_TABS = { normal: "stats" };
+      const phTabOrFallback = (name) => {
+        const n = PH_RENAMED_TABS[name] || name;
+        return PH_CLOSED_TABS.indexOf(n) === -1 ? n : PH_CLOSED_FALLBACK;
+      };
       const statsLobby = document.getElementById("auth-stats-lobby");
       // ── Guests are not locked out of the menu ────────────────────────
       // Every tab opens for a guest. What a guest does NOT get is a saved
@@ -31119,7 +31013,7 @@
       // genuinely need an account now carry one honest line at the top instead,
       // and everything that works without one just works.
       const GUEST_NOTES = {
-        normal:       "Playing as a guest: these stats are saved in this browser only.",
+        stats:        "Playing as a guest: these stats are saved in this browser only.",
         competitive:  "Playing as a guest: these stats are saved in this browser only.",
         history:      "Playing as a guest: your game history is saved in this browser only.",
         achievements: "Playing as a guest: achievements are saved in this browser only.",
@@ -31178,6 +31072,24 @@
           root.innerHTML = '<div class="ccCP"><div class="ccCP-empty">'
             + "The Critter Pass didn't finish loading. Please refresh the page."
             + "</div></div>";
+        }
+      }
+
+      // js/stats-page.js is a separate deferred script as well: same wait, and
+      // the same honest message if it never registers.
+      function _renderStatsTab(attempt) {
+        const n = attempt || 0;
+        if (typeof window.__ccStatsRender === "function") {
+          try { window.__ccStatsRender(); }
+          catch (err) { try { console.error("[stats] page render threw", err); } catch (_) {} }
+          return;
+        }
+        if (n < 20) { setTimeout(() => _renderStatsTab(n + 1), 100); return; }
+        const root = document.getElementById("cc-stats-root");
+        if (root) {
+          root.innerHTML = '<div style="padding:26px 14px;text-align:center;'
+            + 'color:#46638a;font-weight:700;font-size:13px;">'
+            + "The Stats page didn't finish loading. Please refresh the page.</div>";
         }
       }
 
@@ -31282,7 +31194,7 @@
         name = phTabOrFallback(name);
         // Changing tabs returns every hidden critter to its untouched state.
         try { if (typeof window.__fishResetSecrets === "function") window.__fishResetSecrets(); } catch (_) {}
-        if (statsLobby) statsLobby.setAttribute("data-bg-tab", name || "normal");
+        if (statsLobby) statsLobby.setAttribute("data-bg-tab", name || "overview");
         tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === name));
         const isGuest = !_authUser;   // guest or not-signed-in
         Object.entries(panels).forEach(([k, id]) => {
@@ -31303,6 +31215,7 @@
         if (name === "howto")        renderPhHowTo();
         if (name === "friends")      { renderPhFriendsList(); if (_authUser && typeof window.__fishCheckFriendAchievements === "function") window.__fishCheckFriendAchievements(_authUser.uid); }
         if (name === "history")      renderPhHistory();
+        if (name === "stats")        _renderStatsTab();
         if (name === "overview")     { renderPhOverview();
                                      try { window.__ccGameNightRender && window.__ccGameNightRender(); } catch (_) {}
                                      // Must run AFTER Game Night: the prize band
@@ -32754,71 +32667,6 @@
     let _phStatsRaw = null;
     // The identity _phStatsRaw was cached for (see updatePhStats).
     let _phStatsOwner = "";
-    let _phSelectedPlayerCount = 4;
-    function normalizePhPlayerCount(ps) {
-      const n = Number(ps);
-      if (!Number.isFinite(n)) return 4;
-      const rounded = Math.round(n);
-      if (rounded < 2) return 2;
-      if (rounded > 8) return 8;
-      return rounded;
-    }
-
-    function getPhPlayerCountLabel(ps) {
-      return `${normalizePhPlayerCount(ps)}P`;
-    }
-
-    function setPhCountPrefixedLabels(ps) {
-      const prefix = getPhPlayerCountLabel(ps);
-      const setLabel = (id, suffix) => {
-        const el = $a(id);
-        if (el) el.textContent = `${prefix} ${suffix}`;
-      };
-      setLabel("ph-label-win-pct", "Win %");
-      setLabel("ph-label-most-strategy", "Most Played Strategy");
-      setLabel("ph-label-avg-pts", "Avg Points Per Game");
-      setLabel("ph-label-total-games", "Total Games");
-      setLabel("ph-label-wins", "Wins");
-      setLabel("ph-label-hours", "Hours Played");
-      setLabel("ph-label-recent-games", "Recent Games");
-    }
-
-    function getExactNormalGamesByPlayerCount(stats, ps) {
-      const size = normalizePhPlayerCount(ps);
-      const allGames = Array.isArray(stats?.recent_games) ? stats.recent_games : [];
-      return allGames.filter((g) => {
-        if (!g || typeof g !== "object") return false;
-        const pc = Number(g.pc ?? g.player_count ?? g.total_players ?? 0);
-        if (!Number.isFinite(pc) || Math.round(pc) !== size) return false;
-        const mode = String(g.mode || "normal").toLowerCase();
-        return mode !== "competitive";
-      });
-    }
-
-    function getPerSizeCards(stats, ps) {
-      const size = normalizePhPlayerCount(ps);
-      const bySize = stats?.most_played_cards_by_size;
-      if (bySize && typeof bySize === "object") {
-        const list = bySize[String(size)] ?? bySize[size];
-        if (Array.isArray(list)) return list.filter(Boolean);
-      }
-      const direct = stats?.[`most_played_cards_${size}p`];
-      if (Array.isArray(direct)) return direct.filter(Boolean);
-      return [];
-    }
-
-    function getPerSizeStrategy(stats, ps) {
-      const size = normalizePhPlayerCount(ps);
-      const bySize = stats?.most_played_strategy_by_size;
-      if (bySize && typeof bySize === "object") {
-        const strategy = bySize[String(size)] ?? bySize[size];
-        if (typeof strategy === "string" && strategy.trim()) return strategy.trim();
-      }
-      const direct = stats?.[`most_played_strategy_${size}p`];
-      if (typeof direct === "string" && direct.trim()) return direct.trim();
-      return "";
-    }
-
     function getOverallMostPlayedCard(stats) {
       const source = (stats && typeof stats === "object") ? stats : {};
       const directSingle = String(source.most_played_card || "").trim();
@@ -33318,143 +33166,6 @@
       if (st) st.addEventListener("change", renderAvatarAchievements);
     })();
 
-    function applyPhNormalStatsForPlayerCount(ps) {
-      const size = normalizePhPlayerCount(ps);
-      _phSelectedPlayerCount = size;
-      setPhCountPrefixedLabels(size);
-
-      const statsSource = _phStatsRaw || {};
-      const sKey = String(size);
-
-      // Aggregated stats from atomic Firebase increments, most accurate source
-      const normalGamesBySize = statsSource.normal_games_by_size || {};
-      const normalWinsBySize  = statsSource.normal_wins_by_size  || {};
-      const totalScoreBySize  = statsSource.total_score_by_size  || {};
-
-      const totalGamesAgg = Number(normalGamesBySize[sKey] ?? normalGamesBySize[size] ?? 0);
-      const rawWinsAgg    = normalWinsBySize[sKey] ?? normalWinsBySize[size];
-      const winsAgg       = rawWinsAgg !== undefined && rawWinsAgg !== null ? Number(rawWinsAgg) : null;
-      const totalScoreAgg = Number(totalScoreBySize[sKey] ?? totalScoreBySize[size] ?? 0);
-
-      // Recent games filtered by size, used for the games list and as fallback
-      const filteredGames = getExactNormalGamesByPlayerCount(statsSource, size);
-
-      // Prefer aggregated totals; fall back to counting recent_games entries
-      let totalGames = totalGamesAgg > 0 ? totalGamesAgg : filteredGames.length;
-      let wins = winsAgg !== null
-        ? winsAgg
-        : filteredGames.reduce((acc, g) => acc + (Number(g?.r) === 1 ? 1 : 0), 0);
-
-      // Average score: prefer aggregated total score; fall back to recent_games average
-      let avgPts = "-";
-      if (totalGames > 0) {
-        if (totalScoreAgg > 0) {
-          avgPts = Math.round(totalScoreAgg / totalGames);
-        } else if (filteredGames.length > 0) {
-          const sumScore = filteredGames.reduce((acc, g) => acc + (Number(g?.s) || 0), 0);
-          avgPts = Math.round(sumScore / filteredGames.length);
-        }
-      }
-
-      // If every per-size bucket is empty (old games predate the pc field), fall back to
-      // overall totals so players always see their real data rather than a wall of zeros.
-      const hasAnySizeData = Object.values(normalGamesBySize).some(n => Number(n) > 0)
-        || (Array.isArray(statsSource.recent_games) && statsSource.recent_games.some(g => g?.pc != null));
-      if (!hasAnySizeData && totalGames === 0 && Number(statsSource.completed_games || 0) > 0) {
-        totalGames = Number(statsSource.completed_games || 0);
-        wins       = Number(statsSource.normal_wins || 0);
-        const overallScore = Number(statsSource.total_score || 0);
-        avgPts = (totalGames > 0 && overallScore > 0) ? Math.round(overallScore / totalGames) : "-";
-      }
-
-      const winPct = totalGames > 0 ? `${Math.round((wins / totalGames) * 100)}%` : "-";
-      const winSub = totalGames > 0 && wins / totalGames >= 0.6 ? "Great job!" : "";
-
-      // If we have data, make sure the stats block is visible regardless of how it was hidden
-      const hasData = totalGames > 0
-        || Number(statsSource.completed_games || 0) > 0
-        || Number(statsSource.normal_wins || 0) > 0;
-      if (hasData) {
-        const normalBlock = $a("stats-normal-block");
-        const noGamesEl   = $a("stats-no-games");
-        if (normalBlock) normalBlock.style.display = "";
-        if (noGamesEl)   noGamesEl.style.display   = "none";
-      }
-
-      const wpEl = $a("ph-win-pct"); if (wpEl) wpEl.textContent = winPct;
-      const wpSub = $a("ph-win-pct-sub"); if (wpSub) wpSub.textContent = winSub;
-      const avgEl = $a("ph-avg-pts"); if (avgEl) avgEl.textContent = String(avgPts);
-      const completedEl = $a("stat-completed"); if (completedEl) completedEl.textContent = String(totalGames);
-      const winsEl = $a("stat-normal-wins"); if (winsEl) winsEl.textContent = String(wins);
-
-      const strategyEl = $a("stat-strategy");
-      const strategy = getPerSizeStrategy(statsSource, size);
-      if (strategyEl) strategyEl.textContent = strategy || (totalGames > 0 ? "-" : "No games completed yet.");
-
-      // On the 7P tab, replace the strategy icon with the hidden orange tube sponge.
-      // Any other tab restores the original SVG. The sponge is wired as a
-      // 3-click secret (reveals the digit 3) once the image is in the DOM.
-      const stratIconEl = $a("ph-strategy-icon");
-      if (stratIconEl) {
-        const _origSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="7" stroke="#2d86e4" stroke-width="1.8"/><circle cx="12" cy="12" r="3.5" stroke="#2d86e4" stroke-width="1.8"/><path d="M20 4l-5.5 5.5" stroke="#2d86e4" stroke-width="1.8" stroke-linecap="round"/></svg>`;
-        if (size === 7) {
-          // Only inject once per reset (check for already-wired img)
-          if (!stratIconEl.querySelector('img.secret-critter')) {
-            stratIconEl.innerHTML = "";
-            if (typeof window.__fishPlaceSecretCritter === "function") {
-              const wrap = window.__fishPlaceSecretCritter("sponge", stratIconEl);
-              // style the img to fit the icon cell nicely
-              if (wrap) {
-                const img = wrap.querySelector("img");
-                if (img) { img.style.width = "38px"; img.style.height = "38px"; }
-              }
-            }
-          }
-        } else {
-          // Restore original SVG and reset sponge state so it can be triggered again
-          if (!stratIconEl.querySelector("svg")) {
-            stratIconEl.innerHTML = _origSvg;
-            try { if (typeof window.__fishResetSecrets === "function") window.__fishResetSecrets(); } catch (_) {}
-          }
-        }
-      }
-
-      // Hours in THIS player count (casual playtime for the selected size).
-      // Falls back to the global hours_played only when no per-size data exists
-      // yet (older accounts that predate per-size playtime tracking).
-      const hoursEl = $a("stat-hours-played-pc");
-      if (hoursEl) {
-        const ptBySize = (statsSource.normal_playtime_by_size && typeof statsSource.normal_playtime_by_size === "object") ? statsSource.normal_playtime_by_size : {};
-        const hasPerSize = Object.keys(ptBySize).length > 0;
-        const sizeHours = Number(ptBySize[sKey] ?? ptBySize[size] ?? 0);
-        const h = hasPerSize ? sizeHours : Number(statsSource.hours_played || 0);
-        const hr = Math.round(h * 10) / 10; // one decimal so short games still register
-        hoursEl.textContent = hr === 1 ? "1 hr" : `${hr} hrs`;
-      }
-
-      renderPhRecentGames(filteredGames);
-    }
-
-    (function() {
-      const pcBtns = document.querySelectorAll(".ph-pc[data-ps]");
-      function setActivePs(ps) {
-        const size = normalizePhPlayerCount(ps);
-        pcBtns.forEach(b => b.classList.toggle("active", b.dataset.ps === String(size)));
-        const el = $a("ph-high-score"), lbl = $a("ph-hs-label");
-        if (_phStats) {
-          const key = `highest_score_${size}p`;
-          const val = _phStats[key] ?? (_phStats.highest_score || null);
-          if (el) el.textContent = val != null && val > 0 ? String(val) : "-";
-          if (lbl) lbl.textContent = val != null && val > 0 ? `${size}P game` : "";
-        }
-        applyPhNormalStatsForPlayerCount(size);
-      }
-      pcBtns.forEach(b => b.addEventListener("click", () => {
-        setActivePs(Number(b.dataset.ps));
-      }));
-      window._phSetPs = setActivePs;
-    })();
-
     // ── Player Home: populate extra stats cells ────────────────────
     function updatePhStats(stats) {
       const safeStats = getHomeReferenceStats(stats);
@@ -33488,7 +33199,7 @@
 
       // The Overview keeps eight numbers, the same eight the friend card beside
       // it shows. The per-mode detail (casual/competitive scores, games, XP)
-      // lives on the Casual and Competitive tabs.
+      // lives on the Stats and Competitive tabs.
       const hoursOv = Number(safeStats.hours_played || 0);
       set("stat-hours-played", hoursOv === 1 ? "1 hr" : `${hoursOv} hrs`);
       set("ph-ov-most-strategy", mostPlayedStrategy || (noGames ? "No games completed yet." : "-"));
@@ -33512,12 +33223,88 @@
       renderOverviewAchievements(safeStats);
       renderChallengeStrip();
 
-      const activePs = document.querySelector(".ph-pc.active[data-ps]");
-      const requestedPs = normalizePhPlayerCount(activePs ? Number(activePs.dataset.ps) : _phSelectedPlayerCount);
-      if (window._phSetPs) window._phSetPs(requestedPs);
+      // The Stats page redraws itself if it is the page on screen (a game that
+      // ends while it is open, a stats reload); otherwise it draws on opening.
+      try { if (typeof window.__ccStatsRefresh === "function") window.__ccStatsRefresh(); } catch (_) {}
 
       // Legacy comp block elements are kept hidden; ranked dashboard is managed by renderPhCompetitive().
     }
+
+    // ── Stats page: the one snapshot js/stats-page.js draws from ──────────
+    // The page is its own module, but every number on it is decided HERE, by
+    // the code that already owns it: the same cached stats map the Overview
+    // reads (and the same identity guard on it), the same achievement and
+    // critter counts, the Competitive rank table and the Head to Head ladder.
+    // A copy is handed over, never the live map, so the page has no way to
+    // write into an account.
+    window.__ccStatsData = function () {
+      const src = (_phStatsRaw && _phStatsOwner === _ccIdentityKey) ? _phStatsRaw : (_phStats || {});
+      const stats = { ...((src && typeof src === "object") ? src : {}) };
+
+      let level = null;
+      try {
+        const lp = getLevelProgressFromTotalXp(getStoredTotalXp(stats));
+        level = { level: lp.level, xpCurrent: lp.xpCurrent, xpGoal: lp.xpGoal, totalXp: lp.totalXp,
+                  maxed: lp.level >= LEVEL_XP_TOTALS.length };
+      } catch (_) {}
+
+      let achievements = null;
+      try {
+        const userAchs = (typeof window.__fishGetUserAchievements === "function") ? (window.__fishGetUserAchievements() || {}) : {};
+        achievements = {
+          done: ACHIEVEMENT_DEFS.filter(d => userAchs[d.id] && userAchs[d.id].completed).length,
+          total: ACHIEVEMENT_DEFS.length,
+        };
+      } catch (_) {}
+
+      let animals = null;
+      try {
+        const unlockable = ANIMAL_AVATARS.filter(a => !!a.unlock);
+        animals = { done: unlockable.filter(a => isAvatarEarned(a.img)).length, total: unlockable.length };
+      } catch (_) {}
+
+      // Competitive: the rank the Competitive tab would show, from stored OP.
+      let rank = null;
+      try {
+        const played = Number(stats.competitive_wins || 0) + Number(stats.competitive_losses || 0)
+                     + Number(stats.competitive_draws || 0) > 0;
+        const cp = Number(stats.comp_cp || 0);
+        if (played || cp > 0) {
+          const r = _compGetRankFromCp(cp, played);
+          rank = {
+            division: r.division, tier: r.tier, cp: r.cp, pct: r.pct,
+            nextCp: r.nextCp, nextDiv: r.nextDiv,
+            icon: _COMP_RANK_IMG[r.tier] ? _avSrc(_COMP_RANK_IMG[r.tier]) : "",
+          };
+        }
+      } catch (_) {}
+
+      // Head to Head: one entry per reef platform, weakest first, beaten when
+      // the rung it opens with is in this player's record.
+      let ladder = [];
+      try {
+        const beaten = new Set((typeof window.__ccBotsBeaten === "function" ? window.__ccBotsBeaten() : []).map(String));
+        ladder = BM_TIERS.map(t => {
+          const g = _bmGrades[t.lo];
+          return { tier: t.tier, name: t.name, img: _avSrc(`/avatars/${t.animal}.png`), beaten: !!(g && beaten.has(String(g.id))) };
+        });
+      } catch (_) { ladder = []; }
+
+      let prestige = 0;
+      try { prestige = Number(prestigeLevelNow()) || 0; } catch (_) {}
+
+      return {
+        stats,
+        nickname: _playerNickname || "",
+        isGuest: !_authUser,
+        level,
+        levelTitle: String(stats.level_title || stats.level_name || "Ocean Explorer"),
+        prestige, achievements, animals, rank, ladder,
+        oceanCardSrc: (() => { try { return imagePathForUid(window.CC_OCEAN_CARD_UID || 217); } catch (_) { return ""; } })(),
+        // The same Recent Games rows (and View Game button) the Casual tab had.
+        renderRecentGames: (el, games, limit) => renderPhRecentGamesTo(el, games, limit),
+      };
+    };
 
     // ── Player Home: How to play tab ───────────────────────────────
     // Three views over one card:
@@ -36148,9 +35935,6 @@
         el.appendChild(d);
       });
     }
-    function renderPhRecentGames(games) {
-      renderPhRecentGamesTo($a("ph-recent-games"), games || [], 5);
-    }
 
     // ── One row of competitive history, whichever mode played it ──
     // /api/competitive/history answers with the whole competitive ledger, and
@@ -37405,11 +37189,11 @@
       if (phAddInput) phAddInput.addEventListener("keydown", e => { if (e.key === "Enter") phAddBtn.click(); });
     }
 
-    // Hook renderStats to also call updatePhStats + renderPhRecentGames
+    // Hook renderStats to also call updatePhStats
     const _origRenderStats = renderStats;
     renderStats = function(stats) {
       // If incoming stats are null/empty but we already have good cached stats,
-      // skip _origRenderStats, it would hide stats-normal-block, erasing the UI.
+      // just re-apply the cached ones rather than paint a page of zeros over them.
       const incomingEmpty = !stats || typeof stats !== "object"
         || (!(stats.completed_games > 0)
             && !Object.values(stats.normal_games_by_size || {}).some(n => Number(n) > 0));
@@ -38077,6 +37861,8 @@
       _lbFriendUidsFor = ""; _lbFriendUidsAt = 0;
       // The Overview's friend card: whose friends, and their profiles.
       try { _ovfReset(); } catch (_) {}
+      // The Stats page: the table size last picked belonged to that person.
+      try { window.__ccStatsReset && window.__ccStatsReset(); } catch (_) {}
       // Signing out does not reload the page, so a board snapshot taken as one
       // identity would be painted for the next one.
       try { _lbSnapshot.clear(); _lbRefreshing.clear(); } catch (_) {}

@@ -823,16 +823,17 @@
     { target: "#ph-panel-howto", badge: "How to Play Tab", title: "The Rules, Any Time",
       text: "This tab is the whole game written down, in three parts. <strong>🚀 Quick Start</strong> is the one-screen version for your first game, <strong>📖 Full Rulebook</strong> is every rule in the box, and <strong>🧭 Strategies</strong> lists the combos worth building. It is all here whenever a card does something you did not expect, and <strong>Play the tutorial →</strong> at the top brings you straight back to these tutorials." },
 
-    // ── Casual tab (click to navigate) ───────────────────────────────
-    { target: "#snav-casual", badge: "Casual Tab", title: "Casual Stats",
+    // ── Stats tab (click to navigate) ────────────────────────────────
+    // Stats replaced the Casual tab, and took its record by player count.
+    { target: "#snav-stats", badge: "Stats Tab", title: "Your Stats",
       before: closeMenuOverlays,
       interactive: true,
-      advanceWhen: gtTabActive("snav-casual"),
-      text: "Click <strong>Casual</strong> to see your record." },
+      advanceWhen: gtTabActive("snav-stats"),
+      text: "Click <strong>Stats</strong> to see your record." },
 
-    // ── Casual panel description ──────────────────────────────────────
-    { target: "#ph-panel-normal", badge: "Casual Tab", title: "Your Casual Record",
-      text: "The Casual tab breaks down your record by player count, from <strong>2 all the way to 8 players</strong>. Each group shows your <strong>win percentage</strong>, your <strong>most played strategy</strong>, your <strong>average score</strong>, and your total <strong>games and wins</strong>." },
+    // ── Stats panel description ───────────────────────────────────────
+    { target: "#ph-panel-stats", badge: "Stats Tab", title: "Every Game, Charted",
+      text: "The <strong>Stats</strong> tab charts everything you play: your <strong>score over time</strong>, where you <strong>finish</strong>, your record at every table size from <strong>2 all the way to 8 players</strong>, the <strong>strategies</strong> you lean on, the <strong>days you play</strong>, your <strong>Competitive</strong> rank and your climb up the <strong>Head to Head</strong> reef. Hover over or tap any bar or dot for the details." },
 
     // ── Competitive tab (click to navigate) ──────────────────────────
     { target: "#snav-competitive", badge: "Competitive Tab", title: "Competitive",
