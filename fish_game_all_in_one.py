@@ -5051,6 +5051,15 @@ def assign_strategy_families_from_opening_hands(
     for i, p in enumerate(gs.players):
         if i in human_indices:
             continue
+        # Training a strategy means being able to ASK for it. Without this the
+        # plan a bot commits to depends on the hand it was dealt, so there is no
+        # way to play a thousand games of Coral on purpose and learn Coral.
+        forced = str(p.flags.get("_force_strategy_family", "")).strip().lower()
+        if forced and forced in profile_by_label:
+            p.flags["_strategy_family"] = forced
+            assigned.append((p.name, forced, 0.0))
+            taken[forced] = taken.get(forced, 0) + 1
+            continue
         skill = str(p.flags.get("_ai_skill_level", "advanced")).strip().lower()
         allowlist = strategies_allowed_for_skill(skill, len(gs.players))
         # The Goby moon shot requires real opening fit: gate strictly even for experts.
@@ -11934,6 +11943,7 @@ def run_match(
     tutorial_variant: Optional[str] = None,
     turtle_gated: Optional[bool] = None,
     training_out: Optional[dict] = None,
+    force_strategies: Optional[List[Optional[str]]] = None,
 ) -> Tuple[GameState, MatchState]:
     rng = random.Random(seed)
     # Training telemetry collector (offline trainer only). When provided, this
@@ -12047,6 +12057,11 @@ def run_match(
                 assigned_archetypes.append((p.name, str(player_archetype_profiles[i].get("label", "Profile")), 0.0))
     elif hand_based_archetypes:
         assigned_archetypes = assign_archetypes_from_opening_hands(gs, ms, human_index=human_index)
+
+    if force_strategies:
+        for i, lab in enumerate(force_strategies):
+            if lab and i < len(gs.players) and i not in human_idx_set:
+                gs.players[i].flags["_force_strategy_family"] = str(lab).strip().lower()
 
     assigned_families = assign_strategy_families_from_opening_hands(
         gs,
@@ -13635,6 +13650,63 @@ def _train_make_policy(maps: Dict[str, Any], weights: Optional[Dict[str, float]]
     def _pol(gs, ms, p, _w=w, _m=maps, _e=epsilon):
         return choose_action_weighted(
             gs, ms, p, _w,
+            synergy_map=_m.get("synergy", {}),
+            species_map=_m.get("species_synergy", {}),
+            same_ocean_map=_m.get("same_ocean_synergy", {}),
+            strategy_value_map=_m.get("strategy_value", {}),
+            strategy_count_map=_m.get("strategy_count", {}),
+            strategy_transition_map=_m.get("strategy_transition", {}),
+            strategy_transition_count_map=_m.get("strategy_transition_count", {}),
+            epsilon=_e,
+        )
+
+    return _pol
+
+
+# ── Per-strategy weights ────────────────────────────────────────────────────
+# A bot playing Mammals and a bot playing Coral used to share one 36-number
+# weight vector, so nothing either of them learned could be specific to their
+# plan: every lesson was an average over all ten strategies at once. That is
+# why the brain could never learn that Kelp Forest is worthless until the
+# fourth, or that Bigeye comes out when the hand runs low -- it had nowhere to
+# put a fact that is true of one strategy and false of the others.
+#
+# Each strategy now keeps its own vector, seeded from the shared one the first
+# time it is asked for, and diverging from there. They are shared across table
+# sizes on purpose: ten vectors can be trained properly, seventy cannot.
+
+def get_strategy_weights(brain: Dict[str, Any], label: str,
+                         fallback: Optional[Dict[str, float]] = None) -> Dict[str, float]:
+    """The weight vector for one strategy, created from `fallback` on first use."""
+    key = str(label or "").strip().lower()
+    by_strat = brain.get("by_strategy")
+    if not isinstance(by_strat, dict):
+        by_strat = {}
+        brain["by_strategy"] = by_strat
+    slot = by_strat.get(key)
+    if not isinstance(slot, dict):
+        base = fallback if isinstance(fallback, dict) else brain.get("weights")
+        slot = stabilize_weights(dict(base if isinstance(base, dict) else default_weights()))
+        by_strat[key] = slot
+    return slot
+
+
+def _train_make_strategy_policy(maps: Dict[str, Any],
+                                strategy_weights: Dict[str, Dict[str, float]],
+                                epsilon: float = 0.0):
+    """A policy that reads the bot's committed strategy at decision time and
+    scores with that strategy's own weights.
+
+    The lookup has to happen per decision, not when the policy is built: a bot
+    is not assigned its strategy until after the opening hands are dealt, and
+    it may reassess mid-game."""
+    fallback = maps["weights"]
+
+    def _pol(gs, ms, p, _m=maps, _sw=strategy_weights, _e=epsilon, _fb=fallback):
+        lab = str(p.flags.get("_strategy_family", "")).strip().lower()
+        w = _sw.get(lab) or _fb
+        return choose_action_weighted(
+            gs, ms, p, w,
             synergy_map=_m.get("synergy", {}),
             species_map=_m.get("species_synergy", {}),
             same_ocean_map=_m.get("same_ocean_synergy", {}),

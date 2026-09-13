@@ -56,12 +56,40 @@ _W_MAPS: Optional[Dict[str, Any]] = None
 _W_CHAMPION: Optional[Dict[str, float]] = None
 _W_CANDIDATES: Optional[List[Dict[str, float]]] = None
 _W_COUNT: int = 4
+# Strategy mode: the label being trained, and the champion vector for EVERY
+# strategy. The seat under test is forced onto the target strategy so a
+# thousand games of Coral can be played on purpose; the other seats play their
+# own plans with their own champion weights, because a strategy has to be good
+# against the field, not against copies of itself.
+_W_STRATEGY: Optional[str] = None
+_W_STRAT_MAP: Optional[Dict[str, Dict[str, float]]] = None
 
 
-def _init(maps, champion, candidates, count):
+def _init(maps, champion, candidates, count, strategy=None, strat_map=None):
     global _W_CARD_DB, _W_MAPS, _W_CHAMPION, _W_CANDIDATES, _W_COUNT
+    global _W_STRATEGY, _W_STRAT_MAP
     _W_CARD_DB = fish.load_card_db()
     _W_MAPS, _W_CHAMPION, _W_CANDIDATES, _W_COUNT = maps, champion, candidates, count
+    _W_STRATEGY, _W_STRAT_MAP = strategy, strat_map
+
+
+def _policies_for(cand: Optional[Dict[str, float]], seat: int):
+    """Build one policy per seat, and say which strategy each seat is forced to."""
+    if _W_STRATEGY is None:
+        pol = [fish._train_make_policy(
+                   _W_MAPS, weights=dict(cand if (cand is not None and i == seat) else _W_CHAMPION),
+                   epsilon=0.0)
+               for i in range(_W_COUNT)]
+        return pol, None
+    base = dict(_W_STRAT_MAP or {})
+    seat_map = dict(base)
+    if cand is not None:
+        seat_map[_W_STRATEGY] = cand
+    champ_pol = fish._train_make_strategy_policy(_W_MAPS, base, epsilon=0.0)
+    seat_pol = fish._train_make_strategy_policy(_W_MAPS, seat_map, epsilon=0.0)
+    pol = [seat_pol if i == seat else champ_pol for i in range(_W_COUNT)]
+    forced = [_W_STRATEGY if i == seat else None for i in range(_W_COUNT)]
+    return pol, forced
 
 
 def _play(task: Tuple[int, int, int]) -> Tuple[int, float, float]:
@@ -71,10 +99,7 @@ def _play(task: Tuple[int, int, int]) -> Tuple[int, float, float]:
     ci, seed, seat = task
     random.seed(seed)
     cand = _W_CANDIDATES[ci] if ci >= 0 else None
-    policies = []
-    for i in range(_W_COUNT):
-        w = cand if (cand is not None and i == seat) else _W_CHAMPION
-        policies.append(fish._train_make_policy(_W_MAPS, weights=dict(w), epsilon=0.0))
+    policies, forced = _policies_for(cand, seat)
     try:
         gs, _ms = fish.run_match(
             card_db=_W_CARD_DB,
@@ -84,6 +109,7 @@ def _play(task: Tuple[int, int, int]) -> Tuple[int, float, float]:
             verbose=False, verbose_state=False,
             ai_difficulties=[fish.DEFAULT_BOT_GRADE] * _W_COUNT,
             online_weights=None, online_state=None, online_state_path=None,
+            force_strategies=forced,
         )
         finals = [float(fish.final_points(gs, p)) for p in gs.players]
     except Exception:
@@ -134,15 +160,24 @@ def _wilson_high(wins: float, n: int) -> float:
 
 
 def _play_all_champion(seed: int) -> Tuple[int, List[float]]:
-    """The all-champion version of one deal. Every seat holds the same policy,
-    so ONE game settles the baseline for all of them at once."""
+    """The all-champion version of one deal. Every seat holds champion weights,
+    so ONE game settles the baseline for all of them at once.
+
+    In strategy mode nothing is forced here: the baseline is the champion
+    playing the deal as it normally would, which is exactly what a challenger
+    has to beat."""
     random.seed(seed)
-    pol = fish._train_make_policy(_W_MAPS, weights=dict(_W_CHAMPION), epsilon=0.0)
+    if _W_STRATEGY is None:
+        pol = fish._train_make_policy(_W_MAPS, weights=dict(_W_CHAMPION), epsilon=0.0)
+        policies = [pol] * _W_COUNT
+    else:
+        pol = fish._train_make_strategy_policy(_W_MAPS, dict(_W_STRAT_MAP or {}), epsilon=0.0)
+        policies = [pol] * _W_COUNT
     try:
         gs, _ms = fish.run_match(
             card_db=_W_CARD_DB,
             player_names=[f"P{i}" for i in range(_W_COUNT)],
-            action_policies=[pol] * _W_COUNT,
+            action_policies=policies,
             seed=seed, max_turns=500, human_index=None,
             verbose=False, verbose_state=False,
             ai_difficulties=[fish.DEFAULT_BOT_GRADE] * _W_COUNT,
@@ -192,7 +227,7 @@ def _lower_bound(d: List[float]) -> Tuple[float, float]:
 
 def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int,
            jobs: int, sigma: float, seed: int, out_dir: str, promote: bool,
-           max_confirm: int = 1200) -> None:
+           max_confirm: int = 1200, strategy: Optional[str] = None) -> None:
     os.makedirs(out_dir, exist_ok=True)
     log_path = os.path.join(out_dir, f"evolve_{count}p.log")
     fh = open(log_path, "a", encoding="utf-8")
@@ -206,18 +241,36 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
     brain = fish.load_brain(fish.BRAIN_PATH)
     cbrain = fish.get_count_brain(brain, count)
     maps = fish._train_policy_maps_from_cbrain(cbrain)
-    champion = dict(maps["weights"])
     neutral = 1.0 / count
 
-    ck_path = os.path.join(out_dir, f"champion_{count}p.json")
+    strat_map: Optional[Dict[str, Dict[str, float]]] = None
+    if strategy:
+        # Every strategy gets its own vector; the one being trained is the
+        # champion, the rest are the field it has to beat.
+        strat_map = {}
+        for prof in fish.strategy_family_profiles():
+            lab = str(prof.get("label", "")).strip().lower()
+            strat_map[lab] = fish.stabilize_weights(
+                dict(fish.get_strategy_weights(brain, lab, maps["weights"])))
+        if strategy not in strat_map:
+            raise SystemExit(f"unknown strategy {strategy!r}; "
+                             f"known: {sorted(strat_map)}")
+        champion = dict(strat_map[strategy])
+        ck_path = os.path.join(out_dir, f"champion_{strategy}.json")
+    else:
+        champion = dict(maps["weights"])
+        ck_path = os.path.join(out_dir, f"champion_{count}p.json")
     if os.path.exists(ck_path):
         saved = json.load(open(ck_path))
         champion = fish.stabilize_weights(dict(saved["weights"]))
+        if strat_map is not None and strategy:
+            strat_map[strategy] = dict(champion)
         log(f"Resuming from saved champion (generation {saved.get('generation', 0)}).")
 
     rng = random.Random(seed)
     log("=" * 68)
-    log(f"TOURNAMENT SELECTION · {count}P · a mutant must beat {neutral:.3f} to take the crown")
+    who = f"{count}P" + (f" · strategy {strategy}" if strategy else " · all strategies")
+    log(f"TOURNAMENT SELECTION · {who} · a mutant must beat {neutral:.3f} to take the crown")
     log(f"{generations} generations · {mutants} mutants · {screen} screen + {confirm} confirm games · jobs={jobs}")
     log("=" * 68)
 
@@ -227,7 +280,7 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
         screen_seeds = [rng.randrange(1 << 30) for _ in range(screen)]
         t0 = time.time()
         with mp.Pool(jobs, initializer=_init,
-                     initargs=(maps, champion, cands, count)) as pool:
+                     initargs=(maps, champion, cands, count, strategy, strat_map)) as pool:
             base = _baseline(pool, screen_seeds, count)
             sdiff = _paired(pool, len(cands), screen_seeds, count, base)
         order = sorted(range(len(cands)), key=lambda i: -(sum(sdiff[i]) / len(sdiff[i])))
@@ -253,7 +306,7 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
             conf_seeds = [rng.randrange(1 << 30) for _ in range(batch)]
             sub = [finals[i] for i in alive]
             with mp.Pool(jobs, initializer=_init,
-                         initargs=(maps, champion, sub, count)) as pool:
+                         initargs=(maps, champion, sub, count, strategy, strat_map)) as pool:
                 cbase = _baseline(pool, conf_seeds, count)
                 bd = _paired(pool, len(sub), conf_seeds, count, cbase)
             for k, i in enumerate(alive):
@@ -274,13 +327,15 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
 
         if lo > 0.0:
             champion = finals[best_i]
+            if strat_map is not None and strategy:
+                strat_map[strategy] = dict(champion)
             promotions += 1
             changed = {k: round(champion[k], 3) for k in champion
                        if abs(champion[k] - maps["weights"].get(k, 0.0)) > 0.01}
             log(f"gen {gen:>3} NEW CHAMPION · edge {rate:+.4f} over {played} paired "
                 f"games (95% low {lo:+.4f} > 0)")
             log(f"          drifted: {changed}")
-            json.dump({"count": count, "generation": gen, "weights": champion,
+            json.dump({"count": count, "strategy": strategy, "generation": gen, "weights": champion,
                        "edge_vs_champion": rate, "edge_low": lo, "games": played},
                       open(ck_path, "w"), indent=2)
         else:
@@ -292,9 +347,15 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
         backup = f"{fish.BRAIN_PATH}.evolve_backup_{time.strftime('%Y%m%d_%H%M%S')}.json"
         json.dump(fish.load_brain(fish.BRAIN_PATH), open(backup, "w"))
         brain = fish.load_brain(fish.BRAIN_PATH)
-        fish.get_count_brain(brain, count)["weights"] = champion
-        fish.save_brain(brain, fish.BRAIN_PATH)
-        log(f"Promoted champion into the live brain for {count}P (backup {backup}).")
+        if strategy:
+            fish.get_strategy_weights(brain, strategy, maps["weights"]).update(champion)
+            fish.save_brain(brain, fish.BRAIN_PATH)
+            log(f"Promoted champion into the live brain for strategy {strategy} "
+                f"(backup {backup}).")
+        else:
+            fish.get_count_brain(brain, count)["weights"] = champion
+            fish.save_brain(brain, fish.BRAIN_PATH)
+            log(f"Promoted champion into the live brain for {count}P (backup {backup}).")
     elif promotions:
         log(f"Champion saved to {ck_path}; live brain untouched (--promote to apply).")
     fh.close()
@@ -316,6 +377,9 @@ def main() -> None:
     ap.add_argument("--sigma", type=float, default=0.25, help="mutation size")
     ap.add_argument("--seed", type=int, default=0, help="0 = random")
     ap.add_argument("--out-dir", type=str, default="fish_training/evolve")
+    ap.add_argument("--strategy", type=str, default="",
+                    help="train ONE strategy's weights (e.g. coral, king_salmon). "
+                         "Omit to train the shared per-count vector.")
     ap.add_argument("--promote", action="store_true",
                     help="write the final champion into the live brain")
     a = ap.parse_args()
@@ -323,7 +387,8 @@ def main() -> None:
            screen=a.screen_games, confirm=a.confirm_games,
            jobs=a.jobs or (os.cpu_count() or 4), sigma=a.sigma,
            seed=a.seed or random.randrange(1 << 30),
-           out_dir=a.out_dir, promote=a.promote, max_confirm=a.max_confirm_games)
+           out_dir=a.out_dir, promote=a.promote, max_confirm=a.max_confirm_games,
+           strategy=(a.strategy.strip().lower() or None))
 
 
 if __name__ == "__main__":
