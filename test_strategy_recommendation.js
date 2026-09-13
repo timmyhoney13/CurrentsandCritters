@@ -17,7 +17,8 @@
  * 2. "There is an almost infinite number of combos, make sure it has them all."
  *    Ten combos were hand-written, which left most cores with one partner or
  *    none. Every remaining core-to-core pair is generated in js/gamedata.js, so
- *    all 66 exist and every core has eleven partners to be paired with.
+ *    all 136 exist and every one of the 17 cores (seven ocean, ten animal) has
+ *    sixteen partners to be paired with.
  *
  * The scoring, the snapshot and the combo ranking are sliced out of
  * preview-app.js by text and executed here, so a change to those lines changes
@@ -182,29 +183,38 @@ console.log("\nA plan does not win by listing more cards");
 {
   // Three tuna and two gulls. Three fifths of the hand is game fish, but Birds
   // lists twelve cards to Game Fish's three, so the old raw-count score read
-  // Birds 202, Game Fish 103, and told you to play Birds.
+  // Birds 202, Game Fish 103, and told you to play Birds. The Game Fish core
+  // has since been retired; Yellowfin Tuna Stack is the tuna plan now, and it
+  // still lists far fewer cards than Birds does.
   const h = [
-    uidOf("Game Fish", "Yellowfin Tuna", 0), uidOf("Game Fish", "Yellowfin Tuna", 1),
-    uidOf("Game Fish", "Yellowfin Tuna", 2),
+    uidOf("Yellowfin Tuna Stack", "Yellowfin Tuna", 0), uidOf("Yellowfin Tuna Stack", "Yellowfin Tuna", 1),
+    uidOf("Yellowfin Tuna Stack", "Yellowfin Tuna", 2),
     uidOf("Birds", "California Gull", 0), uidOf("Birds", "Emperor Penguin", 0),
   ];
   sandbox.setTable({ players: [me([], h), them([])] });
   const r = sandbox.rank();
   check(topOf(r) !== "Birds", "three tuna and two birds is not a Birds hand, got " + topOf(r));
   const oldWinner = fitOf(r, "Birds");
-  const bigger = ["Game Fish", "Yellowfin Tuna Stack"].filter(l => fitOf(r, l) > oldWinner);
+  const bigger = ["Yellowfin Tuna Stack", "King Salmon"].filter(l => fitOf(r, l) > oldWinner);
   check(bigger.length > 0, "the game-fish plans outrank Birds on that hand");
 
-  // And the mirror: two tuna, three birds, should now favour the birds.
+  // And the mirror: two tuna, three birds, moves the answer toward the birds.
+  // It used to check Birds outright beat Game Fish, a three-card plan now
+  // retired. Against Yellowfin Tuna Stack, the tuna plan that replaced it,
+  // Birds still trails on this hand (0.524 to 0.581, the same scores as before
+  // the retirement), so what is pinned here is the direction the hand pushes.
   const h2 = [
-    uidOf("Game Fish", "Yellowfin Tuna", 0), uidOf("Game Fish", "Yellowfin Tuna", 1),
+    uidOf("Yellowfin Tuna Stack", "Yellowfin Tuna", 0), uidOf("Yellowfin Tuna Stack", "Yellowfin Tuna", 1),
     uidOf("Birds", "California Gull", 0), uidOf("Birds", "Emperor Penguin", 0),
     uidOf("Birds", "Osprey", 0),
   ];
   sandbox.setTable({ players: [me([], h2), them([])] });
   const r2 = sandbox.rank();
-  check(fitOf(r2, "Birds") > fitOf(r2, "Game Fish"),
-    "flip the hand and the answer flips with it");
+  check(fitOf(r2, "Birds") > fitOf(r, "Birds")
+        && fitOf(r2, "Yellowfin Tuna Stack") < fitOf(r, "Yellowfin Tuna Stack"),
+    "flip the hand and Birds climbs while the tuna plan falls");
+  check(fitOf(r2, "Birds") > fitOf(r2, "King Salmon"),
+    "three birds outrank the game-fish plan they share no cards with");
 }
 
 console.log("\nCards already on other boards are not cards you can have");
@@ -302,21 +312,25 @@ console.log("\nEvery pair of cores is a combo you can be offered");
 const CORES = S.map((s, i) => [s, i]).filter(([s]) => s.tier === "Core").map(([s]) => s.label);
 const COMBOS = S.filter(s => s.tier === "Combo");
 
-eq(CORES.length, 12, "twelve core plans");
-eq(COMBOS.length, (12 * 11) / 2, "every unordered pair of them is a combo");
+// Seven ocean plans and ten animal plans. An ocean plan paired with an animal
+// plan is a combo too: every animal you play sits on an ocean.
+const OCEAN_CORES = S.filter(s => s.tier === "Core" && s.group === "ocean").map(s => s.label);
+eq(OCEAN_CORES.length, 7, "seven ocean plans");
+eq(CORES.length - OCEAN_CORES.length, 10, "ten animal plans");
+eq(COMBOS.length, (17 * 16) / 2, "every unordered pair of them is a combo");
 
 check(COMBOS.filter(s => !s.generated).length === 10,
   "the ten hand-written combos survived, they were not regenerated over");
 
 {
   // The whole point of the second complaint: pick any one core and there are
-  // eleven partners waiting, not one.
+  // sixteen partners waiting, not one.
   let worst = { n: Infinity, label: "" };
   for (const c of CORES) {
     const n = sandbox.suggested([c]).length;
     if (n < worst.n) worst = { n, label: c };
   }
-  eq(worst.n, 11, "the thinnest core still pairs with eleven combos (" + worst.label + ")");
+  eq(worst.n, 16, "the thinnest core still pairs with sixteen combos (" + worst.label + ")");
 }
 
 check(new Set(S.map(s => s.label)).size === S.length, "no two plans share a label");

@@ -132,6 +132,16 @@ check("every strategy has a primary family the colour table knows", () => {
   });
 });
 
+check("ocean strategies are tinted Oceans, and animal strategies never are", () => {
+  let oceans = 0;
+  W.CC_BUILTIN_STRATEGIES.forEach((s, i) => {
+    if (s.tier !== "Core") return;
+    if (s.group === "ocean") { oceans++; eq(W.CC_STRAT_PRIMARY[i], "ocean", s.label + " is an ocean strategy"); }
+    else assert(W.CC_STRAT_PRIMARY[i] !== "ocean", s.label + " is an animal strategy but is tinted Oceans");
+  });
+  eq(oceans, 7, "seven ocean strategies");
+});
+
 check("the species guide covers the nine animal families", () => {
   eq(W.CC_SPECIES_GUIDE.length, 9, "species guide should hold nine families");
   W.CC_SPECIES_GUIDE.forEach(s => {
@@ -274,12 +284,24 @@ check("the four tables are IDENTICAL to the ones preview-app.js used to hold", (
   // them (every core-to-core combo the hand-written ten leave out) are new
   // rows, not moved ones, so the guarantee this check exists for, that the
   // split lost nothing, is about the prefix they sit behind.
+  //   Since the split, the ocean plans were added and moved to the front, and
+  //   two cores were retired on purpose. So the old rows are matched by LABEL,
+  //   never by position: comparing by position is what let every strategy
+  //   after the first wear its neighbour's colour and symbol.
+  const RETIRED = ["Ocean All Blue", "Game Fish"];
   const authored = grab("BUILTIN_STRATEGIES", "[", "]");
-  const kept = W.CC_BUILTIN_STRATEGIES.filter(s => !s.generated);
-  eq(kept, authored, "BUILTIN_STRATEGIES drifted");
-  eq(W.CC_STRAT_PRIMARY.slice(0, authored.length),
-     grab("_STRAT_PRIMARY", "[", "]").slice(0, authored.length), "_STRAT_PRIMARY drifted");
-  assert(W.CC_BUILTIN_STRATEGIES.slice(0, authored.length).every(s => !s.generated),
+  const oldPrimary = grab("_STRAT_PRIMARY", "[", "]");
+  const now = W.CC_BUILTIN_STRATEGIES;
+  authored.forEach((old, oldIdx) => {
+    const j = now.findIndex(s => s.label === old.label);
+    if (RETIRED.includes(old.label)) { eq(j, -1, old.label + " was retired and should stay gone"); return; }
+    assert(j >= 0, "the split lost a strategy: " + old.label);
+    const { group, ...rest } = now[j];
+    eq(rest, old, "BUILTIN_STRATEGIES drifted: " + old.label);
+    eq(W.CC_STRAT_PRIMARY[j], oldPrimary[oldIdx], old.label + " changed colour family");
+  });
+  const authoredNow = now.filter(s => !s.generated).length;
+  assert(now.slice(0, authoredNow).every(s => !s.generated),
     "the generated combos must sit AFTER the authored ones, indexes depend on it");
   // _FAMILY_AVATAR / _STRAT_AVATAR_OVERRIDE are deliberately gone: strategy
   // tiles wear the family SYMBOL now, so the portrait tables they picked have

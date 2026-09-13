@@ -57,31 +57,42 @@
   // strategy panel cards, the active-strategy pills and the corner tags all
   // line up with the family colours above. (Combos take their first-named
   // family; per-card glows on the board still use each card's OWN family.)
-  const _STRAT_PRIMARY = [
-    "ocean",        //  0 Ocean All Blue
-    "bird",         //  1 Birds
-    "crustacean",   //  2 Crustaceans (lobsters)
-    "cephalopod",   //  3 Cephalopods
-    "mammal",       //  4 Mammals
-    "baitfish",     //  5 Baitfish Barrage
-    "game fish",    //  6 Yellowfin Tuna Stack
-    "bird",         //  7 Bird Lobster
-    "bird",         //  8 Bird Coral
-    "coral",        //  9 Coral Cephalopods
-    "crosscurrent", // 10 Shooting the Moon
-    "game fish",    // 11 King Salmon
-    "bird",         // 12 Birds + Baitfish Barrage
-    "baitfish",     // 13 Baitfish Barrage + Yellowfin Tuna
-    "cephalopod",   // 14 Cephalopods + Shooting the Moon
-    "crosscurrent", // 15 Shooting the Moon + King Salmon
-    "game fish",    // 16 King Salmon + Birds
-    "mammal",       // 17 Mammals + Cephalopods
-    "game fish",    // 18 Yellowfin Tuna + Mammals
-    "coral",        // 19 Coral
-    "invertebrate", // 20 Invertebrates
-    "game fish",    // 21 Game Fish
-    "crosscurrent", // 22 Cross-Current
-  ];
+  //   Keyed by LABEL, then laid out in BUILTIN_STRATEGIES order. It used to be
+  //   a bare list by position, and when the ocean plans were moved to the front
+  //   every strategy after the first wore its neighbour's symbol and colour.
+  const PRIMARY_BY_LABEL = {
+    // Ocean strategies
+    "Mangrove (All Blue)": "ocean",
+    "Kelp Forest":         "ocean",
+    "Coral Reef":          "ocean",
+    "Arctic / Mangrove":   "ocean",
+    "Piers":               "ocean",
+    "Tide Pool":           "ocean",
+    "Artificial Reef":     "ocean",
+    // Animal strategies
+    "Birds":                "bird",
+    "Crustaceans":          "crustacean",
+    "Cephalopods":          "cephalopod",
+    "Mammals":              "mammal",
+    "Baitfish Barrage":     "baitfish",
+    "Yellowfin Tuna Stack": "game fish",
+    "Shooting the Moon":    "crosscurrent",
+    "King Salmon":          "game fish",
+    "Coral":                "coral",
+    "Invertebrates":        "invertebrate",
+    // Authored combos
+    "Bird Lobster":                       "bird",
+    "Bird Coral":                         "bird",
+    "Coral Cephalopods":                  "coral",
+    "Birds + Baitfish Barrage":           "bird",
+    "Baitfish Barrage + Yellowfin Tuna":  "baitfish",
+    "Cephalopods + Shooting the Moon":    "cephalopod",
+    "Shooting the Moon + King Salmon":    "crosscurrent",
+    "King Salmon + Birds":                "game fish",
+    "Mammals + Cephalopods":              "mammal",
+    "Yellowfin Tuna + Mammals":           "game fish",
+  };
+  const _STRAT_PRIMARY = BUILTIN_STRATEGIES.map(s => PRIMARY_BY_LABEL[s.label]);
   // ── List of Species ─────────────────────────────────────────────
   // The printed "List of Species" poster as data. The portrait is the gallery
   // art (/avatars/*.png) so each family is recognisable at a glance the way the
