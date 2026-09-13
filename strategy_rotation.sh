@@ -26,7 +26,7 @@ while true; do
     COUNT="${spec##*:}"
     echo "[$(date '+%F %T')] cycle $CYCLE -> $STRAT at ${COUNT}P" >> "$LOG"
     python3 bot_evolve.py --count "$COUNT" --strategy "$STRAT" --generations 2 \
-      --mutants 8 --screen-games 40 --confirm-games 200 \
+      --mutants 8 --screen-games 70 --confirm-games 250 \
       --max-confirm-games 600 --jobs 12 \
       >> "fish_training/evolve/console_${STRAT}.log" 2>&1
     echo "[$(date '+%F %T')] cycle $CYCLE -> $STRAT done (exit $?)" >> "$LOG"

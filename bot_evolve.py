@@ -138,12 +138,20 @@ def _wilson_low(wins: float, n: int) -> float:
 
 
 def _mutate(w: Dict[str, float], rng: random.Random, sigma: float) -> Dict[str, float]:
-    """Perturb a few weights rather than all of them: a mutant that changes one
-    idea at a time is one whose win or loss actually tells you something."""
+    """Change one to three weights, not a third of them.
+
+    A mutant that moves eight weights at once is not a hypothesis, it is a
+    shuffle: whatever it gains on one it can lose on another, so the result
+    lands near zero and says nothing about any of them. Two generations of
+    Mammals screened at +0.11 and confirmed at +0.0008 doing exactly that.
+
+    Narrow mutants also make the screening round honest. Picking the best of
+    eight on 40 games is a maximum, not a measurement, and the wider each
+    mutant is the more of that apparent edge is luck waiting to evaporate."""
     out = dict(w)
     keys = [k for k in out if k in fish.default_weights()]
     rng.shuffle(keys)
-    for k in keys[: max(1, len(keys) // 3)]:
+    for k in keys[: rng.randint(1, 3)]:
         out[k] = float(out[k]) + rng.gauss(0.0, sigma) * (abs(float(out[k])) + 0.35)
     return fish.stabilize_weights(out)
 
