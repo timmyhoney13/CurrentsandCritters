@@ -24,8 +24,11 @@ Fairness, because a rigged measurement is worse than none:
   * the candidate's seat rotates, so a seat advantage cannot be mistaken for a
     better policy
   * Wilson lower bound, so a lucky run of games cannot promote a worse bot
-  * screening round first, full round only for the survivors, because most
-    mutants are worse and proving it precisely is a waste of games
+  * a cheap screening round first, then STAGED confirmation for the survivors:
+    a challenger that still might clear the bar keeps playing, one that
+    provably cannot is dropped. A fixed number of games rejects real
+    improvements for want of evidence -- one measured at 0.297 against a 0.250
+    bar was thrown away on a lower bound of 0.248.
 
 Nothing here touches the deal, the shuffle, or hidden information: every game
 goes through the same fish.run_match the real Casual game uses.
@@ -117,20 +120,30 @@ def _mutate(w: Dict[str, float], rng: random.Random, sigma: float) -> Dict[str, 
     return fish.stabilize_weights(out)
 
 
-def _round(pool, cands, seeds, count, jobs, maps, champion) -> List[Tuple[float, int, float]]:
+def _wilson_high(wins: float, n: int) -> float:
+    if n <= 0:
+        return 1.0
+    z = 1.96
+    p = wins / n
+    d = 1.0 + z * z / n
+    c = p + z * z / (2 * n)
+    m = z * math.sqrt(max(0.0, p * (1 - p) / n + z * z / (4 * n * n)))
+    return (c + m) / d
+
+
+def _round_wins(pool, n_cands, seeds, count) -> List[float]:
+    """Play every candidate over the same seeds, rotating seats. Returns raw wins."""
     tasks = [(ci, s, (gi + ci) % count)
-             for ci in range(len(cands)) for gi, s in enumerate(seeds)]
-    wins = [0.0] * len(cands)
-    marg = [0.0] * len(cands)
-    for ci, win, m in pool.imap_unordered(_play, tasks, chunksize=4):
+             for ci in range(n_cands) for gi, s in enumerate(seeds)]
+    wins = [0.0] * n_cands
+    for ci, win, _m in pool.imap_unordered(_play, tasks, chunksize=4):
         wins[ci] += win
-        marg[ci] += m
-    n = len(seeds)
-    return [(_wilson_low(wins[i], n), i, wins[i] / n) for i in range(len(cands))]
+    return wins
 
 
 def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int,
-           jobs: int, sigma: float, seed: int, out_dir: str, promote: bool) -> None:
+           jobs: int, sigma: float, seed: int, out_dir: str, promote: bool,
+           max_confirm: int = 1200) -> None:
     os.makedirs(out_dir, exist_ok=True)
     log_path = os.path.join(out_dir, f"evolve_{count}p.log")
     fh = open(log_path, "a", encoding="utf-8")
@@ -166,33 +179,61 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
         t0 = time.time()
         with mp.Pool(jobs, initializer=_init,
                      initargs=(maps, champion, cands, count)) as pool:
-            scored = _round(pool, cands, screen_seeds, count, jobs, maps, champion)
-        scored.sort(reverse=True)
-        keep = [i for _lo, i, _p in scored[:3]]
-        log(f"gen {gen:>3} screen: best raw {scored[0][2]:.3f} "
+            swins = _round_wins(pool, len(cands), screen_seeds, count)
+        order = sorted(range(len(cands)), key=lambda i: -swins[i])
+        keep = order[:3]
+        log(f"gen {gen:>3} screen: best raw {swins[keep[0]]/screen:.3f} "
             f"(neutral {neutral:.3f}) · {time.time()-t0:.0f}s")
 
+        # Staged confirmation. A mutant only has to be PROVED better, and how
+        # many games that takes depends on how much better it is. Playing a
+        # fixed number throws away real improvements that merely needed more
+        # evidence: a mutant measured at 0.297 against a 0.250 bar was
+        # discarded on a lower bound of 0.248, two thousandths short. So keep
+        # playing the ones that still could prove it, and stop early on the
+        # ones that provably cannot.
         finals = [cands[i] for i in keep]
-        conf_seeds = [rng.randrange(1 << 30) for _ in range(confirm)]
-        with mp.Pool(jobs, initializer=_init,
-                     initargs=(maps, champion, finals, count)) as pool:
-            cscored = _round(pool, finals, conf_seeds, count, jobs, maps, champion)
-        cscored.sort(reverse=True)
-        lo, best_i, rate = cscored[0]
+        wins = [0.0] * len(finals)
+        played = 0
+        alive = list(range(len(finals)))
+        lo = rate = 0.0
+        best_i = 0
+        while alive and played < max_confirm:
+            batch = min(confirm, max_confirm - played)
+            conf_seeds = [rng.randrange(1 << 30) for _ in range(batch)]
+            sub = [finals[i] for i in alive]
+            with mp.Pool(jobs, initializer=_init,
+                         initargs=(maps, champion, sub, count)) as pool:
+                bw = _round_wins(pool, len(sub), conf_seeds, count)
+            for k, i in enumerate(alive):
+                wins[i] += bw[k]
+            played += batch
+            ranked = sorted(alive, key=lambda i: -_wilson_low(wins[i], played))
+            best_i = ranked[0]
+            lo = _wilson_low(wins[best_i], played)
+            rate = wins[best_i] / played
+            if lo > neutral:
+                break
+            # drop any challenger that can no longer reach the bar
+            alive = [i for i in alive if _wilson_high(wins[i], played) > neutral]
+            if alive:
+                log(f"gen {gen:>3}   +{played} games: best {rate:.3f} "
+                    f"(low {lo:.3f}) · {len(alive)} still alive")
 
         if lo > neutral:
             champion = finals[best_i]
             promotions += 1
             changed = {k: round(champion[k], 3) for k in champion
                        if abs(champion[k] - maps["weights"].get(k, 0.0)) > 0.01}
-            log(f"gen {gen:>3} NEW CHAMPION · win {rate:.3f} (95% low {lo:.3f} > {neutral:.3f})")
+            log(f"gen {gen:>3} NEW CHAMPION · win {rate:.3f} over {played} games "
+                f"(95% low {lo:.3f} > {neutral:.3f})")
             log(f"          drifted: {changed}")
             json.dump({"count": count, "generation": gen, "weights": champion,
                        "win_rate": rate, "wilson_low": lo, "neutral": neutral},
                       open(ck_path, "w"), indent=2)
         else:
-            log(f"gen {gen:>3} champion holds · best challenger {rate:.3f} "
-                f"(95% low {lo:.3f}, needs > {neutral:.3f})")
+            log(f"gen {gen:>3} champion holds · best challenger {rate:.3f} over "
+                f"{played} games (95% low {lo:.3f}, needs > {neutral:.3f})")
 
     log(f"Done. {promotions}/{generations} generations produced a new champion.")
     if promote and promotions:
@@ -216,7 +257,9 @@ def main() -> None:
     ap.add_argument("--screen-games", type=int, default=60,
                     help="games per mutant in the screening round")
     ap.add_argument("--confirm-games", type=int, default=300,
-                    help="games per survivor in the confirming round")
+                    help="games per survivor in each confirming batch")
+    ap.add_argument("--max-confirm-games", type=int, default=1200,
+                    help="cap on confirming games for a challenger that keeps looking real")
     ap.add_argument("--jobs", type=int, default=0, help="0 = every core")
     ap.add_argument("--sigma", type=float, default=0.25, help="mutation size")
     ap.add_argument("--seed", type=int, default=0, help="0 = random")
@@ -228,7 +271,7 @@ def main() -> None:
            screen=a.screen_games, confirm=a.confirm_games,
            jobs=a.jobs or (os.cpu_count() or 4), sigma=a.sigma,
            seed=a.seed or random.randrange(1 << 30),
-           out_dir=a.out_dir, promote=a.promote)
+           out_dir=a.out_dir, promote=a.promote, max_confirm=a.max_confirm_games)
 
 
 if __name__ == "__main__":
