@@ -1955,6 +1955,7 @@ def stabilize_weights(weights: Dict[str, float]) -> Dict[str, float]:
         # behaviour it exists to fix.
         "ocean_threshold": (0.25, 3.5),
         "placement_fit": (0.0, 3.5),
+        "combo_timing": (0.0, 3.5),
         "sim_point_delta": (0.8, 4.0),
     }
     for k, (lo, hi) in bounds.items():
@@ -2133,6 +2134,9 @@ def default_weights() -> Dict[str, float]:
         # How much this bot cares WHICH ocean a card lands on. See
         # placement_marginal: coral squared, and the Artificial Reef stack.
         "placement_fit": 1.0,
+        # Whether this card's free-play / draw ability is worth anything YET.
+        # See combo_timing_value.
+        "combo_timing": 1.0,
         "sim_point_delta": 0.8,
     }
 
@@ -3319,6 +3323,79 @@ STRATEGY_FAMILY_TO_ENGINE_TAG = {
     "coral_cephalopods": "engine:cephalopod",
     "goby_moon_shot": "engine:goby-spiny",
 }
+
+
+_FREE_ANY_RE = re.compile(r"play any number of ([a-z ]+?) (?:this turn )?for free")
+_FREE_ONE_RE = re.compile(r"play a free ([a-z ]+?)(?:\s*\||$)")
+_DRAW_EACH_RE = re.compile(r"draw one for each ([a-z ]+?) you control")
+_SPECIES_WORDS = {
+    "cephalopods": "cephalopod", "cephalopod": "cephalopod",
+    "baitfish": "baitfish", "bait fish": "baitfish",
+    "mammals": "mammal", "mammal": "mammal",
+    "corals": "coral", "coral": "coral",
+    "crustaceans": "crustacean", "crustacean": "crustacean",
+    "invertebrates": "invertebrate", "invertebrate": "invertebrate",
+    "game fish": "game fish", "gamefish": "game fish",
+}
+
+
+def combo_timing_value(gs: GameState, ms: MatchState,
+                       player: PlayerState, card: CardDef) -> float:
+    """Cards this play actually gains you RIGHT NOW, as opposed to later.
+
+    Several cards are worth nothing on their own and a great deal at the right
+    moment, and the bots had no way to tell the difference:
+
+      "Play any number of cephalopods for free" (Reef Trigger Fish) is worth
+      exactly as many cephalopods as you are holding. Played on an empty hand
+      it does nothing; held until you have banked four, it plays four cards.
+      Hermit Crab does the same for baitfish.
+
+      "Draw one for each yellowfin tuna you control" (Bigeye Tuna) is worth as
+      many cards as you have Yellowfin down -- but only as many as your hand
+      has ROOM for, which is why it is fired when the hand is running low and
+      wasted when the hand is full.
+
+      "Play a free <species>" is worth one card, and only if you hold one.
+
+    Returns a count of cards gained, so the weight decides what a card is worth
+    rather than this function guessing.
+    """
+    text = _card_text_lc(card)
+    gained = 0.0
+
+    def hand_count(spec: str) -> int:
+        n = 0
+        for uid in player.hand:
+            c = gs.card_db.get(uid)
+            if c is not None and card_species_lc(c) == spec:
+                n += 1
+        return n
+
+    m = _FREE_ANY_RE.search(text)
+    if m:
+        spec = _SPECIES_WORDS.get(m.group(1).strip())
+        if spec:
+            gained += hand_count(spec)
+
+    m = _FREE_ONE_RE.search(text)
+    if m:
+        spec = _SPECIES_WORDS.get(m.group(1).strip())
+        if spec and hand_count(spec) > 0:
+            gained += 1.0
+
+    m = _DRAW_EACH_RE.search(text)
+    if m:
+        want = m.group(1).strip()
+        have = 0
+        for uid in all_board_cards(player):
+            c = gs.card_db.get(uid)
+            if c is not None and card_name_lc(c) == want:
+                have += 1
+        room = max(0, HAND_LIMIT - len(player.hand))
+        gained += float(min(have, room))
+
+    return gained
 
 
 def placement_marginal(gs: GameState, ms: MatchState,
@@ -10231,6 +10308,12 @@ def action_features(
             feat["ocean_threshold"] = max(-3.0, min(4.0,
                 ocean_threshold_marginal(gs, ms, player, _oc) / 10.0))
     feat["placement_fit"] = max(0.0, min(3.0, placement_marginal(gs, ms, player, action) / 4.0))
+    feat["combo_timing"] = 0.0
+    if action.kind in ("play_to_ocean", "play_ocean"):
+        _tc = gs.card_db.get(action.face_uid if action.face_uid is not None else action.card_uid)
+        if _tc is not None:
+            feat["combo_timing"] = max(0.0, min(3.0,
+                combo_timing_value(gs, ms, player, _tc) / 2.0))
     feat["sim_point_delta"] = simulated_point_delta(gs, ms, player, action, sim_baseline) if include_sim_delta else 0.0
     return feat
 
