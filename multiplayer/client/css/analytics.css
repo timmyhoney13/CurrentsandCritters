@@ -156,6 +156,20 @@
 .ccA-ctl:hover { border-color: #b9d4ec; }
 .ccA-ctl:focus-visible { outline: 2px solid var(--a-series-1); outline-offset: 1px; }
 .ccA-ctl.on { border-color: var(--a-sel); color: var(--a-sel); background: #fdf3ef; }
+.ccA-ctl:disabled { opacity: .45; cursor: not-allowed; }
+
+/* The range: 7 / 30 / 90 days / Lifetime as one control, so flipping between
+   "the last month" and "all time" is one click, not a dropdown. */
+.ccA-seg { padding: 3px; gap: 2px; }
+.ccA-seg button {
+  height: 28px; padding: 0 10px;
+  border: 0; border-radius: 7px; background: transparent;
+  color: var(--a-muted); font-size: .8rem; font-weight: 700; white-space: nowrap;
+  transition: background .14s, color .14s;
+}
+.ccA-seg button:hover { color: var(--a-ink); }
+.ccA-seg button.on { background: var(--a-series-1); color: #fff; box-shadow: 0 1px 3px rgba(46, 143, 224, .35); }
+.ccA-seg button:focus-visible { outline: 2px solid var(--a-series-1); outline-offset: 1px; }
 select.ccA-ctl { -webkit-appearance: none; appearance: none; padding-right: 30px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235c7e99' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 11px center; }
@@ -228,6 +242,30 @@ select.ccA-ctl { -webkit-appearance: none; appearance: none; padding-right: 30px
 .ccA-section-head { margin-bottom: 18px; }
 .ccA-h1 { font-size: 1.42rem; font-weight: 800; letter-spacing: -.2px; }
 .ccA-h1-sub { font-size: .86rem; color: var(--a-muted); margin-top: 3px; }
+/* Which range every number on the page is measured over, next to its title. */
+.ccA-range-chip {
+  display: inline-flex; align-items: center; vertical-align: middle;
+  margin-left: 10px; padding: 2px 9px; border-radius: 999px;
+  background: #e3f0fb; color: #1f69ac;
+  font-size: .72rem; font-weight: 800; letter-spacing: .2px;
+}
+
+/* The player database couldn't be read: said above everything, because every
+   number under it is old or missing, not a collapse in players. */
+.ccA-banner {
+  display: flex; gap: 10px; align-items: flex-start;
+  margin: 0 0 16px; padding: 12px 14px;
+  border-radius: var(--a-r-s); border: 1px solid #f2ccc7; background: #fdf0ee;
+  font-size: .84rem; color: var(--a-ink);
+}
+.ccA-banner b { font-weight: 800; }
+
+/* What a count can't see (an account's older games), said once, quietly. */
+.ccA-note {
+  margin-top: 12px; padding-left: 10px;
+  border-left: 3px solid var(--a-line);
+  font-size: .78rem; color: var(--a-muted);
+}
 
 .ccA-block { margin-top: var(--a-gap); }
 .ccA-block-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
@@ -276,6 +314,13 @@ select.ccA-ctl { -webkit-appearance: none; appearance: none; padding-right: 30px
 }
 .ccA-card-val .ccA-unit { font-size: .95rem; font-weight: 700; color: var(--a-ink-2); margin-left: 1px; }
 .ccA-card-val.ccA-empty { font-size: .92rem; font-weight: 700; color: var(--a-muted); letter-spacing: 0; }
+/* A card that names something ("King Salmon") instead of counting it: smaller,
+   one line, and on the numeric value's own line box (1.92rem × 1.15), so it is
+   exactly as tall as the numbers beside it. The full name is in its title. */
+.ccA-card-val--text {
+  font-size: 1.12rem; letter-spacing: -.1px; line-height: 2.21rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .ccA-card-foot {
   margin-top: auto;
   padding-top: 10px;
@@ -331,13 +376,20 @@ select.ccA-ctl { -webkit-appearance: none; appearance: none; padding-right: 30px
   line-height: 1.4;
   text-align: left;
   letter-spacing: 0;
-  opacity: 0; visibility: hidden;
-  transition: opacity .14s;
+  /* Not rendered at all until asked for. A merely invisible tooltip still
+     takes up room, and a 240px one centred on an icon near a card's right
+     edge made the whole page drag ~100px sideways on a phone. */
+  display: none;
   pointer-events: none;
   z-index: 20;
   box-shadow: 0 6px 18px rgba(18, 53, 79, .22);
 }
-.ccA-info:hover::after, .ccA-info:focus-visible::after { opacity: 1; visibility: visible; }
+.ccA-info:hover::after, .ccA-info:focus-visible::after { display: block; }
+.ccA-info::after { max-width: min(240px, calc(100vw - 48px)); }
+/* Set as the pointer arrives (analytics-ui.js, placeTip): open rightward from
+   an icon near the left edge, leftward from one near the right edge. */
+.ccA-info.ccA-tip-start::after { left: -8px; transform: none; }
+.ccA-info.ccA-tip-end::after { left: auto; right: -8px; transform: none; }
 
 /* ══════════════════════════════════════════════════════════════════════
    PANELS + CHARTS
@@ -376,6 +428,8 @@ select.ccA-ctl { -webkit-appearance: none; appearance: none; padding-right: 30px
 .ccA-bar { rx: 4; }
 .ccA-endlabel { font-size: 11.5px; font-weight: 800; fill: var(--a-ink); }
 .ccA-ghost { fill: none; stroke: #b9cbd9; stroke-width: 2; stroke-dasharray: 4 4; }
+/* The last day, week or month is still going: its segment is dashed. */
+.ccA-line-partial { stroke-dasharray: 3 4; }
 
 /* Crosshair + tooltip */
 .ccA-cross { stroke: var(--a-muted); stroke-width: 1; opacity: .5; }
@@ -409,6 +463,8 @@ select.ccA-ctl { -webkit-appearance: none; appearance: none; padding-right: 30px
 .ccA-rank-row { display: grid; grid-template-columns: minmax(88px, 208px) 1fr auto; align-items: center; gap: 12px; }
 .ccA-rank-lbl { font-size: .82rem; font-weight: 700; color: var(--a-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 7px; }
 .ccA-rank-lbl .ccA-chip { flex: 0 0 auto; }
+/* The NAME gives way when space runs out, never the verdict beside it. */
+.ccA-rank-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ccA-rank-track { height: 10px; border-radius: 999px; background: var(--a-sunk); overflow: hidden; }
 .ccA-rank-fill { height: 100%; border-radius: 999px; background: var(--a-series-1); }
 .ccA-rank-val { font-size: .82rem; font-weight: 800; color: var(--a-ink); font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
@@ -469,6 +525,18 @@ table.ccA-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
 .ccA-table tbody tr:hover td { background: #f7fbff; }
 .ccA-table td.num, .ccA-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .ccA-table .ccA-row-link { color: var(--a-series-1); font-weight: 800; cursor: pointer; }
+/* Every column header sorts its table. */
+.ccA-th-btn {
+  all: unset; box-sizing: border-box; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; white-space: nowrap;
+}
+.ccA-th-btn:hover, .ccA-th-btn.on { color: var(--a-ink); }
+.ccA-th-btn:focus-visible { outline: 2px solid var(--a-series-1); outline-offset: 2px; border-radius: 4px; }
+.ccA-sort-ico { font-size: .62rem; opacity: .45; }
+.ccA-th-btn.on .ccA-sort-ico { opacity: 1; color: var(--a-series-1); }
+.ccA-table-tools { display: flex; gap: 10px; margin-top: 12px; }
+.ccA-input.ccA-input-sm { flex: 0 1 280px; height: 36px; font-size: .86rem; }
 .ccA-pager { display: flex; align-items: center; gap: 10px; margin-top: 11px; font-size: .8rem; color: var(--a-muted); }
 .ccA-pager .ccA-spacer { flex: 1; }
 
@@ -572,6 +640,7 @@ table.ccA-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
   .ccA-cards { grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 11px; }
   .ccA-card { min-height: 116px; padding: 13px 13px 11px; }
   .ccA-card-val { font-size: 1.6rem; }
+  .ccA-card-val--text { font-size: 1rem; line-height: 1.84rem; }
   .ccA-grid-2 { grid-template-columns: 1fr; }
   .ccA-rank-row { grid-template-columns: minmax(76px, 116px) 1fr auto; }
   .ccA-h1 { font-size: 1.2rem; }
@@ -586,7 +655,15 @@ table.ccA-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
   #ccA-close { order: 2; }
   .ccA-filters { order: 3; flex: 1 1 100%; }
   .ccA-filters .ccA-ctl { flex: 1 1 auto; justify-content: center; }
+  /* The range takes its own full row, its four choices sharing it evenly. */
+  .ccA-filters .ccA-seg { flex: 1 1 100%; }
+  .ccA-seg button { flex: 1 1 0; padding: 0 4px; }
+  .ccA-panel-head { flex-wrap: wrap; }
+  .ccA-input.ccA-input-sm { flex: 1 1 auto; }
   .ccA-cards { grid-template-columns: repeat(2, 1fr); }
+  /* A ranked row's label wraps rather than cut "Came back another day" down to
+     "Came back ano…": on a phone the label column is barely 116px. */
+  .ccA-rank-lbl, .ccA-rank-name { white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
 }
 
 @media (prefers-reduced-motion: reduce) {

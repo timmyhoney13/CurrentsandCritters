@@ -16528,16 +16528,20 @@ def main() -> None:
     )
 
     # Developer Analytics: read-only. It is handed the same Firestore accessor
-    # and token verifier as everything else, plus the two history directories
-    # THIS server writes its game records into, so the dashboard measures the
-    # real games, never a second tally that could drift from them.
+    # and token verifier as everything else. Its player and game numbers come
+    # from the accounts; the history directory is only reported as a server
+    # health fact (on live it has held almost nothing).
     analytics_server.init(
         get_firestore=_get_firestore,
         verify_token=_verify_firebase_id_token,
         games_history_dir=GAMES_HISTORY_DIR,
-        competitive_games_dir=COMPETITIVE_GAMES_DIR,
         live_snapshot=_analytics_live_snapshot,
         app_version=_deployed_app_version(),
+        # A saved board names its animals and nothing more, so the Cards page
+        # groups them into families with the card database the game itself uses.
+        card_species={str(c.name): str(c.species) for c in CARD_DB.values()
+                      if getattr(c, "name", "") and getattr(c, "species", "")},
+        clan_season=clan_server.current_season_id,
     )
 
     # Newsletter: the same Firestore accessor and token verifier as everything

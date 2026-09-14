@@ -637,6 +637,12 @@ def _clan_sid(ts: Optional[int] = None) -> str:
     return quarter_sid
 
 
+def current_season_id() -> str:
+    """The clan season running now, for modules outside the clan system (the
+    analytics dashboard) that must file points under the same season as here."""
+    return _clan_sid()
+
+
 def _prev_sid(sid: str) -> str:
     y, q = _sid_parse(sid)
     return f"{y - 1}-Q4" if q == 1 else f"{y}-Q{q - 1}"

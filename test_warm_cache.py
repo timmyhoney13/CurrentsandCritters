@@ -328,11 +328,14 @@ check("every poller on the page goes through the gate",
 check("a page opened in a background tab fetches nothing",
       re.search(r"if \(!document\.hidden\) \{ run\(\); start\(\); \}", HOME) is not None)
 
-# The admin dashboard's live panel costs a full users scan on the server.
+# The admin dashboard's live panel used to re-fetch the whole Overview, a full
+# users scan on the server, every 20 seconds. It now asks for the "live" panel
+# alone, which reuses the cached scan (analytics_server.handle_post), and still
+# asks for nothing at all from a background tab.
 ANA = open(os.path.join(ROOT, "multiplayer/client/js/analytics-ui.js"),
            encoding="utf-8").read()
 check("a hidden analytics dashboard stops rescanning every account",
-      re.search(r"if \(document\.hidden\) return;\s*\n\s*const res = await post\(\"overview\"\)",
+      re.search(r"if \(document\.hidden\) return;\s*\n\s*const res = await post\(\"live\"\)",
                 ANA) is not None)
 check("...and re-opening it cannot stack a second live timer",
       re.search(r"clearInterval\(S\.liveTimer\);\s*\n\s*S\.liveTimer = setInterval", ANA) is not None)
