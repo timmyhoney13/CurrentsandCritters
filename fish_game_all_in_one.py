@@ -260,7 +260,7 @@ def trigger_end_game(gs_or_ms, maybe_gs: Optional[GameState] = None) -> None:
         if ms.end_game_triggered:
             return
         ms.end_game_triggered = True
-        # Drawer/flipper still gets this turn, then each player gets one final turn total.
+        # The drawer still gets this turn, then each player gets one final turn total.
         ms.final_turns_remaining = len(gs.players)
         gs.log.append("END GAME revealed: each player (including revealer) gets one final turn.")
         return
@@ -9886,18 +9886,10 @@ def _apply_action_uncommitted(
             player.ocean_slots[play_face_uid] = OceanSlots()
             if verbose:
                 print(f"{player.name} plays ocean {card.uid}:{card.name}")
-            # Ocean play flips one card from draw pile to pool.
-            if gs.deck:
-                flipped = gs.deck.pop(0)
-                if ms.end_game_uid is not None and flipped == ms.end_game_uid:
-                    trigger_end_game(ms, gs)
-                    ms.discard_pile.append(flipped)
-                    if verbose:
-                        print("Ocean flip revealed END GAME (not added to pool). Final round starts.")
-                else:
-                    add_to_pool(ms, flipped)
-                    if verbose:
-                        print(f"Ocean flip to pool: {entry_short_label(ms, gs, flipped)}")
+            # Playing an Ocean takes nothing off the deck. It used to flip the
+            # top card into the Pool (and could reveal END GAME that way); that
+            # rule is gone in every mode, so only paid and discarded cards
+            # reach the Pool and END GAME only ever turns up on a draw.
             before_hand = len(player.hand)
             run_main_ability(
                 gs,
@@ -12575,7 +12567,7 @@ def run_match(
             # decrement counted the revealer's own turn and the revealer LOST their
             # guaranteed final turn ("I didn't get to play my last turn when the end
             # game card got drawn"). Capturing it right after apply_action is
-            # break-proof for every trigger path (1st draw, 2nd draw, ocean-flip, pool).
+            # break-proof for every trigger path (1st draw, 2nd draw, ability draw, pool).
             if not _eg_before and ms.end_game_triggered:
                 eg_triggered_this_turn = True
 

@@ -230,7 +230,7 @@ def trigger_end_game(gs_or_ms, maybe_gs: Optional[GameState] = None) -> None:
         if ms.end_game_triggered:
             return
         ms.end_game_triggered = True
-        # Drawer/flipper still gets this turn, then each player gets one final turn total.
+        # The drawer still gets this turn, then each player gets one final turn total.
         ms.final_turns_remaining = len(gs.players)
         gs.log.append("END GAME revealed: each player (including revealer) gets one final turn.")
         return
@@ -6415,18 +6415,8 @@ def apply_action(
             player.ocean_slots[play_face_uid] = OceanSlots()
             if verbose:
                 print(f"{player.name} plays ocean {card.uid}:{card.name}")
-            # Ocean play flips one card from draw pile to pool.
-            if gs.deck:
-                flipped = gs.deck.pop(0)
-                if ms.end_game_uid is not None and flipped == ms.end_game_uid:
-                    trigger_end_game(ms, gs)
-                    ms.discard_pile.append(flipped)
-                    if verbose:
-                        print("Ocean flip revealed END GAME (not added to pool). Final round starts.")
-                else:
-                    add_to_pool(ms, flipped)
-                    if verbose:
-                        print(f"Ocean flip to pool: {entry_short_label(ms, gs, flipped)}")
+            # Playing an Ocean takes nothing off the deck (the old flip-to-Pool
+            # rule is gone, as in fish_game_all_in_one.py).
             before_hand = len(player.hand)
             run_main_ability(
                 gs,

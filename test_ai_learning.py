@@ -162,11 +162,20 @@ for g, _top in results:
 
 # Two separate claims, kept separate on purpose. The first is exact and can
 # never be flaky: whatever these four games happened to score, the learner has
-# to agree with the floor about which of them count.
+# to agree with its own gates about which of them count. That is BOTH gates,
+# because human_weight=2.5 makes this a human-weighted update: the score floor,
+# and the near-tie refusal (a table whose last place finished within a fifth of
+# the floor of the winner teaches nothing, whatever it scored). Counting the
+# floor alone failed on an honest near-tie, 74 / 71 / 63 / 63, once games ran
+# longer without the Ocean flip.
 qualifying = sum(1 for _g, t in results if t >= floor_h)
-check(taught == qualifying,
-      "the learner trains on exactly the games the floor admits, no more and no less",
-      f"floor {floor_h:.0f} admits {qualifying}, learner trained on {taught}, "
+learnable = sum(
+    1 for g, t in results
+    if t >= floor_h and t - min(fish.final_points(g, pl) for pl in g.players) >= 0.20 * floor_h
+)
+check(taught == learnable,
+      "the learner trains on exactly the games its gates admit, no more and no less",
+      f"floor {floor_h:.0f} and the near-tie gate admit {learnable}, learner trained on {taught}, "
       f"tops {[round(t) for t in tops]}")
 # The second is the point of the whole change: ordinary games qualify. If this
 # one starts failing, the floor has drifted above what a real game scores
@@ -194,10 +203,14 @@ check(qualifying >= 2,
 
 # The same four games under the OLD gates. This is the number the whole change
 # is about: the outer gate was 100, and the inner one 115 for a human game.
+# Asked of the typical game, not of all four: without the Ocean flip games run
+# longer and one strong game can clear 115 on its own (114 has been seen),
+# which says nothing about the old gate being set above an ordinary game.
 old_taught = sum(1 for t in tops if t >= 115.0)
-check(old_taught == 0,
-      "…and under the old gates NONE of them taught it anything",
-      f"{old_taught}/4 would have passed a 115 floor")
+check(median_top < 115.0 and old_taught < qualifying,
+      "…and the old gates refused the typical game the new floor learns from",
+      f"median top {median_top:.0f}, {old_taught}/4 would have passed a 115 floor "
+      f"against {qualifying}/4 for the new one")
 print(f"  (old gates: {old_taught}/4 learned from.  new floor "
       f"{floor_h:.0f}: {taught}/4)")
 

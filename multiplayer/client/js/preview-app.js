@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-14.3";
+  const APP_BUILD   = "2026-09-14.4";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.11", title: "\uD83C\uDF00 Oceans no longer flip a card into the Pool", items: [
+      "Putting down an Ocean used to turn the top card of the deck face-up into the Pool. It doesn't any more, in every game mode: Casual, Head to Head, Competitive, tournaments and the tutorials.",
+      "The Pool now only fills with the cards players pay and discard, so the END GAME card can only turn up when someone draws it.",
+      "The Rules page and the Full Rulebook say the same.",
+    ]},
     { ver: "V1.7.10", title: "\uD83C\uDF0A Strategies, one step at a time", items: [
       "The \uD83D\uDCA1 Help screen walks you through three steps: 1, choose your ocean strategy. 2, choose your animal strategies. 3, mix and match them, with the combos that pair them and Create Your Own right there.",
       "Every ocean strategy is just its own ocean and shows that ocean's card: Kelp Forest is only Kelp Forests, Coral Reef only Coral Reefs, Piers only Piers, and Artificial Reef only Artificial Reefs. Artificial Reef still tells you about the Yellowfin Tuna, Lobsters and Clownfish that stack on it.",

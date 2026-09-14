@@ -764,6 +764,11 @@ multiplayer/client/_gate_*.html
 # backwards. Test-only, no Dockerfile COPY.
 !test_hours_played.py
 
+# Playing an Ocean takes nothing off the deck: the old flip-a-card-into-the-Pool
+# rule is gone from both engines, every mode and both rules texts, and this is
+# what keeps it gone. Test-only, no Dockerfile COPY.
+!test_ocean_play_no_flip.py
+
 # The Supporter Tiers, the donation goal, the Reef Wall and the Partner With Us
 # form, taken off the site on 2026-09-08 and meant to come back. README.md there
 # says where each piece went back into and what to run afterwards. Tracked on
