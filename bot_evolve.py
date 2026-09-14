@@ -167,6 +167,20 @@ STRATEGY_FOCUS: Dict[str, Tuple[str, ...]] = {
 }
 _FOCUS_SHARE = 0.75
 
+# A combo is two strategies played together, so it is trained AFTER both halves
+# and starts from what they already learned rather than from nothing: its first
+# champion is the average of its parents' champions. That is why the main
+# strategies have to be solid first -- a combo seeded from two untrained halves
+# inherits nothing worth having.
+COMBO_PARENTS: Dict[str, Tuple[str, str]] = {
+    "birds_crustaceans": ("birds_of_a_feather", "crustaceans"),   # B-Lob
+    "coral_cephalopods": ("coral", "cephalopods"),                # Coral / Cephalopods
+    "birds_coral":       ("birds_of_a_feather", "coral"),          # B-Coral
+}
+for _combo, (_a, _b) in COMBO_PARENTS.items():
+    STRATEGY_FOCUS[_combo] = tuple(dict.fromkeys(
+        STRATEGY_FOCUS.get(_a, ()) + STRATEGY_FOCUS.get(_b, ())))
+
 
 def _mutate(w: Dict[str, float], rng: random.Random, sigma: float,
             focus: Tuple[str, ...] = ()) -> Dict[str, float]:
@@ -296,12 +310,33 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
         strat_map = {}
         for prof in fish.strategy_family_profiles():
             lab = str(prof.get("label", "")).strip().lower()
+            # The field is every OTHER strategy's best-yet, not its starting
+            # weights. Champions are saved to disk as they are crowned, and a
+            # strategy that trains against untrained opponents is learning to
+            # beat a table nobody will ever sit at: when Coral trains it must
+            # face the Crustaceans that already improved, not the ones that
+            # existed before they did.
+            ck = os.path.join(out_dir, f"champion_{lab}.json")
+            if os.path.exists(ck):
+                try:
+                    strat_map[lab] = fish.stabilize_weights(dict(json.load(open(ck))["weights"]))
+                    continue
+                except Exception:
+                    pass
             strat_map[lab] = fish.stabilize_weights(
                 dict(fish.get_strategy_weights(brain, lab, maps["weights"])))
         if strategy not in strat_map:
             raise SystemExit(f"unknown strategy {strategy!r}; "
                              f"known: {sorted(strat_map)}")
         champion = dict(strat_map[strategy])
+        parents = COMBO_PARENTS.get(strategy)
+        if parents and not os.path.exists(os.path.join(out_dir, f"champion_{strategy}.json")):
+            a, b = strat_map.get(parents[0]), strat_map.get(parents[1])
+            if a and b:
+                champion = fish.stabilize_weights(
+                    {k: (float(a.get(k, 0.0)) + float(b.get(k, 0.0))) / 2.0 for k in set(a) | set(b)})
+                strat_map[strategy] = dict(champion)
+                log(f"Combo {strategy}: seeded from {parents[0]} + {parents[1]} champions.")
         ck_path = os.path.join(out_dir, f"champion_{strategy}.json")
     else:
         champion = dict(maps["weights"])
