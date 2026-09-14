@@ -4960,6 +4960,20 @@ _DEEP_BOTS_ENABLED = str(os.environ.get("FISH_DEEP_BOTS", "1")).strip().lower() 
 # score.
 _DEEP_PLAN_FALLBACK_BUDGET = 1.2
 
+# Offline training and calibration only -- the live server never sets this.
+#
+# Live, a bot's search is capped three ways by how busy the machine is: a
+# wall-clock deadline, a taper on how many rollouts it may buy, and a semaphore
+# that skips deep planning outright when the slots are taken. That is right for
+# players, who need a turn to end. It is wrong for measuring a bot, because the
+# same decision then comes out differently depending on what else the CPU is
+# doing: a strong grade measures weaker on a loaded machine, and a "paired"
+# comparison stops being the same game. With this set, the rollout COUNTS in the
+# grade ladder alone decide how far a bot looks, so every game is reproducible.
+_PLAN_BY_COUNT = str(os.environ.get("FISH_PLAN_BY_COUNT", "")).strip().lower() in {
+    "1", "true", "yes", "on",
+}
+
 # ── Deep-planning admission control (site-wide) ─────────────────────────────
 # Rollout confirmation is the single most expensive thing this server does: a
 # hard bot simulates up to 8 candidate moves × 3 determinized worlds, all in
@@ -5111,6 +5125,15 @@ def choose_action_weighted_deep(
     if not deep_enabled or len(scored) < 2:
         return base_best
 
+    if _PLAN_BY_COUNT:
+        return _confirm_with_rollouts(
+            gs, ms, player, weights, synergy_map, species_map, same_ocean_map,
+            strategy_value_map, strategy_count_map, strategy_transition_map,
+            strategy_transition_count_map, scored, base_best,
+            max(2, int(plan_candidates)), max(1, int(plan_samples)),
+            confirm_weight, out_scored, budget_scale=1.0,
+        )
+
     # Admission control, two layers (see _DEEP_PLAN_SEM / _deep_plan_scale):
     # how busy the whole site is decides how much planning a move may buy, and
     # the semaphore caps how many moves may be buying it at once. Either one
@@ -5167,7 +5190,7 @@ def _confirm_with_rollouts(
     # still better than none, and the shortlist/sample taper has already cut
     # the real cost.
     budget = max(0.15, budget * max(0.0, min(1.0, float(budget_scale))))
-    deadline = time.monotonic() + budget
+    deadline = float("inf") if _PLAN_BY_COUNT else time.monotonic() + budget
 
     shortlist_n = min(plan_candidates, len(scored))
     shortlist = list(scored[:shortlist_n])

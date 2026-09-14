@@ -57,6 +57,10 @@ from typing import Any, Dict, List, Optional, Tuple
 # luck it was meant to cancel was still in there. Spawned workers read this at
 # interpreter start, so it has to be set before the first Pool exists.
 os.environ["PYTHONHASHSEED"] = "0"
+# Rollout counts, not the clock, decide how far a live-chooser bot looks. See
+# multiplayer_server._PLAN_BY_COUNT: without it a strong grade measures weaker
+# on a busy machine, and a paired comparison stops being the same game.
+os.environ["FISH_PLAN_BY_COUNT"] = "1"
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fish_game_all_in_one as fish
@@ -75,12 +79,44 @@ _W_STRATEGY: Optional[str] = None
 _W_STRAT_MAP: Optional[Dict[str, Dict[str, float]]] = None
 
 
+# Which decision-maker plays, and at what grade. "engine" is the light one-pass
+# chooser in fish_game_all_in_one; "live" is the deep chooser the real game uses,
+# the only one that reads the grade ladder's search knobs. Weights tuned on the
+# engine chooser were tuned for a bot nobody plays against, so the ranks train
+# on "live". Passed by environment because spawned workers inherit it.
+_W_CHOOSER = os.environ.get("FISH_TRAIN_CHOOSER", "engine")
+_W_GRADE = os.environ.get("FISH_TRAIN_GRADE", "")
+_MPS = None
+
+
 def _init(maps, champion, candidates, count, strategy=None, strat_map=None):
     global _W_CARD_DB, _W_MAPS, _W_CHAMPION, _W_CANDIDATES, _W_COUNT
-    global _W_STRATEGY, _W_STRAT_MAP
+    global _W_STRATEGY, _W_STRAT_MAP, _W_CHOOSER, _W_GRADE, _MPS
     _W_CARD_DB = fish.load_card_db()
     _W_MAPS, _W_CHAMPION, _W_CANDIDATES, _W_COUNT = maps, champion, candidates, count
     _W_STRATEGY, _W_STRAT_MAP = strategy, strat_map
+    _W_CHOOSER = os.environ.get("FISH_TRAIN_CHOOSER", "engine")
+    _W_GRADE = os.environ.get("FISH_TRAIN_GRADE", "") or fish.DEFAULT_BOT_GRADE
+    if _W_CHOOSER == "live":
+        import multiplayer_server as mps
+        _MPS = mps
+
+
+def _strategy_policy(strategy_weights: Dict[str, Dict[str, float]]):
+    """A policy that scores with the weights of whatever strategy the bot is
+    committed to, read at decision time, on the configured chooser."""
+    if _W_CHOOSER != "live":
+        return fish._train_make_strategy_policy(_W_MAPS, strategy_weights, epsilon=0.0)
+    m, fb, mps = _W_MAPS, _W_MAPS["weights"], _MPS
+
+    def _pol(gs, ms, p):
+        lab = str(p.flags.get("_strategy_family", "")).strip().lower()
+        return mps.choose_action_weighted_deep(
+            gs, ms, p, strategy_weights.get(lab) or fb,
+            m.get("synergy", {}), m.get("species_synergy", {}), m.get("same_ocean_synergy", {}),
+            m.get("strategy_value", {}), m.get("strategy_count", {}),
+            m.get("strategy_transition", {}), m.get("strategy_transition_count", {}))
+    return _pol
 
 
 def _policies_for(cand: Optional[Dict[str, float]], seat: int):
@@ -95,8 +131,8 @@ def _policies_for(cand: Optional[Dict[str, float]], seat: int):
     seat_map = dict(base)
     if cand is not None:
         seat_map[_W_STRATEGY] = cand
-    champ_pol = fish._train_make_strategy_policy(_W_MAPS, base, epsilon=0.0)
-    seat_pol = fish._train_make_strategy_policy(_W_MAPS, seat_map, epsilon=0.0)
+    champ_pol = _strategy_policy(base)
+    seat_pol = _strategy_policy(seat_map)
     pol = [seat_pol if i == seat else champ_pol for i in range(_W_COUNT)]
     forced = [_W_STRATEGY if i == seat else None for i in range(_W_COUNT)]
     return pol, forced
@@ -117,7 +153,7 @@ def _play(task: Tuple[int, int, int]) -> Tuple[int, float, float]:
             action_policies=policies,
             seed=seed, max_turns=500, human_index=None,
             verbose=False, verbose_state=False,
-            ai_difficulties=[fish.DEFAULT_BOT_GRADE] * _W_COUNT,
+            ai_difficulties=[_W_GRADE or fish.DEFAULT_BOT_GRADE] * _W_COUNT,
             online_weights=None, online_state=None, online_state_path=None,
             force_strategies=forced,
         )
@@ -254,27 +290,28 @@ def _baseline(pool, seeds, count) -> Dict[Tuple[int, int], Tuple[float, float]]:
     return out
 
 
-# Which paired difference selection is decided on. See _stat for why it is
-# switchable: it is set from a measurement, not assumed.
-SELECT_STAT = "win"
-
-
-def _stat(win: float, margin: float) -> float:
-    return margin if SELECT_STAT == "margin" else win
-
-
-def _paired(pool, n_cands, seeds, count, base) -> List[List[float]]:
+def _paired(pool, n_cands, seeds, count, base) -> Tuple[List[List[float]], List[List[float]]]:
     """Each candidate's result MINUS the champion's from the same deal and the
-    same forced seat. Removing the deal is the point: it is the largest source
-    of variance in a card game, and because it is shared it can be cancelled
-    rather than averaged away over thousands of games."""
+    same forced seat, as (margin differences, win differences).
+
+    Selection is decided on MARGIN -- the bot's score minus the best opponent's.
+    A win is almost all information thrown away: over 16 paired games against a
+    very different candidate, the margin changed in 16 and the winner in 1.
+    Decisions and scores move every game; who finishes first rarely flips over a
+    short sample, so a win-only test needs many times the games to see anything.
+
+    Win is still collected, because it is what actually matters: a challenger
+    that raises its margin by losing by less, without winning any more, is not
+    promoted (see the guard in evolve)."""
     plan = [(ci, s, gi % count)
             for ci in range(n_cands) for gi, s in enumerate(seeds)]
-    diffs: List[List[float]] = [[] for _ in range(n_cands)]
+    margins: List[List[float]] = [[] for _ in range(n_cands)]
+    wins: List[List[float]] = [[] for _ in range(n_cands)]
     for (ci, s, k), (_c, win, margin) in zip(plan, pool.map(_play, plan, chunksize=4)):
         bw, bm = base[(s, k)]
-        diffs[ci].append(_stat(win, margin) - _stat(bw, bm))
-    return diffs
+        margins[ci].append(margin - bm)
+        wins[ci].append(win - bw)
+    return margins, wins
 
 
 def _lower_bound(d: List[float]) -> Tuple[float, float]:
@@ -366,10 +403,10 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
         with mp.Pool(jobs, initializer=_init,
                      initargs=(maps, champion, cands, count, strategy, strat_map)) as pool:
             base = _baseline(pool, screen_seeds, count)
-            sdiff = _paired(pool, len(cands), screen_seeds, count, base)
+            sdiff, _swin = _paired(pool, len(cands), screen_seeds, count, base)
         order = sorted(range(len(cands)), key=lambda i: -(sum(sdiff[i]) / len(sdiff[i])))
         keep = order[:3]
-        log(f"gen {gen:>3} screen: best edge {sum(sdiff[keep[0]])/len(sdiff[keep[0]]):+.4f} "
+        log(f"gen {gen:>3} screen: best margin edge {sum(sdiff[keep[0]])/len(sdiff[keep[0]]):+.3f} pts "
             f"vs the same deals · {time.time()-t0:.0f}s")
 
         # Staged confirmation. A mutant only has to be PROVED better, and how
@@ -381,6 +418,7 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
         # ones that provably cannot.
         finals = [cands[i] for i in keep]
         acc: List[List[float]] = [[] for _ in finals]
+        accw: List[List[float]] = [[] for _ in finals]
         played = 0
         alive = list(range(len(finals)))
         lo = rate = 0.0
@@ -392,39 +430,46 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
             with mp.Pool(jobs, initializer=_init,
                          initargs=(maps, champion, sub, count, strategy, strat_map)) as pool:
                 cbase = _baseline(pool, conf_seeds, count)
-                bd = _paired(pool, len(sub), conf_seeds, count, cbase)
+                bd, bw = _paired(pool, len(sub), conf_seeds, count, cbase)
             for k, i in enumerate(alive):
                 acc[i].extend(bd[k])
+                accw[i].extend(bw[k])
             played += batch
             stats = {i: _lower_bound(acc[i]) for i in alive}
             best_i = max(alive, key=lambda i: stats[i][1])
             rate, lo = stats[best_i]
-            if lo > 0.0:
+            win_edge = sum(accw[best_i]) / max(1, len(accw[best_i]))
+            if lo > 0.0 and win_edge >= 0.0:
                 break
             # drop anyone whose edge is now provably negative
             alive = [i for i in alive if stats[i][0] + 1.96 * (
                 (sum((x - stats[i][0]) ** 2 for x in acc[i]) / max(1, len(acc[i]) - 1))
                 / max(1, len(acc[i]))) ** 0.5 > 0.0]
             if alive:
-                log(f"gen {gen:>3}   +{played} games: best edge {rate:+.4f} "
-                    f"(low {lo:+.4f}) · {len(alive)} still alive")
+                log(f"gen {gen:>3}   +{played} games: best margin edge {rate:+.3f} pts "
+                    f"(low {lo:+.3f}), wins {win_edge:+.4f} · {len(alive)} still alive")
 
-        if lo > 0.0:
+        win_edge = sum(accw[best_i]) / max(1, len(accw[best_i])) if accw and accw[best_i] else 0.0
+        # Promoted only on a margin that is provably better AND wins that are not
+        # worse. Margin is where the signal is; winning is what the bot is for.
+        if lo > 0.0 and win_edge >= 0.0:
             champion = finals[best_i]
             if strat_map is not None and strategy:
                 strat_map[strategy] = dict(champion)
             promotions += 1
             changed = {k: round(champion[k], 3) for k in champion
                        if abs(champion[k] - maps["weights"].get(k, 0.0)) > 0.01}
-            log(f"gen {gen:>3} NEW CHAMPION · edge {rate:+.4f} over {played} paired "
-                f"games (95% low {lo:+.4f} > 0)")
+            log(f"gen {gen:>3} NEW CHAMPION · margin {rate:+.3f} pts (95% low {lo:+.3f} > 0), "
+                f"wins {win_edge:+.4f} over {played} paired games")
             log(f"          drifted: {changed}")
             json.dump({"count": count, "strategy": strategy, "generation": gen, "weights": champion,
-                       "edge_vs_champion": rate, "edge_low": lo, "games": played},
+                       "margin_edge": rate, "margin_edge_low": lo, "win_edge": win_edge,
+                       "games": played, "chooser": _W_CHOOSER,
+                       "grade": os.environ.get("FISH_TRAIN_GRADE", "")},
                       open(ck_path, "w"), indent=2)
         else:
-            log(f"gen {gen:>3} champion holds · best edge {rate:+.4f} over "
-                f"{played} paired games (95% low {lo:+.4f}, needs > 0)")
+            log(f"gen {gen:>3} champion holds · best margin {rate:+.3f} pts (95% low {lo:+.3f}), "
+                f"wins {win_edge:+.4f} over {played} paired games")
 
     log(f"Done. {promotions}/{generations} generations produced a new champion.")
     if promote and promotions:
@@ -464,9 +509,18 @@ def main() -> None:
     ap.add_argument("--strategy", type=str, default="",
                     help="train ONE strategy's weights (e.g. coral, king_salmon). "
                          "Omit to train the shared per-count vector.")
+    ap.add_argument("--chooser", choices=("engine", "live"), default="engine",
+                    help="'live' plays through the deep chooser the real game uses, "
+                         "which is what the grade ladder actually runs on")
+    ap.add_argument("--grade", type=str, default="",
+                    help="grade whose search settings every bot plays at "
+                         "(e.g. william_beebe for B). Only matters with --chooser live.")
     ap.add_argument("--promote", action="store_true",
                     help="write the final champion into the live brain")
     a = ap.parse_args()
+    os.environ["FISH_TRAIN_CHOOSER"] = a.chooser
+    if a.grade:
+        os.environ["FISH_TRAIN_GRADE"] = fish.normalize_bot_grade(a.grade)
     evolve(count=max(2, min(8, a.count)), generations=a.generations, mutants=a.mutants,
            screen=a.screen_games, confirm=a.confirm_games,
            jobs=a.jobs or (os.cpu_count() or 4), sigma=a.sigma,

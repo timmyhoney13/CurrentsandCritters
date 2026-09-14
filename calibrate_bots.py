@@ -29,19 +29,20 @@ which is what makes "B+ is 1550 and C+ is 1200" a claim you can check: 350
 points says B+ takes about 88% of the head-to-head games, and if it doesn't,
 this script will say so.
 
-USE FEWER WORKERS THAN YOU HAVE CORES. This is not a performance note, it is
-a correctness one. The top grades' rollout budget is WALL-CLOCK
-(`plan_budget`), so a run that saturates the machine measures those grades
-doing far less thinking than a player on a quiet server would ever meet. It
-was measured the hard way: a 10-worker run on a 12-core box reported every
-grade from B upward as the same strength, ~1300 Elo, which read like proof
-that rollout confirmation does nothing. It does. The same bot with rollouts on
-beats itself with them off 67.5% of the time, worth +127 Elo, over 40 games on
-an idle box. The flat ladder was the measurement starving, not the bots.
+Search is capped by COUNT here, not by the clock. Live, the top grades' rollout
+budget is wall-clock (`plan_budget`), so this used to carry a warning to leave
+cores idle: a run that saturated the machine measured those grades doing far
+less thinking than a player on a quiet server would meet. It was learned the
+hard way -- a 10-worker run on a 12-core box reported every grade from B upward
+as the same ~1300 Elo, which read like proof rollout confirmation does nothing.
+It does: the same bot with rollouts on beat itself with them off 67.5% of the
+time, +127 Elo, on an idle box. The flat ladder was the measurement starving.
 
-So: leave headroom. Half the cores is a reasonable default. A saturated run is
-still a valid measurement of a very busy server, but it is not the server most
-players meet, and it is not what the published Elo should describe.
+This script now sets FISH_PLAN_BY_COUNT, so each grade's rollout COUNTS alone
+decide how far it looks, and every core can be used without starving anyone.
+The measured strength is the one each grade is designed to have. The live
+server still caps by the clock, so a grade only plays at its measured strength
+live if its budget is long enough to finish those counts under real load.
 
 The scale has no natural zero, so the ladder is ANCHORED: the default grade is
 pinned to ANCHOR_ELO and everything else is measured relative to it. Ordering
@@ -65,6 +66,24 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Sequence, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# A measurement has to be repeatable to be worth publishing, and this one was
+# not, for two reasons. The engine's decisions depend on the order it walks sets
+# of card names, which Python randomises per interpreter; and the workers here
+# are FORKED, so they inherit whatever hash seed the parent happened to start
+# with -- setting it after startup changes nothing. So restart once with it
+# pinned. (Checked on the engine: the same deal with identical bots came out
+# differently in 4 of 6 deals when only the hash seed changed.)
+if os.environ.get("PYTHONHASHSEED") != "0" and __name__ == "__main__":
+    os.environ["PYTHONHASHSEED"] = "0"
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+
+# Rollout counts, not the clock, decide how far each grade looks. This is what
+# makes the warning below about leaving idle cores obsolete: with search capped
+# by wall-clock, a busy machine starved the top grades and flattened the ladder;
+# capped by count, S++ does the same thinking on a saturated box as an idle one.
+# Must be set before multiplayer_server is imported, which reads it once.
+os.environ["FISH_PLAN_BY_COUNT"] = "1"
 
 import fish_game_all_in_one as fish  # noqa: E402
 import multiplayer_server as mps  # noqa: E402
@@ -98,8 +117,19 @@ def _brain_args(player_count: int) -> Tuple[Dict[str, object], bool]:
         turtle_gated = not fish.turtle_is_effective(cbrain)
     except Exception:
         turtle_gated = False
+
+    # Each strategy's trained weights, exactly as a live room builds them, so the
+    # ladder is measured with the strategy knowledge players actually meet.
+    strategy_weights: Dict[str, Dict[str, float]] = {}
+    if use_history and isinstance(brain.get("by_strategy"), dict):
+        for label, vec in brain["by_strategy"].items():
+            if isinstance(vec, dict) and vec:
+                merged = dict(weights)
+                merged.update(vec)
+                strategy_weights[str(label).strip().lower()] = fish.stabilize_weights(merged)
     return {
         "weights": weights,
+        "strategy_weights": strategy_weights,
         "synergy_map": m("synergy"),
         "species_map": m("species_synergy"),
         "same_ocean_map": m("same_ocean_synergy"),
@@ -110,11 +140,21 @@ def _brain_args(player_count: int) -> Tuple[Dict[str, object], bool]:
     }, turtle_gated
 
 
-def _make_policy(args: Dict[str, object]):
+def _make_policy(args: Dict[str, object], grade: str):
+    """A bot of `grade`, built the way a live room builds one: from grade B up it
+    plays with the trained weights for the strategy it is committed to."""
+    strategy_weights = args.get("strategy_weights") or {}
+    use_strategy_brain = bool(strategy_weights) and \
+        fish.bot_grade_rank(grade) >= mps._STRATEGY_BRAIN_MIN_RANK
+
     def policy(gs, ms, player):
+        w = args["weights"]
+        if use_strategy_brain:
+            label = str(player.flags.get("_strategy_family", "")).strip().lower()
+            w = strategy_weights.get(label) or w
         return mps.choose_action_weighted_deep(
             gs, ms, player,
-            args["weights"], args["synergy_map"], args["species_map"],
+            w, args["synergy_map"], args["species_map"],
             args["same_ocean_map"], args["strategy_value_map"],
             args["strategy_count_map"], args["strategy_transition_map"],
             args["strategy_transition_count_map"],
@@ -136,9 +176,12 @@ def _play(task: Tuple[int, List[str]]) -> Dict[str, object]:
     gs, _ms = fish.run_match(
         card_db=mps.CARD_DB,
         player_names=[f"S{i}_{g}" for i, g in enumerate(grades)],
-        action_policies=[_make_policy(args) for _ in grades],
+        action_policies=[_make_policy(args, g) for g in grades],
         seed=seed,
-        max_turns=260,
+        # Was 260. With the Ocean flip removed a game runs ~36 rounds rather than
+        # ~28, which at a big table is more turns than that -- a cap that cuts a
+        # game off mid-way ranks whoever happened to be ahead, not who played best.
+        max_turns=500,
         human_index=None,
         human_indices=set(),
         verbose=False,
