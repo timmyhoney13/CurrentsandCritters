@@ -787,12 +787,15 @@
 
     /* ── HELP / STRATEGY GUIDE ───────────────────────────────────── */
     /* ══════════════════════════════════════════════════════════════
-       Strategy Guide modal, warm coral-reef palette
+       Strategy Guide, in the look of the table it opens over: the table's
+       own painting (game-bg.png) behind it, shown whole with nothing drawn
+       on it but the panel itself, and the same cream, aqua, navy and gold
+       (--cr-*) as the action bar, the turn banner and the confirm dialogs.
        ══════════════════════════════════════════════════════════════ */
     #pv-help-modal {
       display: none; position: fixed; inset: 0; z-index: 9300;
-      background: rgba(10,20,44,.62);
-      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      background: rgba(8,22,58,.38);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
       align-items: stretch; justify-content: center;
     }
     #pv-help-modal.open { display: flex; animation: dwm-fade-in .18s ease; }
@@ -803,289 +806,256 @@
        so the full-screen panel covers the top bar, menu, turn banner and
        guide bar instead of stacking under them. */
     #pv-game > #pv-help-modal { position: fixed; z-index: 9300; }
-    /* Full-screen panel: fills the entire viewport so the three Strategy
-       sections have the whole page to spread out in. */
+    /* Full-screen panel: fills the entire viewport so the three steps have
+       the whole page to spread out in. */
     #pv-help-box {
-      background: linear-gradient(168deg, #162848 0%, #0f1f3d 45%, #0b1830 100%);
+      background: #bfe3ef url("/game-bg.png") center / cover no-repeat;
       border: none;
       border-radius: 0;
-      box-shadow: inset 0 1px 0 rgba(255,220,180,.08);
       width: 100%; max-width: none;
       max-height: 100vh; height: 100vh;
       max-height: 100dvh; height: 100dvh;   /* see #pv-game: vh over-reports on iOS */
       display: flex; flex-direction: column; overflow: hidden;
-      font-family: "Nunito", sans-serif; color: #f5ede0;
+      font-family: "Nunito", sans-serif; color: var(--cr-navy);
       animation: dwm-sheet-in .26s cubic-bezier(.2,.9,.3,1.05);
     }
     @keyframes dwm-sheet-in { from { transform: translateY(2%); opacity:.4; } to { transform: translateY(0); opacity:1; } }
+    /* Title, how-to line and the Randomize row read as one cream bar, the
+       same cream as the action bar at the bottom of the table. */
+    #pv-help-header, #pv-help-intro, #pv-help-rand { background: rgba(252,243,226,.97); }
     #pv-help-header {
       flex: 0 0 auto;
       display: flex; align-items: center; gap: 10px;
-      padding: 16px 20px 12px;
-      border-bottom: 1px solid rgba(244,165,116,.22);
-      background: linear-gradient(90deg, rgba(244,165,116,.07) 0%, transparent 60%);
+      padding: 12px 20px 6px;
+    }
+    #pv-help-rand, #pv-help-modal.detail #pv-help-header {
+      border-bottom: 1.5px solid rgba(232,179,74,.6);
+      box-shadow: 0 6px 18px rgba(26,45,90,.16);
     }
     #pv-help-title {
       flex: 1; text-align: center; margin: 0;
-      font-family: "Luckiest Guy", "Cinzel", serif; font-size: 30px; font-weight: 400;
-      color: var(--cr-gold, #e8b34a); letter-spacing: 1.5px;
-      text-shadow: 0 2px 10px rgba(232,179,74,.4);
+      font-family: "Luckiest Guy", "Cinzel", serif; font-size: 30px; font-weight: 400; line-height: 1.1;
+      color: var(--cr-navy); letter-spacing: 1.5px;
+      text-shadow: 0 2px 0 rgba(255,255,255,.9);
     }
     #pv-help-back, #pv-help-close {
-      background: rgba(244,165,116,.1); border: 1.5px solid rgba(244,165,116,.35);
-      color: #f5d8bc; border-radius: 10px; cursor: pointer;
+      background: rgba(255,255,255,.88); border: 1.5px solid rgba(95,179,214,.55);
+      color: var(--cr-navy); border-radius: 11px; cursor: pointer;
       font-family: "Nunito", sans-serif; font-weight: 800; font-size: 13px;
-      padding: 7px 12px; transition: background .15s, border-color .15s, transform .12s;
+      padding: 7px 12px; transition: background .15s, border-color .15s, transform .12s, box-shadow .15s;
       flex-shrink: 0;
     }
-    #pv-help-back:hover, #pv-help-close:hover { background: rgba(244,165,116,.25); border-color: var(--cr-coral, #f4a574); transform: translateY(-1px); }
+    #pv-help-back:hover, #pv-help-close:hover { background: #fff; border-color: var(--cr-teal); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(95,179,214,.35); }
     #pv-help-back { visibility: hidden; }
     #pv-help-modal.detail #pv-help-back { visibility: visible; }
     #pv-help-intro {
       flex: 0 0 auto;
-      padding: 12px 22px 8px; margin: 0; font-size: 16px; line-height: 1.5;
-      color: #d8c8aa; text-align: center; font-weight: 600;
+      padding: 2px 22px 6px; margin: 0; font-size: 14.5px; line-height: 1.45;
+      color: rgba(26,45,90,.86); text-align: center; font-weight: 700;
     }
     #pv-help-modal.detail #pv-help-intro { display: none; }
-    #hs-active-row { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; justify-content: center; }
-    #hs-active-row .hs-active-label { font-weight: 800; color: #c8a882; font-size: 12px; }
-    .hs-active-pill { font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: 20px; border: 1.5px solid; background: rgba(255,255,255,.05); }
-    #hs-clear-active { font-size: 11px; font-weight: 800; color: #f8b0a0; background: rgba(232,110,80,.14); border: 1px solid rgba(232,110,80,.4); border-radius: 16px; padding: 3px 10px; cursor: pointer; }
-    #hs-clear-active:hover { background: rgba(232,110,80,.26); }
-    /* Randomize bar, sits on the right above the strategy rail. Pick how many
-       strategies (1-4) and it activates that many at random for you. */
+    /* Randomize bar. Pick how many strategies (1-4) and it switches that many
+       on at random: one ocean strategy, and animals for the rest. */
     #pv-help-rand {
       flex: 0 0 auto;
       display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px;
-      padding: 4px 22px 6px;
+      padding: 2px 22px 10px;
     }
     #pv-help-modal.detail #pv-help-rand { display: none; }
-    #pv-help-rand .phr-label { font-size: 12px; font-weight: 800; color: #c8a882; }
-    #pv-help-rand .phr-label-tail { color: #c8a882; }
-    .phr-count { display: inline-flex; gap: 3px; background: rgba(255,255,255,.05); border: 1px solid rgba(244,165,116,.3); border-radius: 12px; padding: 3px; }
+    #pv-help-rand .phr-label { font-size: 12px; font-weight: 800; color: rgba(26,45,90,.75); }
+    .phr-count { display: inline-flex; gap: 3px; background: rgba(255,255,255,.9); border: 1.5px solid rgba(95,179,214,.5); border-radius: 12px; padding: 3px; }
     .phr-n {
       min-width: 26px; height: 24px; padding: 0 6px; cursor: pointer;
       background: transparent; border: none; border-radius: 9px;
-      font-family: "Nunito", sans-serif; font-size: 13px; font-weight: 900; color: #d8c8aa;
+      font-family: "Nunito", sans-serif; font-size: 13px; font-weight: 900; color: var(--cr-navy);
       transition: background .12s, color .12s;
     }
-    .phr-n:hover { color: #fef0e0; background: rgba(244,165,116,.16); }
-    .phr-n.active { background: var(--cr-coral, #f4a574); color: #1a1208; }
+    .phr-n:hover { background: rgba(95,179,214,.18); }
+    .phr-n.active { background: linear-gradient(135deg, #5fb3d6, #3a8fb5); color: #fff; }
     #phr-go {
       cursor: pointer; font-family: "Nunito", sans-serif; font-size: 13px; font-weight: 900; letter-spacing: .3px;
-      color: #1a1208; background: linear-gradient(180deg, #f6c178 0%, #e8a052 100%);
-      border: 1px solid rgba(244,165,116,.6); border-radius: 12px; padding: 6px 14px;
-      box-shadow: 0 2px 10px rgba(232,160,82,.35); transition: transform .12s, box-shadow .12s, filter .12s;
+      color: var(--cr-navy); background: linear-gradient(180deg, #ffd978 0%, #f2b53c 100%);
+      border: 1.5px solid rgba(200,147,32,.55); border-radius: 12px; padding: 6px 14px;
+      box-shadow: 0 2px 10px rgba(200,147,32,.3); transition: transform .12s, box-shadow .12s, filter .12s;
     }
-    #phr-go:hover { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 4px 16px rgba(232,160,82,.5); }
+    #phr-go:hover { transform: translateY(-1px); filter: brightness(1.05); box-shadow: 0 4px 16px rgba(200,147,32,.45); }
     #phr-go:active { transform: translateY(0); }
     @media (max-width: 560px) {
-      #pv-help-rand { padding: 2px 14px 6px; justify-content: center; }
+      #pv-help-rand { padding: 2px 14px 8px; justify-content: center; }
+      #pv-help-title { font-size: 24px; }
+      /* The top bar does not scroll, so on a phone it keeps to a smaller type. */
+      #pv-help-intro { font-size: 12.5px; padding: 0 12px 4px; }
+      #pv-help-intro .hs-legend { gap: 4px; margin-top: 5px; }
+      #pv-help-intro .hs-legend-chip { font-size: 10px; padding: 1px 6px 1px 5px; }
     }
-    /* Vertical dashboard: section 1 (core rail) on top, then a 2-column row
-       with section 2 (selected) and section 3 (suggested combos). */
+    /* The three steps stack down the page on top of the painting. */
     #pv-help-list {
       flex: 1 1 auto; min-height: 0;
       overflow-x: hidden; overflow-y: auto;
-      padding: 8px 22px 20px;
+      padding: 14px 22px 22px;
       display: flex; flex-direction: column; gap: 16px;
     }
     #pv-help-list::-webkit-scrollbar { width: 10px; }
-    #pv-help-list::-webkit-scrollbar-thumb { background: rgba(244,165,116,.4); border-radius: 8px; }
-    #pv-help-list::-webkit-scrollbar-track { background: rgba(255,255,255,.05); border-radius: 8px; }
+    #pv-help-list::-webkit-scrollbar-thumb { background: rgba(44,90,138,.5); border-radius: 8px; }
+    #pv-help-list::-webkit-scrollbar-track { background: rgba(255,255,255,.35); border-radius: 8px; }
     #pv-help-modal.detail #pv-help-list { display: none; }
-    /* Section markers act as tall dividers between groups in the horizontal rail. */
-    .hs-section-head {
-      flex: 0 0 auto; align-self: stretch; width: 132px;
-      display: flex; flex-direction: column; justify-content: center; gap: 6px;
-      margin: 0; padding: 0 16px 0 4px;
-      border-right: 2px solid rgba(232,179,74,.28);
-      font-family: "Luckiest Guy", "Cinzel", serif; font-size: 20px; font-weight: 400;
-      color: var(--cr-gold, #e8b34a); line-height: 1.1; letter-spacing: .5px;
+    #pv-help-detail {
+      flex: 1 1 auto; min-height: 0; overflow-y: auto; display: none;
+      margin: 14px 22px 22px; padding: 16px 26px 24px;
+      background: rgba(254,245,230,.96); border: 1.5px solid rgba(232,179,74,.6); border-radius: 20px;
+      box-shadow: 0 12px 34px rgba(26,45,90,.22);
     }
-    .hs-section-head span { font-family: "Nunito", sans-serif; font-size: 12px; font-weight: 700; color: #b0986e; line-height: 1.3; }
-    #pv-help-detail { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: none; padding: 10px 28px 24px; }
     #pv-help-modal.detail #pv-help-detail { display: block; }
     @media (max-width: 560px) {
       #pv-help-box { height: 100vh; max-height: 100vh; height: 100dvh; max-height: 100dvh; }
+      #pv-help-list { padding: 10px 10px 16px; }
+      #pv-help-detail { margin: 10px 10px 14px; padding: 12px 14px 18px; }
       .hs2-card, .hs2-combo { width: 70vw; max-width: 240px; }
     }
 
-    .help-strat-card {
-      flex: 0 0 auto; width: 208px; min-height: 0; max-height: 100%; scroll-snap-align: start;
-      background: linear-gradient(155deg, rgba(244,165,116,.1) 0%, rgba(15,31,61,.6) 100%);
-      border: 1.5px solid rgba(244,165,116,.25);
-      border-radius: 14px; padding: 12px 13px; cursor: pointer;
-      transition: transform .14s, border-color .14s, box-shadow .14s, background .14s;
-      display: flex; flex-direction: column; gap: 6px; box-sizing: border-box;
-    }
-    .help-strat-card:hover {
-      transform: translateY(-2px); border-color: var(--cr-coral, #f4a574);
-      box-shadow: 0 6px 24px rgba(244,165,116,.28);
-      background: linear-gradient(155deg, rgba(244,165,116,.2) 0%, rgba(15,31,61,.7) 100%);
-    }
-    .help-strat-card.active {
-      border-color: var(--strat-c, #f4a574);
-      box-shadow: 0 0 0 1.5px var(--strat-c, #f4a574), 0 6px 22px rgba(244,165,116,.22);
-      background: linear-gradient(155deg, color-mix(in srgb, var(--strat-c, #f4a574) 20%, transparent), rgba(15,31,61,.55));
-    }
-    .help-strat-card .hsc-top { display: flex; align-items: center; gap: 8px; }
-    .help-strat-card .hsc-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 17px; color: #fef0e0; flex: 1; letter-spacing: .4px; line-height: 1.1; }
+    /* Which step a strategy belongs to, as a pill. */
     .help-tier {
-      font-size: 10px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+      font-size: 10px; font-weight: 900; letter-spacing: .4px; text-transform: uppercase;
       padding: 3px 8px; border-radius: 20px; flex-shrink: 0;
     }
-    .help-tier.Core        { background: rgba(94,201,137,.2);  color: #8fe8b0; border: 1px solid rgba(94,201,137,.5); }
-    .help-tier.Combo       { background: rgba(232,179,74,.18); color: #f0c860; border: 1px solid rgba(232,179,74,.5); }
-    .help-tier.Beginner    { background: rgba(94,201,137,.2);  color: #8fe8b0; border: 1px solid rgba(94,201,137,.5); }
-    .help-tier.Intermediate{ background: rgba(244,165,116,.2); color: #f4c090; border: 1px solid rgba(244,165,116,.5); }
-    .help-tier.Advanced    { background: rgba(232,179,74,.2);  color: #f0c860; border: 1px solid rgba(232,179,74,.5); }
-    .help-tier.Expert      { background: rgba(232,110,80,.2);  color: #f8a090; border: 1px solid rgba(232,110,80,.5); }
-    .help-tier.Hybrid      { background: rgba(192,132,252,.2); color: #d4b0fc; border: 1px solid rgba(192,132,252,.5); }
-    .help-tier.Custom      { background: rgba(244,165,116,.18); color: #f4c090; border: 1px solid rgba(244,165,116,.5); }
-    .help-strat-card .hsc-blurb { font-size: 12.5px; line-height: 1.42; color: #d2bc9a; font-weight: 600; flex: 1 1 auto; overflow-y: auto; }
-    .help-strat-card .hsc-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
-    .help-strat-card .hsc-go { font-size: 11px; font-weight: 800; color: var(--cr-coral, #f4a574); }
+    .help-tier.Ocean, .help-tier.Core { background: #dcf1f9; color: #1d6f97; border: 1px solid #8fcfe8; }
+    .help-tier.Animal { background: #fde9d4; color: #a4501f; border: 1px solid #f1bd8b; }
+    .help-tier.Combo  { background: #fbefcf; color: #85600a; border: 1px solid #e6c46e; }
+    .help-tier.Custom { background: #daf5e8; color: #1d7d57; border: 1px solid #8fd8b5; }
+    /* "Play this" is the table's own Play Card blue; on, it turns confirm green. */
     .hsc-toggle {
-      font-size: 11px; font-weight: 800; cursor: pointer; flex-shrink: 0;
-      border-radius: 16px; padding: 5px 12px;
-      background: rgba(244,165,116,.1); border: 1.5px solid rgba(244,165,116,.4); color: #f5d8bc;
-      transition: background .14s, border-color .14s, transform .12s;
+      font-size: 11px; font-weight: 900; cursor: pointer; flex-shrink: 0;
+      border-radius: 16px; padding: 5px 12px; color: #fff;
+      background: linear-gradient(135deg, #5fb3d6, #3a8fb5); border: 1.5px solid rgba(58,143,181,.6);
+      text-shadow: 0 1px 0 rgba(0,0,0,.15);
+      transition: filter .14s, transform .12s, box-shadow .14s;
     }
-    .hsc-toggle:hover { background: rgba(244,165,116,.22); border-color: var(--cr-coral, #f4a574); transform: translateY(-1px); }
-    .hsc-toggle.on { background: rgba(94,201,137,.22); border-color: #5ec989; color: #aef0c8; }
+    .hsc-toggle:hover { filter: brightness(1.07); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(58,143,181,.35); }
+    .hsc-toggle.on { background: linear-gradient(135deg, #3dd8a8, #2ab88a); border-color: rgba(42,184,138,.6); }
 
     #pv-help-detail .hd-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-    #pv-help-detail .hd-name { font-family: "Luckiest Guy", "Cinzel", serif; font-size: 24px; font-weight: 400; color: #fef0e0; letter-spacing: .4px; }
-    #pv-help-detail .hd-blurb { font-size: 15px; line-height: 1.55; color: #d2bc9a; margin: 0 0 14px; font-weight: 600; }
+    #pv-help-detail .hd-blurb { font-size: 15px; line-height: 1.55; color: var(--cr-navy); margin: 0 0 14px; font-weight: 700; }
     #hd-activate {
       width: 100%; padding: 12px 16px; border-radius: 12px; cursor: pointer;
-      font-family: "Nunito", sans-serif; font-size: 15px; font-weight: 900; letter-spacing: .3px;
-      background: linear-gradient(135deg, var(--cr-coral, #f4a574), var(--cr-coral-deep, #e8956b)); color: #2a0e00;
-      border: 1.5px solid rgba(244,165,116,.6); text-shadow: 0 1px 0 rgba(255,255,255,.2);
+      font-family: "Nunito", sans-serif; font-size: 15px; font-weight: 900; letter-spacing: .3px; color: #fff;
+      background: linear-gradient(135deg, #5fb3d6, #3a8fb5); border: 1.5px solid rgba(58,143,181,.6);
+      text-shadow: 0 1px 0 rgba(0,0,0,.18);
       transition: transform .12s, box-shadow .15s, filter .15s;
     }
-    #hd-activate:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(244,165,116,.45); filter: brightness(1.06); }
-    #hd-activate.on { background: linear-gradient(135deg, #5ec989, #3da868); color: #031a0c; border-color: rgba(94,201,137,.6); }
-    .hd-activate-hint { font-size: 11.5px; color: #a89070; text-align: center; margin: 7px 0 4px; line-height: 1.4; }
+    #hd-activate:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(58,143,181,.4); filter: brightness(1.06); }
+    #hd-activate.on { background: linear-gradient(135deg, #3dd8a8, #2ab88a); border-color: rgba(42,184,138,.6); }
+    .hd-activate-hint { font-size: 12px; font-weight: 700; color: rgba(26,45,90,.66); text-align: center; margin: 7px 0 4px; line-height: 1.4; }
     #pv-help-detail .hd-section-title {
-      font-family: "Luckiest Guy", "Cinzel", serif; font-size: 18px; font-weight: 400; color: var(--cr-gold, #e8b34a); letter-spacing: .4px;
+      font-family: "Luckiest Guy", "Cinzel", serif; font-size: 19px; font-weight: 400; color: var(--cr-navy); letter-spacing: .4px;
       margin: 18px 0 8px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
     }
-    .hd-count-note { font-family: "Nunito", sans-serif; font-size: 11px; font-weight: 700; color: #a89070; }
+    .hd-count-note { font-family: "Nunito", sans-serif; font-size: 11px; font-weight: 700; color: rgba(26,45,90,.6); }
     #pv-help-detail ol.hd-steps { margin: 0; padding-left: 22px; }
-    #pv-help-detail ol.hd-steps li { font-size: 15px; line-height: 1.55; color: #f5ede0; margin-bottom: 8px; font-weight: 600; }
+    #pv-help-detail ol.hd-steps li { font-size: 15px; line-height: 1.55; color: var(--cr-navy); margin-bottom: 8px; font-weight: 700; }
     #pv-help-detail ul.hd-tips { margin: 0; padding-left: 26px; list-style: none; }
-    #pv-help-detail ul.hd-tips li { font-size: 14px; line-height: 1.6; color: #d2bc9a; margin-bottom: 12px; position: relative; padding-left: 6px; font-weight: 600; overflow-wrap: break-word; word-break: break-word; }
+    #pv-help-detail ul.hd-tips li { font-size: 14px; line-height: 1.6; color: rgba(26,45,90,.86); margin-bottom: 12px; position: relative; padding-left: 6px; font-weight: 700; overflow-wrap: break-word; word-break: break-word; }
     #pv-help-detail ul.hd-tips li::before { content: "💡"; position: absolute; left: -24px; top: 0; line-height: 1.6; font-size: 13px; }
     .hd-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 10px; margin-top: 4px; }
     .hd-card-tile {
-      background: rgba(244,165,116,.06); border: 1px solid rgba(244,165,116,.2);
+      background: #fff; border: 1px solid rgba(95,179,214,.4);
       border-radius: 10px; padding: 6px; display: flex; flex-direction: column; gap: 5px;
       cursor: pointer; transition: transform .12s, border-color .12s, box-shadow .12s;
     }
-    .hd-card-tile:hover { transform: translateY(-2px); border-color: var(--cr-coral, #f4a574); box-shadow: 0 4px 14px rgba(244,165,116,.25); }
-    .hd-card-img { width: 100%; aspect-ratio: 1 / 1; border-radius: 7px; overflow: hidden; background: #0c1c34; position: relative; }
+    .hd-card-tile:hover { transform: translateY(-2px); border-color: var(--cr-teal); box-shadow: 0 4px 14px rgba(95,179,214,.3); }
+    .hd-card-img { width: 100%; aspect-ratio: 1 / 1; border-radius: 7px; overflow: hidden; background: #dff2f9; position: relative; }
     .hd-card-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .hd-card-count {
       position: absolute; bottom: 3px; right: 3px;
-      background: rgba(15,24,44,.92); color: #f5d060; border: 1px solid rgba(245,200,64,.5);
+      background: rgba(26,45,90,.9); color: #ffd978; border: 1px solid rgba(255,217,120,.5);
       font-size: 11px; font-weight: 900; padding: 1px 6px; border-radius: 10px;
     }
-    .hd-card-name { font-size: 10.5px; font-weight: 800; color: #fef0e0; line-height: 1.2; text-align: center; }
-    .hd-card-text { font-size: 9.5px; line-height: 1.3; color: #b09878; text-align: center; }
+    .hd-card-name { font-size: 10.5px; font-weight: 800; color: var(--cr-navy); line-height: 1.2; text-align: center; }
+    .hd-card-text { font-size: 9.5px; line-height: 1.3; color: rgba(26,45,90,.7); text-align: center; }
     .hd-card-tile.no-img { cursor: default; }
-    .hd-card-tile.no-img:hover { transform: none; border-color: rgba(244,165,116,.2); box-shadow: none; }
+    .hd-card-tile.no-img:hover { transform: none; border-color: rgba(95,179,214,.4); box-shadow: none; }
     .hd-card-noimg {
       width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
       font-family: "Cinzel", serif; font-weight: 700; font-size: 20px; letter-spacing: 1px;
-      color: var(--cr-coral, #f4a574); background: linear-gradient(160deg, rgba(244,165,116,.16), rgba(12,28,52,.6));
+      color: var(--cr-teal-deep); background: linear-gradient(160deg, #e4f5fb, #cae9f7);
     }
 
-    /* ══ Strategies v2, numbered-section dashboard ══════════════════ */
+    /* ══ The three steps ═══════════════════════════════════════════
+       1 Choose Your Ocean Strategy, 2 Choose Your Animal Strategy(ies),
+       3 Mix & Match. Each step is its own panel on the painting: aqua for
+       the oceans, sand for the animals, white for putting them together. */
     .hs2-sec { min-width: 0; }
+    .hs2-step {
+      border-radius: 20px; padding: 14px 16px 12px; border: 1.5px solid;
+      box-shadow: 0 10px 28px rgba(26,45,90,.16);
+    }
+    .hs2-step[data-step="ocean"]  { background: linear-gradient(160deg, rgba(228,245,251,.96) 0%, rgba(202,233,247,.95) 100%); border-color: rgba(95,179,214,.6); }
+    .hs2-step[data-step="animal"] { background: linear-gradient(160deg, rgba(254,245,230,.96) 0%, rgba(245,226,202,.95) 100%); border-color: rgba(232,179,74,.6); }
+    .hs2-step[data-step="mix"]    { background: rgba(255,255,255,.92); border-color: rgba(95,179,214,.45); }
     .hs2-sec-head {
       display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
-      font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 19px;
-      color: var(--cr-gold, #e8b34a); letter-spacing: .6px; margin: 0 0 10px;
+      font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 21px; line-height: 1.1;
+      color: var(--cr-navy); letter-spacing: .6px; margin: 0 0 10px;
     }
     .hs2-num {
       display: inline-flex; align-items: center; justify-content: center;
-      width: 25px; height: 25px; border-radius: 50%; flex-shrink: 0;
-      background: linear-gradient(180deg, #f6c178, #e8a052); color: #1a1208;
-      font-family: "Nunito", sans-serif; font-weight: 900; font-size: 14px;
-      box-shadow: 0 2px 8px rgba(232,160,82,.4);
+      width: 29px; height: 29px; border-radius: 50%; flex-shrink: 0; box-sizing: border-box;
+      background: linear-gradient(180deg, #ffd978, #f2b53c); color: var(--cr-navy); border: 2px solid #fff;
+      font-family: "Nunito", sans-serif; font-weight: 900; font-size: 15px;
+      box-shadow: 0 2px 8px rgba(200,147,32,.35);
     }
-    .hs2-sec-sub { font-family: "Nunito", sans-serif; font-size: 12px; font-weight: 700; color: #9fb6cc; letter-spacing: 0; }
+    .hs2-sec-sub { font-family: "Nunito", sans-serif; font-size: 13px; font-weight: 700; color: rgba(26,45,90,.68); letter-spacing: 0; }
     .hs2-clear, #hs2-show-more {
       margin-left: auto; font-family: "Nunito", sans-serif; font-size: 12px; font-weight: 800; cursor: pointer;
-      color: #f5d8bc; background: rgba(244,165,116,.1); border: 1.5px solid rgba(244,165,116,.4);
+      color: var(--cr-navy); background: #fff; border: 1.5px solid rgba(95,179,214,.55);
       border-radius: 14px; padding: 4px 12px; letter-spacing: 0; transition: background .14s, border-color .14s, transform .12s;
     }
-    .hs2-clear:hover, #hs2-show-more:hover { background: rgba(244,165,116,.22); border-color: var(--cr-coral, #f4a574); transform: translateY(-1px); }
-    .hs2-clear { color: #f8b0a0; background: rgba(232,110,80,.14); border-color: rgba(232,110,80,.4); }
-    .hs2-clear:hover { background: rgba(232,110,80,.26); border-color: #e86e50; }
+    .hs2-clear:hover, #hs2-show-more:hover { border-color: var(--cr-teal); transform: translateY(-1px); }
+    .hs2-clear { color: #b3402a; background: #fff5f1; border-color: rgba(232,110,80,.5); }
+    .hs2-clear:hover { border-color: #e86e50; }
 
-    /* Section 1: horizontal rail of full core cards */
-    /* Ocean plans and animal plans are chosen for different reasons, so each
-       rail gets its own heading rather than running them together. */
-    .hs2-core-group { margin-bottom: 4px; }
-    .hs2-core-group + .hs2-core-group { margin-top: 14px; }
-    .hs2-core-group-head {
-      display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
-      font-weight: 700; font-size: 15px; letter-spacing: .2px;
-      color: #f4a574; margin: 0 0 7px 2px;
-    }
-    .hs2-core-group-sub {
-      font-weight: 500; font-size: 12.5px; letter-spacing: 0;
-      color: rgba(255,255,255,.62);
-    }
+    /* Steps 1 and 2: a horizontal rail of strategy cards each */
     .hs2-core-rail {
       display: flex; flex-direction: row; flex-wrap: nowrap; gap: 13px;
       overflow-x: auto; overflow-y: hidden; padding: 2px 2px 12px;
       scroll-snap-type: x proximity;
     }
     .hs2-core-rail::-webkit-scrollbar { height: 9px; }
-    .hs2-core-rail::-webkit-scrollbar-thumb { background: rgba(244,165,116,.4); border-radius: 8px; }
-    .hs2-core-rail::-webkit-scrollbar-track { background: rgba(255,255,255,.05); border-radius: 8px; }
+    .hs2-core-rail::-webkit-scrollbar-thumb { background: rgba(44,90,138,.4); border-radius: 8px; }
+    .hs2-core-rail::-webkit-scrollbar-track { background: rgba(255,255,255,.55); border-radius: 8px; }
 
     .hs2-card {
       position: relative; flex: 0 0 auto; width: 190px; box-sizing: border-box;
       scroll-snap-align: start; cursor: pointer;
-      background: linear-gradient(165deg, rgba(18,34,62,.94), rgba(9,20,40,.97));
-      border: 1.5px solid rgba(95,150,200,.28); border-radius: 15px; overflow: hidden;
+      background: #fff;
+      border: 1.5px solid rgba(95,179,214,.4); border-radius: 16px; overflow: hidden;
       display: flex; flex-direction: column;
+      box-shadow: 0 4px 14px rgba(26,45,90,.12);
       transition: transform .14s, border-color .14s, box-shadow .14s;
     }
     .hs2-card:hover {
-      transform: translateY(-3px); border-color: var(--strat-c, #f4a574);
-      box-shadow: 0 8px 26px rgba(0,0,0,.45), 0 0 16px color-mix(in srgb, var(--strat-c, #f4a574) 35%, transparent);
+      transform: translateY(-3px); border-color: var(--cr-teal);
+      box-shadow: 0 10px 24px rgba(26,45,90,.2);
     }
     .hs2-card.active {
-      border-color: #5ec989;
-      box-shadow: 0 0 0 2px #5ec989, 0 8px 26px rgba(0,0,0,.5);
+      border-color: #2ab88a;
+      box-shadow: 0 0 0 2px #2ab88a, 0 8px 22px rgba(26,45,90,.18);
     }
     .hs2-card-art, .hs2-mini-art, .hs2-combo-art {
       position: relative; width: 100%; overflow: hidden;
-      background: radial-gradient(120% 100% at 50% 18%, rgba(36,60,96,.7), rgba(9,20,40,.96));
+      background: linear-gradient(180deg, #e9f7fc 0%, #cfe9f4 100%);
     }
-    .hs2-card-art { height: 96px; }
-    /* Avatar-gallery portraits sit on a transparent canvas, contain + center
-       so the whole critter shows, framed by the dark tank backdrop. */
-    .hs2-card-art img, .hs2-mini-art img, .hs2-combo-art img, .hs2-reco-art img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; padding: 4px; box-sizing: border-box; filter: drop-shadow(0 2px 5px rgba(0,0,0,.45)); }
-    .hs2-card-art::after, .hs2-combo-art::after {
-      content: ""; position: absolute; inset: 0; pointer-events: none;
-      background: linear-gradient(180deg, transparent 62%, rgba(9,20,40,.55));
-    }
+    .hs2-card-art { height: 104px; }
+    /* An ocean strategy shows its ocean card, which is tall art: give it room. */
+    .hs2-card.ocean .hs2-card-art { height: 132px; }
+    .hs2-card-art img, .hs2-mini-art img, .hs2-combo-art img, .hs2-reco-art img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; padding: 4px; box-sizing: border-box; }
 
     /* ── A strategy tile wears its family SYMBOL ─────────────────────
        Not a critter portrait: the mark actually stamped in the bottom-right
        corner of every card in that family (/species/*.png), so the tile shows
        the same thing the player is reading off the cards in their hand. A
        COMBO wears BOTH marks it bridges, split by a +. Oceans are not a
-       species and have no printed symbol, so an ocean-led plan falls back to
-       the Coral Reef ocean card (.cc-sym-card), which is how the List of
-       Species illustrates Oceans too.
+       species and have no printed symbol, so an ocean strategy shows the
+       picture of its own ocean card (.cc-sym-card) instead.
          These rules land on the SAME element as .hs2-*-art / .htp-strat-art,
        so every img rule here is written .cc-strat-sym > img.cc-sym-img to
        outrank the plain `.hs2-card-art img` sizing above. Duplicated (only
@@ -1098,10 +1068,10 @@
       display: flex; align-items: center; justify-content: center;
       gap: var(--sym-gap, 4px); padding: var(--sym-pad, 6px); box-sizing: border-box;
     }
-    .hs2-card-art.cc-strat-sym  { --sym-pad: 11px; --sym-gap: 7px; }
-    .hs2-reco-art.cc-strat-sym  { --sym-pad: 9px;  --sym-gap: 5px; }
-    .hs2-combo-art.cc-strat-sym { --sym-pad: 9px;  --sym-gap: 6px; }
-    .hs2-mini-art.cc-strat-sym  { --sym-pad: 7px;  --sym-gap: 4px; }
+    .hs2-card-art.cc-strat-sym  { --sym-pad: 10px; --sym-gap: 7px; }
+    .hs2-reco-art.cc-strat-sym  { --sym-pad: 7px;  --sym-gap: 4px; }
+    .hs2-combo-art.cc-strat-sym { --sym-pad: 8px;  --sym-gap: 6px; }
+    .hs2-mini-art.cc-strat-sym  { --sym-pad: 6px;  --sym-gap: 4px; }
     .htp-strat-art.cc-strat-sym { --sym-pad: 4px;  --sym-gap: 1px; }
     .cc-strat-sym > img.cc-sym-img {
       width: auto; height: auto; max-width: 100%; max-height: 100%;
@@ -1109,200 +1079,205 @@
     }
     /* Two symbols share the width, so cap each at just under half. */
     .cc-strat-sym[data-syms="2"] > img.cc-sym-img { max-width: 44%; }
-    .cc-strat-sym > .cc-sym-card { border-radius: 3px; box-shadow: 0 2px 7px rgba(0,0,0,.45); }
-    /* The bottom scrim was there to blend a photo into the card body below.
-       A centred symbol needs no blending, and the scrim only dims it. */
-    .hs2-card-art.cc-strat-sym::after, .hs2-combo-art.cc-strat-sym::after { display: none; }
+    .cc-strat-sym > .cc-sym-card { border-radius: 5px; box-shadow: 0 3px 10px rgba(26,45,90,.3); }
     .cc-strat-sym > .cc-sym-plus {
       flex: 0 0 auto; font-family: "Nunito", sans-serif; font-weight: 900;
-      font-size: 15px; line-height: 1; color: rgba(214,232,250,.6);
+      font-size: 15px; line-height: 1; color: rgba(26,45,90,.55);
     }
-    /* On the dark tiles a light halo lifts the two darkest marks (the navy
-       marlin, the brown baitfish shoal) off the navy plate. */
     .hs2-card-art.cc-strat-sym > img.cc-sym-img,
     .hs2-reco-art.cc-strat-sym > img.cc-sym-img,
     .hs2-mini-art.cc-strat-sym > img.cc-sym-img,
     .hs2-combo-art.cc-strat-sym > img.cc-sym-img {
-      filter: drop-shadow(0 0 7px rgba(168,214,255,.34)) drop-shadow(0 2px 5px rgba(0,0,0,.5));
+      filter: drop-shadow(0 2px 4px rgba(26,45,90,.28));
     }
     .hs2-mini-art.cc-strat-sym > .cc-sym-plus { font-size: 12px; }
     .hs2-card-tag { position: absolute; top: 7px; right: 7px; z-index: 2; }
     .hs2-card-body { padding: 9px 11px 11px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
-    .hs2-card-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 16px; color: #fef0e0; letter-spacing: .4px; line-height: 1.12; }
-    .hs2-card-blurb { font-size: 11.5px; line-height: 1.4; color: #c2d2e2; font-weight: 600; flex: 1; }
+    .hs2-card-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 16px; color: var(--cr-navy); letter-spacing: .4px; line-height: 1.12; }
+    .hs2-card-blurb { font-size: 11.5px; line-height: 1.42; color: rgba(26,45,90,.8); font-weight: 700; flex: 1; }
     .hs2-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px; }
-    .hs2-card-view, .hs2-combo-view { font-size: 10.5px; font-weight: 800; color: var(--cr-coral, #f4a574); cursor: pointer; flex-shrink: 0; }
-    .hs2-combo-view { color: #f0c860; }
+    .hs2-card-view, .hs2-combo-view { font-size: 10.5px; font-weight: 800; color: var(--cr-teal-deep); cursor: pointer; flex-shrink: 0; }
+    .hs2-combo-view { color: #8a6200; }
     .hs2-card-view:hover, .hs2-combo-view:hover { text-decoration: underline; }
     .hs2-check {
-      position: absolute; top: 7px; left: 7px; z-index: 3; width: 23px; height: 23px; border-radius: 50%;
-      background: #5ec989; color: #06200f; display: flex; align-items: center; justify-content: center;
-      font-weight: 900; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.45);
+      position: absolute; top: 7px; left: 7px; z-index: 3; width: 24px; height: 24px; border-radius: 50%;
+      background: #2ab88a; color: #fff; border: 2px solid #fff; box-sizing: border-box;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 13px; box-shadow: 0 2px 8px rgba(26,45,90,.3);
     }
 
-    /* Top of the list: the standout "best strategy for your hand" recommendation. */
-    .hs2-reco { margin-bottom: 6px; }
-    .hs2-reco-card {
-      position: relative; display: flex; gap: 14px; align-items: stretch; cursor: pointer;
-      background: linear-gradient(135deg, rgba(60,46,12,.92), rgba(28,40,66,.96));
-      border: 2px solid var(--cr-gold, #e8b34a); border-radius: 16px; overflow: hidden;
-      padding: 12px 14px; box-shadow: 0 0 0 1px rgba(232,179,74,.25), 0 8px 28px rgba(0,0,0,.45), 0 0 22px rgba(232,179,74,.28);
-      transition: transform .14s, box-shadow .14s, border-color .14s;
+    /* Top of the list: the best ocean strategy and the best animal strategy
+       for this table, side by side. */
+    .hs2-reco {
+      display: flex; flex-direction: column; gap: 9px;
+      background: rgba(254,245,230,.96); border: 2px solid rgba(232,179,74,.7); border-radius: 20px;
+      padding: 12px 14px 14px; box-shadow: 0 10px 30px rgba(26,45,90,.2);
     }
-    .hs2-reco-card:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px rgba(232,179,74,.4), 0 10px 32px rgba(0,0,0,.5), 0 0 28px rgba(232,179,74,.45); }
-    .hs2-reco-card.empty { cursor: default; }
-    .hs2-reco-card.empty:hover { transform: none; }
-    .hs2-reco-art { flex: 0 0 92px; width: 92px; height: 92px; border-radius: 12px; }
-    .hs2-reco-card.empty .hs2-reco-art { display: none; }
-    .hs2-reco-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; justify-content: center; }
     .hs2-reco-kicker {
-      font-family: "Nunito", sans-serif; font-weight: 900; font-size: 12px; letter-spacing: .3px;
-      color: var(--cr-gold, #f2c869); text-transform: uppercase;
+      font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 18px; letter-spacing: .5px;
+      color: var(--cr-navy); line-height: 1.1;
     }
-    .hs2-reco-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 22px; color: #fff4e2; letter-spacing: .5px; line-height: 1.1; }
-    .hs2-reco-why { font-size: 12.5px; line-height: 1.4; color: #d8e4f0; font-weight: 600; }
-    .hs2-reco-why strong { color: #ffe39a; }
-    .hs2-reco-foot { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
-    .hs2-reco-view { font-size: 11.5px; font-weight: 800; color: var(--cr-gold, #f2c869); cursor: pointer; flex-shrink: 0; }
+    .hs2-reco-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    @media (max-width: 760px) { .hs2-reco-pair { grid-template-columns: 1fr; } }
+    .hs2-reco-card {
+      position: relative; display: flex; gap: 12px; align-items: stretch; cursor: pointer; min-width: 0;
+      background: #fff; border-radius: 16px; overflow: hidden; padding: 10px 12px;
+      border: 1.5px solid color-mix(in srgb, var(--strat-c, #5fb3d6) 45%, #d6e7ef);
+      border-left: 5px solid var(--strat-c, #5fb3d6);
+      box-shadow: 0 4px 14px rgba(26,45,90,.12);
+      transition: transform .14s, box-shadow .14s;
+    }
+    .hs2-reco-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(26,45,90,.2); }
+    .hs2-reco-card.empty { cursor: default; background: rgba(255,255,255,.75); border-left-color: rgba(95,179,214,.5); border-color: rgba(95,179,214,.35); }
+    .hs2-reco-card.empty:hover { transform: none; box-shadow: 0 4px 14px rgba(26,45,90,.12); }
+    .hs2-reco-art { flex: 0 0 84px; width: 84px; height: 100px; border-radius: 12px; align-self: center; }
+    .hs2-reco-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; justify-content: center; }
+    .hs2-reco-step {
+      font-family: "Nunito", sans-serif; font-weight: 900; font-size: 11px; letter-spacing: .5px;
+      text-transform: uppercase; color: var(--cr-teal-deep);
+    }
+    .hs2-reco-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 20px; color: var(--cr-navy); letter-spacing: .5px; line-height: 1.12; }
+    .hs2-reco-why { font-size: 12.5px; line-height: 1.4; color: rgba(26,45,90,.82); font-weight: 700; }
+    .hs2-reco-why strong { color: var(--cr-navy); font-weight: 900; }
+    .hs2-reco-foot { display: flex; align-items: center; gap: 12px; margin-top: 4px; flex-wrap: wrap; }
+    .hs2-reco-view { font-size: 11.5px; font-weight: 800; color: var(--cr-teal-deep); cursor: pointer; flex-shrink: 0; }
     .hs2-reco-view:hover { text-decoration: underline; }
-    /* The number behind the claim: how much of this table the plan fits. Sits
-       on the name line so it reads as part of the verdict, not as decoration. */
+    /* The number behind the claim: how far along this plan is on this table.
+       Sits on the name line so it reads as part of the verdict. */
     .hs2-reco-fit {
       font-family: "Nunito", sans-serif; font-size: 11px; font-weight: 900; letter-spacing: .2px;
-      color: #0d1a2e; background: var(--cr-gold, #f2c869); border-radius: 9px;
+      color: var(--cr-navy); background: linear-gradient(180deg, #ffd978, #f2b53c); border-radius: 9px;
       padding: 2px 8px; vertical-align: 3px; white-space: nowrap;
     }
     /* Said only when the cards this plan needs are already on other boards. */
     .hs2-reco-warn {
-      font-size: 11.5px; font-weight: 700; line-height: 1.35; color: #ffc9a8;
-      background: rgba(232,110,80,.14); border: 1px solid rgba(232,110,80,.34);
+      font-size: 11.5px; font-weight: 800; line-height: 1.35; color: #9a3412;
+      background: #fde8dd; border: 1px solid rgba(232,110,80,.45);
       border-radius: 9px; padding: 4px 9px; margin-top: 2px;
     }
-    /* Runners-up: the pick is a ranking, so the next three are one tap away. */
+    /* Runners-up: the pick is a ranking, so the next two are one tap away. */
     .hs2-reco-alts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
-    .hs2-reco-alts-cap { font-size: 10px; font-weight: 900; letter-spacing: .4px; text-transform: uppercase; color: #9fb6cc; }
+    .hs2-reco-alts-cap { font-size: 10px; font-weight: 900; letter-spacing: .4px; text-transform: uppercase; color: rgba(26,45,90,.6); }
     .hs2-reco-alt {
       font-family: "Nunito", sans-serif; font-size: 11px; font-weight: 800; line-height: 1.2;
-      color: #e6f0fa; background: rgba(8,18,36,.6); cursor: pointer;
-      border: 1px solid color-mix(in srgb, var(--strat-c, #7fd8ff) 55%, transparent);
-      border-left: 3px solid var(--strat-c, #7fd8ff); border-radius: 9px; padding: 4px 8px;
+      color: var(--cr-navy); background: #f3f9fc; cursor: pointer;
+      border: 1px solid rgba(95,179,214,.45);
+      border-left: 3px solid var(--strat-c, #5fb3d6); border-radius: 9px; padding: 4px 8px;
       transition: background .12s, transform .12s;
     }
-    .hs2-reco-alt:hover { background: rgba(20,40,72,.85); transform: translateY(-1px); }
-    .hs2-reco-pct { color: #9fc0e0; font-weight: 900; }
+    .hs2-reco-alt:hover { background: #fff; transform: translateY(-1px); }
+    .hs2-reco-pct { color: var(--cr-teal-deep); font-weight: 900; }
 
-    /* Bottom row: section 2 (selected) | section 3 (combos). Grows to fill the
-       remaining page height so the panels reach the bottom of the screen. */
-    .hs2-bottom { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.55fr); gap: 16px; align-items: stretch; flex: 1 1 auto; min-height: 240px; }
-    @media (max-width: 820px) { .hs2-bottom { grid-template-columns: 1fr; flex: 0 0 auto; } }
-    .hs2-panel { background: rgba(8,18,36,.5); border: 1px solid rgba(95,150,200,.18); border-radius: 16px; padding: 13px 14px; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
-    .hs2-panel .hs2-sec-head { flex: 0 0 auto; }
+    /* Step 3, Mix & Match: your strategies | suggested combos. Each panel
+       scrolls its own overflow rather than stretching the page. */
+    .hs2-bottom { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.55fr); gap: 14px; align-items: stretch; }
+    @media (max-width: 820px) { .hs2-bottom { grid-template-columns: 1fr; } }
+    .hs2-panel {
+      background: rgba(240,248,252,.9); border: 1px solid rgba(95,179,214,.35); border-radius: 16px;
+      padding: 12px 13px; display: flex; flex-direction: column; min-height: 0;
+      max-height: min(64vh, 560px); overflow-y: auto;
+    }
+    .hs2-panel-head {
+      flex: 0 0 auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 16px; line-height: 1.1;
+      color: var(--cr-navy); letter-spacing: .4px; margin: 0 0 10px;
+    }
     .hs2-selected-row, .hs2-combos-row { display: flex; flex-wrap: wrap; gap: 11px; }
 
-    /* Section 2: selected mini-cards */
     .hs2-mini {
       position: relative; width: 120px; box-sizing: border-box;
-      background: linear-gradient(165deg, rgba(18,34,62,.94), rgba(9,20,40,.97));
-      border: 1.5px solid var(--strat-c, #5ec989); border-radius: 13px; overflow: hidden;
-      box-shadow: 0 0 0 1px color-mix(in srgb, var(--strat-c, #5ec989) 28%, transparent);
+      background: #fff;
+      border: 1.5px solid var(--strat-c, #2ab88a); border-radius: 13px; overflow: hidden;
+      box-shadow: 0 3px 10px rgba(26,45,90,.1);
     }
-    .hs2-mini-art { height: 62px; }
+    .hs2-mini-art { height: 66px; }
     .hs2-mini-body { padding: 6px 8px 8px; display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
-    .hs2-mini-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 12.5px; color: #fef0e0; line-height: 1.12; }
+    .hs2-mini-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 12.5px; color: var(--cr-navy); line-height: 1.12; }
     .hs2-mini-x {
-      position: absolute; top: 5px; right: 5px; z-index: 3; width: 21px; height: 21px; border-radius: 50%;
-      background: rgba(232,110,80,.94); color: #fff; border: none; cursor: pointer;
-      font-weight: 900; font-size: 11px; line-height: 1; display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 2px 6px rgba(0,0,0,.45); transition: transform .12s, background .12s;
+      position: absolute; top: 5px; right: 5px; z-index: 3; width: 22px; height: 22px; border-radius: 50%;
+      background: #e8674a; color: #fff; border: 2px solid #fff; cursor: pointer; box-sizing: border-box;
+      font-weight: 900; font-size: 10px; line-height: 1; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 6px rgba(26,45,90,.3); transition: transform .12s, background .12s;
     }
-    .hs2-mini-x:hover { transform: scale(1.14); background: #e86e50; }
-    .hs2-mini.avail { cursor: pointer; border-color: rgba(244,165,116,.32); box-shadow: none; opacity: .9; transition: opacity .14s, transform .12s, border-color .14s; }
-    .hs2-mini.avail:hover { opacity: 1; transform: translateY(-2px); border-color: var(--cr-coral, #f4a574); }
+    .hs2-mini-x:hover { transform: scale(1.14); background: #d9502f; }
+    .hs2-mini.avail { cursor: pointer; border-color: rgba(232,179,74,.5); box-shadow: none; opacity: .92; transition: opacity .14s, transform .12s, border-color .14s; }
+    .hs2-mini.avail:hover { opacity: 1; transform: translateY(-2px); border-color: #e8b34a; }
 
-    /* Section 2: add-another + create-your-own slots */
     .hs2-slot {
       width: 120px; min-height: 122px; box-sizing: border-box; cursor: pointer;
-      border: 1.5px dashed rgba(244,165,116,.45); border-radius: 13px;
+      border: 1.5px dashed rgba(58,143,181,.55); border-radius: 13px;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; text-align: center;
-      background: rgba(244,165,116,.05); color: #f5c8a0; padding: 10px 8px;
+      background: rgba(228,245,251,.75); color: var(--cr-teal-deep); padding: 10px 8px;
       transition: background .14s, border-color .14s, transform .12s;
     }
-    .hs2-slot:hover { background: rgba(244,165,116,.15); border-color: var(--cr-coral, #f4a574); transform: translateY(-2px); }
-    .hs2-slot.create { border-color: rgba(105,211,230,.5); color: #aee4ef; background: rgba(105,211,230,.06); }
-    .hs2-slot.create:hover { background: rgba(105,211,230,.16); border-color: #69d3e6; }
+    .hs2-slot:hover { background: #fff; border-color: var(--cr-teal); transform: translateY(-2px); }
+    .hs2-slot.create { border-color: rgba(200,147,32,.6); color: #8a6200; background: rgba(255,244,214,.8); }
+    .hs2-slot.create:hover { background: #fff; border-color: #e8b34a; }
     .hs2-slot-ico { font-size: 22px; line-height: 1; }
     .hs2-slot-title { font-family: "Luckiest Guy", "Nunito", sans-serif; font-weight: 400; font-size: 13px; line-height: 1.18; }
-    .hs2-slot-sub { font-family: "Nunito", sans-serif; font-size: 10px; font-weight: 700; color: #b0986e; line-height: 1.3; }
-    .hs2-empty { font-size: 13px; font-weight: 700; color: #9fb6cc; padding: 18px 8px; line-height: 1.5; flex: 1; min-width: 180px; }
+    .hs2-slot-sub { font-family: "Nunito", sans-serif; font-size: 10px; font-weight: 700; color: rgba(26,45,90,.62); line-height: 1.3; }
+    .hs2-empty { font-size: 13px; font-weight: 700; color: rgba(26,45,90,.66); padding: 18px 8px; line-height: 1.5; flex: 1; min-width: 180px; }
 
-    /* Section 3: combo suggestion cards */
     .hs2-combo {
       position: relative; flex: 0 0 auto; width: 190px; box-sizing: border-box; cursor: pointer;
-      background: linear-gradient(165deg, rgba(42,33,16,.82), rgba(13,23,43,.96));
-      border: 1.5px solid rgba(232,179,74,.42); border-radius: 14px; overflow: hidden;
-      display: flex; flex-direction: column; transition: transform .14s, border-color .14s, box-shadow .14s;
+      background: #fff;
+      border: 1.5px solid rgba(232,179,74,.55); border-radius: 14px; overflow: hidden;
+      display: flex; flex-direction: column; box-shadow: 0 3px 12px rgba(26,45,90,.1);
+      transition: transform .14s, border-color .14s, box-shadow .14s;
     }
-    .hs2-combo:hover { transform: translateY(-3px); border-color: #f0c860; box-shadow: 0 8px 24px rgba(0,0,0,.45), 0 0 14px rgba(232,179,74,.3); }
-    .hs2-combo.active { border-color: #5ec989; box-shadow: 0 0 0 2px #5ec989, 0 8px 24px rgba(0,0,0,.5); }
-    .hs2-combo-art { height: 76px; }
+    .hs2-combo:hover { transform: translateY(-3px); border-color: #e8b34a; box-shadow: 0 10px 22px rgba(26,45,90,.18); }
+    .hs2-combo.active { border-color: #2ab88a; box-shadow: 0 0 0 2px #2ab88a, 0 8px 22px rgba(26,45,90,.16); }
+    .hs2-combo-art { height: 82px; }
     .hs2-combo-body { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
     .hs2-combo-pairtag {
       display: inline-block; align-self: flex-start; font-size: 9px; font-weight: 800; letter-spacing: .2px;
-      color: #d6c4a2; background: rgba(232,179,74,.12); border: 1px solid rgba(232,179,74,.3);
+      color: #85600a; background: #fbefcf; border: 1px solid #e6c46e;
       border-radius: 10px; padding: 1px 7px;
     }
-    .hs2-combo-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 14px; color: #fef0e0; line-height: 1.12; }
-    .hs2-combo-why { font-size: 11px; line-height: 1.4; color: #d6c4a2; font-weight: 600; flex: 1; }
+    .hs2-combo-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 14px; color: var(--cr-navy); line-height: 1.12; }
+    .hs2-combo-why { font-size: 11px; line-height: 1.4; color: rgba(26,45,90,.78); font-weight: 700; flex: 1; }
     .hs2-combo-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px; }
 
-    .hs-create-btn {
-      flex: 0 0 auto; align-self: stretch; width: 200px; margin: 0;
-      padding: 12px 16px; border-radius: 14px; cursor: pointer;
-      font-family: "Luckiest Guy", "Nunito", sans-serif; font-size: 17px; font-weight: 400; letter-spacing: .4px; line-height: 1.2;
-      background: rgba(244,165,116,.08); border: 1.5px dashed rgba(244,165,116,.45); color: #f5c8a0;
-      transition: background .14s, border-color .14s, transform .12s;
-    }
-    .hs-create-btn:hover { background: rgba(244,165,116,.18); border-color: var(--cr-coral, #f4a574); transform: translateY(-1px); }
     .hd-custom-tools { display: flex; gap: 10px; margin-top: 22px; }
     .hd-edit-btn, .hd-delete-btn {
       flex: 1; padding: 10px 14px; border-radius: 11px; cursor: pointer;
       font-family: "Nunito", sans-serif; font-size: 13px; font-weight: 800;
       transition: background .14s, border-color .14s, transform .12s;
     }
-    .hd-edit-btn { background: rgba(244,165,116,.1); border: 1.5px solid rgba(244,165,116,.4); color: #f5d8bc; }
-    .hd-edit-btn:hover { background: rgba(244,165,116,.22); border-color: var(--cr-coral, #f4a574); transform: translateY(-1px); }
-    .hd-delete-btn { background: rgba(232,110,80,.1); border: 1.5px solid rgba(232,110,80,.4); color: #f8b0a0; }
-    .hd-delete-btn:hover { background: rgba(232,110,80,.22); border-color: #e86e50; transform: translateY(-1px); }
+    .hd-edit-btn { background: #fff; border: 1.5px solid rgba(95,179,214,.55); color: var(--cr-navy); }
+    .hd-edit-btn:hover { border-color: var(--cr-teal); transform: translateY(-1px); }
+    .hd-delete-btn { background: #fff5f1; border: 1.5px solid rgba(232,110,80,.5); color: #b3402a; }
+    .hd-delete-btn:hover { border-color: #e86e50; transform: translateY(-1px); }
     .cc-form { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
-    .cc-flabel { font-family: "Cinzel", serif; font-size: 13px; font-weight: 700; color: var(--cr-gold, #e8b34a); margin-top: 10px; }
-    .cc-fhint { font-family: "Nunito", sans-serif; font-size: 11px; font-weight: 700; color: #a89070; }
+    .cc-flabel { font-family: "Cinzel", serif; font-size: 13px; font-weight: 700; color: var(--cr-navy); margin-top: 10px; }
+    .cc-fhint { font-family: "Nunito", sans-serif; font-size: 11px; font-weight: 700; color: rgba(26,45,90,.6); }
     .cc-input, .cc-textarea {
       width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px;
-      background: rgba(10,20,40,.65); border: 1.5px solid rgba(244,165,116,.3); color: #f5ede0;
+      background: #fff; border: 1.5px solid rgba(95,179,214,.5); color: var(--cr-navy);
       font-family: "Nunito", sans-serif; font-size: 14px; line-height: 1.45;
       transition: border-color .14s, box-shadow .14s;
     }
     .cc-textarea { resize: vertical; min-height: 64px; }
-    .cc-input:focus, .cc-textarea:focus { outline: none; border-color: var(--cr-coral, #f4a574); box-shadow: 0 0 0 2px rgba(244,165,116,.22); }
+    .cc-input:focus, .cc-textarea:focus { outline: none; border-color: var(--cr-teal); box-shadow: 0 0 0 3px rgba(95,179,214,.25); }
     .cc-input-err { border-color: #e86e50 !important; box-shadow: 0 0 0 2px rgba(232,110,80,.3) !important; }
-    .cc-input::placeholder, .cc-textarea::placeholder { color: #7a6248; }
+    .cc-input::placeholder, .cc-textarea::placeholder { color: rgba(26,45,90,.45); }
     .cc-form-actions { display: flex; gap: 10px; margin-top: 16px; }
     .cc-save-btn {
-      flex: 2; padding: 12px 16px; border-radius: 12px; cursor: pointer;
+      flex: 2; padding: 12px 16px; border-radius: 12px; cursor: pointer; color: #fff;
       font-family: "Nunito", sans-serif; font-size: 15px; font-weight: 900; letter-spacing: .3px;
-      background: linear-gradient(135deg, var(--cr-coral, #f4a574), var(--cr-coral-deep, #e8956b)); color: #2a0e00;
-      border: 1.5px solid rgba(244,165,116,.6); text-shadow: 0 1px 0 rgba(255,255,255,.18);
+      background: linear-gradient(135deg, #5fb3d6, #3a8fb5); border: 1.5px solid rgba(58,143,181,.6);
+      text-shadow: 0 1px 0 rgba(0,0,0,.18);
       transition: transform .12s, box-shadow .15s, filter .15s;
     }
-    .cc-save-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(244,165,116,.45); filter: brightness(1.06); }
+    .cc-save-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(58,143,181,.4); filter: brightness(1.06); }
     .cc-cancel-btn {
       flex: 1; padding: 12px 16px; border-radius: 12px; cursor: pointer;
       font-family: "Nunito", sans-serif; font-size: 14px; font-weight: 800;
-      background: rgba(255,255,255,.06); border: 1.5px solid rgba(244,165,116,.3); color: #c8b49a;
+      background: #fff; border: 1.5px solid rgba(95,179,214,.5); color: var(--cr-navy);
       transition: background .14s, border-color .14s, transform .12s;
     }
-    .cc-cancel-btn:hover { background: rgba(244,165,116,.14); border-color: var(--cr-coral, #f4a574); transform: translateY(-1px); }
-    .cc-form code { background: rgba(244,165,116,.16); color: #f5c8a0; padding: 1px 5px; border-radius: 5px; font-size: 12px; }
+    .cc-cancel-btn:hover { border-color: var(--cr-teal); transform: translateY(-1px); }
+    .cc-form code { background: #e4f5fb; color: var(--cr-teal-deep); padding: 1px 5px; border-radius: 5px; font-size: 12px; }
 
     /* ── Strategy highlight on hand + pool cards (active strategies) ── */
     .pv-pool-card.strat-hl { outline: 2.5px solid var(--strat-c, #b388ff); outline-offset: 1px; filter: drop-shadow(0 0 6px var(--strat-c, #b388ff)); }
@@ -1333,21 +1308,20 @@
 
 
     /* ── Family-colour legend (top of the Strategies panel) ──────────── */
-    .hs-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 9px 0 2px; }
-    .hs-legend-cap { font-size: 11px; font-weight: 800; color: #9fc0e0; margin-right: 2px; }
+    .hs-legend { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 5px; margin: 7px 0 2px; }
+    .hs-legend-cap { font-size: 11px; font-weight: 800; color: rgba(26,45,90,.7); margin-right: 2px; }
     .hs-legend-chip {
-      font-size: 11px; font-weight: 800; color: #e8eef6;
+      font-size: 11px; font-weight: 800; color: var(--cr-navy);
       padding: 2px 8px 2px 6px; border-radius: 999px;
-      background: rgba(255,255,255,.05);
-      /* the hairline is lifted towards white so Bait Fish (dark brown) and Game
-         Fish (dark blue) still draw a visible ring on the near-black panel; the
-         dot below keeps the true family colour */
-      border: 1px solid color-mix(in srgb, var(--lc, #b388ff) 72%, #dce8f6);
+      background: #fff;
+      /* mixed towards navy, not white: Birds glow white, and a white ring on a
+         white chip is no ring at all. The dot keeps the true family colour. */
+      border: 1px solid color-mix(in srgb, var(--lc, #b388ff) 62%, #1a2d5a);
     }
     .hs-legend-chip::before {
       content: ""; display: inline-block; width: 8px; height: 8px;
       border-radius: 50%; background: var(--lc, #b388ff); margin-right: 5px;
-      vertical-align: middle; box-shadow: 0 0 5px var(--lc, #b388ff);
+      vertical-align: middle; box-shadow: 0 0 0 1px rgba(26,45,90,.35);
     }
 
     /* ── SEAT PICKER ─────────────────────────────────────────────── */
@@ -15977,6 +15951,8 @@
       padding: 2px 8px; border-radius: 999px;
     }
     .htp-tier-Core   { color: #1a6fc4; background: rgba(38,128,200,.12); border: 1px solid rgba(38,128,200,.32); }
+    .htp-tier-Ocean  { color: #1a6fc4; background: rgba(38,128,200,.12); border: 1px solid rgba(38,128,200,.32); }
+    .htp-tier-Animal { color: #b4491f; background: rgba(244,165,116,.2); border: 1px solid rgba(232,110,80,.38); }
     .htp-tier-Combo  { color: #7a6800; background: rgba(232,179,74,.2);  border: 1px solid rgba(232,179,74,.44); }
     .htp-tier-Mine   { color: #1d9a6c; background: rgba(66,200,120,.18); border: 1px solid rgba(66,200,120,.4); }
     .htp-strat-body {

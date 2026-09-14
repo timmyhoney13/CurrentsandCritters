@@ -139,7 +139,101 @@ check("ocean strategies are tinted Oceans, and animal strategies never are", () 
     if (s.group === "ocean") { oceans++; eq(W.CC_STRAT_PRIMARY[i], "ocean", s.label + " is an ocean strategy"); }
     else assert(W.CC_STRAT_PRIMARY[i] !== "ocean", s.label + " is an animal strategy but is tinted Oceans");
   });
-  eq(oceans, 7, "seven ocean strategies");
+  eq(oceans, 6, "six ocean strategies");
+});
+
+// ── The ocean strategies, as Timothy asked for them (2026-09-13) ────
+// Each ocean strategy is its own ocean and nothing else: no animal is part
+// of one. Kelp Forest is only Kelp Forests, Coral Reef only Coral Reefs (it
+// is not the Coral animal strategy), Play Again only Arctic Oceans and
+// Mangroves, Piers only Piers, and Artificial Reef only Artificial Reefs,
+// with its text still explaining the Yellowfin Tuna, Lobsters and Clownfish
+// that stack on it. Tide Pool is not a strategy.
+console.log("\nThe ocean strategies");
+
+const OCEAN_NAMES = {};
+for (const line of read(path.join(ROOT, "cards_oceans.txt")).split("\n")) {
+  const p = line.split("\t");
+  if (p.length > 2 && /^\d+$/.test(p[0])) OCEAN_NAMES[Number(p[0])] = p[1];
+}
+const byLabel = (label) => W.CC_BUILTIN_STRATEGIES.find(s => s.label === label);
+const oceanPlans = W.CC_BUILTIN_STRATEGIES.filter(s => s.tier === "Core" && s.group === "ocean");
+
+check("the six ocean strategies, and no Tide Pool or Arctic / Mangrove among them", () => {
+  eq(oceanPlans.map(s => s.label).sort(),
+     ["Artificial Reef", "Coral Reef", "Kelp Forest", "Mangrove (All Blue)", "Piers", "Play Again"],
+     "ocean strategy labels");
+  assert(!byLabel("Tide Pool"), "Tide Pool is still a strategy");
+  assert(!byLabel("Arctic / Mangrove"), "Arctic / Mangrove should be called Play Again now");
+  assert(!W.CC_BUILTIN_STRATEGIES.some(s => /Tide Pool|Arctic \/ Mangrove/.test(s.label)),
+    "a combo still names Tide Pool or Arctic / Mangrove");
+});
+
+check("an ocean strategy holds ocean cards only, never an animal", () => {
+  for (const s of oceanPlans) {
+    const animals = s.cards.filter(c => c.species !== "Ocean").map(c => c.name);
+    eq(animals, [], s.label + " lists animals");
+    for (const u of s.uids) assert(u >= 201 && u <= 268, s.label + " carries a non-ocean uid " + u);
+  }
+});
+
+check("each one is exactly its own ocean", () => {
+  const want = {
+    "Kelp Forest": ["Kelp Forest"], "Coral Reef": ["Coral Reef"], "Play Again": ["Arctic Ocean", "Mangrove"],
+    "Piers": ["Pier"], "Artificial Reef": ["Artificial Reef"],
+  };
+  for (const [label, names] of Object.entries(want)) {
+    eq(byLabel(label).cards.map(c => c.name).sort(), names.slice().sort(), label + " card list");
+  }
+});
+
+check("every deck copy of those oceans is listed, uid for uid", () => {
+  for (const s of oceanPlans) {
+    for (const c of s.cards) {
+      const deck = Object.keys(OCEAN_NAMES).map(Number).filter(u => OCEAN_NAMES[u] === c.name).sort((a, b) => a - b);
+      eq(c.uids.slice().sort((a, b) => a - b), deck, s.label + " / " + c.name + " uids");
+      eq(c.count, deck.length, s.label + " / " + c.name + " count");
+    }
+  }
+});
+
+check("Artificial Reef talks about Yellowfin Tuna, Lobsters and Clownfish without listing them", () => {
+  const s = byLabel("Artificial Reef");
+  const text = [s.blurb].concat(s.steps, s.tips).join(" ");
+  for (const word of ["Yellowfin Tuna", "Lobster", "Clownfish"]) assert(text.includes(word), "its text never mentions " + word);
+  eq(s.cards.map(c => c.name), ["Artificial Reef"], "Artificial Reef card list");
+});
+
+check("Coral Reef is about the reef chart, not the Coral animal strategy", () => {
+  const s = byLabel("Coral Reef");
+  const text = [s.blurb].concat(s.steps, s.tips).join(" ");
+  assert(!/Staghorn|Elk Horn|Frigatebird|Deep Sea Coral/.test(text), "Coral Reef still talks about coral animals");
+  assert(/35/.test(s.blurb) && /16/.test(s.blurb), "the blurb should state the chart");
+});
+
+check("Play Again says what a play again is for: drawing more cards", () => {
+  const s = byLabel("Play Again");
+  assert(/draw 2 more cards/i.test(s.blurb), "the blurb should say it lets you draw more cards");
+  assert(/Arctic Ocean/.test(s.blurb) && /Mangrove/.test(s.blurb), "the blurb should name both oceans");
+});
+
+check("ocean strategies come before animal strategies, and Mangrove (All Blue) is not first", () => {
+  const cores = W.CC_BUILTIN_STRATEGIES.filter(s => s.tier === "Core");
+  const firstAnimal = cores.findIndex(s => s.group !== "ocean");
+  assert(cores.slice(0, firstAnimal).every(s => s.group === "ocean"), "an animal strategy sits among the oceans");
+  assert(cores.slice(firstAnimal).every(s => s.group !== "ocean"), "an ocean strategy sits among the animals");
+  assert(cores[0].label !== "Mangrove (All Blue)", "Mangrove (All Blue) is listed first");
+});
+
+check("every ocean strategy states the goal its recommendation is measured against", () => {
+  for (const s of oceanPlans) {
+    const g = s.goal || {};
+    const kinds = ["count", "types", "most"].filter(k => g[k]);
+    eq(kinds.length, 1, s.label + " goal should be exactly one of count / types / most");
+  }
+  eq(byLabel("Kelp Forest").goal, { count: 4, allOrNothing: true }, "Kelp Forest pays nothing until 4");
+  eq(byLabel("Mangrove (All Blue)").goal, { types: 8, allOrNothing: true }, "Mangrove needs all 8 types");
+  eq(byLabel("Piers").goal, { most: true }, "Piers is a contest");
 });
 
 check("the species guide covers the nine animal families", () => {
@@ -208,12 +302,19 @@ check("a COMBO wears BOTH of the symbols it bridges, and they differ", () => {
     const syms = symsFor(i);
     // Two cores of the SAME family (Yellowfin Tuna Stack + King Salmon are both
     // Game Fish) genuinely have one mark between them: printing it twice would
-    // be a lie about the cards. Every other combo wears both, and they differ.
+    // be a lie about the cards. Two OCEAN strategies are the exception to the
+    // exception: each shows its own ocean card, so they are two pictures.
+    // Every other combo wears both, and they differ.
     const pair = W.CC_COMBO_PAIR_LABELS[s.label] || [];
-    const oneFamily = pair.length === 2 && primaryOf(pair[0]) === primaryOf(pair[1]);
+    const twoOceans = pair.length === 2 && pair.every(l => {
+      const c = W.CC_BUILTIN_STRATEGIES.find(x => x.label === l);
+      return c && c.artUid != null;
+    });
+    const oneFamily = !twoOceans && pair.length === 2 && primaryOf(pair[0]) === primaryOf(pair[1]);
     eq(syms.length, oneFamily ? 1 : 2,
       s.label + " is a combo and should wear " + (oneFamily ? "its one shared symbol" : "two symbols"));
-    if (!oneFamily) assert(syms[0].key !== syms[1].key, s.label + " wears the same symbol twice");
+    if (twoOceans) assert(syms[0].cardUid !== syms[1].cardUid, s.label + " shows the same ocean card twice");
+    else if (!oneFamily) assert(syms[0].key !== syms[1].key, s.label + " wears the same symbol twice");
   });
   assert(combos >= 10, "expected 10+ combos, found " + combos);
 });
@@ -238,16 +339,33 @@ check("the first symbol is the family the tile is already tinted in", () => {
   });
 });
 
-check("Oceans, the one family with no symbol, fall back to the Coral Reef card", () => {
-  const i = W.CC_STRAT_PRIMARY.findIndex((fam, n) => fam === "ocean" && W.CC_BUILTIN_STRATEGIES[n]);
-  assert(i >= 0, "expected an ocean-led strategy");
-  const syms = symsFor(i);
-  eq(syms.length, 1, "an ocean plan wears one thing");
-  eq(syms[0].cardUid, W.CC_OCEAN_CARD_UID, "an ocean plan should show the ocean card");
-  assert(!syms[0].sym, "an ocean plan must not claim a species symbol");
-  const page = W.CC_OCEAN_CARD_UID - 200;
-  const file = path.join(ROOT, "oceans_cards", "page_" + (page < 10 ? "0" + page : page) + ".png");
-  assert(fs.existsSync(file), "the ocean card art is missing: " + file);
+check("every ocean strategy wears the picture of its own ocean card", () => {
+  // Kelp Forest shows the Kelp Forest, not the Coral Reef. Play Again shows
+  // the Arctic Ocean, Mangrove (All Blue) the Mangrove.
+  const want = {
+    "Kelp Forest": "Kelp Forest", "Coral Reef": "Coral Reef", "Play Again": "Arctic Ocean",
+    "Piers": "Pier", "Artificial Reef": "Artificial Reef", "Mangrove (All Blue)": "Mangrove",
+  };
+  for (const s of oceanPlans) {
+    const i = W.CC_BUILTIN_STRATEGIES.indexOf(s);
+    const syms = symsFor(i);
+    eq(syms.length, 1, s.label + " wears one picture");
+    assert(!syms[0].sym, s.label + " must not claim a species symbol");
+    eq(OCEAN_NAMES[syms[0].cardUid], want[s.label], s.label + " shows the wrong ocean card");
+    assert(s.uids.indexOf(syms[0].cardUid) !== -1, s.label + " shows a card it does not list");
+    const page = syms[0].cardUid - 200;
+    const file = path.join(ROOT, "oceans_cards", "page_" + (page < 10 ? "0" + page : page) + ".png");
+    assert(fs.existsSync(file), "the ocean card art is missing: " + file);
+  }
+  // A combo with an ocean half shows that ocean's card next to the animal mark.
+  const kb = W.CC_BUILTIN_STRATEGIES.findIndex(s => s.label === "Kelp Forest + Birds");
+  eq(symsFor(kb).map(e => e.cardUid != null ? OCEAN_NAMES[e.cardUid] : e.key), ["Kelp Forest", "bird"], "Kelp Forest + Birds");
+});
+
+check("a custom plan made of ocean cards falls back to the Coral Reef card", () => {
+  const mine = { label: "My oceans", custom: true, cards: [{ species: "Ocean" }] };
+  eq(W.CC_STRAT_SYMBOLS(99, mine).map(e => e.cardUid), [W.CC_OCEAN_CARD_UID], "custom ocean plan");
+  eq(OCEAN_NAMES[W.CC_OCEAN_CARD_UID], "Coral Reef", "the fallback card is a Coral Reef");
 });
 
 check("a custom plan borrows the first family its own cards recognise", () => {

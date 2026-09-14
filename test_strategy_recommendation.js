@@ -3,7 +3,7 @@
  *
  * Run:  node test_strategy_recommendation.js
  *
- * Two complaints, one file.
+ * Three complaints, one file.
  *
  * 1. "It is wrong most of the time, it is not the best."
  *    The old recommendation read ONE thing, the cards in your hand, and scored
@@ -17,8 +17,16 @@
  * 2. "There is an almost infinite number of combos, make sure it has them all."
  *    Ten combos were hand-written, which left most cores with one partner or
  *    none. Every remaining core-to-core pair is generated in js/gamedata.js, so
- *    all 136 exist and every one of the 17 cores (seven ocean, ten animal) has
- *    sixteen partners to be paired with.
+ *    all 120 exist and every one of the 16 cores (six ocean, ten animal) has
+ *    fifteen partners to be paired with.
+ *
+ * 3. "Do not put All Blue always first in the matching strategy thing."
+ *    Mangrove (All Blue) listed every ocean card there is, and every board is
+ *    built on oceans, so it matched every table: replayed over 10,580 real
+ *    positions it was the #1 pick 61% of the time, and in the four shown 90%.
+ *    Ocean strategies are now ranked only against each other, on the goal
+ *    their own card sets (four Kelp Forests, the most Piers, all eight types),
+ *    and animal strategies only against each other, on animals alone.
  *
  * The scoring, the snapshot and the combo ranking are sliced out of
  * preview-app.js by text and executed here, so a change to those lines changes
@@ -76,10 +84,13 @@ const SRC = `
   ${grabFn("_isCore")}
   ${grabFn("_isCombo")}
   ${grabFn("_isCustom")}
+  ${grabFn("_isOcean")}
+  ${grabFn("_tierBadge")}
   ${grabFn("_comboPairIdxs")}
   ${grabFn("_suggestedCombos")}
   ${grabFn("_tableSnapshot")}
   ${grabFn("_strategyFit")}
+  ${grabFn("_oceanPlanFit")}
   ${grabFn("_rankStrategies")}
   ${grabLine("let _fits = null;")}
   ${grabFn("_fitsNow")}
@@ -146,7 +157,15 @@ const hand = (uids) => uids.map(u => ({ entry_uid: u, faces: [{ uid: u }] }));
 const me = (board, cards) => ({ index: 0, name: "me", board: board, hand: hand(cards || []) });
 const them = (board) => ({ index: 1, name: "them", board: board });
 
-const topOf = (r) => S[r.order[0]].label;
+// The banner's two picks: the best animal strategy and the best ocean strategy.
+const topOf = (r) => S[r.animalOrder[0]].label;
+const topOcean = (r) => S[r.oceanOrder[0]].label;
+const liveOceans = (r) => r.oceanOrder.filter(i => r.byIdx.get(i).fit > 0).map(i => S[i].label);
+const oceanUid = (name, copy) => {
+  const c = stratOf("Mangrove (All Blue)").cards.find(x => x.name === name);
+  if (!c) throw new Error("no ocean card named " + name);
+  return c.uids[copy || 0];
+};
 const fitOf = (r, label) => r.byIdx.get(idxOf(label)).fit;
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -160,9 +179,7 @@ console.log("\nIt reads the board, not just the hand");
   const coralHand = ["Staghorn Coral", "Elk Horn Coral"].map(n => uidOf("Coral", n, 0));
   sandbox.setTable({ players: [me([ocean(birds)], coralHand), them([])] });
   const r = sandbox.rank();
-  const pair = W.CC_COMBO_PAIR_LABELS[topOf(r)] || [topOf(r)];
-  check(pair.indexOf("Birds") !== -1,
-    "a board of five birds recommends Birds (or a Birds combo), whatever the hand holds, got " + topOf(r));
+  eq(topOf(r), "Birds", "a board of five birds recommends Birds as the animal strategy, whatever the hand holds");
   check(fitOf(r, "Birds") > fitOf(r, "Coral"),
     "the board outweighs a hand that points somewhere else");
 }
@@ -272,7 +289,9 @@ console.log("\nA combo needs BOTH halves to be live");
   const cephs = ["Common Octopus", "Cuttlefish", "Bobtail Squid"].map(n => uidOf("Cephalopods", n, 0));
   sandbox.setTable({ players: [me([ocean(cephs)], []), them([])] });
   const r = sandbox.rank();
-  eq(topOf(r), "Cephalopods", "one-family board recommends the single plan, not a lopsided combo");
+  eq(topOf(r), "Cephalopods", "one-family board recommends the single plan");
+  check(fitOf(r, "Cephalopods + Shooting the Moon") < fitOf(r, "Cephalopods"),
+    "and a lopsided combo scores below the half that is actually on the board");
 
   // Now put the other half on the board too, and the combo should come through.
   const moon = stratOf("Shooting the Moon").cards
@@ -289,21 +308,81 @@ console.log("\nThe banner says what it read");
   const birds = ["Emperor Penguin", "Horned Puffin", "California Gull"].map(n => uidOf("Birds", n, 0));
   sandbox.setTable({ players: [me([ocean(birds)], [uidOf("Birds", "Osprey", 0)]), them([])] });
   const html = sandbox.banner();
-  check(/Best strategy for the board you have built/.test(html),
+  check(/Best match for the board you have built/.test(html),
     "with a board down, the banner says it is reading the board");
-  check(/cards on your board/.test(html), "and names how much of that board it matched");
+  check(/1 · Ocean strategy/.test(html) && /2 · Animal strategy/.test(html),
+    "and it makes two picks, an ocean strategy and an animal strategy, in the order the steps ask");
+  check(html.indexOf("1 · Ocean strategy") < html.indexOf("2 · Animal strategy"), "ocean first");
+  check(/animals on your board/.test(html), "and names how much of that board it matched");
   check(/you're holding/.test(html), "and counts the hand as well");
   check(/% fit/.test(html), "and shows the number behind the claim");
   check(/hs2-reco-alts/.test(html), "and offers the runners-up, so the pick can be argued with");
+  check(/Coral Reef/.test(html) && /it wants <strong>4<\/strong>/.test(html),
+    "the ocean pick reads the Coral Reef under those birds, and says how many it wants");
 
   sandbox.setTable({ players: [me([], [uidOf("Birds", "Osprey", 0)]), them([])] });
   const handOnly = sandbox.banner();
-  check(/Best strategy to play for your starting hand/.test(handOnly),
+  check(/Best match for your starting hand/.test(handOnly),
     "before a board exists it is honest about reading only the hand");
+  check(/No ocean strategy stands out yet/.test(handOnly),
+    "a hand with no ocean in it does not invent an ocean pick");
 
   sandbox.setTable({ players: [me([], []), them([])] });
   check(/Open this once you've been dealt your hand/.test(sandbox.banner()),
     "with nothing on the table it asks you to come back, it does not invent a pick");
+}
+
+console.log("\nMangrove (All Blue) is not first just for listing every ocean");
+
+{
+  // Replayed over the recorded human games (10,580 positions) the old ranking
+  // put Mangrove (All Blue) or one of its combos first 61% of the time. These
+  // are the tables where another ocean plan is plainly the one being built.
+  const kelp = [0, 1, 2].map(n => oceanUid("Kelp Forest", n));
+  const deep = oceanUid("Deep Ocean");
+  const blank = (u) => ocean([], u);
+  sandbox.setTable({ players: [me([blank(kelp[0]), blank(kelp[1]), blank(kelp[2]), blank(deep)], [oceanUid("Kelp Forest", 3)]), them([])] });
+  let r = sandbox.rank();
+  eq(topOcean(r), "Kelp Forest", "three Kelp Forests down and a fourth in hand is a Kelp Forest table");
+
+  sandbox.setTable({ players: [me([0, 1, 2].map(n => blank(oceanUid("Coral Reef", n))), []), them([])] });
+  r = sandbox.rank();
+  eq(topOcean(r), "Coral Reef", "three Coral Reefs is a Coral Reef table");
+
+  sandbox.setTable({ players: [me([blank(oceanUid("Arctic Ocean", 0)), blank(oceanUid("Arctic Ocean", 1)), blank(oceanUid("Mangrove", 0))], []), them([])] });
+  r = sandbox.rank();
+  eq(topOcean(r), "Play Again", "two Arctic Oceans and a Mangrove is a Play Again table");
+
+  sandbox.setTable({ players: [me([0, 1, 2].map(n => blank(oceanUid("Pier", n))), []), them([blank(oceanUid("Pier", 3))])] });
+  r = sandbox.rank();
+  eq(topOcean(r), "Piers", "three Piers against one is a Piers table");
+
+  const lobsters = [0, 1, 2].map(n => uidOf("Crustaceans", "Lobster", n));
+  sandbox.setTable({ players: [me([ocean(lobsters, oceanUid("Artificial Reef"))], []), them([])] });
+  r = sandbox.rank();
+  eq(topOcean(r), "Artificial Reef", "a Lobster stack on an Artificial Reef is an Artificial Reef table");
+
+  // An ordinary mixed board of three different oceans: Mangrove is nowhere near its eight.
+  sandbox.setTable({ players: [me([blank(oceanUid("Kelp Forest")), blank(oceanUid("Coral Reef")), blank(oceanUid("Pier"))], []), them([])] });
+  r = sandbox.rank();
+  check(topOcean(r) !== "Mangrove (All Blue)", "three different oceans do not make Mangrove (All Blue) the pick, got " + topOcean(r));
+  check(fitOf(r, "Mangrove (All Blue)") < 0.1, "and it scores under 10%, so it is not even shown as close behind");
+
+  // But when the board really is all blue, it is the answer.
+  const types = ["Kelp Forest", "Coral Reef", "Arctic Ocean", "Pier", "Artificial Reef", "Deep Ocean", "Tide Pool"];
+  sandbox.setTable({ players: [me(types.map(n => blank(oceanUid(n))), [oceanUid("Mangrove")]), them([])] });
+  r = sandbox.rank();
+  eq(topOcean(r), "Mangrove (All Blue)", "seven ocean types down and a Mangrove in hand is a Mangrove (All Blue) table");
+}
+
+{
+  // An animal strategy is judged on animals. King Salmon lists every Coral
+  // Reef in the deck, and a board of nothing but Coral Reefs is not a King
+  // Salmon board.
+  sandbox.setTable({ players: [me([0, 1, 2].map(n => ocean([], oceanUid("Coral Reef", n))), []), them([])] });
+  const r = sandbox.rank();
+  eq(fitOf(r, "King Salmon"), 0, "ocean cards alone never make an animal strategy a match");
+  check(/No animal strategy stands out yet/.test(sandbox.banner()), "and the banner says so rather than inventing one");
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -312,25 +391,25 @@ console.log("\nEvery pair of cores is a combo you can be offered");
 const CORES = S.map((s, i) => [s, i]).filter(([s]) => s.tier === "Core").map(([s]) => s.label);
 const COMBOS = S.filter(s => s.tier === "Combo");
 
-// Seven ocean plans and ten animal plans. An ocean plan paired with an animal
+// Six ocean plans and ten animal plans. An ocean plan paired with an animal
 // plan is a combo too: every animal you play sits on an ocean.
 const OCEAN_CORES = S.filter(s => s.tier === "Core" && s.group === "ocean").map(s => s.label);
-eq(OCEAN_CORES.length, 7, "seven ocean plans");
+eq(OCEAN_CORES.length, 6, "six ocean plans");
 eq(CORES.length - OCEAN_CORES.length, 10, "ten animal plans");
-eq(COMBOS.length, (17 * 16) / 2, "every unordered pair of them is a combo");
+eq(COMBOS.length, (16 * 15) / 2, "every unordered pair of them is a combo");
 
 check(COMBOS.filter(s => !s.generated).length === 10,
   "the ten hand-written combos survived, they were not regenerated over");
 
 {
   // The whole point of the second complaint: pick any one core and there are
-  // sixteen partners waiting, not one.
+  // fifteen partners waiting, not one.
   let worst = { n: Infinity, label: "" };
   for (const c of CORES) {
     const n = sandbox.suggested([c]).length;
     if (n < worst.n) worst = { n, label: c };
   }
-  eq(worst.n, 16, "the thinnest core still pairs with sixteen combos (" + worst.label + ")");
+  eq(worst.n, 15, "the thinnest core still pairs with fifteen combos (" + worst.label + ")");
 }
 
 check(new Set(S.map(s => s.label)).size === S.length, "no two plans share a label");
@@ -456,6 +535,24 @@ if (!CHROME) {
   check((PANEL.match(/class="hs2-combo/g) || []).length >= 20,
     "picking two cores offers twenty-plus combos, where it used to offer three");
 
+  // The three steps, in order: 1 the ocean strategies, 2 the animal
+  // strategies, 3 the place to mix and match them.
+  const heads = [...PANEL.matchAll(/<span class="hs2-num">(\d)<\/span>\s*([^<]+?)\s*</g)].map(m => m[1] + " " + m[2]);
+  eq(heads, ["1 Choose Your Ocean Strategy", "2 Choose Your Animal Strategy(ies)", "3 Mix &amp; Match"],
+    "the three steps are ocean, then animal, then mix and match");
+  const stepPart = (step) => (PANEL.split('data-step="' + step + '"')[1] || "").split('data-step="')[0];
+  const namesIn = (html) => [...html.matchAll(/class="hs2-card-name">([^<]+)</g)].map(m => m[1]);
+  eq(namesIn(stepPart("ocean")), S.filter(s => s.tier === "Core" && s.group === "ocean").map(s => s.label),
+    "step 1 holds exactly the ocean strategies");
+  eq(namesIn(stepPart("animal")), S.filter(s => s.tier === "Core" && s.group !== "ocean").map(s => s.label),
+    "step 2 holds exactly the animal strategies");
+  const mix = stepPart("mix");
+  check(/Your Strategies/.test(mix) && /Suggested Combos/.test(mix) && /hs2-combos-row/.test(mix)
+        && /Create Your Own Strategy/.test(mix) && !/hs2-card-name/.test(mix),
+    "step 3 holds your strategies, the suggested combos and Create Your Own, and no strategy rail");
+  const EXPECTED_ALTS = (PANEL.match(/class="hs2-reco-alt"/g) || []).length;
+  check(EXPECTED_ALTS >= 1 && EXPECTED_ALTS <= 4, "the banner offers runners-up, at most two per pick (" + EXPECTED_ALTS + ")");
+
   const PORT = 9970 + (process.pid % 300);
   const SERVER_SRC = `
     const fs=require("fs"),path=require("path"),http=require("http");
@@ -508,16 +605,24 @@ if (!CHROME) {
   log.recoLeft = cb ? Math.round(cb.left) : 0;
   log.recoRight = cb ? Math.round(cb.right) : 0;
   // The fit badge, the warning and every runner-up chip must sit INSIDE the
-  // recommendation card, not hang off its edge.
+  // recommendation card they belong to, not hang off its edge.
   log.escapes = 0; log.zero = 0;
-  ["\\.hs2-reco-fit", "\\.hs2-reco-warn", "\\.hs2-reco-alt"].forEach(function(sel){
-    document.querySelectorAll(sel.replace(/\\\\/g,"")).forEach(function(el){
+  [".hs2-reco-fit", ".hs2-reco-warn", ".hs2-reco-alt"].forEach(function(sel){
+    document.querySelectorAll(sel).forEach(function(el){
       var r = el.getBoundingClientRect();
       if (!r.width || !r.height) log.zero++;
-      if (cb && (r.right > cb.right + 1 || r.left < cb.left - 1)) log.escapes++;
+      var own = el.closest(".hs2-reco-card"), ob = own ? own.getBoundingClientRect() : null;
+      if (!ob || r.right > ob.right + 1 || r.left < ob.left - 1) log.escapes++;
     });
   });
   log.alts = document.querySelectorAll(".hs2-reco-alt").length;
+  // Both picks are whole cards, on screen.
+  var recos = document.querySelectorAll(".hs2-reco-card");
+  log.recoCards = recos.length; log.badCards = 0;
+  recos.forEach(function(c){
+    var b = c.getBoundingClientRect();
+    if (b.width < 200 || b.height < 80 || b.left < -1 || b.right > window.innerWidth + 1) log.badCards++;
+  });
   // Every combo card must be a card: readable width, real height, on screen.
   var thin = 0, combos = document.querySelectorAll(".hs2-combo");
   combos.forEach(function(el){
@@ -567,7 +672,9 @@ if (!CHROME) {
       check(r.recoW > 200 && r.recoH > 80, at + "the recommendation card is a card (" + r.recoW + "x" + r.recoH + ")");
       check(r.recoLeft >= -1 && r.recoRight <= r.w + 1,
         at + "and both its edges are on screen (" + r.recoLeft + "-" + r.recoRight + " inside " + r.w + ")");
-      check(r.alts === 3, at + "all three runners-up are drawn, got " + r.alts);
+      check(r.alts === EXPECTED_ALTS, at + "every runner-up is drawn, " + r.alts + " of " + EXPECTED_ALTS);
+      check(r.recoCards === 2 && r.badCards === 0,
+        at + "both picks, ocean and animal, are whole cards on screen (" + r.recoCards + " cards, " + r.badCards + " cut off)");
       check(r.escapes === 0 && r.zero === 0,
         at + "the fit badge, the warning and the runners-up stay inside it (" + r.escapes + " escaped, " + r.zero + " collapsed)");
       check(r.thinCombos === 0, at + "no combo card is squeezed to a sliver (" + r.thinCombos + " of " + r.combos + ")");

@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-13.2";
+  const APP_BUILD   = "2026-09-13.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,13 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.10", title: "\uD83C\uDF0A Strategies, one step at a time", items: [
+      "The \uD83D\uDCA1 Help screen walks you through three steps: 1, choose your ocean strategy. 2, choose your animal strategies. 3, mix and match them, with the combos that pair them and Create Your Own right there.",
+      "Every ocean strategy is just its own ocean and shows that ocean's card: Kelp Forest is only Kelp Forests, Coral Reef only Coral Reefs, Piers only Piers, and Artificial Reef only Artificial Reefs. Artificial Reef still tells you about the Yellowfin Tuna, Lobsters and Clownfish that stack on it.",
+      "Arctic Ocean and Mangrove are one strategy now, called Play Again: both give you a whole new play, so you can draw 2 more cards. Tide Pool is no longer a strategy.",
+      "The best match at the top names one ocean strategy and one animal strategy for the cards in front of you, and Mangrove (All Blue) is no longer first every time. It comes up when your board really is close to all 8 ocean types.",
+      "The whole screen looks like the table now: the reef painting behind it, and the same cream, sea blue and gold as the rest of the game.",
+    ]},
     { ver: "V1.7.9", title: "📊 A Stats page for every account", items: [
       "Stats is new in the menu, in the spot where Casual used to be, on the same beachside pier.",
       "Your score over your last 50 games is drawn as a line with your wins marked in gold. Next to it is a chart of where you finish.",
@@ -7886,11 +7893,15 @@
   // Active strategies (indices into HELP_STRATEGIES), persisted across the game.
   const _activeStrategies = new Set();
   (function _loadActiveStrategies() {
+    // Strategies saved under a name they have since lost, on either side of a
+    // combo's " + ". Tide Pool is not here: it was removed, not renamed.
+    const RENAMED = { "Arctic / Mangrove": "Play Again" };
+    const current = (label) => String(label || "").split(" + ").map(p => RENAMED[p] || p).join(" + ");
     try {
       const raw = JSON.parse(localStorage.getItem(ccScopedKey("cc_active_strats")) || "[]");
       if (Array.isArray(raw)) {
         raw.forEach(label => {
-          const i = HELP_STRATEGIES.findIndex(s => s.label === label);
+          const i = HELP_STRATEGIES.findIndex(s => s.label === current(label));
           if (i >= 0) _activeStrategies.add(i);
         });
       }
@@ -8056,6 +8067,14 @@
     function _isCore(i)   { const s = HELP_STRATEGIES[i]; return !!s && s.tier === "Core"  && !s.custom; }
     function _isCombo(i)  { const s = HELP_STRATEGIES[i]; return !!s && s.tier === "Combo" && !s.custom; }
     function _isCustom(i) { const s = HELP_STRATEGIES[i]; return !!s && !!s.custom; }
+    // Ocean strategies decide where you build, animal strategies what you score.
+    function _isOcean(i)  { const s = HELP_STRATEGIES[i]; return _isCore(i) && s.group === "ocean"; }
+    // The badge a strategy wears, in the words of the three steps on the panel.
+    function _tierBadge(i) {
+      if (_isCustom(i)) return { cls: "Custom", text: "Mine" };
+      if (_isCombo(i)) return { cls: "Combo", text: "Combo" };
+      return _isOcean(i) ? { cls: "Ocean", text: "Ocean" } : { cls: "Animal", text: "Animal" };
+    }
 
     // The symbol each strategy wears: the family mark printed in the
     // bottom-right corner of every card in that family (/species/*.png), so a
@@ -8146,6 +8165,7 @@
       if (compMode && Array.isArray(compMySeats)) for (const s of compMySeats) mySeats.add(Number(s));
       const boardFaces = [];        // exact faces on MY board(s)
       const taken = new Map();      // pairKey -> copies on OTHER boards
+      const rivals = [];            // every OTHER player's faces, one list each
       const facesOf = (p) => {
         const out = [];
         for (const ocean of (Array.isArray(p && p.board) ? p.board : [])) {
@@ -8163,6 +8183,7 @@
       for (const p of players) {
         const faces = facesOf(p);
         if (p === me || mySeats.has(Number(p.index))) { boardFaces.push(...faces); continue; }
+        rivals.push(faces);
         // Either face of a played card means that physical copy is spent, so
         // availability is counted by pair key, not by the face they chose.
         for (const u of faces) {
@@ -8190,11 +8211,22 @@
         // as empty and answering from the hand alone.
         boardFaces.push(...facesOf(_handRenderData.me));
       }
+      const hand = entryKeys(me && me.hand);
+      const pool = entryKeys(_latestPool);
+      // Ocean cards are uids 201 and up. Every board is built on them, so an
+      // ANIMAL strategy is judged on the animals alone: counting the ocean
+      // bases is what let an ocean-heavy plan match every table there is.
+      const animalUid = (u) => u < 201;
+      const hasAnimal = (keys) => [...keys].some(animalUid);
       return {
         board: boardFaces,
-        hand: entryKeys(me && me.hand),
-        pool: entryKeys(_latestPool),
+        hand: hand,
+        pool: pool,
         taken: taken,
+        rivals: rivals,
+        boardAnimals: boardFaces.filter(animalUid),
+        handAnimals: hand.filter(hasAnimal),
+        poolAnimals: pool.filter(hasAnimal),
       };
     }
 
@@ -8209,9 +8241,12 @@
     //   coverage  how much of the PLAN I hold, which is what stops a big card
     //             list from winning by being big
     //   supply    how many of its copies are still out there to be had
+    // This is the ANIMAL strategy reading: ocean cards are left out on both
+    // sides, the plan's and the table's. Ocean strategies are read by
+    // _oceanPlanFit below, against the goal their own cards set.
     function _strategyFit(i, snap) {
       const s = HELP_STRATEGIES[i];
-      const cards = (s && Array.isArray(s.cards)) ? s.cards : [];
+      const cards = (s && Array.isArray(s.cards)) ? s.cards.filter(c => c.species !== "Ocean") : [];
       if (!cards.length) return null;
       const nameByFace = new Map(), nameByPair = new Map();
       for (const c of cards) {
@@ -8226,7 +8261,7 @@
 
       const boardNames = [];
       let boardHits = 0;
-      for (const u of snap.board) {
+      for (const u of snap.boardAnimals) {
         const n = nameByFace.get(u);
         if (n == null) continue;
         boardHits++; held.add(n);
@@ -8238,14 +8273,14 @@
       };
       const handNames = [];
       let handHits = 0;
-      for (const keys of snap.hand) {
+      for (const keys of snap.handAnimals) {
         const n = matchName(keys);
         if (n == null) continue;
         handHits++; held.add(n);
         if (handNames.indexOf(n) === -1) handNames.push(n);
       }
       let poolHits = 0;
-      for (const keys of snap.pool) if (matchName(keys) != null) poolHits++;
+      for (const keys of snap.poolAnimals) if (matchName(keys) != null) poolHits++;
 
       // Copies of this plan's cards already committed to somebody else's board.
       let copies = 0, gone = 0;
@@ -8257,62 +8292,132 @@
       }
       const supply = copies ? 1 - (gone / copies) : 1;
       const coverage = held.size / cards.length;
-      const boardShare = snap.board.length ? boardHits / snap.board.length : 0;
-      const handShare  = snap.hand.length  ? handHits  / snap.hand.length  : 0;
-      const poolShare  = snap.pool.length  ? poolHits  / snap.pool.length  : 0;
+      const boardShare = snap.boardAnimals.length ? boardHits / snap.boardAnimals.length : 0;
+      const handShare  = snap.handAnimals.length  ? handHits  / snap.handAnimals.length  : 0;
+      const poolShare  = snap.poolAnimals.length  ? poolHits  / snap.poolAnimals.length  : 0;
 
       // Only the terms this table can actually answer get a vote, so an opening
       // hand is judged on the hand and an eighth-round board on the board.
+      // With no animal anywhere there is nothing to read, and a plan is not a
+      // match just because its copies are still in the deck.
+      if (!boardHits && !handHits && !poolHits) {
+        return { idx: i, fit: 0, boardHits, boardTotal: snap.boardAnimals.length, boardNames,
+                 handHits, handNames, poolHits, coverage, supply, gone, copies };
+      }
       const terms = [[1.6, coverage], [0.6, supply]];
-      if (snap.board.length) terms.push([3.2, boardShare]);
-      if (snap.hand.length)  terms.push([2.0, handShare]);
-      if (snap.pool.length)  terms.push([0.8, poolShare]);
+      if (snap.boardAnimals.length) terms.push([3.2, boardShare]);
+      if (snap.handAnimals.length)  terms.push([2.0, handShare]);
+      if (snap.poolAnimals.length)  terms.push([0.8, poolShare]);
       let w = 0, v = 0;
       for (const t of terms) { w += t[0]; v += t[0] * t[1]; }
       return {
         idx: i, fit: w ? v / w : 0,
-        boardHits, boardTotal: snap.board.length, boardNames,
+        boardHits, boardTotal: snap.boardAnimals.length, boardNames,
         handHits, handNames, poolHits,
         coverage, supply, gone, copies,
+      };
+    }
+
+    // How far along ONE ocean strategy is, as a 0-1 number plus the evidence.
+    // An ocean strategy is judged on oceans alone, against the goal its own
+    // card sets (js/gamedata.js `goal`):
+    //   count   copies of its oceans, e.g. four Kelp Forests
+    //   types   different ocean types, the eight Mangrove (All Blue) needs
+    //   most    more Piers than anyone else at the table, a tie included
+    // A card on the board counts in full, one in hand half, one in the pool a
+    // quarter. An all-or-nothing plan (Kelp Forest pays nothing until four,
+    // Mangrove nothing until all eight types) is curved, so being halfway
+    // there reads as the fraction of a plan it is. Last, a plan whose missing
+    // copies are already on other people's boards is marked down.
+    function _oceanPlanFit(i, snap) {
+      const s = HELP_STRATEGIES[i];
+      const goal = s && s.goal;
+      const cards = (s && Array.isArray(s.cards)) ? s.cards : [];
+      if (!goal || !cards.length) return null;
+      const nameOf = new Map();
+      for (const c of cards) for (const u of (c.uids || [])) nameOf.set(Number(u), c.name);
+      const firstName = (keys) => { for (const k of keys) { const n = nameOf.get(k); if (n != null) return n; } return null; };
+      const boardList = snap.board.map(u => nameOf.get(u)).filter(n => n != null);
+      const handList = snap.hand.map(firstName).filter(n => n != null);
+      const poolList = snap.pool.map(firstName).filter(n => n != null);
+      const total = cards.reduce((n, c) => n + (c.uids || []).length, 0);
+      let onRivals = 0;
+      for (const faces of snap.rivals) for (const u of faces) if (nameOf.has(u)) onRivals++;
+
+      let mode = "count", need = Number(goal.count) || 0, have = 0, rivalMost = 0;
+      let boardHave = boardList.length, handHave = handList.length, poolHave = poolList.length;
+      if (goal.types) {
+        mode = "types"; need = Number(goal.types);
+        const onBoard = new Set(boardList);
+        const inHand = new Set(handList.filter(n => !onBoard.has(n)));
+        const inPool = new Set(poolList.filter(n => !onBoard.has(n) && !inHand.has(n)));
+        boardHave = onBoard.size; handHave = inHand.size; poolHave = inPool.size;
+      } else if (goal.most) {
+        mode = "most";
+        for (const faces of snap.rivals) {
+          let n = 0;
+          for (const u of faces) if (nameOf.has(u)) n++;
+          rivalMost = Math.max(rivalMost, n);
+        }
+        // Holding the most is the goal; a tie counts, and one Pier on an empty
+        // table is not yet a contest worth the name, so the bar is at least 2.
+        need = Math.max(2, rivalMost);
+      }
+      have = boardHave + 0.5 * handHave + 0.25 * poolHave;
+      const progress = need > 0 ? Math.min(1, have / need) : 0;
+      // Eight DIFFERENT types is the longest road in the game, and a busy
+      // board collects three or four of them by accident, so partway there is
+      // cubed rather than squared. Replayed over the recorded games, squared
+      // still showed Mangrove (All Blue) in the banner on 47% of tables.
+      const shape = goal.allOrNothing ? Math.pow(progress, mode === "types" ? 3 : 2) : progress;
+      // Can the rest still be had? Copies not on anyone's board and not already mine.
+      const mine = mode === "types" ? boardList.length + handList.length : boardHave + handHave;
+      const left = Math.max(0, total - onRivals - mine);
+      const short = Math.max(0, need - (boardHave + handHave));
+      const feasible = short === 0 ? 1 : Math.min(1, left / short);
+      return {
+        idx: i, fit: shape * (0.6 + 0.4 * feasible), ocean: true,
+        mode, need, boardHave, handHave, poolHave, rivalMost, left, short, feasible,
       };
     }
 
     // Rank every built-in plan against the table. Custom plans are left out:
     // they are the player's own note to self, not one of the game's archetypes,
     // and their card lists are whatever was typed in.
+    //   Ocean strategies are only ever ranked against ocean strategies, and
+    //   animal ones against animal ones: the panel asks for one of each, and a
+    //   single list across both is how a plan that lists every ocean card came
+    //   out on top of nearly every table.
     function _rankStrategies() {
       const snap = _tableSnapshot();
       const byIdx = new Map();
       for (let i = 0; i < HELP_STRATEGIES.length; i++) {
-        if (!_isCore(i) && !_isCombo(i)) continue;
-        const r = _strategyFit(i, snap);
+        if (!_isCore(i)) continue;
+        const r = _isOcean(i) ? _oceanPlanFit(i, snap) : _strategyFit(i, snap);
         if (r) byIdx.set(i, r);
       }
-      // A combo is only the best plan when BOTH of its halves are live. Without
-      // this a combo wins on the strength of one half plus a card list twice
-      // the size, which is exactly the wrong advice: it tells you to split a
-      // board that is already winning as a single plan.
-      for (const [i, r] of byIdx) {
+      // A combo is read off its two halves, and it is only as good as the
+      // weaker one allows. Without that a combo wins on the strength of one
+      // half, which is exactly the wrong advice: it tells you to split a board
+      // that is already winning as a single plan.
+      for (let i = 0; i < HELP_STRATEGIES.length; i++) {
         if (!_isCombo(i)) continue;
         const pair = _comboPairIdxs(i).map(p => byIdx.get(p)).filter(Boolean);
         if (pair.length < 2) continue;
-        const ev = pair.map(p => (p.boardHits + p.handHits));
-        const hi = Math.max(ev[0], ev[1]), lo = Math.min(ev[0], ev[1]);
-        const balance = hi > 0 ? lo / hi : 1;
-        r.fit *= 0.55 + 0.45 * balance;
-        r.balance = balance;
+        const hi = Math.max(pair[0].fit, pair[1].fit), lo = Math.min(pair[0].fit, pair[1].fit);
+        const balance = hi > 0 ? lo / hi : 0;
+        byIdx.set(i, { idx: i, fit: ((pair[0].fit + pair[1].fit) / 2) * (0.55 + 0.45 * balance), balance });
       }
-      const order = [...byIdx.keys()].sort((a, b) => {
-        const fa = byIdx.get(a).fit, fb = byIdx.get(b).fit;
-        if (fb !== fa) return fb - fa;
-        // Same fit: the simpler plan, then the hand-written one, then the list.
-        const ca = _isCore(a) ? 1 : 0, cb = _isCore(b) ? 1 : 0;
-        if (cb !== ca) return cb - ca;
-        const ga = HELP_STRATEGIES[a].generated ? 1 : 0, gb = HELP_STRATEGIES[b].generated ? 1 : 0;
-        if (ga !== gb) return ga - gb;
-        return a - b;
-      });
-      return { snap, byIdx, order };
+      // Ties go by name, never by position in the list, so no plan is first
+      // just for being written first.
+      const rank = (keep) => [...byIdx.keys()].filter(keep).sort((a, b) =>
+        (byIdx.get(b).fit - byIdx.get(a).fit)
+        || String(HELP_STRATEGIES[a].label).localeCompare(String(HELP_STRATEGIES[b].label)));
+      return {
+        snap, byIdx,
+        oceanOrder: rank(i => _isOcean(i)),
+        animalOrder: rank(i => _isCore(i) && !_isOcean(i)),
+      };
     }
 
     // One ranking per list render, shared by the banner and the combo section
@@ -8320,64 +8425,98 @@
     let _fits = null;
     function _fitsNow() { if (!_fits) _fits = _rankStrategies(); return _fits; }
 
-    // Build the prominent "best strategy" banner at the top of the strategy
-    // list. It names the evidence it used, because a recommendation you cannot
-    // check is one you stop believing the first time it looks wrong.
+    // Build the "best match" banner at the top of the strategy list: the
+    // ocean strategy and the animal strategy that fit this table best, side by
+    // side, the same two choices steps 1 and 2 below ask for. It names the
+    // evidence it used, because a recommendation you cannot check is one you
+    // stop believing the first time it looks wrong.
     function _recoBannerHtml() {
       const fits = _fitsNow();
       const snap = fits.snap;
-      const seen = snap.board.length;
-      const head = `<div class="hs2-reco-kicker">💡 ${seen ? "Best strategy for the board you have built" : "Best strategy to play for your starting hand"}</div>`;
-      const empty = (msg) =>
-        `<section class="hs2-sec hs2-reco"><div class="hs2-reco-card empty">${head}<div class="hs2-reco-why">${msg}</div></div></section>`;
+      const head = `<div class="hs2-reco-kicker">💡 ${snap.board.length ? "Best match for the board you have built" : "Best match for your starting hand"}</div>`;
       if (!snap.board.length && !snap.hand.length) {
-        return empty("Open this once you've been dealt your hand and we'll read your cards and recommend the strategy that fits them best.");
+        return `<section class="hs2-sec hs2-reco">${head}<div class="hs2-reco-card empty"><div class="hs2-reco-body">`
+          + `<div class="hs2-reco-why">Open this once you've been dealt your hand and we'll read your cards and recommend the strategies that fit them best.</div>`
+          + `</div></div></section>`;
       }
-      const top = fits.order[0];
-      const rec = top != null ? fits.byIdx.get(top) : null;
-      if (!rec || rec.fit <= 0) {
-        return empty("Nothing on the table points at one plan yet, draw a couple of cards, then check back.");
-      }
-      const i = rec.idx, s = HELP_STRATEGIES[i], on = _activeStrategies.has(i);
       const nameList = (arr, n) => {
         const shown = arr.slice(0, n).map(_hesc).join(", ");
         return shown + (arr.length > n ? ` +${arr.length - n} more` : "");
       };
-      // The reasons, strongest first, and only the ones that are actually true
-      // of this table. Board evidence outranks hand evidence outranks the pool.
-      const why = [];
-      if (rec.boardHits) {
-        why.push(`<strong>${rec.boardHits} of the ${rec.boardTotal} cards on your board</strong> already belong to it`
-          + (rec.boardNames.length ? ` (${nameList(rec.boardNames, 3)})` : ""));
-      }
-      if (rec.handHits) {
-        why.push(`you're holding <strong>${rec.handHits}</strong> more`
-          + (rec.handNames.length ? ` (${nameList(rec.handNames, 3)})` : ""));
-      }
-      if (rec.poolHits) why.push(`<strong>${rec.poolHits}</strong> of its cards ${rec.poolHits === 1 ? "is" : "are"} in the pool right now`);
-      const whyText = why.length
-        ? why.join(", ").replace(/^./, c => c.toUpperCase()) + "."
-        : `It covers <strong>${Math.round(rec.coverage * 100)}%</strong> of what you're holding.`;
-      // The one warning worth interrupting for: the plan is a good match but
-      // the cards it needs are already on other people's boards.
-      const warn = (rec.supply < 0.75 && rec.gone > 0)
-        ? `<div class="hs2-reco-warn">⚠ ${rec.gone} of its ${rec.copies} copies are already on other boards, the cheap ones may be gone.</div>`
-        : "";
-      // Runners-up, so the pick is a ranking you can argue with rather than a
-      // verdict. Combos included: two plans off one board is often the answer.
-      const alts = fits.order.slice(1, 4).map(j => {
-        const a = fits.byIdx.get(j);
-        return `<button class="hs2-reco-alt" data-detail="${j}" style="--strat-c:${STRAT_COLORS[j]}">`
-          + `${_hesc(HELP_STRATEGIES[j].label)} <span class="hs2-reco-pct">${Math.round(a.fit * 100)}%</span></button>`;
-      }).join("");
-      return `
-        <section class="hs2-sec hs2-reco">
+      // "Kelp Forest" / "Kelp Forests", "Arctic Ocean or Mangrove" / "Arctic Oceans and Mangroves".
+      const oceanWord = (s, n) => {
+        const names = (s.cards || []).map(c => c.name);
+        const plural = (x) => /s$/.test(x) ? x : x + "s";
+        if (names.length === 1) return n === 1 ? names[0] : plural(names[0]);
+        return n === 1 ? names.join(" or ") : names.map(plural).join(" and ");
+      };
+      const oceanWhy = (s, r) => {
+        if (r.mode === "types") {
+          const bits = [`<strong>${r.boardHave} of the ${r.need} ocean types</strong> are on your board`];
+          if (r.handHave) bits.push(`<strong>${r.handHave}</strong> more ${r.handHave === 1 ? "type is" : "types are"} in your hand`);
+          if (r.poolHave) bits.push(`<strong>${r.poolHave}</strong> in the pool`);
+          return bits.join(", ") + ".";
+        }
+        // The first number carries the name, "2 Coral Reefs in your hand, 1 in the pool".
+        const bits = [];
+        const say = (n, where) => bits.push(bits.length
+          ? `<strong>${n}</strong> ${where}` : `<strong>${n} ${oceanWord(s, n)}</strong> ${where}`);
+        if (r.boardHave) say(r.boardHave, "on your board");
+        if (r.handHave) say(r.handHave, "in your hand");
+        if (r.poolHave) say(r.poolHave, "in the pool");
+        const have = bits.length ? "You have " + bits.join(", ") : `No ${oceanWord(s, 2)} yet`;
+        if (r.mode === "most") {
+          return have + (r.rivalMost
+            ? `, and the most anyone else has is <strong>${r.rivalMost}</strong>.`
+            : ", and nobody else has one yet.");
+        }
+        return have + `, and it wants <strong>${r.need}</strong>.`;
+      };
+      const animalWhy = (r) => {
+        const why = [];
+        if (r.boardHits) {
+          why.push(`<strong>${r.boardHits} of the ${r.boardTotal} animals on your board</strong> belong to it`
+            + (r.boardNames.length ? ` (${nameList(r.boardNames, 3)})` : ""));
+        }
+        if (r.handHits) {
+          why.push(`you're holding <strong>${r.handHits}</strong> ${r.boardHits ? "more" : "of its cards"}`
+            + (r.handNames.length ? ` (${nameList(r.handNames, 3)})` : ""));
+        }
+        if (r.poolHits) {
+          why.push(`<strong>${r.poolHits}</strong> ${why.length ? "more" : "of its cards"} ${r.poolHits === 1 ? "is" : "are"} in the pool right now`);
+        }
+        return why.join(", ").replace(/^./, c => c.toUpperCase()) + ".";
+      };
+      // One half of the banner: the pick, why, the one warning worth
+      // interrupting for, and the next two, so the pick is a ranking you can
+      // argue with rather than a verdict.
+      const half = (order, ocean) => {
+        const step = ocean ? "1 · Ocean strategy" : "2 · Animal strategy";
+        const live = order.filter(j => fits.byIdx.get(j).fit > 0);
+        if (!live.length) {
+          return `<div class="hs2-reco-card empty"><div class="hs2-reco-body"><div class="hs2-reco-step">${step}</div>`
+            + `<div class="hs2-reco-why">${ocean
+              ? "No ocean strategy stands out yet. Once you hold or lay an ocean, this names the one it points at."
+              : "No animal strategy stands out yet. Once you hold or lay an animal, this names the one it points at."}</div></div></div>`;
+        }
+        const i = live[0], r = fits.byIdx.get(i), s = HELP_STRATEGIES[i], on = _activeStrategies.has(i);
+        let warn = "";
+        if (ocean && r.short > 0 && r.left < r.short) {
+          warn = `<div class="hs2-reco-warn">⚠ You still need ${r.short}, and only ${r.left} ${r.left === 1 ? "is" : "are"} not already on a board.</div>`;
+        } else if (!ocean && r.supply < 0.75 && r.gone > 0) {
+          warn = `<div class="hs2-reco-warn">⚠ ${r.gone} of its ${r.copies} copies are already on other boards, the cheap ones may be gone.</div>`;
+        }
+        // A runner-up at a few percent is not close behind anything, it is noise.
+        const alts = live.slice(1).filter(j => fits.byIdx.get(j).fit >= 0.1).slice(0, 2)
+          .map(j => `<button class="hs2-reco-alt" data-detail="${j}" style="--strat-c:${STRAT_COLORS[j]}">`
+          + `${_hesc(HELP_STRATEGIES[j].label)} <span class="hs2-reco-pct">${Math.round(fits.byIdx.get(j).fit * 100)}%</span></button>`).join("");
+        return `
           <div class="hs2-reco-card" data-strat="${i}" style="--strat-c:${STRAT_COLORS[i]}">
             ${_stratArtHtml(i, "hs2-reco-art")}
             <div class="hs2-reco-body">
-              ${head}
-              <div class="hs2-reco-name">${_hesc(s.label)} <span class="hs2-reco-fit">${Math.round(rec.fit * 100)}% fit</span></div>
-              <div class="hs2-reco-why">${whyText}</div>
+              <div class="hs2-reco-step">${step}</div>
+              <div class="hs2-reco-name">${_hesc(s.label)} <span class="hs2-reco-fit">${Math.round(r.fit * 100)}% fit</span></div>
+              <div class="hs2-reco-why">${ocean ? oceanWhy(s, r) : animalWhy(r)}</div>
               ${warn}
               <div class="hs2-reco-foot">
                 <span class="hs2-reco-view" data-detail="${i}">View cards &amp; plan ›</span>
@@ -8385,7 +8524,12 @@
               </div>
               ${alts ? `<div class="hs2-reco-alts"><span class="hs2-reco-alts-cap">Close behind</span>${alts}</div>` : ""}
             </div>
-          </div>
+          </div>`;
+      };
+      return `
+        <section class="hs2-sec hs2-reco">
+          ${head}
+          <div class="hs2-reco-pair">${half(fits.oceanOrder, true)}${half(fits.animalOrder, false)}</div>
         </section>`;
     }
     function renderList() {
@@ -8397,19 +8541,20 @@
       modal.classList.remove("detail");
       titleEl.textContent = "Strategies";
       const _fav = _getMostPlayedStrategyLocal();
-      const _favBadge = _fav ? `<div style="margin:6px 0 2px;font-size:12px;color:#9fc0e0">Your most-played strategy: <strong style="color:#3dd6a8">${_hesc(_fav)}</strong></div>` : "";
-      if (introEl) introEl.innerHTML = "Choose a core strategy to build around, then we'll suggest combos that pair well with it. Run several at once if you like; matching cards light up in your hand and the pool in their family colour, and a gold ★ marks a special star ability." + _familyLegendHtml() + _favBadge;
+      const _favBadge = _fav ? `<div style="margin:6px 0 2px;font-size:12px;color:rgba(26,45,90,.7)">Your most-played strategy: <strong style="color:#1d7d57">${_hesc(_fav)}</strong></div>` : "";
+      if (introEl) introEl.innerHTML = "Choose your ocean strategy, then your animal strategies, then mix and match them. Matching cards light up in your hand and the pool in their family colour, and a gold ★ marks a special star ability." + _familyLegendHtml() + _favBadge;
 
-      // ── Section 1: core strategy cards ──
+      // ── Steps 1 and 2: ocean strategies, then animal strategies ──
       const coreIdx = [];
       for (let i = 0; i < HELP_STRATEGIES.length; i++) if (_isCore(i)) coreIdx.push(i);
       const coreCard = (i) => {
         const s = HELP_STRATEGIES[i]; const on = _activeStrategies.has(i);
+        const badge = _tierBadge(i);
         return `
-          <div class="hs2-card${on ? " active" : ""}" data-strat="${i}" style="--strat-c:${STRAT_COLORS[i]}">
+          <div class="hs2-card${on ? " active" : ""}${_isOcean(i) ? " ocean" : ""}" data-strat="${i}" style="--strat-c:${STRAT_COLORS[i]}">
             ${on ? `<div class="hs2-check">✓</div>` : ""}
             ${_stratArtHtml(i, "hs2-card-art")}
-            <span class="help-tier Core hs2-card-tag">Core</span>
+            <span class="help-tier ${badge.cls} hs2-card-tag">${badge.text}</span>
             <div class="hs2-card-body">
               <div class="hs2-card-name">${_hesc(s.label)}</div>
               <div class="hs2-card-blurb">${_hesc(s.blurb)}</div>
@@ -8422,44 +8567,38 @@
       };
       // Oceans first, then animals. Every animal you play sits on an ocean, so
       // the ocean plan is the one you choose before the scoring plan.
-      const oceanIdx = coreIdx.filter(i => HELP_STRATEGIES[i].group === "ocean");
-      const animalIdx = coreIdx.filter(i => HELP_STRATEGIES[i].group !== "ocean");
-      const railGroup = (title, sub, idxs) => idxs.length
-        ? `<div class="hs2-core-group"><div class="hs2-core-group-head">${_hesc(title)}`
-          + `<span class="hs2-core-group-sub">${_hesc(sub)}</span></div>`
-          + `<div class="hs2-core-rail">${idxs.map(coreCard).join("")}</div></div>`
-        : "";
-      const coreRail =
-        railGroup("Ocean strategies", "Choose where you are building", oceanIdx)
-        + railGroup("Animal strategies", "Choose what you are scoring", animalIdx);
+      const oceanIdx = coreIdx.filter(i => _isOcean(i));
+      const animalIdx = coreIdx.filter(i => !_isOcean(i));
 
-      // ── Section 2: your selected strategies (cores, combos & customs you've turned on),
-      //    plus any saved-but-inactive custom plans so they stay reachable ──
-      const activeAll = [..._activeStrategies].filter(i => HELP_STRATEGIES[i]).sort((a, b) => a - b);
+      // ── Step 3, left: your strategies (oceans, animals, combos & customs you've
+      //    turned on), plus any saved-but-inactive custom plans so they stay reachable ──
+      // Listed in the order of the steps: your ocean plans, then animals, then the rest.
+      const stepOf = (i) => _isOcean(i) ? 0 : (_isCore(i) ? 1 : 2);
+      const activeAll = [..._activeStrategies].filter(i => HELP_STRATEGIES[i])
+        .sort((a, b) => (stepOf(a) - stepOf(b)) || (a - b));
       const savedCustoms = [];
       for (let i = 0; i < HELP_STRATEGIES.length; i++) if (_isCustom(i) && !_activeStrategies.has(i)) savedCustoms.push(i);
       const miniCard = (i, removable) => {
         const s = HELP_STRATEGIES[i];
-        const tierLbl = _isCustom(i) ? "Mine" : (_isCombo(i) ? "Combo" : "Core");
-        const tierCls = _isCustom(i) ? "Custom" : (_isCombo(i) ? "Combo" : "Core");
+        const badge = _tierBadge(i);
         return `
           <div class="hs2-mini${removable ? "" : " avail"}" data-strat="${i}" style="--strat-c:${STRAT_COLORS[i]}">
             ${removable ? `<button class="hs2-mini-x" data-remove="${i}" title="Remove from selection">✕</button>` : ""}
             ${_stratArtHtml(i, "hs2-mini-art")}
             <div class="hs2-mini-body">
-              <span class="help-tier ${tierCls}">${tierLbl}</span>
+              <span class="help-tier ${badge.cls}">${badge.text}</span>
               <div class="hs2-mini-name">${_hesc(s.label)}</div>
             </div>
           </div>`;
       };
       const selectedHtml = (activeAll.length || savedCustoms.length)
         ? activeAll.map(i => miniCard(i, true)).join("") + savedCustoms.map(i => miniCard(i, false)).join("")
-        : `<div class="hs2-empty">No strategy selected yet, pick a core strategy above to get started.</div>`;
-      const addSlot = `<div class="hs2-slot" id="hs2-add"><div class="hs2-slot-ico">＋</div><div class="hs2-slot-title">Add another core strategy</div></div>`;
+        : `<div class="hs2-empty">Nothing picked yet. Choose an ocean strategy in step 1 and an animal strategy in step 2, and they will show up here.</div>`;
+      const addSlot = `<div class="hs2-slot" id="hs2-add"><div class="hs2-slot-ico">＋</div><div class="hs2-slot-title">Add another strategy</div></div>`;
       const createSlot = `<div class="hs2-slot create" id="hs2-create"><div class="hs2-slot-ico">✏️</div><div class="hs2-slot-title">Create Your Own Strategy</div><div class="hs2-slot-sub">Build a custom plan with your cards</div></div>`;
       const clearBtn = activeAll.length ? `<button id="hs2-clear" class="hs2-clear">Clear all</button>` : "";
 
-      // ── Section 3: suggested combos ──
+      // ── Step 3, right: suggested combos ──
       const combos = _suggestedCombos();
       const selCoreCount = [..._activeStrategies].filter(_isCore).length;
       const shown = _hsShowAllCombos ? combos : combos.slice(0, HS_COMBO_PREVIEW);
@@ -8484,8 +8623,8 @@
           </div>`;
       };
       let combosBody;
-      if (!selCoreCount) combosBody = `<div class="hs2-empty">Select a core strategy to see suggested combos.</div>`;
-      else if (!combos.length) combosBody = `<div class="hs2-empty">No combo pairs for this selection yet, try adding another core strategy.</div>`;
+      if (!selCoreCount) combosBody = `<div class="hs2-empty">Pick an ocean or an animal strategy to see the combos that pair with it.</div>`;
+      else if (!combos.length) combosBody = `<div class="hs2-empty">No combo pairs for this selection yet, try adding another strategy.</div>`;
       else combosBody = shown.map(comboCard).join("");
       const moreCount = combos.length - HS_COMBO_PREVIEW;
       const showMoreBtn = (combos.length > HS_COMBO_PREVIEW)
@@ -8494,20 +8633,27 @@
 
       listEl.innerHTML = `
         ${_recoBannerHtml()}
-        <section class="hs2-sec">
-          <div class="hs2-sec-head"><span class="hs2-num">1</span> Choose Your Core Strategy <span class="hs2-sec-sub">Foundational plans, pick one or more to build around.</span></div>
-          ${coreRail}
+        <section class="hs2-sec hs2-step" data-step="ocean">
+          <div class="hs2-sec-head"><span class="hs2-num">1</span> Choose Your Ocean Strategy <span class="hs2-sec-sub">Where you build. Every animal you play sits on an ocean.</span></div>
+          <div class="hs2-core-rail">${oceanIdx.map(coreCard).join("")}</div>
         </section>
-        <div class="hs2-bottom">
-          <section class="hs2-sec hs2-panel">
-            <div class="hs2-sec-head"><span class="hs2-num">2</span> Your Selected Strategy(ies) ${clearBtn}</div>
-            <div class="hs2-selected-row">${selectedHtml}${addSlot}${createSlot}</div>
-          </section>
-          <section class="hs2-sec hs2-panel">
-            <div class="hs2-sec-head"><span class="hs2-num">3</span> Suggested Combos ${showMoreBtn}</div>
-            <div class="hs2-combos-row">${combosBody}</div>
-          </section>
-        </div>`;
+        <section class="hs2-sec hs2-step" data-step="animal">
+          <div class="hs2-sec-head"><span class="hs2-num">2</span> Choose Your Animal Strategy(ies) <span class="hs2-sec-sub">What you score. Pick one or more.</span></div>
+          <div class="hs2-core-rail">${animalIdx.map(coreCard).join("")}</div>
+        </section>
+        <section class="hs2-sec hs2-step hs2-mix" data-step="mix">
+          <div class="hs2-sec-head"><span class="hs2-num">3</span> Mix &amp; Match <span class="hs2-sec-sub">Your strategies, the combos that pair them, or one you build yourself.</span></div>
+          <div class="hs2-bottom">
+            <div class="hs2-panel">
+              <div class="hs2-panel-head">Your Strategies ${clearBtn}</div>
+              <div class="hs2-selected-row">${selectedHtml}${addSlot}${createSlot}</div>
+            </div>
+            <div class="hs2-panel">
+              <div class="hs2-panel-head">Suggested Combos ${showMoreBtn}</div>
+              <div class="hs2-combos-row">${combosBody}</div>
+            </div>
+          </div>
+        </section>`;
     }
 
     function renderDetail(i) {
@@ -8536,8 +8682,9 @@
       const cardsSection = cardsHtml ? `<div class="hd-section-title">🃏 All cards in this strategy <span class="hd-count-note">(${totalCopies} cards total · ×N shows deck copies)</span></div><div class="hd-cards-grid">${cardsHtml}</div>` : "";
       const tipsSection  = tipsHtml ? `<div class="hd-section-title">💡 Quick tips</div><ul class="hd-tips">${tipsHtml}</ul>` : "";
       const customTools  = s.custom ? `<div class="hd-custom-tools"><button id="hd-edit" class="hd-edit-btn" data-strat="${i}">✏️ Edit</button><button id="hd-delete" class="hd-delete-btn" data-strat="${i}">🗑 Delete</button></div>` : "";
+      const badge = _tierBadge(i);
       detailEl.innerHTML = `
-        <div class="hd-head"><span class="help-tier ${_hesc(s.tier)}">${_hesc(s.tier)}</span></div>
+        <div class="hd-head"><span class="help-tier ${badge.cls}">${badge.text}${_isCore(i) ? " strategy" : ""}</span></div>
         <p class="hd-blurb">${_hesc(s.blurb)}</p>
         <button id="hd-activate" class="${on ? "on" : ""}" data-strat="${i}">${on ? "✓ You're Playing This Strategy · Stop" : "I'm Playing This Strategy"}</button>
         <div class="hd-activate-hint">${on ? "Matching cards are lit up in your hand and the pool. You can turn on more than one strategy at once." : "Turn this on and matching cards will light up in your hand and the pool. You can combine strategies."}</div>
@@ -8591,16 +8738,23 @@
     let _randCount = 2;
     function randomizeStrategies(n) {
       // Surprise-me picks random CORE strategies (combos then surface as
-      // suggestions for whatever cores were rolled).
-      const pool = [];
-      for (let i = 0; i < HELP_STRATEGIES.length; i++) if (_isCore(i)) pool.push(i);
-      const count = Math.max(1, Math.min(Number(n) || 1, pool.length));
-      // Fisher-Yates shuffle, then take N.
-      for (let k = pool.length - 1; k > 0; k--) {
-        const r = Math.floor(Math.random() * (k + 1));
-        [pool[k], pool[r]] = [pool[r], pool[k]];
-      }
-      const pick = pool.slice(0, count);
+      // suggestions for whatever cores were rolled). It follows the steps on
+      // the panel: never more than one ocean strategy, and once it picks two
+      // or more, one ocean plus animals for the rest.
+      const shuffle = (arr) => {
+        for (let k = arr.length - 1; k > 0; k--) {
+          const r = Math.floor(Math.random() * (k + 1));
+          [arr[k], arr[r]] = [arr[r], arr[k]];
+        }
+        return arr;
+      };
+      const oceans = [], animals = [];
+      for (let i = 0; i < HELP_STRATEGIES.length; i++) if (_isCore(i)) (_isOcean(i) ? oceans : animals).push(i);
+      const count = Math.max(1, Math.min(Number(n) || 1, animals.length + (oceans.length ? 1 : 0)));
+      shuffle(oceans); shuffle(animals);
+      const pick = count === 1
+        ? shuffle(oceans.slice(0, 1).concat(animals.slice(0, 1))).slice(0, 1)
+        : oceans.slice(0, 1).concat(animals.slice(0, count - Math.min(1, oceans.length)));
       _activeStrategies.clear();
       pick.forEach(i => { _activeStrategies.add(i); _trackStrategyPlay(i); });
       _saveActiveStrategies();
@@ -18436,7 +18590,7 @@
           <input type="checkbox" ${checked ? "checked" : ""} data-label="${s.label.replace(/"/g,'&quot;')}">
           <div class="gs-strat-row-text">
             <div class="gs-strat-row-name">${s.label}</div>
-            <div class="gs-strat-row-tier" style="color:${swatch}">${s.tier || ""}</div>
+            <div class="gs-strat-row-tier" style="color:${swatch}">${s.group === "ocean" ? "Ocean strategy" : "Animal strategy"}</div>
           </div>`;
         row.addEventListener("change", () => {
           row.classList.toggle("selected", row.querySelector("input").checked);
@@ -33594,7 +33748,7 @@
       const colour = (typeof STRAT_COLORS !== "undefined" && STRAT_COLORS[i]) || "#b388ff";
       const art = (window.__ccHelpTut && typeof window.__ccHelpTut.stratArtHtml === "function")
         ? window.__ccHelpTut.stratArtHtml(i, "htp-strat-art") : "";
-      const tier = s.custom ? "Mine" : (s.tier === "Combo" ? "Combo" : "Core");
+      const tier = s.custom ? "Mine" : (s.tier === "Combo" ? "Combo" : (s.group === "ocean" ? "Ocean" : "Animal"));
       const steps = (s.steps || []).map(t => `<li>${_htpE(t)}</li>`).join("");
       const tips  = (s.tips  || []).map(t => `<li>${_htpE(t)}</li>`).join("");
       const cards = (s.cards || []).map(c => {
@@ -33653,25 +33807,29 @@
         + _htpStep(1, "Press 💡 Help", '<p class="htp-p">The Help button lives on the left of the action bar at the '
             + 'bottom of the table, right next to the card you are about to play. It is available on every turn, '
             + 'including when it is not your go.</p>')
-        + _htpStep(2, "Choose a core strategy", '<p class="htp-p">The top row holds the core plans. Press '
-            + '<b>Play this</b> to switch one on, or <b>View cards &amp; plan</b> to read its steps first. You can run '
-            + 'several at once, and <b>🎲 Randomize</b> will pick 1 to 4 for you if you would rather be surprised.</p>')
-        + _htpStep(3, "Watch your cards light up", '<p class="htp-p">With a strategy switched on, every card that '
+        + _htpStep(2, "Choose your ocean strategy", '<p class="htp-p">Step 1 on the Help screen is the ocean plans, '
+            + 'where you build. Press <b>Play this</b> to switch one on, or <b>View cards &amp; plan</b> to read its '
+            + 'steps first.</p>')
+        + _htpStep(3, "Choose your animal strategies", '<p class="htp-p">Step 2 is the animal plans, what you score. '
+            + 'Pick one or more. <b>🎲 Randomize</b> will pick for you if you would rather be surprised: one ocean '
+            + 'strategy, and animals for the rest.</p>')
+        + _htpStep(4, "Mix and match", '<p class="htp-p">Step 3 lists everything you switched on and suggests the '
+            + 'combos that pair them. <b>Create Your Own Strategy</b> is there too: it saves a plan with your own name, '
+            + 'notes and card list, which then behaves exactly like a built-in one, glow and all, and stays on this '
+            + 'device.</p>')
+        + _htpStep(5, "Watch your cards light up", '<p class="htp-p">With a strategy switched on, every card that '
             + 'belongs to it glows in its family colour, in your hand <i>and</i> in the pool, and a gold ★ marks the '
             + 'ones with a star ability. That glow is the hint: it is telling you which card to reach for.</p>'
             + _htpLegendHtml())
-        + _htpStep(4, "Follow the guide bar", '<p class="htp-p">Just under the turn banner, the guide bar spells out '
+        + _htpStep(6, "Follow the guide bar", '<p class="htp-p">Just under the turn banner, the guide bar spells out '
             + 'the next thing to do in plain words: draw two, pick payment, use a free play, discard down to ten. It '
             + 'changes as your turn changes, so if you are ever unsure, read that line.</p>')
-        + _htpStep(5, "Build your own", '<p class="htp-p">At the bottom of the Help screen, <b>Create Your Own '
-            + 'Strategy</b> saves a plan with your own name, notes and card list. It then behaves exactly like a '
-            + 'built-in one, glow and all, and it stays on this device.</p>')
         + '</div>'
 
         + sec("Ocean strategies", "Pick one of these first. Every animal you play needs an ocean "
               + "under it, so your oceans decide what the rest of your board can even do.", ocean)
         + sec("Animal strategies", "Your scoring plan, played on top of your oceans.", animal)
-        + sec("Combos", "Two plans that feed each other. Suggested to you once a core is switched on.", combo)
+        + sec("Combos", "Two plans that feed each other. Suggested to you once an ocean or animal strategy is switched on.", combo)
         + sec("Your own strategies", "Plans you saved on this device.", custom);
     }
 
