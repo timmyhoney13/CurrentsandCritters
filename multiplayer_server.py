@@ -4089,6 +4089,56 @@ def _trade_cancel(uid: str, peer_uid: str) -> Dict[str, Any]:
 
 
 BRAIN_LOCK = threading.Lock()
+
+# The brain the live bots PLAY with, loaded once and shared by every game.
+#
+# Each match used to call fish.load_brain() for itself and keep the result for
+# the whole game: a ~6 MB JSON parse (30-60 ms of CPU, all of it queued behind
+# BRAIN_LOCK) and ~2.8 MB of dicts held per running game. A 100-game load test
+# spent ~280 MB on identical copies, which alone puts a 512 MB Render instance
+# within reach of the OOM killer, and an OOM kill ends every game at once.
+#
+# Sharing is safe because live play only READS these maps: run_match is called
+# with online_state=None, and the end-of-game learning pass loads its own fresh
+# copy from disk (brain2), updates that and saves it. The cache is keyed on the
+# file's mtime and size, so the next game to start after a save picks the new
+# brain up; games already running finish on the one they started with, exactly
+# as before.
+_LIVE_BRAIN: Dict[str, Any] = {"key": None, "brain": None}
+
+
+def load_live_brain() -> Dict[str, Any]:
+    path = fish.BRAIN_PATH
+    try:
+        st = os.stat(path)
+        key: Any = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        key = None
+    with BRAIN_LOCK:
+        cached = _LIVE_BRAIN.get("brain")
+        if key is not None and cached is not None and _LIVE_BRAIN.get("key") == key:
+            return cached
+        brain = fish.load_brain(path)
+        _LIVE_BRAIN["key"] = key
+        _LIVE_BRAIN["brain"] = brain if key is not None else None
+        return brain
+
+
+def copy_game_state(gs: Any) -> Any:
+    """copy.deepcopy(gs), except the card database is shared, not copied.
+
+    GameState carries card_db, and a plain deepcopy duplicated all ~250 cards
+    every time: 1.0 ms per copy against 0.16 ms, taken at the start of every
+    human turn for Undo, and held twice per room (pending + active snapshot).
+    Sharing is safe because CardDef is a frozen dataclass, and the one thing
+    that adds cards (the Current Controller mint) gives the game its own dict
+    first whenever it is still using the global CARD_DB."""
+    db = getattr(gs, "card_db", None)
+    if db is None:
+        return copy.deepcopy(gs)
+    return copy.deepcopy(gs, {id(db): db})
+
+
 DATASET_LOCK = threading.Lock()
 HISTORY_LOCK = threading.Lock()
 COMPETITIVE_LOCK = threading.Lock()
@@ -4198,10 +4248,15 @@ def room_state_path(room_id: str) -> str:
 
 
 def atomic_write_json(path: str, payload: Dict[str, Any]) -> None:
+    # json.dumps, never json.dump: dump() always runs the pure-Python encoder
+    # (it streams chunk by chunk), dumps() uses the C one. Same bytes, about
+    # four times less CPU, and this runs on every move of every game. Under a
+    # 100-game load test the streaming version alone was half the server's CPU.
+    data = json.dumps(payload, separators=(",", ":"), ensure_ascii=True)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp_path = f"{path}.tmp"
     with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, separators=(",", ":"), ensure_ascii=True)
+        f.write(data)
     os.replace(tmp_path, path)
 
 
@@ -5536,7 +5591,7 @@ class GameRoom:
         self._current_turn_descs: Dict[str, List[str]] = {}
 
         self.training_events: List[str] = []
-        self.training_snapshots: List[Dict[str, Any]] = []
+        self.training_snapshots: List[str] = []  # compact JSON, see _record_snapshot
 
         self.final_scores: List[Dict[str, Any]] = []
         self.winner: Optional[str] = None
@@ -5897,7 +5952,12 @@ class GameRoom:
             rec["recorded_unix"] = int(raw.get("recorded_unix"))
         return rec
 
-    def _serialize_checkpoint_locked(self) -> Dict[str, Any]:
+    def _serialize_checkpoint_locked(self, copy_values: bool = True) -> Dict[str, Any]:
+        # copy_values=False hands back live references instead of deep copies.
+        # Only safe when the caller encodes the result before releasing the
+        # room lock, which is exactly what _persist_if_due_locked does: the
+        # copies were a millisecond of pure waste on every single move.
+        _dc = copy.deepcopy if copy_values else (lambda v: v)
         return {
             "schema_version": ROOM_CHECKPOINT_SCHEMA_VERSION,
             "saved_unix": now_unix(),
@@ -5942,18 +6002,18 @@ class GameRoom:
             # the table on its turn, and the door would be open again.
             "kicked_names": sorted(self.kicked_names),
             "ai_speed": str(self.ai_speed or "normal"),
-            "latest_public_state": copy.deepcopy(self.latest_public_state),
-            "latest_private_hands": {str(k): copy.deepcopy(v) for k, v in self.latest_private_hands.items()},
+            "latest_public_state": _dc(self.latest_public_state),
+            "latest_private_hands": {str(k): _dc(v) for k, v in self.latest_private_hands.items()},
             "last_turn_number": int(self.last_turn_number),
-            "legal_actions_by_seat": {str(k): copy.deepcopy(v) for k, v in self.legal_actions_by_seat.items()},
+            "legal_actions_by_seat": {str(k): _dc(v) for k, v in self.legal_actions_by_seat.items()},
             "seen_action_requests": {str(k): dict(v) for k, v in self.seen_action_requests.items()},
             "active_action_seat": self.active_action_seat,
             "log_events": list(self.log_events[-500:]),
             "turn_summaries": list(self.turn_summaries[-200:]),
-            "final_scores": copy.deepcopy(self.final_scores),
+            "final_scores": _dc(self.final_scores),
             "winner": self.winner,
-            "chat_messages": copy.deepcopy(self.chat_messages[-200:]),
-            "action_history": copy.deepcopy(self.action_history),
+            "chat_messages": _dc(self.chat_messages[-200:]),
+            "action_history": _dc(self.action_history),
             "recovery": {
                 "active": bool(self.recovery_active),
                 "target_count": int(self.recovery_target_count),
@@ -5968,7 +6028,9 @@ class GameRoom:
         now_mono = time.monotonic()
         if not force and (now_mono - self._last_persist_monotonic) < ROOM_PERSIST_MIN_INTERVAL_SEC:
             return
-        payload = self._serialize_checkpoint_locked()
+        # Encoded (inside atomic_write_json) while this lock is still held, so
+        # the uncopied references cannot change underneath the encoder.
+        payload = self._serialize_checkpoint_locked(copy_values=False)
         try:
             atomic_write_json(room_state_path(self.room_id), payload)
             self._persist_dirty = False
@@ -8587,6 +8649,14 @@ class GameRoom:
             "discard_count": len(ms.discard_pile),
             "players": training_players,
         }
+        # Kept as compact JSON text, not as dicts, until the game ends. Up to
+        # 1200 of these are held per room, and a late-game table of lists and
+        # dicts of ints costs ~24 MB per game in Python objects against ~3 MB
+        # as text: enough, across a busy evening of long games, to push the
+        # process past its memory limit and end every game on the server.
+        # _build_training_record turns them back into dicts, so the dataset
+        # row written at the end is unchanged.
+        training_snapshot_json = json.dumps(training_snapshot, separators=(",", ":"))
 
         summary: Optional[Dict[str, Any]] = None
         if note.startswith("turn_end:"):
@@ -8639,7 +8709,7 @@ class GameRoom:
                 # Save a new pending snapshot for the current player so it can be
                 # promoted when the NEXT player's turn starts.
                 if cur_seat is not None and cur_seat.kind == "human":
-                    undo_new_pending_gs = copy.deepcopy(gs)
+                    undo_new_pending_gs = copy_game_state(gs)
                     undo_new_pending_ms = copy.deepcopy(ms)
                     undo_new_pending_seat = cur_seat_idx
             except Exception:
@@ -8752,7 +8822,7 @@ class GameRoom:
                 except Exception:
                     pass
 
-            self.training_snapshots.append(training_snapshot)
+            self.training_snapshots.append(training_snapshot_json)
             if len(self.training_snapshots) > 1200:
                 del self.training_snapshots[:-1200]
 
@@ -8815,7 +8885,7 @@ class GameRoom:
         ms_restore: Any = None
         with self.cond:
             if self.undo_requested and self.undo_valid and self.undo_snapshot_gs is not None:
-                gs_restore = copy.deepcopy(self.undo_snapshot_gs)
+                gs_restore = copy_game_state(self.undo_snapshot_gs)
                 ms_restore = copy.deepcopy(self.undo_snapshot_ms)
         if gs_restore is None:
             return None
@@ -9124,7 +9194,7 @@ class GameRoom:
                             self._undo_pending_gs is not None
                             and self._undo_pending_seat == seat_index
                         ):
-                            gs_restore = copy.deepcopy(self._undo_pending_gs)
+                            gs_restore = copy_game_state(self._undo_pending_gs)
                             ms_restore = copy.deepcopy(self._undo_pending_ms)
                     if gs_restore is not None:
                         # TRUE REVERT: restore the pre-turn deck EXACTLY as it was:
@@ -9218,7 +9288,7 @@ class GameRoom:
                     ms_restore: Any = None
                     with self.cond:
                         if self.undo_valid and self.undo_snapshot_gs is not None:
-                            gs_restore = copy.deepcopy(self.undo_snapshot_gs)
+                            gs_restore = copy_game_state(self.undo_snapshot_gs)
                             ms_restore = copy.deepcopy(self.undo_snapshot_ms)
                     if gs_restore is not None:
                         gs.__dict__.clear()
@@ -10050,7 +10120,7 @@ class GameRoom:
             "move_log": list(self.training_events),
             "turn_summaries": list(self.turn_summaries),
             "key_turns": key_turns,
-            "snapshots": list(self.training_snapshots),
+            "snapshots": [json.loads(s) if isinstance(s, str) else s for s in list(self.training_snapshots)],
             "winner_combo_pattern": winner_combo_pattern,
             "deck_remaining": len(gs.deck),
             "pool_count": len(ms.pool),
@@ -10908,18 +10978,20 @@ class GameRoom:
         human_game = False
         _game_saved = False
         try:
-            with BRAIN_LOCK:
-                try:
-                    brain = fish.load_brain(fish.BRAIN_PATH)
-                except Exception as exc:
-                    brain = {"weights": fish.default_weights()}
-                    self._record_event(f"Brain load warning: {exc}. Continuing with default live weights.")
+            try:
+                brain = load_live_brain()
+            except Exception as exc:
+                brain = {"weights": fish.default_weights()}
+                self._record_event(f"Brain load warning: {exc}. Continuing with default live weights.")
 
             # Per-player-count bot: pick the brain trained for THIS table size,
             # seeded from the shared brain on first use. Bots play each count with
-            # their own learned weights + strategy values.
+            # their own learned weights + strategy values. Under BRAIN_LOCK
+            # because the brain is shared between games now and this may create
+            # the slot on first use.
             player_count = len(self.seats)
-            cbrain = fish.get_count_brain(brain, player_count)
+            with BRAIN_LOCK:
+                cbrain = fish.get_count_brain(brain, player_count)
             # Turtle learning gate: live bots refuse to play the turtle until this
             # count's brain has learned it wins games (training unlocks it). Passed
             # into run_match per-player so concurrent games don't clobber it.
@@ -11406,12 +11478,22 @@ class GameRoom:
             # to look up private_hands (also keyed by seat_idx).
             viewer_index = view_seat.index if view_seat is not None else None
 
-            state_obj = copy.deepcopy(self.latest_public_state) if isinstance(self.latest_public_state, dict) else None
+            # Copied only as deep as this view writes: the top level and each
+            # player dict (avatar, background, hand are set below). Everything
+            # under them is shared with the stored snapshot, which is safe
+            # because _record_snapshot always PUBLISHES a brand-new
+            # latest_public_state / latest_private_hands / legal payload and
+            # nothing edits a published one in place. The full deepcopy here
+            # ran for every poll and every SSE push of every player, the
+            # third-largest CPU cost in the 100-game load run.
+            state_obj = dict(self.latest_public_state) if isinstance(self.latest_public_state, dict) else None
             if isinstance(state_obj, dict):
                 players_list = state_obj.get("players")
                 if not isinstance(players_list, list):
                     players_list = []
-                    state_obj["players"] = players_list
+                else:
+                    players_list = [dict(p) if isinstance(p, dict) else p for p in players_list]
+                state_obj["players"] = players_list
                 # Attach each player's per-seat avatar so every client renders
                 # the correct, separate icon for each player (and picks up
                 # mid-game avatar changes immediately, no nickname lookup).
@@ -11439,7 +11521,7 @@ class GameRoom:
                         # seat_idx). viewer_index is also a seat index (from seat token).
                         # private_hands is keyed by seat_idx. All three match.
                         if p.get("index") == viewer_index:
-                            p["hand"] = copy.deepcopy(
+                            p["hand"] = list(
                                 self.latest_private_hands.get(viewer_index, [])
                             )
                         else:
@@ -11453,7 +11535,8 @@ class GameRoom:
 
             legal_payload: Optional[Dict[str, Any]] = None
             if viewer_index is not None:
-                legal_payload = copy.deepcopy(self.legal_actions_by_seat.get(viewer_index))
+                _legal = self.legal_actions_by_seat.get(viewer_index)
+                legal_payload = dict(_legal) if isinstance(_legal, dict) else _legal
 
             payload = {
                 "ok": True,
@@ -14418,6 +14501,11 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     "time": now_unix(),
                     "create_key_required": False,
                     "server_version": "2",
+                    # The commit Render actually built. Render has more than
+                    # once kept serving an old build after a push with no error
+                    # anywhere, and a server-only change has no other outward
+                    # sign of which code is live. Blank when run locally.
+                    "commit": str(os.environ.get("RENDER_GIT_COMMIT", "") or "")[:7],
                     "public_urls": load_public_links(),
                     "load": {
                         "rooms": ROOMS.room_count(),

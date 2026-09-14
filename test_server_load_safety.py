@@ -20,11 +20,28 @@ before they were fixed:
    grew forever and every restart got slower. The fix is
    RoomManager.sweep_finished_rooms plus a janitor thread.
 
+Three more came out of a 100-player load run (scripts/load_test.py: 100 Head
+to Head tables, one person and three bots each):
+
+3. The room checkpoint was written with json.dump, which always runs the
+   pure-Python encoder, after deep-copying the whole room, on every move of
+   every game. That was over half the server's CPU. It is now json.dumps (the
+   C encoder, same bytes) over uncopied references, encoded under the lock.
+
+4. Every game parsed its own copy of the ~6 MB brain file and held it all
+   match: ~280 MB of identical dicts at 100 games. load_live_brain shares one.
+
+5. Up to 1200 training snapshots per room were held as dicts, ~24 MB for a
+   late-game table. They are kept as compact JSON text now (~3 MB) and only
+   decoded when the dataset row is built.
+
 These tests assert the POLICY, not the measured milliseconds: timings belong in
 a load run, not a unit test.
 """
 
+import json
 import os
+import random
 import shutil
 import tempfile
 import threading
@@ -315,6 +332,192 @@ class CapacityGuard(unittest.TestCase):
             "players linger on the endgame screen and press Play Again",
         )
         self.assertGreater(mp.ROOM_KEEP_IDLE_LOBBY_SEC, mp.ROOM_KEEP_ENDED_SEC)
+
+
+def _room_with_history(room_id="CKPT1"):
+    room = mp.GameRoom(room_id, "Host", 4, 1, 3)
+    with room.cond:
+        room.latest_public_state = {"players": [{"name": "A", "board": [[1, 2], {"x": 3}]}]}
+        room.latest_private_hands = {0: [{"uid": 5, "name": "Kelp"}]}
+        room.legal_actions_by_seat = {0: {"actions": [{"index": 0, "kind": "draw"}]}}
+        room.action_history = [{"kind": "draw", "seat_index": 0, "turn_number": 1}]
+        room.chat_messages = [{"sender": "A", "message": "héllo", "ts": 1.5}]
+        room.final_scores = [{"name": "A", "score": 12}]
+    return room
+
+
+class CheckpointWriteIsCheap(unittest.TestCase):
+    def test_atomic_write_matches_the_old_streaming_bytes(self):
+        """Switching dump -> dumps must not change a single byte on disk, or a
+        checkpoint written before the deploy reads back differently after it."""
+        payload = {"a": [1, 2.5, None, True], "é": {"nested": "ünïcode"}, "z": ""}
+        path = os.path.join(mp.ROOM_STATE_DIR, "bytes_check.json")
+        mp.atomic_write_json(path, payload)
+        with open(path, encoding="utf-8") as f:
+            on_disk = f.read()
+        import io
+        buf = io.StringIO()
+        json.dump(payload, buf, separators=(",", ":"), ensure_ascii=True)
+        self.assertEqual(on_disk, buf.getvalue())
+        self.assertFalse(os.path.exists(path + ".tmp"))
+
+    def test_uncopied_serialization_has_the_same_content(self):
+        room = _room_with_history()
+        with room.cond:
+            copied = room._serialize_checkpoint_locked()
+            live = room._serialize_checkpoint_locked(copy_values=False)
+        copied.pop("saved_unix"); live.pop("saved_unix")
+        self.assertEqual(json.dumps(copied, sort_keys=True), json.dumps(live, sort_keys=True))
+
+    def test_default_serialization_still_hands_back_copies(self):
+        """Tests and callers outside the persist path mutate what they get."""
+        room = _room_with_history("CKPT2")
+        with room.cond:
+            payload = room._serialize_checkpoint_locked()
+        payload["action_history"].append({"kind": "bogus"})
+        payload["latest_public_state"]["players"].clear()
+        self.assertEqual(len(room.action_history), 1)
+        self.assertEqual(len(room.latest_public_state["players"]), 1)
+
+    def test_persisted_checkpoint_round_trips(self):
+        room = _room_with_history("CKPT3")
+        with room.cond:
+            room._persist_dirty = True
+            room._persist_if_due_locked(force=True)
+            expected = room._serialize_checkpoint_locked()
+        with open(mp.room_state_path("CKPT3"), encoding="utf-8") as f:
+            saved = json.load(f)
+        expected.pop("saved_unix"); saved.pop("saved_unix")
+        self.assertEqual(saved, json.loads(json.dumps(expected)))
+
+
+class SharedLiveBrain(unittest.TestCase):
+    def setUp(self):
+        import fish_game_all_in_one as fish
+        self.fish = fish
+        self._saved_path = fish.BRAIN_PATH
+        self.path = os.path.join(_SANDBOX["dir"], "brain.json")
+        shutil.copyfile(self._saved_path, self.path)
+        fish.BRAIN_PATH = self.path
+        mp._LIVE_BRAIN.update(key=None, brain=None)
+
+    def tearDown(self):
+        self.fish.BRAIN_PATH = self._saved_path
+        mp._LIVE_BRAIN.update(key=None, brain=None)
+
+    def test_games_share_one_parsed_brain(self):
+        first = mp.load_live_brain()
+        self.assertIs(mp.load_live_brain(), first,
+                      "every game parsing its own ~3 MB brain is what the cache removes")
+
+    def test_a_saved_brain_reaches_the_next_game(self):
+        """End-of-game learning saves a new file; the next game must play on it."""
+        first = mp.load_live_brain()
+        learned = self.fish.load_brain(self.path)
+        learned["games_played"] = int(learned.get("games_played", 0)) + 12345
+        self.fish.save_brain(learned, self.path)
+        st = os.stat(self.path)
+        os.utime(self.path, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000_000))
+        second = mp.load_live_brain()
+        self.assertIsNot(second, first)
+        self.assertEqual(second.get("games_played"), learned["games_played"])
+
+    def test_count_brain_lookup_does_not_fork_the_shared_brain(self):
+        # load_live_brain takes BRAIN_LOCK itself (a plain Lock), so it is
+        # called outside the lock, the same order the game thread uses.
+        brain = mp.load_live_brain()
+        with mp.BRAIN_LOCK:
+            a = self.fish.get_count_brain(brain, 4)
+        again = mp.load_live_brain()
+        with mp.BRAIN_LOCK:
+            b = self.fish.get_count_brain(again, 4)
+        self.assertIs(a, b)
+
+
+class TrainingSnapshotsAreCompact(unittest.TestCase):
+    def _game(self):
+        import fish_game_all_in_one as fish
+        card_db = fish.load_card_db()
+        uids = sorted(card_db.keys())
+        rnd = random.Random(7)
+        players = []
+        for i in range(4):
+            pl = fish.PlayerState(name=f"P{i}", hand=rnd.sample(uids, 6))
+            for ocean_uid in rnd.sample(uids, 3):
+                pl.board_oceans.append(ocean_uid)
+                slots = fish.OceanSlots()
+                slots.up = rnd.sample(uids, 2)
+                slots.left = rnd.sample(uids, 1)
+                pl.ocean_slots[ocean_uid] = slots
+            players.append(pl)
+        gs = fish.GameState(card_db=card_db, players=players, deck=rnd.sample(uids, 20), turn_index=0)
+        ms = fish.MatchState(pool=rnd.sample(uids, 4))
+        ms.pair_primary_to_faces, ms.face_to_primary = fish.build_non_ocean_pair_maps(card_db)
+        return gs, ms
+
+    def test_snapshots_are_held_as_text_and_written_as_dicts(self):
+        gs, ms = self._game()
+        room = mp.GameRoom("SNAP1", "Host", 4, 1, 3)
+        for turn in range(1, 4):
+            room._record_snapshot(gs, ms, turn, f"turn_end:P{turn % 4}")
+        self.assertEqual(len(room.training_snapshots), 3)
+        self.assertTrue(all(isinstance(s, str) for s in room.training_snapshots),
+                        "held as dicts, a late-game room costs ~24 MB instead of ~3 MB")
+        standings = [{"name": p.name, "score": 10 - i} for i, p in enumerate(gs.players)]
+        record = room._build_training_record(gs, ms, standings, {0})
+        snaps = record["snapshots"]
+        self.assertEqual([s["turn_number"] for s in snaps], [1, 2, 3])
+        self.assertEqual(snaps[0]["players"][0]["name"], "P0")
+        self.assertIsInstance(snaps[0]["players"][0]["board_slots"], dict)
+        json.dumps(record)  # the dataset row still encodes
+
+    def test_undo_copy_shares_cards_but_not_the_table(self):
+        gs, _ms = self._game()
+        snap = mp.copy_game_state(gs)
+        self.assertIs(snap.card_db, gs.card_db, "the ~250 frozen cards are not worth copying")
+        self.assertIsNot(snap.players, gs.players)
+        snap.players[0].hand.append(-1)
+        snap.deck.pop()
+        self.assertNotIn(-1, gs.players[0].hand, "Undo must restore a real copy of the table")
+        self.assertEqual(len(gs.deck), 20)
+
+
+class StateViewDoesNotLeakBetweenViewers(unittest.TestCase):
+    def test_one_players_view_never_writes_into_the_shared_snapshot(self):
+        """state_view copies only the levels it writes to, so a hand attached
+        for one viewer must never show up in the stored state or another view."""
+        room = mp.GameRoom("VIEW1", "Host", 2, 2, 0)
+        host = room.host_seat()
+        joined = room.claim_seat("Guest", None, None)
+        guest_token = joined["seat_token"]
+        guest_index = joined["seat_index"]
+        with room.cond:
+            room.latest_public_state = {
+                "players": [
+                    {"index": host.index, "name": "Host", "board": [{"uid": 1}]},
+                    {"index": guest_index, "name": "Guest", "board": [{"uid": 2}]},
+                ],
+                "pool": [{"uid": 9}],
+            }
+            room.latest_private_hands = {host.index: [{"uid": 100}], guest_index: [{"uid": 200}]}
+            room.legal_actions_by_seat = {host.index: {"actions": [{"index": 0}]}}
+        host_view = room.state_view(host.token, "localhost")
+        guest_view = room.state_view(guest_token, "localhost")
+
+        stored = room.latest_public_state["players"]
+        self.assertTrue(all("hand" not in p for p in stored), "a view wrote a hand into the snapshot")
+
+        def hand_of(view, idx):
+            return next(p["hand"] for p in view["state"]["players"] if p["index"] == idx)
+        self.assertEqual(hand_of(host_view, host.index), [{"uid": 100}])
+        self.assertEqual(hand_of(host_view, guest_index), [], "the host must not see the guest's hand")
+        self.assertEqual(hand_of(guest_view, guest_index), [{"uid": 200}])
+        self.assertEqual(hand_of(guest_view, host.index), [])
+
+        host_view["legal_actions"]["extra"] = True
+        host_view["state"]["players"][0]["avatar"] = "x"
+        self.assertNotIn("extra", room.legal_actions_by_seat[host.index])
+        self.assertNotIn("avatar", room.latest_public_state["players"][0])
 
 
 if __name__ == "__main__":
