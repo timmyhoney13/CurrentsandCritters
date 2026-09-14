@@ -387,9 +387,8 @@ console.log("\nwhat the menu steps say about the menu is still true");
   check("the leaderboard's add-friend button is described as the signed-in thing it is",
         /Once you are <strong>signed in<\/strong>/.test(TUT)
         && /if \(!_authUser \|\| isMe\) return `<td class="ph-lb-add-cell"><\/td>`/.test(APP));
-  check("Trade says it needs an account, because it does",
-        /Sign in to trade with other players/.test(APP)
-        && /A trade is between two <strong>accounts<\/strong>/.test(TUT));
+  check("the tour no longer points at the top-right Trade button, which is gone",
+        !/#stats-trade-btn/.test(TUT) && !/id="stats-trade-btn"/.test(HTML));
 }
 
 console.log("\na card is two animals, and every lookup has to know it");

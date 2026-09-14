@@ -757,10 +757,6 @@
       before: () => { closeMenuOverlays(); navTab("overview"); },
       text: "Your <strong>avatar, name, level, and rank</strong> all live here. The XP bar fills as you play, and every game you finish earns XP toward your next level." },
 
-    // ── Trade (top-right, same area as profile card) ─────────────────
-    { target: "#stats-trade-btn", badge: "Trade", title: "Trading",
-      text: "The <strong>Trade</strong> button sits at the top right. Pick any friend (or search a player) and you can swap <strong>avatars, backgrounds and Critter Coins</strong> with them, no need to open Messages first. A trade is between two <strong>accounts</strong>, so this is one a guest has to sign in for." },
-
     // ── The four action cards ─────────────────────────────────────────
     // The row every other screen in the game is reached through, and the tour
     // opened by saying "this is where you start games" and then never showed

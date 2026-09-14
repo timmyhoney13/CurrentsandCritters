@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-14.5";
+  const APP_BUILD   = "2026-09-14.6";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -25183,6 +25183,10 @@
       };
       setProfileLevelCard(safeStats);
       s("stat-comp-rank", safeStats.rank_competitive || null, { fallback: "No rank yet." });
+      const rankIcoEl = $a("stat-comp-rank-ico");
+      if (rankIcoEl && typeof window._compRankIconFor === "function") {
+        rankIcoEl.innerHTML = window._compRankIconFor(safeStats.rank_competitive, 24);
+      }
     }
 
     // How many friend profiles the four-row home preview will read to decide
@@ -36368,6 +36372,14 @@
       }
       return emoji || "🐟";
     }
+    // Icon for a stored rank name ("Golden Grouper II", "King of the Critters",
+    // "Unranked"), for the profile card's Competitive badge. Unranked gets the
+    // Bronze icon, the same as the Competitive tab shows.
+    window._compRankIconFor = function (rankName, size) {
+      const n = String(rankName || "").trim().toLowerCase();
+      const tier = ["silver", "gold", "diamond", "emerald", "king"].find(t => n.startsWith(t)) || "bronze";
+      return _compRankIcon(tier, tier === "king" ? "👑" : "🐟", size);
+    };
 
     function _compRankBadgeHtml(division, tier) {
       const cls = tier ? `ph-rank-${tier}` : "ph-rank-bronze";
