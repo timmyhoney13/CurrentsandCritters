@@ -115,7 +115,7 @@ const HTML_LIVE = HTML.replace(/<!--[\s\S]*?-->/g, "");
 // preview.html is a heavily commented file: about a fifth of it is comments,
 // so a regex that ran away would take far more than that. The bar was 0.8,
 // which the file sat half a percent above until the Casual panel's live
-// markup was replaced by the (empty) Stats panel.
+// markup was removed.
 check("stripping comments left the file mostly intact, so the regex is not eating the page",
       HTML_LIVE.length > HTML.length * 0.7, `${HTML_LIVE.length} of ${HTML.length}`);
 for (const page of CLOSED) {

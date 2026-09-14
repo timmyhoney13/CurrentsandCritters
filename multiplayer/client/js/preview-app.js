@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-13.3";
+  const APP_BUILD   = "2026-09-14.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -115,13 +115,6 @@
       "Arctic Ocean and Mangrove are one strategy now, called Play Again: both give you a whole new play, so you can draw 2 more cards. Tide Pool is no longer a strategy.",
       "The best match at the top names one ocean strategy and one animal strategy for the cards in front of you, and Mangrove (All Blue) is no longer first every time. It comes up when your board really is close to all 8 ocean types.",
       "The whole screen looks like the table now: the reef painting behind it, and the same cream, sea blue and gold as the rest of the game.",
-    ]},
-    { ver: "V1.7.9", title: "📊 A Stats page for every account", items: [
-      "Stats is new in the menu, in the spot where Casual used to be, on the same beachside pier.",
-      "Your score over your last 50 games is drawn as a line with your wins marked in gold. Next to it is a chart of where you finish.",
-      "Table Sizes has everything the Casual tab showed: your record at every table size from 2 to 8 players. Tap a column to see that size up close.",
-      "You also get your Strategy Playbook, the modes you play, a Tide Calendar of the days you played, your Competitive rank, your climb up the Head to Head reef, your collection and lifetime counts from around the reef.",
-      "Hover over or tap any bar, dot or day to see its numbers.",
     ]},
     { ver: "V1.7.8", title: "\uD83D\uDC65 Your friends' stats, right next to yours", items: [
       "Quick Stats on the Overview is down to the eight numbers that matter most: hours played, most played strategy, games, wins, win rate, achievements, competitive rank and animals unlocked.",
@@ -25150,9 +25143,6 @@
       };
       setProfileLevelCard(safeStats);
       s("stat-comp-rank", safeStats.rank_competitive || null, { fallback: "No rank yet." });
-      // The per-mode numbers that used to be filled in here belonged to the
-      // Casual tab. They are drawn by the Stats page now (js/stats-page.js),
-      // which updatePhStats() asks to redraw.
     }
 
     // How many friend profiles the four-row home preview will read to decide
@@ -25931,14 +25921,17 @@
         console.error("[LB] Casual leaderboard error:", e);
         tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load leaderboard.</td></tr>`;
       }
-      // Hidden critter: Johnson's Sea Cucumber on the 4P leaderboard tab only.
-      // Orange Tube Sponge moved to 7P stats (the strategy icon cell there).
+      // Hidden critters: Johnson's Sea Cucumber on the 4P leaderboard tab, and
+      // the Orange Tube Sponge on the 7P one. The sponge used to hide behind
+      // the 7P strategy icon on the Casual tab, then on the Stats page; both
+      // pages are gone, and it is one of the four digits of the 3197 code.
       try {
         const slot = $a("ph-lb-casual-secret");
         if (slot) {
           slot.innerHTML = "";
-          if (_phLbSize === "4" && typeof window.__fishPlaceSecretCritter === "function") {
-            window.__fishPlaceSecretCritter("cucumber", slot);
+          if (typeof window.__fishPlaceSecretCritter === "function") {
+            if (_phLbSize === "4") window.__fishPlaceSecretCritter("cucumber", slot);
+            if (_phLbSize === "7") window.__fishPlaceSecretCritter("sponge", slot);
           }
         }
       } catch (_) {}
@@ -31125,7 +31118,7 @@
     // ── Player Home: tab switching ───────────────────────────────
     (function() {
       const tabs = document.querySelectorAll("#ph-tabs .ph-tab");
-      const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", stats:"ph-panel-stats", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", messages:"ph-panel-messages", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", clans:"ph-panel-clans", prestige:"ph-panel-prestige", levelpass:"ph-panel-levelpass", critterpass:"ph-panel-critterpass", store:"ph-panel-store" };
+      const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", messages:"ph-panel-messages", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", clans:"ph-panel-clans", prestige:"ph-panel-prestige", levelpass:"ph-panel-levelpass", critterpass:"ph-panel-critterpass", store:"ph-panel-store" };
       // ── Store and Critter Pass: OFF THE MENU, ON STANDBY ─────────────
       // Both pages are gone rather than shut: the sidebar items that opened
       // them are commented out in preview.html, so there is no door to walk
@@ -31145,14 +31138,13 @@
       // which stay on so the pages are shut as well as unreachable.
       const PH_CLOSED_TABS = ["store", "critterpass"];
       const PH_CLOSED_FALLBACK = "overview";
-      // Tabs that were renamed. "normal" was the Casual tab, and the Stats
-      // page took its place in the menu and its table-size record with it, so
-      // anything still asking for Casual by its old name opens Stats.
-      const PH_RENAMED_TABS = { normal: "stats" };
-      const phTabOrFallback = (name) => {
-        const n = PH_RENAMED_TABS[name] || name;
-        return PH_CLOSED_TABS.indexOf(n) === -1 ? n : PH_CLOSED_FALLBACK;
-      };
+      // Tabs that no longer exist at all: "normal" was the Casual tab, and
+      // "stats" the Stats page that replaced it. Both panels are gone, so
+      // anything still asking for either lands on the same fallback.
+      const PH_REMOVED_TABS = ["normal", "stats"];
+      const phTabOrFallback = (name) =>
+        (PH_CLOSED_TABS.indexOf(name) === -1 && PH_REMOVED_TABS.indexOf(name) === -1)
+          ? name : PH_CLOSED_FALLBACK;
       const statsLobby = document.getElementById("auth-stats-lobby");
       // ── Guests are not locked out of the menu ────────────────────────
       // Every tab opens for a guest. What a guest does NOT get is a saved
@@ -31167,7 +31159,6 @@
       // genuinely need an account now carry one honest line at the top instead,
       // and everything that works without one just works.
       const GUEST_NOTES = {
-        stats:        "Playing as a guest: these stats are saved in this browser only.",
         competitive:  "Playing as a guest: these stats are saved in this browser only.",
         history:      "Playing as a guest: your game history is saved in this browser only.",
         achievements: "Playing as a guest: achievements are saved in this browser only.",
@@ -31226,24 +31217,6 @@
           root.innerHTML = '<div class="ccCP"><div class="ccCP-empty">'
             + "The Critter Pass didn't finish loading. Please refresh the page."
             + "</div></div>";
-        }
-      }
-
-      // js/stats-page.js is a separate deferred script as well: same wait, and
-      // the same honest message if it never registers.
-      function _renderStatsTab(attempt) {
-        const n = attempt || 0;
-        if (typeof window.__ccStatsRender === "function") {
-          try { window.__ccStatsRender(); }
-          catch (err) { try { console.error("[stats] page render threw", err); } catch (_) {} }
-          return;
-        }
-        if (n < 20) { setTimeout(() => _renderStatsTab(n + 1), 100); return; }
-        const root = document.getElementById("cc-stats-root");
-        if (root) {
-          root.innerHTML = '<div style="padding:26px 14px;text-align:center;'
-            + 'color:#46638a;font-weight:700;font-size:13px;">'
-            + "The Stats page didn't finish loading. Please refresh the page.</div>";
         }
       }
 
@@ -31369,7 +31342,6 @@
         if (name === "howto")        renderPhHowTo();
         if (name === "friends")      { renderPhFriendsList(); if (_authUser && typeof window.__fishCheckFriendAchievements === "function") window.__fishCheckFriendAchievements(_authUser.uid); }
         if (name === "history")      renderPhHistory();
-        if (name === "stats")        _renderStatsTab();
         if (name === "overview")     { renderPhOverview();
                                      try { window.__ccGameNightRender && window.__ccGameNightRender(); } catch (_) {}
                                      // Must run AFTER Game Night: the prize band
@@ -33353,7 +33325,7 @@
 
       // The Overview keeps eight numbers, the same eight the friend card beside
       // it shows. The per-mode detail (casual/competitive scores, games, XP)
-      // lives on the Stats and Competitive tabs.
+      // lives on the Competitive tab.
       const hoursOv = Number(safeStats.hours_played || 0);
       set("stat-hours-played", hoursOv === 1 ? "1 hr" : `${hoursOv} hrs`);
       set("ph-ov-most-strategy", mostPlayedStrategy || (noGames ? "No games completed yet." : "-"));
@@ -33377,88 +33349,8 @@
       renderOverviewAchievements(safeStats);
       renderChallengeStrip();
 
-      // The Stats page redraws itself if it is the page on screen (a game that
-      // ends while it is open, a stats reload); otherwise it draws on opening.
-      try { if (typeof window.__ccStatsRefresh === "function") window.__ccStatsRefresh(); } catch (_) {}
-
       // Legacy comp block elements are kept hidden; ranked dashboard is managed by renderPhCompetitive().
     }
-
-    // ── Stats page: the one snapshot js/stats-page.js draws from ──────────
-    // The page is its own module, but every number on it is decided HERE, by
-    // the code that already owns it: the same cached stats map the Overview
-    // reads (and the same identity guard on it), the same achievement and
-    // critter counts, the Competitive rank table and the Head to Head ladder.
-    // A copy is handed over, never the live map, so the page has no way to
-    // write into an account.
-    window.__ccStatsData = function () {
-      const src = (_phStatsRaw && _phStatsOwner === _ccIdentityKey) ? _phStatsRaw : (_phStats || {});
-      const stats = { ...((src && typeof src === "object") ? src : {}) };
-
-      let level = null;
-      try {
-        const lp = getLevelProgressFromTotalXp(getStoredTotalXp(stats));
-        level = { level: lp.level, xpCurrent: lp.xpCurrent, xpGoal: lp.xpGoal, totalXp: lp.totalXp,
-                  maxed: lp.level >= LEVEL_XP_TOTALS.length };
-      } catch (_) {}
-
-      let achievements = null;
-      try {
-        const userAchs = (typeof window.__fishGetUserAchievements === "function") ? (window.__fishGetUserAchievements() || {}) : {};
-        achievements = {
-          done: ACHIEVEMENT_DEFS.filter(d => userAchs[d.id] && userAchs[d.id].completed).length,
-          total: ACHIEVEMENT_DEFS.length,
-        };
-      } catch (_) {}
-
-      let animals = null;
-      try {
-        const unlockable = ANIMAL_AVATARS.filter(a => !!a.unlock);
-        animals = { done: unlockable.filter(a => isAvatarEarned(a.img)).length, total: unlockable.length };
-      } catch (_) {}
-
-      // Competitive: the rank the Competitive tab would show, from stored OP.
-      let rank = null;
-      try {
-        const played = Number(stats.competitive_wins || 0) + Number(stats.competitive_losses || 0)
-                     + Number(stats.competitive_draws || 0) > 0;
-        const cp = Number(stats.comp_cp || 0);
-        if (played || cp > 0) {
-          const r = _compGetRankFromCp(cp, played);
-          rank = {
-            division: r.division, tier: r.tier, cp: r.cp, pct: r.pct,
-            nextCp: r.nextCp, nextDiv: r.nextDiv,
-            icon: _COMP_RANK_IMG[r.tier] ? _avSrc(_COMP_RANK_IMG[r.tier]) : "",
-          };
-        }
-      } catch (_) {}
-
-      // Head to Head: one entry per reef platform, weakest first, beaten when
-      // the rung it opens with is in this player's record.
-      let ladder = [];
-      try {
-        const beaten = new Set((typeof window.__ccBotsBeaten === "function" ? window.__ccBotsBeaten() : []).map(String));
-        ladder = BM_TIERS.map(t => {
-          const g = _bmGrades[t.lo];
-          return { tier: t.tier, name: t.name, img: _avSrc(`/avatars/${t.animal}.png`), beaten: !!(g && beaten.has(String(g.id))) };
-        });
-      } catch (_) { ladder = []; }
-
-      let prestige = 0;
-      try { prestige = Number(prestigeLevelNow()) || 0; } catch (_) {}
-
-      return {
-        stats,
-        nickname: _playerNickname || "",
-        isGuest: !_authUser,
-        level,
-        levelTitle: String(stats.level_title || stats.level_name || "Ocean Explorer"),
-        prestige, achievements, animals, rank, ladder,
-        oceanCardSrc: (() => { try { return imagePathForUid(window.CC_OCEAN_CARD_UID || 217); } catch (_) { return ""; } })(),
-        // The same Recent Games rows (and View Game button) the Casual tab had.
-        renderRecentGames: (el, games, limit) => renderPhRecentGamesTo(el, games, limit),
-      };
-    };
 
     // ── Player Home: How to play tab ───────────────────────────────
     // Three views over one card:
@@ -38019,8 +37911,6 @@
       _lbFriendUidsFor = ""; _lbFriendUidsAt = 0;
       // The Overview's friend card: whose friends, and their profiles.
       try { _ovfReset(); } catch (_) {}
-      // The Stats page: the table size last picked belonged to that person.
-      try { window.__ccStatsReset && window.__ccStatsReset(); } catch (_) {}
       // Signing out does not reload the page, so a board snapshot taken as one
       // identity would be painted for the next one.
       try { _lbSnapshot.clear(); _lbRefreshing.clear(); } catch (_) {}

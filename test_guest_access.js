@@ -135,7 +135,7 @@ if (!CHROME) {
 // Overview. That is not a guest restriction — nobody gets them, signed in or
 // not — so it is not this suite's subject; test_closed_pages.js is where the
 // removal is proved, and it is the file to update when they come back.
-const TABS = ["overview","howto","stats","competitive","history","friends",
+const TABS = ["overview","howto","competitive","history","friends",
               "messages","achievements","leaderboard","clans","prestige",
               "levelpass"];
 
@@ -416,7 +416,7 @@ if (!D) {
   }
 
   console.log("\n  the panels that cannot save say so");
-  for (const t of ["stats", "history", "achievements", "friends", "messages"]) {
+  for (const t of ["history", "achievements", "friends", "messages"]) {
     const r = D.tabs[t] || {};
     check(`${t}: carries one honest line`, r.hasNote === true, r.noteText);
   }
