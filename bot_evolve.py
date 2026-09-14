@@ -48,6 +48,16 @@ import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+# Pin string hashing for every worker this process spawns. The engine's
+# decisions depend on the order it walks sets of card names and tags, and Python
+# randomises that order per process, so one deal played in two workers could
+# come out as two different games: measured, the same seed and seat with
+# identical weights diverged in 4 of 6 deals once the hash seed changed. Every
+# "paired" comparison was therefore mostly comparing different games, and the
+# luck it was meant to cancel was still in there. Spawned workers read this at
+# interpreter start, so it has to be set before the first Pool exists.
+os.environ["PYTHONHASHSEED"] = "0"
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fish_game_all_in_one as fish
 
@@ -219,59 +229,51 @@ def _wilson_high(wins: float, n: int) -> float:
     return (c + m) / d
 
 
-def _play_all_champion(seed: int) -> Tuple[int, List[float]]:
-    """The all-champion version of one deal. Every seat holds champion weights,
-    so ONE game settles the baseline for all of them at once.
+def _baseline(pool, seeds, count) -> Dict[Tuple[int, int], Tuple[float, float]]:
+    """What the CHAMPION achieves from each (seed, seat) a candidate will use,
+    as (win, margin).
 
-    In strategy mode nothing is forced here: the baseline is the champion
-    playing the deal as it normally would, which is exactly what a challenger
-    has to beat."""
-    random.seed(seed)
-    if _W_STRATEGY is None:
-        pol = fish._train_make_policy(_W_MAPS, weights=dict(_W_CHAMPION), epsilon=0.0)
-        policies = [pol] * _W_COUNT
-    else:
-        pol = fish._train_make_strategy_policy(_W_MAPS, dict(_W_STRAT_MAP or {}), epsilon=0.0)
-        policies = [pol] * _W_COUNT
-    try:
-        gs, _ms = fish.run_match(
-            card_db=_W_CARD_DB,
-            player_names=[f"P{i}" for i in range(_W_COUNT)],
-            action_policies=policies,
-            seed=seed, max_turns=500, human_index=None,
-            verbose=False, verbose_state=False,
-            ai_difficulties=[fish.DEFAULT_BOT_GRADE] * _W_COUNT,
-            online_weights=None, online_state=None, online_state_path=None,
-        )
-        finals = [float(fish.final_points(gs, p)) for p in gs.players]
-    except Exception:
-        return seed, [1.0 / _W_COUNT] * _W_COUNT
-    top = max(finals)
-    tied = finals.count(top)
-    return seed, [(1.0 if tied == 1 else 0.5) if abs(f - top) < 1e-9 else 0.0
-                  for f in finals]
+    The seat is forced onto the strategy under test, exactly as the candidate's
+    will be. That is the whole of the pairing: the only thing that may differ
+    between a candidate game and its baseline is the weights.
 
+    This used to play ONE unforced all-champion game per deal and read every
+    seat off it. In strategy mode that compared a candidate FORCED onto, say,
+    King Salmon against a champion free to play whatever suited its hand -- so
+    every edge was part weights and part "was made to play a plan the hand did
+    not fit", a handicap only the candidate ever paid. Fourteen generations
+    overnight confirmed at a mean edge of -0.014 and crowned nothing.
 
-def _baseline(pool, seeds, count) -> Dict[Tuple[int, int], float]:
-    """What a CHAMPION achieves on each (seed, seat). One game per deal, shared
-    by every candidate in the generation, so pairing costs ~10% more games."""
-    out: Dict[Tuple[int, int], float] = {}
-    for seed, wins in pool.map(_play_all_champion, seeds, chunksize=4):
-        for k, w in enumerate(wins):
-            out[(seed, k)] = w
+    Every candidate on a deal uses the same seat (seat = deal index mod count),
+    so one baseline game serves all of them, and they are compared to each
+    other on identical positions as well as to the champion."""
+    tasks = [(-1, s, gi % count) for gi, s in enumerate(seeds)]
+    out: Dict[Tuple[int, int], Tuple[float, float]] = {}
+    for (_ci, s, k), (_c, win, margin) in zip(tasks, pool.map(_play, tasks, chunksize=4)):
+        out[(s, k)] = (win, margin)
     return out
 
 
+# Which paired difference selection is decided on. See _stat for why it is
+# switchable: it is set from a measurement, not assumed.
+SELECT_STAT = "win"
+
+
+def _stat(win: float, margin: float) -> float:
+    return margin if SELECT_STAT == "margin" else win
+
+
 def _paired(pool, n_cands, seeds, count, base) -> List[List[float]]:
-    """Each candidate's per-game result MINUS what a champion got on that same
-    deal from that same seat. Removing the deal is the point: it is the largest
-    source of variance in a card game, and it is shared, so it can be cancelled
-    instead of averaged away over thousands of games."""
-    plan = [(ci, s, (gi + ci) % count)
+    """Each candidate's result MINUS the champion's from the same deal and the
+    same forced seat. Removing the deal is the point: it is the largest source
+    of variance in a card game, and because it is shared it can be cancelled
+    rather than averaged away over thousands of games."""
+    plan = [(ci, s, gi % count)
             for ci in range(n_cands) for gi, s in enumerate(seeds)]
     diffs: List[List[float]] = [[] for _ in range(n_cands)]
-    for (ci, s, k), (_c, win, _m) in zip(plan, pool.map(_play, plan, chunksize=4)):
-        diffs[ci].append(win - base[(s, k)])
+    for (ci, s, k), (_c, win, margin) in zip(plan, pool.map(_play, plan, chunksize=4)):
+        bw, bm = base[(s, k)]
+        diffs[ci].append(_stat(win, margin) - _stat(bw, bm))
     return diffs
 
 
