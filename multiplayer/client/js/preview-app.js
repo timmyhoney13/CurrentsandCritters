@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-14.1";
+  const APP_BUILD   = "2026-09-14.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -31371,7 +31371,10 @@
         // the player actually landed on rather than the one they asked for.
         name = phTabOrFallback(name);
         _origSwitchTab(name);
-        snavItems.forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+        // Prestige is reached from the end of the Level Pass track and has no
+        // sidebar item of its own, so the pass stays lit while it is open.
+        const lit = name === "prestige" ? "levelpass" : name;
+        snavItems.forEach(b => b.classList.toggle("active", b.dataset.tab === lit));
       };
       window._switchPhTab = switchTab;
       // Settings is no longer a sidebar item; it's the gear in the top-right

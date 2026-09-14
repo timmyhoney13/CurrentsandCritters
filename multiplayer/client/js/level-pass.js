@@ -398,6 +398,31 @@
       </div>`;
   }
 
+  // ── The end of the road: Prestige ────────────────────────────────────────
+  // Prestige has no sidebar item; it is where the track goes after Level 100,
+  // so it is drawn as the last stop on the rail. The card only opens the
+  // Prestige page: every rule about who may prestige lives on that page and
+  // its server, not here.
+  function prestigeCardHtml() {
+    const maxLvl = num(_state && _state.maxLevel, 100);
+    const lvl = num(_state && _state.level, 1);
+    const atCap = lvl >= maxLvl;
+    return `
+      <div class="ccLP-tier ccLP-prestige${atCap ? " is-open" : ""}" id="ccLP-prestige" data-level="${esc(maxLvl + 1)}">
+        <div class="ccLP-tier-lvl ccLP-prestige-lvl" aria-hidden="true">★</div>
+        <div class="ccLP-tier-face ccLP-prestige-face" aria-hidden="true">
+          <svg viewBox="0 0 16 16" fill="none"><path d="M1.4 5.6c2.4-2.8 4.4-2.8 6.6 0s4.2 2.8 6.6 0M1.4 10.4c2.4-2.8 4.4-2.8 6.6 0s4.2 2.8 6.6 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        </div>
+        <div class="ccLP-tier-label ccLP-prestige-label">Prestige</div>
+        <div class="ccLP-tier-blurb ccLP-prestige-blurb">${atCap
+          ? "You made it. Ride the next current."
+          : `Past Level ${esc(maxLvl)}, the next current.`}</div>
+        <div class="ccLP-tier-foot">
+          <button class="ccLP-prestige-go" type="button" data-cc-goto-tab="prestige">Prestige ›</button>
+        </div>
+      </div>`;
+  }
+
   function boostChipHtml() {
     const inv = inventory();
     const b = window.__ccPassBoost();
@@ -530,7 +555,7 @@
         ${headerHtml()}
         <div class="ccLP-rail-wrap">
           <button class="ccLP-nav ccLP-nav-prev" type="button" id="ccLP-prev" aria-label="Scroll back">‹</button>
-          <div class="ccLP-rail" id="ccLP-rail">${track.map(tierCardHtml).join("")}</div>
+          <div class="ccLP-rail" id="ccLP-rail">${track.map(tierCardHtml).join("")}${prestigeCardHtml()}</div>
           <button class="ccLP-nav ccLP-nav-next" type="button" id="ccLP-next" aria-label="Scroll forward">›</button>
         </div>
         <div class="ccLP-foot-note">
@@ -697,6 +722,12 @@
     if (boost) boost.addEventListener("click", activateBoost);
     const swap = $("ccLP-swap-btn");
     if (swap) swap.addEventListener("click", activateSwap);
+    root.querySelectorAll('[data-cc-goto-tab="prestige"]').forEach(btn => {
+      btn.addEventListener("click", () => {
+        try { window._switchPhTab && window._switchPhTab("prestige"); } catch (_) {}
+        try { window.scrollTo({ top: 0, behavior: "auto" }); } catch (_) {}
+      });
+    });
 
     const step = () => Math.max(240, (rail ? rail.clientWidth : 600) * 0.8);
     const prev = $("ccLP-prev");

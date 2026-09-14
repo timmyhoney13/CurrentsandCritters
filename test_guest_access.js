@@ -135,9 +135,11 @@ if (!CHROME) {
 // Overview. That is not a guest restriction — nobody gets them, signed in or
 // not — so it is not this suite's subject; test_closed_pages.js is where the
 // removal is proved, and it is the file to update when they come back.
+// Prestige comes last and has no sidebar item: it is opened from the card at
+// the end of the Level Pass track, so the walk reaches it the way a player does.
 const TABS = ["overview","howto","competitive","history","friends",
-              "messages","achievements","leaderboard","clans","prestige",
-              "levelpass"];
+              "messages","achievements","leaderboard","clans","levelpass",
+              "prestige"];
 
 // The six that cost money. Everything else in the catalogue is earnable.
 const PAID_IDS = ["summer-skin-gull","summer-skin-hermit-crab","summer-skin-goby",
@@ -253,7 +255,8 @@ const DRIVER = `
       if (phase === 4) {
         var name = ${JSON.stringify(TABS)}[tabIdx];
         if (!name) { phase = 5; guard = 0; return; }
-        var btn = document.querySelector('.ph-snav-item[data-tab="' + name + '"]');
+        var btn = document.querySelector('.ph-snav-item[data-tab="' + name + '"]')
+          || document.querySelector('[data-cc-goto-tab="' + name + '"]');
         if (!btn) { out.tabs[name] = { missing: true }; tabIdx++; return; }
         if (guard === 0) { click(btn); guard = 1; return; }
         guard++;

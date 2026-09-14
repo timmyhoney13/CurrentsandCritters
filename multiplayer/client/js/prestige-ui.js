@@ -905,7 +905,10 @@
     const st = S.state;
     const p = st.prestige;
     const lvl = num(p.level);
-    return '<div class="ccP-hero">'
+    // Prestige is opened from the end of the Level Pass track, so the way
+    // back is right here rather than only in the sidebar.
+    return '<button class="ccP-back" type="button" data-act="back-pass">‹ Level Pass</button>'
+      + '<div class="ccP-hero">'
       + (lvl > 0 ? '<div class="ccP-hero-badge">' + badgeHtml(lvl, { large: true }) + "</div>" : "")
       + '<div class="ccP-hero-main">'
       + '<h2 class="ccP-title">' + (lvl > 0 ? "Prestige " + lvl : "Prestige") + "</h2>"
@@ -1465,6 +1468,9 @@
   //  WIRING
   // ══════════════════════════════════════════════════════════════════════
   function wire(page) {
+    page.querySelectorAll('[data-act="back-pass"]').forEach((b) => b.addEventListener("click", () => {
+      try { bridge().goTab("levelpass"); } catch (_) {}
+    }));
     page.querySelectorAll("[data-step]").forEach((b) => b.addEventListener("click", () => {
       const i = num(b.getAttribute("data-step"));
       if (i <= maxReachableStep()) { S.step = i; S.error = ""; paint(); }

@@ -921,17 +921,6 @@
     { target: "#ph-panel-clans", badge: "Clans Tab", title: "Play the Season With a Crew",
       text: "A <strong>clan</strong> is a crew you play the season with. Every game you finish adds <strong>clan points</strong> to your clan's total, <strong>daily and weekly clan challenges</strong> pay out to everyone who took part, and the standings reset <strong>every quarter</strong> so a new clan can win one. You can create one, browse for one, or join by name. Clan membership belongs to an <strong>account</strong>, so this is one of the few things a guest cannot do." },
 
-    // ── Prestige tab (click to navigate) ─────────────────────────────
-    { target: "#snav-prestige", badge: "Prestige Tab", title: "Prestige",
-      before: closeMenuOverlays,
-      interactive: true,
-      advanceWhen: gtTabActive("snav-prestige"),
-      text: "Click <strong>Prestige</strong>." },
-
-    // ── Prestige panel description ────────────────────────────────────
-    { target: "#ph-panel-prestige", badge: "Prestige Tab", title: "Riding the Next Current",
-      text: "Level 100 is not the end of the ladder. Reach it and you can <strong>Prestige</strong>: your account goes <strong>back to Level 1</strong> and you keep a permanent <strong>XP bonus</strong> and <strong>Store bonus</strong> that never reset, plus a badge beside your name that everyone can see. This page shows the whole ladder and exactly how far along it you are, so it is worth a look long before you get there." },
-
     // ── Level Pass tab (click to navigate) ───────────────────────────
     { target: "#snav-levelpass", badge: "Level Pass Tab", title: "Level Pass",
       before: closeMenuOverlays,
@@ -942,6 +931,13 @@
     // ── Level Pass panel description ──────────────────────────────────
     { target: "#ph-panel-levelpass", badge: "Level Pass Tab", title: "Rewards Along the Way",
       text: "The <strong>Level Pass</strong> is a reward track laid over the levels you are already earning, so every level you pass hands you something: <strong>Critter Coins</strong>, <strong>backgrounds</strong>, <strong>stickers</strong>, <strong>Streak Shields</strong> that save a missed day, <strong>XP Boosts</strong>, and <strong>Weekly Swaps</strong> for trading out a challenge you do not want. A guest sees the whole track at their own level, but rewards are paid into an <strong>account</strong>." },
+
+    // ── Prestige: the last stop on the Level Pass track ───────────────
+    // Prestige has no sidebar item any more; the card at the end of the
+    // Level Pass rail is the way in, so the tour opens it from there.
+    { target: "#ph-panel-prestige", badge: "Level Pass Tab", title: "Riding the Next Current",
+      before: () => { closeMenuOverlays(); try { window._switchPhTab && window._switchPhTab("prestige"); } catch (_) {} },
+      text: "Level 100 is not the end of the ladder. Reach it and you can <strong>Prestige</strong>: your account goes <strong>back to Level 1</strong> and you keep a permanent <strong>XP bonus</strong> and <strong>Store bonus</strong> that never reset, plus a badge beside your name that everyone can see. You reach it from the <strong>Prestige</strong> card at the very end of the Level Pass track. This page shows the whole ladder and exactly how far along it you are, so it is worth a look long before you get there." },
 
     // ── Critter Pass tab (click to navigate) ─────────────────────────
     { target: "#snav-critterpass", badge: "Critter Pass Tab", title: "Critter Pass",

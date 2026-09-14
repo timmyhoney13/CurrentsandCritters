@@ -352,6 +352,73 @@
 .ccLP-tier.is-milestone .ccLP-tier-face { width: 80px; height: 80px; }
 .ccLP-tier.is-milestone .ccLP-tier-label { font-size: .95rem; }
 
+/* ── The last stop: Prestige ──────────────────────────────────────────── */
+/* The Prestige page's own look brought onto the track: the reef painting
+   (/game-bg.png, the same image the Prestige page stands on) under cream
+   glass, the wave medallion, and a small copy of that page's "ride" button. */
+.ccLP-tier.ccLP-prestige {
+  width: 200px;
+  border: 2px solid #fff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .12) 0%, rgba(255, 255, 255, .45) 42%, rgba(252, 255, 255, .92) 64%, rgba(252, 255, 255, .96) 100%),
+    url("/game-bg.png") center / cover no-repeat;
+  box-shadow: 0 0 0 3px rgba(46, 143, 224, .30), 0 8px 20px rgba(20, 100, 165, .22);
+}
+.ccLP-tier.ccLP-prestige.is-open {
+  box-shadow: 0 0 0 3px rgba(232, 179, 74, .55), 0 10px 24px rgba(200, 147, 32, .30);
+}
+.ccLP-prestige-lvl {
+  background: linear-gradient(160deg, var(--lp-gold-lt), var(--lp-gold));
+  font-size: 1.05rem;
+}
+.ccLP-tier.ccLP-prestige .ccLP-prestige-face {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(180deg, #3fc4f0 0%, #2189d8 52%, #1565b8 100%);
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, .45), 0 8px 18px rgba(20, 100, 165, .38);
+}
+.ccLP-prestige-face svg { width: 44px; height: 44px; }
+.ccLP-prestige-label {
+  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-weight: 400;
+  font-size: 1.3rem !important;
+  letter-spacing: .6px;
+  color: #12457c;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, .95), 0 0 12px rgba(255, 255, 255, .9);
+}
+.ccLP-prestige-blurb { color: #0e3f6b; font-weight: 800; }
+.ccLP-prestige-go {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  padding: 8px 22px;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  cursor: pointer;
+  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-size: 1rem;
+  letter-spacing: .7px;
+  color: #fff;
+  background: linear-gradient(180deg, #3fc4f0 0%, #2189d8 52%, #1565b8 100%);
+  text-shadow: 0 2px 0 rgba(12, 70, 120, .45);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .45), 0 6px 16px rgba(20, 100, 165, .38);
+  transition: transform .14s ease, box-shadow .2s ease;
+}
+.ccLP-prestige-go::before {
+  content: "";
+  position: absolute;
+  inset: -50% -10%;
+  z-index: -1;
+  background: repeating-linear-gradient(108deg, rgba(255, 255, 255, 0) 0 14px, rgba(255, 255, 255, .26) 14px 28px);
+  animation: ccLP-ridewater 3.4s linear infinite;
+}
+@keyframes ccLP-ridewater { to { transform: translateX(-28px); } }
+.ccLP-prestige-go:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 0 0 5px rgba(255, 255, 255, .5), 0 10px 22px rgba(20, 100, 165, .46); }
+.ccLP-prestige-go:focus-visible { outline: 3px solid var(--lp-gold-lt); outline-offset: 3px; }
+
 /* ── Rail arrows ──────────────────────────────────────────────────────── */
 .ccLP-nav {
   position: absolute;
@@ -600,6 +667,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ccLP-claimall { animation: none; }
+  .ccLP-prestige-go::before { animation: none; }
   .ccLP-tier,
   .ccLP-bar-fill,
   .ccRF-bar-fill { transition: none; }

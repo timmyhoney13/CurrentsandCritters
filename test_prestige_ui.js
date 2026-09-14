@@ -534,8 +534,13 @@ const tick = () => new Promise((r) => setTimeout(r, 30));
     const app = fs.readFileSync(path.join(__dirname, "multiplayer/client/js/preview-app.js"), "utf8");
     const css = fs.readFileSync(path.join(__dirname, "multiplayer/client/css/prestige.css"), "utf8");
 
-    check("preview.html has the Prestige nav button",
-      /data-tab="prestige"/.test(html));
+    // Prestige is opened from the end of the Level Pass track, not the sidebar.
+    check("preview.html has NO Prestige nav button",
+      !/data-tab="prestige"/.test(html) && !/id="snav-prestige"/.test(html));
+    check("the Level Pass track ends on the card that opens Prestige",
+      /\$\{prestigeCardHtml\(\)\}<\/div>/.test(fs.readFileSync(path.join(__dirname, "multiplayer/client/js/level-pass.js"), "utf8")));
+    check("the Level Pass item stays lit while Prestige is open",
+      /name === "prestige" \? "levelpass" : name/.test(app));
     check("preview.html has the panel the module renders into",
       /id="ph-panel-prestige"/.test(html) && /id="cc-prestige-root"/.test(html));
     check("preview.html loads js/prestige-ui.js", /js\/prestige-ui\.js\?v=/.test(html));

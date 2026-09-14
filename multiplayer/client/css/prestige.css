@@ -244,6 +244,16 @@
   padding: 22px 24px 16px;
 }
 .ccP-hero-badge { flex: 0 0 auto; }
+/* Back to the Level Pass, the page Prestige is opened from. */
+.ccP-back {
+  margin: 16px 0 0 24px; padding: 7px 16px; min-height: 36px; border-radius: 999px;
+  border: 1.5px solid var(--p-line); background: rgba(252, 255, 255, .92); color: var(--p-blue);
+  font-family: "Nunito", sans-serif; font-size: 13px; font-weight: 900; cursor: pointer;
+  box-shadow: 0 3px 10px rgba(28, 90, 150, .14);
+  transition: transform .12s ease, background .12s ease;
+}
+.ccP-back:hover { background: #fff; transform: translateY(-1px); }
+.ccP-back:focus-visible { outline: 3px solid var(--p-gold-lt); outline-offset: 2px; }
 .ccP-hero-main { flex: 1 1 260px; min-width: 0; }
 /* Navy on a white halo, not white on bright water: the reef's own sky is pale,
    so a white heading has nothing to sit against at the top of the page. */

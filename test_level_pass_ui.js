@@ -232,9 +232,14 @@ const MAIN = \`
 
     await window.__ccLevelPassRender();
     const root = document.getElementById("cc-level-pass-root");
-    const tiers = [...root.querySelectorAll(".ccLP-tier")];
+    // The Prestige card is the last stop on the rail, not a reward tier.
+    const tiers = [...root.querySelectorAll(".ccLP-tier:not(.ccLP-prestige)")];
+    const railEnd = root.querySelector("#ccLP-rail > :last-child");
     out.pass = {
       tiers: tiers.length,
+      prestigeLast: !!(railEnd && railEnd.id === "ccLP-prestige"),
+      prestigeBtn: root.querySelectorAll('#ccLP-prestige [data-cc-goto-tab="prestige"]').length,
+      prestigeCards: root.querySelectorAll(".ccLP-prestige").length,
       ready: root.querySelectorAll(".ccLP-tier.is-ready").length,
       claimed: root.querySelectorAll(".ccLP-tier.is-claimed").length,
       locked: root.querySelectorAll(".ccLP-tier.is-locked").length,
@@ -438,6 +443,9 @@ console.log("\n  Level Pass:");
 const serverTiers = P.state.track.length;
 check("every server tier rendered", D.pass.tiers === serverTiers,
       `rendered ${D.pass.tiers} of ${serverTiers}`);
+check("the track ends on exactly one Prestige card",
+      D.pass.prestigeLast && D.pass.prestigeCards === 1, `${D.pass.prestigeLast} / ${D.pass.prestigeCards}`);
+check("…whose button opens the Prestige page", D.pass.prestigeBtn === 1, D.pass.prestigeBtn);
 check("the player's level is shown", D.pass.level === "22", D.pass.level);
 check("milestone critters render as milestones",
       D.pass.milestones === P.state.track.filter(t => t.type === "critter").length,
