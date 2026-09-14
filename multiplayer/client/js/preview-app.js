@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-14.4";
+  const APP_BUILD   = "2026-09-14.5";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -31419,6 +31419,37 @@
       window._switchPhTab = switchTab;
       // Settings is no longer a sidebar item; it's the gear in the top-right
       // (wired next to the Trade button above).
+
+      // ── The pin on the side menu's edge ─────────────────────────────
+      // On a computer with a mouse the menu is an icon rail that opens while
+      // the cursor is on it (preview.css, "ICON RAIL"). The pin keeps it open
+      // as a full menu, and this device remembers that. CSS hides the pin
+      // everywhere else. Letting go of the pin closes the menu at once, even
+      // with the cursor still on it: .ph-sidebar-resting holds off the hover
+      // until the cursor leaves.
+      (function initSidebarPin() {
+        const sb = document.getElementById("ph-sidebar");
+        const pin = document.getElementById("ph-sidebar-pin");
+        if (!sb || !pin) return;
+        const KEY = "cc_sidebar_pinned";
+        const apply = (on) => {
+          sb.classList.toggle("ph-sidebar-pinned", on);
+          pin.setAttribute("aria-pressed", on ? "true" : "false");
+          const label = on ? "Collapse the menu" : "Keep the menu open";
+          pin.setAttribute("aria-label", label);
+          pin.title = label;
+        };
+        let pinned = false;
+        try { pinned = localStorage.getItem(KEY) === "1"; } catch (_) {}
+        apply(pinned);
+        pin.addEventListener("click", () => {
+          const on = !sb.classList.contains("ph-sidebar-pinned");
+          apply(on);
+          sb.classList.toggle("ph-sidebar-resting", !on);
+          try { localStorage.setItem(KEY, on ? "1" : "0"); } catch (_) {}
+        });
+        sb.addEventListener("mouseleave", () => sb.classList.remove("ph-sidebar-resting"));
+      })();
 
       // ── Store: Stripe-hosted checkout ───────────────────────────────
       // We NEVER collect card details on our site and never build a fake

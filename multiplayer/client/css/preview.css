@@ -9711,103 +9711,223 @@
       #auth-stats-lobby #ph-tabs { display: flex; }
     }
 
-    /* ── Desktop with a mouse: the side menu is TUCKED AWAY ──────────────
-       It waits off the left edge until the cursor reaches for it, so every
-       screen gets the whole width instead of losing 240px to a menu nobody is
-       using. The strip in front of it (.ph-sidebar-edge, the first 16px of the
-       window) is the handle: touch it and the menu slides out OVER the page,
-       leave the menu and it slides back. The page never moves underneath it.
+    /* ── Desktop with a mouse: the side menu is an ICON RAIL ─────────────
+       A slim strip of icons stays down the left edge of every screen, so the
+       menu is always in sight and never sits on top of anything. Reach for it
+       and it widens into the full menu: the words fade in, and the page slides
+       right to make room instead of being covered. Leave it and it narrows
+       back, and the page slides back with it.
 
        Only for a computer with a real mouse, the app's own device switch AND
        the browser's pointer report both have to say so. A finger cannot hover,
        so a phone, a tablet or a touch laptop keeps the menu out, as before.
 
-       Four things hold it open:
-         the edge strip is hovered (a sibling selector: the strip is the element
-           right before the menu in preview.html),
-         the menu itself is hovered, so it stays out while you use it,
+       The rail is 94px (an 18px gutter plus a 76px card); open, it is 240px,
+       the width the menu always had. Five things open it:
+         the menu is hovered (a cursor only brushing past does not count: the
+           .12s delay means it never starts),
          the keyboard moved focus into it (:focus-visible, so a mouse click that
-           leaves a button focused does not pin the menu open), and
-         .ph-sidebar-held, which the tutorial sets while a step points into it.
+           leaves a button focused does not pin it open),
+         .ph-sidebar-held, which the tutorial sets while a step points into it,
+         .ph-sidebar-pinned, the pin on the open menu's edge (preview-app.js,
+           initSidebarPin), remembered per device, and
+       .ph-sidebar-resting stops hover opening it again straight after the pin
+       is let go under the cursor, until the cursor leaves.
+
+       Nothing inside the card changes its layout as it widens. The logo and the
+       Daily Streak block keep the open width (200px) and the card clips them,
+       the tabs keep one line, so no icon jumps up or down on the way; the words
+       are only coloured in. Tabs are left as the plain buttons in preview.html
+       (and the Analytics one preview-app.js adds), with no extra markup.
 
        In this mode the white card is the scroller, not the sidebar, so the
        card's shadow is never clipped and nothing can spill out of the bottom of
-       the card (the bug test_sidebar_scroll.js pins down for the other mode). */
-    .ph-sidebar-edge { display: none; }
+       the card (the bug test_sidebar_scroll.js pins down for the other mode).
+       test_sidebar_hover.js drives all of this with a real mouse. */
+    .ph-sidebar-pin { display: none; }
     @media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
-      body.cc-device-computer #auth-stats-lobby .ph-sidebar-edge {
-        display: block;
-        position: fixed;
-        left: 0; top: 0; bottom: 0;
-        width: 16px;
-        z-index: 9;
+      body.cc-device-computer #auth-stats-lobby {
+        --ph-rail-w: 94px;
+        --ph-rail-delay: .2s;
+        --ph-rail-ease: cubic-bezier(.22,1,.36,1);
       }
-      /* The pull tab, the one thing on screen that says a menu lives here. */
-      body.cc-device-computer #auth-stats-lobby .ph-sidebar-edge::after {
-        content: "";
-        position: absolute;
-        left: 0; top: 50%;
-        width: 14px; height: 64px;
-        margin-top: -32px;
-        box-sizing: border-box;
-        border: 1px solid rgba(140,200,235,.6);
-        border-left: none;
-        border-radius: 0 14px 14px 0;
-        background:
-          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='11' viewBox='0 0 7 11'%3E%3Cpath d='M1.5 1.5l4 4-4 4' fill='none' stroke='%231558b0' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
-          right 3px center / 7px 11px no-repeat,
-          rgba(248,253,255,.94);
-        box-shadow: 0 6px 18px rgba(0,60,120,.14);
-        transition: width .2s ease, opacity .18s ease;
+      body.cc-device-computer #auth-stats-lobby:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible) {
+        --ph-rail-w: 240px;
+        --ph-rail-delay: .12s;
       }
-      body.cc-device-computer #auth-stats-lobby .ph-sidebar-edge:hover::after { width: 20px; }
-      body.cc-device-computer #auth-stats-lobby:has(.ph-sidebar:hover, .ph-sidebar-held, .ph-sidebar :focus-visible) .ph-sidebar-edge::after {
-        opacity: 0;
-      }
+      body.cc-device-computer #auth-stats-lobby:has(.ph-sidebar.ph-sidebar-held) { --ph-rail-delay: 0s; }
 
       body.cc-device-computer #auth-stats-lobby .ph-sidebar {
         position: fixed;
         top: 0; bottom: 0; left: 0;
-        width: 240px;
+        width: var(--ph-rail-w);
         max-height: none;
         margin: 0;
         padding: 18px 0 18px 18px;
         box-sizing: border-box;
         overflow: visible;
         z-index: 10;
-        /* Closed: parked past the edge, shadow and all. It waits a moment
-           before leaving, so a cursor that slips off for an instant does not
-           make it flicker. */
-        transform: translateX(calc(-100% - 48px));
-        transition: transform .3s cubic-bezier(.4,0,.2,1) .2s;
+        transition: width .4s var(--ph-rail-ease) var(--ph-rail-delay);
       }
-      body.cc-device-computer #auth-stats-lobby .ph-sidebar-edge:hover + .ph-sidebar,
-      body.cc-device-computer #auth-stats-lobby .ph-sidebar:hover,
-      body.cc-device-computer #auth-stats-lobby .ph-sidebar:has(:focus-visible),
-      body.cc-device-computer #auth-stats-lobby .ph-sidebar.ph-sidebar-held {
-        transform: translateX(0);
-        /* The short delay means a cursor that only brushes the edge on its way
-           past does not throw the menu open. */
-        transition: transform .38s cubic-bezier(.16,1,.3,1) .05s;
+      /* The page makes room: it always starts 22px clear of the menu's edge. */
+      body.cc-device-computer #auth-stats-lobby .ph-wrap {
+        padding: 22px 36px 36px calc(var(--ph-rail-w) + 22px);
+        transition: padding-left .4s var(--ph-rail-ease) var(--ph-rail-delay);
       }
-      body.cc-device-computer #auth-stats-lobby .ph-sidebar.ph-sidebar-held { transition-delay: 0s; }
       body.cc-device-computer #auth-stats-lobby .ph-sidebar-nav-card {
         flex: none;
         height: 100%;
         box-sizing: border-box;
+        padding-left: 10px;
+        padding-right: 10px;
+        overflow-x: hidden;
         overflow-y: auto;
         overscroll-behavior: contain;
         scrollbar-width: thin;
         scrollbar-color: rgba(58,96,136,.28) transparent;
         box-shadow: 0 18px 48px rgba(0,50,110,.2), 0 2px 8px rgba(0,50,110,.08);
       }
-      /* The menu no longer takes a column, so the screen gets it all. */
-      body.cc-device-computer #auth-stats-lobby .ph-wrap {
-        padding: 22px 36px 36px;
+
+      /* Logo: the full name at the open width, and a small C&C in the rail. */
+      body.cc-device-computer #auth-stats-lobby .ph-sidebar-logo {
+        position: relative;
+        width: 200px;
+        box-sizing: border-box;
+        flex: none;
+        transition: color .18s ease .2s;
+      }
+      body.cc-device-computer #auth-stats-lobby .ph-sidebar-logo span { transition: color .18s ease .2s; }
+      body.cc-device-computer #auth-stats-lobby .ph-sidebar-logo::after {
+        content: "C&C";
+        position: absolute;
+        left: 0; top: 0; bottom: 10px;
+        width: 54px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.05rem;
+        letter-spacing: 0;
+        color: #1558b0;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .12s ease;
+      }
+
+      /* Tabs: the icon sits dead centre in the rail (17px in from each side of
+         the 54px track) and does not move when the menu opens. */
+      body.cc-device-computer #auth-stats-lobby .ph-snav-item {
+        padding-left: 17px;
+        white-space: nowrap;
+        overflow: hidden;
+        transition: background .18s, color .18s ease .2s, box-shadow .24s,
+                    transform .26s cubic-bezier(.3,1.45,.5,1);
+      }
+      body.cc-device-computer #auth-stats-lobby .ph-snav-item svg { color: #3a6088; transition: color .18s; }
+      body.cc-device-computer #auth-stats-lobby .ph-snav-item:hover svg { color: #1a5fa0; }
+      body.cc-device-computer #auth-stats-lobby .ph-snav-item.active svg { color: #1558b0; }
+
+      /* A count becomes a red dot on the icon's corner in the rail, and grows
+         back into the number as the menu opens. */
+      body.cc-device-computer #auth-stats-lobby .ph-snav-badge {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        margin-top: -9px;
+        transition: right .4s var(--ph-rail-ease) var(--ph-rail-delay),
+                    margin-top .4s var(--ph-rail-ease) var(--ph-rail-delay),
+                    min-width .4s var(--ph-rail-ease) var(--ph-rail-delay),
+                    height .4s var(--ph-rail-ease) var(--ph-rail-delay),
+                    padding .4s var(--ph-rail-ease) var(--ph-rail-delay),
+                    font-size .2s ease var(--ph-rail-delay);
+      }
+
+      /* Daily Streak: the star and the day count, small and centred in the
+         rail; everything else in the block appears when the menu opens. */
+      body.cc-device-computer #auth-stats-lobby .ph-sidebar-streak {
+        width: 200px;
+        box-sizing: border-box;
+        flex: none;
+      }
+      body.cc-device-computer #auth-stats-lobby .ph-sidebar-streak > :not(.ph-ss-main),
+      body.cc-device-computer #auth-stats-lobby .ph-ss-label {
+        transition: opacity .18s ease .2s, visibility 0s linear .2s;
+      }
+      body.cc-device-computer #auth-stats-lobby .ph-ss-icon,
+      body.cc-device-computer #auth-stats-lobby .ph-ss-days {
+        transition: transform .4s var(--ph-rail-ease) var(--ph-rail-delay);
+      }
+
+      /* The pin: a round button on the open menu's right edge. It only shows
+         once the menu is open: on the rail it would ride the card's edge 146px
+         to the right the moment the cursor reached for it. */
+      body.cc-device-computer #auth-stats-lobby .ph-sidebar-pin {
+        display: grid;
+        place-items: center;
+        position: absolute;
+        top: 44px;
+        right: -14px;
+        width: 28px; height: 28px;
+        padding: 0;
+        border-radius: 50%;
+        border: 1px solid rgba(140,200,235,.8);
+        background: #fff;
+        color: #1558b0;
+        box-shadow: 0 4px 12px rgba(0,60,120,.18);
+        cursor: pointer;
+        z-index: 1;
+        transition: background .15s, transform .15s,
+                    opacity .2s ease calc(var(--ph-rail-delay) + .3s),
+                    visibility 0s linear calc(var(--ph-rail-delay) + .3s);
+      }
+      body.cc-device-computer #auth-stats-lobby .ph-sidebar-pin:hover { background: #eaf6fd; transform: scale(1.08); }
+      body.cc-device-computer #auth-stats-lobby .ph-sidebar-pin svg { transition: transform .4s var(--ph-rail-ease); }
+      body.cc-device-computer #auth-stats-lobby .ph-sidebar-pin[aria-pressed="true"] svg { transform: rotate(180deg); }
+
+      /* ── Closed: the rail ── */
+      body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-sidebar-nav-card {
+        scrollbar-width: none;
+      }
+      body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-sidebar-logo,
+      body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-sidebar-logo span,
+      body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-snav-item {
+        color: transparent;
+        transition-delay: 0s;
+        transition-duration: .1s;
+      }
+      body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-sidebar-logo::after {
+        opacity: 1;
+        transition: opacity .2s ease .3s;
+      }
+      body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-snav-badge {
+        right: 12px;
+        margin-top: -15px;
+        min-width: 10px;
+        height: 10px;
+        padding: 0;
+        font-size: 0;
+      }
+      body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-sidebar-streak > :not(.ph-ss-main),
+      body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-ss-label,
+      body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-sidebar-pin {
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity .1s ease, visibility 0s linear .1s;
+      }
+      /* The streak block is centred at 100px of its 200px; the rail's track
+         is centred at 27px of 54px, so the star and count move 73px left. */
+      body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-ss-icon {
+        transform: translateX(-73px) scale(.78);
+      }
+      body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-ss-days {
+        transform: translate(-73px, -21px) scale(.38);
       }
     }
     @media (min-width: 1100px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
-      body.cc-device-computer #auth-stats-lobby .ph-sidebar { transition-duration: .01s !important; }
+      body.cc-device-computer #auth-stats-lobby .ph-sidebar,
+      body.cc-device-computer #auth-stats-lobby .ph-wrap,
+      body.cc-device-computer #auth-stats-lobby .ph-sidebar *,
+      body.cc-device-computer #auth-stats-lobby .ph-sidebar *::after {
+        transition-duration: .01s !important;
+        transition-delay: 0s !important;
+      }
     }
 
     /* Sidebar branding */

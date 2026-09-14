@@ -340,6 +340,11 @@
     });
     window.addEventListener("resize", positionCoach);
     window.addEventListener("scroll", positionCoach, true);
+    // The icon rail opening or closing slides the whole page sideways, which
+    // is neither a resize nor a scroll: re-aim once it has finished moving.
+    document.addEventListener("transitionend", (e) => {
+      if (e.target && e.target.id === "ph-sidebar" && e.propertyName === "width") positionCoach();
+    });
     return coach;
   }
 
@@ -350,10 +355,10 @@
     gotoStep(0);
   }
 
-  // On a computer with a mouse the Player Home side menu is tucked off the left
-  // edge until the cursor reaches for it (preview.css, "TUCKED AWAY"). A step
-  // that points into it has to hold it out, or the spotlight rings a button
-  // that is off the screen. Any other step, or the end of the tour, lets go.
+  // On a computer with a mouse the Player Home side menu is an icon rail that
+  // only shows its words while the cursor is on it (preview.css, "ICON RAIL").
+  // A step that points into it has to hold it open, or the spotlight rings a
+  // bare icon. Any other step, or the end of the tour, lets go.
   function coachHoldSidebar(el) {
     const sb = document.getElementById("ph-sidebar");
     if (sb) sb.classList.toggle("ph-sidebar-held", !!(el && sb.contains(el)));
