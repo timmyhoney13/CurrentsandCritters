@@ -3411,11 +3411,18 @@
   function boot() {
     try { injectCss(); } catch (_) {}
     try { primeTabIcon(); } catch (_) {}
-    try { setInterval(primeTabIcon, 5000); } catch (_) {}
-    // Clan chat has to reach you when you are not looking at it. Same slow
-    // timer; chatWatchTick rate-limits itself to one cheap request a
-    // CHAT_POLL_SEC, and makes none at all for a player with no clan.
-    try { setInterval(chatWatchTick, 5000); } catch (_) {}
+    // Clan chat has to reach you when you are not looking at it. One slow
+    // timer drives both jobs (it was two, waking the device twice as often);
+    // chatWatchTick rate-limits itself to one cheap request a CHAT_POLL_SEC,
+    // and makes none at all for a player with no clan. A hidden tab does
+    // neither: the visibilitychange below checks chat the moment it returns.
+    try {
+      setInterval(() => {
+        if (document.visibilityState === "hidden") return;
+        try { primeTabIcon(); } catch (_) {}
+        try { chatWatchTick(); } catch (_) {}
+      }, 5000);
+    } catch (_) {}
     try {
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") chatWatchTick();

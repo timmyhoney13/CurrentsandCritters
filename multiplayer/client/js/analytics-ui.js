@@ -1635,7 +1635,8 @@
                                     fmt, dayLabel, niceTicks, SECTIONS, RANGES, refreshLive };
 
   // A signed-out (or non-admin) session must never keep the panel on screen.
-  setInterval(() => { if (S.open && !isAdmin()) close(); }, 2000);
+  // Checked as the account changes, not on a timer every player was paying for.
+  window.addEventListener("cc:auth", () => { if (S.open && !isAdmin()) close(); });
 
   // Charts are drawn at the panel's real pixel width, so a resized window has
   // to redraw them or the axis text scales with the stretch. Debounced, and

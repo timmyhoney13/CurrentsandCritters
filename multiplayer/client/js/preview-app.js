@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-14.2";
+  const APP_BUILD   = "2026-09-14.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -1398,10 +1398,15 @@
   // this bridge's isAdmin() is a convenience for hiding the button, never the
   // security boundary. Faking it client-side gets you a 403 and nothing else.
   const ANALYTICS_ADMIN_EMAIL = "currentsandcritters@gmail.com";
+  // apiFetch's 5-second default is for gameplay. A section whose account scan
+  // has expired reads every account from Firestore first, which on Render
+  // outlasts 5s: the browser gave up, and Lifetime said "Couldn't reach the
+  // server" while the server was still answering. Every call here is a read.
+  const ANALYTICS_TIMEOUT_MS = 60000;
   window.__ccAnalytics = {
     APP_BUILD,
-    get:  (p) => apiFetch(p),
-    post: (p, b) => apiPost(p, b),
+    get:  (p) => apiFetch(p, { timeoutMs: ANALYTICS_TIMEOUT_MS }),
+    post: (p, b) => apiPost(p, b, { timeoutMs: ANALYTICS_TIMEOUT_MS }),
     toast: (m, t) => { try { showToast(m, t); } catch (_) {} },
     authUser: () => (window.__fishAuthUser ? window.__fishAuthUser() : null),
     async idToken() {
@@ -1534,9 +1539,10 @@
     onRedeemed: () => { try { window.__fishReloadProfile && window.__fishReloadProfile(); } catch (_) {} },
   };
 
-  // The sidebar entry, added only for the admin account. Re-checked on a timer
-  // because auth resolves after the page paints, and a sign-out has to strip
-  // the button (and shut the panel) the moment it happens.
+  // The sidebar entry, added only for the admin account. Re-checked whenever
+  // the signed-in account changes ("cc:auth"), because auth resolves after the
+  // page paints, and a sign-out has to strip the button (and shut the panel)
+  // the moment it happens.
   function _ccSyncAnalyticsNav() {
     const nav = document.querySelector(".ph-sidebar-nav");
     if (!nav) return;
@@ -1564,7 +1570,7 @@
     if (btn) btn.style.display = admin ? "" : "none";
     if (!admin) { try { window.__ccAnalyticsClose && window.__ccAnalyticsClose(); } catch (_) {} }
   }
-  setInterval(_ccSyncAnalyticsNav, 1500);
+  window.addEventListener("cc:auth", _ccSyncAnalyticsNav);
   _ccSyncAnalyticsNav();
 
   // ── End-game cinematic ─────────────────────────────────────────
@@ -4694,7 +4700,8 @@
   function openLobbyBrowser() {
     document.getElementById("lobby-browser-modal").classList.add("open");
     fetchAndRenderRooms();
-    _lbRefreshTimer = setInterval(fetchAndRenderRooms, 8000);
+    // A hidden tab is nobody browsing rooms: skip the request, not the modal.
+    _lbRefreshTimer = setInterval(() => { if (!document.hidden) fetchAndRenderRooms(); }, 8000);
   }
 
   function closeLobbyBrowser() {
@@ -21051,10 +21058,10 @@
     }
   })();
 
-  // Keep server warm
-  function pingServer() { fetch(window.__FISH_API_BASE__+"/api/health",{method:"GET",cache:"no-store"}).catch(()=>{}); }
-  pingServer();
-  setInterval(pingServer, 4*60*1000); // ping every 4 min to prevent Render free-tier sleep
+  // (A "keep the server warm" ping to /api/health used to run here every four
+  // minutes on every open device, to stop a Render free-tier instance from
+  // sleeping. The game server has a persistent disk, which the free tier
+  // cannot have, so it never sleeps: the ping only woke players' radios.)
 
   // ═══════════════════════════════════════════════════════════════
   // ANIMAL AVATAR SYSTEM (outer scope, shared with auth IIFE)
@@ -21767,6 +21774,13 @@
 
     // ── Firebase init (only if config is filled in) ────────────
     let _auth = null, _db = null, _authUser = null;
+    // Whoever is signed in just changed (window.__fishAuthUser now answers
+    // differently). The admin-only buttons listen for "cc:auth" instead of
+    // re-checking on 1-2 second timers, which woke every player's device four
+    // times a second, forever, to decide that they are not the developer.
+    function ccNoteAuthUser() {
+      queueMicrotask(() => { try { window.dispatchEvent(new Event("cc:auth")); } catch (_) {} });
+    }
     let _playerNickname = "", _friendCode = "";
     let _guestSessionActive = false;
     let _guestAvatarUrl = "";
@@ -21866,7 +21880,11 @@
     // device choice, which for a first-time visitor resolves AFTER this script
     // first runs.
     const _ccUrlIsGameWindow = _ccUrlParams.get("game_window") === "1" || _ccUrlIsRoomLink();
-    const IS_GAME_WINDOW = () => _ccUrlIsGameWindow || window.CC_IS_MOBILE === true;
+    // Set when an account signs in on the launcher: the page turns into the game
+    // window where it stands instead of reloading itself as one (see
+    // ccBecomeGameWindow). Nothing outside the auth flow asks which one it is.
+    let _ccBecameGameWindow = false;
+    const IS_GAME_WINDOW = () => _ccUrlIsGameWindow || _ccBecameGameWindow || window.CC_IS_MOBILE === true;
     const _ccWantsGoogleAuth = _ccUrlParams.get("auth") === "google";
     let _ccGoogleRedirectStarted = false;
 
@@ -22005,6 +22023,23 @@
       _ccLaunchCtx = ctx;
       try { window.location.assign(ctx.gameUrl); }
       catch (_) { window.location.href = ctx.gameUrl; }
+    }
+
+    // An account that signs in on the launcher used to be sent through
+    // ccLaunchFromLauncher: the whole app (two megabytes of script) loaded a
+    // second time and Firebase restored the session a second time, all behind
+    // a loading screen, right after the Google window closed. The launcher and
+    // the game window are the same page and differ only in IS_GAME_WINDOW,
+    // which is read by the auth flow alone, so the page simply becomes the game
+    // window, exactly as a phone always has. The URL follows, so a refresh
+    // comes back as the game window too.
+    function ccBecomeGameWindow() {
+      _ccBecameGameWindow = true;
+      try {
+        const u = new URL(location.href);
+        u.searchParams.set("game_window", "1");
+        history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+      } catch (_) {}
     }
 
     function firebaseConfigured() {
@@ -24866,7 +24901,7 @@
     // a guest "Player" session.
     function revealRegisteredLobby(nickname, code, profile, user) {
       const acct = _authUser || user || null;
-      if (!_authUser && acct) { _authUser = acct; _ccHadAccountUser = true; _guestSessionActive = false; }
+      if (!_authUser && acct) { _authUser = acct; ccNoteAuthUser(); _ccHadAccountUser = true; _guestSessionActive = false; }
       // Safety net: with no account identity at all, back to sign-in rather
       // than silently dropping them into a guest session.
       if (!_authUser) {
@@ -26205,36 +26240,26 @@
         // real game runs in the dedicated window. Just show the launch screen
         // (and route auth/onboarding into the game window).
         if (!IS_GAME_WINDOW()) {
-          $a("auth-loading-screen").classList.add("hidden");
           // A guest session running in this window outranks an account that is
           // merely still in Firebase's storage: the guest is the person at the
           // keyboard, and they did not ask to be signed in as anybody.
           const liveGuestNick = ccLiveGuestNick();
           if (user && liveGuestNick && !_ccWantsGoogleAuth && !_ccGoogleRedirectStarted) {
+            $a("auth-loading-screen").classList.add("hidden");
             _ccExplicitSignOut = true;
             try { await _auth.signOut(); } catch (_) {}
             return;
           }
           if (user) {
-            _authUser = user;
-            _ccHadAccountUser = true;
-            _guestSessionActive = false;
-            // Signed in on the launcher, go straight into the game in THIS tab
-            // (the Firebase session carries over via this tab's sessionStorage).
-            // No separate window, no "running" card.
-            //
-            // This used to read the whole Firestore profile first, to fill in a
-            // nickname and an avatar for a launch card that this navigation
-            // then throws away. Nothing downstream ever saw either one, and it
-            // was the FIRST Firestore call of the session, so it paid for
-            // opening the connection too: the better part of a second of
-            // loading screen bought nothing at all. The game window reads the
-            // profile itself a moment later, which is the read that counts.
-            const nick = String(user.displayName || "").split(" ")[0] || "";
-            _ccLaunchCtx = { type: "google", nick, avatarUrl: "", gameUrl: ccGameUrl({ auth: "google" }) };
-            ccLaunchFromLauncher(_ccLaunchCtx);
+            // Signed in on the launcher: become the game window right here and
+            // carry on into the game-window branch below, which reads the
+            // profile and opens the lobby. No second page load (see
+            // ccBecomeGameWindow), so the Firestore connection this page has
+            // already warmed is the one the profile read uses.
+            ccBecomeGameWindow();
           } else {
-            _authUser = null;
+            $a("auth-loading-screen").classList.add("hidden");
+            _authUser = null; ccNoteAuthUser();
             const gNick = liveGuestNick;
             if (gNick) {
               // Returning guest on the launcher, go straight into the game in
@@ -26245,8 +26270,8 @@
             } else {
               showStep("auth-step-choose");
             }
+            return;
           }
-          return;
         }
 
         // ── GAME WINDOW MODE ── full auth / onboarding / lobby logic ──
@@ -26269,7 +26294,7 @@
             stopPresencePing(prevUid);
             if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
           }
-          _authUser = user;
+          _authUser = user; ccNoteAuthUser();
           _ccHadAccountUser = true;
           _guestSessionActive = false;
           _playerNickname = "";
@@ -26389,7 +26414,7 @@
           if (_authUser?.uid) stopPresencePing(_authUser.uid);
           if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
           stopHoursTimer();
-          _authUser = null;
+          _authUser = null; ccNoteAuthUser();
           _activeProfile = null;
           _playerNickname = "";
           _friendCode = "";
@@ -26663,6 +26688,12 @@
       ccChooserPane(back);
     }, true);
 
+    // Google's account picker, and nothing more. This used to also ask for
+    // "consent", which put Google's "Currents and Critters wants to access your
+    // Google Account" page in front of EVERY sign-in, including the hundredth,
+    // for the same name, email and picture the first one already allowed.
+    const CC_GOOGLE_PROMPT = { prompt: "select_account" };
+
     async function beginCleanGoogleSignIn(errId) {
       if (!_auth) {
         setAuthMsg(errId, "Sign-in is not yet configured for this server.", false);
@@ -26686,11 +26717,14 @@
       }
       try {
         const provider = new firebase.auth.GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: "select_account consent" });
+        provider.setCustomParameters(CC_GOOGLE_PROMPT);
         const result = await _auth.signInWithPopup(provider);
         const signedUid = result?.user?.uid || "";
         if (previousUid && signedUid && signedUid === previousUid) {
           setAuthMsg(errId, "You selected the same Google account. Choose a different account in the Google picker.", false);
+        } else if (signedUid) {
+          // The Google window has closed; the profile read is still on its way.
+          setAuthMsg(errId, "Signing you in…", "info");
         }
       } catch (e) {
         // A player closing the Google window is a decision, not a failure, so
@@ -26699,7 +26733,7 @@
         const popupBlocked = ["auth/popup-blocked","auth/cancelled-popup-request"].includes(e.code);
         if (popupBlocked) {
           const rp = new firebase.auth.GoogleAuthProvider();
-          rp.setCustomParameters({ prompt: "select_account consent" });
+          rp.setCustomParameters(CC_GOOGLE_PROMPT);
           try { await _auth.signInWithRedirect(rp); return; } catch {}
         }
         setAuthMsg(errId, friendlyAuthErr(e.code), isAuthCancel(e.code) ? "info" : "warn");
@@ -26725,8 +26759,9 @@
       try {
         if (_auth.currentUser) { try { await _auth.signOut(); } catch (_) {} }
         const provider = new firebase.auth.GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: "select_account consent" });
-        await _auth.signInWithPopup(provider);
+        provider.setCustomParameters(CC_GOOGLE_PROMPT);
+        const result = await _auth.signInWithPopup(provider);
+        if (result?.user) setAuthMsg(errId, "Signing you in…", "info");
       } catch (e) {
         // A player closing the Google window is a decision, not a failure, so
         // it is not filed in the error log as one either.
@@ -26735,7 +26770,7 @@
         if (popupBlocked) {
           try {
             const rp = new firebase.auth.GoogleAuthProvider();
-            rp.setCustomParameters({ prompt: "select_account consent" });
+            rp.setCustomParameters(CC_GOOGLE_PROMPT);
             _ccGoogleRedirectStarted = true;
             await _auth.signInWithRedirect(rp); return;
           } catch (_) {}
@@ -26776,7 +26811,7 @@
         _ccExplicitSignOut = true;
         try { await _auth.signOut(); } catch (_) {}
       }
-      _authUser = null;
+      _authUser = null; ccNoteAuthUser();
       _guestSessionActive = true;
       _friendCode = "";
       // A NEW person, every time: nothing any earlier guest left behind comes
@@ -27968,7 +28003,7 @@
       _playerNickname = ""; _friendCode = ""; _activeProfile = null;
       _ccExplicitSignOut = true;
       if (_auth) { try { await _auth.signOut(); } catch {} }
-      _authUser = null;
+      _authUser = null; ccNoteAuthUser();
       _guestSessionActive = false;
       _ccBecomeIdentity();
       _avatarPromptShownForUid = "";
@@ -28492,7 +28527,7 @@
       _playerNickname = ""; _friendCode = ""; _activeProfile = null;
       _ccExplicitSignOut = true;
       if (_auth) { try { await _auth.signOut(); } catch {} }
-      _authUser = null;
+      _authUser = null; ccNoteAuthUser();
       _guestSessionActive = false;
       _ccBecomeIdentity();
       _avatarPromptShownForUid = "";
@@ -28517,7 +28552,7 @@
         _playerNickname = ""; _friendCode = ""; _activeProfile = null;
         _ccExplicitSignOut = true;
         if (_auth) { try { await _auth.signOut(); } catch {} }
-        _authUser = null;
+        _authUser = null; ccNoteAuthUser();
         _guestSessionActive = false;
         _ccBecomeIdentity();
         _avatarPromptShownForUid = "";
@@ -36801,10 +36836,11 @@
       if (close)   close.addEventListener("click", () => modal?.classList.remove("open"));
       if (modal)   modal.addEventListener("click", e => { if (!e.target.closest(".ph-whatsnew-box")) modal.classList.remove("open"); });
 
-      // Check on load, when the tab regains focus, and every 3 minutes.
+      // Check on load, when the tab regains focus, and every 3 minutes while
+      // it is on screen. A hidden tab asks nothing: coming back checks at once.
       checkForAppUpdate();
       document.addEventListener("visibilitychange", () => { if (!document.hidden) checkForAppUpdate(); });
-      setInterval(checkForAppUpdate, 180000);
+      setInterval(() => { if (!document.hidden) checkForAppUpdate(); }, 180000);
     })();
 
     // ── Game Detail Modal ─────────────────────────────────────────
@@ -38711,7 +38747,7 @@
       if (o.migrate) stageGuestMigration();
       clearGuestSessionStorage();
       _playerNickname = ""; _friendCode = ""; _activeProfile = null;
-      _authUser = null;
+      _authUser = null; ccNoteAuthUser();
       _avatarSelectionRequired = false;
       _pendingOnboardingUid = "";
       closeAvatarPickerModal();

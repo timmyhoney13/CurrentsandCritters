@@ -628,6 +628,10 @@ serviceAccountKey.json
 # everything they do, and it is gone when the window closes.
 !test_guest_session_isolation.js
 
+# Continue with Google: no consent screen every time, and no second load of
+# the whole app between the Google window closing and Player Home opening.
+!test_google_signin_speed.js
+
 # Newsletter tests + setup guide + the one-off OAuth helper.
 # (newsletter_server.py / newsletter_email.py are allowlisted further up, next
 # to the other server modules.) NOTE: .gitignore and .dockerignore are BOTH

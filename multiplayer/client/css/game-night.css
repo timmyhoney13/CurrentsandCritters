@@ -55,7 +55,9 @@
   position: absolute;
   inset: -40% -60%;
   background: linear-gradient(75deg, transparent 42%, rgba(255, 255, 255, .10) 50%, transparent 58%);
-  animation: ccGN-sheen 9s linear infinite;
+  /* Two passes as the band arrives, then it rests: an endless loop kept the
+     GPU drawing frames for as long as Player Home stayed open. */
+  animation: ccGN-sheen 9s linear 2 forwards;
   pointer-events: none;
 }
 @keyframes ccGN-sheen { from { transform: translateX(-30%); } to { transform: translateX(30%); } }

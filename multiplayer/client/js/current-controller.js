@@ -269,6 +269,7 @@
     buildPanel();
     TOOLS.forEach(t => renderBody(t.id));
     overlay.classList.add("open");
+    startLiveTick();
   }
   function close() { if (overlay) overlay.classList.remove("open"); }
 
@@ -780,18 +781,30 @@
   }
 
 
-  // Re-evaluate admin visibility continuously (auth can resolve after load,
-  // and a sign-out must immediately strip the button + any open panel).
-  setInterval(ensureMenuButton, 1200);
+  // Admin visibility is re-evaluated when it can change or matter: the moment
+  // the signed-in account changes (auth resolves after load, and a sign-out
+  // must strip the button), and as the in-game menu is opened (a table can arm
+  // or disarm the controller mid-game). These used to be two timers running
+  // for every player all game long, most of whom can never see this panel.
+  window.addEventListener("cc:auth", ensureMenuButton);
+  document.addEventListener("click", (e) => {
+    if (e.target && e.target.closest && e.target.closest("#pv-menu-btn")) ensureMenuButton();
+  }, true);
   ensureMenuButton();
 
-  // Live-refresh the cheap client-side tools while the panel is visible.
-  // Server-backed tools (enemy_hands, deck_picker, force_pool, bot_*) refresh
-  // on demand / after each action, not on a timer, to avoid network spam.
-  setInterval(() => {
-    if (!panelOpen()) return;
-    if (isOn("state_viewer")) renderBody("state_viewer");
-  }, 1000);
+  // While the panel is open, and only then: close it the moment control is
+  // lost, and live-refresh the cheap client-side tools. Server-backed tools
+  // (enemy_hands, deck_picker, force_pool, bot_*) refresh on demand / after
+  // each action, not on a timer, to avoid network spam.
+  let _liveTick = null;
+  function startLiveTick() {
+    if (_liveTick) return;
+    _liveTick = setInterval(() => {
+      if (!panelOpen()) { clearInterval(_liveTick); _liveTick = null; return; }
+      ensureMenuButton();
+      if (panelOpen() && isOn("state_viewer")) renderBody("state_viewer");
+    }, 1000);
+  }
 
   // ESC closes the panel.
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && panelOpen()) close(); });

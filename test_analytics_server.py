@@ -706,8 +706,11 @@ class TestLifetime(AnalyticsTestCase):
     def test_lifetime_table_sizes_are_the_counters(self):
         self.assertEqual(self.get("gameplay", days=0)["sizes"], [{"label": "2 players", "value": 6}])
 
-    def test_players_played_in_the_last_30_days_shows_on_lifetime(self):
-        self.assertEqual(cards(self.get("players", days=0))["Played in the last 30 days"], 2)
+    def test_lifetime_players_cards_cover_the_whole_life_of_the_game(self):
+        c = cards(self.get("players", days=0))
+        self.assertNotIn("Played in the last 30 days", c, "Lifetime must not show a 30-day number")
+        self.assertEqual(c["Games played"], 7, "the same all-time total as the Overview")
+        self.assertFalse(any("30 days" in label or "last" in label.lower() for label in c))
 
     def test_a_long_lifetime_is_charted_by_week_then_by_month(self):
         weeks = an._axis(NOW - 400 * DAY, NOW)
@@ -1299,6 +1302,24 @@ class TestCaching(AnalyticsTestCase):
             an._USERS_CACHE["at"] -= an._USERS_FORCE_FLOOR_SEC + 1
         self.get("overview", days=30, refresh=True)
         self.assertEqual(self.scans(), first + 1)
+
+    def test_requests_arriving_together_share_one_scan(self):
+        # Switching the range fires a request while the last one is still
+        # scanning. Each used to start its own full read of every account.
+        import threading
+        real_collection = self.db.collection
+
+        def slow_collection(name):
+            if name == "users":
+                time.sleep(0.3)
+            return real_collection(name)
+        self.db.collection = slow_collection
+        threads = [threading.Thread(target=an._load_users) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertEqual(self.scans(), 1, "four requests at once, one scan")
 
     def test_the_live_tick_never_starts_a_scan(self):
         self.get("overview", days=30)

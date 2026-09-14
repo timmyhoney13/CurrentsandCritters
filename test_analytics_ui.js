@@ -389,7 +389,10 @@ const firstPlayer = () => ((document.querySelector('.ccA-tbl[data-tbl="players"]
     window.__ccAnalyticsOpen();
     await settle();
     window.__IS_ADMIN = false;
-    await sleep(2400);   // the admin re-check ticks every 2s
+    // The app announces every change of account with "cc:auth" (there is no
+    // longer a 2-second re-check timer), so a sign-out is exactly this event.
+    window.dispatchEvent(new Event("cc:auth"));
+    await sleep(120);
     out.checks.closesOnSignOut = !ov.classList.contains("open");
     window.__IS_ADMIN = true;
 

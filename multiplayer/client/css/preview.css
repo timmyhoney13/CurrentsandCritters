@@ -644,7 +644,9 @@
         radial-gradient(1px 1px at 32% 50%, rgba(34,216,248,.3) 0%, transparent 100%);
       pointer-events: none;
       z-index: 0;
-      animation: depth-drift 12s ease-in-out infinite alternate;
+      /* There and back once, then still: it drifted forever, even hidden
+         under the sign-in screen, keeping the GPU awake. */
+      animation: depth-drift 12s ease-in-out 2 alternate;
     }
     #pv-lobby > * { position: relative; z-index: 1; }
     @keyframes depth-drift {
@@ -6576,45 +6578,7 @@
     #auth-screen.hidden { display: none; }
     #auth-screen .auth-logo { display: none !important; }
 
-    /* ── AUTH SIDE STRIPS ───────────────────────────────────────── */
-    .auth-side-strip {
-      display: none;
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: calc((100vw - 420px) / 2);
-      max-width: 380px;
-      overflow: hidden;
-      pointer-events: none;
-      z-index: 0;
-    }
-    .auth-side-strip-left  { left: 0; }
-    .auth-side-strip-right { right: 0; }
-    .auth-side-strip .strip-track {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      will-change: transform;
-    }
-    .auth-side-strip .strip-track img {
-      width: 100%;
-      display: block;
-      user-select: none;
-      -webkit-user-drag: none;
-    }
-    .auth-side-strip-left  .strip-track { animation: authStripDown 45s linear infinite; }
-    .auth-side-strip-right .strip-track { animation: authStripUp   45s linear infinite; }
-    @keyframes authStripDown {
-      0%   { transform: translate3d(0, -50%, 0); }
-      100% { transform: translate3d(0, 0,     0); }
-    }
-    @keyframes authStripUp {
-      0%   { transform: translate3d(0, 0,     0); }
-      100% { transform: translate3d(0, -50%, 0); }
-    }
-    /* Keep the centered auth content above the strips */
+    /* Keep the centered auth content above the art behind it */
     #auth-screen > .auth-box,
     #auth-screen > #auth-step-choose { position: relative; z-index: 2; }
 

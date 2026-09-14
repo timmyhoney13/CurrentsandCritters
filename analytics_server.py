@@ -344,6 +344,7 @@ _USERS_FORCE_FLOOR_SEC = 20.0
 _MAX_ACCOUNTS = 5000
 _USERS_CACHE: Dict[str, Any] = {"at": 0.0, "rows": None, "error": "", "ms": 0}
 _USERS_LOCK = threading.Lock()
+_USERS_SCAN_LOCK = threading.Lock()
 
 # Only these fields are read. Emails come across solely to recognise the
 # developer's own test accounts (the "Include test accounts" filter) and are
@@ -594,12 +595,28 @@ def _load_users(force: bool = False, allow_stale: bool = False) -> List[Dict[str
 
     A failed scan keeps serving the last good one (and says so through
     _scan_status) rather than blanking every tab at once."""
-    now = time.time()
-    with _USERS_LOCK:
-        rows, age = _USERS_CACHE["rows"], now - _USERS_CACHE["at"]
-        if rows is not None and (allow_stale
-                                 or age < (_USERS_FORCE_FLOOR_SEC if force else _USERS_TTL_SEC)):
+    def cached() -> Optional[List[Dict[str, Any]]]:
+        with _USERS_LOCK:
+            rows, age = _USERS_CACHE["rows"], time.time() - _USERS_CACHE["at"]
+            if rows is not None and (allow_stale
+                                     or age < (_USERS_FORCE_FLOOR_SEC if force else _USERS_TTL_SEC)):
+                return rows
+        return None
+
+    rows = cached()
+    if rows is not None:
+        return rows
+    # One scan at a time. Switching the range fires a section request while
+    # the previous one may still be scanning; without this each started its
+    # own full read of every account, doubling the wait and the Firestore bill.
+    with _USERS_SCAN_LOCK:
+        rows = cached()
+        if rows is not None:
             return rows
+        return _scan_users()
+
+
+def _scan_users() -> List[Dict[str, Any]]:
     db = _get_firestore() if _get_firestore else None
     if db is None:
         with _USERS_LOCK:
@@ -1409,12 +1426,17 @@ def _section_players(f: Dict[str, Any]) -> Dict[str, Any]:
         _add(levels, band)
 
     if r["lifetime"]:
-        recent = _played_uids(users, f, now - 30 * DAY, end)
+        # Lifetime is the whole life of the game: no card here may quietly
+        # measure a shorter window (a "last 30 days" card once sat in this row).
+        counters = not _game_filtered(f)
         cards = [
             _card("Total accounts", len(users)),
             _card("Played a game", len(played), hint="Accounts that have finished at least one game."),
-            _card("Played in the last 30 days", len(recent),
-                  hint="Accounts that finished a game in the last 30 days."),
+            _card("Games played",
+                  sum(u["games"] for u in users) if counters
+                  else len(_entries(users, f, start, end)),
+                  hint="Every game every account has finished since the game began, "
+                       "counted once per player."),
             _card("Hours played", _hours_total(users), unit=" h",
                   hint="Hours with the game open, added up across accounts."),
         ]
