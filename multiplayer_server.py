@@ -4090,6 +4090,10 @@ def _trade_cancel(uid: str, peer_uid: str) -> Dict[str, Any]:
 
 BRAIN_LOCK = threading.Lock()
 
+# The lowest grade that plays with each strategy's own trained weights. B is
+# where the ladder stops being learnable and starts being genuinely good.
+_STRATEGY_BRAIN_MIN_RANK = fish.bot_grade_rank("william_beebe")
+
 # The brain the live bots PLAY with, loaded once and shared by every game.
 #
 # Each match used to call fish.load_brain() for itself and keep the result for
@@ -9459,7 +9463,17 @@ class GameRoom:
         strategy_count_map: Dict[str, int],
         strategy_transition_map: Dict[str, float],
         strategy_transition_count_map: Dict[str, int],
+        strategy_weights: Optional[Dict[str, Dict[str, float]]] = None,
+        grade_rank: int = 0,
     ):
+        # From B up, a bot plays with the trained weights for the strategy it is
+        # committed to. That is the line between the grades that are meant to be
+        # GOOD and the ones meant to be learnable: B and above get the real
+        # strategy knowledge, and what separates B from S++ is how far ahead each
+        # one looks. Below B the handicaps in the grade ladder (bad picks, noise,
+        # short sight) do the weakening on the shared weights, as before.
+        use_strategy_brain = bool(strategy_weights) and grade_rank >= _STRATEGY_BRAIN_MIN_RANK
+
         def policy(gs: fish.GameState, ms: fish.MatchState, player: fish.PlayerState) -> Optional[fish.Action]:
             # Honor a human's pending undo before this bot acts. Without this, undo
             # silently failed for the entire duration of every AI turn (the active
@@ -9475,11 +9489,18 @@ class GameRoom:
 
             _brain_scored: List["tuple[fish.Action, float]"] = []
             _think_started = time.monotonic()
+            # The strategy is read per decision, not once when the policy is
+            # built: a bot is only assigned its plan after the opening hands are
+            # dealt, and it may switch plans mid-game.
+            decision_weights = weights
+            if use_strategy_brain:
+                label = str(player.flags.get("_strategy_family", "")).strip().lower()
+                decision_weights = strategy_weights.get(label) or weights
             chosen = choose_action_weighted_deep(
                 gs,
                 ms,
                 player,
-                weights,
+                decision_weights,
                 synergy_map,
                 species_map,
                 same_ocean_map,
@@ -11006,6 +11027,24 @@ class GameRoom:
                 ai_weights.update(cbrain.get("weights", {}))
             ai_weights = fish.stabilize_weights(ai_weights)
 
+            # Each strategy's own trained weights. A bot playing Coral and a bot
+            # playing Mammals are decided by different things -- where coral
+            # lands and the reef chart, against free mammal plays -- and one
+            # shared vector could only ever average the two. Read once here under
+            # the lock and handed to every bot; which bots actually use them is
+            # decided by grade in _build_ai_policy.
+            strategy_weights: Dict[str, Dict[str, float]] = {}
+            if use_history:
+                with BRAIN_LOCK:
+                    by_strategy = brain.get("by_strategy")
+                    if isinstance(by_strategy, dict):
+                        for label, vec in by_strategy.items():
+                            if isinstance(vec, dict) and vec:
+                                merged = dict(ai_weights)
+                                merged.update(vec)
+                                strategy_weights[str(label).strip().lower()] = \
+                                    fish.stabilize_weights(merged)
+
             synergy_map = cbrain.get("synergy", {}) if use_history and isinstance(cbrain.get("synergy"), dict) else {}
             species_map = (
                 cbrain.get("species_synergy", {}) if use_history and isinstance(cbrain.get("species_synergy"), dict) else {}
@@ -11080,6 +11119,8 @@ class GameRoom:
                         strategy_count_map,
                         strategy_transition_map,
                         strategy_transition_count_map,
+                        strategy_weights=strategy_weights,
+                        grade_rank=fish.bot_grade_rank(seat.difficulty),
                     )
                     policies.append(
                         self._wrap_policy_with_fallback(seat.claimed_name or seat.label, ai_policy, seat_index=seat.index)
