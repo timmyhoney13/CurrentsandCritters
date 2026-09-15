@@ -9788,7 +9788,7 @@
         box-shadow: 0 18px 48px rgba(0,50,110,.2), 0 2px 8px rgba(0,50,110,.08);
       }
 
-      /* Logo: the full name at the open width, and a small C&C in the rail. */
+      /* Logo: the full name at the open width, and a small CandC in the rail. */
       body.cc-device-computer #auth-stats-lobby .ph-sidebar-logo {
         position: relative;
         width: 200px;
@@ -9798,7 +9798,7 @@
       }
       body.cc-device-computer #auth-stats-lobby .ph-sidebar-logo span { transition: color .18s ease .2s; }
       body.cc-device-computer #auth-stats-lobby .ph-sidebar-logo::after {
-        content: "C&C";
+        content: "CandC";
         position: absolute;
         left: 0; top: 0; bottom: 10px;
         width: 54px;

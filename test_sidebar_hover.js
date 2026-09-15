@@ -221,7 +221,7 @@ async function isOpen(p, label) {
       const ic = closedIcons && closedIcons[0].split(",").map(Number);
       check("closed: each icon sits dead centre in the rail", ic && Math.abs(ic[0] - (card.left + card.width / 2)) <= 1,
             ic && `icon x=${ic[0]} card centre=${card.left + card.width / 2}`);
-      check("closed: the logo shows C&C, not the full name",
+      check("closed: the logo shows CandC, not the full name",
             (await p.alpha(".ph-sidebar-logo")) === 0 && (await p.ev("parseFloat(getComputedStyle(document.querySelector('.ph-sidebar-logo'),'::after').opacity)")) > 0.9);
       const dot = await p.rect("#msg-unread-badge");
       const msgIcon = await p.rect("#snav-messages svg");
