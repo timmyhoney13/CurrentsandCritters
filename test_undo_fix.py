@@ -23,7 +23,7 @@ Seat = mp.Seat
 
 
 def make_stub(seats, *, active, eligible=0, valid=True, snapshot=True, phase="running",
-              acted=None, no_restart=None):
+              acted=None):
     stub = types.SimpleNamespace()
     stub.cond = threading.Condition()
     stub.phase = phase
@@ -36,13 +36,14 @@ def make_stub(seats, *, active, eligible=0, valid=True, snapshot=True, phase="ru
     # Which seat has already acted in the turn in progress: this is what makes a
     # press mean "restart this turn" rather than "take back my last turn".
     stub._turn_acted_seat = acted
-    stub._no_restart_seat = no_restart
     stub.legal_actions_by_seat = {0: "stale", 1: "stale"}
     stub.pending_actions = {}
     stub.status_note = ""
     stub._undo_pending_gs = "pending"
     stub._undo_pending_ms = "pending"
     stub._undo_pending_seat = 0
+    # "Last Turn" captions gathered for the moves the undo is about to take back.
+    stub._current_turn_descs = {"P1": ["Drew 1 card from the deck"]}
     # The turn-start snapshot: hand + deck BEFORE the player drew/played.
     if snapshot:
         stub.undo_snapshot_gs = types.SimpleNamespace(
@@ -102,6 +103,8 @@ def test_B_flag_restores_snapshot():
     assert stub.legal_actions_by_seat == {}
     assert stub.pending_actions == {}
     assert stub.active_action_seat is None
+    assert stub._current_turn_descs == {}, (
+        f"the table would still be told about moves the undo took back: {stub._current_turn_descs}")
     print("B PASS: flag-driven undo restores hand+deck exactly and returns Action(undo)")
 
 
@@ -157,17 +160,23 @@ def test_D3_restart_refused_without_this_turns_snapshot():
     print("D3 PASS: a restart with no restore point is refused, never faked")
 
 
-def test_D4_no_restart_during_forced_discard():
-    """The end-of-turn trim owns the turn until the hand is legal; a restart
-    landing inside it satisfies that loop with a rewound hand and the turn simply
-    ends, costing the player the turn. Undo means the last COMPLETED turn there."""
+def test_D4_forced_discard_prompt_restarts_the_turn():
+    """Undo on the end-of-turn discard prompt (or Tarpon's discard-and-draw) is a
+    restart of the turn the player is in, like any other moment after acting.
+
+    It used to take back the LAST completed turn instead, because the engine loops
+    that ask for those discards ignored a rewind. That rewound a whole round from
+    under a player who had only drawn, and the loop then finished the abandoned
+    turn: cards back, turn gone. test_undo_then_play.py plays that out for real."""
     seats = [Seat(0, "human", "P1", token="tok0"), Seat(1, "ai", "Bot")]
-    stub = make_stub(seats, active=0, acted=0, no_restart=0)
+    stub = make_stub(seats, active=0, acted=0)
+    stub.legal_actions_by_seat = {0: {"must_discard_to_ten": True, "tarpon_discard_active": False,
+                                      "actions": [{"kind": "discard_to_pool"}]}}
     out = stub.submit_undo({"seat_token": "tok0"})
     assert out == {"ok": True}, out
-    assert stub.pending_actions == {}, stub.pending_actions  # flag path, not a restart
-    assert stub.undo_requested is True
-    print("D4 PASS: no turn restart while the forced discard phase owns the turn")
+    assert stub.pending_actions.get(0) == [{"kind": "undo_mid_turn"}], stub.pending_actions
+    assert stub.undo_requested_seat == 0
+    print("D4 PASS: Undo on the forced discard prompt restarts the turn in progress")
 
 
 def test_E_guards():
@@ -247,7 +256,7 @@ if __name__ == "__main__":
     test_D_mid_turn_uses_queue()
     test_D2_own_turn_before_acting_is_not_a_restart()
     test_D3_restart_refused_without_this_turns_snapshot()
-    test_D4_no_restart_during_forced_discard()
+    test_D4_forced_discard_prompt_restarts_the_turn()
     test_E_guards()
     test_F_blocked_human_wakes_on_armed_undo()
     test_G_queue_beats_sentinel()

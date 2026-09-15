@@ -98,7 +98,6 @@ def undo_info(room):
             "can_restart_turn": bool(
                 room.active_action_seat is not None
                 and room._turn_acted_seat == room.active_action_seat
-                and room._no_restart_seat != room.active_action_seat
                 and room._undo_pending_gs is not None
                 and room._undo_pending_seat == room.active_action_seat
             ),
@@ -199,7 +198,10 @@ def test_restart_rewinds_this_turn_only():
         out = room.submit_undo({"seat_token": token})
         assert out == {"ok": True}, out
 
-        assert wait_until(lambda: snap(room, seat)[0] == start[0], timeout=15), (
+        # The restart hands the turn back to the engine, which starts it over and
+        # offers it again: wait for that, not just for the hand, before reading the
+        # restore point the new turn_start takes.
+        assert wait_until(lambda: snap(room, seat)[0] == start[0] and my_turn(room, seat), timeout=15), (
             f"the restart did not put the hand back: want {start[0]}, got {snap(room, seat)[0]}"
         )
         after = snap(room, seat)

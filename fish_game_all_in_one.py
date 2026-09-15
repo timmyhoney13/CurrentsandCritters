@@ -12865,6 +12865,14 @@ def run_match(
             t_policy = action_policies[gs.turn_index % len(action_policies)]
             while p.flags.get("_tarpon_discard_active"):
                 t_action = t_policy(gs, ms, p)
+                if t_action is not None and t_action.kind == "undo":
+                    # The policy has already put gs/ms back to a restore point, so
+                    # this Tarpon no longer exists and `p` is a stale copy of the
+                    # player. Nothing discarded here is drawn back, and the turn
+                    # starts over from the top, exactly as the action loop does.
+                    undo_occurred = True
+                    tarpon_discarded = 0
+                    break
                 if t_action is None:
                     p.flags["_tarpon_discard_active"] = False
                     break
@@ -12911,6 +12919,9 @@ def run_match(
                     except Exception:
                         pass
 
+        if undo_occurred:
+            continue
+
         # End-turn hand limit. A player being drawn for while AFK keeps up to the
         # extended AFK_HAND_LIMIT instead of being forced down to HAND_LIMIT.
         _eff_hand_limit = AFK_HAND_LIMIT if p.flags.get("_afk_no_discard") else HAND_LIMIT
@@ -12921,6 +12932,14 @@ def run_match(
             d_policy = action_policies[gs.turn_index % len(action_policies)]
             while len(p.hand) > _eff_hand_limit:
                 chosen_discard = d_policy(gs, ms, p)
+                if chosen_discard is not None and chosen_discard.kind == "undo":
+                    # Undo pressed on the discard prompt. gs/ms are already back at
+                    # the restore point; ignoring this (as an "unexpected action
+                    # kind") kept prompting for discards from the stale hand and
+                    # then ended the turn, so the player got their cards back and
+                    # never got to play.
+                    undo_occurred = True
+                    break
                 if chosen_discard is None:
                     # Policy returned None: either game phase ended or an error
                     # occurred.  For web humans, do NOT auto-discard: leave the
@@ -12951,6 +12970,9 @@ def run_match(
             discard_down_to_ten_human(gs, ms, p)
         else:
             discard_down_to_ten_ai(gs, ms, p)
+
+        if undo_occurred:
+            continue
 
         # HARD SAFETY NET, a turn must NEVER end above the effective hand limit,
         # for any player, under any circumstance. If the interactive web-human

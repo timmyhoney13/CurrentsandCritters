@@ -326,6 +326,9 @@
 !test_undo_fix.py
 !test_undo_integration.py
 !test_undo_midturn_restart.py
+# After every kind of Undo the player can still PLAY: the discard and Tarpon
+# prompts once handed the cards back and then ended the turn.
+!test_undo_then_play.py
 !test_action_atomicity.py
 # Bracket builder: the design logic (checked against the Python validator) and
 # the headless-Chrome geometry check for the connection lines.

@@ -5752,9 +5752,6 @@ class GameRoom:
         # action already taken it restarts THIS turn (from _undo_pending_gs), and
         # before that it takes back the LAST completed turn (from undo_snapshot_gs).
         self._turn_acted_seat: Optional[int] = None
-        # Seat currently parked in a phase that cannot absorb a turn restart
-        # (end-of-turn hand-limit discard, Tarpon discard-and-draw).
-        self._no_restart_seat: Optional[int] = None
 
         # AI speed: "slow" | "normal" | "fast". Host can change mid-game.
         self.ai_speed: str = "normal"
@@ -8843,7 +8840,6 @@ class GameRoom:
                 self._undo_pending_seat = undo_new_pending_seat
                 # Nobody has acted in the turn that is only now starting.
                 self._turn_acted_seat = None
-                self._no_restart_seat = None
                 # A queued "restart my turn" belongs to the turn it was pressed in.
                 # Once that turn is over the snapshot it names is gone, so leaving
                 # the command in the queue meant it fired at the start of some LATER
@@ -8950,7 +8946,6 @@ class GameRoom:
             self._undo_pending_ms = None
             self._undo_pending_seat = None
             self._turn_acted_seat = None
-            self._no_restart_seat = None
             if self.recovery_active:
                 self.status_note = (
                     f"Resyncing game after server restart: step {self.recovery_cursor} of {self.recovery_target_count}. Room is staying open, please wait..."
@@ -9003,7 +8998,10 @@ class GameRoom:
             self._undo_pending_ms = None
             self._undo_pending_seat = None
             self._turn_acted_seat = None
-            self._no_restart_seat = None
+            # Every restore point is the start of a turn, where nobody has done
+            # anything yet: the "Last Turn" captions gathered since belong to moves
+            # that no longer happened.
+            self._current_turn_descs.clear()
             self.legal_actions_by_seat.clear()
             # A rewind invalidates anything queued for the (now-discarded) future.
             self.pending_actions.clear()
@@ -9011,7 +9009,9 @@ class GameRoom:
             self.status_note = "Undo granted: replaying previous player's turn."
             self._bump_locked()
         # The engine re-reads p = gs.current_player() after it sees this action, so
-        # the stale `player` reference held by the caller is harmless.
+        # the stale `player` reference held by the caller is harmless. That holds
+        # for every loop that asks a policy for a move (the action loop, the Tarpon
+        # discard and the end-of-turn trim): each one starts the turn over on it.
         return fish.Action(kind="undo")
 
     def _kicked_seat_action(
@@ -9210,13 +9210,6 @@ class GameRoom:
                     self.active_action_seat = seat_index
                     only_discards = bool(actions) and all(a.kind in {"discard_to_pool", "discard_batch_to_pool"} for a in actions)
                     is_tarpon_phase = bool(player.flags.get("_tarpon_discard_active", False))
-                    # The end-of-turn trim and the Tarpon loop run in tight engine
-                    # loops that own the turn until the hand is legal again; a
-                    # "restart my turn" landing in the middle of one leaves that loop
-                    # satisfied by a rewound hand and the turn just ends, costing the
-                    # player the whole turn. Undo means the last COMPLETED turn while
-                    # either is on screen.
-                    self._no_restart_seat = seat_index if (only_discards or is_tarpon_phase) else None
                     if is_tarpon_phase:
                         self.status_note = (
                             f"{player.name}: Tarpon: choose cards to discard, then select 'end turn now'."
@@ -9267,7 +9260,8 @@ class GameRoom:
                     continue
                 if cmd is not None and cmd.get("kind") == "undo_mid_turn":
                     # Player pressed Undo during their own turn: they drew and changed
-                    # their mind, or they played inside a multi-play window and want the
+                    # their mind, played inside a multi-play window, or are looking at
+                    # the end-of-turn discard or Tarpon's discard-and-draw, and want the
                     # turn back. Restart THIS turn, which means restoring the snapshot
                     # taken at this turn's own turn_start (_undo_pending_gs for this
                     # seat) and nothing else.
@@ -9306,54 +9300,38 @@ class GameRoom:
                         gs.__dict__.update(gs_restore.__dict__)
                         ms.__dict__.clear()
                         ms.__dict__.update(ms_restore.__dict__)
-                        # After restoring gs, `player` still references the
-                        # pre-restore PlayerState object, it is no longer in
-                        # gs.players. Sync the restored player's data into the
-                        # same object and put it back into gs.players so that
-                        # any subsequent apply_action(gs, ms, player, …) in the
-                        # outer engine loop writes to the right player.
-                        try:
-                            restored_p = gs.players[gs.turn_index]
-                            player.__dict__.clear()
-                            player.__dict__.update(restored_p.__dict__)
-                            gs.players[gs.turn_index] = player
-                        except Exception:
-                            pass
                         with self.cond:
                             self.undo_requested = False
                             self.undo_requested_seat = None
                             self.undo_valid = False
                             self.undo_snapshot_gs = None
                             self.undo_snapshot_ms = None
-                            # _undo_pending_* is deliberately KEPT: it is this turn's
-                            # start, and the turn has just been rewound to exactly
-                            # that. Clearing it (as this did) left the player with one
-                            # restart per turn and no restore point for the second.
-                            # Nothing has been done in the restarted turn yet, so the
-                            # button re-arms from here on the player's next action.
+                            # The turn_start the engine records next takes this turn's
+                            # restore point again, from the rewound state, so the turn
+                            # can be restarted as often as the player likes. Left in
+                            # place, that turn_start would promote it as the "last
+                            # completed turn" and offer an Undo that rewinds to exactly
+                            # where they already are. Nothing has been done in the
+                            # restarted turn, so the button re-arms on their next action.
+                            self._undo_pending_gs = None
+                            self._undo_pending_ms = None
+                            self._undo_pending_seat = None
                             self._turn_acted_seat = None
-                            self._no_restart_seat = None
+                            self._current_turn_descs.clear()
                             self.legal_actions_by_seat.clear()
                             self.pending_actions.clear()
                             self.active_action_seat = None
                             self.status_note = f"{player.name} undid their turn: everything they played and paid is back."
                             self._bump_locked()
-                        # Rebuild the client-visible public state from the reverted
-                        # gs/ms. The queue-based mid-turn undo restores state in place
-                        # and loops back inside THIS policy without ever returning to
-                        # the engine, so: unlike the full-turn undo, which returns
-                        # Action("undo") and gets a fresh turn_start snapshot, no
-                        # snapshot runs to refresh latest_public_state. Without this the
-                        # client keeps showing the pre-undo hand/deck (legal_actions
-                        # update, but hand_count/board do not): the drawn card looks
-                        # like it never went back, and a re-draw appears to "do nothing"
-                        # because the count never changed. Use a neutral note so the
-                        # two-phase undo-arming logic (turn_start:/post_action:) is not
-                        # retriggered.
-                        try:
-                            self._record_snapshot(gs, ms, self.last_turn_number, f"post_undo:{player.name}")
-                        except Exception:
-                            pass
+                        # Hand the turn back to the engine to start over instead of
+                        # re-offering moves from inside this call. The call may have
+                        # come from the end-of-turn trim or the Tarpon loop, which only
+                        # take discards: they dropped the restarted turn's first play
+                        # and ended the turn, so the player got their cards back and
+                        # never got to play. Every engine loop that asks for a move
+                        # starts the turn over on Action(undo), with a fresh TurnState
+                        # and a turn_start snapshot that shows the rewound hand.
+                        return fish.Action(kind="undo")
                     else:
                         # No restore point for this turn. Say so instead of dropping
                         # through to a fresh set of legal actions, which is what made
@@ -9371,7 +9349,7 @@ class GameRoom:
                             f"Undo NOT applied for {player.name} (seat {seat_index}): "
                             f"no turn-start snapshot for the turn in progress."
                         )
-                    continue  # Re-loop: offer fresh legal actions for the same player
+                    continue  # Refused: re-offer the same player's moves, nothing changed
 
                 if cmd is not None and cmd.get("kind") == "undo_confirm":
                     # Previous player requested undo: restore state and signal engine.
@@ -9398,7 +9376,7 @@ class GameRoom:
                             self._undo_pending_ms = None
                             self._undo_pending_seat = None
                             self._turn_acted_seat = None
-                            self._no_restart_seat = None
+                            self._current_turn_descs.clear()
                             self.legal_actions_by_seat.clear()
                             # A rewind invalidates anything queued for the discarded future.
                             self.pending_actions.clear()
@@ -11783,7 +11761,6 @@ class GameRoom:
                     "can_restart_turn": bool(
                         self.active_action_seat is not None
                         and self._turn_acted_seat == self.active_action_seat
-                        and self._no_restart_seat != self.active_action_seat
                         and self._undo_pending_gs is not None
                         and self._undo_pending_seat == self.active_action_seat
                     ),
@@ -12841,14 +12818,21 @@ class GameRoom:
                 active is not None
                 and active == seat.index
                 and self._turn_acted_seat == seat.index
-                and self._no_restart_seat != seat.index
             ):
                 # Mid-turn undo: the player is inside their own turn and has already
-                # done something in it (drawn their first card, or played inside a
-                # multi-play window). Undo means "restart this turn", so it needs the
+                # done something in it (drawn their first card, played inside a
+                # multi-play window, or reached the end-of-turn discard or Tarpon's
+                # discard-and-draw). Undo means "restart this turn", so it needs the
                 # snapshot taken at THIS turn's start. Without one there is nothing
                 # honest to do: refuse, rather than queue a command that would restart
                 # the prompt while leaving everything they spent spent.
+                #
+                # The discard and Tarpon prompts used to be excluded and fell through
+                # to "take back your LAST turn", because the engine ignored a rewind
+                # arriving inside either loop. That rewound a whole round from under
+                # a player who had only drawn, and the engine then finished the
+                # abandoned turn anyway: cards back, turn gone. Both loops honour a
+                # rewind now, so these prompts restart the turn like any other moment.
                 if self._undo_pending_gs is None or self._undo_pending_seat != seat.index:
                     return {"ok": False, "error": "undo not available, no restore point for this turn"}
                 # Inject undo_mid_turn directly into their own pending queue so the
