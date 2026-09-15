@@ -8576,7 +8576,7 @@ class GameRoom:
                 board_payload = []
             scores_now[p.name] = score
             try:
-                detected_strategy = fish.detect_player_strategy(gs, p)
+                detected_strategy = fish.detect_player_strategy(gs, p, breakdown=full_breakdown)
             except Exception:
                 detected_strategy = "Best Guess"
             players_public.append(

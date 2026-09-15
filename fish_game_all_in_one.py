@@ -4952,6 +4952,7 @@ STRATEGY_DISPLAY_NAMES: Dict[str, str] = {
     "coral_cephalopods":  "Coral/Cephalopods (CC)",
     "invertebrates":      "Invertebrates",
     "goby_moon_shot":     "Goby Moon Shot",
+    "king_salmon":        "King Salmon",
 }
 # Hybrid plans only count if the board genuinely has BOTH halves, this is what
 # makes a bird+lobster board read as "B-Lob" instead of plain "Birds".
@@ -4962,7 +4963,109 @@ _HYBRID_REQUIRES: Dict[str, Tuple[str, ...]] = {
 }
 
 
-def detect_player_strategy(gs: GameState, player: PlayerState) -> str:
+# The strategy each card's points belong to, when naming what a board was.
+# Species decide it, except for the cards that are the payoff of ANOTHER plan
+# (a Frigatebird is paid by coral, a Spiny Lobster by gobies) and the
+# crosscurrent cards that belong to one plan. A California Gull stays a bird:
+# it is the bird half of B-Lob, which is exactly the pair it makes.
+_STRATEGY_OF_SPECIES: Dict[str, str] = {
+    "bird": "birds_of_a_feather",
+    "crustacean": "crustaceans",
+    "coral": "coral",
+    "cephalopod": "cephalopods",
+    "mammal": "mammals",
+    "baitfish": "baitfish_barrage",
+    "invertebrate": "invertebrates",
+    "ocean": "ocean_all_blue",
+}
+_STRATEGY_OF_NAME: Dict[str, str] = {
+    "magnificent frigatebird": "coral",
+    "spiny lobster": "goby_moon_shot",
+    "mandarin goby": "goby_moon_shot",
+    "hermit crab": "baitfish_barrage",
+    "whale shark": "baitfish_barrage",
+    "roosterfish": "baitfish_barrage",
+    "reef trigger fish": "cephalopods",
+    "manta ray": "cephalopods",
+    "great white shark": "mammals",
+    "yellowfin tuna": "yellowfin_tuna",
+    "bigeye tuna": "yellowfin_tuna",
+    "king salmon": "king_salmon",
+    "barracuda": "invertebrates",
+}
+# Two plans played together, and the name the guide gives the pair.
+_HYBRID_PAIRS: Tuple[Tuple[str, str, str], ...] = (
+    ("birds_of_a_feather", "crustaceans", "birds_crustaceans"),
+    ("birds_of_a_feather", "coral", "birds_coral"),
+    ("coral", "cephalopods", "coral_cephalopods"),
+)
+
+
+def strategy_points_by_family(gs: GameState, player: PlayerState,
+                              breakdown: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
+    """Points on this board, grouped by the strategy each scoring card belongs to."""
+    if breakdown is None:
+        breakdown = full_score_breakdown(gs, player)
+    out: Dict[str, float] = {}
+    for row in breakdown.get("card_rows", []) or []:
+        pts = float(row.get("total", 0) or 0)
+        if pts <= 0:
+            continue
+        card = gs.card_db.get(int(row.get("card_uid", -1)))
+        if card is None:
+            continue
+        label = _STRATEGY_OF_NAME.get(card_name_lc(card)) or _STRATEGY_OF_SPECIES.get(card_species_lc(card))
+        if label:
+            out[label] = out.get(label, 0.0) + pts
+    return out
+
+
+def detect_player_strategy(gs: GameState, player: PlayerState,
+                           breakdown: Optional[Dict[str, Any]] = None) -> str:
+    """Name the strategy a player ACTUALLY played: the plan whose cards earned
+    the board its points.
+
+    The label used to come from counting cards that appear in each plan's
+    profile, and those profiles list helpers (Oceans, play-again birds, cheap
+    floor cards) that sit on nearly every board. Most tables came back "King
+    Salmon". Points do not have that problem: a King Salmon board is one where
+    King Salmon scored.
+
+    Two plans that both carried the board (each at least a third of what the
+    pair scored, together at least half of the animals' points) are named as
+    the guide names the pair: B-Lob, B-Coral, Coral/Cephalopods. A board whose
+    Oceans scored half as much again as any animal plan is "Ocean". A true tie
+    between two plans is "Hybrid Strategy"; an empty board is "Best Guess".
+    """
+    try:
+        by_family = strategy_points_by_family(gs, player, breakdown)
+    except Exception:
+        return _detect_strategy_by_profile(gs, player)
+    if not by_family:
+        return "Best Guess" if not getattr(player, "board_oceans", None) else _detect_strategy_by_profile(gs, player)
+    oceans = by_family.pop("ocean_all_blue", 0.0)
+    if not by_family:
+        return STRATEGY_DISPLAY_NAMES["ocean_all_blue"]
+    ranked = sorted(by_family.items(), key=lambda kv: kv[1], reverse=True)
+    top_label, top_pts = ranked[0]
+    # Every board scores some points off its Oceans; that is the ground every
+    # plan stands on. It is only the Ocean plan (four Kelp Forests, a Coral
+    # Reef chart, the most Piers) when the Oceans clearly carried it.
+    if oceans > 1.5 * top_pts:
+        return STRATEGY_DISPLAY_NAMES["ocean_all_blue"]
+    animal_total = sum(by_family.values())
+    for a, b, hybrid in _HYBRID_PAIRS:
+        pa, pb = by_family.get(a, 0.0), by_family.get(b, 0.0)
+        pair = pa + pb
+        if (top_label in (a, b) and pair > 0 and min(pa, pb) >= pair / 3.0
+                and pair >= 0.5 * animal_total):
+            return STRATEGY_DISPLAY_NAMES.get(hybrid, hybrid)
+    if len(ranked) > 1 and abs(ranked[1][1] - top_pts) < 1e-9:
+        return "Hybrid Strategy"
+    return STRATEGY_DISPLAY_NAMES.get(top_label, top_label)
+
+
+def _detect_strategy_by_profile(gs: GameState, player: PlayerState) -> str:
     """Detect the strategy a player ACTUALLY built, from their final board,
     using the strategy guide (strategy_family_profiles) as the source of truth.
 
@@ -4992,6 +5095,7 @@ def detect_player_strategy(gs: GameState, player: PlayerState) -> str:
         return "Best Guess"
 
     species_present = {card_species_lc(c) for c in cards}
+    names_present = {card_name_lc(c) for c in cards}
     scores: Dict[str, float] = {}
     heavy_hits: Dict[str, int] = {}
     for prof in strategy_family_profiles():
@@ -4999,12 +5103,26 @@ def detect_player_strategy(gs: GameState, player: PlayerState) -> str:
         req = _HYBRID_REQUIRES.get(label)
         if req and not all(sp in species_present for sp in req):
             continue  # hybrid needs both halves on the board
+        # King Salmon's profile lists what fills an ocean (Arctic Oceans,
+        # Mangroves, play-again birds, cheap floor cards, every game fish), so
+        # the bots can see how the plan is built. Those sit on nearly every
+        # board, and scored as a label they called almost every table "King
+        # Salmon". A board is only King Salmon if it has a King Salmon.
+        if label == "king_salmon" and "king salmon" not in names_present:
+            continue
         _ensure_profile_sets(prof)
         heavy = prof["_heavy_set"]; engine = prof["_engine_set"]
         support = prof["_support_set"]; species = prof["_species_set"]
         s = 0.0; h = 0
         for c in cards:
             nm = card_name_lc(c); sp = card_species_lc(c)
+            # Every board is built on Oceans, so an Ocean card only ever says
+            # "Ocean". Counted toward the animal plans that list one as a
+            # helper, they drowned out the animals that actually scored.
+            if label != "ocean_all_blue" and is_ocean(c):
+                continue
+            if label == "king_salmon" and nm != "king salmon" and nm not in engine and nm not in support:
+                continue  # a plain game fish is not a King Salmon board
             if nm in heavy:
                 s += 3.0; h += 1
             elif nm in engine:
@@ -5089,11 +5207,18 @@ def hand_strategy_family_fit_score(
 
     total = 0.0
     anchors = 0   # heavy/engine/named core pieces, the cards that DEFINE the plan
+    ocean_plan = str(family_profile.get("label", "")) == "ocean_all_blue"
     for entry_uid in hand_uids:
         best_val = 0.0
         best_anchor = False
         for face_uid in entry_faces(ms, entry_uid):
             c = gs.card_db[face_uid]
+            # Every plan is built on Oceans, so an Ocean in hand says nothing
+            # about WHICH plan. King Salmon lists Arctic Ocean and Mangrove as
+            # engines (they fill oceans), and counted as anchors here they sent
+            # every hand holding one onto King Salmon.
+            if not ocean_plan and is_ocean(c):
+                continue
             nm = card_name_lc(c)
             sp = card_species_lc(c)
             tx = c.text.lower()
