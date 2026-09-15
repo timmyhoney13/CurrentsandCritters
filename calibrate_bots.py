@@ -152,8 +152,9 @@ def _make_policy(args: Dict[str, object], grade: str):
         if use_strategy_brain:
             label = str(player.flags.get("_strategy_family", "")).strip().lower()
             w = strategy_weights.get(label) or w
-        return mps.choose_action_weighted_deep(
-            gs, ms, player,
+        # The same dispatch a live room uses: the Reef Planner from grade A up.
+        return mps.choose_action_for_grade(
+            gs, ms, player, grade,
             w, args["synergy_map"], args["species_map"],
             args["same_ocean_map"], args["strategy_value_map"],
             args["strategy_count_map"], args["strategy_transition_map"],

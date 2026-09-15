@@ -608,6 +608,9 @@ def _execute_main_pattern(
                         continue
                     chosen = picks
                     break
+            elif ms is not None and PLANNER_TARPON_HOOKS.get(str(player.flags.get("_planner") or "")):
+                # A planner bot decides for itself which cards its plan can spare.
+                chosen = list(PLANNER_TARPON_HOOKS[str(player.flags.get("_planner"))](gs, ms, player))
             else:
                 # AI: discard many when cycling, keep only the most useful few.
                 # Rank by deliberate keep value (low keep = best discard) so we
@@ -9542,7 +9545,18 @@ def discard_keep_score(gs: GameState, ms: MatchState, player: PlayerState, entry
     return keep + best_face
 
 
+# A bot driven by a planner (reef_planner.py) trims its own hand: the planner
+# registers its discard here under the name it stamps on the player's flags.
+PLANNER_DISCARD_HOOKS: Dict[str, Callable[..., None]] = {}
+# ...and chooses its own Tarpon discards: a list of hand uids to cycle away.
+PLANNER_TARPON_HOOKS: Dict[str, Callable[..., List[int]]] = {}
+
+
 def discard_down_to_ten_ai(gs: GameState, ms: MatchState, player: PlayerState, limit: int = 10) -> None:
+    hook = PLANNER_DISCARD_HOOKS.get(str(player.flags.get("_planner") or ""))
+    if hook is not None:
+        hook(gs, ms, player, limit)
+        return
     while len(player.hand) > limit:
         # Re-evaluate every turn: discard the single card whose loss hurts the
         # current plan least. Deterministic tie-break on uid (never random).

@@ -21,6 +21,7 @@ RUN pip install --no-cache-dir firebase-admin==6.5.0 nh3==0.2.18
 COPY multiplayer_server.py /app/multiplayer_server.py
 COPY snap_score.py /app/snap_score.py
 COPY fish_game_all_in_one.py /app/fish_game_all_in_one.py
+COPY reef_planner.py /app/reef_planner.py
 COPY tournament_engine.py /app/tournament_engine.py
 COPY tournament_server.py /app/tournament_server.py
 COPY clan_server.py /app/clan_server.py

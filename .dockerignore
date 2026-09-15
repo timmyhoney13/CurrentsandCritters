@@ -8,6 +8,8 @@
 !multiplayer_server.py
 !snap_score.py
 !fish_game_all_in_one.py
+# The bot brain from grade A up; multiplayer_server.py imports it at startup.
+!reef_planner.py
 !tournament_engine.py
 !tournament_server.py
 !clan_server.py

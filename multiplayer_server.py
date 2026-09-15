@@ -31,6 +31,7 @@ from urllib.parse import parse_qs, urlparse
 os.environ.setdefault("FISH_WEB_CONTROL", "1")
 
 import fish_game_all_in_one as fish
+import reef_planner
 import snap_score
 import warm_cache
 import tournament_server
@@ -5364,6 +5365,69 @@ def _confirm_with_rollouts(
     return best_action
 
 
+def choose_action_for_grade(
+    gs: fish.GameState,
+    ms: fish.MatchState,
+    player: fish.PlayerState,
+    grade: str,
+    weights: Dict[str, float],
+    synergy_map: Dict[str, float],
+    species_map: Dict[str, float],
+    same_ocean_map: Dict[str, float],
+    strategy_value_map: Dict[str, float],
+    strategy_count_map: Dict[str, int],
+    strategy_transition_map: Dict[str, float],
+    strategy_transition_count_map: Dict[str, int],
+    out_scored: Optional[List["tuple[fish.Action, float]"]] = None,
+) -> Optional[fish.Action]:
+    """One bot move at its grade. From Eugenie Clark (A) up that is the Reef
+    Planner (reef_planner.py); below it, the weighted chooser and the grade
+    ladder's handicaps.
+
+    The planner is cheaper per move than the old rollout confirmation, but it
+    is still real CPU on a one-core server, so it goes through the same
+    admission control: on a busy site, or when the planning slots are taken, a
+    planner grade keeps its judgement and looks at fewer moves (LITE)."""
+    params = reef_planner.params_for_grade(grade)
+    if params is None:
+        return choose_action_weighted_deep(
+            gs, ms, player, weights, synergy_map, species_map, same_ocean_map,
+            strategy_value_map, strategy_count_map, strategy_transition_map,
+            strategy_transition_count_map, out_scored=out_scored,
+        )
+    if _PLAN_BY_COUNT:
+        return reef_planner.choose_action(gs, ms, player, params=params, out_scored=out_scored)
+    # Live, a person is waiting, and every bot on the site shares one core: the
+    # clock caps a move, and how busy the site is decides how much of the
+    # planner a move may use (offline measurement counts work instead, see
+    # _PLAN_BY_COUNT). Measured with eight Head to Head tables of top-grade bots
+    # at fast speed: planning every move at LITE held /api/health's median at
+    # ~70 ms against ~3 ms for the old chooser, so a site that busy plans at
+    # MINIMAL with a short clock.
+    budget = float(player.flags.get("_ai_plan_budget", 0.0) or 0.0) or 2.5
+    scale = _deep_plan_scale()
+    if scale <= 0.0:
+        with _DEEP_PLAN_STATS_LOCK:
+            _DEEP_PLAN_STATS["skipped"] += 1
+        busy = reef_planner.lite_params(params, reef_planner.MINIMAL)
+        busy["time_budget"] = 0.2
+        return reef_planner.choose_action(gs, ms, player, params=busy, out_scored=out_scored)
+    if not _DEEP_PLAN_SEM.acquire(blocking=False):
+        with _DEEP_PLAN_STATS_LOCK:
+            _DEEP_PLAN_STATS["skipped"] += 1
+        waiting = reef_planner.lite_params(params)
+        waiting["time_budget"] = 0.5
+        return reef_planner.choose_action(gs, ms, player, params=waiting, out_scored=out_scored)
+    with _DEEP_PLAN_STATS_LOCK:
+        _DEEP_PLAN_STATS["granted"] += 1
+    try:
+        params = dict(params) if scale >= 1.0 else reef_planner.lite_params(params)
+        params["time_budget"] = max(0.5, budget * scale)
+        return reef_planner.choose_action(gs, ms, player, params=params, out_scored=out_scored)
+    finally:
+        _DEEP_PLAN_SEM.release()
+
+
 @dataclass
 class Seat:
     index: int
@@ -9488,6 +9552,7 @@ class GameRoom:
         strategy_transition_count_map: Dict[str, int],
         strategy_weights: Optional[Dict[str, Dict[str, float]]] = None,
         grade_rank: int = 0,
+        grade: str = "",
     ):
         # From B up, a bot plays with the trained weights for the strategy it is
         # committed to. That is the line between the grades that are meant to be
@@ -9519,10 +9584,11 @@ class GameRoom:
             if use_strategy_brain:
                 label = str(player.flags.get("_strategy_family", "")).strip().lower()
                 decision_weights = strategy_weights.get(label) or weights
-            chosen = choose_action_weighted_deep(
+            chosen = choose_action_for_grade(
                 gs,
                 ms,
                 player,
+                grade,
                 decision_weights,
                 synergy_map,
                 species_map,
@@ -11144,6 +11210,7 @@ class GameRoom:
                         strategy_transition_count_map,
                         strategy_weights=strategy_weights,
                         grade_rank=fish.bot_grade_rank(seat.difficulty),
+                        grade=fish.normalize_bot_grade(seat.difficulty),
                     )
                     policies.append(
                         self._wrap_policy_with_fallback(seat.claimed_name or seat.label, ai_policy, seat_index=seat.index)
