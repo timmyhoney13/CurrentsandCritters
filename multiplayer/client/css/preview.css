@@ -3901,7 +3901,6 @@
     }
     .igcp-row.igcp-done { border-color: rgba(94,201,137,.28); background: rgba(94,201,137,.05); opacity: .72; }
     .igcp-row-top { display: flex; align-items: flex-start; gap: 6px; }
-    .igcp-row-icon { font-size: 15px; line-height: 1; flex-shrink: 0; margin-top: 1px; }
     .igcp-row-info { flex: 1; min-width: 0; }
     .igcp-row-name {
       font-size: 11px; font-weight: 800; color: #e0eff9;
@@ -5680,7 +5679,6 @@
       background: rgba(60,180,100,.12); border: 1px solid rgba(60,180,100,.25);
       border-radius: 12px; padding: 8px 12px;
     }
-    .gs-ch-icon { font-size: 20px; flex-shrink: 0; }
     .gs-ch-info { flex: 1; min-width: 0; }
     .gs-ch-type { font-size: 9px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; }
     .gs-ch-type.daily  { color: #1a7abf; }
@@ -8765,15 +8763,6 @@
       box-shadow: 0 4px 14px rgba(34,98,162,.10);
     }
     .ph-cs-card-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
-    .ph-cs-card-icon {
-      width: 30px; height: 30px;
-      border-radius: 9px;
-      background: rgba(28,130,214,.13);
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-      font-size: 16px;
-    }
-    .ph-cs-card.is-weekly .ph-cs-card-icon { background: rgba(224,173,52,.16); }
     .ph-cs-card-meta { min-width: 0; flex: 1; }
     .ph-cs-card-type {
       font-size: .58rem;
@@ -8887,11 +8876,6 @@
       transform: translateY(-1px);
       border-color: #d9a12b;
       box-shadow: 0 6px 16px rgba(217,161,43,.20);
-    }
-    .ph-cs-reward-icon {
-      font-size: 32px;
-      flex-shrink: 0;
-      filter: drop-shadow(0 2px 3px rgba(0,0,0,0.12));
     }
     .ph-cs-reward-info { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
     .ph-cs-reward-label {
@@ -10833,7 +10817,7 @@
     #auth-stats-lobby[data-bg-tab="overview"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="overview"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="overview"] .ph-scard {
-      background: rgba(220,245,255,0.68) !important;
+      background: rgba(220,245,255,0.84) !important;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(120,200,235,0.50) !important;
@@ -10841,7 +10825,7 @@
     }
     /* Nav tabs bar */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-tabs {
-      background: rgba(210,242,255,0.70) !important;
+      background: rgba(210,242,255,0.84) !important;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(120,200,235,0.45) !important;
@@ -10886,14 +10870,14 @@
     #auth-stats-lobby[data-bg-tab="competitive"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="competitive"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="competitive"] .ph-scard {
-      background: rgba(215,235,255,0.80) !important;
+      background: rgba(215,235,255,0.84) !important;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(100,160,240,0.45) !important;
       box-shadow: 0 6px 28px rgba(20,40,120,0.20) !important;
     }
     #auth-stats-lobby[data-bg-tab="competitive"] .ph-tabs {
-      background: rgba(210,232,255,0.78) !important;
+      background: rgba(210,232,255,0.84) !important;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(100,160,240,0.40) !important;
@@ -10903,7 +10887,7 @@
       background: rgba(238,248,255,0.94) !important;
     }
     #auth-stats-lobby[data-bg-tab="competitive"] .ph-action-card {
-      background: rgba(215,235,255,0.78) !important;
+      background: rgba(215,235,255,0.84) !important;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(100,160,240,0.45) !important;
@@ -10940,14 +10924,14 @@
     #auth-stats-lobby[data-bg-tab="history"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="history"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="history"] .ph-scard {
-      background: rgba(220,210,255,0.80) !important;
+      background: rgba(220,210,255,0.84) !important;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(160,120,255,0.45) !important;
       box-shadow: 0 6px 28px rgba(30,0,80,0.25) !important;
     }
     #auth-stats-lobby[data-bg-tab="history"] .ph-tabs {
-      background: rgba(215,205,255,0.78) !important;
+      background: rgba(215,205,255,0.84) !important;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(160,120,255,0.40) !important;
@@ -10957,14 +10941,14 @@
       background: rgba(240,235,255,0.92) !important;
     }
     #auth-stats-lobby[data-bg-tab="history"] .ph-action-card {
-      background: rgba(220,210,255,0.78) !important;
+      background: rgba(220,210,255,0.84) !important;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(160,120,255,0.45) !important;
       box-shadow: 0 4px 18px rgba(30,0,80,0.20) !important;
     }
     #auth-stats-lobby[data-bg-tab="history"] .ph-action-card.ph-action-gold {
-      background: rgba(255,245,200,0.82) !important;
+      background: rgba(255,245,200,0.84) !important;
     }
     #auth-stats-lobby[data-bg-tab="history"] .ph-sg {
       background: rgba(120,80,220,0.10) !important;
@@ -11006,14 +10990,14 @@
     #auth-stats-lobby[data-bg-tab="friends"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="friends"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="friends"] .ph-scard {
-      background: rgba(226,244,255,0.70) !important;
+      background: rgba(226,244,255,0.84) !important;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(120,180,225,0.45) !important;
       box-shadow: 0 6px 28px rgba(0,55,110,0.14) !important;
     }
     #auth-stats-lobby[data-bg-tab="friends"] .ph-tabs {
-      background: rgba(220,242,255,0.72) !important;
+      background: rgba(220,242,255,0.84) !important;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(120,180,225,0.40) !important;
@@ -11023,7 +11007,7 @@
       background: rgba(240,250,255,0.92) !important;
     }
     #auth-stats-lobby[data-bg-tab="friends"] .ph-action-card {
-      background: rgba(226,244,255,0.70) !important;
+      background: rgba(226,244,255,0.84) !important;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(120,180,225,0.45) !important;
@@ -11057,14 +11041,14 @@
     #auth-stats-lobby[data-bg-tab="achievements"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="achievements"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="achievements"] .ph-scard {
-      background: rgba(225,250,255,0.74) !important;
+      background: rgba(225,250,255,0.84) !important;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(80,210,230,0.45) !important;
       box-shadow: 0 6px 28px rgba(0,80,120,0.14) !important;
     }
     #auth-stats-lobby[data-bg-tab="achievements"] .ph-tabs {
-      background: rgba(215,248,255,0.74) !important;
+      background: rgba(215,248,255,0.84) !important;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(80,210,230,0.40) !important;
@@ -11074,14 +11058,14 @@
       background: rgba(240,254,255,0.92) !important;
     }
     #auth-stats-lobby[data-bg-tab="achievements"] .ph-action-card {
-      background: rgba(225,250,255,0.74) !important;
+      background: rgba(225,250,255,0.84) !important;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(80,210,230,0.45) !important;
       box-shadow: 0 4px 18px rgba(0,80,120,0.10) !important;
     }
     #auth-stats-lobby[data-bg-tab="achievements"] .ph-action-card.ph-action-gold {
-      background: rgba(255,246,210,0.80) !important;
+      background: rgba(255,246,210,0.84) !important;
     }
     #auth-stats-lobby[data-bg-tab="achievements"] .ph-sg {
       background: rgba(100,220,240,0.10) !important;
@@ -11109,14 +11093,14 @@
     #auth-stats-lobby[data-bg-tab="leaderboard"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="leaderboard"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="leaderboard"] .ph-scard {
-      background: rgba(225,248,255,0.78) !important;
+      background: rgba(225,248,255,0.84) !important;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(100,200,220,0.45) !important;
       box-shadow: 0 6px 28px rgba(0,80,120,0.14) !important;
     }
     #auth-stats-lobby[data-bg-tab="leaderboard"] .ph-tabs {
-      background: rgba(215,246,255,0.78) !important;
+      background: rgba(215,246,255,0.84) !important;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(100,200,220,0.40) !important;
@@ -11126,14 +11110,14 @@
       background: rgba(240,252,255,0.94) !important;
     }
     #auth-stats-lobby[data-bg-tab="leaderboard"] .ph-action-card {
-      background: rgba(225,248,255,0.78) !important;
+      background: rgba(225,248,255,0.84) !important;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(100,200,220,0.45) !important;
       box-shadow: 0 4px 18px rgba(0,80,120,0.10) !important;
     }
     #auth-stats-lobby[data-bg-tab="leaderboard"] .ph-action-card.ph-action-gold {
-      background: rgba(255,248,220,0.82) !important;
+      background: rgba(255,248,220,0.84) !important;
     }
     #auth-stats-lobby[data-bg-tab="leaderboard"] .ph-sg {
       background: rgba(100,210,230,0.08) !important;
@@ -11164,14 +11148,14 @@
     #auth-stats-lobby[data-bg-tab="store"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="store"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="store"] .ph-scard {
-      background: rgba(228,248,255,0.72) !important;
+      background: rgba(228,248,255,0.84) !important;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(120,205,235,0.5) !important;
       box-shadow: 0 6px 30px rgba(20,90,140,0.16) !important;
     }
     #auth-stats-lobby[data-bg-tab="store"] .ph-tabs {
-      background: rgba(222,246,255,0.74) !important;
+      background: rgba(222,246,255,0.84) !important;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(120,205,235,0.42) !important;
@@ -11210,7 +11194,7 @@
       box-shadow: 0 6px 28px rgba(0,70,115,0.18) !important;
     }
     #auth-stats-lobby[data-bg-tab="clans"] .ph-tabs {
-      background: rgba(218,244,255,0.80) !important;
+      background: rgba(218,244,255,0.84) !important;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(120,195,225,0.45) !important;
@@ -15629,7 +15613,7 @@
     #auth-stats-lobby[data-bg-tab="howto"]::after { content: none !important; }
     #auth-stats-lobby[data-bg-tab="howto"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="howto"] .ph-scard {
-      background: rgba(228,247,255,0.80) !important;
+      background: rgba(228,247,255,0.84) !important;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(120,200,235,0.52) !important;
@@ -16751,4 +16735,28 @@
       .ph-ovf-row .ph-ovf-seen { grid-column: 2; grid-row: 2; }
       .ph-ovf-row .ph-ovf-go { grid-column: 3; grid-row: 1 / span 2; }
       .ph-ovf-row .ph-ovf-name { font-size: 1rem; }
+    }
+
+    /* ── Player Home: no frosted-glass blur on anything that scrolls ──────────
+       Scroll down then back up and the profile card (name, Level, ranks), the
+       tab bar and the cards under them came back blurry. Every one of them
+       carried backdrop-filter: blur(14-16px) over the full-screen tab art, and
+       the art is painted on #auth-stats-lobby, the scroller itself, so it
+       stays put while the cards move: each card's blur has to be recomputed
+       every scroll frame. Chrome and Safari fall behind and show a
+       low-resolution copy of the card, text and all, and it can stay that way
+       after you stop. The cards are .84+ opaque (lifted above), so the blur
+       was barely visible anyway. */
+    #auth-stats-lobby .ph-topbar,
+    #auth-stats-lobby .ph-profile-card,
+    #auth-stats-lobby .ph-stats-card,
+    #auth-stats-lobby .ph-scard,
+    #auth-stats-lobby .ph-tabs,
+    #auth-stats-lobby .ph-action-card,
+    #auth-stats-lobby .ph-rank-prog-strip,
+    #auth-stats-lobby .ph-season-summary-card,
+    #auth-stats-lobby .ph-king-redesign,
+    #auth-stats-lobby .ph-sidebar-nav-card {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
     }

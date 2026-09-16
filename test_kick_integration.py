@@ -18,11 +18,10 @@ Two things have to be true at once, and they pull against each other:
      every time it comes round. "Remove the player who is ruining the game"
      cannot hand everyone left a game that stops dead once a lap.
 
-The only way to have both is a seat that takes the shortest legal EXIT from
-its own turn and never anything else: end_turn, the discard the hand limit
-forces, or the draw the rules will not let a turn end without. That allow-list
-is _kicked_seat_action, and part B watches every single action it returns
-across a whole real match.
+The only way to have both is a seat that LEAVES: its hand goes into the pool
+and the engine skips every turn it would have had, so it never draws another
+card. That is _kicked_seat_action, and part B watches every single action it
+returns across a whole real match, and the removed player's hand through it.
 """
 import atexit
 import os
@@ -47,9 +46,9 @@ import multiplayer_server as mp
 # DATASET_PATH has no environment knob, so it is redirected on the module.
 mp.DATASET_PATH = os.path.join(_SANDBOX, "human_game_dataset.jsonl")
 
-# The complete list of things a removed player's seat may ever do. Anything
-# else coming out of _kicked_seat_action is somebody playing their chair.
-ALLOWED_KINDS = {"end_turn", "discard_to_pool", "draw"}
+# The only thing a removed player's seat may ever do. Anything else coming out
+# of _kicked_seat_action is somebody playing their chair, or drawing for it.
+ALLOWED_KINDS = {"leave_game"}
 
 
 def _read(room, fn):
@@ -65,6 +64,16 @@ def _wait_until(room, pred, timeout, poll=0.01):
                 return True
         time.sleep(poll)
     return False
+
+
+def _engine_player(room, seat_index):
+    gs = room._live_gs
+    if gs is None:
+        return None
+    for game_idx, p in enumerate(gs.players):
+        if room._comp_game_to_seat.get(game_idx, game_idx) == seat_index:
+            return p
+    return None
 
 
 def part_a_no_bot_exists_to_take_the_chair():
@@ -129,6 +138,17 @@ def part_a_no_bot_exists_to_take_the_chair():
         assert not any("bot" in n.lower() for n in notes if "removed" in n), \
             f"the room was told a bot is playing the seat: {notes[-3:]}"
 
+        # Their hand goes into the pool as soon as the match thread gets to it,
+        # not whenever their own turn comes round.
+        assert _wait_until(
+            room,
+            lambda r: (_engine_player(r, victim.index) is not None
+                       and not _engine_player(r, victim.index).hand),
+            timeout=30.0), "the kicked player's hand never went to the pool"
+        log = _read(room, lambda r: list(r._live_gs.log))
+        assert any("went to the pool" in line for line in log), \
+            "the kicked player's cards were not put in the pool"
+
         # The removed player's own client must be able to find out why.
         assert room.kicked_token_notice(victim_token), \
             "the removed player's client is given no reason for losing its seat"
@@ -177,8 +197,18 @@ def part_b_the_seat_only_ever_passes_and_the_table_never_parks():
         print(f"the only human (seat {human.index}) was removed mid-match; "
               f"nobody is left at the table")
 
+        # Watch the removed player's hand for the rest of the match: it must
+        # empty into the pool and never pick up another card.
+        hand_sizes = []
+
+        def done_and_watch(r):
+            p = _engine_player(r, human.index)
+            if p is not None:
+                hand_sizes.append(len(p.hand))
+            return r.phase != "running"
+
         began = time.monotonic()
-        finished = _wait_until(room, lambda r: r.phase != "running", timeout=420.0)
+        finished = _wait_until(room, done_and_watch, timeout=420.0)
         elapsed = time.monotonic() - began
         turn = _read(room, lambda r: int(r.last_turn_number))
         assert finished, (
@@ -202,6 +232,19 @@ def part_b_the_seat_only_ever_passes_and_the_table_never_parks():
         )
         counts = {k: seen.count(k) for k in sorted(set(seen), key=str)}
         print(f"the dead seat acted {len(seen)} times, all of them exits: {counts} ✓")
+        assert len(seen) == 1, (
+            f"the removed seat was asked to act {len(seen)} times: after it "
+            f"leaves, the engine must skip its turns instead of running them")
+
+        # No draws: once the hand is empty it stays empty to the final card.
+        first_empty = next((i for i, n in enumerate(hand_sizes) if n == 0), None)
+        assert first_empty is not None, \
+            f"the removed player's hand never emptied into the pool: {hand_sizes[-5:]}"
+        assert not any(hand_sizes[first_empty:]), (
+            f"the removed player DREW after leaving: hand sizes went back up to "
+            f"{max(hand_sizes[first_empty:])}")
+        print(f"their hand went to the pool and stayed empty for the rest of "
+              f"the match ({len(hand_sizes)} checks) ✓")
 
         # And it never became the seat the table is WAITING on: that flag means
         # "a human is being waited for", and the whole point is that nobody is.
@@ -217,8 +260,8 @@ def part_b_the_seat_only_ever_passes_and_the_table_never_parks():
 def run():
     part_a_no_bot_exists_to_take_the_chair()
     part_b_the_seat_only_ever_passes_and_the_table_never_parks()
-    print("\nINTEGRATION: a kicked seat is out, no bot takes it, "
-          "and the table never parks ✓")
+    print("\nINTEGRATION: a kicked seat is out, its hand goes to the pool, it "
+          "draws nothing, no bot takes it, and the table never parks ✓")
 
 
 if __name__ == "__main__":

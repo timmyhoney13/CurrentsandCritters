@@ -8107,6 +8107,38 @@ def add_to_pool(ms: MatchState, uid: int) -> None:
         ms.pool.clear()
 
 
+# A policy returns Action(kind=LEAVE_GAME_ACTION) for a player who has been
+# removed from the match (the multiplayer kick vote). It is not a legal move and
+# never appears in legal_actions: run_match handles it before apply_action.
+LEAVE_GAME_ACTION = "leave_game"
+OUT_OF_GAME_FLAG = "_out_of_game"
+
+
+def remove_player_from_game(gs: GameState, ms: MatchState, player: PlayerState) -> int:
+    """Take `player` out of the match for good: their hand goes into the pool
+    (one card at a time through add_to_pool, so the pool still clears at 10) and
+    from then on run_match skips their turns outright: no draw, no action.
+
+    Their board stays where it is. Safe to call again; it returns how many cards
+    went to the pool this call. The END GAME card, should it ever be sitting in
+    the hand, stays there so the per-turn "held end-game card" check still
+    fires exactly as it would have.
+    """
+    player.flags[OUT_OF_GAME_FLAG] = True
+    moved = 0
+    for uid in list(player.hand):
+        if ms.end_game_uid is not None and uid == ms.end_game_uid:
+            continue
+        player.hand.remove(uid)
+        add_to_pool(ms, uid)
+        moved += 1
+    for k in ("_discard_mode", "_tarpon_discard_active", "_free_action_only"):
+        player.flags.pop(k, None)
+    if moved:
+        gs.log.append(f"{player.name} is out of the game: {moved} card(s) from their hand went to the pool.")
+    return moved
+
+
 def share_stack_key(card: CardDef) -> Optional[str]:
     name = card_name_lc(card)
     if name == "lobster":
@@ -12496,6 +12528,26 @@ def run_match(
                     live_recorder.event(f"State sanitizer: +{extra} additional fixes")
                     sanitize_log_budget -= 1
         p = gs.current_player()
+        if p.flags.get(OUT_OF_GAME_FLAG):
+            # Removed from the match: this seat has no turn any more. No draw,
+            # no action, no hand; the table simply moves on to the next player.
+            if p.hand:
+                remove_player_from_game(gs, ms, p)
+            if all(pl.flags.get(OUT_OF_GAME_FLAG) for pl in gs.players):
+                gs.log.append("Match ended: every player has been removed.")
+                if live_recorder is not None:
+                    live_recorder.event("Match ended: every player has been removed.")
+                break
+            if ms.end_game_triggered:
+                # Their final turn is spent, exactly as if they had passed it.
+                ms.final_turns_remaining -= 1
+                if ms.final_turns_remaining <= 0:
+                    break
+            gs.turn_index = (gs.turn_index + 1) % len(gs.players)
+            if gs.turn_index == 0:
+                gs.round_count += 1
+            turns += 1
+            continue
         turn_state = TurnState()
         made_action_this_turn = False
         if live_recorder is not None:
@@ -12570,6 +12622,13 @@ def run_match(
             chosen = policy(gs, ms, p)
             if chosen is not None and getattr(chosen, 'kind', None) == 'undo':
                 undo_occurred = True
+                break
+            if chosen is not None and getattr(chosen, 'kind', None) == LEAVE_GAME_ACTION:
+                # Removed mid-turn: hand to the pool and the turn ends here. The
+                # rest of this pass finds an empty hand, so nothing is drawn.
+                remove_player_from_game(gs, ms, p)
+                if live_recorder is not None:
+                    live_recorder.event(f"{p.name} is out of the game; their hand went to the pool.")
                 break
             is_human_turn = policy_index in human_idx_set
             interactive_human_turn = is_human_turn and (not web_control_mode)
@@ -12906,10 +12965,12 @@ def run_match(
                             except Exception:
                                 pass
                 else:
+                    if t_action.kind == LEAVE_GAME_ACTION:
+                        remove_player_from_game(gs, ms, p)
                     p.flags["_tarpon_discard_active"] = False
                     break
             p.flags["_tarpon_discard_active"] = False
-            if tarpon_discarded > 0:
+            if tarpon_discarded > 0 and not p.flags.get(OUT_OF_GAME_FLAG):
                 drew_tarpon = draw_from_deck(gs, ms, p, min(tarpon_discarded, len(gs.deck)))
                 gs.log.append(f"{p.name} draws {len(drew_tarpon)} from Tarpon discard-and-draw.")
                 if live_recorder is not None:
@@ -12959,6 +13020,9 @@ def run_match(
                     # than needed) would otherwise end the turn still over the limit.
                     # Let the while-condition re-check and re-prompt if still over.
                     continue
+                if chosen_discard.kind == LEAVE_GAME_ACTION:
+                    remove_player_from_game(gs, ms, p)
+                    break
                 if chosen_discard.kind != "discard_to_pool":
                     # Unexpected action kind during discard phase: ignore and try again.
                     continue
@@ -13024,6 +13088,8 @@ def run_match(
 
         if made_action_this_turn:
             stalled_turns = 0
+        elif p.flags.get(OUT_OF_GAME_FLAG):
+            pass  # removed this turn: not a stall, the table is still moving
         else:
             p.flags["_tempo_score"] = float(p.flags.get("_tempo_score", 0.0)) - 0.45
             stalled_turns += 1

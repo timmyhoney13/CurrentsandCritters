@@ -278,7 +278,7 @@ if (!CHROME) {
   const STRIP = HTML.slice(start, end);
 
   const CARD = `<div class="ph-cs-card is-weekly"><div class="ph-cs-card-top">
-    <div class="ph-cs-card-icon">🏁</div><div class="ph-cs-card-meta">
+    <div class="ph-cs-card-meta">
     <div class="ph-cs-card-type">WEEKLY</div><div class="ph-cs-card-name">Weekly Finisher</div>
     </div></div><div class="ph-cs-card-req">Finish 10 games this week.</div>
     <div class="ph-cs-card-foot"><div class="ph-cs-card-bar"><div class="ph-cs-card-fill" style="width:40%"></div></div>
@@ -550,7 +550,7 @@ if (!CHROME) {
   const IGCP = HTML.slice(ps, pe) + "\n</div>";
 
   const IROW = `<div class="igcp-row"><div class="igcp-row-top">
-    <div class="igcp-row-icon">🏁</div><div class="igcp-row-info">
+    <div class="igcp-row-info">
     <div class="igcp-row-name">Weekly Finisher</div>
     <div class="igcp-row-desc">Finish 10 games this week.</div></div>
     <div class="igcp-row-xp">+1,000 XP</div></div>
@@ -594,7 +594,7 @@ if (!CHROME) {
   var out = { VH: VH, closed: rec() };
   // Exactly what renderIgChallengePanel does when the header is tapped.
   cards.innerHTML = ${JSON.stringify(IROW)}.repeat(3);
-  rew.textContent = "🗝️ All 3 = Weekly Tide Sweep · +1,500 XP  (1/3)";
+  rew.textContent = "All 3 = Weekly Tide Sweep · +1,500 XP  (1/3)";
   panel.classList.remove("igcp-minimized");
   out.open = rec();
   document.getElementById("out").textContent = JSON.stringify(out);

@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-16.1";
+  const APP_BUILD   = "2026-09-16.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -18268,7 +18268,7 @@
         const rows = [];
         const addReward = (icon, name, desc, xp, status) => rows.push(
           `<div class="gs-rw-row">
-             <div class="gs-rw-icon">${icon}</div>
+             ${icon ? `<div class="gs-rw-icon">${icon}</div>` : ""}
              <div class="gs-rw-info"><div class="gs-rw-name">${name}</div><div class="gs-rw-desc">${desc}</div></div>
              <div class="gs-rw-xp${status ? " gs-rw-status" : ""}">${status ? "✓" : ("+" + xp + " XP")}</div>
            </div>`);
@@ -18301,8 +18301,8 @@
           if (typeof window._getNewlyCompletedChallenges === "function") {
             const snap = _preGameChallengeSnapshot || { weekly: new Set(), daily: new Set() };
             const { weekly: nw, daily: nd } = window._getNewlyCompletedChallenges(snap);
-            (nd || []).forEach(ch => addReward(ch.icon || "📅", (ch.name || ch.id), "Daily Challenge", ch.xp || 0, false));
-            (nw || []).forEach(ch => addReward(ch.icon || "📆", (ch.name || ch.id), "Weekly Challenge", ch.xp || 0, false));
+            (nd || []).forEach(ch => addReward("", (ch.name || ch.id), "Daily Challenge", ch.xp || 0, false));
+            (nw || []).forEach(ch => addReward("", (ch.name || ch.id), "Weekly Challenge", ch.xp || 0, false));
           }
         } catch (_) {}
         // Progress status rows.
@@ -18525,7 +18525,6 @@
       const row = document.createElement("div");
       row.className = "gs-ch-row";
       row.innerHTML = `
-        <div class="gs-ch-icon">${ch.icon || (weekly ? "📆" : "📅")}</div>
         <div class="gs-ch-info">
           <div class="gs-ch-type ${weekly ? "weekly" : "daily"}">${weekly ? "Weekly" : "Daily"} Challenge</div>
           <div class="gs-ch-name">${ch.name || ch.id}</div>
@@ -34607,7 +34606,7 @@
       const canSwap  = isWeekly && !c.completed && _csSwapUnlocked();
       const swapHtml = canSwap
         ? `<button class="ph-cs-swap" type="button" data-swapslot="${Number(c.slotPos)}"
-             title="Swap this challenge for a different one">🔄 Swap</button>`
+             title="Swap this challenge for a different one">Swap</button>`
         : "";
       const target    = Math.max(1, Number(c.target) || 1);
       const cur       = Math.max(0, Math.min(target, Number(c.progress) || 0));
@@ -34628,7 +34627,6 @@
       return `
         <div class="${classes.join(" ")}">
           <div class="ph-cs-card-top">
-            <div class="ph-cs-card-icon" aria-hidden="true">${escapeHtml(c.icon || "🎯")}</div>
             <div class="ph-cs-card-meta">
               <div class="ph-cs-card-type">${isWeekly ? "WEEKLY" : "DAILY"}</div>
               <div class="ph-cs-card-name" title="${escapeHtml(c.name || "")}">${escapeHtml(c.name || "")}</div>
@@ -34649,7 +34647,6 @@
       const rewardEl = $a("ph-cs-reward-btn");
       const rlabelEl = $a("ph-cs-reward-label");
       const rsubEl   = $a("ph-cs-reward-sub");
-      const ricoEl   = $a("ph-cs-reward-icon");
       const pillEl   = $a("ph-cs-pill");
       const titleEl  = $a("ph-cs-title");
       if (!stripEl || !cardsEl || !subEl) return;
@@ -34766,7 +34763,6 @@
           : `${done} / ${total} Completed`;
       }
       if (fillEl)  fillEl.style.width  = sweepPct + "%";
-      if (ricoEl)  ricoEl.textContent  = weekly ? "🗝️" : "📅";
       if (rewardEl) {
         rewardEl.style.display = _csOpen ? "" : "none";
         rewardEl.classList.toggle("is-done", Boolean(meta.sweepDone));
@@ -35411,7 +35407,6 @@
         return `
           <div class="igcp-row${done ? " igcp-done" : ""}${isWeekly ? " igcp-weekly" : " igcp-daily"}">
             <div class="igcp-row-top">
-              <div class="igcp-row-icon">${escapeHtml(c.icon || "🎯")}</div>
               <div class="igcp-row-info">
                 <div class="igcp-row-name" title="${escapeHtml(c.name || "")}">${escapeHtml(c.name || "")}</div>
                 <div class="igcp-row-desc" title="${escapeHtml(c.req || "")}">${escapeHtml(c.req || "")}</div>
@@ -35476,7 +35471,7 @@
               const which = weekly ? "Weekly" : "Daily";
               rewardEl.textContent = meta.sweepDone
                 ? `✓ ${which} Tide Sweep complete: ${xp} XP`
-                : `${weekly ? "🗝️" : "📅"} ${meta.totalCount > (meta.sweepTarget || 3) ? "Any" : "All"} ${meta.sweepTarget || 3} = ${which} Tide Sweep · +${xp} XP  (${Math.min(meta.completedCount, meta.sweepTarget || 3)}/${meta.sweepTarget || 3})`;
+                : `${meta.totalCount > (meta.sweepTarget || 3) ? "Any" : "All"} ${meta.sweepTarget || 3} = ${which} Tide Sweep · +${xp} XP  (${Math.min(meta.completedCount, meta.sweepTarget || 3)}/${meta.sweepTarget || 3})`;
             } else {
               rewardEl.textContent = "";
             }

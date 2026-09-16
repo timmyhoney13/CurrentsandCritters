@@ -8083,6 +8083,26 @@ class GameRoom:
             self._bump_locked()
             return {"ok": True}
 
+    def _remove_kicked_players_locked(self, gs: "fish.GameState", ms: "fish.MatchState") -> bool:
+        """Send every kicked seat's hand to the pool now, instead of when that
+        seat's own turn next comes round. Match thread only (engine state is
+        never touched from a request thread). True if any card moved."""
+        moved = False
+        seats = getattr(self, "seats", None)
+        if gs is None or ms is None or not seats:
+            return False
+        game_to_seat = getattr(self, "_comp_game_to_seat", None) or {}
+        for game_idx, p in enumerate(gs.players):
+            seat_idx = game_to_seat.get(game_idx, game_idx)
+            seat = seats[seat_idx] if 0 <= seat_idx < len(seats) else None
+            if seat is None or not getattr(seat, "kicked", False):
+                continue
+            if p.flags.get(fish.OUT_OF_GAME_FLAG) and not p.hand:
+                continue
+            if fish.remove_player_from_game(gs, ms, p):
+                moved = True
+        return moved
+
     def _wait_for_action(self, seat_index: int, timeout_sec: float = 300.0) -> Optional[Dict[str, Any]]:
         """Block until an action arrives, the game ends, or timeout_sec elapses (returns None on timeout)."""
         deadline = time.monotonic() + timeout_sec
@@ -8091,6 +8111,19 @@ class GameRoom:
                 # Apply any queued Current Controller mod mutations here, this
                 # runs on the match thread, so engine state is never raced.
                 self._drain_admin_mods_locked()
+                # A kick that passed while this seat is parked: the removed
+                # player's hand goes to the pool right away, and this seat
+                # re-loops so its legal moves see the new pool.
+                _lgs = getattr(self, "_live_gs", None)
+                _lms = getattr(self, "_live_ms", None)
+                if _lgs is not None and self._remove_kicked_players_locked(_lgs, _lms):
+                    try:
+                        self._record_snapshot(_lgs, _lms,
+                                              turn_number=self.last_turn_number, note="kicked_hand_to_pool")
+                    except Exception as exc:
+                        self._record_event(f"kicked hand re-snapshot warning: {exc}")
+                    self._bump_locked()
+                    return {"kind": "__kicked__"}
                 q = self.pending_actions.get(seat_index)
                 if q:
                     return q.pop(0)
@@ -8601,6 +8634,10 @@ class GameRoom:
             self._bump_locked()
 
     def _record_snapshot(self, gs: fish.GameState, ms: fish.MatchState, turn_number: int, note: str) -> None:
+        # Runs on the match thread between actions: the safe moment to empty a
+        # kicked player's hand into the pool before the table is shown.
+        with self.cond:
+            self._remove_kicked_players_locked(gs, ms)
         players_public: List[Dict[str, Any]] = []
         private_hands: Dict[int, List[Dict[str, Any]]] = {}
         scores_now: Dict[str, int] = {}
@@ -9020,43 +9057,16 @@ class GameRoom:
         ms: "fish.MatchState",
         player: "fish.PlayerState",
     ) -> Optional["fish.Action"]:
-        """The only thing a kicked seat is ever allowed to do: leave its own
-        turn by the shortest legal route.
+        """The only thing a kicked seat is ever allowed to do: leave the game.
 
-        NO bot plays a kicked chair. Nothing here reads the brain, weights or
-        strategy maps, and, unlike _safe_fallback_action, this can never fall
-        through to "first legal action", which would be a card play. The whole
-        allow-list is three kinds:
-
-          • end_turn        when the rules already permit passing;
-          • discard_to_pool only in the forced over-the-hand-limit phase, where
-                            the engine offers nothing else at all;
-          • draw            the mandatory draw, because outside the final round
-                            the engine will not let ANY turn end before it, so
-                            without this the dead chair parks the table forever.
-
-        None means "nothing legal that is allowed here": the engine then ends
-        the turn on its own, which is exactly the intent.
+        NO bot plays a kicked chair, and nothing is drawn for it either. The
+        engine takes this action to mean "this player is out": their hand goes
+        into the pool, this turn ends on the spot, and every later turn of
+        theirs is skipped before it starts (fish.remove_player_from_game). So
+        a removed player gets no draws, no actions and no cards from then on.
+        Nothing here reads the brain, weights or strategy maps.
         """
-        try:
-            actions = fish.legal_actions(gs, ms, player, include_draw=True)
-        except Exception:
-            return None
-        if not actions:
-            return None
-        for action in actions:
-            if action.kind == "end_turn":
-                return action
-        for action in actions:
-            if action.kind == "discard_to_pool":
-                return action
-        for action in actions:
-            if action.kind == "draw" and int(getattr(action, "draw_from_pool", 0)) == 0:
-                return action
-        for action in actions:
-            if action.kind == "draw":
-                return action
-        return None
+        return fish.Action(kind=fish.LEAVE_GAME_ACTION)
 
     def _human_policy(self, seat_index: int):
         # Per-policy state: when a timeout-fallback fires during the draw phase,
@@ -9068,9 +9078,10 @@ class GameRoom:
             while True:
                 # This seat's player was removed by a kick vote. Nobody is going
                 # to submit an action for it ever again, and nobody takes it
-                # over either: the chair is out of the game. It just passes its
-                # turn straight back out so the table keeps going round instead
-                # of waiting out a timeout every single round. Checked first,
+                # over either: the chair is out of the game. It answers "leave
+                # game", which sends its hand to the pool and has the engine
+                # skip all its later turns, so the table keeps going round and
+                # the seat never draws again. Checked first,
                 # and re-checked every pass, because a kick can land while this
                 # very call is parked in _wait_for_action below.
                 _seat_here = self.seats[seat_index] if 0 <= seat_index < len(self.seats) else None
@@ -9248,8 +9259,10 @@ class GameRoom:
                 wait_sec = 1800.0
                 cmd = self._wait_for_action(seat_index, timeout_sec=wait_sec)
                 if cmd is not None and cmd.get("kind") == "__kicked__":
-                    # Player removed by vote while we were parked here. Re-loop
-                    # so the top-of-loop branch passes this dead seat's turn.
+                    # A player was removed by vote while we were parked here:
+                    # maybe this seat, maybe another whose hand just went to the
+                    # pool. Re-loop either way: the top-of-loop branch takes a
+                    # dead seat out, and a live one re-reads its legal moves.
                     continue
                 if cmd is not None and cmd.get("kind") == "__undo_armed__":
                     # A flag-driven undo was armed (by the previous player) while we
@@ -10137,7 +10150,7 @@ class GameRoom:
                 # to start playing it. _safe_fallback_action's last resort is
                 # "the first legal action", which can be a card play: that is a
                 # stand-in move, which is the exact thing a kick removes. Keep
-                # the dead seat on its own pass-only route even here.
+                # the dead seat on its leave-the-game route even here.
                 if seat_obj is not None and getattr(seat_obj, "kicked", False):
                     return self._kicked_seat_action(gs, ms, player)
                 if seat_obj is not None and getattr(seat_obj, "is_away", False):
@@ -12245,7 +12258,8 @@ class GameRoom:
         policy with nobody behind it parks the table forever (that is exactly
         what an abandoned seat already does). So the seat keeps its name and
         turn slot and is flagged kicked, and from then on it does nothing but
-        pass its own turn (see _kicked_seat_action). No bot inherits the chair,
+        leave the game (see _kicked_seat_action): its hand goes to the pool and
+        its turns are skipped, so it never draws again. No bot inherits the chair,
         and no card is ever played for the removed player again.
         """
         removed = self._owned_seats_locked(target)
@@ -12297,7 +12311,8 @@ class GameRoom:
         if running:
             self._add_system_chat(
                 f"{name} was removed from the game by a unanimous vote. "
-                f"Their seat is out: nobody plays it, their turns are skipped."
+                f"Their hand went to the pool and their turns are skipped: "
+                f"nobody plays the seat and it draws no more cards."
             )
             self.status_note = f"{name} was removed by vote; their seat is out of the game."
             # Nudge the turn loop: if it is parked waiting on the seat we just
