@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-14.7";
+  const APP_BUILD   = "2026-09-16.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -334,7 +334,7 @@
       "Something is hidden in the kelp, bottom left, that is not the colour of anything else down there.",
     ]},
     { ver: "V1.7.0", title: "🌊 A new sign-in screen, and something hidden in it", items: [
-      "The first screen is a new painting. Same eight oceans, but SIGN IN OR CREATE AN ACCOUNT and both buttons are drawn straight into it now, and CURRENTS & CRITTERS sits dead centre above them.",
+      "The first screen is a new painting. Same eight oceans, but SIGN IN OR CREATE AN ACCOUNT and both buttons are drawn straight into it now, and CURRENTS AND CRITTERS sits dead centre above them.",
       "Play as a Guest, Sign In / Create an Account and Create Your Username all open ON that painting: it dims back and the card stands in front of it. Signing in is one room now instead of three.",
       "There is a rotted piling on the pier, bottom left, one plank that is not the colour of the others. Find it and the Pier background is yours the moment there is an account to put it in: sign in straight after, or make one tomorrow, and it will be waiting in your Avatar Gallery.",
     ]},
@@ -4316,7 +4316,7 @@
   }
   function wrInviteLink() { return `${location.origin}/play/${wrInviteCode()}`; }
   function wrInviteDefaultText() {
-    return `Come play Currents & Critters with me! Room ${wrInviteCode()}: ${wrInviteLink()}`;
+    return `Come play Currents and Critters with me! Room ${wrInviteCode()}: ${wrInviteLink()}`;
   }
 
   document.getElementById("wr-copy-btn").addEventListener("click", () => {

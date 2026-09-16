@@ -1,4 +1,4 @@
-# Currents & Critters: Newsletter System
+# Currents and Critters: Newsletter System
 
 Everything that could be built in code is built and tested. What remains is
 account-level setup in Stripe, Render and your DNS.
@@ -271,7 +271,7 @@ Password**, not your normal one:
 
 1. <https://myaccount.google.com/security> → turn on **2-Step Verification** if
    it is not already on (App Passwords do not exist without it).
-2. <https://myaccount.google.com/apppasswords> → name it `Currents & Critters
+2. <https://myaccount.google.com/apppasswords> → name it `Currents and Critters
    Newsletter` → **Create**.
 3. Google shows a 16-character password. Paste it into `SMTP_PASSWORD`, the
    spaces Google puts in it are stripped for you, so either form works.
@@ -416,7 +416,7 @@ choose §4 Option C.
 |---|---|---|
 | `ADMIN_EMAIL` | The **only** account that can open `/admin/newsletter` | `timothy.honey@beardedsealstudios.com` |
 | `NEWSLETTER_FROM_EMAIL` | The From address | `timothy.honey@beardedsealstudios.com` |
-| `NEWSLETTER_FROM_NAME` | From display name | `Currents & Critters` |
+| `NEWSLETTER_FROM_NAME` | From display name | `Currents and Critters` |
 | `APP_BASE_URL` | Where unsubscribe links point | `https://play.currentsandcritters.com` |
 | `CURRENTS_AND_CRITTERS_URL` | "Visit" button + email logo host | `https://currentsandcritters.com` |
 | `PRIVACY_POLICY_URL` | Footer link | `https://currentsandcritters.com/privacy` |
@@ -687,7 +687,7 @@ deliberate honesty: only a test send proves it, and claiming otherwise is how a
 2. Type a real address you control into **"Enter your email to get updates"**.
 3. Complete the payment.
 4. Within ~a minute: a **welcome email** to that address, and a **"New
-   Currents & Critters Newsletter Subscriber"** email to you.
+   Currents and Critters Newsletter Subscriber"** email to you.
 5. `/admin/newsletter` → **Subscribers** shows them as Active, source *Stripe
    Checkout*.
 
@@ -773,7 +773,7 @@ gone; your text remains.
 ### 9.1 The Privacy Policy quoted a label that cannot exist
 Your policy said the checkout field is labelled:
 
-> "Enter your email to join the Currents & Critters newsletter and receive
+> "Enter your email to join the Currents and Critters newsletter and receive
 > occasional updates."
 
 That is **89 characters**, and **Stripe caps a custom-field label at 50**. So

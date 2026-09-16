@@ -1249,7 +1249,7 @@ def request_subscription(email_lower: str, *, source: str = SOURCE_WEBSITE) -> D
     Returns the same shape as every other subscribe path:
     {"result": ..., "subscriber": {...}, "sendWelcome": bool}.
     """
-    note = "Signed up on the Currents & Critters website form."
+    note = "Signed up on the Currents and Critters website form."
 
     # FAST PATH: one write, no transaction.
     #
@@ -2425,7 +2425,7 @@ def _admin_self_test(admin: str) -> Dict[str, Any]:
     try:
         nl_email.send_email(
             to_email=to,
-            subject="Currents & Critters newsletter self-test",
+            subject="Currents and Critters newsletter self-test",
             html_body=nl_email.render_email_html(body_html=body, unsubscribe_url="",
                                                  show_visit_button=False,
                                                  preview_text="Sending works."),

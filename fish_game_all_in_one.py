@@ -14796,7 +14796,7 @@ def _train_write_html(path: str, summary: Dict[str, Any]) -> None:
     top_decs = summary["top25_decisions"]
 
     html = f"""<!doctype html><html><head><meta charset=utf-8>
-<title>Currents &amp; Critters: Multi-Count AI Training Report</title>
+<title>Currents and Critters: Multi-Count AI Training Report</title>
 <style>
 body{{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;background:#f6f8fa;color:#1f2328}}
 .wrap{{max-width:1100px;margin:0 auto;padding:28px}}
@@ -14812,7 +14812,7 @@ th,td{{padding:7px 10px;text-align:left;border-bottom:1px solid #eaeef2}} th{{ba
 .k{{color:#57606a;font-size:12px}} .v{{font-size:22px;font-weight:700}}
 small{{color:#8c959f}}
 </style></head><body><div class=wrap>
-<h1>Currents &amp; Critters: Multi-Count AI Training Report</h1>
+<h1>Currents and Critters: Multi-Count AI Training Report</h1>
 <p class=sub>Generated {esc(summary['generated_at'])} · base seed {esc(summary['base_seed'])} · {esc(summary['games_per_count'])} training games/count · {esc(summary['benchmark_games'])} benchmark games/count · counts {esc(counts)}</p>
 <div class="banner {'good' if agg.get('old_is_better') else 'warn'}">{agg_verdict} &nbsp;&nbsp; new-vs-old win rate {agg.get('old_win_rate')} (95% CI {agg.get('old_ci_low')}–{agg.get('old_ci_high')}, n={agg.get('games')})</div>
 <div class=cards>

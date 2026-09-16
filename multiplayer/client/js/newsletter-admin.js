@@ -669,7 +669,7 @@
       var f3 = el("label", "n-check");
       f3.appendChild(consent);
       f3.appendChild(el("span", null,
-        "I confirm this person gave me permission to send them Currents & Critters updates. " +
+        "I confirm this person gave me permission to send them Currents and Critters updates. " +
         "Adding someone who did not ask is what gets a sending domain blocked."));
       form.appendChild(f3);
 
@@ -986,7 +986,7 @@
       cmd("insertHTML", '<img src="' + esc(url) + '" alt="" />');
     });
     tool("Button", "Insert a styled button", function () {
-      var text = window.prompt("Button text", "Play Currents & Critters");
+      var text = window.prompt("Button text", "Play Currents and Critters");
       if (!text) return;
       var url = window.prompt("Button link", "https://currentsandcritters.com");
       if (!url || !/^(https?:\/\/|mailto:)/i.test(url.trim())) {

@@ -132,7 +132,7 @@ console.log("\nthe lettering is in the picture, so it is not drawn twice");
   // pixels. The text stays in the document for a screen reader and is hidden
   // from the eye; the <img> is alt="" so the words are not announced twice.
   check("the words are still in the document",
-        /<h1 class="ao-title">Currents &amp; Critters<\/h1>/.test(HTML));
+        /<h1 class="ao-title">Currents and Critters<\/h1>/.test(HTML));
   check("…saying what the picture says, word for word",
         /Build Your Ocean\. Rule the Current\./.test(HTML)
         && /Play Animals\. Combine Species\. Build Ecosystems\. Rule The Ocean\./.test(HTML));

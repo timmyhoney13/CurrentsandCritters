@@ -198,7 +198,7 @@ services:
       - key: NEWSLETTER_FROM_EMAIL
         value: currentsandcritters@gmail.com
       - key: NEWSLETTER_FROM_NAME
-        value: Currents & Critters
+        value: Currents and Critters
       - key: APP_BASE_URL
         value: https://play.currentsandcritters.com
       - key: CURRENTS_AND_CRITTERS_URL

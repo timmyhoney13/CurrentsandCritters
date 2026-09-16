@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tournament engine for Currents & Critters: PURE LOGIC, no I/O.
+"""Tournament engine for Currents and Critters: PURE LOGIC, no I/O.
 
 This module is the server-authoritative backbone for Tournament Mode. It is
 deliberately free of Flask/HTTP/Firestore concerns so it can be unit-tested

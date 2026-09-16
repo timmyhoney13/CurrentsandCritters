@@ -314,7 +314,7 @@ class Base(unittest.TestCase):
             "configured": True, "connected": True, "canSendAsSender": True,
             "senderVerified": True, "transport": "smtp",
             "transportLabel": "SMTP (smtp.example.com)",
-            "senderEmail": ADMIN, "senderName": "Currents & Critters", "replyTo": ADMIN,
+            "senderEmail": ADMIN, "senderName": "Currents and Critters", "replyTo": ADMIN,
             "authorizedAs": ADMIN, "scopes": ["smtp.example.com:587 (starttls)"],
             "sanitizer": ne.sanitizer_name(), "dailyCap": 1200, "error": "", "setupHint": "",
         }
@@ -1239,14 +1239,14 @@ class TestEmailContent(Base):
     def test_welcome_email_content(self):
         self.signup("a@b.com")
         m = self.box.to("a@b.com")[0]
-        self.assertEqual(m["subject"], "Welcome to the Currents & Critters Community!")
+        self.assertEqual(m["subject"], "Welcome to the Currents and Critters Community!")
         html, text = m["html_body"], m["text_body"]
-        for phrase in ("Hi!!!", "Thank you for joining the Currents &amp; Critters email list",
+        for phrase in ("Hi!!!", "Thank you for joining the Currents and Critters email list",
                        "New game features and updates", "Online game nights and special events",
                        "Progress on the physical card game",
                        "Rewards and important announcements",
                        "Opportunities to playtest and help improve the game",
-                       "Timothy Honey", "Creator of Currents &amp; Critters"):
+                       "Timothy Honey", "Creator of Currents and Critters"):
             self.assertIn(phrase, html, phrase)
         # Footer, on every marketing email, automatically.
         self.assertIn("Bearded Seal Studios LLC", html)
@@ -1257,7 +1257,7 @@ class TestEmailContent(Base):
         self.assertIn("Privacy Policy", html)
         self.assertIn("currentsandcritters.com", html)
         self.assertIn("email-logo.png", html, "the website logo is in the header")
-        self.assertIn("Visit Currents &amp; Critters", html)
+        self.assertIn("Visit Currents and Critters", html)
         # Plain text alternative exists and is readable.
         self.assertIn("Hi!!!", text)
         self.assertIn("Bearded Seal Studios LLC", text)
@@ -1275,7 +1275,7 @@ class TestEmailContent(Base):
     def test_owner_notification(self):
         self.signup("fan@x.com")
         m = self.box.to(ADMIN)[0]
-        self.assertEqual(m["subject"], "New Currents & Critters Newsletter Subscriber")
+        self.assertEqual(m["subject"], "New Currents and Critters Newsletter Subscriber")
         self.assertIn("fan@x.com", m["html_body"])
         self.assertIn("Stripe Checkout", m["html_body"])
         self.assertIn("New signup", m["html_body"])
@@ -2295,7 +2295,7 @@ class TestRealSmtpOverASocket(_EnvSandbox):
         parsed = _email.message_from_string(s["data"])
         self.assertEqual(parsed["To"], "fan@example.com")
         self.assertEqual(parsed["Subject"],
-                         "Welcome to the Currents & Critters Community!")
+                         "Welcome to the Currents and Critters Community!")
         self.assertIn("Currents", parsed["From"])
         self.assertIn(ADMIN, parsed["From"])
         self.assertEqual(parsed["Reply-To"], ADMIN)
@@ -2314,7 +2314,7 @@ class TestRealSmtpOverASocket(_EnvSandbox):
         html = parts[1].get_payload(decode=True).decode("utf-8")
 
         # ── the copy Tim wrote, and the footer the law wants ────────────
-        for phrase in ("Hi!!!", "Thank you for joining the Currents & Critters email list",
+        for phrase in ("Hi!!!", "Thank you for joining the Currents and Critters email list",
                        "Timothy Honey", "Bearded Seal Studios LLC",
                        "916A South Douglas Avenue", "Nashville, TN 37204-2021",
                        "You received this email because you signed up"):

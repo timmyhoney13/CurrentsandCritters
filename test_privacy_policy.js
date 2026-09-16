@@ -102,7 +102,7 @@ const TEXT = String(HTML_DOC || "")
     "We do not sell your personal information",
     "We do not receive or store your Google password",
     "Your email address, Google account identifier, and other private account information are not publicly displayed",
-    "You may be able to use certain parts of Currents & Critters as a guest without creating an account",
+    "You may be able to use certain parts of Currents and Critters as a guest without creating an account",
     "Every marketing email will include a working unsubscribe option",
     "not directed to children under 13",
     "916A South Douglas Avenue",

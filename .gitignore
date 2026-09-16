@@ -463,6 +463,7 @@
 # Main Menu tutorial takes to those same two elements.
 !test_sidebar_scroll.js
 !test_sidebar_hover.js
+!test_game_name.js
 
 # The Stripe money path. The .py half covers the server's decision functions , 
 # webhook signature verification (the only thing between a stranger's POST and

@@ -134,7 +134,7 @@ HTTP_PROVIDERS: Dict[str, Dict[str, Any]] = {
     },
 }
 
-BRAND_NAME = "Currents & Critters"
+BRAND_NAME = "Currents and Critters"
 BUSINESS_NAME = "Bearded Seal Studios LLC"
 BUSINESS_ADDRESS_LINES = (
     "916A South Douglas Avenue",
@@ -818,7 +818,7 @@ def _footer_html(unsubscribe_url: str, *, is_test: bool = False) -> str:
         unsub_cell = ""
 
     consent_line = (
-        '<div>You received this email because you signed up for the Currents &amp; Critters '
+        '<div>You received this email because you signed up for the Currents and Critters '
         'email list. You can unsubscribe at any time.</div>'
         '<div style="height:10px;line-height:10px;font-size:0;">&nbsp;</div>'
     ) if marketing else ""
@@ -856,7 +856,7 @@ def _footer_text(unsubscribe_url: str, *, is_test: bool = False) -> str:
     else:
         unsub = ""
     consent = (
-        "You received this email because you signed up for the Currents & Critters "
+        "You received this email because you signed up for the Currents and Critters "
         "email list. You can unsubscribe at any time.\n\n"
     ) if marketing else ""
     return (
@@ -876,7 +876,7 @@ def render_email_html(
     is_test: bool = False,
     show_visit_button: bool = True,
 ) -> str:
-    """Wrap sanitised body HTML in the Currents & Critters shell + footer."""
+    """Wrap sanitised body HTML in the Currents and Critters shell + footer."""
     logo = site_url() + "/email-logo.png"
     site = site_url()
 
@@ -907,7 +907,7 @@ def render_email_html(
             '<a href="%(site)s" style="display:inline-block;background:%(teal)s;'
             'color:#022b33;font-family:%(font)s;font-size:15px;font-weight:800;'
             'text-decoration:none;padding:13px 30px;border-radius:10px;">'
-            'Visit Currents &amp; Critters</a></td></tr>'
+            'Visit Currents and Critters</a></td></tr>'
         ) % {"site": _html.escape(site, quote=True), "teal": _TEAL, "font": _FONT}
 
     return (
@@ -986,13 +986,13 @@ def render_email_text(
     if is_test:
         head = ("*** TEST EMAIL - this is a preview send. "
                 "No subscriber received this copy. ***\n\n") + head
-    visit = ("\n\nVisit Currents & Critters: " + site_url()) if show_visit_button else ""
+    visit = ("\n\nVisit Currents and Critters: " + site_url()) if show_visit_button else ""
     return head + html_to_text(body_html) + visit + _footer_text(unsubscribe_url, is_test=is_test)
 
 
 # ── The welcome email ───────────────────────────────────────────────────────
 # The copy is Tim's, reproduced exactly. Only the layout is ours.
-WELCOME_SUBJECT = "Welcome to the Currents & Critters Community!"
+WELCOME_SUBJECT = "Welcome to the Currents and Critters Community!"
 
 _WELCOME_BULLETS = (
     "New game features and updates",
@@ -1009,16 +1009,16 @@ def welcome_body_html() -> str:
     )
     return (
         '<p style="margin:0 0 16px;font-size:21px;font-weight:800;color:%(deep)s;">Hi!!!</p>'
-        '<p style="margin:0 0 16px;">Thank you for joining the Currents &amp; Critters email '
+        '<p style="margin:0 0 16px;">Thank you for joining the Currents and Critters email '
         'list. I&rsquo;m excited to have you as part of the community!</p>'
         '<p style="margin:0 0 10px;">You&rsquo;ll receive occasional emails about:</p>'
         '<ul style="margin:0 0 18px;padding-left:22px;">%(bullets)s</ul>'
         '<p style="margin:0 0 16px;">Your support means a lot as I continue to develop the '
-        'game and grow the Currents &amp; Critters community.</p>'
-        '<p style="margin:0 0 20px;">Thank you for supporting Currents &amp; Critters and '
+        'game and grow the Currents and Critters community.</p>'
+        '<p style="margin:0 0 20px;">Thank you for supporting Currents and Critters and '
         'Bearded Seal Studios!</p>'
         '<p style="margin:0;font-weight:800;color:%(deep)s;">Timothy Honey</p>'
-        '<p style="margin:0;font-size:14px;color:%(muted)s;">Creator of Currents &amp; Critters</p>'
+        '<p style="margin:0;font-size:14px;color:%(muted)s;">Creator of Currents and Critters</p>'
         '<p style="margin:0 0 6px;font-size:14px;color:%(muted)s;">Bearded Seal Studios LLC</p>'
     ) % {"deep": _DEEP, "muted": _MUTED, "bullets": bullets}
 
@@ -2571,13 +2571,13 @@ def build_welcome(unsubscribe_url: str, one_click_url: str = "") -> Dict[str, st
     return {
         "subject": WELCOME_SUBJECT,
         "html": render_email_html(body_html=body, unsubscribe_url=unsubscribe_url,
-                                  preview_text="Thank you for joining the Currents & Critters "
+                                  preview_text="Thank you for joining the Currents and Critters "
                                                "email list."),
         "text": render_email_text(body_html=body, unsubscribe_url=unsubscribe_url),
     }
 
 
-CONFIRM_SUBJECT = "Please confirm your Currents & Critters email signup"
+CONFIRM_SUBJECT = "Please confirm your Currents and Critters email signup"
 
 
 def build_confirmation(confirm_url: str) -> Dict[str, str]:
@@ -2596,7 +2596,7 @@ def build_confirmation(confirm_url: str) -> Dict[str, str]:
     body = (
         '<p style="margin:0 0 16px;font-size:21px;font-weight:800;color:%(deep)s;">'
         'One more tap</p>'
-        '<p style="margin:0 0 16px;">Thanks for signing up for the Currents &amp; '
+        '<p style="margin:0 0 16px;">Thanks for signing up for the Currents and '
         'Critters email list! Please confirm your address so I know it&rsquo;s '
         'really you.</p>'
         '<p style="margin:0 0 26px;" class="cc-center">'
@@ -2615,7 +2615,7 @@ def build_confirmation(confirm_url: str) -> Dict[str, str]:
 
     text = (
         "One more tap\n\n"
-        "Thanks for signing up for the Currents & Critters email list! "
+        "Thanks for signing up for the Currents and Critters email list! "
         "Please confirm your address so I know it's really you:\n\n"
         + confirm_url + "\n\n"
         "If you didn't sign up, just ignore this email - you will not be added "
@@ -2628,12 +2628,12 @@ def build_confirmation(confirm_url: str) -> Dict[str, str]:
         "html": render_email_html(body_html=body, unsubscribe_url="",
                                   show_visit_button=False,
                                   preview_text="Confirm your email to join the list."),
-        "text": "Currents & Critters\n" + ("=" * 46) + "\n\n" + text
+        "text": "Currents and Critters\n" + ("=" * 46) + "\n\n" + text
                 + _footer_text(""),
     }
 
 
-OWNER_NOTIFY_SUBJECT = "New Currents & Critters Newsletter Subscriber"
+OWNER_NOTIFY_SUBJECT = "New Currents and Critters Newsletter Subscriber"
 
 
 def build_owner_notification(
@@ -2682,7 +2682,7 @@ def build_owner_notification(
         # marketing footer to it would be both wrong and confusing.
         "html": render_email_html(body_html=body, unsubscribe_url="", show_visit_button=False,
                                   preview_text="%s: %s" % (subscriber_email, kind)),
-        "text": "New Currents & Critters newsletter subscriber\n\n" + text_rows
+        "text": "New Currents and Critters newsletter subscriber\n\n" + text_rows
                 + "\n\nAdmin: " + app_base_url() + "/admin/newsletter\n",
     }
 

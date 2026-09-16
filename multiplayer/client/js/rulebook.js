@@ -666,7 +666,7 @@
     +   '<div class="rb-enc">' + encyclopediaHtml() + '</div>'
     + '</section>'
 
-    + '<div class="rb-end">≈ Currents <span>&amp;</span> Critters ≈</div>';
+    + '<div class="rb-end">Currents <span>and</span> Critters</div>';
 
   window.CC_RULEBOOK_HTML = HTML;
 

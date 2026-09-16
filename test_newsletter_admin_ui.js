@@ -87,7 +87,7 @@ check("the unsubscribe page posts rather than trusting the GET",
       /fetch\(\s*"\/api\/newsletter\/unsubscribe"/.test(UNSUB_HTML) &&
       /method:\s*"POST"/.test(UNSUB_HTML));
 check("the unsubscribe page states the required confirmation wording",
-      /You have been unsubscribed from the Currents & Critters email list/.test(UNSUB_HTML) &&
+      /You have been unsubscribed from the Currents and Critters email list/.test(UNSUB_HTML) &&
       /You will no longer receive newsletter emails from us/.test(UNSUB_HTML));
 check("the unsubscribe page carries the business address",
       /Bearded Seal Studios LLC/.test(UNSUB_HTML) &&

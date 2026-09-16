@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * apply_recovery.js, Currents & Critters stat recovery tool
+ * apply_recovery.js, Currents and Critters stat recovery tool
  *
  * WHAT IT DOES:
  *   1. Reads per-player stats rebuilt from server game-history files

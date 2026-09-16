@@ -10,7 +10,7 @@
     if (m) m.classList.remove("open");
   }
 
-  // ── Entry: clicking the & in any logo ────────────────────────
+  // ── Entry: clicking the "and" in any logo ────────────────────────
   document.addEventListener("click", function (e) {
     if (e.target && e.target.classList && e.target.classList.contains("coc-amp")) {
       _cocOpen();

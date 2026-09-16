@@ -83,7 +83,7 @@ console.log("\nthe artwork is scenery, and every way in is real markup");
   // eye has it in the picture, and the <img> is alt="" so it is not said
   // twice. None of the artwork-coordinate machinery is back.
   check("…and the title is still text in the document, not only pixels",
-        /<h1 class="ao-title">Currents &amp; Critters<\/h1>/.test(HTML));
+        /<h1 class="ao-title">Currents and Critters<\/h1>/.test(HTML));
   check("…kept for the reader and hidden from the eye",
         /#auth-step-choose > \.ao-copy \{[\s\S]{0,400}?clip-path: inset\(50%\);/.test(CSS));
   check("…and the tagline is the game's own line, word for word off the picture",

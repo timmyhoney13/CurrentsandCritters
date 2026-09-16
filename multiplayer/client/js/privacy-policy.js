@@ -44,7 +44,7 @@
           "Device, browser, IP address, and basic technical information",
           "Cookies and similar information needed to operate and protect our services",
         ]) +
-        "<p>You may be able to use certain parts of Currents &amp; Critters as a guest without creating an account.</p>" +
+        "<p>You may be able to use certain parts of Currents and Critters as a guest without creating an account.</p>" +
         "<p>We only collect information that is reasonably needed to provide, operate, protect, and improve our services.</p>",
     },
     {
@@ -73,7 +73,7 @@
       n: 3,
       title: "Google Sign-In",
       body:
-        "<p>Currents &amp; Critters may allow you to sign in using your Google account.</p>" +
+        "<p>Currents and Critters may allow you to sign in using your Google account.</p>" +
         "<p>Depending on the permissions you approve, Google may provide us with basic account information, such as:</p>" +
         ul([
           "Your name",
@@ -83,7 +83,7 @@
         ]) +
         "<p>We use this information to:</p>" +
         ul([
-          "Create and manage your Currents &amp; Critters account",
+          "Create and manage your Currents and Critters account",
           "Confirm your identity",
           "Keep you signed in",
           "Save your game progress",
@@ -99,7 +99,7 @@
       n: 4,
       title: "Game Accounts and Activity",
       body:
-        "<p>When you create an account or play Currents &amp; Critters, we may collect and save information such as:</p>" +
+        "<p>When you create an account or play Currents and Critters, we may collect and save information such as:</p>" +
         ul([
           "Your username",
           "Your avatar",
@@ -156,13 +156,13 @@
           "Prevent fraud",
           "Maintain accounting, tax, and business records",
         ]) +
-        "<p>Providing an email address for a receipt, payment, or purchase does not automatically add you to the Currents &amp; Critters newsletter.</p>",
+        "<p>Providing an email address for a receipt, payment, or purchase does not automatically add you to the Currents and Critters newsletter.</p>",
     },
     {
       n: 6,
       title: "Newsletter and Marketing Emails",
       body:
-        "<p>You will only be added to the Currents &amp; Critters email list when you intentionally provide your email address for that purpose.</p>" +
+        "<p>You will only be added to the Currents and Critters email list when you intentionally provide your email address for that purpose.</p>" +
         "<p>For example, during checkout you may enter your email address in an optional field labeled:</p>" +
         "<blockquote>“Enter your email to get updates”</blockquote>" +
         "<p>Leaving that field blank does not subscribe you. Completing a purchase does not subscribe you. Providing an email address for a receipt or order confirmation does not subscribe you.</p>" +
@@ -341,8 +341,8 @@
           "Secure payment processing through Stripe",
         ]) +
         "<p>However, no website, game, database, email service, or internet transmission can be guaranteed to be completely secure.</p>" +
-        "<p>You are responsible for protecting access to your Google account, email account, device, and Currents &amp; Critters account.</p>" +
-        "<p>Contact us if you believe your Currents &amp; Critters account has been accessed without permission.</p>",
+        "<p>You are responsible for protecting access to your Google account, email account, device, and Currents and Critters account.</p>" +
+        "<p>Contact us if you believe your Currents and Critters account has been accessed without permission.</p>",
     },
     {
       n: 13,
@@ -376,7 +376,7 @@
       n: 14,
       title: "Children’s Privacy",
       body:
-        "<p>Currents &amp; Critters and our related online services are not directed to children under 13.</p>" +
+        "<p>Currents and Critters and our related online services are not directed to children under 13.</p>" +
         "<p>We do not knowingly collect personal information online from children under 13 without any permission or consent required by applicable law.</p>" +
         "<p>A person under 13 should not create an account, join the newsletter, make a purchase, or submit personal information through our services without the involvement of a parent or legal guardian.</p>" +
         "<p>If we learn that we collected personal information from a child under 13 without any required permission, we will take reasonable steps to delete it.</p>" +
@@ -405,7 +405,7 @@
       n: 17,
       title: "Changes to This Privacy Policy",
       body:
-        "<p>We may update this Privacy Policy as Currents &amp; Critters, Bearded Seal Studios LLC, and our services change.</p>" +
+        "<p>We may update this Privacy Policy as Currents and Critters, Bearded Seal Studios LLC, and our services change.</p>" +
         "<p>When we update the policy, we will change the “Last updated” date at the top of this page.</p>" +
         "<p>If we make a significant change, we may provide additional notice through the website, online game, account, or email when appropriate or legally required.</p>" +
         "<p>The updated Privacy Policy will apply from the date it is posted unless a different effective date is stated.</p>",
@@ -449,11 +449,11 @@
       '<div class="pp-applies-head">This Privacy Policy applies to:</div>' +
       ul([
         "Bearded Seal Studios",
-        "Currents &amp; Critters",
+        "Currents and Critters",
         "beardedsealstudios.com",
         "currentsandcritters.com",
-        "The Currents &amp; Critters online game",
-        "Currents &amp; Critters accounts, newsletters, purchases, game nights, events, clans, competitions, and related services",
+        "The Currents and Critters online game",
+        "Currents and Critters accounts, newsletters, purchases, game nights, events, clans, competitions, and related services",
       ]) +
     "</div>";
 

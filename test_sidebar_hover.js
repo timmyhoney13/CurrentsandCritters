@@ -255,6 +255,8 @@ async function isOpen(p, label) {
       check("...with no sideways scroll", await p.noSideScroll());
       check("...the words fade in", (await p.alpha("#snav-history")) > 0.9);
       check("...the full logo is back", (await p.alpha(".ph-sidebar-logo")) > 0.9);
+      check("...and it reads Currents and Critters, spelled out",
+            (await p.ev("document.querySelector('.ph-sidebar-logo').textContent.trim()")) === "Currents and Critters");
       const openIcons = await p.iconCenters();
       check("...and not one icon moved, across or down", JSON.stringify(openIcons) === JSON.stringify(closedIcons),
             closedIcons && openIcons && closedIcons.map((c, i) => c === openIcons[i] ? null : `#${i} ${c} -> ${openIcons[i]}`).filter(Boolean).join("; "));

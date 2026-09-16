@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Card image updater for Currents & Critters.
+Card image updater for Currents and Critters.
 
 Drop new PNG files into the staging folders, then run:
     python3 update_cards.py
@@ -123,7 +123,7 @@ def git_push(version: str, decks_updated: list[str]):
 
 
 def main():
-    print("\n=== Currents & Critters card image updater ===\n")
+    print("\n=== Currents and Critters card image updater ===\n")
 
     # Ensure staging root exists with a helpful message
     if not STAGING.exists():
