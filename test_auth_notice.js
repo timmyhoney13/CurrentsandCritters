@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-/* The sign-in screen's one status line, and the corner chip that used to sit
- * across the top of everything.
+/* The sign-in screen's one status line.
  *
  * Two things a player sees when they DON'T sign in:
  *
@@ -21,15 +20,6 @@
  *        - it lives in the flow of the column now rather than floating over the
  *          painting, so an empty note must take NO room at all: a permanent
  *          gap under CREATE AN ACCOUNT is a bug you only see when it is empty.
- *
- *   2. THE FULL-SCREEN TOGGLE IS NOT PART OF SIGNING IN. It now lives in the
- *      bottom-RIGHT corner of the menu and is always there (see
- *      test_fullscreen_chip.js); what this file guards is that it is nowhere
- *      to be seen until the player is through the door. #cc-fs-resume was a
- *      210px orange pill pinned top-centre at z-index 100000, which is on top
- *      of the notice bar in-game and on top of the artwork on the sign-in
- *      screen. It is a small ocean-glass chip in the bottom-left corner now,
- *      gated on body.cc-signed-in, so it cannot appear before a player is in.
  *
  * Run:  node test_auth_notice.js      (needs Google Chrome / Chromium)
  */
@@ -170,44 +160,6 @@ console.log("\nevery pane says its piece the same way, because it is one rule");
           new RegExp(`<div class="auth-err auth-note" id="${id}"`).test(HTML)));
 }
 
-console.log("\nthe full-screen chip is out of the way, and only exists once you are in");
-{
-  const block = (() => {
-    const a = CSS.indexOf("#cc-fs-resume {");
-    return a < 0 ? "" : CSS.slice(a, CSS.indexOf("#auth-screen {", a));
-  })();
-  check("it is not pinned across the top of the screen any more",
-        !/top:\s*10px/.test(block) && !/left:\s*50%/.test(block));
-  check("…it sits in a corner instead",
-        /right:\s*calc\(14px/.test(block) && /bottom:\s*calc\(14px/.test(block));
-  check("…dressed like the game's own panels, not a loud orange pill",
-        !/#f6c178/.test(block) && /rgba\(95,179,214/.test(block));
-  check("…and it is quiet until you look at it",
-        /\.ccfs-word \{[\s\S]{0,120}?max-width:\s*0/.test(block)
-        && /:hover \.ccfs-word,[\s\S]{0,120}?max-width:\s*190px/.test(block));
-  check("nothing shows it until the player is signed in",
-        /body\.cc-signed-in #cc-fs-resume\.show \{ display: flex; \}/.test(CSS)
-        && !/^\s*#cc-fs-resume\.show \{/m.test(CSS));
-  check("…the class goes on when the lobby is revealed",
-        /function revealLobby[\s\S]{0,400}?document\.body\.classList\.add\("cc-signed-in"\)/.test(APP));
-  check("…and comes off the moment any sign-in step is shown again",
-        /function showStep[\s\S]{0,600}?document\.body\.classList\.remove\("cc-signed-in"\)/.test(APP));
-  check("the old 210px banner floor is gone with the banner",
-        !/#cc-fs-resume \{\s*min-width: 210px/.test(CSS));
-  check("it no longer sits on top of every layer in the game",
-        /z-index:\s*8950/.test(block) && !/z-index:\s*100000/.test(block),
-        "above Player Home (8900), below every modal (9100+)");
-  check("…and it stays out of a game, where the action bar already has the button",
-        /const inGame = \(\) => !!\(gameEl && gameEl\.style\.display !== "none"\);/.test(APP)
-        && /classList\.toggle\("show", !inGame\(\)\)/.test(APP),
-        "in a game the bottom-right corner is the floating log");
-  check("…which is re-checked when the game screen opens or closes, not only on Esc",
-        /new MutationObserver\(syncFsChip\)\.observe\(gameEl/.test(APP),
-        "style.display on #pv-game is written in a dozen places and fires no event");
-  check("the button carries a glyph and a label it can open out to",
-        /id="cc-fs-resume"[\s\S]{0,220}?class="ccfs-glyph"[\s\S]{0,120}?class="ccfs-word"/.test(HTML));
-}
-
 // ════════════════════════════════════════════════════════════════════════
 //  DRIVE  (a real browser, at five widths)
 // ════════════════════════════════════════════════════════════════════════
@@ -302,13 +254,6 @@ setTimeout(function () {
       };
       var mid = d.elementFromPoint(Math.round(nb.left + nb.width / 2),
                                    Math.round(nb.top + nb.height / 2));
-      // The chip: forced into the state it appears in, and then denied it.
-      var chip = d.getElementById("cc-fs-resume");
-      chip.classList.add("show");
-      d.body.classList.remove("cc-signed-in");
-      var chipBeforeSignIn = w.getComputedStyle(chip).display;
-      d.body.classList.add("cc-signed-in");
-      var chipCs = w.getComputedStyle(chip), cb = chip.getBoundingClientRect();
 
       res.push({
         w: sz[0], vw: w.innerWidth, vh: w.innerHeight,
@@ -335,12 +280,6 @@ setTimeout(function () {
         // its own pixels. What it must never do is cover a button.
         eatsClicks: !!(mid && (mid === note || note.contains(mid))),
         sideways: d.documentElement.scrollWidth > w.innerWidth + 1,
-        chipBeforeSignIn: chipBeforeSignIn,
-        chipAfterSignIn: chipCs.display,
-        chipW: Math.round(cb.width), chipH: Math.round(cb.height),
-        chipRightGap: Math.round(w.innerWidth - cb.right),
-        chipBottomGap: Math.round(w.innerHeight - cb.bottom),
-        chipTop: Math.round(cb.top),
         fadedLater: faded[i]
       });
     } catch (e) { res.push({ w: sz[0], err: String(e && e.message) }); }
@@ -393,15 +332,6 @@ setTimeout(function () {
       check(at + " …with every word of it visible", !r.clipped, "h=" + r.lines);
       check(at + " nothing pushes the page sideways", !r.sideways);
       check(at + " the calm note takes itself away again", r.fadedLater === true);
-      check(at + " the full-screen chip is nowhere before sign-in",
-            r.chipBeforeSignIn === "none", r.chipBeforeSignIn);
-      // A fixed box blockifies inline-flex, so "flex" is what this computes to.
-      check(at + " …and is a corner chip once you are in",
-            r.chipAfterSignIn === "flex" && r.chipW <= 70 && r.chipH >= 28 && r.chipH <= 46,
-            `${r.chipAfterSignIn} ${r.chipW}x${r.chipH}`);
-      check(at + " …in the bottom-right corner, out of the way of the top bar",
-            r.chipRightGap <= 24 && r.chipBottomGap <= 24 && r.chipTop > r.vh / 2,
-            `gapR=${r.chipRightGap} gapB=${r.chipBottomGap} top=${r.chipTop} vh=${r.vh}`);
     });
   }
 }

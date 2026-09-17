@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-16.2";
+  const APP_BUILD   = "2026-09-17.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,10 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.12", title: "\u26F6 No full-screen button on the menu", items: [
+      "The \u26F6 chip in the bottom-right corner of the menu is gone, on every tab.",
+      "Inside a game nothing changes: the action bar keeps its own \u26F6 Full Screen button.",
+    ]},
     { ver: "V1.7.11", title: "\uD83C\uDF00 Oceans no longer flip a card into the Pool", items: [
       "Putting down an Ocean used to turn the top card of the deck face-up into the Pool. It doesn't any more, in every game mode: Casual, Head to Head, Competitive, tournaments and the tutorials.",
       "The Pool now only fills with the cards players pay and discard, so the END GAME card can only turn up when someone draws it.",
@@ -20139,17 +20143,16 @@
   // ═══════════════════════════════════════════════════════════════
   // FULL-SCREEN LAUNCH SPLASH
   // Shows after sign-in (revealLobby adds .show). The Play button is the
-  // user gesture browsers require to enter true full screen. The slim resume
-  // pill appears if the player drops out of full screen after opting in.
+  // user gesture browsers require to enter true full screen. The menu has no
+  // full-screen button of its own; in a game the action bar carries one.
   // ═══════════════════════════════════════════════════════════════
   (function setupGameWindowFullscreen() {
     const splash   = document.getElementById("cc-fs-splash");
     const playBtn  = document.getElementById("ccfs-play");
     const winBtn   = document.getElementById("ccfs-window");
-    const resume   = document.getElementById("cc-fs-resume");
     const statusEl = document.getElementById("ccfs-status");
     const sardine  = document.getElementById("ccfs-sardine");
-    if (!splash || !playBtn || !winBtn || !resume) return;
+    if (!splash || !playBtn || !winBtn) return;
 
     // Hidden-click secret: clicking the Sardine on the launch splash unlocks the
     // Sardine avatar. Reuses the same grant/celebrate path as the hidden
@@ -20205,66 +20208,6 @@
       splash.classList.remove("show");
       try { sessionStorage.setItem("cc_fs_splash_dismissed", "1"); } catch (_) {}
     });
-    async function exitFs() {
-      try {
-        if (document.exitFullscreen) await document.exitFullscreen();
-        else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
-      } catch (e) {
-        ccReport("fullscreen_exit_failed", {
-          error: e && (e.name || e.message || e)
-        }, "warn");
-      }
-      return !isFs();
-    }
-
-    // The chip toggles BOTH ways, so one button is the whole full-screen
-    // control on the menu: in, and back out again.
-    resume.addEventListener("click", async () => {
-      if (isFs()) {
-        wantsFullscreen = false;
-        document.body.classList.remove("cc-fullscreen-wanted");
-        await exitFs();
-      } else {
-        wantsFullscreen = true;
-        document.body.classList.add("cc-fullscreen-wanted");
-        const ok = await enterFs();
-        if (!ok) try { showToast("Full screen was blocked, tap the button again.", "warn"); } catch (_) {}
-      }
-      syncFsChip();
-    });
-
-    // The chip is THE full-screen control outside a game: always in the
-    // bottom-right corner of the menu, on every tab of it, whichever way the
-    // toggle currently sits. It used to appear only after a player who had
-    // opted into full screen fell out of it, which meant most players never
-    // saw a full-screen control on the menu at all.
-    // Inside a game it still hides: the action bar already carries
-    // "⛶ Full Screen", and the bottom-right corner in there belongs to the
-    // floating log and the chat panel. Hence: only when the game screen is
-    // down.
-    const gameEl = document.getElementById("pv-game");
-    const inGame = () => !!(gameEl && gameEl.style.display !== "none");
-    const fsWord = resume.querySelector(".ccfs-word");
-    function syncFsChip() {
-      const fs = isFs();
-      const label = fs ? "Exit full screen" : "Full screen";
-      if (fsWord && fsWord.textContent !== label) fsWord.textContent = label;
-      resume.title = label;
-      resume.setAttribute("aria-label", label);
-      resume.classList.toggle("is-on", fs);
-      resume.classList.toggle("show", !inGame());
-    }
-    document.addEventListener("fullscreenchange", syncFsChip);
-    document.addEventListener("webkitfullscreenchange", syncFsChip);
-    // Entering or leaving full screen is an event; opening or closing the game
-    // screen is not, and both change what the chip should say and whether it
-    // shows at all. The game screen is shown and hidden by writing
-    // style.display in a dozen places, so watch the attribute rather than
-    // chase every one of them.
-    if (gameEl && typeof MutationObserver === "function") {
-      new MutationObserver(syncFsChip).observe(gameEl, { attributes: true, attributeFilter: ["style"] });
-    }
-    syncFsChip();
   })();
 
   // ═══════════════════════════════════════════════════════════════

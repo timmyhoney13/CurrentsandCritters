@@ -549,21 +549,18 @@
 # noticing. This one sets the layout viewport itself, and asks whether every
 # way in is on the screen rather than merely reachable by scrolling.
 !test_signin_phone.js
-# The sign-in screen's status line, and the full-screen chip. What it pins is
-# all measurement: that the note is a card and not red text, that it never eats
-# a click meant for the artwork, that a calm note takes itself away, and that
-# the corner chip cannot appear before body.cc-signed-in exists.
+# The sign-in screen's status line. What it pins is all measurement: that the
+# note is a card and not red text, that it never eats a click meant for the
+# artwork, and that a calm note takes itself away.
 !test_auth_notice.js
 # Player Home's four action cards and the Friends tab. It measures what a
 # stylesheet read cannot: that each card's NAME is light ink on its gradient
 # (a stale second .ph-action-label rule paints it navy, which was invisible
 # while the cards were images), and that the reef is attached to the window.
 !test_home_actions.js
-# THE FULL-SCREEN TOGGLE on the menu. Runs the real setupGameWindowFullscreen()
-# sliced out of preview-app.js against the real stylesheet, at five widths and
-# on six tabs, and measures the three things a source read cannot answer: that
-# the chip lands in the BOTTOM-RIGHT corner, that its rectangle is identical on
-# every tab, and that nothing on any of those tabs is painted over it.
+# NO FULL-SCREEN BUTTON on the menu. Loads the real page as a signed-in player
+# and confirms no full-screen control is anywhere in the menu, while the game's
+# action bar keeps its own.
 !test_fullscreen_chip.js
 
 !fish_ai_brain.json
