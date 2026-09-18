@@ -59,7 +59,13 @@ console.log("\na step is done, not skipped");
 // the step's own usableWhen() says the game will not accept the action yet: a
 // hand card is visible and enabled whether or not it can legally be played.
 check("the escape is armed only while the target is unusable",
-      /if \(coachIsUsable\(t\) && coachStepUsable\(step\)\) \{ waited = 0; return; \}/.test(TUT));
+      /if \(coachIsUsable\(t\) && coachStepUsable\(step\)\) \{ waited = Math\.max\(0, waited - 250\); return; \}/.test(TUT));
+// ...and it has to SURVIVE a block that comes and goes. Resetting the count to
+// zero the moment a step was briefly doable meant a condition that flapped (a
+// staged payment, cancelled and staged again) never let the countdown finish,
+// so the step could hold the player for ever with no way past it.
+check("a block that comes and goes still reaches the escape",
+      /waited = Math\.max\(0, waited - 250\)/.test(TUT) && !/waited = 0; return;/.test(TUT));
 check("a step can declare its own 'this cannot be done yet'",
       /function coachStepUsable\(step\)[\s\S]{0,240}?step\.usableWhen\(\)/.test(TUT));
 check("...and it is no longer a per-step opt-in", !/mustAct/.test(TUT));

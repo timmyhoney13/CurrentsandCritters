@@ -495,7 +495,14 @@
       coachStuck = setInterval(() => {
         waited += 500;
         const t = coachResolveEl(step);
-        if (coachIsUsable(t) && coachStepUsable(step)) { waited = 0; return; }
+        // Decay, not reset. A condition that FLAPS (a payment staged, cleared,
+        // staged again) used to put this back to zero every time it cleared, so
+        // the countdown never finished and the step could hold a player for
+        // ever, which is the one thing this timer exists to prevent. It comes
+        // down half as fast as it goes up: a step that is genuinely fine drains
+        // to nothing in a few seconds, a step that keeps blocking still gets
+        // there.
+        if (coachIsUsable(t) && coachStepUsable(step)) { waited = Math.max(0, waited - 250); return; }
         const limit = (t && isVisible(t)) ? STUCK_WITH_TARGET_MS : STUCK_NO_TARGET_MS;
         if (waited < limit) return;
         clearInterval(coachStuck); coachStuck = null;
@@ -1260,10 +1267,18 @@
     }
     return null;
   }
-  function t2ForceStarOn() {
+  // The ★ tick-box in the action bar. It is not decoration: with it ON, the
+  // drag, the board click and the ocean drop all reach for the ★ VARIANT of a
+  // play ("matchingActs.find(a => a.use_star)" in preview-app.js), and a ★
+  // variant wants a matching-symbol card discarded, so a card that costs
+  // nothing suddenly opens a payment. The Mangrove lesson needs it on; the free
+  // creature that follows needs it off, or the step promises a free play and
+  // the game asks to be paid.
+  function t2SetStar(on) {
     const t = document.getElementById("pv-star-toggle");
-    if (t && !t.checked) { t.checked = true; try { t.dispatchEvent(new Event("change", { bubbles: true })); } catch (_) {} }
+    if (t && t.checked !== !!on) { t.checked = !!on; try { t.dispatchEvent(new Event("change", { bubbles: true })); } catch (_) {} }
   }
+  function t2ForceStarOn() { t2SetStar(true); }
   // Find ALL hand records (entry+face+symbol) matching a card name.
   function _t2FindAll(nameLc) {
     const me = gtMe(); const out = [];
@@ -1540,14 +1555,25 @@
       text: "A ★ is <strong>optional</strong>, and this is how you switch it on: pay the card's cost with a card whose <strong>top-right symbol matches</strong> the card you are playing. Pay with anything else and it still lands and still scores, you just do not get the ★.<br><br>Select the <strong>glowing card</strong>, then press <strong>Confirm</strong>." },
     { target: null, badge: "★ Star", title: "Star Activated!",
       text: "Both cards carried the same top-right symbol, so this Ocean's ★ <strong>Play Again</strong> fired." },
-    { target: gtFreeCreatureEl, glow: [gtFreeCreatureSlotEl], badge: "Play Again", title: "Play a Creature",
+    { target: gtFreeCreatureEl,
+      // The slot the card goes in, plus, if a payment has been staged (a card
+      // went down that this step never asked for), the ✕ that clears it: the
+      // step cannot continue until that is settled, so light the way out.
+      glow: [gtFreeCreatureSlotEl, () => (gtPendingPay() ? document.getElementById("pv-payment-cancel-btn") : null)],
+      badge: "Play Again", title: "Play a Creature",
       interactive: true, popAnchor: "top", liveNote: tutTurnNote,
       dragDemo: { from: gtFreeCreatureEl, to: gtFreeCreatureSlotEl },
       // Only "doable" while the game really will take that card. Without this the
       // countdown that rescues a stuck step never armed here, because a hand card
       // is visible and enabled whether or not it can be played.
       usableWhen: () => !!gtFreeCreatureAction() && !gtPendingPay(),
-      before: () => { _gtCreatureBase = gtCreatureCount(); _gtFreeSawTurn = false; },
+      before: () => {
+        // ★ off: this step is asking for a play that costs nothing, and with the
+        // tick-box still on from the Mangrove, dropping the card plays its ★
+        // side instead and the game asks for a matching symbol.
+        t2SetStar(false);
+        _gtCreatureBase = gtCreatureCount(); _gtFreeSawTurn = false;
+      },
       advanceWhen: () => {
         if (gtCreatureCount() > _gtCreatureBase) return true;
         // The extra play can also end without a creature ever being played (it
