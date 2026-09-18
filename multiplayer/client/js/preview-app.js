@@ -24781,11 +24781,6 @@
       }
       _activeProfile = {
         ...(_activeProfile || {}),
-        // syncStatsHeader only trusts a profile whose uid is the signed-in
-        // one, and answers a mismatch by blanking the nickname (which renders
-        // as "Player"). Spreading a null profile here dropped the uid, so the
-        // header threw away the very name it was just handed.
-        ...(_authUser ? { uid: _authUser.uid } : {}),
         nickname: _playerNickname,
         friend_code: _friendCode,
         last_active: new Date(),
@@ -24835,6 +24830,14 @@
           }, 1200);
         } catch (_) {}
       }
+      // showStatsLobby() paints Player Home from _activeProfile, and
+      // syncStatsHeader blanks the nickname (which renders as "Player") on any
+      // profile not addressed to the signed-in account. The spread above starts
+      // from whatever _activeProfile already was, so when that was null the uid
+      // went missing and the header threw away the very name it had just been
+      // handed. Stamped here, after the claim above, so the one-account coral
+      // claim stays where test_coral_secret.js requires it.
+      if (_authUser && _activeProfile) _activeProfile.uid = _authUser.uid;
       $a("auth-loading-screen").classList.add("hidden");
       $a("auth-screen").classList.add("hidden");
       showStatsLobby();

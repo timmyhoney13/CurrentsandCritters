@@ -221,7 +221,7 @@ function stage5() {
         /const _identityChanged = _ccBecomeIdentity\(\);\n\s*if \(_identityChanged\) \{\n\s*_playerNickname = "";/.test(SRC));
 
   check("revealLobby keeps the uid on the profile it hands the header",
-        /\.\.\.\(_authUser \? \{ uid: _authUser\.uid \} : \{\}\),/.test(SRC));
+        /if \(_authUser && _activeProfile\) _activeProfile\.uid = _authUser\.uid;\n\s*\$a\("auth-loading-screen"\)\.classList\.add\("hidden"\);\n\s*\$a\("auth-screen"\)\.classList\.add\("hidden"\);\n\s*showStatsLobby\(\);/.test(SRC));
 
   check("the retroactive unlock sweep will not re-grant on unread records",
         /met = _achOk && _isDone\(u\.achId\)/.test(SRC));
