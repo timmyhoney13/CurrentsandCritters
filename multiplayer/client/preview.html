@@ -140,6 +140,7 @@
   <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://accounts.google.com">
 
 
   <!-- ══ THE BOOT METER ══════════════════════════════════════════════
@@ -520,6 +521,10 @@
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <!-- Google's own sign-in window (see ccGooglePopup in preview-app.js). Async,
+       not deferred: nothing on the way in waits for it, and if it has not
+       arrived by the time Google is pressed, Firebase's popup opens instead. -->
+  <script async src="https://accounts.google.com/gsi/client"></script>
 
   <!-- ══ THE STYLESHEETS, AND WHY THEY DO NOT BLOCK ═══════════════════
        A plain stylesheet link stops the browser painting ANYTHING until it has

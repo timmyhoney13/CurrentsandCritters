@@ -26645,6 +26645,89 @@
     // for the same name, email and picture the first one already allowed.
     const CC_GOOGLE_PROMPT = { prompt: "select_account" };
 
+    // GOOGLE'S OWN WINDOW, straight to the account picker. Firebase's popup
+    // opens a page of its own on currentsandcritters-17bcf.firebaseapp.com
+    // first, which loads its scripts and asks Google twice before the picker
+    // can appear, and then loads all over again on the way back to hand the
+    // account over. Measured on the live site that detour was 0.6-1.1s each
+    // way, on a fast connection, before the player had done anything at all.
+    //
+    // Google Identity Services opens accounts.google.com directly and hands
+    // back a Google access token, which Firebase turns into the very same
+    // account (same provider, same uid) with one signInWithCredential call.
+    //
+    // Only on the origins the OAuth client lists as Authorized JavaScript
+    // origins: anywhere else Google refuses the window with origin_mismatch.
+    // Anything short of a token or a deliberate close (the library not loaded
+    // yet, a blocker ate it, the window would not open) falls back to
+    // Firebase's popup, which is exactly what ran before.
+    const CC_GOOGLE_CLIENT_ID = "150011681434-urthj9ujbrhp6sb1alhh0gtl36o0f5it.apps.googleusercontent.com";
+    const CC_GOOGLE_DIRECT_ORIGINS = ["https://play.currentsandcritters.com"];
+    let _ccGoogleTokenClient = null;
+    let _ccGoogleTokenWait = null;
+
+    function ccGoogleDirectReady() {
+      try {
+        return CC_GOOGLE_DIRECT_ORIGINS.includes(location.origin)
+          && !!(window.google && google.accounts && google.accounts.oauth2
+                && typeof google.accounts.oauth2.initTokenClient === "function")
+          && typeof firebase.auth.GoogleAuthProvider.credential === "function"
+          && typeof _auth.signInWithCredential === "function";
+      } catch (_) { return false; }
+    }
+
+    // Resolves to { token }, { cancel: true } or { failed: true }. Never rejects.
+    function ccGoogleDirectToken() {
+      return new Promise((resolve) => {
+        const settle = (outcome) => {
+          const wait = _ccGoogleTokenWait;
+          _ccGoogleTokenWait = null;
+          if (wait) wait(outcome);
+        };
+        try {
+          if (!_ccGoogleTokenClient) {
+            _ccGoogleTokenClient = google.accounts.oauth2.initTokenClient({
+              client_id: CC_GOOGLE_CLIENT_ID,
+              scope: "openid email profile",
+              callback: (r) => settle(
+                r && r.access_token ? { token: r.access_token }
+                : (r && r.error === "access_denied") ? { cancel: true }
+                : { failed: true }),
+              error_callback: (err) => settle(err && err.type === "popup_closed" ? { cancel: true } : { failed: true }),
+            });
+          }
+          // A second press while a window is already up replaces the first ask.
+          if (_ccGoogleTokenWait) settle({ cancel: true });
+          _ccGoogleTokenWait = resolve;
+          _ccGoogleTokenClient.requestAccessToken({ prompt: CC_GOOGLE_PROMPT.prompt });
+        } catch (_) {
+          _ccGoogleTokenWait = null;
+          resolve({ failed: true });
+        }
+      });
+    }
+
+    // The Google window, whichever one opens. Resolves like signInWithPopup and
+    // rejects with the same auth/* codes, so the callers read it exactly as
+    // they always read Firebase's.
+    async function ccGooglePopup() {
+      if (ccGoogleDirectReady()) {
+        const got = await ccGoogleDirectToken();
+        if (got.token) {
+          return _auth.signInWithCredential(firebase.auth.GoogleAuthProvider.credential(null, got.token));
+        }
+        if (got.cancel) {
+          const e = new Error("The Google window was closed.");
+          e.code = "auth/popup-closed-by-user";
+          throw e;
+        }
+        ccReport("google_direct_signin_fallback", {}, "warn");
+      }
+      const provider = new firebase.auth.GoogleAuthProvider();
+      provider.setCustomParameters(CC_GOOGLE_PROMPT);
+      return _auth.signInWithPopup(provider);
+    }
+
     async function beginCleanGoogleSignIn(errId) {
       if (!_auth) {
         setAuthMsg(errId, "Sign-in is not yet configured for this server.", false);
@@ -26667,9 +26750,7 @@
         try { await _auth.signOut(); } catch {}
       }
       try {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        provider.setCustomParameters(CC_GOOGLE_PROMPT);
-        const result = await _auth.signInWithPopup(provider);
+        const result = await ccGooglePopup();
         const signedUid = result?.user?.uid || "";
         if (previousUid && signedUid && signedUid === previousUid) {
           setAuthMsg(errId, "You selected the same Google account. Choose a different account in the Google picker.", false);
@@ -26709,9 +26790,7 @@
       const bar = $a("auth-profile-bar"); if (bar) bar.style.display = "none";
       try {
         if (_auth.currentUser) { try { await _auth.signOut(); } catch (_) {} }
-        const provider = new firebase.auth.GoogleAuthProvider();
-        provider.setCustomParameters(CC_GOOGLE_PROMPT);
-        const result = await _auth.signInWithPopup(provider);
+        const result = await ccGooglePopup();
         if (result?.user) setAuthMsg(errId, "Signing you in…", "info");
       } catch (e) {
         // A player closing the Google window is a decision, not a failure, so

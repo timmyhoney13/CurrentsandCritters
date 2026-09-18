@@ -52,8 +52,26 @@ console.log("\nGoogle asks as little as it can");
 {
   check("no sign-in forces Google's consent screen", !/prompt:\s*"[^"]*consent/.test(APP));
   check("…every Google provider uses the one account-picker prompt",
-        (APP.match(/setCustomParameters\(CC_GOOGLE_PROMPT\)/g) || []).length === 4
+        (APP.match(/setCustomParameters\(CC_GOOGLE_PROMPT\)/g) || []).length === 3
         && /const CC_GOOGLE_PROMPT = \{ prompt: "select_account" \};/.test(APP));
+}
+
+console.log("\nGoogle's own window, without Firebase's page in front of it");
+{
+  check("both Google buttons go through the one ccGooglePopup",
+        (APP.match(/const result = await ccGooglePopup\(\);/g) || []).length === 2
+        && !/const result = await _auth\.signInWithPopup\(/.test(APP));
+  check("…which asks Google Identity Services first, on the listed origin only",
+        /const CC_GOOGLE_DIRECT_ORIGINS = \["https:\/\/play\.currentsandcritters\.com"\];/.test(APP)
+        && /async function ccGooglePopup\(\) \{\s*if \(ccGoogleDirectReady\(\)\)/.test(APP));
+  check("…turns Google's token into the same Firebase account",
+        /signInWithCredential\(firebase\.auth\.GoogleAuthProvider\.credential\(null, got\.token\)\)/.test(APP));
+  check("…a closed window is a cancel, read like Firebase's",
+        /e\.code = "auth\/popup-closed-by-user";/.test(APP));
+  check("…and anything else falls back to Firebase's popup",
+        /ccReport\("google_direct_signin_fallback"[\s\S]{0,200}?return _auth\.signInWithPopup\(provider\);/.test(APP));
+  check("Google's library loads async, never holding up the page",
+        /<script async src="https:\/\/accounts\.google\.com\/gsi\/client"><\/script>/.test(HTML));
 }
 
 console.log("\nan account signing in on the launcher does not reload the app");
@@ -125,10 +143,31 @@ const DRIVER = `
           out.launcher = !/game_window=1/.test(location.search);
           // The Google window "closes" with an account, as signInWithPopup does.
           var auth = window.firebase.auth();
+          out.popupCalls = 0; out.credentialCalls = 0; out.tokenAsks = [];
           auth.signInWithPopup = function () {
+            out.popupCalls++;
             window.__stubSignIn(USER);
             return Promise.resolve({ user: USER });
           };
+          if (window.__DIRECT) {
+            // Google Identity Services, as it behaves: the window closes and
+            // the callback receives an access token.
+            window.firebase.auth.GoogleAuthProvider.credential = function (id, access) {
+              return { providerId: "google.com", accessToken: access };
+            };
+            auth.signInWithCredential = function (cred) {
+              out.credentialCalls++; out.credToken = cred && cred.accessToken;
+              window.__stubSignIn(USER);
+              return Promise.resolve({ user: USER });
+            };
+            window.google = { accounts: { oauth2: { initTokenClient: function (cfg) {
+              out.clientId = cfg.client_id; out.scope = cfg.scope;
+              return { requestAccessToken: function (o) {
+                out.tokenAsks.push(o && o.prompt);
+                setTimeout(function () { cfg.callback({ access_token: "ya29.test" }); }, 30);
+              } };
+            } } } };
+          }
           t0 = Date.now();
           click(g); phase = 2; guard = 0;
         } else if (guard === 0 && ++out.waitChooser > 600) {
@@ -154,13 +193,13 @@ const DRIVER = `
 })();
 </script>`;
 
-console.log("\nContinue with Google on the launcher (real browser)");
+function driveGoogle(direct) {
 if (!stubMatch) {
   check("the Firebase stub could be borrowed from test_guest_session_isolation.js", false);
 } else if (!CHROME) {
   check("Chrome is available to drive the page", false, "no Chrome found");
 } else {
-  const PORT = 9360 + (process.pid % 300);
+  const PORT = 9360 + (process.pid % 300) + (direct ? 1 : 0);
   const SERVER_SRC = `
     const fs=require("fs"),path=require("path"),http=require("http");
     const ROOT=${JSON.stringify(CLIENT)};
@@ -169,6 +208,7 @@ if (!stubMatch) {
     http.createServer((req,res)=>{
       const rel=decodeURIComponent(req.url.split("?")[0]).replace(/^\\/+/,"");
       const f=path.join(ROOT,rel);
+      if(${direct}&&rel==="js/preview-app.js"&&fs.existsSync(f)){res.writeHead(200,{"Content-Type":"text/javascript"});res.end(fs.readFileSync(f,"utf8").replace('const CC_GOOGLE_DIRECT_ORIGINS = ["https://play.currentsandcritters.com"]',"const CC_GOOGLE_DIRECT_ORIGINS = [location.origin]"));return;}
       if(!f.startsWith(ROOT)||!fs.existsSync(f)||fs.statSync(f).isDirectory()){res.writeHead(404);res.end();return;}
       res.writeHead(200,{"Content-Type":MIME[path.extname(f)]||"application/octet-stream"});
       fs.createReadStream(f).pipe(res);
@@ -177,8 +217,9 @@ if (!stubMatch) {
   const page = HTML
     .replace(/<script[^>]*src="https:\/\/www\.gstatic\.com\/firebasejs[^"]*"[^>]*><\/script>/g, "")
     .replace(/<script[^>]*src="\/firebase-config\.js"[^>]*><\/script>/g, "")
-    .replace("</head>", SEED + "</head>") + DRIVER;
-  const pageFile = path.join(CLIENT, "_google_signin_drive.html");
+    .replace(/<script[^>]*src="https:\/\/accounts\.google\.com\/gsi\/client"[^>]*><\/script>/g, "")
+    .replace("</head>", (direct ? "<script>window.__DIRECT=true</script>" : "") + SEED + "</head>") + DRIVER;
+  const pageFile = path.join(CLIENT, (direct ? "_google_signin_drive_direct.html" : "_google_signin_drive.html"));
   fs.writeFileSync(pageFile, page);
   const server = spawn(process.execPath, ["-e", SERVER_SRC], { stdio: "ignore" });
   try { execFileSync(process.execPath, ["-e", "setTimeout(()=>{},700)"]); } catch (_) {}
@@ -188,7 +229,7 @@ if (!stubMatch) {
     for (let attempt = 0; attempt < 2 && !D; attempt++) {
       const dom = execFileSync(CHROME, ["--headless", "--disable-gpu", "--no-sandbox", "--hide-scrollbars",
         "--window-size=1440,900", "--virtual-time-budget=120000", "--dump-dom",
-        `http://localhost:${PORT}/_google_signin_drive.html`],
+        `http://localhost:${PORT}/${path.basename(pageFile)}`],
         { encoding: "utf8", maxBuffer: 64e6, stdio: ["ignore", "pipe", "ignore"] });
       const m = /<div id="out">([\s\S]*?)<\/div>/.exec(dom);
       if (!m) continue;
@@ -213,8 +254,26 @@ if (!stubMatch) {
     check("the address now says game window, so a refresh stays in the game",
           /game_window=1/.test(D.urlAfter || ""), D.urlAfter);
     check("nothing threw on the way in", !D.errors.length, JSON.stringify(D.errors));
+    if (direct) {
+      check("Google's own window was asked, once, for the account picker",
+            D.tokenAsks && D.tokenAsks.length === 1 && D.tokenAsks[0] === "select_account", JSON.stringify(D.tokenAsks));
+      check("…with the app's OAuth client and the sign-in scopes",
+            /^150011681434-.*\.apps\.googleusercontent\.com$/.test(D.clientId || "") && D.scope === "openid email profile",
+            D.clientId + " " + D.scope);
+      check("…its token signed in to Firebase", D.credentialCalls === 1 && D.credToken === "ya29.test");
+      check("…and Firebase's popup never opened", D.popupCalls === 0, "popupCalls=" + D.popupCalls);
+    } else {
+      check("off the listed origin, Firebase's popup is used as before", D.popupCalls === 1, "popupCalls=" + D.popupCalls);
+    }
   }
 }
+
+}
+
+console.log("\nContinue with Google on the launcher, Firebase popup (real browser)");
+driveGoogle(false);
+console.log("\nContinue with Google on the launcher, Google's own window (real browser)");
+driveGoogle(true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
