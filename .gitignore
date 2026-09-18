@@ -309,6 +309,20 @@
 # test pins the canonical comparison AND that the ownership guard still refuses
 # an icon you genuinely do not own.
 !test_avatar_save.js
+
+# A REFUSED PROFILE READ IS NOT AN EMPTY ACCOUNT. loadProfile() answers null
+# both for "no document" and "Firestore refused the read", and
+# loadAndRenderStats painted the second as the first: it blanked
+# _activeProfile, emptied _unlockedIcons and carried on. All three things
+# players reported after competitive games follow from those empty caches, and
+# the last of them WROTE to the account: the header blanked the nickname
+# ("Player"), every owned critter read as locked and was re-announced, and the
+# "no valid avatar" migration saved avatar_url: Mullet, which is what they met
+# at the next sign-in. Competitive is where it showed because a ranked endgame
+# already has four other Firestore calls in flight against that read. Pins the
+# refused read against the account being empty, and that the Mullet migration
+# and the brand-new-account path both still work.
+!test_profile_read_failure.js
 # Messages: chat-background docs share the messages subcollection with group
 # rosters, so this pins down that they never get mistaken for one another.
 !test_chat_backgrounds.js

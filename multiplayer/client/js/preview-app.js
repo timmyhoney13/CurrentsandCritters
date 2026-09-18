@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-17.2";
+  const APP_BUILD   = "2026-09-18.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -21503,7 +21503,16 @@
       const ov = document.getElementById("animal-unlock-overlay");
       const a = ov && ov._currentAnimal;
       if (a && typeof window.__fishEquipAvatar === "function") {
-        try { await window.__fishEquipAvatar(a.img); } catch {}
+        let equipped = false;
+        try { equipped = await window.__fishEquipAvatar(a.img); } catch {}
+        // __fishEquipAvatar now refuses rather than quietly equipping a
+        // different animal, so a refusal has to be said out loud: the player
+        // pressed a button and their face did not change.
+        if (!equipped) {
+          try {
+            showToast(`Could not put ${a.name} on just yet. It is yours, try again from the gallery.`, "warn");
+          } catch {}
+        }
       }
       _closeAnimalUnlock();
     });
@@ -24772,6 +24781,11 @@
       }
       _activeProfile = {
         ...(_activeProfile || {}),
+        // syncStatsHeader only trusts a profile whose uid is the signed-in
+        // one, and answers a mismatch by blanking the nickname (which renders
+        // as "Player"). Spreading a null profile here dropped the uid, so the
+        // header threw away the very name it was just handed.
+        ...(_authUser ? { uid: _authUser.uid } : {}),
         nickname: _playerNickname,
         friend_code: _friendCode,
         last_active: new Date(),
@@ -25011,34 +25025,75 @@
       }
     }
 
+    // How many times a refused profile read is retried before this pass gives
+    // up. Short on purpose: it runs on the way back from a game, and giving up
+    // now costs nothing, the next road into Player Home asks again.
+    const _STATS_LOAD_RETRIES = 3;
+
+    // ══ A FAILED READ IS NOT AN EMPTY ACCOUNT ═════════════════════════
+    // loadProfile() answers `null` for BOTH "this account has no document" and
+    // "Firestore just refused the read", and this function used to paint the
+    // second one as if it were the first: it blanked _activeProfile, emptied
+    // _unlockedIcons and _unlockedBackgrounds, and carried on down the whole
+    // function. Every symptom the players reported followed from those empty
+    // caches, and the account itself was never damaged until the last step:
+    //   • syncStatsHeader(null) blanks the nickname, so Player Home reads
+    //     "Player";
+    //   • with no unlocked list, every critter already owned reads as locked,
+    //     so __fishSyncStatUnlocks re-grants and re-announces a pile of them;
+    //   • hasStoredSelectableAvatar(null) is false, so the "no valid avatar"
+    //     migration at the end WROTE avatar_url: Mullet onto the account, and
+    //     the next sign-in read it straight back as a Mullet.
+    // It showed up after competitive games because that is where the read is
+    // most likely to be refused: the end of a ranked match fires
+    // saveGameStats's read and write, processRankedGameEnd's read and write,
+    // the achievements read and the ranked_result POST in the same moment the
+    // lobby reveal asks for this one.
+    // So a refused read is now told apart from an empty account, retried, and
+    // if it still fails NOTHING below is painted and NOTHING is written: the
+    // caches keep the last values that really loaded.
     async function loadAndRenderStats(uid) {
       const expectedUid = String(uid || "");
       if (!_authUser || _authUser.uid !== expectedUid) return;
       const loadSeq = ++_statsLoadSeq;
-      let profile = await loadProfile(uid);
-      // SAFETY: Only write defaultGuestStats if the Firestore doc truly does not exist.
-      // Never overwrite stats on a transient load error, that was the primary data-loss bug.
-      if (_authUser && _db && !profile) {
-        try {
-          const { reason } = await loadProfileWithReason(uid);
-          if (reason === "notfound") {
-            // Doc doesn't exist yet, safe to initialise (brand new sign-in, no stats to lose).
-            // initStatsIfAbsent re-checks inside a transaction, so even a wrong "notfound"
-            // or a concurrent create can never overwrite real stats with defaults.
-            await initStatsIfAbsent(uid);
-            profile = await loadProfile(uid);
-          }
-          // reason === "error": leave profile null, don't touch Firestore.
-        } catch {}
-      } else if (_authUser && _db && profile && (!profile.stats || typeof profile.stats !== "object")) {
+      const _stillMine = () => loadSeq === _statsLoadSeq && _authUser && _authUser.uid === expectedUid;
+      let profile = null, reason = "error";
+      for (let attempt = 0; attempt <= _STATS_LOAD_RETRIES; attempt++) {
+        if (attempt) await new Promise(r => setTimeout(r, attempt * 600));
+        if (!_stillMine()) return;
+        ({ profile, reason } = await loadProfileWithReason(uid));
+        if (reason !== "error") break;
+      }
+      if (!_stillMine()) return;
+      if (reason === "error") {
+        // Firestore is unreachable. The profile already on screen is the last
+        // one that really loaded, which is far closer to the truth than an
+        // empty one, and nothing below may run against an account we could not
+        // read.
+        console.warn("[stats] profile read refused after retries, keeping the last profile that loaded");
+        return;
+      }
+      if (reason === "notfound") {
+        // SAFETY: only initialise when the document truly does not exist.
+        // initStatsIfAbsent re-checks inside a transaction, so even a wrong
+        // "notfound" or a concurrent create can never overwrite real stats.
+        try { await initStatsIfAbsent(uid); } catch {}
+        if (!_stillMine()) return;
+        const retry = await loadProfileWithReason(uid);
+        if (!_stillMine()) return;
+        // Still not readable: same rule as above, touch nothing.
+        if (retry.reason !== "ok" || !retry.profile) return;
+        profile = retry.profile;
+      }
+      if (!profile) return;
+      if (!profile.stats || typeof profile.stats !== "object") {
         // Profile exists but stats field is missing, use defaults in memory only.
-        // Do NOT write to Firestore here: a stale read (transient Firebase error) returning
-        // profile without stats would otherwise wipe all previously saved stats via this path.
-        // The next game completion will write real stats via saveGameStats() instead.
+        // Do NOT write to Firestore here: a stale read returning a profile
+        // without stats would otherwise wipe all previously saved stats via
+        // this path. The next game completion writes real stats instead.
         profile = { ...profile, stats: defaultGuestStats() };
       }
-      if (loadSeq !== _statsLoadSeq || !_authUser || _authUser.uid !== expectedUid) return;
-      _activeProfile = profile || null;
+      _activeProfile = profile;
       // Load unlocked icons from profile
       _unlockedIcons = Array.isArray(profile?.unlocked_icons)
         ? normalizeIconList(profile.unlocked_icons)
@@ -25051,14 +25106,24 @@
         : [];
       const savedAvatar = normalizeAvatarUrl(_activeProfile?.avatar_url || "");
       const hasSelectableAvatar = hasStoredSelectableAvatar(profile);
-      if (_activeProfile) _activeProfile = { ..._activeProfile, uid };
-      if (_activeProfile && savedAvatar) _activeProfile.avatar_url = savedAvatar;
+      _activeProfile = { ..._activeProfile, uid };
+      if (savedAvatar) _activeProfile.avatar_url = savedAvatar;
       syncStatsHeader(_activeProfile);
-      renderStats(profile && profile.stats ? profile.stats : null);
+      renderStats(profile.stats || null);
       if (typeof window.__fishLoadUserAchievements === "function") window.__fishLoadUserAchievements(uid);
       // Avatar-set migration: anyone without a valid (Mullet/unlocked) avatar
-      // is silently defaulted to Mullet, no forced picker.
-      if (_authUser && _authUser.uid === uid && !hasSelectableAvatar) {
+      // is silently defaulted to Mullet, no forced picker. This is the one
+      // place that can take a critter OFF a player's face, so it is allowed to
+      // run only against a document that was actually read (guaranteed above,
+      // the function returns before here on a refused read) and only when it
+      // would really change something. Both the decision and the write are
+      // logged: if this ever fires wrongly again, the console says so on the
+      // spot instead of the player discovering it at the next sign-in.
+      if (_authUser && _authUser.uid === uid && !hasSelectableAvatar
+          && savedAvatar !== DEFAULT_AVATAR_IMG) {
+        console.warn("[avatar] stored avatar", JSON.stringify(savedAvatar || ""),
+                     "is not one this account owns (", _unlockedIcons.length,
+                     "unlocked ), defaulting to the Mullet");
         try { await applyAvatarSelection(DEFAULT_AVATAR_IMG); } catch {}
       }
       // Best-effort popularity load + retroactive grant of already-earned unlocks.
@@ -26248,12 +26313,25 @@
           _authUser = user; ccNoteAuthUser();
           _ccHadAccountUser = true;
           _guestSessionActive = false;
-          _playerNickname = "";
-          _friendCode = "";
-          _activeProfile = null;
           // Whoever was here before (a guest, or a different account) leaves
           // now, taking their cached stats, achievements and unlocks with them.
-          _ccBecomeIdentity();
+          // _ccBecomeIdentity() is the one thing that knows the difference
+          // between somebody LEAVING and this handler simply running again,
+          // and it answers true only on a real change.
+          //
+          // The name, the friend code and the profile used to be blanked just
+          // above it, unconditionally. Firebase re-runs this handler on every
+          // token refresh, and a competitive match comfortably outlives one, so
+          // the account would be told to forget itself in the middle of a game
+          // it was still signed in for: Player Home read "Player", and every
+          // write that ran before the re-read landed was working from an empty
+          // profile. The same account arriving again is not a change of person.
+          const _identityChanged = _ccBecomeIdentity();
+          if (_identityChanged) {
+            _playerNickname = "";
+            _friendCode = "";
+            _activeProfile = null;
+          }
           startHoursTimer(user.uid);
 
           // Load profile: tries UID → email → nickname, then retries on error.
@@ -37437,15 +37515,36 @@
     }
 
     async function loadUserAchievements(uid) {
-      if (!_db || !uid) return;
+      if (!_db || !uid) return false;
       try {
         const snap = await _db.collection("users").doc(uid).get();
         const data = snap.data() || {};
         _userAchievements = (data.achievements && typeof data.achievements === "object") ? { ...data.achievements } : {};
         _achLoadedUid = uid;
+        return true;
       } catch(e) {
         console.warn("[achievements] loadUserAchievements error:", e);
+        return false;
       }
+    }
+
+    // ══ NEVER JUDGE AN ACHIEVEMENT AGAINST A RECORD THAT DID NOT LOAD ══
+    // Every check below asks "_isDone(id)?" and, on no, unlocks: it writes the
+    // badge, INCREMENTS total_xp by the achievement's award, pops the banner
+    // and grants the critter tied to it. _userAchievements is the only thing
+    // that answers that question, and a refused read used to leave it as the
+    // empty object with no way for a caller to tell. Empty means "you have
+    // earned nothing", so one failed read re-awarded the player every
+    // achievement they already had, XP and all. This is the flood of unlocks
+    // for things already owned that followed competitive games, where the end
+    // of a match has four other Firestore calls in flight against this one.
+    // Callers use this instead, and do nothing at all when it answers false.
+    async function _achievementsReady(uid) {
+      if (!uid || !_db) return false;
+      if (_achLoadedUid === uid) return true;
+      if (await loadUserAchievements(uid)) return true;
+      console.warn("[achievements] records unavailable, skipping this check rather than re-awarding");
+      return false;
     }
 
     // ── Achievement system v2 full reset (one-time per user) ───────
@@ -37642,7 +37741,7 @@
     // goal, so a second full run of the requirement is provable.
     async function bumpAchievementProgress(uid, achId, inc, goal) {
       if (!_db || !uid || !achId) return;
-      if (_achLoadedUid !== uid) await loadUserAchievements(uid);
+      if (!(await _achievementsReady(uid))) return;
       const rec = _userAchievements[achId] || {};
       const cur = Number(rec.progress || 0) + (Number(inc) || 1);
       await updateAchievementProgress(uid, achId, cur, goal);
@@ -37657,7 +37756,7 @@
     // with. Stored as achievements.first_ocean_master.oceanTypes (array).
     async function addFirstOceanWin(uid, oceanType) {
       if (!_db || !uid || !oceanType) return;
-      if (_achLoadedUid !== uid) await loadUserAchievements(uid);
+      if (!(await _achievementsReady(uid))) return;
       if (_isDone("first_ocean_master")) return;
       const rec = _userAchievements["first_ocean_master"] || {};
       const set = new Set(Array.isArray(rec.oceanTypes) ? rec.oceanTypes : []);
@@ -37690,7 +37789,7 @@
 
     async function checkRankAchievements({ newRankName, iWon, isDraw, p1Best, p2Best, p1Second, p2Second, amP1, uid }) {
       if (!uid) return;
-      if (_achLoadedUid !== uid) await loadUserAchievements(uid);
+      if (!(await _achievementsReady(uid))) return;
 
       // Compare tier VALUES (not name-includes) so reaching a higher tier also
       // backfills any lower tier achievements, same ordering the rank-avatar
@@ -37746,7 +37845,7 @@
 
     async function checkFriendAchievements(uid) {
       if (!uid) return;
-      if (_achLoadedUid !== uid) await loadUserAchievements(uid);
+      if (!(await _achievementsReady(uid))) return;
       if (!_db) return;
       try {
         const snap = await _db.collection("users").doc(uid).collection("friends").get();
@@ -37765,7 +37864,7 @@
 
     async function checkAchievementsFromStats(uid, stats) {
       if (!uid || !stats) return;
-      if (_achLoadedUid !== uid) await loadUserAchievements(uid);
+      if (!(await _achievementsReady(uid))) return;
 
       const normalGames  = Number(stats.completed_games || 0);
       const normalWins   = Number(stats.normal_wins || 0);
@@ -37801,7 +37900,7 @@
     async function checkAchievementsAfterGame({ isComp, isWinner, myScore, playerCount, finalScores, boardSnaps, uid,
         hadBots = false, gameMinutes = 0, distinctSpecies = 0, firstOceanType = "", strategy = "", birdOnly = false, iShotTheMoon = false }) {
       if (!uid) return;
-      if (_achLoadedUid !== uid) await loadUserAchievements(uid);
+      if (!(await _achievementsReady(uid))) return;
       const tracker = _gameAchTracker;
 
       if (!isComp) {
@@ -38148,11 +38247,27 @@
       } catch { /* best-effort */ }
       return true;
     };
-    // Equip an avatar the player has unlocked (used by the unlock screen).
+    // Equip an avatar the player has unlocked (used by the unlock screen):
+    // THE ANIMAL THAT WAS ASKED FOR, OR NOTHING.
+    // sanitizeSelectableAvatar never answers falsy: when it does not recognise
+    // the critter as one this player may wear it answers the DEFAULT, which is
+    // the Mullet. That is right for "read whatever is stored and show me
+    // something", and wrong here. This is the unlock popup's "Equip Now"
+    // button, and the one moment it is pressed is the moment a critter was
+    // just granted, so _unlockedIcons can still be a beat behind the grant (or
+    // empty, if the profile read that fills it was refused). Substituting there
+    // equipped the Mullet and PERSISTED it, which is how players who pressed
+    // Equip Now on a brand-new critter came back later wearing a Mullet.
     window.__fishEquipAvatar = async (iconPath) => {
       const seed = _authUser?.uid || _playerNickname || "guest";
-      const selected = sanitizeSelectableAvatar(iconPath, seed);
+      const wanted = normalizeAvatarUrl(String(iconPath || ""));
+      const selected = sanitizeSelectableAvatar(wanted, seed);
       if (!selected) return false;
+      if (selected !== wanted) {
+        console.warn("[avatar] refusing to equip", JSON.stringify(selected),
+                     "in place of", JSON.stringify(wanted));
+        return false;
+      }
       try { await applyAvatarSelection(selected); return true; } catch { return false; }
     };
 
@@ -38699,8 +38814,11 @@
       const { stats, level } = _avatarStatsAndLevel();
       const newly = [];
       // Make sure achievements are loaded so already-earned achievement-based
-      // unlocks (e.g. Birds of a Feather) are granted retroactively.
-      if (_authUser && _achLoadedUid !== _authUser.uid) { try { await loadUserAchievements(_authUser.uid); } catch {} }
+      // unlocks (e.g. Birds of a Feather) are granted retroactively, and note
+      // whether they really loaded: an achievement-gated critter must not be
+      // re-granted on the strength of records that were never read.
+      let _achOk = true;
+      if (_authUser) { try { _achOk = await _achievementsReady(_authUser.uid); } catch { _achOk = false; } }
       try { await _noteReEarnRankDip(stats); } catch (e) { console.warn("[unlock] rank dip check failed", e); }
       for (const a of ANIMAL_AVATARS) {
         // Each avatar is checked independently, a single bad definition can
@@ -38712,7 +38830,7 @@
           else if (u.type === "comp_wins")   met = Number(stats.lifetime_comp_wins || 0) >= (u.goal || Infinity);
           else if (u.type === "stat")        met = Number(stats[u.stat] || 0) >= (u.goal || Infinity);
           else if (u.type === "rank")        met = rankTierValue(stats.rank_competitive) >= (_RANK_TIER_VALUE[u.tier] || Infinity);
-          else if (u.type === "achievement") met = _isDone(u.achId);
+          else if (u.type === "achievement") met = _achOk && _isDone(u.achId);
           if (met && !isAvatarUnlocked(a.img)) {
             if (await window.__fishGrantUnlockedIcon(a.img)) newly.push(a.id);
           }
