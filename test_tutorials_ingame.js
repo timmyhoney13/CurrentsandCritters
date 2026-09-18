@@ -137,8 +137,14 @@ const DRIVER = (tourKey) => `
       }) || null;
     }
     if (!a) a = mine.find(function (x) { return Number(x.cost_to_pay || 0) === 0; }) || mine[0];
+    // Hidden is not the same as disabled, and only one of them was checked.
+    // While a card is staged for payment the app HIDES the action dropdown and
+    // the Play button (display:none), so this went on "successfully" pressing a
+    // button nobody could see, returning true every beat and never letting the
+    // dead-end escape below run. The tour then sat on one step for the rest of
+    // the game and the run died on its time budget with no explanation.
     var sel = q("#pv-action-select"), btn = q("#pv-play-btn");
-    if (!sel || !btn || sel.disabled) return false;
+    if (!sel || !btn || sel.disabled || !vis(sel) || !vis(btn)) return false;
     var opt = Array.prototype.find.call(sel.options, function (o) { return Number(o.value) === Number(a.index); });
     if (!opt) return false;
     sel.value = opt.value;
@@ -262,6 +268,12 @@ const DRIVER = (tourKey) => `
         click(q('[data-cc-device="computer"]'));
         if (tick > 30) dev.classList.add("cc-device-hidden");
       }
+      // Boot heartbeat. A run that never reaches the tour used to report
+      // "finishes inside its time budget" with nothing after it: no step, no
+      // phase, nothing to act on. These rows name the phase it was still
+      // sitting in (1 = waiting for the guest button, 2 = the nickname box,
+      // 3 = the lobby, 4 = the tutorial chooser).
+      if (phase < 5 && tick % 50 === 0) log.push({ boot: phase, tick: tick });
       if (phase === 0) { phase = 1; return; }
       if (phase === 1) {
         if (tick > 40) {
@@ -366,8 +378,15 @@ const DRIVER = (tourKey) => `
       // back round from three computer players taking real turns.
       if (guard % 8 !== 0) return;
       acted++;
-      // 1. Mid-payment? Finish the payment before anything else.
-      if (vis(q("#pv-payment-mode-bar")) && payWithGlowingCards()) return;
+      // 1. Mid-payment? Finish the payment before anything else, with the cards
+      //    the step lit up. If the step lit up NO payment cards, this payment is
+      //    not the one it asked for (a card went down that the tour never
+      //    mentioned), and a player would do the obvious thing: back out of it.
+      if (vis(q("#pv-payment-mode-bar"))) {
+        if (payWithGlowingCards()) return;
+        var cancelPay = q("#pv-payment-cancel-btn");
+        if (cancelPay && vis(cancelPay)) { click(cancelPay); return; }
+      }
       // 2. The spotlight is on a hand card ⇒ "play this card".
       var hr3 = hole.getBoundingClientRect();
       if (!hole.classList.contains("nohole") && hr3.width > 2) {
@@ -610,11 +629,16 @@ function audit(label, res) {
   }
   if (res.timedOut) {
     const last = res.rows.filter(r => r.step).slice(-1)[0];
+    // Never reached a step at all: say which boot phase it was still in, so a
+    // run that dies before the tour starts names something.
+    const boot = res.rows.filter(r => r.boot != null).slice(-1)[0];
     check(`${label}: finishes inside its time budget` +
           (last ? ` (stalled on ${last.step}, "${last.title}"` +
                   `, target ${last.hasTarget ? last.targetW + "x" + last.targetH : "none"}` +
                   `${last.targetOnScreen === false ? ", OFF SCREEN" : ""}` +
-                  `${last.live ? ", live: " + last.live : ""})` : ""), false);
+                  `${last.live ? ", live: " + last.live : ""})`
+                : boot ? ` (never reached the tour: still in boot phase ${boot.boot} after ${boot.tick} ticks)`
+                : ""), false);
     return;
   }
   const rows = res.rows;
@@ -719,7 +743,14 @@ function audit(label, res) {
       for (const [w, h, dev, device] of SIZES) {
         if (onlyDev && dev !== onlyDev) continue;
         console.log(`\n${name}, ${dev} (${w}x${h})`);
-        const res = await run(key, w, h, key === "practice" ? 480000 : 300000, device);
+        // Budget per tour. The Game grew from 23 steps to 29 when it picked up
+        // the rules a first-time player actually needs (what the sand dollars
+        // are, what the Pool does, that a species symbol restricts nothing), so
+        // it gets more than the short Online tour: this is a REAL match against
+        // a real server, and every extra step is a real popup the driver has to
+        // read and press through.
+        const BUDGET = { practice: 480000, game: 420000 };
+        const res = await run(key, w, h, BUDGET[key] || 300000, device);
         const steps = audit(`${name} ${dev}`, res);
         if (steps && key !== "online") {
           // A guided play step must say, live, whether it is even your turn:

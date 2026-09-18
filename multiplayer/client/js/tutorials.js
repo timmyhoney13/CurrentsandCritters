@@ -495,7 +495,7 @@
       coachStuck = setInterval(() => {
         waited += 500;
         const t = coachResolveEl(step);
-        if (coachIsUsable(t)) { waited = 0; return; }
+        if (coachIsUsable(t) && coachStepUsable(step)) { waited = 0; return; }
         const limit = (t && isVisible(t)) ? STUCK_WITH_TARGET_MS : STUCK_NO_TARGET_MS;
         if (waited < limit) return;
         clearInterval(coachStuck); coachStuck = null;
@@ -528,6 +528,17 @@
     if (r.width === 0 && r.height === 0) return false;
     const st = getComputedStyle(el);
     return st.display !== "none" && st.visibility !== "hidden";
+  }
+
+  // A step's own answer to "can this be done right now?", for the cases the DOM
+  // cannot answer. A hand card is visible and enabled whether or not the game
+  // will let you play it, so a step that waits for a play the rules do not allow
+  // looked perfectly healthy to the countdown below and it never armed: the
+  // player was left with a lit-up card, no way to do what the step asked, and
+  // Skip ✕ (which throws away the whole tutorial) as the only way out.
+  function coachStepUsable(step) {
+    if (!step || typeof step.usableWhen !== "function") return true;
+    try { return !!step.usableWhen(); } catch (_) { return true; }
   }
 
   // Visible AND actually clickable, a disabled button is on screen but there is
@@ -1173,6 +1184,9 @@
   // brief window right after the 2nd draw where can_act may still read true
   // before the server processes the forced end-of-turn.
   let _gtSawOppTurn = false;
+  // "Play a Creature": did we ever see the ★ replay turn while the step was up?
+  // Once it has been and gone there is nothing left for the step to wait for.
+  let _gtFreeSawTurn = false;
   // When the current "waiting for the others" step opened, so a wait that was
   // already over before it opened does not stall.
   let _gtWaitFrom = 0;
@@ -1183,9 +1197,16 @@
   // that will not go anywhere for the next few seconds.
   function tutTurnNote() {
     if (!gtPay()) return null;                       // not in a game yet
-    return gtMyTurn()
-      ? { text: "It is your turn.", go: true }
-      : { text: "Waiting for the other players to take their turns\u2026" };
+    if (!gtMyTurn()) return { text: "Waiting for the other players to take their turns\u2026" };
+    // A card is staged and the game is waiting to be told what pays for it.
+    // Nothing else can be played until that is settled, so a step that asks for
+    // a play is, right now, asking for something the game will not accept: say
+    // so, and say which two buttons end it, rather than leave the player
+    // dragging a card that will not move.
+    if (gtPendingPay()) {
+      return { text: "It is your turn, but a card is waiting to be paid for. Press Confirm or \u2715 Cancel on the payment bar first." };
+    }
+    return { text: "It is your turn.", go: true };
   }
 
   // First seat belonging to another player (always an AI in the 1-human tutorial).
@@ -1299,7 +1320,12 @@
     }
     return fallback;
   }
-  function gtFreeCreatureEl() { const e = gtFreeCreatureEntry(); return e ? gtHandCardEl(gtEntryUid(e)) : null; }
+  function gtFreeCreatureEl() {
+    const a = gtFreeCreatureAction();
+    if (a) return gtHandCardEl(Number(a.card_uid));
+    const e = gtFreeCreatureEntry();
+    return e ? gtHandCardEl(gtEntryUid(e)) : null;
+  }
 
   // ── "Where does this card actually go?" ───────────────────────────────
   // Ask the server, not the tutorial. The legal-action list already names the
@@ -1307,20 +1333,47 @@
   // the one slot that will accept it (and the drag demo can fly into it)
   // instead of glowing the whole board and leaving the player to guess which
   // of four spots is the right one.
-  function gtSlotElForEntry(entryUid) {
-    if (!entryUid) return null;
-    let acts = [];
-    try { acts = window.__ccLegalActions ? window.__ccLegalActions() : []; } catch (_) { return null; }
-    const a = acts.find(x => x && x.kind === "play_to_ocean" && Number(x.card_uid) === Number(entryUid));
+  function gtLegalActs() {
+    try { const a = window.__ccLegalActions ? window.__ccLegalActions() : []; return Array.isArray(a) ? a : []; }
+    catch (_) { return []; }
+  }
+  // The board slot ONE legal action would drop its card into.
+  function gtLaneElForAction(a) {
     if (!a) return null;
     const dir = String(a.face_direction || "").toLowerCase();
     if (!dir) return null;
     const hub = document.querySelector(`#pv-my-board .pv-ocean-hub[data-ocean-uid="${a.ocean_uid}"]`);
     return hub ? hub.querySelector(`.pv-lane-${dir}`) : null;
   }
+  function gtSlotElForEntry(entryUid) {
+    if (!entryUid) return null;
+    const a = gtLegalActs().find(x => x && x.kind === "play_to_ocean" && Number(x.card_uid) === Number(entryUid));
+    return gtLaneElForAction(a);
+  }
+  // ── The exact play "Play a Creature" is asking for ───────────────────────
+  // A card is TWO animals and each side is its own action with its own cost and
+  // its own lane, so "the first action for this card" is a coin flip between
+  // them. On a Great Albatross / Lobster it came up Albatross: the step glowed
+  // the SURFACE slot and flew the ghost card into it while the words asked for
+  // the free creature, and dropping the card where the demo pointed played the
+  // Albatross instead, which costs a card, so the game opened a payment the step
+  // knew nothing about and the tutorial sat there for the rest of the game.
+  // So take the free play itself out of the server's own legal-action list, and
+  // light up the lane THAT play lands in. It also rules out a card that cannot
+  // be played at all (its lane taken by something it cannot stack on, or the
+  // rigged Lobster spent as payment two steps ago), which is the other way this
+  // step used to spotlight a card and then wait forever for it to be played.
+  function gtFreeCreatureAction() {
+    const free = gtLegalActs().filter(a => a && a.kind === "play_to_ocean"
+      && Number(a.cost_to_pay || 0) === 0 && gtHandCardEl(Number(a.card_uid)));
+    if (!free.length) return null;
+    return free.find(a => String(a.face_name || "").trim().toLowerCase() === "lobster") || free[0];
+  }
   // The slot the tutorial's free creature belongs in; the whole board is the
   // fallback so the destination always lights up even before the board renders.
   function gtFreeCreatureSlotEl() {
+    const a = gtFreeCreatureAction();
+    if (a) return gtLaneElForAction(a) || document.getElementById("pv-my-board");
     const e = gtFreeCreatureEntry();
     return (e && gtSlotElForEntry(gtEntryUid(e))) || document.getElementById("pv-my-board");
   }
@@ -1412,6 +1465,9 @@
     { target: null, badge: "The Game", title: "Let's Play a Real Game",
       before: () => { try { navTab("overview"); } catch (_) {} },
       text: "We'll set up a real game, then learn a Star ability. Follow the glowing highlights." },
+    { target: null, badge: "The Game", title: "What You Are Trying To Do",
+      before: () => { try { navTab("overview"); } catch (_) {} },
+      text: "The whole game in one sentence: <strong>build Oceans, play animals on them, and have the most points when the END GAME card is drawn</strong>.<br><br>Everything else, what a card costs, which side of it you play, which animals you put together, is in service of that." },
 
     // ── Setup (real create-game flow) ───────────────────────────────
     { target: "#stats-create-btn", badge: "Setup", title: "Create a Game", interactive: true, advanceWhen: gtModalOpen,
@@ -1439,6 +1495,8 @@
     // ── Gameplay ────────────────────────────────────────────────────
     { target: gtGuideBarEl, badge: "Your Turn", title: "Follow the Guide",
       text: "The moment your turn starts, a <strong>guide bar</strong> appears above the table spelling out what to do next. Turn order is random, so if another player is going first, it turns up when the turn reaches you." },
+    { target: gtGuideBarEl, badge: "Your Turn", title: "One Turn, One Choice",
+      text: "A turn is <strong>one</strong> of these, not all of them:<br><br>• <strong>Draw two cards</strong>, from the deck, from the Pool, or one of each.<br>• <strong>Play one card</strong> from your hand, paying its cost.<br>• <strong>Move one animal</strong> you have already played to another of your Oceans (once you have two Oceans to move it between).<br><br>Then your turn is over and it passes on. You do not press End Turn to finish a normal turn, drawing or playing ends it for you." },
     { target: "#pv-draw-deck", badge: "Your Turn", title: "Draw Two", interactive: true, liveNote: tutTurnNote,
       before: () => { _gtDrawBase = gtDrawCount(); _gtDrawSawTurn = false; _gtHandBase = gtHandCardCount(); },
       advanceWhen: () => {
@@ -1449,7 +1507,7 @@
         if (gtMyTurn()) { _gtDrawSawTurn = true; return false; }
         return _gtDrawSawTurn;
       },
-      text: "When the guide bar says it is your turn, <strong>draw two cards</strong> from the Deck or the Pool. If someone else is still going, wait for your turn to come round." },
+      text: "When the guide bar says it is your turn, <strong>draw two cards</strong>. They can both come off the <strong>Deck</strong>, both out of the <strong>Pool</strong> (the face-up discard board, where every card anyone has spent ends up), or one of each. If someone else is still going, wait for your turn to come round." },
     { target: gtOtherSeat, badge: "Their Turn", title: "Opponents' Turns",
       before: () => { _gtSawOppTurn = false; },
       advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
@@ -1462,8 +1520,14 @@
       text: "Look at a card in your hand and you are only seeing <strong>one side of it</strong>. Turn it around and it is a completely <strong>different animal</strong>, with its own name, its own cost, its own symbol and its own ★ ability. So a card in your hand is really two choices, and playing it means choosing <strong>which animal you are playing</strong>. Hover a card to see both sides listed." },
     { target: "#pv-hand", badge: "Your Cards", title: "Which Side, Which Spot",
       text: "The side you choose also decides <strong>where the card can go</strong>. Each animal faces a direction: <strong>Surface</strong> (the top spot, birds and baitfish), <strong>Ocean Floor</strong> (the bottom spot, lobsters, crabs and gobies), or the <strong>left and right</strong> spots for the bigger swimmers. That is why the same card can be a Surface bird one way round and an Ocean Floor crustacean the other." },
+    { target: "#pv-hand", badge: "Your Cards", title: "Your Hand Is Your Money",
+      text: "Look at the <strong>top-left corner</strong> of a card. Those <strong>sand dollars</strong> are its cost, and you pay it with <strong>other cards out of your own hand</strong>: one sand dollar means discard one other card, two means two, and a card with no sand dollars is free.<br><br>So every card in your hand is two things at once, something to play and something to spend. A card you spend is not gone from the game though, it goes face up into the <strong>Pool</strong>, where anyone can draw it." },
+    { target: "#pv-hand", badge: "Your Cards", title: "Symbols Are a Hint, Not a Fence",
+      text: "A card carries two marks, and <strong>neither one limits where an animal can go</strong>. The symbol in the <strong>top-right corner</strong> is what a <strong>★ ability</strong> asks you to match when you pay. The <strong>species</strong> symbol in the <strong>bottom-right corner</strong> says what kind of animal it is.<br><br><strong>Any animal can be played on any Ocean of yours</strong>, you never match a species to an Ocean. Species is a clue about which cards score off each other, not a rule about where they go." },
 
-    // ── One Star ability: Mangrove's Play Again ─────────────────────
+    // ── Oceans, then one Star ability: Mangrove's Play Again ────────
+    { target: gtOceanDropEl, badge: "Oceans", title: "Oceans Come First",
+      text: "Animals have to live somewhere, so an <strong>Ocean</strong> is almost always your first play: it is the foundation everything else attaches to, and each one has four spots, Surface on top, Ocean Floor underneath, and one on each side.<br><br>You are <strong>not limited to one</strong>. You can keep laying Oceans down all game, and every new one is four more spots and more ways to combine what you draw." },
     { target: gtMangroveHandEl, glow: [gtOceanDropEl], badge: "Play", title: "Play Mangrove",
       interactive: true, popAnchor: "top", liveNote: tutTurnNote,
       dragDemo: { from: gtMangroveHandEl, to: gtOceanDropEl },
@@ -1473,19 +1537,31 @@
     { target: gtArcticHandEl, glow: [gtArcticHandEl, "#pv-payment-confirm-btn", gtPayBarEl],
       badge: "Star", title: "Activate the Star", interactive: true, popAnchor: "top",
       advanceWhen: () => gtOceanCount() > _gtOceanBase,
-      text: "Pay with the glowing matching-symbol card, then confirm." },
+      text: "A ★ is <strong>optional</strong>, and this is how you switch it on: pay the card's cost with a card whose <strong>top-right symbol matches</strong> the card you are playing. Pay with anything else and it still lands and still scores, you just do not get the ★.<br><br>Select the <strong>glowing card</strong>, then press <strong>Confirm</strong>." },
     { target: null, badge: "★ Star", title: "Star Activated!",
-      text: "The symbols matched, so ★ Play Again activated." },
+      text: "Both cards carried the same top-right symbol, so this Ocean's ★ <strong>Play Again</strong> fired." },
     { target: gtFreeCreatureEl, glow: [gtFreeCreatureSlotEl], badge: "Play Again", title: "Play a Creature",
       interactive: true, popAnchor: "top", liveNote: tutTurnNote,
       dragDemo: { from: gtFreeCreatureEl, to: gtFreeCreatureSlotEl },
-      before: () => { _gtCreatureBase = gtCreatureCount(); },
-      advanceWhen: () => gtCreatureCount() > _gtCreatureBase,
-      text: "★ Play Again means this turn is not over. Drag the glowing creature into the glowing spot on your board, the one the ghost card is flying into, or play it from the <strong>Choose action…</strong> dropdown." },
+      // Only "doable" while the game really will take that card. Without this the
+      // countdown that rescues a stuck step never armed here, because a hand card
+      // is visible and enabled whether or not it can be played.
+      usableWhen: () => !!gtFreeCreatureAction() && !gtPendingPay(),
+      before: () => { _gtCreatureBase = gtCreatureCount(); _gtFreeSawTurn = false; },
+      advanceWhen: () => {
+        if (gtCreatureCount() > _gtCreatureBase) return true;
+        // The extra play can also end without a creature ever being played (it
+        // was spent as payment, or drawn on instead). Once the turn has left the
+        // player there is nothing here to wait for, so move on rather than point
+        // at a card the game will not take.
+        if (gtMyTurn()) { _gtFreeSawTurn = true; return false; }
+        return _gtFreeSawTurn;
+      },
+      text: "★ Play Again means this turn is not over: you get a whole extra play, and you can spend it on anything a turn allows. Spend it on the <strong>free creature</strong> glowing in your hand, the one that costs nothing. The card may well be showing you its <strong>other animal</strong>: the glowing spot on your board is the one that plays its free side. Drag it into the glowing spot on your board, the one the ghost card is flying into, or play it from the <strong>Choose action…</strong> dropdown." },
 
     // ── Short explanations ──────────────────────────────────────────
     { target: gtPoolEl, glow: [gtPoolEl], badge: "The Pool", title: "The Pool",
-      text: "Payments enter the Pool, where players can draw them later." },
+      text: "This is the <strong>Pool</strong>, and it is the other half of paying for a card. Every card anyone discards to pay a cost lands here <strong>face up</strong>, and on anyone's turn a draw can be taken from here instead of the deck, so what you spend is what you are offering the table.<br><br>It does not grow forever: when the Pool reaches <strong>10 cards</strong> the whole lot is swept into a face-down discard pile and the Pool starts again, so a card you were saving to draw may not wait for you." },
     { target: gtOtherSeat, badge: "Scouting", title: "Inspect a Board",
       interactive: true, advanceWhen: gtBoardFocusOpen,
       text: "Click the highlighted opponent's seat to enlarge their board and see what they are building." },
@@ -1494,15 +1570,17 @@
       before: () => { try { const s = gtOtherSeat(); if (s && !gtBoardFocusOpen()) s.click(); } catch (_) {} },
       text: "Close the board view." },
     { target: "#pv-my-score-badge", badge: "Scoring", title: "Your Score",
-      text: "Your current score appears here." },
+      text: "Your score so far. Tap it at any time for the full breakdown, card by card, so you can see exactly which animals are paying you and which are not." },
+    { target: "#pv-help-btn", badge: "Help", title: "Stuck? Ask for a Plan",
+      text: "You do not have to work out a strategy on your own. <strong>💡 Help</strong> opens the Strategy Guide: pick a plan you like the look of, and the game <strong>highlights the cards that build it</strong> in your hand and in the Pool, so you can see at a glance what to reach for on your next draw.<br><br>Tutorial 3, <strong>Practice Game (B-Lob)</strong>, walks you through doing exactly that." },
     { target: "#pv-end-turn-inline", badge: "Your Turn", title: "End Your Turn",
       text: "Most of the time you never touch this. <strong>Playing a card ends your turn for you</strong>, and so does drawing your two cards.<br><br>End Turn is for the handful of cards that let you keep playing: <strong>Loggerhead Sea Turtle</strong> and <strong>Hermit Crab</strong> open your turn up so you can play <strong>as many cards as you like</strong>. The game has no way of knowing when you have finished, so it waits, and <strong>you</strong> tell it you are done by pressing End Turn. When that is happening the game says so above the table." },
     { target: "#pv-draw-deck", badge: "Endgame", title: "Ending the Game",
-      text: "The END GAME card starts the final round. The highest score wins." },
+      text: "One <strong>END GAME</strong> card is shuffled into the bottom slice of the deck, so it always comes late but nobody knows exactly when. The moment somebody draws it, the table plays <strong>one last round</strong> and then the <strong>highest score wins</strong>.<br><br>That is the whole tension of the game: points already sitting on your board are worth more than a perfect plan you never got to finish." },
 
     // ── Complete (no full match required) ───────────────────────────
     { target: null, badge: "Complete", title: "Tutorial 2 Complete!",
-      text: "You created a game, played Mangrove, and fired a Star ability. Select <strong>Finish</strong> to return to the tutorials." },
+      text: "You created a game, played an Ocean, and fired a Star ability.<br><br>For your first real game, do not go hunting for the perfect strategy. <strong>Get an Ocean down, put animals on it, keep an eye out for cards that work together, and score as much as you can before the END GAME card turns up.</strong> Select <strong>Finish</strong> to return to the tutorials." },
   ];
 
   function runGameTour() {
@@ -1995,7 +2073,7 @@
 
   const OPTS = [
     { key: "menu",        ico: "🗺️",  title: "Main Menu Tour",        desc: "Everything on the menu: profile, streak, tabs, and the store.",                       run: runMenuTour,   ready: true },
-    { key: "game",        ico: "🎴",  title: "The Game",              desc: "Set up a real game, then play a card and fire a Star ability.",                       run: runGameTour,   ready: true },
+    { key: "game",        ico: "🎴",  title: "The Game",              desc: "The rules that matter: costs, the Pool, Oceans, symbols, and a Star ability, in a real game.",                       run: runGameTour,   ready: true },
     { key: "practice",    ico: "🦞",  title: "Practice Game (B-Lob)", desc: "Use the Strategy guide and build the Bird + Lobster combo on the real board.",        run: runBLobTour,   ready: true },
     { key: "online",      ico: "🛟",  title: "Online Play & Controls", desc: "Rooms, bots, chat, breaks, AFK rules, and card controls.",                            run: runOnlineTour, ready: true },
     { key: "competitive", ico: "⚔️", title: "Competitive 1v1",       desc: "Ranked 1v1 play: two hands each, OP, rank divisions, the hand-switch, and strategy.", run: runCompTour,   ready: true },

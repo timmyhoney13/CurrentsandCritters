@@ -55,9 +55,13 @@ console.log("\na step is done, not skipped");
 // it asked for was sitting right there under the spotlight, so "close the card
 // viewer" could be skipped, and then the viewer covered every step after it.
 // Now the countdown only runs while the target is NOT usable, which is the
-// genuine dead end (gated behind sign-in, never rendered, disabled).
+// genuine dead end (gated behind sign-in, never rendered, disabled), OR while
+// the step's own usableWhen() says the game will not accept the action yet: a
+// hand card is visible and enabled whether or not it can legally be played.
 check("the escape is armed only while the target is unusable",
-      /if \(coachIsUsable\(t\)\) \{ waited = 0; return; \}/.test(TUT));
+      /if \(coachIsUsable\(t\) && coachStepUsable\(step\)\) \{ waited = 0; return; \}/.test(TUT));
+check("a step can declare its own 'this cannot be done yet'",
+      /function coachStepUsable\(step\)[\s\S]{0,240}?step\.usableWhen\(\)/.test(TUT));
 check("...and it is no longer a per-step opt-in", !/mustAct/.test(TUT));
 check("interactive steps still get the dead-end timer", /coachStuck\s*=\s*setInterval/.test(TUT));
 check("the timer un-disables Next rather than auto-advancing",
