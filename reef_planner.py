@@ -728,6 +728,34 @@ def family_cards_on_board(gs: GameState, player: PlayerState, family: str) -> in
     return n
 
 
+def crowd_by_family(gs: GameState, player: PlayerState) -> Dict[str, int]:
+    """How many opponents are already chasing each plan.
+
+    Two Cephalopod players starve each other -- there are only so many
+    cephalopods in the deck -- and that is true of an opponent whatever brain is
+    deciding its moves.
+
+    This used to count only opponents that were planners themselves
+    (`other.flags["_planner"]`), which is a detail of how a seat is played
+    leaking into a decision about the game. At a table of planners it read
+    correctly; at every mixed table -- a planner against lower grades, which is
+    most Casual tables -- it saw nobody and happily committed to the plan two
+    opponents were already on. Every bot is assigned a family from its opening
+    hand, so the flag is there to be read either way.
+
+    Humans are never assigned one, so a person is never counted. That is the
+    right answer and not a shortcoming: nothing here may see a person's plan.
+    """
+    crowd: Dict[str, int] = {}
+    for other in gs.players:
+        if other is player:
+            continue
+        fam = str(other.flags.get("_strategy_family", "") or "")
+        if fam:
+            crowd[fam] = crowd.get(fam, 0) + 1
+    return crowd
+
+
 def choose_family(gs: GameState, ms: MatchState, player: PlayerState, params: Dict[str, float],
                   rng: random.Random, worlds: int = 4) -> Tuple[str, Dict[str, float]]:
     """Commit to the plan this hand, and the cards still to come, can do most
@@ -740,13 +768,7 @@ def choose_family(gs: GameState, ms: MatchState, player: PlayerState, params: Di
     n_players = len(gs.players)
     allowed = [f for f in STRATEGY_FAMILIES
                if not (f == "invertebrates" and n_players < fish.INVERTEBRATE_MIN_PLAYERS)]
-    crowd: Dict[str, int] = {}
-    for other in gs.players:
-        if other is player:
-            continue
-        f = str(other.flags.get("_strategy_family", "") or "")
-        if other.flags.get("_planner") and f:
-            crowd[f] = crowd.get(f, 0) + 1
+    crowd = crowd_by_family(gs, player)
     others = others_summary(gs, player)
     turns = turns_left_after_turn(gs, ms, player, params) + 1.0
     decks = [world_deck(gs, ms, player, rng) for _ in range(max(1, worlds))]

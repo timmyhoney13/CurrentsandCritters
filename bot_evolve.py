@@ -267,6 +267,27 @@ for _combo, (_a, _b) in COMBO_PARENTS.items():
     STRATEGY_FOCUS[_combo] = tuple(dict.fromkeys(
         STRATEGY_FOCUS.get(_a, ()) + STRATEGY_FOCUS.get(_b, ())))
 
+# The four weights that say what the TABLE SIZE is worth are aimed at as well,
+# for every strategy, because every strategy has to answer the question and none
+# of them has ever been asked it.
+#
+# This is not a preference, it is what the numbers demanded. Left out of the
+# focus lists they were reachable only through the quarter of mutations that
+# roam, one key at a time out of forty-four: measured over 100 generations of 8
+# mutants, a given one of them was tried in 13 generations out of 100. At the
+# ~45 minutes a strategy's two generations take, that is one attempt every few
+# hours, before it has to survive screening and confirmation as well. A
+# dimension explored that slowly is not being explored.
+#
+# They belong to each strategy separately rather than to a shared vector,
+# because the right answer really is different per plan: a Coral board is a long
+# build that a six-player game never gives time for, and a Baitfish board is
+# already fast and barely cares.
+COUNT_FOCUS: Tuple[str, ...] = ("future_urgency", "tempo_urgency",
+                                "crowd_cost", "pool_greed")
+for _lab in list(STRATEGY_FOCUS):
+    STRATEGY_FOCUS[_lab] = tuple(dict.fromkeys(STRATEGY_FOCUS[_lab] + COUNT_FOCUS))
+
 
 # ── The Reef Planner's knobs, and what each is allowed to be ───────────────
 # Only the knobs that say what a position is WORTH. The search widths

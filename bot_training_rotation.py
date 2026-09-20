@@ -174,6 +174,30 @@ def run_cell(name: str, tier: int, planner: bool) -> Optional[int]:
     return crowned
 
 
+# How many strategy cells run between two visits to the planner's own knobs.
+#
+# The planner used to be last in the cycle, which meant one visit per cycle --
+# about ten hours. That is the wrong way round. Its six per-rival knobs have
+# never been measured at all, so it is the cell with the most unclaimed ground
+# on it, and it is the brain every grade from Eugenie Clark up actually plays
+# with: the top half of the ladder, which is what a strong player meets. Its
+# games cost roughly four times a weighted chooser's, so it earns a turn every
+# few strategies rather than every one.
+PLANNER_EVERY = 5
+
+
+def interleave_planner(strategies: List[str]) -> List[str]:
+    """The cycle's running order, with the planner given regular turns."""
+    out: List[str] = []
+    for i, name in enumerate(strategies):
+        out.append(name)
+        if (i + 1) % PLANNER_EVERY == 0:
+            out.append("planner")
+    if "planner" not in out[-1:]:
+        out.append("planner")
+    return out
+
+
 def promote() -> None:
     """Copy this cycle's champions into the brain the live game reads."""
     try:
@@ -205,7 +229,7 @@ def main() -> None:
         # a combo seeded from an untrained half inherits nothing worth having.
         fresh = [s for s in MAINS + COMBOS
                  if not os.path.exists(os.path.join(OUT_DIR, f"champion_{s}.json"))]
-        order = fresh + MAINS + COMBOS + ["planner"]
+        order = interleave_planner(fresh + MAINS + COMBOS)
 
         for name in order:
             if _stop:

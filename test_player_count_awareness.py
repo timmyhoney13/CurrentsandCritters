@@ -237,6 +237,38 @@ changed, target = tuned_into('{"weights": {"denial_per_rival": 0.4}}')
 check(changed == ["denial_per_rival"] and abs(target["denial_per_rival"] - 0.4) < 1e-9,
       "a knob in range is taken")
 
+# ── who else is at the table ────────────────────────────────────────────────
+section("the planner sees every opponent's plan, not just other planners'")
+
+
+class FakeP:
+    def __init__(self, **flags):
+        self.flags = dict(flags)
+
+
+def crowd(*players, me=0):
+    gs = FakeGS(len(players), 60)
+    gs.players = list(players)
+    return rp.crowd_by_family(gs, players[me])
+
+
+me = FakeP(_strategy_family="coral", _planner="reef")
+planner_rival = FakeP(_strategy_family="coral", _planner="reef")
+graded_rival = FakeP(_strategy_family="coral")          # a bot below grade A
+other_plan = FakeP(_strategy_family="mammals")
+person = FakeP()                                        # never assigned a family
+
+check(crowd(me, planner_rival) == {"coral": 1}, "another planner on my plan is counted")
+check(crowd(me, graded_rival) == {"coral": 1},
+      "a lower-graded bot on my plan is counted too — it eats the same cards",
+      f"{crowd(me, graded_rival)}")
+check(crowd(me, graded_rival, planner_rival) == {"coral": 2},
+      "two opponents on my plan count as two")
+check(crowd(me, other_plan) == {"mammals": 1}, "an opponent on another plan is counted under that plan")
+check(crowd(me, person) == {}, "a person is never counted: nothing here may see their plan")
+check(crowd(me) == {}, "with nobody else at the table, nothing is crowded")
+check("coral" not in crowd(me, other_plan), "I am not crowding myself")
+
 # ── the trainer's own rules ─────────────────────────────────────────────────
 section("the trainer trains each strategy where it is actually played")
 
