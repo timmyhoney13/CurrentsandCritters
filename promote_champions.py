@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import re
 import json
 import os
 import shutil
@@ -39,6 +40,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(HERE, "fish_training", "evolve")
 # The planner's knobs live in their own file, which reef_planner reads directly.
 SKIP = {"planner"}
+_COUNT_VECTOR = re.compile(r"\d+p")
 
 
 def main() -> int:
@@ -57,7 +59,10 @@ def main() -> int:
     changed = []
     for path in sorted(glob.glob(os.path.join(a.out_dir, "champion_*.json"))):
         label = os.path.basename(path)[len("champion_"):-len(".json")]
-        if label in SKIP or label.endswith("p"):      # champion_4p.json is a count vector
+        # champion_4p.json is the shared per-count vector, not a strategy. Matched
+        # on the digits, because "ends in p" would one day silently swallow a
+        # strategy named for something that does.
+        if label in SKIP or _COUNT_VECTOR.fullmatch(label):
             continue
         try:
             champ = json.load(open(path))["weights"]

@@ -320,6 +320,16 @@ check(scale[4] == 1.0, "a 4P margin is reported as itself")
 check(scale[2] < 1.0 < scale[6],
       "a 2P margin is scaled down and a 6P margin up, so no size can outvote the others",
       f"2P={scale[2]:.2f} 6P={scale[6]:.2f}")
+_sizes = sorted(scale)
+check([scale[c] for c in _sizes] == sorted(scale[c] for c in _sizes),
+      "the scale rises with every seat added, with no kinks from a noisy sample",
+      f"{ {c: scale[c] for c in _sizes} }")
+# It must not be read back off the stale offline-training table it used to
+# divide by, or the correction quietly goes wrong again when that table drifts.
+_stale = {c: fish.TRAIN_TARGET_TOP[4] / fish.TRAIN_TARGET_TOP[c] for c in (2, 3, 4, 5, 6)}
+check(abs(scale[2] - _stale[2]) > 0.1,
+      "the scale comes from measured games, not from TRAIN_TARGET_TOP",
+      f"measured {scale[2]} vs that table's {_stale[2]:.3f}")
 
 print(f"\n{'=' * 50}\nRESULT: {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)

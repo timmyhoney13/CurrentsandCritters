@@ -2292,6 +2292,30 @@ def load_brain(path: str = BRAIN_PATH) -> Dict[str, object]:
                         by_count[ck] = _validate_count_brain(cv)
                 if by_count:
                     brain["by_count"] = by_count
+            # Per-strategy weights: one vector for each plan a bot can commit
+            # to, which is what every grade from B up is supposed to play with.
+            # Exactly the same reason as by_count above -- and without this
+            # block it really was silently dropped. Every promotion wrote these
+            # vectors into the file and the next read threw them away, so
+            # `strategy_weights` in multiplayer_server was always empty,
+            # use_strategy_brain was always False, and every graded bot fell
+            # back to the shared vector. A Coral bot and a Mammals bot were
+            # decided by the same numbers, which is the thing per-strategy
+            # weights exist to stop.
+            if isinstance(data.get("by_strategy"), dict):
+                by_strategy: Dict[str, Dict[str, float]] = {}
+                for sk, sv in data["by_strategy"].items():
+                    if not isinstance(sk, str) or not isinstance(sv, dict):
+                        continue
+                    vec = {str(k): float(v) for k, v in sv.items()
+                           if isinstance(v, (int, float))}
+                    if vec:
+                        # stabilize_weights fills anything the vector predates,
+                        # so a champion trained before a weight existed gains it
+                        # at its default rather than at zero by accident.
+                        by_strategy[sk.strip().lower()] = stabilize_weights(vec)
+                if by_strategy:
+                    brain["by_strategy"] = by_strategy
     except Exception as e:
         raise BrainFileCorruptionError(brain_fix_prompt(path, f"Validation error: {e}")) from e
     brain["weights"] = stabilize_weights(dict(brain.get("weights", {})))

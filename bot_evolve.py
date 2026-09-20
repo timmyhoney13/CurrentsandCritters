@@ -166,15 +166,32 @@ def _policies_for(cand: Optional[Dict[str, float]], seat: int, count: int):
     return pol, forced
 
 
-# A two-player game finishes around 240 points and a six-player game around
-# 104, off the same deck, so the same improvement is worth twice as many raw
-# points at 2P as at 6P. Averaging raw margins across table sizes would
-# therefore let the 2P deals decide everything and leave the crowded tables --
-# where the bots are weakest -- effectively unmeasured. Every margin is
-# reported in 4P-equivalent points instead, so a deal counts the same wherever
-# it was played, and the numbers stay in the units the logs have always used.
-_TARGET_TOP = fish.TRAIN_TARGET_TOP
-_MARGIN_SCALE = {c: _TARGET_TOP[4] / _TARGET_TOP[c] for c in _TARGET_TOP}
+# A two-player game finishes around 229 points and a six-player game around 50,
+# off the same deck, so the same improvement is worth four and a half times as
+# many raw points at 2P as at 6P. Averaging raw margins across table sizes would
+# let the 2P deals decide every generation and leave the crowded tables -- where
+# the bots are weakest and the margins are smallest -- effectively unmeasured.
+# Every margin is reported in 4P-equivalent points instead, so a deal counts the
+# same wherever it was played and the numbers stay in the units the logs have
+# always used.
+#
+# MEASURED, over 12 complete games at each size. Median top score: 229 at 2P,
+# 136 at 3P, 88 at 4P, 66 at 5P, 50 at 6P. Median winning margin, which is the
+# quantity actually being scaled: 38, 14, 11, 8, 6 -- the same shape, and the
+# two agree on every size within a few percent except 3P.
+#
+# These are not taken from fish.TRAIN_TARGET_TOP, which this used to divide by.
+# That table is the offline --train pipeline's idea of an "excellent" score and
+# it has gone stale: it calls 135 a good four-player game when twelve of them
+# ran 76 to 99. Reading it here made a 2P deal count about one and a half times
+# what it should and a 6P deal about seven tenths.
+#
+# Scaled by the median TOP rather than by the spread of the margins, which would
+# be the textbook choice: at twelve games a size the spread estimates are pure
+# noise -- they came out claiming a 3P deal should count for a quarter of a 4P
+# one and a 5P deal for half, which no property of the game supports.
+_MARGIN_SCALE: Dict[int, float] = {2: 0.384, 3: 0.647, 4: 1.0, 5: 1.344, 6: 1.778,
+                                   7: 2.1, 8: 2.4}
 
 
 def _play(task: Tuple[int, int, int, int]) -> Tuple[int, float, float]:

@@ -248,5 +248,65 @@ mixed_branch = server_src[_anchor - 400:_anchor + 1400]
 check("else:" in mixed_branch and "update_brain_from_match" in mixed_branch,
       "…through the same learner, at a lower weight")
 
+# ── does a TRAINED STRATEGY survive being saved and loaded? ────────────────
+# The same class of bug as the gates above, one layer down. load_brain does not
+# read the file, it rebuilds a brain from scratch and copies across the keys it
+# knows about. by_count has a block for that and says so in a comment.
+# by_strategy had none, so every strategy vector ever promoted was written to
+# the file and thrown away on the next read: multiplayer_server's
+# strategy_weights was always empty, use_strategy_brain was always False, and
+# every bot from grade B up -- the half of the ladder that is supposed to play
+# with its plan's own trained weights -- fell back to the shared vector. A
+# Coral bot and a Mammals bot were decided by identical numbers.
+import json as _json
+import tempfile as _tempfile
+import shutil as _shutil
+
+_dir = _tempfile.mkdtemp()
+try:
+    _path = os.path.join(_dir, "brain.json")
+    _brain = fish.load_brain(_path)
+    fish.get_strategy_weights(_brain, "Coral", fish.default_weights())["stack_bonus"] = 2.75
+    fish.save_brain(_brain, _path)
+
+    _raw = _json.load(open(_path))
+    check(_raw.get("by_strategy", {}).get("coral", {}).get("stack_bonus") == 2.75,
+          "a trained strategy vector is written to the brain file")
+
+    _back = fish.load_brain(_path)
+    _vec = (_back.get("by_strategy") or {}).get("coral") or {}
+    check(_vec.get("stack_bonus") == 2.75,
+          "…and is still there when the brain is loaded again",
+          "load_brain dropped by_strategy: every promotion is lost on the next read")
+    check(set(_vec) >= set(fish.default_weights()),
+          "a vector trained before a weight existed gains it at its default")
+
+    # A damaged or hostile file must not take the server down or be believed.
+    _json.dump({"weights": {}, "by_strategy": {"coral": {"stack_bonus": "lots"},
+                                               "junk": 5}}, open(_path, "w"))
+    _bad = fish.load_brain(_path)
+    check((_bad.get("by_strategy") or {}) == {},
+          "a strategy vector full of nonsense is ignored rather than trusted")
+finally:
+    _shutil.rmtree(_dir, ignore_errors=True)
+
+# And the gate the server actually applies: with vectors present, graded bots
+# stop sharing one brain.
+_live = fish.load_brain(fish.BRAIN_PATH).get("by_strategy") or {}
+if _live:
+    _base = fish.stabilize_weights(dict(fish.default_weights()))
+    _built = {}
+    for _lab, _vec2 in _live.items():
+        if isinstance(_vec2, dict) and _vec2:
+            _m = dict(_base)
+            _m.update(_vec2)
+            _built[_lab] = fish.stabilize_weights(_m)
+    check(bool(_built), "the live brain hands the server a set of strategy weights")
+    if "coral" in _built and "mammals" in _built:
+        _n = sum(1 for k in _built["coral"]
+                 if abs(_built["coral"][k] - _built["mammals"][k]) > 1e-9)
+        check(_n > 0, "a Coral bot and a Mammals bot are decided by different numbers",
+              "they are identical, so per-strategy weights are doing nothing")
+
 print(f"\n{'=' * 50}\nRESULT: {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)
