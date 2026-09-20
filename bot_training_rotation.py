@@ -6,7 +6,8 @@
 
 WHAT IT TRAINS
 --------------
-Thirteen strategies and the Reef Planner's own knobs. Every strategy is trained
+The ten strategies a bot can actually commit to, and the Reef Planner's own
+knobs. Every strategy is trained
 across 2P through 6P in one run (bot_evolve --counts), because the bots now have
 weights that read the table size -- see fish_game_all_in_one.table_clock -- and a
 weight that reads the table size can only be measured by playing several.
@@ -57,7 +58,26 @@ LOG_PATH = os.path.join(OUT_DIR, "rotation.log")
 MAINS = ["mammals", "yellowfin_tuna", "birds_of_a_feather", "crustaceans",
          "baitfish_barrage", "cephalopods", "coral", "king_salmon",
          "goby_moon_shot", "invertebrates"]
-COMBOS = ["birds_crustaceans", "coral_cephalopods", "birds_coral"]
+
+# THE COMBOS ARE NOT TRAINED, and that is not an oversight.
+#
+# B-Lob, B-Coral and Coral / Cephalopods are names for a finished board, not
+# plans a bot can commit to. Every live path that assigns a bot its plan
+# excludes them: reef_planner.STRATEGY_FAMILIES has the ten mains and nothing
+# else, so neither choose_family nor reconsider_family can reach one, and
+# fish.strategies_allowed_for_skill leaves them out at all four skill levels, so
+# neither can the opening-hand assignment. The only thing that can set a combo
+# label is _force_strategy_family -- which is set by nothing but the trainer.
+#
+# So a combo champion is a weight vector no bot can ever look up. The rotation
+# this replaced spent about fifteen hours a cycle producing them:
+# birds_crustaceans alone took eleven and a half. That time goes to the ten real
+# strategies and to the planner instead.
+#
+# fish_game_all_in_one keeps their profiles, and should: they are what lets a
+# recap call a board "B-Lob" instead of guessing. Naming a board is not the same
+# as choosing a plan.
+COMBOS: List[str] = []
 
 # WHICH BRAIN EACH RUNG ACTUALLY PLAYS WITH. This decides how the night is
 # spent, and it is not what it was when the Reef Planner landed:

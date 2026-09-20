@@ -39,7 +39,15 @@ import fish_game_all_in_one as fish
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(HERE, "fish_training", "evolve")
 # The planner's knobs live in their own file, which reef_planner reads directly.
-SKIP = {"planner"}
+#
+# The three combos are skipped for a different reason: no bot can ever commit to
+# one. They name a finished board ("B-Lob"), and every path that assigns a plan
+# -- the planner's families, and the skill allowlist -- has only the ten mains.
+# A combo vector in brain["by_strategy"] is therefore never looked up, so there
+# is nothing to be gained by refreshing it. Any that are already in the brain
+# are left where they are: they cost nothing, and editing a live brain to remove
+# something inert is a worse idea than leaving it.
+SKIP = {"planner", "birds_crustaceans", "coral_cephalopods", "birds_coral"}
 _COUNT_VECTOR = re.compile(r"\d+p")
 
 
