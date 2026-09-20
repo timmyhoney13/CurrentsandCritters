@@ -3,12 +3,14 @@
  *
  * The markup comes from js/rulebook.js and is skin-agnostic: every .rb-*
  * rule reads its colours from variables, and the wrapper class picks the
- * skin: .rb-light on a pale page, .rb-dark over the table at night.
+ * skin: .rb-light on a pale page, .rb-dark on a deep one.
  *
- * Rendered by:
+ * All three homes render .rb-light, on purpose: it is one book, and a player
+ * who looks a rule up mid-game should see the page they already know.
  *   • Player Home → How to play → Full Rulebook   (.rb-light)
- *   • In game     → Menu → Rule Book              (.rb-dark)
+ *   • In game     → Menu → Rule Book              (.rb-light)
  *   • rules.html, the published How to Play page  (.rb-light)
+ * .rb-dark is kept whole below, unused for now, for anything that wants it.
  *
  * That third home is why this is a separate file: rules.html is a small
  * static page and must not drag in the game's whole 13,000-line stylesheet.
@@ -32,7 +34,8 @@
       --rb-shadow:   0 4px 18px rgba(20,85,150,.09);
       --rb-hero-bg:  linear-gradient(160deg, rgba(255,255,255,.97) 0%, rgba(224,245,255,.95) 60%, rgba(224,252,244,.95) 100%);
     }
-    /* Deep-ocean skin: over the table, matching the 💡 Help screen. */
+    /* Deep-ocean skin, matching the 💡 Strategy screen. Unused today:
+       the in-game Rule Book reads .rb-light, like the published page. */
     .rb.rb-dark {
       --rb-ink:      #e8b34a;
       --rb-body:     #d8c8aa;

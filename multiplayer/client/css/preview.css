@@ -15525,8 +15525,10 @@
 
        The rulebook markup (js/rulebook.js) is skin-agnostic: every .rb-*
        rule reads its colours from variables, and the wrapper class picks
-       the skin: .rb-light on the frosted Player Home page, .rb-dark over
-       the table at night. One document, two homes.
+       the skin. All three homes now pick .rb-light, so the book a player
+       reads on Player Home, over the table and on the website is the same
+       book in the same colours. .rb-dark is kept for anything that ever
+       wants it back. One document, three homes.
        ══════════════════════════════════════════════════════════════ */
 
     /* ── How to play: the tab background art ───────────────────────── */
@@ -15913,7 +15915,8 @@
     /* Lives in its own file, css/rulebook.css, loaded right after this one:
        the printed rulebook is rendered by the game AND by the standalone
        How to Play page (rules.html), which cannot pull in the whole game
-       stylesheet. Both skins (.rb-light / .rb-dark) are defined there. */
+       stylesheet. Both skins (.rb-light / .rb-dark) are defined there; every
+       home uses .rb-light, and the overlay chrome below matches it. */
 
     /* ── In-game Rule Book overlay ─────────────────────────────────── */
     /* The Clan Challenges sheet is the same overlay with different contents,
@@ -15973,6 +15976,52 @@
       #pv-rulebook-body, #pv-clanch-body { padding: 14px 13px 24px; }
       #pv-rulebook-title, #pv-clanch-title { font-size: 21px; }
       .rb-sec { padding: 16px 14px 18px; }
+    }
+
+    /* ── The in-game Rule Book wears the published book's own skin ──── */
+    /* Menu → Rule Book and How to Play → Full Rulebook are the same book,
+       so they are now the same colours too: pale paper, .rb-light, in a white
+       frame, exactly as rules.html prints it. These rules come AFTER the
+       shared overlay block on purpose, and name only #pv-rulebook-*: the Clan
+       Challenges sheet keeps the deep-ocean chrome its contents are drawn for.
+       Every value below is lifted from rules.html (.rb-frame, .rb-note and
+       the palette above them) so the two cannot drift apart. */
+    #pv-rulebook-modal { background: rgba(6,32,52,.58); }
+    #pv-rulebook-box {
+      border: 1px solid #bfd8ea;
+      background: linear-gradient(180deg, #ffffff 0%, #f7fcff 100%);
+      box-shadow: 0 26px 52px rgba(10,37,55,.28), inset 0 1px 0 rgba(255,255,255,.92);
+    }
+    #pv-rulebook-header {
+      border-bottom: 1px solid #bfd8ea;
+      background: linear-gradient(90deg, rgba(216,245,255,.8) 0%, rgba(247,251,255,0) 70%);
+    }
+    #pv-rulebook-title { color: #0f5390; text-shadow: none; }
+    #pv-rulebook-close {
+      color: #0a6080; background: #ffffff;
+      border: 1.5px solid #92bdd8;
+    }
+    #pv-rulebook-close:hover {
+      background: #e8f6fd; border-color: #0ca4cb; color: #08344d;
+    }
+    /* .rb-frame's own padding, so the book sits on the page the same way. */
+    #pv-rulebook-body { padding: 26px 26px 34px; }
+    #pv-rulebook-body::-webkit-scrollbar-thumb { background: rgba(146,189,216,.8); }
+    /* The note rules.html prints above the book, word for word. */
+    .pv-rb-note {
+      display: flex; gap: 11px; align-items: flex-start;
+      margin: 0 0 18px; padding: 14px 17px; border-radius: 14px;
+      background: #d8f5ff; border: 1px solid #9ddaf0;
+      /* Nunito, not rules.html's Manrope: the game does not fetch Manrope,
+         and Nunito is what the book itself is set in either way. */
+      font-family: "Nunito", sans-serif;
+      font-size: 14px; line-height: 1.55; color: #17546e;
+    }
+    .pv-rb-note b { color: #0d3f56; }
+    .pv-rb-note-ico { flex: 0 0 auto; font-size: 17px; line-height: 1.35; }
+    @media (max-width: 720px) {
+      #pv-rulebook-body { padding: 16px 13px 24px; }
+      .pv-rb-note { padding: 12px 13px; font-size: 13px; }
     }
 
     /* ── Clan Challenges sheet (in-game): rows of name / bar / reward ── */

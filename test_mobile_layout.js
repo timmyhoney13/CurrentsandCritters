@@ -154,7 +154,7 @@ const page = (nCards, nSeats) => `<!doctype html><html><head><meta charset="utf-
    </div>
   </div>
   <div id="pv-action-bar">
-    <button id="pv-help-btn"><span class="help-label">&#128161; Help</span></button>
+    <button id="pv-help-btn"><span class="help-label">&#128161; Strategy</span></button>
     <div id="pv-play-controls" style="display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap;">
       <select id="pv-action-select"><option>Choose action…</option></select>
       <button class="pv-btn" id="pv-play-btn">Play Card</button>

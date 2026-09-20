@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-18.1";
+  const APP_BUILD   = "2026-09-20.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -8912,7 +8912,7 @@
       indexByLabel: _idxByLabel,
       // The family symbol(s) a strategy wears. Shared with the Player Home
       // "How to play → Strategies" page so a plan is stamped with the same
-      // mark there as it is on the in-game 💡 Help screen.
+      // mark there as it is on the in-game 💡 Strategy screen.
       stratArtHtml: _stratArtHtml,
       isActive: (label) => { const i = _idxByLabel(label); return i >= 0 && _activeStrategies.has(i); },
       activeLabels: () => [..._activeStrategies].map(i => HELP_STRATEGIES[i] && HELP_STRATEGIES[i].label).filter(Boolean),
@@ -15316,6 +15316,10 @@
   // Menu → Rule Book floats the whole printed rulebook above the game instead
   // of navigating away, so nobody loses their seat looking a rule up. The
   // markup is built once, on first open, from the shared js/rulebook.js.
+  //
+  // What opens here is the published How to Play -> Full Rulebook tab, not a
+  // second version of it: the same HTML, the same .rb-light skin, the same
+  // pale frame and the same note above it that rules.html prints.
   (function _initInGameRulebook() {
     const modal   = document.getElementById("pv-rulebook-modal");
     const body    = document.getElementById("pv-rulebook-body");
@@ -15323,10 +15327,18 @@
     const closeBtn= document.getElementById("pv-rulebook-close");
     if (!modal || !body || !openBtn) return;
 
+    // rules.html prints this note above the book; the in-game copy says it
+    // too, so a player who has read one recognises the other on sight.
+    const RB_NOTE = '<div class="pv-rb-note"><span class="pv-rb-note-ico">\uD83D\uDCD6</span>'
+      + '<span><b>This is the printed rulebook, word for word.</b> The same book that comes in '
+      + 'the box, and the same one How to Play shows on the website. Use the contents below to '
+      + 'jump to any section.</span></div>';
+
     function open() {
       if (!body.dataset.built) {
         body.innerHTML = window.CC_RULEBOOK_HTML
-          || '<div class="rb-missing">The rulebook did not load. Refresh the page to try again.</div>';
+          ? (RB_NOTE + window.CC_RULEBOOK_HTML)
+          : '<div class="rb-missing">The rulebook did not load. Refresh the page to try again.</div>';
         body.dataset.built = "1";
         if (window.CC_RULEBOOK_HTML && typeof window.ccRulebookInit === "function") window.ccRulebookInit(body);
       }
@@ -33542,7 +33554,7 @@
     //                   from the real deck lists, not from the printed
     //                   Encyclopedia, which is a page or two behind.
     //   Full Rulebook, the printed book, word for word, from js/rulebook.js.
-    //   Strategies, the same plans the in-game 💡 Help button offers, read
+    //   Strategies, the same plans the in-game 💡 Strategy button offers, read
     //                   straight out of HELP_STRATEGIES so the two can't drift.
     let _htpBuilt = false;
     let _htpView  = "quick";
@@ -33723,7 +33735,7 @@
 
         + '<div class="htp-sec-head"><span class="htp-sec-ico">🎛️</span>Buttons worth knowing</div>'
         + '<div class="htp-keys">'
-        +   '<div class="htp-key"><span class="htp-key-btn">💡 Help</span><span>Opens the Strategies screen mid-game. '
+        +   '<div class="htp-key"><span class="htp-key-btn">💡 Strategy</span><span>Opens the Strategies screen mid-game. '
         +     'Pick a plan and every card that fits lights up in your hand and in the pool.</span></div>'
         +   '<div class="htp-key"><span class="htp-key-btn">↩ Undo Turn</span><span>Takes your last turn back. It '
         +     'survives bot turns and only locks once another human has played after you.</span></div>'
@@ -33812,7 +33824,7 @@
         + '</p>';
     }
 
-    // Strategies: rendered from the very same HELP_STRATEGIES the in-game 💡 Help
+    // Strategies: rendered from the very same HELP_STRATEGIES the in-game 💡 Strategy
     // button uses, so a plan reads identically in both places.
     function _htpStratCardHtml(i) {
       const s = HELP_STRATEGIES[i];
@@ -33869,17 +33881,17 @@
       return ''
         + '<div class="htp-hero">'
         +   '<div class="htp-hero-badge">🧭 Strategies</div>'
-        +   '<h2 class="htp-hero-title">Every plan the 💡 Help button knows</h2>'
+        +   '<h2 class="htp-hero-title">Every plan the 💡 Strategy button knows</h2>'
         +   '<p class="htp-hero-sub">These are the exact strategies the game offers you mid-match. Read them here at '
         +     'your leisure, then switch one on at the table and the game will point out the cards for you.</p>'
         + '</div>'
 
         + '<div class="htp-sec-head"><span class="htp-sec-ico">💡</span>How to get there in a game</div>'
         + '<div class="htp-steps">'
-        + _htpStep(1, "Press 💡 Help", '<p class="htp-p">The Help button lives on the left of the action bar at the '
+        + _htpStep(1, "Press 💡 Strategy", '<p class="htp-p">The Strategy button lives on the left of the action bar at the '
             + 'bottom of the table, right next to the card you are about to play. It is available on every turn, '
             + 'including when it is not your go.</p>')
-        + _htpStep(2, "Choose your ocean strategy", '<p class="htp-p">Step 1 on the Help screen is the ocean plans, '
+        + _htpStep(2, "Choose your ocean strategy", '<p class="htp-p">Step 1 on the Strategy screen is the ocean plans, '
             + 'where you build. Press <b>Play this</b> to switch one on, or <b>View cards &amp; plan</b> to read its '
             + 'steps first.</p>')
         + _htpStep(3, "Choose your animal strategies", '<p class="htp-p">Step 2 is the animal plans, what you score. '
