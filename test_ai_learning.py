@@ -290,6 +290,26 @@ try:
 finally:
     _shutil.rmtree(_dir, ignore_errors=True)
 
+# The general form of that bug, asked of the real brain file: anything in it
+# that load_brain does not carry across is learning that is thrown away on the
+# next read. by_strategy sat in that gap for as long as it existed, and nothing
+# would have noticed, because a dropped key looks exactly like a key that was
+# never learned. This is the check that would have caught it.
+_raw_live = _json.load(open(fish.BRAIN_PATH))
+_loaded_live = fish.load_brain(fish.BRAIN_PATH)
+_dropped = sorted(k for k in _raw_live if k not in _loaded_live)
+check(not _dropped,
+      "load_brain carries across every key the brain file holds",
+      f"silently dropped on read: {_dropped}")
+
+_by_count_raw = _raw_live.get("by_count") or {}
+_by_count_live = _loaded_live.get("by_count") or {}
+_count_dropped = sorted({k for ck, cv in _by_count_raw.items() if isinstance(cv, dict)
+                         for k in cv if k not in (_by_count_live.get(ck) or {})})
+check(not _count_dropped,
+      "…and every key inside each per-table-size brain",
+      f"silently dropped on read: {_count_dropped}")
+
 # And the gate the server actually applies: with vectors present, graded bots
 # stop sharing one brain.
 _live = fish.load_brain(fish.BRAIN_PATH).get("by_strategy") or {}
