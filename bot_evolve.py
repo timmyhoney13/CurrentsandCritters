@@ -64,9 +64,14 @@ os.environ["FISH_PLAN_BY_COUNT"] = "1"
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fish_game_all_in_one as fish
+import reef_planner as _reef
 
 _W_CARD_DB = None
-_W_MAPS: Optional[Dict[str, Any]] = None
+# One set of learned maps PER TABLE SIZE. Each count keeps its own brain
+# (fish.get_count_brain), and a deal is now played at whichever size the deal
+# says, so the worker holds them all and looks up the one it needs.
+_W_MAPS_BY_COUNT: Optional[Dict[int, Dict[str, Any]]] = None
+_W_MAPS: Optional[Dict[str, Any]] = None        # the seed count's maps
 _W_CHAMPION: Optional[Dict[str, float]] = None
 _W_CANDIDATES: Optional[List[Dict[str, float]]] = None
 _W_COUNT: int = 4
@@ -77,6 +82,10 @@ _W_COUNT: int = 4
 # against the field, not against copies of itself.
 _W_STRATEGY: Optional[str] = None
 _W_STRAT_MAP: Optional[Dict[str, Dict[str, float]]] = None
+# Planner mode: the grade whose Reef Planner settings are being tuned. When it
+# is set, a "champion" is a dict of planner knobs rather than a weight vector,
+# and every seat plays the planner instead of the weighted chooser.
+_W_PLANNER_GRADE: str = ""
 
 
 # Which decision-maker plays, and at what grade. "engine" is the light one-pass
@@ -89,25 +98,35 @@ _W_GRADE = os.environ.get("FISH_TRAIN_GRADE", "")
 _MPS = None
 
 
-def _init(maps, champion, candidates, count, strategy=None, strat_map=None):
-    global _W_CARD_DB, _W_MAPS, _W_CHAMPION, _W_CANDIDATES, _W_COUNT
-    global _W_STRATEGY, _W_STRAT_MAP, _W_CHOOSER, _W_GRADE, _MPS
+def _init(maps_by_count, champion, candidates, count, strategy=None, strat_map=None,
+          planner_grade=""):
+    global _W_CARD_DB, _W_MAPS, _W_MAPS_BY_COUNT, _W_CHAMPION, _W_CANDIDATES, _W_COUNT
+    global _W_STRATEGY, _W_STRAT_MAP, _W_CHOOSER, _W_GRADE, _MPS, _W_PLANNER_GRADE
     _W_CARD_DB = fish.load_card_db()
-    _W_MAPS, _W_CHAMPION, _W_CANDIDATES, _W_COUNT = maps, champion, candidates, count
+    _W_MAPS_BY_COUNT = maps_by_count
+    _W_MAPS = maps_by_count[count]
+    _W_CHAMPION, _W_CANDIDATES, _W_COUNT = champion, candidates, count
     _W_STRATEGY, _W_STRAT_MAP = strategy, strat_map
+    _W_PLANNER_GRADE = planner_grade or ""
     _W_CHOOSER = os.environ.get("FISH_TRAIN_CHOOSER", "engine")
     _W_GRADE = os.environ.get("FISH_TRAIN_GRADE", "") or fish.DEFAULT_BOT_GRADE
-    if _W_CHOOSER == "live":
+    if _W_CHOOSER == "live" or _W_PLANNER_GRADE:
         import multiplayer_server as mps
         _MPS = mps
 
 
-def _strategy_policy(strategy_weights: Dict[str, Dict[str, float]]):
+def _strategy_policy(strategy_weights: Dict[str, Dict[str, float]], count: int):
     """A policy that scores with the weights of whatever strategy the bot is
-    committed to, read at decision time, on the configured chooser."""
+    committed to, read at decision time, on the configured chooser.
+
+    The maps are this table size's own (each count learns into its own brain);
+    the strategy's weight vector is shared across sizes, because what the table
+    size changes is carried by the count-aware features themselves, not by a
+    vector per size. See fish_game_all_in_one.table_clock."""
+    maps = _W_MAPS_BY_COUNT[count]
     if _W_CHOOSER != "live":
-        return fish._train_make_strategy_policy(_W_MAPS, strategy_weights, epsilon=0.0)
-    m, fb, mps = _W_MAPS, _W_MAPS["weights"], _MPS
+        return fish._train_make_strategy_policy(maps, strategy_weights, epsilon=0.0)
+    m, fb, mps = maps, maps["weights"], _MPS
 
     def _pol(gs, ms, p):
         lab = str(p.flags.get("_strategy_family", "")).strip().lower()
@@ -119,41 +138,61 @@ def _strategy_policy(strategy_weights: Dict[str, Dict[str, float]]):
     return _pol
 
 
-def _policies_for(cand: Optional[Dict[str, float]], seat: int):
+def _policies_for(cand: Optional[Dict[str, float]], seat: int, count: int):
     """Build one policy per seat, and say which strategy each seat is forced to."""
+    if _W_PLANNER_GRADE:
+        # Every seat is the planner. The seat under test plays the candidate
+        # knobs, the rest play the champion's. No strategy is forced: which plan
+        # to commit to is one of the things the planner decides for itself, and
+        # at a six-player table it is most of what it decides.
+        champ_pol = _planner_policy(_W_CHAMPION or {}, _W_PLANNER_GRADE)
+        seat_pol = _planner_policy(cand, _W_PLANNER_GRADE) if cand is not None else champ_pol
+        return [seat_pol if i == seat else champ_pol for i in range(count)], None
     if _W_STRATEGY is None:
+        maps = _W_MAPS_BY_COUNT[count]
         pol = [fish._train_make_policy(
-                   _W_MAPS, weights=dict(cand if (cand is not None and i == seat) else _W_CHAMPION),
+                   maps, weights=dict(cand if (cand is not None and i == seat) else _W_CHAMPION),
                    epsilon=0.0)
-               for i in range(_W_COUNT)]
+               for i in range(count)]
         return pol, None
     base = dict(_W_STRAT_MAP or {})
     seat_map = dict(base)
     if cand is not None:
         seat_map[_W_STRATEGY] = cand
-    champ_pol = _strategy_policy(base)
-    seat_pol = _strategy_policy(seat_map)
-    pol = [seat_pol if i == seat else champ_pol for i in range(_W_COUNT)]
-    forced = [_W_STRATEGY if i == seat else None for i in range(_W_COUNT)]
+    champ_pol = _strategy_policy(base, count)
+    seat_pol = _strategy_policy(seat_map, count)
+    pol = [seat_pol if i == seat else champ_pol for i in range(count)]
+    forced = [_W_STRATEGY if i == seat else None for i in range(count)]
     return pol, forced
 
 
-def _play(task: Tuple[int, int, int]) -> Tuple[int, float, float]:
+# A two-player game finishes around 240 points and a six-player game around
+# 104, off the same deck, so the same improvement is worth twice as many raw
+# points at 2P as at 6P. Averaging raw margins across table sizes would
+# therefore let the 2P deals decide everything and leave the crowded tables --
+# where the bots are weakest -- effectively unmeasured. Every margin is
+# reported in 4P-equivalent points instead, so a deal counts the same wherever
+# it was played, and the numbers stay in the units the logs have always used.
+_TARGET_TOP = fish.TRAIN_TARGET_TOP
+_MARGIN_SCALE = {c: _TARGET_TOP[4] / _TARGET_TOP[c] for c in _TARGET_TOP}
+
+
+def _play(task: Tuple[int, int, int, int]) -> Tuple[int, float, float]:
     """One game. `ci` >= 0 puts that candidate in `seat` against champions;
     ci == -1 plays the all-champion version of the same deal, which is the
-    baseline every candidate on this seed is measured against."""
-    ci, seed, seat = task
+    baseline every candidate on this deal is measured against."""
+    ci, seed, seat, count = task
     random.seed(seed)
     cand = _W_CANDIDATES[ci] if ci >= 0 else None
-    policies, forced = _policies_for(cand, seat)
+    policies, forced = _policies_for(cand, seat, count)
     try:
         gs, _ms = fish.run_match(
             card_db=_W_CARD_DB,
-            player_names=[f"P{i}" for i in range(_W_COUNT)],
+            player_names=[f"P{i}" for i in range(count)],
             action_policies=policies,
             seed=seed, max_turns=500, human_index=None,
             verbose=False, verbose_state=False,
-            ai_difficulties=[_W_GRADE or fish.DEFAULT_BOT_GRADE] * _W_COUNT,
+            ai_difficulties=[_W_GRADE or fish.DEFAULT_BOT_GRADE] * count,
             online_weights=None, online_state=None, online_state_path=None,
             force_strategies=forced,
         )
@@ -169,7 +208,8 @@ def _play(task: Tuple[int, int, int]) -> Tuple[int, float, float]:
     else:
         win = 0.0
     others = [s for j, s in enumerate(finals) if j != seat]
-    return ci, win, mine - (max(others) if others else 0.0)
+    margin = mine - (max(others) if others else 0.0)
+    return ci, win, margin * _MARGIN_SCALE.get(count, 1.0)
 
 
 def _wilson_low(wins: float, n: int) -> float:
@@ -228,6 +268,95 @@ for _combo, (_a, _b) in COMBO_PARENTS.items():
         STRATEGY_FOCUS.get(_a, ()) + STRATEGY_FOCUS.get(_b, ())))
 
 
+# ── The Reef Planner's knobs, and what each is allowed to be ───────────────
+# Only the knobs that say what a position is WORTH. The search widths
+# (top_width, worlds, node_budget and the rest) are deliberately left out: they
+# are what separates one planner grade from the next, and a "better" planner
+# found by letting it look at twice as many moves has not learned anything, it
+# has just been given more machine. Every grade from Eugenie Clark up shares
+# the knobs below, so they are trained once, at the cheapest planner grade, and
+# every grade above it plays with what that found.
+# The knobs and their ranges are the planner's own (reef_planner.TUNABLE_BOUNDS),
+# not a second copy here: a tuner that disagreed with the module it is tuning
+# about what a knob may be would write files the planner then refuses to read.
+PLANNER_BOUNDS: Dict[str, Tuple[float, float]] = dict(_reef.TUNABLE_BOUNDS)
+
+# What a planner run aims mutations at: the table-size terms. Everything else
+# has been sat at its default through every game the ladder has ever played;
+# these have not been measured at all, so this is where the unclaimed ground is.
+PLANNER_FOCUS: Tuple[str, ...] = (
+    "denial_per_rival", "rival_weight_per_rival", "plan_discount_per_rival",
+    "turn_value_per_rival", "survival_per_rival", "crowding_per_rival",
+)
+
+
+def planner_defaults() -> Dict[str, float]:
+    """The planner knobs as they stand now: the champion a run starts from."""
+    return {k: float(_reef.PARAMS.get(k, 0.0)) for k in PLANNER_BOUNDS}
+
+
+def _clamp_params(p: Dict[str, float]) -> Dict[str, float]:
+    out = dict(p)
+    for k, (lo, hi) in PLANNER_BOUNDS.items():
+        v = float(out.get(k, 0.0))
+        out[k] = lo if v < lo else (hi if v > hi else v)
+    return out
+
+
+def _mutate_params(p: Dict[str, float], rng: random.Random, sigma: float,
+                   focus: Tuple[str, ...] = PLANNER_FOCUS) -> Dict[str, float]:
+    """One to three knobs moved, on the same reasoning as _mutate: a mutant that
+    moves eight of them at once is a shuffle, not a hypothesis."""
+    out = dict(p)
+    all_keys = list(PLANNER_BOUNDS)
+    focus_keys = [k for k in focus if k in PLANNER_BOUNDS]
+    chosen: List[str] = []
+    for _ in range(rng.randint(1, 3)):
+        pool = focus_keys if (focus_keys and rng.random() < _FOCUS_SHARE) else all_keys
+        k = rng.choice(pool)
+        if k not in chosen:
+            chosen.append(k)
+    for k in chosen:
+        lo, hi = PLANNER_BOUNDS[k]
+        # Step from the knob's own size, with a floor from its range, so a knob
+        # sitting at exactly zero -- which every per-rival term does on day one
+        # -- can still be moved off it.
+        scale = abs(float(out.get(k, 0.0))) + 0.15 * (hi - lo)
+        out[k] = float(out.get(k, 0.0)) + rng.gauss(0.0, sigma) * scale
+    return _clamp_params(out)
+
+
+def _planner_policy(knobs: Dict[str, float], grade: str):
+    """A seat played by the Reef Planner at `grade`, with `knobs` in place of the
+    planner's defaults. The grade's own search settings are untouched."""
+    params = _reef.params_for_grade(grade) or dict(_reef.PARAMS)
+    params.update({k: float(v) for k, v in knobs.items()})
+
+    def _pol(gs, ms, p, _params=params):
+        return _reef.choose_action(gs, ms, p, params=dict(_params))
+    return _pol
+
+
+# Table sizes a strategy may be trained at. Forcing a seat onto a strategy
+# bypasses the live allowlist, so without this the trainer would happily spend
+# half its games teaching Invertebrates to play 2P and 3P tables it is never
+# offered at (fish.INVERTEBRATE_MIN_PLAYERS), and grade those lessons into the
+# one vector it plays its real 5P and 6P games with.
+STRATEGY_COUNTS: Dict[str, Tuple[int, ...]] = {
+    "invertebrates": (5, 6),
+}
+DEFAULT_COUNTS: Tuple[int, ...] = (2, 3, 4, 5, 6)
+
+
+def counts_for_strategy(strategy: Optional[str], counts: List[int]) -> List[int]:
+    """`counts`, minus the table sizes this strategy is never played at."""
+    allowed = STRATEGY_COUNTS.get(str(strategy or "").strip().lower())
+    if not allowed:
+        return list(counts)
+    out = [c for c in counts if c in allowed]
+    return out or list(allowed)
+
+
 def _mutate(w: Dict[str, float], rng: random.Random, sigma: float,
             focus: Tuple[str, ...] = ()) -> Dict[str, float]:
     """Change one to three weights, not a third of them.
@@ -265,7 +394,7 @@ def _wilson_high(wins: float, n: int) -> float:
     return (c + m) / d
 
 
-def _baseline(pool, seeds, count) -> Dict[Tuple[int, int], Tuple[float, float]]:
+def _baseline(pool, deals) -> Dict[Tuple[int, int, int], Tuple[float, float]]:
     """What the CHAMPION achieves from each (seed, seat) a candidate will use,
     as (win, margin).
 
@@ -282,15 +411,21 @@ def _baseline(pool, seeds, count) -> Dict[Tuple[int, int], Tuple[float, float]]:
 
     Every candidate on a deal uses the same seat (seat = deal index mod count),
     so one baseline game serves all of them, and they are compared to each
-    other on identical positions as well as to the champion."""
-    tasks = [(-1, s, gi % count) for gi, s in enumerate(seeds)]
-    out: Dict[Tuple[int, int], Tuple[float, float]] = {}
-    for (_ci, s, k), (_c, win, margin) in zip(tasks, pool.map(_play, tasks, chunksize=4)):
-        out[(s, k)] = (win, margin)
+    other on identical positions as well as to the champion.
+
+    A deal now carries its TABLE SIZE as well as its seed, and the baseline is
+    played at that size too. That is what keeps the pairing exact once a
+    generation spans 2P through 6P: the candidate game and the game it is
+    measured against differ in the weights and in nothing else -- not the deal,
+    not the seat, and not how many players are sitting at the table."""
+    tasks = [(-1, sd, gi % ct, ct) for gi, (sd, ct) in enumerate(deals)]
+    out: Dict[Tuple[int, int, int], Tuple[float, float]] = {}
+    for (_ci, sd, k, ct), (_c, win, margin) in zip(tasks, pool.map(_play, tasks, chunksize=4)):
+        out[(sd, k, ct)] = (win, margin)
     return out
 
 
-def _paired(pool, n_cands, seeds, count, base) -> Tuple[List[List[float]], List[List[float]]]:
+def _paired(pool, n_cands, deals, base) -> Tuple[List[List[float]], List[List[float]]]:
     """Each candidate's result MINUS the champion's from the same deal and the
     same forced seat, as (margin differences, win differences).
 
@@ -303,12 +438,12 @@ def _paired(pool, n_cands, seeds, count, base) -> Tuple[List[List[float]], List[
     Win is still collected, because it is what actually matters: a challenger
     that raises its margin by losing by less, without winning any more, is not
     promoted (see the guard in evolve)."""
-    plan = [(ci, s, gi % count)
-            for ci in range(n_cands) for gi, s in enumerate(seeds)]
+    plan = [(ci, sd, gi % ct, ct)
+            for ci in range(n_cands) for gi, (sd, ct) in enumerate(deals)]
     margins: List[List[float]] = [[] for _ in range(n_cands)]
     wins: List[List[float]] = [[] for _ in range(n_cands)]
-    for (ci, s, k), (_c, win, margin) in zip(plan, pool.map(_play, plan, chunksize=4)):
-        bw, bm = base[(s, k)]
+    for (ci, sd, k, ct), (_c, win, margin) in zip(plan, pool.map(_play, plan, chunksize=4)):
+        bw, bm = base[(sd, k, ct)]
         margins[ci].append(margin - bm)
         wins[ci].append(win - bw)
     return margins, wins
@@ -324,11 +459,18 @@ def _lower_bound(d: List[float]) -> Tuple[float, float]:
     return m, m - 1.96 * math.sqrt(var / n)
 
 
-def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int,
+def evolve(counts: List[int], generations: int, mutants: int, screen: int, confirm: int,
            jobs: int, sigma: float, seed: int, out_dir: str, promote: bool,
-           max_confirm: int = 1200, strategy: Optional[str] = None) -> None:
+           max_confirm: int = 1200, strategy: Optional[str] = None,
+           planner_grade: str = "") -> None:
     os.makedirs(out_dir, exist_ok=True)
-    log_path = os.path.join(out_dir, f"evolve_{count}p.log")
+    counts = counts_for_strategy(strategy, counts)
+    # The table size whose brain seeds a strategy's starting vector, and the
+    # size a single-count run promotes into. With several sizes in play that is
+    # the middle of them, which is the 4P the ladder was always tuned at.
+    seed_count = 4 if 4 in counts else counts[len(counts) // 2]
+    tag = "x".join(str(c) for c in counts) if len(counts) > 1 else str(counts[0])
+    log_path = os.path.join(out_dir, f"evolve_{tag}p.log")
     fh = open(log_path, "a", encoding="utf-8")
 
     def log(m: str) -> None:
@@ -338,12 +480,26 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
         fh.flush()
 
     brain = fish.load_brain(fish.BRAIN_PATH)
-    cbrain = fish.get_count_brain(brain, count)
-    maps = fish._train_policy_maps_from_cbrain(cbrain)
-    neutral = 1.0 / count
+    # Every size in play brings its own learned maps; the strategy vector under
+    # test is one vector that has to be right at all of them.
+    maps_by_count = {c: fish._train_policy_maps_from_cbrain(fish.get_count_brain(brain, c))
+                     for c in counts}
+    maps = maps_by_count[seed_count]
+
+    def deals_for(n: int, rng_: random.Random) -> List[Tuple[int, int]]:
+        """`n` deals, the table sizes dealt round-robin so every size carries
+        the same weight in the average and a generation can never be decided by
+        whichever size happened to come up most."""
+        return [(rng_.randrange(1 << 30), counts[i % len(counts)]) for i in range(n)]
 
     strat_map: Optional[Dict[str, Dict[str, float]]] = None
-    if strategy:
+    if planner_grade:
+        # Tuning the Reef Planner itself. There is one set of knobs for every
+        # planner grade, so it is trained once at the cheapest of them and
+        # Charles Darwin and Giant Squid play with what this finds.
+        champion = planner_defaults()
+        ck_path = os.path.join(out_dir, "champion_planner.json")
+    elif strategy:
         # Every strategy gets its own vector; the one being trained is the
         # champion, the rest are the field it has to beat.
         strat_map = {}
@@ -378,32 +534,44 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
                 log(f"Combo {strategy}: seeded from {parents[0]} + {parents[1]} champions.")
         ck_path = os.path.join(out_dir, f"champion_{strategy}.json")
     else:
+        if len(counts) != 1:
+            raise SystemExit("--counts with more than one size needs --strategy: "
+                             "the per-count weight vectors are trained one size at a time.")
         champion = dict(maps["weights"])
-        ck_path = os.path.join(out_dir, f"champion_{count}p.json")
+        ck_path = os.path.join(out_dir, f"champion_{counts[0]}p.json")
     if os.path.exists(ck_path):
         saved = json.load(open(ck_path))
-        champion = fish.stabilize_weights(dict(saved["weights"]))
+        champion = (_clamp_params(dict(saved["weights"])) if planner_grade
+                    else fish.stabilize_weights(dict(saved["weights"])))
         if strat_map is not None and strategy:
             strat_map[strategy] = dict(champion)
         log(f"Resuming from saved champion (generation {saved.get('generation', 0)}).")
 
     rng = random.Random(seed)
     log("=" * 68)
-    who = f"{count}P" + (f" · strategy {strategy}" if strategy else " · all strategies")
-    log(f"TOURNAMENT SELECTION · {who} · a mutant must beat {neutral:.3f} to take the crown")
+    who = ("/".join(f"{c}P" for c in counts))
+    if planner_grade:
+        who += f" · Reef Planner knobs at {planner_grade}"
+    else:
+        who += f" · strategy {strategy}" if strategy else " · all strategies"
+    log(f"TOURNAMENT SELECTION · {who} · a mutant must beat the champion on the same deals")
     log(f"{generations} generations · {mutants} mutants · {screen} screen + {confirm} confirm games · jobs={jobs}")
     log("=" * 68)
 
     promotions = 0
     for gen in range(1, generations + 1):
-        focus = STRATEGY_FOCUS.get(strategy or "", ())
-        cands = [_mutate(champion, rng, sigma, focus) for _ in range(mutants)]
-        screen_seeds = [rng.randrange(1 << 30) for _ in range(screen)]
+        if planner_grade:
+            cands = [_mutate_params(champion, rng, sigma) for _ in range(mutants)]
+        else:
+            focus = STRATEGY_FOCUS.get(strategy or "", ())
+            cands = [_mutate(champion, rng, sigma, focus) for _ in range(mutants)]
+        screen_deals = deals_for(screen, rng)
         t0 = time.time()
         with mp.Pool(jobs, initializer=_init,
-                     initargs=(maps, champion, cands, count, strategy, strat_map)) as pool:
-            base = _baseline(pool, screen_seeds, count)
-            sdiff, _swin = _paired(pool, len(cands), screen_seeds, count, base)
+                     initargs=(maps_by_count, champion, cands, seed_count, strategy, strat_map,
+                               planner_grade)) as pool:
+            base = _baseline(pool, screen_deals)
+            sdiff, _swin = _paired(pool, len(cands), screen_deals, base)
         order = sorted(range(len(cands)), key=lambda i: -(sum(sdiff[i]) / len(sdiff[i])))
         keep = order[:3]
         log(f"gen {gen:>3} screen: best margin edge {sum(sdiff[keep[0]])/len(sdiff[keep[0]]):+.3f} pts "
@@ -425,12 +593,13 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
         best_i = 0
         while alive and played < max_confirm:
             batch = min(confirm, max_confirm - played)
-            conf_seeds = [rng.randrange(1 << 30) for _ in range(batch)]
+            conf_deals = deals_for(batch, rng)
             sub = [finals[i] for i in alive]
             with mp.Pool(jobs, initializer=_init,
-                         initargs=(maps, champion, sub, count, strategy, strat_map)) as pool:
-                cbase = _baseline(pool, conf_seeds, count)
-                bd, bw = _paired(pool, len(sub), conf_seeds, count, cbase)
+                         initargs=(maps_by_count, champion, sub, seed_count, strategy, strat_map,
+                                   planner_grade)) as pool:
+                cbase = _baseline(pool, conf_deals)
+                bd, bw = _paired(pool, len(sub), conf_deals, cbase)
             for k, i in enumerate(alive):
                 acc[i].extend(bd[k])
                 accw[i].extend(bw[k])
@@ -457,12 +626,15 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
             if strat_map is not None and strategy:
                 strat_map[strategy] = dict(champion)
             promotions += 1
+            _ref = planner_defaults() if planner_grade else maps["weights"]
             changed = {k: round(champion[k], 3) for k in champion
-                       if abs(champion[k] - maps["weights"].get(k, 0.0)) > 0.01}
+                       if abs(champion[k] - _ref.get(k, 0.0)) > 0.01}
             log(f"gen {gen:>3} NEW CHAMPION · margin {rate:+.3f} pts (95% low {lo:+.3f} > 0), "
                 f"wins {win_edge:+.4f} over {played} paired games")
             log(f"          drifted: {changed}")
-            json.dump({"count": count, "strategy": strategy, "generation": gen, "weights": champion,
+            json.dump({"count": seed_count, "counts": counts,
+                       "strategy": strategy, "planner_grade": planner_grade,
+                       "generation": gen, "weights": champion,
                        "margin_edge": rate, "margin_edge_low": lo, "win_edge": win_edge,
                        "games": played, "chooser": _W_CHOOSER,
                        "grade": os.environ.get("FISH_TRAIN_GRADE", "")},
@@ -472,7 +644,11 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
                 f"wins {win_edge:+.4f} over {played} paired games")
 
     log(f"Done. {promotions}/{generations} generations produced a new champion.")
-    if promote and promotions:
+    if planner_grade and promotions:
+        log(f"Champion planner knobs saved to {ck_path}. The planner reads that file "
+            f"at import (reef_planner.load_tuned_params), so every planner grade "
+            f"plays with them from the next process on.")
+    elif promote and promotions:
         backup = f"{fish.BRAIN_PATH}.evolve_backup_{time.strftime('%Y%m%d_%H%M%S')}.json"
         json.dump(fish.load_brain(fish.BRAIN_PATH), open(backup, "w"))
         brain = fish.load_brain(fish.BRAIN_PATH)
@@ -482,9 +658,9 @@ def evolve(count: int, generations: int, mutants: int, screen: int, confirm: int
             log(f"Promoted champion into the live brain for strategy {strategy} "
                 f"(backup {backup}).")
         else:
-            fish.get_count_brain(brain, count)["weights"] = champion
+            fish.get_count_brain(brain, counts[0])["weights"] = champion
             fish.save_brain(brain, fish.BRAIN_PATH)
-            log(f"Promoted champion into the live brain for {count}P (backup {backup}).")
+            log(f"Promoted champion into the live brain for {counts[0]}P (backup {backup}).")
     elif promotions:
         log(f"Champion saved to {ck_path}; live brain untouched (--promote to apply).")
     fh.close()
@@ -494,6 +670,11 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--count", type=int, default=4, help="table size to evolve (2-8)")
+    ap.add_argument("--counts", type=str, default="",
+                    help="train across SEVERAL table sizes at once, e.g. 2,3,4,5,6. "
+                         "The deals are shared out between them and every margin is "
+                         "reported in 4P-equivalent points, so one vector is measured "
+                         "on every size it will be played at. Overrides --count.")
     ap.add_argument("--generations", type=int, default=20)
     ap.add_argument("--mutants", type=int, default=10)
     ap.add_argument("--screen-games", type=int, default=60,
@@ -515,18 +696,32 @@ def main() -> None:
     ap.add_argument("--grade", type=str, default="",
                     help="grade whose search settings every bot plays at "
                          "(e.g. william_beebe for B). Only matters with --chooser live.")
+    ap.add_argument("--planner", type=str, default="",
+                    help="tune the REEF PLANNER's knobs instead of a weight vector, "
+                         "playing every seat at this planner grade (e.g. eugenie_clark). "
+                         "The knobs are shared by every planner grade, so training the "
+                         "cheapest one improves all of them.")
     ap.add_argument("--promote", action="store_true",
                     help="write the final champion into the live brain")
     a = ap.parse_args()
     os.environ["FISH_TRAIN_CHOOSER"] = a.chooser
     if a.grade:
         os.environ["FISH_TRAIN_GRADE"] = fish.normalize_bot_grade(a.grade)
-    evolve(count=max(2, min(8, a.count)), generations=a.generations, mutants=a.mutants,
+    elif a.planner.strip():
+        # Every seat is a planner seat at that grade, so the table is graded as
+        # one too: anything else keyed off the grade sees the game it is in.
+        os.environ["FISH_TRAIN_GRADE"] = fish.normalize_bot_grade(a.planner)
+    if a.counts.strip():
+        counts = sorted({max(2, min(8, int(x))) for x in a.counts.replace(" ", "").split(",") if x})
+    else:
+        counts = [max(2, min(8, a.count))]
+    evolve(counts=counts, generations=a.generations, mutants=a.mutants,
            screen=a.screen_games, confirm=a.confirm_games,
            jobs=a.jobs or (os.cpu_count() or 4), sigma=a.sigma,
            seed=a.seed or random.randrange(1 << 30),
            out_dir=a.out_dir, promote=a.promote, max_confirm=a.max_confirm_games,
-           strategy=(a.strategy.strip().lower() or None))
+           strategy=(a.strategy.strip().lower() or None),
+           planner_grade=(fish.normalize_bot_grade(a.planner) if a.planner.strip() else ""))
 
 
 if __name__ == "__main__":

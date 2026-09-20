@@ -34,6 +34,8 @@ Goby is worth something: the world says how often the rest turn up.
 """
 from __future__ import annotations
 
+import json
+import os
 import random
 from time import monotonic as _monotonic
 from typing import Dict, List, Optional, Tuple
@@ -125,7 +127,126 @@ PARAMS: Dict[str, float] = {
     # game is the one thing every player's plays change for everybody: a
     # leader wants the deck gone, a player behind wants it to last.
     "rival_weight": 0.0,
+
+    # ── What the table size is worth ────────────────────────────────────────
+    # Six of the knobs above answer questions whose answer depends on how many
+    # people are sitting at the table, and until now they gave the same answer
+    # at every size. Feeding the Pool costs you one opponent's pick at 2P and
+    # five at 6P. A plan that needs four more turns is ordinary at 2P and
+    # fantasy at 6P, where the same deck is drained three times as fast. Coming
+    # second means nothing at either, but at 2P there is exactly one player to
+    # beat and at 6P the best of five is mostly whoever got the luckiest deal.
+    #
+    # Each of these is added to its knob, times how far the table is from the
+    # 4P the planner was tuned at (see params_for_table). They start at zero, so
+    # a 4P table plays exactly as it did before, and so does every other size
+    # until training has shown -- on paired deals at each size -- that moving
+    # one of them wins games. That is what makes them safe to add switched off
+    # rather than guessed at.
+    "denial_per_rival": 0.0,
+    "rival_weight_per_rival": 0.0,
+    "plan_discount_per_rival": 0.0,
+    "turn_value_per_rival": 0.0,
+    "survival_per_rival": 0.0,
+    "crowding_per_rival": 0.0,
 }
+
+# knob -> the per-rival term that shifts it, and the range the result is held to.
+COUNT_SHAPED: Dict[str, Tuple[str, float, float]] = {
+    "denial":        ("denial_per_rival",        0.0, 2.0),
+    "rival_weight":  ("rival_weight_per_rival",  0.0, 1.5),
+    "plan_discount": ("plan_discount_per_rival", 0.2, 1.2),
+    "turn_value":    ("turn_value_per_rival",    0.5, 9.0),
+    "survival":      ("survival_per_rival",      0.0, 1.0),
+    "crowding":      ("crowding_per_rival",      0.0, 1.5),
+}
+
+# Every knob a tuning run is allowed to move, and the range it is held to. The
+# search widths are absent on purpose: those are what separate one planner grade
+# from the next, and buying strength with more search is not learning anything.
+TUNABLE_BOUNDS: Dict[str, Tuple[float, float]] = {
+    "turn_value": (0.5, 9.0), "plan_discount": (0.2, 1.2), "loyalty": (0.0, 6.0),
+    "crowding": (0.0, 1.5), "crowding_points": (0.0, 8.0), "denial": (0.0, 2.0),
+    "denial_threshold": (0.0, 8.0), "rival_weight": (0.0, 1.5), "survival": (0.0, 1.0),
+    "draw_frac": (0.0, 1.0), "draw_card_value": (0.2, 2.5), "deck_rate_prior": (0.4, 2.0),
+    "engine_draws": (0.0, 3.0), "family_prior_weight": (0.0, 3.0), "final_sweep": (0.0, 1.0),
+    "adaptive_turn_value": (0.0, 1.0), "turn_value_floor": (0.1, 3.0),
+    "denial_per_rival": (-1.5, 1.5), "rival_weight_per_rival": (-1.5, 1.5),
+    "plan_discount_per_rival": (-0.8, 0.8), "turn_value_per_rival": (-4.0, 4.0),
+    "survival_per_rival": (-1.0, 1.0), "crowding_per_rival": (-1.0, 1.0),
+}
+
+# The table size the planner's numbers were measured at. A table this size gets
+# no correction at all, so `params_for_table` is the identity there.
+TUNED_AT_PLAYERS = 4.0
+
+
+def params_for_table(params: Dict[str, float], n_players: int) -> Dict[str, float]:
+    """`params` as they apply at a table of `n_players`.
+
+    Returns the same dict object when nothing would change, which is the common
+    case (a 4P table, or every per-rival term still at zero), so this costs
+    nothing on the path it is called from once per move."""
+    rivals = (float(max(1, n_players)) - TUNED_AT_PLAYERS) / 3.0
+    if rivals == 0.0:
+        return params
+    out: Optional[Dict[str, float]] = None
+    for knob, (per, lo, hi) in COUNT_SHAPED.items():
+        step = float(params.get(per, 0.0))
+        if step == 0.0:
+            continue
+        v = float(params.get(knob, 0.0)) + step * rivals
+        v = lo if v < lo else (hi if v > hi else v)
+        if out is None:
+            out = dict(params)
+        out[knob] = v
+    return out if out is not None else params
+
+# ── What training has proved ────────────────────────────────────────────────
+# The knobs above are the planner as it was reasoned out. This is the planner as
+# it has been MEASURED: bot_evolve.py --planner plays generations of paired
+# deals at every table size and only ever writes this file when a challenger
+# beat the settings in it on games it could not have won by luck. Reading it
+# here is what lets a night of training actually reach the bots people play.
+#
+# It is deliberately timid about what it will accept. Only knobs the tuner is
+# allowed to move are read, each one is clamped to that knob's range, and any
+# problem at all -- no file, half-written file, a key that is not a number --
+# leaves the planner exactly as this module wrote it. A tuning run can make the
+# bots better; a damaged file cannot make them worse.
+TUNED_PARAMS_PATH = os.environ.get(
+    "FISH_PLANNER_TUNED",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                 "fish_training", "evolve", "champion_planner.json"),
+)
+
+
+def load_tuned_params(path: Optional[str] = None,
+                      into: Optional[Dict[str, float]] = None) -> List[str]:
+    """Fold the measured knobs into `into` (PARAMS by default). Returns the
+    names it changed, which is what the tests read it for."""
+    target = PARAMS if into is None else into
+    try:
+        with open(path or TUNED_PARAMS_PATH, "r", encoding="utf-8") as fh:
+            found = json.load(fh)
+    except Exception:
+        return []
+    knobs = found.get("weights") if isinstance(found, dict) else None
+    if not isinstance(knobs, dict):
+        return []
+    changed: List[str] = []
+    for k, v in knobs.items():
+        k = str(k)
+        if k not in TUNABLE_BOUNDS or not isinstance(v, (int, float)):
+            continue
+        lo, hi = TUNABLE_BOUNDS[k]
+        v = float(v)
+        v = lo if v < lo else (hi if v > hi else v)
+        if v != float(target.get(k, 0.0)):
+            target[k] = v
+            changed.append(k)
+    return changed
+
 
 _TRAITS: Dict[int, Tuple] = {}
 _DECK_TOTAL: Dict[int, Tuple] = {}
@@ -1463,7 +1584,8 @@ def discard_down(gs: GameState, ms: MatchState, player: PlayerState, limit: int 
                  ctx: Optional[Ctx] = None, params: Optional[Dict[str, float]] = None) -> None:
     """Trim the hand to the limit: keep what the plan needs, and do not hand the
     next player what they need."""
-    params = params or (ctx.params if ctx is not None else PARAMS)
+    params = params_for_table(params or (ctx.params if ctx is not None else PARAMS),
+                              len(gs.players))
     if ctx is None:
         ctx = Ctx(gs, ms, player, params, random.Random(len(gs.deck) * 131 + len(player.hand)))
         ctx.stream = world_stream(gs, ms, world_deck(gs, ms, player, ctx.rng), params)
@@ -1486,7 +1608,7 @@ def choose_action(gs: GameState, ms: MatchState, player: PlayerState,
                   rng: Optional[random.Random] = None,
                   out_scored: Optional[List[Tuple[Action, float]]] = None) -> Optional[Action]:
     """The planner's move for `player`. See the module docstring."""
-    params = params or PARAMS
+    params = params_for_table(params or PARAMS, len(gs.players))
     rng = rng or random.Random(random.getrandbits(64))
     note_turn(gs, ms, player)
     if ms.end_game_triggered and player.flags.get("_planner_eg_at_start"):
@@ -1750,7 +1872,7 @@ def tarpon_discards(gs: GameState, ms: MatchState, player: PlayerState,
     """Tarpon: discard any number of cards and draw that many. Cycle away the
     cards the plan has no use for, and only those: a card the plan wants is
     worth more than a random one off the deck."""
-    params = params or PARAMS
+    params = params_for_table(params or PARAMS, len(gs.players))
     ctx = Ctx(gs, ms, player, params, random.Random(len(gs.deck) * 197 + len(player.hand)))
     ctx.stream = world_stream(gs, ms, world_deck(gs, ms, player, ctx.rng), params)
     keep: Dict[int, float] = {}
@@ -1762,6 +1884,9 @@ def tarpon_discards(gs: GameState, ms: MatchState, player: PlayerState,
     spare = [u for u in player.hand if u != ms.end_game_uid and keep.get(u, 0.0) < threshold]
     return spare[:len(gs.deck)]
 
+
+# Fold in whatever training has proved, before anything reads PARAMS.
+TUNED_PARAMS_APPLIED: List[str] = load_tuned_params()
 
 fish.PLANNER_DISCARD_HOOKS[PLANNER_NAME] = lambda gs, ms, p, limit: discard_down(gs, ms, p, limit)
 fish.PLANNER_TARPON_HOOKS[PLANNER_NAME] = lambda gs, ms, p: tarpon_discards(gs, ms, p)

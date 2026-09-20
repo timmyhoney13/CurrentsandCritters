@@ -18,6 +18,18 @@
 # it, so the server image needs it too (Dockerfile).
 !reef_planner.py
 !test_reef_planner.py
+# What the planner's knobs were MEASURED to be. reef_planner reads this at
+# import (load_tuned_params), so it has to travel with the module or a night of
+# tuning never reaches a single player. Both parent directories have to be
+# un-ignored too, or git never looks inside them to find the file.
+!fish_training/
+!fish_training/evolve/
+!fish_training/evolve/champion_planner.json
+# The trainer that produces it, the step that carries a night's champions into
+# the brain the game reads, and what proves the bots read the table size.
+!bot_training_rotation.py
+!promote_champions.py
+!test_player_count_awareness.py
 !tournament_engine.py
 !tournament_server.py
 # Clan System: server-authoritative clans core (seasons, points, roles, chat)

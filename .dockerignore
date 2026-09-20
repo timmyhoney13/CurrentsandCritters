@@ -29,6 +29,11 @@
 
 # Allow the AI brain and card data files.
 !fish_ai_brain.json
+# The planner's measured knobs. Same reasoning as fish_ai_brain.json above: the
+# bots' learning lives in a file, so the file has to be in the image.
+!fish_training/
+!fish_training/evolve/
+!fish_training/evolve/champion_planner.json
 !cards_vertical.txt
 !cards_lr.txt
 !cards_oceans.txt

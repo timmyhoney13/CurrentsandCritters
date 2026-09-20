@@ -56,6 +56,10 @@ COPY account_email.py /app/account_email.py
 # COPY here is a server that will not boot, not a form that quietly stops.
 COPY partner_contact.py /app/partner_contact.py
 COPY fish_ai_brain.json /app/fish_ai_brain.json
+# reef_planner.py reads this beside itself at import. It is committed holding
+# the knobs the module already ships with, so it is always present for this COPY
+# and always safe to read; a tuning run replaces it with better ones.
+COPY fish_training/evolve/champion_planner.json /app/fish_training/evolve/champion_planner.json
 COPY cards_vertical.txt /app/cards_vertical.txt
 COPY cards_lr.txt /app/cards_lr.txt
 COPY cards_oceans.txt /app/cards_oceans.txt

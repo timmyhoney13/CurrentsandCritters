@@ -1961,6 +1961,13 @@ def stabilize_weights(weights: Dict[str, float]) -> Dict[str, float]:
         "combo_timing": (0.0, 3.5),
         "ocean_completion": (0.0, 3.5),
         "sim_point_delta": (0.8, 4.0),
+        # The table-size corrections. Signed both ways, because which way each
+        # one should go is a question for the measurement, not for this table,
+        # and kept small: they correct a move, they do not decide it.
+        "future_urgency": (-2.0, 2.0),
+        "tempo_urgency": (-2.0, 2.0),
+        "crowd_cost": (-1.5, 1.5),
+        "pool_greed": (-1.5, 1.5),
     }
     for k, (lo, hi) in bounds.items():
         v = float(weights.get(k, default_weights().get(k, 0.0)))
@@ -2145,6 +2152,27 @@ def default_weights() -> Dict[str, float]:
         # ocean_completion_value: the King Salmon plan.
         "ocean_completion": 1.0,
         "sim_point_delta": 0.8,
+        # ── What the table size is worth ────────────────────────────────────
+        # Each of these multiplies a feature the bot already had by the table
+        # clock (see table_clock), so one trained vector can play a 2P table and
+        # a 6P table differently without needing a vector for each.
+        #
+        # They start at zero on purpose: at zero every one of them contributes
+        # nothing and the bot plays exactly the move it played before this
+        # existed. Nothing here can cost a game until training has shown, on
+        # paired deals across table sizes, that moving it wins one.
+        #
+        # How much less a card that only pays LATER is worth as the deck runs
+        # out. Expected to train negative: at 6P "later" often never comes.
+        "future_urgency": 0.0,
+        # ...and how much more the points on the table right now are worth then.
+        "tempo_urgency": 0.0,
+        # What paying a card's cost into the Pool costs beyond the card itself,
+        # per rival who picks over the Pool before it comes back around.
+        "crowd_cost": 0.0,
+        # ...and what taking from the Pool is worth beyond the card, for the
+        # same reason: at a full table it was going to somebody else.
+        "pool_greed": 0.0,
     }
 
 
@@ -10198,6 +10226,70 @@ def apply_action(
     return bool(ok)
 
 
+# ── The table clock ─────────────────────────────────────────────────────────
+# The two numbers that tell the weighted chooser what table it is sitting at.
+#
+# Nothing in it used to know. The same board was scored the same way whether one
+# opponent or five would act before this bot's next turn, and whether the deck
+# had ten of its own turns left in it or two -- and both of those are decided by
+# the player count. The deck is the only clock in the game and it drains once
+# per player per round, so six players get a third of the turns two players get
+# out of the same deck. That is why a plan that is correct at a 2P table (bank
+# the pieces, the set completes later) is a losing plan at 6P, where "later"
+# never arrives, and why the cards you pay into the Pool are cheap at 2P and
+# expensive at 6P, where five players pick over them before they come back.
+#
+# Both are returned together because every count-aware feature is an
+# INTERACTION: a quantity that already differs between the moves on offer,
+# multiplied by one of these. A feature with the same value for every move in a
+# decision cannot change which move is chosen -- it adds one constant to all of
+# them and cancels in the argmax. That is the whole reason the player count
+# could not simply be handed to the chooser as a feature of its own.
+
+# Deck cards drawn per player-turn, before a table has shown its pace. Same
+# prior the Reef Planner clocks its own turns with (reef_planner.PARAMS), and
+# measured at 0.98-1.08 across 2P to 6P, so it is a good one.
+_CLOCK_TURN_PACE = 0.9
+# The own turns in a whole game, at the table size the bots were tuned at.
+#
+# Measured, because guessing it wrong makes the features below useless: over
+# full games from one deck, a player gets about 67 turns of their own at 2P, 38
+# at 3P, 33 at 4P, 26 at 5P and 19 at 6P. The same deck, three and a half times
+# the turns. That spread IS the player count, and it is what nothing in the
+# weighted chooser could see.
+#
+# Holding the scale at the 4P figure is what gives the horizon its meaning: a
+# 2P game opens at more than a full game's worth of turns and so reads as early
+# for a long while, a 4P game opens at almost exactly one and runs down through
+# it, and a 6P game opens at three fifths of one -- already late, on its first
+# move, for any plan that needs four more turns to pay. An earlier draft scaled
+# this to 8 turns, which pinned the horizon at 1.0 for all but the last few
+# moves of every game and left the features below reading zero almost always.
+_CLOCK_FULL_GAME = 33.0
+
+
+def table_clock(gs: GameState) -> Tuple[float, float]:
+    """(horizon, rivals) for the table this move is being chosen at.
+
+    horizon: how much of a full game this player still has, in its OWN turns,
+    from 1.0 (a fresh deck) down to 0.0 (the deck is gone). It falls with the
+    player count, because the deck is shared and drains n times a round.
+
+    rivals: how many opponents act before this player plays again, scaled so a
+    4P table -- what the bots were tuned on -- sits at 1.0 and reads as no
+    correction at all.
+    """
+    n = len(gs.players)
+    if n < 1:
+        n = 1
+    horizon = len(gs.deck) / (_CLOCK_TURN_PACE * n * _CLOCK_FULL_GAME)
+    if horizon > 1.0:
+        horizon = 1.0
+    elif horizon < 0.0:
+        horizon = 0.0
+    return horizon, (n - 1) / 3.0
+
+
 def action_features(
     gs: GameState,
     ms: MatchState,
@@ -10231,6 +10323,10 @@ def action_features(
             "deny_bonus": 0.0,
             "overbuild_ocean_penalty": 0.0,
             "sim_point_delta": 0.0,
+            "future_urgency": 0.0,
+            "tempo_urgency": 0.0,
+            "crowd_cost": 0.0,
+            "pool_greed": 0.0,
         }
 
     if action.kind == "draw":
@@ -10247,6 +10343,9 @@ def action_features(
             top = scored[: action.draw_from_pool]
             if top:
                 pick_value = float(sum(top) / len(top))
+        _future = action_future_value_bonus(gs, ms, player, action)
+        _horizon, _rivals = table_clock(gs)
+        _late = 1.0 - _horizon
         return {
             "bias": 1.0,
             "is_ocean": 0.0,
@@ -10264,10 +10363,18 @@ def action_features(
             "symbol_bonus": 0.0,
             "stack_bonus": 0.0,
             "plan_fit_bonus": 0.0,
-            "future_value": action_future_value_bonus(gs, ms, player, action),
+            "future_value": _future,
             "deny_bonus": action_deny_bonus(gs, ms, player, action),
             "overbuild_ocean_penalty": 0.0,
             "sim_point_delta": 0.0,
+            # A draw is the move that buys time, so the clock is most of what
+            # decides whether it is the right one. Drawing for a card you mean
+            # to play in three turns is a fine move at 2P and a wasted turn at
+            # 6P, where the deck is gone before those turns arrive.
+            "future_urgency": _future * _late,
+            "tempo_urgency": 0.5 * _late,
+            "crowd_cost": 0.0,
+            "pool_greed": pick_value * _rivals,
         }
 
     play_face_uid = action.face_uid if action.face_uid is not None else action.card_uid
@@ -10562,6 +10669,19 @@ def action_features(
             feat["combo_timing"] = max(0.0, min(3.0,
                 combo_timing_value(gs, ms, player, _tc) / 2.0))
     feat["sim_point_delta"] = simulated_point_delta(gs, ms, player, action, sim_baseline) if include_sim_delta else 0.0
+
+    # ── What this move is worth at THIS table size ──────────────────────────
+    # Four products of numbers already worked out above, so they cost nothing
+    # to add, and each one carries the part of the move's value that the table
+    # size changes. See table_clock for why they have to be products.
+    _horizon, _rivals = table_clock(gs)
+    _late = 1.0 - _horizon
+    feat["future_urgency"] = feat["future_value"] * _late
+    feat["tempo_urgency"] = feat["immediate_delta"] * _late
+    # card_cost is the number of cards this play feeds the Pool, and every one
+    # of them is offered to each rival in turn before it comes back around.
+    feat["crowd_cost"] = feat["card_cost"] * _rivals
+    feat["pool_greed"] = feat["pool_pick_value"] * _rivals
     return feat
 
 
