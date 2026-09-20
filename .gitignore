@@ -29,6 +29,7 @@
 # the brain the game reads, and what proves the bots read the table size.
 !bot_training_rotation.py
 !promote_champions.py
+!finish_training.py
 !test_player_count_awareness.py
 !tournament_engine.py
 !tournament_server.py
