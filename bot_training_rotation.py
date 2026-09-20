@@ -384,6 +384,11 @@ def main() -> None:
                 continue
             tier = min(int(c["tier"]), SETTLED_TIER - 1)
             crowned = run_cell(name, tier, planner)
+            if _stop:
+                # Asked to stop. Not a failure, and nothing to back off from:
+                # leave now rather than sleeping out the backoff first.
+                save_state(state)
+                break
             if crowned is None:
                 # A cell that cannot run must not be retried at full speed. With
                 # no backoff, a trainer broken in any way -- a bad import, a
