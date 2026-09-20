@@ -480,6 +480,27 @@ def _lower_bound(d: List[float]) -> Tuple[float, float]:
     return m, m - 1.96 * math.sqrt(var / n)
 
 
+def _write_json(path: str, payload: Dict[str, Any]) -> None:
+    """Write a champion file so that no reader can ever see half of one.
+
+    These files are read back while training is still running: the next
+    strategy reads every OTHER strategy's champion to build the field it plays
+    against, and reef_planner reads champion_planner.json at import, which
+    happens in every worker process this script spawns. A plain
+    json.dump(..., open(path, "w")) truncates the file first, so a reader
+    arriving in that window gets a broken file -- and on a run meant to last
+    days, a window that small still comes up. Writing to a temporary file and
+    renaming it makes the swap atomic: a reader sees the old champion or the
+    new one, never neither.
+    """
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+
+
 def evolve(counts: List[int], generations: int, mutants: int, screen: int, confirm: int,
            jobs: int, sigma: float, seed: int, out_dir: str, promote: bool,
            max_confirm: int = 1200, strategy: Optional[str] = None,
@@ -653,13 +674,13 @@ def evolve(counts: List[int], generations: int, mutants: int, screen: int, confi
             log(f"gen {gen:>3} NEW CHAMPION · margin {rate:+.3f} pts (95% low {lo:+.3f} > 0), "
                 f"wins {win_edge:+.4f} over {played} paired games")
             log(f"          drifted: {changed}")
-            json.dump({"count": seed_count, "counts": counts,
-                       "strategy": strategy, "planner_grade": planner_grade,
-                       "generation": gen, "weights": champion,
-                       "margin_edge": rate, "margin_edge_low": lo, "win_edge": win_edge,
-                       "games": played, "chooser": _W_CHOOSER,
-                       "grade": os.environ.get("FISH_TRAIN_GRADE", "")},
-                      open(ck_path, "w"), indent=2)
+            _write_json(ck_path, {
+                "count": seed_count, "counts": counts,
+                "strategy": strategy, "planner_grade": planner_grade,
+                "generation": gen, "weights": champion,
+                "margin_edge": rate, "margin_edge_low": lo, "win_edge": win_edge,
+                "games": played, "chooser": _W_CHOOSER,
+                "grade": os.environ.get("FISH_TRAIN_GRADE", "")})
         else:
             log(f"gen {gen:>3} champion holds · best margin {rate:+.3f} pts (95% low {lo:+.3f}), "
                 f"wins {win_edge:+.4f} over {played} paired games")

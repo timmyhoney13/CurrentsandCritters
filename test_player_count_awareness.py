@@ -237,6 +237,41 @@ changed, target = tuned_into('{"weights": {"denial_per_rival": 0.4}}')
 check(changed == ["denial_per_rival"] and abs(target["denial_per_rival"] - 0.4) < 1e-9,
       "a knob in range is taken")
 
+section("a tuned file reaches a fresh planner, and only with what it may carry")
+
+# The path the whole tuning run exists for: bot_evolve writes the file,
+# reef_planner reads it at IMPORT, and every process that plays a bot from
+# grade A up imports reef_planner. Tested in a real subprocess, because import
+# happens once and this module has already done it.
+_probe = os.path.join(tempfile.gettempdir(), "cc_tuned_probe.json")
+with open(_probe, "w", encoding="utf-8") as _fh:
+    json.dump({"weights": {"denial_per_rival": 0.75, "denial": 0.2, "top_width": 999}}, _fh)
+import subprocess
+_env = dict(os.environ, FISH_PLANNER_TUNED=_probe, PYTHONHASHSEED="0")
+_code = ("import reef_planner as rp, json;"
+         "print(json.dumps({'applied': sorted(rp.TUNED_PARAMS_APPLIED),"
+         "'denial': rp.PARAMS['denial'], 'per_rival': rp.PARAMS['denial_per_rival'],"
+         "'top_width': rp.PARAMS['top_width'],"
+         "'at2': rp.params_for_table(rp.PARAMS, 2)['denial'],"
+         "'at6': rp.params_for_table(rp.PARAMS, 6)['denial']}))")
+_out = subprocess.run([sys.executable, "-c", _code], cwd=os.path.dirname(os.path.abspath(__file__)),
+                      env=_env, capture_output=True, text=True)
+os.unlink(_probe)
+try:
+    _got = json.loads(_out.stdout.strip().splitlines()[-1])
+except Exception:
+    _got = {}
+    check(False, "a fresh planner process reads the tuned file", _out.stderr[-300:])
+if _got:
+    check(_got["applied"] == ["denial", "denial_per_rival"],
+          "a fresh planner picks up exactly the knobs the file names", f"{_got['applied']}")
+    check(_got["top_width"] == 12,
+          "and refuses the search width, however loudly the file asks for it",
+          f"top_width={_got['top_width']}")
+    check(_got["at2"] < _got["denial"] < _got["at6"],
+          "the tuned knob then bends the right way with the table size",
+          f"2P={_got['at2']} 4P={_got['denial']} 6P={_got['at6']}")
+
 # ── who else is at the table ────────────────────────────────────────────────
 section("the planner sees every opponent's plan, not just other planners'")
 
