@@ -309,5 +309,44 @@ check(board(("Kelp Forest", ["Spinner Dolphin@right", "Narwhal@left"]),
       "dolphins, a narwhal and a shark are Mammals")
 check(board() == "Best Guess", "an empty board is a Best Guess")
 
+# ── the knobs that decide whether it plays a PLAN or just counts points ────
+# A knob nothing can reach is a knob that does not exist. switch_margin was
+# read as params.get("switch_margin", 4.0) and was in no table at all, so no
+# grade override and no tuning run could ever move it -- and it decides one of
+# the few things that is purely about understanding a plan rather than counting
+# points: how far ahead another plan has to be scoring before this bot admits
+# its pieces went somewhere else.
+section("the knobs that make it play a plan, not just points")
+
+import bot_evolve as _be
+
+check(rp.PARAMS.get("switch_margin") == 4.0,
+      "switch_margin is a real parameter, at exactly the value it was hard-coded to",
+      f"{rp.PARAMS.get('switch_margin')}")
+check("switch_margin" in rp.TUNABLE_BOUNDS,
+      "…and a training run is allowed to move it")
+
+_understanding = ("loyalty", "crowding", "crowding_points", "switch_margin",
+                  "family_prior_weight")
+for _k in _understanding:
+    check(_k in rp.TUNABLE_BOUNDS, f"{_k} is tunable")
+    check(_k in _be.PLANNER_FOCUS,
+          f"{_k} is aimed at, not left to the quarter of mutations that roam",
+          "at one key in twenty-four it would be tried about once in a hundred "
+          "generations")
+
+check(_be.PLANNER_BOUNDS == dict(rp.TUNABLE_BOUNDS),
+      "the tuner and the planner agree on every knob and its range")
+
+# Every mutant has to stay inside the planner's own bounds, or it writes a file
+# the planner then refuses to read back.
+import random as _random
+_rng = _random.Random(5)
+_champ = _be.planner_defaults()
+_bad = [(k, v) for _ in range(200)
+        for k, v in _be._mutate_params(_champ, _rng, 0.6).items()
+        if not (rp.TUNABLE_BOUNDS[k][0] <= v <= rp.TUNABLE_BOUNDS[k][1])]
+check(not _bad, "no mutant ever leaves the range its knob is allowed", f"{_bad[:3]}")
+
 print(f"\n{'=' * 50}\nRESULT: {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)

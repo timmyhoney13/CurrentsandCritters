@@ -319,12 +319,32 @@ for _lab in list(STRATEGY_FOCUS):
 # about what a knob may be would write files the planner then refuses to read.
 PLANNER_BOUNDS: Dict[str, Tuple[float, float]] = dict(_reef.TUNABLE_BOUNDS)
 
-# What a planner run aims mutations at: the table-size terms. Everything else
-# has been sat at its default through every game the ladder has ever played;
-# these have not been measured at all, so this is where the unclaimed ground is.
+# What a planner run aims mutations at. Two groups, and neither has ever been
+# measured, which is why this is where the unclaimed ground is.
+#
+# THE TABLE SIZE. Six terms that bend a knob with how many people are sitting
+# down (see reef_planner.COUNT_SHAPED).
+#
+# WHAT ITS OWN PLAN IS WORTH. The knobs that decide whether a bot is playing a
+# STRATEGY or just collecting points. `loyalty` is the whole of that
+# distinction in one number -- every card of the bot's own plan is worth this
+# much more to it than the points printed on it, which is what makes it collect
+# its pieces, keep them out of its payments and take them from the Pool rather
+# than shrug and play whatever scores most this turn. `crowding` is knowing not
+# to chase a plan two opponents are already starving each other over.
+# `switch_margin` is knowing when to admit the pieces went somewhere else.
+# `family_prior_weight` is how much a plan's ceiling counts when it is chosen.
+#
+# All of them sat at their defaults through every game the ladder has ever
+# played, reachable only by the quarter of mutations that roam, one key in
+# twenty-four -- about one attempt in a hundred.
 PLANNER_FOCUS: Tuple[str, ...] = (
+    # what the table size is worth
     "denial_per_rival", "rival_weight_per_rival", "plan_discount_per_rival",
     "turn_value_per_rival", "survival_per_rival", "crowding_per_rival",
+    # what its own plan is worth, beyond the points on the cards
+    "loyalty", "crowding", "crowding_points", "switch_margin",
+    "family_prior_weight",
 )
 
 

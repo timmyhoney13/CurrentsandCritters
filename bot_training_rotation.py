@@ -59,13 +59,27 @@ MAINS = ["mammals", "yellowfin_tuna", "birds_of_a_feather", "crustaceans",
          "goby_moon_shot", "invertebrates"]
 COMBOS = ["birds_crustaceans", "coral_cephalopods", "birds_coral"]
 
-# The grade the weights are trained at. B is the lowest grade that plays with a
-# strategy's trained weights, and every grade above it reuses those same weights
-# with more search on top, so this is the cheapest place to train what S++ plays
-# with. The planner knobs are trained at the cheapest planner grade for exactly
-# the same reason.
+# WHICH BRAIN EACH RUNG ACTUALLY PLAYS WITH. This decides how the night is
+# spent, and it is not what it was when the Reef Planner landed:
+#
+#   F E D C   the shared weight vector, under the grade ladder's handicaps
+#   B         its strategy's own trained weights   <- champion_<strategy>.json
+#   A S S+ S++ GS   the Reef Planner's knobs       <- champion_planner.json
+#
+# Per-strategy weights therefore improve exactly ONE rung. Not the default grade
+# a player meets (C), and none of the five at the top. Everything from Eugenie
+# Clark up goes through reef_planner.choose_action, which never reads a weight
+# vector at all -- it plans the board and scores it with the real scorer.
+#
+# So the old rationale here ("weights trained at B are the ones S++ plays with")
+# was true before the planner existed and is false now, and following it spent
+# thirteen cells in sixteen on a single rung. The planner takes a turn every
+# other strategy instead, and every so often that turn is taken at S++ itself
+# rather than at the cheapest planner grade, because S++ is the rung that is
+# meant to be the best thing in the game.
 TRAIN_GRADE = "william_beebe"
-PLANNER_GRADE = "eugenie_clark"
+PLANNER_GRADE = "eugenie_clark"      # A: cheapest planner grade, for volume
+TOP_PLANNER_GRADE = "charles_darwin" # S++: the rung this is all for
 
 COUNTS = "2,3,4,5,6"
 JOBS = max(2, (os.cpu_count() or 4) - 1)
@@ -75,6 +89,10 @@ WEIGHT_TIERS = [(8, 40, 150, 450), (8, 60, 250, 900), (10, 80, 400, 1600)]
 # The planner searches for every move, so its games cost many times a weighted
 # chooser's. Same ladder, sized for what it can actually play in a night.
 PLANNER_TIERS = [(6, 24, 80, 240), (6, 36, 140, 420), (8, 48, 200, 600)]
+# S++ looks at two worlds a move and confirms its leading six in eight more, so
+# its games cost several times an A game's again. Smaller budgets, same ladder:
+# it is here to check and refine what the cheap grade found, not to explore.
+TOP_PLANNER_TIERS = [(4, 12, 40, 120), (4, 20, 70, 210), (6, 28, 100, 300)]
 SETTLED_TIER = len(WEIGHT_TIERS)          # one past the top = nothing left to find
 SETTLED_RECHECK_CYCLES = 4
 GENERATIONS = 2
@@ -82,6 +100,20 @@ GENERATIONS = 2
 # the bots. Wait before trying the next one, and give up rather than spin.
 FAILURE_BACKOFF_S = 60
 MAX_CONSECUTIVE_FAILURES = 6
+
+# The longest one cell may run before it is stopped and the cycle moves on.
+#
+# Without this, one slow cell can eat a whole night on its own and every other
+# strategy waits behind it. An S++ planner game looks at two worlds a move and
+# confirms its leading six in eight more, so it costs many times a weighted
+# chooser's game, and its cell is the one most likely to run long.
+#
+# Stopping a cell early costs nothing that was earned: a champion is written to
+# disk the moment it is crowned, atomically, so whatever the cell had already
+# proved is kept. Only the generation in progress is lost, and a generation in
+# progress has proved nothing yet by definition.
+CELL_TIME_LIMIT_S = 3 * 3600
+TOP_PLANNER_TIME_LIMIT_S = 5 * 3600
 
 _stop = False
 # The training run in progress, so a stop can take its whole process group with
@@ -172,16 +204,31 @@ def promotions_from(output: str) -> int:
     return 0
 
 
+def planner_grade_for(name: str) -> str:
+    """The planner grade a cell plays at, or "" when it is not a planner cell."""
+    if name == "planner":
+        return PLANNER_GRADE
+    if name == "planner_top":
+        return TOP_PLANNER_GRADE
+    return ""
+
+
 def run_cell(name: str, tier: int, planner: bool) -> Optional[int]:
     """One visit. Returns how many champions it crowned, or None if it failed."""
-    mutants, screen, confirm, cap = (PLANNER_TIERS if planner else WEIGHT_TIERS)[tier]
+    if name == "planner_top":
+        tiers = TOP_PLANNER_TIERS
+    elif planner:
+        tiers = PLANNER_TIERS
+    else:
+        tiers = WEIGHT_TIERS
+    mutants, screen, confirm, cap = tiers[tier]
     cmd = [sys.executable, "bot_evolve.py", "--counts", COUNTS,
            "--generations", str(GENERATIONS), "--mutants", str(mutants),
            "--screen-games", str(screen), "--confirm-games", str(confirm),
            "--max-confirm-games", str(cap), "--jobs", str(JOBS),
            "--out-dir", OUT_DIR]
     if planner:
-        cmd += ["--planner", PLANNER_GRADE]
+        cmd += ["--planner", planner_grade_for(name)]
     else:
         cmd += ["--strategy", name, "--chooser", "live", "--grade", TRAIN_GRADE]
     console = os.path.join(OUT_DIR, f"console_{name}.log")
@@ -189,6 +236,7 @@ def run_cell(name: str, tier: int, planner: bool) -> Optional[int]:
     global _child
     started = time.time()
     out = ""
+    timed_out = False
     try:
         with open(console, "a", encoding="utf-8") as fh:
             fh.write(f"\n===== {time.strftime('%F %T')} · tier {tier} =====\n")
@@ -197,7 +245,19 @@ def run_cell(name: str, tier: int, planner: bool) -> Optional[int]:
             _child = subprocess.Popen(cmd, cwd=HERE, stdout=subprocess.PIPE,
                                       stderr=subprocess.STDOUT, text=True,
                                       start_new_session=True)
-            out, _ = _child.communicate()
+            limit = (TOP_PLANNER_TIME_LIMIT_S if name == "planner_top"
+                     else CELL_TIME_LIMIT_S)
+            try:
+                out, _ = _child.communicate(timeout=limit)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                log(f"{name}: over its {limit // 3600}h budget — stopping it here "
+                    f"and moving on. Anything it crowned is already saved.")
+                _kill_child()
+                try:
+                    out, _ = _child.communicate(timeout=30)
+                except Exception:
+                    out = ""
             fh.write(out or "")
     except Exception as exc:
         log(f"{name}: run failed to start ({exc})")
@@ -209,6 +269,13 @@ def run_cell(name: str, tier: int, planner: bool) -> Optional[int]:
     if _stop:
         log(f"{name}: stopped after {mins:.0f} min")
         return None
+    if timed_out:
+        # Not a failure: the trainer worked, it just ran out of budget. Report
+        # whatever it crowned before it was stopped, so a cell that promoted in
+        # its first generation still counts as having found something.
+        crowned = promotions_from(out or "")
+        log(f"{name}: {crowned} new champion(s) in {mins:.0f} min before the budget ran out")
+        return crowned
     if rc != 0:
         log(f"{name}: exited {rc} after {mins:.0f} min — see {console}")
         return None
@@ -226,18 +293,31 @@ def run_cell(name: str, tier: int, planner: bool) -> Optional[int]:
 # with: the top half of the ladder, which is what a strong player meets. Its
 # games cost roughly four times a weighted chooser's, so it earns a turn every
 # few strategies rather than every one.
-PLANNER_EVERY = 5
+PLANNER_EVERY = 2
+# ...and every this-many planner turns is taken at S++ instead of at A. The
+# knobs are shared by every planner grade, so a turn at A is the cheap way to
+# explore them -- but a knob that wins with A's shallow search does not have to
+# win with S++'s deep one, and S++ is the rung being optimised. Its games cost
+# several times an A game's, hence "every third".
+TOP_PLANNER_EVERY = 3
 
 
 def interleave_planner(strategies: List[str]) -> List[str]:
     """The cycle's running order, with the planner given regular turns."""
     out: List[str] = []
+    planner_turns = 0
+
+    def planner_cell() -> str:
+        nonlocal planner_turns
+        planner_turns += 1
+        return "planner_top" if planner_turns % TOP_PLANNER_EVERY == 0 else "planner"
+
     for i, name in enumerate(strategies):
         out.append(name)
         if (i + 1) % PLANNER_EVERY == 0:
-            out.append("planner")
-    if "planner" not in out[-1:]:
-        out.append("planner")
+            out.append(planner_cell())
+    if not out[-1].startswith("planner"):
+        out.append(planner_cell())
     return out
 
 
@@ -278,7 +358,7 @@ def main() -> None:
         for name in order:
             if _stop:
                 break
-            planner = (name == "planner")
+            planner = name.startswith("planner")
             c = cell(state, name)
             if c["settled"] and (cycle - int(c.get("settled_cycle", 0))) % SETTLED_RECHECK_CYCLES:
                 continue
@@ -320,9 +400,10 @@ def main() -> None:
                 if c["tier"] >= SETTLED_TIER and not c["settled"]:
                     c["settled"] = True
                     c["settled_cycle"] = cycle
+                    _top = (TOP_PLANNER_TIERS if name == "planner_top"
+                            else (PLANNER_TIERS if planner else WEIGHT_TIERS))[-1][3]
                     log(f"{name}: SETTLED — nothing beat it at the top bar "
-                        f"({PLANNER_TIERS[-1][3] if planner else WEIGHT_TIERS[-1][3]} "
-                        f"confirming games). Re-checked every "
+                        f"({_top} confirming games). Re-checked every "
                         f"{SETTLED_RECHECK_CYCLES} cycles.")
             save_state(state)
 

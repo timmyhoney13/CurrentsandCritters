@@ -149,6 +149,17 @@ PARAMS: Dict[str, float] = {
     "turn_value_per_rival": 0.0,
     "survival_per_rival": 0.0,
     "crowding_per_rival": 0.0,
+
+    # How far ahead another plan has to be scoring before this bot admits its
+    # pieces went somewhere else and switches to it (see reconsider_family).
+    #
+    # This was read as params.get("switch_margin", 4.0) and was not in this
+    # table at all, so the number existed but nothing could ever reach it: not
+    # a grade override, not a tuning run. It is one of the few decisions that is
+    # purely about understanding a plan rather than counting points -- commit
+    # too hard and you finish a plan the deck refused you, commit too little and
+    # you finish three half-plans -- so it is worth being able to measure.
+    "switch_margin": 4.0,
 }
 
 # knob -> the per-rival term that shifts it, and the range the result is held to.
@@ -174,6 +185,7 @@ TUNABLE_BOUNDS: Dict[str, Tuple[float, float]] = {
     "denial_per_rival": (-1.5, 1.5), "rival_weight_per_rival": (-1.5, 1.5),
     "plan_discount_per_rival": (-0.8, 0.8), "turn_value_per_rival": (-4.0, 4.0),
     "survival_per_rival": (-1.0, 1.0), "crowding_per_rival": (-1.0, 1.0),
+    "switch_margin": (0.0, 20.0),
 }
 
 # The table size the planner's numbers were measured at. A table this size gets
