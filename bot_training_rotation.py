@@ -78,14 +78,46 @@ PLANNER_TIERS = [(6, 24, 80, 240), (6, 36, 140, 420), (8, 48, 200, 600)]
 SETTLED_TIER = len(WEIGHT_TIERS)          # one past the top = nothing left to find
 SETTLED_RECHECK_CYCLES = 4
 GENERATIONS = 2
+# A run that produces no result at all is a broken trainer, not a finding about
+# the bots. Wait before trying the next one, and give up rather than spin.
+FAILURE_BACKOFF_S = 60
+MAX_CONSECUTIVE_FAILURES = 6
 
 _stop = False
+# The training run in progress, so a stop can take its whole process group with
+# it. Without this, `pkill -f bot_training_rotation` kills this script and
+# leaves bot_evolve and its eleven workers running, orphaned and invisible,
+# still using every core on the machine -- which is exactly what happened to the
+# rotation this replaced, and it had to be hunted down by hand.
+_child = None
 
 
 def _on_signal(signum, _frame):
     global _stop
     _stop = True
-    log(f"signal {signum}: finishing the run in progress, then stopping.")
+    log(f"signal {signum}: stopping, and taking the run in progress with me.")
+    _kill_child()
+
+
+def _kill_child() -> None:
+    """Stop the training subprocess and every worker it spawned."""
+    proc = _child
+    if proc is None or proc.poll() is not None:
+        return
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    except (ProcessLookupError, PermissionError, OSError):
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+    try:
+        proc.wait(timeout=20)
+    except Exception:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except Exception:
+            pass
 
 
 def log(msg: str) -> None:
@@ -154,22 +186,33 @@ def run_cell(name: str, tier: int, planner: bool) -> Optional[int]:
         cmd += ["--strategy", name, "--chooser", "live", "--grade", TRAIN_GRADE]
     console = os.path.join(OUT_DIR, f"console_{name}.log")
     log(f"{name}: tier {tier} · {mutants} mutants · {screen} screen · {confirm}/{cap} confirming")
+    global _child
     started = time.time()
+    out = ""
     try:
         with open(console, "a", encoding="utf-8") as fh:
             fh.write(f"\n===== {time.strftime('%F %T')} · tier {tier} =====\n")
             fh.flush()
-            proc = subprocess.run(cmd, cwd=HERE, stdout=subprocess.PIPE,
-                                  stderr=subprocess.STDOUT, text=True)
-            fh.write(proc.stdout or "")
+            # Its own session, so a stop can signal the whole group at once.
+            _child = subprocess.Popen(cmd, cwd=HERE, stdout=subprocess.PIPE,
+                                      stderr=subprocess.STDOUT, text=True,
+                                      start_new_session=True)
+            out, _ = _child.communicate()
+            fh.write(out or "")
     except Exception as exc:
         log(f"{name}: run failed to start ({exc})")
+        _child = None
         return None
+    rc = _child.returncode if _child is not None else -1
+    _child = None
     mins = (time.time() - started) / 60.0
-    if proc.returncode != 0:
-        log(f"{name}: exited {proc.returncode} after {mins:.0f} min — see {console}")
+    if _stop:
+        log(f"{name}: stopped after {mins:.0f} min")
         return None
-    crowned = promotions_from(proc.stdout or "")
+    if rc != 0:
+        log(f"{name}: exited {rc} after {mins:.0f} min — see {console}")
+        return None
+    crowned = promotions_from(out or "")
     log(f"{name}: {crowned} new champion(s) in {mins:.0f} min")
     return crowned
 
@@ -216,6 +259,7 @@ def main() -> None:
     signal.signal(signal.SIGTERM, _on_signal)
     signal.signal(signal.SIGINT, _on_signal)
     state = load_state()
+    failures = 0
     log("=" * 70)
     log(f"ladder training · strategies at {COUNTS} players · {JOBS} jobs · "
         f"weights at {TRAIN_GRADE}, planner at {PLANNER_GRADE}")
@@ -241,8 +285,24 @@ def main() -> None:
             tier = min(int(c["tier"]), SETTLED_TIER - 1)
             crowned = run_cell(name, tier, planner)
             if crowned is None:
+                # A cell that cannot run must not be retried at full speed. With
+                # no backoff, a trainer broken in any way -- a bad import, a
+                # missing file -- turns this into a spin that fills the disk with
+                # logs and never stops, unattended, for as long as it takes
+                # somebody to notice.
+                failures += 1
+                if failures >= MAX_CONSECUTIVE_FAILURES:
+                    log(f"{failures} runs in a row produced no result. That is the "
+                        f"trainer being broken, not the bots being finished; "
+                        f"stopping rather than spinning. See the console logs.")
+                    save_state(state)
+                    return
+                log(f"  backing off {FAILURE_BACKOFF_S}s after a failed run "
+                    f"({failures} in a row)")
+                time.sleep(FAILURE_BACKOFF_S)
                 save_state(state)
                 continue
+            failures = 0
             c["visits"] = int(c["visits"]) + 1
             c["last_cycle"] = cycle
             if crowned > 0:
@@ -256,7 +316,7 @@ def main() -> None:
                 c["settled"] = False
             else:
                 c["barren_visits"] = int(c["barren_visits"]) + 1
-                c["tier"] = int(c["tier"]) + 1
+                c["tier"] = min(int(c["tier"]) + 1, SETTLED_TIER)
                 if c["tier"] >= SETTLED_TIER and not c["settled"]:
                     c["settled"] = True
                     c["settled_cycle"] = cycle
