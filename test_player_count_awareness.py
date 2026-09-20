@@ -331,5 +331,50 @@ check(abs(scale[2] - _stale[2]) > 0.1,
       "the scale comes from measured games, not from TRAIN_TARGET_TOP",
       f"measured {scale[2]} vs that table's {_stale[2]:.3f}")
 
+# ── how the overnight run spends itself ─────────────────────────────────────
+section("the rotation spends the night where it reaches a real game")
+
+import bot_training_rotation as rot
+
+_order = rot.interleave_planner(rot.MAINS + rot.COMBOS)
+_combos = {"birds_crustaceans", "coral_cephalopods", "birds_coral"}
+
+check(not (set(_order) & _combos),
+      "no combo is trained: no bot can commit to one, so its weights are unreadable",
+      f"{sorted(set(_order) & _combos)}")
+check(all(c not in rp.STRATEGY_FAMILIES for c in _combos),
+      "…and the planner confirms it — combos are not plans it can choose")
+check(all(c not in fish.strategies_allowed_for_skill("expert", 6) for c in _combos),
+      "…nor can the opening-hand assignment, even for an expert bot")
+check(set(rot.MAINS) == set(rp.STRATEGY_FAMILIES),
+      "the rotation trains exactly the plans a bot can commit to",
+      f"rotation {sorted(set(rot.MAINS) ^ set(rp.STRATEGY_FAMILIES))}")
+
+check("planner" in _order, "the planner gets turns — it is what A to S++ play with")
+check("planner_top" in _order, "…and some of those turns are taken at S++ itself")
+check(rot.planner_grade_for("planner_top") == "charles_darwin",
+      "S++ is Charles Darwin", rot.planner_grade_for("planner_top"))
+check(rp.params_for_grade("charles_darwin") is not None,
+      "…and S++ really is a planner grade, so tuning the knobs reaches it")
+
+# The evidence ladder: barren visits raise the bar, a crowning lowers it by one
+# step rather than dropping to the bottom.
+def _walk(outcomes):
+    tier = 0
+    for o in outcomes:
+        tier = max(0, tier - 1) if o else min(tier + 1, rot.SETTLED_TIER)
+    return tier
+
+check(_walk([False]) == 1, "a barren visit raises the bar")
+check(_walk([False, False, False]) == rot.SETTLED_TIER,
+      "three barren visits in a row is what settled means")
+check(_walk([False, True]) == 0, "a crowning steps the bar down")
+check(_walk([False, False, True]) == 1,
+      "…by one step, not back to the bottom: how much evidence a cell needs is "
+      "a property of the cell, not of whether it just improved")
+check(_walk([True, True, True]) == 0, "the bar never goes below the cheapest tier")
+check(len(rot.WEIGHT_TIERS) == rot.SETTLED_TIER,
+      "every tier below settled is a real budget")
+
 print(f"\n{'=' * 50}\nRESULT: {PASS} passed, {FAIL} failed")
 raise SystemExit(1 if FAIL else 0)

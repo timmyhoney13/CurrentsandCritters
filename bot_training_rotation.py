@@ -406,9 +406,20 @@ def main() -> None:
             c["visits"] = int(c["visits"]) + 1
             c["last_cycle"] = cycle
             if crowned > 0:
-                # There is more here, and tier 0 is the cheapest place to find it.
+                # There is more here, so look somewhere cheaper -- but only one
+                # step cheaper, not all the way back to the bottom.
+                #
+                # How much evidence a cell needs is a property of the cell, not
+                # of whether it has just improved. Measured on the first
+                # champion this run crowned: the paired spread on mammals is
+                # about 13.8 points a deal, so 450 confirming games can only
+                # prove an edge of 1.27 points, 900 can prove 0.90, and 1600 can
+                # prove 0.68. The improvement it found was 0.99 -- real, and
+                # invisible at tier 0. Dropping straight back to tier 0 after
+                # every crowning would spend a barren visit rediscovering that
+                # this cell needs more games, every single time.
                 c["promotions"] = int(c["promotions"]) + crowned
-                c["tier"] = 0
+                c["tier"] = max(0, int(c["tier"]) - 1)
                 c["barren_visits"] = 0
                 if c["settled"]:
                     log(f"{name}: settled no longer — the field moved and it found "
