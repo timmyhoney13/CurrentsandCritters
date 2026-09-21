@@ -102,6 +102,20 @@ PLANNER_GRADE = "eugenie_clark"      # A: cheapest planner grade, for volume
 TOP_PLANNER_GRADE = "charles_darwin" # S++: the rung this is all for
 
 COUNTS = "2,3,4,5,6"
+# ...except at S++, which skips the two smallest tables.
+#
+# Measured on the first S++ cell: a confirming game cost 1217 core-seconds,
+# about sixty times a strategy game, and the cost is dominated by the small
+# tables -- a 2P game runs about 67 turns of deep search against 19 at 6P. The
+# cheap planner grade still trains on all five sizes, so nothing about the
+# table-size knobs goes unmeasured; S++ is here to check that what the cheap
+# grade found survives a deeper search, and it can do that at the sizes people
+# most often sit down at.
+TOP_PLANNER_COUNTS = "4,5,6"
+
+
+def counts_for_cell(name: str) -> str:
+    return TOP_PLANNER_COUNTS if name == "planner_top" else COUNTS
 JOBS = max(2, (os.cpu_count() or 4) - 1)
 
 # mutants, screen games, confirming batch, cap on confirming games
@@ -149,7 +163,13 @@ MAX_CONSECUTIVE_FAILURES = 6
 # proved is kept. Only the generation in progress is lost, and a generation in
 # progress has proved nothing yet by definition.
 CELL_TIME_LIMIT_S = 3 * 3600
-TOP_PLANNER_TIME_LIMIT_S = 5 * 3600
+# S++ was given five hours and spent nine and a half on a single generation. A
+# cycle is about eleven hours, so a budget that big is not a safety net, it is
+# permission to eat the night.
+TOP_PLANNER_TIME_LIMIT_S = 2 * 3600
+# How often the budget is checked while a cell runs. Short enough that a stop is
+# prompt, long enough to cost nothing.
+BUDGET_POLL_S = 30
 
 _stop = False
 # The training run in progress, so a stop can take its whole process group with
@@ -258,7 +278,7 @@ def run_cell(name: str, tier: int, planner: bool) -> Optional[int]:
     else:
         tiers = WEIGHT_TIERS
     mutants, screen, confirm, cap = tiers[tier]
-    cmd = [sys.executable, "bot_evolve.py", "--counts", COUNTS,
+    cmd = [sys.executable, "bot_evolve.py", "--counts", counts_for_cell(name),
            "--generations", str(GENERATIONS), "--mutants", str(mutants),
            "--screen-games", str(screen), "--confirm-games", str(confirm),
            "--max-confirm-games", str(cap), "--jobs", str(JOBS),
@@ -283,17 +303,36 @@ def run_cell(name: str, tier: int, planner: bool) -> Optional[int]:
                                       start_new_session=True)
             limit = (TOP_PLANNER_TIME_LIMIT_S if name == "planner_top"
                      else CELL_TIME_LIMIT_S)
-            try:
-                out, _ = _child.communicate(timeout=limit)
-            except subprocess.TimeoutExpired:
-                timed_out = True
-                log(f"{name}: over its {limit // 3600}h budget — stopping it here "
-                    f"and moving on. Anything it crowned is already saved.")
-                _kill_child()
+            # The budget is enforced against our own clock, in short waits,
+            # rather than by handing communicate() one enormous timeout.
+            #
+            # It was written the obvious way first -- communicate(timeout=limit)
+            # -- and the first S++ cell ran nine hours and forty minutes against
+            # a five hour budget without the timeout ever firing. The mechanism
+            # works in isolation; whatever it does with a five-hour deadline on
+            # a child that holds its pipe open for hours, it does not raise. A
+            # budget that can silently not apply is worse than no budget, since
+            # it is the thing standing between one slow cell and a whole night.
+            deadline = time.time() + limit
+            while True:
                 try:
-                    out, _ = _child.communicate(timeout=30)
-                except Exception:
-                    out = ""
+                    out, _ = _child.communicate(timeout=BUDGET_POLL_S)
+                    break
+                except subprocess.TimeoutExpired:
+                    if time.time() >= deadline:
+                        timed_out = True
+                        log(f"{name}: over its {limit // 3600}h budget — stopping "
+                            f"it here and moving on. Anything it crowned is "
+                            f"already saved.")
+                        _kill_child()
+                        try:
+                            out, _ = _child.communicate(timeout=30)
+                        except Exception:
+                            out = ""
+                        break
+                    if _stop:
+                        out = ""
+                        break
             fh.write(out or "")
     except Exception as exc:
         log(f"{name}: run failed to start ({exc})")
