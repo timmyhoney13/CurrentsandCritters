@@ -8,8 +8,8 @@
     6
   ],
   "strategy": null,
-  "planner_grade": "",
-  "generation": 0,
+  "planner_grade": "eugenie_clark",
+  "generation": 1,
   "weights": {
     "turn_value": 3.0,
     "plan_discount": 1.0,
@@ -24,20 +24,22 @@
     "draw_card_value": 1.0,
     "deck_rate_prior": 0.9,
     "engine_draws": 0.0,
-    "family_prior_weight": 0.0,
+    "family_prior_weight": 0.13373162516407688,
     "final_sweep": 0.0,
     "adaptive_turn_value": 0.0,
     "turn_value_floor": 0.5,
     "denial_per_rival": 0.0,
-    "rival_weight_per_rival": 0.0,
+    "rival_weight_per_rival": 0.059428673411328965,
     "plan_discount_per_rival": 0.0,
-    "turn_value_per_rival": 0.0,
+    "turn_value_per_rival": -0.21330091287356706,
     "survival_per_rival": 0.0,
-    "crowding_per_rival": 0.0
+    "crowding_per_rival": 0.0,
+    "switch_margin": 0.0
   },
-  "margin_edge": 0.0,
-  "margin_edge_low": 0.0,
-  "win_edge": 0.0,
-  "games": 0,
-  "note": "the planner as written; training replaces this"
+  "margin_edge": 2.0864783333333334,
+  "margin_edge_low": 0.21208702380719102,
+  "win_edge": 0.0275,
+  "games": 1200,
+  "chooser": "engine",
+  "grade": "eugenie_clark"
 }

@@ -423,6 +423,38 @@ def promote() -> None:
     log("promote: " + (tail[-1].strip() if tail else f"exit {proc.returncode}"))
 
 
+def integrity_check(why: str) -> bool:
+    """Ask check_training.py whether what we just wrote is sound.
+
+    Run at the moments the files actually change -- a promotion and the end of a
+    cycle -- because that is when damage would appear, and an unattended run
+    that has quietly corrupted the brain looks exactly like one that has not.
+
+    It never stops the run. It has already been shown that a checker can be
+    wrong about a healthy file, and a false alarm that kills a night is worse
+    than a real fault that is merely reported. Loudly reported, and still
+    reported in every cycle summary after it.
+    """
+    try:
+        proc = subprocess.run([sys.executable, "check_training.py"], cwd=HERE,
+                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                              text=True, timeout=900)
+    except Exception as exc:
+        log(f"integrity ({why}): could not run the check ({exc})")
+        return True
+    tail = [l for l in (proc.stdout or "").splitlines() if "sound," in l]
+    verdict = tail[-1].strip() if tail else f"exit {proc.returncode}"
+    if proc.returncode == 0:
+        log(f"integrity ({why}): {verdict}")
+        return True
+    bad = [l.strip() for l in (proc.stdout or "").splitlines() if l.strip().startswith("FAIL")]
+    log(f"integrity ({why}): NOT SOUND — {verdict}")
+    for l in bad[:6]:
+        log(f"    {l}")
+    log("    the run continues; see check_training.py for the detail")
+    return False
+
+
 def log_summary(state: Dict[str, Any], cycle: int) -> None:
     """What the run has to show for itself, every cycle.
 
@@ -436,6 +468,9 @@ def log_summary(state: Dict[str, Any], cycle: int) -> None:
     settled = sorted(n for n, v in cells.items() if v.get("settled"))
     log(f"cycle {cycle} done · {total} champion(s) crowned in all · "
         f"settled: {', '.join(settled) if settled else 'none'}")
+    flagged = state.get("last_integrity")
+    if flagged:
+        log(f"    ! an integrity check has failed since this run began ({flagged})")
     for name in sorted(cells):
         v = cells[name]
         log(f"    {name:20s} tier {v.get('tier', 0)} · {v.get('visits', 0)} visit(s) "
@@ -561,6 +596,8 @@ def main() -> None:
                 # the bots as it goes rather than in one lump at the end that a
                 # stop at the wrong moment would miss entirely.
                 promote()
+                if not integrity_check(f"after promoting {name}"):
+                    state["last_integrity"] = f"cycle {cycle}: {name}"
             else:
                 c["barren_visits"] = int(c["barren_visits"]) + 1
                 c["tier"] = min(int(c["tier"]) + 1, SETTLED_TIER)
@@ -585,6 +622,9 @@ def main() -> None:
         # whole night is a set of JSON files nobody plays against: from grade B
         # up a bot reads brain["by_strategy"], and only this writes it.
         promote()
+        if not integrity_check(f"end of cycle {cycle}"):
+            state["last_integrity"] = f"cycle {cycle}: end of cycle"
+        save_state(state)
 
         log_summary(state, cycle)
 
