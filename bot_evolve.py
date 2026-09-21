@@ -229,6 +229,23 @@ def _play(task: Tuple[int, int, int, int]) -> Tuple[int, float, float]:
     return ci, win, margin * _MARGIN_SCALE.get(count, 1.0)
 
 
+def _chunk(n_tasks: int, pool) -> int:
+    """How many games to hand a worker at a time.
+
+    A fixed chunk of four wastes most of the machine whenever a round is small.
+    Measured on the first S++ planner cell, whose screening round is twelve
+    deals: twelve tasks at four to a chunk is three chunks, so three workers did
+    the work and eight sat idle -- eleven workers between them using 2.9 cores
+    of twelve, on the slowest games the trainer plays.
+
+    Chunking exists to stop the queue costing more than the work, and a game
+    here takes seconds at least, so one per chunk is never the wrong side of
+    that trade. Four is only worth having when there is plenty for everybody.
+    """
+    workers = max(1, getattr(pool, "_processes", 1))
+    return max(1, min(4, n_tasks // workers))
+
+
 def _wilson_low(wins: float, n: int) -> float:
     if n <= 0:
         return 0.0
@@ -489,7 +506,8 @@ def _baseline(pool, deals) -> Dict[Tuple[int, int, int], Tuple[float, float]]:
     not the seat, and not how many players are sitting at the table."""
     tasks = [(-1, sd, gi % ct, ct) for gi, (sd, ct) in enumerate(deals)]
     out: Dict[Tuple[int, int, int], Tuple[float, float]] = {}
-    for (_ci, sd, k, ct), (_c, win, margin) in zip(tasks, pool.map(_play, tasks, chunksize=4)):
+    for (_ci, sd, k, ct), (_c, win, margin) in zip(
+            tasks, pool.map(_play, tasks, chunksize=_chunk(len(tasks), pool))):
         out[(sd, k, ct)] = (win, margin)
     return out
 
@@ -511,7 +529,8 @@ def _paired(pool, n_cands, deals, base) -> Tuple[List[List[float]], List[List[fl
             for ci in range(n_cands) for gi, (sd, ct) in enumerate(deals)]
     margins: List[List[float]] = [[] for _ in range(n_cands)]
     wins: List[List[float]] = [[] for _ in range(n_cands)]
-    for (ci, sd, k, ct), (_c, win, margin) in zip(plan, pool.map(_play, plan, chunksize=4)):
+    for (ci, sd, k, ct), (_c, win, margin) in zip(
+            plan, pool.map(_play, plan, chunksize=_chunk(len(plan), pool))):
         bw, bm = base[(sd, k, ct)]
         margins[ci].append(margin - bm)
         wins[ci].append(win - bw)

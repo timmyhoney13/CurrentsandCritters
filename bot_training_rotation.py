@@ -119,9 +119,16 @@ WEIGHT_TIERS = [(8, 40, 150, 450), (8, 60, 250, 900), (10, 80, 400, 1600)]
 # well-trodden knob set still has left in it.
 PLANNER_TIERS = [(8, 40, 150, 450), (8, 60, 250, 900), (10, 80, 400, 1600)]
 # S++ looks at two worlds a move and confirms its leading six in eight more, so
-# its games cost several times an A game's again. Smaller budgets, same ladder:
-# it is here to check and refine what the cheap grade found, not to explore.
-TOP_PLANNER_TIERS = [(4, 12, 40, 120), (4, 20, 70, 210), (6, 28, 100, 300)]
+# its games really do cost several times an A game's. It is here to check and
+# refine what the cheap grade found rather than to explore, so its ladder is
+# shorter -- but not as short as it was.
+#
+# The first S++ cell ran at 12 screening deals and 120 confirming games. Against
+# the paired spread the run has actually shown (about 13.8 points a deal), 120
+# games can only prove an edge of 2.5 points. No planner knob is worth two and a
+# half points a deal, so that cell could not have crowned anything whatever it
+# found: it was not a cheap measurement, it was no measurement.
+TOP_PLANNER_TIERS = [(6, 24, 80, 240), (6, 36, 140, 420), (8, 48, 200, 600)]
 SETTLED_TIER = len(WEIGHT_TIERS)          # one past the top = nothing left to find
 SETTLED_RECHECK_CYCLES = 4
 GENERATIONS = 2
