@@ -382,9 +382,20 @@ def planner_defaults() -> Dict[str, float]:
 
 
 def _clamp_params(p: Dict[str, float]) -> Dict[str, float]:
+    """`p` held to the planner's ranges, with anything absent taken from the
+    planner rather than from zero.
+
+    A champion file written before a knob existed does not mention it, and
+    defaulting that to 0.0 is not a neutral choice -- it is a silent, unmeasured
+    change to the bot, written back into the champion as though it had been
+    earned. That is exactly what happened to switch_margin: the seeded file had
+    23 knobs and predated it, the missing key became 0.0, and the first planner
+    champion carried "switch whenever another plan is merely ahead" as a
+    finding. It was a default wearing a measurement's clothes.
+    """
     out = dict(p)
     for k, (lo, hi) in PLANNER_BOUNDS.items():
-        v = float(out.get(k, 0.0))
+        v = float(out[k]) if k in out else float(_reef.PARAMS.get(k, lo))
         out[k] = lo if v < lo else (hi if v > hi else v)
     return out
 

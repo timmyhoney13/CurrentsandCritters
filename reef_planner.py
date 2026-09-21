@@ -185,7 +185,14 @@ TUNABLE_BOUNDS: Dict[str, Tuple[float, float]] = {
     "denial_per_rival": (-1.5, 1.5), "rival_weight_per_rival": (-1.5, 1.5),
     "plan_discount_per_rival": (-0.8, 0.8), "turn_value_per_rival": (-4.0, 4.0),
     "survival_per_rival": (-1.0, 1.0), "crowding_per_rival": (-1.0, 1.0),
-    "switch_margin": (0.0, 20.0),
+    # Floored at what the planner ships with, so training may make a bot MORE
+    # committed to its plan but never less. Chopping and changing is not how the
+    # game is played well: a plan is worth something because you finished it,
+    # and a bot that drops one the moment another is merely ahead finishes
+    # several half-plans and scores none of them. Above the floor it is still a
+    # real question -- how long to stay with a plan the deck has refused you --
+    # and training is welcome to answer it.
+    "switch_margin": (4.0, 20.0),
 }
 
 # The table size the planner's numbers were measured at. A table this size gets

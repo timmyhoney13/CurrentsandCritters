@@ -34,7 +34,7 @@
     "turn_value_per_rival": -0.21330091287356706,
     "survival_per_rival": 0.0,
     "crowding_per_rival": 0.0,
-    "switch_margin": 0.0
+    "switch_margin": 4.0
   },
   "margin_edge": 2.0864783333333334,
   "margin_edge_low": 0.21208702380719102,

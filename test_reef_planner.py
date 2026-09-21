@@ -193,6 +193,24 @@ for n in (3, 5):
                    ai_difficulties=["charles_darwin"] * n)
 check(decisions[0] > 100, "the planner made real decisions", str(decisions[0]))
 check(not mark_failures, "every decision left the game exactly as it found it", str(mark_failures))
+# KNOWN FRAGILE, 2026-09-21, and left failing rather than softened.
+#
+# This holds with the planner's shipped numbers, and it is the check that says
+# the planner is not reading the deck. But it is sensitive to the planner's
+# VALUATION, not only to its honesty: nudging turn_value from 3.0 to 3.071 --
+# a knob with nothing to do with hidden cards or table size -- makes exactly one
+# decision in about six hundred flip, and this fails. 2.929 does not.
+#
+# So a failure here is not on its own evidence of peeking, and the first thing
+# to do with one is reproduce it with a plain turn_value nudge before blaming
+# whatever else changed. The planner reads only len(gs.deck) and whether END
+# GAME is in it -- never the order -- so the channel is most likely the
+# evaluation path around reef_planner.py:1746 that swaps a variant deck in, and
+# some path that reaches the real deck without doing so.
+#
+# It is left as a hard failure on purpose. A correctness test that is softened
+# to go green is worth nothing, and this one has already done its job once by
+# refusing to be explained away.
 check(not peek_failures, "reordering the hidden cards never changed a decision", str(peek_failures))
 
 
@@ -323,6 +341,17 @@ import bot_evolve as _be
 check(rp.PARAMS.get("switch_margin") == 4.0,
       "switch_margin is a real parameter, at exactly the value it was hard-coded to",
       f"{rp.PARAMS.get('switch_margin')}")
+check(rp.TUNABLE_BOUNDS["switch_margin"][0] >= 4.0,
+      "training may make a bot more committed to its plan, never less",
+      f"floor is {rp.TUNABLE_BOUNDS['switch_margin'][0]}")
+
+# A knob a champion file predates must not quietly become zero. That is how
+# "switch whenever another plan is merely ahead" got written into the first
+# planner champion as though it had been measured.
+_partial = {k: v for k, v in _be.planner_defaults().items() if k != "switch_margin"}
+check(_be._clamp_params(_partial)["switch_margin"] == rp.PARAMS["switch_margin"],
+      "a knob missing from an older champion falls back to the planner's value",
+      f"{_be._clamp_params(_partial)['switch_margin']}")
 check("switch_margin" in rp.TUNABLE_BOUNDS,
       "…and a training run is allowed to move it")
 
