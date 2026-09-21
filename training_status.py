@@ -22,6 +22,37 @@ def sh(cmd):
     return subprocess.run(cmd, capture_output=True, text=True).stdout.strip()
 
 
+def _cpu_seconds(pids) -> float:
+    """Total CPU time these processes have used, in seconds."""
+    out = sh(["ps", "-o", "time=", "-p", ",".join(pids)])
+    total = 0.0
+    for line in out.splitlines():
+        parts = line.strip().replace("-", ":").split(":")
+        try:
+            nums = [float(x) for x in parts]
+        except ValueError:
+            continue
+        secs = 0.0
+        for n in nums:
+            secs = secs * 60 + n
+        total += secs
+    return total
+
+
+def cores_in_use(pids) -> float:
+    """Cores busy RIGHT NOW, from a short sample of CPU time.
+
+    Not ps's %cpu, which is an average over each process's whole life: the
+    trainer builds a fresh worker pool for every confirming batch, so for the
+    first minutes of each batch that average reads near zero and the run looks
+    stalled when it is working perfectly. It said "1.0 of 12 cores" once while
+    eleven workers were each near a full core.
+    """
+    t0 = _cpu_seconds(pids)
+    time.sleep(2.0)
+    return max(0.0, (_cpu_seconds(pids) - t0) / 2.0)
+
+
 def main() -> None:
     pids = [p for p in sh(["pgrep", "-f", "bot_training_rotation"]).split() if p.isdigit()]
     if pids:
@@ -30,12 +61,9 @@ def main() -> None:
     else:
         print("NOT RUNNING")
 
-    workers = len([p for p in sh(["pgrep", "-f", "multiprocessing.spawn"]).split() if p.isdigit()])
-    if workers:
-        cpu = sh(["ps", "-o", "%cpu=", "-p", ",".join(
-            sh(["pgrep", "-f", "multiprocessing.spawn"]).split())])
-        total = sum(float(x) for x in cpu.split() if x.replace(".", "").isdigit())
-        print(f"         {workers} workers, using {total/100:.1f} of "
+    pids = [p for p in sh(["pgrep", "-f", "multiprocessing.spawn"]).split() if p.isdigit()]
+    if pids:
+        print(f"         {len(pids)} workers, using {cores_in_use(pids):.1f} of "
               f"{os.cpu_count()} cores")
 
     try:
