@@ -5296,12 +5296,11 @@
     { id: "eugenie_clark",           grade: "Eugenie Clark",           elo: 1300, tier: "A",   unlock: "ladder", requires: "william_beebe" },
     { id: "rachel_carson",           grade: "Rachel Carson",           elo: 1500, tier: "S",   unlock: "ladder", requires: "eugenie_clark" },
     { id: "jacques_cousteau",        grade: "Jacques Cousteau",        elo: 1700, tier: "S+",  unlock: "ladder", requires: "rachel_carson" },
-    { id: "charles_darwin",          grade: "Charles Darwin",          elo: 1900, tier: "S++", unlock: "ladder", requires: "jacques_cousteau" },
-    { id: "giant_squid",             grade: "Giant Squid",             elo: 2150, tier: "GS",  unlock: "story",  requires: "charles_darwin" },
+    { id: "giant_squid",             grade: "Giant Squid",             elo: 2150, tier: "GS",  unlock: "story",  requires: "jacques_cousteau" },
   ];
 
   // ── The reef ────────────────────────────────────────────────────────────
-  // Ten platforms up a coral reef, one per rank, each with its own animal
+  // Nine platforms up a coral reef, one per rank, each with its own animal
   // standing on it, and the Giant Squid at the top. A platform is what a
   // player presses; the rung behind it is what the engine is actually handed.
   //
@@ -5321,8 +5320,7 @@
     { n: 6,  tier: "A",   animal: "great-white-shark", name: "Great White Shark", lo: 5, hi: 5 },
     { n: 7,  tier: "S",   animal: "mandarin-goby",     name: "Goby",              lo: 6, hi: 6 },
     { n: 8,  tier: "S+",  animal: "bunker",            name: "Bunker",            lo: 7, hi: 7 },
-    { n: 9,  tier: "S++", animal: "sea-star",          name: "Sea Star",          lo: 8, hi: 8 },
-    { n: 10, tier: "GS",  animal: "giant-squid",       name: "Giant Squid",       lo: 9, hi: 9, final: true },
+    { n: 9,  tier: "GS",  animal: "giant-squid",       name: "Giant Squid",       lo: 8, hi: 8, final: true },
   ];
   // The Giant Squid does not fight children. Beating the story and climbing
   // the whole reef is not enough on its own; the last fight is for accounts
@@ -5450,7 +5448,7 @@
     // walked out of here as an empty tier and painted an unstyled badge.
     return (c && "FEDCBAS".includes(c)) ? c : "C";
   }
-  // The tier as a CSS class token. "S+" and "S++" are real tiers and a bare
+  // The tier as a CSS class token. "S+" is a real tier and a bare
   // "+" cannot appear in a selector unescaped, so it is spelled "P": the
   // stylesheet defines .bm-tier-SP and .bm-tier-SPP to match.
   function bmTierClass(tier) {
@@ -5546,8 +5544,6 @@
         "Plans several turns ahead, denies the cards you want, and re-checks its best two.",
       jacques_cousteau:
         "Reads the whole table, blocks the card you needed, and is hard to surprise.",
-      charles_darwin:
-        "Simulates several possible games before every move. Mistakes are the only way past it.",
       giant_squid:
         "Every handicap off and every rollout paid for. It plays the game the way the engine actually sees it.",
     };
@@ -5560,7 +5556,7 @@
     if (i / last < 0.25) return blurbs.jeanne_villepreux_power;
     if (i / last < 0.55) return blurbs.steve_irwin;
     if (i / last < 0.80) return blurbs.eugenie_clark;
-    return blurbs.charles_darwin;
+    return blurbs.jacques_cousteau;
   }
 
   async function bmLoadGrades() {
@@ -16082,11 +16078,14 @@
   // ── XP for beating the bots ────────────────────────────────────────────
   // Winning against bots pays on top of the placement XP, and the harder the
   // bot, the more it pays. One bonus per game, for the hardest rank you beat:
-  // a table of three is one win, and "you beat a rank S++" is the sentence
+  // a table of three is one win, and "you beat a rank S+" is the sentence
   // worth reading. Only a rank this ladder knows pays anything, so a seat
   // from an older room ("medium") is not guessed into one.
+  // S++ is gone, and its 275 goes to S+, which is now the hardest rung a
+  // player can earn. An older room that still says "S++" resolves to S+
+  // through the legacy id map, so it pays the same either way.
   const BM_WIN_XP = { F: 25, E: 40, D: 60, C: 80, B: 110, A: 140,
-                      S: 180, "S+": 225, "S++": 275, GS: 400 };
+                      S: 180, "S+": 275, GS: 400 };
   function bmWinXp(ids) {
     let best = { tier: "", xp: 0 };
     (ids || []).forEach(id => {

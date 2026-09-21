@@ -93,12 +93,12 @@ COMBOS = ["birds_crustaceans", "coral_cephalopods", "birds_coral"]
 # So the old rationale here ("weights trained at B are the ones S++ plays with")
 # was true before the planner existed and is false now, and following it spent
 # thirteen cells in sixteen on a single rung. The planner takes a turn every
-# other strategy instead, and every so often that turn is taken at S++ itself
-# rather than at the cheapest planner grade, because S++ is the rung that is
-# meant to be the best thing in the game.
+# other strategy instead, and every so often that turn is taken at S+ itself
+# rather than at the cheapest planner grade, because S+ is now the top rung a
+# player can earn.
 TRAIN_GRADE = "william_beebe"
 PLANNER_GRADE = "eugenie_clark"      # A: cheapest planner grade, for volume
-TOP_PLANNER_GRADE = "charles_darwin" # S++: the rung this is all for
+TOP_PLANNER_GRADE = "jacques_cousteau" # S+: the top rung a player can earn
 
 COUNTS = "2,3,4,5,6"
 # ...except at S++, which skips the two smallest tables.

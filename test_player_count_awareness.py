@@ -387,12 +387,15 @@ check(all(_order.index(c) > _last_main for c in rot.COMBOS),
       "seeded from its parents'",
       f"mains end at {_last_main}, combos at {[ _order.index(c) for c in rot.COMBOS ]}")
 
-check("planner" in _order, "the planner gets turns — it is what A to S++ play with")
-check("planner_top" in _order, "…and some of those turns are taken at S++ itself")
-check(rot.planner_grade_for("planner_top") == "charles_darwin",
-      "S++ is Charles Darwin", rot.planner_grade_for("planner_top"))
-check(rp.params_for_grade("charles_darwin") is not None,
-      "…and S++ really is a planner grade, so tuning the knobs reaches it")
+check("planner" in _order, "the planner gets turns — it is what A to GS play with")
+check("planner_top" in _order, "…and some are taken at the top earnable rung itself")
+check(rot.planner_grade_for("planner_top") == "jacques_cousteau",
+      "that rung is Jacques Cousteau (S+), the highest a player can earn",
+      rot.planner_grade_for("planner_top"))
+check(rp.params_for_grade("jacques_cousteau") is not None,
+      "…and it really is a planner grade, so tuning the knobs reaches it")
+check(rp.params_for_grade("charles_darwin") is None,
+      "S++ is gone: no planner settings answer to it any more")
 
 # The evidence ladder: barren visits raise the bar, a crowning lowers it by one
 # step rather than dropping to the bottom.

@@ -20914,7 +20914,7 @@
       "bias": -0.0005652566564884514,
       "board_control": 0.11059193526526599,
       "board_positioning": 0.13636988052391671,
-      "branch_bonus": 0.7001974151470781,
+      "branch_bonus": 0.6760045947359259,
       "card_cost": -0.42184310572880734,
       "combo_setup_value": 0.6892817721955204,
       "combo_timing": 1.0,
@@ -20951,7 +20951,7 @@
       "strategic_trap_risk": -0.7671361125674069,
       "strategy_bonus": 1.6,
       "symbol_bonus": 0.8999862952819783,
-      "synergy_bonus": 1.45,
+      "synergy_bonus": 1.6749718811113932,
       "target_occupancy": 0.4976051301272134,
       "tempo_urgency": 0.0,
       "uses_star": 1.061978000446504

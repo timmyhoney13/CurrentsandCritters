@@ -4699,15 +4699,18 @@ def strategies_allowed_for_skill(skill_level: str, num_players: int = 0) -> set[
 #                                   movement
 #   S+   Jacques Cousteau           co-invented the Aqua-Lung and showed the
 #                                   ocean to everyone who never went in it
-#   S++  Charles Darwin             known for evolution, but his coral reef and
-#                                   atoll theory is the ground modern marine
-#                                   science is built on
 #   GS   the Giant Squid            not a person, and not for the taking
+#
+# S++ (Charles Darwin) was removed on 2026-09-21. A 400-match calibration
+# measured it 47 Elo above S+ and 8 BELOW the Giant Squid, against noise of
+# +-40: three rungs that no player could tell apart, because they differ only
+# in how much search they buy and search has saturated. A rung nobody can feel
+# is not a rung, it is a longer menu.
 _BOT_GRADE_LADDER: "List[tuple]" = [
     # id       grade                    tier  elo   skill           bias   raw   strat_w block_w future_w switch pay   plan_c plan_s conf  runoff budget unlock
     ("gilbert_carter", "Gilbert Thomas Carter", "F", 500, "beginner", -0.45, 1.00,  0.00,   0.00,   0.00,    2.0,  False,  0,     0,    0.00,  0,    0.0,  ""),
     # The E rung is new, and its knobs sit halfway between F and D on every
-    # column: nine names needed nine letters, and F-D-C-B-A-S-S+-S++ is eight.
+    # column: the letters needed one more name than F-D-C-B-A-S-S+ gave them.
     # Its Elo is a placeholder until calibrate_bots.py measures it, like every
     # other number in this column.
     ("jeanne_villepreux_power", "Jeanne Villepreux-Power", "E", 600, "beginner", -0.18, 0.78, 0.07, 0.00, 0.10, 2.3, False, 0, 0, 0.00, 0, 0.0, ""),
@@ -4717,7 +4720,6 @@ _BOT_GRADE_LADDER: "List[tuple]" = [
     ("eugenie_clark", "Eugenie Clark",         "A",  1300, "advanced",     1.60, 0.00,   1.00,   0.80,   0.80,    4.4,  True,   5,     2,    0.52,  0,    1.3,  ""),
     ("rachel_carson", "Rachel Carson",         "S",  1500, "expert",       2.50, 0.00,   1.30,   1.10,   0.92,    5.2,  True,   7,     2,    0.62,  1,    1.8,  ""),
     ("jacques_cousteau", "Jacques Cousteau",   "S+", 1700, "expert",       3.60, 0.00,   1.60,   1.40,   1.00,    6.0,  True,   8,     3,    0.72,  2,    2.3,  ""),
-    ("charles_darwin", "Charles Darwin",       "S++",1900, "expert",       5.00, 0.00,   1.80,   1.62,   1.00,    6.6,  True,   9,     3,    0.80,  3,    2.7,  ""),
     # ── The Giant Squid ─────────────────────────────────────────────────────
     # The end of the ladder, and the only rung that is not simply the next one
     # along. It is the engine with every handicap off and every rollout paid
@@ -4791,8 +4793,14 @@ LEGACY_BOT_GRADE_IDS: Dict[str, str] = {
     "a":       "eugenie_clark",
     "s":       "rachel_carson",
     "ss":      "jacques_cousteau",
-    "ss+":     "charles_darwin",
-    "ss_plus": "charles_darwin",
+    # S++ is gone; a room saved when it existed opens at the rung below it, so
+    # an old bracket still starts and still means roughly what it meant. "s++"
+    # is here because the TIER lookup used to catch it and no longer can: with
+    # the tier gone, an unlisted spelling falls through to the default grade,
+    # and a saved S++ room would have opened at C.
+    "ss+":     "jacques_cousteau",
+    "ss_plus": "jacques_cousteau",
+    "s++":     "jacques_cousteau",
 }
 
 # The three words the game used before grades existed. Rooms saved to disk,
@@ -4859,6 +4867,12 @@ def resolve_bot_grade(raw: Optional[str]) -> Optional[str]:
     compact = _compact_grade_key(key)
     if not compact:
         return None
+    # An id the ladder used to use, however it happens to be spaced. The
+    # lookup above only sees the raw key, so " s + + " missed "s++" -- which
+    # mattered the moment S++ stopped being a tier, because until then the tier
+    # match below caught every spacing of it and now nothing does.
+    if compact in LEGACY_BOT_GRADE_IDS:
+        return LEGACY_BOT_GRADE_IDS[compact]
     # Tier before name. They cannot collide (no rung is named "S++" and none
     # is tiered "Charles Darwin"), but the tier is the shorter, more typed one.
     for cfg in AI_DIFFICULTY_CONFIGS.values():

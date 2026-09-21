@@ -1950,13 +1950,14 @@ GRADE_PARAMS: Dict[str, Dict[str, float]] = {
     # four cards ahead, and loose about following its own ranking.
     "eugenie_clark":    {**LITE, "stream_max": 4, "temperature": 6.0},
     "rachel_carson":    {"top_width": 8, "stream_max": 8, "max_chain_depth": 3, "temperature": 2.5},
-    "jacques_cousteau": {"temperature": 1.5},
     # Two worlds judge every move and the leading six are judged in six more,
     # over a wider look at moves, draws and pool picks. Measured on 120 paired
     # deals: level with settings that cost twice as much and with ones that
     # cost three times as much, and 6 points ahead of the lighter S++ it
     # replaced. Past this, more search stops showing up in the results.
-    "charles_darwin":   {"worlds": 2, "confirm_worlds": 8, "confirm_top": 6, "top_width": 16,
+    # What S++ used to look at, kept as what S+ looks at now: it was the better
+    # of the two settings and the rung it belonged to is gone.
+    "jacques_cousteau": {"worlds": 2, "confirm_worlds": 8, "confirm_top": 6, "top_width": 16,
                          "chain_beam": 6, "first_draw_width": 4, "pool_pick_width": 5},
     # Everything the planner has: the most worlds, the most moves confirmed.
     "giant_squid":      {"worlds": 4, "confirm_worlds": 16, "confirm_top": 10, "top_width": 24,

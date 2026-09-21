@@ -3,8 +3,9 @@
 
 Run:  python3 test_bot_grades.py
 
-The rungs are people now (Gilbert Thomas Carter at the bottom, Charles Darwin
-at the top, the Giant Squid past him) and each one wears a tier, F to S++, and
+The rungs are people now (Gilbert Thomas Carter at the bottom, Jacques
+Cousteau at the top, the Giant Squid past him) and each one wears a tier, F to
+S+, and
 shows players a number. Five things have to hold for any of that to be worth
 printing, and all five are the sort of thing that breaks quietly:
 
@@ -79,21 +80,25 @@ section("ten rungs, Gilbert Thomas Carter to the Giant Squid")
 
 WANTED = ["Gilbert Thomas Carter", "Jeanne Villepreux-Power", "Edward Forbes",
           "Steve Irwin", "William Beebe", "Eugenie Clark", "Rachel Carson",
-          "Jacques Cousteau", "Charles Darwin", "Giant Squid"]
-WANTED_TIERS = ["F", "E", "D", "C", "B", "A", "S", "S+", "S++", "GS"]
+          "Jacques Cousteau", "Giant Squid"]
+# S++ (Charles Darwin) was removed on 2026-09-21: a 400-match calibration
+# measured it 47 Elo above S+ and 8 BELOW the Squid, against noise of +-40.
+# Three rungs nobody could tell apart, because they differ only in how much
+# search they buy and search has saturated.
+WANTED_TIERS = ["F", "E", "D", "C", "B", "A", "S", "S+", "GS"]
 table = fish.bot_grade_table()
 check([row["grade"] for row in table] == WANTED,
       "the ladder is the nine marine scientists, weakest first, then the Squid",
       str([row["grade"] for row in table]))
-check(len(fish.BOT_GRADE_ORDER) == 10, "ten of them")
-check(len(set(fish.BOT_GRADE_ORDER)) == 10, "no grade id is repeated")
+check(len(fish.BOT_GRADE_ORDER) == 9, "nine of them")
+check(len(set(fish.BOT_GRADE_ORDER)) == 9, "no grade id is repeated")
 check(table[-1]["id"] == "giant_squid", "the Squid is last, and it is the top")
-check(table[-2]["id"] == "charles_darwin",
-      "Charles Darwin is the rung directly below the Squid")
+check(table[-2]["id"] == "jacques_cousteau",
+      "Jacques Cousteau is the rung directly below the Squid")
 check([r["tier"] for r in table] == WANTED_TIERS,
       "each rung names its own badge tier, so S+ is not mistaken for S",
       str([r["tier"] for r in table]))
-check(len(set(r["tier"] for r in table)) == 10,
+check(len(set(r["tier"] for r in table)) == 9,
       "…and no two rungs share a tier")
 check(all(row["id"] in fish.AI_DIFFICULTY_CONFIGS for row in table),
       "every published grade has a config behind it")
@@ -188,11 +193,14 @@ check(max(c["plan_budget"] for c in cfgs) <= 3.0,
 # ── 3. every spelling of a grade lands somewhere sensible ───────────────────
 section("a grade is recognised however it is written")
 
-check(fish.normalize_bot_grade("charles_darwin") == "charles_darwin", "its own id")
-check(fish.normalize_bot_grade("Charles Darwin") == "charles_darwin", "the printed name")
-check(fish.normalize_bot_grade("S++") == "charles_darwin", "the tier")
-check(fish.normalize_bot_grade(" s + + ") == "charles_darwin", "…however it is spaced")
-check(fish.normalize_bot_grade("S+") == "jacques_cousteau", "S+ is not S++")
+check(fish.normalize_bot_grade("jacques_cousteau") == "jacques_cousteau", "its own id")
+check(fish.normalize_bot_grade("Jacques Cousteau") == "jacques_cousteau", "the printed name")
+check(fish.normalize_bot_grade("S+") == "jacques_cousteau", "the tier")
+# A room saved while S++ existed still has to open, at the rung below it.
+check(fish.normalize_bot_grade("S++") == "jacques_cousteau",
+      "a room that still says S++ opens at S+")
+check(fish.normalize_bot_grade("ss_plus") == "jacques_cousteau",
+      "…and so does one that says it the old way")
 check(fish.normalize_bot_grade("S") == "rachel_carson", "…and S is neither")
 check(fish.normalize_bot_grade("F") == "gilbert_carter", "the bottom of the ladder")
 check(fish.normalize_bot_grade("E") == "jeanne_villepreux_power", "the rung above it")
@@ -207,8 +215,9 @@ for old_id, want, elo in (("f", "gilbert_carter", 500), ("d", "edward_forbes", 7
                           ("c", "steve_irwin", 900), ("b", "william_beebe", 1100),
                           ("a", "eugenie_clark", 1300), ("s", "rachel_carson", 1500),
                           ("ss", "jacques_cousteau", 1700),
-                          ("ss_plus", "charles_darwin", 1900),
-                          ("SS+", "charles_darwin", 1900)):
+                          ("ss_plus", "jacques_cousteau", 1700),
+                          ("SS+", "jacques_cousteau", 1700),
+                          ("S++", "jacques_cousteau", 1700)):
     got = fish.normalize_bot_grade(old_id)
     check(got == want, f"the old id {old_id!r} still means {want}", got)
     check(fish.bot_grade_elo(old_id) == elo,
@@ -342,8 +351,8 @@ while cur and guard < 50:
 check(list(reversed(seen)) == order,
       "the chain from the Squid down reaches every rung, once, in ladder order",
       str(list(reversed(seen))))
-check(fish.bot_grade_requires("giant_squid") == "charles_darwin",
-      "the Squid sits behind Charles Darwin as well as behind the story")
+check(fish.bot_grade_requires("giant_squid") == "jacques_cousteau",
+      "the Squid sits behind Jacques Cousteau as well as behind the story")
 check(fish.bot_grade_unlock("giant_squid") == "story",
       "…and the story gate is the one it publishes")
 check(all("requires" in row for row in table),
@@ -361,17 +370,22 @@ seat_token = room.host_seat().token
 ai_indices = [s.index for s in room.seats if s.kind == "ai"]
 check(len(ai_indices) == 3, "a 1-human, 3-bot table has three bot seats")
 
-out = room.set_seat_difficulty(host_token, seat_token, ai_indices[0], "Charles Darwin")
-check(out.get("ok") and out.get("difficulty") == "charles_darwin",
+out = room.set_seat_difficulty(host_token, seat_token, ai_indices[0], "Jacques Cousteau")
+check(out.get("ok") and out.get("difficulty") == "jacques_cousteau",
       "the host can set a rung by its printed name", json.dumps(out))
-check(out.get("grade") == "Charles Darwin"
-      and out.get("grade_elo") == fish.bot_grade_elo("charles_darwin"),
+check(out.get("grade") == "Jacques Cousteau"
+      and out.get("grade_elo") == fish.bot_grade_elo("jacques_cousteau"),
       "…and is told the name and the Elo it means")
 
 out = room.set_seat_difficulty(host_token, seat_token, ai_indices[1], "william_beebe")
 check(out.get("ok") and out.get("difficulty") == "william_beebe", "…or by its id")
+out = room.set_seat_difficulty(host_token, seat_token, ai_indices[1], "S+")
+check(out.get("ok") and out.get("difficulty") == "jacques_cousteau", "…or by its tier")
+# A host whose client still offers the old rung gets the one below it rather
+# than an error, which is what the legacy id map is for.
 out = room.set_seat_difficulty(host_token, seat_token, ai_indices[1], "S++")
-check(out.get("ok") and out.get("difficulty") == "charles_darwin", "…or by its tier")
+check(out.get("ok") and out.get("difficulty") == "jacques_cousteau",
+      "…and a client that still says S++ lands on S+, not on an error")
 out = room.set_seat_difficulty(host_token, seat_token, ai_indices[1], "b")
 check(out.get("ok") and out.get("difficulty") == "william_beebe",
       "…or by the id that rung used to have")
@@ -381,7 +395,7 @@ check(out.get("ok"), "…or by an old word")
 bad = room.set_seat_difficulty(host_token, seat_token, ai_indices[0], "impossible")
 check(not bad.get("ok"), "a grade that does not exist is refused, not quietly swapped",
       json.dumps(bad))
-check(room.seats[ai_indices[0]].difficulty == "charles_darwin",
+check(room.seats[ai_indices[0]].difficulty == "jacques_cousteau",
       "…and the seat keeps the grade it had")
 
 nothost = room.set_seat_difficulty("not-the-host", None, ai_indices[0], "f")
@@ -394,13 +408,13 @@ check(not onhuman.get("ok"), "a person does not have a grade")
 with room.cond:
     snap = room.seat_snapshot_locked()
 by_index = {s["index"]: s for s in snap}
-check(by_index[ai_indices[0]]["grade"] == "Charles Darwin",
+check(by_index[ai_indices[0]]["grade"] == "Jacques Cousteau",
       "the seat snapshot carries the printed name")
-check(by_index[ai_indices[0]]["grade_elo"] == fish.bot_grade_elo("charles_darwin"),
+check(by_index[ai_indices[0]]["grade_elo"] == fish.bot_grade_elo("jacques_cousteau"),
       "…and the Elo behind it, so the lobby need not know the ladder")
-check(by_index[ai_indices[0]]["difficulty"] == "charles_darwin",
+check(by_index[ai_indices[0]]["difficulty"] == "jacques_cousteau",
       "…and the id, so the list can preselect the right row")
-check(by_index[ai_indices[0]]["grade_tier"] == "S++",
+check(by_index[ai_indices[0]]["grade_tier"] == "S+",
       "…and the badge tier, which a name cannot get from its first letter")
 
 
@@ -443,7 +457,7 @@ try:
             return json.loads(r.read().decode())
 
     ladder = get("/api/bot_grades")
-    check(ladder.get("ok") and len(ladder.get("grades", [])) == 10,
+    check(ladder.get("ok") and len(ladder.get("grades", [])) == 9,
           "the server publishes the whole ladder, so no client carries a copy")
     check([g["grade"] for g in ladder["grades"]] == WANTED,
           "…in ladder order, weakest first")
