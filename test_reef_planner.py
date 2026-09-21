@@ -193,24 +193,22 @@ for n in (3, 5):
                    ai_difficulties=["charles_darwin"] * n)
 check(decisions[0] > 100, "the planner made real decisions", str(decisions[0]))
 check(not mark_failures, "every decision left the game exactly as it found it", str(mark_failures))
-# KNOWN FRAGILE, 2026-09-21, and left failing rather than softened.
+# This failed once, and what it caught was real. The planner's worlds rebuilt
+# the DECK from the unseen cards but left every opponent holding their actual
+# hand, so anything the search reached through an opponent's hand was reading
+# cards this player cannot see. Moving one card between the deck and a hand --
+# the same unseen cards, arranged differently -- moved a star play's value by
+# five points.
 #
-# This holds with the planner's shipped numbers, and it is the check that says
-# the planner is not reading the deck. But it is sensitive to the planner's
-# VALUATION, not only to its honesty: nudging turn_value from 3.0 to 3.071 --
-# a knob with nothing to do with hidden cards or table size -- makes exactly one
-# decision in about six hundred flip, and this fails. 2.929 does not.
+# It was only visible at the margin: nudging turn_value by 0.071 was enough to
+# put one decision in six hundred on the knife edge where it showed, which is
+# why "a knob changed and a test broke" was the wrong conclusion and bisecting
+# with a control was the right one. Shuffling the deck alone never showed it,
+# and swapping alone never showed it; only both, because the shuffle decides
+# which card the swap then moves.
 #
-# So a failure here is not on its own evidence of peeking, and the first thing
-# to do with one is reproduce it with a plain turn_value nudge before blaming
-# whatever else changed. The planner reads only len(gs.deck) and whether END
-# GAME is in it -- never the order -- so the channel is most likely the
-# evaluation path around reef_planner.py:1746 that swaps a variant deck in, and
-# some path that reaches the real deck without doing so.
-#
-# It is left as a hard failure on purpose. A correctness test that is softened
-# to go green is worth nothing, and this one has already done its job once by
-# refusing to be explained away.
+# world_hidden now deals the other hands out of the same reshuffled pool as the
+# deck, at the sizes they really are.
 check(not peek_failures, "reordering the hidden cards never changed a decision", str(peek_failures))
 
 

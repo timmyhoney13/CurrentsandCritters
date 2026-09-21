@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import random
 import sys
 import tempfile
@@ -154,8 +155,20 @@ section("at zero they change nothing at all")
 
 check(all(fish.default_weights()[k] == 0.0 for k in NEW_WEIGHTS),
       "the four weights ship at zero")
-check(all(float(rp.PARAMS[k]) == 0.0 for k in PER_RIVAL),
-      "the six planner per-rival knobs ship at zero")
+# Against the literals the module SHIPS with, not the live values: a tuning
+# file legitimately changes those at import, and "ships at zero" is a claim
+# about the source. Asserting it against rp.PARAMS made this fail the moment
+# training first crowned a planner champion, which is the test being wrong
+# about its own premise rather than the planner being wrong.
+_src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "reef_planner.py"), encoding="utf-8").read()
+_block = _src[_src.index("PARAMS: Dict[str, float] = {"):_src.index("# knob -> the per-rival term")]
+SHIPPED = {m.group(1): float(m.group(2))
+           for m in re.finditer(r'"([a-z_]+)":\s*(-?[\d.]+)', _block)}
+
+check(all(SHIPPED.get(k, 0.0) == 0.0 for k in PER_RIVAL),
+      "the six planner per-rival knobs ship at zero",
+      f"{ {k: SHIPPED.get(k) for k in PER_RIVAL if SHIPPED.get(k, 0.0) != 0.0} }")
 
 old_champ = {k: 0.5 for k in ("bias", "is_ocean", "uses_star")}
 filled = fish.stabilize_weights(dict(old_champ))
@@ -164,7 +177,10 @@ check(all(filled.get(k) == 0.0 for k in NEW_WEIGHTS),
 
 p = dict(rp.PARAMS)
 check(rp.params_for_table(p, 4) is p, "a 4P table gets the planner's params untouched")
-check(rp.params_for_table(p, 6) is p, "so does every other size while the knobs are zero")
+_pristine = dict(rp.PARAMS)
+_pristine.update({k: 0.0 for k in PER_RIVAL})
+check(rp.params_for_table(_pristine, 6) is _pristine,
+      "so does every other size while the per-rival knobs are zero")
 
 # ── 4. the planner bends with the table ─────────────────────────────────────
 section("the planner's knobs bend with the table, within their range")

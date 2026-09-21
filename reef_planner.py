@@ -425,6 +425,46 @@ def _unseen_entries(gs: GameState, ms: MatchState, player: PlayerState) -> List[
     return out
 
 
+def world_hidden(gs: GameState, ms: MatchState, player: PlayerState,
+                 rng: random.Random) -> Tuple[List[int], Dict[int, List[int]]]:
+    """A deck AND opponents' hands this player could be facing.
+
+    world_deck rebuilds only the deck, which left every opponent holding their
+    REAL cards while the planner searched. The module docstring has always said
+    the worlds reshuffle "the deck and the other hands", and it was half true:
+    anything the search touched that reached an opponent's hand was reading
+    cards this player cannot see. It showed up as the no-peek test failing when
+    a card was moved between the deck and a hand -- the same set of unseen
+    cards, arranged differently, and the planner scored a star play five points
+    apart on it.
+
+    The same shuffled pool of unseen cards is split here: the front of it fills
+    the deck, and what is left fills the other hands, each kept at the size it
+    really is. END GAME is not reshuffled -- it is not secret in the way the
+    rest are, everybody can see whether it has gone.
+    """
+    deck_len = len(gs.deck)
+    unseen = _unseen_entries(gs, ms, player)
+    rng.shuffle(unseen)
+    has_end = ms.end_game_uid is not None and ms.end_game_uid in gs.deck
+    take = max(0, deck_len - (1 if has_end else 0))
+    deck = unseen[:take]
+    rest = unseen[take:]
+    if has_end:
+        pos = deck_len - rng.randint(1, max(1, min(15, deck_len)))
+        deck.insert(max(0, min(len(deck), pos)), ms.end_game_uid)
+    hands: Dict[int, List[int]] = {}
+    at = 0
+    for idx, other in enumerate(gs.players):
+        if other is player:
+            continue
+        held_end = [u for u in other.hand if u == ms.end_game_uid]
+        want = len(other.hand) - len(held_end)
+        hands[idx] = held_end + rest[at:at + want]
+        at += want
+    return deck, hands
+
+
 def world_deck(gs: GameState, ms: MatchState, player: PlayerState, rng: random.Random) -> List[int]:
     """A deck this player could be facing: the cards it cannot see, reshuffled,
     with END GAME (if it is still to come) somewhere in the bottom fifteen."""
@@ -1705,7 +1745,10 @@ def choose_action(gs: GameState, ms: MatchState, player: PlayerState,
     if not cands:
         return None
     ctx = Ctx(gs, ms, player, params, rng)
-    decks = [world_deck(gs, ms, player, rng) for _ in range(max(1, int(params.get("worlds", 1))))]
+    _worlds = [world_hidden(gs, ms, player, rng)
+               for _ in range(max(1, int(params.get("worlds", 1))))]
+    decks = [d for d, _h in _worlds]
+    world_hands = [h for _d, h in _worlds]
     streams = [world_stream(gs, ms, d, params) for d in decks]
     ctx.stream = streams[0]
     if float(params.get("adaptive_turn_value", 0.0)) > 0.0:
@@ -1741,10 +1784,15 @@ def choose_action(gs: GameState, ms: MatchState, player: PlayerState,
 
     def run(action: Action, single: bool = False) -> Tuple[float, List[int]]:
         total, count, pays = 0.0, 0, []
-        for deck, stream, wid in zip(decks, streams, world_ids):
+        for deck, stream, wid, whands in zip(decks, streams, world_ids, world_hands):
             for vi, variant in enumerate(variants(deck, action)):
                 saved = list(gs.deck)
+                saved_hands = {i: list(gs.players[i].hand) for i in whands}
                 gs.deck[:] = variant
+                # The other players hold that world's cards while this move is
+                # searched, not their real ones.
+                for i, h in whands.items():
+                    gs.players[i].hand[:] = h
                 ctx.stream = stream
                 ctx.world_id = wid * 64 + vi
                 ctx.nodes = 0
@@ -1753,6 +1801,8 @@ def choose_action(gs: GameState, ms: MatchState, player: PlayerState,
                     v = _try(ctx, action, TurnState(), 0, payments_out=pay_out, single=single)
                 finally:
                     gs.deck[:] = saved
+                    for i, h in saved_hands.items():
+                        gs.players[i].hand[:] = h
                 if v is None:
                     continue
                 total += v
@@ -1828,7 +1878,10 @@ def choose_action(gs: GameState, ms: MatchState, player: PlayerState,
         # a finishing place. Worlds cost what they cost, so spend the extra ones
         # only where they can change the answer: re-judge the leading moves in
         # more reshuffles, all in the same new worlds, and choose among those.
-        extra_decks = [world_deck(gs, ms, player, rng) for _ in range(confirm_worlds - len(decks))]
+        _extra = [world_hidden(gs, ms, player, rng)
+                  for _ in range(confirm_worlds - len(decks))]
+        extra_decks = [d for d, _h in _extra]
+        world_hands = world_hands + [h for _d, h in _extra]
         extra_streams = [world_stream(gs, ms, d, params) for d in extra_decks]
         base_n = len(decks)
         finalists = scored[:max(2, confirm_top)]
