@@ -379,7 +379,23 @@ def run_cell(name: str, tier: int, planner: bool) -> Optional[int]:
 # with: the top half of the ladder, which is what a strong player meets. Its
 # games cost roughly four times a weighted chooser's, so it earns a turn every
 # few strategies rather than every one.
-PLANNER_EVERY = 2
+# A planner turn after EVERY strategy, because the 400-match calibration says
+# that is where the ladder is weak and where nothing else can reach.
+#
+#     the five chooser rungs (F..B)   span 710 Elo measured, 600 wanted
+#     the five planner rungs (A..GS)  span 179 Elo measured, 850 wanted
+#
+# The bottom half of the ladder works. The top half is nearly flat: S+ to S++ is
+# 47 Elo and S++ to Giant Squid is MINUS 8, inside the noise. Those rungs differ
+# only in how much search they buy, so search has saturated -- twelve times the
+# work for about 180 Elo. What is left to improve at the top is the planner's
+# judgement, and its knobs are shared by all five of those rungs, so one knob
+# proved better lifts every one of them at once.
+#
+# Against that, a strategy vector reaches exactly one rung (B). So the cycle is
+# split about evenly between thirteen strategy cells and thirteen planner cells
+# rather than thirteen against seven.
+PLANNER_EVERY = 1
 # ...and every this-many planner turns is taken at S++ instead of at A. The
 # knobs are shared by every planner grade, so a turn at A is the cheap way to
 # explore them -- but a knob that wins with A's shallow search does not have to
