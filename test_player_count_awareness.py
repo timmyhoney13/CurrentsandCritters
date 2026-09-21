@@ -339,16 +339,37 @@ import bot_training_rotation as rot
 _order = rot.interleave_planner(rot.MAINS + rot.COMBOS)
 _combos = {"birds_crustaceans", "coral_cephalopods", "birds_coral"}
 
-check(not (set(_order) & _combos),
-      "no combo is trained: no bot can commit to one, so its weights are unreadable",
-      f"{sorted(set(_order) & _combos)}")
-check(all(c not in rp.STRATEGY_FAMILIES for c in _combos),
-      "…and the planner confirms it — combos are not plans it can choose")
-check(all(c not in fish.strategies_allowed_for_skill("expert", 6) for c in _combos),
-      "…nor can the opening-hand assignment, even for an expert bot")
-check(set(rot.MAINS) == set(rp.STRATEGY_FAMILIES),
+# A combo is trained only because a bot can now commit to one. The rule the
+# rotation has to keep is the general one: train exactly the plans that can be
+# chosen, and nothing else -- a plan no bot can pick is a set of weights nothing
+# ever looks up.
+check(set(rot.MAINS + rot.COMBOS) == set(rp.STRATEGY_FAMILIES),
       "the rotation trains exactly the plans a bot can commit to",
-      f"rotation {sorted(set(rot.MAINS) ^ set(rp.STRATEGY_FAMILIES))}")
+      f"difference: {sorted(set(rot.MAINS + rot.COMBOS) ^ set(rp.STRATEGY_FAMILIES))}")
+check(_combos <= set(_order), "each combo gets a cell of its own",
+      f"missing {sorted(_combos - set(_order))}")
+check(_combos <= set(rp.STRATEGY_FAMILIES),
+      "the planner may choose a combo")
+check(_combos <= fish.strategies_allowed_for_skill("advanced", 6),
+      "so may an advanced bot from its opening hand")
+check(not (_combos & fish.strategies_allowed_for_skill("intermediate", 6)),
+      "but not a weaker one: a two-part plan needs the cards for both halves")
+
+# Every combo's cards are its parents' cards, or committing to one means
+# collecting a card that does not exist.
+for _c, _parents in rp.COMBO_PARENTS.items():
+    check(rp.family_accepts(_c) == _parents,
+          f"{_c} counts its parents' cards as its own", f"{rp.family_accepts(_c)}")
+    check(all(p in rot.MAINS for p in _parents),
+          f"{_c} is built on plans that are themselves trained")
+for _m in rot.MAINS:
+    check(rp.family_accepts(_m) == (_m,), f"{_m} counts only its own cards")
+
+_last_main = max(_order.index(m) for m in rot.MAINS)
+check(all(_order.index(c) > _last_main for c in rot.COMBOS),
+      "every combo is trained after every single plan, because its champion is "
+      "seeded from its parents'",
+      f"mains end at {_last_main}, combos at {[ _order.index(c) for c in rot.COMBOS ]}")
 
 check("planner" in _order, "the planner gets turns — it is what A to S++ play with")
 check("planner_top" in _order, "…and some of those turns are taken at S++ itself")

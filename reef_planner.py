@@ -539,7 +539,13 @@ _threshold = fish._threshold_value
 def fast_points(gs: GameState, player: PlayerState, others: Tuple,
                 family: Optional[str] = None, bonus: float = 0.0) -> float:
     """final_points(gs, player), given others_summary(gs, player); plus `bonus`
-    for every card of strategy `family` on the board when one is given."""
+    for every card of strategy `family` on the board when one is given.
+
+    A combo's cards are its parents' cards (see COMBO_PARENTS), so the families
+    that earn the bonus are worked out once here rather than per card: this runs
+    thousands of times a move and the inner loop is a membership test on a tuple
+    of one or two strings."""
+    loyal_to = family_accepts(family) if family is not None else None
     info = _card_info(gs)
     db = gs.card_db
     board: List[Tuple[int, Tuple, int]] = []
@@ -588,7 +594,7 @@ def fast_points(gs: GameState, player: PlayerState, others: Tuple,
                     coral_on_reef += 1
                 if host_is_ocean and n == "clownfish":
                     names.append(host)
-                if family is not None and row[6] == family:
+                if loyal_to is not None and row[6] in loyal_to:
                     loyal += 1
     if not board:
         return 0
@@ -711,9 +717,29 @@ FAMILY_PRIOR: Dict[str, float] = {
     "birds_of_a_feather": -1.5, "crustaceans": -3.0,
 }
 
+# A combo is two plans played together, and the deck knows nothing about it:
+# every card belongs to one of the ten single plans, and a Lobster is a
+# Crustaceans card whether or not the bot pairing it with gulls calls its plan
+# B-Lob. So a combo's cards ARE its parents' cards, and every place that asks
+# "is this card part of my plan?" has to be told so -- otherwise a combo is a
+# plan with nothing in it: no loyalty, nothing counted towards it, and a value
+# of exactly zero every time it is considered.
+COMBO_PARENTS: Dict[str, Tuple[str, str]] = {
+    "birds_crustaceans": ("birds_of_a_feather", "crustaceans"),   # B-Lob
+    "coral_cephalopods": ("coral", "cephalopods"),
+    "birds_coral":       ("birds_of_a_feather", "coral"),          # B-Coral
+}
+
+
+def family_accepts(plan: str) -> Tuple[str, ...]:
+    """The card families that count towards `plan`: itself, or both parents."""
+    return COMBO_PARENTS.get(plan) or (plan,)
+
+
 STRATEGY_FAMILIES: Tuple[str, ...] = (
     "mammals", "yellowfin_tuna", "baitfish_barrage", "birds_of_a_feather", "crustaceans",
     "cephalopods", "coral", "king_salmon", "invertebrates", "goby_moon_shot",
+    "birds_crustaceans", "coral_cephalopods", "birds_coral",
 )
 _FAMILY_OF: Dict[int, Tuple] = {}
 
@@ -730,12 +756,13 @@ def family_of_uid(gs: GameState, uid: int) -> str:
 
 
 def family_cards_on_board(gs: GameState, player: PlayerState, family: str) -> int:
+    accept = family_accepts(family)
     n = 0
     for o in player.board_oceans:
         sl = player.ocean_slots.get(o)
         if sl:
             for u in sl.all_cards():
-                if family_of_uid(gs, u) == family:
+                if family_of_uid(gs, u) in accept:
                     n += 1
     return n
 
@@ -790,6 +817,7 @@ def choose_family(gs: GameState, ms: MatchState, player: PlayerState, params: Di
     results: Dict[str, float] = {}
     bonus = float(probe["loyalty"])
     for fam in allowed:
+        accept = family_accepts(fam)
         earned = 0.0
         for stream in streams:
             score_biased = lambda pl, _f=fam: fast_points(gs, pl, others, _f, bonus)
@@ -797,13 +825,14 @@ def choose_family(gs: GameState, ms: MatchState, player: PlayerState, params: Di
             projection(gs, ms, player, turns, stream, probe, score=score_biased, gains_out=gains)
             # What this plan's own cards would really score, with the loyalty
             # bonus that got them chosen taken back out.
-            earned += sum(g - bonus for face, g in gains.items() if family_of_uid(gs, face) == fam)
+            earned += sum(g - bonus for face, g in gains.items()
+                          if family_of_uid(gs, face) in accept)
         value = earned / float(len(streams))
         prior_w = float(params.get("family_prior_weight", 0.0))
         if prior_w > 0.0:
             # A plan's ceiling only counts for a hand that can start it.
             held = sum(1 for e in player.hand
-                       if any(family_of_uid(gs, f) == fam for f in entry_faces(ms, e)))
+                       if any(family_of_uid(gs, f) in accept for f in entry_faces(ms, e)))
             value += prior_w * FAMILY_PRIOR.get(fam, 0.0) * min(1.0, float(held))
         value -= float(params.get("crowding", 0.25)) * abs(value) * crowd.get(fam, 0)
         value -= float(params.get("crowding_points", 0.0)) * crowd.get(fam, 0)

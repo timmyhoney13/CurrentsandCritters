@@ -39,16 +39,26 @@ import fish_game_all_in_one as fish
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(HERE, "fish_training", "evolve")
 # The planner's knobs live in their own file, which reef_planner reads directly.
-#
-# The three combos are skipped for a different reason: no bot can ever commit to
-# one. They name a finished board ("B-Lob"), and every path that assigns a plan
-# -- the planner's families, and the skill allowlist -- has only the ten mains.
-# A combo vector in brain["by_strategy"] is therefore never looked up, so there
-# is nothing to be gained by refreshing it. Any that are already in the brain
-# are left where they are: they cost nothing, and editing a live brain to remove
-# something inert is a worse idea than leaving it.
-SKIP = {"planner", "birds_crustaceans", "coral_cephalopods", "birds_coral"}
+SKIP = {"planner"}
 _COUNT_VECTOR = re.compile(r"\d+p")
+
+
+# How many brain backups to keep. The brain is 5.8MB and the rotation now
+# promotes the moment a champion is crowned rather than once a cycle, so an
+# unpruned backup for every promotion is hundreds of megabytes over a long run
+# -- for files whose whole purpose is "the last few states, in case the most
+# recent write was wrong".
+KEEP_BACKUPS = 10
+
+
+def prune_backups() -> None:
+    pattern = f"{fish.BRAIN_PATH}.promote_backup_*.json"
+    found = sorted(glob.glob(pattern))
+    for old in found[:-KEEP_BACKUPS]:
+        try:
+            os.unlink(old)
+        except OSError:
+            pass
 
 
 def main() -> int:
@@ -95,6 +105,7 @@ def main() -> int:
         backup = f"{fish.BRAIN_PATH}.promote_backup_{time.strftime('%Y%m%d_%H%M%S')}.json"
         shutil.copy2(fish.BRAIN_PATH, backup)
         fish.save_brain(brain, fish.BRAIN_PATH)
+        prune_backups()
         print(f"  wrote {len(changed)} strategy vectors into {fish.BRAIN_PATH} "
               f"(backup {os.path.basename(backup)})")
     elif changed:

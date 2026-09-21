@@ -4488,20 +4488,32 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
 
 
 # Strategies usable at each skill level (cumulative: expert can pick any).
-# The ten strategies a bot may commit to. Combinations (B-Lob, B-Coral, Coral /
-# Cephalopods) are NOT in here: a combo is two of these played together, not a
-# thing you pick instead of them, and their profiles stay defined only so a
-# board that ends up looking like one can still be named. "Ocean All Blue" is
-# not here either -- it is the Mangrove OCEAN plan, and every strategy needs
-# oceans, so it is not an alternative to picking one.
+#
+# The ten single plans, plus the three COMBINATIONS (B-Lob, B-Coral, Coral /
+# Cephalopods) for the two strongest tiers. A combo is two of these played
+# together rather than a thing you pick instead of them, which is why it was
+# left out at first -- but a bot that never commits to one never learns to play
+# one, and a combo it cannot commit to is a set of trained weights nothing ever
+# looks up. Its cards are its parents' cards (reef_planner.COMBO_PARENTS), so
+# committing to B-Lob means valuing gulls AND lobsters, not hunting for a card
+# labelled "B-Lob" that does not exist.
+#
+# Advanced and up only: a two-part plan needs the cards for both halves, and a
+# bot that commits to one with neither half in hand finishes with two thirds of
+# nothing. Beginner and intermediate keep the single plans.
+#
+# "Ocean All Blue" is still not here -- it is the Mangrove OCEAN plan, and every
+# strategy needs oceans, so it is not an alternative to picking one.
+_COMBO_STRATEGIES = {"birds_crustaceans", "coral_cephalopods", "birds_coral"}
 STRATEGY_SKILL_ALLOWLIST = {
     "beginner":     {"mammals", "yellowfin_tuna"},
     "intermediate": {"mammals", "yellowfin_tuna", "baitfish_barrage", "birds_of_a_feather"},
     "advanced":     {"mammals", "yellowfin_tuna", "baitfish_barrage", "birds_of_a_feather",
-                     "crustaceans", "cephalopods", "coral", "king_salmon", "invertebrates"},
+                     "crustaceans", "cephalopods", "coral", "king_salmon", "invertebrates"}
+                    | _COMBO_STRATEGIES,
     "expert":       {"mammals", "yellowfin_tuna", "baitfish_barrage", "birds_of_a_feather",
                      "crustaceans", "cephalopods", "coral", "king_salmon", "invertebrates",
-                     "goby_moon_shot"},
+                     "goby_moon_shot"} | _COMBO_STRATEGIES,
 }
 
 # Invertebrates is a support plan: it wants a long game and a crowded board to

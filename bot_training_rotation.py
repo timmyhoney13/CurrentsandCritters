@@ -24,9 +24,15 @@ earned at a rising bar, or "settled" just means "we did not look hard enough":
     tier 1   8 mutants ·  60 screen ·  250/900
     tier 2  10 mutants ·  80 screen ·  400/1600
 
-A visit that crowns a champion drops that strategy back to tier 0: there is
-clearly more to find, and it is cheaper to find it there. A visit that crowns
-nothing moves it up a tier, so the next look is a harder test on more games.
+(The planner screens twice as many mutants for the same confirming budgets --
+its games cost a seventh of a strategy game -- and S++ runs a shorter ladder
+still, because its games cost forty times an A game's. See the tier tables.)
+
+A visit that crowns a champion steps that cell one tier DOWN, not back to the
+bottom: there is clearly more to find and it is cheaper to look for it lower,
+but how much evidence a cell needs is a property of how noisy its games are,
+not of whether it has just improved. A visit that crowns nothing moves it up a
+tier, so the next look is a harder test on more games.
 Failing at tier 2 marks it settled, and a settled strategy is only re-checked
 every fourth cycle -- not never, because the field it is measured against keeps
 improving, and a plan that could not beat last week's table may be beatable now.
@@ -59,25 +65,18 @@ MAINS = ["mammals", "yellowfin_tuna", "birds_of_a_feather", "crustaceans",
          "baitfish_barrage", "cephalopods", "coral", "king_salmon",
          "goby_moon_shot", "invertebrates"]
 
-# THE COMBOS ARE NOT TRAINED, and that is not an oversight.
+# The three combos, trained after every single plan, because a combo's champion
+# is seeded from its two parents' and a combo built on an untrained half
+# inherits nothing worth having (see bot_evolve.COMBO_PARENTS).
 #
-# B-Lob, B-Coral and Coral / Cephalopods are names for a finished board, not
-# plans a bot can commit to. Every live path that assigns a bot its plan
-# excludes them: reef_planner.STRATEGY_FAMILIES has the ten mains and nothing
-# else, so neither choose_family nor reconsider_family can reach one, and
-# fish.strategies_allowed_for_skill leaves them out at all four skill levels, so
-# neither can the opening-hand assignment. The only thing that can set a combo
-# label is _force_strategy_family -- which is set by nothing but the trainer.
-#
-# So a combo champion is a weight vector no bot can ever look up. The rotation
-# this replaced spent about fifteen hours a cycle producing them:
-# birds_crustaceans alone took eleven and a half. That time goes to the ten real
-# strategies and to the planner instead.
-#
-# fish_game_all_in_one keeps their profiles, and should: they are what lets a
-# recap call a board "B-Lob" instead of guessing. Naming a board is not the same
-# as choosing a plan.
-COMBOS: List[str] = []
+# They were dropped from this list for a while, and correctly: no bot could
+# commit to one, so their weights were unreadable and the rotation this replaced
+# spent about fifteen hours a cycle making them -- birds_crustaceans alone took
+# eleven and a half. What changed is that a bot can now choose one. They are in
+# reef_planner.STRATEGY_FAMILIES and in the advanced and expert allowlists, and
+# a combo's cards resolve to its parents' cards, so committing to B-Lob values
+# gulls and lobsters rather than hunting for a card that does not exist.
+COMBOS = ["birds_crustaceans", "coral_cephalopods", "birds_coral"]
 
 # WHICH BRAIN EACH RUNG ACTUALLY PLAYS WITH. This decides how the night is
 # spent, and it is not what it was when the Reef Planner landed:
@@ -285,7 +284,9 @@ def run_cell(name: str, tier: int, planner: bool) -> Optional[int]:
         tiers = PLANNER_TIERS
     else:
         tiers = WEIGHT_TIERS
-    mutants, screen, confirm, cap = tiers[tier]
+    # The three ladders need not be the same length, and SETTLED_TIER is
+    # measured against the weights' one, so clamp rather than trust the caller.
+    mutants, screen, confirm, cap = tiers[max(0, min(tier, len(tiers) - 1))]
     cmd = [sys.executable, "bot_evolve.py", "--counts", counts_for_cell(name),
            "--generations", str(GENERATIONS), "--mutants", str(mutants),
            "--screen-games", str(screen), "--confirm-games", str(confirm),
@@ -401,7 +402,7 @@ def interleave_planner(strategies: List[str]) -> List[str]:
         out.append(name)
         if (i + 1) % PLANNER_EVERY == 0:
             out.append(planner_cell())
-    if not out[-1].startswith("planner"):
+    if not out or not out[-1].startswith("planner"):
         out.append(planner_cell())
     return out
 
@@ -409,9 +410,12 @@ def interleave_planner(strategies: List[str]) -> List[str]:
 def promote() -> None:
     """Copy this cycle's champions into the brain the live game reads."""
     try:
+        # It only reads and writes files, but this runs unattended between
+        # every cycle, and anything without a timeout in that position is a way
+        # for the night to stop without saying so.
         proc = subprocess.run([sys.executable, "promote_champions.py", "--write"],
                               cwd=HERE, stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT, text=True)
+                              stderr=subprocess.STDOUT, text=True, timeout=600)
     except Exception as exc:
         log(f"promote: failed to run ({exc})")
         return
@@ -451,8 +455,14 @@ def main() -> None:
     log("=" * 70)
 
     while not _stop:
-        state["cycle"] = int(state.get("cycle", 0)) + 1
-        cycle = state["cycle"]
+        # Count COMPLETED passes, not process starts. It used to increment on
+        # every launch, so a day of restarts read as "cycle 7" when not one
+        # cycle had run end to end -- and SETTLED_RECHECK_CYCLES counts in these,
+        # so an inflated number also brought settled cells back early.
+        resuming = int(state.get("next_index", 0) or 0) > 0
+        if not resuming:
+            state["cycle"] = int(state.get("cycle", 0)) + 1
+        cycle = int(state.get("cycle", 1))
         log(f"===== cycle {cycle} =====")
         # Strategies with no champion yet first: they have the most to gain, and
         # a combo seeded from an untrained half inherits nothing worth having.
@@ -468,6 +478,18 @@ def main() -> None:
         # everything else, and clamped in case the order has since changed
         # length (it did, when the combos came out of it).
         start_at = int(state.get("next_index", 0) or 0)
+        # The saved index is only meaningful against the order it was saved
+        # from, and the order does change -- it did when the combos came out of
+        # it, and it does whenever a strategy gains its first champion and drops
+        # out of the `fresh` prefix. The cell's NAME is the thing that is
+        # actually meant, so prefer it and keep the index as a fallback.
+        want = str(state.get("next_cell", "") or "")
+        if want:
+            try:
+                start_at = order.index(want, min(start_at, len(order) - 1)) \
+                    if want in order[min(start_at, len(order) - 1):] else order.index(want)
+            except ValueError:
+                pass
         if start_at >= len(order):
             start_at = 0
         if start_at:
@@ -476,6 +498,7 @@ def main() -> None:
         for idx in range(start_at, len(order)):
             name = order[idx]
             state["next_index"] = idx
+            state["next_cell"] = name
             if _stop:
                 break
             planner = name.startswith("planner")
@@ -530,6 +553,14 @@ def main() -> None:
                     log(f"{name}: settled no longer — the field moved and it found "
                         f"{crowned} more")
                 c["settled"] = False
+                # Put it in the brain NOW, not at the end of the cycle. A cycle
+                # is about eleven hours, and a champion sitting in a file is a
+                # champion nothing plays against: from grade B up a bot reads
+                # brain["by_strategy"], and only promote_champions writes it. It
+                # costs a moment of file copying, and it means the run improves
+                # the bots as it goes rather than in one lump at the end that a
+                # stop at the wrong moment would miss entirely.
+                promote()
             else:
                 c["barren_visits"] = int(c["barren_visits"]) + 1
                 c["tier"] = min(int(c["tier"]) + 1, SETTLED_TIER)
@@ -542,11 +573,13 @@ def main() -> None:
                         f"({_top} confirming games). Re-checked every "
                         f"{SETTLED_RECHECK_CYCLES} cycles.")
             state["next_index"] = idx + 1
+            state["next_cell"] = order[idx + 1] if idx + 1 < len(order) else ""
             save_state(state)
 
         # A cycle that ran to the end starts the next one at the top.
         if not _stop:
             state["next_index"] = 0
+            state["next_cell"] = ""
 
         # Put the cycle's champions where the game reads them. Without this the
         # whole night is a set of JSON files nobody plays against: from grade B
