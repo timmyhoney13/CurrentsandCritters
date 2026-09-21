@@ -131,7 +131,15 @@ WEIGHT_TIERS = [(8, 40, 150, 450), (8, 60, 250, 900), (10, 80, 400, 1600)]
 # capping the evidence at 240 confirming games where the strategies get 450, and
 # an edge too small to prove in 240 games is exactly the size of edge that a
 # well-trodden knob set still has left in it.
-PLANNER_TIERS = [(8, 40, 150, 450), (8, 60, 250, 900), (10, 80, 400, 1600)]
+# More hypotheses per generation than the strategies get, because a planner game
+# at Eugenie Clark costs 3 core-seconds against a strategy game's 20. Screening
+# sixteen mutants over sixty deals instead of eight over forty costs about three
+# minutes a generation here (9.8 -> 12.8) where the same change on a strategy
+# cell would cost half an hour. Cheap games should buy a wider search, not the
+# same search finished sooner; the confirming budgets are unchanged, because
+# what a challenger has to prove should not depend on how cheap it was to think
+# of it.
+PLANNER_TIERS = [(16, 60, 150, 450), (16, 80, 250, 900), (20, 100, 400, 1600)]
 # S++ looks at two worlds a move and confirms its leading six in eight more, so
 # its games really do cost several times an A game's. It is here to check and
 # refine what the cheap grade found rather than to explore, so its ladder is
