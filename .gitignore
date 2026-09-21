@@ -30,6 +30,7 @@
 !bot_training_rotation.py
 !promote_champions.py
 !finish_training.py
+!training_status.py
 !test_player_count_awareness.py
 !tournament_engine.py
 !tournament_server.py

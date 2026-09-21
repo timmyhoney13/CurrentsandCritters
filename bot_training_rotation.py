@@ -321,9 +321,11 @@ def run_cell(name: str, tier: int, planner: bool) -> Optional[int]:
                 except subprocess.TimeoutExpired:
                     if time.time() >= deadline:
                         timed_out = True
-                        log(f"{name}: over its {limit // 3600}h budget — stopping "
-                            f"it here and moving on. Anything it crowned is "
-                            f"already saved.")
+                        _b = (f"{limit // 3600}h" if limit >= 3600
+                              else f"{limit // 60}m")
+                        log(f"{name}: over its {_b} budget — stopping it here "
+                            f"and moving on. Anything it crowned is already "
+                            f"saved.")
                         _kill_child()
                         try:
                             out, _ = _child.communicate(timeout=30)
@@ -407,6 +409,26 @@ def promote() -> None:
         return
     tail = (proc.stdout or "").strip().splitlines()
     log("promote: " + (tail[-1].strip() if tail else f"exit {proc.returncode}"))
+
+
+def log_summary(state: Dict[str, Any], cycle: int) -> None:
+    """What the run has to show for itself, every cycle.
+
+    An unattended run needs a line somebody can read at a glance and know
+    whether it is still finding anything, because "it is still running" and "it
+    is still getting better" are different questions and only one of them is
+    obvious from the process list.
+    """
+    cells = state.get("cells", {})
+    total = sum(int(v.get("promotions", 0)) for v in cells.values())
+    settled = sorted(n for n, v in cells.items() if v.get("settled"))
+    log(f"cycle {cycle} done · {total} champion(s) crowned in all · "
+        f"settled: {', '.join(settled) if settled else 'none'}")
+    for name in sorted(cells):
+        v = cells[name]
+        log(f"    {name:20s} tier {v.get('tier', 0)} · {v.get('visits', 0)} visit(s) "
+            f"· {v.get('promotions', 0)} champion(s)"
+            + ("  SETTLED" if v.get("settled") else ""))
 
 
 def main() -> None:
@@ -523,8 +545,7 @@ def main() -> None:
         # up a bot reads brain["by_strategy"], and only this writes it.
         promote()
 
-        settled = sorted(n for n, v in state["cells"].items() if v.get("settled"))
-        log(f"cycle {cycle} done · settled: {', '.join(settled) if settled else 'none'}")
+        log_summary(state, cycle)
 
     log("stopped.")
 
