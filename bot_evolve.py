@@ -292,11 +292,11 @@ _FOCUS_SHARE = 0.75
 # champion is the average of its parents' champions. That is why the main
 # strategies have to be solid first -- a combo seeded from two untrained halves
 # inherits nothing worth having.
-COMBO_PARENTS: Dict[str, Tuple[str, str]] = {
-    "birds_crustaceans": ("birds_of_a_feather", "crustaceans"),   # B-Lob
-    "coral_cephalopods": ("coral", "cephalopods"),                # Coral / Cephalopods
-    "birds_coral":       ("birds_of_a_feather", "coral"),          # B-Coral
-}
+# The planner's own table, not a second copy of it. These two disagreeing would
+# be a quiet disaster: the trainer would seed B-Lob's champion from one pair of
+# parents while the planner counted the other pair's cards as B-Lob's own, and
+# nothing would report it.
+COMBO_PARENTS: Dict[str, Tuple[str, str]] = dict(_reef.COMBO_PARENTS)
 for _combo, (_a, _b) in COMBO_PARENTS.items():
     STRATEGY_FOCUS[_combo] = tuple(dict.fromkeys(
         STRATEGY_FOCUS.get(_a, ()) + STRATEGY_FOCUS.get(_b, ())))
