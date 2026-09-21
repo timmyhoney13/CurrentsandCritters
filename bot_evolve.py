@@ -319,32 +319,43 @@ for _lab in list(STRATEGY_FOCUS):
 # about what a knob may be would write files the planner then refuses to read.
 PLANNER_BOUNDS: Dict[str, Tuple[float, float]] = dict(_reef.TUNABLE_BOUNDS)
 
-# What a planner run aims mutations at. Two groups, and neither has ever been
-# measured, which is why this is where the unclaimed ground is.
+# What a planner run aims mutations at.
 #
-# THE TABLE SIZE. Six terms that bend a knob with how many people are sitting
-# down (see reef_planner.COUNT_SHAPED).
+# Chosen by measurement, not by taste. Each knob was moved half its legal range
+# at fifteen real planner decisions, five each at 2P, 4P and 6P, and the move it
+# then chose was compared with the move it chose before:
 #
-# WHAT ITS OWN PLAN IS WORTH. The knobs that decide whether a bot is playing a
-# STRATEGY or just collecting points. `loyalty` is the whole of that
-# distinction in one number -- every card of the bot's own plan is worth this
-# much more to it than the points printed on it, which is what makes it collect
-# its pieces, keep them out of its payments and take them from the Pool rather
-# than shrug and play whatever scores most this turn. `crowding` is knowing not
-# to chase a plan two opponents are already starving each other over.
-# `switch_margin` is knowing when to admit the pieces went somewhere else.
-# `family_prior_weight` is how much a plan's ceiling counts when it is chosen.
+#   adaptive_turn_value 100%   rival_weight 80%   denial 53%   final_sweep 53%
+#   loyalty 53%   plan_discount 53%   turn_value_per_rival 53%
+#   plan_discount_per_rival 40%   turn_value 33%   rival_weight_per_rival 27%
+#   denial_per_rival 20%   crowding 13%
 #
-# All of them sat at their defaults through every game the ladder has ever
-# played, reachable only by the quarter of mutations that roam, one key in
-# twenty-four -- about one attempt in a hundred.
+# WHAT IS SWITCHED OFF IS WHERE THE GROUND IS. adaptive_turn_value,
+# rival_weight, denial and final_sweep are finished, working machinery sitting
+# at 0.0, and turning them on changes between half and all of the planner's
+# moves. Nobody has ever measured whether those are better moves. That is a
+# question a tournament can answer and an opinion cannot.
+#
+# The per-rival terms show the signature they were designed to have:
+# turn_value_per_rival changes the move 100% of the time at 2P, 0% at 4P and 60%
+# at 6P. Zero at 4P is correct -- that is the size the planner was tuned at, so
+# the correction is the identity there by construction.
+#
+# Left to the quarter of mutations that roam: the knobs that changed nothing at
+# any size (deck_rate_prior, draw_frac, survival), and the two that cannot do
+# anything until the knob they depend on is on -- turn_value_floor needs
+# adaptive_turn_value, denial_threshold needs denial. If training turns those on,
+# their dependants become worth aiming at, and this list should be measured again.
 PLANNER_FOCUS: Tuple[str, ...] = (
+    # finished machinery that ships switched off
+    "adaptive_turn_value", "rival_weight", "denial", "final_sweep",
     # what the table size is worth
-    "denial_per_rival", "rival_weight_per_rival", "plan_discount_per_rival",
-    "turn_value_per_rival", "survival_per_rival", "crowding_per_rival",
+    "turn_value_per_rival", "plan_discount_per_rival",
+    "rival_weight_per_rival", "denial_per_rival",
     # what its own plan is worth, beyond the points on the cards
-    "loyalty", "crowding", "crowding_points", "switch_margin",
-    "family_prior_weight",
+    "loyalty", "crowding", "switch_margin",
+    # the price of a turn, and how far a plan is trusted
+    "turn_value", "plan_discount",
 )
 
 

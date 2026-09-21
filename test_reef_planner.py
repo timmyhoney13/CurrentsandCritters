@@ -326,14 +326,21 @@ check(rp.PARAMS.get("switch_margin") == 4.0,
 check("switch_margin" in rp.TUNABLE_BOUNDS,
       "…and a training run is allowed to move it")
 
-_understanding = ("loyalty", "crowding", "crowding_points", "switch_margin",
-                  "family_prior_weight")
+_understanding = ("loyalty", "crowding", "switch_margin")
 for _k in _understanding:
     check(_k in rp.TUNABLE_BOUNDS, f"{_k} is tunable")
     check(_k in _be.PLANNER_FOCUS,
           f"{_k} is aimed at, not left to the quarter of mutations that roam",
           "at one key in twenty-four it would be tried about once in a hundred "
           "generations")
+
+# The four pieces of finished machinery that ship switched off are where the
+# unmeasured ground is: turning them on changes between half and all of the
+# planner's moves, and nobody has ever measured whether those moves are better.
+for _k in ("adaptive_turn_value", "rival_weight", "denial", "final_sweep"):
+    check(float(rp.PARAMS[_k]) == 0.0, f"{_k} still ships switched off")
+    check(_k in _be.PLANNER_FOCUS,
+          f"{_k} is aimed at, because switched-off machinery is unclaimed ground")
 
 check(_be.PLANNER_BOUNDS == dict(rp.TUNABLE_BOUNDS),
       "the tuner and the planner agree on every knob and its range")

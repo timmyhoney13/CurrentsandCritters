@@ -106,9 +106,18 @@ JOBS = max(2, (os.cpu_count() or 4) - 1)
 
 # mutants, screen games, confirming batch, cap on confirming games
 WEIGHT_TIERS = [(8, 40, 150, 450), (8, 60, 250, 900), (10, 80, 400, 1600)]
-# The planner searches for every move, so its games cost many times a weighted
-# chooser's. Same ladder, sized for what it can actually play in a night.
-PLANNER_TIERS = [(6, 24, 80, 240), (6, 36, 140, 420), (8, 48, 200, 600)]
+# The same ladder as the weights, and for a plain reason: this is the brain five
+# of the ten rungs play with, including every rung at the top, so it has earned
+# at least the evidence a single rung gets.
+#
+# It was sized smaller on the assumption that a planner game costs many times a
+# weighted chooser's. Measured on the real run, it does not -- at Eugenie
+# Clark's LITE search a planner cell finished in 13 and 18 minutes against 33 to
+# 42 for a strategy cell. So the smaller budget was not buying time, it was just
+# capping the evidence at 240 confirming games where the strategies get 450, and
+# an edge too small to prove in 240 games is exactly the size of edge that a
+# well-trodden knob set still has left in it.
+PLANNER_TIERS = [(8, 40, 150, 450), (8, 60, 250, 900), (10, 80, 400, 1600)]
 # S++ looks at two worlds a move and confirms its leading six in eight more, so
 # its games cost several times an A game's again. Smaller budgets, same ladder:
 # it is here to check and refine what the cheap grade found, not to explore.
@@ -375,7 +384,22 @@ def main() -> None:
                  if not os.path.exists(os.path.join(OUT_DIR, f"champion_{s}.json"))]
         order = interleave_planner(fresh + MAINS + COMBOS)
 
-        for name in order:
+        # Pick up where the last run stopped, rather than at the top of the
+        # cycle. A restart used to begin the order again, so every restart gave
+        # the cells at the front another visit and the ones at the back none --
+        # after five restarts in a day, mammals had been trained three times and
+        # goby_moon_shot and invertebrates not once. The position is saved with
+        # everything else, and clamped in case the order has since changed
+        # length (it did, when the combos came out of it).
+        start_at = int(state.get("next_index", 0) or 0)
+        if start_at >= len(order):
+            start_at = 0
+        if start_at:
+            log(f"resuming at cell {start_at + 1}/{len(order)} ({order[start_at]})")
+
+        for idx in range(start_at, len(order)):
+            name = order[idx]
+            state["next_index"] = idx
             if _stop:
                 break
             planner = name.startswith("planner")
@@ -441,7 +465,12 @@ def main() -> None:
                     log(f"{name}: SETTLED — nothing beat it at the top bar "
                         f"({_top} confirming games). Re-checked every "
                         f"{SETTLED_RECHECK_CYCLES} cycles.")
+            state["next_index"] = idx + 1
             save_state(state)
+
+        # A cycle that ran to the end starts the next one at the top.
+        if not _stop:
+            state["next_index"] = 0
 
         # Put the cycle's champions where the game reads them. Without this the
         # whole night is a set of JSON files nobody plays against: from grade B
