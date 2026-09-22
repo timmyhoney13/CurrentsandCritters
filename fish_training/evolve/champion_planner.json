@@ -1,16 +1,18 @@
 {
   "count": 4,
   "counts": [
+    2,
+    3,
     4,
     5,
     6
   ],
   "strategy": null,
-  "planner_grade": "jacques_cousteau",
-  "generation": 1,
+  "planner_grade": "eugenie_clark",
+  "generation": 2,
   "weights": {
     "turn_value": 3.0,
-    "plan_discount": 0.8101130640281409,
+    "plan_discount": 1.0548004873411005,
     "loyalty": 1.5,
     "crowding": 0.25,
     "crowding_points": 0.0,
@@ -27,17 +29,17 @@
     "adaptive_turn_value": 0.0,
     "turn_value_floor": 0.5,
     "denial_per_rival": 0.0,
-    "rival_weight_per_rival": 0.059428673411328965,
+    "rival_weight_per_rival": 0.03398517187620826,
     "plan_discount_per_rival": 0.0,
-    "turn_value_per_rival": -0.21330091287356706,
+    "turn_value_per_rival": -0.9992418739191875,
     "survival_per_rival": 0.0,
     "crowding_per_rival": 0.0,
     "switch_margin": 4.0
   },
-  "margin_edge": 14.218525,
-  "margin_edge_low": 4.126969029099065,
-  "win_edge": 0.16875,
-  "games": 80,
+  "margin_edge": 2.82357875,
+  "margin_edge_low": 0.651023901867744,
+  "win_edge": 0.015,
+  "games": 800,
   "chooser": "engine",
-  "grade": "jacques_cousteau"
+  "grade": "eugenie_clark"
 }
