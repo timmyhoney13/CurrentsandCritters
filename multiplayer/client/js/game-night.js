@@ -38,7 +38,7 @@
   // else (a specific event permalink, a form) without touching this file.
   const RSVP_URL = (typeof window.CC_GAME_NIGHT_RSVP_URL === "string" && window.CC_GAME_NIGHT_RSVP_URL)
     ? window.CC_GAME_NIGHT_RSVP_URL
-    : "https://discord.gg/z3yz5HQ6q";
+    : "https://discord.gg/RZgZEKYJn6";
 
   const ZONE = "America/Chicago";   // what "CST" means to a person
   // The nights, 0=Sun … 6=Sat. A LIST rather than one weekday because Game

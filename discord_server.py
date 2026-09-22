@@ -75,7 +75,7 @@ def init(*, get_firestore, verify_token) -> None:
 #  CONFIG
 # ═══════════════════════════════════════════════════════════════════════════
 DISCORD_API = "https://discord.com/api/v10"
-DEFAULT_INVITE_URL = "https://discord.gg/z3yz5HQ6q"
+DEFAULT_INVITE_URL = "https://discord.gg/RZgZEKYJn6"
 DEFAULT_REDIRECT_URI = "https://play.currentsandcritters.com/api/discord/callback"
 DEFAULT_REWARD_COINS = 100
 

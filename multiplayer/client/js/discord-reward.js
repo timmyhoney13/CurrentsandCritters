@@ -344,7 +344,7 @@
     const b = bridge();
     const text = msgFor(code);
     if (code === "not_a_member" && b && b.modal) {
-      const invite = (_state && _state.inviteUrl) || "https://discord.gg/z3yz5HQ6q";
+      const invite = (_state && _state.inviteUrl) || "https://discord.gg/RZgZEKYJn6";
       const coins = fmt((_state && _state.coins) || 0);
       const choice = await b.modal({
         icon: "💬",
