@@ -5451,6 +5451,10 @@ class Seat:
     # so "why are they taking so long" and "why did they misplace that card"
     # have an answer everybody at the table can see.
     device: str = ""
+    # What this bot is called: an ocean explorer, drawn when the seat becomes a
+    # bot and kept for the life of the room, so the name does not change under
+    # a player mid-game. Empty for a human seat.
+    bot_name: str = ""
     # Set when this seat is being played by a GUEST, to a random token the
     # client makes once per guest session and sends with its join. Guests never
     # sign up, so /api/user/register never hears about them and they have never
@@ -7604,7 +7608,13 @@ class GameRoom:
             for seat in self.seats:
                 seat.label = f"Player {seat.index + 1}"
                 if seat.kind == "ai":
-                    expected_name = f"Bot {bot_number}"
+                    # A bot wears an explorer's name, drawn once and kept. This
+                    # pass used to force every bot back to "Bot N" on every
+                    # state change, which is why the name has to be remembered
+                    # on the seat rather than made up here.
+                    if not seat.bot_name:
+                        seat.bot_name = self._take_bot_name()
+                    expected_name = seat.bot_name
                     if seat.claimed_name != expected_name:
                         seat.claimed_name = expected_name
                         changed = True
@@ -8622,6 +8632,27 @@ class GameRoom:
         with self.cond:
             parts = self._current_turn_descs.setdefault(player_name, [])
             parts.append(desc)
+
+    def _take_bot_name(self) -> str:
+        """An explorer's name no other seat in this room is using.
+
+        Drawn per room rather than per seat so a table never shows the same
+        name twice, and reshuffled per room so the same four bots are not the
+        same four names every game.
+        """
+        taken = {str(getattr(s, "bot_name", "") or "") for s in self.seats}
+        pool = getattr(self, "_bot_name_pool", None)
+        if not pool:
+            pool = fish.explorer_names(len(fish.OCEAN_EXPLORER_NAMES))
+            self._bot_name_pool = pool
+        for name in pool:
+            if name not in taken:
+                pool.remove(name)
+                return name
+        n = 1
+        while f"Bot {n}" in taken:
+            n += 1
+        return f"Bot {n}"
 
     def _record_event(self, msg: str) -> None:
         with self.cond:

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /* The Head to Head screen: what the Head to Head card opens now.
  *
- * It is a coral reef with ten platforms up it, one per rank, each with its
+ * It is a coral reef with nine platforms up it, one per rank, each with its
  * own animal standing on it: F the Bobtail Squid, E the Staghorn Coral, D the
  * Peruvian Pelican, C the Staghorn Coral, B the Narwhal, A the Great White
- * Shark, S the Goby, S+ the Bunker, S++ the Sea Star, and the Giant Squid on
+ * Shark, S the Goby, S+ the Bunker, and the Giant Squid on
  * the summit. The platform you are standing on has your own animal on it.
  * Press a platform, and the table beside it fills with its opponents.
  * Everything below is a way that could quietly stop being true while the
@@ -130,12 +130,12 @@ console.log("\nthe fallback ladder matches the server's");
   // Tiers contain "+" (S+, S++), so the tier alphabet is [A-Z+], not [A-Z].
   const pyGrades = [...PY.matchAll(/^\s*\("([a-z_]+)",\s*"([^"]+)",\s*"([A-Z+]+)",\s*(\d+),/gm)]
     .map(m => ({ id: m[1], grade: m[2], tier: m[3], elo: Number(m[4]) }));
-  check(pyGrades.length === 10, "the server ladder has ten rungs", String(pyGrades.length));
+  check(pyGrades.length === 9, "the server ladder has nine rungs", String(pyGrades.length));
   const jsGrades = [...STATE.matchAll(
       /\{ id: "([a-z_]+)",\s*grade: "([^"]+)",\s*elo: (\d+),\s*tier: "([A-Z+]+)",\s*unlock: "([a-z]*)",\s*requires: "([a-z_]*)" \}/g)]
     .map(m => ({ id: m[1], grade: m[2], elo: Number(m[3]), tier: m[4], unlock: m[5],
                  requires: m[6] }));
-  check(jsGrades.length === 10, "so does the client's fallback", String(jsGrades.length));
+  check(jsGrades.length === 9, "so does the client's fallback", String(jsGrades.length));
   check(jsGrades.map(g => g.id).join() === pyGrades.map(g => g.id).join(),
         "the same grades, in the same order");
   const drift = jsGrades.filter((g, i) => g.grade !== pyGrades[i].grade
@@ -244,10 +244,10 @@ console.log("\nbeating the bots pays XP, more for the harder ones");
         "…and every rank pays more than the one below it", paid.join(","));
   check(run.bmWinXp(["giant_squid"]).xp === Math.max(...paid) && run.bmWinXp(["giant_squid"]).tier === "GS",
         "…the Giant Squid most of all", String(run.bmWinXp(["giant_squid"]).xp));
-  check(run.bmWinXp(["gilbert_carter"]).xp === 25 && run.bmWinXp(["charles_darwin"]).xp === 275,
-        "F pays 25 and S++ pays 275");
-  const table = run.bmWinXp(["gilbert_carter", "charles_darwin", "steve_irwin"]);
-  check(table.xp === 275 && table.tier === "S++",
+  check(run.bmWinXp(["gilbert_carter"]).xp === 25 && run.bmWinXp(["jacques_cousteau"]).xp === 275,
+        "F pays 25 and S+ pays 275, the bonus S++ used to carry");
+  const table = run.bmWinXp(["gilbert_carter", "jacques_cousteau", "steve_irwin"]);
+  check(table.xp === 275 && table.tier === "S+",
         "a table pays once, for the hardest rank at it", JSON.stringify(table));
   check(run.bmWinXp([]).xp === 0, "no bots beaten, no bonus");
   check(run.bmWinXp(["medium", "", "nonsense"]).xp === 0,
@@ -279,11 +279,11 @@ console.log("\nbeating the bots pays XP, more for the harder ones");
       o.players || [], o.winner, o.scores, o.seats,
       new Function(grabFn("ccBotsBeatenBy") + "\nreturn ccBotsBeatenBy;")(), run.bmWinXp);
   const SEATS = [{ kind: "human" }, { kind: "ai", difficulty: "steve_irwin" },
-                 { kind: "ai", difficulty: "charles_darwin" }, { kind: "ai", difficulty: "gilbert_carter" }];
+                 { kind: "ai", difficulty: "jacques_cousteau" }, { kind: "ai", difficulty: "gilbert_carter" }];
   const SC = (a, b, c, d) => [{ name: "Diver", score: a }, { name: "Bot 2", score: b },
                               { name: "Bot 3", score: c }, { name: "Bot 4", score: d }];
   check(botWin({ me: "Diver", winner: "Diver", scores: SC(90, 70, 60, 50), seats: SEATS }).xp === 275,
-        "win outright against a rank S++ and it pays the S++ bonus");
+        "win outright against a rank S+ and it pays the S+ bonus");
   check(botWin({ me: "diver", winner: "Diver", scores: SC(90, 70, 60, 50), seats: SEATS }).xp === 275,
         "…whatever case the nickname is in");
   check(botWin({ me: "Diver", winner: "Bot 3", scores: SC(60, 70, 90, 50), seats: SEATS }).xp === 0,
@@ -462,7 +462,7 @@ console.log("\nhome from a Head to Head win, the reef opens and walks you up");
 console.log("\nevery platform seats its own rank, and the dice draw from every rank you have");
 const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
                  "steve_irwin", "william_beebe", "eugenie_clark",
-                 "rachel_carson", "jacques_cousteau", "charles_darwin"];
+                 "rachel_carson", "jacques_cousteau"];
 {
   // A player who has been up the whole ladder: everything but the Squid is
   // theirs to be dealt. The climb itself is tested on its own, further down.
@@ -525,15 +525,15 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
   // The animal on each rank is the one that was asked for, rank by rank.
   const WANT = [["F", "bobtail-squid"], ["E", "hermit-crab"], ["D", "peruvian-pelican"],
                 ["C", "staghorn-coral"], ["B", "narwhal"], ["A", "great-white-shark"],
-                ["S", "mandarin-goby"], ["S+", "bunker"], ["S++", "sea-star"],
+                ["S", "mandarin-goby"], ["S+", "bunker"],
                 ["GS", "giant-squid"]];
-  check(SPOTS.length === 10, "the reef has ten platforms, one per rank", String(SPOTS.length));
+  check(SPOTS.length === 9, "the reef has nine platforms, one per rank", String(SPOTS.length));
   check(SPOTS.map(t => t.tier + ":" + t.animal).join() === WANT.map(w => w.join(":")).join(),
         "F Bobtail Squid, E Hermit Crab, D Peruvian Pelican, C Staghorn Coral, B Narwhal, "
-        + "A Great White Shark, S Goby, S+ Bunker, S++ Sea Star, then the Giant Squid",
+        + "A Great White Shark, S Goby, S+ Bunker, then the Giant Squid",
         SPOTS.map(t => t.tier + ":" + t.animal).join());
-  check(SPOTS.map(t => t.n).join() === "1,2,3,4,5,6,7,8,9,10", "…numbered 1 to 10");
-  check(SPOTS.filter(t => t.final).length === 1 && SPOTS[9].final === true,
+  check(SPOTS.map(t => t.n).join() === "1,2,3,4,5,6,7,8,9", "…numbered 1 to 9");
+  check(SPOTS.filter(t => t.final).length === 1 && SPOTS[SPOTS.length - 1].final === true,
         "…and exactly one of them is the last fight, at the top");
   check(run.squidLevel === 60, "the Giant Squid asks for level 60", String(run.squidLevel));
   check(run.finalSeats === 5, "…and its fight seats five", String(run.finalSeats));
@@ -542,10 +542,10 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
   // platform says it is for, or the animals would be standing on the wrong
   // letters.
   const ranks = SPOTS.map((_, i) => run.spotRank(i));
-  check(new Set(ranks).size === 10, "every platform wears its own rank", ranks.join(","));
+  check(new Set(ranks).size === 9, "every platform wears its own rank", ranks.join(","));
   check(ranks.join() === SPOTS.map(t => t.tier).join(),
         "…and it is the rank its animal was chosen for", ranks.join(","));
-  check(ranks[9] === "GS", "…and the top one is the Squid's", ranks[9]);
+  check(ranks[ranks.length - 1] === "GS", "…and the top one is the Squid's", ranks[ranks.length - 1]);
 
   // ── where they stand ──
   // A zig-zag up the reef: every platform higher than the one below it, on
@@ -557,11 +557,12 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
   check(P.every((p, i) => i === 0 || p.y < P[i - 1].y),
         "every platform is higher up the reef than the one below it",
         P.map(p => p.y).join(","));
-  check(P.slice(0, 9).every((p, i) => i === 0 || (p.x < 50) !== (P[i - 1].x < 50)),
+  check(P.slice(0, P.length - 1).every((p, i) => i === 0 || (p.x < 50) !== (P[i - 1].x < 50)),
         "…and on the other side of the channel from it, so no two stand over each other",
         P.map(p => p.x).join(","));
-  check(P[9].x === 50 && P[9].y === Math.min(...P.map(p => p.y)),
-        "…and the Squid has the summit to itself", JSON.stringify(P[9]));
+  const _sq = P[P.length - 1];
+  check(_sq.x === 50 && _sq.y === Math.min(...P.map(p => p.y)),
+        "…and the Squid has the summit to itself", JSON.stringify(_sq));
 
   // ── every platform seats three of its own rank, and nothing else ──
   // Press C and you face three C's: every seat, every time. It used to deal
@@ -595,8 +596,8 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
       if (pick.some(id => run.locked(id))) locked = true;
     }
     check(three, "Random seats three opponents every time");
-    check(seen.size === 9,
-          "…drawn from EVERY rank this player has opened, F to S++, not just the top one",
+    check(seen.size === 8,
+          "…drawn from EVERY rank this player has opened, F to S+, not just the top one",
           [...seen].sort((a, b) => a - b).map(x => run.tier(ids[x])).join(","));
     check(!squid, "…never the Giant Squid: it has its own fight");
     check(!locked, "…and nobody this player has not earned");
@@ -635,7 +636,7 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
         "every rank's opponents wear that rank's animal", animals.join(","));
   check(run.animal("jeanne_villepreux_power") === "hermit-crab",
         "…so a rank E opponent is a Hermit Crab, wherever it is dealt");
-  check(new Set(animals).size === 10, "…and no two ranks share an animal", animals.join(","));
+  check(new Set(animals).size === 9, "…and no two ranks share an animal", animals.join(","));
 
   // ── the last fight ──
   const fin = run.finalLineup();
@@ -643,26 +644,26 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
   check(fin[fin.length - 1] === "giant_squid", "…with the Giant Squid among them", fin.join(","));
   // The three that come with it are the three platforms directly under the
   // summit, so the Squid never turns up flanked by beginners.
-  check(fin.slice(0, 3).map(id => ids.indexOf(id)).join() === "6,7,8",
-        "…and the three with it are the top three ranks, S, S+ and S++",
+  check(fin.slice(0, 3).map(id => ids.indexOf(id)).join() === "5,6,7",
+        "…and the three with it are the top three ranks, A, S and S+",
         fin.slice(0, 3).join(","));
-  check(fin.map(run.animal).join() === "mandarin-goby,bunker,sea-star,giant-squid",
+  check(fin.map(run.animal).join() === "great-white-shark,mandarin-goby,bunker,giant-squid",
         "…the Goby, the Bunker, the Sea Star and the Squid", fin.map(run.animal).join());
   check(run.roll(9).join() === fin.join(), "pressing the summit seats exactly that table");
 
   // ── colours: one per tier, and every rung has one ──
-  const TIERS = ["F","E","D","C","B","A","S","S+","S++","GS"];
+  const TIERS = ["F","E","D","C","B","A","S","S+","GS"];
   const letters = run.grades.map(g => run.tier(g.id));
   check(letters.every(l => TIERS.includes(l)),
         "every rung maps to a tier colour", letters.join(","));
-  check(new Set(letters).size === 10, "all ten tiers are represented",
+  check(new Set(letters).size === 9, "all nine tiers are represented",
         [...new Set(letters)].join(","));
   // "+" cannot go in a class name unescaped, so the badge spells it "P". A
   // tier whose class came out empty, or carrying a "+", would paint an
   // unstyled badge and nobody would see an error.
-  check(run.tierClass("S+") === "SP" && run.tierClass("S++") === "SPP",
+  check(run.tierClass("S+") === "SP" && run.tierClass("GS") === "GS",
         "the + tiers get a class a stylesheet can actually match",
-        run.tierClass("S+") + " / " + run.tierClass("S++"));
+        run.tierClass("S+") + " / " + run.tierClass("GS"));
   check(run.grades.every(g => /^[A-Za-z0-9_-]+$/.test(run.tierClass(g.tier))),
         "…and every tier class is a legal selector",
         run.grades.map(g => run.tierClass(g.tier)).join(","));
@@ -670,8 +671,8 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
   // ── the average is a RANK, not a rating ──
   run.setPick(["gilbert_carter", "edward_forbes", "william_beebe"]);   // 0, 2, 4
   check(run.avg() === "D", "the table average is the middle rank of the table", run.avg());
-  run.setPick(["charles_darwin", "charles_darwin", "charles_darwin"]);
-  check(run.avg() === "S++", "…and a table of one rank averages to that rank", run.avg());
+  run.setPick(["jacques_cousteau", "jacques_cousteau", "jacques_cousteau"]);
+  check(run.avg() === "S+", "…and a table of one rank averages to that rank", run.avg());
   check(!/\d/.test(String(run.avg())), "…and it is never a number");
 
   // ── the locks ──
@@ -715,7 +716,7 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
         "an account that cannot be read locks it too");
 
   asPlayer(CLIMBED, true, 99);
-  check(run.tier("S+") === "S+" && run.tier("S") === "S" && run.tier("S++") === "S++",
+  check(run.tier("S+") === "S+" && run.tier("S") === "S" && run.tier("GS") === "GS",
         "S+ gets its own colour: it is not an S with an extra sign");
   check(run.tier("Giant Squid") === "GS", "…and the Squid is not filed under G");
   check(run.tier(undefined) === "C", "a missing grade still gets a colour rather than crashing");
@@ -790,9 +791,9 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
   check(JSON.stringify(run.plan({ at: 7, top: 7 })) === '{"tier":4,"from":-1}',
         "a saved place that is shut now is not stood on", JSON.stringify(run.plan({ at: 7, top: 7 })));
   asPlayer(CLIMBED, true, 60);
-  check(JSON.stringify(run.plan({ at: 8, top: 8 })) === '{"tier":9,"from":8}',
-        "open the summit and you walk up onto it", JSON.stringify(run.plan({ at: 8, top: 8 })));
-  check(JSON.stringify(run.plan(null)) === '{"tier":8,"from":-1}',
+  check(JSON.stringify(run.plan({ at: 7, top: 7 })) === '{"tier":8,"from":7}',
+        "open the summit and you walk up onto it", JSON.stringify(run.plan({ at: 7, top: 7 })));
+  check(JSON.stringify(run.plan(null)) === '{"tier":7,"from":-1}',
         "…but it never opens there on its own", JSON.stringify(run.plan(null)));
 
   // The Squid needs all three gates: it is the summit, not a side door.
@@ -932,9 +933,9 @@ console.log("\nthe screen is really in the page");
   "FDCBAS".split("").forEach(t =>
     check(new RegExp(`\\.wr-tier-${t}[ ,{]`).test(CSS), `…and so does tier ${t} in a lobby seat`));
   // The art each platform stands on has to actually be on disk, or the reef
-  // draws ten broken images.
+  // draws nine broken images.
   const animalsInApp = [...STATE.matchAll(/animal: "([a-z-]+)"/g)].map(m => m[1]);
-  check(animalsInApp.length === 10, "ten platform animals in the source", animalsInApp.join(","));
+  check(animalsInApp.length === 9, "nine platform animals in the source", animalsInApp.join(","));
   [...new Set(animalsInApp)].forEach(a =>
     check(fs.existsSync(path.join(CLIENT, "avatars", a + ".png")),
           `/avatars/${a}.png is on disk`));
@@ -1045,12 +1046,12 @@ function measure(w) {
   win.__press("F");
   const reef = d.getElementById("bm-reef");
   const spots = [...d.querySelectorAll(".bm-spot")];
-  ok(spots.length === 10, "ten platforms are drawn (" + spots.length + ")");
+  ok(spots.length === 9, "nine platforms are drawn (" + spots.length + ")");
   const ranks = spots.map(s => s.dataset.rank);
-  ok(ranks.join() === "GS,S++,S+,S,A,B,C,D,E,F", "…top of the reef first (" + ranks.join() + ")");
+  ok(ranks.join() === "GS,S+,S,A,B,C,D,E,F", "…top of the reef first (" + ranks.join() + ")");
   const WANT = { F: "bobtail-squid", E: "hermit-crab", D: "peruvian-pelican",
                  C: "staghorn-coral", B: "narwhal", A: "great-white-shark",
-                 S: "mandarin-goby", "S+": "bunker", "S++": "sea-star", GS: "giant-squid" };
+                 S: "mandarin-goby", "S+": "bunker", GS: "giant-squid" };
   spots.forEach((el, i) => {
     const bb = r(el), rk = ranks[i];
     ok(bb.left >= r(reef).left - 1 && bb.right <= r(reef).right + 1
@@ -1090,7 +1091,7 @@ function measure(w) {
   const reefBg = win.getComputedStyle(reef);
   ok(/h2h-reef\.png/.test(reefBg.backgroundImage) && /100% 100%/.test(reefBg.backgroundSize),
      "the reef is the whole painting, stretched to it (" + reefBg.backgroundSize + ")");
-  ok(r(reef).top <= r(spots[0]).top && r(reef).bottom >= r(spots[9]).bottom,
+  ok(r(reef).top <= r(spots[0]).top && r(reef).bottom >= r(spots[spots.length - 1]).bottom,
      "…from above the summit to below the bottom platform");
   const extras = [...d.getElementById("bm-ladder").children]
     .filter(el => !el.classList.contains("bm-spot") && !el.classList.contains("bm-diver"));
@@ -1133,10 +1134,10 @@ function measure(w) {
   // SHOWN, which is the whole point of drawing them.
   win.__setBeaten([]);
   const fresh = [...d.querySelectorAll(".bm-spot")];
-  ok(fresh.length === 10, "a brand-new player still sees all ten platforms");
+  ok(fresh.length === 9, "a brand-new player still sees all nine platforms");
   const locked = fresh.filter(s => s.classList.contains("is-locked"));
-  ok(locked.length === 9, "…nine of them locked (" + locked.length + ")");
-  ok(!fresh[9].classList.contains("is-locked"), "…and the bottom one open");
+  ok(locked.length === 8, "…eight of them locked (" + locked.length + ")");
+  ok(!fresh[fresh.length - 1].classList.contains("is-locked"), "…and the bottom one open");
   ok(locked.every(s => s.querySelector(".bm-spot-lock")),
      "…each locked platform wearing a lock");
   ok(locked.every(s => !s.classList.contains("has-diver")), "…and you are not standing on any of them");
@@ -1164,21 +1165,21 @@ function measure(w) {
   const low = [...d.querySelectorAll(".bm-bot .bm-grade-badge")].map(e => e.textContent);
   ok(low.length === 3, "the F platform seats three opponents (" + low.length + ")");
   ok(low.every(t => t === "F"), "…all of them rank F (" + low.join() + ")");
-  win.__press("S++");
+  win.__press("S+");
   const high = [...d.querySelectorAll(".bm-bot .bm-grade-badge")].map(e => e.textContent);
-  ok(high.length === 3, "the S++ platform seats three too");
+  ok(high.length === 3, "the S+ platform seats three too");
   ok(high.join() !== low.join(), "…and a higher platform is a different table (" + low.join() + " → " + high.join() + ")");
-  ok(high.every(t => t === "S++"), "…every one of them rank S++, the rank pressed (" + high.join() + ")");
+  ok(high.every(t => t === "S+"), "…every one of them rank S+, the rank pressed (" + high.join() + ")");
   ok(d.querySelectorAll(".bm-spot.is-current").length === 1, "exactly one platform is lit");
-  ok(d.querySelector(".bm-spot.is-current").dataset.rank === "S++",
+  ok(d.querySelector(".bm-spot.is-current").dataset.rank === "S+",
      "…and it is the one that was pressed");
-  ok(onSpot("S++"), "…and your animal moved up to it");
+  ok(onSpot("S+"), "…and your animal moved up to it");
   const faces = [...d.querySelectorAll(".bm-bot .bm-bot-face")].map(e => e.getAttribute("src"));
-  ok(faces.every(f => f === "/avatars/sea-star.png"),
+  ok(faces.every(f => f === "/avatars/bunker.png"),
      "…and each opponent wears its rank's animal (" + faces.join(" ") + ")");
   // Every platform, one after another, up the reef: the whole table turns
   // to the rank pressed, the first seat included.
-  ["F", "E", "D", "C", "B", "A", "S", "S+", "S++"].forEach(rk => {
+  ["F", "E", "D", "C", "B", "A", "S", "S+"].forEach(rk => {
     win.__press(rk);
     const t = [...d.querySelectorAll(".bm-bot .bm-grade-badge")].map(e => e.textContent);
     ok(t.length === 3 && t.every(x => x === rk), "press " + rk + ": all three are rank " + rk + " (" + t.join() + ")");
@@ -1194,7 +1195,7 @@ function measure(w) {
       shuffle.click();
       [...d.querySelectorAll(".bm-bot .bm-grade-badge")].forEach(e => seen.add(e.textContent));
     }
-    ok(seen.size === 9, "Random draws from every rank opened, F to S++ (" + [...seen].join() + ")");
+    ok(seen.size === 8, "Random draws from every rank opened, F to S+ (" + [...seen].join() + ")");
     ok(!seen.has("GS"), "…and never the Giant Squid");
     win.__setBeaten(${JSON.stringify(CLIMBED.slice(0, 2))});   // F and E beaten: F, E, D open
     win.__press("F");
@@ -1205,19 +1206,19 @@ function measure(w) {
     }
     ok([...few].sort().join() === "D,E,F", "…and only the ranks opened: F, E and D (" + [...few].join() + ")");
     win.__setBeaten(${JSON.stringify(CLIMBED)});
-    win.__press("S++");
+    win.__press("S+");
   }
 
   // ── a casual lobby's bot seat ──
-  // A casual table seats any rank from F to S++, climbed or not. A player
+  // A casual table seats any rank from F to S+, climbed or not. A player
   // who has beaten nobody (so every Head to Head platform above F is shut)
   // still gets all nine, and the Squid only once it is earned.
   if (w === 1280) {
     win.__setBeaten([]); win.__setStory(false); win.__setLevel(99);
     const box = win.buildDifficultyBox({ index: 1, difficulty: "steve_irwin", grade: "", claimed_name: "Bot 2" }, true);
     const opts = [...box.querySelectorAll("option")];
-    ok(opts.map(o => o.textContent.trim()).join() === "Rank F,Rank E,Rank D,Rank C,Rank B,Rank A,Rank S,Rank S+,Rank S++",
-       "a casual bot seat is graded F to S++ (" + opts.map(o => o.textContent.trim()).join() + ")");
+    ok(opts.map(o => o.textContent.trim()).join() === "Rank F,Rank E,Rank D,Rank C,Rank B,Rank A,Rank S,Rank S+",
+       "a casual bot seat is graded F to S+ (" + opts.map(o => o.textContent.trim()).join() + ")");
     ok(opts.every(o => !o.disabled), "…every one of them open, whether or not it has been climbed");
     ok(box.querySelector("select").value === "steve_irwin", "…with the seat's own rank selected");
     win.__setBeaten(${JSON.stringify(CLIMBED)}); win.__setStory(true); win.__setLevel(60);
@@ -1237,7 +1238,7 @@ function measure(w) {
     ok(!!face && /\\/avatars\\//.test(face.getAttribute("src")),
        "opponent " + i + " wears its animal");
     const sel = el.querySelector(".bm-grade-select");
-    ok(!!sel && sel.options.length === 10, "opponent " + i + " can be set to any of the ten ranks");
+    ok(!!sel && sel.options.length === 9, "opponent " + i + " can be set to any of the nine ranks");
     ok([...sel.options].every(o => /^(🔒 )?Rank [A-S+]+$/.test(o.textContent.trim())),
        "opponent " + i + "'s list is ranks only (" + sel.options[0].textContent + ")");
     ok(r(sel).height >= 26, "opponent " + i + "'s list is tappable (" + Math.round(r(sel).height) + "px)");
@@ -1261,9 +1262,9 @@ function measure(w) {
   ok(badges.join() === "F,D,B", "the badges follow the picks (" + badges.join() + ")");
 
   // The widest badge on the ladder, on the narrowest screen.
-  win.__setPick("charles_darwin", "charles_darwin", "charles_darwin");
+  win.__setPick("jacques_cousteau", "jacques_cousteau", "jacques_cousteau");
   [...d.querySelectorAll(".bm-bot .bm-grade-badge")].forEach((el, i) => {
-    ok(el.textContent === "S++", "badge " + i + " prints S++");
+    ok(el.textContent === "S+", "badge " + i + " prints S+");
     ok(el.scrollWidth <= el.clientWidth + 1, "badge " + i + " is not clipped");
   });
 
@@ -1286,8 +1287,8 @@ function measure(w) {
     const line = [...d.querySelectorAll(".bm-bot")];
     ok(line.length === 4, "the last fight seats FOUR bots: five at the table (" + line.length + ")");
     const arts = line.map(el => el.querySelector(".bm-bot-face").getAttribute("src"));
-    ok(arts.join() === "/avatars/mandarin-goby.png,/avatars/bunker.png,/avatars/sea-star.png,/avatars/giant-squid.png",
-       "…the Goby, the Bunker, the Sea Star and the Squid itself (" + arts.join(" ") + ")");
+    ok(arts.join() === "/avatars/great-white-shark.png,/avatars/mandarin-goby.png,/avatars/bunker.png,/avatars/giant-squid.png",
+       "…the Shark, the Goby, the Bunker and the Squid itself (" + arts.join(" ") + ")");
     ok(onSpot("GS"), "…and you are standing on the summit");
     ok(d.getElementById("bm-count").textContent.indexOf("4 / 4") === 0,
        "…and the count says four (" + d.getElementById("bm-count").textContent + ")");

@@ -10939,10 +10939,19 @@
       // different game from a D.
       {
         const _gMeta = (_latestSeatsForSurf || []).find(x => x && x.index === p.index) || null;
-        if (_gMeta && _gMeta.kind === "ai" && _gMeta.grade) {
-          const gb = bmBadge(_gMeta.grade, "wr");
+        // Every bot wears its rank, not just the ones whose grade NAME happened
+        // to be in the seat payload. The server has always sent grade_tier and
+        // difficulty beside the name and the client read neither, so a seat
+        // that arrived without a resolved `grade` -- a Head to Head table, a
+        // seat a kicked player left behind, a poll that landed before the
+        // ladder did -- showed no badge at all while the bot beside it did.
+        const _tierKey = _gMeta && _gMeta.kind === "ai"
+          ? (_gMeta.grade_tier || _gMeta.grade || _gMeta.difficulty || "")
+          : "";
+        if (_tierKey) {
+          const gb = bmBadge(_tierKey, "wr");
           gb.classList.add("pv-seat-grade");
-          gb.title = `This bot plays at rank ${bmTierLetter(_gMeta.grade)}`;
+          gb.title = `This bot plays at rank ${bmTierLetter(_tierKey)}`;
           nm.appendChild(gb);
         }
       }

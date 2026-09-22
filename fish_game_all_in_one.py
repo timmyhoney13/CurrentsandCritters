@@ -4831,6 +4831,80 @@ STORY_LOCKED_GRADES: Dict[str, str] = {
     "giant_squid": "story",
 }
 
+# ── What a bot is called ────────────────────────────────────────────────────
+# Ocean explorers and the people who first went looking at the sea properly,
+# one per bot seat, drawn fresh for every game so the same table is never the
+# same names twice.
+#
+# WHY THESE PARTICULAR PEOPLE. A person's name is a fact, not a work, so it
+# carries no copyright -- but publicity and personality rights are a different
+# thing, they vary by country, and where they exist they attach to the living
+# and sometimes to the recently dead. So every name here belongs to someone who
+# died a long time ago: the most recent is Johan Hjort in 1948, and most are
+# 19th century or far older. Nobody on this list has an estate that could
+# plausibly be said to have a commercial interest in their surname appearing
+# above a cartoon fish. (This is reasoning, not legal advice.)
+#
+# They are also SHORT on purpose. A seat label sits under an avatar in a row of
+# up to six, and a long name is the one that wraps or clips, so nothing here is
+# longer than fourteen characters -- see BOT_NAME_MAX_CHARS, which the tests
+# hold this list to.
+#
+# The grade ladder's own people (Gilbert Thomas Carter, Jeanne Villepreux-
+# Power, Edward Forbes, Steve Irwin, William Beebe, Eugenie Clark, Rachel
+# Carson, Jacques Cousteau) are deliberately NOT here: a bot called "Forbes"
+# playing at rank "Edward Forbes" would read as a bug.
+BOT_NAME_MAX_CHARS = 14
+OCEAN_EXPLORER_NAMES: Tuple[str, ...] = (
+    "Pytheas",        # Greek, sailed to the Arctic around 325 BC
+    "Zheng He",       # d. 1433
+    "Ibn Majid",      # d. c. 1500
+    "Piri Reis",      # d. 1553
+    "Magellan",       # d. 1521
+    "Elcano",         # d. 1526
+    "Barentsz",       # d. 1597
+    "Hudson",         # d. 1611
+    "Tasman",         # d. 1659
+    "Dampier",        # d. 1715
+    "Bering",         # d. 1741
+    "Cook",           # d. 1779
+    "La Perouse",     # d. 1788
+    "Forster",        # d. 1794
+    "Vancouver",      # d. 1798
+    "Banks",          # d. 1820
+    "Flinders",       # d. 1814
+    "Bougainville",   # d. 1811
+    "Anning",         # d. 1847
+    "Scoresby",       # d. 1857
+    "James Ross",     # d. 1862
+    "FitzRoy",        # d. 1865
+    "Maury",          # d. 1873
+    "Thomson",        # Charles Wyville Thomson, d. 1882
+    "Dohrn",          # d. 1909
+    "Carl Chun",      # d. 1914
+    "John Murray",    # d. 1914
+    "Albert I",       # Prince Albert I of Monaco, d. 1922
+    "Shackleton",     # d. 1922
+    "Buchanan",       # d. 1925
+    "Nansen",         # d. 1930
+    "Hjort",          # d. 1948
+)
+
+
+def explorer_names(count: int, rng: Optional[random.Random] = None) -> List[str]:
+    """`count` distinct bot names, in a fresh order every time.
+
+    Falls back to numbering past the end of the list rather than repeating a
+    name: two bots called Nansen at one table is worse than a bot called Bot 33.
+    """
+    r = rng or random
+    pool = list(OCEAN_EXPLORER_NAMES)
+    r.shuffle(pool)
+    if count <= len(pool):
+        return pool[:count]
+    return pool + [f"Bot {i}" for i in range(len(pool) + 1, count + 1)]
+
+
 DEFAULT_BOT_GRADE = "steve_irwin"
 
 
