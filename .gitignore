@@ -32,6 +32,7 @@
 !finish_training.py
 !training_status.py
 !check_training.py
+!best_combos.py
 !test_player_count_awareness.py
 !tournament_engine.py
 !tournament_server.py

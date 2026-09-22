@@ -45,8 +45,10 @@ so a strategy cannot go backwards across a night of this.
 """
 from __future__ import annotations
 
+import glob
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -439,6 +441,43 @@ def promote() -> None:
     log("promote: " + (tail[-1].strip() if tail else f"exit {proc.returncode}"))
 
 
+SNAPSHOTS_KEPT = 6
+
+
+def snapshot_state(tag: str) -> None:
+    """Copy a KNOWN-GOOD training state aside, so a night cannot be lost.
+
+    The brain is backed up on every promotion, but the champions never were --
+    and they are the night's work. A champion file is written atomically, so it
+    cannot be torn by a crash, but atomic is not the same as recoverable: a
+    champion that is merely WRONG, or a file lost to something outside this
+    program, had nothing to roll back to.
+
+    Taken only when the integrity check has just passed, so what is kept is
+    known good rather than merely recent. If a cycle ends unsound the last good
+    snapshot is left exactly where it is.
+    """
+    root = os.path.join(OUT_DIR, "snapshots")
+    dest = os.path.join(root, tag)
+    try:
+        os.makedirs(dest, exist_ok=True)
+        for f in glob.glob(os.path.join(OUT_DIR, "champion_*.json")):
+            shutil.copy2(f, os.path.join(dest, os.path.basename(f)))
+        brain = os.path.join(HERE, "fish_ai_brain.json")
+        if os.path.exists(brain):
+            shutil.copy2(brain, os.path.join(dest, "fish_ai_brain.json"))
+        state = os.path.join(OUT_DIR, "rotation_state.json")
+        if os.path.exists(state):
+            shutil.copy2(state, os.path.join(dest, "rotation_state.json"))
+        kept = sorted(d for d in os.listdir(root)
+                      if os.path.isdir(os.path.join(root, d)))
+        for old_dir in kept[:-SNAPSHOTS_KEPT]:
+            shutil.rmtree(os.path.join(root, old_dir), ignore_errors=True)
+        log(f"snapshot: known-good state saved as snapshots/{tag}")
+    except Exception as exc:
+        log(f"snapshot: could not save ({exc})")
+
+
 def integrity_check(why: str) -> bool:
     """Ask check_training.py whether what we just wrote is sound.
 
@@ -515,6 +554,10 @@ def main() -> None:
             state["cycle"] = int(state.get("cycle", 0)) + 1
         cycle = int(state.get("cycle", 1))
         log(f"===== cycle {cycle} =====")
+        # A known-good copy before the cycle touches anything, so a night's work
+        # always has something to go back to.
+        if not resuming and integrity_check(f"start of cycle {cycle}"):
+            snapshot_state(f"cycle{cycle:03d}_{time.strftime('%Y%m%d_%H%M%S')}")
         # Strategies with no champion yet first: they have the most to gain, and
         # a combo seeded from an untrained half inherits nothing worth having.
         fresh = [s for s in MAINS + COMBOS
