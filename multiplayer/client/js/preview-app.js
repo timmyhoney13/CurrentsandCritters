@@ -109,6 +109,12 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.13", title: "\uD83E\uDD91 The Giant Squid has the Spinner Dolphin", items: [
+      "The Giant Squid at the top of Head to Head now opens on two things: BEAT EVERY OTHER RANK on the reef, F all the way up to S+, and be LEVEL 25. It is not the one platform below any more, and it no longer asks you to have finished his story first.",
+      "The lock counts down for you. Instead of naming a level it says how many more you need: \u201CYou need 13 more levels to face the Giant Squid.\u201D When it is ranks you are short of, it says how many are left.",
+      "Beat him and he surfaces to tell you what he still has: you will never save the Spinner Dolphin, the code is spread throughout the game, and only the invertebrates know the code.",
+      "So the four hidden invertebrates have something to say now. Click one and it refuses; click again and it lets slip what he does to anyone who talks; click a third time and it hands over its piece of the code and bolts. Put the four numbers together in Avatar Gallery order to save the Spinner Dolphin.",
+    ]},
     { ver: "V1.7.12", title: "\u26F6 No full-screen button on the menu", items: [
       "The \u26F6 chip in the bottom-right corner of the menu is gone, on every tab.",
       "Inside a game nothing changes: the action bar keeps its own \u26F6 Full Screen button.",
@@ -1632,15 +1638,39 @@
   // within ~5s → line 2; again → line 3; then it fades and the digit appears
   // in its exact spot. Idle >5s resets to line 1. State is in-memory only, so
   // navigating/refreshing returns every critter to its original spot.
+  //
+  // The three lines are one scene each, and they are the same scene four
+  // times: the Giant Squid is holding the Spinner Dolphin, the code that
+  // would free her was broken into four pieces so he could never take it off
+  // anybody, and each of these four is sitting on a piece and terrified of
+  // being the one who gives it up. Line 1 refuses. Line 2 lets something slip
+  // about what it costs. Line 3 hands the digit over and runs, which is the
+  // click that actually reveals it. Nobody explains the puzzle, because a
+  // frightened animal would not.
+  //
+  // None of them says what ORDER the four digits go in, and that is
+  // deliberate: the Avatar Gallery sorts itself per player (equipped first,
+  // then unlocked, then closest-to-unlock, and the player can change the sort
+  // outright), so "the order they appear in the Avatar Gallery" is not a
+  // fixed order and cannot be pointed at from here. The Sea Cucumber says how
+  // MANY pieces there are and stops there.
   const _SECRET_CRITTERS = {
     star:     { img:"/avatars/sea-star.png",     number:"7", size:52,
-      lines:["Stop touching me","I gotta stay hidden","They can turn invisible. I have to stay ready."] },
+      lines:["Don’t touch me. I’m not telling you the code.",
+             "He keeps her where nobody swims. He says she’s his now.",
+             "Fine. Take my piece. I’ve said too much."] },
     sponge:   { img:"/avatars/sea-sponge.png",   number:"3", size:46,
-      lines:["I won’t speak to you","It wasn’t fair that he stayed behind","He entrusted this to me"] },
+      lines:["No. I won’t tell you the code.",
+             "If he hears me he takes the dolphin away forever.",
+             "Here. This is my piece of it. Please don’t say it was me."] },
     urchin:   { img:"/avatars/sea-urchin.png",   number:"9", size:28,
-      lines:["Go away","I can hide in plain sight","I gotta go check up on the others"] },
+      lines:["Go away. He’s listening.",
+             "We each kept one piece so he could never get all of it.",
+             "That’s mine. I gotta go, I’ve said too much."] },
     cucumber: { img:"/avatars/sea-cucumber.png", number:"1", size:46,
-      lines:["I don’t know where my friends are","I think one is gone","Put the digits together and save us"] },
+      lines:["I’m not telling you anything.",
+             "She’s still out there. She’s been out there so long.",
+             "Four of us, four numbers. That’s all I can give you."] },
   };
   const _secretState = {}; // key -> { stage, timer, revealed }
 
@@ -5322,10 +5352,10 @@
     { n: 8,  tier: "S+",  animal: "bunker",            name: "Bunker",            lo: 7, hi: 7 },
     { n: 9,  tier: "GS",  animal: "giant-squid",       name: "Giant Squid",       lo: 8, hi: 8, final: true },
   ];
-  // The Giant Squid does not fight children. Beating the story and climbing
-  // the whole reef is not enough on its own; the last fight is for accounts
-  // that have actually played the game.
-  const BM_SQUID_LEVEL = 60;
+  // The Giant Squid does not fight children. Clearing the whole reef is not
+  // enough on its own; the last fight is for accounts that have actually
+  // played the game.
+  const BM_SQUID_LEVEL = 25;
   // The last fight is five at one table rather than four: you, the three
   // platforms directly under the Squid, and the Squid itself.
   const BM_FINAL_SEATS = 5;
@@ -5355,19 +5385,6 @@
     } catch (_) { return []; }
   }
 
-  // Has this player finished the story? The chain ends with the Giant Squid
-  // 1v1: beat it and the Red Beaded Anemone is yours. Owning that critter is
-  // the proof, and it is the only thing that opens the Squid as an opponent.
-  // Read through the window bridge rather than the gallery's own scope, which
-  // is not in reach from here.
-  function bmStoryUnlocked() {
-    try {
-      const icons = (typeof window.__fishGetUnlockedIcons === "function")
-        ? window.__fishGetUnlockedIcons() : [];
-      return icons.some(p => String(p || "").includes("sea-anemone"));
-    } catch (_) { return false; }
-  }
-
   // The player's account level, for the Squid's own gate. A level that cannot
   // be read is a level of 0, which locks: exactly like the collection above,
   // a reward handed out because a lookup failed is a reward destroyed.
@@ -5379,15 +5396,36 @@
     } catch (_) { return 0; }
   }
 
+  // Every other rung on the ladder, weakest first: the whole Head to Head
+  // climb apart from the Squid itself. Which rungs those are comes from the
+  // ladder the server served, so a rung added later is in here the day it
+  // ships without this line being touched.
+  function bmLadderRungIds() {
+    return _bmGrades.filter(g => g.unlock !== "story").map(g => String(g.id));
+  }
+
+  // The rungs this player has NOT beaten yet. The Squid asks for an empty
+  // list: not "you unlocked the one below me", every single opponent on the
+  // reef, beaten outright. Each rung normally opens the next one, so this is
+  // only ever stricter than the rung-by-rung gate, never looser.
+  function bmLadderRemaining() {
+    const beaten = bmBeatenIds();
+    return bmLadderRungIds().filter(id => !beaten.includes(id));
+  }
+
   function bmGradeLocked(id) {
     const g = bmGradeById(id);
     if (!g) return false;
-    // The Squid keeps its own story gate, its own level gate, AND has to be at
-    // the top of a ladder you have actually climbed. It is the last rung; it
-    // is not a shortcut.
+    // The summit asks for two things and nothing else: the whole rest of the
+    // reef beaten behind you, and the level. It used to want the Red Beaded
+    // Anemone too, which cannot be right any more — beating the Squid HERE is
+    // what starts the hunt for the code, and the code is what saves the
+    // Spinner Dolphin, whose fight is where that anemone comes from. The
+    // story now runs out of this fight rather than into it.
     if (g.unlock === "story") {
-      if (!bmStoryUnlocked()) return true;
+      if (bmLadderRemaining().length) return true;
       if (bmPlayerLevel() < BM_SQUID_LEVEL) return true;
+      return false;
     }
     if (!g.requires) return false;   // the bottom rung is always open
     return !bmBeatenIds().includes(String(g.requires));
@@ -5400,13 +5438,24 @@
     const g = bmGradeById(id);
     if (!g) return "";
     if (g.unlock === "story") {
-      if (!bmStoryUnlocked()) {
-        return "Beat the Giant Squid in the story to bring it to your table.";
+      // The climb first: it is the gate a player closes by playing Head to
+      // Head, which is the screen they are already looking at.
+      const left = bmLadderRemaining().length;
+      if (left) {
+        return `Beat every other rank in Head to Head to open the Giant Squid.`
+          + ` You have ${left} to go.`;
       }
-      if (bmPlayerLevel() < BM_SQUID_LEVEL) {
-        return `The Giant Squid only fights at level ${BM_SQUID_LEVEL} and above.`
-          + ` You are level ${bmPlayerLevel()}.`;
+      // Levels are counted DOWN rather than named. "Level 25 and above" makes
+      // a player work out their own distance from it; "9 more levels" is the
+      // same fact already subtracted.
+      const short = BM_SQUID_LEVEL - bmPlayerLevel();
+      if (short > 0) {
+        return `You need ${short} more level${short === 1 ? "" : "s"}`
+          + ` to face the Giant Squid. You are level ${bmPlayerLevel()}.`;
       }
+      // Both gates open: there is nothing to say, and the `requires` line
+      // below would otherwise hand an OPEN summit a lock note.
+      return "";
     }
     const need = g.requires ? bmGradeById(g.requires) : null;
     if (!need) return "";
@@ -6534,6 +6583,65 @@
       try { window.__fishUnlockAchievementById?.("it_is_finally_over"); } catch (_) {}
       try { showToast("🦑 You beat the Giant Squid! The Red Beaded Anemone is saved.", "info", 6000); } catch (_) {}
     }
+  }
+
+  // ── The Giant Squid's parting shot ──────────────────────────────────────
+  // Beat him at the summit of Head to Head and he surfaces to say what he
+  // still holds. This is the ONLY place the hunt for the code is ever
+  // pointed at, so it has to fire on the win itself rather than wait behind
+  // a menu: four critters hidden around the UI are not findable by a player
+  // who was never told there was anything to find.
+  //
+  // It stops the moment the Spinner Dolphin is saved, because after that he
+  // has nothing left to hold over anybody.
+  const SQUID_TAUNT = "You will never save the Spinner Dolphin. The code is"
+    + " spread throughout the game, and only the invertebrates know the code.";
+
+  function _spinnerDolphinSaved() {
+    try {
+      const icons = (typeof window.__fishGetUnlockedIcons === "function")
+        ? window.__fishGetUnlockedIcons() : [];
+      return icons.some(p => String(p || "").includes("spinner-dolphin"));
+    } catch (_) { return false; }
+  }
+
+  // The taunt borrows the Giant Squid's own modal: his art, his box, his
+  // rise-in. Both openers set every field they care about on the way in, so
+  // neither can leave the other wearing its buttons or its message.
+  let _squidTauntWired = false;
+  function _showSquidTaunt() {
+    const modal = document.getElementById("giant-squid-modal");
+    if (!modal) return;
+    const title = document.getElementById("gs-challenge-title");
+    const msg   = document.getElementById("gs-challenge-msg");
+    const fight = document.getElementById("gs-challenge-fight-btn");
+    const later = document.getElementById("gs-challenge-later-btn");
+    if (title) title.textContent = "The Giant Squid";
+    if (msg)   msg.textContent = SQUID_TAUNT;
+    if (fight) fight.style.display = "none";
+    if (later) later.textContent = "Find them";
+    modal.classList.add("taunt");
+    // Its own close wiring, not the challenge modal's: the taunt can be the
+    // first thing that ever opens this box, and a popup that cannot be shut
+    // is a trap. Both handlers only close, so wiring both is harmless.
+    if (!_squidTauntWired) {
+      _squidTauntWired = true;
+      const close = () => modal.classList.remove("open", "taunt");
+      if (later) later.addEventListener("click", close);
+      modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+    }
+    modal.classList.add("open");
+  }
+  window.__fishShowSquidTaunt = _showSquidTaunt;
+
+  // Called from saveGameStats with the rungs this game just beat outright.
+  function _squidTauntAfterWin(beatenNow) {
+    if (!Array.isArray(beatenNow)) return;
+    if (!beatenNow.map(String).includes(bmSquidId())) return;
+    if (_spinnerDolphinSaved()) return;
+    // Let the end screen land first: he is the last word on the game, not a
+    // box that covers up the scores.
+    setTimeout(_showSquidTaunt, 1200);
   }
 
   document.getElementById("nc-close").addEventListener("click", closeNewCurrentModal);
@@ -17208,6 +17316,9 @@
       // ── Giant Squid challenge resolution (win → Red Beaded Anemone + achievement) ──
       try { _resolveGiantSquidChallenge(isWinner); } catch (_) {}
 
+      // ── Beat him at the summit and he tells you what he still has ──
+      try { _squidTauntAfterWin(_botsBeatenNow); } catch (_) {}
+
       // ── Daily / Weekly challenge hooks ──────────────────────────
       // saveGameStats runs once per game finish (casual AND competitive),
       // so this central hook covers all the trackable challenges in both
@@ -24722,6 +24833,10 @@
       if (!modal) return;
       const msg = $a("gs-challenge-msg");
       const fightBtn = $a("gs-challenge-fight-btn");
+      const laterBtn0 = $a("gs-challenge-later-btn");
+      // Clear anything the parting-shot taunt left on this box.
+      modal.classList.remove("taunt");
+      if (laterBtn0) laterBtn0.textContent = "Not now";
       if (msg) msg.textContent = "If you want to save the Red Beaded Anemone, you have to beat me in a fight.";
       if (fightBtn) fightBtn.style.display = "";
       if (!_gsChallengeWired) {
@@ -38925,7 +39040,7 @@
       } catch (_) { return []; }
     };
     // This player's account level, for the Giant Squid's own gate: it will
-    // not fight below level 60. Signed in it is the level their XP works out
+    // not fight below level 25. Signed in it is the level their XP works out
     // to on the account; as a guest it is the same sum over guest storage.
     // A level that cannot be read comes back as 0, which locks: the screen
     // treats an unreadable account exactly like an unfinished one.

@@ -8258,6 +8258,27 @@
     .gs-ch-btn.fight:hover { transform: translateY(-2px); filter: brightness(1.08); }
     .gs-ch-btn.later { background: rgba(255,255,255,.08); color: #b9c6e8; border: 1px solid rgba(150,170,230,.3); }
     .gs-ch-btn.later:hover { background: rgba(255,255,255,.14); }
+
+    /* ── …and the same box in taunt mode ──────────────────────────────
+       Beat him at the summit of Head to Head and he surfaces to gloat. The
+       art, the box and the rise-in are his already; the only difference is
+       that this line is something he SAYS, so it is drawn as a speech
+       bubble with its tail up under him rather than as a caption. */
+    #giant-squid-modal.taunt #gs-challenge-msg {
+      position: relative; margin: 14px 4px 18px; padding: 13px 16px;
+      background: rgba(8,24,58,.92); color: #eaf6ff;
+      border: 1px solid rgba(150,120,235,.55); border-radius: 14px;
+      box-shadow: 0 8px 26px rgba(0,0,0,.45);
+    }
+    #giant-squid-modal.taunt #gs-challenge-msg::after {
+      content: ""; position: absolute; left: 50%; top: -9px; transform: translateX(-50%);
+      border: 9px solid transparent; border-bottom-color: rgba(150,120,235,.55); border-top: none;
+    }
+    #giant-squid-modal.taunt #gs-challenge-msg::before {
+      content: ""; position: absolute; left: 50%; top: -7px; transform: translateX(-50%);
+      border: 8px solid transparent; border-bottom-color: rgba(8,24,58,.92); border-top: none;
+      z-index: 1;
+    }
     /* Table */
     .ph-lb-table-wrap { overflow-x: auto; margin-top: 10px; }
     .ph-lb-table {

@@ -72,6 +72,7 @@
 !test_lobby_seat_tiles.js
 !test_bot_grades.py
 !test_bot_match.js
+!test_squid_taunt.js
 !calibrate_bots.py
 !bot_evolve.py
 !overnight_evolve.sh

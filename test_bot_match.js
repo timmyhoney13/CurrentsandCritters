@@ -23,9 +23,10 @@
  *     SOME spot, or it is a difficulty nobody can ever play, and the spot
  *     above has to be openable by beating what the spot below deals.
  *
- *  4. THE SQUID'S THREE GATES. The story, the climb, and level 60. Any one of
- *     them missing keeps the summit shut, and its fight is five at one table,
- *     not four.
+ *  4. THE SQUID'S TWO GATES. The WHOLE climb (every other rank beaten, not
+ *     just the one below) and level 25 — and NOT the story, which now runs
+ *     out of this fight rather than into it. Either gate missing keeps the
+ *     summit shut, and its fight is five at one table, not four.
  *
  *  5. IT FITS. Ten platforms, a lineup and a Dive In button, on a 360px
  *     phone, with no platform standing on another.
@@ -71,8 +72,8 @@ const STATE = APP.slice(APP.indexOf("  const BM_FALLBACK_GRADES = ["),
                         APP.indexOf("let _bmGradesLoaded = false;")
                         + "let _bmGradesLoaded = false;".length);
 
-const FNS = ["bmBeatenIds", "bmStoryUnlocked", "bmPlayerLevel",
-             "bmGradeLocked", "bmLockNote", "bmTopUnlockedIndex",
+const FNS = ["bmBeatenIds", "bmPlayerLevel",
+             "bmLadderRungIds", "bmLadderRemaining", "bmGradeLocked", "bmLockNote", "bmTopUnlockedIndex",
              "bmGradeById", "bmIndexOf", "bmAt", "bmTierLetter", "bmTierClass",
              "bmBadge", "bmAnimalFor", "bmSquidId", "bmSpot", "bmSpotRank",
              "bmSpotLocked", "bmSpotLockNote", "bmTopUnlockedSpot", "bmIsFinal",
@@ -492,8 +493,9 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
       ${grabFn("bmAvgRankTier")}
       ${grabFn("bmGradeBlurb")}
       ${grabFn("bmBeatenIds")}
-      ${grabFn("bmStoryUnlocked")}
       ${grabFn("bmPlayerLevel")}
+      ${grabFn("bmLadderRungIds")}
+      ${grabFn("bmLadderRemaining")}
       ${grabFn("bmGradeLocked")}
       ${grabFn("bmLockNote")}
       ${grabFn("bmTopUnlockedIndex")}
@@ -535,7 +537,7 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
   check(SPOTS.map(t => t.n).join() === "1,2,3,4,5,6,7,8,9", "…numbered 1 to 9");
   check(SPOTS.filter(t => t.final).length === 1 && SPOTS[SPOTS.length - 1].final === true,
         "…and exactly one of them is the last fight, at the top");
-  check(run.squidLevel === 60, "the Giant Squid asks for level 60", String(run.squidLevel));
+  check(run.squidLevel === 25, "the Giant Squid asks for level 25", String(run.squidLevel));
   check(run.finalSeats === 5, "…and its fight seats five", String(run.finalSeats));
 
   // Each platform wears the rank it tops out at, and it is the rank the
@@ -686,26 +688,38 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
     };
   };
 
+  // The story is NOT a gate any more: beating him here is what starts the
+  // hunt for the code, so it cannot also be the reward for finishing it.
   asPlayer(CLIMBED, false, 99);
-  check(run.locked("giant_squid") === true, "no Red Beaded Anemone, no Squid");
+  check(run.locked("giant_squid") === false,
+        "the Red Beaded Anemone is not asked for: the climb and the level are the gates");
+  check(run.note("giant_squid") === "",
+        "…and an open summit carries no lock note at all", run.note("giant_squid"));
   check(run.locked("charles_darwin") === false,
-        "…and nothing else is locked by it, for a player who has climbed");
-  check(/Giant Squid/.test(run.note("giant_squid")),
-        "…and it says what to go and do", run.note("giant_squid"));
+        "…and nothing else is locked either, for a player who has climbed");
   asPlayer(CLIMBED, true, 99);
   check(run.locked("giant_squid") === false,
-        "beat the story, climb the ladder, and the Squid will sit down");
+        "…and owning it changes nothing: climb the ladder and the Squid sits down");
 
   // ── the level gate, which is the Squid's alone ──
-  asPlayer(CLIMBED, true, 59);
-  check(run.locked("giant_squid") === true, "level 59 is not enough for the Squid");
-  check(/60/.test(run.note("giant_squid")), "…and it says which level is",
+  asPlayer(CLIMBED, true, 24);
+  check(run.locked("giant_squid") === true, "level 24 is not enough for the Squid");
+  check(/1 more level\b/.test(run.note("giant_squid")),
+        "…and it counts the levels DOWN rather than naming one",
         run.note("giant_squid"));
-  check(/59/.test(run.note("giant_squid")), "…and which level you are on");
+  check(!/1 more levels/.test(run.note("giant_squid")),
+        "…in the singular when there is one to go", run.note("giant_squid"));
+  check(/24/.test(run.note("giant_squid")), "…and says which level you are on");
+  asPlayer(CLIMBED, true, 12);
+  check(/13 more levels/.test(run.note("giant_squid")),
+        "…and the count is the real distance, plural", run.note("giant_squid"));
+  asPlayer(CLIMBED, true, 0);
+  check(/25 more levels/.test(run.note("giant_squid")),
+        "…and an unreadable level is the whole climb", run.note("giant_squid"));
   check(run.grades.filter(g => g.id !== "giant_squid").every(g => !run.locked(g.id)),
         "…and no other rung cares about your level");
-  asPlayer(CLIMBED, true, 60);
-  check(run.locked("giant_squid") === false, "level 60 exactly is enough");
+  asPlayer(CLIMBED, true, 25);
+  check(run.locked("giant_squid") === false, "level 25 exactly is enough");
   asPlayer(CLIMBED, true, 0);
   check(run.locked("giant_squid") === true,
         "a level that cannot be read locks it, rather than giving it away");
@@ -790,25 +804,43 @@ const CLIMBED = ["gilbert_carter", "jeanne_villepreux_power", "edward_forbes",
         "nothing new: you stay where you left off", JSON.stringify(run.plan({ at: 1, top: 4 })));
   check(JSON.stringify(run.plan({ at: 7, top: 7 })) === '{"tier":4,"from":-1}',
         "a saved place that is shut now is not stood on", JSON.stringify(run.plan({ at: 7, top: 7 })));
-  asPlayer(CLIMBED, true, 60);
+  asPlayer(CLIMBED, true, 25);
   check(JSON.stringify(run.plan({ at: 7, top: 7 })) === '{"tier":8,"from":7}',
         "open the summit and you walk up onto it", JSON.stringify(run.plan({ at: 7, top: 7 })));
   check(JSON.stringify(run.plan(null)) === '{"tier":7,"from":-1}',
         "…but it never opens there on its own", JSON.stringify(run.plan(null)));
 
-  // The Squid needs all three gates: it is the summit, not a side door.
+  // The Squid needs both gates: it is the summit, not a side door.
   asPlayer(ORDER.slice(0, ORDER.length - 1), false, 99);
-  check(run.spotLocked(9) === true,
-        "climbing the whole reef is not enough for the Squid without the story");
+  check(run.spotLocked(9) === false,
+        "climbing the whole reef is enough, with the level: the story is not asked for");
   asPlayer([], true, 99);
   check(run.spotLocked(9) === true,
-        "…and finishing the story is not enough without the climb");
+        "…and no amount of story opens it without the climb");
   asPlayer(CLIMBED, true, 12);
   check(run.spotLocked(9) === true,
-        "…and both together are not enough below level 60");
-  asPlayer(CLIMBED, true, 60);
+        "…and the whole climb is not enough below level 25");
+  asPlayer(CLIMBED, false, 25);
   check(run.spotLocked(9) === false,
-        "climb the reef, finish the story, reach level 60, and the Squid sits down");
+        "climb the reef and reach level 25, and the Squid sits down");
+
+  // EVERY other rank, not just the one below. A climb with a hole in it used
+  // to open the summit, because the Squid only ever asked about the rung
+  // directly under it.
+  CLIMBED.forEach((skip) => {
+    const holed = CLIMBED.filter(id => id !== skip);
+    asPlayer(holed, true, 99);
+    check(run.locked("giant_squid") === true,
+          `skipping ${skip} keeps the Squid shut, however high the rest of the climb went`);
+    check(/1 to go/.test(run.note("giant_squid")),
+          "…and the lock counts what is left", run.note("giant_squid"));
+  });
+  asPlayer(["gilbert_carter"], true, 99);
+  check(/7 to go/.test(run.note("giant_squid")),
+        "…seven ranks left after beating the first", run.note("giant_squid"));
+  asPlayer(CLIMBED, true, 99);
+  check(run.locked("giant_squid") === false,
+        "…and beating all eight opens it");
 
   // The blurb has to change as the ladder rises, or it is decoration. It is
   // no longer on this screen, but the lobby seat tiles still use it.
@@ -1221,7 +1253,7 @@ function measure(w) {
        "a casual bot seat is graded F to S+ (" + opts.map(o => o.textContent.trim()).join() + ")");
     ok(opts.every(o => !o.disabled), "…every one of them open, whether or not it has been climbed");
     ok(box.querySelector("select").value === "steve_irwin", "…with the seat's own rank selected");
-    win.__setBeaten(${JSON.stringify(CLIMBED)}); win.__setStory(true); win.__setLevel(60);
+    win.__setBeaten(${JSON.stringify(CLIMBED)}); win.__setStory(true); win.__setLevel(25);
     const box2 = win.buildDifficultyBox({ index: 1, difficulty: "steve_irwin", grade: "", claimed_name: "Bot 2" }, true);
     ok([...box2.querySelectorAll("option")].some(o => o.value === "giant_squid" && !o.disabled),
        "…and the Giant Squid joins the list once it is earned");
@@ -1272,16 +1304,23 @@ function measure(w) {
   {
     const squidSpot = () => [...d.querySelectorAll(".bm-spot")][0];
     win.__setStory(false); win.__setLevel(99);
-    ok(squidSpot().classList.contains("is-locked"), "no story, and the Squid's summit is shut");
-    win.__setStory(true); win.__setLevel(59);
-    ok(squidSpot().classList.contains("is-locked"), "level 59, and it is still shut");
+    ok(!squidSpot().classList.contains("is-locked"),
+       "the whole climb and the level open the summit: the story is not asked for");
+    win.__setBeaten(${JSON.stringify(CLIMBED.slice(0, -1))});
+    ok(squidSpot().classList.contains("is-locked"),
+       "…one rank left unbeaten and it shuts again");
+    win.__setBeaten(${JSON.stringify(CLIMBED)});
+    win.__setStory(true); win.__setLevel(24);
+    ok(squidSpot().classList.contains("is-locked"), "level 24, and it is still shut");
     win.__press("GS");
     ok(d.querySelectorAll(".bm-bot").length === 3,
-       "…pressing it below level 60 does not seat its table");
-    ok(/60/.test(d.getElementById("bm-err").textContent),
-       "…it says which level instead (" + d.getElementById("bm-err").textContent + ")");
-    win.__setLevel(60);
-    ok(!squidSpot().classList.contains("is-locked"), "at level 60 the summit opens");
+       "…pressing it below level 25 does not seat its table");
+    ok(/1 more level to face/.test(d.getElementById("bm-err").textContent),
+       "…it counts the levels down instead (" + d.getElementById("bm-err").textContent + ")");
+    ok(!/1 more levels/.test(d.getElementById("bm-err").textContent),
+       "…in the singular (" + d.getElementById("bm-err").textContent + ")");
+    win.__setLevel(25);
+    ok(!squidSpot().classList.contains("is-locked"), "at level 25 the summit opens");
     ok(!squidSpot().querySelector(".bm-spot-lock"), "…and the lock comes off");
     win.__press("GS");
     const line = [...d.querySelectorAll(".bm-bot")];
