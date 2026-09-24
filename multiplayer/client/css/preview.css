@@ -8264,6 +8264,12 @@
        art, the box and the rise-in are his already; the only difference is
        that this line is something he SAYS, so it is drawn as a speech
        bubble with its tail up under him rather than as a caption. */
+    /* Above the end-of-game overlay (#pv-endgame-overlay, 9850). The taunt
+       fires a second after the game ends, which is exactly when that overlay
+       is covering the screen, so at the modal's own 9800 he would surface
+       BEHIND the scores and never be seen at all. Only in taunt mode: opened
+       from the Avatar Gallery there is no end screen to clear. */
+    #giant-squid-modal.taunt { z-index: 9900; }
     #giant-squid-modal.taunt #gs-challenge-msg {
       position: relative; margin: 14px 4px 18px; padding: 13px 16px;
       background: rgba(8,24,58,.92); color: #eaf6ff;
@@ -9703,19 +9709,44 @@
         padding: 22px 36px 36px calc(var(--ph-rail-w) + 22px);
         transition: padding-left .4s var(--ph-rail-ease) var(--ph-rail-delay);
       }
+      /* THE TABS SCROLL, THE DAILY STREAK STAYS PUT.
+         The whole card used to be the scroller: logo, tabs and the Daily
+         Streak block scrolled together as one column. The streak block is
+         372px tall even in the rail, because the parts the rail does not show
+         (the header, the week dots, the XP rows, "View streak details") are
+         only turned invisible, not taken out of the layout. Add the tabs to
+         that and the card's content is 873px, so on a window shorter than
+         ~910px -- a short window, a small laptop, or anything past about 125%
+         browser zoom -- the bottom of that column fell off the bottom of the
+         card, taking the sea star and the day count with it. At 1440x600 the
+         star was a 14px sliver on the card's bottom edge and "0 Days" was
+         gone: the corner of the page where the streak lives was empty.
+         Now the TABS are the part that scrolls and the card holds its ends, so
+         the streak block sits at the bottom of the rail at every window height.
+         When it all fits, nothing moves: the nav still fills the card and
+         spaces its icons out exactly as before. */
       body.cc-device-computer #auth-stats-lobby .ph-sidebar-nav-card {
         flex: none;
         height: 100%;
         box-sizing: border-box;
         padding-left: 10px;
         padding-right: 10px;
+        overflow: hidden;
+        box-shadow: 0 18px 48px rgba(0,50,110,.2), 0 2px 8px rgba(0,50,110,.08);
+      }
+      body.cc-device-computer #auth-stats-lobby .ph-sidebar-nav {
+        flex: 1 1 auto;
+        min-height: 0;
         overflow-x: hidden;
         overflow-y: auto;
         overscroll-behavior: contain;
         scrollbar-width: thin;
         scrollbar-color: rgba(58,96,136,.28) transparent;
-        box-shadow: 0 18px 48px rgba(0,50,110,.2), 0 2px 8px rgba(0,50,110,.08);
       }
+      /* A tab is a tab: it scrolls out of the strip, it never squashes down
+         into it. Without this the items take the shrink flexbox offers them by
+         default and ten icons fold into whatever height is left. */
+      body.cc-device-computer #auth-stats-lobby .ph-sidebar-nav > * { flex-shrink: 0; }
 
       /* Logo: the full name at the open width, and a small CandC in the rail. */
       body.cc-device-computer #auth-stats-lobby .ph-sidebar-logo {
@@ -9811,7 +9842,9 @@
       body.cc-device-computer #auth-stats-lobby .ph-sidebar-pin[aria-pressed="true"] svg { transform: rotate(180deg); }
 
       /* ── Closed: the rail ── */
-      body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-sidebar-nav-card {
+      /* No scrollbar down a 76px strip of icons. The scroller is the nav now,
+         so that is what has to be told (the card no longer scrolls at all). */
+      body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-sidebar-nav {
         scrollbar-width: none;
       }
       body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-sidebar-logo,
@@ -9832,6 +9865,20 @@
         height: 10px;
         padding: 0;
         font-size: 0;
+      }
+      /* On the rail the block still reserves all 372px of the open menu: the
+         week dots, the XP rows and "View streak details" are only made
+         invisible, so no icon jumps as the menu widens. That is worth keeping
+         while there is room for it, and it is worth nothing at all when there
+         is not: on a short window that invisible tail was taking the space the
+         TABS needed. So here it may be shrunk, down to the part the rail
+         actually shows (the star, the day count and its label). Nothing is
+         given up until the card runs out of room, so a normal screen looks
+         exactly as it did. */
+      body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-sidebar-streak {
+        flex: 0 1 auto;
+        min-height: 175px;
+        overflow: hidden;
       }
       body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-sidebar-streak > :not(.ph-ss-main),
       body.cc-device-computer #auth-stats-lobby:not(:has(.ph-sidebar:hover:not(.ph-sidebar-resting), .ph-sidebar.ph-sidebar-held, .ph-sidebar.ph-sidebar-pinned, .ph-sidebar :focus-visible)) .ph-ss-label,

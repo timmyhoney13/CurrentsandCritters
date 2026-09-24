@@ -76,6 +76,9 @@
     boosts_full: "You're holding as many XP Boosts as you can: use one first.",
     rerolls_full: "You're holding as many Weekly Swaps as you can: use one first.",
     backgrounds_full: "You already own every background. This one is waiting for the next batch.",
+    background_owned: "You already own that background: pick a different one.",
+    bad_choice: "That isn't one of the backgrounds on offer: pick one from the list.",
+    pick_background: "Pick which background you want: tap Choose on that tier.",
     stickers_full: "You already have a sticker for every critter you own.",
     boost_running: "An XP Boost is already running.",
     no_boost: "You don't have an XP Boost to activate.",
@@ -221,10 +224,15 @@
       shield: num(caps.shields, 3) - num(inv.shields),
       boost:  num(caps.boosts, 3) - num(inv.boosts),
       reroll: num(caps.rerolls, 3) - num(inv.rerolls),
+      // A background tier with nothing left to offer is the same kind of dead
+      // badge as a full shield hoard: the chooser would open empty. The server
+      // says how many this account is still missing, and there are two
+      // background tiers on the track, so they share that number.
+      background: bgChoices().length,
     };
     return unclaimedReady().filter(t => {
       const left = room[String(t.type)];
-      if (left === undefined) return true;   // coins, stickers, backgrounds
+      if (left === undefined) return true;   // coins and stickers
       if (left <= 0) return false;
       room[String(t.type)] = left - 1;       // two shield tiers, one slot free
       return true;
@@ -342,6 +350,74 @@
     applyLevelFromXp(xp);
   }
 
+  // ── The background chooser ───────────────────────────────────────────────
+  // A background tier hands over ONE of the eight exclusive scenes, and which
+  // one is the player's call: the server offers the ones this account is
+  // missing (state.backgroundChoices) and the claim carries the pick.
+  function tierById(id) {
+    const track = (_state && Array.isArray(_state.track)) ? _state.track : [];
+    return track.find(t => t.id === id) || null;
+  }
+
+  // Names come from the app's own background catalogue, so the chooser reads
+  // the way the Avatar Gallery and the Store do. A path the catalogue has never
+  // heard of is still offered, named after its own file: a reward that goes
+  // missing because it was added server-side first would be worse.
+  function bgCatalog() {
+    try {
+      const list = window.__fishBackgroundCatalog && window.__fishBackgroundCatalog();
+      return Array.isArray(list) ? list : [];
+    } catch (_) { return []; }
+  }
+  function bgName(path) {
+    const p = String(path || "").toLowerCase();
+    const hit = bgCatalog().find(b => String(b.img || "").toLowerCase() === p);
+    if (hit && hit.name) return hit.name;
+    return String(path || "").replace(/^.*\//, "").replace(/\.png.*$/i, "")
+      .replace(/^bg-/, "").replace(/[-_]+/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase()) || "Background";
+  }
+  function bgChoices() {
+    const list = (_state && Array.isArray(_state.backgroundChoices)) ? _state.backgroundChoices : [];
+    return list.map(p => ({ id: p, name: bgName(p), img: p }));
+  }
+
+  // Resolves to the chosen path, "" to claim WITHOUT a pick (the server then
+  // gives the first one they are missing), or null when the player backed out.
+  async function chooseBackground() {
+    const grid = bgChoices();
+    // Nothing left to offer: let the claim go and carry the server's own
+    // "you own every background" refusal, rather than inventing one here.
+    if (!grid.length) return "";
+    const b = bridge();
+    let answer = null;
+    try {
+      answer = (b && b.modal) ? await b.modal({
+        icon: "🖼️",
+        title: "Pick your background",
+        body: "This scene sits behind your avatar everywhere it appears. "
+            + "Choose the one you want: the rest stay on offer, and you can "
+            + "change which one you wear any time in the Avatar Gallery.",
+        grid,
+        pick: 1,
+        note: grid.length === 1
+          ? "One background left to collect."
+          : `${grid.length} still to collect.`,
+        actions: [
+          { key: "cancel", label: "Not yet" },
+          { key: "confirm", label: "Unlock this one", primary: true },
+        ],
+      }) : null;
+    } catch (_) { answer = null; }
+    // A NULL answer means the dialog itself never loaded, and that must not
+    // read as a cancel: claim it and let the server pick. A reward the player
+    // cannot take at all is worse than one they did not get to choose.
+    if (!answer || typeof answer !== "object") return "";
+    if (answer.action !== "confirm") return null;
+    const picked = String((answer.selected && answer.selected[0]) || "");
+    return picked || null;
+  }
+
   // ── Rendering ────────────────────────────────────────────────────────────
   function tierState(t) {
     const lvl = num(_state && _state.level, 1);
@@ -376,7 +452,11 @@
       // that can only fail.
       foot = `<span class="ccLP-tier-lock">Sign in to claim</span>`;
     } else if (st === "ready") {
-      foot = `<button class="ccLP-claim" type="button" data-tier="${esc(t.id)}">Claim</button>`;
+      // "Choose" on a tier whose reward is a pick, so the chooser is not a
+      // surprise dialog on a button that said it would just claim.
+      foot = t.choose
+        ? `<button class="ccLP-claim" type="button" data-tier="${esc(t.id)}" data-choose="1">Choose</button>`
+        : `<button class="ccLP-claim" type="button" data-tier="${esc(t.id)}">Claim</button>`;
     } else if (st === "claimed") {
       foot = `<span class="ccLP-tier-done">✓ Claimed</span>`;
     } else if (st === "earned") {
@@ -614,11 +694,23 @@
   }
 
   // ── Actions ──────────────────────────────────────────────────────────────
-  async function claimTier(tierId) {
+  async function claimTier(tierId, choice) {
     if (!tierId || _busyTier) return;
+    // Busy FIRST, then the dialog: the card's button is what opens it, and two
+    // taps must not stack two choosers over the same tier.
     _busyTier = tierId;
     render();
-    const res = await post("claim", { tier: tierId });
+    const tier = tierById(tierId);
+    let pick = (choice === undefined || choice === null) ? "" : String(choice);
+    if (choice === undefined && tier && tier.choose) {
+      pick = await chooseBackground();
+      if (pick === null) {          // backed out: the tier stays claimable
+        _busyTier = "";
+        render();
+        return;
+      }
+    }
+    const res = await post("claim", { tier: tierId, choice: pick });
     _busyTier = "";
     if (res && res.ok) {
       announce(res.granted);
@@ -644,17 +736,30 @@
       const n = num(res.count);
       const coins = (res.claimed || []).reduce(
         (sum, r) => sum + num(r.granted && r.granted.coins), 0);
-      toast(n
-        ? `Claimed ${n} reward${n === 1 ? "" : "s"}${coins ? ` · +${fmt(coins)} Critter Coins` : ""}`
-        : "Nothing new to claim just yet.", n ? "good" : "info");
-      // A tier that refused (a full hoard, no backgrounds left) is reported
-      // honestly instead of being swallowed, the rest still paid out.
-      (res.skipped || []).forEach(s => toast(msgFor({ error: s.error }), "warn"));
+      // The server refuses to spend a background tier on a pick nobody made,
+      // and says which tiers are waiting on one. Those are not failures, they
+      // are the next thing to do, so they get the chooser rather than a warning.
+      const needPick = (res.skipped || []).filter(s => String(s.error) === "pick_background");
+      if (n) {
+        toast(`Claimed ${n} reward${n === 1 ? "" : "s"}${coins ? ` · +${fmt(coins)} Critter Coins` : ""}`
+              + (needPick.length ? ` · now pick your background` : ""), "good");
+      } else if (!needPick.length) {
+        toast("Nothing new to claim just yet.", "info");
+      }
+      // A tier that genuinely refused (a full hoard, no backgrounds left) is
+      // reported honestly instead of being swallowed, the rest still paid out.
+      (res.skipped || []).forEach(s => {
+        if (String(s.error) !== "pick_background") toast(msgFor({ error: s.error }), "warn");
+      });
       await sync();
       afterGrant();
-    } else {
-      toast(msgFor(res), "warn");
+      render();
+      // One chooser per waiting tier, in track order, each claimed before the
+      // next opens: claimTier refuses to run two at once.
+      for (const s of needPick) await claimTier(s.tier);
+      return;
     }
+    toast(msgFor(res), "warn");
     render();
   }
 
@@ -665,7 +770,9 @@
     else if (t === "shield")     toast("🛡️ Streak Shield added, it covers one missed day.", "good");
     else if (t === "boost")      toast("⚡ XP Boost added: activate it whenever you want it.", "good");
     else if (t === "reroll")     toast("🔄 Weekly Swap added: spend it for a week of free swaps.", "good");
-    else if (t === "background") toast("🖼️ New background unlocked: equip it in the Avatar Gallery.", "good");
+    else if (t === "background") toast(granted.path
+      ? `🖼️ ${bgName(granted.path)} unlocked: equip it in the Avatar Gallery.`
+      : "🖼️ New background unlocked: equip it in the Avatar Gallery.", "good");
     else if (t === "sticker")    toast("🎴 New critter sticker unlocked for game chat.", "good");
   }
 

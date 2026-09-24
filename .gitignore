@@ -711,7 +711,12 @@ serviceAccountKey.json
 !assets/
 !assets/**
 
-# Card image slices served by Vercel.
+# Card image slices served by Vercel. The page_NN.mini.jpg/.webp twins beside
+# them are the half-size art every small view draws from (make_card_minis.py);
+# without them shipping, the server falls back to the full page scans and the
+# table goes back to holding 180 MB of decoded bitmap.
+!make_card_minis.py
+!test_card_mini_art.py
 !horizontal_cards/
 !horizontal_cards/**
 !vertical_cards/
@@ -758,6 +763,13 @@ multiplayer/client/_tutig_page_m.html
 # untracked file after a killed run; it is a copy of preview.html with a test
 # driver stapled on, and it must never be committed as if it were a page.
 multiplayer/client/_gate_*.html
+
+# Same again, from the account and sign-in screen harnesses
+# (test_account_signin.js, test_signin_screen.js). Each run writes a
+# 240KB copy of preview.html with a driver stapled on, and deletes it in
+# a finally; five of them were sitting untracked after a killed run.
+multiplayer/client/_acc_*.html
+multiplayer/client/_ss_*.html
 
 # The public-surface tests: what a stranger can download from the server, and
 # what the in-game admin door does when nobody set a key. It boots the real

@@ -174,7 +174,7 @@
     const gap = lead ? gapText(rows) : "";
     const leadPill = lead
       ? `<span class="ccPrize-lead">${lead.icon
-            ? `<img src="${esc(avSrc(lead.icon))}" alt="" loading="lazy" decoding="async">` : "🥇"}
+            ? `<img src="${esc(avSrc(lead.icon))}" alt="" fetchpriority="low" decoding="async">` : "🥇"}
            <span class="nm">${esc(lead.name)}</span> ${esc(Number(lead.points).toLocaleString())} pts${
            gap ? ` · ${esc(gap)}` : ""}</span>`
       : heard

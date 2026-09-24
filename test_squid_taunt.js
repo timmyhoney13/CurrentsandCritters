@@ -164,6 +164,23 @@ console.log("\nthe taunt borrows the challenge modal and hands it back");
   });
   check(/#giant-squid-modal\.taunt #gs-challenge-msg\s*\{/.test(CSS),
         "the bubble has a style");
+
+  // He surfaces a second after the game ends, which is exactly when the
+  // end-of-game overlay is covering the screen. At the modal's own z-index he
+  // would open BEHIND the scores: shown, dismissible, and never once seen.
+  const zOf = (sel) => {
+    const m = CSS.match(new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      + "\\s*\\{[^}]*?z-index:\\s*(\\d+)"));
+    return m ? Number(m[1]) : null;
+  };
+  const zEnd = zOf("#pv-endgame-overlay");
+  const zTaunt = zOf("#giant-squid-modal.taunt");
+  const zBase = zOf("#giant-squid-modal");
+  check(zEnd !== null && zBase !== null, "both layers are declared",
+        zBase + " / " + zEnd);
+  check(zTaunt !== null, "taunt mode declares its own layer", String(zTaunt));
+  check(zTaunt > zEnd, "…above the end-of-game overlay, or he is never seen",
+        "taunt " + zTaunt + " vs end screen " + zEnd);
   check(/#giant-squid-modal\.taunt #gs-challenge-msg::after/.test(CSS),
         "…and a tail, so it reads as something he is saying");
 

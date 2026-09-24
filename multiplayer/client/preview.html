@@ -1046,7 +1046,7 @@
             <span class="ao-note-ico" aria-hidden="true">&#127991;&#65039;</span>
             <span>You can change your username <strong>once for free</strong>. After that, each
               change costs <strong><span id="auth-nick-price">100</span>
-              <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false" loading="lazy" decoding="async"> Critter Coins</strong>.</span>
+              <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false" fetchpriority="low" decoding="async"> Critter Coins</strong>.</span>
           </div>
 
           <!-- Referral. Optional by design: leaving it empty must never stop
@@ -1066,7 +1066,7 @@
           <div class="ao-note">
             <span class="ao-note-ico" aria-hidden="true">&#127873;</span>
             <span>Enter it now and <strong>you both get <span id="auth-ref-coins">40</span>
-              <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false" loading="lazy" decoding="async">
+              <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false" fetchpriority="low" decoding="async">
               Critter Coins</strong>.</span>
           </div>
 
@@ -1094,7 +1094,7 @@
        game opens in its own dedicated window (Steam-style). Doubles as the
        "game is running" screen and the pop-up-blocked fallback. -->
   <div id="auth-step-launch" class="auth-box" style="display:none">
-    <img class="auth-launch-logo" src="/icon.svg?v=cc-logo-1" alt="Currents and Critters" loading="lazy" decoding="async" />
+    <img class="auth-launch-logo" src="/icon.svg?v=cc-logo-1" alt="Currents and Critters" fetchpriority="low" decoding="async" />
     <div id="auth-launch-avatar-wrap">
       <img id="auth-launch-avatar-img" alt="" style="display:none" onerror="this.style.display='none';document.getElementById('auth-launch-initials').style.display='';" />
       <span id="auth-launch-initials">🐙</span>
@@ -1529,7 +1529,15 @@
       <div class="ph-ss-header">= Daily Streak =</div>
       <div class="ph-ss-sub">Keep the tide rolling!</div>
       <div class="ph-ss-main">
-        <div class="ph-ss-icon"><img src="/avatars/sea-star.png?v=ws12" alt="sea star" class="ph-ss-star-img" draggable="false" loading="lazy" decoding="async"></div>
+        <!-- NOT loading="lazy". This whole block is inside #auth-stats-lobby,
+             which is display:none until the player is signed in, and a lazy
+             image in a hidden box is one the browser is entitled to never
+             fetch: Chrome picks it up when the box appears, WebKit has long
+             been happy to leave it blank until something scrolls. The star is
+             the one picture in the bottom-left corner of the home screen, so
+             it does not get to be optional. fetchpriority="low" keeps it off
+             the boot's critical path, which is all the lazy was ever buying. -->
+        <div class="ph-ss-icon"><img src="/avatars/sea-star.png?v=ws12" alt="sea star" class="ph-ss-star-img" draggable="false" fetchpriority="low" decoding="async"></div>
         <div class="ph-ss-days" id="ph-ss-days">0 Days</div>
         <div class="ph-ss-label">Days played in a row</div>
       </div>
@@ -1577,8 +1585,12 @@
 
     <!-- Profile card -->
     <div class="ph-profile-card">
+      <!-- fetchpriority="low", never loading="lazy": see the sea star in the
+           Daily Streak block. Everything in here is inside a panel that is
+           display:none until sign-in resolves, and a lazy image in a hidden
+           panel is one the browser is entitled to never ask for. -->
       <div class="ph-avatar" id="stats-avatar">
-        <img id="stats-avatar-img" alt="Player avatar" loading="lazy" />
+        <img id="stats-avatar-img" alt="Player avatar" fetchpriority="low" />
         <span id="stats-avatar-letter">?</span>
       </div>
       <div class="ph-pinfo">
@@ -1606,7 +1618,7 @@
             <span class="ph-discord-txt">Join the Discord server</span>
           </a>
           <button type="button" class="ph-discord-reward" id="ph-discord-reward" hidden>
-            <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false" loading="lazy" decoding="async">
+            <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false" fetchpriority="low" decoding="async">
             <span class="ph-discord-reward-txt" id="ph-discord-reward-txt">+100 Critter Coins</span>
           </button>
         </div>
@@ -1620,7 +1632,7 @@
             <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Current Streak</span><span class="ph-meta-chip-val" id="hdr-streak">-</span></span>
           </span>
           <span class="ph-meta-chip" id="hdr-coins-chip">
-            <span class="ph-meta-chip-ico"><img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false" loading="lazy" decoding="async"></span>
+            <span class="ph-meta-chip-ico"><img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false" fetchpriority="low" decoding="async"></span>
             <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Critter Coins</span><span class="ph-meta-chip-val" id="hdr-coins">-</span></span>
           </span>
         </div>
@@ -1827,7 +1839,7 @@
               <div class="ph-scv" id="stat-hours-played">0 hrs</div>
             </div>
             <div class="ph-sc ph-sc-string">
-              <div class="ph-sci ph-sci-blue" id="ceph-octo-stat"><img src="/avatars/common-octopus.png?v=ws12" alt="" draggable="false" loading="lazy" decoding="async" style="width:34px;height:34px;object-fit:contain;pointer-events:none;"></div>
+              <div class="ph-sci ph-sci-blue" id="ceph-octo-stat"><img src="/avatars/common-octopus.png?v=ws12" alt="" draggable="false" fetchpriority="low" decoding="async" style="width:34px;height:34px;object-fit:contain;pointer-events:none;"></div>
               <div class="ph-scl">Most Played Strategy</div>
               <div class="ph-scv" id="ph-ov-most-strategy">-</div>
             </div>

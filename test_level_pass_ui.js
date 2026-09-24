@@ -107,6 +107,16 @@ db.collection("users")._docs["u3"] = {
 }
 fresh = lp.state_payload("u3")
 
+# Past the background tier (Level 40), nothing claimed, and one of the three
+# backgrounds already owned: the chooser has to offer the OTHER two.
+db.collection("users")._docs["u4"] = {
+    "nickname": "Picky",
+    "stats": {"total_xp": xp_for_level(45), "critter_coins": 0},
+    "unlocked_backgrounds": [BACKGROUNDS[0]],
+}
+chooser = lp.state_payload("u4")
+assert chooser["backgroundChoices"] == list(BACKGROUNDS[1:]), chooser["backgroundChoices"]
+
 # THE OUTAGE PAYLOAD, produced by the real server with a Firestore that
 # refuses: level 1, accountRead False. Built here rather than hand-edited so
 # a rename of the flag fails this test instead of quietly disarming it.
@@ -134,7 +144,8 @@ rdb.collection("users")._docs["r1"] = {
 referral = rs.state_payload("r1")
 
 print("@@" + json.dumps({"state": state, "boosted": boosted, "fresh": fresh,
-                         "unreadable": unreadable, "liveTotalXp": live_total_xp,
+                         "chooser": chooser, "unreadable": unreadable,
+                         "liveTotalXp": live_total_xp,
                          "referral": referral}) + "@@")
 `;
   const out = execFileSync("python3", ["-c", script],
@@ -185,6 +196,9 @@ function innerHtml() {
 const BOOT = \`
   window.__toasts = [];
   window.__posts = [];
+  window.__modals = [];
+  // Which tile the "player" taps, or null to back out of the dialog.
+  window.__modalPick = 0;
   function envelope(data) { return { ok: true, status: 200, data: data }; }
   window.__ccWeekStartMs = function () {
     const now = new Date(), day = now.getDay();
@@ -196,6 +210,15 @@ const BOOT = \`
     avSrc: (u) => u,
     toast: (m, t) => window.__toasts.push([m, t]),
     onGranted: () => { window.__granted = (window.__granted || 0) + 1; },
+    // The real bridge hands over ccPerkModal, which resolves to
+    // { action, selected }. This stub records what it was asked to show, so the
+    // test can prove the chooser offered the right backgrounds.
+    modal: async (opts) => {
+      window.__modals.push(opts);
+      if (window.__modalPick === null) return { action: "cancel", selected: [] };
+      const tile = (opts.grid || [])[window.__modalPick] || {};
+      return { action: "confirm", selected: [tile.img] };
+    },
     post: async (p, b) => {
       window.__posts.push([p, b]);
       if (p === "/api/pass/state") return envelope(window.__PASS_STATE);
@@ -204,9 +227,33 @@ const BOOT = \`
         // than guessing. Record it here too, so the badge is tested against a
         // state that actually changed.
         const st = window.__PASS_STATE;
+        const t = (st.track || []).find(x => x.id === b.tier) || {};
         if (!st.claimed.includes(b.tier)) st.claimed = st.claimed.concat([b.tier]);
+        if (t.choose) {
+          // Mirrors the real server: a choose-your-own tier claimed with no
+          // pick is a refusal, so a client that forgets to send one FAILS here
+          // instead of quietly falling back to whatever is first.
+          if (!b.choice) return envelope({ ok: false, error: "bad_choice" });
+          return envelope({ ok: true, tier: b.tier, level: t.level,
+            granted: { type: t.type, path: b.choice, chosen: true },
+            inventory: st.inventory });
+        }
         return envelope({ ok: true, tier: b.tier, level: 2,
           granted: { type: "coins", coins: 50 }, inventory: st.inventory });
+      }
+      if (p === "/api/pass/claim-all") {
+        // The real sweep pays everything unlocked EXCEPT the tiers whose reward
+        // is a pick, which come back as "pick_background".
+        const st = window.__PASS_STATE;
+        const ready = (st.track || []).filter(t =>
+          t.claimable && t.level <= st.level && !st.claimed.includes(t.id));
+        const paid = ready.filter(t => !t.choose);
+        st.claimed = st.claimed.concat(paid.map(t => t.id));
+        return envelope({ ok: true, count: paid.length,
+          claimed: paid.map(t => ({ tier: t.id, level: t.level,
+            granted: { type: t.type, coins: t.type === "coins" ? t.amount : 0 } })),
+          skipped: ready.filter(t => t.choose).map(t => ({ tier: t.id, error: "pick_background" })),
+          inventory: st.inventory });
       }
       return envelope({ ok: false, error: "server_error" });
     },
@@ -296,6 +343,64 @@ const MAIN = \`
       allclear: txt(document.querySelector(".ccLP-allclear")),
       next: txt(document.querySelector(".ccLP-next")),
     };
+
+    // ── THE BACKGROUND CHOOSER (the Level 40 tier) ───────────────────
+    // A background tier hands over one of the exclusive scenes, and WHICH one
+    // is the player's call. The bug this measures: the tier claimed itself and
+    // the server picked, so Level 40 arrived as a background nobody chose.
+    window.__fishBackgroundCatalog = () => [
+      { id: "bg-kelp",            name: "Kelp Forest",     img: "/backgrounds/bg-kelp.png" },
+      { id: "bg-coral-reef",      name: "Coral Reef",      img: "/backgrounds/bg-coral-reef.png" },
+      { id: "bg-artificial-reef", name: "Artificial Reef", img: "/backgrounds/bg-artificial-reef.png" },
+    ];
+    const settle = async (n) => { for (let i = 0; i < (n || 12); i++) await new Promise(r => setTimeout(r, 0)); };
+    const bgTierOf = (btn) => {
+      const id = btn && btn.getAttribute("data-tier");
+      const t = ((window.__PASS_STATE || {}).track || []).find(x => x.id === id);
+      return t ? t.type : "";
+    };
+
+    window.__PASS_STATE = JSON.parse(JSON.stringify(parent.__PAYLOADS.chooser));
+    await window.__ccLevelPassSync();
+    const bgBtn = document.querySelector(".ccLP-claim[data-choose]");
+    out.choose = {
+      buttons: document.querySelectorAll(".ccLP-claim[data-choose]").length,
+      label: txt(bgBtn),
+      onType: bgTierOf(bgBtn),
+      offered: (window.__PASS_STATE.backgroundChoices || []).slice(),
+    };
+    window.__modals = []; window.__posts = []; window.__toasts = [];
+    window.__modalPick = 1;                       // the second tile
+    if (bgBtn) { bgBtn.click(); await settle(16); }
+    const dlg = window.__modals[0] || {};
+    const claimBody = (window.__posts.find(p => p[0] === "/api/pass/claim") || [])[1] || {};
+    out.choose.dialogs = window.__modals.length;
+    out.choose.tiles = (dlg.grid || []).map(g => g.img);
+    out.choose.names = (dlg.grid || []).map(g => g.name);
+    out.choose.pickOne = Number(dlg.pick);
+    out.choose.sent = String(claimBody.choice || "");
+    out.choose.toast = ((window.__toasts.slice(-1)[0]) || [])[0] || "";
+
+    // Backing out must claim NOTHING and leave the tier to be chosen again.
+    window.__PASS_STATE = JSON.parse(JSON.stringify(parent.__PAYLOADS.chooser));
+    await window.__ccLevelPassSync();
+    window.__modals = []; window.__posts = []; window.__modalPick = null;
+    const bgBtn2 = document.querySelector(".ccLP-claim[data-choose]");
+    if (bgBtn2) { bgBtn2.click(); await settle(16); }
+    out.choose.cancelClaims = window.__posts.filter(p => p[0] === "/api/pass/claim").length;
+    out.choose.stillOffered = document.querySelectorAll(".ccLP-claim[data-choose]").length;
+
+    // Claim-all pays the rest and then ASKS, instead of spending the tier on
+    // whatever the server would have picked first.
+    window.__PASS_STATE = JSON.parse(JSON.stringify(parent.__PAYLOADS.chooser));
+    await window.__ccLevelPassSync();
+    window.__modals = []; window.__posts = []; window.__modalPick = 0;
+    const allBtn = document.getElementById("ccLP-claimall");
+    if (allBtn) { allBtn.click(); await settle(40); }
+    out.choose.afterAllDialogs = window.__modals.length;
+    out.choose.afterAllSent = String((((window.__posts
+      .find(p => p[0] === "/api/pass/claim")) || [])[1] || {}).choice || "");
+    delete window.__fishBackgroundCatalog;
 
     // ── A REFUSING DATABASE ──────────────────────────────────────────
     // The server could not read the account, so its payload carries level 1
@@ -515,6 +620,29 @@ check("__ccPassBoost() hands back the multiplier, not just a percent",
 check("the percent matches the server's", D.boost.apiPercent === P.boosted.boostPercent,
       `${D.boost.apiPercent} vs ${P.boosted.boostPercent}`);
 
+console.log("\n  the background chooser (the Level 40 tier):");
+const C = D.choose || {};
+check("a background tier offers Choose, not a bare Claim",
+      C.buttons === 1 && /choose/i.test(C.label || ""), `${C.buttons} / ${C.label}`);
+check("…and it really is the background tier", C.onType === "background", C.onType);
+check("tapping it opens the picker", C.dialogs === 1, C.dialogs);
+check("…offering exactly the backgrounds this account is missing",
+      JSON.stringify(C.tiles) === JSON.stringify(C.offered),
+      `${JSON.stringify(C.tiles)} vs ${JSON.stringify(C.offered)}`);
+check("…named the way the Avatar Gallery names them, not by filename",
+      (C.names || []).length > 0 && C.names.every(n => n && !/[/.]/.test(n))
+      && C.names.includes("Artificial Reef"), JSON.stringify(C.names));
+check("…as a pick-one", C.pickOne === 1, C.pickOne);
+check("the claim carries the background that was tapped",
+      !!C.sent && C.sent === (C.offered || [])[1], `${C.sent} vs ${(C.offered || [])[1]}`);
+check("the toast names the one they chose", /Artificial Reef/.test(C.toast || ""), C.toast);
+check("backing out of the picker claims nothing", C.cancelClaims === 0, C.cancelClaims);
+check("…and leaves the tier there to choose again", C.stillOffered === 1, C.stillOffered);
+check("Claim-all opens the chooser instead of picking for you",
+      C.afterAllDialogs === 1, C.afterAllDialogs);
+check("…and that claim carries the pick too",
+      !!C.afterAllSent && C.afterAllSent === (C.offered || [])[0], C.afterAllSent);
+
 console.log("\n  the sidebar's unclaimed badge:");
 check("it shows a count as soon as the pass syncs",
       D.badge.atLoad !== null && Number(D.badge.atLoad) > 0, JSON.stringify(D.badge));
@@ -638,6 +766,14 @@ console.log("\nwiring (real preview.html / preview-app.js):");
   // The bridges the modules refuse to work without.
   check("__ccLevelPass bridge is defined", /window\.__ccLevelPass\s*=/.test(APP));
   check("__ccReferral bridge is defined", /window\.__ccReferral\s*=/.test(APP));
+
+  // The chooser needs the perk dialog, and it comes through the bridge: a
+  // bridge with no `modal` silently falls back to a server-picked background,
+  // which is the bug the whole chooser exists to fix.
+  check("the Level Pass bridge hands over the perk dialog",
+        /window\.__ccLevelPass\s*=\s*\{[\s\S]{0,1200}?\n    modal:/.test(APP));
+  check("…and the background catalogue the chooser names tiles from is exported",
+        /window\.__fishBackgroundCatalog\s*=/.test(APP));
 
   // The two exports level-pass.js calls into.
   check("__ccWeekStartMs is exported", /window\.__ccWeekStartMs\s*=/.test(APP));

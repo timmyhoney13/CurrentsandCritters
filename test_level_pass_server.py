@@ -469,6 +469,75 @@ class BackgroundsAndStickers(PassTestBase):
         self.assertEqual(res["granted"]["path"], BACKGROUNDS[1])
         self.assertIn(BACKGROUNDS[1], self.user()["unlocked_backgrounds"])
 
+    def test_the_player_gets_the_background_they_picked(self):
+        """The whole point of the chooser: the tier pays out the art that was
+        tapped, not whatever happens to be first in the catalogue."""
+        tier = self.first_tier_of("background")
+        self.make_user(level=50)
+        res = lp.claim(self.db, "u1", tier["id"], BACKGROUNDS[2])
+        self.assertTrue(res["ok"], res)
+        self.assertEqual(res["granted"]["path"], BACKGROUNDS[2])
+        self.assertEqual(self.user()["unlocked_backgrounds"], [BACKGROUNDS[2]])
+
+    def test_a_pick_survives_a_cache_buster_and_odd_casing(self):
+        """The client hands back the path it was served, and art URLs in this app
+        carry a ?v= cache-buster. A pick that fails on one would look to the
+        player like the chooser is broken."""
+        tier = self.first_tier_of("background")
+        self.make_user(level=50)
+        res = lp.claim(self.db, "u1", tier["id"], BACKGROUNDS[1].upper() + "?v=42")
+        self.assertTrue(res["ok"], res)
+        self.assertEqual(res["granted"]["path"], BACKGROUNDS[1])
+
+    def test_picking_one_you_already_own_refuses_and_keeps_the_tier(self):
+        tier = self.first_tier_of("background")
+        self.make_user(level=50, unlocked_backgrounds=[BACKGROUNDS[0]])
+        res = lp.claim(self.db, "u1", tier["id"], BACKGROUNDS[0])
+        self.assertEqual(res["error"], "background_owned")
+        self.assertEqual(self.ledger_ids(), [],
+                         "a refused pick burned the tier: the player must be "
+                         "able to pick again")
+        self.assertEqual(self.user()["unlocked_backgrounds"], [BACKGROUNDS[0]])
+
+    def test_a_pick_that_is_not_on_the_catalogue_is_refused(self):
+        """Nothing outside the served catalogue can be talked into the account,
+        and a refusal writes nothing."""
+        tier = self.first_tier_of("background")
+        self.make_user(level=50)
+        for junk in ("/backgrounds/../avatars/great-white-shark.png",
+                     "/backgrounds/bg-not-a-real-one.png",
+                     "/avatars/mullet.png"):
+            res = lp.claim(self.db, "u1", tier["id"], junk)
+            self.assertEqual(res.get("error"), "bad_choice", junk)
+        self.assertEqual(self.ledger_ids(), [])
+        self.assertNotIn("unlocked_backgrounds", self.user())
+
+    def test_a_claim_with_no_pick_still_pays_out(self):
+        """claim-all, and any client older than the chooser, send no choice at
+        all. That must still be a reward, not a refusal."""
+        tier = self.first_tier_of("background")
+        self.make_user(level=50)
+        res = lp.claim(self.db, "u1", tier["id"])
+        self.assertTrue(res["ok"], res)
+        self.assertEqual(res["granted"]["path"], BACKGROUNDS[0])
+        self.assertFalse(res["granted"]["chosen"])
+
+    def test_the_tier_says_it_is_a_choice_and_the_state_lists_what_is_left(self):
+        """The Choose button and the chooser's tiles both come off the server,
+        so a background added server-side appears in the dialog on its own."""
+        tier = self.first_tier_of("background")
+        self.assertTrue(tier["choose"], "the background tier is not marked as a choice")
+        self.assertFalse(self.first_tier_of("coins")["choose"])
+        self.make_user(level=50, unlocked_backgrounds=[BACKGROUNDS[1]])
+        st = lp.state_payload("u1")
+        self.assertEqual(st["backgroundChoices"], [BACKGROUNDS[0], BACKGROUNDS[2]])
+        self.assertEqual(st["backgrounds"], BACKGROUNDS,
+                         "the full catalogue is what the Store shows too")
+
+    def test_a_signed_out_visitor_is_offered_the_whole_catalogue(self):
+        st = lp.state_payload(None)
+        self.assertEqual(st["backgroundChoices"], BACKGROUNDS)
+
     def test_owning_every_background_leaves_the_tier_claimable(self):
         tier = self.first_tier_of("background")
         self.make_user(level=50, unlocked_backgrounds=list(BACKGROUNDS))
@@ -539,6 +608,24 @@ class ClaimAll(PassTestBase):
         self.assertEqual(second["count"], 0)
         self.assertEqual(self.coins(), coins_after_first)
         self.assertGreater(first["count"], 0)
+
+    def test_a_background_tier_is_left_for_the_player_to_pick(self):
+        """Claim-all must NOT spend a background tier on the server's own guess:
+        that is a choice the player can never get back. It reports the tier as
+        waiting on a pick, pays everything else, and the pass opens its chooser."""
+        bg = self.first_tier_of("background")
+        self.make_user(level=self.level_with_a_claimable_below("background"))
+        res = lp.claim_all(self.db, "u1")
+        self.assertTrue(res["ok"], res)
+        self.assertNotIn(bg["id"], [r["tier"] for r in res["claimed"]])
+        self.assertIn({"tier": bg["id"], "error": "pick_background"}, res["skipped"])
+        self.assertNotIn("unlocked_backgrounds", self.user(),
+                         "claim-all handed over a background nobody picked")
+        self.assertGreater(self.coins(), 0, "the coin tiers were skipped too")
+        # Still claimable afterwards, with the pick honoured.
+        res2 = lp.claim(self.db, "u1", bg["id"], BACKGROUNDS[1])
+        self.assertTrue(res2["ok"], res2)
+        self.assertEqual(self.user()["unlocked_backgrounds"], [BACKGROUNDS[1]])
 
     def test_one_refusing_tier_does_not_stop_the_others(self):
         """A full shield hoard must not swallow the coins on the same sweep."""

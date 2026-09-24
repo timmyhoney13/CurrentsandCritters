@@ -41,7 +41,7 @@ from __future__ import annotations
 import re
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 # ── Injected by init() (no circular import with multiplayer_server) ──────────
 _get_firestore: Optional[Callable[[], Any]] = None
@@ -101,7 +101,11 @@ MAX_REROLLS = 3
 #   boost      → one 24-hour +20% XP boost, held until you activate it
 #   reroll     → one Weekly Swap token: unlimited weekly-challenge swaps for
 #                the rest of that week
-#   background → one exclusive avatar background, server-picked from unowned
+#   background → one exclusive avatar background, PICKED BY THE PLAYER from
+#                the ones they do not own yet. The pass opens a chooser and
+#                sends `choice`; a claim that arrives without one (claim-all,
+#                a client older than the chooser) still pays out, with the
+#                first background they are missing.
 #   critter    → SHOWCASE ONLY. The level-gated avatar, granted by the normal
 #                unlock path, never claimed here (see the module docstring).
 _TRACK_SPEC: Sequence[Dict[str, Any]] = (
@@ -162,6 +166,14 @@ _TYPE_META: Dict[str, Dict[str, str]] = {
 
 CLAIMABLE_TYPES = frozenset({"coins", "shield", "sticker", "boost", "reroll", "background"})
 
+# Tiers where the REWARD IS A CHOICE. The pass draws a chooser instead of a
+# plain Claim button, and the claim carries `choice`. A choice is only ever a
+# request: it is checked against the served catalogue and against what the
+# account already owns, off the document read inside the payout transaction.
+# Stickers are deliberately NOT here, they are drawn from critters you own and
+# there is nothing to decide.
+CHOICE_TYPES = frozenset({"background"})
+
 
 def _tier_id(spec: Dict[str, Any]) -> str:
     """Stable identifier for a tier. Level 100 carries three rewards, so the
@@ -202,7 +214,8 @@ def _blurb(spec: Dict[str, Any]) -> str:
         "boost":      f"+{BOOST_PERCENT}% XP from everything for {BOOST_HOURS} hours: "
                       "games, challenges, achievements and the daily bonus. Activate it when you want it.",
         "reroll":     "Swap out as many weekly challenges as you like for the rest of that week.",
-        "background": "An exclusive scene behind your avatar, everywhere it appears.",
+        "background": "An exclusive scene behind your avatar, everywhere it appears: "
+                      "you pick which one.",
         "critter":    "Unlocked automatically the moment you reach this level.",
     }.get(t, "")
 
@@ -224,6 +237,9 @@ def track() -> List[Dict[str, Any]]:
             "label": _describe(spec),
             "blurb": _blurb(spec),
             "claimable": t in CLAIMABLE_TYPES,
+            # The client reads this rather than testing for "background" itself,
+            # so a second choose-your-own tier type only has to be added above.
+            "choose": t in CHOICE_TYPES,
         }
         if t == "critter":
             entry["critter"] = str(spec.get("critter") or "")
@@ -368,12 +384,41 @@ def _str_list(value: Any, pattern: "re.Pattern[str]") -> List[str]:
 # background and sticker tiers pick at claim time from what this account is
 # actually missing: inside the transaction, off the freshly-read document.
 
-def _pick_background(doc: Dict[str, Any]) -> Optional[str]:
+def background_choices(doc: Dict[str, Any]) -> List[str]:
+    """Every background this account does NOT own yet, in catalogue order: what
+    the pass offers when a background tier is claimed, and the only list a
+    choice is allowed to name."""
     owned = set(_str_list(doc.get("unlocked_backgrounds"), _BG_PATH))
-    for path in _background_paths:
-        if path.lower() not in owned:
-            return path
-    return None
+    return [p for p in _background_paths if p.lower() not in owned]
+
+
+def _pick_background(doc: Dict[str, Any]) -> Optional[str]:
+    """The fallback for a claim with no choice: the first one they are missing."""
+    left = background_choices(doc)
+    return left[0] if left else None
+
+
+def _resolve_background(doc: Dict[str, Any], choice: Any) -> Tuple[Optional[str], str]:
+    """(path, error) for one background claim, from the transaction's own read.
+
+    A player who picked gets what they picked, or a refusal that says why, and
+    NOTHING is written on a refusal, so the tier stays claimable and they can
+    pick again. Handing over a different background than the one tapped would be
+    worse than refusing: it spends the tier on art they did not want."""
+    left = background_choices(doc)
+    if not left:
+        return None, "backgrounds_full"
+    wanted = str(choice or "").strip().split("?")[0].lower()
+    if not wanted:
+        return left[0], ""
+    for path in left:
+        if path.lower() == wanted:
+            return path, ""
+    # A real background, just one this account already has. Say so, rather than
+    # reading as "that isn't a background".
+    if any(wanted == p.lower() for p in _background_paths):
+        return None, "background_owned"
+    return None, "bad_choice"
 
 
 def _pick_sticker(doc: Dict[str, Any]) -> Optional[str]:
@@ -466,6 +511,14 @@ def state_payload(uid: Optional[str]) -> Dict[str, Any]:
         "inventory": {"shields": 0, "boosts": 0, "rerolls": 0, "boostUntil": 0,
                       "boostActive": False, "boostPercent": BOOST_PERCENT,
                       "rerollWeek": 0, "coins": 0},
+        # The background chooser's tiles. `backgrounds` is the whole catalogue
+        # (public, the same list the Store shows); `backgroundChoices` is what
+        # THIS account can still be given. The default is the full catalogue
+        # because that is the honest answer for a visitor who owns nothing, and
+        # for a failed read it is the safe direction: the claim re-checks
+        # ownership inside its transaction and names anything already owned.
+        "backgrounds": list(_background_paths),
+        "backgroundChoices": list(_background_paths),
     }
     if not uid:
         return out
@@ -483,6 +536,7 @@ def state_payload(uid: Optional[str]) -> Dict[str, Any]:
         out["xpForLevel"] = int(goal)
         out["claimed"] = claimed_ids(db, uid)
         out["inventory"] = _inventory(doc)
+        out["backgroundChoices"] = background_choices(doc)
         # Last, and only on the way out of the try: every field above came
         # back. Set earlier it would survive a throw halfway down and promise
         # a level that was never read.
@@ -495,8 +549,12 @@ def state_payload(uid: Optional[str]) -> Dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════
 #  CLAIM
 # ═══════════════════════════════════════════════════════════════════════════
-def claim(db, uid: str, tier_id: str) -> Dict[str, Any]:
+def claim(db, uid: str, tier_id: str, choice: Any = None) -> Dict[str, Any]:
     """Pay one tier, exactly once, and only if the level is really reached.
+
+    `choice` is the player's pick on a CHOICE_TYPES tier (the background path
+    they tapped). It is resolved against the account document read inside the
+    transaction, never trusted as given, and an omitted choice still pays out.
 
     Firestore requires every read before every write, so the document and the
     ledger entry are both read up front. The ledger create() at the end is what
@@ -569,15 +627,15 @@ def claim(db, uid: str, tier_id: str) -> Dict[str, Any]:
             granted.update({"held": after})
 
         elif rtype == "background":
-            path = _pick_background(doc)
+            path, err = _resolve_background(doc, choice)
             if not path:
-                # Nothing left to give. Refuse WITHOUT writing a ledger entry,
-                # so the tier stays claimable if a future release adds more
-                # backgrounds, a reward that silently evaporates is worse than
-                # one that waits.
-                return {"ok": False, "error": "backgrounds_full"}
+                # Nothing written and NO ledger entry, so the tier stays
+                # claimable: whether the catalogue ran out (a reward that
+                # silently evaporates is worse than one that waits) or the pick
+                # was one they already own (they get to pick again).
+                return {"ok": False, "error": err or "backgrounds_full"}
             update["unlocked_backgrounds"] = _array_union()([path])
-            granted.update({"path": path})
+            granted.update({"path": path, "chosen": bool(str(choice or "").strip())})
 
         elif rtype == "sticker":
             path = _pick_sticker(doc)
@@ -627,7 +685,13 @@ def claim_all(db, uid: str) -> Dict[str, Any]:
     each tier keeps its own ledger doc and its own all-or-nothing guarantee, so
     a tier that refuses (a full shield hoard, no backgrounds left) stops itself
     and leaves every other payout intact. A partial result is reported honestly
-    instead of rolling back rewards that were legitimately earned."""
+    instead of rolling back rewards that were legitimately earned.
+
+    CHOICE_TYPES tiers are NOT swept up here. A background is the player's pick,
+    and a "Claim all" that spent it on whatever happened to be first in the
+    catalogue would take that choice away for good, the one thing this cannot
+    undo. Each one is reported in `skipped` as "pick_background" instead, and the
+    pass opens its chooser on them."""
     if not _SAFE_ID.match(str(uid or "")):
         return {"ok": False, "error": "bad_request"}
     try:
@@ -644,9 +708,13 @@ def claim_all(db, uid: str) -> Dict[str, Any]:
     skipped: List[Dict[str, str]] = []
     for spec in _TRACK_SPEC:
         tid = _tier_id(spec)
-        if str(spec["type"]) not in CLAIMABLE_TYPES:
+        rtype = str(spec["type"])
+        if rtype not in CLAIMABLE_TYPES:
             continue
         if tid in already or int(spec["level"]) > level:
+            continue
+        if rtype in CHOICE_TYPES:
+            skipped.append({"tier": tid, "error": "pick_background"})
             continue
         res = claim(db, uid, tid)
         if res.get("ok"):
@@ -761,6 +829,9 @@ ERROR_MESSAGES = {
     "boosts_full": "You're holding as many XP Boosts as you can: use one first.",
     "rerolls_full": "You're holding as many Weekly Swaps as you can: use one first.",
     "backgrounds_full": "You already own every background. This one is waiting for the next batch.",
+    "background_owned": "You already own that background: pick a different one.",
+    "bad_choice": "That isn't one of the backgrounds on offer: pick one from the list.",
+    "pick_background": "Pick which background you want: tap Choose on that tier.",
     "stickers_full": "You already have a sticker for every critter you own.",
     "boost_running": "An XP Boost is already running.",
     "no_boost": "You don't have an XP Boost to activate.",
@@ -785,7 +856,7 @@ def _auth_uid(body: Dict[str, Any]) -> Optional[str]:
 
 def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
     """POST /api/pass/state            the track + this account's progress
-       POST /api/pass/claim            claim one tier   { tier }
+       POST /api/pass/claim            claim one tier   { tier, choice }
        POST /api/pass/claim-all        claim everything unlocked
        POST /api/pass/boost            start a held 24h XP boost
        POST /api/pass/reroll           spend a Weekly Swap token { weekStartMs }
@@ -812,7 +883,10 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
 
     if action == "claim":
         tier = body.get("tier") if isinstance(body.get("tier"), str) else ""
-        res = claim(db, uid, tier)
+        # The background the player tapped in the chooser. Optional: the server
+        # picks for them when it is missing, and validates it when it is not.
+        choice = body.get("choice") if isinstance(body.get("choice"), str) else ""
+        res = claim(db, uid, tier, choice)
         if res.get("ok"):
             res["inventory"] = state_payload(uid).get("inventory")
         else:

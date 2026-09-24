@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-20.1";
+  const APP_BUILD   = "2026-09-23.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -874,12 +874,28 @@
     return "center";
   }
 
-  function imagePathForUid(uid) {
+  // Card art comes in two sizes and the DEFAULT IS THE SMALL ONE, because
+  // almost every card on screen is tiny. A page scan is 720x1008 and holds two
+  // cards; a board card is drawn at 84x59, a hand card at 98x138. Measured on a
+  // real late-game table (4 players, 6 oceans and 15 animals each) that was 84
+  // <img> elements over 65 distinct page scans, and the browser keeps every one
+  // decoded: 180 MB of bitmap to paint about 1 MB of pixels. A phone cannot
+  // hold that, so it evicts and re-decodes art constantly, and the game
+  // stutters. `page_NN.mini.jpg` is the same page at 360x504 (make_card_minis.py),
+  // still sharper than the hand needs on a 3x phone, and about a quarter of the
+  // bitmap.
+  //
+  // Pass "full" ONLY where one card fills a lot of screen: the zoom modal, the
+  // tutorial zoom and the end-game cinematic. Everything else, including
+  // anything added later, gets the mini by default. The server falls back to
+  // the full page if a mini is missing, so this can never show a broken card.
+  function imagePathForUid(uid, size) {
     let u = Number(uid);
     if (u >= 1000000) u = u % 1000;   // admin-minted copy → original art face (uid = serial*1000 + face)
-    if (u >= 1   && u <= 96)  return `/horizontal_cards/page_${pad2(Math.floor((u+1)/2))}.png?v=${CARD_IMAGE_VERSION}`;
-    if (u >= 101 && u <= 188) return `/vertical_cards/page_${pad2(Math.floor((u-101)/2)+1)}.png?v=${CARD_IMAGE_VERSION}`;
-    if (u >= 201 && u <= 269) return `/oceans_cards/page_${pad2(u-200)}.png?v=${CARD_IMAGE_VERSION}`;
+    const ext = (size === "full") ? ".png" : ".mini.jpg";
+    if (u >= 1   && u <= 96)  return `/horizontal_cards/page_${pad2(Math.floor((u+1)/2))}${ext}?v=${CARD_IMAGE_VERSION}`;
+    if (u >= 101 && u <= 188) return `/vertical_cards/page_${pad2(Math.floor((u-101)/2)+1)}${ext}?v=${CARD_IMAGE_VERSION}`;
+    if (u >= 201 && u <= 269) return `/oceans_cards/page_${pad2(u-200)}${ext}?v=${CARD_IMAGE_VERSION}`;
     return "";
   }
 
@@ -1476,6 +1492,14 @@
     post: (p, b) => apiPost(p, b),
     toast: (m, t) => { try { showToast(m, t); } catch (_) {} },
     avSrc: (u) => { try { return _avSrc(u); } catch (_) { return u; } },
+    // The background chooser. Same picker the emote and re-earn perks use, so
+    // "pick one of these" looks the same everywhere in Player Home. Resolves to
+    // { action, selected }; a NULL answer means the dialog never loaded, and
+    // level-pass.js then claims without a pick rather than losing the reward.
+    modal: (opts) => {
+      try { return window.ccPerkModal ? window.ccPerkModal(opts) : Promise.resolve(null); }
+      catch (_) { return Promise.resolve(null); }
+    },
     async idToken() {
       try { const u = window.__fishAuthUser && window.__fishAuthUser();
             return (u && u.getIdToken) ? await u.getIdToken() : ""; } catch (_) { return ""; }
@@ -1594,7 +1618,7 @@
     const el = document.getElementById("endgame-cinematic");
     const img = document.getElementById("eg-card-img");
     const sub = document.getElementById("eg-sub-text");
-    img.src = imagePathForUid(cardUid);
+    img.src = imagePathForUid(cardUid, "full");
     if (isTriggerPlayer) {
       sub.textContent = "You revealed the END GAME card, you still get one final turn!";
     } else {
@@ -1813,7 +1837,7 @@
   let _zoomHandIdx     = -1;  // current index within _zoomHandEntries
 
   function _zoomPopulateCard(uid, name, text, species) {
-    document.getElementById("pv-zoom-img").src = imagePathForUid(uid);
+    document.getElementById("pv-zoom-img").src = imagePathForUid(uid, "full");
     document.getElementById("pv-zoom-img").alt = name || "";
     document.getElementById("pv-zm-name").textContent = name || "";
     document.getElementById("pv-zm-species").textContent = species || "";
@@ -11365,10 +11389,21 @@
     const el = document.getElementById("pv-opponents");
     if (!opponents.length) { cl(el); el.className = ""; return; }
 
+    // What this key has to answer is "is the board on screen still the board in
+    // the payload". It used to ask for p.board_oceans, p.board_hand and
+    // p.avatar_url, and the server sends NONE of those three: the live payload
+    // carries `board`, `board_ocean_count` and `avatar` (see _record_snapshot).
+    // Three undefineds compare equal every time, so the key was really just
+    // name + score + hand count, and an opponent's board only redrew when their
+    // SCORE moved. Playing an ocean, moving an animal between two oceans or
+    // playing a card worth nothing all left the board on screen showing the
+    // previous turn. Key off the board itself and it tracks exactly.
     const _oppKey = JSON.stringify(opponents.map(p=>({
-      i:p.index, n:p.name, s:p.score,
-      bo:p.board_oceans, bh:p.board_hand, hand_count:p.hand_count,
-      av:p.avatar_url
+      i:p.index, n:p.name, s:p.score, hand_count:p.hand_count, av:p.avatar,
+      b:(Array.isArray(p.board)?p.board:[]).map(o => [
+        o.ocean_uid, o.ocean?.uid ?? o.ocean_uid,
+        ["up","down","left","right"].map(d => (o[d]||[]).map(c => c.face_uid ?? c.uid).join(","))
+      ])
     }))) + "|" + turnIndex + "|" + pvFullBoards;
     if (_oppKey === _opponentsRenderKey && el.children.length > 0) return;
     _opponentsRenderKey = _oppKey;
@@ -12400,7 +12435,7 @@
   // ── Zoom overlay ─────────────────────────────────────────────────
   function tutOpenZoom(uid) {
     const card = tutCard(uid);
-    document.getElementById("tut-zoom-img").src  = imagePathForUid(uid);
+    document.getElementById("tut-zoom-img").src  = imagePathForUid(uid, "full");
     document.getElementById("tut-zoom-img").style.objectPosition = (() => {
       const p = cardHalfPos(uid);
       return {top:"50% 0%",bottom:"50% 100%",left:"0% 50%",right:"100% 50%",center:"50% 50%"}[p] || "50% 50%";
@@ -13315,10 +13350,45 @@
     // Close the card picker on any state change so stale actions don't persist.
     closeCTP();
     const el = document.getElementById("pv-my-board");
+
+    const board = Array.isArray(me?.board) ? me.board : [];
+
+    // ── Skip the rebuild when this board is already on screen ─────────
+    // Every server payload used to tear down the whole board and build it
+    // again: on a late-game table that is ~21 elements, each with its own
+    // <img> and its own listeners, thrown away and re-made. In a four-player
+    // game three payloads out of four change nothing here (it is somebody
+    // else's turn), and a table of bots pushes one payload per move, so most
+    // of that work was rebuilding a board into exactly the state it was
+    // already in. renderOpponents and renderHand have skipped like this for a
+    // while; the board, the biggest of the three, never did.
+    //
+    // The key has to cover everything the render reads, and that includes the
+    // WHOLE action list, not just the board's own actions: the drop handlers
+    // built below close over `actions` and submit by index, so keeping old
+    // handlers alive while the action list moved underneath them would submit
+    // the wrong move. Any change at all to the actions rebuilds.
+    const _skinSig = (name) => { try { return (window.__ccPrestigeSkinFor && window.__ccPrestigeSkinFor(name)) || ""; } catch (_) { return ""; } };
+    const _boardKey = JSON.stringify({
+      me: !!me,
+      turn: isMyTurn ? 1 : 0,
+      move: _pendingMoveAnim ? 1 : 0,
+      board: board.map(o => [
+        o.ocean_uid,
+        o.ocean?.uid ?? o.ocean_uid,
+        ["up","down","left","right"].map(d =>
+          (o[d] || []).map(c => `${c.face_uid ?? c.uid}/${c.name || ""}/${_skinSig(c.name)}`).join(",")
+        ),
+      ]),
+      acts: (actions || []).map(a =>
+        `${a.index}:${a.kind}:${a.card_uid ?? ""}:${a.face_uid ?? ""}:${a.ocean_uid ?? ""}:${a.face_direction ?? ""}:${a.source_ocean_uid ?? ""}:${a.use_star ? 1 : 0}`
+      ).join("|"),
+    });
+    if (_boardKey === _myBoardRenderKey && el.children.length > 0) return;
+    _myBoardRenderKey = _boardKey;
+
     cl(el);
     if (!me) return;
-
-    const board = Array.isArray(me.board) ? me.board : [];
 
     // Accumulate moved card element for FLIP animation after render
     let _moveAnimTarget = null;
@@ -14091,6 +14161,7 @@
   let _handRenderKey = "";
   let _seatsRenderKey = "";
   let _opponentsRenderKey = "";
+  let _myBoardRenderKey   = "";
   let _handCardEls  = [];  // live array of .pv-hand-card elements, refreshed by renderHand
   let _handHoverIdx = -1;  // index of the currently hovered card, -1 = none
   function renderHand(me, actions, mustDiscard, discardExcess) {

@@ -14620,14 +14620,31 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # every game load. That is why cards took forever to appear. The client
         # already cache-busts each URL with ?v=CARD_IMAGE_VERSION, so the file at
         # a given URL is immutable: serve it with a 1-year immutable cache.
-        _card_art = re.fullmatch(r"/(horizontal_cards|vertical_cards|oceans_cards)/(page_\d+\.png)", parsed.path)
+        #
+        # `page_NN.mini.jpg` is the half-size twin (360x504, see
+        # make_card_minis.py) that every small view asks for: the board, a hand,
+        # the pool, an opponent's board. The full page is 720x1008 and a board
+        # card is drawn at 84x59, so serving the full scan meant a late-game
+        # table held 180 MB of decoded bitmap to paint about 1 MB of pixels,
+        # which is what made phones stutter. Only the zoom modal, the tutorial
+        # zoom and the end-game cinematic still ask for the full page. A missing
+        # mini falls back to the full scan, so the art is never broken by a
+        # deploy that shipped before make_card_minis.py was re-run.
+        _card_art = re.fullmatch(
+            r"/(horizontal_cards|vertical_cards|oceans_cards)/(page_\d+)(\.mini\.jpg|\.png)",
+            parsed.path,
+        )
         if _card_art:
-            card_dir, card_file = _card_art.group(1), _card_art.group(2)
-            card_path = os.path.join(BASE_DIR, card_dir, card_file)
+            card_dir, card_page, card_ext = _card_art.group(1), _card_art.group(2), _card_art.group(3)
+            card_path = os.path.join(BASE_DIR, card_dir, card_page + card_ext)
+            ctype = "image/jpeg" if card_ext == ".mini.jpg" else "image/png"
+            if card_ext == ".mini.jpg" and not os.path.exists(card_path):
+                card_path = os.path.join(BASE_DIR, card_dir, card_page + ".png")
+                ctype = "image/png"
             if os.path.exists(card_path):
                 self._send_client_asset(
                     card_path,
-                    content_type="image/png",
+                    content_type=ctype,
                     cache_control="public, max-age=31536000, immutable",
                     allow_webp=True,
                 )
