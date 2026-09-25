@@ -9748,7 +9748,7 @@
          default and ten icons fold into whatever height is left. */
       body.cc-device-computer #auth-stats-lobby .ph-sidebar-nav > * { flex-shrink: 0; }
 
-      /* Logo: the full name at the open width, and a small CandC in the rail. */
+      /* Logo: the full name at the open width, and a small C&C in the rail. */
       body.cc-device-computer #auth-stats-lobby .ph-sidebar-logo {
         position: relative;
         width: 200px;
@@ -9758,7 +9758,7 @@
       }
       body.cc-device-computer #auth-stats-lobby .ph-sidebar-logo span { transition: color .18s ease .2s; }
       body.cc-device-computer #auth-stats-lobby .ph-sidebar-logo::after {
-        content: "CandC";
+        content: "C&C";
         position: absolute;
         left: 0; top: 0; bottom: 10px;
         width: 54px;

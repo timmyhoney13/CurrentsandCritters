@@ -230,7 +230,7 @@
 <!-- ============ NAV ============ -->
 <nav class="nav">
   <a class="brand" href="index.html">
-    <img src="assets/logo-icon.svg" alt="CandC"/>
+    <img src="assets/logo-icon.svg" alt="C&amp;C"/>
     <span class="wordmark">Currents and Critters</span>
   </a>
   <div class="links">
@@ -558,7 +558,7 @@ async function handleFile(file) {
       const p = drop.querySelector('.drop-preview');
       if (p) p.classList.remove('analyzing');
       if (!ids || !ids.length) {
-        renderError("We couldn't find any CandC cards in that photo. Try a clearer shot, or use the manual picker.");
+        renderError("We couldn't find any C&C cards in that photo. Try a clearer shot, or use the manual picker.");
         return;
       }
       renderResults(scoreHand(ids));

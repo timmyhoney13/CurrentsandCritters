@@ -1,15 +1,15 @@
 #!/usr/bin/env node
-/* The game's name is written out: "Currents and Critters", and "CandC" when it
- * has to be short. Never "Currents & Critters", never "C&C".
+/* The game's name is written out: "Currents and Critters", and "C&C" when it
+ * has to be short. Never "Currents & Critters" - the full name keeps its "and".
  *
  * Run:  node test_game_name.js
  *
  * Reads every page, script, stylesheet and manifest a player can load, the
  * marketing site, and the code that writes the newsletter emails, and fails on
- * any ampersand spelling of the name in any of the forms it has hidden in
- * before: a bare &, &amp;, an & wrapped in its own <span> for colour (the side
- * menu's logo, the rulebook's last line, the lobby title), %26 in a URL, and
- * & in a string.
+ * any ampersand spelling of the FULL name in any of the forms it has hidden
+ * in before: a bare &, &amp;, an & wrapped in its own <span> for colour (the
+ * side menu's logo, the rulebook's last line, the lobby title), %26 in a URL,
+ * and & in a string. The short form is "C&C" and is not scanned for.
  *
  * Deliberately NOT scanned: multiplayer_server.py, which still has to MATCH
  * "Currents & Critters Online Username", the label on Stripe payment links that
@@ -25,7 +25,6 @@ const AMP = String.raw`(?:&|&amp;|&#38;|&#x26;|\\u0026|%26)`;
 const TAG = String.raw`(?:\s*<[^>]{0,60}>\s*)?`;
 const BAD = [
   ["Currents & Critters", new RegExp(String.raw`Currents\s*${TAG}${AMP}${TAG}\s*Critters`, "i")],
-  ["C&C",                 new RegExp(String.raw`\bC\s*${TAG}${AMP}${TAG}\s*C\b`)],
   ["≈ around the name",   /≈\s*Currents|Critters\s*(?:<[^>]*>\s*)?≈/i],
 ];
 
@@ -66,8 +65,8 @@ if (logoText === "Currents and Critters") console.log("PASS  the side menu logo 
 else { fails++; console.log(`FAIL  the side menu logo reads ${JSON.stringify(logoText)}`); }
 
 const css = fs.readFileSync(path.join(ROOT, "multiplayer/client/css/preview.css"), "utf8");
-if (/\.ph-sidebar-logo::after\s*\{[^}]*content:\s*"CandC"/.test(css)) console.log("PASS  the collapsed rail shows CandC");
-else { fails++; console.log("FAIL  the collapsed rail's logo is not CandC"); }
+if (/\.ph-sidebar-logo::after\s*\{[^}]*content:\s*"C&C"/.test(css)) console.log("PASS  the collapsed rail shows C&C");
+else { fails++; console.log("FAIL  the collapsed rail's logo is not C&C"); }
 
 console.log(fails ? `\n${fails} failure(s) across ${scanned} files` : `\nPASS  no & spelling of the name in ${scanned} files`);
 process.exit(fails ? 1 : 0);
