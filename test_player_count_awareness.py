@@ -295,12 +295,16 @@ section("the planner sees every opponent's plan, not just other planners'")
 class FakeP:
     def __init__(self, **flags):
         self.flags = dict(flags)
+        # An empty board: nothing for the public-board read below to see.
+        self.board_oceans = []
+        self.ocean_slots = {}
 
 
 def crowd(*players, me=0):
     gs = FakeGS(len(players), 60)
     gs.players = list(players)
-    return rp.crowd_by_family(gs, players[me])
+    gs.card_db = {}
+    return rp.crowd_by_family(gs, fish.MatchState(), players[me])
 
 
 me = FakeP(_strategy_family="coral", _planner="reef")
@@ -316,7 +320,8 @@ check(crowd(me, graded_rival) == {"coral": 1},
 check(crowd(me, graded_rival, planner_rival) == {"coral": 2},
       "two opponents on my plan count as two")
 check(crowd(me, other_plan) == {"mammals": 1}, "an opponent on another plan is counted under that plan")
-check(crowd(me, person) == {}, "a person is never counted: nothing here may see their plan")
+check(crowd(me, person) == {},
+      "a person with nothing on the table is not counted: their hand is theirs")
 check(crowd(me) == {}, "with nobody else at the table, nothing is crowded")
 check("coral" not in crowd(me, other_plan), "I am not crowding myself")
 

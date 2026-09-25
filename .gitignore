@@ -18,6 +18,11 @@
 # it, so the server image needs it too (Dockerfile).
 !reef_planner.py
 !test_reef_planner.py
+# Proof that no bot commits to a plan it has no way to score -- King Salmon
+# with no King Salmon, Invertebrates with no Red Beaded Anemone. It reads the
+# live card text to check the table of multipliers it gates on, so it has to
+# travel with the engine and the planner it guards.
+!test_strategy_payoff_gate.py
 # What the planner's knobs were MEASURED to be. reef_planner reads this at
 # import (load_tuned_params), so it has to travel with the module or a night of
 # tuning never reaches a single player. Both parent directories have to be

@@ -814,7 +814,7 @@ def family_cards_on_board(gs: GameState, player: PlayerState, family: str) -> in
     return n
 
 
-def crowd_by_family(gs: GameState, player: PlayerState) -> Dict[str, int]:
+def crowd_by_family(gs: GameState, ms: MatchState, player: PlayerState) -> Dict[str, int]:
     """How many opponents are already chasing each plan.
 
     Two Cephalopod players starve each other -- there are only so many
@@ -837,8 +837,15 @@ def crowd_by_family(gs: GameState, player: PlayerState) -> Dict[str, int]:
         if other is player:
             continue
         fam = str(other.flags.get("_strategy_family", "") or "")
-        if fam:
-            crowd[fam] = crowd.get(fam, 0) + 1
+        if not fam:
+            # No flag: a person, or a grade that plays without a plan. Their
+            # BOARD still says what they are collecting, and a board is public
+            # -- reading it is what a player at the table does with their eyes.
+            # Nothing here touches a hidden hand.
+            fam, conf = fish.infer_opponent_strategy(gs, ms, other)
+            if fam == "unknown" or conf < 0.45:
+                continue
+        crowd[fam] = crowd.get(fam, 0) + 1
     return crowd
 
 
@@ -854,7 +861,7 @@ def choose_family(gs: GameState, ms: MatchState, player: PlayerState, params: Di
     n_players = len(gs.players)
     allowed = [f for f in STRATEGY_FAMILIES
                if not (f == "invertebrates" and n_players < fish.INVERTEBRATE_MIN_PLAYERS)]
-    crowd = crowd_by_family(gs, player)
+    crowd = crowd_by_family(gs, ms, player)
     others = others_summary(gs, player)
     turns = turns_left_after_turn(gs, ms, player, params) + 1.0
     decks = [world_deck(gs, ms, player, rng) for _ in range(max(1, worlds))]
@@ -884,8 +891,27 @@ def choose_family(gs: GameState, ms: MatchState, player: PlayerState, params: Di
         value -= float(params.get("crowding", 0.25)) * abs(value) * crowd.get(fam, 0)
         value -= float(params.get("crowding_points", 0.0)) * crowd.get(fam, 0)
         results[fam] = value
-    jitter = {f: rng.random() for f in results}
-    best = max(results, key=lambda f: (results[f], jitter[f]))
+    # ── THE PAYOFF GATE ────────────────────────────────────────────────────
+    # The projection above plays the next dozen cards this player is going to
+    # draw, and a dozen imagined cards very often contain the one card a plan
+    # needs. That is how a planner talks itself onto King Salmon holding no
+    # King Salmon: the plan is worth 40 points in a world where it draws one,
+    # and the world is free. A plan is only offered here when the card that
+    # makes it score is one the bot HAS, or can see face-up in the Pool -- in
+    # hand, on its board, or on the table, never "somewhere in the deck".
+    payable = {f: v for f, v in results.items()
+               if not fish.strategy_payoff_veto(gs, ms, player, f)}
+    ranked = payable or results
+    jitter = {f: rng.random() for f in ranked}
+    best = max(ranked, key=lambda f: (ranked[f], jitter[f]))
+    if not payable:
+        # Nothing on this hand can pay yet. Take the best plan going and look
+        # again when a multiplier turns up, rather than lock in a dead one.
+        player.flags["_planner_family_unpaid"] = True
+    else:
+        player.flags.pop("_planner_family_unpaid", None)
+    player.flags["_strategy_family_reach"] = float(
+        fish.strategy_payoff_outlook(gs, ms, player, best)["reach"])
     return best, results
 
 
@@ -1733,7 +1759,28 @@ def choose_action(gs: GameState, ms: MatchState, player: PlayerState,
     player.flags["_planner"] = PLANNER_NAME
     note_turn(gs, ms, player)
     if float(params.get("loyalty", 0.0)) > 0.0:
-        if not player.flags.get("_planner_family_chosen"):
+        # A plan chosen with no way to score it is not chosen yet: the bot
+        # plays the best one going and asks again once a multiplier reaches its
+        # hand or the Pool. Once one has, the plan is committed to in the usual
+        # way and only reconsider_family may move it.
+        #
+        # Asking costs a full projection per plan per world, so it is only
+        # asked when the answer can have changed: the check below is a scan of
+        # the hand, the Pool and the boards, and plans nothing.
+        forced = str(player.flags.get("_force_strategy_family", "") or "").strip().lower()
+        if forced in STRATEGY_FAMILIES:
+            # Training asked for this plan by name. The planner picked its own
+            # anyway and wrote it over the top, so a night of "play a thousand
+            # games of Coral" at a planner grade played whatever each hand
+            # fancied instead. A forced plan is never re-chosen and never gated.
+            player.flags["_strategy_family"] = forced
+            player.flags["_strategy_family_source"] = "forced"
+            player.flags["_planner_family_chosen"] = True
+            player.flags.pop("_planner_family_unpaid", None)
+        elif (not player.flags.get("_planner_family_chosen")
+              or (player.flags.get("_planner_family_unpaid")
+                  and any(not fish.strategy_payoff_veto(gs, ms, player, f)
+                          for f in STRATEGY_FAMILIES))):
             family, _values = choose_family(gs, ms, player, params, rng,
                                             worlds=int(params.get("family_worlds", 4)))
             player.flags["_strategy_family"] = family

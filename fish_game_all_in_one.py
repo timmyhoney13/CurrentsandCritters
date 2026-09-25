@@ -4487,6 +4487,344 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
     return profiles
 
 
+# ──────────────────────────────────────────────────────────────────────────
+#  THE CARD THAT MAKES A PLAN WORTH PLAYING
+# ──────────────────────────────────────────────────────────────────────────
+# Every animal plan in this game scores through ONE kind of card: a MULTIPLIER
+# that pays per member of the family, or a count chart that pays for having
+# several of them. Collect the family without it and you have collected nothing.
+#
+# The clearest case is the one that started this: King Salmon is "+5 per fully
+# occupied ocean", and it is the ONLY card in the deck that pays for a filled
+# ocean. A bot with no King Salmon that spends the game packing four sides into
+# every ocean scores exactly zero for all of it. Invertebrates is the same story
+# with the volume turned up: Common Sea Star, Sea Urchin and Johnson's Sea
+# Cucumber are worth NO points at all -- they are draw engines -- so without a
+# Red Beaded Anemone (+3 per invertebrate) or a Barracuda (+2 per Invertebrate)
+# the plan's entire board is worth nothing.
+#
+# So committing to a plan is two questions, not one:
+#   1. can I get its multiplier?            (STRATEGY_PAYOFF_CARDS)
+#   2. will I have enough bodies to multiply? (STRATEGY_MIN_BODY)
+# Both are answered from PUBLIC information only -- this player's own hand and
+# board, the face-up Pool, and every board on the table. Nothing here ever looks
+# into the deck or into another player's hand.
+#
+# Verified against the printed card text, card by card, in
+# test_strategy_payoff_gate.py: every name below really is a per-family
+# multiplier or count chart, and no family that has one is missing it.
+STRATEGY_PAYOFF_CARDS: Dict[str, Tuple[str, ...]] = {
+    # +5 per fully occupied ocean. The only card that pays for filling one.
+    "king_salmon":        ("king salmon",),
+    # +3 / +2 per invertebrate. The rest of the invertebrates score 0 points.
+    "invertebrates":      ("red beaded anemone", "barracuda"),
+    # +3 per mammal, +2 per Mammal. The dolphins are +3 and +2 flat on their own.
+    "mammals":            ("great white shark", "narwhal"),
+    # +3 per yellowfin tuna. Yellowfin themselves are +2 flat and stack forever.
+    "yellowfin_tuna":     ("bigeye tuna", "big eye tuna"),
+    # +4 per baitfish, on top of the baitfish variety chart (see SELF_PAYOFF).
+    "baitfish_barrage":   ("whale shark",),
+    # +2 per Bird; two Razorbill Auks are 25 on their own.
+    "birds_of_a_feather": ("emperor penguin", "razorbill auk"),
+    # +2 per crustacean, and the Mantis Shrimp chart (1/2/3 = 5/15/30).
+    # Lobster is +4 flat and any number share a spot, so it is the body here,
+    # not the payoff.
+    "crustaceans":        ("california gull", "mantis shrimp"),
+    # +2 per coral, +3 per coral, +2 per coral attached to a coral reef.
+    "coral":              ("magnificent frigatebird", "staghorn coral",
+                           "elk horn coral", "elkhorn coral"),
+    # +2 per Cephalopod. Three cephalopods also switch the squids on themselves.
+    "cephalopods":        ("reef trigger fish", "reef triggerfish"),
+    # The Goby chart (1 = 0, 2 = 14, 3 = 30, 4 = 80). Spiny Lobster is +6 PER
+    # Mandarin Goby, so it is worth nothing without them and cannot stand in.
+    "goby_moon_shot":     ("mandarin goby",),
+    # The ocean plan: +10 for all 8, +1 per two oceans, +6 for the most oceans.
+    "ocean_all_blue":     ("mangrove", "tide pool", "great albatross"),
+}
+
+# Plans whose OWN members pay off once there are enough of them, with no
+# multiplier card needed. The number is how many it takes to be worth playing.
+#   * Baitfish score on variety: 3 different species is 11 points, 5 is 30.
+#   * Bobtail Squid, Common Octopus, Cuttlefish and Giant Squid are each worth
+#     more "if you have at least three cephalopods", so three cephalopods is
+#     itself the payoff.
+#   * Yellowfin Tuna is +2 and any number share a spot; 14 of them are in the
+#     deck, so a wall of tuna scores without a Bigeye.
+#   * Lobster is +4 and any number share a spot, same story.
+# A plan not listed here has no way to pay without its multiplier.
+STRATEGY_SELF_PAYOFF: Dict[str, int] = {
+    "baitfish_barrage": 3,
+    "cephalopods":      3,
+    "yellowfin_tuna":   5,
+    "crustaceans":      4,
+}
+
+# How many cards of the family a plan needs before its multiplier is worth
+# committing to. "+3 per invertebrate" with one invertebrate on the board is
+# three points: a multiplier is only as good as the bodies under it.
+#
+# But WHEN matters. An opening hand is seven cards and the Pool is empty, and
+# there is a whole game ahead to collect the rest: a Red Beaded Anemone and one
+# invertebrate on turn one is a plan, and demanding three of them there simply
+# left most bots with no plan they were allowed to pick. In the last rounds
+# there is no time to collect anything, and a multiplier with nothing under it
+# is just a card. So the requirement grows as the deck runs down.
+STRATEGY_MIN_BODY = 3
+STRATEGY_MIN_BODY_EARLY = 1
+STRATEGY_MIN_BODY_MID = 2
+
+
+def strategy_min_body(gs: GameState) -> int:
+    """How many family cards a plan needs to be worth committing to, now."""
+    rounds_left = len(gs.deck) / float(max(1, len(gs.players)))
+    if rounds_left >= 12.0:
+        return STRATEGY_MIN_BODY_EARLY
+    if rounds_left >= 6.0:
+        return STRATEGY_MIN_BODY_MID
+    return STRATEGY_MIN_BODY
+
+
+# A plan is only picked when its multiplier is this likely to be in hand by the
+# end. Holding one is 1.0; one sitting face-up in the Pool is high; one that is
+# merely somewhere in the deck is not -- which is the whole point, because
+# "somewhere in the deck" is how every bot ended up on King Salmon holding no
+# King Salmon.
+MIN_PAYOFF_REACH = 0.55
+# How hard a doubtful multiplier pulls a plan's opening score down.
+PAYOFF_REACH_WEIGHT = 6.0
+# ...and how hard a plan with nothing to multiply is pulled down.
+THIN_BODY_PENALTY = 3.0
+
+
+def strategy_payoff_names(label: str) -> Tuple[str, ...]:
+    """The multiplier cards for a plan. A combo scores through its parents'
+    multipliers, so B-Lob is served by a California Gull or an Emperor Penguin
+    exactly as its halves are."""
+    label = str(label or "").strip().lower()
+    direct = STRATEGY_PAYOFF_CARDS.get(label)
+    if direct:
+        return direct
+    parents = HYBRID_COMPONENTS.get(label)
+    if parents:
+        out: List[str] = []
+        for parent in parents:
+            for nm in STRATEGY_PAYOFF_CARDS.get(parent, ()):
+                if nm not in out:
+                    out.append(nm)
+        return tuple(out)
+    return ()
+
+
+def strategy_self_payoff_at(label: str) -> int:
+    """How many of the family's own cards pay off with no multiplier at all,
+    or 0 when nothing does."""
+    label = str(label or "").strip().lower()
+    # A combo has no self-payoff of its own. Its bodies are two families mixed
+    # together, so "three cephalopods" cannot be read off a Coral / Cephalopod
+    # board that holds three corals: it has to earn a real multiplier from one
+    # half or the other.
+    if label in HYBRID_COMPONENTS:
+        return 0
+    return STRATEGY_SELF_PAYOFF.get(label, 0)
+
+
+def _entry_names(gs: GameState, ms: MatchState, entry_uid: int) -> List[str]:
+    return [card_name_lc(gs.card_db[f]) for f in entry_faces(ms, entry_uid)
+            if f in gs.card_db]
+
+
+# How many copies of each card name the deck holds. Fixed for a card database,
+# and the outlook below asks for it once per plan per decision, so it is
+# counted once and kept. The database itself is held alongside the counts: an
+# id() that has been garbage collected can be handed out again, and the answer
+# for the wrong deck is worse than counting it afresh.
+_CARD_NAME_COUNTS: Dict[int, Tuple[Dict[int, CardDef], Dict[str, int]]] = {}
+
+
+def card_name_counts(card_db: Dict[int, CardDef]) -> Dict[str, int]:
+    got = _CARD_NAME_COUNTS.get(id(card_db))
+    if got is not None and got[0] is card_db:
+        return got[1]
+    counts: Dict[str, int] = {}
+    for c in card_db.values():
+        nm = card_name_lc(c)
+        counts[nm] = counts.get(nm, 0) + 1
+    if len(_CARD_NAME_COUNTS) > 8:
+        _CARD_NAME_COUNTS.clear()
+    _CARD_NAME_COUNTS[id(card_db)] = (card_db, counts)
+    return counts
+
+
+def strategy_payoff_outlook(
+    gs: GameState,
+    ms: MatchState,
+    player: PlayerState,
+    label: str,
+    hand_uids: Optional[List[int]] = None,
+) -> Dict[str, float]:
+    """Can this plan ever pay, and how sure is that?
+
+    Counts the plan's multiplier copies where they can be seen: in this
+    player's hand, on this player's board, face-up in the Pool, and on the other
+    boards at the table (where they are gone for good). What is left over is
+    unseen -- in the deck or in somebody's hand -- and is worth only the chance
+    of drawing it.
+
+    Returns held / pool / gone / unseen counts, the number of family bodies this
+    player can already point at, and `reach`: 0..1, the chance of having a
+    multiplier by the end of the game.
+    """
+    label = str(label or "").strip().lower()
+    payoff = set(strategy_payoff_names(label))
+    profile = strategy_family_profile_by_label(label)
+    hand = list(player.hand if hand_uids is None else hand_uids)
+
+    held = pool = gone = 0
+    body_mine = 0          # family cards in hand or on my board
+    body_pool = 0          # family cards sitting face-up in the Pool
+    rivals_on_plan = 0
+
+    def _is_body(name: str, species: str) -> bool:
+        if not isinstance(profile, dict):
+            return False
+        _ensure_profile_sets(profile)
+        if name in profile["_heavy_set"] or name in profile["_engine_set"]:
+            return True
+        if name in profile["_support_set"] or name in profile["_names_set"]:
+            return True
+        return species in profile["_species_set"]
+
+    for entry_uid in hand:
+        names = _entry_names(gs, ms, entry_uid)
+        if payoff & set(names):
+            held += 1
+        for f in entry_faces(ms, entry_uid):
+            c = gs.card_db.get(f)
+            if c is not None and not is_ocean(c) and _is_body(card_name_lc(c), card_species_lc(c)):
+                body_mine += 1
+                break
+
+    for uid in player_board_face_uids(player):
+        c = gs.card_db.get(uid)
+        if c is None:
+            continue
+        nm = card_name_lc(c)
+        if nm in payoff:
+            held += 1
+        if not is_ocean(c) and _is_body(nm, card_species_lc(c)):
+            body_mine += 1
+
+    for entry_uid in list(ms.pool):
+        names = _entry_names(gs, ms, entry_uid)
+        if payoff & set(names):
+            pool += 1
+        for f in entry_faces(ms, entry_uid):
+            c = gs.card_db.get(f)
+            if c is not None and not is_ocean(c) and _is_body(card_name_lc(c), card_species_lc(c)):
+                body_pool += 1
+                break
+
+    # What the rest of the table has taken off the market, and who is already
+    # chasing this plan. Boards are public: reading them is what a person at the
+    # table does, and it never touches a hidden hand.
+    for other in gs.players:
+        if other is player:
+            continue
+        other_board = 0
+        for uid in player_board_face_uids(other):
+            c = gs.card_db.get(uid)
+            if c is None:
+                continue
+            nm = card_name_lc(c)
+            # A card played on one side takes its OTHER side out of the game
+            # too -- they are one piece of cardboard. A Barracuda on the back of
+            # the Mahi Mahi somebody just played is gone, and counting only the
+            # face that is showing would leave it looking available.
+            primary = ms.face_to_primary.get(uid, uid)
+            if payoff & set(_entry_names(gs, ms, primary)):
+                gone += 1
+                other_board += 1
+            elif not is_ocean(c) and _is_body(nm, card_species_lc(c)):
+                other_board += 1
+        flagged = str(other.flags.get("_strategy_family", "") or "").strip().lower()
+        if flagged == label or other_board >= 3:
+            rivals_on_plan += 1
+
+    counts = card_name_counts(gs.card_db)
+    total = sum(counts.get(nm, 0) for nm in payoff)
+    unseen = max(0, total - held - pool - gone)
+
+    # The plan's own bodies can be the payoff for some families (five different
+    # baitfish score 30 with no Whale Shark). Count the ones already in reach.
+    self_at = strategy_self_payoff_at(label)
+    self_met = bool(self_at) and (body_mine >= self_at)
+
+    if held > 0 or self_met:
+        reach = 1.0
+    elif pool > 0:
+        # Face-up and takeable, but every other seat can see it too.
+        reach = 0.72 if rivals_on_plan else 0.85
+    elif unseen <= 0:
+        reach = 0.0          # every copy is on somebody else's board: dead plan
+    else:
+        # The honest odds: `draws` more cards out of everything still hidden.
+        hidden = max(1, len(gs.deck) + sum(len(o.hand) for o in gs.players if o is not player))
+        draws = _expected_remaining_draws(gs)
+        miss = 1.0
+        for i in range(int(draws)):
+            left = hidden - i
+            if left <= 0:
+                break
+            miss *= max(0.0, (left - unseen) / float(left))
+        reach = 1.0 - miss
+        if rivals_on_plan:
+            # Somebody else is drawing for the same card.
+            reach /= (1.0 + 0.5 * rivals_on_plan)
+
+    return {
+        "held": float(held),
+        "pool": float(pool),
+        "gone": float(gone),
+        "unseen": float(unseen),
+        "body": float(body_mine + body_pool),
+        "body_mine": float(body_mine),
+        "rivals": float(rivals_on_plan),
+        "self_met": 1.0 if self_met else 0.0,
+        "reach": max(0.0, min(1.0, reach)),
+    }
+
+
+def _expected_remaining_draws(gs: GameState) -> int:
+    """Roughly how many more cards this player will see. One a turn plus the
+    draw engines, over the turns the deck can still pay for."""
+    per_player = max(1, len(gs.players))
+    turns_left = len(gs.deck) / float(per_player * 2)
+    return int(max(0, min(18, turns_left * 1.6)))
+
+
+def strategy_payoff_veto(
+    gs: GameState,
+    ms: MatchState,
+    player: PlayerState,
+    label: str,
+    hand_uids: Optional[List[int]] = None,
+    outlook: Optional[Dict[str, float]] = None,
+) -> bool:
+    """True when a bot must NOT commit to this plan: it cannot get the
+    multiplier that makes the plan score, or it has nothing to multiply."""
+    label = str(label or "").strip().lower()
+    if not strategy_payoff_names(label):
+        return False
+    ol = outlook if outlook is not None else strategy_payoff_outlook(gs, ms, player, label, hand_uids)
+    if ol["reach"] < MIN_PAYOFF_REACH:
+        return True
+    # A multiplier with nothing under it is not a plan either. Bodies already on
+    # the board count fully; the Pool counts because it can be taken.
+    if ol["body"] < strategy_min_body(gs) and not ol["self_met"]:
+        return True
+    return False
+
+
 # Strategies usable at each skill level (cumulative: expert can pick any).
 #
 # The ten single plans, plus the three COMBINATIONS (B-Lob, B-Coral, Coral /
@@ -5477,23 +5815,26 @@ def _board_heavy_count(gs: GameState, player: PlayerState,
 
 
 def strategy_pick_penalty(gs: GameState, ms: MatchState, hand_uids: List[int],
-                          label: str, profile_by_label: Dict[str, Dict[str, Any]]) -> float:
+                          label: str, profile_by_label: Dict[str, Dict[str, Any]],
+                          player: PlayerState,
+                          outlook: Optional[Dict[str, float]] = None) -> float:
     """Opening-pick adjustments so bots spread across plans by hand strength
     instead of clustering on broad/superset families."""
     pen = 0.0
-    # Complete Current needs a true ocean payoff, not just a stray shared reef.
-    if label == "ocean_all_blue":
-        oc_heavy = {"mangrove", "tide pool", "great albatross"}
-        has_payoff = False
-        for entry_uid in hand_uids:
-            for face_uid in entry_faces(ms, entry_uid):
-                if card_name_lc(gs.card_db[face_uid]) in oc_heavy:
-                    has_payoff = True
-                    break
-            if has_payoff:
-                break
-        if not has_payoff:
-            pen += 4.0
+    # Every plan needs the multiplier that makes it score -- "Complete Current
+    # with no ocean payoff" was the first case of this, and King Salmon with no
+    # King Salmon was the worst. The rule is now the same rule for all of them:
+    # a plan whose multiplier is not in hand is worth what the chance of drawing
+    # it is worth, and a multiplier with nothing to multiply is worth less again.
+    payoff = strategy_payoff_names(label)
+    if payoff:
+        ol = (outlook if outlook is not None
+              else strategy_payoff_outlook(gs, ms, player, label, hand_uids))
+        pen += PAYOFF_REACH_WEIGHT * (1.0 - ol["reach"])
+        if ol["body"] < STRATEGY_MIN_BODY and not ol["self_met"]:
+            # Graded, not a cliff: this one only leans the pick, the veto below
+            # is what refuses it outright.
+            pen += THIN_BODY_PENALTY * (1.0 - ol["body"] / float(STRATEGY_MIN_BODY))
     # A hybrid must span both halves; otherwise the matching pure plan wins.
     comps = HYBRID_COMPONENTS.get(label)
     if comps:
@@ -5564,6 +5905,12 @@ def assign_strategy_families_from_opening_hands(
         best_label = ""
         best_fit = float("-inf")
         best_total = float("-inf")
+        # The best plan this hand COULD have had, kept aside in case the payoff
+        # gate below rules every plan out. A bot is never left without one.
+        fallback_label = ""
+        fallback_fit = float("-inf")
+        fallback_total = float("-inf")
+        best_reach = 0.0
         for fam in families:
             label = str(fam.get("label", ""))
             if label not in allowlist:
@@ -5591,7 +5938,8 @@ def assign_strategy_families_from_opening_hands(
             # Spread bots across plans: discount broad/superset families
             # (Complete Current with no real ocean payoff; hybrids that don't
             # span both halves) so focused hands commit to the matching plan.
-            fit -= strategy_pick_penalty(gs, ms, p.hand, label, profile_by_label)
+            ol = strategy_payoff_outlook(gs, ms, p, label, p.hand)
+            fit -= strategy_pick_penalty(gs, ms, p.hand, label, profile_by_label, p, outlook=ol)
             # Table diversity: each bot already on this plan makes it less
             # attractive, so bots fan out unless a hand is overwhelmingly suited.
             fit -= 3.0 * taken.get(label, 0)
@@ -5603,13 +5951,38 @@ def assign_strategy_families_from_opening_hands(
             frac_noise = bot_grade_fraction(p.flags.get("_ai_difficulty"))
             jitter = 0.20 - 0.18 * frac_noise
             total = fit + hist + rng.uniform(-jitter, jitter)
+            if total > fallback_total:
+                fallback_total = total
+                fallback_fit = fit
+                fallback_label = label
+            # ── THE PAYOFF GATE ────────────────────────────────────────────
+            # A plan is only a plan if the card that makes it score is one this
+            # bot can actually get. Filling oceans all game with no King Salmon
+            # scores zero; so does a board of invertebrates with no Red Beaded
+            # Anemone and no Barracuda. Reading the Pool and the other boards is
+            # part of the answer -- if the last two Anemones are already down on
+            # somebody else's board, that plan is dead and nobody should start it.
+            if strategy_payoff_veto(gs, ms, p, label, p.hand, outlook=ol):
+                continue
             if total > best_total:
                 best_total = total
                 best_fit = fit
                 best_label = label
+                best_reach = float(ol["reach"])
+        if not best_label and fallback_label:
+            # Nothing the hand holds can pay. Take the best-fitting plan anyway
+            # rather than play no plan at all, and mark it so the mid-game
+            # reassessment knows to look again the moment a multiplier shows up.
+            best_label = fallback_label
+            best_fit = fallback_fit
+            p.flags["_strategy_family_unpaid"] = True
         if best_label:
             p.flags["_strategy_family"] = best_label
             p.flags["_strategy_family_fit"] = float(best_fit)
+            # What the payoff gate saw when it let this plan through: 1.0 means
+            # the multiplier is in hand or on the board. Kept so a game log can
+            # answer "why is that bot on King Salmon?".
+            p.flags["_strategy_family_reach"] = float(best_reach)
             p.flags["_strategy_family_source"] = "opening_hand+learned"
             taken[best_label] = taken.get(best_label, 0) + 1
             assigned.append((p.name, best_label, float(best_fit)))
@@ -5648,8 +6021,19 @@ def maybe_reassess_strategy_family(
     # end. Constant mid-game pivoting was hurting results, so once a strategy
     # family is chosen we never switch away from it, we only adopt one the first
     # time (when none is set yet). Everything below this guard is pure adoption.
+    #
+    # The one exception is a plan that cannot score. A bot dealt no multiplier
+    # at all starts on the plan its hand fits best and is marked "unpaid"; the
+    # moment a real multiplier reaches its hand or the Pool -- its own, or
+    # another plan's -- it is allowed to move once, and then it commits for
+    # good. Sticking with a plan that pays nothing is not commitment.
     if current_label:
-        return None
+        if not player.flags.get("_strategy_family_unpaid"):
+            return None
+        if not strategy_payoff_veto(gs, ms, player, current_label):
+            # The plan can pay after all: commit to it and stop looking.
+            player.flags.pop("_strategy_family_unpaid", None)
+            return None
 
     # Snap-shot hand + board + visible pool: pool cards available
     # for drawing should reward strategies that can pick them up.
@@ -5684,7 +6068,7 @@ def maybe_reassess_strategy_family(
         # Only penalize SWITCHING INTO a broad/unbalanced family, never the
         # current plan (penalizing the current plan caused needless flip-flops).
         if label != current_label:
-            hand_score -= strategy_pick_penalty(gs, ms, player.hand, label, profile_by_label)
+            hand_score -= strategy_pick_penalty(gs, ms, player.hand, label, profile_by_label, player)
             if label == "invertebrates" and len(gs.players) < 6:
                 hand_score -= 2.5
         scores[label] = hand_score + board_weight * board_score + 0.4 * pool_score + 0.3 * hist
@@ -5699,6 +6083,11 @@ def maybe_reassess_strategy_family(
     committed_anchors = _board_anchor_count(gs, player, cur_profile)
     committed_heavy   = _board_heavy_count(gs, player, cur_profile)
 
+    # Stickiness by grade. This used to read a bare `diff` that was never
+    # defined in this function, so every call that got this far raised
+    # NameError -- and the one caller wraps this in `except Exception: pass`,
+    # so mid-game adoption silently never happened at all.
+    diff = str(player.flags.get("_ai_difficulty", "") or "").strip().lower()
     base_stick = 5.0 if diff == "hard" else 3.5 if diff == "medium" else 1.5
     # Each committed anchor makes the plan progressively stickier; capped so a
     # genuinely dominant alternative can still win out in the early/mid game.
@@ -5707,16 +6096,37 @@ def maybe_reassess_strategy_family(
     if current_label in scores:
         scores[current_label] += stick
 
-    best_label = max(scores, key=scores.get)
+    # A plan whose multiplier is out of reach is not worth adopting or moving
+    # to, however well the hand scores against it on paper. The plan in play is
+    # judged by the same rule: it only got here by being unpayable, and letting
+    # its stickiness bonus keep it at the top would leave the bot stuck on a
+    # plan that scores nothing for the rest of the game.
+    payable = {lab: v for lab, v in scores.items()
+               if not strategy_payoff_veto(gs, ms, player, lab)}
+    ranked_from = payable or scores
+    best_label = max(ranked_from, key=ranked_from.get)
     if not current_label:
-        # No strategy yet: adopt the best one.
+        # No strategy yet: adopt the best one that can actually pay.
         player.flags["_strategy_family"] = best_label
         player.flags["_strategy_family_fit"] = float(scores[best_label])
         player.flags["_strategy_family_source"] = "mid_game_adopt"
+        if not payable:
+            player.flags["_strategy_family_unpaid"] = True
         return best_label
 
     if best_label == current_label:
         return None
+
+    # An unpaid plan moves as soon as a payable one is on the table: it is
+    # scoring nothing where it stands, so the usual commitment gates below
+    # (which exist to stop a WORKING plan being abandoned) do not apply.
+    if player.flags.get("_strategy_family_unpaid") and best_label in payable:
+        player.flags["_strategy_family_prev"] = current_label
+        player.flags["_strategy_family"] = best_label
+        player.flags["_strategy_family_fit"] = float(scores[best_label])
+        player.flags["_strategy_family_source"] = "unpaid_to_payable"
+        player.flags.pop("_strategy_family_unpaid", None)
+        return best_label
 
     # ── Switch gates: only pivot when the new plan is genuinely ready ────
     # The guide: switch ONLY if the new strategy is clearly much stronger AND
@@ -5732,6 +6142,8 @@ def maybe_reassess_strategy_family(
         + _board_anchor_count(gs, player, new_profile)
     )
     if new_anchors_ready < 2:
+        return None
+    if best_label not in payable:
         return None
 
     # Gate 2, once deeply committed to the current plan, almost never pivot.
