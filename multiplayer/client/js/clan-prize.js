@@ -190,7 +190,6 @@
 
     return `
       <div class="ccPrize-inner">
-        <div class="ccPrize-ico" aria-hidden="true">🏆</div>
         <div class="ccPrize-body">
           <div class="ccPrize-title"><span class="amt">${esc(money(p.usd))}</span> to the #1 clan</div>
           <div class="ccPrize-what">

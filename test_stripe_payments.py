@@ -1300,6 +1300,22 @@ class TestEverythingIsBackExceptTheTiers(unittest.TestCase):
         self.assertIn("const PHST_TIERS_KICKSTARTER_ONLY = true;", self.store,
                       "the Store's tier cards are buyable again")
 
+    def test_both_surfaces_show_the_kickstarter_mark_not_an_emoji(self):
+        """Kickstarter's own logo, inline, the way the Discord one is done. A
+        rocket emoji stood here first and read as clip art beside a real brand's
+        name, which is the corny look this replaced."""
+        mark = 'viewBox="0 0 24 24"'
+        for name, src, cls in (("index.html", self.home, "tier-ks-ico"),
+                               ("the Store", self.store, "phst-ks-ico")):
+            self.assertIn('<svg class="%s"' % cls, src, name)
+            self.assertIn(mark, src, name)
+            # Scoped to the strip: "\U0001F680 Quick Start" is a different badge
+            # on both surfaces and is nobody's brand mark.
+            strip = src[max(0, src.index("Kickstarter coming soon") - 400):
+                        src.index("Kickstarter coming soon")]
+            self.assertNotIn("\U0001F680", strip,
+                             "%s still puts a rocket beside the Kickstarter name" % name)
+
     def test_both_surfaces_say_where_the_tiers_will_be(self):
         """A locked button with no explanation reads as broken."""
         for name, src in (("index.html", self.home), ("the Store", self.store)):

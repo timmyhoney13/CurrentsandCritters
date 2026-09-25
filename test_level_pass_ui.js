@@ -452,8 +452,12 @@ const MAIN = \`
     const gn = document.getElementById("cc-game-night");
     out.gn = {
       text: txt(gn),
-      href: (gn.querySelector(".ccGN-btn") || {}).href || "",
-      btnLabel: txt(gn.querySelector(".ccGN-btn")),
+      // The RSVP button and the dice both came off the band. Counted rather
+      // than described: "no .ccGN-btn" is the only proof the button is gone,
+      // and anything focusable would be a control nobody meant to leave.
+      buttons: gn.querySelectorAll("a, button").length,
+      focusable: Array.prototype.filter.call(
+        gn.querySelectorAll("*"), (el) => el.tabIndex >= 0).length,
       xpChip: txt(gn.querySelector(".ccGN-xp")),
       selfInjected: gn.parentElement && gn.parentElement.id === "ph-panel-overview",
       firstChild: gn.parentElement && gn.parentElement.firstElementChild === gn,
@@ -484,13 +488,12 @@ const MAIN = \`
       overflow: overflow.slice(0, 6),
       passHead: (() => { const h = document.querySelector(".ccLP-head");
                          return h ? Math.round(h.getBoundingClientRect().width) : 0; })(),
-      gnBtnW: (() => { const b = document.querySelector(".ccGN-btn");
-                       return b ? Math.round(b.getBoundingClientRect().width) : 0; })(),
       refBtnW: (() => { const b = document.getElementById("ccRF-go");
                         return b ? Math.round(b.getBoundingClientRect().width) : 0; })(),
-      // The RSVP button must stay a real tap target, not a sliver.
-      gnBtnH: (() => { const b = document.querySelector(".ccGN-btn");
-                       return b ? Math.round(b.getBoundingClientRect().height) : 0; })(),
+      // The band is text only now. It still has to fill the width it is given
+      // rather than collapsing to the width of its longest word.
+      gnW: (() => { const b = document.querySelector(".ccGN-inner");
+                    return b ? Math.round(b.getBoundingClientRect().width) : 0; })(),
     };
   } catch (e) {
     out.errors.push("THREW: " + (e && e.message ? e.message : String(e)));
@@ -684,10 +687,15 @@ check("the banner put itself on Player Home", D.gn.selfInjected === true);
 check("it is the FIRST thing in the Overview panel", D.gn.firstChild === true);
 check("the schedule is stated in full, both nights",
       /Every Wednesday & Saturday, 7:00–9:00 PM CST/.test(D.gn.text), D.gn.text.slice(0, 160));
-check("RSVP is offered", /RSVP/i.test(D.gn.btnLabel), D.gn.btnLabel);
-check("the RSVP link points at Discord", /discord\.gg/.test(D.gn.href), D.gn.href);
-check("RSVP is described as recommended, not required",
-      /isn't mandatory/i.test(D.gn.text) && /recommended/i.test(D.gn.text), D.gn.text);
+// The RSVP came off the band on 2026-09-25, and so did the dice. A thing
+// nobody has to do did not need a button, and the band reads as an
+// announcement now rather than an invitation to click something.
+check("there is no RSVP button left on the band", D.gn.buttons === 0, D.gn.buttons);
+check("…and nothing else on it can be tabbed to either",
+      D.gn.focusable === 0, D.gn.focusable);
+check("the RSVP wording went with the button",
+      !/RSVP/i.test(D.gn.text) && !/isn't mandatory/i.test(D.gn.text), D.gn.text);
+check("the dice went too", !/\u{1F3B2}/u.test(D.gn.text), D.gn.text.slice(0, 80));
 check("it says when the next one starts, and which night it is",
       /(Wednesday|Saturday) · starts in|Live right now/.test(D.gn.text), D.gn.text);
 // The XP bonus is half the reason to turn up, so it is a chip of its own next
@@ -710,8 +718,8 @@ for (const w of WIDTHS) {
   check(`${label}: nothing overflows the window`, (L.overflow || []).length === 0,
         JSON.stringify(L.overflow));
   check(`${label}: the pass header fits`, L.passHead > 0 && L.passHead <= w, L.passHead);
-  check(`${label}: the RSVP button is a real tap target`,
-        L.gnBtnW >= 90 && L.gnBtnH >= 34, `${L.gnBtnW}×${L.gnBtnH}`);
+  check(`${label}: the Game Night band fills the width it is given`,
+        L.gnW > w * 0.5 && L.gnW <= w, L.gnW);
   check(`${label}: the referral Claim button is a real tap target`, L.refBtnW >= 80, L.refBtnW);
   check(`${label}: tier cards keep a usable width`, F.pass.minTierW >= 140, F.pass.minTierW);
 }

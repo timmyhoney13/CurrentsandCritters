@@ -139,6 +139,11 @@ console.log("\nthe top of the shelf");
 // sit above the first section title rather than inside any one of them.
 check(/Kickstarter coming soon/.test(HTML), "the Kickstarter strip is at the top");
 check(/Every Purchase Makes Waves!/.test(HTML), "the pledge headline is there");
+// Kickstarter's own mark, inline, the way the Discord logo is done: a rocket
+// emoji stood here first and read as clip art next to a real brand's name.
+check(/<svg class="phst-ks-ico"[^>]*viewBox="0 0 24 24"/.test(HTML),
+      "the strip carries the Kickstarter mark, not an emoji");
+check(!/\u{1F680}/u.test(HTML), "no rocket emoji is left on the shelf");
 check(/5% of every purchase supports ocean conservation/.test(HTML),
       "the pledge says 5%");
 check(/Surfrider Foundation/.test(HTML), "and names the Surfrider Foundation");
@@ -168,6 +173,8 @@ check((shippedTierBlock.match(/<button/g) || []).length ===
       "every button on a tier card is disabled");
 check(/The Supporter Tiers will be available through Kickstarter soon!/.test(HTML),
       "a line under the grid says where they will be");
+check(/<svg class="phst-tier-ks-ico"[^>]*viewBox="0 0 24 24"/.test(HTML),
+      "…with the Kickstarter mark on it too");
 check(HTML.indexOf("The Supporter Tiers will be available through Kickstarter soon!")
         > HTML.indexOf('class="phst-tier-grid"'),
       "...and it is BELOW the tiers, where the reader ends up");

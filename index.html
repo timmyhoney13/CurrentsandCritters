@@ -11,13 +11,13 @@
      multiplayer/client/, so both hosts render the identical banner from one
      source. Two copies of an event time is how a site ends up advertising
      last season's schedule on one of them. -->
-<link rel="stylesheet" href="/css/game-night.css?v=2026-09-03.4"/>
+<link rel="stylesheet" href="/css/game-night.css?v=2026-09-25.1"/>
 <!-- Clan Season Grand Prize band. Same arrangement as Game Night above: the
      markup is built by /js/clan-prize.js, which the GAME serves too, so one
      source states the prize on both hosts and the amount cannot drift between
      them. The script also reads the live standings from the game server's
      public clan leaderboard, so this band names the clan currently winning. -->
-<link rel="stylesheet" href="/css/clan-prize.css?v=2026-09-05.4"/>
+<link rel="stylesheet" href="/css/clan-prize.css?v=2026-09-25.1"/>
 <!-- Luckiest Guy: the chunky display font for the Supporter Reef Wall donor names
      (see .scn-name in the inline styles below). Loaded here, page-local, so it
      doesn't weigh down the game app which shares colors_and_type.css. -->
@@ -25,8 +25,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap"/>
 <script src="image-slot.js"></script>
-<script defer src="/js/game-night.js?v=2026-09-03.4"></script>
-<script defer src="/js/clan-prize.js?v=2026-09-05.4"></script>
+<script defer src="/js/game-night.js?v=2026-09-25.1"></script>
+<script defer src="/js/clan-prize.js?v=2026-09-25.1"></script>
 <style>
   /* ── OLD-SITE NOTICE BAR ─────────────────────────────────────────── */
   .oldsite-bar {
@@ -459,7 +459,10 @@
     font-size: 14px; font-weight: 800; letter-spacing: 0.01em;
     box-shadow: 0 4px 18px rgba(20,110,170,0.35);
   }
-  .tier-ks-ico { font-size: 17px; line-height: 1; }
+  /* Kickstarter's own mark, inline (see the two <svg> uses below). It takes
+     currentColor, so on the blue banner and on the dark note it is white,
+     which is Kickstarter's own monochrome treatment on a coloured ground. */
+  .tier-ks-ico { flex: 0 0 auto; display: block; }
   .tier-waves {
     max-width: 760px; margin: 0 auto 30px;
     padding: 20px 24px; border-radius: 16px;
@@ -1203,7 +1206,7 @@
          The same two blocks that open the in-game Store, in the same words.
          They sit above the cards because they are true of all of them. -->
     <div class="tier-ks-banner">
-      <span class="tier-ks-ico" aria-hidden="true">🚀</span>
+      <svg class="tier-ks-ico" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.2505 12.0001L17.5686 7.6437C19.0475 6.1521 19.0475 3.7335 17.5686 2.2419C16.0897 0.7503 13.6918 0.7503 12.2129 2.2419L10.1077 4.3653V3.1815C10.1077 1.0724 8.4131 0 6.3222 0C4.2313 0 2.5367 1.0724 2.5367 3.1815V20.8185C2.5367 22.9276 4.2313 24 6.3222 24C8.4131 24 10.1077 22.9276 10.1077 20.8185V19.6347L12.2129 21.7581C13.6918 23.2497 16.0897 23.2497 17.5686 21.7581C19.0475 20.2665 19.0475 17.8479 17.5686 16.3563L13.2505 12.0001Z"/></svg>
       <span>Kickstarter coming soon</span>
     </div>
     <div class="tier-waves">
@@ -1404,7 +1407,7 @@
          They render in full so a reader can decide which one they want;
          none of them has a checkout. See the comment on .tier-locked. -->
     <div class="tier-ks-note">
-      <span class="tier-ks-ico" aria-hidden="true">🚀</span>
+      <svg class="tier-ks-ico" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.2505 12.0001L17.5686 7.6437C19.0475 6.1521 19.0475 3.7335 17.5686 2.2419C16.0897 0.7503 13.6918 0.7503 12.2129 2.2419L10.1077 4.3653V3.1815C10.1077 1.0724 8.4131 0 6.3222 0C4.2313 0 2.5367 1.0724 2.5367 3.1815V20.8185C2.5367 22.9276 4.2313 24 6.3222 24C8.4131 24 10.1077 22.9276 10.1077 20.8185V19.6347L12.2129 21.7581C13.6918 23.2497 16.0897 23.2497 17.5686 21.7581C19.0475 20.2665 19.0475 17.8479 17.5686 16.3563L13.2505 12.0001Z"/></svg>
       <div>The Supporter Tiers will be available through Kickstarter soon!</div>
     </div>
 

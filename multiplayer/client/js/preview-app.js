@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-24.1";
+  const APP_BUILD   = "2026-09-25.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -31996,7 +31996,7 @@
         // because they are true of every row below: the coin packs, the
         // tiers and the physical game alike.
         html += `<div class="phst-ks-banner">
-          <span class="phst-ks-ico" aria-hidden="true">\u{1F680}</span>
+          <svg class="phst-ks-ico" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.2505 12.0001L17.5686 7.6437C19.0475 6.1521 19.0475 3.7335 17.5686 2.2419C16.0897 0.7503 13.6918 0.7503 12.2129 2.2419L10.1077 4.3653V3.1815C10.1077 1.0724 8.4131 0 6.3222 0C4.2313 0 2.5367 1.0724 2.5367 3.1815V20.8185C2.5367 22.9276 4.2313 24 6.3222 24C8.4131 24 10.1077 22.9276 10.1077 20.8185V19.6347L12.2129 21.7581C13.6918 23.2497 16.0897 23.2497 17.5686 21.7581C19.0475 20.2665 19.0475 17.8479 17.5686 16.3563L13.2505 12.0001Z"/></svg>
           <span>Kickstarter coming soon</span>
         </div>`;
         html += `<div class="phst-waves">
@@ -32232,7 +32232,7 @@
         html += `</div>`;
         if (PHST_TIERS_KICKSTARTER_ONLY) {
           html += `<div class="phst-tier-ks-note">
-            <span class="phst-tier-ks-ico" aria-hidden="true">\u{1F680}</span>
+            <svg class="phst-tier-ks-ico" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.2505 12.0001L17.5686 7.6437C19.0475 6.1521 19.0475 3.7335 17.5686 2.2419C16.0897 0.7503 13.6918 0.7503 12.2129 2.2419L10.1077 4.3653V3.1815C10.1077 1.0724 8.4131 0 6.3222 0C4.2313 0 2.5367 1.0724 2.5367 3.1815V20.8185C2.5367 22.9276 4.2313 24 6.3222 24C8.4131 24 10.1077 22.9276 10.1077 20.8185V19.6347L12.2129 21.7581C13.6918 23.2497 16.0897 23.2497 17.5686 21.7581C19.0475 20.2665 19.0475 17.8479 17.5686 16.3563L13.2505 12.0001Z"/></svg>
             <div>The Supporter Tiers will be available through Kickstarter soon!</div>
           </div>`;
         }

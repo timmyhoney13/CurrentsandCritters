@@ -62,13 +62,6 @@
 }
 @keyframes ccGN-sheen { from { transform: translateX(-30%); } to { transform: translateX(30%); } }
 
-.ccGN-ico {
-  font-size: 2.6rem;
-  line-height: 1;
-  flex: 0 0 auto;
-  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .3));
-}
-
 .ccGN-body { flex: 1 1 auto; min-width: 0; }
 
 .ccGN-title {
@@ -154,9 +147,9 @@
   border-color: rgba(255, 255, 255, .5);
 }
 
-/* The "not mandatory but recommended" line. Quieter than the schedule, but it
-   must still be legible on the gradient, this is the sentence that decides
-   whether people feel they can just turn up. */
+/* What the bonus applies to. Quieter than the schedule, but it must still be
+   legible on the gradient: this is the sentence that says the XP covers games,
+   challenges and the daily bonus rather than just one of them. */
 .ccGN-note {
   margin-top: 7px;
   font-size: .86rem;
@@ -164,32 +157,10 @@
   line-height: 1.35;
 }
 
-.ccGN-cta { flex: 0 0 auto; }
-.ccGN-btn {
-  display: inline-block;
-  padding: 12px 24px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, var(--gn-gold) 0%, var(--gn-gold-d) 100%);
-  color: #3d2600;
-  font-weight: 900;
-  font-size: 1rem;
-  text-decoration: none;
-  border: 1px solid rgba(255, 255, 255, .45);
-  box-shadow: 0 5px 14px rgba(0, 0, 0, .26);
-  white-space: nowrap;
-  transition: transform .14s ease, box-shadow .14s ease;
-}
-.ccGN-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, .32);
-}
-.ccGN-btn:active { transform: translateY(0); }
-.ccGN-btn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
-
 /* ── Narrow screens ──────────────────────────────────────────────────────
-   The banner stacks rather than shrinking: a 3-column layout at 380px turns
-   the RSVP button into an unreadable sliver, which is the one element that
-   must stay tappable. */
+   The banner stacks rather than shrinking. It is two columns now, not three:
+   the dice and the RSVP button are both gone, so the text has the whole
+   width and only has to be kept off the edges. */
 @media (max-width: 720px) {
   .ccGN-inner {
     flex-direction: column;
@@ -198,18 +169,14 @@
     padding: 16px 18px;
     border-radius: 18px;
   }
-  .ccGN-ico { font-size: 2.1rem; }
   .ccGN-title { font-size: 1.3rem; }
   .ccGN-when { font-size: .94rem; }
   .ccGN-local { margin-left: 0; margin-top: 4px; }
-  .ccGN-cta { width: 100%; }
-  .ccGN-btn { display: block; text-align: center; width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ccGN-inner::after { animation: none; }
   .ccGN-live { animation: none; }
-  .ccGN-btn { transition: none; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════

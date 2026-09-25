@@ -1,9 +1,8 @@
 /* Currents and Critters: Game Night (one module, both hosts).
  *
  * "Game Night is every Wednesday and Saturday, 7–9 PM CST. Games, challenges
- * and the daily bonus pay 1.5x XP while it runs. RSVP here. RSVP isn't
- * required, but it's recommended." That is the whole feature, and it has to be
- * impossible to miss in two places:
+ * and the daily bonus pay 1.5x XP while it runs." That is the whole feature,
+ * and it has to be impossible to miss in two places:
  *
  *   • the marketing site (index.html)  → renders into <div id="cc-game-night">
  *   • the game's Player Home            → self-injects at the TOP of the
@@ -33,13 +32,10 @@
   "use strict";
 
   // ── The one place the event is defined ───────────────────────────────────
-  // RSVP points at the Discord server, where the scheduled event lives. Set
-  // window.CC_GAME_NIGHT_RSVP_URL before this script to point it somewhere
-  // else (a specific event permalink, a form) without touching this file.
-  const RSVP_URL = (typeof window.CC_GAME_NIGHT_RSVP_URL === "string" && window.CC_GAME_NIGHT_RSVP_URL)
-    ? window.CC_GAME_NIGHT_RSVP_URL
-    : "https://discord.gg/RZgZEKYJn6";
-
+  // There is no RSVP any more. The band used to end in an "RSVP here" button
+  // out to the Discord event, and a note saying RSVP was recommended but not
+  // required; a thing nobody has to do is a thing that did not need a button.
+  // The Discord invite is still one click away on Player Home.
   const ZONE = "America/Chicago";   // what "CST" means to a person
   // The nights, 0=Sun … 6=Sat. A LIST rather than one weekday because Game
   // Night runs twice a week: everything downstream (the headline, the
@@ -239,7 +235,6 @@
 
     return `
       <div class="ccGN-inner${live ? " is-live" : ""}">
-        <div class="ccGN-ico" aria-hidden="true">🎲</div>
         <div class="ccGN-body">
           <div class="ccGN-title">Game Night</div>
           <div class="ccGN-when">
@@ -249,11 +244,8 @@
           <div class="ccGN-status">${when}${xpChip}</div>
           <div class="ccGN-note">
             Games, challenges and your daily bonus all pay ${esc(XP_LABEL)} XP while
-            it runs. RSVP isn't mandatory, but it's recommended.
+            it runs.
           </div>
-        </div>
-        <div class="ccGN-cta">
-          <a class="ccGN-btn" href="${esc(RSVP_URL)}" target="_blank" rel="noopener noreferrer">RSVP here</a>
         </div>
       </div>`;
   }
