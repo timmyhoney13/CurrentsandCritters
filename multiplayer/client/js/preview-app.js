@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-25.1";
+  const APP_BUILD   = "2026-09-25.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -19882,6 +19882,13 @@
       e.textContent = "No messages yet. Say hi! 🐟"; wrap.appendChild(e);
     } else {
       msgs.forEach(m => {
+        // The live trade: one card, redrawn in place, never a pile of lines.
+        if (m.trade) {
+          const card = (window.__fishTrade && window.__fishTrade.card)
+            ? window.__fishTrade.card(m, "panel") : null;
+          if (card) wrap.appendChild(card);
+          return;
+        }
         if (m.system) {
           const sys = document.createElement("div"); sys.className = "pvc-sys";
           sys.textContent = m.text || ""; wrap.appendChild(sys);
@@ -29037,11 +29044,20 @@
     function _msgSummarize(all, myUid, locallyRead) {
       const readSet = locallyRead || new Set();
       const isRead = (m) => !!m.read || readSet.has(m.id);
+      // The server used to narrate a trade with centered system lines in the DM
+      // (trade_log:true) on top of mirroring the trade itself. The trade CARD
+      // replaced all of them, but the old lines are still sitting in people's
+      // inboxes, so they are dropped from every view below and handed back as
+      // orphans, which marks them read once and for all. Left countable they
+      // would hold a number over Messages that nothing on screen could clear.
+      const legacy = (m) => !!m && m.trade_log === true;
       // Everything that could be unread: a real message (not a group meta doc,
-      // not a chat-background doc, not the live trade mirror), from someone
-      // else, that I have not read. This is the ONLY definition of unread in
-      // the file now, used for the per-conversation counts and the total alike.
-      const countable = (m) => !!m && !m.meta && !m.trade && m.sender !== myUid && !isRead(m);
+      // not a chat-background doc, not a legacy trade line), from someone else,
+      // that I have not read. The live trade doc IS one of these: it is the
+      // card in the chat, and a trade nobody is told about is a trade nobody
+      // answers. This is the ONLY definition of unread in the file, used for
+      // the per-conversation counts and the total alike.
+      const countable = (m) => !!m && !m.meta && !legacy(m) && m.sender !== myUid && !isRead(m);
 
       const byConv = {};
       const noConv = [];        // unread that names no conversation at all
@@ -29056,11 +29072,18 @@
         const all2 = byConv[cid];
         const meta = all2.filter(_msgIsGroupMeta).sort((a, b) => _msgTs(a) - _msgTs(b)).pop() || null;
         const isGroup = !!meta || all2.some(m => m.group);
-        // Exclude the live trade mirror doc (trade:true), it's not a chat message.
-        const msgs = all2.filter(m => !m.meta && !m.trade).sort((a, b) => _msgTs(a) - _msgTs(b));
+        // The live trade doc stays in: it is drawn as the trade card, in date
+        // order with everything else, and its `text` ("Trade request") is what
+        // this row shows when the card is the newest thing in the chat.
+        const msgs = all2.filter(m => !m.meta && !legacy(m)).sort((a, b) => _msgTs(a) - _msgTs(b));
         const last = msgs[msgs.length - 1];
         const unreadMsgs = msgs.filter(countable);
         const unread = unreadMsgs.length;
+        // Legacy trade lines belong to no view any more, so every unread one is
+        // swept read rather than counted by a row that will never show it.
+        all2.forEach(m => {
+          if (legacy(m) && m.sender !== myUid && !isRead(m)) orphans.push(m.id);
+        });
         // A row this function is about to drop takes its unread with it, so
         // every id in it is handed back to be swept rather than counted.
         const drop = () => { unreadMsgs.forEach(m => orphans.push(m.id)); return null; };
@@ -29499,13 +29522,20 @@
       if (!msgsEl || !_msgOpenConvId) return;
       const isGroup = !!_msgOpenGroup;
       const msgs = _msgAllMessages
-        .filter(m => m.conv_id === _msgOpenConvId && !m.meta && !m.trade)
+        .filter(m => m.conv_id === _msgOpenConvId && !m.meta && !m.trade_log)
         .sort((a, b) => _msgTs(a) - _msgTs(b));
       msgsEl.innerHTML = "";
       if (!msgs.length) {
         msgsEl.innerHTML = "<div class=\"ccm-empty\" style=\"padding:24px;\">No messages yet. Say hi! 🐟</div>";
       } else {
         msgs.forEach(m => {
+          // The live trade: one card, redrawn in place, never a pile of lines.
+          if (m.trade) {
+            const card = (window.__fishTrade && window.__fishTrade.card)
+              ? window.__fishTrade.card(m, "drawer") : null;
+            if (card) msgsEl.appendChild(card);
+            return;
+          }
           if (m.system) {
             const sys = document.createElement("div"); sys.className = "ccm-sys";
             sys.textContent = m.text || ""; msgsEl.appendChild(sys);
@@ -29552,7 +29582,7 @@
     async function _msgMarkConvRead(convId) {
       if (!_db || !_authUser || !convId) return;
       const unread = _msgAllMessages.filter(m =>
-        m.conv_id === convId && !m.meta && !m.trade
+        m.conv_id === convId && !m.meta && !m.trade_log
         && m.sender !== _authUser.uid && !m.read && !_msgLocallyRead.has(m.id));
       if (!unread.length) return;
       unread.forEach(m => _msgLocallyRead.add(m.id));
@@ -30181,8 +30211,11 @@
                        const c = _msgConversations.find(x => x && x.id === convId);
                        return c ? (c.unread || 0) : 0;
                      },
+      // Trade docs are IN: each surface draws them as the trade card, in date
+      // order with the messages. Legacy trade system lines are out, see
+      // `legacy` in _msgSummarize.
       messagesFor:  (convId) => _msgAllMessages
-                       .filter(m => m.conv_id === convId && !m.meta && !m.trade)
+                       .filter(m => m.conv_id === convId && !m.meta && !m.trade_log)
                        .sort((a, b) => _msgTs(a) - _msgTs(b)),
       // Latest live trade-state doc for a DM conv (from the server mirror), or null.
       tradeState:   (convId) => {
@@ -31218,6 +31251,267 @@
       });
     }
 
+    // ══ THE TRADE CARD, IN THE CHAT ══════════════════════════════════
+    //
+    // A trade used to announce itself in words, three times: "started a
+    // trade", "confirmed the trade, it is waiting on you now", "Trade
+    // completed: X gave 1 avatar; Y gave nothing". Centered grey lines that
+    // could not be acted on, that went stale the second an offer changed, and
+    // that between them buried the conversation they were posted into.
+    //
+    // One card replaces all of it. It is the server's live mirror doc
+    // (trade:true) drawn in place in the chat: both sides of the offer, who
+    // has confirmed, and the two buttons that matter. It redraws itself as the
+    // other player edits, and it can be confirmed from the chat without
+    // opening the full trade screen, which is the point. The answer belongs
+    // where the question was asked.
+    const _TR_CARD_HOLD_MS = 6000;   // how long my own card may lead the server
+    const _trCardBusy  = {};         // tradeId → an action is in flight
+    const _trCardLocal = {};         // tradeId → { state, at }, shown until Firestore catches up
+    const _trCardSeen  = {};         // surface|tradeId → last status, so the pop plays once
+
+    // Status, version and who has confirmed: everything the card's look is
+    // built from, so an optimistic copy can be retired the instant the real
+    // one says the same thing.
+    function _trCardSig(st) {
+      if (!st) return "";
+      const c = st.confirmed || {};
+      const who = Object.keys(c).sort().map(k => k + (c[k] ? "1" : "0")).join(",");
+      return [st.status || "open", Number(st.version) || 0, who].join("|");
+    }
+
+    // What to draw: the server's copy, unless an action of mine was just
+    // accepted and its snapshot has not landed yet. Sitting on the old card
+    // for a round trip is what made confirming feel like nothing happened.
+    // The server's copy only ever moves forward, so it takes over the moment
+    // it is level with mine, and a stuck override expires by the clock.
+    function _trCardState(doc) {
+      const st  = (doc && doc.trade_state) || null;
+      const tid = (st && st.tradeId) || (doc && doc.trade_id) || "";
+      const loc = tid ? _trCardLocal[tid] : null;
+      if (!loc) return st;
+      const done = (x) => (x === "completed" || x === "canceled") ? 1 : 0;
+      const caughtUp = !st
+        || _trCardSig(st) === _trCardSig(loc.state)
+        || (Number(st.version) || 0) > (Number(loc.state.version) || 0)
+        || done(st.status || "open") > done(loc.state.status || "open")
+        || (Date.now() - loc.at) > _TR_CARD_HOLD_MS;
+      if (caughtUp) { delete _trCardLocal[tid]; return st || loc.state; }
+      return loc.state;
+    }
+
+    // Redraw whichever chat surfaces are on screen. Both read the same cache,
+    // so one call keeps the drawer, the in-game panel and the pulse in step.
+    function _trCardRepaint() {
+      try {
+        const drawer = $a("cc-msg-drawer");
+        if (drawer && drawer.classList.contains("open") && _msgOpenConvId) _msgRenderOpenConversation();
+      } catch (_) {}
+      _msgChangeCbs.forEach(cb => { try { cb(); } catch (_) {} });
+    }
+
+    // One side's half of the swap as small tiles. Pictures for the cosmetics,
+    // because an avatar IS its picture and its name is the worse label, and a
+    // counted pill for each of the three balances.
+    function _trCardChips(offer) {
+      const wrap = document.createElement("div");
+      wrap.className = "cctc-chips";
+      const o = offer || {};
+      const imgs = [];
+      (o.avatars || []).forEach(p => imgs.push([p, _trAvatarName(p)]));
+      (o.backgrounds || []).forEach(p => imgs.push([p, _trBgName(p)]));
+      const SHOW = 4;
+      imgs.slice(0, SHOW).forEach(pair => {
+        const t = document.createElement("span");
+        t.className = "cctc-thumb"; t.title = pair[1];
+        const im = document.createElement("img");
+        im.src = _trImgSrc(pair[0]); im.alt = pair[1]; im.loading = "lazy";
+        t.appendChild(im); wrap.appendChild(t);
+      });
+      if (imgs.length > SHOW) {
+        const more = document.createElement("span");
+        more.className = "cctc-thumb cctc-more";
+        more.textContent = "+" + (imgs.length - SHOW);
+        wrap.appendChild(more);
+      }
+      const n = (v) => Math.max(0, Math.floor(Number(v) || 0));
+      const pill = (icon, label) => {
+        const el = document.createElement("span"); el.className = "cctc-pill";
+        const i = document.createElement("span"); i.className = "cctc-pill-ico"; i.textContent = icon;
+        const t = document.createElement("span"); t.textContent = label;
+        el.appendChild(i); el.appendChild(t); wrap.appendChild(el);
+      };
+      if (n(o.coins))  pill("🪙", n(o.coins).toLocaleString());
+      if (n(o.passes)) pill("🎟️", n(o.passes).toLocaleString() + (n(o.passes) === 1 ? " pass" : " passes"));
+      if (n(o.xp))     pill("⭐", n(o.xp).toLocaleString() + " XP");
+      if (!wrap.childNodes.length) {
+        const e = document.createElement("span");
+        e.className = "cctc-none"; e.textContent = "Nothing yet";
+        wrap.appendChild(e);
+      }
+      return wrap;
+    }
+
+    // Build the card for one mirror doc. `surface` is "drawer" or "panel",
+    // which changes nothing but the palette (see .cctc in preview.css) and
+    // keeps the pop from replaying when the same card is drawn in both.
+    // Returns null for a doc that is not mine to see, so a caller can simply
+    // skip it.
+    function _trCardBuild(doc, surface) {
+      const st = _trCardState(doc);
+      if (!st || !_authUser) return null;
+      const myUid = _authUser.uid;
+      const parts = Array.isArray(st.participants) ? st.participants : [];
+      if (parts.indexOf(myUid) < 0) return null;
+      let peerUid = "";
+      for (let i = 0; i < parts.length; i++) { if (parts[i] !== myUid) { peerUid = parts[i]; break; } }
+      if (!peerUid) return null;
+      const names   = st.names || {};
+      const peerName = names[peerUid] || doc.sender_name || "Player";
+      const tid     = st.tradeId || doc.trade_id || "";
+      const status  = st.status || "open";
+      const mineOffer  = (st.offers && st.offers[myUid])   || null;
+      const theirOffer = (st.offers && st.offers[peerUid]) || null;
+      const iConfirmed    = !!(st.confirmed && st.confirmed[myUid]);
+      const theyConfirmed = !!(st.confirmed && st.confirmed[peerUid]);
+      const bothEmpty = _trOfferEmpty(mineOffer) && _trOfferEmpty(theirOffer);
+      const busy    = !!_trCardBusy[tid];
+      const isGuest = (_guestSessionActive === true);
+
+      const card = document.createElement("div");
+      card.className = "cctc cctc-" + status + " cctc-" + (surface === "panel" ? "panel" : "drawer");
+      card.setAttribute("data-trade", tid);
+      // The pop plays when the card arrives and when it finishes, never on the
+      // repaints in between, or it would flinch every time the other player
+      // adds an item.
+      const seenKey = (surface || "") + "|" + tid;
+      if (_trCardSeen[seenKey] !== status) { _trCardSeen[seenKey] = status; card.classList.add("cctc-pop"); }
+
+      const head = document.createElement("div"); head.className = "cctc-head";
+      const ico = document.createElement("span"); ico.className = "cctc-ico";
+      ico.textContent = status === "completed" ? "✅" : (status === "canceled" ? "✖" : "🔄");
+      const ttl = document.createElement("span"); ttl.className = "cctc-ttl";
+      ttl.textContent = "Trade with " + peerName;
+      head.appendChild(ico); head.appendChild(ttl);
+      if (status === "open" && !isGuest) {
+        const x = document.createElement("button");
+        x.type = "button"; x.className = "cctc-x"; x.textContent = "✕";
+        x.title = "Cancel this trade";
+        x.setAttribute("aria-label", "Cancel this trade");
+        x.disabled = busy;
+        x.addEventListener("click", () => _trCardAct("cancel", st, {}));
+        head.appendChild(x);
+      }
+      card.appendChild(head);
+
+      const sides = document.createElement("div"); sides.className = "cctc-sides";
+      const side = (label, offer, cls) => {
+        const d = document.createElement("div"); d.className = "cctc-side " + cls;
+        const h = document.createElement("div"); h.className = "cctc-side-h"; h.textContent = label;
+        d.appendChild(h); d.appendChild(_trCardChips(offer));
+        return d;
+      };
+      sides.appendChild(side("You give", mineOffer, "give"));
+      const swap = document.createElement("div"); swap.className = "cctc-swap"; swap.textContent = "⇄";
+      sides.appendChild(swap);
+      sides.appendChild(side("You get", theirOffer, "get"));
+      card.appendChild(sides);
+
+      const note = document.createElement("div");
+      let noteText = "", noteKind = "";
+      if (status === "completed") {
+        noteText = "Trade completed. Everything has been swapped."; noteKind = "ok";
+      } else if (status === "canceled") {
+        noteText = "This trade was canceled. Nothing moved."; noteKind = "warn";
+      } else if (st.last_error) {
+        noteText = _trErrText(st.last_error) + " Both confirmations were reset."; noteKind = "err";
+      } else if (bothEmpty) {
+        noteText = "Nothing on the table yet. Tap Edit to put something in."; noteKind = "";
+      } else if (theyConfirmed && !iConfirmed) {
+        noteText = peerName + " confirmed. Confirm and it sends."; noteKind = "go";
+      } else if (iConfirmed && !theyConfirmed) {
+        noteText = "You confirmed. Waiting for " + peerName + "."; noteKind = "";
+      } else {
+        noteText = "Check both sides, then confirm."; noteKind = "";
+      }
+      note.className = "cctc-note" + (noteKind ? " " + noteKind : "");
+      note.textContent = noteText;
+      card.appendChild(note);
+
+      if (!isGuest) {
+        const acts = document.createElement("div"); acts.className = "cctc-acts";
+        const btn = (label, cls, fn, off) => {
+          const b = document.createElement("button");
+          b.type = "button"; b.className = "cctc-btn " + cls; b.textContent = label;
+          b.disabled = !!off;
+          b.addEventListener("click", fn);
+          acts.appendChild(b);
+        };
+        if (status === "open") {
+          btn("Edit", "ghost", () => _trOpen(peerUid, peerName), busy);
+          btn(iConfirmed ? "✓ Confirmed" : "Confirm",
+              "go" + (iConfirmed ? " on" : ""),
+              () => _trCardAct("confirm", st, { version: st.version, confirm: !iConfirmed }),
+              busy || (bothEmpty && !iConfirmed));
+        } else {
+          btn("Trade again", "ghost", () => _trOpen(peerUid, peerName), busy);
+        }
+        card.appendChild(acts);
+      }
+
+      const time = document.createElement("div"); time.className = "cctc-time";
+      time.textContent = _msgTimeLabel(doc.ts);
+      card.appendChild(time);
+      return card;
+    }
+
+    // Confirm / un-confirm / cancel straight from the card. The same endpoints
+    // the overlay uses, with the peer named explicitly, because the overlay is
+    // very often closed when this runs.
+    async function _trCardAct(action, st, extra) {
+      if (!_authUser || _guestSessionActive === true) { _trToast("Sign in to trade.", "info"); return; }
+      const parts = Array.isArray(st.participants) ? st.participants : [];
+      const myUid = _authUser.uid;
+      let peerUid = "";
+      for (let i = 0; i < parts.length; i++) { if (parts[i] !== myUid) { peerUid = parts[i]; break; } }
+      if (!peerUid) return;
+      const tid = st.tradeId || "";
+      if (_trCardBusy[tid]) return;
+      _trCardBusy[tid] = true;
+      _trCardRepaint();
+      const peerName = (st.names && st.names[peerUid]) || "Player";
+      let res = null;
+      try {
+        res = await _trPost(action, Object.assign({ peerUid, peerName }, extra || {}));
+      } finally {
+        _trCardBusy[tid] = false;
+      }
+      if (res && res.state) _trCardLocal[tid] = { state: res.state, at: Date.now() };
+      // Keep the full screen in step when it happens to be open on this trade.
+      // Its own render fires the post-completion profile refresh, so when it
+      // follows, this does not go and read the same document a second time.
+      const overlayFollows = !!(res && res.state && _trOverlayOpen()
+                                && String(_trPeerUid || "") === peerUid);
+      if (overlayFollows) { _trState = res.state; _trRender(); }
+      if (!res || res.error) {
+        _trToast(res && res.error === "changed"
+          ? "The offer changed, check it and confirm again."
+          : _trErrFull(res), "err");
+        _trCardRepaint();
+        return;
+      }
+      if (res.completed) {
+        _trToast("Trade completed! 🎉", "ok");
+        if (!overlayFollows) _trRefreshMyProfile();
+        if (Number(res.clan_points || 0) > 0) {
+          try { if (window.__ccClanTradePoint) window.__ccClanTradePoint(res.clan_points); } catch (_) {}
+        }
+      } else if (action === "cancel") {
+        _trToast("Trade canceled.", "info");
+      }
+      _trCardRepaint();
+    }
+
     // ── Live sync + DM Trade-button pulse ────────────────────────────
     // Toggle the gold "active trade" pulse on whichever DM Trade button is
     // showing, keyed on the data-conv it was last shown for.
@@ -31304,6 +31598,8 @@
     // Public bridge, the DM Trade buttons (both chat surfaces) call this.
     window.__fishTrade = {
       openWith: (peerUid, peerName) => _trOpen(peerUid, peerName),
+      // Both chat surfaces ask for the trade card the same way.
+      card: (doc, surface) => { try { return _trCardBuild(doc, surface); } catch (_) { return null; } },
       hasOpenTrade: (convId) => {
         const s = (window.__fishMsg && window.__fishMsg.tradeState) ? window.__fishMsg.tradeState(convId) : null;
         return !!(s && s.status === "open");

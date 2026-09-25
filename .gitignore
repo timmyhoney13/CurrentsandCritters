@@ -296,6 +296,9 @@
 # …and the client half: the dead end a failed /api/trade/open used to leave
 # behind, plus Season Pass vouchers as a tradable balance.
 !test_trade_ui.js
+# The trade CARD in the chat, in real headless Chrome: what actually
+# paints in both chat surfaces, and confirming a trade from the card.
+!test_trade_card_render.js
 # The trade LEDGER: both players' levels and purses, and the arithmetic behind
 # "you give 5,000 XP, you drop to Level 11 and they climb to Level 9". Pure
 # maths lifted out of preview-app.js and fuzzed, because a wrong number here

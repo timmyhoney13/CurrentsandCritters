@@ -272,5 +272,112 @@ for (const [tab, word] of [["avatars", /avatars/i], ["backgrounds", /backgrounds
   check(`the hint mentions the ${tab} tab`, word.test(hint), hint);
 }
 
+/* ═════════════════════════════════════════════════════════════════════════
+ * 3. THE TRADE CARD IN THE CHAT
+ *
+ * A trade used to narrate itself into the DM three times ("X started a
+ * trade.", "X confirmed the trade. It is waiting on Y now.", "Trade
+ * completed: X gave 1 avatar; Y gave nothing."), none of which could be
+ * acted on and all of which went stale the second an offer changed. The
+ * server's live mirror doc is drawn as one card instead, in both chat
+ * surfaces, and it can be confirmed without opening the trade screen.
+ * ═════════════════════════════════════════════════════════════════════════ */
+const SERVER = fs.readFileSync(path.join(__dirname, "multiplayer_server.py"), "utf8");
+
+section("the server no longer narrates a trade into the chat");
+check("the system-line poster is gone", !SERVER.includes("_trade_post_message"));
+for (const line of ["started a trade", "confirmed the trade",
+                    "Trade canceled by", "It is waiting on"]) {
+  check(`no "${line}" line is posted any more`, !SERVER.includes(line), line);
+}
+check("the mirror is what carries the trade instead",
+      /def _trade_mirror\(db, trade: Dict\[str, Any\], actor: str = "",\s*\n\s*notify: str = ""\) -> None:/.test(SERVER));
+check("it names the player who should be badged, one event at a time",
+      SERVER.includes('ref.set(dict(payload, read=(uid != notify)))'));
+check("and a change that badges nobody cannot clear an unread card",
+      SERVER.includes("ref.set(payload, merge=True)"));
+check("the card carries both uids, so a DM can be built from it alone",
+      SERVER.includes('"sender": act,') && SERVER.includes('"receiver": oth,'));
+check("every optional key is spelled out, so a merge cannot keep a stale one",
+      SERVER.includes('state.setdefault("last_error", None)'));
+
+section("both chat surfaces draw the card, and neither shows the old lines");
+check("the drawer draws it", SRC.includes('window.__fishTrade.card(m, "drawer")'));
+check("the in-game panel draws it", SRC.includes('window.__fishTrade.card(m, "panel")'));
+check("the card is exported once, for both of them",
+      (SRC.match(/card: \(doc, surface\) =>/g) || []).length === 1);
+check("no message view filters the trade doc out any more",
+      !/!m\.meta && !m\.trade\b/.test(SRC), (SRC.match(/.{0,40}!m\.meta && !m\.trade\b.{0,20}/) || [""])[0]);
+for (const where of ['m.conv_id === _msgOpenConvId && !m.meta && !m.trade_log',
+                     'm.conv_id === convId && !m.meta && !m.trade_log']) {
+  check("legacy trade lines are dropped from a view", SRC.includes(where), where);
+}
+check("and they are swept read rather than counted",
+      SRC.includes("const legacy = (m) => !!m && m.trade_log === true;")
+      && SRC.includes("if (legacy(m) && m.sender !== myUid && !isRead(m)) orphans.push(m.id);"));
+check("the live card IS counted, so a trade still lights up Messages",
+      SRC.includes("const countable = (m) => !!m && !m.meta && !legacy(m) && m.sender !== myUid && !isRead(m);"));
+
+section("the card can finish a trade on its own");
+check("it posts to the same endpoints the overlay uses",
+      SRC.includes('res = await _trPost(action, Object.assign({ peerUid, peerName }, extra || {}));'));
+check("it names the peer explicitly, because the overlay is usually closed",
+      /_trCardAct\("confirm", st, \{ version: st\.version, confirm: !iConfirmed \}\)/.test(SRC));
+check("confirming an empty trade is not offered", SRC.includes("busy || (bothEmpty && !iConfirmed)"));
+check("one action at a time per trade", SRC.includes("if (_trCardBusy[tid]) return;"));
+check("a completed trade refreshes the profile it just changed",
+      /if \(res\.completed\) \{[\s\S]{0,200}_trRefreshMyProfile\(\);/.test(SRC));
+check("and still awards the clan point",
+      /if \(res\.completed\)[\s\S]{0,320}window\.__ccClanTradePoint\(res\.clan_points\)/.test(SRC));
+check("a guest is shown no buttons at all", SRC.includes("if (!isGuest) {"));
+check("my own tap shows before the round trip lands",
+      SRC.includes("_trCardLocal[tid] = { state: res.state, at: Date.now() };"));
+check("but the server's copy takes over the moment it is level",
+      SRC.includes("_trCardSig(st) === _trCardSig(loc.state)"));
+check("and an override can never stick", SRC.includes("(Date.now() - loc.at) > _TR_CARD_HOLD_MS"));
+
+section("the card is dressed for whichever chat it is in");
+const CARD_CLASSES = [...new Set([...SRC.matchAll(/className = "(cctc[^"]*)"/g)]
+  .flatMap(m => m[1].split(/\s+/))
+  .concat([...SRC.matchAll(/classList\.add\("(cctc[^"]*)"\)/g)].map(m => m[1]))
+  // A trailing "-" is half of a class the builder finishes at runtime
+  // ("cctc-" + status); those are checked by name just below.
+  .filter(c => c.startsWith("cctc") && !c.endsWith("-")))];
+check("the builder uses the cctc- family", CARD_CLASSES.length >= 12, CARD_CLASSES.length + " classes");
+for (const c of CARD_CLASSES) {
+  check(`preview.css styles .${c}`, new RegExp("\\." + c + "[\\s,.:{]").test(CSS));
+}
+for (const surface of ["cctc-drawer", "cctc-panel"]) {
+  check(`.${surface} has its own palette`, new RegExp("\\." + surface + " \\.cctc-btn\\.go").test(CSS));
+}
+for (const status of ["cctc-completed", "cctc-canceled"]) {
+  check(`a ${status.slice(5)} trade looks different`, new RegExp("\\." + status + "[\\s,{]").test(CSS));
+}
+check("it pops in", /@keyframes cctc-pop/.test(CSS) && /\.cctc-pop \{ animation: cctc-pop/.test(CSS));
+check("and holds still for anyone who asked for that",
+      /prefers-reduced-motion: reduce\) \{ \.cctc-pop \{ animation: none; \} \}/.test(CSS));
+
+section("no em dash reaches a screen, from anywhere in the app");
+// Nothing a player reads may contain one. Prose in a code comment is not a
+// screen, so this reads the STRING LITERALS instead: everything the two halves
+// can actually print, plus the markup with its own comments stripped.
+const EMDASH = "—";
+function literals(src) {
+  return src.match(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g) || [];
+}
+const PY_CODE = SERVER.replace(/"""(?:.|\n)*?"""/g, '""').replace(/^[ \t]*#.*$/gm, "");
+for (const [where, lits] of [["preview-app.js", literals(SRC)],
+                             ["multiplayer_server.py", literals(PY_CODE)]]) {
+  const hit = lits.find(l => l.includes(EMDASH));
+  check(`nothing ${where} can print has one`, !hit, hit);
+}
+const HTML_TEXT = HTML.replace(/<!--(?:.|\n)*?-->/g, "");
+check("nor anything in preview.html", !HTML_TEXT.includes(EMDASH),
+      (HTML_TEXT.match(new RegExp(".{50}" + EMDASH + ".{30}")) || [""])[0]);
+// And this change's own stylesheet, comments included.
+const CARD_CSS = CSS.slice(CSS.indexOf("THE TRADE CARD IN A CHAT"),
+                           CSS.indexOf("NEW MESSAGE COMPOSE"));
+check("the trade card's CSS has none anywhere in it", !CARD_CSS.includes(EMDASH));
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

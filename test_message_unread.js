@@ -166,8 +166,6 @@ console.log("\nwhat must never reach the badge");
   const cases = [
     ["my own message", dm({ sender: ME, receiver: THEM })],
     ["a message I have read", dm({ read: true })],
-    ["the live trade mirror doc", { id: "trade_x", conv_id: DMCONV, trade: true,
-                                    trade_state: {}, ts: at(9), read: false }],
     ["a group meta doc", groupMeta("grp-2", [{ uid: ME, name: "Me" }])],
   ];
   for (const [label, doc] of cases) {
@@ -177,18 +175,48 @@ console.log("\nwhat must never reach the badge");
   }
 }
 
-console.log("\nthe trade log the server pings you with IS a real message");
+console.log("\nthe trade CARD is a real message, and it is the only one a trade sends");
 {
-  // system:true, posted into the DM by the server after a trade. It is unread,
-  // it belongs to a conversation that exists, and opening that chat clears it.
+  // The trade:true mirror doc is what the chat draws as the trade card, and
+  // since the server stopped narrating trades in system lines it is also the
+  // only thing that can tell the other player a trade is waiting. Counting it
+  // is the whole notification.
+  const card = { id: "trade_reef__me", conv_id: DMCONV, trade: true, ts: at(9),
+                 sender: THEM, sender_name: "Reef", receiver: ME, receiver_name: "Me",
+                 text: "Trade request", read: false,
+                 trade_state: { status: "open", version: 1 } };
+  const s = summarize([card], ME, new Set());
+  check("it counts", s.totalUnread === 1, s.totalUnread);
+  check("in a conversation you can open", s.conversations.length === 1);
+  check("even when it is the first thing in that chat",
+        s.conversations[0] && s.conversations[0].peerUid === THEM,
+        JSON.stringify(s.conversations[0]));
+  check("and the row reads as a trade", s.conversations[0].last_text === "Trade request");
+  check("so it is not an orphan", s.orphans.length === 0, JSON.stringify(s.orphans));
+  const after = summarize([card], ME, new Set(["trade_reef__me"]));
+  check("and opening that chat clears it", after.totalUnread === 0, after.totalUnread);
+  const own = summarize([Object.assign({}, card, { sender: ME, receiver: THEM })], ME, new Set());
+  check("a card I caused never badges me", own.totalUnread === 0, own.totalUnread);
+}
+
+console.log("\nthe system lines trades used to post are swept, never counted");
+{
+  // Three of these went into a DM per trade ("started", "confirmed",
+  // "completed"). The card replaced all of them, but the old docs are still in
+  // people's inboxes: nothing draws them any more, so a counted one would be a
+  // red number that opening the chat could never clear.
   const log = dm({ id: "tradelog_abc", system: true, trade_log: true,
                    text: "✅ Reef confirmed the trade." });
   const s = summarize([log], ME, new Set());
-  check("it counts", s.totalUnread === 1, s.totalUnread);
-  check("in a conversation you can open", s.conversations.length === 1);
-  check("so it is not an orphan", s.orphans.length === 0, JSON.stringify(s.orphans));
-  const after = summarize([log], ME, new Set(["tradelog_abc"]));
-  check("and opening that chat clears it", after.totalUnread === 0, after.totalUnread);
+  check("it does not count", s.totalUnread === 0, s.totalUnread);
+  check("and it is handed back to be marked read once",
+        s.orphans.length === 1 && s.orphans[0] === "tradelog_abc", JSON.stringify(s.orphans));
+  const mine = summarize([dm({ id: "tradelog_mine", system: true, trade_log: true,
+                              sender: ME, receiver: THEM })], ME, new Set());
+  check("one of my own is left alone", mine.orphans.length === 0, JSON.stringify(mine.orphans));
+  const read = summarize([dm({ id: "tradelog_read", system: true, trade_log: true,
+                              read: true })], ME, new Set());
+  check("and so is one already read", read.orphans.length === 0, JSON.stringify(read.orphans));
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -222,8 +250,13 @@ console.log("\nthe invariant holds over 4000 random message caches");
                        conv_id: rand() < 0.12 ? undefined : DMCONV }));
       } else if (kind < 0.75) {
         msgs.push(groupMsg(pick(groups), { read: rand() < 0.4, sender: rand() < 0.25 ? ME : THEM }));
+      } else if (kind < 0.82) {
+        msgs.push({ id: "t" + (++seq), conv_id: DMCONV, trade: true, ts: at(seq),
+                    read: rand() < 0.4, sender: rand() < 0.25 ? ME : THEM, receiver: THEM,
+                    text: "Trade request", trade_state: { status: "open", version: 1 } });
       } else if (kind < 0.85) {
-        msgs.push({ id: "t" + (++seq), conv_id: DMCONV, trade: true, ts: at(seq), read: false, sender: THEM });
+        msgs.push({ id: "tradelog_" + (++seq), conv_id: DMCONV, system: true, trade_log: true,
+                    ts: at(seq), read: rand() < 0.4, sender: THEM, text: "started a trade" });
       } else if (kind < 0.95) {
         msgs.push({ id: "bg" + (++seq), conv_id: pick([DMCONV].concat(groups)), meta: true,
                     chatbg: "/bg/x.png", ts: at(seq), read: false, sender: THEM });
@@ -245,7 +278,7 @@ console.log("\nthe invariant holds over 4000 random message caches");
     //     the docs stay unread for ever.
     const isRead = (m) => !!m.read || local.has(m.id);
     const unreadIds = msgs
-      .filter(m => m && !m.meta && !m.trade && m.sender !== ME && !isRead(m))
+      .filter(m => m && !m.meta && m.sender !== ME && !isRead(m))
       .map(m => m.id);
     const orphanSet = new Set(s.orphans);
     const visible = new Set(s.conversations.map(c => c.id));

@@ -183,7 +183,11 @@ print("open:")
 r = M._trade_open(A, "Alice", B, "Bob")
 check("open ok", r.get("ok") and r["state"]["status"] == "open")
 check("mirror written to both", mirror(A, tid) is not None and mirror(B, tid) is not None)
-check("started-trade log posted", any(k.startswith(f"users/{B}/messages/tradelog_") for k in DB.store))
+check("no system line is posted, the card IS the message",
+      not any("/messages/tradelog_" in k for k in DB.store))
+check("the card carries both uids, so the DM can be derived from it alone",
+      mirror(B, tid)["sender"] == A and mirror(B, tid)["receiver"] == B)
+check("and one line for the conversation list", mirror(B, tid)["text"] == "Trade request")
 
 print("offers:")
 r = M._trade_set_offer(A, "Alice", B, {"coins": 1000, "avatars": ["/avatars/sardine.png"]})
@@ -252,8 +256,12 @@ check("nothing recorded for the lobster she received",
       "/avatars/lobster.png" not in _alice_away)
 check("bob's given lobster is recorded, his received sardine is not",
       "/avatars/lobster.png" in _bob_away and "/avatars/sardine.png" not in _bob_away)
-check("completed log posted to both",
-      sum(1 for k in DB.store if "/messages/tradelog_" in k and k.startswith(f"users/{A}/")) >= 1)
+check("the one card in each inbox now says completed",
+      mirror(A, tid)["trade_status"] == "completed"
+      and mirror(B, tid)["trade_status"] == "completed"
+      and mirror(A, tid)["text"] == "Trade completed")
+check("and it was never joined by a system line",
+      not any("/messages/tradelog_" in k for k in DB.store))
 
 print("no double-spend: confirming an already-completed trade is a safe no-op:")
 before = copy.deepcopy(user(A))
@@ -324,10 +332,9 @@ check("ivy's vouchers dropped by 2", passes_of("ivy") == 1)
 check("jonah's vouchers rose by 2", passes_of("jonah") == 2)
 check("the avatar came back the other way",
       user("ivy")["unlocked_icons"] == ["/avatars/mackerel.png"])
-check("the DM summary names the vouchers",
-      any("Critter Pass voucher" in (d.get("text") or "")
-          for k, d in DB.store.items()
-          if k.startswith("users/ivy/messages/tradelog_") and isinstance(d, dict)))
+check("the stored summary names the vouchers",
+      "Critter Pass voucher" in ((mirror("ivy", M._trade_id_for("ivy", "jonah"))
+                                  ["trade_state"]["result"] or {}).get("summary") or ""))
 
 print("offering more vouchers than you hold:")
 set_user("kit", coins=0, passes=1)
@@ -398,10 +405,9 @@ check("the rest of the stats map survived the deep merge",
       and int(user("rae")["stats"]["completed_games"]) == 12)
 check("the avatar came back the other way",
       user("rae")["unlocked_icons"] == ["/avatars/crab.png"])
-check("the DM summary names the XP",
-      any(" XP" in (d.get("text") or "")
-          for k, d in DB.store.items()
-          if k.startswith("users/rae/messages/tradelog_") and isinstance(d, dict)))
+check("the stored summary names the XP",
+      " XP" in ((mirror("rae", M._trade_id_for("rae", "sol"))
+                 ["trade_state"]["result"] or {}).get("summary") or ""))
 
 print("XP is a consumable, not a re-earnable unlock:")
 check("giving XP away writes no traded_away entry",
@@ -635,29 +641,33 @@ try:
 finally:
     M._get_firestore = _real_get_fs
 
-# ══ The DM line and the red number over Messages ══════════════════════════
-# Every trade event has to reach the other player somewhere they will actually
-# see it. Two separate things carry that, and neither was covered before:
-#   • a system line in the pair's DM (system:true, trade_log:true), and
-#   • the unread flag on the RECIPIENT's copy, which is the only thing the
-#     Messages badge counts.
+# ══ The trade card and the red number over Messages ══════════════════════
+# A trade has to reach the other player somewhere they will actually see it,
+# and there is exactly ONE thing that carries it now: the card itself, the
+# trade:true mirror doc in their messages subcollection. The chat used to get
+# separate system lines on top of it ("started a trade", "confirmed the trade",
+# "Trade completed: ..."), which said in words what the card shows, went stale
+# the moment an offer changed, and buried the conversation three lines at a
+# time. They are gone, so the card has to do both jobs: BE the trade, and be
+# unread on the recipient's copy, which is the only thing the badge counts.
+#
 # The badge predicate is duplicated here on purpose, verbatim from
-# preview-app.js `_msgTotalUnread`. The live trade mirror doc is excluded by
-# `!m.trade` and the log doc must NOT be — the two flags are one character
-# apart, and getting it wrong silently stops every trade notification.
-print("a trade tells the other player, in chat and on the Messages badge:")
+# preview-app.js `_msgSummarize`. The card must be counted and the legacy
+# system lines must not: get it backwards and every trade notification
+# silently stops.
+print("a trade tells the other player, on the card and on the Messages badge:")
 
 
-def _logs(uid):
+def _cards(uid):
     return [d for k, d in DB.store.items()
-            if k.startswith(f"users/{uid}/messages/tradelog_") and isinstance(d, dict)]
+            if k.startswith(f"users/{uid}/messages/trade_") and isinstance(d, dict)]
 
 
 def _badge(uid):
-    """Verbatim `_msgTotalUnread` from preview-app.js."""
+    """Verbatim `countable` from _msgSummarize in preview-app.js."""
     return len([d for k, d in DB.store.items()
                 if k.startswith(f"users/{uid}/messages/") and isinstance(d, dict)
-                and not d.get("meta") and not d.get("trade")
+                and not d.get("meta") and not d.get("trade_log")
                 and d.get("sender") != uid and not d.get("read")])
 
 
@@ -668,77 +678,99 @@ def _read_everything(uid):
 
 
 S1, S2 = "sam", "tess"
+STID = M._trade_id_for(S1, S2)
 set_user(S1, avatars=["/avatars/sardine.png"], coins=500)
 set_user(S2, avatars=["/avatars/lobster.png"], coins=0)
 
 M._trade_open(S1, "Sam", S2, "Tess")
-check("opening posts one system line to BOTH inboxes",
-      len(_logs(S1)) == 1 and len(_logs(S2)) == 1)
-check("it is a centered system line, not a chat bubble",
-      all(d.get("system") is True and d.get("trade_log") is True for d in _logs(S2)))
+check("opening writes ONE card to each inbox",
+      len(_cards(S1)) == 1 and len(_cards(S2)) == 1)
+check("and posts no chat lines at all",
+      not any("/messages/tradelog_" in k for k in DB.store))
+check("the card is flagged trade:true, not meta:true",
+      mirror(S2, STID)["trade"] is True and mirror(S2, STID).get("meta") is None)
+check("it carries the live state the card is drawn from",
+      mirror(S2, STID)["trade_state"]["status"] == "open")
 check("it lands in the pair's REAL DM, the same conv id a typed message uses",
-      _logs(S2)[0]["conv_id"] == M._trade_id_for(S1, S2))
-check("the opener's own copy is already read", _logs(S1)[0]["read"] is True)
-check("and the other player's is not", _logs(S2)[0]["read"] is False)
+      mirror(S2, STID)["conv_id"] == STID)
+check("the opener's own copy is already read", mirror(S1, STID)["read"] is True)
+check("and the other player's is not", mirror(S2, STID)["read"] is False)
 check("so Tess has a number over Messages", _badge(S2) == 1)
 check("and Sam, who did it, does not", _badge(S1) == 0)
 
-# The live mirror doc shares the subcollection and must never badge.
-check("the live trade mirror is flagged trade:true",
-      (mirror(S2, M._trade_id_for(S1, S2)) or {}).get("trade") is True)
-_pre = _badge(S2)
-M._trade_mirror(DB, M._trade_get_state(S1, S2) and
-                {"tradeId": M._trade_id_for(S1, S2), "conv_id": M._trade_id_for(S1, S2),
-                 "participants": sorted([S1, S2])})
-check("and re-mirroring adds nothing to the badge", _badge(S2) == _pre)
+# Re-opening the same live trade is the same card: it must not badge again.
+M._trade_open(S1, "Sam", S2, "Tess")
+check("resuming an open trade adds no second card", len(_cards(S2)) == 1)
+check("and does not re-badge anybody", _badge(S2) == 1 and _badge(S1) == 0)
+
+# Building the offer is one write per tap. It must not clear a card the other
+# player has not looked at yet, and it must not badge them either.
+M._trade_set_offer(S1, "Sam", S2, {"avatars": ["/avatars/sardine.png"]})
+check("editing an offer leaves Tess's unread card unread", _badge(S2) == 1)
+check("and never badges the editor", _badge(S1) == 0)
+check("the card updated in place, it did not multiply", len(_cards(S2)) == 1)
+check("and it shows what was just put on the table",
+      mirror(S2, STID)["trade_state"]["offers"][S1]["avatars"] == ["/avatars/sardine.png"])
 
 _read_everything(S1)
 _read_everything(S2)
-
-M._trade_set_offer(S1, "Sam", S2, {"avatars": ["/avatars/sardine.png"]})
 M._trade_set_offer(S2, "Tess", S1, {"avatars": ["/avatars/lobster.png"]})
-check("editing an offer does NOT post a line (that would be one per keystroke)",
-      len(_logs(S2)) == 1)
-check("and does not badge anybody", _badge(S1) == 0 and _badge(S2) == 0)
+check("an offer edit after the card was read badges nobody",
+      _badge(S1) == 0 and _badge(S2) == 0)
 
 _v = M._trade_get_state(S1, S2)["state"]["version"]
 M._trade_confirm(S1, S2, _v, True)
-check("ONE side confirming tells the other, who now has to act",
-      len(_logs(S2)) == 2 and _badge(S2) == 1)
-check("the line says who confirmed and who it waits on",
-      "Sam confirmed" in _logs(S2)[-1]["text"] and "Tess" in _logs(S2)[-1]["text"])
+check("ONE side confirming tells the other, who now has to act", _badge(S2) == 1)
+check("on the same card, not a new one", len(_cards(S2)) == 1)
+check("the card says who has confirmed",
+      mirror(S2, STID)["trade_state"]["confirmed"][S1] is True
+      and mirror(S2, STID)["trade_state"]["confirmed"][S2] is False)
 check("the confirmer is not notified of their own tap", _badge(S1) == 0)
 
+_read_everything(S2)
 M._trade_confirm(S1, S2, _v, False)
 M._trade_confirm(S1, S2, _v, True)
-check("un-confirming and confirming again cannot spam the DM",
-      len(_logs(S2)) == 2)
+check("un-confirming and confirming again cannot re-badge", _badge(S2) == 0)
 
 M._trade_set_offer(S1, "Sam", S2, {"avatars": ["/avatars/sardine.png"], "coins": 25})
 _v2 = M._trade_get_state(S1, S2)["state"]["version"]
 check("a changed offer resets both confirmations",
       not any((M._trade_get_state(S1, S2)["state"]["confirmed"] or {}).values()))
 M._trade_confirm(S1, S2, _v2, True)
-check("a NEW offer earns a fresh nudge", len(_logs(S2)) == 3)
+check("a NEW offer earns a fresh nudge", _badge(S2) == 1)
 
 _read_everything(S2)
 _r = M._trade_confirm(S2, S1, _v2, True)
 check("the trade completes", _r.get("ok") and _r.get("completed") is True)
-check("both inboxes get the summary", len(_logs(S1)) >= 4 and len(_logs(S2)) >= 4)
-check("the summary says what each side gave",
-      "Trade completed" in _logs(S1)[-1]["text"] and "gave" in _logs(S1)[-1]["text"])
+check("both cards now read completed",
+      mirror(S1, STID)["trade_state"]["status"] == "completed"
+      and mirror(S2, STID)["trade_state"]["status"] == "completed")
+check("and each inbox still holds exactly one of them",
+      len(_cards(S1)) == 1 and len(_cards(S2)) == 1)
 check("Sam, who did not press the last button, is notified", _badge(S1) >= 1)
 check("Tess, who did, is not notified of her own tap", _badge(S2) == 0)
+check("the whole trade put nothing else in either chat",
+      not any("/messages/tradelog_" in k for k in DB.store))
+
+# A stale error must never survive on the card. `last_error` is dropped from
+# the public state when it clears, and the card is merged, so a merge that did
+# not spell the key out would leave the old error on screen for ever.
+check("the card carries last_error explicitly, so clearing it clears the card",
+      "last_error" in mirror(S1, STID)["trade_state"]
+      and mirror(S1, STID)["trade_state"]["last_error"] is None)
 
 # Cancel, on a fresh trade between the same two.
 set_user("uma", coins=0)
 set_user("vic", coins=0)
+UTID = M._trade_id_for("uma", "vic")
 M._trade_open("uma", "Uma", "vic", "Vic")
 _read_everything("uma")
 _read_everything("vic")
 M._trade_cancel("uma", "vic")
-check("canceling posts a line to both", len(_logs("uma")) >= 2 and len(_logs("vic")) >= 2)
-check("it names who canceled", "Uma" in _logs("vic")[-1]["text"])
+check("canceling updates the pair's card on both sides",
+      mirror("uma", UTID)["trade_state"]["status"] == "canceled"
+      and mirror("vic", UTID)["trade_state"]["status"] == "canceled")
+check("its conversation line says so", mirror("vic", UTID)["text"] == "Trade canceled")
 check("and the other player is told", _badge("vic") == 1)
 check("the canceller is not", _badge("uma") == 0)
 

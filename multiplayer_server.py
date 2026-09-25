@@ -2989,7 +2989,11 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
 # users/{uid}/messages/trade_<tradeId> doc, the SAME subcollection DMs already
 # live in, so both clients see it update live via the existing snapshot
 # listener, with NO new Firestore rules required. That mirror doc carries
-# meta:true so the existing message filters skip it in chat bubbles / unread.
+# trade:true, and each chat surface draws it as the TRADE CARD: one small panel
+# in the conversation showing both offers, who has confirmed, and the buttons.
+# It is the only thing a trade puts in a chat. There are no trade system lines
+# any more: they narrated in words what the card already shows, they went stale
+# the moment an offer changed, and three of them buried the conversation.
 
 TRADE_MAX_ITEMS_PER_SIDE = 12          # avatars + backgrounds cap per side
 TRADE_MAX_COINS = 100_000_000          # sanity ceiling on a single offer
@@ -3688,72 +3692,86 @@ def _trade_compute_apply(trade: Dict[str, Any], doc_a: Dict[str, Any],
     return ("", {a: change_a, b: change_b})
 
 
-def _trade_mirror(db, trade: Dict[str, Any]) -> None:
+def _trade_mirror_state(trade: Dict[str, Any]) -> Dict[str, Any]:
+    """`_trade_public` with every optional key spelled out.
+
+    The mirror is written with merge=True for the changes that must not re-badge
+    anybody, and a merge only ever ADDS keys: an omitted `last_error` would
+    leave the error from two versions ago sitting on the card for ever. So the
+    mirrored copy always carries both optional keys, None included."""
+    state = _trade_public(trade)
+    state.setdefault("result", None)
+    state.setdefault("last_error", None)
+    return state
+
+
+def _trade_mirror(db, trade: Dict[str, Any], actor: str = "",
+                  notify: str = "") -> None:
     """Write the live trade state into BOTH participants' messages subcollection
     (deterministic id) so their existing snapshot listener re-renders it live.
+
+    This doc IS the trade as far as the two players are concerned: each chat
+    surface draws it as a small trade card carrying both offers and the buttons.
+    The DM used to carry separate "started / confirmed / completed" system lines
+    on top of it, which said the same thing in words, went stale the moment the
+    offer changed, and pushed the real conversation off the screen. There is one
+    card per pair now and it is rewritten in place.
+
+    `actor` is whoever caused this state, and `notify` is the player who should
+    get a red number over Messages for it (the one who did NOT cause it), or ""
+    for a change that must not interrupt anybody: an offer edit is one per tap.
+    A non-notifying write is a MERGE carrying no `read` key at all, so a card
+    the other player has not looked at yet stays unread instead of being quietly
+    cleared by the next item its sender adds.
+
     Best-effort, a failed mirror never blocks the authoritative write."""
     from firebase_admin import firestore as _fs
     SERVER_TIMESTAMP = getattr(_fs, "SERVER_TIMESTAMP", None)
     if SERVER_TIMESTAMP is None:
         from google.cloud.firestore_v1 import SERVER_TIMESTAMP  # type: ignore
     tid = trade.get("tradeId")
+    parts = list(trade.get("participants") or [])
+    names = trade.get("names") or {}
+    # Who this write is FROM. The card is a message like any other, so both uids
+    # belong on it: the messaging layer derives whose DM a doc belongs to from
+    # sender/receiver, and a trade card is very often the first thing in a chat.
+    act = str(actor or "")
+    if act not in parts:
+        act = parts[0] if parts else ""
+    oth = ""
+    for p in parts:
+        if p != act:
+            oth = p
+            break
+    status = str(trade.get("status") or "open")
     payload = {
         "conv_id": trade.get("conv_id"),
         # NOTE: deliberately NOT meta:true, a meta doc would make the DM be
-        # detected as a group. The client excludes trade:true docs everywhere it
-        # excludes meta docs (chat bubbles, unread counts, last-message preview).
+        # detected as a group. The client draws trade:true docs as the trade
+        # card rather than as a chat bubble, everywhere it draws messages.
         "trade": True,           # flags this as the live trade doc
         "trade_id": tid,
-        "trade_state": _trade_public(trade),
-        "ts": SERVER_TIMESTAMP,
-        "read": True,
-    }
-    for uid in (trade.get("participants") or []):
-        try:
-            db.collection("users").document(uid).collection("messages") \
-              .document("trade_" + str(tid)).set(payload)
-        except Exception as exc:  # noqa: BLE001
-            print(f"[trade] mirror to {uid} failed: {exc}")
-
-
-def _trade_post_message(db, trade: Dict[str, Any], text: str, actor: str,
-                        ping: bool = False) -> None:
-    """Post a centered SYSTEM line into the pair's DM for BOTH players: used
-    for the trade started / completed / canceled summary.
-
-    sender/receiver are the two REAL uids (sender=actor, receiver=the other) so
-    the messaging layer's peer derivation stays correct in both copies; system
-    True makes it render as a centered grey line (never a left/right bubble).
-    When ping is True the non-actor's copy is left unread so they get a badge."""
-    from firebase_admin import firestore as _fs
-    SERVER_TIMESTAMP = getattr(_fs, "SERVER_TIMESTAMP", None)
-    if SERVER_TIMESTAMP is None:
-        from google.cloud.firestore_v1 import SERVER_TIMESTAMP  # type: ignore
-    parts = trade.get("participants") or []
-    if len(parts) != 2:
-        return
-    names = trade.get("names") or {}
-    conv_id = trade.get("conv_id")
-    other = parts[1] if actor == parts[0] else parts[0]
-    import uuid as _uuid
-    msg_id = "tradelog_" + _uuid.uuid4().hex
-    base = {
-        "conv_id": conv_id,
-        "sender": actor,
-        "sender_name": names.get(actor, "Player"),
-        "receiver": other,
-        "receiver_name": names.get(other, "Player"),
-        "text": text,
-        "system": True,          # → centered grey line in both chat surfaces
-        "trade_log": True,
+        "trade_state": _trade_mirror_state(trade),
+        "trade_status": status,
+        "sender": act,
+        "sender_name": names.get(act, "Player"),
+        "receiver": oth,
+        "receiver_name": names.get(oth, "Player"),
+        # The single line the conversation list shows for this chat.
+        "text": {"completed": "Trade completed",
+                 "canceled": "Trade canceled"}.get(status, "Trade request"),
         "ts": SERVER_TIMESTAMP,
     }
     for uid in parts:
         try:
-            db.collection("users").document(uid).collection("messages") \
-              .document(msg_id).set(dict(base, read=(uid == actor or not ping)))
+            ref = db.collection("users").document(uid).collection("messages") \
+                    .document("trade_" + str(tid))
+            if notify:
+                ref.set(dict(payload, read=(uid != notify)))
+            else:
+                ref.set(payload, merge=True)
         except Exception as exc:  # noqa: BLE001
-            print(f"[trade] log to {uid} failed: {exc}")
+            print(f"[trade] mirror to {uid} failed: {exc}")
 
 
 def _trade_summary_text(trade: Dict[str, Any]) -> str:
@@ -3915,10 +3933,11 @@ def _trade_open(uid: str, uid_name: str, peer_uid: str, peer_name: str) -> Dict[
             second["detail"] = first.get("detail") or second.get("detail")
             return second
         print("[trade] open recovered without a transaction")
-    _trade_mirror(db, trade)
-    if created["new"]:
-        _trade_post_message(db, trade, f"🔄 {names[uid]} started a trade.",
-                            actor=uid, ping=True)
+    # A brand-new trade is the one thing here the peer has to be told about:
+    # their copy of the card lands unread, so Messages carries a number and the
+    # card is waiting in the chat when they open it. Resuming an existing trade
+    # says nothing, it is the same card they already have.
+    _trade_mirror(db, trade, actor=uid, notify=(peer_uid if created["new"] else ""))
     return {"ok": True, "state": _trade_public(trade)}
 
 
@@ -3996,7 +4015,7 @@ def _trade_set_offer(uid: str, uid_name: str, peer_uid: str, raw_offer: Any) -> 
         return _trade_failure("offer", exc)
     if trade.get("__err__"):
         return {"ok": False, "error": trade["__err__"]}
-    _trade_mirror(db, trade)
+    _trade_mirror(db, trade, actor=uid)
     return {"ok": True, "state": _trade_public(trade)}
 
 
@@ -4056,17 +4075,15 @@ def _trade_confirm(uid: str, peer_uid: str, version: int, confirm: bool) -> Dict
 
         if not both:
             # One side has confirmed and the trade is now waiting on the OTHER
-            # one, who is very often not looking at the trade screen — they may
-            # have closed it, or be in a game. Nothing used to tell them: the
-            # only messages posted were "started", "completed" and "canceled",
-            # so a partner who confirmed and walked away left a trade sitting
-            # there with no chat line and no badge over Messages, and the usual
-            # end of that is both people waiting on each other.
+            # one, who is very often not looking at the trade screen: they may
+            # have closed it, or be in a game. Without this their card sits in
+            # the chat with no number over Messages, and the usual end of that
+            # is both people waiting on each other.
             #
-            # Pinged at most ONCE PER VERSION, which is exactly the right unit:
+            # Badged at most ONCE PER VERSION, which is exactly the right unit:
             # any change to either offer bumps the version and resets both
             # confirmations, so this is one nudge per distinct offer, and
-            # toggling confirm off and on again cannot spam the DM.
+            # toggling confirm off and on again cannot re-badge anybody.
             update = {"confirmed": confirmed, "updated_ts": SERVER_TIMESTAMP}
             ver = int(trade.get("version") or 1)
             notify = bool(confirm) and int(trade.get("confirm_pinged_version") or 0) != ver
@@ -4142,23 +4159,20 @@ def _trade_confirm(uid: str, peer_uid: str, version: int, confirm: bool) -> Dict
         return _trade_failure("confirm", exc)
 
     trade = outcome.get("trade")
+    other = ""
+    for p in ((trade.get("participants") or []) if trade else []):
+        if p != uid:
+            other = p
+            break
+    # The other player is badged for the two states that need them: I confirmed
+    # and it is on them now, or it completed while they were somewhere else.
+    # Both repaint the SAME card, so neither can pile up in the chat.
+    notify = other if (outcome.get("__notify_confirm__")
+                       or outcome.get("__completed__")) else ""
     if trade is not None:
-        _trade_mirror(db, trade)
-    if outcome.get("__notify_confirm__") and trade is not None:
-        names = trade.get("names") or {}
-        other = None
-        for p in (trade.get("participants") or []):
-            if p != uid:
-                other = p
-        _trade_post_message(
-            db, trade,
-            f"✅ {names.get(uid, 'A player')} confirmed the trade. "
-            f"It is waiting on {names.get(other, 'you')} now.",
-            actor=uid, ping=True)
+        _trade_mirror(db, trade, actor=uid, notify=notify)
     clan_award: Dict[str, Any] = {}
     if outcome.get("__completed__") and trade is not None:
-        _trade_post_message(db, trade, _trade_summary_text(trade),
-                            actor=uid, ping=True)
         # Clan System: a completed same-clan trade can earn each side their
         # daily +1 Clan Point (all rules live in clan_server.on_trade_completed;
         # it never raises, so trading can't break on clan bookkeeping).
@@ -4219,12 +4233,14 @@ def _trade_cancel(uid: str, peer_uid: str) -> Dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         return _trade_failure("cancel", exc)
     trade = outcome.get("trade")
+    other = ""
+    for p in ((trade.get("participants") or []) if trade else []):
+        if p != uid:
+            other = p
+            break
     if trade is not None:
-        _trade_mirror(db, trade)
-    if outcome.get("__canceled__") and trade is not None:
-        names = trade.get("names") or {}
-        _trade_post_message(db, trade, f"✖ Trade canceled by {names.get(uid, 'a player')}.",
-                            actor=uid, ping=True)
+        _trade_mirror(db, trade, actor=uid,
+                      notify=(other if outcome.get("__canceled__") else ""))
     if outcome.get("__err__"):
         return {"ok": False, "error": outcome["__err__"]}
     return {"ok": True, "state": _trade_public(trade) if trade else None}

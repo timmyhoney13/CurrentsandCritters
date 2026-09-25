@@ -12598,6 +12598,125 @@
     .ccm-send:disabled { opacity: .5; cursor: not-allowed; }
     .ccm-guest-note { padding: 14px; text-align: center; font-size: .82rem; color: #b06800; background: rgba(255,238,200,.5); }
 
+    /* ── THE TRADE CARD IN A CHAT (.cctc) ─────────────────────────────
+       One card per pair of players, drawn from the server's live trade doc
+       and rewritten in place. It replaced three centered grey system lines
+       ("started a trade", "confirmed the trade", "Trade completed: ..."),
+       which said in words what this shows, and which nobody could act on.
+       Shared shape here; the two chat surfaces only swap the palette, so a
+       change to the layout lands in both at once. */
+    .cctc {
+      align-self: center; width: 100%; max-width: 330px; box-sizing: border-box;
+      display: flex; flex-direction: column; gap: 7px;
+      padding: 10px 11px 9px; border-radius: 15px; margin: 3px 0;
+      border: 1px solid transparent; position: relative;
+    }
+    .cctc-head { display: flex; align-items: center; gap: 6px; }
+    .cctc-ico { font-size: 13px; line-height: 1; flex-shrink: 0; }
+    .cctc-ttl {
+      flex: 1; min-width: 0; font-weight: 800; font-size: 12px; letter-spacing: .1px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cctc-x {
+      flex-shrink: 0; width: 20px; height: 20px; line-height: 1; border-radius: 50%;
+      border: none; background: transparent; cursor: pointer; font-size: 11px; opacity: .6;
+      transition: opacity .15s ease, background .15s ease;
+    }
+    .cctc-x:hover:not(:disabled) { opacity: 1; }
+    .cctc-x:disabled { opacity: .3; cursor: default; }
+
+    .cctc-sides { display: flex; align-items: stretch; gap: 8px; }
+    .cctc-side { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+    .cctc-side-h {
+      font-size: 9px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; opacity: .72;
+    }
+    .cctc-swap { flex: 0 0 auto; align-self: center; font-size: 13px; opacity: .5; }
+    .cctc-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-height: 30px; }
+    .cctc-thumb {
+      width: 30px; height: 30px; border-radius: 8px; overflow: hidden; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 800;
+    }
+    .cctc-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .cctc-more { font-size: 11px; opacity: .78; }
+    .cctc-pill {
+      display: inline-flex; align-items: center; gap: 3px; padding: 3px 7px; border-radius: 9px;
+      font-size: 10.5px; font-weight: 800; white-space: nowrap;
+    }
+    .cctc-pill-ico { font-size: 10px; line-height: 1; }
+    .cctc-none { font-size: 10.5px; font-style: italic; opacity: .55; }
+
+    .cctc-note { font-size: 10.5px; line-height: 1.4; }
+    .cctc-acts { display: flex; gap: 6px; }
+    .cctc-btn {
+      flex: 1; padding: 7px 10px; border-radius: 10px; border: 1px solid transparent;
+      font-size: 11.5px; font-weight: 800; font-family: inherit; cursor: pointer;
+      transition: transform .12s ease, filter .15s ease, background .15s ease;
+    }
+    .cctc-btn:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-1px); }
+    .cctc-btn:active:not(:disabled) { transform: translateY(0); }
+    .cctc-btn:disabled { opacity: .45; cursor: not-allowed; }
+    .cctc-time { font-size: 9px; opacity: .5; text-align: right; }
+
+    /* It arrives, and it lands again when it finishes. Not on the repaints in
+       between, or it would flinch every time the other player adds an item. */
+    @keyframes cctc-pop {
+      0%   { transform: scale(.94) translateY(7px); opacity: 0; }
+      62%  { transform: scale(1.018) translateY(0); opacity: 1; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+    .cctc-pop { animation: cctc-pop .32s cubic-bezier(.2,.9,.3,1.15) both; }
+    @media (prefers-reduced-motion: reduce) { .cctc-pop { animation: none; } }
+
+    /* Messages drawer / page: the light lobby palette. */
+    .cctc-drawer {
+      background: linear-gradient(162deg, #ffffff 0%, #eef7ff 100%);
+      border-color: rgba(120,190,235,.55); color: #16407e;
+      box-shadow: 0 4px 14px rgba(20,70,130,.13);
+    }
+    .cctc-drawer .cctc-x:hover:not(:disabled) { background: rgba(20,70,130,.09); }
+    .cctc-drawer .cctc-thumb { background: rgba(120,190,235,.22); color: #16407e; }
+    .cctc-drawer .cctc-pill { background: rgba(46,144,224,.13); color: #14508f; }
+    .cctc-drawer .cctc-note { color: #4a6f99; }
+    .cctc-drawer .cctc-note.go { color: #0f7a3d; font-weight: 800; }
+    .cctc-drawer .cctc-note.ok { color: #12833f; font-weight: 800; }
+    .cctc-drawer .cctc-note.warn { color: #96601a; }
+    .cctc-drawer .cctc-note.err { color: #b5323f; }
+    .cctc-drawer .cctc-btn.ghost { background: rgba(255,255,255,.75); border-color: rgba(120,190,235,.65); color: #16407e; }
+    .cctc-drawer .cctc-btn.go { background: linear-gradient(135deg,#2e90e0,#1a6ad0); color: #fff; }
+    .cctc-drawer .cctc-btn.go.on { background: linear-gradient(135deg,#3fc06e,#1f9a4d); }
+    .cctc-drawer.cctc-completed { border-color: rgba(50,170,100,.6); background: linear-gradient(162deg,#f4fff8 0%,#e6f7ec 100%); }
+    .cctc-drawer.cctc-canceled { background: linear-gradient(162deg,#fbfbfc 0%,#f0f1f4 100%); border-color: rgba(150,165,185,.5); }
+
+    /* In-game chat panel: the darker glass the rest of that panel uses. */
+    .cctc-panel {
+      background: rgba(255,255,255,.09); border-color: rgba(95,179,214,.34); color: #e6f0fa;
+      box-shadow: 0 3px 12px rgba(0,16,40,.28);
+      max-width: 100%;
+    }
+    .cctc-panel .cctc-x { color: #cfe3f6; }
+    .cctc-panel .cctc-x:hover:not(:disabled) { background: rgba(255,255,255,.13); }
+    .cctc-panel .cctc-ttl { color: var(--gold); }
+    .cctc-panel .cctc-thumb { background: rgba(255,255,255,.14); color: #e6f0fa; }
+    .cctc-panel .cctc-pill { background: rgba(95,179,214,.2); color: #dcecfb; }
+    .cctc-panel .cctc-note { color: #a8c6e2; }
+    .cctc-panel .cctc-note.go { color: #7ce0a4; font-weight: 800; }
+    .cctc-panel .cctc-note.ok { color: #7ce0a4; font-weight: 800; }
+    .cctc-panel .cctc-note.warn { color: #f0c674; }
+    .cctc-panel .cctc-note.err { color: #ff9aa4; }
+    .cctc-panel .cctc-btn.ghost { background: rgba(255,255,255,.1); border-color: rgba(95,179,214,.4); color: #e6f0fa; }
+    .cctc-panel .cctc-btn.go { background: linear-gradient(135deg,#2e90e0,#1a6ad0); color: #fff; }
+    .cctc-panel .cctc-btn.go.on { background: linear-gradient(135deg,#3fc06e,#1f9a4d); }
+    .cctc-panel.cctc-completed { border-color: rgba(80,200,130,.5); background: rgba(70,190,120,.12); }
+    .cctc-panel.cctc-canceled { border-color: rgba(150,175,200,.3); background: rgba(255,255,255,.05); }
+
+    /* The drawer opens full-page on a big screen, where the card can breathe. */
+    #cc-msg-drawer.ccm-page .cctc { max-width: 430px; padding: 13px 15px 11px; border-radius: 17px; }
+    #cc-msg-drawer.ccm-page .cctc-ttl { font-size: 13.5px; }
+    #cc-msg-drawer.ccm-page .cctc-note { font-size: 12px; }
+    #cc-msg-drawer.ccm-page .cctc-btn { font-size: 12.5px; padding: 8px 12px; }
+    #cc-msg-drawer.ccm-page .cctc-thumb { width: 34px; height: 34px; }
+
     /* ── NEW MESSAGE COMPOSE (shared recipient picker, lobby theme) ── */
     .ccm-compose { display: flex; flex-direction: column; flex: 1; min-width: 0; }
     .ccm-compose-recip {
