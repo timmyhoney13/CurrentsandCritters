@@ -22,6 +22,7 @@ import threading
 import time
 import traceback
 from dataclasses import dataclass, replace as dataclass_replace
+from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional, Tuple
@@ -1532,20 +1533,17 @@ SUPPORTER_WALL_TIERS: List[Tuple[int, str, str]] = [
 # Critters" everywhere it is displayed now, "Currents & Critters" on anything
 # older), so the username question accepts BOTH spellings and a link created
 # either way keeps working. Keep both entries.
-# ── The Supporter Reef Wall is on standby ───────────────────────────────────
-# While this is True the public wall serves NO names: /api/supporters/wall
-# answers with an empty list, and /supporter-wall says the wall is resting.
+# ── The Supporter Reef Wall ─────────────────────────────────────────────────
+# Back up on 2026-09-24. Flip this to True to rest it again: the public wall
+# then serves NO names (/api/supporters/wall answers with an empty list and
+# /supporter-wall says the wall is resting), while the webhook keeps recording
+# every supporter, their wall name, their lifetime total and the size their
+# name has earned — so the reef comes back with everyone on it.
 #
-# Only the DISPLAY is off. Everything below still runs exactly as it did: the
-# webhook still records each supporter, still reads their wall name off the
-# checkout, still keeps their lifetime total and still works out the tier and
-# the size their name will be. The reef comes back with everyone on it.
-#
-# The admin review page is deliberately unaffected: it reads /api/admin/
-# supporters, which is a different endpoint behind an ADMIN_EMAIL check, so
-# names can still be approved while nobody can see the wall.
+# The admin review page is deliberately unaffected either way: it reads
+# /api/admin/supporters, a different endpoint behind an ADMIN_EMAIL check.
 # See _standby/README.md.
-SUPPORTER_WALL_ON_STANDBY = True
+SUPPORTER_WALL_ON_STANDBY = False
 
 CF_WALL_NAME_LABEL   = "Name for Supporter Reef Wall"
 CF_WALL_PUBLIC_LABEL = "Show my name publicly on the Supporter Wall?"
@@ -2329,6 +2327,149 @@ def _admin_list_supporters(filter_mode: str = "pending") -> Dict[str, Any]:
             })
     items.sort(key=lambda r: int(r.get("totalSpentCents") or 0), reverse=True)
     return {"ok": True, "supporters": items}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  THE CONSERVATION SHARE
+# ═══════════════════════════════════════════════════════════════════════════
+# The public pledge, in ONE place. Every page that states a percentage should
+# read it from here, and the monthly report below works out what that
+# percentage actually owes. Changing the pledge is changing this number.
+CONSERVATION_SHARE_PCT = 5
+
+# A payment only counts once it is really money. Stripe's `payment_status` on a
+# completed Checkout Session is "paid" for a card, and "unpaid" for the delayed
+# methods that settle later (those arrive again as async_payment_succeeded and
+# are re-recorded as paid). Counting an unpaid row would put money we have not
+# received into a donation we have promised to make.
+_DONATION_COUNTED_STATUSES = {"paid", "no_payment_required"}
+
+
+def _month_window_utc(month: str) -> Tuple[datetime, datetime, str]:
+    """(start, end, label) for a 'YYYY-MM' month in UTC, end exclusive.
+
+    UTC and not a local zone on purpose: the server runs in UTC, Stripe stamps
+    in UTC, and a report whose boundaries move with whoever ran it cannot be
+    reconciled against either. Every figure this produces is labelled UTC.
+    """
+    month = str(month or "").strip()
+    if month:
+        try:
+            year, mon = month.split("-")
+            start = datetime(int(year), int(mon), 1, tzinfo=timezone.utc)
+        except (ValueError, TypeError) as exc:
+            raise ValueError("month must be YYYY-MM") from exc
+    else:
+        now = datetime.now(timezone.utc)
+        start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    end = (datetime(start.year + 1, 1, 1, tzinfo=timezone.utc) if start.month == 12
+           else datetime(start.year, start.month + 1, 1, tzinfo=timezone.utc))
+    return start, end, start.strftime("%Y-%m")
+
+
+def _admin_donation_report(month: str = "") -> Dict[str, Any]:
+    """Every payment taken in one calendar month, and the conservation share.
+
+    Reads the payments subcollection of every supporter and guest-supporter
+    row, so it counts the money itself rather than the lifetime totals the wall
+    is sized from: a lifetime total cannot say WHEN it arrived.
+
+    Two things it must not get wrong, and the guards for each:
+
+      • DOUBLE COUNTING. Claiming a guest's payments copies each one into
+        supporters/{uid}/payments under THE SAME document id (the Stripe
+        session id), and leaves the guest row in place marked claimed. Summing
+        both collections would count that money twice. Dedup is by payment id
+        across everything, which catches it exactly, and claimed guest rows are
+        skipped as well, the way the wall skips them.
+
+      • UNDER-DONATING. The share is rounded UP to the cent. A pledge is a
+        promise, so the error is deliberately on the side of donating slightly
+        more than the arithmetic, never a cent less.
+    """
+    db = _get_firestore()
+    if db is None:
+        return {"ok": False, "error": "firestore unavailable"}
+    try:
+        start, end, label = _month_window_utc(month)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+    payments: Dict[str, Dict[str, Any]] = {}     # id → row, the dedup
+    skipped_unpaid = 0
+    skipped_untimed = 0
+    for coll, kind in (("supporters", "supporter"), ("guestSupporters", "guest")):
+        try:
+            snap = db.collection(coll).limit(3000).get()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[donations] list {coll} failed: {exc}")
+            return {"ok": False, "error": f"could not read {coll}"}
+        for doc in snap:
+            d = doc.to_dict() or {}
+            # Same human as a supporter row; their payments were copied across.
+            if kind == "guest" and d.get("claimStatus") == "claimed":
+                continue
+            try:
+                pays = doc.reference.collection("payments").limit(500).get()
+            except Exception as exc:  # noqa: BLE001
+                print(f"[donations] payments of {coll}/{doc.id} failed: {exc}")
+                return {"ok": False, "error": "could not read payments"}
+            for pay in pays:
+                pd = pay.to_dict() or {}
+                status = str(pd.get("paymentStatus") or "paid").lower()
+                if status not in _DONATION_COUNTED_STATUSES:
+                    skipped_unpaid += 1
+                    continue
+                # No timestamp: the payment cannot be placed in a month, and
+                # guessing would put money in the wrong one. Reported, never
+                # counted. A NAIVE datetime is read as UTC rather than handed to
+                # astimezone(), which would silently read it as the server's
+                # local time and could move a payment across a month boundary.
+                made = pd.get("createdAt")
+                made_dt = None
+                if isinstance(made, datetime):
+                    made_dt = (made.replace(tzinfo=timezone.utc) if made.tzinfo is None
+                               else made.astimezone(timezone.utc))
+                if made_dt is None:
+                    skipped_untimed += 1
+                    continue
+                if not (start <= made_dt < end):
+                    continue
+                payments[pay.id] = {
+                    "id":          pay.id,
+                    "at":          made_dt.isoformat(),
+                    "amountCents": int(pd.get("amountCents") or 0),
+                    "product":     pd.get("productName") or "",
+                    "supporter":   str(d.get("displayName") or "Supporter"),
+                    "kind":        kind,
+                }
+
+    rows = sorted(payments.values(), key=lambda r: r["at"])
+    gross = sum(int(r["amountCents"]) for r in rows)
+    # Rounded UP: see the docstring. -(-a // b) is ceil for positive ints.
+    share = -(-(gross * CONSERVATION_SHARE_PCT) // 100)
+
+    by_product: Dict[str, Dict[str, int]] = {}
+    for r in rows:
+        b = by_product.setdefault(r["product"] or "(unnamed)", {"count": 0, "cents": 0})
+        b["count"] += 1
+        b["cents"] += int(r["amountCents"])
+
+    return {
+        "ok": True,
+        "month": label,
+        "windowStart": start.isoformat(),
+        "windowEnd": end.isoformat(),
+        "timezone": "UTC",
+        "sharePct": CONSERVATION_SHARE_PCT,
+        "paymentCount": len(rows),
+        "grossCents": gross,
+        "conservationShareCents": share,
+        "skippedUnpaid": skipped_unpaid,
+        "skippedMissingTimestamp": skipped_untimed,
+        "byProduct": by_product,
+        "payments": rows,
+    }
 
 
 def _admin_update_supporter(kind: str, doc_id: str, fields: Dict[str, Any]) -> Dict[str, Any]:
@@ -14875,6 +15016,21 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 return
             filter_mode = (qs_a.get("filter", ["pending"])[0] or "pending").strip()
             self._send_json(_admin_list_supporters(filter_mode))
+            return
+
+        # Every payment taken in one month, and the 5% that owes to ocean
+        # conservation. Same ADMIN_RECOVERY_KEY as the review list above: this
+        # one returns amounts and product names, so it is never public.
+        # ?month=YYYY-MM, or omitted for the current month. donation_report.py
+        # is the command-line reader.
+        if parsed.path == "/api/admin/donations":
+            qs_d = parse_qs(parsed.query)
+            supplied_key = qs_d.get("admin_key", [None])[0] or ""
+            env_key = os.environ.get("ADMIN_RECOVERY_KEY", "").strip()
+            if not _admin_key_ok(supplied_key, env_key):
+                self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
+                return
+            self._send_json(_admin_donation_report(qs_d.get("month", [""])[0] or ""))
             return
 
         if parsed.path == "/api/competitive/forfeit_pending":

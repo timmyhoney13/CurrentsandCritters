@@ -817,14 +817,24 @@ multiplayer/client/_ss_*.html
 # what keeps it gone. Test-only, no Dockerfile COPY.
 !test_ocean_play_no_flip.py
 
+# What came in this month and the 5% of it that owes to ocean conservation.
+# donation_report.py reads /api/admin/donations (in multiplayer_server.py, behind
+# ADMIN_RECOVERY_KEY) and prints the month's payments, the total and the share.
+# Tracked because the pledge is printed on the Store and the home page, and the
+# thing that works out what it costs should not live on one laptop.
+# Test-only for the test, no Dockerfile COPY for either.
+!donation_report.py
+!test_donation_report.py
+
 # The Supporter Tiers, the donation goal, the Reef Wall and the Partner With Us
-# form, taken off the site on 2026-09-08 and meant to come back. README.md there
-# says where each piece went back into and what to run afterwards. Tracked on
-# purpose: it is the restore instructions, and test_partner_contact.py reads the
+# form, taken off the site on 2026-09-08 and back on 2026-09-24. README.md there
+# README.md there is the record of both moves. Tracked on purpose: it is what
+# the homepage bands were pasted back FROM, and test_partner_contact.py reads the
 # archived form to keep its <select> in step with the server's KINDS.
 #
 # ⚠️ Also listed in .vercelignore. These are the real tier cards with the real
-# LIVE Payment Links in them, and Vercel serves any .html it is handed: without
-# that entry the shelf we just took down is still buyable at its own URL.
+# LIVE Payment Links in them as clickable <a> tags, and Vercel serves any .html
+# it is handed. The tiers on the live homepage are deliberately locked behind the
+# Kickstarter; without that entry this copy hands out the four checkouts anyway.
 !_standby/
 !_standby/**

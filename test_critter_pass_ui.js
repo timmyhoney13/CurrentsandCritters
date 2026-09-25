@@ -93,15 +93,14 @@ check("the bridge can open a confirm modal (4,000 coins is not a mis-tap)",
 check("it is primed on sign-in", APP.includes("window.__ccCritterPassPrime && window.__ccCritterPassPrime()"));
 check("it is reset on BOTH identity-change paths",
       (APP.match(/window\.__ccCritterPassReset && window\.__ccCritterPassReset\(\)/g) || []).length === 2);
-// The guest note is OUT while the page is closed, and it is not only a
-// sentence that stopped being true: _ensureGuestNote inserts a "Sign in"
-// BUTTON into the panel, which would be the one clickable thing left on a page
-// that is meant to have none. The line to put back is recorded next to it, so
-// reopening the page is a paste and not a rewrite.
-check("no guest note is inserted into the closed panel",
-      !/^\s*critterpass:\s*"/m.test(APP));
-check("…and the line to restore is written down where it was",
-      /critterpass: ON STANDBY[\s\S]{0,400}Buying and\s*\/\/\s*claiming it needs an account/.test(APP));
+// The guest note came back with the page. It is not only a sentence:
+// _ensureGuestNote inserts a "Sign in" BUTTON into the panel with it, which is
+// the whole point for a guest, and was exactly why the line had to go while the
+// page was shut.
+check("a guest is told what the page needs an account for",
+      /^\s*critterpass:\s*"This is the whole Critter Pass at your level\./m.test(APP));
+check("…and it says buying and claiming is the part that needs one",
+      /critterpass:\s*"[^"]*Buying and claiming it needs an account\./.test(APP));
 
 console.log("\nwiring: the kelp forest really is the background");
 check("the page paints /backgrounds/kelp-forest.png",
@@ -526,32 +525,38 @@ const ALLCSS = CSS_ORDER
   .filter(f => fs.existsSync(path.join(CLIENT, "css", f)))
   .map(f => "/* " + f + " */\n" + read("css/" + f))
   .join("\n");
-// ── THE PAGE IS CLOSED RIGHT NOW (CCCP_PASS_CLOSED in js/critter-pass.js) ──
-// So it is rendered TWICE here, exactly the way test_supporter_tiers_ui.js
-// renders the closed Store:
+// ── THE PAGE IS OPEN (CCCP_PASS_CLOSED false in js/critter-pass.js) ───────
+// It is still rendered TWO ways here, the same way test_supporter_tiers_ui.js
+// renders the Store:
 //
-//   1. AS SHIPPED, in its own iframe (results.closed). The whole point of a
-//      closed page is that nothing on it can be reached, and the only proof of
-//      that is rendering it and finding no button, no link and nothing
-//      focusable anywhere in the output.
-//   2. WITH THE FLAG FORCED OFF, at all five widths. The rail, the purchase
-//      card, the pass curve and every contrast measurement below are still in
-//      the file waiting to be switched back on, and a page nobody renders is a
-//      page nobody notices going wrong. These keep the standby copy honest
-//      while it is switched off.
+//   1. AS SHIPPED, at all five widths. The rail, the purchase card, the pass
+//      curve and every contrast measurement below are what a player actually
+//      gets, and this is the bulk of the suite.
+//   2. WITH THE FLAG FORCED ON, in its own iframe (results.closed). The cover
+//      is one word away at all times, and the only proof that shutting the page
+//      really shuts it is rendering it that way and finding no button, no link
+//      and nothing focusable. A cover nobody renders is a cover nobody notices
+//      going wrong, and this page has been shut once already.
 //
-// The replace is asserted, not hoped for: if the flag is ever renamed, this
-// test must fail loudly rather than quietly measure a Coming soon card at five
-// widths and report the pass green.
-const CLOSED_DECL = "const CCCP_PASS_CLOSED = true;";
-if (!PASSJS.includes(CLOSED_DECL)) {
-  console.error("critter-pass.js no longer declares " + CLOSED_DECL
+// The flag is asserted, not hoped for: if it is ever renamed, this test must
+// fail loudly rather than quietly measure the wrong page and report it green.
+// ⚠️ ANCHORED TO THE START OF A LINE, and it has to be. The comment block above
+// the declaration spells out BOTH settings ("← opens the page again"), so a
+// plain substring replace rewrites the comment and leaves the real `const`
+// alone: the "closed" iframe then renders the OPEN page and reports it shut.
+const OPEN_DECL = /^([ \t]*)const CCCP_PASS_CLOSED = false;$/m;
+if (!OPEN_DECL.test(PASSJS)) {
+  console.error("critter-pass.js no longer declares const CCCP_PASS_CLOSED = false;"
               + " — update this harness before trusting it.");
   process.exit(1);
 }
-const PASSJS_OPEN = PASSJS.replace(CLOSED_DECL, "const CCCP_PASS_CLOSED = false;");
+const PASSJS_CLOSED = PASSJS.replace(OPEN_DECL, "$1const CCCP_PASS_CLOSED = true;");
+if (PASSJS_CLOSED === PASSJS) {
+  console.error("forcing CCCP_PASS_CLOSED on changed nothing — the replace missed.");
+  process.exit(1);
+}
 
-const SRC = { css: ALLCSS, js: PASSJS_OPEN, jsShipped: PASSJS };
+const SRC = { css: ALLCSS, js: PASSJS, jsShipped: PASSJS_CLOSED };
 const WIDTHS = [1440, 1280, 1024, 820, 390];
 
 // ── The harness page ──────────────────────────────────────────────────────
@@ -1138,19 +1143,18 @@ const R = JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&")
                          .replace(/&lt;/g, "<").replace(/&gt;/g, ">"));
 
 // ══════════════════════════════════════════════════════════════════════════
-//  THE PAGE AS SHIPPED: CLOSED
-//  Everything below this block runs with CCCP_PASS_CLOSED forced OFF, so this
-//  is the only section measuring what a player actually gets today. It is
-//  first on purpose: if the page is not really shut, nothing else here matters.
+//  THE PAGE WITH THE FLAG FORCED ON: STILL PROPERLY SHUT
+//  Everything else in this file measures the page AS SHIPPED, which is open.
+//  This block is the standby cover, kept honest while nothing uses it, so the
+//  day it is needed again it is one word and not a rewrite.
 // ══════════════════════════════════════════════════════════════════════════
-console.log("\nthe Critter Pass is shut");
+console.log("\nthe Critter Pass is one word from shut");
 {
   const C = R.closed || { errors: ["no closed render"] };
   const c = C.closed || {};
   check("the closed render reported in", (C.errors || []).length === 0,
         (C.errors || []).join(" | "));
-  check("the flag in the shipped file is ON",
-        /const CCCP_PASS_CLOSED = true;/.test(PASSJS));
+  check("the flag in the shipped file is OFF", OPEN_DECL.test(PASSJS));
   check("the page paints one Coming soon cover", c.cover === 1 && /Coming soon/i.test(c.title || ""),
         `${c.cover} cover(s), title ${JSON.stringify(c.title)}`);
   check("it says why, in plain words", /closed/i.test(c.desc || "") && /can't be unlocked|cannot be unlocked/i.test(c.desc || ""),

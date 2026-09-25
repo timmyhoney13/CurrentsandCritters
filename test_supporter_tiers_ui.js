@@ -3,16 +3,18 @@
  *
  * Run:  node test_supporter_tiers_ui.js
  *
- * The Store is CLOSED right now (PHST_STORE_CLOSED in preview-app.js), so the
- * shelf is rendered TWICE here:
+ * The Store is OPEN (PHST_STORE_CLOSED false), and its four SUPPORTER TIERS are
+ * shown but not sold: they are backed through the Kickstarter, and
+ * PHST_TIERS_KICKSTARTER_ONLY locks their buttons. So the shelf is rendered
+ * THREE ways here, because each one proves something the others cannot:
  *
- *   1. As shipped. The whole point of a closed store is that nothing on it can
- *      be bought, and the only proof of that is rendering it and finding no
- *      button, no Payment Link and no coin-spend anywhere in the output.
- *   2. With the flag forced off. Every tier, price and grant below is still in
- *      the file, waiting to be switched back on, and a shelf nobody renders is
- *      a shelf nobody notices going wrong. These checks keep the standby copy
- *      honest while it is switched off.
+ *   1. As shipped. The shelf a player actually meets: coin packs buyable, tier
+ *      cards complete and every tier button disabled, opening nothing.
+ *   2. With the store forced shut. The standby cover is one word away at all
+ *      times, and a cover nobody renders is a cover nobody notices going wrong.
+ *   3. With the tier lock forced off. The four live Payment Links are still in
+ *      the file waiting for the day the Kickstarter ends, and this is what keeps
+ *      each one paired with the right price while nothing points at it.
  *
  * A tier is granted by the PRICE of the link its button opens, so a tier whose
  * checkout is not live yet must render a locked button and NOT a live-looking
@@ -67,6 +69,7 @@ function grabFn(name, indent) {
 }
 
 const CLOSED_FLAG = grabBlock("const PHST_STORE_CLOSED = ", ";");
+const KS_FLAG     = grabBlock("const PHST_TIERS_KICKSTARTER_ONLY = ", ";");
 const PACKS  = grabBlock("const PHST_COIN_PACKS = [", "\n      ];");
 const TIERS  = grabBlock("const PHST_SUPPORTER_TIERS = [", "\n      ];");
 const PHYS   = grabBlock("const PHST_PHYSICAL = [", "];");
@@ -88,9 +91,9 @@ function fakeNode() {
     focus() {}, select() {},
   };
 }
-// One fresh context per render: PHST_STORE_CLOSED is a `const`, so the open
-// and closed shelves cannot share a sandbox.
-function renderWith(flagSource) {
+// One fresh context per render: both flags are `const`, so two shelves rendered
+// differently cannot share a sandbox.
+function renderWith(flagSource, ksSource) {
   const shelf = fakeNode();
   const sandbox = {
     console,
@@ -109,38 +112,89 @@ function renderWith(flagSource) {
   };
   sandbox.window.window = sandbox.window;
   vm.createContext(sandbox);
-  vm.runInContext([EMAIL, TPL, PACKS, TIERS, PHYS, flagSource, RENDER, CUSTOM].join("\n"), sandbox);
+  vm.runInContext([EMAIL, TPL, PACKS, TIERS, PHYS, flagSource,
+                   ksSource || KS_FLAG, RENDER, CUSTOM].join("\n"), sandbox);
   vm.runInContext("renderPhStore();", sandbox);
   return { html: shelf.innerHTML, sandbox, shelf };
 }
 
-const CLOSED = renderWith(CLOSED_FLAG);                        // exactly as shipped
-const OPEN   = renderWith("const PHST_STORE_CLOSED = false;"); // the shelf on standby
-const sandbox = OPEN.sandbox;
-const shelf = OPEN.shelf;
-const HTML = OPEN.html;
+const SHIPPED = renderWith(CLOSED_FLAG);                        // exactly as shipped
+const SHUT    = renderWith("const PHST_STORE_CLOSED = true;");  // the standby cover
+const LIVE    = renderWith("const PHST_STORE_CLOSED = false;",  // tiers unlocked
+                           "const PHST_TIERS_KICKSTARTER_ONLY = false;");
+const sandbox = SHIPPED.sandbox;
+const shelf = SHIPPED.shelf;
+const HTML = SHIPPED.html;
 
-console.log("\nthe store is shut");
-check(/const PHST_STORE_CLOSED = true;/.test(APP),
-      "the flag in the shipped file is ON");
-check(/phst-closed/.test(CLOSED.html) && /Coming soon/.test(CLOSED.html),
-      "the shelf paints one Coming soon panel");
-check(!/<button/.test(CLOSED.html),
+console.log("\nthe store is open");
+check(/const PHST_STORE_CLOSED = false;/.test(APP),
+      "the flag in the shipped file is OFF");
+check(!/phst-closed/.test(HTML),
+      "the shelf does not paint a Coming soon panel");
+check(/phst-coin-grid/.test(HTML), "the Critter Coin packs are on the shelf");
+check(/phst-tier-grid/.test(HTML), "the Supporter Tiers are on the shelf");
+
+console.log("\nthe top of the shelf");
+// The pledge and the Kickstarter line are true of every row below them, so they
+// sit above the first section title rather than inside any one of them.
+check(/Kickstarter coming soon/.test(HTML), "the Kickstarter strip is at the top");
+check(/Every Purchase Makes Waves!/.test(HTML), "the pledge headline is there");
+check(/5% of every purchase supports ocean conservation/.test(HTML),
+      "the pledge says 5%");
+check(/Surfrider Foundation/.test(HTML), "and names the Surfrider Foundation");
+check(/independent supporter and is not sponsored by or officially partnered with the Surfrider Foundation/.test(HTML),
+      "the independence disclaimer is on the shelf, not just in the commit");
+// The banner must come BEFORE the first thing for sale, or it is a footnote.
+check(HTML.indexOf("Every Purchase Makes Waves!") < HTML.indexOf("phst-coin-grid"),
+      "the pledge sits above the first thing for sale");
+check(HTML.indexOf("Kickstarter coming soon") < HTML.indexOf("Every Purchase Makes Waves!"),
+      "the Kickstarter line sits above the pledge");
+
+console.log("\nthe tiers are shown, and sold nowhere");
+check(/const PHST_TIERS_KICKSTARTER_ONLY = true;/.test(APP),
+      "the tier lock in the shipped file is ON");
+const shippedTierBlock = HTML.slice(HTML.indexOf('class="phst-tier-grid"'),
+                                    HTML.indexOf('class="phst-custom-tier"'));
+check(!/data-stripe/.test(shippedTierBlock),
+      "no tier card opens a Stripe checkout");
+check(!/buy\.stripe\.com/.test(shippedTierBlock),
+      "no Payment Link reaches a tier card");
+check((shippedTierBlock.match(/phst-tier-soon/g) || []).length === 4,
+      "all four tier buttons are locked");
+check((shippedTierBlock.match(/On Kickstarter soon/g) || []).length === 4,
+      "and all four say why");
+check((shippedTierBlock.match(/<button/g) || []).length ===
+      (shippedTierBlock.match(/disabled/g) || []).length,
+      "every button on a tier card is disabled");
+check(/The Supporter Tiers will be available through Kickstarter soon!/.test(HTML),
+      "a line under the grid says where they will be");
+check(HTML.indexOf("The Supporter Tiers will be available through Kickstarter soon!")
+        > HTML.indexOf('class="phst-tier-grid"'),
+      "...and it is BELOW the tiers, where the reader ends up");
+// The coin packs are a different product and must still be buyable.
+check(/data-stripe/.test(HTML.slice(HTML.indexOf("phst-coin-grid"),
+                                    HTML.indexOf("phst-tier-grid"))),
+      "the coin packs still take money");
+
+console.log("\nthe shelf is still one word from shut");
+check(/phst-closed/.test(SHUT.html) && /Coming soon/.test(SHUT.html),
+      "forced shut, it paints one Coming soon panel");
+check(!/<button/.test(SHUT.html),
       "there is no button of any kind on the closed shelf");
 // Same three ways of asking as the Critter Pass's own closed check: a page is
 // only shut when there is nothing on it to reach, and "no <button>" alone
 // would miss a link, an input or anything given a tabindex.
-check(!/<a\s/.test(CLOSED.html),
+check(!/<a\s/.test(SHUT.html),
       "there is no link either");
-check(!/tabindex|<input|<select|<textarea|onclick=|contenteditable/.test(CLOSED.html),
+check(!/tabindex|<input|<select|<textarea|onclick=|contenteditable/.test(SHUT.html),
       "and nothing on it can even be tabbed to");
-check(!/data-stripe/.test(CLOSED.html),
+check(!/data-stripe/.test(SHUT.html),
       "nothing on it opens a Stripe checkout");
-check(!/data-skin=|data-bg=|data-perk=|data-custom-tier/.test(CLOSED.html),
+check(!/data-skin=|data-bg=|data-perk=|data-custom-tier/.test(SHUT.html),
       "and nothing on it spends Critter Coins either");
-check(!/phst-tier-grid|phst-coin-grid|phst-perk-grid/.test(CLOSED.html),
+check(!/phst-tier-grid|phst-coin-grid|phst-perk-grid/.test(SHUT.html),
       "no tier grid, no coin packs, no perks: the shelf itself is gone");
-check(!/buy\.stripe\.com/.test(CLOSED.html),
+check(!/buy\.stripe\.com/.test(SHUT.html),
       "no Payment Link reaches the page while the store is shut");
 
 /* ── what the server says the shelf must sell ────────────────────────── */
@@ -198,26 +252,41 @@ for (const [cents, tier] of Object.entries(byCents)) {
   check(card.includes(phrase), `${tier}: the card shows ${phrase}`);
 }
 
-console.log("\na tier with no Payment Link cannot be bought by accident");
+console.log("\nas shipped, no tier card can be bought by accident");
 for (const [cents, tier] of Object.entries(byCents)) {
   const usd = Number(cents) / 100;
   const card = cards.find((c) => c.includes(`$${usd.toFixed(2)}`)) || "";
-  const links = card.match(/data-stripe="([^"]*)"/g) || [];
-  const locked = /phst-tier-soon/.test(card);
-  if (locked) {
-    check(links.length === 0,
-          `${tier}: locked, so it opens NO Payment Link`);
-    check(/disabled/.test(card), `${tier}: locked, so the button is disabled`);
-    check(!/data-custom-tier/.test(card),
-          `${tier}: locked, with no "email us" line hung under it`);
-  } else {
-    check(links.length === 1, `${tier}: exactly one Buy link`);
-    check(/buy\.stripe\.com/.test(links[0] || ""),
-          `${tier}: that link is a real Stripe Payment Link`);
-  }
+  check((card.match(/data-stripe="([^"]*)"/g) || []).length === 0,
+        `${tier}: opens NO Payment Link`);
+  check(/phst-tier-soon/.test(card) && /disabled/.test(card),
+        `${tier}: locked, and the button is disabled`);
+  check(!/data-custom-tier/.test(card),
+        `${tier}: no "email us" line hung under it`);
 }
-// …and every price on the shelf is one the webhook actually knows.
-for (const m of HTML.matchAll(/data-stripe="([^"]+)"/g)) {
+
+// ── the four links, checked while nothing points at them ────────────────
+// The day the Kickstarter ends, this lock comes off and these buttons go live
+// as they are. A tier is granted by the PRICE of the link it opens, so a card
+// paired with the wrong URL would charge the wrong amount and grant the wrong
+// tier with no visible symptom. That cannot wait to be noticed on the day.
+console.log("\nwith the lock off, every tier pairs with the right link");
+const liveCards = LIVE.html
+  .slice(LIVE.html.indexOf('class="phst-tier-grid"'),
+         LIVE.html.indexOf('class="phst-custom-tier"'))
+  .split(/<div class="phst-tier[" ]/).slice(1);
+check(liveCards.length === Object.keys(byCents).length,
+      `one unlocked card per tier (${liveCards.length} of ${Object.keys(byCents).length})`);
+for (const [cents, tier] of Object.entries(byCents)) {
+  const usd = Number(cents) / 100;
+  const card = liveCards.find((c) => c.includes(`$${usd.toFixed(2)}`)) || "";
+  const links = card.match(/data-stripe="([^"]*)"/g) || [];
+  check(links.length === 1, `${tier}: exactly one Buy link when unlocked`);
+  check(/buy\.stripe\.com/.test(links[0] || ""),
+        `${tier}: that link is a real Stripe Payment Link`);
+  check(!/phst-tier-soon/.test(card), `${tier}: unlocked, so the button is live`);
+}
+// …and every link the unlocked shelf emits is a well-formed live one.
+for (const m of LIVE.html.matchAll(/data-stripe="([^"]+)"/g)) {
   check(/^https:\/\/buy\.stripe\.com\/[A-Za-z0-9]+$/.test(m[1]),
         "every Buy button opens a live Stripe link: " + m[1]);
 }
@@ -243,7 +312,8 @@ console.log("\nthe styles the render depends on");
 // Every class the render actually emits, checked ON ITS OWN. An `||` fallback
 // here would have let a deleted rule pass on the strength of its neighbour.
 const emitted = new Set();
-for (const m of (HTML + CLOSED.html + dlg.innerHTML).matchAll(/class="([^"]+)"/g)) {
+for (const m of (HTML + SHUT.html + LIVE.html + dlg.innerHTML)
+                  .matchAll(/class="([^"]+)"/g)) {
   for (const c of m[1].split(/\s+/)) if (/^(phst-|cctm-)/.test(c)) emitted.add(c);
 }
 for (const cls of emitted) {

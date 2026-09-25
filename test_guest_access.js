@@ -129,20 +129,18 @@ if (!CHROME) {
 // ══════════════════════════════════════════════════════════════════════════
 // Every panel a guest can actually reach from the sidebar.
 //
-// The Store and the Critter Pass are deliberately NOT here: both are off the
-// menu while they are on standby (PH_CLOSED_TABS in js/preview-app.js), so
-// there is no sidebar item to click and asking for either by name lands on the
-// Overview. That is not a guest restriction — nobody gets them, signed in or
-// not — so it is not this suite's subject; test_closed_pages.js is where the
-// removal is proved, and it is the file to update when they come back.
+// The Store and the Critter Pass are back on the menu (2026-09-24), so the walk
+// covers them again. Both matter more for a guest than most panels here: the
+// Store is the one place a guest meets a checkout, and the Critter Pass panel is
+// where _ensureGuestNote inserts a Sign in button.
 // Prestige comes last and has no sidebar item: it is opened from the card at
 // the end of the Level Pass track, so the walk reaches it the way a player does.
 const TABS = ["overview","howto","competitive","history","friends",
               "messages","achievements","leaderboard","clans","levelpass",
-              "prestige"];
+              "store","critterpass","prestige"];
 
-// The six that cost money. Everything else in the catalogue is earnable.
-const PAID_IDS = ["summer-skin-gull","summer-skin-hermit-crab","summer-skin-goby",
+// The five that cost money. Everything else in the catalogue is earnable.
+const PAID_IDS = ["summer-skin-gull","summer-skin-goby",
                   "fourth-of-july","amberjack","fish"];
 
 const DRIVER = `

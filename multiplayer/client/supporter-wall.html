@@ -49,20 +49,56 @@
   <div class="wrap">
     <header>
       <h1>🪸 Supporter Reef Wall</h1>
-      <p class="sub">The wall is resting for a little while.</p>
+      <p class="sub">Every name here belongs to someone who helped Currents and Critters grow. The longer you support, the bigger your name swims on the reef.</p>
     </header>
-    <div class="state">
-      <p>The Supporter Reef Wall isn't on display right now, and neither is the
-         Store it went with. It's coming back.</p>
-      <p>Nothing has been lost. Every supporter, every name given at checkout
-         and every lifetime total is still recorded exactly as it was, so the
-         reef comes back with everyone on it, at the size they earned.</p>
+    <div class="legend">
+      <span><b>Wave Warrior</b> $10+</span>
+      <span><b>Ocean Ally</b> $25+</span>
+      <span><b>Tide Turner</b> $50+</span>
+      <span><b>Reef Guardian</b> $100+</span>
+      <span><b>Ocean Legend</b> $250+</span>
     </div>
+    <div id="wall" class="wall"><div class="state">Loading the reef…</div></div>
     <div class="links">
       <a href="/">← Back to the game</a>
       <a href="/claim">Claim past supporter rewards</a>
     </div>
   </div>
 
+<script>
+  // The TIER → display label, and wallSize → CSS size class.
+  var TIER_LABEL = {
+    wave_warrior:"Wave Warrior", ocean_ally:"Ocean Ally", tide_turner:"Tide Turner",
+    reef_guardian:"Reef Guardian", ocean_legend:"Ocean Legend"
+  };
+  var SIZE_CLASS = {
+    small:"s-small", medium:"s-medium", large:"s-large",
+    extra_large:"s-extra_large", biggest:"s-biggest"
+  };
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+
+  function render(list){
+    var wall = document.getElementById("wall");
+    if(!list || !list.length){
+      wall.innerHTML = '<div class="state">No approved supporters on the wall yet, be the first! 🐠</div>';
+      return;
+    }
+    wall.innerHTML = list.map(function(s){
+      var sizeClass = SIZE_CLASS[s.wallSize] || "s-small";
+      var tier = TIER_LABEL[s.tier] || "";
+      return '<span class="name '+sizeClass+'">'+esc(s.displayName)+
+             (tier ? '<span class="tier">'+esc(tier)+'</span>' : '')+'</span>';
+    }).join("");
+  }
+
+  fetch("/api/supporters/wall", {cache:"no-store"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ render(d && d.supporters ? d.supporters : []); })
+    .catch(function(){
+      document.getElementById("wall").innerHTML =
+        '<div class="state">Couldn\'t load the wall right now. Please try again soon.</div>';
+    });
+</script>
 </body>
 </html>

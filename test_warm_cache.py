@@ -314,17 +314,17 @@ check("...but a burst of tab flips cannot become a burst of requests",
       and int(re.search(r"MIN_REFETCH_MS = (\d+)", HOME).group(1)) >= 5000)
 check("no poller is left on a bare interval",
       not re.search(r"setInterval\(\s*(refreshRenderStats|refreshSupporterWall)", HOME))
-# The Supporter Reef Wall poller is GONE, not merely gated: the wall is on
-# standby (_standby/README.md) and it was the more expensive of the two, one
-# Firestore read of every approved supporter every 45 seconds for a band the
-# page no longer draws. What is left has to go through the gate, and nothing
-# may call a refresh outside it.
-check("the wall is no longer polled at all while it is on standby",
-      "refreshSupporterWall" not in HOME)
+# The Supporter Reef Wall poller is BACK with the wall (2026-09-24), and it is
+# the more expensive of the two: one Firestore read of every approved supporter
+# per refresh. Firestore's daily allowance has run out on this project before,
+# so what matters is that it goes through the visibility gate like every other
+# poller and that nothing calls a refresh outside it.
+check("the wall is polled again, now the wall is back",
+      "refreshSupporterWall" in HOME)
 _polled  = set(re.findall(r"pollWhileVisible\((refresh\w+),", HOME))
 _defined = set(re.findall(r"async function (refresh\w+)\(", HOME))
 check("every poller on the page goes through the gate",
-      _polled == {"refreshRenderStats"} and _defined == _polled)
+      _polled == {"refreshRenderStats", "refreshSupporterWall"} and _defined == _polled)
 check("a page opened in a background tab fetches nothing",
       re.search(r"if \(!document\.hidden\) \{ run\(\); start\(\); \}", HOME) is not None)
 

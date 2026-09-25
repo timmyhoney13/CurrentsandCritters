@@ -446,7 +446,6 @@ AVATAR_UNLOCK_TYPES: Dict[str, str] = {
     "/avatars/fish.png":                    "code",
     # ── Summer Skins ──
     "/avatars/summer-skin-gull.png":        "shop",
-    "/avatars/summer-skin-hermit-crab.png": "shop",
     "/avatars/summer-skin-goby.png":        "shop",
     # ── Fourth of July Skins ──
     "/avatars/fourth-of-july.png":          "shop",

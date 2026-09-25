@@ -725,26 +725,26 @@
   const gtStreakCalOpen = ()  => !!document.getElementById("streak-cal-modal")?.classList.contains("open");
   const gtChallengesOpen = () => !document.getElementById("ph-cs-strip")?.classList.contains("is-collapsed");
 
-  // ── Steps for a page that is not on the menu ──────────────────────
-  // The Critter Pass and the Store have been taken off the sidebar while they
-  // are on standby (PH_CLOSED_TABS in js/preview-app.js). Four steps of the
-  // menu tour visit them: two say "click this sidebar item", which is now not
-  // there, and two describe the panel it opens.
+  // ── Steps for a page that might not be on the menu ────────────────
+  // Four steps of the menu tour visit the Critter Pass and the Store: two say
+  // "click this sidebar item", two describe the panel it opens. Both pages came
+  // back on 2026-09-24, so all four run; this returns false and the skipIf on
+  // them does nothing.
   //
-  // They are marked skipIf rather than deleted, which is the mechanism built
-  // for exactly this: a skipped step is stepped over in BOTH directions and is
-  // left out of the "Step N of M" count, so the tour reads as though it never
-  // had them. Deleting them instead would mean rewriting four paragraphs when
-  // the pages come back.
+  //      const gtOnStandby = () => true;   ← takes the four steps back out
   //
-  // Leaving them in would be worse than untidy. Both are interactive with
-  // advanceWhen: gtTabActive(...), so the tour would tell the player to click
-  // a button that does not exist and then wait on a tab that can never go
-  // active. The anti-dead-end timer would eventually offer a way past, but
-  // only after four seconds of pointing at nothing, twice.
+  // That is the switch to use if either page is ever taken off the sidebar
+  // again (PH_CLOSED_TABS in js/preview-app.js), and skipIf is the mechanism
+  // built for exactly this: a skipped step is stepped over in BOTH directions
+  // and left out of the "Step N of M" count, so the tour reads as though it
+  // never had them, and four paragraphs do not have to be rewritten each time.
   //
-  //      const gtOnStandby = () => false;   ← puts the four steps back
-  const gtOnStandby = () => true;
+  // Leaving them in while a page is off the menu would be worse than untidy.
+  // Both are interactive with advanceWhen: gtTabActive(...), so the tour would
+  // tell the player to click a button that does not exist and then wait on a
+  // tab that can never go active. The anti-dead-end timer would eventually
+  // offer a way past, but only after four seconds of pointing at nothing.
+  const gtOnStandby = () => false;
 
   const MENU_STEPS = [
 

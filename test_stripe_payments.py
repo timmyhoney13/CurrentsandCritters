@@ -592,23 +592,24 @@ class TestTierCoinsPrintedEverywhere(unittest.TestCase):
             self.assertIn(f"usd: {usd}, coins: {coins}", js,
                           f"store card for {tier} does not say {coins} coins")
 
-    def test_the_marketing_site_promises_nothing_while_the_tiers_are_off(self):
-        """The website sold the same four tiers the Store does. It does not sell
-        anything at all right now (see _standby/README.md), and a page that
-        prints a grant it cannot take money for is a promise nobody can keep."""
+    def test_the_marketing_site_prints_the_same_grants_the_server_makes(self):
+        """The website shows the four tier cards again. It cannot take the money
+        (the Kickstarter will), but it still PRINTS what each tier grants, and a
+        card advertising a number the server does not credit is a promise nobody
+        can keep. The cards came back out of the archive, so this is what proves
+        they did not come back stale."""
         html = self._read("index.html")
         for tier in ms.SUPPORTER_TIER_GRANTS:
             coins = ms.SUPPORTER_TIER_GRANTS[tier]["coins"]
-            self.assertNotIn(f"{coins:,} Critter Coins", html,
-                             f"index.html still promises {tier}'s {coins:,} coins")
+            self.assertIn(f"{coins:,} Critter Coins", html,
+                          f"index.html does not promise {tier}'s {coins:,} coins")
 
     def test_the_store_tier_cards_list_the_server_bonus_xp(self):
         """The bonus XP is the same kind of promise as the coins: the server
         credits it, the card PRINTS it. It used to be pinned nowhere, so a
         retune could quietly leave the cards advertising the old number.
 
-        The website used to be checked here too. It no longer prints any tier
-        at all, so it is checked for silence instead, above."""
+        The website's own copy of these numbers is checked above."""
         js = self._read("multiplayer", "client", "js", "preview-app.js")
         for tier in ms.SUPPORTER_TIER_GRANTS:
             xp = ms.SUPPORTER_TIER_GRANTS[tier]["bonus_xp"]
@@ -735,6 +736,18 @@ def _read(*parts: str) -> str:
         return f.read()
 
 
+def _live(html: str) -> str:
+    """The page with every HTML comment stripped out.
+
+    Several tests below ask "can a reader click this?", and the honest answer
+    depends on whether the markup is commented out. index.html keeps the four
+    tier Payment Links verbatim inside comments, so opening the checkout on the
+    day the Kickstarter ends is a paste rather than a rewrite; searching the raw
+    file finds that archive and calls it a live button. Those tests read this.
+    """
+    return re.sub(r"<!--.*?-->", "", html, flags=re.S)
+
+
 class TestLivePaymentLinks(unittest.TestCase):
     """Every Buy button points at the RIGHT live Stripe Payment Link.
 
@@ -768,16 +781,20 @@ class TestLivePaymentLinks(unittest.TestCase):
     def test_each_link_is_used_exactly_once_in_the_store(self):
         """Two products sharing one URL = one of them charges the wrong price.
 
-        Every Payment Link lives in preview-app.js and nowhere else. The tiers
-        used to be sold on the website too; while they are on standby (see
-        _standby/README.md) no checkout URL of any kind may appear there, which
-        is checked in TestTheWebsiteSellsNothing below as well as here.
+        Every LIVE Payment Link lives in preview-app.js and nowhere else. The
+        website shows the four tier cards but sells none of them, so its copy of
+        each URL sits inside an HTML comment: readable, not clickable. Hence
+        _live() here, and TestEverythingIsBackExceptTheTiers below, which proves
+        none of them escaped its comment.
         """
+        home_live = _live(self.home)
         for key, (url, _cents) in self.LINKS.items():
-            in_js, in_home = self.js.count(url), self.home.count(url)
+            in_js = self.js.count(url)
             self.assertEqual(in_js, 1, f"{key}: {url} appears {in_js}x in preview-app.js")
-            self.assertEqual(in_home, 0,
-                             f"{key}: {url} is still on index.html, which sells nothing")
+            self.assertEqual(home_live.count(url), 0,
+                             f"{key}: {url} is a LIVE checkout on index.html")
+            self.assertLessEqual(self.home.count(url), 1,
+                                 f"{key}: index.html archives {url} more than once")
 
     def test_every_link_is_distinct(self):
         urls = [u for u, _ in self.LINKS.values()]
@@ -821,14 +838,17 @@ class TestLivePaymentLinks(unittest.TestCase):
             self.assertEqual(ms.SUPPORTER_TIERS_BY_CENTS[want_cents], tier,
                              f"{name}'s ${usd} link grants a different tier server-side")
 
-    def test_the_marketing_site_has_no_tier_button_at_all(self):
-        """The website used to be the second front door to these four products.
-        It is closed: not one Become-a-<tier> button survives, so there is no
-        second copy of a Payment Link that could drift from the Store's."""
-        import re
+    def test_the_marketing_site_has_no_live_tier_button(self):
+        """The website is the second front door to these four products and it
+        shows all four cards. None may open a checkout: the Kickstarter takes
+        the money. The Become-a-<tier> anchors survive inside comments so the
+        day it opens is a paste, so this reads the page without them."""
+        home_live = _live(self.home)
         for label in ("Wave Warrior", "Ocean Ally", "Tide Turner", "Tsunami"):
-            self.assertIsNone(re.search(r"Become an? " + label, self.home),
-                              f"index.html still offers a Become-a-{label} button")
+            self.assertIsNone(re.search(r"Become an? " + label, home_live),
+                              f"index.html offers a LIVE Become-a-{label} button")
+        self.assertNotIn("buy.stripe.com", home_live,
+                         "a Payment Link escaped its comment on index.html")
 
     def test_every_live_link_resolves_to_a_known_product(self):
         """Reverse check: each price maps back through the real webhook code."""
@@ -1027,14 +1047,17 @@ class TestEveryTierIsWiredOrLocked(unittest.TestCase):
                                  f"{name} has no price of its own on Stripe yet, "
                                  f"so it must not open ANY Payment Link")
 
-    def test_the_marketing_site_has_no_tier_cards_to_lock(self):
-        """The website's copy of the shelf is on standby (_standby/README.md),
-        so the locked-button rule has nothing to apply to there. What matters
-        while it is off is that no card came back on its own."""
-        self.assertNotIn('<div class="tiers">', self.home,
-                         "the tier grid is back on index.html")
-        self.assertNotIn("buy.stripe.com", self.home,
-                         "a Payment Link is back on index.html")
+    def test_every_tier_card_on_the_marketing_site_is_locked(self):
+        """The website's copy of the shelf is back, and the locked-button rule
+        applies to all four of its cards: shown in full, sold nowhere."""
+        self.assertIn('<div class="tiers">', self.home,
+                      "the tier grid is missing from index.html")
+        # The class name also appears in the stylesheet, so count the BUTTONS.
+        buttons = re.findall(r"<button[^>]*tier-locked[^>]*>", _live(self.home))
+        self.assertEqual(len(buttons), 4,
+                         "expected exactly four locked tier buttons on index.html")
+        for b in buttons:
+            self.assertIn("disabled", b, "a locked tier button is still clickable: %s" % b)
 
     def test_every_tier_prints_its_own_numbers(self):
         """Locked or live, the card has to promise exactly what the server
@@ -1073,12 +1096,16 @@ class TestAboveTheTopTierIsAConversation(unittest.TestCase):
         for cents in list(ms.SUPPORTER_TIERS_BY_CENTS) + list(ms.COIN_PACKS_BY_CENTS):
             self.assertLessEqual(cents, ms.CUSTOM_TIER_MIN_CENTS)
 
-    def test_the_store_offers_the_template(self):
-        """The website's copy went with its tiers; the Store keeps its own."""
+    def test_both_storefronts_offer_the_template(self):
+        """Over $100 is arranged by hand on both surfaces: the Store opens its
+        own pre-written message, the website points at the Partner With Us form
+        that came back onto the page with the tiers."""
         self.assertIn("_phstCustomTier", self.js,
                       "the in-game Store has no way into the custom-amount template")
-        self.assertNotIn("data-tier-enquiry", self.home,
-                         "index.html still offers a custom-amount enquiry")
+        self.assertIn("data-tier-enquiry", self.home,
+                      "index.html does not offer a custom-amount enquiry")
+        self.assertIn('href="#partner-form"', self.home,
+                      "the custom-amount card points nowhere")
 
     def test_the_template_says_exactly_what_to_replace(self):
         """The whole point of the template is that nothing is left to invent:
@@ -1087,22 +1114,27 @@ class TestAboveTheTopTierIsAConversation(unittest.TestCase):
         self.assertIn("[INSERT AMOUNT HERE", self.js, "preview-app.js")
 
     def test_the_server_still_knows_the_over_100_enquiry_kind(self):
-        """The Partner With Us form is on standby (_standby/README.md) and the
-        Store's template posts nothing, but partner_contact.py still receives
-        mail sent by hand, so the kind it files them under has to survive."""
+        """The Partner With Us form is back on index.html and the Store's own
+        template posts nothing, so partner_contact.py receives both the form and
+        mail sent by hand, and the kind it files them under has to survive."""
         import partner_contact as pc
         self.assertIn("major", pc.KIND_VALUES)
 
 
-class TestTheWebsiteSellsNothing(unittest.TestCase):
-    """Nothing on the marketing site or the in-game Store can be bought.
+class TestEverythingIsBackExceptTheTiers(unittest.TestCase):
+    """The Store, the Critter Pass and the wall are back; the tiers are not sold.
 
-    This is the whole point of the standby state, and it is the one thing that
-    can go wrong silently: a half-restored page looks finished and still takes
-    money. Every surface that ever had a checkout on it is checked here, so
-    putting one back has to be deliberate enough to update this file.
+    This replaced TestTheWebsiteSellsNothing when the standby came off on
+    2026-09-24. It is the same kind of test pointed the other way, and it exists
+    for the same reason: a HALF-restored site looks finished. Every surface that
+    was switched off is checked here, so switching one back off again has to be
+    deliberate enough to update this file.
 
-    What comes back, and how, is written down in _standby/README.md.
+    The one thing still deliberately unbuyable is the four SUPPORTER TIERS: they
+    render in full on both surfaces, with no checkout on either, because they are
+    going to be backed through the Kickstarter. Both locks are asserted below.
+
+    _standby/README.md is the procedure either way.
     """
 
     def setUp(self):
@@ -1110,40 +1142,74 @@ class TestTheWebsiteSellsNothing(unittest.TestCase):
         self.shop  = _read("shop.html")
         self.store = _read("multiplayer", "client", "js", "preview-app.js")
 
-    # ── the marketing site ──────────────────────────────────────────────
-    def test_the_home_page_opens_no_checkout(self):
-        self.assertNotIn("buy.stripe.com", self.home)
-        self.assertNotIn("checkout.stripe.com", self.home)
+    # ── the in-game Store is open ───────────────────────────────────────
+    def test_the_in_game_store_is_open(self):
+        """The flag itself. What it renders is proved by rendering it, in
+        test_supporter_tiers_ui.js."""
+        self.assertIn("const PHST_STORE_CLOSED = false;", self.store,
+                      "the in-game Store is shut again")
 
-    def test_the_home_page_has_no_supporter_tiers(self):
+    def test_the_store_and_the_critter_pass_are_back_on_the_menu(self):
+        """A shut page and an unreachable one are different failures. Both the
+        sidebar button and the tab router have to be back, or the Store is open
+        behind a door nobody can find."""
+        nav = _read("multiplayer", "client", "preview.html")
+        for btn in ('id="snav-store"', 'id="snav-critterpass"'):
+            self.assertIn(btn, nav, btn)
+            # ...and not inside the standby comment it used to sit in.
+            self.assertNotIn("OFF THE MENU", nav, "the sidebar comment is still there")
+        self.assertIn("const PH_CLOSED_TABS = [];", self.store,
+                      "a tab is still routed to the fallback")
+
+    def test_the_critter_pass_is_open(self):
+        pass_js = _read("multiplayer", "client", "js", "critter-pass.js")
+        self.assertIn("const CCCP_PASS_CLOSED = false;", pass_js,
+                      "the Critter Pass is shut again")
+
+    # ── the marketing site is back ──────────────────────────────────────
+    def test_the_home_page_has_its_supporter_tiers_again(self):
         for marker in ('<div class="tiers">', '<div class="tier-intro">',
                        '<div class="tier-custom">', "Supporter Tiers"):
-            self.assertNotIn(marker, self.home, marker)
+            self.assertIn(marker, self.home, marker)
 
-    def test_the_home_page_has_no_donation_goal(self):
+    def test_the_home_page_has_its_donation_goal_again(self):
         for marker in ('class="donation-goal"', 'data-donation=', "Donation Goal",
                        "left to reach the goal"):
-            self.assertNotIn(marker, self.home, marker)
+            self.assertIn(marker, self.home, marker)
 
-    def test_the_home_page_has_no_supporter_reef_wall(self):
-        """The markup and the fetch, not the words: the CSS is left in place on
-        purpose and a comment is allowed to say what used to be here."""
+    def test_the_home_page_has_its_supporter_reef_wall_again(self):
         for marker in ('id="supporter-names"', '<section class="people-care"',
                        "renderSupporterWall", "/api/supporters/wall"):
-            self.assertNotIn(marker, self.home, marker)
+            self.assertIn(marker, self.home, marker)
 
-    def test_the_home_page_has_no_partner_form(self):
-        for marker in ('id="partner-form"', 'id="pf-form"', "Send to Timothy"):
-            self.assertNotIn(marker, self.home, marker)
+    def test_the_wall_names_have_the_font_they_are_drawn_in(self):
+        """The three <link> tags went out with the wall because nothing else on
+        the page reads Luckiest Guy. Without them the names fall back to a
+        generic cursive and the band looks broken, not styled."""
+        self.assertIn("family=Luckiest+Guy", self.home)
+        self.assertIn('font-family: "Luckiest Guy"', self.home)
 
-    def test_nothing_on_the_home_page_still_links_to_what_was_removed(self):
-        """A dead #anchor is how a removal announces itself to a reader."""
-        for anchor in ("#partner-form", "#people-care"):
-            self.assertNotIn(anchor, self.home, anchor)
+    def test_the_home_page_has_its_partner_form_again(self):
+        for marker in ('id="partner-form"', 'id="pf-form"'):
+            self.assertIn(marker, self.home, marker)
 
-    # ── the three live numbers that replaced them ───────────────────────
-    def test_the_home_page_shows_the_three_live_numbers(self):
-        for name, label in (("players", "Registered Players"),
+    def test_every_link_into_the_partner_form_is_back(self):
+        """Three of them, and the form is unreachable from the page if any is
+        missed: the nav, the footer and the Our Story band."""
+        self.assertGreaterEqual(self.home.count('href="#partner-form"'), 3,
+                                "a link into the Partner With Us form is missing")
+
+    def test_the_donation_total_has_something_to_fill_it(self):
+        """The $ Donated tile is fed by the wall's own sum, so the tile, the goal
+        bar and the wall can never disagree."""
+        self.assertIn('data-placeholder="donated"', self.home)
+        self.assertIn("renderDonationGoal", self.home)
+        self.assertIn("totalRaisedCents", self.home)
+
+    def test_the_live_play_numbers_survived_the_restore(self):
+        """Hours Played Online was built while the tiers were off. Putting the
+        old four-stat band back verbatim would have dropped it."""
+        for name, label in (("players", "Players"),
                             ("hours",   "Hours Played Online"),
                             ("games",   "Online Games Played")):
             self.assertIn(f'data-placeholder="{name}"', self.home, name)
@@ -1156,42 +1222,33 @@ class TestTheWebsiteSellsNothing(unittest.TestCase):
         self.assertIn('"play_seconds": play_seconds', server)
         self.assertIn("data.play_seconds", self.home)
 
-    def test_the_home_page_no_longer_shows_money_raised(self):
-        for name in ("donated", "online"):
-            self.assertNotIn(f'data-placeholder="{name}"', self.home, name)
-
-    # ── the shop page ───────────────────────────────────────────────────
-    def test_the_shop_takes_no_orders(self):
+    # ── the shop page is back ───────────────────────────────────────────
+    def test_the_shop_takes_orders_again(self):
         for marker in ('id="addToCart"', 'id="buyNow"', 'id="qtyN"', 'id="toast"'):
-            self.assertNotIn(marker, self.shop, marker)
-        # Nothing to press and nothing to run: the quantity picker, both order
-        # buttons and the script that drove them all went together.
-        self.assertNotIn("<button", self.shop, "the shop still has a control on it")
-        self.assertNotIn("<script", self.shop, "the shop still runs a script")
-        self.assertIn("shop-closed", self.shop, "the shop says nothing about being shut")
+            self.assertIn(marker, self.shop, marker)
+        self.assertNotIn("shop-closed", self.shop, "the shop still says it is shut")
+        self.assertNotIn("Coming Soon", self.shop, "the shop still says Coming Soon")
 
-    def test_the_shop_opens_no_checkout(self):
+    def test_the_shop_still_opens_no_checkout(self):
+        """It never took a real payment: Add to Cart raises a toast. That is the
+        state it was restored to, and a Stripe link appearing here would be a
+        checkout nobody decided to add."""
         self.assertNotIn("buy.stripe.com", self.shop)
         self.assertNotIn("checkout.stripe.com", self.shop)
 
-    # ── the Supporter Reef Wall ─────────────────────────────────────────
-    def test_the_public_wall_serves_no_names(self):
-        """Off at the source, not just hidden in the page that draws it. A wall
-        taken off the site whose names are still one fetch away from
-        /api/supporters/wall has not been taken off the site."""
-        self.assertTrue(ms.SUPPORTER_WALL_ON_STANDBY,
-                        "the public Supporter Reef Wall is switched back on")
+    # ── the Supporter Reef Wall is back ─────────────────────────────────
+    def test_the_public_wall_serves_names_again(self):
+        self.assertFalse(ms.SUPPORTER_WALL_ON_STANDBY,
+                         "the public Supporter Reef Wall is still resting")
         server = _read("multiplayer_server.py")
         self.assertIn("if SUPPORTER_WALL_ON_STANDBY:", server,
-                      "/api/supporters/wall does not check the standby flag")
+                      "the standby switch has been deleted rather than flipped")
 
-    def test_the_wall_page_draws_no_wall(self):
+    def test_the_wall_page_draws_the_wall(self):
         page = _read("multiplayer", "client", "supporter-wall.html")
-        self.assertNotIn("/api/supporters/wall", page,
-                         "the wall page still fetches the names")
-        self.assertNotIn("<script", page, "the wall page still runs a renderer")
-        self.assertIn("coming back", page.lower(),
-                      "the wall page does not say it is temporary")
+        self.assertIn("/api/supporters/wall", page,
+                      "the wall page does not fetch the names")
+        self.assertIn("<script", page, "the wall page has no renderer")
 
     def test_the_wall_url_still_answers(self):
         """/supporter-wall is printed on the thank-you page every past buyer has
@@ -1199,16 +1256,12 @@ class TestTheWebsiteSellsNothing(unittest.TestCase):
         server = _read("multiplayer_server.py")
         self.assertIn('parts[0] in {"supporter-wall", "wall", "reef-wall"}', server)
 
-    def test_nothing_buyer_facing_still_points_at_the_wall(self):
+    def test_the_buyer_facing_pages_point_at_the_wall_again(self):
         for page in ("thanks.html", "claim-rewards.html"):
-            self.assertNotIn('href="/supporter-wall"',
-                             _read("multiplayer", "client", page), page)
+            self.assertIn('href="/supporter-wall"',
+                          _read("multiplayer", "client", page), page)
 
-    def test_supporters_are_still_recorded_while_it_is_off(self):
-        """Only the DISPLAY is off. The webhook still reads the wall name off
-        the checkout and still works out the tier and the size the name will
-        be, or the reef comes back empty for everyone who gave while it was
-        resting."""
+    def test_supporters_are_still_recorded_and_still_sized(self):
         self.assertTrue(ms.CF_WALL_NAME_LABEL,
                         "the checkout stopped asking for a wall name")
         self.assertEqual(ms._supporter_tier_for_total(1500),
@@ -1217,18 +1270,58 @@ class TestTheWebsiteSellsNothing(unittest.TestCase):
         self.assertEqual(ms._supporter_tier_for_total(0), (None, None))
 
     def test_the_admin_review_page_is_not_affected(self):
-        """Names still have to be approvable while nobody can see the wall, and
-        the admin page reads a different, ADMIN_EMAIL-checked endpoint."""
         admin = _read("multiplayer", "client", "supporter-admin.html")
         self.assertIn("/api/admin/supporters", admin)
         self.assertNotIn("/api/supporters/wall", admin)
 
-    # ── the in-game Store ───────────────────────────────────────────────
-    def test_the_in_game_store_is_shut(self):
-        """The flag itself. What it actually renders is proved by rendering it,
-        in test_supporter_tiers_ui.js."""
-        self.assertIn("const PHST_STORE_CLOSED = true;", self.store,
-                      "the in-game Store is open again")
+    # ── the tiers: shown everywhere, sold nowhere ───────────────────────
+    def test_the_home_page_shows_the_tiers_without_a_checkout(self):
+        """Not one of the four Payment Links may be reachable. An <a href> to one
+        is a live checkout no matter what the note under the grid says, so this
+        reads the page with its comments stripped out."""
+        home_live = _live(self.home)
+        self.assertNotIn("checkout.stripe.com", home_live)
+        self.assertNotIn("buy.stripe.com", home_live,
+                         "index.html has a LIVE tier checkout on it")
+        # ...and all four are still archived in place, ready for the day it opens.
+        self.assertEqual(self.home.count("buy.stripe.com"), 4,
+                         "the four tier Payment Links are no longer archived in index.html")
+
+    def test_every_tier_card_on_the_home_page_has_a_locked_button(self):
+        """Four cards, four disabled buttons, no live control among them."""
+        home_live = _live(self.home)
+        buttons = re.findall(r"<button[^>]*tier-locked[^>]*>", home_live)
+        self.assertEqual(len(buttons), 4, "expected four locked tier buttons")
+        self.assertEqual(home_live.count("On Kickstarter soon"), 4)
+        for b in buttons:
+            self.assertIn("disabled", b, "a locked tier button is still clickable: %s" % b)
+
+    def test_the_store_shelf_does_not_sell_the_tiers_either(self):
+        self.assertIn("const PHST_TIERS_KICKSTARTER_ONLY = true;", self.store,
+                      "the Store's tier cards are buyable again")
+
+    def test_both_surfaces_say_where_the_tiers_will_be(self):
+        """A locked button with no explanation reads as broken."""
+        for name, src in (("index.html", self.home), ("the Store", self.store)):
+            self.assertIn("The Supporter Tiers will be available through Kickstarter soon!",
+                          src, name)
+            self.assertIn("Kickstarter coming soon", src, name)
+
+    def test_both_surfaces_carry_the_conservation_pledge(self):
+        for name, src in (("index.html", self.home), ("the Store", self.store)):
+            self.assertIn("Every Purchase Makes Waves!", src, name)
+            self.assertIn("%d%% of every purchase supports ocean conservation"
+                          % ms.CONSERVATION_SHARE_PCT, src, name)
+            self.assertIn("Surfrider Foundation", src, name)
+            self.assertIn("independent supporter and is not sponsored by or "
+                          "officially partnered with the Surfrider Foundation", src, name)
+
+    def test_the_webhook_still_honours_a_tier_that_arrives_anyway(self):
+        """The lock is on ASKING, not on receiving. Someone with an old tab or a
+        mailed link can still pay, and a tier is granted by the PRICE of the
+        session, so that money must still buy exactly what it always bought."""
+        self.assertEqual(ms.SUPPORTER_TIERS_BY_CENTS[1500], "wave-warrior")
+        self.assertEqual(ms.SUPPORTER_TIERS_BY_CENTS[10000], "tsunami")
 
 
 if __name__ == "__main__":

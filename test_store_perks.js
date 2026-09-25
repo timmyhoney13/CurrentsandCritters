@@ -639,9 +639,12 @@ console.log("3. The perk spend transactions");
       check(/phst-tier-coins-amt/.test(APP),
             "the Store's tier cards still show how many coins they include");
       // An amount, not the words: a CSS comment naming the perk row is not a
-      // promise to anybody, "7,000 Critter Coins" on a card is.
-      check(!/[\d,]+ Critter Coins/.test(INDEX),
-            "the marketing site promises no tier coins while the tiers are on standby");
+      // promise to anybody, "7,000 Critter Coins" on a card is. The website's
+      // tier cards are back (2026-09-24) and print these too, so they have to
+      // agree with the Store's — test_stripe_payments.py checks them against
+      // the server's own grant table, which is the thing that pays them out.
+      check(/[\d,]+ Critter Coins/.test(INDEX),
+            "the marketing site's tier cards promise their Critter Coins");
     }
 
     console.log(`\nplayer-perk checks: ${checks}`);

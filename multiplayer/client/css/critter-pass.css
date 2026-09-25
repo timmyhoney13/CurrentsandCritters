@@ -100,7 +100,8 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   ON STANDBY: the Coming soon cover  (CCCP_PASS_CLOSED in js/critter-pass.js)
+   THE COMING SOON COVER  (CCCP_PASS_CLOSED in js/critter-pass.js)
+   Unused while the page is open, kept so shutting it stays one word.
    ══════════════════════════════════════════════════════════════════════
    The page keeps its kelp forest and its scrim, and this ONE card sits over
    the middle of it, so the tab still reads as the Critter Pass instead of

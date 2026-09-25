@@ -51,13 +51,13 @@ const CHROME = [
 
 const INDEX = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 
-/* ── the form is on standby ────────────────────────────────────────────
-   The Partner With Us band was taken off the marketing site along with the
-   Supporter Tiers (see _standby/README.md, which holds the markup and the
-   script verbatim). There is nothing on the page to drive, so this exits
-   clean rather than failing seventeen times over a form that is deliberately
-   absent. Put the band back and this file starts testing it again on its own:
-   the gate is the form's own id, not a flag anybody has to remember to flip. */
+/* ── is the form on the page at all? ──────────────────────────────────
+   The Partner With Us band came back with the Supporter Tiers on 2026-09-24, so
+   this gate passes and the suite runs. It is kept because the band has been
+   taken off the site once already: if it goes again, this exits clean rather
+   than failing seventeen times over a form that is deliberately absent, and it
+   starts testing again by itself the moment the band returns. The gate is the
+   form's own id, not a flag anybody has to remember to flip. */
 if (!/id="partner-form"/.test(INDEX)) {
   console.log("the Partner With Us form is on standby (see _standby/README.md)");
   console.log("nothing to test; restore the band in index.html and this runs again");

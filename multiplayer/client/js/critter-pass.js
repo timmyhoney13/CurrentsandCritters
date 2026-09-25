@@ -43,43 +43,44 @@
   "use strict";
 
   // ═══════════════════════════════════════════════════════════════════
-  //  THE CRITTER PASS IS ON STANDBY, 2026-09-08 — ONE WORD SWITCHES IT BACK
+  //  THE PAGE'S OWN OFF SWITCH — ONE WORD EITHER WAY
+  //  Open again since 2026-09-24. It was on standby from 2026-09-08; flip this
+  //  to true to rest it again, and everything below describes what that does.
   //
-  //      const CCCP_PASS_CLOSED = false;   ← opens the page again
-  //
-  //  render() paints a single "Coming soon" cover over the page's own art
-  //  and returns BEFORE it builds the rail, the purchase card or wire(), so
-  //  the page emits no button at all: nothing that spends 4,000 Critter
-  //  Coins, nothing that spends a Season Pass voucher, and nothing that
-  //  claims a tier. There is no interactive element left to reach.
+  //  render() paints a single "Coming soon" cover over the page's own art and
+  //  returns BEFORE it builds the rail, the purchase card or wire(), so the
+  //  page emits no button at all: nothing that spends 4,000 Critter Coins,
+  //  nothing that spends a Season Pass voucher, and nothing that claims a
+  //  tier. There is no interactive element left to reach.
   //
   //  THE THREE ACTIONS ARE ALSO GUARDED at the top of buyPass(), claimTier()
-  //  and claimAll(). Nothing renders a button that calls them, so those
-  //  guards are unreachable through the page. They are there because this
-  //  module hangs its entry points off `window`, and a page that can only be
-  //  trusted not to spend somebody's coins while its own markup is intact is
-  //  not a page that has been switched off.
+  //  and claimAll(). Nothing renders a button that calls them, so those guards
+  //  are unreachable through the page. They are there because this module
+  //  hangs its entry points off `window`, and a page that can only be trusted
+  //  not to spend somebody's coins while its own markup is intact is not a
+  //  page that has been switched off.
   //
-  //  WHAT IS DELIBERATELY LEFT ALONE. This closes the PAGE, not the pass.
-  //  Anyone who already owns it keeps it: __ccPassExtraSlots() still hands
-  //  the challenge strip their extra daily and weekly slots, and
-  //  __ccCritterPassOwned() still answers true, so every perk already paid
-  //  for still works everywhere else in the game. Nothing is revoked and
-  //  nothing expires. Unclaimed tiers stay unclaimed on the server and are
-  //  still there to claim on the day this flips back.
+  //  WHAT IT DELIBERATELY DOES NOT DO. It closes the PAGE, not the pass.
+  //  Anyone who owns it keeps it: __ccPassExtraSlots() still hands the
+  //  challenge strip their extra daily and weekly slots, and
+  //  __ccCritterPassOwned() still answers true, so every perk already paid for
+  //  still works everywhere else in the game. Nothing is revoked and nothing
+  //  expires. Unclaimed tiers stay unclaimed on the server and are still there
+  //  to claim on the day it flips back — which is what happened on 2026-09-24,
+  //  and everyone's unclaimed tiers were waiting for them.
   //
-  //  THE SERVER IS UNCHANGED, on purpose. critter_pass_server.py still
-  //  serves the track and still honours /buy and /claim, the same way the
-  //  Store's own standby leaves its live Payment Links in place. This is the
-  //  page being taken down, not the pass being cancelled.
+  //  THE SERVER IS UNCHANGED EITHER WAY, on purpose. critter_pass_server.py
+  //  serves the track and honours /buy and /claim regardless, the same way the
+  //  Store's own standby leaves its live Payment Links in place: this switch
+  //  takes the page down, it does not cancel the pass.
   //
-  //  The nav badge is held at zero while this is on (see paintNavBadge), so
+  //  The nav badge is held at zero while it is on (see paintNavBadge), so
   //  nothing sends a player to a page that cannot pay out.
   //
   //  In step with the in-game Store (PHST_STORE_CLOSED in preview-app.js).
   //  See _standby/README.md.
   // ═══════════════════════════════════════════════════════════════════
-  const CCCP_PASS_CLOSED = true;
+  const CCCP_PASS_CLOSED = false;
 
   function bridge() { return window.__ccCritterPass; }
   // A MISSING bridge means preview-app.js never reached the line that defines
@@ -318,8 +319,8 @@
     const el = $("snav-critterpass-badge");
     if (!el) return;
     let n = 0;
-    // Held at zero while the page is on standby: a red "3 ready to claim" that
-    // opens a page with no Claim button on it is worse than no badge at all.
+    // Held at zero whenever the page is shut (CCCP_PASS_CLOSED): a red "3 ready
+    // to claim" that opens a page with no Claim button on it is worse than none.
     try { n = (!CCCP_PASS_CLOSED && _state && _state.signedIn && _state.owned) ? claimableNow().length : 0; }
     catch (_) { n = 0; }
     if (n > 0) {

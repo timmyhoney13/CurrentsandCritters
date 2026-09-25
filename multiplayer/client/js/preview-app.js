@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-23.1";
+  const APP_BUILD   = "2026-09-24.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,14 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.14", title: "\uD83C\uDF0A The Store is open again, and the Reef Wall is back up", items: [
+      "The Store is back. Critter Coin packs, skins, backgrounds and Player Perks are all on the shelf again, and everything you already owned was waiting for you exactly where you left it.",
+      "The Critter Pass is back too, and so is every tier you had not claimed yet. Nothing expired while the page was shut: unclaimed rewards were held on the server the whole time and are still there to claim.",
+      "The Supporter Reef Wall is up again, with everyone on it at the size they earned, including everyone who gave while it was resting.",
+      "5% of every purchase supports ocean conservation, including donations to the Surfrider Foundation. Together, we can Change the Tide! (Currents and Critters is an independent supporter and is not sponsored by or officially partnered with the Surfrider Foundation.)",
+      "The Supporter Tiers are on the shelf to read, but not to buy: they are coming to Kickstarter soon, and that is where you will be able to back one.",
+      "The Summer Skin Hermit Crab has been retired from the skins shelf. The Summer Gull and the surfing Goby are still there.",
+    ]},
     { ver: "V1.7.13", title: "\uD83E\uDD91 The Giant Squid has the Spinner Dolphin", items: [
       "The Giant Squid at the top of Head to Head now opens on two things: BEAT EVERY OTHER RANK on the reef, F all the way up to S+, and be LEVEL 25. It is not the one platform below any more, and it no longer asks you to have finished his story first.",
       "The lock counts down for you. Instead of naming a level it says how many more you need: \u201CYou need 13 more levels to face the Giant Squid.\u201D When it is ranks you are short of, it says how many are left.",
@@ -21419,9 +21427,6 @@
     { id:"summer-skin-gull", name:"Summer Skin Gull", species:"Summer Skins", img:"/avatars/summer-skin-gull.png",
       facts:"A beach-day gull dive-bombing for a sandcastle bucket, summer's cheekiest snack thief.",
       unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins, or reach Level 100 on the Critter Pass." } },
-    { id:"summer-skin-hermit-crab", name:"Summer Skin Hermit Crab", species:"Summer Skins", img:"/avatars/summer-skin-hermit-crab.png",
-      facts:"Sun hat on, shades down, this hermit crab is fully moved into vacation mode.",
-      unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins." } },
     { id:"summer-skin-goby", name:"Summer Skin Mandarin Goby", species:"Summer Skins", img:"/avatars/summer-skin-goby.png",
       facts:"A mandarin goby hanging ten, the reef's most colorful surfer catching the summer swell.",
       unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins." } },
@@ -31471,24 +31476,11 @@
     (function() {
       const tabs = document.querySelectorAll("#ph-tabs .ph-tab");
       const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", messages:"ph-panel-messages", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", clans:"ph-panel-clans", prestige:"ph-panel-prestige", levelpass:"ph-panel-levelpass", critterpass:"ph-panel-critterpass", store:"ph-panel-store" };
-      // ── Store and Critter Pass: OFF THE MENU, ON STANDBY ─────────────
-      // Both pages are gone rather than shut: the sidebar items that opened
-      // them are commented out in preview.html, so there is no door to walk
-      // through, and this list closes the corridor behind them. Anything that
-      // still asks for one of these tabs by name — a deep-link, an old
-      // shortcut, a tutorial step, window._switchPhTab from the console —
-      // lands on the Overview instead of on a panel nobody can leave.
-      //
-      // Their panels, their renderers, their coin prices and the live Stripe
-      // Payment Links are all still in the files, untouched. Emptying this
-      // array and uncommenting the two sidebar items in preview.html puts both
-      // pages back exactly as they were.
-      //
-      //      const PH_CLOSED_TABS = [];   ← puts both pages back on the menu
-      //
-      // See _standby/README.md, and CCCP_PASS_CLOSED / PHST_STORE_CLOSED,
-      // which stay on so the pages are shut as well as unreachable.
-      const PH_CLOSED_TABS = ["store", "critterpass"];
+      // Tabs on standby: none. The Store and the Critter Pass came back on
+      // 2026-09-24 — sidebar items uncommented in preview.html, and this list
+      // emptied. Put a tab name back in here to route it to the fallback
+      // instead of rendering it; _standby/README.md is the full procedure.
+      const PH_CLOSED_TABS = [];
       const PH_CLOSED_FALLBACK = "overview";
       // Tabs that no longer exist at all: "normal" was the Casual tab, and
       // "stats" the Stats page that replaced it. Both panels are gone, so
@@ -31519,16 +31511,7 @@
         clans:        "Clans are played from an account: sign in to join one or start your own.",
         prestige:     "Prestige is tracked on your account. Sign in to keep a run.",
         levelpass:    "Your level and rewards show here. Claiming them needs an account.",
-        // ── critterpass: ON STANDBY ─────────────────────────────────────
-        // It read: "This is the whole Critter Pass at your level. Buying and
-        // claiming it needs an account." Put that line back verbatim when
-        // CCCP_PASS_CLOSED in js/critter-pass.js goes false.
-        //
-        // It is out for two reasons while the page is closed. It is no longer
-        // true (nobody is buying or claiming there, account or not), and the
-        // note is not just text: _ensureGuestNote inserts a "Sign in" BUTTON
-        // into the panel, which would be the one thing left to click on a page
-        // that is supposed to have nothing on it.
+        critterpass:  "This is the whole Critter Pass at your level. Buying and claiming it needs an account.",
       };
       // The Clans panel is empty markup that js/clans-ui.js fills in, so if that
       // module hasn't registered, doing nothing here is indistinguishable from
@@ -31847,7 +31830,26 @@
       //  The website is switched off in step with it: index.html has no
       //  Supporter Tiers and shop.html takes no orders. See _standby/README.md.
       // ═══════════════════════════════════════════════════════════════════
-      const PHST_STORE_CLOSED = true;
+      const PHST_STORE_CLOSED = false;
+
+      // ═══════════════════════════════════════════════════════════════════
+      //  THE SUPPORTER TIERS ARE NOT SOLD HERE, THE KICKSTARTER SELLS THEM
+      //  The four cards still render in FULL — name, price, coins, every perk
+      //  — because nobody can decide to back a tier they cannot read. What
+      //  they do not get is a checkout: the "Become a ..." button is replaced
+      //  by a locked one, and a line under the grid says where they will be.
+      //
+      //  The live Payment Links below are deliberately untouched, so this is
+      //  one word to undo, and so the four URLs stay the ones the webhook
+      //  already knows the prices of.
+      //
+      //  ⚠️ THIS IS A DISPLAY LOCK, NOT A REFUSAL. The webhook still honours
+      //  every one of those links if a buyer reaches one another way (an old
+      //  tab, a saved URL, a mail we sent). That is correct: a tier is granted
+      //  by the PRICE of the session, so money that arrives still buys exactly
+      //  what it always bought. This stops us ASKING for it here.
+      // ═══════════════════════════════════════════════════════════════════
+      const PHST_TIERS_KICKSTARTER_ONLY = true;
 
       // ═══════════════════════════════════════════════════════════════════
       //  STRIPE PAYMENT LINKS
@@ -31988,6 +31990,20 @@
         // reading it made the page feel less trustworthy, not more. Stripe's
         // own checkout says all of it, on the page where it matters.
         let html = "";
+
+        // ── 0) The two lines the whole shelf is sold under ────────────
+        // Above every section title rather than inside any one of them,
+        // because they are true of every row below: the coin packs, the
+        // tiers and the physical game alike.
+        html += `<div class="phst-ks-banner">
+          <span class="phst-ks-ico" aria-hidden="true">\u{1F680}</span>
+          <span>Kickstarter coming soon</span>
+        </div>`;
+        html += `<div class="phst-waves">
+          <div class="phst-waves-title">Every Purchase Makes Waves!</div>
+          <div class="phst-waves-desc">5% of every purchase supports ocean conservation, including donations to the Surfrider Foundation. Together, we can Change the Tide!</div>
+          <div class="phst-waves-fine">Currents and Critters is an independent supporter and is not sponsored by or officially partnered with the Surfrider Foundation.</div>
+        </div>`;
 
         // ── 1) Critter Coins ──────────────────────────────────────────
         html += `<div class="phst-section-title"><img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"> Critter Coins<span class="phst-sec-rule"></span></div>`;
@@ -32208,12 +32224,18 @@
           for (const perk of t.perks) html += `<li>${esc(perk)}</li>`;
           html += `</ul>
             <div class="phst-tier-fine">${esc(t.note)}</div>
-            ${t.soon
-              ? `<button class="phst-tier-buy phst-tier-soon" type="button" disabled>Opening soon</button>`
+            ${(t.soon || PHST_TIERS_KICKSTARTER_ONLY)
+              ? `<button class="phst-tier-buy phst-tier-soon" type="button" disabled>${PHST_TIERS_KICKSTARTER_ONLY ? "On Kickstarter soon" : "Opening soon"}</button>`
               : `<button class="phst-tier-buy" data-stripe="${esc(t.link)}">Become ${/^[aeiou]/i.test(t.name) ? "an" : "a"} ${esc(t.name)}</button>`}
           </div>`;
         }
         html += `</div>`;
+        if (PHST_TIERS_KICKSTARTER_ONLY) {
+          html += `<div class="phst-tier-ks-note">
+            <span class="phst-tier-ks-ico" aria-hidden="true">\u{1F680}</span>
+            <div>The Supporter Tiers will be available through Kickstarter soon!</div>
+          </div>`;
+        }
 
         // ── 4b) Above the top tier: a conversation, not a checkout ────
         // Nothing over $100 has a Buy button on purpose: the perks at that size
