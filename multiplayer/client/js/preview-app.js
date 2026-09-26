@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-26.1";
+  const APP_BUILD   = "2026-09-26.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -34331,7 +34331,7 @@
         +     `never move again, and each kind scores by its own rule, a Coral Reef pays more the more reefs you `
         +     `own, an Artificial Reef pays for every card hanging off it, a Tide Pool just counts your oceans.</p>`
         + `</div></div>`;
-      return '<div class="htp-sec-head"><span class="htp-sec-ico">🐚</span>List of species</div>'
+      return '<div class="htp-sec-head">List of species</div>'
         + '<p class="htp-p htp-p-lead">Every animal in the game belongs to one of these nine families. Each family '
         +   'has its own colour, and that is the colour the game lights a card up in once you switch on a strategy: '
         +   'in your hand and in the pool alike. The small mark beside each name is the family’s symbol, the one '
@@ -34356,7 +34356,7 @@
         +   '</div>'
         + '</div>'
 
-        + '<div class="htp-sec-head"><span class="htp-sec-ico">🐚</span>Your turn: pick one thing</div>'
+        + '<div class="htp-sec-head">Your turn: pick one thing</div>'
         + '<p class="htp-p htp-p-lead">A turn is <b>one</b> of these three. The banner at the top tells you when it '
         +   'is your go, and the guide bar underneath spells out the next tap.</p>'
         + '<div class="htp-choices">'
@@ -34374,7 +34374,7 @@
         +     'keep the same side it was on, and moving it uses your whole turn. Oceans themselves never move.</p></div>'
         + '</div>'
 
-        + '<div class="htp-sec-head"><span class="htp-sec-ico">🏖️</span>Paying for a card</div>'
+        + '<div class="htp-sec-head">Paying for a card</div>'
         + '<div class="htp-steps">'
         + _htpStep(1, "Read the cost", '<p class="htp-p">The sand dollars in a card\'s top-left corner are its price: '
             + 'one sand dollar means discard one card from your hand, two means two, and plenty of cards are free.</p>')
@@ -34386,7 +34386,7 @@
             + '10 cards it is swept into a face-down pile and starts fresh.</p>')
         + '</div>'
 
-        + '<div class="htp-sec-head"><span class="htp-sec-ico">★</span>Star abilities</div>'
+        + '<div class="htp-sec-head">Star abilities</div>'
         + '<div class="htp-star-card">'
         +   '<p class="htp-p">A gold ★ on a card marks an <b>optional</b> bonus, and it is where the big turns come '
         +     'from: a free extra play, a fistful of cards, a free animal.</p>'
@@ -34401,7 +34401,7 @@
         +     'it stops and checks with you first.</p>'
         + '</div>'
 
-        + '<div class="htp-sec-head"><span class="htp-sec-ico">🗺️</span>Your board</div>'
+        + '<div class="htp-sec-head">Your board</div>'
         + '<div class="htp-cols">'
         +   '<div class="htp-col"><h3 class="htp-h3">Oceans are the foundation</h3>'
         +     '<p class="htp-p">Every animal has to hang off an ocean, so your first play is almost always an ocean. '
@@ -34421,7 +34421,7 @@
 
         + _htpSpeciesHtml()
 
-        + '<div class="htp-sec-head"><span class="htp-sec-ico">🧮</span>How points work</div>'
+        + '<div class="htp-sec-head">How points work</div>'
         + '<div class="htp-score-row">'
         +   '<div class="htp-score-kind"><div class="htp-score-tag">Flat</div>'
         +     '<div class="htp-score-eg">+3</div><p class="htp-p">Worth the same every time. Easy, reliable points.</p></div>'
@@ -34435,7 +34435,7 @@
         + '<p class="htp-p">Your running total sits in the top bar. Tap the <b>📊 pts</b> badge at any time for a '
         +   'full Score Breakdown, card by card.</p>'
 
-        + '<div class="htp-sec-head"><span class="htp-sec-ico">🏁</span>How the game ends</div>'
+        + '<div class="htp-sec-head">How the game ends</div>'
         + '<div class="htp-endgame">'
         +   '<p class="htp-p">One <b>END GAME</b> card is shuffled at random into the <b>bottom 15 cards</b> of the '
         +     'deck, so nobody knows exactly when it lands. The moment somebody draws it, every other player gets one '
@@ -34445,7 +34445,7 @@
         +     'plan you have not finished.</p>'
         + '</div>'
 
-        + '<div class="htp-sec-head"><span class="htp-sec-ico">🎛️</span>Buttons worth knowing</div>'
+        + '<div class="htp-sec-head">Buttons worth knowing</div>'
         + '<div class="htp-keys">'
         +   '<div class="htp-key"><span class="htp-key-btn">💡 Strategy</span><span>Opens the Strategies screen mid-game. '
         +     'Pick a plan and every card that fits lights up in your hand and in the pool.</span></div>'
@@ -34489,14 +34489,14 @@
         +   'situation on purpose, or finding out what a card really does.'
         + '</p>'
 
-        + '<div class="htp-sec-head"><span class="htp-sec-ico">\u{1F513}</span>How you get it</div>'
+        + '<div class="htp-sec-head">How you get it</div>'
         + '<p class="htp-p htp-p-lead">'
         +   'It comes with the <b>Tsunami Supporter Tier</b>, and it unlocks the moment that '
         +   'purchase lands on your account: there is nothing to earn and no level to reach. '
         +   'The developer account has it always, which is what it was built for.'
         + '</p>'
 
-        + '<div class="htp-sec-head"><span class="htp-sec-ico">\u{1F91D}</span>Everybody has to say yes</div>'
+        + '<div class="htp-sec-head">Everybody has to say yes</div>'
         + '<p class="htp-p htp-p-lead">'
         +   'You cannot simply switch it on. In the <b>lobby</b>, where the emotes are, there is a '
         +   '<b>Current Controller</b> button. Press it and every other human at the table is asked '
@@ -34513,10 +34513,10 @@
         +   'Competitive, ranked or tournament play, where the result is worth Ocean Points.'
         + '</p>'
 
-        + '<div class="htp-sec-head"><span class="htp-sec-ico">\u{1F6E0}\uFE0F</span>What it can do</div>'
+        + '<div class="htp-sec-head">What it can do</div>'
         + '<div class="htp-keys">' + tools + '</div>'
 
-        + '<div class="htp-sec-head"><span class="htp-sec-ico">\u{1F6AB}</span>What it costs the table</div>'
+        + '<div class="htp-sec-head">What it costs the table</div>'
         + '<p class="htp-p htp-p-lead">'
         +   'If you actually open it, the game <b>stops counting</b>, for everyone:'
         + '</p>'
@@ -34586,7 +34586,7 @@
         else animal.push(i);
       }
       const sec = (title, sub, idxs) => idxs.length
-        ? `<div class="htp-sec-head"><span class="htp-sec-ico">🧭</span>${title}</div>`
+        ? `<div class="htp-sec-head">${title}</div>`
           + `<p class="htp-p htp-p-lead">${sub}</p>`
           + `<div class="htp-strats">${idxs.map(_htpStratCardHtml).join("")}</div>`
         : "";
@@ -34598,7 +34598,7 @@
         +     'your leisure, then switch one on at the table and the game will point out the cards for you.</p>'
         + '</div>'
 
-        + '<div class="htp-sec-head"><span class="htp-sec-ico">💡</span>How to get there in a game</div>'
+        + '<div class="htp-sec-head">How to get there in a game</div>'
         + '<div class="htp-steps">'
         + _htpStep(1, "Press 💡 Strategy", '<p class="htp-p">The Strategy button lives on the left of the action bar at the '
             + 'bottom of the table, right next to the card you are about to play. It is available on every turn, '

@@ -340,38 +340,38 @@
   ];
 
   var ENCYCLOPEDIA = [
-    ["🐦", "Birds", "bird", [
+    ["", "Birds", "bird", [
       ["Emperor Penguin", 4], ["Horned Puffin", 4], ["California Seagull", 4], ["Peruvian Pelican", 4],
       ["Great Albatross", 4], ["Osprey", 4], ["Magnificent Frigatebird", 2], ["Razorbill Auk", 2],
     ]],
-    ["🦀", "Crustaceans", "crustacean", [
+    ["", "Crustaceans", "crustacean", [
       ["Mantis Shrimp", 3], ["Spiny Lobster", 3], ["Lobster", 7], ["King Crab", 2], ["Hermit Crab", 2],
     ]],
-    ["🪸", "Coral", "coral", [
+    ["", "Coral", "coral", [
       ["Staghorn Coral", 2], ["Deep Sea Coral", 2], ["Grooved Brain Coral", 2], ["Elk Horn Coral", 3],
     ]],
-    ["🐠", "Game Fish", "gamefish", [
+    ["", "Game Fish", "gamefish", [
       ["Sailfish", 3], ["Goliath Grouper", 3], ["Tarpon", 4], ["Mahi Mahi", 4], ["Blue Marlin", 4],
       ["Bigeye Tuna", 5], ["Yellowfin Tuna", 14], ["Roosterfish", 5], ["King Salmon", 4],
       ["Whale Shark", 4], ["Barracuda", 3],
     ]],
-    ["🐙", "Cephalopods", "cephalopod", [
+    ["", "Cephalopods", "cephalopod", [
       ["Bobtail Squid", 3], ["Common Octopus", 3], ["Cuttlefish", 3], ["Giant Squid", 3],
     ]],
-    ["🐟", "Bait Fish", "baitfish", [
+    ["", "Bait Fish", "baitfish", [
       ["Mullet", 4], ["Bunker", 4], ["Sardine", 4], ["Flying Fish", 4], ["Bonito", 4],
     ]],
-    ["🌊", "Invertebrates", "invertebrate", [
+    ["", "Invertebrates", "invertebrate", [
       ["Sea Sponge", 2], ["Sea Urchin", 2], ["Sea Star", 2], ["Sea Cucumber", 2], ["Sea Anemone", 2],
     ]],
-    ["🐋", "Mammals", "mammal", [
+    ["", "Mammals", "mammal", [
       ["Spinner Dolphin", 4], ["Bottlenose Dolphin", 4], ["Narwhal", 3],
     ]],
-    ["🌎", "Crosscurrent", "crosscurrent", [
+    ["", "Crosscurrent", "crosscurrent", [
       ["Cleaner Wrasse", 2], ["Blue Tang", 3], ["Mandarin Goby", 4], ["Loggerhead Sea Turtle", 3],
       ["Clownfish", 3], ["Reef Trigger", 3], ["Manta Ray", 2], ["Great White Shark", 4],
     ]],
-    ["🌊", "Ocean Cards", "ocean", [
+    ["", "Ocean Cards", "ocean", [
       ["Coral Reef", 13], ["Deep Ocean", 8], ["Mangroves", 9], ["Artificial Reef", 6],
       ["Pier", 8], ["Arctic Ocean", 8], ["Kelp Forest", 9], ["Tide Pool", 6],
     ]],
@@ -384,7 +384,8 @@
         return '<li><span class="rb-enc-name">' + c[0] + '</span><span class="rb-enc-x">&times;' + c[1] + '</span></li>';
       }).join("");
       return '<div class="rb-enc-group" data-fam="' + grp[2] + '">'
-        + '<div class="rb-enc-head"><span class="rb-enc-ico">' + grp[0] + '</span>'
+        + '<div class="rb-enc-head">'
+        + (grp[0] ? '<span class="rb-enc-ico">' + grp[0] + '</span>' : '')
         + '<span class="rb-enc-title">' + grp[1] + '</span>'
         + '<span class="rb-enc-total">' + total + ' cards</span></div>'
         + '<ul class="rb-enc-list">' + rows + '</ul></div>';
@@ -413,7 +414,7 @@
 
     // ── Objective ─────────────────────────────────────────────────
     + '<section class="rb-sec" id="rb-objective">'
-    +   '<h2 class="rb-h2"><span class="rb-h2-ico">🎯</span>Objective</h2>'
+    +   '<h2 class="rb-h2">Objective</h2>'
     +   '<p class="rb-lead">Create the highest-scoring marine ecosystem before the END GAME card is revealed.</p>'
     +   '<div class="rb-block">'
     +     '<h3 class="rb-h3">Players earn points by:</h3>'
@@ -434,7 +435,7 @@
 
     // ── Setup ─────────────────────────────────────────────────────
     + '<section class="rb-sec" id="rb-setup">'
-    +   '<h2 class="rb-h2"><span class="rb-h2-ico">🌊</span>Setup</h2>'
+    +   '<h2 class="rb-h2">Setup</h2>'
     +   '<div class="rb-steps">'
     +     '<div class="rb-step"><div class="rb-step-n">1</div><div class="rb-step-body">'
     +       '<h3 class="rb-h3">Prepare the Deck</h3>'
@@ -468,21 +469,21 @@
 
     // ── Gameplay overview ─────────────────────────────────────────
     + '<section class="rb-sec" id="rb-gameplay">'
-    +   '<h2 class="rb-h2"><span class="rb-h2-ico">🃏</span>Gameplay Overview</h2>'
+    +   '<h2 class="rb-h2">Gameplay Overview</h2>'
     +   '<p class="rb-lead">On your turn, choose ONE:</p>'
     +   '<div class="rb-choose">'
-    +     '<div class="rb-choice"><div class="rb-choice-ico">🎣</div>'
+    +     '<div class="rb-choice">'
     +       '<h3 class="rb-h3">Draw</h3>'
     +       '<p class="rb-p">Draw 2 cards total from any combination of:</p>'
     +       '<ul class="rb-list"><li>The Draw Pile</li><li>The Pool (Discard Board)</li></ul>'
     +     '</div>'
-    +     '<div class="rb-choice"><div class="rb-choice-ico">🐠</div>'
+    +     '<div class="rb-choice">'
     +       '<h3 class="rb-h3">Play a Card</h3>'
     +       '<p class="rb-p">Play 1 card from your hand by:</p>'
     +       '<ul class="rb-list"><li>Placing an Ocean, or</li><li>Attaching a card to an existing Ocean</li></ul>'
     +       '<p class="rb-p rb-p-warn">You must pay the cost by discarding cards to the Pool.</p>'
     +     '</div>'
-    +     '<div class="rb-choice"><div class="rb-choice-ico">⇄</div>'
+    +     '<div class="rb-choice">'
     +       '<h3 class="rb-h3">Move an animal</h3>'
     +       '<p class="rb-p">Move 1 animal on your board by:</p>'
     +       '<ul class="rb-list"><li>Relocating it to a different Ocean</li></ul>'
@@ -498,7 +499,7 @@
 
     // ── Card types ────────────────────────────────────────────────
     + '<section class="rb-sec" id="rb-cardtypes">'
-    +   '<h2 class="rb-h2"><span class="rb-h2-ico">🌊</span>Card Types</h2>'
+    +   '<h2 class="rb-h2">Card Types</h2>'
     +   '<h3 class="rb-h3 rb-h3-big">OCEANS <span class="rb-h3-tail">(Your Foundation)</span></h3>'
     +   '<ul class="rb-list rb-list-lg">'
     +     '<li>All cards must be attached to an Ocean</li>'
@@ -520,7 +521,7 @@
 
     // ── Attachment rules ──────────────────────────────────────────
     + '<section class="rb-sec" id="rb-attachment">'
-    +   '<h2 class="rb-h2"><span class="rb-h2-ico">🔗</span>Attachment Rules</h2>'
+    +   '<h2 class="rb-h2">Attachment Rules</h2>'
     +   '<ul class="rb-list rb-list-lg">'
     +     '<li>Only 1 card per space</li>'
     +     '<li><b>Exception:</b> Lobster and Yellowfin Tuna may share spaces with themselves (per their cards)</li>'
@@ -537,14 +538,14 @@
 
     // ── Card anatomy ──────────────────────────────────────────────
     + '<section class="rb-sec" id="rb-anatomy">'
-    +   '<h2 class="rb-h2"><span class="rb-h2-ico">🔍</span>Card Anatomy</h2>'
+    +   '<h2 class="rb-h2">Card Anatomy</h2>'
     +   '<p class="rb-lead">Each card includes:</p>'
     +   cardAnatomyFigure()
     + '</section>'
 
     // ── Star abilities ────────────────────────────────────────────
     + '<section class="rb-sec" id="rb-star">'
-    +   '<h2 class="rb-h2"><span class="rb-h2-ico">★</span>Star Abilities</h2>'
+    +   '<h2 class="rb-h2">Star Abilities</h2>'
     +   '<p class="rb-p">Some cards have an optional ★ ability.</p>'
     +   '<p class="rb-p">When you play a card with a ★ ability, you may activate it by discarding at least one card from your hand with the same symbol as the card you played. Discard that card to the Pool (if it costs more than one, you have to pay the cost, but not all the cards have to match).</p>'
     +   '<p class="rb-p">If you do not discard a matching symbol, you may still play the card, but you do not activate its ★ ability.</p>'
@@ -588,7 +589,7 @@
 
     // ── The Pool ──────────────────────────────────────────────────
     + '<section class="rb-sec" id="rb-pool">'
-    +   '<h2 class="rb-h2"><span class="rb-h2-ico">🌀</span>The Pool <span class="rb-h2-tail">(Discard Board)</span></h2>'
+    +   '<h2 class="rb-h2">The Pool <span class="rb-h2-tail">(Discard Board)</span></h2>'
     +   '<ul class="rb-list rb-list-lg"><li>All discarded cards go here</li><li>Players may draw from it</li></ul>'
     +   '<div class="rb-block rb-block-warn">'
     +     '<h3 class="rb-h3">Limit Rule</h3>'
@@ -600,7 +601,7 @@
 
     // ── Special rules ─────────────────────────────────────────────
     + '<section class="rb-sec" id="rb-special">'
-    +   '<h2 class="rb-h2"><span class="rb-h2-ico">✨</span>Special Rules</h2>'
+    +   '<h2 class="rb-h2">Special Rules</h2>'
 
     +   '<div class="rb-block">'
     +     '<h3 class="rb-h3">Animal Movement</h3>'
@@ -656,7 +657,7 @@
 
     // ── End game ──────────────────────────────────────────────────
     + '<section class="rb-sec" id="rb-endgame">'
-    +   '<h2 class="rb-h2"><span class="rb-h2-ico">🏁</span>End Game</h2>'
+    +   '<h2 class="rb-h2">End Game</h2>'
     +   '<p class="rb-lead">When the END GAME card is revealed:</p>'
     +   '<div class="rb-steps rb-steps-flat">'
     +     '<div class="rb-step"><div class="rb-step-n">1</div><div class="rb-step-body"><p class="rb-p">Finish the current turn</p></div></div>'
@@ -667,7 +668,7 @@
 
     // ── Scoring ───────────────────────────────────────────────────
     + '<section class="rb-sec" id="rb-scoring">'
-    +   '<h2 class="rb-h2"><span class="rb-h2-ico">🧮</span>Scoring</h2>'
+    +   '<h2 class="rb-h2">Scoring</h2>'
     +   '<p class="rb-lead">Add:</p>'
     +   '<ul class="rb-list rb-list-lg"><li>All printed points</li><li>All ability bonuses</li></ul>'
     +   '<div class="rb-callout rb-callout-tip"><span class="rb-callout-lbl">Tip:</span> count bottoms cards, top cards, right, Left, Then oceans</div>'
@@ -676,14 +677,13 @@
     +     '<div class="rb-total-win">Highest score wins</div>'
     +   '</div>'
     +   '<a class="rb-snap" href="https://score.currentsandcritters.com/" target="_blank" rel="noopener noreferrer">'
-    +     '<span class="rb-snap-ico">📸</span>'
     +     '<span class="rb-snap-txt"><b>HAVING TROUBLE COUNTING:</b> click this link and take a picture to count your points</span>'
     +   '</a>'
     + '</section>'
 
     // ── Competitive play ──────────────────────────────────────────
     + '<section class="rb-sec" id="rb-competitive">'
-    +   '<h2 class="rb-h2"><span class="rb-h2-ico">⚔️</span>Competitive Play <span class="rb-h2-tail">(2-Player Variant)</span></h2>'
+    +   '<h2 class="rb-h2">Competitive Play <span class="rb-h2-tail">(2-Player Variant)</span></h2>'
     +   '<p class="rb-p">In 1 vs 1 games, players may choose to play using the Advanced variant.</p>'
     +   '<p class="rb-p">In this mode, each player controls two separate hands. Players may only look at and play from one hand at a time, and must complete their turn before switching to the next hand.</p>'
     +   '<p class="rb-p">Turns alternate between hands in the following order:</p>'
@@ -698,7 +698,7 @@
 
     // ── Encyclopedia ──────────────────────────────────────────────
     + '<section class="rb-sec" id="rb-encyclopedia">'
-    +   '<h2 class="rb-h2"><span class="rb-h2-ico">📖</span>Encyclopedia</h2>'
+    +   '<h2 class="rb-h2">Encyclopedia</h2>'
     +   '<div class="rb-enc">' + encyclopediaHtml() + '</div>'
     + '</section>'
 
