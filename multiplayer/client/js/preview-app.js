@@ -8538,6 +8538,17 @@
     // This is the ANIMAL strategy reading: ocean cards are left out on both
     // sides, the plan's and the table's. Ocean strategies are read by
     // _oceanPlanFit below, against the goal their own cards set.
+    // Does this card's printed text pay for a family, rather than just being a
+    // member of one? "+3 per invertebrate", "# of razorbill auks 1 = 5 | 2 =
+    // 25", "+6 if you have at least three cephalopods" all do. "+4" does not.
+    const _MULT_PER   = /\+\s*\d+\s*per\s+/i;
+    const _MULT_CHART = /\d\s*=\s*\d/;
+    const _MULT_IF    = /if you (?:have|control)\b/i;
+    function _isMultiplierText(text) {
+      const t = String(text || "");
+      return _MULT_PER.test(t) || _MULT_CHART.test(t) || _MULT_IF.test(t);
+    }
+
     function _strategyFit(i, snap) {
       const s = HELP_STRATEGIES[i];
       const cards = (s && Array.isArray(s.cards)) ? s.cards.filter(c => c.species !== "Ocean") : [];
@@ -8574,7 +8585,12 @@
         if (handNames.indexOf(n) === -1) handNames.push(n);
       }
       let poolHits = 0;
-      for (const keys of snap.poolAnimals) if (matchName(keys) != null) poolHits++;
+      const poolNames = new Set();
+      for (const keys of snap.poolAnimals) {
+        const n = matchName(keys);
+        if (n == null) continue;
+        poolHits++; poolNames.add(n);
+      }
 
       // Copies of this plan's cards already committed to somebody else's board.
       let copies = 0, gone = 0;
@@ -8586,6 +8602,33 @@
       }
       const supply = copies ? 1 - (gone / copies) : 1;
       const coverage = held.size / cards.length;
+
+      // THE MULTIPLIER, for the plans that are nothing without one.
+      //
+      // Invertebrates is the case that matters: Common Sea Star, Sea Urchin and
+      // Johnson's Sea Cucumber print NO POINTS AT ALL -- they are draw engines
+      // -- so a board of them with no Red Beaded Anemone (+3 per invertebrate)
+      // is worth exactly zero, and this panel was recommending it, because
+      // three of a plan's cards is three of a plan's cards to a share.
+      //
+      // The test is deliberately narrow: only a plan whose every OTHER card is
+      // pointless is gated on its multiplier. Most plans are not like that --
+      // a wall of Yellowfin Tuna is +2 apiece with or without a Bigeye, and
+      // Horned Puffins and Lobsters pay for themselves. Gating those on a
+      // multiplier would just hand the recommendation back to whichever plan
+      // lists the most cards, since a longer list holds more multipliers: the
+      // exact bias the shares below exist to remove.
+      //
+      // Read off the printed text, not a list kept by hand: change what a card
+      // says and this changes with it.
+      const payoff = cards.filter(c => _isMultiplierText(c.text));
+      const bodies = cards.filter(c => !_isMultiplierText(c.text));
+      const deadWithout = payoff.length > 0
+        && bodies.length > 0
+        && !bodies.some(c => /\+\s*\d/.test(String(c.text || "")));
+      const hasPayoff = !deadWithout
+        || payoff.some(c => held.has(c.name) || poolNames.has(c.name));
+      const payoffNames = deadWithout ? payoff.map(c => c.name) : [];
       const boardShare = snap.boardAnimals.length ? boardHits / snap.boardAnimals.length : 0;
       const handShare  = snap.handAnimals.length  ? handHits  / snap.handAnimals.length  : 0;
       const poolShare  = snap.poolAnimals.length  ? poolHits  / snap.poolAnimals.length  : 0;
@@ -8596,7 +8639,8 @@
       // match just because its copies are still in the deck.
       if (!boardHits && !handHits && !poolHits) {
         return { idx: i, fit: 0, boardHits, boardTotal: snap.boardAnimals.length, boardNames,
-                 handHits, handNames, poolHits, coverage, supply, gone, copies };
+                 handHits, handNames, poolHits, coverage, supply, gone, copies,
+                 payoffNames, hasPayoff };
       }
       const terms = [[1.6, coverage], [0.6, supply]];
       if (snap.boardAnimals.length) terms.push([3.2, boardShare]);
@@ -8604,11 +8648,18 @@
       if (snap.poolAnimals.length)  terms.push([0.8, poolShare]);
       let w = 0, v = 0;
       for (const t of terms) { w += t[0]; v += t[0] * t[1]; }
+      // A plan you cannot score yet is still a plan you could score later --
+      // the multiplier may be in the deck, and a good part of it passes through
+      // your hand. So this is a heavy discount and not a zero: it drops such a
+      // plan below any plan of similar shape that CAN pay, while still ranking
+      // it above the plans you hold nothing for.
+      const fit = (w ? v / w : 0) * (hasPayoff ? 1 : 0.35);
       return {
-        idx: i, fit: w ? v / w : 0,
+        idx: i, fit,
         boardHits, boardTotal: snap.boardAnimals.length, boardNames,
         handHits, handNames, poolHits,
         coverage, supply, gone, copies,
+        payoffNames, hasPayoff,
       };
     }
 

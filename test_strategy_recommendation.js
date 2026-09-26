@@ -89,6 +89,10 @@ const SRC = `
   ${grabFn("_comboPairIdxs")}
   ${grabFn("_suggestedCombos")}
   ${grabFn("_tableSnapshot")}
+  ${grabLine("const _MULT_PER   =")}
+  ${grabLine("const _MULT_CHART =")}
+  ${grabLine("const _MULT_IF    =")}
+  ${grabFn("_isMultiplierText")}
   ${grabFn("_strategyFit")}
   ${grabFn("_oceanPlanFit")}
   ${grabFn("_rankStrategies")}
@@ -232,6 +236,63 @@ console.log("\nA plan does not win by listing more cards");
     "flip the hand and Birds climbs while the tuna plan falls");
   check(fitOf(r2, "Birds") > fitOf(r2, "King Salmon"),
     "three birds outrank the game-fish plan they share no cards with");
+}
+
+console.log("\nA plan whose other cards score nothing needs its multiplier");
+
+{
+  // Common Sea Star, Sea Urchin and Johnson's Sea Cucumber print NO POINTS.
+  // They are draw engines. A board of them with no Red Beaded Anemone scores
+  // exactly zero, and the panel used to call it a match because three of a
+  // plan's cards is three of a plan's cards to a share.
+  const dead = ["Common Sea Star", "Sea Urchin", "Johnson's Sea Cucumber"]
+    .map(n => uidOf("Invertebrates", n, 0));
+  sandbox.setTable({ players: [me([], dead), them([])] });
+  const without = fitOf(sandbox.rank(), "Invertebrates");
+
+  sandbox.setTable({
+    players: [me([], dead.concat([uidOf("Invertebrates", "Red Beaded Anemone", 0)])), them([])],
+  });
+  const withAnemone = fitOf(sandbox.rank(), "Invertebrates");
+
+  check(withAnemone > without,
+    "the same invertebrates are worth more to the panel once an Anemone is with them",
+    `without ${without.toFixed(3)} vs with ${withAnemone.toFixed(3)}`);
+  check(without < 0.5 * withAnemone,
+    "and the version that cannot score is discounted hard, not nudged",
+    `${without.toFixed(3)} vs ${withAnemone.toFixed(3)}`);
+}
+
+{
+  // An Anemone face-up in the Pool is one you can take, so it counts.
+  const dead = ["Common Sea Star", "Sea Urchin", "Johnson's Sea Cucumber"]
+    .map(n => uidOf("Invertebrates", n, 0));
+  sandbox.setTable({ players: [me([], dead), them([])] });
+  const noPool = fitOf(sandbox.rank(), "Invertebrates");
+  sandbox.setTable({
+    players: [me([], dead), them([])],
+    pool: [{ entry_uid: uidOf("Invertebrates", "Red Beaded Anemone", 0),
+             faces: [{ uid: uidOf("Invertebrates", "Red Beaded Anemone", 0) }] }],
+  });
+  check(fitOf(sandbox.rank(), "Invertebrates") > noPool,
+    "an Anemone sitting face-up in the Pool counts: it is one draw away and everyone can see it");
+}
+
+{
+  // The narrowness of the rule is the point. A wall of Yellowfin Tuna is +2
+  // apiece whether or not a Bigeye ever turns up, so it is NOT gated -- gating
+  // it would hand the recommendation back to whichever plan lists the most
+  // cards, since a longer list holds more multipliers.
+  const tuna = [0, 1, 2].map(n => uidOf("Yellowfin Tuna Stack", "Yellowfin Tuna", n));
+  sandbox.setTable({ players: [me([], tuna), them([])] });
+  const noBigeye = fitOf(sandbox.rank(), "Yellowfin Tuna Stack");
+  sandbox.setTable({
+    players: [me([], tuna.concat([uidOf("Yellowfin Tuna Stack", "Bigeye Tuna", 0)])), them([])],
+  });
+  const withBigeye = fitOf(sandbox.rank(), "Yellowfin Tuna Stack");
+  check(noBigeye > 0.5 * withBigeye,
+    "three Yellowfin with no Bigeye is still a real plan, not a discounted one",
+    `without ${noBigeye.toFixed(3)} vs with ${withBigeye.toFixed(3)}`);
 }
 
 console.log("\nCards already on other boards are not cards you can have");
