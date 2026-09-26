@@ -3162,12 +3162,22 @@
       grid-auto-rows: 1fr;
     }
     /* Competitive 1v1 is two cards, not eight. Four columns would strand them
-       in the left quarter of a wide screen, so the pair gets its own track and
-       a width that keeps them a readable size instead of a stretched one. */
+       in the left quarter of a wide screen, and two half-screen columns pulled
+       each card out to 540px: a banner with its avatar, name and chips strung
+       along one line and a hairline XP bar under them, which is not the card
+       the other lobbies draw. They are the same card, so they keep a normal
+       card's width and stand in the middle of the room instead. The track
+       shrinks below that on a narrow screen, exactly as the four-across grid
+       does. */
     .wr-seat-grid.wr-grid-pair {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      max-width: 1100px; margin-inline: auto;
+      grid-template-columns: repeat(2, minmax(0, 360px));
+      justify-content: center;
     }
+    /* The rank is the one chip whose text is out of the card's hands: a
+       division runs from "Bronze Barracuda I" to "King of the Critters". On its
+       own row it cannot push the level and the hands about, so the two cards
+       stay in step line for line. */
+    .wr-seat-rankrow { margin-top: 4px; }
     @media (max-width: 560px) { .wr-seat-grid.wr-grid-pair { grid-template-columns: minmax(0, 1fr); } }
     @media (max-width: 1120px) { .wr-seat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (max-width: 860px)  { .wr-seat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -16245,8 +16255,9 @@
       display: flex; gap: 11px; align-items: flex-start;
       margin: 0 0 18px; padding: 14px 17px; border-radius: 14px;
       background: #d8f5ff; border: 1px solid #9ddaf0;
-      /* Nunito, not rules.html's Manrope: the game does not fetch Manrope,
-         and Nunito is what the book itself is set in either way. */
+      /* Nunito, not rules.html's Manrope: the game does not fetch Manrope.
+         Not the book's Luckiest Guy either. This note is the frame around the
+         book, not a page of it, and it stays in a reading face. */
       font-family: "Nunito", sans-serif;
       font-size: 14px; line-height: 1.55; color: #17546e;
     }

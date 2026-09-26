@@ -74,7 +74,7 @@ const STATE = APP.slice(APP.indexOf("  const BM_FALLBACK_GRADES = ["),
 
 const FNS = ["bmBeatenIds", "bmPlayerLevel",
              "bmLadderRungIds", "bmLadderRemaining", "bmGradeLocked", "bmLockNote", "bmTopUnlockedIndex",
-             "bmGradeById", "bmIndexOf", "bmAt", "bmTierLetter", "bmTierClass",
+             "bmGradeById", "bmIndexOf", "bmGradesTopDown", "bmAt", "bmTierLetter", "bmTierClass",
              "bmBadge", "bmAnimalFor", "bmSquidId", "bmSpot", "bmSpotRank",
              "bmSpotLocked", "bmSpotLockNote", "bmTopUnlockedSpot", "bmIsFinal",
              "bmSeatCount", "bmGradeBlurb", "bmLoadGrades", "bmFinalLineup", "bmRoll", "bmRollRandom",
@@ -82,8 +82,9 @@ const FNS = ["bmBeatenIds", "bmPlayerLevel",
              "bmReduceMotion", "bmClimbKnown", "bmReefKey", "bmReefLoad", "bmReefSave",
              "bmTopReachableSpot", "bmMyAvatar", "bmDiverEl", "bmDiverMark", "bmDiverPlace",
              "bmDiverHop", "bmDiverWalk", "bmOpenPlan", "bmCelebrate",
-             "bmRenderLadder", "bmRenderBots", "bmAvgRankTier", "buildDifficultyBox",
-             "bmRender", "openBotMatch", "closeBotMatch", "bmStart"]
+             "bmRenderLadder", "bmRenderBots", "bmAvgRankTier",
+             "_wrGradeHold", "_wrHoldGrade", "_wrHeldGrade", "buildDifficultyBox",
+             "bmRender", "bmRenderSummary", "openBotMatch", "closeBotMatch", "bmStart"]
             .map(grabFn).join("\n\n");
 
 // The module-level state those functions share, taken line for line from the
@@ -1249,8 +1250,10 @@ function measure(w) {
     win.__setBeaten([]); win.__setStory(false); win.__setLevel(99);
     const box = win.buildDifficultyBox({ index: 1, difficulty: "steve_irwin", grade: "", claimed_name: "Bot 2" }, true);
     const opts = [...box.querySelectorAll("option")];
-    ok(opts.map(o => o.textContent.trim()).join() === "Rank F,Rank E,Rank D,Rank C,Rank B,Rank A,Rank S,Rank S+",
-       "a casual bot seat is graded F to S+ (" + opts.map(o => o.textContent.trim()).join() + ")");
+    ok(opts.map(o => o.textContent.trim()).join() === "Rank S+,Rank S,Rank A,Rank B,Rank C,Rank D,Rank E,Rank F",
+       "a casual bot seat is graded S+ down to F (" + opts.map(o => o.textContent.trim()).join() + ")");
+    ok(opts[0].textContent.trim() === "Rank S+" && opts[opts.length - 1].textContent.trim() === "Rank F",
+       "…the hardest at the top of the list and the easiest at the bottom");
     ok(opts.every(o => !o.disabled), "…every one of them open, whether or not it has been climbed");
     ok(box.querySelector("select").value === "steve_irwin", "…with the seat's own rank selected");
     win.__setBeaten(${JSON.stringify(CLIMBED)}); win.__setStory(true); win.__setLevel(25);
@@ -1271,6 +1274,12 @@ function measure(w) {
        "opponent " + i + " wears its animal");
     const sel = el.querySelector(".bm-grade-select");
     ok(!!sel && sel.options.length === 9, "opponent " + i + " can be set to any of the nine ranks");
+    // Strongest first, the way the reef stacks them: the Squid is the
+    // strongest rung there is, so on the list that carries it, it tops it.
+    ok([...sel.options].map(o => o.value)[8] === "gilbert_carter",
+       "opponent " + i + "'s list ends on rank F");
+    ok([...sel.options].map(o => o.value)[1] === "jacques_cousteau",
+       "…with S+ at the top of the ranks and the Squid above it");
     ok([...sel.options].every(o => /^(🔒 )?Rank [A-S+]+$/.test(o.textContent.trim())),
        "opponent " + i + "'s list is ranks only (" + sel.options[0].textContent + ")");
     ok(r(sel).height >= 26, "opponent " + i + "'s list is tappable (" + Math.round(r(sel).height) + "px)");
@@ -1292,6 +1301,23 @@ function measure(w) {
      "…and the whole line has no number on it (" + d.querySelector(".bm-table-line").textContent.trim() + ")");
   const badges = [...d.querySelectorAll(".bm-bot .bm-grade-badge")].map(e => e.textContent);
   ok(badges.join() === "F,D,B", "the badges follow the picks (" + badges.join() + ")");
+
+  // ── a pick lands on the card it was made on ──
+  // The lineup used to redraw itself from scratch inside the change event,
+  // which pulled the <select> the player had just used out of the page while
+  // it was still firing: on a phone that reads as a rank that refuses to
+  // change. The card is updated where it stands now.
+  {
+    const sel0 = d.querySelector(".bm-bot .bm-grade-select");
+    win.__setPick("eugenie_clark", "edward_forbes", "william_beebe");
+    ok(d.querySelector(".bm-bot .bm-grade-select") === sel0,
+       "picking a rank leaves the list that was used on the page");
+    ok(d.querySelector(".bm-bot .bm-grade-badge").textContent === "A",
+       "…and the badge on that card changes with it");
+    ok(/great-white-shark/.test(d.querySelector(".bm-bot .bm-bot-face").getAttribute("src")),
+       "…animal and all");
+    win.__setPick("gilbert_carter", "edward_forbes", "william_beebe");
+  }
 
   // The widest badge on the ladder, on the narrowest screen.
   win.__setPick("jacques_cousteau", "jacques_cousteau", "jacques_cousteau");

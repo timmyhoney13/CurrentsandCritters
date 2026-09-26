@@ -109,6 +109,12 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.15", title: "\u2694\uFE0F The Competitive 1v1 lobby looks like a lobby", items: [
+      "The two player cards are the size every other lobby draws them. They were being stretched to half the screen each, which turned a card into a banner: the critter, the name and the chips strung out along one line with a hairline XP bar under them. They stand side by side in the middle of the room now, at a normal card's width.",
+      "The two cards line up. The rank you are playing for has a row of its own, so a long division like King of the Critters can no longer push one card's level and hands onto a second line while the other card stays on one, which left the pair's XP bars and stat lines sitting at different heights.",
+      "The room has its read-out back, the same bar every other lobby has between its title and its cards. It counts PEOPLE here: 2 at the table, one marker each, and it says Ranked 1v1, two hands each.",
+      "Lobby chat counts people too. A room with both of you in it said 4 here, because it was counting hands.",
+    ]},
     { ver: "V1.7.14", title: "\uD83C\uDF0A The Store is open again, and the Reef Wall is back up", items: [
       "The Store is back. Critter Coin packs, skins, backgrounds and Player Perks are all on the shelf again, and everything you already owned was waiting for you exactly where you left it.",
       "The Critter Pass is back too, and so is every tier you had not claimed yet. Nothing expired while the page was shut: unclaimed rewards were held on the server the whole time and are still there to claim.",
@@ -2997,6 +3003,8 @@
     // Ocean Points move every match. Letting the cache out of this room would
     // paint the next lobby with totals from the last one.
     try { _wrResetCompRanks(); } catch (_) {}
+    // A pick held for a room nobody is in any more.
+    try { _wrGradeHold().clear(); } catch (_) {}
   }
   // The grade control on an AI seat in the lobby. This used to be three pills
   // (Easy / Medium / Hard); the ladder is ten rungs now, which no row of
@@ -3008,14 +3016,52 @@
   // like. The Giant Squid is the one exception. It keeps its own gates
   // everywhere, so it is only on this list once it is earned (or already
   // sitting in the seat).
+  //
+  // A pick has to outlive the next state poll. This lobby repaints every seat
+  // from the server's payload about once a second, and the payload that lands
+  // in the second after a pick still carries the OLD rank, so the list used to
+  // snap back to where it was and only change for real when the round trip
+  // caught up. That is the whole glitch: press a rank, watch it undo itself.
+  // So the pick is held here, and the held rank is what the seat is drawn
+  // with until the payload says the same thing (or until the hold runs out,
+  // because a request that quietly failed must not leave a rank on the screen
+  // that is not on the table).
+  //
+  // The map hangs off the function rather than sitting beside it: the lobby
+  // tests build a cut-down page out of functions lifted from this file by
+  // name, and a bare module-level `const` is not one of them.
+  function _wrGradeHold() {
+    if (!_wrGradeHold.map) _wrGradeHold.map = new Map();
+    return _wrGradeHold.map;
+  }
+  function _wrHoldGrade(seatIndex, id) {
+    // Eight seconds covers the six-second request and the poll behind it.
+    _wrGradeHold().set(Number(seatIndex),
+                       { id: String(id).toLowerCase(), until: Date.now() + 8000 });
+  }
+  // The rank a bot seat should be WEARING right now: the host's own pick while
+  // it is still in flight, the server's answer the moment it lands.
+  function _wrHeldGrade(seat) {
+    const hold = _wrGradeHold();
+    const key = Number(seat && seat.index);
+    const p = hold.get(key);
+    if (!p) return "";
+    if (String((seat && seat.difficulty) || "").toLowerCase() === p.id || Date.now() > p.until) {
+      hold.delete(key);
+      return "";
+    }
+    return p.id;
+  }
   function buildDifficultyBox(seat, isHost) {
     const box = document.createElement("div");
     box.className = "wr-grade-box";
     // The server always sends `difficulty`; an empty one only happens against
     // an older build, and bmGradeById lands it somewhere sensible rather than
-    // leaving the list with nothing selected.
-    const g = bmGradeById(String(seat.difficulty || "").toLowerCase());
-    box.appendChild(bmBadge(seat.grade || g.grade, "wr"));
+    // leaving the list with nothing selected. A pick still in flight outranks
+    // both of them.
+    const held = _wrHeldGrade(seat);
+    const g = bmGradeById(held || String(seat.difficulty || "").toLowerCase());
+    box.appendChild(bmBadge(held || seat.grade || g.grade, "wr"));
 
     const selWrap = document.createElement("div");
     selWrap.className = "bm-select-wrap";
@@ -3029,7 +3075,7 @@
       const x = _bmGrades.find(q => q.id === id);
       return !!(x && x.unlock === "story" && bmGradeLocked(id));
     };
-    _bmGrades.forEach(opt => {
+    bmGradesTopDown().forEach(opt => {
       const locked = shut(opt.id);
       if (locked && opt.id !== g.id) return;
       const o = document.createElement("option");
@@ -3048,6 +3094,9 @@
           try { showToast(bmLockNote(wanted) || "That grade is locked.", "info"); } catch (_) {}
           return;
         }
+        // Held BEFORE the request goes out: the payload that undoes it is
+        // probably already on the wire.
+        _wrHoldGrade(seat.index, sel.value);
         await setBotDifficulty(seat.index, sel.value, sel);
       });
     }
@@ -3082,10 +3131,16 @@
       if (seatToken) payload.seat_token = seatToken;
       const r = await apiPost(`/api/rooms/${roomId}/seat_difficulty`, payload, { timeoutMs: 6000 });
       if (!r.ok) {
+        // The seat is whatever the server says it is. Let go of the pick so
+        // the next paint tells the truth rather than the hope.
+        try { _wrGradeHold().delete(Number(seatIndex)); } catch (_) {}
+        try { refreshWaitingRoomFromPayload(); } catch (_) {}
         const msg = r.data?.error || ("HTTP " + r.status);
         showToast("Failed to set the bot's grade: " + msg, "err");
       }
     } catch (e) {
+      try { _wrGradeHold().delete(Number(seatIndex)); } catch (_) {}
+      try { refreshWaitingRoomFromPayload(); } catch (_) {}
       showToast("Network error setting the bot's grade.", "err");
     }
   }
@@ -3466,7 +3521,11 @@
 
   // The chip itself. My OWN row is answered from my live stats first: I may
   // have just finished a match the leaderboard has not caught up with.
-  function _wrRankChip(name, isMine) {
+  // `always` is for the competitive 1v1 lobby, where a card with no chip and a
+  // card with one are two different shapes side by side, and where "what am I
+  // playing for" is the whole point of the room: somebody with no season yet
+  // is Unranked on 0 OP, which is a real answer, not a missing one.
+  function _wrRankChip(name, isMine, always) {
     const key = String(name || "").trim().toLowerCase();
     if (!key) return null;
     let row = _wrRankByName[key] || null;
@@ -3482,6 +3541,10 @@
         const info = rankFn(Number(st.comp_cp || 0), played);
         row = { cp: Number(st.comp_cp || 0), division: info.division, tier: info.tier, emoji: info.emoji };
       }
+    }
+    if (!row && always && typeof rankFn === "function") {
+      const info = rankFn(0, false);
+      row = { cp: 0, division: info.division, tier: info.tier, emoji: info.emoji };
     }
     if (!row) return null;
     const chip = _wrChip(`${row.emoji || "🐟"} ${row.division} · ${_wrNum(row.cp)} OP`,
@@ -3677,14 +3740,29 @@
     } else if (isOpen) {
       chips.appendChild(_wrChip(pair ? "Waiting for this player" : "Waiting for a player", "wr-chip-wait"));
     }
-    // What this room pays out in is what it should say about the people in it.
-    // Both competitive modes, so the 1v1 ladder and the free-for-all agree.
-    if (!isAI && !isOpen && ctx.showRank) {
-      const rc = _wrRankChip(s.claimed_name, isMine);
-      if (rc) chips.appendChild(rc);
-    }
     if (pair && !isOpen) chips.appendChild(_wrChip("🃏 " + pair.handLabel, "wr-chip-hands"));
     idBox.appendChild(chips);
+    // What this room pays out in is what it should say about the people in it.
+    // Both competitive modes, so the 1v1 ladder and the free-for-all agree.
+    //
+    // On a pair card it goes on a row of its own. A division is anything from
+    // "Bronze Barracuda I" to "King of the Critters", so sharing a row with the
+    // level and the hands meant one card wrapped where the other did not, and
+    // the two cards' XP bars and stat lines then sat at different heights: the
+    // one thing on this screen that is meant to be a matched pair, visibly out
+    // of step. Its own row is the same height whatever the division is called.
+    if (!isAI && !isOpen && ctx.showRank) {
+      const rc = _wrRankChip(s.claimed_name, isMine, !!pair);
+      if (rc) {
+        if (pair) {
+          const rankRow = _wrEl("div", "wr-seat-chips wr-seat-rankrow");
+          rankRow.appendChild(rc);
+          idBox.appendChild(rankRow);
+        } else {
+          chips.appendChild(rc);
+        }
+      }
+    }
     top.appendChild(idBox);
     tile.appendChild(top);
 
@@ -3692,7 +3770,9 @@
     if (isAI) {
       // What this particular grade is actually like to play against. It reads
       // off the ladder position, so it stays true as the ladder is re-tuned.
-      tile.appendChild(_wrEl("div", "wr-seat-blurb", bmGradeBlurb(s.difficulty)));
+      // The held pick, so the sentence under the badge changes with it
+      // instead of describing the rank the seat is about to stop being.
+      tile.appendChild(_wrEl("div", "wr-seat-blurb", bmGradeBlurb(_wrHeldGrade(s) || s.difficulty)));
       const dl = _wrEl("div", "wr-seat-sublabel", "Grade");
       tile.appendChild(dl);
       tile.appendChild(buildDifficultyBox(s, ctx.isHost));
@@ -3852,28 +3932,60 @@
   function _wrRenderCapacity(ctx) {
     const wrap = document.getElementById("wr-capacity");
     if (!wrap) return;
-    // Head to Head, competitive and bracket matches own their own shape, so the
-    // spots are not theirs to change and this read-out would only mislead.
-    const show = !ctx.room.quick_play && !ctx.room.competitive && !ctx.room.tournament;
+    // Competitive 1v1 counts PEOPLE, not seats: two of them, two hands each,
+    // and a shape neither of them can change. It still gets the read-out,
+    // because a lobby with nothing between its title and its cards is the one
+    // room in the game that does not look like the rest of them.
+    const isPair = !!ctx.pair;
+    // Head to Head and bracket matches own their own shape, so the spots are
+    // not theirs to change and this read-out would only mislead.
+    const show = isPair || (!ctx.room.quick_play && !ctx.room.competitive && !ctx.room.tournament);
     wrap.style.display = show ? "" : "none";
+    // A bot can never sit in a ranked 1v1 and there is no ninth spot to fill,
+    // so those two keys on the legend would be answering questions this room
+    // does not ask.
+    const legend = wrap.querySelector(".wr-cap-legend");
+    if (legend) {
+      legend.querySelectorAll("span").forEach(sp => {
+        const pip = sp.querySelector("i");
+        const off = isPair && pip && (pip.classList.contains("bot") || pip.classList.contains("spare"));
+        sp.style.display = off ? "none" : "";
+      });
+    }
     if (!show) return;
-    const total = ctx.humans + ctx.bots;
+    const total = isPair ? 2 : (ctx.humans + ctx.bots);
     const n = document.getElementById("wr-cap-n");
     if (n) n.textContent = String(total);
     const pips = document.getElementById("wr-cap-pips");
     if (pips) {
       pips.innerHTML = "";
-      ctx.seats.forEach(s => {
-        pips.appendChild(_wrEl("i", "wr-pip " + (s.kind === "ai" ? "bot" : (s.claimed_name ? "player" : "open"))));
-      });
-      for (let i = total; i < WR_SLOTS; i++) pips.appendChild(_wrEl("i", "wr-pip spare"));
+      if (isPair) {
+        // One pip per person, in seat order, so the pips and the two cards
+        // under them are the same two players in the same two places.
+        [[0, 1], [2, 3]].forEach(pr => {
+          const taken = ctx.seats.some(s => pr.includes(s.index) && s.claimed_name);
+          pips.appendChild(_wrEl("i", "wr-pip " + (taken ? "player" : "open")));
+        });
+      } else {
+        ctx.seats.forEach(s => {
+          pips.appendChild(_wrEl("i", "wr-pip " + (s.kind === "ai" ? "bot" : (s.claimed_name ? "player" : "open"))));
+        });
+        for (let i = total; i < WR_SLOTS; i++) pips.appendChild(_wrEl("i", "wr-pip spare"));
+      }
     }
     const note = document.getElementById("wr-cap-note");
     if (note) {
-      const spare = WR_SLOTS - total;
-      note.textContent = spare > 0
-        ? `${spare} more seat${spare === 1 ? "" : "s"} available`
-        : "The table is full";
+      if (isPair) {
+        const waiting = ctx.seats.filter(s => s.claimed_name).length < 4;
+        note.textContent = waiting
+          ? "Ranked 1v1 · two hands each · waiting for your opponent"
+          : "Ranked 1v1 · two hands each";
+      } else {
+        const spare = WR_SLOTS - total;
+        note.textContent = spare > 0
+          ? `${spare} more seat${spare === 1 ? "" : "s"} available`
+          : "The table is full";
+      }
     }
   }
 
@@ -3993,8 +4105,15 @@
       ? latestPayload.chat_messages : [])
       .filter(m => !(m && (m.system || String(m.sender || "") === "System")))
       .slice(-40);
-    const here = ((latestPayload && latestPayload.seats) || [])
-      .filter(s => s.kind === "human" && s.claimed_name).length;
+    // Who is in the room, counted the way the room counts players. Competitive
+    // 1v1 is two PEOPLE holding four hands, so counting claimed seats told a
+    // room of two that four of them were here.
+    const _cRoom = (latestPayload && latestPayload.room) || {};
+    const _cSeats = (latestPayload && latestPayload.seats) || [];
+    const _cSeated = _cSeats.filter(s => s.kind === "human" && s.claimed_name);
+    const here = (_cRoom.competitive && _cSeats.length === 4)
+      ? [[0, 1], [2, 3]].filter(pr => _cSeated.some(s => pr.includes(s.index))).length
+      : _cSeated.length;
     const hereEl = document.getElementById("wr-chat-here");
     if (hereEl) hereEl.textContent = here + (here === 1 ? " here" : " here");
 
@@ -5511,6 +5630,14 @@
     const i = _bmGrades.findIndex(g => g.id === id);
     return i < 0 ? Math.floor(_bmGrades.length / 2) : i;
   }
+  // A LIST of ranks, strongest first: S+ at the top and F at the bottom, the
+  // way the reef stacks them and the way a player reads down for the hardest
+  // thing they can face. `_bmGrades` stays weakest-first, because the climb,
+  // the averages and the platforms all count UP it, so this hands back a
+  // reversed copy and leaves the ladder itself alone. The Giant Squid is the
+  // strongest rung there is, so on the lists that carry it, it sits above S+.
+  function bmGradesTopDown() { return _bmGrades.slice().reverse(); }
+
   // A ladder position, clamped to a ladder that may have grown or shrunk
   // since these spots were written down.
   function bmAt(i) {
@@ -6131,7 +6258,8 @@
       // The Squid's own fight is a fixed table. Everywhere else a player can
       // still hand-pick a rung they have earned.
       sel.disabled = final;
-      _bmGrades.forEach(opt => {
+      // Strongest first, F at the bottom: the list reads down the reef.
+      bmGradesTopDown().forEach(opt => {
         const o = document.createElement("option");
         o.value = opt.id;
         const locked = bmGradeLocked(opt.id);
@@ -6152,7 +6280,14 @@
           return;
         }
         _bmPick[i] = sel.value;
-        bmRender();
+        // This card changes where it stands; the screen is not rebuilt.
+        // Tearing the <select> out of the page from inside its own change
+        // event is what made a pick look like it had not taken, and redrawing
+        // the reef behind it reloaded art that had not moved.
+        const oldBadge = main.querySelector(".bm-grade-badge");
+        if (oldBadge) main.replaceChild(bmBadge(sel.value, "bm"), oldBadge);
+        bmFitArt(face, `/avatars/${bmAnimalFor(sel.value)}.png`, BM_FIG_LIN, BM_FIG_MAX);
+        bmRenderSummary();
       });
       selWrap.appendChild(sel);
       main.appendChild(selWrap);
@@ -6173,6 +6308,15 @@
   function bmRender() {
     bmRenderLadder();
     bmRenderBots();
+    bmRenderSummary();
+  }
+
+  // Everything on the screen that is true of the TABLE rather than of one
+  // opponent: the count, the line under it, the buttons, the average rank and
+  // the sentence about the platform. Split out of bmRender so changing one
+  // opponent can repaint this much and leave the reef and the other cards
+  // exactly where they are.
+  function bmRenderSummary() {
     const final = bmIsFinal();
     const count = document.getElementById("bm-count");
     if (count) count.textContent = `${_bmPick.length} / ${_bmPick.length} selected`;

@@ -310,8 +310,9 @@ const CHROME = [
 function page() {
   const fns = ["_wrEl", "_wrChip", "_wrSeatDevice", "_wrDeviceChip", "_wrBgName",
                "_wrNum", "_wrRemoveBtn", "_wrLock",
-               "_wrSeatAvatarUrl", "_wrCounts", "buildDifficultyBox", "_wrLoadPrestige",
-               "bmGradeById", "bmIndexOf", "bmTierLetter", "bmTierClass", "bmBadge",
+               "_wrSeatAvatarUrl", "_wrCounts", "_wrGradeHold", "_wrHoldGrade",
+               "_wrHeldGrade", "buildDifficultyBox", "_wrLoadPrestige",
+               "bmGradeById", "bmIndexOf", "bmGradesTopDown", "bmTierLetter", "bmTierClass", "bmBadge",
                "bmGradeBlurb",
                "_wrSeatCard", "_wrAddCard", "_wrRenderCapacity", "renderSeatTilesInto",
                "_wrRankChip", "_wrLoadCompRanks", "_wrResetCompRanks", "renderCompLobbyInto",
@@ -465,6 +466,7 @@ window.__redrawSpots = () => {
   const l = document.getElementById("wr-players-list");
   l.innerHTML = '<div class="wr-players-title">Players in Room</div>';
   renderSeatTilesInto(l, latestPayload.seats, true);
+  _wrChatFingerprint = ""; _wrRenderChat();
 };
 // Draw the SAME lobby the real client would for a competitive 1v1 room: four
 // seats, two people, and the room flag the server sets.
@@ -474,6 +476,7 @@ window.__drawComp = () => {
   const l = document.getElementById("wr-players-list");
   l.innerHTML = '<div class="wr-players-title">Players in Room</div>';
   renderCompLobbyInto(l, COMP_SEATS, true);
+  _wrChatFingerprint = ""; _wrRenderChat();
 };
 window.__drawTeam = () => {
   latestPayload.room.competitive = false;
@@ -540,6 +543,31 @@ function measure(w) {
 
   const pen = d.querySelector(".wr-seat-edit");
   ok(pen && r(pen).width >= 20, "the change-critter pencil is tappable");
+
+  // ── the rank a host just picked stays picked ──
+  // This lobby repaints every seat from the server's payload about once a
+  // second, and the payload that lands in the second after a pick still
+  // carries the OLD rank. Without the hold the list snapped straight back and
+  // only changed for real a beat later, which reads as a rank that ignores
+  // being pressed.
+  if (w === 1280) {
+    const aiSeat = { index: 5, kind: "ai", claimed_name: "Bot 2", difficulty: "c", grade: "C" };
+    win._wrHoldGrade(5, "a");
+    const held = win.buildDifficultyBox(aiSeat, true);
+    ok(held.querySelector("select").value === "a",
+       "a pick survives a repaint still carrying the old rank");
+    ok(held.querySelector(".wr-grade-badge").textContent === "A",
+       "…and the badge beside it says the same");
+    const caught = win.buildDifficultyBox(Object.assign({}, aiSeat, { difficulty: "a", grade: "A" }), true);
+    ok(caught.querySelector("select").value === "a", "the server catches up and agrees");
+    const after = win.buildDifficultyBox(aiSeat, true);
+    ok(after.querySelector("select").value === "c",
+       "…and from there the payload rules the seat again");
+    // Hardest at the top, F at the bottom, the way the reef stacks them.
+    const order = [...held.querySelectorAll("option")].map(o => o.value);
+    ok(order[0] === "ss_plus" && order[order.length - 1] === "f",
+       "the list runs hardest first, F at the bottom (" + order.join() + ")");
+  }
 
   const log = d.getElementById("wr-chat-log"), input = d.getElementById("wr-chat-text");
   ok(r(log).height >= 60, "the chat log has real height (" + Math.round(r(log).height) + "px)");
@@ -634,6 +662,56 @@ function measure(w) {
        "competitive: the rank you are playing for is on the card");
     ok(/OP/.test(txt) && !/\bCP\b/.test(txt), "competitive: the currency reads OP");
     ok(d.querySelectorAll(".wr-chip-rank").length === 2, "competitive: a rank chip each");
+    // The rank sits on a row of its own. A division is anything from "Bronze
+    // Barracuda I" to "King of the Critters", so on a shared row one card
+    // wrapped where the other did not and the pair fell out of step.
+    ok(d.querySelectorAll(".wr-seat-rankrow .wr-chip-rank").length === 2,
+       "competitive: the rank is on its own row on both cards");
+    // Two cards, not two banners. They are the card every other lobby draws,
+    // so they keep a normal card's width instead of being pulled out to half
+    // the screen with the avatar, the name and the chips strung along one line.
+    cards.forEach((el, i) => {
+      const b = r(el);
+      // Below 560px the pair stacks and each card takes the width it is given,
+      // exactly as the eight-spot grid does on a phone.
+      ok(w <= 560 || b.width <= 380,
+         "competitive card " + i + " is a card, not a banner (" + Math.round(b.width) + "px wide)");
+      ok(b.height >= 190, "competitive card " + i + " keeps a card's depth (" + Math.round(b.height) + "px)");
+    });
+    // The one thing on this screen that is meant to be a matched pair has to
+    // look like one: same height, and the same rows at the same heights.
+    {
+      const hs = cards.map(c => Math.round(r(c).height));
+      ok(hs[0] === hs[1], "competitive: the two cards are the same height (" + hs.join(" vs ") + ")");
+      const xp = [...d.querySelectorAll(".wr-xp")]
+        .map(e => Math.round(r(e).top - r(e.closest(".wr-seat")).top));
+      ok(xp.length === 2 && xp[0] === xp[1],
+         "competitive: both XP bars sit at the same height on their card (" + xp.join(" vs ") + ")");
+      const ft = [...d.querySelectorAll(".wr-seat-foot")]
+        .map(e => Math.round(r(e).top - r(e.closest(".wr-seat")).top));
+      ok(ft.length === 2 && ft[0] === ft[1],
+         "competitive: and so do both footers (" + ft.join(" vs ") + ")");
+    }
+    // Every other lobby has the read-out between its title and its cards.
+    // Competitive counts PEOPLE in it: two of them, holding four hands.
+    {
+      const cap = d.getElementById("wr-capacity");
+      ok(win.getComputedStyle(cap).display !== "none", "competitive: the read-out is on screen");
+      ok(d.getElementById("wr-cap-n").textContent === "2", "competitive: it counts two at the table");
+      ok(d.querySelectorAll("#wr-cap-pips .wr-pip").length === 2, "competitive: one pip per person, not per hand");
+      ok(!d.querySelector("#wr-cap-pips .wr-pip.bot, #wr-cap-pips .wr-pip.spare"),
+         "competitive: no bot pip and no spare pip, a ranked room has neither");
+      ok(/Ranked 1v1/.test(d.getElementById("wr-cap-note").textContent),
+         "competitive: and it says what the room is");
+      const legend = [...d.querySelectorAll(".wr-cap-legend span")]
+        .filter(sp => win.getComputedStyle(sp).display !== "none")
+        .map(sp => sp.textContent.trim());
+      ok(legend.join() === "Player,Open",
+         "competitive: the legend drops the two keys this room has no use for (" + legend.join() + ")");
+    }
+    // Two people are here, whatever four hands might suggest.
+    ok(d.getElementById("wr-chat-here").textContent === "2 here",
+       "competitive: the chat counts people, not hands (" + d.getElementById("wr-chat-here").textContent + ")");
     ok(d.querySelectorAll(".wr-seat-av img").length === 2, "competitive: both critters are shown");
     ok(d.querySelectorAll(".wr-chip-device-computer, .wr-chip-device-mobile").length === 2,
        "competitive: what each of them is playing on");
@@ -731,6 +809,48 @@ console.log("\ncompetitive 1v1 is on the new card, like every other lobby");
   check(/renderCompLobbyInto\(list, seats, isHost\)/.test(UWR),
         "a competitive room routes to it");
   check(!/wr-player-row/.test(UWR), "…instead of the dot-and-a-line rows it used to draw");
+
+  // ── and it is laid out like one ──
+  // Two cards on a 1fr/1fr track stretched each one to half the screen: an
+  // avatar, a name and three chips strung along 540px with a hairline XP bar
+  // under them. That is not the card the other lobbies draw, it is a banner.
+  check(/\.wr-seat-grid\.wr-grid-pair \{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 360px\)\)/.test(CSS),
+        "the pair keeps a normal card's width instead of half the screen");
+  check(/\.wr-seat-grid\.wr-grid-pair \{[^}]*justify-content:\s*center/.test(CSS),
+        "…and stands in the middle of the room");
+  check(/@media \(max-width: 560px\) \{ \.wr-seat-grid\.wr-grid-pair/.test(CSS),
+        "…and still stacks on a phone");
+  check(/\.wr-seat-rankrow/.test(CSS) && /wr-seat-rankrow/.test(LOBBY),
+        "the rank chip has a row of its own, so a long division cannot knock the pair out of step");
+
+  // The read-out belongs to this lobby too: it is the one thing every other
+  // lobby has between its title and its cards.
+  const CAP = APP.slice(APP.indexOf("function _wrRenderCapacity"),
+                        APP.indexOf("function renderCompLobbyInto"));
+  check(/const isPair = !!ctx\.pair/.test(CAP), "the read-out knows a competitive 1v1 room");
+  check(/const show = isPair \|\|/.test(CAP), "…and shows itself in one");
+  check(/const total = isPair \? 2 :/.test(CAP), "…counting two PEOPLE, not four hands");
+  check(/\[\[0, 1\], \[2, 3\]\]/.test(CAP), "…with one pip per person, on the fixed seat pairs");
+  check(/Ranked 1v1/.test(CAP), "…and says what the room is instead of counting spare seats");
+
+  // A card with a rank chip beside a card without one is two shapes, and in a
+  // ranked room "what am I playing for" is the whole question.
+  const RANKCHIP = APP.slice(APP.indexOf("function _wrRankChip"),
+                             APP.indexOf("function _wrSeatAvatarUrl"));
+  check(/function _wrRankChip\(name, isMine, always\)/.test(RANKCHIP),
+        "the rank chip can be asked for even when the season has not started");
+  check(/if \(!row && always/.test(RANKCHIP) && /rankFn\(0, false\)/.test(RANKCHIP),
+        "…and answers Unranked on 0 OP, which is a real answer");
+  check(/_wrRankChip\(s\.claimed_name, isMine, !!pair\)/.test(LOBBY),
+        "the competitive lobby is the one that asks for it");
+
+  // Two people hold four hands. Counting claimed seats told a room of two
+  // that four of them were here.
+  const CHAT = APP.slice(APP.indexOf("function _wrRenderChat"),
+                         APP.indexOf("async function _wrSendChat"));
+  check(/_cRoom\.competitive && _cSeats\.length === 4/.test(CHAT),
+        "the chat head count knows a competitive 1v1 room");
+  check(/\[\[0, 1\], \[2, 3\]\]/.test(CHAT), "…and counts the two people in it");
 
   // The team columns are their own shape, but a player there is a face too.
   const TEAM = APP.slice(APP.indexOf("function renderTeamLobbyInto"),

@@ -194,11 +194,12 @@ const CHROME = [
 function page() {
   const lobbyFns = ["_wrEl", "_wrChip", "_wrSeatDevice", "_wrDeviceChip", "_wrBgName",
                     "_wrNum", "_wrRemoveBtn", "_wrLock", "_wrSeatAvatarUrl", "_wrCounts",
+                    "_wrGradeHold", "_wrHoldGrade", "_wrHeldGrade",
                     "buildDifficultyBox", "_wrLoadPrestige", "_wrSeatCard", "_wrAddCard",
                     "_wrRenderCapacity", "renderSeatTilesInto",
                     // A bot seat wears its grade, in the lobby and at the table
                     // alike, so both renders need the grade helpers.
-                    "bmGradeById", "bmIndexOf", "bmTierLetter", "bmTierClass", "bmBadge",
+                    "bmGradeById", "bmIndexOf", "bmGradesTopDown", "bmTierLetter", "bmTierClass", "bmBadge",
                     "bmGradeBlurb"].map(f => grabFn(f)).join("\n\n");
   const gameFns = ["pvSeatHash", "pvSeatDefaultAvatar", "_applyAvBg",
                    "renderPlayerSeats"].map(f => grabFn(f)).join("\n\n");
