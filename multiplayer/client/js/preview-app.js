@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-25.2";
+  const APP_BUILD   = "2026-09-26.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.16", title: "\uD83D\uDCD6 The Rule Book reads like the box it came in", items: [
+      "The whole book is set in the game's own lettering now, cover to encyclopedia, instead of the headings wearing it and everything underneath wearing something else.",
+      "The Clownfish pictures show it attached. It used to sit in a row under the Ocean, which read as a second card parked next to it; it is tucked into the Ocean's side now, half behind it, exactly the way it lies on your table. That is the whole rule: a Clownfish is part of the Ocean it is on.",
+      "The Ocean layout diagram has real cards in it. Four empty dashed boxes told you where the spaces were but never what goes in them, so there is now a Pelican on the surface, a Lobster on the floor, a Yellowfin Tuna and a Whale Shark at the sides, and a key underneath naming what each space takes.",
+    ]},
     { ver: "V1.7.15", title: "\u2694\uFE0F The Competitive 1v1 lobby looks like a lobby", items: [
       "The two player cards are the size every other lobby draws them. They were being stretched to half the screen each, which turned a card into a banner: the critter, the name and the chips strung out along one line with a hairline XP bar under them. They stand side by side in the middle of the room now, at a normal card's width.",
       "The two cards line up. The rank you are playing for has a row of its own, so a long division like King of the Critters can no longer push one card's level and hands onto a second line while the other card stays on one, which left the pair's XP bars and stat lines sitting at different heights.",

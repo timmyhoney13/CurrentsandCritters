@@ -78,21 +78,40 @@
   }
 
   // ── The figures the printed book calls for ──────────────────────
-  // Ocean layout: where each attachment slot sits around an Ocean card.
+  // Ocean layout: what goes where around an Ocean card. Drawn as the table
+  // actually looks, a real card in every one of the four spaces, each one
+  // tucked in against the Ocean with the Ocean sitting on top of it, which is
+  // how the game lays a board out as well. Four empty dashed boxes said where
+  // the spaces were but not what fills them, and a player reads this figure
+  // with cards in their hand.
+  function odKeyRow(arrows, name, what) {
+    return '<li><span class="rb-od-key-arrow">' + arrows + '</span>'
+      + '<span class="rb-od-key-txt"><b>' + name + '</b>'
+      + '<span class="rb-od-key-what">' + what + '</span></span></li>';
+  }
   function oceanLayoutFigure() {
     return ''
       + '<div class="rb-fig">'
       +   '<div class="rb-fig-head">Ocean Layout Diagram Coral Reef</div>'
-      +   '<div class="rb-ocean-diagram">'
-      +     '<div class="rb-od-slot rb-od-top"><span class="rb-od-arrow">&#9650;</span><span class="rb-od-lbl">Top = Surface</span></div>'
+      +   '<div class="rb-od-hub">'
+      +     '<div class="rb-od-up">' + hFace(25) + '</div>'
       +     '<div class="rb-od-mid">'
-      +       '<div class="rb-od-slot rb-od-left"><span class="rb-od-arrow">&#9664;</span><span class="rb-od-lbl">Left</span></div>'
+      +       '<div class="rb-od-side rb-od-l">' + vFace(107) + '</div>'
       +       '<div class="rb-od-card">' + oFace(217) + '</div>'
-      +       '<div class="rb-od-slot rb-od-right"><span class="rb-od-arrow">&#9654;</span><span class="rb-od-lbl">Right</span></div>'
+      +       '<div class="rb-od-side rb-od-r">' + vFace(142) + '</div>'
       +     '</div>'
-      +     '<div class="rb-od-slot rb-od-bottom"><span class="rb-od-arrow">&#9660;</span><span class="rb-od-lbl">Bottom = Ocean Floor</span></div>'
+      +     '<div class="rb-od-down">' + hFace(12) + '</div>'
       +   '</div>'
-      +   '<div class="rb-fig-note">Left/Right attachment slots</div>'
+      +   '<ul class="rb-od-key">'
+      +     odKeyRow('&#9650;', 'Top = Surface',
+                     'Birds and baitfish. Pictured, a Peruvian Pelican.')
+      +     odKeyRow('&#9664;&#9654;', 'Left and Right',
+                     'Yellowfin Tuna, Whale Shark, Mahi Mahi and the rest of the Left/Right cards. '
+                     + 'Pictured, a Yellowfin Tuna and a Whale Shark.')
+      +     odKeyRow('&#9660;', 'Bottom = Ocean Floor',
+                     'Lobster, Crab, Goby and the other floor dwellers. Pictured, a Lobster.')
+      +   '</ul>'
+      +   '<div class="rb-fig-note">Every attached card tucks in against the Ocean and the Ocean stays on top, so one look tells you which of its four spaces are still free.</div>'
       +   '<div class="rb-fig-note rb-fig-note-gold">Charts mean 1 of this card, you get this many points</div>'
       + '</div>';
   }
@@ -102,11 +121,11 @@
   // a spot that is actually open. Cleanser Wrasse and Lobster are both Down
   // cards, so the free Lobster has to go on a second Ocean's floor, which is
   // the point of the picture.
-  function crustaceanStep(n, boardHtml, headline, body) {
+  function crustaceanStep(n, boardHtml, headline, body, boardCls) {
     return ''
       + '<div class="rb-step">'
       +   '<div class="rb-step-n">' + n + '</div>'
-      +   '<div class="rb-step-art"><div class="rb-mini-board">' + boardHtml + '</div></div>'
+      +   '<div class="rb-step-art"><div class="rb-mini-board' + (boardCls ? ' ' + boardCls : '') + '">' + boardHtml + '</div></div>'
       +   '<div class="rb-step-body"><p class="rb-p"><b>' + headline + '</b> ' + body + '</p></div>'
       + '</div>';
   }
@@ -209,6 +228,17 @@
   // Clownfish: the one card whose ability is a different ability on every
   // Ocean. Two pictures, because the two halves of the rule are the two
   // questions people ask, what it does to a count, and when it hands you a ★.
+  // A Clownfish is a Left/Right card, so on the table it goes in at the
+  // Ocean's side and slides half behind it. Drawn in a row underneath, it read
+  // as a second loose card next to the Ocean, which is the one thing the whole
+  // rule is not: it is part of that Ocean for as long as it sits there.
+  function clownfishOnOcean(oceanUid, label) {
+    return '<div class="rb-mini-att-row">'
+      +      '<div class="rb-mini-ocean">' + oFace(oceanUid) + '</div>'
+      +      '<div class="rb-mini-att">' + vFace(113) + '</div>'
+      +    '</div>'
+      +    '<div class="rb-mini-lbl">' + label + '</div>';
+  }
   function clownfishFigure() {
     return ''
       + '<div class="rb-fig">'
@@ -216,23 +246,21 @@
       +   '<div class="rb-steps rb-steps-cards">'
 
       +     crustaceanStep(1,
-            '<div class="rb-mini-ocean">' + oFace(217) + '</div>'
-            + '<div class="rb-mini-slot">' + vFace(113) + '</div>'
-            + '<div class="rb-mini-lbl">Coral Reef</div>',
+            clownfishOnOcean(217, "Coral Reef"),
             "On a Coral Reef it is one more Coral Reef.",
             'One real Coral Reef with a Clownfish on it counts as <b>2</b> on the Coral Reef chart, so it scores 4 instead of 1. '
-            + 'The chart is still read <b>once</b> for your whole collection, it is not scored again per reef.')
+            + 'The chart is still read <b>once</b> for your whole collection, it is not scored again per reef.',
+            "rb-mini-board-att")
 
       +     crustaceanStep(2,
-            '<div class="rb-mini-ocean">' + oFace(230) + '</div>'
-            + '<div class="rb-mini-slot">' + vFace(113) + '</div>'
-            + '<div class="rb-mini-lbl">Mangrove</div>',
+            clownfishOnOcean(230, "Mangrove"),
             "On a Mangrove or an Arctic Ocean it has a ★.",
             'Those two Oceans are the only ones with a star, and it is <b>play again</b>. '
-            + 'Pay the Clownfish&rsquo;s cost with a card matching the <b>Clownfish&rsquo;s own</b> symbol and you take another play.')
+            + 'Pay the Clownfish&rsquo;s cost with a card matching the <b>Clownfish&rsquo;s own</b> symbol and you take another play.',
+            "rb-mini-board-att")
 
       +   '</div>'
-      +   '<div class="rb-fig-note">A Clownfish is worth whatever the Ocean under it is worth. On a Kelp Forest it counts toward the &ldquo;4 or more&rdquo; and scores its +5 like any other Kelp Forest; on a Pier it is one more Pier; on a Tide Pool, one more Ocean.</div>'
+      +   '<div class="rb-fig-note">A Clownfish is worth whatever the Ocean it is attached to is worth. On a Kelp Forest it counts toward the &ldquo;4 or more&rdquo; and scores its +5 like any other Kelp Forest; on a Pier it is one more Pier; on a Tide Pool, one more Ocean.</div>'
       +   '<div class="rb-fig-note rb-fig-note-gold">It is the <b>Ocean&rsquo;s</b> ability it copies, never another animal&rsquo;s, and it copies whichever Ocean it is sitting on right now. Move it and it copies the new one.</div>'
       + '</div>';
   }
