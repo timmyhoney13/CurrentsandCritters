@@ -93,13 +93,16 @@
     return ''
       + '<div class="rb-fig">'
       +   '<div class="rb-fig-head">Ocean Layout Diagram Coral Reef</div>'
+      // All five cards are DIRECT children of the hub: the hub is a grid and
+      // places each one by name. The middle three used to be wrapped in a
+      // .rb-od-mid row, which left them as grandchildren, and a grandchild is
+      // not a grid item, so its grid-area did nothing and the cluster fell
+      // apart into a column. Keep them flat.
       +   '<div class="rb-od-hub">'
       +     '<div class="rb-od-up">' + hFace(25) + '</div>'
-      +     '<div class="rb-od-mid">'
-      +       '<div class="rb-od-side rb-od-l">' + vFace(107) + '</div>'
-      +       '<div class="rb-od-card">' + oFace(217) + '</div>'
-      +       '<div class="rb-od-side rb-od-r">' + vFace(142) + '</div>'
-      +     '</div>'
+      +     '<div class="rb-od-side rb-od-l">' + vFace(107) + '</div>'
+      +     '<div class="rb-od-card">' + oFace(217) + '</div>'
+      +     '<div class="rb-od-side rb-od-r">' + vFace(142) + '</div>'
       +     '<div class="rb-od-down">' + hFace(12) + '</div>'
       +   '</div>'
       +   '<ul class="rb-od-key">'
@@ -232,10 +235,15 @@
   // Ocean's side and slides half behind it. Drawn in a row underneath, it read
   // as a second loose card next to the Ocean, which is the one thing the whole
   // rule is not: it is part of that Ocean for as long as it sits there.
+  //
+  // It goes in on the LEFT, because uid 113 is a Left card: its half is the
+  // left half of its printed page, and a Left card attaches at the Ocean's
+  // left. Drawn on the right it was the wrong side of the wrong card, showing
+  // an edge that on the table is buried under the Ocean.
   function clownfishOnOcean(oceanUid, label) {
     return '<div class="rb-mini-att-row">'
-      +      '<div class="rb-mini-ocean">' + oFace(oceanUid) + '</div>'
       +      '<div class="rb-mini-att">' + vFace(113) + '</div>'
+      +      '<div class="rb-mini-ocean">' + oFace(oceanUid) + '</div>'
       +    '</div>'
       +    '<div class="rb-mini-lbl">' + label + '</div>';
   }

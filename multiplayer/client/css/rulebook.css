@@ -232,6 +232,11 @@
     .rb-face-v img { position: absolute; top: 0; height: 100%; width: auto; max-width: none; }
     .rb-face-v.rb-face-left img  { left: 0; }
     .rb-face-v.rb-face-right img { left: -100%; }
+    /* Every Ocean page is 720x1008, the same portrait as every animal card, so
+       the box is reserved before the art lands. Without it a lazy-loaded Ocean
+       is zero pixels tall until it decodes, and the four cards tucked against
+       it snap into place on arrival instead of being flush from the start. */
+    .rb-face-o { aspect-ratio: 720 / 1008; }
     .rb-face-o img { width: 100%; height: auto; }
     /* A whole, uncropped card, both of its ends. All three decks print on the
        same 720×1008 page, so every full card is the same portrait outline. */
@@ -294,29 +299,48 @@
     .rb-figcard-note { font-size: .72rem; line-height: 1.4; color: var(--rb-muted); }
 
     /* ── Ocean layout diagram ──────────────────────────────────────
-       A real card in each of the four spaces, tucked in against the Ocean
-       with the Ocean on top, the same stacking the game draws on the table:
-       the Ocean row sits above, and everything attached to it peeks out from
-       behind. Every size is a fraction of --od-w, so the whole cluster keeps
-       its proportions all the way down to a phone. */
+       An attachment is not a smaller card floating near the Ocean. Every
+       physical card is the same 720x1008 portrait, and attaching one means
+       sliding it under the Ocean until only one of its two ends is still in
+       sight. So the pieces here are the real halves at the real scale, butted
+       FLUSH against the Ocean with no gap and no overlap, exactly as the
+       board draws a hub: an Up/Down half is the Ocean's full width and half
+       its height, a Left/Right half is the Ocean's full height and half its
+       width. Every number below falls out of that, which is why there are so
+       few of them. */
     .rb-od-hub {
-      --od-w: min(200px, 44vw);
-      display: flex; flex-direction: column; align-items: center;
+      /* Four columns of card in all: half, whole, half. Written as fractions
+         rather than a pixel --od-w so the cluster measures itself against the
+         figure it sits in and can never hang off the side of a phone; the max
+         width is the only real number, and it is just where it stops growing. */
+      width: min(380px, 100%); margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 2fr 1fr;
+      grid-template-areas:
+        ".       od-up   ."
+        "od-left od-card od-right"
+        ".       od-down .";
+      justify-content: center; align-items: center;
+      gap: 0;
     }
-    .rb-od-card { width: var(--od-w); position: relative; z-index: 3; }
-    .rb-od-mid {
-      display: flex; align-items: center; justify-content: center;
-      position: relative; z-index: 2;
-    }
-    .rb-od-up, .rb-od-down {
-      width: calc(var(--od-w) * .74); position: relative; z-index: 1;
-    }
-    .rb-od-up   { margin-bottom: calc(var(--od-w) * -.28); }
-    .rb-od-down { margin-top:    calc(var(--od-w) * -.28); }
-    .rb-od-side { width: calc(var(--od-w) * .36); position: relative; z-index: 1; }
-    .rb-od-l { margin-right: calc(var(--od-w) * -.13); }
-    .rb-od-r { margin-left:  calc(var(--od-w) * -.13); }
-    .rb-od-hub .rb-face { box-shadow: 0 4px 14px rgba(6,30,60,.26); }
+    .rb-od-up   { grid-area: od-up; }
+    .rb-od-down { grid-area: od-down; }
+    .rb-od-l    { grid-area: od-left; }
+    .rb-od-r    { grid-area: od-right; }
+    .rb-od-card { grid-area: od-card; }
+    .rb-od-hub > div > .rb-face { width: 100%; }
+    /* The Ocean is the card on top, and the only one that casts a shadow: the
+       other four are under it, so a shadow of their own would lift them off
+       the table the Ocean is lying on. */
+    .rb-od-card { position: relative; z-index: 2; }
+    .rb-od-up, .rb-od-down, .rb-od-l, .rb-od-r { position: relative; z-index: 1; }
+    .rb-od-up .rb-face, .rb-od-down .rb-face,
+    .rb-od-l  .rb-face, .rb-od-r    .rb-face { box-shadow: none; }
+    /* Square the edge that meets the Ocean, round the edge still showing. */
+    .rb-od-up .rb-face { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+    .rb-od-down .rb-face { border-top-left-radius: 0; border-top-right-radius: 0; }
+    .rb-od-l .rb-face { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+    .rb-od-r .rb-face { border-top-left-radius: 0; border-bottom-left-radius: 0; }
 
     /* The key under the picture: which slot takes which cards. */
     .rb-od-key {
@@ -412,17 +436,23 @@
     .rb-steps-cards .rb-step { align-items: center; }
     .rb-step-art { flex: 0 0 auto; }
     .rb-mini-board { display: flex; flex-direction: column; align-items: center; width: min(104px, 25vw); }
-    .rb-mini-ocean { width: 100%; }
-    .rb-mini-ocean .rb-face-o { display: block; }
-    .rb-mini-slot { width: 100%; margin-top: 4px; }
-    .rb-mini-slot .rb-face-h { width: 100%; box-shadow: 0 3px 12px rgba(6,30,60,.3); }
+    .rb-mini-ocean { width: 100%; position: relative; z-index: 2; }
+    .rb-mini-ocean .rb-face-o { display: block; box-shadow: 0 5px 18px rgba(6,30,60,.32); }
+    /* The floor card tucks UNDER the Ocean, flush, the way it lies on the
+       table. A gap here drew it as a loose second card parked below. */
+    .rb-mini-slot { width: 100%; margin-top: -1px; position: relative; z-index: 1; }
+    .rb-mini-slot .rb-face-h {
+      width: 100%; box-shadow: 0 3px 12px rgba(6,30,60,.24);
+      border-top-left-radius: 0; border-top-right-radius: 0;
+    }
     .rb-mini-lbl {
       margin-top: 5px; font-size: 9.5px; letter-spacing: .5px;
       text-transform: uppercase; color: var(--rb-muted); text-align: center;
     }
     /* An empty ocean-floor space, drawn as the dashed hole it is. */
     .rb-mini-open {
-      aspect-ratio: 720 / 504; border-radius: 10px;
+      aspect-ratio: 720 / 504;
+      border-radius: 0 0 10px 10px;
       display: flex; align-items: center; justify-content: center; text-align: center;
       background: var(--rb-accent-s); border: 2px dashed var(--rb-coral);
     }
@@ -433,14 +463,26 @@
     /* A Left/Right card attached to an Ocean, drawn the way the table has it:
        in at the Ocean's side, half behind it, Ocean on top. The Clownfish
        figure uses this instead of the stacked .rb-mini-slot, because the whole
-       rule is that the Clownfish IS part of the Ocean it sits on. */
-    .rb-mini-board-att { width: min(162px, 38vw); }
+       rule is that the Clownfish IS part of the Ocean it sits on.
+
+       Two thirds Ocean, one third Clownfish, because that is the arithmetic of
+       the cards: a 360-wide half beside a 720-wide Ocean. At those widths the
+       Clownfish's half is exactly as tall as the Ocean, so the two run FLUSH
+       top and bottom, and it sits on the LEFT, the side a Left card attaches
+       to. */
+    .rb-mini-board-att { width: min(168px, 40vw); }
     .rb-mini-att-row {
       display: flex; align-items: center; justify-content: center; width: 100%;
     }
-    .rb-mini-att-row .rb-mini-ocean { width: 70%; position: relative; z-index: 2; }
-    .rb-mini-att { width: 34%; margin-left: -11%; position: relative; z-index: 1; }
-    .rb-mini-att .rb-face-v { width: 100%; box-shadow: 0 3px 12px rgba(6,30,60,.3); }
+    .rb-mini-att-row .rb-mini-ocean { width: 66.667%; position: relative; z-index: 2; }
+    .rb-mini-att { width: 33.333%; margin-right: -1px; position: relative; z-index: 1; }
+    /* The right edge is the middle of the Clownfish's card, buried under the
+       Ocean on the table, so it is square and its shadow falls away to the left. */
+    .rb-mini-att .rb-face-v {
+      width: 100%; box-shadow: -3px 0 12px rgba(6,30,60,.24);
+      border-top-right-radius: 0; border-bottom-right-radius: 0;
+    }
+    .rb-mini-att-row .rb-mini-ocean .rb-face-o { box-shadow: 0 5px 18px rgba(6,30,60,.32); }
     /* The card the ★ just paid for, ringed so step 3 reads at a glance. */
     .rb-mini-new .rb-face-h { outline: 3px solid var(--rb-accent); outline-offset: 2px; }
     /* .rb-fig centres everything; the step sentences must read left-aligned. */

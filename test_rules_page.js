@@ -445,9 +445,11 @@ check("preview-app.js no longer defines them, it reads them off window", () => {
 // the point: the check below still fails on an accidental deletion.
 const RETIRED_RB_SELECTORS = new Set([
   // The Ocean layout figure was four empty dashed boxes with arrow labels. It
-  // is now real cards tucked into all four spaces (.rb-od-hub and friends), so
-  // the boxes and their labels have no markup left.
-  ".rb-ocean-diagram", ".rb-od-slot", ".rb-od-arrow", ".rb-od-lbl",
+  // is now real cards butted flush into all four spaces (.rb-od-hub and
+  // friends), so the boxes and their labels have no markup left. The hub is
+  // one CSS grid rather than a column with a middle row, which is what took
+  // .rb-ocean-diagram and .rb-od-mid with it.
+  ".rb-ocean-diagram", ".rb-od-mid", ".rb-od-slot", ".rb-od-arrow", ".rb-od-lbl",
 ]);
 
 check("every .rb rule moved to css/rulebook.css, and none was left behind", () => {
