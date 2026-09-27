@@ -191,6 +191,13 @@
 # at five widths, plus the challenge-slot seam the strip reads.
 !test_critter_pass_ui.js
 
+# The reward pop (js/reward-pop.js), the card that animates in on an unlock and
+# on a collected tier, shared by BOTH passes. Its test drives the card itself,
+# drives it THROUGH the two pass modules, and then runs the same scenarios with
+# the module deliberately left out, because the fallback toast is what stops a
+# missing file costing a player the news that they were paid.
+!test_reward_pop.js
+
 # Both pages that are on standby (the Critter Pass and the in-game Store),
 # reached for the way a player would reach for them: the real app in a real
 # browser, asking whether the sidebar button EXISTS at all (not whether it is

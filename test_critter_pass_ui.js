@@ -590,6 +590,13 @@ function innerHtml(shipped) {
 // The bridge. post() resolves to the ENVELOPE the real apiPost returns:
 // { ok, status, data }, NOT the bare body. A stub returning the bare body
 // would let an unwrap bug sail straight through this test.
+//
+// js/reward-pop.js is DELIBERATELY not injected. A payout is announced as an
+// animated card when that file is served and as a plain toast when it is not,
+// so this harness is the FALLBACK half: every toast checked below is what a
+// player sees on a build that never served the animation, and nothing here is
+// allowed to go silent. The card itself, and the wiring that prefers it, are
+// test_reward_pop.js.
 const BOOT = \`
   window.__toasts = [];
   window.__posts = [];

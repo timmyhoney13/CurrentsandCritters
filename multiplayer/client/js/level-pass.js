@@ -43,6 +43,19 @@
   const num = (v, d) => { const n = Number(v); return Number.isFinite(n) ? n : (d || 0); };
   const fmt = (n) => Math.round(num(n)).toLocaleString();
   const toast = (m, t) => { try { bridge().toast(m, t); } catch (_) {} };
+
+  /* The reward pop (js/reward-pop.js): the animation a collected tier earns.
+   * Shared with the paid Critter Pass, which is why it is its own file. It
+   * answers false when that file was never served, or when four cards are
+   * already waiting, and THEN the same news is said as a toast, so the worst a
+   * missing animation costs is the animation. Never call it without a fallback
+   * line: this is the only place a payout is reported.
+   */
+  function pop(o, fallback) {
+    let shown = false;
+    try { shown = !!(window.__ccRewardPop && window.__ccRewardPop(o)); } catch (_) { shown = false; }
+    if (!shown) toast(fallback, "good");
+  }
   const avSrc = (u) => { try { return bridge().avSrc(u); } catch (_) { return u; } };
 
   // The bridge's post() resolves to an ENVELOPE: { ok, status, data }, where
@@ -741,8 +754,15 @@
       // are the next thing to do, so they get the chooser rather than a warning.
       const needPick = (res.skipped || []).filter(s => String(s.error) === "pick_background");
       if (n) {
-        toast(`Claimed ${n} reward${n === 1 ? "" : "s"}${coins ? ` · +${fmt(coins)} Critter Coins` : ""}`
-              + (needPick.length ? ` · now pick your background` : ""), "good");
+        // ONE card for the whole sweep, not one per tier: a sweep is many
+        // payouts and one piece of news, and the pop is a queue of four on
+        // purpose. The background choosers open right after it either way.
+        pop({ kind: "reward", eyebrow: "Level Pass",
+              title: `Claimed ${n} Reward${n === 1 ? "" : "s"}`,
+              detail: (coins ? `+${fmt(coins)} Critter Coins. ` : "")
+                    + (needPick.length ? "Now pick your background." : "It is all on your account.") },
+            `Claimed ${n} reward${n === 1 ? "" : "s"}${coins ? ` · +${fmt(coins)} Critter Coins` : ""}`
+            + (needPick.length ? ` · now pick your background` : ""));
       } else if (!needPick.length) {
         toast("Nothing new to claim just yet.", "info");
       }
@@ -763,17 +783,50 @@
     render();
   }
 
+  /* What a collected tier says, as the pop says it: a headline and one line
+   * under it. The THIRD string is the same news written as a single toast line,
+   * for the build where reward-pop.js is missing, and it still NAMES the
+   * background that was chosen, because that name is the whole point of having
+   * chosen it.
+   *
+   * A type this does not know stays silent, the way it always has: the sync
+   * that follows still repaints the balance and the card, so an unknown payout
+   * is a missing sentence and never a missing reward.
+   */
   function announce(granted) {
     if (!granted) return;
     const t = String(granted.type || "");
-    if (t === "coins")           toast(`+${fmt(granted.coins)} Critter Coins`, "good");
-    else if (t === "shield")     toast("🛡️ Streak Shield added, it covers one missed day.", "good");
-    else if (t === "boost")      toast("⚡ XP Boost added: activate it whenever you want it.", "good");
-    else if (t === "reroll")     toast("🔄 Weekly Swap added: spend it for a week of free swaps.", "good");
-    else if (t === "background") toast(granted.path
-      ? `🖼️ ${bgName(granted.path)} unlocked: equip it in the Avatar Gallery.`
-      : "🖼️ New background unlocked: equip it in the Avatar Gallery.", "good");
-    else if (t === "sticker")    toast("🎴 New critter sticker unlocked for game chat.", "good");
+    const eyebrow = "Level Pass Reward";
+    let title = "", detail = "", plain = "";
+    if (t === "coins") {
+      title = `+${fmt(granted.coins)} Critter Coins`;
+      detail = "Added to your balance.";
+      plain = `+${fmt(granted.coins)} Critter Coins`;
+    } else if (t === "shield") {
+      title = "Streak Shield";
+      detail = "It covers one missed day.";
+      plain = "Streak Shield added, it covers one missed day.";
+    } else if (t === "boost") {
+      title = "XP Boost";
+      detail = "Activate it whenever you want it.";
+      plain = "XP Boost added: activate it whenever you want it.";
+    } else if (t === "reroll") {
+      title = "Weekly Swap";
+      detail = "Spend it for a week of free swaps.";
+      plain = "Weekly Swap added: spend it for a week of free swaps.";
+    } else if (t === "background") {
+      title = granted.path ? bgName(granted.path) : "New Background";
+      detail = "Equip it in the Avatar Gallery.";
+      plain = granted.path
+        ? `${bgName(granted.path)} unlocked: equip it in the Avatar Gallery.`
+        : "New background unlocked: equip it in the Avatar Gallery.";
+    } else if (t === "sticker") {
+      title = "New Critter Sticker";
+      detail = "Yours to use in game chat.";
+      plain = "New critter sticker unlocked for game chat.";
+    }
+    if (!title) return;
+    pop({ kind: "reward", eyebrow, title, detail }, plain);
   }
 
   // Coins, backgrounds and stickers all live on the account document the rest

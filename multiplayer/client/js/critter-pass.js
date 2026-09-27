@@ -96,6 +96,18 @@
   const fmt = (n) => Math.round(num(n)).toLocaleString();
   const toast = (m, t) => { try { bridge().toast(m, t); } catch (_) {} };
 
+  /* The reward pop (js/reward-pop.js): the animation an unlock and a collected
+   * tier earn. It answers false when that file was never served, or when four
+   * cards are already waiting, and THEN the same news is said as a toast, so
+   * the worst a missing animation costs is the animation. Never call it
+   * without a fallback line: this is the only place a payout is reported.
+   */
+  function pop(o, fallback) {
+    let shown = false;
+    try { shown = !!(window.__ccRewardPop && window.__ccRewardPop(o)); } catch (_) { shown = false; }
+    if (!shown) toast(fallback, "good");
+  }
+
   /* How long is left in the 30-day season, as the header says it.
    *
    * The count comes from the SERVER (state.seasonDaysLeft), never from a
@@ -869,7 +881,9 @@
     const res = await post("buy", {});
     _buying = false;
     if (res && res.ok) {
-      toast("🎉 Critter Pass unlocked. You are at Pass Level 1: every reward on the track is now yours to climb for.", "good");
+      pop({ kind: "unlock", eyebrow: "Critter Pass", title: "Pass Unlocked",
+            detail: "You are at Pass Level 1. Every reward on the track is yours to climb for." },
+          "Critter Pass unlocked. You are at Pass Level 1: every reward on the track is now yours to climb for.");
       await sync();
       afterGrant();
     } else {
@@ -914,7 +928,9 @@
     const res = await post("buy", { voucher: true });
     _buying = false;
     if (res && res.ok) {
-      toast("🎟️ Voucher redeemed. The Critter Pass is unlocked at Pass Level 1: every reward on the track is now yours to climb for.", "good");
+      pop({ kind: "unlock", eyebrow: "Season Pass Voucher", title: "Pass Unlocked",
+            detail: "The Critter Pass is yours at Pass Level 1, and no Critter Coins were spent." },
+          "Voucher redeemed. The Critter Pass is unlocked at Pass Level 1: every reward on the track is now yours to climb for.");
       await sync();
       afterGrant();
     } else {
@@ -990,9 +1006,16 @@
       const bits = [];
       if (coins) bits.push(`+${fmt(coins)} Critter Coins`);
       if (xp) bits.push(`+${fmt(xp)} XP`);
-      toast(total
-        ? `Claimed ${fmt(total)} reward${total === 1 ? "" : "s"}${bits.length ? " · " + bits.join(" · ") : ""}`
-        : "Nothing new to claim just yet.", total ? "good" : "info");
+      // ONE card for the whole sweep. Fifty-five tiers is fifty-five payouts
+      // and one piece of news, and the pop is a queue of four on purpose.
+      if (total) {
+        pop({ kind: "reward", eyebrow: "Critter Pass",
+              title: `Claimed ${fmt(total)} Reward${total === 1 ? "" : "s"}`,
+              detail: bits.length ? bits.join(" · ") : "Everything you had waiting is on your account." },
+            `Claimed ${fmt(total)} reward${total === 1 ? "" : "s"}${bits.length ? " · " + bits.join(" · ") : ""}`);
+      } else {
+        toast("Nothing new to claim just yet.", "info");
+      }
     }
     // A tier that refused (a full hoard, no backgrounds left) is reported
     // honestly instead of being swallowed: the rest still paid out. Deduped by
@@ -1003,19 +1026,62 @@
     render();
   }
 
+  /* What a collected tier says, as the pop says it: a headline and one line
+   * under it. The THIRD string is the same news written as a single toast line,
+   * for the build where reward-pop.js is missing.
+   *
+   * A type this does not know stays silent, the way it always has: the sync
+   * that follows still repaints the balance and the card, so an unknown payout
+   * is a missing sentence and never a missing reward.
+   */
   function announce(granted) {
     if (!granted) return;
     const t = String(granted.type || "");
-    if (t === "coins")            toast(`+${fmt(granted.coins)} Critter Coins`, "good");
-    else if (t === "xp")          toast(`✨ +${fmt(granted.xp)} XP`, "good");
-    else if (t === "shield")      toast("🛡️ Streak Shield added, it covers one missed day.", "good");
-    else if (t === "boost")       toast("⚡ XP Boost added: activate it on the Level Pass whenever you want it.", "good");
-    else if (t === "swap")        toast("🔄 Weekly Swap added: spend it for a week of free swaps.", "good");
-    else if (t === "background")  toast("🖼️ New background unlocked: equip it in the Avatar Gallery.", "good");
-    else if (t === "emote")       toast("😀 New critter emote unlocked for game chat.", "good");
-    else if (t === "daily_slot")  toast(`📅 An extra daily challenge, from now on. You now get ${num(granted.slots) + 3} a day.`, "good");
-    else if (t === "weekly_slot") toast(`🗝️ An extra weekly challenge, from now on. You now get ${num(granted.slots) + 3} a week.`, "good");
-    else if (t === "avatar")      toast(`⭐ ${granted.critter || "Your critter"} unlocked: equip it in the Avatar Gallery.`, "good");
+    const eyebrow = "Critter Pass Reward";
+    let title = "", detail = "", plain = "";
+    if (t === "coins") {
+      title = `+${fmt(granted.coins)} Critter Coins`;
+      detail = "Added to your balance.";
+      plain = `+${fmt(granted.coins)} Critter Coins`;
+    } else if (t === "xp") {
+      title = `+${fmt(granted.xp)} XP`;
+      detail = "Straight onto your account level.";
+      plain = `+${fmt(granted.xp)} XP`;
+    } else if (t === "shield") {
+      title = "Streak Shield";
+      detail = "It covers one missed day.";
+      plain = "Streak Shield added, it covers one missed day.";
+    } else if (t === "boost") {
+      title = "XP Boost";
+      detail = "Activate it on the Level Pass whenever you want it.";
+      plain = "XP Boost added: activate it on the Level Pass whenever you want it.";
+    } else if (t === "swap") {
+      title = "Weekly Swap";
+      detail = "Spend it for a week of free swaps.";
+      plain = "Weekly Swap added: spend it for a week of free swaps.";
+    } else if (t === "background") {
+      title = "New Background";
+      detail = "Equip it in the Avatar Gallery.";
+      plain = "New background unlocked: equip it in the Avatar Gallery.";
+    } else if (t === "emote") {
+      title = "New Critter Emote";
+      detail = "Yours to use in game chat.";
+      plain = "New critter emote unlocked for game chat.";
+    } else if (t === "daily_slot") {
+      title = "An Extra Daily Challenge";
+      detail = `From now on. You now get ${num(granted.slots) + 3} a day.`;
+      plain = `An extra daily challenge, from now on. You now get ${num(granted.slots) + 3} a day.`;
+    } else if (t === "weekly_slot") {
+      title = "An Extra Weekly Challenge";
+      detail = `From now on. You now get ${num(granted.slots) + 3} a week.`;
+      plain = `An extra weekly challenge, from now on. You now get ${num(granted.slots) + 3} a week.`;
+    } else if (t === "avatar") {
+      title = String(granted.critter || "Your critter");
+      detail = "Equip it in the Avatar Gallery.";
+      plain = `${granted.critter || "Your critter"} unlocked: equip it in the Avatar Gallery.`;
+    }
+    if (!title) return;
+    pop({ kind: "reward", eyebrow, title, detail }, plain);
   }
 
   // Coins, XP, backgrounds, emotes and icons all live on the account document

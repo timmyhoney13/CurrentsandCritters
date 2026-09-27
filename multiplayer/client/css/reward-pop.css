@@ -1,0 +1,211 @@
+/* Currents and Critters: the reward pop (#cc-reward-pop, js/reward-pop.js).
+ *
+ * The card that pops up when the Critter Pass is unlocked and when a tier is
+ * collected off either pass. It is deliberately the SHORTEST stylesheet in the
+ * client: one card, one pop, two rings, one pass of light, one hairline that
+ * winds the card down. Nothing is drawn that pretends to be art, there is no
+ * picture in it, and there is no icon in it either: the reward's own words are
+ * the whole card.
+ *
+ *   .ccRP*   the pop
+ *
+ * Its own prefix and its own file rather than a section of level-pass.css or
+ * critter-pass.css, because BOTH of those pages use it and a shared animation
+ * living inside one page's stylesheet is an animation that disappears the day
+ * that page is loaded on its own.
+ *
+ * THE LOOK is the in-game reef, not the pass pages: cream card, navy heading,
+ * gold accent, the same four tokens preview.css sets for the table. The two
+ * pass pages disagree about their display font on purpose (Cinzel on the paid
+ * track, Luckiest Guy on the free one) and this card does not take a side: it
+ * is Cinzel, like every other heading in the game.
+ *
+ * Z-INDEX 9880, which is UNDER the Prestige dialog (9890) and under the toast
+ * rail (10001). It is an announcement, so anything a player is actually
+ * answering stays on top of it, and a warning toast fired by the same claim is
+ * still readable beside it.
+ */
+
+#cc-reward-pop, #cc-reward-pop * { box-sizing: border-box; }
+
+#cc-reward-pop {
+  position: fixed;
+  inset: 0;
+  z-index: 9880;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(14, 60, 100, .5);
+  backdrop-filter: blur(4px);
+  font-family: "Nunito", system-ui, -apple-system, sans-serif;
+  /* The whole screen is the close button, so the whole screen says so. */
+  cursor: pointer;
+  animation: ccRP-fade .2s ease both;
+}
+#cc-reward-pop.ccRP-open { display: flex; }
+#cc-reward-pop.ccRP-out  { animation: ccRP-unfade .22s ease both; }
+#cc-reward-pop.ccRP-out .ccRP-card { animation: ccRP-unpop .22s ease both; }
+
+@keyframes ccRP-fade   { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ccRP-unfade { from { opacity: 1; } to { opacity: 0; } }
+
+/* The rings are centred on the CARD, so they need a box that is exactly the
+   card. They are first in the markup, so they paint behind it without anybody
+   having to negotiate a z-index against the card's own background. */
+.ccRP-stage {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.ccRP-card {
+  --rp-cream:     #fef5e6;
+  --rp-cream-mid: #f5e8d0;
+  --rp-navy:      #1a2d5a;
+  --rp-ink-soft:  #23303a;
+  --rp-gold:      #e8b34a;
+  --rp-gold-deep: #c89320;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  width: min(380px, 100%);
+  text-align: center;
+  padding: 26px 24px 26px;
+  border-radius: 20px;
+  background: linear-gradient(170deg, var(--rp-cream) 0%, var(--rp-cream-mid) 100%);
+  border: 1px solid rgba(200, 147, 32, .55);
+  box-shadow: 0 18px 44px rgba(9, 45, 66, .38), inset 0 1px 0 rgba(255, 255, 255, .7);
+  /* The overshoot IS the pop: it lands at 1.03 and settles back. A plain ease
+     at these durations reads as a fade, which is what this replaced. */
+  animation: ccRP-pop .44s cubic-bezier(.16, 1.16, .3, 1) both;
+}
+@keyframes ccRP-pop {
+  from { transform: scale(.82) translateY(14px); opacity: 0; }
+  60%  { transform: scale(1.03) translateY(0);   opacity: 1; }
+  to   { transform: scale(1)    translateY(0);   opacity: 1; }
+}
+@keyframes ccRP-unpop {
+  from { transform: scale(1);   opacity: 1; }
+  to   { transform: scale(.94); opacity: 0; }
+}
+
+/* Two rings out of the middle of the card, the second a beat behind the first.
+   Gold then white, because one ring on its own reads as a loading spinner. */
+.ccRP-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 260px;
+  height: 260px;
+  margin: -130px 0 0 -130px;
+  border-radius: 50%;
+  border: 2px solid rgba(232, 179, 74, .7);
+  pointer-events: none;
+  animation: ccRP-ring .9s ease-out both;
+}
+.ccRP-ring-2 {
+  border-color: rgba(255, 255, 255, .5);
+  animation-delay: .16s;
+}
+@keyframes ccRP-ring {
+  from { transform: scale(.34); opacity: .85; }
+  to   { transform: scale(1.5); opacity: 0; }
+}
+
+/* One pass of light across the cream, once. Transform only, so it costs the
+   compositor and not a layout. */
+.ccRP-sheen {
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: 0;
+  width: 46%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .72), transparent);
+  animation: ccRP-sheen .85s ease-in-out .22s both;
+}
+@keyframes ccRP-sheen {
+  from { transform: translateX(-170%) skewX(-18deg); }
+  to   { transform: translateX(330%)  skewX(-18deg); }
+}
+
+/* The words, rising in the order they are read. */
+.ccRP-eyebrow {
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--rp-gold-deep);
+  animation: ccRP-rise .4s ease .1s both;
+}
+.ccRP-title {
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  font-size: clamp(1.3rem, 5.2vw, 1.6rem);
+  line-height: 1.16;
+  color: var(--rp-navy);
+  margin-top: 8px;
+  animation: ccRP-rise .42s ease .16s both;
+}
+.ccRP-detail {
+  font-size: .86rem;
+  line-height: 1.5;
+  color: var(--rp-ink-soft);
+  margin: 9px auto 0;
+  max-width: 30ch;
+  animation: ccRP-rise .42s ease .24s both;
+}
+@keyframes ccRP-rise {
+  from { transform: translateY(9px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+/* The card winds itself down in front of the player rather than vanishing on
+   them. Its duration is set inline by js/reward-pop.js from HOLD_MS. */
+.ccRP-hair {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  border-radius: 0 3px 0 0;
+  background: linear-gradient(90deg, var(--rp-gold), var(--rp-gold-deep));
+  animation-name: ccRP-hair;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+@keyframes ccRP-hair {
+  from { width: 100%; }
+  to   { width: 0; }
+}
+
+/* The unlock: one purchase a season, so it is allowed to be the bigger card. */
+.ccRP-is-unlock {
+  width: min(420px, 100%);
+  border-color: rgba(200, 147, 32, .9);
+  box-shadow: 0 20px 50px rgba(9, 45, 66, .42),
+              0 0 0 1px rgba(232, 179, 74, .35),
+              inset 0 1px 0 rgba(255, 255, 255, .75);
+}
+.ccRP-is-unlock .ccRP-title { font-size: clamp(1.46rem, 6vw, 1.9rem); }
+
+@media (max-width: 420px) {
+  #cc-reward-pop { padding: 14px; }
+  .ccRP-card { padding: 22px 18px; border-radius: 17px; }
+  .ccRP-ring { width: 210px; height: 210px; margin: -105px 0 0 -105px; }
+}
+
+/* Reduced motion: the card still appears, still says its line and still winds
+   itself down on the same timer, it just does not move. The rings, the pass of
+   light and the hairline are motion and nothing else, so they go entirely
+   rather than being shown at .01ms, which would flash the hairline away and
+   leave a bare gold line under the card. */
+@media (prefers-reduced-motion: reduce) {
+  #cc-reward-pop, #cc-reward-pop * {
+    animation-duration: .01ms !important;
+    animation-delay: 0ms !important;
+  }
+  .ccRP-ring, .ccRP-sheen, .ccRP-hair { display: none; }
+}
