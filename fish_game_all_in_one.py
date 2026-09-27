@@ -4959,75 +4959,9 @@ def threshold_outlook(gs: GameState, ms: MatchState, player: PlayerState,
         # ...against a card on the board worth nothing if it never does.
         return max(-1.0, min(1.0, (gain - 5.0 * (1.0 - odds)) / 20.0))
 
-    # ── The squids: paid by a count of OTHER cards, not of themselves ──────
-    # "+3 if you have at least three cephalopods" (+6 for the Giant Squid). The
-    # threshold is the whole cephalopod count, so a squid is worth nothing until
-    # two more of any cephalopod are beside it -- and 13% of finished boards
-    # held squids that never got there. This is the only class of card whose
-    # payment is counted on something other than copies of itself.
-    ceph3 = getattr(prof, "ceph3", None)
-    if ceph3:
-        ceph_now = sum(1 for u in player_board_face_uids(player)
-                       if u in gs.card_db and card_species_lc(gs.card_db[u]) == "cephalopod")
-        after_ceph = ceph_now + (1 if card_species_lc(card) == "cephalopod" else 0)
-        if after_ceph >= 3:
-            return 0.0                    # already paying; the board shows it
-        need = 3 - after_ceph
-        # Any cephalopod counts toward it, so every one still gettable helps.
-        gettable = 0
-        for nm in sorted({card_name_lc(c) for c in gs.card_db.values()
-                          if card_species_lc(c) == "cephalopod"}):
-            cert, uns = _copies_reachable(gs, ms, player, nm, counts, action.card_uid)
-            gettable += cert + (1 if uns else 0)
-        odds = 0.0 if gettable < need else min(1.0, 0.55 + 0.15 * (gettable - need))
-        # Everything already down that is waiting on the same three, plus this.
-        waiting = float(ceph3)
-        for u in player_board_face_uids(player):
-            c2 = gs.card_db.get(u)
-            if c2 is not None:
-                waiting += float(getattr(_score_profile(c2, None), "ceph3", None) or 0)
-        return max(-1.0, min(1.0, (waiting * odds - float(ceph3) * (1.0 - odds)) / 20.0))
-
     pairs = _count_chart(card)
     if not pairs:
         return 0.0
-
-    # ── Baitfish: the chart counts DIFFERENT SPECIES, not copies ────────────
-    # "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 |
-    # 5 = 30", and final_points reads it off a SET of names. Four Bonito are one
-    # species and one point; a Bonito, a Bunker and a Sardine are three species
-    # and eleven. Counting copies here read the first as eighteen.
-    if getattr(prof, "baitfish_chart", False):
-        kinds = {card_name_lc(gs.card_db[u]) for u in player_board_face_uids(player)
-                 if u in gs.card_db and card_species_lc(gs.card_db[u]) == "baitfish"}
-        have_kinds = len(kinds)
-        if name in kinds:
-            return 0.0                    # this species is already counted
-        after_kinds = have_kinds + 1
-        now = _chart_value(pairs, have_kinds)
-        here = _chart_value(pairs, after_kinds)
-        # The best tier ahead needs that many NEW species, and only species not
-        # already down can supply them.
-        all_bait = {card_name_lc(c) for c in gs.card_db.values()
-                    if card_species_lc(c) == "baitfish"}
-        gettable = 0
-        for other in sorted(all_bait - kinds - {name}):
-            cert, uns = _copies_reachable(gs, ms, player, other, counts, action.card_uid)
-            if cert > 0 or uns > 0:
-                gettable += 1
-        best_ahead, best_need = None, 0
-        for n, _v in pairs:
-            if n > after_kinds:
-                v = _chart_value(pairs, n)
-                if best_ahead is None or v > best_ahead:
-                    best_ahead, best_need = v, n - after_kinds
-        if best_ahead is None or best_ahead <= here:
-            return 0.0
-        odds = 1.0 if best_need <= 0 else (0.0 if gettable < best_need
-                                           else min(1.0, gettable / float(best_need)) * 0.7)
-        upside = (best_ahead - now) * odds
-        downside = (here - now) * (1.0 - odds)
-        return max(-1.0, min(1.0, (upside + downside) / 20.0))
 
     now = _chart_value(pairs, have)
     here = _chart_value(pairs, after)
