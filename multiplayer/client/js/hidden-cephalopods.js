@@ -1,7 +1,7 @@
 /* ══ Hidden Cephalopods ════════════════════════════════════════════════
    Three secret avatars unlocked by finding & clicking a cephalopod tucked
-   naturally into the UI: Common Octopus disguised as the "Most Played
-   Strategy" stat icon, Bobtail Squid as the "What's bob doing here" card at
+   naturally into the UI: Common Octopus sitting in the "Friends Quick Stats"
+   title on the Overview, Bobtail Squid as the "What's bob doing here" card at
    the end of achievements, and Cuttlefish above your in-game score row.
    (Giant Squid uses the Level 80 path.) */
 (function () {
@@ -22,20 +22,15 @@
     }
   };
 
-  // Common Octopus, disguised as the "Most Played Strategy" stat icon.
-  function _wireOcto() {
-    const host = document.getElementById("ceph-octo-stat");
-    if (!host || host._cephWired) return;
-    host._cephWired = true;
-    host.addEventListener("click", function (e) {
-      e.stopPropagation();
-      window.__fishGrantHiddenCeph("common-octopus", "/avatars/common-octopus.png", host);
-    });
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", _wireOcto);
-  } else {
-    _wireOcto();
-  }
+  // Common Octopus, sitting in the "Friends Quick Stats" title. That header is
+  // redrawn every time a friend is picked and put back, so the click is
+  // delegated from the document instead of bound to the node: whichever copy
+  // of the icon is on screen is the live one. Capture, so nothing the card
+  // itself listens for fires as well.
+  document.addEventListener("click", function (e) {
+    const host = e.target && e.target.closest ? e.target.closest("#ceph-octo-stat") : null;
+    if (!host) return;
+    e.stopPropagation();
+    window.__fishGrantHiddenCeph("common-octopus", "/avatars/common-octopus.png", host);
+  }, true);
 })();

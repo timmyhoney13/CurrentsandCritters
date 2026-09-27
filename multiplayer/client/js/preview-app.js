@@ -33705,7 +33705,7 @@
         +     '<p class="htp-p">Drag a card from your hand onto the board, or click an empty slot and pick from the '
         +     'list that opens. Oceans go down as new sections of your reef; animals attach to an ocean you already '
         +     'own. Then you pay its cost.</p></div>'
-        +   '<div class="htp-choice"><div class="htp-choice-ico">⇄</div><h3 class="htp-h3">Move 1 animal</h3>'
+        +   '<div class="htp-choice"><h3 class="htp-h3">Move 1 animal</h3>'
         +     '<p class="htp-p">Drag an animal already on your board to a free slot on a different ocean. It has to '
         +     'keep the same side it was on, and moving it uses your whole turn. Oceans themselves never move.</p></div>'
         + '</div>'
@@ -34128,10 +34128,8 @@
       // 7×2: row 1 → Hours, Strategy, Total Games, Total Wins, Win Rate, Player Count, Achievements
       //       row 2 → Casual Wins, Casual Top, Avg Casual, Comp Rank, Best Comp, Comp Games, Animals
       grid.innerHTML = [
-        _pubSc(`<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#25a57c" stroke-width="1.8"/><path d="M12 7v5l3 3" stroke="#25a57c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-          "Hours Played", hours === 1 ? "1 hr" : `${hours} hrs`, "ph-sci-teal"),
-        _pubSc(`<img src="/avatars/common-octopus.png?v=ws12" alt="" draggable="false" style="width:34px;height:34px;object-fit:contain;pointer-events:none;">`,
-          "Most Played Strategy", strat !== "-" ? strat : (noGames ? "No games completed yet." : "-"), "ph-sci-blue", true),
+        _pubSc("", "Hours Played", hours === 1 ? "1 hr" : `${hours} hrs`, "ph-sci-teal"),
+        _pubSc("", "Most Played Strategy", strat !== "-" ? strat : (noGames ? "No games completed yet." : "-"), "ph-sci-blue", true),
         _pubSc("", "Total Games",   totalGames > 0 ? totalGames : "-", "ph-sci-purple"),
         _pubSc("", "Total Wins",    totalWins  > 0 ? totalWins  : "-", "ph-sci-gold"),
         _pubSc("", "Win Rate",      winRate,                           "ph-sci-teal"),
@@ -34225,10 +34223,8 @@
       const icons = Array.isArray(profile && profile.unlocked_icons) ? normalizeIconList(profile.unlocked_icons) : [];
       const animalsDone = animals.filter(a => icons.includes(a.img)).length;
       return [
-        _pubSc(`<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#25a57c" stroke-width="1.8"/><path d="M12 7v5l3 3" stroke="#25a57c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-          "Hours Played", v(hours === 1 ? "1 hr" : `${hours} hrs`), "ph-sci-teal"),
-        _pubSc(`<img src="/avatars/common-octopus.png?v=ws12" alt="" draggable="false" loading="lazy" decoding="async" style="width:34px;height:34px;object-fit:contain;pointer-events:none;">`,
-          "Most Played Strategy", v(strat || (totalGames === 0 ? "No games yet" : "-")), "ph-sci-blue", true),
+        _pubSc("", "Hours Played", v(hours === 1 ? "1 hr" : `${hours} hrs`), "ph-sci-teal"),
+        _pubSc("", "Most Played Strategy", v(strat || (totalGames === 0 ? "No games yet" : "-")), "ph-sci-blue", true),
         _pubSc("", "Total Games", v(Math.max(0, totalGames)), "ph-sci-purple"),
         _pubSc("", "Total Wins",  v(Math.max(0, totalWins)),  "ph-sci-gold"),
         _pubSc("", "Win Rate", v(totalGames > 0 ? `${Math.round((totalWins / totalGames) * 100)}%` : "-"), "ph-sci-teal"),
@@ -34263,7 +34259,9 @@
       _ovfShow("empty");
       _ovfTitle();
     }
-    const _OVF_TITLE_ICON = `<svg width="20" height="16" viewBox="0 0 20 16" fill="none"><circle cx="7" cy="5" r="3" stroke="#2680c8" stroke-width="1.9"/><path d="M1.5 14.5c.6-3 2.8-4.7 5.5-4.7s4.9 1.7 5.5 4.7" stroke="#2680c8" stroke-width="1.9" stroke-linecap="round"/><circle cx="14.2" cy="5.6" r="2.4" stroke="#2680c8" stroke-width="1.7"/><path d="M14.6 9.9c2 .3 3.4 1.8 3.9 4.6" stroke="#2680c8" stroke-width="1.7" stroke-linecap="round"/></svg>`;
+    // The Common Octopus sits here, and it is also the hidden cephalopod:
+    // js/hidden-cephalopods.js listens for a click on #ceph-octo-stat.
+    const _OVF_TITLE_ICON = `<span class="ph-stats-title-art" id="ceph-octo-stat"><img src="/avatars/common-octopus.png?v=ws12" alt="" draggable="false" decoding="async"></span>`;
 
     // A friend's face, drawn the way the Friends tab draws it.
     function _ovfAvatarHtml(f, profile) {
