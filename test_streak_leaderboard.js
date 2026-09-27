@@ -3,7 +3,7 @@
  *
  * Run:  node test_streak_leaderboard.js        (needs Google Chrome installed)
  *
- * The Leaderboard tab gained a "🔥 Streak" mode with a two-way toggle:
+ * The Leaderboard tab gained a "Streak" mode with a two-way toggle:
  * LONGEST STREAK EVER and LONGEST CURRENT STREAK. The one thing that makes it
  * hard is that stats.daily_streak in a user doc is only rewritten when a game
  * FINISHES, a player who stopped playing a week ago keeps their old number
@@ -68,7 +68,7 @@ srcOk(/ALL_LB_TBODIES = \[[^\]]*"ph-lb-streak-tbody"/.test(APP),
 srcOk(/_computeStreakInfo\(stats\.streak_days\)/.test(APP.slice(APP.indexOf("function _phLbStreakNums"))),
       "preview-app.js: the board recomputes from stats.streak_days, not the stored daily_streak");
 srcOk(/id="ph-lb-streak-btn"[^>]*phLbSwitchMode\('streak'\)/.test(HTML),
-      "preview.html: the 🔥 Streak mode button is in the mode row");
+      "preview.html: the Streak mode button is in the mode row");
 srcOk(/id="ph-lb-streak-longest-tab"/.test(HTML) && /id="ph-lb-streak-current-tab"/.test(HTML),
       "preview.html: both toggle tabs exist (longest ever / longest current)");
 
@@ -172,7 +172,7 @@ function grabSection(id) {
   throw new Error(`unbalanced divs reading #${id} (last at ${j})`);
 }
 const SECTION = grabSection("ph-lb-streak-section");
-// The mode row too: the 🔥 Streak pill is the 5th (6th with Tournaments), and a
+// The mode row too: the Streak pill is the 5th (6th with Tournaments), and a
 // pill row that overflows is exactly how a phone starts scrolling sideways.
 const MODE_ROW = (() => {
   const open = HTML.indexOf(`<div class="ph-lb-mode-row">`);
@@ -357,7 +357,7 @@ function snapshot() {
 (async function () {
   var out = { errors: ERRORS, queries: [] };
   try {
-    // The section starts hidden; clicking the 🔥 Streak pill is what reveals it.
+    // The section starts hidden; clicking the Streak pill is what reveals it.
     out.hiddenBefore = $a("ph-lb-streak-section").style.display === "none";
     $a("ph-lb-streak-btn").click();
     await new Promise(function (r) { setTimeout(r, 60); });
@@ -443,7 +443,7 @@ check("no script errors", D.errors.length === 0, D.errors.join(" | "));
 
 // ── 0. The mode pill opens the board ────────────────────────────────────────
 check("the streak section starts hidden", D.hiddenBefore === true);
-check("clicking the 🔥 Streak pill reveals the section and marks the pill active",
+check("clicking the Streak pill reveals the section and marks the pill active",
       D.modeSwitch.shown && D.modeSwitch.btnActive && !D.modeSwitch.xpBtnActive,
       JSON.stringify(D.modeSwitch));
 
@@ -478,7 +478,7 @@ check("tab starts on Longest, headers say so",
 check("ranked by best run ever: Bo(40) > Ava(30) > Fay(20) > Cy/Di(9) > Eli(6) > Tim(3)",
       names(L) === "Bo,Ava,Fay,Cy,Di,Eli,Tim", names(L));
 check("the lapsed player still owns the longest-ever crown",
-      rowFor(L, "u_bo").rank.includes("🥇") && rowFor(L, "u_bo").primary.includes("40"),
+      rowFor(L, "u_bo").rank.includes("#1") && rowFor(L, "u_bo").primary.includes("40"),
       JSON.stringify(rowFor(L, "u_bo")));
 check("…and their CURRENT column reads 0, not the stale 40 in their doc",
       rowFor(L, "u_bo").secondary === "0", rowFor(L, "u_bo").secondary);

@@ -406,7 +406,6 @@
     let answer = null;
     try {
       answer = (b && b.modal) ? await b.modal({
-        icon: "🖼️",
         title: "Pick your background",
         body: "This scene sits behind your avatar everywhere it appears. "
             + "Choose the one you want: the rest stay on offer, and you can "
@@ -455,7 +454,7 @@
       ? `<img class="ccLP-tier-img" src="${esc(avSrc(t.img))}" alt="" loading="lazy">`
       : t.type === "coins"
         ? `<img class="ccLP-tier-coin" src="/critter-coin.png?v=1" alt="" draggable="false" loading="lazy">`
-        : `<span class="ccLP-tier-ico" aria-hidden="true">${esc(t.icon || "🎁")}</span>`;
+        : ``;
 
     // "N XP to go" on every locked tier, the thing the whole page is for.
     let foot;
@@ -477,7 +476,7 @@
     } else {
       const left = xpUntil(num(t.level));
       foot = left == null
-        ? `<span class="ccLP-tier-lock">🔒 Level ${esc(t.level)}</span>`
+        ? `<span class="ccLP-tier-lock">Level ${esc(t.level)}</span>`
         : `<span class="ccLP-tier-togo"><b>${fmt(left)}</b> XP to go</span>`;
     }
 
@@ -528,13 +527,11 @@
       // stopwatch for 24 hours.
       const clock = h > 0 ? `${h}h ${m}m` : (m > 0 ? `${m}m` : `${s}s`);
       return `<div class="ccLP-chip is-live" title="Every XP source is boosted while this runs">
-          <span class="ccLP-chip-ico">⚡</span>
           <span class="ccLP-chip-txt"><b>+${esc(b.percent)}% XP</b><span>${esc(clock)} left</span></span>
         </div>`;
     }
     const held = num(inv.boosts);
     return `<div class="ccLP-chip${held ? "" : " is-empty"}">
-        <span class="ccLP-chip-ico">⚡</span>
         <span class="ccLP-chip-txt"><b>${held} XP Boost${held === 1 ? "" : "s"}</b><span>+${esc(num(inv.boostPercent, 20))}% for ${esc(num(_state && _state.boostHours, 24))}h</span></span>
         ${held ? `<button class="ccLP-chip-btn" type="button" id="ccLP-boost-btn">Activate</button>` : ""}
       </div>`;
@@ -547,12 +544,10 @@
     const live = week > 0 && num(inv.rerollWeek) === week;
     if (live) {
       return `<div class="ccLP-chip is-live" title="Swap as many weekly challenges as you like until Monday">
-          <span class="ccLP-chip-ico">🔄</span>
           <span class="ccLP-chip-txt"><b>Unlimited Swaps</b><span>until Monday</span></span>
         </div>`;
     }
     return `<div class="ccLP-chip${held ? "" : " is-empty"}">
-        <span class="ccLP-chip-ico">🔄</span>
         <span class="ccLP-chip-txt"><b>${held} Weekly Swap${held === 1 ? "" : "s"}</b><span>unlimited swaps for a week</span></span>
         ${held ? `<button class="ccLP-chip-btn" type="button" id="ccLP-swap-btn">Use one</button>` : ""}
       </div>`;
@@ -572,7 +567,7 @@
     // saying "0 XP until nothing" is worse than saying they are finished.
     let nextLine;
     if (!nxt) {
-      nextLine = `<span class="ccLP-next-done">Every reward on the track is yours. 🐙</span>`;
+      nextLine = `<span class="ccLP-next-done">Every reward on the track is yours.</span>`;
     } else {
       const left = xpUntil(num(nxt.level));
       const what = nxt.type === "critter"
@@ -613,7 +608,6 @@
             <span class="ccLP-chip-txt"><b>${fmt(inv.coins)}</b><span>Critter Coins</span></span>
           </div>
           <div class="ccLP-chip${shields ? "" : " is-empty"}">
-            <span class="ccLP-chip-ico">🛡️</span>
             <span class="ccLP-chip-txt"><b>${shields} Streak Shield${shields === 1 ? "" : "s"}</b><span>covers a missed day</span></span>
           </div>
           ${boostChipHtml()}
@@ -841,7 +835,7 @@
     if (btn) btn.disabled = true;
     const res = await post("boost", {});
     if (res && res.ok) {
-      toast(`⚡ XP Boost running: +${res.percent}% XP from everything for ${res.hours} hours.`, "good");
+      toast(`XP Boost running: +${res.percent}% XP from everything for ${res.hours} hours.`, "good");
       await sync();
       afterGrant();
     } else {
@@ -857,7 +851,7 @@
     if (!week) { toast(MESSAGES.server_error, "warn"); render(); return; }
     const res = await post("reroll", { weekStartMs: week });
     if (res && res.ok) {
-      toast("🔄 Weekly Swaps unlocked: swap as many challenges as you like until Monday.", "good");
+      toast("Weekly Swaps unlocked: swap as many challenges as you like until Monday.", "good");
       await sync();
       // The challenge strip's swap buttons only appear once this is live.
       try { window.renderChallengeStrip && window.renderChallengeStrip(); } catch (_) {}

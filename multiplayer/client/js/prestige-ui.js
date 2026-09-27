@@ -485,7 +485,7 @@
 
   /** Which readability plate a colour needs.
    *
-   *  ⚠️ Polarity comes from the COLOUR, never from the surface. Choosing it by
+   *  Polarity comes from the COLOUR, never from the surface. Choosing it by
    *  surface is the obvious-looking version and it is backwards: a pale yellow
    *  on the light Player Home would be given the WHITE plate, which makes an
    *  already-faint name fainter. A light colour needs a dark plate and a dark
@@ -952,7 +952,7 @@
         + "earned so far comes with you.</div>"
       : "";
     return '<div class="ccP-body"><div class="ccP-locked">'
-      + '<div class="big">🔒 Prestige unlocks at Level ' + fmt(st.max_level) + "</div>"
+      + '<div class="big">Prestige unlocks at Level ' + fmt(st.max_level) + "</div>"
       + '<div class="sm">You\'re Level ' + fmt(st.level) + " with <b>" + fmt(st.xp_to_max)
       + " XP</b> to go. Everything below is waiting for you, nothing here can be bought or skipped.</div>"
       + guestLine
@@ -963,7 +963,7 @@
   function previewRewardsHtml() {
     const nxt = S.state.next;
     if (!nxt) return "";
-    return '<div class="ccP-panel"><div class="ccP-panel-h">🎁 What Prestige ' + num(nxt.prestige) + " gives you</div>"
+    return '<div class="ccP-panel"><div class="ccP-panel-h">What Prestige ' + num(nxt.prestige) + " gives you</div>"
       + '<div class="ccP-panel-sub">Every one of these is permanent. None of it ever resets, '
       + "including on the Prestige after this one.</div>"
       + rewardCardsHtml(nxt) + "</div>";
@@ -1038,7 +1038,7 @@
     });
 
     const card = (ico, lbl, val, cls, desc, from) =>
-      '<div class="ccP-rw"><div class="ccP-rw-ico" aria-hidden="true">' + ico + "</div>"
+      '<div class="ccP-rw">' + (ico ? '<div class="ccP-rw-ico" aria-hidden="true">' + ico + "</div>" : "")
       + '<div class="ccP-rw-lbl">' + esc(lbl) + "</div>"
       + '<div class="ccP-rw-val ' + (cls || "") + '">' + val + "</div>"
       + '<div class="ccP-rw-desc">' + desc + "</div>"
@@ -1049,22 +1049,22 @@
       + card(coin, "Critter Coins", fmt(nxt.coins), "gold",
         "Paid into your wallet the moment the Prestige completes, with a transaction record.",
         "Balance now <b>" + fmt(S.state.coins) + "</b> → <b>" + fmt(num(S.state.coins) + num(nxt.coins)) + "</b>")
-      + card("⭐", "Permanent XP bonus", "+" + num(nxt.xp_bonus_pct) + "%", "cyan",
+      + card("", "Permanent XP bonus", "+" + num(nxt.xp_bonus_pct) + "%", "cyan",
         "Applies to casual, competitive, AI, daily, weekly, monthly, events, tournaments, clan challenges and login rewards.",
         "Now <b>+" + num(p.xp_bonus_pct) + "%</b> → <b>+" + num(nxt.xp_bonus_pct) + "%</b>")
-      + card("🛒", "Critter Coin store bonus", "+" + num(nxt.store_bonus_pct) + "%", "",
+      + card("", "Critter Coin store bonus", "+" + num(nxt.store_bonus_pct) + "%", "",
         "Extra coins on every Critter Coin package you buy. The price never changes.",
         "Now <b>+" + num(p.store_bonus_pct) + "%</b> → <b>+" + num(nxt.store_bonus_pct) + "%</b>")
-      + card("🌊", "Prestige background", esc(bg.name || "-"), "",
+      + card("", "Prestige background", esc(bg.name || "-"), "",
         esc(bg.blurb || "") + " A living scene: currents, light, bubbles and critters: yours forever.",
         "Prestige " + num(nxt.prestige) + " background")
-      + card("🎨", "Alternate animal skin", "1 animal", "",
+      + card("", "Alternate animal skin", "1 animal", "",
         "Pick any animal in the game and unlock an exclusive skin for it. Appearance only, it changes nothing about how the card plays.",
         (nxt.skin_styles || []).length + " styles available to you")
-      + card("🏷️", "Name colour", colors || "New options", "",
+      + card("", "Name colour", colors || "New options", "",
         colors ? "Wear it anywhere your name appears." : "New username customisation unlocks.",
         extras.length ? "Also unlocks " + esc(extras.join(", ")) : "")
-      + card(badgeHtml(num(nxt.prestige), { large: true, decorative: true }) || "🏅", "Prestige badge", esc(badge.name || "-"), "",
+      + card(badgeHtml(num(nxt.prestige), { large: true, decorative: true }) || "", "Prestige badge", esc(badge.name || "-"), "",
         "Shown beside your username across the whole game.", "")
       + "</div>";
   }
@@ -1080,7 +1080,7 @@
     const nxt = S.state.next;
     if (!nxt) return '<div class="ccP-panel"><div class="ccP-ok">You have reached the highest Prestige there is.</div></div>';
     return '<div class="ccP-panel">'
-      + '<div class="ccP-panel-h">🎁 Prestige ' + num(nxt.prestige) + " rewards</div>"
+      + '<div class="ccP-panel-h">Prestige ' + num(nxt.prestige) + " rewards</div>"
       + '<div class="ccP-panel-sub">Exact values, not estimates. Every one is permanent and stacks with what you already have.</div>'
       + rewardCardsHtml(nxt) + "</div>" + resetKeepHtml();
   }
@@ -1111,7 +1111,7 @@
 
     const counterCls = S.keep.length === need ? "" : " warn";
     return '<div class="ccP-panel">'
-      + '<div class="ccP-panel-h">🐟 ' + (need === 1 ? "Keep one critter" : "Keep two critters") + "</div>"
+      + '<div class="ccP-panel-h">' + (need === 1 ? "Keep one critter" : "Keep two critters") + "</div>"
       + '<div class="ccP-panel-sub">'
       + (need === 0
         ? "Nothing you own would relock, so there's nothing to choose here, everything you have stays."
@@ -1131,7 +1131,7 @@
         + "On your profile they'll look like this:</div>" + profilePreviewHtml() : "")
       + "</div>"
       + '<div class="ccP-panel keep">'
-      + '<div class="ccP-panel-h">🔒 Stays automatically (' + fmt(av.automatic.length) + ")</div>"
+      + '<div class="ccP-panel-h">Stays automatically (' + fmt(av.automatic.length) + ")</div>"
       + '<div class="ccP-panel-sub">Bought, donated, competitive-rank and previously-kept critters are never taken away, '
       + "and they don't use up one of your two picks.</div>"
       + (av.automatic.length
@@ -1189,7 +1189,7 @@
 
     const chosen = S.skin ? animals.find((a) => a.id === S.skin.animal) : null;
     return '<div class="ccP-panel">'
-      + '<div class="ccP-panel-h">🎨 Choose an alternate animal skin</div>'
+      + '<div class="ccP-panel-h">Choose an alternate animal skin</div>'
       + '<div class="ccP-panel-sub">Appearance only. A Prestige skin never changes an ability, star ability, cost, '
       + "point value, ocean requirement, card interaction, rarity or competitive strength. "
       + "Once confirmed the choice is permanent.</div>"
@@ -1273,7 +1273,7 @@
     }
 
     return '<div class="ccP-panel">'
-      + '<div class="ccP-panel-h">🏷️ Prestige name colour</div>'
+      + '<div class="ccP-panel-h">Prestige name colour</div>'
       + picker
       + '<div class="ccP-panel-sub" style="margin-top:14px">How it looks, on light and dark surfaces:</div>'
       + previewStrip(nick, meta)
@@ -1310,27 +1310,27 @@
 
   // ── Step 5: reset review ─────────────────────────────────────────────────
   function resetKeepHtml() {
-    const li = (ico, txt) => '<li><span class="ico" aria-hidden="true">' + ico + "</span><span>" + txt + "</span></li>";
+    const li = (ico, txt) => "<li>" + (ico ? '<span class="ico" aria-hidden="true">' + ico + "</span>" : "") + "<span>" + txt + "</span></li>";
     return '<div class="ccP-two">'
       + '<div class="ccP-panel reset"><div class="ccP-panel-h">↺ Resets</div>'
       + '<ul class="ccP-list">'
-      + li("📉", "Your account level goes back to <b>Level 1</b>")
-      + li("⭐", "Your XP goes back to <b>0</b>")
-      + li("🔒", "Critters earned from levels, challenges, achievements, statistics and normal play <b>relock</b>")
-      + li("🎯", "Progress toward those critters' unlocks starts over where it needs to")
-      + li("🐟", "Everything except the <b>two critters you keep</b> has to be earned again")
+      + li("", "Your account level goes back to <b>Level 1</b>")
+      + li("", "Your XP goes back to <b>0</b>")
+      + li("", "Critters earned from levels, challenges, achievements, statistics and normal play <b>relock</b>")
+      + li("", "Progress toward those critters' unlocks starts over where it needs to")
+      + li("", "Everything except the <b>two critters you keep</b> has to be earned again")
       + "</ul></div>"
-      + '<div class="ccP-panel keep"><div class="ccP-panel-h">🛡️ You keep</div>'
+      + '<div class="ccP-panel keep"><div class="ccP-panel-h">You keep</div>'
       + '<ul class="ccP-list">'
-      + li("🏆", "Competitive rank and Ocean Points")
-      + li("🛡️", "Clan membership, role, season points and clan stats")
-      + li("👥", "Friends, messages and trade history")
-      + li("📊", "Lifetime statistics, match history and completed achievements")
+      + li("", "Competitive rank and Ocean Points")
+      + li("", "Clan membership, role, season points and clan stats")
+      + li("", "Friends, messages and trade history")
+      + li("", "Lifetime statistics, match history and completed achievements")
       + li(COIN_IMG, "Critter Coins, and this Prestige adds more")
-      + li("💳", "Everything bought with coins or real money: avatars, backgrounds, cosmetics")
-      + li("🎟️", "Limited-time, event and competitive-rank avatars")
-      + li("🌊", "Every previous Prestige reward: badges, name colours, skins, backgrounds")
-      + li("💛", "Supporter rewards, account settings and moderation records")
+      + li("", "Everything bought with coins or real money: avatars, backgrounds, cosmetics")
+      + li("", "Limited-time, event and competitive-rank avatars")
+      + li("", "Every previous Prestige reward: badges, name colours, skins, backgrounds")
+      + li("", "Supporter rewards, account settings and moderation records")
       + "</ul></div></div>";
   }
 
@@ -1345,7 +1345,7 @@
     const badge = nxt.badge || {};
     const kv = (k, v) => "<dt>" + esc(k) + "</dt><dd>" + v + "</dd>";
     return '<div class="ccP-panel">'
-      + '<div class="ccP-panel-h">📋 Review everything</div>'
+      + '<div class="ccP-panel-h">Review everything</div>'
       + '<div class="ccP-panel-sub">This is exactly what happens when you confirm. Nothing else on your account is touched.</div>'
       + '<dl class="ccP-kv">'
       + kv("Current level", fmt(S.state.level) + " → <b>1</b>")
@@ -1376,7 +1376,7 @@
     const phrase = (S.cat && S.cat.confirm_phrase) || "PRESTIGE";
     const ready = confirmReady();
     return '<div class="ccP-panel">'
-      + '<div class="ccP-panel-h">🌊 Final confirmation</div>'
+      + '<div class="ccP-panel-h">Final confirmation</div>'
       + '<div class="ccP-warn">Prestiging will return your account to Level 1 and relock most critters earned through '
       + "gameplay. Your purchases, special rewards, statistics, competitive progress and permanent Prestige rewards will "
       + "remain.<br><br>This action cannot normally be undone.</div>"
@@ -1431,7 +1431,7 @@
         + " · Store bonus after: <b>+" + num(e.store_bonus_pct) + "%</b></div></div>";
     }).join("");
     return '<div class="ccP-body"><div class="ccP-panel">'
-      + '<div class="ccP-panel-h">📜 Prestige history</div>'
+      + '<div class="ccP-panel-h">Prestige history</div>'
       + '<div class="ccP-panel-sub">Only you can see this.</div>'
       + '<div class="ccP-hist">' + rows + "</div></div></div>";
   }
@@ -1458,7 +1458,7 @@
     }
     return actions
       + '<div class="ccP-actions" style="margin-top:14px">'
-      + '<button class="ccP-btn ghost" type="button" data-act="appearance">🏷️ Name Appearance</button>'
+      + '<button class="ccP-btn ghost" type="button" data-act="appearance">Name Appearance</button>'
       + '<div class="ccP-spacer"></div>'
       + '<button class="ccP-btn ghost" type="button" data-act="still" aria-pressed="' + (S.still ? "true" : "false") + '">'
       + (S.still ? "▶ Background motion: off" : "⏸ Reduce background motion") + "</button></div>";
@@ -1633,12 +1633,12 @@
       + "Enjoy your new rewards and begin your next adventure through the oceans of Currents and Critters.</div>"
       + '<div class="ccP-cel-grid">'
       + celCard(COIN_IMG, "Critter Coins", "+" + fmt(res.coins_awarded), "Balance: " + fmt(res.coins_total))
-      + celCard("⭐", "Permanent XP bonus", "+" + num(res.xp_bonus_pct) + "%", "From every XP source")
-      + celCard("🛒", "Store bonus", "+" + num(res.store_bonus_pct) + "%", "On bought coin packs")
-      + celCard("🌊", "Background", esc(bg.name || "-"), esc(bg.blurb || ""))
-      + (skinAnimal && skinStyle ? celCard("🎨", "Animal skin",
+      + celCard("", "Permanent XP bonus", "+" + num(res.xp_bonus_pct) + "%", "From every XP source")
+      + celCard("", "Store bonus", "+" + num(res.store_bonus_pct) + "%", "On bought coin packs")
+      + celCard("", "Background", esc(bg.name || "-"), esc(bg.blurb || ""))
+      + (skinAnimal && skinStyle ? celCard("", "Animal skin",
         esc(skinStyle.name) + " " + esc(skinAnimal.name), "Appearance only") : "")
-      + celCard("🏷️", "Name colour", nameHtml(nick, meta, { surface: "dark", badge: false }),
+      + celCard("", "Name colour", nameHtml(nick, meta, { surface: "dark", badge: false }),
         newColor ? "Ready to equip" : "New options unlocked")
       + kept
       + "</div>"
@@ -1675,7 +1675,7 @@
     ov.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
   }
   function celCard(ico, lbl, val, desc) {
-    return '<div class="ccP-rw"><div class="ccP-rw-ico" aria-hidden="true">' + ico + "</div>"
+    return '<div class="ccP-rw">' + (ico ? '<div class="ccP-rw-ico" aria-hidden="true">' + ico + "</div>" : "")
       + '<div class="ccP-rw-lbl">' + esc(lbl) + '</div><div class="ccP-rw-val">' + val + "</div>"
       + '<div class="ccP-rw-desc">' + desc + "</div></div>";
   }
@@ -1737,7 +1737,7 @@
           + (have ? "" : " disabled") + ' aria-pressed="' + (on ? "true" : "false") + '">'
           + '<span class="dot" style="background:' + esc(c.hex || "#8fb8d8") + '"></span>'
           + '<span><span class="lbl">' + esc(c.name) + "</span>"
-          + '<span class="sub">' + (have ? (on ? "Equipped" : "Unlocked") : "🔒 " + need) + "</span></span></button>";
+          + '<span class="sub">' + (have ? (on ? "Equipped" : "Unlocked") : need) + "</span></span></button>";
       };
       const gradBtn = (g) => {
         const have = ownedG.has(g.id);
@@ -1746,7 +1746,7 @@
           + (have ? "" : " disabled") + ' aria-pressed="' + (on ? "true" : "false") + '">'
           + '<span class="dot" style="background:linear-gradient(90deg,' + esc(g.from) + ',' + esc(g.to) + ')"></span>'
           + '<span><span class="lbl">' + esc(g.name) + "</span>"
-          + '<span class="sub">' + (have ? (on ? "Equipped" : "Unlocked") : "🔒 Prestige " + g.level) + "</span></span></button>";
+          + '<span class="sub">' + (have ? (on ? "Equipped" : "Unlocked") : "Prestige " + g.level) + "</span></span></button>";
       };
       const fxBtn = (f) => {
         const have = f.id === "none" || ownedFx.has(f.id);
@@ -1786,7 +1786,7 @@
         + '<div class="ccP-panel"><div class="ccP-panel-h">Solid colours</div>'
         + '<div class="ccP-swatches">' + (cat.colors || []).map(swatch).join("") + "</div></div>"
         + '<div class="ccP-panel"><div class="ccP-panel-h">Custom colour'
-        + (p.custom_color ? "" : " 🔒") + "</div>"
+        + (p.custom_color ? "" : " (locked)") + "</div>"
         + (p.custom_color
           ? '<div class="ccP-toolbar">'
             + '<input type="color" class="ccP-input" id="ccP-cc-wheel" value="' + esc(app.color || "#1f7ae0") + '" '
@@ -1799,7 +1799,7 @@
             + "or that look like staff and system messages, can't be saved.</div>"
           : '<div class="ccP-panel-sub">Unlocks at Prestige ' + num(cat.custom_color_level || 4) + ".</div>")
         + "</div>"
-        + '<div class="ccP-panel"><div class="ccP-panel-h">Gradients' + (p.custom_gradient ? "" : " 🔒") + "</div>"
+        + '<div class="ccP-panel"><div class="ccP-panel-h">Gradients' + (p.custom_gradient ? "" : " (locked)") + "</div>"
         + '<div class="ccP-swatches">' + (cat.gradients || []).map(gradBtn).join("") + "</div>"
         + (p.custom_gradient ? gradientEditorHtml(app, p, cat)
           : '<div class="ccP-panel-sub" style="margin-top:10px">Unlocks at Prestige ' + num(cat.gradient_level || 5) + ".</div>")
@@ -2012,17 +2012,17 @@
     wrap.className = "ccP-ask-bg";
     wrap.innerHTML = '<div class="ccP-ask" role="dialog" aria-modal="true" aria-labelledby="ccP-ask-h">'
       + '<div class="ccP-ask-inner">'
-      + '<div class="ccP-ask-badge">' + (badgeHtml(num(nxt.prestige), { large: true }) || "🌊") + "</div>"
+      + '<div class="ccP-ask-badge">' + (badgeHtml(num(nxt.prestige), { large: true }) || "") + "</div>"
       + '<h2 class="ccP-title" id="ccP-ask-h">You have reached the end of this current!</h2>'
       + '<div class="ccP-sub">Ride the next current to return to Level 1 and unlock permanent Prestige rewards. '
       + "You can do this whenever you like, nothing expires, and we'll ask again next time you sign in.</div>"
       + '<div class="ccP-ask-grid">'
       + askCard(COIN_IMG, fmt(nxt.coins), "Critter Coins")
-      + askCard("⭐", "+" + num(nxt.xp_bonus_pct) + "%", "Permanent XP")
-      + askCard("🛒", "+" + num(nxt.store_bonus_pct) + "%", "Store bonus")
-      + askCard("🎨", "1 animal", "Alternate skin")
-      + askCard("🌊", esc(bg.name || "-"), "New background")
-      + askCard("🏅", esc(badge.name || "-"), "New badge")
+      + askCard("", "+" + num(nxt.xp_bonus_pct) + "%", "Permanent XP")
+      + askCard("", "+" + num(nxt.store_bonus_pct) + "%", "Store bonus")
+      + askCard("", "1 animal", "Alternate skin")
+      + askCard("", esc(bg.name || "-"), "New background")
+      + askCard("", esc(badge.name || "-"), "New badge")
       + "</div>"
       + '<div class="ccP-ask-keep">You keep your competitive rank, clan, friends, coins, achievements, '
       + "lifetime stats and everything you have ever bought.</div>"
@@ -2056,7 +2056,7 @@
     return true;
   }
   function askCard(ico, val, lbl) {
-    return '<div class="ccP-ask-card"><div class="ccP-rw-ico" aria-hidden="true">' + ico + "</div>"
+    return '<div class="ccP-ask-card">' + (ico ? '<div class="ccP-rw-ico" aria-hidden="true">' + ico + "</div>" : "")
       + '<div class="ccP-rw-val">' + val + '</div><div class="ccP-rw-lbl">' + esc(lbl) + "</div></div>";
   }
 

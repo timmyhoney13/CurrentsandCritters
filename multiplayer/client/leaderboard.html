@@ -469,7 +469,7 @@
 
     <!-- ── HERO ────────────────────────────────────────────────────── -->
     <section class="hero">
-      <div class="hero-eyebrow">🏆 Top Scores</div>
+      <div class="hero-eyebrow">Top Scores</div>
       <h1>Leaderboard</h1>
       <p>See who's mastering the currents. Rankings update after every completed game, find your name, study the top strategies, and chase a better score.</p>
     </section>
@@ -477,12 +477,10 @@
     <!-- ── MODE TABS ────────────────────────────────────────────────── -->
     <div class="mode-tabs" role="tablist">
       <button class="mode-tab active" role="tab" aria-selected="true" data-mode="casual" onclick="switchMode('casual')">
-        <span class="tab-icon">🌊</span>
         <span class="tab-name">Casual</span>
         <span class="tab-desc">Any table size · open format</span>
       </button>
       <button class="mode-tab" role="tab" aria-selected="false" data-mode="competitive" onclick="switchMode('competitive')">
-        <span class="tab-icon">⚔️</span>
         <span class="tab-name">Competitive</span>
         <span class="tab-desc">2-player ranked only</span>
       </button>
@@ -529,13 +527,12 @@
               </tr>
             </thead>
             <tbody id="casual-tbody">
-              <tr class="empty-row"><td colspan="6">🌊 No games recorded yet, be the first to set a score!</td></tr>
+              <tr class="empty-row"><td colspan="6">No games recorded yet, be the first to set a score!</td></tr>
             </tbody>
           </table>
         </div>
 
         <div class="info-bar">
-          <span class="info-icon">ℹ️</span>
           <span>Casual rankings track your highest <strong>single-game score</strong> regardless of table size. Use the filter above to compare within a specific player count. Scores are recorded from completed games only.</span>
         </div>
       </div>
@@ -576,13 +573,12 @@
                 </tr>
               </thead>
               <tbody id="cp-tbody">
-                <tr class="empty-row"><td colspan="6">⚔️ No competitive games recorded yet, play ranked to earn OP!</td></tr>
+                <tr class="empty-row"><td colspan="6">No competitive games recorded yet, play ranked to earn OP!</td></tr>
               </tbody>
             </table>
           </div>
 
           <div class="info-bar">
-            <span class="info-icon">ℹ️</span>
             <span>Ocean Points (OP) are earned in 2-player ranked games. Win to gain OP, lose to drop. Your season ranking is based on total OP earned, not win rate.</span>
           </div>
         </div>
@@ -610,13 +606,12 @@
                 </tr>
               </thead>
               <tbody id="single-tbody">
-                <tr class="empty-row"><td colspan="5">🐠 No single-hand scores recorded yet!</td></tr>
+                <tr class="empty-row"><td colspan="5">No single-hand scores recorded yet!</td></tr>
               </tbody>
             </table>
           </div>
 
           <div class="info-bar">
-            <span class="info-icon">ℹ️</span>
             <span>Highest Single Hand ranks the best score achieved in <strong>one hand</strong> of a competitive game. This rewards explosive single-turn combos and synergistic builds.</span>
           </div>
         </div>
@@ -644,13 +639,12 @@
                 </tr>
               </thead>
               <tbody id="combined-tbody">
-                <tr class="empty-row"><td colspan="5">🦑 No combined scores recorded yet!</td></tr>
+                <tr class="empty-row"><td colspan="5">No combined scores recorded yet!</td></tr>
               </tbody>
             </table>
           </div>
 
           <div class="info-bar">
-            <span class="info-icon">ℹ️</span>
             <span>Highest Combined Hands is the sum of <strong>both players' scores</strong> across all hands in a single competitive game. High scores here mean both players built strong ecosystems, a true test of the game's depth.</span>
           </div>
         </div>
@@ -659,7 +653,7 @@
     </div>
     <!-- end competitive -->
 
-    <div class="footer">🐚 Currents and Critters &nbsp;·&nbsp; Ocean Card Game &nbsp;·&nbsp; Rankings reset each season</div>
+    <div class="footer">Currents and Critters &nbsp;·&nbsp; Ocean Card Game &nbsp;·&nbsp; Rankings reset each season</div>
 
   </div><!-- end .wrap -->
 
@@ -694,9 +688,9 @@
 
     /* ── Data helpers ────────────────────────────────────────────── */
     function rankMedal(rank) {
-      if (rank === 1) return '<span class="rank-medal">🥇</span>';
-      if (rank === 2) return '<span class="rank-medal">🥈</span>';
-      if (rank === 3) return '<span class="rank-medal">🥉</span>';
+      if (rank === 1) return '<span class="rank-medal">#1</span>';
+      if (rank === 2) return '<span class="rank-medal">#2</span>';
+      if (rank === 3) return '<span class="rank-medal">#3</span>';
       return '<span style="color:var(--muted);font-weight:700;">' + rank + '</span>';
     }
 
@@ -719,14 +713,14 @@
         casualFilter === "all" || String(r.size) === casualFilter
       );
       if (!rows.length) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">🌊 No games recorded for this filter yet.</td></tr>';
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No games recorded for this filter yet.</td></tr>';
         return;
       }
       tbody.innerHTML = rows.map((r, i) => `
         <tr>
           <td class="rank-cell">${rankMedal(r.rank || i+1)}</td>
           <td><div class="player-cell">
-            <div class="player-avatar">🐟</div>
+            <div class="player-avatar">${escHtml(String(r.name || "?").charAt(0).toUpperCase())}</div>
             <span class="player-name">${escHtml(r.name)}</span>
             ${r.isYou ? '<span class="player-you">You</span>' : ""}
           </div></td>
@@ -741,7 +735,7 @@
       const tbody = document.getElementById("cp-tbody");
       rows = rows || window.__lbCpRows || [];
       if (!rows.length) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">⚔️ No competitive games recorded yet, play ranked to earn OP!</td></tr>';
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No competitive games recorded yet, play ranked to earn OP!</td></tr>';
         return;
       }
       tbody.innerHTML = rows.map((r, i) => {
@@ -749,7 +743,7 @@
         return `<tr>
           <td class="rank-cell">${rankMedal(r.rank || i+1)}</td>
           <td><div class="player-cell">
-            <div class="player-avatar">🐙</div>
+            <div class="player-avatar">${escHtml(String(r.name || "?").charAt(0).toUpperCase())}</div>
             <span class="player-name">${escHtml(r.name)}</span>
             ${r.isYou ? '<span class="player-you">You</span>' : ""}
           </div></td>
@@ -765,14 +759,14 @@
       const tbody = document.getElementById("single-tbody");
       rows = rows || window.__lbSingleRows || [];
       if (!rows.length) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">🐠 No single-hand scores recorded yet!</td></tr>';
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No single-hand scores recorded yet!</td></tr>';
         return;
       }
       tbody.innerHTML = rows.map((r, i) => `
         <tr>
           <td class="rank-cell">${rankMedal(r.rank || i+1)}</td>
           <td><div class="player-cell">
-            <div class="player-avatar">🦈</div>
+            <div class="player-avatar">${escHtml(String(r.name || "?").charAt(0).toUpperCase())}</div>
             <span class="player-name">${escHtml(r.name)}</span>
             ${r.isYou ? '<span class="player-you">You</span>' : ""}
           </div></td>
@@ -786,14 +780,14 @@
       const tbody = document.getElementById("combined-tbody");
       rows = rows || window.__lbCombinedRows || [];
       if (!rows.length) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">🦑 No combined scores recorded yet!</td></tr>';
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No combined scores recorded yet!</td></tr>';
         return;
       }
       tbody.innerHTML = rows.map((r, i) => `
         <tr>
           <td class="rank-cell">${rankMedal(r.rank || i+1)}</td>
           <td><div class="player-cell">
-            <div class="player-avatar">🌊</div>
+            <div class="player-avatar">${escHtml(String(r.name || "?").charAt(0).toUpperCase())}</div>
             <span class="player-name">${escHtml(r.name)}</span>
             ${r.isYou ? '<span class="player-you">You</span>' : ""}
           </div></td>

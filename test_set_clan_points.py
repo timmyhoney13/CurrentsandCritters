@@ -142,7 +142,7 @@ def main():
     check("ledger after", led[0]["after"], 95)
     check("ledger delta", led[0]["points"], -460.5)
     check("activity feed line", clan["activity"][0]["text"],
-          "⚙️ Clan Points set to 95 by an admin: season correction")
+          "Clan Points set to 95 by an admin: season correction")
 
     print("\n6. setting the SAME value again is a no-op, not a second -460.5")
     run(mod, DB, ["--clan", "Goby Gang", "--points", "95"])

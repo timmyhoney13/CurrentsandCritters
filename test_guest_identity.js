@@ -596,7 +596,7 @@ if (!D) {
 
   console.log("\n  a fresh guest has EARNED nothing, whatever they may wear");
   check("no wall of unlocked critters", !/Animals Unlocked (1[0-9]|[2-9][0-9]) \//.test(G.overview || ""),
-        (/Animals Unlocked [^🏅]*/.exec(G.overview || "") || [""])[0]);
+        (/Animals Unlocked [^\n]*/.exec(G.overview || "") || [""])[0]);
 
   console.log("\n  the Competitive tab has no stray numbers on it");
   const compTail = (G.competitive || "").replace(/.*to earn OP\./, "").trim();

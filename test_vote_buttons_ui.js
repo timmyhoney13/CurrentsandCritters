@@ -106,7 +106,7 @@ check(/skipBtn\.disabled = Boolean\(skip\.blocked \|\| skip\.mine/.test(upd),
       "a skip vote already cast cannot be cast twice");
 check(/skip\.votes\}\/\$\{skip\.needed\}/.test(upd),
       "the skip button shows its running tally");
-check(/cast > 0 \? `🚫 Vote Kick \(\$\{cast\}\)`/.test(upd),
+check(/cast > 0 \? `Vote Kick \(\$\{cast\}\)`/.test(upd),
       "the kick button shows its running tally");
 
 // ══ 3. The buttons sit next to Surf's Up ═════════════════════════════════════
@@ -265,7 +265,7 @@ function votePage() {
                              HTML.indexOf('id="pv-fullscreen-btn"'))
                       .replace(/style="display:none;"/g, "")
                       .replace(/<button class="pv-btn pv-btn-surf"[\s\S]*$/, "")
-                  + '<button class="pv-btn pv-btn-surf">🏄 Surf\'s Up!!</button>';
+                  + '<button class="pv-btn pv-btn-surf">Surf\'s Up!!</button>';
   const page = `<!doctype html><html><head><meta charset="utf-8"><style>
 ${CSS}
 body{margin:0;background:#0b1c2c;}

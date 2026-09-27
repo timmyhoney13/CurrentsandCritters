@@ -73,8 +73,8 @@
   // table, one answer. Returns null for "we were not told", which every caller
   // draws as nothing at all rather than as a guess.
   var LABELS = {
-    computer: { icon: "\uD83D\uDCBB", label: "Computer", short: "PC" },
-    mobile:   { icon: "\uD83D\uDCF1", label: "Mobile",   short: "Mobile" }
+    computer: { label: "Computer", short: "PC",     initial: "C" },
+    mobile:   { label: "Mobile",   short: "Mobile", initial: "M" }
   };
   window.ccDeviceLabel = function (device) {
     var key = String(device || "").trim().toLowerCase();
@@ -82,11 +82,11 @@
     if (!row) return null;
     return {
       device: key,
-      icon: row.icon,
       label: row.label,
       short: row.short,
-      text: row.icon + " " + row.label,
-      // Said in full on hover, because the icon alone is a rebus.
+      initial: row.initial,
+      text: row.label,
+      // Said in full on hover, so a two-letter chip is never the only clue.
       title: key === "mobile"
         ? "Playing on a phone or tablet"
         : "Playing on a computer"

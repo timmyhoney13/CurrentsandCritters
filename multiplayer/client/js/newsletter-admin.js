@@ -122,13 +122,13 @@
      ══════════════════════════════════════════════════════════════ */
   var SECTIONS = [
     { id: "dashboard",   icon: "◎", label: "Dashboard" },
-    { id: "subscribers", icon: "✉", label: "Subscribers" },
+    { id: "subscribers", label: "Subscribers" },
     { id: "compose",     icon: "✎", label: "Compose" },
     { id: "drafts",      icon: "▤", label: "Drafts" },
     { id: "sent",        icon: "✓", label: "Sent" },
     { id: "progress",    icon: "▶", label: "Sending Progress" },
-    { id: "audit",       icon: "⌚", label: "Audit History" },
-    { id: "settings",    icon: "⚙", label: "Connections" }
+    { id: "audit",       label: "Audit History" },
+    { id: "settings",    label: "Connections" }
   ];
 
   function buildNav() {
@@ -136,7 +136,7 @@
     var sel = $("navMobile"); sel.innerHTML = "";
     SECTIONS.forEach(function (s, i) {
       var b = el("button", "n-nav-btn" + (s.id === state.section ? " active" : ""));
-      b.appendChild(el("span", "n-nav-ico", s.icon));
+      if (s.icon) b.appendChild(el("span", "n-nav-ico", s.icon));
       b.appendChild(el("span", null, s.label));
       if (s.id === "drafts") {
         var n = state.campaigns.filter(function (c) { return c.status === "draft"; }).length;
@@ -965,7 +965,7 @@
     tool("1. List", "Numbered list", function () { cmd("insertOrderedList"); });
     tool("❝", "Quote", function () { cmd("formatBlock", "<blockquote>"); });
     sep();
-    tool("🔗 Link", "Insert link", function () {
+    tool("Link", "Insert link", function () {
       var url = window.prompt("Link URL (must start with https:// or mailto:)", "https://");
       if (!url) return;
       if (!/^(https?:\/\/|mailto:)/i.test(url.trim())) {
@@ -973,7 +973,7 @@
       }
       cmd("createLink", url.trim());
     });
-    tool("🖼 Image", "Insert image", function () {
+    tool("Image", "Insert image", function () {
       var url = window.prompt(
         "Image URL. It must be a public https:// address: email clients " +
         "cannot load an image from your computer.", "https://");

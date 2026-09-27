@@ -186,9 +186,9 @@ console.log("\nEnd-of-match buttons (preview-app.js)");
      "the end screen distinguishes watching a bracket match from playing one");
   ok(/Watch Another Match/.test(sync),
      "a match we only watched offers the next live game");
-  ok(/ctx\.finished \? "🏆 See Final Standings"/.test(sync),
+  ok(/ctx\.finished \? "See Final Standings"/.test(sync),
      "a finished tournament sends you to the standings");
-  ok(/ctx\.over \? "🏆 Follow the Tournament"/.test(sync),
+  ok(/ctx\.over \? "Follow the Tournament"/.test(sync),
      "being knocked out sends you back to the bracket, not to a rematch");
 
   // __ccTourneyMatchCtx must not report a spectate option when nothing is live.

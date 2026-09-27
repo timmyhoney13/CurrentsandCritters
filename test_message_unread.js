@@ -218,7 +218,7 @@ console.log("\nthe system lines trades used to post are swept, never counted");
   // people's inboxes: nothing draws them any more, so a counted one would be a
   // red number that opening the chat could never clear.
   const log = dm({ id: "tradelog_abc", system: true, trade_log: true,
-                   text: "✅ Reef confirmed the trade." });
+                   text: "Reef confirmed the trade." });
   const s = summarize([log], ME, new Set());
   check("it does not count", s.totalUnread === 0, s.totalUnread);
   check("and it is handed back to be marked read once",

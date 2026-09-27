@@ -123,7 +123,6 @@
     return `
       <div class="ccRD">
         <div class="ccRD-head">
-          <span class="ccRD-ico" aria-hidden="true">🎟️</span>
           <div>
             <div class="ccRD-title">Redeem a Code</div>
             <div class="ccRD-sub">Code redemption is being set up and isn't switched on yet.
@@ -138,7 +137,6 @@
     return `
       <div class="ccRD">
         <div class="ccRD-head">
-          <span class="ccRD-ico" aria-hidden="true">🎟️</span>
           <div>
             <div class="ccRD-title">Redeem a Code</div>
             <div class="ccRD-sub">Donated or bought coins on the website? We emailed you a

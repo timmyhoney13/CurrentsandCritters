@@ -265,7 +265,7 @@ console.log("\nbeating the bots pays XP, more for the harder ones");
         "…it is in the XP the end screen shows");
   check(/saveGameStats\(winner, finalScores, totalXp\)/.test(end),
         "…which is the XP that gets saved");
-  check(/addReward\("🏅", "Beat the Bots"/.test(end), "…and it gets its own line in the rewards");
+  check(/addReward\("", "Beat the Bots"/.test(end), "…and it gets its own line in the rewards");
 
   // The block itself, run against end screens it never saw.
   const bStart = end.indexOf("const _botWin = (() => {");
@@ -1280,7 +1280,7 @@ function measure(w) {
        "opponent " + i + "'s list ends on rank F");
     ok([...sel.options].map(o => o.value)[1] === "jacques_cousteau",
        "…with S+ at the top of the ranks and the Squid above it");
-    ok([...sel.options].every(o => /^(🔒 )?Rank [A-S+]+$/.test(o.textContent.trim())),
+    ok([...sel.options].every(o => /^(Locked · )?Rank [A-S+]+$/.test(o.textContent.trim())),
        "opponent " + i + "'s list is ranks only (" + sel.options[0].textContent + ")");
     ok(r(sel).height >= 26, "opponent " + i + "'s list is tappable (" + Math.round(r(sel).height) + "px)");
     ok(r(sel).right <= bb.right + 1, "opponent " + i + "'s list stays on its card");

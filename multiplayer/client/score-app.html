@@ -192,7 +192,7 @@
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo">🐠 Currents and Critters · <span>Snap &amp; Score</span></div>
+    <div class="logo">Currents and Critters · <span>Snap &amp; Score</span></div>
     <div class="who" id="whoami"></div>
   </header>
 
@@ -203,12 +203,12 @@
       <p>Take a clear photo of <b>one ocean and the cards around it</b> at a time. Add each ocean, one photo per ocean, and we'll build your whole board and calculate your score.</p>
     </div>
     <div class="panel">
-      <h2>📸 Score My Board</h2>
+      <h2>Score My Board</h2>
       <p class="sub">Just want your score? Snap your board, check the cards, get your total. No account needed, nothing is saved.</p>
       <button class="btn" id="go-solo">Score My Board</button>
     </div>
     <div class="panel">
-      <h2>🏆 Multiplayer Score Session</h2>
+      <h2>Multiplayer Score Session</h2>
       <p class="sub">Played a physical game together? Scan every board, approve the standings as a group, and save the game, with XP, achievements, and avatar unlocks, to everyone's Currents and Critters account.</p>
       <button class="btn mint" id="go-create">Create a Multiplayer Score Session</button>
       <div class="row" style="margin-top:10px">
@@ -216,7 +216,7 @@
         <button class="btn small secondary" id="go-join" style="min-width:84px">Join</button>
       </div>
     </div>
-    <div class="foot-note">🔒 Card recognition runs locally on your device, board photos are never uploaded to identify cards. Solo scans are never stored. In multiplayer sessions only a small board snapshot is kept for verification and game history.</div>
+    <div class="foot-note">Card recognition runs locally on your device, board photos are never uploaded to identify cards. Solo scans are never stored. In multiplayer sessions only a small board snapshot is kept for verification and game history.</div>
   </section>
 
   <!-- ═══ SOLO ═══ -->
@@ -225,8 +225,8 @@
       <h2>Score My Board</h2>
       <p class="sub">Photograph <b>one ocean and its attached cards</b> per shot, straight above, filling most of the frame. After each ocean you can add the next one, so multiple photos build one board.</p>
       <div class="stack">
-        <button class="btn" id="solo-photo">📸 Take / Upload a Picture</button>
-        <button class="btn secondary" id="solo-manual">✍️ Build My Board Manually</button>
+        <button class="btn" id="solo-photo">Take / Upload a Picture</button>
+        <button class="btn secondary" id="solo-manual">Build My Board Manually</button>
         <button class="btn ghost" data-nav="home">← Back</button>
       </div>
       <div id="solo-busy" class="hide" style="text-align:center;padding:18px"><span class="spin"></span> &nbsp;Identifying your cards…</div>
@@ -238,10 +238,10 @@
         <div id="solo-warnings"></div>
         <div id="solo-editor"></div>
         <div class="stack" style="margin-top:12px">
-          <button class="btn mint" id="solo-confirm">✅ Everything Looks Correct</button>
+          <button class="btn mint" id="solo-confirm">Everything Looks Correct</button>
           <div class="row">
-            <button class="btn secondary" id="solo-retake">🔁 Retake Picture</button>
-            <button class="btn mint" id="solo-addphoto">➕ Add Another Ocean</button>
+            <button class="btn secondary" id="solo-retake">Retake Picture</button>
+            <button class="btn mint" id="solo-addphoto">Add Another Ocean</button>
           </div>
         </div>
       </div>
@@ -297,8 +297,8 @@
       <h2 style="text-align:center">Game Code</h2>
       <div class="code-big" id="sess-code">------</div>
       <div class="row">
-        <button class="btn small secondary" id="sess-share" style="flex:1">🔗 Share Invite</button>
-        <button class="btn small secondary" id="sess-copy" style="flex:1">📋 Copy Code</button>
+        <button class="btn small secondary" id="sess-share" style="flex:1">Share Invite</button>
+        <button class="btn small secondary" id="sess-copy" style="flex:1">Copy Code</button>
       </div>
       <p class="sub" style="text-align:center;margin-top:10px">Everyone in the game joins with this code, then each board gets photographed and checked.</p>
     </div>
@@ -318,8 +318,8 @@
       <div id="sess-my-rewards"></div>
       <div id="sess-awaiting" class="muted" style="margin:8px 0"></div>
       <div class="stack">
-        <button class="btn mint" id="sess-approve">✅ I Approve My Board and Score</button>
-        <button class="btn warn" id="sess-reject">✋ Something's Wrong, Go Back &amp; Fix</button>
+        <button class="btn mint" id="sess-approve">I Approve My Board and Score</button>
+        <button class="btn warn" id="sess-reject">Something's Wrong, Go Back &amp; Fix</button>
       </div>
     </div>
     <div class="panel hide" id="sess-results-panel"></div>
@@ -335,10 +335,10 @@
       <div id="se-warnings"></div>
       <div id="se-editor"></div>
       <div class="stack" style="margin-top:12px">
-        <button class="btn mint" id="se-confirm">✅ Everything Looks Correct</button>
+        <button class="btn mint" id="se-confirm">Everything Looks Correct</button>
         <div class="row">
-          <button class="btn secondary" id="se-retake">🔁 Retake Picture</button>
-          <button class="btn mint" id="se-addphoto">➕ Add Another Ocean</button>
+          <button class="btn secondary" id="se-retake">Retake Picture</button>
+          <button class="btn mint" id="se-addphoto">Add Another Ocean</button>
         </div>
         <button class="btn ghost" id="se-back">← Back to Session</button>
       </div>
@@ -349,7 +349,7 @@
   <section id="v-boxes" class="hide">
     <div class="panel">
       <h2>Check This Ocean</h2>
-      <p class="sub">This is one ocean and its cards. Each box should tightly frame one card, tap a box to compare it with the official card and fix it, drag its corners to adjust, or add a box for anything missed. <b>🔒 Everything runs on this device</b>, your photo is never uploaded to identify cards.</p>
+      <p class="sub">This is one ocean and its cards. Each box should tightly frame one card, tap a box to compare it with the official card and fix it, drag its corners to adjust, or add a box for anything missed. <b>Everything runs on this device</b>, your photo is never uploaded to identify cards.</p>
       <div class="bx-wrap"><canvas id="bx-canvas"></canvas></div>
       <div class="bx-legend">
         <span><b style="background:#2ac88f"></b>confident</span>
@@ -358,14 +358,14 @@
       </div>
       <div id="bx-info"></div>
       <div class="row" style="margin-top:10px">
-        <button class="btn small secondary" id="bx-add" style="flex:1">➕ Add a Box</button>
-        <button class="btn small secondary" id="bx-reid" style="flex:1">🔁 Re-identify Boxes</button>
+        <button class="btn small secondary" id="bx-add" style="flex:1">Add a Box</button>
+        <button class="btn small secondary" id="bx-reid" style="flex:1">Re-identify Boxes</button>
       </div>
       <div id="bx-warnings" style="margin-top:8px"></div>
       <div class="stack" style="margin-top:12px">
-        <button class="btn mint" id="bx-continue">✅ Looks Right, Add to Board →</button>
+        <button class="btn mint" id="bx-continue">Looks Right, Add to Board →</button>
         <div class="row">
-          <button class="btn secondary" id="bx-retake">📷 Retake Photo</button>
+          <button class="btn secondary" id="bx-retake">Retake Photo</button>
           <button class="btn secondary" id="bx-cancel">← Cancel</button>
         </div>
       </div>
@@ -377,7 +377,7 @@
 <div class="scanprog" id="scanprog">
   <div class="card">
     <h3>Scanning your board…</h3>
-    <div class="lock">🔒 Recognition runs locally on this device, the photo isn't uploaded to identify cards.</div>
+    <div class="lock">Recognition runs locally on this device, the photo isn't uploaded to identify cards.</div>
     <div class="step" data-stage="1"><span class="ic">1</span> Checking photo</div>
     <div class="step" data-stage="2"><span class="ic">2</span> Finding cards</div>
     <div class="step" data-stage="3"><span class="ic">3</span> Matching cards</div>
@@ -415,7 +415,7 @@
   <div class="cam-bar">
     <button class="txt" id="cam-cancel">Cancel</button>
     <button class="cam-shutter" id="cam-shutter" aria-label="Take photo"></button>
-    <button class="txt right cam-torch hide" id="cam-torch">🔦 Light</button>
+    <button class="txt right cam-torch hide" id="cam-torch">Light</button>
   </div>
 </div>
 
@@ -637,14 +637,14 @@ function openCamera(){
       let torchOn = false;
       const caps = _camTrack && _camTrack.getCapabilities ? _camTrack.getCapabilities() : {};
       if (caps && caps.torch) {
-        torchBtn.textContent = "🔦 Light";
+        torchBtn.textContent = "Light";
         torchBtn.onclick = async () => {
           torchOn = !torchOn;
           try { await _camTrack.applyConstraints({ advanced: [{ torch: torchOn }] });
                 torchBtn.classList.toggle("on", torchOn); } catch {}
         };
       } else {
-        torchBtn.textContent = "🖼 Upload";
+        torchBtn.textContent = "Upload";
         torchBtn.onclick = async () => {
           const r = _camResolve; _camResolve = null; _camStop();
           const url = await filePhoto();
@@ -809,17 +809,17 @@ function renderDetectionFeedback(container, res, onRetake){
     const reasons = (res.retakeReasons||[]).slice(0,5).map(x=>"• "+esc(x)).join("<br>");
     const advice = res.quality && res.quality.advice ? esc(res.quality.advice) : "";
     html += `<div class="retakebox">
-      <div class="rt-h">📷 This photo wasn't clear enough for an accurate score</div>
+      <div class="rt-h">This photo wasn't clear enough for an accurate score</div>
       ${reasons?`<div class="rt-r">${reasons}</div>`:""}
       ${advice?`<div class="rt-a">${advice}</div>`:""}
-      <button class="btn mint" id="rt-btn">🔁 Retake Photo</button>
+      <button class="btn mint" id="rt-btn">Retake Photo</button>
       <div class="muted" style="margin-top:8px">…or correct the cards below by hand and continue anyway.</div>
     </div>`;
   }
   if (res.lowConfidence && res.lowConfidence.length)
-    html += `<div class="warnbox">🔍 Low confidence on: <b>${esc(res.lowConfidence.join(", "))}</b>, double-check those cards.</div>`;
+    html += `<div class="warnbox">Low confidence on: <b>${esc(res.lowConfidence.join(", "))}</b>, double-check those cards.</div>`;
   if (res.warnings && res.warnings.length)
-    html += `<div class="warnbox">${res.warnings.slice(0,8).map(w=>"⚠️ "+esc(w)).join("<br>")}</div>`;
+    html += `<div class="warnbox">${res.warnings.slice(0,8).map(w=>""+esc(w)).join("<br>")}</div>`;
   container.innerHTML = html;
   const rb = container.querySelector("#rt-btn");
   if (rb && onRetake) rb.onclick = onRetake;
@@ -1089,7 +1089,7 @@ function renderBxInfo(){
     `<div class="warnbox" style="margin:8px 0 0">The symbol wasn't clear, tap “Which copy?” and check the symbol printed on the physical card.</div>` : "";
 
   el.innerHTML = `<div class="bx-card">
-    <div class="cf ${cls}" style="font-size:12.5px;margin-bottom:6px">${boxStateLabel(st)} · ${confTxt}${q.dup?" · ⚠ duplicate":""}${q.recovered?" · found in recovery":""}</div>
+    <div class="cf ${cls}" style="font-size:12.5px;margin-bottom:6px">${boxStateLabel(st)} · ${confTxt}${q.dup?" · duplicate":""}${q.recovered?" · found in recovery":""}</div>
     <div style="display:flex;gap:10px;align-items:stretch">
       <div style="flex:1;text-align:center">
         <div class="muted" style="font-size:10.5px;margin-bottom:3px">YOUR PHOTO</div>
@@ -1109,12 +1109,12 @@ function renderBxInfo(){
     ${sym}
     ${cands}
     <div class="row" style="margin-top:10px">
-      <button class="btn small secondary" id="bx-change" style="flex:1">🔎 Change Card</button>
+      <button class="btn small secondary" id="bx-change" style="flex:1">Change Card</button>
       <button class="btn small secondary" id="bx-copy" style="flex:1">♠ Which Copy?</button>
     </div>
     <div class="row" style="margin-top:8px">
       <button class="btn small secondary" id="bx-rotate" style="flex:1">↻ Rotate</button>
-      <button class="btn small warn" id="bx-remove" style="flex:1">🗑 Remove Box</button>
+      <button class="btn small warn" id="bx-remove" style="flex:1">Remove Box</button>
     </div>
     <div class="muted" style="margin-top:7px;font-size:11px">Drag the white corner dots on the photo to fit the card tightly, then “Re-identify Boxes”.</div>
   </div>`;
@@ -1333,7 +1333,7 @@ $("solo-confirm").onclick = async () => {
     $("solo-score").innerHTML = `${p.score}<small>points</small>`;
     $("solo-strategy").textContent = p.strategy ? `Detected strategy: ${p.strategy}` : "";
     $("solo-breakdown").innerHTML = p.breakdown.map(b =>
-      `<li><span>${b.kind==="ocean"?"🌊":"🐟"} ${esc(b.n)}${b.kind==="ocean"?"":" · on "+esc(b.ocean)}</span><span class="pts">${b.pts>=0?"+":""}${b.pts}</span></li>`).join("");
+      `<li><span>${esc(b.n)}${b.kind==="ocean"?"":" · on "+esc(b.ocean)}</span><span class="pts">${b.pts>=0?"+":""}${b.pts}</span></li>`).join("");
     $("solo-compare-note").textContent =
       'Bonuses like "most animals" assume you had the most at the table, score everyone in a Multiplayer Session for exact head-to-head bonuses.';
     if (r.warnings && r.warnings.length) toast(r.warnings[0], true);
@@ -1359,7 +1359,7 @@ function renderCreateAuth(){
   const box = $("create-auth"); if (!box) return;
   if (USER) {
     box.innerHTML = `<div class="warnbox" style="background:#e7f7ef;border-color:#bfe6d2;color:#0c6a44">
-      ✅ Signed in as <b>${esc(USER.displayName||USER.email||"you")}</b>, this game will count on your account.</div>`;
+      Signed in as <b>${esc(USER.displayName||USER.email||"you")}</b>, this game will count on your account.</div>`;
     if (!$("create-name").value) $("create-name").value = (USER.displayName||"").slice(0,24);
   } else {
     box.innerHTML = `<div class="warnbox">You're not signed in, you can host as a guest, but only connected accounts receive XP, achievements, and history. <a class="link" href="#" id="create-signin">Sign in</a></div>`;
@@ -1455,10 +1455,10 @@ function renderSession(){
       </div>
       ${s.kind==="offline" ? `<div class="muted">No device, anyone can scan &amp; confirm this board.</div>` :
         (s.connectedAccount ? `<div class="muted">Account connected ✓</div>` : `<div class="muted">Guest, no rewards unless an account is connected before approval.</div>`)}
-      ${(s.warnings||[]).length && (mine||isHost) ? `<div class="warnbox" style="margin:8px 0 0">${s.warnings.slice(0,3).map(w=>"⚠️ "+esc(w)).join("<br>")}</div>` : ""}
+      ${(s.warnings||[]).length && (mine||isHost) ? `<div class="warnbox" style="margin:8px 0 0">${s.warnings.slice(0,3).map(w=>""+esc(w)).join("<br>")}</div>` : ""}
       <div class="acts">
-        ${canPhoto && v.status!=="finalized" ? `<button class="btn small" data-photo="${s.seat}">📸 ${s.hasBoard?"Rescan":"Photograph"} board</button>` : ""}
-        ${(mine || (canPhoto && s.kind==="offline")) && s.hasBoard && v.status!=="finalized" ? `<button class="btn small secondary" data-review="${s.seat}">✏️ Review &amp; edit</button>` : ""}
+        ${canPhoto && v.status!=="finalized" ? `<button class="btn small" data-photo="${s.seat}">${s.hasBoard?"Rescan":"Photograph"} board</button>` : ""}
+        ${(mine || (canPhoto && s.kind==="offline")) && s.hasBoard && v.status!=="finalized" ? `<button class="btn small secondary" data-review="${s.seat}">Review &amp; edit</button>` : ""}
       </div>
     </div>`;
   }).join("");
@@ -1469,7 +1469,7 @@ function renderSession(){
   const joined = v.seats.length, total = v.playerCount;
   $("sess-host-tools").innerHTML = (isHost && joined < total && v.status!=="finalized") ?
     `<div class="row" style="margin-top:8px">
-       <button class="btn small secondary" id="add-offline" style="flex:1">➕ Add a player without a phone (${joined}/${total} added)</button>
+       <button class="btn small secondary" id="add-offline" style="flex:1">Add a player without a phone (${joined}/${total} added)</button>
      </div>` :
     (joined < total ? `<div class="muted" style="margin-top:8px">${joined}/${total} players added, waiting for the rest to join with the code.</div>` : "");
   const ao = $("add-offline");
@@ -1504,7 +1504,7 @@ function renderSession(){
       `Still waiting for approval from: <b>${v.awaitingApproval.map(esc).join(", ")}</b>` : "";
     const approvedAlready = me && me.approved;
     $("sess-approve").disabled = !!approvedAlready || !me || me.kind === "offline";
-    $("sess-approve").textContent = approvedAlready ? "✅ Approved, waiting for the others" : "✅ I Approve My Board and Score";
+    $("sess-approve").textContent = approvedAlready ? "Approved, waiting for the others" : "I Approve My Board and Score";
   } else rp.classList.add("hide");
 
   // results panel
@@ -1528,7 +1528,7 @@ function renderStandings(el, preview, meSeat, final){
     <tr><th>#</th><th>Player</th><th>Score</th><th>Strategy</th></tr>
     ${(preview.standings||[]).map(r => `
       <tr class="${r.winner?"win":""}">
-        <td>${r.winner?"👑":r.placement}</td>
+        <td>${r.winner?"Winner":r.placement}</td>
         <td>${esc(r.name)}${r.seat===meSeat?" (you)":""}${r.kind!=="account"?' <span class="muted">guest</span>':""}</td>
         <td><b>${r.score}</b></td>
         <td class="muted">${esc(r.strategy||"")}</td>
@@ -1539,11 +1539,11 @@ function myRewardsHtml(r){
   const isAcct = r.kind === "account";
   let html = `<h3>Your expected rewards</h3>`;
   if (!isAcct) return html + `<div class="warnbox">Guests don't receive XP or unlocks, connect your account above before approving to claim these.</div>`;
-  html += `<div class="rewardline">🎖️ Game XP (${r.placement===1?"1st place":r.placement===2?"2nd place":r.placement===3?"3rd place":"participation"})<span class="xp">+${r.xpGame} XP</span></div>`;
+  html += `<div class="rewardline">Game XP (${r.placement===1?"1st place":r.placement===2?"2nd place":r.placement===3?"3rd place":"participation"})<span class="xp">+${r.xpGame} XP</span></div>`;
   for (const a of (r.achievements||[]))
-    html += `<div class="rewardline">🏅 ${esc(a.name)}<span class="xp">+${a.xp} XP</span></div>`;
+    html += `<div class="rewardline">${esc(a.name)}<span class="xp">+${a.xp} XP</span></div>`;
   for (const a of (r.avatars||[]))
-    html += `<div class="rewardline">🐟 Avatar unlock: <b>${esc(a.name)}</b><span class="xp">NEW</span></div>`;
+    html += `<div class="rewardline">Avatar unlock: <b>${esc(a.name)}</b><span class="xp">NEW</span></div>`;
   html += `<div class="rewardline"><b>Total</b><span class="xp">+${r.xpTotal} XP</span></div>`;
   return html;
 }
@@ -1552,7 +1552,7 @@ function renderResults(el, v){
   const myRow = (res.standings||[]).find(r => r.seat === meSeat);
   const granted = res.rewardsGranted;
   el.innerHTML = `
-    <h2 style="text-align:center">🏆 ${esc(res.winner)} wins!</h2>
+    <h2 style="text-align:center">${esc(res.winner)} wins!</h2>
     <div id="res-stand"></div>
     ${myRow ? `<div class="panel" style="box-shadow:none;border:1.5px solid var(--line);margin:10px 0">
       <h3 style="margin-top:0">Your result, ${myRow.score} points (${myRow.placement===1?"1st":myRow.placement===2?"2nd":myRow.placement===3?"3rd":myRow.placement+"th"})</h3>

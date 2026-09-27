@@ -34,7 +34,7 @@
       --rb-shadow:   0 4px 18px rgba(20,85,150,.09);
       --rb-hero-bg:  linear-gradient(160deg, rgba(255,255,255,.97) 0%, rgba(224,245,255,.95) 60%, rgba(224,252,244,.95) 100%);
     }
-    /* Deep-ocean skin, matching the 💡 Strategy screen. Unused today:
+    /* Deep-ocean skin, matching the Strategy screen. Unused today:
        the in-game Rule Book reads .rb-light, like the published page. */
     .rb.rb-dark {
       --rb-ink:      #e8b34a;

@@ -92,9 +92,9 @@ const PROFILE = Object.assign({}, CARD("c1", "Reef Riders", "/avatars/clownfish.
   ],
   former_contributors: [{ uid: "u9", name: "Quinn", points: 25 }],
   activity: [
-    { ts: NOW - 300, type: "casual", text: "🌊 Alice finished 1st in a 4-player game (+2 pts)" },
-    { ts: NOW - 900, type: "trade", text: "🤝 Bob completed a clan trade (+1 pt)" },
-    { ts: NOW - 4000, type: "join", text: "🌊 Cara joined the clan" },
+    { ts: NOW - 300, type: "casual", text: "Alice finished 1st in a 4-player game (+2 pts)" },
+    { ts: NOW - 900, type: "trade", text: "Bob completed a clan trade (+1 pt)" },
+    { ts: NOW - 4000, type: "join", text: "Cara joined the clan" },
   ],
   events: [{ id: "e1", name: "Clan Game Night", ts: NOW + 7200, desc: "Casual games",
              host_uid: "u1", host_name: "Alice", attending: ["u1", "u2"], reminders: [] }],
@@ -165,7 +165,7 @@ const RESPONSES = {
   "/api/clan/chat-get": { ok: true, muted_until: 0, pinned: PROFILE.pinned_announcement,
     messages: [
       { id: "m1", ts: NOW - 600, uid: "u2", name: "Bob", kind: "msg", text: "Good game everyone" },
-      { id: "m2", ts: NOW - 300, uid: "", name: "", kind: "system", text: "🌊 Cara joined the clan" },
+      { id: "m2", ts: NOW - 300, uid: "", name: "", kind: "system", text: "Cara joined the clan" },
       { id: "m3", ts: NOW - 120, uid: "u1", name: "Alice", kind: "announce", text: "Practice tonight at 8!" },
     ] },
 };
@@ -695,7 +695,7 @@ function snapshot(name) {
         // Switching back to a passwordless mode hides the field again. Checked
         // BEFORE founding, a successful create leaves this screen entirely.
         const pubBtn = [...document.querySelectorAll(".ccC-btn")]
-          .find(b => /🌊 Public/.test(b.textContent));
+          .find(b => (b.textContent || "").trim() === "Public");
         if (pubBtn) {
           pubBtn.click(); await wait(120);
           out.createPw.hiddenAgain = !shown(pwField());
@@ -825,7 +825,7 @@ check("home: the podium shows the OTHER clans, not yours too",
 check("home: my clan appears exactly once on the screen",
       (home.text.match(/Reef Riders/g) || []).length === 1,
       "occurrences=" + (home.text.match(/Reef Riders/g) || []).length);
-check("home: the hero card carries its own medal", /🥇/.test(home.text));
+check("home: the hero card carries its own place", /#1/.test(home.text));
 check("home: the podium quotes the server's coin payout, not its own",
       /400 Critter Coins/.test(home.text) && !/150 Critter Coins/.test(home.text));
 check("home: 2nd and 3rd are still shown",
@@ -1026,7 +1026,7 @@ check("no clan: pressing Join opens the clan browser", cta.joinOpensBrowse === t
 
 // ── Password clans: create side ────────────────────────────────────────────
 const cpw = D.createPw || {};
-check("create: 🔑 Password is offered as a membership setting", cpw.optionFound === true);
+check("create: Password is offered as a membership setting", cpw.optionFound === true);
 check("create: the password box is hidden until Password is picked",
       cpw.hiddenByDefault === true);
 check("create: picking Password reveals the box", cpw.shownWhenPicked === true && cpw.hasInput === true);

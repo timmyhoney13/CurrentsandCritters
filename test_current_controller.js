@@ -160,10 +160,8 @@ check(/tournament_id/.test(room), "…nor a tournament match");
         "…and the votes that granted it are cleared with it");
 }
 
-console.log("\nthe lobby row, where the emotes were");
+console.log("\nthe lobby row");
 check(/id="wr-cc-row"/.test(HTML), "the row exists in the lobby markup");
-check(HTML.indexOf('id="wr-cc-row"') < HTML.indexOf('id="wr-emote-row"'),
-      "…and sits where the emotes are");
 check(/\.wr-cc-row \{/.test(CSS) && /\.wr-cc-ask/.test(CSS) && /\.wr-cc-chip/.test(CSS),
       "preview.css styles the row, the ask and the chip");
 // RUN the real renderer against a stub DOM, once per state the server can be
@@ -172,11 +170,10 @@ const lobby = grabFn("_ccLobbyRender", 2);
 function paint(controller, mayAsk) {
   const row = { innerHTML: "", hidden: false, listeners: [],
                 querySelectorAll: () => [], addEventListener() {} };
-  const emotes = { hidden: false };
   const box = {
     console,
     document: { getElementById: (id) =>
-      id === "wr-cc-row" ? row : (id === "wr-emote-row" ? emotes : null) },
+      id === "wr-cc-row" ? row : null },
     window: { __fishAuthUser: () => null,
               __fishSupporterTier: () => (mayAsk ? "tsunami" : "") },
     latestPayload: controller ? { controller } : null,
@@ -194,7 +191,7 @@ function paint(controller, mayAsk) {
     lobby,
     "_ccLobbyRender();",
   ].join("\n"), box);
-  return { html: row.innerHTML, rowHidden: row.hidden, emotesHidden: emotes.hidden };
+  return { html: row.innerHTML, rowHidden: row.hidden };
 }
 
 const base = { allowed_here: true, seat: null, asker: "", armed: false, denied: false,
@@ -202,16 +199,14 @@ const base = { allowed_here: true, seat: null, asker: "", armed: false, denied: 
                my_vote: null, is_mine: false };
 
 let r = paint({ ...base, allowed_here: false }, true);
-check(r.rowHidden && !r.emotesHidden,
-      "a competitive room shows the emotes and no Controller row at all");
+check(r.rowHidden, "a competitive room shows no Controller row at all");
 
 r = paint({ ...base }, false);
-check(r.rowHidden && !r.emotesHidden,
-      "a player who cannot hold it never sees the ask");
+check(r.rowHidden, "a player who cannot hold it never sees the ask");
 
 r = paint({ ...base }, true);
-check(!r.rowHidden && r.emotesHidden && /wr-cc-ask/.test(r.html),
-      "a Tsunami holder gets the ask, in place of the emotes");
+check(!r.rowHidden && /wr-cc-ask/.test(r.html),
+      "a Tsunami holder gets the ask");
 check(/will not count/.test(r.html), "…which says the game will not count");
 
 r = paint({ ...base, seat: 0, asker: "Sam", needed: 2, can_vote: true }, false);
@@ -227,7 +222,7 @@ check(!/wr-cc-yes/.test(r.html), "…and cannot vote on their own request");
 
 r = paint({ ...base, seat: 0, asker: "Sam", armed: true, needed: 1, yes: 1 }, false);
 check(/wr-cc-chip on/.test(r.html) && /Sam/.test(r.html), "armed shows a loud chip");
-check(r.emotesHidden, "…and keeps the row while the game is modded");
+check(!r.rowHidden, "…and keeps the row while the game is modded");
 
 r = paint({ ...base, seat: 0, asker: "Sam", denied: true, needed: 1, no: 1 }, false);
 check(/said no/.test(r.html), "denied says so");

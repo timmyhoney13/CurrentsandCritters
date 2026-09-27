@@ -465,7 +465,7 @@
     if (QUANTITY.has(t.type)) {
       return `<span class="ccCP-tier-amt">${fmt(num(t.amount))}</span>`;
     }
-    return `<span class="ccCP-tier-ico" aria-hidden="true">${esc(t.icon || "🎁")}</span>`;
+    return ``;
   }
 
   // The tiers whose whole reward is "how many": the face shows the number and
@@ -502,11 +502,11 @@
     } else if (st === "waiting") {
       // Reached, but the pass is not unlocked. This is the sales pitch: the
       // player is looking at a reward they have already earned the level for.
-      foot = `<span class="ccCP-tier-wait">🔓 Unlock to claim</span>`;
+      foot = `<span class="ccCP-tier-wait">Unlock to claim</span>`;
     } else {
       const left = xpUntil(num(t.level));
       foot = left == null
-        ? `<span class="ccCP-tier-lock">🔒 Level ${esc(t.level)}</span>`
+        ? `<span class="ccCP-tier-lock">Level ${esc(t.level)}</span>`
         : `<span class="ccCP-tier-togo"><b>${fmt(left)}</b> XP to go</span>`;
     }
 
@@ -579,23 +579,23 @@
     const days = num(_state && _state.seasonDays, 0);
     const perDay = num(_state && _state.seasonXpPerDay, 0);
     const highlights = [
-      ...(days && perDay ? [{ ico: "⏱️", big: "~" + fmt(days) + " days",
+      ...(days && perDay ? [{ big: "~" + fmt(days) + " days",
         txt: `of play to Level ${fmt(maxLvl)}, at about ${fmt(perDay)} XP a day` }] : []),
       { ico: `<img class="ccCP-hl-coin" src="/critter-coin.png?v=1" alt="" draggable="false">`,
         big: fmt(num(_state && _state.coinTotal)),
         txt: "Critter Coins across the track" },
-      { ico: "✨", big: fmt(num(_state && _state.xpTotal)),
+      { big: fmt(num(_state && _state.xpTotal)),
         txt: `XP, dropped over ${countOf("xp")} tiers` },
-      { ico: "📅", big: "+" + countOf("daily_slot"),
+      { big: "+" + countOf("daily_slot"),
         txt: "daily challenges, every day, for keeps" },
-      { ico: "🗝️", big: "+" + countOf("weekly_slot"),
+      { big: "+" + countOf("weekly_slot"),
         txt: "weekly challenges, every week, for keeps" },
-      { ico: "😀", big: String(countOf("emote")),
+      { big: String(countOf("emote")),
         txt: "critter chat emotes" },
-      { ico: "⭐", big: "1", txt: finale + " at Level 100" },
+      { big: "1", txt: finale + " at Level 100" },
     ].map(h => `
       <div class="ccCP-hl">
-        <span class="ccCP-hl-ico">${h.ico}</span>
+        ${h.ico ? `<span class="ccCP-hl-ico">${h.ico}</span>` : ""}
         <span class="ccCP-hl-txt"><b>${esc(h.big)}</b><span>${esc(h.txt)}</span></span>
       </div>`).join("");
 
@@ -608,7 +608,7 @@
       // note says what redeeming here actually uses up.
       action = `
         <button class="ccCP-buy" type="button" id="ccCP-buy">
-          🎟️ Redeem Season Pass Voucher
+          Redeem Season Pass Voucher
         </button>
         <div class="ccCP-buy-note">You have <b>${fmt(vouchers)}</b> Season Pass voucher${vouchers === 1 ? "" : "s"}.
           Redeeming here spends one on <b>${esc((_state && _state.seasonName) || "this season")}</b>${vouchers > 1 ? ", and the rest keep for a future season" : ""}.
@@ -673,7 +673,7 @@
     // saying "0 XP until nothing" is worse than saying they are finished.
     let nextLine;
     if (!nxt) {
-      nextLine = `<span class="ccCP-next-done">Every reward on the Critter Pass is yours. 🐙</span>`;
+      nextLine = `<span class="ccCP-next-done">Every reward on the Critter Pass is yours.</span>`;
     } else {
       const left = xpUntil(num(nxt.level));
       const what = `<b>${esc(nxt.label)}</b>`;
@@ -718,7 +718,6 @@
         </div>
         <div class="ccCP-chips">
           <div class="ccCP-chip">
-            <span class="ccCP-chip-ico">🎣</span>
             <span class="ccCP-chip-txt"><b>Account Level ${esc(acctLvl)}</b><span>your lifetime level, on the Level Pass</span></span>
           </div>
           <div class="ccCP-chip">
@@ -726,16 +725,13 @@
             <span class="ccCP-chip-txt"><b>${fmt(inv.coins)}</b><span>Critter Coins</span></span>
           </div>
           <div class="ccCP-chip${eD ? "" : " is-empty"}">
-            <span class="ccCP-chip-ico">📅</span>
             <span class="ccCP-chip-txt">${slotChipHtml(eD, maxD, "Daily Challenge")}</span>
           </div>
           <div class="ccCP-chip${eW ? "" : " is-empty"}">
-            <span class="ccCP-chip-ico">🗝️</span>
             <span class="ccCP-chip-txt">${slotChipHtml(eW, maxW, "Weekly Challenge")}</span>
           </div>
           ${vouchers > 0 ? `
           <div class="ccCP-chip">
-            <span class="ccCP-chip-ico">🎟️</span>
             <span class="ccCP-chip-txt"><b>${fmt(vouchers)} Season Pass Voucher${vouchers === 1 ? "" : "s"}</b><span>${owned()
               ? "spendable on a future season, or tradable" : "redeem one for this season"}</span></span>
           </div>` : ""}
@@ -756,7 +752,6 @@
     return `
       <div class="ccCP ccCP-is-closed">
         <div class="ccCP-closed" role="status">
-          <div class="ccCP-closed-ico" aria-hidden="true">\u{1F422}</div>
           <div class="ccCP-closed-title">Coming soon</div>
           <div class="ccCP-closed-desc">The Critter Pass is closed while we get it ready, so it can't be unlocked or claimed here right now.</div>
           <div class="ccCP-closed-note">Nothing is lost. If you already own the pass it is still yours, your extra daily and weekly challenges still work, and every reward you haven't claimed yet is held on your account, waiting for you when the track opens back up.</div>
@@ -857,7 +852,6 @@
     // on a dialog nobody saw.
     let answer = null;
     try { answer = bridge().modal ? await bridge().modal({
-      icon: "🎟️",
       title: "Unlock the Critter Pass?",
       body: `This spends ${fmt(price)} Critter Coins, once. Your Pass Level starts at 1 `
           + `and climbs on the XP you earn from here${xpPerPassLevel()
@@ -905,7 +899,6 @@
     const season = String((_state && _state.seasonName) || "this season");
     let answer = null;
     try { answer = bridge().modal ? await bridge().modal({
-      icon: "🎟️",
       title: "Redeem a Season Pass voucher?",
       body: `This spends 1 of your ${fmt(vouchers)} voucher${vouchers === 1 ? "" : "s"} `
           + `on ${season} and unlocks the Critter Pass straight away. `

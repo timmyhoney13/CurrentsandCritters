@@ -48,7 +48,7 @@
 <body>
   <div class="wrap">
     <header>
-      <h1>🪸 Supporter Reef Wall</h1>
+      <h1>Supporter Reef Wall</h1>
       <p class="sub">Every name here belongs to someone who helped Currents and Critters grow. The longer you support, the bigger your name swims on the reef.</p>
     </header>
     <div class="legend">
@@ -81,7 +81,7 @@
   function render(list){
     var wall = document.getElementById("wall");
     if(!list || !list.length){
-      wall.innerHTML = '<div class="state">No approved supporters on the wall yet, be the first! 🐠</div>';
+      wall.innerHTML = '<div class="state">No approved supporters on the wall yet, be the first!</div>';
       return;
     }
     wall.innerHTML = list.map(function(s){

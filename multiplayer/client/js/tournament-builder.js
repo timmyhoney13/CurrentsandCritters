@@ -30,12 +30,12 @@
   const BOX_W = 210, GRID = 10;
 
   const KIND_META = {
-    [K_OPEN]:   { icon: "🌊", name: "Open",             hint: "A person or an AI can take this spot." },
-    [K_HUMAN]:  { icon: "🧑", name: "Player only",      hint: "Only a real player can take this spot." },
-    [K_AI]:     { icon: "🤖", name: "AI only",          hint: "Always filled by a bot." },
-    [K_INVITE]: { icon: "✉️", name: "Invite only",      hint: "Reserved for one named player." },
-    [K_WINNER]: { icon: "🏅", name: "Winner from…",     hint: "Filled by the winner of another match." },
-    [K_TOP]:    { icon: "🎖", name: "Top player from…", hint: "Filled by an advancing player of another match." },
+    [K_OPEN]:   { name: "Open",             hint: "A person or an AI can take this spot." },
+    [K_HUMAN]:  { name: "Player only",      hint: "Only a real player can take this spot." },
+    [K_AI]:     { name: "AI only",          hint: "Always filled by a bot." },
+    [K_INVITE]: { name: "Invite only",      hint: "Reserved for one named player." },
+    [K_WINNER]: { name: "Winner from…",     hint: "Filled by the winner of another match." },
+    [K_TOP]:    { name: "Top player from…", hint: "Filled by an advancing player of another match." },
   };
   const LABEL_PRESETS = ["Round 1", "Round 2", "Quarterfinal", "Semifinal", "Final",
                          "Losers Bracket", "Play-in", "Group Stage", "Grand Final"];
@@ -623,7 +623,7 @@
     s = el("div"); s.id = "ccTB";
     s.innerHTML = `
       <div class="ccTB-head">
-        <h2>🎨 Bracket Builder</h2>
+        <h2>Bracket Builder</h2>
         <div class="ccTB-menu" id="ccTB-addm">
           <button class="ccTB-b sm" id="ccTB-add">＋ Add Match ▾</button>
           <div class="ccTB-menu-pop">
@@ -644,11 +644,11 @@
             <button data-per="4">4-player matches</button>
             <button data-per="6">6-player matches</button>
             <button data-per="8">8-player matches</button>
-            <button data-act="connect">🔗 Connect leftovers to existing spots</button>
+            <button data-act="connect">Connect leftovers to existing spots</button>
           </div>
         </div>
         <div class="ccTB-menu" id="ccTB-tplm">
-          <button class="ccTB-b sm ghost" id="ccTB-tpl">📐 Quick start ▾</button>
+          <button class="ccTB-b sm ghost" id="ccTB-tpl">Quick start ▾</button>
           <div class="ccTB-menu-pop wide">
             <div class="ccTB-menu-note">Build a whole bracket, then edit anything.</div>
             <label class="ccTB-fld">Players
@@ -855,7 +855,7 @@
     const ports = el("div", "ccTB-ports");
     for (let r = 1; r <= m.advance; r++) {
       const used = B.matches.some(t => t.slots.some(sl => sl.source === m.id && sl.rank === r));
-      const p = el("div", "ccTB-port" + (used ? " used" : ""), r === 1 ? "🏅" : String(r));
+      const p = el("div", "ccTB-port" + (used ? " used" : ""), String(r));
       p.title = `${placeWord(r)} of ${display(m.id)}: drag onto a spot in a later match`;
       p.dataset.mid = m.id; p.dataset.rank = String(r);
       p.addEventListener("mousedown", (e) => startLink(e, m.id, r));
@@ -879,7 +879,6 @@
     const fed = (s.kind === K_WINNER || s.kind === K_TOP);
     const row = el("div", "ccTB-row" + (fed ? " fed" : ""));
     row.dataset.mid = m.id; row.dataset.si = String(si);
-    row.appendChild(el("span", "ccTB-ic", (KIND_META[s.kind] || KIND_META[K_OPEN]).icon));
     if (fed) {
       const src = byId(s.source);
       const txt = src ? `${placeWord(s.rank)} of ${esc(display(s.source))}` : "not connected";
@@ -940,7 +939,7 @@
       <div class="ccTB-stat"><span>Advancing per match</span><b>${advTxt}</b></div>
       <div class="ccTB-stat"><span>Round shape</span><b>${rows.map(r => r.length).join(" → ") || "-"}</b></div>`;
     ENTRY_KINDS.forEach(k => {
-      if (kinds[k]) html += `<div class="ccTB-stat"><span>${KIND_META[k].icon} ${KIND_META[k].name}</span><b>${kinds[k]}</b></div>`;
+      if (kinds[k]) html += `<div class="ccTB-stat"><span>${KIND_META[k].name}</span><b>${kinds[k]}</b></div>`;
     });
     if (B.errors.length) {
       html += `<h3 style="margin-top:14px">Before you can open it</h3>`;
@@ -959,11 +958,11 @@
         still need a seat: <b>＋ Add Round</b> seats and connects them all at once.</div>`;
     }
     html += `<div class="ccTB-tip"><b>How to build:</b><br>
-      • <b>📐 Quick start</b> builds a whole bracket: players, match size, and who advances.<br>
+      • <b>Quick start</b> builds a whole bracket: players, match size, and who advances.<br>
       • <b>＋ Add Round</b> takes everyone still advancing and connects them into a new round in one click.<br>
       • <b>＋ Add Match</b> drops a single box: set <i>Players</i> (2–8) inside it.<br>
       • Drag a box anywhere (or by its ⠿ grip) to move it.<br>
-      • Drag the gold 🏅 handle on a match's right edge onto a spot in another match to send its winner there.<br>
+      • Drag the gold handle on a match's right edge onto a spot in another match to send its winner there.<br>
       • <b>Advance</b> sets how many players get out of a match (top 1, top 2, top 3…); each one gets its own handle.<br>
       • Every spot can be Open, Player only, AI only, or Invite only.</div>`;
     side.innerHTML = html;

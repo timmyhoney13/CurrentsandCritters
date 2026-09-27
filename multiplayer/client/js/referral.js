@@ -119,7 +119,7 @@
       <div class="ccRF-prog">
         <div class="ccRF-prog-top">
           <span class="ccRF-prog-lbl">${fmt(count)} friend${count === 1 ? "" : "s"} joined</span>
-          <span class="ccRF-prog-goal">${toNext} more → free background 🖼️</span>
+          <span class="ccRF-prog-goal">${toNext} more → free background</span>
         </div>
         <div class="ccRF-bar"><div class="ccRF-bar-fill" style="width:${pct}%"></div></div>
         ${earned ? `<div class="ccRF-earned">✓ ${fmt(earned)} background${earned === 1 ? "" : "s"} earned so far</div>` : ""}
@@ -157,7 +157,6 @@
     return `
       <div class="ccRF">
         <div class="ccRF-head">
-          <span class="ccRF-ico" aria-hidden="true">🎁</span>
           <div>
             <div class="ccRF-title">Invite a Friend</div>
             <div class="ccRF-sub">They sign up with Google and type your code:
@@ -226,7 +225,7 @@
       const who = String(res.referrerName || "").trim();
       toast(`+${fmt(res.coins)} Critter Coins, and ${who || "your friend"} got ${fmt(res.coins)} too!`, "good");
       if (res.backgroundGranted) {
-        toast("🖼️ Your friend earned a free background from that referral!", "good");
+        toast("Your friend earned a free background from that referral!", "good");
       }
       render();   // repaints into the "you joined with …" state
     } else {

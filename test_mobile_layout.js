@@ -154,13 +154,13 @@ const page = (nCards, nSeats) => `<!doctype html><html><head><meta charset="utf-
    </div>
   </div>
   <div id="pv-action-bar">
-    <button id="pv-help-btn"><span class="help-label">&#128161; Strategy</span></button>
+    <button id="pv-help-btn"><span class="help-label">Strategy</span></button>
     <div id="pv-play-controls" style="display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap;">
       <select id="pv-action-select"><option>Choose action…</option></select>
       <button class="pv-btn" id="pv-play-btn">Play Card</button>
     </div>
     <div style="flex:1;"></div>
-    <button class="pv-btn pv-btn-surf" id="pv-surf-btn">&#127940; Surf's Up!!</button>
+    <button class="pv-btn pv-btn-surf" id="pv-surf-btn">Surf's Up!!</button>
     <button class="pv-btn" id="pv-undo-btn">&#8617; Undo Turn</button>
     <button class="pv-btn end-turn" id="pv-end-turn-inline">&#10003; End Turn</button>
   </div>
@@ -195,7 +195,7 @@ const page = (nCards, nSeats) => `<!doctype html><html><head><meta charset="utf-
   for (var s = 0; s < 8; s++) {
     var seat = document.createElement("div");
     seat.className = "pv-seat" + (s >= ${nSeats} ? " pv-seat-empty" : "") + (s === 0 ? " active-turn" : "");
-    var aw = document.createElement("div"); aw.className = "pv-seat-avatar-wrap"; aw.textContent = s >= ${nSeats} ? "🔒" : "🐟";
+    var aw = document.createElement("div"); aw.className = "pv-seat-avatar-wrap"; aw.textContent = s >= ${nSeats} ? "-" : "F";
     var nm = document.createElement("div"); nm.className = "pv-seat-name";
     var pl = document.createElement("span"); pl.className = "pv-seat-plabel"; pl.textContent = "P" + (s + 1);
     nm.appendChild(pl); nm.appendChild(document.createTextNode(s >= ${nSeats} ? "Empty" : "Player " + (s + 1)));
@@ -344,7 +344,7 @@ if (!narrowBlock) {
 // toolbars retracted, not the height it has. html/body are overflow:hidden, so
 // the difference is not scrolled to, it is sliced off the bottom of #pv-game,
 // and the bottom of #pv-game is the bottom of a seat pill, which is its
-// "⭐ N pts · 🃏M" line. Every player's score and card count, gone. What is
+// "N pts · M cards" line. Every player's score and card count, gone. What is
 // left is panning the visual viewport, which is how the Menu button at the TOP
 // then disappeared instead ("you have to tilt your screen to see it").
 const gameBlock = (() => {

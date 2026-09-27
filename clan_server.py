@@ -1303,7 +1303,7 @@ def _apply_award(db, clan_id: str, uid: str, name: str, *, kind: str,
             goal_done_now = True
             clan["xp"] = int(clan.get("xp") or 0) + DAILY_GOAL_XP
             _activity_push(clan, "daily_goal",
-                           f"🌞 Daily goal complete: {(daily.get('goal') or {}).get('label')} (+{DAILY_GOAL_XP} Clan XP)")
+                           f"Daily goal complete: {(daily.get('goal') or {}).get('label')} (+{DAILY_GOAL_XP} Clan XP)")
 
         # Weekly counters.
         weekly = _weekly_slot(clan)
@@ -1364,9 +1364,9 @@ def _apply_award(db, clan_id: str, uid: str, name: str, *, kind: str,
     if out.get("ok"):
         _lb_invalidate()
         if out.get("goal_done"):
-            _chat_system(db, clan_id, "🌞 Today's clan goal is complete! +25 Clan XP")
+            _chat_system(db, clan_id, "Today's clan goal is complete! +25 Clan XP")
         for ch in out.get("challenges_done") or []:
-            _chat_system(db, clan_id, f"🏁 {ch.get('scope', 'Weekly')} challenge complete: {ch.get('name')}!")
+            _chat_system(db, clan_id, f"{ch.get('scope', 'Weekly')} challenge complete: {ch.get('name')}!")
             _grant_challenge_xp(db, clan_id, ch)
     return out
 
@@ -1401,7 +1401,7 @@ def _sweep_challenges(clan: Dict[str, Any], slot: Dict[str, Any],
             slot["points"] = _num(_num(slot.get("points")) + cp)
             slot["last_gain_ts"] = _now()
         _activity_push(clan, "challenge",
-                       f"🏁 {scope} challenge complete: {ch.get('name')} (+{cp} Clan Points)")
+                       f"{scope} challenge complete: {ch.get('name')} (+{cp} Clan Points)")
         entry = dict(ch)
         entry["scope"] = scope
         out.append(entry)
@@ -1728,10 +1728,10 @@ def _finalize_season_bonuses(db, sid: str) -> None:
             continue
         note = ""
         if rank_points:
-            note = f"🏅 Competitive rank bonus: +{rank_points} Clan Points from the squad's ranks"
+            note = f"Competitive rank bonus: +{rank_points} Clan Points from the squad's ranks"
         _bump_season(db, clan_id, sid=sid, add=add, set_to=set_to, activity=note)
         if set_to.get("beat_rival"):
-            _chat_system(db, clan_id, "⚔️ We finished the season ahead of our rival!")
+            _chat_system(db, clan_id, "We finished the season ahead of our rival!")
 
 
 def ensure_season_finalized(db) -> None:
@@ -1897,7 +1897,7 @@ def ensure_season_finalized(db) -> None:
                                          "sid": prev, "season": _season_number(prev),
                                          "until": end + MVP_ICON_DAYS * 24 * 3600}
                 _activity_push(clan, "season",
-                               f"🏆 Season {_season_number(prev)} final: #{place}"
+                               f"Season {_season_number(prev)} final: #{place}"
                                + (f": rewards paid to {len(rewarded)} member(s)" if rewarded else ""))
                 stamp["activity"] = clan.get("activity")
                 # Keep the doc from growing forever: only the last SEASON_KEEP
@@ -1917,9 +1917,9 @@ def ensure_season_finalized(db) -> None:
                     stamp[field] = merged
                 clan_ref.set(stamp, merge=True)
                 _chat_system(db, r["id"],
-                             f"🏆 Season {_season_number(prev)} ({_season_name(prev)}) finished: "
+                             f"Season {_season_number(prev)} ({_season_name(prev)}) finished: "
                              f"{clan.get('name')} placed #{place}!"
-                             + (f" MVP: {mvp['name']} 🎖" if mvp else ""))
+                             + (f" MVP: {mvp['name']}" if mvp else ""))
             meta_ref.set({
                 "sid": prev, "season": _season_number(prev), "name": _season_name(prev),
                 "finalized": True, "finalizing": False, "ts": _now(),
@@ -2259,8 +2259,8 @@ def claim_game_points(uid: str, room_id: str) -> Dict[str, Any]:
         res = _apply_award(
             db, clan_id, uid, display_name, kind="comp",
             points=pts, dedup_id=dedup,
-            activity_text=(f"⚔️ {display_name} won a competitive match (+{{pts}} pts)" if won
-                           else f"⚔️ {display_name} finished a competitive match"),
+            activity_text=(f"{display_name} won a competitive match (+{{pts}} pts)" if won
+                           else f"{display_name} finished a competitive match"),
             counts_game=True, is_comp_win=won, is_comp_loss=(not won and not crec.get("is_draw")),
             meta={"room": room_id, "opp": opp, "won": won,
                   "opp_capped": bool(won and not allowed)},
@@ -2335,7 +2335,7 @@ def claim_game_points(uid: str, room_id: str) -> Dict[str, Any]:
     res = _apply_award(
         db, clan_id, uid, display_name, kind="casual",
         points=pts, dedup_id=dedup,
-        activity_text=f"🌊 {display_name} finished {ordinal} in a {n_players}-player game (+{{pts}} pts)",
+        activity_text=f"{display_name} finished {ordinal} in a {n_players}-player game (+{{pts}} pts)",
         counts_game=True, is_casual_win=(place == 1),
         meta={"room": room_id, "place": place, "players": n_players,
               "bots_only": not has_real_opponent, "opp_capped": not allowed},
@@ -2394,7 +2394,7 @@ def _bump_season(db, clan_id: str, *, add: Optional[Dict[str, Any]] = None,
     if out.get("ok"):
         _lb_invalidate()
         for ch in out.get("challenges_done") or []:
-            _chat_system(db, clan_id, f"🏁 Season challenge complete: {ch.get('name')}!")
+            _chat_system(db, clan_id, f"Season challenge complete: {ch.get('name')}!")
             _grant_challenge_xp(db, clan_id, ch)
     return out
 
@@ -2626,7 +2626,7 @@ def on_trade_completed(db, trade: Dict[str, Any]) -> Dict[str, Any]:
                 db, clan_a, p, nm, kind="trade",
                 points=POINTS_TRADE_DAILY,
                 dedup_id=f"t_{today}_{p}",   # ONE trade point per player per day
-                activity_text=f"🤝 {nm} completed a clan trade (+{{pts}} pt)",
+                activity_text=f"{nm} completed a clan trade (+{{pts}} pt)",
                 is_trade=True, count_trade=not counted,
                 meta={"pair": pair_key})
             if res.get("ok"):
@@ -2703,7 +2703,7 @@ def _create_clan(uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
         }
         if pw_record:
             clan["join_password"] = pw_record
-        _activity_push(clan, "create", f"🛡️ {nick} founded the clan")
+        _activity_push(clan, "create", f"{nick} founded the clan")
         t.set(clan_ref, clan)
         t.set(name_ref, {"clan_id": clan_id, "ts": _now()})
         t.set(user_ref, {"clan_id": clan_id, "clan_joined_ts": _now()}, merge=True)
@@ -2715,7 +2715,7 @@ def _create_clan(uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
         print(f"[clan] create failed: {exc}")
         return {"ok": False, "error": "create_failed"}
     if res.get("ok"):
-        _chat_system(db, clan_id, f"🛡️ Welcome to {name}! This is your private clan chat.")
+        _chat_system(db, clan_id, f"Welcome to {name}! This is your private clan chat.")
     return res
 
 
@@ -2894,7 +2894,7 @@ def _apply_rename(db, clan_id: str, new_name: str, *, owner_uid: str = "",
             nsnap = new_ref.get(transaction=t)
             if nsnap.exists and str((nsnap.to_dict() or {}).get("clan_id") or "") != clan_id:
                 return {"ok": False, "error": "name_taken"}
-        _activity_push(cur, "rename", f"✏️ {cur_name} is now called {new_name}")
+        _activity_push(cur, "rename", f"{cur_name} is now called {new_name}")
         t.set(clan_ref, {"name": new_name, "nameLower": new_lower,
                          "renamed_ts": _now(), "activity": cur.get("activity")},
               merge=True)
@@ -2918,7 +2918,7 @@ def _apply_rename(db, clan_id: str, new_name: str, *, owner_uid: str = "",
     # happened into one the owner is told to try again, staring at the new name
     # with the day's rename already spent.
     try:
-        _chat_system(db, clan_id, f"✏️ {old_name} is now called {new_name}!")
+        _chat_system(db, clan_id, f"{old_name} is now called {new_name}!")
         _propagate_clan_name(db, clan_id, old_name, new_name, state.get("members") or [])
     except Exception as exc:  # noqa: BLE001
         print(f"[clan] rename: post-commit repaint failed: {exc}")
@@ -2996,7 +2996,7 @@ def _join_clan(uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
         # Fresh Recruits: see _join_clan_direct.
         slot = _season_slot(clan, _clan_sid())
         slot["new_members"] = _num(slot.get("new_members")) + 1
-        _activity_push(clan, "join", f"🌊 {nick} joined the clan")
+        _activity_push(clan, "join", f"{nick} joined the clan")
         t.set(clan_ref, clan)
         t.set(user_ref, {"clan_id": clan_id, "clan_joined_ts": _now(),
                          "clan_invites": [i for i in invites if str(i.get("clan_id")) != clan_id]},
@@ -3010,7 +3010,7 @@ def _join_clan(uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
         return {"ok": False, "error": "join_failed"}
     if res.get("ok"):
         _members_invalidate([uid])
-        _chat_system(db, clan_id, f"🌊 {res.pop('nick', 'A new member')} joined the clan: say hi!")
+        _chat_system(db, clan_id, f"{res.pop('nick', 'A new member')} joined the clan: say hi!")
         _bump_season(db, clan_id)      # re-sweep: the new arrival may finish one
     return res
 
@@ -3050,7 +3050,7 @@ def _leave_clan(uid: str, *, kicked_by: Optional[str] = None,
         del members[uid]
         clan["members"] = members
         verb = "was removed from" if kicked_by else "left"
-        _activity_push(clan, "leave", f"👋 {nick} {verb} the clan")
+        _activity_push(clan, "leave", f"{nick} {verb} the clan")
         if not members:
             # Last member out → the clan dissolves; free the name.
             t.delete(clan_ref)
@@ -3070,7 +3070,7 @@ def _leave_clan(uid: str, *, kicked_by: Optional[str] = None,
         _members_invalidate([uid])     # they are clanless again from this moment
     if res.get("ok") and not res.get("gone") and not res.get("dissolved"):
         _chat_system(db, clan_id,
-                     f"👋 {res.pop('nick', 'A member')} "
+                     f"{res.pop('nick', 'A member')} "
                      + ("was removed from the clan." if kicked_by else "left the clan."))
     return res
 
@@ -3466,11 +3466,11 @@ def clan_rules() -> Dict[str, Any]:
             "Leaving or being removed from a clan starts a 24-hour cooldown "
             "before you can join another. Points you earned stay with the clan.",
             f"A clan holds up to {CLAN_MAX_MEMBERS} members.",
-            "The owner chooses how people get in: 🌊 Public (anyone joins "
-            "instantly), 🔑 Password (anyone who knows the clan's password "
+            "The owner chooses how people get in: Public (anyone joins "
+            "instantly), Password (anyone who knows the clan's password "
             f"joins instantly: {CLAN_PASSWORD_MIN}–{CLAN_PASSWORD_MAX} "
-            "characters, changeable any time), ✉️ Request to Join (the owner "
-            "or a recruiter approves each one) or 🔒 Invite Only. An invite "
+            "characters, changeable any time), Request to Join (the owner "
+            "or a recruiter approves each one) or Invite Only. An invite "
             "always gets you in, whichever setting is on.",
             f"The owner can rename the clan once every "
             f"{CLAN_RENAME_COOLDOWN_SEC // 3600} hours. The new name replaces "
@@ -3692,7 +3692,7 @@ def _admin_set_points(db, clan_id: str, target: Any, scale_contrib: bool = False
         if lifetime:
             life = c.setdefault("lifetime", {})
             life["points"] = _num(_num(life.get("points")) + _num(target - live_before))
-        _activity_push(c, "bonus", f"⚙️ Clan Points set to {target} by an admin"
+        _activity_push(c, "bonus", f"Clan Points set to {target} by an admin"
                        + (f": {note}" if note else ""))
         t.set(ledger_ref, {
             "ts": _now(), "uid": "", "name": "admin", "kind": "admin_set",
@@ -4125,7 +4125,7 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
             _users(db).document(to_uid).collection("messages").document(
                 f"claninvite_{clan_id}_{_now()}").set({
                     "from": uid, "fromName": inviter, "kind": "clan_invite",
-                    "text": f"🛡️ {inviter} invited you to join the clan "
+                    "text": f"{inviter} invited you to join the clan "
                             f"“{clan.get('name')}”: open the Clans tab to accept!",
                     "clan_id": clan_id, "clan_name": clan.get("name"),
                     "clan_icon": clan.get("icon"), "ts": _now(), "read": False,
@@ -4215,7 +4215,7 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
         members = clan.get("members") or {}
         members[target] = {**tmem, "role": new_role, "custom_role_id": custom_id}
         label = new_role + (f" · {custom_id}" if custom_id else "")
-        _activity_push(clan, "role", f"🎖 {tmem.get('name')} is now {label}")
+        _activity_push(clan, "role", f"{tmem.get('name')} is now {label}")
         _clans(db).document(clan_id).set({"members": members, "activity": clan.get("activity")}, merge=True)
         return {"ok": True}
 
@@ -4230,10 +4230,10 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
         members[uid] = {**members[uid], "role": "captain"}
         members[target] = {**tmem, "role": "owner", "custom_role_id": None}
         _activity_push(clan, "transfer",
-                       f"👑 {tmem.get('name')} is the new clan owner")
+                       f"{tmem.get('name')} is the new clan owner")
         _clans(db).document(clan_id).set({"members": members, "owner_uid": target,
                                           "activity": clan.get("activity")}, merge=True)
-        _chat_system(db, clan_id, f"👑 {tmem.get('name')} is the new clan owner!")
+        _chat_system(db, clan_id, f"{tmem.get('name')} is the new clan owner!")
         return {"ok": True}
 
     if action == "rename":
@@ -4286,7 +4286,7 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
             updates["captains_can_edit_roles"] = bool(body.get("captains_can_edit_roles"))
         if not updates:
             return {"ok": False, "error": "nothing_to_update"}
-        _activity_push(clan, "settings", "⚙️ Clan settings updated")
+        _activity_push(clan, "settings", "Clan settings updated")
         updates["activity"] = clan.get("activity")
         _clans(db).document(clan_id).set(updates, merge=True)
         return {"ok": True}
@@ -4323,7 +4323,7 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
             if not hit:
                 return {"ok": False, "error": "no_such_role"}
             hit["name"], hit["perms"] = rname, perms
-        _activity_push(clan, "roles", f"🧩 Custom role “{rname}” {'created' if op == 'create' else 'updated'}")
+        _activity_push(clan, "roles", f"Custom role “{rname}” {'created' if op == 'create' else 'updated'}")
         _clans(db).document(clan_id).set({"custom_roles": roles, "activity": clan.get("activity")}, merge=True)
         return {"ok": True, "roles": roles}
 
@@ -4340,7 +4340,7 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
         updates: Dict[str, Any] = {}
         if pin:
             updates["pinned_announcement"] = {"text": text, "by": me.get("name"), "ts": _now()}
-        _activity_push(clan, "announce", f"📣 {me.get('name')}: {text[:80]}")
+        _activity_push(clan, "announce", f"{me.get('name')}: {text[:80]}")
         updates["activity"] = clan.get("activity")
         _clans(db).document(clan_id).set(updates, merge=True)
         try:
@@ -4469,9 +4469,9 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
                   "host_uid": uid, "host_name": me.get("name"),
                   "attending": [uid], "reminders": []}
             events.append(ev)
-            _activity_push(clan, "event", f"📅 Event scheduled: {name}")
+            _activity_push(clan, "event", f"Event scheduled: {name}")
             _clans(db).document(clan_id).set({"events": events, "activity": clan.get("activity")}, merge=True)
-            _chat_system(db, clan_id, f"📅 New clan event: {name}: check the Events tab!")
+            _chat_system(db, clan_id, f"New clan event: {name}: check the Events tab!")
             # "Organize three events with your clan" counts events SCHEDULED,
             # so deleting one afterwards can't un-count it (and re-creating it
             # can't double-count, because each create is one new event).
@@ -4520,11 +4520,11 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
             return {"ok": False, "error": "no_clan"}
         rivals[sid] = target
         _activity_push(clan, "rival",
-                       f"⚔️ Friendly rivalry declared with {(tsnap.to_dict() or {}).get('name')}")
+                       f"Friendly rivalry declared with {(tsnap.to_dict() or {}).get('name')}")
         _clans(db).document(clan_id).set({"rivals": rivals,
                                           "activity": clan.get("activity")}, merge=True)
         _chat_system(db, clan_id,
-                     f"⚔️ {(tsnap.to_dict() or {}).get('name')} is our friendly rival this season!")
+                     f"{(tsnap.to_dict() or {}).get('name')} is our friendly rival this season!")
         # Choose Your Rival is a one-shot flag, not a counter: swapping rivals
         # a dozen times can't score it a dozen times.
         _bump_season(db, clan_id, set_to={"rival_set": 1})
@@ -4596,7 +4596,7 @@ def _join_clan_direct(db, uid: str, clan_id: str) -> Dict[str, Any]:
         # transaction as the arrival itself.
         slot = _season_slot(clan, _clan_sid())
         slot["new_members"] = _num(slot.get("new_members")) + 1
-        _activity_push(clan, "join", f"🌊 {nick} joined the clan")
+        _activity_push(clan, "join", f"{nick} joined the clan")
         t.set(clan_ref, clan)
         t.set(user_ref, {"clan_id": clan_id, "clan_joined_ts": _now()}, merge=True)
         return {"ok": True, "nick": nick}
@@ -4608,6 +4608,6 @@ def _join_clan_direct(db, uid: str, clan_id: str) -> Dict[str, Any]:
         return {"ok": False, "error": "join_failed"}
     if res.get("ok"):
         _members_invalidate([uid])
-        _chat_system(db, clan_id, f"🌊 {res.pop('nick', 'A new member')} joined the clan: say hi!")
+        _chat_system(db, clan_id, f"{res.pop('nick', 'A new member')} joined the clan: say hi!")
         _bump_season(db, clan_id)      # re-sweep: the new arrival may finish one
     return res

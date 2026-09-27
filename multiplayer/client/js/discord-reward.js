@@ -347,7 +347,6 @@
       const invite = (_state && _state.inviteUrl) || "https://discord.gg/RZgZEKYJn6";
       const coins = fmt((_state && _state.coins) || 0);
       const choice = await b.modal({
-        icon: "💬",
         title: "Join the server first",
         body: `We asked Discord and you're not in the Currents and Critters server yet. `
             + `Join it, then claim again to get your ${coins} Critter Coins.`,

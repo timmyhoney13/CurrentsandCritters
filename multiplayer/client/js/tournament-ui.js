@@ -117,7 +117,7 @@
       background:var(--ccT-glass); color:var(--ccT-ink); transition:transform .12s, border-color .12s, box-shadow .12s; }
     .ccT-fmt:hover{ transform:translateY(-2px); border-color:rgba(50,140,240,.6); }
     .ccT-fmt.sel{ border-color:var(--ccT-gold); box-shadow:0 0 0 3px rgba(243,167,18,.22); background:#fff; }
-    .ccT-fmt .ccT-fmt-title{ font-weight:800; font-size:.98rem; color:#0c3472; }
+    .ccT-fmt .ccT-fmt-title{ font-weight:800; font-size:1.058rem; color:#0c3472; }
     .ccT-fmt .ccT-fmt-mini{ display:flex; gap:3px; justify-content:center; margin:7px 0 5px; }
     .ccT-fmt .ccT-dot{ width:8px; height:8px; border-radius:50%; background:#2f8ce0; opacity:.9; }
     .ccT-fmt .ccT-fmt-meta{ font-size:.72rem; color:#3a6aa5; }
@@ -155,7 +155,7 @@
     .ccT-pl.swap-over{ outline:2.5px dashed var(--ccT-gold); outline-offset:1px; }
     .ccT-pl.swap-sel{ outline:2.5px solid var(--ccT-gold); outline-offset:1px; background:rgba(243,167,18,.14); }
     .ccT-btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;
-      border:none; border-radius:16px; padding:13px 18px; font-size:1rem; font-weight:800; color:#0c2858;
+      border:none; border-radius:16px; padding:13px 18px; font-size:1.08rem; font-weight:800; color:#0c2858;
       font-family:"Nunito",sans-serif; letter-spacing:.2px;
       background:linear-gradient(100deg,#fbbf58 0%,#fdc964 50%,#fcc55c 100%); box-shadow:0 6px 20px rgba(200,130,10,.28);
       transition:filter .15s, transform .12s, box-shadow .15s; }
@@ -166,7 +166,7 @@
     .ccT-btn.ghost:hover:not(:disabled){ background:#fff; }
     .ccT-btn.gold{ background:linear-gradient(100deg,#f7b733 0%,#fdc964 100%); }
     .ccT-btn.coral{ background:linear-gradient(120deg,#ff8a6a,#ff6a86); color:#fff; box-shadow:0 6px 20px rgba(255,90,110,.3); }
-    .ccT-btn.sm{ padding:8px 13px; font-size:.85rem; border-radius:12px; }
+    .ccT-btn.sm{ padding:8px 13px; font-size:0.918rem; border-radius:12px; }
 
     /* full-screen tournament: light ocean surface. Sits above the end-of-game
        screen (9850) so opening the bracket from a finished match actually shows it. */
@@ -367,8 +367,8 @@
     for (let a = 1; a <= max; a++) {
       const o = document.createElement("option");
       o.value = String(a);
-      o.textContent = a === 1 ? "🥇 Winner only: single elimination"
-                              : `🏅 Top ${a} advance to the next round`;
+      o.textContent = a === 1 ? "Winner only: single elimination"
+                              : `Top ${a} advance to the next round`;
       if (a === createState.advance) o.selected = true;
       sel.appendChild(o);
     }
@@ -389,24 +389,24 @@
     if (!modal) { modal = el("div", "ccT-modal"); modal.id = "ccT-create"; document.body.appendChild(modal); }
     modal.innerHTML = `
       <div class="ccT-card">
-        <h2>🏆 New Tournament</h2>
+        <h2>New Tournament</h2>
         <div class="ccT-sub">Bracket-style tournament: 4 to 32 players, your choice of match size.</div>
         <div class="ccT-body">
           <div class="ccT-field"><label>Tournament name</label>
             <input class="ccT-input" id="ccT-name" maxlength="40" placeholder="Currents Cup" value="Currents Cup"></div>
           <div class="ccT-field"><label>Bracket</label>
             <div class="ccT-mode-grid" id="ccT-modes">
-              <div class="ccT-fmt" data-mode="uniform"><div class="ccT-fmt-title">⚡ Quick</div>
+              <div class="ccT-fmt" data-mode="uniform"><div class="ccT-fmt-title">Quick</div>
                 <div class="ccT-fmt-meta">Pick a size, we build the bracket.</div></div>
-              <div class="ccT-fmt" data-mode="sizes"><div class="ccT-fmt-title">🧩 Match sizes</div>
+              <div class="ccT-fmt" data-mode="sizes"><div class="ccT-fmt-title">Match sizes</div>
                 <div class="ccT-fmt-meta">Set each opening match's size yourself.</div></div>
-              <div class="ccT-fmt" data-mode="design"><div class="ccT-fmt-title">🎨 Design it</div>
+              <div class="ccT-fmt" data-mode="design"><div class="ccT-fmt-title">Design it</div>
                 <div class="ccT-fmt-meta">Build the whole bracket on a canvas.</div></div>
             </div></div>
           <div id="ccT-design" style="display:none">
             <div class="ccT-field">
               <div id="ccT-design-state" class="ccT-summary">Open the builder to design your bracket.</div>
-              <button class="ccT-btn sm gold" id="ccT-design-open" type="button" style="margin-top:8px">🎨 Open the bracket builder</button>
+              <button class="ccT-btn sm gold" id="ccT-design-open" type="button" style="margin-top:8px">Open the bracket builder</button>
               <button class="ccT-btn sm ghost" id="ccT-design-clear" type="button" style="margin-top:8px;display:none">Discard design</button>
             </div>
           </div>
@@ -432,17 +432,17 @@
           <div class="ccT-summary" id="ccT-preview">…</div>
           <div class="ccT-row" style="margin-top:12px">
             <div class="ccT-field"><label>Visibility</label>
-              <select class="ccT-select" id="ccT-vis"><option value="public">🌊 Public</option><option value="private">🔒 Private</option></select></div>
+              <select class="ccT-select" id="ccT-vis"><option value="public">Public</option><option value="private">Private</option></select></div>
             <div class="ccT-field" id="ccT-pw-field" style="display:none"><label>Join code</label>
               <input class="ccT-input" id="ccT-pw" maxlength="12" placeholder="code"></div>
           </div>
           <div class="ccT-field"><label class="ccT-toggle"><input type="checkbox" id="ccT-fill-bots">
-            <span>🤖 Fill empty seats with bots<span class="ccT-hint">Start any time: bots take every open spot so a full bracket runs even solo.</span></span></label></div>
+            <span>Fill empty seats with bots<span class="ccT-hint">Start any time: bots take every open spot so a full bracket runs even solo.</span></span></label></div>
           <div class="ccT-field"><label class="ccT-toggle"><input type="checkbox" id="ccT-spec" checked> Allow spectators</label></div>
           <div class="ccT-field" id="ccT-third-field"><label class="ccT-toggle"><input type="checkbox" id="ccT-third"> Play a 3rd-place match for the bronze</label></div>
           <div id="ccT-create-err" style="color:#c62a4e;min-height:18px;font-size:.85rem"></div>
           <button class="ccT-btn wide gold" id="ccT-create-go">Create Tournament →</button>
-          <button class="ccT-btn ghost wide" id="ccT-create-browse">🔍 Browse open tournaments</button>
+          <button class="ccT-btn ghost wide" id="ccT-create-browse">Browse open tournaments</button>
           <button class="ccT-btn ghost wide" id="ccT-create-cancel">Cancel</button>
         </div>
       </div>`;
@@ -501,7 +501,7 @@
     if (!d || !d.matches || !d.matches.length) {
       box.innerHTML = "Open the builder to place match boxes, connect the winners, and set what kind of player each spot takes.";
       if (clear) clear.style.display = "none";
-      if (open) open.textContent = "🎨 Open the bracket builder";
+      if (open) open.textContent = "Open the bracket builder";
       return;
     }
     const kinds = s && s.slot_kinds ? s.slot_kinds : null;
@@ -514,7 +514,7 @@
          <b>${d.matches.length}</b> matches${extra}. The winner of the Final is the champion.`
       : `✓ Designed bracket with <b>${d.matches.length}</b> matches.`;
     if (clear) clear.style.display = "";
-    if (open) open.textContent = "🎨 Edit the design";
+    if (open) open.textContent = "Edit the design";
   }
 
   async function openDesigner() {
@@ -725,7 +725,7 @@
 
   // =========================================================================
   // BROWSE & JOIN: pick an open tournament from a list, or enter a code.
-  // Reachable from the create modal and the Leaderboard "🏅 Tournaments" tab.
+  // Reachable from the create modal and the Leaderboard "Tournaments" tab.
   // =========================================================================
   async function openBrowse() {
     injectStyles();
@@ -733,7 +733,7 @@
     if (!modal) { modal = el("div", "ccT-modal"); modal.id = "ccT-browse"; document.body.appendChild(modal); }
     modal.innerHTML = `
       <div class="ccT-card">
-        <h2>🏆 Tournaments</h2>
+        <h2>Tournaments</h2>
         <div class="ccT-sub">Jump into an open bracket, or enter a code to join.</div>
         <div class="ccT-body">
           <div class="ccT-field"><label>Open tournaments</label>
@@ -772,7 +772,7 @@
     list.innerHTML = "";
     open.forEach(t => {
       const row = el("div", "ccT-literow");
-      const lock = t.has_password ? "🔒 " : "";
+      const lock = t.has_password ? "Locked · " : "";
       row.innerHTML = `<div class="ccT-linm">
           <div class="ccT-lit-title">${lock}${esc(t.name || "Tournament")}</div>
           <div class="ccT-lit-meta">${t.joined}/${t.capacity} players · ${t.players_per_match} per match ·
@@ -798,8 +798,8 @@
         <span class="ccT-code" id="ccT-h-code">------</span>
         <span class="ccT-phase" id="ccT-h-phase">lobby</span>
         <span class="ccT-spacer"></span>
-        <button class="ccT-btn sm ghost" id="ccT-h-host" style="display:none">⚙ Host</button>
-        <button class="ccT-btn sm ghost" id="ccT-h-spectate">👁 Spectate</button>
+        <button class="ccT-btn sm ghost" id="ccT-h-host" style="display:none">Host</button>
+        <button class="ccT-btn sm ghost" id="ccT-h-spectate">Spectate</button>
         <button class="ccT-btn sm coral" id="ccT-h-leave">Leave</button>
       </div>
       <div class="ccT-anncbar" id="ccT-annc" style="display:none"></div>
@@ -932,7 +932,7 @@
       const nLive = st.phase === "running" && st.spectators_allowed !== false
         ? liveOtherMatches(st, currentRoomId()).length : 0;
       specBtn.style.display = nLive > 0 ? "" : "none";
-      specBtn.textContent = nLive > 1 ? `👁 Spectate (${nLive})` : "👁 Spectate";
+      specBtn.textContent = nLive > 1 ? `Spectate (${nLive})` : "Spectate";
     }
     // "Leave" forfeits, so it must not be the word on the button once there is
     // nothing left to forfeit (see onLeave).
@@ -946,7 +946,7 @@
                             : "Leave the tournament (forfeits your spot)";
     }
     const annc = $("#ccT-annc", scr);
-    if (st.announcement) { annc.style.display = ""; annc.textContent = "📣 " + st.announcement; } else annc.style.display = "none";
+    if (st.announcement) { annc.style.display = ""; annc.textContent = "" + st.announcement; } else annc.style.display = "none";
     // auto-switch to bracket once running
     if (st.phase !== "lobby" && T.view === "lobby" && !st._userChoseLobby) T.view = "bracket";
     document.querySelectorAll("#ccT-screen .ccT-tab").forEach(t => t.classList.toggle("on", t.dataset.view === T.view));
@@ -1031,7 +1031,7 @@
     const lobby = T.state.phase === "lobby";
     const row = el("div", "ccT-pl" + (p.me ? " me" : "") + (p.is_bot ? " bot" : ""));
     row.dataset.pid = p.pid;
-    const botBadge = p.is_bot ? `<span class="ccT-badge bot">🤖 Bot</span>` : "";
+    const botBadge = p.is_bot ? `<span class="ccT-badge bot">Bot</span>` : "";
     row.innerHTML = `<img class="ccT-av" src="${esc(bridge().avSrc(p.avatar) || "/avatars/mullet.png")}" onerror="this.src='/avatars/mullet.png'">
       <span class="ccT-nm">${esc(p.name)} ${p.is_host ? '<span class="ccT-host-dot" title="Host">★</span>' : ""}</span>
       ${botBadge}<span class="ccT-badge ${esc(p.status)}">${statusLabel(p)}</span>`;
@@ -1078,14 +1078,14 @@
     const amReady = me.ready;
     let html = "";
     html += `<button class="ccT-btn wide ${amReady ? "ghost" : ""}" id="ccT-ready">${amReady ? "✓ Ready: tap to unready" : "I'm Ready"}</button>`;
-    html += `<button class="ccT-btn wide ghost" id="ccT-view-bracket">👁 View bracket preview</button>`;
+    html += `<button class="ccT-btn wide ghost" id="ccT-view-bracket">View bracket preview</button>`;
     if (isHost) {
-      html += `<button class="ccT-btn wide" id="ccT-randomize">🎲 Randomize Seeding</button>`;
+      html += `<button class="ccT-btn wide" id="ccT-randomize">Randomize Seeding</button>`;
       const full = st.joined >= st.capacity;
-      if (!full) html += `<button class="ccT-btn wide" id="ccT-fillbots">🤖 Fill ${st.capacity - st.joined} empty seat${st.capacity - st.joined === 1 ? "" : "s"} with bots</button>`;
+      if (!full) html += `<button class="ccT-btn wide" id="ccT-fillbots">Fill ${st.capacity - st.joined} empty seat${st.capacity - st.joined === 1 ? "" : "s"} with bots</button>`;
       html += `<button class="ccT-btn wide gold" id="ccT-start" ${st.can_start ? "" : "disabled"}>Start Tournament →</button>`;
       if (!st.can_start) html += `<div style="font-size:.8rem;color:#3a6aa5;margin-top:6px">${esc(st.can_start_reason || "")}</div>`;
-      html += `<button class="ccT-btn wide ghost" id="ccT-open-host">⚙ Host Controls</button>`;
+      html += `<button class="ccT-btn wide ghost" id="ccT-open-host">Host Controls</button>`;
     }
     // How players get out of a match, the difference between single elimination and
     // a top-N format is the first thing a competitor needs to know.
@@ -1133,7 +1133,7 @@
     const open = st.capacity - st.joined;
     if (open <= 0) return;
     const r = await post("/api/tournament/host", { id: T.tid, host_token: T.hostToken, cmd: "fill_bots" });
-    if (r.data && r.data.ok) toast(`Added ${r.data.added || open} bot${(r.data.added || open) === 1 ? "" : "s"} 🤖`, "info");
+    if (r.data && r.data.ok) toast(`Added ${r.data.added || open} bot${(r.data.added || open) === 1 ? "" : "s"}`, "info");
     else toast((r.data && r.data.error) || "Could not add bots", "err");
   }
   async function onStart() {
@@ -1161,7 +1161,7 @@
   function showSwitchDialog(fromName) {
     let m = $("#ccT-switch"); if (!m) { m = el("div", "ccT-modal"); m.id = "ccT-switch"; document.body.appendChild(m); }
     m.innerHTML = `<div class="ccT-card" style="width:min(400px,94vw)"><div class="ccT-body" style="text-align:center">
-      <div style="font-size:2rem">🔀</div><h2 style="padding:6px 0">Switch request</h2>
+      <h2 style="padding:6px 0">Switch request</h2>
       <p><b>${esc(fromName)}</b> wants to switch tournament positions with you.</p>
       <button class="ccT-btn wide gold" id="ccT-sw-yes">Accept Switch</button>
       <button class="ccT-btn wide ghost" id="ccT-sw-no">Decline</button></div></div>`;
@@ -1175,7 +1175,7 @@
     const st = T.state; if (!st || !st.viewer || !st.viewer.is_host) return;
     let m = $("#ccT-host"); if (!m) { m = el("div", "ccT-modal"); m.id = "ccT-host"; document.body.appendChild(m); }
     const running = st.phase === "running" || st.phase === "paused";
-    m.innerHTML = `<div class="ccT-card"><h2>⚙ Host Controls</h2><div class="ccT-body">
+    m.innerHTML = `<div class="ccT-card"><h2>Host Controls</h2><div class="ccT-body">
       <div class="ccT-field"><label>Tournament name</label><input class="ccT-input" id="ccT-hp-name" value="${esc(st.name)}"></div>
       <div class="ccT-row">
         <button class="ccT-btn sm" id="ccT-hp-rename">Rename</button>
@@ -1184,7 +1184,7 @@
       </div>
       <div class="ccT-field" style="margin-top:12px"><label>Announcement to everyone</label>
         <input class="ccT-input" id="ccT-hp-annc" placeholder="Type a message…"></div>
-      <button class="ccT-btn sm" id="ccT-hp-annc-go">📣 Send announcement</button>
+      <button class="ccT-btn sm" id="ccT-hp-annc-go">Send announcement</button>
       ${st.phase === "lobby" ? `<div class="ccT-field" style="margin-top:12px"><label>Remove a player</label><div id="ccT-hp-remove"></div></div>` : ""}
       <div class="ccT-row" style="margin-top:14px">
         ${running ? `<button class="ccT-btn sm ghost" id="ccT-hp-pause">${st.phase === "paused" ? "Resume" : "Pause"}</button>` : ""}
@@ -1232,7 +1232,7 @@
   }
 
   // What an empty spot is waiting for, from the host's design. Feed spots name the
-  // match they come from ("🏅 winner of M2"), which is the whole point of a design.
+  // match they come from ("winner of M2"), which is the whole point of a design.
   let CUSTOM_MNUM = {};   // designed match id -> match number, rebuilt per render
   function indexCustomIds(br) {
     CUSTOM_MNUM = {};
@@ -1244,13 +1244,13 @@
   function emptySpotText(m, si) {
     const k = (m.slot_kinds || [])[si];
     if (!k) return "-";
-    if (k.kind === "ai") return "🤖 AI";
-    if (k.kind === "human") return "🧑 player";
-    if (k.kind === "invite") return k.invite ? "✉️ " + k.invite : "✉️ invited";
+    if (k.kind === "ai") return "AI";
+    if (k.kind === "human") return "player";
+    if (k.kind === "invite") return k.invite ? "" + k.invite : "invited";
     if (k.kind === "winner_from" || k.kind === "top_from") {
       const from = CUSTOM_MNUM[k.source];
       const who = ordinalShort(+k.rank || 1);
-      return from ? `${k.rank > 1 ? "🎖" : "🏅"} ${who} of M${from}` : `🏅 ${who}`;
+      return from ? `${who} of M${from}` : `${who}`;
     }
     return "-";
   }
@@ -1260,7 +1260,7 @@
     if (!br) { root.innerHTML = `<div style="padding:40px;text-align:center;opacity:.7">The bracket appears when the tournament starts.<br>${st.phase === "lobby" ? "Add a few players to preview the bracket…" : ""}</div>`; return; }
     const hostArrange = !!(br.preview && hostCanArrange());
     const banner = br.preview
-      ? `<div class="ccT-preview-banner">👁 Preview, this is how the bracket looks right now. Empty spots fill as players join${st.fill_bots ? " (or bots fill them at start)" : ""}.${hostArrange ? " Drag a player onto another, or tap two, to swap their spots." : ""}</div>`
+      ? `<div class="ccT-preview-banner">Preview, this is how the bracket looks right now. Empty spots fill as players join${st.fill_bots ? " (or bots fill them at start)" : ""}.${hostArrange ? " Drag a player onto another, or tap two, to swap their spots." : ""}</div>`
       : "";
     root.innerHTML = `${banner}<div class="ccT-bracket-wrap" id="ccT-bwrap">
         <svg class="ccT-lines" id="ccT-lines"></svg>
@@ -1548,19 +1548,18 @@
     const rows = roster.map(p => `
       <div class="ccT-mr-row ${p.ready ? "ready" : ""} ${p.me ? "me" : ""}">
         <img class="ccT-av" src="${esc(bridge().avSrc(p.avatar) || "/avatars/mullet.png")}" onerror="this.src='/avatars/mullet.png'">
-        <span class="ccT-mr-nm">${esc(p.name)}${p.me ? " (you)" : ""}${p.is_bot ? " 🤖" : ""}</span>
+        <span class="ccT-mr-nm">${esc(p.name)}${p.me ? " (you)" : ""}${p.is_bot ? " (bot)" : ""}</span>
         <span class="ccT-mr-badge ${p.quit ? "gone" : p.ready ? "on" : (p.connected ? "off" : "gone")}">${
           p.quit ? "Forfeited" : p.ready ? "✓ Ready" : (p.connected ? "Waiting…" : "Offline")}</span>
       </div>`).join("");
     const allReady = tc > 0 && rc >= tc;
     m.innerHTML = `<div class="ccT-card" style="width:min(440px,94vw)"><div class="ccT-body" style="text-align:center">
-      <div style="font-size:2.2rem">🌊</div>
       <h2>Match ${mm.match_number}: Ready Check</h2>
       <p style="margin:2px 0 8px">Round ${mm.round_index + 1}. The game starts the instant <b>every player</b> is ready.</p>
       <div class="ccT-mr-count"><b>${rc}</b> / ${tc} ready</div>
       <div class="ccT-mr-list">${rows}</div>
       ${allReady
-        ? `<div class="ccT-mr-go">🌊 Everyone's ready, starting your match…</div>`
+        ? `<div class="ccT-mr-go">Everyone's ready, starting your match…</div>`
         : `<button class="ccT-btn wide ${iAmReady ? "ghost" : "gold"}" id="ccT-mr-ready">${iAmReady ? "✓ You're Ready: tap to cancel" : "I'm Ready, Start Match"}</button>`}
       <button class="ccT-btn wide ghost" id="ccT-mr-later">View bracket</button>
     </div></div>`;
@@ -1639,7 +1638,7 @@
   function showCancelled(st) {
     let m = $("#ccT-cancelled"); if (!m) { m = el("div", "ccT-modal"); m.id = "ccT-cancelled"; document.body.appendChild(m); }
     m.innerHTML = `<div class="ccT-card ccT-champ"><div class="ccT-body">
-      <div style="font-size:2.4rem">🌊</div><h2>Tournament Cancelled</h2>
+      <h2>Tournament Cancelled</h2>
       <p><b>${esc(st.name || "The tournament")}</b> was cancelled by the host.</p>
       <button class="ccT-btn wide ghost" id="ccT-cancelled-home">Back to Home</button></div></div>`;
     m.classList.add("open");
@@ -1650,7 +1649,7 @@
     let m = $("#ccT-champ"); if (!m) { m = el("div", "ccT-modal"); m.id = "ccT-champ"; document.body.appendChild(m); }
     const xp = me_xp(st);
     m.innerHTML = `<div class="ccT-card ccT-champ"><div class="ccT-body">
-      <div class="ccT-crown">👑</div><h2>Tournament Champion!</h2>
+      <h2>Tournament Champion!</h2>
       <p>You won <b>${esc(st.name)}</b>.</p>
       ${podiumHtml(st)}
       ${xpHtml(xp)}
@@ -1679,7 +1678,6 @@
     const run = (reached && rounds)
       ? `You made it to round ${Math.min(reached, rounds)} of ${rounds}.` : "";
     m.innerHTML = `<div class="ccT-card ccT-champ"><div class="ccT-body">
-      <div style="font-size:2.4rem">${place === 2 ? "🥈" : place === 3 ? "🥉" : "🌊"}</div>
       <h2>${ordinal(place)} Place</h2>
       ${sub ? `<p class="ccT-sub" style="margin:0">${esc(sub)}</p>` : ""}
       <p>${esc(st.name)} is complete. ${esc(run)}</p>
@@ -1700,9 +1698,9 @@
   function podiumHtml(st) {
     const p = st.final_placements || []; const nm = (pl) => { const e = p.find(x => x.place === pl); const part = (st.participants || []).find(x => x.pid === (e && e.player_id)); return part ? part.name : "-"; };
     return `<div class="ccT-podium">
-      <div class="ccT-pod second"><div>🥈</div><div style="font-weight:700">${esc(nm(2))}</div><div style="opacity:.7;font-size:.8rem">2nd</div></div>
-      <div class="ccT-pod first"><div>🥇</div><div style="font-weight:800">${esc(nm(1))}</div><div style="opacity:.7;font-size:.8rem">1st</div></div>
-      <div class="ccT-pod third"><div>🥉</div><div style="font-weight:700">${esc(nm(3))}</div><div style="opacity:.7;font-size:.8rem">3rd</div></div></div>`;
+      <div class="ccT-pod second"><div>#2</div><div style="font-weight:700">${esc(nm(2))}</div><div style="opacity:.7;font-size:.8rem">2nd</div></div>
+      <div class="ccT-pod first"><div>#1</div><div style="font-weight:800">${esc(nm(1))}</div><div style="opacity:.7;font-size:.8rem">1st</div></div>
+      <div class="ccT-pod third"><div>#3</div><div style="font-weight:700">${esc(nm(3))}</div><div style="opacity:.7;font-size:.8rem">3rd</div></div></div>`;
   }
   function ordinal(n) { if (!n) return "Final"; const s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
   function championConfetti() {
@@ -1720,7 +1718,7 @@
   function injectMenuOption() {
     const sel = document.getElementById("nc-mode");
     if (sel && !sel.querySelector('option[value="tournament"]')) {
-      const o = el("option"); o.value = "tournament"; o.textContent = "🏆 Tournament"; sel.appendChild(o);
+      const o = el("option"); o.value = "tournament"; o.textContent = "Tournament"; sel.appendChild(o);
     }
   }
   // exposed for preview-app.js's mode-select interceptor + return-to-tournament
@@ -1779,7 +1777,7 @@
   // =========================================================================
   // One status element, two homes, so it is never in the player's way:
   //   • inside a game → a compact chip DOCKED INTO the game's own notice bar.
-  //     (It used to be a fat "🏆 Return to <name>" pill pinned to bottom-centre,
+  //     (It used to be a fat "Return to <name>" pill pinned to bottom-centre,
   //     sitting straight on top of the hand and the action bar.)
   //   • anywhere else → a waiting BAR on the Player Home, styled like the Quick
   //     Match "Finding players…" banner (spinner + status + Spectate / Bracket),
@@ -1789,17 +1787,17 @@
   //   "out" = knocked out while the tournament is STILL RUNNING, you have no next
   //   match, but the rest of the bracket is live and you can watch any of it.
   function chipText(s) {
-    if (s.mode === "done") return "🏆 " + (s.name || "Tournament") + ": results";
+    if (s.mode === "done") return "" + (s.name || "Tournament") + ": results";
     if (s.mode === "out") {
-      if (s.live > 0) return `👁 Knocked out: ${s.live} game${s.live === 1 ? "" : "s"} still live`;
-      return "🏆 Knocked out: follow the bracket";
+      if (s.live > 0) return `Knocked out: ${s.live} game${s.live === 1 ? "" : "s"} still live`;
+      return "Knocked out: follow the bracket";
     }
     if (s.mode === "waiting") {
-      if (s.live > 0) return `⏳ Waiting for ${s.live} other game${s.live === 1 ? "" : "s"} to finish`;
-      if (s.live === 0) return "⏳ Waiting for the next round";
-      return "⏳ Waiting for the other games to finish";
+      if (s.live > 0) return `Waiting for ${s.live} other game${s.live === 1 ? "" : "s"} to finish`;
+      if (s.live === 0) return "Waiting for the next round";
+      return "Waiting for the other games to finish";
     }
-    return "🏆 Return to " + (s.name || "tournament");
+    return "Return to " + (s.name || "tournament");
   }
   function barMain(s) {
     if (s.mode === "done") return "This tournament is finished.";
@@ -1869,8 +1867,8 @@
     bar.setAttribute("role", "status"); bar.setAttribute("aria-live", "polite");
     bar.innerHTML = `<span class="ccT-wb-spin" aria-hidden="true"></span>
       <span class="ccT-wb-txt"><span id="ccT-wb-main"></span><span class="ccT-wb-sub" id="ccT-wb-sub"></span></span>
-      <button type="button" class="ccT-wb-btn" id="ccT-wb-spectate">👁 Spectate Game</button>
-      <button type="button" class="ccT-wb-btn" id="ccT-wb-bracket">🏆 Bracket</button>`;
+      <button type="button" class="ccT-wb-btn" id="ccT-wb-spectate">Spectate Game</button>
+      <button type="button" class="ccT-wb-btn" id="ccT-wb-bracket">Bracket</button>`;
     if (qm && qm.parentNode) qm.parentNode.insertBefore(bar, qm.nextSibling);
     else home.appendChild(bar);
     $("#ccT-wb-spectate", bar).addEventListener("click", () => spectatePick());
@@ -1893,8 +1891,8 @@
     const canWatch = (s.mode === "waiting" || s.mode === "out") && s.canSpectate !== false && s.live !== 0;
     if (spec) spec.style.display = canWatch ? "" : "none";
     const br = $("#ccT-wb-bracket", bar);
-    if (br) br.textContent = s.mode === "done" ? "🏆 View results"
-                           : s.mode === "lobby" ? "🏆 Open tournament" : "🏆 Bracket";
+    if (br) br.textContent = s.mode === "done" ? "View results"
+                           : s.mode === "lobby" ? "Open tournament" : "Bracket";
   }
   function hideWaitBar() { const b = document.getElementById("ccT-waitbar"); if (b) b.style.display = "none"; }
 
@@ -2080,7 +2078,7 @@
     }
     if (!st) { toast("Could not reach the tournament, try again in a moment.", "err"); return; }
     if (st.spectators_allowed === false) {
-      showNotice("🚫", "Spectating is off", "The host turned spectating off for <b>" + esc(st.name || "this tournament") + "</b>, so matches can't be watched.");
+      showNotice("", "Spectating is off", "The host turned spectating off for <b>" + esc(st.name || "this tournament") + "</b>, so matches can't be watched.");
       return;
     }
     const cur = currentRoomId();
@@ -2094,14 +2092,14 @@
         (m.status === "ready" || m.status === "pending") &&
         String(m.room_id || "").toUpperCase() !== cur).length;
       if (st.phase === "complete") {
-        showNotice("🏆", "The tournament is over",
+        showNotice("", "The tournament is over",
           "Every match in <b>" + esc(st.name || "this tournament") + "</b> has been played. Open the bracket for the final standings.");
       } else if (pending) {
-        showNotice("🌊", "The next round hasn't started yet",
+        showNotice("", "The next round hasn't started yet",
           "The other games in <b>" + esc(st.name || "this tournament") + "</b> are still gathering their players. Try again in a moment: "
           + (out ? "we'll keep the bracket updated as they play." : "we'll bring you into your match the moment it's ready."));
       } else {
-        showNotice("🌊", "Nothing is being played right now",
+        showNotice("", "Nothing is being played right now",
           "No match in <b>" + esc(st.name || "this tournament") + "</b> is live at the moment. "
           + (out ? "Follow the bracket, the next round starts shortly." : "Hang tight, we'll bring you into your match the moment it's ready."));
       }
@@ -2116,7 +2114,7 @@
     let m = $("#ccT-notice");
     if (!m) { m = el("div", "ccT-modal"); m.id = "ccT-notice"; document.body.appendChild(m); }
     m.innerHTML = `<div class="ccT-card" style="width:min(430px,94vw)"><div class="ccT-body" style="text-align:center">
-      <div style="font-size:2.2rem">${icon}</div><h2>${esc(title)}</h2>
+      ${icon ? `<div style="font-size:2.2rem">${icon}</div>` : ""}<h2>${esc(title)}</h2>
       <p style="margin:6px 0 2px">${htmlBody}</p>
       <button class="ccT-btn wide gold" id="ccT-notice-ok">Got it</button></div></div>`;
     m.classList.add("open");

@@ -216,7 +216,7 @@ console.log("5. The link at the bottom of the website");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-console.log("6. The in-game reader (Settings → 📜 Legal)");
+console.log("6. The in-game reader (Settings → Legal)");
 // ═══════════════════════════════════════════════════════════════════════════
 {
   check(/id="settings-privacy-btn"/.test(HTML), "Settings has a Privacy Policy button");

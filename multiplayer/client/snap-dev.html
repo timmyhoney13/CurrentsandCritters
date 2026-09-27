@@ -33,7 +33,7 @@
 <script src="/js/snap-scan.js"></script>
 </head>
 <body>
-<h1>🔬 Snap &amp; Score, Scanner Dev Harness</h1>
+<h1>Snap &amp; Score, Scanner Dev Harness</h1>
 <p class="sub">Upload a real board photo, inspect detection candidates, warped crops, per-method match scores, and timings. Recognition runs 100% in this tab. Tune the knobs, re-run, and copy winning values into <code>DEFAULTS</code> in <code>snap-vision-core.js</code>.</p>
 
 <div class="card">
@@ -197,7 +197,7 @@ function renderTable(){
     return `<tr>
       <td>${cropCv}</td>
       <td><span class="${cls}">${m ? (m.conf*100|0)+"%" : "n/a"}</span><br>${names}
-          ${m && !m.symbolConfident ? "<br>⚠ symbol unsure" : ""}${q.dup ? "<br>⚠ duplicate" : ""}
+          ${m && !m.symbolConfident ? "<br>symbol unsure" : ""}${q.dup ? "<br>duplicate" : ""}
           ${q.assigned ? "<br>→ ocean u"+q.assigned.oceanU+" / "+q.assigned.side : ""}</td>
       <td>${methods}</td>
     </tr>`;

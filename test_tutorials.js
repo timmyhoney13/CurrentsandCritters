@@ -338,20 +338,20 @@ console.log("\nthe Competitive tour names doors that exist");
   check("...which really opens Open Currents",
         /"stats-join-toggle-btn"\)\.addEventListener\("click"[\s\S]{0,120}?openLobbyBrowser\(\)/.test(APP));
   check("...and Open Currents really has a Competitive tab",
-        /data-tab="competitive">👥 Competitive/.test(HTML));
+        /data-tab="competitive">[\s\S]{0,300}?Competitive/.test(HTML));
   check("...whose list carries both ranked modes",
         /_lbActiveTab === "competitive"[\s\S]{0,260}?r\.mode === "competitive" \|\| r\.mode === "ranked"/.test(APP));
   check("...and joining one claims a whole PAIR of hands, which is what the step promises",
         /Competitive: claim a whole PAIR of hands/.test(APP) && /BOTH of their seats/.test(TUT));
   // Two entries in that dropdown now start with the word "Competitive".
   check("the mode step names the exact option, not the ambiguous half",
-        /Set it to <strong>⚔️ Competitive<\/strong>/.test(TUT) === false
-        && /⚔️ Competitive 1v1<\/strong>/.test(TUT));
+        /Set it to <strong>Competitive<\/strong>/.test(TUT) === false
+        && /Competitive 1v1<\/strong>/.test(TUT));
   check("...and warns about the other ranked mode sitting next to it",
-        /🏅 Competitive<\/strong>/.test(TUT));
+        /<strong>Competitive<\/strong>/.test(TUT));
   check("...both of which are real options in the real dropdown",
-        /<option value="ranked">🏅 Competitive<\/option>/.test(HTML)
-        && /<option value="competitive">⚔️ Competitive 1v1<\/option>/.test(HTML));
+        /<option value="ranked">Competitive<\/option>/.test(HTML)
+        && /<option value="competitive">Competitive 1v1<\/option>/.test(HTML));
 }
 
 console.log("\nthe Main Menu Tour covers the whole Main Menu");
@@ -392,7 +392,7 @@ console.log("\nwhat the menu steps say about the menu is still true");
   check("the Friends tab is not promised a button it does not have",
         !/challenge them to a private game/.test(TUT));
   check("the Store step lists the sections the Store really has",
-        ["🌊 Backgrounds", "🌴 Exclusive Skins", "🐚 Player Perks", "★ Supporter Tiers", "📦 Physical Game"]
+        ["Backgrounds", "Exclusive Skins", "Player Perks", "★ Supporter Tiers", "Physical Game"]
           .every(s => TUT.includes(s) && APP.includes(s)));
   check("the leaderboard's add-friend button is described as the signed-in thing it is",
         /Once you are <strong>signed in<\/strong>/.test(TUT)

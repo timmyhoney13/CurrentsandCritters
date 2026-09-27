@@ -155,13 +155,13 @@ _TYPE_META: Dict[str, Dict[str, str]] = {
     # A text fallback only. The client paints coin tiers with the minted
     # Critter Coin art (critter-coin.png), the same coin the Store, the wallet
     # chip and the trade window show, so this glyph never reaches a player.
-    "coins":      {"icon": "🪙", "name": "Critter Coins"},
-    "shield":     {"icon": "🛡️", "name": "Streak Shield"},
-    "sticker":    {"icon": "🎴", "name": "Critter Sticker"},
-    "boost":      {"icon": "⚡", "name": f"{BOOST_HOURS}h XP Boost"},
-    "reroll":     {"icon": "🔄", "name": "Weekly Swap"},
-    "background": {"icon": "🖼️", "name": "Avatar Background"},
-    "critter":    {"icon": "⭐", "name": "Critter"},
+    "coins":      {"name": "Critter Coins"},
+    "shield":     {"name": "Streak Shield"},
+    "sticker":    {"name": "Critter Sticker"},
+    "boost":      {"name": f"{BOOST_HOURS}h XP Boost"},
+    "reroll":     {"name": "Weekly Swap"},
+    "background": {"name": "Avatar Background"},
+    "critter":    {"name": "Critter"},
 }
 
 CLAIMABLE_TYPES = frozenset({"coins", "shield", "sticker", "boost", "reroll", "background"})
@@ -226,14 +226,13 @@ def track() -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     for spec in _TRACK_SPEC:
         t = str(spec["type"])
-        meta = _TYPE_META.get(t, {"icon": "🎁", "name": t})
+        meta = _TYPE_META.get(t, {"name": t})
         entry = {
             "id": _tier_id(spec),
             "level": int(spec["level"]),
             "row": "free",
             "type": t,
             "amount": int(spec.get("amount") or 1),
-            "icon": meta["icon"],
             "label": _describe(spec),
             "blurb": _blurb(spec),
             "claimable": t in CLAIMABLE_TYPES,

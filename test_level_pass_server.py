@@ -304,7 +304,6 @@ class TrackShape(PassTestBase):
         for t in lp.track():
             self.assertTrue(t["label"].strip(), f"{t['id']} has no label")
             self.assertTrue(t["blurb"].strip(), f"{t['id']} has no blurb")
-            self.assertTrue(t["icon"].strip(), f"{t['id']} has no icon")
 
     TRACK_COIN_BUDGET = 4000
 

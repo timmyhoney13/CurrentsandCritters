@@ -62,7 +62,7 @@
   position: relative;
   isolation: isolate;
   min-height: 520px;
-  /* ⚠️ NO negative margin here. Widening the root to break out of .ph-wrap's
+  /* NO negative margin here. Widening the root to break out of .ph-wrap's
      gutter makes it wider than the viewport, and nothing up the tree clips it,
      which on a phone pushes the step tracker, the tiles and the right-hand half
      of every sentence off the side of the screen. The reef is already full-page
@@ -345,7 +345,7 @@
 }
 .ccP-panel-h {
   font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; letter-spacing: .4px;
-  font-size: 19px; color: var(--p-navy); margin-bottom: 3px;
+  font-size: 20.52px; color: var(--p-navy); margin-bottom: 3px;
   display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
 }
 .ccP-panel-sub { font-size: 13px; font-weight: 700; color: var(--p-ink-soft); line-height: 1.55; margin-bottom: 13px; }
@@ -454,7 +454,7 @@
 .ccP-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; justify-items: center; }
 .ccP-compare figcaption { font-size: 11px; font-weight: 900; letter-spacing: .4px; text-transform: uppercase; color: var(--p-ink-dim); text-align: center; margin-top: 7px; }
 .ccP-devicebar { display: flex; gap: 7px; justify-content: center; margin-bottom: 12px; }
-/* ⚠️ `width:100%` is load-bearing. .ccP-cardprev sizes itself from its parent
+/* `width:100%` is load-bearing. .ccP-cardprev sizes itself from its parent
    (width:100% + aspect-ratio), so a figure left to shrink-to-fit gives it a
    near-zero width to be a percentage OF, and the compare preview collapses to
    a ~50px thumbnail instead of the card it is meant to be. */

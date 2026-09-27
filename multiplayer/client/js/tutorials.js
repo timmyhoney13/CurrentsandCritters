@@ -37,7 +37,7 @@
   .tut3-opt.tut3-locked { opacity:.6; cursor:default; }
   .tut3-opt-ico { font-size:2rem; width:46px; height:46px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(145deg,#d7f1ff,#bfe4fb); border-radius:13px; }
   .tut3-opt-body { flex:1; min-width:0; }
-  .tut3-opt-title { font-weight:900; font-size:1.05rem; color:#0f4d86; }
+  .tut3-opt-title { font-weight:900; font-size:1.134rem; color:#0f4d86; }
   .tut3-opt-desc { font-size:.8rem; color:#5a83a8; margin-top:2px; line-height:1.35; }
   .tut3-opt-status { flex-shrink:0; font-size:.72rem; font-weight:800; padding:5px 10px; border-radius:999px; }
   .tut3-st-start { background:#1f9ad7; color:#fff; }
@@ -82,7 +82,6 @@
   #tut3-drags { position:fixed; inset:0; pointer-events:none; }
   .tut3-drag-ghost { position:fixed; border-radius:10px; border:2.5px dashed #ffd574; background:rgba(9,34,60,.55); box-shadow:0 14px 30px rgba(0,0,0,.5), 0 0 18px rgba(255,213,116,.6); overflow:hidden; pointer-events:none; animation:tut3-drag-fly 2.3s ease-in-out infinite; }
   .tut3-drag-ghost img { width:100%; height:100%; object-fit:cover; display:block; opacity:.85; }
-  .tut3-drag-hand { position:absolute; right:-9px; bottom:-11px; font-size:20px; line-height:1; filter:drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
   @keyframes tut3-drag-fly {
     0%   { transform:translate(0,0) scale(1); opacity:0; }
     10%  { transform:translate(0,0) scale(1); opacity:.95; }
@@ -280,7 +279,7 @@
     const sig = [Math.round(a.left), Math.round(a.top), Math.round(a.width), Math.round(a.height), dx, dy, src].join("|");
     if (sig === _dragSig) return;
     _dragSig = sig;
-    box.innerHTML = `<div class="tut3-drag-ghost">${src ? `<img src="${esc(src)}" alt="">` : ""}<span class="tut3-drag-hand">👆</span></div>`;
+    box.innerHTML = `<div class="tut3-drag-ghost">${src ? `<img src="${esc(src)}" alt="">` : ""}</div>`;
     const ghost = box.firstElementChild;
     ghost.style.left   = Math.round(a.left) + "px";
     ghost.style.top    = Math.round(a.top) + "px";
@@ -771,7 +770,7 @@
     // the tour has to still be standing on it.
     { target: ".ph-actions", badge: "Starting a Game", title: "The Four Ways In",
       before: () => { closeMenuOverlays(); navTab("overview"); },
-      text: "These four cards are how every game starts. <strong>Head to Head</strong> sits you down against three bots straight away, each one a named opponent you unlock by beating the one below it (there is still a button there to wait for real people instead). <strong>Create Game</strong> opens the setup window, where you pick the mode (Normal, Competitive, Team), the number of people and computer opponents, and whether the room is public or private. <strong>Join Game</strong> opens <strong>🌊 Open Currents</strong>, the list of rooms you can walk into, and <strong>Tutorial</strong> is the button that brought you here." },
+      text: "These four cards are how every game starts. <strong>Head to Head</strong> sits you down against three bots straight away, each one a named opponent you unlock by beating the one below it (there is still a button there to wait for real people instead). <strong>Create Game</strong> opens the setup window, where you pick the mode (Normal, Competitive, Team), the number of people and computer opponents, and whether the room is public or private. <strong>Join Game</strong> opens <strong>Open Currents</strong>, the list of rooms you can walk into, and <strong>Tutorial</strong> is the button that brought you here." },
 
     // ── Avatar click (interactive, must actually open gallery) ──────
     { target: "#stats-avatar", badge: "Avatar Gallery", title: "Open Your Avatar Gallery",
@@ -829,7 +828,7 @@
 
     // ── How to play panel description ────────────────────────────────
     { target: "#ph-panel-howto", badge: "How to Play Tab", title: "The Rules, Any Time",
-      text: "This tab is the whole game written down, in three parts. <strong>🚀 Quick Start</strong> is the one-screen version for your first game, <strong>📖 Full Rulebook</strong> is every rule in the box, and <strong>🧭 Strategies</strong> lists the combos worth building. It is all here whenever a card does something you did not expect, and <strong>Play the tutorial →</strong> at the top brings you straight back to these tutorials." },
+      text: "This tab is the whole game written down, in three parts. <strong>Quick Start</strong> is the one-screen version for your first game, <strong>Full Rulebook</strong> is every rule in the box, and <strong>Strategies</strong> lists the combos worth building. It is all here whenever a card does something you did not expect, and <strong>Play the tutorial →</strong> at the top brings you straight back to these tutorials." },
 
     // ── Competitive tab (click to navigate) ──────────────────────────
     { target: "#snav-competitive", badge: "Competitive Tab", title: "Competitive",
@@ -890,7 +889,7 @@
 
     // ── Messages panel description ────────────────────────────────────
     { target: "#ph-panel-messages", badge: "Messages Tab", title: "Messages",
-      text: "<strong>Messages</strong> is your full-page chat. Search a player to start a conversation or a group, and tap a chat to open it across the whole page (the <strong>back arrow</strong> takes you to your other chats). The <strong>🎨</strong> button gives that chat an ocean background, and those are <strong>free to everyone</strong>, nobody has to own one. Whoever picks it, <strong>everyone in the chat sees it</strong>, and you can change it as often as you like." },
+      text: "<strong>Messages</strong> is your full-page chat. Search a player to start a conversation or a group, and tap a chat to open it across the whole page (the <strong>back arrow</strong> takes you to your other chats). The <strong></strong> button gives that chat an ocean background, and those are <strong>free to everyone</strong>, nobody has to own one. Whoever picks it, <strong>everyone in the chat sees it</strong>, and you can change it as often as you like." },
 
     // ── Achievements tab (click to navigate) ─────────────────────────
     { target: "#snav-achievements", badge: "Achievements Tab", title: "Achievements",
@@ -971,7 +970,7 @@
     // ── Store panel description ───────────────────────────────────────
     { target: "#ph-panel-store", badge: "Store Tab", title: "The Store",
       skipIf: gtOnStandby,
-      text: "The <strong>Store</strong> is what <strong>Critter Coins</strong> are for, and it has a section each: <strong>🌊 Backgrounds</strong>, the ocean scenes that sit behind your avatar; <strong>🌴 Exclusive Skins</strong>, seasonal player icons everyone sees on your seat in a game; <strong>🐚 Player Perks</strong>, the things that help you play rather than things you wear; <strong>★ Supporter Tiers</strong>; and the <strong>📦 Physical Game</strong>, the real tabletop edition. You can top up your coins here too. <em>(A donation code is not redeemed here, it goes in the box at the bottom of your Avatar Gallery.)</em>" },
+      text: "The <strong>Store</strong> is what <strong>Critter Coins</strong> are for, and it has a section each: <strong>Backgrounds</strong>, the ocean scenes that sit behind your avatar; <strong>Exclusive Skins</strong>, seasonal player icons everyone sees on your seat in a game; <strong>Player Perks</strong>, the things that help you play rather than things you wear; <strong>★ Supporter Tiers</strong>; and the <strong>Physical Game</strong>, the real tabletop edition. You can top up your coins here too. <em>(A donation code is not redeemed here, it goes in the box at the bottom of your Avatar Gallery.)</em>" },
 
     // ── Settings (click to open; the gear now lives in the top right) ─
     { target: "#stats-settings-top-btn", badge: "Settings", title: "Settings",
@@ -1598,7 +1597,7 @@
     { target: "#pv-my-score-badge", badge: "Scoring", title: "Your Score",
       text: "Your score so far. Tap it at any time for the full breakdown, card by card, so you can see exactly which animals are paying you and which are not." },
     { target: "#pv-help-btn", badge: "Strategy", title: "Stuck? Ask for a Plan",
-      text: "You do not have to work out a strategy on your own. <strong>💡 Strategy</strong> opens the Strategy Guide: pick a plan you like the look of, and the game <strong>highlights the cards that build it</strong> in your hand and in the Pool, so you can see at a glance what to reach for on your next draw.<br><br>Tutorial 3, <strong>Practice Game (B-Lob)</strong>, walks you through doing exactly that." },
+      text: "You do not have to work out a strategy on your own. <strong>Strategy</strong> opens the Strategy Guide: pick a plan you like the look of, and the game <strong>highlights the cards that build it</strong> in your hand and in the Pool, so you can see at a glance what to reach for on your next draw.<br><br>Tutorial 3, <strong>Practice Game (B-Lob)</strong>, walks you through doing exactly that." },
     { target: "#pv-end-turn-inline", badge: "Your Turn", title: "End Your Turn",
       text: "Most of the time you never touch this. <strong>Playing a card ends your turn for you</strong>, and so does drawing your two cards.<br><br>End Turn is for the handful of cards that let you keep playing: <strong>Loggerhead Sea Turtle</strong> and <strong>Hermit Crab</strong> open your turn up so you can play <strong>as many cards as you like</strong>. The game has no way of knowing when you have finished, so it waits, and <strong>you</strong> tell it you are done by pressing End Turn. When that is happening the game says so above the table." },
     { target: "#pv-draw-deck", badge: "Endgame", title: "Ending the Game",
@@ -1697,7 +1696,7 @@
       // Reset the two tutorial strategies so the player turns them on themselves.
       before: () => { try { window.__ccHelpTut && window.__ccHelpTut.ensureInactive(["Crustaceans", "Bird Lobster"]); } catch (_) {} },
       advanceWhen: blHelpOpen,
-      text: "Click <strong>💡 Strategy</strong> to open the Strategy Guide." },
+      text: "Click <strong>Strategy</strong> to open the Strategy Guide." },
     { target: () => blStratPlayEl("Crustaceans"), badge: "Strategy", title: "Choose Crustaceans",
       interactive: true, before: blEnsureHelpList, advanceWhen: () => blStratActive("Crustaceans"),
       text: "Pick <strong>Crustaceans</strong>, then press <strong>Play this</strong> to make it your plan." },
@@ -1890,15 +1889,15 @@
 
     // ── Group 2: chat ───────────────────────────────────────────────
     { target: "#pv-chat-btn", badge: "Chat", title: "Table Chat",
-      text: "Tap 💬 Chat to talk with everyone in the current game." },
+      text: "Tap Chat to talk with everyone in the current game." },
 
     // ── Group 3: Surf's Up & AFK rules ──────────────────────────────
     { target: "#pv-surf-btn", badge: "Breaks", title: "Surf's Up!!",
-      text: "Real life happens in the middle of a game. <strong>🏄 Surf's Up!!</strong> is how you step away without wrecking the table for everyone else.<br><br>Tap it and you are marked <strong>Away</strong>:<br>• <strong>The game waits for you.</strong> Your turn parks where it is. Nothing is drawn or played for you, and nothing is auto-passed.<br>• <strong>Nobody can vote you AFK</strong> for the next 10 minutes, so you will not come back to find your turn was skipped.<br>• <strong>You cannot make a move while Away.</strong> That is the point, it is an honest \u201cI am not here\u201d, not a way to stall.<br>• Everyone at the table sees a <strong>🌊 Away</strong> badge on your seat, so they know why the game paused.<br><br>Tap <strong>🌊 I'm Back</strong> and you pick your turn up exactly where you left it. In Competitive it steps <strong>both of your hands</strong> away at once." },
+      text: "Real life happens in the middle of a game. <strong>Surf's Up!!</strong> is how you step away without wrecking the table for everyone else.<br><br>Tap it and you are marked <strong>Away</strong>:<br>• <strong>The game waits for you.</strong> Your turn parks where it is. Nothing is drawn or played for you, and nothing is auto-passed.<br>• <strong>Nobody can vote you AFK</strong> for the next 10 minutes, so you will not come back to find your turn was skipped.<br>• <strong>You cannot make a move while Away.</strong> That is the point, it is an honest \u201cI am not here\u201d, not a way to stall.<br>• Everyone at the table sees a <strong>Away</strong> badge on your seat, so they know why the game paused.<br><br>Tap <strong>I'm Back</strong> and you pick your turn up exactly where you left it. In Competitive it steps <strong>both of your hands</strong> away at once." },
     { target: "#pv-chat-btn", badge: "AFK", title: "Reporting AFK",
       text: "If a player vanishes on their own turn, report them in chat. Capitals don't matter:<br><span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:3px;color:#cfe6fb\">P1 AFK</span> <span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:3px;color:#cfe6fb\">P1 away</span> <span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:3px;color:#cfe6fb\">PlayerName away</span>" },
     { target: null, badge: "AFK", title: "The 20-Second Check",
-      text: "The reported player sees this:<div style=\"margin:10px auto 6px;max-width:240px;background:linear-gradient(180deg,#0c2c4e,#08233f);border:1px solid #1f4f7a;border-radius:14px;padding:12px 12px 14px;text-align:center;box-shadow:0 8px 26px rgba(0,0,0,.45)\"><div style=\"font-size:22px;line-height:1\">⚠️</div><div style=\"font-weight:800;color:#eaf4ff;font-size:14px;margin:3px 0\">Are You There?</div><div style=\"width:48px;height:48px;border-radius:50%;border:3px solid #34c3ff;display:flex;align-items:center;justify-content:center;margin:9px auto 6px;font-weight:900;color:#eaf4ff;font-size:18px\">20</div><div style=\"font-size:10.5px;color:#9fc3e0;line-height:1.35\"><b style=\"color:#34c3ff\">Move your mouse or click</b> to stay in.</div></div>They have 20 seconds. Moving the mouse cancels it. If time runs out, 2 cards are drawn and their turn passes." },
+      text: "The reported player sees this:<div style=\"margin:10px auto 6px;max-width:240px;background:linear-gradient(180deg,#0c2c4e,#08233f);border:1px solid #1f4f7a;border-radius:14px;padding:12px 12px 14px;text-align:center;box-shadow:0 8px 26px rgba(0,0,0,.45)\"><div style=\"font-weight:800;color:#eaf4ff;font-size:14px;margin:3px 0\">Are You There?</div><div style=\"width:48px;height:48px;border-radius:50%;border:3px solid #34c3ff;display:flex;align-items:center;justify-content:center;margin:9px auto 6px;font-weight:900;color:#eaf4ff;font-size:18px\">20</div><div style=\"font-size:10.5px;color:#9fc3e0;line-height:1.35\"><b style=\"color:#34c3ff\">Move your mouse or click</b> to stay in.</div></div>They have 20 seconds. Moving the mouse cancels it. If time runs out, 2 cards are drawn and their turn passes." },
     { target: "#pv-draw-deck", badge: "AFK", title: "The 20-Card Rule",
       text: "Auto-draws can grow a hand to 20 cards. Once back to normal play, the standard 10-card limit returns." },
 
@@ -1949,9 +1948,9 @@
   // ════════════════════════════════════════════════════════════════
   //  COMPETITIVE 1v1 TOUR
   //  Walks the REAL competitive entry: Create Game opens the New Current
-  //  setup modal, where Mode → ⚔️ Competitive locks it to the ranked format
+  //  setup modal, where Mode → Competitive locks it to the ranked format
   //  (4 humans = 2 players × 2 hands), then the standard waiting room. An
-  //  opponent joins via Join Game → Open Currents → 👥 Competitive, which
+  //  opponent joins via Join Game → Open Currents → Competitive, which
   //  claims their pair of hands in one go. No live game is created,
   //  competitive needs two real human players, so we explain the setup
   //  and joining, then cover ranks, OP, the hand-switch, and strategy.
@@ -1965,7 +1964,7 @@
   // the try/catch each sat in. The visible damage was the whole middle of the
   // Competitive tour: "we've flipped it to Competitive for you" flipped
   // nothing, and the three steps after it explained locked fields on a modal
-  // that was still sitting on 🐠 Normal with every field editable.
+  // that was still sitting on Normal with every field editable.
   //
   // So drive the real controls instead, exactly as the tour already drives
   // #nc-visibility: set the value, fire `change`, and let the app's own
@@ -1994,12 +1993,12 @@
     { target: "#stats-create-btn", badge: "Step 1", title: "Open Create Game",
       before: () => { closeMenuOverlays(); closeCompTourModal(); try { navTab("overview"); } catch (_) {} },
       interactive: true, advanceWhen: gtCompModalOpen,
-      text: "To <em>host</em> a ranked match you set one up from <strong>Create Game</strong>. <strong>Click it now</strong> to open the match-setup window. <em>(To instead <em>join</em> someone else's open match, use <strong>Join Game → 👥 Competitive</strong>. We come back to that later.)</em>" },
+      text: "To <em>host</em> a ranked match you set one up from <strong>Create Game</strong>. <strong>Click it now</strong> to open the match-setup window. <em>(To instead <em>join</em> someone else's open match, use <strong>Join Game → Competitive</strong>. We come back to that later.)</em>" },
 
     // ── 3. Switch Mode to Competitive ───────────────────────────────
     { target: "#nc-field-mode", badge: "Match Setup", title: "Switch to Competitive",
       before: () => { setNcMode("competitive"); },
-      text: "The setup window has a <strong>Mode</strong> dropdown with four entries: <strong>🐠 Normal</strong>, <strong>🏅 Competitive</strong>, <strong>⚔️ Competitive 1v1</strong> and <strong>🤝 Team</strong>. This tour is about <strong>⚔️ Competitive 1v1</strong>, so pick that one, we've flipped it for you. Be careful not to grab <strong>🏅 Competitive</strong> just above it: that is the other ranked mode, a people-only free-for-all of <strong>3 to 8 players</strong> that pays OP by finishing place. The title now reads <strong>⚔️ Competitive 1v1, 2 hands per player</strong>. Let's look at why the settings are fixed." },
+      text: "The setup window has a <strong>Mode</strong> dropdown with four entries: <strong>Normal</strong>, <strong>Competitive</strong>, <strong>Competitive 1v1</strong> and <strong>Team</strong>. This tour is about <strong>Competitive 1v1</strong>, so pick that one, we've flipped it for you. Be careful not to grab <strong>Competitive</strong> just above it: that is the other ranked mode, a people-only free-for-all of <strong>3 to 8 players</strong> that pays OP by finishing place. The title now reads <strong>Competitive 1v1, 2 hands per player</strong>. Let's look at why the settings are fixed." },
 
     // ── 4. Human Critters locked to 4 ───────────────────────────────
     { target: "#nc-total", badge: "Match Setup", title: "Four Hands = Two Players",
@@ -2012,7 +2011,7 @@
 
     // ── 6. Privacy locked to Public ─────────────────────────────────
     { target: "#nc-field-privacy", badge: "Match Setup", title: "Locked to Public",
-      text: "In Competitive, <strong>Privacy is locked to 🌊 Public</strong>, your match appears in <strong>Open Currents</strong> so an opponent can find and join it. Everything is fixed for ranked play, so all you have to do is press the main button. <em>(Switch Mode back to 🐠 Normal any time for a fully customizable game where you can pick Public or Private, or to 🤝 Team for 2 to 4 teams sharing a table.)</em>" },
+      text: "In Competitive, <strong>Privacy is locked to Public</strong>, your match appears in <strong>Open Currents</strong> so an opponent can find and join it. Everything is fixed for ranked play, so all you have to do is press the main button. <em>(Switch Mode back to Normal any time for a fully customizable game where you can pick Public or Private, or to Team for 2 to 4 teams sharing a table.)</em>" },
 
     // ── 7. Generate Current (explain, don't create) ────────────────
     { target: "#nc-create-btn", badge: "Match Setup", title: "Generate the Match",
@@ -2028,11 +2027,11 @@
     // mode picker at all (/api/quickplay takes a name and a ticket, nothing
     // else), so "Head to Head → Competitive" sent every learner to a button
     // that cannot do what they were told it does. The real door is Join Game,
-    // which opens Open Currents, whose 👥 Competitive tab lists both ranked
+    // which opens Open Currents, whose Competitive tab lists both ranked
     // modes and claims a whole PAIR of hands on the way in.
     { target: "#stats-join-toggle-btn", badge: "Joining", title: "How Player 2 Joins",
       before: () => { closeMenuOverlays(); closeCompTourModal(); try { navTab("overview"); } catch (_) {} },
-      text: "Your opponent joins from <em>their</em> device. They tap <strong>Join Game</strong> to open <strong>🌊 Open Currents</strong>, switch to the <strong>👥 Competitive</strong> tab, and press <strong>Join</strong> on your match. It <strong>hands them BOTH of their seats</strong> (Hands 3 &amp; 4) in one go, there is no seat-picking, because a competitive player always owns a pair. If you send them your <strong>room code</strong> instead, that same code drops them straight in. Once all four hands are filled, the host presses <strong>Start</strong> and the match begins." },
+      text: "Your opponent joins from <em>their</em> device. They tap <strong>Join Game</strong> to open <strong>Open Currents</strong>, switch to the <strong>Competitive</strong> tab, and press <strong>Join</strong> on your match. It <strong>hands them BOTH of their seats</strong> (Hands 3 &amp; 4) in one go, there is no seat-picking, because a competitive player always owns a pair. If you send them your <strong>room code</strong> instead, that same code drops them straight in. Once all four hands are filled, the host presses <strong>Start</strong> and the match begins." },
 
     // ── 10. Navigate to Competitive stats tab (interactive) ─────────
     { target: "#snav-competitive", badge: "Your Stats", title: "Your Competitive Record",
@@ -2042,11 +2041,11 @@
 
     // ── 11. Competitive panel, rank divisions ──────────────────────
     { target: "#ph-panel-competitive", badge: "Your Rank", title: "The Rank Ladder",
-      text: "Once you've played ranked games, this panel shows your <strong>Ocean Points (OP)</strong>, your current <strong>rank division</strong>, and a bar toward the next. The ladder climbs through six tiers:<br><strong>🐠 Bronze Barracuda → 🦞 Silver Spiny Lobster → 🐡 Golden Grouper → 🐬 Diamond Dolphin → 🐧 Emerald Emperor Penguin → 👑 King of the Critters</strong>.<br>Each tier (except King) has three sub-divisions: <strong>I, II, III</strong>." },
+      text: "Once you've played ranked games, this panel shows your <strong>Ocean Points (OP)</strong>, your current <strong>rank division</strong>, and a bar toward the next. The ladder climbs through six tiers:<br><strong>Bronze Barracuda → Silver Spiny Lobster → Golden Grouper → Diamond Dolphin → Emerald Emperor Penguin → King of the Critters</strong>.<br>Each tier (except King) has three sub-divisions: <strong>I, II, III</strong>." },
 
     // ── 12. OP formula ─────────────────────────────────────────────
     { target: null, badge: "How OP Works", title: "Earning and Losing OP",
-      text: "<strong>Every ranked match pays both players something.</strong><br>• <strong>Win</strong>, a big gain (about +18 to +26).<br>• <strong>Draw</strong>, a small gain, at every rank.<br>• <strong>Loss</strong>, this is the one your rank decides.<br>In <strong>🐠 Bronze</strong> and <strong>🦞 Silver</strong> even a loss still pays you a little, so while you are learning the ladder only goes up. From <strong>🐡 Golden Grouper</strong> a loss breaks even, and above that it starts to cost, more and more the higher you climb, while a win gives less. If both players' best hands tie, the <strong>second hand breaks the tie</strong>. Reach <strong>1200 OP</strong> to become <strong>👑 King of the Critters</strong>, the season's top rank." },
+      text: "<strong>Every ranked match pays both players something.</strong><br>• <strong>Win</strong>, a big gain (about +18 to +26).<br>• <strong>Draw</strong>, a small gain, at every rank.<br>• <strong>Loss</strong>, this is the one your rank decides.<br>In <strong>Bronze</strong> and <strong>Silver</strong> even a loss still pays you a little, so while you are learning the ladder only goes up. From <strong>Golden Grouper</strong> a loss breaks even, and above that it starts to cost, more and more the higher you climb, while a win gives less. If both players' best hands tie, the <strong>second hand breaks the tie</strong>. Reach <strong>1200 OP</strong> to become <strong>King of the Critters</strong>, the season's top rank." },
 
     // ── 13. Hand-switch in the game ────────────────────────────────
     { target: null, badge: "In the Game", title: "Switching Between Your Hands",
@@ -2058,12 +2057,12 @@
 
     // ── 15. In-game menu ───────────────────────────────────────────
     { target: null, badge: "In the Game", title: "Tracking All Four Hands",
-      text: "During a ranked match the <strong>☰ Menu</strong> in the top bar gains a <strong>⚔️ Hands</strong> section listing the live score of every hand, including your opponent's. Check it any time to see whether you're ahead, behind, or tied without scrolling around the board." },
+      text: "During a ranked match the <strong>☰ Menu</strong> in the top bar gains a <strong>Hands</strong> section listing the live score of every hand, including your opponent's. Check it any time to see whether you're ahead, behind, or tied without scrolling around the board." },
 
     // ── 16. Done ───────────────────────────────────────────────────
     { target: "#stats-create-btn", badge: "All Done!", title: "Ready to Compete!",
       before: () => { closeMenuOverlays(); closeCompTourModal(); try { navTab("overview"); } catch (_) {} },
-      text: "That's Competitive 1v1! To host: tap <strong>Create Game</strong>, switch <strong>Mode</strong> to <strong>⚔️ Competitive 1v1</strong>, and <strong>Generate</strong> the match. To join someone else's, tap <strong>Join Game</strong> and open the <strong>👥 Competitive</strong> tab. Either way, once both players are in you start, build two strong hands and watch the scores. Climb from <strong>Bronze Barracuda</strong> all the way to <strong>👑 King of the Critters</strong>. Good luck! 🏆<br><br>Click <strong>Finish ✓</strong> to mark this tutorial complete." },
+      text: "That's Competitive 1v1! To host: tap <strong>Create Game</strong>, switch <strong>Mode</strong> to <strong>Competitive 1v1</strong>, and <strong>Generate</strong> the match. To join someone else's, tap <strong>Join Game</strong> and open the <strong>Competitive</strong> tab. Either way, once both players are in you start, build two strong hands and watch the scores. Climb from <strong>Bronze Barracuda</strong> all the way to <strong>King of the Critters</strong>. Good luck!<br><br>Click <strong>Finish ✓</strong> to mark this tutorial complete." },
   ];
 
   function runCompTour() {
@@ -2098,11 +2097,11 @@
   }
 
   const OPTS = [
-    { key: "menu",        ico: "🗺️",  title: "Main Menu Tour",        desc: "Everything on the menu: profile, streak, tabs, and the store.",                       run: runMenuTour,   ready: true },
-    { key: "game",        ico: "🎴",  title: "The Game",              desc: "The rules that matter: costs, the Pool, Oceans, symbols, and a Star ability, in a real game.",                       run: runGameTour,   ready: true },
-    { key: "practice",    ico: "🦞",  title: "Practice Game (B-Lob)", desc: "Use the Strategy guide and build the Bird + Lobster combo on the real board.",        run: runBLobTour,   ready: true },
-    { key: "online",      ico: "🛟",  title: "Online Play & Controls", desc: "Rooms, bots, chat, breaks, AFK rules, and card controls.",                            run: runOnlineTour, ready: true },
-    { key: "competitive", ico: "⚔️", title: "Competitive 1v1",       desc: "Ranked 1v1 play: two hands each, OP, rank divisions, the hand-switch, and strategy.", run: runCompTour,   ready: true },
+    { key: "menu",        title: "Main Menu Tour",        desc: "Everything on the menu: profile, streak, tabs, and the store.",                       run: runMenuTour,   ready: true },
+    { key: "game",        title: "The Game",              desc: "The rules that matter: costs, the Pool, Oceans, symbols, and a Star ability, in a real game.",                       run: runGameTour,   ready: true },
+    { key: "practice",    title: "Practice Game (B-Lob)", desc: "Use the Strategy guide and build the Bird + Lobster combo on the real board.",        run: runBLobTour,   ready: true },
+    { key: "online",      title: "Online Play & Controls", desc: "Rooms, bots, chat, breaks, AFK rules, and card controls.",                            run: runOnlineTour, ready: true },
+    { key: "competitive", title: "Competitive 1v1",       desc: "Ranked 1v1 play: two hands each, OP, rank divisions, the hand-switch, and strategy.", run: runCompTour,   ready: true },
   ];
 
   function renderChooser() {
@@ -2116,7 +2115,7 @@
         : locked ? `<span class="tut3-opt-status tut3-st-soon">Coming soon</span>`
         : `<span class="tut3-opt-status tut3-st-start">Start ▶</span>`;
       return `<button class="tut3-opt ${locked ? "tut3-locked" : ""}" data-key="${o.key}" ${locked ? "disabled" : ""}>
-        <span class="tut3-opt-ico">${o.ico}</span>
+        ${o.ico ? `<span class="tut3-opt-ico">${o.ico}</span>` : ""}
         <span class="tut3-opt-body"><span class="tut3-opt-title">${esc(o.title)}</span><span class="tut3-opt-desc">${esc(o.desc)}</span></span>
         ${status}
       </button>`;
@@ -2145,11 +2144,11 @@
   let toastEl = null;
   function completionSubtitle() {
     const n = ["menu", "game", "practice", "online", "competitive"].filter(k => getDone()[k]).length;
-    return allDone() ? "All five done. Osprey unlocked! 🦅" : `${n} of 5 complete`;
+    return allDone() ? "All five done. Osprey unlocked!" : `${n} of 5 complete`;
   }
   function showToast(title, sub) {
     if (!toastEl) { toastEl = document.createElement("div"); toastEl.id = "tut3-toast"; document.body.appendChild(toastEl); }
-    toastEl.innerHTML = `<span style="font-size:1.3rem">🎉</span><span><div>${esc(title)}</div><div style="font-size:.74rem;opacity:.9;font-weight:600">${esc(sub)}</div></span>`;
+    toastEl.innerHTML = `<span><div>${esc(title)}</div><div style="font-size:.74rem;opacity:.9;font-weight:600">${esc(sub)}</div></span>`;
     toastEl.classList.add("show");
     setTimeout(() => toastEl.classList.remove("show"), 3200);
   }

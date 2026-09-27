@@ -142,7 +142,7 @@
     if (resultEl) {
       resultEl.innerHTML = already
         ? "✓ You already own the <strong>Narwhal</strong> icon!"
-        : "✓ Correct! You've unlocked the <strong>Narwhal</strong> avatar icon! 🦄";
+        : "✓ Correct! You've unlocked the <strong>Narwhal</strong> avatar icon!";
       resultEl.className = "coc-trivia-result coc-result-correct";
     }
 

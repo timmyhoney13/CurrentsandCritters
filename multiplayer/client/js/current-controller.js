@@ -33,14 +33,14 @@
   // phase "live"  = fully working client-side now.
   // phase "server"= UI present; mutations land in the server pass.
   const TOOLS = [
-    { id:"bot_brain",    icon:"🧠", name:"Bot Brain Viewer",          phase:"server", desc:"See each bot's strategy, intended move, reasoning and top scored alternatives." },
-    { id:"bot_override", icon:"🎮", name:"Bot Move Override",         phase:"server", desc:"Force a bot's next move from its legal actions; play continues normally." },
-    { id:"enemy_hands",  icon:"🃏", name:"Enemy Hand Viewer",         phase:"server", desc:"Reveal every hand; add / flood ANY card (both faces, many copies) / remove / clear / copy." },
-    { id:"deck_picker",  icon:"🗂️", name:"Full Deck Picker",          phase:"server", desc:"Browse EVERY card (both faces) and drop fresh copies into a hand (flood), pool, deck or discard." },
-    { id:"force_pool",   icon:"🌊", name:"Force Pool Cards",          phase:"server", desc:"Clear, refill, remove, or force exact cards into the pool." },
-    { id:"what_if",      icon:"🔮", name:"What If Menu",              phase:"live",   desc:"Preview move estimates, then commit a real legal move with Apply This Move." },
-    { id:"bug_log",      icon:"🐞", name:"Recent Bug Log",            phase:"live",   desc:"Track errors and odd game-state issues this session with full context." },
-    { id:"state_viewer", icon:"📊", name:"Game State Viewer",         phase:"live",   desc:"Live snapshot of turn, deck, pool, scores, hands, oceans, end-game and sync." },
+    { id:"bot_brain",    icon:"", name:"Bot Brain Viewer",          phase:"server", desc:"See each bot's strategy, intended move, reasoning and top scored alternatives." },
+    { id:"bot_override", icon:"", name:"Bot Move Override",         phase:"server", desc:"Force a bot's next move from its legal actions; play continues normally." },
+    { id:"enemy_hands",  icon:"", name:"Enemy Hand Viewer",         phase:"server", desc:"Reveal every hand; add / flood ANY card (both faces, many copies) / remove / clear / copy." },
+    { id:"deck_picker",  icon:"", name:"Full Deck Picker",          phase:"server", desc:"Browse EVERY card (both faces) and drop fresh copies into a hand (flood), pool, deck or discard." },
+    { id:"force_pool",   icon:"", name:"Force Pool Cards",          phase:"server", desc:"Clear, refill, remove, or force exact cards into the pool." },
+    { id:"what_if",      icon:"", name:"What If Menu",              phase:"live",   desc:"Preview move estimates, then commit a real legal move with Apply This Move." },
+    { id:"bug_log",      icon:"", name:"Recent Bug Log",            phase:"live",   desc:"Track errors and odd game-state issues this session with full context." },
+    { id:"state_viewer", icon:"", name:"Game State Viewer",         phase:"live",   desc:"Live snapshot of turn, deck, pool, scores, hands, oceans, end-game and sync." },
   ];
   const TOOL_BY_ID = {};
   TOOLS.forEach(t => { TOOL_BY_ID[t.id] = t; });
@@ -204,9 +204,9 @@
     overlay.innerHTML =
       `<div id="cc-panel" role="dialog" aria-label="Current Controller">
         <div id="cc-head">
-          <span class="cc-logo">🌊 Current Controller</span>
+          <span class="cc-logo">Current Controller</span>
           <span class="cc-tag">Admin</span>
-          <button id="cc-key" title="Change admin key">🔑</button>
+          <button id="cc-key" title="Change admin key">Key</button>
           <button id="cc-close" title="Close">✕</button>
         </div>
         <div id="cc-body">${TOOLS.map(toolRowHtml).join("")}</div>
@@ -317,7 +317,7 @@
   const pointsOf  = (e) => { const f = firstFace(e); return (f && f.points != null) ? f.points : ""; };
 
   // One-time key prompt. The panel only opens for the admin account; the key is
-  // asked once (on open, or via the 🔑 header button) and cached for the rest of
+  // asked once (on open, or via the header button) and cached for the rest of
   // the session, so every server-backed tool then runs silently.
   function promptKey() {
     const v = prompt("Enter the Current Controller admin key:", ccAdminKey() || "");
@@ -475,7 +475,7 @@
       if (me && Array.isArray(me.hand) && me.hand.length) {
         h += `<div class="cc-sub">Your hand</div><div class="cc-cards">${me.hand.map(e => cardTile(firstFace(e), e.label)).join("")}</div>`;
       }
-      h += `<div class="cc-btnrow"><button class="cc-btn" id="cc-sv-copy">📋 Copy Debug Report</button></div>`;
+      h += `<div class="cc-btnrow"><button class="cc-btn" id="cc-sv-copy">Copy Debug Report</button></div>`;
       el.innerHTML = h;
       const cp = el.querySelector("#cc-sv-copy");
       if (cp) cp.addEventListener("click", () => {
@@ -569,7 +569,7 @@
 
     // ── Recent Bug Log ────────────────────────────────────────────
     bug_log(el) {
-      let h = `<div class="cc-btnrow"><button class="cc-btn" id="cc-bug-copy">📋 Copy Bug Report</button><button class="cc-btn cc-danger" id="cc-bug-clear">Clear Bug Log</button></div>`;
+      let h = `<div class="cc-btnrow"><button class="cc-btn" id="cc-bug-copy">Copy Bug Report</button><button class="cc-btn cc-danger" id="cc-bug-clear">Clear Bug Log</button></div>`;
       if (!bugLog.length) h += `<div class="cc-desc">No issues recorded yet this session. Errors, console.error calls and rejected promises will appear here while this is ON.</div>`;
       else h += `<div class="cc-loglist">` + bugLog.map(b =>
         `<div class="cc-logitem"><div class="m">${esc(b.message)}</div><div class="meta">turn ${esc(b.turn)} · current: ${esc(b.currentPlayer)} · affected: ${esc(b.affectedPlayer)} · action: ${esc(b.action)} · ${esc(b.ts)}${b.explanation ? " · " + esc(b.explanation) : ""}</div></div>`
@@ -590,7 +590,7 @@
       if (!seats.length) { el.innerHTML = `<div class="cc-desc">No bot decisions recorded yet. This fills in as bots take turns.</div>`; return; }
       seats.forEach(sk => {
         const b = brain[sk];
-        h += `<div class="cc-seat"><div class="cc-seat-hd">🧠 P${(Number(sk) + 1)} · ${esc(b.name)} <span class="cc-desc">${esc(b.strategy || "")}</span></div>`;
+        h += `<div class="cc-seat"><div class="cc-seat-hd">P${(Number(sk) + 1)} · ${esc(b.name)} <span class="cc-desc">${esc(b.strategy || "")}</span></div>`;
         h += `<div class="cc-kv"><span>Wants to play</span><b>${esc(b.chosen ? b.chosen.label : "-")}</b></div>`;
         if (b.reason) h += `<div class="cc-desc" style="margin:4px 0">${esc(b.reason)}</div>`;
         h += `<div class="cc-sub">Top scored alternatives</div>`;
@@ -614,7 +614,7 @@
       if (!seats.length) { el.innerHTML = h + `<div class="cc-desc">No bot turns observed yet, let a bot reach its turn, then return here.</div>`; return; }
       seats.forEach(sk => {
         const b = brain[sk];
-        h += `<div class="cc-seat" data-seat="${sk}"><div class="cc-seat-hd">🎮 P${(Number(sk) + 1)} · ${esc(b.name)}</div>`;
+        h += `<div class="cc-seat" data-seat="${sk}"><div class="cc-seat-hd">P${(Number(sk) + 1)} · ${esc(b.name)}</div>`;
         h += `<div class="cc-desc">Currently wants: ${esc(b.chosen ? b.chosen.label : "-")}</div>`;
         h += `<div class="cc-sub">Force this seat to:</div><div id="cc-ovr-${sk}">`;
         (b.legal_actions || []).forEach((a, i) => {
@@ -765,7 +765,7 @@
       item = document.createElement("button");
       item.className = "pv-menu-item";
       item.id = "cc-menu-item";
-      item.innerHTML = "🌊 Current Controller";
+      item.innerHTML = "Current Controller";
       item.addEventListener("click", () => { document.getElementById("pv-menu-drop")?.classList.remove("open"); open(); });
       const back = document.getElementById("pv-back-btn");
       if (back) { drop.insertBefore(div, back); drop.insertBefore(item, back); }

@@ -757,7 +757,6 @@
           <div class="auth-err auth-note" id="ao-forgot-err" role="status" aria-live="polite"></div>
 
           <div class="ao-note is-warn">
-            <span class="ao-note-ico" aria-hidden="true">&#9888;&#65039;</span>
             <span>An account here has no email of its own, so one with nothing linked
               cannot be reset this way. Use your recovery code instead.</span>
           </div>
@@ -826,7 +825,6 @@
           <div class="auth-err auth-note" id="ao-code-err" role="status" aria-live="polite"></div>
 
           <div class="ao-note is-warn">
-            <span class="ao-note-ico" aria-hidden="true">&#9888;&#65039;</span>
             <span>A code works once. As soon as this one is used you get a fresh
               one to write down.</span>
           </div>
@@ -936,7 +934,6 @@
           </div>
 
           <div class="ao-note" id="ao-migrate-note" style="display:none">
-            <span class="ao-note-ico" aria-hidden="true">🎁</span>
             <span>Your guest XP, level, games and critters come with you.</span>
           </div>
 
@@ -998,7 +995,6 @@
                This is the one real difference between this door and the other
                two, so it is the one thing on the pane in its own box. -->
           <div class="ao-note is-warn">
-            <span class="ao-note-ico" aria-hidden="true">&#127754;</span>
             <span>A guest session lives on this device only. The XP, level and critters
               you earn are erased the moment you sign out.</span>
           </div>
@@ -1044,7 +1040,6 @@
           <div class="auth-err auth-note" id="auth-nick-err" role="status" aria-live="polite"></div>
 
           <div class="ao-note is-info" id="auth-nick-note">
-            <span class="ao-note-ico" aria-hidden="true">&#127991;&#65039;</span>
             <span>You can change your username <strong>once for free</strong>. After that, each
               change costs <strong><span id="auth-nick-price">100</span>
               <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false" fetchpriority="low" decoding="async"> Critter Coins</strong>.</span>
@@ -1065,7 +1060,6 @@
                    maxlength="24" autocomplete="off" inputmode="numeric" />
           </div>
           <div class="ao-note">
-            <span class="ao-note-ico" aria-hidden="true">&#127873;</span>
             <span>Enter it now and <strong>you both get <span id="auth-ref-coins">40</span>
               <img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false" fetchpriority="low" decoding="async">
               Critter Coins</strong>.</span>
@@ -1098,12 +1092,12 @@
     <img class="auth-launch-logo" src="/icon.svg?v=cc-logo-1" alt="Currents and Critters" fetchpriority="low" decoding="async" />
     <div id="auth-launch-avatar-wrap">
       <img id="auth-launch-avatar-img" alt="" style="display:none" onerror="this.style.display='none';document.getElementById('auth-launch-initials').style.display='';" />
-      <span id="auth-launch-initials">🐙</span>
+      <span id="auth-launch-initials"></span>
     </div>
     <div id="auth-launch-greeting">Ready to dive in!</div>
     <div id="auth-launch-sub">Open Currents and Critters in its own game window.</div>
-    <button id="auth-launch-play-btn" class="pv-btn gold full" data-action="open">🎮 Open Game</button>
-    <button id="auth-launch-secondary-btn" class="pv-btn full" style="display:none">🔁 Relaunch Game</button>
+    <button id="auth-launch-play-btn" class="pv-btn gold full" data-action="open">Open Game</button>
+    <button id="auth-launch-secondary-btn" class="pv-btn full" style="display:none">Relaunch Game</button>
     <div class="auth-err" id="auth-launch-err" style="white-space:pre-wrap;"></div>
     <div class="auth-launch-links">
       <span class="auth-link" id="auth-launch-continue" style="display:none">Continue in this window</span>
@@ -1125,19 +1119,18 @@
      "OK". Painted by ccShowRecoveryCode(). -->
 <div id="rc-modal" class="overlay-modal">
   <div class="modal-box">
-    <div class="modal-title">&#128273; Your Recovery Code</div>
+    <div class="modal-title">Your Recovery Code</div>
     <p id="rc-lead" style="margin:0 0 12px;line-height:1.55;color:#3f6392;font-size:13px;">
       Write this down and keep it somewhere safe. If you ever forget your
       password, your username and this code are the way back into your account.
     </p>
     <div id="rc-code" class="rc-code" role="text" aria-label="Your recovery code">----&#8209;----&#8209;----&#8209;----</div>
     <div class="rc-actions">
-      <button type="button" class="pv-btn" id="rc-copy">&#128203; Copy</button>
-      <button type="button" class="pv-btn" id="rc-download">&#11015;&#65039; Save as file</button>
+      <button type="button" class="pv-btn" id="rc-copy">Copy</button>
+      <button type="button" class="pv-btn" id="rc-download">Save as file</button>
     </div>
     <div class="auth-err auth-note" id="rc-err" role="status" aria-live="polite"></div>
     <div class="ao-note is-warn">
-      <span class="ao-note-ico" aria-hidden="true">&#9888;&#65039;</span>
       <span>This is the only time it is shown. We cannot look it up for you later,
         and a new code replaces this one.</span>
     </div>
@@ -1151,7 +1144,7 @@
 
 <div id="settings-modal" class="overlay-modal">
   <div class="modal-box">
-    <div class="modal-title">⚙️ Settings</div>
+    <div class="modal-title">Settings</div>
     <div class="settings-row">
       <div class="settings-row-label">Account</div>
       <div class="settings-row-val" id="settings-account-status">Guest</div>
@@ -1215,7 +1208,7 @@
     </div>
     <!-- Music volume slider -->
     <div class="settings-row" style="margin-top:8px;">
-      <div class="settings-row-label">🎵 Music</div>
+      <div class="settings-row-label">Music</div>
       <div class="settings-slider-wrap">
         <input type="range" id="settings-music-slider" class="settings-slider"
                min="0" max="100" step="1" value="100"
@@ -1228,16 +1221,14 @@
          responses go straight to the Currents and Critters team. -->
     <div class="settings-help">
       <div class="settings-help-head">
-        <span class="settings-help-ico" aria-hidden="true">🪸</span>
         <span>
           <span class="settings-help-title">Help &amp; Feedback</span>
-          <span class="settings-help-sub">Send us a message from the tide pool 🌊</span>
+          <span class="settings-help-sub">Send us a message from the tide pool</span>
         </span>
       </div>
       <a class="settings-help-card" data-help-link="question"
          href="https://docs.google.com/forms/d/e/1FAIpQLSdlPe_UO6fwOeE72XqgJHcaWMfDmOZmLCRWdsoNQrumr8Mluw/viewform"
          target="_blank" rel="noopener noreferrer">
-        <span class="settings-help-emoji" aria-hidden="true">🐚</span>
         <span class="settings-help-txt">
           <span class="settings-help-ct">Ask a Question</span>
           <span class="settings-help-cd">Rules, account, store, cards &amp; more</span>
@@ -1247,7 +1238,6 @@
       <a class="settings-help-card" data-help-link="bug"
          href="https://docs.google.com/forms/d/e/1FAIpQLScb0pBrZ1QP11o7171li3hbttRBCTH-Inw5Kq-s03Wl14-ZPQ/viewform"
          target="_blank" rel="noopener noreferrer">
-        <span class="settings-help-emoji" aria-hidden="true">🐛</span>
         <span class="settings-help-txt">
           <span class="settings-help-ct">Report a Bug</span>
           <span class="settings-help-cd">Something not working right? Tell us.</span>
@@ -1257,7 +1247,6 @@
       <a class="settings-help-card" data-help-link="idea"
          href="https://docs.google.com/forms/d/e/1FAIpQLSeSKDrrEbYuJXKLEJKBlWJHwYmseOG746JLBpyNBW3Xowbz6A/viewform"
          target="_blank" rel="noopener noreferrer">
-        <span class="settings-help-emoji" aria-hidden="true">💡</span>
         <span class="settings-help-txt">
           <span class="settings-help-ct">Suggest an Idea</span>
           <span class="settings-help-cd">Got a cool idea to make the game better?</span>
@@ -1267,7 +1256,7 @@
     </div>
     <!-- Privacy Policy (opens the full policy in a read-only reader) -->
     <div class="settings-row" style="margin-top:8px;">
-      <div class="settings-row-label">📜 Legal</div>
+      <div class="settings-row-label">Legal</div>
       <button class="auth-link" id="settings-privacy-btn" role="button" tabindex="0"
         aria-label="View the Privacy Policy"
         style="background:none;border:none;padding:0;font:inherit;cursor:pointer;">Privacy Policy</button>
@@ -1282,12 +1271,12 @@
 </div>
 
 <!-- ══ PRIVACY POLICY MODAL ════════════════════════════════════════════
-     Read-only, opened from Settings → 📜 Legal. The document itself is
+     Read-only, opened from Settings → Legal. The document itself is
      js/privacy-policy.js, the ONE source, shared with the published
      /privacy page: rendered into #privacy-scroll on first open. -->
 <div id="privacy-modal" class="overlay-modal">
   <div class="modal-box privacy-modal-box">
-    <div class="modal-title">🔒 Privacy Policy</div>
+    <div class="modal-title">Privacy Policy</div>
     <div class="privacy-sub">Bearded Seal Studios LLC</div>
     <!-- Jump list, built from CC_PRIVACY_SECTIONS so it can never drift
          away from the headings below it. -->
@@ -1362,7 +1351,7 @@
     <div class="au-q">Equip this avatar now?</div>
     <div class="au-btn-row">
       <button class="pv-btn" id="au-btn-no">Not Now</button>
-      <button class="pv-btn gold" id="au-btn-yes">⚓ Equip Now</button>
+      <button class="pv-btn gold" id="au-btn-yes">Equip Now</button>
     </div>
   </div>
 </div>
@@ -1370,7 +1359,7 @@
 <!-- ══ LEADERBOARD MODAL ════════════════════════════════════════════ -->
 <div id="leaderboard-modal" class="overlay-modal">
   <div class="modal-box" style="max-width:400px;">
-    <div class="modal-title">🏆 Leaderboard</div>
+    <div class="modal-title">Leaderboard</div>
     <div class="lb-tabs" id="lb-tabs-row">
       <button class="lb-tab active" data-size="2">2 Players</button>
       <button class="lb-tab" data-size="3">3 Players</button>
@@ -1528,7 +1517,6 @@
            says exactly how long that is. Driven by _renderStreakRescue(). -->
       <div class="ph-ss-rescue" id="ph-ss-rescue" style="display:none;">
         <div class="ph-ss-rescue-top">
-          <span class="ph-ss-rescue-ico" aria-hidden="true">🛡️</span>
           <span class="ph-ss-rescue-time" id="ph-ss-rescue-time">-</span>
         </div>
         <div class="ph-ss-rescue-msg" id="ph-ss-rescue-msg"></div>
@@ -1606,11 +1594,9 @@
         </div>
         <div class="ph-pmeta2">
           <span class="ph-meta-chip" id="hdr-total-xp-chip">
-            <span class="ph-meta-chip-ico">⭐</span>
             <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Total XP</span><span class="ph-meta-chip-val" id="hdr-total-xp">-</span></span>
           </span>
           <span class="ph-meta-chip" id="hdr-streak-chip">
-            <span class="ph-meta-chip-ico">🔥</span>
             <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Current Streak</span><span class="ph-meta-chip-val" id="hdr-streak">-</span></span>
           </span>
           <span class="ph-meta-chip" id="hdr-coins-chip">
@@ -1644,8 +1630,8 @@
       <!-- Beta version square: its own column, now sitting between the Level badge and sign-out actions. -->
       <div class="ph-alpha-banner" id="ph-alpha-banner">
         <div class="ph-alpha-tag" id="ph-alpha-tag">BETA V1.3.5</div>
-        <div class="ph-alpha-msg" id="ph-alpha-msg">You're on the latest version. 🎉</div>
-        <button type="button" class="ph-alpha-refresh" id="ph-alpha-refresh" style="display:none;">🔄 Refresh now</button>
+        <div class="ph-alpha-msg" id="ph-alpha-msg">You're on the latest version.</div>
+        <button type="button" class="ph-alpha-refresh" id="ph-alpha-refresh" style="display:none;">Refresh now</button>
         <button type="button" class="ph-alpha-whatsnew" id="ph-alpha-whatsnew">What's New ›</button>
       </div>
       <div id="stats-lobby-signed-actions" style="display:none;gap:8px;align-items:center;">
@@ -1826,32 +1812,26 @@
               <div class="ph-scv" id="ph-ov-most-strategy">-</div>
             </div>
             <div class="ph-sc">
-              <div class="ph-sci ph-sci-purple">🧮</div>
               <div class="ph-scl">Total Games</div>
               <div class="ph-scv" id="ph-ov-total-games">-</div>
             </div>
             <div class="ph-sc">
-              <div class="ph-sci ph-sci-gold">🥇</div>
               <div class="ph-scl">Total Wins</div>
               <div class="ph-scv" id="ph-ov-total-wins">-</div>
             </div>
             <div class="ph-sc">
-              <div class="ph-sci ph-sci-teal">📈</div>
               <div class="ph-scl">Win Rate</div>
               <div class="ph-scv" id="ph-ov-win-rate">-</div>
             </div>
             <div class="ph-sc">
-              <div class="ph-sci ph-sci-gold">🏆</div>
               <div class="ph-scl">Achievements</div>
               <div class="ph-scv" id="ph-ov-achievements">-</div>
             </div>
             <div class="ph-sc ph-sc-string">
-              <div class="ph-sci ph-sci-gold">⚔️</div>
               <div class="ph-scl">Competitive Rank</div>
               <div class="ph-scv" id="ph-ov-comp-rank">No rank yet</div>
             </div>
             <div class="ph-sc">
-              <div class="ph-sci ph-sci-teal">🐠</div>
               <div class="ph-scl">Animals Unlocked</div>
               <div class="ph-scv" id="ph-ov-animals">-</div>
             </div>
@@ -1872,7 +1852,6 @@
           </div>
           <div class="ph-sg" id="ph-ovf-grid" hidden></div>
           <div class="ph-ovf-empty" id="ph-ovf-empty">
-            <div class="ph-ovf-empty-ico" aria-hidden="true">🐠</div>
             <div class="ph-ovf-empty-title" id="ph-ovf-empty-title">Loading your friends…</div>
             <div class="ph-ovf-empty-sub" id="ph-ovf-empty-sub"></div>
             <button class="ph-ovf-add" id="ph-ovf-add" type="button" hidden>Add a friend</button>
@@ -1884,7 +1863,7 @@
     <!-- ── How to play tab ────────────────────────────────────────
          Three views over one card: Quick Start (how the online game plays),
          Full Rulebook (the printed book, word for word, from js/rulebook.js)
-         and Strategies (the same plans the in-game 💡 Strategy button offers).
+         and Strategies (the same plans the in-game Strategy button offers).
          Every pane is filled by renderPhHowTo() in preview-app.js. -->
     <div class="ph-panel" id="ph-panel-howto" style="display:none;">
       <div class="ph-scard ph-full htp-card">
@@ -1975,53 +1954,45 @@
               <div class="ph-comp-season-row" id="ph-comp-season-row"></div>
               <div style="width:100%;display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
                 <span id="ph-comp-season-label" style="font-size:11px;color:rgba(22,70,160,.65);font-style:italic;"></span>
-                <button class="ph-season-history-btn" id="ph-season-history-btn">📅 Season History</button>
+                <button class="ph-season-history-btn" id="ph-season-history-btn">Season History</button>
               </div>
             </div>
             <!-- Stats grid -->
             <div class="ph-sg">
               <div class="ph-sc ph-sc-feat">
-                <div class="ph-sci ph-sci-gold">🥇</div>
                 <div class="ph-scl">Wins</div>
                 <div class="ph-scv" id="ph-comp-wins">-</div>
               </div>
               <div class="ph-sc">
-                <div class="ph-sci" style="background:rgba(220,60,60,.1);">💀</div>
                 <div class="ph-scl">Losses</div>
                 <div class="ph-scv" id="ph-comp-losses">-</div>
               </div>
               <div class="ph-sc">
-                <div class="ph-sci" style="background:rgba(224,184,90,.12);">🤝</div>
                 <div class="ph-scl">Draws</div>
                 <div class="ph-scv" id="ph-comp-draws">-</div>
               </div>
               <div class="ph-sc">
-                <div class="ph-sci ph-sci-teal">📈</div>
                 <div class="ph-scl">Win %</div>
                 <div class="ph-scv" id="ph-comp-winpct">-</div>
               </div>
               <div class="ph-sc">
-                <div class="ph-sci ph-sci-gold">🏆</div>
                 <div class="ph-scl">Best Score</div>
                 <div class="ph-scv" id="ph-comp-best">-</div>
               </div>
               <div class="ph-sc">
-                <div class="ph-sci ph-sci-blue">📊</div>
                 <div class="ph-scl">Avg Best Score</div>
                 <div class="ph-scv" id="ph-comp-avg">-</div>
               </div>
               <div class="ph-sc">
-                <div class="ph-sci ph-sci-teal">🔥</div>
                 <div class="ph-scl">Win Streak</div>
                 <div class="ph-scv" id="ph-comp-streak">-</div>
               </div>
               <div class="ph-sc">
-                <div class="ph-sci ph-sci-purple">⭐</div>
                 <div class="ph-scl">Best Streak</div>
                 <div class="ph-scv" id="ph-comp-best-streak">-</div>
               </div>
               <div class="ph-sc ph-sc-string">
-                <div class="ph-sci ph-sci-blue">🎯</div>
+                <div class="ph-sci ph-sci-blue" id="ceph-octo-friend-stat"><img src="/avatars/common-octopus.png?v=ws12" alt="" draggable="false" fetchpriority="low" decoding="async" style="width:34px;height:34px;object-fit:contain;pointer-events:none;"></div>
                 <div class="ph-scl">Top Strategy</div>
                 <div class="ph-scv" id="ph-comp-strategy">-</div>
               </div>
@@ -2033,10 +2004,10 @@
             <!-- Season Summary -->
             <div class="ph-season-summary-card">
               <div class="ph-ss-card-title">
-                🏆 Season Summary
+                Season Summary
               </div>
               <div class="ph-ss-rank-row">
-                <div class="ph-ss-rank-badge-img" id="ph-ss-badge-img">🐠</div>
+                <div class="ph-ss-rank-badge-img" id="ph-ss-badge-img"></div>
                 <div class="ph-ss-rank-info">
                   <div class="ph-ss-rank-label">Current Rank</div>
                   <div class="ph-ss-rank-name" id="ph-ss-rank-name">-</div>
@@ -2066,11 +2037,11 @@
             <!-- King of the Critters (redesigned) -->
             <div class="ph-king-redesign">
               <div class="ph-king-redesign-title">
-                👑 King of the Critters
+                King of the Critters
               </div>
               <!-- King present -->
               <div id="ph-comp-king-card" style="display:none;">
-                <div class="ph-king-art">👑</div>
+                <div class="ph-king-art"><img src="/avatars/king-crab.png" alt="" draggable="false" decoding="async" style="width:64px;height:64px;object-fit:contain;"></div>
                 <div class="ph-king-current">
                   <div class="ph-king-current-name" id="ph-comp-king-name">-</div>
                   <div class="ph-king-current-meta" id="ph-comp-king-meta">-</div>
@@ -2085,7 +2056,7 @@
               <!-- No king yet -->
               <div id="ph-comp-no-king" style="display:none;">
                 <div class="ph-king-empty-state">
-                  <div class="ph-king-empty-art">👑</div>
+                  <div class="ph-king-empty-art"><img src="/avatars/king-crab.png" alt="" draggable="false" decoding="async" style="width:48px;height:48px;object-fit:contain;"></div>
                   <div class="ph-king-desc" style="margin-bottom:4px;">The highest rank in Currents and Critters.<br><strong>Only #1 can wear the crown.</strong></div>
                   <div class="ph-king-empty-text">No King of the Critters listed yet.</div>
                 </div>
@@ -2210,13 +2181,13 @@
 
         <!-- Mode toggle -->
         <div class="ph-lb-mode-row">
-          <button class="ph-lb-mode-btn active" id="ph-lb-xp-btn" onclick="phLbSwitchMode('xp')">⭐ XP</button>
-          <button class="ph-lb-mode-btn" id="ph-lb-casual-btn" onclick="phLbSwitchMode('casual')">🌊 Casual</button>
-          <button class="ph-lb-mode-btn" id="ph-lb-comp-btn" onclick="phLbSwitchMode('competitive')">⚔️ Competitive</button>
-          <button class="ph-lb-mode-btn" id="ph-lb-wins-btn" onclick="phLbSwitchMode('wins')">🏆 Most Wins</button>
-          <button class="ph-lb-mode-btn" id="ph-lb-streak-btn" onclick="phLbSwitchMode('streak')">🔥 Streak</button>
+          <button class="ph-lb-mode-btn active" id="ph-lb-xp-btn" onclick="phLbSwitchMode('xp')">XP</button>
+          <button class="ph-lb-mode-btn" id="ph-lb-casual-btn" onclick="phLbSwitchMode('casual')">Casual</button>
+          <button class="ph-lb-mode-btn" id="ph-lb-comp-btn" onclick="phLbSwitchMode('competitive')">Competitive</button>
+          <button class="ph-lb-mode-btn" id="ph-lb-wins-btn" onclick="phLbSwitchMode('wins')">Most Wins</button>
+          <button class="ph-lb-mode-btn" id="ph-lb-streak-btn" onclick="phLbSwitchMode('streak')">Streak</button>
           <!-- Tournament leaderboard: revealed only when Tournament Mode is enabled (same flag). -->
-          <button class="ph-lb-mode-btn" id="ph-lb-tourney-btn" style="display:none;" onclick="phLbSwitchMode('tourney')">🏅 Tournaments</button>
+          <button class="ph-lb-mode-btn" id="ph-lb-tourney-btn" style="display:none;" onclick="phLbSwitchMode('tourney')">Tournaments</button>
         </div>
 
         <!-- ── CASUAL SECTION ──────────────────────────────── -->
@@ -2322,8 +2293,8 @@
              swaps the two metric column headers to match. -->
         <div id="ph-lb-streak-section" style="display:none;">
           <div class="ph-lb-comp-tabs">
-            <button class="ph-lb-comp-tab active" id="ph-lb-streak-longest-tab" onclick="phLbSwitchStreakTab('longest',this)">🔥 Longest Streak Ever</button>
-            <button class="ph-lb-comp-tab" id="ph-lb-streak-current-tab" onclick="phLbSwitchStreakTab('current',this)">📅 Longest Current Streak</button>
+            <button class="ph-lb-comp-tab active" id="ph-lb-streak-longest-tab" onclick="phLbSwitchStreakTab('longest',this)">Longest Streak Ever</button>
+            <button class="ph-lb-comp-tab" id="ph-lb-streak-current-tab" onclick="phLbSwitchStreakTab('current',this)">Longest Current Streak</button>
           </div>
           <div class="ph-lb-summary" id="ph-lb-streak-summary" style="display:none;">
             <div class="ph-lb-sum-rank" id="ph-lb-streak-rank">-</div>
@@ -2352,7 +2323,7 @@
 
         <!-- ── TOURNAMENT WINS SECTION ─────────────────────── -->
         <div id="ph-lb-tourney-section" style="display:none;">
-          <button class="ph-lb-mode-btn" id="ph-lb-tourney-join" style="width:100%;margin:0 0 10px;font-weight:800;">🏆 Browse / Join a Tournament</button>
+          <button class="ph-lb-mode-btn" id="ph-lb-tourney-join" style="width:100%;margin:0 0 10px;font-weight:800;">Browse / Join a Tournament</button>
           <div class="ph-lb-summary" id="ph-lb-tourney-summary" style="display:none;">
             <div class="ph-lb-sum-rank" id="ph-lb-tourney-rank">-</div>
             <div class="ph-lb-sum-body">
@@ -2510,8 +2481,8 @@
 
     <!-- Footer -->
     <div class="ph-footer">
-      <button class="ph-footer-btn" id="stats-leaderboard-btn">🏆 Leaderboard</button>
-      <button class="ph-footer-btn" id="stats-settings-btn">⚙️ Settings</button>
+      <button class="ph-footer-btn" id="stats-leaderboard-btn">Leaderboard</button>
+      <button class="ph-footer-btn" id="stats-settings-btn">Settings</button>
     </div>
 
   </div>
@@ -2531,7 +2502,6 @@
         <button class="ph-avatar pub-avatar-btn" id="pub-avatar-btn" type="button"
                 title="View their critter collection (view-only)" aria-label="View their critter collection">
           <img id="pub-avatar-img" src="/avatars/mullet.png" alt="avatar" loading="lazy">
-          <span class="pub-avatar-cam" aria-hidden="true">🐠</span>
         </button>
         <div class="ph-pinfo">
           <div class="ph-pname-row">
@@ -2540,11 +2510,9 @@
           <div class="ph-pfc" id="pub-fc"></div>
           <div class="ph-pmeta2">
             <span class="ph-meta-chip">
-              <span class="ph-meta-chip-ico">⭐</span>
               <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Total XP</span><span class="ph-meta-chip-val" id="pub-total-xp">-</span></span>
             </span>
             <span class="ph-meta-chip">
-              <span class="ph-meta-chip-ico">🔥</span>
               <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Current Streak</span><span class="ph-meta-chip-val" id="pub-streak">-</span></span>
             </span>
           </div>
@@ -2566,11 +2534,11 @@
           </div>
         </div>
       </div>
-      <div class="pub-critter-hint">🐠 Tap their avatar to view their critter collection (view-only)</div>
+      <div class="pub-critter-hint">Tap their avatar to view their critter collection (view-only)</div>
       <!-- Clan System: shown only when the viewer has clan invite permission
            (owner / captain / recruiter / authorized custom role). -->
       <div id="pub-clan-invite-row" style="display:none; margin:2px 0 12px; text-align:center;">
-        <button id="pub-clan-invite-btn" class="ph-footer-btn">🛡️ Invite to Clan</button>
+        <button id="pub-clan-invite-btn" class="ph-footer-btn">Invite to Clan</button>
       </div>
       <div class="ph-stats-card" style="margin-top:0;">
         <div class="ph-stats-top">
@@ -2594,7 +2562,7 @@
     <span>Signed in as</span>
     <span class="auth-pnick" id="auth-profile-name-text">-</span>
     <span class="auth-pfc" id="auth-profile-fc-text"></span>
-    <button class="auth-pbtn" id="auth-friend-btn">👥 Friends<span class="friend-badge" id="friend-req-badge-bar"></span></button>
+    <button class="auth-pbtn" id="auth-friend-btn">Friends<span class="friend-badge" id="friend-req-badge-bar"></span></button>
     <button class="auth-pbtn" id="auth-signout-btn">Sign Out</button>
   </div>
 
@@ -2610,7 +2578,7 @@
 <div id="comp-overlay">
   <div class="comp-box">
     <button id="comp-overlay-close" aria-label="Close">✕</button>
-    <h2>⚔️ Competitive 1v1</h2>
+    <h2>Competitive 1v1</h2>
     <p class="wr-subtitle">Two players · Four hands · One winner</p>
 
     <div class="comp-tabs">
@@ -2634,23 +2602,19 @@
         oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
       <div class="comp-hands-grid">
         <div class="comp-hand-slot">
-          <span class="comp-hand-emoji">🦈</span>
           <div><div class="comp-hand-label">Hand 1</div><div class="comp-hand-owner">Your hand</div></div>
         </div>
         <div class="comp-hand-slot">
-          <span class="comp-hand-emoji">🦀</span>
           <div><div class="comp-hand-label">Hand 2</div><div class="comp-hand-owner">Your hand</div></div>
         </div>
         <div class="comp-hand-slot">
-          <span class="comp-hand-emoji">🐡</span>
           <div><div class="comp-hand-label">Hand 3</div><div class="comp-hand-owner">Player 2</div></div>
         </div>
         <div class="comp-hand-slot">
-          <span class="comp-hand-emoji">🐋</span>
           <div><div class="comp-hand-label">Hand 4</div><div class="comp-hand-owner">Player 2</div></div>
         </div>
       </div>
-      <button class="comp-action-btn" id="comp-create-btn">⚔️ Create Match →</button>
+      <button class="comp-action-btn" id="comp-create-btn">Create Match →</button>
       <div class="comp-helper" style="text-align:center;">Creates the room, share the code so Player 2 can join</div>
     </div>
 
@@ -2669,15 +2633,13 @@
       </div>
       <div class="comp-hands-grid">
         <div class="comp-hand-slot">
-          <span class="comp-hand-emoji">🐡</span>
           <div><div class="comp-hand-label">Hand 3</div><div class="comp-hand-owner">Your hand</div></div>
         </div>
         <div class="comp-hand-slot">
-          <span class="comp-hand-emoji">🐋</span>
           <div><div class="comp-hand-label">Hand 4</div><div class="comp-hand-owner">Your hand</div></div>
         </div>
       </div>
-      <button class="comp-action-btn" id="comp-join-btn">🌊 Join as Player 2 →</button>
+      <button class="comp-action-btn" id="comp-join-btn">Join as Player 2 →</button>
     </div>
 
     <!-- LEADERBOARD PANEL -->
@@ -2685,14 +2647,14 @@
       <div id="comp-lb-content" class="comp-lb-wrap">
         <div class="comp-helper" style="text-align:center;padding:12px 0;">Loading…</div>
       </div>
-      <button class="comp-hist-action-btn" id="comp-hist-btn">📜 View Game History</button>
+      <button class="comp-hist-action-btn" id="comp-hist-btn">View Game History</button>
     </div>
 
     <!-- WAITING FOR P2 (shown after Create, hidden otherwise) -->
     <div id="comp-waiting-p2" style="display:none;width:100%;flex-direction:column;align-items:center;gap:12px;text-align:center;position:relative;z-index:1;">
       <div class="comp-helper" style="text-align:center;">Share this code with Player 2:</div>
       <div id="comp-room-code-display" class="comp-room-code" title="Click to copy">-</div>
-      <button class="comp-hist-action-btn" id="comp-copy-code-btn" style="width:160px;">📋 Copy Code</button>
+      <button class="comp-hist-action-btn" id="comp-copy-code-btn" style="width:160px;">Copy Code</button>
       <div id="comp-p2-status" class="comp-helper" style="text-align:center;">Waiting for Player 2 to join…</div>
       <button class="comp-action-btn" id="comp-start-btn" style="display:none;">▶ Start Game</button>
       <button class="comp-hist-action-btn" id="comp-cancel-btn">✕ Cancel</button>
@@ -2715,8 +2677,8 @@
       </div>
       <div class="wr-head-tools">
         <div class="wr-code" id="wr-code-display" title="Click to copy">-</div>
-        <button id="wr-copy-btn"><span class="wr-copy-icon">📋</span><span>Copy Invite Link</span></button>
-        <button type="button" id="wr-music-btn" title="Theme song" aria-label="Theme song">🎵</button>
+        <button id="wr-copy-btn"><span>Copy Invite Link</span></button>
+        <button type="button" id="wr-music-btn" title="Theme song" aria-label="Theme song">Music</button>
         <button id="wr-leave-btn">✕ Leave</button>
       </div>
     </div>
@@ -2770,7 +2732,6 @@
           <span class="wr-chat-h">Lobby Chat</span>
           <span class="wr-chip" id="wr-chat-here">1 here</span>
           <button type="button" id="wr-chat-btn" title="Open the full chat: direct messages, mute, and who you are talking to">
-            <span class="wr-chat-icon" aria-hidden="true">💬</span>
             <span>All chat</span>
             <span class="wr-chat-badge" id="wr-chat-badge"></span>
           </button>
@@ -2782,7 +2743,6 @@
                table's yes/no, and the chip that admits the game is modded.
                With nothing to say it is empty and the emotes come back. -->
           <div class="wr-cc-row" id="wr-cc-row" hidden></div>
-          <div class="wr-emote-row" id="wr-emote-row"></div>
           <div class="wr-chat-input">
             <input type="text" id="wr-chat-text" maxlength="200" autocomplete="off"
                    placeholder="Say something to the crew…" aria-label="Lobby chat message">
@@ -2801,7 +2761,7 @@
             <!-- No caption here. The Start button already says how many seats
                  are short, so the only thing left to offer is the way out of
                  the seat: watch instead of waiting. -->
-            <button type="button" id="wr-spectate-btn">👁 Watch instead</button>
+            <button type="button" id="wr-spectate-btn">Watch instead</button>
           </div>
         </div>
 
@@ -2856,8 +2816,8 @@
       </div>
 
       <div class="wri-foot">
-        <button type="button" id="wri-copy"><span>📋</span><span>Copy link</span></button>
-        <button type="button" id="wri-send" disabled><span>💬</span><span>Send in chat</span></button>
+        <button type="button" id="wri-copy"><span>Copy link</span></button>
+        <button type="button" id="wri-send" disabled><span>Send in chat</span></button>
       </div>
       <div class="wri-status" id="wri-status" role="status"></div>
     </div>
@@ -2871,7 +2831,7 @@
   <div id="pv-notice">
     <span class="room-badge" id="pv-room-id-badge">-</span>
     <span id="pv-my-name-badge"></span>
-    <span id="pv-my-score-badge" title="Tap for Score Breakdown">📊 0 pts</span>
+    <span id="pv-my-score-badge" title="Tap for Score Breakdown">0 pts</span>
     <span id="pv-status-text">Connecting…</span>
     <div class="pv-menu-wrap">
       <button id="pv-menu-btn">&#9776; Menu</button>
@@ -2879,21 +2839,21 @@
         <div class="pv-menu-label">Scores</div>
         <div id="pv-menu-scores-list">-</div>
         <div class="pv-menu-divider"></div>
-        <button class="pv-menu-item" id="pv-menu-log-btn">&#128203; Game Log: Off</button>
-        <button class="pv-menu-item" id="pv-menu-chat-btn">&#128172; Chat: On</button>
-        <button class="pv-menu-item" id="pv-menu-igcp-btn">&#128197; Turn off in-game challenges</button>
-        <button class="pv-menu-item" id="pv-menu-scores-btn">&#127942; Score Breakdown</button>
-        <button class="pv-menu-item" id="pv-menu-settings-btn">&#9881;&#65039; Settings</button>
+        <button class="pv-menu-item" id="pv-menu-log-btn">Game Log: Off</button>
+        <button class="pv-menu-item" id="pv-menu-chat-btn">Chat: On</button>
+        <button class="pv-menu-item" id="pv-menu-igcp-btn">Turn off in-game challenges</button>
+        <button class="pv-menu-item" id="pv-menu-scores-btn">Score Breakdown</button>
+        <button class="pv-menu-item" id="pv-menu-settings-btn">Settings</button>
         <!-- Competitive Hands section (shown only in comp mode) -->
         <div id="pv-menu-comp-hands" style="display:none;">
           <div class="pv-menu-divider"></div>
-          <div class="pv-menu-label">⚔️ Hands</div>
+          <div class="pv-menu-label">Hands</div>
           <div id="pv-menu-hands-list"></div>
         </div>
         <!-- AI Speed, shown to host only when there are AI players -->
         <div id="pv-menu-ai-speed-section" style="display:none;">
           <div class="pv-menu-divider"></div>
-          <div class="ai-speed-label">🤖 AI Speed</div>
+          <div class="ai-speed-label">AI Speed</div>
           <div class="ai-speed-bar">
             <button class="ai-speed-btn" data-speed="slow">Slow</button>
             <button class="ai-speed-btn active" data-speed="normal">Normal</button>
@@ -2903,11 +2863,11 @@
         <div class="pv-menu-divider"></div>
         <div class="pv-menu-label">Room</div>
         <div class="pv-menu-room" id="pv-menu-room-code">-</div>
-        <button class="pv-menu-item" id="pv-menu-rules-btn">&#128218; Rule Book</button>
-        <button class="pv-menu-item" id="pv-menu-clanch-btn" style="display:none;">&#127937; Clan Challenges</button>
+        <button class="pv-menu-item" id="pv-menu-rules-btn">Rule Book</button>
+        <button class="pv-menu-item" id="pv-menu-clanch-btn" style="display:none;">Clan Challenges</button>
         <div class="pv-menu-divider"></div>
         <button class="pv-menu-item" id="pv-back-btn" style="color:#e84057;">&#11013; Leave Game</button>
-        <button class="pv-menu-item" id="pv-menu-terminate-btn" style="display:none;color:#e84057;">&#9888; Terminate Game</button>
+        <button class="pv-menu-item" id="pv-menu-terminate-btn" style="display:none;color:#e84057;">Terminate Game</button>
       </div>
     </div>
   </div>
@@ -2969,7 +2929,7 @@
     <!-- Strategy button (always available). Same button, same look, same
          Strategies screen behind it; it is called what it opens. -->
     <button id="pv-help-btn" title="Strategies, what to do next, cards to look for & quick tips">
-      <span class="help-label">💡 Strategy</span>
+      <span class="help-label">Strategy</span>
       <span class="help-sub">strategies &amp; tips</span>
     </button>
 
@@ -3006,10 +2966,10 @@
          turn it is. Vote Kick opens a picker, because any of them can be it. -->
     <button class="pv-btn pv-btn-skip" id="pv-skip-turn-btn" style="display:none;">⏭ Skip Turn</button>
     <div class="pv-kick-wrap" id="pv-kick-wrap" style="display:none;">
-      <button class="pv-btn pv-btn-kick" id="pv-kick-btn" aria-haspopup="true" aria-expanded="false">🚫 Vote Kick</button>
+      <button class="pv-btn pv-btn-kick" id="pv-kick-btn" aria-haspopup="true" aria-expanded="false">Vote Kick</button>
       <div class="pv-kick-picker" id="pv-kick-picker" role="menu"></div>
     </div>
-    <button class="pv-btn pv-btn-surf" id="pv-surf-btn" title="Surf's Up!!, mark yourself officially Away. The table waits for you and no one can report you AFK. While Away you can't play any moves, tap 'I'm Back' to return.">🏄 Surf's Up!!</button>
+    <button class="pv-btn pv-btn-surf" id="pv-surf-btn" title="Surf's Up!!, mark yourself officially Away. The table waits for you and no one can report you AFK. While Away you can't play any moves, tap 'I'm Back' to return.">Surf's Up!!</button>
     <button class="pv-btn pv-btn-fullscreen" id="pv-fullscreen-btn" title="Toggle full-screen mode">⛶ Full Screen</button>
     <button class="pv-btn" id="pv-undo-btn" title="Undo your last turn, stays available through bot turns; only locks once another human plays after you">↩ Undo Turn</button>
     <span id="end-turn-hint"></span>
@@ -3089,7 +3049,6 @@
     <!-- Chat button, sits directly below the minus button, part of the cluster -->
     <div id="bs-chat-sep" aria-hidden="true"></div>
     <button id="pv-chat-btn" title="Open chat" aria-label="Open chat" style="display:none;">
-      <span class="pvc-btn-ico">💬</span>
       <span class="pvc-btn-lbl">Chat</span>
       <span class="chat-badge" id="pv-chat-badge"></span>
     </button>
@@ -3097,13 +3056,13 @@
 
   <!-- Spectator panel, replaces hand area when spectating -->
   <div id="pv-spectator-panel">
-    <div class="spec-title">👁 Spectator Mode</div>
+    <div class="spec-title">Spectator Mode</div>
     <div class="spec-hint">Click a player's avatar to view their board.</div>
     <div class="spec-viewing" id="spec-viewing-label" style="display:none;"></div>
   </div>
   <!-- Spectator list, shown to both players and spectators in-game -->
   <div id="pv-spectator-list">
-    <div class="spec-list-title">👁 Spectators</div>
+    <div class="spec-list-title">Spectators</div>
     <div id="spec-list-rows"></div>
   </div>
 
@@ -3126,7 +3085,6 @@
   <!-- draw-over-10 warning modal -->
   <div id="draw-warn-modal">
     <div id="draw-warn-box">
-      <div id="draw-warn-icon">⚠️</div>
       <h2 id="draw-warn-title">Hand Over 10</h2>
       <p id="draw-warn-msg">Picking up these cards will put your hand over 10. You'll have to discard the excess at the end of your turn.</p>
       <div id="draw-warn-buttons">
@@ -3152,7 +3110,6 @@
   <!-- move confirmation dialog -->
   <div id="move-confirm-modal">
     <div id="move-confirm-box">
-      <div id="move-confirm-icon">🔀</div>
       <h2 id="move-confirm-title">Move Card?</h2>
       <p id="move-confirm-msg"></p>
       <div id="move-confirm-buttons">
@@ -3165,7 +3122,6 @@
   <!-- End Turn confirmation, friendly, not a system alert -->
   <div id="end-turn-modal">
     <div id="end-turn-box">
-      <div id="end-turn-icon">🌊</div>
       <h2 id="end-turn-title">End your turn?</h2>
       <p id="end-turn-msg">You're about to pass to the next player. You can still cancel if you want to keep playing.</p>
       <div id="end-turn-buttons">
@@ -3185,7 +3141,7 @@
       </div>
       <p id="pv-help-intro">Pick a strategy to see what to do next, the cards to look for, and quick tips. You can mix any strategies you like.</p>
       <div id="pv-help-rand">
-        <span class="phr-label">🎲 Surprise me, play</span>
+        <span class="phr-label">Surprise me, play</span>
         <div class="phr-count" role="group" aria-label="How many random strategies">
           <button class="phr-n" data-n="1" type="button">1</button>
           <button class="phr-n active" data-n="2" type="button">2</button>
@@ -3212,7 +3168,6 @@
   <div id="pv-rulebook-modal">
     <div id="pv-rulebook-box">
       <div id="pv-rulebook-header">
-        <span class="pv-rb-ico">&#128218;</span>
         <h2 id="pv-rulebook-title">Rule Book</h2>
         <button id="pv-rulebook-close" title="Back to the game">&#10005; Close</button>
       </div>
@@ -3226,7 +3181,6 @@
   <div id="pv-clanch-modal">
     <div id="pv-clanch-box">
       <div id="pv-clanch-header">
-        <span class="pv-rb-ico">&#127937;</span>
         <h2 id="pv-clanch-title">Clan Challenges</h2>
         <button id="pv-clanch-close" title="Back to the game">&#10005; Close</button>
       </div>
@@ -3237,7 +3191,6 @@
   <!-- AFK-vote challenge: shown to the active player when >=50% report them AFK -->
   <div id="pv-afk-modal">
     <div id="pv-afk-box">
-      <div class="pv-afk-icon">⚠️</div>
       <h2>Are You There?</h2>
       <p class="pv-afk-sub">Your tablemates think you stepped away and voted to draw for you.</p>
       <div id="pv-afk-ring">
@@ -3262,9 +3215,9 @@
     <button id="pv-chat-back" class="pvc-hbtn" title="Back to chats" aria-label="Back to chats" style="display:none;">‹<span class="pvc-back-dot" id="pv-chat-back-dot"></span></button>
     <span id="pv-chat-title">Current Game Chat</span>
     <div class="pvc-hdr-actions">
-      <button id="pv-chat-trade" class="pvc-hbtn pvc-trade-btn" title="Trade with this player" aria-label="Trade with this player" style="display:none;">🔄 Trade</button>
-      <button id="pv-chat-gear" class="pvc-hbtn" title="Group settings" aria-label="Group settings" style="display:none;">⚙</button>
-      <button id="pv-chat-mute" class="pvc-hbtn" title="Mute chat notifications for this game" aria-label="Mute chat notifications for this game" aria-haspopup="true" aria-expanded="false">🔔</button>
+      <button id="pv-chat-trade" class="pvc-hbtn pvc-trade-btn" title="Trade with this player" aria-label="Trade with this player" style="display:none;">Trade</button>
+      <button id="pv-chat-gear" class="pvc-hbtn" title="Group settings" aria-label="Group settings" style="display:none;">Settings</button>
+      <button id="pv-chat-mute" class="pvc-hbtn" title="Mute chat notifications for this game" aria-label="Mute chat notifications for this game" aria-haspopup="true" aria-expanded="false"></button>
       <button id="pv-chat-close" class="pvc-hbtn" title="Close chat" aria-label="Close chat">✕</button>
     </div>
   </div>
@@ -3291,7 +3244,7 @@
         <select id="pv-chat-to"><option value="Everyone">Everyone</option></select>
       </div>
       <div id="pv-chat-msg-row">
-        <button id="pv-chat-emote-btn" type="button" title="Send a critter emote" aria-label="Send a critter emote" aria-haspopup="listbox" aria-expanded="false" style="display:none;">😀</button>
+        <button id="pv-chat-emote-btn" type="button" title="Send a critter emote" aria-label="Send a critter emote" aria-haspopup="listbox" aria-expanded="false" style="display:none;">Emote</button>
         <textarea id="pv-chat-text" rows="2" placeholder="Type a message…" maxlength="500"></textarea>
         <button id="pv-chat-send">Send</button>
       </div>
@@ -3339,11 +3292,11 @@
   <div class="ccm-header">
     <button class="ccm-back-btn" id="ccm-back-btn" title="Back to messages">‹</button>
     <div class="ccm-title" id="ccm-title">Friend Messages</div>
-    <button class="ccm-bg-btn" id="ccm-bg-btn" title="Change this chat's background" aria-label="Change this chat's background" style="display:none;">🎨</button>
-    <button class="ccm-trade-btn" id="ccm-trade-btn" title="Trade with this player" aria-label="Trade with this player" style="display:none;">🔄 Trade</button>
+    <button class="ccm-bg-btn" id="ccm-bg-btn" title="Change this chat's background" aria-label="Change this chat's background" style="display:none;">BG</button>
+    <button class="ccm-trade-btn" id="ccm-trade-btn" title="Trade with this player" aria-label="Trade with this player" style="display:none;">Trade</button>
     <!-- Clan System: shown only in a DM, and only when the viewer holds clan
          invite permission (owner / captain / recruiter / custom role). -->
-    <button class="ccm-trade-btn" id="ccm-clan-btn" title="Invite this player to your clan" aria-label="Invite this player to your clan" style="display:none;">🛡️ Invite</button>
+    <button class="ccm-trade-btn" id="ccm-clan-btn" title="Invite this player to your clan" aria-label="Invite this player to your clan" style="display:none;">Invite</button>
     <button class="ccm-close" id="ccm-close" title="Close">✕</button>
   </div>
   <!-- Conversation list view -->
@@ -3384,7 +3337,7 @@
 <div id="cc-trade-pick" role="dialog" aria-modal="true" aria-label="Choose a player to trade with" style="display:none;">
   <div id="cc-trade-pick-box">
     <div class="cctp-head">
-      <div class="cctp-title">🔄 Trade</div>
+      <div class="cctp-title">Trade</div>
       <button class="cctp-x" id="cc-trade-pick-close" aria-label="Close">✕</button>
     </div>
     <div class="cctp-sub">Choose who you want to trade avatars, backgrounds, Critter Coins or Season Pass vouchers with.</div>
@@ -3533,21 +3486,21 @@
           <div id="gs-standings-rows"></div>
         </div>
         <div id="gs-feats">
-          <div id="gs-feats-title">SPECIAL FEATS 🐚</div>
+          <div id="gs-feats-title">SPECIAL FEATS</div>
           <div id="gs-feats-row">
             <div class="gs-feat-card"><div class="gs-feat-label">Two of Aukind</div><div class="gs-feat-val" id="gs-feat-aukind">-</div></div>
             <div class="gs-feat-card"><div class="gs-feat-label">Shot the Moon?</div><div class="gs-feat-val" id="gs-feat-moon">No one</div></div>
           </div>
         </div>
         <div id="gs-challenges-done" style="display:none;">
-          <div id="gs-challenges-title">🎯 CHALLENGES COMPLETED</div>
+          <div id="gs-challenges-title">CHALLENGES COMPLETED</div>
           <div id="gs-challenges-list"></div>
         </div>
         <!-- Strategy confirmation: shown after every game so data feeds AI learning -->
         <div id="gs-strat-confirm">
-          <div id="gs-strat-title">🧠 WHAT STRATEGY DID YOU PLAY?</div>
+          <div id="gs-strat-title">WHAT STRATEGY DID YOU PLAY?</div>
           <div id="gs-strat-hint">Confirm or update, this helps the AI learn what works.</div>
-          <input type="text" id="gs-strat-search" placeholder="🔍 Search strategies…" autocomplete="off" spellcheck="false">
+          <input type="text" id="gs-strat-search" placeholder="Search strategies…" autocomplete="off" spellcheck="false">
           <div id="gs-strat-list"><!-- populated by JS --></div>
           <div id="gs-strat-no-match">No strategies match your search.</div>
           <div id="gs-strat-none-row">
@@ -3580,18 +3533,18 @@
           </div>
           <div id="gs-placement-table">
             <div class="gs-pt-title">PLACEMENT XP BREAKDOWN</div>
-            <div class="gs-pt-row" id="gs-pt-1"><span class="gs-pt-rank">🥇 1st</span><span class="gs-pt-xp">+100 XP</span></div>
-            <div class="gs-pt-row" id="gs-pt-2"><span class="gs-pt-rank">🥈 2nd</span><span class="gs-pt-xp">+75 XP</span></div>
-            <div class="gs-pt-row" id="gs-pt-3"><span class="gs-pt-rank">🥉 3rd</span><span class="gs-pt-xp">+50 XP</span></div>
+            <div class="gs-pt-row" id="gs-pt-1"><span class="gs-pt-rank">1st</span><span class="gs-pt-xp">+100 XP</span></div>
+            <div class="gs-pt-row" id="gs-pt-2"><span class="gs-pt-rank">2nd</span><span class="gs-pt-xp">+75 XP</span></div>
+            <div class="gs-pt-row" id="gs-pt-3"><span class="gs-pt-rank">3rd</span><span class="gs-pt-xp">+50 XP</span></div>
             <div class="gs-pt-row" id="gs-pt-4"><span class="gs-pt-rank">4th – 8th</span><span class="gs-pt-xp">+25 XP</span></div>
           </div>
         </div>
         <div id="gs-rewards">
-          <div id="gs-rewards-title">🎁 REWARDS EARNED</div>
+          <div id="gs-rewards-title">REWARDS EARNED</div>
           <div id="gs-rewards-list"><!-- populated by JS --></div>
         </div>
         <div id="gs-match-stats">
-          <div id="gs-stats-title">⭐ MATCH STATS</div>
+          <div id="gs-stats-title">MATCH STATS</div>
           <div id="gs-stats-grid">
             <div class="gs-stat-card" id="gs-sc-length">
               <div class="gs-sc-num" id="gs-sc-length-val">-</div>
@@ -3603,53 +3556,53 @@
               <div class="gs-sc-unit">pts</div>
               <div class="gs-sc-label">Most Points in One Turn</div>
               <div class="gs-sc-player" id="gs-sc-turn-who">-</div>
-              <div class="gs-sc-xp">⭐ +15 XP</div>
+              <div class="gs-sc-xp">+15 XP</div>
             </div>
             <div class="gs-stat-card" id="gs-sc-diverse">
               <div class="gs-sc-num" id="gs-sc-diverse-val">-</div>
               <div class="gs-sc-unit">species</div>
               <div class="gs-sc-label">Most Diverse Ecosystem</div>
               <div class="gs-sc-player" id="gs-sc-diverse-who">-</div>
-              <div class="gs-sc-xp">⭐ +15 XP</div>
+              <div class="gs-sc-xp">+15 XP</div>
             </div>
             <div class="gs-stat-card" id="gs-sc-star">
               <div class="gs-sc-num" id="gs-sc-star-val">-</div>
               <div class="gs-sc-label">Most Star Abilities Activated</div>
               <div class="gs-sc-player" id="gs-sc-star-who">-</div>
-              <div class="gs-sc-xp">⭐ +15 XP</div>
+              <div class="gs-sc-xp">+15 XP</div>
             </div>
             <div class="gs-stat-card" id="gs-sc-100">
               <div class="gs-sc-num">100</div>
               <div class="gs-sc-unit">pts</div>
               <div class="gs-sc-label">First to 100 Points</div>
               <div class="gs-sc-player" id="gs-sc-100-who">-</div>
-              <div class="gs-sc-xp">⭐ +15 XP</div>
+              <div class="gs-sc-xp">+15 XP</div>
             </div>
             <div class="gs-stat-card" id="gs-sc-card">
               <div class="gs-sc-name" id="gs-sc-card-name">-</div>
               <div class="gs-sc-pts" id="gs-sc-card-pts">- pts</div>
               <div class="gs-sc-label">Highest Scoring Card</div>
               <div class="gs-sc-player" id="gs-sc-card-who">-</div>
-              <div class="gs-sc-xp">⭐ +15 XP</div>
+              <div class="gs-sc-xp">+15 XP</div>
             </div>
           </div>
         </div>
         <div id="gs-left-notices"><!-- "<name> left" notices, populated by JS --></div>
         <div id="gs-again-status"><!-- "READY x/N" populated by JS --></div>
         <div id="gs-btn-row">
-          <button id="pv-endgame-again" class="gs-btn gs-btn-again">🔄 Play Again</button>
-          <button id="pv-endgame-menu" class="gs-btn gs-btn-home">🏠 Back to Lobby</button>
-          <button id="pv-endgame-leaderboard" class="gs-btn gs-btn-secondary">🏆 Leaderboard</button>
+          <button id="pv-endgame-again" class="gs-btn gs-btn-again">Play Again</button>
+          <button id="pv-endgame-menu" class="gs-btn gs-btn-home">Back to Lobby</button>
+          <button id="pv-endgame-leaderboard" class="gs-btn gs-btn-secondary">Leaderboard</button>
           <!-- Guests only, and the one moment they have something to lose: the
                XP and the game that just happened are on the screen behind this
                button. Shown by _syncEndgameGuestButton() in preview-app.js. -->
-          <button id="pv-endgame-signup" class="gs-btn gs-btn-signup" style="display:none;">🐚 Create an Account &amp; Keep This</button>
+          <button id="pv-endgame-signup" class="gs-btn gs-btn-signup" style="display:none;">Create an Account &amp; Keep This</button>
           <!-- Tournament matches swap the three buttons above for these two:
                a finished bracket match has no rematch, so the only real choices
                are watching another live match or waiting for your next one.
                Shown/hidden by _syncEndgameTournamentButtons() in preview-app.js. -->
-          <button id="pv-endgame-t-spectate" class="gs-btn gs-btn-view" style="display:none;">👁 Spectate a Match</button>
-          <button id="pv-endgame-t-wait" class="gs-btn gs-btn-again" style="display:none;">⏳ Wait for Next Match in Lobby</button>
+          <button id="pv-endgame-t-spectate" class="gs-btn gs-btn-view" style="display:none;">Spectate a Match</button>
+          <button id="pv-endgame-t-wait" class="gs-btn gs-btn-again" style="display:none;">Wait for Next Match in Lobby</button>
         </div>
         <div id="gs-btn-row" style="margin-top:2px;">
           <button id="pv-endgame-close" class="gs-btn gs-btn-view">▶ View Board Again</button>
@@ -3684,19 +3637,19 @@
 <div id="lobby-browser-modal">
   <div id="lobby-browser-box">
     <button id="lb-browser-close" aria-label="Close">✕</button>
-    <h2>🌊 Open Currents</h2>
+    <h2>Open Currents</h2>
     <div class="lb-browser-tabs">
-      <button class="lb-browser-tab active" data-tab="public">🌊 Public</button>
-      <button class="lb-browser-tab" data-tab="private">🔒 Private</button>
-      <button class="lb-browser-tab" data-tab="competitive">👥 Competitive</button>
-      <button class="lb-browser-tab" data-tab="tournament" id="lb-tab-tournament">🏆 Tournament</button>
+      <button class="lb-browser-tab active" data-tab="public">Public</button>
+      <button class="lb-browser-tab" data-tab="private">Private</button>
+      <button class="lb-browser-tab" data-tab="competitive">Competitive</button>
+      <button class="lb-browser-tab" data-tab="tournament" id="lb-tab-tournament">Tournament</button>
     </div>
     <div id="lb-browser-list">
       <div class="lb-browser-empty">Loading…</div>
     </div>
     <!-- Code prompt (shown inline when joining a private room) -->
     <div id="lb-pw-prompt">
-      <div style="font-size:13px;color:#6a4a10;font-weight:700;">🔒 Enter Room Code</div>
+      <div style="font-size:13px;color:#6a4a10;font-weight:700;">Enter Room Code</div>
       <input class="nc-big-input" id="lb-pw-input" type="text" maxlength="12" autocapitalize="characters" autocomplete="off" placeholder="Enter the room code" style="font-size:1rem;text-transform:uppercase;" />
       <div id="lb-pw-err"></div>
       <div style="display:flex;gap:8px;">
@@ -3714,7 +3667,7 @@
 <div id="new-current-modal">
   <div id="new-current-box">
     <button id="nc-close" aria-label="Close">✕</button>
-    <h2 id="nc-modal-title">🌊 New Current</h2>
+    <h2 id="nc-modal-title">New Current</h2>
 
     <div class="nc-fields-row">
       <div class="nc-field" id="nc-field-humans">
@@ -3729,8 +3682,8 @@
         <span class="nc-field-label">Privacy</span>
         <div class="nc-select-wrap">
           <select class="nc-big-input" id="nc-visibility">
-            <option value="public">🌊 Public</option>
-            <option value="private">🔒 Private</option>
+            <option value="public">Public</option>
+            <option value="private">Private</option>
           </select>
         </div>
       </div>
@@ -3738,10 +3691,10 @@
         <span class="nc-field-label">Mode</span>
         <div class="nc-select-wrap">
           <select class="nc-big-input" id="nc-mode">
-            <option value="normal">🐠 Normal</option>
-            <option value="ranked">🏅 Competitive</option>
-            <option value="competitive">⚔️ Competitive 1v1</option>
-            <option value="team">🤝 Team</option>
+            <option value="normal">Normal</option>
+            <option value="ranked">Competitive</option>
+            <option value="competitive">Competitive 1v1</option>
+            <option value="team">Team</option>
           </select>
         </div>
       </div>
@@ -3749,9 +3702,9 @@
         <span class="nc-field-label">Teams</span>
         <div class="nc-select-wrap">
           <select class="nc-big-input" id="nc-team-count">
-            <option value="2">🔴🔵 2 Teams</option>
-            <option value="3">🔴🔵🟢 3 Teams</option>
-            <option value="4">🔴🔵🟢🟡 4 Teams</option>
+            <option value="2">2 Teams</option>
+            <option value="3">3 Teams</option>
+            <option value="4">4 Teams</option>
           </select>
         </div>
       </div>
@@ -3807,7 +3760,7 @@
       <div class="bm-table-line">
         <span class="bm-avg-label">Table average rank</span>
         <span class="bm-avg-slot" id="bm-avg-rank"></span>
-        <button type="button" class="bm-shuffle" id="bm-shuffle">🎲 Random</button>
+        <button type="button" class="bm-shuffle" id="bm-shuffle">Random</button>
       </div>
 
       <!-- What the spot you are standing on actually plays like. -->
@@ -3833,7 +3786,7 @@
 <div id="seat-picker-modal">
   <div id="seat-picker-box">
     <button id="sp-close">✕</button>
-    <h2 id="sp-title">🪑 Pick a Seat</h2>
+    <h2 id="sp-title">Pick a Seat</h2>
     <div class="sp-subtitle">Click an open spot to claim it</div>
     <div class="seat-grid" id="sp-seat-grid"></div>
     <div id="seat-picker-err"></div>
@@ -3846,7 +3799,7 @@
 
 <!-- ══ END-GAME CINEMATIC OVERLAY ═══════════════════════════════════ -->
 <div id="endgame-cinematic">
-  <div class="eg-title">⚠ END GAME</div>
+  <div class="eg-title">END GAME</div>
   <div class="eg-card-wrap"><img id="eg-card-img" alt="End Game Card"></div>
   <div class="eg-sub" id="eg-sub-text"></div>
   <button class="eg-dismiss" id="eg-dismiss-btn">Got it</button>
@@ -3893,7 +3846,7 @@
     <div id="gs-challenge-title">The Giant Squid</div>
     <div id="gs-challenge-msg">If you want to save the Red Beaded Anemone, you have to beat me in a fight.</div>
     <div id="gs-challenge-actions">
-      <button class="gs-ch-btn fight" id="gs-challenge-fight-btn">⚔️ Challenge the Giant Squid</button>
+      <button class="gs-ch-btn fight" id="gs-challenge-fight-btn">Challenge the Giant Squid</button>
       <button class="gs-ch-btn later" id="gs-challenge-later-btn">Not now</button>
     </div>
   </div>
@@ -3903,7 +3856,7 @@
 <div id="pv-score-modal">
   <div class="pv-modal-box">
     <button class="pv-modal-close" id="pv-score-close">✕</button>
-    <h2>🏆 Score Breakdown</h2>
+    <h2>Score Breakdown</h2>
     <div id="pv-score-content"></div>
   </div>
 </div>
@@ -3931,7 +3884,7 @@
   <!-- top bar -->
   <div id="tut-topbar">
     <span id="tut-step-badge">Step 1 / 17</span>
-    <span id="tut-topbar-title">🎮 Tutorial, Currents and Critters</span>
+    <span id="tut-topbar-title">Tutorial, Currents and Critters</span>
     <button id="tut-x-btn" title="Exit tutorial">✕</button>
   </div>
 
@@ -3995,7 +3948,7 @@
       <button id="tut-next-btn">Next →</button>
     </div>
     <div id="tut-finish-btns" style="display:none;">
-      <button class="tut-finish-btn" id="tut-main-menu-btn">🏠 Main Menu</button>
+      <button class="tut-finish-btn" id="tut-main-menu-btn">Main Menu</button>
       <button class="tut-finish-btn" id="tut-restart-btn">↺ Restart Tutorial</button>
     </div>
     <ul id="tut-tips-list" style="display:none;"></ul>
@@ -4031,7 +3984,7 @@
 <div id="ph-season-modal" role="dialog" aria-modal="true" aria-label="Season History">
   <div class="ph-season-modal-box">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-      <div class="ph-season-modal-title">📅 Season History</div>
+      <div class="ph-season-modal-title">Season History</div>
       <button id="ph-season-modal-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#4a6a9a;line-height:1;" aria-label="Close">✕</button>
     </div>
     <div id="ph-season-modal-body">
@@ -4044,7 +3997,7 @@
 <div id="ph-whatsnew-modal" role="dialog" aria-modal="true" aria-label="What's New">
   <div class="ph-whatsnew-box">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <div class="ph-whatsnew-title">✨ What's New</div>
+      <div class="ph-whatsnew-title">What's New</div>
       <button id="ph-whatsnew-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#4a6a9a;line-height:1;" aria-label="Close">✕</button>
     </div>
     <div class="ph-whatsnew-sub" id="ph-whatsnew-sub">Currents and Critters · Beta V1.3.5</div>
@@ -4065,7 +4018,7 @@
 <script defer src="/js/gamedata.js?v=2026-09-26.3"></script>
 
 <!-- The privacy policy, one shared source for the published /privacy page and
-     the in-game reader (Settings → 📜 Legal). Must load before preview-app.js
+     the in-game reader (Settings → Legal). Must load before preview-app.js
      reads window.CC_PRIVACY_HTML. -->
 <script defer src="/js/privacy-policy.js?v=2026-09-26.3"></script>
 
@@ -4151,7 +4104,7 @@
 <div id="coc-confirm-modal" class="overlay-modal">
   <div class="modal-box coc-modal-box">
     <button class="coc-modal-close" id="coc-confirm-close" aria-label="Close">✕</button>
-    <div class="modal-title">⚓ Challenge of Challenges</div>
+    <div class="modal-title">Challenge of Challenges</div>
     <p class="coc-modal-desc">Are you ready for the Challenge of Challenges?</p>
     <div class="coc-btn-row">
       <button class="pv-btn" id="coc-confirm-no">Not yet</button>
@@ -4163,7 +4116,7 @@
 <!-- Step 2: Requirements -->
 <div id="coc-requirements-modal" class="overlay-modal">
   <div class="modal-box coc-modal-box">
-    <div class="modal-title">⚓ Challenge of Challenges</div>
+    <div class="modal-title">Challenge of Challenges</div>
     <p class="coc-modal-desc">Prove your dedication to the seas.</p>
     <div class="coc-req-list">
       <div class="coc-req-row">
@@ -4188,7 +4141,7 @@
 <div id="coc-trivia-modal" class="overlay-modal">
   <div class="modal-box coc-modal-box">
     <button class="coc-modal-close" id="coc-trivia-close" aria-label="Close">✕</button>
-    <div class="modal-title">⚓ Final Challenge</div>
+    <div class="modal-title">Final Challenge</div>
     <p class="coc-trivia-question">What nickname are narwhals often called?</p>
     <div class="coc-trivia-options">
       <button class="coc-trivia-btn" data-coc-answer="A">A. Unicorns of the Sea</button>
@@ -4204,7 +4157,6 @@
 <div id="ach-unlock-popup" aria-live="polite">
   <div class="ach-popup-label">Achievement Unlocked</div>
   <div class="ach-popup-body">
-    <div class="ach-popup-icon" id="ach-popup-icon">🏆</div>
     <div class="ach-popup-info">
       <div class="ach-popup-name" id="ach-popup-name">Achievement Name</div>
       <div class="ach-popup-xp" id="ach-popup-xp">+0 XP</div>

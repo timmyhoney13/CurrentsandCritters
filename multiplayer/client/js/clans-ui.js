@@ -92,7 +92,7 @@
     password_too_short: "A clan password needs at least 4 characters.",
     password_too_long: "That password is too long (64 characters max).",
     password_required: "Set a password before switching the clan to Password mode.",
-    password_needs_password_mode: "Switch the clan to 🔑 Password to use a password.",
+    password_needs_password_mode: "Switch the clan to Password to use a password.",
     transfer_first: "Transfer ownership before leaving your clan.",
     no_permission: "You don't have permission to do that.",
     owner_only: "Only the clan owner can do that.",
@@ -139,7 +139,7 @@
     const m = Math.floor(s / 60);    s -= m * 60;
     return { d, h, m, s };
   }
-  const roleLabel = (r) => ({ owner: "👑 Owner", captain: "⚓ Captain", recruiter: "📯 Recruiter", member: "🐟 Member" }[r] || "🐟 Member");
+  const roleLabel = (r) => ({ owner: "Owner", captain: "Captain", recruiter: "Recruiter", member: "Member" }[r] || "Member");
   // What finishing top three actually pays. NEVER write these numbers out by
   // hand: the podium promised 400/300/200 for months while the server paid
   // 150/100/50, because they were typed in two places and only one of them
@@ -170,13 +170,13 @@
     if (n) card.appendChild(n);
   }
 
-  const medalFor = (rank) => (rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : "#" + rank);
+  const medalFor = (rank) => "#" + rank;
   // The medal alone doesn't say which place it is, and "#1" alone isn't a
   // medal. Rank chips get both.
-  const rankLabel = (rank) => (rank === 1 ? "🥇 1st" : rank === 2 ? "🥈 2nd"
-                             : rank === 3 ? "🥉 3rd" : "#" + rank);
-  const privacyLabel = (p) => ({ public: "🌊 Public, anyone can join", request: "✉️ Request to Join", invite: "🔒 Invite Only", password: "🔑 Password, anyone with the password" }[p] || p);
-  const privacyShort = (p) => ({ public: "🌊 Public", request: "✉️ Request", invite: "🔒 Invite", password: "🔑 Password" }[p] || p);
+  const rankLabel = (rank) => (rank === 1 ? "1st" : rank === 2 ? "2nd"
+                             : rank === 3 ? "3rd" : "#" + rank);
+  const privacyLabel = (p) => ({ public: "Public, anyone can join", request: "Request to Join", invite: "Invite Only", password: "Password, anyone with the password" }[p] || p);
+  const privacyShort = (p) => ({ public: "Public", request: "Request", invite: "Invite", password: "Password" }[p] || p);
 
   // ── Critter pickers ────────────────────────────────────────────────────────
   // A clan can only wear a critter SOMEBODY in it has unlocked (founding a clan:
@@ -254,7 +254,7 @@
   .ccC-stat b { display:block; font-size: 16px; color:#1c5f9e; }
   .ccC-stat span { font-size: 10px; font-weight:800; letter-spacing:.4px; color:#7a9db8; text-transform:uppercase; }
   .ccC-sec { margin: 8px 16px 14px; border:1px solid #e3eef7; border-radius: 14px; background:#fdfeff; overflow:hidden; }
-  .ccC-sec-h { padding: 9px 14px; font-size: 12px; font-weight: 900; letter-spacing:.4px; text-transform: uppercase;
+  .ccC-sec-h { padding: 9px 14px; font-size: 12.96px; font-weight: 900; letter-spacing:.4px; text-transform: uppercase;
     color:#4d6587; background:#f4f9fd; border-bottom:1px solid #e9f1f8; display:flex; justify-content:space-between; align-items:center; gap:8px;}
   .ccC-sec-b { padding: 10px 14px; font-size: 13px; }
   .ccC-tabs { display:flex; gap:6px; flex-wrap:wrap; padding: 10px 16px 0; }
@@ -906,7 +906,7 @@
       return;                                   // stale-but-real beats an error page
     }
     // A season that ended since the player was last here opens straight onto
-    // the Season Results screen, once. After that it's the 📜 button.
+    // the Season Results screen, once. After that it's the button.
     C.view = (justEndedSid() ? "results" : "home");
     render();
   };
@@ -945,9 +945,9 @@
         return;   // silently skip no_clan / already_claimed / not_in_game etc.
       }
       const pts = Number(res.points || 0);
-      if (pts > 0) toast(`🛡️ +${pts} Clan Point${pts === 1 ? "" : "s"} for ${res.clan_name || "your clan"}!`, "success");
-      else if (res.opp_capped) toast("🛡️ Clan Points: daily limit vs the same opponent reached.", "info");
-      if (res.goal_done) toast("🌞 Your clan finished today's Daily Goal! +25 Clan XP", "success");
+      if (pts > 0) toast(`+${pts} Clan Point${pts === 1 ? "" : "s"} for ${res.clan_name || "your clan"}!`, "success");
+      else if (res.opp_capped) toast("Clan Points: daily limit vs the same opponent reached.", "info");
+      if (res.goal_done) toast("Your clan finished today's Daily Goal! +25 Clan XP", "success");
       C.home = null;    // stale: refetch next time the tab opens
     } catch (_) {}
   };
@@ -955,7 +955,7 @@
   // Trade completion toast (server does the awarding; see /api/trade/confirm)
   window.__ccClanTradePoint = function (pts) {
     const n = Number(pts || 0);
-    if (n > 0) toast(`🤝 +${n} Clan Point: daily clan trade complete!`, "success");
+    if (n > 0) toast(`+${n} Clan Point: daily clan trade complete!`, "success");
     C.home = null;
   };
 
@@ -968,7 +968,7 @@
       to_name: String(toName || ""),
       to_code: String(toCode || ""),
     });
-    if (res && res.ok) toast(`🛡️ Clan invite sent to ${res.name || toName || "player"}!`, "success");
+    if (res && res.ok) toast(`Clan invite sent to ${res.name || toName || "player"}!`, "success");
     else toast(errMsg(res && res.error), "error");
     return !!(res && res.ok);
   };
@@ -1039,11 +1039,11 @@
   // Clan Rules is deliberately FIRST: every scoring rule, both challenge
   // ladders and the season payouts live on one page nobody has to hunt for.
   const TOP_TABS = [
-    ["rules", "📜 Clan Rules"],
-    ["home", "🛡️ My Clan"],
-    ["browse", "🔍 Browse"],
-    ["leaderboard", "🏆 Leaderboard"],
-    ["results", "📅 Season Results"],
+    ["rules", "Clan Rules"],
+    ["home", "My Clan"],
+    ["browse", "Browse"],
+    ["leaderboard", "Leaderboard"],
+    ["results", "Season Results"],
   ];
   function topNav(active) {
     const tabs = el("div", "ccC-tabs");
@@ -1089,7 +1089,7 @@
 
   async function renderRules(r) {
     r.innerHTML = "";
-    const c = card("📜 Clan Rules");
+    const c = card("Clan Rules");
     c.appendChild(topNav("rules"));
     const rules = await loadRules();
     if (!rules) {
@@ -1099,7 +1099,7 @@
     }
 
     const intro = el("div", "ccC-sec");
-    intro.appendChild(el("div", "ccC-sec-h", "🐚 How clans work"));
+    intro.appendChild(el("div", "ccC-sec-h", "How clans work"));
     const ib = el("div", "ccC-sec-b");
     ib.innerHTML = `<div class="ccC-hint" style="font-size:13px;">
         A clan is up to <b>${rules.max_members}</b> players earning <b>Clan Points</b> together.
@@ -1109,7 +1109,7 @@
     c.appendChild(intro);
 
     const pts = el("div", "ccC-sec");
-    pts.appendChild(el("div", "ccC-sec-h", "⭐ What earns Clan Points"));
+    pts.appendChild(el("div", "ccC-sec-h", "What earns Clan Points"));
     const pb = el("div", "ccC-sec-b");
     (rules.scoring || []).forEach(s => {
       const row = el("div", "ccC-rulerow");
@@ -1120,7 +1120,7 @@
     c.appendChild(pts);
 
     const core = el("div", "ccC-sec");
-    core.appendChild(el("div", "ccC-sec-h", "📏 The rules everyone should know"));
+    core.appendChild(el("div", "ccC-sec-h", "The rules everyone should know"));
     const cb = el("div", "ccC-sec-b");
     const ul = el("ul", "ccC-rulelist");
     (rules.core_rules || []).forEach(t => ul.appendChild(el("li", "", esc(t))));
@@ -1128,14 +1128,14 @@
     core.appendChild(cb);
     c.appendChild(core);
 
-    c.appendChild(challengeTable("🏁 Weekly clan challenges", rules.weekly_challenges,
+    c.appendChild(challengeTable("Weekly clan challenges", rules.weekly_challenges,
       "Reset every Monday 00:00 UTC. The whole clan's play counts toward them."));
-    c.appendChild(challengeTable("🗓️ Season clan challenges", rules.season_challenges,
+    c.appendChild(challengeTable("Season clan challenges", rules.season_challenges,
       "These run the whole quarter, alongside the weekly ones."));
 
     // Competitive rank payout
     const rank = el("div", "ccC-sec");
-    rank.appendChild(el("div", "ccC-sec-h", "🏅 Competitive rank pays your clan"));
+    rank.appendChild(el("div", "ccC-sec-h", "Competitive rank pays your clan"));
     const rb = el("div", "ccC-sec-b");
     rb.appendChild(el("div", "ccC-hint", esc((rules.rank_rewards || {}).note || "")));
     ((rules.rank_rewards || {}).tiers || []).forEach(t => {
@@ -1151,7 +1151,7 @@
     c.appendChild(rank);
 
     const sr = el("div", "ccC-sec");
-    sr.appendChild(el("div", "ccC-sec-h", "🏆 End of season"));
+    sr.appendChild(el("div", "ccC-sec-h", "End of season"));
     const sb = el("div", "ccC-sec-b");
     const sul = el("ul", "ccC-rulelist");
     (rules.season_rewards || []).forEach(t => sul.appendChild(el("li", "", esc(t))));
@@ -1182,15 +1182,15 @@
     const mk = (cls, icon, title, sub, go) => {
       const b = el("button", "ccC-cta-btn " + cls);
       b.type = "button";
-      b.innerHTML = `<span class="ccC-cta-ico" aria-hidden="true">${icon}</span>
+      b.innerHTML = `${icon ? `<span class="ccC-cta-ico" aria-hidden="true">${icon}</span>` : ""}
         <span class="ccC-cta-txt"><span class="ccC-cta-t">${title}</span>
         <span class="ccC-cta-s">${sub}</span></span>`;
       b.addEventListener("click", go);
       return b;
     };
-    w.appendChild(mk("join", "🔍", "Join a Clan",
+    w.appendChild(mk("join", "", "Join a Clan",
                      "Browse clans and join in one tap", () => nav("browse")));
-    w.appendChild(mk("make", "✨", "Create a Clan",
+    w.appendChild(mk("make", "", "Create a Clan",
                      "Name it, pick a critter, you're the owner", () => nav("create")));
     return w;
   }
@@ -1205,7 +1205,7 @@
       r.innerHTML = "";
     }
     const H = C.home;
-    const c = card('🛡️ Clans');
+    const c = card('Clans');
     c.appendChild(topNav("home"));
 
     // If you are not in a clan, the two things you came here to do go FIRST:
@@ -1268,21 +1268,20 @@
       });
       c.appendChild(pod);
     } else if (!rows.length) {
-      c.appendChild(el("div", "ccC-empty", "No clans yet this season: found the first one! 🐚"));
+      c.appendChild(el("div", "ccC-empty", "No clans yet this season: found the first one!"));
     }
 
     if (!H.my_clan) {
       const m = el("div", "ccC-myclan");
       m.style.cursor = "default";
-      m.innerHTML = `<div style="font-size:30px;">🐚</div>
-        <div style="flex:1 1 auto;">
+      m.innerHTML = `        <div style="flex:1 1 auto;">
           <div class="big">You're not in a clan yet</div>
           <div class="sub">Join a clan to earn Clan Points together and compete for seasonal rewards.</div>
         </div>`;
       const bb = el("div", "");
       bb.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;";
-      const bJoin = el("button", "ccC-btn pri", "🔍 Find a Clan");
-      const bMake = el("button", "ccC-btn", "✨ Create a Clan");
+      const bJoin = el("button", "ccC-btn pri", "Find a Clan");
+      const bMake = el("button", "ccC-btn", "Create a Clan");
       bJoin.addEventListener("click", () => nav("browse"));
       bMake.addEventListener("click", () => nav("create"));
       bb.appendChild(bJoin); bb.appendChild(bMake);
@@ -1296,14 +1295,14 @@
       c.appendChild(openClansSection());
     }
     if (H.cooldown_until) {
-      c.appendChild(el("div", "ccC-pin", `⏳ <b>Clan-switch cooldown:</b> you can earn Clan Points again ${fmtDateTime(H.cooldown_until)}.`));
+      c.appendChild(el("div", "ccC-pin", `<b>Clan-switch cooldown:</b> you can earn Clan Points again ${fmtDateTime(H.cooldown_until)}.`));
     }
 
     // Pending invites
     const invites = H.invites || [];
     if (invites.length) {
       const sec = el("div", "ccC-sec");
-      sec.appendChild(el("div", "ccC-sec-h", "✉️ Clan invitations"));
+      sec.appendChild(el("div", "ccC-sec-h", "Clan invitations"));
       const b = el("div", "ccC-sec-b");
       invites.forEach(inv => {
         const row = el("div", "");
@@ -1314,7 +1313,7 @@
         const dec = el("button", "ccC-btn tiny", "Decline");
         acc.addEventListener("click", async () => {
           const res = await post("join", { clan_id: inv.clan_id });
-          if (res && res.ok) { toast("Welcome to " + inv.name + "! 🛡️", "success"); C.home = null; await refreshHome(true); openClan(inv.clan_id); }
+          if (res && res.ok) { toast("Welcome to " + inv.name + "!", "success"); C.home = null; await refreshHome(true); openClan(inv.clan_id); }
           else toast(errMsg(res && res.error), "error");
         });
         dec.addEventListener("click", async () => {
@@ -1332,13 +1331,12 @@
     const badges = H.badges || [];
     if (badges.length) {
       const sec = el("div", "ccC-sec");
-      sec.appendChild(el("div", "ccC-sec-h", "🎖 Your clan badges"));
+      sec.appendChild(el("div", "ccC-sec-h", "Your clan badges"));
       const b = el("div", "ccC-sec-b");
       b.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;";
       badges.slice().reverse().forEach(bd => {
-        const medal = bd.type === "mvp" ? "🎖" : (bd.place === 1 ? "🥇" : bd.place === 2 ? "🥈" : "🥉");
         const label = bd.type === "mvp" ? `Season ${bd.season} Clan MVP` : `Season ${bd.season} · #${bd.place} with ${esc(bd.clan || "")}`;
-        const chip = el("span", "ccC-chip" + (bd.type === "mvp" || bd.place === 1 ? " gold" : ""), `${medal} ${label}`);
+        const chip = el("span", "ccC-chip" + (bd.type === "mvp" || bd.place === 1 ? " gold" : ""), label);
         chip.style.padding = "5px 12px"; chip.style.fontSize = "11.5px";
         b.appendChild(chip);
       });
@@ -1349,18 +1347,18 @@
     // Buttons
     const btns = el("div", "ccC-topbtns");
     btns.style.paddingBottom = "16px";
-    const bLb = el("button", "ccC-btn pri", "🏆 Full Clan Leaderboard");
+    const bLb = el("button", "ccC-btn pri", "Full Clan Leaderboard");
     bLb.addEventListener("click", () => nav("leaderboard"));
     btns.appendChild(bLb);
-    const bBrowse = el("button", "ccC-btn", "🔍 Browse Clans");
+    const bBrowse = el("button", "ccC-btn", "Browse Clans");
     bBrowse.addEventListener("click", () => nav("browse"));
     btns.appendChild(bBrowse);
     if (!H.my_clan) {
-      const bMk = el("button", "ccC-btn", "✨ Create a Clan");
+      const bMk = el("button", "ccC-btn", "Create a Clan");
       bMk.addEventListener("click", () => nav("create"));
       btns.appendChild(bMk);
     }
-    const bPrev = el("button", "ccC-btn", `📜 Season ${(H.prev_season && H.prev_season.number) || ""} Results`);
+    const bPrev = el("button", "ccC-btn", `Season ${(H.prev_season && H.prev_season.number) || ""} Results`);
     bPrev.addEventListener("click", () => nav("results"));
     btns.appendChild(bPrev);
     c.appendChild(btns);
@@ -1406,12 +1404,12 @@
     const res = await post(cl.privacy === "public" ? "join" : "request", { clan_id: cl.id });
     if (res && res.ok) {
       if (cl.privacy === "public") {
-        toast("Welcome to " + cl.name + "! 🛡️", "success");
+        toast("Welcome to " + cl.name + "!", "success");
         C.home = null; C.openClans = null;
         await refreshHome(true);
         openClan(cl.id);
       } else {
-        toast("Join request sent to " + cl.name + " ✉️", "success");
+        toast("Join request sent to " + cl.name + "", "success");
         btn.textContent = "Requested";
       }
       return;
@@ -1425,7 +1423,7 @@
   function passwordJoinModal(cl, btn) {
     const bg = el("div", "ccC-modal-bg");
     const md = el("div", "ccC-modal");
-    md.innerHTML = `<h3>🔑 Join ${esc(cl.name)}</h3>
+    md.innerHTML = `<h3>Join ${esc(cl.name)}</h3>
       <div class="ccC-hint" style="margin-bottom:8px;">This clan has a password. Ask someone in it for the word, type it below, and you're in straight away.</div>`;
     const inp = el("input", "ccC-inp");
     inp.type = "text"; inp.maxLength = 64; inp.placeholder = "Clan password";
@@ -1449,7 +1447,7 @@
       const res = await post("join", { clan_id: cl.id, password: pw });
       if (res && res.ok) {
         close();
-        toast("Welcome to " + cl.name + "! 🛡️", "success");
+        toast("Welcome to " + cl.name + "!", "success");
         C.home = null; C.openClans = null;
         await refreshHome(true);
         openClan(cl.id);
@@ -1488,7 +1486,7 @@
     const bt = el("button", "ccC-btn" + (canAct ? " pri" : " tiny"),
       full ? "Full"
         : cl.privacy === "public"   ? "Join"
-        : cl.privacy === "password" ? "🔑 Join"
+        : cl.privacy === "password" ? "Join"
         : cl.privacy === "request"  ? "Request"
         : "Invite only");
     if (!canAct) bt.disabled = true;
@@ -1510,7 +1508,7 @@
   const OPEN_CLANS_SHOWN = 4;
   function openClansSection() {
     const sec = el("div", "ccC-sec");
-    sec.appendChild(el("div", "ccC-sec-h", "🌊 Clans you can join right now"));
+    sec.appendChild(el("div", "ccC-sec-h", "Clans you can join right now"));
     const b = el("div", "ccC-sec-b");
     b.innerHTML = '<div class="ccC-hint">Looking for open clans…</div>';
     sec.appendChild(b);
@@ -1541,7 +1539,7 @@
       if (seq !== C.navSeq) return;                     // player moved on
       if (!res || !res.ok) {
         b.innerHTML = "";
-        const retry = el("button", "ccC-btn pri", "🔍 Find a Clan");
+        const retry = el("button", "ccC-btn pri", "Find a Clan");
         retry.addEventListener("click", () => nav("browse"));
         b.appendChild(el("div", "ccC-hint", "Couldn't load open clans just now."));
         b.appendChild(retry);
@@ -1559,7 +1557,7 @@
   // ---- BROWSE ----------------------------------------------------------------
   async function renderBrowse(r) {
     r.innerHTML = "";
-    const c = card("🔍 Find a Clan");
+    const c = card("Find a Clan");
     c.appendChild(topNav("browse"));
     const bar = el("div", "ccC-topbtns");
     const back = el("button", "ccC-btn", "← Back");
@@ -1569,7 +1567,7 @@
     inp.placeholder = "Search clans by name…";
     inp.style.cssText = "flex:1 1 200px;border-radius:999px;";
     bar.appendChild(inp);
-    const bMk = el("button", "ccC-btn pri", "✨ Create a Clan");
+    const bMk = el("button", "ccC-btn pri", "Create a Clan");
     bMk.addEventListener("click", () => nav("create"));
     bar.appendChild(bMk);
     c.appendChild(bar);
@@ -1591,7 +1589,7 @@
       if ((res.recommended || []).length && !inp.value.trim()
           && (res.rows || []).length >= RECOMMEND_MIN_ROWS) {
         const sec = el("div", "ccC-sec");
-        sec.appendChild(el("div", "ccC-sec-h", "⭐ Open now, one tap to join"));
+        sec.appendChild(el("div", "ccC-sec-h", "Open now, one tap to join"));
         const b = el("div", "ccC-sec-b");
         b.style.padding = "0";                     // the rows carry their own
         // Rows, not name chips: a chip could only open the clan, which meant
@@ -1623,7 +1621,7 @@
   // ---- CREATE ----------------------------------------------------------------
   function renderCreate(r) {
     r.innerHTML = "";
-    const c = card("✨ Create a Clan");
+    const c = card("Create a Clan");
     const bar = el("div", "ccC-topbtns");
     const back = el("button", "ccC-btn", "← Back");
     back.addEventListener("click", () => nav("home"));
@@ -1695,10 +1693,10 @@
     let selPriv = "public";
     const privRow = el("div", "");
     privRow.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;";
-    [["public", "🌊 Public", "Anyone can join instantly"],
-     ["password", "🔑 Password", "Anyone with the password joins instantly"],
-     ["request", "✉️ Request to Join", "You approve who joins"],
-     ["invite", "🔒 Invite Only", "Join by invitation only"]].forEach(([v, lab, hint]) => {
+    [["public", "Public", "Anyone can join instantly"],
+     ["password", "Password", "Anyone with the password joins instantly"],
+     ["request", "Request to Join", "You approve who joins"],
+     ["invite", "Invite Only", "Join by invitation only"]].forEach(([v, lab, hint]) => {
       const b = el("button", "ccC-btn" + (v === "public" ? " pri" : ""), lab);
       b.title = hint;
       b.addEventListener("click", () => {
@@ -1730,7 +1728,7 @@
     const syncPw = () => { fPw.style.display = selPriv === "password" ? "" : "none"; };
     syncPw();
 
-    const go = el("button", "ccC-btn pri", "🛡️ Found this Clan");
+    const go = el("button", "ccC-btn pri", "Found this Clan");
     go.style.cssText = "font-size:14px;padding:10px 26px;";
     go.addEventListener("click", async () => {
       const name = inName.value.trim();
@@ -1746,7 +1744,7 @@
                                          password: selPriv === "password" ? pw : "" });
       go.disabled = false;
       if (res && res.ok) {
-        toast("Clan founded: welcome, Owner! 👑", "success");
+        toast("Clan founded: welcome, Owner!", "success");
         C.home = null; await refreshHome(true);
         openClan(res.clan_id);
       } else if (res && res.error === "bad_name") {
@@ -1761,7 +1759,7 @@
   // ---- LEADERBOARD -------------------------------------------------------------
   async function renderLeaderboard(r) {
     r.innerHTML = "";
-    const c = card("🏆 Clan Leaderboard");
+    const c = card("Clan Leaderboard");
     c.appendChild(topNav("leaderboard"));
     const bar = el("div", "ccC-topbtns");
     const back = el("button", "ccC-btn", "← Back");
@@ -1791,7 +1789,7 @@
       const pod = el("div", "ccC-podium");
       const cls = ["g", "s", "b"];
       const coins = rewardCoins(res.season);
-      const badges = ["🏅 Gold badge", "🏅 Silver badge", "🏅 Bronze badge"];
+      const badges = ["Gold badge", "Silver badge", "Bronze badge"];
       rows.slice(0, 3).forEach((cl, i) => {
         const p = el("div", "ccC-pod " + cls[i]);
         p.innerHTML = `<div class="medal">${medalFor(i + 1)}</div>
@@ -1817,7 +1815,7 @@
     rows.forEach(cl => {
       const tr = el("tr", cl.id === myId ? "me" : "");
       tr.style.cursor = "pointer";
-      const medal = cl.rank === 1 ? "🥇" : cl.rank === 2 ? "🥈" : cl.rank === 3 ? "🥉" : "#" + cl.rank;
+      const medal = "#" + cl.rank;
       tr.innerHTML = `<td><b>${medal}</b></td>
         <td><img class="mini" src="${esc(avSrc(cl.icon))}">${esc(cl.name)}${cl.season_border ? ' <span class="ccC-chip gold">Top 10</span>' : ""}</td>
         <td>${cl.member_count}/${cl.max_members}</td><td><b>${cl.points}</b></td>
@@ -1834,7 +1832,7 @@
   // ---- SEASON RESULTS -----------------------------------------------------------
   async function renderResults(r) {
     r.innerHTML = "";
-    const c = card("📜 Clan Season Results");
+    const c = card("Clan Season Results");
     c.appendChild(topNav("results"));
     const bar = el("div", "ccC-topbtns");
     const back = el("button", "ccC-btn", "← Back");
@@ -1856,13 +1854,13 @@
        <div class="ccC-season-sub">Next: Season ${res.next_season.number} · ${esc(res.next_season.name)}: started ${fmtDate(res.next_season.starts_ts)}</div>`));
     if (standings.length) {
       const pod = el("div", "ccC-podium");
-      const cls = ["g", "s", "b"], medals = ["🥇", "🥈", "🥉"];
+      const cls = ["g", "s", "b"], medals = ["#1", "#2", "#3"];
       standings.slice(0, 3).forEach((cl, i) => {
         const p = el("div", "ccC-pod " + cls[i]);
         p.innerHTML = `<div class="medal">${medals[i]}</div><img src="${esc(avSrc(cl.icon))}" alt="">
           <div class="nm">${esc(cl.name)}</div><div class="pts">${cl.points} pts</div>
           <div class="rw">${cl.coins_per_member ? cl.coins_per_member + " Critter Coins/member" : ""}</div>
-          ${cl.mvp ? `<div class="rw">MVP: ${esc(cl.mvp.name)} 🎖</div>` : ""}`;
+          ${cl.mvp ? `<div class="rw">MVP: ${esc(cl.mvp.name)}</div>` : ""}`;
         pod.appendChild(p);
       });
       holder.appendChild(pod);
@@ -1873,7 +1871,7 @@
       const mine = standings.find(s => s.clan_id === myId);
       if (mine) {
         const sec = el("div", "ccC-sec");
-        sec.appendChild(el("div", "ccC-sec-h", `🛡️ ${esc(mine.name)}: final placement #${mine.rank}`));
+        sec.appendChild(el("div", "ccC-sec-h", `${esc(mine.name)}: final placement #${mine.rank}`));
         const b = el("div", "ccC-sec-b");
         const my = res.my_contribution || {};
         b.innerHTML = `
@@ -1885,17 +1883,17 @@
             <div class="ccC-stat"><b>${esc(mine.record)}</b><span>Record</span></div>
           </div>
           <div style="font-size:12.5px;">
-            <div>🎖 <b>Clan MVP:</b> ${mine.mvp ? esc(mine.mvp.name) + " (" + mine.mvp.points + " pts)" : "-"}</div>
-            <div>⚔️ <b>Most competitive wins:</b> ${mine.top_comp ? esc(mine.top_comp.name) + " (" + mine.top_comp.wins + ")" : "-"}</div>
-            <div>🌊 <b>Most active member:</b> ${mine.most_active ? esc(mine.most_active.name) + " (" + mine.most_active.days + " days)" : "-"}</div>
-            ${my ? `<div style="margin-top:7px;">📊 <b>Your contribution:</b> ${my.points || 0} pts
+            <div><b>Clan MVP:</b> ${mine.mvp ? esc(mine.mvp.name) + " (" + mine.mvp.points + " pts)" : "-"}</div>
+            <div><b>Most competitive wins:</b> ${mine.top_comp ? esc(mine.top_comp.name) + " (" + mine.top_comp.wins + ")" : "-"}</div>
+            <div><b>Most active member:</b> ${mine.most_active ? esc(mine.most_active.name) + " (" + mine.most_active.days + " days)" : "-"}</div>
+            ${my ? `<div style="margin-top:7px;"><b>Your contribution:</b> ${my.points || 0} pts
               (games ${my.game_points || 0} · trades ${my.trade_points || 0} · challenges ${my.challenge_points || 0})</div>` : ""}
             ${mine.coins_per_member ? `<div><img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false"> <b>Clan reward:</b> ${mine.coins_per_member} Critter Coins per eligible member (10+ pts)</div>` : ""}
             <div><img class="cc-coin" src="/critter-coin.png?v=1" alt="" draggable="false"> <b>You earned:</b> ${Number(res.my_coins || 0).toLocaleString()} Critter Coins</div>
-            <div>🎖 <b>You unlocked:</b> ${(res.my_badges || []).length
+            <div><b>You unlocked:</b> ${(res.my_badges || []).length
               ? (res.my_badges || []).map(b => `<span class="ccC-chip gold">${b.type === "mvp"
                   ? "Season " + b.season + " Clan MVP"
-                  : (b.place === 1 ? "🥇" : b.place === 2 ? "🥈" : "🥉") + " Season " + b.season + " badge"}</span>`).join(" ")
+                  : "#" + b.place + " Season " + b.season + " badge"}</span>`).join(" ")
               : "-"}</div>
           </div>`;
         sec.appendChild(b);
@@ -1909,10 +1907,10 @@
       const tbody = el("tbody");
       standings.forEach(cl => {
         const tr = el("tr", cl.clan_id === myId ? "me" : "");
-        tr.innerHTML = `<td><b>${cl.rank <= 3 ? ["🥇","🥈","🥉"][cl.rank-1] : "#" + cl.rank}</b></td>
+        tr.innerHTML = `<td><b>#${cl.rank}</b></td>
           <td><img class="mini" src="${esc(avSrc(cl.icon))}">${esc(cl.name)}</td>
           <td><b>${cl.points}</b></td><td>${esc(cl.record)}</td>
-          <td>${cl.mvp ? "🎖 " + esc(cl.mvp.name) : "-"}</td>
+          <td>${cl.mvp ? esc(cl.mvp.name) : "-"}</td>
           <td>${cl.coins_per_member ? cl.coins_per_member + " Critter Coins/member" : cl.rank <= SEASON_BORDER_TOP_N_UI ? "Seasonal border" : "-"}</td>`;
         tbody.appendChild(tr);
       });
@@ -1976,7 +1974,7 @@
           ${cl.rank ? `<span class="ccC-chip${cl.rank <= 3 ? " gold" : ""}">${rankLabel(cl.rank)} this season</span>` : ""}
           <span class="ccC-chip">${privacyShort(cl.privacy)}</span>
           ${cl.season_border ? '<span class="ccC-chip gold">Top 10 last season</span>' : ""}
-          ${cl.favorite_critter ? `<span class="ccC-chip">💙 <img src="${esc(avSrc(cl.favorite_critter))}" style="width:15px;height:15px;border-radius:50%;vertical-align:-3px;object-fit:cover;"> season favorite</span>` : ""}
+          ${cl.favorite_critter ? `<span class="ccC-chip"><img src="${esc(avSrc(cl.favorite_critter))}" style="width:15px;height:15px;border-radius:50%;vertical-align:-3px;object-fit:cover;"> season favorite</span>` : ""}
         </div>
         <div class="sub">${esc(cl.description || "")}</div>
         <div class="sub">${cl.member_count}/${cl.max_members} members · founded ${fmtDate(cl.created_ts)}</div>
@@ -1990,7 +1988,7 @@
 
     if (cl.pinned_announcement) {
       c.appendChild(el("div", "ccC-pin",
-        `📌 <b>${esc(cl.pinned_announcement.by || "")}</b>: ${esc(cl.pinned_announcement.text)} <span class="ccC-hint" style="display:inline;">· ${fmtAgo(cl.pinned_announcement.ts)}</span>`));
+        `<b>${esc(cl.pinned_announcement.by || "")}</b>: ${esc(cl.pinned_announcement.text)} <span class="ccC-hint" style="display:inline;">· ${fmtAgo(cl.pinned_announcement.ts)}</span>`));
     }
 
     // Sub-tabs. Switching one repaints ONLY the pane below it: rebuilding the
@@ -2082,7 +2080,7 @@
           <div class="ds">${esc(ch.desc || "")}</div>
         </div>
       </div>
-      <div class="ds"><b style="color:${ring};">${st.progress}</b> / ${st.target}${clock ? " · ⏳ " + clock : ""}</div>
+      <div class="ds"><b style="color:${ring};">${st.progress}</b> / ${st.target}${clock ? " · " + clock : ""}</div>
       <div class="ft">
         <span class="ccC-chip${st.done ? " gold" : ""}">+${esc(String(ch.clan_points))} pts</span>
         <span class="ccC-chip">+${ch.member_xp} XP</span>
@@ -2141,8 +2139,8 @@
       if (opts.limit) show = show.slice(0, opts.limit);
       if (!show.length) {
         grid.innerHTML = `<div class="ccC-empty" style="padding:8px;">${
-          filter === "done" ? "Nothing finished yet this week: pick one and go 🐙"
-                            : "Every single one is done. Outstanding. 🏆"}</div>`;
+          filter === "done" ? "Nothing finished yet this week: pick one and go"
+                            : "Every single one is done. Outstanding."}</div>`;
         return;
       }
       show.forEach(ch => grid.appendChild(challengeCard(ch)));
@@ -2184,13 +2182,13 @@
       <b>Casual progress counts every finished game, bots included: Clan POINTS are what need a
       real opponent. Competitive matches only count against a real registered opponent.</b></div>`;
     pane.appendChild(note);
-    pane.appendChild(challengeBoard("🏁 Weekly clan challenges", cl.challenges,
-                                    "New clan challenges are being finalized, coming soon! 🐙"));
-    pane.appendChild(challengeBoard("🗓️ Season clan challenges", cl.season_challenges,
-                                    "Season challenges are being finalized, coming soon! 🐚",
+    pane.appendChild(challengeBoard("Weekly clan challenges", cl.challenges,
+                                    "New clan challenges are being finalized, coming soon!"));
+    pane.appendChild(challengeBoard("Season clan challenges", cl.season_challenges,
+                                    "Season challenges are being finalized, coming soon!",
                                     { endsLabel: "season ends in" }));
     const rulesBtn = el("div", "ccC-sec-b");
-    const b = el("button", "ccC-btn tiny", "📜 Read the full clan rules");
+    const b = el("button", "ccC-btn tiny", "Read the full clan rules");
     b.addEventListener("click", () => nav("rules"));
     rulesBtn.appendChild(b);
     pane.appendChild(rulesBtn);
@@ -2215,7 +2213,7 @@
         <span class="ccC-hero-lab">Clan Points</span>
         ${cl.rank ? `<span class="ccC-hero-rank">${rankLabel(cl.rank)} this season</span>` : ""}
       </div>
-      <div class="ccC-hero-sub">Season ${cl.season.number} · ${esc(cl.season.name)} · ${wins} win${wins === 1 ? "" : "s"} from ${cl.games} game${cl.games === 1 ? "" : "s"}${cl.win_streak ? ` · 🔥 ${cl.win_streak} in a row` : ""}</div>
+      <div class="ccC-hero-sub">Season ${cl.season.number} · ${esc(cl.season.name)} · ${wins} win${wins === 1 ? "" : "s"} from ${cl.games} game${cl.games === 1 ? "" : "s"}${cl.win_streak ? ` · ${cl.win_streak} in a row` : ""}</div>
       <div class="ccC-hero-rail">
         <div><b>${cl.comp_wins}</b><span>Comp wins</span></div>
         <div><b>${cl.casual_wins}</b><span>Casual wins</span></div>
@@ -2255,12 +2253,12 @@
     const weekEnds = countdownParts(cl.week_ends_ts || 0);
     const goals = el("div", "ccC-goals");
     const gDay = el("div", "ccC-goal day" + (dg.done ? " done" : ""));
-    gDay.innerHTML = `<div class="k">🌞 Today · clan goal</div>
+    gDay.innerHTML = `<div class="k">Today · clan goal</div>
       <div class="t">${esc(goal.label || "Today's goal")}</div>
       <div class="ccC-goalbar"><i style="width:${dPct}%"></i></div>
-      <div class="s">${dProg}/${goal.target || 0} · ${dg.done ? "Complete! +25 Clan XP 🎉" : "resets at midnight UTC"}</div>`;
+      <div class="s">${dProg}/${goal.target || 0} · ${dg.done ? "Complete! +25 Clan XP" : "resets at midnight UTC"}</div>`;
     const gWeek = el("div", "ccC-goal week" + (chList.length && chDone === chList.length ? " done" : ""));
-    gWeek.innerHTML = `<div class="k">🏁 This week · challenges</div>
+    gWeek.innerHTML = `<div class="k">This week · challenges</div>
       <div class="t">${chDone} of ${chList.length} done</div>
       <div class="ccC-goalbar"><i style="width:${chList.length ? Math.round(100 * chDone / chList.length) : 0}%"></i></div>
       <div class="s">${Number(wk.games || 0)} game${Number(wk.games || 0) === 1 ? "" : "s"} · ${Number(wk.points || 0)} pts · resets in ${weekEnds.d}d ${weekEnds.h}h</div>`;
@@ -2273,7 +2271,7 @@
       const sec = el("div", "ccC-sec");
       sec.style.margin = "0";
       sec.appendChild(el("div", "ccC-sec-h",
-        `🟢 On right now<span class="ccC-chip">${online.length} of ${cl.member_count}</span>`));
+        `On right now<span class="ccC-chip">${online.length} of ${cl.member_count}</span>`));
       const b = el("div", "ccC-sec-b");
       const wrap = el("div", "ccC-online");
       online.slice(0, 12).forEach(m => {
@@ -2294,8 +2292,8 @@
     const two = el("div", "ccC-dash-2");
     two.style.padding = "12px 16px 0";
     const left = el("div", "");
-    const chBoard = challengeBoard("🏁 This week's challenges", cl.challenges,
-                                   "New clan challenges are being finalized, coming soon! 🐙",
+    const chBoard = challengeBoard("This week's challenges", cl.challenges,
+                                   "New clan challenges are being finalized, coming soon!",
                                    { limit: 4 });
     chBoard.style.margin = "0";
     left.appendChild(chBoard);
@@ -2305,7 +2303,7 @@
     if (my) {
       const secC = el("div", "ccC-sec");
       secC.style.margin = "0";
-      const hC = el("div", "ccC-sec-h", "💬 Clan chat");
+      const hC = el("div", "ccC-sec-h", "Clan chat");
       const openC = el("button", "ccC-btn tiny", "Open chat →");
       openC.addEventListener("click", () => { C.clanTab = "chat"; render(); });
       hC.appendChild(openC);
@@ -2318,7 +2316,7 @@
     } else {
       const secC = el("div", "ccC-sec");
       secC.style.margin = "0";
-      secC.appendChild(el("div", "ccC-sec-h", "💬 Clan chat"));
+      secC.appendChild(el("div", "ccC-sec-h", "Clan chat"));
       secC.appendChild(el("div", "ccC-empty", "Clan chat is members-only."));
       right.appendChild(secC);
     }
@@ -2331,7 +2329,7 @@
       const sDone = seasonList.filter(x => x.done).length;
       const sec = el("div", "ccC-sec");
       const h = el("div", "ccC-sec-h",
-        `🗓️ Season challenges<span class="ccC-chip${sDone === seasonList.length ? " gold" : ""}">${sDone}/${seasonList.length} done</span>`);
+        `Season challenges<span class="ccC-chip${sDone === seasonList.length ? " gold" : ""}">${sDone}/${seasonList.length} done</span>`);
       const bMore = el("button", "ccC-btn tiny", "See them →");
       bMore.addEventListener("click", () => { C.clanTab = "challenges"; render(); });
       h.appendChild(bMore);
@@ -2356,7 +2354,7 @@
     // the Clans tab, so the vote list is gated the same way the icon is.
     if (my) {
       const secV = el("div", "ccC-sec");
-      const hV = el("div", "ccC-sec-h", "💙 Favorite clan critter · season vote");
+      const hV = el("div", "ccC-sec-h", "Favorite clan critter · season vote");
       // The ballot is one <img> per critter anybody in the clan has unlocked,
       // which for an established clan is a hundred images decoded on the way
       // into the Overview, every single time it is drawn. Nobody votes twice a
@@ -2437,7 +2435,7 @@
           }
           updateTabIcon();
         } catch (_) {}
-        toast(`Voted for ${a.name} 💙`, "success");
+        toast(`Voted for ${a.name}`, "success");
       }
 
       paintVotes();
@@ -2453,7 +2451,7 @@
     if (cl.rival || canRival) {
       const secR = el("div", "ccC-sec");
       const hR = el("div", "ccC-sec-h");
-      hR.innerHTML = "⚔️ Friendly rivalry";
+      hR.innerHTML = "Friendly rivalry";
       if (canRival) {
         const bR = el("button", "ccC-btn tiny", cl.rival ? "Change" : "Pick a rival");
         bR.addEventListener("click", () => rivalModal(cl));
@@ -2496,11 +2494,11 @@
     const prevs = Object.entries(cl.prev_results || {}).sort((a, b) => (a[0] < b[0] ? 1 : -1));
     if (prevs.length) {
       const secP = el("div", "ccC-sec");
-      secP.appendChild(el("div", "ccC-sec-h", "📜 Season history"));
+      secP.appendChild(el("div", "ccC-sec-h", "Season history"));
       const bp = el("div", "ccC-sec-b");
       prevs.forEach(([sid, resu]) => {
         bp.appendChild(el("div", "", `<b>Season ${seasonNumFromSid(sid)}</b>: #${resu.rank} · ${resu.points} pts
-          ${resu.mvp ? " · MVP: " + esc(resu.mvp.name) + " 🎖" : ""}`));
+          ${resu.mvp ? " · MVP: " + esc(resu.mvp.name) + "" : ""}`));
       });
       secP.appendChild(bp);
       pane.appendChild(secP);
@@ -2510,7 +2508,7 @@
     if (my && !my.is_owner) {
       const row = el("div", "ccC-topbtns");
       row.style.paddingBottom = "14px";
-      const leave = el("button", "ccC-btn danger", "🚪 Leave clan");
+      const leave = el("button", "ccC-btn danger", "Leave clan");
       leave.addEventListener("click", () => leaveModal(cl));
       row.appendChild(leave);
       pane.appendChild(row);
@@ -2519,7 +2517,7 @@
   async function rivalModal(cl) {
     const bg = el("div", "ccC-modal-bg");
     const md = el("div", "ccC-modal");
-    md.innerHTML = "<h3>⚔️ Pick a friendly rival</h3>"
+    md.innerHTML = "<h3>Pick a friendly rival</h3>"
       + '<div class="ccC-hint" style="margin-bottom:8px;">One rival per season. Purely for bragging rights, no points or rewards change hands.</div>';
     const list = el("div", "");
     list.innerHTML = '<div class="ccC-empty">Loading clans…</div>';
@@ -2538,7 +2536,7 @@
       row.addEventListener("click", async () => {
         const r2 = await post("rival", { op: "set", clan_id: r.id });
         document.body.removeChild(bg);
-        if (r2 && r2.ok) { toast("⚔️ Rivalry declared!", "success"); reloadClan(); }
+        if (r2 && r2.ok) { toast("Rivalry declared!", "success"); reloadClan(); }
         else toast(errMsg(r2 && r2.error), "error");
       });
       list.appendChild(row);
@@ -2558,7 +2556,7 @@
     // Pending join requests (reviewers only)
     if (canReview && (cl.join_requests || []).length) {
       const sec = el("div", "ccC-sec");
-      sec.appendChild(el("div", "ccC-sec-h", "✉️ Join requests"));
+      sec.appendChild(el("div", "ccC-sec-h", "Join requests"));
       const b = el("div", "ccC-sec-b");
       cl.join_requests.forEach(rq => {
         const row = el("div", "");
@@ -2568,7 +2566,7 @@
         const rej = el("button", "ccC-btn tiny", "Reject");
         acc.addEventListener("click", async () => {
           const res = await post("request-act", { uid: rq.uid, accept: true });
-          if (res && res.ok) { toast(rq.name + " joined! 🌊", "success"); reloadClan(); }
+          if (res && res.ok) { toast(rq.name + " joined!", "success"); reloadClan(); }
           else toast(errMsg(res && res.error), "error");
         });
         rej.addEventListener("click", async () => {
@@ -2585,7 +2583,7 @@
     // Invite box
     if (my && my.perms.invite) {
       const sec = el("div", "ccC-sec");
-      sec.appendChild(el("div", "ccC-sec-h", "📯 Enter a friend code to invite a player"));
+      sec.appendChild(el("div", "ccC-sec-h", "Enter a friend code to invite a player"));
       const b = el("div", "ccC-sec-b");
       b.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;align-items:center;";
       const inp = el("input", "ccC-inp");
@@ -2611,7 +2609,7 @@
     // Sort control
     const sec = el("div", "ccC-sec");
     const head = el("div", "ccC-sec-h");
-    head.innerHTML = `👥 Members (${cl.member_count}/${cl.max_members})`;
+    head.innerHTML = `Members (${cl.member_count}/${cl.max_members})`;
     const sortSel = el("select", "");
     [["points", "Season contribution"], ["weekly_points", "Weekly contribution"], ["role", "Role"],
      ["last_seen", "Activity"], ["joined_ts", "Join date"], ["comp_wins", "Competitive wins"]]
@@ -2639,12 +2637,12 @@
         <div class="who">
           <div class="n">${esc(m.name)}
             ${m.uid === myUid ? '<span class="ccC-chip">you</span>' : ""}
-            ${m.is_mvp_chip ? '<span class="ccC-chip gold">🎖 MVP</span>' : ""}
-            ${m.trade_point_today ? '<span class="ccC-chip" title="Daily clan trade point earned">🤝✓</span>' : ""}
+            ${m.is_mvp_chip ? '<span class="ccC-chip gold">MVP</span>' : ""}
+            ${m.trade_point_today ? '<span class="ccC-chip" title="Daily clan trade point earned">✓</span>' : ""}
           </div>
-          <div class="r">${roleLabel(m.role)}${customRole ? " · 🧩 " + esc(customRole.name) : ""} · joined ${fmtDate(m.joined_ts)} · ${m.online ? "online now" : "active " + fmtAgo(m.last_seen)}</div>
+          <div class="r">${roleLabel(m.role)}${customRole ? " · " + esc(customRole.name) : ""} · joined ${fmtDate(m.joined_ts)} · ${m.online ? "online now" : "active " + fmtAgo(m.last_seen)}</div>
         </div>
-        <div class="st">${m.points} pts season<br>${m.weekly_points} this week · ⚔️${m.comp_wins} 🌊${m.casual_wins}${(cl.challenges || []).length ? " 🏁" + m.challenges_done : ""}</div>`;
+        <div class="st">${m.points} pts season<br>${m.weekly_points} this week · ${m.comp_wins} comp · ${m.casual_wins} casual${(cl.challenges || []).length ? " · " + m.challenges_done + " challenges" : ""}</div>`;
       if (my && m.uid !== myUid && (my.perms.change_roles || my.perms.remove_members || my.is_owner || my.perms.moderate_chat)) {
         const mg = el("button", "ccC-btn tiny", "⋯");
         mg.title = "Manage member";
@@ -2659,7 +2657,7 @@
     const former = cl.former_contributors || [];
     if (former.length) {
       const secF = el("div", "ccC-sec");
-      secF.appendChild(el("div", "ccC-sec-h", "🫧 Former members: points stay with the clan"));
+      secF.appendChild(el("div", "ccC-sec-h", "Former members: points stay with the clan"));
       const b = el("div", "ccC-sec-b");
       b.innerHTML = former.map(f => `<span class="ccC-chip" style="margin:0 4px 4px 0;">${esc(f.name || "Player")} · ${f.points} pts</span>`).join("");
       secF.appendChild(b);
@@ -2685,39 +2683,39 @@
     };
     const setRole = (role) => async () => {
       const res = await post("role", { uid: m.uid, role });
-      if (res && res.ok) { toast("Role updated 🎖", "success"); reloadClan(); }
+      if (res && res.ok) { toast("Role updated", "success"); reloadClan(); }
       else toast(errMsg(res && res.error), "error");
     };
     const isOwner = my.is_owner;
-    if (isOwner && m.role !== "captain") add("⚓ Promote to Captain", "", setRole("captain"));
-    if ((isOwner || my.perms.change_roles) && m.role !== "recruiter") add("📯 Make Recruiter", "", setRole("recruiter"));
-    if ((isOwner || my.perms.change_roles) && m.role !== "member") add("🐟 Set as Member", "", setRole("member"));
+    if (isOwner && m.role !== "captain") add("Promote to Captain", "", setRole("captain"));
+    if ((isOwner || my.perms.change_roles) && m.role !== "recruiter") add("Make Recruiter", "", setRole("recruiter"));
+    if ((isOwner || my.perms.change_roles) && m.role !== "member") add("Set as Member", "", setRole("member"));
     (cl.custom_roles || []).forEach(rr => {
       if ((isOwner || my.perms.change_roles) && m.custom_role_id !== rr.id) {
-        add(`🧩 Assign role: ${esc(rr.name)}`, "", async () => {
+        add(`Assign role: ${esc(rr.name)}`, "", async () => {
           const res = await post("role", { uid: m.uid, role: m.role === "owner" ? "member" : (m.role === "captain" && !isOwner ? "member" : m.role === "captain" ? "captain" : m.role), custom_role_id: rr.id });
-          if (res && res.ok) { toast("Role assigned 🧩", "success"); reloadClan(); }
+          if (res && res.ok) { toast("Role assigned", "success"); reloadClan(); }
           else toast(errMsg(res && res.error), "error");
         });
       }
     });
     if (my.perms.moderate_chat) {
-      add("🔇 Mute in chat (30 min)", "", async () => {
+      add("Mute in chat (30 min)", "", async () => {
         const res = await post("chat-mod", { op: "mute", uid: m.uid, minutes: 30 });
-        if (res && res.ok) toast("Muted for 30 minutes 🔇", "info");
+        if (res && res.ok) toast("Muted for 30 minutes", "info");
         else toast(errMsg(res && res.error), "error");
       });
     }
     if (isOwner) {
-      add("👑 Transfer ownership", "danger", async () => {
+      add("Transfer ownership", "danger", async () => {
         if (!confirm(`Make ${m.name} the clan owner? You'll become a Captain.`)) return;
         const res = await post("transfer", { uid: m.uid });
-        if (res && res.ok) { toast("👑 Ownership transferred.", "success"); reloadClan(); }
+        if (res && res.ok) { toast("Ownership transferred.", "success"); reloadClan(); }
         else toast(errMsg(res && res.error), "error");
       });
     }
     if (isOwner || my.perms.remove_members) {
-      add("❌ Remove from clan", "danger", async () => {
+      add("Remove from clan", "danger", async () => {
         if (!confirm(`Remove ${m.name} from the clan? They keep no seat and must wait 24h before earning points elsewhere. Their earned points stay with the clan.`)) return;
         const res = await post("kick", { uid: m.uid });
         if (res && res.ok) { toast(m.name + " was removed.", "info"); reloadClan(); }
@@ -2754,7 +2752,7 @@
     go.addEventListener("click", async () => {
       const res = await post("leave", {});
       document.body.removeChild(bg);
-      if (res && res.ok) { toast("You left the clan. 👋", "info"); C.clan = null; C.home = null; await refreshHome(true); nav("home"); }
+      if (res && res.ok) { toast("You left the clan.", "info"); C.clan = null; C.home = null; await refreshHome(true); nav("home"); }
       else toast(errMsg(res && res.error), "error");
     });
     row.appendChild(cancel); row.appendChild(go);
@@ -2780,7 +2778,7 @@
     go.addEventListener("click", async () => {
       const res = await post("report", { kind: "name", clan_id: cl.id, reason: ta.value.trim() });
       document.body.removeChild(bg);
-      if (res && res.ok) toast("Report sent: thanks for keeping the reef clean. 🪸", "success");
+      if (res && res.ok) toast("Report sent: thanks for keeping the reef clean.", "success");
       else toast(errMsg(res && res.error), "error");
     });
     row.appendChild(cancel); row.appendChild(go);
@@ -2842,13 +2840,13 @@
     const d = el("div", "ccC-msg" + (mine ? " me" : "") + (m.kind === "announce" ? " ann" : ""));
     let extra = "";
     if (m.kind === "game_invite" && m.room_id) extra = ` <button class="ccC-btn pri tiny" data-room="${esc(m.room_id)}">Join game</button>`;
-    d.innerHTML = `<div class="m-h">${m.kind === "announce" ? "📣 " : ""}${esc(m.name || "?")} <span style="font-weight:700;color:#9db4c9;">${fmtAgo(m.ts)}</span></div>${esc(m.text)}${extra}`;
+    d.innerHTML = `<div class="m-h">${esc(m.name || "?")} <span style="font-weight:700;color:#9db4c9;">${fmtAgo(m.ts)}</span></div>${esc(m.text)}${extra}`;
     if (m.pending) d.style.opacity = "0.6";
     const jb = d.querySelector("[data-room]");
     if (jb) jb.addEventListener("click", () => { location.search = "?room=" + encodeURIComponent(jb.getAttribute("data-room")); });
     if (!my) return d;
     if (my.perms.moderate_chat && !mine) {
-      const del = el("button", "ccC-btn tiny", "🗑");
+      const del = el("button", "ccC-btn tiny", "Delete");
       del.title = "Remove message";
       del.style.cssText = "margin-left:6px;padding:0 7px;";
       del.addEventListener("click", async () => {
@@ -2863,7 +2861,7 @@
       rep.style.cssText = "margin-left:6px;padding:0 7px;";
       rep.addEventListener("click", async () => {
         const res = await post("report", { kind: "message", msg_id: m.id, msg_text: m.text, reason: "chat report" });
-        if (res && res.ok) toast("Message reported. 🪸", "success");
+        if (res && res.ok) toast("Message reported.", "success");
       });
       d.appendChild(rep);
     }
@@ -2890,7 +2888,7 @@
       const atBottom = stick || (log.scrollHeight - log.scrollTop - log.clientHeight < 60);
       log.innerHTML = "";
       if (!C.chatMsgs.length) {
-        log.innerHTML = '<div class="ccC-empty">No messages yet: say hi! 🐠</div>';
+        log.innerHTML = '<div class="ccC-empty">No messages yet: say hi!</div>';
         return;
       }
       const shown = opts.compact ? C.chatMsgs.slice(-14) : C.chatMsgs;
@@ -2946,22 +2944,22 @@
     sec.style.margin = "10px 16px 14px";
     const headEl = el("div", "ccC-sec-h");
     const p = countdownParts(cl.season.ends_ts);
-    headEl.innerHTML = `💬 Clan chat <span class="ccC-chip">⏳ season ends in ${p.d}d ${p.h}h</span>`;
+    headEl.innerHTML = `Clan chat <span class="ccC-chip">season ends in ${p.d}d ${p.h}h</span>`;
     if (my.perms.post_announcements) {
-      const annBtn = el("button", "ccC-btn tiny", "📣 Announce");
+      const annBtn = el("button", "ccC-btn tiny", "Announce");
       annBtn.addEventListener("click", () => announceModal(my));
       headEl.appendChild(annBtn);
     }
     // Share the game/tournament I'm in right now, so clanmates can jump in.
     const liveRoom = (() => { try { return bridge().currentRoom ? String(bridge().currentRoom() || "") : ""; } catch (_) { return ""; } })();
     if (liveRoom) {
-      const invBtn = el("button", "ccC-btn tiny pri", "🎮 Invite to my game");
+      const invBtn = el("button", "ccC-btn tiny pri", "Invite to my game");
       invBtn.addEventListener("click", async () => {
         const res = await post("chat-send", {
           kind: "game_invite", room_id: liveRoom,
-          text: `🎮 Come play! Room ${liveRoom}`,
+          text: `Come play! Room ${liveRoom}`,
         });
-        if (res && res.ok) { toast("Game invite sent to the clan 🎮", "success"); }
+        if (res && res.ok) { toast("Game invite sent to the clan", "success"); }
         else toast(errMsg(res && res.error), "error");
       });
       headEl.appendChild(invBtn);
@@ -2974,7 +2972,7 @@
   function announceModal(my) {
     const bg = el("div", "ccC-modal-bg");
     const md = el("div", "ccC-modal");
-    md.innerHTML = "<h3>📣 Clan announcement</h3>";
+    md.innerHTML = "<h3>Clan announcement</h3>";
     const ta = el("textarea", "");
     ta.rows = 3; ta.maxLength = 500;
     ta.placeholder = "Announcement for the whole clan…";
@@ -2987,7 +2985,7 @@
       const cb = el("input", ""); cb.type = "checkbox";
       cb.addEventListener("change", () => { pin = cb.checked; });
       lb.appendChild(cb);
-      lb.appendChild(document.createTextNode("📌 Pin to the top of the clan page"));
+      lb.appendChild(document.createTextNode("Pin to the top of the clan page"));
       md.appendChild(lb);
     }
     const row = el("div", "");
@@ -3000,7 +2998,7 @@
       if (!text) return;
       const res = await post("announce", { text, pin });
       document.body.removeChild(bg);
-      if (res && res.ok) { toast("Announcement posted 📣", "success"); reloadClan(); }
+      if (res && res.ok) { toast("Announcement posted", "success"); reloadClan(); }
       else toast(errMsg(res && res.error), "error");
     });
     row.appendChild(cancel); row.appendChild(go);
@@ -3013,7 +3011,7 @@
   function paneEvents(pane, cl, my) {
     const sec = el("div", "ccC-sec");
     const head = el("div", "ccC-sec-h");
-    head.innerHTML = "📅 Clan events";
+    head.innerHTML = "Clan events";
     if (my && my.perms.create_events) {
       const nb = el("button", "ccC-btn tiny pri", "+ New event");
       nb.addEventListener("click", () => eventModal());
@@ -3023,7 +3021,7 @@
     const b = el("div", "ccC-sec-b");
     const evs = (cl.events || []).slice().sort((a, b2) => a.ts - b2.ts);
     if (!evs.length) {
-      b.appendChild(el("div", "ccC-empty", "No events scheduled. Game night, anyone? 🎲"));
+      b.appendChild(el("div", "ccC-empty", "No events scheduled. Game night, anyone?"));
     }
     const myUid = uidOf();
     evs.forEach(ev => {
@@ -3031,7 +3029,7 @@
       const reminded = (ev.reminders || []).includes(myUid);
       const soon = ev.ts - Date.now() / 1000 < 3600 && ev.ts > Date.now() / 1000 - 3600;
       const d = el("div", "ccC-ev");
-      d.innerHTML = `<div class="t"><span>${soon ? "🔔 " : ""}${esc(ev.name)}</span><span class="ccC-chip">${fmtDateTime(ev.ts)}</span></div>
+      d.innerHTML = `<div class="t"><span>${soon ? "Soon · " : ""}${esc(ev.name)}</span><span class="ccC-chip">${fmtDateTime(ev.ts)}</span></div>
         <div class="d">${esc(ev.desc || "")} · host: <b>${esc(ev.host_name || "?")}</b> · ${((ev.attending || []).length)} attending</div>`;
       const row = el("div", "");
       row.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;";
@@ -3043,10 +3041,10 @@
         });
         row.appendChild(jb);
         if (going && !reminded) {
-          const rb = el("button", "ccC-btn tiny", "🔔 Remind me");
+          const rb = el("button", "ccC-btn tiny", "Remind me");
           rb.addEventListener("click", async () => {
             const res = await post("events", { op: "remind", id: ev.id });
-            if (res && res.ok) { toast("You'll see a reminder when it's about to start. 🔔", "info"); reloadClan(); }
+            if (res && res.ok) { toast("You'll see a reminder when it's about to start.", "info"); reloadClan(); }
           });
           row.appendChild(rb);
         }
@@ -3070,7 +3068,7 @@
   function eventModal() {
     const bg = el("div", "ccC-modal-bg");
     const md = el("div", "ccC-modal");
-    md.innerHTML = "<h3>📅 New clan event</h3>";
+    md.innerHTML = "<h3>New clan event</h3>";
     const nm = el("input", "ccC-inp"); nm.placeholder = "Event name (e.g. Clan Game Night)"; nm.maxLength = 60;
     nm.style.cssText = "width:100%;box-sizing:border-box;margin-bottom:9px;";
     const dt = el("input", "ccC-inp"); dt.type = "datetime-local";
@@ -3089,7 +3087,7 @@
       if (!name || !ts) { toast("Give the event a name and a time.", "error"); return; }
       const res = await post("events", { op: "create", name, ts, desc: ds.value.trim() });
       document.body.removeChild(bg);
-      if (res && res.ok) { toast("Event created 📅", "success"); reloadClan(); }
+      if (res && res.ok) { toast("Event created", "success"); reloadClan(); }
       else toast(errMsg(res && res.error), "error");
     });
     row.appendChild(cancel); row.appendChild(go);
@@ -3104,7 +3102,7 @@
     sec.style.margin = "10px 16px 14px";
     const rows = cl.activity || [];
     if (!rows.length) {
-      sec.appendChild(el("div", "ccC-empty", "Nothing here yet, go make some waves! 🌊"));
+      sec.appendChild(el("div", "ccC-empty", "Nothing here yet, go make some waves!"));
     }
     rows.forEach(a => {
       const d = el("div", "row");
@@ -3122,7 +3120,7 @@
     if (isOwner) {
       // Identity / privacy
       const sec = el("div", "ccC-sec");
-      sec.appendChild(el("div", "ccC-sec-h", "⚙️ Clan settings"));
+      sec.appendChild(el("div", "ccC-sec-h", "Clan settings"));
       const b = el("div", "ccC-sec-b");
 
       // Clan name. Its own field and its own button, deliberately not part of
@@ -3167,7 +3165,7 @@
         }, 350);
       };
       inName.addEventListener("input", checkName);
-      const rename = el("button", "ccC-btn", "\u270F\uFE0F Rename clan");
+      const rename = el("button", "ccC-btn", "Rename clan");
       rename.style.marginBottom = "12px";
       rename.addEventListener("click", async () => {
         const v = inName.value.trim();
@@ -3179,7 +3177,7 @@
         const res = await post("rename", { name: v });
         rename.disabled = false;
         if (res && res.ok) {
-          toast(`Your clan is now ${res.name || v} \u270F\uFE0F`, "success");
+          toast(`Your clan is now ${res.name || v}`, "success");
           await reloadClan();
         } else if (res === null) {
           // No answer at all: the request timed out or never landed. A rename
@@ -3215,7 +3213,7 @@
       const privRow = el("div", "");
       privRow.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;";
       let selPriv = cl.privacy;
-      [["public", "🌊 Public"], ["password", "🔑 Password"], ["request", "✉️ Request to Join"], ["invite", "🔒 Invite Only"]].forEach(([v, lab]) => {
+      [["public", "Public"], ["password", "Password"], ["request", "Request to Join"], ["invite", "Invite Only"]].forEach(([v, lab]) => {
         const bt = el("button", "ccC-btn" + (v === selPriv ? " pri" : ""), lab);
         bt.addEventListener("click", () => {
           selPriv = v;
@@ -3277,7 +3275,7 @@
       fi.appendChild(el("div", "ccC-hint", "Only critters someone in the clan has unlocked. One member having it is enough for the whole clan."));
       b.appendChild(fi);
 
-      const save = el("button", "ccC-btn pri", "💾 Save settings");
+      const save = el("button", "ccC-btn pri", "Save settings");
       save.addEventListener("click", async () => {
         const pw = inPw.value.trim();
         if (selPriv === "password" && !cl.has_password && pw.length < 4) {
@@ -3291,7 +3289,7 @@
           password: selPriv === "password" ? pw : "",
         });
         if (res && res.ok) {
-          toast("Settings saved ⚙️", "success");
+          toast("Settings saved", "success");
           // One call: it refreshes the profile AND re-decides the Clans nav
           // button, because the clan icon may be the button's icon too.
           await reloadClan();
@@ -3305,7 +3303,7 @@
     // Custom roles editor (owner, or captain when allowed)
     if (isOwner || my.perms.edit_custom_roles) {
       const sec = el("div", "ccC-sec");
-      sec.appendChild(el("div", "ccC-sec-h", "🧩 Custom roles"));
+      sec.appendChild(el("div", "ccC-sec-h", "Custom roles"));
       const b = el("div", "ccC-sec-b");
       (cl.custom_roles || []).forEach(rr => {
         const row = el("div", "");
@@ -3334,10 +3332,10 @@
     // Danger zone (owner)
     if (isOwner) {
       const sec = el("div", "ccC-sec");
-      sec.appendChild(el("div", "ccC-sec-h", "🌋 Danger zone"));
+      sec.appendChild(el("div", "ccC-sec-h", "Danger zone"));
       const b = el("div", "ccC-sec-b");
       b.appendChild(el("div", "ccC-hint", "To leave the clan, transfer ownership to another member first (Members tab → ⋯ → Transfer ownership)."));
-      const del = el("button", "ccC-btn danger", "🗑 Disband clan");
+      const del = el("button", "ccC-btn danger", "Disband clan");
       del.style.marginTop = "8px";
       del.addEventListener("click", async () => {
         if (!confirm(`Disband ${cl.name}? This permanently deletes the clan for all ${cl.member_count} member(s). Season history in the archive is kept, but the clan itself is gone.`)) return;
@@ -3364,7 +3362,7 @@
   function roleModal(existing) {
     const bg = el("div", "ccC-modal-bg");
     const md = el("div", "ccC-modal");
-    md.innerHTML = `<h3>🧩 ${existing ? "Edit" : "New"} custom role</h3>`;
+    md.innerHTML = `<h3>${existing ? "Edit" : "New"} custom role</h3>`;
     const nm = el("input", "ccC-inp");
     nm.placeholder = "Role name (e.g. Reef Keeper)"; nm.maxLength = 24;
     nm.value = existing ? existing.name : "";
@@ -3394,7 +3392,7 @@
         role: { id: existing ? existing.id : undefined, name, perms },
       });
       document.body.removeChild(bg);
-      if (res && res.ok) { toast("Role saved 🧩", "success"); reloadClan(); }
+      if (res && res.ok) { toast("Role saved", "success"); reloadClan(); }
       else toast(errMsg(res && res.error), "error");
     });
     row.appendChild(cancel); row.appendChild(go);

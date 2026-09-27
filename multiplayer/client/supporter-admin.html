@@ -46,7 +46,7 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>🛠️ Supporter Wall, Admin Review</h1>
+    <h1>Supporter Wall, Admin Review</h1>
     <div class="links" style="margin-bottom:6px">
       <a href="/supporter-wall">Public wall ↗</a>
       <a href="/">Game ↗</a>
@@ -118,7 +118,7 @@
       .then(function(r){ return r.json(); })
       .then(function(d){
         if(!d || !d.ok){ $("list").innerHTML = '<div class="state">'+esc((d&&d.error)||"Unauthorized")+'</div>'; return; }
-        if(!d.supporters.length){ $("list").innerHTML = '<div class="state">Nothing to review. 🎉</div>'; return; }
+        if(!d.supporters.length){ $("list").innerHTML = '<div class="state">Nothing to review.</div>'; return; }
         $("list").innerHTML = d.supporters.map(rowHtml).join("");
         wireRows();
       })

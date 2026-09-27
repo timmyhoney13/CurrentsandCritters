@@ -616,7 +616,7 @@ class Tournament:
             name = f"{name} {tier + 1}"
         self._bot_seq += 1
         return Participant(
-            pid=f"bot:{secrets.token_hex(6)}", name=f"{name} 🤖", avatar=avatar,
+            pid=f"bot:{secrets.token_hex(6)}", name=name, avatar=avatar,
             is_guest=True, is_bot=True, join_order=len(self.participants),
             token=_gen_token(), last_seen=_now(), connected=True,
             ready=True, status=S_READY,

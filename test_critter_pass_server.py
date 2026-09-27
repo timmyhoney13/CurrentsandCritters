@@ -340,7 +340,6 @@ class TrackShapeTests(PassTestBase):
         for t in cp.track():
             self.assertTrue(t["label"].strip(), t["id"])
             self.assertTrue(t["blurb"].strip(), t["id"])
-            self.assertTrue(t["icon"].strip(), t["id"])
 
     def test_no_consumable_has_more_tiers_than_the_hoard_can_hold(self):
         # A fourth shield tier against a three-shield cap is a tier that can

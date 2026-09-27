@@ -536,7 +536,7 @@
     const age = st.age_sec != null
       ? ` Showing the numbers read ${fmtSpan(st.age_sec)} ago.`
       : " Player numbers can't be shown until it can be read.";
-    return `<div class="ccA-banner" role="status"><span aria-hidden="true">⚠️</span><div>`
+    return `<div class="ccA-banner" role="status"><div>`
       + `<b>Couldn't read the player database.</b> ${esc(st.error || "")}${esc(age)}</div></div>`;
   }
 
@@ -762,7 +762,6 @@
       ${capped ? `<button class="ccA-btn" data-more="technical">View all</button>` : ""}</div>
       ${list.length ? `<div class="ccA-alerts">` + list.map(a => `
         <div class="ccA-alert ${esc(a.level === "bad" ? "bad" : "warn")}">
-          <span class="ccA-alert-ico">${a.level === "bad" ? "⛔" : "⚠️"}</span>
           <div><div class="ccA-alert-title">${esc(a.title)}</div>
           <div class="ccA-alert-detail">${esc(a.detail)}</div></div>
           ${a.section ? `<button class="ccA-btn ccA-alert-go" data-more="${esc(a.section)}">Open</button>` : ""}
@@ -1049,7 +1048,7 @@
           </div></div>
           <div class="ccA-alerts">${(d.checks || []).map(c => `
             <div class="ccA-alert ${c.ok ? "" : "warn"}">
-              <span class="ccA-alert-ico">${c.ok ? "✓" : "⚠️"}</span>
+              <span class="ccA-alert-ico">${c.ok ? "✓" : "✗"}</span>
               <div><div class="ccA-alert-title">${esc(c.label)}</div>
               <div class="ccA-alert-detail">${esc(c.detail)}</div></div>
               <span class="ccA-chip ${c.ok ? "good" : "warn"} ccA-alert-go">${c.ok ? "OK" : "Watch"}</span>
@@ -1420,7 +1419,7 @@
     const data = S.data[sec];
     if (!data) {
       root.innerHTML = S.error[sec]
-        ? headHtml(nameOf(sec), "") + `<div class="ccA-panel">${emptyHtml(S.error[sec], "⚠️")}</div>`
+        ? headHtml(nameOf(sec), "") + `<div class="ccA-panel">${emptyHtml(S.error[sec], "")}</div>`
         : skeleton(sec);
       return;
     }
@@ -1430,7 +1429,7 @@
       (RENDER[sec] || RENDER.overview)(data, root);
     } catch (err) {
       root.innerHTML = headHtml(nameOf(sec), "")
-        + `<div class="ccA-panel">${emptyHtml("This section hit an error: " + (err && err.message || err), "⚠️")}</div>`;
+        + `<div class="ccA-panel">${emptyHtml("This section hit an error: " + (err && err.message || err), "")}</div>`;
       try { console.error("[analytics] render " + sec + " failed:", err); } catch (_) {}
     }
   }
@@ -1551,7 +1550,7 @@
     btn.textContent = old;
     btn.disabled = false;
     if (!res || !res.ok) {
-      openDrawer("Export", `<div class="ccA-panel">${emptyHtml(errMsg(res && res.error), "⚠️")}</div>`);
+      openDrawer("Export", `<div class="ccA-panel">${emptyHtml(errMsg(res && res.error), "")}</div>`);
       return;
     }
     try {
@@ -1566,7 +1565,7 @@
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
     } catch (_) {
-      openDrawer("Export", `<div class="ccA-panel">${emptyHtml("This browser blocked the download.", "⚠️")}</div>`);
+      openDrawer("Export", `<div class="ccA-panel">${emptyHtml("This browser blocked the download.", "")}</div>`);
     }
   }
 

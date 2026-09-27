@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /* Tests for the per-game chat mute toggle (multiplayer/client/js/preview-app.js
- * + the 🔔 button / menu in multiplayer/client/preview.html).
+ * + the mute button / menu in multiplayer/client/preview.html).
  *
  * Run:  node test_chat_mute.js
  *
- * Why this file exists: "mute" here must silence NOTIFICATIONS ONLY, the 💬
+ * Why this file exists: "mute" here must silence NOTIFICATIONS ONLY, the chat
  * button badge, the lobby badge and the back-arrow dot, while the messages
  * themselves keep arriving and the unread counters keep counting. If muting
  * ever zeroed a counter instead of hiding a badge, unmuting (or the next game)
@@ -137,7 +137,7 @@ const HTML_MUTE_MODES = (HTML.match(/data-mute="([a-z]+)"/g) || [])
 
 console.log("\nMarkup + styling");
 {
-  ok(/id="pv-chat-mute"/.test(HTML), "🔔 mute button exists in the chat panel header");
+  ok(/id="pv-chat-mute"/.test(HTML), "the mute button exists in the chat panel header");
   ok(HTML.indexOf('id="pv-chat-mute"') < HTML.indexOf('id="pv-chat-close"'),
      "mute button sits before the ✕ close button (inside .pvc-hdr-actions)");
   ok(/id="pv-chat-mute-menu"/.test(HTML), "mute menu exists");
@@ -269,10 +269,10 @@ console.log("\nButton + menu reflect the state");
   const env = makeEnv({ mode: "none", muteRoom: "AAAAA" });
   env.api.pvcRenderMute();
   const btn = env.els["pv-chat-mute"];
-  eq(btn.textContent, "🔔", "unmuted shows the bell");
+  eq(btn.textContent, "Mute", "unmuted reads Mute");
   ok(!btn._cls.has("muted"), "unmuted has no .muted class");
   env.api.pvcSetMute("game");
-  eq(btn.textContent, "🔕", "muted shows the crossed bell");
+  eq(btn.textContent, "Muted", "muted reads Muted");
   ok(btn._cls.has("muted"), "muted adds .muted");
   ok(/muted/i.test(btn.title) && /change/i.test(btn.title), "tooltip says what is muted");
   const rows = env.els["pv-chat-mute-menu"].rows;

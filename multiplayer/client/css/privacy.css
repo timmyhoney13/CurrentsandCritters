@@ -7,7 +7,7 @@
  *
  * Rendered by:
  *   • privacy.html, the published /privacy page   (.pp-light)
- *   • In game → Settings → 📜 Legal → Privacy      (.pp-dark)
+ *   • In game → Settings → Legal → Privacy      (.pp-dark)
  *
  * Same shape as css/rulebook.css and for the same reason: privacy.html is a
  * small static page and must not drag in the game's whole stylesheet. Load

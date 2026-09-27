@@ -164,9 +164,9 @@ console.log("\na spot shows the player everyone knows");
         "the equipped background paints behind the critter");
   check(/_wrSeatAvatarUrl/.test(LOBBY) && /pvLiveAvatar/.test(LOBBY),
         "the critter comes off the seat, falling back to the live table");
-  check(/⭐ Lv/.test(LOBBY), "the Level is on the spot");
+  check(/\bLv\b/.test(LOBBY), "the Level is on the spot");
   check(/XP to Level/.test(LOBBY), "so is the XP bar's caption");
-  check(/🏆 Best/.test(LOBBY), "and the record line");
+  check(/\bBest\b/.test(LOBBY), "and the record line");
   check(/__ccPrestigeBadgeHtml/.test(LOBBY), "the Prestige badge is the game's real one");
   check(/__ccPrestigeLookupByName/.test(LOBBY), "looked up from the Prestige service");
   check(/_wrBgName/.test(LOBBY) && /__fishBackgroundCatalog/.test(APP),
@@ -184,7 +184,7 @@ console.log("\na spot shows the player everyone knows");
 // ════════════════════════════════════════════════════════════════════════
 console.log("\nthe chat is in the room");
 {
-  ["wr-chat-log", "wr-chat-text", "wr-chat-send", "wr-emote-row", "wr-chat-here",
+  ["wr-chat-log", "wr-chat-text", "wr-chat-send", "wr-chat-here",
    "wr-critter-row", "wr-bg-row"].forEach(id =>
     check(HTML.includes(`id="${id}"`), `preview.html has #${id}`));
   check(/function _wrRenderChat/.test(APP), "the lobby paints its own chat log");
@@ -278,7 +278,7 @@ console.log("\nstyles exist");
    "wr-seat-tobot", "wr-seat-remove", "wr-seat-lock", "wr-seat-add",
    "wr-seat-add-plus", "wr-seat-add-t", "wr-seat-add-s", "wr-xp", "wr-xp-bar",
    "wr-xp-fill", "wr-xp-txt", "wr-pip", "wr-chat-line", "wr-chat-av", "wr-chat-body",
-   "wr-chat-who", "wr-chat-msg", "wr-chat-empty", "wr-emote",
+   "wr-chat-who", "wr-chat-msg", "wr-chat-empty",
    "wr-look-tile", "wr-look-more", "wr-look-bg",
    "wr-add-menu", "wr-add-menu-h", "wr-add-opt", "wr-add-cancel"].forEach(cls => {
     check(APP.includes(cls), `the render makes .${cls}`);
@@ -365,8 +365,8 @@ const _wrPrestigeByName = { tidepooltim: { level: 3 }, kelpkaiya: { level: 5 } }
 // measured is the chip it paints.
 let _wrRankAsking = false, _wrRankFetched = true;
 const _wrRankByName = {
-  tidepooltim: { cp: 512,  division: "Golden Grouper III",   tier: "gold", emoji: "\u{1F421}" },
-  kelpkaiya:   { cp: 1240, division: "King of the Critters", tier: "king", emoji: "\u{1F451}" },
+  tidepooltim: { cp: 512,  division: "Golden Grouper III",   tier: "gold" },
+  kelpkaiya:   { cp: 1240, division: "King of the Critters", tier: "king" },
 };
 const TEAM_META = [
   { key: "red", name: "Red", hex: "#e0463c" }, { key: "blue", name: "Blue", hex: "#3d7be0" },
@@ -376,9 +376,9 @@ function compGetHandName(i) { return "Hand " + (i + 1); }
 function _hesc(t) { return String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 function _teamSwitch() {} function _teamSwapRequest() {}
 window.ccDeviceLabel = (d) => d === "mobile"
-  ? { device: "mobile", icon: "\u{1F4F1}", text: "Mobile", label: "a phone", title: "playing on a phone" }
-  : { device: "computer", icon: "\u{1F5A5}\uFE0F", text: "Computer", label: "a computer", title: "playing on a computer" };
-window._compGetRankFromCp = () => ({ division: "Golden Grouper III", tier: "gold", emoji: "\u{1F421}" });
+  ? { device: "mobile", short: "Mobile", initial: "M", text: "Mobile", label: "a phone", title: "playing on a phone" }
+  : { device: "computer", short: "PC", initial: "C", text: "Computer", label: "a computer", title: "playing on a computer" };
+window._compGetRankFromCp = () => ({ division: "Golden Grouper III", tier: "gold" });
 window.__fishGetMyStats = () => ({ comp_cp: 512, competitive_wins: 40, competitive_losses: 22, competitive_draws: 3 });
 const latestPayload = ${JSON.stringify(payload)};
 // The two other lobbies, as the same room would arrive from the server.
@@ -442,11 +442,6 @@ const list = document.getElementById("wr-players-list");
 list.innerHTML = '<div class="wr-players-title">Players in Room</div>';
 renderSeatTilesInto(list, latestPayload.seats, true);
 _wrRenderChat();
-["👋","🦀","🐙","🔥"].forEach(e => {
-  const b = document.createElement("button");
-  b.type = "button"; b.className = "wr-emote"; b.textContent = e;
-  document.getElementById("wr-emote-row").appendChild(b);
-});
 // Levers the measuring page pulls, so it drives the real render rather than
 // asserting against a copy of it.
 window.__setChatCount = (n) => {

@@ -203,7 +203,7 @@ function prepHome(d) {
   // One realistic row in the OP leaderboard table, so the six columns are
   // measured with content in them rather than empty.
   var tb = d.getElementById("ph-lb-cp-tbody");
-  if (tb) tb.innerHTML = '<tr><td class="ph-lb-rank-cell">🥇</td>'
+  if (tb) tb.innerHTML = '<tr><td class="ph-lb-rank-cell">#1</td>'
     + '<td><div class="ph-lb-player-cell"><span class="ph-lb-pname">Reefkeeper_2026</span></div></td>'
     + '<td class="ph-lb-score-cell">1,234 OP</td>'
     + '<td class="ph-lb-meta-cell">' + window.__W.king + '</td>'
@@ -276,7 +276,7 @@ function prepLeaderboard(d) {
   var tab = d.querySelector('.mode-tab[data-mode="competitive"]');
   if (tab) tab.click();
   var tb = d.getElementById("cp-tbody");
-  if (tb) tb.innerHTML = '<tr><td><span class="rank-medal">🥇</span></td>'
+  if (tb) tb.innerHTML = '<tr><td><span class="rank-medal">#1</span></td>'
     + '<td>Reefkeeper_2026</td>'
     + '<td class="score-cell top">1,234 OP</td>'
     + '<td>128</td><td>47</td><td>73%</td></tr>';

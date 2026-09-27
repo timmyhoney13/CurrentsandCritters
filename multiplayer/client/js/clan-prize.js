@@ -159,7 +159,7 @@
 
     const countPill = s.ends_ts
       ? `<span class="${final ? "ccPrize-final" : "ccPrize-count"}">${
-          final ? "🔥 Final stretch: " : "⏳ "}${esc(countdownText(s.ends_ts))}</span>`
+          final ? "Final stretch: " : ""}${esc(countdownText(s.ends_ts))}</span>`
       : "";
 
     // The leader, or an honest statement that nobody is one yet.
@@ -174,11 +174,11 @@
     const gap = lead ? gapText(rows) : "";
     const leadPill = lead
       ? `<span class="ccPrize-lead">${lead.icon
-            ? `<img src="${esc(avSrc(lead.icon))}" alt="" fetchpriority="low" decoding="async">` : "🥇"}
+            ? `<img src="${esc(avSrc(lead.icon))}" alt="" fetchpriority="low" decoding="async">` : ""}
            <span class="nm">${esc(lead.name)}</span> ${esc(Number(lead.points).toLocaleString())} pts${
            gap ? ` · ${esc(gap)}` : ""}</span>`
       : heard
-        ? `<span class="ccPrize-count">🥇 Nobody has scored yet: first points take the lead</span>`
+        ? `<span class="ccPrize-count">Nobody has scored yet: first points take the lead</span>`
         : "";
 
     let cta = "";

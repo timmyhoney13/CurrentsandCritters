@@ -109,18 +109,18 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
-    { ver: "V1.7.16", title: "\uD83D\uDCD6 The Rule Book reads like the box it came in", items: [
+    { ver: "V1.7.16", title: "The Rule Book reads like the box it came in", items: [
       "The whole book is set in the game's own lettering now, cover to encyclopedia, instead of the headings wearing it and everything underneath wearing something else.",
       "The Clownfish pictures show it attached. It used to sit in a row under the Ocean, which read as a second card parked next to it; it is tucked into the Ocean's side now, half behind it, exactly the way it lies on your table. That is the whole rule: a Clownfish is part of the Ocean it is on.",
       "The Ocean layout diagram has real cards in it. Four empty dashed boxes told you where the spaces were but never what goes in them, so there is now a Pelican on the surface, a Lobster on the floor, a Yellowfin Tuna and a Whale Shark at the sides, and a key underneath naming what each space takes.",
     ]},
-    { ver: "V1.7.15", title: "\u2694\uFE0F The Competitive 1v1 lobby looks like a lobby", items: [
+    { ver: "V1.7.15", title: "The Competitive 1v1 lobby looks like a lobby", items: [
       "The two player cards are the size every other lobby draws them. They were being stretched to half the screen each, which turned a card into a banner: the critter, the name and the chips strung out along one line with a hairline XP bar under them. They stand side by side in the middle of the room now, at a normal card's width.",
       "The two cards line up. The rank you are playing for has a row of its own, so a long division like King of the Critters can no longer push one card's level and hands onto a second line while the other card stays on one, which left the pair's XP bars and stat lines sitting at different heights.",
       "The room has its read-out back, the same bar every other lobby has between its title and its cards. It counts PEOPLE here: 2 at the table, one marker each, and it says Ranked 1v1, two hands each.",
       "Lobby chat counts people too. A room with both of you in it said 4 here, because it was counting hands.",
     ]},
-    { ver: "V1.7.14", title: "\uD83C\uDF0A The Store is open again, and the Reef Wall is back up", items: [
+    { ver: "V1.7.14", title: "The Store is open again, and the Reef Wall is back up", items: [
       "The Store is back. Critter Coin packs, skins, backgrounds and Player Perks are all on the shelf again, and everything you already owned was waiting for you exactly where you left it.",
       "The Critter Pass is back too, and so is every tier you had not claimed yet. Nothing expired while the page was shut: unclaimed rewards were held on the server the whole time and are still there to claim.",
       "The Supporter Reef Wall is up again, with everyone on it at the size they earned, including everyone who gave while it was resting.",
@@ -128,7 +128,7 @@
       "The Supporter Tiers are on the shelf to read, but not to buy: they are coming to Kickstarter soon, and that is where you will be able to back one.",
       "The Summer Skin Hermit Crab has been retired from the skins shelf. The Summer Gull and the surfing Goby are still there.",
     ]},
-    { ver: "V1.7.13", title: "\uD83E\uDD91 The Giant Squid has the Spinner Dolphin", items: [
+    { ver: "V1.7.13", title: "The Giant Squid has the Spinner Dolphin", items: [
       "The Giant Squid at the top of Head to Head now opens on two things: BEAT EVERY OTHER RANK on the reef, F all the way up to S+, and be LEVEL 25. It is not the one platform below any more, and it no longer asks you to have finished his story first.",
       "The lock counts down for you. Instead of naming a level it says how many more you need: \u201CYou need 13 more levels to face the Giant Squid.\u201D When it is ranks you are short of, it says how many are left.",
       "Beat him and he surfaces to tell you what he still has: you will never save the Spinner Dolphin, the code is spread throughout the game, and only the invertebrates know the code.",
@@ -138,30 +138,30 @@
       "The \u26F6 chip in the bottom-right corner of the menu is gone, on every tab.",
       "Inside a game nothing changes: the action bar keeps its own \u26F6 Full Screen button.",
     ]},
-    { ver: "V1.7.11", title: "\uD83C\uDF00 Oceans no longer flip a card into the Pool", items: [
+    { ver: "V1.7.11", title: "Oceans no longer flip a card into the Pool", items: [
       "Putting down an Ocean used to turn the top card of the deck face-up into the Pool. It doesn't any more, in every game mode: Casual, Head to Head, Competitive, tournaments and the tutorials.",
       "The Pool now only fills with the cards players pay and discard, so the END GAME card can only turn up when someone draws it.",
       "The Rules page and the Full Rulebook say the same.",
     ]},
-    { ver: "V1.7.10", title: "\uD83C\uDF0A Strategies, one step at a time", items: [
-      "The \uD83D\uDCA1 Help screen walks you through three steps: 1, choose your ocean strategy. 2, choose your animal strategies. 3, mix and match them, with the combos that pair them and Create Your Own right there.",
+    { ver: "V1.7.10", title: "Strategies, one step at a time", items: [
+      "The Help screen walks you through three steps: 1, choose your ocean strategy. 2, choose your animal strategies. 3, mix and match them, with the combos that pair them and Create Your Own right there.",
       "Every ocean strategy is just its own ocean and shows that ocean's card: Kelp Forest is only Kelp Forests, Coral Reef only Coral Reefs, Piers only Piers, and Artificial Reef only Artificial Reefs. Artificial Reef still tells you about the Yellowfin Tuna, Lobsters and Clownfish that stack on it.",
       "Arctic Ocean and Mangrove are one strategy now, called Play Again: both give you a whole new play, so you can draw 2 more cards. Tide Pool is no longer a strategy.",
       "The best match at the top names one ocean strategy and one animal strategy for the cards in front of you, and Mangrove (All Blue) is no longer first every time. It comes up when your board really is close to all 8 ocean types.",
       "The whole screen looks like the table now: the reef painting behind it, and the same cream, sea blue and gold as the rest of the game.",
     ]},
-    { ver: "V1.7.8", title: "\uD83D\uDC65 Your friends' stats, right next to yours", items: [
+    { ver: "V1.7.8", title: "Your friends' stats, right next to yours", items: [
       "Quick Stats on the Overview is down to the eight numbers that matter most: hours played, most played strategy, games, wins, win rate, achievements, competitive rank and animals unlocked.",
       "Beside it is a card with the same eight numbers for one of your friends, lined up card for card so you can see who is ahead. Use the arrows to flip through your friends; your favorites come first.",
       "Tap a friend's name on that card to open their full profile.",
       "Scores, casual wins and competitive games are still on the Casual and Competitive tabs.",
     ]},
-    { ver: "V1.7.7", title: "\uD83E\uDDED The menu slides out from the left", items: [
+    { ver: "V1.7.7", title: "The menu slides out from the left", items: [
       "On a computer, the side menu tucks away off the left edge of the screen, so every page gets the whole width. Move your mouse to the left edge, where the little tab is, and it slides out over the page; move away and it slides back.",
       "Each tab steps out a little as your mouse goes over it.",
       "On a phone or a tablet nothing changes: the menu stays right where it always was, so it is never hard to find.",
     ]},
-    { ver: "V1.7.6", title: "\uD83E\uDD80 Your diver climbs the reef", items: [
+    { ver: "V1.7.6", title: "Your diver climbs the reef", items: [
       "You are on the reef now. Your own animal stands on the platform you have picked, and when you press another one it hops there, one platform at a time, up or down. Win a game that opens the next platform and, the next time you open Head to Head, you watch it walk up onto it.",
       "Everybody starts on the first platform, and it says so.",
       "Rank E is the Hermit Crab now.",
@@ -170,13 +170,13 @@
       "Beating the bots pays XP now, and the harder the bot, the more: +25 for a rank F, up to +275 for a rank S++ and +400 for the Giant Squid, on top of your placement XP. It goes by the hardest bot you beat, and you have to win outright.",
       "Casual games grade their bots F to S++ as well, and every one of those ranks is yours to pick in a casual lobby, whether or not you have climbed to it in Head to Head.",
     ]},
-    { ver: "V1.7.5", title: "\uD83E\uDEB8 Ten platforms up the reef", items: [
+    { ver: "V1.7.5", title: "Ten platforms up the reef", items: [
       "The Quick Match card on the home screen is the Head to Head card now, and it says what it is for: climb the ladder and take on tougher opponents.",
       "The reef has a platform for every rank, and an animal standing on each one. F is the Bobtail Squid, E the Staghorn Coral, D the Peruvian Pelican, C the Staghorn Coral, B the Narwhal, A the Great White Shark, S the Goby, S+ the Bunker and S++ the Sea Star. The Giant Squid has the summit.",
       "The coral runs the whole way up now, and the platform you are standing on has YOUR animal on it, beside the one you are about to face.",
       "The Giant Squid's fight is still five at one table: you, the Goby, the Bunker, the Sea Star and the Squid itself.",
     ]},
-    { ver: "V1.7.4", title: "\uD83E\uDEB8 Head to Head is a reef you climb", items: [
+    { ver: "V1.7.4", title: "Head to Head is a reef you climb", items: [
       "Head to Head is a coral reef now, with seven spots up it. Press a spot and the table beside it fills itself with that spot's opponents; press Dive In and the game is already running. There are no Warm Up / Rising / Abyss buttons any more, because a place on a reef is a clearer thing to press than a word.",
       "Every spot is a cephalopod. The first two are Cuttlefish, the next two Bobtail Squid, the next two Common Octopus, and the seventh is the Giant Squid. Your opponents wear the animal of the spot they came from, so you can see what you are sitting down with before you sit down.",
       "The names and the ratings are gone from the screen. An opponent is its RANK now, the letter on its badge, and nothing else: no Elo beside it, no name above it, and the table line reads Table average rank with a letter instead of a number. The ratings are still measured behind the scenes, they are what puts the ladder in order, they are just not printed at you any more.",
@@ -184,7 +184,7 @@
       "The Giant Squid is the seventh spot, and it asks for three things: beat the ladder below it, finish the Squid's story, and be LEVEL 60 or above. It does not fight below that.",
       "And its fight is bigger than the rest. The last fight is FIVE at one table: you, one Cuttlefish, one Bobtail Squid, one Common Octopus, and the Giant Squid itself, each of the three at the top of its own stretch of the ladder.",
     ]},
-    { ver: "V1.7.3", title: "\uD83E\uDD91 Head to Head: nine marine scientists, then the Giant Squid", items: [
+    { ver: "V1.7.3", title: "Head to Head: nine marine scientists, then the Giant Squid", items: [
       "The card on the home screen is called HEAD TO HEAD now, and it opens a table straight away: four at the table, you and three bots, and the game is running the moment you press Dive In. It used to put you in a queue for other people and, on a quiet evening, hand you bots anyway after a spinner. The queue for real people is still there, on the same screen.",
       "Every opponent is a PERSON now, not a letter. Gilbert Thomas Carter, who collected specimens on the Challenger Expedition. Jeanne Villepreux-Power, who invented the aquarium in 1832 to watch living argonaut octopuses. Edward Forbes, who put dredges to systematic use. Steve Irwin. William Beebe of the Bathysphere. Eugenie Clark, the Shark Lady. Rachel Carson. Jacques Cousteau. And Charles Darwin, whose coral reef and atoll theory is the ground modern marine science stands on.",
       "They are in order of strength, weakest first, and each one still wears its tier: F, E, D, C, B, A, S, S+ and S++. Darwin is the S++, and the tier is the badge you see beside the name.",
@@ -199,14 +199,14 @@
       "Everything that was already set up still works. A half-set-up room, a tournament bracket, an older phone: they all still seat the opponent they were set to, at the rating and the exact settings that opponent has always had. Easy, Medium and Hard still work too.",
       "The lobby seat shows each opponent's name, its tier, its rating and a line about what it is like to play against, and every bot wears its tier at the table too, so you can see who you are up against mid-game.",
     ]},
-    { ver: "V1.7.2", title: "\uD83D\uDEA7 The Store is closed for a bit", items: [
+    { ver: "V1.7.2", title: "The Store is closed for a bit", items: [
       "The Store is shut while we get it ready, so nothing in it can be bought right now: no Critter Coin packs, no Supporter Tiers, no skins, backgrounds or Player Perks. It shows a Coming soon panel instead of the shelf.",
       "Everything you already own is untouched. Your Critter Coins, skins, backgrounds, emotes, streak shields and custom friend codes are all still on your account and all still work, and so does everything that spends coins outside the Store, the Critter Pass included.",
       "The website went quiet in step with it. The Supporter Tiers, the donation goal and the Supporter Reef Wall are all off the home page for now, and the shop page is not taking orders.",
       "In their place the site shows three live numbers instead: how many players are registered, how many hours have been played online, and how many games have been played. Hours is new, worked out from the length of every game ever finished.",
       "None of this is a goodbye. All of it is coming back.",
     ]},
-    { ver: "V1.7.1", title: "\u2728 The Critter Pass pays more XP, and the Controller vote works", items: [
+    { ver: "V1.7.1", title: "The Critter Pass pays more XP, and the Controller vote works", items: [
       "The Critter Pass drops more XP than it did. Every XP tier went up by 40%: the whole track now pays 33,250 XP instead of 23,750, and the drop on Level 95 is 3,325 where it used to be 2,375.",
       "That makes the season easier, not just richer. The track pays part of its own climb, so the play it asks for to reach Pass Level 100 in thirty days falls from about 1,189 XP a day to about 872. Everything on the purchase card is worked out from the track itself, so those numbers moved together.",
       "The reward track reads properly now. The number IS the card on a coins or XP tier, big enough to read at a glance, so flicking along the rail shows you 75, 225, 1,050 instead of a hundred near identical silver discs. The Critter Coin is still there, at a size where you can actually see the turtle on it.",
@@ -217,7 +217,7 @@
       "The Current Controller vote genuinely works now. The table's Yes was being thrown away the instant the game started, so everyone could agree and the menu still would not open for the person who asked. It was asked for in the lobby and then forgotten before the first card. It now lasts exactly its own game, and a rematch asks again the way it always said it would.",
       "Supporter names are reaching the Reef Wall again. Every checkout except the newest asked for your wall name in slightly different words than the game was listening for, so the answer was read as blank and the buyer went up as Anonymous. Your money and your tier were never affected. Names given at checkout from here on land properly.",
     ]},
-    { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F Custom friend codes, and the Current Controller", items: [
+    { ver: "V1.7.1", title: "Custom friend codes, and the Current Controller", items: [
       "You can pick your own friend code. Three to nine letters or numbers instead of four random digits, and unlike the random ones it is RESERVED: nobody else can ever take it, and anyone who types it can send you a friend request. It is in the Store for 1,000 Critter Coins.",
       "Every Supporter Tier hands them out too: Wave Warrior 1, Ocean Ally 2, Tide Turner 4 and Tsunami 8. A tier code is spent before any coins are, and changing your code frees the one you were holding.",
       "The Tsunami tier now comes with the Current Controller, the game's mod menu. It can read every hand, deal cards from the deck, drive the bots and take cards out of a hand.",
@@ -226,7 +226,7 @@
       "There is a new Current Controller tab under How to Play that explains what a mod menu is, lists every tool it has, and spells out what it costs the table.",
       "Every cosmetic you own can be given to another account, and the Store and the tier cards now say so: avatars, skins and backgrounds all trade, along with Critter Coins, Season Passes and XP.",
     ]},
-    { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F The Critter Pass is readable again", items: [
+    { ver: "V1.7.1", title: "The Critter Pass is readable again", items: [
       "Nearly every word on the Critter Pass was coming out a pale tan on a cream card: the purchase pitch, the season name, the reward names on the track and the small print under them. It was not a colour anybody chose. The Clan Grand Prize banner, which is a different page entirely, happened to share a name with the pass in the stylesheet, and its cream lettering landed on the pass's text.",
       "The writing on the pass is BLACK now, top to bottom. \u201cUnlock the Critter Pass\u201d, the reward names, the blurbs under them and the small print all read at better than 10:1 against the card they sit on.",
       "The level number on every tier was white on a pale blue circle, and on a claimed or ready tier white on green or gold. All three were harder to read than the writing around them. The circles are deep enough to carry a white numeral now, and the gold one carries a dark one.",
@@ -234,20 +234,20 @@
       "The purchase card leads with one line instead of a paragraph: what the pass costs and what it pays back. The 30-day climb, the reward count and everything else is in the row of highlights underneath, where each is one line to land on.",
       "Nothing about the Clan Grand Prize banner changed on either the website or the Clans tab.",
     ]},
-    { ver: "V1.7.1", title: "\uD83C\uDF0A A $100 Supporter Tier, and a way to give more than that", items: [
+    { ver: "V1.7.1", title: "A $100 Supporter Tier, and a way to give more than that", items: [
       "There is a fourth Supporter Tier. Tsunami is $100 and is the biggest tier you can buy outright: TWO physical copies of the game (keep one, gift one), a hand-written signed thank-you card, a thank-you postcard, your name in the game's supporter credits, first look at every expansion, 15 Season Pass vouchers, 75,000 Critter Coins and +20,000 bonus XP.",
       "Its checkout has since been switched off along with the rest of the Store, see the newest entry above.",
       "The bonus XP on the other three tiers was rebalanced to sit under it: Wave Warrior now gives +1,000 (it gave none before), Ocean Ally +5,000 and Tide Turner +7,500. Coins and vouchers are unchanged, and nothing already credited to your account is taken back.",
       "The cards say which is which again: Most Popular sits on the Ocean Ally, Best Value on the Tsunami.",
       "Giving more than $100 is a conversation instead of a checkout. Both the website and the Store hand you a message that is already written, with the amount and your name marked out to replace, and it goes straight to Timothy.",
     ]},
-    { ver: "V1.7.1", title: "\uD83C\uDFA3 The Level Pass knows what level you are", items: [
+    { ver: "V1.7.1", title: "The Level Pass knows what level you are", items: [
       "The Level Pass could tell you it thought you were Level 1 when the game had you at Level 39. It was never your progress that was missing: the database refused to answer for a day, and the pass read that silence as a brand-new account. It now shows the level the rest of the game is already showing you, and says so instead of guessing.",
       "Older accounts that never stored a total XP figure were also being read as Level 1. Both passes now read your level exactly the way the header, the leaderboard and the end screen do.",
       "The Critter Pass is a separate climb and stays one: a Pass Level costs a flat 600 XP of whatever you earn after you unlock it, which is what makes Level 100 about a month. Your account level is on the page as its own chip so the two can never be mistaken for each other.",
       "\"PASS LEVEL\" on the Critter Pass badge was near enough invisible: white lettering on a bright green tile. The tile is a deeper green now and the words read cleanly, on a phone as well as a desktop.",
     ]},
-    { ver: "V1.7.1", title: "\u2694\uFE0F Competitive 1v1 pays both players, and its lobby caught up", items: [
+    { ver: "V1.7.1", title: "Competitive 1v1 pays both players, and its lobby caught up", items: [
       "Every Competitive 1v1 match now pays the people who played it. A draw is worth Ocean Points at every rank, and in Bronze and Silver even a loss pays you a little, so while you are learning the ladder only goes up.",
       "Your rank decides what a loss costs. From Golden Grouper a loss breaks even, and above that it starts to cost, more and more the higher you climb: -8 in Diamond, -22 in Emerald, -26 as King of the Critters. A draw is never worth nothing again, where it used to pay 0 at the top.",
       "A rematch pays out. Press Play Again and the next match earned nobody any OP, because the payout thought a room only had one game in it. Every match in a room is paid now.",
@@ -255,19 +255,19 @@
       "The Competitive 1v1 waiting room is the same player card every other lobby uses. It was still the old lobby: a coloured dot and a line of text each. Both players now show their critter, their level and XP bar, their prestige, what they are playing on, which two hands are theirs, and the rank and OP total you are about to play for.",
       "The Competitive free-for-all lobby shows everyone's rank too, and the Team lobby shows each player's critter and level instead of a plain dot.",
     ]},
-    { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F Supporter Tiers now come with Season Pass vouchers", items: [
+    { ver: "V1.7.1", title: "Supporter Tiers now come with Season Pass vouchers", items: [
       "Every Supporter Tier now hands you Season Pass vouchers, and one voucher unlocks the Critter Pass outright. Wave Warrior gets 1, Ocean Ally 2, and Tide Turner 5.",
       "A voucher is not tied to a season. Redeem it whenever you like: hold one through Season 1 and it still opens Season 2. On the Critter Pass tab the Unlock button becomes \u201cRedeem Season Pass Voucher\u201d while you are holding one, and it costs you no Critter Coins at all.",
       "Vouchers are tradable. They sit in the trade screen next to Critter Coins under a Season Passes tab, so you can hand a spare one to a friend the same way you would hand over coins.",
       "The bonus XP on the tiers moved with them: Ocean Ally is now 10,000 bonus XP and Tide Turner 20,000. Wave Warrior trades its XP for its voucher. \u201cOnline simulation access\u201d is gone from all three, because the online game is free and always has been, so it was never a perk.",
       "If you already bought a tier, nothing is taken back. What you were credited at the time stays in your account.",
     ]},
-    { ver: "V1.7.1", title: "\uD83D\uDD04 Trading opens properly again", items: [
+    { ver: "V1.7.1", title: "Trading opens properly again", items: [
       "Opening a trade could fail on the server and tell you only \u201cSomething went wrong with the trade\u201d, after which tapping Add item answered \u201cOpen a trade first\u201d, which was the thing you had just done. There was no way forward from that screen.",
       "Now a trade that will not open says why, in words, and gives you a Try again button. Opening a trade also no longer depends on anything that can fail that way: it moves nothing, so it is written the simple way if the safe way is unavailable. The swap itself is still one all-or-nothing transaction and always will be.",
       "Add item is properly switched off until a trade really is open, instead of looking ready on a trade that does not exist.",
     ]},
-    { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F The Critter Pass is here", items: [
+    { ver: "V1.7.1", title: "The Critter Pass is here", items: [
       "A new tab under Level Pass: the Critter Pass, a paid reward track laid over the same levels 1\u2013100 you are already climbing. It costs 4,000 Critter Coins once, and then EVERY level pays you something: 100 tiers, 100 levels, nothing skipped. Across the track that is 8,500 Critter Coins and 23,750 XP.",
       "Every XP drop on the track got bigger: 25 XP per level instead of 20, so the drop at Level 95 is now 2,375 and the whole track pays 23,750 XP.",
       "A season runs 30 days. The header counts down to the end of it, and nothing you have already unlocked or claimed goes anywhere when a new one starts.",
@@ -275,105 +275,105 @@
       "Ten more critter chat emotes are spread along it, one every ten levels, along with XP Boosts, Streak Shields, Weekly Swaps and two avatar backgrounds. At Level 100 the Summer Skin Gull is yours.",
       "You can read the whole track before you buy it, at your real level, so you can see exactly what is waiting. Everything you have already levelled past becomes claimable the moment you unlock it.",
     ]},
-    { ver: "V1.7.1", title: "\uD83D\uDCA7 New achievement: Every Last Drop", items: [
+    { ver: "V1.7.1", title: "New achievement: Every Last Drop", items: [
       "Every Last Drop, worth 2,500 XP, is yours for having every printed copy of one Ocean type on your board at the same time in one game.",
       "That means the whole run: all 6 Tide Pools, all 6 Artificial Reefs, all 8 Piers, Deep Oceans or Arctic Oceans, all 9 Mangroves, all 10 Kelp Forests or all 13 Coral Reefs. Finish the set and no one else at the table can have that Ocean at all.",
       "It lands the moment the last copy hits your board, so a later move cannot take it back from you. It counts in every mode, and Snap & Score awards it from a photo of a finished physical board too.",
     ]},
-    { ver: "V1.7.1", title: "\uD83C\uDFB2 Game Night is twice a week now", items: [
+    { ver: "V1.7.1", title: "Game Night is twice a week now", items: [
       "Game Night now runs on Wednesday nights AND Saturday nights, 7:00\u20139:00 PM CST, instead of Saturdays only.",
       "The banner at the top of Player Home and on the website says which of the two is coming next and counts down to it, so you never have to work out whether you are waiting for Wednesday or Saturday.",
       "Everything else is the same on both nights: games, challenges and your daily bonus all pay 1.5x XP for the whole two hours, and RSVP is still recommended rather than required.",
     ]},
-    { ver: "V1.7.1", title: "\uD83C\uDF9F\uFE0F Bought something on the website? Redeem it here", items: [
+    { ver: "V1.7.1", title: "Bought something on the website? Redeem it here", items: [
       "If you donate or buy coins on the website, we now email you a code the moment the payment goes through. Open the Friends tab on your Player Home, paste the code into the Redeem a Code box, and everything you bought lands on your account: coins, bonus XP, backgrounds, icons and your supporter badge.",
       "This is the fix for buying while you are not signed in. The website checkout has no way of knowing which account is yours, so before this your rewards sat waiting until you found the claim page, and if you sign in with a username rather than an email they could not be matched to you at all.",
       "The code works on any account, so it is fine to buy first and make your account afterwards. It can only be used once, and if you were already signed in when you bought, your rewards are added straight away and the email just says so.",
       "The same box also takes a friend code, so there is one place to type a code instead of two.",
     ]},
-    { ver: "V1.7.1", title: "\uD83E\uDE99 Supporter Tier rewards retuned", items: [
+    { ver: "V1.7.1", title: "Supporter Tier rewards retuned", items: [
       "The coins and XP that come with a Supporter Tier have been rebalanced. Wave Warrior is now 7,000 Critter Coins and 7,000 bonus XP, Ocean Ally 15,000 coins and 20,000 bonus XP, and Tide Turner 30,000 coins and 35,000 bonus XP.",
       "Every other perk is unchanged: the founder number, the Supporter Reef Wall name, the backgrounds and the icons all still come with the tier they always did.",
       "If you already bought a tier, nothing is taken back. What you were credited at the time stays in your account.",
     ]},
-    { ver: "V1.7.1", title: "\uD83D\uDCBB\uD83D\uDCF1 You can see who is on a phone", items: [
+    { ver: "V1.7.1", title: "You can see who is on a phone", items: [
       "Every screen that lists the people in a room now says what they are playing on. In the waiting room it is a chip on their card, Computer or Mobile. In the game it is a small badge on the corner of their critter. Watchers get one too.",
       "The Friends tab says it as well, under the green dot, for anybody who is online right now. A friend who is offline does not show one: the last machine they were on is not where they are.",
       "Nobody has to choose or set anything. Your browser already knows whether it is being tapped or clicked, and if you move from your laptop to your phone mid-game the table sees that the moment you touch the screen.",
     ]},
-    { ver: "V1.7.1", title: "\uD83C\uDF0A Competitive Points are now Ocean Points", items: [
+    { ver: "V1.7.1", title: "Competitive Points are now Ocean Points", items: [
       "The points you win and lose in ranked play are called Ocean Points, and they are shown as OP everywhere: the leaderboard and its tab, your rank panel and the bar toward the next division, the end-of-game screen, your match history, the season standings and the tutorial.",
       "Only the name changed. Every point you have already earned, your rank and your place on the ladder are exactly where you left them.",
     ]},
-    { ver: "V1.7.1", title: "\uD83C\uDFA8 Chat backgrounds you can actually change", items: [
+    { ver: "V1.7.1", title: "Chat backgrounds you can actually change", items: [
       "Every conversation can wear an ocean, and now you can change it as many times as you like. Picking a second background used to look like it did nothing; it works on every tap, and the new scene appears the moment you choose it.",
       "The scenes themselves are the full paintings this time. They used to be the round badge that sits behind your critter, which meant a circle floating in the middle of your chat. Now it is the whole ocean, edge to edge, behind your messages.",
       "There are eight of them: Kelp Forest, Coral Reef, Artificial Reef, Tide Pool, Arctic Ocean, Deep Ocean, Pier and Open Water. All eight are free, for everybody, in every chat. No background is still there as the first tile whenever you want the plain view back.",
       "Whoever changes it changes it for the whole conversation, so both of you are looking at the same ocean.",
     ]},
-    { ver: "V1.7.1", title: "\uD83E\uDE91 The waiting room shows who is actually at the table", items: [
+    { ver: "V1.7.1", title: "The waiting room shows who is actually at the table", items: [
       "The lobby was a list of dots and names on a flat blue panel. It is now the Tide Pool itself, filling the whole screen, with all eight spots at the table laid out on it and every one of them a card: the player's critter, the background they have equipped behind it, their Level and XP, their best score, and their Prestige badge if they have one. Your own spot has a pencil on it, so you can change your critter while you wait and everybody sees it straight away.",
       "The chat is in the room now instead of behind a button, with quick emotes and the whole table's faces on it. It stays the same size however busy it gets: the conversation scrolls inside it rather than stretching the room out of shape. Under it sits your own shelf: swap your critter or your background without leaving the lobby.",
       "A spot nobody is using shows a +. Press it and it asks what goes there: a seat for a person, or a bot. Each bot's difficulty is then set on its own card. An empty seat for a person is the one thing that stops a game starting, so the room says exactly that on the seat and offers the host the way past it, which is turning that seat into a bot. The old Table Setup panel is gone; the spots are the control now.",
       "The host can remove somebody from their own lobby, on a minus that is always visible rather than appearing on hover. That is the host\u2019s call before the game starts, and theirs alone: once a match is under way, removing a player still needs everyone else to agree. A removed player\u2019s seat opens straight back up.",
       "If you would rather watch than play, Watch instead gives your seat up and keeps you in the room, so the spot goes to somebody who wants it.",
     ]},
-    { ver: "V1.7.1", title: "\u270F\uFE0F Rename your clan, and it changes everywhere", items: [
+    { ver: "V1.7.1", title: "Rename your clan, and it changes everywhere", items: [
       "A clan's owner can rename it. Open your clan, go to Settings, and there's a Clan name box at the top with its own Rename button: it checks the name as you type, the same way founding a clan does, and tells you before you press it whether the name is free.",
       "The new name lands everywhere at once: the clan leaderboard, Find a Clan, your clan's page and chat, invites you'd already sent that nobody had accepted yet, your clanmates' season badges, and the final standings of seasons already finished. Nothing is left calling you by the old name.",
       "The old name goes straight back on the shelf, so another clan can found itself under it, and searching for your clan by the new name finds it immediately. A clan can be renamed once a day.",
     ]},
-    { ver: "V1.7.1", title: "\uD83D\uDD11 A recovery code, so a forgotten password is not the end", items: [
+    { ver: "V1.7.1", title: "A recovery code, so a forgotten password is not the end", items: [
       "Your account signs in with a username, not an email, which meant that if you forgot your password and had not linked an email, there was nobody for us to send anything to. Every account now gets a recovery code instead: write it down, and your username and that code will always get you back in.",
       "You get yours the moment your account is made, and if you already had an account you get one the next time you sign in. It is shown once, with a Copy button and a Save as file button, because we keep only a scrambled copy and genuinely cannot look it up for you afterwards.",
       "Forgot your password? Choose Forgot password, then Use Recovery Code, and type your username, your code and a new password. You are straight back in, and a fresh code is waiting for you on the other side, because each one works only once.",
       "You can make a new code any time from Settings, which retires the old one. Signing in no longer minds how you capitalise your username either: Mermaid and mermaid have always been the same account, and now getting back into it agrees.",
     ]},
-    { ver: "V1.7.1", title: "🎵 The theme song plays on one clock for the whole table", items: [
+    { ver: "V1.7.1", title: "The theme song plays on one clock for the whole table", items: [
       "Everybody in a game is at the same place in the song now. It used to start at the top the moment each person walked in, so four players in one game were four different distances into the same track, and it began at whatever second you happened to arrive.",
       "It opens with the match: the theme starts from the beginning as the game starts, for everyone at once, and again on Play Again. Join late, or drop in to spectate, and you come in where the room already is.",
       "It stops turning itself on at odd moments. A tab you have not clicked in yet waits for you instead of blurting the song out at some unrelated click later, coming back from another tab catches the track up instead of leaving it minutes behind, and pushing the volume slider up mid-game joins the room where it is rather than starting over.",
     ]},
-    { ver: "V1.7.1", title: "🧭 The strategy panel reads your board now", items: [
-      "The 💡 Strategies button used to answer from your hand alone, and it answered by counting matches, which handed the recommendation to whichever plan listed the most cards no matter what you were actually holding. It reads the board you have built, your hand, the pool and the cards already down in front of everybody else, and it tells you what it read: \u201c5 of the 6 cards on your board already belong to it\u201d.",
+    { ver: "V1.7.1", title: "The strategy panel reads your board now", items: [
+      "The Strategies button used to answer from your hand alone, and it answered by counting matches, which handed the recommendation to whichever plan listed the most cards no matter what you were actually holding. It reads the board you have built, your hand, the pool and the cards already down in front of everybody else, and it tells you what it read: \u201c5 of the 6 cards on your board already belong to it\u201d.",
       "It shows its working: a fit percentage on the pick, the three plans that came closest behind it, and a warning when the cards a plan needs are already sitting on other people's boards.",
       "Every pair of core strategies is a combo now, 66 of them where there were 10. Pick any core and eleven partners come up under Suggested Combos, ordered by how well each one fits the cards in front of you.",
       "Each combo says why its two halves go together: the cards they both want, or the fact that one works the surface while the other works the ocean floor and neither ever takes a spot the other wanted.",
     ]},
-    { ver: "V1.7.0", title: "🖼️ A new way in, and one white line down it", items: [
+    { ver: "V1.7.0", title: "A new way in, and one white line down it", items: [
       "The sign-in screen has a new painting, and this one says the game's name itself: the title, the tagline and the animals are all in the picture. It stands on a flat black page as a framed plate, whole, never cropped, at every window size.",
       "The line between the two halves is a white rule that runs the entire height of the screen now, top edge to bottom edge. It used to be a lit blue edge that stopped short of both ends.",
       "On a phone or a tablet held upright the same screen re-lays itself: the painting is a band across the top, the rule turns and lies underneath it, and the sign-in column runs below. Nothing is dropped on the way down, and the picture is a good deal bigger on a tablet than it was.",
       "The staghorn coral is retired with the artwork it grew in: the new painting has no kelp bed for it. If you found it and never made an account, the Coral Reef background is still waiting and still lands on the next account you sign into.",
     ]},
-    { ver: "V1.7.0", title: "🪸 The whole painting, and a coral in it", items: [
+    { ver: "V1.7.0", title: "The whole painting, and a coral in it", items: [
       "The picture on the sign-in screen is all there now. It used to be cropped to fill its half of the screen, which took the birds off the top and the kelp bed off the bottom on most windows; it is fitted whole into its own water instead, at every window size, on a phone as well.",
       "The rotted piling is gone. In its place, down in the kelp at the bottom left, a staghorn coral grows out of the sea floor: warm rose among all that green. Find it and the Coral Reef background is yours the moment there is an account to put it in.",
       "Create an Account is not a pop-up any more. The ocean stays exactly where it is and the column on the right turns over to the form, then turns back. The dark seam that ran down the middle between the two halves is gone with it.",
     ]},
-    { ver: "V1.7.0", title: "📧 An email, if you want one", items: [
+    { ver: "V1.7.0", title: "An email, if you want one", items: [
       "Creating an account now has an optional email field. Link one and it is the way back in if you ever forget your password: we send a confirmation link, and once you have clicked it, Forgot password? really works.",
       "Already have an account? Settings → Email links one to it. It is used for that and nothing else, and nothing is linked until you click the link we send.",
       "Accounts without an email carry on exactly as before. Nothing has to be given to anybody.",
     ]},
-    { ver: "V1.7.0", title: "🌊 A new way in", items: [
+    { ver: "V1.7.0", title: "A new way in", items: [
       "The sign-in screen is two halves now. On the left, a painting of the kelp forest with the game's own animals in it: birds over the water, a manta and a narwhal below it, a salmon, a squid and a tang down in the kelp. On the right, every way into the game in one column.",
       "Your username and password are on that screen. No dialog to open first: type them in and sign in. Continue with Google, Play as Guest and Create an Account are all right underneath.",
       "Nothing on the screen is painted lettering any more, so the words are real type at any size and a phone gets the picture as a band across the top with the sign-in underneath it, instead of a title strip five pixels tall.",
       "Something is hidden in the kelp, bottom left, that is not the colour of anything else down there.",
     ]},
-    { ver: "V1.7.0", title: "🌊 A new sign-in screen, and something hidden in it", items: [
+    { ver: "V1.7.0", title: "A new sign-in screen, and something hidden in it", items: [
       "The first screen is a new painting. Same eight oceans, but SIGN IN OR CREATE AN ACCOUNT and both buttons are drawn straight into it now, and CURRENTS AND CRITTERS sits dead centre above them.",
       "Play as a Guest, Sign In / Create an Account and Create Your Username all open ON that painting: it dims back and the card stands in front of it. Signing in is one room now instead of three.",
       "There is a rotted piling on the pier, bottom left, one plank that is not the colour of the others. Find it and the Pier background is yours the moment there is an account to put it in: sign in straight after, or make one tomorrow, and it will be waiting in your Avatar Gallery.",
     ]},
-    { ver: "V1.7.0", title: "🔑 A username and a password, for everyone without a Google account", items: [
+    { ver: "V1.7.0", title: "A username and a password, for everyone without a Google account", items: [
       "The sign-in screen's second button is now SIGN IN / CREATE AN ACCOUNT. Tap it and it asks whether you already have one, then either signs you in or makes you a new account with just a username and a password. No email, no Google account, nothing to wait for.",
       "Picking a password shows a bar that fills and turns green as it gets harder to guess, and Create Account stays greyed out until it is green. \"password123\" and a single lower-case word do not count, however long they are.",
       "Continue with Google is still right there, at the bottom of both forms, unchanged.",
       "The username you choose is the name you sign in with, forever. Your in-game name can still be renamed later; Settings shows the sign-in one so you can always look it up.",
     ]},
-    { ver: "V1.7.0", title: "🐚 Playing as a guest: everything opens, and now it can come with you", items: [
+    { ver: "V1.7.0", title: "Playing as a guest: everything opens, and now it can come with you", items: [
       "A guest gets the whole game and keeps nothing, and now both halves of that are true. Your stats, XP, level and games update as you play and are waiting for you back on Player Home. Signing out erases every bit of it, and says so before it does.",
       "At the end of a game there is a CREATE AN ACCOUNT button. Make an account from there and everything you played as a guest comes with you: your XP, your level, your games and the critters you unlocked. Same from the \"Create a free account\" line on Player Home.",
       "Backing out of signing in no longer costs you your guest session. Closing the Google window, or a username already being taken, used to end it; now the session is still there, and PLAY AS GUEST hands your nickname back.",
@@ -383,7 +383,7 @@
       "The critter you choose as a guest stays on. Coming back to Player Home, reloading, or sitting down at a table used to put the Mullet back on your face, and the critters you had unlocked went with it.",
       "No red badge over Messages for a guest. It was showing the unread count belonging to whoever had signed in on that computer last.",
     ]},
-    { ver: "V1.7.0", title: "🌊 The sign-in screen, readable on a phone", items: [
+    { ver: "V1.7.0", title: "The sign-in screen, readable on a phone", items: [
       "On a phone the sign-in artwork used to letterbox into a thin band with lettering about five pixels tall. It is cropped to its title strip now, the panel underneath is drawn large with real, readable words in it, and the same eight oceans fill the rest of the screen, blurred.",
       "The Store no longer opens with a paragraph explaining who handles your card details. Stripe\u2019s own checkout says all of that, on the page where it matters.",
     ]},
@@ -392,66 +392,66 @@
       "It used to appear only if you had already asked for full screen and then fallen out of it, and it sat in the other corner, so most of the time the menu had no way into full screen at all.",
       "Inside a game nothing changes: the action bar keeps its own \u26F6 Full Screen button. The Main Menu tutorial now points the chip out too.",
     ]},
-    { ver: "V1.7.0", title: "🪸 The four home cards have their coral back", items: [
+    { ver: "V1.7.0", title: "The four home cards have their coral back", items: [
       "Head to Head, Create Game, Join Game and Tutorial are their painted artwork again. They were briefly flattened to a plain colour and a text label; that was a mistake and it's undone. The cards are exactly the ones you knew.",
     ]},
-    { ver: "V1.7.0", title: "💬 Clan chat works, and it comes to find you", items: [
+    { ver: "V1.7.0", title: "Clan chat works, and it comes to find you", items: [
       "Clan chat was losing messages. Anything a clanmate wrote in the same second as the last message you'd already seen was skipped, and it never came back: you'd have had to reload the page to find out it existed. Two people replying at once was enough to do it. Fixed, and messages are now tracked one by one so none can slip through that gap again.",
       "Your own message appears the instant you press Send instead of waiting for the next refresh, and if it doesn't go through, what you typed is handed back to you rather than thrown away.",
       "When someone in your clan says something, a note now pops up wherever you are on Player Home, with who said it and what. Tap it and you're in the conversation. The Clans button keeps a red dot until you've read it. It never notifies you about your own messages.",
     ]},
-    { ver: "V1.7.0", title: "🛡️ Your clan's front page, rebuilt", items: [
+    { ver: "V1.7.0", title: "Your clan's front page, rebuilt", items: [
       "Opening your clan used to mean eight identical grey tiles, one goal, and then the entire weekly challenge list printed out underneath: a wall of text with no shape to it. Now it opens on a scoreboard banner, your own contribution and how much of this week's cap you have left, today's goal and this week's progress side by side, who's online right now, and the clan chat right there on the page.",
       "Weekly challenges are cards with a progress ring instead of a long list, colour-coded by how you're doing: blue while you're working on one, amber when you're nearly there, green when it's done. The ones you're closest to finishing come first, and the Challenges tab can filter to just the ones still to do.",
       "Moving between the clan's tabs no longer rebuilds the whole page to do it, so the clan page is quicker to get around. The critter ballot only loads its hundred animal pictures when you actually open it to vote.",
     ]},
-    { ver: "V1.7.0", title: "🔍 Every clan shows up, and only once", items: [
+    { ver: "V1.7.0", title: "Every clan shows up, and only once", items: [
       "Find a Clan lists every clan in the game now, including invite-only ones. They used to be hidden, so if you made a clan and set it to Invite Only, you could go looking for it and be shown a world it wasn't in. An invite-only clan is marked as one, and its button says why you can't press it.",
       "Your own clan is no longer drawn twice on one screen. It was showing on the podium AND again in the card below it, which read as two clans with the same name. It's the card, and it wears its own medal.",
       "The clan leaderboard drops its podium when there are three clans or fewer, since a podium plus a table of the same three clans is just every clan listed twice.",
     ]},
-    { ver: "V1.7.0", title: "🗓️ A month more season, and the real coin payout", items: [
+    { ver: "V1.7.0", title: "A month more season, and the real coin payout", items: [
       "The clan season now runs 30 days longer than the calendar quarter it's named for, so there's actually time to finish a season's challenges. Season 1 · Riptide now ends October 30th. Weekly challenges still reset every Monday.",
       "Finishing top three pays 400, 300 and 200 Critter Coins per member. That's what the Clans page has always said, but the payout was quietly a third of it. The page and the payout are the same number now, and the page reads it from the server so they can't drift apart again.",
     ]},
-    { ver: "V1.7.0", title: "🎲 Game Night, every Saturday", items: [
+    { ver: "V1.7.0", title: "Game Night, every Saturday", items: [
       "Game Night is every Saturday, 7:00–9:00 PM CST. There is a banner at the top of your Player Home and on the website that says when the next one is, counts down to it, and turns green while it is running.",
       "It also shows the time in YOUR time zone, so 7 PM CST does not have to be worked out on paper.",
       "RSVP is not mandatory, but it is recommended. The RSVP button takes you to the Discord server, where the event lives.",
     ]},
-    { ver: "V1.7.0", title: "🎁 Bring a friend, you both get Critter Coins", items: [
+    { ver: "V1.7.0", title: "Bring a friend, you both get Critter Coins", items: [
       "There is a friend-code box on the sign-up screen now. A friend who makes an account and types your code earns 40 Critter Coins for them AND 40 for you, every single time.",
       "Every 10 friends you bring in earns you a free avatar background on top of that. Your Friends tab shows how many have joined and how many more until the next one.",
       "It is a sign-up bonus, so a code can be entered in the first 14 days of a new account, once per account. Your own code never works on your own account, and two accounts cannot refer each other in a circle.",
       "The coins are paid out by the server into both accounts at once, so there is no waiting and nothing to claim.",
     ]},
-    { ver: "V1.7.0", title: "🏅 The Level Pass", items: [
+    { ver: "V1.7.0", title: "The Level Pass", items: [
       "Every level you climb now has something waiting on it. There is a new Level Pass page in the sidebar with the whole track on it: Critter Coins, Streak Shields, critter stickers, XP Boosts, Weekly Swaps and free backgrounds, all the way to Level 100.",
       "It always tells you how much XP is left until the next thing, at the top of the page, and on every reward still ahead of you.",
       "Rewards are yours the moment you reach the level. They never expire, and Claim All takes everything you have earned in one tap.",
       "XP Boost: +20% XP for 24 hours, from everything: games, the daily login bonus, challenges and achievements alike. You hold it until you want it, so it is never wasted.",
       "Streak Shields cover a missed day so your daily streak survives it. The pass hands them out as you level, on top of the ones the Store sells.",
-      "Weekly Swap: spend one and you can swap out as many weekly challenges as you like for the rest of that week. A 🔄 Swap button appears on each weekly challenge while it is active.",
+      "Weekly Swap: spend one and you can swap out as many weekly challenges as you like for the rest of that week. A Swap button appears on each weekly challenge while it is active.",
       "Critter stickers unlock for critters you own and show up in game chat.",
       "Blue Tang, Manta Ray, Great White Shark and the rest of the critters you unlock by levelling up are marked on the track as milestones. They still unlock on their own the moment you reach the level, exactly as before.",
     ]},
-    { ver: "V1.7.0", title: "👁️ A peek at someone's board goes away when you do", items: [
+    { ver: "V1.7.0", title: "A peek at someone's board goes away when you do", items: [
       "Hovering a player to peek at their board no longer leaves that peek stuck on screen. Every seat and opponent card is rebuilt whenever the scores or the turn change, and a panel pinned to an element that no longer exists was never told the mouse had left it, so one peek could sit over the table for the rest of the game, over the end screen, and follow you back out to Player Home.",
       "It now closes the moment you look away: move off it, click, scroll, switch tabs or leave the window and it is gone. If the seat underneath was simply redrawn while you were still hovering it, the peek stays put and refreshes instead of flickering away.",
       "The game ending closes it too, along with an enlarged board left open from clicking a player, and Escape now closes that enlarged board, the same as the ✕ and clicking the backdrop.",
       "On phones and tablets the peek no longer opens at all. There is no \"move the mouse away\" on a touchscreen, so it could only be dismissed by tapping something else; tapping a player to enlarge their board already does the job.",
     ]},
-    { ver: "V1.7.0", title: "🚪 The way in: one click, one screen", items: [
+    { ver: "V1.7.0", title: "The way in: one click, one screen", items: [
       "Choosing Computer or Mobile on the first screen no longer asks you for a guest nickname. The laptop and phone you tap there are painted in the same spot as PLAY AS GUEST on the sign-in screen behind them, so the moment the device screen closed, your cursor was resting on a button you could not see, and the second half of a double-click pressed it. You would land in the guest name box without ever having chosen to play as a guest.",
       "The sign-in buttons are also held back until the screen has actually drawn itself. They are invisible shapes over the artwork, and on a slow connection they were live before there was anything on screen to aim at, so a click anywhere near the middle went to Play as Guest.",
       "Both guards let go on their own, a missing or slow background can never leave you facing two buttons that do nothing.",
     ]},
-    { ver: "V1.7.0", title: "💬 The Discord reward is offered once, and only once", items: [
+    { ver: "V1.7.0", title: "The Discord reward is offered once, and only once", items: [
       "Collect the 250 Critter Coins for joining the Discord and the offer stays collected. It could come back reading \"+250 Critter Coins\" on an account that had already been paid, which meant clicking it just to be told no.",
       "The coins were never at risk, the server has always refused a second payout, once per account and once per Discord account. This was the chip on your Player Home asking the wrong question and then trusting the answer: it checked before you were signed in, and filed a reply about nobody as if it were about you.",
       "It now says \"Checking your account…\" until it actually knows, and if it cannot find out it opens back up rather than leaving you with a button that will not press.",
     ]},
-    { ver: "V1.7.0", title: "🗺️ Tutorials: steps you do, and a card that shows you where it goes", items: [
+    { ver: "V1.7.0", title: "Tutorials: steps you do, and a card that shows you where it goes", items: [
       "Every step now shows you WHERE a card goes, not just which one to play: a ghost of the card flies out of your hand into the exact slot it belongs in, on a loop, until you play it. The Lobster's is the bottom spot of the Artificial Reef, the Gull's is the top spot, and you can watch the trip instead of reading a description of it.",
       "The highlighted card is now lit up inside as well as outlined. A gold border around a card on a dimmed table still left it the same colour as every card you were not supposed to touch.",
       "A step can no longer be skipped while the thing it asks for is on screen. Skipping \"close the card viewer\" left the viewer sitting over everything after it. If a step genuinely cannot be done, it still gives way rather than trapping you.",
@@ -464,7 +464,7 @@
       "The tutorial's room code is a normal 5-character room code. It used to be a 12-character TUT code, which was the first room code most people ever saw.",
       "Finishing a tutorial returns you to the tutorial list instead of asking whether you want to keep playing the rigged practice game.",
     ]},
-    { ver: "V1.7.0", title: "🗺️ Tutorials: no step can leave you stuck", items: [
+    { ver: "V1.7.0", title: "Tutorials: no step can leave you stuck", items: [
       "The Main Menu Tour's History step used to hand you a \"View a sample match\" button and then refuse to move on until you had tapped all three opponents inside the match, with the tutorial's own words sitting over the chips it told you to tap. The match now opens itself, the players are highlighted for you, and Next works straight away: looking around is optional.",
       "Every step that waits for a click now offers a way past it if the click turns out to be impossible, so a tutorial can never dead-end into Skip.",
       "Playing as a guest: the tour says up front which parts of the menu are locked until you sign in, and quietly leaves out the Avatar Gallery steps the app will not let a guest open at all. Step numbers count only the steps you are actually shown.",
@@ -472,64 +472,64 @@
       "Card-play steps say you can use the Choose action dropdown as well as dragging, which is the easier one on a phone.",
       "The instructions get out of their own way: the popup now sits beside whatever it is pointing at when there is no room above or below it, and never covers the thing you have been asked to click.",
     ]},
-    { ver: "V1.7.0", title: "📅 The calendar is the Daily / Weekly switch", items: [
+    { ver: "V1.7.0", title: "The calendar is the Daily / Weekly switch", items: [
       "Tap the calendar icon on your Challenges bar and it hands you the other set: Daily becomes Weekly, tap it again and you are back on Daily. The Daily | Weekly tab row that used to sit above the challenges is gone, it was a second row of buttons doing what the icon already looked like it did.",
       "The Daily/Weekly badge beside the calendar does the same thing, so either half of the header switches you.",
       "Tapping the calendar while the bar is closed opens it too, so the swap always ends with the other three challenges on screen instead of silently changing something you cannot see.",
       "The bar still tells you both counts before you open it, and the switch says how far along the set you would be switching to is.",
       "In-game, the panel's calendar icon switches sets the same way, the pill there already did, and now the icon beside it matches. Both surfaces share one setting, as before.",
     ]},
-    { ver: "V1.7.0", title: "📅 Daily Challenges are back", items: [
+    { ver: "V1.7.0", title: "Daily Challenges are back", items: [
       "Three Daily Challenges are back alongside your weeklies, drawn from a pool of 50: pool plays, ★ abilities, first-ocean starts, comeback finishes, table talk and more. Each one pays its XP the moment you complete it.",
       "They all reset together at midnight, your time. The old dailies each ran their own 24-hour timer started when you finished it, so the three refreshed at three different times and the set never had a beginning or an end. Now there is one clock and one question: have you done today's three?",
       "Clear all three in a day for the Daily Tide Sweep, worth 400 XP. The weekly Tide Sweep and Perfect Week are untouched.",
       "Your Player Home strip and the in-game panel both have a Daily / Weekly switch, each showing how many you have left, and they remember which one you were looking at. The bar still starts closed, and now tells you both counts before you open it.",
     ]},
-    { ver: "V1.7.0", title: "⚔️ Competitive: your other hand is there the moment you finish", items: [
+    { ver: "V1.7.0", title: "Competitive: your other hand is there the moment you finish", items: [
       "End a turn in a competitive match and the board switches to your other hand straight away. It used to sit on the hand you had just played until your opponent finished their turn, so the switch happened on their clock and the board changed under you the moment the turn came back.",
       "The wait is now yours to plan with: your next hand's cards, board and score are on screen for the whole time your opponent is playing, and the top bar tells you which hand it is.",
       "The full-screen \"Your Turn: Hand 2\" card is gone with it. The switch is instant, so there is nothing left to tap through before you can play.",
       "Undo still belongs to the hand that played, even though you're looking at the other one, it names the hand it will rewind.",
     ]},
-    { ver: "V1.7.0", title: "🪝 The End Turn nudge knows which cards need it", items: [
+    { ver: "V1.7.0", title: "The End Turn nudge knows which cards need it", items: [
       "The bobbing arrow over End Turn now also appears for a Hermit Crab or Loggerhead Sea Turtle window: turns that let you keep playing until you stop, and that used to look like the game had frozen.",
       "It stays quiet for a one-shot free play like the Roosterfish's free Baitfish, where the turn ends by itself as usual. Every card in the deck is checked by what it actually does, not by a hand-written list.",
     ]},
-    { ver: "V1.7.0", title: "🃏 Each competitive hand keeps its own card arrangement", items: [
+    { ver: "V1.7.0", title: "Each competitive hand keeps its own card arrangement", items: [
       "Drag your cards into the order you like and both of your competitive hands now remember their own arrangement. Arranging one hand, playing the other, and coming back used to leave the first one shuffled back into the order the server sent.",
     ]},
-    { ver: "V1.7.0", title: "📅 Weekly Challenges open onto actual challenges", items: [
+    { ver: "V1.7.0", title: "Weekly Challenges open onto actual challenges", items: [
       "Tapping Weekly Challenges on your Player Home shows the three challenges. Unless your screen was a wide desktop one, they were being squeezed to a 26-pixel sliver each, the bar opened and there was nothing on it you could read. Phones, tablets and any browser window under about 1,300 pixels wide were all affected.",
       "The challenges now take the full width on those screens, with the Weekly Tide Sweep reward on its own line underneath, and they stay wide enough to read on every size from a phone up.",
     ]},
-    { ver: "V1.7.0", title: "🗝️ Weekly Challenges show what they pay again", items: [
+    { ver: "V1.7.0", title: "Weekly Challenges show what they pay again", items: [
       "Opening Weekly Challenges shows the reward for finishing them. The Weekly Tide Sweep card: 1,500 XP for all three, with a live 0/3 bar: was being hidden by the page itself, so the challenges appeared with nothing attached to them. It's back, and it turns green when you've swept the week.",
       "Perfect Week is on that card too, which it never was anywhere: finish all three AND play on all seven days for 5,000 XP. It counts your days for you.",
       "The in-game panel says it as well, so you can see what the week is worth without leaving the table.",
     ]},
-    { ver: "V1.7.0", title: "🔑 Clan passwords, and a front door you can find", items: [
-      "Clans can have a password. Anyone who knows it joins instantly, no request, no waiting for the owner. It's the setting for a clan that wants to be open to its friends and nobody else. Pick 🔑 Password when you found a clan, or switch to it later in clan settings, and change the word whenever you like.",
-      "The other three settings are unchanged: 🌊 Public lets anyone straight in, ✉️ Request to Join means you approve people, 🔒 Invite Only means invitation only. An invite always works, whichever one is on.",
+    { ver: "V1.7.0", title: "Clan passwords, and a front door you can find", items: [
+      "Clans can have a password. Anyone who knows it joins instantly, no request, no waiting for the owner. It's the setting for a clan that wants to be open to its friends and nobody else. Pick Password when you found a clan, or switch to it later in clan settings, and change the word whenever you like.",
+      "The other three settings are unchanged: Public lets anyone straight in, Request to Join means you approve people, Invite Only means invitation only. An invite always works, whichever one is on.",
       "Join a Clan and Create a Clan are now the first thing on the Clans tab if you're not in one: big buttons at the top, instead of something to scroll past a leaderboard to find.",
     ]},
-    { ver: "V1.7.0", title: "💰 Every Prestige now pays 1,000 Critter Coins", items: [
+    { ver: "V1.7.0", title: "Every Prestige now pays 1,000 Critter Coins", items: [
       "Prestige pays a flat 1,000 Critter Coins, every single time. It used to start at 500 and climb, which meant the first one, the one you work hardest for: paid the least.",
       "Everything else about Prestige is unchanged: the permanent +25% XP, the store bonus, the background, the skin and the badge all stack exactly as before.",
     ]},
-    { ver: "V1.7.0", title: "💬 250 Critter Coins for joining the Discord", items: [
+    { ver: "V1.7.0", title: "250 Critter Coins for joining the Discord", items: [
       "Join the Currents and Critters Discord server and claim 250 Critter Coins. The offer sits right next to the Join the Discord button on your Player Home: tap it, approve with Discord, and the coins land on your account straight away.",
       "Already in the server? You're not left out and there's nothing extra to do: tap the same button and you'll be paid on the spot. We check with Discord live, so it doesn't matter whether you joined today or months ago.",
       "It's one reward per person: once per account, and once per Discord account, so it can't be collected twice.",
     ]},
-    { ver: "V1.7.0", title: "🤡 Clownfish copies its Ocean, all of it", items: [
+    { ver: "V1.7.0", title: "Clownfish copies its Ocean, all of it", items: [
       "A Clownfish is now a second copy of the Ocean it is attached to, in every way, not just for points. It counts as one more of that Ocean everywhere Oceans are counted, the Coral Reef chart, the Kelp Forest \"4 or more\", who has the most Piers, and how many Oceans you control.",
       "Play one onto a Deep Ocean or a Kelp Forest and you draw a card, because that is what those Oceans do.",
       "On a Mangrove or an Arctic Ocean it carries that Ocean's ★. Pay the Clownfish's cost with a card matching the Clownfish's own symbol and you get to play again. Those are the only two Oceans with a ★.",
       "Two things it still doesn't do: it never scores a chart twice (three Coral Reefs plus a Clownfish pay 16, once, for the whole set), and it is never a new KIND of Ocean, so it can't be your missing eighth for the Mangrove's +10.",
       "The Rule Book has a Clownfish page under Special Rules now, with a table of what it's worth on each of the eight Oceans.",
     ]},
-    { ver: "V1.7.0", title: "📱 A game that fits your phone", items: [
-      "The whole game screen now fits the part of your phone you can actually see. The bottom of every player's pill, their ⭐ points and 🃏 card count: is back on screen, and so is the ☰ Menu button at the top. No more tilting the phone or sliding the page around to find them.",
+    { ver: "V1.7.0", title: "A game that fits your phone", items: [
+      "The whole game screen now fits the part of your phone you can actually see. The bottom of every player's pill, their points and card count: is back on screen, and so is the ☰ Menu button at the top. No more tilting the phone or sliding the page around to find them.",
       "End Turn is no longer off the right-hand edge when you play sideways. The game now measures the real width your browser gives it instead of assuming the full width of the display, so nothing sits past the edge.",
       "Tapping Weekly Challenges in game actually shows the three challenges now. On a short screen it was opening onto a sliver you couldn't read, it now uses all the room above the action bar and scrolls, and the footer closes it as well as the header.",
     ]},
@@ -537,53 +537,53 @@
       "When a Hermit Crab, a Sea Turtle or a ★ ability hands you another turn, a reminder now bobs right over the ✓ End Turn button until you finish the turn, so an extra turn never reads as the game being stuck.",
       "You can tap the reminder itself; it does exactly what pressing End Turn does.",
     ]},
-    { ver: "V1.7.0", title: "🛟 Your results can't be lost to a dropped signal", items: [
+    { ver: "V1.7.0", title: "Your results can't be lost to a dropped signal", items: [
       "If your connection blinks while the game summary is up, the end screen now keeps retrying the save on its own, and retries straight away the moment you're back online. Before, one lost second could quietly cost you the XP, the streak and the game history for that match.",
       "It also says which it is: a quiet \"Saving your results…\" while it's working, and a clear warning with a Try again button if it can't reach the server. Nothing at all once it's saved.",
     ]},
-    { ver: "V1.7.0", title: "🛡️ Joining a clan is one tap", items: [
+    { ver: "V1.7.0", title: "Joining a clan is one tap", items: [
       "The Clans tab now shows the clans you can actually join right on the first screen, each with its own Join button, no searching first.",
       "Every clan in Find a Clan has the same one-tap Join (or Request) beside it, and the recommended clans at the top are full rows now instead of name chips, so you can see who they are before you press it.",
     ]},
-    { ver: "V1.7.0", title: "📆 Challenges: weekly only, and out of the way", items: [
+    { ver: "V1.7.0", title: "Challenges: weekly only, and out of the way", items: [
       "Daily Challenges are gone. Weekly Challenges are the whole system now, three a week, a fresh set every Monday, and the bigger XP.",
       "The challenge strip on your home screen starts closed. Its bar tells you how many you've finished this week; tap it to open the three challenges, tap it again to tuck them away. It remembers what you chose.",
       "The in-game panel starts tucked away too: tap its header when you want to see how you're doing.",
     ]},
-    { ver: "V1.7.0", title: "🌊 Prestige, riding the next current", items: [
+    { ver: "V1.7.0", title: "Prestige, riding the next current", items: [
       "Reach Level 100 and you can Prestige: your level and XP go back to the start, and you keep a permanent set of rewards that never resets. It's completely optional: we'll ask once each time you sign in, and \"Not right now\" is always a fine answer.",
       "Every Prestige pays Critter Coins (500, then +250 each time), a permanent +25% XP from every source, and +5% extra coins on any Critter Coin pack you buy, at the same price.",
       "You also pick two critters to keep through the reset, unlock an exclusive alternate skin for any animal in the game, a new Prestige background, a new name colour, and a new badge that shows beside your name everywhere.",
       "Nothing you paid for is ever taken away. Competitive rank, clan, friends, coins, achievements, lifetime stats, purchases and every earlier Prestige reward all stay exactly as they are.",
       "Name colours build up as you go: two to choose from at Prestige 1 (you get the other at 2), Deep Purple, then Gold, a custom colour creator at 4, gradients at 5, and subtle ocean effects after that. Animated effects can be switched off while keeping the colour.",
     ]},
-    { ver: "V1.7.0", title: "🔒 Privacy Policy, and a simpler sign-in", items: [
-      "Our full Privacy Policy is now published at currentsandcritters.com/privacy: there's a link at the very bottom of every page, and you can read the whole thing in game from Settings → 📜 Legal.",
+    { ver: "V1.7.0", title: "Privacy Policy, and a simpler sign-in", items: [
+      "Our full Privacy Policy is now published at currentsandcritters.com/privacy: there's a link at the very bottom of every page, and you can read the whole thing in game from Settings → Legal.",
       "Signing in for the first time is now one screen: pick a username and dive in. The long scroll-and-agree Terms box is gone.",
       "Changing your username: your first change is free, and after that each one costs 100 Critter Coins. No more 24-hour wait, so you can change it whenever you like, and your friend code never changes.",
       "The Name Change Token has left the Store, since there's no longer a wait to skip. Any tokens you'd bought are no longer needed.",
     ]},
-    { ver: "V1.7.0", title: "🔥 Streak Leaderboard", items: [
-      "There's a new 🔥 Streak board on the Leaderboard tab, with a toggle for the two questions people actually ask: who has the longest streak ever, and who has the longest one going right now.",
+    { ver: "V1.7.0", title: "Streak Leaderboard", items: [
+      "There's a new Streak board on the Leaderboard tab, with a toggle for the two questions people actually ask: who has the longest streak ever, and who has the longest one going right now.",
       "Both numbers come from your play calendar, so a streak that lapsed drops off the current board straight away, no more old records sitting at the top. A day covered by a Streak Shield still counts.",
       "Your own card at the top shows your current streak, your best ever, and how many days you've played, even when you're not in the top 25 yet.",
     ]},
-    { ver: "V1.7.0", title: "🐚 Player Perks in the Store", items: [
+    { ver: "V1.7.0", title: "Player Perks in the Store", items: [
       "Streak Shield (500 coins) covers one missed day so your daily streak survives it. Miss a day and we'll ask if you want to spend one, if you don't have one yet, that same button buys it and uses it in one tap.",
       "Emote Pack (500 coins) turns 5 critters you've unlocked into chat emotes. Every animal in the game can be one, you just have to own it first, and if you have fewer than 5 critters left without an emote, we tell you exactly how many you'd get before you spend anything.",
       "Critter Re-Earn (2,500 coins) hands back a critter you traded away, without earning its unlock all over again.",
       "Once you own an emote, a smiley appears next to the chat box in game. Tap it and send the critter, everyone at the table sees the picture, whether or not they own it.",
     ]},
-    { ver: "V1.7.0", title: "🔕 Mute the chat for one game", items: [
+    { ver: "V1.7.0", title: "Mute the chat for one game", items: [
       "There's a bell on the chat window's header now. Tap it and pick what you want to go quiet: this game's chat, your direct messages, or both.",
-      "Muting only turns off the notifications, the red number on the 💬 button and the dot on the back arrow. Messages keep coming in, so you can open chat whenever you like and read everything you missed.",
+      "Muting only turns off the notifications, the red number on the button and the dot on the back arrow. Messages keep coming in, so you can open chat whenever you like and read everything you missed.",
       "It lasts for that game only. Leave or start a new match and chat is back to normal, and unmuting mid-game brings back the exact count you would have had.",
     ]},
-    { ver: "V1.7.0", title: "🪙 Supporter Tiers now come with Critter Coins", items: [
+    { ver: "V1.7.0", title: "Supporter Tiers now come with Critter Coins", items: [
       "Every Supporter Tier now credits Critter Coins straight to your account: Wave Warrior 5,000, Ocean Ally 15,000, Tide Turner 30,000. Spend them on whatever you like in the Store.",
       "If you supported before making an account, signing in and claiming on the Claim Rewards page now hands you the WHOLE tier, coins, bonus XP, backgrounds and icons. Before, a late claim only gave you the supporter badge.",
     ]},
-    { ver: "V1.7.0", title: "🏁 Clan challenges, and a Clan Rules page", items: [
+    { ver: "V1.7.0", title: "Clan challenges, and a Clan Rules page", items: [
       "Clans now have 25 weekly challenges and 26 season challenges, and everything your whole clan does counts toward them. There is a Challenges tab inside your clan showing both boards with live progress, and you can open the same boards mid-game from the in-game Menu.",
       "Clan Rules is now the first tab on the Clans page. Every scoring rule, both challenge lists and all the season payouts are on one page, written by the server itself so it always matches what actually happens.",
       "Clan Points now need a real opponent: everyone in the game has to be a registered account. A game against bots or guests scores nothing, except first place, which is worth half a Clan Point at any player count.",
@@ -591,7 +591,7 @@
       "Clans now hold 25 members instead of 20.",
       "The Clans tab opens instantly instead of waiting on the server, and saving your clan settings, voting for your critter or joining an event no longer blanks the page while it thinks.",
     ]},
-    { ver: "V1.7.0", title: "🐠 Your clan's critter takes over the Clans tab", items: [
+    { ver: "V1.7.0", title: "Your clan's critter takes over the Clans tab", items: [
       "The season vote now decides something real. Whichever critter your clan votes for the most replaces the shield on the Clans button, so your clan's animal is sitting there in the sidebar instead of a badge everyone shares.",
       "Only your clan sees it, and you see it from every tab, not just when you're on Clans.",
       "Until anyone votes, your clan's own icon goes there instead of the shield.",
@@ -605,7 +605,7 @@
       "The confirmation names who the code belongs to, so you can tell straight away that the invite went to the player you meant.",
       "Inviting from a player's profile or from Messages works exactly as before.",
     ]},
-    { ver: "V1.7.0", title: "🛡️ Clans are here", items: [
+    { ver: "V1.7.0", title: "Clans are here", items: [
       "There's a new Clans tab in the sidebar, right under Leaderboard. Start a clan or join one, pick a critter as its icon, and up to 25 of you play for the same score.",
       "Clan seasons run three months, the same length as a competitive season. Each one has its own name and number, a countdown to the end date, and a leaderboard of every clan.",
       "You earn Clan Points just by playing: a competitive win is +3, and in casual, 1st is +2, 2nd is +1 and 3rd is +1 in games of four or more. You can also earn one point a day by trading with a clanmate.",
@@ -644,7 +644,7 @@
     { ver: "V1.7.0", title: "Messages gets its own page", items: [
       "Messages is now a tab in the left sidebar, right under Friends, instead of a narrow drawer squeezed onto the right-hand side.",
       "Open a chat and it fills the whole page; the back arrow at the top left takes you back to your other conversations.",
-      "Chats can wear an ocean background, iMessage style. Tap 🎨 in a chat to pick one; Kelp Forest and Arctic Ocean are free for everyone, and every background you have unlocked shows up there too.",
+      "Chats can wear an ocean background, iMessage style. Tap in a chat to pick one; Kelp Forest and Arctic Ocean are free for everyone, and every background you have unlocked shows up there too.",
       "The background belongs to the conversation, not to you, so only ONE of you needs to own it for both of you to see it.",
     ]},
     { ver: "V1.7.0", title: "Trade is its own button now", items: [
@@ -663,7 +663,7 @@
       "Fixed your next round's ready check opening behind the end-of-game screen where you couldn't see it, and fixed getting stuck watching someone else's match while your own was waiting to start.",
     ]},
     { ver: "V1.6.9", title: "Find & join tournaments from Join Game", items: [
-      "Join Game now has a 🏆 Tournament tab right next to Public, Private and Competitive, open it to see every tournament people have created that's still taking players.",
+      "Join Game now has a Tournament tab right next to Public, Private and Competitive, open it to see every tournament people have created that's still taking players.",
       "Each one shows its name, how full it is and its match size; tap Join → to hop straight into the bracket, no code needed for public tournaments.",
       "Opening the tab (or switching to it) now pulls a fresh list instantly, so a tournament someone just created shows up right away instead of after a delay.",
     ]},
@@ -719,7 +719,7 @@
       "Turn order is now shuffled fresh every casual game, so the host doesn't always go first and no one has a fixed spot in the rotation.",
     ]},
     { ver: "V1.6.3", title: "New Team Mode, play in teams", items: [
-      "Create Game → set Mode to 🤝 Team to play a normal game split into teams. It starts as Red vs Blue, and you can open up to four teams (Red, Blue, Green, Yellow).",
+      "Create Game → set Mode to Team to play a normal game split into teams. It starts as Red vs Blue, and you can open up to four teams (Red, Blue, Green, Yellow).",
       "In the coral lobby, tap a team to hop onto it, or tap another player to ask them to swap teams, they get a pop-up to accept or decline. Everyone starts split evenly.",
       "Seats are shuffled so teammates are spread as far apart as possible in turn order, no fixed seating, so there's no planning around it.",
       "When the game ends, each team's scores are added together and revealed worst-to-best for suspense, then everyone's names appear. You still earn achievements, and score-based ones count only your own points.",
@@ -729,7 +729,7 @@
       "When a new critter avatar pops up as you unlock it, the celebration now also tells you \"How you earned it\" right on the popup.",
     ]},
     { ver: "V1.6.3", title: "Settings inside the game + a music volume slider", items: [
-      "You can now open Settings without leaving a game, it's in the in-game Menu (☰) as its own \"⚙️ Settings\" item, so you can tweak things mid-match.",
+      "You can now open Settings without leaving a game, it's in the in-game Menu (☰) as its own \"Settings\" item, so you can tweak things mid-match.",
       "The Music on/off switch is now a volume slider, drag it anywhere from Off to 100%. Your choice is saved and applies instantly, even to music that's already playing.",
       "Gave the Settings panel a fresh, on-theme look to match the rest of the game.",
     ]},
@@ -751,7 +751,7 @@
       "The main menu now leads with four cards, Head to Head, Create Game, Join Game and Tutorial, each with its own colour and critter.",
       "Head to Head now matches only with other Head to Head players. The first player can keep using the home screen while searching; once a second player joins, both enter the same four-spot lobby.",
       "The host can choose 2, 3 or 4 human spots, fill every remaining spot with a bot, set each bot to Easy, Medium or Hard, chat with the lobby, and start manually when all selected human spots are filled.",
-      "Competitive is now a Mode toggle on the Create Game setup screen (next to Privacy): switch it to ⚔️ Competitive and the match settings lock to the ranked 1v1 format, just press the button to go.",
+      "Competitive is now a Mode toggle on the Create Game setup screen (next to Privacy): switch it to Competitive and the match settings lock to the ranked 1v1 format, just press the button to go.",
     ]},
     { ver: "V1.6.2", title: "New card back + cleaner deck", items: [
       "Every face-down card now shows the new \"Currents and Critters\" card-back artwork, the deck pile, opponents' hidden hands, the draw flip animation, the tutorial deck and the classic mode, everywhere.",
@@ -831,7 +831,7 @@
       "Combo strategies no longer clutter the main grid, pick one or more core strategies and we suggest the combos that pair best, prioritising ones that connect what you picked.",
       "Each core strategy now shows a featured critter so it's easy to scan, plus a clear selected state with a checkmark. Create Your Own Strategy lives right beside your selections.",
       "Friends fix: when someone accepts your request, the friendship now saves on both sides and sticks after you sign out and back in.",
-      "Fixed discarding to the pool, and the in-game challenge panel now steps aside when you open the 💡 Help screen.",
+      "Fixed discarding to the pool, and the in-game challenge panel now steps aside when you open the Help screen.",
     ]},
     { ver: "V1.4.0", title: "Full public profiles", items: [
       "Tapping another player's profile now opens a full public profile that matches your own Player Home design, their avatar, name, friend code, level with XP bar, Total XP, daily streak, competitive rank, and the same Quick Stats grid.",
@@ -843,7 +843,7 @@
       "Their Avatar Gallery opens view-only: you can see what they've unlocked, but can't equip, claim, or change anything.",
       "Playing a ★ card without a matching symbol now asks “play without the star ability?” instead of erroring, and a rejected play never auto-draws or wastes your turn.",
       "Your hand cards no longer overlap the player panels when you're holding a lot of cards.",
-      "Surf's Up: your “🌊 Away” badge now appears and clears the moment you toggle it.",
+      "Surf's Up: your “Away” badge now appears and clears the moment you toggle it.",
     ]},
     { ver: "V1.3.8", title: "Straight into a full-screen game window", items: [
       "Signing in now drops you straight into the game in its own full-screen window, no extra “Open Game” screen to click through. The sign-in tab stays put behind it.",
@@ -1259,7 +1259,7 @@
 
   // ── Tournament Mode bridge ─────────────────────────────────────────────
   // Tournament Mode lives in its own module (js/tournament-ui.js). LIVE for
-  // everyone: TOURNAMENTS_PUBLIC=true shows the "🏆 Tournament" Mode option in the
+  // everyone: TOURNAMENTS_PUBLIC=true shows the "Tournament" Mode option in the
   // Create Game modal + the Tournaments leaderboard tab. The server API defaults
   // on (FISH_TOURNAMENTS!=0). Set back to false to hide again (or force-on locally
   // via ?tournaments=1 / localStorage cc_tournaments=1). Other modes are unaffected.
@@ -2244,7 +2244,7 @@
         // keep polling; it will come back on its own in ~30 seconds.
         if (!_serverWaking) {
           _serverWaking = true;
-          try { setStatus("⏳ Server waking up…"); } catch {}
+          try { setStatus("Server waking up…"); } catch {}
           if (!_serverWakeToastShown) {
             _serverWakeToastShown = true;
             try { showToast("Server is warming up, connecting automatically in ~30 s", "warn"); } catch {}
@@ -2793,7 +2793,7 @@
     if (_galEl) _galEl.classList.remove("open");
     if (window.__fishExitGalleryViewOnly) window.__fishExitGalleryViewOnly();
     document.getElementById("pv-game").style.display = "flex";
-    document.getElementById("pv-room-id-badge").textContent = rid + " 👁";
+    document.getElementById("pv-room-id-badge").textContent = rid + "";
     _specShowPanel(true);
     startPolling();
     startThemeSong();
@@ -2889,7 +2889,7 @@
         if (_sd) {
           const dv = document.createElement("span");
           dv.className = "spec-device";
-          dv.textContent = _sd.icon;
+          dv.textContent = _sd.short;
           dv.title = (s.name || "This watcher") + ": " + _sd.title;
           dv.setAttribute("aria-label", (s.name || "Watcher") + " is on " + _sd.label);
           row.appendChild(dv);
@@ -3085,7 +3085,7 @@
       if (locked && opt.id !== g.id) return;
       const o = document.createElement("option");
       o.value = opt.id;
-      o.textContent = (locked ? "🔒 " : "") + `Rank ${opt.tier}`;
+      o.textContent = (locked ? "Locked · " : "") + `Rank ${opt.tier}`;
       o.disabled = locked;
       if (opt.id === g.id) o.selected = true;
       sel.appendChild(o);
@@ -3355,7 +3355,7 @@
         if (_tdev) {
           const dv = document.createElement("span");
           dv.className = "wr-chip-device-icon";
-          dv.textContent = _tdev.icon;
+          dv.textContent = _tdev.initial;
           dv.title = (s.claimed_name || "This player") + ": " + _tdev.title;
           dv.setAttribute("aria-label", (s.claimed_name || "Player") + " is on " + _tdev.label);
           chip.appendChild(dv);
@@ -3507,7 +3507,7 @@
           if (!nm) return;
           const cp = Number(r.cp || 0);
           const info = rankFn(cp, true);
-          _wrRankByName[nm] = { cp, division: info.division, tier: info.tier, emoji: info.emoji };
+          _wrRankByName[nm] = { cp, division: info.division, tier: info.tier };
         });
         _wrRankFetched = true;
       })
@@ -3544,15 +3544,15 @@
                            + Number(st.competitive_draws || 0)) > 0 : false;
       if (st && (played || Number(st.comp_cp || 0) > 0)) {
         const info = rankFn(Number(st.comp_cp || 0), played);
-        row = { cp: Number(st.comp_cp || 0), division: info.division, tier: info.tier, emoji: info.emoji };
+        row = { cp: Number(st.comp_cp || 0), division: info.division, tier: info.tier };
       }
     }
     if (!row && always && typeof rankFn === "function") {
       const info = rankFn(0, false);
-      row = { cp: 0, division: info.division, tier: info.tier, emoji: info.emoji };
+      row = { cp: 0, division: info.division, tier: info.tier };
     }
     if (!row) return null;
-    const chip = _wrChip(`${row.emoji || "🐟"} ${row.division} · ${_wrNum(row.cp)} OP`,
+    const chip = _wrChip(`${row.division} · ${_wrNum(row.cp)} OP`,
                          "wr-chip-rank wr-chip-rank-" + (row.tier || "bronze"));
     chip.title = `${name}: ${row.division}, ${_wrNum(row.cp)} Ocean Points this season`;
     return chip;
@@ -3626,7 +3626,7 @@
     return b;
   }
   function _wrLock(title) {
-    const el = _wrEl("span", "wr-seat-lock", "🔒");
+    const el = _wrEl("span", "wr-seat-lock", "Locked");
     el.title = title;
     return el;
   }
@@ -3709,7 +3709,7 @@
       img.onerror = function () { this.onerror = null; this.src = "/avatars/mullet.png"; };
       face.appendChild(img);
       if (isMine) {
-        const pen = _wrEl("button", "wr-seat-edit", "✏️");
+        const pen = _wrEl("button", "wr-seat-edit", "✎");
         pen.type = "button";
         pen.title = "Change your critter";
         pen.setAttribute("aria-label", "Change your critter");
@@ -3739,13 +3739,13 @@
 
     const chips = _wrEl("div", "wr-seat-chips");
     if (isAI) {
-      chips.appendChild(_wrChip("🤖 Bot", "wr-chip-bot"));
+      chips.appendChild(_wrChip("Bot", "wr-chip-bot"));
     } else if (!isOpen && Number(s.level) > 0) {
-      chips.appendChild(_wrChip("⭐ Lv " + Number(s.level), "wr-chip-lvl"));
+      chips.appendChild(_wrChip("Lv " + Number(s.level), "wr-chip-lvl"));
     } else if (isOpen) {
       chips.appendChild(_wrChip(pair ? "Waiting for this player" : "Waiting for a player", "wr-chip-wait"));
     }
-    if (pair && !isOpen) chips.appendChild(_wrChip("🃏 " + pair.handLabel, "wr-chip-hands"));
+    if (pair && !isOpen) chips.appendChild(_wrChip("" + pair.handLabel, "wr-chip-hands"));
     idBox.appendChild(chips);
     // What this room pays out in is what it should say about the people in it.
     // Both competitive modes, so the 1v1 ladder and the free-for-all agree.
@@ -3794,7 +3794,7 @@
       inv.addEventListener("click", () => wrInviteOpen());
       body.appendChild(inv);
       if (ctx.canShape && !ctx.room.ranked) {
-        const toBot = _wrEl("button", "wr-seat-tobot", "🤖 Make it a bot");
+        const toBot = _wrEl("button", "wr-seat-tobot", "Make it a bot");
         toBot.type = "button";
         toBot.title = "Turn this open seat into a bot so the game can start";
         toBot.addEventListener("click", () => setTableSeats(ctx.humans - 1, ctx.bots + 1));
@@ -3816,7 +3816,7 @@
         tile.appendChild(xp);
       }
       const bits = [];
-      if (Number(s.best) > 0) bits.push("🏆 Best " + _wrNum(s.best));
+      if (Number(s.best) > 0) bits.push("Best " + _wrNum(s.best));
       if (Number(s.games) > 0) bits.push(_wrNum(s.games) + " games");
       if (s.title) bits.push(String(s.title));
       if (bits.length) tile.appendChild(_wrEl("div", "wr-seat-stat", bits.join(" · ")));
@@ -3829,8 +3829,8 @@
       // that changes how the person plays rather than how they look.
       const _dchip = _wrDeviceChip(s);
       if (_dchip) foot.appendChild(_dchip);
-      if (s.background) foot.appendChild(_wrChip("🖼 " + _wrBgName(s.background), "wr-chip-bg"));
-      if (s.is_host) foot.appendChild(_wrChip("👑 Host", "wr-chip-host"));
+      if (s.background) foot.appendChild(_wrChip("" + _wrBgName(s.background), "wr-chip-bg"));
+      if (s.is_host) foot.appendChild(_wrChip("Host", "wr-chip-host"));
       else foot.appendChild(_wrChip(pair ? pair.label : "Seat " + (s.index + 1), null));
       foot.appendChild(_wrChip(isMine ? "You" : "✓ Ready", isMine ? "wr-chip-you" : "wr-chip-ready"));
       tile.appendChild(foot);
@@ -3887,7 +3887,7 @@
 
       const person = _wrEl("button", "wr-add-opt player");
       person.type = "button";
-      person.appendChild(_wrEl("span", null, "👤 Add a player seat"));
+      person.appendChild(_wrEl("span", null, "Add a player seat"));
       person.appendChild(_wrEl("small", null, "One more spot for a person"));
       person.addEventListener("click", (ev) => {
         ev.stopPropagation();
@@ -3896,7 +3896,7 @@
 
       const bot = _wrEl("button", "wr-add-opt bot");
       bot.type = "button";
-      bot.appendChild(_wrEl("span", null, "🤖 Add a bot"));
+      bot.appendChild(_wrEl("span", null, "Add a bot"));
       bot.appendChild(_wrEl("small", null, "Fills the spot straight away"));
       bot.addEventListener("click", (ev) => {
         ev.stopPropagation();
@@ -4079,7 +4079,6 @@
   }
 
   // ── lobby chat ────────────────────────────────────────────────────────
-  const WR_EMOTES = ["👋", "🦀", "🐙", "🔥", "😂", "🍀"];
   let _wrChatFingerprint = "";
 
   function _wrChatAvatar(name) {
@@ -4212,7 +4211,7 @@
       try { return String(window.__fishEquippedBackground?.() || ""); } catch (_) { return ""; }
     })();
     bgRow.innerHTML = "";
-    const none = _wrEl("button", "wr-look-bg wr-look-bg-none" + (myBg ? "" : " on"), "🚫");
+    const none = _wrEl("button", "wr-look-bg wr-look-bg-none" + (myBg ? "" : " on"), "None");
     none.type = "button";
     none.title = "No background";
     none.addEventListener("click", async () => {
@@ -4286,40 +4285,36 @@
 
   function _ccLobbyRender() {
     const row = document.getElementById("wr-cc-row");
-    const emotes = document.getElementById("wr-emote-row");
     if (!row) return;
     const cc = (latestPayload && latestPayload.controller) || null;
     const show = (html) => {
       row.innerHTML = html;
       row.hidden = false;
-      if (emotes) emotes.hidden = true;
     };
     const hide = () => {
       row.innerHTML = "";
       row.hidden = true;
-      if (emotes) emotes.hidden = false;
     };
 
     // Competitive, ranked, tournament and tutorial rooms never offer it.
     if (!cc || !cc.allowed_here) { hide(); return; }
 
     if (cc.armed) {
-      show(`<span class="wr-cc-chip on">\u{1F30A} Current Controller ON</span>
+      show(`<span class="wr-cc-chip on">Current Controller ON</span>
         <span class="wr-cc-text">${escapeHtml(cc.asker || "A player")} can use the mod menu this game.</span>
         <span class="wr-cc-note">This game will not count: no leaderboard, no achievements, no new critters. Everyone still earns the base XP for finishing.</span>`);
       return;
     }
     if (cc.denied) {
-      // Decided, and nothing more will happen, so the emotes come back and the
-      // chip just records the answer.
+      // Decided, and nothing more will happen, so the chip just records the
+      // answer.
       row.innerHTML = `<span class="wr-cc-chip off">Current Controller: the table said no</span>`;
       row.hidden = false;
-      if (emotes) emotes.hidden = false;
       return;
     }
     if (cc.seat === null || cc.seat === undefined) {
       if (!ccMayAskForController()) { hide(); return; }
-      show(`<button type="button" class="wr-cc-ask" id="wr-cc-ask">\u{1F30A} Ask to use the Current Controller</button>
+      show(`<button type="button" class="wr-cc-ask" id="wr-cc-ask">Ask to use the Current Controller</button>
         <span class="wr-cc-note">The mod menu. Every other player has to agree, and the game will not count toward the leaderboard, achievements or critter unlocks.</span>`);
       document.getElementById("wr-cc-ask")?.addEventListener("click", async (e) => {
         e.currentTarget.disabled = true;
@@ -4332,7 +4327,7 @@
     // A request is live.
     const tally = `${cc.yes}/${cc.needed} said yes`;
     if (cc.is_mine) {
-      show(`<span class="wr-cc-text">\u{1F30A} Waiting for the table to agree \u2014 ${escapeHtml(tally)}.</span>`);
+      show(`<span class="wr-cc-text">Waiting for the table to agree \u2014 ${escapeHtml(tally)}.</span>`);
       return;
     }
     if (cc.can_vote) {
@@ -4366,16 +4361,6 @@
     document.getElementById("wr-chat-text")?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") { e.preventDefault(); send(); }
     });
-    const emotes = document.getElementById("wr-emote-row");
-    if (emotes) {
-      WR_EMOTES.forEach(e => {
-        const b = _wrEl("button", "wr-emote", e);
-        b.type = "button";
-        b.title = "Send " + e;
-        b.addEventListener("click", () => _wrSendChat(e));
-        emotes.appendChild(b);
-      });
-    }
     // The theme song's volume lives in Settings, which is where this goes.
     document.getElementById("wr-music-btn")?.addEventListener("click", () => {
       if (typeof window.__openSettingsModal === "function") window.__openSettingsModal();
@@ -4407,12 +4392,12 @@
     document.getElementById("wr-title").textContent = isQuickPlay
       ? "Head to Head Lobby"
       : (isHost
-          ? (isComp ? "⚔️ Competitive 1v1 Room Created!"
-             : isRankedRoom ? "🏅 Competitive Room Created!"
-             : (isTeam ? "🤝 Team Room Created!" : "Room Created!"))
-          : (isComp ? "⚔️ Competitive 1v1 Lobby"
-             : isRankedRoom ? "🏅 Competitive Lobby"
-             : (isTeam ? "🤝 Team Lobby" : "Game Lobby")));
+          ? (isComp ? "Competitive 1v1 Room Created!"
+             : isRankedRoom ? "Competitive Room Created!"
+             : (isTeam ? "Team Room Created!" : "Room Created!"))
+          : (isComp ? "Competitive 1v1 Lobby"
+             : isRankedRoom ? "Competitive Lobby"
+             : (isTeam ? "Team Lobby" : "Game Lobby")));
 
     // The Current Controller row, wherever the table has got to with it.
     try { _ccLobbyRender(); } catch (_) {}
@@ -4514,7 +4499,7 @@
     const btn = document.getElementById("wr-copy-btn");
     btn.innerHTML = '<span class="wr-copy-icon">✓</span><span>Link Copied!</span>';
     setTimeout(() => {
-      btn.innerHTML = '<span class="wr-copy-icon">📋</span><span>Copy Invite Link</span>';
+      btn.innerHTML = '<span>Copy Invite Link</span>';
     }, 2000);
   });
   document.getElementById("wr-code-display").addEventListener("click", () => {
@@ -4606,7 +4591,7 @@
       row.type = "button";
       row.setAttribute("aria-pressed", _wriPicked[c.id] ? "true" : "false");
       const av = _wrEl("span", "wri-recent-av");
-      av.textContent = c.group ? "👥" : (String(name)[0] || "?").toUpperCase();
+      av.textContent = (String(name)[0] || "?").toUpperCase();
       row.appendChild(av);
       row.appendChild(_wrEl("span", "wri-recent-nm", name));
       row.appendChild(_wrEl("span", "wri-recent-tick", "✓"));
@@ -4715,7 +4700,7 @@
     const first = targets[0].name || "your friend";
     _wriStatus(sent === 1 ? `Invite sent to ${first}.`
                           : `Invite sent to ${first} and ${sent - 1} more.`, false);
-    try { showToast("Invite sent in chat 💬", "ok"); } catch (_) {}
+    try { showToast("Invite sent in chat", "ok"); } catch (_) {}
     setTimeout(() => { if (wrInviteIsOpen()) wrInviteClose(); }, 1200);
   }
 
@@ -4888,7 +4873,7 @@
   let _lbRefreshTimer = null;
   let _lbActiveTab = "public";
   let _lbAllRooms  = [];
-  let _lbTournaments = [];    // open brackets for the 🏆 Tournament tab
+  let _lbTournaments = [];    // open brackets for the Tournament tab
   let _lbTournamentsLoaded = false; // has /api/tournament/list resolved at least once this session?
   let _lbPendingRoom = null; // room object awaiting password entry
 
@@ -4910,7 +4895,7 @@
 
   async function fetchAndRenderRooms() {
     // Fetch open rooms and (when Tournament Mode is live) open tournament
-    // brackets in parallel, so the 🏆 Tournament tab shows brackets people have
+    // brackets in parallel, so the Tournament tab shows brackets people have
     // created and switching tabs is instant.
     const tourneyOn = !!(window.__ccTourney && window.__ccTourney.ENABLED);
     const jobs = [apiFetch("/api/rooms", { method:"GET", timeoutMs:6000 }).catch(() => null)];
@@ -4925,7 +4910,7 @@
     const list = document.getElementById("lb-browser-list");
     if (!list) return;
 
-    // 🏆 Tournament tab shows open brackets (its own data source), not game rooms.
+    // Tournament tab shows open brackets (its own data source), not game rooms.
     if (_lbActiveTab === "tournament") { renderTournamentBrowseList(list); return; }
 
     let rooms = _lbAllRooms;
@@ -4951,7 +4936,7 @@
         <div class="room-card-info">
           <div class="room-card-host">Your reserved seat</div>
           <div class="room-card-meta">Seat held · expires soon</div>
-          <span class="room-badge" style="background:rgba(0,180,120,.18);color:#00d89a;border-color:rgba(0,200,130,.35);">🔄 In Progress</span>
+          <span class="room-badge" style="background:rgba(0,180,120,.18);color:#00d89a;border-color:rgba(0,200,130,.35);">In Progress</span>
         </div>
         <button class="room-card-join pv-btn" style="background:linear-gradient(135deg,#0b8a5c,#076644);border-color:#00c87a;">Rejoin →</button>`;
       rjCard.querySelector("button").addEventListener("click", () => {
@@ -4980,12 +4965,12 @@
       card.className = "room-card";
 
       const modeBadge = room.mode === "competitive"
-        ? `<span class="room-badge competitive">⚔ Competitive 1v1</span>`
+        ? `<span class="room-badge competitive">Competitive 1v1</span>`
         : room.mode === "ranked"
-        ? `<span class="room-badge ranked">🏅 Competitive</span>`
-        : `<span class="room-badge">🌊 Casual</span>`;
+        ? `<span class="room-badge ranked">Competitive</span>`
+        : `<span class="room-badge">Casual</span>`;
 
-      const lockIcon = room.has_password ? "🔒 " : "";
+      const lockIcon = room.has_password ? "Locked · " : "";
       const sizeLabel = `${room.filled}/${room.total_players} players`;
       const aiCount = (room.total_players - room.human_players);
       const aiLabel = aiCount > 0 ? ` · ${aiCount} AI` : "";
@@ -5003,7 +4988,7 @@
     }
   }
 
-  // 🏆 Tournament tab: list open brackets people have created, each joinable in
+  // Tournament tab: list open brackets people have created, each joinable in
   // one tap. Data comes from /api/tournament/list (public tournaments only);
   // private ones are joined by code from the tournament screen. Joining hands off
   // to the tournament module, which owns the join + password flow + bracket UI.
@@ -5012,14 +4997,14 @@
     const open = (_lbTournaments || []).filter(t => t && t.phase === "lobby" && Number(t.joined) < Number(t.capacity));
     if (!open.length) {
       list.innerHTML = _lbTournamentsLoaded
-        ? `<div class="lb-browser-empty">No open tournaments right now.<br><small style="opacity:.8">Create one with “New Current” → Mode → 🏆 Tournament.</small></div>`
+        ? `<div class="lb-browser-empty">No open tournaments right now.<br><small style="opacity:.8">Create one with “New Current” → Mode → Tournament.</small></div>`
         : `<div class="lb-browser-empty">Loading…</div>`;
       return;
     }
     for (const t of open) {
       const card = document.createElement("div");
       card.className = "room-card";
-      const lockIcon = t.has_password ? "🔒 " : "";
+      const lockIcon = t.has_password ? "Locked · " : "";
       const shape = (t.is_custom && Array.isArray(t.opening_sizes) && t.opening_sizes.length)
         ? `${t.opening_sizes.join("·")} opening`
         : `${t.players_per_match} per match`;
@@ -5028,7 +5013,7 @@
         <div class="room-card-info">
           <div class="room-card-host">${lockIcon}${escHtml(t.name || "Tournament")}</div>
           <div class="room-card-meta">${meta}</div>
-          <span class="room-badge" style="background:rgba(243,167,18,.18);color:#b9760a;border-color:rgba(243,167,18,.4);">🏆 Tournament</span>
+          <span class="room-badge" style="background:rgba(243,167,18,.18);color:#b9760a;border-color:rgba(243,167,18,.4);">Tournament</span>
         </div>
         <button class="room-card-join pv-btn gold" data-tid="${escHtml(t.tournament_id)}">Join →</button>`;
       card.querySelector(".room-card-join").addEventListener("click", () => {
@@ -6212,7 +6197,7 @@
       if (locked && !lock) {
         lock = document.createElement("span");
         lock.className = "bm-spot-lock";
-        lock.textContent = "🔒";
+        lock.textContent = "";
         art.appendChild(lock);
       } else if (!locked && lock) {
         lock.remove();
@@ -6270,7 +6255,7 @@
         const locked = bmGradeLocked(opt.id);
         // Shown, always, and shown as locked rather than hidden: the whole
         // point of the Squid is that you can see it before you can have it.
-        o.textContent = (locked ? "🔒 " : "") + `Rank ${opt.tier}`;
+        o.textContent = (locked ? "Locked · " : "") + `Rank ${opt.tier}`;
         o.disabled = locked;
         if (opt.id === id) o.selected = true;
         sel.appendChild(o);
@@ -6570,7 +6555,7 @@
                                   // instead of only after the next tick.
     });
   });
-  // The 🏆 Tournament tab only makes sense when Tournament Mode is live.
+  // The Tournament tab only makes sense when Tournament Mode is live.
   if (!(window.__ccTourney && window.__ccTourney.ENABLED)) {
     const _tt = document.getElementById("lb-tab-tournament");
     if (_tt) _tt.style.display = "none";
@@ -6639,10 +6624,10 @@
     if (box)     box.classList.toggle("nc-comp", _ncIsCompetitive || _ncIsRanked);
     if (box)     box.classList.toggle("nc-team", isTeam);
     if (titleEl) titleEl.textContent = _ncIsCompetitive
-      ? "⚔️ Competitive 1v1, 2 hands per player"
+      ? "Competitive 1v1, 2 hands per player"
       : _ncIsRanked
-      ? `🏅 Competitive, people only, ${COMP_FFA_MIN_PLAYERS}+ for OP`
-      : (isTeam ? "🤝 New Team Current" : "🌊 New Current");
+      ? `Competitive, people only, ${COMP_FFA_MIN_PLAYERS}+ for OP`
+      : (isTeam ? "New Team Current" : "New Current");
     if (teamsField) teamsField.style.display = isTeam ? "" : "none";
     if (isTeam && teamCountEl) _ncTeamCount = Math.max(2, Math.min(4, Number(teamCountEl.value) || 2));
     const lock = (fieldId, el, on) => {
@@ -6762,7 +6747,7 @@
     _giantSquidChallengeRoom = "";
     if (isWinner) {
       try { window.__fishUnlockAchievementById?.("it_is_finally_over"); } catch (_) {}
-      try { showToast("🦑 You beat the Giant Squid! The Red Beaded Anemone is saved.", "info", 6000); } catch (_) {}
+      try { showToast("You beat the Giant Squid! The Red Beaded Anemone is saved.", "info", 6000); } catch (_) {}
     }
   }
 
@@ -6985,7 +6970,7 @@
   function openSeatPickerModal(rid, seatObjs) {
     _spPendingRid = rid;
     _spSelectedSeat = null;
-    document.getElementById("sp-title").textContent = "🪑 Join " + rid;
+    document.getElementById("sp-title").textContent = "Join " + rid;
     document.getElementById("seat-picker-err").textContent = "";
     const joinBtn = document.getElementById("sp-join-btn");
     joinBtn.disabled = true;
@@ -7249,7 +7234,7 @@
   // and this says which one actually blocked the play.
   function _blockedPlayMessage(entryUid, faceUid, targetDir, targetOceanUid) {
     if (!_viewerCanActNow()) return "It is not your turn.";
-    if (_imAway) return "You're on Surf's Up, tap 🌊 I'm Back before making a move.";
+    if (_imAway) return "You're on Surf's Up, tap I'm Back before making a move.";
 
     const entry = handEntryMap.get(Number(entryUid)) || null;
     const face = _entryFirstFace(entry) || {};
@@ -7413,9 +7398,9 @@
   async function submitAction(action) {
     try { window.__ccNoteAction && window.__ccNoteAction(action); } catch (_) {} // Current Controller bug-log breadcrumb
     // Surf's Up!!, you cannot play any moves while you are Away. Tap "I'm Back"
-    // (the 🌊 button) first. Mirrors the server-side guard so it's 100% accurate.
+    // (the button) first. Mirrors the server-side guard so it's 100% accurate.
     if (_imAway) {
-      try { showToast("You're on Surf's Up, tap 🌊 I'm Back to make a move.", "warn"); } catch {}
+      try { showToast("You're on Surf's Up, tap I'm Back to make a move.", "warn"); } catch {}
       return;
     }
     // ── Turn guard ────────────────────────────────────────────────────────
@@ -8778,7 +8763,7 @@
     function _recoBannerHtml() {
       const fits = _fitsNow();
       const snap = fits.snap;
-      const head = `<div class="hs2-reco-kicker">💡 ${snap.board.length ? "Best match for the board you have built" : "Best match for your starting hand"}</div>`;
+      const head = `<div class="hs2-reco-kicker">${snap.board.length ? "Best match for the board you have built" : "Best match for your starting hand"}</div>`;
       if (!snap.board.length && !snap.hand.length) {
         return `<section class="hs2-sec hs2-reco">${head}<div class="hs2-reco-card empty"><div class="hs2-reco-body">`
           + `<div class="hs2-reco-why">Open this once you've been dealt your hand and we'll read your cards and recommend the strategies that fit them best.</div>`
@@ -8847,9 +8832,9 @@
         const i = live[0], r = fits.byIdx.get(i), s = HELP_STRATEGIES[i], on = _activeStrategies.has(i);
         let warn = "";
         if (ocean && r.short > 0 && r.left < r.short) {
-          warn = `<div class="hs2-reco-warn">⚠ You still need ${r.short}, and only ${r.left} ${r.left === 1 ? "is" : "are"} not already on a board.</div>`;
+          warn = `<div class="hs2-reco-warn">You still need ${r.short}, and only ${r.left} ${r.left === 1 ? "is" : "are"} not already on a board.</div>`;
         } else if (!ocean && r.supply < 0.75 && r.gone > 0) {
-          warn = `<div class="hs2-reco-warn">⚠ ${r.gone} of its ${r.copies} copies are already on other boards, the cheap ones may be gone.</div>`;
+          warn = `<div class="hs2-reco-warn">${r.gone} of its ${r.copies} copies are already on other boards, the cheap ones may be gone.</div>`;
         }
         // A runner-up at a few percent is not close behind anything, it is noise.
         const alts = live.slice(1).filter(j => fits.byIdx.get(j).fit >= 0.1).slice(0, 2)
@@ -8940,7 +8925,7 @@
         ? activeAll.map(i => miniCard(i, true)).join("") + savedCustoms.map(i => miniCard(i, false)).join("")
         : `<div class="hs2-empty">Nothing picked yet. Choose an ocean strategy in step 1 and an animal strategy in step 2, and they will show up here.</div>`;
       const addSlot = `<div class="hs2-slot" id="hs2-add"><div class="hs2-slot-ico">＋</div><div class="hs2-slot-title">Add another strategy</div></div>`;
-      const createSlot = `<div class="hs2-slot create" id="hs2-create"><div class="hs2-slot-ico">✏️</div><div class="hs2-slot-title">Create Your Own Strategy</div><div class="hs2-slot-sub">Build a custom plan with your cards</div></div>`;
+      const createSlot = `<div class="hs2-slot create" id="hs2-create"><div class="hs2-slot-title">Create Your Own Strategy</div><div class="hs2-slot-sub">Build a custom plan with your cards</div></div>`;
       const clearBtn = activeAll.length ? `<button id="hs2-clear" class="hs2-clear">Clear all</button>` : "";
 
       // ── Step 3, right: suggested combos ──
@@ -9023,10 +9008,10 @@
           <div class="hd-card-text">${_hesc(c.text)}</div>
         </div>`;
       }).join("");
-      const stepsSection = stepsHtml ? `<div class="hd-section-title">🧭 What do I do next</div><ol class="hd-steps">${stepsHtml}</ol>` : "";
-      const cardsSection = cardsHtml ? `<div class="hd-section-title">🃏 All cards in this strategy <span class="hd-count-note">(${totalCopies} cards total · ×N shows deck copies)</span></div><div class="hd-cards-grid">${cardsHtml}</div>` : "";
-      const tipsSection  = tipsHtml ? `<div class="hd-section-title">💡 Quick tips</div><ul class="hd-tips">${tipsHtml}</ul>` : "";
-      const customTools  = s.custom ? `<div class="hd-custom-tools"><button id="hd-edit" class="hd-edit-btn" data-strat="${i}">✏️ Edit</button><button id="hd-delete" class="hd-delete-btn" data-strat="${i}">🗑 Delete</button></div>` : "";
+      const stepsSection = stepsHtml ? `<div class="hd-section-title">What do I do next</div><ol class="hd-steps">${stepsHtml}</ol>` : "";
+      const cardsSection = cardsHtml ? `<div class="hd-section-title">All cards in this strategy <span class="hd-count-note">(${totalCopies} cards total · ×N shows deck copies)</span></div><div class="hd-cards-grid">${cardsHtml}</div>` : "";
+      const tipsSection  = tipsHtml ? `<div class="hd-section-title">Quick tips</div><ul class="hd-tips">${tipsHtml}</ul>` : "";
+      const customTools  = s.custom ? `<div class="hd-custom-tools"><button id="hd-edit" class="hd-edit-btn" data-strat="${i}">Edit</button><button id="hd-delete" class="hd-delete-btn" data-strat="${i}">Delete</button></div>` : "";
       const badge = _tierBadge(i);
       detailEl.innerHTML = `
         <div class="hd-head"><span class="help-tier ${badge.cls}">${badge.text}${_isCore(i) ? " strategy" : ""}</span></div>
@@ -9248,7 +9233,7 @@
       indexByLabel: _idxByLabel,
       // The family symbol(s) a strategy wears. Shared with the Player Home
       // "How to play → Strategies" page so a plan is stamped with the same
-      // mark there as it is on the in-game 💡 Strategy screen.
+      // mark there as it is on the in-game Strategy screen.
       stratArtHtml: _stratArtHtml,
       isActive: (label) => { const i = _idxByLabel(label); return i >= 0 && _activeStrategies.has(i); },
       activeLabels: () => [..._activeStrategies].map(i => HELP_STRATEGIES[i] && HELP_STRATEGIES[i].label).filter(Boolean),
@@ -9344,7 +9329,7 @@
       setTimeout(() => { el.style.transition = "color 1s"; el.style.color = "var(--gold)"; }, 900);
     }
     const hc = Number(handCount ?? 0);
-    el.textContent = "📊 " + next + " pts · 🃏" + hc;
+    el.textContent = next + " pts · " + hc + " cards";
   }
 
   // ── Main payload renderer ──────────────────────────────────────
@@ -10006,7 +9991,7 @@
     } else if (endTriggered) {
       banner.className = "endgame";
       const left = endGame.final_turns_remaining;
-      banner.textContent = `⚠ END GAME, ${Number.isFinite(left) ? left+" final turn(s) left" : "Final round"}`;
+      banner.textContent = `END GAME, ${Number.isFinite(left) ? left+" final turn(s) left" : "Final round"}`;
       endBtn.classList.remove("pulse-glow");
       setPlayAgainCallout(false);
     } else if (isMyTurn) {
@@ -11091,7 +11076,7 @@
   window.__fishReportBackground = function () { _lastPushedBg = ""; try { pushMySeatBackground(); } catch (e) {} };
 
   // Tell the room what we are playing ON, so every other client can show a
-  // 💻/📱 chip on our seat. Throttled like the two pushes above.
+  ///chip on our seat. Throttled like the two pushes above.
   //
   // Its own push rather than a field on the avatar one: that push is skipped
   // whenever the avatar has not changed AND whenever the player has no avatar
@@ -11166,7 +11151,7 @@
         seat.className = "pv-seat pv-seat-empty";
         const aw = document.createElement("div");
         aw.className = "pv-seat-avatar-wrap";
-        aw.textContent = "🔒";
+        aw.textContent = "-";
         const nm = document.createElement("div");
         nm.className = "pv-seat-name";
         nm.textContent = "Empty";
@@ -11249,7 +11234,7 @@
         if (_dl && !(_sMeta && _sMeta.kind === "ai")) {
           const dchip = document.createElement("div");
           dchip.className = "pv-seat-device pv-seat-device-" + _dl.device;
-          dchip.textContent = _dl.icon;
+          dchip.textContent = _dl.initial;
           dchip.title = (p.name || "This player") + ": " + _dl.title;
           dchip.setAttribute("aria-label", (p.name || "Player") + " is on " + _dl.label);
           avBox.appendChild(dchip);
@@ -11300,7 +11285,7 @@
       const sc = document.createElement("div");
       sc.className = "pv-seat-score";
       const hcSeat = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
-      sc.textContent = (p.score ?? 0) + " pts · 🃏" + hcSeat;
+      sc.textContent = (p.score ?? 0) + " pts ·" + hcSeat;
 
       seat.appendChild(avBox);
       seat.appendChild(nm);
@@ -11347,7 +11332,7 @@
       } else if (_isAway) {
         const ab = document.createElement("div");
         ab.className = "pv-seat-away-badge";
-        ab.textContent = "🌊 Away";
+        ab.textContent = "Away";
         seat.appendChild(ab);
       } else if (_isEligible && !isMe && isActive) {
         const db = document.createElement("button");
@@ -11567,7 +11552,7 @@
       const mine = kicks.some(k => k.mine);
       kickBtn.disabled = Boolean(_voteInFlight);
       kickBtn.classList.toggle("has-votes", cast > 0);
-      kickBtn.textContent = cast > 0 ? `🚫 Vote Kick (${cast})` : "🚫 Vote Kick";
+      kickBtn.textContent = cast > 0 ? `Vote Kick (${cast})` : "Vote Kick";
       kickBtn.title = mine
         ? "You have a kick vote running. Removing a player takes everyone else."
         : "Vote to remove a player for good. Every other player has to agree.";
@@ -11639,7 +11624,7 @@
         // Label stays readable regardless of rotation
         const hc = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
         const lbl = document.createElement("div"); lbl.className = "pv-opp-full-label";
-        lbl.innerHTML = `${p.index===turnIndex?"▶ ":""}${p.name||`Player ${p.index}`}<span class="opp-score">${p.score??0} pts</span><span style="font-size:10px;color:var(--muted);margin-left:6px;">🃏${hc}</span>`;
+        lbl.innerHTML = `${p.index===turnIndex?"▶ ":""}${p.name||`Player ${p.index}`}<span class="opp-score">${p.score??0} pts</span><span style="font-size:10px;color:var(--muted);margin-left:6px;">${hc}</span>`;
         wrap.appendChild(lbl);
         // Board content, scale + rotate across opponent
         const boardEl = renderReadOnlyBoard(p);
@@ -11663,7 +11648,7 @@
         nm.textContent = (p.index === turnIndex ? "▶ " : "") + (p.name || `Player ${p.index}`);
         const sc = document.createElement("div"); sc.className = "pv-opp-score";
         const hcMini = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
-        sc.textContent = `${p.score ?? 0} pts · 🃏${hcMini}`;
+        sc.textContent = `${p.score ?? 0} pts ·${hcMini}`;
         hdr.appendChild(nm); hdr.appendChild(sc); mini.appendChild(hdr);
         const thumbs = document.createElement("div"); thumbs.style.cssText = "display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;";
         (Array.isArray(p.board) ? p.board : []).slice(0, 5).forEach(ocean => {
@@ -11707,7 +11692,7 @@
       nm.textContent = (p.index===turnIndex?"▶ ":"") + (p.name||`Player ${p.index}`);
       const sc  = document.createElement("div"); sc.className = "pv-opp-score";
       const hcCard = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
-      sc.textContent = `${p.score??0} pts · 🃏${hcCard}`;
+      sc.textContent = `${p.score??0} pts ·${hcCard}`;
       hdr.appendChild(nm); hdr.appendChild(sc); card.appendChild(hdr);
 
       // face-down hand cards strip, use hand_count for opponents (server sends hand:[])
@@ -11798,7 +11783,7 @@
       "padding:8px 0",
       "border-bottom:1px solid rgba(48,200,240,.2)",
     ].join(";");
-    countEl.textContent = `⚓ ${countLabel}-Player Game`;
+    countEl.textContent = `${countLabel}-Player Game`;
     content.appendChild(countEl);
 
     const sorted = [...players].sort((a, b) => Number(b.score||0) - Number(a.score||0));
@@ -13323,9 +13308,9 @@
       el.innerHTML = `
         <div style="font-size:10.5px;color:rgba(255,255,255,.45);margin-bottom:8px;text-align:center;">${esc(seasonLabel)}</div>
         <div class="comp-lb-tabs">
-          <button class="comp-lb-tab active" data-lb="rank">🏆 Rank</button>
-          <button class="comp-lb-tab" data-lb="hand">✋ Best Hand</button>
-          <button class="comp-lb-tab" data-lb="streak">🔥 Streak</button>
+          <button class="comp-lb-tab active" data-lb="rank">Rank</button>
+          <button class="comp-lb-tab" data-lb="hand">Best Hand</button>
+          <button class="comp-lb-tab" data-lb="streak">Streak</button>
         </div>
         <div id="comp-lb-section-rank"></div>
         <div id="comp-lb-section-hand" style="display:none;"></div>
@@ -13333,7 +13318,6 @@
 
       // King of the Critters block
       const kingHtml = king ? `<div style="background:rgba(255,200,0,.12);border:1px solid rgba(255,160,0,.4);border-radius:8px;padding:9px 12px;margin-bottom:10px;display:flex;align-items:center;gap:10px;">
-        <span style="font-size:22px;">👑</span>
         <div>
           <div style="font-family:'Cinzel',serif;font-weight:900;color:#f5d060;font-size:13px;">${esc(king.name)}</div>
           <div style="font-size:11px;color:rgba(255,255,255,.7);">${king.cp || 0} OP · ${king.wins || 0}W / ${king.losses || 0}L · ${esc(getRankName(king.cp))}</div>
@@ -13386,7 +13370,7 @@
           streakSection.innerHTML = top.slice(0, 10).map((r, i) => `<div class="comp-lb-row">
             <span class="comp-lb-rank">${i+1}</span>
             <span class="comp-lb-name">${esc(r.name)}</span>
-            <span style="font-size:11px;color:#f5d060;">🔥 ${r.streak || 0} now</span>
+            <span style="font-size:11px;color:#f5d060;">${r.streak || 0} now</span>
             <span style="font-size:11px;color:rgba(255,255,255,.7);">Best: ${r.best_streak || 0}</span>
             <span class="comp-lb-cell-rank">${esc(r.rank || getRankName(r.cp))}</span>
           </div>`).join("");
@@ -13420,7 +13404,7 @@
       el.innerHTML = games.map(g => {
         const d = new Date((g.recorded_unix || 0) * 1000).toLocaleDateString();
         return `<div class="comp-hist-row">
-          <div><span class="comp-hist-winner">🏆 ${g.winner}</span> vs ${g.p1_name === g.winner ? g.p2_name : g.p1_name} · ${d}</div>
+          <div><span class="comp-hist-winner">${g.winner}</span> vs ${g.p1_name === g.winner ? g.p2_name : g.p1_name} · ${d}</div>
           <div style="color:var(--muted);font-size:11px;margin-top:2px;">
             ${g.p1_name}: ${g.p1_best_score}pts &nbsp; ${g.p2_name}: ${g.p2_best_score}pts &nbsp;
             Strategy: ${g.strategy || "?"}
@@ -14727,7 +14711,7 @@
         : "";
       bar.classList.add("visible");
       bar.innerHTML = `<div class="guide-step">
-        <span class="gs active">💳 Paying for <strong>${name}</strong>, click or hover ${cost} card${cost!==1?"s":""} below and tap <em>Use as Payment</em>${symHint}, then hit <em>Confirm Payment</em>${offHint}</span>
+        <span class="gs active">Paying for <strong>${name}</strong>, click or hover ${cost} card${cost!==1?"s":""} below and tap <em>Use as Payment</em>${symHint}, then hit <em>Confirm Payment</em>${offHint}</span>
       </div>`;
       return;
     }
@@ -14735,7 +14719,7 @@
     if (tarponActive) {
       bar.classList.add("visible");
       bar.innerHTML = `<div class="guide-step">
-        <span class="gs active">🐟 Tarpon, tap as many cards as you want to discard (they turn gold), then click <em>🐟 Discard &amp; Draw</em> to swap them for the same number of fresh cards. Tap a card again to deselect, or click <em>Keep hand</em> to discard none.</span>
+        <span class="gs active">Tarpon, tap as many cards as you want to discard (they turn gold), then click <em>Discard &amp; Draw</em> to swap them for the same number of fresh cards. Tap a card again to deselect, or click <em>Keep hand</em> to discard none.</span>
       </div>`;
       return;
     }
@@ -14743,7 +14727,7 @@
     if (mustDiscard) {
       bar.classList.add("visible");
       bar.innerHTML = `<div class="guide-step">
-        <span class="gs active">✂ You have too many cards, select exactly ${discardExcess} to discard, then click Confirm Discard</span>
+        <span class="gs active">You have too many cards, select exactly ${discardExcess} to discard, then click Confirm Discard</span>
       </div>`;
       return;
     }
@@ -15117,7 +15101,7 @@
     if (lw.tarpon_discard_active) {
       const n = selectedDiscard.size;
       btn.disabled = false;
-      btn.textContent = n < 1 ? `🐟 Keep hand, discard none` : `🐟 Discard ${n} & Draw ${n}`;
+      btn.textContent = n < 1 ? `Keep hand, discard none` : `Discard ${n} & Draw ${n}`;
       return;
     }
     const excess = Number(lw.discard_excess||0);
@@ -15671,21 +15655,21 @@
     pvLogVisible = !pvLogVisible;
     document.getElementById("pv-log-float").classList.toggle("open", pvLogVisible);
     document.getElementById("pv-menu-log-btn").textContent =
-      pvLogVisible ? "\u{1F4CB} Game Log: On" : "\u{1F4CB} Game Log: Off";
+      pvLogVisible ? "Game Log: On" : "Game Log: Off";
     closeMenu();
   });
   document.getElementById("pv-menu-chat-btn").addEventListener("click", () => {
     pvcTogglePanel();
     document.getElementById("pv-menu-chat-btn").textContent =
-      _chatPanelOpen ? "\u{1F4AC} Chat: On" : "\u{1F4AC} Chat: Off";
+      _chatPanelOpen ? "Chat: On" : "Chat: Off";
     closeMenu();
   });
   document.getElementById("pv-menu-igcp-btn").addEventListener("click", () => {
     const nowEnabled = window._igcpToggleEnabled?.() ?? true;
     const btn = document.getElementById("pv-menu-igcp-btn");
     if (btn) btn.textContent = nowEnabled
-      ? "\u{1F4C5} Turn off in-game challenges"
-      : "\u{1F4C5} Turn on in-game challenges";
+      ? "Turn off in-game challenges"
+      : "Turn on in-game challenges";
     closeMenu();
   });
   // Sync button label when menu opens
@@ -15696,8 +15680,8 @@
       if (!btn) return;
       const enabled = window._igcpIsEnabled?.() ?? true;
       btn.textContent = enabled
-        ? "\u{1F4C5} Turn off in-game challenges"
-        : "\u{1F4C5} Turn on in-game challenges";
+        ? "Turn off in-game challenges"
+        : "Turn on in-game challenges";
     }, { passive: true });
   })();
   document.getElementById("pv-menu-scores-btn").addEventListener("click", () => {
@@ -15721,7 +15705,7 @@
 
     // rules.html prints this note above the book; the in-game copy says it
     // too, so a player who has read one recognises the other on sight.
-    const RB_NOTE = '<div class="pv-rb-note"><span class="pv-rb-note-ico">\uD83D\uDCD6</span>'
+    const RB_NOTE = '<div class="pv-rb-note">'
       + '<span><b>This is the printed rulebook, word for word.</b> The same book that comes in '
       + 'the box, and the same one How to Play shows on the website. Use the contents below to '
       + 'jump to any section.</span></div>';
@@ -15769,7 +15753,7 @@
       const progress = Math.min(Number(ch.progress || 0), target);
       const pct = Math.min(100, Math.round(100 * progress / target));
       return `<div class="pv-cch-row${ch.done ? " done" : ""}">
-        <div class="pv-cch-top"><b>${ch.done ? "✅ " : ""}${esc(ch.name)}</b>
+        <div class="pv-cch-top"><b>${ch.done ? "✓ " : ""}${esc(ch.name)}</b>
           <span class="pv-cch-rw">+${esc(String(ch.clan_points))} pts</span></div>
         <div class="pv-cch-desc">${esc(ch.desc || "")}</div>
         <div class="pv-cch-bar"><i style="width:${pct}%"></i></div>
@@ -15804,12 +15788,12 @@
         return;
       }
       body.innerHTML =
-        `<div class="pv-cch-note">🛡️ <b>${esc(clan.name || "Your clan")}</b> · `
+        `<div class="pv-cch-note"><b>${esc(clan.name || "Your clan")}</b> · `
         + `${esc(String(clan.points || 0))} Clan Points this season. `
         + "Everything your whole clan does counts toward these.</div>"
-        + groupHtml("🏁 Weekly challenges", clan.challenges,
+        + groupHtml("Weekly challenges", clan.challenges,
                     "New weekly challenges are being finalized.")
-        + groupHtml("🗓️ Season challenges", clan.season_challenges,
+        + groupHtml("Season challenges", clan.season_challenges,
                     "Season challenges are being finalized.");
     }
     function close() { modal.classList.remove("open"); }
@@ -15847,7 +15831,7 @@
     pvLogVisible = false;
     document.getElementById("pv-log-float").classList.remove("open");
     const btn = document.getElementById("pv-menu-log-btn");
-    if (btn) btn.textContent = "\u{1F4CB} Game Log: Off";
+    if (btn) btn.textContent = "Game Log: Off";
   });
 
   function updateMenuScores(players, viewerIdx) {
@@ -15868,7 +15852,7 @@
       }
       const row = document.createElement("div");
       const hc = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
-      row.textContent = `${isMe ? "★ " : ""}${p.name || `P${p.index}`}: ${p.score ?? 0} pts · 🃏${hc}`;
+      row.textContent = `${isMe ? "★ " : ""}${p.name || `P${p.index}`}: ${p.score ?? 0} pts ·${hc}`;
       row.style.fontWeight = isMe ? "700" : "400";
       if (isMe) row.style.color = "var(--gold)";
       el.appendChild(row);
@@ -16569,7 +16553,7 @@
       const isWinner = t.rank === 1;
       const members = (t.members || []).map(m => `${_hesc(m.name)} <b>${m.score}</b>`).join(" · ");
       return `<div class="tr-card${isWinner ? " winner" : ""}${isMine ? " mine" : ""}" style="animation-delay:${(i * STEP).toFixed(2)}s">
-        <div class="tr-rank">${isWinner ? "👑" : (t.rank + rankSuffix(t.rank))}</div>
+        <div class="tr-rank">${isWinner ? "Winner" : (t.rank + rankSuffix(t.rank))}</div>
         <div class="tr-body">
           <div class="tr-team" style="color:${teamHex(t.team)}">${teamName(t.team)} Team${isMine ? ", You" : ""}</div>
           <div class="tr-members">${members || "&nbsp;"}</div>
@@ -16578,7 +16562,7 @@
       </div>`;
     }).join("");
     el.innerHTML = `<div class="tr-inner">
-      <div class="tr-heading">🐠 Team Results</div>
+      <div class="tr-heading">Team Results</div>
       <div class="tr-cards">${cardsHtml}</div>
       <button class="tr-continue" id="tr-continue">Continue →</button>
     </div>`;
@@ -16597,7 +16581,7 @@
   // competitive, AI, daily/weekly/monthly challenges, events, tournaments,
   // clan challenges and the daily login bonus.
   //
-  // ⚠️ It multiplies whatever is handed in, AFTER any existing reduction. An
+  // It multiplies whatever is handed in, AFTER any existing reduction. An
   // AI game is already halved to 50 before it gets here, so a Prestige 3
   // player earns 50 + 25 = 87 from it, the AI reduction survives, which it
   // would not if the bonus were folded into the placement table instead.
@@ -17588,7 +17572,7 @@
       // Runs for both signed-in and guest after the save succeeds.
       if (_streakBonusXp > 0) {
         try {
-          showToast(`🔥 Daily streak bonus! +${_pxStreak} XP, Day ${_streakDayNum}`, "info");
+          showToast(`Daily streak bonus! +${_pxStreak} XP, Day ${_streakDayNum}`, "info");
         } catch (_) {}
       }
 
@@ -17810,7 +17794,7 @@
       try {
         if (!_endSaveIsBusy() && Date.now() - _saveFailToastAt > 8000) {
           _saveFailToastAt = Date.now();
-          showToast(`⚠️ Save failed [${_code}]: ${_msg.slice(0, 140)}`, "err", 12000);
+          showToast(`Save failed [${_code}]: ${_msg.slice(0, 140)}`, "err", 12000);
         }
       } catch (_) {}
     } finally {
@@ -18618,7 +18602,7 @@
         titleEl.textContent = "GAME TERMINATED";
         titleEl.style.cssText = "color:#b84020;text-shadow:0 2px 12px rgba(255,255,255,.7)";
       } else if (_wonTitle) {
-        titleEl.textContent = _teamModeEnd ? "🏆 TEAM VICTORY!" : "🏆 VICTORY!";
+        titleEl.textContent = _teamModeEnd ? "TEAM VICTORY!" : "VICTORY!";
         titleEl.style.cssText = "color:#8a5200;text-shadow:0 2px 18px rgba(255,255,255,.85),0 1px 0 rgba(255,255,255,.9)";
       } else {
         titleEl.textContent = "GAME SUMMARY";
@@ -18691,11 +18675,11 @@
           const _placeDesc = (_teamModeEnd && _myTeamRank != null)
             ? ("Team " + _myTeamRank + rankSuffix(_myTeamRank) + " place")
             : (myRank + rankSuffix(myRank) + " place");
-          addReward("🏆", "Placement Reward", _placeDesc, xpBase, false);
+          addReward("", "Placement Reward", _placeDesc, xpBase, false);
         }
         // Beating the bots, by the hardest rank at the table.
         if (_botWin.xp > 0 && totalXp > 0) {
-          addReward("🏅", "Beat the Bots",
+          addReward("", "Beat the Bots",
             _botWin.tier === "GS" ? "You beat the Giant Squid" : ("You beat a rank " + _botWin.tier + " bot"),
             _botWin.xp, false);
         }
@@ -18707,7 +18691,7 @@
           [first100Names.includes(myName),    "First to 100 Points"],
           [highCardWhoList.includes(myName),  "Highest Scoring Card"],
         ];
-        statRewards.forEach(([won, label]) => { if (won) addReward("⭐", "Match Stat Bonus", label, 15, false); });
+        statRewards.forEach(([won, label]) => { if (won) addReward("", "Match Stat Bonus", label, 15, false); });
         // Newly-completed challenges (mirror the Challenges panel). Dailies
         // first: they are the smaller, more frequent win and reading them at
         // the top is how the summary shows the day moving.
@@ -18720,9 +18704,9 @@
           }
         } catch (_) {}
         // Progress status rows.
-        addReward("🧠", "Strategy Progress", "Updated", 0, true);
-        addReward("🎖️", "Achievement Progress", "Updated", 0, true);
-        addReward("📈", "Level Progress", "Updated", 0, true);
+        addReward("", "Strategy Progress", "Updated", 0, true);
+        addReward("", "Achievement Progress", "Updated", 0, true);
+        addReward("", "Level Progress", "Updated", 0, true);
         rl.innerHTML = rows.length
           ? rows.join("")
           : `<div id="gs-rewards-empty">No rewards earned this game.</div>`;
@@ -18797,7 +18781,7 @@
         // guest with no profile doc to look up).
         const liveAv = pvLiveAvatar(p.name) || String(playerObj?.avatar || "");
         const avatarUrl = (isMe && myAvatarUrl) ? myAvatarUrl : (liveAv || fallbackAvatar);
-        const rankIcon = r===1?"🥇":r===2?"🥈":r===3?"🥉":r;
+        const rankIcon = "#" + r;
         const row = document.createElement("div");
         row.className = "gs-st-row" + (isMe ? " gs-st-me" : "");
         row.innerHTML = `
@@ -19147,7 +19131,7 @@
     if (btn) {
       btn.disabled = false;
       btn.classList.remove("gs-btn-readied");
-      btn.innerHTML = "🔄 Play Again";
+      btn.innerHTML = "Play Again";
     }
     const status = document.getElementById("gs-again-status");
     if (status) { status.classList.remove("show"); status.textContent = ""; }
@@ -19224,14 +19208,14 @@
     // A game we only WATCHED ends the same way, the natural next step is the next
     // live match, not a rematch we have no seat for.
     spec.textContent = ctx.watching
-      ? (ctx.live > 1 ? `👁 Watch Another Match (${ctx.live} live)` : "👁 Watch Another Match")
-      : (ctx.live > 1 ? `👁 Spectate a Match (${ctx.live} live)` : "👁 Spectate a Match");
+      ? (ctx.live > 1 ? `Watch Another Match (${ctx.live} live)` : "Watch Another Match")
+      : (ctx.live > 1 ? `Spectate a Match (${ctx.live} live)` : "Spectate a Match");
     wait.style.display = "";
     // Knocked out (or the whole bracket is done) → there is no next match to wait
     // for, so that button goes back to the tournament instead.
-    wait.textContent = ctx.finished ? "🏆 See Final Standings"
-                     : ctx.over ? "🏆 Follow the Tournament"
-                     : "⏳ Wait for Next Match in Lobby";
+    wait.textContent = ctx.finished ? "See Final Standings"
+                     : ctx.over ? "Follow the Tournament"
+                     : "Wait for Next Match in Lobby";
   }
   // Reflect the server-reported ready count + leaver notices on every poll while
   // the end screen is up. Called from renderEndGame with payload.play_again.
@@ -19292,7 +19276,7 @@
       } else {
         btn.disabled = false;
         btn.classList.remove("gs-btn-readied");
-        btn.innerHTML = "🔄 Play Again";
+        btn.innerHTML = "Play Again";
       }
     }
   }
@@ -19421,7 +19405,7 @@
   let _pvcComposer = null;         // shared recipient composer instance (lazy)
 
   // ── Chat mute, per game ────────────────────────────────────────
-  // Muting only silences the notifications OUTSIDE the panel: the 💬 button
+  // Muting only silences the notifications OUTSIDE the panel: the button
   // badge, the lobby chat badge and the back-arrow dot. Messages keep
   // arriving and unread counts keep counting, so the chat itself is always
   // one click away, and unmuting restores the exact badge you would have had.
@@ -19806,7 +19790,7 @@
     const btn = _pg("pv-chat-mute");
     if (btn) {
       const on = _chatMuteMode !== "none";
-      btn.textContent = on ? "🔕" : "🔔";
+      btn.textContent = on ? "Muted" : "Mute";
       btn.classList.toggle("muted", on);
       const t = _CHAT_MUTE_LABEL[_chatMuteMode] + (on ? " click to change" : " click to mute for this game");
       btn.title = t; btn.setAttribute("aria-label", t);
@@ -19968,7 +19952,7 @@
       const curUnread = (!(_chatPanelOpen && _chatView === "room"))
         ? Math.max(0, _chatRoomTotal - _chatSeenCount) : 0;
       const roomLabels = pvcRoomChatLabels();
-      cur.appendChild(_pvcRowInner("🎮", roomLabels.title, roomLabels.subtitle, "", curUnread, true));
+      cur.appendChild(_pvcRowInner((String(roomLabels.title || "#")[0] || "#").toUpperCase(), roomLabels.title, roomLabels.subtitle, "", curUnread, true));
       cur.addEventListener("click", () => pvcOpenRoom());
       listEl.appendChild(cur);
     }
@@ -19991,7 +19975,7 @@
         const row = document.createElement("div");
         row.className = "pvc-row";
         const name = c.group ? c.name : c.peerName;
-        const icon = c.group ? "👥" : (String(name || "?")[0] || "?").toUpperCase();
+        const icon = (String(name || "?")[0] || "?").toUpperCase();
         row.appendChild(_pvcRowInner(icon, name || "Player", c.last_text || "No messages yet",
                                      M.timeLabel(c.last_ts), c.unread || 0, false));
         row.addEventListener("click", () => pvcOpenConv(c));
@@ -20019,8 +20003,10 @@
   function _pvcRowInner(icon, name, preview, time, unread, isImgName) {
     const frag = document.createDocumentFragment();
     const av = document.createElement("div"); av.className = "pvc-av";
-    const letter = document.createElement("span"); letter.className = "pvc-av-letter"; letter.textContent = icon;
-    av.appendChild(letter);
+    if (icon) {
+      const letter = document.createElement("span"); letter.className = "pvc-av-letter"; letter.textContent = icon;
+      av.appendChild(letter);
+    }
     const body = document.createElement("div"); body.className = "pvc-row-body";
     const top = document.createElement("div"); top.className = "pvc-row-top";
     const nm = document.createElement("span"); nm.className = "pvc-row-name"; nm.textContent = name;
@@ -20079,7 +20065,7 @@
     cl(wrap);
     if (!msgs.length) {
       const e = document.createElement("div"); e.className = "pvc-conv-empty";
-      e.textContent = "No messages yet. Say hi! 🐟"; wrap.appendChild(e);
+      e.textContent = "No messages yet. Say hi!"; wrap.appendChild(e);
     } else {
       msgs.forEach(m => {
         // The live trade: one card, redrawn in place, never a pile of lines.
@@ -20279,7 +20265,7 @@
   _pg("pv-chat-gear").addEventListener("click", () => {
     if (_chatConv && _chatConv.group) pvcOpenGroupModal("settings", _chatConv);
   });
-  // Mute: 🔔/🔕 opens the little "what should stop badging" menu.
+  // Mute:/opens the little "what should stop badging" menu.
   {
     const mbtn = _pg("pv-chat-mute");
     const menu = _pg("pv-chat-mute-menu");
@@ -21264,7 +21250,7 @@
     const btn = document.getElementById("pv-surf-btn");
     if (!btn) return;
     btn.classList.toggle("is-away", _imAway);
-    btn.innerHTML = _imAway ? "🌊 I'm Back" : "🏄 Surf's Up!!";
+    btn.innerHTML = _imAway ? "I'm Back" : "Surf's Up!!";
     btn.title = _imAway
       ? "You're Away, you can't play any moves. Tap to come back and resume your turn."
       : "Surf's Up!!, mark yourself officially Away. The table waits for you and no one can report you AFK. While Away you can't play any moves, tap 'I'm Back' to return.";
@@ -21681,7 +21667,7 @@
   const PHST_EMOTE_PACK_SIZE    = 5;     // critters granted per Emote Pack
   const PHST_REEARN_COIN_PRICE  = 2500;  // buy back one traded-away critter
   // A CUSTOM friend code: you choose it, and it is reserved to your account.
-  // ⚠️ Must equal CUSTOM_CODE_COIN_PRICE in multiplayer_server.py, which is what
+  // Must equal CUSTOM_CODE_COIN_PRICE in multiplayer_server.py, which is what
   // actually takes the coins. The Supporter Tiers hand these out too (1/2/4/8),
   // and a held token is spent before any coins are.
   const PHST_CUSTOM_CODE_PRICE  = 1000;
@@ -21945,67 +21931,67 @@
   // Secret achievements use hidden:true (UI shows "Secret Achievement"
   // until unlocked, then reveals name + requirement).
   const ACHIEVEMENT_DEFS = [
-    { id:"first_fin",               name:"First Fin",                 icon:"👥", cat:"Friends",     xp:50,    desc:"Add 1 friend." },
-    { id:"cast_off",                name:"Cast Off",                  icon:"🎣", cat:"Casual",      xp:50,    desc:"Play your first Casual game." },
-    { id:"ranked_waters",           name:"Ranked Waters",             icon:"⚔️", cat:"Competitive", xp:50,    desc:"Play your first Competitive game." },
-    { id:"shoal_formed",            name:"Shoal Formed",              icon:"🐟", cat:"Friends",     xp:100,   desc:"Add 5 friends." },
-    { id:"first_catch",             name:"First Catch",               icon:"🏅", cat:"Casual",      xp:100,   desc:"Win your first Casual game." },
-    { id:"making_waves",            name:"Making Waves",              icon:"🌊", cat:"Casual",      xp:100,   desc:"Score 100+ in Casual with 4+ players." },
-    { id:"the_all_blue",            name:"The All Blue",              icon:"🌍", cat:"Special",     xp:150,   desc:"Play all 8 Oceans in one game." },
-    { id:"crowded_current",         name:"Crowded Current",           icon:"🐠", cat:"Casual",      xp:150,   desc:"Complete a 6-player Casual game." },
-    { id:"duel_in_the_deep",        name:"Duel in the Deep",          icon:"🥇", cat:"Competitive", xp:200,   desc:"Win your first Competitive game." },
-    { id:"big_splash",              name:"Big Splash",                icon:"💦", cat:"Casual",      xp:250,   desc:"Score 150+ in Casual with 4+ players." },
-    { id:"host_with_the_most",      name:"Host With the Most",        icon:"🏠", cat:"Casual",      xp:250,   desc:"Create and finish 10 Casual games as host." },
-    { id:"ranked_tidal_wave",       name:"Ranked Tidal Wave",         icon:"🌊", cat:"Competitive", xp:250,   desc:"Score 125+ in one hand in Competitive." },
-    { id:"silver_spiny_lobster",    name:"Silver Spiny Lobster",      icon:"🦞", cat:"Rank",        xp:250,   desc:"Reach Silver rank." },
-    { id:"one_ocean_wonder",        name:"One Ocean Wonder",          icon:"🏝️", cat:"All Modes",   xp:250,   desc:"Win a game where every Ocean is the same type." },
-    { id:"humuhumunukuapuaa",       name:"Humuhumunukuapua'a",        icon:"🐙", cat:"Special",     xp:250,   desc:"Play 5 cephalopods in one turn." },
-    { id:"full_boat",               name:"Full Boat",                 icon:"⛵", cat:"Casual",      xp:300,   desc:"Complete an 8-player Casual game with all real players." },
-    { id:"last_current",            name:"Last Current",              icon:"⏳", cat:"All Modes",   xp:500,   desc:"Win after the End Game card appears." },
-    { id:"tidal_wave",              name:"Tidal Wave",                icon:"🌊", cat:"Casual",      xp:500,   desc:"Score 250+ in Casual with 4+ players." },
-    { id:"golden_grouper",          name:"Golden Grouper",            icon:"🐡", cat:"Rank",        xp:500,   desc:"Reach Golden rank." },
-    { id:"quick_swim",              name:"Quick Swim",                icon:"⚡", cat:"All Modes",   xp:500,   desc:"Complete a 4-player game in under 30 minutes and win." },
-    { id:"i_dont_need_help",        name:"I Don't Need Help",         icon:"🙅", cat:"All Modes",   xp:2000,  desc:"Win a game without manually drawing from the Pool or Deck." },
-    { id:"reef_reunion",            name:"Reef Reunion",              icon:"🤡", cat:"Special",     xp:500,   desc:"Play a Clownfish and Blue Tang on the same Ocean." },
-    { id:"twin_tide_triumph",       name:"Twin Tide Triumph",         icon:"🤝", cat:"Competitive", xp:750,   desc:"Win a Competitive game with both your hands beating your opponent's best." },
-    { id:"nothing_but_deck",        name:"Nothing But Deck",          icon:"🃏", cat:"All Modes",   xp:750,   desc:"Win a game without drawing from the Pool." },
-    { id:"current_controller",      name:"Current Controller",        icon:"🔄", cat:"All Modes",   xp:900,   desc:"Move 15 animals between Oceans in one game." },
-    { id:"tsunami",                 name:"Tsunami",                   icon:"🌊", cat:"Casual",      xp:1000,  desc:"Score 300+ in a Casual game." },
-    { id:"ranked_tsunami",          name:"Ranked Tsunami",            icon:"⚡", cat:"Competitive", xp:1000,  desc:"Score 150+ in one hand in Competitive." },
-    { id:"shoot_the_moon",          name:"Shoot the Moon",            icon:"🌙", cat:"Special",     xp:1000,  desc:"Have all 4 Mandarin Gobies on the board in one game." },
-    { id:"diamond_dolphin",         name:"Diamond Dolphin",           icon:"💎", cat:"Rank",        xp:1000,  desc:"Reach Diamond rank." },
-    { id:"back_to_back_diver",      name:"Back-to-Back Diver",        icon:"🤿", cat:"All Modes",   xp:1000,  desc:"Win without using the Pool in both a Casual and Competitive game back to back." },
-    { id:"board_fixer",             name:"Board Fixer",               icon:"🔧", cat:"All Modes",   xp:1000,  desc:"Move an animal on your final turn and win." },
-    { id:"first_ocean_master",      name:"First Ocean Master",        icon:"🌐", cat:"All Modes",   xp:1000,  desc:"Win once with every Ocean type as your first Ocean." },
-    { id:"circle_of_life",          name:"Circle of Life",            icon:"♻️", cat:"All Modes",   xp:1000,  desc:"Win with 8 different species on your board." },
-    { id:"shot_the_moon",           name:"Shot the Moon",             icon:"🌕", cat:"Special",     xp:1500,  desc:"Clear the pool while one of your cards is a Mandarin Goby, and another player has the other 3 Mandarin Gobies on their board." },
-    { id:"reef_rally",              name:"Reef Rally",                icon:"🐠", cat:"Friends",     xp:1500,  desc:"Add 15 friends." },
-    { id:"emerald_emperor_penguin", name:"Emerald Emperor Penguin",   icon:"🐧", cat:"Rank",        xp:1500,  desc:"Reach Emerald rank." },
-    { id:"no_star_needed",          name:"No Star Needed",            icon:"✨", cat:"All Modes",   xp:1500,  desc:"Win a game without activating a ★ ability." },
-    { id:"two_handed_tide",         name:"Two-Handed Tide",           icon:"🙌", cat:"Competitive", xp:1500,  desc:"Score 125+ with both hands in one Competitive game." },
-    { id:"hard_choices",            name:"Hard Choices",              icon:"🔀", cat:"All Modes",   xp:1500,  desc:"Discard 100 cards to pay card costs." },
-    { id:"better_spot",             name:"Better Spot",               icon:"📈", cat:"All Modes",   xp:1500,  desc:"Move an animal to a higher-scoring Ocean and win." },
-    { id:"close_current",           name:"Close Current",             icon:"🎯", cat:"Competitive", xp:2000,  desc:"Win a Competitive game by 5 points or less." },
-    { id:"reef_regular",            name:"Reef Regular",              icon:"🪸", cat:"Casual",      xp:2000,  desc:"Finish 100 Casual games." },
-    { id:"perfect_symbol",          name:"Perfect Symbol",            icon:"🔷", cat:"All Modes",   xp:2000,  desc:"Activate a ★ ability with a matching symbol 100 times." },
-    { id:"every_last_drop",         name:"Every Last Drop",           icon:"💧", cat:"Special",     xp:2500,  desc:"Have every copy of one Ocean type on your board in one game (all 6 Tide Pools, all 8 Deep Oceans, all 13 Coral Reefs…)." },
-    { id:"daily_tide_sweep",        name:"Daily Tide Sweep",          icon:"📅", cat:"Challenges",  xp:400,   desc:"Complete all 3 of your daily challenges in one day." },
-    { id:"weekly_tide_sweep",       name:"Weekly Tide Sweep",         icon:"🗓️", cat:"Challenges",  xp:1500,  desc:"Complete all 3 of your weekly challenges in one week." },
-    { id:"reef_veteran",            name:"Reef Veteran",              icon:"⚓", cat:"Casual",      xp:4000,  desc:"Finish 250 Casual games." },
-    { id:"mammal_pod_master",       name:"Mammal Pod Master",         icon:"🐬", cat:"Strategy",    xp:5000,  desc:"Win using Mammals 12 times." },
-    { id:"baitfish_barrage_master", name:"Baitfish Barrage Master",   icon:"🎣", cat:"Strategy",    xp:5000,  desc:"Win using Baitfish Barrage 12 times." },
-    { id:"b_lob_master",            name:"B-Lob Master",              icon:"🪺", cat:"Strategy",    xp:5000,  desc:"Win using Bird/Lobster 12 times." },
-    { id:"coral_b_master",          name:"Coral-B Master",            icon:"🪸", cat:"Strategy",    xp:5000,  desc:"Win using Bird/Coral 12 times." },
-    { id:"c_c_master",              name:"C-C Master",                icon:"🎭", cat:"Strategy",    xp:5000,  desc:"Win using Coral/Cephalopods 12 times." },
-    { id:"off_meta_master",         name:"Off-Meta Master",           icon:"🃏", cat:"Strategy",    xp:5000,  desc:"Win 10 games after randomizing 2 or more strategies in the in-game Strategy Builder." },
-    { id:"king_of_the_critters",    name:"King of the Critters",      icon:"👑", cat:"Rank",        xp:10000, desc:"Reach King of the Critters rank." },
-    { id:"message_in_a_bottle",          name:"Message in a Bottle",          icon:"📬", cat:"Hidden", xp:1500, desc:"Send 25 messages in one game.", hidden:true },
-    { id:"ive_swum_there",               name:"I've Swum There",               icon:"🗺️", cat:"Hidden", xp:1500, desc:"Play with every player count (2–8) in Casual.", hidden:true },
-    { id:"annoying_messenger",           name:"Annoying Messenger",            icon:"📢", cat:"Hidden", xp:1500, desc:"Send 20 compliments during one Competitive game.", hidden:true },
-    { id:"saving_the_invertebrates",     name:"Saving the Invertebrates",      icon:"🪼", cat:"Hidden", xp:2500, desc:"Find all the invertebrates and recruit the spinner dolphin.", hidden:true,
+    { id:"first_fin",               name:"First Fin",                 icon:"", cat:"Friends",     xp:50,    desc:"Add 1 friend." },
+    { id:"cast_off",                name:"Cast Off",                  icon:"", cat:"Casual",      xp:50,    desc:"Play your first Casual game." },
+    { id:"ranked_waters",           name:"Ranked Waters",             icon:"", cat:"Competitive", xp:50,    desc:"Play your first Competitive game." },
+    { id:"shoal_formed",            name:"Shoal Formed",              icon:"", cat:"Friends",     xp:100,   desc:"Add 5 friends." },
+    { id:"first_catch",             name:"First Catch",               icon:"", cat:"Casual",      xp:100,   desc:"Win your first Casual game." },
+    { id:"making_waves",            name:"Making Waves",              icon:"", cat:"Casual",      xp:100,   desc:"Score 100+ in Casual with 4+ players." },
+    { id:"the_all_blue",            name:"The All Blue",              icon:"", cat:"Special",     xp:150,   desc:"Play all 8 Oceans in one game." },
+    { id:"crowded_current",         name:"Crowded Current",           icon:"", cat:"Casual",      xp:150,   desc:"Complete a 6-player Casual game." },
+    { id:"duel_in_the_deep",        name:"Duel in the Deep",          icon:"", cat:"Competitive", xp:200,   desc:"Win your first Competitive game." },
+    { id:"big_splash",              name:"Big Splash",                icon:"", cat:"Casual",      xp:250,   desc:"Score 150+ in Casual with 4+ players." },
+    { id:"host_with_the_most",      name:"Host With the Most",        icon:"", cat:"Casual",      xp:250,   desc:"Create and finish 10 Casual games as host." },
+    { id:"ranked_tidal_wave",       name:"Ranked Tidal Wave",         icon:"", cat:"Competitive", xp:250,   desc:"Score 125+ in one hand in Competitive." },
+    { id:"silver_spiny_lobster",    name:"Silver Spiny Lobster",      icon:"", cat:"Rank",        xp:250,   desc:"Reach Silver rank." },
+    { id:"one_ocean_wonder",        name:"One Ocean Wonder",          icon:"", cat:"All Modes",   xp:250,   desc:"Win a game where every Ocean is the same type." },
+    { id:"humuhumunukuapuaa",       name:"Humuhumunukuapua'a",        icon:"", cat:"Special",     xp:250,   desc:"Play 5 cephalopods in one turn." },
+    { id:"full_boat",               name:"Full Boat",                 icon:"", cat:"Casual",      xp:300,   desc:"Complete an 8-player Casual game with all real players." },
+    { id:"last_current",            name:"Last Current",              icon:"", cat:"All Modes",   xp:500,   desc:"Win after the End Game card appears." },
+    { id:"tidal_wave",              name:"Tidal Wave",                icon:"", cat:"Casual",      xp:500,   desc:"Score 250+ in Casual with 4+ players." },
+    { id:"golden_grouper",          name:"Golden Grouper",            icon:"", cat:"Rank",        xp:500,   desc:"Reach Golden rank." },
+    { id:"quick_swim",              name:"Quick Swim",                icon:"", cat:"All Modes",   xp:500,   desc:"Complete a 4-player game in under 30 minutes and win." },
+    { id:"i_dont_need_help",        name:"I Don't Need Help",         icon:"", cat:"All Modes",   xp:2000,  desc:"Win a game without manually drawing from the Pool or Deck." },
+    { id:"reef_reunion",            name:"Reef Reunion",              icon:"", cat:"Special",     xp:500,   desc:"Play a Clownfish and Blue Tang on the same Ocean." },
+    { id:"twin_tide_triumph",       name:"Twin Tide Triumph",         icon:"", cat:"Competitive", xp:750,   desc:"Win a Competitive game with both your hands beating your opponent's best." },
+    { id:"nothing_but_deck",        name:"Nothing But Deck",          icon:"", cat:"All Modes",   xp:750,   desc:"Win a game without drawing from the Pool." },
+    { id:"current_controller",      name:"Current Controller",        icon:"", cat:"All Modes",   xp:900,   desc:"Move 15 animals between Oceans in one game." },
+    { id:"tsunami",                 name:"Tsunami",                   icon:"", cat:"Casual",      xp:1000,  desc:"Score 300+ in a Casual game." },
+    { id:"ranked_tsunami",          name:"Ranked Tsunami",            icon:"", cat:"Competitive", xp:1000,  desc:"Score 150+ in one hand in Competitive." },
+    { id:"shoot_the_moon",          name:"Shoot the Moon",            icon:"", cat:"Special",     xp:1000,  desc:"Have all 4 Mandarin Gobies on the board in one game." },
+    { id:"diamond_dolphin",         name:"Diamond Dolphin",           icon:"", cat:"Rank",        xp:1000,  desc:"Reach Diamond rank." },
+    { id:"back_to_back_diver",      name:"Back-to-Back Diver",        icon:"", cat:"All Modes",   xp:1000,  desc:"Win without using the Pool in both a Casual and Competitive game back to back." },
+    { id:"board_fixer",             name:"Board Fixer",               icon:"", cat:"All Modes",   xp:1000,  desc:"Move an animal on your final turn and win." },
+    { id:"first_ocean_master",      name:"First Ocean Master",        icon:"", cat:"All Modes",   xp:1000,  desc:"Win once with every Ocean type as your first Ocean." },
+    { id:"circle_of_life",          name:"Circle of Life",            icon:"", cat:"All Modes",   xp:1000,  desc:"Win with 8 different species on your board." },
+    { id:"shot_the_moon",           name:"Shot the Moon",             icon:"", cat:"Special",     xp:1500,  desc:"Clear the pool while one of your cards is a Mandarin Goby, and another player has the other 3 Mandarin Gobies on their board." },
+    { id:"reef_rally",              name:"Reef Rally",                icon:"", cat:"Friends",     xp:1500,  desc:"Add 15 friends." },
+    { id:"emerald_emperor_penguin", name:"Emerald Emperor Penguin",   icon:"", cat:"Rank",        xp:1500,  desc:"Reach Emerald rank." },
+    { id:"no_star_needed",          name:"No Star Needed",            icon:"", cat:"All Modes",   xp:1500,  desc:"Win a game without activating a ★ ability." },
+    { id:"two_handed_tide",         name:"Two-Handed Tide",           icon:"", cat:"Competitive", xp:1500,  desc:"Score 125+ with both hands in one Competitive game." },
+    { id:"hard_choices",            name:"Hard Choices",              icon:"", cat:"All Modes",   xp:1500,  desc:"Discard 100 cards to pay card costs." },
+    { id:"better_spot",             name:"Better Spot",               icon:"", cat:"All Modes",   xp:1500,  desc:"Move an animal to a higher-scoring Ocean and win." },
+    { id:"close_current",           name:"Close Current",             icon:"", cat:"Competitive", xp:2000,  desc:"Win a Competitive game by 5 points or less." },
+    { id:"reef_regular",            name:"Reef Regular",              icon:"", cat:"Casual",      xp:2000,  desc:"Finish 100 Casual games." },
+    { id:"perfect_symbol",          name:"Perfect Symbol",            icon:"", cat:"All Modes",   xp:2000,  desc:"Activate a ★ ability with a matching symbol 100 times." },
+    { id:"every_last_drop",         name:"Every Last Drop",           icon:"", cat:"Special",     xp:2500,  desc:"Have every copy of one Ocean type on your board in one game (all 6 Tide Pools, all 8 Deep Oceans, all 13 Coral Reefs…)." },
+    { id:"daily_tide_sweep",        name:"Daily Tide Sweep",          icon:"", cat:"Challenges",  xp:400,   desc:"Complete all 3 of your daily challenges in one day." },
+    { id:"weekly_tide_sweep",       name:"Weekly Tide Sweep",         icon:"", cat:"Challenges",  xp:1500,  desc:"Complete all 3 of your weekly challenges in one week." },
+    { id:"reef_veteran",            name:"Reef Veteran",              icon:"", cat:"Casual",      xp:4000,  desc:"Finish 250 Casual games." },
+    { id:"mammal_pod_master",       name:"Mammal Pod Master",         icon:"", cat:"Strategy",    xp:5000,  desc:"Win using Mammals 12 times." },
+    { id:"baitfish_barrage_master", name:"Baitfish Barrage Master",   icon:"", cat:"Strategy",    xp:5000,  desc:"Win using Baitfish Barrage 12 times." },
+    { id:"b_lob_master",            name:"B-Lob Master",              icon:"", cat:"Strategy",    xp:5000,  desc:"Win using Bird/Lobster 12 times." },
+    { id:"coral_b_master",          name:"Coral-B Master",            icon:"", cat:"Strategy",    xp:5000,  desc:"Win using Bird/Coral 12 times." },
+    { id:"c_c_master",              name:"C-C Master",                icon:"", cat:"Strategy",    xp:5000,  desc:"Win using Coral/Cephalopods 12 times." },
+    { id:"off_meta_master",         name:"Off-Meta Master",           icon:"", cat:"Strategy",    xp:5000,  desc:"Win 10 games after randomizing 2 or more strategies in the in-game Strategy Builder." },
+    { id:"king_of_the_critters",    name:"King of the Critters",      icon:"", cat:"Rank",        xp:10000, desc:"Reach King of the Critters rank." },
+    { id:"message_in_a_bottle",          name:"Message in a Bottle",          icon:"", cat:"Hidden", xp:1500, desc:"Send 25 messages in one game.", hidden:true },
+    { id:"ive_swum_there",               name:"I've Swum There",               icon:"", cat:"Hidden", xp:1500, desc:"Play with every player count (2–8) in Casual.", hidden:true },
+    { id:"annoying_messenger",           name:"Annoying Messenger",            icon:"", cat:"Hidden", xp:1500, desc:"Send 20 compliments during one Competitive game.", hidden:true },
+    { id:"saving_the_invertebrates",     name:"Saving the Invertebrates",      icon:"", cat:"Hidden", xp:2500, desc:"Find all the invertebrates and recruit the spinner dolphin.", hidden:true,
       avatarReward:"/avatars/spinner-dolphin.png" },
-    { id:"narwhal_mammal_wins",          name:"Pod of Ten",                    icon:"🐬", cat:"Hidden", xp:0, desc:"Win 10 games using the Mammals strategy.", hidden:true },
-    { id:"it_is_finally_over",           name:"It Is Finally Over",            icon:"🦑", cat:"Hidden", xp:1000, desc:"Beat the Giant Squid in a 1v1 match.", hidden:true,
+    { id:"narwhal_mammal_wins",          name:"Pod of Ten",                    icon:"", cat:"Hidden", xp:0, desc:"Win 10 games using the Mammals strategy.", hidden:true },
+    { id:"it_is_finally_over",           name:"It Is Finally Over",            icon:"", cat:"Hidden", xp:1000, desc:"Beat the Giant Squid in a 1v1 match.", hidden:true,
       avatarReward:"/avatars/sea-anemone.png" },
   ];
   // Current Controller (admin), Achievement Tester reads the full def list.
@@ -22220,7 +22206,7 @@
     // ── Legal ────────────────────────────────────────────────────────
     // Nothing gates sign-in. First sign-in is ONE screen: pick a username.
     // The Privacy Policy is always available, unprompted, from
-    // Settings → 📜 Legal (ccShowPrivacy) and at /privacy on the website.
+    // Settings → Legal (ccShowPrivacy) and at /privacy on the website.
 
     // ════════════════════════════════════════════════════════════════
     // DEDICATED GAME-WINDOW LAUNCHER (Steam-style, no install)
@@ -22355,27 +22341,27 @@
           img.src = opts.avatarUrl; img.style.display = ""; initEl.style.display = "none";
         } else {
           img.style.display = "none"; initEl.style.display = "";
-          initEl.textContent = opts.nick ? opts.nick.trim().charAt(0).toUpperCase() : "🐙";
+          initEl.textContent = opts.nick ? opts.nick.trim().charAt(0).toUpperCase() : "?";
         }
       }
       if (state === "running") {
-        if (greet) greet.textContent = "Currents and Critters is running 🌊";
+        if (greet) greet.textContent = "Currents and Critters is running";
         if (sub)   sub.textContent   = "Your game opened in its own window. Keep this tab open, jump back anytime.";
         if (primary) { primary.textContent = "↩ Return to Game"; primary.dataset.action = "return"; primary.style.display = ""; }
-        if (second)  { second.textContent  = "🔁 Relaunch Game"; second.style.display = ""; }
+        if (second)  { second.textContent  = "Relaunch Game"; second.style.display = ""; }
         if (cont)    cont.style.display = "none";
         focusGameWindow();
       } else if (state === "blocked") {
         if (greet) greet.textContent = "Your browser blocked the game window";
         if (sub)   sub.textContent   = "Allow pop-ups for this site, then tap below to open Currents and Critters.";
-        if (primary) { primary.textContent = "🎮 Open Game"; primary.dataset.action = "open"; primary.style.display = ""; }
+        if (primary) { primary.textContent = "Open Game"; primary.dataset.action = "open"; primary.style.display = ""; }
         if (second)  second.style.display = "none";
         if (cont)    cont.style.display = "";
         if (errEl)   errEl.textContent = opts.message || "";
       } else { // "ready"
         if (greet) greet.textContent = opts.nick ? ("Welcome back, " + opts.nick + "!") : "Ready to dive in!";
         if (sub)   sub.textContent   = "Tap below to dive into Currents and Critters.";
-        if (primary) { primary.textContent = "🎮 Open Game"; primary.dataset.action = "open"; primary.style.display = ""; }
+        if (primary) { primary.textContent = "Open Game"; primary.dataset.action = "open"; primary.style.display = ""; }
         if (second)  second.style.display = "none";
         if (cont)    cont.style.display = "none";
       }
@@ -23047,7 +23033,7 @@
         const landed = (saved && typeof saved.stats === "object") ? saved.stats : clean;
         if (icons.length) _unlockedIcons = Array.from(new Set([..._unlockedIcons, ...icons]));
         _activeProfile = { ...(_activeProfile || {}), uid, stats: landed };
-        showToast(`🎁 Your guest progress came with you: ${Number(landed.completed_games || 0).toLocaleString()} `
+        showToast(`Your guest progress came with you: ${Number(landed.completed_games || 0).toLocaleString()} `
           + `game${Number(landed.completed_games) === 1 ? "" : "s"} and `
           + `${Number(landed.total_xp || 0).toLocaleString()} XP.`, "good");
         return true;
@@ -23118,7 +23104,7 @@
         thumb.appendChild(img);
         if (!unlocked) {
           const lock = document.createElement("div");
-          lock.className = "animal-card-lock"; lock.textContent = "🔒";
+          lock.className = "animal-card-lock"; lock.textContent = "";
           thumb.appendChild(lock);
         }
         card.appendChild(thumb);
@@ -23467,7 +23453,7 @@
 
       if (!unlocked) {
         const lock = document.createElement("div");
-        lock.className = "gal-tile-lock"; lock.textContent = "🔒";
+        lock.className = "gal-tile-lock"; lock.textContent = "";
         tile.appendChild(lock);
       }
       if (equipped) {
@@ -23582,7 +23568,7 @@
       const ring = document.createElement("div");
       ring.className = "gal-tile-img-ring gal-bg-ring" + (isNone ? " gal-bg-none-ring" : "");
       if (isNone) {
-        ring.innerHTML = `<span class="gal-bg-none-icon">🚫</span>`;
+        ring.innerHTML = ``;
       } else {
         const im = document.createElement("img");
         im.className = "gal-tile-img gal-bg-img";
@@ -23598,7 +23584,7 @@
 
       if (!unlocked) {
         const lock = document.createElement("div");
-        lock.className = "gal-tile-lock"; lock.textContent = "🔒";
+        lock.className = "gal-tile-lock"; lock.textContent = "";
         tile.appendChild(lock);
       }
       if (equipped) {
@@ -23662,7 +23648,7 @@
           // (see window.__fishLoadIconCounts). Never fabricate a % without it.
           rarityText = "Ownership loading…";
         }
-        html += `<div class="gal-rarity gal-rarity-top">🌐 ${rarityText}</div>`;
+        html += `<div class="gal-rarity gal-rarity-top">${rarityText}</div>`;
       }
 
       html += `<div class="gal-detail-img-wrap"><div class="gal-detail-glow"></div><img class="gal-detail-img" src="${_avSrc(a.img)}" alt="${escapeHtml(a.name)}"></div>`;
@@ -23674,7 +23660,7 @@
       } else if (unlocked) {
         html += `<div class="gal-detail-status gal-status-unlocked">✓ Unlocked</div>`;
       } else {
-        html += `<div class="gal-detail-status gal-status-locked">🔒 Locked</div>`;
+        html += `<div class="gal-detail-status gal-status-locked">Locked</div>`;
       }
 
       html += `<div class="gal-detail-facts">${escapeHtml(animalFacts(a))}</div>`;
@@ -23769,7 +23755,7 @@
       panel.className = "gal-detail" + (unlocked ? "" : " gal-locked-detail");
       let html = "";
       if (isNone) {
-        html += `<div class="gal-bg-detail-preview gal-bg-none-preview"><span class="gal-bg-none-icon-lg">🚫</span></div>`;
+        html += `<div class="gal-bg-detail-preview gal-bg-none-preview"></div>`;
       } else {
         html += `<div class="gal-bg-detail-preview"><img src="${_bgSrc(bg.img)}" alt="${escapeHtml(bg.name)}"></div>`;
       }
@@ -23777,7 +23763,7 @@
       html += `<div class="gal-detail-species">${isNone ? "Default" : "Exclusive Background"}</div>`;
       if (equipped)       html += `<div class="gal-detail-status gal-status-equipped">★ Currently Equipped</div>`;
       else if (unlocked)  html += `<div class="gal-detail-status gal-status-unlocked">✓ Unlocked</div>`;
-      else                html += `<div class="gal-detail-status gal-status-locked">🔒 Locked</div>`;
+      else                html += `<div class="gal-detail-status gal-status-locked">Locked</div>`;
       html += `<div class="gal-detail-facts">${escapeHtml(bg.facts || "")}</div>`;
 
       if (!unlocked) {
@@ -24070,7 +24056,7 @@
       try {
         const payload = { online: isOnline };
         // What they are on rides along with the heartbeat, so the Friends tab
-        // can say "Online · 📱" without a second read or a second write. It is
+        // can say "Online ·" without a second read or a second write. It is
         // only ever written alongside a TRUE ping: a device recorded next to
         // "offline" is a fact about a browser that is no longer there.
         const dev = String(window.CC_DEVICE || "");
@@ -24129,7 +24115,7 @@
       const ms = typeof ts.toMillis === "function" ? ts.toMillis() : Number(ts) * 1000;
       return (Date.now() - ms) < 5 * 60 * 1000; // online within 5 min
     }
-    // The device chunk of a friend row: "💻 Computer" while they are online,
+    // The device chunk of a friend row: "Computer" while they are online,
     // nothing at all otherwise. Offline is the important half of that rule. The
     // device stored on a profile is where that person was when they were last
     // here, and printing it under "Offline" would read as where they are now.
@@ -24143,7 +24129,7 @@
       if (!d) return "";
       return '<span class="ph-fr-device ph-fr-device-' + d.device + '" title="'
         + escapeHtml(d.title) + '" aria-label="' + escapeHtml("On " + d.label) + '">'
-        + d.icon + ' ' + escapeHtml(d.label) + '</span>';
+        + escapeHtml(d.label) + '</span>';
     }
 
     // ── Friend requests ──────────────────────────────────────────
@@ -24530,14 +24516,14 @@
         { id: "daily_friend_1", name: "Play with 1 friend", progress: 0, goal: 3 },
       ],
       completedAchievements: [
-        { id: "comp_first_win", name: "First Win", icon: "🏆" },
-        { id: "comp_reef_rookie", name: "Reef Rookie", icon: "🪸" },
-        { id: "comp_tidal_starter", name: "Tidal Starter", icon: "🌊" },
+        { id: "comp_first_win", name: "First Win" },
+        { id: "comp_reef_rookie", name: "Reef Rookie" },
+        { id: "comp_tidal_starter", name: "Tidal Starter" },
       ],
       uncompletedAchievements: [
-        { id: "uncomp_master_tactician", name: "Master Tactician", icon: "🔒" },
-        { id: "uncomp_rank_climber", name: "Rank Climber", icon: "🔒" },
-        { id: "uncomp_legendary_shoal", name: "Legendary Shoal", icon: "🔒" },
+        { id: "uncomp_master_tactician", name: "Master Tactician" },
+        { id: "uncomp_rank_climber", name: "Rank Climber" },
+        { id: "uncomp_legendary_shoal", name: "Legendary Shoal" },
       ],
     };
 
@@ -25801,7 +25787,7 @@
       return fn ? fn(Number(cp)||0).division : "-";
     }
     function phLbMedal(n) {
-      return n===1?"🥇":n===2?"🥈":n===3?"🥉":`<span style="color:#8aaccc;font-weight:700;">#${n}</span>`;
+      return `<span style="color:#8aaccc;font-weight:700;">#${n}</span>`;
     }
     function phLbRankClass(n) {
       return n===1?" rank-1":n===2?" rank-2":n===3?" rank-3":"";
@@ -26217,7 +26203,7 @@
           return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.rank)}</td>
             <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname" data-cc-pname="${escHtmlPH(r.doc.id)}">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
-            <td class="${sc}">🔥 ${p.toLocaleString()} day${p === 1 ? "" : "s"}</td>
+            <td class="${sc}">${p.toLocaleString()} day${p === 1 ? "" : "s"}</td>
             <td class="ph-lb-meta-cell">${s.toLocaleString()}</td>
             <td class="ph-lb-meta-cell">${r.days.toLocaleString()}</td>
           ${phLbAddCell(r.doc.id, r.isMe)}</tr>`;
@@ -26289,7 +26275,7 @@
           return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.rank)}</td>
             <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname" data-cc-pname="${escHtmlPH(r.doc.id)}">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
-            <td class="${sc.trim()}">🏆 ${r.champs.toLocaleString()}</td>
+            <td class="${sc.trim()}">${r.champs.toLocaleString()}</td>
             <td class="ph-lb-meta-cell">${r.played.toLocaleString()}</td>
             <td class="ph-lb-meta-cell">${r.winPct}%</td>
           ${phLbAddCell(r.doc.id, r.isMe)}</tr>`;
@@ -26925,7 +26911,7 @@
     })();
 
     // ── Privacy Policy reader ────────────────────────────────────
-    // Read-only, opened from Settings → 📜 Legal. Nothing is gated: the
+    // Read-only, opened from Settings → Legal. Nothing is gated: the
     // document is here to be read, not agreed to. The text is rendered ONCE
     // from window.CC_PRIVACY_HTML (js/privacy-policy.js, the same source the
     // published /privacy page uses) and kept, so re-opening is instant.
@@ -27115,7 +27101,7 @@
       try { localStorage.removeItem(CORAL_FIND_KEY); } catch (_) {}
       _unlockedBackgrounds = [...(_unlockedBackgrounds || []), path];
       if (_activeProfile) _activeProfile = { ..._activeProfile, unlocked_backgrounds: _unlockedBackgrounds };
-      showToast("\uD83E\uDEB8 The staghorn coral paid out: the Coral Reef background is yours, "
+      showToast("The staghorn coral paid out: the Coral Reef background is yours, "
               + "waiting in your Avatar Gallery.", "good", 6500);
     }
 
@@ -28371,7 +28357,7 @@
           try {
             const lr = await ccLinkEmail(em);
             showToast(lr.ok
-              ? ("\uD83D\uDCE7 " + lr.message)
+              ? ("" + lr.message)
               : ("Your account is ready, but the email could not be linked: " + lr.message
                  + " You can add it in Settings."), lr.ok ? "good" : "warn", 7000);
           } catch (_) {}
@@ -28395,7 +28381,7 @@
           if (refCode && typeof window.__ccReferralRedeem === "function") {
             const rr = await window.__ccReferralRedeem(refCode);
             if (rr && rr.ok) {
-              showToast(`🎁 +${Number(rr.coins || 0).toLocaleString()} Critter Coins: `
+              showToast(`+${Number(rr.coins || 0).toLocaleString()} Critter Coins: `
                 + `${rr.referrerName || "your friend"} got the same!`, "good");
             } else if (rr && rr.message) {
               // Say why, but let them in regardless. The Friends tab keeps
@@ -28713,7 +28699,7 @@
     window.__openSettingsModal = _openSettingsModal;
 
     $a("settings-close-btn").addEventListener("click", () => $a("settings-modal").classList.remove("open"));
-    // Privacy Policy, read-only reader from Settings → 📜 Legal.
+    // Privacy Policy, read-only reader from Settings → Legal.
     (function wireSettingsPrivacy() {
       const pBtn = $a("settings-privacy-btn");
       if (!pBtn) return;
@@ -28853,7 +28839,7 @@
         if (!r.ok) { setAuthMsg("settings-email-err", r.message, false); return; }
         setAuthMsg("settings-email-err", "", true);
         _paintSettingsEmailRow();
-        showToast("\uD83D\uDCE7 " + r.message, "good", 6500);
+        showToast("" + r.message, "good", 6500);
       };
       $a("settings-email-save-btn").addEventListener("click", () => { void save(); });
       $a("settings-email-input").addEventListener("keydown", (e) => {
@@ -28915,7 +28901,7 @@
           }
           const ok = (typeof window.ccPerkModal === "function")
             ? await window.ccPerkModal({
-                icon: "🏷️", title: `Change your username for ${PHST_RENAME_COIN_PRICE} coins?`,
+                title: `Change your username for ${PHST_RENAME_COIN_PRICE} coins?`,
                 body: `Your free change has been used, so renaming to "${newNick}" costs ${PHST_RENAME_COIN_PRICE} Critter Coins. Your friend code and everything you've unlocked stay exactly as they are.`,
                 note: `You have ${coins} Critter Coin${coins !== 1 ? "s" : ""}.`,
                 actions: [
@@ -29519,7 +29505,7 @@
     function _msgShowRulesNeeded() {
       const listEl = $a("ccm-list");
       const msgsEl = $a("ccm-messages");
-      const banner = "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">🔒</div>"
+      const banner = "<div class=\"ccm-empty\">"
         + "<b>Messaging needs one Firestore rule.</b><br><br>"
         + "In Firebase Console &rarr; Firestore &rarr; Rules, inside your "
         + "<code>match /users/{userId}</code> block add:<br><br>"
@@ -29575,7 +29561,7 @@
       if (!filtering && !_msgPageMounted && typeof roomId !== "undefined" && roomId) {
         const room = document.createElement("div");
         room.className = "ccm-conv room-chat";
-        room.innerHTML = "<div class=\"ccm-av\"><span class=\"ccm-av-letter\">🎮</span></div>"
+        room.innerHTML = "<div class=\"ccm-av\"><span class=\"ccm-av-letter\">#</span></div>"
           + "<div class=\"ccm-conv-body\"><div class=\"ccm-conv-top\"><span class=\"ccm-conv-name\">Room Chat</span></div>"
           + "<div class=\"ccm-conv-preview\">Everyone in this game</div></div>";
         room.addEventListener("click", () => {
@@ -29589,7 +29575,7 @@
 
       if (!_authUser) {
         listEl.insertAdjacentHTML("beforeend",
-          "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">💬</div>Sign in to message friends.</div>");
+          "<div class=\"ccm-empty\">Sign in to message friends.</div>");
         return;
       }
 
@@ -29602,7 +29588,7 @@
           const timeText    = _msgTimeLabel(c.last_ts);
           const unreadHtml  = (c.unread > 0 ? "<span class=\"ccm-conv-unread\">" + (c.unread > 9 ? "9+" : c.unread) + "</span>" : "");
           if (c.group) {
-            row.innerHTML = "<div class=\"ccm-av\"><span class=\"ccm-av-letter\">👥</span></div>"
+            row.innerHTML = "<div class=\"ccm-av\"><span class=\"ccm-av-letter\">G</span></div>"
               + "<div class=\"ccm-conv-body\"><div class=\"ccm-conv-top\"><span class=\"ccm-conv-name\">" + escapeHtml(c.name) + "</span>"
               + "<span class=\"ccm-conv-time\">" + timeText + "</span></div>"
               + "<div class=\"ccm-conv-preview\">" + previewText + "</div></div>" + unreadHtml;
@@ -29622,14 +29608,14 @@
         });
       } else if (filtering) {
         listEl.insertAdjacentHTML("beforeend",
-          "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">💬</div>"
+          "<div class=\"ccm-empty\">"
           + (picks.length >= 2
               ? "No group with these players yet, tap “Create Group” above to start one."
               : "No chat yet, tap “Message” above to start one.")
           + "</div>");
       } else {
         listEl.insertAdjacentHTML("beforeend",
-          "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">💬</div>Search a player above to start a chat or group.</div>");
+          "<div class=\"ccm-empty\">Search a player above to start a chat or group.</div>");
       }
     }
 
@@ -29845,7 +29831,7 @@
         .sort((a, b) => _msgTs(a) - _msgTs(b));
       msgsEl.innerHTML = "";
       if (!msgs.length) {
-        msgsEl.innerHTML = "<div class=\"ccm-empty\" style=\"padding:24px;\">No messages yet. Say hi! 🐟</div>";
+        msgsEl.innerHTML = "<div class=\"ccm-empty\" style=\"padding:24px;\">No messages yet. Say hi!</div>";
       } else {
         msgs.forEach(m => {
           // The live trade: one card, redrawn in place, never a pile of lines.
@@ -30436,7 +30422,7 @@
         const art = bg.img
           ? "<img class=\"ccm-bgtile-img\" src=\"" + escapeHtml((typeof window.__fishAvSrc === "function") ? window.__fishAvSrc(bg.img) : bg.img)
             + "\" alt=\"" + escapeHtml(bg.name) + "\" loading=\"lazy\">"
-          : "<div class=\"ccm-bgtile-img ccm-bgtile-none\">🚫</div>";
+          : "<div class=\"ccm-bgtile-img ccm-bgtile-none\">None</div>";
         tile.innerHTML = art + "<div class=\"ccm-bgtile-nm\">" + escapeHtml(bg.name) + "</div>";
         tile.addEventListener("click", async () => {
           if (tile.disabled) return;
@@ -30898,7 +30884,7 @@
       // page is painting from, so re-read before saying so.
       try { await window.__fishReloadProfile?.(); } catch (_) {}
       try {
-        showToast("\uD83C\uDF89 Welcome bonus: +"
+        showToast("Welcome bonus: +"
           + Number(d.xp || 0).toLocaleString() + " XP for creating an account!",
           "good", 7000);
       } catch (_) {}
@@ -31187,7 +31173,7 @@
         if (cancelBtn) { cancelBtn.textContent = "Close"; cancelBtn.disabled = false; cancelBtn.className = "cctr-btn"; }
         if (confirmBtn) { confirmBtn.style.display = "none"; }
       } else if (status === "completed") {
-        _trBanner("✅ Trade Completed! Items and coins have been exchanged.", "ok");
+        _trBanner("Trade Completed! Items and coins have been exchanged.", "ok");
         if (cancelBtn) { cancelBtn.textContent = "Close"; cancelBtn.disabled = false; cancelBtn.className = "cctr-btn"; }
         if (confirmBtn) { confirmBtn.style.display = "none"; }
       } else if (status === "canceled") {
@@ -31200,7 +31186,7 @@
           _trBanner(_trErrText(_trState.last_error) + " Both confirmations were reset.", "err");
           _trShowRetry(false);
         } else if (peerConfirmed && !myConfirmed) {
-          _trBanner("🔔 " + _trPeerName + " confirmed. Review the trade and confirm to complete it.", "info");
+          _trBanner("" + _trPeerName + " confirmed. Review the trade and confirm to complete it.", "info");
         } else if (myConfirmed && !peerConfirmed) {
           _trBanner("Waiting for " + _trPeerName + " to confirm…", "info");
         } else if (bothEmpty) {
@@ -31253,9 +31239,6 @@
           const sub = document.createElement("div"); sub.className = "cctr-item-sub"; sub.textContent = r.coins.toLocaleString();
           body.appendChild(nm); body.appendChild(sub); row.appendChild(body);
         } else if (r.type === "passes") {
-          const ic = document.createElement("div"); ic.className = "cctr-item-coin";
-          ic.textContent = "🎟️";
-          row.appendChild(ic);
           const body = document.createElement("div"); body.className = "cctr-item-body";
           const nm = document.createElement("div"); nm.className = "cctr-item-name";
           nm.textContent = r.passes.toLocaleString() + " Season Pass Voucher" + (r.passes === 1 ? "" : "s");
@@ -31263,9 +31246,6 @@
           sub.textContent = "Unlocks the Critter Pass for one season each";
           body.appendChild(nm); body.appendChild(sub); row.appendChild(body);
         } else if (r.type === "xp") {
-          const ic = document.createElement("div"); ic.className = "cctr-item-coin";
-          ic.textContent = "⭐";
-          row.appendChild(ic);
           const body = document.createElement("div"); body.className = "cctr-item-body";
           const nm = document.createElement("div"); nm.className = "cctr-item-name";
           nm.textContent = r.xp.toLocaleString() + " XP";
@@ -31423,7 +31403,7 @@
         _trRender(); return;
       }
       _trState = res.state;
-      if (res.completed) _trToast("Trade completed! 🎉", "ok");
+      if (res.completed) _trToast("Trade completed!", "ok");
       // Clan System: the server awards the daily clan trade point during
       // completion (same-clan trades only) and reports my share back here.
       if (res.completed && Number(res.clan_points || 0) > 0) {
@@ -31656,13 +31636,16 @@
       const n = (v) => Math.max(0, Math.floor(Number(v) || 0));
       const pill = (icon, label) => {
         const el = document.createElement("span"); el.className = "cctc-pill";
-        const i = document.createElement("span"); i.className = "cctc-pill-ico"; i.textContent = icon;
         const t = document.createElement("span"); t.textContent = label;
-        el.appendChild(i); el.appendChild(t); wrap.appendChild(el);
+        if (icon) {
+          const i = document.createElement("span"); i.className = "cctc-pill-ico"; i.textContent = icon;
+          el.appendChild(i);
+        }
+        el.appendChild(t); wrap.appendChild(el);
       };
-      if (n(o.coins))  pill("🪙", n(o.coins).toLocaleString());
-      if (n(o.passes)) pill("🎟️", n(o.passes).toLocaleString() + (n(o.passes) === 1 ? " pass" : " passes"));
-      if (n(o.xp))     pill("⭐", n(o.xp).toLocaleString() + " XP");
+      if (n(o.coins))  pill("", n(o.coins).toLocaleString());
+      if (n(o.passes)) pill("", n(o.passes).toLocaleString() + (n(o.passes) === 1 ? " pass" : " passes"));
+      if (n(o.xp))     pill("", n(o.xp).toLocaleString() + " XP");
       if (!wrap.childNodes.length) {
         const e = document.createElement("span");
         e.className = "cctc-none"; e.textContent = "Nothing yet";
@@ -31708,7 +31691,7 @@
 
       const head = document.createElement("div"); head.className = "cctc-head";
       const ico = document.createElement("span"); ico.className = "cctc-ico";
-      ico.textContent = status === "completed" ? "✅" : (status === "canceled" ? "✖" : "🔄");
+      ico.textContent = status === "completed" ? "✓" : (status === "canceled" ? "✖" : "↻");
       const ttl = document.createElement("span"); ttl.className = "cctc-ttl";
       ttl.textContent = "Trade with " + peerName;
       head.appendChild(ico); head.appendChild(ttl);
@@ -31820,7 +31803,7 @@
         return;
       }
       if (res.completed) {
-        _trToast("Trade completed! 🎉", "ok");
+        _trToast("Trade completed!", "ok");
         if (!overlayFollows) _trRefreshMyProfile();
         if (Number(res.clan_points || 0) > 0) {
           try { if (window.__ccClanTradePoint) window.__ccClanTradePoint(res.clan_points); } catch (_) {}
@@ -32458,7 +32441,7 @@
       //  one word to undo, and so the four URLs stay the ones the webhook
       //  already knows the prices of.
       //
-      //  ⚠️ THIS IS A DISPLAY LOCK, NOT A REFUSAL. The webhook still honours
+      //  THIS IS A DISPLAY LOCK, NOT A REFUSAL. The webhook still honours
       //  every one of those links if a buyer reaches one another way (an old
       //  tab, a saved URL, a mail we sent). That is correct: a tier is granted
       //  by the PRICE of the session, so money that arrives still buys exactly
@@ -32468,11 +32451,11 @@
 
       // ═══════════════════════════════════════════════════════════════════
       //  STRIPE PAYMENT LINKS
-      //  ⚠️ LIVE MODE. Every URL below is a LIVE Stripe Payment Link and takes
+      //  LIVE MODE. Every URL below is a LIVE Stripe Payment Link and takes
       //  REAL money. Do NOT swap these for a custom/fake checkout, only ever
       //  hand off to Stripe-hosted links.
       //
-      //  ⚠️ A LINK IS IDENTIFIED BY ITS PRICE, NOT ITS URL. The webhook has no
+      //  A LINK IS IDENTIFIED BY ITS PRICE, NOT ITS URL. The webhook has no
       //  table of these URLs, it reads `amount_total` off the completed
       //  session and looks it up in COIN_PACKS_BY_CENTS / SUPPORTER_TIERS_BY_CENTS
       //  in multiplayer_server.py. So the `usd:` on each row here MUST equal the
@@ -32492,7 +32475,7 @@
 
       // 2) Supporter Tiers, one-time contributions. Perks are cosmetic /
       //    progression only and are granted server-side after Stripe payment.
-      //    ⚠️ `coins` MUST equal SUPPORTER_TIER_GRANTS[tier].coins in
+      //    `coins` MUST equal SUPPORTER_TIER_GRANTS[tier].coins in
       //    multiplayer_server.py, the server is what actually credits them,
       //    this is only the display. test_stripe_payments.py checks both match.
       const PHST_SUPPORTER_TIERS = [
@@ -32551,7 +32534,7 @@
         // before it gets a checkout: a tier is granted by the PRICE of the
         // link it opens, so a button pointing at some other product's link
         // would charge the wrong amount and grant the wrong tier, silently.
-        // ⚠️ This link must stay the $100 one, and nothing above $100 may ever
+        // This link must stay the $100 one, and nothing above $100 may ever
         // gain a button (see the custom-amount card below).
         {
           name: "Tsunami", usd: 100, coins: 75000, best: true,
@@ -32591,7 +32574,6 @@
         // of this function runs, so there is nothing on the shelf to click.
         if (PHST_STORE_CLOSED) {
           el.innerHTML = `<div class="phst-closed">
-            <div class="phst-closed-ico" aria-hidden="true">\u{1F422}</div>
             <div class="phst-closed-title">Coming soon</div>
             <div class="phst-closed-desc">The Store is closed while we get it ready, so nothing can be bought here right now.</div>
             <div class="phst-closed-note">Everything you already own is safe. Your Critter Coins, skins, backgrounds and perks are all still on your account, and everything you own still works.</div>
@@ -32637,7 +32619,6 @@
         const _pBonus = (base) => _pLvl > 0 ? Math.round(base * _pLvl * 0.05) : 0;
         if (_pLvl > 0) {
           html += `<div class="phst-account-note" style="background:linear-gradient(120deg,#0e4d80,#1683c4);color:#eaf8ff;border-color:rgba(140,226,255,.6)">
-            <span class="phst-account-ico">🌊</span>
             <div><strong>Prestige ${_pLvl} bonus:</strong> every Critter Coin package below pays you
             <strong>+${_pLvl * 5}%</strong> extra coins, at the same price.</div>
           </div>`;
@@ -32697,14 +32678,14 @@
           const _july   = _skins.filter(s => s.species === "Fourth of July Skins");
           const _otherSkins = _skins.filter(s => s.species !== "Summer Skins" && s.species !== "Fourth of July Skins");
 
-          html += `<div class="phst-section-title">🌴 Exclusive Skins<span class="phst-sec-rule"></span></div>`;
+          html += `<div class="phst-section-title">Exclusive Skins<span class="phst-sec-rule"></span></div>`;
           html += `<div class="phst-section-sub">Seasonal player icons, ${phstFmtCoins(_skinPrice)} Critter Coins each. Equip one from your Avatar Gallery and everyone sees it on your seat in-game.</div>`;
           if (_summer.length) {
-            html += `<div class="phst-subhead">☀️ Summer Skins</div>`;
+            html += `<div class="phst-subhead">Summer Skins</div>`;
             html += _renderSkinGrid(_summer);
           }
           if (_july.length) {
-            html += `<div class="phst-subhead phst-subhead-spaced">🎆 Fourth of July Skins</div>`;
+            html += `<div class="phst-subhead phst-subhead-spaced">Fourth of July Skins</div>`;
             html += _renderSkinGrid(_july);
           }
           if (_otherSkins.length) {
@@ -32720,7 +32701,7 @@
             ? (window.__fishGetUnlockedBackgrounds() || []) : [];
           const _ownedSet = new Set(_unlocked);
           const _bgsrc = (typeof _bgSrc === "function") ? _bgSrc : (u)=>u;
-          html += `<div class="phst-section-title">🌊 Backgrounds<span class="phst-sec-rule"></span></div>`;
+          html += `<div class="phst-section-title">Backgrounds<span class="phst-sec-rule"></span></div>`;
           html += `<div class="phst-section-sub">Cosmetic ocean scenes behind your avatar. Spend Critter Coins, 1,000 each.</div>`;
           html += `<div class="phst-grid">`;
           for (const bg of _bgs) {
@@ -32760,21 +32741,21 @@
 
           const _perks = [
             {
-              key: "shield", ico: "🛡️", name: "Streak Shield",
+              key: "shield", name: "Streak Shield",
               price: (typeof PHST_SHIELD_COIN_PRICE !== "undefined") ? PHST_SHIELD_COIN_PRICE : 500,
               desc: "Covers one missed day so your daily streak survives it. We'll offer it the moment you break a streak: buy ahead and it's one tap.",
               stat: _shields ? `You hold ${_shields} shield${_shields !== 1 ? "s" : ""}` : "You hold no shields",
               cta: "Buy",
             },
             {
-              key: "emotes", ico: "😀", name: "Emote Pack",
+              key: "emotes", name: "Emote Pack",
               price: (typeof PHST_EMOTE_PACK_PRICE !== "undefined") ? PHST_EMOTE_PACK_PRICE : 500,
               desc: `Pick ${_packSize} critters you've unlocked and send them as pictures in game chat. Every animal in the game can be an emote, you just have to own it first.`,
               stat: `${_emotes.length} emote${_emotes.length !== 1 ? "s" : ""} owned · ${_eligible.length} critter${_eligible.length !== 1 ? "s" : ""} available`,
               cta: "Choose",
             },
             {
-              key: "code", ico: "🎫", name: "Custom Friend Code",
+              key: "code", name: "Custom Friend Code",
               price: (typeof PHST_CUSTOM_CODE_PRICE !== "undefined") ? PHST_CUSTOM_CODE_PRICE : 1000,
               // Guarded the same way every other value this renderer reads out
               // of the outer scope is, so the card still paints if the block
@@ -32789,7 +32770,7 @@
               cta: "Choose",
             },
             {
-              key: "reearn", ico: "🔁", name: "Critter Re-Earn",
+              key: "reearn", name: "Critter Re-Earn",
               price: (typeof PHST_REEARN_COIN_PRICE !== "undefined") ? PHST_REEARN_COIN_PRICE : 2500,
               desc: "Take back a critter you traded away, right now, without earning its unlock a second time.",
               stat: _reBuy.length
@@ -32800,12 +32781,11 @@
             },
           ];
 
-          html += `<div class="phst-section-title">🐚 Player Perks<span class="phst-sec-rule"></span></div>`;
+          html += `<div class="phst-section-title">Player Perks<span class="phst-sec-rule"></span></div>`;
           html += `<div class="phst-section-sub">Spend Critter Coins on things that help you play, not just things you wear.</div>`;
           html += `<div class="phst-perk-grid">`;
           for (const p of _perks) {
             html += `<div class="phst-perk${p.disabled ? " phst-perk-off" : ""}">
-              <div class="phst-perk-ico" aria-hidden="true">${p.ico}</div>
               <div class="phst-perk-name">${esc(p.name)}</div>
               <div class="phst-perk-desc">${esc(p.desc)}</div>
               <div class="phst-perk-stat">${esc(p.stat)}</div>
@@ -32858,7 +32838,6 @@
         // so this card opens a ready-written email template instead. See
         // CUSTOM_TIER_MIN_CENTS in multiplayer_server.py.
         html += `<div class="phst-custom-tier">
-          <div class="phst-custom-ico" aria-hidden="true">🌊</div>
           <div class="phst-custom-body">
             <div class="phst-custom-title">Giving more than $100?</div>
             <div class="phst-custom-desc">Above the Tsunami we do it properly, by hand. Tell us the amount and we'll write back with a plan: bulk copies, a sponsor credit, classroom or event sets, or whatever you have in mind.</div>
@@ -32867,11 +32846,10 @@
         </div>`;
 
         // ── 5) Physical Game ──────────────────────────────────────────
-        html += `<div class="phst-section-title">📦 Physical Game<span class="phst-sec-rule"></span></div>`;
+        html += `<div class="phst-section-title">Physical Game<span class="phst-sec-rule"></span></div>`;
         html += `<div class="phst-section-sub">The tabletop edition of Currents and Critters.</div>`;
         if (PHST_PHYSICAL.length === 0) {
           html += `<div class="phst-physical-soon">
-            <div class="phst-physical-ico">🐢</div>
             <div>
               <div class="phst-physical-title">Coming soon</div>
               <div class="phst-physical-desc">A physical copy of Currents and Critters is on the way. Tide Turner supporters get one free, Tsunami supporters get two!</div>
@@ -33023,7 +33001,7 @@
         try {
           const res = await window.__fishBuyBackgroundWithCoins(bg.img);
           if (res && res.ok) {
-            showToast(`Unlocked the ${bg.name} background! 🎉`, "ok");
+            showToast(`Unlocked the ${bg.name} background!`, "ok");
             renderPhStore();
           } else if (res && res.reason === "coins") {
             showToast(`Not enough Critter Coins, ${bg.name} costs 1,000.`, "err");
@@ -33053,7 +33031,7 @@
         try {
           const res = await window.__fishBuyIconWithCoins(sk.img);
           if (res && res.ok) {
-            showToast(`Unlocked the ${sk.name} skin! 🎉 Equip it in your Avatar Gallery.`, "ok");
+            showToast(`Unlocked the ${sk.name} skin! Equip it in your Avatar Gallery.`, "ok");
             renderPhStore();
           } else if (res && res.reason === "coins") {
             showToast(`Not enough Critter Coins, ${sk.name} costs ${price.toLocaleString("en-US")}.`, "err");
@@ -33095,7 +33073,7 @@
         }
         host.innerHTML = `
           <div class="ccpk-card" role="dialog" aria-modal="true" aria-labelledby="ccpk-title">
-            <div class="ccpk-ico" aria-hidden="true">${esc2(o.icon || "🐚")}</div>
+            ${o.icon ? `<div class="ccpk-ico" aria-hidden="true">${esc2(o.icon)}</div>` : ""}
             <div class="ccpk-title" id="ccpk-title">${esc2(o.title || "")}</div>
             <div class="ccpk-body">${esc2(o.body || "")}</div>
             ${grid.length ? `<div class="ccpk-count"></div><div class="ccpk-grid">${grid.map(g => `
@@ -33230,7 +33208,7 @@
         // Mirror what the server just wrote so the header, the profile and the
         // Store card all read the new code without a reload.
         try { window.__fishNoteCustomCode(res.code, res.paid_with, price); } catch (_) {}
-        showToast(`\u{1F3AB} Your friend code is now ${res.code}. Anyone who types it can send you a friend request.`, "ok");
+        showToast(`Your friend code is now ${res.code}. Anyone who types it can send you a friend request.`, "ok");
       }
 
       // The picker. Validates the SHAPE here (instantly, no round trip) and
@@ -33251,7 +33229,6 @@
           : `Costs ${phstFmtCoins(price)} Critter Coins.`;
         host.innerHTML = `
           <div class="cccode-card" role="dialog" aria-modal="true" aria-labelledby="cccode-title">
-            <div class="cccode-ico" aria-hidden="true">\u{1F3AB}</div>
             <div class="cccode-title" id="cccode-title">Choose your friend code</div>
             <div class="cccode-body">${min}\u2013${max} letters or numbers. It replaces your four random digits, it is reserved to you, and anyone who types it can send you a friend request. ${esc(cost)}</div>
             <input class="cccode-input" id="cccode-input" maxlength="${max}" autocomplete="off"
@@ -33313,7 +33290,7 @@
         const price = PHST_SHIELD_COIN_PRICE;
         const held  = window.__fishStreakShields ? window.__fishStreakShields() : 0;
         const r = await ccPerkModal({
-          icon: "🛡️", title: "Streak Shield",
+          title: "Streak Shield",
           body: `Covers one missed day so your daily streak keeps going. When you break a streak we'll offer to spend it for you, nothing is used until you say yes.`,
           note: held ? `You're holding ${held} already.` : "",
           actions: [
@@ -33324,7 +33301,7 @@
         if (r.action !== "confirm") return;
         const res = await window.__fishBuyStreakShield();
         showToast(res && res.ok
-          ? `Streak Shield bought! 🛡️ You're holding ${(window.__fishStreakShields ? window.__fishStreakShields() : 1)}.`
+          ? `Streak Shield bought! You're holding ${(window.__fishStreakShields ? window.__fishStreakShields() : 1)}.`
           : _perkFailMsg(res && res.reason, price, "a Streak Shield"), res && res.ok ? "ok" : "err");
       }
 
@@ -33340,7 +33317,7 @@
 
         if (!pool.length) {
           await ccPerkModal({
-            icon: "😀", title: "You've emoted everything",
+            title: "You've emoted everything",
             body: owned
               ? `You already have an emote for all ${owned} critters you've unlocked. Unlock more critters and come back, every animal in the game can become an emote.`
               : "You need at least one unlocked critter before you can make an emote.",
@@ -33351,7 +33328,7 @@
 
         if (pool.length < size) {
           const short = await ccPerkModal({
-            icon: "⚠️", title: "You'd only get " + pool.length + " of " + size,
+            title: "You'd only get " + pool.length + " of " + size,
             body: `A pack is ${size} emotes, but you only have ${pool.length} critter${pool.length !== 1 ? "s" : ""} left without one, you already own emotes for the rest of what you've unlocked. Buying now still costs ${phstFmtCoins(price)} coins and gives you ${pool.length}.`,
             note: "Unlock more critters first and the same pack gets you the full five.",
             actions: [
@@ -33364,7 +33341,7 @@
 
         const take = Math.min(size, pool.length);
         const r = await ccPerkModal({
-          icon: "😀", title: `Choose ${take} critter${take !== 1 ? "s" : ""}`,
+          title: `Choose ${take} critter${take !== 1 ? "s" : ""}`,
           body: `Tap the critters you want as chat emotes. You can only choose from animals you've already unlocked.`,
           grid: pool, pick: take, requireFull: true,
           actions: [
@@ -33375,7 +33352,7 @@
         if (r.action !== "confirm" || !r.selected.length) return;
         const res = await window.__fishBuyEmotePack(r.selected);
         showToast(res && res.ok
-          ? `${r.selected.length} new emote${r.selected.length !== 1 ? "s" : ""}! 😀 Tap the smiley in game chat to send them.`
+          ? `${r.selected.length} new emote${r.selected.length !== 1 ? "s" : ""}! Tap the smiley in game chat to send them.`
           : _perkFailMsg(res && res.reason, price, "an Emote Pack"), res && res.ok ? "ok" : "err");
       }
 
@@ -33384,14 +33361,14 @@
         const pool  = window.__fishReEarnBuyable ? window.__fishReEarnBuyable() : [];
         if (!pool.length) {
           await ccPerkModal({
-            icon: "🔁", title: "Nothing to buy back",
+            title: "Nothing to buy back",
             body: "This only works on critters you traded away. You haven't traded any away that you don't already have again.",
             actions: [{ key:"confirm", label:"Got it", primary:true }],
           });
           return;
         }
         const r = await ccPerkModal({
-          icon: "🔁", title: "Take one back",
+          title: "Take one back",
           body: "Pick the critter you want returned. It goes straight into your Avatar Gallery, you won't have to earn its unlock a second time.",
           grid: pool, pick: 1, requireFull: true,
           actions: [
@@ -33404,7 +33381,7 @@
         const an  = (typeof animalByImg === "function") ? animalByImg(img) : null;
         const res = await window.__fishBuyReEarnSkip(img);
         if (res && res.ok) {
-          showToast(`${an ? an.name : "Your critter"} is back! 🎉 Equip it in your Avatar Gallery.`, "ok");
+          showToast(`${an ? an.name : "Your critter"} is back! Equip it in your Avatar Gallery.`, "ok");
           try { window.__fishQueueAnimalUnlock?.(an && an.id); window.__fishShowAnimalUnlocks?.(); } catch {}
         } else {
           showToast(_perkFailMsg(res && res.reason, price, "Critter Re-Earn"), "err");
@@ -33471,7 +33448,6 @@
         const held  = window.__fishStreakShields ? window.__fishStreakShields() : 0;
         const price = PHST_SHIELD_COIN_PRICE;
         const r = await ccPerkModal({
-          icon: "🛡️",
           title: `Your ${offer.run}-day streak is about to end`,
           body: `You didn't play yesterday, so your ${offer.run}-day streak is broken. A Streak Shield covers that one missed day and keeps the run alive.`,
           note: `You have ${_streakTimeLeftLabel(offer.msLeft)} left to decide, after that the run is gone for good.`
@@ -33537,7 +33513,6 @@
             const held = window.__fishStreakShields ? window.__fishStreakShields() : 0;
             const price = PHST_SHIELD_COIN_PRICE;
             const r = await ccPerkModal({
-              icon: "🛡️",
               title: `Save your ${offer.run}-day streak`,
               body: `You have ${_streakTimeLeftLabel(offer.msLeft)} left before this run is gone for good. A Streak Shield covers the day you missed and keeps it alive.`,
               note: held
@@ -33573,8 +33548,8 @@
           const best = Number(used.longest) || 0;
           showToast(
             best > 0 && best === used.current
-              ? `Streak saved! 🛡️ Day ${used.current}: that's your longest ever. Play today to keep it.`
-              : `Streak saved! 🛡️ You're on day ${used.current}: play today to keep it going.`,
+              ? `Streak saved! Day ${used.current}: that's your longest ever. Play today to keep it.`
+              : `Streak saved! You're on day ${used.current}: play today to keep it going.`,
             "ok");
           return true;
         }
@@ -33673,7 +33648,7 @@
             legAvatarDot.style.background = "transparent";
             legAvatarDot.style.boxShadow   = "0 0 0 2px rgba(245,166,35,.55)";
           } else {
-            legAvatarDot.innerHTML = "🐠";
+            legAvatarDot.innerHTML = `<img src="${_avSrc("/avatars/fish.png")}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;">`;
             legAvatarDot.style.background  = "";
             legAvatarDot.style.boxShadow   = "";
           }
@@ -33963,15 +33938,14 @@
         };
       };
 
-      const normalizeBadge = (entry, idx, fallbackIcon) => {
+      const normalizeBadge = (entry, idx) => {
         if (typeof entry === "string") {
-          return { id: `badge_${idx}`, name: entry, icon: fallbackIcon };
+          return { id: `badge_${idx}`, name: entry };
         }
         const item = (entry && typeof entry === "object") ? entry : {};
         return {
           id: String(item.id || item.key || `badge_${idx}`),
           name: String(item.name || item.title || `Achievement ${idx + 1}`),
-          icon: String(item.icon || fallbackIcon),
         };
       };
 
@@ -33981,8 +33955,8 @@
 
       return {
         dailyAchievements: (dailyRaw.length ? dailyRaw : DEFAULT_OVERVIEW_ACHIEVEMENTS.dailyAchievements).map(normalizeDaily),
-        completedAchievements: (completedRaw.length ? completedRaw : DEFAULT_OVERVIEW_ACHIEVEMENTS.completedAchievements).map((entry, idx) => normalizeBadge(entry, idx, "🏆")),
-        uncompletedAchievements: (uncompletedRaw.length ? uncompletedRaw : DEFAULT_OVERVIEW_ACHIEVEMENTS.uncompletedAchievements).map((entry, idx) => normalizeBadge(entry, idx, "🔒")),
+        completedAchievements: (completedRaw.length ? completedRaw : DEFAULT_OVERVIEW_ACHIEVEMENTS.completedAchievements).map(normalizeBadge),
+        uncompletedAchievements: (uncompletedRaw.length ? uncompletedRaw : DEFAULT_OVERVIEW_ACHIEVEMENTS.uncompletedAchievements).map(normalizeBadge),
       };
     }
 
@@ -34014,7 +33988,7 @@
           const goal = Math.max(1, Number(item.goal) || 1);
           badge.textContent = `${progress}/${goal}`;
         } else {
-          badge.textContent = String(item.icon || (kind === "completed" ? "🏆" : "🔒"));
+          badge.textContent = kind === "completed" ? "✓" : "-";
         }
         el.appendChild(badge);
       });
@@ -34037,10 +34011,9 @@
           const goal = Math.max(1, Number(item.goal) || 1);
           row.innerHTML = `<div class="ph-ach-name">${name}</div><div class="ph-ach-progress">${progress}/${goal}</div>`;
         } else {
-          const icon = escapeHtml(item.icon || (kind === "completed" ? "🏆" : "🔒"));
           const badgeClass = kind === "completed" ? "completed" : "uncompleted";
           const status = kind === "completed" ? "Earned" : "Locked";
-          row.innerHTML = `<span class="ph-ach-badge-dot ${badgeClass}">${icon}</span><div class="ph-ach-name">${name}</div><div class="ph-ach-progress">${status}</div>`;
+          row.innerHTML = `<span class="ph-ach-badge-dot ${badgeClass}"></span><div class="ph-ach-name">${name}</div><div class="ph-ach-progress">${status}</div>`;
         }
         el.appendChild(row);
       });
@@ -34130,14 +34103,11 @@
         const card = document.createElement("div");
         card.className = "ach-steam-card" + (done ? " ach-done" : "") + (isSecret ? " ach-secret" : "");
 
-        let iconHtml, nameHtml, descHtml, progHtml = "";
+        let nameHtml, descHtml, progHtml = "";
         if (isSecret) {
-          iconHtml = `<div class="ach-icon-wrap ach-icon-locked"><span>?</span></div>`;
           nameHtml = `<div class="ach-name">Secret Achievement</div>`;
           descHtml = `<div class="ach-desc">Unlock this to reveal it.</div>`;
         } else {
-          const badgeCls = done ? "ach-icon-done" : "";
-          iconHtml = `<div class="ach-icon-wrap ${badgeCls}"><span>${escapeHtml(def.icon)}</span></div>`;
           nameHtml = `<div class="ach-name">${escapeHtml(def.name)}</div>`;
           descHtml = `<div class="ach-desc">${escapeHtml(def.desc)}</div>`;
           if (rec.progress != null && rec.goal != null && !done) {
@@ -34157,7 +34127,7 @@
           badgeHtml = `<div class="ach-badge ach-badge-locked">Locked</div>`;
         }
 
-        card.innerHTML = `${iconHtml}<div class="ach-info">${nameHtml}${descHtml}${progHtml}</div><div class="ach-right">${xpHtml}${badgeHtml}</div>`;
+        card.innerHTML = `<div class="ach-info">${nameHtml}${descHtml}${progHtml}</div><div class="ach-right">${xpHtml}${badgeHtml}</div>`;
         list.appendChild(card);
       });
 
@@ -34291,7 +34261,7 @@
         } else if (re && re.prog === null) {
           right.innerHTML = `<div class="av-badge av-badge-locked">Traded</div>`;
         } else if (u.type === "secret" || a.id === "giant-squid") {
-          right.innerHTML = `<div class="av-badge av-badge-secret">🔮 Hidden</div>`;
+          right.innerHTML = `<div class="av-badge av-badge-secret">Hidden</div>`;
         } else if (u.type === "event" || u.type === "achievement") {
           right.innerHTML = `<div class="av-badge av-badge-locked">Challenge</div>`;
         } else {
@@ -34385,7 +34355,7 @@
     //                   from the real deck lists, not from the printed
     //                   Encyclopedia, which is a page or two behind.
     //   Full Rulebook, the printed book, word for word, from js/rulebook.js.
-    //   Strategies, the same plans the in-game 💡 Strategy button offers, read
+    //   Strategies, the same plans the in-game Strategy button offers, read
     //                   straight out of HELP_STRATEGIES so the two can't drift.
     let _htpBuilt = false;
     let _htpView  = "quick";
@@ -34463,15 +34433,15 @@
     function _htpQuickHtml() {
       return ''
         + '<div class="htp-hero">'
-        +   '<div class="htp-hero-badge">🚀 Quick Start</div>'
+        +   '<div class="htp-hero-badge">Quick Start</div>'
         +   '<h2 class="htp-hero-title">Build the best ocean before the END GAME card turns up</h2>'
         +   '<p class="htp-hero-sub">Every player grows their own reef out of Ocean cards and the animals '
         +     'attached to them. When the END GAME card appears, everyone takes one last turn and the biggest '
         +     'ecosystem wins. Here is a whole turn, start to finish.</p>'
         +   '<div class="htp-hero-btns">'
         +     '<button type="button" class="htp-btn htp-btn-primary" data-htp-go="tutorial">▶ Play the tutorial</button>'
-        +     '<button type="button" class="htp-btn" data-htp-go="rules">📖 Full Rulebook</button>'
-        +     '<button type="button" class="htp-btn" data-htp-go="strats">🧭 Strategies</button>'
+        +     '<button type="button" class="htp-btn" data-htp-go="rules">Full Rulebook</button>'
+        +     '<button type="button" class="htp-btn" data-htp-go="strats">Strategies</button>'
         +   '</div>'
         + '</div>'
 
@@ -34479,12 +34449,12 @@
         + '<p class="htp-p htp-p-lead">A turn is <b>one</b> of these three. The banner at the top tells you when it '
         +   'is your go, and the guide bar underneath spells out the next tap.</p>'
         + '<div class="htp-choices">'
-        +   '<div class="htp-choice"><div class="htp-choice-ico">🎣</div><h3 class="htp-h3">Draw 2 cards</h3>'
+        +   '<div class="htp-choice"><h3 class="htp-h3">Draw 2 cards</h3>'
         +     '<p class="htp-p">Click the <b>Deck</b> to take an unknown card, or click any face-up card in the '
         +     '<b>Pool</b> to take exactly the one you want. You take two in total and you can mix them however you '
         +     'like: two from the pool, one of each, or two off the deck. After your first card the game asks for '
         +     'your second, then the turn is over.</p></div>'
-        +   '<div class="htp-choice"><div class="htp-choice-ico">🐠</div><h3 class="htp-h3">Play 1 card</h3>'
+        +   '<div class="htp-choice"><h3 class="htp-h3">Play 1 card</h3>'
         +     '<p class="htp-p">Drag a card from your hand onto the board, or click an empty slot and pick from the '
         +     'list that opens. Oceans go down as new sections of your reef; animals attach to an ocean you already '
         +     'own. Then you pay its cost.</p></div>'
@@ -34551,7 +34521,7 @@
         +     '<div class="htp-score-eg">1 = 5 · 2 = 15 · 3 = 30</div><p class="htp-p">Pays off only once you collect '
         +     'a set. Commit early or leave it alone.</p></div>'
         + '</div>'
-        + '<p class="htp-p">Your running total sits in the top bar. Tap the <b>📊 pts</b> badge at any time for a '
+        + '<p class="htp-p">Your running total sits in the top bar. Tap the <b>pts</b> badge at any time for a '
         +   'full Score Breakdown, card by card.</p>'
 
         + '<div class="htp-sec-head">How the game ends</div>'
@@ -34566,11 +34536,11 @@
 
         + '<div class="htp-sec-head">Buttons worth knowing</div>'
         + '<div class="htp-keys">'
-        +   '<div class="htp-key"><span class="htp-key-btn">💡 Strategy</span><span>Opens the Strategies screen mid-game. '
+        +   '<div class="htp-key"><span class="htp-key-btn">Strategy</span><span>Opens the Strategies screen mid-game. '
         +     'Pick a plan and every card that fits lights up in your hand and in the pool.</span></div>'
         +   '<div class="htp-key"><span class="htp-key-btn">↩ Undo Turn</span><span>Takes your last turn back. It '
         +     'survives bot turns and only locks once another human has played after you.</span></div>'
-        +   '<div class="htp-key"><span class="htp-key-btn">🏄 Surf\'s Up!!</span><span>Marks you Away. The table waits, '
+        +   '<div class="htp-key"><span class="htp-key-btn">Surf\'s Up!!</span><span>Marks you Away. The table waits, '
         +     'nobody can report you for going quiet, and you tap "I\'m Back" to return.</span></div>'
         +   '<div class="htp-key"><span class="htp-key-btn">Inspect</span><span>Browses every card sitting in the Pool '
         +     'at full size.</span></div>'
@@ -34655,7 +34625,7 @@
         + '</p>';
     }
 
-    // Strategies: rendered from the very same HELP_STRATEGIES the in-game 💡 Strategy
+    // Strategies: rendered from the very same HELP_STRATEGIES the in-game Strategy
     // button uses, so a plan reads identically in both places.
     function _htpStratCardHtml(i) {
       const s = HELP_STRATEGIES[i];
@@ -34711,22 +34681,22 @@
         : "";
       return ''
         + '<div class="htp-hero">'
-        +   '<div class="htp-hero-badge">🧭 Strategies</div>'
-        +   '<h2 class="htp-hero-title">Every plan the 💡 Strategy button knows</h2>'
+        +   '<div class="htp-hero-badge">Strategies</div>'
+        +   '<h2 class="htp-hero-title">Every plan the Strategy button knows</h2>'
         +   '<p class="htp-hero-sub">These are the exact strategies the game offers you mid-match. Read them here at '
         +     'your leisure, then switch one on at the table and the game will point out the cards for you.</p>'
         + '</div>'
 
         + '<div class="htp-sec-head">How to get there in a game</div>'
         + '<div class="htp-steps">'
-        + _htpStep(1, "Press 💡 Strategy", '<p class="htp-p">The Strategy button lives on the left of the action bar at the '
+        + _htpStep(1, "Press Strategy", '<p class="htp-p">The Strategy button lives on the left of the action bar at the '
             + 'bottom of the table, right next to the card you are about to play. It is available on every turn, '
             + 'including when it is not your go.</p>')
         + _htpStep(2, "Choose your ocean strategy", '<p class="htp-p">Step 1 on the Strategy screen is the ocean plans, '
             + 'where you build. Press <b>Play this</b> to switch one on, or <b>View cards &amp; plan</b> to read its '
             + 'steps first.</p>')
         + _htpStep(3, "Choose your animal strategies", '<p class="htp-p">Step 2 is the animal plans, what you score. '
-            + 'Pick one or more. <b>🎲 Randomize</b> will pick for you if you would rather be surprised: one ocean '
+            + 'Pick one or more. <b>Randomize</b> will pick for you if you would rather be surprised: one ocean '
             + 'strategy, and animals for the rest.</p>')
         + _htpStep(4, "Mix and match", '<p class="htp-p">Step 3 lists everything you switched on and suggests the '
             + 'combos that pair them. <b>Create Your Own Strategy</b> is there too: it saves a plan with your own name, '
@@ -34853,7 +34823,7 @@
     // .ph-sc-string variant (used for word-valued cards like strategy/rank).
     function _pubSc(iconHtml, label, value, colorClass, isString) {
       return `<div class="ph-sc${isString ? " ph-sc-string" : ""}">
-        <div class="ph-sci ${colorClass || "ph-sci-blue"}">${iconHtml}</div>
+        ${iconHtml ? `<div class="ph-sci ${colorClass || "ph-sci-blue"}">${iconHtml}</div>` : ""}
         <div class="ph-scl">${escapeHtml(label)}</div>
         <div class="ph-scv">${escapeHtml(String(value))}</div>
       </div>`;
@@ -34915,19 +34885,19 @@
           "Hours Played", hours === 1 ? "1 hr" : `${hours} hrs`, "ph-sci-teal"),
         _pubSc(`<img src="/avatars/common-octopus.png?v=ws12" alt="" draggable="false" style="width:34px;height:34px;object-fit:contain;pointer-events:none;">`,
           "Most Played Strategy", strat !== "-" ? strat : (noGames ? "No games completed yet." : "-"), "ph-sci-blue", true),
-        _pubSc("🧮", "Total Games",   totalGames > 0 ? totalGames : "-", "ph-sci-purple"),
-        _pubSc("🥇", "Total Wins",    totalWins  > 0 ? totalWins  : "-", "ph-sci-gold"),
-        _pubSc("📈", "Win Rate",      winRate,                           "ph-sci-teal"),
-        _pubSc("👥", "Most Played Player Count", mostPCount !== "-" ? mostPCount : (noGames ? "No games completed yet." : "-"), "ph-sci-blue", true),
-        _pubSc("🏆", "Achievements", `${achDone} / ${ACHIEVEMENT_DEFS.length}`, "ph-sci-gold"),
-        _pubSc("🌊", "Casual Wins",   normalWins > 0 ? normalWins : "-", "ph-sci-teal"),
-        _pubSc("🏅", "Casual Top Score", casualTop > 0 ? casualTop : "-", "ph-sci-blue"),
-        _pubSc("📊", "Average Casual Score",
+        _pubSc("", "Total Games",   totalGames > 0 ? totalGames : "-", "ph-sci-purple"),
+        _pubSc("", "Total Wins",    totalWins  > 0 ? totalWins  : "-", "ph-sci-gold"),
+        _pubSc("", "Win Rate",      winRate,                           "ph-sci-teal"),
+        _pubSc("", "Most Played Player Count", mostPCount !== "-" ? mostPCount : (noGames ? "No games completed yet." : "-"), "ph-sci-blue", true),
+        _pubSc("", "Achievements", `${achDone} / ${ACHIEVEMENT_DEFS.length}`, "ph-sci-gold"),
+        _pubSc("", "Casual Wins",   normalWins > 0 ? normalWins : "-", "ph-sci-teal"),
+        _pubSc("", "Casual Top Score", casualTop > 0 ? casualTop : "-", "ph-sci-blue"),
+        _pubSc("", "Average Casual Score",
           avgCasual != null && Number.isFinite(avgCasual) ? avgCasual : "-", "ph-sci-gold"),
-        _pubSc("⚔️", "Competitive Rank", compRank, "ph-sci-gold", true),
-        _pubSc("🏆", "Best Competitive Score", compTop > 0 ? compTop : "-", "ph-sci-purple"),
-        _pubSc("🎮", "Competitive Games", compGames > 0 ? compGames : "-", "ph-sci-blue"),
-        _pubSc("🐠", "Animals Unlocked", `${animalsDone} / ${animals.length}`, "ph-sci-teal"),
+        _pubSc("", "Competitive Rank", compRank, "ph-sci-gold", true),
+        _pubSc("", "Best Competitive Score", compTop > 0 ? compTop : "-", "ph-sci-purple"),
+        _pubSc("", "Competitive Games", compGames > 0 ? compGames : "-", "ph-sci-blue"),
+        _pubSc("", "Animals Unlocked", `${animalsDone} / ${animals.length}`, "ph-sci-teal"),
       ].join("");
     }
 
@@ -35012,12 +34982,12 @@
           "Hours Played", v(hours === 1 ? "1 hr" : `${hours} hrs`), "ph-sci-teal"),
         _pubSc(`<img src="/avatars/common-octopus.png?v=ws12" alt="" draggable="false" loading="lazy" decoding="async" style="width:34px;height:34px;object-fit:contain;pointer-events:none;">`,
           "Most Played Strategy", v(strat || (totalGames === 0 ? "No games yet" : "-")), "ph-sci-blue", true),
-        _pubSc("🧮", "Total Games", v(Math.max(0, totalGames)), "ph-sci-purple"),
-        _pubSc("🥇", "Total Wins",  v(Math.max(0, totalWins)),  "ph-sci-gold"),
-        _pubSc("📈", "Win Rate", v(totalGames > 0 ? `${Math.round((totalWins / totalGames) * 100)}%` : "-"), "ph-sci-teal"),
-        _pubSc("🏆", "Achievements", v(`${achDone} / ${ACHIEVEMENT_DEFS.length}`), "ph-sci-gold"),
-        _pubSc("⚔️", "Competitive Rank", v(s.rank_competitive || "No rank yet"), "ph-sci-gold", true),
-        _pubSc("🐠", "Animals Unlocked", v(`${animalsDone} / ${animals.length}`), "ph-sci-teal"),
+        _pubSc("", "Total Games", v(Math.max(0, totalGames)), "ph-sci-purple"),
+        _pubSc("", "Total Wins",  v(Math.max(0, totalWins)),  "ph-sci-gold"),
+        _pubSc("", "Win Rate", v(totalGames > 0 ? `${Math.round((totalWins / totalGames) * 100)}%` : "-"), "ph-sci-teal"),
+        _pubSc("", "Achievements", v(`${achDone} / ${ACHIEVEMENT_DEFS.length}`), "ph-sci-gold"),
+        _pubSc("", "Competitive Rank", v(s.rank_competitive || "No rank yet"), "ph-sci-gold", true),
+        _pubSc("", "Animals Unlocked", v(`${animalsDone} / ${animals.length}`), "ph-sci-teal"),
       ].join("");
     }
 
@@ -35395,115 +35365,115 @@
     // and a countdown that means something. Everything else is as it was: the
     // pool, the XP, and the Daily Tide Sweep for clearing all three.
     const _DAILY_CHALLENGES = [
-      { id: "login_current",     name: "Login Current",              req: "Log in today.",                                                  target: 1,   xp: 1,   icon: "🌅" },
-      { id: "clean_finish",      name: "Clean Finish",               req: "Finish a game without quitting.",                                target: 1,   xp: 100, icon: "🐟" },
-      { id: "casual_current",    name: "Casual Current",             req: "Play 1 Casual game.",                                            target: 1,   xp: 100, icon: "🌊" },
-      { id: "ranked_ripple",     name: "Ranked Ripple",              req: "Play 1 Competitive game.",                                       target: 1,   xp: 125, icon: "⚔️" },
-      { id: "still_swimming",    name: "Still Swimming",             req: "Play 2 games today.",                                            target: 2,   xp: 150, icon: "🏊" },
-      { id: "daily_splash",      name: "Daily Splash",               req: "Score 100+ points in a game.",                                   target: 100, xp: 150, icon: "💦" },
-      { id: "almost_there",      name: "Almost There",               req: "Finish within 15 points of the winner.",                         target: 1,   xp: 150, icon: "🥈" },
-      { id: "play_again_endgame", name: "Play Again End Game",       req: "Play again when the End Game card gets drawn.",                  target: 1,   xp: 50,  icon: "🔄" },
-      { id: "final_current",     name: "Final Current",              req: "Take your final turn after End Game appears.",                   target: 1,   xp: 75,  icon: "🏁" },
-      { id: "pool_watcher",      name: "Pool Watcher",               req: "Take five cards in a row from the Pool that another player discarded.", target: 5, xp: 75, icon: "👀" },
-      { id: "pool_patience",     name: "Pool Patience",              req: "Take a card after it stays in the Pool for one full rotation.",  target: 1,   xp: 75,  icon: "⏳" },
-      { id: "pool_cleaner",      name: "Pool Cleaner",               req: "Trigger a Pool reset.",                                          target: 1,   xp: 100, icon: "🧹" },
-      { id: "fresh_current",     name: "Fresh Current",              req: "Draw the first card after the Pool resets.",                     target: 1,   xp: 75,  icon: "✨" },
-      { id: "discard_duty",      name: "Discard Duty",               req: "Discard down to 10 cards at end of turn.",                       target: 1,   xp: 50,  icon: "🃏" },
-      { id: "coral_start",       name: "Coral Start",                req: "Play a Coral Reef as your first Ocean.",                         target: 1,   xp: 50,  icon: "🪸" },
-      { id: "deep_start",        name: "Deep Start",                 req: "Play a Deep Ocean as your first Ocean.",                         target: 1,   xp: 50,  icon: "🌊" },
-      { id: "mangrove_start",    name: "Mangrove Start",             req: "Play a Mangrove as your first Ocean.",                           target: 1,   xp: 50,  icon: "🌳" },
-      { id: "pier_start",        name: "Pier Start",                 req: "Play a Pier as your first Ocean.",                               target: 1,   xp: 50,  icon: "🛟" },
-      { id: "arctic_start",      name: "Arctic Start",               req: "Play an Arctic Ocean as your first Ocean.",                      target: 1,   xp: 50,  icon: "❄️" },
-      { id: "kelp_start",        name: "Kelp Start",                 req: "Play a Kelp Forest as your first Ocean.",                        target: 1,   xp: 50,  icon: "🌿" },
-      { id: "tide_pool_start",   name: "Tide Pool Start",            req: "Play a Tide Pool as your first Ocean.",                          target: 1,   xp: 50,  icon: "🐚" },
-      { id: "artificial_start",  name: "Artificial Start",           req: "Play an Artificial Reef as your first Ocean.",                   target: 1,   xp: 50,  icon: "🏗️" },
-      { id: "mini_ecosystem",    name: "Mini Ecosystem",             req: "Play 4 different species groups in one game.",                   target: 4,   xp: 150, icon: "🐠" },
-      { id: "surface_life",      name: "Surface Life",               req: "Play 3 cards on top spaces in a row.",                           target: 3,   xp: 75,  icon: "🦅" },
-      { id: "ocean_floor",       name: "Ocean Floor",                req: "Play 3 cards on bottom spaces in a row.",                        target: 3,   xp: 75,  icon: "🦀" },
-      { id: "star_spark",        name: "Star Spark",                 req: "Activate 2 ★ abilities.",                                        target: 2,   xp: 75,  icon: "⭐" },
-      { id: "star_surfer",       name: "Star Surfer",                req: "Activate 5 ★ abilities in one game.",                            target: 5,   xp: 150, icon: "🌟" },
-      { id: "symbol_match",      name: "Symbol Match",               req: "Discard a matching symbol to activate a ★ ability.",             target: 1,   xp: 25,  icon: "🔣" },
-      { id: "combo_current",     name: "Combo Current",              req: "Activate a ★ ability and score 15+ points that turn.",           target: 1,   xp: 150, icon: "💫" },
-      { id: "star_finish",       name: "Star Finish",                req: "Activate a ★ ability after End Game appears.",                   target: 1,   xp: 150, icon: "🎆" },
-      { id: "no_star_needed",    name: "No Star Needed",             req: "Score 100+ without activating a ★ ability.",                     target: 100, xp: 200, icon: "💪" },
-      { id: "better_spot",       name: "Better Spot",                req: "Move an animal to a higher-scoring Ocean.",                      target: 1,   xp: 125, icon: "📈" },
-      { id: "last_turn_move",    name: "Last Turn Move",             req: "Move an animal after End Game appears.",                         target: 1,   xp: 150, icon: "🎯" },
-      { id: "no_moving_needed",  name: "No Moving Needed",           req: "Win without moving any animals.",                                target: 1,   xp: 150, icon: "🛡️" },
-      { id: "current_lite",      name: "Current Controller Lite",    req: "Move 3 animals today.",                                          target: 3,   xp: 150, icon: "🔁" },
-      { id: "board_fixer",       name: "Board Fixer",                req: "Move an animal that changes your final score.",                  target: 1,   xp: 150, icon: "🔧" },
-      { id: "strategy_switch",   name: "Strategy Switch",            req: "Play 2 games using different strategies today.",                 target: 2,   xp: 200, icon: "🎴" },
-      { id: "ranked_warmup",     name: "Ranked Warmup",              req: "Finish a Competitive game without quitting.",                    target: 1,   xp: 125, icon: "🥊" },
-      { id: "one_hand_strong",   name: "One Hand Strong",            req: "Score 100+ with one Competitive hand.",                          target: 100, xp: 125, icon: "✋" },
-      { id: "double_handed",     name: "Double Handed",              req: "Score 100+ with both Competitive hands.",                        target: 2,   xp: 175, icon: "🙌" },
-      { id: "set_it_up",         name: "Set It Up",                  req: "Put a card in the Pool with one hand and take it later with the other.", target: 1, xp: 200, icon: "🎣" },
-      { id: "deny_the_setup",    name: "Deny the Setup",             req: "Take a Pool card your opponent played in the Pool last turn.",   target: 1,   xp: 150, icon: "🚫" },
-      { id: "ranked_win_day",    name: "Ranked Win of the Day",      req: "Win 1 Competitive game today.",                                  target: 1,   xp: 250, icon: "🏆" },
-      { id: "friend_tide",       name: "Friend Tide",                req: "Play with a friend.",                                            target: 1,   xp: 150, icon: "👥" },
-      { id: "table_talk",        name: "Table Talk",                 req: "Send 1 message in a game.",                                      target: 1,   xp: 25,  icon: "💬" },
-      { id: "good_sport",        name: "Good Sport",                 req: 'Send "good game" after the End Game card is shown.',             target: 1,   xp: 50,  icon: "🤝" },
-      { id: "host_harbor",       name: "Host a Harbor",              req: "Create a room and finish the game.",                             target: 1,   xp: 100, icon: "🏠" },
-      { id: "join_current",      name: "Join the Current",           req: "Join someone else's room and finish the game.",                  target: 1,   xp: 100, icon: "🚪" },
-      { id: "no_bots_today",     name: "No Bots Today",              req: "Finish a game with only real players.",                          target: 1,   xp: 150, icon: "🙋" },
-      { id: "new_face",          name: "New Face",                   req: "Play with someone new.",                                         target: 1,   xp: 125, icon: "🆕" },
+      { id: "login_current",     name: "Login Current",              req: "Log in today.",                                                  target: 1,   xp: 1 },
+      { id: "clean_finish",      name: "Clean Finish",               req: "Finish a game without quitting.",                                target: 1,   xp: 100 },
+      { id: "casual_current",    name: "Casual Current",             req: "Play 1 Casual game.",                                            target: 1,   xp: 100 },
+      { id: "ranked_ripple",     name: "Ranked Ripple",              req: "Play 1 Competitive game.",                                       target: 1,   xp: 125 },
+      { id: "still_swimming",    name: "Still Swimming",             req: "Play 2 games today.",                                            target: 2,   xp: 150 },
+      { id: "daily_splash",      name: "Daily Splash",               req: "Score 100+ points in a game.",                                   target: 100, xp: 150 },
+      { id: "almost_there",      name: "Almost There",               req: "Finish within 15 points of the winner.",                         target: 1,   xp: 150 },
+      { id: "play_again_endgame", name: "Play Again End Game",       req: "Play again when the End Game card gets drawn.",                  target: 1,   xp: 50 },
+      { id: "final_current",     name: "Final Current",              req: "Take your final turn after End Game appears.",                   target: 1,   xp: 75 },
+      { id: "pool_watcher",      name: "Pool Watcher",               req: "Take five cards in a row from the Pool that another player discarded.", target: 5, xp: 75 },
+      { id: "pool_patience",     name: "Pool Patience",              req: "Take a card after it stays in the Pool for one full rotation.",  target: 1,   xp: 75 },
+      { id: "pool_cleaner",      name: "Pool Cleaner",               req: "Trigger a Pool reset.",                                          target: 1,   xp: 100 },
+      { id: "fresh_current",     name: "Fresh Current",              req: "Draw the first card after the Pool resets.",                     target: 1,   xp: 75 },
+      { id: "discard_duty",      name: "Discard Duty",               req: "Discard down to 10 cards at end of turn.",                       target: 1,   xp: 50 },
+      { id: "coral_start",       name: "Coral Start",                req: "Play a Coral Reef as your first Ocean.",                         target: 1,   xp: 50 },
+      { id: "deep_start",        name: "Deep Start",                 req: "Play a Deep Ocean as your first Ocean.",                         target: 1,   xp: 50 },
+      { id: "mangrove_start",    name: "Mangrove Start",             req: "Play a Mangrove as your first Ocean.",                           target: 1,   xp: 50 },
+      { id: "pier_start",        name: "Pier Start",                 req: "Play a Pier as your first Ocean.",                               target: 1,   xp: 50 },
+      { id: "arctic_start",      name: "Arctic Start",               req: "Play an Arctic Ocean as your first Ocean.",                      target: 1,   xp: 50 },
+      { id: "kelp_start",        name: "Kelp Start",                 req: "Play a Kelp Forest as your first Ocean.",                        target: 1,   xp: 50 },
+      { id: "tide_pool_start",   name: "Tide Pool Start",            req: "Play a Tide Pool as your first Ocean.",                          target: 1,   xp: 50 },
+      { id: "artificial_start",  name: "Artificial Start",           req: "Play an Artificial Reef as your first Ocean.",                   target: 1,   xp: 50 },
+      { id: "mini_ecosystem",    name: "Mini Ecosystem",             req: "Play 4 different species groups in one game.",                   target: 4,   xp: 150 },
+      { id: "surface_life",      name: "Surface Life",               req: "Play 3 cards on top spaces in a row.",                           target: 3,   xp: 75 },
+      { id: "ocean_floor",       name: "Ocean Floor",                req: "Play 3 cards on bottom spaces in a row.",                        target: 3,   xp: 75 },
+      { id: "star_spark",        name: "Star Spark",                 req: "Activate 2 ★ abilities.",                                        target: 2,   xp: 75 },
+      { id: "star_surfer",       name: "Star Surfer",                req: "Activate 5 ★ abilities in one game.",                            target: 5,   xp: 150 },
+      { id: "symbol_match",      name: "Symbol Match",               req: "Discard a matching symbol to activate a ★ ability.",             target: 1,   xp: 25 },
+      { id: "combo_current",     name: "Combo Current",              req: "Activate a ★ ability and score 15+ points that turn.",           target: 1,   xp: 150 },
+      { id: "star_finish",       name: "Star Finish",                req: "Activate a ★ ability after End Game appears.",                   target: 1,   xp: 150 },
+      { id: "no_star_needed",    name: "No Star Needed",             req: "Score 100+ without activating a ★ ability.",                     target: 100, xp: 200 },
+      { id: "better_spot",       name: "Better Spot",                req: "Move an animal to a higher-scoring Ocean.",                      target: 1,   xp: 125 },
+      { id: "last_turn_move",    name: "Last Turn Move",             req: "Move an animal after End Game appears.",                         target: 1,   xp: 150 },
+      { id: "no_moving_needed",  name: "No Moving Needed",           req: "Win without moving any animals.",                                target: 1,   xp: 150 },
+      { id: "current_lite",      name: "Current Controller Lite",    req: "Move 3 animals today.",                                          target: 3,   xp: 150 },
+      { id: "board_fixer",       name: "Board Fixer",                req: "Move an animal that changes your final score.",                  target: 1,   xp: 150 },
+      { id: "strategy_switch",   name: "Strategy Switch",            req: "Play 2 games using different strategies today.",                 target: 2,   xp: 200 },
+      { id: "ranked_warmup",     name: "Ranked Warmup",              req: "Finish a Competitive game without quitting.",                    target: 1,   xp: 125 },
+      { id: "one_hand_strong",   name: "One Hand Strong",            req: "Score 100+ with one Competitive hand.",                          target: 100, xp: 125 },
+      { id: "double_handed",     name: "Double Handed",              req: "Score 100+ with both Competitive hands.",                        target: 2,   xp: 175 },
+      { id: "set_it_up",         name: "Set It Up",                  req: "Put a card in the Pool with one hand and take it later with the other.", target: 1, xp: 200 },
+      { id: "deny_the_setup",    name: "Deny the Setup",             req: "Take a Pool card your opponent played in the Pool last turn.",   target: 1,   xp: 150 },
+      { id: "ranked_win_day",    name: "Ranked Win of the Day",      req: "Win 1 Competitive game today.",                                  target: 1,   xp: 250 },
+      { id: "friend_tide",       name: "Friend Tide",                req: "Play with a friend.",                                            target: 1,   xp: 150 },
+      { id: "table_talk",        name: "Table Talk",                 req: "Send 1 message in a game.",                                      target: 1,   xp: 25 },
+      { id: "good_sport",        name: "Good Sport",                 req: 'Send "good game" after the End Game card is shown.',             target: 1,   xp: 50 },
+      { id: "host_harbor",       name: "Host a Harbor",              req: "Create a room and finish the game.",                             target: 1,   xp: 100 },
+      { id: "join_current",      name: "Join the Current",           req: "Join someone else's room and finish the game.",                  target: 1,   xp: 100 },
+      { id: "no_bots_today",     name: "No Bots Today",              req: "Finish a game with only real players.",                          target: 1,   xp: 150 },
+      { id: "new_face",          name: "New Face",                   req: "Play with someone new.",                                         target: 1,   xp: 125 },
     ];
 
     const _WEEKLY_CHALLENGES = [
-      { id: "weekly_finisher",       name: "Weekly Finisher",          req: "Finish 10 games this week.",                                  target: 10, xp: 1000, icon: "🏁" },
-      { id: "ocean_regular",         name: "Ocean Regular",            req: "Finish 15 games this week.",                                  target: 15, xp: 1500, icon: "🌊" },
-      { id: "reef_grinder",          name: "Reef Grinder",             req: "Finish 25 games this week.",                                  target: 25, xp: 2500, icon: "🪸" },
-      { id: "seven_seas",            name: "Seven Seas",               req: "Play on all 7 days this week.",                                target: 7,  xp: 2500, icon: "📅" },
-      { id: "weekend_wave",          name: "Weekend Wave",             req: "Play 3 games over the weekend.",                              target: 3,  xp: 750,  icon: "🌅" },
-      { id: "no_quit_week",          name: "No Quit Week",             req: "Win 10 games without quitting.",                               target: 10, xp: 1000, icon: "🛡️" },
-      { id: "casual_week",           name: "Casual Week",              req: "Finish 8 Casual games.",                                       target: 8,  xp: 1000, icon: "🎲" },
-      { id: "competitive_week",      name: "Competitive Week",         req: "Finish 5 Competitive games.",                                  target: 5,  xp: 1250, icon: "⚔️" },
-      { id: "weekly_winner",         name: "Weekly Winner",            req: "Win 5 games this week.",                                       target: 5,  xp: 500,  icon: "🏆" },
-      { id: "casual_champion",       name: "Casual Champion",          req: "Win 3 Casual games.",                                          target: 3,  xp: 400,  icon: "🥇" },
-      { id: "ranked_current",        name: "Ranked Current",           req: "Win 3 Competitive games.",                                     target: 3,  xp: 500,  icon: "👑" },
-      { id: "mixed_waters",          name: "Mixed Waters",             req: "Win 1 Casual and 1 Competitive game.",                         target: 2,  xp: 750,  icon: "🌀" },
-      { id: "back_to_back_current",  name: "Back-to-Back Current",     req: "Win 2 games in a row.",                                        target: 2,  xp: 500,  icon: "⏩" },
-      { id: "three_wave_streak",     name: "Three Wave Streak",        req: "Win 3 games in a row.",                                        target: 3,  xp: 2000, icon: "🔥" },
-      { id: "big_winner",            name: "Big Winner",               req: "Win 2 games in a row by 50+ points.",                          target: 2,  xp: 1250, icon: "💯" },
-      { id: "table_topper",          name: "Table Topper",             req: "Finish 1st in a 4+ player game.",                              target: 1,  xp: 400,  icon: "🥇" },
-      { id: "big_splash_weekly",     name: "Big Splash",               req: "Score 150+ in a 4+ player Casual game.",                       target: 150, xp: 750, icon: "💦" },
-      { id: "tidal_wave_weekly",     name: "Tidal Wave",               req: "Score 250+ in a 4+ player Casual game.",                       target: 250, xp: 500, icon: "🌊" },
-      { id: "point_surge",           name: "Point Surge",              req: "Score 1,000 total points this week.",                          target: 1000, xp: 350, icon: "📈" },
-      { id: "breaker_turn",          name: "Breaker Turn",             req: "Score 50+ points in one turn.",                                target: 50, xp: 400,  icon: "⚡" },
-      { id: "consistent_current",    name: "Consistent Current",       req: "Score 100+ in 10 games this week.",                            target: 10, xp: 2000, icon: "📊" },
-      { id: "the_all_blue_weekly",   name: "The All Blue",             req: "Play 8 different Oceans in one game.",                         target: 8,  xp: 750,  icon: "🌍" },
-      { id: "one_ocean_weekly",      name: "One Ocean Weekly",         req: "Win using only one type of Ocean.",                            target: 1,  xp: 1500, icon: "🏝️" },
-      { id: "bird_week",             name: "Bird Week",                req: "Play 30 Birds this week.",                                     target: 30, xp: 1500, icon: "🐦" },
-      { id: "crustacean_week",       name: "Crustacean Week",          req: "Play 30 Crustaceans this week.",                               target: 30, xp: 1500, icon: "🦀" },
-      { id: "coral_week",            name: "Coral Week",               req: "Play 30 Coral cards this week.",                               target: 30, xp: 1500, icon: "🪸" },
-      { id: "game_fish_week",        name: "Game Fish Week",           req: "Play 40 Game Fish this week.",                                 target: 40, xp: 1500, icon: "🐟" },
-      { id: "cephalopod_week",       name: "Cephalopod Week",          req: "Play 30 Cephalopods this week.",                               target: 30, xp: 1500, icon: "🐙" },
-      { id: "bait_fish_week",        name: "Bait Fish Week",           req: "Play 50 Bait Fish this week.",                                 target: 50, xp: 1500, icon: "🎏" },
-      { id: "mammal_week",           name: "Mammal Week",              req: "Play 27 Mammals this week.",                                   target: 27, xp: 1500, icon: "🦭" },
-      { id: "invertebrate_week",     name: "Invertebrate Week",        req: "Play 27 Invertebrates this week.",                             target: 27, xp: 1500, icon: "🪼" },
-      { id: "crosscurrent_week",     name: "Crosscurrent Week",        req: "Play 30 Crosscurrent cards this week.",                        target: 30, xp: 1500, icon: "🔀" },
-      { id: "balanced_ocean",        name: "Balanced Ocean",           req: "Play 6 different species groups in one game.",                 target: 6,  xp: 1250, icon: "⚖️" },
-      { id: "critter_collector",     name: "Critter Collector",        req: "Play 50 total animal cards this week.",                        target: 50, xp: 1500, icon: "🐾" },
-      { id: "all_blue_week",         name: "All Blue Week",            req: "Win using the Ocean-heavy strategy combo 4 times.",            target: 4,  xp: 1000, icon: "💙" },
-      { id: "tuna_week",             name: "Tuna Week",                req: "Win using Yellowfin Tuna stacking combo 4 times.",             target: 4,  xp: 1000, icon: "🐟" },
-      { id: "mammal_pod_week",       name: "Mammal Pod Week",          req: "Win using Mammals combo 4 times.",                             target: 4,  xp: 1000, icon: "🐳" },
-      { id: "baitfish_barrage_week", name: "Baitfish Barrage Week",    req: "Win using Baitfish Barrage combo 4 times.",                    target: 4,  xp: 1000, icon: "🎣" },
-      { id: "b_lob_week",            name: "B-Lob Week",               req: "Win using Bird/Lobster combo 4 times.",                        target: 4,  xp: 1000, icon: "🪺" },
-      { id: "coral_b_week",          name: "Coral-B Week",             req: "Win using Bird/Coral combo 4 times.",                          target: 4,  xp: 1000, icon: "🌸" },
-      { id: "c_c_week",              name: "C-C Week",                 req: "Win using Coral/Cephalopods combo 4 times.",                   target: 4,  xp: 1250, icon: "🎭" },
-      { id: "off_meta_week",         name: "Off-Meta Week",            req: "Win a game using Randomize with 2+ strategies in your Strategy Builder.",  target: 1,  xp: 1000, icon: "🃏" },
-      { id: "counter_current_week",  name: "Counter Current",          req: "Beat someone using the same strategy.",                        target: 1,  xp: 1000, icon: "🔁" },
-      { id: "nothing_but_deck_weekly", name: "Nothing But Deck",       req: "Win without drawing from the Pool.",                           target: 1,  xp: 750,  icon: "🎴" },
-      { id: "star_storm",            name: "Star Storm",               req: "Activate 20 ★ abilities this week.",                           target: 20, xp: 2000, icon: "💫" },
-      { id: "free_animal_week",      name: "Free Animal Week",         req: "Play 5 free animals from your hand.",                          target: 5,  xp: 1500, icon: "🆓" },
-      { id: "ranked_week",           name: "Ranked Week",              req: "Play 5 Competitive games.",                                    target: 5,  xp: 2000, icon: "⚔️" },
-      { id: "ranked_tidal_wave",     name: "Ranked Tidal Wave",        req: "Score 125+ in one Competitive hand.",                          target: 125, xp: 250, icon: "🌊" },
-      { id: "stolen_setup",          name: "Stolen Setup",             req: "Take a card your opponent likely set up.",                     target: 1,  xp: 1000, icon: "🥷" },
-      { id: "ranked_back_to_back",   name: "Ranked Back-to-Back",      req: "Win 2 Competitive games in a row.",                            target: 2,  xp: 1000, icon: "🏅" },
-      { id: "friendly_waters",       name: "Friendly Waters",          req: "Play with 5 different real players.",                          target: 5,  xp: 1000, icon: "👥" },
-      { id: "no_bots_needed",        name: "No Bots Needed",           req: "Complete 3 no-bot games.",                                     target: 3,  xp: 1000, icon: "🙋" },
-      { id: "join_week",             name: "Join Week",                req: "Join and finish 5 games hosted by others.",                    target: 5,  xp: 1000, icon: "🚪" },
-      { id: "good_sport_week",       name: "Good Sport Week",          req: "Send a positive endgame reaction in 5 games.",                 target: 5,  xp: 500,  icon: "🤝" },
-      { id: "friend_streak",         name: "Friend Streak",            req: "Play with the same friend 3 times this week.",                 target: 3,  xp: 750,  icon: "🫂" },
-      { id: "new_currents",          name: "New Currents",             req: "Play with 3 players you have never played before.",            target: 3,  xp: 100,  icon: "🆕" },
+      { id: "weekly_finisher",       name: "Weekly Finisher",          req: "Finish 10 games this week.",                                  target: 10, xp: 1000 },
+      { id: "ocean_regular",         name: "Ocean Regular",            req: "Finish 15 games this week.",                                  target: 15, xp: 1500 },
+      { id: "reef_grinder",          name: "Reef Grinder",             req: "Finish 25 games this week.",                                  target: 25, xp: 2500 },
+      { id: "seven_seas",            name: "Seven Seas",               req: "Play on all 7 days this week.",                                target: 7,  xp: 2500 },
+      { id: "weekend_wave",          name: "Weekend Wave",             req: "Play 3 games over the weekend.",                              target: 3,  xp: 750 },
+      { id: "no_quit_week",          name: "No Quit Week",             req: "Win 10 games without quitting.",                               target: 10, xp: 1000 },
+      { id: "casual_week",           name: "Casual Week",              req: "Finish 8 Casual games.",                                       target: 8,  xp: 1000 },
+      { id: "competitive_week",      name: "Competitive Week",         req: "Finish 5 Competitive games.",                                  target: 5,  xp: 1250 },
+      { id: "weekly_winner",         name: "Weekly Winner",            req: "Win 5 games this week.",                                       target: 5,  xp: 500 },
+      { id: "casual_champion",       name: "Casual Champion",          req: "Win 3 Casual games.",                                          target: 3,  xp: 400 },
+      { id: "ranked_current",        name: "Ranked Current",           req: "Win 3 Competitive games.",                                     target: 3,  xp: 500 },
+      { id: "mixed_waters",          name: "Mixed Waters",             req: "Win 1 Casual and 1 Competitive game.",                         target: 2,  xp: 750 },
+      { id: "back_to_back_current",  name: "Back-to-Back Current",     req: "Win 2 games in a row.",                                        target: 2,  xp: 500 },
+      { id: "three_wave_streak",     name: "Three Wave Streak",        req: "Win 3 games in a row.",                                        target: 3,  xp: 2000 },
+      { id: "big_winner",            name: "Big Winner",               req: "Win 2 games in a row by 50+ points.",                          target: 2,  xp: 1250 },
+      { id: "table_topper",          name: "Table Topper",             req: "Finish 1st in a 4+ player game.",                              target: 1,  xp: 400 },
+      { id: "big_splash_weekly",     name: "Big Splash",               req: "Score 150+ in a 4+ player Casual game.",                       target: 150, xp: 750 },
+      { id: "tidal_wave_weekly",     name: "Tidal Wave",               req: "Score 250+ in a 4+ player Casual game.",                       target: 250, xp: 500 },
+      { id: "point_surge",           name: "Point Surge",              req: "Score 1,000 total points this week.",                          target: 1000, xp: 350 },
+      { id: "breaker_turn",          name: "Breaker Turn",             req: "Score 50+ points in one turn.",                                target: 50, xp: 400 },
+      { id: "consistent_current",    name: "Consistent Current",       req: "Score 100+ in 10 games this week.",                            target: 10, xp: 2000 },
+      { id: "the_all_blue_weekly",   name: "The All Blue",             req: "Play 8 different Oceans in one game.",                         target: 8,  xp: 750 },
+      { id: "one_ocean_weekly",      name: "One Ocean Weekly",         req: "Win using only one type of Ocean.",                            target: 1,  xp: 1500 },
+      { id: "bird_week",             name: "Bird Week",                req: "Play 30 Birds this week.",                                     target: 30, xp: 1500 },
+      { id: "crustacean_week",       name: "Crustacean Week",          req: "Play 30 Crustaceans this week.",                               target: 30, xp: 1500 },
+      { id: "coral_week",            name: "Coral Week",               req: "Play 30 Coral cards this week.",                               target: 30, xp: 1500 },
+      { id: "game_fish_week",        name: "Game Fish Week",           req: "Play 40 Game Fish this week.",                                 target: 40, xp: 1500 },
+      { id: "cephalopod_week",       name: "Cephalopod Week",          req: "Play 30 Cephalopods this week.",                               target: 30, xp: 1500 },
+      { id: "bait_fish_week",        name: "Bait Fish Week",           req: "Play 50 Bait Fish this week.",                                 target: 50, xp: 1500 },
+      { id: "mammal_week",           name: "Mammal Week",              req: "Play 27 Mammals this week.",                                   target: 27, xp: 1500 },
+      { id: "invertebrate_week",     name: "Invertebrate Week",        req: "Play 27 Invertebrates this week.",                             target: 27, xp: 1500 },
+      { id: "crosscurrent_week",     name: "Crosscurrent Week",        req: "Play 30 Crosscurrent cards this week.",                        target: 30, xp: 1500 },
+      { id: "balanced_ocean",        name: "Balanced Ocean",           req: "Play 6 different species groups in one game.",                 target: 6,  xp: 1250 },
+      { id: "critter_collector",     name: "Critter Collector",        req: "Play 50 total animal cards this week.",                        target: 50, xp: 1500 },
+      { id: "all_blue_week",         name: "All Blue Week",            req: "Win using the Ocean-heavy strategy combo 4 times.",            target: 4,  xp: 1000 },
+      { id: "tuna_week",             name: "Tuna Week",                req: "Win using Yellowfin Tuna stacking combo 4 times.",             target: 4,  xp: 1000 },
+      { id: "mammal_pod_week",       name: "Mammal Pod Week",          req: "Win using Mammals combo 4 times.",                             target: 4,  xp: 1000 },
+      { id: "baitfish_barrage_week", name: "Baitfish Barrage Week",    req: "Win using Baitfish Barrage combo 4 times.",                    target: 4,  xp: 1000 },
+      { id: "b_lob_week",            name: "B-Lob Week",               req: "Win using Bird/Lobster combo 4 times.",                        target: 4,  xp: 1000 },
+      { id: "coral_b_week",          name: "Coral-B Week",             req: "Win using Bird/Coral combo 4 times.",                          target: 4,  xp: 1000 },
+      { id: "c_c_week",              name: "C-C Week",                 req: "Win using Coral/Cephalopods combo 4 times.",                   target: 4,  xp: 1250 },
+      { id: "off_meta_week",         name: "Off-Meta Week",            req: "Win a game using Randomize with 2+ strategies in your Strategy Builder.",  target: 1,  xp: 1000 },
+      { id: "counter_current_week",  name: "Counter Current",          req: "Beat someone using the same strategy.",                        target: 1,  xp: 1000 },
+      { id: "nothing_but_deck_weekly", name: "Nothing But Deck",       req: "Win without drawing from the Pool.",                           target: 1,  xp: 750 },
+      { id: "star_storm",            name: "Star Storm",               req: "Activate 20 ★ abilities this week.",                           target: 20, xp: 2000 },
+      { id: "free_animal_week",      name: "Free Animal Week",         req: "Play 5 free animals from your hand.",                          target: 5,  xp: 1500 },
+      { id: "ranked_week",           name: "Ranked Week",              req: "Play 5 Competitive games.",                                    target: 5,  xp: 2000 },
+      { id: "ranked_tidal_wave",     name: "Ranked Tidal Wave",        req: "Score 125+ in one Competitive hand.",                          target: 125, xp: 250 },
+      { id: "stolen_setup",          name: "Stolen Setup",             req: "Take a card your opponent likely set up.",                     target: 1,  xp: 1000 },
+      { id: "ranked_back_to_back",   name: "Ranked Back-to-Back",      req: "Win 2 Competitive games in a row.",                            target: 2,  xp: 1000 },
+      { id: "friendly_waters",       name: "Friendly Waters",          req: "Play with 5 different real players.",                          target: 5,  xp: 1000 },
+      { id: "no_bots_needed",        name: "No Bots Needed",           req: "Complete 3 no-bot games.",                                     target: 3,  xp: 1000 },
+      { id: "join_week",             name: "Join Week",                req: "Join and finish 5 games hosted by others.",                    target: 5,  xp: 1000 },
+      { id: "good_sport_week",       name: "Good Sport Week",          req: "Send a positive endgame reaction in 5 games.",                 target: 5,  xp: 500 },
+      { id: "friend_streak",         name: "Friend Streak",            req: "Play with the same friend 3 times this week.",                 target: 3,  xp: 750 },
+      { id: "new_currents",          name: "New Currents",             req: "Play with 3 players you have never played before.",            target: 3,  xp: 100 },
     ];
     // Meta rewards, auto-fired when the 3 random weeklies are completed.
     // Tide Sweep's XP is paid by the weekly_tide_sweep achievement (1500), not
@@ -35783,7 +35753,7 @@
           if (slot.completedAt) {
             const def = _WEEKLY_CHALLENGES[slot.idx];
             if (def && !seen.has(def.id)) {
-              newWeekly.push({ id: def.id, name: def.name, icon: def.icon || "📆", xp: def.xp || 0 });
+              newWeekly.push({ id: def.id, name: def.name, xp: def.xp || 0 });
             }
           }
         });
@@ -35794,7 +35764,7 @@
           if (slot.completedAt) {
             const def = _DAILY_CHALLENGES[slot.idx];
             if (def && !seenDay.has(def.id)) {
-              newDaily.push({ id: def.id, name: def.name, icon: def.icon || "📅", xp: def.xp || 0 });
+              newDaily.push({ id: def.id, name: def.name, xp: def.xp || 0 });
             }
           }
         });
@@ -36021,7 +35991,7 @@
       renderChallengeStrip();
       try { window._renderIgChallengePanel?.(); } catch (_) {}
       const def = _WEEKLY_CHALLENGES[pick];
-      try { showToast("🔄 Swapped in: " + (def ? def.name : "a new challenge"), "info"); } catch (_) {}
+      try { showToast("Swapped in: " + (def ? def.name : "a new challenge"), "info"); } catch (_) {}
       return true;
     }
     window._csSwapWeeklySlot = _csSwapWeeklySlot;
@@ -37149,22 +37119,22 @@
     // you walked out of is NOT a game you played: the forfeit path clamps this
     // to at most 0 (see _applyForfeitLoss), or quitting would print OP.
     const _COMP_RANK_DIVS = [
-      { name: "Bronze Barracuda I",        tier: "bronze",  emoji: "🐠", minCp: 0,    maxCp: 44,   win: 26, draw: 8, loss:   4, ffaTop: 20, ffaBottom:   4 },
-      { name: "Bronze Barracuda II",       tier: "bronze",  emoji: "🐠", minCp: 45,   maxCp: 89,   win: 26, draw: 8, loss:   4, ffaTop: 20, ffaBottom:   4 },
-      { name: "Bronze Barracuda III",     tier: "bronze",  emoji: "🐠", minCp: 90,   maxCp: 134,  win: 26, draw: 8, loss:   4, ffaTop: 20, ffaBottom:   4 },
-      { name: "Silver Spiny Lobster I",    tier: "silver",  emoji: "🦞", minCp: 135,  maxCp: 199,  win: 24, draw: 7, loss:   2, ffaTop: 18, ffaBottom:   2 },
-      { name: "Silver Spiny Lobster II",   tier: "silver",  emoji: "🦞", minCp: 200,  maxCp: 264,  win: 24, draw: 7, loss:   2, ffaTop: 18, ffaBottom:   2 },
-      { name: "Silver Spiny Lobster III",  tier: "silver",  emoji: "🦞", minCp: 265,  maxCp: 329,  win: 24, draw: 7, loss:   2, ffaTop: 18, ffaBottom:   2 },
-      { name: "Golden Grouper I",          tier: "gold",    emoji: "🐡", minCp: 330,  maxCp: 419,  win: 22, draw: 6, loss:   0, ffaTop: 16, ffaBottom:   0 },
-      { name: "Golden Grouper II",         tier: "gold",    emoji: "🐡", minCp: 420,  maxCp: 509,  win: 22, draw: 6, loss:  -2, ffaTop: 16, ffaBottom:  -1 },
-      { name: "Golden Grouper III",        tier: "gold",    emoji: "🐡", minCp: 510,  maxCp: 599,  win: 22, draw: 6, loss:  -5, ffaTop: 16, ffaBottom:  -3 },
-      { name: "Diamond Dolphin I",         tier: "diamond", emoji: "🐬", minCp: 600,  maxCp: 719,  win: 21, draw: 5, loss:  -8, ffaTop: 15, ffaBottom:  -6 },
-      { name: "Diamond Dolphin II",        tier: "diamond", emoji: "🐬", minCp: 720,  maxCp: 839,  win: 21, draw: 5, loss: -11, ffaTop: 15, ffaBottom:  -8 },
-      { name: "Diamond Dolphin III",       tier: "diamond", emoji: "🐬", minCp: 840,  maxCp: 959,  win: 21, draw: 5, loss: -14, ffaTop: 15, ffaBottom: -10 },
-      { name: "Emerald Emperor Penguin I",   tier: "emerald", emoji: "🐧", minCp: 960,  maxCp: 1039, win: 20, draw: 3, loss: -17, ffaTop: 14, ffaBottom: -12 },
-      { name: "Emerald Emperor Penguin II",  tier: "emerald", emoji: "🐧", minCp: 1040, maxCp: 1119, win: 20, draw: 3, loss: -20, ffaTop: 14, ffaBottom: -14 },
-      { name: "Emerald Emperor Penguin III", tier: "emerald", emoji: "🐧", minCp: 1120, maxCp: 1199, win: 20, draw: 3, loss: -22, ffaTop: 14, ffaBottom: -16 },
-      { name: "King of the Critters",      tier: "king",    emoji: "👑", minCp: 1200, maxCp: Infinity, win: 18, draw: 2, loss: -26, ffaTop: 12, ffaBottom: -20 },
+      { name: "Bronze Barracuda I",        tier: "bronze", minCp: 0,    maxCp: 44,   win: 26, draw: 8, loss:   4, ffaTop: 20, ffaBottom:   4 },
+      { name: "Bronze Barracuda II",       tier: "bronze", minCp: 45,   maxCp: 89,   win: 26, draw: 8, loss:   4, ffaTop: 20, ffaBottom:   4 },
+      { name: "Bronze Barracuda III",     tier: "bronze", minCp: 90,   maxCp: 134,  win: 26, draw: 8, loss:   4, ffaTop: 20, ffaBottom:   4 },
+      { name: "Silver Spiny Lobster I",    tier: "silver", minCp: 135,  maxCp: 199,  win: 24, draw: 7, loss:   2, ffaTop: 18, ffaBottom:   2 },
+      { name: "Silver Spiny Lobster II",   tier: "silver", minCp: 200,  maxCp: 264,  win: 24, draw: 7, loss:   2, ffaTop: 18, ffaBottom:   2 },
+      { name: "Silver Spiny Lobster III",  tier: "silver", minCp: 265,  maxCp: 329,  win: 24, draw: 7, loss:   2, ffaTop: 18, ffaBottom:   2 },
+      { name: "Golden Grouper I",          tier: "gold", minCp: 330,  maxCp: 419,  win: 22, draw: 6, loss:   0, ffaTop: 16, ffaBottom:   0 },
+      { name: "Golden Grouper II",         tier: "gold", minCp: 420,  maxCp: 509,  win: 22, draw: 6, loss:  -2, ffaTop: 16, ffaBottom:  -1 },
+      { name: "Golden Grouper III",        tier: "gold", minCp: 510,  maxCp: 599,  win: 22, draw: 6, loss:  -5, ffaTop: 16, ffaBottom:  -3 },
+      { name: "Diamond Dolphin I",         tier: "diamond", minCp: 600,  maxCp: 719,  win: 21, draw: 5, loss:  -8, ffaTop: 15, ffaBottom:  -6 },
+      { name: "Diamond Dolphin II",        tier: "diamond", minCp: 720,  maxCp: 839,  win: 21, draw: 5, loss: -11, ffaTop: 15, ffaBottom:  -8 },
+      { name: "Diamond Dolphin III",       tier: "diamond", minCp: 840,  maxCp: 959,  win: 21, draw: 5, loss: -14, ffaTop: 15, ffaBottom: -10 },
+      { name: "Emerald Emperor Penguin I",   tier: "emerald", minCp: 960,  maxCp: 1039, win: 20, draw: 3, loss: -17, ffaTop: 14, ffaBottom: -12 },
+      { name: "Emerald Emperor Penguin II",  tier: "emerald", minCp: 1040, maxCp: 1119, win: 20, draw: 3, loss: -20, ffaTop: 14, ffaBottom: -14 },
+      { name: "Emerald Emperor Penguin III", tier: "emerald", minCp: 1120, maxCp: 1199, win: 20, draw: 3, loss: -22, ffaTop: 14, ffaBottom: -16 },
+      { name: "King of the Critters",      tier: "king", minCp: 1200, maxCp: Infinity, win: 18, draw: 2, loss: -26, ffaTop: 12, ffaBottom: -20 },
     ];
 
     // Returns the rank info for a given CP. If hasPlayed is true, 0 CP still maps
@@ -37173,7 +37143,7 @@
     function _compGetRankFromCp(cp, hasPlayed) {
       const cleanCp = Math.max(0, Number(cp) || 0);
       if (cleanCp === 0 && !hasPlayed) {
-        return { division: "Unranked", tier: "bronze", emoji: "🐟", cp: 0, nextCp: 1, nextDiv: "Bronze Barracuda I", pct: 0,
+        return { division: "Unranked", tier: "bronze", cp: 0, nextCp: 1, nextDiv: "Bronze Barracuda I", pct: 0,
                  win: 26, draw: 8, loss: 4, ffaTop: 20, ffaBottom: 4 };
       }
       const idx = _COMP_RANK_DIVS.findIndex(d => cleanCp >= d.minCp && cleanCp <= d.maxCp);
@@ -37181,7 +37151,7 @@
       const next = idx >= 0 && idx + 1 < _COMP_RANK_DIVS.length ? _COMP_RANK_DIVS[idx + 1] : null;
       const range = div.maxCp === Infinity ? 200 : (div.maxCp - div.minCp + 1);
       const pct = div.maxCp === Infinity ? 100 : Math.min(100, Math.floor(((cleanCp - div.minCp) / range) * 100));
-      return { division: div.name, tier: div.tier, emoji: div.emoji, cp: cleanCp,
+      return { division: div.name, tier: div.tier, cp: cleanCp,
                nextCp: next ? next.minCp : null, nextDiv: next ? next.name : null, pct,
                win: div.win, draw: div.draw, loss: div.loss,
                ffaTop: div.ffaTop, ffaBottom: div.ffaBottom };
@@ -37250,7 +37220,7 @@
 
     function _compGetRankInfo(wins, losses) {
       const total = wins + losses;
-      if (total === 0) return { division: "Unranked", tier: "bronze", emoji: "🐟", cp: 0, nextCp: 1, nextDiv: "Bronze Barracuda I", pct: 0 };
+      if (total === 0) return { division: "Unranked", tier: "bronze", cp: 0, nextCp: 1, nextDiv: "Bronze Barracuda I", pct: 0 };
       const cp = Math.max(0, wins * 25 - losses * 12);
       return _compGetRankFromCp(cp, true);
     }
@@ -37296,22 +37266,23 @@
     }
 
     // Real creature icons for each competitive rank tier (replaces the emoji).
-    // King keeps the 👑 crown (no creature avatar).
+    // King keeps the crown (no creature avatar).
     const _COMP_RANK_IMG = {
       bronze:  "/avatars/barracuda.png",
       silver:  "/avatars/spiny-lobster.png",
       gold:    "/avatars/goliath-grouper.png",
       diamond: "/avatars/bottlenose-dolphin.png",
       emerald: "/avatars/emperor-penguin.png",
+      king:    "/avatars/king-crab.png",
     };
-    function _compRankIcon(tier, emoji, size) {
+    function _compRankIcon(tier, size) {
       const img = _COMP_RANK_IMG[tier];
       const s = size || 18;
       if (img) {
         const src = (typeof _avSrc === "function") ? _avSrc(img) : img;
         return `<img src="${src}" alt="" style="width:${s}px;height:${s}px;object-fit:contain;vertical-align:middle;display:inline-block;border-radius:50%;">`;
       }
-      return emoji || "🐟";
+      return "";
     }
     // Icon for a stored rank name ("Golden Grouper II", "King of the Critters",
     // "Unranked"), for the profile card's Competitive badge. Unranked gets the
@@ -37319,14 +37290,12 @@
     window._compRankIconFor = function (rankName, size) {
       const n = String(rankName || "").trim().toLowerCase();
       const tier = ["silver", "gold", "diamond", "emerald", "king"].find(t => n.startsWith(t)) || "bronze";
-      return _compRankIcon(tier, tier === "king" ? "👑" : "🐟", size);
+      return _compRankIcon(tier, size);
     };
 
     function _compRankBadgeHtml(division, tier) {
       const cls = tier ? `ph-rank-${tier}` : "ph-rank-bronze";
-      const info = _COMP_RANK_DIVS.find(d => d.name === division);
-      const emo  = info ? info.emoji : "🐟";
-      return `<span class="ph-rank-badge ${cls}" style="display:inline-flex;align-items:center;gap:5px;">${_compRankIcon(tier, emo, 18)} ${escapeHtml(division)}</span>`;
+      return `<span class="ph-rank-badge ${cls}" style="display:inline-flex;align-items:center;gap:5px;">${_compRankIcon(tier, 18)} ${escapeHtml(division)}</span>`;
     }
 
     async function checkAndApplySeasonReset() {
@@ -37427,7 +37396,7 @@
           ? `<b>${t.coins}</b> Critter Coins · <b>+${t.clan_points}</b> Clan Points`
           : "No season reward";
         return `<div class="ph-rank-reward-row${mine ? " mine" : ""}">
-          <span class="ph-rrr-tier">${_compRankIcon(key, "🐟", 20)} ${escapeHtml(t.tier)}${mine ? " <em>(you)</em>" : ""}</span>
+          <span class="ph-rrr-tier">${_compRankIcon(key, 20)} ${escapeHtml(t.tier)}${mine ? " <em>(you)</em>" : ""}</span>
           <span class="ph-rrr-pay">${reward}</span></div>`;
       }).join("");
       const note = $a("ph-rank-rewards-note");
@@ -37533,7 +37502,7 @@
       // ── Season Summary card ────────────────────────────────────
       const summBadge = $a("ph-ss-badge-img");
       if (summBadge) {
-        summBadge.innerHTML = _compRankIcon(rankInfo.tier, "👑", 44);
+        summBadge.innerHTML = _compRankIcon(rankInfo.tier, 44);
         summBadge.className = "ph-ss-rank-badge-img ph-rank-prog-badge-wrap tier-" + (rankInfo.tier || "bronze");
       }
       set("ph-ss-rank-name", rankInfo.division === "Unranked" ? "No rank yet" : rankInfo.division);
@@ -37554,12 +37523,12 @@
       if (progEl) {
         // Tier definitions (name, emoji, subdivisions count, tier key)
         const tiers = [
-          { name: "Bronze\nBarracuda",    emoji: "🐠", key: "bronze",  divs: 3 },
-          { name: "Silver\nSpiny Lobster",emoji: "🦞", key: "silver",  divs: 3 },
-          { name: "Golden\nGrouper",      emoji: "🐡", key: "gold",    divs: 3 },
-          { name: "Diamond\nDolphin",     emoji: "🐬", key: "diamond", divs: 3 },
-          { name: "Emerald\nPenguin",     emoji: "🐧", key: "emerald", divs: 3 },
-          { name: "King of\nthe Critters",emoji: "👑", key: "king",    divs: 0 },
+          { name: "Bronze\nBarracuda",     key: "bronze",  divs: 3 },
+          { name: "Silver\nSpiny Lobster", key: "silver",  divs: 3 },
+          { name: "Golden\nGrouper",       key: "gold",    divs: 3 },
+          { name: "Diamond\nDolphin",      key: "diamond", divs: 3 },
+          { name: "Emerald\nPenguin",      key: "emerald", divs: 3 },
+          { name: "King of\nthe Critters", key: "king",    divs: 0 },
         ];
         const myTier = rankInfo.tier || "bronze";
         const myDiv  = rankInfo.division || "";
@@ -37589,11 +37558,11 @@
             }
             divHtml += `</div>`;
           } else {
-            divHtml = `<div class="ph-rank-prog-divs"><div class="ph-rank-prog-div div-king" style="width:auto;padding:0 5px;">👑</div></div>`;
+            divHtml = `<div class="ph-rank-prog-divs"><div class="ph-rank-prog-div div-king" style="width:auto;padding:0 5px;">King</div></div>`;
           }
           const connector = ti < tiers.length - 1 ? `<div class="ph-rank-prog-connector"></div>` : "";
           return `<div class="ph-rank-prog-tier">
-            <div class="${badgeCls}">${_compRankIcon(t.key, t.emoji, 44)}</div>
+            <div class="${badgeCls}">${_compRankIcon(t.key, 44)}</div>
             <div class="ph-rank-prog-tier-name">${t.name.replace("\n","<br>")}</div>
             ${divHtml}
           </div>${connector}`;
@@ -37617,7 +37586,7 @@
       set("ph-comp-cp-val", `${rankInfo.cp} OP`);
       set("ph-comp-cp-next-label", rankInfo.nextDiv
         ? `${rankInfo.nextCp - rankInfo.cp} OP until ${rankInfo.nextDiv}`
-        : "Max rank reached 🎉");
+        : "Max rank reached");
       set("ph-comp-season-row",   _compSeasonLabel());
       set("ph-comp-season-label", _compSeasonDisplayLabel());
 
@@ -37627,7 +37596,7 @@
       set("ph-comp-winpct",      (effWins + effLosses) > 0 ? `${winPct}%` : "-");
       set("ph-comp-best",        bestScore > 0 ? bestScore : "-");
       set("ph-comp-avg",         avgBest  > 0 ? avgBest  : "-");
-      set("ph-comp-streak",      curStreak  > 0 ? `${curStreak} 🔥` : "-");
+      set("ph-comp-streak",      curStreak  > 0 ? `${curStreak}` : "-");
       set("ph-comp-best-streak", bestStreak > 0 ? bestStreak : "-");
       set("ph-comp-strategy",    topStrat || "-");
 
@@ -37646,7 +37615,7 @@
         set("ph-comp-king-meta",   `${kWins}W · ${kLosses}L`);
         set("ph-comp-king-cp",     `${king.cp || 0} OP`);
         set("ph-comp-king-pct",    kTotal > 0 ? `${kWinPct}% win rate` : "");
-        set("ph-comp-king-streak", kStreak > 0 ? `${kStreak} 🔥 streak` : "");
+        set("ph-comp-king-streak", kStreak > 0 ? `${kStreak} streak` : "");
       } else {
         if (kingCard)   kingCard.style.display   = "none";
         if (noKingCard) noKingCard.style.display = "";
@@ -37736,7 +37705,7 @@
           row.innerHTML = `<div class="ph-season-hist-id">Q${qStr} ${yearStr}</div>`
             + `<div class="ph-season-hist-info">`
             + (kingName
-              ? `<div class="ph-season-hist-king">👑 ${escapeHtml(kingName)}${kingCp ? ` · ${kingCp} OP` : ""}</div>`
+              ? `<div class="ph-season-hist-king">${escapeHtml(kingName)}${kingCp ? ` · ${kingCp} OP` : ""}</div>`
               : `<div style="font-size:.78rem;color:rgba(22,70,160,.5);">No King crowned this season.</div>`)
             + `<div style="margin-top:3px;font-size:.78rem;">Your final rank: <b>${escapeHtml(p.final_rank || "Unranked")}</b></div>`
             + (p.final_cp   != null ? `<div style="font-size:.78rem;">Final OP: <b>${p.final_cp}</b></div>` : "")
@@ -37887,7 +37856,7 @@
         <div class="ph-gdm-bv-header${isW ? " winner" : ""}">
           <div class="ph-gdm-bv-av" id="ph-gdm-bv-av"></div>
           <div class="ph-gdm-bv-htext">
-            <div class="ph-gdm-bv-name">${escapeHtml(player.n || "Player")}${isW ? " 🏆" : ""}</div>
+            <div class="ph-gdm-bv-name">${escapeHtml(player.n || "Player")}${isW ? " · winner" : ""}</div>
             <div class="ph-gdm-bv-sub">${player.s != null ? player.s + " pts" : ""}${rank ? ` · Rank #${rank}` : ""}</div>
           </div>
         </div>
@@ -37929,7 +37898,7 @@
           ? animals.map(an => `<span class="ph-gdm-bv-animal">${escapeHtml(an)}</span>`).join("")
           : `<span class="ph-gdm-bv-empty">No creatures</span>`;
         return `<div class="ph-gdm-bv-ocean">
-          <div class="ph-gdm-bv-ocean-name">🌊 ${escapeHtml(ocean.o || "Ocean")}</div>
+          <div class="ph-gdm-bv-ocean-name">${escapeHtml(ocean.o || "Ocean")}</div>
           <div class="ph-gdm-bv-animals">${chips}</div>
         </div>`;
       }).join("");
@@ -37972,7 +37941,7 @@
         chip.innerHTML = `
           <div class="ph-gdm-pchip-av" data-av="1"></div>
           <div class="ph-gdm-pchip-info">
-            <span class="ph-gdm-pchip-name">${escapeHtml(p.n || "Player")}${isWinner ? " 🏆" : ""}</span>
+            <span class="ph-gdm-pchip-name">${escapeHtml(p.n || "Player")}${isWinner ? " · winner" : ""}</span>
             <span class="ph-gdm-pchip-score">${p.s != null ? p.s + " pts" : "-"}</span>
           </div>`;
         _gdmFillAvatar(chip.querySelector('[data-av="1"]'), p.n);
@@ -38178,7 +38147,7 @@
           statusHtml = `<div class="ph-fr-status ph-fr-ingame"><div class="ph-fr-dot"></div>In Game${deviceHtml}</div>`;
           // Check if the game is publicly spectatable (we can't know allow_spectators without fetching state)
           // Offer a Spectate button; the join endpoint will tell us if spectators aren't allowed.
-          extraHtml = `<button class="ph-fr-spectate-btn" data-rid="${escapeHtml(friendRoomId)}">👁 Spectate Game</button>`;
+          extraHtml = `<button class="ph-fr-spectate-btn" data-rid="${escapeHtml(friendRoomId)}">Spectate Game</button>`;
         } else {
           statusHtml = `<div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}${deviceHtml}</div>`;
         }
@@ -38210,7 +38179,7 @@
         if (specBtn) specBtn.addEventListener("click", async () => {
           specBtn.disabled = true; specBtn.textContent = "Joining…";
           await joinAsSpectator(specBtn.dataset.rid);
-          specBtn.disabled = false; specBtn.textContent = "👁 Spectate Game";
+          specBtn.disabled = false; specBtn.textContent = "Spectate Game";
         });
         list.appendChild(d);
       });
@@ -38251,7 +38220,7 @@
             }
           } catch (_) {}
           // Clean confirmation, no explanation of how the secret was solved.
-          setAuthMsg("ph-friend-err", "🐬 You saved the invertebrates.", true);
+          setAuthMsg("ph-friend-err", "You saved the invertebrates.", true);
           return;
         }
         // ──────────────────────────────────────────────────────────────
@@ -38338,11 +38307,9 @@
       const { def } = _achPopupQueue.shift();
       _achPopupShowing = true;
       const popup = document.getElementById("ach-unlock-popup");
-      const iconEl = document.getElementById("ach-popup-icon");
       const nameEl = document.getElementById("ach-popup-name");
       const xpEl   = document.getElementById("ach-popup-xp");
       if (!popup) { _achPopupShowing = false; _showNextAchPopup(); return; }
-      if (iconEl) iconEl.textContent = def.icon;
       if (nameEl) nameEl.textContent = def.name;
       if (xpEl)   xpEl.textContent   = "+" + def.xp + " XP";
       popup.classList.add("visible");
@@ -39622,8 +39589,8 @@
           : { ok:false, msg:`You already own the ${label} background.` };
       }
       return kind === "avatar"
-        ? { ok:true, msg:`Unlocked ${label}! 🎉`, refresh:true }
-        : { ok:true, msg:`Unlocked the ${label} background! 🎉`, refresh:true };
+        ? { ok:true, msg:`Unlocked ${label}!`, refresh:true }
+        : { ok:true, msg:`Unlocked the ${label} background!`, refresh:true };
     }
     // Expose code redemption for the store modal
     window.__fishRedeemCode = redeemDonationCode;

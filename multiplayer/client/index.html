@@ -75,10 +75,6 @@
     .conn-top-row {
       display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
     }
-    .conn-wave {
-      font-size: 22px;
-      animation: pulse-dots 1.6s ease-in-out infinite;
-    }
     .conn-bar-wrap {
       height: 6px; background: #d0eaf8; border-radius: 4px; overflow: hidden;
     }
@@ -981,8 +977,7 @@
     <section class="panel" id="connectionPanel">
       <div class="meta connecting" id="connMeta">
         <div class="conn-top-row">
-          <span class="conn-wave">🌊</span>
-          <span id="connMetaText">Connecting to game server…</span>
+              <span id="connMetaText">Connecting to game server…</span>
         </div>
         <div class="conn-bar-wrap"><div class="conn-bar" id="connProgressBar"></div></div>
         <div class="conn-hint">Server is starting up. This usually takes under 30 seconds. <button id="retryConnBtn" type="button" style="background:none;border:none;color:#1da4ce;font-weight:700;cursor:pointer;font-size:12px;padding:0;margin-left:4px;">Retry now</button></div>
@@ -1001,8 +996,8 @@
 
         <!-- Tab switcher -->
         <div class="lp-tabs">
-          <button class="lp-tab active" id="tabJoin" type="button">🎮 Join a Room</button>
-          <button class="lp-tab" id="tabCreate" type="button">🏠 Create a Room</button>
+          <button class="lp-tab active" id="tabJoin" type="button">Join a Room</button>
+          <button class="lp-tab" id="tabCreate" type="button">Create a Room</button>
         </div>
 
         <!-- JOIN TAB -->
@@ -1139,11 +1134,11 @@
           <div class="menu-drop-section">Scores</div>
           <div id="menuScoresList">-</div>
           <div class="menu-drop-divider"></div>
-          <button class="menu-drop-btn" id="menuSummaryToggleBtn">&#128203; Game Log: Off</button>
+          <button class="menu-drop-btn" id="menuSummaryToggleBtn">Game Log: Off</button>
           <div class="menu-drop-divider"></div>
           <div class="menu-drop-section">Room</div>
           <div class="menu-room-code" id="menuRoomCode">-</div>
-          <a class="menu-drop-btn" href="/rules.html" target="_blank" style="text-decoration:none;">&#128218; Click me for rules</a>
+          <a class="menu-drop-btn" href="/rules.html" target="_blank" style="text-decoration:none;">Click me for rules</a>
           <div class="menu-drop-divider"></div>
           <button class="menu-drop-btn" id="menuLeaveBtn">&#11013; Leave Game</button>
           <button class="menu-drop-btn" id="menuRestartBtn2" style="display:none;">&#8635; Restart Game</button>
@@ -4368,14 +4363,14 @@
     document.getElementById("menuSummaryToggleBtn").addEventListener("click", () => {
       gameSummaryVisible = !gameSummaryVisible;
       document.getElementById("gameSummaryFloat").classList.toggle("open", gameSummaryVisible);
-      document.getElementById("menuSummaryToggleBtn").textContent = gameSummaryVisible ? "\u{1F4CB} Game Log: On" : "\u{1F4CB} Game Log: Off";
+      document.getElementById("menuSummaryToggleBtn").textContent = gameSummaryVisible ? "Game Log: On" : "Game Log: Off";
       closeTopMenu();
     });
     document.getElementById("summaryFloatHdr").addEventListener("click", () => {
       gameSummaryVisible = false;
       document.getElementById("gameSummaryFloat").classList.remove("open");
       const btn = document.getElementById("menuSummaryToggleBtn");
-      if (btn) btn.textContent = "\u{1F4CB} Game Log: Off";
+      if (btn) btn.textContent = "Game Log: Off";
     });
     document.getElementById("boardFocusClose").addEventListener("click", closeBoardFocus);
     document.getElementById("boardFocusOverlay").addEventListener("click", (e) => {

@@ -230,7 +230,7 @@
     // The reward, stated from the same constant that pays it. It is a separate
     // chip rather than a line of the note so it survives the narrow layout,
     // where the note wraps to three lines and stops being read.
-    const xpChip = `<span class="ccGN-xp${live ? " is-live" : ""}">⚡ ${esc(XP_LABEL)} XP${
+    const xpChip = `<span class="ccGN-xp${live ? " is-live" : ""}">${esc(XP_LABEL)} XP${
       live ? " right now" : " all night"}</span>`;
 
     return `

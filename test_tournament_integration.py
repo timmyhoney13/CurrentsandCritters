@@ -132,7 +132,7 @@ class TestResultsMapBySeatNotName(unittest.TestCase):
     def test_winner_still_wins_after_the_client_renames_its_seat(self):
         players = [
             {"pid": "acct:win", "name": "Timmy", "token": "t1", "is_guest": False, "is_bot": False},
-            {"pid": "bot:1", "name": "Barracuda 🤖", "token": "t2", "is_guest": True, "is_bot": True},
+            {"pid": "bot:1", "name": "Barracuda", "token": "t2", "is_guest": True, "is_bot": True},
         ]
         res = ms._tournament_create_match_room(
             tournament_id="TID4", round_index=0, match_index=0, match_number=1, players=players)
@@ -147,7 +147,7 @@ class TestResultsMapBySeatNotName(unittest.TestCase):
                              "a tournament seat keeps the name the bracket knows it by")
 
             room.final_scores = [{"name": seat.claimed_name, "score": 90, "seat_index": seat.index},
-                                 {"name": "Barracuda 🤖", "score": 10,
+                                 {"name": "Barracuda", "score": 10,
                                   "seat_index": next(s.index for s in room.seats
                                                      if s.tournament_pid == "bot:1")}]
             cap = _report(room)
@@ -160,7 +160,7 @@ class TestResultsMapBySeatNotName(unittest.TestCase):
         players = [
             {"pid": "acct:a", "name": "Ann", "token": "t1", "is_guest": False, "is_bot": False},
             {"pid": "acct:b", "name": "Bo", "token": "t2", "is_guest": False, "is_bot": False},
-            {"pid": "bot:z", "name": "Narwhal 🤖", "token": "t3", "is_guest": True, "is_bot": True},
+            {"pid": "bot:z", "name": "Narwhal", "token": "t3", "is_guest": True, "is_bot": True},
         ]
         res = ms._tournament_create_match_room(
             tournament_id="TID5", round_index=0, match_index=0, match_number=1, players=players)

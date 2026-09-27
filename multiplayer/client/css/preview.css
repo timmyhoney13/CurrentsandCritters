@@ -948,15 +948,14 @@
     #hd-activate.on { background: linear-gradient(135deg, #3dd8a8, #2ab88a); border-color: rgba(42,184,138,.6); }
     .hd-activate-hint { font-size: 12px; font-weight: 700; color: rgba(26,45,90,.66); text-align: center; margin: 7px 0 4px; line-height: 1.4; }
     #pv-help-detail .hd-section-title {
-      font-family: "Luckiest Guy", "Cinzel", serif; font-size: 19px; font-weight: 400; color: var(--cr-navy); letter-spacing: .4px;
+      font-family: "Luckiest Guy", "Cinzel", serif; font-size: 20.52px; font-weight: 400; color: var(--cr-navy); letter-spacing: .4px;
       margin: 18px 0 8px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
     }
     .hd-count-note { font-family: "Nunito", sans-serif; font-size: 11px; font-weight: 700; color: rgba(26,45,90,.6); }
     #pv-help-detail ol.hd-steps { margin: 0; padding-left: 22px; }
     #pv-help-detail ol.hd-steps li { font-size: 15px; line-height: 1.55; color: var(--cr-navy); margin-bottom: 8px; font-weight: 700; }
-    #pv-help-detail ul.hd-tips { margin: 0; padding-left: 26px; list-style: none; }
+    #pv-help-detail ul.hd-tips { margin: 0; padding-left: 0; list-style: none; }
     #pv-help-detail ul.hd-tips li { font-size: 14px; line-height: 1.6; color: rgba(26,45,90,.86); margin-bottom: 12px; position: relative; padding-left: 6px; font-weight: 700; overflow-wrap: break-word; word-break: break-word; }
-    #pv-help-detail ul.hd-tips li::before { content: "💡"; position: absolute; left: -24px; top: 0; line-height: 1.6; font-size: 13px; }
     .hd-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 10px; margin-top: 4px; }
     .hd-card-tile {
       background: #fff; border: 1px solid rgba(95,179,214,.4);
@@ -1363,7 +1362,7 @@
          with the toolbars retracted, but html/body are overflow:hidden, so the
          extra height is not scrolled to, it is clipped off the bottom of the
          screen. The bottom of the game screen is the hand zone, and the bottom
-         of a seat pill is its "⭐ N pts · 🃏M" line, so a phone lost exactly
+         of a seat pill is its "N pts ·M" line, so a phone lost exactly
          that: every player's score and card count. What the browser does let
          you do is PAN the visual viewport, which is how the top of the screen
          (the Menu button) then disappeared instead. `100dvh` is the height that
@@ -2437,7 +2436,6 @@
       display: inline-flex; align-items: center; gap: 3px;
       white-space: nowrap;
     }
-    .pv-seat-score::before { content: "⭐"; font-size: 10px; }
     .pv-seat.active-turn .pv-seat-score {
       color: #fff;
       background: linear-gradient(135deg, #f06868, #d83838);
@@ -2445,7 +2443,6 @@
       border-radius: 10px;
       box-shadow: 0 2px 4px rgba(208,56,56,.35);
     }
-    .pv-seat.active-turn .pv-seat-score::before { color: #ffe8a0; }
     .pv-seat-me-badge {
       font-size: 8px; font-weight: 800; color: #fff;
       letter-spacing: .4px;
@@ -3270,6 +3267,11 @@
     .wr-chip-rank {
       font-weight: 900; letter-spacing: .1px;
       max-width: 100%; white-space: normal; text-align: center; line-height: 1.3;
+      /* Two lines' worth of room, whether this rank needs them or not: "King of
+         the Critters · 1,240 OP" wraps where "Golden Grouper III · 512 OP" does
+         not, and without this the pair's XP bars sit at different heights. */
+      min-height: calc(2.6em + 6px);
+      justify-content: center;
     }
     .wr-chip-rank-bronze   { background: linear-gradient(180deg,#f6ddc0,#e8bf93); border-color: #c58f57; color: #6d4415; }
     .wr-chip-rank-silver   { background: linear-gradient(180deg,#eef1f6,#d4dbe6); border-color: #9fadc0; color: #414d5e; }
@@ -3421,7 +3423,6 @@
     .wr-chat-who { font-size: 11.5px; font-weight: 900; color: #9fd0ff; }
     .wr-chat-msg { font-size: 13px; font-weight: 600; color: #e6f1fb; line-height: 1.35; overflow-wrap: anywhere; }
     .wr-chat-foot { display: flex; flex-direction: column; gap: 8px; padding-top: 9px; }
-    .wr-emote-row { display: flex; gap: 6px; flex-wrap: wrap; }
 
     /* ── The Current Controller row (lobby chat foot) ────────────────
        Sits where the emotes sit and replaces them while the table is
@@ -3450,11 +3451,6 @@
     .wr-cc-chip.on   { background: linear-gradient(120deg,#f0a93c,#e8862a); color: #3a1f00; }
     .wr-cc-chip.off  { background: rgba(255,255,255,.12); color: #cfe4f5; }
     .wr-cc-note { font-size: .68rem; font-weight: 700; color: #9fc0da; width: 100%; line-height: 1.45; }
-    .wr-emote {
-      width: 30px; height: 30px; border-radius: 9px; padding: 0; cursor: pointer; font-size: 15px; line-height: 1;
-      background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28);
-    }
-    .wr-emote:hover { background: rgba(255,255,255,.26); }
     .wr-chat-input { display: flex; align-items: center; gap: 8px; }
     #wr-chat-text {
       flex: 1; min-width: 0; border-radius: 12px; padding: 10px 13px;
@@ -3529,7 +3525,7 @@
       background-size: cover; background-position: center;
       border: 2px solid rgba(44,77,128,.22);
     }
-    .wr-look-bg-none { background: rgba(255,255,255,.9); font-size: 14px; line-height: 1; }
+    .wr-look-bg-none { background: rgba(255,255,255,.9); font-size: 11px; font-weight: 800; color: #6b8fbb; line-height: 1; }
     .wr-look-none-note { font-size: 10.5px; font-weight: 700; color: #6b8fbb; }
 
     /* ── narrow: one column, and the deck stacks ── */
@@ -4948,7 +4944,7 @@
     .pv-menu-item {
       display: block; width: 100%; text-align: left;
       background: none; border: none; color: var(--text);
-      padding: 8px 16px; cursor: pointer; font-size: 13px;
+      padding: 8px 16px; cursor: pointer; font-size: 14.04px;
       text-decoration: none;
     }
     .pv-menu-item:hover { background: rgba(48,200,240,.08); }
@@ -5894,7 +5890,7 @@
     /* ── Buttons ── */
     #gs-btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
     .gs-btn {
-      flex: 1; min-width: 150px; padding: 16px 18px; border-radius: 18px; font-size: 16px; font-weight: 900;
+      flex: 1; min-width: 150px; padding: 16px 18px; border-radius: 18px; font-size: 17.28px; font-weight: 900;
       font-family: "Nunito",sans-serif; cursor: pointer; border: none;
       transition: transform .14s, box-shadow .14s, filter .12s; letter-spacing: .4px;
     }
@@ -6011,7 +6007,7 @@
       display: flex; align-items: center; gap: 10px; text-align: left;
     }
     .comp-hand-emoji { font-size: 2.2rem; line-height: 1; flex-shrink: 0; }
-    .comp-hand-label { font-weight: 800; font-size: 15px; color: #0c2858; }
+    .comp-hand-label { font-weight: 800; font-size: 16.2px; color: #0c2858; }
     .comp-hand-owner { font-size: 12px; color: #6a8aaa; margin-top: 2px; }
     .comp-action-btn {
       width: 100%; padding: 16px; border-radius: 16px; font-size: 1.05rem; font-weight: 700;
@@ -8985,7 +8981,7 @@
       gap: 7px;
       justify-content: flex-start;
     }
-    .ph-sc-feat .ph-scv { font-size: clamp(2rem, 3.6vw, 3rem); }
+    .ph-sc-feat .ph-scv { font-size: clamp(2.16rem, 3.6vw, 3.24rem); }
     .ph-sci {
       width: 40px;
       height: 40px;
@@ -9002,13 +8998,13 @@
     .ph-sci-purple { background: rgba(107,120,235,.13); }
     .ph-sci-green  { background: rgba(32,185,132,.13); }
     .ph-scl {
-      font-size: .85rem;
+      font-size: 0.918rem;
       color: #4a6a8d;
       font-weight: 700;
       line-height: 1.25;
     }
     .ph-scv {
-      font-size: clamp(1.9rem, 3vw, 2.4rem);
+      font-size: clamp(2.052rem, 3vw, 2.592rem);
       font-weight: 900;
       line-height: 1.06;
       color: #103a74;
@@ -9586,7 +9582,7 @@
       background: rgba(250,254,255,.92);
       box-shadow: 0 3px 11px rgba(35,100,165,.1);
       color: #3b6590;
-      font-size: .93rem;
+      font-size: 1.004rem;
       font-weight: 700;
       padding: 10px 16px;
       cursor: pointer;
@@ -10006,7 +10002,7 @@
     #ph-panel-store .ph-scard { padding: 22px 26px 26px; }
     .phst-section-title {
       font-family: "Cinzel", serif;
-      font-size: 1.1rem; font-weight: 900; color: #0f5390;
+      font-size: 1.188rem; font-weight: 900; color: #0f5390;
       display: flex; align-items: center; gap: 9px;
       margin: 26px 0 14px;
     }
@@ -10528,7 +10524,7 @@
       box-shadow: 0 2px 8px rgba(220,110,40,.35);
     }
     .phst-coin-ico { font-size: 2rem; line-height: 1; }
-    /* Critter Coin image, replaces the 🪙 emoji everywhere in the store.
+    /* Critter Coin image, replaces the emoji everywhere in the store.
        em-based so it scales with whatever text it sits beside. */
     .cc-coin {
       display: inline-block;
@@ -11686,17 +11682,17 @@
       margin-bottom: 1px;
     }
     .ph-scl {
-      font-size: .9rem;
+      font-size: 0.972rem;
       line-height: 1.26;
       color: #244d81;
       font-weight: 700;
     }
     .ph-scv {
-      font-size: clamp(2.3rem, 2.7vw, 3rem);
+      font-size: clamp(2.484rem, 2.7vw, 3.24rem);
       color: #103a74;
       font-weight: 900;
     }
-    .ph-sc-feat .ph-scv { font-size: clamp(2.55rem, 2.9vw, 3.15rem); }
+    .ph-sc-feat .ph-scv { font-size: clamp(2.754rem, 2.9vw, 3.402rem); }
     .ph-scs {
       font-size: .92rem;
       font-weight: 700;
@@ -11739,7 +11735,7 @@
     }
     #ph-panel-overview .ph-sc .ph-scl {
       min-height: 2.45em;
-      font-size: .78rem;
+      font-size: 0.842rem;
     }
     #ph-panel-overview .ph-sci {
       width: 32px;
@@ -11747,11 +11743,11 @@
       margin-bottom: 0;
     }
     #ph-panel-overview .ph-sc:not(.ph-sc-string) .ph-scv {
-      font-size: clamp(1.45rem, 1.7vw, 2.0rem);
+      font-size: clamp(1.566rem, 1.7vw, 2.16rem);
       line-height: 1.02;
     }
     #ph-panel-overview .ph-sc-string .ph-scv {
-      font-size: clamp(0.95rem, 1.1vw, 1.2rem);
+      font-size: clamp(1.026rem, 1.1vw, 1.296rem);
       line-height: 1.24;
       margin-top: 2px;
       word-break: break-word;
@@ -11804,13 +11800,13 @@
         height: 38px;
       }
       #auth-stats-lobby #ph-panel-overview .ph-sc .ph-scl {
-        font-size: .9rem;
+        font-size: 0.972rem;
       }
       #auth-stats-lobby #ph-panel-overview .ph-sc:not(.ph-sc-string) .ph-scv {
-        font-size: clamp(1.8rem, 1.9vw, 2.3rem);
+        font-size: clamp(1.944rem, 1.9vw, 2.484rem);
       }
       #auth-stats-lobby #ph-panel-overview .ph-sc-string .ph-scv {
-        font-size: clamp(1.1rem, 1.25vw, 1.4rem);
+        font-size: clamp(1.188rem, 1.25vw, 1.512rem);
       }
       /* Action cards, full-height colorful cards on desktop */
       #auth-stats-lobby .ph-actions { gap: 16px; }
@@ -12288,7 +12284,7 @@
     .avatar-modal-box { max-width: 430px; }
     .modal-title {
       font-family: 'Cinzel', serif; color: var(--cyan);
-      font-size: 16px; text-align: center; font-weight: 700;
+      font-size: 17.28px; text-align: center; font-weight: 700;
     }
 
     /* ── The recovery code ─────────────────────────────────────────
@@ -12457,7 +12453,7 @@
     }
 
     /* ══ PRIVACY POLICY MODAL ══════════════════════════════════════
-       Read-only reader, opened from Settings → 📜 Legal. The document's own
+       Read-only reader, opened from Settings → Legal. The document's own
        type and colour live in css/privacy.css (.pp-dark); everything here is
        the frame around it, the box, the jump list and the scroller. */
     #privacy-modal { z-index: 9800; }       /* above the auth screen + settings */
@@ -13599,7 +13595,7 @@
     }
     #new-current-box .nc-field.nc-locked .nc-field-label { color: #6a86b6; }
     #new-current-box .nc-field.nc-locked .nc-field-label::after {
-      content: " 🔒"; font-size: 11px;
+      content: " (locked)"; font-size: 11px;
     }
     #new-current-box .nc-field.nc-locked .nc-select-wrap::after { opacity: .4; }
     /* Mode field accents the active choice so the locked state reads clearly. */
@@ -13759,7 +13755,6 @@
     #sp-join-btn:not(:disabled):hover { background: linear-gradient(90deg, #f0c830, #e0b020); }
     #sp-join-btn:disabled { cursor: default; }
     #sp-join-btn::before { content: none; }
-    #sp-join-btn::after { content: "🪸"; font-size: 26px; position: absolute; right: 18px; top: 50%; transform: translateY(-50%); }
     #sp-crab {
       position: absolute; left: -8px; bottom: 0;
       width: 90px; height: auto;
@@ -14297,19 +14292,6 @@
       align-items: center;
       gap: 12px;
     }
-    .ach-popup-icon {
-      font-size: 2rem;
-      width: 50px;
-      height: 50px;
-      border-radius: 13px;
-      background: linear-gradient(135deg, rgba(37,165,124,.18) 0%, rgba(34,216,248,.18) 100%);
-      border: 1.5px solid rgba(37,165,124,.4);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      box-shadow: 0 2px 12px rgba(37,165,124,.2);
-    }
     .ach-popup-info { min-width: 0; }
     .ach-popup-name {
       font-size: .95rem;
@@ -14475,7 +14457,7 @@
     /* Info */
     .ach-info { flex: 1; min-width: 0; }
     .ach-name {
-      font-size: .95rem;
+      font-size: 1.026rem;
       font-weight: 800;
       color: #1a3e7a;
       margin-bottom: 3px;
@@ -15107,13 +15089,13 @@
       padding: 12px;
     }
     #pub-profile-overlay .ph-sc { min-height: 100px; padding: 12px 14px; gap: 5px; }
-    #pub-profile-overlay .ph-sc .ph-scl { min-height: 2.45em; font-size: .78rem; }
+    #pub-profile-overlay .ph-sc .ph-scl { min-height: 2.45em; font-size: 0.842rem; }
     #pub-profile-overlay .ph-sci { width: 32px; height: 32px; margin-bottom: 0; }
     #pub-profile-overlay .ph-sc:not(.ph-sc-string) .ph-scv {
-      font-size: clamp(1.45rem, 1.7vw, 2.0rem); line-height: 1.02;
+      font-size: clamp(1.566rem, 1.7vw, 2.16rem); line-height: 1.02;
     }
     #pub-profile-overlay .ph-sc-string .ph-scv {
-      font-size: clamp(0.95rem, 1.1vw, 1.2rem); line-height: 1.24;
+      font-size: clamp(1.026rem, 1.1vw, 1.296rem); line-height: 1.24;
       margin-top: 2px; word-break: break-word;
     }
     @media (max-width: 1050px) { #pub-profile-overlay .ph-sg { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
@@ -16358,7 +16340,7 @@
       overflow-y: auto;
     }
     #settings-modal .modal-title {
-      color: var(--lt-ink); font-size: 1.4rem; letter-spacing: .5px;
+      color: var(--lt-ink); font-size: 1.512rem; letter-spacing: .5px;
     }
     #settings-modal .settings-row { border-bottom: 1px solid rgba(120,175,225,.5); }
     #settings-modal .settings-row-label {
@@ -16483,7 +16465,7 @@
       padding: 24px 22px 20px;
       max-height: 92vh; overflow-y: auto;
     }
-    #rc-modal .modal-title { color: var(--lt-ink); font-size: 1.4rem; }
+    #rc-modal .modal-title { color: var(--lt-ink); font-size: 1.512rem; }
     /* The code itself keeps its dark plate ON PURPOSE. It is the one thing
        on this screen you have to copy onto paper by hand, and the contrast
        is what keeps a 0 apart from an O. Everything around it is water so
@@ -16698,13 +16680,13 @@
       gap: 6px;
     }
     #auth-stats-lobby #ph-panel-overview .ph-ov-duo .ph-sc .ph-scl {
-      font-size: .82rem;
+      font-size: 0.886rem;
     }
     #auth-stats-lobby #ph-panel-overview .ph-ov-duo .ph-sc:not(.ph-sc-string) .ph-scv {
-      font-size: clamp(1.2rem, 1.6vw, 1.95rem);
+      font-size: clamp(1.296rem, 1.6vw, 2.106rem);
     }
     #auth-stats-lobby #ph-panel-overview .ph-ov-duo .ph-sc-string .ph-scv {
-      font-size: clamp(.98rem, 1.05vw, 1.2rem);
+      font-size: clamp(1.058rem, 1.05vw, 1.296rem);
     }
 
     /* Friends Quick Stats: a list of every friend first, then one friend's
@@ -16929,7 +16911,7 @@
     @media (max-width: 1240px) {
       #ph-panel-overview .ph-main.ph-ov-duo { grid-template-columns: minmax(0, 1fr); }
       #auth-stats-lobby #ph-panel-overview .ph-ov-duo .ph-sc:not(.ph-sc-string) .ph-scv {
-        font-size: clamp(1.3rem, 2.6vw, 2rem);
+        font-size: clamp(1.404rem, 2.6vw, 2.16rem);
       }
       /* Stacked, there is no neighbour to take a height from: the list is
          as tall as its rows, up to a point, and scrolls past it. */
@@ -16939,7 +16921,7 @@
     @media (max-width: 760px) {
       #ph-panel-overview .ph-ov-duo .ph-sg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       #auth-stats-lobby #ph-panel-overview .ph-ov-duo .ph-sc:not(.ph-sc-string) .ph-scv {
-        font-size: 1.5rem;
+        font-size: 1.62rem;
       }
       .ph-ovf-name { font-size: 1.1rem; }
     }

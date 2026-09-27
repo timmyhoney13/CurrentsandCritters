@@ -3800,7 +3800,7 @@ def _trade_summary_text(trade: Dict[str, Any]) -> str:
     if len(parts) != 2:
         return "Trade completed."
     a, b = parts
-    return (f"✅ Trade completed: {names.get(a, 'Player')} gave {_side(a)}; "
+    return (f"Trade completed: {names.get(a, 'Player')} gave {_side(a)}; "
             f"{names.get(b, 'Player')} gave {_side(b)}.")
 
 
@@ -9206,7 +9206,7 @@ class GameRoom:
         try:
             _eg_probs = fish.validate_end_game_placement(gs_restore, ms_restore, where="post-undo-restore-flag")
             for _p in _eg_probs:
-                self._record_event(f"⚠ END GAME PLACEMENT: {_p}")
+                self._record_event(f"END GAME PLACEMENT: {_p}")
         except Exception:
             pass
         gs.__dict__.clear()
@@ -9494,7 +9494,7 @@ class GameRoom:
                         try:
                             _eg_probs = fish.validate_end_game_placement(gs_restore, ms_restore, where="post-undo-restore")
                             for _p in _eg_probs:
-                                self._record_event(f"⚠ END GAME PLACEMENT: {_p}")
+                                self._record_event(f"END GAME PLACEMENT: {_p}")
                         except Exception:
                             pass
                         gs.__dict__.clear()

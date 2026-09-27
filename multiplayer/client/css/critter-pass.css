@@ -612,7 +612,7 @@
 
 .ccCP-tier-label {
   font-weight: 900;
-  font-size: .88rem;
+  font-size: 0.95rem;
   color: var(--cp-ink);
   line-height: 1.2;
 }
@@ -705,7 +705,7 @@
   border-color: rgba(200, 147, 32, .6);
 }
 .ccCP-tier.is-finale .ccCP-tier-face { width: 84px; height: 84px; }
-.ccCP-tier.is-finale .ccCP-tier-label { font-size: .95rem; }
+.ccCP-tier.is-finale .ccCP-tier-label { font-size: 1.026rem; }
 
 /* ── Rail arrows ──────────────────────────────────────────────────────── */
 .ccCP-nav {

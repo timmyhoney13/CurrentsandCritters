@@ -429,16 +429,16 @@ _TRACK_SPEC: Sequence[Dict[str, Any]] = (
 _TYPE_META: Dict[str, Dict[str, str]] = {
     # A text fallback only: the client paints coin tiers with the minted
     # critter-coin.png, the same coin the Store and the wallet chip show.
-    "coins":       {"icon": "🪙", "name": "Critter Coins"},
-    "xp":          {"icon": "✨", "name": "XP Drop"},
-    "emote":       {"icon": "😀", "name": "Chat Emote"},
-    "shield":      {"icon": "🛡️", "name": "Streak Shield"},
-    "boost":       {"icon": "⚡", "name": f"{BOOST_HOURS}h XP Boost"},
-    "swap":        {"icon": "🔄", "name": "Weekly Swap"},
-    "background":  {"icon": "🖼️", "name": "Avatar Background"},
-    "daily_slot":  {"icon": "📅", "name": "Extra Daily Challenge"},
-    "weekly_slot": {"icon": "🗝️", "name": "Extra Weekly Challenge"},
-    "avatar":      {"icon": "⭐", "name": "Critter"},
+    "coins":       {"name": "Critter Coins"},
+    "xp":          {"name": "XP Drop"},
+    "emote":       {"name": "Chat Emote"},
+    "shield":      {"name": "Streak Shield"},
+    "boost":       {"name": f"{BOOST_HOURS}h XP Boost"},
+    "swap":        {"name": "Weekly Swap"},
+    "background":  {"name": "Avatar Background"},
+    "daily_slot":  {"name": "Extra Daily Challenge"},
+    "weekly_slot": {"name": "Extra Weekly Challenge"},
+    "avatar":      {"name": "Critter"},
 }
 
 # Everything on this track is claimed here. Unlike the Level Pass, there are no
@@ -519,14 +519,13 @@ def track() -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     for spec in _TRACK_SPEC:
         t = str(spec["type"])
-        meta = _TYPE_META.get(t, {"icon": "🎁", "name": t})
+        meta = _TYPE_META.get(t, {"name": t})
         entry = {
             "id": _tier_id(spec),
             "level": int(spec["level"]),
             "row": "premium",
             "type": t,
             "amount": int(spec.get("amount") or 1),
-            "icon": meta["icon"],
             "label": _describe(spec),
             "blurb": _blurb(spec),
             "claimable": t in CLAIMABLE_TYPES,
