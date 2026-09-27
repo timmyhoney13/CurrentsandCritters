@@ -322,18 +322,6 @@ COUNT_FOCUS: Tuple[str, ...] = ("future_urgency", "tempo_urgency",
 for _lab in list(STRATEGY_FOCUS):
     STRATEGY_FOCUS[_lab] = tuple(dict.fromkeys(STRATEGY_FOCUS[_lab] + COUNT_FOCUS))
 
-# ...and so is the weight on threshold_outlook, for the same reason and with
-# more force: it starts at exactly zero, so until a mutant moves it off zero the
-# feature may as well not exist. It is aimed at from every strategy because
-# every strategy runs into cards that score nothing until there are enough of
-# them -- Kelp Forest needs four, the squids need three cephalopods, a lone
-# Mandarin Goby scores 0 -- and because the answer is plainly per-plan: a plan
-# that wants a wall of one card should value the climb toward a tier far more
-# than a plan that wants one of everything.
-THRESHOLD_FOCUS: Tuple[str, ...] = ("threshold_outlook",)
-for _lab in list(STRATEGY_FOCUS):
-    STRATEGY_FOCUS[_lab] = tuple(dict.fromkeys(STRATEGY_FOCUS[_lab] + THRESHOLD_FOCUS))
-
 
 # ── The Reef Planner's knobs, and what each is allowed to be ───────────────
 # Only the knobs that say what a position is WORTH. The search widths

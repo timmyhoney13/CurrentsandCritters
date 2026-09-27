@@ -2127,12 +2127,6 @@ def default_weights() -> Dict[str, float]:
         "draw_from_pool": 0.1,
         "pool_pick_value": 0.9,
         "immediate_delta": 1.0,
-        # Starts at zero on purpose. Adding a feature the bots have never been
-        # measured with must not change a single champion's play on the day it
-        # lands; what it is worth is for the trainer to find, one mutant at a
-        # time, against a champion it has to beat. bot_evolve's mutation step
-        # has a floor precisely so a weight sitting at zero can be moved off it.
-        "threshold_outlook": 0.0,
         "synergy_bonus": 0.5,
         "species_bonus": 0.9,
         "same_ocean_bonus": 0.6,
@@ -4806,184 +4800,6 @@ def _expected_remaining_draws(gs: GameState) -> int:
     per_player = max(1, len(gs.players))
     turns_left = len(gs.deck) / float(per_player * 2)
     return int(max(0, min(18, turns_left * 1.6)))
-
-
-# ──────────────────────────────────────────────────────────────────────────
-#  CARDS THAT SCORE NOTHING UNTIL THERE ARE ENOUGH OF THEM
-# ──────────────────────────────────────────────────────────────────────────
-# final_points scores the board exactly as it stands, and a great many cards in
-# this deck are worth nothing at all as it stands:
-#
-#   Kelp Forest    nothing until you control FOUR, then +5 each
-#   Mandarin Goby  1 = 0,  2 = 14,  3 = 30,  4 = 80
-#   Razorbill Auk  1 = 5,  2 = 25
-#   Mantis Shrimp  1 = 5,  2 = 15,  3 = 30
-#   the squids     +3 (Giant Squid +6) only at three or more cephalopods
-#   Coral Reef     1=1 2=4 3=9 4=16 **5=0** 6+=35
-#
-# `sim_point_delta` plays the move on a copy and reads the score off, so to it a
-# first Kelp Forest and a third Kelp Forest and a fourth are worth 0, 0 and 20.
-# A bot that only ever sees the board as it stands therefore cannot tell a Kelp
-# Forest it is going to finish from one it is not, and plays both the same way.
-# Measured over 180 finished boards: 44% ended holding one to three Kelp
-# Forests scoring nothing, 6% held a single Mandarin Goby scoring nothing, and
-# 13% held squids with fewer than three cephalopods under them.
-#
-# It also cannot cross a valley. Four Coral Reefs are 16 and six are 35, but the
-# fifth is 0, so the step that gets you there reads as -16 and is never taken.
-#
-# This asks the other question: what will this card be worth once the count it
-# is building toward is allowed to land, and can that count still be reached at
-# all? Reachability is counted from PUBLIC information only -- this player's
-# hand and board, the face-up Pool, and every board on the table -- plus the
-# odds on the copies nobody can see, exactly as strategy_payoff_outlook does it.
-#
-# The weight on this starts at zero, so every champion trained before it exists
-# plays precisely as it did. What it is worth is for the trainer to measure, one
-# mutant at a time, against the champion it has to beat.
-
-# Cards whose points come from how many of that same card you control, beyond
-# what a printed count chart already says. Kelp Forest's "+5 per kelp forest if
-# you control 4+" is a rule about Kelp Forests, not a chart, so it is named.
-_KELP_THRESHOLD = 4
-
-
-def _count_chart(card: CardDef) -> Optional[Tuple[Tuple[int, int], ...]]:
-    prof = _score_profile(card, None)
-    pairs = getattr(prof, "table_pairs", None)
-    return tuple(pairs) if pairs else None
-
-
-def _chart_value(pairs: Tuple[Tuple[int, int], ...], n: int) -> float:
-    return float(_threshold_value(pairs, n))
-
-
-def _copies_reachable(gs: GameState, ms: MatchState, player: PlayerState,
-                      name: str, counts: Dict[str, int],
-                      playing_entry: Optional[int] = None) -> Tuple[int, int]:
-    """(certain, unseen) FURTHER copies of `name` this player could still add,
-    on top of the one it is playing right now.
-
-    Certain: in hand, or face-up in the Pool. Unseen: everything neither on a
-    board nor visible, so the deck and the other hands together.
-
-    `playing_entry` is the card being played and is not counted: it is the copy
-    this decision is about, not another one waiting behind it. Counting it made
-    a lone fifth Coral Reef look as though a sixth were in hand, which is the
-    difference between +35 and nothing.
-    """
-    certain = 0
-    for entry_uid in player.hand:
-        if playing_entry is not None and entry_uid == playing_entry:
-            continue
-        if any(card_name_lc(gs.card_db[f]) == name for f in entry_faces(ms, entry_uid)):
-            certain += 1
-    for entry_uid in list(ms.pool):
-        if any(card_name_lc(gs.card_db[f]) == name for f in entry_faces(ms, entry_uid)):
-            certain += 1
-    on_boards = 0
-    for p in gs.players:
-        for uid in player_board_face_uids(p):
-            c = gs.card_db.get(uid)
-            if c is not None and card_name_lc(c) == name:
-                on_boards += 1
-    playing = 0
-    if playing_entry is not None:
-        if any(card_name_lc(gs.card_db[f]) == name
-               for f in entry_faces(ms, playing_entry)):
-            playing = 1
-    unseen = max(0, counts.get(name, 0) - on_boards - certain - playing)
-    return certain, unseen
-
-
-def _reach_odds(gs: GameState, need: int, certain: int, unseen: int) -> float:
-    """The chance of getting `need` more copies, given what is in hand or the
-    Pool already and how many are still hidden."""
-    if need <= 0:
-        return 1.0
-    if certain >= need:
-        return 1.0
-    short = need - certain
-    if unseen < short:
-        return 0.0
-    draws = _expected_remaining_draws(gs)
-    if draws <= 0:
-        return 0.0
-    hidden = max(1, len(gs.deck) + sum(len(p.hand) for p in gs.players) - len(gs.deck) * 0)
-    # Chance of at least `short` of `unseen` copies arriving in `draws` cards,
-    # taken one copy at a time -- rough, and deliberately so: it is a feature
-    # the trainer weighs, not a number anything is decided on outright.
-    per = min(1.0, 1.0 - ((max(0.0, hidden - unseen) / float(hidden)) ** max(1, draws)))
-    return max(0.0, min(1.0, per ** short))
-
-
-def threshold_outlook(gs: GameState, ms: MatchState, player: PlayerState,
-                      action: Action) -> float:
-    """What this card is worth once the count it builds toward is allowed to
-    land, beyond what it is worth on the board as it stands.
-
-    Positive when a play carries a count toward a tier that is still reachable
-    -- the fourth Kelp Forest, the second Mandarin Goby, the third cephalopod,
-    and the fifth Coral Reef that a sixth is waiting behind. Negative when it
-    cannot: a Kelp Forest played when four can no longer be had is a card on the
-    board worth nothing, and so is a lone Goby.
-
-    Scaled to roughly [-1, 1] like the other features here, so the weight the
-    trainer learns for it is on the same footing as the rest.
-    """
-    if action.kind not in {"play_ocean", "play_to_ocean"}:
-        return 0.0
-    face = action.face_uid if action.face_uid is not None else action.card_uid
-    card = gs.card_db.get(face)
-    if card is None:
-        return 0.0
-    name = card_name_lc(card)
-    counts = card_name_counts(gs.card_db)
-
-    board_names = [card_name_lc(gs.card_db[u]) for u in player_board_face_uids(player)
-                   if u in gs.card_db]
-    have = board_names.count(name)
-    after = have + 1
-
-    prof = _score_profile(card, None)
-
-    # ── Kelp Forest: nothing at all below four, +5 each from four up ────────
-    if getattr(prof, "kelp4", False):
-        if after >= _KELP_THRESHOLD:
-            return 0.0                    # already paying; sim_point_delta has it
-        need = _KELP_THRESHOLD - after
-        certain, unseen = _copies_reachable(gs, ms, player, name, counts, action.card_uid)
-        odds = _reach_odds(gs, need, certain, unseen)
-        # Worth +5 a piece once the fourth lands, so the whole set is 20.
-        gain = 5.0 * _KELP_THRESHOLD * odds
-        # ...against a card on the board worth nothing if it never does.
-        return max(-1.0, min(1.0, (gain - 5.0 * (1.0 - odds)) / 20.0))
-
-    pairs = _count_chart(card)
-    if not pairs:
-        return 0.0
-
-    now = _chart_value(pairs, have)
-    here = _chart_value(pairs, after)
-    # The best tier still ahead, and how many more copies it needs.
-    best_ahead, best_need = None, 0
-    for n, _v in pairs:
-        if n > after:
-            v = _chart_value(pairs, n)
-            if best_ahead is None or v > best_ahead:
-                best_ahead, best_need = v, n - after
-    if best_ahead is None or best_ahead <= here:
-        # Nothing better ahead: what this play is worth is already on the board.
-        return 0.0
-
-    certain, unseen = _copies_reachable(gs, ms, player, name, counts, action.card_uid)
-    odds = _reach_odds(gs, best_need, certain, unseen)
-    # What the play is worth if the tier lands, and what it is worth if it does
-    # not -- which for a Goby, an Auk or the fifth Coral Reef can be less than
-    # nothing, because the card is on the board either way.
-    upside = (best_ahead - now) * odds
-    downside = (here - now) * (1.0 - odds)
-    return max(-1.0, min(1.0, (upside + downside) / 20.0))
 
 
 def strategy_payoff_veto(
@@ -11389,10 +11205,6 @@ def action_features(
             feat["combo_timing"] = max(0.0, min(3.0,
                 combo_timing_value(gs, ms, player, _tc) / 2.0))
     feat["sim_point_delta"] = simulated_point_delta(gs, ms, player, action, sim_baseline) if include_sim_delta else 0.0
-    # ...and what the same move is worth once the counts it builds toward land.
-    # sim_point_delta reads the board as it stands, where three Kelp Forests are
-    # worth nothing and so is a lone Goby. See threshold_outlook.
-    feat["threshold_outlook"] = threshold_outlook(gs, ms, player, action)
 
     # ── What this move is worth at THIS table size ──────────────────────────
     # Four products of numbers already worked out above, so they cost nothing
