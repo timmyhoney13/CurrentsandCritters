@@ -792,13 +792,12 @@ def _page(ok: bool, message: str) -> bytes:
         "font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif\">"
         "<div style=\"max-width:520px;margin:14vh auto 0;padding:28px 24px;"
         "background:rgba(255,255,255,.05);border-radius:16px;text-align:center\">"
-        "<div style=\"font-size:34px\">%s</div>"
-        "<h1 style=\"font-size:22px;margin:12px 0 10px;color:%s\">%s</h1>"
+        "<h1 style=\"font-size:24px;margin:0 0 10px;color:%s\">%s</h1>"
         "<p style=\"margin:0 0 22px;line-height:1.6;color:#b9d1e6\">%s</p>"
         "<a href=\"%s\" style=\"display:inline-block;background:#e8b34a;color:#3a2a05;"
         "text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px\">"
         "Back to the game</a></div></body></html>"
-        % (_html.escape(head), "\U0001FAB8" if ok else "\U0001F41A", tint,
+        % (_html.escape(head), tint,
            _html.escape(head), _html.escape(message), _html.escape(_base_url()))
     ).encode("utf-8")
 
