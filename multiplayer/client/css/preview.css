@@ -1362,7 +1362,7 @@
          with the toolbars retracted, but html/body are overflow:hidden, so the
          extra height is not scrolled to, it is clipped off the bottom of the
          screen. The bottom of the game screen is the hand zone, and the bottom
-         of a seat pill is its "N pts ·M" line, so a phone lost exactly
+         of a seat pill is its "⭐ N pts · 🃏M" line, so a phone lost exactly
          that: every player's score and card count. What the browser does let
          you do is PAN the visual viewport, which is how the top of the screen
          (the Menu button) then disappeared instead. `100dvh` is the height that
@@ -2436,6 +2436,7 @@
       display: inline-flex; align-items: center; gap: 3px;
       white-space: nowrap;
     }
+    .pv-seat-score::before { content: "⭐"; font-size: 10px; }
     .pv-seat.active-turn .pv-seat-score {
       color: #fff;
       background: linear-gradient(135deg, #f06868, #d83838);
@@ -2443,6 +2444,7 @@
       border-radius: 10px;
       box-shadow: 0 2px 4px rgba(208,56,56,.35);
     }
+    .pv-seat.active-turn .pv-seat-score::before { color: #ffe8a0; }
     .pv-seat-me-badge {
       font-size: 8px; font-weight: 800; color: #fff;
       letter-spacing: .4px;

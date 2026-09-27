@@ -344,7 +344,7 @@ if (!narrowBlock) {
 // toolbars retracted, not the height it has. html/body are overflow:hidden, so
 // the difference is not scrolled to, it is sliced off the bottom of #pv-game,
 // and the bottom of #pv-game is the bottom of a seat pill, which is its
-// "N pts · M cards" line. Every player's score and card count, gone. What is
+// "⭐ N pts · 🃏M" line. Every player's score and card count, gone. What is
 // left is panning the visual viewport, which is how the Menu button at the TOP
 // then disappeared instead ("you have to tilt your screen to see it").
 const gameBlock = (() => {

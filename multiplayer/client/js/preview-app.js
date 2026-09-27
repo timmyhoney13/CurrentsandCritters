@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-27.1";
+  const APP_BUILD   = "2026-09-27.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -2136,7 +2136,7 @@
         if (_sd) {
           const dv = document.createElement("span");
           dv.className = "spec-device";
-          dv.textContent = _sd.short;
+          dv.textContent = _sd.icon;
           dv.title = (s.name || "This watcher") + ": " + _sd.title;
           dv.setAttribute("aria-label", (s.name || "Watcher") + " is on " + _sd.label);
           row.appendChild(dv);
@@ -2602,7 +2602,7 @@
         if (_tdev) {
           const dv = document.createElement("span");
           dv.className = "wr-chip-device-icon";
-          dv.textContent = _tdev.initial;
+          dv.textContent = _tdev.icon;
           dv.title = (s.claimed_name || "This player") + ": " + _tdev.title;
           dv.setAttribute("aria-label", (s.claimed_name || "Player") + " is on " + _tdev.label);
           chip.appendChild(dv);
@@ -8576,7 +8576,7 @@
       setTimeout(() => { el.style.transition = "color 1s"; el.style.color = "var(--gold)"; }, 900);
     }
     const hc = Number(handCount ?? 0);
-    el.textContent = next + " pts · " + hc + " cards";
+    el.textContent = "📊 " + next + " pts · 🃏" + hc;
   }
 
   // ── Main payload renderer ──────────────────────────────────────
@@ -10323,7 +10323,7 @@
   window.__fishReportBackground = function () { _lastPushedBg = ""; try { pushMySeatBackground(); } catch (e) {} };
 
   // Tell the room what we are playing ON, so every other client can show a
-  ///chip on our seat. Throttled like the two pushes above.
+  // 💻/📱 chip on our seat. Throttled like the two pushes above.
   //
   // Its own push rather than a field on the avatar one: that push is skipped
   // whenever the avatar has not changed AND whenever the player has no avatar
@@ -10481,7 +10481,7 @@
         if (_dl && !(_sMeta && _sMeta.kind === "ai")) {
           const dchip = document.createElement("div");
           dchip.className = "pv-seat-device pv-seat-device-" + _dl.device;
-          dchip.textContent = _dl.initial;
+          dchip.textContent = _dl.icon;
           dchip.title = (p.name || "This player") + ": " + _dl.title;
           dchip.setAttribute("aria-label", (p.name || "Player") + " is on " + _dl.label);
           avBox.appendChild(dchip);
@@ -10532,7 +10532,7 @@
       const sc = document.createElement("div");
       sc.className = "pv-seat-score";
       const hcSeat = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
-      sc.textContent = (p.score ?? 0) + " pts ·" + hcSeat;
+      sc.textContent = (p.score ?? 0) + " pts · 🃏" + hcSeat;
 
       seat.appendChild(avBox);
       seat.appendChild(nm);
@@ -10871,7 +10871,7 @@
         // Label stays readable regardless of rotation
         const hc = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
         const lbl = document.createElement("div"); lbl.className = "pv-opp-full-label";
-        lbl.innerHTML = `${p.index===turnIndex?"▶ ":""}${p.name||`Player ${p.index}`}<span class="opp-score">${p.score??0} pts</span><span style="font-size:10px;color:var(--muted);margin-left:6px;">${hc}</span>`;
+        lbl.innerHTML = `${p.index===turnIndex?"▶ ":""}${p.name||`Player ${p.index}`}<span class="opp-score">${p.score??0} pts</span><span style="font-size:10px;color:var(--muted);margin-left:6px;">🃏${hc}</span>`;
         wrap.appendChild(lbl);
         // Board content, scale + rotate across opponent
         const boardEl = renderReadOnlyBoard(p);
@@ -10895,7 +10895,7 @@
         nm.textContent = (p.index === turnIndex ? "▶ " : "") + (p.name || `Player ${p.index}`);
         const sc = document.createElement("div"); sc.className = "pv-opp-score";
         const hcMini = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
-        sc.textContent = `${p.score ?? 0} pts ·${hcMini}`;
+        sc.textContent = `${p.score ?? 0} pts · 🃏${hcMini}`;
         hdr.appendChild(nm); hdr.appendChild(sc); mini.appendChild(hdr);
         const thumbs = document.createElement("div"); thumbs.style.cssText = "display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;";
         (Array.isArray(p.board) ? p.board : []).slice(0, 5).forEach(ocean => {
@@ -10939,7 +10939,7 @@
       nm.textContent = (p.index===turnIndex?"▶ ":"") + (p.name||`Player ${p.index}`);
       const sc  = document.createElement("div"); sc.className = "pv-opp-score";
       const hcCard = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
-      sc.textContent = `${p.score??0} pts ·${hcCard}`;
+      sc.textContent = `${p.score??0} pts · 🃏${hcCard}`;
       hdr.appendChild(nm); hdr.appendChild(sc); card.appendChild(hdr);
 
       // face-down hand cards strip, use hand_count for opponents (server sends hand:[])
@@ -15099,7 +15099,7 @@
       }
       const row = document.createElement("div");
       const hc = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
-      row.textContent = `${isMe ? "★ " : ""}${p.name || `P${p.index}`}: ${p.score ?? 0} pts ·${hc}`;
+      row.textContent = `${isMe ? "★ " : ""}${p.name || `P${p.index}`}: ${p.score ?? 0} pts · 🃏${hc}`;
       row.style.fontWeight = isMe ? "700" : "400";
       if (isMe) row.style.color = "var(--gold)";
       el.appendChild(row);
@@ -23376,7 +23376,7 @@
       if (!d) return "";
       return '<span class="ph-fr-device ph-fr-device-' + d.device + '" title="'
         + escapeHtml(d.title) + '" aria-label="' + escapeHtml("On " + d.label) + '">'
-        + escapeHtml(d.label) + '</span>';
+        + d.icon + ' ' + escapeHtml(d.label) + '</span>';
     }
 
     // ── Friend requests ──────────────────────────────────────────
@@ -33768,7 +33768,7 @@
         +     '<div class="htp-score-eg">1 = 5 · 2 = 15 · 3 = 30</div><p class="htp-p">Pays off only once you collect '
         +     'a set. Commit early or leave it alone.</p></div>'
         + '</div>'
-        + '<p class="htp-p">Your running total sits in the top bar. Tap the <b>pts</b> badge at any time for a '
+        + '<p class="htp-p">Your running total sits in the top bar. Tap the <b>📊 pts</b> badge at any time for a '
         +   'full Score Breakdown, card by card.</p>'
 
         + '<div class="htp-sec-head">How the game ends</div>'

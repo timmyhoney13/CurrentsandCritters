@@ -376,8 +376,8 @@ function compGetHandName(i) { return "Hand " + (i + 1); }
 function _hesc(t) { return String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 function _teamSwitch() {} function _teamSwapRequest() {}
 window.ccDeviceLabel = (d) => d === "mobile"
-  ? { device: "mobile", short: "Mobile", initial: "M", text: "Mobile", label: "a phone", title: "playing on a phone" }
-  : { device: "computer", short: "PC", initial: "C", text: "Computer", label: "a computer", title: "playing on a computer" };
+  ? { device: "mobile", icon: "\u{1F4F1}", short: "Mobile", initial: "M", text: "\u{1F4F1} Mobile", label: "a phone", title: "playing on a phone" }
+  : { device: "computer", icon: "\u{1F4BB}", short: "PC", initial: "C", text: "\u{1F4BB} Computer", label: "a computer", title: "playing on a computer" };
 window._compGetRankFromCp = () => ({ division: "Golden Grouper III", tier: "gold" });
 window.__fishGetMyStats = () => ({ comp_cp: 512, competitive_wins: 40, competitive_losses: 22, competitive_draws: 3 });
 const latestPayload = ${JSON.stringify(payload)};
