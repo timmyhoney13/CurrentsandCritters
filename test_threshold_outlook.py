@@ -189,6 +189,80 @@ def main():
           "a fifth reef with a sixth behind it beats one with nothing behind it",
           f"{bridge:+.3f} vs {nobridge:+.3f}")
 
+    # ── baitfish: the chart counts SPECIES, not copies ──────────────────────
+    section("the baitfish chart counts different species, not copies")
+    gs, ms = table(db)
+    me = gs.players[0]
+    base = pull(gs, ms, "deep ocean", 1)[0]
+    bf = face_of(gs, ms, base, "deep ocean")
+    put_ocean(gs, me, bf)
+    # Three Bonito down: that is ONE species, worth 1, not three worth 11.
+    for e in pull(gs, ms, "bonito", 3):
+        attach(gs, me, bf, face_of(gs, ms, e, "bonito"))
+    another_bonito = pull(gs, ms, "bonito", 1)[0]
+    me.hand.append(another_bonito)
+    act_same = fish.Action(kind="play_to_ocean", card_uid=another_bonito,
+                           face_uid=face_of(gs, ms, another_bonito, "bonito"), ocean_uid=bf)
+    same = fish.threshold_outlook(gs, ms, me, act_same)
+    check(same == 0.0,
+          "a FOURTH Bonito adds no species, so it reads exactly 0",
+          f"{same:+.3f}")
+
+    new_kind = pull(gs, ms, "sardine", 1)[0]
+    me.hand.append(new_kind)
+    act_new = fish.Action(kind="play_to_ocean", card_uid=new_kind,
+                          face_uid=face_of(gs, ms, new_kind, "sardine"), ocean_uid=bf)
+    fresh = fish.threshold_outlook(gs, ms, me, act_new)
+    check(fresh > 0.0,
+          "...while a Sardine is a second species and reads positive",
+          f"{fresh:+.3f}")
+    check(fresh > same,
+          "a new species is worth more than another copy of one already down",
+          f"{fresh:+.3f} vs {same:+.3f}")
+
+    # ── the squids: paid by a count of OTHER cards ──────────────────────────
+    section("a squid is worth nothing until three cephalopods sit together")
+    gs, ms = table(db)
+    me = gs.players[0]
+    base = pull(gs, ms, "deep ocean", 1)[0]
+    bf = face_of(gs, ms, base, "deep ocean")
+    put_ocean(gs, me, bf)
+    squid = pull(gs, ms, "giant squid", 1)[0]
+    me.hand.append(squid)
+    # Two more cephalopods in hand, so three is certain.
+    for nm in ("bobtail squid", "cuttlefish"):
+        me.hand.append(pull(gs, ms, nm, 1)[0])
+    act = fish.Action(kind="play_to_ocean", card_uid=squid,
+                      face_uid=face_of(gs, ms, squid, "giant squid"), ocean_uid=bf)
+    withfriends = fish.threshold_outlook(gs, ms, me, act)
+    check(withfriends > 0.0,
+          "a Giant Squid with two more cephalopods in hand reads positive",
+          f"{withfriends:+.3f}")
+
+    # Now with every other cephalopod on other boards: three is impossible.
+    gs, ms = table(db)
+    me, rival = gs.players[0], gs.players[1]
+    base = pull(gs, ms, "deep ocean", 1)[0]
+    bf = face_of(gs, ms, base, "deep ocean")
+    put_ocean(gs, me, bf)
+    squid = pull(gs, ms, "giant squid", 1)[0]
+    me.hand.append(squid)
+    rbase = pull(gs, ms, "deep ocean", 1)[0]
+    rbf = face_of(gs, ms, rbase, "deep ocean")
+    put_ocean(gs, rival, rbf)
+    for nm in ("bobtail squid", "cuttlefish", "common octopus", "giant squid"):
+        for e in pull(gs, ms, nm, 9):
+            attach(gs, rival, rbf, face_of(gs, ms, e, nm))
+    act = fish.Action(kind="play_to_ocean", card_uid=squid,
+                      face_uid=face_of(gs, ms, squid, "giant squid"), ocean_uid=bf)
+    alone = fish.threshold_outlook(gs, ms, me, act)
+    check(alone < 0.0,
+          "...and reads negative when every other cephalopod is on another board",
+          f"{alone:+.3f}")
+    check(withfriends > alone,
+          "a squid with company beats a squid that will never have any",
+          f"{withfriends:+.3f} vs {alone:+.3f}")
+
     # ── a card with no count at all ─────────────────────────────────────────
     section("a card whose score does not depend on a count is left alone")
     gs, ms = table(db)
