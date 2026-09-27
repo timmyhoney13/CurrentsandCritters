@@ -58,9 +58,21 @@ function grabFn(name, indent) {
   throw new Error("unbalanced braces reading " + name);
 }
 
+// Held on its own as well as lifted: the clock the whole list is sorted by is
+// asserted directly further down.
+const TS_SRC = grabFn("_msgTs", 4);
+
 const SRC = [
   grabFn("_msgIsGroupMeta", 4),
-  grabFn("_msgTs", 4),
+  TS_SRC,
+  // The row's identity and its preview line, read off the whole conversation
+  // rather than off its newest doc. Lifted too, because _msgSummarize calls
+  // them and a copy here would be free to drift away from the shipped ones.
+  grabFn("_msgPeerUid", 4),
+  grabFn("_msgPeerName", 4),
+  grabFn("_msgDocPreview", 4),
+  grabFn("_msgPreviewDoc", 4),
+  grabFn("_msgPreviewOf", 4),
   grabFn("_msgSummarize", 4),
   "return _msgSummarize;",
 ].join("\n");
@@ -217,6 +229,184 @@ console.log("\nthe system lines trades used to post are swept, never counted");
   const read = summarize([dm({ id: "tradelog_read", system: true, trade_log: true,
                               read: true })], ME, new Set());
   check("and so is one already read", read.orphans.length === 0, JSON.stringify(read.orphans));
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   3b. THE ROW ABOVE THE CHAT: WHO IT IS WITH, AND WHAT IT LAST SAID
+
+   Reported as: "it just said Player, No messages yet, under some people
+   I have text with."
+
+   A DM's newest doc is very often the trade mirror the SERVER writes at
+   "trade_<convId>". Every one written before 2026-09-25 carries only
+   conv_id, trade, trade_id, trade_state, ts and read — no text, no
+   sender, no receiver, no names — because the client excluded trade docs
+   from the newest-message set back then, so none of that was needed. The
+   card is now drawn in date order with the messages, which handed those
+   old docs the job of describing the row, and they cannot do it:
+
+     peerName ← last.sender_name   → undefined → "Player"
+     last_text ← last.text         → undefined → "No messages yet"
+     peerUid  ← last.sender        → undefined → the row opens NOTHING
+
+   The third line is the worst of it: _msgOpenConversation returns early on
+   a falsy peerUid and _msgSendTo refuses one, so the row was dead — above
+   a conversation with real text in it.
+
+   The id of a DM is deterministic and holds both uids, and the old doc
+   still carries the pair's roster in trade_state, so none of this has to
+   be guessed. The rule is that no single doc decides anything another doc
+   in the same conversation can answer.
+   ══════════════════════════════════════════════════════════════════════ */
+console.log("\nthe trade mirror the server wrote before 2026-09-25");
+{
+  // Verbatim the old payload: _trade_mirror in multiplayer_server.py at
+  // 259732f^ wrote exactly these six fields and nothing else.
+  const oldMirror = {
+    id: "trade_" + DMCONV, conv_id: DMCONV, trade: true, trade_id: DMCONV,
+    ts: at(9000), read: true,
+    trade_state: {
+      tradeId: DMCONV, conv_id: DMCONV, participants: [ME, THEM].sort(),
+      names: { [ME]: "Me", [THEM]: "Reef" },
+      offers: {}, confirmed: {}, version: 3, status: "completed", created_by: ME,
+    },
+  };
+  const talk = [
+    dm({ id: "t1", text: "did you get the lobster", ts: at(100), read: true }),
+    dm({ id: "t2", sender: ME, receiver: THEM, text: "trading it now",
+         ts: at(200), read: true }),
+  ];
+  const s = summarize(talk.concat([oldMirror]), ME, new Set());
+  const c = s.conversations[0];
+  check("the conversation is listed", s.conversations.length === 1, s.conversations.length);
+  check("it is with a person, not with “Player”",
+        c && c.peerName === "Reef", c && c.peerName);
+  check("the row can be opened, which needs the peer's uid",
+        c && c.peerUid === THEM, c && JSON.stringify(c.peerUid));
+  check("and it says what last happened, not “No messages yet”",
+        c && c.last_text === "Trade completed", c && JSON.stringify(c.last_text));
+}
+
+console.log("…and one with nothing to go on but the conversation id");
+{
+  // The same doc stripped of its roster too: trade_state carries only the
+  // status. The conv id still names both halves of a DM, so the row is still
+  // openable — it is only the NAME that nothing can supply.
+  const bare = {
+    id: "trade_" + DMCONV, conv_id: DMCONV, trade: true, ts: at(9000),
+    read: true, trade_state: { status: "open", version: 1 },
+  };
+  const c = summarize([bare], ME, new Set()).conversations[0];
+  check("the peer comes off the conv id", c && c.peerUid === THEM, c && c.peerUid);
+  check("the row reads as the open trade it is",
+        c && c.last_text === "Trade request", c && JSON.stringify(c.last_text));
+  check("and “Player” is what is left when truly nobody is named",
+        c && c.peerName === "Player", c && c.peerName);
+}
+
+console.log("a canceled and a completed trade each say so");
+{
+  const one = (status) => summarize([{
+    id: "tr", conv_id: DMCONV, trade: true, ts: at(20), read: true,
+    trade_state: { status, participants: [ME, THEM].sort(), names: { [THEM]: "Reef" } },
+  }], ME, new Set()).conversations[0].last_text;
+  check("canceled", one("canceled") === "Trade canceled", one("canceled"));
+  check("completed", one("completed") === "Trade completed", one("completed"));
+  check("open", one("open") === "Trade request", one("open"));
+  // The server now writes that same line into `text`. A new doc must read
+  // identically to the old one, or the row would change wording on its own
+  // the next time those two players traded.
+  const withText = summarize([{
+    id: "tr2", conv_id: DMCONV, trade: true, ts: at(20), read: true,
+    sender: THEM, sender_name: "Reef", receiver: ME, receiver_name: "Me",
+    text: "Trade completed", trade_status: "completed",
+    trade_state: { status: "completed", participants: [ME, THEM].sort() },
+  }], ME, new Set()).conversations[0];
+  check("a new mirror doc reads the same as an old one",
+        withText.last_text === "Trade completed", withText.last_text);
+}
+
+console.log("a preview walks back to the newest doc that says anything");
+{
+  // A doc with no words on it and no status to read must not silence the whole
+  // row: the newest thing that CAN be printed is what the row shows.
+  const mute = { id: "mute", conv_id: DMCONV, sender: THEM, sender_name: "Reef",
+                 receiver: ME, receiver_name: "Me", ts: at(500), read: true };
+  const s = summarize([dm({ id: "said", text: "still here", ts: at(400), read: true }), mute],
+                      ME, new Set());
+  check("the row shows the last real line",
+        s.conversations[0].last_text === "still here",
+        JSON.stringify(s.conversations[0].last_text));
+  // …and an empty line still comes back empty, so "No messages yet" keeps
+  // meaning what it says: there is nothing in this chat to show.
+  const alone = summarize([mute], ME, new Set()).conversations[0];
+  check("a chat whose only doc says nothing has no preview to give",
+        alone && alone.last_text === "", alone && JSON.stringify(alone.last_text));
+}
+
+console.log("a DM that names no second party is dropped, not listed dead");
+{
+  // Nothing to derive a peer from: a conv id that is not a DM's pair, and a doc
+  // that names nobody. A row like this could never be opened or answered, so it
+  // must not be shown — and its unread must be swept, or the badge would carry
+  // a number that nothing on screen can clear.
+  const nowhere = { id: "np", conv_id: "ghost", trade: true, ts: at(1),
+                    read: false, trade_state: { status: "open" } };
+  const s = summarize([nowhere], ME, new Set());
+  check("no row is listed", s.conversations.length === 0, s.conversations.length);
+  check("and its unread is handed back for sweeping",
+        s.orphans.length === 1 && s.orphans[0] === "np", JSON.stringify(s.orphans));
+}
+
+console.log("a group row does not go bare when a doc is unsigned");
+{
+  const CONV = "grp-bare";
+  const head = [
+    groupMeta(CONV, [{ uid: ME, name: "Me" }, { uid: THEM, name: "Reef" }]),
+    groupMsg(CONV, { id: "gb1", text: "anyone about", read: true, ts: at(2900) }),
+  ];
+  // Unsigned and wordless: no sender_name, no text. "" + ": " + "" used to be
+  // the whole preview, so the row read as a lone colon.
+  const s = summarize(head.concat([
+    { id: "gb2", conv_id: CONV, group: true, sender: "third", ts: at(3000), read: true },
+  ]), ME, new Set());
+  const c = s.conversations[0];
+  check("the row is not just a colon", c && c.last_text !== ": ", c && JSON.stringify(c.last_text));
+  check("it falls back to the last thing actually said, with who said it",
+        c && c.last_text === "Reef: anyone about", c && JSON.stringify(c.last_text));
+  const sys = summarize(head.concat([
+    groupMsg(CONV, { id: "gb3", system: true, sender: ME, read: true, ts: at(4000),
+                     text: "Reef changed the group name to “Tide”" }),
+  ]), ME, new Set());
+  check("and a centred system line is not attributed to anyone",
+        sys.conversations[0].last_text === "Reef changed the group name to “Tide”",
+        JSON.stringify(sys.conversations[0].last_text));
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   3c. THE CLOCK THE LIST IS SORTED BY
+
+   _msgTs answered Date.now() for anything that was not a Firestore
+   Timestamp. Two consequences: a plain epoch number (which is what the
+   clan server writes) was read as "no timestamp at all", and, because the
+   clock was re-read inside the sort comparator, one cache sorted twice
+   could come out in two different orders.
+   ══════════════════════════════════════════════════════════════════════ */
+console.log("\nthe timestamp shapes the cache really holds");
+{
+  const ts = new Function(TS_SRC + "\nreturn _msgTs;")();
+  check("a Firestore Timestamp", ts({ ts: { toMillis: () => 1234 } }) === 1234);
+  check("one that has been through JSON",
+        ts({ ts: { seconds: 2, nanoseconds: 500000000 } }) === 2500,
+        ts({ ts: { seconds: 2, nanoseconds: 500000000 } }));
+  check("a Date", ts({ ts: new Date(4321) }) === 4321);
+  check("epoch millis, as a bare number", ts({ ts: 1759000000000 }) === 1759000000000);
+  check("epoch seconds, which is what the clan server writes",
+        ts({ ts: 1759000000 }) === 1759000000000, ts({ ts: 1759000000 }));
+  check("a write still in flight sorts newest", ts({ ts: null }) > Date.now() * 2);
+  check("…by a constant, so a comparator built on it is consistent",
+        ts({ ts: null }) === ts({ ts: undefined }));
+  check("and it does not read the clock at all", !/Date\.now\(\)/.test(TS_SRC));
 }
 
 /* ══════════════════════════════════════════════════════════════════════

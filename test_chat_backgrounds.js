@@ -69,7 +69,11 @@ function extractArray(name) {
 // _msgRebuildConversations is a thin wrapper now: the grouping and the unread
 // counting both live in _msgSummarize (see test_message_unread.js), so that
 // has to come along or the wrapper has nothing to call.
-const FN_SOURCES = ["_msgIsGroupMeta", "_msgGroupMeta", "_msgSummarize",
+// _msgSummarize reads a row's peer and its preview line off the whole
+// conversation through these four, so they come along with it.
+const FN_SOURCES = ["_msgIsGroupMeta", "_msgGroupMeta",
+                    "_msgPeerUid", "_msgPeerName", "_msgDocPreview",
+                    "_msgPreviewDoc", "_msgPreviewOf", "_msgSummarize",
                     "_msgRebuildConversations",
                     "_msgChatBgResolve", "_msgChatBgFor", "_msgChatBgMembers",
                     "_msgChatBgCacheLocal"].map(extract).join("\n");

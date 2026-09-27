@@ -29169,7 +29169,30 @@
       metas.sort((a, b) => _msgTs(a) - _msgTs(b));
       return metas[metas.length - 1];
     }
-    function _msgTs(m) { return (m && m.ts && m.ts.toMillis) ? m.ts.toMillis() : Date.now(); }
+    // Millis for any timestamp shape the cache can hold: a Firestore Timestamp,
+    // a plain {seconds,nanoseconds} (a Timestamp that has been through JSON), a
+    // Date, or the bare epoch number the clan server writes. Anything numeric
+    // used to be treated as "no timestamp at all", which put a clan invite at
+    // the top of every list it appeared in.
+    //
+    // A write that has not landed yet has no timestamp, and it genuinely IS the
+    // newest thing in its chat, so it answers with a value past every real one.
+    // That answer must be a CONSTANT and not Date.now(): this is read inside
+    // sort comparators, and a clock re-read on every comparison is not a
+    // consistent ordering, so one cache sorted twice came out two ways.
+    function _msgTs(m) {
+      const PENDING = 8.64e15;            // the far end of what a Date can hold
+      const ts = m && m.ts;
+      if (!ts) return PENDING;
+      if (typeof ts.toMillis === "function") return ts.toMillis();
+      if (ts instanceof Date) return ts.getTime();
+      if (typeof ts.seconds === "number") {
+        return ts.seconds * 1000 + Math.floor((Number(ts.nanoseconds) || 0) / 1e6);
+      }
+      const n = Number(ts);
+      if (!Number.isFinite(n) || n <= 0) return PENDING;
+      return n < 1e12 ? n * 1000 : n;     // seconds or millis, both are written
+    }
 
     // The session has changed hands. The Messages listener belongs to ONE
     // account's subcollection and the unread count was never reset, so the last
@@ -29220,6 +29243,91 @@
         ? d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
         : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     }
+
+    // ── Reading a conversation's identity off the WHOLE conversation ──
+    //
+    // These used to be one expression each, read off the single newest doc in
+    // the chat, and that is the bug they exist for. A DM's newest doc is very
+    // often the trade mirror the SERVER writes at "trade_<convId>", and every
+    // one of those written before 2026-09-25 carries only conv_id, trade,
+    // trade_id, trade_state, ts and read. No text. No sender. No receiver. No
+    // names. The trade card was excluded from the "newest message" set back
+    // then, so it did not matter; the card is now drawn in date order with the
+    // messages, which put those old docs in charge of the row above a chat full
+    // of real text. The row came out called "Player", previewed "No messages
+    // yet", and carried no peerUid at all, so tapping it opened nothing and
+    // nothing could be sent back.
+    //
+    // Nothing here trusts one doc for anything another doc can answer.
+
+    // The other half of a DM. The conv id is deterministic and holds BOTH uids
+    // ("uidA__uidB", sorted), so it names the peer even when no doc does; the
+    // docs are only a fallback, newest first, and a trade roster counts as one.
+    function _msgPeerUid(convId, msgs, myUid) {
+      const halves = String(convId || "").split("__");
+      if (halves.length === 2 && halves.indexOf(myUid) !== -1) {
+        const other = halves[0] === myUid ? halves[1] : halves[0];
+        if (other) return other;
+      }
+      for (let i = (msgs || []).length - 1; i >= 0; i--) {
+        const m = msgs[i];
+        if (!m) continue;
+        if (m.sender && m.sender !== myUid) return m.sender;
+        if (m.receiver && m.receiver !== myUid) return m.receiver;
+        const parts = (m.trade_state && Array.isArray(m.trade_state.participants))
+          ? m.trade_state.participants : [];
+        for (let k = 0; k < parts.length; k++) {
+          if (parts[k] && parts[k] !== myUid) return parts[k];
+        }
+      }
+      return "";
+    }
+
+    // What to call them: the newest doc that actually names that uid. A trade
+    // doc names both players in trade_state.names, which for an old mirror doc
+    // is the only name on it. "" when the whole chat names nobody.
+    function _msgPeerName(msgs, peerUid, myUid) {
+      if (!peerUid) return "";
+      for (let i = (msgs || []).length - 1; i >= 0; i--) {
+        const m = msgs[i];
+        if (!m) continue;
+        if (m.sender === peerUid && m.sender_name) return m.sender_name;
+        if (m.receiver === peerUid && m.receiver_name) return m.receiver_name;
+        const names = (m.trade_state && m.trade_state.names) || null;
+        if (names && names[peerUid]) return names[peerUid];
+      }
+      return "";
+    }
+
+    // The one line a list row shows for ONE doc, or "" if that doc says nothing
+    // a row can print. A trade is a card rather than a sentence, so it is
+    // labelled by its status here — the same three words the server now writes
+    // into `text`, so an old mirror doc and a new one read identically.
+    function _msgDocPreview(m) {
+      if (!m) return "";
+      if (typeof m.text === "string" && m.text.trim()) return m.text.trim();
+      if (m.trade) {
+        const st = String(m.trade_status
+          || (m.trade_state && m.trade_state.status) || "open");
+        if (st === "completed") return "Trade completed";
+        if (st === "canceled")  return "Trade canceled";
+        return "Trade request";
+      }
+      return "";
+    }
+
+    // The doc a row's preview is taken from: the newest one that says anything
+    // at all. Walking back matters — "No messages yet" must mean the chat is
+    // empty, never that the newest thing in it happened to be a doc with no
+    // words on it. The group branch attributes the line from this same doc, so
+    // the name in front of a preview is always the name of whoever said it.
+    function _msgPreviewDoc(msgs) {
+      for (let i = (msgs || []).length - 1; i >= 0; i--) {
+        if (_msgDocPreview(msgs[i])) return msgs[i];
+      }
+      return null;
+    }
+    function _msgPreviewOf(msgs) { return _msgDocPreview(_msgPreviewDoc(msgs)); }
 
     // ── ONE source of truth for "how many unread" ─────────────────────
     //
@@ -29294,18 +29402,29 @@
               && !meta.members.some(p => p && p.uid === myUid)) return drop();
           const name    = (meta && meta.name) || "Group";
           const members = (meta && Array.isArray(meta.members)) ? meta.members : [];
-          const preview = last
-            ? ((last.sender === myUid ? "You: " : ((last.sender_name || "") + ": ")) + (last.text || ""))
-            : "New group";
+          // Who said it, then what was said, both off the SAME doc. The name is
+          // only prefixed when there is one and the line is somebody's: an
+          // unsigned doc used to leave a bare ": " sitting where the preview
+          // should be, and a centred system line ("X changed the group name")
+          // is not spoken by anyone, so it is not attributed to anyone either.
+          const from = _msgPreviewDoc(msgs);
+          const body = _msgDocPreview(from);
+          const who  = (!from || from.system) ? ""
+                     : (from.sender === myUid ? "You: "
+                        : (from.sender_name ? from.sender_name + ": " : ""));
+          const preview = body ? (who + body) : "New group";
           return { id: cid, group: true, name, peerName: name, members,
                    last_text: preview, last_ts: (last ? last.ts : (meta && meta.ts)), unread };
         }
 
         if (!last) return drop();          // DM with no surviving messages
-        const iSent    = last.sender === myUid;
-        const peerUid  = iSent ? last.receiver : last.sender;
-        const peerName = (iSent ? last.receiver_name : last.sender_name) || "Player";
-        return { id: cid, peerUid, peerName, last_text: last.text, last_ts: last.ts, unread };
+        const peerUid  = _msgPeerUid(cid, msgs, myUid);
+        // A DM with no second party is not a chat anyone can open or answer, so
+        // it is dropped rather than listed as a row that does nothing.
+        if (!peerUid) return drop();
+        const peerName = _msgPeerName(msgs, peerUid, myUid) || "Player";
+        return { id: cid, peerUid, peerName, last_text: _msgPreviewOf(msgs),
+                 last_ts: last.ts, unread };
       }).filter(Boolean).sort((a, b) => _msgTs({ ts: b.last_ts }) - _msgTs({ ts: a.last_ts }));
 
       return {
