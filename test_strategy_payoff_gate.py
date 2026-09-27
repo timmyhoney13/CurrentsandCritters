@@ -257,6 +257,32 @@ def test_2_gate_holds(db):
     check(not fish.strategy_payoff_veto(gs, ms, me, "invertebrates"),
           "...and so does a Barracuda")
 
+    # 2c-bis. A MULTIPLIER IS NOT A BODY.
+    #   Cephalopods is paid by the Reef Trigger Fish ("+2 per Cephalopod") and
+    #   the Manta Ray, and NEITHER IS A CEPHALOPOD -- both are Crosscurrents.
+    #   Counting every heavy hitter as a body let a hand of those two read as
+    #   two cephalopods while holding none, so the gate waved through a plan
+    #   whose multiplier had nothing to multiply. Measured over 120 boards, bots
+    #   on Cephalopods finished with 0.6 cephalopods on a board of nine: BELOW
+    #   what random play gives them. Correcting it took that to 2.2, and won
+    #   18.3% of seats against the old rule's 15.0% over 660 rotating seats.
+    gs, ms = build_table(db)
+    me = gs.players[0]
+    give(gs, ms, me, "reef trigger fish", "manta ray", "deep ocean", "arctic ocean")
+    ol = fish.strategy_payoff_outlook(gs, ms, me, "cephalopods")
+    check(ol["held"] >= 1.0,
+          "a Reef Trigger Fish is still counted as the multiplier it is",
+          f"held={ol['held']}")
+    check(ol["body"] == 0.0,
+          "...but it is NOT counted as a cephalopod to multiply: zero bodies",
+          f"body={ol['body']} (outlook {ol})")
+
+    give(gs, ms, me, "giant squid")
+    ol2 = fish.strategy_payoff_outlook(gs, ms, me, "cephalopods")
+    check(ol2["body"] >= 1.0,
+          "a Giant Squid IS a cephalopod, so it counts as a body",
+          f"body={ol2['body']}")
+
     # 2d. The Pool is public and takeable: a multiplier sitting in it counts.
     gs, ms = build_table(db)
     me = gs.players[0]
