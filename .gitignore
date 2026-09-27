@@ -23,6 +23,12 @@
 # live card text to check the table of multipliers it gates on, so it has to
 # travel with the engine and the planner it guards.
 !test_strategy_payoff_gate.py
+# The feature that lets a bot see a card it cannot score YET -- the third Kelp
+# Forest, the fifth Coral Reef with a sixth behind it. It checks the reading
+# against the live card charts, and it checks the weight is still zero, which
+# is the property that lets the feature sit on a live ladder without changing
+# a single champion's play before the trainer has measured it.
+!test_threshold_outlook.py
 # What the planner's knobs were MEASURED to be. reef_planner reads this at
 # import (load_tuned_params), so it has to travel with the module or a night of
 # tuning never reaches a single player. Both parent directories have to be

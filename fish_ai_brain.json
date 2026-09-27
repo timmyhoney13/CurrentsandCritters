@@ -20540,7 +20540,8 @@
       "synergy_bonus": 1.45,
       "target_occupancy": 0.2753779934795021,
       "tempo_urgency": 0.0,
-      "uses_star": 0.8726006747375065
+      "uses_star": 0.8726006747375065,
+      "threshold_outlook": 0.0
     },
     "birds_coral": {
       "bias": -0.0005652566564884514,
@@ -20586,7 +20587,8 @@
       "synergy_bonus": 1.45,
       "target_occupancy": 0.2753779934795021,
       "tempo_urgency": 0.0,
-      "uses_star": 0.8726006747375065
+      "uses_star": 0.8726006747375065,
+      "threshold_outlook": 0.0
     },
     "birds_crustaceans": {
       "bias": -0.0005652566564884514,
@@ -20632,7 +20634,8 @@
       "synergy_bonus": 1.45,
       "target_occupancy": 0.2753779934795021,
       "tempo_urgency": 0.0,
-      "uses_star": 0.8726006747375065
+      "uses_star": 0.8726006747375065,
+      "threshold_outlook": 0.0
     },
     "birds_of_a_feather": {
       "bias": -0.0005652566564884514,
@@ -20678,7 +20681,8 @@
       "synergy_bonus": 1.3594857590447864,
       "target_occupancy": 0.2753779934795021,
       "tempo_urgency": -0.14513134728879207,
-      "uses_star": 0.8726006747375065
+      "uses_star": 0.8726006747375065,
+      "threshold_outlook": 0.0
     },
     "cephalopods": {
       "bias": -0.0005652566564884514,
@@ -20724,7 +20728,8 @@
       "synergy_bonus": 1.45,
       "target_occupancy": 0.2753779934795021,
       "tempo_urgency": 0.0,
-      "uses_star": 0.8726006747375065
+      "uses_star": 0.8726006747375065,
+      "threshold_outlook": 0.0
     },
     "coral": {
       "bias": -0.0005652566564884514,
@@ -20770,7 +20775,8 @@
       "synergy_bonus": 1.45,
       "target_occupancy": 0.2753779934795021,
       "tempo_urgency": 0.0,
-      "uses_star": 0.8726006747375065
+      "uses_star": 0.8726006747375065,
+      "threshold_outlook": 0.0
     },
     "coral_cephalopods": {
       "bias": -0.0005652566564884514,
@@ -20816,7 +20822,8 @@
       "synergy_bonus": 1.45,
       "target_occupancy": 0.2753779934795021,
       "tempo_urgency": 0.0,
-      "uses_star": 0.8726006747375065
+      "uses_star": 0.8726006747375065,
+      "threshold_outlook": 0.0
     },
     "crustaceans": {
       "bias": -0.0005652566564884514,
@@ -20862,7 +20869,8 @@
       "synergy_bonus": 1.45,
       "target_occupancy": 0.2753779934795021,
       "tempo_urgency": 0.0,
-      "uses_star": 0.8726006747375065
+      "uses_star": 0.8726006747375065,
+      "threshold_outlook": 0.0
     },
     "goby_moon_shot": {
       "bias": -0.0005652566564884514,
@@ -20908,7 +20916,8 @@
       "synergy_bonus": 1.45,
       "target_occupancy": 0.2753779934795021,
       "tempo_urgency": 0.0,
-      "uses_star": 0.8726006747375065
+      "uses_star": 0.8726006747375065,
+      "threshold_outlook": 0.0
     },
     "invertebrates": {
       "bias": -0.0005652566564884514,
@@ -20954,7 +20963,8 @@
       "synergy_bonus": 1.6749718811113932,
       "target_occupancy": 0.4976051301272134,
       "tempo_urgency": 0.0,
-      "uses_star": 1.061978000446504
+      "uses_star": 1.061978000446504,
+      "threshold_outlook": 0.0
     },
     "king_salmon": {
       "bias": -0.0005652566564884514,
@@ -21000,7 +21010,8 @@
       "synergy_bonus": 1.45,
       "target_occupancy": 0.2753779934795021,
       "tempo_urgency": 0.0,
-      "uses_star": 0.8726006747375065
+      "uses_star": 0.8726006747375065,
+      "threshold_outlook": 0.0
     },
     "mammals": {
       "bias": -0.0005652566564884514,
@@ -21046,7 +21057,8 @@
       "synergy_bonus": 1.45,
       "target_occupancy": 0.2753779934795021,
       "tempo_urgency": 0.0,
-      "uses_star": 0.5149476326955816
+      "uses_star": 0.5149476326955816,
+      "threshold_outlook": 0.0
     },
     "yellowfin_tuna": {
       "bias": -0.0005652566564884514,
@@ -21092,7 +21104,8 @@
       "synergy_bonus": 1.45,
       "target_occupancy": 0.2753779934795021,
       "tempo_urgency": 0.0,
-      "uses_star": 0.8726006747375065
+      "uses_star": 0.8726006747375065,
+      "threshold_outlook": 0.0
     }
   },
   "evolution": {
@@ -53256,6 +53269,7 @@
     "synergy_bonus": 1.45,
     "target_occupancy": 0.4976051301272134,
     "tempo_urgency": 0.0,
-    "uses_star": 1.061978000446504
+    "uses_star": 1.061978000446504,
+    "threshold_outlook": 0.0
   }
 }
