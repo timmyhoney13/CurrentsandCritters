@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-27.2";
+  const APP_BUILD   = "2026-09-27.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -8563,8 +8563,13 @@
     }
   }
 
-  // ── Score display (animate on change) ─────────────────────────
-  function updateScoreBadge(score, handCount) {
+  // ── The Score Breakdown button (flashes on change) ────────────
+  // The badge is named for what it OPENS, not for what it counts: the running
+  // total and the card count live under your name on your own seat pill, one
+  // glance away, and printing them twice in the same corner of the screen said
+  // the same thing twice. It still flashes green or red when the score moves,
+  // which is the badge saying "there is something new to look at in here".
+  function updateScoreBadge(score) {
     const el = document.getElementById("pv-my-score-badge");
     const cur = Number(el.dataset.score || 0);
     const next = Number(score || 0);
@@ -8575,8 +8580,7 @@
       el.style.color = diff > 0 ? "var(--green)" : "var(--red)";
       setTimeout(() => { el.style.transition = "color 1s"; el.style.color = "var(--gold)"; }, 900);
     }
-    const hc = Number(handCount ?? 0);
-    el.textContent = "📊 " + next + " pts · 🃏" + hc;
+    el.textContent = "Score Breakdown";
   }
 
   // ── Main payload renderer ──────────────────────────────────────
@@ -9177,7 +9181,7 @@
     _prevEndTriggered = endTriggered;
 
     // score badge
-    if (me) updateScoreBadge(me.score ?? 0, me.hand_count ?? (Array.isArray(me.hand) ? me.hand.length : 0));
+    if (me) updateScoreBadge(me.score ?? 0);
 
     // name badge
     const nameEl = document.getElementById("pv-my-name-badge");
@@ -10532,7 +10536,7 @@
       const sc = document.createElement("div");
       sc.className = "pv-seat-score";
       const hcSeat = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
-      sc.textContent = (p.score ?? 0) + " pts · 🃏" + hcSeat;
+      sc.textContent = (p.score ?? 0) + " 🃏 " + hcSeat;
 
       seat.appendChild(avBox);
       seat.appendChild(nm);
@@ -33768,7 +33772,7 @@
         +     '<div class="htp-score-eg">1 = 5 · 2 = 15 · 3 = 30</div><p class="htp-p">Pays off only once you collect '
         +     'a set. Commit early or leave it alone.</p></div>'
         + '</div>'
-        + '<p class="htp-p">Your running total sits in the top bar. Tap the <b>📊 pts</b> badge at any time for a '
+        + '<p class="htp-p">Your running total sits under your name, on your own seat. Tap <b>Score Breakdown</b> in the top bar at any time for a '
         +   'full Score Breakdown, card by card.</p>'
 
         + '<div class="htp-sec-head">How the game ends</div>'

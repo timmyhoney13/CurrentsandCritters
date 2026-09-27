@@ -1362,7 +1362,7 @@
          with the toolbars retracted, but html/body are overflow:hidden, so the
          extra height is not scrolled to, it is clipped off the bottom of the
          screen. The bottom of the game screen is the hand zone, and the bottom
-         of a seat pill is its "⭐ N pts · 🃏M" line, so a phone lost exactly
+         of a seat pill is its "⭐ N 🃏 M" line, so a phone lost exactly
          that: every player's score and card count. What the browser does let
          you do is PAN the visual viewport, which is how the top of the screen
          (the Menu button) then disappeared instead. `100dvh` is the height that
@@ -1443,7 +1443,18 @@
     .room-badge.ranked {
       background: linear-gradient(135deg, #e0a53c, #b4761a);
     }
-    #pv-my-name-badge { color: var(--cr-navy); font-weight: 800; }
+    /* Your own name gives up room before anything else does. A name can be 15
+       characters, and 15 wide ones ("WWWWWWWWWWWWWWW") plus the room code, the
+       Score Breakdown button and Menu need more than the 540px the narrowest
+       phone renders the game at. You are the one person at the table who does
+       not need to read your own name, and it is on your seat pill anyway, so it
+       is the one that ellipses. min-width:0 is what lets a flex item shrink
+       below its own text at all. */
+    #pv-my-name-badge {
+      color: var(--cr-navy); font-weight: 800;
+      min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    #pv-status-text { min-width: 0; }
     #pv-my-score-badge {
       background: linear-gradient(135deg, var(--cr-coral), var(--cr-coral-deep));
       border: 1px solid rgba(232,179,74,.65);
@@ -1455,6 +1466,8 @@
       font-family: "Cinzel", serif;
       letter-spacing: 1px;
       min-width: 48px;
+      white-space: nowrap;
+      flex-shrink: 0;
       text-align: center;
       cursor: pointer;
       transition: border-color .15s, box-shadow .15s, transform .12s;

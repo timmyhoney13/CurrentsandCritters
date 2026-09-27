@@ -1595,7 +1595,7 @@
       before: () => { try { const s = gtOtherSeat(); if (s && !gtBoardFocusOpen()) s.click(); } catch (_) {} },
       text: "Close the board view." },
     { target: "#pv-my-score-badge", badge: "Scoring", title: "Your Score",
-      text: "Your score so far. Tap it at any time for the full breakdown, card by card, so you can see exactly which animals are paying you and which are not." },
+      text: "Your running score sits under your name, on your own seat: the star is your points, the card mark is how many cards are in your hand. Tap <strong>Score Breakdown</strong> here at any time for the full picture, card by card, so you can see exactly which animals are paying you and which are not." },
     { target: "#pv-help-btn", badge: "Strategy", title: "Stuck? Ask for a Plan",
       text: "You do not have to work out a strategy on your own. <strong>Strategy</strong> opens the Strategy Guide: pick a plan you like the look of, and the game <strong>highlights the cards that build it</strong> in your hand and in the Pool, so you can see at a glance what to reach for on your next draw.<br><br>Tutorial 3, <strong>Practice Game (B-Lob)</strong>, walks you through doing exactly that." },
     { target: "#pv-end-turn-inline", badge: "Your Turn", title: "End Your Turn",
