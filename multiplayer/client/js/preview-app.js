@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-28.1";
+  const APP_BUILD   = "2026-09-28.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,12 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { date: "Sep 28, 2026", title: "The bots got smarter", items: [
+      "The bots no longer chase a plan they cannot score. A bot will not play for filled oceans without a King Salmon to pay for them, or collect invertebrates with no Red Beaded Anemone or Barracuda to count them.",
+      "They also pick plans they can actually build. A hand that looks like Cephalopods because it holds a Reef Trigger Fish, and holds no cephalopods at all, is not a Cephalopods hand any more.",
+      "Three plans came out of a full night of training stronger than they went in: Coral / Cephalopods, Bird / Coral and Birds.",
+      "The Help panel stopped suggesting plans that cannot score. It will not point you at Invertebrates when nothing on the table can count them.",
+    ]},
     { date: "Sep 24, 2026", title: "The Store is in", items: [
       "The Store is open. Critter Coin packs, critter skins, avatar backgrounds and Player Perks are all on the shelf.",
     ]},
