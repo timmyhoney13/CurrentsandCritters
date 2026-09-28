@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-27.3";
+  const APP_BUILD   = "2026-09-27.4";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -20877,6 +20877,21 @@
     { id:"fourth-of-july", name:"4th of July", species:"Fourth of July Skins", img:"/avatars/fourth-of-july.png",
       facts:"Stars, stripes, and claws, a firecracker critter decked out for the Fourth of July.",
       unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins." } },
+
+    // ── King of the Critters (the season crown) ─────────────────────
+    // The only critter in the game that cannot be bought, found, ground out or
+    // climbed to: ONE account gets it per season, whoever is holding the most
+    // Ocean Points in Competitive when that season ends. It is the same art the
+    // King of the Critters RANK wears (_COMP_RANK_IMG.king), so the ladder's top
+    // and the prize for finishing on top of it are one picture.
+    // Granted by the unlock sweep from the server's own season record
+    // (/api/competitive/seasons -> king_name), and only once that season is
+    // OVER: leading on the last day is not winning. unlock.type "season_top_op"
+    // is its own type on purpose, because nothing else behaves like it, and
+    // prestige_server.KEEP_FOREVER_UNLOCK_TYPES has to know it never relocks.
+    { id:"king-of-the-critters", name:"King of the Critters", species:"King of the Critters", img:"/avatars/king-of-the-critters.png",
+      facts:"Only the chosen few can have it.",
+      unlock:{ type:"season_top_op", label:"Finish a Competitive season with more Ocean Points than anyone else. Only the chosen few can have it." } },
   ];
 
   // ── Exclusive Backgrounds (donation / code-unlocked) ───────────
@@ -20962,6 +20977,45 @@
   function animalByImg(img){ return _animalByImg[String(img||"").trim().toLowerCase()] || null; }
   function animalById(id){ return _animalById[id] || null; }
   function animalFacts(a){ return (a && a.facts) ? a.facts : "Fun facts coming soon."; }
+  // ── Who finished a season on top of the Ocean Points ladder ─────────
+  // The server already works this out: every row from /api/competitive/seasons
+  // carries king_name / king_cp (the top of that season's OP leaderboard) and
+  // is_current (whether it is still being played). A LEAD is not a crown, so
+  // only ENDED seasons are ever read here.
+  // Cached for the session behind one in-flight promise, so the unlock sweep
+  // asking on every profile load costs one request, not one per load.
+  let _seasonCrowns = null;
+  let _seasonCrownsInFlight = null;
+  async function loadSeasonCrowns() {
+    if (_seasonCrowns) return _seasonCrowns;
+    if (_seasonCrownsInFlight) return _seasonCrownsInFlight;
+    _seasonCrownsInFlight = (async () => {
+      try {
+        const { ok, data } = await apiFetch("/api/competitive/seasons", { method: "GET", timeoutMs: 6000 });
+        const rows = (ok && Array.isArray(data?.seasons)) ? data.seasons : null;
+        // A failed request is deliberately NOT cached: caching [] would tell a
+        // real king, for the rest of the session, that he had never won one.
+        if (rows) _seasonCrowns = rows;
+        return rows;
+      } catch (_) {
+        return null;
+      } finally {
+        _seasonCrownsInFlight = null;
+      }
+    })();
+    return _seasonCrownsInFlight;
+  }
+  // The ended season this name won, or null. Compared the way every other
+  // competitive screen compares names: trimmed and case-insensitive. A season
+  // whose best player never scored is nobody's crown, hence the OP floor.
+  function seasonCrownFor(rows, name) {
+    const me = String(name || "").trim().toLowerCase();
+    if (!me || !Array.isArray(rows)) return null;
+    return rows.find(s => s && !s.is_current
+                       && String(s.king_name || "").trim().toLowerCase() === me
+                       && Number(s.king_cp || 0) > 0) || null;
+  }
+
   // Numeric unlock progress (0..1) for stat-based animals; null for event/achievement.
   function animalUnlockProgress(a, stats, level){
     const u = a && a.unlock; if (!u) return null;
@@ -20986,6 +21040,9 @@
     if (u.type === "comp_wins") return `${Number(stats?.lifetime_comp_wins||0)} / ${u.goal} Competitive wins`;
     if (u.type === "stat")      return `${Number(stats?.[u.stat]||0)} / ${u.goal}${u.unit ? " " + u.unit : ""}`;
     if (u.type === "rank")      return `Current rank: ${stats?.rank_competitive || "Unranked"}`;
+    // No bar: "most of anyone" is a standing, not a total, and the number that
+    // would fill one is another player's. Their own OP is the honest half.
+    if (u.type === "season_top_op") return `Your Ocean Points this season: ${Number(stats?.comp_cp || 0)}`;
     if (u.type === "achievement" && u.achId && u.goal) {
       const achs = (typeof window.__fishGetUserAchievements === "function") ? window.__fishGetUserAchievements() : {};
       const rec = achs[u.achId] || {};
@@ -36515,14 +36572,17 @@
     }
 
     // Real creature icons for each competitive rank tier (replaces the emoji).
-    // King keeps the crown (no creature avatar).
+    // King wears the King of the Critters drawing, which is the SAME art as the
+    // skin the season's top Ocean Points earns: the rank you climb to and the
+    // prize for finishing on top of it are deliberately one picture, so seeing
+    // it on a seat says both things at once. Every other tier keeps its critter.
     const _COMP_RANK_IMG = {
       bronze:  "/avatars/barracuda.png",
       silver:  "/avatars/spiny-lobster.png",
       gold:    "/avatars/goliath-grouper.png",
       diamond: "/avatars/bottlenose-dolphin.png",
       emerald: "/avatars/emperor-penguin.png",
-      king:    "/avatars/king-crab.png",
+      king:    "/avatars/king-of-the-critters.png",
     };
     function _compRankIcon(tier, size) {
       const img = _COMP_RANK_IMG[tier];
@@ -38882,6 +38942,15 @@
       let _achOk = true;
       if (_authUser) { try { _achOk = await _achievementsReady(_authUser.uid); } catch { _achOk = false; } }
       try { await _noteReEarnRankDip(stats); } catch (e) { console.warn("[unlock] rank dip check failed", e); }
+      // The season crown is the one unlock that is not a number on this account,
+      // so it costs a server round trip. Only pay for it when something is still
+      // waiting on the answer, and only for a signed-in account: the leaderboard
+      // is keyed by nickname, and a guest may type any nickname they like.
+      let _crownRows = null;
+      if (_authUser && ANIMAL_AVATARS.some(a => a.unlock?.type === "season_top_op" && !isAvatarUnlocked(a.img))) {
+        try { _crownRows = await loadSeasonCrowns(); }
+        catch (e) { console.warn("[unlock] season crown check failed", e); }
+      }
       for (const a of ANIMAL_AVATARS) {
         // Each avatar is checked independently, a single bad definition can
         // never throw out of the loop and block every other unlock.
@@ -38893,6 +38962,9 @@
           else if (u.type === "stat")        met = Number(stats[u.stat] || 0) >= (u.goal || Infinity);
           else if (u.type === "rank")        met = rankTierValue(stats.rank_competitive) >= (_RANK_TIER_VALUE[u.tier] || Infinity);
           else if (u.type === "achievement") met = _achOk && _isDone(u.achId);
+          // null rows = the season list never loaded; stay locked and retry on
+          // the next profile load rather than deciding it on a failed request.
+          else if (u.type === "season_top_op") met = !!seasonCrownFor(_crownRows, _playerNickname);
           if (met && !isAvatarUnlocked(a.img)) {
             if (await window.__fishGrantUnlockedIcon(a.img)) newly.push(a.id);
           }
