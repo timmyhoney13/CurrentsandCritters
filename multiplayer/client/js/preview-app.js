@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-27.5";
+  const APP_BUILD   = "2026-09-28.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -10810,6 +10810,10 @@
       // Keep an open picker in step with the tallies that just landed.
       if (_kickPickerOpen) openKickPicker();
     }
+
+    // Same for an open / list in the chat panel: it names the same players off
+    // the same tallies, so it cannot be left showing the ones it opened with.
+    try { _slashRefresh(); } catch (_) {}
   }
 
   document.getElementById("pv-skip-turn-btn")?.addEventListener("click", (ev) => {
@@ -18766,6 +18770,11 @@
 
   async function sendChatMessage() {
     let text = document.getElementById("pv-chat-text").value.trim();
+    // /kick and /skip are votes, not something to say out loud to the table.
+    // _slashRun() returns true for anything it recognised as a command attempt,
+    // including a misspelled one, so a fumbled "/kick Bobb" is answered rather
+    // than broadcast. Everything else falls straight through as a message.
+    if (_slashRun(text)) return;
     const target = document.getElementById("pv-chat-to").value || "Everyone";
     if (!text || !roomId) return;
     text = CC_PROFANITY.clean(text);   // mask swears (server re-filters too)
@@ -18991,6 +19000,10 @@
       const total = roomUnread + otherUnread;
       badge.textContent = total > 9 ? "9+" : String(total);
       badge.style.display = total > 0 ? "block" : "none";
+      // The button is in the action bar now, in among the game's own controls,
+      // so a waiting message says so from across the table (.has-unread).
+      const cbtn = _pg("pv-chat-btn");
+      if (cbtn) cbtn.classList.toggle("has-unread", total > 0);
     }
     const lobbyBadge = _pg("wr-chat-badge");
     if (lobbyBadge) {
@@ -19110,6 +19123,9 @@
   // ── View switching ──────────────────────────────────────────────
   function pvcShowView(view) {
     _chatView = view;
+    // The / list belongs to the room view's message box; it must not be left
+    // hanging over a DM.
+    try { if (view !== "room") _slashClose(); } catch (_) {}
     ["room", "list", "conv"].forEach(v => {
       const el = _pg("pv-chat-view-" + v);
       if (el) el.classList.toggle("active", v === view);
@@ -19497,6 +19513,7 @@
     _pvcStashDraft();            // remember the draft for when they reopen
     pvcMuteMenuOpen(false);
     pvcEmoteTrayOpen(false);
+    try { _slashClose(); } catch (_) {}
     _chatPanelOpen = false;
     const p = _pg("pv-chat-panel");
     if (p) p.classList.remove("open");
@@ -19576,8 +19593,354 @@
   // Room send (Current Game Chat), unchanged server path.
   _pg("pv-chat-send").addEventListener("click", sendChatMessage);
   _pg("pv-chat-text").addEventListener("keydown", (e) => {
+    // While the / list is up it owns the arrows, Tab and Escape, and Enter
+    // completes the highlighted row instead of sending. Once the row is already
+    // in the box there is nothing left to complete, so Enter falls through and
+    // runs the command: a hand-typed "/kick Bob" goes on one Enter, not two.
+    if (_slashIsOpen()) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault(); _slashMove(e.key === "ArrowDown" ? 1 : -1); return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault(); e.stopPropagation(); _slashClose(true); return;
+      }
+      const row = _slashRows[_slashPick];
+      const completes = row && !row.dead && row.insert !== e.target.value;
+      if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey && completes)) {
+        e.preventDefault(); _slashTake(_slashPick); return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
   });
+
+  // ══════════════════════════════════════════════════════════════════
+  // SLASH COMMANDS IN CHAT: /kick and /skip
+  // ══════════════════════════════════════════════════════════════════
+  // The same two votes the action bar carries, typed instead of hunted for.
+  // The bar is along the bottom of the screen and the chat panel floats over
+  // the side of it, so a player already mid-sentence had to leave the
+  // conversation, find a button and come back. Now: type / (or tap the / button
+  // beside the box) and the commands are listed over the message box; take one
+  // and the same list turns into the players that command can name, as P1 / P2
+  // / P3 with their names beside them; type part of a name and the list narrows
+  // to it.
+  //
+  // What the list offers is only ever what the SERVER says this player may vote
+  // on, straight off payload.votes, which is the same thing the action-bar
+  // buttons read. So it cannot offer a bot, a spectator, a player who has
+  // already been removed, yourself, or your own second hand in competitive, and
+  // a name it offers is a name the vote will be accepted for.
+  //
+  // Taking a row never votes. It fills the box in, and Enter sends it, because
+  // a kick is permanent and the list moves under you as tallies land.
+  const _SLASH_CMDS = [
+    { cmd: "kick", head: "Vote kick: pick a player",
+      hint: "Remove a player for good",
+      foot: "Every other player has to agree. This is permanent." },
+    { cmd: "skip", head: "Vote skip: whose turn",
+      hint: "Make the player whose turn it is draw 2 and pass",
+      foot: "Needs half the other players." },
+  ];
+  let _slashStage = null;    // null | "cmd" | "kick" | "skip"
+  let _slashRows  = [];      // [{ insert, final, dead, el }]
+  let _slashPick  = 0;
+  let _slashMuted = false;   // dismissed by hand; the next keystroke brings it back
+
+  function _slashLabel(seat) { return "P" + (seat + 1); }
+  function _slashIsOpen() {
+    const menu = _pg("pv-slash-menu");
+    return Boolean(menu && menu.classList.contains("open"));
+  }
+
+  // "/kic" is the command list, narrowed to what matches. "/kick" and
+  // "/kick bo" are the players /kick can name. Anything else is a message: a
+  // slash with no letters after it ("/2 left") is somebody talking.
+  function _slashParse(raw) {
+    const m = String(raw == null ? "" : raw).match(/^\/([A-Za-z]*)([\s\S]*)$/);
+    if (!m) return null;
+    const word = (m[1] || "").toLowerCase();
+    const rest = m[2] || "";
+    const exact = _SLASH_CMDS.find(c => c.cmd === word) || null;
+    // The command word is finished once a space follows it, and also the moment
+    // it is spelled out in full, so typing "/kick" lists the players without
+    // anyone having to guess that a space is wanted first.
+    if (exact && (rest === "" || /^\s/.test(rest))) {
+      return { stage: exact.cmd, cmd: exact, filter: rest.trim() };
+    }
+    if (rest !== "") return null;
+    return { stage: "cmd", cmd: null, filter: word };
+  }
+
+  // Who each command may name, read off the last payload's votes.
+  function _slashTargets(stage) {
+    if (stage === "kick") {
+      return (_latestVotes.kick || []).map(k => ({
+        seat: k.seat,
+        name: k.name || _slashLabel(k.seat),
+        mine: Boolean(k.mine),
+        dead: Boolean(k.blocked),
+        hint: k.blocked ? "the host runs the lobby"
+            : k.mine ? `${k.votes}/${k.needed} · your vote is in, this takes it back`
+                     : `${k.votes}/${k.needed} · everyone must agree`,
+      }));
+    }
+    const sk = _latestVotes.skip;
+    if (!sk) return [];
+    return [{
+      seat: sk.seat,
+      name: sk.name || _slashLabel(sk.seat),
+      mine: Boolean(sk.mine),
+      dead: Boolean(sk.blocked || sk.mine),
+      hint: sk.blocked ? "cannot be skipped right now"
+          : sk.mine ? `${sk.votes}/${sk.needed} · your vote is already in`
+                    : `${sk.votes}/${sk.needed} · it is their turn`,
+    }];
+  }
+
+  // "p2", "2", "bo" and "Bob" all find Bob in seat 1. A name can have spaces in
+  // it, so the whole of what was typed after the command is matched as one
+  // thing rather than split into words.
+  function _slashMatch(list, filter) {
+    const f = String(filter || "").trim().toLowerCase();
+    if (!f) return list.slice();
+    const lab = t => _slashLabel(t.seat).toLowerCase();
+    const nm  = t => String(t.name || "").toLowerCase();
+    const near = list.filter(t => nm(t).startsWith(f) || lab(t).startsWith(f)
+                                  || String(t.seat + 1) === f);
+    return near.length ? near : list.filter(t => nm(t).includes(f));
+  }
+
+  function _slashHighlight() {
+    _slashRows.forEach((r, i) => r.el.classList.toggle("on", i === _slashPick));
+    const on = _slashRows[_slashPick];
+    if (on && on.el.scrollIntoView) {
+      try { on.el.scrollIntoView({ block: "nearest" }); } catch (_) {}
+    }
+  }
+  function _slashMove(by) {
+    const live = _slashRows.filter(r => !r.dead);
+    if (!live.length) return;
+    let i = _slashPick;
+    for (let n = 0; n < _slashRows.length; n++) {
+      i = (i + by + _slashRows.length) % _slashRows.length;
+      if (!_slashRows[i].dead) break;
+    }
+    _slashPick = i;
+    _slashHighlight();
+  }
+
+  function _slashClose(mute) {
+    const menu = _pg("pv-slash-menu");
+    if (menu) { menu.classList.remove("open"); cl(menu); }
+    const btn = _pg("pv-chat-slash-btn");
+    if (btn) { btn.classList.remove("on"); btn.setAttribute("aria-expanded", "false"); }
+    _slashRows = []; _slashStage = null; _slashPick = 0;
+    if (mute) _slashMuted = true;
+  }
+
+  // Fill the box in from a row. A command row leaves the list up (it has turned
+  // into the players); a player row is the end of the typing, so the list goes
+  // away and Enter is free to send it.
+  function _slashTake(i) {
+    const row = _slashRows[i];
+    const box = _pg("pv-chat-text");
+    if (!row || row.dead || !box) return;
+    box.value = row.insert;
+    try { box.focus(); box.setSelectionRange(box.value.length, box.value.length); } catch (_) {}
+    if (row.final) { _slashClose(true); return; }
+    _slashPick = 0;
+    _slashRefresh();
+  }
+
+  // Redraw the list from whatever is in the box right now. Called on every
+  // keystroke and again whenever a payload lands, so an open list of players
+  // keeps its tallies rather than showing the ones it opened with.
+  function _slashRefresh() {
+    const menu = _pg("pv-slash-menu");
+    const box  = _pg("pv-chat-text");
+    if (!menu || !box) return;
+    const live = (_chatPanelOpen && _chatView === "room" && !_slashMuted);
+    const p = live ? _slashParse(box.value) : null;
+    if (!p) { _slashClose(); return; }
+
+    const sameList = (_slashStage === p.stage);
+    _slashStage = p.stage;
+    cl(menu);
+    _slashRows = [];
+
+    const head = document.createElement("div");
+    head.className = "pvs-head";
+    menu.appendChild(head);
+
+    const addRow = (chip, name, hint, opts) => {
+      const o = opts || {};
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "pvs-row" + (o.dead ? " dead" : "") + (o.mine ? " mine" : "");
+      row.setAttribute("role", "option");
+      row.setAttribute("aria-selected", "false");
+      const c = document.createElement("span");
+      c.className = "pvs-chip"; c.textContent = chip;
+      const body = document.createElement("span");
+      body.className = "pvs-body";
+      const n = document.createElement("span");
+      n.className = "pvs-name"; n.textContent = name;
+      const h = document.createElement("span");
+      h.className = "pvs-hint"; h.textContent = hint;
+      body.appendChild(n); body.appendChild(h);
+      row.appendChild(c); row.appendChild(body);
+      menu.appendChild(row);
+      const entry = { insert: o.insert || "", final: Boolean(o.final), dead: Boolean(o.dead), el: row };
+      const idx = _slashRows.length;
+      _slashRows.push(entry);
+      // Keep the caret in the box: a row is a completion, not a place to stand.
+      row.addEventListener("mousedown", (e) => e.preventDefault());
+      if (!entry.dead) row.addEventListener("click", (e) => { e.preventDefault(); _slashTake(idx); });
+      return entry;
+    };
+
+    if (p.stage === "cmd") {
+      head.textContent = "Chat commands";
+      const f = String(p.filter || "").toLowerCase();
+      _SLASH_CMDS.filter(c => c.cmd.startsWith(f)).forEach(c => {
+        addRow("/", "/" + c.cmd, c.hint, { insert: "/" + c.cmd + " ", final: false });
+      });
+      if (!_slashRows.length) {
+        const empty = document.createElement("div");
+        empty.className = "pvs-empty";
+        empty.textContent = `There is no /${p.filter} command. Try /kick or /skip.`;
+        menu.appendChild(empty);
+      }
+    } else {
+      head.textContent = p.cmd.head;
+      const all  = _slashTargets(p.stage);
+      const hits = _slashMatch(all, p.filter);
+      hits.forEach(t => {
+        addRow(_slashLabel(t.seat), t.name, t.hint, {
+          insert: "/" + p.stage + " " + t.name, final: true, dead: t.dead, mine: t.mine,
+        });
+      });
+      if (!_slashRows.length) {
+        const empty = document.createElement("div");
+        empty.className = "pvs-empty";
+        empty.textContent = !all.length
+          ? (p.stage === "kick"
+              ? "Nobody in this game can be voted out: you are playing against bots."
+              : "There is no turn to vote to skip right now.")
+          : `Nobody in this game is called "${p.filter}".`;
+        menu.appendChild(empty);
+      } else {
+        const foot = document.createElement("div");
+        foot.className = "pvs-foot";
+        foot.textContent = p.cmd.foot;
+        menu.appendChild(foot);
+      }
+    }
+
+    if (!sameList || _slashPick >= _slashRows.length) _slashPick = 0;
+    while (_slashPick < _slashRows.length && _slashRows[_slashPick].dead) _slashPick++;
+    if (_slashPick >= _slashRows.length) _slashPick = 0;
+    menu.classList.add("open");
+    const sbtn = _pg("pv-chat-slash-btn");
+    if (sbtn) { sbtn.classList.add("on"); sbtn.setAttribute("aria-expanded", "true"); }
+    _slashHighlight();
+  }
+
+  // Run what is in the box, if it is a command. Returns true when it was one,
+  // so sendChatMessage() knows not to say it out loud to the whole table.
+  //
+  // It owns the box from here: a command that ran (or that was answered) is
+  // cleared away, and one that is only half-said is LEFT there with the list
+  // back up, so "/kick" plus Enter turns into "which player" rather than into
+  // an empty box and a toast that has already gone.
+  function _slashRun(raw) {
+    const p = _slashParse(raw);
+    if (!p) return false;
+    const box = _pg("pv-chat-text");
+    const clear = () => { if (box) box.value = ""; _slashClose(true); return true; };
+    // Hand it back half-typed, at the point where the name goes. A name that
+    // matched two players keeps what was typed, so the list stays narrowed to
+    // the two it could have meant; a name that matched nobody does not, because
+    // leaving it there would just show the same empty list again.
+    const ask = (msg, keep) => {
+      try { showToast(msg, "warn"); } catch {}
+      if (box) {
+        box.value = "/" + p.stage + " " + (keep ? p.filter : "");
+        try { box.focus(); box.setSelectionRange(box.value.length, box.value.length); } catch (_) {}
+      }
+      _slashMuted = false;
+      _slashRefresh();
+      return true;
+    };
+    _slashClose(true);
+    if (p.stage === "cmd") {
+      try {
+        showToast(p.filter
+          ? `There is no /${p.filter} command. The commands are /kick and /skip.`
+          : "Type kick or skip after the slash: /kick or /skip.", "warn");
+      } catch {}
+      return clear();
+    }
+    const all = _slashTargets(p.stage);
+    if (!all.length) {
+      try {
+        showToast(p.stage === "kick"
+          ? "There is nobody in this game you can vote to kick."
+          : "There is no turn to vote to skip right now.", "warn");
+      } catch {}
+      return clear();
+    }
+    // /skip names one player by definition (it is whoever's turn it is), so it
+    // does not need to be told which. /kick has to be, and being handed back
+    // "/kick " with the list open is a better answer than a scolding.
+    const hits = _slashMatch(all, p.filter);
+    if (!hits.length) return ask(`Nobody in this game is called "${p.filter}".`);
+    if (hits.length > 1) {
+      return ask(`Say which player: ${hits.slice(0, 3).map(t => _slashLabel(t.seat)).join(", ")}`
+        + (hits.length > 3 ? " …" : ""), true);
+    }
+    const t = hits[0];
+    if (t.dead) return ask(`${t.name}: ${t.hint}.`);
+    if (p.stage === "kick") {
+      _sendVote("kick_player", { target_seat_index: t.seat, undo: Boolean(t.mine) },
+        (d) => d.kicked
+          ? `${d.name} was removed from the game.`
+          : `Kick vote: ${d.votes}/${d.needed}.`);
+    } else {
+      _sendVote("skip_turn", { target_seat_index: t.seat },
+        (d) => d.challenge_started
+          ? `${d.name} has 20 seconds to answer.`
+          : `Voted to skip ${d.name}'s turn (${d.votes}/${d.needed}).`);
+    }
+    return clear();
+  }
+
+  // ── Wiring: the box, the / button, and the keys the list borrows ──
+  {
+    const box  = _pg("pv-chat-text");
+    const sbtn = _pg("pv-chat-slash-btn");
+    if (box) {
+      box.addEventListener("input", () => { _slashMuted = false; _slashRefresh(); });
+      // Clicking away puts the list down. Rows hold the caret in the box
+      // themselves (mousedown is prevented), so this cannot eat a click on one.
+      box.addEventListener("blur", () => setTimeout(() => {
+        const menu = _pg("pv-slash-menu");
+        if (document.activeElement === box) return;
+        if (menu && menu.contains(document.activeElement)) return;
+        _slashClose();
+      }, 90));
+    }
+    if (sbtn) sbtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (!box) return;
+      if (_slashIsOpen()) { _slashClose(true); return; }
+      _slashMuted = false;
+      if (!box.value.startsWith("/")) box.value = "/" + box.value;
+      try { box.focus(); box.setSelectionRange(box.value.length, box.value.length); } catch (_) {}
+      _slashRefresh();
+    });
+  }
+
   // Conversation send (DM / group).
   _pg("pv-chat-conv-send").addEventListener("click", pvcSendConv);
   _pg("pv-chat-conv-text").addEventListener("keydown", (e) => {

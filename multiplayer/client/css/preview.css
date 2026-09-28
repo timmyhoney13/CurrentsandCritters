@@ -5193,37 +5193,143 @@
     }
 
     /* ── CHAT ───────────────────────────────────────────────────── */
-    /* Chat button, lives inside #bs-ctrl, directly below the minus button,
-       styled to match the board-size cluster art. */
-    #bs-chat-sep {
-      width: 30px; height: 1px; margin: 3px 0 1px;
-      background: rgba(95,179,214,.32);
-    }
-    #pv-chat-btn {
+    /* The chat button, in the ACTION BAR, immediately left of Surf's Up. It
+       spent its life as a 44px square with an 8.5px label hanging off the
+       bottom of the Board Size cluster, in the one corner of the screen nothing
+       else asks you to look at, and players did not find it. It is a normal
+       action-bar button now, in the reef gold from the in-game palette
+       (--cr-gold), which nothing else in that cream bar wears, so it reads as
+       the one thing there that is not about the cards. Two lines, like the
+       Strategy button at the other end of the same row: the second line is
+       what teaches the / commands. */
+    .pv-btn-chat {
       position: relative;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 1px; width: 44px; padding: 5px 0 4px;
-      background: rgba(95,179,214,.14);
-      border: 1.5px solid rgba(95,179,214,.4);
+      display: inline-flex;
+      flex-direction: column; align-items: center; gap: 1px;
+      background: linear-gradient(160deg, var(--cr-gold) 0%, var(--cr-gold-deep) 100%);
+      border: 1.5px solid rgba(255,255,255,.55);
+      box-shadow: 0 2px 10px rgba(200,147,32,.45);
+      color: var(--cr-navy);
+      text-shadow: none;
+      font-size: 13px;
+      padding: 6px 15px;
       border-radius: 10px;
-      color: #d4eaf8; cursor: pointer;
-      transition: background .14s, border-color .14s, transform .08s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .pv-btn-chat:hover:not(:disabled) {
+      background: linear-gradient(160deg, #f4c665 0%, #d9a52e 100%);
+      box-shadow: 0 5px 18px rgba(200,147,32,.62);
+    }
+    .pv-btn-chat .pvc-btn-lbl {
+      font-size: 13px; font-weight: 900; letter-spacing: .4px; line-height: 1.15;
+    }
+    .pv-btn-chat .pvc-btn-sub {
+      font-size: 9.5px; font-weight: 800; line-height: 1;
+      color: rgba(26,45,90,.7);
+    }
+    /* Unread count. The ring used to be the dark cluster behind it; the bar it
+       sits on now is cream, so the ring is cream. */
+    .pv-btn-chat .chat-badge {
+      position: absolute; top: -7px; right: -7px;
+      background: var(--red); color: #fff; font-size: 9.5px; font-weight: 900;
+      min-width: 17px; height: 17px; line-height: 17px; text-align: center;
+      border-radius: 9px; padding: 0 4px; display: none;
+      box-shadow: 0 0 0 2px var(--cr-cream);
+    }
+    /* A waiting message is worth a glance from across the table. The class is
+       put on by pvcUpdateBadges(), beside the count itself, rather than read off
+       the badge with :has(), so it is one thing that decides and one thing to
+       test. */
+    .pv-btn-chat.has-unread {
+      animation: chat-unread-pulse 2.2s ease-in-out infinite;
+    }
+    @keyframes chat-unread-pulse {
+      0%,100% { box-shadow: 0 2px 10px rgba(200,147,32,.45); }
+      50%     { box-shadow: 0 0 20px rgba(232,179,74,.95); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pv-btn-chat.has-unread { animation: none; }
+    }
+
+    /* ── SLASH COMMANDS over the message box ─────────────────────
+       Vote Kick and Skip Turn are buttons in the action bar, at the far end of
+       the screen from the chat you are already typing in, so they are commands
+       here as well. The list opens UPWARDS over the messages, the same way the
+       kick picker opens up out of the action bar, because the input row is at
+       the bottom of the panel. */
+    #pv-slash-menu {
+      display: none;
+      position: absolute;
+      left: 8px; right: 8px;
+      bottom: calc(100% - 6px);
+      flex-direction: column; gap: 3px;
+      max-height: 190px; overflow-y: auto;
+      padding: 7px;
+      background: linear-gradient(160deg, rgba(10,30,64,.99) 0%, rgba(6,18,44,.99) 100%);
+      border: 1.5px solid rgba(95,179,214,.45);
+      border-radius: 12px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.62);
+      z-index: 20;
+      text-align: left;
+    }
+    #pv-slash-menu.open { display: flex; }
+    .pvs-head {
       font-family: "Nunito", sans-serif;
+      font-size: 9.5px; font-weight: 900; letter-spacing: .5px; text-transform: uppercase;
+      color: #7fb6da; padding: 1px 3px 4px;
+      border-bottom: 1px solid rgba(95,179,214,.2);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    #pv-chat-btn:hover { background: rgba(95,179,214,.28); border-color: #5fb3d6; }
-    #pv-chat-btn:active { transform: scale(.94); }
-    #pv-chat-btn .pvc-btn-ico { font-size: 17px; line-height: 1; }
-    #pv-chat-btn .pvc-btn-lbl {
-      font-size: 8.5px; font-weight: 800; letter-spacing: .3px;
-      text-transform: uppercase; color: #7aafcc; line-height: 1;
+    .pvs-row {
+      display: flex; align-items: center; gap: 7px; width: 100%;
+      padding: 6px 8px; border-radius: 9px; cursor: pointer; text-align: left;
+      background: rgba(22,56,110,.6);
+      border: 1px solid rgba(95,179,214,.28);
+      color: #eaf6ff;
+      font-family: "Nunito", sans-serif;
+      transition: background .12s, border-color .12s;
     }
-    #pv-chat-btn .chat-badge {
-      position: absolute; top: -6px; right: -6px;
-      background: var(--red); color: #fff; font-size: 9px; font-weight: 800;
-      min-width: 16px; height: 16px; line-height: 16px; text-align: center;
-      border-radius: 8px; padding: 0 4px; display: none;
-      box-shadow: 0 0 0 2px rgba(6,16,42,.95);
+    /* .on is the keyboard's place in the list: arrows move it, Enter takes it. */
+    .pvs-row:hover:not(.dead), .pvs-row.on {
+      background: rgba(95,179,214,.26); border-color: var(--cr-teal);
     }
+    .pvs-row.dead { opacity: .5; cursor: default; }
+    .pvs-row.mine .pvs-chip {
+      background: rgba(66,200,120,.22); border-color: rgba(66,200,120,.55); color: #7fe0a6;
+    }
+    .pvs-chip {
+      flex-shrink: 0; min-width: 27px; text-align: center;
+      font-size: 10px; font-weight: 900; letter-spacing: .3px;
+      padding: 2px 5px; border-radius: 6px;
+      background: rgba(232,179,74,.2); border: 1px solid rgba(232,179,74,.5);
+      color: var(--cr-gold);
+    }
+    .pvs-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+    .pvs-name {
+      font-size: 11.5px; font-weight: 800;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .pvs-hint {
+      font-size: 9.5px; color: #93b8d6;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .pvs-foot {
+      font-size: 9px; color: #7fa6cc; text-align: center; padding: 3px 2px 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .pvs-empty {
+      font-size: 11px; color: #9fc0dc; text-align: center; padding: 7px 6px; line-height: 1.5;
+    }
+    /* The / button: the same list, for anyone who would never guess to type it. */
+    #pv-chat-slash-btn {
+      background: rgba(232,179,74,.16); border: 1px solid rgba(232,179,74,.5);
+      color: var(--cr-gold); font-family: "Nunito", sans-serif;
+      font-size: 15px; font-weight: 900; line-height: 1; cursor: pointer;
+      border-radius: 5px; padding: 4px 9px; align-self: stretch; flex-shrink: 0;
+    }
+    #pv-chat-slash-btn:hover { border-color: var(--cr-gold); background: rgba(232,179,74,.3); }
+    #pv-chat-slash-btn.on { background: rgba(232,179,74,.36); border-color: var(--cr-gold); }
     #pv-chat-panel {
       position: fixed; bottom: 70px; right: 16px; z-index: 1850;
       width: 330px; height: 460px; max-height: calc(100vh - 90px); max-width: calc(100vw - 24px);
@@ -5325,6 +5431,7 @@
     #pv-chat-input-row {
       display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid rgba(48,200,240,.15);
       flex-direction: column;
+      position: relative;            /* #pv-slash-menu opens upwards out of this */
     }
     #pv-chat-target-row { display: flex; align-items: center; gap: 6px; }
     #pv-chat-target-row label { font-size: 10px; color: var(--muted); flex-shrink: 0; }
@@ -6204,7 +6311,10 @@
       .pv-seat-plabel { font-size: 10.5px; }
       .pv-seat-me-badge { font-size: 10.5px; }
       #igcp-pill, #igcp-footer, .igcp-row-prog { font-size: 10.5px; }
-      #pv-chat-btn .pvc-btn-lbl { font-size: 10.5px; }
+      .pv-btn-chat .pvc-btn-sub { font-size: 11px; }
+      #pv-chat-slash-btn { min-width: 34px; font-size: 17px; }
+      .pvs-name { font-size: 12.5px; }
+      .pvs-hint, .pvs-foot { font-size: 10.5px; }
       #draw-notif .dn-label { font-size: 10.5px; }
     }
 
@@ -6403,6 +6513,13 @@
       }
       #pv-help-btn { padding: 5px 11px; border-radius: 12px; }
       #pv-help-btn .help-sub { display: none; }   /* "strategies & tips" */
+      /* The second line goes, because the bar is fighting for height here, but
+         the button must not shrink to the narrowest thing in the row with it:
+         "Chat" is a short word and the whole point of this button is that it is
+         found without being hunted for. It keeps its size while its neighbours
+         give theirs up. */
+      #pv-action-bar .pv-btn-chat .pvc-btn-sub { display: none; }   /* "type / for commands" */
+      #pv-action-bar .pv-btn-chat { min-width: 86px; font-size: 13px; padding: 7px 14px; }
       #pv-help-btn .help-label { font-size: 12px; }
       #pv-action-bar select { font-size: 12px; }
       .pv-action-divider { display: none; }
