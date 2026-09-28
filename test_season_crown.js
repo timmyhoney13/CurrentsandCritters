@@ -19,6 +19,7 @@
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
+const zlib = require("zlib");
 
 const SRC = fs.readFileSync(
   path.join(__dirname, "multiplayer/client/js/preview-app.js"), "utf8");
@@ -59,6 +60,93 @@ vm.runInContext(
 const { loadSeasonCrowns, seasonCrownFor, animalProgressText, ANIMAL_AVATARS } = sandbox.API;
 
 const ok = (seasons) => ({ ok: true, data: { seasons } });
+
+// ── the art that actually ships ─────────────────────────────────────────────
+// The drawing lives on a PDF page as a photo of the paper with a CROWN drawn
+// over it in vector paths. Pull the embedded photo out on its own and the crown
+// is simply not in it -- the file still looks like a finished fish, which is why
+// this is worth pinning: the whole point of the critter is that he is the king.
+// Read the shipped PNG's alpha directly (no image library in this repo) and
+// check the band above the fish's back, where the crown and nothing else sits.
+function pngAlpha(file) {
+  const buf = fs.readFileSync(path.join(__dirname, file));
+  const w = buf.readUInt32BE(16), h = buf.readUInt32BE(20);
+  const depth = buf[24], color = buf[25], interlace = buf[28];
+  if (depth !== 8 || color !== 6 || interlace !== 0) {
+    throw new Error(`expected a non-interlaced 8-bit RGBA png, got depth=${depth} color=${color} interlace=${interlace}`);
+  }
+  const idat = [];
+  for (let pos = 8; pos < buf.length; ) {
+    const len = buf.readUInt32BE(pos);
+    const type = buf.toString("ascii", pos + 4, pos + 8);
+    if (type === "IDAT") idat.push(buf.subarray(pos + 8, pos + 8 + len));
+    pos += 12 + len;
+  }
+  const raw = zlib.inflateSync(Buffer.concat(idat));
+  const bpp = 4, stride = w * bpp;
+  const out = Buffer.alloc(h * stride);
+  for (let y = 0; y < h; y++) {
+    const filter = raw[y * (stride + 1)];
+    const line = raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1));
+    for (let x = 0; x < stride; x++) {
+      const a = x >= bpp ? out[y * stride + x - bpp] : 0;        // left
+      const b = y > 0 ? out[(y - 1) * stride + x] : 0;           // up
+      const c = x >= bpp && y > 0 ? out[(y - 1) * stride + x - bpp] : 0;
+      let v = line[x];
+      if (filter === 1) v += a;
+      else if (filter === 2) v += b;
+      else if (filter === 3) v += (a + b) >> 1;
+      else if (filter === 4) {
+        const pp = a + b - c, pa = Math.abs(pp - a), pb = Math.abs(pp - b), pc = Math.abs(pp - c);
+        v += (pa <= pb && pa <= pc) ? a : (pb <= pc ? b : c);
+      }
+      out[y * stride + x] = v & 0xff;
+    }
+  }
+  return { w, h, at: (x, y) => out[y * stride + x * bpp + 3] };
+}
+
+section("The shipped drawing still has his crown on");
+const ART = pngAlpha("multiplayer/client/avatars/king-of-the-critters.png");
+check("the art is the 512px square every other avatar is", ART.w === 512 && ART.h === 512);
+
+function opaque(x0, y0, x1, y1) {
+  let n = 0;
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (ART.at(x, y) > 128) n++;
+  return n;
+}
+// The crown sits at x 211-311, y 130-200. Across that band the crownless art
+// (just the top edge of the fish's back running through it) measured 1369
+// opaque pixels; with the crown on, 4722.
+const crownBand = opaque(200, 125, 320, 205);
+check("there is a solid mark above his back, not just the body outline",
+      crownBand > 3000, `${crownBand} opaque px (crownless art measured 1369)`);
+// Three points with gaps between them. Scanned over the rows the spikes are
+// separate on rather than one hard-coded line, so a re-crop that shifts the art
+// a few pixels does not fail this for the wrong reason.
+function marksAcross(y) {
+  let runs = 0, wasOn = false;
+  for (let x = 200; x < 330; x++) {
+    const on = ART.at(x, y) > 128;
+    if (on && !wasOn) runs++;
+    wasOn = on;
+  }
+  return runs;
+}
+let bestRow = 0, best = 0;
+for (let y = 130; y <= 200; y++) { const r = marksAcross(y); if (r > best) { best = r; bestRow = y; } }
+check("and it is a crown with three separate points, not one blob",
+      best >= 3, `most separate marks on any row was ${best} (at y=${bestRow})`);
+check("nothing is drawn outside the circle the rank chip masks it to", (() => {
+  const r = ART.w / 2;
+  for (let y = 0; y < ART.h; y++) for (let x = 0; x < ART.w; x++) {
+    const dx = x - r + 0.5, dy = y - r + 0.5;
+    if (dx * dx + dy * dy > r * r && ART.at(x, y) > 40) return false;
+  }
+  return true;
+})());
+check("the paper it was photographed on is gone (corners are clear)",
+      ART.at(3, 3) === 0 && ART.at(508, 3) === 0 && ART.at(3, 508) === 0 && ART.at(508, 508) === 0);
 
 // ── the catalogue entry ─────────────────────────────────────────────────────
 section("The skin is in the catalogue and says what it is");

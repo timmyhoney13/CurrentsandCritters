@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-27.4";
+  const APP_BUILD   = "2026-09-27.5";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -207,7 +207,7 @@
   // refreshed avatar image (same /avatars/x.png path) is never served stale.
   // Only touches /avatars/ paths, external (Google) avatar URLs are left as-is.
   // Stored/compared paths stay clean; the server ignores the query (basename match).
-  const _AVATAR_ART_VERSION = "ws16";
+  const _AVATAR_ART_VERSION = "ws17";
   function _avSrc(url) {
     const u = String(url || "");
     // Cache-bust both avatar AND background art so a version bump always refreshes
