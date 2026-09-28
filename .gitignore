@@ -493,6 +493,11 @@
 !test_kick_and_skip_votes.py
 !test_kick_integration.py
 !test_vote_buttons_ui.js
+# The same two votes, typed: / in the chat box lists the commands, then the
+# players each one can name. Half of it runs the real list against a DOM of
+# objects, half lays the real action bar out in headless Chrome at three
+# widths, because a button can be in the markup and still be behind something.
+!test_chat_slash_commands.js
 
 # The published How to Play page (/rules): proves the rulebook stylesheet and
 # the shared data tables were MOVED out of the game, not copied (it compares
