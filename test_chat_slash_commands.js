@@ -1,24 +1,25 @@
 #!/usr/bin/env node
-/* The chat button in the action bar, and /kick + /skip typed in the chat.
+/* The Messages button in the action bar, and /kick + /skip typed in the chat.
  *
  * Run:  node test_chat_slash_commands.js    (the last part wants Google Chrome)
  *
- * TWO CHANGES, one reason: both votes about other players were reachable only
- * from the action bar, and the chat you would be typing in when you wanted one
- * was a 44px square hanging off the bottom of the Board Size cluster, in the
- * corner of the screen nothing else asks you to look at.
+ * ONE PLACE, not three. Vote Kick and Skip Turn were buttons of their own in
+ * the action bar, with a picker hanging off one of them, at the far end of the
+ * screen from the chat a player is already in when they want one. The buttons
+ * are gone; the commands are the whole of both votes now.
  *
- *  • The chat button moved into the action bar, immediately left of Surf's Up,
- *    in the reef gold from the in-game palette. Checked here: it really is in
- *    the bar and really left of Surf's Up, it is gone from the cluster along
- *    with the separator that held it, and nothing in the app or the stylesheet
- *    still reaches for what was removed.
+ *  • The Messages button is the action bar's one gold control, immediately left
+ *    of Surf's Up. Checked here: it really is in the bar and really left of
+ *    Surf's Up, it is gone from the Board Size cluster along with the separator
+ *    that held it, the two vote buttons and their picker are gone from the
+ *    markup, the app and the stylesheet alike, and nothing still reaches for
+ *    any of it.
  *
  *  • Typing / in the message box lists the commands, and taking one turns the
  *    same list into the players it can name. The list is built from
- *    payload.votes, which is what the action-bar buttons read, so it can never
- *    offer a bot, a spectator, a removed player, you, or your own second hand
- *    in competitive.
+ *    payload.votes, the same tallies the server works out per viewer, so it can
+ *    never offer a bot, a spectator, a removed player, you, or your own second
+ *    hand in competitive.
  *
  * The parts that can look finished and do nothing, each with a check below:
  *
@@ -92,7 +93,7 @@ function mkNode(tag) {
 // keeps and every function that reads it. The DOM wiring below it is checked by
 // reading the source, further down.
 const BLOCK_FROM = APP.indexOf("  const _SLASH_CMDS = [");
-const BLOCK_TO   = APP.indexOf("  // ── Wiring: the box, the / button");
+const BLOCK_TO   = APP.indexOf("  // ── Wiring: the message box,");
 if (BLOCK_FROM < 0 || BLOCK_TO < 0 || BLOCK_TO < BLOCK_FROM) {
   console.log("could not find the slash-command block in preview-app.js");
   process.exit(1);
@@ -104,7 +105,6 @@ function makeEnv(votes, opts) {
   const els = {
     "pv-slash-menu": mkNode("div"),
     "pv-chat-text": mkNode("textarea"),
-    "pv-chat-slash-btn": mkNode("button"),
   };
   const toasts = [], sent = [];
   const sandbox = {
@@ -360,10 +360,12 @@ section("the wiring behind it:");
   check(/if \(e\.key === "Enter" && !e\.shiftKey\) \{ e\.preventDefault\(\); sendChatMessage\(\); \}/.test(keys),
         "otherwise Enter sends, which is what runs the command");
 
-  const upd = APP.slice(APP.indexOf("function updateVoteButtons()"),
-                        APP.indexOf('document.getElementById("pv-skip-turn-btn")?.addEventListener'));
-  check(/_slashRefresh\(\)/.test(upd),
-        "every payload that repaints the vote buttons repaints an open list too");
+  const votesSync = APP.slice(APP.indexOf('_latestVotes = (_v && typeof _v === "object")'),
+                              APP.indexOf("const mySeat = (Number.isInteger(myIdx))"));
+  check(/_slashRefresh\(\)/.test(votesSync),
+        "every payload that carries tallies repaints an open list");
+  check(!/updateVoteButtons/.test(APP),
+        "and nothing repaints buttons that are not there any more");
 
   const badges = APP.slice(APP.indexOf("function pvcUpdateBadges()"), APP.indexOf("function pvcBackDotShould"));
   check(/classList\.toggle\("has-unread", total > 0\)/.test(badges),
@@ -375,28 +377,27 @@ section("the wiring behind it:");
   check(/view !== "room"[\s\S]{0,40}_slashClose\(\)/.test(showV),
         "and so does leaving the room view");
 
-  const wiring = APP.slice(APP.indexOf("  // ── Wiring: the box, the / button"),
-                           APP.indexOf("  // ── Wiring: the box, the / button") + 1600);
+  const wiring = APP.slice(APP.indexOf("  // ── Wiring: the message box,"),
+                           APP.indexOf("  // ── Wiring: the message box,") + 1600);
   check(/box\.addEventListener\("input"/.test(wiring), "every keystroke redraws the list");
-  check(/sbtn\.addEventListener\("click"/.test(wiring), "the / button opens the same list");
-  check(/box\.value\.startsWith\("\/"\)/.test(wiring), "tapping it puts the slash in for you");
   check(/box\.addEventListener\("blur"/.test(wiring), "clicking away puts it down");
+  check(!/pv-chat-slash-btn/.test(APP) && !HTML.includes("pv-chat-slash-btn"),
+        "the / button beside the box is gone, markup and wiring both");
+  check(!/#pv-chat-slash-btn/.test(CSS), "and its style went with it");
   check(/mousedown", \(e\) => e\.preventDefault\(\)/.test(BLOCK),
         "a row does not steal the caret out of the box");
 }
 
 // ══ 7. Where the chat button lives now ══════════════════════════════════════
-section("the chat button is in the action bar:");
+section("the Messages button is in the action bar:");
 {
   const barStart = HTML.indexOf('<div id="pv-action-bar">');
   const barEnd   = HTML.indexOf('<!-- Click-to-place card picker panel -->');
   check(barStart > 0 && barEnd > barStart, "the action bar is where it always was");
   const bar = HTML.slice(barStart, barEnd);
-  check(bar.includes('id="pv-chat-btn"'), "the chat button is in it");
+  check(bar.includes('id="pv-chat-btn"'), "the messages button is in it");
   check(bar.indexOf('id="pv-chat-btn"') < bar.indexOf('id="pv-surf-btn"'),
         "immediately left of Surf's Up");
-  check(bar.indexOf('id="pv-kick-wrap"') < bar.indexOf('id="pv-chat-btn"'),
-        "with the two votes on its other side");
   check(/class="pv-btn pv-btn-chat"/.test(bar), "styled as an action-bar button");
   check(bar.includes('id="pv-chat-badge"'), "and it still carries the unread badge");
   check(/style="display:none;"/.test(bar.slice(bar.indexOf('id="pv-chat-btn"') - 200,
@@ -412,9 +413,38 @@ section("the chat button is in the action bar:");
   check(!/#pv-chat-btn \{/.test(CSS), "the old 44px corner square style is gone");
   check(!CSS.includes("pvc-btn-ico"), "along with the icon slot it never used");
 
-  // The label and the second line that teaches the commands.
-  check(/<span class="pvc-btn-lbl">Chat<\/span>/.test(bar), "it says Chat");
+  // The label and the second line that teaches the commands. The second line
+  // is load-bearing now that the two vote buttons are gone: it is the only
+  // thing on screen that says where they went.
+  check(/<span class="pvc-btn-lbl">Messages 💬<\/span>/.test(bar),
+        "it says Messages, with the speech balloon after the word");
   check(/type \/ for commands/.test(bar), "and says what the slash does");
+  check(/aria-label="Open messages"/.test(bar), "a screen reader is told the same word");
+}
+
+// ══ 7b. And the two vote buttons are gone, not hidden ══════════════════════
+section("Vote Kick and Skip Turn are buttons nowhere:");
+{
+  ["pv-skip-turn-btn", "pv-kick-wrap", "pv-kick-btn", "pv-kick-picker"].forEach(id => {
+    check(!HTML.includes('id="' + id + '"'), "#" + id + " is gone from preview.html");
+    check(!APP.includes(id), "…and nothing in the app reaches for it");
+  });
+  ["pv-btn-skip", "pv-btn-kick", "pv-kick-wrap", "pv-kick-picker", "pv-vote-head",
+   "pv-vote-row", "pv-vote-foot"].forEach(cls => {
+    check(!CSS.includes("." + cls), "preview.css no longer styles ." + cls);
+  });
+  ["closeKickPicker", "openKickPicker", "_kickRow", "_kickInfoFor", "_skipInfoFor",
+   "_clampToWindow", "_kickPickerOpen"].forEach(fn => {
+    check(!APP.includes(fn), "the picker's " + fn + " went with them");
+  });
+  // What has to survive: the poster the commands call, and the seat badge that
+  // says somebody was removed, which is a status and not a control.
+  check(/async function _sendVote\(path, body, okMsg\)/.test(APP),
+        "the one thing that posts a vote is still here");
+  check(/_sendVote\("kick_player"/.test(APP) && /_sendVote\("skip_turn"/.test(APP),
+        "and both votes still go to their own endpoint");
+  check(/pv-seat-kicked-badge/.test(APP) && /\.pv-seat-kicked-badge/.test(CSS),
+        "a removed player's seat still shows the Removed badge");
 }
 
 section("it matches the game, and it is hard to miss:");
@@ -436,7 +466,7 @@ section("it matches the game, and it is hard to miss:");
   check(/#pv-help-btn \{[\s\S]{0,400}var\(--cr-cream\)/.test(CSS),
         "Strategy is still the cream one at the other end");
 
-  const menu = CSS.slice(CSS.indexOf("    #pv-slash-menu {"), CSS.indexOf("#pv-chat-slash-btn {"));
+  const menu = CSS.slice(CSS.indexOf("    #pv-slash-menu {"), CSS.indexOf("    #pv-chat-panel {"));
   check(/position: absolute/.test(menu) && /bottom: calc\(100% - 6px\)/.test(menu),
         "the list opens upwards, over the messages, out of the input row");
   check(/#pv-chat-input-row \{[\s\S]{0,260}position: relative/.test(CSS),
@@ -448,15 +478,13 @@ section("it matches the game, and it is hard to miss:");
     check(CSS.includes(c + " {") || CSS.includes(c + ",") || CSS.includes(c + ":"),
           "every part of a row is styled (" + c + ")");
   });
-  check(/#pv-chat-slash-btn/.test(CSS) && HTML.includes('id="pv-chat-slash-btn"'),
-        "the / button exists and is styled");
-  check(/@media \(pointer: coarse\)[\s\S]{0,900}#pv-chat-slash-btn \{ min-width: 34px/.test(CSS),
-        "and is a real tap target on a phone");
+  check(/@media \(pointer: coarse\)[\s\S]{0,900}\.pvs-name \{ font-size: 12\.5px/.test(CSS),
+        "a row of the list is readable on a phone");
 }
 
 // ══ 8. Every id the JS reaches for is really in the markup ══════════════════
 section("nothing reaches for an id that is not there:");
-["pv-slash-menu", "pv-chat-slash-btn", "pv-chat-text", "pv-chat-btn", "pv-chat-badge"].forEach(id => {
+["pv-slash-menu", "pv-chat-text", "pv-chat-btn", "pv-chat-badge"].forEach(id => {
   check(HTML.includes('id="' + id + '"'), "#" + id + " is in preview.html");
   check(APP.includes(id), "...and preview-app.js drives it");
 });
@@ -492,11 +520,15 @@ section("house rules:");
   const lits = (BLOCK.match(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g) || []);
   const em = lits.find(l => l.includes("—"));
   check(!em, "nothing the command list prints has an em dash in it", em);
-  const EMOJI = /[\u{1F300}-\u{1FAFF}\u{1F000}-\u{1F0FF}\u{2600}-\u{27BF}]/u;
+  const EMOJI = /[\u{1F300}-\u{1FAFF}\u{1F000}-\u{1F0FF}\u{2600}-\u{27BF}]/gu;
   const emo = lits.find(l => EMOJI.test(l));
-  check(!emo, "and no emoji", emo);
-  const barSlice = HTML.slice(HTML.indexOf('id="pv-chat-btn"') - 700, HTML.indexOf('id="pv-surf-btn"'));
-  check(!EMOJI.test(barSlice), "nor on the button itself");
+  check(!emo, "and no emoji in what the command list prints", emo);
+  // The button is the exception Timothy asked for: one speech balloon, after
+  // the word, and nothing else in the bar wears one.
+  const barSlice = HTML.slice(HTML.indexOf('id="pv-chat-btn"'), HTML.indexOf('id="pv-surf-btn"'));
+  const found = barSlice.match(EMOJI) || [];
+  check(found.join("") === "💬", "the only emoji on the button is the speech balloon", found.join(""));
+  check(/>Messages 💬</.test(barSlice), "and it comes after the word, not before it");
 }
 
 // ══ 11. And now for real, in a browser ═════════════════════════════════════
@@ -559,8 +591,6 @@ ${RUNTIME}
   const bad = (m) => out.fail.push(m);
   // What a running match shows.
   el("pv-chat-btn").style.display = "";
-  el("pv-skip-turn-btn").style.display = "";
-  el("pv-kick-wrap").style.display = "";
 
   const bar = R("pv-action-bar"), chat = R("pv-chat-btn"), surf = R("pv-surf-btn");
   out.info.chat = [chat.left,chat.top,chat.width,chat.height].map(Math.round).join(",");
@@ -570,11 +600,10 @@ ${RUNTIME}
   // or an earlier row.
   const before = (a,b) => (Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top) > 4)
     ? a.right <= b.left + 1 : a.top < b.top - 4;
-  if (!before(chat, surf)) bad("the chat button does not come before Surf's Up");
-  if (!before(R("pv-kick-btn"), chat)) bad("Vote Kick does not come before the chat button");
-  if (chat.height < 30 || chat.width < 80) bad("the chat button is too small to be prominent: " + out.info.chat);
+  if (!before(chat, surf)) bad("the messages button does not come before Surf's Up");
+  if (chat.height < 30 || chat.width < 80) bad("the messages button is too small to be prominent: " + out.info.chat);
   const hit = document.elementFromPoint(chat.left + chat.width/2, chat.top + chat.height/2);
-  if (!hit || !el("pv-chat-btn").contains(hit)) bad("something covers the chat button: " + (hit && hit.id));
+  if (!hit || !el("pv-chat-btn").contains(hit)) bad("something covers the messages button: " + (hit && hit.id));
   const cs = getComputedStyle(el("pv-chat-btn"));
   if (!/232,\\s*179,\\s*74/.test(cs.backgroundImage)) bad("it is not painted the reef gold: " + cs.backgroundImage);
   if (!/26,\\s*45,\\s*90/.test(cs.color)) bad("its label is not the reef navy: " + cs.color);
@@ -589,6 +618,7 @@ ${RUNTIME}
   const rows = () => Array.prototype.slice.call(menu.querySelectorAll(".pvs-row"));
   const named = () => rows().map(r => r.querySelector(".pvs-name").textContent).join(",");
 
+  if (document.getElementById("pv-chat-slash-btn")) bad("the / button is still in the panel");
   typeIn("/");
   if (!menu.classList.contains("open") || getComputedStyle(menu).display === "none")
     bad("the list did not open on a slash");

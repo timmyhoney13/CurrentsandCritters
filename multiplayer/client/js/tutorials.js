@@ -1889,7 +1889,7 @@
 
     // ── Group 2: chat ───────────────────────────────────────────────
     { target: "#pv-chat-btn", badge: "Chat", title: "Table Chat",
-      text: "Tap Chat to talk with everyone in the current game." },
+      text: "Tap Messages to talk with everyone in the current game. Type / in the message box for the two votes about other players: <strong>/kick</strong> and <strong>/skip</strong>." },
 
     // ── Group 3: Surf's Up & AFK rules ──────────────────────────────
     { target: "#pv-surf-btn", badge: "Breaks", title: "Surf's Up!!",

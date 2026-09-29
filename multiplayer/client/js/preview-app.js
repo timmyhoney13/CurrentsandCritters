@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-28.2";
+  const APP_BUILD   = "2026-09-28.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -8597,8 +8597,8 @@
   let _latestPlayers = [];
   let _latestRoundCount = 0;
   let _latestSeatsForSurf = [];      // seat snapshot from payload.seats (away/inactive)
-  // payload.votes: what the Vote Kick / Skip Turn buttons on the seat pills
-  // read. Worked out per viewer on the server (one ballot per PERSON, which
+  // payload.votes: who /kick and /skip in the chat may name, and the tally
+  // behind each. Worked out per viewer on the server (one ballot per PERSON, which
   // in competitive is not the same thing as one per seat), so the client only
   // ever renders what it is handed here.
   let _latestVotes = { ballot_seat: null, kick: [], skip: null };
@@ -9397,10 +9397,10 @@
             kick: Array.isArray(_v.kick) ? _v.kick : [],
             skip: (_v.skip && typeof _v.skip === "object") ? _v.skip : null }
         : { ballot_seat: null, kick: [], skip: null };
-      // The buttons live in the action bar, not on a seat, so nothing else
-      // redraws them: they have to be repainted here or they show the tally
-      // from whenever they were last touched.
-      try { updateVoteButtons(); } catch (_) {}
+      // An open /kick or /skip list names players off these same tallies, and
+      // nothing else redraws it, so it is repainted here or it goes on showing
+      // the numbers it opened with.
+      try { _slashRefresh(); } catch (_) {}
       const mySeat = (Number.isInteger(myIdx)) ? seatsArr.find(s => s && s.index === myIdx) : null;
       const wasAway = _imAway;
       _imAway = Boolean(mySeat && mySeat.is_away);
@@ -10628,49 +10628,23 @@
     try { window.__ccRefreshNames?.(); } catch (_) {}
   }
 
-  // ── Vote Kick / Skip Turn, in the action bar ──────────────────
-  // Both of these used to be chat commands, or nothing at all: to pass a quiet
-  // player's turn you typed "P3 is AFK" (and had to know that), and to get rid
-  // of somebody who was ruining the game there was no way at all short of
-  // everyone leaving. They are buttons now, sat next to Surf's Up, which is
-  // the same kind of thing pointed the other way: that one says "I have
-  // stepped away", these two are about somebody else.
+  // ── The two votes about other players: /kick and /skip ─────
+  // Both of these were buttons in the action bar, sat next to Surf's Up, and
+  // before that they were nothing at all: to pass a quiet player's turn you
+  // typed "P3 is AFK" and had to know that, and to get rid of somebody ruining
+  // the game there was no way short of everyone leaving. They are typed now,
+  // /kick and /skip in the chat, and they are buttons nowhere: the bar was
+  // three controls about other people wide, at the far end of the screen from
+  // the chat a player is already in when they want one.
   //
-  // The two rules are deliberately different, and the buttons say which is
-  // which:
-  //   Skip Turn  costs one turn and needs HALF the other players.
-  //   Vote Kick  is permanent and needs EVERY other player.
+  // The two rules are deliberately different, and the list that names the
+  // players says which is which (see the slash-command block further down):
+  //   /skip  costs one turn and needs HALF the other players.
+  //   /kick  is permanent and needs EVERY other player.
   //
-  // Skip Turn needs no target picker: there is only ever one player whose turn
-  // it is. Vote Kick opens one, because any of the others could be the target.
-  let _kickPickerOpen = false;
+  // This is the poster. What may be voted on is _latestVotes, straight off the
+  // payload, so the client never offers a vote the server would refuse.
   let _voteInFlight = false;
-
-  function closeKickPicker() {
-    const picker = document.getElementById("pv-kick-picker");
-    if (picker) picker.classList.remove("open");
-    const btn = document.getElementById("pv-kick-btn");
-    if (btn) btn.setAttribute("aria-expanded", "false");
-    _kickPickerOpen = false;
-  }
-  // Any click outside, or Escape, puts it away.
-  document.addEventListener("click", (e) => {
-    if (!_kickPickerOpen) return;
-    const wrap = document.getElementById("pv-kick-wrap");
-    if (wrap && wrap.contains(e.target)) return;
-    closeKickPicker();
-  }, true);
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && _kickPickerOpen) closeKickPicker();
-  });
-
-  function _kickInfoFor(seatIndex) {
-    return (_latestVotes.kick || []).find(k => k && k.seat === seatIndex) || null;
-  }
-  function _skipInfoFor(seatIndex) {
-    const sk = _latestVotes.skip;
-    return (sk && sk.seat === seatIndex) ? sk : null;
-  }
 
   async function _sendVote(path, body, okMsg) {
     if (!roomId || _voteInFlight) return;
@@ -10691,152 +10665,8 @@
       try { showToast("Could not reach the server, check your connection.", "err"); } catch {}
     } finally {
       _voteInFlight = false;
-      closeKickPicker();
     }
   }
-
-  // One row of the kick picker: a player, their tally, and what pressing it does.
-  function _kickRow(info) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "pv-vote-row pv-vote-kick" + (info.mine ? " voted" : "");
-    btn.setAttribute("role", "menuitem");
-    const top = document.createElement("span");
-    top.className = "pv-vote-row-label";
-    top.textContent = (info.name || `Player ${info.seat + 1}`) + (info.mine ? " ✓" : "");
-    const sub = document.createElement("span");
-    sub.className = "pv-vote-row-hint";
-    if (info.blocked) {
-      btn.disabled = true;
-      sub.textContent = "the host runs the lobby";
-    } else {
-      sub.textContent = info.mine
-        ? `${info.votes}/${info.needed} · tap to take your vote back`
-        : `${info.votes}/${info.needed} · everyone must agree`;
-      btn.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        _sendVote("kick_player",
-          { target_seat_index: info.seat, undo: Boolean(info.mine) },
-          (d) => d.kicked
-            ? `${d.name} was removed from the game.`
-            : `Kick vote: ${d.votes}/${d.needed}.`);
-      });
-    }
-    btn.appendChild(top);
-    btn.appendChild(sub);
-    return btn;
-  }
-
-  function openKickPicker() {
-    const picker = document.getElementById("pv-kick-picker");
-    if (!picker) return;
-    picker.innerHTML = "";
-    const head = document.createElement("div");
-    head.className = "pv-vote-head";
-    head.textContent = "Remove a player";
-    picker.appendChild(head);
-    (_latestVotes.kick || []).forEach(info => picker.appendChild(_kickRow(info)));
-    const foot = document.createElement("div");
-    foot.className = "pv-vote-foot";
-    foot.textContent = "Everyone else has to agree. This is permanent.";
-    picker.appendChild(foot);
-    picker.classList.add("open");
-    const btn = document.getElementById("pv-kick-btn");
-    if (btn) btn.setAttribute("aria-expanded", "true");
-    _kickPickerOpen = true;
-    _clampToWindow(picker, document.getElementById("pv-kick-wrap"));
-  }
-
-  // The picker hangs off a button that can sit anywhere along a full-width
-  // action bar, so anchoring it to one corner puts it off the side of the
-  // window at some window sizes. Slide it back inside, measuring rather than
-  // guessing, because how far it hangs over depends on the window.
-  function _clampToWindow(menu, anchorEl) {
-    try {
-      const pad = 6;
-      menu.style.left = "";
-      menu.style.right = "";
-      const anchor = anchorEl.getBoundingClientRect();
-      const box = menu.getBoundingClientRect();
-      const room = window.innerWidth;
-      // Where it should sit in the window: its current place, pulled inside
-      // whichever edge it is over. A menu wider than the window itself just
-      // starts at the left edge rather than being pushed off the right.
-      const maxLeft = Math.max(pad, room - box.width - pad);
-      const wantLeft = Math.min(Math.max(pad, box.left), maxLeft);
-      if (Math.abs(wantLeft - box.left) < 1) return;
-      menu.style.right = "auto";
-      menu.style.left = Math.round(wantLeft - anchor.left) + "px";
-    } catch (_) {}
-  }
-
-  // Repaint both buttons from the tallies the last payload carried. A button
-  // with nothing behind it is hidden outright rather than disabled: in a game
-  // against bots there is nobody to vote with, and a permanently dead control
-  // in the action bar is just clutter.
-  function updateVoteButtons() {
-    const skipBtn = document.getElementById("pv-skip-turn-btn");
-    const kickWrap = document.getElementById("pv-kick-wrap");
-    const kickBtn = document.getElementById("pv-kick-btn");
-    if (!skipBtn || !kickWrap || !kickBtn) return;
-
-    const skip = _latestVotes.skip;
-    if (!skip) {
-      skipBtn.style.display = "none";
-    } else {
-      skipBtn.style.display = "";
-      const who = skip.name || `Player ${skip.seat + 1}`;
-      skipBtn.disabled = Boolean(skip.blocked || skip.mine || _voteInFlight);
-      skipBtn.classList.toggle("voted", Boolean(skip.mine));
-      skipBtn.textContent = skip.mine
-        ? `⏭ Skipping ${who} ${skip.votes}/${skip.needed}`
-        : `⏭ Skip ${who}'s Turn${skip.votes ? ` ${skip.votes}/${skip.needed}` : ""}`;
-      skipBtn.title = skip.blocked
-        ? `${who} can't be skipped right now.`
-        : skip.mine
-          ? `You voted to skip ${who}'s turn (${skip.votes} of ${skip.needed} needed).`
-          : `Vote to make ${who} draw 2 and pass. Needs half the other players `
-            + `(${skip.votes} of ${skip.needed} so far).`;
-    }
-
-    const kicks = _latestVotes.kick || [];
-    if (!kicks.length) {
-      kickWrap.style.display = "none";
-      if (_kickPickerOpen) closeKickPicker();
-    } else {
-      kickWrap.style.display = "";
-      const cast = kicks.reduce((n, k) => n + (k.votes || 0), 0);
-      const mine = kicks.some(k => k.mine);
-      kickBtn.disabled = Boolean(_voteInFlight);
-      kickBtn.classList.toggle("has-votes", cast > 0);
-      kickBtn.textContent = cast > 0 ? `Vote Kick (${cast})` : "Vote Kick";
-      kickBtn.title = mine
-        ? "You have a kick vote running. Removing a player takes everyone else."
-        : "Vote to remove a player for good. Every other player has to agree.";
-      // Keep an open picker in step with the tallies that just landed.
-      if (_kickPickerOpen) openKickPicker();
-    }
-
-    // Same for an open / list in the chat panel: it names the same players off
-    // the same tallies, so it cannot be left showing the ones it opened with.
-    try { _slashRefresh(); } catch (_) {}
-  }
-
-  document.getElementById("pv-skip-turn-btn")?.addEventListener("click", (ev) => {
-    ev.stopPropagation();
-    const skip = _latestVotes.skip;
-    if (!skip || skip.blocked || skip.mine) return;
-    _sendVote("skip_turn", { target_seat_index: skip.seat },
-      (d) => d.challenge_started
-        ? `${d.name} has 20 seconds to answer.`
-        : `Voted to skip ${d.name}'s turn (${d.votes}/${d.needed}).`);
-  });
-
-  document.getElementById("pv-kick-btn")?.addEventListener("click", (ev) => {
-    ev.stopPropagation();
-    if (_kickPickerOpen) { closeKickPicker(); return; }
-    openKickPicker();
-  });
 
   // ── Opponent renderer ──────────────────────────────────────────
   function renderOpponents(opponents, turnIndex) {
@@ -19622,14 +19452,13 @@
   // ══════════════════════════════════════════════════════════════════
   // SLASH COMMANDS IN CHAT: /kick and /skip
   // ══════════════════════════════════════════════════════════════════
-  // The same two votes the action bar carries, typed instead of hunted for.
-  // The bar is along the bottom of the screen and the chat panel floats over
-  // the side of it, so a player already mid-sentence had to leave the
-  // conversation, find a button and come back. Now: type / (or tap the / button
-  // beside the box) and the commands are listed over the message box; take one
-  // and the same list turns into the players that command can name, as P1 / P2
-  // / P3 with their names beside them; type part of a name and the list narrows
-  // to it.
+  // The only way to cast either vote. They were buttons in the action bar
+  // along the bottom of the screen, with the chat panel floating over the side
+  // of it, so a player already mid-sentence had to leave the conversation, find
+  // a button and come back. Now: type / and the commands are listed over the
+  // message box; take one and the same list turns into the players that command
+  // can name, as P1 / P2 / P3 with their names beside them; type part of a name
+  // and the list narrows to it.
   //
   // What the list offers is only ever what the SERVER says this player may vote
   // on, straight off payload.votes, which is the same thing the action-bar
@@ -19738,8 +19567,6 @@
   function _slashClose(mute) {
     const menu = _pg("pv-slash-menu");
     if (menu) { menu.classList.remove("open"); cl(menu); }
-    const btn = _pg("pv-chat-slash-btn");
-    if (btn) { btn.classList.remove("on"); btn.setAttribute("aria-expanded", "false"); }
     _slashRows = []; _slashStage = null; _slashPick = 0;
     if (mute) _slashMuted = true;
   }
@@ -19847,8 +19674,6 @@
     while (_slashPick < _slashRows.length && _slashRows[_slashPick].dead) _slashPick++;
     if (_slashPick >= _slashRows.length) _slashPick = 0;
     menu.classList.add("open");
-    const sbtn = _pg("pv-chat-slash-btn");
-    if (sbtn) { sbtn.classList.add("on"); sbtn.setAttribute("aria-expanded", "true"); }
     _slashHighlight();
   }
 
@@ -19921,10 +19746,9 @@
     return clear();
   }
 
-  // ── Wiring: the box, the / button, and the keys the list borrows ──
+  // ── Wiring: the message box, and the keys the list borrows ──
   {
     const box  = _pg("pv-chat-text");
-    const sbtn = _pg("pv-chat-slash-btn");
     if (box) {
       box.addEventListener("input", () => { _slashMuted = false; _slashRefresh(); });
       // Clicking away puts the list down. Rows hold the caret in the box
@@ -19936,15 +19760,6 @@
         _slashClose();
       }, 90));
     }
-    if (sbtn) sbtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      if (!box) return;
-      if (_slashIsOpen()) { _slashClose(true); return; }
-      _slashMuted = false;
-      if (!box.value.startsWith("/")) box.value = "/" + box.value;
-      try { box.focus(); box.setSelectionRange(box.value.length, box.value.length); } catch (_) {}
-      _slashRefresh();
-    });
   }
 
   // Conversation send (DM / group).

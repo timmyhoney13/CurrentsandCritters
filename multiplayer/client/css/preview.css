@@ -343,101 +343,6 @@
       50%      { box-shadow: 0 0 22px rgba(216,56,56,.9); }
     }
 
-    /* ── Vote Kick / Skip Turn, in the action bar ──────────────── */
-    /* Sized like Surf's Up and Full Screen, the buttons they sit beside. */
-    .pv-btn-skip, .pv-btn-kick {
-      font-size: 13px;
-      padding: 7px 14px;
-      white-space: nowrap;
-      flex-shrink: 0;
-      border-radius: 10px;
-      color: #fff;
-    }
-    .pv-btn-skip {
-      background: linear-gradient(135deg, #7d6aae, #5b4c86);
-      border: 1px solid rgba(190,175,235,.45);
-    }
-    .pv-btn-skip:hover:not(:disabled) {
-      background: linear-gradient(135deg, #8e7bc0, #6a5a97);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 14px rgba(125,106,174,.55);
-    }
-    /* Your vote is already in: the button stops offering and starts reporting. */
-    .pv-btn-skip.voted { background: linear-gradient(135deg, #4e7f63, #3b6249); }
-    .pv-kick-wrap { position: relative; display: inline-flex; flex-shrink: 0; }
-    .pv-btn-kick {
-      background: linear-gradient(135deg, #b8544e, #8f3a35);
-      border: 1px solid rgba(245,175,175,.45);
-    }
-    .pv-btn-kick:hover:not(:disabled) {
-      background: linear-gradient(135deg, #cc635c, #a2453f);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 14px rgba(143,58,53,.55);
-    }
-    /* A vote already running is worth seeing without opening the picker. */
-    .pv-btn-kick.has-votes {
-      background: linear-gradient(135deg, #ef5a5a, #d83838);
-      animation: kick-vote-pulse 2.2s ease-in-out infinite;
-    }
-    @keyframes kick-vote-pulse {
-      0%,100% { box-shadow: 0 0 8px rgba(216,56,56,.45); }
-      50%     { box-shadow: 0 0 20px rgba(216,56,56,.85); }
-    }
-    /* The picker opens UPWARDS: the action bar is at the bottom of the screen. */
-    .pv-kick-picker {
-      display: none;
-      position: absolute;
-      bottom: calc(100% + 8px);
-      right: 0;
-      width: 208px;
-      flex-direction: column; gap: 4px;
-      padding: 8px;
-      background: rgba(6, 20, 33, .98);
-      border: 1px solid rgba(150, 205, 240, .35);
-      border-radius: 12px;
-      box-shadow: 0 10px 28px rgba(0, 0, 0, .6);
-      z-index: 60;
-      text-align: left;
-      cursor: default;
-    }
-    .pv-kick-picker.open { display: flex; }
-    .pv-vote-head {
-      font-family: "Nunito", sans-serif;
-      font-weight: 900; font-size: 11px;
-      color: #eaf6ff;
-      text-transform: uppercase; letter-spacing: .4px;
-      padding-bottom: 4px;
-      border-bottom: 1px solid rgba(150, 205, 240, .2);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .pv-vote-row {
-      display: flex; flex-direction: column; gap: 1px;
-      width: 100%;
-      padding: 6px 8px;
-      border-radius: 8px;
-      border: 1px solid rgba(240, 140, 140, .5);
-      background: rgba(72, 24, 28, .9);
-      color: #eaf6ff;
-      font-family: "Nunito", sans-serif;
-      cursor: pointer;
-      text-align: left;
-      transition: background .15s ease, border-color .15s ease;
-    }
-    .pv-vote-row:hover:not(:disabled) { background: rgba(104, 32, 36, .95); }
-    .pv-vote-row:disabled { opacity: .42; cursor: not-allowed; }
-    .pv-vote-row-label {
-      font-weight: 900; font-size: 12px;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .pv-vote-row-hint { font-weight: 700; font-size: 9.5px; color: #e3b3b3; }
-    .pv-vote-row.voted { border-color: rgba(120, 230, 170, .6); }
-    .pv-vote-foot {
-      font-family: "Nunito", sans-serif;
-      font-weight: 700; font-size: 9px;
-      color: #7ea4bd;
-      padding-top: 2px;
-    }
-
     /* The seat of somebody the table kicked out. Nobody took the chair over:
        it is out of the game, and it has to look it. The stamp sits ACROSS the
        avatar (parented to .pv-seat-avbox, which clips nothing, so it can run
@@ -5193,15 +5098,17 @@
     }
 
     /* ── CHAT ───────────────────────────────────────────────────── */
-    /* The chat button, in the ACTION BAR, immediately left of Surf's Up. It
+    /* The Messages button, in the ACTION BAR, immediately left of Surf's Up. It
        spent its life as a 44px square with an 8.5px label hanging off the
        bottom of the Board Size cluster, in the one corner of the screen nothing
        else asks you to look at, and players did not find it. It is a normal
        action-bar button now, in the reef gold from the in-game palette
        (--cr-gold), which nothing else in that cream bar wears, so it reads as
        the one thing there that is not about the cards. Two lines, like the
-       Strategy button at the other end of the same row: the second line is
-       what teaches the / commands. */
+       Strategy button at the other end of the same row, and the second line is
+       load-bearing now: /kick and /skip are typed in this panel and nowhere
+       else, so "type / for commands" is the only thing that says where they
+       went. */
     .pv-btn-chat {
       position: relative;
       display: inline-flex;
@@ -5253,11 +5160,9 @@
     }
 
     /* ── SLASH COMMANDS over the message box ─────────────────────
-       Vote Kick and Skip Turn are buttons in the action bar, at the far end of
-       the screen from the chat you are already typing in, so they are commands
-       here as well. The list opens UPWARDS over the messages, the same way the
-       kick picker opens up out of the action bar, because the input row is at
-       the bottom of the panel. */
+       Vote Kick and Skip Turn have no buttons anywhere any more: this list is
+       the whole of them. It opens UPWARDS over the messages, because the input
+       row is at the bottom of the panel. */
     #pv-slash-menu {
       display: none;
       position: absolute;
@@ -5321,15 +5226,6 @@
     .pvs-empty {
       font-size: 11px; color: #9fc0dc; text-align: center; padding: 7px 6px; line-height: 1.5;
     }
-    /* The / button: the same list, for anyone who would never guess to type it. */
-    #pv-chat-slash-btn {
-      background: rgba(232,179,74,.16); border: 1px solid rgba(232,179,74,.5);
-      color: var(--cr-gold); font-family: "Nunito", sans-serif;
-      font-size: 15px; font-weight: 900; line-height: 1; cursor: pointer;
-      border-radius: 5px; padding: 4px 9px; align-self: stretch; flex-shrink: 0;
-    }
-    #pv-chat-slash-btn:hover { border-color: var(--cr-gold); background: rgba(232,179,74,.3); }
-    #pv-chat-slash-btn.on { background: rgba(232,179,74,.36); border-color: var(--cr-gold); }
     #pv-chat-panel {
       position: fixed; bottom: 70px; right: 16px; z-index: 1850;
       width: 330px; height: 460px; max-height: calc(100vh - 90px); max-width: calc(100vw - 24px);
@@ -6312,7 +6208,6 @@
       .pv-seat-me-badge { font-size: 10.5px; }
       #igcp-pill, #igcp-footer, .igcp-row-prog { font-size: 10.5px; }
       .pv-btn-chat .pvc-btn-sub { font-size: 11px; }
-      #pv-chat-slash-btn { min-width: 34px; font-size: 17px; }
       .pvs-name { font-size: 12.5px; }
       .pvs-hint, .pvs-foot { font-size: 10.5px; }
       #draw-notif .dn-label { font-size: 10.5px; }
@@ -6502,15 +6397,6 @@
          than 34px, the (pointer: coarse) rules above still apply on top. */
       #pv-action-bar { padding: 5px 8px; gap: 6px; }
       #pv-action-bar .pv-btn { font-size: 12px; padding: 7px 11px; border-radius: 8px; }
-      /* Skip Turn names the player it would skip, so a long name makes a very
-         wide button, and this bar wraps: one more row costs real height on a
-         screen that is already short. Cap it and let it ellipsize; the full
-         sentence is on the button's title either way. */
-      #pv-action-bar .pv-btn-skip {
-        max-width: 150px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
       #pv-help-btn { padding: 5px 11px; border-radius: 12px; }
       #pv-help-btn .help-sub { display: none; }   /* "strategies & tips" */
       /* The second line goes, because the bar is fighting for height here, but
@@ -6531,7 +6417,6 @@
     @media (max-height: 620px) {
       #pv-action-bar { padding: 4px 7px; gap: 5px; }
       #pv-action-bar .pv-btn { font-size: 11.5px; padding: 6px 9px; }
-      #pv-action-bar .pv-btn-skip { max-width: 124px; }
       :root { --hand-card-w: 74px; --hand-card-h: 104px; }
     }
     /* ── AUTH / LOGIN SYSTEM ───────────────────────────────── */
