@@ -109,9 +109,10 @@
 .ccGN-count {
   background: rgba(255, 255, 255, .15);
   border: 1px solid rgba(255, 255, 255, .28);
-  /* The pill now names the night as well as the countdown ("Saturday · starts
-     in 2d 2h"), which is long enough to break across two lines inside its own
-     border on a phone. It wraps as a whole unit under the XP chip instead. */
+  /* "starts in 2d 2h" must not break across two lines inside its own border on
+     a phone. It wraps as a whole unit under the XP chip instead. (The pill also
+     names the night, "Wednesday · starts in 2d 2h", whenever Game Night runs on
+     more than one, and that is the longer string this has to survive.) */
   white-space: nowrap;
 }
 .ccGN-live {
@@ -157,6 +158,49 @@
   line-height: 1.35;
 }
 
+/* Where the night happens, and the door to it. A line of its own under the XP
+   note rather than another clause of it: this is the only thing on the band a
+   reader is meant to act on, and in the note it would be the third sentence of
+   a paragraph that already wraps to three lines on a phone.
+
+   The link is a pill rather than underlined text because it renders on TWO
+   hosts: the marketing site styles every `a` inside its bands and Player Home
+   styles none of them, so the colour, weight and underline are all stated here
+   and neither host can turn it into body text. */
+.ccGN-join {
+  margin-top: 7px;
+  font-size: .86rem;
+  color: rgba(255, 255, 255, .92);
+  line-height: 1.45;
+}
+.ccGN-link {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--gn-gold) 0%, var(--gn-gold-d) 100%);
+  border: 1px solid rgba(255, 255, 255, .5);
+  color: #3d2600;
+  font-weight: 800;
+  font-size: .84rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.ccGN-link:hover,
+.ccGN-link:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .26);
+  color: #3d2600;
+  text-decoration: none;
+}
+/* The band sits on a dark gradient, so the default focus ring is nearly
+   invisible on it. This one is drawn in the band's own white. */
+.ccGN-link:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, .9);
+  outline-offset: 2px;
+}
+
 /* ── Narrow screens ──────────────────────────────────────────────────────
    The banner stacks rather than shrinking. It is two columns now, not three:
    the dice and the RSVP button are both gone, so the text has the whole
@@ -172,6 +216,10 @@
   .ccGN-title { font-size: 1.3rem; }
   .ccGN-when { font-size: .94rem; }
   .ccGN-local { margin-left: 0; margin-top: 4px; }
+  /* The band's one tap target. At its inline size it is 27px tall, which is a
+     thin thing to hit with a thumb, so on a phone it is given real height
+     rather than staying the size of the sentence it sits in. */
+  .ccGN-link { padding: 8px 16px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

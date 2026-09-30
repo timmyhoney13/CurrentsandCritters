@@ -459,12 +459,28 @@ const MAIN = \`
     const gn = document.getElementById("cc-game-night");
     out.gn = {
       text: txt(gn),
-      // The RSVP button and the dice both came off the band. Counted rather
-      // than described: "no .ccGN-btn" is the only proof the button is gone,
-      // and anything focusable would be a control nobody meant to leave.
+      // The RSVP button and the dice both came off the band, and exactly ONE
+      // control went back on: the Discord link. Counted rather than described,
+      // because a count is the only thing that catches a second control nobody
+      // meant to leave, and the link is read attribute by attribute because a
+      // <button>, or an <a> with no href, would look identical and go nowhere.
       buttons: gn.querySelectorAll("a, button").length,
       focusable: Array.prototype.filter.call(
         gn.querySelectorAll("*"), (el) => el.tabIndex >= 0).length,
+      link: (() => {
+        const a = gn.querySelector("a.ccGN-link");
+        return a ? {
+          text: txt(a), href: a.getAttribute("href"),
+          target: a.getAttribute("target"), rel: a.getAttribute("rel") || "",
+          label: a.getAttribute("aria-label") || "",
+          // Underlined body text would mean the marketing host's own anchor
+          // rules won over the band's, which is the whole reason the pill
+          // states its own colour, weight and decoration. (No backticks in
+          // here: this block is the body of a template literal.)
+          weight: getComputedStyle(a).fontWeight,
+          decoration: getComputedStyle(a).textDecorationLine,
+        } : null;
+      })(),
       xpChip: txt(gn.querySelector(".ccGN-xp")),
       selfInjected: gn.parentElement && gn.parentElement.id === "ph-panel-overview",
       firstChild: gn.parentElement && gn.parentElement.firstElementChild === gn,
@@ -692,19 +708,47 @@ check("a fresh account can enter a code", D.referral.hasInput === true);
 console.log("\n  Game Night:");
 check("the banner put itself on Player Home", D.gn.selfInjected === true);
 check("it is the FIRST thing in the Overview panel", D.gn.firstChild === true);
-check("the schedule is stated in full, both nights",
-      /Every Wednesday & Saturday, 7:00–9:00 PM CST/.test(D.gn.text), D.gn.text.slice(0, 160));
+check("the schedule is stated in full: the one night, with the hours",
+      /Every Wednesday, 8:00–10:00 PM CST/.test(D.gn.text), D.gn.text.slice(0, 160));
+// Game Night went to once a week, at 8, on 2026-09-30. Both halves of that are
+// pinned: a stale "Saturday" left in the copy would advertise a night the bonus
+// no longer pays on, and the old 7 PM would have people waiting an hour early.
+check("Saturday is gone from the copy, not merely gone from the bonus",
+      !/Saturday/.test(D.gn.text), D.gn.text.slice(0, 160));
+check("…and so is the old 7 PM start", !/7:00/.test(D.gn.text), D.gn.text.slice(0, 160));
 // The RSVP came off the band on 2026-09-25, and so did the dice. A thing
-// nobody has to do did not need a button, and the band reads as an
-// announcement now rather than an invitation to click something.
-check("there is no RSVP button left on the band", D.gn.buttons === 0, D.gn.buttons);
-check("…and nothing else on it can be tabbed to either",
-      D.gn.focusable === 0, D.gn.focusable);
-check("the RSVP wording went with the button",
+// nobody has to do did not need a button. What the band carries instead is one
+// link, out to the voice channel the night actually happens in.
+check("the RSVP wording is gone",
       !/RSVP/i.test(D.gn.text) && !/isn't mandatory/i.test(D.gn.text), D.gn.text);
 check("the dice went too", !/\u{1F3B2}/u.test(D.gn.text), D.gn.text.slice(0, 80));
-check("it says when the next one starts, and which night it is",
-      /(Wednesday|Saturday) · starts in|Live right now/.test(D.gn.text), D.gn.text);
+check("the band says where to turn up",
+      /Anyone interested will be in the General Current voice chat in our Discord/
+        .test(D.gn.text), D.gn.text.slice(0, 260));
+check("the Discord link is on the band", !!D.gn.link, D.gn.link);
+check("…it reads 'Click here'", !!D.gn.link && /^Click here$/.test(D.gn.link.text),
+      D.gn.link && D.gn.link.text);
+check("…and points at the invite",
+      !!D.gn.link && D.gn.link.href === "https://discord.gg/z3yz5HQ6q",
+      D.gn.link && D.gn.link.href);
+check("…opens in its own tab, without handing Discord the opener",
+      !!D.gn.link && D.gn.link.target === "_blank" && /noopener/.test(D.gn.link.rel),
+      D.gn.link && [D.gn.link.target, D.gn.link.rel].join(" "));
+// "Click here" on its own tells a screen reader nothing about where it goes.
+check("…and names its destination for a screen reader",
+      !!D.gn.link && /Discord/i.test(D.gn.link.label), D.gn.link && D.gn.link.label);
+check("…styled by the band, not by the host page's link rules",
+      !!D.gn.link && Number(D.gn.link.weight) >= 700 && D.gn.link.decoration === "none",
+      D.gn.link && [D.gn.link.weight, D.gn.link.decoration].join(" "));
+check("it is the ONLY control on the band", D.gn.buttons === 1, D.gn.buttons);
+check("…and the only thing on it that can be tabbed to",
+      D.gn.focusable === 1, D.gn.focusable);
+check("it says when the next one starts",
+      /starts in \d|Live right now/.test(D.gn.text), D.gn.text);
+// The pill named the night while there were two. With one, the headline right
+// above it already says Wednesday, and saying it twice reads as two events.
+check("…without naming the night twice, now that there is one",
+      !/(Wednesday|Saturday) · starts in/.test(D.gn.text), D.gn.text);
 // The XP bonus is half the reason to turn up, so it is a chip of its own next
 // to the countdown, not a clause buried in the note.
 check("the 1.5x XP bonus is on a chip of its own",

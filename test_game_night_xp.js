@@ -5,15 +5,21 @@
  *
  *   1. THE CLOCK. js/game-night.js is evaluated in a vm with a stub window,
  *      and window.__ccGameNightXp() is asked about fixed instants either side
- *      of 7:00 and 9:00 PM America/Chicago, in summer AND winter, on BOTH
- *      nights, plus the nights on either side of a DST switch. Then a whole
- *      year is swept minute by minute: the bonus must be on for exactly 120
- *      minutes on every Wednesday and every Saturday, and on no other day. A
- *      multiplier that is live for 180 minutes twice a year is the bug this
- *      sweep exists to catch, and it is invisible to any test that only asks
- *      "is it on now?". The days are counted from the calendar rather than
- *      pinned to a literal, so the second night could not be added by
- *      loosening the number the test was asserting.
+ *      of 8:00 and 10:00 PM America/Chicago, in summer AND winter, plus the
+ *      Wednesdays on either side of a DST switch. Then a whole year is swept
+ *      minute by minute: the bonus must be on for exactly 120 minutes on every
+ *      Wednesday, and on no other day. A multiplier that is live for 180
+ *      minutes twice a year is the bug this sweep exists to catch, and it is
+ *      invisible to any test that only asks "is it on now?". The days are
+ *      counted from the calendar rather than pinned to a literal, so a night
+ *      could not be added or dropped by loosening the number the test asserts.
+ *
+ *      Game Night went to ONE night, Wednesday, 8-10 PM, on 2026-09-30. Every
+ *      instant below moved with it: the old fixtures were 7-9 PM and half of
+ *      them were Saturdays, so a test left unchanged would have gone on
+ *      certifying a schedule nobody plays on. Saturday is asserted OFF now, at
+ *      exactly the hours it used to run, which is what catches a leftover 6 in
+ *      NIGHTS.
  *
  *   2. THE ARITHMETIC. prestigeLevelNow / passBoostNow / gameNightXpNow /
  *      prestigeXp are lifted verbatim out of js/preview-app.js and run against
@@ -42,6 +48,10 @@ const read   = (p) => fs.readFileSync(path.join(CLIENT, p), "utf8");
 
 const APP = read("js/preview-app.js");
 const GN  = read("js/game-night.js");
+// The same source with its comments removed. The checks below ask whether a
+// time or a day is TYPED into the rendered copy rather than derived from the
+// constants, and the comments legitimately quote both.
+const GN_CODE = GN.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/[^\n]*$/gm, "");
 
 let pass = 0, fail = 0;
 function check(name, cond, detail) {
@@ -79,36 +89,45 @@ const chicago = (iso) => new Intl.DateTimeFormat("en-US", {
 }).format(new Date(iso));
 
 // [label, instant (UTC), should the bonus be live?]
+// Chicago is UTC-5 on CDT and UTC-6 on CST, so 8:00 PM is 01:00Z in summer and
+// 02:00Z in winter. Every instant is written in UTC and printed back in Chicago
+// time by the check itself, so a wrong conversion here cannot hide.
 const MOMENTS = [
-  // Saturday
-  ["a minute before the summer start", "2026-08-22T23:59:00Z", false],
-  ["7:00 PM CDT exactly",              "2026-08-23T00:00:00Z", true],
-  ["a minute before the end",          "2026-08-23T01:59:00Z", true],
-  ["9:00 PM CDT exactly, over",        "2026-08-23T02:00:00Z", false],
-  ["after midnight in Chicago",        "2026-08-23T07:00:00Z", false],
-  ["a minute before the winter start", "2026-12-20T00:59:00Z", false],
-  ["7:00 PM CST exactly",              "2026-12-20T01:00:00Z", true],
-  ["9:00 PM CST exactly, over",        "2026-12-20T03:00:00Z", false],
-  ["the Saturday before DST ends",     "2026-11-01T00:00:00Z", true],
-  ["the Saturday after DST ends",      "2026-11-08T01:00:00Z", true],
-  ["the Saturday before DST starts",   "2027-03-14T01:00:00Z", true],
-  // Wednesday, the second night. Every boundary the Saturday half checks has
-  // to hold here too, or "we added Wednesday" means "we added an hour of
-  // Wednesday, at the wrong end, half the year".
-  ["a minute before Wednesday starts", "2026-08-19T23:59:00Z", false],
-  ["Wednesday 7:00 PM CDT exactly",    "2026-08-20T00:00:00Z", true],
-  ["a Wednesday evening",              "2026-08-20T01:00:00Z", true],
-  ["a minute before Wednesday ends",   "2026-08-20T01:59:00Z", true],
-  ["Wednesday 9:00 PM CDT, over",      "2026-08-20T02:00:00Z", false],
-  ["Wednesday 7:00 PM CST exactly",    "2026-12-17T01:00:00Z", true],
-  ["Wednesday 9:00 PM CST, over",      "2026-12-17T03:00:00Z", false],
-  ["the Wednesday after DST ends",     "2026-11-05T01:00:00Z", true],
-  // Days that are neither, at exactly the hour the two nights run.
+  // Summer: 8-10 PM CDT.
+  ["a minute before the summer start", "2026-08-20T00:59:00Z", false],
+  ["8:00 PM CDT exactly",              "2026-08-20T01:00:00Z", true],
+  ["a Wednesday evening",              "2026-08-20T01:30:00Z", true],
+  ["a minute before the end",          "2026-08-20T02:59:00Z", true],
+  ["10:00 PM CDT exactly, over",       "2026-08-20T03:00:00Z", false],
+  ["after midnight in Chicago",        "2026-08-20T07:00:00Z", false],
+  // Winter: 8-10 PM CST, an hour later in UTC. An offset baked in as UTC-5 or
+  // UTC-6 passes one of these two blocks and fails the other.
+  ["a minute before the winter start", "2026-12-17T01:59:00Z", false],
+  ["8:00 PM CST exactly",              "2026-12-17T02:00:00Z", true],
+  ["a minute before the winter end",   "2026-12-17T03:59:00Z", true],
+  ["10:00 PM CST exactly, over",       "2026-12-17T04:00:00Z", false],
+  // Either side of both DST switches, when the offset moves under the schedule.
+  ["the Wednesday before DST ends",    "2026-10-29T01:00:00Z", true],
+  ["the Wednesday after DST ends",     "2026-11-05T02:00:00Z", true],
+  ["the Wednesday before DST starts",  "2027-03-11T02:00:00Z", true],
+  ["the Wednesday after DST starts",   "2027-03-18T01:00:00Z", true],
+  // Saturday, at exactly the hours it used to run and the hours it would run
+  // now. It is a Wednesday-only night since 2026-09-30, so both are OFF: this
+  // is the pair that catches a 6 left behind in NIGHTS.
+  ["Saturday at the old 7 PM",         "2026-08-23T00:00:00Z", false],
+  ["Saturday at 8 PM",                 "2026-08-23T01:00:00Z", false],
+  ["Saturday at 9 PM",                 "2026-08-23T02:00:00Z", false],
+  ["a Saturday in winter, at 8 PM",    "2026-12-20T02:00:00Z", false],
+  // Every other day, at exactly the hour the night runs.
   ["a Thursday evening",               "2026-08-21T01:00:00Z", false],
   ["a Friday evening",                 "2026-08-22T01:00:00Z", false],
   ["a Sunday evening",                 "2026-08-24T01:00:00Z", false],
   ["a Monday evening",                 "2026-08-25T01:00:00Z", false],
   ["a Tuesday evening",                "2026-08-26T01:00:00Z", false],
+  // The hour the night USED to start, on the night it still runs. Moving the
+  // window is the whole change; leaving 19 in START_HOUR fails right here.
+  ["Wednesday at the old 7 PM start",  "2026-08-20T00:00:00Z", false],
+  ["Wednesday at the old 9 PM end",    "2026-08-20T02:00:00Z", true],
 ];
 for (const [label, iso, want] of MOMENTS) {
   const st = gnXp(new Date(iso));
@@ -124,7 +143,7 @@ for (const [label, iso, want] of MOMENTS) {
 // Two passes rather than one, because a whole year at minute resolution is
 // ~525k timezone conversions and takes minutes to run: an HOURLY pass over the
 // year proves no session ever lands on the wrong day, and a MINUTE pass over
-// the evening of each Saturday proves each one is exactly 2 hours long.
+// the evening of each Wednesday proves each one is exactly 2 hours long.
 {
   const dayOf = (d) => new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago", weekday: "short", year: "numeric",
@@ -132,14 +151,14 @@ for (const [label, iso, want] of MOMENTS) {
   }).format(d);
 
   const HOUR = 3600000, MIN = 60000;
-  const NIGHT = ["Wed", "Sat"];      // the schedule this test is holding to
+  const NIGHT = ["Wed"];             // the schedule this test is holding to
   const isNight = (k) => NIGHT.some(n => k.startsWith(n));
   const hourly = new Map();          // Chicago day → live hours seen
-  // Every Wed/Sat the sweep actually covers the evening of, built from the
+  // Every Wednesday the sweep actually covers the evening of, built from the
   // calendar rather than a literal count, so a night dropped from the module
   // cannot be papered over by editing a number here. The first day sampled is
-  // 6 PM Chicago (the sweep starts at midnight UTC) and the last is a
-  // Thursday, so every Wed/Sat seen has its whole 7-9 PM window inside.
+  // 6 PM Chicago (the sweep starts at midnight UTC) and the last is a Thursday,
+  // so every Wednesday seen has its whole 8-10 PM window inside.
   const nights = [];
   for (let t = Date.UTC(2026, 0, 1); t < Date.UTC(2027, 0, 1); t += HOUR) {
     const d = new Date(t);
@@ -151,9 +170,11 @@ for (const [label, iso, want] of MOMENTS) {
   const liveDays = [...hourly.keys()];
   const wed = liveDays.filter(k => k.startsWith("Wed")).length;
   const sat = liveDays.filter(k => k.startsWith("Sat")).length;
-  check("across 2026 the bonus runs on both nights, every week",
-        wed >= 52 && sat >= 52, `${wed} Wednesdays, ${sat} Saturdays`);
-  check("…every live day is a Wednesday or a Saturday in Chicago",
+  check("across 2026 the bonus runs every Wednesday, all 52 of them",
+        wed >= 52, `${wed} Wednesdays`);
+  check("…and on no Saturday at all any more",
+        sat === 0, `${sat} Saturdays still live`);
+  check("…every live day is a Wednesday in Chicago",
         liveDays.every(isNight),
         liveDays.filter(k => !isNight(k)).join(", "));
   check("…and not one of the year's nights is skipped",
@@ -162,7 +183,7 @@ for (const [label, iso, want] of MOMENTS) {
   check("…nor is a day that is not a night ever live",
         liveDays.length === nights.length, `${liveDays.length} live / ${nights.length} nights`);
 
-  // Minute resolution, 5:00 PM → 11:00 PM Chicago on each of those nights,
+  // Minute resolution, 6:00 PM → midnight Chicago on each of those nights,
   // found by walking back from the hour the sweep saw it live.
   let wrongLen = [], gappy = [];
   for (const [t0] of (() => {
@@ -186,20 +207,20 @@ for (const [label, iso, want] of MOMENTS) {
   }
   check("…each session is exactly 120 minutes long, DST included",
         wrongLen.length === 0, wrongLen.join(", "));
-  check("…and unbroken, one run from 7:00 to 9:00",
+  check("…and unbroken, one run from 8:00 to 10:00",
         gappy.length === 0, gappy.join(", "));
 }
 
 // A Date from another realm (this test's, an iframe's) must be understood, and
 // a ms timestamp too. Answering about "now" instead would be silent and wrong.
-// Saturday 7:30 PM against THURSDAY 7:30 PM: the "off" instant has to be a day
-// that is not a night at all, not merely a different one.
+// Wednesday 8:30 PM against THURSDAY 8:30 PM: the "off" instant has to be a day
+// that is not a night at all, not merely an hour outside the window.
 check("an instant handed in from another realm is honoured",
-      gnXp(new Date("2026-08-23T00:30:00Z")).active === true
-      && gnXp(new Date("2026-08-21T00:30:00Z")).active === false);
+      gnXp(new Date("2026-08-20T01:30:00Z")).active === true
+      && gnXp(new Date("2026-08-21T01:30:00Z")).active === false);
 check("a plain millisecond timestamp works the same",
-      gnXp(Date.parse("2026-08-23T00:30:00Z")).active === true
-      && gnXp(Date.parse("2026-08-21T00:30:00Z")).active === false);
+      gnXp(Date.parse("2026-08-20T01:30:00Z")).active === true
+      && gnXp(Date.parse("2026-08-21T01:30:00Z")).active === false);
 check("garbage falls back to now, never to a bogus instant",
       typeof gnXp("nonsense").active === "boolean");
 
@@ -212,18 +233,49 @@ check("the chip is rendered from the label, never a literal",
 check("the note says which XP it applies to",
       /Games, challenges and your daily bonus all pay \$\{esc\(XP_LABEL\)\} XP/.test(GN));
 check("the chip has a style to be seen in", /\.ccGN-xp\s*\{/.test(read("css/game-night.css")));
-// The headline and the countdown are written from the schedule constants, not
-// typed out beside them. A banner that still reads "Every Saturday" while the
-// bonus pays on Wednesday too is the exact failure this pins.
-check("the nights are one list, not a weekday and some prose",
-      /const NIGHTS = \[3, 6\];/.test(GN));
-check("the headline is built from that list",
+// The headline, the hours and the countdown are written from the schedule
+// constants, not typed out beside them. A banner that still reads "Every
+// Saturday, 7-9" while the bonus pays Wednesday 8-10 is the exact failure this
+// pins, and it is the one a reader acts on before anybody notices.
+check("the night is one list, not a weekday and some prose",
+      /const NIGHTS = \[3\];/.test(GN));
+check("…and Saturday is out of it", !/const NIGHTS = \[[^\]]*6/.test(GN));
+check("the hours are two constants, and they are 8 PM to 10 PM",
+      /const START_HOUR = 20;/.test(GN) && /const END_HOUR = 22;/.test(GN));
+check("the headline is built from the list and the hours",
       /SCHEDULE_LABEL = "Every "/.test(GN)
       && /\$\{esc\(SCHEDULE_LABEL\)\}, \$\{esc\(WINDOW_LABEL\)\} CST/.test(GN));
+check("the hours label is derived from START_HOUR/END_HOUR, never typed",
+      /WINDOW_LABEL = _ampm\(START_HOUR\)/.test(GN)
+      && !/8:00–10:00/.test(GN_CODE));
 check("no literal 'Every Saturday' is left in the copy",
       !/Every Saturday,/.test(GN));
-check("the countdown names the night it is counting to",
-      /class="ccGN-count"[^]{0,60}DAY_NAMES\[dow\]/.test(GN));
+// The pill named the night while there were two of them. With one, it is the
+// countdown alone, and the day name is reached for only if NIGHTS grows again.
+check("the countdown names the night only when there is more than one",
+      /NIGHTS\.length > 1 \? esc\(DAY_NAMES\[dow\][^)]*\)/.test(GN)
+      && /class="ccGN-count">\$\{nightBit\}starts in/.test(GN));
+
+console.log("\nthere is no RSVP, there is a door");
+// The night is one voice channel. That sentence and that link are the only
+// instruction it has, so both are pinned: the copy, the channel name, and the
+// invite itself, which is the one thing here that cannot be derived from
+// anything else in the file.
+check("the band says where to turn up",
+      /Anyone interested will be in the \$\{esc\(VOICE_CHANNEL\)\} voice chat in/.test(GN));
+check("the channel is named once, as a constant",
+      /const VOICE_CHANNEL = "General Current";/.test(GN));
+check("the invite is the live one",
+      /const DISCORD_URL = "https:\/\/discord\.gg\/z3yz5HQ6q";/.test(GN));
+check("the link is rendered from that constant, not typed into the markup",
+      /href="\$\{esc\(DISCORD_URL\)\}"/.test(GN));
+check("it reads 'Click here'", />Click here<\/a>/.test(GN));
+check("it opens in its own tab and keeps the opener to itself",
+      /target="_blank"/.test(GN) && /rel="noopener noreferrer"/.test(GN));
+check("no RSVP is left anywhere in the rendered band", !/RSVP/i.test(GN_CODE));
+check("the link has a style to be seen in",
+      /\.ccGN-link\s*[,{]/.test(read("css/game-night.css"))
+      && /\.ccGN-join\s*\{/.test(read("css/game-night.css")));
 
 // ── 2. The arithmetic ───────────────────────────────────────────────────────
 // Lift the four real functions out of the app rather than restating them.

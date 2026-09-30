@@ -1,8 +1,9 @@
 /* Currents and Critters: Game Night (one module, both hosts).
  *
- * "Game Night is every Wednesday and Saturday, 7–9 PM CST. Games, challenges
- * and the daily bonus pay 1.5x XP while it runs." That is the whole feature,
- * and it has to be impossible to miss in two places:
+ * "Game Night is every Wednesday, 8–10 PM CST. Games, challenges and the
+ * daily bonus pay 1.5x XP while it runs, and everyone is in the General
+ * Current voice chat in the Discord." That is the whole feature, and it has to
+ * be impossible to miss in two places:
  *
  *   • the marketing site (index.html)  → renders into <div id="cc-game-night">
  *   • the game's Player Home            → self-injects at the TOP of the
@@ -14,7 +15,7 @@
  * ends up advertising last season's schedule on one of them.
  *
  * WHY THERE IS TIME-ZONE CODE IN HERE AT ALL
- * "7 PM CST" is not a time to anyone outside that zone, and "CST" drifts by an
+ * "8 PM CST" is not a time to anyone outside that zone, and "CST" drifts by an
  * hour twice a year, the zone people mean is America/Chicago, which is CST in
  * winter and CDT in summer. So the next occurrence is computed against the
  * real IANA zone and ALSO shown in the reader's own local time. Nothing here
@@ -32,19 +33,24 @@
   "use strict";
 
   // ── The one place the event is defined ───────────────────────────────────
-  // There is no RSVP any more. The band used to end in an "RSVP here" button
-  // out to the Discord event, and a note saying RSVP was recommended but not
-  // required; a thing nobody has to do is a thing that did not need a button.
-  // The Discord invite is still one click away on Player Home.
+  // There is no RSVP and no sign-up list. The band used to end in an "RSVP
+  // here" button out to a Discord event, and a note saying RSVP was recommended
+  // but not required; a thing nobody has to do did not need a button. What
+  // takes its place is the only instruction the night has ever needed, which is
+  // to turn up in the voice channel, so the Discord door is ON the band now
+  // rather than somewhere else on the page.
   const ZONE = "America/Chicago";   // what "CST" means to a person
-  // The nights, 0=Sun … 6=Sat. A LIST rather than one weekday because Game
-  // Night runs twice a week: everything downstream (the headline, the
-  // countdown, the XP window) is derived from this array, so adding or
-  // dropping a night is a one-line edit and cannot leave the copy saying one
-  // thing while the bonus pays on another.
-  const NIGHTS = [3, 6];            // Wednesday and Saturday
-  const START_HOUR = 19;            // 7:00 PM
-  const END_HOUR = 21;              // 9:00 PM
+  // Where the night actually happens, and the door to it.
+  const VOICE_CHANNEL = "General Current";
+  const DISCORD_URL = "https://discord.gg/z3yz5HQ6q";
+  // The nights, 0=Sun … 6=Sat. Still a LIST holding a single entry rather than
+  // one weekday, because everything downstream (the headline, the countdown,
+  // the XP window) is derived from this array: running a second night again is
+  // a one-line edit and cannot leave the copy saying one thing while the bonus
+  // pays on another.
+  const NIGHTS = [3];               // Wednesday
+  const START_HOUR = 20;            // 8:00 PM
+  const END_HOUR = 22;              // 10:00 PM
 
   const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday",
                      "Friday", "Saturday"];
@@ -56,7 +62,7 @@
     ? NIGHT_NAMES.join("")
     : NIGHT_NAMES.slice(0, -1).join(", ") + " & " + NIGHT_NAMES[NIGHT_NAMES.length - 1]);
 
-  // "7:00–9:00 PM", written from the hours above for the same reason. The
+  // "8:00–10:00 PM", written from the hours above for the same reason. The
   // meridiem is printed once when both ends share it, which is the only case
   // this event has ever had, and twice if it ever straddles noon.
   const _ampm = (h) => (h < 12 ? "AM" : "PM");
@@ -178,7 +184,7 @@
   }
   window.__ccGameNightXp = xpState;
 
-  // "7:00 PM" in the reader's own zone, so nobody has to do the arithmetic.
+  // "8:00 PM" in the reader's own zone, so nobody has to do the arithmetic.
   function localWindow(start, end) {
     try {
       const f = new Intl.DateTimeFormat(undefined,
@@ -206,7 +212,7 @@
     const local = localWindow(start, end);
     // Only worth showing when the reader is NOT already on Chicago time,
     // otherwise it repeats the headline back at them, and in summer it does it
-    // in a DIFFERENT abbreviation ("7-9 PM CST · that's 7-9 PM CDT for you"),
+    // in a DIFFERENT abbreviation ("8-10 PM CST · that's 8-10 PM CDT for you"),
     // which reads like a contradiction.
     //
     // Compared in whole MINUTES on purpose. zoneOffsetMs() is built from a
@@ -219,13 +225,16 @@
     const localBit = (local && zoneMins !== readerMins)
       ? `<span class="ccGN-local">that's ${esc(local)} for you</span>` : "";
 
-    // Which night it is has to be in the countdown now that there are two of
-    // them: "starts in 2d 3h" alone leaves the reader counting days on their
-    // fingers to work out whether they are waiting for Wednesday or Saturday.
+    // "starts in 2d 3h" is the whole pill while Game Night is once a week: the
+    // headline right above it already names the day, and saying it twice reads
+    // like two different events. The night is named only when NIGHTS holds more
+    // than one, which is the case that left a reader counting days on their
+    // fingers to work out which night they were waiting for.
+    const nightBit = NIGHTS.length > 1 ? esc(DAY_NAMES[dow] || "") + " · " : "";
     const when = live
       ? `<span class="ccGN-live">● Live right now, until ${esc(
           new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(end))}</span>`
-      : `<span class="ccGN-count">${esc(DAY_NAMES[dow] || "")} · starts in ${esc(countdown(start - now))}</span>`;
+      : `<span class="ccGN-count">${nightBit}starts in ${esc(countdown(start - now))}</span>`;
 
     // The reward, stated from the same constant that pays it. It is a separate
     // chip rather than a line of the note so it survives the narrow layout,
@@ -245,6 +254,14 @@
           <div class="ccGN-note">
             Games, challenges and your daily bonus all pay ${esc(XP_LABEL)} XP while
             it runs.
+          </div>
+          <div class="ccGN-join">
+            Anyone interested will be in the ${esc(VOICE_CHANNEL)} voice chat in
+            our Discord.
+            <a class="ccGN-link" href="${esc(DISCORD_URL)}" target="_blank"
+               rel="noopener noreferrer"
+               aria-label="Open the Currents and Critters Discord invite"
+               >Click here</a>
           </div>
         </div>
       </div>`;
