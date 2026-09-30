@@ -4685,32 +4685,14 @@ def strategy_payoff_outlook(
     rivals_on_plan = 0
 
     def _is_body(name: str, species: str) -> bool:
-        """Is this a card the plan's multiplier actually multiplies?
-
-        NOT the multiplier itself. "+2 per Cephalopod" does not count the Reef
-        Trigger Fish printing it -- that card is a Crosscurrent -- and "+3 per
-        mammal" does not count the Great White Shark, which is one too. Most
-        plans are paid by a card that is not of their own species, so counting
-        every heavy hitter as a body let a hand of Reef Trigger Fish and Manta
-        Ray read as two cephalopods when it held none. Measured: bots committed
-        to Cephalopods finished with 0.6 cephalopods on a board of nine, which
-        is BELOW what random play gives them (0.57x).
-
-        A body is a card of the plan's own species, or one of the named pieces
-        that is itself of that species -- the Giant Squid counts, the Reef
-        Trigger Fish that scores it does not.
-        """
         if not isinstance(profile, dict):
             return False
         _ensure_profile_sets(profile)
-        if species in profile["_species_set"]:
+        if name in profile["_heavy_set"] or name in profile["_engine_set"]:
             return True
-        # A named piece still counts when the plan has no species of its own to
-        # check against (King Salmon is paid per filled ocean, not per fish).
-        if not profile["_species_set"]:
-            return (name in profile["_heavy_set"] or name in profile["_engine_set"]
-                    or name in profile["_support_set"] or name in profile["_names_set"])
-        return False
+        if name in profile["_support_set"] or name in profile["_names_set"]:
+            return True
+        return species in profile["_species_set"]
 
     for entry_uid in hand:
         names = _entry_names(gs, ms, entry_uid)

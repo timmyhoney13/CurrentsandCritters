@@ -1156,9 +1156,14 @@
          from Render server" script at the bottom of this file: the placeholders
          below are filled by data-placeholder name.
 
-         "$ Donated" is fed by refreshSupporterWall, which sums exactly the rows
-         on the Supporter Reef Wall, so this tile, the goal bar under it and the
-         wall itself can never disagree about the total.
+         "Money Raised" is fed by refreshSupporterWall, which sums exactly the
+         rows on the Supporter Reef Wall, so this tile, the goal bar under it and
+         the wall itself can never disagree about the total.
+
+         It is the money raised, NOT the amount donated to ocean conservation:
+         the pledge is 5% of it, so this tile read "Donated to Ocean
+         Conservation" over a number twenty times too big. The 5% promise is
+         stated in the section head above, where it is true.
 
          "Players" is everybody who has played, accounts AND guests, which is
          what the server's players_total field carries. It used to read
@@ -1168,7 +1173,7 @@
     <div class="impact-band big-impact">
       <div class="impact">
         <div class="num"><span class="prefix">$</span><span class="placeholder" data-placeholder="donated">-</span></div>
-        <div class="label">Donated to Ocean Conservation</div>
+        <div class="label">Money Raised</div>
       </div>
       <div class="impact">
         <div class="num"><span class="placeholder" data-placeholder="players">-</span></div>
@@ -1186,7 +1191,7 @@
 
     <div class="donation-goal">
       <div class="donation-goal-head">
-        <span class="donation-goal-label">★ Donation Goal</span>
+        <span class="donation-goal-label">★ Fundraising Goal</span>
         <span class="donation-goal-amount"><span data-donation="raised">$0</span> / <span data-donation="goal">$25,000</span></span>
       </div>
       <div class="donation-goal-track">
@@ -1825,7 +1830,8 @@ updateBetaBarClear();
   // ── Donation goal ──────────────────────────────────────────────
   // The raised amount is the LIVE total of every name on the Supporter Reef
   // Wall (server sums exactly the wall rows, so the bar can never disagree with
-  // the wall and no donor/payment is ever double-counted). refreshSupporterWall
+  // the wall and no donor/payment is ever double-counted). Raised, not donated:
+  // 5% of this is what goes to ocean conservation. refreshSupporterWall
   // below feeds the real total in; until it returns we show the last cached
   // value (or $0) so the bar never flashes a wrong number.
   const DONATION_GOAL = 25000;
@@ -1982,9 +1988,9 @@ updateBetaBarClear();
       const data = await resp.json();
       const list = data && data.supporters ? data.supporters : [];
       renderSupporterWall(list);
-      // Live donation total = the server's sum of exactly these wall rows
+      // Live raised total = the server's sum of exactly these wall rows
       // (falls back to summing them here if an older server omits the field).
-      // Drives the donation bar + the "$ Donated" impact stat, and is cached so
+      // Drives the goal bar + the "Money Raised" impact stat, and is cached so
       // a returning visitor sees the real amount before the next fetch returns.
       let cents = Number(data && data.totalRaisedCents);
       if (!Number.isFinite(cents)) {

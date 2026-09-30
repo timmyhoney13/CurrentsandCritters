@@ -1173,7 +1173,9 @@ class TestEverythingIsBackExceptTheTiers(unittest.TestCase):
             self.assertIn(marker, self.home, marker)
 
     def test_the_home_page_has_its_donation_goal_again(self):
-        for marker in ('class="donation-goal"', 'data-donation=', "Donation Goal",
+        # "Fundraising Goal", not "Donation Goal": the bar tracks the wall's
+        # total RAISED, and only 5% of that is the ocean-conservation donation.
+        for marker in ('class="donation-goal"', 'data-donation=', "Fundraising Goal",
                        "left to reach the goal"):
             self.assertIn(marker, self.home, marker)
 
@@ -1200,11 +1202,26 @@ class TestEverythingIsBackExceptTheTiers(unittest.TestCase):
                                 "a link into the Partner With Us form is missing")
 
     def test_the_donation_total_has_something_to_fill_it(self):
-        """The $ Donated tile is fed by the wall's own sum, so the tile, the goal
-        bar and the wall can never disagree."""
+        """The Money Raised tile is fed by the wall's own sum, so the tile, the
+        goal bar and the wall can never disagree."""
         self.assertIn('data-placeholder="donated"', self.home)
         self.assertIn("renderDonationGoal", self.home)
         self.assertIn("totalRaisedCents", self.home)
+
+    def test_the_raised_total_is_never_called_a_donation(self):
+        """The wall's total is money RAISED. The pledge is 5% of it, so a $11
+        wall is 55 cents to ocean conservation, and the impact tile that read
+        "Donated to Ocean Conservation" over that $11 overstated the donation
+        twentyfold. The 5% promise belongs in the prose around the band, where
+        it is true, not on the number itself."""
+        self.assertNotIn("Donated to Ocean Conservation", self.home)
+        self.assertIn("Money Raised", self.home)
+        self.assertNotIn("Donation Goal", self.home)
+        # Same number, same claim, on the Shop's impact note.
+        self.assertNotIn("$25k donated", self.shop)
+        self.assertIn("$25k raised", self.shop)
+        # The pledge itself is still stated, just not as a running total.
+        self.assertIn("5% goes to ocean conservation", self.home)
 
     def test_the_live_play_numbers_survived_the_restore(self):
         """Hours Played Online was built while the tiers were off. Putting the
