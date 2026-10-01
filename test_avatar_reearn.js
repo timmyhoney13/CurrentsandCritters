@@ -152,7 +152,7 @@ check("dropping below Bronze alone doesn't grant it either",
 check("dipped, then back at the tier → re-earned",
       reEarnState(BARRACUDA, { ...baseRank, dipped: true },
                   { rank_competitive: "Bronze Barracuda" }, 40).met === true);
-check("a season reset (Unranked) counts as the dip",
+check("dipped, then climbed PAST the tier → re-earned too",
       reEarnState(BARRACUDA, { ...baseRank, dipped: true },
                   { rank_competitive: "Gold Grouper" }, 40).met === true);
 check("already below the tier when traded → just climb back",

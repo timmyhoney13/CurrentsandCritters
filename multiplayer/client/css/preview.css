@@ -13852,12 +13852,6 @@
       transition: width .5s ease;
       min-width: 4px;
     }
-    .ph-comp-season-row {
-      font-size: 11px;
-      color: rgba(121,88,12,.75);
-      width: 100%;
-      margin-top: 5px;
-    }
     .ph-king-card {
       background: linear-gradient(135deg, rgba(255,250,230,.97) 0%, rgba(255,243,195,.94) 100%);
       border: 1px solid rgba(224,184,90,.52) !important;
@@ -13878,7 +13872,6 @@
     }
     #auth-stats-lobby[data-bg-tab="competitive"] .ph-comp-rank-name { color: #0d52a2; }
     #auth-stats-lobby[data-bg-tab="competitive"] .ph-comp-cp-row    { color: #1a4a90; }
-    #auth-stats-lobby[data-bg-tab="competitive"] .ph-comp-season-row{ color: rgba(22,70,160,.7); }
     #auth-stats-lobby[data-bg-tab="competitive"] .ph-cp-bar         { background: rgba(34,120,240,.14); }
     #auth-stats-lobby[data-bg-tab="competitive"] .ph-cp-fill        { background: linear-gradient(90deg, #1c82d6, #56c2f8); }
     #auth-stats-lobby[data-bg-tab="competitive"] .ph-king-card      { background: rgba(215,235,255,.84) !important; border-color: rgba(34,120,240,.28) !important; }
@@ -13929,7 +13922,19 @@
       justify-content: space-between;
       gap: 6px;
     }
-    /* End-of-season rank rewards table (Competitive tab). */
+    /* Shown under the ladder when the player has no ranked games at all:
+       the Competitive tab's whole empty state is the ladder plus this line. */
+    .ph-comp-empty-cta {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(120,190,235,.35);
+      text-align: center;
+      font-size: .92rem;
+      font-weight: 800;
+      color: #2a5f96;
+      line-height: 1.5;
+    }
+    /* Rank rewards table (Competitive tab). */
     .ph-rank-rewards { display: flex; flex-direction: column; gap: 4px; }
     .ph-rank-reward-row {
       display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -14026,7 +14031,7 @@
     .ph-rank-prog-div.div-king  { font-size: .72rem; color: #c87800; }
 
     /* ── Season Summary Card (right panel) ──────────────────────── */
-    .ph-season-summary-card {
+    .ph-ranked-summary-card {
       background: rgba(230,245,255,.88);
       backdrop-filter: blur(14px);
       border: 1px solid rgba(120,190,235,.45);
@@ -14070,19 +14075,6 @@
     }
     .ph-ss-mini-label { font-size: .65rem; font-weight: 700; color: #5a86b0; }
     .ph-ss-mini-val   { font-size: 1.05rem; font-weight: 900; color: #1a3a7a; }
-    .ph-ss-breakdown-btn {
-      width: 100%;
-      padding: 10px;
-      border-radius: 12px;
-      border: 1px solid rgba(34,130,240,.3);
-      background: rgba(34,130,240,.08);
-      color: #1a5cbf;
-      font-size: .85rem; font-weight: 700;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: space-between;
-      transition: background .15s;
-    }
-    .ph-ss-breakdown-btn:hover { background: rgba(34,130,240,.15); }
 
     /* ── King of the Critters redesign ─────────────────────────── */
     .ph-king-redesign {
@@ -14136,19 +14128,6 @@
     .ph-king-current-name { font-size: 1rem; font-weight: 900; color: #1a3a7a; }
     .ph-king-current-meta { font-size: .78rem; color: #7a5a10; margin-top: 2px; }
 
-    /* Season history */
-    .ph-season-history-btn {
-      background: rgba(34,120,240,.08); border: 1px solid rgba(34,120,240,.22);
-      border-radius: 7px; padding: 6px 12px; font-size: 12px; font-weight: 700;
-      color: #1a5cbf; cursor: pointer; transition: background .15s;
-    }
-    .ph-season-history-btn:hover { background: rgba(34,120,240,.15); }
-    /* Season history modal */
-    #ph-season-modal {
-      position: fixed; inset: 0; z-index: 9999; display: none;
-      background: rgba(4,18,40,.65); align-items: center; justify-content: center;
-    }
-    #ph-season-modal.open { display: flex; }
     #ph-whatsnew-modal {
       position: fixed; inset: 0; z-index: 10000; display: none;
       background: rgba(4,18,40,.65); align-items: center; justify-content: center;
@@ -14261,21 +14240,6 @@
       .ph-help-card { padding: 15px 14px; }
       .ph-help-card-title { font-size: 1.06rem; }
     }
-    .ph-season-modal-box {
-      background: linear-gradient(160deg,#f0f8ff 0%,#e8f4fd 100%);
-      border: 1px solid rgba(34,120,240,.28); border-radius: 16px;
-      width: 90%; max-width: 480px; max-height: 80vh; overflow-y: auto;
-      padding: 20px 22px; box-shadow: 0 12px 48px rgba(4,18,80,.22);
-    }
-    .ph-season-modal-title { font-size: 1.1rem; font-weight: 900; color: #0d3a78; margin-bottom: 14px; }
-    .ph-season-hist-row {
-      display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px;
-      border-radius: 9px; background: rgba(255,255,255,.72); margin-bottom: 8px;
-      border: 1px solid rgba(34,120,240,.12);
-    }
-    .ph-season-hist-id { font-weight: 800; color: #0d3a78; font-size: .9rem; min-width: 72px; }
-    .ph-season-hist-info { flex: 1; font-size: .82rem; color: #2a4a6e; line-height: 1.5; }
-    .ph-season-hist-king { font-size: .78rem; color: #7a5a10; margin-top: 2px; }
     /* Enhanced leaderboard in overlay */
     .comp-lb-tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
     .comp-lb-tab {
@@ -16978,7 +16942,7 @@
     #auth-stats-lobby .ph-tabs,
     #auth-stats-lobby .ph-action-card,
     #auth-stats-lobby .ph-rank-prog-strip,
-    #auth-stats-lobby .ph-season-summary-card,
+    #auth-stats-lobby .ph-ranked-summary-card,
     #auth-stats-lobby .ph-king-redesign,
     #auth-stats-lobby .ph-sidebar-nav-card {
       backdrop-filter: none !important;

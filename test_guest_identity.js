@@ -340,7 +340,7 @@ window.__STUB_DOCS = {
       total_score_by_size: { "4": 7000, "6": 2100 },
       normal_playtime_by_size: { "4": 30, "6": 12 },
       competitive_wins: 9, competitive_losses: 4, competitive_draws: 1,
-      comp_cp: 380, comp_season_id: "S-OLD", highest_score_competitive: 240,
+      comp_cp: 380, highest_score_competitive: 240,
       recent_games: [
         { s: 310, r: 1, pc: 4, mode: "normal", t: 1750000000000, name: "Ocean Run" },
         { s: 220, r: 2, pc: 6, mode: "normal", t: 1750000100000, name: "Kelp Cup" }
@@ -599,10 +599,24 @@ if (!D) {
         (/Animals Unlocked [^\n]*/.exec(G.overview || "") || [""])[0]);
 
   console.log("\n  the Competitive tab has no stray numbers on it");
-  const compTail = (G.competitive || "").replace(/.*to earn OP\./, "").trim();
+  // With no ranked games the tab is the rank ladder and one line saying what
+  // the first game unlocks, and the CTA is the last thing on it. Competitive
+  // has no seasons, so there is no "between seasons" state to land in either.
+  const CTA = /Play a Competitive game to unlock Bronze Barracuda\./;
+  const compTail = (G.competitive || "").replace(/[\s\S]*unlock Bronze Barracuda\./, "").trim();
+  check("a guest with no ranked games is shown the ladder",
+        /Rank Progression/.test(G.competitive || "") && CTA.test(G.competitive || ""),
+        (G.competitive || "").slice(0, 80));
   check("nothing follows the empty state", compTail === "", compTail.slice(0, 60));
-  const acctTail = (A.competitive || "").replace(/.*to earn OP\./, "").trim();
-  check("nor on the account's", acctTail === "", acctTail.slice(0, 60));
+  check("and none of the account's OP followed them in",
+        !/380/.test(G.competitive || ""), (G.competitive || "").slice(0, 120));
+  // The account HAS ranked games (380 OP, 9W), so its own tab is the opposite
+  // case: the dashboard, showing its own numbers and never the empty state.
+  check("the account sees its own rank instead",
+        /Golden Grouper/.test(A.competitive || "") && !CTA.test(A.competitive || ""),
+        (A.competitive || "").slice(0, 80));
+  check("and its OP is its own", /380/.test(A.competitive || ""),
+        (/[\d,]+ OP/.exec(A.competitive || "") || [""])[0]);
 
   console.log("\n  the critter a guest equips is the critter they wear");
   check("the profile avatar opens the gallery for them", G.avatarClickable === true);

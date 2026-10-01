@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.7.1";
-  const APP_BUILD   = "2026-09-30.1";
+  const APP_VERSION = "1.7.2";
+  const APP_BUILD   = "2026-10-01.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,12 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { date: "Oct 1, 2026", title: "Competitive has no seasons", items: [
+      "Competitive seasons are gone. Your Ocean Points and your rank are permanent: nothing resets, nothing expires, and there is no season to finish.",
+      "Every rank the old quarterly resets took away has been given back. If a reset ever put you back to Unranked, you are back at the rank you had held.",
+      "King of the Critters is now earned by climbing. Reach the King of the Critters rank, 1200 Ocean Points, and the crown skin is yours to keep.",
+      "The Competitive tab shows the whole rank ladder before your first game, so you can see what you are climbing.",
+    ]},
     { date: "Sep 28, 2026", title: "The bots got smarter", items: [
       "The bots no longer chase a plan they cannot score. A bot will not play for filled oceans without a King Salmon to pay for them, or collect invertebrates with no Red Beaded Anemone or Barracuda to count them.",
       "They also pick plans they can actually build. A hand that looks like Cephalopods because it holds a Reef Trigger Fish, and holds no cephalopods at all, is not a Cephalopods hand any more.",
@@ -2733,8 +2739,8 @@
       });
   }
 
-  // Ocean Points ride on the SEASON LEADERBOARD, not on the seat, because a
-  // rank belongs to the person and the seat snapshot only knows this room.
+  // Ocean Points ride on the COMPETITIVE LEADERBOARD, not on the seat, because
+  // a rank belongs to the person and the seat snapshot only knows this room.
   // One fetch per lobby, cached by name, then a repaint: the same shape as
   // _wrLoadPrestige above, and for the same reason (a lookup per paint would
   // be a loop). Missing is missing, a name with no row is drawn without a
@@ -2749,9 +2755,7 @@
     const rankFn = window._compGetRankFromCp;
     if (typeof rankFn !== "function") return;
     _wrRankAsking = true;
-    const season = (typeof window._compGetSeasonId === "function") ? window._compGetSeasonId() : "";
-    apiFetch(`/api/competitive/leaderboard${season ? "?season=" + encodeURIComponent(season) : ""}`,
-             { method: "GET", timeoutMs: 8000 })
+    apiFetch("/api/competitive/leaderboard", { method: "GET", timeoutMs: 8000 })
       .then(res => {
         const rows = (res && res.ok && res.data && Array.isArray(res.data.leaderboard))
           ? res.data.leaderboard : [];
@@ -2781,8 +2785,8 @@
   // have just finished a match the leaderboard has not caught up with.
   // `always` is for the competitive 1v1 lobby, where a card with no chip and a
   // card with one are two different shapes side by side, and where "what am I
-  // playing for" is the whole point of the room: somebody with no season yet
-  // is Unranked on 0 OP, which is a real answer, not a missing one.
+  // playing for" is the whole point of the room: somebody who has never played
+  // a ranked game is Unranked on 0 OP, a real answer, not a missing one.
   function _wrRankChip(name, isMine, always) {
     const key = String(name || "").trim().toLowerCase();
     if (!key) return null;
@@ -2807,7 +2811,7 @@
     if (!row) return null;
     const chip = _wrChip(`${row.division} · ${_wrNum(row.cp)} OP`,
                          "wr-chip-rank wr-chip-rank-" + (row.tier || "bronze"));
-    chip.title = `${name}: ${row.division}, ${_wrNum(row.cp)} Ocean Points this season`;
+    chip.title = `${name}: ${row.division}, ${_wrNum(row.cp)} Ocean Points`;
     return chip;
   }
 
@@ -12342,10 +12346,9 @@
     const el = document.getElementById("comp-lb-content");
     el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;">Loading…</div>';
     try {
-      const seasonId = typeof window._compGetSeasonId === "function" ? window._compGetSeasonId() : "";
       const [lbRes, histRes] = await Promise.all([
-        apiFetch(`/api/competitive/leaderboard${seasonId ? "?season=" + seasonId : ""}`, { method: "GET" }),
-        apiFetch(`/api/competitive/history${seasonId ? "?season=" + seasonId : ""}`,     { method: "GET" }),
+        apiFetch("/api/competitive/leaderboard", { method: "GET" }),
+        apiFetch("/api/competitive/history",     { method: "GET" }),
       ]);
       const rows  = (lbRes.ok  && lbRes.data?.leaderboard) ? lbRes.data.leaderboard : [];
       const games = (histRes.ok && histRes.data?.games)     ? histRes.data.games     : [];
@@ -12393,11 +12396,8 @@
       const rankFn = typeof _compGetRankFromCp === "function" ? _compGetRankFromCp : null;
       const getRankName = cp => rankFn ? rankFn(Number(cp) || 0).division : "-";
 
-      const [yearStr, qStr] = seasonId.split("-Q");
-      const seasonLabel = seasonId ? `Season Q${qStr} ${yearStr}` : "Current Season";
-
       el.innerHTML = `
-        <div style="font-size:10.5px;color:rgba(255,255,255,.45);margin-bottom:8px;text-align:center;">${esc(seasonLabel)}</div>
+        <div style="font-size:10.5px;color:rgba(255,255,255,.45);margin-bottom:8px;text-align:center;">All-time rankings</div>
         <div class="comp-lb-tabs">
           <button class="comp-lb-tab active" data-lb="rank">Rank</button>
           <button class="comp-lb-tab" data-lb="hand">Best Hand</button>
@@ -12413,7 +12413,7 @@
           <div style="font-family:'Cinzel',serif;font-weight:900;color:#f5d060;font-size:13px;">${esc(king.name)}</div>
           <div style="font-size:11px;color:rgba(255,255,255,.7);">${king.cp || 0} OP · ${king.wins || 0}W / ${king.losses || 0}L · ${esc(getRankName(king.cp))}</div>
         </div>
-      </div>` : `<div style="font-size:11px;color:rgba(255,255,255,.4);text-align:center;padding:8px;">No King of the Critters yet this season.</div>`;
+      </div>` : `<div style="font-size:11px;color:rgba(255,255,255,.4);text-align:center;padding:8px;">No King of the Critters yet.</div>`;
 
       // Rank leaderboard
       const rankSection = document.getElementById("comp-lb-section-rank");
@@ -17004,54 +17004,18 @@
       const snap   = await docRef.get();
       const cStats = ((snap.data() || {}).stats) || {};
 
-      // ── Season reset check ──────────────────────────────────────
-      const rankFn     = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
-      const getSeasonId = typeof window._compGetSeasonId === "function"
-        ? window._compGetSeasonId
-        : () => "2026-Q2";
-      const curSeasonId    = getSeasonId();
-      const storedSeasonId = cStats.comp_season_id || "";
-      const seasonUpdates  = {};
-
-      if (storedSeasonId && storedSeasonId !== curSeasonId) {
-        // Archive current season before resetting
-        const oldEntry = {
-          id:          storedSeasonId,
-          final_rank:  cStats.rank_competitive || "Unranked",
-          final_cp:    Number(cStats.comp_cp || 0),
-          wins:        Number(cStats.competitive_wins || 0),
-          losses:      Number(cStats.competitive_losses || 0),
-          draws:       Number(cStats.competitive_draws || 0),
-          best_score:  Number(cStats.highest_score_competitive || 0),
-        };
-        const existing = Array.isArray(cStats.seasons_history) ? cStats.seasons_history : [];
-        const alreadyArchived = existing.some(e => e.id === storedSeasonId);
-        if (!alreadyArchived) {
-          seasonUpdates["stats.seasons_history"] = [oldEntry, ...existing].slice(0, 20);
-        }
-        // Reset season fields
-        seasonUpdates["stats.comp_cp"]                   = 0;
-        seasonUpdates["stats.competitive_wins"]          = 0;
-        seasonUpdates["stats.competitive_losses"]        = 0;
-        seasonUpdates["stats.competitive_draws"]         = 0;
-        seasonUpdates["stats.competitive_streak"]        = 0;
-        seasonUpdates["stats.competitive_best_streak"]   = 0;
-        seasonUpdates["stats.average_competitive_score"] = 0;
-        seasonUpdates["stats.rank_competitive"]          = "Unranked";
-        seasonUpdates["stats.comp_season_id"]            = curSeasonId;
-        if (Object.keys(seasonUpdates).length > 0) await docRef.update(seasonUpdates);
-      }
-
-      // After possible reset, recompute base values
-      const curCp           = Object.keys(seasonUpdates).length > 0 ? 0 : Number(cStats.comp_cp || 0);
-      const curWins         = Object.keys(seasonUpdates).length > 0 ? 0 : Number(cStats.competitive_wins || 0);
-      const curLosses       = Object.keys(seasonUpdates).length > 0 ? 0 : Number(cStats.competitive_losses || 0);
-      const curDraws        = Object.keys(seasonUpdates).length > 0 ? 0 : Number(cStats.competitive_draws || 0);
-      const curStreak       = Object.keys(seasonUpdates).length > 0 ? 0 : Number(cStats.competitive_streak || 0);
-      const curBestStreak   = Object.keys(seasonUpdates).length > 0 ? 0 : Number(cStats.competitive_best_streak || 0);
+      // Competitive has no seasons: nothing here is ever archived or zeroed,
+      // the ladder simply carries on from whatever the account already holds.
+      const rankFn = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
+      const curCp           = Number(cStats.comp_cp || 0);
+      const curWins         = Number(cStats.competitive_wins || 0);
+      const curLosses       = Number(cStats.competitive_losses || 0);
+      const curDraws        = Number(cStats.competitive_draws || 0);
+      const curStreak       = Number(cStats.competitive_streak || 0);
+      const curBestStreak   = Number(cStats.competitive_best_streak || 0);
       const curBeginnerWins = Number(cStats.comp_beginner_wins || 0);
       const curGames        = curWins + curLosses + curDraws;
-      const curAvgBest      = Object.keys(seasonUpdates).length > 0 ? 0 : Number(cStats.average_competitive_score || 0);
+      const curAvgBest      = Number(cStats.average_competitive_score || 0);
       const curBestComp     = Number(cStats.highest_score_competitive || 0);
 
       // ── CP delta, based on the player's CURRENT rank ──────────
@@ -17093,10 +17057,9 @@
       const lifeBest = Number(cStats.lifetime_comp_best_score || 0);
       if (myBestHand > lifeBest) lifetimeUpdates["stats.lifetime_comp_best_score"] = myBestHand;
 
-      // ── Write season stats ──────────────────────────────────────
+      // ── Write ranked stats ──────────────────────────────────────
       const updates = {
         "stats.comp_cp":                    newCp,
-        "stats.comp_season_id":             curSeasonId,
         "stats.competitive_wins":           newWins,
         "stats.competitive_losses":         newLosses,
         "stats.competitive_draws":          newDraws,
@@ -17135,7 +17098,6 @@
         try {
           await apiPost("/api/competitive/ranked_result", {
             room_id:          roomId,
-            season_id:        curSeasonId,
             [`${myKey}_cp_after`]:   newCp,
             [`${myKey}_cp_delta`]:   cpDelta,
             [`${myKey}_rank_after`]: newRankName,
@@ -17251,48 +17213,15 @@
       const snap   = await docRef.get();
       const cStats = ((snap.data() || {}).stats) || {};
 
-      // ── Season reset check (same quarterly season as the 1v1 ladder) ──
-      const rankFn      = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
-      const getSeasonId = typeof window._compGetSeasonId === "function"
-        ? window._compGetSeasonId
-        : () => "2026-Q2";
-      const curSeasonId    = getSeasonId();
-      const storedSeasonId = cStats.comp_season_id || "";
-      const seasonUpdates  = {};
-      if (storedSeasonId && storedSeasonId !== curSeasonId) {
-        const oldEntry = {
-          id:          storedSeasonId,
-          final_rank:  cStats.rank_competitive || "Unranked",
-          final_cp:    Number(cStats.comp_cp || 0),
-          wins:        Number(cStats.competitive_wins || 0),
-          losses:      Number(cStats.competitive_losses || 0),
-          draws:       Number(cStats.competitive_draws || 0),
-          best_score:  Number(cStats.highest_score_competitive || 0),
-        };
-        const existing = Array.isArray(cStats.seasons_history) ? cStats.seasons_history : [];
-        if (!existing.some(e => e.id === storedSeasonId)) {
-          seasonUpdates["stats.seasons_history"] = [oldEntry, ...existing].slice(0, 20);
-        }
-        seasonUpdates["stats.comp_cp"]                   = 0;
-        seasonUpdates["stats.competitive_wins"]          = 0;
-        seasonUpdates["stats.competitive_losses"]        = 0;
-        seasonUpdates["stats.competitive_draws"]         = 0;
-        seasonUpdates["stats.competitive_streak"]        = 0;
-        seasonUpdates["stats.competitive_best_streak"]   = 0;
-        seasonUpdates["stats.average_competitive_score"] = 0;
-        seasonUpdates["stats.rank_competitive"]          = "Unranked";
-        seasonUpdates["stats.comp_season_id"]            = curSeasonId;
-        await docRef.update(seasonUpdates);
-      }
-      const wasReset = Object.keys(seasonUpdates).length > 0;
-
-      const curCp         = wasReset ? 0 : Number(cStats.comp_cp || 0);
-      const curWins       = wasReset ? 0 : Number(cStats.competitive_wins || 0);
-      const curLosses     = wasReset ? 0 : Number(cStats.competitive_losses || 0);
-      const curDraws      = wasReset ? 0 : Number(cStats.competitive_draws || 0);
-      const curStreak     = wasReset ? 0 : Number(cStats.competitive_streak || 0);
-      const curBestStreak = wasReset ? 0 : Number(cStats.competitive_best_streak || 0);
-      const curAvgBest    = wasReset ? 0 : Number(cStats.average_competitive_score || 0);
+      // The same permanent ladder the 1v1 writes: no seasons, no reset.
+      const rankFn = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
+      const curCp         = Number(cStats.comp_cp || 0);
+      const curWins       = Number(cStats.competitive_wins || 0);
+      const curLosses     = Number(cStats.competitive_losses || 0);
+      const curDraws      = Number(cStats.competitive_draws || 0);
+      const curStreak     = Number(cStats.competitive_streak || 0);
+      const curBestStreak = Number(cStats.competitive_best_streak || 0);
+      const curAvgBest    = Number(cStats.average_competitive_score || 0);
       const curBestComp   = Number(cStats.highest_score_competitive || 0);
       const curGames      = curWins + curLosses + curDraws;
 
@@ -17337,7 +17266,6 @@
 
       await docRef.update({
         "stats.comp_cp":                    newCp,
-        "stats.comp_season_id":             curSeasonId,
         "stats.competitive_wins":           newWins,
         "stats.competitive_losses":         newLosses,
         "stats.competitive_draws":          newDraws,
@@ -17360,7 +17288,6 @@
       try {
         await apiPost("/api/competitive/ranked_result", {
           room_id:    roomId,
-          season_id:  curSeasonId,
           name:       myNick,
           cp_after:   newCp,
           cp_delta:   cpDelta,
@@ -17428,12 +17355,8 @@
 
   async function _applyForfeitLoss(item, authUser, db, myName) {
     if (!item || !item.id) return;
-    const curSeasonId = (typeof window._compGetSeasonId === "function") ? window._compGetSeasonId() : "";
-    // Stale forfeit from a previous season, ack without touching this season's CP.
-    if (item.season_id && curSeasonId && String(item.season_id) !== String(curSeasonId)) {
-      try { await apiPost("/api/competitive/forfeit_ack", { id: item.id, name: myName, cp_delta: 0 }); } catch (_) {}
-      return;
-    }
+    // There are no seasons, so no pending forfeit is ever too old to count:
+    // every one of them is applied to the one permanent ladder.
     const docRef = db.collection("users").doc(authUser.uid);
     const snap   = await docRef.get();
     const cStats = ((snap.data() || {}).stats) || {};
@@ -17455,7 +17378,6 @@
     // Apply: CP down (never below 0), loss counted, streak reset. NO XP.
     await docRef.update({
       "stats.comp_cp":                 newCp,
-      "stats.comp_season_id":          curSeasonId || (cStats.comp_season_id || ""),
       "stats.competitive_losses":      curLosses + 1,
       "stats.competitive_streak":      0,
       "stats.rank_competitive":        newRankName,
@@ -21062,20 +20984,17 @@
       facts:"Stars, stripes, and claws, a firecracker critter decked out for the Fourth of July.",
       unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins." } },
 
-    // ── King of the Critters (the season crown) ─────────────────────
-    // The only critter in the game that cannot be bought, found, ground out or
-    // climbed to: ONE account gets it per season, whoever is holding the most
-    // Ocean Points in Competitive when that season ends. It is the same art the
-    // King of the Critters RANK wears (_COMP_RANK_IMG.king), so the ladder's top
-    // and the prize for finishing on top of it are one picture.
-    // Granted by the unlock sweep from the server's own season record
-    // (/api/competitive/seasons -> king_name), and only once that season is
-    // OVER: leading on the last day is not winning. unlock.type "season_top_op"
-    // is its own type on purpose, because nothing else behaves like it, and
-    // prestige_server.KEEP_FOREVER_UNLOCK_TYPES has to know it never relocks.
+    // ── King of the Critters (the crown) ───────────────────────────
+    // The top of the Competitive ladder, and the only critter that can only be
+    // climbed to: reach the King of the Critters RANK and the skin is yours. It
+    // is the same art that rank wears on a seat (_COMP_RANK_IMG.king), so the
+    // ladder's top and its prize are one picture.
+    // Competitive has no seasons, so there is nothing to finish on top OF: an
+    // ordinary "rank" unlock is exactly right, and it is already in
+    // prestige_server.KEEP_FOREVER_UNLOCK_TYPES, so it never relocks.
     { id:"king-of-the-critters", name:"King of the Critters", species:"King of the Critters", img:"/avatars/king-of-the-critters.png",
       facts:"Only the chosen few can have it.",
-      unlock:{ type:"season_top_op", label:"Finish a Competitive season with more Ocean Points than anyone else. Only the chosen few can have it." } },
+      unlock:{ type:"rank", tier:"king", label:"Reach the King of the Critters rank in Competitive. Only the chosen few can have it." } },
   ];
 
   // ── Exclusive Backgrounds (donation / code-unlocked) ───────────
@@ -21161,45 +21080,6 @@
   function animalByImg(img){ return _animalByImg[String(img||"").trim().toLowerCase()] || null; }
   function animalById(id){ return _animalById[id] || null; }
   function animalFacts(a){ return (a && a.facts) ? a.facts : "Fun facts coming soon."; }
-  // ── Who finished a season on top of the Ocean Points ladder ─────────
-  // The server already works this out: every row from /api/competitive/seasons
-  // carries king_name / king_cp (the top of that season's OP leaderboard) and
-  // is_current (whether it is still being played). A LEAD is not a crown, so
-  // only ENDED seasons are ever read here.
-  // Cached for the session behind one in-flight promise, so the unlock sweep
-  // asking on every profile load costs one request, not one per load.
-  let _seasonCrowns = null;
-  let _seasonCrownsInFlight = null;
-  async function loadSeasonCrowns() {
-    if (_seasonCrowns) return _seasonCrowns;
-    if (_seasonCrownsInFlight) return _seasonCrownsInFlight;
-    _seasonCrownsInFlight = (async () => {
-      try {
-        const { ok, data } = await apiFetch("/api/competitive/seasons", { method: "GET", timeoutMs: 6000 });
-        const rows = (ok && Array.isArray(data?.seasons)) ? data.seasons : null;
-        // A failed request is deliberately NOT cached: caching [] would tell a
-        // real king, for the rest of the session, that he had never won one.
-        if (rows) _seasonCrowns = rows;
-        return rows;
-      } catch (_) {
-        return null;
-      } finally {
-        _seasonCrownsInFlight = null;
-      }
-    })();
-    return _seasonCrownsInFlight;
-  }
-  // The ended season this name won, or null. Compared the way every other
-  // competitive screen compares names: trimmed and case-insensitive. A season
-  // whose best player never scored is nobody's crown, hence the OP floor.
-  function seasonCrownFor(rows, name) {
-    const me = String(name || "").trim().toLowerCase();
-    if (!me || !Array.isArray(rows)) return null;
-    return rows.find(s => s && !s.is_current
-                       && String(s.king_name || "").trim().toLowerCase() === me
-                       && Number(s.king_cp || 0) > 0) || null;
-  }
-
   // Numeric unlock progress (0..1) for stat-based animals; null for event/achievement.
   function animalUnlockProgress(a, stats, level){
     const u = a && a.unlock; if (!u) return null;
@@ -21224,9 +21104,6 @@
     if (u.type === "comp_wins") return `${Number(stats?.lifetime_comp_wins||0)} / ${u.goal} Competitive wins`;
     if (u.type === "stat")      return `${Number(stats?.[u.stat]||0)} / ${u.goal}${u.unit ? " " + u.unit : ""}`;
     if (u.type === "rank")      return `Current rank: ${stats?.rank_competitive || "Unranked"}`;
-    // No bar: "most of anyone" is a standing, not a total, and the number that
-    // would fill one is another player's. Their own OP is the honest half.
-    if (u.type === "season_top_op") return `Your Ocean Points this season: ${Number(stats?.comp_cp || 0)}`;
     if (u.type === "achievement" && u.achId && u.goal) {
       const achs = (typeof window.__fishGetUserAchievements === "function") ? window.__fishGetUserAchievements() : {};
       const rec = achs[u.achId] || {};
@@ -21297,9 +21174,9 @@
     }
     if (u.type === "rank") {
       // A rank is a standing position, so "again" means CLIMB TO IT again: fall
-      // below the tier (a loss streak, or the season reset that puts everyone
-      // back to Unranked) and get back up. `dipped` is set the moment we see the
-      // player below the tier after the trade: see _noteReEarnRankDip.
+      // below the tier on a loss streak and get back up. `dipped` is set the
+      // moment we see the player below the tier after the trade: see
+      // _noteReEarnRankDip.
       const curName = stats?.rank_competitive || "Unranked";
       const cur  = rankTierValue(curName);
       const need = _RANK_TIER_VALUE[u.tier] || Infinity;
@@ -21307,7 +21184,7 @@
       return { met: below && cur >= need, prog: null, repeatable: true,
                text: below
                  ? `Climb back to ${u.tier}: you're ${curName}.`
-                 : `Drop below ${u.tier} and earn it again (you're ${curName}; the season reset counts).` };
+                 : `Drop below ${u.tier} and earn it again (you're ${curName}).` };
     }
     if (u.type === "achievement") {
       // The badge is one-shot, but achievements.{id}.progress is a lifetime
@@ -31775,7 +31652,7 @@
                                      // isn't there yet.
                                      try { window.__ccClanPrizeRender && window.__ccClanPrizeRender(); } catch (_) {} }
         if (name === "achievements") renderPhAchievements();
-        if (name === "competitive")  { checkAndApplySeasonReset().then(() => renderPhCompetitive()); }
+        if (name === "competitive")  { restoreRankLostToSeasonResets().then(() => renderPhCompetitive()); }
         if (name === "leaderboard")  renderPhLeaderboard();
         if (name === "clans")        _renderClansTab();
         if (name === "prestige")     _renderPrestigeTab();
@@ -33781,6 +33658,12 @@
     function updatePhStats(stats) {
       const safeStats = getHomeReferenceStats(stats);
       _phStats = safeStats;
+      // Hand back any rank the old competitive season resets took, as soon as
+      // this account's stats are known, rather than waiting for them to open
+      // the Competitive tab. It returns immediately unless there is something
+      // to give back and it has not been given back yet, so the common case
+      // costs nothing and the write can only ever happen once.
+      try { restoreRankLostToSeasonResets(); } catch (_) {}
       // Only replace _phStatsRaw if incoming stats have actual content.
       // This prevents a null/empty renderStats call (e.g. mid-reload) from erasing cached data.
       // The cache is stamped with WHOSE stats it is, because "an empty read
@@ -36715,51 +36598,11 @@
       return _compGetRankFromCp(cp, true);
     }
 
-    function _compGetSeasonId(date) {
-      const d = date instanceof Date ? date : new Date();
-      const year = d.getUTCFullYear();
-      const q = Math.floor(d.getUTCMonth() / 3) + 1;
-      return `${year}-Q${q}`;
-    }
-    // This lives inside this IIFE, but the end-of-game CP writers live outside
-    // it, so a bare `_compGetSeasonId` is not in scope for them and their
-    // `typeof` guard silently took the fallback every time. Export it, the same
-    // way _compGetRankFromCp is, and read it off window out there.
-    window._compGetSeasonId = _compGetSeasonId;
-
-    function _compGetSeasonDates(seasonId) {
-      const parts = (seasonId || "").split("-Q");
-      const year = parseInt(parts[0]) || new Date().getUTCFullYear();
-      const q    = parseInt(parts[1]) || 1;
-      const startMonth = (q - 1) * 3;
-      const start = new Date(Date.UTC(year, startMonth, 1));
-      const end   = new Date(Date.UTC(year, startMonth + 3, 0));
-      return { id: seasonId, start, end };
-    }
-
-    function _compSeasonLabel() {
-      const { end } = _compGetSeasonDates(_compGetSeasonId());
-      const days = Math.floor((end - Date.now()) / 86400000);
-      if (days <= 0) return "Season ended";
-      if (days >= 14) return `Season ends in ${Math.ceil(days / 7)} weeks`;
-      return `Season ends in ${days} day${days !== 1 ? "s" : ""}`;
-    }
-
-    function _compSeasonDisplayLabel() {
-      const sid = _compGetSeasonId();
-      const [yearStr, qStr] = sid.split("-Q");
-      const { start, end } = _compGetSeasonDates(sid);
-      const fmt = { month: "short", day: "numeric" };
-      const startStr = start.toLocaleDateString("en-US", fmt);
-      const endStr   = end.toLocaleDateString("en-US", fmt);
-      return `Season Q${qStr} ${yearStr}  ·  ${startStr} – ${endStr}`;
-    }
-
     // Real creature icons for each competitive rank tier (replaces the emoji).
     // King wears the King of the Critters drawing, which is the SAME art as the
-    // skin the season's top Ocean Points earns: the rank you climb to and the
-    // prize for finishing on top of it are deliberately one picture, so seeing
-    // it on a seat says both things at once. Every other tier keeps its critter.
+    // skin that reaching the King rank earns: the rank and its prize are
+    // deliberately one picture, so seeing it on a seat says both things at
+    // once. Every other tier keeps its critter.
     const _COMP_RANK_IMG = {
       bronze:  "/avatars/barracuda.png",
       silver:  "/avatars/spiny-lobster.png",
@@ -36786,70 +36629,138 @@
       return _compRankIcon(tier, size);
     };
 
+    // The whole ladder, Bronze through King, with the player's own spot lit up.
+    // myTier "" lights nothing, which is what somebody with no ranked games
+    // should see: every rung still ahead of them.
+    function _compRankLadderHtml(myTier, myDivision) {
+      const tiers = [
+        { name: "Bronze\nBarracuda",     key: "bronze",  divs: 3 },
+        { name: "Silver\nSpiny Lobster", key: "silver",  divs: 3 },
+        { name: "Golden\nGrouper",       key: "gold",    divs: 3 },
+        { name: "Diamond\nDolphin",      key: "diamond", divs: 3 },
+        { name: "Emerald\nPenguin",      key: "emerald", divs: 3 },
+        { name: "King of\nthe Critters", key: "king",    divs: 0 },
+      ];
+      // Which sub-division number (1,2,3) we're in
+      const myDivNum = (() => {
+        const m = String(myDivision || "").match(/\b(I{1,3}|IV|V)$/);
+        if (!m) return 0;
+        const r = { "I":1,"II":2,"III":3,"IV":4,"V":5 };
+        return r[m[1]] || 0;
+      })();
+      const tierOrder = ["bronze","silver","gold","diamond","emerald","king"];
+      const myTierIdx = tierOrder.indexOf(myTier || "");
+
+      return tiers.map((t, ti) => {
+        const rel = ti < myTierIdx ? "done" : ti === myTierIdx ? "active" : "future";
+        const badgeCls = `ph-rank-prog-badge-wrap tier-${t.key} prog-${rel}`;
+        let divHtml = "";
+        if (t.divs > 0) {
+          divHtml = `<div class="ph-rank-prog-divs">`;
+          for (let d = 1; d <= t.divs; d++) {
+            let cls = "ph-rank-prog-div";
+            if (rel === "done") cls += " div-done";
+            else if (rel === "active") cls += (d < myDivNum ? " div-done" : d === myDivNum ? " div-active" : "");
+            const roman = ["I","II","III"][d-1];
+            divHtml += `<div class="${cls}">${roman}</div>`;
+          }
+          divHtml += `</div>`;
+        } else {
+          divHtml = `<div class="ph-rank-prog-divs"><div class="ph-rank-prog-div div-king" style="width:auto;padding:0 5px;">King</div></div>`;
+        }
+        const connector = ti < tiers.length - 1 ? `<div class="ph-rank-prog-connector"></div>` : "";
+        return `<div class="ph-rank-prog-tier">
+          <div class="${badgeCls}">${_compRankIcon(t.key, 44)}</div>
+          <div class="ph-rank-prog-tier-name">${t.name.replace("\n","<br>")}</div>
+          ${divHtml}
+        </div>${connector}`;
+      }).join("");
+    }
+
     function _compRankBadgeHtml(division, tier) {
       const cls = tier ? `ph-rank-${tier}` : "ph-rank-bronze";
       return `<span class="ph-rank-badge ${cls}" style="display:inline-flex;align-items:center;gap:5px;">${_compRankIcon(tier, 18)} ${escapeHtml(division)}</span>`;
     }
 
-    async function checkAndApplySeasonReset() {
-      // Called when opening the competitive tab; if season changed, archive + reset Firebase
+    // ── Giving back the rank the old season resets took ──────────────
+    // Competitive used to run quarterly seasons, and every rollover zeroed
+    // OP, wins, losses, draws, streaks and the rank itself, archiving the old
+    // numbers into stats.seasons_history first. Seasons are gone now, so none
+    // of those resets should ever have happened, and that archive is the
+    // record of exactly what each one took away. This hands it back.
+    //
+    // OP returns to the highest any archived season finished on, because that
+    // IS the rank the player had before it was taken. The plain tallies are
+    // added back on, since they count games really played, and are floored at
+    // the lifetime_* counters, which the resets never touched. Best streak and
+    // average score were zeroed without being archived, so there is nothing
+    // honest to restore them from and they are left to rebuild.
+    //
+    // Runs at most once per account (stats.comp_seasons_merged) and can only
+    // ever raise a number, never lower one, so a re-run is harmless.
+    async function restoreRankLostToSeasonResets() {
       const authUser = typeof window.__fishAuthUser === "function" ? window.__fishAuthUser() : null;
       const db       = typeof window.__fishDb       === "function" ? window.__fishDb()       : null;
       if (!authUser || !db) return;
-      const curSeasonId = _compGetSeasonId();
       const stats = _phStats || {};
-      const storedSeasonId = stats.comp_season_id || "";
-      if (!storedSeasonId || storedSeasonId === curSeasonId) return; // nothing to do
+      if (stats.comp_seasons_merged) return;
+      if (!Array.isArray(stats.seasons_history) || !stats.seasons_history.length) return;
 
       try {
         const docRef = db.collection("users").doc(authUser.uid);
         const snap   = await docRef.get();
         const cStats = ((snap.data() || {}).stats) || {};
-        const stored = cStats.comp_season_id || "";
-        if (!stored || stored === curSeasonId) return;
+        if (cStats.comp_seasons_merged) return;
+        const hist = Array.isArray(cStats.seasons_history) ? cStats.seasons_history : [];
+        if (!hist.length) return;
 
-        const oldEntry = {
-          id:         stored,
-          final_rank: cStats.rank_competitive || "Unranked",
-          final_cp:   Number(cStats.comp_cp || 0),
-          wins:       Number(cStats.competitive_wins || 0),
-          losses:     Number(cStats.competitive_losses || 0),
-          draws:      Number(cStats.competitive_draws || 0),
-          best_score: Number(cStats.highest_score_competitive || 0),
-        };
-        const existing = Array.isArray(cStats.seasons_history) ? cStats.seasons_history : [];
-        const alreadyArchived = existing.some(e => e.id === stored);
-        const historyUpdate = alreadyArchived
-          ? {}
-          : { "stats.seasons_history": [oldEntry, ...existing].slice(0, 20) };
+        const num = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; };
+        let bestCp = 0, addWins = 0, addLosses = 0, addDraws = 0, bestScore = 0;
+        hist.forEach(e => {
+          if (!e || typeof e !== "object") return;
+          bestCp     = Math.max(bestCp, num(e.final_cp));
+          addWins   += num(e.wins);
+          addLosses += num(e.losses);
+          addDraws  += num(e.draws);
+          bestScore  = Math.max(bestScore, num(e.best_score));
+        });
+
+        const newCp     = Math.max(num(cStats.comp_cp), bestCp);
+        const newWins   = Math.max(num(cStats.competitive_wins)   + addWins,
+                                   num(cStats.lifetime_comp_wins));
+        const newLosses = Math.max(num(cStats.competitive_losses) + addLosses,
+                                   num(cStats.lifetime_comp_losses));
+        const newDraws  = Math.max(num(cStats.competitive_draws)  + addDraws,
+                                   num(cStats.lifetime_comp_draws));
+        const newBest   = Math.max(num(cStats.highest_score_competitive), bestScore,
+                                   num(cStats.lifetime_comp_best_score));
+        const rankFn    = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
+        const played    = (newWins + newLosses + newDraws) > 0;
+        const newRank   = (rankFn && played) ? rankFn(newCp, true).division
+                                             : (cStats.rank_competitive || "Unranked");
 
         await docRef.update({
-          ...historyUpdate,
-          "stats.comp_cp":                   0,
-          "stats.comp_season_id":            curSeasonId,
-          "stats.competitive_wins":          0,
-          "stats.competitive_losses":        0,
-          "stats.competitive_draws":         0,
-          "stats.competitive_streak":        0,
-          "stats.competitive_best_streak":   0,
-          "stats.average_competitive_score": 0,
-          "stats.rank_competitive":          "Unranked",
-          "stats.highest_score_competitive": 0,
+          "stats.comp_cp":                   newCp,
+          "stats.competitive_wins":          newWins,
+          "stats.competitive_losses":        newLosses,
+          "stats.competitive_draws":         newDraws,
+          "stats.highest_score_competitive": newBest,
+          "stats.rank_competitive":          newRank,
+          "stats.comp_seasons_merged":       true,
         });
-        // Refresh local stats cache
+        // Keep the local cache in step, the render runs straight after this.
         if (_phStats) {
-          _phStats.comp_cp = 0;
-          _phStats.comp_season_id = curSeasonId;
-          _phStats.competitive_wins = 0;
-          _phStats.competitive_losses = 0;
-          _phStats.competitive_draws = 0;
-          _phStats.competitive_streak = 0;
-          _phStats.competitive_best_streak = 0;
-          _phStats.rank_competitive = "Unranked";
+          _phStats.comp_cp                   = newCp;
+          _phStats.competitive_wins          = newWins;
+          _phStats.competitive_losses        = newLosses;
+          _phStats.competitive_draws         = newDraws;
+          _phStats.highest_score_competitive = newBest;
+          _phStats.rank_competitive          = newRank;
+          _phStats.comp_seasons_merged       = true;
         }
-        console.info("[Season] Reset to new season:", curSeasonId);
+        console.info("[comp] restored the rank the season resets took:", newRank, newCp, "OP");
       } catch (e) {
-        console.warn("checkAndApplySeasonReset error:", e);
+        console.warn("restoreRankLostToSeasonResets error:", e);
       }
     }
 
@@ -36887,7 +36798,7 @@
         const mine = key === (myTier || "");
         const reward = (t.coins || t.clan_points)
           ? `<b>${t.coins}</b> Critter Coins · <b>+${t.clan_points}</b> Clan Points`
-          : "No season reward";
+          : "No reward";
         return `<div class="ph-rank-reward-row${mine ? " mine" : ""}">
           <span class="ph-rrr-tier">${_compRankIcon(key, 20)} ${escapeHtml(t.tier)}${mine ? " <em>(you)</em>" : ""}</span>
           <span class="ph-rrr-pay">${reward}</span></div>`;
@@ -36915,17 +36826,12 @@
       const draws     = Number(stats.competitive_draws || 0);
       const bestScore = Number(stats.highest_score_competitive || 0);
       const storedCp  = Number(stats.comp_cp || 0);
-      const curSeasonId = _compGetSeasonId();
-
-      // Season reset: if stored season differs from current, trigger reset UI note
-      const storedSeasonId = stats.comp_season_id || "";
-      const seasonChanged  = storedSeasonId && storedSeasonId !== curSeasonId;
 
       let games = [], leaderboard = [];
       try {
         const [hr, lr] = await Promise.all([
-          apiFetch(`/api/competitive/history?season=${curSeasonId}`,    { method: "GET", timeoutMs: 6000 }),
-          apiFetch(`/api/competitive/leaderboard?season=${curSeasonId}`,{ method: "GET", timeoutMs: 6000 }),
+          apiFetch("/api/competitive/history",     { method: "GET", timeoutMs: 6000 }),
+          apiFetch("/api/competitive/leaderboard", { method: "GET", timeoutMs: 6000 }),
         ]);
         if (hr.ok && hr.data?.games)        games       = hr.data.games;
         if (lr.ok && lr.data?.leaderboard)  leaderboard = lr.data.leaderboard;
@@ -36942,13 +36848,17 @@
         : [];
       const myGames = myEntries.map(([g]) => g);
 
-      // Prefer Firebase-stored season stats; fall back to computing from game history
+      // Prefer the Firebase-stored ranked stats; fall back to the game history
       const effWins   = wins;
       const effLosses = losses;
       const effDraws  = draws;
       const total     = effWins + effLosses + effDraws;
 
-      if (total === 0 && storedCp === 0 && !seasonChanged) {
+      if (total === 0 && storedCp === 0) {
+        // Never played a ranked game. Show the whole ladder with nothing lit
+        // and say what the first game is worth, rather than an empty box.
+        const emptyProg = $a("ph-comp-empty-prog");
+        if (emptyProg) emptyProg.innerHTML = _compRankLadderHtml("", "");
         if (emptyEl) emptyEl.style.display = "";
         if (loadEl)  loadEl.style.display  = "none";
         return;
@@ -36980,7 +36890,7 @@
         ? _compGetRankFromCp(storedCp, true)
         : (hasPlayedCompBefore ? _compGetRankFromCp(0, true) : _compGetRankInfo(effWins, effLosses));
 
-      // Season-aware king: player with highest CP in leaderboard
+      // The king: whoever holds the most OP on the one permanent leaderboard
       const king = leaderboard.find(r => r.tier === "king" || (r.cp || 0) >= 1200)
                    || (leaderboard.length > 0 ? leaderboard[0] : null);
       const kingIsKing = king && ((king.cp || 0) >= 1200 || king.tier === "king");
@@ -36992,7 +36902,7 @@
       set("ph-comp-rank-name",  rankInfo.division === "Unranked" ? "No rank yet" : rankInfo.division);
       setHtml("ph-comp-rank-badge", rankInfo.division !== "Unranked" ? _compRankBadgeHtml(rankInfo.division, rankInfo.tier) : "");
 
-      // ── Season Summary card ────────────────────────────────────
+      // ── Ranked Summary card ────────────────────────────────────
       const summBadge = $a("ph-ss-badge-img");
       if (summBadge) {
         summBadge.innerHTML = _compRankIcon(rankInfo.tier, 44);
@@ -37004,70 +36914,18 @@
       set("ph-ss-matches",   total > 0 ? String(total) : "-");
       set("ph-ss-bstreak",   bestStreak > 0 ? String(bestStreak) : "-");
 
-      // Wire the second Season History button
-      const btn2 = $a("ph-season-history-btn-2");
-      if (btn2) btn2.addEventListener("click", () => {
-        const btn = $a("ph-season-history-btn");
-        if (btn) btn.click();
-      });
-
       // ── Rank Progression Strip ──────────────────────────────────
       const progEl = $a("ph-rank-prog-tiers");
-      if (progEl) {
-        // Tier definitions (name, emoji, subdivisions count, tier key)
-        const tiers = [
-          { name: "Bronze\nBarracuda",     key: "bronze",  divs: 3 },
-          { name: "Silver\nSpiny Lobster", key: "silver",  divs: 3 },
-          { name: "Golden\nGrouper",       key: "gold",    divs: 3 },
-          { name: "Diamond\nDolphin",      key: "diamond", divs: 3 },
-          { name: "Emerald\nPenguin",      key: "emerald", divs: 3 },
-          { name: "King of\nthe Critters", key: "king",    divs: 0 },
-        ];
-        const myTier = rankInfo.tier || "bronze";
-        const myDiv  = rankInfo.division || "";
-        // Figure out which sub-division number (1,2,3) we're in
-        const myDivNum = (() => {
-          const m = myDiv.match(/\b(I{1,3}|IV|V)$/);
-          if (!m) return 0;
-          const r = { "I":1,"II":2,"III":3,"IV":4,"V":5 };
-          return r[m[1]] || 0;
-        })();
+      if (progEl) progEl.innerHTML = _compRankLadderHtml(rankInfo.tier || "bronze", rankInfo.division || "");
 
-        const tierOrder = ["bronze","silver","gold","diamond","emerald","king"];
-        const myTierIdx = tierOrder.indexOf(myTier);
-
-        progEl.innerHTML = tiers.map((t, ti) => {
-          const rel = ti < myTierIdx ? "done" : ti === myTierIdx ? "active" : "future";
-          const badgeCls = `ph-rank-prog-badge-wrap tier-${t.key} prog-${rel}`;
-          let divHtml = "";
-          if (t.divs > 0) {
-            divHtml = `<div class="ph-rank-prog-divs">`;
-            for (let d = 1; d <= t.divs; d++) {
-              let cls = "ph-rank-prog-div";
-              if (rel === "done") cls += " div-done";
-              else if (rel === "active") cls += (d < myDivNum ? " div-done" : d === myDivNum ? " div-active" : "");
-              const roman = ["I","II","III"][d-1];
-              divHtml += `<div class="${cls}">${roman}</div>`;
-            }
-            divHtml += `</div>`;
-          } else {
-            divHtml = `<div class="ph-rank-prog-divs"><div class="ph-rank-prog-div div-king" style="width:auto;padding:0 5px;">King</div></div>`;
-          }
-          const connector = ti < tiers.length - 1 ? `<div class="ph-rank-prog-connector"></div>` : "";
-          return `<div class="ph-rank-prog-tier">
-            <div class="${badgeCls}">${_compRankIcon(t.key, 44)}</div>
-            <div class="ph-rank-prog-tier-name">${t.name.replace("\n","<br>")}</div>
-            ${divHtml}
-          </div>${connector}`;
-        }).join("");
-      }
-
-      // ── End-of-season rank rewards ──────────────────────────────
+      // ── Rank rewards ────────────────────────────────────────────
       // "The higher your competitive rank, the more you bring your squad."
-      // The table is the clan server's own COMP_RANK_SEASON_REWARDS, fetched
-      // from /api/clan/rules, so what's promised here is literally what the
-      // season finalize pays. Shown to everyone (the Critter Coins are yours
-      // whether or not you're in a clan); the row for YOUR tier is highlighted.
+      // Competitive has no seasons; this payout rides on the CLAN season
+      // rollover, which still has one. The table is the clan server's own
+      // COMP_RANK_SEASON_REWARDS, fetched from /api/clan/rules, so what is
+      // promised here is literally what the clan finalize pays. Shown to
+      // everyone (the Critter Coins are yours whether or not you're in a
+      // clan); the row for YOUR tier is highlighted.
       renderRankRewards(rankInfo.tier);
 
       // CP bar tier coloring
@@ -37080,9 +36938,6 @@
       set("ph-comp-cp-next-label", rankInfo.nextDiv
         ? `${rankInfo.nextCp - rankInfo.cp} OP until ${rankInfo.nextDiv}`
         : "Max rank reached");
-      set("ph-comp-season-row",   _compSeasonLabel());
-      set("ph-comp-season-label", _compSeasonDisplayLabel());
-
       set("ph-comp-wins",        effWins > 0 ? effWins : "-");
       set("ph-comp-losses",      effLosses > 0 ? effLosses : "-");
       set("ph-comp-draws",       effDraws > 0 ? effDraws : "-");
@@ -37147,83 +37002,6 @@
 
       dashEl.style.display = "";
     }
-
-    // ── Season History Modal ──────────────────────────────────────
-    async function openSeasonHistoryModal() {
-      const modal = document.getElementById("ph-season-modal");
-      const body  = document.getElementById("ph-season-modal-body");
-      if (!modal || !body) return;
-      modal.classList.add("open");
-      body.innerHTML = '<div class="ph-empty">Loading…</div>';
-
-      try {
-        // Combine Firebase seasons_history with server seasons list
-        const stats = _phStats || {};
-        const fbHistory = Array.isArray(stats.seasons_history) ? stats.seasons_history : [];
-        const { ok, data } = await apiFetch("/api/competitive/seasons", { method: "GET", timeoutMs: 5000 });
-        const serverSeasons = (ok && data?.seasons) ? data.seasons : [];
-
-        if (!fbHistory.length && !serverSeasons.length) {
-          body.innerHTML = '<div class="ph-empty">No past seasons yet. Season history will appear here at the end of each quarter.</div>';
-          return;
-        }
-
-        // Merge: server seasons as base, enrich with Firebase personal data
-        const byId = {};
-        serverSeasons.forEach(s => { byId[s.id] = { ...s }; });
-        fbHistory.forEach(s => {
-          if (!byId[s.id]) byId[s.id] = { id: s.id };
-          byId[s.id].personal = s;
-        });
-
-        const all = Object.values(byId).sort((a, b) => (b.id > a.id ? 1 : -1));
-        const curId = _compGetSeasonId();
-        const pastSeasons = all.filter(s => s.id !== curId);
-
-        if (!pastSeasons.length) {
-          body.innerHTML = '<div class="ph-empty">No completed seasons yet. Check back after ' + curId + ' ends!</div>';
-          return;
-        }
-
-        body.innerHTML = "";
-        pastSeasons.forEach(s => {
-          const p = s.personal || {};
-          const [yearStr, qStr] = s.id.split("-Q");
-          const { start, end } = _compGetSeasonDates(s.id);
-          const endStr = end.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-          const kingName = s.king_name || p.king_name || null;
-          const kingCp   = s.king_cp   || p.king_cp   || 0;
-          const row = document.createElement("div");
-          row.className = "ph-season-hist-row";
-          row.innerHTML = `<div class="ph-season-hist-id">Q${qStr} ${yearStr}</div>`
-            + `<div class="ph-season-hist-info">`
-            + (kingName
-              ? `<div class="ph-season-hist-king">${escapeHtml(kingName)}${kingCp ? ` · ${kingCp} OP` : ""}</div>`
-              : `<div style="font-size:.78rem;color:rgba(22,70,160,.5);">No King crowned this season.</div>`)
-            + `<div style="margin-top:3px;font-size:.78rem;">Your final rank: <b>${escapeHtml(p.final_rank || "Unranked")}</b></div>`
-            + (p.final_cp   != null ? `<div style="font-size:.78rem;">Final OP: <b>${p.final_cp}</b></div>` : "")
-            + (p.wins != null ? `<div style="font-size:.78rem;color:rgba(22,70,160,.6);">${p.wins}W / ${p.losses || 0}L · ${
-                (p.wins + (p.losses || 0)) > 0
-                  ? Math.round((p.wins / (p.wins + (p.losses || 0))) * 100) + "% win rate"
-                  : "-"
-              }</div>` : "")
-            + `</div>`;
-          body.appendChild(row);
-        });
-      } catch (e) {
-        body.innerHTML = '<div class="ph-empty">Could not load season history.</div>';
-      }
-    }
-
-    // Wire season history button + modal close
-    ;(function() {
-      const btn   = $a("ph-season-history-btn");
-      const close = document.getElementById("ph-season-modal-close");
-      const modal = document.getElementById("ph-season-modal");
-      if (btn)   btn.addEventListener("click", openSeasonHistoryModal);
-      if (close) close.addEventListener("click", () => modal?.classList.remove("open"));
-      if (modal) modal.addEventListener("click", e => { if (!e.target.closest(".ph-season-modal-box")) modal.classList.remove("open"); });
-    })();
 
     // ── Beta version banner + What's New modal ────────────────────
     function openWhatsNewModal() {
@@ -39091,7 +38869,7 @@
     // Rank avatars are re-earned by CLIMBING to the tier again, so we have to
     // notice the fall. Whenever the player is seen below the required tier with
     // a trade-away on record, stamp `dipped` on that entry, after that,
-    // reaching the tier again re-grants it (a season reset to Unranked counts).
+    // reaching the tier again re-grants it.
     // One write, only on the load where the dip is first seen.
     async function _noteReEarnRankDip(stats) {
       if (_galReadOnly || !_authUser || !_db) return;
@@ -39126,15 +38904,6 @@
       let _achOk = true;
       if (_authUser) { try { _achOk = await _achievementsReady(_authUser.uid); } catch { _achOk = false; } }
       try { await _noteReEarnRankDip(stats); } catch (e) { console.warn("[unlock] rank dip check failed", e); }
-      // The season crown is the one unlock that is not a number on this account,
-      // so it costs a server round trip. Only pay for it when something is still
-      // waiting on the answer, and only for a signed-in account: the leaderboard
-      // is keyed by nickname, and a guest may type any nickname they like.
-      let _crownRows = null;
-      if (_authUser && ANIMAL_AVATARS.some(a => a.unlock?.type === "season_top_op" && !isAvatarUnlocked(a.img))) {
-        try { _crownRows = await loadSeasonCrowns(); }
-        catch (e) { console.warn("[unlock] season crown check failed", e); }
-      }
       for (const a of ANIMAL_AVATARS) {
         // Each avatar is checked independently, a single bad definition can
         // never throw out of the loop and block every other unlock.
@@ -39146,9 +38915,6 @@
           else if (u.type === "stat")        met = Number(stats[u.stat] || 0) >= (u.goal || Infinity);
           else if (u.type === "rank")        met = rankTierValue(stats.rank_competitive) >= (_RANK_TIER_VALUE[u.tier] || Infinity);
           else if (u.type === "achievement") met = _achOk && _isDone(u.achId);
-          // null rows = the season list never loaded; stay locked and retry on
-          // the next profile load rather than deciding it on a failed request.
-          else if (u.type === "season_top_op") met = !!seasonCrownFor(_crownRows, _playerNickname);
           if (met && !isAvatarUnlocked(a.img)) {
             if (await window.__fishGrantUnlockedIcon(a.img)) newly.push(a.id);
           }

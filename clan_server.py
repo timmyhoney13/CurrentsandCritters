@@ -21,9 +21,10 @@ collections directly, rules stay default-deny):
     users/{uid}             gains: clan_id, clan_cooldown_until, clan_invites,
                             clan_badges; coins land in stats.critter_coins.
 
-Clan seasons are QUARTERLY, the exact same get_season_id() quarters the
-competitive ladder uses (Tim: "each season is three months like how long each
-competitive season is"). Seasonal counters are keyed by season id, so a new
+Clan seasons are QUARTERLY, off multiplayer_server.get_season_id(). They are
+the only seasons left in the game: Competitive dropped its own season in
+2026-09, so the Ocean Points ladder is permanent and the quarters below are
+the clan system's alone. Seasonal counters are keyed by season id, so a new
 quarter starts at zero automatically; the old quarter is finalized lazily
 (coins, badges, MVP) the first time any clan endpoint runs inside the new one.
 
@@ -324,11 +325,13 @@ def _challenges_from_env(var: str, fallback: List[Dict[str, Any]]) -> List[Dict[
 CLAN_WEEKLY_CHALLENGES = _challenges_from_env("FISH_CLAN_CHALLENGES", CLAN_WEEKLY_CHALLENGES)
 CLAN_SEASON_CHALLENGES = _challenges_from_env("FISH_CLAN_SEASON_CHALLENGES", CLAN_SEASON_CHALLENGES)
 
-# ── End-of-season competitive rank payout ────────────────────────────────────
-# "The higher your competitive rank, the more you bring your squad." At season
-# finalize every CURRENT member's competitive division is read from their
-# profile (stats.rank_competitive, the same string the Competitive tab shows)
-# and converted to a tier here. The Clan Points land on the season being
+# ── Competitive rank payout, at the clan season finalize ─────────────────────
+# "The higher your competitive rank, the more you bring your squad." At CLAN
+# season finalize every current member's competitive division is read from
+# their profile (stats.rank_competitive, the same string the Competitive tab
+# shows) and converted to a tier here. Competitive itself has no seasons: a
+# rank is permanent now, so this pays for the rank a member is holding when the
+# clan quarter turns, not for one they finished a competitive season on. The Clan Points land on the season being
 # finalized BEFORE the final standings are computed, so they can still change
 # the placing; the Critter Coins go straight to the member.
 # Coins climb by 50 a tier from Silver up; Diamond sits between Gold and
@@ -1681,6 +1684,8 @@ def _finalize_season_bonuses(db, sid: str) -> None:
         other off each other's bonuses.
       • Competitive rank, every current member's division is worth Critter
         Coins to them and Clan Points to the squad (COMP_RANK_SEASON_REWARDS).
+        Competitive has no seasons, so this reads the permanent rank each
+        member holds right now.
 
     Both write into the season being finalized, before it is ranked. The whole
     pass runs exactly once: the caller holds the clan_meta create() lock."""
@@ -3490,11 +3495,12 @@ def clan_rules() -> Dict[str, Any]:
             for c in CLAN_SEASON_CHALLENGES
         ],
         "rank_rewards": {
-            "note": "When the season ends, every member's Competitive rank pays "
-                    "out: Critter Coins to them, Clan Points to the squad. The "
-                    "Clan Points land before the final standings are worked out, "
-                    "so a highly ranked roster can still move the clan up the "
-                    "leaderboard on the last day.",
+            "note": "Competitive ranks are permanent, there is no season to "
+                    "finish. When the CLAN season ends, the rank every member "
+                    "is holding pays out: Critter Coins to them, Clan Points to "
+                    "the squad. The Clan Points land before the final standings "
+                    "are worked out, so a highly ranked roster can still move "
+                    "the clan up the leaderboard on the last day.",
             "tiers": [
                 {"tier": "Bronze Barracuda", "coins": COMP_RANK_SEASON_REWARDS["bronze"]["coins"],
                  "clan_points": COMP_RANK_SEASON_REWARDS["bronze"]["clan_points"]},

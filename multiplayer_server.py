@@ -94,7 +94,6 @@ COMPETITIVE_GAMES_DIR = str(
     os.environ.get("FISH_COMPETITIVE_GAMES_DIR", os.path.join(BASE_DIR, "multiplayer", "competitive_games"))
 ).strip() or os.path.join(BASE_DIR, "multiplayer", "competitive_games")
 COMPETITIVE_LEADERBOARD_PATH = os.path.join(COMPETITIVE_GAMES_DIR, "leaderboard.json")
-COMPETITIVE_SEASONS_PATH     = os.path.join(COMPETITIVE_GAMES_DIR, "seasons.json")
 # Pending forfeit losses for players who left a competitive match. The loser is
 # offline at forfeit time, so their CP penalty is applied the next time their
 # client loads (it queries /api/competitive/forfeit_pending by name).
@@ -4456,11 +4455,100 @@ def now_unix() -> int:
 
 
 def get_season_id(ts: Optional[int] = None) -> str:
-    """Return quarterly season ID string like '2026-Q2' for the given unix timestamp (or now)."""
+    """The calendar quarter at `ts` (or now), as '2026-Q3'.
+
+    This is the CLAN season clock and nothing else: clan_server.init() takes it
+    from here so the clan quarter and this server agree. Competitive has no
+    seasons at all, so nothing on the Ocean Points ladder calls this.
+    """
     import datetime
     dt = datetime.datetime.utcfromtimestamp(ts if ts is not None else time.time())
     q = (dt.month - 1) // 3 + 1
     return f"{dt.year}-Q{q}"
+
+
+# ── Giving back the rank the old season boards held ──────────────────────────
+# Competitive used to keep one leaderboard_<season>.json per quarter, and the
+# Ocean Points a player had climbed to lived only in the CURRENT one: the moment
+# the quarter turned, the ladder read empty. Seasons are gone, so there is one
+# permanent board, and every rank those files are still holding belongs on it.
+#
+# Each name gets the highest CP any season ever recorded for it, which is the
+# rank that player had. Only ever raises a row, never lowers one, and leaves the
+# old files on disk untouched. Marked done by a stamp file so a restart is free.
+_SEASON_MERGE_STAMP = os.path.join(COMPETITIVE_GAMES_DIR, ".seasons_merged")
+
+
+def merge_season_boards_into_leaderboard() -> None:
+    try:
+        if os.path.exists(_SEASON_MERGE_STAMP):
+            return
+        if not os.path.isdir(COMPETITIVE_GAMES_DIR):
+            return
+        best: Dict[str, Dict[str, Any]] = {}
+        for fname in sorted(os.listdir(COMPETITIVE_GAMES_DIR)):
+            if not (fname.startswith("leaderboard_") and fname.endswith(".json")):
+                continue
+            try:
+                with open(os.path.join(COMPETITIVE_GAMES_DIR, fname), "r", encoding="utf-8") as f:
+                    season_board = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(season_board, dict):
+                continue
+            for name, row in season_board.items():
+                if not isinstance(row, dict):
+                    continue
+                try:
+                    cp = int(row.get("cp", 0) or 0)
+                except (TypeError, ValueError):
+                    cp = 0
+                try:
+                    bs = int(row.get("best_score", 0) or 0)
+                except (TypeError, ValueError):
+                    bs = 0
+                slot = best.setdefault(name, {"cp": 0, "rank": "", "best_score": 0})
+                if cp > slot["cp"]:
+                    slot["cp"] = cp
+                    slot["rank"] = str(row.get("rank", "") or "")
+                slot["best_score"] = max(slot["best_score"], bs)
+        with COMPETITIVE_LOCK:
+            try:
+                with open(COMPETITIVE_LEADERBOARD_PATH, "r", encoding="utf-8") as f:
+                    board: Dict[str, Any] = json.load(f)
+                if not isinstance(board, dict):
+                    board = {}
+            except (OSError, json.JSONDecodeError):
+                board = {}
+            restored = 0
+            for name, slot in best.items():
+                entry = board.setdefault(name, {"wins": 0, "losses": 0, "draws": 0,
+                                                "games": 0, "best_score": 0,
+                                                "best_streak": 0})
+                try:
+                    have = int(entry.get("cp", 0) or 0)
+                except (TypeError, ValueError):
+                    have = 0
+                if slot["cp"] > have:
+                    entry["cp"] = slot["cp"]
+                    if slot["rank"]:
+                        entry["rank"] = slot["rank"]
+                    restored += 1
+                try:
+                    entry["best_score"] = max(int(entry.get("best_score", 0) or 0),
+                                              slot["best_score"])
+                except (TypeError, ValueError):
+                    entry["best_score"] = slot["best_score"]
+            if best:
+                atomic_write_json(COMPETITIVE_LEADERBOARD_PATH, board)
+        os.makedirs(COMPETITIVE_GAMES_DIR, exist_ok=True)
+        with open(_SEASON_MERGE_STAMP, "w", encoding="utf-8") as f:
+            f.write(str(now_unix()))
+        if best:
+            print(f"[competitive] merged {len(best)} name(s) off the old season "
+                  f"boards, {restored} rank(s) restored")
+    except Exception as exc:                                  # never block boot
+        print(f"[competitive] season board merge skipped: {exc}")
 
 
 def _stamp_ranked_ffa_result(record: Dict[str, Any], fpath: str,
@@ -4472,9 +4560,12 @@ def _stamp_ranked_ffa_result(record: Dict[str, Any], fpath: str,
     works out its own CP from its own rank, so each of them reports only its own
     row: the record is the meeting place.
 
-    Idempotent by the record itself. A row that already carries a cp_after has
-    already been counted on the season board, so a re-post (a reload, a retry)
-    updates the numbers without counting the game a second time.
+    Competitive has no seasons, so there is one permanent board. The game's own
+    wins / losses / draws / games were already tallied onto it by
+    _update_ranked_leaderboard when the game was saved; this pass only stamps
+    the CP ladder fields (cp, rank, best_score), every one of them a SET or a
+    max rather than an increment, so a re-post (a reload, a retry) can never
+    count anything twice.
 
     Caller must hold COMPETITIVE_LOCK: this reads and writes the two files under
     it, and the lock is not reentrant.
@@ -4490,53 +4581,33 @@ def _stamp_ranked_ffa_result(record: Dict[str, Any], fpath: str,
     if row is None:
         return {"ok": False, "error": "you were not in this game"}
 
-    already_counted = "cp_after" in row
     if "cp_after" in body:
         row["cp_after"] = clamp_int(body.get("cp_after"), 0, 0, 1_000_000)
     if "cp_delta" in body:
         row["cp_delta"] = clamp_int(body.get("cp_delta"), 0, -10_000, 10_000)
     if "rank_after" in body:
         row["rank_after"] = str(body.get("rank_after") or "")[:64]
-    season_id = str(body.get("season_id") or record.get("season_id")
-                    or get_season_id(record.get("recorded_unix")))
-    record["season_id"] = season_id
     record["ranked"] = True
     atomic_write_json(fpath, record)
 
-    if already_counted:
-        return {"ok": True, "season_id": season_id, "counted": False}
-
-    # First and last are a win and a loss; the places between them are draws,
-    # the same line the CP payout draws.
-    places = [int(p.get("place", 0) or 0) for p in players if isinstance(p, dict)]
-    last_place = max(places) if places else 1
-    place = int(row.get("place", 0) or 0)
-    season_lb_path = os.path.join(COMPETITIVE_GAMES_DIR, f"leaderboard_{season_id}.json")
     try:
-        with open(season_lb_path, "r", encoding="utf-8") as f:
-            season_board: Dict[str, Any] = json.load(f)
-        if not isinstance(season_board, dict):
-            season_board = {}
+        with open(COMPETITIVE_LEADERBOARD_PATH, "r", encoding="utf-8") as f:
+            board: Dict[str, Any] = json.load(f)
+        if not isinstance(board, dict):
+            board = {}
     except (FileNotFoundError, json.JSONDecodeError):
-        season_board = {}
-    entry = season_board.setdefault(name, {"wins": 0, "losses": 0, "draws": 0,
-                                           "games": 0, "best_score": 0,
-                                           "best_streak": 0, "season_id": season_id})
-    entry["games"] = entry.get("games", 0) + 1
+        board = {}
+    entry = board.setdefault(name, {"wins": 0, "losses": 0, "draws": 0,
+                                    "games": 0, "best_score": 0,
+                                    "best_streak": 0})
     entry["best_score"] = max(int(entry.get("best_score", 0) or 0),
                               int(row.get("score", 0) or 0))
-    if place == 1 and last_place > 1:
-        entry["wins"] = entry.get("wins", 0) + 1
-    elif place == last_place and last_place > 1:
-        entry["losses"] = entry.get("losses", 0) + 1
-    else:
-        entry["draws"] = entry.get("draws", 0) + 1
     if "cp_after" in row:
         entry["cp"] = int(row["cp_after"])
     if row.get("rank_after"):
         entry["rank"] = str(row["rank_after"])
-    atomic_write_json(season_lb_path, season_board)
-    return {"ok": True, "season_id": season_id, "counted": True}
+    atomic_write_json(COMPETITIVE_LEADERBOARD_PATH, board)
+    return {"ok": True, "counted": True}
 
 
 def clamp_int(value: Any, default: int, lo: int, hi: int) -> int:
@@ -10619,7 +10690,6 @@ class GameRoom:
         record = {
             "room_id": self.room_id,
             "recorded_unix": ts,
-            "season_id": get_season_id(ts),
             "p1_name": p1_name,
             "p2_name": p2_name,
             "p1_best_score": p1_score,
@@ -10661,7 +10731,6 @@ class GameRoom:
                 "winner": winner_name,
                 "room_id": self.room_id,
                 "ts": ts,
-                "season_id": get_season_id(ts),
                 "processed": False,
             }
             # Keep the file from growing unbounded: drop processed entries older
@@ -10724,7 +10793,6 @@ class GameRoom:
             record = {
                 "room_id": self.room_id,
                 "recorded_unix": ts,
-                "season_id": get_season_id(ts),
                 "p1_name": p1_name,
                 "p2_name": p2_name,
                 "p1_best_score": p1_best,
@@ -10808,7 +10876,6 @@ class GameRoom:
             record = {
                 "room_id": self.room_id,
                 "recorded_unix": ts,
-                "season_id": get_season_id(ts),
                 "mode": "ranked",
                 "ranked": True,
                 "player_count": len(players),
@@ -15076,77 +15143,26 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                         "loser": entry.get("loser"),
                         "room_id": entry.get("room_id"),
                         "ts": entry.get("ts"),
-                        "season_id": entry.get("season_id"),
                     })
             out.sort(key=lambda e: int(e.get("ts", 0)))
             self._send_json({"ok": True, "pending": out})
             return
 
         if parsed.path == "/api/competitive/leaderboard":
-            qs = parse_qs(parsed.query)
-            season_filter = qs.get("season", [None])[0]
-            if season_filter:
-                # Return season-specific leaderboard
-                season_lb_path = os.path.join(COMPETITIVE_GAMES_DIR, f"leaderboard_{season_filter}.json")
-                try:
-                    with open(season_lb_path, "r", encoding="utf-8") as f:
-                        board = json.load(f)
-                except (FileNotFoundError, json.JSONDecodeError):
-                    board = {}
-            else:
-                try:
-                    with open(COMPETITIVE_LEADERBOARD_PATH, "r", encoding="utf-8") as f:
-                        board = json.load(f)
-                except (FileNotFoundError, json.JSONDecodeError):
-                    board = {}
+            # Competitive has no seasons: this is the one permanent ladder.
+            try:
+                with open(COMPETITIVE_LEADERBOARD_PATH, "r", encoding="utf-8") as f:
+                    board = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                board = {}
             rows = sorted(
                 [{"name": k, **v} for k, v in board.items()],
                 key=lambda x: (-(x.get("cp", 0) or x.get("wins", 0) * 25), x.get("losses", 0), x.get("name", "")),
             )
-            self._send_json({"ok": True, "leaderboard": rows, "season_id": season_filter or get_season_id()})
-            return
-
-        if parsed.path == "/api/competitive/seasons":
-            # Return list of seasons that have game records, plus current season
-            seasons: Dict[str, Any] = {}
-            current = get_season_id()
-            seasons[current] = {"id": current, "game_count": 0, "is_current": True}
-            try:
-                for fname in os.listdir(COMPETITIVE_GAMES_DIR):
-                    if fname.startswith("game_") and fname.endswith(".json"):
-                        fpath = os.path.join(COMPETITIVE_GAMES_DIR, fname)
-                        try:
-                            with open(fpath, "r", encoding="utf-8") as f:
-                                rec = json.load(f)
-                            sid = rec.get("season_id") or get_season_id(rec.get("recorded_unix"))
-                            if sid not in seasons:
-                                seasons[sid] = {"id": sid, "game_count": 0, "is_current": sid == current}
-                            if rec.get("ranked"):
-                                seasons[sid]["game_count"] = seasons[sid].get("game_count", 0) + 1
-                        except Exception:
-                            pass
-            except FileNotFoundError:
-                pass
-            # Enrich each season with leaderboard king
-            for sid, sdata in seasons.items():
-                season_lb_path = os.path.join(COMPETITIVE_GAMES_DIR, f"leaderboard_{sid}.json")
-                try:
-                    with open(season_lb_path, "r", encoding="utf-8") as f:
-                        slb = json.load(f)
-                    if slb:
-                        best = max(slb.items(), key=lambda kv: (kv[1].get("cp", 0), kv[1].get("wins", 0)))
-                        sdata["king_name"] = best[0]
-                        sdata["king_cp"] = best[1].get("cp", 0)
-                        sdata["king_rank"] = best[1].get("rank", "")
-                except Exception:
-                    pass
-            result = sorted(seasons.values(), key=lambda s: s["id"], reverse=True)
-            self._send_json({"ok": True, "seasons": result})
+            self._send_json({"ok": True, "leaderboard": rows})
             return
 
         if parsed.path == "/api/competitive/history":
-            qs = parse_qs(parsed.query)
-            season_filter = qs.get("season", [None])[0]
             games = []
             try:
                 for fname in sorted(os.listdir(COMPETITIVE_GAMES_DIR)):
@@ -15154,18 +15170,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                         fpath = os.path.join(COMPETITIVE_GAMES_DIR, fname)
                         try:
                             with open(fpath, "r", encoding="utf-8") as f:
-                                g = json.load(f)
-                            if season_filter:
-                                g_season = g.get("season_id") or get_season_id(g.get("recorded_unix"))
-                                if g_season != season_filter:
-                                    continue
-                            games.append(g)
+                                games.append(json.load(f))
                         except Exception:
                             pass
             except FileNotFoundError:
                 pass
             games.sort(key=lambda g: g.get("recorded_unix", 0), reverse=True)
-            self._send_json({"ok": True, "games": games, "season_id": season_filter or get_season_id()})
+            self._send_json({"ok": True, "games": games})
             return
 
         if parsed.path == "/api/history/leaderboard":
@@ -16703,10 +16714,6 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     record["ranked"] = True
                     record["ranked_confirmed_unix"] = confirmed_ts
                     # Enrich with client-supplied data if provided
-                    if "season_id" in body:
-                        record["season_id"] = str(body["season_id"])
-                    elif "season_id" not in record:
-                        record["season_id"] = get_season_id(confirmed_ts)
                     if "p1_cp_after" in body:
                         record["p1_cp_after"] = int(body.get("p1_cp_after", 0))
                     if "p2_cp_after" in body:
@@ -16720,51 +16727,36 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     if "p2_rank_after" in body:
                         record["p2_rank_after"] = str(body.get("p2_rank_after", ""))
                     atomic_write_json(fpath, record)
-                # Update seasonal leaderboard
-                season_id = record.get("season_id", get_season_id())
+                # Stamp the CP ladder fields onto the one permanent board.
+                # The match's wins / losses / draws / games were already tallied
+                # there by _update_competitive_leaderboard when the game was
+                # saved, so everything written here is a SET or a max: posting
+                # this twice (a reload, a retry) cannot count a game twice.
                 p1_name = record.get("p1_name", "")
                 p2_name = record.get("p2_name", "")
-                winner  = record.get("winner")
-                is_draw = bool(record.get("is_draw", False))
-                season_lb_path = os.path.join(COMPETITIVE_GAMES_DIR, f"leaderboard_{season_id}.json")
                 with COMPETITIVE_LOCK:
                     try:
-                        with open(season_lb_path, "r", encoding="utf-8") as f:
-                            season_board: Dict[str, Any] = json.load(f)
+                        with open(COMPETITIVE_LEADERBOARD_PATH, "r", encoding="utf-8") as f:
+                            board: Dict[str, Any] = json.load(f)
+                        if not isinstance(board, dict):
+                            board = {}
                     except (FileNotFoundError, json.JSONDecodeError):
-                        season_board = {}
+                        board = {}
                     for nm in (p1_name, p2_name):
-                        if nm and nm not in season_board:
-                            season_board[nm] = {"wins": 0, "losses": 0, "draws": 0, "games": 0,
-                                                "best_score": 0, "best_streak": 0, "season_id": season_id}
-                    if p1_name:
-                        season_board[p1_name]["games"] = season_board[p1_name].get("games", 0) + 1
-                        bs = max(int(record.get("p1_best_score", 0)), int(season_board[p1_name].get("best_score", 0)))
-                        season_board[p1_name]["best_score"] = bs
-                        if "p1_cp_after" in record:
-                            season_board[p1_name]["cp"] = int(record["p1_cp_after"])
-                        if "p1_rank_after" in record:
-                            season_board[p1_name]["rank"] = str(record["p1_rank_after"])
-                    if p2_name:
-                        season_board[p2_name]["games"] = season_board[p2_name].get("games", 0) + 1
-                        bs = max(int(record.get("p2_best_score", 0)), int(season_board[p2_name].get("best_score", 0)))
-                        season_board[p2_name]["best_score"] = bs
-                        if "p2_cp_after" in record:
-                            season_board[p2_name]["cp"] = int(record["p2_cp_after"])
-                        if "p2_rank_after" in record:
-                            season_board[p2_name]["rank"] = str(record["p2_rank_after"])
-                    if is_draw:
-                        for nm in (p1_name, p2_name):
-                            if nm:
-                                season_board[nm]["draws"] = season_board[nm].get("draws", 0) + 1
-                    elif winner:
-                        loser = p2_name if winner == p1_name else p1_name
-                        if winner in season_board:
-                            season_board[winner]["wins"] = season_board[winner].get("wins", 0) + 1
-                        if loser and loser in season_board:
-                            season_board[loser]["losses"] = season_board[loser].get("losses", 0) + 1
-                    atomic_write_json(season_lb_path, season_board)
-                self._send_json({"ok": True, "season_id": season_id})
+                        if nm and nm not in board:
+                            board[nm] = {"wins": 0, "losses": 0, "draws": 0, "games": 0,
+                                         "best_score": 0, "best_streak": 0}
+                    for nm, side in ((p1_name, "p1"), (p2_name, "p2")):
+                        if not nm:
+                            continue
+                        board[nm]["best_score"] = max(int(record.get(f"{side}_best_score", 0) or 0),
+                                                      int(board[nm].get("best_score", 0) or 0))
+                        if f"{side}_cp_after" in record:
+                            board[nm]["cp"] = int(record[f"{side}_cp_after"])
+                        if f"{side}_rank_after" in record:
+                            board[nm]["rank"] = str(record[f"{side}_rank_after"])
+                    atomic_write_json(COMPETITIVE_LEADERBOARD_PATH, board)
+                self._send_json({"ok": True})
             except Exception as exc:
                 self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
             return
@@ -16792,6 +16784,9 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
 
 def main() -> None:
     global PUBLIC_BASE_URL, ACTIVE_SERVER, CREATE_KEY, CORS_ALLOW_ORIGIN
+    # Competitive lost its seasons: fold whatever rank the old per-quarter
+    # boards are still holding onto the one permanent ladder, once.
+    merge_season_boards_into_leaderboard()
     parser = argparse.ArgumentParser(description="Fish Game multiplayer server")
     parser.add_argument("--host", type=str, default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8777)

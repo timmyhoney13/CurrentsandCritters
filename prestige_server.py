@@ -375,11 +375,10 @@ _SKIN_STYLE_BY_ID = {s["id"]: s for s in SKIN_STYLES}
 # Mirrors ANIMAL_AVATARS in js/preview-app.js. An avatar RELOCKS on Prestige
 # when it was earned by playing; it is kept forever when it was bought, given
 # for a donation, or won on the competitive ladder (which itself never resets).
-# "season_top_op" is the King of the Critters skin: one account per season, the
-# one that ended it with the most Ocean Points. Prestige cannot take that back
-# for the same reason it cannot take a rank back, and harder: the season it was
-# won in is finished, so there is no way left to earn it a second time.
-KEEP_FOREVER_UNLOCK_TYPES = frozenset({"starter", "shop", "code", "rank", "season_top_op"})
+# The King of the Critters skin is a "rank" unlock like any other: Competitive
+# has no seasons, so it is earned by CLIMBING to the King rank, and Prestige
+# cannot take it back for the same reason it cannot take the rank back.
+KEEP_FOREVER_UNLOCK_TYPES = frozenset({"starter", "shop", "code", "rank"})
 RELOCKABLE_UNLOCK_TYPES = frozenset({"level", "comp_wins", "stat", "achievement", "event", "secret"})
 
 AVATAR_UNLOCK_TYPES: Dict[str, str] = {
@@ -454,7 +453,7 @@ AVATAR_UNLOCK_TYPES: Dict[str, str] = {
     # ── Fourth of July Skins ──
     "/avatars/fourth-of-july.png":          "shop",
     # ── King of the Critters ──
-    "/avatars/king-of-the-critters.png":    "season_top_op",
+    "/avatars/king-of-the-critters.png":    "rank",
 }
 
 

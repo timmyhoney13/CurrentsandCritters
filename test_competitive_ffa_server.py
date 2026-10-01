@@ -478,7 +478,11 @@ class AFinishedGameJoinsTheCompetitiveLedger(unittest.TestCase):
         have to: the ROOM was competitive, so the game was."""
         rec = self._play("FF41", [10, 20, 30])
         self.assertIs(rec["ranked"], True)
-        self.assertTrue(rec["season_id"])
+
+    def test_the_record_carries_no_season(self):
+        """Competitive has no seasons, so nothing stamps one on a record."""
+        rec = self._play("FF45", [10, 20, 30])
+        self.assertNotIn("season_id", rec)
 
     def test_places_are_ordered_and_ties_share_the_better_one(self):
         rec = self._play("FF42", [80, 80, 40, 10])
@@ -536,7 +540,7 @@ class EachPlayerStampsTheirOwnCp(unittest.TestCase):
             os.remove(os.path.join(mp.COMPETITIVE_GAMES_DIR, fname))
         self.record = {
             "room_id": "FF50", "recorded_unix": mp.now_unix(),
-            "season_id": "2026-Q3", "mode": "ranked", "ranked": True,
+            "mode": "ranked", "ranked": True,
             "player_count": 3,
             "players": [
                 {"name": "Ann", "seat_index": 0, "score": 90, "place": 1},
@@ -548,9 +552,9 @@ class EachPlayerStampsTheirOwnCp(unittest.TestCase):
         self.path = os.path.join(mp.COMPETITIVE_GAMES_DIR, "game_FF50_1.json")
         mp.atomic_write_json(self.path, self.record)
 
-    def _season_board(self):
-        path = os.path.join(mp.COMPETITIVE_GAMES_DIR, "leaderboard_2026-Q3.json")
-        with open(path, encoding="utf-8") as fh:
+    def _board(self):
+        """The one permanent leaderboard. There are no per-season boards."""
+        with open(mp.COMPETITIVE_LEADERBOARD_PATH, encoding="utf-8") as fh:
             return json.load(fh)
 
     def _stamp(self, name, **body):
@@ -573,25 +577,35 @@ class EachPlayerStampsTheirOwnCp(unittest.TestCase):
         # And nobody else's row was touched.
         self.assertNotIn("cp_after", rec["players"][0])
 
-    def test_first_is_a_win_last_is_a_loss_and_the_middle_is_a_draw(self):
-        self._stamp("Ann", cp_after=100, cp_delta=12)
-        self._stamp("Bo",  cp_after=90,  cp_delta=0)
+    def test_the_cp_ladder_fields_land_on_the_one_board(self):
+        self._stamp("Ann", cp_after=100, cp_delta=12, rank_after="Golden Grouper I")
         self._stamp("Cid", cp_after=80,  cp_delta=-6)
-        board = self._season_board()
-        self.assertEqual(board["Ann"]["wins"], 1)
-        self.assertEqual(board["Bo"]["draws"], 1)
-        self.assertEqual(board["Cid"]["losses"], 1)
+        board = self._board()
         self.assertEqual(board["Ann"]["cp"], 100)
-        self.assertEqual(board["Ann"]["games"], 1)
+        self.assertEqual(board["Ann"]["rank"], "Golden Grouper I")
+        self.assertEqual(board["Ann"]["best_score"], 90)
+        self.assertEqual(board["Cid"]["cp"], 80)
+
+    def test_the_stamp_does_not_tally_wins_losses_or_games(self):
+        """Those come off the game save (_update_ranked_leaderboard). If the
+        stamp counted them too, every free-for-all would land twice."""
+        self._stamp("Ann", cp_after=100, cp_delta=12)
+        board = self._board()
+        self.assertEqual(board["Ann"]["wins"], 0)
+        self.assertEqual(board["Ann"]["losses"], 0)
+        self.assertEqual(board["Ann"]["draws"], 0)
+        self.assertEqual(board["Ann"]["games"], 0)
 
     def test_a_repost_updates_without_counting_twice(self):
         self._stamp("Ann", cp_after=100, cp_delta=12)
         out = self._stamp("Ann", cp_after=105, cp_delta=17)
         self.assertTrue(out["ok"])
-        self.assertFalse(out["counted"])
-        board = self._season_board()
-        self.assertEqual(board["Ann"]["games"], 1)
-        self.assertEqual(board["Ann"]["wins"], 1)
+        board = self._board()
+        # Every field the stamp writes is a set or a max, so a second post
+        # moves the CP and nothing else.
+        self.assertEqual(board["Ann"]["cp"], 105)
+        self.assertEqual(board["Ann"]["games"], 0)
+        self.assertEqual(board["Ann"]["best_score"], 90)
         with open(self.path, encoding="utf-8") as fh:
             rec = json.load(fh)
         self.assertEqual(rec["players"][0]["cp_after"], 105)

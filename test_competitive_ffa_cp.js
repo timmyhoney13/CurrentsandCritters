@@ -429,31 +429,31 @@ console.log("\n── a free-for-all shows up in competitive history ──");
         "Competitive Games never shows fewer games than the rank's own record");
 }
 
-// ── The season id has to be REACHABLE from the OP writers ────────────────────
-// _compGetSeasonId is declared inside a late IIFE. Both end-of-game OP writers
-// (the 1v1 one and the free-for-all one) live OUTSIDE that IIFE, so a bare
-// `typeof _compGetSeasonId === "function"` out there is always false and the
-// writer silently stamps its hardcoded fallback season onto comp_season_id.
-// That fights the Competitive tab, which uses the real function and resets the
-// season when the two disagree. It must be read off window.
-console.log("\n── the season id is reachable from the OP writers ──");
+// ── Competitive has no seasons ───────────────────────────────────────────────
+// The ladder used to reset every quarter: both OP writers stamped a season id
+// onto the account and zeroed OP, wins, losses, streaks and the rank itself
+// whenever it changed. That is gone. Nothing may put it back, because a reset
+// now destroys a rank that is supposed to be permanent.
+console.log("\n── competitive has no seasons ──");
 {
-  const exported = /window\._compGetSeasonId\s*=\s*_compGetSeasonId\s*;/.test(APP);
-  check(exported, "_compGetSeasonId is exported to window");
+  check(!/_compGetSeasonId/.test(APP), "no season id helper is left anywhere");
+  check(!/comp_season_id/.test(APP),   "nothing writes stats.comp_season_id");
+  check(!/seasons_history"\]\s*=/.test(APP),
+        "nothing archives a season onto the account any more");
 
-  // Every guard for it, anywhere in the file, must go through window. A bare
-  // one is either a scope bug or a line that will become one when it moves.
-  const bare = [];
-  APP.split("\n").forEach((line, i) => {
-    if (/typeof\s+_compGetSeasonId\s*===/.test(line)) bare.push(i + 1);
-  });
-  check(bare.length === 0,
-        `no bare 'typeof _compGetSeasonId' guards${bare.length ? " (lines " + bare.join(", ") + ")" : ""}`);
+  // The giveaway of a reset: a writer setting a competitive counter to 0.
+  const resets = (APP.match(/"stats\.(comp_cp|competitive_wins|competitive_losses|competitive_draws|competitive_best_streak)"\]?\s*[:=]\s*0\b/g) || []);
+  check(resets.length === 0,
+        `no OP writer zeroes a competitive counter${resets.length ? " (" + resets.join(", ") + ")" : ""}`);
 
-  // And the hardcoded fallback must never be the value that actually gets used:
-  // it is there for a missing export, not as a season.
-  const fallbacks = (APP.match(/\(\) => "2026-Q2"/g) || []).length;
-  check(fallbacks <= 2, `the hardcoded season fallback stays a fallback (${fallbacks} left)`);
+  // The one place the old resets are still named is the migration that gives
+  // back what they took, and it only ever raises a number.
+  check(/restoreRankLostToSeasonResets/.test(APP),
+        "the rank the old resets took is given back once per account");
+  check(/"stats\.comp_seasons_merged":\s+true/.test(APP),
+        "that restore is marked done so it runs once");
+  check(/Math\.max\(num\(cStats\.comp_cp\), bestCp\)/.test(APP),
+        "the restore can only raise OP, never lower it");
 }
 
 console.log(`\n${failures ? "✗ FAILED" : "✓ PASSED"}  ${checks - failures}/${checks} checks\n`);

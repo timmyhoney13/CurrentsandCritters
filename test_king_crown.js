@@ -1,14 +1,13 @@
 #!/usr/bin/env node
-/* King of the Critters, the season-crown unlock.
+/* King of the Critters, the crown skin at the top of the ladder.
  *
- *   node test_season_crown.js
+ *   node test_king_crown.js
  *
- * One account per season gets this skin: whoever holds the most Ocean Points in
- * Competitive when the season ENDS. That is the only unlock in the game decided
- * by a server record rather than by a number on the player's own account, so the
- * things worth pinning down are the ways it could wrongly say yes: a lead in a
- * season still being played, a failed request read as "never won one", a name
- * that only differs by case, and a season nobody actually scored in.
+ * Competitive has no seasons: the skin is earned by CLIMBING to the King of
+ * the Critters rank (1200 OP) and, like every other rank unlock, it is then
+ * kept forever. It used to be "finish a season on top", decided by a server
+ * record rather than a number on the player's own account, so this also pins
+ * down that none of that machinery can come back.
  *
  * Same approach as test_avatar_reearn.js: lift the REAL source out of the
  * 39k-line browser file and run it against stubbed collaborators, so a rename or
@@ -42,22 +41,17 @@ function slice(startMarker, endMarker) {
 // ── the code under test, lifted from the app ────────────────────────────────
 const code = [
   slice("const ANIMAL_AVATARS = [", "\n  ];") + "\n];",
-  slice("let _seasonCrowns = null;", "// Numeric unlock progress"),
+  slice("function rankTierValue(rankName){", "\n  }") + "\n  }",
+  slice("const _RANK_TIER_VALUE = {", "\n"),
   slice("function animalProgressText(a, stats, level){", "\n  }") + "\n  }",
 ].join("\n");
 
-// apiFetch is the app's own HTTP helper; the sandbox poses as it. Each test
-// sets NEXT to the answer the server would give and RQ records the calls.
-let NEXT = null, RQ = [];
-const sandbox = {
-  console,
-  apiFetch: async (p, o) => { RQ.push(p); return NEXT; },
-};
+const sandbox = { console };
 vm.createContext(sandbox);
 vm.runInContext(
-  code + "\nthis.API = { loadSeasonCrowns, seasonCrownFor, animalProgressText, ANIMAL_AVATARS };",
+  code + "\nthis.API = { rankTierValue, _RANK_TIER_VALUE, animalProgressText, ANIMAL_AVATARS };",
   sandbox);
-const { loadSeasonCrowns, seasonCrownFor, animalProgressText, ANIMAL_AVATARS } = sandbox.API;
+const { rankTierValue, _RANK_TIER_VALUE, animalProgressText, ANIMAL_AVATARS } = sandbox.API;
 
 const ok = (seasons) => ({ ok: true, data: { seasons } });
 
@@ -154,88 +148,58 @@ const KOC = ANIMAL_AVATARS.find(a => a.id === "king-of-the-critters");
 check("the skin exists", !!KOC);
 check("it is named King of the Critters", KOC && KOC.name === "King of the Critters");
 check("it points at the drawing", KOC && KOC.img === "/avatars/king-of-the-critters.png");
-check("its unlock type is season_top_op", KOC && KOC.unlock.type === "season_top_op");
+check("it is earned by reaching a rank", KOC && KOC.unlock.type === "rank");
+check("and that rank is King", KOC && KOC.unlock.tier === "king");
 check("it is not buyable (no coin price, not a shop unlock)",
       KOC && KOC.unlock.type !== "shop" && KOC.unlock.coins === undefined);
 check("the chosen-few line is on it",
       KOC && /Only the chosen few can have it\./.test(KOC.unlock.label)
          && /Only the chosen few can have it\./.test(KOC.facts));
-check("the requirement says most Ocean Points, season, everyone",
-      KOC && /Ocean Points/.test(KOC.unlock.label) && /season/i.test(KOC.unlock.label)
-         && /anyone else/.test(KOC.unlock.label));
+check("the requirement names the King of the Critters rank",
+      KOC && /King of the Critters rank/.test(KOC.unlock.label));
+check("and it no longer promises a season to finish",
+      KOC && !/season/i.test(KOC.unlock.label), KOC && KOC.unlock.label);
 check("no em dash in anything a player reads",
-      KOC && !/—/.test(KOC.unlock.label) && !/—/.test(KOC.facts) && !/—/.test(KOC.name));
+      KOC && !/\u2014/.test(KOC.unlock.label) && !/\u2014/.test(KOC.facts) && !/\u2014/.test(KOC.name));
 check("the Store never lists it (Store = unlock.type 'shop')",
       ANIMAL_AVATARS.filter(a => a.unlock && a.unlock.type === "shop")
         .every(a => a.id !== "king-of-the-critters"));
 
 // ── who the crown belongs to ────────────────────────────────────────────────
-section("A crown is an ENDED season won on Ocean Points");
-const ROWS = [
-  { id: "2026-Q4", is_current: true,  king_name: "Reefer",  king_cp: 1400 },
-  { id: "2026-Q3", is_current: false, king_name: "Kelpkaiya", king_cp: 1240 },
-  { id: "2026-Q2", is_current: false, king_name: "Reefer",  king_cp: 980 },
-];
+// The sweep's test for a rank unlock is
+// rankTierValue(stats.rank_competitive) >= _RANK_TIER_VALUE[u.tier].
+section("Only a King rank earns it");
+const earns = (rank) => rankTierValue(rank) >= _RANK_TIER_VALUE[KOC.unlock.tier];
 
-check("the player who ended a past season on top gets it",
-      !!seasonCrownFor(ROWS, "Kelpkaiya"));
-check("leading the season still being played is NOT a crown",
-      !seasonCrownFor([ROWS[0]], "Reefer"));
-check("but that same player's earlier finished season still counts",
-      !!seasonCrownFor(ROWS, "Reefer") && seasonCrownFor(ROWS, "Reefer").id === "2026-Q2");
-check("somebody who never topped a season gets nothing",
-      !seasonCrownFor(ROWS, "Mullet"));
-check("names match the way the rest of competitive matches them",
-      !!seasonCrownFor(ROWS, "  kElPkAiYa  "));
-check("an empty name never matches a season with no king",
-      !seasonCrownFor([{ id: "x", is_current: false, king_name: "", king_cp: 5 }], ""));
-check("a season nobody scored in crowns nobody",
-      !seasonCrownFor([{ id: "x", is_current: false, king_name: "Mullet", king_cp: 0 }], "Mullet"));
-check("a failed request is not read as 'never won one'",
-      !seasonCrownFor(null, "Kelpkaiya"));
+check("King of the Critters earns it", earns("King of the Critters"));
+check("Emerald, one rung short, does not", !earns("Emerald Emperor Penguin III"));
+check("neither does Diamond", !earns("Diamond Dolphin I"));
+check("nor Golden Grouper", !earns("Golden Grouper III"));
+check("nor Silver", !earns("Silver Spiny Lobster I"));
+check("nor Bronze", !earns("Bronze Barracuda I"));
+check("Unranked does not", !earns("Unranked"));
+check("and neither does a missing rank", !earns("") && !earns(null) && !earns(undefined));
+check("the rank string is read the way the rest of competitive reads it",
+      earns("  king of the critters  "));
 
-// ── the fetch ───────────────────────────────────────────────────────────────
-section("It costs one request, and a failure is not cached");
-(async () => {
-  RQ = []; NEXT = ok(ROWS);
-  const a = await loadSeasonCrowns();
-  const b = await loadSeasonCrowns();
-  check("the season list loads", Array.isArray(a) && a.length === 3);
-  check("it asks the server's own season record",
-        RQ[0] === "/api/competitive/seasons", RQ[0]);
-  check("a second caller reuses it instead of asking again", RQ.length === 1, `${RQ.length} requests`);
-  check("both callers see the same rows", a === b);
+// ── nothing asks the server about seasons any more ──────────────────────────
+section("The season machinery is gone, not just unused");
+check("no /api/competitive/seasons request is left in the app",
+      !/\/api\/competitive\/seasons/.test(SRC));
+check("no season-crown lookup is left", !/seasonCrownFor|loadSeasonCrowns/.test(SRC));
+check("no 'season_top_op' unlock type is left", !/season_top_op/.test(SRC));
+check("no avatar is unlocked by anything season-shaped",
+      ANIMAL_AVATARS.every(a => !a.unlock || !/season/i.test(String(a.unlock.type))));
 
-  // Fresh sandbox: a failed first request must not poison the session.
-  const s2 = { console, apiFetch: async (p) => { RQ.push(p); return NEXT; } };
-  vm.createContext(s2);
-  vm.runInContext(code + "\nthis.API = { loadSeasonCrowns, seasonCrownFor };", s2);
-  RQ = []; NEXT = { ok: false, data: null };
-  const bad = await s2.API.loadSeasonCrowns();
-  check("a failed request yields no rows (nothing is granted on it)", !bad);
-  NEXT = ok(ROWS);
-  const good = await s2.API.loadSeasonCrowns();
-  check("the next load retries instead of staying empty",
-        Array.isArray(good) && good.length === 3);
-  check("that retry really went back to the server", RQ.length === 2, `${RQ.length} requests`);
+// ── the line under the locked tile ──────────────────────────────────────────
+section("The locked tile shows where the player actually stands");
+{
+  const txt = animalProgressText(KOC, { rank_competitive: "Golden Grouper II" }, 12);
+  check("it reports their own rank", /Golden Grouper II/.test(txt), txt);
+  check("a player with no games reads as Unranked, not as an error",
+        animalProgressText(KOC, {}, 1) === "Current rank: Unranked",
+        animalProgressText(KOC, {}, 1));
+}
 
-  // A thrown request must not take the unlock sweep down with it.
-  const s3 = { console, apiFetch: async () => { throw new Error("offline"); } };
-  vm.createContext(s3);
-  vm.runInContext(code + "\nthis.API = { loadSeasonCrowns };", s3);
-  let threw = false;
-  try { check("a thrown request yields no rows", !(await s3.API.loadSeasonCrowns())); }
-  catch (_) { threw = true; }
-  check("and it never throws out of the unlock sweep", !threw);
-
-  // ── the line under the locked tile ────────────────────────────────────────
-  section("The locked tile shows where the player actually stands");
-  const txt = animalProgressText(KOC, { comp_cp: 640 }, 12);
-  check("it reports their own Ocean Points", /640/.test(txt), txt);
-  check("it reports nobody else's", !/1240|1400/.test(txt), txt);
-  check("no player with no games reads as an error",
-        animalProgressText(KOC, {}, 1) === "Your Ocean Points this season: 0");
-
-  console.log(`\n${passed} passed, ${failed} failed`);
-  process.exit(failed ? 1 : 0);
-})();
+console.log(`\n${passed} passed, ${failed} failed`);
+process.exit(failed ? 1 : 0);

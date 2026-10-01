@@ -451,13 +451,11 @@
 # seat-pair machinery.
 !test_competitive_ffa_cp.js
 !test_competitive_ffa_server.py
-# King of the Critters, the one critter nobody can buy or grind out: it goes to
-# whoever ends a season with the most Ocean Points. That makes it the only
-# unlock decided by a server record instead of a number on the player's own
-# account, so this pins the ways it could wrongly say yes -- a lead in a season
-# still being played, a failed request read as "never won one", a name that
-# differs only by case, and a season nobody actually scored in.
-!test_season_crown.js
+# King of the Critters, the one critter nobody can buy or grind out: it is
+# earned by CLIMBING to the King rank. Competitive has no seasons, so this
+# also pins that none of the old "finish a season on top" machinery can come
+# back, and that the shipped drawing still has his crown on it.
+!test_king_crown.js
 # Ocean Points on every screen that prints them, at every device size: the rank
 # card, the sub-tab strips, the leaderboard tables and the end-game meta bar,
 # measured in real Chrome from iPhone SE through 2560px desktop, in iframes

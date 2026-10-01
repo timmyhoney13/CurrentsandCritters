@@ -952,7 +952,7 @@
       + blockHtml("How games end", `<div class="ccA-grid-2">
           ${cellHtml("ccA-comp-out", "Results", "How do competitive games end?",
                      { tip: d.lifetime ? "Every account's lifetime wins, losses and draws." : "From each player's saved games." })}
-          ${cellHtml("ccA-comp-top", "Top Ocean Points", "Who leads this season?")}
+          ${cellHtml("ccA-comp-top", "Top Ocean Points", "Who leads the ladder?")}
         </div>`)
       + blockHtml("Competitive players", `<div class="ccA-panel">${tableHtml("competitive", d.table || {}, {
           empty: "Nobody played competitive in this date range." })}</div>`);
@@ -965,7 +965,7 @@
     });
     rankList($("#ccA-comp-out", root), (d.outcomes || []).filter(o => Number(o.value) > 0),
       { empty: "No competitive results yet." });
-    rankList($("#ccA-comp-top", root), d.top || [], { empty: "Nobody has Ocean Points this season." });
+    rankList($("#ccA-comp-top", root), d.top || [], { empty: "Nobody has Ocean Points yet." });
   };
 
   // ── Clans ─────────────────────────────────────────────────────────────────
@@ -1113,7 +1113,7 @@
               ${fact("Best score", fmt(p.highest_score))}
               ${fact("Favourite strategy", p.favorite || "-")}
               ${fact("Competitive (W-L-D)", fmt(rec.wins || 0) + "-" + fmt(rec.losses || 0) + "-" + fmt(rec.draws || 0))}
-              ${fact("Ocean Points (season)", fmt(p.comp_points))}
+              ${fact("Ocean Points", fmt(p.comp_points))}
               ${fact("Coins", fmt(p.coins))}
               ${fact("Critters", fmt(p.icons))}
               ${fact("Prestige", fmt(p.prestige))}

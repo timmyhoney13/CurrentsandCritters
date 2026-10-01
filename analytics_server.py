@@ -356,7 +356,8 @@ _USER_TOP_FIELDS = [
 ]
 # Named one by one rather than taking all of `stats`, which also carries replay
 # snapshots of every personal best (best_game, best_game_by_size), achievements
-# and season archives, none of which any chart reads.
+# and the archives the old competitive seasons left behind, none of which any
+# chart reads.
 _USER_STAT_FIELDS = [
     "completed_games", "normal_games_by_size", "comp_games_by_size",
     "physical_games", "normal_wins", "competitive_wins", "competitive_losses",
@@ -518,10 +519,11 @@ def _user_row(uid: str, d: Dict[str, Any]) -> Dict[str, Any]:
         "casual_by_size": casual_by_size,
         "comp_by_size": comp_by_size,
         # These two counters are NOT addable. `normal_wins` is a lifetime total
-        # that already includes free-for-all Competitive wins, and
-        # `competitive_wins` is reset to 0 at every season rollover. Summing them
-        # double-counted every free-for-all win and made a player's total drop
-        # when a season ended, so they are reported as the two things they are.
+        # that already includes free-for-all Competitive wins, so summing them
+        # double-counted every free-for-all win: they are reported as the two
+        # things they are. (`competitive_wins` used to be zeroed at every
+        # competitive season rollover too; Competitive has no seasons now, so it
+        # only ever climbs.)
         "wins": _int(st.get("normal_wins")),
         "comp_wins": _int(st.get("competitive_wins")),
         "life_comp": (_int(st.get("lifetime_comp_wins")), _int(st.get("lifetime_comp_losses")),
@@ -1472,8 +1474,8 @@ def _section_players(f: Dict[str, Any]) -> Dict[str, Any]:
         {"key": "hours", "label": "Hours", "type": "num"},
         {"key": "table", "label": "Most played table", "type": "text"},
         {"key": "competitive", "label": "Competitive games", "type": "num"},
-        {"key": "comp_wins", "label": "Comp wins (season)", "type": "num"},
-        {"key": "comp_points", "label": "Ocean Points (season)", "type": "num"},
+        {"key": "comp_wins", "label": "Comp wins", "type": "num"},
+        {"key": "comp_points", "label": "Ocean Points", "type": "num"},
         {"key": "joined", "label": "Joined", "type": "date"},
         {"key": "xp", "label": "XP", "type": "num"},
         {"key": "coins", "label": "Coins", "type": "num"},
@@ -1750,8 +1752,8 @@ def _section_competitive(f: Dict[str, Any]) -> Dict[str, Any]:
         {"key": "games", "label": "Games", "always": True, "type": "num"},
         {"key": "wins", "label": "Wins", "always": True, "type": "num"},
         {"key": "win_rate", "label": "Win rate", "always": True, "type": "pct"},
-        {"key": "points", "label": "Ocean Points (season)", "always": True, "type": "num"},
-        {"key": "rank", "label": "Rank (season)", "type": "text"},
+        {"key": "points", "label": "Ocean Points", "always": True, "type": "num"},
+        {"key": "rank", "label": "Rank", "type": "text"},
     ]
     if counters:
         columns[3:3] = [{"key": "losses", "label": "Losses", "type": "num"},
@@ -1769,8 +1771,8 @@ def _section_competitive(f: Dict[str, Any]) -> Dict[str, Any]:
                   hint=(f"The other {len(paired)} were the paired 4-seat game."
                         + (" From each player's saved games." if counters else ""))),
             _card("Top Ocean Points", leader["comp_points"] if leader and leader["comp_points"] > 0 else None,
-                  hint=(f"{leader['nickname'] or 'Player'}, this season."
-                        if leader and leader["comp_points"] > 0 else "Nobody has scored this season.")),
+                  hint=(f"{leader['nickname'] or 'Player'}, on the all-time ladder."
+                        if leader and leader["comp_points"] > 0 else "Nobody has scored yet.")),
         ],
         "volume": {"days": axis["days"], "gran": axis["gran"],
                    "paired": _series(axis, [e["t"] for e in paired]),
