@@ -4950,6 +4950,9 @@
     #pv-board-focus-content {
       display: flex; flex-wrap: wrap; gap: 10px;
       justify-content: center; padding-bottom: 24px;
+      /* _refitBoardFocus() replaces this cap with the real available width:
+         capping a wide screen at 960px wrapped the board onto extra rows,
+         and the extra rows are what forced the board to shrink. */
       max-width: 960px; width: 100%;
     }
     #pv-board-focus-close {
@@ -5051,13 +5054,21 @@
       margin-top: 4px;
       letter-spacing: .3px;
     }
-    /* Hover preview uses smaller cards regardless of board size, it's a tooltip. */
-    #pv-board-hover {
-      --mini-w: 50px;
-      --mini-h: 70px;
+    /* The peek is sized to the board it is showing, the same way the enlarged
+       board is: JS measures the laid-out board and sets --focus-scale here, so
+       the whole board is on show instead of the top-left corner of it. (The
+       peek is pointer-events:none, so overflow could never be scrolled to.)
+       The numbers below are the 1.0 baseline. */
+    #pv-bh-content {
+      --focus-scale: 1;
+      --mini-w: calc(50px * var(--focus-scale));
+      --mini-h: calc(70px * var(--focus-scale));
     }
-    #pv-board-hover .pv-ro-board { gap: 4px; }
-    #pv-board-hover .pv-ocean-face { width: 60px; height: 84px; }
+    #pv-bh-content .pv-ro-board { gap: calc(4px * var(--focus-scale)); }
+    #pv-bh-content .pv-ocean-face {
+      width: calc(60px * var(--focus-scale));
+      height: calc(84px * var(--focus-scale));
+    }
     #pv-board-hover .pv-board-card { cursor: default; }
     #pv-board-hover .pv-board-card:hover { transform: none; }
 

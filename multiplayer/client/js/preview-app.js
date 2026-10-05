@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-01.1";
+  const APP_BUILD   = "2026-10-05.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -15031,6 +15031,78 @@
     return 0.60;
   }
 
+  // ── Fitting a board to the space it has ─────────────────────────
+  // The enlarged board and the hover peek both lay out as a wrapping row of
+  // ocean hubs sized off --focus-scale, so the only honest way to know which
+  // scale fits is to lay the board out and measure it. Guessing from the ocean
+  // count (_boardFocusScaleFor above) was wrong in both directions: an
+  // eight-ocean board was shrunk to 0.60 on a screen with room to spare, which
+  // is what "clicking a name zooms way far out" looked like, while three oceans
+  // with long stacked lanes could still overflow the box.
+  //
+  // So: binary-search for the largest scale whose laid-out board fits the box
+  // in BOTH directions. Every scale this returns has been measured as fitting,
+  // so the board fills the space it is given and none of it is cut off.
+  const _FIT_STEPS = 14;      // halves the range to well under a pixel
+  function _fitBoardScale(host, availW, availH, minScale, maxScale) {
+    if (!host) return maxScale;
+    const apply = (s) => host.style.setProperty("--focus-scale", String(s));
+    if (!(availW > 0) || !(availH > 0)) { apply(maxScale); return maxScale; }
+    // scrollWidth/scrollHeight are whole pixels and the box rarely is, so the
+    // comparison is against the box's floor. A "fit" is then a real fit, with
+    // no sub-pixel overflow left behind to raise a scrollbar on the overlay.
+    const limW = Math.floor(availW), limH = Math.floor(availH);
+    const fits = (s) => {
+      apply(s);
+      return host.scrollWidth <= limW && host.scrollHeight <= limH;
+    };
+    if (fits(maxScale)) return maxScale;    // room to spare: don't overblow the art
+    if (!fits(minScale)) return minScale;   // nothing fits: smallest, and it scrolls
+    let lo = minScale, hi = maxScale;       // lo always fits, hi never does
+    for (let i = 0; i < _FIT_STEPS; i++) {
+      const mid = (lo + hi) / 2;
+      if (fits(mid)) lo = mid; else hi = mid;
+    }
+    const out = Math.floor(lo * 1000) / 1000;
+    apply(out);
+    return out;
+  }
+
+  // Height an element takes out of the column, margins included.
+  function _outerHeight(el) {
+    if (!el) return 0;
+    const cs = getComputedStyle(el);
+    return el.getBoundingClientRect().height
+         + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+  }
+
+  // The enlarged board goes as big as the overlay will hold. The ceiling is
+  // where the card art starts to look soft, not a layout limit. The floor is
+  // set by the worst board that can exist on the smallest screen: twelve
+  // oceans with stacked lanes on a phone still has to arrive whole, because a
+  // board you have to scroll to see is the thing being fixed here. Below the
+  // floor the overlay scrolls, as it always did.
+  const _FOCUS_SCALE_MIN = 0.34;
+  const _FOCUS_SCALE_MAX = 2.4;
+
+  // Fit the open enlarged board to the window. Split out of openBoardFocus so
+  // a resize (or turning a phone sideways) re-fits what is already on screen.
+  function _refitBoardFocus() {
+    const overlay = document.getElementById("pv-board-focus");
+    const label = document.getElementById("pv-board-focus-label");
+    const content = document.getElementById("pv-board-focus-content");
+    if (!overlay || !content || !overlay.classList.contains("open")) return;
+    const cs = getComputedStyle(overlay);
+    const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+    const availW = Math.max(120, overlay.clientWidth - padX);
+    const availH = Math.max(120, overlay.clientHeight - padY - _outerHeight(label));
+    // The stylesheet's 960px cap is what forced a wide board to wrap onto extra
+    // rows on a wide screen, and wrapping is what made it shrink.
+    content.style.maxWidth = `${Math.round(availW)}px`;
+    _fitBoardScale(content, availW, availH, _FOCUS_SCALE_MIN, _FOCUS_SCALE_MAX);
+  }
+
   function openBoardFocus(player) {
     const overlay = document.getElementById("pv-board-focus");
     const label = document.getElementById("pv-board-focus-label");
@@ -15038,11 +15110,11 @@
     label.textContent = `${player.name || `Player ${player.index}`}'s Board`;
     content.innerHTML = "";
     const board = Array.isArray(player.board) ? player.board : [];
-    const scale = _boardFocusScaleFor(board.length);
-    content.style.setProperty("--focus-scale", String(scale));
     content.dataset.oceans = String(board.length);
     content.appendChild(renderReadOnlyBoard(player));
+    // Opened before it is measured: a display:none overlay has no box to fit to.
     overlay.classList.add("open");
+    _refitBoardFocus();
     // Light up the active strategies' cards on this freshly-rendered board.
     try { window._applyStrategyHighlights && window._applyStrategyHighlights(); } catch (e) {}
     // Hide any hover preview so it doesn't sit on top of the modal.
@@ -15112,6 +15184,13 @@
     if (!_boardHoverPt) return;
     if (!_pointerIsOver(a)) hideBoardHover();
   }
+  // The peek is still a tooltip: it grows only until the whole board is on
+  // show, and clicking is what gets you the big version.
+  const _PEEK_SCALE_MIN = 0.30;
+  const _PEEK_SCALE_MAX = 1.30;
+  const _PEEK_GAP  = 12;   // space between the anchor and the peek
+  const _PEEK_EDGE = 8;    // space kept clear at the window edges
+
   function showBoardHover(player, anchorEl) {
     if (!player) return;
     if (!_canHoverPeek()) return;
@@ -15126,23 +15205,52 @@
     content.appendChild(renderReadOnlyBoard(player));
     // Light up the active strategies' cards on this freshly-rendered peek.
     try { window._applyStrategyHighlights && window._applyStrategyHighlights(); } catch (e) {}
-    // Position adjacent to the anchor, clamped to the viewport.
-    pop.style.left = "0px"; pop.style.top = "0px";
-    pop.classList.add("visible");
-    const popRect = pop.getBoundingClientRect();
+
+    const vw = window.innerWidth, vh = window.innerHeight;
     const rect = anchorEl?.getBoundingClientRect?.();
+    // The room the peek actually has: whichever side of the anchor is roomier,
+    // because that is the side it will be placed on. Fitting the board to THIS
+    // box is what stops a big board being cut off by the panel's max-width and
+    // max-height. The peek is pointer-events:none, so the scrollbar that used
+    // to appear could never be used: the half that overflowed was simply gone.
+    let boxW = vw - _PEEK_EDGE * 2;
+    if (rect) {
+      boxW = Math.max(vw - rect.right - _PEEK_GAP - _PEEK_EDGE,
+                      rect.left - _PEEK_GAP - _PEEK_EDGE);
+    }
+    boxW = Math.max(180, Math.min(boxW, Math.round(vw * 0.58)));
+    const boxH = Math.max(160, Math.round(vh * 0.80));
+    pop.style.left = "0px"; pop.style.top = "0px";
+    pop.style.maxWidth  = `${boxW}px`;
+    pop.style.maxHeight = `${boxH}px`;
+    pop.classList.add("visible");
+    // Measured with the peek on screen: a hidden element has no box.
+    const ps = getComputedStyle(pop);
+    const frameW = (parseFloat(ps.paddingLeft) || 0) + (parseFloat(ps.paddingRight) || 0)
+                 + (parseFloat(ps.borderLeftWidth) || 0) + (parseFloat(ps.borderRightWidth) || 0);
+    const frameH = (parseFloat(ps.paddingTop) || 0) + (parseFloat(ps.paddingBottom) || 0)
+                 + (parseFloat(ps.borderTopWidth) || 0) + (parseFloat(ps.borderBottomWidth) || 0);
+    const chromeH = _outerHeight(title) + _outerHeight(pop.querySelector(".pv-bh-hint"));
+    _fitBoardScale(content,
+                   Math.max(60, boxW - frameW),
+                   Math.max(60, boxH - frameH - chromeH),
+                   _PEEK_SCALE_MIN, _PEEK_SCALE_MAX);
+
+    // Position adjacent to the anchor, clamped to the viewport.
+    const popRect = pop.getBoundingClientRect();
     let left, top;
     if (rect) {
-      const vw = window.innerWidth, vh = window.innerHeight;
-      const placeRight = (rect.right + 12 + popRect.width) <= vw;
-      left = placeRight ? rect.right + 12 : Math.max(8, rect.left - popRect.width - 12);
-      top  = Math.min(Math.max(8, rect.top + (rect.height - popRect.height)/2), vh - popRect.height - 8);
+      const placeRight = (rect.right + _PEEK_GAP + popRect.width) <= vw - _PEEK_EDGE;
+      left = placeRight ? rect.right + _PEEK_GAP
+                        : Math.max(_PEEK_EDGE, rect.left - popRect.width - _PEEK_GAP);
+      top  = Math.min(Math.max(_PEEK_EDGE, rect.top + (rect.height - popRect.height) / 2),
+                      vh - popRect.height - _PEEK_EDGE);
     } else {
-      left = (window.innerWidth - popRect.width) / 2;
-      top  = (window.innerHeight - popRect.height) / 2;
+      left = (vw - popRect.width) / 2;
+      top  = (vh - popRect.height) / 2;
     }
-    pop.style.left = `${Math.round(left)}px`;
-    pop.style.top  = `${Math.round(top)}px`;
+    pop.style.left = `${Math.round(Math.max(_PEEK_EDGE, left))}px`;
+    pop.style.top  = `${Math.round(Math.max(_PEEK_EDGE, top))}px`;
     _boardHoverAnchor = anchorEl || null;
     if (!_boardHoverGuard) _boardHoverGuard = setInterval(_checkBoardHover, 200);
   }
@@ -15183,7 +15291,7 @@
     document.addEventListener(evt, () => { hideBoardHover(); }, true);
   });
   window.addEventListener("scroll", () => { hideBoardHover(); }, true);
-  window.addEventListener("resize", () => { hideBoardHover(); });
+  window.addEventListener("resize", () => { hideBoardHover(); _refitBoardFocus(); });
   window.addEventListener("blur", () => { hideBoardHover(); });
   document.addEventListener("mouseleave", () => { hideBoardHover(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) hideBoardHover(); });

@@ -391,6 +391,10 @@
 # on screen, a removed anchor fires no mouseleave, so every dismissal path
 # (pointer off, click, scroll, tab away, game over, leaving the game) is pinned.
 !test_board_peek_dismiss.js
+# Board fit: clicking a name or hovering a board has to show the WHOLE board at
+# the biggest size that fits, measured in real pixels for boards from one ocean
+# to twelve, on a desktop window and a phone.
+!test_board_fit.js
 # Stars: every ★ ability fired for real through the engine, plus the payload
 # contract behind the gold "discard this to fire the ★" payment border.
 !test_star_abilities.py
