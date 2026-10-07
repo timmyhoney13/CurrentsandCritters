@@ -474,6 +474,13 @@
 # chat lines wore a hash of "[Spectator] Name" instead of the icon they equipped.
 !test_spectator_avatar.py
 !test_spectator_avatar.js
+# Watching one player: their hand under their board, their live cursor over it,
+# and a click on any of their cards to zoom it. The .py half covers the hands
+# reaching a watcher and nobody else, plus the cursor channel's validation and
+# that it never bumps the room's state version; the .js half covers the drawing,
+# the fractions a cursor arrives as, and sending nothing when nobody is watching.
+!test_spectator_hands.py
+!test_spectator_hands.js
 # In-game faces: changing your avatar mid-game has to change it on every
 # surface at once (seats, chat lines, draw notifications, final standings),
 # not just the one that happens to re-read the state.

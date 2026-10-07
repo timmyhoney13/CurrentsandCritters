@@ -107,13 +107,22 @@ const page = `<!doctype html><html><head><meta charset="utf-8">
 ${overlayMarkup}
 <div id="out"></div>
 <script>
-// The three card helpers the renderer needs. Card ART is irrelevant here: every
+// The card helpers the renderer needs. Card ART is irrelevant here: every
 // box is sized by CSS, so a 1x1 transparent pixel lays out identically to the
 // real image and does not need 300 files on disk.
 const PX = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 function imagePathForUid() { return PX; }
 function cardHalfPos() { return "center"; }
 function openZoom() {}
+function cl(el) { while (el.firstChild) el.removeChild(el.firstChild); }
+// Watching somebody play hangs their hand under the enlarged board and polls
+// their cursor onto it. This suite measures the board a SEATED player opens, so
+// watching is off and neither one is drawn. (test_spectator_hands.js covers the
+// watcher's version, including that the board is fitted to what is left after
+// the hand has taken its height.)
+function isSpectating() { return false; }
+let _spectatorViewingIdx = null, _spectatorRoomId = "", _spectatorToken = "";
+function apiFetch() { return Promise.resolve({ ok: false, data: {} }); }
 ${RENDER}
 ${FIT}
 

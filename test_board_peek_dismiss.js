@@ -136,7 +136,7 @@ const page = `<!doctype html><html><head><meta charset="utf-8">
 ${overlayMarkup}
 <div id="out"></div>
 <script>
-// Stub for the one dependency the sliced region has on the rest of the app.
+// Stubs for the dependencies the sliced region has on the rest of the app.
 function renderReadOnlyBoard(player) {
   const d = document.createElement("div");
   d.className = "pv-ro-board";
@@ -144,6 +144,16 @@ function renderReadOnlyBoard(player) {
   d.textContent = (player && player.name) || "";
   return d;
 }
+function cl(el) { while (el.firstChild) el.removeChild(el.firstChild); }
+function imagePathForUid() { return ""; }
+function openZoom() {}
+// Watching somebody play hangs their hand under the enlarged board and polls
+// their cursor onto it. This suite is about dismissing the peek a SEATED player
+// gets, so watching is off and neither one is drawn. test_spectator_hands.js
+// covers the watcher's version.
+function isSpectating() { return false; }
+let _spectatorViewingIdx = null, _spectatorRoomId = "", _spectatorToken = "";
+function apiFetch() { return Promise.resolve({ ok: false, data: {} }); }
 ${PEEK}
 window.__t = { attachBoardHover, showBoardHover, hideBoardHover, openBoardFocus, closeBoardFocus };
 </script>

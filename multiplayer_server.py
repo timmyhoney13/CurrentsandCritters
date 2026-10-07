@@ -301,6 +301,53 @@ def _clean_background_path(value: Any) -> str:
     return path if _BACKGROUND_PATH_RE.match(path) else ""
 
 
+# ── Where a player's pointer is, for the people watching them ──────────────
+# A spectator who clicks a player's icon watches that player play: their hand,
+# the card they are hovering, and the cursor doing the hovering. That needs a
+# channel of its own. A cursor moves many times a second and the room's
+# state_version does not: bumping it for a mouse twitch would re-render the
+# whole table, and push an SSE frame, on every device in the room. So a pointer
+# lives in its own slot (GameRoom.seat_pointers), is read through its own
+# endpoint, and never bumps anything.
+#
+# Positions are FRACTIONS of the box the pointer is in, never pixels: the
+# watcher's screen is a different size and their copy of the hand is laid out
+# by their own browser, so 0.42 across the hand is the only number that means
+# the same thing on both machines.
+#
+# Only a spectator may read them (see the /pointers route). A seated player
+# cannot, because knowing which card an opponent is dithering over is
+# information the game does not give you at a table.
+POINTER_ZONES = frozenset({"hand", "board", "pool"})
+POINTER_STALE_SEC = 5.0
+
+
+def _finite(value: Any) -> Optional[float]:
+    """`value` as a real number, or None if it is not one.
+
+    json.loads accepts the literals NaN, Infinity and -Infinity, so a
+    hand-written request body really can carry them and every arithmetic
+    conversion below has to survive one. int(float("nan")) raises.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return None
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    if f != f or f in (float("inf"), float("-inf")):   # NaN / infinity
+        return None
+    return f
+
+
+def _clamp01(value: Any) -> float:
+    """A 0..1 fraction from whatever a client sent, or 0.0."""
+    f = _finite(value)
+    if f is None:
+        return 0.0
+    return 0.0 if f < 0.0 else (1.0 if f > 1.0 else f)
+
+
 def _clean_device(value: Any) -> str:
     """Normalize a self-reported device type: "computer", "mobile", or "".
 
@@ -5909,6 +5956,10 @@ class GameRoom:
 
         self.latest_public_state: Optional[Dict[str, Any]] = None
         self.latest_private_hands: Dict[int, List[Dict[str, Any]]] = {}
+        # seat index -> {"zone", "nx", "ny", "hover_uid", "ts"}: the live cursor
+        # a watcher draws over this seat's hand. Deliberately NOT persisted and
+        # NOT part of state_version, see POINTER_ZONES.
+        self.seat_pointers: Dict[int, Dict[str, Any]] = {}
         self.last_turn_number: int = 0
         # Current Controller: per-room flag: hidden-state capture stays off until
         # the admin actually opens a mod tool in this room (see admin_activate).
@@ -6149,6 +6200,78 @@ class GameRoom:
                     "background": spec.get("background") or "",
                     "device": spec.get("device") or ""}
 
+    def set_seat_pointer(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Record where one seat's pointer is, so a watcher can draw it.
+
+        Posted by the player's own browser, and only while somebody is actually
+        watching: the reply carries the room's watcher count, which is how a
+        client with no audience learns to stop sending (see _ptrSharingOn in
+        preview-app.js). Never bumps state_version, see POINTER_ZONES.
+        """
+        seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+        zone = str(body.get("zone") or "")
+        if zone not in POINTER_ZONES:
+            zone = ""
+        nx = _clamp01(body.get("nx"))
+        ny = _clamp01(body.get("ny"))
+        # Through _finite, so NaN / Infinity / "17; DROP TABLE" all land on "no
+        # card", rather than on an exception inside int().
+        raw_hover = _finite(body.get("hover_uid"))
+        hover_uid = int(raw_hover) if raw_hover is not None else 0
+        with self.cond:
+            seat = self._seat_from_token_locked(seat_token)
+            if seat is None or seat.kind != "human":
+                return {"ok": False, "error": "invalid seat token"}
+            # Competitive gives one person two seats and their cursor is over
+            # exactly one of them, so the client says which hand it is drawing.
+            # Taken only when the token actually owns that seat: this is the one
+            # place a client picks the seat it writes to.
+            target = seat
+            want = body.get("seat_index")
+            if isinstance(want, int) and not isinstance(want, bool):
+                for owned in self._owned_seats_locked(seat):
+                    if owned.index == want:
+                        target = owned
+                        break
+            if zone:
+                self.seat_pointers[target.index] = {
+                    "zone": zone, "nx": nx, "ny": ny,
+                    "hover_uid": hover_uid, "ts": time.time(),
+                }
+            else:
+                # Off the table entirely: a menu, a chat box, another window.
+                # Dropped now rather than left to go stale, so the cursor leaves
+                # the watcher's screen when it leaves the player's table.
+                self.seat_pointers.pop(target.index, None)
+            watchers = len(self.spectators)
+        return {"ok": True, "watchers": watchers}
+
+    def pointer_snapshot(self) -> List[Dict[str, Any]]:
+        """Every seat's live pointer, with the stale ones dropped.
+
+        A browser that is closed, asleep or has simply stopped moving sends
+        nothing, and a cursor frozen where it was five seconds ago is a lie, so
+        an entry that old is forgotten rather than drawn.
+        """
+        now = time.time()
+        out: List[Dict[str, Any]] = []
+        with self.cond:
+            for idx in list(self.seat_pointers.keys()):
+                ptr = self.seat_pointers.get(idx) or {}
+                age = now - float(ptr.get("ts") or 0.0)
+                if age > POINTER_STALE_SEC:
+                    self.seat_pointers.pop(idx, None)
+                    continue
+                out.append({
+                    "index": int(idx),
+                    "zone": str(ptr.get("zone") or ""),
+                    "nx": float(ptr.get("nx") or 0.0),
+                    "ny": float(ptr.get("ny") or 0.0),
+                    "hover_uid": int(ptr.get("hover_uid") or 0),
+                    "age_ms": int(max(0.0, age) * 1000),
+                })
+        return out
+
     def _music_epoch_ms_locked(self) -> int:
         """Epoch (ms) the theme song's loop is measured from, shared by the room.
 
@@ -6166,18 +6289,36 @@ class GameRoom:
         return int(self.started_unix or self.created_unix) * 1000
 
     def spectator_state_view(self, host_header: str, proto_hint: str = "") -> Dict[str, Any]:
-        """State payload for spectators, same as a non-viewer but boards-only (no hand data)."""
+        """State payload for spectators: every board AND every hand.
+
+        A watcher used to get boards only, which is the half of the game that
+        has already happened. What a player is deciding between is in their
+        hand, so watching somebody play without it is watching the record of a
+        game rather than the game. Every seat's hand, bots included, because a
+        watcher holds no cards and has nothing to win.
+
+        This IS hidden information, and the only thing standing between it and
+        a seated player is that watching is a separate seatless session the
+        room can refuse (allow_spectators, off by default for private rooms)
+        and vote out (spectator_kick_vote).
+        """
         with self.cond:
             state_obj = copy.deepcopy(self.latest_public_state) if isinstance(self.latest_public_state, dict) else None
             if isinstance(state_obj, dict):
                 for p in (state_obj.get("players") or []):
                     if isinstance(p, dict):
-                        p["hand"] = []  # spectators see boards only, no hands
+                        # list(), not deepcopy: a published snapshot is never
+                        # edited in place (see state_view), and this runs on
+                        # every poll of every watcher.
+                        p["hand"] = list(self.latest_private_hands.get(p.get("index"), []))
             human_filled, human_total = self._human_seat_counts_locked()
             return {
                 "ok": True,
                 "version": self.state_version,
                 "spectator": True,
+                # The hands above are real, not blanked. Lets the client label
+                # the view honestly instead of guessing from an empty array.
+                "hands_visible": True,
                 "room": {
                     "room_id": self.room_id, "phase": self.phase,
                     "total_players": self.total_players, "visibility": str(self.visibility),
@@ -8118,6 +8259,7 @@ class GameRoom:
         # Hard reset of published state so every game starts from a clean board view.
         self.latest_public_state = None
         self.latest_private_hands = {}
+        self.seat_pointers = {}
         # ── Current Controller (admin mod tools) live state ──────────────
         # Captured each snapshot for the admin reveal endpoint, and mutated only
         # on the match thread (drained inside _wait_for_action) so we never race
@@ -9285,6 +9427,7 @@ class GameRoom:
             if not self.recovery_active:
                 self.latest_public_state = None
                 self.latest_private_hands = {}
+            self.seat_pointers = {}
             self.legal_actions_by_seat.clear()
             self.pending_actions.clear()
             self.active_action_seat = None
@@ -15546,6 +15689,31 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             )
             return
 
+        # Where everyone's cursor is, for a watcher drawing it over their copy
+        # of the table. Spectators ONLY: at a real table you cannot see which
+        # card an opponent is dithering over, and a seated player reading this
+        # would be able to. Its own route rather than a field on /state because
+        # it is polled several times a second (see POINTER_ZONES).
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "pointers":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            qs = parse_qs(parsed.query)
+            spectator_token = qs.get("spectator_token", [None])[0]
+            with room.cond:
+                is_spec = bool(spectator_token) and spectator_token in room.spectators
+            if not is_spec:
+                self._send_json({"ok": False, "error": "invalid spectator token"},
+                                status=HTTPStatus.FORBIDDEN)
+                return
+            self._send_json({
+                "ok": True,
+                "pointers": room.pointer_snapshot(),
+                "server_now_ms": int(time.time() * 1000),
+            })
+            return
+
         if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "stream":
             room = ROOMS.get(parts[2])
             if room is None:
@@ -16473,6 +16641,19 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 out = room.set_spectator_look(spec_tok, device=body.get("device"))
             else:
                 out = room.set_device(body)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        # Where this player's cursor is, relayed to the people watching them.
+        # Shape matches /device above; the reply's watcher count is what tells a
+        # client with no audience to stop sending.
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "pointer":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            out = room.set_seat_pointer(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return

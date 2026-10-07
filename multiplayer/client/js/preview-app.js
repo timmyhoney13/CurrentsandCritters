@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-07.2";
+  const APP_BUILD   = "2026-10-07.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,19 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { date: "Oct 7, 2026", title: "Watching a player means watching their hand", items: [
+      "Click a player's icon along the bottom of the table and you now watch that player, not just their board. Their hand is laid out underneath it, card for card.",
+      "You see their cursor too. It travels over their hand and their board as they move it, and the card they are hovering lifts and glows gold, so you can watch somebody weigh up a play before they make it.",
+      "Click any card in their hand to zoom in on it, then page through the rest of the hand with the arrows.",
+      "The view keeps itself up to date while they play, so cards leaving their hand and oceans landing on their board arrive without clicking the icon again.",
+      "Only watchers see any of this. Nothing about a seated player's own view of the table has changed, and a room can still turn watching off or vote a watcher out.",
+    ]},
+    { date: "Oct 7, 2026", title: "The bots have names", items: [
+      "No bot is called Bot 1 any more. Every bot seat, in every mode, draws a name of its own and keeps it for the whole game, even if the room restarts halfway through.",
+      "Who they are: Pytheas, Zheng, Majid, Piri, Magellan, Elcano, Barentsz, Hudson, Tasman, Dampier, Bering, Cook, Laperouse, Forster, Vancouver, Banks, Flinders, Bougainville, Anning, Scoresby, Ross, FitzRoy, Maury, Thomson, Dohrn, Chun, Murray, Agassiz, Shackleton, Buchanan, Nansen and Hjort.",
+      "Every one of them is a real person who went out and looked at the sea: the navigators who first charted it (Magellan, Cook, Tasman, Bering), the fossil hunter who opened up what used to live in it (Anning), and the scientists who first measured it properly (Maury, Thomson, Murray, Nansen, Hjort). All of them died long ago, the most recent of them in 1948.",
+      "A bot also wears the animal of the rank it plays at, the same animal standing on that rung of the Head to Head reef, so you can tell how strong an opponent is before the first card goes down.",
+    ]},
     { date: "Oct 1, 2026", title: "Competitive has no seasons", items: [
       "Competitive seasons are gone. Your Ocean Points and your rank are permanent: nothing resets, nothing expires, and there is no season to finish.",
       "Every rank the old quarterly resets took away has been given back. If a reset ever put you back to Unranked, you are back at the rank you had held.",
@@ -2056,7 +2069,7 @@
     _specShowPanel(true);
     startPolling();
     startThemeSong();
-    showToast("Joined as spectator. Click a player's avatar to view their board.", "ok");
+    showToast("Joined as spectator. Click a player's icon to watch their board, their hand and their cursor.", "ok");
   }
 
   async function leaveSpectator() {
@@ -2066,6 +2079,7 @@
     _spectatorRoomId = "";
     _spectatorViewingIdx = null;
     roomId = null;
+    try { _specStopPointerPoll(); _specRenderHand(null); } catch (e) {}
     _specShowPanel(false);
     _specSetPresence(null);
     try { window._igcpSetVisible?.(false); } catch {}
@@ -2076,6 +2090,9 @@
   }
 
   function _specShowPanel(active) {
+    // Also the "we left the game" path (_leaveGameCleanup), so the cursor poll
+    // and the watched hand are put away here rather than at each call site.
+    if (!active) { try { _specStopPointerPoll(); _specRenderHand(null); } catch (e) {} }
     const panel = document.getElementById("pv-spectator-panel");
     const handZone = document.getElementById("pv-hand-zone");
     const handCards = document.getElementById("pv-hand");   // the cards ONLY (not the seats)
@@ -9686,6 +9703,9 @@
     // Spectator list (shown to everyone; spectators have isSpectating()===true)
     if (Array.isArray(payload.spectators)) {
       _specRenderSpectatorList(payload.spectators);
+      // The one thing that switches cursor-sharing on and off: with nobody
+      // watching, _ptrSharingOn() is false and not a single request is made.
+      _ptrWatchers = payload.spectators.length;
     }
 
     // If we are spectating, handle board-view on seat click and check for kick
@@ -9713,17 +9733,25 @@
         }
       }
 
-      // Wire seat avatar clicks to view that player's board
+      // Wire seat avatar clicks to watch that player: their board, their hand,
+      // and their cursor moving over both.
       document.querySelectorAll(".pv-seat[data-player-index]").forEach(seat => {
+        // Said here rather than in renderPlayerSeats, which knows nothing about
+        // watching and is lifted out of this file by three test suites.
+        const seatIdx = Number(seat.dataset.playerIndex);
+        const seatP = players.find(pl => Number(pl.index) === seatIdx);
+        seat.title = `Click to watch ${seatP ? (seatP.name || `Player ${seatIdx + 1}`) : `Player ${seatIdx + 1}`}: `
+                   + "their board, their hand and their cursor";
         if (seat._specWired) return;
         seat._specWired = true;
         seat.addEventListener("click", () => {
           const idx = Number(seat.dataset.playerIndex);
           _spectatorViewingIdx = idx;
           const p = players.find(pl => pl.index === idx);
+          const who = p ? (p.name || `Player ${idx + 1}`) : `Player ${idx + 1}`;
           const lbl = document.getElementById("spec-viewing-label");
           if (lbl) {
-            lbl.textContent = `Viewing ${p ? (p.name || `Player ${idx + 1}`) : `Player ${idx + 1}`}'s board`;
+            lbl.textContent = `Watching ${who}: their board, their hand and their cursor`;
             lbl.style.display = "";
           }
           if (p && typeof openBoardFocus === "function") {
@@ -9734,6 +9762,15 @@
           }
         });
       });
+
+      // The watched player is still playing, so the open view keeps up on its
+      // own: cards leave their hand, oceans land on their board, and the
+      // watcher sees it without clicking the icon again. {live:true} refreshes
+      // only what is already on screen, and only when something actually moved.
+      if (_spectatorViewingIdx != null) {
+        const watched = players.find(pl => Number(pl.index) === Number(_spectatorViewingIdx));
+        if (watched) { try { openBoardFocus(watched, { live: true }); } catch (e) {} }
+      }
     }
   }
 
@@ -10786,6 +10823,10 @@
         }
       });
       try { attachBoardHover(seat, p); } catch (e) {}
+      // A watcher's version of this tooltip is set where the rest of the
+      // watcher-only seat wiring is (the isSpectating() block in
+      // applyServerPayload), so this function stays free of that dependency:
+      // three test suites lift it out of the file and run it on its own.
       seat.title = isMe
         ? (canInteract ? "Can't change avatar on your turn" : "Click to change your avatar")
         : `Hover for ${p.name || `Player ${slot + 1}`}'s board, click to enlarge`;
@@ -13946,6 +13987,133 @@
     zone.addEventListener("pointerleave", ()  => _applyHover(-1));
   })();
 
+  // ── Telling the watchers where my cursor is ───────────────────────────────
+  // A spectator who clicks your icon watches you play: your board, your hand,
+  // the card you are hovering, and the cursor doing the hovering. The cursor
+  // travels on its own tiny endpoint rather than on the room state, because a
+  // cursor moves many times a second and the room does not: bumping the state
+  // version for a mouse twitch would re-render the whole table on every device
+  // in the room (see POINTER_ZONES in multiplayer_server.py).
+  //
+  // Nothing is sent unless somebody is actually watching. The state poll
+  // already carries the spectator list, so an unwatched game pays for this
+  // feature with one integer comparison per pointer move, and no requests.
+  //
+  // Positions are sent as FRACTIONS of the box the cursor is in, never pixels:
+  // the watcher's screen is another size and their copy of the hand is laid out
+  // by their own browser, so "0.42 across the hand" is the only number that
+  // means the same thing on both machines.
+  const _PTR_SEND_MS = 140;     // ~7 updates a second, which reads as smooth
+  let _ptrWatchers  = 0;        // spectators in the room, from the last poll
+  let _ptrLastSentAt = 0;
+  let _ptrLastSig   = "";
+  let _ptrPending   = null;     // newest pointer position, not yet sent
+  let _ptrTimer     = null;
+
+  // Watching is for a game in progress, from a seat. A spectator's own cursor
+  // is nobody's business, and the lobby has no table to point at.
+  function _ptrSharingOn() {
+    if (_ptrWatchers <= 0) return false;
+    if (!roomId || isSpectating()) return false;
+    if (!getSeatToken()) return false;
+    try { if (String(latestPayload?.room?.phase || "") !== "running") return false; } catch (_) { return false; }
+    return true;
+  }
+
+  // Which part of the table the cursor is over, as a fraction of that part.
+  // Checked hand-first: the hand's catchment overlaps the board's box.
+  function _ptrZoneAt(cx, cy) {
+    const pick = (id, zone, padX, padY) => {
+      const el = document.getElementById(id);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      if (!(r.width > 0 && r.height > 0)) return null;
+      if (cx < r.left - padX || cx > r.right + padX) return null;
+      if (cy < r.top - padY || cy > r.bottom + padY) return null;
+      const nx = (cx - r.left) / r.width;
+      const ny = (cy - r.top) / r.height;
+      return { zone,
+               nx: Math.min(1, Math.max(0, nx)),
+               ny: Math.min(1, Math.max(0, ny)) };
+    };
+    // The fan is drawn well outside #pv-hand's own box (the outer cards hang
+    // ~65px below it and the hovered card lifts 64px above), the same reason
+    // _setupHandHover hit-tests instead of trusting the event target.
+    return pick("pv-hand", "hand", 40, 70)
+        || pick("pv-my-board", "board", 0, 0)
+        || pick("pv-pool-wrap", "pool", 0, 0);
+  }
+
+  function _ptrSend() {
+    _ptrTimer = null;
+    if (!_ptrSharingOn() || !_ptrPending) return;
+    const { x, y } = _ptrPending;
+    const z = _ptrZoneAt(x, y);
+    let body;
+    if (!z) {
+      // Off the table: a menu, the chat box, another window. Said out loud so
+      // the cursor leaves the watcher's screen instead of freezing where it was.
+      body = { zone: "", nx: 0, ny: 0, hover_uid: 0 };
+    } else {
+      let hoverUid = 0;
+      if (z.zone === "hand") {
+        const aimed = _handCardAt(x, y);
+        hoverUid = aimed ? Number(aimed.dataset.faceUid || 0) : 0;
+      } else {
+        let hit = null;
+        try { hit = document.elementFromPoint(x, y); } catch (_) {}
+        const card = (hit && hit.closest) ? hit.closest("[data-face-uid]") : null;
+        hoverUid = card ? Number(card.dataset.faceUid || 0) : 0;
+      }
+      // Three decimals is sub-pixel on any hand anyone has ever been dealt, and
+      // it is what makes the "did anything change" test below worth running.
+      body = { zone: z.zone,
+               nx: Math.round(z.nx * 1000) / 1000,
+               ny: Math.round(z.ny * 1000) / 1000,
+               hover_uid: Number.isFinite(hoverUid) ? hoverUid : 0 };
+    }
+    const sig = `${body.zone}|${body.nx}|${body.ny}|${body.hover_uid}`;
+    if (sig === _ptrLastSig) return;    // a cursor that has not moved
+    _ptrLastSig = sig;
+    _ptrLastSentAt = Date.now();
+    const seatTok = getSeatToken();
+    if (!seatTok) return;
+    const payload = { seat_token: seatTok, ...body };
+    // Competitive hands one person two seats; the server only accepts a seat
+    // this token owns, so saying which hand is on screen is safe.
+    if (typeof mySeatIdx === "number") payload.seat_index = mySeatIdx;
+    apiPost(`/api/rooms/${roomId}/pointer`, payload, { timeoutMs: 4000, retries: 0 })
+      .then((r) => {
+        // The reply is how a player finds out the last watcher left, which is
+        // what turns this whole thing back off.
+        if (r && r.data && typeof r.data.watchers === "number") _ptrWatchers = r.data.watchers;
+      })
+      .catch(() => {});
+  }
+
+  function _ptrNote(x, y) {
+    if (!_ptrSharingOn()) return;
+    _ptrPending = { x, y };
+    if (_ptrTimer) return;
+    const wait = Math.max(0, _PTR_SEND_MS - (Date.now() - _ptrLastSentAt));
+    _ptrTimer = setTimeout(_ptrSend, wait);
+  }
+
+  // Capture + passive: this must never change how a click or a drag behaves,
+  // and it must still see moves over elements that stop propagation.
+  document.addEventListener("pointermove", (ev) => { _ptrNote(ev.clientX, ev.clientY); },
+                            { capture: true, passive: true });
+  // Leaving the window, or hiding the tab, is the cursor leaving the table.
+  function _ptrClear() {
+    if (!_ptrSharingOn()) return;
+    _ptrPending = { x: -1e6, y: -1e6 };     // outside every zone
+    if (_ptrTimer) { clearTimeout(_ptrTimer); _ptrTimer = null; }
+    _ptrSend();
+  }
+  document.addEventListener("mouseleave", _ptrClear);
+  window.addEventListener("blur", _ptrClear);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) _ptrClear(); });
+
   // ── Guide bar ──────────────────────────────────────────────────
   function renderGuideBar(me, actions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive) {
     const bar = document.getElementById("pv-guide-bar");
@@ -15262,22 +15430,65 @@
     const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
     const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
     const availW = Math.max(120, overlay.clientWidth - padX);
-    const availH = Math.max(120, overlay.clientHeight - padY - _outerHeight(label));
+    // The watcher's copy carries the player's hand under the board, and the
+    // board gets what is left: fitting it to the whole overlay would push the
+    // hand off the bottom of the screen.
+    const hand = document.getElementById("pv-spec-hand");
+    const handH = (hand && hand.classList.contains("visible")) ? _outerHeight(hand) : 0;
+    const availH = Math.max(120, overlay.clientHeight - padY - _outerHeight(label) - handH);
     // The stylesheet's 960px cap is what forced a wide board to wrap onto extra
     // rows on a wide screen, and wrapping is what made it shrink.
     content.style.maxWidth = `${Math.round(availW)}px`;
     _fitBoardScale(content, availW, availH, _FOCUS_SCALE_MIN, _FOCUS_SCALE_MAX);
   }
 
-  function openBoardFocus(player) {
+  // Which player the enlarged view is showing, and what it was built from.
+  // A watcher's copy has to keep up with a game that is still being played, so
+  // every poll offers the overlay a fresh player object ({live:true}); the key
+  // is what stops an unchanged board being torn down and rebuilt once a second
+  // under the cursor.
+  let _focusPlayerIdx = null;
+  let _focusKey = "";
+
+  function _focusStateKey(player) {
+    try {
+      return JSON.stringify({
+        i: player.index,
+        n: player.name || "",
+        s: player.score ?? 0,
+        b: player.board || [],
+        h: (Array.isArray(player.hand) ? player.hand : [])
+             .map(e => Number(e.entry_uid ?? e.uid ?? 0)),
+      });
+    } catch (_) { return String(Math.random()); }   // unkeyable: always rebuild
+  }
+
+  function openBoardFocus(player, opts) {
+    if (!player) return;
+    const live = !!(opts && opts.live);
     const overlay = document.getElementById("pv-board-focus");
     const label = document.getElementById("pv-board-focus-label");
     const content = document.getElementById("pv-board-focus-content");
-    label.textContent = `${player.name || `Player ${player.index}`}'s Board`;
+    const isOpen = overlay.classList.contains("open");
+    const sameOne = Number(_focusPlayerIdx) === Number(player.index);
+    // A live refresh only ever updates what is already on screen: it must never
+    // open the overlay, nor swap it to a different player.
+    if (live && (!isOpen || !sameOne)) return;
+    const key = _focusStateKey(player);
+    if (live && isOpen && sameOne && key === _focusKey) return;   // nothing moved
+    _focusPlayerIdx = (player.index == null) ? null : Number(player.index);
+    _focusKey = key;
+    const who = player.name || `Player ${Number(player.index) + 1}`;
+    // Watching somebody says so, because the hand below the board is theirs.
+    label.textContent = isSpectating() ? `${who}'s Board and Hand` : `${who}'s Board`;
     content.innerHTML = "";
     const board = Array.isArray(player.board) ? player.board : [];
     content.dataset.oceans = String(board.length);
     content.appendChild(renderReadOnlyBoard(player));
+    // Their hand, and their cursor moving over it. Spectators only: this is the
+    // hidden half of the game and a seated player never sees it.
+    _specRenderHand(isSpectating() ? player : null);
+    _specWatchedName = isSpectating() ? who : "";
     // Opened before it is measured: a display:none overlay has no box to fit to.
     overlay.classList.add("open");
     _refitBoardFocus();
@@ -15285,6 +15496,157 @@
     try { window._applyStrategyHighlights && window._applyStrategyHighlights(); } catch (e) {}
     // Hide any hover preview so it doesn't sit on top of the modal.
     hideBoardHover();
+    if (isSpectating()) { _specStartPointerPoll(); _specPaintPointer(); }
+  }
+
+  // ── The hand of the player being watched ──────────────────────────────────
+  // Read-only by construction. The real hand (renderHand) is a fan that can be
+  // dragged, reordered, selected for payment and discarded from; this is a row
+  // of pictures. The only thing you can do to one of these cards is click it to
+  // see it bigger, which is what you would do leaning over somebody's shoulder.
+  //
+  // No prestige skin is painted on them either, for the same reason
+  // renderReadOnlyBoard leaves an opponent's board alone: tinting their art
+  // would imply they own a skin they don't.
+  function _specRenderHand(player) {
+    const wrap = document.getElementById("pv-spec-hand");
+    const title = document.getElementById("pv-spec-hand-title");
+    const cards = document.getElementById("pv-spec-hand-cards");
+    if (!wrap || !cards) return;
+    if (!player) { wrap.classList.remove("visible"); cl(cards); return; }
+    const hand = Array.isArray(player.hand) ? player.hand : [];
+    const who = player.name || `Player ${Number(player.index) + 1}`;
+    wrap.classList.add("visible");
+    cl(cards);
+    if (title) {
+      title.textContent = hand.length
+        ? `${who}'s Hand, ${hand.length} card${hand.length === 1 ? "" : "s"}`
+        : `${who}'s Hand`;
+    }
+    if (!hand.length) {
+      const msg = document.createElement("div");
+      msg.className = "spec-hand-empty";
+      // An old server blanks the hands, and so does the gap between a game
+      // ending and the next one dealing. Both look the same from here.
+      msg.textContent = "No cards in hand";
+      cards.appendChild(msg);
+      return;
+    }
+    hand.forEach((entry, i) => {
+      const face = (Array.isArray(entry.faces) && entry.faces.length > 0) ? entry.faces[0] : entry;
+      const faceUid = Number(face.uid ?? entry.entry_uid ?? entry.uid);
+      const card = document.createElement("div");
+      card.className = "spec-hand-card";
+      card.dataset.faceUid = String(faceUid);
+      card.dataset.idx = String(i);
+      card.dataset.species = face.species || "";
+      const img = document.createElement("img");
+      img.src = imagePathForUid(faceUid);
+      img.alt = face.name || "";
+      img.loading = "lazy";
+      card.appendChild(img);
+      card.title = `${face.name || "?"}, click to zoom`;
+      card.addEventListener("click", (e) => {
+        e.stopPropagation();
+        // The whole hand goes along, so the zoom's arrows page through it.
+        openZoom(faceUid, face.name, face.text, face.species, hand, i);
+      });
+      cards.appendChild(card);
+    });
+  }
+
+  // ── Their cursor, on your screen ──────────────────────────────────────────
+  // Polled on its own short timer while the enlarged view is open, never
+  // through the state poll: a cursor at one update every 2.5 seconds is a
+  // slideshow, and a cursor on the state poll would re-render the table. The
+  // timer only runs while somebody is being watched, so a watcher reading the
+  // board costs nothing either.
+  const _SPEC_PTR_POLL_MS = 180;
+  let _specPtrTimer = null;
+  let _specPointers = [];
+  let _specWatchedName = "";    // whose cursor the ghost arrow is wearing
+
+  function _specFocusOpen() {
+    const ov = document.getElementById("pv-board-focus");
+    return !!(ov && ov.classList.contains("open"));
+  }
+
+  function _specStartPointerPoll() {
+    if (_specPtrTimer || !isSpectating()) return;
+    _specPtrTimer = setInterval(async () => {
+      if (!isSpectating() || !_specFocusOpen() || _spectatorViewingIdx == null) {
+        _specStopPointerPoll();
+        return;
+      }
+      if (document.hidden) return;   // nobody is looking at our screen either
+      try {
+        const r = await apiFetch(
+          `/api/rooms/${_spectatorRoomId}/pointers?spectator_token=${encodeURIComponent(_spectatorToken)}`,
+          // No retry: a missed frame of a cursor is replaced 180ms later, and
+          // apiFetch's default retry would sleep 2.5s and log every blip.
+          { method: "GET", timeoutMs: 4000, retries: 0 });
+        if (r && r.ok && r.data && r.data.ok) {
+          _specPointers = Array.isArray(r.data.pointers) ? r.data.pointers : [];
+          _specPaintPointer();
+        }
+      } catch (_) { /* the next tick tries again */ }
+    }, _SPEC_PTR_POLL_MS);
+  }
+
+  function _specStopPointerPoll() {
+    if (_specPtrTimer) { clearInterval(_specPtrTimer); _specPtrTimer = null; }
+    _specPointers = [];
+    const ghost = document.getElementById("pv-spec-cursor");
+    if (ghost) ghost.classList.remove("visible");
+  }
+
+  // Place the ghost cursor, and lift the card it is over. Positions arrive as
+  // fractions of the box they were measured in (see POINTER_ZONES in
+  // multiplayer_server.py), so they land on OUR copy of that box whatever size
+  // it happens to be here.
+  function _specPaintPointer() {
+    const overlay = document.getElementById("pv-board-focus");
+    const ghost = document.getElementById("pv-spec-cursor");
+    if (!overlay || !ghost) return;
+    const idx = _spectatorViewingIdx;
+    const ptr = (idx == null) ? null
+      : _specPointers.find(q => Number(q.index) === Number(idx));
+
+    // The hover first: which card they are holding a cursor over is the thing
+    // worth seeing, and it survives a cursor that has wandered off the table.
+    const hoverUid = ptr ? Number(ptr.hover_uid || 0) : 0;
+    overlay.querySelectorAll(".spec-hand-card.hovered")
+           .forEach(el => el.classList.remove("hovered"));
+    if (hoverUid) {
+      const el = overlay.querySelector(`.spec-hand-card[data-face-uid="${hoverUid}"]`);
+      if (el) el.classList.add("hovered");
+    }
+
+    // The arrow wears the name, because with eight seats on screen "whose
+    // cursor is that" is a real question.
+    const nameEl = document.getElementById("pv-spec-cursor-name");
+    if (nameEl) {
+      nameEl.textContent = _specWatchedName
+        || (idx == null ? "" : `Player ${Number(idx) + 1}`);
+    }
+
+    if (!ptr || !ptr.zone) { ghost.classList.remove("visible"); return; }
+    // "pool" has no counterpart in this overlay, so the cursor simply leaves
+    // rather than being drawn somewhere it is not.
+    const hostId = ptr.zone === "hand" ? "pv-spec-hand-cards"
+                 : ptr.zone === "board" ? "pv-board-focus-content"
+                 : "";
+    const host = hostId ? document.getElementById(hostId) : null;
+    const hr = host ? host.getBoundingClientRect() : null;
+    if (!hr || !(hr.width > 0 && hr.height > 0)) { ghost.classList.remove("visible"); return; }
+    const or = overlay.getBoundingClientRect();
+    // The overlay scrolls, and an absolutely-positioned child is placed from
+    // its UNSCROLLED top-left, so the scroll offset goes back on.
+    const left = (hr.left - or.left) + overlay.scrollLeft + Number(ptr.nx || 0) * hr.width;
+    const top  = (hr.top  - or.top)  + overlay.scrollTop  + Number(ptr.ny || 0) * hr.height;
+    ghost.style.left = `${Math.round(left)}px`;
+    ghost.style.top  = `${Math.round(top)}px`;
+    ghost.classList.add("visible");
   }
 
   // ── Board hover preview ─────────────────────────────────────────
@@ -15468,6 +15830,18 @@
     const ov = document.getElementById("pv-board-focus");
     if (ov) ov.classList.remove("open");
     hideBoardHover();
+    // Closing it is how a watcher stops watching that player: the cursor poll
+    // stops, the hand goes away, and the next icon click starts it all again.
+    _focusPlayerIdx = null;
+    _focusKey = "";
+    _specWatchedName = "";
+    _specStopPointerPoll();
+    _specRenderHand(null);
+    if (isSpectating()) {
+      _spectatorViewingIdx = null;
+      const lbl = document.getElementById("spec-viewing-label");
+      if (lbl) { lbl.style.display = "none"; lbl.textContent = ""; }
+    }
   }
   window.__ccCloseBoardFocus = closeBoardFocus;
   document.getElementById("pv-board-focus-close").addEventListener("click", closeBoardFocus);
