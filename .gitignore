@@ -76,6 +76,10 @@
 !test_lobby_seat_tiles.py
 !test_lobby_seat_tiles.js
 !test_bot_grades.py
+# What a bot is CALLED and what it LOOKS LIKE: the explorer pool is one-word
+# surnames that cannot collide with the ladder's own people, and every rank
+# wears the Head to Head animal it stands on, on the seat the client draws.
+!test_bot_names.py
 !test_bot_match.js
 !test_squid_taunt.js
 !calibrate_bots.py
@@ -618,10 +622,13 @@
 # (a stale second .ph-action-label rule paints it navy, which was invisible
 # while the cards were images), and that the reef is attached to the window.
 !test_home_actions.js
-# NO FULL-SCREEN BUTTON on the menu. Loads the real page as a signed-in player
-# and confirms no full-screen control is anywhere in the menu, while the game's
-# action bar keeps its own.
-!test_fullscreen_chip.js
+# THE FULL SCREEN BUTTON on Player Home. Full screen used to be a painting
+# with an invisible click box over it (the launch splash); it is a real button
+# in the bottom-right corner now. Loads the real page as a signed-in player and
+# measures the button's corner on all twelve tabs at five widths, checks the
+# splash is gone from markup, CSS, code and disk, and that the Sardine the
+# splash used to hide is granted by a completed trade instead.
+!test_fullscreen_button.js
 
 !fish_ai_brain.json
 !multiplayer/

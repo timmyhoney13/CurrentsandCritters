@@ -123,6 +123,7 @@ function harness() {
     AVATAR_TABLE[0] + "\n" +
     extract("pvSeatHash") + "\n" +
     extract("pvSeatDefaultAvatar") + "\n" +
+    extract("_pvSeatRankKey") + "\n" +
     extract("noteLiveAvatars") + "\n" +
     extract("pvLiveAvatar") + "\n" +
     extract("pvLiveAvatarKey") + "\n" +
@@ -146,6 +147,11 @@ function harness() {
     "function _applyAvBg() {}" +
     "function cl(el) { el.children = []; }" +
     "function isLikelyAiName() { return false; }" +
+    // A bot wears its rank's animal. Every seat on this page is a person, so
+    // this is here to be reachable rather than to be exercised: which animal
+    // belongs to which rank is tested in test_bot_names.py.
+    "function bmAvatarForRank() { return ''; }" +
+    "function bmBadge() { return document.createElement('span'); }" +
     "function attachBoardHover() {}" +
     "function openBoardFocus() {}" +
     "function pvcUpdateBadges() {}" +
@@ -310,11 +316,20 @@ console.log("9. The live table is rebuilt from every payload, before anything re
 {
   const rp = APP.slice(APP.indexOf("function renderPayload("),
                        APP.indexOf("function renderPayload(") + 2000);
-  ok(/_latestPlayers = players;\s*\n\s*\/\/[^\n]*\n\s*try \{ noteLiveAvatars\(players, payload\.spectators\); \}/.test(rp),
+  ok(/_latestPlayers = players;\s*\n\s*\/\/[^\n]*\n\s*try \{ noteLiveAvatars\(players, payload\.spectators, payload\.seats\); \}/.test(rp),
      "renderPayload refreshes the face table as soon as it has the players");
-  const idxNote = APP.indexOf("noteLiveAvatars(players, payload.spectators)");
+  // THIS tick's seats, handed in rather than read out of _latestSeatsForSurf:
+  // that one is assigned much further down the same pass, so a bot with no
+  // relayed face would be matched against the previous tick's table, and on
+  // the first tick of a game against nothing at all.
+  ok(/function noteLiveAvatars\(players, spectators, seats\)/.test(APP),
+     "…and it is given the seats it needs to answer for a bot");
+  const idxNote = APP.indexOf("noteLiveAvatars(players, payload.spectators, payload.seats)");
   const idxSeats = APP.indexOf("renderPlayerSeats(players, state.turn_index, myIdx)");
   ok(idxNote > 0 && idxSeats > idxNote, "…and it happens before the seat row is painted");
+  const idxSurf = APP.indexOf("_latestSeatsForSurf = seatsArr;");
+  ok(idxSurf > idxNote,
+     "…which is exactly why the seats are passed: the cached copy is set later");
 
   // Rebuilt, not merged: a player who leaves must not leave their face behind.
   const h = harness();

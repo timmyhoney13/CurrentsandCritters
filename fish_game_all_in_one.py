@@ -5070,6 +5070,33 @@ _BOT_GRADE_LADDER: "List[tuple]" = [
 # every validator read this instead of hard-coding a list.
 BOT_GRADE_ORDER: List[str] = [row[0] for row in _BOT_GRADE_LADDER]
 
+# ── The face a rank wears ───────────────────────────────────────────────────
+# Head to Head is a coral reef with one platform per rank and one animal
+# standing on each platform, and that animal IS the rank: the player learns
+# "Bobtail Squid" and "Hermit Crab" on the reef before they ever learn that F
+# is weaker than E. So the animal has to follow the rank off the reef and sit
+# at the table too, otherwise a player beats a Bobtail Squid on the reef and
+# then plays an F bot wearing a random mullet, and nothing connects.
+#
+# Keyed by TIER rather than by ladder id on purpose. A tier is what the reef
+# draws a platform for, so re-tuning the ladder, or inserting a rung, cannot
+# leave an animal pointing at a rung that moved. Every tier in the ladder above
+# must have an entry here; test_bot_names.py holds the two together.
+#
+# The names are avatar ids: there is a /avatars/<id>.png for each, the same file
+# the reef and the lineup already draw.
+BOT_GRADE_ANIMALS: Dict[str, str] = {
+    "F":  "bobtail-squid",
+    "E":  "hermit-crab",
+    "D":  "peruvian-pelican",
+    "C":  "staghorn-coral",
+    "B":  "narwhal",
+    "A":  "great-white-shark",
+    "S":  "mandarin-goby",
+    "S+": "bunker",
+    "GS": "giant-squid",
+}
+
 
 def _build_difficulty_configs() -> Dict[str, Dict[str, Any]]:
     out: Dict[str, Dict[str, Any]] = {}
@@ -5183,21 +5210,31 @@ STORY_LOCKED_GRADES: Dict[str, str] = {
 # plausibly be said to have a commercial interest in their surname appearing
 # above a cartoon fish. (This is reasoning, not legal advice.)
 #
-# They are also SHORT on purpose. A seat label sits under an avatar in a row of
-# up to six, and a long name is the one that wraps or clips, so nothing here is
-# longer than fourteen characters -- see BOT_NAME_MAX_CHARS, which the tests
-# hold this list to.
+# SURNAMES ONLY, one word each. A seat label sits under an avatar in a row of
+# up to six, and the thing that wraps or clips is the long name: "John Murray"
+# and "Carl Chun" were carrying a first name that bought the player nothing,
+# because at a table there is no other Murray to tell them apart from. So every
+# entry is the one word a person would actually call them -- see
+# BOT_NAME_MAX_CHARS and SURNAME_MAX_WORDS, which the tests hold this list to.
+#
+# Two of them never had a surname to cut: Pytheas sailed a thousand years before
+# family names reached Greece, and Piri Reis was Piri, with "Reis" a rank. Both
+# are already the single word the man is known by, so both stay as they are.
 #
 # The grade ladder's own people (Gilbert Thomas Carter, Jeanne Villepreux-
 # Power, Edward Forbes, Steve Irwin, William Beebe, Eugenie Clark, Rachel
 # Carson, Jacques Cousteau) are deliberately NOT here: a bot called "Forbes"
-# playing at rank "Edward Forbes" would read as a bug.
+# playing at rank "Edward Forbes" would read as a bug. Cutting this list down to
+# surnames is what makes that collision possible in the first place, so
+# test_bot_names.py checks the two lists against each other rather than trusting
+# this comment.
 BOT_NAME_MAX_CHARS = 14
+SURNAME_MAX_WORDS = 1
 OCEAN_EXPLORER_NAMES: Tuple[str, ...] = (
-    "Pytheas",        # Greek, sailed to the Arctic around 325 BC
-    "Zheng He",       # d. 1433
-    "Ibn Majid",      # d. c. 1500
-    "Piri Reis",      # d. 1553
+    "Pytheas",        # Greek, sailed to the Arctic around 325 BC; no surname
+    "Zheng",          # Zheng He, d. 1433
+    "Majid",          # Ahmad ibn Majid, d. c. 1500
+    "Piri",           # Piri Reis, d. 1553; "Reis" was his rank, not a name
     "Magellan",       # d. 1521
     "Elcano",         # d. 1526
     "Barentsz",       # d. 1597
@@ -5206,7 +5243,7 @@ OCEAN_EXPLORER_NAMES: Tuple[str, ...] = (
     "Dampier",        # d. 1715
     "Bering",         # d. 1741
     "Cook",           # d. 1779
-    "La Perouse",     # d. 1788
+    "Laperouse",      # Jean-Francois de Galaup, comte de Laperouse, d. 1788
     "Forster",        # d. 1794
     "Vancouver",      # d. 1798
     "Banks",          # d. 1820
@@ -5214,14 +5251,18 @@ OCEAN_EXPLORER_NAMES: Tuple[str, ...] = (
     "Bougainville",   # d. 1811
     "Anning",         # d. 1847
     "Scoresby",       # d. 1857
-    "James Ross",     # d. 1862
+    "Ross",           # James Clark Ross, d. 1862
     "FitzRoy",        # d. 1865
     "Maury",          # d. 1873
     "Thomson",        # Charles Wyville Thomson, d. 1882
     "Dohrn",          # d. 1909
-    "Carl Chun",      # d. 1914
-    "John Murray",    # d. 1914
-    "Albert I",       # Prince Albert I of Monaco, d. 1922
+    "Chun",           # Carl Chun, d. 1914
+    "Murray",         # John Murray, d. 1914
+    "Agassiz",        # Alexander Agassiz, d. 1910. He replaced Prince Albert I
+                      # of Monaco, who had no surname to cut down to: the family
+                      # name is Grimaldi, and Monaco's is a house that is still
+                      # ruling, which is exactly the live interest the rule
+                      # above exists to avoid.
     "Shackleton",     # d. 1922
     "Buchanan",       # d. 1925
     "Nansen",         # d. 1930
@@ -5342,6 +5383,29 @@ def bot_grade_fraction(raw: Optional[str]) -> float:
     return bot_grade_rank(raw) / float(last)
 
 
+def bot_grade_animal(raw: Optional[str]) -> str:
+    """The avatar id of the animal a grade wears: "gilbert_carter" ->
+    "bobtail-squid". Looked up by TIER, so every rank at a tier wears the same
+    animal it stands on in Head to Head.
+
+    A tier with no entry falls back to the bottom of the reef rather than to
+    nothing: a missing face draws a broken image, which is worse than the wrong
+    animal, and BOT_GRADE_ANIMALS is checked against the ladder by the tests so
+    this cannot be reached without one of them being edited alone.
+    """
+    tier = str(ai_difficulty_config(raw).get("tier", ""))
+    return BOT_GRADE_ANIMALS.get(tier, BOT_GRADE_ANIMALS["F"])
+
+
+def bot_grade_avatar(raw: Optional[str]) -> str:
+    """Where that animal's picture lives: "/avatars/bobtail-squid.png".
+
+    This is what a bot seat wears at the table. A bot has no account to equip a
+    face from, so its rank is its face.
+    """
+    return "/avatars/" + bot_grade_animal(raw) + ".png"
+
+
 def bot_grade_table() -> List[Dict[str, Any]]:
     """The whole ladder, weakest first, in the shape the clients want."""
     return [
@@ -5354,6 +5418,12 @@ def bot_grade_table() -> List[Dict[str, Any]]:
             # The client draws the chain from this, so it never carries its own
             # copy of who comes after whom.
             "requires": AI_DIFFICULTY_CONFIGS[key].get("requires", ""),
+            # The animal this rank wears, on the reef and at the table. Served
+            # rather than hard-coded in the client for the same reason the rest
+            # of this row is: one source, so the reef and the seats cannot
+            # disagree about what an F bot looks like.
+            "animal":   bot_grade_animal(key),
+            "avatar":   bot_grade_avatar(key),
         }
         for key in BOT_GRADE_ORDER
     ]

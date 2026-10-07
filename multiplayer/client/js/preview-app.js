@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-07.1";
+  const APP_BUILD   = "2026-10-07.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -2898,6 +2898,14 @@
   function _wrSeatAvatarUrl(seat) {
     const own = String((seat && seat.avatar) || "");
     if (own) return own;
+    // A bot wears its rank: the animal Head to Head stands that rank on. The
+    // server sends it on the seat too (Seat.display_avatar), so this only has
+    // to answer while the client is ahead of the game server, which on this
+    // site it can be for a while -- the two deploy to different hosts.
+    if (seat && seat.kind === "ai") {
+      const face = bmAvatarForRank(seat.grade_tier || seat.grade || seat.difficulty);
+      if (face) return face;
+    }
     const live = pvLiveAvatar(String((seat && seat.claimed_name) || ""));
     return live || "/avatars/mullet.png";
   }
@@ -5010,12 +5018,41 @@
   // its place on the ladder, so a re-tuned ladder still draws an animal.
   function bmAnimalFor(id) {
     const g = bmGradeById(id);
+    // The served ladder carries the animal now (fish.bot_grade_animal), so the
+    // reef and the seats cannot disagree about what an F bot looks like.
+    if (g && g.animal) return String(g.animal);
     if (g && g.unlock === "story") return "giant-squid";
     const byRank = g ? BM_TIERS.find(s => !s.final && s.tier === g.tier) : null;
     if (byRank) return byRank.animal;
     const i = bmIndexOf(id);
     const t = BM_TIERS.find(s => !s.final && i >= s.lo && i <= s.hi);
     return t ? t.animal : BM_TIERS[0].animal;
+  }
+
+  // The same question asked by ANY spelling of a rank: a ladder id, a grade
+  // name, or just the tier letter off a seat payload ("S+"). bmAnimalFor needs
+  // an id; a seat at the table very often carries only the letter.
+  //
+  // It answers from BM_TIERS, this build's own copy of the reef, rather than
+  // from the served ladder, and that is deliberate: the client ships on Vercel
+  // and the game server ships on Render, which means this file can be live for
+  // some time before a server that knows about rank faces is. Deriving the face
+  // here makes the table right in that window instead of after the restart.
+  function bmAnimalForRank(gradeOrId) {
+    const q = String(gradeOrId || "").trim();
+    if (!q) return "";
+    const hit = _bmGrades.find(g => g.id === q || g.grade === q || g.tier === q);
+    if (hit && hit.animal) return String(hit.animal);
+    const tier = bmTierLetter(q);
+    const spot = BM_TIERS.find(s => s.tier === tier);
+    if (spot) return spot.animal;
+    return hit ? bmAnimalFor(hit.id) : "";
+  }
+  // That animal's picture. "" when the rank is not one, so a caller can tell
+  // "no face for this" from a face, rather than being handed a broken image.
+  function bmAvatarForRank(gradeOrId) {
+    const a = bmAnimalForRank(gradeOrId);
+    return a ? `/avatars/${a}.png` : "";
   }
   function bmSquidId() {
     const squid = _bmGrades.find(g => g.unlock === "story");
@@ -5116,6 +5153,10 @@
           tier: String(g.tier || ""),
           unlock: String(g.unlock || ""),
           requires: String(g.requires || ""),
+          // The animal this rank wears, on the reef and at the table. Carried
+          // across for the same reason tier and requires had to be: a field
+          // dropped here is a field the screen then has to guess at.
+          animal: String(g.animal || ""),
         })).filter(g => g.id);
         _bmGradesLoaded = true;
       }
@@ -9088,7 +9129,7 @@
     const players = Array.isArray(state.players) ? state.players : [];
     _latestPlayers = players;
     // Refresh the live face table before anything renders from it.
-    try { noteLiveAvatars(players, payload.spectators); } catch (e) {}
+    try { noteLiveAvatars(players, payload.spectators, payload.seats); } catch (e) {}
     if (state.round_count != null) _latestRoundCount = Number(state.round_count) || 0;
     const me      = players.find(p => p.index === myIdx) || null;
     const phase   = payload.room?.phase || "lobby";
@@ -10290,6 +10331,18 @@
   function pvSeatDefaultAvatar(seed) {
     return PV_SEAT_AVATARS[pvSeatHash(seed) % 12];
   }
+  // What rank the bot in a seat plays at, in whatever spelling the payload
+  // happens to carry, or "" when the seat is not a bot. The server sends
+  // grade_tier, grade and difficulty beside the name and any of the three is
+  // enough to name a rank, so all three are tried: a Head to Head table and a
+  // poll that lands before the ladder does each arrive missing a different one.
+  // The rank is both the letter on the badge and the animal on the face, so
+  // they read it from here rather than each working it out again.
+  function _pvSeatRankKey(seatIndex) {
+    const m = (_latestSeatsForSurf || []).find(x => x && x.index === seatIndex) || null;
+    if (!m || m.kind !== "ai") return "";
+    return String(m.grade_tier || m.grade || m.difficulty || "");
+  }
 
   // ── One live source for every face in the game ────────────────
   // The server relays each player's and spectator's CURRENT avatar on every
@@ -10301,10 +10354,24 @@
   // (and drew a name-hash stranger for anyone without a profile doc), so the
   // seat row was the only place a change actually showed up.
   let _liveAvatarByName = Object.create(null);
-  function noteLiveAvatars(players, spectators) {
+  // `seats` is THIS tick's seat snapshot, handed in rather than read from
+  // _latestSeatsForSurf: that one is only assigned further down the same
+  // payload pass, so reading it here would answer with the previous tick's
+  // table and, on the first tick of a game, with nothing at all.
+  function noteLiveAvatars(players, spectators, seats) {
     const next = Object.create(null);
+    const seatRows = Array.isArray(seats) ? seats : [];
     (Array.isArray(players) ? players : []).forEach(p => {
-      if (p && p.name && p.avatar) next[String(p.name)] = String(p.avatar);
+      if (!p || !p.name) return;
+      if (p.avatar) { next[String(p.name)] = String(p.avatar); return; }
+      // A bot with no relayed face wears its rank, so the chat lines, the turn
+      // pill and the final standings show the Head to Head animal rather than
+      // a name-hash stranger. Only reached while this client is ahead of the
+      // game server, which ships to a different host.
+      const row = seatRows.find(x => x && x.index === p.index && x.kind === "ai");
+      if (!row) return;
+      const face = bmAvatarForRank(row.grade_tier || row.grade || row.difficulty);
+      if (face) next[String(p.name)] = face;
     });
     (Array.isArray(spectators) ? spectators : []).forEach(s => {
       if (!s || !s.name || !s.avatar) return;
@@ -10535,13 +10602,22 @@
       const fallbackAvatar = (typeof pvSeatDefaultAvatar === "function")
         ? pvSeatDefaultAvatar(p.name || `seat${slot}`)
         : PV_SEAT_AVATARS[slot % 12];
+      // A BOT wears its rank. The server says so too (Seat.display_avatar),
+      // and this is the same answer worked out from this build's own copy of
+      // the reef, so the table is right in the window where the client has
+      // shipped and the game server has not. It is only ever a FALLBACK: it
+      // sits below p.avatar, so a kicked player's chair, which is played out by
+      // a bot but keeps the face the table already knows, is left alone.
+      const _seatIsBot = (_latestSeatsForSurf || [])
+        .some(x => x && x.index === p.index && x.kind === "ai");
+      const _botRankFace = _seatIsBot ? bmAvatarForRank(_pvSeatRankKey(p.index)) : "";
       // Authoritative source: each player's OWN avatar carried per-seat in the
       // game state (p.avatar), so every player has a separate icon and a change
       // propagates immediately. For MY seat my local equipped value wins, the
       // same way it does for the background below, the relayed copy is a
       // round-trip behind, so preferring it made my own new icon sit on the old
       // one until the next poll came back.
-      let initialUrl = fallbackAvatar;
+      let initialUrl = _botRankFace || fallbackAvatar;
       if (isMe && myAvatarUrl) initialUrl = myAvatarUrl;
       else if (p.avatar) initialUrl = p.avatar;
 
@@ -10617,16 +10693,13 @@
       // and it is worth knowing mid-game: an S+ across the table is a
       // different game from a D.
       {
-        const _gMeta = (_latestSeatsForSurf || []).find(x => x && x.index === p.index) || null;
         // Every bot wears its rank, not just the ones whose grade NAME happened
         // to be in the seat payload. The server has always sent grade_tier and
         // difficulty beside the name and the client read neither, so a seat
         // that arrived without a resolved `grade` -- a Head to Head table, a
         // seat a kicked player left behind, a poll that landed before the
         // ladder did -- showed no badge at all while the bot beside it did.
-        const _tierKey = _gMeta && _gMeta.kind === "ai"
-          ? (_gMeta.grade_tier || _gMeta.grade || _gMeta.difficulty || "")
-          : "";
+        const _tierKey = _pvSeatRankKey(p.index);
         if (_tierKey) {
           const gb = bmBadge(_tierKey, "wr");
           gb.classList.add("pv-seat-grade");
@@ -15652,9 +15725,34 @@
     216350, 220000, 223700, 227400, 231100, 234850, 238600, 242400, 246200, 250000,
   ];
 
-  function isLikelyAiName(name) {
+  // Does this name look like a bot's, on the shape of the name alone? "AI",
+  // "AI Player", "Bot 3". This is what a bot used to be called, so it is still
+  // how a saved game, an older client and a payload with no seat list in it
+  // are read. It is NOT enough on its own any more: see isLikelyAiName.
+  function _ccAiStyleName(name) {
     const n = String(name || "").trim();
     return /^ai\b/i.test(n) || /\bai player\b/i.test(n) || /\bbot\b/i.test(n);
+  }
+  // Is this seat at THIS table a bot? Asked of the seat snapshot, which is the
+  // only place that actually knows: a bot is called "Nansen" or "Shackleton"
+  // now, and nothing about either says bot.
+  //
+  // This matters well beyond decoration. Playing bots pays half XP, and the
+  // new-opponent achievements are about real people; both used to be decided
+  // by the shape of the name, so the moment a bot stopped being called "Bot 2"
+  // a table full of bots would have paid full XP and counted as four new
+  // friends. (Head to Head has named its bots for a while, so that was already
+  // true there.)
+  function _ccSeatIsBotNamed(name) {
+    const n = String(name || "").trim().toLowerCase();
+    if (!n) return false;
+    try {
+      return (_latestSeatsForSurf || []).some(st => st && st.kind === "ai"
+        && String(st.claimed_name || "").trim().toLowerCase() === n);
+    } catch (_) { return false; }
+  }
+  function isLikelyAiName(name) {
+    return _ccSeatIsBotNamed(name) || _ccAiStyleName(name);
   }
 
   function getPlacementRank(finalScores, myScore) {
@@ -16238,7 +16336,11 @@
     // affect this. Try several strategies, most specific first.
     const nickLower = (myNick || "").trim().toLowerCase();
     const _fs = Array.isArray(finalScores) ? finalScores : [];
+    // The players payload carries no kind/is_ai (see _record_snapshot), so
+    // these three checks could never fire; the seat snapshot is what knows,
+    // and it has to be asked, because a bot's name is a person's surname now.
     const _isBotEntry = (p) => {
+      if (isLikelyAiName(p && p.name)) return true;
       const lp = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(q => String(q.name||"") === String(p.name||""));
       return !!(lp && (lp.kind === "ai" || lp.is_ai === true || lp.bot === true));
     };
@@ -20102,73 +20204,58 @@
   })();
 
   // ═══════════════════════════════════════════════════════════════
-  // FULL-SCREEN LAUNCH SPLASH
-  // Shows after sign-in (revealLobby adds .show). The Play button is the
-  // user gesture browsers require to enter true full screen. The menu has no
-  // full-screen button of its own; in a game the action bar carries one.
+  // FULL SCREEN, from Player Home
+  // The bottom-right button on every Player Home tab (#ph-fullscreen). It
+  // replaced the launch splash: one baked painting over the whole page with
+  // an invisible click box positioned over a painted "Play Full Screen".
+  //
+  // The game screen keeps its OWN button in the action bar (setupFullScreenBtn
+  // above) and this one is deliberately not shown there: Player Home is where
+  // a player decides how to sit down, and the action bar is where they are
+  // already looking once they have.
   // ═══════════════════════════════════════════════════════════════
-  (function setupGameWindowFullscreen() {
-    const splash   = document.getElementById("cc-fs-splash");
-    const playBtn  = document.getElementById("ccfs-play");
-    const winBtn   = document.getElementById("ccfs-window");
-    const statusEl = document.getElementById("ccfs-status");
-    const sardine  = document.getElementById("ccfs-sardine");
-    if (!splash || !playBtn || !winBtn) return;
-
-    // Hidden-click secret: clicking the Sardine on the launch splash unlocks the
-    // Sardine avatar. Reuses the same grant/celebrate path as the hidden
-    // cephalopods. stopPropagation so it never bubbles into the Play overlay.
-    if (sardine) {
-      sardine.addEventListener("click", (e) => {
-        e.stopPropagation();
-        window.__fishGrantHiddenCeph?.("sardine", "/avatars/sardine.png", sardine);
-      });
-    }
-
-    let wantsFullscreen = false;
+  (function setupHomeFullScreenBtn() {
+    const btn = document.getElementById("ph-fullscreen");
+    if (!btn) return;
     const isFs = () => Boolean(document.fullscreenElement || document.webkitFullscreenElement);
-    function setFsStatus(msg) {
-      if (statusEl) statusEl.textContent = msg || "";
+    // The label is the state. A button that still says "Full Screen" while the
+    // window IS full screen is a button that looks broken, and this one sits in
+    // the corner where the browser's own exit hint used to be.
+    function updateLabel() {
+      btn.textContent = isFs() ? "Exit Full Screen" : "Full Screen";
+      btn.title = isFs() ? "Leave full screen" : "Fill the screen with the game";
+      btn.setAttribute("aria-label", btn.textContent);
     }
-    async function enterFs() {
-      const el = document.documentElement;
+    btn.addEventListener("click", async () => {
+      const entering = !isFs();
       try {
-        if (el.requestFullscreen) await el.requestFullscreen();
-        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-        return isFs();
+        if (entering) {
+          const el = document.documentElement;
+          if (el.requestFullscreen) await el.requestFullscreen();
+          else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+        } else {
+          if (document.exitFullscreen) await document.exitFullscreen();
+          else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+        }
       } catch (e) {
         ccReport("fullscreen_request_failed", {
+          where: "player_home",
           error: e && (e.name || e.message || e)
         }, "warn");
-        return false;
       }
-    }
-
-    playBtn.addEventListener("click", async () => {
-      wantsFullscreen = true;
-      document.body.classList.add("cc-fullscreen-wanted");
-      setFsStatus("Opening full screen…");
-      const ok = await enterFs();
-      if (ok) {
-        setFsStatus("");
-        splash.classList.remove("ccfs-blocked");
-        splash.classList.remove("show");
-        try { sessionStorage.setItem("cc_fs_splash_dismissed", "1"); } catch (_) {}
-      } else {
-        // Reveal the "Continue in this window" fallback only now that the
-        // browser actually refused full screen, so the splash otherwise stays
-        // true to the artwork.
-        splash.classList.add("ccfs-blocked");
-        setFsStatus("Your browser blocked full screen. Try again, or continue in this window.");
+      // A browser may refuse full screen outright (an iframe without the
+      // permission, a policy, a gesture it did not count). Say so rather than
+      // leaving the player pressing a button that appears to do nothing.
+      if (entering && !isFs()) {
+        try { showToast("Full screen was blocked by the browser. Try the button again.", "warn"); } catch (_) {}
       }
+      updateLabel();
     });
-    winBtn.addEventListener("click", () => {
-      wantsFullscreen = false;
-      document.body.classList.remove("cc-fullscreen-wanted");
-      setFsStatus("");
-      splash.classList.remove("show");
-      try { sessionStorage.setItem("cc_fs_splash_dismissed", "1"); } catch (_) {}
-    });
+    // Esc and F11 leave full screen without touching this button, so the label
+    // follows the document rather than our own clicks.
+    document.addEventListener("fullscreenchange", updateLabel);
+    document.addEventListener("webkitfullscreenchange", updateLabel);
+    updateLabel();
   })();
 
   // ═══════════════════════════════════════════════════════════════
@@ -24811,18 +24898,17 @@
       // went missing and the header threw away the very name it had just been
       // handed. Stamped here, after the claim above, so the one-account coral
       // claim stays where test_coral_secret.js requires it.
+      //
+      // Then straight to Player Home. A full-screen launch splash used to stand
+      // at the end of this, once per session, and it had to be dismissed before
+      // the player could reach anything. Full screen is a button in the corner
+      // of the home screen now, so signing in arrives at the game instead of at
+      // a question about the window. Nothing goes between these four lines: the
+      // uid has to be on the profile before the header is painted from it.
       if (_authUser && _activeProfile) _activeProfile.uid = _authUser.uid;
       $a("auth-loading-screen").classList.add("hidden");
       $a("auth-screen").classList.add("hidden");
       showStatsLobby();
-      // The full-screen launch splash is a separate-WINDOW (desktop) concept;
-      // on mobile we play inline in the tab, so skip it and reveal the home
-      // screen directly. Once dismissed (Play or "Continue in this window"),
-      // a same-tab reload (e.g. the update-banner "Refresh now" button)
-      // should land back in the lobby instead of re-showing the splash.
-      let _splashAlreadyDismissed = false;
-      try { _splashAlreadyDismissed = sessionStorage.getItem("cc_fs_splash_dismissed") === "1"; } catch (_) {}
-      if (!window.CC_IS_MOBILE && !_splashAlreadyDismissed) document.getElementById("cc-fs-splash")?.classList.add("show");
     }
 
     // Reveal the lobby for a RETURNING guest (auto-restored from a saved
@@ -30407,6 +30493,27 @@
         try { window.__ccCritterPassPrime && window.__ccCritterPassPrime(); } catch (_) {}
       } catch (_) {}
     }
+
+    // ── A trade that landed ─────────────────────────────────────────
+    // Everything that happens ONCE, the moment a trade goes from open to
+    // completed, whichever surface confirmed it: the trade screen, or the
+    // trade card in a conversation. Both funnel through here so neither can
+    // do it twice and neither can forget.
+    //
+    // The Sardine avatar is earned here. It used to be a hidden click on the
+    // launch splash: a sardine painted into a gull's beak, with an invisible
+    // button sitting over it. That splash is gone, and a secret nobody can
+    // reach is not a secret, so the Sardine is now what a player gets for
+    // finishing a trade with another person. It fits better than the click
+    // did: a sardine is the thing one critter hands another.
+    //
+    // The grant is awaited BEFORE the profile re-read. Both touch the same
+    // account document, and in the other order the re-read can land first and
+    // paint an unlocked_icons list that does not have the Sardine in it yet.
+    async function _trAfterTradeCompleted() {
+      try { await window.__fishGrantHiddenCeph?.("sardine", "/avatars/sardine.png", null); } catch (_) {}
+      await _trRefreshMyProfile();
+    }
     // Anything that changes MY account server-side needs this same re-read.
     // Prestige is the biggest one: level, XP, coins, equipped avatar and the
     // whole unlocked_icons list all move in a single server transaction, so
@@ -30701,8 +30808,9 @@
       // left Add item enabled on a trade that does not exist, so every tap
       // answered "Open a trade first" with no way to open one.
       const status = _trState ? _trState.status : "none";
-      // Fire the "trade completed" profile refresh exactly once per completion.
-      if (status === "completed" && _trLastStatus !== "completed") _trRefreshMyProfile();
+      // Fire the once-per-completion work exactly once per completion: the
+      // profile re-read and the Sardine.
+      if (status === "completed" && _trLastStatus !== "completed") _trAfterTradeCompleted();
       _trLastStatus = status;
       const myOffer = _trMyOffer();
       const peerOffer = _trPeerOffer();
@@ -31374,7 +31482,9 @@
       }
       if (res.completed) {
         _trToast("Trade completed!", "ok");
-        if (!overlayFollows) _trRefreshMyProfile();
+        // When the overlay followed, its own render already ran the
+        // once-per-completion work, so this must not run it a second time.
+        if (!overlayFollows) _trAfterTradeCompleted();
         if (Number(res.clan_points || 0) > 0) {
           try { if (window.__ccClanTradePoint) window.__ccClanTradePoint(res.clan_points); } catch (_) {}
         }
@@ -31912,6 +32022,140 @@
           try { localStorage.setItem(KEY, on ? "1" : "0"); } catch (_) {}
         });
         sb.addEventListener("mouseleave", () => sb.classList.remove("ph-sidebar-resting"));
+      })();
+
+      // ── Reach for the top or the bottom and the menu walks the list ──
+      // The tab list is its own scroller (preview.css, "THE TABS SCROLL"), and
+      // on a short window, a small laptop or past about 110% browser zoom it is
+      // taller than the card: Competitive, the passes and Store sit below its
+      // bottom edge, and Overview is above the top one once you are down there.
+      // The wheel, the scrollbar and the keyboard all still work exactly as they
+      // did. This adds the way a game menu does it: rest the cursor near the top
+      // or the bottom of the list and it walks that way on its own, faster the
+      // nearer the edge, and stops the instant the cursor moves off, the list
+      // runs out, or a button goes down. The logo strip above the list is the
+      // whole "back to the top" edge, so Overview is one reach up. Below the
+      // list only 30px count, so reading the Daily Streak block never drags the
+      // tabs around.
+      //
+      // Mouse only: a finger cannot hover, so touch and pen pointers are
+      // ignored, and .ph-sidebar-resting (the pin let go under the cursor, the
+      // menu shut) parks it until the cursor leaves.
+      (function initSidebarEdgeScroll() {
+        const sb   = document.getElementById("ph-sidebar");
+        const nav  = sb && sb.querySelector(".ph-sidebar-nav");
+        const card = sb && sb.querySelector(".ph-sidebar-nav-card");
+        if (!sb || !nav || !card) return;
+
+        const ZONE  = 78;   // how far into the list the hot band reaches
+        const GRACE = 30;   // just past the bottom edge still counts
+        const MAX   = 940;  // px a second, with the cursor right on the edge
+        const MOUSE = matchMedia("(hover: hover) and (pointer: fine)");
+        const CALM  = matchMedia("(prefers-reduced-motion: reduce)");
+        // Live style objects: they keep reporting the current value, so this is
+        // one lookup, not one per frame.
+        const navCss = getComputedStyle(nav);
+        const sbCss  = getComputedStyle(sb);
+
+        const scrolls = (el, css) => /^(auto|scroll|overlay)$/.test(css.overflowY)
+                                     && el.scrollHeight - el.clientHeight > 2;
+        // The icon rail scrolls the tab list inside a card that holds its ends;
+        // the plain desktop menu scrolls the whole sidebar. Walk whichever one is
+        // the scroller right now, and nothing at all while it all fits.
+        const scroller = () => scrolls(nav, navCss) ? nav
+                             : (scrolls(sb, sbCss) ? sb : null);
+
+        // Fade the end the list can still travel towards (preview.css, "There is
+        // more list this way").
+        function cues() {
+          const listed = scroller() === nav;
+          const room = nav.scrollHeight - nav.clientHeight;
+          nav.classList.toggle("cc-scroll-more-up", listed && nav.scrollTop > 4);
+          nav.classList.toggle("cc-scroll-more-down", listed && nav.scrollTop < room - 4);
+        }
+
+        let x = 0, y = 0, aiming = false, raf = 0, last = 0, spill = 0;
+
+        // How hard the cursor is asking the list to move: -1..1, up is negative,
+        // 0 for anywhere that is not an edge. Squared, so the inner half of the
+        // band is a crawl and the very edge is the full speed.
+        function pull(box) {
+          const r = box.getBoundingClientRect();
+          const c = card.getBoundingClientRect();
+          if (x < c.left - 4 || x > c.right + 4 || y < c.top - 4 || y > c.bottom + 4) return 0;
+          let dir = 0, t = 0;
+          if (y <= r.top)                { dir = -1; t = 1; }   // the logo strip
+          else if (y < r.top + ZONE)     { dir = -1; t = (r.top + ZONE - y) / ZONE; }
+          else if (y >= r.bottom)        { dir =  1; t = y <= r.bottom + GRACE ? 1 : 0; }
+          else if (y > r.bottom - ZONE)  { dir =  1; t = (y - (r.bottom - ZONE)) / ZONE; }
+          if (!dir || t <= 0) return 0;
+          t = Math.min(1, t);
+          return dir * Math.max(.05, t * t);
+        }
+
+        function frame(now) {
+          raf = 0;
+          if (!aiming) return;
+          const dt = Math.min(now - last, 64) / 1000;
+          last = now;
+          const box = MOUSE.matches && !sb.classList.contains("ph-sidebar-resting")
+                    ? scroller() : null;
+          const want = box ? pull(box) : 0;
+          if (want) {
+            // From where the list really is, not from where the last frame left
+            // it: a wheel flick or the keyboard in between is respected.
+            const room = box.scrollHeight - box.clientHeight;
+            const step = want * (CALM.matches ? MAX * .6 : MAX) * dt + spill;
+            const to = Math.max(0, Math.min(room, box.scrollTop + step));
+            box.scrollTop = to;
+            // Carry whatever the browser rounded off into the next frame, so the
+            // gentle end of the band creeps instead of sticking.
+            spill = to - box.scrollTop;
+            cues();
+          } else {
+            spill = 0;
+          }
+          // Keep watching while the cursor is on the menu: the rail widening,
+          // the streak block giving its room back and the list growing all move
+          // the edges under a cursor that has not budged.
+          raf = requestAnimationFrame(frame);
+        }
+
+        function park() {
+          aiming = false;
+          if (raf) cancelAnimationFrame(raf);
+          raf = 0;
+          spill = 0;
+        }
+
+        function look(e) {
+          if (e.pointerType === "touch" || e.pointerType === "pen") { park(); return; }
+          // The pin sticks out past the menu's edge: it is a button, not an edge.
+          if (e.target && e.target.closest && e.target.closest(".ph-sidebar-pin")) { park(); return; }
+          x = e.clientX; y = e.clientY;
+          if (!aiming) { aiming = true; last = performance.now(); spill = 0; }
+          if (!raf) raf = requestAnimationFrame(frame);
+        }
+
+        sb.addEventListener("pointerenter", look);
+        sb.addEventListener("pointermove", look);
+        sb.addEventListener("pointerleave", park);
+        sb.addEventListener("pointerdown", park);   // a click is not a walk
+        window.addEventListener("blur", park);
+        document.addEventListener("visibilitychange", () => { if (document.hidden) park(); });
+
+        // Keep the faded edges honest without a cursor on the menu: hand
+        // scrolling, the rail opening and closing, a resize, and the Analytics
+        // tab preview-app.js adds to the list.
+        nav.addEventListener("scroll", cues, { passive: true });
+        sb.addEventListener("scroll", cues, { passive: true });
+        sb.addEventListener("transitionend", (e) => { if (e.propertyName === "width") cues(); });
+        window.addEventListener("resize", cues);
+        try {
+          new ResizeObserver(cues).observe(nav);
+          new MutationObserver(cues).observe(nav, { childList: true });
+        } catch (_) { /* older browser: the scroll and resize hooks still run */ }
+        cues();
       })();
 
       // ── Store: Stripe-hosted checkout ───────────────────────────────
@@ -36085,7 +36329,9 @@
           const friendNicks = window.__fishFriendNicksLower || new Set();
           // Bots must not count as opponents here, new_face / new_currents /
           // friendly_waters are about REAL players, and finalScores includes
-          // bot seats (named "Bot 1" etc.) with no is_ai flag.
+          // bot seats with no is_ai flag on them. A bot is named after an ocean
+          // explorer, so the NAME cannot answer this: isLikelyAiName asks the
+          // seat snapshot, which knows which chairs are bots.
           const realOpponents = finalScores
             .map(p => String(p?.name || "").trim())
             .filter(n => n && n.toLowerCase() !== myName)
@@ -37256,13 +37502,7 @@
       const sub = document.getElementById("ph-whatsnew-sub");
       if (sub)     sub.textContent = "Currents and Critters · Beta V" + APP_VERSION;
       if (wn)      wn.addEventListener("click", openWhatsNewModal);
-      if (refresh) refresh.addEventListener("click", () => {
-        // Refreshing for an update should reload in place, not bounce the
-        // player back to the full-screen launch splash, so mark it dismissed
-        // before the reload re-runs the boot/revealLobby sequence.
-        try { sessionStorage.setItem("cc_fs_splash_dismissed", "1"); } catch (_) {}
-        location.reload();
-      });
+      if (refresh) refresh.addEventListener("click", () => location.reload());
       if (close)   close.addEventListener("click", () => modal?.classList.remove("open"));
       if (modal)   modal.addEventListener("click", e => { if (!e.target.closest(".ph-whatsnew-box")) modal.classList.remove("open"); });
 

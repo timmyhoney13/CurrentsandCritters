@@ -510,18 +510,33 @@ try:
     check(len(kinds) == 4 and kinds.count("human") == 1 and kinds.count("ai") == 3,
           "four seats: one person and three bots", str(kinds))
     # Starting a game shuffles the seats, so who sits where is not the request
-    # order any more. What must survive is the PAIRING: the bot the screen
-    # called Bot 2 and graded B has to still be Bot 2, and still be a B. If the
-    # grades came unstuck from the names here, the Head to Head screen would be
-    # describing a table that does not exist.
+    # order any more. What must survive is the PAIRING: each bot keeps the grade
+    # it was dealt, and there is still exactly one bot per requested grade. If
+    # the grades came unstuck from the seats here, the Head to Head screen would
+    # be describing a table that does not exist.
+    #
+    # The bots are not called "Bot 1..3" any more, they are named after ocean
+    # explorers (fish.OCEAN_EXPLORER_NAMES, drawn per room), so the pairing is
+    # checked as a SET of grades plus the requirement that the three names are
+    # three real, distinct ones. test_bot_names.py is where the naming itself
+    # is pinned down.
     check(len(bots) == 3, "three bots at the table")
-    by_name = dict(bots)
-    check(by_name == {"Bot 1": wanted_ids[0], "Bot 2": wanted_ids[1],
-                      "Bot 3": wanted_ids[2]},
-          "each named bot kept the grade it was given, wherever it ended up sitting",
+    check(sorted(g for _, g in bots) == sorted(wanted_ids),
+          "the three grades dealt are the three that were asked for, one each",
           str(sorted(bots)))
     check(len({g for _, g in bots}) == 3,
           "the three bots are three DIFFERENT grades, which is the whole idea")
+    bot_names = [n for n, _ in bots]
+    check(all(n in fish.OCEAN_EXPLORER_NAMES for n in bot_names),
+          "every bot is named after an ocean explorer, not numbered",
+          str(bot_names))
+    check(len(set(bot_names)) == 3, "and no two of them share a name", str(bot_names))
+    # Read the room a second time: the pairing must not drift between polls,
+    # which is what would happen if a name or a grade were made up per read.
+    with made_room.cond:
+        bots_again = [(s.claimed_name, s.difficulty) for s in made_room.seats if s.kind == "ai"]
+    check(bots_again == bots, "and it is the same table on the next read",
+          f"{sorted(bots)} -> {sorted(bots_again)}")
     check(phase != "lobby", "and the table is past the lobby", phase)
 
     # The grade has to survive the API too, not just the room object: the

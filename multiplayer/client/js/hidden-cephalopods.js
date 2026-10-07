@@ -3,7 +3,11 @@
    naturally into the UI: Common Octopus sitting in the "Friends Quick Stats"
    title on the Overview, Bobtail Squid as the "What's bob doing here" card at
    the end of achievements, and Cuttlefish above your in-game score row.
-   (Giant Squid uses the Level 80 path.) */
+   (Giant Squid uses the Level 80 path.)
+
+   __fishGrantHiddenCeph is the grant path for all of them, and it is not only
+   for clicks: the Sardine is handed out by it when a trade completes (see
+   _trAfterTradeCompleted in preview-app.js), which is why `el` is optional. */
 (function () {
   "use strict";
 

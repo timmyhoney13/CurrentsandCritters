@@ -325,8 +325,14 @@ check("it names the peer explicitly, because the overlay is usually closed",
       /_trCardAct\("confirm", st, \{ version: st\.version, confirm: !iConfirmed \}\)/.test(SRC));
 check("confirming an empty trade is not offered", SRC.includes("busy || (bothEmpty && !iConfirmed)"));
 check("one action at a time per trade", SRC.includes("if (_trCardBusy[tid]) return;"));
-check("a completed trade refreshes the profile it just changed",
-      /if \(res\.completed\) \{[\s\S]{0,200}_trRefreshMyProfile\(\);/.test(SRC));
+// The once-per-completion work is one funnel now (_trAfterTradeCompleted):
+// the profile re-read plus the Sardine avatar, which a completed trade is
+// what earns. Both this card and the overlay go through it, and exactly one
+// of them runs it per completion.
+check("a completed trade does its once-per-completion work",
+      /if \(res\.completed\) \{[\s\S]{0,300}_trAfterTradeCompleted\(\);/.test(SRC));
+check("…and that work refreshes the profile the trade just changed",
+      /async function _trAfterTradeCompleted\(\) \{[\s\S]{0,300}await _trRefreshMyProfile\(\);/.test(SRC));
 check("and still awards the clan point",
       /if \(res\.completed\)[\s\S]{0,320}window\.__ccClanTradePoint\(res\.clan_points\)/.test(SRC));
 check("a guest is shown no buttons at all", SRC.includes("if (!isGuest) {"));

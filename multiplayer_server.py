@@ -5763,6 +5763,25 @@ class Seat:
             return "ai"
         return "taken" if self.token else "available"
 
+    def display_avatar(self) -> str:
+        """The face this seat wears, for every screen that draws one.
+
+        A person wears what they equipped. A bot has no account to equip
+        anything from, so it wears its RANK: the same animal Head to Head
+        stands that rank on, so the Bobtail Squid a player beat on the reef is
+        the Bobtail Squid sitting across the table from them. Derived rather
+        than written onto the seat, because a seat's grade can be changed in
+        the lobby after it became a bot and the face has to follow it.
+
+        An avatar that was explicitly set still wins: a kicked player's seat is
+        played out by a bot and keeps the face the table already knows.
+        """
+        if self.avatar:
+            return str(self.avatar)
+        if self.kind == "ai":
+            return fish.bot_grade_avatar(self.difficulty)
+        return ""
+
 
 class GameRoom:
     def __init__(
@@ -5847,7 +5866,6 @@ class GameRoom:
 
         self.host_control_token = secrets.token_urlsafe(18)
         self.seats: List[Seat] = []
-        ai_num = 1
         for i in range(total_players):
             if i < human_players:
                 self.seats.append(
@@ -5859,16 +5877,17 @@ class GameRoom:
                     )
                 )
             else:
-                self.seats.append(
-                    Seat(
-                        index=i,
-                        kind="ai",
-                        label=f"Player {i + 1}",
-                        claimed_name=f"Bot {ai_num}",
-                        token=None,
-                    )
+                bot_seat = Seat(
+                    index=i,
+                    kind="ai",
+                    label=f"Player {i + 1}",
+                    token=None,
                 )
-                ai_num += 1
+                self.seats.append(bot_seat)
+                # Appended BEFORE it is named: _take_bot_name reads the table
+                # to see which names are already out, so a seat that is not on
+                # it yet could be handed a name its neighbour already has.
+                self._name_bot_seat(bot_seat)
 
         # Team Mode: assign every seat a starting team round-robin so the opening
         # split is even (seat 0→Red, seat 1→Blue, seat 2→Red …). Bots get a team
@@ -6308,6 +6327,12 @@ class GameRoom:
                     "kind": str(seat.kind),
                     "label": str(seat.label),
                     "claimed_name": seat.claimed_name,
+                    # The explorer surname a bot drew. Saved because it is drawn
+                    # ONCE per seat and never again: without it a restart mid
+                    # game leaves bot_name empty, the next pass over the table
+                    # draws a fresh name, and the opponent a player is halfway
+                    # through a game against changes who they are.
+                    "bot_name": str(getattr(seat, "bot_name", "") or ""),
                     "token": seat.token,
                     "is_host": bool(seat.is_host),
                     "difficulty": fish.normalize_bot_grade(seat.difficulty),
@@ -6628,8 +6653,10 @@ class GameRoom:
                     "is_host": bool(seat.is_host),
                     # The waiting room draws a real player card per seat, so the
                     # look has to travel with the seat list, not only inside a
-                    # running game's public state.
-                    "avatar": seat.avatar or "",
+                    # running game's public state. A bot's comes from its rank
+                    # (Seat.display_avatar), so the lobby shows the same animal
+                    # the Head to Head reef does.
+                    "avatar": seat.display_avatar(),
                     "background": seat.background or "",
                     # Computer or mobile. Every screen that lists players reads
                     # it from here, so there is one answer per seat, not one
@@ -6735,12 +6762,23 @@ class GameRoom:
                     default_label = f"Player {idx + 1}"
                     seat_label = safe_name(seat_raw.get("label"), default_label)
                     claimed_name: Optional[str] = None
+                    seat_bot_name = ""
                     if seat_kind == "ai":
                         raw_ai_name = seat_raw.get("claimed_name")
                         claimed_name = (
                             safe_name(raw_ai_name, f"Bot {ai_num}")
                             if isinstance(raw_ai_name, str) and raw_ai_name.strip()
                             else f"Bot {ai_num}"
+                        )
+                        # Keep the drawn name, so the next pass over the table
+                        # does not draw this bot a new one. A room saved before
+                        # the names were kept has no bot_name field, and its
+                        # restored claimed_name is the name to keep.
+                        raw_bot_name = seat_raw.get("bot_name")
+                        seat_bot_name = (
+                            safe_name(raw_bot_name, claimed_name)
+                            if isinstance(raw_bot_name, str) and raw_bot_name.strip()
+                            else str(claimed_name or "")
                         )
                         ai_num += 1
                     else:
@@ -6768,6 +6806,7 @@ class GameRoom:
                             kind=seat_kind,
                             label=seat_label,
                             claimed_name=claimed_name,
+                            bot_name=seat_bot_name,
                             token=token,
                             is_host=bool(seat_raw.get("is_host")) if seat_kind == "human" else False,
                             difficulty=seat_difficulty,
@@ -7692,18 +7731,18 @@ class GameRoom:
                                          difficulty=fish.DEFAULT_BOT_GRADE))
             new_seats.extend(ai_seats)
 
-            # Renumber, and give the bots their names back in table order.
-            bot_number = 1
+            # Renumber. A bot KEEPS the name it already had: these seats are
+            # the same opponents, just at different indexes, and renaming them
+            # because somebody added a chair would be a different table.
+            self.seats = new_seats
             for i, seat in enumerate(new_seats):
                 seat.index = i
                 seat.label = f"Player {i + 1}"
                 if seat.kind == "ai":
-                    seat.claimed_name = f"Bot {bot_number}"
+                    self._name_bot_seat(seat)
                     seat.token = None
                     seat.is_host = False
                     seat.quick_play_ticket = None
-                    bot_number += 1
-            self.seats = new_seats
 
             # Team Mode: any seat that arrived without a team gets one, and the
             # whole table is re-checked against a team count that may no longer
@@ -7840,11 +7879,9 @@ class GameRoom:
                     # pass used to force every bot back to "Bot N" on every
                     # state change, which is why the name has to be remembered
                     # on the seat rather than made up here.
-                    if not seat.bot_name:
-                        seat.bot_name = self._take_bot_name()
-                    expected_name = seat.bot_name
-                    if seat.claimed_name != expected_name:
-                        seat.claimed_name = expected_name
+                    before = seat.claimed_name
+                    self._name_bot_seat(seat)
+                    if seat.claimed_name != before:
                         changed = True
                     seat.token = None
                     seat.is_host = False
@@ -7915,7 +7952,6 @@ class GameRoom:
                 }
 
             keep = {seat.index for seat in claimed}
-            bot_number = 1
             for seat in self.seats:
                 if seat.index not in keep:
                     seat.kind = "ai"
@@ -7929,8 +7965,7 @@ class GameRoom:
                     seat.left_at = None
                     seat.quick_play_ticket = None
                 if seat.kind == "ai":
-                    seat.claimed_name = f"Bot {bot_number}"
-                    bot_number += 1
+                    self._name_bot_seat(seat)
 
             self.human_players = len(keep)
             self.ai_players = self.total_players - self.human_players
@@ -8861,6 +8896,24 @@ class GameRoom:
             parts = self._current_turn_descs.setdefault(player_name, [])
             parts.append(desc)
 
+    def _name_bot_seat(self, seat: "Seat") -> None:
+        """Give a bot seat its explorer surname, and keep it.
+
+        Drawn ONCE and remembered on the seat (`bot_name`), because this runs
+        from every pass that re-walks the table: a state change, a seat added
+        or removed, a search giving up and botting out the empty chairs. Drawn
+        fresh per name rather than numbered, so a bot is "Nansen" instead of
+        "Bot 2" -- the table reads as people, which is the point of the pool.
+
+        Every path that turns a seat into a bot comes through here. There used
+        to be four of them, each writing f"Bot {n}" itself, and only the Head
+        to Head lobby ever reached the explorer pool -- so the names existed,
+        were tested, and almost nobody ever saw one.
+        """
+        if not seat.bot_name:
+            seat.bot_name = self._take_bot_name()
+        seat.claimed_name = seat.bot_name
+
     def _take_bot_name(self) -> str:
         """An explorer's name no other seat in this room is using.
 
@@ -8868,7 +8921,14 @@ class GameRoom:
         name twice, and reshuffled per room so the same four bots are not the
         same four names every game.
         """
+        # Names already in use at this table: the other bots' AND the people's.
+        # A person called Cook sitting next to a bot called Cook is two seats
+        # the table cannot tell apart, and worse than that, the client decides
+        # "is this a bot" by matching the name against the bot seats, so the
+        # person would be treated as one and lose their XP and their
+        # achievements for the game.
         taken = {str(getattr(s, "bot_name", "") or "") for s in self.seats}
+        taken |= {str(getattr(s, "claimed_name", "") or "") for s in self.seats}
         pool = getattr(self, "_bot_name_pool", None)
         if not pool:
             pool = fish.explorer_names(len(fish.OCEAN_EXPLORER_NAMES))
@@ -11886,8 +11946,8 @@ class GameRoom:
                     # WRONG seat's avatar/background. Look the seat up directly.
                     seat_idx = p.get("index")
                     seat_for_p = _seat_by_index.get(seat_idx)
-                    if seat_for_p is not None and seat_for_p.avatar:
-                        p["avatar"] = seat_for_p.avatar
+                    if seat_for_p is not None and seat_for_p.display_avatar():
+                        p["avatar"] = seat_for_p.display_avatar()
                     if seat_for_p is not None and seat_for_p.background:
                         p["background"] = seat_for_p.background
                 if viewer_index is not None:
@@ -14749,7 +14809,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         # Serve general client PNG assets (game bg, button art, action cards, etc.)
-        if re.fullmatch(r"/(game-bg|nc-coral|nc-sil|nc-btn-full|hermit-crab|choose-device|fullscreen-splash|critter-coin|coral-background|h2h-reef|moving-background|moving-background-left|moving-background-right|lobby-tide-pool|lobby-coral-(?:red|orange|yellow)|action-card-(?:create|join|tutorial|competitive|quickmatch))\.png", parsed.path):
+        if re.fullmatch(r"/(game-bg|nc-coral|nc-sil|nc-btn-full|hermit-crab|choose-device|critter-coin|coral-background|h2h-reef|moving-background|moving-background-left|moving-background-right|lobby-tide-pool|lobby-coral-(?:red|orange|yellow)|action-card-(?:create|join|tutorial|competitive|quickmatch))\.png", parsed.path):
             asset_path = os.path.join(CLIENT_DIR, os.path.basename(parsed.path))
             if os.path.exists(asset_path):
                 self._send_client_asset(asset_path, content_type="image/png", cache_control="public, max-age=86400", allow_webp=True)

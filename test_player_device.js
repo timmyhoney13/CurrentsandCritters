@@ -204,8 +204,12 @@ function page() {
                     // A bot seat wears its grade, in the lobby and at the table
                     // alike, so both renders need the grade helpers.
                     "bmGradeById", "bmIndexOf", "bmGradesTopDown", "bmTierLetter", "bmTierClass", "bmBadge",
+                    // …and its rank's ANIMAL, the one Head to Head stands that
+                    // rank on, which is the face a bot wears on both renders.
+                    "bmAnimalFor", "bmAnimalForRank", "bmAvatarForRank",
                     "bmGradeBlurb"].map(f => grabFn(f)).join("\n\n");
   const gameFns = ["pvSeatHash", "pvSeatDefaultAvatar", "_applyAvBg",
+                   "_pvSeatRankKey",
                    "renderPlayerSeats"].map(f => grabFn(f)).join("\n\n");
   const friendFns = grabFn("friendDeviceHtml", 4);
 
@@ -275,6 +279,20 @@ function setTableSeats() {}
 function lobbyKickPlayer() {}
 function refreshWaitingRoomFromPayload() {}
 function setBotDifficulty() {}
+// The reef: which animal stands on which rank. Lifted out of the source rather
+// than copied, because a copy here would be a second answer to "what does an F
+// bot look like" and nothing would keep it in step with the first.
+${(() => {
+  const m = /^  const BM_TIERS = \[/m.exec(APP);
+  if (!m) throw new Error("missing const: BM_TIERS");
+  const i = APP.indexOf("[", m.index);
+  let d = 0;
+  for (let j = i; j < APP.length; j++) {
+    if (APP[j] === "[") d++;
+    else if (APP[j] === "]" && --d === 0) return APP.slice(m.index, j + 2);
+  }
+  throw new Error("unbalanced const: BM_TIERS");
+})()}
 // The grade ladder, as /api/bot_grades serves it.
 const _bmGrades = [
   { id: "gilbert_carter",          grade: "Gilbert Thomas Carter",   elo: 500,  tier: "F",   unlock: "",       requires: "" },

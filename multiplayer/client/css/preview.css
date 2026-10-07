@@ -6439,87 +6439,11 @@
     }
     #auth-loading-screen.hidden { display: none; }
 
-    /* ══ Game-window full-screen launch splash (Steam-style) ════════
-       Shown ONLY in the separate game window. The big Play button is the
-       user gesture the browser requires to enter true (chrome-less)
-       full screen, so launching feels like opening a desktop game. */
-    #cc-fs-splash {
-      display: none; position: fixed; inset: 0; z-index: 100000;
-      overflow: hidden;
-      /* Ocean tone matching the artwork (bright up top → deep blue below). The
-         art now fills the page, so this only shows for the brief fade-in /
-         before the image decodes. */
-      background: linear-gradient(180deg, #02a6fb 0%, #0072e8 46%, #0030a3 100%);
-      align-items: center; justify-content: center; text-align: center;
-      font-family: "Nunito", sans-serif; color: #f5ede0;
-    }
-    #cc-fs-splash.show { display: flex; animation: dwm-fade-in .2s ease; }
-    /* Stage = the whole viewport; the art (.ccfs-bg) stretches to fill it
-       exactly, so the splash NEVER letterboxes and NOTHING is cropped off any
-       edge. Because the Play overlay is positioned as a % of this box (= the
-       viewport = the stretched art), it still lines up with the painted button.
-       flex:0 0 auto stops the flex row from shrinking the box. */
-    .ccfs-stage {
-      position: relative;
-      flex: 0 0 auto;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-    }
-    /* On genuine portrait (taller than wide) stretching the wide art would
-       squish it badly, so there we keep the art's ratio and fit it to the width
-       (letterboxed against the gradient). The stage becomes the art's exact box,
-       so object-fit:fill below introduces no distortion and the Play overlay,
-       still a % of this box, stays aligned with the painted button. */
-    @media (max-aspect-ratio: 1 / 1) {
-      .ccfs-stage {
-        width: min(100vw, calc(100vh * 1672 / 941));
-        height: min(100vh, calc(100vw * 941 / 1672));
-      }
-    }
-    .ccfs-bg {
-      position: absolute; inset: 0; width: 100%; height: 100%;
-      object-fit: fill; display: block;
-      user-select: none; -webkit-user-drag: none; pointer-events: none;
-    }
-    /* Invisible click target sitting exactly over the painted
-       "▶ Play Full Screen" button in the artwork. */
-    .ccfs-play {
-      position: absolute; left: 34%; top: 74%; width: 32%; height: 13%;
-      background: transparent; border: 0; padding: 0; margin: 0;
-      border-radius: 16px; cursor: pointer;
-      -webkit-tap-highlight-color: rgba(255,255,255,.18);
-      transition: filter .12s ease, transform .12s ease;
-    }
-    @media (hover: hover) { .ccfs-play:hover { filter: brightness(1.05); } }
-    .ccfs-play:active { transform: translateY(1px); }
-    .ccfs-play:focus-visible { outline: 3px solid rgba(255,255,255,.85); outline-offset: -4px; border-radius: 18px; }
-    /* Hidden-click secret: invisible click target sitting exactly over the
-       little sardine already painted into the California Gull's beak in the
-       artwork. Clicking it unlocks the Sardine avatar. Positioned as a % of
-       the stage so it tracks the stretched art like the Play overlay does. */
-    .ccfs-sardine {
-      position: absolute; left: 22%; top: 16%; width: 6.5%; height: 9%;
-      background: transparent; border: 0; padding: 0; margin: 0;
-      cursor: pointer; line-height: 0; border-radius: 12px;
-      -webkit-tap-highlight-color: rgba(255,255,255,.18);
-    }
-    .ccfs-sardine:focus-visible { outline: 3px solid rgba(255,255,255,.85); outline-offset: 3px; border-radius: 12px; }
-    /* Status + fallback link, hidden until the browser blocks full screen
-       (#cc-fs-splash.ccfs-blocked), keeping the splash true to the artwork. */
-    .ccfs-foot {
-      position: absolute; left: 0; right: 0; bottom: 4%;
-      display: flex; flex-direction: column; align-items: center; gap: 7px;
-      padding: 0 18px;
-    }
-    .ccfs-window {
-      display: none; cursor: pointer;
-      background: rgba(4,28,60,.55); border: 1px solid rgba(159,192,224,.4);
-      color: #d8e8fb; font-size: 13px; font-weight: 800; border-radius: 999px; padding: 8px 18px;
-      -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
-    }
-    #cc-fs-splash.ccfs-blocked .ccfs-window { display: inline-block; }
-    .ccfs-window:hover { color: #ffffff; border-color: rgba(216,232,251,.7); }
+    /* The full-screen launch splash is gone, and so is every rule it had
+       (#cc-fs-splash, .ccfs-stage/-bg/-play/-sardine/-foot/-window/-status).
+       It was a painting of a button with invisible click boxes positioned over
+       it as percentages of a stretched image. Full screen is .ph-fsbtn now, a
+       real button in the bottom-right corner of Player Home. */
 
     #auth-screen {
       position: fixed; inset: 0; z-index: 9000;
@@ -11306,6 +11230,137 @@
       background: rgba(255,255,255,0.72) !important;
     }
 
+    /* ══ FULL SCREEN, bottom-right of Player Home ═══════════════════
+       One button, every tab. It replaces the painted button on the old launch
+       splash, so it says what it does in words and can be tabbed to.
+
+       WHY IT MATCHES EACH TAB. Player Home is twelve pages behind one frame,
+       and each one is a different painting with its own frosted-glass recipe
+       for the cards that sit on it (see the per-tab blocks above). A single
+       flat button would be the one thing on the page that belonged to no page,
+       and on History's purple coral or Competitive's iceberg it would read as
+       a browser control rather than part of the game. So the button takes each
+       tab's OWN card recipe: the same translucency, the same border, the same
+       shadow the cards beside it already use. The overrides below are
+       copied from each tab's .ph-scard rule deliberately, one per tab, rather
+       than inherited through a shared variable: a tab that gets repainted gets
+       its button repainted in the same edit, in the same block, which is the
+       only way these stay in step.
+
+       Fixed to the VIEWPORT, not to the scrolling column, so it stays in the
+       corner on a long page. #auth-stats-lobby is display:none off Player
+       Home, so this cannot appear on the sign-in screen, in a lobby or in a
+       game, and nothing here needs to hide it per screen. */
+    .ph-fsbtn {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 40;
+      margin: 0;
+      padding: 10px 18px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-family: "Nunito", sans-serif;
+      font-size: .86rem;
+      font-weight: 800;
+      letter-spacing: .01em;
+      white-space: nowrap;
+      color: #17365a;
+      /* The default Player Home gradient is a light blue, so the resting look
+         is the same frosted sea glass the cards wear on it. Each themed tab
+         replaces all three of these below. */
+      background: rgba(226,245,255,0.86);
+      border: 1px solid rgba(120,200,235,0.50);
+      box-shadow: 0 4px 18px rgba(0,60,120,0.16);
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+      transition: transform .14s ease, box-shadow .14s ease, background .14s ease;
+    }
+    @media (hover: hover) {
+      .ph-fsbtn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 7px 22px rgba(0,60,120,0.24);
+      }
+    }
+    .ph-fsbtn:active { transform: translateY(1px); }
+    .ph-fsbtn:focus-visible {
+      outline: 3px solid rgba(34,216,248,.85);
+      outline-offset: 2px;
+    }
+    /* No phone. iOS Safari has no Element.requestFullscreen at all, and a
+       phone browser that does have one is already drawing the page edge to
+       edge, so the button would be a control that changes nothing sitting on
+       top of the content. Hidden by WIDTH and by POINTER, because a narrow
+       desktop window is still a mouse and should keep it. */
+    @media (max-width: 760px), (pointer: coarse) {
+      .ph-fsbtn { display: none; }
+    }
+
+    /* Each tab's own recipe, copied from its .ph-scard above. */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-fsbtn {
+      background: rgba(220,245,255,0.86);
+      border: 1px solid rgba(120,200,235,0.50);
+      box-shadow: 0 4px 18px rgba(0,60,120,0.16);
+    }
+    #auth-stats-lobby[data-bg-tab="howto"] .ph-fsbtn {
+      background: rgba(228,247,255,0.86);
+      border: 1px solid rgba(120,200,235,0.52);
+      box-shadow: 0 4px 18px rgba(0,60,120,0.16);
+    }
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-fsbtn {
+      background: rgba(215,235,255,0.86);
+      border: 1px solid rgba(100,160,240,0.45);
+      box-shadow: 0 4px 18px rgba(20,40,120,0.22);
+    }
+    /* History is the deep-sea purple coral, so the ink goes with it rather
+       than staying the overview's navy on a violet card. */
+    #auth-stats-lobby[data-bg-tab="history"] .ph-fsbtn {
+      background: rgba(220,210,255,0.88);
+      border: 1px solid rgba(160,120,255,0.45);
+      box-shadow: 0 4px 18px rgba(30,0,80,0.26);
+      color: #2a1a5e;
+    }
+    #auth-stats-lobby[data-bg-tab="friends"] .ph-fsbtn {
+      background: rgba(226,244,255,0.86);
+      border: 1px solid rgba(120,180,225,0.45);
+      box-shadow: 0 4px 18px rgba(0,55,110,0.16);
+    }
+    #auth-stats-lobby[data-bg-tab="achievements"] .ph-fsbtn {
+      background: rgba(225,250,255,0.86);
+      border: 1px solid rgba(80,210,230,0.45);
+      box-shadow: 0 4px 18px rgba(0,80,120,0.16);
+    }
+    #auth-stats-lobby[data-bg-tab="leaderboard"] .ph-fsbtn {
+      background: rgba(225,248,255,0.86);
+      border: 1px solid rgba(100,200,220,0.45);
+      box-shadow: 0 4px 18px rgba(0,80,120,0.16);
+    }
+    #auth-stats-lobby[data-bg-tab="clans"] .ph-fsbtn {
+      background: rgba(228,247,255,0.88);
+      border: 1px solid rgba(120,195,225,0.55);
+      box-shadow: 0 4px 18px rgba(0,70,115,0.20);
+    }
+    #auth-stats-lobby[data-bg-tab="store"] .ph-fsbtn {
+      background: rgba(228,248,255,0.86);
+      border: 1px solid rgba(120,205,235,0.5);
+      box-shadow: 0 4px 20px rgba(20,90,140,0.18);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+    }
+    /* The Critter Pass is the one Player Home page painted DARK: its card is
+       the kelp forest under a deep teal scrim, and it reaches the bottom of
+       the window, so a pale button would sit on it as a bright blot. This is
+       the kelp's own glass, with the page's cream ink. */
+    #auth-stats-lobby[data-bg-tab="critterpass"] .ph-fsbtn {
+      background: rgba(9,62,84,0.80);
+      border: 1px solid rgba(111,224,178,0.45);
+      box-shadow: 0 4px 20px rgba(5,47,68,0.34);
+      color: #eaf7ff;
+    }
+    #auth-stats-lobby[data-bg-tab="critterpass"] .ph-fsbtn:focus-visible {
+      outline-color: rgba(111,224,178,.9);
+    }
+
     /* ── Action cards stay COLORFUL on every tab (consistent everywhere) ──
        Placed after all per-tab overrides so these win the !important ties.
        Each tab used to repaint these cards as frosted glass; we force the
@@ -15225,15 +15280,6 @@
       outline: 3px solid var(--cyan);
       outline-offset: 3px;
       box-shadow: 0 0 0 5px rgba(34,216,248,.18);
-    }
-    .ccfs-status {
-      min-height: 18px;
-      color: #ffd574;
-      font-size: 12px;
-      font-weight: 800;
-      text-align: center;
-      max-width: 420px;
-      line-height: 1.35;
     }
     /* ══════════════════════════════════════════════════════════════════
        TEAM MODE, lobby columns, swap popup, end-game reveal

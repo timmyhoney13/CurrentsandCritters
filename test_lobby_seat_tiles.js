@@ -67,6 +67,23 @@ const APP_SAYS = APP
 const LOBBY = APP.slice(APP.indexOf("  // ══ Waiting room ═"),
                         APP.indexOf("  // The arguments of the last lobby paint"));
 
+// The reef's own table of ranks and animals, lifted out of the source rather
+// than copied here: bmAnimalForRank reads it to work out which animal a bot
+// spot wears, and a copy of it in this file would be a second answer to that
+// question that nothing keeps in step with the first.
+function grabConst(name) {
+  const re = new RegExp("^  const " + name + " = \\[", "m");
+  const m = re.exec(APP);
+  if (!m) throw new Error("missing const: " + name);
+  const i = APP.indexOf("[", m.index);
+  let d = 0;
+  for (let j = i; j < APP.length; j++) {
+    if (APP[j] === "[") d++;
+    else if (APP[j] === "]" && --d === 0) return APP.slice(m.index, j + 2);
+  }
+  throw new Error("unbalanced const: " + name);
+}
+
 // Slice one top-level function out by balancing its braces.
 function grabFn(name) {
   const re = new RegExp("^  (?:async )?function " + name + "\\s*\\(", "m");
@@ -164,6 +181,11 @@ console.log("\na spot shows the player everyone knows");
         "the equipped background paints behind the critter");
   check(/_wrSeatAvatarUrl/.test(LOBBY) && /pvLiveAvatar/.test(LOBBY),
         "the critter comes off the seat, falling back to the live table");
+  check(/kind === "ai"/.test(APP.slice(APP.indexOf("function _wrSeatAvatarUrl"),
+                                       APP.indexOf("function _wrSeatAvatarUrl") + 700))
+        && /bmAvatarForRank/.test(APP.slice(APP.indexOf("function _wrSeatAvatarUrl"),
+                                           APP.indexOf("function _wrSeatAvatarUrl") + 700)),
+        "a bot's critter is its RANK's animal, the one the reef stands it on");
   check(/\bLv\b/.test(LOBBY), "the Level is on the spot");
   check(/XP to Level/.test(LOBBY), "so is the XP bar's caption");
   check(/\bBest\b/.test(LOBBY), "and the record line");
@@ -316,6 +338,9 @@ function page() {
                "buildDifficultyBox", "_wrLoadPrestige",
                "bmGradeById", "bmIndexOf", "bmGradesTopDown", "bmTierLetter", "bmTierClass", "bmBadge",
                "bmGradeBlurb",
+               // A bot spot wears its RANK'S animal, the one Head to Head
+               // stands that rank on, so _wrSeatAvatarUrl reaches these.
+               "bmAnimalFor", "bmAnimalForRank", "bmAvatarForRank",
                "_wrSeatCard", "_wrAddCard", "_wrRenderCapacity", "renderSeatTilesInto",
                "_wrRankChip", "_wrLoadCompRanks", "_wrResetCompRanks", "renderCompLobbyInto",
                "renderTeamLobbyInto", "teamName", "teamHex",
@@ -423,6 +448,7 @@ const _bmGrades = [
   { id: "giant_squid", grade: "Giant Squid", elo: 2150, tier: "GS", unlock: "story" },
 ];
 function bmLoadGrades() { return Promise.resolve(); }
+${grabConst("BM_TIERS")}
 // The story gate. A seat tile draws a locked grade differently, so the tile
 // under test needs to know what is locked. No story finished here.
 function bmStoryUnlocked() { return false; }
