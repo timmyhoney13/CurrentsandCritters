@@ -84,6 +84,8 @@ const FNS = ["bmBeatenIds", "bmPlayerLevel",
              "bmDiverHop", "bmDiverWalk", "bmOpenPlan", "bmCelebrate",
              "bmRenderLadder", "bmRenderBots", "bmAvgRankTier",
              "_wrGradeHold", "_wrHoldGrade", "_wrHeldGrade", "buildDifficultyBox",
+             "_ccGradeMenu", "_ccGradeMenuOpen", "_ccAfterGradeMenu", "_ccGradeMenuShut",
+             "_ccWatchGradeMenu",
              "bmRender", "bmRenderSummary", "openBotMatch", "closeBotMatch", "bmStart"]
             .map(grabFn).join("\n\n");
 
@@ -994,6 +996,7 @@ function page() {
   const b = HTML.indexOf('<!-- ══ SEAT PICKER MODAL', a);
   const modal = HTML.slice(a, b);
   const stubs = `
+const CC_MENU_CAP_MS = 12000;
 function apiFetch() { return Promise.resolve({ ok: false, data: null }); }
 function apiPost() { return Promise.resolve({ ok: false, data: null }); }
 function cancelQuickMatch() { return Promise.resolve(); }

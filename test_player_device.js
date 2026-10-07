@@ -195,6 +195,10 @@ function page() {
   const lobbyFns = ["_wrEl", "_wrChip", "_wrSeatDevice", "_wrDeviceChip", "_wrBgName",
                     "_wrNum", "_wrRemoveBtn", "_wrLock", "_wrSeatAvatarUrl", "_wrCounts",
                     "_wrGradeHold", "_wrHoldGrade", "_wrHeldGrade",
+                    // A rank menu left open is not repainted over, and the seat
+                    // tile wires every grade list up to the watcher that knows.
+                    "_ccGradeMenu", "_ccGradeMenuOpen", "_ccAfterGradeMenu",
+                    "_ccGradeMenuShut", "_ccWatchGradeMenu",
                     "buildDifficultyBox", "_wrLoadPrestige", "_wrSeatCard", "_wrAddCard",
                     "_wrRenderCapacity", "renderSeatTilesInto",
                     // A bot seat wears its grade, in the lobby and at the table
@@ -249,6 +253,7 @@ function page() {
 
   const stubs = `
 const WR_SLOTS = 8, WR_MIN_TABLE = 2, WR_MAX_TABLE = 8;
+const CC_MENU_CAP_MS = 12000;
 let _wrTableBusy = false, _wrPrestigeAsking = false, _wrBgNames = null;
 let _seatsRenderKey = "", canInteract = false;
 const _wrPrestigeByName = {};

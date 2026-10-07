@@ -311,13 +311,16 @@ function page() {
   const fns = ["_wrEl", "_wrChip", "_wrSeatDevice", "_wrDeviceChip", "_wrBgName",
                "_wrNum", "_wrRemoveBtn", "_wrLock",
                "_wrSeatAvatarUrl", "_wrCounts", "_wrGradeHold", "_wrHoldGrade",
-               "_wrHeldGrade", "buildDifficultyBox", "_wrLoadPrestige",
+               "_wrHeldGrade", "_ccGradeMenu", "_ccGradeMenuOpen", "_ccAfterGradeMenu",
+               "_ccGradeMenuShut", "_ccWatchGradeMenu",
+               "buildDifficultyBox", "_wrLoadPrestige",
                "bmGradeById", "bmIndexOf", "bmGradesTopDown", "bmTierLetter", "bmTierClass", "bmBadge",
                "bmGradeBlurb",
                "_wrSeatCard", "_wrAddCard", "_wrRenderCapacity", "renderSeatTilesInto",
                "_wrRankChip", "_wrLoadCompRanks", "_wrResetCompRanks", "renderCompLobbyInto",
                "renderTeamLobbyInto", "teamName", "teamHex",
-               "_wrChatAvatar", "_wrRenderChat"].map(grabFn).join("\n\n");
+               "_wrChatAvatar", "_wrRenderChat",
+               "refreshWaitingRoomFromPayload", "updateWaitingRoom"].map(grabFn).join("\n\n");
 
   const a = HTML.indexOf('<div id="pv-waiting-room">');
   const b = HTML.indexOf("\n</div>", a) + "\n</div>".length;
@@ -359,6 +362,7 @@ function page() {
 
   const stubs = `
 const WR_SLOTS = 8, WR_MIN_TABLE = 2, WR_MAX_TABLE = 8;
+const CC_MENU_CAP_MS = 12000;
 let _wrTableBusy = false, _wrPrestigeAsking = false, _wrChatFingerprint = "", _wrBgNames = null;
 const _wrPrestigeByName = { tidepooltim: { level: 3 }, kelpkaiya: { level: 5 } };
 // The rank cache, pre-filled: the fetch itself is stubbed out, what is being
@@ -395,7 +399,13 @@ function _avSrc(u) { return String(u || ""); }
 function _bgSrc(u) { return String(u || ""); }
 function setTableSeats() {}
 function lobbyKickPlayer() {}
-function refreshWaitingRoomFromPayload() {}
+let _wrLastArgs = null;
+function updateQuickPlaySetup() {}
+function _syncIncomingSwap() {}
+function _wrRenderLook() {}
+function _ccLobbyRender() {}
+function isSpectating() { return false; }
+function getSeatToken() { return "st"; }
 function setBotDifficulty() {}
 // The grade ladder, as /api/bot_grades serves it. buildDifficultyBox draws a
 // seat's badge and its list of grades from this, so the tile under test needs
@@ -472,6 +482,98 @@ window.__drawComp = () => {
   l.innerHTML = '<div class="wr-players-title">Players in Room</div>';
   renderCompLobbyInto(l, COMP_SEATS, true);
   _wrChatFingerprint = ""; _wrRenderChat();
+};
+// ── the glitch this file exists to keep fixed ───────────────────────────
+// A <select>'s drop-down lives and dies with its <select>. The lobby rebuilds
+// every spot from the state payload, so a repaint that lands while a host has
+// a rank menu open used to throw the menu's <select> away and shut the menu
+// with nothing picked. An idle lobby holds the same version and is not
+// repainted, so it only bit right after a pick: that bumps the version, the
+// repaint lands about a second later, and by then the host is reading the NEXT
+// bot's menu. This drives the real updateWaitingRoom, not a copy of it.
+window.__menuGlitch = async () => {
+  const out = [];
+  const ok = (c, m) => out.push((c ? "PASS " : "FAIL ") + "menu: " + m);
+  const tick = () => new Promise(r => setTimeout(r, 30));
+  latestPayload.room.competitive = false;
+  latestPayload.room.team_mode = false;
+  latestPayload.seats = SPOT_SEATS;
+  const args = [SPOT_SEATS, false, () => {}, true, false, false];
+  const list = document.getElementById("wr-players-list");
+  updateWaitingRoom.apply(null, args);
+  ok(list.querySelectorAll(".bm-grade-select").length === 2,
+     "both bot spots have a rank menu (" + list.querySelectorAll(".bm-grade-select").length + ")");
+
+  // With nothing open the poll repaints exactly as it always did: the point is
+  // to hold ONE paint back, not to freeze the room.
+  const stale = list.querySelector(".bm-grade-select");
+  refreshWaitingRoomFromPayload();
+  ok(!document.contains(stale), "with no menu open a repaint still rebuilds the spots");
+
+  // Now the glitch. Open the second bot's menu, the way a host does straight
+  // after setting the first one's rank, and let the poll land on top of it.
+  const open = [...list.querySelectorAll(".bm-grade-select")][1];
+  const was = open.value, ranks = open.querySelectorAll("option").length;
+  open.focus();
+  open.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  ok(_ccGradeMenuOpen(), "pressing a rank menu is noticed");
+  refreshWaitingRoomFromPayload();
+  ok(document.contains(open), "the open menu is STILL in the page after the repaint");
+  ok(document.activeElement === open, "…still focused, so its drop-down is still up");
+  ok(open.value === was, "…still showing the rank it showed");
+  ok(open.querySelectorAll("option").length === ranks, "…with all its ranks still on it");
+  ok(list.querySelectorAll(".bm-grade-select").length === 2, "…and the room around it untouched");
+
+  // Picking shuts the menu, and the paint that was held back then runs.
+  open.value = "a";
+  open.dispatchEvent(new Event("change", { bubbles: true }));
+  ok(!_ccGradeMenuOpen(), "a pick shuts the menu");
+  await tick();
+  ok(!document.contains(open), "…and the paint held back behind it runs once it is shut");
+  ok(list.querySelectorAll(".wr-seat").length === 8, "…rebuilding the whole room (" + list.querySelectorAll(".wr-seat").length + ")");
+  ok(list.querySelectorAll(".bm-grade-select")[1].value === "a",
+     "…with the rank that was picked on it");
+
+  // The other two ways a menu stops being open: focus leaves it, or the cap
+  // runs out. Either must let the room start repainting again.
+  let sel = [...list.querySelectorAll(".bm-grade-select")][0];
+  sel.focus();
+  sel.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  ok(_ccGradeMenuOpen(), "a menu opened on the other bot");
+  sel.blur();
+  ok(!_ccGradeMenuOpen(), "focus leaving the select shuts it");
+  refreshWaitingRoomFromPayload();
+  ok(!document.contains(sel), "…and the room repaints again straight away");
+
+  sel = [...list.querySelectorAll(".bm-grade-select")][0];
+  sel.focus();
+  sel.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  ok(_ccGradeMenuOpen(), "a menu opened once more");
+  _ccGradeMenu().until = Date.now() - 1;
+  ok(!_ccGradeMenuOpen(), "a menu held past the cap stops holding the room still");
+  refreshWaitingRoomFromPayload();
+  ok(!document.contains(sel), "…so a close nobody saw cannot freeze the lobby");
+
+  // Held back is not lost. The whole reason this is safe to do is that the
+  // news in the paint being skipped — somebody taking the open seat — is still
+  // there to be drawn when the menu shuts a second later.
+  const held = [...list.querySelectorAll(".bm-grade-select")][0];
+  held.focus();
+  held.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  const joined = SPOT_SEATS.map(s => s.index === 3
+    ? Object.assign({}, s, { claimed_name: "ReefRunner", avatar: "/avatars/clownfish.png" }) : s);
+  latestPayload.seats = joined;
+  updateWaitingRoom.apply(null, [joined, false, () => {}, true, false, false]);
+  ok(document.contains(held), "a player joining while a menu is open does not shut it");
+  ok(!/ReefRunner/.test(list.textContent), "…so that spot is a beat behind, by design");
+  held.blur();
+  await tick();
+  ok(/ReefRunner/.test(list.textContent),
+     "…and the moment the menu shuts, the room shows they are here");
+  latestPayload.seats = SPOT_SEATS;
+  await tick();
+  updateWaitingRoom.apply(null, args);
+  return out;
 };
 window.__drawTeam = () => {
   latestPayload.room.competitive = false;
@@ -741,12 +843,17 @@ function measure(w) {
   // Put the eight spots back the way the next width expects to find them.
   win.__redrawSpots();
 }
-f.onload = () => {
+f.onload = async () => {
   WIDTHS.forEach(w => {
     f.width = String(w);
     f.contentWindow.document.body.offsetHeight;
     try { measure(w); } catch (e) { L.push("FAIL " + w + "px: threw " + e.message); }
   });
+  // The open-menu half is about time, not width: it drives the real repaint
+  // and has to wait for the paint that was held back to run.
+  try {
+    (await f.contentWindow.__menuGlitch()).forEach(l => L.push(l));
+  } catch (e) { L.push("FAIL menu: threw " + e.message); }
   document.getElementById("out").textContent = L.join("\\n");
 };
 f.srcdoc = SRC;

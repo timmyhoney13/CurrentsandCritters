@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-05.1";
+  const APP_BUILD   = "2026-10-07.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -2316,6 +2316,74 @@
     }
     return p.id;
   }
+  // ── An open rank menu is not something to repaint over ──────────────────
+  // A <select>'s drop-down is drawn by the operating system, and it stays up
+  // only while its <select> stays in the page. Both screens that hand out
+  // ranks redraw their whole list from scratch when something else tells them
+  // to — the lobby from the state poll, the reef when the ladder lands — and a
+  // redraw throws every tile away and builds a new one, the open menu's
+  // <select> with it. The menu shuts itself, nothing is picked, and it has to
+  // be opened a second time.
+  //
+  // Setting one bot's rank and turning straight to the next one made that a
+  // certainty rather than a coin toss: an idle lobby holds the same version
+  // from poll to poll and is not redrawn at all, but the pick bumps the
+  // version, so the redraw it causes lands about a second later — exactly
+  // while the next bot's menu is open. Reopening it then worked, because by
+  // then the version had gone quiet again.
+  //
+  // So a list holding an open menu is left exactly as it is, and the paint it
+  // missed is run the moment the menu shuts. Nothing is lost and nothing else
+  // waits: the chat, the player count and the Start button repaint on every
+  // poll as before. Only the tiles under the open menu hold still.
+  //
+  // The browser will not say whether a drop-down is open, so it is tracked
+  // here. Pressing or keying into a select opens one; a pick, focus leaving
+  // the select, or the cap running out closes it. Focus is the reliable half
+  // (a menu cannot be open on a select that is not focused), and the cap is
+  // the backstop for a close nobody saw, so a list can never hold still for
+  // longer than this.
+  const CC_MENU_CAP_MS = 12000;
+  function _ccGradeMenu() {
+    if (!_ccGradeMenu.state) _ccGradeMenu.state = { until: 0, waiting: [] };
+    return _ccGradeMenu.state;
+  }
+  // Is a rank menu up right now? Asked by everything that would otherwise
+  // rebuild the list it is standing in.
+  function _ccGradeMenuOpen() {
+    const s = _ccGradeMenu();
+    if (!s.until) return false;
+    const el = document.activeElement;
+    const focused = !!(el && el.classList && el.classList.contains("bm-grade-select"));
+    if (!focused || Date.now() >= s.until) { _ccGradeMenuShut(); return false; }
+    return true;
+  }
+  // A paint that was skipped because a menu was open. Run once it is shut.
+  function _ccAfterGradeMenu(fn) {
+    const s = _ccGradeMenu();
+    if (!s.waiting.includes(fn)) s.waiting.push(fn);
+  }
+  function _ccGradeMenuShut() {
+    const s = _ccGradeMenu();
+    s.until = 0;
+    if (!s.waiting.length) return;
+    const queued = s.waiting.splice(0);
+    // On a timer, not here: this runs from inside the select's own change
+    // event, and a paint from in there would pull the <select> out of the
+    // page while its listeners were still reading it.
+    setTimeout(() => queued.forEach(fn => { try { fn(); } catch (_) {} }), 0);
+  }
+  function _ccWatchGradeMenu(sel) {
+    const open = () => { _ccGradeMenu().until = Date.now() + CC_MENU_CAP_MS; };
+    sel.addEventListener("pointerdown", open);
+    sel.addEventListener("mousedown", open);   // a browser without pointer events
+    sel.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" || e.key === "Tab") _ccGradeMenuShut();
+      else open();
+    });
+    sel.addEventListener("change", _ccGradeMenuShut);
+    sel.addEventListener("blur", _ccGradeMenuShut);
+  }
   function buildDifficultyBox(seat, isHost) {
     const box = document.createElement("div");
     box.className = "wr-grade-box";
@@ -2364,6 +2432,9 @@
         await setBotDifficulty(seat.index, sel.value, sel);
       });
     }
+    // Registered last, so the pick above has already been read and sent by the
+    // time the shut handler lets the held-back paint through.
+    _ccWatchGradeMenu(sel);
     selWrap.appendChild(sel);
     box.appendChild(selWrap);
 
@@ -2376,7 +2447,11 @@
   async function setBotDifficulty(seatIndex, difficulty, originEl) {
     if (!roomId) return;
     // Optimistic UI: the badge beside the list changes the moment the host
-    // picks, and the next state poll is what makes it official.
+    // picks, and the next state poll is what makes it official. The sentence
+    // above it moves with the badge, because the paint that would normally
+    // rewrite it is held back for as long as a rank menu is open on this
+    // table, and a tile describing the rank it has just stopped being is the
+    // one thing worse than a tile a second behind.
     try {
       const box = originEl?.closest?.(".wr-grade-box");
       const badge = box?.querySelector(".wr-grade-badge");
@@ -2386,6 +2461,8 @@
         badge.textContent = tier;
         badge.className = `wr-grade-badge wr-tier-${bmTierClass(tier)}`;
       }
+      const blurb = box?.closest?.(".wr-seat")?.querySelector(".wr-seat-blurb");
+      if (blurb) blurb.textContent = bmGradeBlurb(difficulty);
     } catch (_) {}
     try {
       const hostToken = getHostToken();
@@ -3660,7 +3737,6 @@
     try { _ccLobbyRender(); } catch (_) {}
 
     const list = document.getElementById("wr-players-list");
-    list.innerHTML = '<div class="wr-players-title">Players in Room</div>';
     updateQuickPlaySetup(seats, isHost, isQuickPlay);
 
     // Player cards need the wide box. Competitive draws them too now, so the
@@ -3668,15 +3744,23 @@
     const wrEl = document.getElementById("pv-waiting-room");
     if (wrEl) wrEl.dataset.wide = isTeam ? "0" : "1";
 
-    if (isTeam) {
-      renderTeamLobbyInto(list, seats, teamCount, mySeatIndex);
-      _syncIncomingSwap(_room.swap_requests, mySeatIndex);
-    } else if (isComp && seats && seats.length === 4) {
-      // Two people, four hands: the same player card, one per person.
-      renderCompLobbyInto(list, seats, isHost);
+    // The tiles are rebuilt from nothing, so a rank menu standing open in them
+    // would be torn out of the page mid-choice. Hold this one paint back and
+    // run it the moment the menu shuts; see _ccGradeMenuOpen.
+    if (_ccGradeMenuOpen() && list.querySelector(".bm-grade-select")) {
+      _ccAfterGradeMenu(refreshWaitingRoomFromPayload);
     } else {
-      // Normal (non-competitive) lobby: one tile per seat.
-      renderSeatTilesInto(list, seats, isHost);
+      list.innerHTML = '<div class="wr-players-title">Players in Room</div>';
+      if (isTeam) {
+        renderTeamLobbyInto(list, seats, teamCount, mySeatIndex);
+        _syncIncomingSwap(_room.swap_requests, mySeatIndex);
+      } else if (isComp && seats && seats.length === 4) {
+        // Two people, four hands: the same player card, one per person.
+        renderCompLobbyInto(list, seats, isHost);
+      } else {
+        // Normal (non-competitive) lobby: one tile per seat.
+        renderSeatTilesInto(list, seats, isHost);
+      }
     }
 
     // Only humans count toward "(X of Y joined)", bots auto-fill instantly.
@@ -5476,6 +5560,14 @@
   function bmRenderBots() {
     const wrap = document.getElementById("bm-bots");
     if (!wrap) return;
+    // Same rule as the lobby: the lineup is rebuilt from nothing, so it is
+    // never rebuilt under an open rank menu. Pressing a platform cannot reach
+    // this while a menu is up (the menu has the mouse), but the ladder landing
+    // a moment after the reef opens can, and that paint can wait.
+    if (_ccGradeMenuOpen() && wrap.querySelector(".bm-grade-select")) {
+      _ccAfterGradeMenu(bmRenderBots);
+      return;
+    }
     const final = bmIsFinal();
     wrap.innerHTML = "";
     _bmPick.forEach((id, i) => {
@@ -5536,6 +5628,7 @@
         bmFitArt(face, `/avatars/${bmAnimalFor(sel.value)}.png`, BM_FIG_LIN, BM_FIG_MAX);
         bmRenderSummary();
       });
+      _ccWatchGradeMenu(sel);
       selWrap.appendChild(sel);
       main.appendChild(selWrap);
 
