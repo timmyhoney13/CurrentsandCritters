@@ -146,11 +146,18 @@ check("the card viewer is cleared up by closeMenuOverlays",
 
 console.log("\nsteps point at things that are actually on screen");
 
-// The guide bar only exists while it is YOUR turn, and turn order is random.
-check("the guide bar is only rendered on your turn (renderGuideBar)",
-      /if \(!isMyTurn\) \{\s*\n\s*bar\.classList\.remove\("visible"\);/.test(APP));
-check("...so no step hard-targets #pv-guide-bar", !/target: "#pv-guide-bar"/.test(TUT));
-check("...it resolves the bar only when it is showing", /function gtGuideBarEl\(\)/.test(TUT));
+// The guide bar no longer carries the turn. It is empty on an ordinary turn
+// (renderGuideBar only fills it for Tarpon, the forced discard and a free-play
+// window) and #pv-guide-bar:empty collapses it to zero height, so a step
+// pointing at it would spotlight a 0px band. The turn banner is the thing that
+// is really on screen when it is your turn, and turn order is random, so the
+// step that waits for your turn has to say so.
+check("the guide bar is empty on an ordinary turn (renderGuideBar)",
+      /No numbered step chips on an ordinary turn[\s\S]{0,600}?bar\.innerHTML = "";\s*\n\s*\}/.test(APP));
+check("...so no step targets the guide bar at all",
+      !/target: "#pv-guide-bar"/.test(TUT) && !/gtGuideBarEl/.test(TUT));
+check("...the wait-for-your-turn step points at the turn banner",
+      /target: "#pv-turn-banner"/.test(TUT));
 check("...and the text explains the wait", /turn order is random/i.test(TUT));
 
 // Every hard-coded id a step points at must exist in the markup.

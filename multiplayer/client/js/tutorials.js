@@ -1143,15 +1143,6 @@
     }, 400);
   }
 
-  // The guide bar is only on screen while it is YOUR turn: renderGuideBar
-  // strips .visible the rest of the time. Turn order is random, so a step that
-  // hard-targets "#pv-guide-bar" spotlights nothing for everyone who isn't
-  // first. Resolve it only when it is really showing, and say so in the text.
-  function gtGuideBarEl() {
-    const b = document.getElementById("pv-guide-bar");
-    return (b && b.classList.contains("visible")) ? b : null;
-  }
-
   // ── Live-game state predicates (read the real payload via the cc bridges) ──
   function gtPay() { try { return (window.__ccGetPayload && window.__ccGetPayload()) || null; } catch (_) { return null; } }
   function gtMe() {
@@ -1507,10 +1498,8 @@
       text: "Click <strong>Start Game</strong>." },
 
     // ── Gameplay ────────────────────────────────────────────────────
-    { target: gtGuideBarEl, badge: "Your Turn", title: "Follow the Guide",
-      text: "The moment your turn starts, a <strong>guide bar</strong> appears above the table spelling out what to do next. Turn order is random, so if another player is going first, it turns up when the turn reaches you." },
-    { target: gtGuideBarEl, badge: "Your Turn", title: "One Turn, One Choice",
-      text: "A turn is <strong>one</strong> of these, not all of them:<br><br>• <strong>Draw two cards</strong>, from the deck, from the Pool, or one of each.<br>• <strong>Play one card</strong> from your hand, paying its cost.<br>• <strong>Move one animal</strong> you have already played to another of your Oceans (once you have two Oceans to move it between).<br><br>Then your turn is over and it passes on. You do not press End Turn to finish a normal turn, drawing or playing ends it for you." },
+    { target: "#pv-turn-banner", badge: "Your Turn", title: "One Turn, One Choice",
+      text: "Turn order is random, so if another player is going first, this banner says whose turn it is and turns gold when it reaches you.<br><br>A turn is <strong>one</strong> of these, not all of them:<br><br>• <strong>Draw two cards</strong>, from the deck, from the Pool, or one of each.<br>• <strong>Play one card</strong> from your hand, paying its cost.<br>• <strong>Move one animal</strong> you have already played to another of your Oceans (once you have two Oceans to move it between).<br><br>Then your turn is over and it passes on. You do not press End Turn to finish a normal turn, drawing or playing ends it for you." },
     { target: "#pv-draw-deck", badge: "Your Turn", title: "Draw Two", interactive: true, liveNote: tutTurnNote,
       before: () => { _gtDrawBase = gtDrawCount(); _gtDrawSawTurn = false; _gtHandBase = gtHandCardCount(); },
       advanceWhen: () => {
@@ -1521,7 +1510,7 @@
         if (gtMyTurn()) { _gtDrawSawTurn = true; return false; }
         return _gtDrawSawTurn;
       },
-      text: "When the guide bar says it is your turn, <strong>draw two cards</strong>. They can both come off the <strong>Deck</strong>, both out of the <strong>Pool</strong> (the face-up discard board, where every card anyone has spent ends up), or one of each. If someone else is still going, wait for your turn to come round." },
+      text: "When the banner at the top says it is your turn, <strong>draw two cards</strong>. They can both come off the <strong>Deck</strong>, both out of the <strong>Pool</strong> (the face-up discard board, where every card anyone has spent ends up), or one of each. If someone else is still going, wait for your turn to come round." },
     { target: gtOtherSeat, badge: "Their Turn", title: "Opponents' Turns",
       before: () => { _gtSawOppTurn = false; },
       advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
@@ -1690,8 +1679,8 @@
       text: "Click <strong>Start Game</strong>." },
 
     // ── Strategy guide (Help → pick Crustaceans → Bird Lobster) ─────
-    { target: gtGuideBarEl, badge: "Your Turn", title: "Follow the Guide",
-      text: "The moment your turn starts, a <strong>guide bar</strong> appears above the table spelling out what to do next. Turn order is random, so if another player is going first, it turns up when the turn reaches you." },
+    { target: "#pv-turn-banner", badge: "Your Turn", title: "Wait for Your Turn",
+      text: "Turn order is random, so if another player is going first, this banner says whose turn it is and turns gold when it reaches you." },
     { target: "#pv-help-btn", badge: "Strategy", title: "Open Strategy Help", interactive: true,
       // Reset the two tutorial strategies so the player turns them on themselves.
       before: () => { try { window.__ccHelpTut && window.__ccHelpTut.ensureInactive(["Crustaceans", "Bird Lobster"]); } catch (_) {} },

@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-07.32";
+  const APP_BUILD   = "2026-10-08.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -9565,7 +9565,10 @@
     if (mustDiscard) {
       setStatus(`Discard exactly ${discardExcess} card(s), cannot go below 10`);
     } else if (isMyTurn) {
-      setStatus("Cast your line");
+      // Nothing here on your turn: the turn banner directly below this bar
+      // already says "YOUR TURN" in full width, so "Cast your line" was the
+      // same news twice, in smaller type.
+      setStatus("");
     } else {
       setStatus(payload.status_note || `Waiting for ${current}…`);
     }
@@ -9701,7 +9704,7 @@
     // Make sure the server has our current avatar + background for this seat (self-throttled).
     if (myIdx != null) { try { pushMySeatAvatar(); } catch (e) {} try { pushMySeatBackground(); } catch (e) {} try { pushMySeatDevice(); } catch (e) {} }
     renderActionBar(legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive);
-    renderGuideBar(me, legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive);
+    renderGuideBar(legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive);
     try { window._applyStrategyHighlights && window._applyStrategyHighlights(); } catch (e) {}
     // The guide bar and the phase banners come and go on their own, and
     // renderHand() early-returns when the hand itself did not change, so the
@@ -14244,13 +14247,15 @@
   document.addEventListener("visibilitychange", () => { if (document.hidden) _ptrClear(); });
 
   // ── Guide bar ──────────────────────────────────────────────────
-  function renderGuideBar(me, actions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive) {
+  function renderGuideBar(actions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive) {
     const bar = document.getElementById("pv-guide-bar");
 
-    // The bar is ALWAYS in the layout. Off-turn it is simply empty: the row
-    // keeps its height so the board, the action bar and the hand stay exactly
-    // where they were. It used to be display:none off-turn, which jumped the
-    // whole game column every time the turn changed, twice a round, all game.
+    // The bar is ALWAYS in the layout, and empty most of the time: it only
+    // speaks for the three states below. It used to hold a 33px floor even
+    // when empty, so the turn never jumped the column; now that an ordinary
+    // turn is empty too there is nothing to jump BETWEEN, so
+    // #pv-guide-bar:empty collapses the row to zero instead of parking a dead
+    // band between the board and the hand.
     bar.classList.add("visible");
 
     if (!isMyTurn) {
@@ -14296,37 +14301,15 @@
       return;
     }
 
-    const drawAction = actions.find(a => a.kind === "draw" && !Number(a.draw_from_pool));
-    const playActions = actions.filter(a => a.kind !== "draw" && a.kind !== "end_turn" && a.kind !== "discard_to_pool" && a.kind !== "discard_batch_to_pool");
-    const board = Array.isArray(me?.board) ? me.board : [];
-    const hasOcean = board.length > 0;
-    const hasOceanInHand = Array.isArray(me?.hand) && me.hand.some(c => (c.species||"").toLowerCase() === "ocean");
-
-    // Build step chips
-    const steps = [];
-
-    const n = (i) => `<b class="gs-n">${i}</b>`;
-
-    const isSecondDrawBar = drawAction && !actions.some(a => a.kind !== "draw" && a.kind !== "end_turn");
-    if (isSecondDrawBar) {
-      steps.push(`<span class="gs active">${n(1)}Draw your second card</span>`);
-    } else if (drawAction) {
-      steps.push(`<span class="gs active">${n(1)}Haul your catch</span>`);
-    } else {
-      steps.push(`<span class="gs done">${n(1)}Catch hauled ✓</span>`);
-    }
-
-    if (!hasOcean) {
-      steps.push(`<span class="gs${hasOceanInHand ? " active" : ""}">${n(2)}Chart your waters</span>`);
-    } else if (playActions.length > 0) {
-      steps.push(`<span class="gs${drawAction ? "" : " active"}">${n(2)}Place a critter</span>`);
-    } else {
-      steps.push(`<span class="gs done">${n(2)}All critters placed ✓</span>`);
-    }
-
-    steps.push(`<span class="gs">${n(3)}Ride the current</span>`);
-
-    bar.innerHTML = `<div class="guide-step">${steps.join("")}</div>`;
+    // No numbered step chips on an ordinary turn. The turn banner already says
+    // YOUR TURN, the action bar carries the moves, and the row of "1 Haul your
+    // catch / 2 Place a critter / 3 Ride the current" chips was both clutter
+    // and 40-73px of the screen (two lines of chips on a phone) standing
+    // between the board and your hand. The bar still speaks for the three
+    // states above, where it is the only thing explaining a move the action bar
+    // cannot: Tarpon, the forced discard, and a free-play window. Off those, it
+    // is empty, and #pv-guide-bar:empty collapses it to nothing.
+    bar.innerHTML = "";
   }
 
   // ── "Play again" callout over the End Turn button ──────────────
@@ -21088,7 +21071,15 @@
     const cards = document.querySelectorAll(".pv-hand-card[data-entry-uid]");
     // Only redo the work when one of the inputs really moved. This runs on
     // every state tick, and a reset-measure-apply pass thrashes layout.
-    const key = [H, W, cards.length, advisory.map(a => a.id).join(",")].join("|");
+    // The key counts each advisory bar's TEXT, not just that the element is
+    // there: the guide bar is empty on an ordinary turn and collapses to zero,
+    // then fills to a line or two for Tarpon or a forced discard, which is
+    // 47px of column appearing out of nowhere. Keyed on the id alone that
+    // looked like no change at all, so the fit was never redone and the bottom
+    // of the hand went under the edge of the screen on a phone, in exactly the
+    // state that asks you to tap a card.
+    const key = [H, W, cards.length,
+                 advisory.map(a => a.id + ":" + (a.textContent || "").length).join(",")].join("|");
     if (!force && key === _fitColKey) return;
     _fitColKey = key;
 

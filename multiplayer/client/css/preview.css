@@ -1548,15 +1548,36 @@
        the overflow test that decides whether to show the pill in the first
        place. */
     #pv-table.pv-can-scroll #pv-table-inner { padding-bottom: 42px; }
+    /* The slack row goes FIRST, so the pool, the deck and your oceans sit just
+       above the action bar and your hand instead of being pinned to the top of
+       the table with the empty water underneath them.
+       Measured at join (10 cards, no oceans yet) with the row last: the board
+       ended 353px above the action bar on a 1920x1080 desktop, 130px on a
+       1512x857 MacBook and 95px on an iPad, so the pool and the "Start your
+       ocean here" slot sat a third of a screen away from the cards they are
+       played from, and how far away depended entirely on the window height.
+       With the row first that distance is the action bar and nothing else, the
+       same on every screen, and the empty water is at the far side of the
+       table where the opponents' row would be.
+       1fr, not `align-content: end`: an alignment that pushes a too-tall board
+       up past the top of #pv-table (which scrolls) strands the first row of
+       oceans where no scroll, swipe or pinch can reach it, because scrollTop
+       cannot go negative. A 1fr row just collapses to 0 instead, and the board
+       grows downward and scrolls the way it always did.
+       The two real rows are placed explicitly because #pv-opponents is
+       `display: none !important` and so is not a grid item at all: left to
+       auto-placement the pool strip would land in the slack row and stretch. */
     #pv-table-inner {
       display: grid;
-      grid-template-rows: auto auto 1fr;
+      grid-template-rows: 1fr auto auto;
       gap: 5px;
       padding: 5px 10px;
       min-height: 100%;
       box-sizing: border-box;
       zoom: var(--board-zoom, 1);
     }
+    #pv-center-strip { grid-row: 2; }
+    #pv-my-board     { grid-row: 3; }
 
     /* ── OPPONENTS ──────────────────────────────────────────────── */
     #pv-opponents { display: none !important; }
@@ -3856,13 +3877,21 @@
       text-align: center;
       flex-shrink: 0;
       letter-spacing: .3px;
-      /* The row is always this tall, even when it is empty off-turn, so the
-         board below it never moves when the turn changes. */
+      /* Only tall enough to hold one line when it has something to say. */
       min-height: 33px;
     }
     #pv-guide-bar.visible { display: block; }
-    /* Empty off-turn: hold the space, show nothing. */
-    #pv-guide-bar:empty { background: none; }
+    /* Empty, which is now every ordinary turn as well as every turn that is
+       not yours: take NO height at all. The 33px floor plus 14px of padding
+       used to be held open so the column could not jump between your turn and
+       theirs, but the bar is empty in both cases now, so there is nothing to
+       jump between and that 47px was simply pushing the board 47px further
+       from your hand, on every screen, all game. */
+    #pv-guide-bar:empty {
+      background: none;
+      min-height: 0;
+      padding: 0;
+    }
     /* flex, not inline-flex: inline-flex sized itself to its content and ran
        655px wide inside a 585px phone viewport, so the third step hung off the
        right edge with nothing to scroll it back. */
@@ -3876,18 +3905,11 @@
       border-radius: 20px; padding: 3px 13px 3px 4px; white-space: nowrap;
       color: var(--cr-navy);
     }
-    /* The step number as a disc, not a ① glyph: the circled-digit characters
-       fall back to a different face in Nunito and rendered as a blob. */
-    .gs .gs-n {
-      width: 18px; height: 18px; border-radius: 50%;
-      display: inline-flex; align-items: center; justify-content: center;
-      background: rgba(255,255,255,.75); color: var(--cr-teal-deep);
-      font-size: 11px; font-weight: 900; flex-shrink: 0;
-    }
-    .gs.done  { background: rgba(47,158,110,.16); border-color: rgba(47,158,110,.45); color: #1f7e58; }
-    .gs.done .gs-n { background: #2f9e6e; color: #fff; }
+    /* .gs-n (the step number disc) and .gs.done went with the numbered step
+       chips. What is left is the one-line instruction the bar still gives for
+       Tarpon, the forced discard and a free-play window, which is always
+       .gs or .gs.active. */
     .gs.active { background: rgba(232,179,74,.30); border-color: rgba(232,179,74,.7); color: #7a4800; font-weight: 800; }
-    .gs.active .gs-n { background: var(--cr-gold-deep); color: #fff; }
     /* Narrow screens: let a chip wrap inside itself rather than overhang. */
     @media (max-width: 700px) {
       #pv-guide-bar .guide-step { gap: 7px; }
