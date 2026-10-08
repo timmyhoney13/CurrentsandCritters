@@ -130,7 +130,7 @@
        is the ONE file the loading screen is actually waiting on: nothing can
        happen until it has arrived and run. Asking for it here, first and at
        high priority, puts it at the front of the queue where it belongs. -->
-  <link rel="preload" as="script" fetchpriority="high" href="/js/preview-app.js?v=2026-10-08.4">
+  <link rel="preload" as="script" fetchpriority="high" href="/js/preview-app.js?v=2026-10-08.5">
 
   <!-- The four hosts the sign-in talks to, opened now instead of when we get
        there. Firebase's boot is a chain: fetch the SDK from gstatic, refresh
@@ -524,7 +524,7 @@
   })();
   </script>
 
-  <script defer src="/js/error-logging.js?v=2026-10-08.4"></script>
+  <script defer src="/js/error-logging.js?v=2026-10-08.5"></script>
 
   <!-- Firebase config, generated at build time from VITE_FIREBASE_* env vars -->
   <script defer src="/firebase-config.js"></script>
@@ -556,29 +556,29 @@
        looks at is never unstyled.
 
        <noscript> keeps the whole thing working with JavaScript off. -->
-  <link rel="preload" as="style" fetchpriority="high" href="/css/preview.css?v=2026-10-08.4"
+  <link rel="preload" as="style" fetchpriority="high" href="/css/preview.css?v=2026-10-08.5"
         onload="this.rel='stylesheet';window.ccBoot&&window.ccBoot.css()" />
   <!-- The printed rulebook's own stylesheet. Split out of preview.css so the
        standalone How to Play page (/rules) can render the very same book
        without pulling in the whole game stylesheet. Must load AFTER
        preview.css so the cascade is exactly what it was before the split. -->
-  <link rel="preload" as="style" href="/css/rulebook.css?v=2026-10-08.4"
+  <link rel="preload" as="style" href="/css/rulebook.css?v=2026-10-08.5"
         onload="this.rel='stylesheet'" />
   <!-- The privacy policy's own stylesheet, on the same split as the rulebook:
        the published /privacy page renders the very same document without
        pulling in the whole game stylesheet. Must load AFTER preview.css. -->
-  <link rel="preload" as="style" href="/css/privacy.css?v=2026-10-08.4"
+  <link rel="preload" as="style" href="/css/privacy.css?v=2026-10-08.5"
         onload="this.rel='stylesheet'" />
   <!-- Prestige: the Prestige page's own ocean scene, plus the .cc-pname /
        .cc-pbadge rules that draw a Prestige username and badge ANYWHERE in the
        game. Must load AFTER preview.css so those name styles win. -->
-  <link rel="preload" as="style" fetchpriority="high" href="/css/prestige.css?v=2026-10-08.4"
+  <link rel="preload" as="style" fetchpriority="high" href="/css/prestige.css?v=2026-10-08.5"
         onload="this.rel='stylesheet'" />
   <noscript>
-    <link rel="stylesheet" href="/css/preview.css?v=2026-10-08.4" />
-    <link rel="stylesheet" href="/css/rulebook.css?v=2026-10-08.4" />
-    <link rel="stylesheet" href="/css/privacy.css?v=2026-10-08.4" />
-    <link rel="stylesheet" href="/css/prestige.css?v=2026-10-08.4" />
+    <link rel="stylesheet" href="/css/preview.css?v=2026-10-08.5" />
+    <link rel="stylesheet" href="/css/rulebook.css?v=2026-10-08.5" />
+    <link rel="stylesheet" href="/css/privacy.css?v=2026-10-08.5" />
+    <link rel="stylesheet" href="/css/prestige.css?v=2026-10-08.5" />
   </noscript>
   <!-- Developer Analytics' stylesheet is NOT here. Everything in it is scoped
        under #ccA-overlay, an admin-only panel that no ordinary player ever
@@ -607,7 +607,7 @@
      There is no "choose your device" screen any more. js/device-select.js
      works it out: a touch means mobile, a mouse means computer, and a real
      input event outranks its own opening guess. Nothing is rendered here. -->
-<script defer src="/js/device-select.js?v=2026-10-08.4"></script>
+<script defer src="/js/device-select.js?v=2026-10-08.5"></script>
 
 <!-- The full-screen launch splash is GONE. It was one baked painting
      (fullscreen-splash.png, 1.7MB) covering the whole page after sign-in, with
@@ -1674,60 +1674,12 @@
         <img class="ph-action-img" src="/action-card-tutorial.png?v=1" alt="Tutorial" decoding="async" fetchpriority="low" draggable="false">
       </button>
 
-      <!-- Join row: the cell the 2x2 Tutorial card leaves open. Always
-           visible now rather than toggled, so a code can be typed without
-           opening anything first. -->
-      <div class="stats-join-row" id="stats-join-row">
-      <input class="pv-input" id="stats-join-code" placeholder="Current code (5 letters)"
-        maxlength="5" style="flex:1;text-transform:uppercase;"
-        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
-        <button class="pv-btn gold" id="stats-join-go-btn">Join →</button>
-      </div>
-    </div>
-
-    <!-- Nav tabs (5 tabs) -->
-    <div class="ph-tabs" id="ph-tabs" style="display:none!important;">
-      <button class="ph-tab active" data-tab="overview">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 7.2l6-4.6 6 4.6V14H9.8V10H6.2v4H2V7.2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-        Overview
-      </button>
-      <button class="ph-tab" data-tab="howto">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 4C6.7 3 5 2.6 2.6 2.6v9.2C5 11.8 6.7 12.2 8 13.2M8 4c1.3-1 3-1.4 5.4-1.4v9.2c-2.4 0-4.1.4-5.4 1.4M8 4v9.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        How to play
-      </button>
-      <button class="ph-tab" data-tab="competitive">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 4l9.8 9.8M12.8 4L3 13.8M9.6 1.6l4.8 4.8M1.6 9.6l4.8 4.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Competitive
-      </button>
-      <button class="ph-tab" data-tab="history">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M7 4v3.5l2 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-        History
-      </button>
-      <button class="ph-tab" data-tab="friends">
-        <svg width="15" height="12" viewBox="0 0 15 12" fill="none"><circle cx="5.5" cy="4" r="3.5" stroke="currentColor" stroke-width="1.4"/><path d="M0 11.5c0-3.038 2.462-5.5 5.5-5.5S11 8.462 11 11.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M12 2a2.5 2.5 0 0 1 0 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M13 9c1.2.9 2 2.3 2 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".6"/></svg>
-        Friends
-      </button>
-      <button class="ph-tab" data-tab="achievements">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2h8v4a4 4 0 0 1-8 0V2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M3 4H1.5A2.5 2.5 0 0 0 4 6.5M13 4h1.5A2.5 2.5 0 0 1 12 6.5M8 10v3M5.5 14h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-        Achievements
-      </button>
-      <button class="ph-tab" data-tab="leaderboard">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="9" width="4" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="6" y="5" width="4" height="10" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="11" y="1" width="4" height="14" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
-        Leaderboard
-      </button>
-      <button class="ph-tab" data-tab="clans">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5l5.5 2v4c0 3.2-2.3 5.8-5.5 7-3.2-1.2-5.5-3.8-5.5-7v-4L8 1.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.6 8l1.7 1.7L10.6 6.3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Clans
-      </button>
-    </div>
-
-    <!-- ── Overview tab ───────────────────────────────────────── -->
-    <div class="ph-panel" id="ph-panel-overview">
-      <!-- Friends moved here from the Friends tab, which is gone from the
-           menu: the list, the friend code and the add-by-code box now live
-           on the home screen instead of one click away. Rendered by the
-           same renderPhFriendsList() into the same #ph-friends-list. -->
+    
+      <!-- Friends sits beside the Tutorial card on the top line, with
+           the join-by-code box as its last row. Same #ph-friends-list
+           renderPhFriendsList() has always painted into. -->
       <div class="ph-friends-home">
+<div class="ph-friends-home">
       <div class="ph-scard ph-full">
         <div class="ph-sh">
           <div class="ph-st">
@@ -1754,8 +1706,52 @@
         <div id="ph-friends-online" class="ph-fr-status ph-fr-online"
              style="display:none;padding:0 20px 10px;"></div>
         <div id="ph-friends-list" style="max-height:400px;overflow-y:auto;"></div>
+        <!-- Join by code: the card's last row, under the friends list. -->
+        <div class="stats-join-row" id="stats-join-row">
+      <input class="pv-input" id="stats-join-code" placeholder="Current code (5 letters)"
+        maxlength="5" style="flex:1;text-transform:uppercase;"
+        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
+        <button class="pv-btn gold" id="stats-join-go-btn">Join →</button>
+        </div>
       </div>
       </div>
+      </div>
+    </div>
+
+    <!-- Nav tabs (5 tabs) -->
+    <div class="ph-tabs" id="ph-tabs">
+      <button class="ph-tab active" data-tab="overview">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 7.2l6-4.6 6 4.6V14H9.8V10H6.2v4H2V7.2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        Overview
+      </button>
+      <button class="ph-tab" data-tab="howto">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 4C6.7 3 5 2.6 2.6 2.6v9.2C5 11.8 6.7 12.2 8 13.2M8 4c1.3-1 3-1.4 5.4-1.4v9.2c-2.4 0-4.1.4-5.4 1.4M8 4v9.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        How to play
+      </button>
+      <button class="ph-tab" data-tab="competitive">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 4l9.8 9.8M12.8 4L3 13.8M9.6 1.6l4.8 4.8M1.6 9.6l4.8 4.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Competitive
+      </button>
+      <button class="ph-tab" data-tab="history">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M7 4v3.5l2 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        History
+      </button>
+      <button class="ph-tab" data-tab="achievements">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2h8v4a4 4 0 0 1-8 0V2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M3 4H1.5A2.5 2.5 0 0 0 4 6.5M13 4h1.5A2.5 2.5 0 0 1 12 6.5M8 10v3M5.5 14h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        Achievements
+      </button>
+      <button class="ph-tab" data-tab="leaderboard">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="9" width="4" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="6" y="5" width="4" height="10" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="11" y="1" width="4" height="14" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
+        Leaderboard
+      </button>
+      <button class="ph-tab" data-tab="clans">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5l5.5 2v4c0 3.2-2.3 5.8-5.5 7-3.2-1.2-5.5-3.8-5.5-7v-4L8 1.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.6 8l1.7 1.7L10.6 6.3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Clans
+      </button>
+    </div>
+
+    <!-- ── Overview tab ───────────────────────────────────────── -->
+    <div class="ph-panel" id="ph-panel-overview">
       <!-- Daily / Weekly Challenge strip. Collapsed to its header until the
            player clicks it, then the three challenges expand underneath.
            The CALENDAR ICON is the Daily<->Weekly switch, there is no tab row
@@ -4052,84 +4048,84 @@
 
 <!-- The printed rulebook, one shared source for the How to play tab and the
      in-game Rule Book modal. Must load before preview-app.js reads it. -->
-<script defer src="/js/rulebook.js?v=2026-10-08.4"></script>
+<script defer src="/js/rulebook.js?v=2026-10-08.5"></script>
 
 <!-- Family colours + the built-in strategy list, shared with the published
      How to Play page (/rules) so the two can never drift. Deferred scripts
      run in document order, so this lands before preview-app.js reads it. -->
-<script defer src="/js/gamedata.js?v=2026-10-08.4"></script>
+<script defer src="/js/gamedata.js?v=2026-10-08.5"></script>
 
 <!-- The privacy policy, one shared source for the published /privacy page and
      the in-game reader (Settings → Legal). Must load before preview-app.js
      reads window.CC_PRIVACY_HTML. -->
-<script defer src="/js/privacy-policy.js?v=2026-10-08.4"></script>
+<script defer src="/js/privacy-policy.js?v=2026-10-08.5"></script>
 
 <!-- Level Pass, the Invite-a-Friend card and the Avatar Gallery's level
      track. One stylesheet: they are one idea seen from three places. -->
-<link rel="stylesheet" href="/css/level-pass.css?v=2026-10-08.4">
+<link rel="stylesheet" href="/css/level-pass.css?v=2026-10-08.5">
 <!-- Critter Pass, the paid track. Its own stylesheet rather than a section of
      level-pass.css: it is the one Player Home page painted on the full kelp
      forest, so almost nothing about it is shared beyond the shapes. -->
-<link rel="stylesheet" href="/css/critter-pass.css?v=2026-10-08.4">
+<link rel="stylesheet" href="/css/critter-pass.css?v=2026-10-08.5">
 <!-- The reward pop, the card that animates in when the Critter Pass is unlocked
      and when a tier is collected off EITHER pass. Its own file because both
      pass pages use it, and a shared animation kept inside one page's
      stylesheet is one that vanishes the day that page loads on its own. -->
-<link rel="stylesheet" href="/css/reward-pop.css?v=2026-10-08.4">
+<link rel="stylesheet" href="/css/reward-pop.css?v=2026-10-08.5">
 <!-- Game Night. Also served to the marketing site (Vercel rewrites /css/:file),
      so the banner looks identical on both hosts from one source. -->
-<link rel="stylesheet" href="/css/game-night.css?v=2026-10-08.4">
-<link rel="stylesheet" href="/css/home-overview.css?v=2026-10-08.4">
+<link rel="stylesheet" href="/css/game-night.css?v=2026-10-08.5">
+<link rel="stylesheet" href="/css/home-overview.css?v=2026-10-08.5">
 <!-- Clan Season Grand Prize ($100 towards a board game for the #1 clan). Shared
      with the marketing site the same way Game Night is. -->
-<link rel="stylesheet" href="/css/clan-prize.css?v=2026-10-08.4">
+<link rel="stylesheet" href="/css/clan-prize.css?v=2026-10-08.5">
 
-<script defer fetchpriority="high" src="/js/preview-app.js?v=2026-10-08.4"></script>
+<script defer fetchpriority="high" src="/js/preview-app.js?v=2026-10-08.5"></script>
 
 <!-- The reward pop (window.__ccRewardPop). Loaded BEFORE the two passes that
      call it: deferred scripts run in document order, so the seam exists before
      either track can be opened. Both call it through a guard and fall back to
      their own toast, so this tag going missing costs the animation, not the
      news. -->
-<script defer src="/js/reward-pop.js?v=2026-10-08.4"></script>
+<script defer src="/js/reward-pop.js?v=2026-10-08.5"></script>
 <!-- Level Pass: the reward track over levels 1-100. Every rule is server-side
      (/api/pass/*); this renders state and sends intents. -->
-<script defer src="/js/level-pass.js?v=2026-10-08.4"></script>
+<script defer src="/js/level-pass.js?v=2026-10-08.5"></script>
 <!-- Critter Pass: the PAID reward track over the same levels 1-100. Every rule
      is server-side (/api/critterpass/*), including the 4,000-coin purchase;
      this renders state and sends intents. -->
-<script defer src="/js/critter-pass.js?v=2026-10-08.4"></script>
+<script defer src="/js/critter-pass.js?v=2026-10-08.5"></script>
 <!-- Friend-code referral reward. Pays two accounts, so the server owns all of
      it (/api/referral/*); this collects digits and renders the answer. -->
-<script defer src="/js/referral.js?v=2026-10-08.4"></script>
+<script defer src="/js/referral.js?v=2026-10-08.5"></script>
 <!-- Purchase code redemption. A website donation has no Firebase uid to credit,
      so the buyer is emailed a code and spends it in the Friends tab; the server
      owns all of it (/api/redeem/code). -->
-<script defer src="/js/redeem.js?v=2026-10-08.4"></script>
+<script defer src="/js/redeem.js?v=2026-10-08.5"></script>
 <!-- Game Night banner. Self-injects at the top of the Overview panel. -->
-<script defer src="/js/game-night.js?v=2026-10-08.4"></script>
+<script defer src="/js/game-night.js?v=2026-10-08.5"></script>
 <!-- Clan Season Grand Prize banner. Self-injects into Overview directly under
      the Game Night band, and clans-ui.js renders the Clans tab's copy through
      the same module (window.__ccClanPrize), so the promise is written once.
      Loads AFTER preview-app.js so window.__ccApiUrl is set: that is what points
      its public leaderboard read at the right server on a dev build. -->
-<script defer src="/js/clan-prize.js?v=2026-10-08.4"></script>
+<script defer src="/js/clan-prize.js?v=2026-10-08.5"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
-<script defer src="/js/tournament-ui.js?v=2026-10-08.4"></script>
+<script defer src="/js/tournament-ui.js?v=2026-10-08.5"></script>
 
 <!-- Clan System (Clans tab below Leaderboard; renders into #cc-clans-root). -->
-<script defer src="/js/clans-ui.js?v=2026-10-08.4"></script>
+<script defer src="/js/clans-ui.js?v=2026-10-08.5"></script>
 
 <!-- Prestige System (Prestige page + the badge/name-colour renderer used by
      every username in the game; renders into #cc-prestige-root). -->
-<script defer src="/js/prestige-ui.js?v=2026-10-08.4"></script>
+<script defer src="/js/prestige-ui.js?v=2026-10-08.5"></script>
 
 <!-- Discord join reward, the "+250 Critter Coins" chip beside the Join the
      Discord button, and the verified claim behind it. It renders into the one
      #ph-discord-reward button and stays hidden until the server says the offer
      is switched on. -->
-<script defer src="/js/discord-reward.js?v=2026-10-08.4"></script>
+<script defer src="/js/discord-reward.js?v=2026-10-08.5"></script>
 
 <!-- Developer Analytics and the custom bracket BUILDER used to load here. Both
      are inert until something is clicked, but "inert" was never free: as long
@@ -4137,9 +4133,9 @@
      competing for the same connection while the player waited on the loading
      screen. They are in the late loader at the bottom of this file now. -->
 
-<script defer src="/js/challenge-of-challenges.js?v=2026-10-08.4"></script>
+<script defer src="/js/challenge-of-challenges.js?v=2026-10-08.5"></script>
 
-<script defer src="/js/hidden-cephalopods.js?v=2026-10-08.4"></script>
+<script defer src="/js/hidden-cephalopods.js?v=2026-10-08.5"></script>
 
 <!-- ══ CHALLENGE OF CHALLENGES MODALS ════════════════════════════ -->
 
@@ -4236,11 +4232,11 @@
 <script>
 (function () {
   var LATE = [
-    ["css", "/css/analytics.css?v=2026-10-08.4"],
-    ["js",  "/js/analytics-ui.js?v=2026-10-08.4"],
-    ["js",  "/js/tournament-builder.js?v=2026-10-08.4"],
-    ["js",  "/js/current-controller.js?v=2026-10-08.4"],
-    ["js",  "/js/tutorials.js?v=2026-10-08.4"]
+    ["css", "/css/analytics.css?v=2026-10-08.5"],
+    ["js",  "/js/analytics-ui.js?v=2026-10-08.5"],
+    ["js",  "/js/tournament-builder.js?v=2026-10-08.5"],
+    ["js",  "/js/current-controller.js?v=2026-10-08.5"],
+    ["js",  "/js/tutorials.js?v=2026-10-08.5"]
   ];
   var started = false, settle = null;
   var ready = new Promise(function (r) { settle = r; });

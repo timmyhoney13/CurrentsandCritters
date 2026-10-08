@@ -2,143 +2,235 @@
  *
  * Kept OUT of preview.css on purpose. That file is 800KB and is edited by
  * several sessions at once, so everything this change adds lives here and
- * preview.css is left alone.
+ * preview.css is left alone. Scoped to #auth-stats-lobby so nothing here can
+ * reach another screen.
  *
- * What this file does, all on the signed-in home screen:
- *   1. Game Night sits INSIDE the profile card, between the name/level block
- *      and the Competitive rank, in the game's own reef palette.
- *   2. The clan prize band comes off Overview (it still has its own Clans tab).
- *   3. Tutorial becomes the big action card; the join-by-code box fills the
- *      fourth cell the mosaic leaves open.
- *   4. Friends moves onto Overview, so there is no Friends tab in the menu.
+ * The screen it builds, top to bottom:
+ *   header  avatar, name, level, Game Night, Competitive, settings, sign out
+ *   tabs    Overview / How to play / Competitive / History / Achievements
+ *   line 1  Tutorial, big, beside the Friends panel
+ *   line 2  Head to Head, Create Game, Join Game
  */
 
-/* ── 1. Game Night, in the profile card ─────────────────────────────────
-   The shipped banner is a dark navy-to-teal slab. On the Overview tab it sat
-   on ph-bg-overview-art.png, which is bright turquoise, so it read as a hole
-   punched in the artwork. Here it is gold board stock with navy ink: the one
-   warm thing on a page of cold frosted glass, which is what makes it carry
-   from across the room without fighting the art.
-   The $100 clan band owned gold before this change; it is off Overview now,
-   so nothing else on the screen competes. */
-.ph-profile-card > #cc-game-night { margin: 0; min-width: 0; }
+/* ── header ───────────────────────────────────────────────────────────
+   The home header had a Discord button, a Critter Coins button and three
+   meta chips sharing the line with the name, which left no room for
+   anything else and made the player's own name the smallest thing on it.
+   Those move off the Overview header; the coin balance still shows in the
+   Store and the Discord invite is in the Game Night pill two inches away. */
+#auth-stats-lobby .ph-pinfo .ph-discord-link,
+#auth-stats-lobby .ph-pinfo .ph-discord-reward,
+#auth-stats-lobby .ph-pinfo .ph-pmeta2 { display: none; }
+
+/* .ph-wrap is a flex column and the tab row is authored after the cards, so
+   order puts it back where it reads: under the header, over the games. */
+#auth-stats-lobby .ph-wrap > .ph-profile-card { order: 1; }
+#auth-stats-lobby .ph-wrap > #ph-tabs         { order: 2; }
+#auth-stats-lobby .ph-wrap > .ph-actions      { order: 3; }
+#auth-stats-lobby .ph-wrap > .ph-panel        { order: 4; }
+
+/* .ph-pranks holds the Level badge and the Competitive badge as a pair.
+   display:contents lets them be ordered independently of each other, so
+   Level can sit by the name and Competitive can hold the right edge. */
+#auth-stats-lobby .ph-profile-card > .ph-pranks { display: contents; }
+#auth-stats-lobby .ph-profile-card > .ph-avatar { order: 1; }
+#auth-stats-lobby .ph-profile-card > .ph-pinfo  { order: 2; min-width: 0; }
+#auth-stats-lobby .ph-pranks > .ph-rank-level   { order: 3; }
+#auth-stats-lobby .ph-profile-card > #cc-game-night { order: 4; margin: 0 auto; min-width: 0; }
+#auth-stats-lobby .ph-pranks > .ph-rank-badge:not(.ph-rank-level) { order: 5; }
+#auth-stats-lobby .ph-profile-card > #stats-lobby-signed-actions { order: 6; }
+#auth-stats-lobby .ph-profile-card > .ph-alpha-banner { display: none; }
+/* Nothing on this line is allowed to wrap: the children shrink instead, so
+   the header stays one row at every desktop width. */
+#auth-stats-lobby .ph-profile-card { flex-wrap: nowrap; }
+#auth-stats-lobby .ph-profile-card > * { min-width: 0; }
+#auth-stats-lobby .ph-pinfo .ph-pfc { display: none; }
+
+/* ── Game Night, a pill on the header line ─────────────────────────────
+   Same navy-to-teal and gold XP chip the full-width banner uses, shrunk to
+   sit between the name and the rank. The long lines are dropped: the title,
+   the schedule and the two chips are what fits and what is read. */
+.ph-profile-card > #cc-game-night { margin: 0; }
 .ph-profile-card > #cc-game-night .ccGN-inner {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 9px 11px 9px 16px;
-  border-radius: 18px;
-  color: #15325c;
-  background: linear-gradient(135deg, #ffe9b0 0%, #f4c75e 46%, #e8b34a 100%);
-  border: 1px solid #c89320;
-  box-shadow: 0 8px 20px -8px rgba(200,147,32,.7),
-              inset 0 1px 0 rgba(255,255,255,.6);
+  display: flex; align-items: center; gap: 14px;
+  padding: 9px 11px 9px 17px; border-radius: 999px;
+  box-shadow: 0 8px 22px -10px rgba(21,50,92,.6);
 }
-/* The sheen is for the full-width band; at this size it just strobes. */
 .ph-profile-card > #cc-game-night .ccGN-inner::after { content: none; }
 .ph-profile-card > #cc-game-night .ccGN-body {
-  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 14px;
 }
 .ph-profile-card > #cc-game-night .ccGN-title {
-  font-family: "Cinzel", serif; font-size: 1rem; font-weight: 900;
-  color: #6b4700; line-height: 1.1; white-space: nowrap; letter-spacing: .02em;
+  font-family: "Cinzel", serif; font-size: .95rem; font-weight: 900;
+  line-height: 1.1; white-space: nowrap;
 }
-.ph-profile-card > #cc-game-night .ccGN-when {
-  font-size: .72rem; font-weight: 800; color: #8a5c00; white-space: nowrap;
-}
-.ph-profile-card > #cc-game-night .ccGN-when b { font-weight: 800; }
-.ph-profile-card > #cc-game-night .ccGN-status {
-  display: flex; align-items: center; gap: 9px;
-}
+/* The schedule line is the first thing to go. At 1283px this row holds the
+   avatar, the name, the level, this pill, the rank, settings and sign out,
+   and at full width the pill squeezed the player's own name to one letter.
+   Title plus countdown plus the XP chip carry it; "Every Wednesday" is in
+   the Discord announcement and on the site's full-width band. */
+.ph-profile-card > #cc-game-night .ccGN-when { display: none; }
+.ph-profile-card > #cc-game-night .ccGN-status { display: flex; align-items: center; gap: 9px; }
 .ph-profile-card > #cc-game-night .ccGN-count,
 .ph-profile-card > #cc-game-night .ccGN-live {
-  font-size: .75rem; font-weight: 800; color: #5a3c00; white-space: nowrap;
+  font-size: .72rem; font-weight: 800; white-space: nowrap;
 }
-/* the one cool note, so the reward reads as a different kind of thing */
 .ph-profile-card > #cc-game-night .ccGN-xp {
-  font-size: .72rem; font-weight: 900; color: #fff; white-space: nowrap;
-  background: linear-gradient(135deg, #5fb3d6, #2c5a8a);
-  padding: 5px 12px; border-radius: 999px;
-  box-shadow: 0 2px 6px rgba(21,50,92,.3);
+  font-size: .7rem; font-weight: 900; padding: 5px 12px; white-space: nowrap;
 }
-/* The long lines are for the full-width band. In the header the title, the
-   schedule and the two chips say it; the rest is noise at this width. */
 .ph-profile-card > #cc-game-night .ccGN-note,
 .ph-profile-card > #cc-game-night .ccGN-join,
 .ph-profile-card > #cc-game-night .ccGN-local { display: none; }
 
-/* Placing Game Night in the header.
-   The profile card is display:flex with flex-wrap:wrap at desktop widths (it
-   is a grid only in some of its media queries), so grid-column/grid-row alone
-   are inert here and the banner drifted to the end of the first line. Order
-   plus a full-width basis works under BOTH, and the grid pairs are kept for
-   the widths where the card really is a grid.
-
-   At 1440 the first line is already full: avatar 110 + name block 530 +
-   ranks 385 + sign-out 190 = 1215 in a 1283 box. So Game Night takes its own
-   line, centred, between the name and level above it and the version strip
-   below, which is the slot that actually exists. */
-#auth-stats-lobby .ph-profile-card > .ph-avatar { order: 1; grid-column: 1; grid-row: 1; }
-#auth-stats-lobby .ph-profile-card > .ph-pinfo  { order: 2; grid-column: 2; grid-row: 1;
-  min-width: 0; }
-#auth-stats-lobby .ph-profile-card > .ph-pranks { order: 3; grid-column: 4; grid-row: 1; }
-#auth-stats-lobby .ph-profile-card > #stats-lobby-signed-actions {
-  order: 4; grid-column: 5; grid-row: 1;
-}
-#auth-stats-lobby .ph-profile-card > #cc-game-night {
-  order: 5; flex: 0 0 100%; grid-column: 1 / -1; grid-row: 2;
-  display: flex; justify-content: center;
-}
-#auth-stats-lobby .ph-profile-card > #cc-game-night .ccGN-inner { max-width: 640px; }
-#auth-stats-lobby .ph-profile-card > .ph-alpha-banner {
-  order: 6; flex: 0 0 100%; grid-column: 1 / -1; grid-row: 3;
-}
-
-/* ── 2. The clan prize band comes off Overview ──────────────────────── */
+/* ── the clan prize band comes off Overview (it keeps its Clans tab) ── */
 #ph-panel-overview > #cc-clan-prize { display: none !important; }
 
-/* ── 3. Tutorial is the big one ─────────────────────────────────────────
-   Footprint is how a screen says what to do first. Tutorial takes a 2x2 of
-   the four-column row, which at the artwork's own 472:304 is exactly twice
-   the width and twice the height of its neighbours, so nothing is cropped. */
+/* ── tabs: words on the ground, coral under the live one ─────────────── */
+#auth-stats-lobby .ph-tabs {
+  display: flex !important; gap: 30px; padding: 2px 6px 0;
+  background: none !important; border: 0 !important; box-shadow: none !important;
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+#auth-stats-lobby .ph-tabs .ph-tab {
+  background: none !important; border: 0; padding: 0 0 7px; border-radius: 0;
+  font-size: 15px; font-weight: 800; color: #3a6088; box-shadow: none;
+}
+#auth-stats-lobby .ph-tabs .ph-tab svg { display: none; }
+#auth-stats-lobby .ph-tabs .ph-tab.active {
+  color: #1558b0; box-shadow: 0 3px 0 #e8956b; background: none !important;
+}
+
+/* ── the two lines of the page ────────────────────────────────────────
+   Six columns: Tutorial and Friends take three each on the top line, the
+   three games take two each underneath. Spans of three and two at the
+   artwork's own 472:304 mean nothing is ever cropped. */
+#auth-stats-lobby .ph-wrap { container-type: inline-size; }
 #auth-stats-lobby .ph-actions {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  align-items: start;
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px; align-items: stretch;
+  /* three of six columns plus the gap between them, at the artwork's 472:304 */
+  grid-template-rows: calc(((100cqw - 70px) / 2 + 28px) / 1.553) auto;
 }
 #auth-stats-lobby .ph-actions > .ph-action-card:nth-child(4) {   /* Tutorial */
-  grid-column: 1 / 3; grid-row: 1 / 3;
+  grid-column: 1 / 4; grid-row: 1;
   aspect-ratio: auto !important; height: 100% !important;
 }
-#auth-stats-lobby .ph-actions > .ph-action-card:nth-child(1) { grid-column: 3; grid-row: 1; }
-#auth-stats-lobby .ph-actions > .ph-action-card:nth-child(2) { grid-column: 4; grid-row: 1; }
-#auth-stats-lobby .ph-actions > .ph-action-card:nth-child(3) { grid-column: 3; grid-row: 2; }
-/* the open cell is the join box, not a fifth picture */
-#auth-stats-lobby .stats-join-row {
-  grid-column: 4; grid-row: 2;
-  display: flex !important; flex-direction: column; justify-content: center; gap: 8px;
-  background: rgba(220,245,255,.84);
-  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
-  border: 1px solid rgba(120,200,235,.5);
-  border-radius: 22px; padding: 16px 18px;
-  box-shadow: 0 6px 28px rgba(0,60,120,.14);
+#auth-stats-lobby .ph-friends-home { grid-column: 4 / 7; grid-row: 1; min-width: 0; height: 100%; }
+#auth-stats-lobby .ph-actions > .ph-action-card:nth-child(1) { grid-column: 1 / 3; grid-row: 2; }
+#auth-stats-lobby .ph-actions > .ph-action-card:nth-child(2) { grid-column: 3 / 5; grid-row: 2; }
+#auth-stats-lobby .ph-actions > .ph-action-card:nth-child(3) { grid-column: 5 / 7; grid-row: 2; }
+
+/* ── Friends panel ────────────────────────────────────────────────────
+   The card fills its half of the top line, the list takes what is left
+   between the header and the join box, and a cut row fades rather than
+   stopping mid-face, the same "more this way" the side menu already uses. */
+#auth-stats-lobby .ph-friends-home .ph-scard {
+  height: 100%; display: flex; flex-direction: column; margin: 0;
 }
-#auth-stats-lobby .stats-join-row::before {
-  content: "Join with a code";
-  font-family: "Cinzel", serif; font-size: .72rem; letter-spacing: .1em;
-  font-weight: 700; color: #3a6088;
+#auth-stats-lobby .ph-friends-home #ph-friends-list {
+  flex: 1; min-height: 0; max-height: none !important; overflow-y: auto;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
 }
-#auth-stats-lobby .stats-join-row .pv-input { width: 100%; flex: none; }
-#auth-stats-lobby .stats-join-row .pv-btn { width: 100%; }
+#auth-stats-lobby .ph-friends-home .stats-join-row {
+  display: flex !important; gap: 8px; align-items: center;
+  margin: 0; padding: 12px 20px 16px;
+  border-top: 1px solid rgba(120,200,235,.45);
+}
+#auth-stats-lobby .ph-friends-home .stats-join-row::before {
+  content: "JOIN WITH A CODE";
+  font-family: "Cinzel", serif; font-size: .68rem; letter-spacing: .1em;
+  font-weight: 700; color: #3a6088; white-space: nowrap;
+}
+
+/* ── narrow: everything stacks, nothing spans ────────────────────────── */
 @media (max-width: 1100px) {
+  #auth-stats-lobby .ph-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #auth-stats-lobby .ph-actions > .ph-action-card:nth-child(1),
   #auth-stats-lobby .ph-actions > .ph-action-card:nth-child(2),
   #auth-stats-lobby .ph-actions > .ph-action-card:nth-child(3),
   #auth-stats-lobby .ph-actions > .ph-action-card:nth-child(4),
-  #auth-stats-lobby .stats-join-row { grid-column: auto; grid-row: auto; }
+  #auth-stats-lobby .ph-friends-home { grid-column: 1 / -1; grid-row: auto; }
   #auth-stats-lobby .ph-actions > .ph-action-card:nth-child(4) {
     aspect-ratio: 472 / 304 !important; height: auto !important;
   }
+  .ph-profile-card > #cc-game-night { flex: 0 0 100%; }
 }
 
-/* ── 4. Friends on Overview ─────────────────────────────────────────── */
-#ph-panel-overview > .ph-friends-home { margin-top: 14px; }
+/* Friends card interior: title, online count and friend code share the top
+   line; the add-by-code row stops being a navy slab on a pale card. */
+#auth-stats-lobby .ph-friends-home .ph-sh { padding-bottom: 4px; }
+#auth-stats-lobby .ph-friends-home .ph-scard > div[style*="padding"] {
+  padding: 6px 20px 10px !important;
+}
+#auth-stats-lobby .ph-friends-home #ph-fc-display {
+  font-size: 17px !important; letter-spacing: 2px !important; margin-bottom: 9px !important;
+  color: #1558b0 !important;
+}
+#auth-stats-lobby .ph-friends-home .pv-input {
+  background: rgba(255,255,255,.85); border: 1px solid rgba(120,200,235,.6);
+  color: #17365a; border-radius: 12px;
+}
+#auth-stats-lobby .ph-friends-home .pv-input::placeholder { color: #8fb0c6; }
+
+
+/* ── fitting the header on one line ───────────────────────────────────
+   Six things share this row now, so each is sized to what it has to say
+   and nothing is allowed to wrap inside itself. */
+#auth-stats-lobby[data-bg-tab="overview"] .ph-avatar { width: 84px; height: 84px; }
+#auth-stats-lobby .ph-profile-card { gap: 14px; padding: 14px 20px; }
+#auth-stats-lobby .ph-pranks > .ph-rank-badge {
+  padding: 7px 12px; gap: 8px; white-space: nowrap; flex: none;
+}
+#auth-stats-lobby .ph-pranks > .ph-rank-badge .ph-rank-type { font-size: .78rem; }
+/* The pill holds its content: shrinking it clipped "starts in 6d 2h" and the
+   XP chip. The name beside it gives up the room instead, truncating if it
+   has to, because a cut countdown is worse than a cut nickname. */
+#auth-stats-lobby .ph-profile-card > #cc-game-night { flex: 0 0 auto; }
+#auth-stats-lobby .ph-profile-card > .ph-pinfo { flex: 1 1 auto; overflow: hidden; }
+/* A 13-character name was being cut at "TheFishM...". Sized so a long
+   nickname fits the room the header can spare, and still truncated rather
+   than wrapped if someone picks a longer one. */
+#auth-stats-lobby .ph-pinfo .ph-pname {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: clamp(1.15rem, 1.9vw, 1.7rem);
+}
+#auth-stats-lobby .ph-profile-card > #cc-game-night .ccGN-inner { flex-wrap: nowrap; }
+#auth-stats-lobby .ph-profile-card > #cc-game-night .ccGN-body { flex-wrap: nowrap; }
+#auth-stats-lobby #stats-lobby-signed-actions { flex: none; }
+
+/* ── the tab row had a height of its own and swallowed its buttons ───── */
+/* .ph-wrap is a flex column whose content is taller than the screen, so every
+   row is a shrinkable flex item. The tab row is the shortest of them and was
+   being squeezed to 4px with its buttons spilling out. */
+#auth-stats-lobby .ph-tabs {
+  height: auto !important; min-height: 0 !important; max-height: none !important;
+  overflow: visible !important; align-items: center; flex: none !important;
+}
+#auth-stats-lobby .ph-wrap > .ph-profile-card,
+#auth-stats-lobby .ph-wrap > .ph-actions { flex: none; }
+#auth-stats-lobby .ph-tabs .ph-tab { height: auto; min-height: 0; flex: none; }
+
+/* ── Friends card order: title, list, then the code and the join box ───
+   The shipped card leads with the friend code and the add-by-code field,
+   which pushes the actual friends below the fold of a half-width card. */
+#auth-stats-lobby .ph-friends-home .ph-scard > .ph-sh { order: 1; }
+#auth-stats-lobby .ph-friends-home .ph-scard > #ph-friends-online { order: 2; }
+#auth-stats-lobby .ph-friends-home .ph-scard > #ph-friends-list { order: 3; }
+#auth-stats-lobby .ph-friends-home .ph-scard > div[style*="padding"] { order: 4; }
+#auth-stats-lobby .ph-friends-home .ph-scard > .stats-join-row { order: 5; }
+#auth-stats-lobby .ph-friends-home .ph-scard > div[style*="padding"] {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  border-top: 1px solid rgba(120,200,235,.45); padding: 10px 20px 4px !important;
+}
+#auth-stats-lobby .ph-friends-home #ph-fc-display { margin: 0 !important; }
+#auth-stats-lobby .ph-friends-home .ph-scard > div[style*="padding"] > div:first-child {
+  margin: 0 !important;
+}
+
+/* The list is the only part of the Friends card allowed to give up height;
+   the code row and the join box are fixed, or they fall off the bottom. */
+#auth-stats-lobby .ph-friends-home .ph-scard > div[style*="padding"],
+#auth-stats-lobby .ph-friends-home .ph-scard > .stats-join-row,
+#auth-stats-lobby .ph-friends-home .ph-scard > .ph-sh { flex: none; }
+#auth-stats-lobby .ph-friends-home .ph-scard > #ph-friends-list { flex: 1 1 0; }
