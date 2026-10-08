@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-08.5";
+  const APP_BUILD   = "2026-10-08.9";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -35036,6 +35036,11 @@
 
     // ── Player Home: overview tab ──────────────────────────────────
     function renderPhOverview() {
+      // The Friends card moved onto this panel and its tab no longer exists,
+      // so nothing else would ever paint it. Fire and forget: Overview must
+      // not wait on Firestore to draw the rest of itself.
+      try { renderPhFriendsList(); } catch (_) {}
+
       renderOverviewAchievements(_phStatsRaw || _phStats || {});
       renderChallengeStrip();
       // "You have reached the end of this current!" the banner that says
@@ -38294,11 +38299,28 @@
           statusHtml = `<div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}${deviceHtml}</div>`;
         }
         d.innerHTML = `${favoriteHtml}<div class="ph-fr-main"><div class="ph-fr-name ph-fr-clickable" data-cc-pname="${escapeHtml(f.uid || f.nickname || "")}">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div>${extraHtml}</div>${statusHtml}`;
-        // Clicking avatar or name opens public profile
+        // Clicking anywhere on the row opens that friend's stats; Message is
+        // its own button so the two actions never share a click target.
         const avEl   = d.querySelector(".ph-fr-av");
         const nameEl = d.querySelector(".ph-fr-name");
         if (avEl)   { avEl.classList.add("ph-fr-clickable");   avEl.addEventListener("click",   () => openPublicProfile(f.uid)); }
         if (nameEl) { nameEl.addEventListener("click", () => openPublicProfile(f.uid)); }
+        d.addEventListener("click", (ev) => {
+          // Let the buttons inside the row keep their own clicks.
+          if (ev.target.closest("button, a, input")) return;
+          openPublicProfile(f.uid);
+        });
+        const msgBtn = document.createElement("button");
+        msgBtn.type = "button";
+        msgBtn.className = "ph-fr-msg-btn";
+        msgBtn.textContent = "Message";
+        msgBtn.setAttribute("aria-label", "Message " + (liveNick || "this friend"));
+        msgBtn.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          try { _msgOpenDrawer(); _msgOpenConversation(f.uid, liveNick || "Player"); }
+          catch (_) {}
+        });
+        d.appendChild(msgBtn);
         // Favorites are stored on the signed-in player's own friend entry.
         const favoriteBtn = d.querySelector(".ph-fr-favorite");
         if (favoriteBtn) favoriteBtn.addEventListener("click", async () => {

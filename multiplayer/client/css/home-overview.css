@@ -25,7 +25,6 @@
 /* .ph-wrap is a flex column and the tab row is authored after the cards, so
    order puts it back where it reads: under the header, over the games. */
 #auth-stats-lobby .ph-wrap > .ph-profile-card { order: 1; }
-#auth-stats-lobby .ph-wrap > #ph-tabs         { order: 2; }
 #auth-stats-lobby .ph-wrap > .ph-actions      { order: 3; }
 #auth-stats-lobby .ph-wrap > .ph-panel        { order: 4; }
 
@@ -84,21 +83,6 @@
 
 /* ── the clan prize band comes off Overview (it keeps its Clans tab) ── */
 #ph-panel-overview > #cc-clan-prize { display: none !important; }
-
-/* ── tabs: words on the ground, coral under the live one ─────────────── */
-#auth-stats-lobby .ph-tabs {
-  display: flex !important; gap: 30px; padding: 2px 6px 0;
-  background: none !important; border: 0 !important; box-shadow: none !important;
-  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
-}
-#auth-stats-lobby .ph-tabs .ph-tab {
-  background: none !important; border: 0; padding: 0 0 7px; border-radius: 0;
-  font-size: 15px; font-weight: 800; color: #3a6088; box-shadow: none;
-}
-#auth-stats-lobby .ph-tabs .ph-tab svg { display: none; }
-#auth-stats-lobby .ph-tabs .ph-tab.active {
-  color: #1558b0; box-shadow: 0 3px 0 #e8956b; background: none !important;
-}
 
 /* ── the two lines of the page ────────────────────────────────────────
    Six columns: Tutorial and Friends take three each on the top line, the
@@ -200,16 +184,8 @@
 #auth-stats-lobby #stats-lobby-signed-actions { flex: none; }
 
 /* ── the tab row had a height of its own and swallowed its buttons ───── */
-/* .ph-wrap is a flex column whose content is taller than the screen, so every
-   row is a shrinkable flex item. The tab row is the shortest of them and was
-   being squeezed to 4px with its buttons spilling out. */
-#auth-stats-lobby .ph-tabs {
-  height: auto !important; min-height: 0 !important; max-height: none !important;
-  overflow: visible !important; align-items: center; flex: none !important;
-}
 #auth-stats-lobby .ph-wrap > .ph-profile-card,
 #auth-stats-lobby .ph-wrap > .ph-actions { flex: none; }
-#auth-stats-lobby .ph-tabs .ph-tab { height: auto; min-height: 0; flex: none; }
 
 /* ── Friends card order: title, list, then the code and the join box ───
    The shipped card leads with the friend code and the add-by-code field,
@@ -234,3 +210,52 @@
 #auth-stats-lobby .ph-friends-home .ph-scard > .stats-join-row,
 #auth-stats-lobby .ph-friends-home .ph-scard > .ph-sh { flex: none; }
 #auth-stats-lobby .ph-friends-home .ph-scard > #ph-friends-list { flex: 1 1 0; }
+
+/* ── the Friends icon is the common octopus ──────────────────────────
+   He used to sit on Friends Quick Stats, which this screen no longer
+   shows, so he moves to the card that is still here. */
+#auth-stats-lobby .ph-friends-home .ph-st { display: flex; align-items: center; gap: 9px; }
+#auth-stats-lobby .ph-friends-home .ph-st-octo {
+  width: 30px; height: 30px; object-fit: contain; flex: none;
+  filter: drop-shadow(0 2px 4px rgba(21,50,92,.28));
+}
+
+/* ── Friends Quick Stats comes off the page ──────────────────────────
+   The Friends card above it is the live list, so this was the same people
+   twice. The panel is only hidden, not deleted, and its octopus is now the
+   Friends icon. */
+#ph-panel-overview #ph-ovf-card { display: none !important; }
+
+/* ── a friend row opens that friend ──────────────────────────────────
+   The whole row is the target now, not just the name, with Message as its
+   own button so the two actions never fight for the same click. */
+/* .ph-fr is a three-column grid (avatar | name | status). Message is a
+   fourth child, so it needs a fourth column or it wraps to its own line
+   under the row. */
+#auth-stats-lobby .ph-friends-home .ph-fr {
+  cursor: pointer;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+}
+#auth-stats-lobby .ph-friends-home .ph-fr-main { min-width: 0; }
+#auth-stats-lobby .ph-friends-home .ph-fr-name,
+#auth-stats-lobby .ph-friends-home .ph-fr-meta {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#auth-stats-lobby .ph-friends-home .ph-fr-status { flex: none; }
+#auth-stats-lobby .ph-friends-home .ph-fr:hover { background: rgba(70,160,225,.1); }
+#auth-stats-lobby .ph-fr-msg-btn {
+  flex: none; align-self: center; margin-left: 10px; white-space: nowrap; padding: 6px 14px; border: 0; cursor: pointer;
+  border-radius: 999px; font-family: "Nunito", sans-serif; font-size: .76rem;
+  font-weight: 800; color: #fff; background: linear-gradient(135deg,#5fb3d6,#2c5a8a);
+  box-shadow: 0 2px 6px rgba(21,50,92,.28);
+}
+#auth-stats-lobby .ph-fr-msg-btn:hover { filter: brightness(1.08); }
+
+/* ── the challenge strip's reward line stays on one line ─────────────
+   "Weekly Tide Sweep · +1,500 XP" was wrapping mid-phrase in the narrower
+   column this layout gives it. */
+#auth-stats-lobby .ph-cs-reward-label {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#auth-stats-lobby .ph-cs-header { flex-wrap: nowrap; }
