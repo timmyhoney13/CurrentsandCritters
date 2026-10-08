@@ -29,6 +29,13 @@
       --cr-coral-deep: #e8956b;
       --cr-gold:       #e8b34a;
       --cr-gold-deep:  #c89320;
+      /* The same gold, dark enough to be TYPE on cream. --cr-gold-deep is the
+         hairline-and-ornament gold: on a shell-cream panel it measures about
+         2.2:1, which is fine for a 1px edge and unreadable as a 9px word. Any
+         small gold label on a reef surface (XP, a weekly tag, what a job pays)
+         is inked with this instead, and it is the same gold the Overview
+         challenge strip already uses for XP on its light cards. */
+      --cr-gold-ink:   #8a5c00;
       /* ── Reef SURFACE set ────────────────────────────────────────
          Every panel that floats over the board (menus, tooltips, card
          pickers, toasts, the score sheet) is painted from these, so the
@@ -59,6 +66,15 @@
       --hand-card-h: var(--card-h);
       --mini-w:    84px;
       --mini-h:    118px;
+      /* The OCEAN face on your board. It is the thing each hub is built
+         around, the card whose score curve you are reading to decide where an
+         animal goes, and at 100x140 it was the same size as a card in your
+         hand and barely bigger than the 84x118 animals tucked under it, so a
+         full board read as a field of same-sized rectangles. Bigger by a
+         quarter, and the hub has an obvious middle again. Same 1:1.4 as the
+         printed card, so the artwork is never stretched to fill it. */
+      --ocean-w:   125px;
+      --ocean-h:   175px;
       --radius:    10px;
       --glow-c:    rgba(34,216,248,.45);
       --glow-teal: rgba(24,200,168,.5);
@@ -2129,7 +2145,7 @@
     .pv-board-card[data-species="Ocean"]:hover       { border-color: #14c7d4; box-shadow: 0 4px 14px rgba(20,199,212,.4); }
 
     .pv-ocean-face {
-      width: 100px; height: 140px;
+      width: var(--ocean-w); height: var(--ocean-h);
       border-radius: 9px; overflow: hidden;
       border: none;
       /* thin dark-blue ring matches the separator line on card images */
@@ -2397,6 +2413,21 @@
     /* ── HAND ZONE ──────────────────────────────────────────────── */
     #pv-hand-zone {
       background: linear-gradient(0deg, rgba(6,18,48,.99) 0%, rgba(10,30,68,.55) 100%);
+      /* OVER the three bands that can interrupt a turn (#pv-discard-banner,
+         #pv-pool-pick-hint, #pv-payment-mode-bar, all at 60).
+         `#pv-game > *` gives every row of the game column `position:relative;
+         z-index:1`, so this zone is a STACKING CONTEXT and everything inside
+         it, the hand's own z-index:3 and the .pv-tooltip's z-index:1000 alike,
+         is spent in here and flattened to the zone's own number. At the 1 it
+         inherited, all three bands painted over the top of the tooltip: on the
+         discard screen the animal's name and its rules text were sliced off at
+         the bar and what was left of the description sat under it, which is
+         the one screen where you are reading that text to decide what to throw
+         away. The zone's own box never reaches a band, only the tooltip and a
+         lifted card spill upward out of it, so this costs nothing else; it
+         stays well under the notice bar (100), the card picker (4990) and the
+         modals (8000+), which still cover the hand as they should. */
+      z-index: 70;
       flex-shrink: 0;
       padding: 6px 8px 12px;
       display: grid;
@@ -3955,16 +3986,24 @@
     #pv-help-btn .help-sub   { font-size: 10px; color: rgba(26,45,90,.65); }
 
     /* ── IN-GAME CHALLENGE PANEL (lower-left, above action bar) ──── */
+    /* Painted from the reef SURFACE set, like every other thing that floats
+       over the table: the tooltip, the menu, the turn bands, the score sheet.
+       It used to be a deep-navy slab with aqua hairlines, the look the whole
+       in-game chrome had before it stopped fighting the artwork, so the one
+       panel left wearing it read as a window from another game parked on the
+       reef. Nothing is drawn on the board to hold it, it is cream over sand
+       with the gold hairline off the card frames, and the type is the card
+       title's ink. */
     #ig-challenge-panel {
       position: fixed;
       left: 12px;
       bottom: var(--pv-bottom-ui, 302px);   /* see #bs-ctrl */
       z-index: 50;
       width: 226px;
-      background: linear-gradient(160deg, rgba(10,26,60,.97) 0%, rgba(6,16,42,.98) 100%);
-      border: 1.5px solid rgba(95,179,214,.38);
+      background: linear-gradient(176deg, var(--cr-surface) 0%, var(--cr-surface-2) 100%);
+      border: 1px solid var(--cr-edge);
       border-radius: 14px;
-      box-shadow: 0 6px 28px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04);
+      box-shadow: var(--cr-lift);
       overflow: hidden;
       transition: width .2s ease, border-radius .2s ease;
       display: none;
@@ -3982,25 +4021,25 @@
       padding: 8px 10px 7px;
       cursor: pointer;
       user-select: none;
-      border-bottom: 1px solid rgba(95,179,214,.15);
+      border-bottom: 1px solid var(--cr-edge-soft);
       transition: background .15s;
     }
     #ig-challenge-panel.igcp-minimized #igcp-header { border-bottom: none; padding: 7px 12px; }
-    #igcp-header:hover { background: rgba(95,179,214,.07); }
+    #igcp-header:hover { background: var(--cr-surface-sub); }
     #igcp-minimize-btn {
       order: -1;
       background: none;
-      border: 1px solid rgba(95,179,214,.32);
+      border: 1px solid var(--cr-edge);
       border-radius: 6px;
       cursor: pointer;
-      color: #7aafcc;
+      color: var(--cr-ink-soft);
       font-size: 13px;
       line-height: 1;
       padding: 1px 5px 2px;
       flex-shrink: 0;
       transition: background .15s, color .15s;
     }
-    #igcp-minimize-btn:hover { background: rgba(95,179,214,.18); color: #c0e0f0; }
+    #igcp-minimize-btn:hover { background: var(--cr-surface-sub); color: var(--cr-ink); }
     /* The calendar is the Daily <-> Weekly switch in here too, so it is a
        button and has to look like one you can press. */
     #igcp-cal-btn {
@@ -4016,18 +4055,24 @@
       -webkit-appearance: none;
       appearance: none;
     }
-    #igcp-cal-btn:hover { background: rgba(95,179,214,.18); border-color: rgba(95,179,214,.4); }
-    #igcp-cal-btn:focus-visible { outline: 2px solid #6db8e0; outline-offset: 1px; }
-    #igcp-calendar-icon { flex-shrink: 0; width: 17px; height: 17px; opacity: .82; }
-    #igcp-cal-btn:hover #igcp-calendar-icon { opacity: 1; }
-    /* Weekly is gold in this panel; the switch matches its pill. */
-    #igcp-cal-btn.weekly #igcp-calendar-icon [stroke] { stroke: #f0c860; }
-    #igcp-cal-btn.weekly #igcp-calendar-icon [fill]:not([fill="none"]) { fill: #f0c860; }
-    #igcp-cal-btn.weekly:hover { background: rgba(232,179,74,.2); border-color: rgba(232,179,74,.4); }
+    #igcp-cal-btn:hover { background: var(--cr-surface-sub); border-color: var(--cr-edge); }
+    #igcp-cal-btn:focus-visible { outline: 2px solid var(--cr-teal-deep); outline-offset: 1px; }
+    #igcp-calendar-icon { flex-shrink: 0; width: 17px; height: 17px; opacity: 1; }
+    /* The icon ships with the aqua it was drawn in for the navy panel, which
+       on cream is a pale smear. Inked to the deep teal the rest of this
+       panel's secondary type uses. */
+    #igcp-calendar-icon [stroke] { stroke: var(--cr-teal-deep); }
+    #igcp-calendar-icon [fill]:not([fill="none"]) { fill: var(--cr-teal-deep); }
+    /* Weekly is gold in this panel; the switch matches its pill. Gold-INK, the
+       same as that pill: these are 1.8px strokes, so the ornament gold would
+       be a 2.2:1 outline on cream and the switch would read as switched off. */
+    #igcp-cal-btn.weekly #igcp-calendar-icon [stroke] { stroke: var(--cr-gold-ink); }
+    #igcp-cal-btn.weekly #igcp-calendar-icon [fill]:not([fill="none"]) { fill: var(--cr-gold-ink); }
+    #igcp-cal-btn.weekly:hover { background: rgba(232,179,74,.22); border-color: rgba(200,147,32,.45); }
     #igcp-title {
       font-size: 12px;
       font-weight: 800;
-      color: #d4eaf8;
+      color: var(--cr-ink);
       flex: 1;
       white-space: nowrap;
       overflow: hidden;
@@ -4039,19 +4084,19 @@
       font-weight: 800;
       letter-spacing: .5px;
       text-transform: uppercase;
-      background: rgba(38,128,200,.26);
-      color: #6db8e0;
-      border: 1px solid rgba(38,128,200,.36);
+      background: rgba(95,179,214,.22);
+      color: var(--cr-teal-deep);
+      border: 1px solid rgba(95,179,214,.5);
       border-radius: 10px;
       padding: 1px 6px;
       flex-shrink: 0;
     }
-    #igcp-pill.weekly { background: rgba(232,179,74,.2); color: #f0c860; border-color: rgba(232,179,74,.36); }
+    #igcp-pill.weekly { background: rgba(232,179,74,.22); color: var(--cr-gold-ink); border-color: rgba(200,147,32,.45); }
     /* The pill is the Daily<->Weekly switch, so it has to look like something
        you can press rather than a label that happens to be tappable. */
     #igcp-pill { cursor: pointer; transition: filter .14s, box-shadow .14s; }
-    #igcp-pill:hover  { filter: brightness(1.28); box-shadow: 0 0 0 1px rgba(255,255,255,.16); }
-    #igcp-pill:focus-visible { outline: 2px solid #6db8e0; outline-offset: 1px; }
+    #igcp-pill:hover  { filter: brightness(.94); box-shadow: 0 0 0 1px var(--cr-edge); }
+    #igcp-pill:focus-visible { outline: 2px solid var(--cr-teal-deep); outline-offset: 1px; }
     #igcp-cards {
       padding: 7px 7px 3px;
       display: flex;
@@ -4062,10 +4107,10 @@
       overflow-x: hidden;
     }
     #igcp-cards::-webkit-scrollbar { width: 4px; }
-    #igcp-cards::-webkit-scrollbar-thumb { background: rgba(95,179,214,.28); border-radius: 4px; }
+    #igcp-cards::-webkit-scrollbar-thumb { background: rgba(44,90,138,.3); border-radius: 4px; }
     .igcp-row {
-      background: rgba(255,255,255,.04);
-      border: 1px solid rgba(95,179,214,.16);
+      background: var(--cr-surface-sub);
+      border: 1px solid rgba(95,179,214,.45);
       border-radius: 9px;
       padding: 6px 8px 5px;
       display: flex;
@@ -4073,32 +4118,33 @@
       gap: 4px;
       transition: border-color .2s;
     }
-    .igcp-row.igcp-done { border-color: rgba(94,201,137,.28); background: rgba(94,201,137,.05); opacity: .72; }
+    .igcp-row.igcp-done { border-color: rgba(80,180,120,.55); background: rgba(214,247,229,.85); opacity: .85; }
     .igcp-row-top { display: flex; align-items: flex-start; gap: 6px; }
     .igcp-row-info { flex: 1; min-width: 0; }
     .igcp-row-name {
-      font-size: 11px; font-weight: 800; color: #e0eff9;
+      font-size: 11px; font-weight: 800; color: var(--cr-ink);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;
     }
     .igcp-row-desc {
-      font-size: 9.5px; color: #7ba5c0; line-height: 1.35; overflow: hidden;
+      font-size: 9.5px; color: var(--cr-ink-soft); line-height: 1.35; overflow: hidden;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin-top: 1px;
     }
-    .igcp-row-xp { font-size: 9.5px; font-weight: 800; color: #f0c860; flex-shrink: 0; margin-top: 2px; white-space: nowrap; }
+    .igcp-row-xp { font-size: 9.5px; font-weight: 800; color: var(--cr-gold-ink); flex-shrink: 0; margin-top: 2px; white-space: nowrap; }
     .igcp-row-bar-wrap { display: flex; align-items: center; gap: 5px; }
-    .igcp-row-bar { flex: 1; height: 4px; background: rgba(255,255,255,.1); border-radius: 3px; overflow: hidden; }
+    .igcp-row-bar { flex: 1; height: 4px; background: rgba(44,90,138,.18); border-radius: 3px; overflow: hidden; }
     .igcp-row-fill {
       height: 100%;
-      background: linear-gradient(90deg, #2680c8 0%, #5fb3d6 100%);
+      /* The same two fills the Overview strip uses for the same three jobs. */
+      background: linear-gradient(90deg, #2482df 0%, #1a66c4 100%);
       border-radius: 3px;
       transition: width .35s ease;
     }
-    .igcp-row.igcp-done .igcp-row-fill { background: linear-gradient(90deg, #3aaa70 0%, #5ec989 100%); }
-    .igcp-row-prog { font-size: 9px; color: #6a9ab8; font-weight: 700; white-space: nowrap; }
-    .igcp-row.igcp-done .igcp-row-prog { color: #5ec989; }
+    .igcp-row.igcp-done .igcp-row-fill { background: linear-gradient(90deg, #2bb673 0%, #1d9b4e 100%); }
+    .igcp-row-prog { font-size: 9px; color: var(--cr-ink-soft); font-weight: 700; white-space: nowrap; }
+    .igcp-row.igcp-done .igcp-row-prog { color: #1d9b4e; }
     /* Never a silently blank panel: if the weekly rows can't be read, say so. */
     .igcp-empty {
-      font-size: 10.5px; line-height: 1.4; color: #8fb6cf;
+      font-size: 10.5px; line-height: 1.4; color: var(--cr-ink-soft);
       padding: 8px 6px; text-align: center;
     }
     /* What finishing all three is WORTH. Without it the panel lists three jobs
@@ -4108,29 +4154,31 @@
       margin: 2px 8px 0;
       padding: 5px 8px;
       border-radius: 8px;
-      background: rgba(217,161,43,.13);
-      border: 1px solid rgba(217,161,43,.34);
+      background: rgba(232,179,74,.18);
+      border: 1px solid rgba(200,147,32,.45);
       font-size: 10px;
       font-weight: 700;
       line-height: 1.3;
-      color: #e7c169;
+      color: var(--cr-gold-ink);
       text-align: center;
     }
     #igcp-reward.igcp-rw-done {
-      background: rgba(70,176,114,.15);
-      border-color: rgba(70,176,114,.40);
-      color: #7fd8a2;
+      background: rgba(214,247,229,.85);
+      border-color: rgba(80,180,120,.55);
+      color: #1d9b4e;
     }
     #igcp-reward:empty { display: none; }
     #igcp-footer {
       padding: 4px 8px 7px;
       font-size: 9px;
-      color: rgba(106,154,184,.55);
+      /* Not --cr-ink-faint: that is a 2.3:1 whisper on cream, and this line is
+         9px. Quiet is the soft ink, one step down from the rows above it. */
+      color: var(--cr-ink-soft);
       text-align: center;
       cursor: pointer;
       transition: color .15s;
     }
-    #igcp-footer:hover { color: rgba(95,179,214,.75); }
+    #igcp-footer:hover { color: var(--cr-ink); }
     #ig-challenge-panel.igcp-minimized #igcp-cards,
     #ig-challenge-panel.igcp-minimized #igcp-reward,
     #ig-challenge-panel.igcp-minimized #igcp-footer { display: none; }
@@ -4152,10 +4200,15 @@
       align-items: center;
       gap: 4px;
       padding: 7px 7px 8px;
-      background: linear-gradient(160deg, rgba(10,26,60,.97) 0%, rgba(6,16,42,.98) 100%);
-      border: 1.5px solid rgba(95,179,214,.38);
+      /* Cream over sand, same as the challenge panel in the opposite corner
+         and every other thing that floats over the table. The two docks are
+         the only chrome a player sees for the whole match and they flank the
+         board, so they have to be the same object in two places, not a navy
+         slab on each side of a bright reef. */
+      background: linear-gradient(176deg, var(--cr-surface) 0%, var(--cr-surface-2) 100%);
+      border: 1px solid var(--cr-edge);
       border-radius: 14px;
-      box-shadow: 0 6px 28px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04);
+      box-shadow: var(--cr-lift);
       font-family: "Nunito", sans-serif;
       user-select: none;
     }
@@ -4164,7 +4217,7 @@
       font-weight: 800;
       letter-spacing: .4px;
       text-transform: uppercase;
-      color: #7aafcc;
+      color: var(--cr-ink-soft);
       text-align: center;
       line-height: 1.1;
       margin-bottom: 1px;
@@ -4175,24 +4228,24 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(95,179,214,.14);
-      border: 1.5px solid rgba(95,179,214,.4);
+      background: var(--cr-surface-sub);
+      border: 1.5px solid var(--cr-edge);
       border-radius: 9px;
-      color: #d4eaf8;
+      color: var(--cr-ink);
       font-size: 22px;
       font-weight: 800;
       line-height: 1;
       cursor: pointer;
       transition: background .14s, border-color .14s, transform .08s;
     }
-    .bs-btn:hover { background: rgba(95,179,214,.28); border-color: #5fb3d6; }
+    .bs-btn:hover { background: rgba(188,221,230,.8); border-color: var(--cr-gold); }
     .bs-btn:active { transform: scale(.92); }
     .bs-btn:disabled { opacity: .35; cursor: default; }
-    .bs-btn:disabled:hover { background: rgba(95,179,214,.14); border-color: rgba(95,179,214,.4); }
+    .bs-btn:disabled:hover { background: var(--cr-surface-sub); border-color: var(--cr-edge); }
     #bs-readout {
       font-size: 11px;
       font-weight: 800;
-      color: #9fd0ec;
+      color: var(--cr-ink);
       min-width: 38px;
       text-align: center;
       padding: 1px 0;
@@ -5262,9 +5315,12 @@
       --mini-h: calc(118px * var(--focus-scale));
     }
     #pv-board-focus-content .pv-ro-board { gap: calc(8px * var(--focus-scale)); }
+    /* 125x175 is the live board's ocean (--ocean-w/--ocean-h) against its
+       84x118 animals: the enlarged copy has to be the same board, not the same
+       board with differently-sized oceans. */
     #pv-board-focus-content .pv-ocean-face {
-      width: calc(100px * var(--focus-scale));
-      height: calc(140px * var(--focus-scale));
+      width: calc(125px * var(--focus-scale));
+      height: calc(175px * var(--focus-scale));
     }
 
     /* ── BOARD HOVER PREVIEW (smaller, floating tooltip) ─────────── */
@@ -5318,9 +5374,10 @@
       --mini-h: calc(70px * var(--focus-scale));
     }
     #pv-bh-content .pv-ro-board { gap: calc(4px * var(--focus-scale)); }
+    /* The live board's 125:84 ocean-to-animal, at this panel's 50px animal. */
     #pv-bh-content .pv-ocean-face {
-      width: calc(60px * var(--focus-scale));
-      height: calc(84px * var(--focus-scale));
+      width: calc(74px * var(--focus-scale));
+      height: calc(104px * var(--focus-scale));
     }
     #pv-board-hover .pv-board-card { cursor: default; }
     #pv-board-hover .pv-board-card:hover { transform: none; }
@@ -9583,9 +9640,10 @@
       padding: 14px 10px;
       overflow-x: auto;
     }
+    /* The live board's 125:84 ocean-to-animal, at this panel's 70px animal. */
     .ph-gdm-ro-host .pv-ocean-face {
-      width: calc(82px * var(--focus-scale));
-      height: calc(116px * var(--focus-scale));
+      width: calc(104px * var(--focus-scale));
+      height: calc(146px * var(--focus-scale));
     }
 
     .ph-fr-av {

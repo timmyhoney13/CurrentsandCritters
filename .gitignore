@@ -415,6 +415,12 @@
 # player is pointing at, measured in real pixels in headless Chrome.
 !test_hand_limit_discard.py
 !test_hand_discard_click.js
+# ...and that you can READ the card you are about to throw away. The forced
+# discard drops a full-width band between the board and the hand, and the
+# hovered card's tooltip, the only place its name and rules text are legible,
+# was painted underneath it. Measured in real pixels at three window sizes,
+# because stacking order is a thing only the browser knows.
+!test_discard_text_above_bar.js
 # Playing on a phone: the in-game screen laid the player seats out flanking the
 # hand in a grid whose side columns never shrink, so on a phone the hand's own
 # column collapsed to zero and the whole fan spilled underneath the seat pills
@@ -428,6 +434,13 @@
 # that only ever fed one, and measures the closed/open strip in headless
 # Chrome, because "hidden until you click it" is a thing only the browser knows.
 !test_weekly_challenges.js
+# ...and the in-game panel that shows them, which is OFF until Menu ->
+# Challenges turns it on, plus the two floating docks beside the board (that
+# panel and Board Size) being painted from the reef SURFACE set instead of
+# navy, and the board's OCEAN being the big card in each hub again. The colours
+# are measured as luminance and contrast in headless Chrome, not grepped, and
+# the ocean is measured against the animals that tuck under it.
+!test_ingame_reef_chrome.js
 # Tutorials: walks the Main Menu and Competitive tours through the REAL app in
 # headless Chrome, as a guest AND signed in, at five widths, pressing Next
 # when it is offered and otherwise clicking whatever the spotlight is on. It

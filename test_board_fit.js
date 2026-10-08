@@ -140,7 +140,14 @@ function board(oceans, lanes) {
 }
 const player = (name, oceans, lanes) => ({ name, index: 2, board: board(oceans, lanes) });
 
-// The table this replaced, so the report can say what actually changed.
+// The table this replaced, so the report can say what actually changed. These
+// are SCALES, and the board they scaled had a 100px ocean in it. The board's
+// ocean is --ocean-w now (125px, it was the same size as a card in your hand
+// and barely bigger than the animals tucked under it), so a scale on its own
+// is no longer comparable to one of these numbers: 1.19 of a 125px ocean draws
+// more than 1.25 of a 100px one. The check below compares what each actually
+// DRAWS, which is what "way far out" was ever about.
+const OLD_OCEAN_PX = 100;
 function oldScaleFor(n) {
   if (n <= 1) return 1.65;
   if (n === 2) return 1.45;
@@ -217,9 +224,12 @@ function oldScaleFor(n) {
     // to spare. On a phone the old table was too big the other way (it is what
     // forced the overlay to scroll), so only a roomy window has anything to say.
     if (oceans >= 3 && box.w >= 900) {
+      const faceEl = fContent.querySelector(".pv-ocean-face");
+      const drawn  = faceEl ? parseFloat(getComputedStyle(faceEl).width) : 0;
+      const before = oldScaleFor(oceans) * OLD_OCEAN_PX;
       rec("enlarged board is bigger than the old fixed table, " + tag,
-          s > oldScaleFor(oceans) + 0.01,
-          "was " + oldScaleFor(oceans) + ", now " + num(s));
+          drawn > before + 1,
+          "was " + num(before) + "px of ocean, now " + num(drawn) + "px (scale " + num(s) + ")");
     }
     closeBoardFocus();
   }

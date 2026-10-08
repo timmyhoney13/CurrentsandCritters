@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-08.2";
+  const APP_BUILD   = "2026-10-08.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -15183,24 +15183,23 @@
       _chatPanelOpen ? "Chat: On" : "Chat: Off";
     closeMenu();
   });
+  // Challenges: Off / Challenges: On, said the way Game Log and Chat above it
+  // are said. It used to read "Turn off in-game challenges", an instruction
+  // rather than a state, which in a list of three switches was the only row
+  // that did not tell you what it was currently doing.
+  const _igcpMenuLabel = (on) => `Challenges: ${on ? "On" : "Off"}`;
   document.getElementById("pv-menu-igcp-btn").addEventListener("click", () => {
-    const nowEnabled = window._igcpToggleEnabled?.() ?? true;
+    const nowEnabled = window._igcpToggleEnabled?.() ?? false;
     const btn = document.getElementById("pv-menu-igcp-btn");
-    if (btn) btn.textContent = nowEnabled
-      ? "Turn off in-game challenges"
-      : "Turn on in-game challenges";
+    if (btn) btn.textContent = _igcpMenuLabel(nowEnabled);
     closeMenu();
   });
   // Sync button label when menu opens
   (function() {
-    const origToggle = typeof toggleMenu !== "undefined" ? toggleMenu : null;
     document.getElementById("pv-menu-btn").addEventListener("mousedown", () => {
       const btn = document.getElementById("pv-menu-igcp-btn");
       if (!btn) return;
-      const enabled = window._igcpIsEnabled?.() ?? true;
-      btn.textContent = enabled
-        ? "Turn off in-game challenges"
-        : "Turn on in-game challenges";
+      btn.textContent = _igcpMenuLabel(window._igcpIsEnabled?.() ?? false);
     }, { passive: true });
   })();
   document.getElementById("pv-menu-scores-btn").addEventListener("click", () => {
@@ -36547,7 +36546,15 @@
     (function() {
       const _IGCP_ENABLED_KEY   = "cc_igcp_enabled";
       const _IGCP_MINIMIZED_KEY = "cc_igcp_min";
-      let _igcpEnabled = (function(){ try { return localStorage.getItem(_IGCP_ENABLED_KEY) !== "0"; } catch { return true; } })();
+      // OFF until you ask for it. This panel is homework parked on the table:
+      // it opened itself over the lower-left of every match, and a player who
+      // wanted to see the board there had to dismiss it each game. Nobody
+      // comes to a game to be handed a to-do list, so the challenges now wait
+      // in Menu -> Challenges, and the one and only thing that turns them on
+      // is a player turning them on. Written "1" rather than "not 0" on
+      // purpose: an unset key, a cleared browser, a new device and a guest all
+      // mean "never asked for", which is OFF.
+      let _igcpEnabled = (function(){ try { return localStorage.getItem(_IGCP_ENABLED_KEY) === "1"; } catch { return false; } })();
       // Starts MINIMISED and remembers what you last did with it, the panel
       // sits over the board, so it opens only when asked for.
       let _igcpMin     = (function(){ try { return localStorage.getItem(_IGCP_MINIMIZED_KEY) !== "0"; } catch { return true; } })();
