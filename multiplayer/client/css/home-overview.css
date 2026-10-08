@@ -1,0 +1,144 @@
+/* Currents and Critters: Player Home overview arrangement.
+ *
+ * Kept OUT of preview.css on purpose. That file is 800KB and is edited by
+ * several sessions at once, so everything this change adds lives here and
+ * preview.css is left alone.
+ *
+ * What this file does, all on the signed-in home screen:
+ *   1. Game Night sits INSIDE the profile card, between the name/level block
+ *      and the Competitive rank, in the game's own reef palette.
+ *   2. The clan prize band comes off Overview (it still has its own Clans tab).
+ *   3. Tutorial becomes the big action card; the join-by-code box fills the
+ *      fourth cell the mosaic leaves open.
+ *   4. Friends moves onto Overview, so there is no Friends tab in the menu.
+ */
+
+/* ── 1. Game Night, in the profile card ─────────────────────────────────
+   The shipped banner is a dark navy-to-teal slab. On the Overview tab it sat
+   on ph-bg-overview-art.png, which is bright turquoise, so it read as a hole
+   punched in the artwork. Here it is gold board stock with navy ink: the one
+   warm thing on a page of cold frosted glass, which is what makes it carry
+   from across the room without fighting the art.
+   The $100 clan band owned gold before this change; it is off Overview now,
+   so nothing else on the screen competes. */
+.ph-profile-card > #cc-game-night { margin: 0; min-width: 0; }
+.ph-profile-card > #cc-game-night .ccGN-inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 11px 9px 16px;
+  border-radius: 18px;
+  color: #15325c;
+  background: linear-gradient(135deg, #ffe9b0 0%, #f4c75e 46%, #e8b34a 100%);
+  border: 1px solid #c89320;
+  box-shadow: 0 8px 20px -8px rgba(200,147,32,.7),
+              inset 0 1px 0 rgba(255,255,255,.6);
+}
+/* The sheen is for the full-width band; at this size it just strobes. */
+.ph-profile-card > #cc-game-night .ccGN-inner::after { content: none; }
+.ph-profile-card > #cc-game-night .ccGN-body {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+}
+.ph-profile-card > #cc-game-night .ccGN-title {
+  font-family: "Cinzel", serif; font-size: 1rem; font-weight: 900;
+  color: #6b4700; line-height: 1.1; white-space: nowrap; letter-spacing: .02em;
+}
+.ph-profile-card > #cc-game-night .ccGN-when {
+  font-size: .72rem; font-weight: 800; color: #8a5c00; white-space: nowrap;
+}
+.ph-profile-card > #cc-game-night .ccGN-when b { font-weight: 800; }
+.ph-profile-card > #cc-game-night .ccGN-status {
+  display: flex; align-items: center; gap: 9px;
+}
+.ph-profile-card > #cc-game-night .ccGN-count,
+.ph-profile-card > #cc-game-night .ccGN-live {
+  font-size: .75rem; font-weight: 800; color: #5a3c00; white-space: nowrap;
+}
+/* the one cool note, so the reward reads as a different kind of thing */
+.ph-profile-card > #cc-game-night .ccGN-xp {
+  font-size: .72rem; font-weight: 900; color: #fff; white-space: nowrap;
+  background: linear-gradient(135deg, #5fb3d6, #2c5a8a);
+  padding: 5px 12px; border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(21,50,92,.3);
+}
+/* The long lines are for the full-width band. In the header the title, the
+   schedule and the two chips say it; the rest is noise at this width. */
+.ph-profile-card > #cc-game-night .ccGN-note,
+.ph-profile-card > #cc-game-night .ccGN-join,
+.ph-profile-card > #cc-game-night .ccGN-local { display: none; }
+
+/* Placing Game Night in the header.
+   The profile card is display:flex with flex-wrap:wrap at desktop widths (it
+   is a grid only in some of its media queries), so grid-column/grid-row alone
+   are inert here and the banner drifted to the end of the first line. Order
+   plus a full-width basis works under BOTH, and the grid pairs are kept for
+   the widths where the card really is a grid.
+
+   At 1440 the first line is already full: avatar 110 + name block 530 +
+   ranks 385 + sign-out 190 = 1215 in a 1283 box. So Game Night takes its own
+   line, centred, between the name and level above it and the version strip
+   below, which is the slot that actually exists. */
+#auth-stats-lobby .ph-profile-card > .ph-avatar { order: 1; grid-column: 1; grid-row: 1; }
+#auth-stats-lobby .ph-profile-card > .ph-pinfo  { order: 2; grid-column: 2; grid-row: 1;
+  min-width: 0; }
+#auth-stats-lobby .ph-profile-card > .ph-pranks { order: 3; grid-column: 4; grid-row: 1; }
+#auth-stats-lobby .ph-profile-card > #stats-lobby-signed-actions {
+  order: 4; grid-column: 5; grid-row: 1;
+}
+#auth-stats-lobby .ph-profile-card > #cc-game-night {
+  order: 5; flex: 0 0 100%; grid-column: 1 / -1; grid-row: 2;
+  display: flex; justify-content: center;
+}
+#auth-stats-lobby .ph-profile-card > #cc-game-night .ccGN-inner { max-width: 640px; }
+#auth-stats-lobby .ph-profile-card > .ph-alpha-banner {
+  order: 6; flex: 0 0 100%; grid-column: 1 / -1; grid-row: 3;
+}
+
+/* ── 2. The clan prize band comes off Overview ──────────────────────── */
+#ph-panel-overview > #cc-clan-prize { display: none !important; }
+
+/* ── 3. Tutorial is the big one ─────────────────────────────────────────
+   Footprint is how a screen says what to do first. Tutorial takes a 2x2 of
+   the four-column row, which at the artwork's own 472:304 is exactly twice
+   the width and twice the height of its neighbours, so nothing is cropped. */
+#auth-stats-lobby .ph-actions {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: start;
+}
+#auth-stats-lobby .ph-actions > .ph-action-card:nth-child(4) {   /* Tutorial */
+  grid-column: 1 / 3; grid-row: 1 / 3;
+  aspect-ratio: auto !important; height: 100% !important;
+}
+#auth-stats-lobby .ph-actions > .ph-action-card:nth-child(1) { grid-column: 3; grid-row: 1; }
+#auth-stats-lobby .ph-actions > .ph-action-card:nth-child(2) { grid-column: 4; grid-row: 1; }
+#auth-stats-lobby .ph-actions > .ph-action-card:nth-child(3) { grid-column: 3; grid-row: 2; }
+/* the open cell is the join box, not a fifth picture */
+#auth-stats-lobby .stats-join-row {
+  grid-column: 4; grid-row: 2;
+  display: flex !important; flex-direction: column; justify-content: center; gap: 8px;
+  background: rgba(220,245,255,.84);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  border: 1px solid rgba(120,200,235,.5);
+  border-radius: 22px; padding: 16px 18px;
+  box-shadow: 0 6px 28px rgba(0,60,120,.14);
+}
+#auth-stats-lobby .stats-join-row::before {
+  content: "Join with a code";
+  font-family: "Cinzel", serif; font-size: .72rem; letter-spacing: .1em;
+  font-weight: 700; color: #3a6088;
+}
+#auth-stats-lobby .stats-join-row .pv-input { width: 100%; flex: none; }
+#auth-stats-lobby .stats-join-row .pv-btn { width: 100%; }
+@media (max-width: 1100px) {
+  #auth-stats-lobby .ph-actions > .ph-action-card:nth-child(1),
+  #auth-stats-lobby .ph-actions > .ph-action-card:nth-child(2),
+  #auth-stats-lobby .ph-actions > .ph-action-card:nth-child(3),
+  #auth-stats-lobby .ph-actions > .ph-action-card:nth-child(4),
+  #auth-stats-lobby .stats-join-row { grid-column: auto; grid-row: auto; }
+  #auth-stats-lobby .ph-actions > .ph-action-card:nth-child(4) {
+    aspect-ratio: 472 / 304 !important; height: auto !important;
+  }
+}
+
+/* ── 4. Friends on Overview ─────────────────────────────────────────── */
+#ph-panel-overview > .ph-friends-home { margin-top: 14px; }
