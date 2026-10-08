@@ -258,7 +258,7 @@
 /* Navy on a white halo, not white on bright water: the reef's own sky is pale,
    so a white heading has nothing to sit against at the top of the page. */
 .ccP-title {
-  font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400;
+  font-family: "Cinzel", serif; font-weight: 800;
   font-size: clamp(28px, 5.4vw, 46px); letter-spacing: .6px; line-height: 1.05;
   color: #12457c; margin: 0;
   text-shadow:
@@ -344,7 +344,7 @@
   box-shadow: 0 9px 30px rgba(28, 90, 150, .14);
 }
 .ccP-panel-h {
-  font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; letter-spacing: .4px;
+  font-family: "Cinzel", serif; font-weight: 800; letter-spacing: .4px;
   font-size: 20.52px; color: var(--p-navy); margin-bottom: 3px;
   display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
 }
@@ -366,7 +366,7 @@
 .ccP-rw-ico img { width: 30px; height: 30px; object-fit: contain; vertical-align: middle; }
 .ccP-rw-lbl { font-size: 10px; font-weight: 900; letter-spacing: .7px; text-transform: uppercase; color: var(--p-ink-dim); }
 .ccP-rw-val {
-  font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 26px;
+  font-family: "Cinzel", serif; font-weight: 800; font-size: 26px;
   color: var(--p-navy); line-height: 1.15; margin: 2px 0 5px; letter-spacing: .5px;
 }
 .ccP-rw-val.gold { color: var(--p-gold); }
@@ -606,7 +606,7 @@
 .ccP-ride {
   position: relative; overflow: hidden; isolation: isolate;
   padding: 18px 42px; border-radius: 999px; border: 3px solid #fff;
-  font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; letter-spacing: .9px;
+  font-family: "Cinzel", serif; font-weight: 800; letter-spacing: .9px;
   font-size: clamp(18px, 3.6vw, 25px); color: #fff; cursor: pointer; min-height: 58px;
   background: linear-gradient(180deg, #3fc4f0 0%, #2189d8 52%, #1565b8 100%);
   text-shadow: 0 2px 0 rgba(12, 70, 120, .45);
@@ -641,7 +641,7 @@
   border-radius: 22px; border: 2px dashed rgba(120, 175, 220, .75); background: rgba(252, 255, 255, .9);
   box-shadow: 0 9px 30px rgba(28, 90, 150, .12);
 }
-.ccP-locked .big { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 24px; color: var(--p-navy); letter-spacing: .5px; }
+.ccP-locked .big { font-family: "Cinzel", serif; font-weight: 800; font-size: 24px; color: var(--p-navy); letter-spacing: .5px; }
 .ccP-locked .sm { font-size: 13.5px; font-weight: 700; color: var(--p-ink-soft); margin-top: 8px; line-height: 1.6; }
 
 /* Final confirmation */
@@ -714,7 +714,7 @@
    so it is the game's gold with a deep-navy edge: readable on every scene's
    grade, light or dark. */
 .ccP-cel-num {
-  font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400;
+  font-family: "Cinzel", serif; font-weight: 800;
   font-size: clamp(60px, 17vw, 132px); line-height: .95;
   background: linear-gradient(180deg, #fff5d0 0%, #f0c840 46%, #c89320 100%);
   background-clip: text; -webkit-background-clip: text;
@@ -742,7 +742,7 @@
    Shallows to the near-black Abyssal Trench. An edge works on both; a tint
    only works on one. */
 .ccP-cel-title {
-  font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400;
+  font-family: "Cinzel", serif; font-weight: 800;
   font-size: clamp(21px, 4.8vw, 32px); color: #fff; letter-spacing: .5px;
   text-shadow:
     0 2px 0 rgba(16, 62, 105, .95), 0 -1px 0 rgba(16, 62, 105, .7),
@@ -840,7 +840,7 @@
 }
 .ccP-notice > * { position: relative; }
 .ccP-notice-txt { flex: 1 1 240px; min-width: 0; }
-.ccP-notice-h { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 19px; letter-spacing: .4px; text-shadow: 0 2px 0 rgba(14, 70, 120, .35); }
+.ccP-notice-h { font-family: "Cinzel", serif; font-weight: 800; font-size: 19px; letter-spacing: .4px; text-shadow: 0 2px 0 rgba(14, 70, 120, .35); }
 .ccP-notice-s { font-size: 13px; font-weight: 700; color: #e6f5ff; line-height: 1.5; margin-top: 3px; }
 .ccP-notice-btn {
   flex: 0 0 auto; padding: 11px 22px; border-radius: 999px; border: 2px solid #fff; min-height: 44px;

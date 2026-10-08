@@ -51,18 +51,20 @@
       --rb-shadow:   0 4px 18px rgba(0,0,0,.3);
       --rb-hero-bg:  linear-gradient(160deg, rgba(244,165,116,.11) 0%, rgba(232,179,74,.06) 55%, transparent 100%);
     }
-    /* ── One face, the whole book ──────────────────────────────────
-       The rulebook is set in Luckiest Guy from the cover to the last
-       footnote, headings and body alike, so the printed book and the screen
-       read as the same object. The face carries one weight, so font-weight
-       does nothing here; separation comes from size, colour and spacing
-       instead. Nunito stays on the end of every stack for the glyphs
-       Luckiest Guy does not have (emoji, ★, the arrows). */
-    .rb, .rb * { font-family: "Luckiest Guy", "Nunito", sans-serif; font-weight: 400; }
+    /* ── Two faces, the same two as the rest of the game ───────────
+       The book used to be set in Luckiest Guy from the cover to the last
+       footnote. One display face at every size meant the body copy was a
+       display face too, which is tiring over a page of rules, and it was a
+       fifth typeface in a product that only needs two.
+       Cinzel for the headings, which is the face on the cover and on every
+       card title, and Nunito for everything you actually read. */
+    .rb, .rb * { font-family: "Nunito", sans-serif; font-weight: 600; }
+    .rb-hero-title, .rb-h2, .rb-h3, .rb-h3-big {
+      font-family: "Cinzel", serif; font-weight: 800; letter-spacing: .3px;
+    }
     .rb { color: var(--rb-body); letter-spacing: .2px; }
-    /* One weight means <b> cannot get any heavier, and a browser asked for a
-       bold it does not have smears one on. Emphasis is colour here instead. */
-    .rb b, .rb strong { color: var(--rb-ink); }
+    /* Bold is a real weight again, so emphasis can be weight AND colour. */
+    .rb b, .rb strong { color: var(--rb-ink); font-weight: 800; }
     .rb * { box-sizing: border-box; }
 
     /* Cover */
@@ -72,13 +74,13 @@
       background: var(--rb-hero-bg); box-shadow: var(--rb-shadow);
     }
     .rb-hero-title {
-      margin: 0; font-family: "Luckiest Guy", "Nunito", sans-serif;
+      margin: 0; font-family: "Cinzel", serif; font-weight: 800;
       font-size: clamp(1.9rem, 4.4vw, 3.1rem); line-height: 1.02;
       letter-spacing: 1.2px; color: var(--rb-ink);
     }
     .rb.rb-dark .rb-hero-title { text-shadow: 0 2px 14px rgba(232,179,74,.35); }
     .rb-hero-eyebrow {
-      margin-top: 6px; font-family: "Luckiest Guy", "Nunito", sans-serif;
+      margin-top: 6px; font-family: "Nunito", sans-serif;
       font-size: clamp(.86rem, 1.5vw, 1.08rem); letter-spacing: 3px; text-transform: uppercase;
       color: var(--rb-coral);
     }
@@ -105,7 +107,7 @@
     }
     .rb-toc-btn {
       display: inline-flex; align-items: center; gap: 7px;
-      font-family: "Luckiest Guy", "Nunito", sans-serif; font-size: 12px; cursor: pointer;
+      font-family: "Nunito", sans-serif; font-size: 12px; cursor: pointer;
       color: var(--rb-body); background: transparent;
       border: 1px solid var(--rb-line); border-radius: 999px; padding: 5px 12px;
       transition: background .13s ease, color .13s ease, transform .12s ease, border-color .13s ease;
@@ -131,25 +133,25 @@
     .rb-h2 {
       display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
       margin: 0 0 14px; padding-bottom: 11px; border-bottom: 2px solid var(--rb-line-2);
-      font-family: "Luckiest Guy", "Nunito", sans-serif;
+      font-family: "Cinzel", serif; font-weight: 800;
       font-size: clamp(1.3rem, 2.4vw, 1.75rem); letter-spacing: .8px; color: var(--rb-ink);
     }
     .rb-h2-ico {
       display: inline-flex; align-items: center; justify-content: center;
       width: 34px; height: 34px; border-radius: 11px; font-size: 17px; flex: 0 0 auto;
       background: var(--rb-accent-s); border: 1px solid var(--rb-line-2);
-      font-family: "Luckiest Guy", "Nunito", sans-serif;
+      font-family: "Nunito", sans-serif;
     }
     .rb-h2-tail, .rb-h3-tail {
-      font-family: "Luckiest Guy", "Nunito", sans-serif; font-size: .62em;
+      font-family: "Nunito", sans-serif; font-size: .62em;
       letter-spacing: 0; color: var(--rb-muted);
     }
     .rb-h3 {
       margin: 0 0 8px; font-size: 1.02rem; color: var(--rb-ink);
-      font-family: "Luckiest Guy", "Nunito", sans-serif;
+      font-family: "Cinzel", serif; font-weight: 800;
     }
     .rb-h3-big {
-      margin-top: 22px; font-family: "Luckiest Guy", "Nunito", sans-serif;
+      margin-top: 22px; font-family: "Cinzel", serif; font-weight: 800;
       font-size: 1.28rem; letter-spacing: .6px;
     }
     .rb-lead { margin: 0 0 12px; font-size: 1.02rem; line-height: 1.55; color: var(--rb-ink); }
@@ -198,7 +200,7 @@
     .rb-step-n {
       flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-family: "Luckiest Guy", "Nunito", sans-serif; font-size: 15px;
+      font-family: "Nunito", sans-serif; font-size: 15px;
       color: #1a1208; background: linear-gradient(180deg,#f6c178 0%,#e8a052 100%);
       box-shadow: 0 2px 8px rgba(216,150,50,.32);
     }
@@ -532,7 +534,7 @@
 
     /* Shooting the Moon award */
     .rb-big-award {
-      margin: 6px 0 10px; font-family: "Luckiest Guy", "Nunito", sans-serif;
+      margin: 6px 0 10px; font-family: "Cinzel", serif; font-weight: 800;
       font-size: 1.45rem; letter-spacing: .8px; color: var(--rb-accent);
     }
 
@@ -543,7 +545,7 @@
     }
     .rb-total-eq { font-size: 1.02rem; color: var(--rb-ink); margin-bottom: 6px; }
     .rb-total-win {
-      font-family: "Luckiest Guy", "Nunito", sans-serif;
+      font-family: "Cinzel", serif; font-weight: 800;
       font-size: 1.35rem; letter-spacing: 1px; color: var(--rb-accent);
     }
     .rb-snap {
@@ -595,7 +597,7 @@
     .rb-enc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
     .rb-enc-ico { font-size: 17px; }
     .rb-enc-title {
-      font-family: "Luckiest Guy", "Nunito", sans-serif; font-size: 1.02rem;
+      font-family: "Cinzel", serif; font-weight: 800; font-size: 1.02rem;
       color: var(--rb-ink); flex: 1; min-width: 0;
     }
     .rb-enc-total { font-size: 10.5px; letter-spacing: .5px; text-transform: uppercase; color: var(--rb-muted); }
@@ -615,7 +617,7 @@
 
     .rb-end {
       margin: 22px 0 6px; text-align: center;
-      font-family: "Luckiest Guy", "Nunito", sans-serif; font-size: 1.05rem;
+      font-family: "Cinzel", serif; font-weight: 800; font-size: 1.05rem;
       letter-spacing: 1px; color: var(--rb-muted);
     }
     .rb-end span { color: var(--rb-coral); }

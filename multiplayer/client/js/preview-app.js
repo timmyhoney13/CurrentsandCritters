@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-07.3";
+  const APP_BUILD   = "2026-10-07.32";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -6461,39 +6461,46 @@
     const payInfo     = document.getElementById("pv-payment-info");
     const confirmBtn  = document.getElementById("pv-payment-confirm-btn");
     const txt         = document.getElementById("pv-payment-mode-text");
+    const sub         = document.getElementById("pv-payment-mode-sub");
     if (!bar) return;
     if (!pendingPayAction) {
       bar.style.display = "none";
+      _syncBandState();
       if (playCtrl) playCtrl.style.display = "flex";
       return;
     }
     bar.style.display = "flex";
+    _syncBandState();
     if (playCtrl) playCtrl.style.display = "none";
     const cost    = Number(pendingPayAction.cost_to_pay || 0);
     const name    = pendingPayAction.face_name || "card";
     const star    = starPayInfo(pendingPayAction);
     // Only the ★ variant needs a matching symbol. On a plain play the symbol is
     // irrelevant (the engine will not fire the star), so never ask for one.
-    const symHint = star.fires ? `, include a ${star.sym} card for the ★` : "";
     const sel     = selectedPayment.size;
     const need    = cost - sel;
+    // Headline says WHAT is being paid for and HOW FAR ALONG you are. The
+    // star caveat gets its own quieter line instead of being bolted onto the
+    // end of the same sentence.
     if (txt) {
-      let msg = sel >= cost
-        ? `✓ Ready, ${cost} card${cost!==1?"s":""} selected to pay for ${name}`
-        : `Playing ${name}, click or hover a card and tap "Use as Payment" (${need} more needed${symHint})`;
-      if (star.fires && sel >= cost) {
+      txt.textContent = `Paying for ${name}: ${sel} of ${cost} card${cost!==1?"s":""} chosen`;
+    }
+    if (sub) {
+      let note = sel >= cost ? "" : `Tap ${need === 1 ? "one more card" : `${need} more cards`} in your hand.`;
+      if (star.fires) {
         const ok = Array.from(selectedPayment).some(uid => entryHasSymbolMatch(uid, star.sym));
-        msg += ok
-          ? ` ★ ${star.ability || "star ability"} will fire`
-          : ` no ${star.sym} card selected, the ★ will NOT fire`;
+        note = ok
+          ? `The ★ ${star.ability || "star ability"} will fire.`
+          : `Include a ${star.sym} card to fire the ★${star.ability ? " " + star.ability : ""}.`;
       } else if (star.offered) {
-        msg += `: ★ is off, playing without ${star.ability ? `"${star.ability}"` : "the star ability"}`;
+        note = `★ is off, so ${star.ability ? star.ability : "the star ability"} will not fire.`;
       }
-      txt.textContent = msg;
+      sub.textContent = note;
+      sub.style.display = note ? "" : "none";
     }
     if (confirmBtn) {
       confirmBtn.disabled    = sel !== cost;
-      confirmBtn.textContent = sel >= cost ? `✓ Confirm Payment` : `Select ${need} more`;
+      confirmBtn.textContent = sel >= cost ? `✓ Confirm Payment` : `Choose ${need} more`;
     }
   }
 
@@ -6973,8 +6980,8 @@
       document.getElementById("pv-hand")?.classList.remove("payment-active");
       updatePaymentBadge();
       updatePaymentModeUI();
-      const desc = action.description ? action.description : (action.kind || "Action sent");
-      setStatus("→ " + desc);
+      const desc = actionLabel(action);
+      setStatus(desc);
       showToast(desc, "ok");
       // Only optimistically clear the banner and block canInteract when the
       // submitted action is end_turn, that's the only action that actually
@@ -7377,6 +7384,99 @@
   function mainText(text) {
     return String(text||"").replace(/\*[^*]+\*/g,"").replace(/\|\s*\|/g,"|")
       .replace(/^\s*\|\s*/,"").replace(/\s*\|\s*$/,"").trim();
+  }
+
+  // ── What an action is CALLED, to a player ──────────────────────
+  // The engine describes its own moves for its own logs: "play ocean
+  // 251:Arctic Ocean", "play 65:Bunker to ocean 251", "draw 2 from deck".
+  // Those strings went straight into the toast and the status line, so the
+  // game told players a card's internal uid every time they moved. The engine
+  // keeps saying it its way (those strings are in the saved games and the
+  // training data, multiplayer/human_game_dataset.jsonl among them); this
+  // turns one into English for the screen, and never invents a name it does
+  // not have.
+  function _oceanNameByUid(uid) {
+    if (uid == null) return "";
+    const me = (Array.isArray(_latestPlayers) ? _latestPlayers : [])
+      .find(p => Number(p.index) === Number(myIdx))
+      || (_handRenderData && _handRenderData.me) || null;
+    const board = Array.isArray(me?.board) ? me.board : [];
+    const hit = board.find(o => Number(o.ocean_uid) === Number(uid));
+    return String(hit?.ocean?.name || "").trim();
+  }
+
+  const _DIR_WORD = { up: "top", down: "bottom", left: "port", right: "starboard" };
+
+  // The Daily Challenges pill is position:fixed to the bottom-left of the
+  // board, so it knows nothing about the full-width bands that appear between
+  // the board and the action bar. A band paints over it (they are above it on
+  // purpose), which left the top third of the pill showing above the band and
+  // the rest gone: it read as a clipped element rather than a hidden one.
+  // Any band up, pill out of the way.
+  function _syncBandState() {
+    try {
+      const up =
+        !!document.querySelector("#pv-pool-pick-hint.visible") ||
+        !!document.querySelector("#pv-discard-banner.visible") ||
+        !!pendingPayAction;
+      document.body.classList.toggle("cc-band-up", up);
+    } catch (_) {}
+  }
+
+  // "1 pts" was on every scoreboard in the game.
+  function ptsLabel(n) {
+    const v = Number(n || 0);
+    return `${v} ${Math.abs(v) === 1 ? "pt" : "pts"}`;
+  }
+
+  function actionLabel(action) {
+    if (!action) return "Action sent";
+    const star = action.use_star ? " with the ★" : "";
+    switch (action.kind) {
+      case "draw": {
+        const fromPool = Number(action.draw_from_pool || 0);
+        if (fromPool === 0) return "Drew 2 from the deck";
+        if (fromPool === 1) return "Drew 1 from the pool and 1 from the deck";
+        return "Drew 2 from the pool";
+      }
+      case "play_ocean":
+        return `Played ${action.face_name || "an ocean"}${star}`;
+      case "play_to_ocean": {
+        const where = _oceanNameByUid(action.ocean_uid);
+        const dir   = _DIR_WORD[String(action.face_direction || "").toLowerCase()];
+        const at    = where ? ` on ${where}` : "";
+        const side  = dir ? ` (${dir})` : "";
+        return `Played ${action.face_name || "a card"}${at}${side}${star}`;
+      }
+      case "end_turn":              return "Turn ended";
+      case "discard_to_pool":       return "Discarded to the pool";
+      case "discard_batch_to_pool": return "Discarded to the pool";
+      case "move_animal":           return `Moved ${action.face_name || "a critter"}`;
+    }
+    // Unknown kind: say nothing rather than leak the engine's wording.
+    return action.face_name ? `Played ${action.face_name}` : "Action sent";
+  }
+
+  // ── Score curve as a table, not as a sentence ──────────────────
+  // An Ocean's payout arrives as "1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 |
+  // 6+ = 35". Read left to right that is a wall of digits, and the thing that
+  // actually decides the play, the 5 = 0 trap sitting in the middle, is
+  // invisible. Laid out as counts over points you see the shape of it, and the
+  // zero is called out. Returns "" for anything that is not a pure curve, so
+  // prose like "+1 | Draw one" is left exactly as written.
+  function scoreCurveHtml(text) {
+    const parts = String(text || "").split("|").map(s => s.trim()).filter(Boolean);
+    if (parts.length < 3) return "";
+    const cells = [];
+    for (const p of parts) {
+      const m = /^(\d+\+?)\s*=\s*(-?\d+)$/.exec(p);
+      if (!m) return "";
+      cells.push([m[1], m[2]]);
+    }
+    return '<div class="tt-curve">' + cells.map(([n, v]) =>
+      `<div class="tt-cv${Number(v) === 0 ? " zero" : ""}">` +
+      `<b>${n}</b><span>${v}</span></div>`
+    ).join("") + '</div>';
   }
 
   // Star-skip guard: if the player is about to play a card with an available star
@@ -9662,16 +9762,16 @@
     updateCompMenuHands(players, payload.active_action_seat);
     const _mrc = document.getElementById("pv-menu-room-code");
     if (_mrc) _mrc.textContent = roomId || "-";
-    const _termBtn = document.getElementById("pv-menu-terminate-btn");
-    if (_termBtn) _termBtn.style.display = (payload.viewer?.is_host || Boolean(getHostToken())) ? "" : "none";
     try { if (typeof window._syncAiSpeedBar === "function") window._syncAiSpeedBar(payload); } catch (e) {}
 
     const discBanner = document.getElementById("pv-discard-banner");
     if (mustDiscard) {
       discBanner.textContent = `Discard exactly ${discardExcess} card(s) to return to 10, click cards then Confirm`;
       discBanner.classList.add("visible");
+      _syncBandState();
     } else {
       discBanner.classList.remove("visible");
+      _syncBandState();
     }
 
     // end game overlay. Capture any competitive forfeit result first so the
@@ -10231,10 +10331,12 @@
     const hint = document.getElementById("pv-pool-pick-hint");
     if (hint) {
       if (isSecondDraw && canInteract) {
-        hint.textContent = "Choose your second card, click the Deck or draw one from the pool";
+        hint.textContent = "Click the deck, or take a card from the pool.";
         hint.classList.add("visible");
+        _syncBandState();
       } else {
         hint.classList.remove("visible");
+        _syncBandState();
       }
     }
 
@@ -11064,7 +11166,7 @@
     const players = Array.isArray(payload?.state?.players) ? payload.state.players : [];
     if (!players.length) {
       const msg = document.createElement("p");
-      msg.style.cssText = "color:var(--muted);font-size:13px;";
+      msg.style.cssText = "color:var(--cr-ink-soft);font-size:13px;";
       msg.textContent = "No score data yet, scores appear once cards are played.";
       content.appendChild(msg); return;
     }
@@ -11077,13 +11179,12 @@
       "font-family:'Cinzel',serif",
       "font-size:1rem",
       "font-weight:900",
-      "color:var(--cyan)",
+      "color:var(--cr-ink)",
       "text-align:center",
       "margin-bottom:14px",
-      "letter-spacing:.1em",
-      "text-transform:uppercase",
+      "letter-spacing:.06em",
       "padding:8px 0",
-      "border-bottom:1px solid rgba(48,200,240,.2)",
+      "border-bottom:1px solid var(--cr-edge-soft)",
     ].join(";");
     countEl.textContent = `${countLabel}-Player Game`;
     content.appendChild(countEl);
@@ -11099,7 +11200,7 @@
       const badge = document.createElement("div"); badge.className = `sb-rank-badge ${rankClass}`;
       badge.textContent = i+1;
       pill.appendChild(badge);
-      pill.appendChild(document.createTextNode(`${p.name}${isMe?" (you)":""}, ${Number(p.score||0)} pts`));
+      pill.appendChild(document.createTextNode(`${p.name}${isMe?" (you)":""}, ${ptsLabel(p.score)}`));
       if (isMe) {
         const you = document.createElement("span"); you.className = "sb-you"; you.textContent = "YOU";
         pill.appendChild(you);
@@ -11117,19 +11218,19 @@
       const badge = document.createElement("div"); badge.className = `sb-rank-badge ${rankClass}`;
       badge.textContent = rank+1; head.appendChild(badge);
       const nameEl = document.createElement("span"); nameEl.textContent = p.name;
-      if (isMe) nameEl.style.color = "var(--cyan)"; head.appendChild(nameEl);
+      if (isMe) nameEl.style.color = "var(--cr-teal-deep)"; head.appendChild(nameEl);
       if (isMe) {
         const you = document.createElement("span"); you.className = "sb-you"; you.textContent = "YOU";
         head.appendChild(you);
       }
       const total = document.createElement("span"); total.className = "sb-total-pill";
-      total.textContent = `${Number(p.score||0)} pts`; head.appendChild(total);
+      total.textContent = ptsLabel(p.score); head.appendChild(total);
       block.appendChild(head);
 
       const full = p?.score_breakdown?.full;
       const rows = full && Array.isArray(full.card_rows) ? full.card_rows : [];
       if (!rows.length) {
-        const none = document.createElement("div"); none.style.cssText = "font-size:11px;color:var(--muted);";
+        const none = document.createElement("div"); none.style.cssText = "font-size:11px;color:var(--cr-ink-soft);";
         none.textContent = "No scored cards yet."; block.appendChild(none);
       } else {
         rows.forEach(row => {
@@ -11137,16 +11238,31 @@
           const nameRow = document.createElement("div");
           const rowTotal = Number(row.total||0);
           const sign = rowTotal >= 0 ? "+" : "";
-          nameRow.innerHTML = `<span class="sb-card-name">${row.card_uid}:${row.card_name}</span>
-            <span style="color:var(--muted);font-size:10px;"> (${row.is_ocean?"Ocean":"Animal"} · Ocean #${row.ocean_uid})</span>
-            <span class="sb-card-pts" style="float:right;">${sign}${rowTotal} pts</span>`;
+          const inOcean = row.is_ocean ? "" : _oceanNameByUid(row.ocean_uid);
+          const where = inOcean ? ` <span class="sb-card-where">in ${inOcean}</span>` : "";
+          nameRow.innerHTML = `<span class="sb-card-name">${row.card_name}</span>${where}
+            <span class="sb-card-pts" style="float:right;">${sign}${ptsLabel(rowTotal)}</span>`;
           rowEl.appendChild(nameRow);
           const comps = Array.isArray(row.components) ? row.components : [];
-          if (comps.length) {
+          // The engine's flat component is reason "flat +4" with points 4, so
+          // the row rendered "+4 flat +4": the card's own face value, said
+          // twice, next to a row total on the right that is the same number a
+          // third time. A card whose ONLY score is its face value still needs
+          // that line, so it is dropped only when something else explains the
+          // total.
+          const shown = comps.filter(c => !/^flat\b/i.test(String(c.reason || "").trim()));
+          if (shown.length) {
             const compDiv = document.createElement("div"); compDiv.className = "sb-card-components";
-            compDiv.textContent = comps.map(c => {
+            compDiv.textContent = shown.map(c => {
               const pts = Number(c.points||0);
-              return `${pts>=0?"+":""}${pts} ${String(c.reason||"").trim()}`;
+              let why = String(c.reason||"").trim()
+                // Reasons are composed server-side and some end in a count
+                // ("… → 1 pts"), the same plural bug one layer down.
+                .replace(/\b1 pts\b/g, "1 pt")
+                // and some restate their own points ("most piers (+4)"), which
+                // with the leading "+4" printed the number three times in a row.
+                .replace(new RegExp("\\s*\\(" + (pts >= 0 ? "\\+" : "") + pts + "\\)\\s*$"), "");
+              return `${pts>=0?"+":""}${pts} ${why}`;
             }).join("  ·  ");
             rowEl.appendChild(compDiv);
           }
@@ -12901,31 +13017,33 @@
       // First ocean (empty board): make the drop target a large, easy-to-hit
       // area roughly the footprint of an ocean hub, so dragging the very first
       // ocean isn't a fiddly thin strip. Once oceans exist, keep it compact.
+      // Look lives in preview.css (#pv-ocean-drop-zone): the zone is a lit
+      // hollow in the sand, so it is painted with the artwork's own light
+      // rather than outlined like a file-upload box. JS only picks which of
+      // the two sizes it is and what it says.
       const isFirstOcean = !board.length;
       if (isFirstOcean) {
         oceanDrop.classList.add("first-ocean-drop");
-        oceanDrop.innerHTML = `<span style="font-size:26px;line-height:1;">⊕</span><span>Drag an Ocean card here<br><span style="opacity:.8;font-weight:600;">Or click here to choose one</span></span>`;
-        oceanDrop.style.cssText = "border:2.5px dashed var(--teal);border-radius:14px;padding:34px 24px;min-height:170px;width:100%;max-width:300px;color:var(--teal);font-size:15px;font-weight:700;cursor:pointer;transition:all .15s;margin:6px auto 12px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;";
+        oceanDrop.innerHTML =
+          `<span class="ocean-drop-head">Start your ocean here</span>` +
+          `<span class="ocean-drop-sub">Drag an Ocean card in, or tap to pick one</span>`;
       } else {
-        oceanDrop.textContent = "⊕ Click or drag an Ocean card here";
-        oceanDrop.style.cssText = "border:2px dashed var(--teal);border-radius:10px;padding:14px 24px;color:var(--teal);font-size:13px;cursor:pointer;transition:all .15s;margin-bottom:10px;text-align:center;";
+        oceanDrop.innerHTML = `<span class="ocean-drop-head">Add another ocean</span>`;
       }
       // Click-to-place: open ocean card picker
       oceanDrop.addEventListener("click", () => {
-        openCTP("Select an Ocean card to place", playOceanActions, oceanDrop);
+        openCTP("Choose an ocean to play", playOceanActions, oceanDrop);
       });
       oceanDrop.addEventListener("dragover", (ev) => {
         ev.preventDefault(); ev.dataTransfer.dropEffect = "move";
-        oceanDrop.style.background = "rgba(13,148,136,.18)";
-        oceanDrop.style.borderColor = "var(--cyan)";
+        oceanDrop.classList.add("drag-over");
       });
       oceanDrop.addEventListener("dragleave", () => {
-        oceanDrop.style.background = "";
-        oceanDrop.style.borderColor = "var(--teal)";
+        oceanDrop.classList.remove("drag-over");
       });
       oceanDrop.addEventListener("drop", (ev) => {
         ev.preventDefault();
-        oceanDrop.style.background = "";
+        oceanDrop.classList.remove("drag-over");
         let cardData = {};
         try { cardData = JSON.parse(ev.dataTransfer.getData("application/x-fish-card") || "{}"); } catch {}
         const entryUid = Number(cardData.entryUid);
@@ -12944,12 +13062,9 @@
       el.appendChild(oceanDrop);
     }
 
-    if (!board.length) {
-      const hint = document.createElement("div");
-      hint.style.cssText = "color:var(--muted);font-size:13px;padding:12px;text-align:center;width:100%;";
-      hint.textContent = "No oceans yet, drag an Ocean card to the zone above, or click the zone to choose one.";
-      el.appendChild(hint); return;
-    }
+    // No duplicate hint here: the drop zone above already says it, and the
+    // guide bar says it a third time. One instruction, in one place.
+    if (!board.length) return;
 
     board.forEach(ocean => {
       const hub = document.createElement("div");
@@ -13760,10 +13875,11 @@
         const fCost = Number(f.cost ?? 0);
         const fMt   = mainText(f.text||"");
         const fSt   = starText(f.text||"");
-        return `${fi > 0 ? '<hr style="border-color:rgba(255,255,255,.1);margin:6px 0">' : ""}
+        const curve = scoreCurveHtml(fMt);
+        return `${fi > 0 ? '<hr class="tt-rule">' : ""}
           <div class="tt-name">${f.name||"?"}</div>
-          <div class="tt-species" style="color:${speciesColor(f.species)}">${f.species||""} · ${fSym||"-"} · cost ${fCost===0?"free":fCost}</div>
-          ${fMt ? `<div class="tt-text">${fMt}</div>` : ""}
+          <div class="tt-species"><span class="tt-fam-dot" style="background:${speciesColor(f.species)}"></span>${f.species||""} · ${fSym||"-"} · cost ${fCost===0?"free":fCost}</div>
+          ${curve || (fMt ? `<div class="tt-text">${fMt}</div>` : "")}
           ${fSt ? `<div class="tt-star">★ ${fSt}</div>` : ""}`;
       }).join("") + `<div class="tt-arrow"></div>`;
       card.appendChild(tip);
@@ -13835,8 +13951,21 @@
         (Number(pendingPayAction.card_uid) === entryUid || Number(pendingPayAction.face_uid) === faceUid);
       if (pendingPayAction && !isCardBeingPlayed) {
         const payBtn = document.createElement("button");
-        payBtn.className = "pv-pay-discard-btn";
-        payBtn.textContent = selectedPayment.has(entryUid) ? "✓ Selected" : "Use as Payment";
+        // A COIN ON THE CARD CORNER, not a text tab across the top. The fan
+        // overlaps every card but its left edge, so any label wider than that
+        // sliver got cut mid-word ("Use as Pa…", "✓ Sele…"). A disc in the
+        // always-exposed corner cannot truncate at any fan width.
+        const paid = selectedPayment.has(entryUid);
+        payBtn.className = "pv-pay-discard-btn" + (paid ? " is-paid" : "");
+        // The mark is a coin; the LABEL is still words, just not painted ones.
+        // A button whose only content is a glyph (or, unselected, nothing at
+        // all) announces as an empty button, and the state has to be readable
+        // as text by anything that is not looking at pixels, screen readers
+        // and test_tutorials_ingame.js among them.
+        payBtn.innerHTML =
+          `<span class="pay-coin-mark" aria-hidden="true">${paid ? "✓" : ""}</span>` +
+          `<span class="cc-sr-only">${paid ? "Selected as payment" : "Use as Payment"}</span>`;
+        payBtn.title = paid ? "Chosen as payment" : "Use as payment";
         payBtn.addEventListener("click", (ev) => {
           ev.stopPropagation();
           if (!_togglePaymentCard(entryUid)) return; // blocked (would overpay)
@@ -14118,31 +14247,26 @@
   function renderGuideBar(me, actions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive) {
     const bar = document.getElementById("pv-guide-bar");
 
+    // The bar is ALWAYS in the layout. Off-turn it is simply empty: the row
+    // keeps its height so the board, the action bar and the hand stay exactly
+    // where they were. It used to be display:none off-turn, which jumped the
+    // whole game column every time the turn changed, twice a round, all game.
+    bar.classList.add("visible");
+
     if (!isMyTurn) {
-      bar.classList.remove("visible");
+      bar.innerHTML = "";
       return;
     }
 
+    // Paying has its own full-width band directly above the action bar, which
+    // says all of this and tracks the count as you pick. Repeating it here was
+    // the same instruction twice on one screen.
     if (pendingPayAction) {
-      const cost = Number(pendingPayAction.cost_to_pay || 0);
-      const name = pendingPayAction.face_name || "card";
-      // Only the ★ variant cares about the payment's symbol: say so exactly.
-      const star = starPayInfo(pendingPayAction);
-      const symHint = star.fires
-        ? `, one of them a <strong>${star.sym}</strong> card (the cards glowing <strong style="color:var(--gold)">gold</strong>) to fire ★ ${star.ability || "the star ability"}`
-        : "";
-      const offHint = star.offered
-        ? ` <span style="opacity:.85">★ is off, so this plays without ${star.ability ? `"${star.ability}"` : "its star ability"}.</span>`
-        : "";
-      bar.classList.add("visible");
-      bar.innerHTML = `<div class="guide-step">
-        <span class="gs active">Paying for <strong>${name}</strong>, click or hover ${cost} card${cost!==1?"s":""} below and tap <em>Use as Payment</em>${symHint}, then hit <em>Confirm Payment</em>${offHint}</span>
-      </div>`;
+      bar.innerHTML = "";
       return;
     }
 
     if (tarponActive) {
-      bar.classList.add("visible");
       bar.innerHTML = `<div class="guide-step">
         <span class="gs active">Tarpon, tap as many cards as you want to discard (they turn gold), then click <em>Discard &amp; Draw</em> to swap them for the same number of fresh cards. Tap a card again to deselect, or click <em>Keep hand</em> to discard none.</span>
       </div>`;
@@ -14150,7 +14274,6 @@
     }
 
     if (mustDiscard) {
-      bar.classList.add("visible");
       bar.innerHTML = `<div class="guide-step">
         <span class="gs active">You have too many cards, select exactly ${discardExcess} to discard, then click Confirm Discard</span>
       </div>`;
@@ -14161,7 +14284,6 @@
     if (Array.isArray(freePlaySpecies) && freePlaySpecies.length > 0) {
       const speciesStr = freePlaySpecies.join(" or ");
       const playActions = actions.filter(a => a.kind !== "draw" && a.kind !== "end_turn" && a.kind !== "discard_to_pool" && a.kind !== "discard_batch_to_pool");
-      bar.classList.add("visible");
       if (playActions.length > 0) {
         bar.innerHTML = `<div class="guide-step">
           <span class="gs active" style="color:#ffd700">★ FREE PLAY, pick a <strong>${speciesStr}</strong> from the dropdown below and play it for free, or click ✓ End Turn to skip.</span>
@@ -14183,28 +14305,27 @@
     // Build step chips
     const steps = [];
 
+    const n = (i) => `<b class="gs-n">${i}</b>`;
+
     const isSecondDrawBar = drawAction && !actions.some(a => a.kind !== "draw" && a.kind !== "end_turn");
     if (isSecondDrawBar) {
-      steps.push(`<span class="gs active">① Choose your 2nd card, click the deck or pick a card from the pool</span>`);
+      steps.push(`<span class="gs active">${n(1)}Draw your second card</span>`);
     } else if (drawAction) {
-      steps.push(`<span class="gs active">① Haul Your Catch, click the deck to draw 1 card, or pick one from the pool</span>`);
+      steps.push(`<span class="gs active">${n(1)}Haul your catch</span>`);
     } else {
-      steps.push(`<span class="gs done">① Catch hauled ✓</span>`);
+      steps.push(`<span class="gs done">${n(1)}Catch hauled ✓</span>`);
     }
 
-    if (!hasOcean && hasOceanInHand) {
-      steps.push(`<span class="gs active">② Chart Your Waters, drag an Ocean card to the board, or click the drop zone to place it</span>`);
-    } else if (!hasOcean) {
-      steps.push(`<span class="gs">② Chart Your Waters, drag an Ocean card to the board, or click the drop zone to place it</span>`);
+    if (!hasOcean) {
+      steps.push(`<span class="gs${hasOceanInHand ? " active" : ""}">${n(2)}Chart your waters</span>`);
     } else if (playActions.length > 0) {
-      steps.push(`<span class="gs${drawAction?"":" active"}">② Drag a creature to an ocean slot, or click the slot where you want to place it, or use the dropdown below</span>`);
+      steps.push(`<span class="gs${drawAction ? "" : " active"}">${n(2)}Place a critter</span>`);
     } else {
-      steps.push(`<span class="gs done">② All creatures deployed ✓</span>`);
+      steps.push(`<span class="gs done">${n(2)}All critters placed ✓</span>`);
     }
 
-    steps.push(`<span class="gs">③ Ride the Current, click ✓ End Turn to pass</span>`);
+    steps.push(`<span class="gs">${n(3)}Ride the current</span>`);
 
-    bar.classList.add("visible");
     bar.innerHTML = `<div class="guide-step">${steps.join("")}</div>`;
   }
 
@@ -15015,20 +15136,10 @@
     const d = document.getElementById("pv-menu-drop");
     if (d && d.classList.contains("open") && !e.target.closest(".pv-menu-wrap")) closeMenu();
   });
-  document.getElementById("pv-menu-terminate-btn").addEventListener("click", async () => {
-    closeMenu();
-    if (!confirm("Terminate the game for ALL players? This cannot be undone.")) return;
-    _gameTerminatedByMe = true;
-    try {
-      const res = await apiPost(`/api/rooms/${roomId}/terminate`, {
-        host_token: getHostToken(),
-        seat_token: getSeatToken(),
-      }, { timeoutMs: 8000 });
-      if (!res.ok) showToast(res.error || "Terminate failed.", "warn");
-    } catch (e) {
-      showToast("Could not reach server.", "warn");
-    }
-  });
+  // Terminate Game was removed from the menu. The host ends a table by
+  // leaving it; killing everyone else's game from a dropdown, one item below
+  // "Leave Game" and in the same red, was a mis-tap with no undo. The server
+  // endpoint is untouched.
 
   // AI Speed bar, host-only, shown when there are AI seats in the room
   (function setupAiSpeedBar() {
@@ -18628,19 +18739,16 @@
   // Set when they leave the end-game screen; read by saveGameStats.
   let _confirmedStrategies = null; // null = not yet confirmed; [] = none/improvised; ["Birds", ...] = chosen
 
-  function _populateStratConfirm() {
-    const listEl  = document.getElementById("gs-strat-list");
-    const noneChk = document.getElementById("gs-strat-none-chk");
-    if (!listEl || !noneChk) return;
-    // Reset any stale search filter from a prior game.
-    try {
-      const ss = document.getElementById("gs-strat-search");
-      if (ss) ss.value = "";
-      const nm = document.getElementById("gs-strat-no-match");
-      if (nm) nm.style.display = "none";
-    } catch (_) {}
+  // What the player ACTUALLY played, worked out rather than asked.
+  // The summary used to end on a form: a search box and a checklist of every
+  // core strategy, under "WHAT STRATEGY DID YOU PLAY?". The two sources below
+  // were already filling it in before the player saw it, so the question was
+  // asking them to confirm something the game had just told itself. Last
+  // screen of a match is not the place for a quiz.
+  let _detectedStrategies = [];
 
-    // Pre-select whatever was active during the game (from active strategy set).
+  function _populateStratConfirm() {
+    // Whatever was active during the game (from the in-game Strategy panel).
     const preSelected = new Set();
     try {
       if (typeof HELP_STRATEGIES !== "undefined" && typeof _activeStrategies !== "undefined") {
@@ -18665,49 +18773,19 @@
       } catch (_) {}
     }
 
-    listEl.innerHTML = "";
+    // Only the core strategies count, the same set the old checklist offered,
+    // so what gets recorded is unchanged: only the way it is arrived at is.
+    const core = new Set();
     try {
       const strats = (typeof HELP_STRATEGIES !== "undefined") ? HELP_STRATEGIES : [];
-      const colors = (typeof STRAT_COLORS !== "undefined") ? STRAT_COLORS : [];
-      // Only the core strategies (section 1 on the Strategies page), combos
-      // and custom strategies are excluded so this stays a short, simple list.
-      strats.forEach((s, i) => {
-        if (s.tier !== "Core" || s.custom) return;
-        const checked = preSelected.has(s.label);
-        const row = document.createElement("label");
-        row.className = "gs-strat-row" + (checked ? " selected" : "");
-        const swatch = colors[i] || "#aab8cc";
-        row.innerHTML = `
-          <div class="gs-strat-row-swatch" style="background:${swatch}"></div>
-          <input type="checkbox" ${checked ? "checked" : ""} data-label="${s.label.replace(/"/g,'&quot;')}">
-          <div class="gs-strat-row-text">
-            <div class="gs-strat-row-name">${s.label}</div>
-            <div class="gs-strat-row-tier" style="color:${swatch}">${s.group === "ocean" ? "Ocean strategy" : "Animal strategy"}</div>
-          </div>`;
-        row.addEventListener("change", () => {
-          row.classList.toggle("selected", row.querySelector("input").checked);
-          if (row.querySelector("input").checked) noneChk.checked = false;
-        });
-        listEl.appendChild(row);
-      });
+      strats.forEach(s => { if (s.tier === "Core" && !s.custom && s.label) core.add(s.label); });
     } catch (_) {}
 
-    noneChk.checked = preSelected.size === 0;
-    noneChk.addEventListener("change", () => {
-      if (noneChk.checked) listEl.querySelectorAll("input[type=checkbox]").forEach(c => { c.checked = false; c.closest(".gs-strat-row")?.classList.remove("selected"); });
-    });
+    _detectedStrategies = Array.from(preSelected).filter(l => core.has(l));
   }
 
   function _readConfirmedStrategies() {
-    const listEl  = document.getElementById("gs-strat-list");
-    const noneChk = document.getElementById("gs-strat-none-chk");
-    if (!listEl) return [];
-    if (noneChk && noneChk.checked) return [];
-    const picked = [];
-    listEl.querySelectorAll("input[type=checkbox]:checked").forEach(c => {
-      if (c.dataset.label) picked.push(c.dataset.label);
-    });
-    return picked;
+    return Array.isArray(_detectedStrategies) ? _detectedStrategies.slice() : [];
   }
 
   // Save confirmed strategy into stats, the player's self-reported answer,
@@ -19059,25 +19137,6 @@
     setTimeout(() => { try { if (typeof window._switchPhTab === "function") window._switchPhTab(tab); } catch (_) {} }, 80);
   }
   document.getElementById("pv-endgame-leaderboard").addEventListener("click", () => _endgameGotoStatsTab("leaderboard"));
-
-  // ── Choose-a-Strategy search filter ───────────────────────────────
-  (function _wireStratSearch() {
-    const search = document.getElementById("gs-strat-search");
-    const listEl = document.getElementById("gs-strat-list");
-    const noMatch = document.getElementById("gs-strat-no-match");
-    if (!search || !listEl) return;
-    search.addEventListener("input", () => {
-      const q = search.value.trim().toLowerCase();
-      let visible = 0;
-      listEl.querySelectorAll(".gs-strat-row").forEach(row => {
-        const name = (row.querySelector(".gs-strat-row-name")?.textContent || "").toLowerCase();
-        const hit = !q || name.includes(q);
-        row.classList.toggle("gs-strat-hidden", !hit);
-        if (hit) visible++;
-      });
-      if (noMatch) noMatch.style.display = (visible === 0 && q) ? "block" : "none";
-    });
-  })();
 
   // ── Chat ───────────────────────────────────────────────────────
   let _chatSeenCount = 0;
@@ -34506,7 +34565,6 @@
       const totalWins = Number.isFinite(explicitTotalWins) ? explicitTotalWins : (normalWins + compWins);
 
       const mostPlayedStrategy = getOverallMostPlayedStrategy(safeStats);
-      const noGames = totalGames === 0;
 
       const set = (id, val) => { const el = $a(id); if (el) el.textContent = val; };
 
@@ -34515,10 +34573,10 @@
       // lives on the Competitive tab.
       const hoursOv = Number(safeStats.hours_played || 0);
       set("stat-hours-played", hoursOv === 1 ? "1 hr" : `${hoursOv} hrs`);
-      set("ph-ov-most-strategy", mostPlayedStrategy || (noGames ? "No games completed yet." : "-"));
+      set("ph-ov-most-strategy", mostPlayedStrategy || "Play a game to find out");
       set("ph-ov-total-games",   String(Math.max(0, totalGames)));
       set("ph-ov-total-wins",    String(Math.max(0, totalWins)));
-      set("ph-ov-win-rate",      totalGames > 0 ? `${Math.round((totalWins / totalGames) * 100)}%` : "-");
+      set("ph-ov-win-rate",      totalGames > 0 ? `${Math.round((totalWins / totalGames) * 100)}%` : "Not yet");
       set("ph-ov-comp-rank",     safeStats.rank_competitive || "No rank yet");
 
       // Achievements unlocked

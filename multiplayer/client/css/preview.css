@@ -29,6 +29,23 @@
       --cr-coral-deep: #e8956b;
       --cr-gold:       #e8b34a;
       --cr-gold-deep:  #c89320;
+      /* ── Reef SURFACE set ────────────────────────────────────────
+         Every panel that floats over the board (menus, tooltips, card
+         pickers, toasts, the score sheet) is painted from these, so the
+         game stops being a bright reef with dark navy rectangles parked
+         on it. Sampled from game-bg.png: wet sand, shell cream, the gold
+         line on the card frames, and the navy the card titles are inked
+         in. Text on these surfaces is INK, never --text (which is the
+         near-white meant for the old dark panels). */
+      --cr-surface:      rgba(254,245,230,.97);  /* shell cream panel      */
+      --cr-surface-2:    rgba(243,228,203,.97);  /* wet sand, panel bottom */
+      --cr-surface-sub:  rgba(188,221,230,.45);  /* shallow-water inset    */
+      --cr-edge:         rgba(200,147,32,.42);   /* gold hairline on cards */
+      --cr-edge-soft:    rgba(44,90,138,.16);
+      --cr-ink:          #15325c;                /* card-title navy        */
+      --cr-ink-soft:     #4a6f94;
+      --cr-ink-faint:    #89a7bf;
+      --cr-lift:         0 10px 30px rgba(21,50,92,.20), 0 2px 6px rgba(21,50,92,.10);
       --card-w:    98px;
       --card-h:    138px;
       /* The HAND's card size, split off from --card-w/--card-h on purpose.
@@ -155,23 +172,70 @@
     .pv-btn:disabled { filter: brightness(.45); cursor: default; }
     .pv-btn.gold { background: linear-gradient(135deg, #c8971a, #a97c14); }
     .pv-btn.gold:hover:not(:disabled) { box-shadow: 0 4px 18px rgba(200,150,26,.6); }
+
+    /* ── IN-GAME ACTION BAR: two kinds of button, both off the card art ──
+       .pv-btn-tool  shell cream + navy ink + gold hairline, for the tools.
+       .pv-btn-do    the card-frame gold, for the thing the turn is waiting on.
+       Scoped to #pv-action-bar so nothing else in the app shifts. */
+    #pv-action-bar .pv-btn-tool {
+      background: linear-gradient(176deg, rgba(254,245,230,.96) 0%, rgba(243,228,203,.96) 100%);
+      color: var(--cr-ink);
+      border: 1px solid var(--cr-edge);
+      text-shadow: none;
+      box-shadow: 0 1px 2px rgba(21,50,92,.10);
+    }
+    #pv-action-bar .pv-btn-tool:hover:not(:disabled) {
+      background: linear-gradient(176deg, #fffaf0 0%, rgba(248,235,210,.98) 100%);
+      border-color: var(--cr-gold);
+      box-shadow: 0 4px 13px rgba(21,50,92,.16);
+    }
+    #pv-action-bar .pv-btn-do {
+      background: linear-gradient(140deg, var(--cr-gold) 0%, var(--cr-gold-deep) 100%);
+      color: #3a2600;
+      border: 1px solid rgba(140,100,14,.5);
+      text-shadow: 0 1px 1px rgba(255,255,255,.3);
+      box-shadow: 0 2px 8px rgba(200,147,32,.32);
+    }
+    #pv-action-bar .pv-btn-do:hover:not(:disabled) {
+      filter: brightness(1.06);
+      box-shadow: 0 5px 18px rgba(200,147,32,.52);
+    }
+    /* Cream and gold both go grey when off, not dark: brightness(.45) on a
+       cream button produced a near-black slab that read as a different
+       control rather than as the same one, switched off. */
+    #pv-action-bar .pv-btn-tool:disabled,
+    #pv-action-bar .pv-btn-do:disabled {
+      filter: none;
+      background: rgba(255,255,255,.42);
+      color: var(--cr-ink-faint);
+      border-color: var(--cr-edge-soft);
+      box-shadow: none;
+      text-shadow: none;
+    }
+    /* A hairline between the table tools and the two turn controls, so the
+       right-hand cluster reads as two groups instead of one run of six. */
+    #pv-action-bar .pv-tool-sep {
+      width: 1px; align-self: stretch; margin: 2px 3px;
+      background: var(--cr-edge-soft); flex-shrink: 0;
+    }
     /* Coral is still available but End Turn now uses its own softer class */
     .pv-btn.coral { background: linear-gradient(135deg, #ef5a5a, #d83838); }
     .pv-btn.coral:hover:not(:disabled) { box-shadow: 0 4px 18px rgba(216,56,56,.55); }
-    /* End Turn, calm ocean teal, not scary red */
+    /* End Turn, calm ocean teal, not scary red. In the action bar it is
+       .pv-btn-do and wears the card gold instead; this stays for every other
+       place end-turn is drawn. */
     .pv-btn.end-turn { background: linear-gradient(135deg, #5fb3d6, #3a8fb5); }
     .pv-btn.end-turn:hover:not(:disabled) { box-shadow: 0 4px 18px rgba(95,179,214,.6); }
     .pv-btn.end-turn.suggest {
-      box-shadow: 0 0 0 3px rgba(95,179,214,.5), 0 4px 16px rgba(95,179,214,.4);
       animation: end-turn-pulse 2s ease-in-out infinite;
     }
     @keyframes end-turn-pulse {
-      0%, 100% { box-shadow: 0 0 0 2px rgba(95,179,214,.35), 0 2px 10px rgba(95,179,214,.25); }
-      50%       { box-shadow: 0 0 0 5px rgba(95,179,214,.6),  0 4px 20px rgba(95,179,214,.55); }
+      0%, 100% { box-shadow: 0 0 0 2px rgba(232,179,74,.40), 0 2px 10px rgba(200,147,32,.28); }
+      50%       { box-shadow: 0 0 0 5px rgba(232,179,74,.62), 0 4px 20px rgba(200,147,32,.52); }
     }
     #end-turn-hint {
       display: none; font-size: 10.5px; font-weight: 800;
-      color: #3a8fb5; white-space: nowrap; letter-spacing: .2px;
+      color: var(--cr-gold-deep); white-space: nowrap; letter-spacing: .2px;
     }
 
     /* ── "Play again" callout ─────────────────────────────────────────────
@@ -203,7 +267,7 @@
       border: 1.5px solid rgba(255,229,150,.85);
       background: linear-gradient(135deg, #e8b34a 0%, #c89320 100%);
       color: #2a1c00;
-      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-family: "Nunito", sans-serif;
       font-size: 12.5px; font-weight: 800; letter-spacing: .2px;
       box-shadow: 0 6px 18px rgba(0,0,0,.45), 0 0 18px rgba(232,179,74,.5);
       animation: pac-bob 1.15s ease-in-out infinite;
@@ -236,24 +300,13 @@
     }
     .pv-btn.danger { background: linear-gradient(135deg, #b03040, #8e1828); }
     #pv-undo-btn {
-      background: linear-gradient(135deg, #9b89c7, #7d6aae);
-      color: #fff;
-      border: 1px solid rgba(180,165,220,.45);
       font-size: 13px;
-      padding: 7px 14px;
+      padding: 8px 14px;
       white-space: nowrap;
       flex-shrink: 0;
       border-radius: 10px;
     }
-    #pv-undo-btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-    #pv-undo-btn:hover:not(:disabled) {
-      background: linear-gradient(135deg, #ad9bd6, #8e7bbe);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 14px rgba(125,106,174,.5);
-    }
+    #pv-undo-btn:disabled { cursor: not-allowed; }
     /* Surf's Up!! and Full Screen, match Undo Turn's compact action-row sizing */
     .pv-btn-surf, .pv-btn-fullscreen {
       font-size: 13px;
@@ -263,36 +316,21 @@
       border-radius: 10px;
       color: #fff;
     }
-    .pv-btn-surf {
-      background: linear-gradient(135deg, #3ea8d8, #1f7fb4);
-      border: 1px solid rgba(140,210,240,.45);
+    /* Away is a STATE, so the button changes state rather than colour family:
+       the same cream button, filled in gold, pulsing. */
+    #pv-action-bar .pv-btn-surf.is-away {
+      background: linear-gradient(140deg, var(--cr-gold), var(--cr-gold-deep));
+      color: #3a2600;
+      border-color: rgba(140,100,14,.6);
+      animation: surf-pulse 3.4s ease-in-out infinite;
     }
-    .pv-btn-surf:hover:not(:disabled) {
-      background: linear-gradient(135deg, #4fb8e4, #2a8fc4);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 14px rgba(31,127,180,.55);
-    }
-    .pv-btn-surf.is-away {
-      background: linear-gradient(135deg, #d8a13e, #b47f1f);
-      border-color: rgba(240,210,140,.55);
-      animation: surf-pulse 2.2s ease-in-out infinite;
-    }
-    .pv-btn-surf.is-away:hover:not(:disabled) {
-      background: linear-gradient(135deg, #e4b04f, #c4902a);
-      box-shadow: 0 4px 14px rgba(180,127,31,.55);
+    #pv-action-bar .pv-btn-surf.is-away:hover:not(:disabled) {
+      filter: brightness(1.06);
+      box-shadow: 0 4px 16px rgba(200,147,32,.5);
     }
     @keyframes surf-pulse {
       0%,100% { box-shadow: 0 0 8px rgba(216,161,62,.45); }
       50%      { box-shadow: 0 0 22px rgba(216,161,62,.85); }
-    }
-    .pv-btn-fullscreen {
-      background: linear-gradient(135deg, #5a7ea8, #3e608c);
-      border: 1px solid rgba(150,180,220,.45);
-    }
-    .pv-btn-fullscreen:hover:not(:disabled) {
-      background: linear-gradient(135deg, #6c91be, #527aa6);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 14px rgba(62,96,140,.55);
     }
 
     /* Away badge on seat avatars + Draw-2 affordance */
@@ -330,7 +368,7 @@
       cursor: pointer;
       box-shadow: 0 3px 10px rgba(216,56,56,.55);
       z-index: 6;
-      animation: draw2-pulse 1.6s ease-in-out infinite;
+      animation: draw2-pulse 2.6s ease-in-out infinite;
       white-space: nowrap;
     }
     .pv-seat-draw2-btn:hover {
@@ -524,7 +562,7 @@
     .pv-btn.sm { font-size: 12px; padding: 6px 11px; }
     .pv-btn.full { width: 100%; }
     .pv-btn.pulse-glow {
-      animation: btn-pulse 1.8s ease-in-out infinite;
+      animation: btn-pulse 2.8s ease-in-out infinite;
       box-shadow: 0 0 12px rgba(240,80,80,.45);
     }
     @keyframes btn-pulse {
@@ -566,9 +604,13 @@
     .pv-board-card.movable { cursor: grab; }
     .pv-board-card.movable:hover { border-color: var(--gold) !important; box-shadow: 0 0 12px var(--glow-gold), 0 4px 16px rgba(0,0,0,.6) !important; }
     .pv-board-card.movable.dragging { opacity: 0.4; cursor: grabbing; }
-    .pv-ocean-hub.move-target { outline: 2px dashed rgba(61,214,245,.55); border-radius: 8px; }
-    .pv-ocean-hub.move-drag-over { outline: 2px solid var(--cyan) !important; border-radius: 8px; box-shadow: 0 0 20px var(--glow-c); background: rgba(48,200,240,.06); }
-    .pv-lane-slot.drag-over { background: rgba(61,214,245,.25); border-color: var(--cyan) !important; box-shadow: 0 0 12px var(--cyan); transform: scale(1.12); }
+    .pv-ocean-hub.move-target { outline: 2px solid rgba(232,179,74,.45); outline-offset: 2px; border-radius: 18px; }
+    .pv-ocean-hub.move-drag-over { outline: 2px solid var(--cr-gold-deep) !important; outline-offset: 2px; border-radius: 18px; box-shadow: 0 0 26px rgba(232,179,74,.5); }
+    .pv-lane-slot.drag-over {
+      background: radial-gradient(ellipse at 50% 46%, rgba(255,252,245,1) 0%, rgba(248,235,210,.7) 60%, rgba(232,179,74,.18) 100%);
+      box-shadow: inset 0 0 0 2px rgba(200,147,32,.9), 0 0 26px rgba(232,179,74,.6);
+      transform: scale(1.1);
+    }
     #pv-pool-area.drag-over { outline: 2px dashed var(--gold); border-radius: 8px; background: rgba(245,200,66,.1); }
     #pv-pool-area.drag-over::after { content: "Drop to discard to pool"; display:block; text-align:center; font-size:11px; color:var(--gold); margin-top:4px; }
     #pv-pool-area.can-drop { outline: 1px dashed var(--muted); border-radius: 8px; }
@@ -581,7 +623,7 @@
       border-radius: 8px;
       box-shadow: 0 0 22px rgba(61,214,245,.55);
       background: rgba(48,200,240,.06);
-      animation: preview-hub-pulse 1.1s ease-in-out infinite;
+      animation: preview-hub-pulse 2.4s ease-in-out infinite;
     }
     #pv-ocean-drop-zone.action-preview-target {
       border-color: var(--cyan) !important;
@@ -741,7 +783,7 @@
     }
     #pv-help-title {
       flex: 1; text-align: center; margin: 0;
-      font-family: "Luckiest Guy", "Cinzel", serif; font-size: 30px; font-weight: 400; line-height: 1.1;
+      font-family: "Cinzel", serif; font-size: 30px; font-weight: 800; line-height: 1.1;
       color: var(--cr-navy); letter-spacing: 1.5px;
       text-shadow: 0 2px 0 rgba(255,255,255,.9);
     }
@@ -853,7 +895,7 @@
     #hd-activate.on { background: linear-gradient(135deg, #3dd8a8, #2ab88a); border-color: rgba(42,184,138,.6); }
     .hd-activate-hint { font-size: 12px; font-weight: 700; color: rgba(26,45,90,.66); text-align: center; margin: 7px 0 4px; line-height: 1.4; }
     #pv-help-detail .hd-section-title {
-      font-family: "Luckiest Guy", "Cinzel", serif; font-size: 20.52px; font-weight: 400; color: var(--cr-navy); letter-spacing: .4px;
+      font-family: "Cinzel", serif; font-size: 20.52px; font-weight: 800; color: var(--cr-navy); letter-spacing: .4px;
       margin: 18px 0 8px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
     }
     .hd-count-note { font-family: "Nunito", sans-serif; font-size: 11px; font-weight: 700; color: rgba(26,45,90,.6); }
@@ -899,7 +941,7 @@
     .hs2-step[data-step="mix"]    { background: rgba(255,255,255,.92); border-color: rgba(95,179,214,.45); }
     .hs2-sec-head {
       display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
-      font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 21px; line-height: 1.1;
+      font-family: "Cinzel", serif; font-weight: 800; font-size: 21px; line-height: 1.1;
       color: var(--cr-navy); letter-spacing: .6px; margin: 0 0 10px;
     }
     .hs2-num {
@@ -999,7 +1041,7 @@
     .hs2-mini-art.cc-strat-sym > .cc-sym-plus { font-size: 12px; }
     .hs2-card-tag { position: absolute; top: 7px; right: 7px; z-index: 2; }
     .hs2-card-body { padding: 9px 11px 11px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
-    .hs2-card-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 16px; color: var(--cr-navy); letter-spacing: .4px; line-height: 1.12; }
+    .hs2-card-name { font-family: "Cinzel", serif; font-weight: 800; font-size: 16px; color: var(--cr-navy); letter-spacing: .4px; line-height: 1.12; }
     .hs2-card-blurb { font-size: 11.5px; line-height: 1.42; color: rgba(26,45,90,.8); font-weight: 700; flex: 1; }
     .hs2-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px; }
     .hs2-card-view, .hs2-combo-view { font-size: 10.5px; font-weight: 800; color: var(--cr-teal-deep); cursor: pointer; flex-shrink: 0; }
@@ -1020,7 +1062,7 @@
       padding: 12px 14px 14px; box-shadow: 0 10px 30px rgba(26,45,90,.2);
     }
     .hs2-reco-kicker {
-      font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 18px; letter-spacing: .5px;
+      font-family: "Cinzel", serif; font-weight: 800; font-size: 18px; letter-spacing: .5px;
       color: var(--cr-navy); line-height: 1.1;
     }
     .hs2-reco-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -1042,7 +1084,7 @@
       font-family: "Nunito", sans-serif; font-weight: 900; font-size: 11px; letter-spacing: .5px;
       text-transform: uppercase; color: var(--cr-teal-deep);
     }
-    .hs2-reco-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 20px; color: var(--cr-navy); letter-spacing: .5px; line-height: 1.12; }
+    .hs2-reco-name { font-family: "Cinzel", serif; font-weight: 800; font-size: 20px; color: var(--cr-navy); letter-spacing: .5px; line-height: 1.12; }
     .hs2-reco-why { font-size: 12.5px; line-height: 1.4; color: rgba(26,45,90,.82); font-weight: 700; }
     .hs2-reco-why strong { color: var(--cr-navy); font-weight: 900; }
     .hs2-reco-foot { display: flex; align-items: center; gap: 12px; margin-top: 4px; flex-wrap: wrap; }
@@ -1085,7 +1127,7 @@
     }
     .hs2-panel-head {
       flex: 0 0 auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-      font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 16px; line-height: 1.1;
+      font-family: "Cinzel", serif; font-weight: 800; font-size: 16px; line-height: 1.1;
       color: var(--cr-navy); letter-spacing: .4px; margin: 0 0 10px;
     }
     .hs2-selected-row, .hs2-combos-row { display: flex; flex-wrap: wrap; gap: 11px; }
@@ -1098,7 +1140,7 @@
     }
     .hs2-mini-art { height: 66px; }
     .hs2-mini-body { padding: 6px 8px 8px; display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
-    .hs2-mini-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 12.5px; color: var(--cr-navy); line-height: 1.12; }
+    .hs2-mini-name { font-family: "Cinzel", serif; font-weight: 800; font-size: 12.5px; color: var(--cr-navy); line-height: 1.12; }
     .hs2-mini-x {
       position: absolute; top: 5px; right: 5px; z-index: 3; width: 22px; height: 22px; border-radius: 50%;
       background: #e8674a; color: #fff; border: 2px solid #fff; cursor: pointer; box-sizing: border-box;
@@ -1120,7 +1162,7 @@
     .hs2-slot.create { border-color: rgba(200,147,32,.6); color: #8a6200; background: rgba(255,244,214,.8); }
     .hs2-slot.create:hover { background: #fff; border-color: #e8b34a; }
     .hs2-slot-ico { font-size: 22px; line-height: 1; }
-    .hs2-slot-title { font-family: "Luckiest Guy", "Nunito", sans-serif; font-weight: 400; font-size: 13px; line-height: 1.18; }
+    .hs2-slot-title { font-family: "Nunito", sans-serif; font-weight: 900; font-size: 13px; line-height: 1.18; }
     .hs2-slot-sub { font-family: "Nunito", sans-serif; font-size: 10px; font-weight: 700; color: rgba(26,45,90,.62); line-height: 1.3; }
     .hs2-empty { font-size: 13px; font-weight: 700; color: rgba(26,45,90,.66); padding: 18px 8px; line-height: 1.5; flex: 1; min-width: 180px; }
 
@@ -1140,7 +1182,7 @@
       color: #85600a; background: #fbefcf; border: 1px solid #e6c46e;
       border-radius: 10px; padding: 1px 7px;
     }
-    .hs2-combo-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 14px; color: var(--cr-navy); line-height: 1.12; }
+    .hs2-combo-name { font-family: "Cinzel", serif; font-weight: 800; font-size: 14px; color: var(--cr-navy); line-height: 1.12; }
     .hs2-combo-why { font-size: 11px; line-height: 1.4; color: rgba(26,45,90,.78); font-weight: 700; flex: 1; }
     .hs2-combo-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px; }
 
@@ -1400,7 +1442,7 @@
     #pv-turn-banner.my-turn {
       background: linear-gradient(90deg, rgba(244,165,116,0) 0%, rgba(244,165,116,.55) 30%, rgba(232,179,74,.6) 50%, rgba(244,165,116,.55) 70%, rgba(244,165,116,0) 100%);
       color: var(--cr-navy);
-      animation: banner-glow 2s ease-in-out infinite;
+      animation: banner-glow 3.2s ease-in-out infinite;
       text-shadow: 0 0 18px rgba(255,255,255,.85), 0 1px 0 rgba(255,255,255,.9);
     }
     @keyframes banner-glow {
@@ -1492,7 +1534,7 @@
          nothing. This element is on screen for the entire match. */
 
       color: #cfeaf8;
-      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-family: "Nunito", sans-serif;
       font-size: 12px; font-weight: 800; letter-spacing: .4px;
       cursor: pointer;
       box-shadow: 0 4px 14px rgba(0,0,0,.45);
@@ -1928,9 +1970,14 @@
     }
 
     .pv-ocean-hub {
-      background: var(--felt);
-      border: 1px solid var(--border);
-      border-radius: 12px;
+      /* A tide pool holding your ocean, not a navy panel dropped on the reef.
+         Shallow water over sand, the gold hairline off the card frames, and a
+         soft outer shadow so it sits IN the scene instead of on top of it. */
+      background: linear-gradient(170deg, rgba(188,221,230,.46) 0%, rgba(254,245,230,.34) 100%);
+      border: 1px solid rgba(200,147,32,.30);
+      border-radius: 18px;
+      box-shadow: 0 4px 18px rgba(21,50,92,.14), inset 0 1px 0 rgba(255,255,255,.55);
+      backdrop-filter: blur(1.5px);
       padding: 6px;
       display: grid;
       grid-template-areas:
@@ -1951,7 +1998,7 @@
       gap: 0;
       transition: border-color .2s, box-shadow .2s;
     }
-    .pv-ocean-hub:hover { border-color: #2a5070; }
+    .pv-ocean-hub:hover { border-color: rgba(200,147,32,.55); }
 
     .pv-ocean-center { grid-area: ocean; display: flex; align-items: center; justify-content: center; align-self: center; }
     /* gap:0 so stacked cards touch and connect flush (see stacking rules below) */
@@ -2073,24 +2120,84 @@
     .pv-ocean-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .pv-ocean-face:hover { box-shadow: 0 0 0 2px #004180, 0 6px 22px rgba(0,0,0,.65), 0 0 18px rgba(61,214,245,.4); }
 
+    /* An empty lane is a HOLLOW IN THE SAND, never a dashed box. Nothing is
+       drawn on the artwork: just a soft inset shadow and a thread of light
+       along the lower edge, which is how every dip in game-bg.png already
+       reads. A dashed rectangle is file-upload furniture and it was the one
+       thing on this board that did not come from the painting. */
     .pv-lane-slot {
       width: var(--mini-w); height: var(--mini-h);
-      border: 1.5px dashed var(--border);
-      border-radius: 7px;
+      border: none;
+      border-radius: 11px;
+      background: rgba(21,50,92,.065);
+      box-shadow: inset 0 2px 7px rgba(21,50,92,.15),
+                  inset 0 -1px 0 rgba(255,255,255,.45);
       display: flex; align-items: center; justify-content: center;
-      font-size: 20px; color: var(--border);
+      font-size: 19px; font-weight: 400; color: rgba(21,50,92,.22);
       flex-shrink: 0; cursor: default;
-      transition: border-color .15s, background .15s;
+      transition: background .18s, box-shadow .18s, transform .18s, color .18s;
     }
+    /* A lane you can actually play into catches the light: the same caustic
+       gold that falls across the sand in the art, breathing slowly. */
     .pv-lane-slot.playable {
-      border-color: var(--green); color: var(--green); cursor: pointer;
-      animation: slot-pulse 1.5s ease-in-out infinite;
+      cursor: pointer;
+      color: rgba(160,116,22,.8);
+      background: radial-gradient(ellipse at 50% 46%,
+                    rgba(254,245,230,.82) 0%, rgba(243,228,203,.34) 55%, transparent 78%);
+      animation: slot-pulse 2.8s ease-in-out infinite;
     }
-    .pv-lane-slot.playable:hover { background: rgba(31,187,138,.12); border-color: #3ee8a8; }
+    .pv-lane-slot.playable:hover {
+      background: radial-gradient(ellipse at 50% 46%,
+                    rgba(255,251,242,.96) 0%, rgba(243,228,203,.52) 58%, transparent 80%);
+      box-shadow: inset 0 0 0 1.5px rgba(232,179,74,.82),
+                  0 0 22px rgba(232,179,74,.42);
+      transform: scale(1.04);
+      animation: none;
+    }
     @keyframes slot-pulse {
-      0%,100% { box-shadow: none; }
-      50%      { box-shadow: 0 0 10px rgba(31,187,138,.45); }
+      0%,100% { box-shadow: inset 0 0 0 1px rgba(232,179,74,.40), 0 0 12px rgba(232,179,74,.18); }
+      50%     { box-shadow: inset 0 0 0 1px rgba(232,179,74,.64), 0 0 20px rgba(232,179,74,.36); }
     }
+
+    /* ── WHERE AN OCEAN GOES ──────────────────────────────────────
+       Same idea as a lane, one size up: a pool of light on the sand. No
+       dashed outline, no ⊕ glyph, nothing drawn over the painting. */
+    #pv-ocean-drop-zone {
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      text-align: center;
+      color: var(--cr-teal-deep);
+      background: radial-gradient(ellipse at 50% 48%,
+                    rgba(254,245,230,.80) 0%, rgba(243,228,203,.34) 54%, transparent 76%);
+      box-shadow: inset 0 0 0 1px rgba(232,179,74,.38), 0 0 18px rgba(232,179,74,.16);
+      transition: background .18s, box-shadow .18s, transform .18s;
+      animation: slot-pulse 2.8s ease-in-out infinite;
+      padding: 14px 24px;
+      margin: 0 auto 10px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    }
+    #pv-ocean-drop-zone.first-ocean-drop {
+      padding: 32px 24px; min-height: 164px; width: 100%; max-width: 300px;
+      margin: 6px auto 12px; gap: 5px;
+    }
+    #pv-ocean-drop-zone .ocean-drop-head {
+      font-family: "Cinzel", serif;
+      font-size: 15px; font-weight: 700; letter-spacing: .4px;
+      color: var(--cr-ink);
+    }
+    #pv-ocean-drop-zone.first-ocean-drop .ocean-drop-head { font-size: 17px; }
+    #pv-ocean-drop-zone .ocean-drop-sub {
+      font-size: 12.5px; font-weight: 600; color: var(--cr-ink-soft);
+    }
+    #pv-ocean-drop-zone:hover,
+    #pv-ocean-drop-zone.drag-over {
+      background: radial-gradient(ellipse at 50% 48%,
+                    rgba(255,251,242,.96) 0%, rgba(243,228,203,.52) 58%, transparent 80%);
+      box-shadow: inset 0 0 0 1.5px rgba(200,147,32,.85), 0 0 26px rgba(232,179,74,.45);
+      animation: none;
+    }
+    #pv-ocean-drop-zone.drag-over { transform: scale(1.03); }
 
     /* ── Stackable slot (Yellowfin / Lobster stacking on existing cards) ──
        The "+ stack here" slot sits flush at the end of the stack with a
@@ -2100,16 +2207,16 @@
     .pv-lane-left  .pv-lane-slot.stack-slot { margin-right:  0 !important; margin-left:  3px; }
     .pv-lane-right .pv-lane-slot.stack-slot { margin-left:   0 !important; margin-right: 3px; }
     .pv-lane-slot.stack-slot {
-      border-style: dashed;
-      border-color: #3dd8a8;
-      color: #3dd8a8;
+      color: rgba(44,90,138,.65);
       font-size: 16px;
-      font-weight: 900;
-      background: rgba(31,187,138,.07);
+      font-weight: 800;
+      background: linear-gradient(180deg, rgba(188,221,230,.55) 0%, rgba(188,221,230,.22) 100%);
+      box-shadow: inset 0 0 0 1px rgba(95,179,214,.55),
+                  inset 0 2px 6px rgba(21,50,92,.12);
     }
     .pv-lane-slot.stack-slot:hover {
-      background: rgba(31,187,138,.18);
-      border-color: #3ee8a8;
+      background: linear-gradient(180deg, rgba(205,232,240,.85) 0%, rgba(188,221,230,.4) 100%);
+      box-shadow: inset 0 0 0 1.5px rgba(95,179,214,.9), 0 0 16px rgba(95,179,214,.35);
       transform: scale(1.08);
     }
 
@@ -2153,80 +2260,118 @@
     .clear-pay { display: none !important; }
 
     /* ── Payment mode bar ──────────────────────────────────────── */
+    /* Paying is an INSTRUCTION, so it is painted like the rest of the reef
+       chrome, not like an error. Full width, one line of headline, one quiet
+       line underneath. */
     #pv-payment-mode-bar {
       display: none;
       align-items: center;
-      gap: 8px;
-      background: rgba(220,50,50,.12);
-      border: 1px solid rgba(220,50,50,.4);
-      border-radius: 10px;
-      padding: 6px 12px;
-      flex: 1;
+      gap: 14px;
+      background: linear-gradient(176deg, var(--cr-surface) 0%, var(--cr-surface-2) 100%);
+      border-top: 1px solid var(--cr-edge);
+      border-bottom: 1px solid var(--cr-edge);
+      box-shadow: inset 4px 0 0 var(--cr-gold);
+      padding: 9px 20px;
+      flex-shrink: 0;
+      /* Above the Daily Challenges pill and the Board Size cluster, which are
+         both fixed at z-index 50 and sit exactly here. */
+      position: relative; z-index: 60;
+    }
+    #pv-payment-mode-bar .pay-copy {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column; gap: 1px;
     }
     #pv-payment-mode-text {
-      flex: 1;
+      font-size: 13.5px;
+      font-weight: 800;
+      color: var(--cr-ink);
+    }
+    #pv-payment-mode-sub {
       font-size: 12px;
-      font-weight: 700;
-      color: #f07070;
+      font-weight: 600;
+      color: var(--cr-ink-soft);
     }
     #pv-payment-confirm-btn {
-      background: linear-gradient(135deg, #1fbb8a, #148060);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      padding: 5px 14px;
-      font-size: 12px;
+      background: linear-gradient(135deg, var(--cr-gold), var(--cr-gold-deep));
+      color: #3a2600;
+      border: 1px solid rgba(160,116,22,.5);
+      border-radius: 9px;
+      padding: 7px 16px;
+      font-size: 13px;
       font-weight: 800;
       cursor: pointer;
       white-space: nowrap;
+      transition: filter .14s, box-shadow .14s;
+    }
+    #pv-payment-confirm-btn:hover:not(:disabled) {
+      filter: brightness(1.06);
+      box-shadow: 0 3px 12px rgba(200,147,32,.4);
     }
     #pv-payment-confirm-btn:disabled {
-      opacity: 0.45;
+      background: rgba(255,255,255,.5);
+      color: var(--cr-ink-soft);
+      border-color: var(--cr-edge-soft);
       cursor: default;
     }
     #pv-payment-cancel-btn {
-      background: rgba(200,60,60,.18);
-      color: #f07070;
-      border: 1px solid rgba(220,60,60,.4);
-      border-radius: 8px;
-      padding: 5px 12px;
-      font-size: 12px;
+      background: rgba(255,255,255,.6);
+      color: var(--cr-ink-soft);
+      border: 1px solid var(--cr-edge-soft);
+      border-radius: 9px;
+      padding: 7px 14px;
+      font-size: 13px;
       font-weight: 700;
       cursor: pointer;
       white-space: nowrap;
+      transition: color .14s, border-color .14s;
     }
-    /* ── "Use as Payment" button on hand cards during payment mode ── */
+    #pv-payment-cancel-btn:hover { color: #c2463c; border-color: #c2463c; }
+    /* ── Payment marker on a hand card ───────────────────────────
+       A coin in the card's top-left corner, which is the one part of every
+       card the fan never covers. The old version was a "Use as Payment" tab
+       across the top: wider than the exposed sliver, so it was cut mid-word on
+       every card but the last one. */
     .pv-pay-discard-btn {
       position: absolute;
-      top: -14px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: linear-gradient(135deg, #0ea5a0, #0d8a86);
-      color: #fff;
-      border: none;
-      border-radius: 20px;
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: .2px;
-      padding: 4px 12px;
+      top: 5px;
+      left: 5px;
+      width: 25px; height: 25px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(254,245,230,.92);
+      color: var(--cr-gold-deep);
+      border: 2px solid rgba(160,116,22,.55);
+      border-radius: 50%;
+      font-size: 14px;
+      font-weight: 900;
+      line-height: 1;
+      padding: 0;
       cursor: pointer;
       opacity: 0;
-      transition: opacity .15s, background .15s, transform .12s;
-      white-space: nowrap;
+      transition: opacity .15s, background .15s, transform .12s, border-color .15s;
       z-index: 30;
       pointer-events: none;
-      box-shadow: 0 2px 8px rgba(13,138,134,.5);
+      box-shadow: 0 2px 7px rgba(21,50,92,.35);
     }
     /* Always visible in payment mode */
     #pv-hand.payment-active .pv-pay-discard-btn { opacity: 1; pointer-events: auto; }
     .pv-hand-card:hover .pv-pay-discard-btn { opacity: 1; pointer-events: auto; }
+    .pv-pay-discard-btn.is-paid,
     .pv-hand-card.pay-selected .pv-pay-discard-btn {
-      background: linear-gradient(135deg, #16a34a, #15803d);
-      box-shadow: 0 2px 8px rgba(22,163,74,.5);
+      background: linear-gradient(140deg, var(--cr-gold), var(--cr-gold-deep));
+      color: #3a2600;
+      border-color: rgba(120,86,12,.75);
+      box-shadow: 0 2px 10px rgba(200,147,32,.65);
       opacity: 1;
       pointer-events: auto;
     }
-    .pv-pay-discard-btn:hover { transform: translateX(-50%) scale(1.08); }
+    .pv-pay-discard-btn:hover { transform: scale(1.14); border-color: var(--cr-gold-deep); }
+    .pv-pay-discard-btn .pay-coin-mark { line-height: 1; }
+    /* Readable by everything except the eye. */
+    .cc-sr-only {
+      position: absolute; width: 1px; height: 1px;
+      padding: 0; margin: -1px; overflow: hidden;
+      clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+    }
 
     /* ── HAND ZONE ──────────────────────────────────────────────── */
     #pv-hand-zone {
@@ -2314,7 +2459,7 @@
     .pv-seat.active-turn .pv-seat-avatar-wrap {
       border: 3px solid #f05050;
       box-shadow: 0 0 12px rgba(240,80,80,.7), 0 0 22px rgba(240,80,80,.35);
-      animation: seat-glow 1.8s ease-in-out infinite;
+      animation: seat-glow 2.8s ease-in-out infinite;
     }
     @keyframes seat-glow {
       0%,100% {
@@ -2521,22 +2666,54 @@
       position: absolute;
       bottom: calc(100% + 12px);
       left: 50%; transform: translateX(-50%);
-      background: rgba(14,38,88,.96);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 12px;
-      width: 210px;
+      background: linear-gradient(176deg, var(--cr-surface) 0%, var(--cr-surface-2) 100%);
+      border: 1px solid var(--cr-edge);
+      border-radius: 12px;
+      padding: 11px 13px;
+      width: 216px;
       font-size: 11px; line-height: 1.5;
-      color: var(--text);
+      color: var(--cr-ink);
       z-index: 1000;
       pointer-events: none;
-      box-shadow: 0 6px 30px rgba(0,0,0,.7);
+      box-shadow: var(--cr-lift);
     }
     .pv-hand-card.hovered .pv-tooltip { display: block; }
-    .tt-name { font-weight: 800; font-size: 12.5px; margin-bottom: 2px; color: var(--cyan); }
-    .tt-species { color: var(--muted); font-size: 10.5px; margin-bottom: 5px; }
-    .tt-text { color: var(--text); font-size: 11px; }
-    .tt-star { color: var(--gold); margin-top: 4px; font-size: 10.5px; }
+    .tt-name { font-weight: 800; font-size: 13px; margin-bottom: 2px; color: var(--cr-ink); }
+    .tt-species {
+      color: var(--cr-ink-soft); font-size: 10.5px; margin-bottom: 6px;
+      display: flex; align-items: center; gap: 5px;
+    }
+    /* The family colour is taught in the Strategies panel's key, so the
+       tooltip has to keep it. As a swatch rather than as the text colour:
+       those colours were picked to sit on the old navy and several of them
+       are unreadable as type on cream. */
+    .tt-fam-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      border: 1px solid rgba(21,50,92,.25);
+    }
+    .tt-text { color: var(--cr-ink); font-size: 11px; }
+    .tt-star { color: var(--cr-gold-deep); margin-top: 5px; font-size: 10.5px; font-weight: 700; }
+    .tt-rule { border: none; border-top: 1px solid var(--cr-edge-soft); margin: 7px 0; }
+    /* Score curve: counts on top, points underneath. */
+    .tt-curve { display: flex; gap: 3px; margin-top: 2px; }
+    .tt-curve .tt-cv {
+      flex: 1 1 0; min-width: 0;
+      display: flex; flex-direction: column; align-items: center;
+      border-radius: 6px; padding: 3px 1px;
+      background: rgba(188,221,230,.5);
+      border: 1px solid rgba(95,179,214,.4);
+    }
+    .tt-curve .tt-cv b {
+      font-size: 9.5px; font-weight: 700; color: var(--cr-ink-soft); line-height: 1.2;
+    }
+    .tt-curve .tt-cv span {
+      font-size: 13px; font-weight: 900; color: var(--cr-ink); line-height: 1.2;
+    }
+    /* A count that pays nothing is the whole point of reading the curve. */
+    .tt-curve .tt-cv.zero {
+      background: rgba(194,70,60,.12); border-color: rgba(194,70,60,.45);
+    }
+    .tt-curve .tt-cv.zero span { color: #a8332a; }
     .tt-arrow {
       position: absolute; bottom: -7px; left: 50%;
       transform: translateX(-50%);
@@ -2567,17 +2744,21 @@
     /* ── DISCARD BANNER ─────────────────────────────────────────── */
     #pv-discard-banner {
       display: none;
-      background: linear-gradient(90deg, rgba(60,40,8,0) 0%, rgba(80,55,10,.92) 20%, rgba(80,55,10,.92) 80%, rgba(60,40,8,0) 100%);
-      border-top: 1.5px solid rgba(240,200,64,.65);
-      border-bottom: 1.5px solid rgba(240,200,64,.65);
-      padding: 10px 14px;
-      font-family: "Baloo 2", "Nunito", sans-serif;
-      font-size: 14px; font-weight: 700;
-      color: #f0c840;
-      text-shadow: 0 1px 8px rgba(240,200,64,.45);
-      letter-spacing: .2px;
+      /* Same shell-cream band as the payment row, so the three things that can
+         interrupt a turn look like one another instead of like three different
+         products. It used to be an olive-brown slab in Baloo 2, a face used
+         nowhere else. */
+      background: linear-gradient(176deg, var(--cr-surface) 0%, var(--cr-surface-2) 100%);
+      border-top: 1px solid var(--cr-edge);
+      border-bottom: 1px solid var(--cr-edge);
+      box-shadow: inset 4px 0 0 var(--cr-gold);
+      padding: 9px 20px;
+      font-size: 13.5px; font-weight: 800;
+      color: var(--cr-ink);
+      letter-spacing: .1px;
       text-align: center;
       flex-shrink: 0;
+      position: relative; z-index: 60;
     }
     #pv-discard-banner.visible { display: block; }
 
@@ -2730,19 +2911,21 @@
 
     /* ── TOASTS ─────────────────────────────────────────────────── */
     #pv-toasts {
-      position: fixed; top: 18px; right: 18px;
+      /* Below the top bar, not on top of the Menu button it used to cover. */
+      position: fixed; top: 44px; right: 18px;
       display: flex; flex-direction: column; gap: 8px;
       /* Above the trade overlay (9800) so trade toasts aren't hidden behind it. */
       z-index: 10001; pointer-events: none;
     }
     .pv-toast {
-      background: rgba(16,40,88,.95);
-      border-left: 3px solid var(--cyan);
-      border-radius: 8px;
+      background: linear-gradient(176deg, var(--cr-surface) 0%, var(--cr-surface-2) 100%);
+      border: 1px solid var(--cr-edge);
+      border-left: 3px solid var(--cr-teal);
+      border-radius: 10px;
       padding: 9px 14px;
       font-size: 13px; font-weight: 700;
-      color: var(--text);
-      box-shadow: 0 4px 20px rgba(0,0,0,.5);
+      color: var(--cr-ink);
+      box-shadow: var(--cr-lift);
       transform: translateX(120%);
       transition: transform .3s cubic-bezier(.2,1,.4,1), opacity .3s;
       opacity: 0;
@@ -2750,9 +2933,9 @@
       max-width: 280px;
     }
     .pv-toast.show { transform: translateX(0); opacity: 1; }
-    .pv-toast.toast-ok    { border-left-color: var(--green); }
-    .pv-toast.toast-warn  { border-left-color: var(--gold); }
-    .pv-toast.toast-err   { border-left-color: var(--red); }
+    .pv-toast.toast-ok    { border-left-color: #2f9e6e; }
+    .pv-toast.toast-warn  { border-left-color: var(--cr-gold-deep); }
+    .pv-toast.toast-err   { border-left-color: #c2463c; }
 
     /* ── WAITING ROOM OVERLAY ──────────────────────────────────── */
     #pv-waiting-room {
@@ -3243,7 +3426,14 @@
     }
     .wr-seat-remove:hover { transform: scale(1.1); box-shadow: 0 3px 10px rgba(176,32,56,.6); }
     .wr-seat-remove:focus-visible { outline: 3px solid #ffd257; outline-offset: 2px; }
-    .wr-seat-lock { position: absolute; top: 9px; right: 10px; font-size: 12px; opacity: .5; }
+    .wr-seat-lock {
+      position: absolute; top: 9px; right: 10px;
+      font-size: 10px; font-weight: 800; letter-spacing: .2px;
+      color: var(--cr-ink-soft);
+      background: rgba(255,255,255,.75);
+      border: 1px solid var(--cr-edge-soft);
+      border-radius: 999px; padding: 2px 8px;
+    }
 
     /* A spot that is not in play: press it to seat a bot. */
     .wr-seat-add {
@@ -3301,25 +3491,26 @@
       display: flex; flex-direction: column;
       height: 268px; min-height: 268px; max-height: 268px;
       border-radius: 18px; padding: 12px 14px 13px;
-      background: linear-gradient(180deg, rgba(20,58,110,.94), rgba(13,42,84,.95));
-      border: 1px solid rgba(150,200,240,.3);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
+      background: linear-gradient(176deg, var(--cr-surface) 0%, var(--cr-surface-2) 100%);
+      border: 1px solid var(--cr-edge);
+      box-shadow: var(--cr-lift);
       text-align: left;
     }
     .wr-chat-head { display: flex; align-items: center; gap: 9px; padding-bottom: 8px; }
     .wr-chat-h {
-      font-size: 11.5px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #a9d2f5;
+      font-family: "Cinzel", serif;
+      font-size: 14px; font-weight: 800; letter-spacing: .3px; color: var(--cr-ink);
       white-space: nowrap; flex: 0 0 auto;
     }
-    .wr-chat-panel .wr-chip { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.3); color: #dceaf9; }
+    .wr-chat-panel .wr-chip { background: rgba(255,255,255,.7); border-color: var(--cr-edge-soft); color: var(--cr-ink-soft); }
     #wr-chat-btn {
       margin-left: auto; position: relative; display: inline-flex; align-items: center; gap: 6px;
       flex: 0 0 auto; white-space: nowrap;
-      background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.32);
-      color: #dceaf9; border-radius: 10px; padding: 6px 11px;
+      background: rgba(255,255,255,.7); border: 1px solid var(--cr-edge);
+      color: var(--cr-ink); border-radius: 10px; padding: 6px 11px;
       font-size: 11.5px; font-weight: 800; cursor: pointer;
     }
-    #wr-chat-btn:hover { background: rgba(255,255,255,.24); }
+    #wr-chat-btn:hover { background: #fff; border-color: var(--cr-gold); }
     .wr-chat-icon { font-size: 13px; line-height: 1; }
     /* flex:1 with min-height:0 is what makes a flex child actually scroll
        instead of growing its parent: without the 0 its min-content height
@@ -3330,18 +3521,18 @@
       scrollbar-width: thin;
     }
     .wr-chat-log::-webkit-scrollbar { width: 7px; }
-    .wr-chat-log::-webkit-scrollbar-thumb { background: rgba(255,255,255,.22); border-radius: 99px; }
-    .wr-chat-empty { font-size: 12px; font-weight: 700; color: #8fb4d8; font-style: italic; padding: 8px 0; }
-    .wr-chat-sys { font-size: 11.5px; font-weight: 800; font-style: italic; color: #9dc2e6; padding: 4px 0 4px 38px; }
+    .wr-chat-log::-webkit-scrollbar-thumb { background: rgba(44,90,138,.28); border-radius: 99px; }
+    .wr-chat-empty { font-size: 12px; font-weight: 700; color: var(--cr-ink-soft); font-style: italic; padding: 8px 0; }
+    .wr-chat-sys { font-size: 11.5px; font-weight: 800; font-style: italic; color: var(--cr-ink-soft); padding: 4px 0 4px 38px; }
     .wr-chat-line { display: flex; gap: 9px; align-items: flex-start; padding: 5px 0; }
     .wr-chat-av {
       position: relative; width: 29px; height: 29px; border-radius: 50%; overflow: hidden; flex: 0 0 auto;
-      border: 2px solid rgba(255,255,255,.9); background: linear-gradient(145deg,#1f66bc,#3ec0ee);
+      border: 2px solid rgba(255,255,255,.95); background: linear-gradient(145deg,#2c5a8a,#5fb3d6);
     }
     .wr-chat-av img { position: relative; width: 100%; height: 100%; object-fit: contain; display: block; }
     .wr-chat-body { min-width: 0; }
-    .wr-chat-who { font-size: 11.5px; font-weight: 900; color: #9fd0ff; }
-    .wr-chat-msg { font-size: 13px; font-weight: 600; color: #e6f1fb; line-height: 1.35; overflow-wrap: anywhere; }
+    .wr-chat-who { font-size: 11.5px; font-weight: 900; color: var(--cr-teal-deep); }
+    .wr-chat-msg { font-size: 13px; font-weight: 600; color: var(--cr-ink); line-height: 1.35; overflow-wrap: anywhere; }
     .wr-chat-foot { display: flex; flex-direction: column; gap: 8px; padding-top: 9px; }
 
     /* ── The Current Controller row (lobby chat foot) ────────────────
@@ -3350,7 +3541,7 @@
        must not look like an ordinary game. */
     .wr-cc-row {
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-      font-size: .78rem; font-weight: 700; color: #d8ecfb;
+      font-size: .78rem; font-weight: 700; color: var(--cr-ink);
     }
     .wr-cc-ask, .wr-cc-yes, .wr-cc-no {
       border: none; border-radius: 999px; padding: 7px 14px;
@@ -3360,7 +3551,7 @@
     .wr-cc-ask:hover, .wr-cc-yes:hover, .wr-cc-no:hover { filter: brightness(1.08); transform: translateY(-1px); }
     .wr-cc-ask { background: linear-gradient(120deg,#2bb8d8,#1f8fcf); color: #fff; }
     .wr-cc-yes { background: linear-gradient(120deg,#2ecf9b,#17a97c); color: #fff; }
-    .wr-cc-no  { background: rgba(255,255,255,.14); color: #ffd9d9; border: 1px solid rgba(255,140,140,.5); }
+    .wr-cc-no  { background: rgba(255,255,255,.7); color: #a8332a; border: 1px solid rgba(168,51,42,.45); }
     .wr-cc-ask[disabled] { opacity: .55; cursor: default; filter: none; transform: none; }
     .wr-cc-text { flex: 1; min-width: 140px; line-height: 1.4; }
     .wr-cc-chip {
@@ -3553,7 +3744,7 @@
       background: linear-gradient(180deg, #123563, #0c2547);
       border: 1px solid rgba(95,179,214,.34); border-radius: 16px;
       box-shadow: 0 18px 50px rgba(3,14,34,.6); overflow: hidden;
-      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-family: "Nunito", sans-serif;
     }
     .wri-head {
       display: flex; align-items: flex-start; gap: 10px;
@@ -3659,33 +3850,68 @@
          blur cost a full-viewport GPU re-blur every frame to show almost
          nothing. This element is on screen for the entire match. */
 
-      padding: 7px 20px;
+      padding: 7px 16px;
       font-size: 12px; font-weight: 700;
       color: var(--cr-navy);
       text-align: center;
       flex-shrink: 0;
       letter-spacing: .3px;
+      /* The row is always this tall, even when it is empty off-turn, so the
+         board below it never moves when the turn changes. */
+      min-height: 33px;
     }
     #pv-guide-bar.visible { display: block; }
-    #pv-guide-bar .guide-step { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
-    .gs { background: rgba(95,179,214,.2); border: 1px solid rgba(95,179,214,.45); border-radius: 20px; padding: 3px 12px; white-space: nowrap; color: var(--cr-navy); }
-    .gs.done  { background: rgba(31,187,138,.18); border-color: rgba(31,187,138,.45); color: #1f7e58; }
-    .gs.active { background: rgba(232,179,74,.28); border-color: rgba(232,179,74,.65); color: #8a5200; font-weight: 800; }
+    /* Empty off-turn: hold the space, show nothing. */
+    #pv-guide-bar:empty { background: none; }
+    /* flex, not inline-flex: inline-flex sized itself to its content and ran
+       655px wide inside a 585px phone viewport, so the third step hung off the
+       right edge with nothing to scroll it back. */
+    #pv-guide-bar .guide-step {
+      display: flex; align-items: center; gap: 10px;
+      flex-wrap: wrap; justify-content: center; max-width: 100%;
+    }
+    .gs {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: rgba(188,221,230,.55); border: 1px solid rgba(95,179,214,.5);
+      border-radius: 20px; padding: 3px 13px 3px 4px; white-space: nowrap;
+      color: var(--cr-navy);
+    }
+    /* The step number as a disc, not a ① glyph: the circled-digit characters
+       fall back to a different face in Nunito and rendered as a blob. */
+    .gs .gs-n {
+      width: 18px; height: 18px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,.75); color: var(--cr-teal-deep);
+      font-size: 11px; font-weight: 900; flex-shrink: 0;
+    }
+    .gs.done  { background: rgba(47,158,110,.16); border-color: rgba(47,158,110,.45); color: #1f7e58; }
+    .gs.done .gs-n { background: #2f9e6e; color: #fff; }
+    .gs.active { background: rgba(232,179,74,.30); border-color: rgba(232,179,74,.7); color: #7a4800; font-weight: 800; }
+    .gs.active .gs-n { background: var(--cr-gold-deep); color: #fff; }
+    /* Narrow screens: let a chip wrap inside itself rather than overhang. */
+    @media (max-width: 700px) {
+      #pv-guide-bar .guide-step { gap: 7px; }
+      .gs { white-space: normal; }
+    }
 
     /* ── DRAW-PHASE HINT BANNER ────────────────────────────────── */
     #pv-pool-pick-hint {
       display: none;
-      background: linear-gradient(90deg, rgba(60,40,8,0) 0%, rgba(80,55,10,.92) 20%, rgba(80,55,10,.92) 80%, rgba(60,40,8,0) 100%);
-      border-top: 1.5px solid rgba(240,200,64,.65);
-      border-bottom: 1.5px solid rgba(240,200,64,.65);
-      padding: 10px 14px;
-      font-family: "Baloo 2", "Nunito", sans-serif;
-      font-size: 14px; font-weight: 700;
-      color: #f0c840;
-      text-shadow: 0 1px 8px rgba(240,200,64,.45);
-      letter-spacing: .2px;
+      /* Same shell-cream band as the payment row, so the three things that can
+         interrupt a turn look like one another instead of like three different
+         products. It used to be an olive-brown slab in Baloo 2, a face used
+         nowhere else. */
+      background: linear-gradient(176deg, var(--cr-surface) 0%, var(--cr-surface-2) 100%);
+      border-top: 1px solid var(--cr-edge);
+      border-bottom: 1px solid var(--cr-edge);
+      box-shadow: inset 4px 0 0 var(--cr-gold);
+      padding: 9px 20px;
+      font-size: 13.5px; font-weight: 800;
+      color: var(--cr-ink);
+      letter-spacing: .1px;
       text-align: center;
       flex-shrink: 0;
+      position: relative; z-index: 60;
     }
     #pv-pool-pick-hint.visible { display: block; }
 
@@ -3958,14 +4184,14 @@
       /* flex-start, not center: a multi-line turn would otherwise float the
          avatar to the middle of the pill, away from the name it belongs to. */
       display: flex; align-items: flex-start; gap: 12px;
-      background: linear-gradient(135deg, rgba(26,45,90,.97) 0%, rgba(44,90,138,.95) 100%);
-      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-      border: 1.5px solid rgba(95,179,214,.48);
-      border-radius: 18px;
+      background: linear-gradient(176deg, var(--cr-surface) 0%, var(--cr-surface-2) 100%);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--cr-edge);
+      border-radius: 16px;
       padding: 10px 18px 10px 10px;
       pointer-events: none; z-index: 820;
       max-width: 340px; min-width: 180px;
-      box-shadow: 0 6px 32px rgba(0,0,0,.48), 0 0 0 1px rgba(95,179,214,.12) inset, 0 1px 0 rgba(188,221,230,.08) inset;
+      box-shadow: var(--cr-lift);
       opacity: 0; transform: translateX(32px);
       transition: opacity .32s cubic-bezier(.22,.68,0,1.2), transform .32s cubic-bezier(.22,.68,0,1.2);
     }
@@ -3979,8 +4205,8 @@
     /* warm coral-water shimmer accent */
     #draw-notif::before {
       content: "";
-      position: absolute; inset: 0; border-radius: 18px;
-      background: linear-gradient(120deg, rgba(95,179,214,.09) 0%, rgba(95,179,214,0) 65%);
+      position: absolute; inset: 0; border-radius: 16px;
+      background: linear-gradient(120deg, rgba(188,221,230,.28) 0%, rgba(188,221,230,0) 65%);
       pointer-events: none;
     }
     .dn-avatar-wrap {
@@ -3988,33 +4214,33 @@
       flex-shrink: 0;
       width: 34px; height: 34px; border-radius: 50%;
       overflow: hidden;
-      border: 2px solid rgba(95,179,214,.65);
-      box-shadow: 0 0 10px rgba(95,179,214,.28), 0 2px 8px rgba(0,0,0,.38);
-      background: rgba(26,45,90,.85);
+      border: 2px solid rgba(95,179,214,.75);
+      box-shadow: 0 2px 8px rgba(21,50,92,.25);
+      background: rgba(188,221,230,.75);
       display: flex; align-items: center; justify-content: center;
     }
     .dn-avatar-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .dn-avatar-letter {
       font-family: "Cinzel", serif; font-size: 18px; font-weight: 700;
-      color: var(--cr-teal); text-shadow: 0 0 8px rgba(95,179,214,.55);
+      color: var(--cr-teal-deep);
     }
     .dn-body {
       display: flex; flex-direction: column; gap: 2px; min-width: 0;
     }
     .dn-label {
       font-family: "Cinzel", serif;
-      font-size: 9px; font-weight: 600; letter-spacing: 1.4px;
-      color: rgba(188,221,230,.6); text-transform: uppercase;
+      font-size: 10px; font-weight: 700; letter-spacing: .3px;
+      color: var(--cr-ink-soft);
     }
     .dn-name {
-      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-family: "Nunito", sans-serif;
       font-size: 14px; font-weight: 800;
-      color: var(--cr-gold); text-shadow: 0 0 10px rgba(232,179,74,.3);
+      color: var(--cr-gold-deep);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .dn-action {
-      font-family: "Baloo 2", "Nunito", sans-serif;
-      font-size: 12px; font-weight: 600; color: var(--cr-aqua);
+      font-family: "Nunito", sans-serif;
+      font-size: 12px; font-weight: 600; color: var(--cr-ink);
       /* WRAP, never clip. "Played Green Sea Turtle → Great Barrier Reef" is
          longer than the pill is wide, and an ellipsis in the middle of a card
          name is the pill failing at the one job it has. */
@@ -4022,7 +4248,7 @@
     }
     .dn-line { display: block; }
     .dn-line + .dn-line { margin-top: 2px; }
-    .dn-cards { color: var(--cr-teal); font-weight: 700; }
+    .dn-cards { color: var(--cr-teal-deep); font-weight: 700; }
     @media (max-width: 520px) {
       #draw-notif { top: 64px; right: 10px; max-width: calc(100vw - 20px); }
     }
@@ -4478,7 +4704,7 @@
       font-size: 11px; color: var(--cyan); font-weight: 700;
       background: rgba(48,200,240,.08); border: 1px solid rgba(48,200,240,.22);
       border-radius: 7px; padding: 6px 10px;
-      animation: tut-hint-blink 2s ease-in-out infinite;
+      animation: tut-hint-blink 3s ease-in-out infinite;
     }
     #tut-nav { display: flex; gap: 8px; justify-content: flex-end; }
     #tut-back-btn, #tut-next-btn {
@@ -4760,34 +4986,35 @@
     }
     #pv-score-modal.open { display: flex; }
     .pv-modal-box {
-      background: linear-gradient(160deg, rgba(22,58,118,.98) 0%, rgba(14,40,88,.99) 100%);
-      border: 1px solid rgba(58,120,204,.28);
-      border-radius: 16px;
-      box-shadow: 0 0 60px rgba(34,216,248,.10), 0 20px 60px rgba(0,0,0,.6);
+      background: linear-gradient(168deg, var(--cr-surface) 0%, var(--cr-surface-2) 100%);
+      border: 1px solid var(--cr-edge);
+      border-radius: 18px;
+      box-shadow: var(--cr-lift), 0 24px 64px rgba(21,50,92,.28);
       padding: 24px;
       max-width: 640px; width: 95%; max-height: 85vh;
       overflow-y: auto; position: relative;
     }
     .pv-modal-box h2 {
-      font-family: "Cinzel", serif; font-size: 1.1rem; font-weight: 900;
-      color: var(--gold); letter-spacing: 1.5px; margin-bottom: 16px;
+      font-family: "Cinzel", serif; font-size: 1.15rem; font-weight: 900;
+      color: var(--cr-ink); letter-spacing: 1px; margin-bottom: 16px;
     }
     .pv-modal-close {
       position: absolute; top: 14px; right: 14px;
-      width: 30px; height: 30px; background: var(--panel);
-      border: 1px solid var(--border); border-radius: 50%;
-      color: var(--muted); font-size: 16px; cursor: pointer;
+      width: 30px; height: 30px; background: rgba(255,255,255,.6);
+      border: 1px solid var(--cr-edge); border-radius: 50%;
+      color: var(--cr-ink-soft); font-size: 16px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       transition: color .15s, border-color .15s;
     }
-    .pv-modal-close:hover { color: var(--red); border-color: var(--red); }
+    .pv-modal-close:hover { color: #c2463c; border-color: #c2463c; background: #fff; }
 
     /* Leaderboard summary */
     .sb-leaderboard { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
     .sb-rank-pill {
       display: flex; align-items: center; gap: 6px;
-      border: 1px solid rgba(58,120,204,.28); border-radius: 8px;
-      padding: 4px 10px; background: rgba(22,56,110,.7); font-size: 12px;
+      border: 1px solid var(--cr-edge-soft); border-radius: 9px;
+      padding: 4px 10px; background: rgba(255,255,255,.55); font-size: 12px;
+      color: var(--cr-ink); font-weight: 700;
     }
     .sb-rank-badge {
       width: 22px; height: 22px; border-radius: 50%;
@@ -4797,28 +5024,30 @@
     .sb-rank-1 { background: #c8971a; color: #2a1800; }
     .sb-rank-2 { background: #808080; color: #fff; }
     .sb-rank-3 { background: #7a4010; color: #fff; }
-    .sb-rank-n { background: var(--border); color: var(--muted); }
-    .sb-you { background: var(--teal); color: #fff; border-radius: 5px; font-size: 9px; padding: 1px 5px; font-weight: 800; }
+    .sb-rank-n { background: var(--cr-aqua); color: var(--cr-teal-deep); }
+    .sb-you { background: var(--cr-teal-deep); color: #fff; border-radius: 5px; font-size: 9px; padding: 1px 5px; font-weight: 800; }
 
     .sb-player-block {
-      border: 1px solid var(--border); border-radius: 10px;
-      padding: 10px; margin-bottom: 8px; background: rgba(22,50,100,.5);
+      border: 1px solid var(--cr-edge-soft); border-radius: 12px;
+      padding: 11px 12px; margin-bottom: 9px; background: rgba(255,255,255,.52);
+      color: var(--cr-ink);
     }
     .sb-player-head {
       display: flex; align-items: center; gap: 8px;
       font-weight: 800; margin-bottom: 8px;
     }
     .sb-total-pill {
-      margin-left: auto; background: var(--gold); color: #1a0a00;
+      margin-left: auto; background: var(--cr-gold); color: #3a2600;
       border-radius: 10px; padding: 2px 9px; font-size: 12px; font-weight: 900;
       font-family: "Cinzel", serif;
     }
     .sb-card-row {
-      border-top: 1px solid rgba(48,200,240,.1); padding-top: 6px; margin-top: 6px;
-      font-size: 11px; color: var(--muted);
+      border-top: 1px solid var(--cr-edge-soft); padding-top: 7px; margin-top: 7px;
+      font-size: 11px; color: var(--cr-ink-soft);
     }
-    .sb-card-name { font-weight: 700; color: var(--text); font-size: 11.5px; }
-    .sb-card-pts { color: var(--green); font-weight: 800; }
+    .sb-card-name { font-weight: 700; color: var(--cr-ink); font-size: 12px; }
+    .sb-card-where { color: var(--cr-ink-soft); font-size: 10.5px; font-weight: 600; }
+    .sb-card-pts { color: #1f7e58; font-weight: 800; }
     .sb-card-components { margin-top: 2px; line-height: 1.5; }
 
     /* ── TUTORIAL MODAL ─────────────────────────────────────────── */
@@ -4855,39 +5084,41 @@
     #pv-menu-btn:hover { filter: brightness(1.08); box-shadow: 0 2px 10px rgba(95,179,214,.45); }
     #pv-menu-drop {
       display: none; position: absolute; top: calc(100% + 5px); right: 0;
-      min-width: 230px; background: #1A3E80;
-      border: 1px solid rgba(58,120,204,.35); border-radius: 10px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.5); z-index: 9000;
+      min-width: 238px;
+      background: linear-gradient(176deg, var(--cr-surface) 0%, var(--cr-surface-2) 100%);
+      border: 1px solid var(--cr-edge); border-radius: 13px;
+      box-shadow: var(--cr-lift); z-index: 9000;
       padding: 8px 0; flex-direction: column;
     }
     #pv-menu-drop.open { display: flex; }
     .pv-menu-item {
       display: block; width: 100%; text-align: left;
-      background: none; border: none; color: var(--text);
-      padding: 8px 16px; cursor: pointer; font-size: 14.04px;
+      background: none; border: none; color: var(--cr-ink);
+      padding: 9px 16px; cursor: pointer; font-size: 14px; font-weight: 600;
       text-decoration: none;
+      transition: background .12s, color .12s;
     }
-    .pv-menu-item:hover { background: rgba(48,200,240,.08); }
-    .pv-menu-divider { height: 1px; background: var(--border); margin: 4px 0; }
+    .pv-menu-item:hover { background: var(--cr-surface-sub); color: var(--cr-teal-deep); }
+    .pv-menu-divider { height: 1px; background: var(--cr-edge-soft); margin: 5px 0; }
     .pv-menu-label {
-      padding: 4px 14px 2px; font-size: 10px;
-      color: var(--muted); text-transform: uppercase; letter-spacing: 1px;
+      padding: 6px 16px 2px; font-size: 11px; font-weight: 800;
+      color: var(--cr-ink-soft); letter-spacing: .2px;
     }
     #pv-menu-scores-list {
       padding: 4px 16px 6px; font-size: 12px;
-      color: var(--muted); line-height: 1.8;
+      color: var(--cr-ink); line-height: 1.8;
     }
-    .pv-menu-room { padding: 2px 16px 6px; font-size: 11px; color: #5a8ab8; font-family: monospace; }
+    .pv-menu-room { padding: 2px 16px 6px; font-size: 11px; color: var(--cr-ink-soft); font-weight: 700; letter-spacing: 1px; }
     .pv-menu-hand-row {
       display: flex; align-items: center; gap: 6px;
       padding: 3px 14px; font-size: 12px; cursor: pointer;
       transition: background .1s;
     }
-    .pv-menu-hand-row:hover { background: rgba(48,200,240,.08); }
+    .pv-menu-hand-row:hover { background: var(--cr-surface-sub); }
     .pv-menu-hand-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .pv-menu-hand-dot.active { background: var(--gold); box-shadow: 0 0 5px rgba(240,200,64,.7); }
-    .pv-menu-hand-dot.mine { background: var(--cyan); }
-    .pv-menu-hand-dot.other { background: var(--border); }
+    .pv-menu-hand-dot.active { background: var(--cr-gold-deep); box-shadow: 0 0 5px rgba(200,147,32,.6); }
+    .pv-menu-hand-dot.mine { background: var(--cr-teal); }
+    .pv-menu-hand-dot.other { background: var(--cr-ink-faint); }
     .pv-menu-hand-name { flex: 1; color: var(--text); font-weight: 600; }
     .pv-menu-hand-name.active { color: var(--gold); font-weight: 800; }
     .pv-menu-hand-score { color: var(--muted); font-size: 11px; }
@@ -4993,7 +5224,7 @@
     .pv-opp-full-label .opp-score { color: var(--gold); margin-left: 4px; }
     .pv-ro-board { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; padding: 2px; }
     .pv-ro-board .pv-lane-slot { cursor: default; }
-    .pv-ro-board .pv-lane-slot:hover { transform: none; background: none; border-color: var(--border); }
+    .pv-ro-board .pv-lane-slot:hover { transform: none; }
 
     /* Equal columns when showing full boards */
     #pv-opponents.full-mode.opp-2 { grid-template-columns: 1fr 1fr; }
@@ -5047,7 +5278,7 @@
       text-shadow: 0 0 10px rgba(232,179,74,.4);
     }
     #pv-board-hover .pv-bh-hint {
-      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-family: "Nunito", sans-serif;
       font-size: 9.5px;
       color: rgba(188,221,230,.7);
       text-align: center;
@@ -5124,20 +5355,12 @@
       position: relative;
       display: inline-flex;
       flex-direction: column; align-items: center; gap: 1px;
-      background: linear-gradient(160deg, var(--cr-gold) 0%, var(--cr-gold-deep) 100%);
-      border: 1.5px solid rgba(255,255,255,.55);
-      box-shadow: 0 2px 10px rgba(200,147,32,.45);
-      color: var(--cr-navy);
       text-shadow: none;
       font-size: 13px;
       padding: 6px 15px;
       border-radius: 10px;
       white-space: nowrap;
       flex-shrink: 0;
-    }
-    .pv-btn-chat:hover:not(:disabled) {
-      background: linear-gradient(160deg, #f4c665 0%, #d9a52e 100%);
-      box-shadow: 0 5px 18px rgba(200,147,32,.62);
     }
     .pv-btn-chat .pvc-btn-lbl {
       font-size: 13px; font-weight: 900; letter-spacing: .4px; line-height: 1.15;
@@ -5160,7 +5383,7 @@
        the badge with :has(), so it is one thing that decides and one thing to
        test. */
     .pv-btn-chat.has-unread {
-      animation: chat-unread-pulse 2.2s ease-in-out infinite;
+      animation: chat-unread-pulse 3.2s ease-in-out infinite;
     }
     @keyframes chat-unread-pulse {
       0%,100% { box-shadow: 0 2px 10px rgba(200,147,32,.45); }
@@ -5571,11 +5794,11 @@
       backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
     }
     .gs-meta-item {
-      padding: 12px 22px; border-right: 1px solid rgba(100,160,220,.22);
+      padding: 12px 22px;
       text-align: center; min-width: 88px;
     }
-    .gs-meta-item:last-child { border-right: none; }
-    .gs-meta-label { font-size: 9px; font-weight: 800; text-transform: uppercase; color: #5a80a8; letter-spacing: .9px; }
+    .gs-meta-item + .gs-meta-item { border-left: 1px solid rgba(100,160,220,.22); }
+    .gs-meta-label { font-size: 10px; font-weight: 800; color: #5a80a8; letter-spacing: .2px; }
     .gs-meta-val { font-size: 18px; font-weight: 900; color: #1a2d5a; margin-top: 3px; }
     .gs-meta-val.gs-big { font-size: 22px; }
     .gs-meta-val.gs-cyan { color: #1888c0; }
@@ -5641,10 +5864,10 @@
       box-shadow: 0 8px 32px rgba(30,60,140,.12);
     }
     #gs-standings-title {
-      font-family: "Cinzel", serif; font-size: .85rem; font-weight: 800;
-      color: #1a2d5a; text-align: center; padding: 11px 16px 9px;
-      letter-spacing: 2.5px; background: rgba(180,220,255,.45);
-      border-bottom: 1px solid rgba(100,160,220,.25); text-transform: uppercase;
+      font-family: "Cinzel", serif; font-size: .95rem; font-weight: 800;
+      color: #1a2d5a; text-align: left; padding: 11px 16px 9px;
+      letter-spacing: .2px; background: rgba(180,220,255,.45);
+      border-bottom: 1px solid rgba(100,160,220,.25);
     }
     .gs-st-row {
       display: grid; grid-template-columns: 54px 62px 1fr auto;
@@ -5688,8 +5911,9 @@
       box-shadow: 0 6px 24px rgba(30,60,140,.1);
     }
     #gs-feats-title {
-      font-family: "Cinzel",serif; font-size: .74rem; font-weight: 800;
-      color: #3a5888; text-align: center; letter-spacing: 2px; margin-bottom: 11px; text-transform: uppercase;
+      font-family: "Cinzel",serif; font-weight: 800; font-size: .95rem;
+      letter-spacing: .2px; text-transform: none; text-align: left;
+      color: #3a5888; margin-bottom: 11px;
     }
     #gs-feats-row { display: flex; gap: 10px; }
     .gs-feat-card {
@@ -5705,8 +5929,9 @@
       box-shadow: 0 6px 24px rgba(30,60,140,.1); margin-top: 4px;
     }
     #gs-challenges-title {
-      font-family: "Cinzel",serif; font-size: .74rem; font-weight: 800;
-      color: #1a6b3a; text-align: center; letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase;
+      font-family: "Cinzel",serif; font-weight: 800; font-size: .95rem;
+      letter-spacing: .2px; text-transform: none; text-align: left;
+      color: #1a6b3a; margin-bottom: 10px;
     }
     #gs-challenges-list { display: flex; flex-direction: column; gap: 7px; }
     .gs-ch-row {
@@ -5777,8 +6002,9 @@
       box-shadow: 0 6px 24px rgba(30,60,140,.1);
     }
     #gs-xp-header {
-      font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.4px;
-      color: #5a80a8; margin-bottom: 14px; text-align: center;
+      font-family: "Cinzel",serif; font-weight: 800; font-size: .95rem;
+      letter-spacing: .2px; text-transform: none; text-align: left;
+      color: #3a5888; margin-bottom: 14px;
     }
     #gs-xp-bar-row { display: flex; align-items: center; gap: 14px; }
     #gs-level-badge {
@@ -5817,7 +6043,7 @@
       border: 1.5px solid rgba(100,160,220,.3); border-radius: 18px; padding: 14px 16px; min-width: 162px;
       box-shadow: 0 6px 24px rgba(30,60,140,.1);
     }
-    .gs-pt-title { font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .9px; color: #5a80a8; margin-bottom: 9px; text-align: center; }
+    .gs-pt-title { font-size: 11px; font-weight: 800; letter-spacing: .2px; color: #3a5888; margin-bottom: 9px; text-align: left; }
     .gs-pt-row {
       display: flex; justify-content: space-between; gap: 8px;
       padding: 6px 0; border-bottom: 1px solid rgba(100,160,220,.2);
@@ -5835,8 +6061,9 @@
       box-shadow: 0 6px 24px rgba(30,60,140,.1);
     }
     #gs-stats-title {
-      font-family: "Cinzel",serif; font-size: 10px; font-weight: 800; color: #1a2d5a;
-      margin-bottom: 12px; letter-spacing: 2px; text-transform: uppercase; text-align: center;
+      font-family: "Cinzel",serif; font-weight: 800; font-size: .95rem;
+      letter-spacing: .2px; text-transform: none; text-align: left;
+      color: #1a2d5a; margin-bottom: 12px;
     }
     #gs-stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; }
     @media (max-width: 600px) { #gs-stats-grid { grid-template-columns: repeat(2,1fr); } }
@@ -5866,8 +6093,8 @@
       box-shadow: 0 6px 24px rgba(30,60,140,.1);
     }
     #gs-rewards-title {
-      font-family: "Cinzel",serif; font-size: .74rem; font-weight: 800;
-      color: #b86800; text-align: center; letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase;
+      font-family: "Cinzel",serif; font-size: .95rem; font-weight: 800;
+      color: #b86800; text-align: left; letter-spacing: .2px; margin-bottom: 10px;
     }
     #gs-rewards-list {
       display: flex; flex-direction: column; gap: 7px;
@@ -5926,29 +6153,28 @@
     .gs-btn:hover { transform: translateY(-3px); filter: brightness(1.08); }
     .gs-btn:active { transform: translateY(0px); filter: brightness(.96); }
     .gs-btn:disabled { cursor: default; opacity: .82; transform: none; filter: none; }
+    /* THE one thing to do next, in the card gold. */
     .gs-btn-again {
-      background: linear-gradient(155deg, #f7a927, #e07f08);
-      color: #fff; border: 2px solid rgba(255,255,255,.45);
-      box-shadow: 0 6px 22px rgba(220,130,0,.32);
+      background: linear-gradient(155deg, #f0c25c, #c89320);
+      color: #3a2600; border: 1px solid rgba(150,108,16,.55);
+      text-shadow: 0 1px 0 rgba(255,255,255,.35);
+      box-shadow: 0 6px 22px rgba(200,147,32,.34);
     }
     .gs-btn-again.gs-btn-readied {
-      background: linear-gradient(155deg, #3fbf6a, #1f9a4a);
+      background: linear-gradient(155deg, #3fbf6a, #1f8a4a);
+      color: #fff; border-color: rgba(20,110,60,.5);
+      text-shadow: none;
       box-shadow: 0 6px 22px rgba(30,150,70,.3);
     }
-    .gs-btn-home {
-      background: linear-gradient(155deg, #3a7ad8, #1e58b8);
-      color: #fff; border: 2px solid rgba(255,255,255,.4);
-      box-shadow: 0 6px 22px rgba(30,80,180,.35);
-    }
-    .gs-btn-view {
-      background: linear-gradient(155deg, #38b8a0, #229080);
-      color: #fff; border: 2px solid rgba(255,255,255,.4);
-      box-shadow: 0 6px 22px rgba(30,140,120,.3);
-    }
+    /* Everything else is the same quiet shell-cream button, so the row reads
+       as one primary and three alternatives rather than four competing offers. */
+    .gs-btn-home,
+    .gs-btn-view,
     .gs-btn-secondary {
-      background: rgba(255,255,255,.78); color: #2a5888;
-      border: 1.5px solid rgba(100,160,220,.45);
-      box-shadow: 0 4px 16px rgba(30,60,140,.1);
+      background: linear-gradient(176deg, rgba(254,245,230,.96), rgba(243,228,203,.96));
+      color: #15325c;
+      border: 1px solid rgba(200,147,32,.4);
+      box-shadow: 0 4px 16px rgba(21,50,92,.12);
     }
     /* Guests only: the offer to keep the game that is on the screen behind it.
        Butter gold, the colour this game uses for "this one is worth taking",
@@ -6408,6 +6634,14 @@
          than 34px, the (pointer: coarse) rules above still apply on top. */
       #pv-action-bar { padding: 5px 8px; gap: 6px; }
       #pv-action-bar .pv-btn { font-size: 12px; padding: 7px 11px; border-radius: 8px; }
+      /* On a phone the bar wraps to two or three rows and End Turn lands
+         wherever the wrap put it, which is usually mid-row between two tools.
+         It takes the rest of its row instead, so the one control the turn is
+         waiting on is the widest thing in the bar at every width. */
+      #pv-action-bar #pv-end-turn-inline { flex: 1 1 auto; min-width: 120px; }
+      /* The group hairline is for a bar on one line; wrapped, it lands in the
+         middle of a row and reads as a stray mark. */
+      #pv-action-bar .pv-tool-sep { display: none; }
       #pv-help-btn { padding: 5px 11px; border-radius: 12px; }
       #pv-help-btn .help-sub { display: none; }   /* "strategies & tips" */
       /* The second line goes, because the bar is fighting for height here, but
@@ -6435,7 +6669,7 @@
       position: fixed; inset: 0; z-index: 9200;
       background: #3ed6f2;
       display: flex; align-items: center; justify-content: center;
-      color: rgba(16,53,86,.78); font-size: 14px; font-family: "Baloo 2", "Nunito", sans-serif; letter-spacing: .5px;
+      color: rgba(16,53,86,.78); font-size: 14px; font-family: "Nunito", sans-serif; letter-spacing: .5px;
     }
     #auth-loading-screen.hidden { display: none; }
 
@@ -6584,69 +6818,77 @@
       display: none; position: fixed; bottom: 0;
       left: 50%; transform: translateX(-50%);
       z-index: 4991;
-      background: rgba(8,22,58,.97);
-      border: 1px solid rgba(58,120,204,.55); border-bottom: none;
-      border-radius: 14px 14px 0 0;
-      width: min(96vw, 960px); padding: 16px 18px 26px;
-      box-shadow: 0 -6px 36px rgba(0,0,0,.65);
+      background: linear-gradient(176deg, var(--cr-surface) 0%, var(--cr-surface-2) 100%);
+      border: 1px solid var(--cr-edge); border-bottom: none;
+      border-radius: 18px 18px 0 0;
+      width: min(96vw, 820px); padding: 16px 20px 26px;
+      box-shadow: 0 -10px 40px rgba(21,50,92,.32);
       max-height: 62vh; overflow-y: auto;
     }
     #ctp-panel.open { display: block; }
     .ctp-header {
       display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 14px; padding-bottom: 10px;
-      border-bottom: 1px solid rgba(58,120,204,.25);
+      margin-bottom: 14px; padding-bottom: 11px;
+      border-bottom: 1px solid var(--cr-edge-soft);
     }
     #ctp-title {
-      font-family: 'Cinzel', serif; color: var(--cyan);
+      font-family: 'Cinzel', serif; color: var(--cr-ink);
       font-size: 16px; font-weight: 700;
     }
-    .ctp-cancel-btn {
-      background: transparent; border: 1px solid rgba(255,255,255,.2);
-      color: rgba(200,225,255,.7); border-radius: 6px; padding: 5px 14px;
-      font-size: 13px; cursor: pointer;
+    /* Which ocean this card is going into, said once, next to the title. */
+    #ctp-title .ctp-title-where {
+      display: block; font-family: "Nunito", sans-serif;
+      font-size: 12px; font-weight: 700; color: var(--cr-ink-soft);
+      letter-spacing: 0; margin-top: 2px;
     }
-    .ctp-cancel-btn:hover { background: rgba(255,255,255,.1); color: #fff; }
+    .ctp-cancel-btn {
+      background: rgba(255,255,255,.6); border: 1px solid var(--cr-edge);
+      color: var(--cr-ink); border-radius: 8px; padding: 6px 15px;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      transition: background .12s, color .12s;
+    }
+    .ctp-cancel-btn:hover { background: #fff; color: #c2463c; }
     #ctp-cards {
       display: flex; flex-wrap: wrap; gap: 14px;
+      justify-content: center;
     }
     .ctp-card-item {
       position: relative; width: 140px; flex: 0 0 140px;
       cursor: pointer;
-      border: 2px solid rgba(58,120,204,.4); border-radius: 11px;
-      overflow: hidden; background: rgba(10,22,54,.7);
+      border: 2px solid var(--cr-edge-soft); border-radius: 13px;
+      overflow: hidden; background: rgba(255,255,255,.7);
       transition: border-color .12s, transform .12s, box-shadow .12s;
     }
     .ctp-card-item:hover {
-      border-color: rgba(34,216,248,.9);
+      border-color: var(--cr-gold);
       transform: translateY(-5px);
-      box-shadow: 0 10px 26px rgba(0,0,0,.6);
+      box-shadow: 0 12px 28px rgba(21,50,92,.28);
     }
     .ctp-card-item img {
       width: 100%; display: block; height: 185px; object-fit: cover;
     }
     .ctp-card-label {
-      padding: 6px 5px 5px; font-size: 12px; color: #b8d8f8;
+      padding: 7px 5px 6px; font-size: 12px; color: var(--cr-ink); font-weight: 700;
       text-align: center; line-height: 1.3; word-break: break-word;
     }
     .ctp-card-cost {
       position: absolute; top: 5px; right: 5px;
-      background: rgba(8,24,64,.88); color: var(--gold);
+      background: var(--cr-surface); color: var(--cr-gold-deep);
       font-size: 13px; font-weight: 800;
-      border-radius: 5px; padding: 2px 7px;
-      border: 1px solid rgba(240,184,64,.45);
+      border-radius: 6px; padding: 2px 7px;
+      border: 1px solid var(--cr-edge);
     }
     .ctp-card-star {
       position: absolute; top: 5px; left: 5px;
-      font-size: 14px; color: var(--gold); text-shadow: 0 0 6px rgba(240,184,64,.8);
+      font-size: 14px; color: var(--cr-gold-deep); text-shadow: 0 1px 3px rgba(255,255,255,.9);
     }
     .ctp-empty {
-      color: rgba(170,200,240,.6); font-size: 14px;
+      color: var(--cr-ink-soft); font-size: 14px;
       text-align: center; padding: 22px 0;
     }
     /* Glow on board slot while CTP picker is open */
     .ctp-slot-active {
-      animation: ctp-pulse 1.1s ease-in-out infinite !important;
+      animation: ctp-pulse 2.2s ease-in-out infinite !important;
       border-color: var(--cyan) !important;
       box-shadow: 0 0 0 2px rgba(34,216,248,.4), 0 0 16px rgba(34,216,248,.35) !important;
     }
@@ -6685,7 +6927,7 @@
     .au-glow {
       position: absolute; inset: -6%; border-radius: 50%;
       background: radial-gradient(circle, rgba(34,216,248,.55), rgba(47,126,224,.22) 45%, transparent 70%);
-      filter: blur(6px); animation: au-glow-pulse 2.2s ease-in-out infinite;
+      filter: blur(6px); animation: au-glow-pulse 3.4s ease-in-out infinite;
     }
     @keyframes au-glow-pulse { 0%,100% { transform: scale(.9); opacity: .8; } 50% { transform: scale(1.1); opacity: 1; } }
     .au-animal-wrap img {
@@ -7684,7 +7926,7 @@
       background: #ff4b5d;
       border: 2px solid #f7fdff;
       display: none;
-      animation: notif-pulse 1.8s ease-in-out infinite;
+      animation: notif-pulse 2.8s ease-in-out infinite;
     }
     .ph-notif-dot.show { display: block; }
     @keyframes notif-pulse {
@@ -7818,7 +8060,7 @@
     .ph-alpha-banner.update-available {
       border-color: rgba(225,150,30,.55);
       background: linear-gradient(160deg, rgba(255,247,228,.97) 0%, rgba(255,235,200,.97) 100%);
-      animation: phAlphaPulse 1.8s ease-in-out infinite;
+      animation: phAlphaPulse 2.8s ease-in-out infinite;
     }
     @keyframes phAlphaPulse {
       0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 2px 10px rgba(225,150,30,.2); }
@@ -8163,7 +8405,7 @@
       padding: 8px 13px; font-size: 13px; font-weight: 700; line-height: 1.3;
       max-width: 240px; text-align: center; pointer-events: none;
       box-shadow: 0 8px 26px rgba(0,0,0,.45);
-      font-family: "Baloo 2","Nunito",sans-serif;
+      font-family: "Nunito",sans-serif;
       animation: secret-bubble-in .18s ease both;
     }
     .secret-bubble::after {
@@ -8210,7 +8452,7 @@
     #gs-challenge-actions { display: flex; flex-direction: column; gap: 10px; }
     .gs-ch-btn {
       border: none; border-radius: 13px; padding: 13px 18px; font-size: 15px; font-weight: 800;
-      cursor: pointer; font-family: "Baloo 2","Nunito",sans-serif; transition: transform .12s, box-shadow .12s, filter .12s;
+      cursor: pointer; font-family: "Nunito",sans-serif; transition: transform .12s, box-shadow .12s, filter .12s;
     }
     .gs-ch-btn.fight { background: linear-gradient(135deg,#8a4bff,#5a1fd0); color: #fff; box-shadow: 0 6px 20px rgba(120,60,230,.5); }
     .gs-ch-btn.fight:hover { transform: translateY(-2px); filter: brightness(1.08); }
@@ -8373,11 +8615,12 @@
       -webkit-user-drag: none; user-select: none;
       pointer-events: none;   /* clicks pass through to the button */
     }
-    /* Individual card gradient themes, cleaner, evenly-weighted stops */
-    .ph-action-card:nth-child(1) { background: linear-gradient(145deg, #6fd6f2 0%, #2cb4e6 38%, #1583c9 72%, #0f63a4 100%); } /* Create, ocean blue */
-    .ph-action-card:nth-child(2) { background: linear-gradient(145deg, #ff8b78 0%, #f24f49 38%, #d62f2e 72%, #ad2024 100%); } /* Join, clean red */
-    .ph-action-card:nth-child(3) { background: linear-gradient(145deg, #b2d965 0%, #82b837 38%, #5d9627 72%, #437a16 100%); } /* Tutorial, reef green */
-    .ph-action-card:nth-child(4) { background: linear-gradient(145deg, #cb9af2 0%, #9d5fdd 38%, #7c3fc4 72%, #592a9c 100%); } /* Competitive, clean purple */
+    /* Load-in colour behind each card's PNG. These must match the artwork in
+       that slot or a cold load flashes the wrong colour and then snaps. */
+    .ph-action-card:nth-child(1) { background: linear-gradient(145deg, #6fd6f2 0%, #2cb4e6 38%, #1583c9 72%, #0f63a4 100%); } /* Head to Head, ocean blue */
+    .ph-action-card:nth-child(2) { background: linear-gradient(145deg, #cb9af2 0%, #9d5fdd 38%, #7c3fc4 72%, #592a9c 100%); } /* Create Game, purple */
+    .ph-action-card:nth-child(3) { background: linear-gradient(145deg, #ff8b78 0%, #f24f49 38%, #d62f2e 72%, #ad2024 100%); } /* Join Game, coral red */
+    .ph-action-card:nth-child(4) { background: linear-gradient(145deg, #b2d965 0%, #82b837 38%, #5d9627 72%, #437a16 100%); } /* Tutorial, reef green */
     /* Circular icon holder, no backdrop-filter (causes GPU blur on entire card) */
     .ph-action-icon {
       width: 50px;
@@ -9509,7 +9752,7 @@
       color: #33648c; line-height: 1.6;
     }
     .ph-msg-guest-t {
-      font-family: "Luckiest Guy", "Nunito", sans-serif;
+      font-family: "Nunito", sans-serif;
       font-size: 1.4rem; color: #1a4a90; margin-bottom: 8px;
     }
     .ph-msg-guest-p { font-size: .95rem; margin-bottom: 10px; max-width: 62ch; }
@@ -10278,7 +10521,13 @@
 
     .phst-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+      /* auto-FIT, not auto-fill, and a centred short row. auto-fill kept the
+         empty tracks it could not fill, so a season with two skins in it left
+         two small cards jammed at the left of a row with space for six and the
+         rest of the panel blank. The cards also start bigger, so a short
+         season looks like a short season rather than a loading failure. */
+      grid-template-columns: repeat(auto-fit, minmax(205px, 250px));
+      justify-content: center;
       gap: 16px;
     }
     .phst-card {
@@ -11820,21 +12069,28 @@
     #ph-panel-overview .ph-stats-card {
       min-height: 0;
     }
-    /* Quick Stats: 5 wide × 3 tall, matches reference image layout */
+    /* Quick Stats: six numbers across the top, the two sentences underneath.
+       A 5-wide grid left a ragged row of three, and grid-auto-rows:1fr plus a
+       100px floor made every tile as tall as the longest sentence in the set,
+       so six of the eight were mostly empty space. */
     #ph-panel-overview .ph-sg {
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      grid-auto-rows: 1fr;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-auto-rows: auto;
       gap: 10px;
       padding: 12px;
     }
+    /* A sentence takes the whole row rather than a tile the width of a
+       number: a sentence sharing a row with counts is what forced every box to
+       the height of its longest line. 1 / -1 is right at any column count. */
+    #ph-panel-overview .ph-sc-string { grid-column: 1 / -1; }
     #ph-panel-overview .ph-sc {
-      min-height: 100px;
-      padding: 12px 14px;
-      gap: 5px;
+      min-height: 0;
+      padding: 11px 13px;
+      gap: 2px;
     }
     #ph-panel-overview .ph-sc .ph-scl {
-      min-height: 2.45em;
-      font-size: 0.842rem;
+      min-height: 0;
+      font-size: 0.8rem;
     }
     #ph-panel-overview .ph-sci {
       width: 32px;
@@ -11870,13 +12126,13 @@
     }
     /* Responsive breakpoints for 5-col grid */
     @media (max-width: 1400px) {
-      #ph-panel-overview .ph-sg { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      #ph-panel-overview .ph-sg { grid-template-columns: repeat(6, minmax(0, 1fr)); }
     }
     @media (max-width: 1050px) {
-      #ph-panel-overview .ph-sg { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      #ph-panel-overview .ph-sg { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     @media (max-width: 760px) {
-      #ph-panel-overview .ph-sg { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      #ph-panel-overview .ph-sg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 520px) {
       #ph-panel-overview .ph-sg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -13960,7 +14216,7 @@
     .ph-cp-fill.tier-gold     { background: linear-gradient(90deg,#d4a017,#f0c840); }
     .ph-cp-fill.tier-diamond  { background: linear-gradient(90deg,#1c82d6,#56c2f8); }
     .ph-cp-fill.tier-emerald  { background: linear-gradient(90deg,#1ea864,#42d68a); }
-    .ph-cp-fill.tier-king     { background: linear-gradient(90deg,#ff9800,#ffd740,#ff9800); background-size: 200%; animation: ph-king-shimmer 2s linear infinite; }
+    .ph-cp-fill.tier-king     { background: linear-gradient(90deg,#ff9800,#ffd740,#ff9800); background-size: 200%; animation: ph-king-shimmer 3.5s linear infinite; }
     @keyframes ph-king-shimmer { 0%{background-position:0%} 100%{background-position:200%} }
     /* ── Rank Progression Strip ─────────────────────────────────── */
     .ph-rank-prog-strip {
@@ -14370,7 +14626,14 @@
     }
 
     /* ── ACHIEVEMENT PAGE (Steam-inspired, ocean themed) ─────────────── */
-    .ach-main-card { padding: 0 !important; overflow: visible; }
+    .ach-main-card {
+      padding: 0 !important;
+      border: 1px solid rgba(169,203,230,.78);
+      border-radius: 18px;
+      background: rgba(252,255,255,.95);
+      box-shadow: 0 6px 24px rgba(35,100,165,.1);
+      overflow: hidden;
+    }
     .ach-page-header {
       display: flex;
       align-items: center;
@@ -14386,31 +14649,35 @@
     }
     /* Overall progress panel */
     .ach-progress-panel {
-      margin: 16px 20px;
-      background: linear-gradient(135deg, rgba(38,128,200,.1) 0%, rgba(13,148,136,.08) 100%);
-      border: 1.5px solid rgba(38,128,200,.22);
-      border-radius: 14px;
-      padding: 16px 20px;
+      margin: 0;
+      background: linear-gradient(135deg, rgba(38,128,200,.07) 0%, rgba(13,148,136,.05) 100%);
+      border: none;
+      border-bottom: 1px solid rgba(38,128,200,.18);
+      border-radius: 0;
+      padding: 0 0 16px;
     }
+    /* The three numbers were spread across the full width of the page with
+       400px of nothing between them. Grouped left, they read as one line. */
     .ach-prog-header {
       display: flex;
       align-items: baseline;
-      justify-content: space-between;
+      gap: 20px;
       flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 10px;
+      margin: 14px 22px 10px;
     }
     .ach-prog-stat {
-      font-size: 1.25rem;
+      font-size: 1.1rem;
       font-weight: 900;
       color: #1a4f97;
     }
-    .ach-prog-stat span { color: #3a7abf; }
+    .ach-prog-stat span { color: #2d86e4; }
     .ach-prog-pct-val {
       font-size: 1.1rem;
       font-weight: 800;
       color: #0d8a6e;
+      margin-left: auto;
     }
+    .ach-prog-bar-track { margin-left: 22px; margin-right: 22px; }
     .ach-prog-bar-track {
       height: 12px;
       background: rgba(38,128,200,.14);
@@ -14456,13 +14723,15 @@
     .ach-filter-sel:focus { outline: 2px solid rgba(38,128,200,.4); }
     /* Achievement list */
     .ach-steam-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-      padding: 0 16px 20px;
-      max-height: 520px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+      gap: 8px;
+      align-content: start;
+      padding: 16px 18px 20px;
+      max-height: 560px;
       overflow-y: auto;
     }
+    .ach-empty { grid-column: 1 / -1; }
     .ach-empty {
       text-align: center;
       color: #7a9ab8;
@@ -14482,7 +14751,7 @@
       transition: border-color .15s, box-shadow .15s;
       position: relative;
     }
-    .ach-steam-card:last-child { margin-bottom: 0; }
+    .ach-steam-card { margin-bottom: 0; }
     .ach-steam-card:hover { border-color: rgba(38,128,200,.38); box-shadow: 0 2px 10px rgba(38,128,200,.08); }
     .ach-steam-card.ach-done {
       background: linear-gradient(135deg, #e6faf3 0%, #d4f5ea 100%);
@@ -15157,7 +15426,7 @@
     .gal-detail-glow {
       position: absolute; inset: -4%; border-radius: 50%;
       background: radial-gradient(circle, rgba(34,216,248,.4), rgba(47,126,224,.12) 50%, transparent 70%);
-      filter: blur(8px); animation: gal-glow-pulse 2.4s ease-in-out infinite;
+      filter: blur(8px); animation: gal-glow-pulse 3.4s ease-in-out infinite;
     }
     @keyframes gal-glow-pulse { 0%,100%{transform:scale(.92);opacity:.7;} 50%{transform:scale(1.06);opacity:1;} }
     .gal-detail-img { position: relative; z-index: 2; width: 84%; height: 84%; object-fit: contain;
@@ -15551,7 +15820,7 @@
     .pvc-trade-btn:hover, .ccm-trade-btn:hover { filter: brightness(1.08); color: #041713; }
     .pvc-trade-btn.cctr-live, .ccm-trade-btn.cctr-live {
       background: linear-gradient(135deg, #f0c840, #d4a820); color: #3a2a00;
-      box-shadow: 0 0 0 0 rgba(240,200,64,.6); animation: cctrPulse 1.8s infinite;
+      box-shadow: 0 0 0 0 rgba(240,200,64,.6); animation: cctrPulse 2.8s infinite;
     }
     @keyframes cctrPulse {
       0%   { box-shadow: 0 0 0 0 rgba(240,200,64,.55); }
@@ -15957,7 +16226,7 @@
       border-radius: 999px; padding: 4px 12px; margin-bottom: 10px;
     }
     .htp-hero-title {
-      margin: 0 0 8px; font-family: "Baloo 2", "Nunito", sans-serif;
+      margin: 0 0 8px; font-family: "Nunito", sans-serif;
       font-size: clamp(1.35rem, 2.4vw, 2rem); font-weight: 800; line-height: 1.15; color: #103a74;
     }
     .htp-hero-sub { margin: 0 auto; font-size: .98rem; line-height: 1.6; color: #4f7ba6; max-width: 70ch; }
@@ -16021,7 +16290,7 @@
     .htp-step-n {
       flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-family: "Baloo 2", "Nunito", sans-serif; font-size: 15px; font-weight: 800; color: #fff;
+      font-family: "Nunito", sans-serif; font-size: 15px; font-weight: 800; color: #fff;
       background: linear-gradient(180deg,#2e8fe0 0%,#1c70cc 100%);
       box-shadow: 0 2px 8px rgba(28,112,204,.3);
     }
@@ -16060,7 +16329,7 @@
       border-radius: 999px; padding: 3px 11px; margin-bottom: 8px;
     }
     .htp-score-eg {
-      font-family: "Baloo 2", "Nunito", sans-serif; font-size: 1.05rem; font-weight: 800;
+      font-family: "Nunito", sans-serif; font-size: 1.05rem; font-weight: 800;
       color: #103a74; margin-bottom: 6px;
     }
     .htp-score-kind .htp-p { text-align: center; }
@@ -16120,7 +16389,7 @@
     .htp-spec-art img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .htp-spec-body { flex: 1; min-width: 0; }
     .htp-spec-name {
-      margin: 0 0 5px; font-family: "Baloo 2", "Nunito", sans-serif;
+      margin: 0 0 5px; font-family: "Nunito", sans-serif;
       font-size: 1.06rem; font-weight: 800; line-height: 1.15;
       color: var(--si, #0f5390);
       display: flex; align-items: center; gap: 7px;
@@ -16228,7 +16497,7 @@
     .htp-strat-txt { flex: 1; min-width: 0; }
     .htp-strat-name {
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-      font-family: "Baloo 2", "Nunito", sans-serif; font-size: 1.04rem; font-weight: 800; color: #0f5390;
+      font-family: "Nunito", sans-serif; font-size: 1.04rem; font-weight: 800; color: #0f5390;
     }
     .htp-strat-blurb { display: block; margin-top: 3px; font-size: .88rem; line-height: 1.5; color: #5b82a3; }
     .htp-strat-more { flex: 0 0 auto; font-size: 11.5px; font-weight: 800; color: #2474cd; white-space: nowrap; }
@@ -16304,7 +16573,7 @@
     .pv-rb-ico { font-size: 22px; flex: 0 0 auto; }
     #pv-rulebook-title, #pv-clanch-title {
       flex: 1; margin: 0; text-align: center;
-      font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 26px;
+      font-family: "Cinzel", serif; font-weight: 800; font-size: 26px;
       letter-spacing: 1.4px; color: var(--cr-gold, #e8b34a);
       text-shadow: 0 2px 10px rgba(232,179,74,.4);
     }
@@ -16369,8 +16638,9 @@
       margin: 0 0 18px; padding: 14px 17px; border-radius: 14px;
       background: #d8f5ff; border: 1px solid #9ddaf0;
       /* Nunito, not rules.html's Manrope: the game does not fetch Manrope.
-         Not the book's Luckiest Guy either. This note is the frame around the
-         book, not a page of it, and it stays in a reading face. */
+         The book itself is Cinzel headings over Nunito body now, and this note
+         is the frame around the book rather than a page of it, so it stays in
+         the plain reading face with no heading voice at all. */
       font-family: "Nunito", sans-serif;
       font-size: 14px; line-height: 1.55; color: #17546e;
     }
@@ -16794,9 +17064,14 @@
       gap: 14px;
     }
     #ph-panel-overview .ph-ov-duo .ph-sg {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
       padding: 14px;
+      /* The panel stretches to match the Friends card beside it, and without
+         this the grid rows stretched with it: a label and a number in a 140px
+         box, which is where "excessive empty space" came from. Rows keep their
+         own height now and the slack goes to the bottom of the panel. */
+      align-content: start;
     }
     #ph-panel-overview .ph-ov-duo .ph-stats-top {
       min-height: 68px;
@@ -16806,9 +17081,11 @@
        completed yet."), so a row is the same height in both cards whatever
        either player's numbers say. */
     #auth-stats-lobby #ph-panel-overview .ph-ov-duo .ph-sc {
-      min-height: 150px;
-      padding: 14px 16px;
-      gap: 6px;
+      /* 150px held a label and one number, so five sixths of each tile was
+         empty. The number is the content; the tile is as tall as it needs. */
+      min-height: 0;
+      padding: 12px 14px;
+      gap: 2px;
     }
     #auth-stats-lobby #ph-panel-overview .ph-ov-duo .ph-sc .ph-scl {
       font-size: 0.886rem;
@@ -17089,4 +17366,31 @@
     #auth-stats-lobby .ph-sidebar-nav-card {
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
+    }
+
+    /* ── Reduced motion, caught in one place ──────────────────────
+       There were ten separate prefers-reduced-motion blocks, each switching
+       off the one animation whoever wrote it had in front of them, and between
+       them they covered roughly a third of the looping decoration in this
+       file: a player who had asked their system for less motion got a quieter
+       screen rather than a still one.
+
+       This is the standard catch-all, and it is last in the file so it wins.
+       Durations collapse rather than animations being removed, so anything
+       waiting on an animationend event still gets it and no flow stalls. */
+    /* While a full-width band is up between the board and the action bar, the
+       floating Daily Challenges pill steps aside: see _syncBandState(). */
+    body.cc-band-up #ig-challenge-panel {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+      }
     }

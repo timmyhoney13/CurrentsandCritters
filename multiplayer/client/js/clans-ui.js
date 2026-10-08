@@ -320,7 +320,7 @@
     border: 1px solid rgba(140,200,240,.4);
     background: linear-gradient(180deg, rgba(247,252,255,.95), rgba(228,243,253,.9));
     color: #33648c; }
-  .ccC-guest-t { font-family: "Luckiest Guy", "Nunito", sans-serif; font-size: 1.35rem;
+  .ccC-guest-t { font-family: "Nunito", sans-serif; font-weight: 900; font-size: 1.35rem;
     color: #1a4a90; margin-bottom: 8px; }
   .ccC-guest-p { font-size: .94rem; margin-bottom: 10px; max-width: 62ch; }
   .ccC-guest-p:last-child { margin-bottom: 0; }

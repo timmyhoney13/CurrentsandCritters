@@ -92,7 +92,7 @@
   font-weight: 800;
 }
 .ccLP-lvl-num {
-  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-family: "Nunito", sans-serif;
   font-size: 2.5rem;
   line-height: 1;
 }
@@ -100,7 +100,7 @@
 .ccLP-head-mid { flex: 1 1 auto; min-width: 0; }
 
 .ccLP-title {
-  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-family: "Nunito", sans-serif;
   font-size: 1.7rem;
   color: var(--lp-ink);
   line-height: 1.1;
@@ -255,7 +255,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-family: "Nunito", sans-serif;
   font-size: 1rem;
   color: #fff;
   background: linear-gradient(160deg, #90b4d0, #6d94b4);
@@ -382,7 +382,7 @@
 }
 .ccLP-prestige-face svg { width: 44px; height: 44px; }
 .ccLP-prestige-label {
-  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-family: "Nunito", sans-serif;
   font-weight: 400;
   font-size: 1.3rem !important;
   letter-spacing: .6px;
@@ -398,7 +398,7 @@
   border-radius: 999px;
   border: 2px solid #fff;
   cursor: pointer;
-  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-family: "Nunito", sans-serif;
   font-size: 1rem;
   letter-spacing: .7px;
   color: #fff;
@@ -477,7 +477,7 @@
 .ccRF-head { display: flex; gap: 13px; align-items: flex-start; }
 .ccRF-ico { font-size: 1.9rem; line-height: 1; flex: 0 0 auto; }
 .ccRF-title {
-  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-family: "Nunito", sans-serif;
   font-size: 1.25rem;
   line-height: 1.15;
 }
@@ -502,7 +502,7 @@
 }
 .ccRF-code-lbl { font-size: .78rem; color: var(--lp-ink-dim); font-weight: 800; text-transform: uppercase; letter-spacing: .6px; }
 .ccRF-code {
-  font-family: "Luckiest Guy", ui-monospace, monospace;
+  font-family: ui-monospace, monospace;
   font-size: 1.3rem;
   letter-spacing: 2px;
   color: var(--lp-blue);
@@ -607,7 +607,7 @@
 .ccRD-head { display: flex; gap: 13px; align-items: flex-start; }
 .ccRD-ico { font-size: 1.9rem; line-height: 1; flex: 0 0 auto; }
 .ccRD-title {
-  font-family: "Luckiest Guy", "Nunito", sans-serif;
+  font-family: "Nunito", sans-serif;
   font-size: 1.25rem;
   line-height: 1.15;
 }
