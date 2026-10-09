@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-08.9";
+  const APP_BUILD   = "2026-10-08.11";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -28627,7 +28627,15 @@
 
     $a("stats-join-toggle-btn").addEventListener("click", () => {
       refreshFriendNicks();
-      openLobbyBrowser();
+      // Join Game opens the code box at the foot of the page rather than
+      // jumping straight into the browser: typing a code is the common case.
+      const row = $a("stats-join-row");
+      if (row) {
+        const open = row.classList.toggle("is-open");
+        if (open) { const f = $a("stats-join-code"); if (f) f.focus(); }
+      } else {
+        openLobbyBrowser();
+      }
     });
 
     $a("stats-join-go-btn").addEventListener("click", () => {
@@ -30537,6 +30545,48 @@
       if (_ccmComposer) _ccmComposer.reset();
       _msgRenderList();
     }
+    // ── The Friends card as a message view ───────────────────────────
+    // The same move as _msgMountPage, but the host is the Friends card on
+    // the home screen rather than the Messages page, so Message never covers
+    // the page: the card you were reading becomes the conversation, and Back
+    // gives you the list again.
+    function _phFriendsOpenMessages(peerUid, peerName) {
+      const host   = $a("ph-friends-msg-host");
+      const drawer = $a("cc-msg-drawer");
+      const card   = host && host.closest(".ph-scard");
+      if (!host || !drawer || !card) return;
+      if (drawer.parentElement !== host) host.appendChild(drawer);
+      drawer.classList.remove("in-game");
+      drawer.classList.add("ccm-page", "open");
+      _msgPageMounted = true;
+      _msgCloseBgSheet();
+      if (_authUser) _msgStartListListener();
+      _ccmEnsureComposer();
+      const whoEl = $a("ph-fr-msgwho");
+      if (whoEl) whoEl.textContent = peerName || "Conversation";
+      card.classList.add("is-messaging");
+      _msgOpenConversation(peerUid, peerName);
+    }
+    function _phFriendsCloseMessages() {
+      const host   = $a("ph-friends-msg-host");
+      const drawer = $a("cc-msg-drawer");
+      const card   = host && host.closest(".ph-scard");
+      if (card) card.classList.remove("is-messaging");
+      if (drawer) {
+        drawer.classList.remove("ccm-page", "open");
+        if (drawer.parentElement !== document.body) document.body.appendChild(drawer);
+      }
+      _msgPageMounted = false;
+      _msgOpenConvId = null; _msgOpenPeer = null; _msgOpenGroup = null;
+      renderPhFriendsList();
+    }
+    document.addEventListener("click", (e) => {
+      if (e.target && e.target.closest && e.target.closest("#ph-fr-back")) {
+        e.preventDefault();
+        _phFriendsCloseMessages();
+      }
+    });
+
     function _msgUnmountPage() {
       const drawer = $a("cc-msg-drawer");
       if (!drawer || !_msgPageMounted) return;
@@ -35040,6 +35090,7 @@
       // so nothing else would ever paint it. Fire and forget: Overview must
       // not wait on Firestore to draw the rest of itself.
       try { renderPhFriendsList(); } catch (_) {}
+      try { renderPhHistory(); } catch (_) {}
 
       renderOverviewAchievements(_phStatsRaw || _phStats || {});
       renderChallengeStrip();
@@ -38317,8 +38368,7 @@
         msgBtn.setAttribute("aria-label", "Message " + (liveNick || "this friend"));
         msgBtn.addEventListener("click", (ev) => {
           ev.stopPropagation();
-          try { _msgOpenDrawer(); _msgOpenConversation(f.uid, liveNick || "Player"); }
-          catch (_) {}
+          try { _phFriendsOpenMessages(f.uid, liveNick || "Player"); } catch (_) {}
         });
         d.appendChild(msgBtn);
         // Favorites are stored on the signed-in player's own friend entry.
