@@ -563,6 +563,11 @@
 # and the ?v= stamps on every asset it and preview.html share, all compared
 # against version.json, so a build bump can't leave a stale stamp behind.
 !test_privacy_policy.js
+# The other seven legal pages (terms, cookies, refunds, community guidelines,
+# copyright/DMCA, business info, accessibility). Guards the same traps plus the
+# one that only applies to them: a document may only use markup
+# css/privacy.css already styles, or it renders unstyled in the in-game reader.
+!test_legal_pages.js
 !test_thanks_page.js
 # The two screens you click before you have an account. The device gate and the
 # sign-in chooser paint their buttons in the same place, so choosing a device

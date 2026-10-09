@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Accessibility Statement | Currents and Critters</title>
+  <meta name="description" content="The Currents and Critters accessibility statement: what we have done, what is not good enough yet including the game itself, and how to tell us when something is in your way." />
+  <link rel="canonical" href="https://currentsandcritters.com/accessibility" />
+  <meta name="robots" content="index, follow" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Accessibility Statement | Currents and Critters" />
+  <meta property="og:description" content="The Currents and Critters accessibility statement: what we have done, what is not good enough yet including the game itself, and how to tell us when something is in your way." />
+  <meta property="og:url" content="https://currentsandcritters.com/accessibility" />
+  <link rel="icon" href="/icon.svg" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" />
+
+  <!-- The chrome, shared by all seven of these pages, and the document body
+       styles, shared with /privacy and the in-game reader. -->
+  <link rel="stylesheet" href="/css/legal-page.css?v=2026-10-09.5" />
+  <link rel="stylesheet" href="/css/privacy.css?v=2026-10-09.5" />
+</head>
+<body>
+
+<!-- ============ TOP BAR ============ -->
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <a class="tb-brand" href="https://currentsandcritters.com/">
+      <img src="/icon.svg" alt="" />
+      <b>Currents and Critters</b>
+    </a>
+    <nav class="tb-links" aria-label="Site">
+      <a href="https://currentsandcritters.com/#critters">The Critters</a>
+      <a href="/rules">How to Play</a>
+      <a href="https://score.currentsandcritters.com/">Snap &amp; Score</a>
+      <a href="/about">About</a>
+    </nav>
+    <a class="tb-cta" href="https://play.currentsandcritters.com/">&#9654; Play Free</a>
+  </div>
+</header>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-eyebrow">Bearded Seal Studios LLC</div>
+    <h1>Accessibility Statement</h1>
+    <p>What we have actually done, what we know is not good enough yet, and how to tell us when something is in your way.</p>
+  </div>
+</section>
+
+<main class="wrap">
+  <div class="cols">
+
+    <!-- Contents, desktop rail -->
+    <nav class="toc" id="toc" aria-label="Contents">
+      <div class="toc-head">Contents</div>
+      <div id="toc-list"></div>
+    </nav>
+
+    <div>
+      <!-- Contents, mobile disclosure -->
+      <details class="toc-m" id="toc-m">
+        <summary>Jump to a section</summary>
+        <div class="toc-m-list" id="toc-m-list"></div>
+      </details>
+
+      <article class="doc pp-light">
+        <div class="quick">
+          <div class="quick-card">
+            <b>We aim for WCAG 2.1 AA</b>
+            <span>Aim, not a claim. There has been no formal audit and we will not pretend there has.</span>
+          </div>
+          <div class="quick-card">
+            <b>The game is the weak part</b>
+            <span>It is a drag-and-drop card table, untested with a screen reader. We say so plainly.</span>
+          </div>
+          <div class="quick-card">
+            <b>Plain reports are welcome</b>
+            <span>“I cannot read this” is a perfectly good report. You do not need the right words.</span>
+          </div>
+        </div>
+
+        <div id="doc-mount">
+          <div class="doc-fallback">This page did not load. Refresh to try again, or email <a href="mailto:timothy.honey@beardedsealstudios.com">timothy.honey@beardedsealstudios.com</a>.</div>
+        </div>
+      </article>
+    </div>
+  </div>
+</main>
+
+<button class="totop" id="totop" type="button" aria-label="Back to top">&#8593; Top</button>
+
+<!-- ============ FOOTER ============ -->
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-in">
+      <a class="foot-brand" href="https://currentsandcritters.com/" style="text-decoration:none;">
+        <img src="/icon.svg" alt="" />
+        <b>Currents and Critters</b>
+      </a>
+      <nav class="foot-links" aria-label="Legal">
+        <a href="/privacy">Privacy Policy</a>
+        <a href="/terms">Terms of Service</a>
+        <a href="/cookies">Cookie Notice</a>
+        <a href="/refunds">Refunds &amp; Shipping</a>
+        <a href="/community-guidelines">Community Guidelines</a>
+        <a href="/copyright">Copyright &amp; DMCA</a>
+        <a href="/legal">Business &amp; Legal Info</a>
+        <a href="https://currentsandcritters.com/">Home</a>
+      </nav>
+    </div>
+    <div class="foot-bottom">
+      &copy; 2026 Currents and Critters &middot; Bearded Seal Studios LLC &middot; 5% goes to ocean conservation
+    </div>
+  </div>
+</footer>
+
+<!-- The kit first, then this page's document, then render it. -->
+<script src="/js/legal-kit.js?v=2026-10-09.5"></script>
+<script src="/js/accessibility-statement.js?v=2026-10-09.5"></script>
+<script>
+  // Leaves the fallback message in place if either script failed to load.
+  if (window.ccLegalRender) { window.ccLegalRender("accessibility"); }
+</script>
+</body>
+</html>

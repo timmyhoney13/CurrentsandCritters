@@ -62,6 +62,28 @@ LEADERBOARD_HTML_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "leaderb
 # The page is a shell; the document itself is js/privacy-policy.js, the one
 # source the in-game reader (Settings → 📜 Legal) renders too.
 PRIVACY_HTML_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "privacy.html")
+# The other seven legal pages, published from BOTH hosts the same way. Each is
+# a thin shell: css/legal-page.css for the chrome, js/legal-kit.js plus the
+# page's own js module for the text. Route -> file, so adding one is one line
+# here and one rewrite in vercel.json.
+LEGAL_PAGES = {
+    "terms":                "terms.html",
+    "terms-of-service":     "terms.html",
+    "cookies":              "cookies.html",
+    "cookie-notice":        "cookies.html",
+    "refunds":              "refunds.html",
+    "refund-policy":        "refunds.html",
+    "community-guidelines": "community-guidelines.html",
+    "community":            "community-guidelines.html",
+    "copyright":            "copyright.html",
+    "dmca":                 "copyright.html",
+    "legal":                "legal.html",
+    "accessibility":        "accessibility.html",
+}
+LEGAL_HTML_PATHS = {
+    route: os.path.join(BASE_DIR, "multiplayer", "client", name)
+    for route, name in LEGAL_PAGES.items()
+}
 SUPPORTER_WALL_HTML_PATH  = os.path.join(BASE_DIR, "multiplayer", "client", "supporter-wall.html")
 SUPPORTER_ADMIN_HTML_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "supporter-admin.html")
 CLAIM_REWARDS_HTML_PATH   = os.path.join(BASE_DIR, "multiplayer", "client", "claim-rewards.html")
@@ -15208,6 +15230,14 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # published page and the in-game link should never 404 on a hyphen.
         if len(parts) == 1 and parts[0] in {"privacy", "privacy-policy"}:
             self._send_html_file(PRIVACY_HTML_PATH, "privacy")
+            return
+
+        # The other seven legal pages. Same deal: a visitor who types the
+        # long spelling, or follows a link that uses it, must not get a 404.
+        # None of these require an account, and none of them is behind the
+        # auth gate, by design: a policy nobody can read is not published.
+        if len(parts) == 1 and parts[0] in LEGAL_HTML_PATHS:
+            self._send_html_file(LEGAL_HTML_PATHS[parts[0]], parts[0])
             return
 
         # Supporter Reef Wall pages (public wall, guest claim, admin review).

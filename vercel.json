@@ -125,6 +125,54 @@
       "destination": "/multiplayer/client/privacy.html"
     },
     {
+      "source": "/terms",
+      "destination": "/multiplayer/client/terms.html"
+    },
+    {
+      "source": "/terms-of-service",
+      "destination": "/multiplayer/client/terms.html"
+    },
+    {
+      "source": "/cookies",
+      "destination": "/multiplayer/client/cookies.html"
+    },
+    {
+      "source": "/cookie-notice",
+      "destination": "/multiplayer/client/cookies.html"
+    },
+    {
+      "source": "/refunds",
+      "destination": "/multiplayer/client/refunds.html"
+    },
+    {
+      "source": "/refund-policy",
+      "destination": "/multiplayer/client/refunds.html"
+    },
+    {
+      "source": "/community-guidelines",
+      "destination": "/multiplayer/client/community-guidelines.html"
+    },
+    {
+      "source": "/community",
+      "destination": "/multiplayer/client/community-guidelines.html"
+    },
+    {
+      "source": "/copyright",
+      "destination": "/multiplayer/client/copyright.html"
+    },
+    {
+      "source": "/dmca",
+      "destination": "/multiplayer/client/copyright.html"
+    },
+    {
+      "source": "/legal",
+      "destination": "/multiplayer/client/legal.html"
+    },
+    {
+      "source": "/accessibility",
+      "destination": "/multiplayer/client/accessibility.html"
+    },
+    {
       "source": "/about",
       "destination": "/multiplayer/client/about.html"
     },

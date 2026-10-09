@@ -230,7 +230,10 @@ console.log("5. The link at the bottom of the website");
 {
   const foot = SITE.slice(SITE.indexOf('<footer class="foot">'));
   check(foot.includes('href="/privacy"'), "the footer links to the policy");
-  check(/<div class="foot-legal">[\s\S]*?href="\/privacy"/.test(foot),
+  // The strip became a labelled <nav> landmark when the other seven policies
+  // joined it, so accept either element and keep asserting what matters: the
+  // link is inside the legal strip, not loose in the footer.
+  check(/<(?:div|nav) class="foot-legal"[^>]*>[\s\S]*?href="\/privacy"/.test(foot),
         "the legal strip at the very bottom carries the link");
   check(/\.foot-legal \{/.test(SITE_CSS) && /\.foot-legal a \{/.test(SITE_CSS),
         "the legal strip is styled");

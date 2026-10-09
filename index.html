@@ -1569,11 +1569,21 @@
   <!-- Legal strip: the very bottom of the site. /privacy is the full policy,
        served from multiplayer/client/privacy.html by BOTH hosts (see the
        rewrite in vercel.json), so this link works here and on the game host. -->
-  <div class="foot-legal">
+  <!-- Legal. Every policy is reachable from the bottom of the homepage, and
+       every one of them is readable without an account. .foot-legal already
+       wraps, so eight pills reflow on a phone without any new CSS. -->
+  <nav class="foot-legal" aria-label="Legal">
     <a href="/privacy">Privacy Policy</a>
+    <a href="/terms">Terms of Service</a>
+    <a href="/cookies">Cookie Notice</a>
+    <a href="/refunds">Refunds &amp; Shipping</a>
+    <a href="/community-guidelines">Community Guidelines</a>
+    <a href="/copyright">Copyright &amp; DMCA</a>
+    <a href="/legal">Business &amp; Legal Info</a>
+    <a href="/accessibility">Accessibility</a>
     <span class="foot-legal-sep" aria-hidden="true">·</span>
     <span class="foot-legal-note">Bearded Seal Studios LLC · Nashville, Tennessee</span>
-  </div>
+  </nav>
   <div class="foot-bottom">
     <div>© 2026 Currents and Critters. Designed by hand. Illustrated by hand. Made with a little love and a whole lot of salt water.</div>
     <div class="impact-line">5% goes to ocean conservation</div>
