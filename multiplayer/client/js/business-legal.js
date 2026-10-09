@@ -48,8 +48,8 @@
     title: "Business Contact and Legal Information",
     updated: "October 9, 2026",
     lede:
-      "Who we are, how to reach us, and where to find each of our policies. If you are looking for " +
-      "a person to write to about anything on this site, this is the page.",
+      "Who we are and how to reach us. One studio, one inbox, and a person on the other end of it. " +
+      "If you are looking for somebody to write to about anything on this site, this is the page.",
 
     sections: [
       {

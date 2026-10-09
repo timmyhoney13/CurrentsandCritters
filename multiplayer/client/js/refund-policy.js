@@ -40,9 +40,8 @@
     title: "Refund, Shipping, and Preorder Policy",
     updated: "October 9, 2026",
     lede:
-      "What happens when you buy something from Currents and Critters: when a purchase can be " +
-      "refunded, what we will always put right, how shipping works, and where the physical card " +
-      "game stands.",
+      "What happens when you buy something. When a purchase can be refunded, what we will always " +
+      "put right no matter what, and where the physical card game stands.",
 
     sections: [
       {

@@ -36,9 +36,9 @@
     title: "Terms of Service",
     updated: "October 9, 2026",
     lede:
-      "These Terms are the agreement between you and Bearded Seal Studios LLC for the use of " +
-      "Currents and Critters, our websites, the online game, and related services. Please read them. " +
-      "By using our services you accept them.",
+      "The agreement between you and Bearded Seal Studios LLC. What you can do, what we will not " +
+      "allow, and what each of us is on the hook for. Play fair and look after your account, and " +
+      "most of this page will never matter to you.",
     appliesHead: "These Terms apply to:",
     appliesTo: [
       "currentsandcritters.com",

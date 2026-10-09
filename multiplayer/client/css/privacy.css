@@ -17,19 +17,23 @@
 /* Light skin: the published page, sea-glass over paper. */
 .pp-doc.pp-light,
 .pp-light .pp-doc {
-  --pp-ink:      #093349;
-  --pp-body:     #33566d;
-  --pp-muted:    #6b8ba3;
-  --pp-accent:   #0f7ea4;
-  --pp-accent-s: rgba(12, 164, 203, .10);
-  --pp-mint:     #19aa74;
-  --pp-surface:  rgba(255, 255, 255, .92);
-  --pp-surface2: rgba(232, 247, 255, .72);
-  --pp-line:     rgba(146, 189, 216, .62);
-  --pp-line-2:   rgba(146, 189, 216, .95);
-  --pp-shadow:   0 8px 22px rgba(10, 37, 55, .07);
-  --pp-num-bg:   linear-gradient(180deg, #18a5d0 0%, #0d83ac 100%);
-  --pp-num-ink:  #fff;
+  /* The game's table palette. --pp-accent is TEXT (the section eyebrow, the
+     callout rule, inline links), so it is gold-INK #8a5c00 at 5.38:1 and not
+     gold #e8b34a at 1.77:1. --pp-mint is only ever a background. The number
+     pill is navy on gold, 6.68:1; white on gold would be 1.91:1. */
+  --pp-ink:      #15325c;
+  --pp-body:     #2c5a8a;
+  --pp-muted:    #4a6f94;
+  --pp-accent:   #8a5c00;
+  --pp-accent-s: rgba(232, 179, 74, .18);
+  --pp-mint:     #c89320;
+  --pp-surface:  rgba(254, 245, 230, .97);
+  --pp-surface2: rgba(245, 232, 208, .72);
+  --pp-line:     rgba(200, 147, 32, .34);
+  --pp-line-2:   rgba(200, 147, 32, .58);
+  --pp-shadow:   0 8px 22px rgba(21, 50, 92, .10);
+  --pp-num-bg:   linear-gradient(180deg, #e8b34a 0%, #c89320 100%);
+  --pp-num-ink:  #15325c;
 }
 
 /* Deep-ocean skin: inside the game, matching the Settings modal. */

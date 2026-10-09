@@ -30,9 +30,9 @@
     title: "Copyright and DMCA Policy",
     updated: "October 9, 2026",
     lede:
-      "Currents and Critters is drawn, written, and built by hand, and we take other people’s work " +
-      "as seriously as our own. This page explains what belongs to us, what you may do with it, and " +
-      "how to report material you believe infringes a copyright.",
+      "Every critter here was drawn by hand, and we treat other people’s work the way we would " +
+      "want ours treated. What is ours, what you are welcome to do with it, and how to report " +
+      "something that should not be here.",
 
     sections: [
       {

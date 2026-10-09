@@ -311,6 +311,78 @@ console.log("6. Reachable from the website, without an account");
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("7. The reef palette still clears WCAG AA");
+// ═══════════════════════════════════════════════════════════════════════════
+// The Accessibility Statement these pages ship CLAIMS measured contrast
+// figures, so the palette is now a promise and not just a look. This guards
+// the text colours against the surfaces they actually sit on.
+//
+// The trap this palette sets, and the reason the numbers are hard-coded here:
+// gold reads as warm and legible and is not. On cream #fef5e6, gold #e8b34a
+// is 1.77:1 and gold-deep #c89320 is 2.54:1, both unusable for text, while
+// gold-INK #8a5c00 is 5.38:1 and fine. So gold is a surface and gold-ink is
+// its text, and the number pill is navy on gold rather than white on gold.
+{
+  const chan = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const hex = (h) => h.replace("#", "").match(/../g).map((x) => parseInt(x, 16));
+  const lum = (h) => { const [r, g, b] = hex(h); return 0.2126 * chan(r) + 0.7152 * chan(g) + 0.0722 * chan(b); };
+  const ratio = (a, b) => {
+    const L1 = lum(a), L2 = lum(b);
+    return (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
+  };
+  // Pull the real token values out of the stylesheets, so editing a colour
+  // without re-measuring fails here instead of on a player's screen.
+  const tok = (css, name) => {
+    const m = new RegExp("--" + name + ":\\s*(#[0-9a-fA-F]{6})").exec(css);
+    return m && m[1];
+  };
+  const CREAM = tok(CHROME, "paper");
+  check(CREAM === "#fef5e6", `the page surface is the game's cream, got ${CREAM}`);
+
+  // Anchor on the real SELECTORS, not the first mention: the file's header
+  // comment names both skins, so indexOf(".pp-light") lands in prose and the
+  // slice comes back 33 characters long with no tokens in it.
+  const light = PP_CSS.slice(PP_CSS.indexOf(".pp-doc.pp-light,"),
+                             PP_CSS.indexOf(".pp-doc.pp-dark,"));
+  check(light.length > 200, `the light-skin token block was found (${light.length} chars)`);
+  const pairs = [
+    ["--pp-body (body text)",    tok(light, "pp-body"),   CREAM, 4.5],
+    ["--pp-ink (headings)",      tok(light, "pp-ink"),    CREAM, 4.5],
+    ["--pp-accent (accent text)",tok(light, "pp-accent"), CREAM, 4.5],
+    ["--pp-muted (muted text)",  tok(light, "pp-muted"),  CREAM, 4.5],
+    ["--ink (chrome ink)",       tok(CHROME, "ink"),      CREAM, 4.5],
+    ["--muted-strong (chrome)",  tok(CHROME, "muted-strong"), CREAM, 4.5],
+    ["--brand-cyan-deep (accent)", tok(CHROME, "brand-cyan-deep"), CREAM, 4.5],
+  ];
+  for (const [label, fg, bg, need] of pairs) {
+    check(!!fg, `${label} is defined`);
+    if (!fg) continue;
+    const r = ratio(fg, bg);
+    check(r >= need, `${label} ${fg} on ${bg} is ${r.toFixed(2)}:1, needs ${need}:1`);
+  }
+
+  // The number pill: its ink must clear AA against BOTH gradient stops.
+  const numInk = tok(light, "pp-num-ink");
+  const numBg = /--pp-num-bg:\s*linear-gradient\([^)]*?(#[0-9a-fA-F]{6})[^)]*?(#[0-9a-fA-F]{6})/.exec(light);
+  check(!!numInk && !!numBg, "the section number pill defines an ink and a gradient");
+  if (numInk && numBg) {
+    for (const stop of [numBg[1], numBg[2]]) {
+      const r = ratio(numInk, stop);
+      check(r >= 4.5, `number pill ink ${numInk} on ${stop} is ${r.toFixed(2)}:1, needs 4.5:1`);
+    }
+  }
+
+  // The two golds must never be a text colour. This is the actual mistake
+  // this section exists to catch.
+  for (const banned of ["#e8b34a", "#c89320"]) {
+    for (const [name, css] of [["privacy.css light skin", light], ["legal-page.css", CHROME]]) {
+      const asText = new RegExp("color:\\s*" + banned, "i").test(css);
+      check(!asText, `${banned} is never used directly as a text colour in ${name}`);
+    }
+  }
+}
+
 console.log(`\nlegal-pages checks: ${checks}`);
 if (failures) { console.log(`${failures} FAILED`); process.exit(1); }
 console.log("legal pages OK");

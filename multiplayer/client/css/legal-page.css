@@ -26,27 +26,32 @@
      read as one site.
      ================================================================ */
   :root {
-    --sea-deep:        #083a5e;
-    --sea-night:       #041e30;
+    /* The game's table palette (--cr-* in css/preview.css). Names kept from
+       the sea-glass original so the rules below did not have to change; only
+       the values moved. See the header for the measured contrast of each. */
+    --sea-deep:        #1a2d5a;
+    --sea-night:       #15325c;
 
-    --brand-cyan:      #0ca4cb;
-    --brand-cyan-deep: #0f7ea4;
-    --brand-cyan-soft: #d8f5ff;
-    --brand-teal-deep: #0a6080;
-    --brand-mint:      #2ac88f;
+    --brand-cyan:      #8a5c00;
+    --brand-cyan-deep: #8a5c00;
+    --brand-cyan-soft: rgba(232, 179, 74, 0.22);
+    --brand-teal-deep: #2c5a8a;
+    --brand-mint:      #c89320;
 
-    --ink:             #0a2537;
-    --ink-deep:        #093349;
-    --muted:           #4c6b81;
-    --muted-strong:    #2c4e67;
-    --line:            #bfd8ea;
-    --line-strong:     #92bdd8;
-    --paper:           #f7fbff;
+    --ink:             #15325c;
+    --ink-deep:        #15325c;
+    --muted:           #4a6f94;
+    --muted-strong:    #2c5a8a;
+    --line:            rgba(200, 147, 32, 0.30);
+    --line-strong:     rgba(200, 147, 32, 0.52);
+    --paper:           #fef5e6;
 
-    --grad-mint-btn:   linear-gradient(180deg, #2ac88f 0%, #19aa74 100%);
+    /* Navy on gold, because white on gold is a 1.91:1 failure. */
+    --grad-mint-btn:   linear-gradient(180deg, #e8b34a 0%, #c89320 100%);
+    --cta-ink:         #15325c;
 
-    --shadow-sm:       0 2px 8px rgba(8, 40, 58, 0.06);
-    --shadow-lg:       0 14px 28px rgba(10, 37, 55, 0.1);
+    --shadow-sm:       0 2px 8px rgba(21, 50, 92, 0.07);
+    --shadow-lg:       0 10px 30px rgba(21, 50, 92, 0.16);
 
     --r-md:   12px;
     --r-lg:   14px;
@@ -101,9 +106,9 @@
   .tb-links a:hover { background: rgba(10, 100, 140, 0.09); color: var(--ink-deep); }
   .tb-cta {
     display: inline-flex; align-items: center; gap: 5px;
-    background: var(--grad-mint-btn); color: #fff; text-decoration: none;
+    background: var(--grad-mint-btn); color: var(--cta-ink); text-decoration: none;
     font-weight: 800; font-size: 12.5px; padding: 8px 14px;
-    border-radius: var(--r-pill); box-shadow: 0 2px 10px rgba(22, 163, 107, 0.32);
+    border-radius: var(--r-pill); box-shadow: 0 2px 10px rgba(200, 147, 32, 0.38);
     white-space: nowrap; transition: transform 170ms var(--ease-out);
   }
   .tb-cta:hover { transform: translateY(-1px); }
@@ -115,9 +120,9 @@
     position: relative; overflow: hidden;
     padding: 48px 0 36px; text-align: center;
     background:
-      radial-gradient(900px 420px at 12% -20%, rgba(93, 214, 247, 0.42) 0%, transparent 62%),
-      radial-gradient(760px 380px at 92% -10%, rgba(42, 200, 143, 0.32) 0%, transparent 60%),
-      linear-gradient(180deg, #d8f0ff 0%, #eaf8ff 58%, var(--paper) 100%);
+      radial-gradient(900px 420px at 12% -20%, rgba(188, 221, 230, 0.70) 0%, transparent 62%),
+      radial-gradient(760px 380px at 92% -10%, rgba(232, 179, 74, 0.30) 0%, transparent 60%),
+      linear-gradient(180deg, #e7f1f3 0%, #f7eeda 58%, var(--paper) 100%);
   }
   .hero::after {
     content: ""; position: absolute; left: -5%; right: -5%; bottom: -1px; height: 46px;
@@ -126,8 +131,12 @@
   }
   .hero-eyebrow {
     display: inline-flex; align-items: center; gap: 8px;
-    background: var(--brand-cyan-soft); border: 1px solid #9ddaf0;
-    color: var(--brand-cyan-deep); padding: 6px 14px; border-radius: var(--r-pill);
+    background: var(--brand-cyan-soft); border: 1px solid rgba(200, 147, 32, 0.45);
+    /* Navy, not gold-ink: at 11px bold this chip does NOT qualify for the
+       large-text allowance, and gold-ink on the gold wash measured 4.41:1
+       against the 4.5:1 it needs. Navy on gold is also how the game pairs
+       them on the seat pill. */
+    color: var(--ink); padding: 6px 14px; border-radius: var(--r-pill);
     font-size: 11px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;
     margin-bottom: 16px;
   }
@@ -174,6 +183,7 @@
   }
   .toc a:hover { background: rgba(10, 100, 140, 0.08); color: var(--ink-deep); }
   .toc a.on { background: var(--brand-cyan-soft); color: var(--brand-cyan-deep); font-weight: 800; }
+  .toc a i { color: var(--brand-cyan-deep); }
   .toc a i {
     font-style: normal; font-variant-numeric: tabular-nums;
     color: var(--brand-cyan); font-weight: 800; min-width: 15px;
@@ -215,7 +225,7 @@
   }
   .quick-card {
     border: 1px solid var(--line); border-radius: var(--r-lg);
-    background: linear-gradient(180deg, rgba(232, 247, 255, 0.8), rgba(255, 255, 255, 0.6));
+    background: linear-gradient(180deg, rgba(245, 232, 208, 0.85), rgba(254, 245, 230, 0.65));
     padding: 13px 15px;
   }
   .quick-card b {

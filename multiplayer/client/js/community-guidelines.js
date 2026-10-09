@@ -24,9 +24,8 @@
     title: "Community Guidelines",
     updated: "October 9, 2026",
     lede:
-      "Currents and Critters is a game about a reef, and a reef only works when everything in it " +
-      "gets along. These guidelines explain what we expect from players, what is not allowed, and " +
-      "what happens when somebody breaks the rules.",
+      "A reef only works when everything in it gets along. Play fair, be decent to the player in " +
+      "the other seat, and keep private things out of chat. The rest of this page is the detail.",
 
     sections: [
       {

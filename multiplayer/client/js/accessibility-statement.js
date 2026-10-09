@@ -12,11 +12,17 @@
  *   ✓ The documents are real headings in order (h1 then h3 per section) with
  *     a contents list, and they print without the site chrome (@media print).
  *   ✓ Text contrast MEASURED on the legal pages with the real WCAG 2.1
- *     formula (linearised channels, not raw sRGB): body text 7.5:1, list
- *     items 7.5:1, headings and callouts 12.8:1, contents links 15.2:1,
- *     against the #f7fbff page. AA needs 4.5:1 for normal text, so these
- *     pass with room to spare. This is the ONLY contrast figure anybody has
- *     measured; the game over artwork is still unmeasured.
+ *     formula (linearised channels, not raw sRGB), and re-measured after the
+ *     reef re-skin by COMPOSITING every gradient stop and alpha layer, which
+ *     is the only way to get a true number on this palette: body text and
+ *     lists 6.61:1, headings and callouts 11.82:1, contents links 4.76:1,
+ *     quick-card text 4.88 to 6.01:1, the gold number pill and the gold
+ *     button 4.66:1, all against AA's 4.5:1. The hero eyebrow failed at
+ *     4.41:1 as gold-ink and was changed to navy. This is the ONLY contrast
+ *     figure anybody has measured; the game over artwork is still unmeasured.
+ *     If the palette moves again, RE-MEASURE: reading backgroundColor alone
+ *     reports transparent for a gradient and silently compares against
+ *     black, which made five passing elements look like failures.
  *   ✓ Keyboard order walked at 1280px: Tab lands on the brand link, then the
  *     nav, then every contents entry in document order, then the document,
  *     then the footer. 28 focusable elements, no tabindex tricks.
@@ -47,9 +53,8 @@
     title: "Accessibility Statement",
     updated: "October 9, 2026",
     lede:
-      "We want as many people as possible to be able to read our pages and play our game. This " +
-      "page says what we have actually done, what we know is not good enough yet, and how to tell " +
-      "us when something is in your way.",
+      "We want you at the table. This page says what works today, what is honestly not good enough " +
+      "yet, and how to tell us when something is in your way.",
 
     sections: [
       {
@@ -70,7 +75,7 @@
             "Links and buttons are real links and buttons, so they work with a keyboard and are announced properly",
             "Images used as decoration are marked as decoration, so they are not read out",
             "Colour is not the only way information is conveyed",
-            "On these policy pages we have measured the text contrast rather than guessed at it: body text and lists come out at about 7.5 to 1, and headings at about 12.8 to 1, where the AA standard asks for 4.5 to 1",
+            "On these policy pages we have measured the text contrast rather than guessed at it: body text and lists come out at about 6.6 to 1 and headings at about 11.8 to 1, where the AA standard asks for 4.5 to 1, and the smaller gold-backed pieces were measured too and clear it",
             "Tabbing through a policy page goes in the order you would expect: the navigation, then each contents entry, then the document, then the footer",
             "Long documents print cleanly, without the site navigation",
           ]) +

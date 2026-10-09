@@ -40,10 +40,9 @@
     title: "Cookie Notice",
     updated: "October 9, 2026",
     lede:
-      "This notice explains the cookies and similar browser storage that Currents and Critters uses. " +
-      "The short version: we use what the game needs to sign you in, keep you in your seat, and " +
-      "remember your settings. We do not use advertising cookies and we do not track you across " +
-      "other websites.",
+      "The short version really is short. We store what the game needs to sign you in, hold your " +
+      "seat at the table and remember your settings. Nothing here follows you around the rest of " +
+      "the internet.",
 
     sections: [
       {
