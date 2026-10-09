@@ -43,7 +43,7 @@
   const PRIZE_CLAIM_FALLBACK =
     "The winning clan's owner is contacted after the season is finalized, picks " +
     "the game with their clan, and gives one shipping address. Claim within 30 " +
-    "days. One prize per clan, per season, shipped to one address.";
+    "days. One prize per clan, shipped to one address.";
 
   // The last stretch of a season, when the standings are still winnable and the
   // countdown stops being background information and starts being a reason to

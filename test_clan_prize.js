@@ -85,7 +85,7 @@ const SEASON = {
   grand_prize_what: "a board game of their choice, shipped to them",
   grand_prize_claim: "The winning clan's owner is contacted after the season is " +
     "finalized, picks the game with their clan, and gives one shipping address. " +
-    "Claim within 30 days. One prize per clan, per season, shipped to one address.",
+    "Claim within 30 days. One prize per clan, shipped to one address.",
 };
 const ROWS = [
   { id: "a", name: "Reef Raiders", icon: "/avatars/clownfish.png", points: 1240, rank: 1 },

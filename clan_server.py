@@ -108,8 +108,16 @@ SEASON_GRAND_PRIZE_WHAT   = "a board game of their choice, shipped to them"
 SEASON_GRAND_PRIZE_CLAIM  = (
     "The winning clan's owner is contacted after the season is finalized, picks "
     "the game with their clan, and gives one shipping address. Claim within 30 "
-    "days. One prize per clan, per season, shipped to one address."
+    "days. One prize per clan, shipped to one address."
 )
+# A season can be given an explicit end instead of the quarter-plus-extra it
+# would otherwise get. The value is ALSO the next season's start, because
+# _season_bounds treats one as the other: override a season's end and the one
+# after it begins there, so the two never overlap or leave a gap.
+# Season 1 runs to Christmas.
+SEASON_END_OVERRIDE       = {
+    "2026-Q3": int(datetime(2026, 12, 25, tzinfo=timezone.utc).timestamp()),
+}
 MVP_MIN_POINTS            = 25
 MVP_BONUS_COINS           = 50
 MVP_ICON_DAYS             = 14         # MVP chip shown for first 2 weeks of next season
@@ -617,7 +625,15 @@ def _season_bounds(sid: str) -> Tuple[int, int]:
     start_ts, end_ts = int(start.timestamp()), int(end.timestamp())
     if (y, q) != CLAN_SEASON_EPOCH:
         start_ts += CLAN_SEASON_EXTRA_SEC
-    return start_ts, end_ts + CLAN_SEASON_EXTRA_SEC
+    end_ts += CLAN_SEASON_EXTRA_SEC
+    # An explicit end wins, and the season after one starts where it stopped.
+    own = SEASON_END_OVERRIDE.get(sid)
+    if own:
+        end_ts = int(own)
+    prev = SEASON_END_OVERRIDE.get(_prev_sid(sid))
+    if prev:
+        start_ts = int(prev)
+    return start_ts, end_ts
 
 
 def _clan_sid(ts: Optional[int] = None) -> str:

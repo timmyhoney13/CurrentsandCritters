@@ -293,3 +293,10 @@
    card (Friends Quick Stats) this screen hides, so it read as pushed to one
    side with a hole beside it. One card, one column. */
 #ph-panel-overview .ph-main.ph-ov-duo { grid-template-columns: minmax(0, 1fr); }
+
+/* The drawer brings its own header: a "Friend Messages" title and the
+   Trade / Invite / BG / close buttons. Inside the Friends card that is a
+   second title bar directly under our own Back bar, which already names
+   who you are talking to, so it only costs height. Trade and Invite stay
+   where they have always been, on the full Messages page. */
+#auth-stats-lobby #ph-friends-msg-host .ccm-header { display: none !important; }
