@@ -413,9 +413,28 @@ def main() -> None:
     played = defaultdict(int)
     points = defaultdict(list)
     firsts = defaultdict(float)
+    # A results file outlives the ladder that produced it. --resume on
+    # calibration_20260921_160831.json used to die with KeyError:
+    # 'charles_darwin', because the S++ rung it recorded has since been
+    # retired, and fit_plackett_luce indexes straight into the CURRENT ladder.
+    # A retired grade is simply not a thing this fit can rate, so drop it from
+    # the finishing order and keep the rest of the match: a 4P game with one
+    # retired seat is still three real results about three real grades.
+    rateable = set(ladder)
+    retired = defaultdict(int)
+    dropped_matches = 0
     for res in results:
         grades = list(res["grades"])
         scores = list(res["scores"])
+        keep = [i for i, g in enumerate(grades) if g in rateable]
+        for i, g in enumerate(grades):
+            if i not in keep:
+                retired[g] += 1
+        if len(keep) < 2:
+            dropped_matches += 1
+            continue
+        grades = [grades[i] for i in keep]
+        scores = [scores[i] for i in keep]
         for g, sc in zip(grades, scores):
             played[g] += 1
             points[g].append(float(sc))
@@ -433,6 +452,12 @@ def main() -> None:
         rankings.append([grades[i] for i in tied]
                         + [grades[i] for i in order if i not in seen])
 
+    if retired:
+        print("\n⚠ ignored grades that are no longer on the ladder: "
+              + ", ".join(f"{g} x{n}" for g, n in sorted(retired.items())))
+        if dropped_matches:
+            print(f"  ({dropped_matches} matches had fewer than two rateable "
+                  f"seats left and were skipped entirely)")
     missing = [g for g in ladder if played[g] == 0]
     if missing:
         print("\n⚠ never played: " + ", ".join(label[g] for g in missing))
