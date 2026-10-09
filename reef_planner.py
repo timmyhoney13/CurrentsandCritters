@@ -211,6 +211,25 @@ COUNT_SHAPED: Dict[str, Tuple[str, float, float]] = {
 # Every knob a tuning run is allowed to move, and the range it is held to. The
 # search widths are absent on purpose: those are what separate one planner grade
 # from the next, and buying strength with more search is not learning anything.
+#
+# FOUR OF THESE ARE SWITCHES, NOT MAGNITUDES. adaptive_turn_value,
+# engine_draws, final_sweep and survival are only ever read as
+# `params.get(k, 0.0) > 0.0`, so every positive value in their range means
+# exactly the same thing: on. Audited 2026-10-09 by reading every use of every
+# knob; the other twenty-two really are magnitudes.
+#
+# Two things follow, and they matter to anything that tunes:
+#   * the range is wasted resolution. A gaussian step from 0.4 to 0.7 on
+#     final_sweep is not a smaller or larger change, it is no change at all.
+#   * worse, the step from 0.0 to anything is a CLIFF. A mutation that nudges
+#     engine_draws by 0.001 turns a whole behaviour on, and a hill-climbing
+#     search has no way to know the surface is discontinuous there.
+# A tuner should treat these four as a two-way choice and measure them on/off,
+# which is how they were measured: adaptive_turn_value on is -38 points,
+# survival on is +0.24 (neutral), final_sweep on is -0.78 (neutral).
+# survival also has a survival_per_rival partner in COUNT_SHAPED, which can
+# therefore only switch it on or off by table size -- legal, but not what a
+# "per rival" term reads as.
 TUNABLE_BOUNDS: Dict[str, Tuple[float, float]] = {
     "turn_value": (0.5, 9.0), "plan_discount": (0.2, 1.2), "loyalty": (0.0, 6.0),
     "crowding": (0.0, 1.5), "crowding_points": (0.0, 8.0), "denial": (0.0, 2.0),

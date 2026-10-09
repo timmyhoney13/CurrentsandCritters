@@ -807,7 +807,17 @@ def evolve(counts: List[int], generations: int, mutants: int, screen: int, confi
                 "generation": gen, "weights": champion,
                 "margin_edge": rate, "margin_edge_low": lo, "win_edge": win_edge,
                 "games": played, "chooser": _W_CHOOSER,
-                "grade": os.environ.get("FISH_TRAIN_GRADE", "")})
+                "grade": os.environ.get("FISH_TRAIN_GRADE", ""),
+                # Provenance: whether the seats took their best move or sampled
+                # it. Without this a file tuned with --deterministic is
+                # indistinguishable from one tuned at eugenie_clark's own
+                # temperature 6.0, and those are not the same measurement --
+                # the handicap is worth about 18 points.
+                "deterministic": os.environ.get("FISH_PLANNER_DETERMINISTIC") == "1",
+                "temperature": (0.0 if os.environ.get("FISH_PLANNER_DETERMINISTIC") == "1"
+                                else _reef.params_for_grade(planner_grade).get("temperature")
+                                if planner_grade and _reef.params_for_grade(planner_grade)
+                                else None)})
         else:
             log(f"gen {gen:>3} champion holds · best margin {rate:+.3f} pts (95% low {lo:+.3f}), "
                 f"wins {win_edge:+.4f} over {played} paired games")
