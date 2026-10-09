@@ -75,11 +75,11 @@ const TEXT = String(HTML_DOC || "")
 {
   check(typeof HTML_DOC === "string" && HTML_DOC.length > 5000,
         `the policy renders a substantial document (got ${String(HTML_DOC).length} chars)`);
-  check(Array.isArray(SECTIONS) && SECTIONS.length === 18,
-        `all 18 sections are published, got ${SECTIONS && SECTIONS.length}`);
-  check(win.CC_PRIVACY_UPDATED === "August 6, 2026",
+  check(Array.isArray(SECTIONS) && SECTIONS.length === 23,
+        `all 23 sections are published, got ${SECTIONS && SECTIONS.length}`);
+  check(win.CC_PRIVACY_UPDATED === "October 9, 2026",
         `the last-updated date is stated, got ${win.CC_PRIVACY_UPDATED}`);
-  check(TEXT.includes("Last updated: August 6, 2026"),
+  check(TEXT.includes("Last updated: October 9, 2026"),
         "the last-updated date is printed in the document, not just exported");
 
   // The contents list and the headings come from ONE array: prove it by
@@ -92,7 +92,11 @@ const TEXT = String(HTML_DOC || "")
   }
   // Numbering is 1..18 with no gaps, a gap means a section was deleted.
   check((SECTIONS || []).every((s, i) => s.n === i + 1),
-        "sections are numbered 1 to 18 with no gaps");
+        "sections are numbered 1 to 23 with no gaps");
+  // Numbering is positional now, so no entry can carry a stale hardcoded
+  // number: prove the array has none left to drift.
+  check(!/\n\s+n:\s*\d+,/.test(POLICY_SRC),
+        "no section hardcodes its own number");
   check(!HTML_DOC.includes("undefined"), "nothing renders as 'undefined'");
 
   // The commitments people open a privacy policy to find. Losing any of these
@@ -105,6 +109,25 @@ const TEXT = String(HTML_DOC || "")
     "You may be able to use certain parts of Currents and Critters as a guest without creating an account",
     "Every marketing email will include a working unsubscribe option",
     "not directed to children under 13",
+    // The disclosures added for features the policy used to omit. Each one
+    // describes something the code actually does; losing one silently puts
+    // the policy back behind the product.
+    "The photograph is read on your own device",
+    "the photograph itself is not uploaded to us",
+    "nothing from that photograph is sent to us or stored by us",
+    "We do not receive or store your Discord password",
+    "Table chat is not saved to your account",
+    "have no cash value and cannot be exchanged for money",
+    "We do not use third-party advertising cookies",
+    // What the owner confirmed on 2026-10-09: the 90-day review window, and
+    // that earned rewards outlive it. Both must survive future edits.
+    "stay with you, including after the review thumbnail and image fingerprints have been deleted",
+    "Rewards you have already earned are not affected by any of these periods",
+    "The photograph of your physical board, which is read on your own device and never uploaded",
+    // The Supporter Reef Wall is the one place a purchase becomes public, so
+    // the consent and the limits on what it shows are both commitments.
+    "Your name appears there only if you ask for it",
+    "The wall never shows your email address, your payment details, or which item you bought",
     "916A South Douglas Avenue",
     "Nashville, Tennessee 37204-2021",
     "timothy.honey@beardedsealstudios.com",
