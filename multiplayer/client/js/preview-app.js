@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-08.11";
+  const APP_BUILD   = "2026-10-08.12";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -28627,15 +28627,7 @@
 
     $a("stats-join-toggle-btn").addEventListener("click", () => {
       refreshFriendNicks();
-      // Join Game opens the code box at the foot of the page rather than
-      // jumping straight into the browser: typing a code is the common case.
-      const row = $a("stats-join-row");
-      if (row) {
-        const open = row.classList.toggle("is-open");
-        if (open) { const f = $a("stats-join-code"); if (f) f.focus(); }
-      } else {
-        openLobbyBrowser();
-      }
+      openLobbyBrowser();
     });
 
     $a("stats-join-go-btn").addEventListener("click", () => {
@@ -35090,7 +35082,6 @@
       // so nothing else would ever paint it. Fire and forget: Overview must
       // not wait on Firestore to draw the rest of itself.
       try { renderPhFriendsList(); } catch (_) {}
-      try { renderPhHistory(); } catch (_) {}
 
       renderOverviewAchievements(_phStatsRaw || _phStats || {});
       renderChallengeStrip();

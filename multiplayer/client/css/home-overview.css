@@ -35,7 +35,6 @@
 #auth-stats-lobby .ph-profile-card > .ph-avatar { order: 1; }
 #auth-stats-lobby .ph-profile-card > .ph-pinfo  { order: 2; min-width: 0; }
 #auth-stats-lobby .ph-pranks > .ph-rank-level   { order: 3; }
-#auth-stats-lobby .ph-profile-card > #cc-game-night { order: 4; margin: 0 auto; min-width: 0; }
 #auth-stats-lobby .ph-pranks > .ph-rank-badge:not(.ph-rank-level) { order: 5; }
 #auth-stats-lobby .ph-profile-card > #stats-lobby-signed-actions { order: 6; }
 #auth-stats-lobby .ph-profile-card > .ph-alpha-banner { display: none; }
@@ -45,56 +44,33 @@
 #auth-stats-lobby .ph-profile-card > * { min-width: 0; }
 #auth-stats-lobby .ph-pinfo .ph-pfc { display: none; }
 
-/* ── Game Night, a pill on the header line ─────────────────────────────
-   Same navy-to-teal and gold XP chip the full-width banner uses, shrunk to
-   sit between the name and the rank. The long lines are dropped: the title,
-   the schedule and the two chips are what fits and what is read. */
-.ph-profile-card > #cc-game-night { margin: 0; }
-.ph-profile-card > #cc-game-night .ccGN-inner {
-  display: flex; align-items: center; gap: 14px;
-  padding: 9px 11px 9px 17px; border-radius: 999px;
-  /* The shipped band is navy-to-teal, which is a dark slab on the bright
-     turquoise reef this screen is painted on. Gold board stock with navy
-     ink is the game's own palette and the one warm thing on the row. */
+/* ── Game Night, the bottom-left band ────────────────────────────────
+   It has the room for its whole message down here, so the schedule, the
+   note and the Discord line all come back. Gold board stock with navy ink:
+   the shipped navy-to-teal slab is a dark hole in the turquoise reef this
+   screen is painted on, and gold is the game's own warm note. */
+#auth-stats-lobby .ph-home-gn .ccGN-inner {
+  height: 100%; border-radius: 22px; padding: 18px 22px; color: #15325c;
   background: linear-gradient(135deg, #ffe9b0 0%, #f4c75e 46%, #e8b34a 100%) !important;
   border: 1px solid #c89320 !important;
-  color: #15325c;
-  box-shadow: 0 8px 20px -8px rgba(200,147,32,.7),
+  box-shadow: 0 10px 26px -10px rgba(200,147,32,.75),
               inset 0 1px 0 rgba(255,255,255,.6);
 }
-.ph-profile-card > #cc-game-night .ccGN-title { color: #6b4700; }
-.ph-profile-card > #cc-game-night .ccGN-count,
-.ph-profile-card > #cc-game-night .ccGN-live { color: #5a3c00; }
-.ph-profile-card > #cc-game-night .ccGN-xp {
+#auth-stats-lobby .ph-home-gn .ccGN-title { color: #6b4700; }
+#auth-stats-lobby .ph-home-gn .ccGN-when,
+#auth-stats-lobby .ph-home-gn .ccGN-note,
+#auth-stats-lobby .ph-home-gn .ccGN-join { color: #8a5c00; }
+#auth-stats-lobby .ph-home-gn .ccGN-count,
+#auth-stats-lobby .ph-home-gn .ccGN-live { color: #5a3c00; }
+#auth-stats-lobby .ph-home-gn .ccGN-xp {
   color: #fff;
   background: linear-gradient(135deg, #5fb3d6, #2c5a8a) !important;
   box-shadow: 0 2px 6px rgba(21,50,92,.3);
 }
-.ph-profile-card > #cc-game-night .ccGN-inner::after { content: none; }
-.ph-profile-card > #cc-game-night .ccGN-body {
-  display: flex; align-items: center; gap: 14px;
+#auth-stats-lobby .ph-home-gn .ccGN-link {
+  color: #15325c; background: rgba(255,255,255,.75); border-radius: 999px;
+  padding: 3px 11px; font-weight: 800;
 }
-.ph-profile-card > #cc-game-night .ccGN-title {
-  font-family: "Cinzel", serif; font-size: .95rem; font-weight: 900;
-  line-height: 1.1; white-space: nowrap;
-}
-/* The schedule line is the first thing to go. At 1283px this row holds the
-   avatar, the name, the level, this pill, the rank, settings and sign out,
-   and at full width the pill squeezed the player's own name to one letter.
-   Title plus countdown plus the XP chip carry it; "Every Wednesday" is in
-   the Discord announcement and on the site's full-width band. */
-.ph-profile-card > #cc-game-night .ccGN-when { display: none; }
-.ph-profile-card > #cc-game-night .ccGN-status { display: flex; align-items: center; gap: 9px; }
-.ph-profile-card > #cc-game-night .ccGN-count,
-.ph-profile-card > #cc-game-night .ccGN-live {
-  font-size: .72rem; font-weight: 800; white-space: nowrap;
-}
-.ph-profile-card > #cc-game-night .ccGN-xp {
-  font-size: .7rem; font-weight: 900; padding: 5px 12px; white-space: nowrap;
-}
-.ph-profile-card > #cc-game-night .ccGN-note,
-.ph-profile-card > #cc-game-night .ccGN-join,
-.ph-profile-card > #cc-game-night .ccGN-local { display: none; }
 
 /* ── the clan prize band comes off Overview (it keeps its Clans tab) ── */
 #ph-panel-overview > #cc-clan-prize { display: none !important; }
@@ -119,17 +95,14 @@
 #auth-stats-lobby .ph-actions > .ph-action-card:nth-child(2) { grid-column: 3 / 5; grid-row: 2; }
 #auth-stats-lobby .ph-actions > .ph-action-card:nth-child(3) { grid-column: 5 / 7; grid-row: 2; }
 /* bottom line */
-#auth-stats-lobby .ph-home-clan    { grid-column: 1 / 4; grid-row: 3; min-width: 0; }
-#auth-stats-lobby .ph-home-history { grid-column: 4 / 7; grid-row: 3; min-width: 0; }
-#auth-stats-lobby .ph-actions > .stats-join-row { grid-column: 1 / -1; grid-row: 4; }
-#auth-stats-lobby .ph-home-clan #cc-clan-prize { margin: 0; }
-#auth-stats-lobby .ph-home-history .ph-scard { margin: 0 !important; height: 100%;
-  display: flex; flex-direction: column; }
-#auth-stats-lobby .ph-home-history #ph-full-history {
-  flex: 1; min-height: 0; overflow-y: auto;
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
-}
+#auth-stats-lobby .ph-home-gn   { grid-column: 1 / 4; grid-row: 3; min-width: 0; }
+#auth-stats-lobby .ph-home-clan { grid-column: 4 / 7; grid-row: 3; min-width: 0; }
+#auth-stats-lobby .ph-home-gn   #cc-game-night { margin: 0; height: 100%; }
+#auth-stats-lobby .ph-home-clan #cc-clan-prize { margin: 0; height: 100%; }
+#auth-stats-lobby .ph-home-clan .ccPrize-inner { height: 100%; }
+/* Join by code is off Overview. The markup stays so the handlers that bind
+   to #stats-join-code and #stats-join-go-btn still find their elements. */
+#auth-stats-lobby .ph-actions > .stats-join-row { display: none !important; }
 
 /* ── Friends panel ────────────────────────────────────────────────────
    The card fills its half of the top line, the list takes what is left
@@ -146,23 +119,6 @@
 /* Join by code sits along the foot of the page and stays shut until the
    Join Game card is clicked. preview.css hides it by default, so .is-open
    is what opens it. */
-#auth-stats-lobby .ph-actions > .stats-join-row.is-open {
-  display: flex !important; align-items: center; gap: 12px;
-  background: rgba(220,245,255,.86);
-  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
-  border: 1px solid rgba(120,200,235,.52);
-  border-radius: 22px; padding: 14px 20px;
-  box-shadow: 0 9px 30px rgba(28,90,150,.14);
-}
-#auth-stats-lobby .ph-actions > .stats-join-row.is-open::before {
-  content: "Join with a code";
-  font-family: "Cinzel", serif; font-size: .82rem; letter-spacing: .07em;
-  font-weight: 700; color: #3a6088; white-space: nowrap;
-}
-#auth-stats-lobby .ph-actions > .stats-join-row .pv-input {
-  flex: 1 1 auto; min-width: 0; text-transform: uppercase; letter-spacing: 3px;
-}
-#auth-stats-lobby .ph-actions > .stats-join-row .pv-btn { flex: none; }
 
 /* ── narrow: everything stacks, nothing spans ────────────────────────── */
 @media (max-width: 1100px) {
@@ -175,7 +131,8 @@
   #auth-stats-lobby .ph-actions > .ph-action-card:nth-child(4) {
     aspect-ratio: 472 / 304 !important; height: auto !important;
   }
-  .ph-profile-card > #cc-game-night { flex: 0 0 100%; }
+  #auth-stats-lobby .ph-home-gn,
+  #auth-stats-lobby .ph-home-clan { grid-column: 1 / -1; grid-row: auto; }
 }
 
 /* Friends card interior: title, online count and friend code share the top
@@ -207,7 +164,6 @@
 /* The pill holds its content: shrinking it clipped "starts in 6d 2h" and the
    XP chip. The name beside it gives up the room instead, truncating if it
    has to, because a cut countdown is worse than a cut nickname. */
-#auth-stats-lobby .ph-profile-card > #cc-game-night { flex: 0 0 auto; }
 #auth-stats-lobby .ph-profile-card > .ph-pinfo { flex: 1 1 auto; overflow: hidden; }
 /* A 13-character name was being cut at "TheFishM...". Sized so a long
    nickname fits the room the header can spare, and still truncated rather
@@ -216,8 +172,6 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: clamp(1.15rem, 1.9vw, 1.7rem);
 }
-#auth-stats-lobby .ph-profile-card > #cc-game-night .ccGN-inner { flex-wrap: nowrap; }
-#auth-stats-lobby .ph-profile-card > #cc-game-night .ccGN-body { flex-wrap: nowrap; }
 #auth-stats-lobby #stats-lobby-signed-actions { flex: none; }
 
 /* ── the tab row had a height of its own and swallowed its buttons ───── */
