@@ -84,19 +84,21 @@
   display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 14px; align-items: stretch;
   /* three of six columns plus the gap between them, at the artwork's 472:304 */
-  grid-template-rows: calc(((100cqw - 70px) / 2 + 28px) / 1.553) auto auto auto;
+  /* row 1 the two bands, row 2 Tutorial at the artwork's own 472:304,
+     row 3 the three games. */
+  grid-template-rows: auto calc(((100cqw - 70px) / 2 + 28px) / 1.553) auto;
 }
 #auth-stats-lobby .ph-actions > .ph-action-card:nth-child(4) {   /* Tutorial */
-  grid-column: 1 / 4; grid-row: 1;
+  grid-column: 1 / 4; grid-row: 2;
   aspect-ratio: auto !important; height: 100% !important;
 }
-#auth-stats-lobby .ph-friends-home { grid-column: 4 / 7; grid-row: 1; min-width: 0; height: 100%; }
-#auth-stats-lobby .ph-actions > .ph-action-card:nth-child(1) { grid-column: 1 / 3; grid-row: 2; }
-#auth-stats-lobby .ph-actions > .ph-action-card:nth-child(2) { grid-column: 3 / 5; grid-row: 2; }
-#auth-stats-lobby .ph-actions > .ph-action-card:nth-child(3) { grid-column: 5 / 7; grid-row: 2; }
+#auth-stats-lobby .ph-friends-home { grid-column: 4 / 7; grid-row: 2; min-width: 0; height: 100%; }
+#auth-stats-lobby .ph-actions > .ph-action-card:nth-child(1) { grid-column: 1 / 3; grid-row: 3; }
+#auth-stats-lobby .ph-actions > .ph-action-card:nth-child(2) { grid-column: 3 / 5; grid-row: 3; }
+#auth-stats-lobby .ph-actions > .ph-action-card:nth-child(3) { grid-column: 5 / 7; grid-row: 3; }
 /* bottom line */
-#auth-stats-lobby .ph-home-gn   { grid-column: 1 / 4; grid-row: 3; min-width: 0; }
-#auth-stats-lobby .ph-home-clan { grid-column: 4 / 7; grid-row: 3; min-width: 0; }
+#auth-stats-lobby .ph-home-gn   { grid-column: 1 / 4; grid-row: 1; min-width: 0; }
+#auth-stats-lobby .ph-home-clan { grid-column: 4 / 7; grid-row: 1; min-width: 0; }
 #auth-stats-lobby .ph-home-gn   #cc-game-night { margin: 0; height: 100%; }
 #auth-stats-lobby .ph-home-clan #cc-clan-prize { margin: 0; height: 100%; }
 #auth-stats-lobby .ph-home-clan .ccPrize-inner { height: 100%; }
@@ -284,3 +286,8 @@
 
 /* The friend code block only speaks when there is a code to show. */
 #auth-stats-lobby .ph-friends-home #ph-fc-display:empty { display: none; }
+
+/* Quick Stats sat in the left half of a two-column grid whose right-hand
+   card (Friends Quick Stats) this screen hides, so it read as pushed to one
+   side with a hole beside it. One card, one column. */
+#ph-panel-overview .ph-main.ph-ov-duo { grid-template-columns: minmax(0, 1fr); }
