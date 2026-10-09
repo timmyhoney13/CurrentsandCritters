@@ -216,8 +216,21 @@ console.log("4. The published page");
         "there is a contents list for desktop and for mobile");
   check(/var built = tocHtml\(\);/.test(PAGE),
         "both contents lists are built from the same section array");
-  check(/@media \(max-width: 900px\)[\s\S]*?\.toc \{ display: none; \}[\s\S]*?\.toc-m \{ display: block; \}/.test(PAGE),
-        "the rail gives way to the mobile disclosure");
+  // The phone breakpoint moved from 900px to 699px when every iPad in
+  // portrait was given its own rail, so assert the BEHAVIOUR and read the
+  // number rather than hard-coding one that will move again.
+  const phoneBp = (/@media \(max-width: (\d+)px\) \{\s*\.cols \{ grid-template-columns: minmax\(0, 1fr\)/.exec(PAGE) || [])[1];
+  check(!!phoneBp, "privacy.html has a phone breakpoint that collapses the columns");
+  check(new RegExp(`@media \\(max-width: ${phoneBp}px\\)[\\s\\S]*?\\.toc \\{ display: none; \\}[\\s\\S]*?\\.toc-m \\{ display: block; \\}`).test(PAGE),
+        `the rail gives way to the mobile disclosure at ${phoneBp}px`);
+  // And it must agree with the script that builds the phone reading bar, or a
+  // phone gets the bar and the rail at once, or neither of them.
+  const mobileJs = read("multiplayer/client/js/legal-mobile.js");
+  const jsBp = (/var PHONE = "\(max-width: (\d+)px\)"/.exec(mobileJs) || [])[1];
+  check(jsBp === phoneBp,
+        `legal-mobile.js (${jsBp}px) and privacy.html (${phoneBp}px) agree on the phone breakpoint`);
+  check(/<script[^>]*legal-mobile\.js/.test(PAGE),
+        "privacy.html loads the shared phone reading bar");
   check(/scroll-margin-top/.test(PP_CSS),
         "deep links clear the sticky top bar instead of hiding under it");
   check(/id="totop"/.test(PAGE), "there is a way back to the top of a long document");

@@ -383,6 +383,78 @@ console.log("7. The reef palette still clears WCAG AA");
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("8. Phone and tablet layouts");
+// ═══════════════════════════════════════════════════════════════════════════
+// Three layouts, and the one invariant that will actually break: the phone
+// breakpoint lives in THREE files (legal-page.css, the copy inlined in
+// privacy.html, and legal-mobile.js). If they drift, a phone gets the reading
+// bar AND the contents rail, or neither.
+{
+  const MOBILE_JS = read(CLIENT + "/js/legal-mobile.js");
+  const PRIV = read(CLIENT + "/privacy.html");
+
+  // The script's own breakpoint.
+  const jsBp = /var PHONE = "\(max-width: (\d+)px\)"/.exec(MOBILE_JS);
+  check(!!jsBp, "legal-mobile.js states its phone breakpoint");
+  const phone = jsBp && jsBp[1];
+
+  for (const [name, css] of [["legal-page.css", CHROME], ["privacy.html", PRIV]]) {
+    check(new RegExp(`@media \\(max-width: ${phone}px\\)`).test(css),
+          `${name} uses the same phone breakpoint (${phone}px) as the script`);
+    check(/@media \(min-width: 700px\) and \(max-width: 1023px\)/.test(css),
+          `${name} gives every iPad in portrait its own narrower rail`);
+    // 700 and not 768: the iPad mini is 744pt wide in portrait.
+    check(/iPad mini is only 744pt|744pt wide/.test(css),
+          `${name} records why the tablet floor is 700px`);
+    check(/@media \(pointer: coarse\)/.test(css),
+          `${name} sizes targets for a finger, not just for a narrow window`);
+    check(/min-height: 44px/.test(css), `${name} uses 44px as the minimum target`);
+    check(/env\(safe-area-inset-bottom/.test(css),
+          `${name} keeps the floating pill off the home indicator`);
+    check(/env\(safe-area-inset-left/.test(css),
+          `${name} keeps text out from under the notch`);
+    check(/html\.lm-on \.toc-m \{ display: none; \}/.test(css),
+          `${name} hides the no-script contents once the bar is running`);
+    check(/html\.lm-on \.totop \{ display: none; \}/.test(css),
+          `${name} drops the floating Top pill, since the bar carries it`);
+    check(/@media \(prefers-reduced-motion: reduce\)/.test(css),
+          `${name} honours reduced motion`);
+    check(/html \{ scroll-behavior: auto; \}/.test(css),
+          `${name} turns off smooth scrolling for reduced motion`);
+  }
+
+  // The bar is a progressive enhancement: the stylesheet must not hide the
+  // fallback contents unless the script actually ran.
+  check(/\.lm-bar, \.lm-sheet, \.lm-scrim \{ display: none; \}/.test(CHROME),
+        "the bar and sheet are hidden until the script builds them");
+  check(/document\.documentElement\.classList\.add\("lm-on"\)/.test(MOBILE_JS),
+        "the script marks the page with lm-on when it takes over");
+
+  // What the bar is for.
+  check(/aria-haspopup/.test(MOBILE_JS) && /aria-expanded/.test(MOBILE_JS),
+        "the contents button announces that it opens something");
+  check(/setAttribute\("role", "dialog"\)/.test(MOBILE_JS) && /aria-modal/.test(MOBILE_JS),
+        "the sheet is a dialog");
+  check(/ev\.key === "Escape"/.test(MOBILE_JS), "Escape closes the sheet");
+  check(/ev\.key !== "Tab"/.test(MOBILE_JS) || /ev\.key === "Tab"/.test(MOBILE_JS),
+        "Tab is handled inside the sheet");
+  check(/openBtn = where/.test(MOBILE_JS),
+        "the sheet returns focus to the button that opened it, not to document.activeElement");
+  check(/behavior: reduced\(\) \? "instant" : "smooth"/.test(MOBILE_JS),
+        'Top uses "instant" for reduced motion, since "auto" defers to the CSS');
+  check(/aria-label", "Back to top/.test(MOBILE_JS), "the Top button has a name");
+
+  // Every page loads it, cache-busted to this build.
+  for (const f of ["privacy.html", ...PAGES.map((p) => p.file)]) {
+    const page = read(CLIENT + "/" + f);
+    const tags = (page.match(/<script[^>]*legal-mobile\.js/g) || []).length;
+    check(tags === 1, `${f} loads legal-mobile.js exactly once, got ${tags}`);
+    const v = (/legal-mobile\.js\?v=([0-9.\-]+)/.exec(page) || [])[1];
+    check(v === VERSION.build, `${f} cache-busts legal-mobile.js for this build`);
+  }
+}
+
 console.log(`\nlegal-pages checks: ${checks}`);
 if (failures) { console.log(`${failures} FAILED`); process.exit(1); }
 console.log("legal pages OK");

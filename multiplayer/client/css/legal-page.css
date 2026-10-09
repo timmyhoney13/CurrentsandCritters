@@ -269,17 +269,193 @@
     font-size: 12.5px; color: rgba(255, 255, 255, 0.55); text-align: center;
   }
 
-  /* ── Responsive ───────────────────────────────────────────────── */
-  @media (max-width: 900px) {
+  /* ── Responsive: three real layouts, not one that stretches ─────
+     >=1024px   desktop and iPad LANDSCAPE: the full 250px contents rail
+     700-1023   EVERY iPad in portrait, mini included: a narrower rail.
+                This used to fall through to the phone layout at 900px,
+                which threw away half of an iPad's screen and pushed a
+                nineteen-section document into one column with no contents
+                visible at all. The floor is 700 and not 768 because the
+                iPad mini is only 744pt wide in portrait, and no phone in
+                portrait is wider than 430pt.
+     <=699px    phones: one column, and the contents become a bottom bar
+                and sheet your thumb can actually reach (js/legal-mobile.js)
+     <=430px    iPhone-sized: tightest gutters, tighter display type
+
+     Width is only half of the problem. (pointer: coarse) sizes every
+     target for a finger at any width, and the safe-area insets keep text
+     out from under the notch and the home indicator. */
+
+  /* iPad portrait, and big phones held sideways. Keep the rail, shrink it. */
+  @media (min-width: 700px) and (max-width: 1023px) {
+    .wrap { width: min(1120px, calc(100vw - 32px)); }
+    .cols { grid-template-columns: 208px minmax(0, 1fr); gap: 22px; }
+    .toc { top: 70px; padding: 12px 9px; max-height: calc(100vh - 92px); }
+    .toc a { font-size: 12px; padding: 7px 8px; }
+    .toc-head { padding: 2px 7px 8px; }
+    .doc { padding: 26px 24px 22px; }
+    .hero { padding: 42px 0 32px; }
+  }
+
+  /* Phones. */
+  @media (max-width: 699px) {
     .cols { grid-template-columns: minmax(0, 1fr); gap: 0; }
     .toc { display: none; }
     .toc-m { display: block; }
-    .doc { padding: 24px 20px 20px; border-radius: 18px; }
-  }
-  @media (max-width: 560px) {
-    .hero { padding: 36px 0 28px; }
-    .doc { padding: 20px 16px 16px; }
+    main { padding: 26px 0 10px; }
+    .hero { padding: 38px 0 28px; }
+    .doc { padding: 22px 18px 18px; border-radius: 16px; }
     .totop { right: 12px; bottom: 12px; }
+  }
+
+  /* iPhone-sized. */
+  @media (max-width: 430px) {
+    .wrap { width: calc(100vw - 26px); }
+    .hero { padding: 30px 0 24px; }
+    .hero h1 { font-size: clamp(26px, 8.2vw, 34px); letter-spacing: -0.7px; }
+    .hero p { font-size: 15.5px; }
+    .hero-eyebrow { font-size: 10.5px; padding: 5px 12px; margin-bottom: 13px; }
+    .doc { padding: 18px 15px 15px; border-radius: 14px; }
+    .quick { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .foot { padding: 32px 0 22px; }
+    .foot-in { gap: 16px 20px; }
+  }
+
+  /* A finger is not a cursor: 44px is the smallest comfortable target. */
+  @media (pointer: coarse) {
+    .tb-links a, .foot-links a { min-height: 44px; display: inline-flex; align-items: center; }
+    .tb-cta { min-height: 44px; }
+    .toc a, .toc-m-list a { min-height: 44px; align-items: center; }
+    .toc-m > summary { min-height: 52px; }
+    .totop { min-height: 48px; padding: 13px 18px; }
+  }
+
+  /* Keep text clear of the notch, and the floating pill clear of the home
+     indicator. max() so a browser without insets still gets the old value. */
+  @supports (padding: max(0px)) {
+    .wrap {
+      padding-left: max(0px, env(safe-area-inset-left));
+      padding-right: max(0px, env(safe-area-inset-right));
+    }
+    .totop { bottom: max(12px, env(safe-area-inset-bottom)); }
+  }
+
+  /* ── The phone reading bar (built by js/legal-mobile.js) ─────────
+     One fixed bar at the bottom of a phone screen doing three jobs: it
+     says where you are in the document, it opens the contents, and it
+     takes you back to the top. It is at the BOTTOM because that is where
+     a thumb is on a 6-inch phone, and because a long policy is read with
+     one hand. html.lm-on marks that the script is running, so the
+     no-script <details> contents stay as the fallback. */
+  .lm-bar, .lm-sheet, .lm-scrim { display: none; }
+
+  html.lm-on .toc-m { display: none; }
+  html.lm-on .totop { display: none; }
+
+  @media (max-width: 699px) {
+    html.lm-on body { padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); }
+
+    html.lm-on .lm-bar {
+      display: flex; align-items: stretch; gap: 0;
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
+      background: rgba(254, 245, 230, 0.96);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border-top: 1px solid var(--line-strong);
+      box-shadow: 0 -6px 20px rgba(21, 50, 92, 0.10);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      padding-left: env(safe-area-inset-left, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
+    }
+    /* The reading-progress hairline sits on the bar's top edge. */
+    html.lm-on .lm-prog {
+      position: absolute; left: 0; top: -1px; height: 2px;
+      background: linear-gradient(90deg, #e8b34a 0%, #c89320 100%);
+      width: 0; transition: width 120ms linear; pointer-events: none;
+    }
+    html.lm-on .lm-where {
+      flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column;
+      justify-content: center; gap: 1px; text-align: left;
+      background: none; border: 0; cursor: pointer;
+      padding: 11px 14px; min-height: 60px; font-family: inherit;
+      color: var(--ink);
+    }
+    html.lm-on .lm-count {
+      font-size: 10.5px; font-weight: 800; letter-spacing: 0.7px;
+      text-transform: uppercase; color: var(--brand-cyan-deep);
+    }
+    html.lm-on .lm-title {
+      font-size: 13.5px; font-weight: 800; line-height: 1.25;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    html.lm-on .lm-where::after {
+      content: "\2630"; position: absolute; right: 62px;
+      align-self: center; color: var(--brand-cyan-deep); font-size: 15px;
+    }
+    html.lm-on .lm-top {
+      flex: 0 0 auto; width: 56px; min-height: 60px;
+      background: none; border: 0; border-left: 1px solid var(--line);
+      cursor: pointer; color: var(--ink); font-size: 17px; font-weight: 800;
+      font-family: inherit;
+    }
+
+    /* The contents sheet. */
+    html.lm-on .lm-scrim {
+      display: block; position: fixed; inset: 0; z-index: 95;
+      background: rgba(21, 50, 92, 0.42);
+      opacity: 0; pointer-events: none; transition: opacity 180ms var(--ease-out);
+    }
+    html.lm-on .lm-scrim.open { opacity: 1; pointer-events: auto; }
+
+    html.lm-on .lm-sheet {
+      display: flex; flex-direction: column;
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 96;
+      max-height: 76vh;
+      background: var(--paper);
+      border-top-left-radius: 20px; border-top-right-radius: 20px;
+      border-top: 1px solid var(--line-strong);
+      box-shadow: 0 -14px 40px rgba(21, 50, 92, 0.26);
+      transform: translateY(101%);
+      transition: transform 240ms var(--ease-out);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    html.lm-on .lm-sheet.open { transform: none; }
+    html.lm-on .lm-sheet-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 14px 16px 10px; border-bottom: 1px solid var(--line);
+    }
+    html.lm-on .lm-sheet-head b {
+      font-family: var(--font-display); font-size: 15px; color: var(--ink-deep);
+    }
+    html.lm-on .lm-close {
+      background: none; border: 1px solid var(--line-strong);
+      border-radius: var(--r-pill); color: var(--ink);
+      font-family: inherit; font-size: 13px; font-weight: 800;
+      min-height: 44px; padding: 0 16px; cursor: pointer;
+    }
+    html.lm-on .lm-sheet-list { overflow-y: auto; padding: 8px 10px 16px; -webkit-overflow-scrolling: touch; }
+    html.lm-on .lm-sheet-list a {
+      display: flex; gap: 10px; align-items: center; min-height: 48px;
+      padding: 8px 10px; border-radius: 11px;
+      text-decoration: none; color: var(--muted-strong);
+      font-size: 14px; font-weight: 700; line-height: 1.3;
+    }
+    html.lm-on .lm-sheet-list a i {
+      font-style: normal; font-variant-numeric: tabular-nums;
+      color: var(--brand-cyan-deep); font-weight: 800; min-width: 20px;
+    }
+    html.lm-on .lm-sheet-list a.on { background: var(--brand-cyan-soft); color: var(--ink-deep); }
+
+    /* A jumped-to section has to clear the sticky top bar. The script sets
+       --lm-sticky from the real measured height. */
+    html.lm-on .pp-sec { scroll-margin-top: calc(var(--lm-sticky, 62px) + 14px); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lm-sheet, .lm-scrim, .lm-prog { transition: none !important; }
+    /* html { scroll-behavior: smooth } is set at the top of this file, and it
+       also governs anchor jumps and any scrollTo with behavior "auto". Somebody
+       who asked for less motion should get an instant jump from the contents. */
+    html { scroll-behavior: auto; }
   }
 
   @media print {
