@@ -363,12 +363,48 @@ PLANNER_BOUNDS: Dict[str, Tuple[float, float]] = dict(_reef.TUNABLE_BOUNDS)
 # anything until the knob they depend on is on -- turn_value_floor needs
 # adaptive_turn_value, denial_threshold needs denial. If training turns those on,
 # their dependants become worth aiming at, and this list should be measured again.
+# MEASURED 2026-10-09, and it removed three of the four knobs this list used to
+# aim at. The note above said of adaptive_turn_value, rival_weight, denial and
+# final_sweep: "finished, working machinery sitting at 0.0 ... Nobody has ever
+# measured whether those are better moves." They have now been measured, on
+# paired deals at 2/4/6 players with the planner made DETERMINISTIC (see
+# --deterministic; measuring them at eugenie_clark's own temperature 6.0 reads
+# every knob through an 18-point handicap):
+#
+#   adaptive_turn_value 1.0   -38.02 [-40.34,-35.69]   win rate .038 vs .297
+#   adaptive_turn_value 0.15  -39.30 [-42.09,-36.52]   win rate .043 vs .323
+#   rival_weight        1.0   -23.19 [-25.18,-21.20]   win rate .074 vs .318
+#   rival_weight        0.4   - 9.16 [-11.24, -7.09]
+#   rival_weight        0.10  - 2.55 [ -4.31, -0.79]   still worse
+#   denial              0.6   -15.35 [-17.41,-13.29]   win rate .168 vs .289
+#   denial 1.2 + thr 3        -11.76 [-14.01, -9.51]
+#   final_sweep         1.0   - 0.78 [ -2.65, +1.09]   neutral
+#
+# Three of them are harmful across their whole useful range, not merely at the
+# top of it, so aiming three quarters of every generation's mutations at them
+# spent the budget on directions that can only lose -- a mechanical reason a
+# night of selection keeps reporting that the planner is settled.
+#
+# adaptive_turn_value and survival are also not magnitudes at all: the planner
+# tests them with `> 0.0` (reef_planner 1705/1732/1882), so they are BOOLEAN
+# GATES wearing a (0.0, 1.0) range, and every gaussian step on
+# adaptive_turn_value is a coin flip between "off" and "-38 points". That is
+# why 0.15 and 1.0 measure the same.
+#
+# The bounds are left alone deliberately: the tournament bar already rejects a
+# bad mutant cheaply, and the quarter of mutations that roam will still visit
+# these occasionally, which is the right amount of attention for a knob that
+# has been measured and found wanting at one grade. What has changed is that
+# the budget is no longer POINTED at them.
 PLANNER_FOCUS: Tuple[str, ...] = (
-    # finished machinery that ships switched off
-    "adaptive_turn_value", "rival_weight", "denial", "final_sweep",
+    # measured neutral, so still a real question, and it changes 53% of moves
+    "final_sweep",
+    # the only knob measured BETTER tonight: +1.17 [+0.13,+2.22] over 3000
+    # paired deterministic deals (carry the opponents forward when judging a
+    # plan instead of freezing the table). Its table-size shape is unmeasured.
+    "opp_growth", "opp_growth_per_rival",
     # what the table size is worth
     "turn_value_per_rival", "plan_discount_per_rival",
-    "rival_weight_per_rival", "denial_per_rival",
     # what its own plan is worth, beyond the points on the cards
     "loyalty", "crowding", "switch_margin",
     # the price of a turn, and how far a plan is trusted
@@ -428,6 +464,19 @@ def _planner_policy(knobs: Dict[str, float], grade: str):
     planner's defaults. The grade's own search settings are untouched."""
     params = _reef.params_for_grade(grade) or dict(_reef.PARAMS)
     params.update({k: float(v) for k, v in knobs.items()})
+    if os.environ.get("FISH_PLANNER_DETERMINISTIC") == "1":
+        # The cheapest planner grade, which is the one this trainer is normally
+        # pointed at, is also the ONLY planner grade that samples its move:
+        # eugenie_clark carries temperature 6.0, so a move six points worse
+        # than the best still keeps about a third of its weight. Every shared
+        # knob the planner ships with was therefore selected while the bot did
+        # not reliably play the move the knob had just improved, and then given
+        # to jacques_cousteau and giant_squid, which take the argmax and have
+        # never been tuned. This makes the move deterministic without buying
+        # the 10x search of those grades, so the knobs can be selected on the
+        # thing they are for. Read from the environment because the worker
+        # processes are forked and inherit it.
+        params["temperature"] = 0.0
 
     def _pol(gs, ms, p, _params=params):
         return _reef.choose_action(gs, ms, p, params=dict(_params))
@@ -821,10 +870,18 @@ def main() -> None:
                          "playing every seat at this planner grade (e.g. eugenie_clark). "
                          "The knobs are shared by every planner grade, so training the "
                          "cheapest one improves all of them.")
+    ap.add_argument("--deterministic", action="store_true",
+                    help="force temperature 0.0 on every planner seat, so the bot "
+                         "plays the move it ranked best. Only meaningful with "
+                         "--planner, and only changes anything at eugenie_clark "
+                         "(6.0) or rachel_carson (2.5); the higher planner grades "
+                         "are already deterministic.")
     ap.add_argument("--promote", action="store_true",
                     help="write the final champion into the live brain")
     a = ap.parse_args()
     os.environ["FISH_TRAIN_CHOOSER"] = a.chooser
+    if a.deterministic:
+        os.environ["FISH_PLANNER_DETERMINISTIC"] = "1"
     if a.grade:
         os.environ["FISH_TRAIN_GRADE"] = fish.normalize_bot_grade(a.grade)
     elif a.planner.strip():

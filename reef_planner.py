@@ -61,6 +61,16 @@ PARAMS: Dict[str, float] = {
     "turn_value_floor": 0.5,
     # Deck cards drawn per player-turn, before the table has shown its pace.
     "deck_rate_prior": 0.9,
+    # How far to carry the opponents forward when judging a PLAN rather than a
+    # move. final_points asks three questions about the rest of the table --
+    # who has the most Oceans, the most Piers, the most animals -- and the
+    # answers were taken from the boards as they stand and then reused for
+    # every turn of a ten-turn plan. So the planner counted on keeping a lead
+    # it was measuring against a table that had stopped playing. At 1.0 each
+    # opponent is carried forward at the pace it has kept so far; 0.0 is the
+    # old frozen table. MEASURED BETTER at 1.0 -- see the note on
+    # opp_growth_per_rival in COUNT_SHAPED for the numbers.
+    "opp_growth": 1.0,
     # A card fed to the Pool counts against us at this share of the best that
     # any opponent could score with it.
     "denial": 0.0,
@@ -170,6 +180,32 @@ COUNT_SHAPED: Dict[str, Tuple[str, float, float]] = {
     "turn_value":    ("turn_value_per_rival",    0.5, 9.0),
     "survival":      ("survival_per_rival",      0.0, 1.0),
     "crowding":      ("crowding_per_rival",      0.0, 1.5),
+    # opp_growth was measured on 2026-10-09 with paired deals at 2/4/6 players
+    # (same seed, same seat, only the test seat's knobs differ):
+    #
+    #   planner deterministic   +1.17  [+0.13, +2.22]   3000 deals   BETTER
+    #   at eugenie_clark's own  +0.19  [-1.11, +1.50]   3000 deals   neutral
+    #     temperature 6.0         (+0.47 / +0.03 / +0.08 at 2P/4P/6P)
+    #
+    # So carrying the opponents forward is worth about a point where the bot
+    # actually plays the move it ranked best, and does nothing either way where
+    # the move is softmax-sampled -- which is what you would expect of a change
+    # to the planner's JUDGEMENT. Hence 1.0 by default: it pays at
+    # jacques_cousteau and giant_squid and costs nothing at the rest.
+    #
+    # Read a first, smaller run as a cautionary tale before trusting any single
+    # per-count cell here: 400 deals a size said -3.96 +-3.33 at 6P and looked
+    # significant, and it did not survive either fresh deals or a same-seed
+    # re-run. A paired deal has a standard deviation around 35 points, because
+    # one changed decision cascades into a different game, so 400 deals cannot
+    # resolve anything under about 3 points and three per-count cells read at
+    # once will hand you a false positive sooner or later.
+    #
+    # The per-rival term exists because the forecast is a MAX over the
+    # opponents, and a max over noisy per-round extrapolations is biased
+    # upward, so a bigger table should arguably trust it less. That shape is
+    # UNMEASURED; it is in PLANNER_FOCUS so a tuning run can answer it.
+    "opp_growth":    ("opp_growth_per_rival",    0.0, 2.0),
 }
 
 # Every knob a tuning run is allowed to move, and the range it is held to. The
@@ -185,6 +221,8 @@ TUNABLE_BOUNDS: Dict[str, Tuple[float, float]] = {
     "denial_per_rival": (-1.5, 1.5), "rival_weight_per_rival": (-1.5, 1.5),
     "plan_discount_per_rival": (-0.8, 0.8), "turn_value_per_rival": (-4.0, 4.0),
     "survival_per_rival": (-1.0, 1.0), "crowding_per_rival": (-1.0, 1.0),
+    "opp_growth": (0.0, 2.0),
+    "opp_growth_per_rival": (-2.0, 2.0),
     # Floored at what the planner ships with, so training may make a bot MORE
     # committed to its plan but never less. Chopping and changing is not how the
     # game is played well: a plan is worth something because you finished it,
@@ -576,6 +614,43 @@ def others_summary(gs: GameState, player: PlayerState) -> Tuple:
                     if r is not None and r[2]:
                         animals += 1
         most_animals = max(most_animals, animals)
+    return (has_others, most_oceans, most_piers, most_animals)
+
+
+def others_summary_at(gs: GameState, player: PlayerState, turns: float,
+                      growth: float) -> Tuple:
+    """`others_summary` carried `turns` of their own turns into the future.
+
+    Each opponent keeps the pace it has kept so far -- the Oceans, Piers and
+    animals on its board divided by the rounds played -- which is the only
+    pace anyone at the table can actually see. Used ONLY to judge a plan that
+    spans future turns; the score of the position as it stands is always taken
+    from the table as it stands."""
+    info = _card_info(gs)
+    played = max(1.0, float(gs.round_count) + 1.0)
+    ahead = max(0.0, float(turns)) * max(0.0, float(growth))
+    most_oceans = most_piers = most_animals = 0
+    has_others = False
+    for other in gs.players:
+        if other is player:
+            continue
+        has_others = True
+        names = _ocean_names(info, other)
+        oceans = len(names)
+        piers = sum(1 for n in names if n == "pier")
+        animals = 0
+        for o in other.board_oceans:
+            sl = other.ocean_slots.get(o)
+            if sl:
+                for u in sl.all_cards():
+                    r = info.get(u)
+                    if r is not None and r[2]:
+                        animals += 1
+        # Rounded down: a projected half an Ocean does not win "most Oceans",
+        # and rounding up would invent a lead for the opponent instead.
+        most_oceans = max(most_oceans, int(oceans + oceans / played * ahead))
+        most_piers = max(most_piers, int(piers + piers / played * ahead))
+        most_animals = max(most_animals, int(animals + animals / played * ahead))
     return (has_others, most_oceans, most_piers, most_animals)
 
 
@@ -1433,7 +1508,8 @@ def measure_turn_value(gs: GameState, ms: MatchState, player: PlayerState, turns
 
 class Ctx:
     __slots__ = ("gs", "ms", "player", "params", "rng", "keep", "threats", "stream", "nodes",
-                 "others", "score", "memo", "rivals", "world_id", "bp_cache", "deadline")
+                 "others", "score", "score_future", "memo", "rivals", "world_id",
+                 "bp_cache", "deadline")
 
     def __init__(self, gs, ms, player, params, rng):
         self.gs, self.ms, self.player, self.params, self.rng = gs, ms, player, params, rng
@@ -1459,6 +1535,23 @@ class Ctx:
             self.score = lambda pl, _g=gs, _o=self.others, _f=family, _l=loyalty: fast_points(_g, pl, _o, _f, _l)
         else:
             self.score = lambda pl, _g=gs, _o=self.others: fast_points(_g, pl, _o)
+        # The scorer the lookahead uses. One per move, built from the horizon
+        # the move is being judged over, so the per-board cache inside
+        # projection stays valid for the whole move. With opp_growth at 0.0
+        # this IS self.score, and nothing about the planner changes.
+        growth = float(params.get("opp_growth", 0.0))
+        if growth > 0.0:
+            horizon = turns_left_after_turn(gs, ms, player, params)
+            of = others_summary_at(gs, player, horizon, growth)
+            if of == self.others:
+                self.score_future = self.score
+            elif loyalty > 0.0:
+                self.score_future = (lambda pl, _g=gs, _o=of, _f=family, _l=loyalty:
+                                     fast_points(_g, pl, _o, _f, _l))
+            else:
+                self.score_future = lambda pl, _g=gs, _o=of: fast_points(_g, pl, _o)
+        else:
+            self.score_future = self.score
 
     def rival_finish(self, turns: float) -> float:
         """Where the strongest opponent looks set to finish if the game lasts
@@ -1653,7 +1746,7 @@ def _end_value_uncached(ctx: Ctx, turns: float) -> float:
             horizon = turns_range_after_turn(gs, ms, p, params)
             turns = horizon[1]
         value += float(params.get("plan_discount", 1.0)) * projection(gs, ms, p, turns, ctx.stream, params,
-                                                                     score=ctx.score, horizon=horizon,
+                                                                     score=ctx.score_future, horizon=horizon,
                                                                      bp_cache=ctx.bp_cache)
         beta = float(params.get("denial", 0.0))
         if beta > 0 and ms.pool:
@@ -1729,7 +1822,8 @@ def discard_down(gs: GameState, ms: MatchState, player: PlayerState, limit: int 
     while len(player.hand) > limit:
         keep: Dict[int, float] = {}
         turns = turns_left_after_turn(gs, ms, player, params)
-        projection(gs, ms, player, max(0.5, turns), ctx.stream, params, keep_out=keep, score=ctx.score)
+        projection(gs, ms, player, max(0.5, turns), ctx.stream, params, keep_out=keep,
+                   score=ctx.score_future)
         cands = [u for u in player.hand if u != ms.end_game_uid] or list(player.hand)
         ranked = sorted(cands, key=lambda u: (keep.get(u, 0.0) + (beta * ctx.threat(u) if beta > 0.0 else 0.0), u))
         # One plan prices the whole trim; re-planning after every single card
@@ -1801,10 +1895,11 @@ def choose_action(gs: GameState, ms: MatchState, player: PlayerState,
     if float(params.get("adaptive_turn_value", 0.0)) > 0.0:
         params = dict(params)
         params["turn_value"] = measure_turn_value(
-            gs, ms, player, turns_left_after_turn(gs, ms, player, params) + 1.0, ctx.stream, params, ctx.score)
+            gs, ms, player, turns_left_after_turn(gs, ms, player, params) + 1.0, ctx.stream, params,
+            ctx.score_future)
         ctx.params = params
     projection(gs, ms, player, turns_left_after_turn(gs, ms, player, params) + 1.0,
-               ctx.stream, params, keep_out=ctx.keep, score=ctx.score)
+               ctx.stream, params, keep_out=ctx.keep, score=ctx.score_future)
     if len(cands) == 1 and cands[0].kind not in ("play_ocean", "play_to_ocean"):
         return cands[0]
 
@@ -2050,7 +2145,7 @@ def tarpon_discards(gs: GameState, ms: MatchState, player: PlayerState,
     turns = turns_left_after_turn(gs, ms, player, params)
     if turns < 1.0 or len(gs.deck) < 2:
         return []          # a card drawn now cannot be played in time
-    projection(gs, ms, player, turns, ctx.stream, params, keep_out=keep, score=ctx.score)
+    projection(gs, ms, player, turns, ctx.stream, params, keep_out=keep, score=ctx.score_future)
     threshold = 0.5 * float(params.get("turn_value", 3.0))
     spare = [u for u in player.hand if u != ms.end_game_uid and keep.get(u, 0.0) < threshold]
     return spare[:len(gs.deck)]

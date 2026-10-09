@@ -6204,8 +6204,35 @@ def _opponent_strategy_score_table(
     """
     scores: Dict[str, float] = {}
     board_uids = player_board_face_uids(opponent)
+    # _HYBRID_REQUIRES applies here too. A hybrid profile lists BOTH halves'
+    # cards, so it is a superset of each parent and can outscore it on a board
+    # that holds only one half. Constructed boards, 2026-10-09: a board of
+    # three corals and no bird at all was read as "birds_coral" at confidence
+    # 0.60; with this gate it reads "coral" at 0.98. Pure cephalopods went
+    # 0.55 -> 1.00, pure birds 0.85 -> 1.00. All three real hybrids still read
+    # as themselves. detect_player_strategy has always required a hybrid to
+    # have both halves on the board; this is the same rule applied to the
+    # recogniser that reads a board MID-GAME -- the one that sees a PERSON,
+    # since humans never carry a _strategy_family flag and crowd_by_family
+    # falls back to this for them.
+    #
+    # HONEST SCOPE: in bot-vs-bot games this changes almost nothing. Measured
+    # against a control on the same 168 seats, per-family inference accuracy
+    # was identical to within half a point (birds 64.3% both ways, ocean 85.0
+    # vs 85.4) and the confidence table did not move, because planner boards
+    # are mixed enough that a hybrid label is usually legitimate anyway. It
+    # bites on PURE boards, which people build and planners rarely do. Kept as
+    # a correctness fix that makes the two recognisers agree, not as a
+    # strength change. It also does NOT explain the mid-range confidence
+    # miscalibration (conf ~0.6 is right 34% of the time, ~0.5 is right 57%):
+    # that is still open, and the superset overlap was ruled out as its cause.
+    board_species = {card_species_lc(gs.card_db[uid]) for uid in board_uids}
     for fam in strategy_family_profiles():
         label = str(fam.get("label", "")).strip().lower()
+        need = _HYBRID_REQUIRES.get(label)
+        if need and not all(r in board_species for r in need):
+            scores[label] = 0.0
+            continue
         s = 0.0
         for uid in board_uids:
             s += strategy_family_card_score(gs.card_db[uid], fam)

@@ -361,13 +361,36 @@ for _k in _understanding:
           "at one key in twenty-four it would be tried about once in a hundred "
           "generations")
 
-# The four pieces of finished machinery that ship switched off are where the
-# unmeasured ground is: turning them on changes between half and all of the
-# planner's moves, and nobody has ever measured whether those moves are better.
+# The four pieces of finished machinery that ship switched off were, until
+# 2026-10-09, the unmeasured ground: turning them on changes between half and
+# all of the planner's moves. They have now been measured on paired deals at
+# 2/4/6 players with the planner made deterministic, and three of them are
+# harmful across their whole useful range, not merely at the top of it:
+#
+#   adaptive_turn_value 1.0  -38.02   and 0.15  -39.30  (it is a BOOLEAN gate)
+#   rival_weight        1.0  -23.19,  0.4 -9.16,  0.10  - 2.55  (monotone)
+#   denial              0.6  -15.35,  1.2+thr3  -11.76
+#   final_sweep         1.0  - 0.78 [-2.65,+1.09]       (neutral: still open)
+#
+# So they must still ship switched OFF, and the three measured-harmful ones
+# must no longer be what the mutation budget is pointed at -- aiming three
+# quarters of every generation at directions that can only lose is a
+# mechanical reason a night of selection keeps reporting "settled". They stay
+# in TUNABLE_BOUNDS, so the quarter of mutations that roam still visits them.
 for _k in ("adaptive_turn_value", "rival_weight", "denial", "final_sweep"):
     check(float(rp.PARAMS[_k]) == 0.0, f"{_k} still ships switched off")
-    check(_k in _be.PLANNER_FOCUS,
-          f"{_k} is aimed at, because switched-off machinery is unclaimed ground")
+    check(_k in rp.TUNABLE_BOUNDS, f"{_k} is still reachable by a tuning run")
+for _k in ("adaptive_turn_value", "rival_weight", "denial"):
+    check(_k not in _be.PLANNER_FOCUS,
+          f"{_k} measured harmful, so the budget is no longer aimed at it")
+check("final_sweep" in _be.PLANNER_FOCUS,
+      "final_sweep measured neutral, so it is still a real question")
+# The one knob measured BETTER: +1.17 [+0.13,+2.22] over 3000 deterministic
+# paired deals. Its table-size shape is unmeasured, so both are aimed at.
+check(float(rp.PARAMS["opp_growth"]) == 1.0,
+      "opp_growth ships ON, because it measured better")
+for _k in ("opp_growth", "opp_growth_per_rival"):
+    check(_k in _be.PLANNER_FOCUS, f"{_k} is aimed at")
 
 check(_be.PLANNER_BOUNDS == dict(rp.TUNABLE_BOUNDS),
       "the tuner and the planner agree on every knob and its range")
