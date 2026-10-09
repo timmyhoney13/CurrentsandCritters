@@ -45,30 +45,32 @@
 #auth-stats-lobby .ph-pinfo .ph-pfc { display: none; }
 
 /* ── Game Night, the bottom-left band ────────────────────────────────
-   It has the room for its whole message down here, so the schedule, the
-   note and the Discord line all come back. Gold board stock with navy ink:
-   the shipped navy-to-teal slab is a dark hole in the turquoise reef this
-   screen is painted on, and gold is the game's own warm note. */
+   Gold belongs to the clan prize sitting right beside it, and two gold
+   bands side by side read as one thing said twice. Game Night takes the
+   reef's cool half instead: shallow-water aqua into teal, navy ink, and
+   the XP chip flips to gold so the warm note is the reward rather than
+   the whole band. Still nothing like the shipped navy-to-teal slab, which
+   is a dark hole punched in the turquoise artwork behind it. */
 #auth-stats-lobby .ph-home-gn .ccGN-inner {
   height: 100%; border-radius: 22px; padding: 18px 22px; color: #15325c;
-  background: linear-gradient(135deg, #ffe9b0 0%, #f4c75e 46%, #e8b34a 100%) !important;
-  border: 1px solid #c89320 !important;
-  box-shadow: 0 10px 26px -10px rgba(200,147,32,.75),
-              inset 0 1px 0 rgba(255,255,255,.6);
+  background: linear-gradient(135deg, #eaf7fc 0%, #bcdde6 46%, #8fcde0 100%) !important;
+  border: 1px solid #5fb3d6 !important;
+  box-shadow: 0 10px 26px -10px rgba(44,90,138,.55),
+              inset 0 1px 0 rgba(255,255,255,.75);
 }
-#auth-stats-lobby .ph-home-gn .ccGN-title { color: #6b4700; }
+#auth-stats-lobby .ph-home-gn .ccGN-title { color: #15325c; }
 #auth-stats-lobby .ph-home-gn .ccGN-when,
 #auth-stats-lobby .ph-home-gn .ccGN-note,
-#auth-stats-lobby .ph-home-gn .ccGN-join { color: #8a5c00; }
+#auth-stats-lobby .ph-home-gn .ccGN-join { color: #2c5a8a; }
 #auth-stats-lobby .ph-home-gn .ccGN-count,
-#auth-stats-lobby .ph-home-gn .ccGN-live { color: #5a3c00; }
+#auth-stats-lobby .ph-home-gn .ccGN-live { color: #1a4570; }
 #auth-stats-lobby .ph-home-gn .ccGN-xp {
-  color: #fff;
-  background: linear-gradient(135deg, #5fb3d6, #2c5a8a) !important;
-  box-shadow: 0 2px 6px rgba(21,50,92,.3);
+  color: #4a3000;
+  background: linear-gradient(135deg, #f4c75e, #d99f22) !important;
+  box-shadow: 0 2px 6px rgba(200,147,32,.45);
 }
 #auth-stats-lobby .ph-home-gn .ccGN-link {
-  color: #15325c; background: rgba(255,255,255,.75); border-radius: 999px;
+  color: #15325c; background: rgba(255,255,255,.85); border-radius: 999px;
   padding: 3px 11px; font-weight: 800;
 }
 
