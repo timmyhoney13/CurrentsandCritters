@@ -300,3 +300,72 @@
    who you are talking to, so it only costs height. Trade and Invite stay
    where they have always been, on the full Messages page. */
 #auth-stats-lobby #ph-friends-msg-host .ccm-header { display: none !important; }
+
+/* ── phones: stop the chrome eating the screen ─────────────────────────
+   Nothing here touches the four action cards. They are single baked PNGs
+   with their lettering painted into the art (test_home_actions.js guards
+   that), so they stay full width at their own 472:304. Put one at half
+   width and "Start a new adventure" renders about 6px tall and the card
+   stops saying what it is.
+
+   What this does instead is give the cards more of the screen by shrinking
+   everything that is NOT a card. Measured on a 393px phone, with the lobby
+   scrolling 2668px inside itself:
+
+     the header   339px, because the six things that share one row on a
+                  desktop become FIVE rows on a phone: avatar (84), name
+                  (23), two badges (47 + 39) and the sign-out row (52),
+                  plus four 14px gaps and 36px of padding.
+     the tab row  already handled by preview.css at this width, which turns
+                  the seven-column grid into a sideways scroller. Left alone.
+     Friends      grows to the height of its list, pushing everything after
+                  it off the end of the page.
+
+   The header is the one worth fixing: two columns and a badge row take it
+   from 339px to roughly 175px, which is most of an action card handed back. */
+@media (max-width: 560px) {
+  /* Avatar beside the name instead of above it. */
+  #auth-stats-lobby .ph-profile-card {
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 8px 12px;
+    padding: 12px 14px;
+    align-items: center;
+  }
+  #auth-stats-lobby[data-bg-tab="overview"] .ph-avatar {
+    width: 54px; height: 54px;
+    grid-column: 1; grid-row: 1;
+  }
+  #auth-stats-lobby .ph-profile-card > .ph-pinfo {
+    grid-column: 2; grid-row: 1;
+  }
+  #auth-stats-lobby .ph-pinfo .ph-pname { font-size: clamp(1rem, 4.8vw, 1.25rem); }
+
+  /* The badges share a row instead of taking one each. .ph-pranks is
+     display:contents above so Level and Competitive can be ordered
+     independently across the desktop header; on a phone there is no row to
+     spread them across, so it becomes a plain wrapping flex row again. */
+  #auth-stats-lobby .ph-profile-card > .ph-pranks {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    grid-column: 1 / -1; grid-row: 2;
+    min-width: 0;
+  }
+  #auth-stats-lobby .ph-pranks > .ph-rank-badge {
+    padding: 5px 9px; gap: 6px;
+    /* preview.css gives a stacked badge a top border to separate it from the
+       one above. In a row that is a line down its face. */
+    border-top: none;
+  }
+  #auth-stats-lobby .ph-pranks > .ph-rank-badge .ph-rank-type { font-size: .7rem; }
+
+  /* Settings and sign out keep a full row: they are touch targets. */
+  #auth-stats-lobby .ph-profile-card > #stats-lobby-signed-actions {
+    grid-column: 1 / -1; grid-row: 3;
+  }
+
+  /* The cards are the point of the screen. The gaps between them are not. */
+  #auth-stats-lobby .ph-actions { gap: 10px; }
+
+  /* Friends keeps its fade, so a cut row still says "more this way", but it
+     stops being able to grow past the height of the phone. */
+  #auth-stats-lobby .ph-friends-home #ph-friends-list { max-height: 44vh !important; }
+}
