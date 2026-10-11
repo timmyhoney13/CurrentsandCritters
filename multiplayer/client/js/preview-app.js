@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-10.1";
+  const APP_BUILD   = "2026-10-10.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -25642,8 +25642,9 @@
       const xpGoal = progress.xpGoal;
       const fill = Math.max(0, Math.min(100, Math.round((xpCurrent / xpGoal) * 100)));
 
-      const levelLabelEl = $a("stat-level-label");
-      if (levelLabelEl) levelLabelEl.textContent = `Level ${level}`;
+      // The word "Level" is static beside this, so only the number lands here.
+      const levelNumEl = $a("stat-level-num");
+      if (levelNumEl) levelNumEl.textContent = String(level);
       // The waiting room draws this on my seat, so it is published from the one
       // place that already works it all out.
       try {
@@ -25658,9 +25659,24 @@
       const levelTitleEl = $a("stat-level-title");
       if (levelTitleEl) levelTitleEl.textContent = levelTitle;
       const xpTextEl = $a("stat-level-xp-text");
-      if (xpTextEl) xpTextEl.textContent = `${xpCurrent} / ${xpGoal} XP`;
+      // Grouped, because every other number on this screen is.
+      if (xpTextEl) {
+        xpTextEl.textContent = `${xpCurrent.toLocaleString("en-US")} / ${xpGoal.toLocaleString("en-US")} XP`;
+      }
       const xpFillEl = $a("stat-level-xp-fill");
       if (xpFillEl) xpFillEl.style.width = `${fill}%`;
+      // The header used to say where you are but never how far is left, which
+      // is the part that makes anyone play one more game.
+      // At the top of the ladder xpCurrent and xpGoal are both the cap, and
+      // there is no next level to count towards, so this says nothing rather
+      // than promising a Level that does not exist.
+      const toGoEl = $a("stat-level-togo");
+      if (toGoEl) {
+        const left = Math.max(0, xpGoal - xpCurrent);
+        toGoEl.textContent = left > 0
+          ? `${left.toLocaleString("en-US")} XP to Level ${level + 1}`
+          : "";
+      }
     }
 
     function renderStats(stats) {
@@ -25679,6 +25695,28 @@
       const rankIcoEl = $a("stat-comp-rank-ico");
       if (rankIcoEl && typeof window._compRankIconFor === "function") {
         rankIcoEl.innerHTML = window._compRankIconFor(safeStats.rank_competitive, 24);
+      }
+      // The badge used to be gold whatever tier you were on, which told a
+      // Silver player the wrong thing. It now wears its own tier's colour and
+      // shows that tier's three divisions, lit up to the one you have reached.
+      // Same tier names _compRankIconFor reads, so the two never disagree.
+      const rankName = String(safeStats.rank_competitive || "").trim().toLowerCase();
+      const tier = (rankName && rankName !== "unranked")
+        ? (["silver", "gold", "diamond", "emerald", "king"].find(t => rankName.startsWith(t)) || "bronze")
+        : "";
+      const compBadgeEl = $a("stat-comp-badge");
+      if (compBadgeEl) compBadgeEl.setAttribute("data-tier", tier || "none");
+      const pipsEl = $a("stat-comp-rank-pips");
+      if (pipsEl) {
+        // King is one rung with no divisions, and nobody unranked has a tier
+        // to show divisions for.
+        const divisions = (!tier || tier === "king") ? 0 : 3;
+        const reached = (rankName.match(/\b(i{1,3})$/) || ["", ""])[1].length;
+        let html = "";
+        for (let d = 1; d <= divisions; d++) {
+          html += `<i class="ph-rank-pip${d <= reached ? " is-done" : ""}"></i>`;
+        }
+        pipsEl.innerHTML = html;
       }
     }
 

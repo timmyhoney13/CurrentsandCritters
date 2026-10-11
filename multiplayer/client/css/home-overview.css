@@ -28,14 +28,12 @@
 #auth-stats-lobby .ph-wrap > .ph-actions      { order: 3; }
 #auth-stats-lobby .ph-wrap > .ph-panel        { order: 4; }
 
-/* .ph-pranks holds the Level badge and the Competitive badge as a pair.
-   display:contents lets them be ordered independently of each other, so
-   Level can sit by the name and Competitive can hold the right edge. */
+/* The Level badge now lives inside .ph-pinfo, under the player's name, so
+   .ph-pranks holds Competitive alone and only has to hold the right edge. */
 #auth-stats-lobby .ph-profile-card > .ph-pranks { display: contents; }
 #auth-stats-lobby .ph-profile-card > .ph-avatar { order: 1; }
 #auth-stats-lobby .ph-profile-card > .ph-pinfo  { order: 2; min-width: 0; }
-#auth-stats-lobby .ph-pranks > .ph-rank-level   { order: 3; }
-#auth-stats-lobby .ph-pranks > .ph-rank-badge:not(.ph-rank-level) { order: 5; }
+#auth-stats-lobby .ph-pranks > .ph-rank-comp    { order: 5; }
 #auth-stats-lobby .ph-profile-card > #stats-lobby-signed-actions { order: 6; }
 #auth-stats-lobby .ph-profile-card > .ph-alpha-banner { display: none; }
 /* Nothing on this line is allowed to wrap: the children shrink instead, so
@@ -368,4 +366,171 @@
   /* Friends keeps its fade, so a cut row still says "more this way", but it
      stops being able to grow past the height of the phone. */
   #auth-stats-lobby .ph-friends-home #ph-friends-list { max-height: 44vh !important; }
+}
+
+/* ── the level rail and the Competitive plate ─────────────────────────
+   The two stats used to be the smallest type on the screen: 0.78rem text
+   beside a 6px bar, both squeezed into whatever the name column left over,
+   and Competitive painted gold whatever tier the player was actually on.
+
+   They are two different kinds of fact, so they stop sharing one shape.
+   Your level is part of who you are, so it reads as a rail under your
+   name, and it answers the question the header never answered: how much
+   of this level is left. Competitive is the thing you win, so it steps
+   out as a plate with the critter at full size, its own tier's colour,
+   and the tier's three real divisions lit up to the one you have reached.
+
+   Set on .ph-rank-level / .ph-rank-comp rather than on .ph-pranks, because
+   the Level badge is a child of .ph-pinfo now and the Competitive badge is
+   the only thing left in .ph-pranks. */
+
+/* Each tier's ink, plate and pip. Silver is the default so a tier nobody
+   has taught this file about still reads as a rank rather than as gold. */
+#auth-stats-lobby .ph-rank-comp {
+  --tier-ink:  #36495d; --tier-label: #8096ab;
+  --tier-top:  #fdfefe; --tier-bot:   #e4ecf3;
+  --tier-edge: #c3d1de; --tier-pip:   #64798d;
+}
+#auth-stats-lobby .ph-rank-comp[data-tier="bronze"] {
+  --tier-ink:  #70502f; --tier-label: #a2845f;
+  --tier-top:  #fffaf4; --tier-bot:   #f0e2d2;
+  --tier-edge: #dcc5ab; --tier-pip:   #a9774a;
+}
+#auth-stats-lobby .ph-rank-comp[data-tier="gold"] {
+  --tier-ink:  #8a5c00; --tier-label: #b08c3a;
+  --tier-top:  #fffdf3; --tier-bot:   #f7e9c6;
+  --tier-edge: #e2cb94; --tier-pip:   #c89320;
+}
+#auth-stats-lobby .ph-rank-comp[data-tier="diamond"] {
+  --tier-ink:  #1d5f80; --tier-label: #5e9ab8;
+  --tier-top:  #f5fdff; --tier-bot:   #dcf0fa;
+  --tier-edge: #a9d6e8; --tier-pip:   #3e9cc4;
+}
+#auth-stats-lobby .ph-rank-comp[data-tier="emerald"] {
+  --tier-ink:  #1b6349; --tier-label: #5c9e85;
+  --tier-top:  #f3fdf8; --tier-bot:   #d9f0e5;
+  --tier-edge: #a6d6c2; --tier-pip:   #2e9c74;
+}
+#auth-stats-lobby .ph-rank-comp[data-tier="king"] {
+  --tier-ink:  #7a5200; --tier-label: #a9833a;
+  --tier-top:  #fffcf1; --tier-bot:   #f6e3b8;
+  --tier-edge: #dcbd74; --tier-pip:   #c89320;
+}
+
+/* The rail: "Level 45" and what is left on one line, the bar under both. */
+#auth-stats-lobby .ph-pinfo .ph-rank-level {
+  border: none; background: none; padding: 0; margin-top: 7px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr);
+  align-items: center; gap: 3px 11px;
+  max-width: 430px;
+}
+#auth-stats-lobby .ph-rank-level .ph-rank-type {
+  grid-column: 1; display: flex; align-items: baseline; font-size: 0;
+}
+#auth-stats-lobby .ph-rank-level .ph-lvl-word {
+  font-size: .86rem; font-weight: 800; color: #5d8cbf; margin-right: 8px;
+}
+#auth-stats-lobby .ph-rank-level .ph-lvl-num {
+  font-family: "Cinzel", serif; font-size: 1.5rem; font-weight: 900;
+  color: #10417f; line-height: 1;
+}
+#auth-stats-lobby .ph-rank-level .ph-level-togo {
+  grid-column: 2; justify-self: end;
+  font-size: .84rem; font-weight: 800; color: #6f95bb; white-space: nowrap;
+}
+/* The wrap is a flex column between the rail and the bar, so it is handed
+   through and the bar and the reading become rows of the rail itself. */
+#auth-stats-lobby .ph-rank-level .ph-level-xp-wrap { display: contents; }
+#auth-stats-lobby .ph-rank-level .ph-level-xp-bar {
+  grid-column: 1 / -1; margin-top: 2px;
+  height: 13px !important; background: #dcebf6;
+  box-shadow: inset 0 1px 3px rgba(26,70,120,.18);
+}
+#auth-stats-lobby .ph-rank-level .ph-level-xp-fill {
+  background: linear-gradient(90deg, #37b6f5 0%, #1f79df 62%, #1b63c4 100%);
+  box-shadow: 0 0 9px rgba(45,160,240,.45);
+}
+#auth-stats-lobby .ph-rank-level .ph-level-xp-text {
+  grid-column: 1 / -1;
+  font-size: .84rem !important; font-weight: 700; color: #6c90b3;
+}
+
+/* The plate: critter, then the label over the name over the divisions. */
+#auth-stats-lobby .ph-pranks > .ph-rank-comp {
+  margin-left: auto;
+  border: 1px solid var(--tier-edge); border-radius: 16px;
+  background: linear-gradient(168deg, var(--tier-top) 0%, var(--tier-bot) 100%);
+  padding: 9px 18px 9px 14px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr);
+  align-items: center; column-gap: 14px; row-gap: 1px;
+  text-align: left; white-space: nowrap; color: var(--tier-ink);
+}
+#auth-stats-lobby .ph-rank-comp .ph-rank-comp-ico {
+  grid-column: 1; grid-row: 1 / span 3; align-self: center;
+  width: 52px; height: 52px; flex: 0 0 auto;
+}
+#auth-stats-lobby .ph-rank-comp .ph-rank-comp-ico img { width: 52px; height: 52px; }
+#auth-stats-lobby .ph-rank-comp .ph-rank-type {
+  grid-column: 2; grid-row: 1; display: block;
+  font-size: .78rem; font-weight: 800; color: var(--tier-label);
+}
+#auth-stats-lobby .ph-rank-comp .ph-rank-val {
+  grid-column: 2; grid-row: 2; margin-top: 1px;
+  font-size: 1.26rem; font-weight: 900; line-height: 1.1;
+  color: var(--tier-ink); white-space: nowrap;
+}
+#auth-stats-lobby .ph-rank-comp .ph-rank-pips {
+  grid-column: 2; grid-row: 3; display: flex; gap: 5px; margin-top: 6px;
+}
+/* Empty for King and for a player with no rank, and an empty flex row has
+   no height, so the plate closes up on its own. */
+#auth-stats-lobby .ph-rank-comp .ph-rank-pips:empty { display: none; }
+#auth-stats-lobby .ph-rank-comp .ph-rank-pip {
+  width: 24px; height: 5px; border-radius: 999px; background: #d7e0e8;
+}
+#auth-stats-lobby .ph-rank-comp .ph-rank-pip.is-done { background: var(--tier-pip); }
+
+/* Between a phone and the one-line desktop header the card is still the
+   grid preview.css gives it, so the rail and the plate are placed by hand:
+   avatar and name on the first row, the plate beside them, the buttons on
+   a row of their own. */
+@media (min-width: 561px) and (max-width: 1180px) {
+  #auth-stats-lobby .ph-profile-card {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 12px 16px; align-items: center;
+  }
+  #auth-stats-lobby[data-bg-tab="overview"] .ph-avatar {
+    width: 92px; height: 92px; grid-column: 1; grid-row: 1;
+  }
+  #auth-stats-lobby .ph-profile-card > .ph-pinfo { grid-column: 2; grid-row: 1; }
+  #auth-stats-lobby .ph-pranks > .ph-rank-comp { grid-column: 3; grid-row: 1; }
+  #auth-stats-lobby .ph-profile-card > #stats-lobby-signed-actions {
+    grid-column: 1 / -1; grid-row: 2; justify-content: flex-end;
+  }
+}
+
+/* On a phone the plate takes a row of its own under the name, because the
+   rank name is the longest string in the header and will not share. */
+@media (max-width: 560px) {
+  /* preview.css centres the name row on a phone, which left the nickname
+     floating over a left-aligned rail. One left edge for all three. */
+  #auth-stats-lobby .ph-pname-row { justify-content: flex-start; }
+  #auth-stats-lobby .ph-pinfo .ph-rank-level { margin-top: 6px; max-width: none; }
+  #auth-stats-lobby .ph-rank-level .ph-lvl-num { font-size: 1.3rem; }
+  #auth-stats-lobby .ph-rank-level .ph-level-togo { font-size: .76rem; }
+  #auth-stats-lobby .ph-rank-level .ph-level-xp-bar { height: 11px !important; }
+  #auth-stats-lobby .ph-rank-level .ph-level-xp-text { font-size: .76rem !important; }
+
+  #auth-stats-lobby .ph-profile-card > .ph-pranks {
+    display: block; grid-column: 1 / -1; grid-row: 2; min-width: 0;
+  }
+  #auth-stats-lobby .ph-pranks > .ph-rank-comp {
+    margin-left: 0; width: 100%; white-space: normal;
+    padding: 8px 14px 8px 11px; column-gap: 11px; border-top: 1px solid var(--tier-edge);
+  }
+  #auth-stats-lobby .ph-rank-comp .ph-rank-comp-ico,
+  #auth-stats-lobby .ph-rank-comp .ph-rank-comp-ico img { width: 40px; height: 40px; }
+  #auth-stats-lobby .ph-rank-comp .ph-rank-val { font-size: 1.05rem; white-space: normal; }
+  #auth-stats-lobby .ph-rank-comp .ph-rank-pips { margin-top: 5px; }
+  #auth-stats-lobby .ph-rank-comp .ph-rank-pip { width: 20px; }
 }
