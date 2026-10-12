@@ -23,10 +23,16 @@
 #auth-stats-lobby .ph-pinfo .ph-pmeta2 { display: none; }
 
 /* .ph-wrap is a flex column and the tab row is authored after the cards, so
-   order puts it back where it reads: under the header, over the games. */
+   order puts it back where it reads: under the header, over the games.
+   The panel comes BEFORE the games, because the panel is the only thing a
+   tab actually changes. Authored last, it used to sit under the four action
+   cards and the Friends card: on a 1440x900 screen that put it at 899px,
+   one pixel above the fold, so choosing History or Competitive changed
+   nothing you could see except the background tint. It now lands directly
+   under the header, where the change is the first thing you look at. */
 #auth-stats-lobby .ph-wrap > .ph-profile-card { order: 1; }
+#auth-stats-lobby .ph-wrap > .ph-panel        { order: 2; }
 #auth-stats-lobby .ph-wrap > .ph-actions      { order: 3; }
-#auth-stats-lobby .ph-wrap > .ph-panel        { order: 4; }
 
 /* The Level badge now lives inside .ph-pinfo, under the player's name, so
    .ph-pranks holds Competitive alone and only has to hold the right edge. */

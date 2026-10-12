@@ -8026,23 +8026,27 @@
     .ph-profile-card {
       background: rgba(252,255,255,.95);
       border: 1px solid rgba(168,203,232,.7);
-      border-radius: 26px;
+      border-radius: 22px;
       box-shadow: 0 9px 30px rgba(28,90,150,.11);
-      padding: 20px 22px;
+      padding: 13px 18px;
       display: grid;
       grid-template-columns: auto minmax(180px, 1fr) auto auto auto;
+    /* The header bar carries your name, level, XP and rank, and it is read
+       once on the way past. It used to stand 143px tall before anything a
+       tab changes, so it is kept tight: every part of it is still here, in
+       the same order, just not taking a sixth of the screen to say so. */
       align-items: center;
-      gap: 18px;
+      gap: 15px;
     }
     .ph-avatar {
       position: relative;
-      width: 114px;
-      height: 114px;
+      width: 84px;
+      height: 84px;
       border-radius: 50%;
       overflow: hidden;
       flex-shrink: 0;
       background: linear-gradient(145deg, #1f66bc 0%, #3ec0ee 100%);
-      border: 4px solid rgba(255,255,255,.96);
+      border: 3px solid rgba(255,255,255,.96);
       box-shadow: 0 0 0 2px rgba(35,121,206,.7), 0 7px 20px rgba(25,92,167,.25);
       display: flex;
       align-items: center;
@@ -8066,7 +8070,7 @@
     .ph-avatar.has-image #stats-avatar-letter { display: none; }
     #stats-avatar-letter {
       font-family: "Cinzel", serif;
-      font-size: 38px;
+      font-size: 29px;
       font-weight: 900;
       color: #f3fbff;
       text-shadow: 0 2px 7px rgba(0,0,0,.22);
@@ -11803,18 +11807,18 @@
     .ph-footer { display: none !important; }
 
     .ph-profile-card {
-      grid-template-columns: 132px minmax(200px, 1fr) auto minmax(340px, 430px) auto;
-      gap: 21px;
-      padding: 17px 22px;
-      border-radius: 23px;
+      grid-template-columns: 96px minmax(200px, 1fr) auto minmax(340px, 430px) auto;
+      gap: 15px;
+      padding: 12px 18px;
+      border-radius: 20px;
       border: 1px solid #cadfed;
       box-shadow: 0 5px 16px rgba(44,111,166,.09);
       background: rgba(250,253,255,.94);
     }
     .ph-avatar {
-      width: 116px;
-      height: 116px;
-      border-width: 3px;
+      width: 86px;
+      height: 86px;
+      border-width: 2px;
       box-shadow: 0 0 0 2px #66b2e6, 0 5px 14px rgba(43,113,177,.18);
     }
     .ph-pname {
@@ -12249,13 +12253,15 @@
         height: 195px;
         padding: 18px 20px 20px;
       }
-      /* Profile header, roomier */
+      /* Profile header. This used to be the roomiest thing on the screen,
+         which cost the panel below it the room it needed to be seen at all.
+         Same contents, same order, tighter. */
       #auth-stats-lobby[data-bg-tab="overview"] .ph-profile-card {
-        padding: 22px 28px;
+        padding: 13px 20px;
       }
       #auth-stats-lobby[data-bg-tab="overview"] .ph-avatar {
-        width: 110px;
-        height: 110px;
+        width: 84px;
+        height: 84px;
       }
       /* Quick Stats section title bigger */
       #auth-stats-lobby .ph-stats-title { font-size: 1.4rem; }
