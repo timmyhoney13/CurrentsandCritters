@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-12.4";
+  const APP_BUILD   = "2026-10-12.5";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -37712,6 +37712,110 @@
     function _compGetFfaCpDelta(currentCp, place, playerCount, hasPlayed) {
       const info = _compGetRankFromCp(currentCp, hasPlayed);
       const top    = Number.isFinite(info.ffaTop)    ? info.ffaTop    : 20;
+    /* ── OP over your ranked games ──────────────────────────────────────
+       A line of where your OP has been, drawn from the games themselves.
+
+       The ledger does not store an OP value per game: a record holds who
+       played, who won and what they scored, and nothing else. OP is not
+       guessed from that, it is REPLAYED: the same _compGetCpDelta and
+       _compGetFfaCpDelta the game pays with are run over your results
+       oldest first, so every step on this line is the step the ladder
+       actually took.
+
+       The replay then has its end pinned to the OP you really hold, and the
+       whole line moves with it. OP also arrives from places that are not a
+       ranked result (Ocean Points pay into the same total), so a replay that
+       started at nothing would finish below where you are and the chart
+       would disagree with the number printed right above it. Pinning the end
+       puts that difference in the oldest point, where it belongs, instead of
+       in the gap between this chart and your rank. */
+    // "Gold", not "Golden Grouper I": the full division name is wider than the
+    // gutter and ran off the left edge of the chart.
+    function _compTierWord(d) {
+      const t = String((d && d.tier) || "").trim();
+      if (t) return t.charAt(0).toUpperCase() + t.slice(1);
+      return String((d && d.name) || "").split(" ")[0] || "";
+    }
+
+    function _compOpChartHtml(entries, currentCp) {
+      const games = (entries || [])
+        .filter((e) => e && e.result)
+        .slice()
+        .sort((a, b) => (a.recorded || 0) - (b.recorded || 0))
+        .slice(-24);
+      if (games.length < 2) return "";
+
+      // replay the ladder's own arithmetic, oldest first
+      let cp = 0;
+      const walk = [0];
+      games.forEach((e, i) => {
+        const played = i > 0;
+        let d = 0;
+        if (e.ffa && typeof window._compGetFfaCpDelta === "function") {
+          d = window._compGetFfaCpDelta(cp, Number(e.place || 0), Number(e.count || 0), played);
+        } else if (typeof window._compGetCpDelta === "function") {
+          d = window._compGetCpDelta(cp, e.result, played);
+        }
+        cp = Math.max(0, cp + (Number.isFinite(d) ? d : 0));
+        walk.push(cp);
+      });
+
+      // pin the end to the OP actually held
+      const end = Number(currentCp || 0);
+      const shift = end - walk[walk.length - 1];
+      const pts = walk.map((v) => Math.max(0, v + shift));
+
+      const W = 560, H = 150, PL = 56, PR = 10, PT = 12, PB = 20;
+      const lo = Math.min(...pts), hi = Math.max(...pts);
+      const span = Math.max(1, hi - lo);
+      const pad = Math.max(6, Math.round(span * 0.12));
+      const yMin = Math.max(0, lo - pad), yMax = hi + pad;
+      const x = (i) => PL + (i * (W - PL - PR)) / Math.max(1, pts.length - 1);
+      const y = (v) => PT + (H - PT - PB) * (1 - (v - yMin) / Math.max(1, yMax - yMin));
+
+      const line = pts.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+      const area = `${line} L${x(pts.length - 1).toFixed(1)} ${(H - PB).toFixed(1)} L${x(0).toFixed(1)} ${(H - PB).toFixed(1)} Z`;
+
+      // the rank thresholds that fall inside the view, so the climb is read
+      // against the ladder rather than against nothing
+      let marks = "";
+      // only the first division of each tier, so a tall view is not striped
+      // with nine near-identical lines
+      const divs = (Array.isArray(_COMP_RANK_DIVS) ? _COMP_RANK_DIVS : [])
+        .filter((d) => d && / I$/.test(String(d.name || "")));
+      divs.forEach((d) => {
+        const at = Number(d.minCp);
+        if (!Number.isFinite(at) || at <= yMin || at >= yMax) return;
+        const yy = y(at).toFixed(1);
+        marks += `<line x1="${PL}" x2="${W - PR}" y1="${yy}" y2="${yy}" class="ph-opc-rule"/>`
+              + `<text x="${PL - 6}" y="${yy}" class="ph-opc-rule-lbl">${escapeHtml(_compTierWord(d))}</text>`;
+      });
+
+      const dots = pts.map((v, i) => {
+        const e = i === 0 ? null : games[i - 1];
+        const cls = !e ? "ph-opc-dot" : `ph-opc-dot is-${e.result}`;
+        const when = e && e.recorded ? new Date(e.recorded * 1000).toLocaleDateString() : "before these games";
+        const title = e ? `${e.resultLabel || e.result}, ${when}: ${Math.round(v)} OP` : `${Math.round(v)} OP`;
+        return `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i === pts.length - 1 ? 4.5 : 3}" class="${cls}"><title>${escapeHtml(title)}</title></circle>`;
+      }).join("");
+
+      return `
+        <div class="ph-opc-head">
+          <div class="ph-opc-title">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 12.5 6 8l3 2.6L14 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Your OP, last ${games.length} ranked ${games.length === 1 ? "game" : "games"}
+          </div>
+          <div class="ph-opc-now">${Math.round(end).toLocaleString()} OP</div>
+        </div>
+        <svg class="ph-opc-svg" viewBox="0 0 ${W} ${H}" role="img"
+             aria-label="Your OP across your last ${games.length} ranked games, now ${Math.round(end)} OP">
+          ${marks}
+          <path d="${area}" class="ph-opc-area"/>
+          <path d="${line}" class="ph-opc-line"/>
+          ${dots}
+        </svg>`;
+    }
+
       const bottom = Number.isFinite(info.ffaBottom) ? info.ffaBottom : 4;
       const n = Math.floor(Number(playerCount) || 0);
       const p = Math.floor(Number(place) || 0);
@@ -38001,6 +38105,15 @@
       const winPct = (effWins + effLosses) > 0 ? Math.round((effWins / (effWins + effLosses)) * 100) : 0;
 
       // Average best score, prefer Firebase, fallback to history
+      // OP over the ranked games behind that number
+      const opChart = $a("ph-comp-op-chart");
+      if (opChart) {
+        let html = "";
+        try { html = _compOpChartHtml(myEntries.map(([, e]) => e), storedCp); } catch (_) { html = ""; }
+        opChart.innerHTML = html;
+        opChart.style.display = html ? "" : "none";
+      }
+
       const avgBest = Number(stats.average_competitive_score || 0) ||
         (myEntries.length > 0
           ? Math.round(myEntries.reduce((sum, [, e]) => sum + e.myScore, 0) / myEntries.length)

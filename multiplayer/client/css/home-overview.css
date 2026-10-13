@@ -652,3 +652,46 @@ body.ph-expanded #auth-stats-lobby .ph-actions { display: none !important; }
   #auth-stats-lobby .ph-rank-comp .ph-rank-pips { margin-top: 5px; }
   #auth-stats-lobby .ph-rank-comp .ph-rank-pip { width: 20px; }
 }
+
+/* ── OP over your ranked games ────────────────────────────────────────
+   The line at the top of Competitive. Built by _compOpChartHtml() in
+   js/preview-app.js and drawn as inline SVG, so it scales with the box and
+   needs no chart library. Colours come from the reef palette the rest of
+   this tab uses: blue for the line, green for a win, red for a loss. */
+#auth-stats-lobby .ph-op-chart {
+  background: rgba(252, 255, 255, .88);
+  border: 1px solid rgba(140, 200, 235, .55);
+  border-radius: 16px;
+  padding: 12px 14px 8px;
+  margin: 0 0 14px;
+}
+#auth-stats-lobby .ph-opc-head {
+  display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px;
+}
+#auth-stats-lobby .ph-opc-title {
+  display: flex; align-items: center; gap: 7px;
+  font-family: "Cinzel", serif; font-weight: 900; font-size: 1.02rem; color: #0f5390;
+}
+#auth-stats-lobby .ph-opc-title svg { color: #2e94dc; }
+#auth-stats-lobby .ph-opc-now {
+  margin-left: auto;
+  font-family: "Nunito", sans-serif; font-weight: 900; font-size: 1.02rem;
+  color: #1558b0; font-variant-numeric: tabular-nums;
+}
+#auth-stats-lobby .ph-opc-svg { display: block; width: 100%; height: auto; }
+#auth-stats-lobby .ph-opc-line {
+  fill: none; stroke: #2e94dc; stroke-width: 2.4;
+  stroke-linejoin: round; stroke-linecap: round;
+}
+#auth-stats-lobby .ph-opc-area { fill: rgba(83, 184, 239, .17); stroke: none; }
+#auth-stats-lobby .ph-opc-rule {
+  stroke: rgba(120, 175, 215, .45); stroke-width: 1; stroke-dasharray: 3 4;
+}
+#auth-stats-lobby .ph-opc-rule-lbl {
+  fill: #5a86ad; font-family: "Nunito", sans-serif; font-size: 9px;
+  font-weight: 800; text-anchor: end; dominant-baseline: middle;
+}
+#auth-stats-lobby .ph-opc-dot { fill: #2e94dc; }
+#auth-stats-lobby .ph-opc-dot.is-win  { fill: #27a877; }
+#auth-stats-lobby .ph-opc-dot.is-loss { fill: #d7584a; }
+#auth-stats-lobby .ph-opc-dot.is-draw { fill: #8ba6bd; }
