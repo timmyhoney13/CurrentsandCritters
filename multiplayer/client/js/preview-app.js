@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-12.3";
+  const APP_BUILD   = "2026-10-12.4";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -25542,6 +25542,16 @@
       const expectedUid = String(uid || "");
       if (!_authUser || _authUser.uid !== expectedUid) return;
       const loadSeq = ++_statsLoadSeq;
+      // Paint the tab that is open, now that we know who is looking.
+      // The home screen opens on Friends, and switchTab runs once while the
+      // page is still parsing, long before sign-in resolves: renderPhFriendsList
+      // ran against no account and left an empty list that nothing came back to
+      // fill. Every tab's renderer is re-run here for the same reason.
+      try {
+        if (typeof window._switchPhTab === "function") {
+          window._switchPhTab(window.__ccPhTab || "friends");
+        }
+      } catch (_) {}
       const _stillMine = () => loadSeq === _statsLoadSeq && _authUser && _authUser.uid === expectedUid;
       let profile = null, reason = "error";
       for (let attempt = 0; attempt <= _STATS_LOAD_RETRIES; attempt++) {
@@ -32471,6 +32481,14 @@
         if (name === "clans")        _renderClansTab();
         if (name === "prestige")     _renderPrestigeTab();
         if (name === "levelpass")    _renderLevelPassTab();
+        window.__ccPhTab = name;
+        // Changing tabs puts the lid back on: an expanded page hides the game
+        // cards, and carrying that into the next tab would hide them there too.
+        document.body.classList.remove("ph-expanded");
+        document.querySelectorAll(".ph-box-expand").forEach((b) => {
+          b.setAttribute("aria-expanded", "false");
+          const l = b.querySelector("span"); if (l) l.textContent = "Expand";
+        });
         // Changing tabs puts the lid back on: an expanded page hides the game
         // cards, and carrying that into the next tab would hide them there too.
         document.body.classList.remove("ph-expanded");
@@ -32534,12 +32552,18 @@
         // #cc-clan-prize keep their ids, their listeners and the renderers
         // that have always painted into them.
         if (friendsHome && friendsPanel) friendsPanel.appendChild(friendsHome);
-        if (statsPanel && (gn || clan)) {
+        // Game Night and the season prize belong to the home screen, not to
+        // one tab: they go in .ph-wrap above whichever page is open, so they
+        // are on every tab. Store and How to play hide them in CSS, being
+        // reference pages rather than the home screen.
+        const wrap = document.querySelector(".ph-wrap");
+        if (wrap && (gn || clan)) {
           const bands = document.createElement("div");
           bands.className = "ph-home-bands";
           if (gn) bands.appendChild(gn);
           if (clan) bands.appendChild(clan);
-          statsPanel.insertBefore(bands, statsPanel.firstChild);
+          const profile = wrap.querySelector(":scope > .ph-profile-card");
+          wrap.insertBefore(bands, profile ? profile.nextSibling : wrap.firstChild);
         }
 
         // ── Every tab is the same box, with a way to open it right out ──
@@ -32574,6 +32598,14 @@
               const label = b.querySelector("span");
               if (label) label.textContent = open ? "Close" : "Expand";
               b.setAttribute("title", open ? "Back to the home screen" : "Open this page right out");
+          // fade the bottom edge only while there is more under it
+          const edge = () => {
+            const more = panel.scrollHeight - panel.clientHeight - panel.scrollTop > 2;
+            panel.classList.toggle("is-more", more);
+          };
+          panel.addEventListener("scroll", edge, { passive: true });
+          if (window.ResizeObserver) { try { new ResizeObserver(edge).observe(panel); } catch (_) {} }
+          setTimeout(edge, 0);
             });
             if (open) panel.scrollTop = 0;
           });
@@ -32623,31 +32655,28 @@
         });
       })();
 
-      // ── The home screen IS the tab, the cards are the way into a game ──
-      // Game Night, the season prize and the Friends card used to live in
-      // .ph-actions, which sits outside the panels, so all three showed on
-      // every tab and pushed the tab's own panel off the bottom of the page.
-      // They move to where they belong: Friends becomes the Friends page, and
-      // the two bands go to the top of Stats. What is left in .ph-actions is
-      // the four ways into a game, on one line (css/home-overview.css).
-      (function homeIsTheTab() {
-        const friendsPanel = document.getElementById("ph-panel-friends");
-        const statsPanel   = document.getElementById("ph-panel-overview");
-        const friendsHome  = document.querySelector(".ph-friends-home");
-        const gn           = document.querySelector(".ph-home-gn");
-        const clan         = document.querySelector(".ph-home-clan");
-        // Moved, never re-created: #ph-friends-list, #cc-game-night and
-        // #cc-clan-prize keep their ids, their listeners and the renderers
-        // that have always painted into them.
-        if (friendsHome && friendsPanel) friendsPanel.appendChild(friendsHome);
-        if (statsPanel && (gn || clan)) {
-          const bands = document.createElement("div");
-          bands.className = "ph-home-bands";
-          if (gn) bands.appendChild(gn);
-          if (clan) bands.appendChild(clan);
-          statsPanel.insertBefore(bands, statsPanel.firstChild);
-        }
-      })();
+      // Sidebar nav, mirror horizontal tab switching + keep active state in sync
+      const snavItems = document.querySelectorAll(".ph-snav-item[data-tab]");
+      snavItems.forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
+      // Extend switchTab to also update sidebar active state
+      const _origSwitchTab = switchTab;
+      switchTab = function(name) {
+        // Normalised here too, so the sidebar's active state follows the tab
+        // the player actually landed on rather than the one they asked for.
+        name = phTabOrFallback(name);
+        _origSwitchTab(name);
+        // Prestige is reached from the end of the Level Pass track and has no
+        // sidebar item of its own, so the pass stays lit while it is open.
+        const lit = name === "prestige" ? "levelpass" : name;
+        snavItems.forEach(b => b.classList.toggle("active", b.dataset.tab === lit));
+      };
+      window._switchPhTab = switchTab;
+      // The home screen opens on Friends. Going through switchTab rather than
+      // trusting the markup means the panels, the lit menu item and the tab's
+      // background all start out agreeing with each other.
+      try { switchTab("friends"); } catch (_) {}
+      // Settings is no longer a sidebar item; it's the gear in the top-right
+      // (wired next to the Trade button above).
 
           pin.setAttribute("aria-pressed", on ? "true" : "false");
           const label = on ? "Collapse the menu" : "Keep the menu open";

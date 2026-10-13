@@ -31,8 +31,9 @@
    nothing you could see except the background tint. It now lands directly
    under the header, where the change is the first thing you look at. */
 #auth-stats-lobby .ph-wrap > .ph-profile-card { order: 1; }
-#auth-stats-lobby .ph-wrap > .ph-panel        { order: 2; }
-#auth-stats-lobby .ph-wrap > .ph-actions      { order: 3; }
+#auth-stats-lobby .ph-wrap > .ph-home-bands   { order: 2; }
+#auth-stats-lobby .ph-wrap > .ph-panel        { order: 3; }
+#auth-stats-lobby .ph-wrap > .ph-actions      { order: 4; }
 
 /* The Level badge now lives inside .ph-pinfo, under the player's name, so
    .ph-pranks holds Competitive alone and only has to hold the right edge. */
@@ -110,20 +111,35 @@
   height: auto !important;
 }
 #auth-stats-lobby .ph-actions > .ph-action-card:nth-child(4) { order: -1; }
+/* The cards are the last thing on the page and they are round: without room
+   under them the bottom corners and their shadow sit flush against the end
+   of the scroll and read as cut off.
 
-/* The two bands, side by side at the top of Stats, where the Overview panel
-   used to begin. */
-#auth-stats-lobby #ph-panel-overview .ph-home-bands {
+   The room is PADDING on the card row. .ph-wrap is stretched to the lobby's
+   height and its children overflow it, so neither the wrap's own padding nor
+   a margin on the last child reaches the lobby's scroll height: both measured
+   a gap of zero. Padding is part of the row's own box, so it does. */
+#auth-stats-lobby .ph-wrap > .ph-actions { padding-bottom: 28px; }
+
+/* The two bands sit above whichever page is open, so they are on every tab.
+   Store and How to play are the exceptions: they are reference pages you
+   came to read, not the home screen, and they carry none of its furniture.
+   An opened-out page drops them too, because the point of expanding is to
+   see that page the way it used to look. */
+#auth-stats-lobby .ph-wrap > .ph-home-bands {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px; margin: 0 0 14px;
+  gap: 14px; margin: 0;
 }
+#auth-stats-lobby[data-bg-tab="store"] .ph-wrap > .ph-home-bands,
+#auth-stats-lobby[data-bg-tab="howto"] .ph-wrap > .ph-home-bands,
+body.ph-expanded #auth-stats-lobby .ph-wrap > .ph-home-bands { display: none; }
 #auth-stats-lobby .ph-home-gn,
 #auth-stats-lobby .ph-home-clan { min-width: 0; }
 #auth-stats-lobby .ph-home-gn   #cc-game-night { margin: 0; height: 100%; }
 #auth-stats-lobby .ph-home-clan #cc-clan-prize { margin: 0; height: 100%; }
 #auth-stats-lobby .ph-home-clan .ccPrize-inner { height: 100%; }
 @media (max-width: 860px) {
-  #auth-stats-lobby #ph-panel-overview .ph-home-bands { grid-template-columns: 1fr; }
+  #auth-stats-lobby .ph-wrap > .ph-home-bands { grid-template-columns: 1fr; }
 }
 
 /* ── Every tab is the same box ────────────────────────────────────────
@@ -138,6 +154,15 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 2px;
+  border-radius: 18px;
+}
+/* A box with more below it fades its last few pixels instead of slicing a
+   card off flat, which reads as a thing that failed to draw rather than a
+   list that carries on. Put on and taken off in js/preview-app.js, so a box
+   that fits is never faded. */
+#auth-stats-lobby .ph-panel.ph-boxed.is-more {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), rgba(0,0,0,0) 100%);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), rgba(0,0,0,0) 100%);
 }
 #auth-stats-lobby #ph-panel-friends.ph-boxed {
   display: flex; flex-direction: column; overflow: hidden;
@@ -263,7 +288,14 @@ body.ph-expanded #auth-stats-lobby .ph-actions { display: none !important; }
 #auth-stats-lobby #stats-lobby-signed-actions { flex: none; }
 
 /* ── the tab row had a height of its own and swallowed its buttons ───── */
+/* .ph-wrap is a flex column inside a lobby with a definite height, so every
+   child shrinks to fit unless it says otherwise. The panel has to say so too:
+   without this its height was quietly squeezed from the 52vh the box asks for
+   down to whatever was left over, which also meant the page never scrolled
+   and the box never showed its own scrollbar. */
 #auth-stats-lobby .ph-wrap > .ph-profile-card,
+#auth-stats-lobby .ph-wrap > .ph-home-bands,
+#auth-stats-lobby .ph-wrap > .ph-panel,
 #auth-stats-lobby .ph-wrap > .ph-actions { flex: none; }
 
 /* ── Friends card order: title, list, then the code and the join box ───
