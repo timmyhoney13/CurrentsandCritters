@@ -126,10 +126,71 @@
   #auth-stats-lobby #ph-panel-overview .ph-home-bands { grid-template-columns: 1fr; }
 }
 
-/* The Friends card now fills the Friends page instead of a corner of the
-   action block, so it is given a height to fill rather than taking one. */
-#auth-stats-lobby #ph-panel-friends .ph-friends-home {
+/* ── Every tab is the same box ────────────────────────────────────────
+   A tab's page is shown in the box the Friends card used to sit in, so the
+   four game cards stay on screen under it. The button in the corner takes
+   the lid off: the box becomes the whole page and the cards step aside,
+   which is the old screen, unchanged. js/preview-app.js adds .ph-boxed and
+   the button; Store and How to play are deliberately left out of both. */
+#auth-stats-lobby .ph-panel.ph-boxed {
+  position: relative;
   height: clamp(340px, 52vh, 620px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+#auth-stats-lobby #ph-panel-friends.ph-boxed {
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#auth-stats-lobby #ph-panel-friends.ph-boxed > .ph-friends-home {
+  flex: 1; min-height: 0; height: auto;
+}
+/* The corner button rides the box, not the page under it: it is the panel's
+   first child and sticks to the top as the rest scrolls beneath, and the
+   negative bottom margin keeps it from pushing that content down. */
+#auth-stats-lobby .ph-box-expand {
+  position: sticky; top: 4px; z-index: 6;
+  /* flex, not inline-flex: an inline box ignores margin-left:auto, which is
+     what carries it to the corner */
+  display: flex; align-items: center; gap: 6px;
+  width: -moz-fit-content; width: fit-content;
+  margin: 0 2px -32px auto;
+  font-family: "Nunito", sans-serif; font-weight: 800; font-size: .82rem;
+  color: #1558b0; background: rgba(255,255,255,.94);
+  border: 1px solid rgba(140,200,235,.75); border-radius: 999px;
+  padding: 6px 12px; cursor: pointer;
+  box-shadow: 0 2px 9px rgba(20,80,150,.14);
+  transition: background .14s, transform .14s;
+}
+#auth-stats-lobby .ph-box-expand:hover { background: #fff; transform: translateY(-1px); }
+/* Friends does not scroll as a whole, its list does, so the button is simply
+   pinned to the panel's corner there. */
+#auth-stats-lobby #ph-panel-friends.ph-boxed > .ph-box-expand {
+  position: absolute; top: 10px; right: 12px; margin: 0;
+}
+
+/* Opened right out: the box is the page and the game cards step aside. */
+body.ph-expanded #auth-stats-lobby .ph-panel.ph-boxed {
+  height: auto; overflow: visible;
+}
+body.ph-expanded #auth-stats-lobby #ph-panel-friends.ph-boxed { display: block; }
+body.ph-expanded #auth-stats-lobby #ph-panel-friends.ph-boxed > .ph-friends-home {
+  height: clamp(340px, 60vh, 760px);
+}
+body.ph-expanded #auth-stats-lobby .ph-actions { display: none !important; }
+
+/* ── A stat you can ask about ─────────────────────────────────────────
+   Each number says what it counts when you click it. Closed, the line is
+   not in the layout at all, so a grid of eight does not stand twice as
+   tall waiting for a question nobody asked. */
+#auth-stats-lobby .ph-sc[role="button"] { cursor: pointer; }
+#auth-stats-lobby .ph-sc[role="button"]:hover { background: rgba(255,255,255,.72); }
+#auth-stats-lobby .ph-sc .ph-sc-why { display: none; }
+#auth-stats-lobby .ph-sc.is-why .ph-sc-why {
+  display: block;
+  margin-top: 7px; padding-top: 7px;
+  border-top: 1px solid rgba(120,180,220,.4);
+  font-size: .8rem; line-height: 1.4; font-weight: 600; color: #3a6a96;
 }
 /* Join by code is off Overview. The markup stays so the handlers that bind
    to #stats-join-code and #stats-join-go-btn still find their elements. */

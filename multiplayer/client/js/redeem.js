@@ -104,15 +104,16 @@
   function host() {
     let el = $("cc-redeem-root");
     if (el) return el;
-    const friends = $("ph-panel-friends");
-    if (!friends) return null;
+    // The foot of the Store. A purchase code is the receipt for something
+    // bought on the website, so it belongs with the things you spend on, not
+    // in Friends next to the friend code: the two look alike and mean nothing
+    // like each other, and a supporter looking for where their coins go looks
+    // in the Store. forwardToReferral() still takes a friend code typed here.
+    const store = $("ph-panel-store");
+    if (!store) return null;
     el = document.createElement("div");
     el.id = "cc-redeem-root";
-    // Directly under the referral card when there is one, so the two code
-    // boxes sit together rather than at opposite ends of the tab.
-    const ref = $("cc-referral-root");
-    if (ref && ref.parentNode === friends) friends.insertBefore(el, ref.nextSibling);
-    else friends.insertBefore(el, friends.firstChild);
+    store.appendChild(el);
     return el;
   }
 

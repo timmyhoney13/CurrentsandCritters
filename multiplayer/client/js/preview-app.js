@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-12.2";
+  const APP_BUILD   = "2026-10-12.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -32471,6 +32471,13 @@
         if (name === "clans")        _renderClansTab();
         if (name === "prestige")     _renderPrestigeTab();
         if (name === "levelpass")    _renderLevelPassTab();
+        // Changing tabs puts the lid back on: an expanded page hides the game
+        // cards, and carrying that into the next tab would hide them there too.
+        document.body.classList.remove("ph-expanded");
+        document.querySelectorAll(".ph-box-expand").forEach((b) => {
+          b.setAttribute("aria-expanded", "false");
+          const l = b.querySelector("span"); if (l) l.textContent = "Expand";
+        });
         if (name === "critterpass")  _renderCritterPassTab();
         if (name === "store")        renderPhStore();
       }
@@ -32510,6 +32517,112 @@
         const KEY = "cc_sidebar_pinned";
         const apply = (on) => {
           sb.classList.toggle("ph-sidebar-pinned", on);
+      // ── The home screen IS the tab, the cards are the way into a game ──
+      // Game Night, the season prize and the Friends card used to live in
+      // .ph-actions, which sits outside the panels, so all three showed on
+      // every tab and pushed the tab's own panel off the bottom of the page.
+      // They move to where they belong: Friends becomes the Friends page, and
+      // the two bands go to the top of Stats. What is left in .ph-actions is
+      // the four ways into a game, on one line (css/home-overview.css).
+      (function homeIsTheTab() {
+        const friendsPanel = document.getElementById("ph-panel-friends");
+        const statsPanel   = document.getElementById("ph-panel-overview");
+        const friendsHome  = document.querySelector(".ph-friends-home");
+        const gn           = document.querySelector(".ph-home-gn");
+        const clan         = document.querySelector(".ph-home-clan");
+        // Moved, never re-created: #ph-friends-list, #cc-game-night and
+        // #cc-clan-prize keep their ids, their listeners and the renderers
+        // that have always painted into them.
+        if (friendsHome && friendsPanel) friendsPanel.appendChild(friendsHome);
+        if (statsPanel && (gn || clan)) {
+          const bands = document.createElement("div");
+          bands.className = "ph-home-bands";
+          if (gn) bands.appendChild(gn);
+          if (clan) bands.appendChild(clan);
+          statsPanel.insertBefore(bands, statsPanel.firstChild);
+        }
+
+        // ── Every tab is the same box, with a way to open it right out ──
+        // The tab's own page is kept exactly as it was. It is shown in the
+        // box the Friends card sits in, so the four game cards stay on
+        // screen under it, and the button in the corner takes the lid off:
+        // the box becomes the whole page and the cards step aside. That is
+        // the old screen, unchanged, which is the point of it.
+        // Store and How to play are not boxed. They are reference pages you
+        // read top to bottom, they carry no game cards, and a box would put
+        // a scrollbar around a thing that is already a scroll.
+        const BOXED = ["friends", "overview", "competitive", "history", "messages",
+                       "achievements", "leaderboard", "clans", "prestige",
+                       "levelpass", "critterpass"];
+        BOXED.forEach((name) => {
+          const panel = document.getElementById("ph-panel-" + name);
+          if (!panel || panel.querySelector(":scope > .ph-box-expand")) return;
+          panel.classList.add("ph-boxed");
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "ph-box-expand";
+          btn.setAttribute("aria-expanded", "false");
+          btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"'
+            + ' aria-hidden="true"><path d="M6 2H2v4M10 14h4v-4M14 6V2h-4M2 10v4h4"'
+            + ' stroke="currentColor" stroke-width="1.8" stroke-linecap="round"'
+            + ' stroke-linejoin="round"/></svg><span>Expand</span>';
+          btn.addEventListener("click", () => {
+            const open = !document.body.classList.contains("ph-expanded");
+            document.body.classList.toggle("ph-expanded", open);
+            document.querySelectorAll(".ph-box-expand").forEach((b) => {
+              b.setAttribute("aria-expanded", String(open));
+              const label = b.querySelector("span");
+              if (label) label.textContent = open ? "Close" : "Expand";
+              b.setAttribute("title", open ? "Back to the home screen" : "Open this page right out");
+            });
+            if (open) panel.scrollTop = 0;
+          });
+          btn.setAttribute("title", "Open this page right out");
+          // first child, not last: the panel is the scroller, and a sticky
+          // button only stays in the corner if the content scrolls PAST it
+          panel.insertBefore(btn, panel.firstChild);
+        });
+
+        // ── A stat you can ask about ──────────────────────────────────
+        // The numbers are in the box now, so each one says what it counts
+        // when you click it. The copy lives here because nothing else knows
+        // it: the renderers only ever set the value.
+        const STAT_WHY = {
+          "ph-ov-total-games":  "Every game you have finished, in every mode. A game you left early is not counted.",
+          "ph-ov-total-wins":   "Games you finished in first place. A draw at the top counts for both of you.",
+          "ph-ov-win-rate":     "Your wins as a share of the games you finished.",
+          "stat-hours-played":  "Time at the table, added up from the length of each finished game.",
+          "ph-ov-achievements": "How many of the game's achievements you have earned so far.",
+          "ph-ov-animals":      "Animals you have placed in a current that scored. There are 161 in the deck.",
+          "ph-ov-most-strategy":"The strategy you have played more than any other.",
+          "ph-ov-comp-rank":    "Your rank on the Competitive ladder. Rated games at a seat count place you on that board."
+        };
+        Object.keys(STAT_WHY).forEach((id) => {
+          const val = document.getElementById(id);
+          const cell = val && val.closest(".ph-sc");
+          if (!cell || cell.dataset.ccWhy) return;
+          cell.dataset.ccWhy = "1";
+          cell.setAttribute("role", "button");
+          cell.setAttribute("tabindex", "0");
+          cell.title = "What this counts";
+          const why = document.createElement("div");
+          why.className = "ph-sc-why";
+          why.textContent = STAT_WHY[id];
+          cell.appendChild(why);
+          const flip = () => {
+            const on = !cell.classList.contains("is-why");
+            // one open at a time: two of these side by side pushed the grid
+            // around and read as a wall of text
+            document.querySelectorAll(".ph-sc.is-why").forEach((o) => o.classList.remove("is-why"));
+            cell.classList.toggle("is-why", on);
+          };
+          cell.addEventListener("click", flip);
+          cell.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(); }
+          });
+        });
+      })();
+
       // ── The home screen IS the tab, the cards are the way into a game ──
       // Game Night, the season prize and the Friends card used to live in
       // .ph-actions, which sits outside the panels, so all three showed on

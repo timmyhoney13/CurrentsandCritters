@@ -84,11 +84,19 @@ function makeEnv(opts) {
       click() { (this._listeners.click || []).forEach((fn) => fn({})); },
       keydown(key) { (this._listeners.keydown || []).forEach((fn) => fn({ key })); },
       insertBefore(kid) { kid.parentNode = this; return kid; },
+      appendChild(kid) { kid.parentNode = this; return kid; },
     };
     if (id) byId.set(id, node);
     return node;
   }
 
+  // The card mounts at the foot of the Store tab: a purchase code is the
+  // receipt for something bought on the website, not a friend code. Friends
+  // is still stubbed because forwardToReferral() hands a friend code typed
+  // here over to referral.js, which lives there.
+  const store = makeNode("div", "ph-panel-store");
+  store.firstChild = null;
+  byId.set("ph-panel-store", store);
   const friends = makeNode("div", "ph-panel-friends");
   friends.firstChild = null;
   byId.set("ph-panel-friends", friends);
