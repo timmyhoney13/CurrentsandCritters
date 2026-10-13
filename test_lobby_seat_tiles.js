@@ -84,6 +84,20 @@ function grabConst(name) {
   throw new Error("unbalanced const: " + name);
 }
 
+// The same, for a top-level object literal (the explorer bio table).
+function grabObjConst(name) {
+  const re = new RegExp("^  const " + name + " = \\{", "m");
+  const m = re.exec(APP);
+  if (!m) throw new Error("missing const: " + name);
+  const i = APP.indexOf("{", m.index);
+  let d = 0;
+  for (let j = i; j < APP.length; j++) {
+    if (APP[j] === "{") d++;
+    else if (APP[j] === "}" && --d === 0) return APP.slice(m.index, j + 2);
+  }
+  throw new Error("unbalanced const: " + name);
+}
+
 // Slice one top-level function out by balancing its braces.
 function grabFn(name) {
   const re = new RegExp("^  (?:async )?function " + name + "\\s*\\(", "m");
@@ -199,6 +213,57 @@ console.log("\na spot shows the player everyone knows");
   check(/wr-seat-edit/.test(LOBBY) && /__fishOpenAvatarGallery/.test(LOBBY),
         "you can change your own critter from your own spot");
   check(/isMine/.test(LOBBY), "…and only from your own");
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  4b. EVERY EXPLORER IN THE POOL CAN INTRODUCE ITSELF
+// ════════════════════════════════════════════════════════════════════════
+// The names come off fish.OCEAN_EXPLORER_NAMES and the introductions off
+// WR_EXPLORER_BIOS in preview-app.js, which are two lists in two languages in
+// two files. A name added to the pool with no line written for it is silent on
+// the tile, and a line written for a name that is not in the pool is dead
+// text: only reading both and comparing them catches either.
+console.log("\nevery bot the server can name can say who it is");
+{
+  const FISH = fs.readFileSync(path.join(ROOT, "fish_game_all_in_one.py"), "utf8");
+  const poolSrc = FISH.slice(FISH.indexOf("OCEAN_EXPLORER_NAMES: Tuple[str, ...] = ("),
+                             FISH.indexOf("def explorer_names"));
+  const pool = [...poolSrc.matchAll(/^\s*"([^"]+)",/gm)].map(m => m[1]);
+  check(pool.length >= 30, "the server's explorer pool was found", String(pool.length));
+
+  const bioSrc = APP.slice(APP.indexOf("const WR_EXPLORER_BIOS = {"),
+                           APP.indexOf("function _wrExplorerBio"));
+  const bios = {};
+  for (const m of bioSrc.matchAll(/^\s{4}([a-z_]+):\s*"((?:[^"\\]|\\.)*)",$/gm)) bios[m[1]] = m[2];
+  const keys = Object.keys(bios);
+  check(keys.length === pool.length,
+        "one introduction per name in the pool",
+        `pool ${pool.length}, bios ${keys.length}`);
+  pool.forEach(name => check(!!bios[name.toLowerCase()],
+                             `${name} can say who it is`));
+  keys.forEach(k => check(pool.some(n => n.toLowerCase() === k),
+                          `${k} is a name the server can actually hand out`));
+
+  // The shape the tile promises: first person, the century, the trade, and a
+  // year, so no bot introduces itself with a deed and no date on it.
+  Object.entries(bios).forEach(([k, line]) => {
+    check(line.startsWith("I am "), `${k} speaks for itself`, line.slice(0, 40));
+    check(/a famous [0-9]+(st|nd|rd|th) century( BC)? /.test(line),
+          `${k} says which century`, line.slice(0, 60));
+    check(/\b(1[0-9]{3}|2[0-9]{3}|[0-9]{3} BC)\b/.test(line), `${k} puts a year on it`, line);
+    // Player-facing copy: the game's two standing rules about it.
+    check(!/[\u2014\u2013]/.test(line), `${k} has no em dash`);
+    check(!/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(line), `${k} has no emoji`);
+  });
+  const texts = Object.values(bios);
+  check(new Set(texts).size === texts.length, "no two explorers share a line");
+
+  // The fallback past the end of the pool is "Bot 7", which is nobody: it must
+  // draw no line at all rather than somebody else's.
+  check(/WR_EXPLORER_BIOS\[String\(name \|\| ""\)\.trim\(\)\.toLowerCase\(\)\] \|\| ""/.test(APP),
+        "a seat whose name is not an explorer's gets no line");
+  check(/const bio = _wrExplorerBio\(s\.claimed_name\);\s*\n\s*if \(bio\)/.test(APP),
+        "…and the tile draws nothing for it");
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -341,6 +406,7 @@ function page() {
                // A bot spot wears its RANK'S animal, the one Head to Head
                // stands that rank on, so _wrSeatAvatarUrl reaches these.
                "bmAnimalFor", "bmAnimalForRank", "bmAvatarForRank",
+               "_wrExplorerBio",
                "_wrSeatCard", "_wrAddCard", "_wrRenderCapacity", "renderSeatTilesInto",
                "_wrRankChip", "_wrLoadCompRanks", "_wrResetCompRanks", "renderCompLobbyInto",
                "renderTeamLobbyInto", "teamName", "teamHex",
@@ -370,10 +436,15 @@ function page() {
         background: "/backgrounds/bg-kelp.png", level: 63, xp: 2410, xp_goal: 4600,
         best: 455, games: 210, title: "Deep Diver" }),
       seat(3, "human", null),
-      seat(4, "ai", "Bot 1", { difficulty: "c", grade: "C", grade_elo: 900 }),
+      // Named the way the server names a bot: an explorer's surname off
+      // fish.OCEAN_EXPLORER_NAMES, drawn down per room so two bots at one
+      // table are never the same person. Two of them here, so the pair can be
+      // checked for introducing themselves as two different people.
+      seat(4, "ai", "Nansen", { difficulty: "c", grade: "C", grade_elo: 900 }),
       // The widest grade on the ladder, in the tile least able to hold it: a
-      // three-character badge next to a nineteen-entry list.
-      seat(5, "ai", "Bot 2", { difficulty: "ss_plus", grade: "SS+", grade_elo: 1900 }),
+      // three-character badge next to a nineteen-entry list. The longest
+      // explorer bio in the pool rides in the same tile.
+      seat(5, "ai", "Shackleton", { difficulty: "ss_plus", grade: "SS+", grade_elo: 1900 }),
     ],
     room: { quick_play: false, competitive: false, tournament: false, ranked: false,
             allow_spectators: true, visibility: "private" },
@@ -449,6 +520,9 @@ const _bmGrades = [
 ];
 function bmLoadGrades() { return Promise.resolve(); }
 ${grabConst("BM_TIERS")}
+// The bot introductions, lifted out of the app rather than copied here: a
+// second copy is a second answer to "who is Nansen" that nothing keeps in step.
+${grabObjConst("WR_EXPLORER_BIOS")}
 // The story gate. A seat tile draws a locked grade differently, so the tile
 // under test needs to know what is locked. No story finished here.
 function bmStoryUnlocked() { return false; }
@@ -663,6 +737,32 @@ function measure(w) {
   [...d.querySelectorAll(".wr-seat-stat, .wr-xp-txt")].forEach((el, i) => {
     ok(r(el).right <= r(el.closest(".wr-seat")).right + 1, "stat line " + i + " stays inside its spot");
   });
+
+  // ── a bot says who it is named after ──
+  // The surname on its own ("Nansen") is a word most players cannot place. The
+  // tile introduces the bot in its own voice: the century it sailed in and the
+  // one thing it is remembered for, with the year on it. Two bots at one table
+  // are two different explorers, because the server draws the pool down per
+  // room, so the two lines must never be the same line.
+  const bios = [...d.querySelectorAll(".wr-seat-bio")];
+  ok(bios.length === 2, "both bot spots introduce themselves (" + bios.length + ")");
+  // No backslashes in this regex on purpose: measure() is built inside a
+  // template literal, which eats an unrecognised escape before Chrome ever
+  // sees it, so the character class is spelled out instead.
+  ok(bios.every(el => /^I am [A-Za-z]+, a famous [^.]+ (ocean|deep sea|polar|hunter)/.test(el.textContent)),
+     "…in the first person, by century and trade");
+  ok(bios.length === 2 && bios[0].textContent !== bios[1].textContent,
+     "…and the two bots are two different explorers");
+  bios.forEach((el, i) => {
+    const tb = r(el.closest(".wr-seat"));
+    ok(r(el).right <= tb.right + 1 && r(el).left >= tb.left - 1,
+       "bio " + i + " stays inside its spot");
+    ok(r(el).height > 0, "bio " + i + " is actually drawn");
+  });
+  ok([...d.querySelectorAll(".wr-seat-bot")].every(t => {
+       const b = t.querySelector(".wr-seat-bio"), g = t.querySelector(".wr-seat-blurb");
+       return b && g && b.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING;
+     }), "who it is comes before how hard it is");
 
   const pen = d.querySelector(".wr-seat-edit");
   ok(pen && r(pen).width >= 20, "the change-critter pencil is tappable");

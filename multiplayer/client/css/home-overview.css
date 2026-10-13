@@ -167,7 +167,19 @@ body.ph-expanded #auth-stats-lobby .ph-wrap > .ph-home-bands { display: none; }
 #auth-stats-lobby #ph-panel-friends.ph-boxed {
   display: flex; flex-direction: column; overflow: hidden;
 }
+/* Friends reaches all the way down to the game cards. The panel already does;
+   the card inside it did not. .ph-scard asked for height: 100% of a parent
+   whose own height was auto, so the card shrank to its contents, its friends
+   list (flex: 1 against a zero basis) collapsed to nothing at all, and the
+   card stopped dead under the add-by-code row with a screen-deep hole between
+   it and the Tutorial / Head to Head / Create Game / Join Game row.
+   Every level from the panel down to the list is a column that stretches, so
+   the friends themselves take every pixel between the header and the cards. */
 #auth-stats-lobby #ph-panel-friends.ph-boxed > .ph-friends-home {
+  display: flex; flex-direction: column;
+  flex: 1; min-height: 0; height: auto;
+}
+#auth-stats-lobby #ph-panel-friends.ph-boxed .ph-friends-home > .ph-scard {
   flex: 1; min-height: 0; height: auto;
 }
 /* The corner button rides the box, not the page under it: it is the panel's
@@ -203,6 +215,31 @@ body.ph-expanded #auth-stats-lobby #ph-panel-friends.ph-boxed > .ph-friends-home
   height: clamp(340px, 60vh, 760px);
 }
 body.ph-expanded #auth-stats-lobby .ph-actions { display: none !important; }
+
+/* ── Competitive: the record waits behind Expand ──────────────────────
+   In the box, Competitive shows the SHAPE of the climb: the line your OP has
+   taken across your ranked games, the rank ladder, and what each tier pays.
+   The record itself is a page you read rather than a thing you glance at:
+   the Ranked 1v1 card with its nine numbers, the Ranked Summary saying the
+   same rank a third time, and the King of the Critters card. Stacked into a
+   box 420px tall that was most of a screen of scrolling to reach the bottom
+   of, and the first two said the same thing twice. They are all still there,
+   unchanged, one press away. */
+body:not(.ph-expanded) #auth-stats-lobby #ph-panel-competitive.ph-boxed .ph-main {
+  display: none;
+}
+/* The one line that says where the rest went. Only in the box: opened out,
+   the page IS the rest, so the note would be pointing at itself. */
+#auth-stats-lobby #ph-panel-competitive .ph-comp-more-note {
+  margin: 10px 2px 0; padding: 9px 14px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.72);
+  border: 1px solid rgba(140,200,235,.6);
+  font-size: .82rem; font-weight: 700; color: #3a6a96; text-align: center;
+}
+body.ph-expanded #auth-stats-lobby #ph-panel-competitive .ph-comp-more-note {
+  display: none;
+}
 
 /* ── A stat you can ask about ─────────────────────────────────────────
    Each number says what it counts when you click it. Closed, the line is

@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-12.5";
+  const APP_BUILD   = "2026-10-13.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -2699,6 +2699,13 @@
         }
         const nmEl = _wrEl("span", "wr-chip-name", label);
         chip.appendChild(nmEl);
+        // A team chip is one line with no room for an introduction, so the
+        // bot's own line about itself goes on the tooltip rather than being
+        // dropped. canSwap below is false for a bot, so nothing overwrites it.
+        if (isAI) {
+          const _bio = _wrExplorerBio(s.claimed_name);
+          if (_bio) chip.title = _bio;
+        }
         if (!isAI && !isOpen && Number(s.level) > 0) {
           chip.appendChild(_wrEl("span", "wr-chip-lv", "Lv " + Number(s.level)));
         }
@@ -3031,6 +3038,58 @@
     await joinAsSpectator(rid);
   }
 
+  // ── Who a bot is named after ──────────────────────────────────────────
+  // Every bot seat draws a surname from fish.OCEAN_EXPLORER_NAMES, and the
+  // pool is drawn down PER ROOM (_take_bot_name in multiplayer_server.py), so
+  // two bots at one table can never be the same person. The name on its own
+  // was a word most players could not place, so the card introduces the bot
+  // in its own voice: which century it sailed in, and the one thing it is
+  // remembered for, with the year on it.
+  //
+  // Keyed by the surname the server actually sends, lower-cased. A seat whose
+  // name is not in here (the "Bot 1" fallback past the end of the pool, or a
+  // name added to the pool after this build shipped) simply gets no line
+  // rather than an invented one.
+  const WR_EXPLORER_BIOS = {
+    pytheas:      "I am Pytheas, a famous 4th century BC ocean explorer. I sailed north past Britain to the frozen sea around 325 BC, and I was the first to tie the tides to the moon.",
+    zheng:        "I am Zheng, a famous 15th century ocean explorer. I led seven treasure fleets across the Indian Ocean between 1405 and 1433.",
+    majid:        "I am Majid, a famous 15th century ocean navigator. I wrote my book on the principles of seamanship in 1490, and Arab pilots sailed by it for centuries.",
+    piri:         "I am Piri, a famous 16th century ocean cartographer. I drew my map of the Atlantic in 1513 out of charts gathered from other sailors.",
+    magellan:     "I am Magellan, a famous 16th century ocean explorer. I left Spain in 1519 to find a strait through to the Pacific, and found it in 1520.",
+    elcano:       "I am Elcano, a famous 16th century ocean explorer. I brought the Victoria home in 1522 and finished the first voyage around the world.",
+    barentsz:     "I am Barentsz, a famous 16th century ocean explorer. I found Spitsbergen in 1596 while hunting a passage over the top of Russia.",
+    hudson:       "I am Hudson, a famous 17th century ocean explorer. I sailed into the great bay that carries my name in 1610, looking for a way through to the Pacific.",
+    tasman:       "I am Tasman, a famous 17th century ocean explorer. I sighted Tasmania and New Zealand in 1642 without ever laying eyes on mainland Australia.",
+    dampier:      "I am Dampier, a famous 17th century ocean explorer. I published my New Voyage Round the World in 1697 and charted the winds that carried me.",
+    bering:       "I am Bering, a famous 18th century ocean explorer. I sailed the strait between Asia and America in 1728 and reached Alaska in 1741.",
+    cook:         "I am Cook, a famous 18th century ocean explorer. I crossed the Antarctic Circle in 1773, the first to take a ship that far south.",
+    laperouse:    "I am Laperouse, a famous 18th century ocean explorer. I set out across the Pacific in 1785, and my last charts came home from Botany Bay in 1788.",
+    forster:      "I am Forster, a famous 18th century ocean naturalist. I sailed the southern ocean with Cook from 1772 and wrote up what lives in it in 1778.",
+    vancouver:    "I am Vancouver, a famous 18th century ocean surveyor. I charted the north west coast of America inlet by inlet between 1791 and 1795.",
+    banks:        "I am Banks, a famous 18th century ocean naturalist. I collected at Botany Bay in 1770 and brought home plants no one in Europe had seen.",
+    flinders:     "I am Flinders, a famous 19th century ocean explorer. I sailed right around Australia between 1801 and 1803 and gave the continent its name.",
+    bougainville: "I am Bougainville, a famous 18th century ocean explorer. I took the first French ships around the world between 1766 and 1769.",
+    anning:       "I am Anning, a famous 19th century hunter of the old seas. I dug the first plesiosaur out of the Lyme Regis cliffs in 1823.",
+    scoresby:     "I am Scoresby, a famous 19th century ocean scientist. I wrote my account of the Arctic seas in 1820, out of twenty years of whaling in them.",
+    ross:         "I am Ross, a famous 19th century ocean explorer. I pushed into the Antarctic ice in 1841 and found the sea and the great ice shelf that carry my name.",
+    fitzroy:      "I am FitzRoy, a famous 19th century ocean captain. I surveyed South America in the Beagle from 1831 and issued the first storm warnings in 1861.",
+    maury:        "I am Maury, a famous 19th century ocean scientist. I published the first physical geography of the sea in 1855, built out of ships' logbooks.",
+    thomson:      "I am Thomson, a famous 19th century ocean scientist. I led the science aboard the Challenger from 1872, the voyage that first sounded the deep sea the world over.",
+    dohrn:        "I am Dohrn, a famous 19th century ocean biologist. I opened the Naples marine station in 1872, the first laboratory built on a shore to study sea life.",
+    chun:         "I am Chun, a famous 19th century deep sea biologist. I took the Valdivia into the deep in 1898 and brought up animals nobody had ever seen.",
+    murray:       "I am Murray, a famous 19th century ocean scientist. I sailed on the Challenger in 1872 and spent the rest of my life writing up what we hauled off the bottom.",
+    agassiz:      "I am Agassiz, a famous 19th century deep sea naturalist. I dredged the floor of the Caribbean from the Blake in 1877 and worked out how a coral reef is built.",
+    shackleton:   "I am Shackleton, a famous 20th century polar explorer. I crossed 800 miles of the Southern Ocean in an open boat in 1916 to fetch help for my crew.",
+    buchanan:     "I am Buchanan, a famous 19th century ocean chemist. I tested the sea water aboard the Challenger from 1872 and showed the slime on the sea floor was not alive.",
+    nansen:       "I am Nansen, a famous 19th century ocean explorer. I froze my ship into the Arctic pack in 1893 and drifted with it for three years to prove the current ran that way.",
+    hjort:        "I am Hjort, a famous 20th century ocean biologist. I crossed the North Atlantic in the Michael Sars in 1910 and wrote The Depths of the Ocean with Murray in 1912.",
+  };
+  // The bot's own introduction, or "" for a seat whose name is not an
+  // explorer's. Callers draw nothing on "".
+  function _wrExplorerBio(name) {
+    return WR_EXPLORER_BIOS[String(name || "").trim().toLowerCase()] || "";
+  }
+
   // ── one seat ──────────────────────────────────────────────────────────
   function _wrSeatCard(s, ctx) {
     const isAI = s.kind === "ai";
@@ -3132,6 +3191,11 @@
 
     // ── the body ──
     if (isAI) {
+      // Who it is named after, in its own voice: the century it sailed in and
+      // the thing it is remembered for. The name is drawn per ROOM, so two
+      // bots at one table always introduce themselves as two different people.
+      const bio = _wrExplorerBio(s.claimed_name);
+      if (bio) tile.appendChild(_wrEl("div", "wr-seat-bio", bio));
       // What this particular grade is actually like to play against. It reads
       // off the ladder position, so it stays true as the ladder is re-tuned.
       // The held pick, so the sentence under the badge changes with it

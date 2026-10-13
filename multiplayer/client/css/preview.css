@@ -3451,6 +3451,16 @@
     .wr-xp-txt { font-size: 10px; font-weight: 800; color: #6b8fbb; margin-top: 4px; }
     .wr-seat-stat { font-size: 10.5px; font-weight: 800; color: #6b8fbb; line-height: 1.4; }
     .wr-seat-blurb { font-size: 11px; font-weight: 700; color: #5f7fa6; line-height: 1.4; }
+    /* The bot introducing itself: who it is named after, which century it
+       sailed in and what it is remembered for. It sits ABOVE the grade line,
+       because the first question about a seat is who is in it and the second
+       is how hard they are. Italic and a shade lighter so the two lines read
+       as two different kinds of fact and the grade still wins the glance. */
+    .wr-seat-bio {
+      font-size: 10.5px; font-weight: 700; font-style: italic;
+      color: #7595b8; line-height: 1.4;
+      border-left: 2px solid rgba(90,160,215,.38); padding-left: 7px;
+    }
     .wr-seat-sublabel {
       margin-top: auto; font-size: 9.5px; font-weight: 900; letter-spacing: 1.6px;
       text-transform: uppercase; color: #8aa6c6;
