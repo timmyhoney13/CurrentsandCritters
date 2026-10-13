@@ -32510,6 +32510,32 @@
         const KEY = "cc_sidebar_pinned";
         const apply = (on) => {
           sb.classList.toggle("ph-sidebar-pinned", on);
+      // ── The home screen IS the tab, the cards are the way into a game ──
+      // Game Night, the season prize and the Friends card used to live in
+      // .ph-actions, which sits outside the panels, so all three showed on
+      // every tab and pushed the tab's own panel off the bottom of the page.
+      // They move to where they belong: Friends becomes the Friends page, and
+      // the two bands go to the top of Stats. What is left in .ph-actions is
+      // the four ways into a game, on one line (css/home-overview.css).
+      (function homeIsTheTab() {
+        const friendsPanel = document.getElementById("ph-panel-friends");
+        const statsPanel   = document.getElementById("ph-panel-overview");
+        const friendsHome  = document.querySelector(".ph-friends-home");
+        const gn           = document.querySelector(".ph-home-gn");
+        const clan         = document.querySelector(".ph-home-clan");
+        // Moved, never re-created: #ph-friends-list, #cc-game-night and
+        // #cc-clan-prize keep their ids, their listeners and the renderers
+        // that have always painted into them.
+        if (friendsHome && friendsPanel) friendsPanel.appendChild(friendsHome);
+        if (statsPanel && (gn || clan)) {
+          const bands = document.createElement("div");
+          bands.className = "ph-home-bands";
+          if (gn) bands.appendChild(gn);
+          if (clan) bands.appendChild(clan);
+          statsPanel.insertBefore(bands, statsPanel.firstChild);
+        }
+      })();
+
           pin.setAttribute("aria-pressed", on ? "true" : "false");
           const label = on ? "Collapse the menu" : "Keep the menu open";
           pin.setAttribute("aria-label", label);
@@ -32526,6 +32552,10 @@
         });
         sb.addEventListener("mouseleave", () => sb.classList.remove("ph-sidebar-resting"));
       })();
+      // The home screen opens on Friends. Going through switchTab rather than
+      // trusting the markup means the panels, the lit menu item and the tab's
+      // background all start out agreeing with each other.
+      try { switchTab("friends"); } catch (_) {}
 
       // ── Reach for the top or the bottom and the menu walks the list ──
       // The tab list is its own scroller (preview.css, "THE TABS SCROLL"), and

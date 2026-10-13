@@ -305,8 +305,12 @@ async function isOpen(p, label) {
       await p.key("Tab", "Tab", 9);
       await sleep(SETTLE);
       const focused = await p.ev("document.activeElement && document.activeElement.id");
+      // Whichever tab leads the menu, not a named one: Friends took the top of
+      // the list when the home screen started opening on it, and the point of
+      // this check is that Tab reaches the menu and the menu opens.
+      const firstTab = await p.ev("(document.querySelector('.ph-snav-item[data-tab]')||{}).id");
       card = await p.rect(".ph-sidebar-nav-card");
-      check("tab into the menu with the keyboard: it opens", focused === "snav-overview" && card && Math.abs(card.right - OPEN) <= 1, `focus=${focused} card right=${card && Math.round(card.right)}`);
+      check("tab into the menu with the keyboard: it opens", focused === firstTab && card && Math.abs(card.right - OPEN) <= 1, `focus=${focused} first=${firstTab} card right=${card && Math.round(card.right)}`);
       await p.ev("document.activeElement.blur()");
       await sleep(SETTLE);
 
