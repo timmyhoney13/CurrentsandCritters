@@ -391,6 +391,10 @@
 # Board: headless-Chrome check that a tall board of oceans can actually be
 # scrolled to its bottom, on a phone-sized viewport as well as a laptop.
 !test_board_scroll.js
+# Board: the oceans sit in the MIDDLE of your board and stay there, and the
+# spot where an ocean goes is drawn even on an empty board with nothing legal.
+# Runs the real renderMyBoard against the real preview.css in headless Chrome.
+!test_ocean_center_dropzone.js
 # Board peek: the hover preview of another player's board must never get stuck
 # on screen, a removed anchor fires no mouseleave, so every dismissal path
 # (pointer off, click, scroll, tab away, game over, leaving the game) is pinned.
