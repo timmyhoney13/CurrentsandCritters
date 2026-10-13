@@ -45,8 +45,9 @@ from fish_game_all_in_one import (
     Action, GameState, MatchState, OceanSlots, PlayerState, TurnState,
     HAND_LIMIT, add_to_pool, build_non_ocean_pair_maps, can_attach_to_ocean,
     capture_action_tx, card_direction_lc, card_name_lc, card_species_lc, clone_action,
-    consume_replay_actions, entry_faces, final_points, has_multi_play_window, is_ocean,
-    legal_actions, normalize_symbol, pending_replay_actions, restore_action_tx,
+    consume_replay_actions, entry_faces, final_points, is_ocean,
+    legal_actions, multi_play_window_stays_open, normalize_symbol, pending_replay_actions,
+    restore_action_tx,
     split_main_and_star, symbol_match_for_entry, _apply_action_uncommitted,
 )
 
@@ -1521,7 +1522,8 @@ class Ctx:
         return chosen if len(chosen) == cost else None
 
 
-def _budget_after(player: PlayerState, turn_state: TurnState, was_free_only: bool) -> int:
+def _budget_after(gs: GameState, ms: MatchState, player: PlayerState,
+                  turn_state: TurnState, was_free_only: bool) -> int:
     """What run_match does to the action budget after an action, replayed on a
     simulated turn. Returns the actions left (0 = the turn is over)."""
     if was_free_only:
@@ -1539,7 +1541,10 @@ def _budget_after(player: PlayerState, turn_state: TurnState, was_free_only: boo
         if not player.flags.get("_draws_taken"):
             player.flags["_free_action_only"] = True
         turn_state.free_followups = 0
-    if has_multi_play_window(player):
+    # A chain window only keeps the turn alive while it still has a card to play,
+    # exactly as run_match now does, so the plan never counts a phantom action
+    # for a free-baitfish window with no baitfish left in hand.
+    if multi_play_window_stays_open(gs, ms, player):
         budget += 1
     return budget - 1
 
@@ -1708,7 +1713,7 @@ def _try(ctx: Ctx, action: Action, turn_state: TurnState, depth: int,
             payments_out[:] = list(action.payment_uids)
         if single:
             return end_value(ctx)
-        budget = _budget_after(p, turn_state, was_free_only)
+        budget = _budget_after(gs, ms, p, turn_state, was_free_only)
         return _continue(ctx, turn_state, budget, depth + 1)
     except Exception:
         return None

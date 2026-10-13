@@ -123,7 +123,14 @@ const page = (nOceans) => `<!doctype html><html><head><meta charset="utf-8">
 // Build ${nOceans} ocean hubs exactly the way renderMyBoard() does: four lanes
 // (one card each) around a .pv-ocean-face, cards draggable like a movable animal.
 (function buildBoard() {
+  // The hubs live in #pv-ocean-row, their own centred line inside
+  // #pv-my-board, exactly as renderMyBoard() builds them. #pv-my-board itself
+  // is a column (the drop zone is the other line), so appending hubs straight
+  // to it would stack them one per row and stop testing the wrap at all.
   var board = document.getElementById("pv-my-board");
+  var row = document.createElement("div");
+  row.id = "pv-ocean-row";
+  board.appendChild(row);
   for (var i = 0; i < ${nOceans}; i++) {
     var hub = document.createElement("div");
     hub.className = "pv-ocean-hub";
@@ -141,7 +148,7 @@ const page = (nOceans) => `<!doctype html><html><head><meta charset="utf-8">
     var center = document.createElement("div"); center.className = "pv-ocean-center";
     var face = document.createElement("div"); face.className = "pv-ocean-face";
     center.appendChild(face); hub.appendChild(center);
-    board.appendChild(hub);
+    row.appendChild(hub);
   }
 })();
 </script>

@@ -19,32 +19,57 @@
 (function () {
   "use strict";
 
-  // ── CONFIRMED BY THE OWNER, 2026-10-09 ──────────────────────────────────
+  // ── CONFIRMED BY THE OWNER, 2026-10-09; RE-AUDITED 2026-10-12 ───────────
   // Written from what the code actually does, not from a template.
-  //   • Contact email and mailing address: confirmed. The same address is
-  //     already published by newsletter_email.BUSINESS_ADDRESS_LINES (every
-  //     marketing email) and by client/unsubscribe.html, so the three must
-  //     be changed together if it ever changes.
+  //   • Contact email: confirmed.
   //   • Snap & Score review evidence: 90 days, confirmed. Rewards already
   //     earned are explicitly NOT affected, which is why the Snap & Score
   //     section and Data Retention both say so.
   //
-  // STILL WORTH A LAWYER'S EYE, and one live trap:
-  //   • The 90 days is the DEFAULT in snap_score.py (image_retention_days)
-  //     and is admin-editable through the Firestore doc
-  //     meta/snap_score_config. Editing that doc silently makes the
-  //     Snap & Score and Data Retention sections wrong. Change both here if
-  //     it is ever retuned.
-  //   • 12h unfinalized / 24h finalized score sessions (SESSION_TTL_SEC,
-  //     FINALIZED_KEEP_SEC in snap_score.py).
+  // THE STREET ADDRESS IS DELIBERATELY NOT HERE (owner's instruction,
+  // 2026-10-12). Nothing requires a street address in a privacy policy. The
+  // one rule that does require a physical postal address is CAN-SPAM,
+  // 15 U.S.C. 7704(a)(5)(A)(iii), and it applies to COMMERCIAL EMAIL, not to
+  // this page, so the address still ships in
+  // newsletter_email.BUSINESS_ADDRESS_LINES and in client/unsubscribe.html.
+  // Those two are where it is legally needed and the only places it belongs.
+  // Do not "restore" it here.
+  //
+  // THE 90 DAYS IS NOW ENFORCED, AND CAPPED. It used to be a default that
+  // nothing acted on: snap_score.py read image_retention_days once, wrote it
+  // into the game document as metadata, and never deleted anything, so this
+  // page published a retention period that did not exist. Since 2026-10-12:
+  //   • snap_score.purge_expired_snap_evidence() actually does the deleting,
+  //     run daily by the "snap-retention" thread in multiplayer_server.
+  //   • snap_score.IMAGE_RETENTION_DAYS_MAX clamps the admin-editable
+  //     Firestore doc meta/snap_score_config, so an admin can make retention
+  //     SHORTER but can never make this page false by making it longer.
+  //   • test_snap_retention.py pins both, and pins that no reward moves.
+  // Raising that ceiling therefore has to happen in the same diff as the
+  // sentence below that it would contradict. Keep it that way.
+  //
+  // STILL WORTH A LAWYER'S EYE:
+  //   • CalOPPA (Cal. Bus. & Prof. Code 22575) wants a conspicuous policy
+  //     link on the first significant page. play.currentsandcritters.com's
+  //     sign-in screen has none; the owner was told, and chose to leave the
+  //     sign-in screen alone on 2026-10-12. The policy is reachable in game
+  //     at Settings -> Legal and from the website footer.
+  //   • There is NO self-serve account deletion anywhere in the codebase.
+  //     "Account Deletion and Closing Your Account" below therefore promises
+  //     only an emailed request, which is what actually exists. Do not
+  //     upgrade that wording without building the button.
   //   • "the last 50" games and "about 800 days" of play dates, from the
   //     account stats shape described in analytics_server.py.
   //   • The Discord reward record is kept "for as long as we operate the
   //     reward". discord_server.py never deletes it, so that is accurate
   //     today, but it is a retention commitment worth a deliberate decision.
+  //   • Clan chat's 14-day prune is PROBABILISTIC (clan_server.py fires it on
+  //     roughly one send in twenty, over a 400-document scan), so the section
+  //     below says "usually within about two weeks" rather than promising a
+  //     deadline the code does not guarantee.
   // ────────────────────────────────────────────────────────────────────────
 
-  var UPDATED = "October 9, 2026";
+  var UPDATED = "October 12, 2026";
   var EMAIL   = "timothy.honey@beardedsealstudios.com";
 
   // ── The document ────────────────────────────────────────────────
@@ -63,16 +88,19 @@
           "Your name and email address",
           "Information provided through Google Sign-In",
           "Your username, account information, and profile settings",
+          "A recovery email address, if you choose to add one to a username-and-password account",
           "Your selected avatar, clan, achievements, rankings, and leaderboard information",
           "Game progress, statistics, match history, rewards, and activity",
+          "Your friends list, friend requests, and friend code",
           "Newsletter subscription status",
           "Purchase and transaction information",
           "Information from a linked Discord account, if you choose to link one",
           "Trades, referrals, and other activity between your account and another player’s account",
+          "Clan chat messages you send, and table chat while a game is running",
           "Anti-cheat information about a photographed physical game board, when you use Snap &amp; Score to earn rewards",
           "Messages, questions, bug reports, feedback, or other information you send to us",
-          "Device, browser, IP address, and basic technical information",
-          "Cookies and similar information needed to operate and protect our services",
+          "Device and browser information, and your IP address",
+          "Browser storage needed to operate and protect our services",
         ]) +
         "<p>You may be able to use certain parts of Currents and Critters as a guest without creating an account.</p>" +
         "<p>We only collect information that is reasonably needed to provide, operate, protect, and improve our services.</p>",
@@ -83,19 +111,20 @@
         "<p>This section is a plain summary of what we actually keep, and for how long. The sections that follow describe each area in more detail.</p>" +
         "<p><strong>On your account, for as long as your account exists:</strong></p>" +
         ul([
-          "Who you are to the game: your username, your avatar, and the email address and Google account identifier you signed in with",
+          "Who you are to the game: your username, your avatar, and the email address and Google account identifier you signed in with, or the username and recovery email of a username-and-password account",
           "What you have earned: your level, experience points, Critter Coins, achievements, unlocks, and competitive rank",
           "How you have played: your game statistics, your wins and losses, your most recently finished games, and the dates you played",
-          "Who you played with: your clan, your tournaments, your completed trades, and the referral code you joined with, if you used one",
+          "Who you played with: your clan, your friends list, your tournaments, your completed trades, and the referral code you joined with, if you used one",
         ]) +
         "<p><strong>Only while a game is running, and then deleted:</strong></p>" +
         ul([
           "The live state of the game you are in, including the hands at the table",
           "That game’s most recent table chat",
         ]) +
-        "<p><strong>For a limited review period, and then deleted:</strong></p>" +
+        "<p><strong>For a limited period, and then deleted:</strong></p>" +
         ul([
-          "Anti-cheat information about a photographed physical board, described in the Snap &amp; Score section below",
+          "Anti-cheat information about a photographed physical board, including a small review thumbnail, described in the Snap &amp; Score section below",
+          "Clan chat messages, which are removed as the conversation ages",
         ]) +
         "<p><strong>Kept with our business records:</strong></p>" +
         ul([
@@ -105,9 +134,14 @@
         ]) +
         "<p><strong>What we never store:</strong></p>" +
         ul([
-          "Your Google password or your Discord password",
+          "Your password. A Google password never reaches us at all, and the password on a username-and-password account is held by Google Firebase Authentication, not by us",
+          "Your Discord password",
           "Your complete credit card or debit card number",
-          "The photograph of your physical board, which is read on your own device and never uploaded",
+          "Your full-resolution board photograph. It is read on your own device and is never uploaded. When a score session can award rewards, a small low-resolution review thumbnail of the board is sent instead, and it is described and given a deletion period in the Snap &amp; Score section below",
+        ]) +
+        "<p><strong>What we receive but do not keep:</strong></p>" +
+        ul([
+          "Your IP address. Our servers see it on every request, as any web server must, and use it in memory to rate-limit abuse. It is not written into your account or into our database",
         ]) +
         callout("Your email address and your Google account identifier are never shown to other players."),
     },
@@ -158,6 +192,23 @@
         "<p>Your email address, unique Google account identifier, and private Google account information are not publicly displayed to other players.</p>" +
         "<p>Your Google profile picture or name will only be displayed publicly if the game clearly allows you to choose them for a public profile feature.</p>" +
         "<p>You should review Google’s privacy information to understand how Google handles information associated with your Google account.</p>",
+    },
+    {
+      title: "Username-and-Password Accounts",
+      body:
+        "<p>You can also create a Currents and Critters account with a username and a password instead of signing in with Google.</p>" +
+        "<p><strong>We never see your password.</strong> Account sign-in is handled by Google Firebase Authentication. Your password is sent to Firebase, which stores it in a protected form, and Bearded Seal Studios LLC does not receive it or keep a copy.</p>" +
+        "<p>Because Firebase identifies accounts by email address rather than by username, a username-and-password account is registered with an internal address built from your username, at a domain that cannot receive mail. That internal address exists only so your username can be unique. It is not a real mailbox and we do not send anything to it.</p>" +
+        "<p><strong>A recovery email is optional.</strong> You may add a real email address to a username-and-password account so that a forgotten password can be reset. If you do:</p>" +
+        ul([
+          "We store that address, lower-cased, beside your account",
+          "We store whether you have confirmed it, and when you last set it",
+          "An address is not linked to your account until you click the confirmation link we send to it",
+          "We use it only to send you account recovery and account security messages, never marketing, unless you separately subscribe to the newsletter",
+        ]) +
+        "<p>One confirmed address belongs to one account, and one account has one confirmed address.</p>" +
+        "<p><strong>Recovery codes.</strong> Every username-and-password account is also issued a recovery code you can write down, so you can get back in without an email address at all. We store only a keyed, one-way representation of that code, never the code itself, so the stored value cannot be turned back into a working code. A code is single-use, and redeeming one issues a fresh one.</p>" +
+        callout("Your recovery email address is not publicly displayed to other players."),
     },
     {
       title: "Discord Account Linking",
@@ -216,16 +267,33 @@
     {
       title: "Player Chat and Emotes",
       body:
-        "<p>Currents and Critters includes chat and emotes at the game table so players can talk during a game.</p>" +
-        "<p>What you send in chat is delivered to the other players at your table and to anyone watching that game as a spectator.</p>" +
+        "<p>Currents and Critters has two different kinds of chat, and they are kept in two different ways. There are no private one-to-one messages between players anywhere in the game.</p>" +
+        "<p><strong>Table chat, during a game.</strong> Chat and emotes at the game table let players talk during a game. What you send is delivered to the other players at your table and to anyone watching that game as a spectator.</p>" +
         "<p>While a game is in progress, our game server holds a limited number of that game’s most recent messages, currently up to 200, so a player who loses their connection and rejoins can still see the recent conversation. The server keeps a working copy of the game, including those recent messages, while the game is live, and deletes that copy when the game is over.</p>" +
         "<p>Table chat is not saved to your account, is not added to your match history, and is not used for advertising.</p>" +
+        "<p><strong>Clan chat, which is saved.</strong> If you join a clan, clan chat works differently, because it has to still be there when you come back tomorrow. A clan chat message is stored in our database with:</p>" +
+        ul([
+          "The message text",
+          "Your account identifier and the name your clan sees",
+          "The date and time you sent it",
+          "Whether it was an ordinary message, an announcement, or a game or tournament invitation",
+        ]) +
+        "<p>Clan chat is visible to every member of that clan, including members who join after you sent it, for as long as the message is kept.</p>" +
+        "<p>Older clan messages are removed as the conversation moves on, usually within about two weeks. That clean-up runs as the clan keeps chatting rather than on a fixed schedule, so a quiet clan may keep its older messages somewhat longer.</p>" +
+        "<p><strong>Your in-game inbox.</strong> Your account also has a message inbox, but it holds notices the game generates, such as a clan invitation or the result of a trade, rather than free text written by another player. Those notices stay until your account is closed.</p>" +
         "<p>If you send us a report about another player, the information you send us is handled as described in \u201CMessages and Communication\u201D below.</p>" +
-        callout("Chat is a public part of the game. Do not put private information in chat."),
+        callout("Chat is a public part of the game, and clan chat is saved. Do not put private information in chat."),
     },
     {
-      title: "Trading, Critter Coins, and Referrals",
+      title: "Friends, Trading, Critter Coins, and Referrals",
       body:
+        "<p><strong>Friends and friend codes.</strong> Every account has a friend code, which is how another player adds you without needing your email address. You may also choose a custom friend code. We store:</p>" +
+        ul([
+          "Your friend code, and your custom friend code if you set one",
+          "Your friends list",
+          "Friend requests you have sent or received, and whether they were accepted",
+        ]) +
+        "<p>A friend code can be looked up by any player who has it, together with the username and avatar it belongs to. That is what makes it usable as a way for a friend to find you, so treat your friend code as shareable rather than secret. Your friends list is kept while your account exists.</p>" +
         "<p>Currents and Critters includes in-game balances, such as Critter Coins and experience points, and lets players trade with each other.</p>" +
         "<p>In-game balances are virtual items inside the game. They have no cash value and cannot be exchanged for money.</p>" +
         "<p>When you complete a trade with another player, we store a record of that trade. That record may include:</p>" +
@@ -242,13 +310,13 @@
       title: "Snap &amp; Score and Board Photographs",
       body:
         "<p>Snap &amp; Score, at score.currentsandcritters.com, lets you photograph a finished physical game board so that the board can be scored.</p>" +
-        "<p><strong>The photograph is read on your own device.</strong> Your browser recognizes the cards against a card library it downloads, and the photograph itself is not uploaded to us.</p>" +
+        "<p><strong>The photograph is read on your own device.</strong> Your browser recognizes the cards against a card library it downloads. Your full-resolution photograph is never uploaded to us.</p>" +
         "<p>If you score a board on your own, without an account and without rewards, nothing from that photograph is sent to us or stored by us.</p>" +
-        "<p>If you use a multiplayer score session that can award experience points, achievements, or unlocks, the app sends limited anti-cheat information about the photograph in place of the photograph. That information may include:</p>" +
+        "<p>If you use a multiplayer score session that can award experience points, achievements, or unlocks, the app sends limited anti-cheat information about the photograph in place of the photograph itself. That information is:</p>" +
         ul([
-          "A cryptographic hash of the captured image",
+          "A cryptographic hash of the captured image, which is a one-way fingerprint that cannot be turned back into a picture",
           "A short image fingerprint used to recognize near-identical photographs",
-          "A small, low-resolution review thumbnail of the board",
+          "A small, low-resolution review thumbnail of the board, no more than 320 pixels on its longest side",
         ]) +
         "<p>We use that information only to:</p>" +
         ul([
@@ -256,8 +324,16 @@
           "Detect the same or a nearly identical board being submitted again in a later game",
           "Review a flagged submission before rewards are granted",
         ]) +
-        "<p>We keep the review thumbnail and the image fingerprints for a limited review period, currently 90 days. A score session that is never finished expires after about 12 hours, and a finished session stays readable for about 24 hours so the players in it can see the result.</p>" +
-        callout("Deleting that review information does not take away anything you earned. Experience points, achievements, unlocks, and other rewards granted for a scored physical game are added to your online account and stay with you, including after the review thumbnail and image fingerprints have been deleted.") +
+        "<p><strong>The 90-day rule.</strong> We keep that review information for 90 days after the game is completed, and then delete it. After 90 days we remove:</p>" +
+        ul([
+          "The review thumbnail of your board",
+          "The image fingerprint used for near-identical matching",
+          "The record of which account and which game a submitted image belonged to",
+        ]) +
+        "<p>What remains after 90 days is the one-way cryptographic hash of the image, with your account and the game no longer attached to it. We keep that single value for the long term for one reason: it is what makes it impossible to submit the same board photograph for rewards a second time, however long somebody waits. A one-way hash does not contain the picture and cannot be used to recreate it or to see what was photographed.</p>" +
+        "<p>Separately, a score session that is never finished expires after about 12 hours, and a finished session stays readable for about 24 hours so the players in it can see the result. The review thumbnail is removed with the session at that point as well.</p>" +
+        callout("Deleting that review information does not take away anything you earned. Experience points, achievements, unlocks, Critter Coins, and your game record are stored on your account separately from any of the review information above, and they stay with you after the review thumbnail and the image fingerprints have been deleted. The only thing the 90 days removes is our ability to look back at the board.") +
+        "<p>Your record of the game itself is not deleted at 90 days. The final standings, the scores, the placements, the cards you confirmed, and the rewards granted stay with your account under the ordinary rules in “Data Retention” and “Account Deletion and Closing Your Account” below.</p>" +
         "<p>Rewards in a score session are decided automatically, and an automated check may flag a submission for review, hold its rewards, or refuse the submission. If you believe a submission was wrongly held or refused, you may contact us at the address in the final section and ask us to look at it.</p>" +
         "<p>Other players in your score session may see your username, your avatar, the board you submitted, and your score.</p>",
     },
@@ -362,6 +438,17 @@
         callout("Do not send us sensitive personal information that is not needed for your request."),
     },
     {
+      title: "Moderation, Reports, and Enforcement",
+      body:
+        "<p>Currents and Critters has community features, so it also has moderation.</p>" +
+        "<p><strong>If you report somebody.</strong> You can report a clan name, a clan chat message, or another player. When you do, we store a record for review that includes what you reported, the account that reported it, the account or content reported, and when. We use it to decide whether our rules were broken.</p>" +
+        "<p><strong>Automatic checks.</strong> Some things are checked automatically rather than by a person. Usernames, clan names, and chat messages pass through a word filter, and unusual patterns in rewards or Snap &amp; Score submissions may raise a flag for review. A flag is a record of suspected activity, not a finding, and it may be wrong.</p>" +
+        "<p><strong>What we may do.</strong> Depending on what we find, we may hide or remove content, mute an account in a clan, hold or refuse rewards, remove a name, or restrict or close an account.</p>" +
+        "<p><strong>Administrative records.</strong> When an administrator corrects a balance, grants or removes something, or acts on a report, we keep a record of what was changed and when. Those records exist so an action can be explained or reversed and so mistakes can be found.</p>" +
+        "<p>We may keep moderation and enforcement records after the content involved has been removed, and after an account has been closed, where that is reasonably necessary to enforce our rules, prevent somebody returning to repeat the same conduct, resolve a dispute, or meet a legal requirement.</p>" +
+        "<p>If you believe a decision about your account or a submission was wrong, you may contact us and ask us to look at it again.</p>",
+    },
+    {
       title: "How We Use Information",
       body:
         "<p>We may use information to:</p>" +
@@ -395,7 +482,10 @@
         ul([
           "Stripe for payment processing and for collecting an optional newsletter signup at checkout",
           "Google for account sign-in, Google Workspace, and the Gmail service used to send our newsletters",
+          "Google Firebase Authentication for sign-in and for storing the password on a username-and-password account",
           "Google Firebase and Firestore for accounts, game data, and newsletter subscriber records",
+          "Google Fonts, which serves the typefaces our pages use",
+          "Google Forms, if you send us a bug report or an idea through one of our in-game links",
           "Render for game server and website hosting",
           "Vercel for hosting and delivering our websites",
           "Discord, when you choose to link your Discord account to claim a reward",
@@ -420,21 +510,25 @@
     {
       title: "Cookies and Technical Information",
       body:
-        "<p>Our websites and online game may use cookies and similar technologies.</p>" +
-        "<p>We may use cookies and similar technologies to:</p>" +
+        callout("Our servers do not set any cookies, and we use no advertising or cross-site tracking technology of any kind.") +
+        "<p>There is no Google Analytics, no Tag Manager, no advertising pixel, and no third-party analytics service that follows you to other websites. There is nothing here for a cookie banner to ask you about.</p>" +
+        "<p>What we do use is <strong>browser storage that stays on your own device</strong>, which the browser keeps for our site and does not send to other websites. It holds things like:</p>" +
         ul([
-          "Keep users signed in",
-          "Maintain secure sessions",
-          "Remember settings and preferences",
-          "Save game-related information",
-          "Prevent fraud and abuse",
-          "Diagnose technical problems",
-          "Understand basic website and game performance",
+          "The sign-in session that keeps you signed in, which is managed by Google Firebase Authentication",
+          "Your settings and preferences, such as whether music is on",
+          "A temporary identifier for guest play, so a guest can keep their seat",
+          "Short-lived information needed to return you to the right place after a checkout",
         ]) +
-        "<p>We do not use third-party advertising cookies, and we do not use third-party analytics services that track you across other websites. The performance information we review is produced by our own server from the accounts and games it already holds.</p>" +
-        "<p>You may be able to control cookies through your browser settings.</p>" +
-        "<p>Disabling cookies that are necessary to operate the service may prevent account, game, checkout, or security features from working correctly.</p>" +
-        "<p>If we begin using optional advertising or analytics cookies that require additional notice or consent, we may provide additional information or controls as required.</p>",
+        "<p>You can clear this storage through your browser settings at any time. Clearing it signs you out and forgets your preferences, and blocking it may prevent account, game, checkout, or security features from working correctly.</p>" +
+        "<p><strong>Technical information our servers see.</strong> Like any web server, ours receives your IP address, the kind of browser and device you are using, and which page you asked for. We use your IP address in memory to limit abuse, such as somebody hammering a form, and we do not write it into your account or store it in our database.</p>" +
+        "<p><strong>Third parties your browser contacts.</strong> Some parts of our pages load directly from other companies, which means your browser contacts them and they receive your IP address as a result. These are:</p>" +
+        ul([
+          "Google, for Firebase Authentication, Google Sign-In, and the web fonts our pages use",
+          "Stripe, when you reach a checkout page",
+        ]) +
+        "<p>Those companies may set their own cookies on their own domains and handle that information under their own privacy policies. If you report a bug or send an idea through one of our in-game links, that form is a Google Form and what you type goes to Google as well.</p>" +
+        "<p>The performance information we review about the game is produced by our own server from the accounts and games it already holds, as aggregated totals. It is not collected by tracking you.</p>" +
+        "<p>If we ever begin using optional advertising or analytics technology that requires additional notice or consent, we will update this policy and provide any notice or controls required.</p>",
     },
     {
       title: "Data Retention",
@@ -452,18 +546,23 @@
           "Maintain accounting, tax, and business records",
           "Meet applicable legal requirements",
         ]) +
-        "<p>Some examples of how long particular information is kept:</p>" +
+        "<p>How long particular information is kept:</p>" +
         ul([
           "Your account and its game record are kept while your account exists",
           "Your account keeps a list of your most recently finished games, currently the last 50",
           "Your account keeps the dates you played, currently going back about 800 days, so streaks and challenges can be calculated",
-          "A Snap &amp; Score review thumbnail and its image fingerprints are kept for a limited review period, currently 90 days",
+          "<strong>A Snap &amp; Score review thumbnail, its near-duplicate image fingerprint, and the record of which account and game an image came from are deleted 90 days after the game is completed.</strong> The one-way cryptographic hash of the image is kept after that, with your account no longer attached to it, so the same photograph cannot be submitted for rewards twice",
           "An unfinished Snap &amp; Score session expires after about 12 hours, and a finished one stays readable for about 24 hours",
           "Table chat is held only while a game is live, and is deleted with the game’s working copy when the game ends",
+          "Clan chat messages are removed as the conversation moves on, usually within about two weeks",
+          "Your friends list, friend requests, and in-game notices are kept while your account exists",
+          "A record connecting a Discord reward to your game account and your Discord account identifier is kept for as long as we operate that reward, so it cannot be claimed twice",
+          "A newsletter subscriber record, including the fact that you unsubscribed, is kept so an unsubscribe can be honored",
           "Purchase and transaction records are kept as long as needed for accounting, tax, and business records",
+          "Reports about cheating or abuse, and records of action we took, are kept while needed to enforce our rules",
         ]) +
-        "<p>These periods describe how the service is configured today and may change as the service changes.</p>" +
-        "<p>Rewards you have already earned are not affected by any of these periods. Your experience points, achievements, unlocks, Critter Coins, and game record stay on your account after the information we used to review or operate a game has been deleted.</p>" +
+        "<p>These periods describe how the service is configured today and may change as the service changes. If we shorten a period, we may delete information sooner than stated above. We will not quietly extend the 90-day Snap &amp; Score period beyond what this policy says: the limit is enforced in our own software, and lengthening it requires changing this policy at the same time.</p>" +
+        callout("Rewards you have already earned are not affected by any of these periods. Your experience points, achievements, unlocks, Critter Coins, competitive rank, and game record are stored separately from the review and operating information described above, and they stay on your account after that information has been deleted.") +
         "<p>When information is no longer reasonably needed, we may delete it, remove identifying details, or securely retain it when required for legal, security, tax, or recordkeeping purposes.</p>" +
         "<p>Unsubscribing from the newsletter does not always mean that the subscriber record will be immediately deleted. We may keep the email address and unsubscribe status so we do not accidentally send additional marketing emails.</p>" +
         "<p>Closing a game account may not result in the immediate deletion of every record. We may retain limited information when reasonably necessary for security, fraud prevention, dispute resolution, financial recordkeeping, or legal compliance.</p>",
@@ -474,17 +573,20 @@
         "<p>We use reasonable administrative, technical, and organizational safeguards designed to protect personal information.</p>" +
         "<p>These safeguards may include:</p>" +
         ul([
-          "Secure account authentication",
-          "Protected database access",
-          "Encrypted internet connections",
-          "Restricted administrative access",
-          "Secure storage of private credentials",
-          "Access controls",
-          "Security logging",
-          "Secure payment processing through Stripe",
+          "Account sign-in handled by Google Firebase Authentication, so that we never hold your password",
+          "Encrypted connections (HTTPS) between your browser and our services",
+          "Stored data held with Google Firestore, which encrypts data at rest as a standard feature of the service",
+          "Database rules that prevent one player's browser from reading another player's account",
+          "Rewards granted only by our server, inside transactions with one-time keys, so a browser cannot award itself anything",
+          "Administrative access restricted to the owner, with administrative actions recorded",
+          "Private credentials and signing keys kept out of our published code and held as server configuration",
+          "Recovery codes stored only as a keyed one-way value, never as the code itself",
+          "Payment card details handled entirely by Stripe and never by us",
+          "Limits on how often a form or an endpoint can be called, to blunt abuse",
         ]) +
-        "<p>However, no website, game, database, email service, or internet transmission can be guaranteed to be completely secure.</p>" +
-        "<p>You are responsible for protecting access to your Google account, email account, device, and Currents and Critters account.</p>" +
+        "<p>However, no website, game, database, email service, or internet transmission can be guaranteed to be completely secure, and we cannot promise that our safeguards will never fail.</p>" +
+        "<p><strong>If something does go wrong.</strong> If we discover a breach of security that affects your personal information, we will investigate it, take reasonable steps to contain it, and notify you and any authority we are required to notify, in the manner and within the time that applicable law requires.</p>" +
+        "<p>You are responsible for protecting access to your Google account, email account, device, and Currents and Critters account. Use a password you do not use anywhere else, and keep your recovery code somewhere only you can reach.</p>" +
         "<p>Contact us if you believe your Currents and Critters account has been accessed without permission.</p>",
     },
     {
@@ -515,12 +617,64 @@
         "<p>We will respond to valid privacy requests within the time required by applicable law.</p>",
     },
     {
+      title: "Account Deletion and Closing Your Account",
+      body:
+        "<p>You can ask us to close your Currents and Critters account and delete the personal information on it.</p>" +
+        callout("There is currently no button in the game that deletes your account. Closing an account is handled by us, by hand, when you ask. We would rather tell you that than imply a self-serve control that does not exist.") +
+        "<p><strong>How to ask.</strong> Email us at " + mailto(EMAIL) + " from the email address on your account, or tell us your username, and say that you want your account closed. We may need to confirm that the account is yours before we act, so that nobody else can close it or take a copy of your information.</p>" +
+        "<p><strong>What closing an account removes.</strong> When we close an account we delete or de-identify the personal information held on it, which includes:</p>" +
+        ul([
+          "Your username, avatar, and profile settings",
+          "The email address and account identifier you signed in with, and your recovery email if you added one",
+          "Your progress: your level, experience points, Critter Coins, achievements, unlocks, statistics, and competitive rank",
+          "Your recent game list and the dates you played",
+          "Your friends list, friend requests, and friend code",
+          "Your clan membership, and the in-game notices in your inbox",
+        ]) +
+        "<p><strong>Rewards are deleted with the account.</strong> Experience points, achievements, unlocks, and Critter Coins survive the deletion of Snap &amp; Score review information, but they do not survive the deletion of your account. They are part of your account, so closing it removes them, and they cannot be restored afterwards.</p>" +
+        "<p><strong>What may remain after an account is closed.</strong> Closing an account does not erase every trace of it. We may keep:</p>" +
+        ul([
+          "Purchase and transaction records, which we are required to keep for accounting and tax purposes",
+          "A newsletter record showing that an address is unsubscribed, so that an unsubscribe is still honored",
+          "Moderation and enforcement records, where keeping them is reasonably necessary to enforce our rules or resolve a dispute",
+          "Records needed to prevent fraud, including the one-way image hashes described in the Snap &amp; Score section, which are not linked to your account",
+          "Messages you sent us, and our replies",
+          "Information in a backup, until that backup is replaced in the ordinary course",
+          "Information we are required to keep by law, or that is subject to a legal hold",
+        ]) +
+        "<p>Content you posted in a shared place may not disappear from other people's view. A clan chat message you sent stays visible to that clan until it ages out of the conversation in the ordinary way.</p>" +
+        "<p>Deleting your Currents and Critters account does not delete your Google account or your Discord account, which belong to those companies. If you linked Discord, you may also want to remove our application's access from your Discord account settings.</p>" +
+        "<p>If you only want to stop receiving marketing email, you do not need to close your account. Use the unsubscribe link in any newsletter, or ask us.</p>",
+    },
+    {
+      title: "Your Privacy Rights in U.S. States",
+      body:
+        "<p>Privacy laws in the United States are written state by state, and most of them apply only to businesses above a certain size. Bearded Seal Studios LLC is a small company, so several of the best-known state privacy laws do not currently apply to us by their own terms. We would rather set out how we handle requests than claim a legal status we have not had reviewed.</p>" +
+        "<p><strong>What we offer everyone, wherever you live.</strong> Whether or not a particular state law covers us, you may ask us to:</p>" +
+        ul([
+          "Tell you what personal information we hold about you",
+          "Give you a copy of it",
+          "Correct it if it is wrong",
+          "Delete it and close your account",
+          "Stop sending you marketing email",
+        ]) +
+        "<p>We handle those requests the same way for every player. To make one, email " + mailto(EMAIL) + ". We may need to verify that the account is yours first.</p>" +
+        "<p><strong>We do not sell personal information</strong>, and we do not share it for cross-context behavioral advertising or targeted advertising. We do not use it for profiling that produces legal or similarly significant effects. There is therefore nothing for you to opt out of in those categories, and we do not need to offer a “do not sell” control, because there is no such activity to switch off.</p>" +
+        "<p>We also do not knowingly collect the categories that state laws treat as sensitive, such as precise location, biometric identifiers, health information, racial or ethnic origin, religious beliefs, or sexual orientation. Please do not send them to us.</p>" +
+        "<p><strong>If we deny a request.</strong> We will tell you why. Where a state law gives you a right to appeal that decision, you may reply to our response and ask us to reconsider, and we will respond to the appeal.</p>" +
+        "<p><strong>Someone acting for you.</strong> You may use an authorized agent to make a request where applicable law allows it. We may ask for proof that you authorized them, and we may still ask to verify your own identity.</p>" +
+        "<p><strong>No different treatment.</strong> We will not deny you the game, charge you a different price, or give you a worse experience because you exercised a privacy right.</p>" +
+        "<p>If a state privacy law begins to apply to us as the business grows, we will update this policy and provide the notices and controls that law requires.</p>",
+    },
+    {
       title: "Children’s Privacy",
       body:
-        "<p>Currents and Critters and our related online services are not directed to children under 13.</p>" +
-        "<p>We do not knowingly collect personal information online from children under 13 without any permission or consent required by applicable law.</p>" +
-        "<p>A person under 13 should not create an account, join the newsletter, make a purchase, or submit personal information through our services without the involvement of a parent or legal guardian.</p>" +
-        "<p>If we learn that we collected personal information from a child under 13 without any required permission, we will take reasonable steps to delete it.</p>" +
+        "<p>Currents and Critters and our related online services are not directed to children under 13. The game is a strategy card game intended for a general audience of teenagers and adults, and we do not advertise it to children, use child-focused characters or themes to attract them, or run it on channels aimed at children.</p>" +
+        "<p><strong>You must be at least 13 to create an account</strong>, join the newsletter, or make a purchase. If you are under 18, you should have your parent or legal guardian's permission before you do any of those things.</p>" +
+        "<p>We do not knowingly collect personal information from a child under 13. We do not ask for a date of birth, so we rely on the age requirement above and on anything we are told or notice.</p>" +
+        "<p>If we learn that an account belongs to a child under 13, we will close that account and delete the personal information on it, unless a parent or legal guardian gives the consent that applicable law requires for us to keep it.</p>" +
+        "<p><strong>Parents and guardians.</strong> If you believe a child under 13 has created an account or sent us personal information, contact us and we will look into it and act promptly. You may ask us to show you what we hold about your child, to delete it, and to close the account. You do not need to prove anything about the game first; just tell us the username or the email address involved.</p>" +
+        "<p>Please also be aware that clan chat and table chat are places where players talk to each other, and that what a player writes there is seen by other players.</p>" +
         "<p>A parent or legal guardian who believes a child under 13 provided personal information may contact us at:</p>" +
         "<p>" + mailto(EMAIL) + "</p>",
     },
@@ -554,11 +708,12 @@
         "<p>Questions, concerns, or requests about this Privacy Policy may be sent to:</p>" +
         '<address class="pp-address">' +
           "<strong>Bearded Seal Studios LLC</strong><br>" +
-          "916A South Douglas Avenue<br>" +
-          "Nashville, Tennessee 37204-2021<br>" +
+          "Nashville, Tennessee 37204<br>" +
           "United States" +
         "</address>" +
-        "<p><strong>Email:</strong> " + mailto(EMAIL) + "</p>",
+        "<p><strong>Email:</strong> " + mailto(EMAIL) + "</p>" +
+        "<p>Email is the fastest way to reach us, and it is the right address for a privacy request, an account deletion request, a question about your information, or a report that an account has been accessed without permission. A person reads it.</p>" +
+        "<p>If you need our full mailing address in order to write to us on paper, ask us by email and we will provide it.</p>",
     },
   ];
 

@@ -75,11 +75,11 @@ const TEXT = String(HTML_DOC || "")
 {
   check(typeof HTML_DOC === "string" && HTML_DOC.length > 5000,
         `the policy renders a substantial document (got ${String(HTML_DOC).length} chars)`);
-  check(Array.isArray(SECTIONS) && SECTIONS.length === 23,
-        `all 23 sections are published, got ${SECTIONS && SECTIONS.length}`);
-  check(win.CC_PRIVACY_UPDATED === "October 9, 2026",
+  check(Array.isArray(SECTIONS) && SECTIONS.length === 27,
+        `all 27 sections are published, got ${SECTIONS && SECTIONS.length}`);
+  check(win.CC_PRIVACY_UPDATED === "October 12, 2026",
         `the last-updated date is stated, got ${win.CC_PRIVACY_UPDATED}`);
-  check(TEXT.includes("Last updated: October 9, 2026"),
+  check(TEXT.includes("Last updated: October 12, 2026"),
         "the last-updated date is printed in the document, not just exported");
 
   // The contents list and the headings come from ONE array: prove it by
@@ -90,9 +90,9 @@ const TEXT = String(HTML_DOC || "")
     check(HTML_DOC.includes(`</span>${s.title}</h3>`),
           `section ${s.n}'s heading prints its own title`);
   }
-  // Numbering is 1..18 with no gaps, a gap means a section was deleted.
+  // Numbering is 1..27 with no gaps, a gap means a section was deleted.
   check((SECTIONS || []).every((s, i) => s.n === i + 1),
-        "sections are numbered 1 to 23 with no gaps");
+        "sections are numbered 1 to 27 with no gaps");
   // Numbering is positional now, so no entry can carry a stale hardcoded
   // number: prove the array has none left to drift.
   check(!/\n\s+n:\s*\d+,/.test(POLICY_SRC),
@@ -113,23 +113,22 @@ const TEXT = String(HTML_DOC || "")
     // describes something the code actually does; losing one silently puts
     // the policy back behind the product.
     "The photograph is read on your own device",
-    "the photograph itself is not uploaded to us",
+    "Your full-resolution photograph is never uploaded to us",
     "nothing from that photograph is sent to us or stored by us",
     "We do not receive or store your Discord password",
     "Table chat is not saved to your account",
     "have no cash value and cannot be exchanged for money",
-    "We do not use third-party advertising cookies",
+    "we use no advertising or cross-site tracking technology of any kind",
     // What the owner confirmed on 2026-10-09: the 90-day review window, and
     // that earned rewards outlive it. Both must survive future edits.
-    "stay with you, including after the review thumbnail and image fingerprints have been deleted",
+    "they stay with you after the review thumbnail and the image fingerprints have been deleted",
     "Rewards you have already earned are not affected by any of these periods",
-    "The photograph of your physical board, which is read on your own device and never uploaded",
+    "It is read on your own device and is never uploaded",
     // The Supporter Reef Wall is the one place a purchase becomes public, so
     // the consent and the limits on what it shows are both commitments.
     "Your name appears there only if you ask for it",
     "The wall never shows your email address, your payment details, or which item you bought",
-    "916A South Douglas Avenue",
-    "Nashville, Tennessee 37204-2021",
+    "Nashville, Tennessee 37204",
     "timothy.honey@beardedsealstudios.com",
   ];
   for (const p of promises) {
@@ -138,6 +137,112 @@ const TEXT = String(HTML_DOC || "")
   // The contact address must be a real mailto, not just printed text.
   check(HTML_DOC.includes('href="mailto:timothy.honey@beardedsealstudios.com"'),
         "the privacy-request address is a working mailto link");
+
+  // ── THE HOME ADDRESS STAYS OFF THIS PAGE (owner's instruction, 2026-10-12)
+  // Nothing requires a street address in a privacy policy. CAN-SPAM,
+  // 15 U.S.C. 7704(a)(5)(A)(iii), requires one in COMMERCIAL EMAIL, which is
+  // why it still ships in newsletter_email.BUSINESS_ADDRESS_LINES and in
+  // unsubscribe.html. This page is not email. Asserted as an ABSENCE so a
+  // future edit cannot quietly republish a home address.
+  for (const leak of ["916A", "South Douglas", "37204-2021"]) {
+    check(!TEXT.includes(leak),
+          `the street address stays off the public policy (no "${leak}")`);
+  }
+
+  // ── THE 90-DAY SNAP & SCORE RULE, AND THE REWARDS THAT OUTLIVE IT ───────
+  // snap_score.py enforces this (purge_expired_snap_evidence, clamped by
+  // IMAGE_RETENTION_DAYS_MAX) and test_snap_retention.py pins the behaviour.
+  // These check that the PAGE still describes what that code does: the two
+  // can drift apart silently, and a published retention period that is not
+  // enforced is the specific bug this audit existed to fix.
+  const retention = [
+    "We keep that review information for 90 days after the game is completed",
+    "The review thumbnail of your board",
+    "The record of which account and which game a submitted image belonged to",
+    "it is what makes it impossible to submit the same board photograph for rewards a second time",
+    "The only thing the 90 days removes is our ability to look back at the board",
+    "We will not quietly extend the 90-day Snap & Score period beyond what this policy says",
+  ];
+  for (const p of retention) {
+    check(TEXT.includes(p), `the 90-day rule still says: "${p.slice(0, 52)}…"`);
+  }
+
+  // ── THE DISCLOSURES ADDED BY THE 2026-10-12 AUDIT ───────────────────────
+  // Each one covers something the code does that the policy used to omit
+  // entirely. Dropping one puts the page back behind the product.
+  const audited = [
+    // Clan chat IS persisted (clans/{id}/chat in clan_server.py), unlike
+    // table chat. The old policy said only that chat was not saved.
+    "Clan chat, which is saved",
+    "usually within about two weeks",
+    "There are no private one-to-one messages between players anywhere in the game",
+    // Username-and-password accounts, the recovery email, recovery codes.
+    "Account sign-in is handled by Google Firebase Authentication",
+    "Your recovery email address is not publicly displayed to other players",
+    "never the code itself",
+    // Friends.
+    "Your friend code, and your custom friend code if you set one",
+    // No cookies at all, and the third parties the browser really contacts.
+    "Our servers do not set any cookies",
+    "we do not write it into your account or store it in our database",
+    // The honest account-deletion position: no button exists.
+    "There is currently no button in the game that deletes your account",
+    "they do not survive the deletion of your account",
+    // State rights, without claiming a legal status nobody has reviewed.
+    "We do not sell personal information",
+    "We will not deny you the game, charge you a different price",
+    // Breach notification.
+    "we will investigate it, take reasonable steps to contain it",
+  ];
+  for (const p of audited) {
+    check(TEXT.includes(p), `the audited disclosure survives: "${p.slice(0, 52)}…"`);
+  }
+
+  // The policy must not claim a self-serve deletion control while none
+  // exists. If somebody builds the button, this check is what tells them to
+  // come back and rewrite the section.
+  check(!/\bDelete My Account\b/i.test(TEXT),
+        "the policy does not advertise a 'Delete My Account' button that does not exist");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("1b. The page agrees with the code it describes");
+// ═══════════════════════════════════════════════════════════════════════════
+// The published retention period and the enforced one are two different
+// files. Before 2026-10-12 they were allowed to disagree, and they did: the
+// page said 90 days and nothing deleted anything. Pin them together.
+{
+  const SNAP = read("snap_score.py");
+
+  check(/IMAGE_RETENTION_DAYS_MAX\s*=\s*90/.test(SNAP),
+        "snap_score.py caps retention at the 90 days the policy publishes");
+  check(/"image_retention_days":\s*90/.test(SNAP),
+        "90 days is still the default retention in snap_score.py");
+  check(/def purge_expired_snap_evidence/.test(SNAP),
+        "snap_score.py actually has a purge, not just a retention number");
+  check(/def _clamp_retention_days/.test(SNAP),
+        "the admin-editable retention setting is clamped");
+  // The purge must keep the hash DOCUMENT while stripping its fingerprint:
+  // that is what the policy promises, and what keeps photo reuse blocked.
+  check(/"dhash":\s*None,\s*"uid":\s*None,\s*"gameId":\s*None/.test(SNAP),
+        "the purge strips the fingerprint and the links to a player");
+  check(/"thumb"\]\s*=\s*None/.test(SNAP),
+        "the purge deletes the review thumbnail");
+  // Nothing in the purge may touch a reward.
+  const purge = SNAP.slice(SNAP.indexOf("def _purge_one_game"),
+                           SNAP.indexOf("def purge_expired_sessions"));
+  for (const forbidden of ["rewardLedger", "total_xp", "unlocked_icons", "coins"]) {
+    check(!purge.includes(forbidden),
+          `the purge never touches ${forbidden}`);
+  }
+  check(/collection\("users"\)/.test(purge) === false,
+        "the purge never writes to a player's account document");
+
+  // The janitor that runs it has to be wired in, or the purge never happens.
+  check(/snap_score\.retention_sweep\(\)/.test(SERVER),
+        "multiplayer_server runs the retention sweep");
+  check(/name="snap-retention"/.test(SERVER),
+        "the retention janitor is started as its own thread");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

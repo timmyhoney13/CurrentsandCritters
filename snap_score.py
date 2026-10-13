@@ -74,7 +74,10 @@ DEFAULT_CONFIG = {
     # Expected minimum realistic game length by player count (minutes).
     "expected_min_game_minutes": {"2": 15, "3": 20, "4": 25, "5": 30, "6": 35, "7": 40, "8": 45},
     "max_rewarded_games_per_day": 6,
-    # How many days finalized board thumbnails are kept for review.
+    # How many days finalized board thumbnails are kept for review. The
+    # Privacy Policy PUBLISHES this number, so it is clamped to
+    # IMAGE_RETENTION_DAYS_MAX below: the admin doc can shorten retention but
+    # can never lengthen it past what players have been promised.
     "image_retention_days": 90,
     # Hamming distance at or under which two dHashes count as near-duplicates.
     "near_duplicate_hamming": 8,
@@ -87,6 +90,20 @@ DEFAULT_CONFIG = {
 _config_cache: Dict[str, Any] = {"at": 0.0, "cfg": None}
 _CONFIG_TTL_SEC = 300.0
 
+# ── The published retention ceiling ─────────────────────────────────────────
+# The Privacy Policy states a definite number ("currently 90 days") for how
+# long Snap & Score review evidence is kept, and js/privacy-policy.js names
+# this constant as its source. Before the clamp, editing the Firestore doc
+# meta/snap_score_config silently made that published sentence false, which is
+# the one failure mode a retention promise cannot have. So the admin doc is
+# now a way to keep LESS, never more:
+#   image_retention_days = 30  → honoured, evidence purged sooner
+#   image_retention_days = 400 → clamped to 90, and a warning is printed
+# Raising the ceiling is therefore a deliberate code change that sits in the
+# same diff as the policy sentence it would contradict.
+IMAGE_RETENTION_DAYS_MAX = 90
+IMAGE_RETENTION_DAYS_MIN = 1
+
 
 def init(get_firestore, verify_token, level_progress, state_dir: str) -> None:
     """Dependency injection from multiplayer_server (avoids circular import)."""
@@ -96,6 +113,21 @@ def init(get_firestore, verify_token, level_progress, state_dir: str) -> None:
     _level_progress = level_progress
     _STATE_DIR = state_dir
     _load_sessions_from_disk()
+
+
+def _clamp_retention_days(value: Any) -> int:
+    """The admin doc's image_retention_days, held inside the published range.
+
+    Garbage (a string, None, a negative) falls back to the DEFAULT rather than
+    to zero: a bad config value must never be read as "delete everything now".
+    """
+    try:
+        days = int(value)
+    except (TypeError, ValueError):
+        return int(DEFAULT_CONFIG["image_retention_days"])
+    if days < IMAGE_RETENTION_DAYS_MIN:
+        return int(DEFAULT_CONFIG["image_retention_days"])
+    return min(days, IMAGE_RETENTION_DAYS_MAX)
 
 
 def get_config() -> Dict[str, Any]:
@@ -115,6 +147,12 @@ def get_config() -> Dict[str, Any]:
                         cfg[k] = v
     except Exception as exc:  # noqa: BLE001: config fetch must never break scoring
         print(f"[snap] config fetch failed ({exc}); using defaults")
+    # The one setting the Privacy Policy publishes: never longer than promised.
+    asked = cfg["image_retention_days"]
+    cfg["image_retention_days"] = _clamp_retention_days(asked)
+    if cfg["image_retention_days"] != asked:
+        print(f"[snap] image_retention_days {asked!r} is outside the published "
+              f"range; using {cfg['image_retention_days']} day(s)")
     _config_cache["cfg"] = cfg
     _config_cache["at"] = now
     return cfg
@@ -1254,6 +1292,221 @@ def _finalize_in_firestore(db, session, rewards, risk, grant_rewards: bool,
                 {"physical_games_played": fb_fs.Increment(1)}, merge=True)
 
     _run(txn)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# RETENTION: deleting the review evidence, keeping every earned reward
+# ════════════════════════════════════════════════════════════════════════════
+# The Privacy Policy promises that Snap & Score review evidence is deleted
+# after a limited review period, and that nothing a player EARNED goes with
+# it. Those are two separate guarantees and this is the only code that has to
+# hold both, so here is exactly what each pass touches.
+#
+# DELETED (photograph-derived, and the links back to a person):
+#   physicalGames/{id}/players/{seat}.thumb        the 320px board thumbnail
+#   physicalGames/{id}/players/{seat}.photoHashes  that seat's image hashes
+#   physicalGames/{id}.imageHashes                 the game's hash list
+#   physicalImageHashes/{sha256}.dhash             the perceptual fingerprint
+#   physicalImageHashes/{sha256}.uid/.gameId/.seat the links to a player
+#   physicalPlayerIndex/{uid}.games[].ih/.dh/.uids per-player fingerprints
+#
+# KEPT, DELIBERATELY:
+#   physicalImageHashes/{sha256}  the document ITSELF, as a bare id.
+#       A SHA-256 is one-way and tells you nothing about a photograph unless
+#       you already hold the identical file, so keeping the id costs a player
+#       nothing and means one board photo can never be submitted for rewards
+#       twice, however long somebody waits. _risk_assess flags a hash whose
+#       stored gameId differs from the session's, and a stripped gameId reads
+#       back as None, which differs from every real id: the block therefore
+#       SURVIVES the purge. test_snap_retention.py pins that.
+#
+# NEVER TOUCHED (the rewards, and the game record a player can see):
+#   users/{uid}                 xp, coins, achievements, unlocked_icons, stats
+#   rewardLedger/{...}          the grant records, with their one-time ids
+#   physicalGames/{id}          standings, scores, placements, winner, dates
+#   .../players/{seat}          confirmedCards, score, placement, xpEarned
+#
+# COST. Render gives this service one core, so a pass is bounded: it walks at
+# most RETENTION_GAMES_PER_PASS games, runs daily off the request path, and
+# carries a cursor in meta/snap_retention so an already-purged game is never
+# read twice. The query is a single-field range on completedAt, which uses
+# Firestore's automatic index: no composite index to deploy.
+#
+# IDEMPOTENCE. evidencePurgedAt is written LAST. A pass killed half way simply
+# re-does that game next time, and every write below is a delete-or-overwrite
+# that is safe to repeat.
+
+RETENTION_GAMES_PER_PASS = 50
+RETENTION_SWEEP_INTERVAL_SEC = 24 * 3600
+
+
+def _retention_cursor(db) -> float:
+    """The completedAt the last pass finished at; 0 on the first ever run."""
+    try:
+        snap = db.collection("meta").document("snap_retention").get()
+        if snap.exists:
+            return float((snap.to_dict() or {}).get("purgedThrough") or 0.0)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[snap-retention] cursor read failed: {exc}")
+    return 0.0
+
+
+def _save_retention_cursor(db, through: float, stats: Dict[str, Any]) -> None:
+    try:
+        db.collection("meta").document("snap_retention").set({
+            "purgedThrough": float(through),
+            "lastRunAt": time.time(),
+            "lastRunGames": int(stats.get("games") or 0),
+            "lastRunThumbs": int(stats.get("thumbs") or 0),
+            "retentionDays": int(stats.get("days") or 0),
+        }, merge=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[snap-retention] cursor write failed: {exc}")
+
+
+def _purge_one_game(db, game_doc, cutoff: float) -> Dict[str, int]:
+    """Strip the photograph evidence from ONE finalized game. Rewards untouched."""
+    out = {"thumbs": 0, "hashes": 0}
+    game_ref = game_doc.reference
+    data = game_doc.to_dict() or {}
+
+    # 1) the seats: the thumbnail is the only real image here.
+    for pdoc in game_ref.collection("players").stream():
+        pdata = pdoc.to_dict() or {}
+        updates: Dict[str, Any] = {}
+        if pdata.get("thumb"):
+            updates["thumb"] = None
+            out["thumbs"] += 1
+        if pdata.get("photoHashes"):
+            updates["photoHashes"] = []
+        if updates:
+            pdoc.reference.set(updates, merge=True)
+
+    # 2) the shared hash registry: keep the id, drop the fingerprint and the
+    #    links to whoever submitted it. See the note above on why the id stays.
+    for h in (data.get("imageHashes") or []):
+        try:
+            db.collection("physicalImageHashes").document(str(h)).set({
+                "dhash": None, "uid": None, "gameId": None, "seat": None,
+                "purgedAt": time.time(),
+            }, merge=True)
+            out["hashes"] += 1
+        except Exception as exc:  # noqa: BLE001
+            print(f"[snap-retention] hash {h} purge failed: {exc}")
+
+    # 3) the per-player index: age out the fingerprints of expired games. The
+    #    index self-trims at 20 games BY COUNT, so a player with five physical
+    #    games would otherwise keep their fingerprints for ever.
+    for uid in {s.get("uid") for s in (data.get("finalStandings") or []) if s.get("uid")}:
+        _purge_player_index(db, str(uid), cutoff)
+
+    # 4) the game's own hash list, cleared only AFTER step 2 has walked it:
+    #    it is the only record of which registry documents belong to this
+    #    game, so clearing it first would orphan their fingerprints for ever.
+    #    evidencePurgedAt is written in the same breath, last of all, so an
+    #    interrupted pass simply repeats this game next time.
+    game_ref.set({"imageHashes": [], "evidencePurgedAt": time.time()}, merge=True)
+    return out
+
+
+def _purge_player_index(db, uid: str, cutoff: float) -> None:
+    """Drop image fingerprints from physicalPlayerIndex entries past the cutoff.
+
+    The ENTRY stays: its timestamps are what rate-limits a player to a
+    realistic number of physical games, and they are not photograph data.
+    Only ih / dh / uids go.
+    """
+    try:
+        ref = db.collection("physicalPlayerIndex").document(uid)
+        snap = ref.get()
+        if not snap.exists:
+            return
+        games = list((snap.to_dict() or {}).get("games") or [])
+        touched = False
+        for g in games:
+            if not isinstance(g, dict):
+                continue
+            if float(g.get("co") or 0) >= cutoff:
+                continue
+            for field in ("ih", "dh", "uids"):
+                if g.get(field):
+                    g[field] = []
+                    touched = True
+        if touched:
+            ref.set({"games": games}, merge=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[snap-retention] player index {uid} purge failed: {exc}")
+
+
+def purge_expired_snap_evidence() -> Dict[str, Any]:
+    """One bounded retention pass. Safe to call repeatedly; returns a summary."""
+    stats: Dict[str, Any] = {"games": 0, "thumbs": 0, "hashes": 0, "days": 0,
+                             "sessions": 0, "skipped": False}
+    db = _get_firestore()
+    if db is None:
+        stats["skipped"] = True
+        return stats
+
+    days = _clamp_retention_days(get_config()["image_retention_days"])
+    stats["days"] = days
+    cutoff = time.time() - days * 86400.0
+    start = _retention_cursor(db)
+    through = start
+
+    try:
+        games_col = db.collection("physicalGames")
+        # Prefer the modern FieldFilter API, fall back to the positional form
+        # on older SDKs: the same pattern as multiplayer_server's live counts.
+        try:
+            from google.cloud.firestore_v1 import FieldFilter
+            query = (games_col
+                     .where(filter=FieldFilter("completedAt", ">=", start))
+                     .where(filter=FieldFilter("completedAt", "<", cutoff)))
+        except Exception:  # noqa: BLE001
+            query = (games_col
+                     .where("completedAt", ">=", start)
+                     .where("completedAt", "<", cutoff))
+        query = query.order_by("completedAt").limit(RETENTION_GAMES_PER_PASS)
+        for doc in query.stream():
+            data = doc.to_dict() or {}
+            through = max(through, float(data.get("completedAt") or 0))
+            if data.get("evidencePurgedAt"):
+                continue
+            got = _purge_one_game(db, doc, cutoff)
+            stats["games"] += 1
+            stats["thumbs"] += got["thumbs"]
+            stats["hashes"] += got["hashes"]
+    except Exception as exc:  # noqa: BLE001: retention must never crash the server
+        print(f"[snap-retention] sweep failed: {exc}")
+        return stats
+
+    if through > start:
+        _save_retention_cursor(db, through, stats)
+    return stats
+
+
+def purge_expired_sessions() -> int:
+    """Run the 12h / 24h session prune on a TIMER rather than lazily.
+
+    The prune used to happen only when somebody created a new session, so on a
+    quiet day a finished session's thumbnails sat in snap_sessions.json on the
+    Render disk well past the 24 hours the Privacy Policy states. Returns how
+    many sessions went.
+    """
+    with _SESSIONS_LOCK:
+        before = len(_SESSIONS)
+        _prune_sessions_locked()
+        gone = before - len(_SESSIONS)
+        if gone:
+            _persist_sessions_locked()
+    return gone
+
+
+def retention_sweep() -> Dict[str, Any]:
+    """Both retention jobs, for the daily janitor in multiplayer_server."""
+    out = purge_expired_snap_evidence()
+    out["sessions"] = purge_expired_sessions()
+    return out
 
 
 # ════════════════════════════════════════════════════════════════════════════

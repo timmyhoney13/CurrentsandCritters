@@ -97,6 +97,10 @@
   ],
   "rewrites": [
     {
+      "source": "/launch",
+      "destination": "/launch.html"
+    },
+    {
       "source": "/classic",
       "destination": "/multiplayer/client/index.html"
     },

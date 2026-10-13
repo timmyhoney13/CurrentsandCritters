@@ -10022,6 +10022,54 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
     return actions
 
 
+def free_window_has_a_play(
+    gs: GameState,
+    ms: MatchState,
+    player: PlayerState,
+    prospective: bool = False,
+) -> bool:
+    """Does a free-play window actually contain a card the player can put down?
+
+    A window is only worth opening if there is a play inside it. "*Play a free
+    Baitfish*" when the player holds no Baitfish (or has nowhere to attach one)
+    is a window whose single legal action is end_turn, which reads to the player
+    as a frozen game: a FREE PLAY banner they cannot answer and an End Turn
+    button that asks them to confirm skipping a play they never had. The turn
+    ends instead.
+
+    prospective=True asks the question about a one-shot window that has not been
+    opened yet (the free_* flag is set, _free_action_only is not), so the same
+    species restriction legal_actions would apply is applied here too.
+    """
+    if player.flags.get("_tarpon_discard_active") or player.flags.get("_discard_mode"):
+        # A discard phase owns the turn; it is not this window's to cut short.
+        return True
+    had_key = "_free_action_only" in player.flags
+    prev = player.flags.get("_free_action_only", False)
+    if prospective:
+        player.flags["_free_action_only"] = True
+    try:
+        actions = legal_actions(gs, ms, player, include_draw=False)
+    except Exception:
+        # Never let the check itself end a turn.
+        return True
+    finally:
+        if prospective:
+            if had_key:
+                player.flags["_free_action_only"] = prev
+            else:
+                player.flags.pop("_free_action_only", None)
+    return any(a.kind in {"play_ocean", "play_to_ocean"} for a in actions)
+
+
+def multi_play_window_stays_open(gs: GameState, ms: MatchState, player: PlayerState) -> bool:
+    """A chain window (Hermit Crab's "play any number of baitfish for free", the
+    Loggerhead's paid chain, the cephalopod and yellowfin chains) keeps the turn
+    alive only while it still has a card to play. Once it is empty the turn ends
+    by itself rather than parking on the "tap End Turn" callout."""
+    return has_multi_play_window(player) and free_window_has_a_play(gs, ms, player)
+
+
 def describe_action(gs: GameState, ms: MatchState, action: Action) -> str:
     if action.kind == "end_turn":
         return "end turn"
@@ -10789,8 +10837,20 @@ def _apply_action_uncommitted(
         turn_state.star_activations += 1
         gained_free = any((not pre_free_flags[k]) and bool(player.flags.get(k, False)) for k in FREE_PLAY_FLAGS)
         if gained_free:
-            # STAR free-play abilities need an immediate same-turn action window.
-            turn_state.free_followups += 1
+            # STAR free-play abilities need an immediate same-turn action window,
+            # but ONLY when that window has a card in it. A Roosterfish's "*play a
+            # free Baitfish*" in a hand with no Baitfish (or with no ocean lane
+            # one can attach to) opens a window whose only legal action is End
+            # Turn: the player reads that as the game having frozen on them. With
+            # nothing to play for free the turn ends the way an ordinary turn
+            # ends. The flag itself is left alone, a later window this turn (a
+            # "play again") can still spend it on a card that has since arrived.
+            if free_window_has_a_play(gs, ms, player, prospective=True):
+                turn_state.free_followups += 1
+            else:
+                gs.log.append(
+                    f"{player.name} has nothing to play for free from {card.name}, so the turn ends."
+                )
         if verbose:
             star_note = " (auto)" if auto_star and not action.use_star else ""
             print(f"{player.name} triggers STAR on {card.uid}:{card.name}{star_note}")
@@ -11424,7 +11484,7 @@ def continue_turn_followups_greedy(
             if not player.flags.get("_draws_taken"):
                 player.flags["_free_action_only"] = True
             turn_state.free_followups = 0
-        if has_multi_play_window(player):
+        if multi_play_window_stays_open(gs, ms, player):
             action_budget += 1
         action_budget -= 1
 
@@ -11487,7 +11547,7 @@ def simulate_one_turn_greedy(
             if not player.flags.get("_draws_taken"):
                 player.flags["_free_action_only"] = True
             turn_state.free_followups = 0
-        if has_multi_play_window(player):
+        if multi_play_window_stays_open(gs, ms, player):
             action_budget += 1
         action_budget -= 1
 
@@ -13632,7 +13692,7 @@ def run_match(
                     if verbose:
                         print(f"{p.name} gets {turn_state.free_followups} restricted follow-up action(s) for free-play ability.")
                 turn_state.free_followups = 0
-            if has_multi_play_window(p):
+            if multi_play_window_stays_open(gs, ms, p):
                 action_budget += 1
             # (END GAME mid-turn detection now happens right after apply_action above,
             # so a force_end_turn break: e.g. the 2nd draw revealing the END GAME card:

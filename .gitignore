@@ -547,6 +547,10 @@
 # Main Menu tutorial takes to those same two elements.
 !test_sidebar_scroll.js
 !test_sidebar_hover.js
+# ...and the walk: the tab list overflows the card on any window shorter
+# than about 1000px, so resting the cursor at its top or bottom edge (or on
+# the logo above it) scrolls it there by itself. Driven with a real mouse.
+!test_sidebar_edge_scroll.js
 !test_game_name.js
 
 # The Stripe money path. The .py half covers the server's decision functions , 
@@ -769,6 +773,15 @@ serviceAccountKey.json
 !image-slot.js
 !score.html
 !shop.html
+
+# The Kickstarter launch page, served at the clean /launch by the rewrite in
+# vercel.json. The deny-all at the top of this file means a new page at the
+# root is invisible to git by default: without this line launch.html sits in
+# the working tree looking finished and never reaches a single deploy.
+!launch.html
+# Its countdown arithmetic, the three states, and the guards that keep the
+# tier prices in step with the homepage and the four tier buttons unsellable.
+!test_launch_page.js
 !assets/
 !assets/**
 

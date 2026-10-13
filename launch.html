@@ -1,0 +1,1031 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Kickstarter Launch - Currents and Critters</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="description" content="Currents and Critters is coming to Kickstarter. Count down to launch day, see the four Supporter Tiers, and play the online game free while you wait."/>
+<link rel="canonical" href="https://currentsandcritters.com/launch"/>
+<link rel="icon" href="assets/logo-icon.svg"/>
+
+<!-- This page exists to be SHARED: it is the link that goes in a post, a
+     story and an email signature, so unlike the rest of the site it carries
+     Open Graph tags. The share image is the Backed By People banner because
+     its own artwork already says what this page is for. -->
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="Currents and Critters"/>
+<meta property="og:title" content="Currents and Critters is coming to Kickstarter"/>
+<meta property="og:description" content="Count down to launch day, see the four Supporter Tiers, and play the online game free while you wait. 5% goes to ocean conservation."/>
+<meta property="og:url" content="https://currentsandcritters.com/launch"/>
+<meta property="og:image" content="https://currentsandcritters.com/assets/backed-by-people.png"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="Currents and Critters is coming to Kickstarter"/>
+<meta name="twitter:description" content="Count down to launch day, see the four Supporter Tiers, and play the online game free while you wait."/>
+<meta name="twitter:image" content="https://currentsandcritters.com/assets/backed-by-people.png"/>
+
+<link rel="stylesheet" href="styles.css"/>
+
+<!-- Game Night band, exactly as index.html loads it: the markup is built by
+     /js/game-night.js, which the GAME serves too (Vercel rewrites /css/:file
+     and /js/:file to multiplayer/client/), so the schedule and the countdown
+     on this page come from the same single source as the homepage and the
+     game. A second copy of an event time is how a site ends up advertising
+     last season's schedule on one of its pages. -->
+<link rel="stylesheet" href="/css/game-night.css?v=2026-10-07.2"/>
+<script defer src="/js/game-night.js?v=2026-10-07.2"></script>
+
+<style>
+  /* ════════════════════════════════════════════════════════════════
+     LAUNCH PAGE, page-local styles.
+     Everything structural (nav, hero, bands, buttons, tiers, footer)
+     is the shared marketing stylesheet. Only what exists nowhere else
+     lives here: the countdown itself, the Kickstarter banner, the
+     locked tier buttons and the While You Wait cards.
+     ════════════════════════════════════════════════════════════════ */
+
+  /* ── KICKSTARTER BANNER ───────────────────────────────────────────
+     The same pill the homepage and the in-game Store open with, in the
+     same words, so a reader arriving here from either of them is not
+     told something different. -->  */
+  .ks-bar {
+    position: relative;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: linear-gradient(90deg, #0a8fb8 0%, #16a36b 100%);
+    color: #f3fffb;
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-align: center;
+    padding: 9px 18px;
+    box-shadow: 0 2px 14px rgba(10, 143, 184, 0.35);
+  }
+  .ks-bar a {
+    color: #fff;
+    text-decoration: none;
+    font-weight: 800;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.7);
+    padding-bottom: 1px;
+  }
+  .ks-bar a:hover { border-bottom-color: #fff; opacity: 0.92; }
+  /* Kickstarter's own mark, inline. It takes currentColor, which is
+     Kickstarter's monochrome treatment on a coloured ground. */
+  .ks-ico { flex: 0 0 auto; display: block; }
+  @media (max-width: 520px) { .ks-bar { font-size: 12px; padding: 8px 14px; } }
+
+  /* ── THE COUNTDOWN ────────────────────────────────────────────────
+     Three mutually exclusive states, switched by data-state on .cd:
+       pending  no launch date has been set yet
+       counting a date is set and is still in the future
+       live     the date has passed
+     Each state's block is in the markup and CSS shows exactly one, so
+     the page cannot briefly flash the wrong one while JS boots: the
+     attribute starts at "pending", which is true of a page whose date
+     has not been filled in. */
+  .cd { margin: 26px auto 4px; max-width: 760px; }
+  .cd-pending, .cd-counting, .cd-live { display: none; }
+  .cd[data-state="pending"]  .cd-pending  { display: block; }
+  .cd[data-state="counting"] .cd-counting { display: block; }
+  .cd[data-state="live"]     .cd-live     { display: block; }
+
+  .cd-tiles {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: 10px;
+  }
+  .cd-tile {
+    flex: 0 1 148px;
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.95);
+    border-radius: var(--r-2xl);
+    box-shadow: var(--shadow-lg);
+    padding: 16px 10px 13px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .cd-tile .n {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(38px, 7vw, 66px);
+    line-height: 1;
+    letter-spacing: -2px;
+    color: var(--ink-deep);
+    font-variant-numeric: tabular-nums;
+  }
+  .cd-tile .l {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  /* The seconds tile is the one that moves, so it is the one that is
+     tinted: the eye finds the live part of the clock without being told. */
+  .cd-tile.cd-secs .n { color: var(--brand-cyan-deep); }
+
+  .cd-when {
+    margin: 18px auto 0;
+    max-width: 560px;
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--muted-strong);
+    text-wrap: pretty;
+  }
+  .cd-when strong { color: var(--ink-deep); }
+
+  .cd-pending-h, .cd-live-h {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(24px, 3.4vw, 34px);
+    letter-spacing: -0.8px;
+    color: var(--ink-deep);
+    margin: 0 0 8px;
+  }
+  .cd-pending p, .cd-live p {
+    margin: 0 auto;
+    max-width: 560px;
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--muted-strong);
+  }
+
+  @media (max-width: 620px) {
+    .cd-tiles { flex-wrap: wrap; gap: 8px; }
+    .cd-tile { flex: 1 1 calc(50% - 4px); padding: 12px 8px 10px; }
+  }
+
+  /* ── WHAT LAUNCH DAY MEANS, the four sand props ───────────────────
+     Shares .values / .value with the homepage; nothing page-local is
+     needed beyond letting four cards wrap on a narrow screen, which
+     the shared sheet already handles. */
+
+  /* ── GAME NIGHT, riding inside the sand band ──────────────────────
+     Placement only: the band's own look is shared with the game
+     (css/game-night.css). position/z-index because .values-band::before
+     is an absolutely positioned speckle overlay. */
+  .game-night-inner {
+    position: relative;
+    z-index: 2;
+    max-width: 1180px;
+    margin: 40px auto 0;
+  }
+
+  /* ── TIERS, on the dark sponsor ground ────────────────────────────
+     The cards themselves are .tier from the shared sheet. These are the
+     bits the homepage also keeps page-local. */
+  .tier-ks-banner {
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    max-width: 720px; margin: 0 auto 16px;
+    padding: 11px 20px; border-radius: var(--r-pill);
+    background: linear-gradient(90deg, #0a8fb8 0%, #146eaa 100%);
+    color: #fff;
+    font-family: var(--font-body);
+    font-size: 14px; font-weight: 800; letter-spacing: 0.01em;
+    box-shadow: 0 4px 18px rgba(20, 110, 170, 0.35);
+  }
+  .tier-waves {
+    max-width: 760px; margin: 0 auto 30px;
+    padding: 20px 24px; border-radius: 16px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(93, 214, 247, 0.22);
+  }
+  .tier-waves-title {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 19px; color: #fff; margin-bottom: 6px;
+  }
+  .tier-waves-desc { font-size: 14.5px; line-height: 1.55; color: rgba(255, 255, 255, 0.82); }
+  .tier-waves-fine { margin-top: 10px; font-size: 11.5px; line-height: 1.5; color: rgba(255, 255, 255, 0.5); }
+
+  /* The shared sheet sets three tier columns, which is right on the homepage,
+     where each card carries a dozen perks and a fourth column would squeeze
+     them. Here the cards are four lines each and the tiers ARE the page, so
+     on a wide screen they read as the one row of four they are. Below that
+     the shared breakpoints take over again. */
+  @media (min-width: 1080px) { .tiers { grid-template-columns: repeat(4, 1fr); } }
+
+  .tier.best-value {
+    background: linear-gradient(170deg, rgba(255, 190, 90, 0.16), rgba(255, 140, 60, 0.10));
+    border-color: rgba(255, 180, 80, 0.5);
+  }
+  .tier .ribbon.ribbon-best {
+    background: linear-gradient(120deg, #ffb63c, #f08a2a);
+    box-shadow: 0 6px 18px rgba(230, 140, 40, 0.35);
+  }
+  /* NOT FOR SALE HERE, exactly as on the homepage: the tiers are backed
+     through the Kickstarter. The button is disabled rather than removed so
+     each card still ends where the eye expects it to. */
+  .tier-locked {
+    justify-content: center;
+    cursor: default;
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: none;
+  }
+  .tier-locked:hover { transform: none; box-shadow: none; background: rgba(255, 255, 255, 0.12); }
+  .tier-ks-note {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    max-width: 720px; margin: 22px auto 0;
+    padding: 15px 22px; border-radius: 14px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px dashed rgba(255, 255, 255, 0.28);
+    font-family: var(--font-body);
+    font-size: 14.5px; font-weight: 700; color: #fff;
+  }
+  .tier-more {
+    text-align: center;
+    margin: 20px auto 0;
+    font-size: 14.5px;
+    color: rgba(255, 255, 255, 0.72);
+  }
+  .tier-more a { color: var(--glow); font-weight: 800; text-decoration: none; border-bottom: 1px dashed rgba(93, 214, 247, 0.6); }
+  .tier-more a:hover { color: #fff; border-bottom-color: #fff; }
+
+  /* The live numbers band. Two fewer tiles than the homepage's four, so
+     the shared four-column grid is overridden here. */
+  .impact-band.launch-impact { grid-template-columns: repeat(3, 1fr); margin-bottom: 44px; }
+  @media (max-width: 800px) {
+    .impact-band.launch-impact { grid-template-columns: repeat(3, 1fr); padding: 20px 12px; }
+    .impact-band.launch-impact .impact .num { font-size: clamp(24px, 7vw, 34px); }
+  }
+
+  /* ── WHILE YOU WAIT ───────────────────────────────────────────────── */
+  .section.wait { background: var(--paper); }
+  .wait-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  @media (max-width: 860px) { .wait-grid { grid-template-columns: 1fr; } }
+  .wait-card {
+    background: var(--grad-card-light);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-3xl);
+    box-shadow: var(--shadow-md);
+    padding: 26px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: transform .25s var(--ease-out), box-shadow .25s var(--ease-out);
+  }
+  .wait-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+  .wait-card .ico {
+    width: 42px; height: 42px; border-radius: var(--r-md);
+    background: var(--brand-cyan-soft); color: var(--brand-cyan-deep);
+    display: grid; place-items: center;
+  }
+  .wait-card h3 {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 21px; letter-spacing: -0.5px; color: var(--ink-deep);
+    margin: 4px 0 0;
+  }
+  .wait-card p { margin: 0; font-size: 14.5px; line-height: 1.55; color: var(--muted-strong); }
+  .wait-card .go { margin-top: auto; padding-top: 6px; }
+  .wait-card .go a {
+    font-size: 14px; font-weight: 800; color: var(--brand-cyan-deep);
+    text-decoration: none;
+  }
+  .wait-card .go a:hover { text-decoration: underline; }
+
+  /* ── BACK LINK ─────────────────────────────────────────────────────
+     Same pill as the shop page, so the way back is where a reader who
+     has seen one inner page already expects it. */
+  .back-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: var(--r-pill); padding: 8px 14px;
+    color: var(--sand-ink); text-decoration: none;
+    font-size: 13px; font-weight: 700;
+    border: 1px solid rgba(200, 150, 60, 0.4);
+  }
+  .back-link:hover { background: #fff; }
+  /* The paper background continues the section above it: without it the pill
+     sits on a lone strip of sky between the white band and the dark footer,
+     which reads as a gap rather than as the end of the page. */
+  .back-wrap {
+    background: var(--paper);
+    text-align: center;
+    padding: 0 24px 64px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ KICKSTARTER BANNER ============ -->
+<div class="ks-bar">
+  <svg class="ks-ico" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.2505 12.0001L17.5686 7.6437C19.0475 6.1521 19.0475 3.7335 17.5686 2.2419C16.0897 0.7503 13.6918 0.7503 12.2129 2.2419L10.1077 4.3653V3.1815C10.1077 1.0724 8.4131 0 6.3222 0C4.2313 0 2.5367 1.0724 2.5367 3.1815V20.8185C2.5367 22.9276 4.2313 24 6.3222 24C8.4131 24 10.1077 22.9276 10.1077 20.8185V19.6347L12.2129 21.7581C13.6918 23.2497 16.0897 23.2497 17.5686 21.7581C19.0475 20.2665 19.0475 17.8479 17.5686 16.3563L13.2505 12.0001Z"/></svg>
+  <span>Kickstarter coming soon. The online game is free to play right now.
+    <a href="https://play.currentsandcritters.com/">Play Free Online →</a>
+  </span>
+</div>
+
+<!-- ============ NAV ============ -->
+<nav class="nav">
+  <a class="brand" href="index.html">
+    <img src="assets/logo-icon.svg" alt="C&amp;C"/>
+    <span class="wordmark">Currents and Critters</span>
+  </a>
+  <div class="links">
+    <a href="index.html#how">How to Play</a>
+    <a href="index.html#critters">The Critters</a>
+    <a href="index.html#oceans">Oceans</a>
+    <a href="https://score.currentsandcritters.com/">Snap &amp; Score</a>
+    <a href="#tiers">The Tiers</a>
+  </div>
+  <a class="nav-cta" data-email-list href="mailto:currentsandcritters@gmail.com?subject=Add%20me%20to%20the%20email%20list">Join the Email List →</a>
+</nav>
+
+<!-- ============ HERO + COUNTDOWN ============ -->
+<section class="hero" id="home">
+  <div class="sun-rays"></div>
+  <div class="sun"></div>
+  <div class="cloud c1"></div>
+  <div class="cloud c2"></div>
+  <div class="cloud c3"></div>
+
+  <svg class="seagull" viewBox="0 0 100 100" aria-hidden="true">
+    <path d="M10 50 Q30 30 50 50 Q70 30 90 50" fill="none" stroke="#08344d" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M22 56 Q34 46 44 56" fill="none" stroke="#08344d" stroke-width="2.4" stroke-linecap="round" opacity="0.7"/>
+    <path d="M56 56 Q66 46 78 56" fill="none" stroke="#08344d" stroke-width="2.4" stroke-linecap="round" opacity="0.7"/>
+  </svg>
+
+  <div class="hero-inner rise">
+    <div class="eyebrow"><span class="dot"></span> Kickstarter · Launching Soon</div>
+    <h1>Back the Launch</h1>
+    <p class="tagline">From waves to wings.</p>
+
+    <!-- THE COUNTDOWN. Its three states and the one place the date lives
+         are both documented on the script at the bottom of this page. -->
+    <div class="cd" id="cd" data-state="pending">
+      <div class="cd-pending">
+        <div class="cd-pending-h">Launch day is being set.</div>
+        <p>The campaign date is not public yet. Join the email list and it reaches you the hour it is decided, with the link to back it on day one.</p>
+      </div>
+
+      <div class="cd-counting">
+        <!-- The digits are decoration for a screen reader: they change every
+             second, and read aloud they are noise. The sentence under them
+             carries the same information in a form worth hearing, which is
+             why it is a real paragraph and not a tooltip. -->
+        <div class="cd-tiles" aria-hidden="true">
+          <div class="cd-tile"><span class="n" id="cd-days">0</span><span class="l" id="cd-days-l">Days</span></div>
+          <div class="cd-tile"><span class="n" id="cd-hours">00</span><span class="l" id="cd-hours-l">Hours</span></div>
+          <div class="cd-tile"><span class="n" id="cd-mins">00</span><span class="l" id="cd-mins-l">Minutes</span></div>
+          <div class="cd-tile cd-secs"><span class="n" id="cd-secs">00</span><span class="l" id="cd-secs-l">Seconds</span></div>
+        </div>
+        <p class="cd-when">The Kickstarter opens <strong id="cd-when-local">soon</strong>. That is your own clock, not ours, so there is no arithmetic to do.</p>
+      </div>
+
+      <div class="cd-live">
+        <div class="cd-live-h">The Kickstarter is live.</div>
+        <p>The four Supporter Tiers are open, and 5% of every purchase supports ocean conservation. Thank you for being here on day one.</p>
+      </div>
+    </div>
+
+    <p class="lead">Four Supporter Tiers open on Kickstarter, from $15 to $100. Every one of them carries a Founder Supporter number, your name on the Supporter Reef Wall and a profile frame in the online game, and 5% goes to ocean conservation.</p>
+
+    <div class="ctas" id="cd-ctas">
+      <a class="btn btn-mint btn-lg" data-email-list href="mailto:currentsandcritters@gmail.com?subject=Add%20me%20to%20the%20email%20list">Email me when it goes live</a>
+      <a class="btn btn-outline btn-lg" href="https://play.currentsandcritters.com/">Play Online Free</a>
+      <a class="btn btn-ghost btn-lg" href="#tiers">See the tiers</a>
+    </div>
+
+    <!-- Real card art, the same five the homepage opens with. -->
+    <div class="hero-hand">
+      <img class="card" src="assets/critters/loggerhead-sea-turtle.png" alt=""/>
+      <img class="card" src="assets/critters/horned-puffin.png" alt=""/>
+      <img class="card" src="assets/critters/blue-marlin.png" alt=""/>
+      <img class="card" src="assets/critters/yellowfin-tuna.png" alt=""/>
+      <img class="card" src="assets/critters/king-crab.png" alt=""/>
+    </div>
+  </div>
+
+  <div class="horizon"></div>
+</section>
+
+<!-- ============ WHAT LAUNCH DAY MEANS (sand) ============ -->
+<section class="values-band">
+  <div class="values rise">
+    <div class="value">
+      <div class="ico">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+      </div>
+      <h4>Four Tiers Open</h4>
+      <p>Wave Warrior, Ocean Ally, Tide Turner and Tsunami all go live at once, $15 through $100.</p>
+    </div>
+    <div class="value">
+      <div class="ico">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M3 8l9-5 9 5M12 3v18"/></svg>
+      </div>
+      <h4>A Box of Your Own</h4>
+      <p>Tide Turner comes with a free physical copy of the game. Tsunami comes with two.</p>
+    </div>
+    <div class="value">
+      <div class="ico">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.6 6.3 6.8.5-5.2 4.4 1.6 6.6L12 16.3 6.2 19.8l1.6-6.6L2.6 8.8l6.8-.5z"/></svg>
+      </div>
+      <h4>A Founder Number</h4>
+      <p>Every tier carries a Founder Supporter number and your name on the Supporter Reef Wall, kept permanently.</p>
+    </div>
+    <div class="value">
+      <div class="ico">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7 -4.5 -7 -11a5 5 0 0 1 9 -3a5 5 0 0 1 9 3c0 6.5 -7 11 -7 11"/></svg>
+      </div>
+      <h4>5% to the Ocean</h4>
+      <p>5% of every purchase supports ocean conservation. Receipts published.</p>
+    </div>
+  </div>
+
+  <!-- GAME NIGHT. Filled in by /js/game-night.js: the schedule, a live
+       countdown and the Discord door. It rides here because the reader has
+       just been told what launch day is, and this is the thing they can
+       turn up to before it. -->
+  <div class="game-night-inner" id="game-night">
+    <div id="cc-game-night" class="ccGN"></div>
+  </div>
+</section>
+
+<!-- ============ THE TIERS (dark) ============ -->
+<section class="section sponsor on-dark" id="tiers">
+  <div class="section-inner">
+    <div class="section-head">
+      <span class="eyebrow">★ Supporter Tiers</span>
+      <h2>Every tier makes a ripple.</h2>
+      <p>Four ways to back the launch. Pick the one that fits. Each comes with permanent supporter recognition and a profile frame in the online game.</p>
+    </div>
+
+    <!-- The live numbers. Three tiles rather than the homepage's four: the
+         money raised belongs with the Supporter Reef Wall and the $25,000
+         goal bar that it feeds, both of which are on the homepage, and a
+         second copy of a total is a second chance to disagree with it. -->
+    <div class="impact-band big-impact launch-impact">
+      <div class="impact">
+        <div class="num"><span class="placeholder" data-placeholder="players">-</span></div>
+        <div class="label">Players</div>
+      </div>
+      <div class="impact">
+        <div class="num"><span class="placeholder" data-placeholder="games">-</span></div>
+        <div class="label">Online Games Played</div>
+      </div>
+      <div class="impact">
+        <div class="num"><span class="placeholder" data-placeholder="hours">-</span></div>
+        <div class="label">Hours Played Online</div>
+      </div>
+    </div>
+
+    <!-- Kickstarter, and the pledge every tier below is backed under. The
+         same two blocks that open the homepage's tier grid and the in-game
+         Store, in the same words, because they are true of all four cards. -->
+    <div class="tier-ks-banner">
+      <svg class="ks-ico" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.2505 12.0001L17.5686 7.6437C19.0475 6.1521 19.0475 3.7335 17.5686 2.2419C16.0897 0.7503 13.6918 0.7503 12.2129 2.2419L10.1077 4.3653V3.1815C10.1077 1.0724 8.4131 0 6.3222 0C4.2313 0 2.5367 1.0724 2.5367 3.1815V20.8185C2.5367 22.9276 4.2313 24 6.3222 24C8.4131 24 10.1077 22.9276 10.1077 20.8185V19.6347L12.2129 21.7581C13.6918 23.2497 16.0897 23.2497 17.5686 21.7581C19.0475 20.2665 19.0475 17.8479 17.5686 16.3563L13.2505 12.0001Z"/></svg>
+      <span>Kickstarter coming soon</span>
+    </div>
+    <div class="tier-waves">
+      <div class="tier-waves-title">Every Purchase Makes Waves!</div>
+      <div class="tier-waves-desc">5% of every purchase supports ocean conservation, including donations to the Surfrider Foundation. Together, we can Change the Tide!</div>
+      <div class="tier-waves-fine">Currents and Critters is an independent supporter and is not sponsored by or officially partnered with the Surfrider Foundation.</div>
+    </div>
+
+    <!-- WHY THESE CARDS ARE SHORT
+         The homepage carries every perk of all four tiers in full, and that
+         list is long and changes. Repeating it here would be a second copy
+         to keep in step, so these cards carry the headline of each tier and
+         the link under the grid goes to the full list rather than restating
+         it. The prices, the names and the ribbons do match the homepage
+         exactly, because those are what a reader decides on. -->
+    <div class="tiers">
+      <div class="tier">
+        <div class="head">
+          <div class="name">Wave Warrior</div>
+          <div class="price">$15<small>/one-time</small></div>
+        </div>
+        <p class="desc">Support Currents and Critters at the easiest entry level and help launch the first wave.</p>
+        <ul class="perks">
+          <li>Founder Supporter number</li>
+          <li>Name on the Supporter Reef Wall</li>
+          <li>1 Season Pass voucher</li>
+          <li>7,000 Critter Coins</li>
+        </ul>
+        <button class="btn btn-outline tier-locked" type="button" disabled>On Kickstarter soon</button>
+      </div>
+
+      <div class="tier featured">
+        <div class="ribbon">Most Popular</div>
+        <div class="head">
+          <div class="name">Ocean Ally</div>
+          <div class="price">$35<small>/one-time</small></div>
+        </div>
+        <p class="desc">Join the first wave of supporters and help bring Currents and Critters to life.</p>
+        <ul class="perks">
+          <li>Everything in Wave Warrior</li>
+          <li>Unlock all backgrounds</li>
+          <li>2 Season Pass vouchers</li>
+          <li>15,000 Critter Coins</li>
+        </ul>
+        <button class="btn btn-mint tier-locked" type="button" disabled>On Kickstarter soon</button>
+      </div>
+
+      <div class="tier">
+        <div class="head">
+          <div class="name">Tide Turner</div>
+          <div class="price">$50<small>/one-time</small></div>
+        </div>
+        <p class="desc">Help build the reef and get a physical copy of Currents and Critters.</p>
+        <ul class="perks">
+          <li>Free physical copy of the game</li>
+          <li>Thank-you postcard</li>
+          <li>5 Season Pass vouchers</li>
+          <li>30,000 Critter Coins</li>
+        </ul>
+        <button class="btn btn-outline tier-locked" type="button" disabled>On Kickstarter soon</button>
+      </div>
+
+      <div class="tier best-value">
+        <div class="ribbon ribbon-best">Best Value</div>
+        <div class="head">
+          <div class="name">Tsunami</div>
+          <div class="price">$100<small>/one-time</small></div>
+        </div>
+        <p class="desc">The biggest tier you can buy outright. Two physical copies, everything in the game, and your name in the credits.</p>
+        <ul class="perks">
+          <li>TWO free physical copies</li>
+          <li>Your name in the supporter credits</li>
+          <li>15 Season Pass vouchers</li>
+          <li>75,000 Critter Coins</li>
+        </ul>
+        <button class="btn btn-coral tier-locked" type="button" disabled>On Kickstarter soon</button>
+      </div>
+    </div>
+
+    <div class="tier-ks-note">
+      <svg class="ks-ico" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.2505 12.0001L17.5686 7.6437C19.0475 6.1521 19.0475 3.7335 17.5686 2.2419C16.0897 0.7503 13.6918 0.7503 12.2129 2.2419L10.1077 4.3653V3.1815C10.1077 1.0724 8.4131 0 6.3222 0C4.2313 0 2.5367 1.0724 2.5367 3.1815V20.8185C2.5367 22.9276 4.2313 24 6.3222 24C8.4131 24 10.1077 22.9276 10.1077 20.8185V19.6347L12.2129 21.7581C13.6918 23.2497 16.0897 23.2497 17.5686 21.7581C19.0475 20.2665 19.0475 17.8479 17.5686 16.3563L13.2505 12.0001Z"/></svg>
+      <div>The Supporter Tiers will be available through Kickstarter soon!</div>
+    </div>
+
+    <p class="tier-more">Every perk of all four tiers, in full: <a href="index.html#sponsor">see the complete list on the homepage →</a><br/>Giving more than $100? <a href="index.html#partner-form">Tell us what you have in mind.</a></p>
+  </div>
+</section>
+
+<!-- ============ WHILE YOU WAIT ============ -->
+<section class="section wait" id="meanwhile">
+  <div class="section-inner">
+    <div class="section-head">
+      <span class="eyebrow">★ While You Wait</span>
+      <h2>The reef is already open.</h2>
+      <p>You do not have to wait for launch day to play. The online game is free, in beta, and running right now.</p>
+    </div>
+
+    <div class="wait-grid rise">
+      <article class="wait-card">
+        <div class="ico">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5l11 7-11 7z"/></svg>
+        </div>
+        <h3>Play Online Free</h3>
+        <p>Two to eight players, in a browser, on a laptop or a phone. Play as a guest or make a free account and keep your stats.</p>
+        <div class="go"><a href="https://play.currentsandcritters.com/">Open the game →</a></div>
+      </article>
+
+      <article class="wait-card">
+        <div class="ico">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.4"/><path d="M8 6l1.5-2h5L16 6"/></svg>
+        </div>
+        <h3>Snap &amp; Score</h3>
+        <p>Playing with the printed cards? Photograph the table and the scores come back read off the board.</p>
+        <div class="go"><a href="https://score.currentsandcritters.com/">Score a table →</a></div>
+      </article>
+
+      <article class="wait-card">
+        <div class="ico">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h7a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H4zM20 5h-7a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h7z"/></svg>
+        </div>
+        <h3>Learn the Rules</h3>
+        <p>The whole rulebook, word for word, with the Quick Start up front. Sixty seconds gets you playing.</p>
+        <div class="go"><a href="/rules">Read the rulebook →</a></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<div class="back-wrap">
+  <a class="back-link" href="index.html">← Back to home</a>
+</div>
+
+<!-- ============ FOOTER ============ -->
+<footer class="foot">
+  <div class="foot-inner">
+    <div class="foot-brand">
+      <div class="brand"><img src="assets/logo-icon.svg" alt=""/><span class="wordmark">Currents and Critters</span></div>
+      <p>A card game inspired by ocean memories, marine life, and giving back.</p>
+    </div>
+    <div>
+      <h5>Play</h5>
+      <ul>
+        <li><a href="https://play.currentsandcritters.com/">Play Online Free</a></li>
+        <li><a href="https://score.currentsandcritters.com/">Snap &amp; Score</a></li>
+        <li><a href="index.html#how">How to Play</a></li>
+        <li><a href="/rules">The Full Rulebook</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>The Launch</h5>
+      <ul>
+        <li><a data-email-list href="mailto:currentsandcritters@gmail.com?subject=Add%20me%20to%20the%20email%20list">Join the Email List</a></li>
+        <li><a href="#tiers">The Supporter Tiers</a></li>
+        <li><a href="index.html#sponsor">Ocean Impact</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Support Us</h5>
+      <ul>
+        <li><a href="index.html#partner-form">Partner With Us</a></li>
+        <li><a href="mailto:currentsandcritters@gmail.com">Get in Touch</a></li>
+        <li><a href="index.html#people-care">Supporter Reef Wall</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Find Us</h5>
+      <ul>
+        <li><a href="https://instagram.com/currentsandcritters_official">Instagram</a></li>
+        <li><a href="mailto:currentsandcritters@gmail.com">currentsandcritters@gmail.com</a></li>
+        <li><a href="/privacy">Privacy Policy</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-legal">
+    <a href="/privacy">Privacy Policy</a>
+    <span class="foot-legal-sep" aria-hidden="true">·</span>
+    <span class="foot-legal-note">Bearded Seal Studios LLC · Nashville, Tennessee</span>
+  </div>
+  <div class="foot-bottom">
+    <div>© 2026 Currents and Critters. Designed by hand. Illustrated by hand. Made with a little love and a whole lot of salt water.</div>
+    <div class="impact-line">5% goes to ocean conservation</div>
+  </div>
+</footer>
+
+<!-- ============ SCRIPT: THE FLOATING NAV ============ -->
+<script>
+/* The nav pill, behaving the way it does on every other page of the site.
+ *
+ * TWO THINGS, AND THE FIRST IS NOT COSMETIC
+ * The pill is position:fixed at top: calc(10px + var(--beta-bar-clear)). Set
+ * that variable and it sits under the announcement bar; leave it unset and it
+ * is parked ON TOP of the bar, covering the sentence the bar exists to say.
+ * The homepage runs this same calculation for its beta bar. While any of the
+ * bar is still on screen the nav is pushed down by however much of it
+ * remains, and once it has scrolled past the pill floats free.
+ *
+ * The second is the usual one: hide the pill on the way down the page, bring
+ * it back the moment the reader scrolls up.
+ */
+(function () {
+  "use strict";
+  var nav = document.querySelector('.nav');
+  var bar = document.querySelector('.ks-bar');
+  if (!nav) return;
+
+  function updateBarClear() {
+    if (!bar) return;
+    var remaining = Math.max(0, bar.offsetHeight - window.scrollY);
+    document.documentElement.style.setProperty('--beta-bar-clear', remaining + 'px');
+  }
+
+  var lastY = 0;
+  window.addEventListener('scroll', function () {
+    var y = window.scrollY;
+    if (y > lastY && y > 160) nav.classList.add('nav-hidden');
+    else nav.classList.remove('nav-hidden');
+    lastY = y;
+    updateBarClear();
+  }, { passive: true });
+  window.addEventListener('resize', updateBarClear);
+  updateBarClear();
+})();
+</script>
+
+<!-- ============ SCRIPT: THE COUNTDOWN ============ -->
+<script>
+/* The launch countdown.
+ *
+ * WHERE THE DATE LIVES
+ * In LAUNCH_AT, below, and nowhere else on the page. The headline, the
+ * digits, the sentence under them and the calendar file are all derived
+ * from it, so there is exactly one thing to change when the date moves and
+ * no way for the page to state two different launch days.
+ *
+ * WHY THE UTC OFFSET IS PART OF IT
+ * "2026-11-10T09:00:00" with no zone is read as the READER's nine in the
+ * morning, which would show a visitor in London a countdown ending six
+ * hours before the campaign opened. The offset is written in: Nashville is
+ * Central, so -05:00 through daylight saving and -06:00 in winter. Then
+ * every reader's countdown ends on the same instant, and the sentence under
+ * the digits renders that instant in their own zone.
+ *
+ * WHAT IT DOES WITH NO DATE
+ * Shows that the date is being set, and asks for an email address. It never
+ * invents a date, and an unparseable LAUNCH_AT is treated as no date rather
+ * than as the epoch, which would render a countdown that has been over
+ * since 1970.
+ */
+(function () {
+  "use strict";
+
+  // ── SET THESE TWO ────────────────────────────────────────────────────
+  // The moment the campaign opens, offset included. Empty string until it
+  // is decided: the page then says so rather than guessing.
+  //
+  // PLACEHOLDER. 10 November 2026, 9:00 AM Central is a stand-in so the
+  // countdown can be seen working. Replace it with the real launch moment
+  // before this page is shared anywhere.
+  var LAUNCH_AT = '2026-11-10T09:00:00-06:00';
+
+  // The live campaign URL, empty until the Kickstarter page exists. While
+  // it is empty nothing on this page offers a Kickstarter link, so no
+  // button here can lead to a page that is not there yet. Fill it in and a
+  // "Back it on Kickstarter" button appears in the hero by itself.
+  var KS_URL = '';
+  // ─────────────────────────────────────────────────────────────────────
+
+  var root = document.getElementById('cd');
+  if (!root) return;
+
+  var parsed = LAUNCH_AT ? Date.parse(LAUNCH_AT) : NaN;
+  var target = isFinite(parsed) ? parsed : null;
+
+  var el = {
+    days:   document.getElementById('cd-days'),
+    hours:  document.getElementById('cd-hours'),
+    mins:   document.getElementById('cd-mins'),
+    secs:   document.getElementById('cd-secs'),
+    daysL:  document.getElementById('cd-days-l'),
+    hoursL: document.getElementById('cd-hours-l'),
+    minsL:  document.getElementById('cd-mins-l'),
+    secsL:  document.getElementById('cd-secs-l'),
+    when:   document.getElementById('cd-when-local'),
+    ctas:   document.getElementById('cd-ctas')
+  };
+
+  // Whole units left, never negative. A clock that has run out reads zero
+  // across the board rather than counting up into minus numbers.
+  function partsUntil(msLeft) {
+    var t = Math.max(0, Math.floor(msLeft / 1000));
+    return {
+      days:  Math.floor(t / 86400),
+      hours: Math.floor((t % 86400) / 3600),
+      mins:  Math.floor((t % 3600) / 60),
+      secs:  t % 60,
+      total: t
+    };
+  }
+
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function plural(n, word) { return n === 1 ? word : word + 's'; }
+
+  // The launch instant in the reader's own zone, named zone included so a
+  // reader can see which clock they are being shown.
+  function fmtLocal(ms) {
+    var d = new Date(ms);
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+        hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
+      }).format(d);
+    } catch (e) {
+      return d.toLocaleString();
+    }
+  }
+
+  var timer = null;
+  function stop() { if (timer) { clearInterval(timer); timer = null; } }
+
+  function render() {
+    if (target === null) { root.setAttribute('data-state', 'pending'); stop(); return; }
+    var left = target - Date.now();
+    if (left <= 0) { root.setAttribute('data-state', 'live'); stop(); return; }
+
+    root.setAttribute('data-state', 'counting');
+    var p = partsUntil(left);
+    el.days.textContent  = String(p.days);
+    el.hours.textContent = pad2(p.hours);
+    el.mins.textContent  = pad2(p.mins);
+    el.secs.textContent  = pad2(p.secs);
+    el.daysL.textContent  = plural(p.days,  'Day');
+    el.hoursL.textContent = plural(p.hours, 'Hour');
+    el.minsL.textContent  = plural(p.mins,  'Minute');
+    el.secsL.textContent  = plural(p.secs,  'Second');
+  }
+
+  if (target !== null && el.when) el.when.textContent = fmtLocal(target);
+
+  render();
+  // Only a countdown that is still running gets a ticker. render() has
+  // already decided which state the page is in, and a launch that is past
+  // has nothing left to recount: starting an interval for it would leave a
+  // tab waking once a second, forever, to write the same digits.
+  if (target !== null && (target - Date.now()) > 0) timer = setInterval(render, 1000);
+
+  // A laptop that was asleep comes back with a clock that stopped when the
+  // lid closed. Re-render on return rather than waiting for the next tick,
+  // which on a long sleep means showing a stale countdown for a second.
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) {
+      if (target !== null && timer === null && (target - Date.now()) > 0) {
+        timer = setInterval(render, 1000);
+      }
+      render();
+    }
+  });
+
+  // ── ADD TO CALENDAR ──────────────────────────────────────────────────
+  // Built here rather than linked: a .ics is a few lines of text, and
+  // generating it means the calendar entry can never disagree with the
+  // countdown above it. Added only when there is a date to add.
+  function icsStamp(ms) {
+    return new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  }
+  function buildIcs() {
+    return [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Currents and Critters//Launch//EN',
+      'BEGIN:VEVENT',
+      'UID:kickstarter-launch@currentsandcritters.com',
+      'DTSTAMP:' + icsStamp(Date.now()),
+      'DTSTART:' + icsStamp(target),
+      'DTEND:' + icsStamp(target + 3600000),
+      'SUMMARY:Currents and Critters launches on Kickstarter',
+      'DESCRIPTION:The four Supporter Tiers open on Kickstarter. 5% goes to ocean conservation.',
+      'URL:https://currentsandcritters.com/launch',
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n');
+  }
+
+  if (target !== null && el.ctas) {
+    var cal = document.createElement('a');
+    cal.className = 'btn btn-primary btn-lg';
+    cal.textContent = 'Add launch day to my calendar';
+    cal.href = '#';
+    cal.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      try {
+        var blob = new Blob([buildIcs()], { type: 'text/calendar;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'currents-and-critters-launch.ics';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      } catch (e) {
+        // No Blob or no download attribute (older iOS). The data: URL opens
+        // the calendar entry directly, which is the same outcome.
+        window.location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(buildIcs());
+      }
+    });
+    el.ctas.insertBefore(cal, el.ctas.children[1] || null);
+  }
+
+  // The Kickstarter button, only once there is somewhere for it to go.
+  if (KS_URL && el.ctas) {
+    var ks = document.createElement('a');
+    ks.className = 'btn btn-primary btn-lg';
+    ks.href = KS_URL;
+    ks.target = '_blank';
+    ks.rel = 'noopener noreferrer';
+    ks.textContent = 'Back it on Kickstarter →';
+    el.ctas.insertBefore(ks, el.ctas.firstChild);
+  }
+
+  // Exposed for test_launch_page.js, which runs this very script in a
+  // stubbed DOM and checks the arithmetic against the shipped file rather
+  // than against a copy of it.
+  window.__CC_LAUNCH = {
+    LAUNCH_AT: LAUNCH_AT,
+    KS_URL: KS_URL,
+    target: target,
+    partsUntil: partsUntil,
+    pad2: pad2,
+    plural: plural,
+    fmtLocal: fmtLocal,
+    buildIcs: function () { return target === null ? '' : buildIcs(); },
+    state: function () { return root.getAttribute('data-state'); }
+  };
+})();
+</script>
+
+<!-- ============ SCRIPT: THE EMAIL LIST ============ -->
+<script>
+/* Every "join the email list" link on the site points at the newsletter
+ * form on the game server, which is the only host with a mail transport.
+ * The mailto: in the HTML is the fallback if this is ever blanked, which is
+ * why the href is replaced here rather than written into the markup. The
+ * same five lines run on the homepage. */
+(function () {
+  var EMAIL_LIST_FORM_URL = 'https://play.currentsandcritters.com/newsletter/join';
+  if (!EMAIL_LIST_FORM_URL) return;
+  document.querySelectorAll('[data-email-list]').forEach(function (a) {
+    a.href = EMAIL_LIST_FORM_URL;
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener noreferrer');
+  });
+})();
+</script>
+
+<!-- ============ SCRIPT: THE LIVE NUMBERS ============ -->
+<script>
+/* Players, games and hours, from the game server's /api/stats.
+ *
+ * The server is the only thing with permission to read Firestore, where the
+ * real account list and the per-account play totals live, so it is the only
+ * thing that can answer these questions. It can also be asleep: Render's
+ * free tier cold-starts, so the fetch is given thirty seconds and the tiles
+ * keep whatever they are showing if it never answers.
+ *
+ * The cache key is the one the homepage writes. A reader who has seen the
+ * homepage in this browser gets the real numbers here instantly instead of
+ * three dashes while the server wakes up, and the two pages cannot show
+ * each other's visitors different totals. */
+(function () {
+  "use strict";
+  var RENDER_BASE = 'https://play.currentsandcritters.com';
+  var STATS_CACHE_KEY = 'cc_live_stats_v1';
+
+  function readCached() {
+    try { return JSON.parse(localStorage.getItem(STATS_CACHE_KEY) || '{}') || {}; }
+    catch (e) { return {}; }
+  }
+  function writeCached(obj) {
+    try { localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(obj)); } catch (e) {}
+  }
+
+  function setStat(name, value) {
+    var node = document.querySelector('[data-placeholder="' + name + '"]');
+    if (!node) return;
+    var n = Number(value);
+    if (!isFinite(n) || n < 0) return;
+    // A real figure under ten hours keeps one decimal place. Rounding to
+    // whole hours published a 0 for a server with forty genuine minutes on
+    // it, indistinguishable from a server nobody had ever played. This is
+    // the same rule index.html applies in setStatEl: if one changes, change
+    // both, or the two public pages state different hour counts for the
+    // same server.
+    var places = (n > 0 && n < 10) ? 1 : 0;
+    node.textContent = n.toLocaleString(undefined, {
+      minimumFractionDigits: places, maximumFractionDigits: places
+    });
+  }
+
+  var cached = readCached();
+  if (cached.players) setStat('players', cached.players);
+  if (cached.games)   setStat('games',   cached.games);
+  if (cached.hours)   setStat('hours',   cached.hours);
+
+  // AbortSignal.timeout is missing in Safari < 16.4, so the controller is
+  // driven by hand.
+  function fetchWithTimeout(url, ms) {
+    var ctrl = new AbortController();
+    var tid = setTimeout(function () { ctrl.abort(); }, ms);
+    return fetch(url, { signal: ctrl.signal })
+      .finally(function () { clearTimeout(tid); });
+  }
+
+  fetchWithTimeout(RENDER_BASE + '/api/stats', 30000)
+    .then(function (resp) { return resp.ok ? resp.json() : null; })
+    .then(function (data) {
+      if (!data) return;
+      var saved = readCached();
+      // players_total is accounts plus guests. An older server, or one
+      // mid-deploy, sends only registered_players: falling back to it shows
+      // a real, smaller number rather than a blank tile.
+      var players = isFinite(Number(data.players_total))
+        ? Number(data.players_total)
+        : Number(data.registered_players);
+      var games = Number(data.games_played);
+      var secs  = Number(data.play_seconds);
+      var hours = isFinite(secs)
+        ? (secs >= 36000 ? Math.floor(secs / 3600) : Math.round(secs / 360) / 10)
+        : NaN;
+      if (isFinite(players)) { setStat('players', players); saved.players = players; }
+      if (isFinite(games))   { setStat('games',   games);   saved.games   = games; }
+      if (isFinite(hours))   { setStat('hours',   hours);   saved.hours   = hours; }
+      writeCached(saved);
+    })
+    .catch(function () { /* server asleep: keep the values already shown */ });
+})();
+</script>
+
+</body>
+</html>

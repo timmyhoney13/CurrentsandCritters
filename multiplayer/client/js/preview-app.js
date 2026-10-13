@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-13.1";
+  const APP_BUILD   = "2026-10-13.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -2863,9 +2863,29 @@
         rows.forEach(r => {
           const nm = String((r && r.name) || "").trim().toLowerCase();
           if (!nm) return;
-          const cp = Number(r.cp || 0);
-          const info = rankFn(cp, true);
-          _wrRankByName[nm] = { cp, division: info.division, tier: info.tier };
+          // A row with no `cp` on it is a row whose OP nobody has reported
+          // yet, NOT a player sitting on zero. The board gains a name (and its
+          // W/L) the moment a competitive game is saved, and the OP is stamped
+          // on separately by that player's own client, which is the only thing
+          // that knows it. Reading the missing field as 0 is how this lobby
+          // came to tell a room that everybody in it had no Ocean Points.
+          // An explicit null counts as unreported too, which Number() would
+          // otherwise read as a perfectly good zero.
+          const raw = (r && r.cp != null) ? r.cp : null;
+          const known = raw !== null && Number.isFinite(Number(raw));
+          if (known) {
+            const cp = Math.max(0, Number(raw));
+            const info = rankFn(cp, true);
+            _wrRankByName[nm] = { cp, division: info.division, tier: info.tier };
+          } else {
+            // The division the board last recorded for them, if it has one,
+            // coloured the same way the profile badge colours a stored rank.
+            const rk = String((r && r.rank) || "").trim();
+            const low = rk.toLowerCase();
+            const tier = ["silver", "gold", "diamond", "emerald", "king"]
+              .find(t => low.startsWith(t)) || "bronze";
+            _wrRankByName[nm] = { cp: null, division: rk, tier };
+          }
         });
         _wrRankFetched = true;
       })
@@ -2910,9 +2930,18 @@
       row = { cp: 0, division: info.division, tier: info.tier };
     }
     if (!row) return null;
-    const chip = _wrChip(`${row.division} · ${_wrNum(row.cp)} OP`,
+    // OP THIS CLIENT CANNOT SEE IS SAID AS THAT, never as zero. Somebody with
+    // a row on the ladder has played competitive games, so "0 OP" under their
+    // name is not a small inaccuracy: it is the one number the room is for,
+    // reported as the one value it cannot be. A real recorded 0 still prints
+    // as 0 -- the difference is whether anybody ever recorded it.
+    const cpKnown = Number.isFinite(row.cp);   // null (unreported) is not 0
+    const chip = _wrChip(cpKnown ? `${row.division} · ${_wrNum(row.cp)} OP`
+                                 : (row.division || "OP not recorded yet"),
                          "wr-chip-rank wr-chip-rank-" + (row.tier || "bronze"));
-    chip.title = `${name}: ${row.division}, ${_wrNum(row.cp)} Ocean Points`;
+    chip.title = cpKnown
+      ? `${name}: ${row.division}, ${_wrNum(row.cp)} Ocean Points`
+      : `${name}: on the competitive ladder, but their Ocean Points have not reached this board yet`;
     return chip;
   }
 
@@ -13076,9 +13105,44 @@
       });
     });
     const playOceanActions = actions.filter(a => a.kind === "play_ocean");
+    const canPlayOcean  = playOceanActions.length > 0;
+    const isFirstOcean  = !board.length;
 
-    // Drop zone for playing ocean cards (always present when play_ocean is legal)
-    if (playOceanActions.length) {
+    // ── The oceans get their own centred row ──────────────────────────
+    // The hubs used to be direct children of #pv-my-board, which is also
+    // where the "where an ocean goes" drop zone lived, and #pv-my-board is a
+    // single `justify-content: center` flex row. So the zone and the oceans
+    // were centred TOGETHER as one group: measured on a 1180px board, every
+    // ocean sat 92px to the right of the middle whenever the zone was up, at
+    // 1, 2, 3 and 5 oceans alike. Two things made that worse than a static
+    // offset. The zone comes and goes with whose turn it is and with what is
+    // in hand, so the whole board slid 92px sideways and back every time it
+    // appeared or vanished; and once the oceans wrapped, row 1 (sharing its
+    // line with the zone) and row 2 (not) were centred on two different
+    // axes, so the board looked stepped.
+    //
+    // The hubs now own this row and nothing else is ever in it, so an ocean
+    // you play lands in the middle of your board and stays there no matter
+    // what the zone is doing. The zone is appended BEFORE this row, i.e.
+    // above it: #pv-my-board is the bottom row of a grid whose first row is
+    // 1fr slack, so the block is bottom-anchored and growing it upward
+    // leaves the oceans where they were. Below the oceans the zone would
+    // shove them up ~50px each time it showed.  Pinned by
+    // test_ocean_center_dropzone.js.
+    const oceanRow = document.createElement("div");
+    oceanRow.id = "pv-ocean-row";
+
+    // ── Where an ocean goes ───────────────────────────────────────────
+    // On an empty board this zone is ALWAYS drawn, even with no legal
+    // play_ocean: on someone else's turn, holding no ocean card, or unable
+    // to pay for the one you hold, #pv-my-board was rendered completely
+    // blank, so a player who had not played an ocean yet was staring at
+    // empty water with nothing to say where their first one goes. It is
+    // drawn idle in that case (dimmed, no pulse, no handlers) so it reads as
+    // the spot rather than as an invitation to click something that cannot
+    // happen yet. Once oceans exist it stays conditional: the board already
+    // shows what it is for, and "Add another ocean" when you cannot is noise.
+    if (isFirstOcean || canPlayOcean) {
       const oceanDrop = document.createElement("div");
       oceanDrop.id = "pv-ocean-drop-zone";
       // First ocean (empty board): make the drop target a large, easy-to-hit
@@ -13088,46 +13152,57 @@
       // hollow in the sand, so it is painted with the artwork's own light
       // rather than outlined like a file-upload box. JS only picks which of
       // the two sizes it is and what it says.
-      const isFirstOcean = !board.length;
       if (isFirstOcean) {
         oceanDrop.classList.add("first-ocean-drop");
-        oceanDrop.innerHTML =
-          `<span class="ocean-drop-head">Start your ocean here</span>` +
-          `<span class="ocean-drop-sub">Drag an Ocean card in, or tap to pick one</span>`;
+        oceanDrop.innerHTML = canPlayOcean
+          ? `<span class="ocean-drop-head">Start your ocean here</span>` +
+            `<span class="ocean-drop-sub">Drag an Ocean card in, or tap to pick one</span>`
+          : `<span class="ocean-drop-head">Your ocean goes here</span>` +
+            `<span class="ocean-drop-sub">Drag an Ocean card in on your turn</span>`;
       } else {
         oceanDrop.innerHTML = `<span class="ocean-drop-head">Add another ocean</span>`;
       }
-      // Click-to-place: open ocean card picker
-      oceanDrop.addEventListener("click", () => {
-        openCTP("Choose an ocean to play", playOceanActions, oceanDrop);
-      });
-      oceanDrop.addEventListener("dragover", (ev) => {
-        ev.preventDefault(); ev.dataTransfer.dropEffect = "move";
-        oceanDrop.classList.add("drag-over");
-      });
-      oceanDrop.addEventListener("dragleave", () => {
-        oceanDrop.classList.remove("drag-over");
-      });
-      oceanDrop.addEventListener("drop", (ev) => {
-        ev.preventDefault();
-        oceanDrop.classList.remove("drag-over");
-        let cardData = {};
-        try { cardData = JSON.parse(ev.dataTransfer.getData("application/x-fish-card") || "{}"); } catch {}
-        const entryUid = Number(cardData.entryUid);
-        const faceUid  = Number(cardData.faceUid);
-        if (!entryUid && !faceUid) return;
-        const matchingOceanActs = playOceanActions.filter(a =>
-          Number(a.card_uid) === entryUid || Number(a.face_uid) === faceUid
-        );
-        if (!matchingOceanActs.length) { showToast(_blockedPlayMessage(entryUid, faceUid), "warn"); return; }
-        const useStarOcean = document.getElementById("pv-star-toggle")?.checked;
-        const act = useStarOcean
-          ? (matchingOceanActs.find(a => a.use_star) || matchingOceanActs[0])
-          : (matchingOceanActs.find(a => !a.use_star) || matchingOceanActs[0]);
-        _playOrConfirmStarSkip(act, actions);
-      });
+      if (canPlayOcean) {
+        // Click-to-place: open ocean card picker
+        oceanDrop.addEventListener("click", () => {
+          openCTP("Choose an ocean to play", playOceanActions, oceanDrop);
+        });
+        oceanDrop.addEventListener("dragover", (ev) => {
+          ev.preventDefault(); ev.dataTransfer.dropEffect = "move";
+          oceanDrop.classList.add("drag-over");
+        });
+        oceanDrop.addEventListener("dragleave", () => {
+          oceanDrop.classList.remove("drag-over");
+        });
+        oceanDrop.addEventListener("drop", (ev) => {
+          ev.preventDefault();
+          oceanDrop.classList.remove("drag-over");
+          let cardData = {};
+          try { cardData = JSON.parse(ev.dataTransfer.getData("application/x-fish-card") || "{}"); } catch {}
+          const entryUid = Number(cardData.entryUid);
+          const faceUid  = Number(cardData.faceUid);
+          if (!entryUid && !faceUid) return;
+          const matchingOceanActs = playOceanActions.filter(a =>
+            Number(a.card_uid) === entryUid || Number(a.face_uid) === faceUid
+          );
+          if (!matchingOceanActs.length) { showToast(_blockedPlayMessage(entryUid, faceUid), "warn"); return; }
+          const useStarOcean = document.getElementById("pv-star-toggle")?.checked;
+          const act = useStarOcean
+            ? (matchingOceanActs.find(a => a.use_star) || matchingOceanActs[0])
+            : (matchingOceanActs.find(a => !a.use_star) || matchingOceanActs[0]);
+          _playOrConfirmStarSkip(act, actions);
+        });
+      } else {
+        oceanDrop.classList.add("idle");
+      }
       el.appendChild(oceanDrop);
     }
+
+    // The row goes in even while it is empty: #pv-ocean-row:empty is
+    // display:none, so it costs nothing, and the board is never a bare
+    // container with no children (which the render-skip key above treats as
+    // "nothing drawn yet" and would rebuild on every single payload).
+    el.appendChild(oceanRow);
 
     // No duplicate hint here: the drop zone above already says it, and the
     // guide bar says it a third time. One instruction, in one place.
@@ -13430,7 +13505,7 @@
         });
       }
 
-      el.appendChild(hub);
+      oceanRow.appendChild(hub);
     });
     _prevBoardCards = newBoardCards;
 
@@ -17921,21 +17996,25 @@
       }
 
       // ── Notify server ───────────────────────────────────────────
-      const isHost = compMySeats.includes(0) || compMySeats.includes(1);
-      if (isHost && roomId) {
-        const oppBestHand = amP1 ? p2Best : p1Best;
-        const oppName     = amP1 ? compP2Name : compP1Name;
-        // Compute opponent's approximate new rank for server (we don't have their Firebase)
-        // Send our own deltas; opponent's are unknown (they'll update their own Firebase)
-        const myKey  = amP1 ? "p1" : "p2";
-        const oppKey = amP1 ? "p2" : "p1";
+      // EVERY player reports their OWN side, host or not, exactly as the
+      // free-for-all does. The OP is worked out from each player's own rank
+      // off their own Firestore document, so nobody else is able to report it
+      // for them: gating this on the host wrote p1's OP and left p2's side of
+      // every 1v1 blank, which is why a guest's competitive history said
+      // "unranked" on games they had won, and why the ladder board -- the only
+      // place a lobby can read somebody else's OP -- never heard a number for
+      // them at all. The server SETS the side it is handed and tallies the
+      // match elsewhere, so both sides posting (or one side retrying) cannot
+      // count a game twice.
+      if (roomId) {
+        const myKey = amP1 ? "p1" : "p2";
         try {
           await apiPost("/api/competitive/ranked_result", {
-            room_id:          roomId,
+            room_id:                 roomId,
             [`${myKey}_cp_after`]:   newCp,
             [`${myKey}_cp_delta`]:   cpDelta,
             [`${myKey}_rank_after`]: newRankName,
-          });
+          }, { timeoutMs: 8000 });
         } catch (e) {
           console.warn("Ranked result server update failed:", e);
         }
@@ -25573,6 +25652,16 @@
         const previewEl = $a("stats-friends-preview");
         if (previewEl) previewEl.innerHTML = '<div class="ph-empty">No friends added yet.</div>';
       }
+      // Paint the tab that is open, now that we know who is looking.
+      // The home screen opens on Friends, and switchTab runs once while the
+      // page is still parsing, long before sign-in resolves: renderPhFriendsList
+      // ran against no account and left an empty list that nothing came back to
+      // fill. Every tab's renderer is re-run here for the same reason.
+      try {
+        if (typeof window._switchPhTab === "function") {
+          window._switchPhTab(window.__ccPhTab || "friends");
+        }
+      } catch (_) {}
     }
 
     // How many times a refused profile read is retried before this pass gives
@@ -25606,16 +25695,6 @@
       const expectedUid = String(uid || "");
       if (!_authUser || _authUser.uid !== expectedUid) return;
       const loadSeq = ++_statsLoadSeq;
-      // Paint the tab that is open, now that we know who is looking.
-      // The home screen opens on Friends, and switchTab runs once while the
-      // page is still parsing, long before sign-in resolves: renderPhFriendsList
-      // ran against no account and left an empty list that nothing came back to
-      // fill. Every tab's renderer is re-run here for the same reason.
-      try {
-        if (typeof window._switchPhTab === "function") {
-          window._switchPhTab(window.__ccPhTab || "friends");
-        }
-      } catch (_) {}
       const _stillMine = () => loadSeq === _statsLoadSeq && _authUser && _authUser.uid === expectedUid;
       let profile = null, reason = "error";
       for (let attempt = 0; attempt <= _STATS_LOAD_RETRIES; attempt++) {
@@ -32512,6 +32591,14 @@
         // Changing tabs returns every hidden critter to its untouched state.
         try { if (typeof window.__fishResetSecrets === "function") window.__fishResetSecrets(); } catch (_) {}
         if (statsLobby) statsLobby.setAttribute("data-bg-tab", name || "overview");
+        window.__ccPhTab = name;
+        // Changing tabs puts the lid back on: an expanded page hides the game
+        // cards, and carrying that into the next tab would hide them there too.
+        document.body.classList.remove("ph-expanded");
+        document.querySelectorAll(".ph-box-expand").forEach((b) => {
+          b.setAttribute("aria-expanded", "false");
+          const l = b.querySelector("span"); if (l) l.textContent = "Expand";
+        });
         tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === name));
         const isGuest = !_authUser;   // guest or not-signed-in
         Object.entries(panels).forEach(([k, id]) => {
@@ -32545,60 +32632,12 @@
         if (name === "clans")        _renderClansTab();
         if (name === "prestige")     _renderPrestigeTab();
         if (name === "levelpass")    _renderLevelPassTab();
-        window.__ccPhTab = name;
-        // Changing tabs puts the lid back on: an expanded page hides the game
-        // cards, and carrying that into the next tab would hide them there too.
-        document.body.classList.remove("ph-expanded");
-        document.querySelectorAll(".ph-box-expand").forEach((b) => {
-          b.setAttribute("aria-expanded", "false");
-          const l = b.querySelector("span"); if (l) l.textContent = "Expand";
-        });
-        // Changing tabs puts the lid back on: an expanded page hides the game
-        // cards, and carrying that into the next tab would hide them there too.
-        document.body.classList.remove("ph-expanded");
-        document.querySelectorAll(".ph-box-expand").forEach((b) => {
-          b.setAttribute("aria-expanded", "false");
-          const l = b.querySelector("span"); if (l) l.textContent = "Expand";
-        });
         if (name === "critterpass")  _renderCritterPassTab();
         if (name === "store")        renderPhStore();
       }
       window._switchPhTab = switchTab;
       tabs.forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
 
-      // Sidebar nav, mirror horizontal tab switching + keep active state in sync
-      const snavItems = document.querySelectorAll(".ph-snav-item[data-tab]");
-      snavItems.forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
-      // Extend switchTab to also update sidebar active state
-      const _origSwitchTab = switchTab;
-      switchTab = function(name) {
-        // Normalised here too, so the sidebar's active state follows the tab
-        // the player actually landed on rather than the one they asked for.
-        name = phTabOrFallback(name);
-        _origSwitchTab(name);
-        // Prestige is reached from the end of the Level Pass track and has no
-        // sidebar item of its own, so the pass stays lit while it is open.
-        const lit = name === "prestige" ? "levelpass" : name;
-        snavItems.forEach(b => b.classList.toggle("active", b.dataset.tab === lit));
-      };
-      window._switchPhTab = switchTab;
-      // Settings is no longer a sidebar item; it's the gear in the top-right
-      // (wired next to the Trade button above).
-
-      // ── The pin on the side menu's edge ─────────────────────────────
-      // On a computer with a mouse the menu is an icon rail that opens while
-      // the cursor is on it (preview.css, "ICON RAIL"). The pin keeps it open
-      // as a full menu, and this device remembers that. CSS hides the pin
-      // everywhere else. Letting go of the pin closes the menu at once, even
-      // with the cursor still on it: .ph-sidebar-resting holds off the hover
-      // until the cursor leaves.
-      (function initSidebarPin() {
-        const sb = document.getElementById("ph-sidebar");
-        const pin = document.getElementById("ph-sidebar-pin");
-        if (!sb || !pin) return;
-        const KEY = "cc_sidebar_pinned";
-        const apply = (on) => {
-          sb.classList.toggle("ph-sidebar-pinned", on);
       // ── The home screen IS the tab, the cards are the way into a game ──
       // Game Night, the season prize and the Friends card used to live in
       // .ph-actions, which sits outside the panels, so all three showed on
@@ -32662,6 +32701,13 @@
               const label = b.querySelector("span");
               if (label) label.textContent = open ? "Close" : "Expand";
               b.setAttribute("title", open ? "Back to the home screen" : "Open this page right out");
+            });
+            if (open) panel.scrollTop = 0;
+          });
+          btn.setAttribute("title", "Open this page right out");
+          // first child, not last: the panel is the scroller, and a sticky
+          // button only stays in the corner if the content scrolls PAST it
+          panel.insertBefore(btn, panel.firstChild);
           // fade the bottom edge only while there is more under it
           const edge = () => {
             const more = panel.scrollHeight - panel.clientHeight - panel.scrollTop > 2;
@@ -32670,13 +32716,6 @@
           panel.addEventListener("scroll", edge, { passive: true });
           if (window.ResizeObserver) { try { new ResizeObserver(edge).observe(panel); } catch (_) {} }
           setTimeout(edge, 0);
-            });
-            if (open) panel.scrollTop = 0;
-          });
-          btn.setAttribute("title", "Open this page right out");
-          // first child, not last: the panel is the scroller, and a sticky
-          // button only stays in the corner if the content scrolls PAST it
-          panel.insertBefore(btn, panel.firstChild);
         });
 
         // ── A stat you can ask about ──────────────────────────────────
@@ -32742,6 +32781,20 @@
       // Settings is no longer a sidebar item; it's the gear in the top-right
       // (wired next to the Trade button above).
 
+      // ── The pin on the side menu's edge ─────────────────────────────
+      // On a computer with a mouse the menu is an icon rail that opens while
+      // the cursor is on it (preview.css, "ICON RAIL"). The pin keeps it open
+      // as a full menu, and this device remembers that. CSS hides the pin
+      // everywhere else. Letting go of the pin closes the menu at once, even
+      // with the cursor still on it: .ph-sidebar-resting holds off the hover
+      // until the cursor leaves.
+      (function initSidebarPin() {
+        const sb = document.getElementById("ph-sidebar");
+        const pin = document.getElementById("ph-sidebar-pin");
+        if (!sb || !pin) return;
+        const KEY = "cc_sidebar_pinned";
+        const apply = (on) => {
+          sb.classList.toggle("ph-sidebar-pinned", on);
           pin.setAttribute("aria-pressed", on ? "true" : "false");
           const label = on ? "Collapse the menu" : "Keep the menu open";
           pin.setAttribute("aria-label", label);
@@ -32758,10 +32811,6 @@
         });
         sb.addEventListener("mouseleave", () => sb.classList.remove("ph-sidebar-resting"));
       })();
-      // The home screen opens on Friends. Going through switchTab rather than
-      // trusting the markup means the panels, the lit menu item and the tab's
-      // background all start out agreeing with each other.
-      try { switchTab("friends"); } catch (_) {}
 
       // ── Reach for the top or the bottom and the menu walks the list ──
       // The tab list is its own scroller (preview.css, "THE TABS SCROLL"), and
@@ -37773,9 +37822,6 @@
     //
     // playerCount is the number of PEOPLE the game was scored between. A single
     // player (or a missing count) has no placement to speak of and earns 0.
-    function _compGetFfaCpDelta(currentCp, place, playerCount, hasPlayed) {
-      const info = _compGetRankFromCp(currentCp, hasPlayed);
-      const top    = Number.isFinite(info.ffaTop)    ? info.ffaTop    : 20;
     /* ── OP over your ranked games ──────────────────────────────────────
        A line of where your OP has been, drawn from the games themselves.
 
@@ -37880,6 +37926,9 @@
         </svg>`;
     }
 
+    function _compGetFfaCpDelta(currentCp, place, playerCount, hasPlayed) {
+      const info = _compGetRankFromCp(currentCp, hasPlayed);
+      const top    = Number.isFinite(info.ffaTop)    ? info.ffaTop    : 20;
       const bottom = Number.isFinite(info.ffaBottom) ? info.ffaBottom : 4;
       const n = Math.floor(Number(playerCount) || 0);
       const p = Math.floor(Number(place) || 0);
@@ -38166,9 +38215,6 @@
         return;
       }
 
-      const winPct = (effWins + effLosses) > 0 ? Math.round((effWins / (effWins + effLosses)) * 100) : 0;
-
-      // Average best score, prefer Firebase, fallback to history
       // OP over the ranked games behind that number
       const opChart = $a("ph-comp-op-chart");
       if (opChart) {
@@ -38178,6 +38224,9 @@
         opChart.style.display = html ? "" : "none";
       }
 
+      const winPct = (effWins + effLosses) > 0 ? Math.round((effWins / (effWins + effLosses)) * 100) : 0;
+
+      // Average best score, prefer Firebase, fallback to history
       const avgBest = Number(stats.average_competitive_score || 0) ||
         (myEntries.length > 0
           ? Math.round(myEntries.reduce((sum, [, e]) => sum + e.myScore, 0) / myEntries.length)

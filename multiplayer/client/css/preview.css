@@ -1995,16 +1995,40 @@
        finger swipe ends up moving the wrong box and stranding the last row of
        oceans. Visible also lets the hover scale/lift on a card spill out
        instead of being sliced off at the edge. */
+    /* A COLUMN, not a wrapping row. #pv-my-board holds two things: the "where
+       an ocean goes" drop zone and #pv-ocean-row, the oceans themselves. As
+       one flex row they were centred together as a group, which pushed every
+       ocean 92px right of the middle whenever the zone was up and slid the
+       whole board sideways each time it came or went (see renderMyBoard).
+       Stacking them means each line is centred on the board's own axis, so
+       the oceans are in the middle and stay there.
+       align-items:center also stops the zone being STRETCHED to the height of
+       the tallest ocean beside it: as a flex item with the default
+       align-items:stretch, the compact "Add another ocean" zone was rendering
+       297px tall, a slab the height of a whole ocean hub. */
     #pv-my-board {
       flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      justify-content: flex-start;
+      overflow: visible;
+      padding: 4px 0;
+    }
+    /* The oceans. width:100% so justify-content centres them against the
+       board, not against their own content box; `:empty` collapses it on a
+       board with no oceans yet so it costs no height there. */
+    #pv-ocean-row {
+      width: 100%;
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       align-content: flex-start;
       justify-content: center;
       overflow: visible;
-      padding: 4px 0;
     }
+    #pv-ocean-row:empty { display: none; }
 
     .pv-ocean-hub {
       /* A tide pool holding your ocean, not a navy panel dropped on the reef.
@@ -2210,13 +2234,40 @@
       box-shadow: inset 0 0 0 1px rgba(232,179,74,.38), 0 0 18px rgba(232,179,74,.16);
       transition: background .18s, box-shadow .18s, transform .18s;
       animation: slot-pulse 2.8s ease-in-out infinite;
-      padding: 14px 24px;
-      margin: 0 auto 10px;
+      padding: 12px 22px;
+      /* No margins and no `auto` margins. This zone is now its own line in a
+         centred column (#pv-my-board), so align-items does the centring and
+         the 8px column gap does the spacing. Historically it was a flex item
+         on the SAME line as the oceans, where auto side margins ate all the
+         free space before justify-content got a say and shoved the oceans
+         against the right edge of the table; plain margins then left the
+         oceans 92px right of centre instead. Neither is a thing a separate
+         line can do. */
+      margin: 0;
+      flex: 0 0 auto;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
     }
     #pv-ocean-drop-zone.first-ocean-drop {
       padding: 32px 24px; min-height: 164px; width: 100%; max-width: 300px;
-      margin: 6px auto 12px; gap: 5px;
+      gap: 5px;
+    }
+    /* Idle: an empty board on somebody else's turn, or with no ocean you can
+       pay for. It marks the spot and nothing more, so it is dimmed, it does
+       not pulse (a pulse is an invitation, and there is nothing to accept
+       yet) and renderMyBoard hangs no click/drop handlers on it. */
+    #pv-ocean-drop-zone.idle {
+      cursor: default;
+      animation: none;
+      opacity: .72;
+      background: radial-gradient(ellipse at 50% 48%,
+                    rgba(254,245,230,.50) 0%, rgba(243,228,203,.20) 54%, transparent 76%);
+      box-shadow: inset 0 0 0 1px rgba(232,179,74,.24);
+    }
+    #pv-ocean-drop-zone.idle:hover {
+      background: radial-gradient(ellipse at 50% 48%,
+                    rgba(254,245,230,.50) 0%, rgba(243,228,203,.20) 54%, transparent 76%);
+      box-shadow: inset 0 0 0 1px rgba(232,179,74,.24);
+      transform: none;
     }
     #pv-ocean-drop-zone .ocean-drop-head {
       font-family: "Cinzel", serif;
@@ -8033,6 +8084,10 @@
       flex-direction: column;
       gap: 12px;
     }
+    /* The header bar carries your name, level, XP and rank, and it is read
+       once on the way past. It used to stand 143px tall before anything a
+       tab changes, so it is kept tight: every part of it is still here, in
+       the same order, just not taking a sixth of the screen to say so. */
     .ph-profile-card {
       background: rgba(252,255,255,.95);
       border: 1px solid rgba(168,203,232,.7);
@@ -8041,10 +8096,6 @@
       padding: 13px 18px;
       display: grid;
       grid-template-columns: auto minmax(180px, 1fr) auto auto auto;
-    /* The header bar carries your name, level, XP and rank, and it is read
-       once on the way past. It used to stand 143px tall before anything a
-       tab changes, so it is kept tight: every part of it is still here, in
-       the same order, just not taking a sixth of the screen to say so. */
       align-items: center;
       gap: 15px;
     }
@@ -10239,6 +10290,31 @@
       flex: 1;
       justify-content: space-evenly;
     }
+
+    /* ── "There is more list this way" ─────────────────────────────────
+       In the icon-rail layout the tab list is its own scroller (see "THE TABS
+       SCROLL, THE DAILY STREAK STAYS PUT" below), and on a short window, a
+       small laptop or past about 110% browser zoom it is taller than the card:
+       Competitive, the passes and Store sit below its bottom edge, and Overview
+       is above its top one once you are down there. Fade whichever end the list
+       can still travel towards, so a list that carries on is never mistaken for
+       one that has ended. preview-app.js (initSidebarEdgeScroll) puts these on
+       and takes them off, and resting the cursor on a faded edge walks the list
+       that way on its own. Only the tab list wears the fade: masking the whole
+       sidebar would cut the corners off the white card. */
+    .ph-sidebar-nav.cc-scroll-more-up,
+    .ph-sidebar-nav.cc-scroll-more-down {
+      --cc-nav-fade-top: 0px;
+      --cc-nav-fade-bottom: 0px;
+      -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0) 0,
+        #000 var(--cc-nav-fade-top),
+        #000 calc(100% - var(--cc-nav-fade-bottom)), rgba(0,0,0,0) 100%);
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,0) 0,
+        #000 var(--cc-nav-fade-top),
+        #000 calc(100% - var(--cc-nav-fade-bottom)), rgba(0,0,0,0) 100%);
+    }
+    .ph-sidebar-nav.cc-scroll-more-up   { --cc-nav-fade-top: 20px; }
+    .ph-sidebar-nav.cc-scroll-more-down { --cc-nav-fade-bottom: 20px; }
     .ph-snav-item {
       display: flex;
       align-items: center;
@@ -15226,7 +15302,8 @@
       #pv-spec-hand { padding: 6px 6px 4px; }
       #pv-spec-hand-cards { justify-content: flex-start; padding: 12px 2px 6px; }
       .spec-hand-card { width: 58px; height: 81px; }
-    }    #pv-spectator-list {
+    }
+    #pv-spectator-list {
       display: none; padding: 6px 14px;
       background: rgba(8,24,50,.7); border-top: 1px solid rgba(95,179,214,.15);
     }

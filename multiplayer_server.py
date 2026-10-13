@@ -4396,6 +4396,11 @@ ROOM_KEEP_ENDED_SEC = 30 * 60
 ROOM_KEEP_IDLE_LOBBY_SEC = 2 * 60 * 60
 # How often the janitor runs.
 ROOM_SWEEP_INTERVAL_SEC = 120.0
+# How long the Snap & Score retention janitor waits before its FIRST pass.
+# Its interval afterwards is snap_score.RETENTION_SWEEP_INTERVAL_SEC (daily).
+# Deploys restart this process, so a sweep at boot would spend the one core
+# this service has on Firestore reads while players are signing in.
+SNAP_RETENTION_FIRST_RUN_DELAY_SEC = 10 * 60
 # Hard ceiling on simultaneous rooms. Reaching this means something is very
 # wrong (or the site is far bigger than this single process can serve); new
 # rooms are refused with a clear message instead of the process running itself
@@ -17361,6 +17366,34 @@ def main() -> None:
                 print(f"[janitor] sweep warning: {exc}")
 
     threading.Thread(target=_room_janitor, daemon=True, name="room-janitor").start()
+
+    # Snap & Score retention janitor: the Privacy Policy promises that board
+    # review evidence is deleted after a limited review period, and this
+    # thread is the only thing that makes that true. It strips thumbnails and
+    # image fingerprints from expired physical games and never touches a
+    # reward: see the long note above purge_expired_snap_evidence().
+    #
+    # The first pass is delayed rather than run at boot. Render restarts this
+    # service on every deploy, and a sweep racing the server's own startup
+    # work would spend the one core it has on Firestore reads while players
+    # are trying to get in.
+    def _retention_janitor() -> None:
+        time.sleep(SNAP_RETENTION_FIRST_RUN_DELAY_SEC)
+        while True:
+            try:
+                out = snap_score.retention_sweep()
+                if out.get("games") or out.get("sessions"):
+                    print(f"[retention] purged evidence from {out['games']} "
+                          f"physical game(s): {out['thumbs']} thumbnail(s), "
+                          f"{out['hashes']} fingerprint(s), "
+                          f"{out['sessions']} expired session(s) "
+                          f"(retention {out['days']} days)")
+            except Exception as exc:  # noqa: BLE001
+                print(f"[retention] sweep warning: {exc}")
+            time.sleep(snap_score.RETENTION_SWEEP_INTERVAL_SEC)
+
+    threading.Thread(target=_retention_janitor, daemon=True,
+                     name="snap-retention").start()
 
     # Keep every WarmCache (public boards, clan standings, live counts, avatar
     # ownership) refreshed off the request path, and fill the boards Player

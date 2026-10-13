@@ -173,7 +173,14 @@ const page = `<!doctype html><html><head><meta charset="utf-8">
 <div id="out">RUNNING</div>
 <script>
 (function buildBoard() {
+  // #pv-ocean-row is the oceans' own centred line inside #pv-my-board, the
+  // way renderMyBoard() builds it (#pv-my-board is a column: the "where an
+  // ocean goes" drop zone is the other line). Without the row the hubs would
+  // stack one per line and the wrap check below would be meaningless.
   var board = document.getElementById("pv-my-board");
+  var row = document.createElement("div");
+  row.id = "pv-ocean-row";
+  board.appendChild(row);
   // Eight oceans, the most a board carries, each with a card in every lane.
   for (var i = 0; i < 8; i++) {
     var hub = document.createElement("div");
@@ -189,7 +196,7 @@ const page = `<!doctype html><html><head><meta charset="utf-8">
     var center = document.createElement("div"); center.className = "pv-ocean-center";
     var face = document.createElement("div"); face.className = "pv-ocean-face";
     center.appendChild(face); hub.appendChild(center);
-    board.appendChild(hub);
+    row.appendChild(hub);
   }
 })();
 </script>
