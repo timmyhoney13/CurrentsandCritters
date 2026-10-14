@@ -219,6 +219,10 @@
     {
       "source": "/species/:file",
       "destination": "/multiplayer/client/species/:file"
+    },
+    {
+      "source": "/video/:file",
+      "destination": "/multiplayer/client/video/:file"
     }
   ]
 }

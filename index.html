@@ -841,6 +841,32 @@
     .partner-form-band h3 { font-size: 22px; }
     .pf-field textarea { min-height: 220px; }
   }
+  /* ── The how-to-play film, inside "Learn It in Sixty Seconds" ──
+     The same block the /rules page opens with. The file is served from
+     /video on both hosts; see the rewrite in vercel.json. */
+  .l60-film { max-width: 1000px; margin: 0 auto 46px; }
+  .l60-film-head { text-align: center; margin-bottom: 18px; }
+  .l60-film-head h3 {
+    margin: 0 0 12px; color: var(--ink-deep);
+    font-size: clamp(22px, 2.8vw, 32px); line-height: 1.2;
+  }
+  .l60-film-head p {
+    margin: 0 auto; max-width: 760px; color: var(--muted-strong);
+    font-size: clamp(15px, 1.6vw, 17px); line-height: 1.65;
+  }
+  .l60-film-label {
+    display: inline-flex; align-items: center; gap: 8px; margin-top: 16px;
+    background: var(--brand-cyan-soft); border: 1px solid #9ddaf0;
+    color: var(--brand-cyan-deep); padding: 6px 14px; border-radius: 999px;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;
+  }
+  .l60-film-frame {
+    margin: 0; border-radius: 22px; overflow: hidden;
+    border: 1px solid var(--line); box-shadow: var(--shadow-xl); background: #0a2537;
+  }
+  .l60-film-frame video { display: block; width: 100%; height: auto; background: #0a2537; }
+  .l60-film-cap { margin: 10px 0 0; text-align: center; font-size: 13px; color: var(--muted); }
+
   </style>
 </head>
 <body>
@@ -884,7 +910,7 @@
   </svg>
 
   <div class="hero-inner rise">
-    <div class="eyebrow"><span class="dot"></span> Ocean Ecosystem Card Game · 2-8 Players · Ages 14+</div>
+    <div class="eyebrow"><span class="dot"></span> Ocean Ecosystem Card Game · 2-8 Players · Ages 12+</div>
     <h1>Currents <span class="amp">and</span> Critters</h1>
     <p class="tagline">From waves to wings.</p>
     <div class="meta">
@@ -1013,6 +1039,28 @@
       <span>Score Points</span><span class="arrow">→</span>
       <span>Win the Game</span>
     </div>
+
+    <div class="l60-film">
+      <div class="l60-film-head">
+        <span class="l60-film-label">Video &middot; Learn It in Four Minutes</span>
+        <h3>Build the best ocean before the END&nbsp;GAME card turns up</h3>
+        <p>Every player grows their own reef out of Ocean cards and the animals attached
+           to them. When the END&nbsp;GAME card appears, everyone takes one last turn and
+           the biggest ecosystem wins. Here is a whole turn, start to finish.</p>
+      </div>
+      <figure class="l60-film-frame">
+        <video controls playsinline preload="none" width="1920" height="1080"
+               poster="/video/how-to-play-poster.jpg">
+          <source src="/video/how-to-play.mp4" type="video/mp4" />
+          <track kind="captions" srclang="en" label="English"
+                 src="/video/how-to-play-captions.vtt" default />
+          <p>Your browser cannot play this video.
+             <a href="/video/how-to-play.mp4">Download it instead</a>.</p>
+        </video>
+      </figure>
+      <p class="l60-film-cap">4 minutes 13 seconds, with captions.</p>
+    </div>
+
 
     <div class="section-head">
       <span class="eyebrow">Quick Rules</span>
