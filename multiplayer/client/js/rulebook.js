@@ -109,21 +109,20 @@
       +     odKeyRow('&#9650;', 'Top = Surface',
                      'Birds and baitfish. Pictured, a Peruvian Pelican.')
       +     odKeyRow('&#9664;&#9654;', 'Left and Right',
-                     'Yellowfin Tuna, Whale Shark, Mahi Mahi and the rest of the Left/Right cards. '
+                     'Game Fish, Mammals and Cephalopods: Yellowfin Tuna, Whale Shark, Mahi Mahi, '
+                     + 'Bottlenose Dolphin, Giant Squid and the rest of the Left/Right cards. '
                      + 'Pictured, a Yellowfin Tuna and a Whale Shark.')
       +     odKeyRow('&#9660;', 'Bottom = Ocean Floor',
-                     'Lobster, Crab, Goby and the other floor dwellers. Pictured, a Lobster.')
+                     'Crustaceans, Coral and Invertebrates: Lobster, Crab, Goby and the other '
+                     + 'floor dwellers. Pictured, a Lobster.')
       +   '</ul>'
       +   '<div class="rb-fig-note">Every attached card tucks in against the Ocean and the Ocean stays on top, so one look tells you which of its four spaces are still free.</div>'
       +   '<div class="rb-fig-note rb-fig-note-gold">Charts mean 1 of this card, you get this many points</div>'
       + '</div>';
   }
 
-  // "Play a free crustacean" as a three-step board sequence, because the ★ is
-  // the one rule people read twice: play the card, THEN place the free one on
-  // a spot that is actually open. Cleanser Wrasse and Lobster are both Down
-  // cards, so the free Lobster has to go on a second Ocean's floor, which is
-  // the point of the picture.
+  // A step whose picture is a mini board: the number, the board, the sentence.
+  // Used by the Clownfish figure.
   function crustaceanStep(n, boardHtml, headline, body, boardCls) {
     return ''
       + '<div class="rb-step">'
@@ -132,36 +131,75 @@
       +   '<div class="rb-step-body"><p class="rb-p"><b>' + headline + '</b> ' + body + '</p></div>'
       + '</div>';
   }
-  function freeCrustaceanFigure() {
-    return ''
-      + '<div class="rb-fig">'
-      +   '<div class="rb-fig-head">Playing a free crustacean</div>'
-      +   '<div class="rb-steps rb-steps-cards">'
 
-      +     crustaceanStep(1,
-            '<div class="rb-mini-ocean">' + oFace(217) + '</div>'
-            + '<div class="rb-mini-slot">' + hFace(30) + '</div>'
-            + '<div class="rb-mini-lbl">Coral Reef</div>',
-            "Play the Cleanser Wrasse onto an Ocean",
-            'and pay its cost. To switch its ★ on, discard a card with the same symbol as the Wrasse.')
-
-      +     crustaceanStep(2,
-            '<div class="rb-mini-ocean">' + oFace(230) + '</div>'
-            + '<div class="rb-mini-slot rb-mini-open"><span>open spot</span></div>'
-            + '<div class="rb-mini-lbl">Mangrove</div>',
-            "Look for an open ocean.",
-            'Another Ocean of yours still has its floor free, so there is a space for a crustacean to go into.')
-
-      +     crustaceanStep(3,
-            '<div class="rb-mini-ocean">' + oFace(230) + '</div>'
-            + '<div class="rb-mini-slot rb-mini-new">' + hFace(12) + '</div>'
-            + '<div class="rb-mini-lbl">Mangrove</div>',
-            "Play the Lobster straight out of your hand, free.",
-            'No cost, no discard, right now, as part of the same turn.')
-
+  // "Play a free animal" drawn as ONE board instead of three stacked steps.
+  // The two Oceans sit side by side the way they do on the table, your hand
+  // sits under them, and a dashed arrow runs from each hand card up into the
+  // spot it goes to, so the whole ★ reads across in a single glance.
+  //
+  // Bottlenose Dolphin (uid 109) and Narwhal (uid 117) are BOTH Left cards, so
+  // the free Narwhal cannot join the Dolphin on the Coral Reef: that Ocean's
+  // left side is already taken. Needing a second Ocean is the point of the
+  // picture, and it is why these two cards were chosen.
+  //
+  // The ring is drawn over the Dolphin's symbol, top right of its half of the
+  // printed page, because the symbol is what you match to switch the ★ on.
+  // Its position is measured off the art (720x1008 per page, 360 per half):
+  // the symbol tile sits at 69-96% across and 2-13% down, so the ring is
+  // centred at 82.5% / 7.8%. Move the art and this moves with it.
+  function faOcean(area, attUid, oceanUid, label, isNew, pin) {
+    return '<div class="rb-fa-cell rb-fa-' + area + '">'
+      +   '<div class="rb-mini-att-row">'
+      +     '<div class="rb-mini-att' + (isNew ? ' rb-fa-free' : '') + '">' + vFace(attUid) + '</div>'
+      +     '<div class="rb-mini-ocean">' + oFace(oceanUid) + '</div>'
+      +     (pin ? '<span class="rb-fa-pin">' + pin + '</span>' : '')
       +   '</div>'
-      +   '<div class="rb-fig-note">The Wrasse and the Lobster are both Down cards, so they both want an ocean floor. That is why the free Lobster goes on the <b>second</b> Ocean: the first one&rsquo;s floor is taken.</div>'
-      +   '<div class="rb-fig-note rb-fig-note-gold">The free crustacean comes from your hand only. Never from the Pool, the deck or the discard pile, and it must have an open spot to go to.</div>'
+      +   '<div class="rb-mini-lbl">' + label + '</div>'
+      + '</div>';
+  }
+  function faHand(area, uid, name, note, ring) {
+    return '<figure class="rb-fa-cell rb-fa-' + area + ' rb-fa-hand">'
+      +   '<span class="rb-fa-hand-card">' + vFace(uid)
+      +     (ring ? '<span class="rb-fa-ring"></span>' : '')
+      +   '</span>'
+      +   '<figcaption><span class="rb-fa-hand-name">' + name + '</span>'
+      +     '<span class="rb-fa-hand-note">' + note + '</span></figcaption>'
+      + '</figure>';
+  }
+  function faLink(area, n) {
+    return '<div class="rb-fa-cell rb-fa-' + area + ' rb-fa-link">'
+      +   '<span class="rb-fa-arrow" aria-hidden="true"></span>'
+      +   '<span class="rb-fa-n">' + n + '</span>'
+      + '</div>';
+  }
+  function freeAnimalFigure() {
+    return ''
+      + '<div class="rb-fig rb-fig-tight">'
+      +   '<div class="rb-fig-head">Playing a free animal</div>'
+      +   '<div class="rb-fa">'
+      +     '<div class="rb-fa-zone rb-fa-zb">Your board</div>'
+      +     faOcean("oa", 109, 217, "Coral Reef", false, "1")
+      +     '<div class="rb-fa-cell rb-fa-mid"><span class="rb-fa-n">2</span>'
+      +       '<span class="rb-fa-mid-txt">left side taken<br>look across</span></div>'
+      +     faOcean("ob", 117, 230, "Mangrove", true, "3")
+      +     faLink("l1", "1")
+      +     faLink("l3", "3")
+      +     faHand("ha", 109, "Bottlenose Dolphin",
+                   "Cost 2 &middot; &#9733; play a free mammal", true)
+      +     faHand("hb", 117, "Narwhal", "Played free, no cost", false)
+      +     '<div class="rb-fa-zone rb-fa-zh">Your hand</div>'
+      +   '</div>'
+      +   '<ol class="rb-fa-key">'
+      +     '<li><span class="rb-fa-n">1</span><span class="rb-fa-key-txt">'
+      +       '<b>Play the Bottlenose Dolphin.</b> It is a Left card, so it goes in at the Coral Reef&rsquo;s left side. '
+      +       'Pay its cost of 2, and make at least one of the two cards you discard match the circled symbol to switch the &#9733; on.</span></li>'
+      +     '<li><span class="rb-fa-n">2</span><span class="rb-fa-key-txt">'
+      +       '<b>Find an open spot.</b> The Coral Reef&rsquo;s left side is now taken by the Dolphin, so the free mammal needs the open left side of another Ocean.</span></li>'
+      +     '<li><span class="rb-fa-n">3</span><span class="rb-fa-key-txt">'
+      +       '<b>Play the Narwhal free.</b> Straight out of your hand onto the Mangrove, no cost and no discard, right now, as part of the same turn.</span></li>'
+      +   '</ol>'
+      +   '<div class="rb-fig-note">The Dolphin and the Narwhal are both <b>Left</b> cards, so they both want an Ocean&rsquo;s left side. That is why the free Narwhal goes on the <b>second</b> Ocean.</div>'
+      +   '<div class="rb-fig-note rb-fig-note-gold">The free animal comes from your hand only. Never from the Pool, the deck or the discard pile, and it must have an open spot to go to.</div>'
       + '</div>';
   }
 
@@ -307,20 +345,35 @@
       + '</div>';
   }
 
+  // All four Mandarin Gobies, with the chart that is printed on the card
+  // itself: 1 = 0, 2 = 14, 3 = 30, 4 = 80. One Goby on its own is worth
+  // nothing, which is what makes this the risky plan it is called after.
   function gobyFigure() {
-    var gobies = [28, 48, 80, 90].map(function (u) { return '<span class="rb-goby">' + hFace(u) + '</span>'; }).join("");
+    var gobies = [28, 48, 80, 90].map(function (u, i) {
+      return '<figure class="rb-goby">' + hFace(u)
+        + '<figcaption>' + GOBY_CHART[i][0] + (i ? " gobies" : " goby")
+        + '<span class="rb-goby-pts">' + GOBY_CHART[i][1] + '</span></figcaption></figure>';
+    }).join("");
     return ''
       + '<div class="rb-fig">'
       +   '<div class="rb-fig-head">Goby Set Example</div>'
       +   '<div class="rb-goby-row">' + gobies + '</div>'
-      +   '<div class="rb-fig-note rb-fig-note-gold">All 4 Mandarin Gobies &rarr; +20 points</div>'
+      +   '<div class="rb-fig-note rb-fig-note-gold">All 4 Mandarin Gobies &rarr; +80 points</div>'
       + '</div>';
   }
+  var GOBY_CHART = [[1, 0], [2, 14], [3, 30], [4, 80]];
 
   // ── The book ────────────────────────────────────────────────────
+  // Counted off the card lists themselves (cards_vertical.txt holds the Up/Down
+  // creatures, cards_lr.txt the Left/Right ones, cards_oceans.txt the Oceans),
+  // so the box and the book agree with the deck the game deals:
+  //   48 Up/Down cards (96 creatures, two to a card)
+  //   44 Left/Right cards (88 creatures, two to a card)
+  //   68 Ocean cards + 1 END GAME card
+  //   = 161 cards, the number on the box and on the website.
   var COMPONENTS = [
-    "24 vertical cards", "22 horizontal cards", "67 oceans", "1 end game card",
-    "1 score pad", "1 game board (the pool)", "12 strategy cards",
+    "48 horizontal cards", "44 vertical cards", "68 oceans", "1 end game card",
+    "161 cards in all", "1 score pad", "1 game board (the pool)", "12 strategy cards",
   ];
 
   var SECTIONS = [
@@ -336,12 +389,19 @@
     ["rb-endgame",     "End Game"],
     ["rb-scoring",     "Scoring"],
     ["rb-competitive", "Competitive Play"],
+    ["rb-strategies",  "Strategies"],
     ["rb-encyclopedia","Encyclopedia"],
   ];
 
+  // Every name here is the name PRINTED on the card, and every count is the
+  // number of that creature in the deck, both read off cards_vertical.txt,
+  // cards_lr.txt and cards_oceans.txt. A player should be able to hold a card
+  // against this list and find it, so nothing is shortened or renamed.
+  //   Bigeye Tuna and Whale Shark are Crosscurrent on their own cards, not
+  //   Game Fish, and they are filed here the way the cards file them.
   var ENCYCLOPEDIA = [
     ["", "Birds", "bird", [
-      ["Emperor Penguin", 4], ["Horned Puffin", 4], ["California Seagull", 4], ["Peruvian Pelican", 4],
+      ["Emperor Penguin", 4], ["Horned Puffin", 4], ["California Gull", 4], ["Peruvian Pelican", 4],
       ["Great Albatross", 4], ["Osprey", 4], ["Magnificent Frigatebird", 2], ["Razorbill Auk", 2],
     ]],
     ["", "Crustaceans", "crustacean", [
@@ -352,8 +412,7 @@
     ]],
     ["", "Game Fish", "gamefish", [
       ["Sailfish", 3], ["Goliath Grouper", 3], ["Tarpon", 4], ["Mahi Mahi", 4], ["Blue Marlin", 4],
-      ["Bigeye Tuna", 5], ["Yellowfin Tuna", 14], ["Roosterfish", 5], ["King Salmon", 4],
-      ["Whale Shark", 4], ["Barracuda", 3],
+      ["Yellowfin Tuna", 14], ["Roosterfish", 5], ["King Salmon", 4], ["Barracuda", 3],
     ]],
     ["", "Cephalopods", "cephalopod", [
       ["Bobtail Squid", 3], ["Common Octopus", 3], ["Cuttlefish", 3], ["Giant Squid", 3],
@@ -362,18 +421,20 @@
       ["Mullet", 4], ["Bunker", 4], ["Sardine", 4], ["Flying Fish", 4], ["Bonito", 4],
     ]],
     ["", "Invertebrates", "invertebrate", [
-      ["Sea Sponge", 2], ["Sea Urchin", 2], ["Sea Star", 2], ["Sea Cucumber", 2], ["Sea Anemone", 2],
+      ["Orange Tube Sponge", 2], ["Sea Urchin", 2], ["Common Sea Star", 2],
+      ["Johnson’s Sea Cucumber", 2], ["Red Beaded Anemone", 2],
     ]],
     ["", "Mammals", "mammal", [
       ["Spinner Dolphin", 4], ["Bottlenose Dolphin", 4], ["Narwhal", 3],
     ]],
     ["", "Crosscurrent", "crosscurrent", [
       ["Cleaner Wrasse", 2], ["Blue Tang", 3], ["Mandarin Goby", 4], ["Loggerhead Sea Turtle", 3],
-      ["Clownfish", 3], ["Reef Trigger", 3], ["Manta Ray", 2], ["Great White Shark", 4],
+      ["Clownfish", 3], ["Reef Trigger Fish", 3], ["Manta Ray", 2], ["Great White Shark", 4],
+      ["Bigeye Tuna", 5], ["Whale Shark", 4],
     ]],
     ["", "Ocean Cards", "ocean", [
-      ["Coral Reef", 13], ["Deep Ocean", 8], ["Mangroves", 9], ["Artificial Reef", 6],
-      ["Pier", 8], ["Arctic Ocean", 8], ["Kelp Forest", 9], ["Tide Pool", 6],
+      ["Coral Reef", 13], ["Deep Ocean", 8], ["Mangrove", 9], ["Artificial Reef", 6],
+      ["Pier", 8], ["Arctic Ocean", 8], ["Kelp Forest", 10], ["Tide Pool", 6],
     ]],
   ];
 
@@ -392,7 +453,80 @@
     }).join("");
   }
 
-  var HTML = ''
+  // ── The strategies, printed with their cards ────────────────────
+  // The 16 Core plans the game itself offers, each one shown with the REAL
+  // card art of every card it is made of, so a player can lay the book beside
+  // their hand and match the pictures rather than hunt for a name.
+  //
+  // Read off window.CC_BUILTIN_STRATEGIES (js/gamedata.js) at render time, not
+  // copied: a plan that changes in the game changes on this page in the same
+  // deploy, which is the whole reason that table was pulled out of the game.
+  // gamedata.js loads AFTER this file, which is why the book is built lazily
+  // further down rather than while this script is being parsed.
+
+  // The family key the colour rules are filed under, from the species a card
+  // list spells out ("Game Fish" is one word in CSS, where it is an attribute).
+  function famKey(species) {
+    return String(species || "").toLowerCase().replace(/[^a-z]/g, "");
+  }
+  // A card's own face, picked by uid the way the rest of the book picks one:
+  // 1-100 are the Up/Down creatures, 101-200 the Left/Right ones, 201+ Oceans.
+  function anyFace(uid) {
+    if (uid >= 201) return oFace(uid);
+    if (uid >= 101) return vFace(uid);
+    return hFace(uid);
+  }
+  // A card's Star clause is stored between asterisks, the way the game stores
+  // it. In the book it is printed as the star it is, not as "(*play again*)".
+  function starMark(t) {
+    return String(t || "").replace(/\*([^*]+)\*/g, "\u2605 $1");
+  }
+  function stratCardArt(c) {
+    var uid = Number(c.repUid);
+    var shape = uid >= 201 ? "o" : (uid >= 101 ? "v" : "h");
+    return '<figure class="rb-sc rb-sc-' + shape + '" data-fam="' + famKey(c.species) + '">'
+      + anyFace(uid)
+      + '<figcaption><span class="rb-sc-name">' + c.name + '</span>'
+      + '<span class="rb-sc-x">&times;' + (Number(c.count) || 1) + '</span></figcaption>'
+      + '</figure>';
+  }
+  function strategiesHtml() {
+    var all = window.CC_BUILTIN_STRATEGIES;
+    if (!Array.isArray(all) || !all.length) return "";
+    var primary = window.CC_STRAT_PRIMARY || [];
+    var out = [];
+    all.forEach(function (s, i) {
+      if (s.tier !== "Core") return;              // Combos live on /rules, not in the book
+      var fam = famKey(s.group === "ocean" ? "ocean" : (primary[i] || ""));
+      var blurb = starMark(s.blurb);
+      var steps = (s.steps || []).map(function (t) { return '<li>' + starMark(t) + '</li>'; }).join("");
+      var tips = (s.tips || []).map(function (t) { return '<li>' + starMark(t) + '</li>'; }).join("");
+      var cards = (s.cards || []).map(stratCardArt).join("");
+      out.push('<div class="rb-strat" data-fam="' + fam + '">'
+        + '<div class="rb-strat-head">'
+        +   '<span class="rb-strat-name">' + s.label + '</span>'
+        +   '<span class="rb-strat-kind">' + (s.group === "ocean" ? "Ocean plan" : "Animal plan") + '</span>'
+        + '</div>'
+        + '<p class="rb-strat-blurb">' + blurb + '</p>'
+        + (steps ? '<div class="rb-strat-block"><h4 class="rb-strat-h4">How to play it</h4>'
+            + '<ol class="rb-strat-steps">' + steps + '</ol></div>' : "")
+        + (tips ? '<div class="rb-strat-block"><h4 class="rb-strat-h4">Quick tips</h4>'
+            + '<ul class="rb-strat-tips">' + tips + '</ul></div>' : "")
+        + (cards ? '<div class="rb-strat-block"><h4 class="rb-strat-h4">The cards it is made of</h4>'
+            + '<div class="rb-strat-cards">' + cards + '</div></div>' : "")
+        + '</div>');
+    });
+    return '<div class="rb-strats">' + out.join("") + '</div>';
+  }
+
+  function buildHtml() {
+  // Built once, up front, because the Strategies section is the one part of
+  // the book that depends on another file: if js/gamedata.js is not there, the
+  // section and its line in the contents both drop out rather than printing an
+  // empty heading a reader can jump to and find nothing behind.
+  var strats = strategiesHtml();
+  var sections = SECTIONS.filter(function (s) { return strats || s[0] !== "rb-strategies"; });
+  return ''
     // ── Cover ─────────────────────────────────────────────────────
     + '<div class="rb-hero">'
     +   '<h1 class="rb-hero-title">Currents and Critters</h1>'
@@ -406,7 +540,7 @@
 
     // ── Contents ──────────────────────────────────────────────────
     + '<nav class="rb-toc" aria-label="Rulebook contents">'
-    +   SECTIONS.map(function (s, i) {
+    +   sections.map(function (s, i) {
           return '<button type="button" class="rb-toc-btn" data-rb-jump="' + s[0] + '">'
             + '<span class="rb-toc-n">' + String(i + 1).padStart(2, "0") + '</span>' + s[1] + '</button>';
         }).join("")
@@ -461,7 +595,7 @@
     +     '<div class="rb-step"><div class="rb-step-n">5</div><div class="rb-step-body">'
     +       '<h3 class="rb-h3">Choose First Player</h3>'
     +       '<ul class="rb-list"><li>The player who most recently visited an ocean goes first</li>'
-    +       '<li>If the players don’t want to figure can’t or don’t want to figure that out, the youngest goes first</li>'
+    +       '<li>If the players can’t or don’t want to figure that out, the youngest goes first</li>'
     +       '<li>The game goes clockwise</li></ul>'
     +     '</div></div>'
     +   '</div>'
@@ -511,10 +645,13 @@
     +     '<p class="rb-p">Each Ocean has limited attachment spaces</p>'
     +     '<p class="rb-p rb-p-muted">Normally:</p>'
     +     '<ul class="rb-list rb-list-slots">'
-    +       '<li><b>Top (Surface)</b> <span class="rb-arrow">&rarr;</span> Birds, Baitfish</li>'
-    +       '<li><b>Bottom (Ocean Floor)</b> <span class="rb-arrow">&rarr;</span> Lobster, Crab, Goby, etc.</li>'
-    +       '<li><b>Left/Right attachment slots</b> <span class="rb-arrow">&rarr;</span> Yellowfin tuna, Whale shark, Mahi Mahi, Etc.</li>'
+    +       '<li><b>Top (Surface)</b> <span class="rb-arrow">&rarr;</span> Birds and Baitfish, and nothing else</li>'
+    +       '<li><b>Bottom (Ocean Floor)</b> <span class="rb-arrow">&rarr;</span> Crustaceans, Coral and Invertebrates. Lobster, Crab, Goby, etc.</li>'
+    +       '<li><b>Left/Right attachment slots</b> <span class="rb-arrow">&rarr;</span> Game Fish, Mammals and Cephalopods. Yellowfin Tuna, Bottlenose Dolphin, Giant Squid, etc.</li>'
     +     '</ul>'
+    +     '<p class="rb-p rb-p-muted">Crosscurrent animals are the exception: some of them are floor cards and some are side cards, so read the card. '
+    +       'None of them goes on the surface.</p>'
+    +     '<p class="rb-p">Every card is printed with the one orientation it attaches in, Up, Down, Left or Right, so the card itself tells you which of the four spaces it wants.</p>'
     +   '</div>'
     +   oceanLayoutFigure()
     + '</section>'
@@ -552,9 +689,9 @@
     +   '<p class="rb-p">One card&rsquo;s ★ depends on where you put it: a <b>Clownfish</b> copies the Ocean it is attached to, so it has a ★ on a Mangrove or an Arctic Ocean and none anywhere else. '
     +     '<button type="button" class="rb-inline-jump" data-rb-jump="rb-special">See the Clownfish rule.</button></p>'
     +   '<p class="rb-p">If an ability allows you to play a free Animal, the free Animal must come from your hand. It can not come from the Pool, the deck, or the discard pile.</p>'
-    +   '<div class="rb-quote">A card says “★ Play a free crustacean ★.”<br>'
-    +     'To use this ability, you must first activate the ★ ability by discarding a matching symbol. Then immediately, you may play one crustacean from your hand to an available spot on the board.</div>'
-    +   freeCrustaceanFigure()
+    +   '<div class="rb-quote">A card says “★ Play a free mammal ★.”<br>'
+    +     'To use this ability, you must first activate the ★ ability by discarding a matching symbol. Then immediately, you may play one mammal from your hand to an available spot on the board.</div>'
+    +   freeAnimalFigure()
 
     +   '<h3 class="rb-h3 rb-h3-big">★ Play Again</h3>'
     +   '<p class="rb-p">If a ★ ability says “Play Again,” the extra play is treated as a new play.</p>'
@@ -620,8 +757,11 @@
 
     +   '<div class="rb-block rb-block-gold">'
     +     '<h3 class="rb-h3">“Shooting the Moon” <span class="rb-h3-tail">(Mandarin Goby Bonus)</span></h3>'
+    +     '<p class="rb-p">Mandarin Gobies score as a set, off the chart printed on the card: '
+    +       '<b>1 = 0</b>, <b>2 = 14</b>, <b>3 = 30</b>, <b>4 = 80</b>. A single Goby is worth nothing at all, '
+    +       'so collect them and play them in a burst.</p>'
     +     '<p class="rb-p">If you play all 4 Mandarin Gobies:</p>'
-    +     '<p class="rb-big-award"><span class="rb-arrow">&rarr;</span> Gain +20 points</p>'
+    +     '<p class="rb-big-award"><span class="rb-arrow">&rarr;</span> Gain +80 points</p>'
     +     '<p class="rb-p">Send a photo of you and the board to get featured on Currents and Critters Instagram: '
     +       '<a class="rb-link" href="https://www.instagram.com/currentsandcritters_official/" target="_blank" rel="noopener noreferrer">@CurrentsandCritters_official</a></p>'
     +   '</div>'
@@ -671,7 +811,7 @@
     +   '<h2 class="rb-h2">Scoring</h2>'
     +   '<p class="rb-lead">Add:</p>'
     +   '<ul class="rb-list rb-list-lg"><li>All printed points</li><li>All ability bonuses</li></ul>'
-    +   '<div class="rb-callout rb-callout-tip"><span class="rb-callout-lbl">Tip:</span> count bottoms cards, top cards, right, Left, Then oceans</div>'
+    +   '<div class="rb-callout rb-callout-tip"><span class="rb-callout-lbl">Tip:</span> count the bottom cards, then the top cards, then right, then left, then the Oceans</div>'
     +   '<div class="rb-total">'
     +     '<div class="rb-total-eq">Total across all Oceans = final score</div>'
     +     '<div class="rb-total-win">Highest score wins</div>'
@@ -696,6 +836,20 @@
     +   '<p class="rb-p">This system introduces a strategic layer where players can attempt to set up cards in the pool for their other hand to collect. However, because the opponent takes a turn between your hands, they may take those cards before you can.</p>'
     + '</section>'
 
+    // ── Strategies ────────────────────────────────────────────────
+    + (strats
+      ? '<section class="rb-sec" id="rb-strategies">'
+      +   '<h2 class="rb-h2">Strategies</h2>'
+      +   '<p class="rb-lead">Sixteen ways to win, each one with the cards that build it.</p>'
+      +   '<p class="rb-p">A strategy is not a rule, it is a plan. Pick one early, watch the Pool for the cards it wants, '
+      +     'and be ready to switch if the table takes them first. Six of them are built on Oceans, ten on animals, '
+      +     'and nothing stops you running two at once.</p>'
+      +   strats
+      +   '<div class="rb-fig-note rb-fig-note-gold">The &times;N under each card is how many of it are in the whole deck, '
+      +     'counting every copy at every table. That number is how you judge whether a plan is still reachable.</div>'
+      + '</section>'
+      : '')
+
     // ── Encyclopedia ──────────────────────────────────────────────
     + '<section class="rb-sec" id="rb-encyclopedia">'
     +   '<h2 class="rb-h2">Encyclopedia</h2>'
@@ -703,8 +857,26 @@
     + '</section>'
 
     + '<div class="rb-end">Currents <span>and</span> Critters</div>';
+  }
 
-  window.CC_RULEBOOK_HTML = HTML;
+  // The book is built on FIRST READ, not while this file is parsed, because
+  // the Strategies section reads js/gamedata.js and both pages load gamedata
+  // AFTER this file. Every reader already asks for window.CC_RULEBOOK_HTML at
+  // render time, so a getter keeps them all unchanged, and the result is
+  // cached so the second reader (Player Home, then the in-game modal) is free.
+  //   Cached only once gamedata.js is actually there. A read that somehow
+  //   lands before it would otherwise freeze a book with no Strategies in it
+  //   for the rest of the session.
+  var _html = null;
+  Object.defineProperty(window, "CC_RULEBOOK_HTML", {
+    configurable: true,
+    get: function () {
+      if (_html !== null) return _html;
+      var html = buildHtml();
+      if (Array.isArray(window.CC_BUILTIN_STRATEGIES)) _html = html;
+      return html;
+    },
+  });
 
   /**
    * Wire the contents nav inside a freshly-rendered rulebook. Jumps scroll the

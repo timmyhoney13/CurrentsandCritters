@@ -407,6 +407,50 @@ check("the four tables are IDENTICAL to the ones preview-app.js used to hold", (
   //   never by position: comparing by position is what let every strategy
   //   after the first wear its neighbour's colour and symbol.
   const RETIRED = ["Ocean All Blue", "Game Fish"];
+  // Deliberate CORRECTIONS, not drift. Each row is a sentence that disagreed
+  // with the card it describes, checked against cards_lr.txt / cards_vertical
+  // .txt on 2026-10-14 while the printed book grew a Strategies section and
+  // started printing these very sentences. The old wording is written down
+  // here, so the check still reads the pre-split file and still fails on any
+  // change nobody recorded: a correction has to be made ON PURPOSE to pass.
+  //   field is "blurb", or "steps.N" / "tips.N" by index.
+  const CORRECTED = [
+    // California Gull is "+2 per crustacean" on the card. The step list under
+    // this very blurb already said +2.
+    ["Crustaceans", "blurb", "+3 for every crustacean you own.", "+2 for every crustacean you own."],
+    // Common Octopus, Cuttlefish and Bobtail Squid are all "+3 if you have at
+    // least three cephalopods". Only Giant Squid is +6.
+    ["Cephalopods", "steps.1", "each give +4 at 3+ cephalopods", "each give +3 at 3+ cephalopods"],
+    // Great White Shark is "+3 per mammal | *Draw one*". Its star is a draw,
+    // it has never been a play again.
+    ["Mammals", "steps.3", "+3 per mammal and *play again*.", "+3 per mammal, and its star draws you a card."],
+    // Spinner Dolphin comes on four symbols (Diamond, Heart, Circle), so the
+    // card you pay with matches ITS symbol, whatever that copy's symbol is.
+    ["Mammals", "tips.1", "when you pay a matching diamond symbol.", "when you pay with a card matching its own symbol."],
+    // The card is printed "Bigeye Tuna", one word.
+    ["Yellowfin Tuna Stack", "blurb", "Big Eye Tuna", "Bigeye Tuna"],
+    ["Yellowfin Tuna Stack", "steps.2", "Big Eye Tuna", "Bigeye Tuna"],
+    ["Yellowfin Tuna Stack", "tips.1", "Big Eye Tuna", "Bigeye Tuna"],
+    ["Baitfish Barrage + Yellowfin Tuna", "steps.3", "Big Eye Tuna", "Bigeye Tuna"],
+    ["Yellowfin Tuna + Mammals", "steps.2", "Big Eye Tuna", "Bigeye Tuna"],
+    ["Yellowfin Tuna + Mammals", "tips.1", "Big Eye Tuna", "Bigeye Tuna"],
+    ["Yellowfin Tuna + Mammals", "tips.2", "Big Eye Tuna", "Bigeye Tuna"],
+  ];
+  // Rewrite the OLD row the way the correction says, before comparing. Asserts
+  // the old text really was there, so a stale row in the table is a failure
+  // rather than a silent no-op.
+  const applyCorrections = (old) => {
+    for (const [label, field, was, now_] of CORRECTED) {
+      if (label !== old.label) continue;
+      const [key, idx] = field.split(".");
+      const read_ = () => (idx === undefined ? old[key] : old[key][Number(idx)]);
+      const write_ = (v) => { if (idx === undefined) old[key] = v; else old[key][Number(idx)] = v; };
+      assert(typeof read_() === "string" && read_().includes(was),
+        label + " / " + field + ": the recorded old wording is not there any more, drop the row");
+      write_(read_().split(was).join(now_));
+    }
+    return old;
+  };
   const authored = grab("BUILTIN_STRATEGIES", "[", "]");
   const oldPrimary = grab("_STRAT_PRIMARY", "[", "]");
   const now = W.CC_BUILTIN_STRATEGIES;
@@ -415,7 +459,7 @@ check("the four tables are IDENTICAL to the ones preview-app.js used to hold", (
     if (RETIRED.includes(old.label)) { eq(j, -1, old.label + " was retired and should stay gone"); return; }
     assert(j >= 0, "the split lost a strategy: " + old.label);
     const { group, ...rest } = now[j];
-    eq(rest, old, "BUILTIN_STRATEGIES drifted: " + old.label);
+    eq(rest, applyCorrections(old), "BUILTIN_STRATEGIES drifted: " + old.label);
     eq(W.CC_STRAT_PRIMARY[j], oldPrimary[oldIdx], old.label + " changed colour family");
   });
   const authoredNow = now.filter(s => !s.generated).length;

@@ -434,10 +434,143 @@
     .rb-pool-step-done { color: var(--rb-accent); border-color: var(--rb-accent); }
 
     /* Goby set */
-    .rb-goby-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
-    .rb-goby { display: block; width: min(158px, 40vw); }
+    .rb-goby-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: flex-start; }
+    .rb-goby { display: block; width: min(158px, 40vw); margin: 0; }
+    /* Each Goby is captioned with its own rung of the chart printed on the
+       card (1 = 0, 2 = 14, 3 = 30, 4 = 80), so the four pictures ARE the chart
+       rather than four copies of the same card with one number underneath. */
+    .rb-goby figcaption {
+      margin-top: 6px; display: flex; align-items: baseline; justify-content: center; gap: 7px;
+      font-size: 10.5px; letter-spacing: .5px; text-transform: uppercase; color: var(--rb-muted);
+    }
+    .rb-goby-pts {
+      font-family: "Nunito", sans-serif; font-size: 15px; letter-spacing: 0;
+      color: var(--rb-accent);
+    }
 
-    /* ── "Play a free crustacean": three numbered board steps ──────────
+    /* ── "Playing a free animal": one board, read across ───────────────
+       Three stacked steps took a whole page and drew the same Ocean three
+       times. This is ONE picture: the two Oceans side by side the way they sit
+       on the table, your hand under them, and a dashed arrow from each hand
+       card up into the spot it goes to. The sentences live in the key below,
+       so no words are drawn twice.
+
+       A five-row grid does the aligning: the hand card and the Ocean it flies
+       to are in the same COLUMN, so the arrow between them never has to be
+       positioned by hand. */
+    .rb-fig-tight { padding-bottom: 14px; }
+    .rb-fa {
+      display: grid; justify-items: center; align-items: center;
+      gap: 4px 12px; margin: 0 auto; max-width: 560px;
+      grid-template-columns: minmax(0, 1fr) minmax(96px, 1.05fr) minmax(0, 1fr);
+      grid-template-areas:
+        "zb zb zb"
+        "oa mid ob"
+        "l1 .   l3"
+        "ha .   hb"
+        "zh zh zh";
+    }
+    .rb-fa-zb { grid-area: zb; }
+    .rb-fa-oa { grid-area: oa; }
+    .rb-fa-ob { grid-area: ob; }
+    .rb-fa-mid { grid-area: mid; }
+    .rb-fa-l1 { grid-area: l1; }
+    .rb-fa-l3 { grid-area: l3; }
+    .rb-fa-ha { grid-area: ha; }
+    .rb-fa-hb { grid-area: hb; }
+    .rb-fa-zh { grid-area: zh; }
+    .rb-fa-zone {
+      font-size: 10px; letter-spacing: 1.1px; text-transform: uppercase;
+      color: var(--rb-muted); padding: 2px 0;
+    }
+    .rb-fa-zb { margin-bottom: 2px; }
+    .rb-fa-zh { margin-top: 2px; }
+    /* An Ocean with its Left card tucked in at the side, same geometry as the
+       Clownfish figure: a 360-wide half beside a 720-wide Ocean is one third to
+       two thirds, and at those widths the two run flush top and bottom. */
+    .rb-fa-oa, .rb-fa-ob { width: min(152px, 42vw); }
+    .rb-fa-oa .rb-mini-att-row, .rb-fa-ob .rb-mini-att-row { position: relative; }
+    /* The card the ★ just paid for, ringed so it reads as the new one. */
+    .rb-fa-free .rb-face-v { outline: 3px solid var(--rb-accent); outline-offset: 1px; }
+    /* The step number pinned to the corner of the board it happens on. */
+    .rb-fa-pin, .rb-fa-n {
+      flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-family: "Nunito", sans-serif; font-size: 11px; line-height: 1;
+      color: #1a1208; background: linear-gradient(180deg,#f6c178 0%,#e8a052 100%);
+      box-shadow: 0 2px 6px rgba(216,150,50,.34);
+    }
+    .rb-fa-pin { position: absolute; top: -8px; left: -8px; z-index: 3; }
+    /* The space between the two Oceans: a dashed rule you read across, with
+       the middle step's number sitting on it. */
+    .rb-fa-mid {
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      align-self: center; padding: 0 2px;
+    }
+    .rb-fa-mid::before, .rb-fa-mid::after {
+      content: ""; width: 100%; border-top: 2px dashed var(--rb-line-2);
+    }
+    .rb-fa-mid-txt {
+      font-size: 9.5px; line-height: 1.35; letter-spacing: .4px;
+      text-transform: uppercase; color: var(--rb-coral); text-align: center;
+    }
+    /* Hand to board. The arrow points UP because the hand row sits under the
+       board row, and it is dashed because the card is in flight, not placed. */
+    .rb-fa-link { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 1px 0; }
+    .rb-fa-arrow { position: relative; width: 0; height: 20px; border-left: 2px dashed var(--rb-accent); }
+    .rb-fa-arrow::before {
+      content: ""; position: absolute; top: -7px; left: -6px; width: 0; height: 0;
+      border-left: 5px solid transparent; border-right: 5px solid transparent;
+      border-bottom: 8px solid var(--rb-accent);
+    }
+    .rb-fa-hand { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+    /* Bigger than the same card is on the board above it: this is the card in
+       your hand, and the ring drawn on its symbol has to be readable. */
+    .rb-fa-hand-card { position: relative; display: block; width: min(64px, 19vw); }
+    .rb-fa-hand-card .rb-face-v { width: 100%; }
+    /* The ring around the symbol you have to match. The symbol tile is printed
+       at 69-96% across a card's half-page and 2-13% down it, so the ring is
+       centred on 82.5% / 7.8% and is a touch wider than the tile. Percentages,
+       not pixels, so it stays on the symbol at every width. */
+    .rb-fa-ring {
+      position: absolute; left: 82.5%; top: 7.8%; width: 34%; aspect-ratio: 1;
+      transform: translate(-50%, -50%); border-radius: 50%;
+      border: 2px solid var(--rb-coral); box-shadow: 0 0 0 2px rgba(255,255,255,.55);
+    }
+    .rb-fa-hand figcaption { display: flex; flex-direction: column; gap: 1px; text-align: center; max-width: 136px; }
+    .rb-fa-hand-name { font-size: .78rem; color: var(--rb-ink); line-height: 1.25; }
+    .rb-fa-hand-note { font-size: .66rem; line-height: 1.3; color: var(--rb-muted); }
+    /* The three sentences, side by side under the picture. */
+    .rb-fa-key {
+      list-style: none; margin: 14px 0 0; padding: 0;
+      display: grid; gap: 8px; text-align: left;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    }
+    .rb-fa-key li {
+      display: flex; gap: 8px; align-items: flex-start;
+      padding: 9px 11px; border-radius: 12px;
+      background: var(--rb-surface); border: 1px solid var(--rb-line);
+    }
+    .rb-fa-key-txt { font-size: .8rem; line-height: 1.5; color: var(--rb-body); }
+    @media (max-width: 560px) {
+      /* Still two Oceans side by side, which is the point of the picture. The
+         middle note drops underneath rather than squeezing a third column. */
+      .rb-fa {
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas:
+          "zb zb"
+          "oa ob"
+          "l1 l3"
+          "ha hb"
+          "zh zh"
+          "mid mid";
+      }
+      .rb-fa-mid { flex-direction: row; gap: 7px; margin-top: 8px; }
+      .rb-fa-mid::before, .rb-fa-mid::after { width: 22px; align-self: center; }
+      .rb-fa-mid-txt { text-align: left; }
+    }
+
+    /* ── Mini boards: a real Ocean with what is attached to it ─────────
        Each step is a real mini-board (Ocean + what is on its floor) beside the
        sentence that explains it, so the ★ reads as a sequence of placements
        rather than two loose cards with a star between them. */
@@ -584,16 +717,36 @@
     /* --fam-c is the canonical family colour (right on the dark table skin);
        --fam-ink is the same hue pushed dark enough to read as TEXT on the pale
        Player Home skin, where white birds and yellow coral would vanish. */
-    .rb-enc-group[data-fam="coral"]        { --fam-c: #facc15; --fam-ink: #9a7400; }
-    .rb-enc-group[data-fam="mammal"]       { --fam-c: #f25fa6; --fam-ink: #c02a6f; }
-    .rb-enc-group[data-fam="crosscurrent"] { --fam-c: #7fd8ff; --fam-ink: #1f86b8; }
-    .rb-enc-group[data-fam="invertebrate"] { --fam-c: #a855f7; --fam-ink: #7c3aed; }
-    .rb-enc-group[data-fam="gamefish"]     { --fam-c: #2b5fd9; --fam-ink: #2249b8; }
-    .rb-enc-group[data-fam="crustacean"]   { --fam-c: #ef4444; --fam-ink: #c02626; }
-    .rb-enc-group[data-fam="cephalopod"]   { --fam-c: #d9a066; --fam-ink: #9a6a2f; }
-    .rb-enc-group[data-fam="bird"]         { --fam-c: #ffffff; --fam-ink: #6b7f96; }
-    .rb-enc-group[data-fam="baitfish"]     { --fam-c: #8a5a2b; --fam-ink: #6b4420; }
-    .rb-enc-group[data-fam="ocean"]        { --fam-c: #14c7d4; --fam-ink: #0b7f88; }
+    .rb-enc-group[data-fam="coral"],
+    .rb-strat[data-fam="coral"],
+    .rb-sc[data-fam="coral"]        { --fam-c: #facc15; --fam-ink: #9a7400; }
+    .rb-enc-group[data-fam="mammal"],
+    .rb-strat[data-fam="mammal"],
+    .rb-sc[data-fam="mammal"]       { --fam-c: #f25fa6; --fam-ink: #c02a6f; }
+    .rb-enc-group[data-fam="crosscurrent"],
+    .rb-strat[data-fam="crosscurrent"],
+    .rb-sc[data-fam="crosscurrent"] { --fam-c: #7fd8ff; --fam-ink: #1f86b8; }
+    .rb-enc-group[data-fam="invertebrate"],
+    .rb-strat[data-fam="invertebrate"],
+    .rb-sc[data-fam="invertebrate"] { --fam-c: #a855f7; --fam-ink: #7c3aed; }
+    .rb-enc-group[data-fam="gamefish"],
+    .rb-strat[data-fam="gamefish"],
+    .rb-sc[data-fam="gamefish"]     { --fam-c: #2b5fd9; --fam-ink: #2249b8; }
+    .rb-enc-group[data-fam="crustacean"],
+    .rb-strat[data-fam="crustacean"],
+    .rb-sc[data-fam="crustacean"]   { --fam-c: #ef4444; --fam-ink: #c02626; }
+    .rb-enc-group[data-fam="cephalopod"],
+    .rb-strat[data-fam="cephalopod"],
+    .rb-sc[data-fam="cephalopod"]   { --fam-c: #d9a066; --fam-ink: #9a6a2f; }
+    .rb-enc-group[data-fam="bird"],
+    .rb-strat[data-fam="bird"],
+    .rb-sc[data-fam="bird"]         { --fam-c: #ffffff; --fam-ink: #6b7f96; }
+    .rb-enc-group[data-fam="baitfish"],
+    .rb-strat[data-fam="baitfish"],
+    .rb-sc[data-fam="baitfish"]     { --fam-c: #8a5a2b; --fam-ink: #6b4420; }
+    .rb-enc-group[data-fam="ocean"],
+    .rb-strat[data-fam="ocean"],
+    .rb-sc[data-fam="ocean"]        { --fam-c: #14c7d4; --fam-ink: #0b7f88; }
     .rb-enc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
     .rb-enc-ico { font-size: 17px; }
     .rb-enc-title {
@@ -614,6 +767,73 @@
        count text is lifted towards white so the darkest families (Bait Fish,
        Game Fish) stay readable over navy. */
     .rb.rb-dark .rb-enc-x { color: color-mix(in srgb, var(--fam-c, #e8b34a) 74%, #eaf2ff); }
+
+    /* ── Strategies, with the cards they are made of ───────────────────
+       One block per Core plan, tinted by the family it is built on, the same
+       ten hues the Encyclopedia and the game's strategy panel use. Two columns
+       on a page, one on a phone.
+
+       The cards are REAL card art, cropped to the creature the plan names, not
+       a list of names: the whole point is to be able to lay the open book next
+       to your hand and match the pictures. The three card shapes keep their
+       true outlines (an Up/Down face is landscape, a Left/Right face is a tall
+       sliver, an Ocean is a whole portrait card), because that shape is also
+       the answer to "where does this one go". */
+    .rb-strats {
+      display: grid; gap: 14px; align-items: start; margin-top: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+    .rb-strat {
+      padding: 14px 16px 16px; border-radius: 16px;
+      background: var(--rb-surface2); border: 1px solid var(--rb-line);
+      border-top: 4px solid var(--fam-c, var(--rb-accent));
+      box-shadow: inset 0 1px 0 var(--rb-line);
+    }
+    .rb-strat-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; margin-bottom: 7px; }
+    .rb-strat-name {
+      font-family: "Cinzel", serif; font-weight: 800; font-size: 1.02rem;
+      color: var(--rb-ink); flex: 1; min-width: 0;
+    }
+    .rb-strat-kind {
+      font-size: 9.5px; letter-spacing: .9px; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+      color: var(--fam-ink, var(--rb-accent));
+      background: var(--rb-surface); border: 1px solid var(--rb-line);
+    }
+    .rb-strat-blurb { margin: 0 0 10px; font-size: .88rem; line-height: 1.6; color: var(--rb-body); }
+    .rb-strat-block { margin-top: 10px; }
+    .rb-strat-h4 {
+      margin: 0 0 5px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+      font-weight: 700; color: var(--rb-muted);
+    }
+    .rb-strat-steps, .rb-strat-tips { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+    .rb-strat-tips { list-style: none; padding-left: 0; }
+    .rb-strat-steps li, .rb-strat-tips li { font-size: .83rem; line-height: 1.55; color: var(--rb-body); }
+    .rb-strat-tips li { position: relative; padding-left: 15px; }
+    .rb-strat-tips li::before {
+      content: ""; position: absolute; left: 3px; top: .55em;
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--fam-ink, var(--rb-accent));
+    }
+    /* Bottom-aligned, because the three card shapes are three different
+       heights and a shared baseline is what makes a mixed row read as a row of
+       cards laid on a table rather than as a broken grid. */
+    .rb-strat-cards { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 9px 8px; }
+    .rb-sc { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+    .rb-sc .rb-face { width: 100%; }
+    .rb-sc-h { width: 98px; }    /* an Up/Down face: 720 x 504 */
+    .rb-sc-v { width: 50px; }    /* a Left/Right face: 360 x 1008 */
+    .rb-sc-o { width: 68px; }    /* a whole Ocean card: 720 x 1008 */
+    /* Name over count, every shape the same, because the three tile widths are
+       so different that an inline "name ... xN" row reads as a stray number
+       floating away from a wrapped name. */
+    .rb-sc figcaption {
+      display: flex; flex-direction: column; align-items: flex-start;
+      font-size: .66rem; line-height: 1.3; color: var(--rb-body);
+    }
+    .rb-sc-name { min-width: 0; }
+    .rb-sc-x { color: var(--fam-ink, var(--rb-accent)); white-space: nowrap; }
+    .rb.rb-dark .rb-sc-x { color: color-mix(in srgb, var(--fam-c, #e8b34a) 74%, #eaf2ff); }
 
     .rb-end {
       margin: 22px 0 6px; text-align: center;
