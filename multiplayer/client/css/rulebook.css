@@ -815,20 +815,33 @@
       width: 5px; height: 5px; border-radius: 50%;
       background: var(--fam-ink, var(--rb-accent));
     }
-    /* Bottom-aligned, because the three card shapes are three different
-       heights and a shared baseline is what makes a mixed row read as a row of
-       cards laid on a table rather than as a broken grid. */
-    .rb-strat-cards { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 9px 8px; }
-    .rb-sc { margin: 0; display: flex; flex-direction: column; gap: 4px; }
-    .rb-sc .rb-face { width: 100%; }
-    .rb-sc-h { width: 98px; }    /* an Up/Down face: 720 x 504 */
-    .rb-sc-v { width: 50px; }    /* a Left/Right face: 360 x 1008 */
-    .rb-sc-o { width: 68px; }    /* a whole Ocean card: 720 x 1008 */
-    /* Name over count, every shape the same, because the three tile widths are
-       so different that an inline "name ... xN" row reads as a stray number
-       floating away from a wrapped name. */
+    /* A real GRID, not a wrapping row. The three card shapes are three very
+       different outlines (an Up/Down face is landscape, a Left/Right face is a
+       tall sliver, an Ocean is a whole portrait card) and the captions under
+       them run to one, two or three lines, so a flex row with a shared bottom
+       edge left every card sitting at its own height: nothing lined up with
+       anything.
+         Here every tile is the same width and its art sits in a box of the
+       same height, centred, so the cards line up across AND down and the names
+       all start on the same line. Each card keeps its true outline inside that
+       box, because the shape is also the answer to "where does this one go". */
+    .rb-strat-cards {
+      display: grid; gap: 12px 8px;
+      grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    }
+    .rb-sc { margin: 0; display: grid; grid-template-rows: var(--sc-art) auto; gap: 5px; }
+    .rb-strat-cards { --sc-art: 104px; }
+    .rb-sc-win { display: flex; align-items: center; justify-content: center; height: var(--sc-art); }
+    /* Only ONE dimension is set on each shape: the other comes from the
+       aspect-ratio already on .rb-face, so a card can never be stretched. */
+    .rb-sc-h .rb-face { width: min(100%, 148px); }   /* an Up/Down face: 720 x 504  */
+    .rb-sc-v .rb-face { height: 100%; }              /* a Left/Right face: 360 x 1008 */
+    .rb-sc-o .rb-face { height: 100%; }              /* a whole Ocean card: 720 x 1008 */
+    /* Name over count, every shape the same, because the tiles are narrow and
+       an inline "name ... xN" row leaves the number floating away from a
+       wrapped name. */
     .rb-sc figcaption {
-      display: flex; flex-direction: column; align-items: flex-start;
+      display: flex; flex-direction: column; align-items: center; text-align: center;
       font-size: .66rem; line-height: 1.3; color: var(--rb-body);
     }
     .rb-sc-name { min-width: 0; }

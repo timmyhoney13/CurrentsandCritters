@@ -23,26 +23,37 @@
   var ART_V = "20260717-v12b";
   function pad2(n) { return String(n).padStart(2, "0"); }
 
+  // Every face below asks for one of two files off the same sheet page:
+  //   page_NN.png       720x1008, the full scan, for anything drawn big
+  //   page_NN.mini.jpg  360x504, the half-size twin make_card_minis.py writes
+  // The mini is a ninth of the bytes (33 KB against 300 KB) and a quarter of
+  // the decoded bitmap. The Strategies section draws 73 cards off 49 sheet
+  // pages: on the full scans that is about 15 MB of PNG arriving at once
+  // when the pane opens, which is why they came up blank. Everything the
+  // book draws BIG keeps the full scan, the same rule the game plays by.
+  function artSrc(dir, page, mini) {
+    return "/" + dir + "/page_" + page + (mini ? ".mini.jpg" : ".png") + "?v=" + ART_V;
+  }
   // One horizontal card face, cropped out of its two-up sheet page.
-  function hFace(uid) {
+  function hFace(uid, mini) {
     var page = pad2(Math.floor((uid + 1) / 2));
     var half = uid % 2 === 1 ? "top" : "bottom";
     return '<span class="rb-face rb-face-h rb-face-' + half + '">'
-      + '<img src="/horizontal_cards/page_' + page + '.png?v=' + ART_V + '" alt="" loading="lazy" draggable="false">'
+      + '<img src="' + artSrc("horizontal_cards", page, mini) + '" alt="" loading="lazy" draggable="false">'
       + '</span>';
   }
   // One vertical card face (left/right half of its sheet page).
-  function vFace(uid) {
+  function vFace(uid, mini) {
     var page = pad2(Math.floor((uid - 101) / 2) + 1);
     var half = uid % 2 === 1 ? "left" : "right";
     return '<span class="rb-face rb-face-v rb-face-' + half + '">'
-      + '<img src="/vertical_cards/page_' + page + '.png?v=' + ART_V + '" alt="" loading="lazy" draggable="false">'
+      + '<img src="' + artSrc("vertical_cards", page, mini) + '" alt="" loading="lazy" draggable="false">'
       + '</span>';
   }
   // A whole ocean card (one card per sheet page).
-  function oFace(uid) {
+  function oFace(uid, mini) {
     return '<span class="rb-face rb-face-o">'
-      + '<img src="/oceans_cards/page_' + pad2(uid - 200) + '.png?v=' + ART_V + '" alt="" loading="lazy" draggable="false">'
+      + '<img src="' + artSrc("oceans_cards", pad2(uid - 200), mini) + '" alt="" loading="lazy" draggable="false">'
       + '</span>';
   }
   // A WHOLE physical card, the entire printed sheet page, uncropped. Every
@@ -477,10 +488,12 @@
   }
   // A card's own face, picked by uid the way the rest of the book picks one:
   // 1-100 are the Up/Down creatures, 101-200 the Left/Right ones, 201+ Oceans.
+  // Always the mini: a strategy tile is at most ~148 px wide, and a mini face
+  // is 360 px across, so the art is still downscaled rather than stretched.
   function anyFace(uid) {
-    if (uid >= 201) return oFace(uid);
-    if (uid >= 101) return vFace(uid);
-    return hFace(uid);
+    if (uid >= 201) return oFace(uid, true);
+    if (uid >= 101) return vFace(uid, true);
+    return hFace(uid, true);
   }
   // A card's Star clause is stored between asterisks, the way the game stores
   // it. In the book it is printed as the star it is, not as "(*play again*)".
@@ -491,7 +504,7 @@
     var uid = Number(c.repUid);
     var shape = uid >= 201 ? "o" : (uid >= 101 ? "v" : "h");
     return '<figure class="rb-sc rb-sc-' + shape + '" data-fam="' + famKey(c.species) + '">'
-      + anyFace(uid)
+      + '<span class="rb-sc-win">' + anyFace(uid) + '</span>'
       + '<figcaption><span class="rb-sc-name">' + c.name + '</span>'
       + '<span class="rb-sc-x">&times;' + (Number(c.count) || 1) + '</span></figcaption>'
       + '</figure>';

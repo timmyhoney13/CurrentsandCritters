@@ -379,10 +379,16 @@ check("a custom plan borrows the first family its own cards recognise", () => {
   eq(W.CC_STRAT_SYMBOLS(99, { label: "???", custom: true, cards: [] }).length, 1, "unreadable custom plan");
 });
 
-// ── Lossless extraction: compare against the pre-split commit ─────
-console.log("\nThe split moved code, it did not rewrite it");
+// ── The split moved code: nothing was LOST ───────────────────────
+// What this still guarantees is that the extraction kept every row. It no
+// longer compares a strategy's WORDS or its card list against that commit:
+// those are content the project edits on purpose now (the plans were retuned
+// against the cards on 2026-10-14), and a frozen snapshot of content that is
+// meant to change only teaches you to update the snapshot. The card lists are
+// checked for being RIGHT instead, further down, against the deck itself.
+console.log("The split moved code, it did not rewrite it");
 
-check("the four tables are IDENTICAL to the ones preview-app.js used to hold", () => {
+check("the colour tables are IDENTICAL to the ones preview-app.js used to hold", () => {
   if (!BASE_APP) { console.log("      (skipped: history does not reach the pre-split commit)"); return; }
   const before = gitShow(BASE_APP, "multiplayer/client/js/preview-app.js");
   // Pull the literals straight out of the old file and evaluate them.
@@ -398,59 +404,12 @@ check("the four tables are IDENTICAL to the ones preview-app.js used to hold", (
   };
   eq(W.CC_FAMILY_COLORS, grab("FAMILY_COLORS", "{", "}"), "FAMILY_COLORS drifted");
   eq(W.CC_FAMILY_INK, grab("FAMILY_INK", "{", "}"), "FAMILY_INK drifted");
-  // Only the AUTHORED strategies are compared. The pairs generated on top of
-  // them (every core-to-core combo the hand-written ten leave out) are new
-  // rows, not moved ones, so the guarantee this check exists for, that the
-  // split lost nothing, is about the prefix they sit behind.
-  //   Since the split, the ocean plans were added and moved to the front, and
-  //   two cores were retired on purpose. So the old rows are matched by LABEL,
-  //   never by position: comparing by position is what let every strategy
-  //   after the first wear its neighbour's colour and symbol.
+
+  // Since the split, the ocean plans were added and moved to the front, and
+  // two cores were retired on purpose. So the old rows are matched by LABEL,
+  // never by position: comparing by position is what let every strategy after
+  // the first wear its neighbour's colour and symbol.
   const RETIRED = ["Ocean All Blue", "Game Fish"];
-  // Deliberate CORRECTIONS, not drift. Each row is a sentence that disagreed
-  // with the card it describes, checked against cards_lr.txt / cards_vertical
-  // .txt on 2026-10-14 while the printed book grew a Strategies section and
-  // started printing these very sentences. The old wording is written down
-  // here, so the check still reads the pre-split file and still fails on any
-  // change nobody recorded: a correction has to be made ON PURPOSE to pass.
-  //   field is "blurb", or "steps.N" / "tips.N" by index.
-  const CORRECTED = [
-    // California Gull is "+2 per crustacean" on the card. The step list under
-    // this very blurb already said +2.
-    ["Crustaceans", "blurb", "+3 for every crustacean you own.", "+2 for every crustacean you own."],
-    // Common Octopus, Cuttlefish and Bobtail Squid are all "+3 if you have at
-    // least three cephalopods". Only Giant Squid is +6.
-    ["Cephalopods", "steps.1", "each give +4 at 3+ cephalopods", "each give +3 at 3+ cephalopods"],
-    // Great White Shark is "+3 per mammal | *Draw one*". Its star is a draw,
-    // it has never been a play again.
-    ["Mammals", "steps.3", "+3 per mammal and *play again*.", "+3 per mammal, and its star draws you a card."],
-    // Spinner Dolphin comes on four symbols (Diamond, Heart, Circle), so the
-    // card you pay with matches ITS symbol, whatever that copy's symbol is.
-    ["Mammals", "tips.1", "when you pay a matching diamond symbol.", "when you pay with a card matching its own symbol."],
-    // The card is printed "Bigeye Tuna", one word.
-    ["Yellowfin Tuna Stack", "blurb", "Big Eye Tuna", "Bigeye Tuna"],
-    ["Yellowfin Tuna Stack", "steps.2", "Big Eye Tuna", "Bigeye Tuna"],
-    ["Yellowfin Tuna Stack", "tips.1", "Big Eye Tuna", "Bigeye Tuna"],
-    ["Baitfish Barrage + Yellowfin Tuna", "steps.3", "Big Eye Tuna", "Bigeye Tuna"],
-    ["Yellowfin Tuna + Mammals", "steps.2", "Big Eye Tuna", "Bigeye Tuna"],
-    ["Yellowfin Tuna + Mammals", "tips.1", "Big Eye Tuna", "Bigeye Tuna"],
-    ["Yellowfin Tuna + Mammals", "tips.2", "Big Eye Tuna", "Bigeye Tuna"],
-  ];
-  // Rewrite the OLD row the way the correction says, before comparing. Asserts
-  // the old text really was there, so a stale row in the table is a failure
-  // rather than a silent no-op.
-  const applyCorrections = (old) => {
-    for (const [label, field, was, now_] of CORRECTED) {
-      if (label !== old.label) continue;
-      const [key, idx] = field.split(".");
-      const read_ = () => (idx === undefined ? old[key] : old[key][Number(idx)]);
-      const write_ = (v) => { if (idx === undefined) old[key] = v; else old[key][Number(idx)] = v; };
-      assert(typeof read_() === "string" && read_().includes(was),
-        label + " / " + field + ": the recorded old wording is not there any more, drop the row");
-      write_(read_().split(was).join(now_));
-    }
-    return old;
-  };
   const authored = grab("BUILTIN_STRATEGIES", "[", "]");
   const oldPrimary = grab("_STRAT_PRIMARY", "[", "]");
   const now = W.CC_BUILTIN_STRATEGIES;
@@ -458,8 +417,8 @@ check("the four tables are IDENTICAL to the ones preview-app.js used to hold", (
     const j = now.findIndex(s => s.label === old.label);
     if (RETIRED.includes(old.label)) { eq(j, -1, old.label + " was retired and should stay gone"); return; }
     assert(j >= 0, "the split lost a strategy: " + old.label);
-    const { group, ...rest } = now[j];
-    eq(rest, applyCorrections(old), "BUILTIN_STRATEGIES drifted: " + old.label);
+    assert(now[j].blurb && Array.isArray(now[j].cards) && now[j].cards.length,
+      old.label + " survived as an empty shell");
     eq(W.CC_STRAT_PRIMARY[j], oldPrimary[oldIdx], old.label + " changed colour family");
   });
   const authoredNow = now.filter(s => !s.generated).length;
@@ -472,6 +431,119 @@ check("the four tables are IDENTICAL to the ones preview-app.js used to hold", (
     "the strategy-portrait tables were retired, they should not be back");
 });
 
+// ── Every card a plan lists is a real card, counted right ────────
+// This is what replaced the frozen comparison. A plan may say whatever it
+// likes about HOW to play, but the cards under it are the deck's, so a
+// hand-edit that invents a card, miscounts the copies or leaves a uid behind
+// fails here rather than printing a wrong number into the rulebook.
+console.log("\nThe cards each strategy lists");
+
+const DECK = {};                       // name -> { uids, species, slot }
+for (const [file, kind] of [["cards_vertical.txt", "UD"], ["cards_lr.txt", "LR"], ["cards_oceans.txt", "O"]]) {
+  for (const line of read(path.join(ROOT, file)).split("\n")) {
+    if (!line.trim()) continue;
+    const p = line.split("\t");
+    if (p[1] === "END GAME") continue;
+    const slot = kind === "O" ? "Ocean" : (kind === "LR" ? "LR" : p[5]);
+    (DECK[p[1]] = DECK[p[1]] || { uids: [], species: p[3], slot }).uids.push(Number(p[0]));
+  }
+}
+// cards_*.txt types its apostrophes straight; the book types them curly.
+const nrm = (s) => String(s).replace(/[\u2018\u2019]/g, "'");
+const DECK_N = {}; for (const k of Object.keys(DECK)) DECK_N[nrm(k)] = DECK[k];
+const cores = W.CC_BUILTIN_STRATEGIES.filter(s => s.tier === "Core");
+
+check("every card named by a Core plan is a card in the deck", () => {
+  const unknown = [];
+  for (const s of cores) for (const c of s.cards) if (!DECK_N[nrm(c.name)]) unknown.push(s.label + " / " + c.name);
+  eq(unknown, [], "these plans name cards that do not exist");
+});
+
+check("each card's species, count, uids and repUid come from the deck", () => {
+  const wrong = [];
+  for (const s of cores) {
+    for (const c of s.cards) {
+      const d = DECK_N[nrm(c.name)];
+      if (!d) continue;
+      if (c.species !== d.species) wrong.push(s.label + " / " + c.name + ": species " + c.species + ", deck says " + d.species);
+      if (c.count !== d.uids.length) wrong.push(s.label + " / " + c.name + ": count " + c.count + ", deck has " + d.uids.length);
+      const a = (c.uids || []).slice().sort((x, y) => x - y).join(",");
+      const b = d.uids.slice().sort((x, y) => x - y).join(",");
+      if (a !== b) wrong.push(s.label + " / " + c.name + ": uids " + a + ", deck has " + b);
+      if (d.uids.indexOf(Number(c.repUid)) === -1) wrong.push(s.label + " / " + c.name + ": repUid " + c.repUid + " is not one of its cards");
+    }
+  }
+  eq(wrong, [], "card rows that disagree with the deck");
+});
+
+check("each card's printed text is the text on the card", () => {
+  // The panel prints this line straight under the card name, so a paraphrase
+  // here teaches a rule the card does not have. Johnson's Sea Cucumber said
+  // "draw one when you play a game fish" for a long time; the card says
+  // yellowfin tuna, and the other eight Game Fish do not trigger it.
+  const TEXTS = {};
+  for (const file of ["cards_vertical.txt", "cards_lr.txt", "cards_oceans.txt"]) {
+    for (const line of read(path.join(ROOT, file)).split("\n")) {
+      if (!line.trim()) continue;
+      const p = line.split("\t");
+      if (p[1] === "END GAME") continue;
+      (TEXTS[nrm(p[1])] = TEXTS[nrm(p[1])] || new Set()).add(p[2]);
+    }
+  }
+  const wrong = [];
+  for (const s of W.CC_BUILTIN_STRATEGIES) {
+    for (const c of s.cards) {
+      const t = TEXTS[nrm(c.name)];
+      if (t && !t.has(c.text)) wrong.push(c.name + ': "' + c.text + '", card says "' + [...t].join('" / "') + '"');
+    }
+  }
+  eq([...new Set(wrong)], [], "card text that is not what the card says");
+});
+
+check("a plan's own uid list is exactly its cards' uids, in order", () => {
+  const wrong = [];
+  for (const s of cores) {
+    const want = [];
+    s.cards.forEach(c => (c.uids || []).forEach(u => want.push(u)));
+    if ((s.uids || []).join(",") !== want.join(",")) wrong.push(s.label);
+  }
+  eq(wrong, [], "these plans carry a uid list that no longer matches their cards");
+});
+
+check("cards are listed the way the board reads: sides, surface, floor, Oceans", () => {
+  // Timothy asked for this order on 2026-10-14 so the printed Strategies
+  // section lines up with where the cards actually go on an Ocean.
+  const RANK = { LR: 0, Up: 1, Down: 2, Ocean: 3 };
+  const wrong = [];
+  for (const s of cores) {
+    const ranks = s.cards.map(c => RANK[DECK_N[nrm(c.name)].slot]);
+    for (let i = 1; i < ranks.length; i++) {
+      if (ranks[i] < ranks[i - 1]) { wrong.push(s.label + ": " + s.cards.map(c => c.name + "/" + DECK_N[nrm(c.name)].slot).join(", ")); break; }
+    }
+  }
+  eq(wrong, [], "these plans list their cards out of board order");
+});
+
+check("the plans Timothy retuned on 2026-10-14 stayed retuned", () => {
+  const names = (l) => W.CC_BUILTIN_STRATEGIES.find(s => s.label === l).cards.map(c => nrm(c.name));
+  // Birds is birds. The crustaceans California Gull feeds on belong to the
+  // Bird Lobster combo, not to the pure bird plan.
+  for (const c of ["Lobster", "Spiny Lobster", "Mantis Shrimp"]) {
+    assert(names("Birds").indexOf(c) === -1, "Birds should not list " + c);
+  }
+  // Johnson's Sea Cucumber draws on a YELLOWFIN TUNA, so it is no help here.
+  assert(names("Baitfish Barrage").indexOf("Johnson's Sea Cucumber") === -1,
+    "Baitfish Barrage should not list Johnson's Sea Cucumber");
+  assert(names("Yellowfin Tuna Stack").indexOf("Johnson's Sea Cucumber") !== -1,
+    "Yellowfin Tuna Stack is where the Sea Cucumber belongs");
+  assert(names("Shooting the Moon").indexOf("Clownfish") === -1,
+    "Shooting the Moon should not list a Clownfish");
+  // King Salmon is one card and a way of playing: finish your Oceans. Nothing
+  // in the deck boosts it, so nothing else is listed under it.
+  eq(names("King Salmon"), ["King Salmon"], "King Salmon should be the Salmon alone");
+  // Barracuda is "+2 per Invertebrate | *Play a free Invertebrate*".
+  assert(names("Invertebrates").indexOf("Barracuda") !== -1, "Invertebrates should list Barracuda");
+});
 check("preview-app.js no longer defines them, it reads them off window", () => {
   const app = read(path.join(CLIENT, "js", "preview-app.js"));
   for (const [local, global_] of [
