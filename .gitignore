@@ -534,6 +534,12 @@
 # them against the previous commit), and that every asset the page names
 # resolves on both the Render game server and the Vercel marketing site.
 !test_rules_page.js
+# The Captions switch under the How to Play film, in all three places it
+# plays. Cuts the real markup out of rules.html, index.html and the pane
+# preview-app.js builds, then clicks it in a real Chrome: captions must
+# start OFF, one click shows them, another hides them, and the button has
+# to follow the browser's own captions menu.
+!test_film_captions.js
 
 # The 💡 Strategies panel: the plan it recommends, and the combos it pairs. The
 # recommendation is scored from the real board/hand/pool snapshot (raw counts

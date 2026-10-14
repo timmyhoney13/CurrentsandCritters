@@ -27,6 +27,7 @@
 <script src="image-slot.js"></script>
 <script defer src="/js/game-night.js?v=2026-10-07.3"></script>
 <script defer src="/js/clan-prize.js?v=2026-09-25.1"></script>
+<script defer src="/js/film-captions.js?v=2026-10-13.4"></script>
 <style>
   /* ── OLD-SITE NOTICE BAR ─────────────────────────────────────────── */
   .oldsite-bar {
@@ -865,7 +866,23 @@
     border: 1px solid var(--line); box-shadow: var(--shadow-xl); background: #0a2537;
   }
   .l60-film-frame video { display: block; width: 100%; height: auto; background: #0a2537; }
-  .l60-film-cap { margin: 10px 0 0; text-align: center; font-size: 13px; color: var(--muted); }
+  .l60-film-cap {
+    margin: 10px 0 0; text-align: center; font-size: 13px; color: var(--muted);
+    display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+  }
+  /* The captions switch. Chrome hides its own behind the "..." menu, so
+     this is the one players actually find. See js/film-captions.js. */
+  .l60-film-cc {
+    font: inherit; font-weight: 700; cursor: pointer;
+    padding: 4px 12px; border-radius: 999px;
+    border: 1px solid var(--line); background: #fff; color: var(--brand-cyan-deep);
+    transition: background .14s ease, border-color .14s ease, color .14s ease;
+  }
+  .l60-film-cc::before { content: "CC"; font-weight: 900; letter-spacing: .5px; margin-right: 7px; }
+  .l60-film-cc:hover { background: var(--brand-cyan-soft); border-color: #9ddaf0; }
+  .l60-film-cc[aria-pressed="true"] {
+    background: var(--brand-cyan-soft); border-color: #9ddaf0; color: var(--brand-cyan-deep);
+  }
 
   </style>
 </head>
@@ -1048,17 +1065,22 @@
            to them. When the END&nbsp;GAME card appears, everyone takes one last turn and
            the biggest ecosystem wins. Here is a whole turn, start to finish.</p>
       </div>
-      <figure class="l60-film-frame">
-        <video controls playsinline preload="none" width="1920" height="1080"
-               poster="/video/how-to-play-poster.jpg">
-          <source src="/video/how-to-play.mp4" type="video/mp4" />
-          <track kind="captions" srclang="en" label="English"
-                 src="/video/how-to-play-captions.vtt" default />
-          <p>Your browser cannot play this video.
-             <a href="/video/how-to-play.mp4">Download it instead</a>.</p>
-        </video>
-      </figure>
-      <p class="l60-film-cap">4 minutes 13 seconds, with captions.</p>
+      <div class="l60-film-media" data-film>
+        <figure class="l60-film-frame">
+          <video controls playsinline preload="none" width="1920" height="1080"
+                 poster="/video/how-to-play-poster.jpg">
+            <source src="/video/how-to-play.mp4" type="video/mp4" />
+            <track kind="captions" srclang="en" label="English"
+                   src="/video/how-to-play-captions.vtt" />
+            <p>Your browser cannot play this video.
+               <a href="/video/how-to-play.mp4">Download it instead</a>.</p>
+          </video>
+        </figure>
+        <p class="l60-film-cap">4 minutes 13 seconds.
+          <button type="button" class="l60-film-cc" data-film-captions
+                  aria-pressed="false">Captions off</button>
+        </p>
+      </div>
     </div>
 
 

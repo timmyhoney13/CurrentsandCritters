@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-13.3";
+  const APP_BUILD   = "2026-10-13.4";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -35057,18 +35057,24 @@
         // this is that turn. preload="none" so opening How to play costs a
         // poster frame, not 27MB; the file streams from /video (see the
         // byte-range route in multiplayer_server.py).
-        + '<div class="htp-film">'
+        + '<div class="htp-film" data-film>'
         +   '<figure class="htp-film-frame">'
         +     '<video class="htp-film-video" controls playsinline preload="none"'
         +       ' width="1920" height="1080" poster="/video/how-to-play-poster.jpg">'
         +       '<source src="/video/how-to-play.mp4" type="video/mp4">'
         +       '<track kind="captions" srclang="en" label="English"'
-        +         ' src="/video/how-to-play-captions.vtt" default>'
+        +         ' src="/video/how-to-play-captions.vtt">'
         +       '<p class="htp-p">Your browser cannot play this video. '
         +         '<a href="/video/how-to-play.mp4">Download it instead</a>.</p>'
         +     '</video>'
         +   '</figure>'
-        +   '<p class="htp-film-cap">4 minutes 13 seconds, with captions.</p>'
+        // Captions start off, and this is the switch. js/film-captions.js
+        // delegates off document, so it picks this up whenever the pane is
+        // built, and keeps it in step with the browser's own captions menu.
+        +   '<p class="htp-film-cap">4 minutes 13 seconds.'
+        +     '<button type="button" class="htp-film-cc" data-film-captions'
+        +       ' aria-pressed="false">Captions off</button>'
+        +   '</p>'
         + '</div>'
 
         + '<div class="htp-sec-head">Your turn: pick one thing</div>'

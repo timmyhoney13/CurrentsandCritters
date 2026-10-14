@@ -16434,8 +16434,24 @@
       aspect-ratio: 16 / 9; background: #0a2537;
     }
     .htp-film-cap {
-      margin: 9px 0 0; text-align: center;
-      font-size: .82rem; font-weight: 700; color: #6f94b5;
+      margin: 9px 0 0; font-size: .82rem; font-weight: 700; color: #6f94b5;
+      display: flex; align-items: center; justify-content: center;
+      gap: 10px; flex-wrap: wrap;
+    }
+    /* The captions switch. Chrome keeps its own behind the "..." overflow
+       menu, which on a phone is where half the control bar ends up, so this
+       is the one players actually find. See js/film-captions.js. */
+    .htp-film-cc {
+      font-family: "Nunito", sans-serif; font-size: .78rem; font-weight: 800;
+      cursor: pointer; padding: 4px 12px; border-radius: 999px;
+      border: 1.5px solid rgba(169,203,230,.9); background: #fff; color: #1c5fa8;
+      transition: background .14s ease, border-color .14s ease, color .14s ease;
+    }
+    .htp-film-cc::before { content: "CC"; font-weight: 900; letter-spacing: .5px; margin-right: 7px; }
+    .htp-film-cc:hover { background: #f2f9ff; }
+    .htp-film-cc[aria-pressed="true"] {
+      background: linear-gradient(180deg,#2e8fe0 0%,#1c70cc 100%);
+      border-color: #1c70cc; color: #fff;
     }
 
     .htp-sec-head {
