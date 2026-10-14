@@ -371,9 +371,11 @@
   //   44 Left/Right cards (88 creatures, two to a card)
   //   68 Ocean cards + 1 END GAME card
   //   = 161 cards, the number on the box and on the website.
+  //   The 12 strategy cards were dropped from the product on 2026-10-11, so
+  //   161 is the whole box. The shop's "What's in the box" agrees.
   var COMPONENTS = [
     "48 horizontal cards", "44 vertical cards", "68 oceans", "1 end game card",
-    "161 cards in all", "1 score pad", "1 game board (the pool)", "12 strategy cards",
+    "161 cards in all", "1 score pad", "1 game board (the pool)",
   ];
 
   var SECTIONS = [
@@ -393,12 +395,16 @@
     ["rb-encyclopedia","Encyclopedia"],
   ];
 
-  // Every name here is the name PRINTED on the card, and every count is the
-  // number of that creature in the deck, both read off cards_vertical.txt,
-  // cards_lr.txt and cards_oceans.txt. A player should be able to hold a card
-  // against this list and find it, so nothing is shortened or renamed.
+  // Every count is the number of that creature in the deck, read off
+  // cards_vertical.txt, cards_lr.txt and cards_oceans.txt, and every name is
+  // the one those files carry. A player should be able to hold a card against
+  // this list and find it, so nothing is shortened or renamed.
   //   Bigeye Tuna and Whale Shark are Crosscurrent on their own cards, not
   //   Game Fish, and they are filed here the way the cards file them.
+  //   ONE name is still unsettled: the printed art reads CLEANSER WRASSE and
+  //   every data file reads Cleaner Wrasse. This list follows the data, which
+  //   is what the game says out loud. Reprinting the card or renaming the data
+  //   is Timothy's call, and until he makes it the two disagree on purpose.
   var ENCYCLOPEDIA = [
     ["", "Birds", "bird", [
       ["Emperor Penguin", 4], ["Horned Puffin", 4], ["California Gull", 4], ["Peruvian Pelican", 4],
