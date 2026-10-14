@@ -4445,6 +4445,8 @@ PLAYER_HOME_FRIEND_TWIN_PATH = os.path.join(CLIENT_DIR, "player-home-friend-twin
 PLAYER_HOME_FRIEND_MOM_PATH = os.path.join(CLIENT_DIR, "player-home-friend-mom.jpg")
 AVATAR_DIR = os.path.join(CLIENT_DIR, "avatars")
 SPECIES_DIR = os.path.join(CLIENT_DIR, "species")
+# multiplayer/client/video: the How to Play film, its poster and its captions.
+VIDEO_DIR = os.path.join(CLIENT_DIR, "video")
 
 
 def _shuffle_deck_keep_end_bottom15(gs, ms) -> None:
@@ -14346,6 +14348,98 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         except OSError:
             return
 
+    def _send_video_asset(
+        self,
+        file_path: str,
+        content_type: str = "video/mp4",
+        cache_control: str = "public, max-age=86400",
+    ) -> None:
+        """
+        Serve a video file with HTTP byte ranges, streamed in chunks.
+
+        _send_client_asset cannot do this job: it reads the whole file into
+        memory and answers every request with a 200. A 27MB film would mean
+        27MB of RAM per viewer on a one-core box, and Safari (desktop and
+        iOS) refuses to play an <video> source at all unless the server
+        answers `Range` with a 206, so the film would simply never start
+        there. So: no gzip (an MP4 is already compressed), a 256KB window
+        off disk at a time, and a real 206.
+        """
+        try:
+            st = os.stat(file_path)
+        except OSError:
+            self._send_json({"ok": False, "error": "asset not found"}, status=HTTPStatus.NOT_FOUND)
+            return
+        total = st.st_size
+        etag = 'W/"%x-%x"' % (int(st.st_mtime), total)
+
+        raw_range = (self.headers.get("Range", "") if self.headers else "").strip()
+        start, end = 0, total - 1
+        partial = False
+        if raw_range:
+            # One range only ("bytes=0-", "bytes=500-999", "bytes=-1024").
+            # Anything stranger is answered in full, which is allowed.
+            m = re.fullmatch(r"bytes=(\d*)-(\d*)", raw_range)
+            if m and (m.group(1) or m.group(2)):
+                if m.group(1):
+                    start = int(m.group(1))
+                    if m.group(2):
+                        end = min(int(m.group(2)), total - 1)
+                else:
+                    start = max(total - int(m.group(2)), 0)
+                if start >= total or start > end:
+                    self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                    self.send_header("Content-Range", "bytes */%d" % total)
+                    self.send_header("Accept-Ranges", "bytes")
+                    try:
+                        self.end_headers()
+                    except OSError:
+                        pass
+                    return
+                partial = True
+
+        if not partial:
+            inm = self.headers.get("If-None-Match", "") if self.headers else ""
+            if inm and etag in inm:
+                self.send_response(HTTPStatus.NOT_MODIFIED)
+                self.send_header("ETag", etag)
+                self.send_header("Cache-Control", cache_control)
+                self.send_header("Accept-Ranges", "bytes")
+                try:
+                    self.end_headers()
+                except OSError:
+                    pass
+                return
+
+        length = end - start + 1
+        self.send_response(HTTPStatus.PARTIAL_CONTENT if partial else HTTPStatus.OK)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Cache-Control", cache_control)
+        self.send_header("ETag", etag)
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(length))
+        if partial:
+            self.send_header("Content-Range", "bytes %d-%d/%d" % (start, end, total))
+        try:
+            self.end_headers()
+        except OSError:
+            return
+        if self.command == "HEAD":
+            return
+        try:
+            with open(file_path, "rb") as f:
+                f.seek(start)
+                left = length
+                while left > 0:
+                    chunk = f.read(min(262144, left))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
+        except OSError:
+            # The viewer closed the tab or seeked away mid-stream. Normal.
+            return
+
     def _build_recovery_export(self) -> Dict[str, Any]:
         """
         Read every game-history JSON file and every competitive game file on disk,
@@ -14966,6 +15060,39 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 cache_control="public, max-age=86400",
                 allow_webp=True,
             )
+            return
+
+        # The How to Play film: the MP4 itself, its poster frame and its
+        # caption track. Published at /video on BOTH hosts, the way /privacy
+        # is: natively here, and through a rewrite in vercel.json on the
+        # marketing site. Three pages point at these paths, the /rules page,
+        # the home page, and Player Home -> How to play, and two of the three
+        # are only ever served by this server.
+        if parsed.path.startswith("/video/"):
+            # The whole path, not basename(): basename would happily serve the
+            # film at /video/anything/how-to-play.mp4 too, which is a cache
+            # key per made-up URL for a 27MB file.
+            _film = re.fullmatch(r"/video/([a-z0-9_-]+\.(?:mp4|jpg|vtt))", parsed.path)
+            if not _film:
+                self._send_json({"ok": False, "error": "invalid video path"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            video_name = _film.group(1)
+            video_path = os.path.join(VIDEO_DIR, video_name)
+            if video_name.endswith(".mp4"):
+                self._send_video_asset(video_path)
+            elif video_name.endswith(".vtt"):
+                self._send_client_asset(
+                    video_path,
+                    content_type="text/vtt; charset=utf-8",
+                    cache_control="public, max-age=86400",
+                )
+            else:
+                self._send_client_asset(
+                    video_path,
+                    content_type="image/jpeg",
+                    cache_control="public, max-age=86400",
+                    allow_webp=True,
+                )
             return
 
         # Exclusive backgrounds (cosmetic, rendered behind avatars).

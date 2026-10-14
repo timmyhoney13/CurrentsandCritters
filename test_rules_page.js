@@ -616,7 +616,7 @@ console.log("\nEvery asset /rules asks for resolves on both hosts");
 const rulebookSrc = read(path.join(CLIENT, "js", "rulebook.js"));
 const assetPaths = new Set();
 for (const src of [rulesHtml, rulebookSrc]) {
-  for (const m of src.matchAll(/["'](\/(css|js|avatars|species|horizontal_cards|vertical_cards|oceans_cards|icon\.svg)[^"'?]*)/g)) {
+  for (const m of src.matchAll(/["'](\/(css|js|avatars|species|video|horizontal_cards|vertical_cards|oceans_cards|icon\.svg)[^"'?]*)/g)) {
     assetPaths.add(m[1]);
   }
 }
@@ -669,6 +669,28 @@ check("Vercel rewrites cover every game-path prefix the page uses", () => {
     if (!hit) missing.push(pre);
   }
   eq(missing, [], "no Vercel rewrite for these, they would 404 on currentsandcritters.com");
+});
+
+check("the Render game server has a ROUTE for every prefix, not just a file", () => {
+  // This is the check that was missing. The one above proves a file sits on
+  // disk; this server has no catch-all static root, so a file with no branch
+  // in do_GET is still a 404. /video shipped that way: the film was a dead
+  // frame on play.currentsandcritters.com while every other check passed.
+  const server = read(path.join(ROOT, "multiplayer_server.py"));
+  const missing = [];
+  for (const p of assetPaths) {
+    const pre = p.split("/")[1];
+    if (["horizontal_cards", "vertical_cards", "oceans_cards"].includes(pre)) continue;
+    const routed =
+      // an explicit prefix branch: if parsed.path.startswith("/video/")
+      new RegExp('startswith\\("/' + pre + '/"\\)').test(server) ||
+      // or an exact path: if parsed.path == "/icon.svg"
+      new RegExp('parsed\\.path == "/' + pre + '"').test(server) ||
+      // or a narrow regex route, the way /css and /js are matched
+      new RegExp('r"/\\(\\?:[^"]*\\b' + pre + '\\b').test(server);
+    if (!routed) missing.push(p);
+  }
+  eq(missing, [], "no route in multiplayer_server.py for these, they 404 on play.currentsandcritters.com");
 });
 
 check("/rules is still served from this file on both hosts", () => {

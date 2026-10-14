@@ -180,6 +180,49 @@ class TheGameItselfStillLoads(LiveServerTest):
         self.assertEqual(status, 200, "the deck art 404s: index.html shows a broken image")
         self.assertGreater(len(body), 100)
 
+    def test_the_how_to_play_film_is_served(self):
+        """The film shipped with no route at all: /rules, the home page and
+        Player Home -> How to play all pointed at /video, which only existed
+        as a rewrite on Vercel, so the video was a dead frame on
+        play.currentsandcritters.com. A file on disk is not a URL on this
+        server, every path is an explicit branch in do_GET."""
+        for path, head in (
+            ("/video/how-to-play.mp4", b"ftyp"),
+            ("/video/how-to-play-poster.jpg", b"\xff\xd8"),
+            ("/video/how-to-play-captions.vtt", b"WEBVTT"),
+        ):
+            status, body = self.get(path)
+            self.assertEqual(status, 200, f"{path} 404s: the film will not play")
+            self.assertGreater(len(body), 100)
+            self.assertIn(head, body[:64], f"{path} is not the file it claims to be")
+
+    def test_the_film_answers_byte_ranges(self):
+        """Safari, on the Mac and on every iPhone, will not start an <video>
+        at all unless the server answers Range with a 206. Seeking needs it
+        everywhere else. _send_client_asset cannot do this, which is why the
+        MP4 has its own sender."""
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/video/how-to-play.mp4",
+            headers={"Range": "bytes=0-1023"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            body = resp.read()
+            self.assertEqual(resp.status, 206)
+            headers = {k.lower(): v for k, v in resp.getheaders()}
+        self.assertEqual(len(body), 1024)
+        self.assertEqual(headers.get("accept-ranges"), "bytes")
+        self.assertTrue(headers.get("content-range", "").startswith("bytes 0-1023/"))
+        # And the whole file must never be gzipped into memory on the way out.
+        self.assertIsNone(headers.get("content-encoding"))
+
+    def test_the_film_route_cannot_be_walked_out_of(self):
+        for path in ("/video/../../multiplayer_server.py",
+                     "/video/..%2f..%2fclan_server.py",
+                     "/video/how-to-play.mp4.py",
+                     "/video/subdir/how-to-play.mp4"):
+            status, body = self.get(path)
+            self.assertNotEqual(status, 200, f"{path} should not resolve")
+            self.assertNotIn(b"import multiplayer_server", body)
+
     def test_the_narrow_route_cannot_be_walked_out_of(self):
         """That route takes a filename, so it is worth proving the filename
         cannot be a path."""

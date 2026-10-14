@@ -16418,6 +16418,26 @@
     }
     .htp-btn-primary:hover { background: linear-gradient(135deg, #2e90e0, #1a6ad0); transform: translateY(-2px); }
 
+    /* ── How to play: the film, under the Quick Start hero ──────────
+       Same frame as the one on /rules: a rounded reef-blue box with the
+       video filling it, 16:9 held by the width/height on the element so
+       the poster never jumps the layout as it loads. */
+    .htp-film { margin: 0 0 20px; }
+    .htp-film-frame {
+      margin: 0; border-radius: 18px; overflow: hidden;
+      border: 1px solid rgba(140,200,235,.6);
+      box-shadow: 0 8px 26px rgba(20,85,150,.14);
+      background: #0a2537;
+    }
+    .htp-film-video {
+      display: block; width: 100%; height: auto;
+      aspect-ratio: 16 / 9; background: #0a2537;
+    }
+    .htp-film-cap {
+      margin: 9px 0 0; text-align: center;
+      font-size: .82rem; font-weight: 700; color: #6f94b5;
+    }
+
     .htp-sec-head {
       display: flex; align-items: center; gap: 9px;
       margin: 26px 0 14px;

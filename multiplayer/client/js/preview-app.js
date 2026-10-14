@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-13.2";
+  const APP_BUILD   = "2026-10-13.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -35050,6 +35050,25 @@
         +     '<button type="button" class="htp-btn" data-htp-go="rules">Full Rulebook</button>'
         +     '<button type="button" class="htp-btn" data-htp-go="strats">Strategies</button>'
         +   '</div>'
+        + '</div>'
+
+        // The How to Play film, straight under the Quick Start hero, because
+        // the paragraph above it promises "a whole turn, start to finish" and
+        // this is that turn. preload="none" so opening How to play costs a
+        // poster frame, not 27MB; the file streams from /video (see the
+        // byte-range route in multiplayer_server.py).
+        + '<div class="htp-film">'
+        +   '<figure class="htp-film-frame">'
+        +     '<video class="htp-film-video" controls playsinline preload="none"'
+        +       ' width="1920" height="1080" poster="/video/how-to-play-poster.jpg">'
+        +       '<source src="/video/how-to-play.mp4" type="video/mp4">'
+        +       '<track kind="captions" srclang="en" label="English"'
+        +         ' src="/video/how-to-play-captions.vtt" default>'
+        +       '<p class="htp-p">Your browser cannot play this video. '
+        +         '<a href="/video/how-to-play.mp4">Download it instead</a>.</p>'
+        +     '</video>'
+        +   '</figure>'
+        +   '<p class="htp-film-cap">4 minutes 13 seconds, with captions.</p>'
         + '</div>'
 
         + '<div class="htp-sec-head">Your turn: pick one thing</div>'

@@ -1,4 +1,4 @@
-const APP_CACHE = "fish-multiplayer-v204";
+const APP_CACHE = "fish-multiplayer-v205";
 const CORE_ASSETS = ["/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -36,6 +36,17 @@ self.addEventListener("fetch", (event) => {
   // Version manifest must always be live so the in-app update prompt is accurate.
   if (url.pathname === "/version.json") {
     event.respondWith(fetch(req, { cache: "no-store" }).catch(() => new Response("{}", { status: 503, headers: { "Content-Type": "application/json" } })));
+    return;
+  }
+
+  // The How to Play film is streamed in byte ranges. Cache Storage cannot
+  // hold a 206 at all, and the worse half is the other direction: once a
+  // full 200 lands in the cache, caches.match() hands that same 200 back to
+  // a request carrying a Range header, which is precisely what makes Safari
+  // refuse to play a video. So the film always goes to the network. Its
+  // poster frame and caption track are small and cache normally.
+  if (url.pathname.startsWith("/video/") && url.pathname.endsWith(".mp4")) {
+    event.respondWith(fetch(req).catch(() => new Response("", { status: 503 })));
     return;
   }
 
