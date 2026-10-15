@@ -15380,10 +15380,44 @@ def _train_bound_map(m: Dict[str, float], cap: float, maxlen: int) -> None:
         m.update(top)
 
 
+# Whether the offline training pipeline learns the SYNERGY MAPS, as well as the
+# weights, from the games it plays.
+#
+# FALSE, measured. One learning pass was split into its two halves and each
+# measured against the live brain on paired deals at grade B:
+#
+#     weights only   -0.34  95% CI [-1.03,+0.35]   no proof, and a tight interval
+#     maps only      -1.21  95% CI [-3.13,+0.72]   no proof
+#
+# The maps half broke down by table size, and that part replicated:
+#
+#     2P   -4.94 [-8.23,-1.65]   -4.08 [-7.27,-0.89]   -5.16 [-7.70,-2.63]
+#     6P   +3.64 [+0.14,+7.14]   +3.25 [-0.18,+6.68]   +0.92 [-1.35,+3.19]
+#
+# Three runs agree that learning the maps costs about five points a game at two
+# players. The 6P cell looked like the other side of a trade and did NOT
+# reproduce: two runs put it over +3 with one of them significant, and a
+# confirmation on 500 fresh deals brought it back to +0.92 with the interval
+# across zero. That is what looking at three table sizes at once does, and the
+# honest reading is one real harm at 2P and nothing established at 6P. Pooled
+# over the confirmation's thousand deals: -2.12 [-3.83,-0.41], WORSE.
+#
+# A 13x smaller learning rate (0.0015 against 0.02) changed almost nothing
+# (-0.91 against -1.21), so this is not a step-size problem to be tuned away.
+#
+# The weights are kept because they measure neutral and because an independent
+# measurement showed the learner's direction on them was RIGHT: hauling
+# future_value back up to the hand-written floor it had moved away from cost
+# 1.77 points a game.
+TRAIN_LEARN_MAPS = False
+
+
 def _train_learn_synergies(cbrain: Dict[str, Any], shared: Dict[str, Any], record: Dict[str, Any], quality: float) -> None:
     """Reinforce winner card/species/same-ocean combos and dampen loser combos,
     quality-scaled, into BOTH the per-count brain and the shared brain. Mirrors
     update_brain_from_match's rates + bounds, driven by extracted board data."""
+    if not TRAIN_LEARN_MAPS:
+        return
     players = record.get("players", []) or []
     if not players:
         return
@@ -15490,8 +15524,12 @@ def _train_learn_one(candidate_brain: Dict[str, Any], record: Dict[str, Any], qu
     _train_learn_synergies(cbrain, candidate_brain, record, quality)
 
     # 3) Strategy-pattern memory (which board patterns win), per-count + shared.
+    #    Part of the MAPS half, so it is gated with the rest of it: the
+    #    measurement that found map learning harmful grafted every one of
+    #    TRAIN_POLICY_MAP_KEYS, these four included, so leaving them on would
+    #    keep two thirds of the thing that was measured.
     sigs = {int(k): v for k, v in (record.get("move_signatures", {}) or {}).items()}
-    if finals and sigs:
+    if TRAIN_LEARN_MAPS and finals and sigs:
         update_strategy_memory_from_match(
             finals, sigs, cbrain["strategy_value"], cbrain["strategy_count"],
             cbrain["strategy_transition"], cbrain["strategy_transition_count"],

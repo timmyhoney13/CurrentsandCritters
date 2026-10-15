@@ -99,6 +99,10 @@
 !apply_family_prior.py
 !strategy_lists.py
 !STRATEGY_LISTS.txt
+#   split_learning.py     re-learns from games on disk and splits the result
+#                         into weights-only and maps-only, so a pass that
+#                         benchmarks badly can be attributed to one half
+!split_learning.py
 # The animal/strategy grid the brain points at, and the measured plan values
 # the planner reads over its hand-written ones.
 !animal_synergy_grid.json

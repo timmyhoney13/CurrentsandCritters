@@ -345,12 +345,26 @@ _sizes = sorted(scale)
 check([scale[c] for c in _sizes] == sorted(scale[c] for c in _sizes),
       "the scale rises with every seat added, with no kinks from a noisy sample",
       f"{ {c: scale[c] for c in _sizes} }")
-# It must not be read back off the stale offline-training table it used to
-# divide by, or the correction quietly goes wrong again when that table drifts.
-_stale = {c: fish.TRAIN_TARGET_TOP[4] / fish.TRAIN_TARGET_TOP[c] for c in (2, 3, 4, 5, 6)}
-check(abs(scale[2] - _stale[2]) > 0.1,
-      "the scale comes from measured games, not from TRAIN_TARGET_TOP",
-      f"measured {scale[2]} vs that table's {_stale[2]:.3f}")
+# WHERE THE SCALE COMES FROM. The medians bot_evolve measured over twelve
+# complete games at each size, which its own comment records: 229 at 2P, 136 at
+# 3P, 88 at 4P, 66 at 5P, 50 at 6P. A 4P deal counts as itself and every other
+# size is scaled by how much more or less a point is worth there.
+#
+# This used to be checked the other way round -- by asserting the scale DIFFERS
+# from the ratio of TRAIN_TARGET_TOP, on the grounds that that table was stale
+# and reading the scale off it was the bug to guard against. That stopped
+# working on 2026-10-15, when TRAIN_TARGET_TOP was re-measured from 420 fresh
+# games: the two numbers now agree at 2P to within 0.03, so "it differs from
+# the table" is no longer evidence of anything. Two independent measurements of
+# how scoring falls away with table size landing in the same place is a
+# corroboration, not a failure, and the test should check the source rather
+# than a coincidence about a number it is not derived from.
+_MEASURED_MEDIAN_TOP = {2: 229.0, 3: 136.0, 4: 88.0, 5: 66.0, 6: 50.0}
+for _c, _med in sorted(_MEASURED_MEDIAN_TOP.items()):
+    _want = _MEASURED_MEDIAN_TOP[4] / _med
+    check(abs(scale[_c] - _want) < 0.03,
+          f"the {_c}P scale is the measured median ratio, not a guess",
+          f"scale {scale[_c]:.3f} vs {_MEASURED_MEDIAN_TOP[4]:.0f}/{_med:.0f} = {_want:.3f}")
 
 # ── how the overnight run spends itself ─────────────────────────────────────
 section("the rotation spends the night where it reaches a real game")

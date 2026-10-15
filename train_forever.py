@@ -490,6 +490,12 @@ def main() -> int:
     ap.add_argument("--phase-minutes", type=float, default=40.0,
                     help="wall-clock budget per phase before it yields to the next")
     ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 4) - 2))
+    ap.add_argument("--learn-every", type=int, default=4,
+                    help="run the regression-learning phase every Nth cycle "
+                         "(1 = every cycle, 0 = never). Its effect measures at "
+                         "about a point in an unestablished direction, and the "
+                         "other three phases can prove their gains, so it does "
+                         "not get a quarter of every cycle by default.")
     ap.add_argument("--measure-every", type=int, default=3,
                     help="measure current-vs-baseline every N cycles (0 = never)")
     ap.add_argument("--measure-games", type=int, default=300,
@@ -558,6 +564,40 @@ def main() -> int:
                 save_state(st)
                 try:
                     if phase == "learn":
+                        # WHY THIS PHASE IS NOT RUN EVERY CYCLE. Measured, by
+                        # splitting one learning pass into its halves and
+                        # measuring each against the live brain on paired deals:
+                        #
+                        #   weights only  -0.34  95% CI [-1.03,+0.35]  no proof
+                        #   maps only     -1.21  95% CI [-3.13,+0.72]  no proof
+                        #
+                        # So a pass is worth somewhere around a point, in a
+                        # direction nobody can establish. A paired deal in this
+                        # game has a standard deviation of about 35 points, so
+                        # resolving an effect that size to +-1 point would take
+                        # roughly 4,700 deals PER TABLE SIZE, and the pipeline's
+                        # own gate is unpaired at 40 games a count, where the
+                        # interval is +-11 points. That gate cannot see a one
+                        # point effect, which is why it has never promoted
+                        # anything and why its alarming per-count margins (-7 to
+                        # -33) are mostly noise.
+                        #
+                        # The other three phases do not have this problem: they
+                        # select with common random numbers and staged
+                        # confirmation, and only promote on a lower bound above
+                        # zero, so what they do is monotone by construction.
+                        # Spending a quarter of every cycle on a pass whose
+                        # effect cannot be measured, against three that can
+                        # prove their gains, is the wrong split. It still runs
+                        # periodically: the machinery stays exercised, the games
+                        # keep accumulating, and the gate still protects the
+                        # brain if a pass ever does prove itself.
+                        if a.learn_every and st["cycle"] % a.learn_every != 0:
+                            log(f"  learn: skipped this cycle (runs every "
+                                f"{a.learn_every}; see the note in the source)")
+                            st["phase_runs"] = int(st.get("phase_runs", 0)) + 1
+                            save_state(st)
+                            continue
                         phase_learn(st, a)
                     elif phase == "strategy":
                         phase_strategy(st, a)
