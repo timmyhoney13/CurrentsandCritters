@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-15.1";
+  const APP_BUILD   = "2026-10-15.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -23433,15 +23433,18 @@
       // lives in this browser rather than on an account.
       _galSpecies = "all";
       _galSort = "all";
-      _galSelectedId = null;
+      // The stage opens on the critter you are wearing rather than on an empty
+      // panel, so the screen reads as "here you are" the moment it appears.
+      _galSelectedId = _galDefaultSelectedId();
       const sortSel = $a("gal-sort-sel"); if (sortSel) sortSel.value = "all";
       try { window.__fishLoadIconCounts?.(); } catch {}
       _galRenderHeader();
       _galRenderTabs();
       _galRenderGrid();
-      _galRenderDetail(null);
+      _galRenderDetail(_galSelectedId);
       gal.classList.add("open");
       gal.setAttribute("aria-hidden", "false");
+      try { requestAnimationFrame(_galScrollToSelected); } catch {}
       // Re-evaluate stat / level / achievement / rank unlocks RIGHT NOW, so any
       // avatar the player has earned but not yet been granted appears unlocked
       // immediately when they open the collection (don't make them wait for a
@@ -23609,6 +23612,34 @@
       return reEarnState(a, base, stats, level).prog;
     }
 
+    // On the gallery stage the art is alive. Every species moves the way that
+    // kind of creature actually moves in water, so a crab scuttles and a
+    // jellyfish pulses instead of everything doing one generic bob. Chips in
+    // the roster never animate, the art sits still and centred in its circle.
+    const _GAL_MOTION = {
+      "Bait Fish": "school", "Game Fish": "cruise", "Crosscurrent": "cruise",
+      "Birds": "glide", "Coral": "rooted", "Mammals": "porpoise",
+      "Invertebrates": "pulse", "Cephalopods": "jet", "Crustaceans": "scuttle",
+      "Exclusive Avatars": "cruise", "Summer Skins": "cruise",
+      "Fourth of July Skins": "cruise", "King of the Critters": "porpoise",
+    };
+    function _galMotionFam(a) { return _GAL_MOTION[a?.species] || "cruise"; }
+
+    // The stage is never empty: it opens on the critter you are wearing.
+    function _galDefaultSelectedId() {
+      const a = animalByImg(_galEquippedImg());
+      return a ? a.id : null;
+    }
+    // Keep the chosen chip in view in the roster rail.
+    function _galScrollToSelected() {
+      if (!_galSelectedId) return;
+      const wrap = $a("gal-grid-wrap");
+      if (!wrap) return;
+      const tile = Array.from(wrap.querySelectorAll("[data-avatar-id]"))
+        .find(el => el.getAttribute("data-avatar-id") === _galSelectedId);
+      if (tile) tile.scrollIntoView({ block: "center" });
+    }
+
     // Build the {item} list for a set of avatars with computed unlock state.
     function _galItems(list, stats, level, equipped, newSet, counts) {
       return list.map(a => {
@@ -23667,6 +23698,20 @@
       img.className = "gal-tile-img";
       img.src = _avSrc(a.img); img.alt = a.name; img.loading = "lazy";
       ring.appendChild(img);
+      // Locked: the water rises in the chip as the unlock gets closer. prog is
+      // -1 when the requirement has no measurable progress (a one-shot event),
+      // and that shows no water rather than a misleading empty tank at 0%.
+      if (!unlocked && prog >= 0) {
+        const pct = Math.min(99, Math.round(prog * 100));
+        ring.style.setProperty("--gal-prog", String(prog));
+        const water = document.createElement("div");
+        water.className = "gal-tile-water";
+        ring.appendChild(water);
+        const label = document.createElement("div");
+        label.className = "gal-tile-pct";
+        label.textContent = pct + "%";
+        ring.appendChild(label);
+      }
       tile.appendChild(ring);
 
       const nm = document.createElement("div");
@@ -23874,7 +23919,20 @@
         html += `<div class="gal-rarity gal-rarity-top">${rarityText}</div>`;
       }
 
-      html += `<div class="gal-detail-img-wrap"><div class="gal-detail-glow"></div><img class="gal-detail-img" src="${_avSrc(a.img)}" alt="${escapeHtml(a.name)}"></div>`;
+      {
+        // Water on the stage reads the same as the water in the chip: how far
+        // along this unlock is. null progress (a one-shot event) shows none.
+        const stageProg = unlocked ? null : _effectiveUnlockProgress(a, stats, level);
+        const tank = (stageProg == null) ? ""
+          : `<div class="gal-detail-tank"><div class="gal-detail-water"></div></div>`;
+        const styleAttr = (stageProg == null) ? ""
+          : ` style="--gal-prog:${Math.max(0, Math.min(.99, stageProg))}"`;
+        html += `<div class="gal-detail-img-wrap gal-fam-${_galMotionFam(a)}"${styleAttr}>`
+             +  `<div class="gal-detail-glow"></div>`
+             +  `<img class="gal-detail-img" src="${_avSrc(a.img)}" alt="${escapeHtml(a.name)}">`
+             +  tank
+             +  `</div>`;
+      }
       html += `<div class="gal-detail-name">${escapeHtml(a.name)}</div>`;
       html += `<div class="gal-detail-species">${escapeHtml(a.species || "")}</div>`;
 
@@ -23957,9 +24015,9 @@
       });
       const noBtn = $a("gal-equip-no");
       if (noBtn) noBtn.addEventListener("click", () => {
-        _galSelectedId = null;
+        _galSelectedId = _galDefaultSelectedId();
         _galRenderGrid();
-        _galRenderDetail(null);
+        _galRenderDetail(_galSelectedId);
       });
     }
 
@@ -24013,7 +24071,11 @@
         } catch { yesBtn.disabled = false; }
       });
       const noBtn = $a("gal-bg-no");
-      if (noBtn) noBtn.addEventListener("click", () => { _galSelectedId = null; _galRenderGrid(); _galRenderDetail(null); });
+      if (noBtn) noBtn.addEventListener("click", () => {
+        _galSelectedId = _galDefaultSelectedId();
+        _galRenderGrid();
+        _galRenderDetail(_galSelectedId);
+      });
     }
 
     // Wire gallery controls
