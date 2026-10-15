@@ -540,6 +540,13 @@
 # start OFF, one click shows them, another hides them, and the button has
 # to follow the browser's own captions menu.
 !test_film_captions.js
+# The Full Screen button beside it, in the same three places. Clicks it in a
+# real Chrome with the Fullscreen API stubbed (headless will not hand a page
+# the screen): it has to ask for the VIDEO, repaint itself from the answer,
+# and never read a full-screen DOCUMENT -- the game's own Full Screen button
+# -- as the film being up. Also measures the control line at 200% zoom, where
+# the CSS viewport is half as wide and two pills have to fit on it.
+!test_film_fullscreen.js
 
 # The 💡 Strategies panel: the plan it recommends, and the combos it pairs. The
 # recommendation is scored from the real board/hand/pool snapshot (raw counts

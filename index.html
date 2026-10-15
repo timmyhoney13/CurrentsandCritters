@@ -27,7 +27,7 @@
 <script src="image-slot.js"></script>
 <script defer src="/js/game-night.js?v=2026-10-07.3"></script>
 <script defer src="/js/clan-prize.js?v=2026-09-25.1"></script>
-<script defer src="/js/film-captions.js?v=2026-10-13.4"></script>
+<script defer src="/js/film-captions.js?v=2026-10-15.1"></script>
 <style>
   /* ── OLD-SITE NOTICE BAR ─────────────────────────────────────────── */
   .oldsite-bar {
@@ -866,23 +866,39 @@
     border: 1px solid var(--line); box-shadow: var(--shadow-xl); background: #0a2537;
   }
   .l60-film-frame video { display: block; width: 100%; height: auto; background: #0a2537; }
+  /* Full screen hands the <video> the whole screen, and the sizing above
+     would fight it straight back down into a 16:9 band in the middle of a
+     black page. Two rules, not one selector list: a browser throws away a
+     whole rule it cannot parse, and only Safari knows the prefixed name. */
+  .l60-film-frame video:fullscreen {
+    width: 100%; height: 100%; max-width: none; max-height: none;
+    object-fit: contain; background: #000; border-radius: 0;
+  }
+  .l60-film-frame video:-webkit-full-screen {
+    width: 100%; height: 100%; max-width: none; max-height: none;
+    object-fit: contain; background: #000; border-radius: 0;
+  }
   .l60-film-cap {
     margin: 10px 0 0; text-align: center; font-size: 13px; color: var(--muted);
     display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
   }
   /* The captions switch. Chrome hides its own behind the "..." menu, so
      this is the one players actually find. See js/film-captions.js. */
-  .l60-film-cc {
+  .l60-film-cc, .l60-film-fs {
     font: inherit; font-weight: 700; cursor: pointer;
     padding: 4px 12px; border-radius: 999px;
     border: 1px solid var(--line); background: #fff; color: var(--brand-cyan-deep);
     transition: background .14s ease, border-color .14s ease, color .14s ease;
   }
   .l60-film-cc::before { content: "CC"; font-weight: 900; letter-spacing: .5px; margin-right: 7px; }
-  .l60-film-cc:hover { background: var(--brand-cyan-soft); border-color: #9ddaf0; }
-  .l60-film-cc[aria-pressed="true"] {
+  .l60-film-cc:hover, .l60-film-fs:hover { background: var(--brand-cyan-soft); border-color: #9ddaf0; }
+  .l60-film-cc[aria-pressed="true"], .l60-film-fs[aria-pressed="true"] {
     background: var(--brand-cyan-soft); border-color: #9ddaf0; color: var(--brand-cyan-deep);
   }
+  /* The full screen switch, next to the captions one. Chrome buries its own
+     in the same "..." menu once the bar is narrow. See js/film-captions.js. */
+  .l60-film-fs::before { content: "\26F6"; font-weight: 900; margin-right: 7px; }
+  .l60-film-fs[hidden] { display: none; }
 
   </style>
 </head>
@@ -1079,6 +1095,8 @@
         <p class="l60-film-cap">4 minutes 13 seconds.
           <button type="button" class="l60-film-cc" data-film-captions
                   aria-pressed="false">Captions off</button>
+          <button type="button" class="l60-film-fs" data-film-full
+                  aria-pressed="false">Full Screen</button>
         </p>
       </div>
     </div>

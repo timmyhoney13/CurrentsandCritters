@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-14.2";
+  const APP_BUILD   = "2026-10-15.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -35068,12 +35068,15 @@
         +         '<a href="/video/how-to-play.mp4">Download it instead</a>.</p>'
         +     '</video>'
         +   '</figure>'
-        // Captions start off, and this is the switch. js/film-captions.js
-        // delegates off document, so it picks this up whenever the pane is
-        // built, and keeps it in step with the browser's own captions menu.
+        // Captions start off, and this is the switch; next to it the one that
+        // puts the film on the whole screen. js/film-captions.js delegates off
+        // document, so it picks both up whenever the pane is built, and keeps
+        // them in step with the browser's own controls.
         +   '<p class="htp-film-cap">4 minutes 13 seconds.'
         +     '<button type="button" class="htp-film-cc" data-film-captions'
         +       ' aria-pressed="false">Captions off</button>'
+        +     '<button type="button" class="htp-film-fs" data-film-full'
+        +       ' aria-pressed="false">Full Screen</button>'
         +   '</p>'
         + '</div>'
 
@@ -35409,6 +35412,14 @@
           const b = $a("stats-tutorial-btn");
           if (b) b.click();
         });
+
+        // The film's own Captions and Full Screen buttons went in as a string
+        // above, long after js/film-captions.js ran. Its clicks are delegated
+        // off document and need nothing, but this is what paints the pair from
+        // the browser's truth, and drops Full Screen if this browser has none.
+        if (typeof window.CC_SYNC_FILM_CAPTIONS === "function") {
+          try { window.CC_SYNC_FILM_CAPTIONS(); } catch (_) {}
+        }
       }
 
       // Rebuilt on every visit: the list includes strategies the player saved

@@ -16433,6 +16433,18 @@
       display: block; width: 100%; height: auto;
       aspect-ratio: 16 / 9; background: #0a2537;
     }
+    /* Full screen hands the <video> the whole screen, and the sizing above
+       would fight it straight back down into a 16:9 band in the middle of a
+       black page. Two rules, not one selector list: a browser throws away a
+       whole rule it cannot parse, and only Safari knows the prefixed name. */
+    .htp-film-video:fullscreen {
+      width: 100%; height: 100%; max-width: none; max-height: none;
+      aspect-ratio: auto; object-fit: contain; background: #000; border-radius: 0;
+    }
+    .htp-film-video:-webkit-full-screen {
+      width: 100%; height: 100%; max-width: none; max-height: none;
+      aspect-ratio: auto; object-fit: contain; background: #000; border-radius: 0;
+    }
     .htp-film-cap {
       margin: 9px 0 0; font-size: .82rem; font-weight: 700; color: #6f94b5;
       display: flex; align-items: center; justify-content: center;
@@ -16441,18 +16453,22 @@
     /* The captions switch. Chrome keeps its own behind the "..." overflow
        menu, which on a phone is where half the control bar ends up, so this
        is the one players actually find. See js/film-captions.js. */
-    .htp-film-cc {
+    .htp-film-cc, .htp-film-fs {
       font-family: "Nunito", sans-serif; font-size: .78rem; font-weight: 800;
       cursor: pointer; padding: 4px 12px; border-radius: 999px;
       border: 1.5px solid rgba(169,203,230,.9); background: #fff; color: #1c5fa8;
       transition: background .14s ease, border-color .14s ease, color .14s ease;
     }
     .htp-film-cc::before { content: "CC"; font-weight: 900; letter-spacing: .5px; margin-right: 7px; }
-    .htp-film-cc:hover { background: #f2f9ff; }
-    .htp-film-cc[aria-pressed="true"] {
+    .htp-film-cc:hover, .htp-film-fs:hover { background: #f2f9ff; }
+    .htp-film-cc[aria-pressed="true"], .htp-film-fs[aria-pressed="true"] {
       background: linear-gradient(180deg,#2e8fe0 0%,#1c70cc 100%);
       border-color: #1c70cc; color: #fff;
     }
+    /* The full screen switch, next to the captions one, and for the same
+       reason: on a phone the native one is inside that overflow menu too. */
+    .htp-film-fs::before { content: "\26F6"; font-weight: 900; margin-right: 7px; }
+    .htp-film-fs[hidden] { display: none; }
 
     .htp-sec-head {
       display: flex; align-items: center; gap: 9px;
