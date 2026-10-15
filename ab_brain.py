@@ -68,6 +68,24 @@ _GRADE = "william_beebe"
 _MPS = None
 
 
+def _load_raw(path: str) -> Dict[str, Any]:
+    """A brain file as written, WITHOUT re-applying today's anchor floors.
+
+    fish.load_brain does three things on the way in: stabilise the weights,
+    floor two STAR weights, and apply ensure_priority_anchor_brain_rules. The
+    first two are reproduced here; the third is the point of this function.
+    Without it a change to the anchor lists is invisible to this harness,
+    because both arms would be floored by the lists as they stand today.
+    """
+    with open(path, encoding="utf-8") as fh:
+        brain = json.load(fh)
+    w = fish.stabilize_weights(dict(brain.get("weights", {})))
+    w["uses_star"] = max(0.95, float(w.get("uses_star", 0.0)))
+    w["pool_pick_value"] = max(0.9, float(w.get("pool_pick_value", 0.0)))
+    brain["weights"] = fish.stabilize_weights(dict(w))
+    return brain
+
+
 def _maps_by_count(brain: Dict[str, Any], counts: List[int]) -> Dict[int, Dict[str, Any]]:
     """The learned maps each table size plays with, one snapshot per count."""
     return {c: fish._train_policy_maps_from_cbrain(fish.get_count_brain(brain, c))
@@ -172,6 +190,13 @@ def main() -> int:
                     help="the brain under test (plays ONE seat)")
     ap.add_argument("--old", required=True,
                     help="the brain it is measured against (plays every other seat)")
+    ap.add_argument("--raw-old", action="store_true",
+                    help="load the OLD brain without re-applying today's anchor "
+                         "floors, so a change to the anchor lists is visible. "
+                         "fish.load_brain applies them at every load, which means "
+                         "both arms normally get them and the change cannot be "
+                         "measured at all. The file on disk already carries the "
+                         "floors of whatever version wrote it.")
     ap.add_argument("--grade", default="william_beebe",
                     help="B is the lowest grade that plays with a strategy's trained "
                          "weights, and every grade above it reuses the same weights "
@@ -184,7 +209,7 @@ def main() -> int:
 
     counts = [int(c) for c in a.counts.split(",") if c.strip()]
     new_brain = fish.load_brain(a.new)
-    old_brain = fish.load_brain(a.old)
+    old_brain = _load_raw(a.old) if a.raw_old else fish.load_brain(a.old)
     a_maps, b_maps = _maps_by_count(new_brain, counts), _maps_by_count(old_brain, counts)
     a_strat, b_strat = _strategy_vectors(new_brain), _strategy_vectors(old_brain)
 

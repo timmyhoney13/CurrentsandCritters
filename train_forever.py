@@ -122,13 +122,35 @@ def fresh_state() -> Dict[str, Any]:
     }
 
 
+# Set by the SIGTERM/SIGINT handler. `run` watches it as well as the clock, and
+# the phases watch it between pieces of work.
+STOPPING = {"now": False}
+
+
+def _end(proc: "subprocess.Popen", why: str, t0: float) -> Dict[str, Any]:
+    """Ask a child to stop, then insist. SIGTERM first, because the tools that
+    write a champion or a brain get to finish doing it."""
+    try:
+        proc.terminate()
+        proc.wait(timeout=120)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+    return {"ok": True, "rc": None, "secs": time.time() - t0, "note": why}
+
+
 def run(cmd: List[str], logfile: str, minutes: float) -> Dict[str, Any]:
     """Run one training command with a wall-clock budget.
 
-    A phase that overruns is asked to stop (SIGTERM) rather than killed, so the
-    tools that write a champion or a brain on the way out get to finish doing
-    it. Nothing here is a fast loop: the budget is in minutes and a single game
-    is a third of a second, so the overrun is one game, not one phase.
+    Returns when the child finishes, when its budget runs out, or when this
+    supervisor has been asked to stop -- and in that last case the CHILD is
+    stopped too. Without that, `pkill -f train_forever` set a flag and then sat
+    waiting for a 20-minute generation to run its course, so "stop" meant
+    "stop in up to twenty minutes" and a second plan got started on the way
+    out. Measured: a stop took 7 minutes and began training a plan nobody
+    asked for.
     """
     t0 = time.time()
     with open(logfile, "a", encoding="utf-8") as fh:
@@ -145,17 +167,10 @@ def run(cmd: List[str], logfile: str, minutes: float) -> Dict[str, Any]:
             if rc is not None:
                 return {"ok": rc == 0, "rc": rc, "secs": time.time() - t0,
                         "note": "finished" if rc == 0 else f"exit {rc}"}
+            if STOPPING["now"]:
+                return _end(proc, "stopped on request", t0)
             if time.time() > deadline:
-                try:
-                    proc.terminate()
-                    proc.wait(timeout=120)
-                except Exception:
-                    try:
-                        proc.kill()
-                    except Exception:
-                        pass
-                return {"ok": True, "rc": None, "secs": time.time() - t0,
-                        "note": "budget reached, asked to stop"}
+                return _end(proc, "budget reached, asked to stop", t0)
             time.sleep(2.0)
 
 
@@ -272,7 +287,7 @@ def phase_strategy(st: Dict[str, Any], a: argparse.Namespace) -> None:
     the table gets harder as the night goes on."""
     budget_end = time.time() + a.phase_minutes * 60.0
     trained: List[str] = []
-    while time.time() < budget_end:
+    while time.time() < budget_end and not STOPPING["now"]:
         idx = int(st.get("plan_index", 0)) % len(ALL_PLANS)
         plan = ALL_PLANS[idx]
         st["plan_index"] = (idx + 1) % len(ALL_PLANS)
@@ -291,6 +306,16 @@ def phase_strategy(st: Dict[str, Any], a: argparse.Namespace) -> None:
         st["seconds"]["strategy"] += res["secs"]
         trained.append(plan)
         log(f"  strategy: {plan} {res['note']} in {res['secs']:.0f}s")
+        if res.get("rc") != 0:
+            # bot_evolve writes its champion at the END of a generation, so a
+            # run that was cut short produced nothing. Put the plan back at the
+            # front of the queue rather than moving on to the next one: with 14
+            # plans and one visit each per cycle, silently skipping a plan whose
+            # generation was interrupted means it waits a full cycle for the
+            # generation it never got.
+            st["plan_index"] = idx
+            save_state(st)
+            break
         save_state(st)
 
     # A champion is dead on disk until this writes it into the brain the game
@@ -505,11 +530,9 @@ def main() -> int:
         for ph in PHASES:
             st[k].setdefault(ph, 0 if k != "seconds" else 0.0)
 
-    stopping = {"now": False}
-
     def _stop(_sig, _frm):
-        stopping["now"] = True
-        log("stop requested; finishing the phase in flight and then exiting")
+        STOPPING["now"] = True
+        log("stop requested; stopping the work in flight and exiting")
 
     signal.signal(signal.SIGTERM, _stop)
     signal.signal(signal.SIGINT, _stop)
@@ -522,14 +545,14 @@ def main() -> int:
     log("=" * 72)
 
     try:
-        while not stopping["now"]:
+        while not STOPPING["now"]:
             if a.max_cycles and st["cycle"] >= a.max_cycles:
                 log(f"reached --max-cycles {a.max_cycles}; stopping")
                 break
             st["cycle"] += 1
             log(f"===== cycle {st['cycle']} =====")
             for i, phase in enumerate(PHASES):
-                if stopping["now"]:
+                if STOPPING["now"]:
                     break
                 st["phase_index"] = i
                 save_state(st)
@@ -547,7 +570,7 @@ def main() -> int:
                     log(f"  !! {phase} phase failed: {exc!r}")
                 st["phase_runs"] = int(st.get("phase_runs", 0)) + 1
                 save_state(st)
-            if (not stopping["now"] and a.measure_every
+            if (not STOPPING["now"] and a.measure_every
                     and st["cycle"] % a.measure_every == 0):
                 try:
                     phase_measure(st, a)

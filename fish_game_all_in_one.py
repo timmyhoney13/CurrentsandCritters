@@ -2858,106 +2858,58 @@ def species_synergy_key(a_species: str, b_species: str) -> str:
     return f"{y}|{x}"
 
 
-# Bumped to 2 on 2026-10-14: the anchor lists below went from covering eleven
-# cards to covering every plan in the game, so a brain written under version 1
-# has floors for three plans and nothing for the other eleven.
-ANCHOR_PRIORITY_VERSION = 2
+ANCHOR_PRIORITY_VERSION = 1
 ANIMAL_SYNERGY_GRID_PATH = "animal_synergy_grid.json"
 
-# WHAT GOES WITH WHAT: the anchor combos, one entry per card that pays for
-# having a family rather than for being in it.
+# MEASURED, AND TAKEN BACK OUT. These lists were expanded on 2026-10-14 from
+# three plans covered to fourteen, on the rule that the card text had to say
+# it. Measured against exactly these lists, 900 paired deals at grade B:
 #
-# synergy_key() sorts its pair, so every entry here is symmetric and the
-# reverse direction is free -- "whale shark goes with sardine" is the same fact
-# as "sardine goes with whale shark", and the grid builder prints both.
+#     2P  -1.652  95% CI [-3.004, -0.301]      <- the only significant cell
+#     4P  +0.000  95% CI [+0.000, +0.000]      <- identical games, see below
+#     6P  +0.326  95% CI [-0.792, +1.444]
+#     ALL -0.442  95% CI [-1.029, +0.145]      no proof
 #
-# These are a FLOOR on learned memory (ensure_priority_anchor_brain_rules), so
-# the rule for adding one is that the card text has to say it. A pair that is
-# merely plausible belongs in the learner's hands, not here: a floor the
-# learner cannot push back down is a fact asserted without a game behind it,
-# and if everything is a synergy then nothing is.
+# So the expansion is reverted to what is below, which is what it was before.
+# Three reasons, and the second is the one that matters:
 #
-# Eleven of the fourteen plans used to have no anchor at all, so Coral, Birds,
-# Mammals-beyond-the-shark, Crustaceans, King Salmon, Invertebrates, Game Fish,
-# Cephalopod-counting and the Goby pair were invisible here.
+#  1. no evidence it helps, and the one significant cell says it hurts. (One
+#     cell of three, so treat that with the care multiple comparisons deserve.)
+#  2. IT IS INERT WHERE IT COUNTS. ensure_priority_anchor_brain_rules floors
+#     the TOP-LEVEL maps only, and each table size keeps its own copy in
+#     brain["by_count"][n] which the floors never touch. 4P is the only trained
+#     count, so the 4P arm played byte-identical games -- that exact +0.000 is
+#     not luck, it is the floors not reaching the map being read. As counts get
+#     trained this list applies to fewer and fewer of them.
+#  3. floors cannot be pushed back down, so where they disagreed with what the
+#     brain had learned over 291 games they simply overrode it -- 18 card pairs,
+#     several of them sign flips, some against learned values sitting at the
+#     map's own clamp.
+#
+# What the exercise was FOR still stands and is still in: every card now
+# belongs to a plan (29 deck entries used to belong to none), the grid DERIVES
+# each card's plan instead of repeating a hand list, and STRATEGY_LISTS.txt
+# prints the whole of it. None of that needs a floor on learned memory.
+#
+# Point 2 looks like a bug in the anchor mechanism rather than in these lists.
+# Flooring the per-count sub-brains too would be the fix, and it is a much
+# larger unmeasured change than this one, so it is not being made on the back
+# of a measurement that found nothing.
 PRIORITY_CARD_SYNERGY: Dict[str, set[str]] = {
-    # ── baitfish_barrage: five species fill a 30-point chart; three cards pay
-    #    per baitfish or play them free.
     "whale shark": {"mullet", "bunker", "sardine", "flying fish", "bonito", "hermit crab", "sea urchin", "roosterfish"},
     "hermit crab": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark", "roosterfish"},
-    "roosterfish": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark", "hermit crab"},
-    # ── birds_of_a_feather: the penguin pays per bird, the auk pays for a
-    #    second auk (5 -> 25, and there are only two in the deck).
-    "emperor penguin": {"horned puffin", "peruvian pelican", "great albatross", "osprey",
-                        "razorbill auk", "california gull", "magnificent frigatebird"},
-    "razorbill auk": {"razorbill auk", "emperor penguin"},
-    "california gull": {"lobster", "spiny lobster", "mantis shrimp", "king crab", "hermit crab"},
-    # ── cephalopods: four bodies that each pay +3 (the squid +6) once three of
-    #    them are out, so the third cephalopod is worth 15 points on its own.
     "reef trigger fish": {"common octopus", "bobtail squid", "cuttlefish", "giant squid"},
-    "giant squid": {"common octopus", "bobtail squid", "cuttlefish", "manta ray", "reef trigger fish"},
-    "manta ray": {"common octopus", "bobtail squid", "cuttlefish", "giant squid", "reef trigger fish"},
-    # ── coral: staghorn pays per coral, elk horn per coral ON a coral reef,
-    #    and the frigatebird is a bird that pays per coral and plays one free.
-    "staghorn coral": {"elk horn coral", "grooved brain coral", "deep sea coral",
-                       "magnificent frigatebird", "coral reef"},
-    "elk horn coral": {"staghorn coral", "grooved brain coral", "deep sea coral",
-                       "magnificent frigatebird", "coral reef"},
-    "magnificent frigatebird": {"staghorn coral", "elk horn coral", "grooved brain coral",
-                                "deep sea coral", "coral reef"},
-    # ── crustaceans: the shrimp chart is 5/15/30 and there are exactly three.
-    "mantis shrimp": {"mantis shrimp", "lobster", "king crab", "california gull"},
-    # ── game_fish: the marlin is +9 beside a Mahi Mahi, the wrasse +3 per Mahi.
-    "blue marlin": {"mahi mahi", "sailfish", "cleaner wrasse"},
-    "cleaner wrasse": {"mahi mahi", "yellowfin tuna"},
-    "sailfish": {"mahi mahi", "blue marlin", "tarpon", "goliath grouper", "king salmon",
-                 "yellowfin tuna", "barracuda"},
-    "goliath grouper": {"mahi mahi", "blue marlin", "sailfish", "tarpon", "king salmon"},
-    # ── goby_moon_shot: 2 = 14, 3 = 30, 4 = 80, and four gobies exist. The
-    #    spiny lobster pays +6 per goby, three times over.
-    "mandarin goby": {"mandarin goby", "spiny lobster", "common sea star", "blue tang"},
-    "spiny lobster": {"mandarin goby", "common sea star", "california gull"},
-    # ── invertebrates: the barracuda pays per invertebrate and plays one free;
-    #    the anemone pays +3 per invertebrate.
-    "barracuda": {"common sea star", "johnson's sea cucumber", "orange tube sponge",
-                  "red beaded anemone", "sea urchin"},
-    "red beaded anemone": {"common sea star", "johnson's sea cucumber", "orange tube sponge",
-                           "sea urchin", "barracuda"},
-    # ── king_salmon: +5 per FULLY OCCUPIED ocean, so the plan is not about
-    #    salmon, it is about closing out four-sided oceans. What goes with it
-    #    is anything that fills a second side in one turn, plus cheap bodies.
-    "king salmon": {"horned puffin", "bottlenose dolphin", "sailfish", "goliath grouper",
-                    "arctic ocean", "mangrove", "hermit crab", "reef trigger fish",
-                    "loggerhead sea turtle", "mahi mahi", "yellowfin tuna", "lobster",
-                    "grooved brain coral", "magnificent frigatebird", "barracuda"},
-    # ── mammals: two cards pay per mammal, one plays a free one.
+    "california gull": {"lobster", "spiny lobster", "mantis shrimp", "king crab", "hermit crab"},
     "great white shark": {"spinner dolphin", "bottlenose dolphin", "narwhal"},
-    "narwhal": {"spinner dolphin", "bottlenose dolphin", "great white shark"},
-    # ── yellowfin_tuna: 14 yellowfin at +2 that all share one spot, and five
-    #    Bigeye at +3 per yellowfin that also draw one per yellowfin.
-    "bigeye tuna": {"yellowfin tuna", "johnson's sea cucumber", "cleaner wrasse"},
     "johnson's sea cucumber": {"yellowfin tuna", "bigeye tuna", "big eye tuna"},
-    # ── the draw engines, which belong to whoever is playing that half of the
-    #    board: the sea star draws on the floor, the urchin on the surface.
     "common sea star": {"mandarin goby", "spiny lobster", "lobster", "mantis shrimp", "king crab", "hermit crab"},
     "sea star": {"mandarin goby", "spiny lobster", "lobster", "mantis shrimp", "king crab", "hermit crab"},
     "sea urchin": {"emperor penguin", "horned puffin", "california gull", "peruvian pelican", "great albatross", "osprey", "mullet", "bunker", "sardine", "flying fish", "bonito"},
     "loggerhead sea turtle": {"mullet", "bunker", "sardine", "flying fish", "bonito", "yellowfin tuna", "mahi mahi", "lobster"},
+    "roosterfish": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark", "hermit crab"},
+    "blue marlin": {"mahi mahi"},
+    "cleaner wrasse": {"mahi mahi", "yellowfin tuna"},
 }
-
-# The pairs that have to land on the SAME ocean, not merely the same board.
-# Only four effects in the deck actually read the ocean a card is on -- Blue
-# Marlin "sharing an ocean with a Mahi Mahi", Roosterfish "sharing an ocean
-# with baitfish", Elk Horn Coral "attached to a coral reef" and Deep Sea Coral
-# "the only creature on this ocean" -- and the last one is an ANTI-pairing that
-# a list of pairs cannot say.
-#
-# The rest of the entries here are the user's own clustering guidance from
-# earlier, kept as it was: a per-family multiplier counts the whole board, so
-# stacking its family in one ocean is not required by the card, but it is still
-# worth something (an Artificial Reef pays +2 per card attached, King Salmon
-# pays for closing the ocean out) and it has been in the brain's floors for
-# long enough that pulling it out would be an unmeasured change.
 PRIORITY_SAME_OCEAN_SYNERGY: Dict[str, set[str]] = {
     "whale shark": {"mullet", "bunker", "sardine", "flying fish", "bonito", "roosterfish"},
     "hermit crab": {"mullet", "bunker", "sardine", "flying fish", "bonito", "roosterfish"},
@@ -2967,16 +2919,7 @@ PRIORITY_SAME_OCEAN_SYNERGY: Dict[str, set[str]] = {
     "roosterfish": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark"},
     "blue marlin": {"mahi mahi"},
     "cleaner wrasse": {"mahi mahi"},
-    # The card says "attached to a coral reef", so this one is literal.
-    "elk horn coral": {"coral reef"},
-    # +6 per Mandarin Goby counts the board, but the gobies' own chart is the
-    # 80-point one and the pair is what the plan IS.
-    "spiny lobster": {"mandarin goby"},
 }
-
-# Species that go with species. A family pairs with ITSELF whenever some card
-# pays per member of it or fills a count chart off it, which is true of every
-# animal species in the deck except the two that have no such card.
 PRIORITY_SPECIES_SYNERGY: List[Tuple[str, str]] = [
     ("baitfish", "crosscurrent"),
     ("baitfish", "n/a"),
@@ -2989,34 +2932,7 @@ PRIORITY_SPECIES_SYNERGY: List[Tuple[str, str]] = [
     ("mammal", "crosscurrent"),
     ("mammal", "n/a"),
     ("crustacean", "invertebrate"),
-    # The self-pairs, one per "+N per <species>" or count chart in the deck:
-    #   bird        Emperor Penguin +2 per Bird, Razorbill Auk 1=5 2=25
-    #   coral       Staghorn +3 per coral, Elk Horn +2 per coral on a reef
-    #   mammal      Narwhal +2 per Mammal, Great White +3 per mammal
-    #   baitfish    the species chart, 5 different = 30
-    #   crustacean  Mantis Shrimp 1=5 2=15 3=30
-    #   invertebrate Red Beaded Anemone +3 per invertebrate, Barracuda +2 per
-    #   game fish   Yellowfin all share one spot; Sailfish plays one free
-    ("bird", "bird"),
-    ("coral", "coral"),
-    ("mammal", "mammal"),
-    ("baitfish", "baitfish"),
-    ("crustacean", "crustacean"),
-    ("invertebrate", "invertebrate"),
-    ("game fish", "game fish"),
-    ("game fish", "crosscurrent"),
-    # The Magnificent Frigatebird is a BIRD that pays per coral and plays a
-    # free one, which is the whole of the B-Coral combo in one card.
-    ("bird", "coral"),
-    # Coral and cephalopods: Grooved Brain Coral plays a free cephalopod.
-    ("coral", "cephalopod"),
 ]
-
-# Extra strategy labels for cards whose own text does not give them away.
-# A card's OWN plan is derived (see build_animal_synergy_grid), so nothing here
-# has to repeat it; this list is for the second plan a card also serves --
-# the Hermit Crab is a crustacean that plays baitfish for free, the Sea Urchin
-# draws for anything played on the surface, which is birds and baitfish both.
 PRIORITY_CARD_TO_STRATEGIES: Dict[str, set[str]] = {
     "whale shark": {"Baitfish Engine"},
     "hermit crab": {"Baitfish Engine", "Crustaceans"},

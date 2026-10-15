@@ -1,11 +1,11 @@
 {
-  "anchor_priority_version": 2,
+  "anchor_priority_version": 1,
   "cards_in_no_plan": [
     "blue tang",
     "clownfish",
     "loggerhead sea turtle"
   ],
-  "generated_unix": 1792032766,
+  "generated_unix": 1792072137,
   "plans": [
     {
       "built_on": [],
@@ -357,15 +357,7 @@
         "Game Fish",
         "Invertebrates"
       ],
-      "priority_goes_with_cards": [
-        "common sea star",
-        "johnson's sea cucumber",
-        "king salmon",
-        "orange tube sponge",
-        "red beaded anemone",
-        "sailfish",
-        "sea urchin"
-      ],
+      "priority_goes_with_cards": [],
       "species": "Game Fish"
     },
     {
@@ -387,9 +379,7 @@
         "Yellowfin Tuna"
       ],
       "priority_goes_with_cards": [
-        "cleaner wrasse",
-        "johnson's sea cucumber",
-        "yellowfin tuna"
+        "johnson's sea cucumber"
       ],
       "species": "Crosscurrent"
     },
@@ -410,10 +400,7 @@
         "Game Fish"
       ],
       "priority_goes_with_cards": [
-        "cleaner wrasse",
-        "goliath grouper",
-        "mahi mahi",
-        "sailfish"
+        "mahi mahi"
       ],
       "species": "Game Fish"
     },
@@ -430,9 +417,7 @@
       "plan": "",
       "plan_family": "",
       "plays_in": [],
-      "priority_goes_with_cards": [
-        "mandarin goby"
-      ],
+      "priority_goes_with_cards": [],
       "species": "Crosscurrent"
     },
     {
@@ -451,8 +436,6 @@
         "Coral/Cephalopods (CC)"
       ],
       "priority_goes_with_cards": [
-        "giant squid",
-        "manta ray",
         "reef trigger fish"
       ],
       "species": "Cephalopod"
@@ -499,9 +482,7 @@
         "Mammals"
       ],
       "priority_goes_with_cards": [
-        "great white shark",
-        "king salmon",
-        "narwhal"
+        "great white shark"
       ],
       "species": "Mammal"
     },
@@ -550,7 +531,6 @@
         "Crustaceans"
       ],
       "priority_goes_with_cards": [
-        "emperor penguin",
         "hermit crab",
         "king crab",
         "lobster",
@@ -579,8 +559,6 @@
         "Game Fish"
       ],
       "priority_goes_with_cards": [
-        "bigeye tuna",
-        "blue marlin",
         "mahi mahi",
         "yellowfin tuna"
       ],
@@ -618,8 +596,6 @@
         "Coral/Cephalopods (CC)"
       ],
       "priority_goes_with_cards": [
-        "giant squid",
-        "manta ray",
         "reef trigger fish"
       ],
       "species": "Cephalopod"
@@ -645,13 +621,11 @@
         "Invertebrates"
       ],
       "priority_goes_with_cards": [
-        "barracuda",
         "hermit crab",
         "king crab",
         "lobster",
         "mandarin goby",
         "mantis shrimp",
-        "red beaded anemone",
         "spiny lobster"
       ],
       "species": "Invertebrate"
@@ -672,8 +646,6 @@
         "Coral/Cephalopods (CC)"
       ],
       "priority_goes_with_cards": [
-        "giant squid",
-        "manta ray",
         "reef trigger fish"
       ],
       "species": "Cephalopod"
@@ -695,11 +667,7 @@
         "Coral",
         "Coral/Cephalopods (CC)"
       ],
-      "priority_goes_with_cards": [
-        "elk horn coral",
-        "magnificent frigatebird",
-        "staghorn coral"
-      ],
+      "priority_goes_with_cards": [],
       "species": "Coral"
     },
     {
@@ -719,13 +687,7 @@
         "Coral",
         "Coral/Cephalopods (CC)"
       ],
-      "priority_goes_with_cards": [
-        "coral reef",
-        "deep sea coral",
-        "grooved brain coral",
-        "magnificent frigatebird",
-        "staghorn coral"
-      ],
+      "priority_goes_with_cards": [],
       "species": "Coral"
     },
     {
@@ -746,13 +708,6 @@
         "Birds"
       ],
       "priority_goes_with_cards": [
-        "california gull",
-        "great albatross",
-        "horned puffin",
-        "magnificent frigatebird",
-        "osprey",
-        "peruvian pelican",
-        "razorbill auk",
         "sea urchin"
       ],
       "species": "Bird"
@@ -798,10 +753,6 @@
         "Coral/Cephalopods (CC)"
       ],
       "priority_goes_with_cards": [
-        "bobtail squid",
-        "common octopus",
-        "cuttlefish",
-        "manta ray",
         "reef trigger fish"
       ],
       "species": "Cephalopod"
@@ -826,13 +777,7 @@
         "Game Fish",
         "King Salmon"
       ],
-      "priority_goes_with_cards": [
-        "blue marlin",
-        "king salmon",
-        "mahi mahi",
-        "sailfish",
-        "tarpon"
-      ],
+      "priority_goes_with_cards": [],
       "species": "Game Fish"
     },
     {
@@ -858,7 +803,6 @@
         "Birds"
       ],
       "priority_goes_with_cards": [
-        "emperor penguin",
         "sea urchin"
       ],
       "species": "Bird"
@@ -908,12 +852,7 @@
         "Coral",
         "Coral/Cephalopods (CC)"
       ],
-      "priority_goes_with_cards": [
-        "elk horn coral",
-        "king salmon",
-        "magnificent frigatebird",
-        "staghorn coral"
-      ],
+      "priority_goes_with_cards": [],
       "species": "Coral"
     },
     {
@@ -940,7 +879,6 @@
         "california gull",
         "common sea star",
         "flying fish",
-        "king salmon",
         "mullet",
         "roosterfish",
         "sardine",
@@ -972,8 +910,6 @@
         "King Salmon"
       ],
       "priority_goes_with_cards": [
-        "emperor penguin",
-        "king salmon",
         "sea urchin"
       ],
       "species": "Bird"
@@ -997,10 +933,8 @@
         "Invertebrates"
       ],
       "priority_goes_with_cards": [
-        "barracuda",
         "big eye tuna",
         "bigeye tuna",
-        "red beaded anemone",
         "yellowfin tuna"
       ],
       "species": "Invertebrate"
@@ -1026,7 +960,6 @@
       "priority_goes_with_cards": [
         "california gull",
         "common sea star",
-        "mantis shrimp",
         "sea star"
       ],
       "species": "Crustacean"
@@ -1049,23 +982,7 @@
         "Game Fish",
         "King Salmon"
       ],
-      "priority_goes_with_cards": [
-        "arctic ocean",
-        "barracuda",
-        "bottlenose dolphin",
-        "goliath grouper",
-        "grooved brain coral",
-        "hermit crab",
-        "horned puffin",
-        "lobster",
-        "loggerhead sea turtle",
-        "magnificent frigatebird",
-        "mahi mahi",
-        "mangrove",
-        "reef trigger fish",
-        "sailfish",
-        "yellowfin tuna"
-      ],
+      "priority_goes_with_cards": [],
       "species": "Game Fish"
     },
     {
@@ -1086,9 +1003,7 @@
       "priority_goes_with_cards": [
         "california gull",
         "common sea star",
-        "king salmon",
         "loggerhead sea turtle",
-        "mantis shrimp",
         "sea star"
       ],
       "species": "Crustacean"
@@ -1110,7 +1025,6 @@
         "bonito",
         "bunker",
         "flying fish",
-        "king salmon",
         "lobster",
         "mahi mahi",
         "mullet",
@@ -1141,15 +1055,7 @@
         "Coral",
         "Coral/Cephalopods (CC)"
       ],
-      "priority_goes_with_cards": [
-        "coral reef",
-        "deep sea coral",
-        "elk horn coral",
-        "emperor penguin",
-        "grooved brain coral",
-        "king salmon",
-        "staghorn coral"
-      ],
+      "priority_goes_with_cards": [],
       "species": "Bird"
     },
     {
@@ -1171,10 +1077,7 @@
       "priority_goes_with_cards": [
         "blue marlin",
         "cleaner wrasse",
-        "goliath grouper",
-        "king salmon",
-        "loggerhead sea turtle",
-        "sailfish"
+        "loggerhead sea turtle"
       ],
       "species": "Game Fish"
     },
@@ -1197,11 +1100,8 @@
         "Goby Moon Shot"
       ],
       "priority_goes_with_cards": [
-        "blue tang",
         "common sea star",
-        "mandarin goby",
-        "sea star",
-        "spiny lobster"
+        "sea star"
       ],
       "species": "Crosscurrent"
     },
@@ -1223,13 +1123,7 @@
         "Cephalopods",
         "Coral/Cephalopods (CC)"
       ],
-      "priority_goes_with_cards": [
-        "bobtail squid",
-        "common octopus",
-        "cuttlefish",
-        "giant squid",
-        "reef trigger fish"
-      ],
+      "priority_goes_with_cards": [],
       "species": "Crosscurrent"
     },
     {
@@ -1250,9 +1144,6 @@
       "priority_goes_with_cards": [
         "california gull",
         "common sea star",
-        "king crab",
-        "lobster",
-        "mantis shrimp",
         "sea star"
       ],
       "species": "Crustacean"
@@ -1299,9 +1190,7 @@
         "Mammals"
       ],
       "priority_goes_with_cards": [
-        "bottlenose dolphin",
-        "great white shark",
-        "spinner dolphin"
+        "great white shark"
       ],
       "species": "Mammal"
     },
@@ -1321,10 +1210,7 @@
       "plays_in": [
         "Invertebrates"
       ],
-      "priority_goes_with_cards": [
-        "barracuda",
-        "red beaded anemone"
-      ],
+      "priority_goes_with_cards": [],
       "species": "Invertebrate"
     },
     {
@@ -1348,7 +1234,6 @@
         "Birds"
       ],
       "priority_goes_with_cards": [
-        "emperor penguin",
         "sea urchin"
       ],
       "species": "Bird"
@@ -1374,7 +1259,6 @@
         "Birds"
       ],
       "priority_goes_with_cards": [
-        "emperor penguin",
         "sea urchin"
       ],
       "species": "Bird"
@@ -1396,10 +1280,7 @@
         "B-Lob",
         "Birds"
       ],
-      "priority_goes_with_cards": [
-        "emperor penguin",
-        "razorbill auk"
-      ],
+      "priority_goes_with_cards": [],
       "species": "Bird"
     },
     {
@@ -1418,13 +1299,7 @@
       "plays_in": [
         "Invertebrates"
       ],
-      "priority_goes_with_cards": [
-        "barracuda",
-        "common sea star",
-        "johnson's sea cucumber",
-        "orange tube sponge",
-        "sea urchin"
-      ],
+      "priority_goes_with_cards": [],
       "species": "Invertebrate"
     },
     {
@@ -1446,9 +1321,7 @@
         "bobtail squid",
         "common octopus",
         "cuttlefish",
-        "giant squid",
-        "king salmon",
-        "manta ray"
+        "giant squid"
       ],
       "species": "Crosscurrent"
     },
@@ -1503,15 +1376,7 @@
         "Game Fish",
         "King Salmon"
       ],
-      "priority_goes_with_cards": [
-        "barracuda",
-        "blue marlin",
-        "goliath grouper",
-        "king salmon",
-        "mahi mahi",
-        "tarpon",
-        "yellowfin tuna"
-      ],
+      "priority_goes_with_cards": [],
       "species": "Game Fish"
     },
     {
@@ -1560,7 +1425,6 @@
         "Invertebrates"
       ],
       "priority_goes_with_cards": [
-        "barracuda",
         "bonito",
         "bunker",
         "california gull",
@@ -1571,7 +1435,6 @@
         "mullet",
         "osprey",
         "peruvian pelican",
-        "red beaded anemone",
         "sardine",
         "whale shark"
       ],
@@ -1596,8 +1459,7 @@
         "Mammals"
       ],
       "priority_goes_with_cards": [
-        "great white shark",
-        "narwhal"
+        "great white shark"
       ],
       "species": "Mammal"
     },
@@ -1624,7 +1486,6 @@
       "priority_goes_with_cards": [
         "california gull",
         "common sea star",
-        "mandarin goby",
         "sea star"
       ],
       "species": "Crustacean"
@@ -1646,13 +1507,7 @@
         "Coral",
         "Coral/Cephalopods (CC)"
       ],
-      "priority_goes_with_cards": [
-        "coral reef",
-        "deep sea coral",
-        "elk horn coral",
-        "grooved brain coral",
-        "magnificent frigatebird"
-      ],
+      "priority_goes_with_cards": [],
       "species": "Coral"
     },
     {
@@ -1673,10 +1528,7 @@
       "plays_in": [
         "Game Fish"
       ],
-      "priority_goes_with_cards": [
-        "goliath grouper",
-        "sailfish"
-      ],
+      "priority_goes_with_cards": [],
       "species": "Game Fish"
     },
     {
@@ -1728,12 +1580,9 @@
         "Yellowfin Tuna"
       ],
       "priority_goes_with_cards": [
-        "bigeye tuna",
         "cleaner wrasse",
         "johnson's sea cucumber",
-        "king salmon",
-        "loggerhead sea turtle",
-        "sailfish"
+        "loggerhead sea turtle"
       ],
       "species": "Game Fish"
     }

@@ -25,10 +25,10 @@ MAMMALS   [mammals]
     * 3x narwhal                  [mammal      ] +2 per Mammal | *Draw one*
       4x spinner dolphin          [mammal      ] +2 per matching symbol | *Draw one*
   goes with:
-      bottlenose dolphin       -> great white shark, king salmon, narwhal
+      bottlenose dolphin       -> great white shark
       great white shark        -> bottlenose dolphin, narwhal, spinner dolphin
-      narwhal                  -> bottlenose dolphin, great white shark, spinner dolphin
-      spinner dolphin          -> great white shark, narwhal
+      narwhal                  -> great white shark
+      spinner dolphin          -> great white shark
   same ocean:
       bottlenose dolphin       -> great white shark
       great white shark        -> bottlenose dolphin, narwhal, spinner dolphin
@@ -45,8 +45,8 @@ YELLOWFIN TUNA   [yellowfin_tuna]
     * 5x bigeye tuna              [crosscurrent] +3 per yellowfin tuna | *Draw one for each yellowfin tuna you 
      14x yellowfin tuna           [game fish   ] +2 | Any number of yellowfin may share the same spot
   goes with:
-      bigeye tuna              -> cleaner wrasse, johnson's sea cucumber, yellowfin tuna
-      yellowfin tuna           -> bigeye tuna, cleaner wrasse, johnson's sea cucumber, king salmon, loggerhead sea turtle, sailfish
+      bigeye tuna              -> johnson's sea cucumber
+      yellowfin tuna           -> cleaner wrasse, johnson's sea cucumber, loggerhead sea turtle
 
 ------------------------------------------------------------------------------
 BAITFISH BARRAGE   [baitfish_barrage]
@@ -67,7 +67,7 @@ BAITFISH BARRAGE   [baitfish_barrage]
       bonito                   -> hermit crab, loggerhead sea turtle, roosterfish, sea urchin, whale shark
       bunker                   -> hermit crab, loggerhead sea turtle, roosterfish, sea urchin, whale shark
       flying fish              -> hermit crab, loggerhead sea turtle, roosterfish, sea urchin, whale shark
-      hermit crab              -> bonito, bunker, california gull, common sea star, flying fish, king salmon, mullet, roosterfish, sardine, sea star, whale shark
+      hermit crab              -> bonito, bunker, california gull, common sea star, flying fish, mullet, roosterfish, sardine, sea star, whale shark
       mullet                   -> hermit crab, loggerhead sea turtle, roosterfish, sea urchin, whale shark
       roosterfish              -> bonito, bunker, flying fish, hermit crab, mullet, sardine, whale shark
       sardine                  -> hermit crab, loggerhead sea turtle, roosterfish, sea urchin, whale shark
@@ -96,13 +96,12 @@ BIRDS   [birds_of_a_feather]
       4x peruvian pelican         [bird        ] +4 | *Draw three*
     * 2x razorbill auk            [bird        ] # of razorbill auks 1 = 5 | 2 = 25
   goes with:
-      california gull          -> emperor penguin, hermit crab, king crab, lobster, mantis shrimp, sea urchin, spiny lobster
-      emperor penguin          -> california gull, great albatross, horned puffin, magnificent frigatebird, osprey, peruvian pelican, razorbill auk, sea urchin
-      great albatross          -> emperor penguin, sea urchin
-      horned puffin            -> emperor penguin, king salmon, sea urchin
-      osprey                   -> emperor penguin, sea urchin
-      peruvian pelican         -> emperor penguin, sea urchin
-      razorbill auk            -> emperor penguin, razorbill auk
+      california gull          -> hermit crab, king crab, lobster, mantis shrimp, sea urchin, spiny lobster
+      emperor penguin          -> sea urchin
+      great albatross          -> sea urchin
+      horned puffin            -> sea urchin
+      osprey                   -> sea urchin
+      peruvian pelican         -> sea urchin
   same ocean:
       california gull          -> hermit crab, king crab, lobster, mantis shrimp, spiny lobster
 
@@ -117,9 +116,9 @@ CRUSTACEANS   [crustaceans]
       7x lobster                  [crustacean  ] +4 | Any number of lobsters can share the same spot
     * 3x mantis shrimp            [crustacean  ] | 1 = 5 points | 2 = 15 points | 3 = 30 points |
   goes with:
-      king crab                -> california gull, common sea star, mantis shrimp, sea star
-      lobster                  -> california gull, common sea star, king salmon, loggerhead sea turtle, mantis shrimp, sea star
-      mantis shrimp            -> california gull, common sea star, king crab, lobster, mantis shrimp, sea star
+      king crab                -> california gull, common sea star, sea star
+      lobster                  -> california gull, common sea star, loggerhead sea turtle, sea star
+      mantis shrimp            -> california gull, common sea star, sea star
   same ocean:
       king crab                -> california gull
       lobster                  -> california gull
@@ -139,12 +138,11 @@ CEPHALOPODS   [cephalopods]
       2x manta ray                [crosscurrent] +2 | Draw one when you play a cephalopod
     * 3x reef trigger fish        [crosscurrent] +2 per Cephalopod | *Play any number of cephalopods for free*
   goes with:
-      bobtail squid            -> giant squid, manta ray, reef trigger fish
-      common octopus           -> giant squid, manta ray, reef trigger fish
-      cuttlefish               -> giant squid, manta ray, reef trigger fish
-      giant squid              -> bobtail squid, common octopus, cuttlefish, manta ray, reef trigger fish
-      manta ray                -> bobtail squid, common octopus, cuttlefish, giant squid, reef trigger fish
-      reef trigger fish        -> bobtail squid, common octopus, cuttlefish, giant squid, king salmon, manta ray
+      bobtail squid            -> reef trigger fish
+      common octopus           -> reef trigger fish
+      cuttlefish               -> reef trigger fish
+      giant squid              -> reef trigger fish
+      reef trigger fish        -> bobtail squid, common octopus, cuttlefish, giant squid
   same ocean:
       bobtail squid            -> reef trigger fish
       common octopus           -> reef trigger fish
@@ -163,14 +161,6 @@ CORAL   [coral]
       2x grooved brain coral      [coral       ] +3 | *Play a free cephalopod*
     * 2x magnificent frigatebird  [bird        ] +2 per coral | *Play a free coral*
     * 2x staghorn coral           [coral       ] +3 per coral
-  goes with:
-      deep sea coral           -> elk horn coral, magnificent frigatebird, staghorn coral
-      elk horn coral           -> coral reef, deep sea coral, grooved brain coral, magnificent frigatebird, staghorn coral
-      grooved brain coral      -> elk horn coral, king salmon, magnificent frigatebird, staghorn coral
-      magnificent frigatebird  -> coral reef, deep sea coral, elk horn coral, emperor penguin, grooved brain coral, king salmon, staghorn coral
-      staghorn coral           -> coral reef, deep sea coral, elk horn coral, grooved brain coral, magnificent frigatebird
-  same ocean:
-      elk horn coral           -> coral reef
 
 ------------------------------------------------------------------------------
 KING SALMON   [king_salmon]
@@ -179,8 +169,6 @@ KING SALMON   [king_salmon]
   pays for it: king salmon
   cards:
     * 4x king salmon              [game fish   ] +5 per fully occupied ocean | *Draw one*
-  goes with:
-      king salmon              -> arctic ocean, barracuda, bottlenose dolphin, goliath grouper, grooved brain coral, hermit crab, horned puffin, lobster, loggerhead sea turtle, magnificent frigatebird, mahi mahi, mangrove, reef trigger fish, sailfish, yellowfin tuna
 
 ------------------------------------------------------------------------------
 INVERTEBRATES   [invertebrates]
@@ -195,12 +183,9 @@ INVERTEBRATES   [invertebrates]
     * 2x red beaded anemone       [invertebrate] +3 per invertebrate | *Draw one*
       2x sea urchin               [invertebrate] Draw one when you play an animal on the ocean surface
   goes with:
-      barracuda                -> common sea star, johnson's sea cucumber, king salmon, orange tube sponge, red beaded anemone, sailfish, sea urchin
-      common sea star          -> barracuda, hermit crab, king crab, lobster, mandarin goby, mantis shrimp, red beaded anemone, spiny lobster
-      johnson's sea cucumber   -> barracuda, big eye tuna, bigeye tuna, red beaded anemone, yellowfin tuna
-      orange tube sponge       -> barracuda, red beaded anemone
-      red beaded anemone       -> barracuda, common sea star, johnson's sea cucumber, orange tube sponge, sea urchin
-      sea urchin               -> barracuda, bonito, bunker, california gull, emperor penguin, flying fish, great albatross, horned puffin, mullet, osprey, peruvian pelican, red beaded anemone, sardine, whale shark
+      common sea star          -> hermit crab, king crab, lobster, mandarin goby, mantis shrimp, spiny lobster
+      johnson's sea cucumber   -> big eye tuna, bigeye tuna, yellowfin tuna
+      sea urchin               -> bonito, bunker, california gull, emperor penguin, flying fish, great albatross, horned puffin, mullet, osprey, peruvian pelican, sardine, whale shark
 
 ------------------------------------------------------------------------------
 GOBY MOON SHOT   [goby_moon_shot]
@@ -211,11 +196,10 @@ GOBY MOON SHOT   [goby_moon_shot]
     * 4x mandarin goby            [crosscurrent] 1 = 0 | 2 = 14 | 3 = 30 | 4 = 80
       3x spiny lobster            [crustacean  ] +6 per mandarin goby
   goes with:
-      mandarin goby            -> blue tang, common sea star, mandarin goby, sea star, spiny lobster
-      spiny lobster            -> california gull, common sea star, mandarin goby, sea star
+      mandarin goby            -> common sea star, sea star
+      spiny lobster            -> california gull, common sea star, sea star
   same ocean:
-      mandarin goby            -> spiny lobster
-      spiny lobster            -> california gull, mandarin goby
+      spiny lobster            -> california gull
 
 ------------------------------------------------------------------------------
 GAME FISH   [game_fish]
@@ -230,12 +214,9 @@ GAME FISH   [game_fish]
       3x sailfish                 [game fish   ] +4 | *Play a free game fish*
       4x tarpon                   [game fish   ] +2 | Discard and draw that many cards
   goes with:
-      blue marlin              -> cleaner wrasse, goliath grouper, mahi mahi, sailfish
-      cleaner wrasse           -> bigeye tuna, blue marlin, mahi mahi, yellowfin tuna
-      goliath grouper          -> blue marlin, king salmon, mahi mahi, sailfish, tarpon
-      mahi mahi                -> blue marlin, cleaner wrasse, goliath grouper, king salmon, loggerhead sea turtle, sailfish
-      sailfish                 -> barracuda, blue marlin, goliath grouper, king salmon, mahi mahi, tarpon, yellowfin tuna
-      tarpon                   -> goliath grouper, sailfish
+      blue marlin              -> mahi mahi
+      cleaner wrasse           -> mahi mahi, yellowfin tuna
+      mahi mahi                -> blue marlin, cleaner wrasse, loggerhead sea turtle
   same ocean:
       blue marlin              -> mahi mahi
       cleaner wrasse           -> mahi mahi
@@ -257,16 +238,15 @@ B-LOB   [birds_crustaceans]   = Birds + Crustaceans
       4x peruvian pelican         [bird        ] +4 | *Draw three*
     * 2x razorbill auk            [bird        ] # of razorbill auks 1 = 5 | 2 = 25
   goes with:
-      california gull          -> emperor penguin, hermit crab, king crab, lobster, mantis shrimp, sea urchin, spiny lobster
-      emperor penguin          -> california gull, great albatross, horned puffin, magnificent frigatebird, osprey, peruvian pelican, razorbill auk, sea urchin
-      great albatross          -> emperor penguin, sea urchin
-      horned puffin            -> emperor penguin, king salmon, sea urchin
-      king crab                -> california gull, common sea star, mantis shrimp, sea star
-      lobster                  -> california gull, common sea star, king salmon, loggerhead sea turtle, mantis shrimp, sea star
-      mantis shrimp            -> california gull, common sea star, king crab, lobster, mantis shrimp, sea star
-      osprey                   -> emperor penguin, sea urchin
-      peruvian pelican         -> emperor penguin, sea urchin
-      razorbill auk            -> emperor penguin, razorbill auk
+      california gull          -> hermit crab, king crab, lobster, mantis shrimp, sea urchin, spiny lobster
+      emperor penguin          -> sea urchin
+      great albatross          -> sea urchin
+      horned puffin            -> sea urchin
+      king crab                -> california gull, common sea star, sea star
+      lobster                  -> california gull, common sea star, loggerhead sea turtle, sea star
+      mantis shrimp            -> california gull, common sea star, sea star
+      osprey                   -> sea urchin
+      peruvian pelican         -> sea urchin
   same ocean:
       california gull          -> hermit crab, king crab, lobster, mantis shrimp, spiny lobster
       king crab                -> california gull
@@ -290,22 +270,15 @@ CORAL/CEPHALOPODS (CC)   [coral_cephalopods]   = Coral + Cephalopods
     * 3x reef trigger fish        [crosscurrent] +2 per Cephalopod | *Play any number of cephalopods for free*
     * 2x staghorn coral           [coral       ] +3 per coral
   goes with:
-      bobtail squid            -> giant squid, manta ray, reef trigger fish
-      common octopus           -> giant squid, manta ray, reef trigger fish
-      cuttlefish               -> giant squid, manta ray, reef trigger fish
-      deep sea coral           -> elk horn coral, magnificent frigatebird, staghorn coral
-      elk horn coral           -> coral reef, deep sea coral, grooved brain coral, magnificent frigatebird, staghorn coral
-      giant squid              -> bobtail squid, common octopus, cuttlefish, manta ray, reef trigger fish
-      grooved brain coral      -> elk horn coral, king salmon, magnificent frigatebird, staghorn coral
-      magnificent frigatebird  -> coral reef, deep sea coral, elk horn coral, emperor penguin, grooved brain coral, king salmon, staghorn coral
-      manta ray                -> bobtail squid, common octopus, cuttlefish, giant squid, reef trigger fish
-      reef trigger fish        -> bobtail squid, common octopus, cuttlefish, giant squid, king salmon, manta ray
-      staghorn coral           -> coral reef, deep sea coral, elk horn coral, grooved brain coral, magnificent frigatebird
+      bobtail squid            -> reef trigger fish
+      common octopus           -> reef trigger fish
+      cuttlefish               -> reef trigger fish
+      giant squid              -> reef trigger fish
+      reef trigger fish        -> bobtail squid, common octopus, cuttlefish, giant squid
   same ocean:
       bobtail squid            -> reef trigger fish
       common octopus           -> reef trigger fish
       cuttlefish               -> reef trigger fish
-      elk horn coral           -> coral reef
       giant squid              -> reef trigger fish
       reef trigger fish        -> bobtail squid, common octopus, cuttlefish, giant squid
 
@@ -327,21 +300,14 @@ B-CORAL   [birds_coral]   = Birds + Coral
     * 2x razorbill auk            [bird        ] # of razorbill auks 1 = 5 | 2 = 25
     * 2x staghorn coral           [coral       ] +3 per coral
   goes with:
-      california gull          -> emperor penguin, hermit crab, king crab, lobster, mantis shrimp, sea urchin, spiny lobster
-      deep sea coral           -> elk horn coral, magnificent frigatebird, staghorn coral
-      elk horn coral           -> coral reef, deep sea coral, grooved brain coral, magnificent frigatebird, staghorn coral
-      emperor penguin          -> california gull, great albatross, horned puffin, magnificent frigatebird, osprey, peruvian pelican, razorbill auk, sea urchin
-      great albatross          -> emperor penguin, sea urchin
-      grooved brain coral      -> elk horn coral, king salmon, magnificent frigatebird, staghorn coral
-      horned puffin            -> emperor penguin, king salmon, sea urchin
-      magnificent frigatebird  -> coral reef, deep sea coral, elk horn coral, emperor penguin, grooved brain coral, king salmon, staghorn coral
-      osprey                   -> emperor penguin, sea urchin
-      peruvian pelican         -> emperor penguin, sea urchin
-      razorbill auk            -> emperor penguin, razorbill auk
-      staghorn coral           -> coral reef, deep sea coral, elk horn coral, grooved brain coral, magnificent frigatebird
+      california gull          -> hermit crab, king crab, lobster, mantis shrimp, sea urchin, spiny lobster
+      emperor penguin          -> sea urchin
+      great albatross          -> sea urchin
+      horned puffin            -> sea urchin
+      osprey                   -> sea urchin
+      peruvian pelican         -> sea urchin
   same ocean:
       california gull          -> hermit crab, king crab, lobster, mantis shrimp, spiny lobster
-      elk horn coral           -> coral reef
 
 ------------------------------------------------------------------------------
 CARDS IN NO PLAN
@@ -368,25 +334,15 @@ OCEANS
 
 ------------------------------------------------------------------------------
 SPECIES THAT GO WITH SPECIES
-     baitfish       + baitfish
      baitfish       + crosscurrent
      baitfish       + game fish
      baitfish       + invertebrate
      baitfish       + n/a
-     bird           + bird
-     bird           + coral
      bird           + crustacean
      cephalopod     + cephalopod
      cephalopod     + crosscurrent
      cephalopod     + n/a
-     coral          + cephalopod
-     coral          + coral
-     crustacean     + crustacean
      crustacean     + invertebrate
-     game fish      + crosscurrent
-     game fish      + game fish
-     invertebrate   + invertebrate
      mammal         + crosscurrent
-     mammal         + mammal
      mammal         + n/a
 
