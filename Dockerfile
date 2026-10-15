@@ -60,6 +60,9 @@ COPY fish_ai_brain.json /app/fish_ai_brain.json
 # the knobs the module already ships with, so it is always present for this COPY
 # and always safe to read; a tuning run replaces it with better ones.
 COPY fish_training/evolve/champion_planner.json /app/fish_training/evolve/champion_planner.json
+# Same story: read beside the module at import, committed holding an empty
+# overlay, so this COPY always has a file and an untrained deploy is a no-op.
+COPY family_prior.json /app/family_prior.json
 COPY cards_vertical.txt /app/cards_vertical.txt
 COPY cards_lr.txt /app/cards_lr.txt
 COPY cards_oceans.txt /app/cards_oceans.txt

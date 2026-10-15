@@ -10,6 +10,10 @@
 !fish_game_all_in_one.py
 # The bot brain from grade A up; multiplayer_server.py imports it at startup.
 !reef_planner.py
+# Read by reef_planner at import, beside itself: the measured worth of each
+# plan, overlaid on the hand-written numbers in the module. Committed empty, so
+# a deploy without a night's training behind it changes nothing.
+!family_prior.json
 !tournament_engine.py
 !tournament_server.py
 !clan_server.py

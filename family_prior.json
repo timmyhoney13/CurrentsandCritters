@@ -1,0 +1,7 @@
+{
+  "note": "Measured plan values, written by apply_family_prior.py from an ab_plan.py measurement. An OVERLAY over reef_planner.FAMILY_PRIOR: an empty 'prior' means the bots play with the hand-written numbers in that module, which is what they have always played with. Delete the file and the same is true. Committed empty so the Dockerfile COPY always has a file to copy, the same reason fish_training/evolve/champion_planner.json is committed holding the knobs the module already ships with.",
+  "shrink": 0.5,
+  "blend": 0.5,
+  "prior": {},
+  "history": []
+}

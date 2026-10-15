@@ -1,0 +1,1741 @@
+{
+  "anchor_priority_version": 2,
+  "cards_in_no_plan": [
+    "blue tang",
+    "clownfish",
+    "loggerhead sea turtle"
+  ],
+  "generated_unix": 1792032766,
+  "plans": [
+    {
+      "built_on": [],
+      "cards": [
+        "bonito",
+        "bunker",
+        "flying fish",
+        "hermit crab",
+        "mullet",
+        "roosterfish",
+        "sardine",
+        "whale shark"
+      ],
+      "display_name": "Baitfish Barrage",
+      "family": "baitfish_barrage",
+      "min_players": 0,
+      "pays_for_plan": [
+        "whale shark"
+      ],
+      "skills": [
+        "advanced",
+        "expert",
+        "intermediate"
+      ]
+    },
+    {
+      "built_on": [],
+      "cards": [
+        "california gull",
+        "emperor penguin",
+        "great albatross",
+        "horned puffin",
+        "osprey",
+        "peruvian pelican",
+        "razorbill auk"
+      ],
+      "display_name": "Birds",
+      "family": "birds_of_a_feather",
+      "min_players": 0,
+      "pays_for_plan": [
+        "emperor penguin",
+        "razorbill auk"
+      ],
+      "skills": [
+        "advanced",
+        "expert",
+        "intermediate"
+      ]
+    },
+    {
+      "built_on": [],
+      "cards": [
+        "bobtail squid",
+        "common octopus",
+        "cuttlefish",
+        "giant squid",
+        "manta ray",
+        "reef trigger fish"
+      ],
+      "display_name": "Cephalopods",
+      "family": "cephalopods",
+      "min_players": 0,
+      "pays_for_plan": [
+        "reef trigger fish",
+        "reef triggerfish"
+      ],
+      "skills": [
+        "advanced",
+        "expert"
+      ]
+    },
+    {
+      "built_on": [],
+      "cards": [
+        "deep sea coral",
+        "elk horn coral",
+        "grooved brain coral",
+        "magnificent frigatebird",
+        "staghorn coral"
+      ],
+      "display_name": "Coral",
+      "family": "coral",
+      "min_players": 0,
+      "pays_for_plan": [
+        "elk horn coral",
+        "elkhorn coral",
+        "magnificent frigatebird",
+        "staghorn coral"
+      ],
+      "skills": [
+        "advanced",
+        "expert"
+      ]
+    },
+    {
+      "built_on": [],
+      "cards": [
+        "king crab",
+        "lobster",
+        "mantis shrimp"
+      ],
+      "display_name": "Crustaceans",
+      "family": "crustaceans",
+      "min_players": 0,
+      "pays_for_plan": [
+        "california gull",
+        "mantis shrimp"
+      ],
+      "skills": [
+        "advanced",
+        "expert"
+      ]
+    },
+    {
+      "built_on": [],
+      "cards": [
+        "blue marlin",
+        "cleaner wrasse",
+        "goliath grouper",
+        "mahi mahi",
+        "sailfish",
+        "tarpon"
+      ],
+      "display_name": "Game Fish",
+      "family": "game_fish",
+      "min_players": 0,
+      "pays_for_plan": [
+        "blue marlin",
+        "cleaner wrasse"
+      ],
+      "skills": [
+        "advanced",
+        "expert"
+      ]
+    },
+    {
+      "built_on": [],
+      "cards": [
+        "mandarin goby",
+        "spiny lobster"
+      ],
+      "display_name": "Goby Moon Shot",
+      "family": "goby_moon_shot",
+      "min_players": 0,
+      "pays_for_plan": [
+        "mandarin goby"
+      ],
+      "skills": [
+        "expert"
+      ]
+    },
+    {
+      "built_on": [],
+      "cards": [
+        "barracuda",
+        "common sea star",
+        "johnson's sea cucumber",
+        "orange tube sponge",
+        "red beaded anemone",
+        "sea urchin"
+      ],
+      "display_name": "Invertebrates",
+      "family": "invertebrates",
+      "min_players": 5,
+      "pays_for_plan": [
+        "barracuda",
+        "red beaded anemone"
+      ],
+      "skills": [
+        "advanced",
+        "expert"
+      ]
+    },
+    {
+      "built_on": [],
+      "cards": [
+        "king salmon"
+      ],
+      "display_name": "King Salmon",
+      "family": "king_salmon",
+      "min_players": 0,
+      "pays_for_plan": [
+        "king salmon"
+      ],
+      "skills": [
+        "advanced",
+        "expert"
+      ]
+    },
+    {
+      "built_on": [],
+      "cards": [
+        "bottlenose dolphin",
+        "great white shark",
+        "narwhal",
+        "spinner dolphin"
+      ],
+      "display_name": "Mammals",
+      "family": "mammals",
+      "min_players": 0,
+      "pays_for_plan": [
+        "great white shark",
+        "narwhal"
+      ],
+      "skills": [
+        "advanced",
+        "beginner",
+        "expert",
+        "intermediate"
+      ]
+    },
+    {
+      "built_on": [],
+      "cards": [
+        "bigeye tuna",
+        "yellowfin tuna"
+      ],
+      "display_name": "Yellowfin Tuna",
+      "family": "yellowfin_tuna",
+      "min_players": 0,
+      "pays_for_plan": [
+        "big eye tuna",
+        "bigeye tuna"
+      ],
+      "skills": [
+        "advanced",
+        "beginner",
+        "expert",
+        "intermediate"
+      ]
+    },
+    {
+      "built_on": [
+        "birds_of_a_feather",
+        "coral"
+      ],
+      "cards": [
+        "california gull",
+        "deep sea coral",
+        "elk horn coral",
+        "emperor penguin",
+        "great albatross",
+        "grooved brain coral",
+        "horned puffin",
+        "magnificent frigatebird",
+        "osprey",
+        "peruvian pelican",
+        "razorbill auk",
+        "staghorn coral"
+      ],
+      "display_name": "B-Coral",
+      "family": "birds_coral",
+      "min_players": 0,
+      "pays_for_plan": [
+        "elk horn coral",
+        "elkhorn coral",
+        "emperor penguin",
+        "magnificent frigatebird",
+        "razorbill auk",
+        "staghorn coral"
+      ],
+      "skills": [
+        "advanced",
+        "expert"
+      ]
+    },
+    {
+      "built_on": [
+        "birds_of_a_feather",
+        "crustaceans"
+      ],
+      "cards": [
+        "california gull",
+        "emperor penguin",
+        "great albatross",
+        "horned puffin",
+        "king crab",
+        "lobster",
+        "mantis shrimp",
+        "osprey",
+        "peruvian pelican",
+        "razorbill auk"
+      ],
+      "display_name": "B-Lob",
+      "family": "birds_crustaceans",
+      "min_players": 0,
+      "pays_for_plan": [
+        "california gull",
+        "emperor penguin",
+        "mantis shrimp",
+        "razorbill auk"
+      ],
+      "skills": [
+        "advanced",
+        "expert"
+      ]
+    },
+    {
+      "built_on": [
+        "coral",
+        "cephalopods"
+      ],
+      "cards": [
+        "bobtail squid",
+        "common octopus",
+        "cuttlefish",
+        "deep sea coral",
+        "elk horn coral",
+        "giant squid",
+        "grooved brain coral",
+        "magnificent frigatebird",
+        "manta ray",
+        "reef trigger fish",
+        "staghorn coral"
+      ],
+      "display_name": "Coral/Cephalopods (CC)",
+      "family": "coral_cephalopods",
+      "min_players": 0,
+      "pays_for_plan": [
+        "elk horn coral",
+        "elkhorn coral",
+        "magnificent frigatebird",
+        "reef trigger fish",
+        "reef triggerfish",
+        "staghorn coral"
+      ],
+      "skills": [
+        "advanced",
+        "expert"
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "ability": "+2 per Invertebrate | *Play a free Invertebrate*",
+      "card": "Barracuda",
+      "goes_with_strategies": [
+        "Free Play",
+        "Game Fish",
+        "Invertebrates"
+      ],
+      "mechanics": [
+        "Free Play"
+      ],
+      "pays_for_plan": true,
+      "plan": "Invertebrates",
+      "plan_family": "invertebrates",
+      "plays_in": [
+        "Game Fish",
+        "Invertebrates"
+      ],
+      "priority_goes_with_cards": [
+        "common sea star",
+        "johnson's sea cucumber",
+        "king salmon",
+        "orange tube sponge",
+        "red beaded anemone",
+        "sailfish",
+        "sea urchin"
+      ],
+      "species": "Game Fish"
+    },
+    {
+      "ability": "+3 per yellowfin tuna | *Draw one for each yellowfin tuna you control*",
+      "card": "Bigeye Tuna",
+      "goes_with_strategies": [
+        "Draw",
+        "Yellowfin",
+        "Yellowfin Tuna"
+      ],
+      "mechanics": [
+        "Draw",
+        "Yellowfin"
+      ],
+      "pays_for_plan": true,
+      "plan": "Yellowfin Tuna",
+      "plan_family": "yellowfin_tuna",
+      "plays_in": [
+        "Yellowfin Tuna"
+      ],
+      "priority_goes_with_cards": [
+        "cleaner wrasse",
+        "johnson's sea cucumber",
+        "yellowfin tuna"
+      ],
+      "species": "Crosscurrent"
+    },
+    {
+      "ability": "+9 if sharing an ocean with a Mahi Mahi",
+      "card": "Blue Marlin",
+      "goes_with_strategies": [
+        "Game Fish",
+        "Pelagic"
+      ],
+      "mechanics": [
+        "Pelagic"
+      ],
+      "pays_for_plan": true,
+      "plan": "Game Fish",
+      "plan_family": "game_fish",
+      "plays_in": [
+        "Game Fish"
+      ],
+      "priority_goes_with_cards": [
+        "cleaner wrasse",
+        "goliath grouper",
+        "mahi mahi",
+        "sailfish"
+      ],
+      "species": "Game Fish"
+    },
+    {
+      "ability": "+2 per Crosscurrent animal",
+      "card": "Blue Tang",
+      "goes_with_strategies": [
+        "Crosscurrent"
+      ],
+      "mechanics": [
+        "Crosscurrent"
+      ],
+      "pays_for_plan": false,
+      "plan": "",
+      "plan_family": "",
+      "plays_in": [],
+      "priority_goes_with_cards": [
+        "mandarin goby"
+      ],
+      "species": "Crosscurrent"
+    },
+    {
+      "ability": "+3 if you have at least three cephalopods",
+      "card": "Bobtail Squid",
+      "goes_with_strategies": [
+        "Cephalopods",
+        "Coral/Cephalopods (CC)"
+      ],
+      "mechanics": [],
+      "pays_for_plan": false,
+      "plan": "Cephalopods",
+      "plan_family": "cephalopods",
+      "plays_in": [
+        "Cephalopods",
+        "Coral/Cephalopods (CC)"
+      ],
+      "priority_goes_with_cards": [
+        "giant squid",
+        "manta ray",
+        "reef trigger fish"
+      ],
+      "species": "Cephalopod"
+    },
+    {
+      "ability": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30",
+      "card": "Bonito",
+      "goes_with_strategies": [
+        "Baitfish Barrage",
+        "Baitfish Engine"
+      ],
+      "mechanics": [
+        "Baitfish Engine"
+      ],
+      "pays_for_plan": false,
+      "plan": "Baitfish Barrage",
+      "plan_family": "baitfish_barrage",
+      "plays_in": [
+        "Baitfish Barrage"
+      ],
+      "priority_goes_with_cards": [
+        "hermit crab",
+        "loggerhead sea turtle",
+        "roosterfish",
+        "sea urchin",
+        "whale shark"
+      ],
+      "species": "Baitfish"
+    },
+    {
+      "ability": "+3 | *play a free mammal*",
+      "card": "Bottlenose Dolphin",
+      "goes_with_strategies": [
+        "Free Play",
+        "Mammals"
+      ],
+      "mechanics": [
+        "Free Play"
+      ],
+      "pays_for_plan": false,
+      "plan": "Mammals",
+      "plan_family": "mammals",
+      "plays_in": [
+        "Mammals"
+      ],
+      "priority_goes_with_cards": [
+        "great white shark",
+        "king salmon",
+        "narwhal"
+      ],
+      "species": "Mammal"
+    },
+    {
+      "ability": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30",
+      "card": "Bunker",
+      "goes_with_strategies": [
+        "Baitfish Barrage",
+        "Baitfish Engine"
+      ],
+      "mechanics": [
+        "Baitfish Engine"
+      ],
+      "pays_for_plan": false,
+      "plan": "Baitfish Barrage",
+      "plan_family": "baitfish_barrage",
+      "plays_in": [
+        "Baitfish Barrage"
+      ],
+      "priority_goes_with_cards": [
+        "hermit crab",
+        "loggerhead sea turtle",
+        "roosterfish",
+        "sea urchin",
+        "whale shark"
+      ],
+      "species": "Baitfish"
+    },
+    {
+      "ability": "+2 per crustacean",
+      "card": "California Gull",
+      "goes_with_strategies": [
+        "B-Coral",
+        "B-Lob",
+        "Birds",
+        "Crustaceans"
+      ],
+      "mechanics": [],
+      "pays_for_plan": false,
+      "plan": "Birds",
+      "plan_family": "birds_of_a_feather",
+      "plays_in": [
+        "B-Coral",
+        "B-Lob",
+        "Birds",
+        "Crustaceans"
+      ],
+      "priority_goes_with_cards": [
+        "emperor penguin",
+        "hermit crab",
+        "king crab",
+        "lobster",
+        "mantis shrimp",
+        "sea urchin",
+        "spiny lobster"
+      ],
+      "species": "Bird"
+    },
+    {
+      "ability": "+3 per Mahi Mahi | *Play a free crustacean*",
+      "card": "Cleaner Wrasse",
+      "goes_with_strategies": [
+        "Free Play",
+        "Game Fish",
+        "Yellowfin"
+      ],
+      "mechanics": [
+        "Free Play",
+        "Yellowfin"
+      ],
+      "pays_for_plan": true,
+      "plan": "Game Fish",
+      "plan_family": "game_fish",
+      "plays_in": [
+        "Game Fish"
+      ],
+      "priority_goes_with_cards": [
+        "bigeye tuna",
+        "blue marlin",
+        "mahi mahi",
+        "yellowfin tuna"
+      ],
+      "species": "Crosscurrent"
+    },
+    {
+      "ability": "Copies the Ocean\u2019s ability this card is attached to",
+      "card": "Clownfish",
+      "goes_with_strategies": [
+        "Cheap Flex"
+      ],
+      "mechanics": [
+        "Cheap Flex"
+      ],
+      "pays_for_plan": false,
+      "plan": "",
+      "plan_family": "",
+      "plays_in": [],
+      "priority_goes_with_cards": [],
+      "species": "Crosscurrent"
+    },
+    {
+      "ability": "+3 if you have at least three cephalopods",
+      "card": "Common Octopus",
+      "goes_with_strategies": [
+        "Cephalopods",
+        "Coral/Cephalopods (CC)"
+      ],
+      "mechanics": [],
+      "pays_for_plan": false,
+      "plan": "Cephalopods",
+      "plan_family": "cephalopods",
+      "plays_in": [
+        "Cephalopods",
+        "Coral/Cephalopods (CC)"
+      ],
+      "priority_goes_with_cards": [
+        "giant squid",
+        "manta ray",
+        "reef trigger fish"
+      ],
+      "species": "Cephalopod"
+    },
+    {
+      "ability": "Draw one when you play a card on the ocean floor",
+      "card": "Common Sea Star",
+      "goes_with_strategies": [
+        "Bottom Engine",
+        "Draw",
+        "Goby Spiny Combo",
+        "Invertebrates"
+      ],
+      "mechanics": [
+        "Bottom Engine",
+        "Draw",
+        "Goby Spiny Combo"
+      ],
+      "pays_for_plan": false,
+      "plan": "Invertebrates",
+      "plan_family": "invertebrates",
+      "plays_in": [
+        "Invertebrates"
+      ],
+      "priority_goes_with_cards": [
+        "barracuda",
+        "hermit crab",
+        "king crab",
+        "lobster",
+        "mandarin goby",
+        "mantis shrimp",
+        "red beaded anemone",
+        "spiny lobster"
+      ],
+      "species": "Invertebrate"
+    },
+    {
+      "ability": "+3 if you have at least three cephalopods",
+      "card": "Cuttlefish",
+      "goes_with_strategies": [
+        "Cephalopods",
+        "Coral/Cephalopods (CC)"
+      ],
+      "mechanics": [],
+      "pays_for_plan": false,
+      "plan": "Cephalopods",
+      "plan_family": "cephalopods",
+      "plays_in": [
+        "Cephalopods",
+        "Coral/Cephalopods (CC)"
+      ],
+      "priority_goes_with_cards": [
+        "giant squid",
+        "manta ray",
+        "reef trigger fish"
+      ],
+      "species": "Cephalopod"
+    },
+    {
+      "ability": "+10 if this is the only creature on this ocean",
+      "card": "Deep Sea Coral",
+      "goes_with_strategies": [
+        "B-Coral",
+        "Coral",
+        "Coral/Cephalopods (CC)"
+      ],
+      "mechanics": [],
+      "pays_for_plan": false,
+      "plan": "Coral",
+      "plan_family": "coral",
+      "plays_in": [
+        "B-Coral",
+        "Coral",
+        "Coral/Cephalopods (CC)"
+      ],
+      "priority_goes_with_cards": [
+        "elk horn coral",
+        "magnificent frigatebird",
+        "staghorn coral"
+      ],
+      "species": "Coral"
+    },
+    {
+      "ability": "+2 per coral that is attached to a coral reef",
+      "card": "Elk Horn Coral",
+      "goes_with_strategies": [
+        "B-Coral",
+        "Coral",
+        "Coral/Cephalopods (CC)"
+      ],
+      "mechanics": [],
+      "pays_for_plan": true,
+      "plan": "Coral",
+      "plan_family": "coral",
+      "plays_in": [
+        "B-Coral",
+        "Coral",
+        "Coral/Cephalopods (CC)"
+      ],
+      "priority_goes_with_cards": [
+        "coral reef",
+        "deep sea coral",
+        "grooved brain coral",
+        "magnificent frigatebird",
+        "staghorn coral"
+      ],
+      "species": "Coral"
+    },
+    {
+      "ability": "+2 per Bird",
+      "card": "Emperor Penguin",
+      "goes_with_strategies": [
+        "B-Coral",
+        "B-Lob",
+        "Birds"
+      ],
+      "mechanics": [],
+      "pays_for_plan": true,
+      "plan": "Birds",
+      "plan_family": "birds_of_a_feather",
+      "plays_in": [
+        "B-Coral",
+        "B-Lob",
+        "Birds"
+      ],
+      "priority_goes_with_cards": [
+        "california gull",
+        "great albatross",
+        "horned puffin",
+        "magnificent frigatebird",
+        "osprey",
+        "peruvian pelican",
+        "razorbill auk",
+        "sea urchin"
+      ],
+      "species": "Bird"
+    },
+    {
+      "ability": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30",
+      "card": "Flying Fish",
+      "goes_with_strategies": [
+        "Baitfish Barrage",
+        "Baitfish Engine"
+      ],
+      "mechanics": [
+        "Baitfish Engine"
+      ],
+      "pays_for_plan": false,
+      "plan": "Baitfish Barrage",
+      "plan_family": "baitfish_barrage",
+      "plays_in": [
+        "Baitfish Barrage"
+      ],
+      "priority_goes_with_cards": [
+        "hermit crab",
+        "loggerhead sea turtle",
+        "roosterfish",
+        "sea urchin",
+        "whale shark"
+      ],
+      "species": "Baitfish"
+    },
+    {
+      "ability": "+6 if you have at least three cephalopods",
+      "card": "Giant Squid",
+      "goes_with_strategies": [
+        "Cephalopods",
+        "Coral/Cephalopods (CC)"
+      ],
+      "mechanics": [],
+      "pays_for_plan": false,
+      "plan": "Cephalopods",
+      "plan_family": "cephalopods",
+      "plays_in": [
+        "Cephalopods",
+        "Coral/Cephalopods (CC)"
+      ],
+      "priority_goes_with_cards": [
+        "bobtail squid",
+        "common octopus",
+        "cuttlefish",
+        "manta ray",
+        "reef trigger fish"
+      ],
+      "species": "Cephalopod"
+    },
+    {
+      "ability": "Draw one | *Play again*",
+      "card": "Goliath Grouper",
+      "goes_with_strategies": [
+        "Draw",
+        "Game Fish",
+        "King Salmon",
+        "Tempo"
+      ],
+      "mechanics": [
+        "Draw",
+        "Tempo"
+      ],
+      "pays_for_plan": false,
+      "plan": "Game Fish",
+      "plan_family": "game_fish",
+      "plays_in": [
+        "Game Fish",
+        "King Salmon"
+      ],
+      "priority_goes_with_cards": [
+        "blue marlin",
+        "king salmon",
+        "mahi mahi",
+        "sailfish",
+        "tarpon"
+      ],
+      "species": "Game Fish"
+    },
+    {
+      "ability": "+6 if you have the most oceans | *Draw one*",
+      "card": "Great Albatross",
+      "goes_with_strategies": [
+        "B-Coral",
+        "B-Lob",
+        "Birds",
+        "Draw",
+        "Ocean Race"
+      ],
+      "mechanics": [
+        "Draw",
+        "Ocean Race"
+      ],
+      "pays_for_plan": false,
+      "plan": "Birds",
+      "plan_family": "birds_of_a_feather",
+      "plays_in": [
+        "B-Coral",
+        "B-Lob",
+        "Birds"
+      ],
+      "priority_goes_with_cards": [
+        "emperor penguin",
+        "sea urchin"
+      ],
+      "species": "Bird"
+    },
+    {
+      "ability": "+3 per mammal | *Draw one*",
+      "card": "Great White Shark",
+      "goes_with_strategies": [
+        "Draw",
+        "Mammals"
+      ],
+      "mechanics": [
+        "Draw"
+      ],
+      "pays_for_plan": true,
+      "plan": "Mammals",
+      "plan_family": "mammals",
+      "plays_in": [
+        "Mammals"
+      ],
+      "priority_goes_with_cards": [
+        "bottlenose dolphin",
+        "narwhal",
+        "spinner dolphin"
+      ],
+      "species": "Crosscurrent"
+    },
+    {
+      "ability": "+3 | *Play a free cephalopod*",
+      "card": "Grooved Brain Coral",
+      "goes_with_strategies": [
+        "B-Coral",
+        "Cephalopods",
+        "Coral",
+        "Coral/Cephalopods (CC)",
+        "Free Play"
+      ],
+      "mechanics": [
+        "Free Play"
+      ],
+      "pays_for_plan": false,
+      "plan": "Coral",
+      "plan_family": "coral",
+      "plays_in": [
+        "B-Coral",
+        "Cephalopods",
+        "Coral",
+        "Coral/Cephalopods (CC)"
+      ],
+      "priority_goes_with_cards": [
+        "elk horn coral",
+        "king salmon",
+        "magnificent frigatebird",
+        "staghorn coral"
+      ],
+      "species": "Coral"
+    },
+    {
+      "ability": "Play any number of baitfish this turn for free",
+      "card": "Hermit Crab",
+      "goes_with_strategies": [
+        "Baitfish Barrage",
+        "Baitfish Engine",
+        "Crustaceans"
+      ],
+      "mechanics": [
+        "Baitfish Engine"
+      ],
+      "pays_for_plan": false,
+      "plan": "Baitfish Barrage",
+      "plan_family": "baitfish_barrage",
+      "plays_in": [
+        "Baitfish Barrage",
+        "Crustaceans"
+      ],
+      "priority_goes_with_cards": [
+        "bonito",
+        "bunker",
+        "california gull",
+        "common sea star",
+        "flying fish",
+        "king salmon",
+        "mullet",
+        "roosterfish",
+        "sardine",
+        "sea star",
+        "whale shark"
+      ],
+      "species": "Crustacean"
+    },
+    {
+      "ability": "+3 | *play again*",
+      "card": "Horned Puffin",
+      "goes_with_strategies": [
+        "B-Coral",
+        "B-Lob",
+        "Birds",
+        "King Salmon",
+        "Tempo"
+      ],
+      "mechanics": [
+        "Tempo"
+      ],
+      "pays_for_plan": false,
+      "plan": "Birds",
+      "plan_family": "birds_of_a_feather",
+      "plays_in": [
+        "B-Coral",
+        "B-Lob",
+        "Birds",
+        "King Salmon"
+      ],
+      "priority_goes_with_cards": [
+        "emperor penguin",
+        "king salmon",
+        "sea urchin"
+      ],
+      "species": "Bird"
+    },
+    {
+      "ability": "Draw one when you play a yellowfin tuna",
+      "card": "Johnson's Sea Cucumber",
+      "goes_with_strategies": [
+        "Draw",
+        "Invertebrates",
+        "Yellowfin"
+      ],
+      "mechanics": [
+        "Draw",
+        "Yellowfin"
+      ],
+      "pays_for_plan": false,
+      "plan": "Invertebrates",
+      "plan_family": "invertebrates",
+      "plays_in": [
+        "Invertebrates"
+      ],
+      "priority_goes_with_cards": [
+        "barracuda",
+        "big eye tuna",
+        "bigeye tuna",
+        "red beaded anemone",
+        "yellowfin tuna"
+      ],
+      "species": "Invertebrate"
+    },
+    {
+      "ability": "+3 | *Draw two*",
+      "card": "King Crab",
+      "goes_with_strategies": [
+        "B-Lob",
+        "Crustaceans",
+        "Draw"
+      ],
+      "mechanics": [
+        "Draw"
+      ],
+      "pays_for_plan": false,
+      "plan": "Crustaceans",
+      "plan_family": "crustaceans",
+      "plays_in": [
+        "B-Lob",
+        "Crustaceans"
+      ],
+      "priority_goes_with_cards": [
+        "california gull",
+        "common sea star",
+        "mantis shrimp",
+        "sea star"
+      ],
+      "species": "Crustacean"
+    },
+    {
+      "ability": "+5 per fully occupied ocean | *Draw one*",
+      "card": "King Salmon",
+      "goes_with_strategies": [
+        "Draw",
+        "Game Fish",
+        "King Salmon"
+      ],
+      "mechanics": [
+        "Draw"
+      ],
+      "pays_for_plan": true,
+      "plan": "King Salmon",
+      "plan_family": "king_salmon",
+      "plays_in": [
+        "Game Fish",
+        "King Salmon"
+      ],
+      "priority_goes_with_cards": [
+        "arctic ocean",
+        "barracuda",
+        "bottlenose dolphin",
+        "goliath grouper",
+        "grooved brain coral",
+        "hermit crab",
+        "horned puffin",
+        "lobster",
+        "loggerhead sea turtle",
+        "magnificent frigatebird",
+        "mahi mahi",
+        "mangrove",
+        "reef trigger fish",
+        "sailfish",
+        "yellowfin tuna"
+      ],
+      "species": "Game Fish"
+    },
+    {
+      "ability": "+4 | Any number of lobsters can share the same spot",
+      "card": "Lobster",
+      "goes_with_strategies": [
+        "B-Lob",
+        "Crustaceans"
+      ],
+      "mechanics": [],
+      "pays_for_plan": false,
+      "plan": "Crustaceans",
+      "plan_family": "crustaceans",
+      "plays_in": [
+        "B-Lob",
+        "Crustaceans"
+      ],
+      "priority_goes_with_cards": [
+        "california gull",
+        "common sea star",
+        "king salmon",
+        "loggerhead sea turtle",
+        "mantis shrimp",
+        "sea star"
+      ],
+      "species": "Crustacean"
+    },
+    {
+      "ability": "Play any number of cards by paying the costs",
+      "card": "Loggerhead Sea Turtle",
+      "goes_with_strategies": [
+        "Cheap Burst"
+      ],
+      "mechanics": [
+        "Cheap Burst"
+      ],
+      "pays_for_plan": false,
+      "plan": "",
+      "plan_family": "",
+      "plays_in": [],
+      "priority_goes_with_cards": [
+        "bonito",
+        "bunker",
+        "flying fish",
+        "king salmon",
+        "lobster",
+        "mahi mahi",
+        "mullet",
+        "sardine",
+        "yellowfin tuna"
+      ],
+      "species": "Crosscurrent"
+    },
+    {
+      "ability": "+2 per coral | *Play a free coral*",
+      "card": "Magnificent Frigatebird",
+      "goes_with_strategies": [
+        "B-Coral",
+        "Birds",
+        "Coral",
+        "Coral/Cephalopods (CC)",
+        "Free Play"
+      ],
+      "mechanics": [
+        "Free Play"
+      ],
+      "pays_for_plan": true,
+      "plan": "Coral",
+      "plan_family": "coral",
+      "plays_in": [
+        "B-Coral",
+        "Birds",
+        "Coral",
+        "Coral/Cephalopods (CC)"
+      ],
+      "priority_goes_with_cards": [
+        "coral reef",
+        "deep sea coral",
+        "elk horn coral",
+        "emperor penguin",
+        "grooved brain coral",
+        "king salmon",
+        "staghorn coral"
+      ],
+      "species": "Bird"
+    },
+    {
+      "ability": "+1",
+      "card": "Mahi Mahi",
+      "goes_with_strategies": [
+        "Game Fish",
+        "Pelagic"
+      ],
+      "mechanics": [
+        "Pelagic"
+      ],
+      "pays_for_plan": false,
+      "plan": "Game Fish",
+      "plan_family": "game_fish",
+      "plays_in": [
+        "Game Fish"
+      ],
+      "priority_goes_with_cards": [
+        "blue marlin",
+        "cleaner wrasse",
+        "goliath grouper",
+        "king salmon",
+        "loggerhead sea turtle",
+        "sailfish"
+      ],
+      "species": "Game Fish"
+    },
+    {
+      "ability": "1 = 0 | 2 = 14 | 3 = 30 | 4 = 80",
+      "card": "Mandarin Goby",
+      "goes_with_strategies": [
+        "Crosscurrent",
+        "Goby Moon Shot",
+        "Goby Spiny Combo"
+      ],
+      "mechanics": [
+        "Crosscurrent",
+        "Goby Spiny Combo"
+      ],
+      "pays_for_plan": true,
+      "plan": "Goby Moon Shot",
+      "plan_family": "goby_moon_shot",
+      "plays_in": [
+        "Goby Moon Shot"
+      ],
+      "priority_goes_with_cards": [
+        "blue tang",
+        "common sea star",
+        "mandarin goby",
+        "sea star",
+        "spiny lobster"
+      ],
+      "species": "Crosscurrent"
+    },
+    {
+      "ability": "+2 | Draw one when you play a cephalopod",
+      "card": "Manta Ray",
+      "goes_with_strategies": [
+        "Cephalopods",
+        "Coral/Cephalopods (CC)",
+        "Draw"
+      ],
+      "mechanics": [
+        "Draw"
+      ],
+      "pays_for_plan": false,
+      "plan": "Cephalopods",
+      "plan_family": "cephalopods",
+      "plays_in": [
+        "Cephalopods",
+        "Coral/Cephalopods (CC)"
+      ],
+      "priority_goes_with_cards": [
+        "bobtail squid",
+        "common octopus",
+        "cuttlefish",
+        "giant squid",
+        "reef trigger fish"
+      ],
+      "species": "Crosscurrent"
+    },
+    {
+      "ability": "| 1 = 5 points | 2 = 15 points | 3 = 30 points |",
+      "card": "Mantis Shrimp",
+      "goes_with_strategies": [
+        "B-Lob",
+        "Crustaceans"
+      ],
+      "mechanics": [],
+      "pays_for_plan": true,
+      "plan": "Crustaceans",
+      "plan_family": "crustaceans",
+      "plays_in": [
+        "B-Lob",
+        "Crustaceans"
+      ],
+      "priority_goes_with_cards": [
+        "california gull",
+        "common sea star",
+        "king crab",
+        "lobster",
+        "mantis shrimp",
+        "sea star"
+      ],
+      "species": "Crustacean"
+    },
+    {
+      "ability": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30",
+      "card": "Mullet",
+      "goes_with_strategies": [
+        "Baitfish Barrage",
+        "Baitfish Engine"
+      ],
+      "mechanics": [
+        "Baitfish Engine"
+      ],
+      "pays_for_plan": false,
+      "plan": "Baitfish Barrage",
+      "plan_family": "baitfish_barrage",
+      "plays_in": [
+        "Baitfish Barrage"
+      ],
+      "priority_goes_with_cards": [
+        "hermit crab",
+        "loggerhead sea turtle",
+        "roosterfish",
+        "sea urchin",
+        "whale shark"
+      ],
+      "species": "Baitfish"
+    },
+    {
+      "ability": "+2 per Mammal | *Draw one*",
+      "card": "Narwhal",
+      "goes_with_strategies": [
+        "Draw",
+        "Mammals"
+      ],
+      "mechanics": [
+        "Draw"
+      ],
+      "pays_for_plan": true,
+      "plan": "Mammals",
+      "plan_family": "mammals",
+      "plays_in": [
+        "Mammals"
+      ],
+      "priority_goes_with_cards": [
+        "bottlenose dolphin",
+        "great white shark",
+        "spinner dolphin"
+      ],
+      "species": "Mammal"
+    },
+    {
+      "ability": "+2 per matching symbol",
+      "card": "Orange Tube Sponge",
+      "goes_with_strategies": [
+        "Invertebrates",
+        "Symbol Match"
+      ],
+      "mechanics": [
+        "Symbol Match"
+      ],
+      "pays_for_plan": false,
+      "plan": "Invertebrates",
+      "plan_family": "invertebrates",
+      "plays_in": [
+        "Invertebrates"
+      ],
+      "priority_goes_with_cards": [
+        "barracuda",
+        "red beaded anemone"
+      ],
+      "species": "Invertebrate"
+    },
+    {
+      "ability": "+2 per matching symbol",
+      "card": "Osprey",
+      "goes_with_strategies": [
+        "B-Coral",
+        "B-Lob",
+        "Birds",
+        "Symbol Match"
+      ],
+      "mechanics": [
+        "Symbol Match"
+      ],
+      "pays_for_plan": false,
+      "plan": "Birds",
+      "plan_family": "birds_of_a_feather",
+      "plays_in": [
+        "B-Coral",
+        "B-Lob",
+        "Birds"
+      ],
+      "priority_goes_with_cards": [
+        "emperor penguin",
+        "sea urchin"
+      ],
+      "species": "Bird"
+    },
+    {
+      "ability": "+4 | *Draw three*",
+      "card": "Peruvian Pelican",
+      "goes_with_strategies": [
+        "B-Coral",
+        "B-Lob",
+        "Birds",
+        "Draw"
+      ],
+      "mechanics": [
+        "Draw"
+      ],
+      "pays_for_plan": false,
+      "plan": "Birds",
+      "plan_family": "birds_of_a_feather",
+      "plays_in": [
+        "B-Coral",
+        "B-Lob",
+        "Birds"
+      ],
+      "priority_goes_with_cards": [
+        "emperor penguin",
+        "sea urchin"
+      ],
+      "species": "Bird"
+    },
+    {
+      "ability": "# of razorbill auks 1 = 5 | 2 = 25",
+      "card": "Razorbill Auk",
+      "goes_with_strategies": [
+        "B-Coral",
+        "B-Lob",
+        "Birds"
+      ],
+      "mechanics": [],
+      "pays_for_plan": true,
+      "plan": "Birds",
+      "plan_family": "birds_of_a_feather",
+      "plays_in": [
+        "B-Coral",
+        "B-Lob",
+        "Birds"
+      ],
+      "priority_goes_with_cards": [
+        "emperor penguin",
+        "razorbill auk"
+      ],
+      "species": "Bird"
+    },
+    {
+      "ability": "+3 per invertebrate | *Draw one*",
+      "card": "Red Beaded Anemone",
+      "goes_with_strategies": [
+        "Draw",
+        "Invertebrates"
+      ],
+      "mechanics": [
+        "Draw"
+      ],
+      "pays_for_plan": true,
+      "plan": "Invertebrates",
+      "plan_family": "invertebrates",
+      "plays_in": [
+        "Invertebrates"
+      ],
+      "priority_goes_with_cards": [
+        "barracuda",
+        "common sea star",
+        "johnson's sea cucumber",
+        "orange tube sponge",
+        "sea urchin"
+      ],
+      "species": "Invertebrate"
+    },
+    {
+      "ability": "+2 per Cephalopod | *Play any number of cephalopods for free*",
+      "card": "Reef Trigger Fish",
+      "goes_with_strategies": [
+        "Cephalopods",
+        "Coral/Cephalopods (CC)"
+      ],
+      "mechanics": [],
+      "pays_for_plan": true,
+      "plan": "Cephalopods",
+      "plan_family": "cephalopods",
+      "plays_in": [
+        "Cephalopods",
+        "Coral/Cephalopods (CC)"
+      ],
+      "priority_goes_with_cards": [
+        "bobtail squid",
+        "common octopus",
+        "cuttlefish",
+        "giant squid",
+        "king salmon",
+        "manta ray"
+      ],
+      "species": "Crosscurrent"
+    },
+    {
+      "ability": "+4 if sharing an ocean with baitfish | *play a free Baitfish*",
+      "card": "Roosterfish",
+      "goes_with_strategies": [
+        "Baitfish Barrage",
+        "Baitfish Engine",
+        "Cheap Flex",
+        "Free Play",
+        "Game Fish"
+      ],
+      "mechanics": [
+        "Baitfish Engine",
+        "Cheap Flex",
+        "Free Play"
+      ],
+      "pays_for_plan": false,
+      "plan": "Baitfish Barrage",
+      "plan_family": "baitfish_barrage",
+      "plays_in": [
+        "Baitfish Barrage",
+        "Game Fish"
+      ],
+      "priority_goes_with_cards": [
+        "bonito",
+        "bunker",
+        "flying fish",
+        "hermit crab",
+        "mullet",
+        "sardine",
+        "whale shark"
+      ],
+      "species": "Game Fish"
+    },
+    {
+      "ability": "+4 | *Play a free game fish*",
+      "card": "Sailfish",
+      "goes_with_strategies": [
+        "Free Play",
+        "Game Fish",
+        "King Salmon"
+      ],
+      "mechanics": [
+        "Free Play"
+      ],
+      "pays_for_plan": false,
+      "plan": "Game Fish",
+      "plan_family": "game_fish",
+      "plays_in": [
+        "Game Fish",
+        "King Salmon"
+      ],
+      "priority_goes_with_cards": [
+        "barracuda",
+        "blue marlin",
+        "goliath grouper",
+        "king salmon",
+        "mahi mahi",
+        "tarpon",
+        "yellowfin tuna"
+      ],
+      "species": "Game Fish"
+    },
+    {
+      "ability": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30",
+      "card": "Sardine",
+      "goes_with_strategies": [
+        "Baitfish Barrage",
+        "Baitfish Engine"
+      ],
+      "mechanics": [
+        "Baitfish Engine"
+      ],
+      "pays_for_plan": false,
+      "plan": "Baitfish Barrage",
+      "plan_family": "baitfish_barrage",
+      "plays_in": [
+        "Baitfish Barrage"
+      ],
+      "priority_goes_with_cards": [
+        "hermit crab",
+        "loggerhead sea turtle",
+        "roosterfish",
+        "sea urchin",
+        "whale shark"
+      ],
+      "species": "Baitfish"
+    },
+    {
+      "ability": "Draw one when you play an animal on the ocean surface",
+      "card": "Sea Urchin",
+      "goes_with_strategies": [
+        "Baitfish Engine",
+        "Birds",
+        "Draw",
+        "Invertebrates"
+      ],
+      "mechanics": [
+        "Baitfish Engine",
+        "Draw"
+      ],
+      "pays_for_plan": false,
+      "plan": "Invertebrates",
+      "plan_family": "invertebrates",
+      "plays_in": [
+        "Birds",
+        "Invertebrates"
+      ],
+      "priority_goes_with_cards": [
+        "barracuda",
+        "bonito",
+        "bunker",
+        "california gull",
+        "emperor penguin",
+        "flying fish",
+        "great albatross",
+        "horned puffin",
+        "mullet",
+        "osprey",
+        "peruvian pelican",
+        "red beaded anemone",
+        "sardine",
+        "whale shark"
+      ],
+      "species": "Invertebrate"
+    },
+    {
+      "ability": "+2 per matching symbol | *Draw one*",
+      "card": "Spinner Dolphin",
+      "goes_with_strategies": [
+        "Draw",
+        "Mammals",
+        "Symbol Match"
+      ],
+      "mechanics": [
+        "Draw",
+        "Symbol Match"
+      ],
+      "pays_for_plan": false,
+      "plan": "Mammals",
+      "plan_family": "mammals",
+      "plays_in": [
+        "Mammals"
+      ],
+      "priority_goes_with_cards": [
+        "great white shark",
+        "narwhal"
+      ],
+      "species": "Mammal"
+    },
+    {
+      "ability": "+6 per mandarin goby",
+      "card": "Spiny Lobster",
+      "goes_with_strategies": [
+        "Crosscurrent",
+        "Crustaceans",
+        "Goby Moon Shot",
+        "Goby Spiny Combo"
+      ],
+      "mechanics": [
+        "Crosscurrent",
+        "Goby Spiny Combo"
+      ],
+      "pays_for_plan": false,
+      "plan": "Goby Moon Shot",
+      "plan_family": "goby_moon_shot",
+      "plays_in": [
+        "Crustaceans",
+        "Goby Moon Shot"
+      ],
+      "priority_goes_with_cards": [
+        "california gull",
+        "common sea star",
+        "mandarin goby",
+        "sea star"
+      ],
+      "species": "Crustacean"
+    },
+    {
+      "ability": "+3 per coral",
+      "card": "Staghorn Coral",
+      "goes_with_strategies": [
+        "B-Coral",
+        "Coral",
+        "Coral/Cephalopods (CC)"
+      ],
+      "mechanics": [],
+      "pays_for_plan": true,
+      "plan": "Coral",
+      "plan_family": "coral",
+      "plays_in": [
+        "B-Coral",
+        "Coral",
+        "Coral/Cephalopods (CC)"
+      ],
+      "priority_goes_with_cards": [
+        "coral reef",
+        "deep sea coral",
+        "elk horn coral",
+        "grooved brain coral",
+        "magnificent frigatebird"
+      ],
+      "species": "Coral"
+    },
+    {
+      "ability": "+2 | Discard and draw that many cards",
+      "card": "Tarpon",
+      "goes_with_strategies": [
+        "Draw",
+        "Game Fish",
+        "Pelagic"
+      ],
+      "mechanics": [
+        "Draw",
+        "Pelagic"
+      ],
+      "pays_for_plan": false,
+      "plan": "Game Fish",
+      "plan_family": "game_fish",
+      "plays_in": [
+        "Game Fish"
+      ],
+      "priority_goes_with_cards": [
+        "goliath grouper",
+        "sailfish"
+      ],
+      "species": "Game Fish"
+    },
+    {
+      "ability": "+4 per baitfish | *Draw one*",
+      "card": "Whale Shark",
+      "goes_with_strategies": [
+        "Baitfish Barrage",
+        "Baitfish Engine",
+        "Draw"
+      ],
+      "mechanics": [
+        "Baitfish Engine",
+        "Draw"
+      ],
+      "pays_for_plan": true,
+      "plan": "Baitfish Barrage",
+      "plan_family": "baitfish_barrage",
+      "plays_in": [
+        "Baitfish Barrage"
+      ],
+      "priority_goes_with_cards": [
+        "bonito",
+        "bunker",
+        "flying fish",
+        "hermit crab",
+        "mullet",
+        "roosterfish",
+        "sardine",
+        "sea urchin"
+      ],
+      "species": "Crosscurrent"
+    },
+    {
+      "ability": "+2 | Any number of yellowfin may share the same spot",
+      "card": "Yellowfin Tuna",
+      "goes_with_strategies": [
+        "Game Fish",
+        "Yellowfin",
+        "Yellowfin Tuna"
+      ],
+      "mechanics": [
+        "Yellowfin"
+      ],
+      "pays_for_plan": false,
+      "plan": "Yellowfin Tuna",
+      "plan_family": "yellowfin_tuna",
+      "plays_in": [
+        "Game Fish",
+        "Yellowfin Tuna"
+      ],
+      "priority_goes_with_cards": [
+        "bigeye tuna",
+        "cleaner wrasse",
+        "johnson's sea cucumber",
+        "king salmon",
+        "loggerhead sea turtle",
+        "sailfish"
+      ],
+      "species": "Game Fish"
+    }
+  ]
+}

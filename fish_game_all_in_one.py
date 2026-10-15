@@ -2858,26 +2858,106 @@ def species_synergy_key(a_species: str, b_species: str) -> str:
     return f"{y}|{x}"
 
 
-ANCHOR_PRIORITY_VERSION = 1
+# Bumped to 2 on 2026-10-14: the anchor lists below went from covering eleven
+# cards to covering every plan in the game, so a brain written under version 1
+# has floors for three plans and nothing for the other eleven.
+ANCHOR_PRIORITY_VERSION = 2
 ANIMAL_SYNERGY_GRID_PATH = "animal_synergy_grid.json"
 
-# Main anchor combos from user guidance.
+# WHAT GOES WITH WHAT: the anchor combos, one entry per card that pays for
+# having a family rather than for being in it.
+#
+# synergy_key() sorts its pair, so every entry here is symmetric and the
+# reverse direction is free -- "whale shark goes with sardine" is the same fact
+# as "sardine goes with whale shark", and the grid builder prints both.
+#
+# These are a FLOOR on learned memory (ensure_priority_anchor_brain_rules), so
+# the rule for adding one is that the card text has to say it. A pair that is
+# merely plausible belongs in the learner's hands, not here: a floor the
+# learner cannot push back down is a fact asserted without a game behind it,
+# and if everything is a synergy then nothing is.
+#
+# Eleven of the fourteen plans used to have no anchor at all, so Coral, Birds,
+# Mammals-beyond-the-shark, Crustaceans, King Salmon, Invertebrates, Game Fish,
+# Cephalopod-counting and the Goby pair were invisible here.
 PRIORITY_CARD_SYNERGY: Dict[str, set[str]] = {
+    # ── baitfish_barrage: five species fill a 30-point chart; three cards pay
+    #    per baitfish or play them free.
     "whale shark": {"mullet", "bunker", "sardine", "flying fish", "bonito", "hermit crab", "sea urchin", "roosterfish"},
     "hermit crab": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark", "roosterfish"},
-    "reef trigger fish": {"common octopus", "bobtail squid", "cuttlefish", "giant squid"},
+    "roosterfish": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark", "hermit crab"},
+    # ── birds_of_a_feather: the penguin pays per bird, the auk pays for a
+    #    second auk (5 -> 25, and there are only two in the deck).
+    "emperor penguin": {"horned puffin", "peruvian pelican", "great albatross", "osprey",
+                        "razorbill auk", "california gull", "magnificent frigatebird"},
+    "razorbill auk": {"razorbill auk", "emperor penguin"},
     "california gull": {"lobster", "spiny lobster", "mantis shrimp", "king crab", "hermit crab"},
+    # ── cephalopods: four bodies that each pay +3 (the squid +6) once three of
+    #    them are out, so the third cephalopod is worth 15 points on its own.
+    "reef trigger fish": {"common octopus", "bobtail squid", "cuttlefish", "giant squid"},
+    "giant squid": {"common octopus", "bobtail squid", "cuttlefish", "manta ray", "reef trigger fish"},
+    "manta ray": {"common octopus", "bobtail squid", "cuttlefish", "giant squid", "reef trigger fish"},
+    # ── coral: staghorn pays per coral, elk horn per coral ON a coral reef,
+    #    and the frigatebird is a bird that pays per coral and plays one free.
+    "staghorn coral": {"elk horn coral", "grooved brain coral", "deep sea coral",
+                       "magnificent frigatebird", "coral reef"},
+    "elk horn coral": {"staghorn coral", "grooved brain coral", "deep sea coral",
+                       "magnificent frigatebird", "coral reef"},
+    "magnificent frigatebird": {"staghorn coral", "elk horn coral", "grooved brain coral",
+                                "deep sea coral", "coral reef"},
+    # ── crustaceans: the shrimp chart is 5/15/30 and there are exactly three.
+    "mantis shrimp": {"mantis shrimp", "lobster", "king crab", "california gull"},
+    # ── game_fish: the marlin is +9 beside a Mahi Mahi, the wrasse +3 per Mahi.
+    "blue marlin": {"mahi mahi", "sailfish", "cleaner wrasse"},
+    "cleaner wrasse": {"mahi mahi", "yellowfin tuna"},
+    "sailfish": {"mahi mahi", "blue marlin", "tarpon", "goliath grouper", "king salmon",
+                 "yellowfin tuna", "barracuda"},
+    "goliath grouper": {"mahi mahi", "blue marlin", "sailfish", "tarpon", "king salmon"},
+    # ── goby_moon_shot: 2 = 14, 3 = 30, 4 = 80, and four gobies exist. The
+    #    spiny lobster pays +6 per goby, three times over.
+    "mandarin goby": {"mandarin goby", "spiny lobster", "common sea star", "blue tang"},
+    "spiny lobster": {"mandarin goby", "common sea star", "california gull"},
+    # ── invertebrates: the barracuda pays per invertebrate and plays one free;
+    #    the anemone pays +3 per invertebrate.
+    "barracuda": {"common sea star", "johnson's sea cucumber", "orange tube sponge",
+                  "red beaded anemone", "sea urchin"},
+    "red beaded anemone": {"common sea star", "johnson's sea cucumber", "orange tube sponge",
+                           "sea urchin", "barracuda"},
+    # ── king_salmon: +5 per FULLY OCCUPIED ocean, so the plan is not about
+    #    salmon, it is about closing out four-sided oceans. What goes with it
+    #    is anything that fills a second side in one turn, plus cheap bodies.
+    "king salmon": {"horned puffin", "bottlenose dolphin", "sailfish", "goliath grouper",
+                    "arctic ocean", "mangrove", "hermit crab", "reef trigger fish",
+                    "loggerhead sea turtle", "mahi mahi", "yellowfin tuna", "lobster",
+                    "grooved brain coral", "magnificent frigatebird", "barracuda"},
+    # ── mammals: two cards pay per mammal, one plays a free one.
     "great white shark": {"spinner dolphin", "bottlenose dolphin", "narwhal"},
+    "narwhal": {"spinner dolphin", "bottlenose dolphin", "great white shark"},
+    # ── yellowfin_tuna: 14 yellowfin at +2 that all share one spot, and five
+    #    Bigeye at +3 per yellowfin that also draw one per yellowfin.
+    "bigeye tuna": {"yellowfin tuna", "johnson's sea cucumber", "cleaner wrasse"},
     "johnson's sea cucumber": {"yellowfin tuna", "bigeye tuna", "big eye tuna"},
+    # ── the draw engines, which belong to whoever is playing that half of the
+    #    board: the sea star draws on the floor, the urchin on the surface.
     "common sea star": {"mandarin goby", "spiny lobster", "lobster", "mantis shrimp", "king crab", "hermit crab"},
     "sea star": {"mandarin goby", "spiny lobster", "lobster", "mantis shrimp", "king crab", "hermit crab"},
     "sea urchin": {"emperor penguin", "horned puffin", "california gull", "peruvian pelican", "great albatross", "osprey", "mullet", "bunker", "sardine", "flying fish", "bonito"},
     "loggerhead sea turtle": {"mullet", "bunker", "sardine", "flying fish", "bonito", "yellowfin tuna", "mahi mahi", "lobster"},
-    "roosterfish": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark", "hermit crab"},
-    "blue marlin": {"mahi mahi"},
-    "cleaner wrasse": {"mahi mahi", "yellowfin tuna"},
 }
 
+# The pairs that have to land on the SAME ocean, not merely the same board.
+# Only four effects in the deck actually read the ocean a card is on -- Blue
+# Marlin "sharing an ocean with a Mahi Mahi", Roosterfish "sharing an ocean
+# with baitfish", Elk Horn Coral "attached to a coral reef" and Deep Sea Coral
+# "the only creature on this ocean" -- and the last one is an ANTI-pairing that
+# a list of pairs cannot say.
+#
+# The rest of the entries here are the user's own clustering guidance from
+# earlier, kept as it was: a per-family multiplier counts the whole board, so
+# stacking its family in one ocean is not required by the card, but it is still
+# worth something (an Artificial Reef pays +2 per card attached, King Salmon
+# pays for closing the ocean out) and it has been in the brain's floors for
+# long enough that pulling it out would be an unmeasured change.
 PRIORITY_SAME_OCEAN_SYNERGY: Dict[str, set[str]] = {
     "whale shark": {"mullet", "bunker", "sardine", "flying fish", "bonito", "roosterfish"},
     "hermit crab": {"mullet", "bunker", "sardine", "flying fish", "bonito", "roosterfish"},
@@ -2887,8 +2967,16 @@ PRIORITY_SAME_OCEAN_SYNERGY: Dict[str, set[str]] = {
     "roosterfish": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark"},
     "blue marlin": {"mahi mahi"},
     "cleaner wrasse": {"mahi mahi"},
+    # The card says "attached to a coral reef", so this one is literal.
+    "elk horn coral": {"coral reef"},
+    # +6 per Mandarin Goby counts the board, but the gobies' own chart is the
+    # 80-point one and the pair is what the plan IS.
+    "spiny lobster": {"mandarin goby"},
 }
 
+# Species that go with species. A family pairs with ITSELF whenever some card
+# pays per member of it or fills a count chart off it, which is true of every
+# animal species in the deck except the two that have no such card.
 PRIORITY_SPECIES_SYNERGY: List[Tuple[str, str]] = [
     ("baitfish", "crosscurrent"),
     ("baitfish", "n/a"),
@@ -2901,8 +2989,34 @@ PRIORITY_SPECIES_SYNERGY: List[Tuple[str, str]] = [
     ("mammal", "crosscurrent"),
     ("mammal", "n/a"),
     ("crustacean", "invertebrate"),
+    # The self-pairs, one per "+N per <species>" or count chart in the deck:
+    #   bird        Emperor Penguin +2 per Bird, Razorbill Auk 1=5 2=25
+    #   coral       Staghorn +3 per coral, Elk Horn +2 per coral on a reef
+    #   mammal      Narwhal +2 per Mammal, Great White +3 per mammal
+    #   baitfish    the species chart, 5 different = 30
+    #   crustacean  Mantis Shrimp 1=5 2=15 3=30
+    #   invertebrate Red Beaded Anemone +3 per invertebrate, Barracuda +2 per
+    #   game fish   Yellowfin all share one spot; Sailfish plays one free
+    ("bird", "bird"),
+    ("coral", "coral"),
+    ("mammal", "mammal"),
+    ("baitfish", "baitfish"),
+    ("crustacean", "crustacean"),
+    ("invertebrate", "invertebrate"),
+    ("game fish", "game fish"),
+    ("game fish", "crosscurrent"),
+    # The Magnificent Frigatebird is a BIRD that pays per coral and plays a
+    # free one, which is the whole of the B-Coral combo in one card.
+    ("bird", "coral"),
+    # Coral and cephalopods: Grooved Brain Coral plays a free cephalopod.
+    ("coral", "cephalopod"),
 ]
 
+# Extra strategy labels for cards whose own text does not give them away.
+# A card's OWN plan is derived (see build_animal_synergy_grid), so nothing here
+# has to repeat it; this list is for the second plan a card also serves --
+# the Hermit Crab is a crustacean that plays baitfish for free, the Sea Urchin
+# draws for anything played on the surface, which is birds and baitfish both.
 PRIORITY_CARD_TO_STRATEGIES: Dict[str, set[str]] = {
     "whale shark": {"Baitfish Engine"},
     "hermit crab": {"Baitfish Engine", "Crustaceans"},
@@ -2915,6 +3029,41 @@ PRIORITY_CARD_TO_STRATEGIES: Dict[str, set[str]] = {
     "sea urchin": {"Birds", "Baitfish Engine"},
     "loggerhead sea turtle": {"Cheap Burst"},
     "roosterfish": {"Baitfish Engine", "Cheap Flex"},
+    # The plans that had no entry here at all.
+    "magnificent frigatebird": {"Coral", "Birds"},
+    "grooved brain coral": {"Coral", "Cephalopods"},
+    "elk horn coral": {"Coral"},
+    "staghorn coral": {"Coral"},
+    "deep sea coral": {"Coral"},
+    "emperor penguin": {"Birds"},
+    "razorbill auk": {"Birds"},
+    "great albatross": {"Birds", "Ocean Race"},
+    "horned puffin": {"Birds", "King Salmon"},
+    "mantis shrimp": {"Crustaceans"},
+    "lobster": {"Crustaceans"},
+    "king crab": {"Crustaceans", "Draw"},
+    "mandarin goby": {"Goby Spiny Combo"},
+    "spiny lobster": {"Goby Spiny Combo", "Crustaceans"},
+    "barracuda": {"Invertebrates", "Game Fish", "Free Play"},
+    "red beaded anemone": {"Invertebrates"},
+    "orange tube sponge": {"Invertebrates", "Symbol Match"},
+    "king salmon": {"King Salmon"},
+    "narwhal": {"Mammals"},
+    "bottlenose dolphin": {"Mammals", "Free Play"},
+    "spinner dolphin": {"Mammals", "Symbol Match"},
+    "bigeye tuna": {"Yellowfin", "Draw"},
+    "yellowfin tuna": {"Yellowfin"},
+    "manta ray": {"Cephalopods", "Draw"},
+    "giant squid": {"Cephalopods"},
+    # Game Fish, the plan that did not exist until 2026-10-14.
+    "blue marlin": {"Game Fish", "Pelagic"},
+    "mahi mahi": {"Game Fish", "Pelagic"},
+    "cleaner wrasse": {"Game Fish", "Yellowfin", "Free Play"},
+    "sailfish": {"Game Fish", "Free Play", "King Salmon"},
+    "goliath grouper": {"Game Fish", "Tempo", "King Salmon"},
+    "tarpon": {"Game Fish", "Draw"},
+    "blue tang": {"Crosscurrent"},
+    "clownfish": {"Cheap Flex"},
 }
 
 
@@ -3209,6 +3358,16 @@ def build_animal_synergy_grid(card_db: Dict[int, CardDef]) -> Dict[str, object]:
         for dst in dsts:
             reverse_anchor.setdefault(dst, set()).add(src)
 
+    # Which cards belong to each plan, and which of them PAY for the plan (the
+    # multipliers and count charts -- collect a family without one of these and
+    # you have collected nothing). Derived, so a card added to a plan shows up
+    # here without anyone editing a second list.
+    plan_cards: Dict[str, List[str]] = {}
+    for name, c in unique_by_name.items():
+        fam = _STRATEGY_OF_NAME.get(name) or _STRATEGY_OF_SPECIES.get(card_species_lc(c)) or ""
+        if fam:
+            plan_cards.setdefault(fam, []).append(name)
+
     rows: List[Dict[str, object]] = []
     for name in sorted(unique_by_name.keys()):
         c = unique_by_name[name]
@@ -3219,20 +3378,90 @@ def build_animal_synergy_grid(card_db: Dict[int, CardDef]) -> Dict[str, object]:
                 strategy_labels.add(ENGINE_TAG_LABELS.get(t, t.replace("engine:", "").replace("-", " ").title()))
         strategy_labels.update(PRIORITY_CARD_TO_STRATEGIES.get(name, set()))
 
+        # The plan this card's POINTS belong to, the same answer
+        # strategy_points_by_family gives when it names a finished board. Every
+        # animal card has one except the three universal helpers, and naming it
+        # here is what makes the grid cover all fourteen plans instead of the
+        # handful somebody remembered to list.
+        family = _STRATEGY_OF_NAME.get(name) or _STRATEGY_OF_SPECIES.get(card_species_lc(c)) or ""
+        if family:
+            strategy_labels.add(STRATEGY_DISPLAY_NAMES.get(family, family))
+
         goes_with_cards = set(PRIORITY_CARD_SYNERGY.get(name, set())) | set(reverse_anchor.get(name, set()))
+        # Two different questions, kept apart because they used to share one
+        # list and the answers contradicted each other in it: a Mullet came
+        # back "Baitfish Engine" (a mechanic) next to "Baitfish Barrage" (the
+        # plan), and a Mandarin Goby came back as both "Goby Spiny Combo" and
+        # "Goby Moon Shot" -- two names for one thing.
+        #   plays_in   the PLANS this card is part of, named as the game names
+        #              them (STRATEGY_DISPLAY_NAMES): what a bot can commit to.
+        #   mechanics  what the card DOES, from its own text: draw, free play,
+        #              tempo, symbol matching. Not a plan, and several plans
+        #              share each one.
+        plans_for_card = {STRATEGY_DISPLAY_NAMES[f] for f in STRATEGY_DISPLAY_NAMES
+                          if f == family}
+        for a, b, hybrid in _HYBRID_PAIRS:
+            if family in (a, b):
+                plans_for_card.add(STRATEGY_DISPLAY_NAMES.get(hybrid, hybrid))
+        plan_names = set(STRATEGY_DISPLAY_NAMES.values())
         rows.append(
             {
                 "card": c.name,
                 "species": c.species,
                 "ability": c.text,
-                "goes_with_strategies": sorted(strategy_labels),
+                "plan": STRATEGY_DISPLAY_NAMES.get(family, "") if family else "",
+                "plan_family": family,
+                "pays_for_plan": bool(family) and name in STRATEGY_PAYOFF_CARDS.get(family, ()),
+                "plays_in": sorted(plans_for_card | (strategy_labels & plan_names)),
+                "mechanics": sorted(strategy_labels - plan_names),
+                "goes_with_strategies": sorted(strategy_labels | plans_for_card),
                 "priority_goes_with_cards": sorted(goes_with_cards),
             }
         )
 
+    # One entry per plan a bot can commit to, so the grid answers "what goes
+    # with this strategy" directly and not only one card at a time.
+    plans: List[Dict[str, object]] = []
+    for family in sorted(plan_cards):
+        combo = _HYBRID_PARENTS_BY_LABEL.get(family)
+        members = sorted(plan_cards[family])
+        if combo:
+            members = sorted(set(members) | {n for par in combo for n in plan_cards.get(par, [])})
+        plans.append({
+            "family": family,
+            "display_name": STRATEGY_DISPLAY_NAMES.get(family, family),
+            "built_on": list(combo) if combo else [],
+            "cards": members,
+            "pays_for_plan": sorted(STRATEGY_PAYOFF_CARDS.get(family, ())),
+            "min_players": INVERTEBRATE_MIN_PLAYERS if family == "invertebrates" else 0,
+            "skills": sorted(k for k, v in STRATEGY_SKILL_ALLOWLIST.items() if family in v),
+        })
+    for family in sorted(_COMBO_STRATEGIES):
+        if any(p["family"] == family for p in plans):
+            continue
+        parents = _HYBRID_PARENTS_BY_LABEL.get(family, ())
+        plans.append({
+            "family": family,
+            "display_name": STRATEGY_DISPLAY_NAMES.get(family, family),
+            "built_on": list(parents),
+            "cards": sorted({n for par in parents for n in plan_cards.get(par, [])}),
+            "pays_for_plan": sorted({n for par in parents
+                                     for n in STRATEGY_PAYOFF_CARDS.get(par, ())}),
+            "min_players": 0,
+            "skills": sorted(k for k, v in STRATEGY_SKILL_ALLOWLIST.items() if family in v),
+        })
+
+    # The animal cards that belong to no plan: universal helpers that are worth
+    # the same to every plan, so claiming them for one would be a lie.
+    unplanned = sorted(n for n, c in unique_by_name.items()
+                       if not (_STRATEGY_OF_NAME.get(n)
+                               or _STRATEGY_OF_SPECIES.get(card_species_lc(c))))
+
     return {
         "generated_unix": int(time.time()),
         "anchor_priority_version": ANCHOR_PRIORITY_VERSION,
+        "plans": plans,
+        "cards_in_no_plan": unplanned,
         "rows": rows,
     }
 
@@ -4468,6 +4697,31 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
                 "fully occupied", "play again", "play a free", "per fully occupied ocean",
             ],
         },
+        {
+            # GAME FISH. The pair is the whole plan: Blue Marlin is "+9 if
+            # sharing an ocean with a Mahi Mahi" and Mahi Mahi costs 0, so one
+            # ocean holding both is ten points for one card's cost, and there
+            # are four of each. Cleaner Wrasse adds +3 per Mahi Mahi, so the
+            # Mahi are worth collecting past the fourth ocean. Sailfish plays a
+            # free game fish, Goliath Grouper plays again, Tarpon refills the
+            # hand: this plan runs out of CARDS before it runs out of board,
+            # which is why its engine is draw and free plays rather than bodies.
+            #
+            # The marlin is the reason the plan has to be committed to early:
+            # a Blue Marlin with no Mahi Mahi in its ocean scores its flat 1,
+            # and the Mahi have to be spread one per ocean rather than stacked.
+            "label": "game_fish",
+            "display_name": "Game Fish",
+            "difficulty": "advanced",
+            "species": ["game fish"],
+            "heavy_hitters": ["blue marlin", "mahi mahi"],
+            "stack_engines": ["cleaner wrasse", "sailfish", "goliath grouper"],
+            "support_names": ["tarpon", "barracuda", "clownfish", "loggerhead sea turtle",
+                              "artificial reef", "pier"],
+            "text_keywords": [
+                "mahi mahi", "game fish", "play a free game fish", "sharing an ocean",
+            ],
+        },
     ]
 
     # Backfill the legacy `names` field so existing code paths still work.
@@ -4540,6 +4794,13 @@ STRATEGY_PAYOFF_CARDS: Dict[str, Tuple[str, ...]] = {
     "goby_moon_shot":     ("mandarin goby",),
     # The ocean plan: +10 for all 8, +1 per two oceans, +6 for the most oceans.
     "ocean_all_blue":     ("mangrove", "tide pool", "great albatross"),
+    # Blue Marlin scores NOTHING on its own and +9 beside a Mahi Mahi, and
+    # Cleaner Wrasse is +3 per Mahi Mahi, so both are paid by the Mahi rather
+    # than by the family -- but they are still the two cards the plan scores
+    # through, and a Game Fish board without one is a pile of +1s and +2s.
+    # There are four Blue Marlins and two Cleaner Wrasses in the deck, which is
+    # why this plan has to be committed to early or not at all.
+    "game_fish":          ("blue marlin", "cleaner wrasse"),
 }
 
 # Plans whose OWN members pay off once there are enough of them, with no
@@ -4865,11 +5126,12 @@ STRATEGY_SKILL_ALLOWLIST = {
     "beginner":     {"mammals", "yellowfin_tuna"},
     "intermediate": {"mammals", "yellowfin_tuna", "baitfish_barrage", "birds_of_a_feather"},
     "advanced":     {"mammals", "yellowfin_tuna", "baitfish_barrage", "birds_of_a_feather",
-                     "crustaceans", "cephalopods", "coral", "king_salmon", "invertebrates"}
+                     "crustaceans", "cephalopods", "coral", "king_salmon", "invertebrates",
+                     "game_fish"}
                     | _COMBO_STRATEGIES,
     "expert":       {"mammals", "yellowfin_tuna", "baitfish_barrage", "birds_of_a_feather",
                      "crustaceans", "cephalopods", "coral", "king_salmon", "invertebrates",
-                     "goby_moon_shot"} | _COMBO_STRATEGIES,
+                     "goby_moon_shot", "game_fish"} | _COMBO_STRATEGIES,
 }
 
 # Invertebrates is a support plan: it wants a long game and a crowded board to
@@ -5464,6 +5726,7 @@ STRATEGY_DISPLAY_NAMES: Dict[str, str] = {
     "invertebrates":      "Invertebrates",
     "goby_moon_shot":     "Goby Moon Shot",
     "king_salmon":        "King Salmon",
+    "game_fish":          "Game Fish",
 }
 # Hybrid plans only count if the board genuinely has BOTH halves, this is what
 # makes a bird+lobster board read as "B-Lob" instead of plain "Birds".
@@ -5503,6 +5766,25 @@ _STRATEGY_OF_NAME: Dict[str, str] = {
     "bigeye tuna": "yellowfin_tuna",
     "king salmon": "king_salmon",
     "barracuda": "invertebrates",
+    # The Game Fish plan: Blue Marlin is "+9 if sharing an ocean with a Mahi
+    # Mahi" and Mahi Mahi costs nothing, so the pair is the deck's cheapest
+    # ten points, four times over. Cleaner Wrasse pays +3 per Mahi Mahi on top.
+    # Sailfish, Goliath Grouper and Tarpon are the plan's engine: a free game
+    # fish, a free play-again, and a hand refill.
+    #
+    # These nine cards (29 of the 253 deck entries) used to belong to NO plan,
+    # which meant nothing counted them towards anything: no loyalty, no
+    # crowding, and their points were dropped from the board's own label. The
+    # three that are still absent are the genuine neutrals -- Clownfish copies
+    # whatever Ocean it is on, Loggerhead Sea Turtle buys a whole turn of plays,
+    # and Blue Tang pays per Crosscurrent animal, which every plan's payoff card
+    # happens to be. Those three help any plan equally, so they are nobody's.
+    "blue marlin": "game_fish",
+    "mahi mahi": "game_fish",
+    "cleaner wrasse": "game_fish",
+    "sailfish": "game_fish",
+    "goliath grouper": "game_fish",
+    "tarpon": "game_fish",
 }
 # Two plans played together, and the name the guide gives the pair.
 _HYBRID_PAIRS: Tuple[Tuple[str, str, str], ...] = (
@@ -5510,6 +5792,11 @@ _HYBRID_PAIRS: Tuple[Tuple[str, str, str], ...] = (
     ("birds_of_a_feather", "coral", "birds_coral"),
     ("coral", "cephalopods", "coral_cephalopods"),
 )
+# The same three pairs indexed by the name of the pair, for anything that has a
+# combo's label and wants to know what it is built on.
+_HYBRID_PARENTS_BY_LABEL: Dict[str, Tuple[str, str]] = {
+    label: (a, b) for a, b, label in _HYBRID_PAIRS
+}
 
 
 def strategy_points_by_family(gs: GameState, player: PlayerState,

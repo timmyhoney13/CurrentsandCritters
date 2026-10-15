@@ -170,6 +170,10 @@ PARAMS: Dict[str, float] = {
     # too hard and you finish a plan the deck refused you, commit too little and
     # you finish three half-plans -- so it is worth being able to measure.
     "switch_margin": 4.0,
+    # Game Fish is OFF until a paired-deal measurement says otherwise: the
+    # plan is new, and a new plan added at 1.0 would change every planner bot
+    # in the game on nothing but an argument about card text.
+    "plan_game_fish": 0.0,
 }
 
 # knob -> the per-rival term that shifts it, and the range the result is held to.
@@ -250,6 +254,11 @@ TUNABLE_BOUNDS: Dict[str, Tuple[float, float]] = {
     # real question -- how long to stay with a plan the deck has refused you --
     # and training is welcome to answer it.
     "switch_margin": (4.0, 20.0),
+    # A SWITCH, like adaptive_turn_value and survival: anything above zero
+    # offers the Game Fish plan, so a step from 0.4 to 0.7 is no change at all
+    # and the step off zero is a cliff. Here so the tournament can promote it
+    # on its own evidence, not because the range means anything.
+    "plan_game_fish": (0.0, 1.0),
 }
 
 # The table size the planner's numbers were measured at. A table this size gets
@@ -856,7 +865,51 @@ FAMILY_PRIOR: Dict[str, float] = {
     "goby_moon_shot": 6.0, "baitfish_barrage": 2.0, "yellowfin_tuna": 1.5, "king_salmon": 1.5,
     "invertebrates": 1.5, "coral": 0.5, "mammals": -0.5, "cephalopods": -1.0,
     "birds_of_a_feather": -1.5, "crustaceans": -3.0,
+    # Game Fish has never been played by a planner, so there is no measurement
+    # to shrink towards zero and 0.0 is the honest prior. Training fills it in.
+    "game_fish": 0.0,
 }
+
+# WHERE THOSE NUMBERS COME FROM NEXT TIME. The values above were read off 516
+# six-player seats in September, at eugenie_clark's own temperature 6.0, by
+# counting what the planner chose and what it then scored. Both halves of that
+# are a problem:
+#
+#   * a census cannot measure a plan, because the planner picks the plan FROM
+#     the hand. A plan taken only when the hand already suits it looks good and
+#     a last-resort plan looks bad, whatever either is really worth.
+#   * temperature 6.0 is a deliberate handicap worth about 18 points, and a
+#     measurement taken through it has had the thing it is measuring drowned.
+#
+# ab_plan.py measures the same quantity properly: one seat FORCED onto the plan
+# against a field of free planners, paired against the identical deal with that
+# seat free, deterministic. apply_family_prior.py writes what that finds into
+# family_prior.json, and only for a plan whose interval excludes zero, halved
+# on the way in -- the same shrinkage the original numbers used, for the same
+# reason, which is that a measured edge is always partly luck.
+#
+# The file is an overlay, not a replacement: delete it and the bots are exactly
+# as they are today. That is deliberate. A learned number that cannot be
+# un-learned is not a measurement, it is a commitment.
+FAMILY_PRIOR_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "family_prior.json")
+
+
+def _load_family_prior_overlay() -> Dict[str, float]:
+    """Measured plan values from disk, merged over the constants above."""
+    try:
+        with open(FAMILY_PRIOR_PATH, encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError):
+        return {}
+    got: Dict[str, float] = {}
+    for fam, val in (doc.get("prior") or {}).items():
+        fam = str(fam).strip().lower()
+        if fam in STRATEGY_FAMILIES_SET and isinstance(val, (int, float)):
+            # Held to the range the hand-written numbers span, so a broken file
+            # cannot hand a plan a hundred points of free value.
+            got[fam] = max(-12.0, min(12.0, float(val)))
+    return got
 
 # A combo is two plans played together, and the deck knows nothing about it:
 # every card belongs to one of the ten single plans, and a Lobster is a
@@ -881,7 +934,29 @@ STRATEGY_FAMILIES: Tuple[str, ...] = (
     "mammals", "yellowfin_tuna", "baitfish_barrage", "birds_of_a_feather", "crustaceans",
     "cephalopods", "coral", "king_salmon", "invertebrates", "goby_moon_shot",
     "birds_crustaceans", "coral_cephalopods", "birds_coral",
+    "game_fish",
 )
+# Plans the planner will only consider when a knob says so, so a plan nobody
+# has ever measured cannot change the bots merely by being added to the list
+# above. `plan_game_fish` is a switch, not a magnitude: anything above zero
+# offers the plan. A knob rather than a constant because that is what lets
+# ab.py play the two arms of a paired deal in one process.
+GATED_FAMILIES: Dict[str, str] = {"game_fish": "plan_game_fish"}
+
+
+STRATEGY_FAMILIES_SET: frozenset = frozenset(STRATEGY_FAMILIES)
+
+# Merge whatever ab_plan.py has measured over the hand-written priors. Done
+# once, at import, so nothing on the decision path pays for it.
+FAMILY_PRIOR_MEASURED: Dict[str, float] = _load_family_prior_overlay()
+FAMILY_PRIOR.update(FAMILY_PRIOR_MEASURED)
+
+
+def family_offered(family: str, params: Dict[str, float]) -> bool:
+    """Whether `family` is a plan this bot may commit to. True for everything
+    that is not gated, which is all of them but Game Fish."""
+    knob = GATED_FAMILIES.get(family)
+    return knob is None or float(params.get(knob, 0.0)) > 0.0
 _FAMILY_OF: Dict[int, Tuple] = {}
 
 
@@ -954,7 +1029,8 @@ def choose_family(gs: GameState, ms: MatchState, player: PlayerState, params: Di
     for how many of its cards are in hand."""
     n_players = len(gs.players)
     allowed = [f for f in STRATEGY_FAMILIES
-               if not (f == "invertebrates" and n_players < fish.INVERTEBRATE_MIN_PLAYERS)]
+               if not (f == "invertebrates" and n_players < fish.INVERTEBRATE_MIN_PLAYERS)
+               and family_offered(f, params)]
     crowd = crowd_by_family(gs, ms, player)
     others = others_summary(gs, player)
     turns = turns_left_after_turn(gs, ms, player, params) + 1.0
@@ -1026,7 +1102,8 @@ def reconsider_family(gs: GameState, ms: MatchState, player: PlayerState, params
         return
     by_family.pop("ocean_all_blue", None)
     allowed = {f for f in STRATEGY_FAMILIES
-               if not (f == "invertebrates" and len(gs.players) < fish.INVERTEBRATE_MIN_PLAYERS)}
+               if not (f == "invertebrates" and len(gs.players) < fish.INVERTEBRATE_MIN_PLAYERS)
+               and family_offered(f, params)}
     by_family = {f: v for f, v in by_family.items() if f in allowed}
     if not by_family:
         return
@@ -1893,7 +1970,7 @@ def choose_action(gs: GameState, ms: MatchState, player: PlayerState,
         elif (not player.flags.get("_planner_family_chosen")
               or (player.flags.get("_planner_family_unpaid")
                   and any(not fish.strategy_payoff_veto(gs, ms, player, f)
-                          for f in STRATEGY_FAMILIES))):
+                          for f in STRATEGY_FAMILIES if family_offered(f, params)))):
             family, _values = choose_family(gs, ms, player, params, rng,
                                             worlds=int(params.get("family_worlds", 4)))
             player.flags["_strategy_family"] = family

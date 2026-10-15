@@ -83,6 +83,26 @@
 !overnight_evolve.sh
 !strategy_rotation.sh
 !test_ai_learning.py
+# Training tools added 2026-10-14. Offline only -- none of the five .py files
+# below is imported by any server module, so none of them needs a Dockerfile
+# COPY. They are kept because a measurement nobody can re-run is a rumour.
+# (family_prior.json at the bottom is the exception: reef_planner reads it, so
+# it is in .dockerignore and the Dockerfile too.)
+#   train_forever.py       the supervisor that rotates all four training fronts
+#   ab_brain.py            paired-deal A/B for a BRAIN (ab.py does planner knobs)
+#   ab_plan.py             what each PLAN is worth, forced-plan paired A/B
+#   apply_family_prior.py  writes what ab_plan measured into family_prior.json
+#   strategy_lists.py      the readable "what goes with what", derived not typed
+!train_forever.py
+!ab_brain.py
+!ab_plan.py
+!apply_family_prior.py
+!strategy_lists.py
+!STRATEGY_LISTS.txt
+# The animal/strategy grid the brain points at, and the measured plan values
+# the planner reads over its hand-written ones.
+!animal_synergy_grid.json
+!family_prior.json
 
 # Who is on a computer and who is on a phone, shown on every screen that lists
 # the people in a room: the waiting room's tiles, the in-game seat cluster, the

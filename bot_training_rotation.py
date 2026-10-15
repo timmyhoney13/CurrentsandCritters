@@ -65,7 +65,13 @@ LOG_PATH = os.path.join(OUT_DIR, "rotation.log")
 # is a description of a board, not a plan a player commits to at the start.
 MAINS = ["mammals", "yellowfin_tuna", "birds_of_a_feather", "crustaceans",
          "baitfish_barrage", "cephalopods", "coral", "king_salmon",
-         "goby_moon_shot", "invertebrates"]
+         "goby_moon_shot", "invertebrates",
+         # Game Fish, added 2026-10-14. Its weights are trained here like any
+         # other plan's -- forcing a seat onto a plan bypasses the planner's
+         # own choice, so the plan_game_fish gate does not apply to training.
+         # Whether a planner may COMMIT to it is a separate question that gate
+         # answers, and a paired-deal measurement decides.
+         "game_fish"]
 
 # The three combos, trained after every single plan, because a combo's champion
 # is seeded from its two parents' and a combo built on an untrained half

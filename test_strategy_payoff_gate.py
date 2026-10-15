@@ -89,6 +89,12 @@ FAMILY_SPECIES = {
 PER_RE = re.compile(r"\+\s*\d+\s*per\s+([a-z' ]+)", re.I)
 CHART_RE = re.compile(r"\d\s*=\s*\d")
 LEAST_RE = re.compile(r"at least \w+ ([a-z]+)", re.I)
+# The fourth printed form, and the largest single payoff in the deck: Blue
+# Marlin is "+9 if sharing an ocean with a Mahi Mahi" -- it pays for having a
+# named card of its own family beside it. Roosterfish is the same shape ("+4
+# if sharing an ocean with baitfish"). This form had no plan listing it until
+# Game Fish existed, which is why the vocabulary here did not cover it.
+SHARE_RE = re.compile(r"if sharing an ocean with(?: an?)? ([a-z' ]+)", re.I)
 
 
 def card_index(db):
@@ -109,10 +115,23 @@ def test_1_table_is_true(db):
               f"listed {names}, none of them in the deck")
         for n in real:
             text = by_name[n].text.lower()
+            shared = SHARE_RE.search(text)
             pays = bool(PER_RE.search(text) or CHART_RE.search(text)
-                        or LEAST_RE.search(text) or "if you have" in text)
-            check(pays, f"{label}: '{n}' is printed as a multiplier or a count chart",
+                        or LEAST_RE.search(text) or "if you have" in text or shared)
+            check(pays, f"{label}: '{n}' is printed as a multiplier, a count chart "
+                        f"or a pair bonus",
                   f"text reads: {by_name[n].text!r}")
+            # A pair bonus only pays for the FAMILY if the card it names is in
+            # the family. Checking that is what keeps this looser vocabulary
+            # from letting through a card that pays for something else.
+            if shared and not (PER_RE.search(text) or CHART_RE.search(text)):
+                partner = shared.group(1).strip().lower()
+                own = {nm for nm, c in by_name.items()
+                       if (fish._STRATEGY_OF_NAME.get(nm)
+                           or fish._STRATEGY_OF_SPECIES.get(fish.card_species_lc(c))) == label}
+                check(partner in own,
+                      f"{label}: '{n}' pays off beside '{partner}', which is in the plan",
+                      f"'{partner}' is not one of {label}'s cards: {sorted(own)}")
 
     # The other direction: a per-family multiplier we failed to list.
     section("1b. no per-family multiplier is missing from the table")
