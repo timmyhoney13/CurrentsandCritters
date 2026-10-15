@@ -68,21 +68,30 @@ _GRADE = "william_beebe"
 _MPS = None
 
 
-def _load_raw(path: str) -> Dict[str, Any]:
-    """A brain file as written, WITHOUT re-applying today's anchor floors.
+def _load_old(path: str, mode: str) -> Dict[str, Any]:
+    """A brain file loaded with `mode` worth of anchor flooring.
 
     fish.load_brain does three things on the way in: stabilise the weights,
     floor two STAR weights, and apply ensure_priority_anchor_brain_rules. The
-    first two are reproduced here; the third is the point of this function.
-    Without it a change to the anchor lists is invisible to this harness,
-    because both arms would be floored by the lists as they stand today.
+    first two are reproduced here whatever the mode; the third is what the mode
+    selects. Without this the harness cannot see an anchor change at all,
+    because load_brain would give both arms the same treatment.
     """
+    if mode == "full":
+        return fish.load_brain(path)
     with open(path, encoding="utf-8") as fh:
         brain = json.load(fh)
     w = fish.stabilize_weights(dict(brain.get("weights", {})))
     w["uses_star"] = max(0.95, float(w.get("uses_star", 0.0)))
     w["pool_pick_value"] = max(0.9, float(w.get("pool_pick_value", 0.0)))
     brain["weights"] = fish.stabilize_weights(dict(w))
+    if mode == "top":
+        was = fish.ANCHOR_FLOOR_COUNTS
+        fish.ANCHOR_FLOOR_COUNTS = False
+        try:
+            fish.ensure_priority_anchor_brain_rules(brain)
+        finally:
+            fish.ANCHOR_FLOOR_COUNTS = was
     return brain
 
 
@@ -190,13 +199,19 @@ def main() -> int:
                     help="the brain under test (plays ONE seat)")
     ap.add_argument("--old", required=True,
                     help="the brain it is measured against (plays every other seat)")
+    ap.add_argument("--old-anchors", choices=("full", "top", "none"), default="full",
+                    help="how much anchor flooring the OLD arm gets. 'full' is "
+                         "what the engine does now (top-level maps AND each "
+                         "count's own copy). 'top' is the behaviour before "
+                         "2026-10-15, flooring the shared maps only, which is "
+                         "what every count that has its own cell was NOT getting. "
+                         "'none' skips the floors entirely, for measuring a change "
+                         "to the anchor lists themselves. Needed because "
+                         "fish.load_brain floors at every load, so without this "
+                         "both arms get the same treatment and an anchor change "
+                         "is invisible to the harness meant to measure it.")
     ap.add_argument("--raw-old", action="store_true",
-                    help="load the OLD brain without re-applying today's anchor "
-                         "floors, so a change to the anchor lists is visible. "
-                         "fish.load_brain applies them at every load, which means "
-                         "both arms normally get them and the change cannot be "
-                         "measured at all. The file on disk already carries the "
-                         "floors of whatever version wrote it.")
+                    help="deprecated alias for --old-anchors none")
     ap.add_argument("--grade", default="william_beebe",
                     help="B is the lowest grade that plays with a strategy's trained "
                          "weights, and every grade above it reuses the same weights "
@@ -208,8 +223,9 @@ def main() -> int:
     a = ap.parse_args()
 
     counts = [int(c) for c in a.counts.split(",") if c.strip()]
+    mode = "none" if a.raw_old else a.old_anchors
     new_brain = fish.load_brain(a.new)
-    old_brain = _load_raw(a.old) if a.raw_old else fish.load_brain(a.old)
+    old_brain = _load_old(a.old, mode)
     a_maps, b_maps = _maps_by_count(new_brain, counts), _maps_by_count(old_brain, counts)
     a_strat, b_strat = _strategy_vectors(new_brain), _strategy_vectors(old_brain)
 

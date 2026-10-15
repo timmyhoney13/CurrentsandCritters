@@ -2983,8 +2983,46 @@ PRIORITY_CARD_TO_STRATEGIES: Dict[str, set[str]] = {
 }
 
 
+# Whether the floors below reach each TABLE SIZE's own copy of the maps, and
+# not only the shared top-level ones. True is the fix; False reproduces the
+# behaviour before 2026-10-15, and exists so ab_brain.py can measure the
+# difference with both arms in one process. Never False in the server.
+ANCHOR_FLOOR_COUNTS = True
+
+
 def ensure_priority_anchor_brain_rules(brain: Dict[str, object]) -> None:
-    """Keep user-defined main combo anchors highly weighted in learned memory."""
+    """Keep user-defined main combo anchors highly weighted in learned memory.
+
+    THE MAPS A GAME READS ARE NOT THESE ONES. Every table size keeps its own
+    copy of the learnable maps in brain["by_count"][n] (get_count_brain seeds
+    one from the top level on first use, and it diverges from there), and every
+    policy read and learning write for a game goes through that copy. This
+    function used to floor the top-level maps only, so:
+
+      * the anchors were inert at any count the training pipeline had ever
+        promoted -- measured, 900 paired deals, and the 4P arm came back at
+        exactly +0.000 because both arms were reading the same unfloored 4P
+        cell;
+      * worse, the WEIGHT floors were inert there too, and the learning step
+        regresses straight through them. The live 4P cell -- the one every
+        4-player Casual game at grades F to B reads -- was sitting at
+        future_value 0.499 against this function's floor of 1.95, deny_bonus
+        0.361 against 0.85 and plan_fit_bonus 1.063 against 1.40. Nothing was
+        holding up the three forward-looking weights the floors name, so each
+        learning pass walked them further down and the next pass started from
+        there.
+    """
+    _apply_anchor_floors(brain)
+    if ANCHOR_FLOOR_COUNTS:
+        by_count = brain.get("by_count")
+        if isinstance(by_count, dict):
+            for cell in by_count.values():
+                if isinstance(cell, dict):
+                    _apply_anchor_floors(cell)
+
+
+def _apply_anchor_floors(brain: Dict[str, object]) -> None:
+    """The floors themselves, applied to one brain or to one count's cell."""
     synergy_map = brain.get("synergy")
     species_map = brain.get("species_synergy")
     same_ocean_map = brain.get("same_ocean_synergy")
@@ -14956,10 +14994,87 @@ import multiprocessing as _mp
 TRAIN_DEFAULT_DIR = "fish_training"
 CANDIDATE_BRAIN_PATH = "fish_ai_brain.candidate.json"
 
-# "Excellent" top score per count: normalizes the game-quality score component.
-TRAIN_TARGET_TOP: Dict[int, float] = {2: 240.0, 3: 175.0, 4: 135.0, 5: 118.0, 6: 104.0, 7: 94.0, 8: 86.0}
-# Developed-board floor per count: below this a game is too weak to learn from.
-TRAIN_MIN_TOP: Dict[int, float] = {2: 55.0, 3: 80.0, 4: 100.0, 5: 100.0, 6: 95.0, 7: 90.0, 8: 85.0}
+# FALLBACKS ONLY. What an "excellent" game scores, and the floor below which a
+# game is too undeveloped to learn from, per table size. Used when a run has
+# too few finished games at a count to measure its own scale -- see
+# train_run_scale, which is what normally decides both.
+#
+# These are hardcoded numbers about how a game turns out, so they go stale
+# every time the game changes, and they had: the Ocean flip came out on
+# 2026-09-14 and games got longer and higher-scoring, and nobody came back to
+# these. Measured over 420 fresh games on 2026-10-15, 60 per count, the floor
+# was ABOVE THE MEDIAN at five players and up. The prune gate is top < floor *
+# 0.6, so the effective cut and the reality were:
+#
+#    players   median top   old cut   pruned      p10
+#       2         243          33       0%        205
+#       3         131          48       0%        112
+#       4          86          60       0%         72
+#       5          63          60      38%         52
+#       6          50          57      73%         41
+#       7          40          54      97%         35
+#       8          35          51     100%         31
+#
+# So the pipeline threw away every eight-player game and 97% of seven-player
+# ones, created a per-count brain for each of those sizes anyway, and learned
+# almost nothing into them -- which is a decent part of why a learning pass
+# benchmarked WORSE at every count than the brain it started from. At 2P and 3P
+# the same table erred the other way: a cut of 33 against a median of 243 means
+# no 2P game was ever too broken to learn from.
+#
+# Set so the effective cut (x 0.6) lands on the measured 10th percentile, and
+# the target on the 90th.
+TRAIN_TARGET_TOP: Dict[int, float] = {2: 272.0, 3: 149.0, 4: 112.0, 5: 73.0, 6: 64.0, 7: 50.0, 8: 40.0}
+TRAIN_MIN_TOP: Dict[int, float] = {2: 342.0, 3: 187.0, 4: 120.0, 5: 87.0, 6: 68.0, 7: 58.0, 8: 52.0}
+
+# Below this many finished games at a count, the run cannot estimate its own
+# scale and the tables above are used instead. A 10th percentile off fewer than
+# this is the second or third worst game, which is noise.
+TRAIN_SCALE_MIN_SAMPLE = 20
+# However bad a run is, a board under this many points is undeveloped. Without
+# it a run where every game broke would measure its own floor down to nothing
+# and learn from all of them.
+TRAIN_SCALE_ABSOLUTE_FLOOR = 12.0
+
+
+def train_run_scale(records: List[Dict[str, Any]]) -> Dict[int, Dict[str, float]]:
+    """Per table size, measured from THIS run: the top score a game has to beat
+    to be worth learning from, and what counts as an excellent one.
+
+    Measuring it beats hardcoding it because the quantity is a property of how
+    the bots currently play, and the bots are what this pipeline changes. A
+    fixed table is correct on the day it is written and drifts from then on,
+    which is exactly what happened to the one above.
+
+    Only games that ended naturally, did not stall and logged no rules error
+    set the scale: a broken game is not evidence about what a normal one of
+    that size scores.
+    """
+    tops: Dict[int, List[float]] = {}
+    for r in records:
+        if r.get("error") or r.get("stalled") or not r.get("end_game_triggered"):
+            continue
+        if int(r.get("rules_errors", 0) or 0) > 0:
+            continue
+        try:
+            agg = _train_aggregate(r)
+        except Exception:
+            continue
+        tops.setdefault(int(r.get("num_players", 4) or 4), []).append(float(agg["top"]))
+
+    def pct(xs: List[float], p: float) -> float:
+        xs = sorted(xs)
+        i = max(0, min(len(xs) - 1, int(round(p * (len(xs) - 1)))))
+        return float(xs[i])
+
+    out: Dict[int, Dict[str, float]] = {}
+    for c, xs in tops.items():
+        if len(xs) < TRAIN_SCALE_MIN_SAMPLE:
+            continue
+        out[c] = {"cut": max(TRAIN_SCALE_ABSOLUTE_FLOOR, pct(xs, 0.10)),
+                  "target": max(1.0, pct(xs, 0.90)),
+                  "median": pct(xs, 0.50), "n": float(len(xs))}
+    return out
 # The learnable maps the LIVE server reads per count (multiplayer_server.py:6838+).
 TRAIN_POLICY_MAP_KEYS = (
     "synergy", "species_synergy", "same_ocean_synergy",
@@ -15166,9 +15281,16 @@ def _train_aggregate(record: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def train_score_game_quality(record: Dict[str, Any]) -> Tuple[float, Dict[str, Any]]:
+def train_score_game_quality(record: Dict[str, Any],
+                             scale: Optional[Dict[int, Dict[str, float]]] = None
+                             ) -> Tuple[float, Dict[str, Any]]:
     """Return (quality 0..1, agg). Buggy / stalled / undeveloped / no-natural-end
-    games are hard-zeroed so the AI never learns from them (req 3 & 5 & 15)."""
+    games are hard-zeroed so the AI never learns from them (req 3 & 5 & 15).
+
+    `scale` is this run's own measured idea of an undeveloped board and an
+    excellent one, per table size (train_run_scale). Without it the fallback
+    tables are used, which are a snapshot of how the game played on the day
+    they were written."""
     agg = _train_aggregate(record)
     c = int(record.get("num_players", 4) or 4)
     if record.get("error"):
@@ -15181,14 +15303,15 @@ def train_score_game_quality(record: Dict[str, Any]) -> Tuple[float, Dict[str, A
         hard = "stalled"
     elif not record.get("end_game_triggered"):
         hard = "no_natural_end"
-    floor = TRAIN_MIN_TOP.get(c, 100.0)
-    if agg["top"] < floor * 0.6:
+    cell = (scale or {}).get(c)
+    cut = float(cell["cut"]) if cell else TRAIN_MIN_TOP.get(c, 100.0) * 0.6
+    if agg["top"] < cut:
         hard = hard or "undeveloped"
     if hard:
         agg.update({"pruned": hard, "quality": 0.0, "subscores": {}})
         return 0.0, agg
 
-    target = TRAIN_TARGET_TOP.get(c, 120.0)
+    target = float(cell["target"]) if cell else TRAIN_TARGET_TOP.get(c, 120.0)
     s_score = _clamp01(agg["top"] / target)
     ratio = agg["spread"] / max(1.0, agg["top"])
     if ratio < 0.05:
@@ -15388,9 +15511,19 @@ def _train_learn_one(candidate_brain: Dict[str, Any], record: Dict[str, Any], qu
 def train_learn(candidate_brain: Dict[str, Any], records: List[Dict[str, Any]], log) -> Tuple[List[Tuple[float, Dict[str, Any], Dict[str, Any]]], List[Dict[str, Any]]]:
     """Rank all games by quality, then learn from them best-first (quality-weighted).
     Returns (scored games desc, top decisions)."""
+    scale = train_run_scale(records)
+    for c in sorted(scale):
+        cell = scale[c]
+        log(f"  scale {c}P: learn from a board over {cell['cut']:.0f} points, "
+            f"excellent is {cell['target']:.0f} (median {cell['median']:.0f}, "
+            f"n={int(cell['n'])})")
+    for c in sorted({int(r.get("num_players", 4) or 4) for r in records}):
+        if c not in scale:
+            log(f"  scale {c}P: too few finished games to measure; using the "
+                f"fallback cut of {TRAIN_MIN_TOP.get(c, 100.0) * 0.6:.0f}")
     scored: List[Tuple[float, Dict[str, Any], Dict[str, Any]]] = []
     for r in records:
-        q, agg = train_score_game_quality(r)
+        q, agg = train_score_game_quality(r, scale)
         scored.append((q, agg, r))
     scored.sort(key=lambda x: x[0], reverse=True)
     top_decisions: List[Dict[str, Any]] = []
