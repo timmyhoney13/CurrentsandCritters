@@ -2984,10 +2984,32 @@ PRIORITY_CARD_TO_STRATEGIES: Dict[str, set[str]] = {
 
 
 # Whether the floors below reach each TABLE SIZE's own copy of the maps, and
-# not only the shared top-level ones. True is the fix; False reproduces the
-# behaviour before 2026-10-15, and exists so ab_brain.py can measure the
-# difference with both arms in one process. Never False in the server.
-ANCHOR_FLOOR_COUNTS = True
+# not only the shared top-level ones.
+#
+# FALSE, AND THAT IS THE ANSWER, NOT AN OVERSIGHT. Finding that the floors were
+# not reaching the maps a game actually reads looked like a plain bug, and the
+# per-count cell they were missing was sitting a long way under them: the live
+# 4P cell held future_value 0.499 against a floor of 1.95, deny_bonus 0.361
+# against 0.85 and plan_fit_bonus 1.063 against 1.40. Making the floors reach
+# it, measured over 1200 paired deals at grade B:
+#
+#     2P  +0.000  [+0.000,+0.000]    no per-count cell exists, so no change
+#     4P  -1.772  [-2.936,-0.609]
+#     6P  +0.000  [+0.000,+0.000]    same
+#     ALL -0.591  [-0.981,-0.200]    WORSE
+#
+# So the floors are the wrong numbers, and not reaching the cell was protecting
+# the bots from them. Learning had moved those three weights down over 291
+# games and it was right to; the floors would have hauled them back up and cost
+# nearly two points a game at the one table size that has its own cell.
+#
+# Left as a switch rather than deleted, because ab_brain.py --old-anchors
+# full|top|none needs both behaviours in one process to measure this, and
+# because the floors ARE still live at the top level -- which is what seeds
+# every count that has no cell yet, i.e. six of the seven today. Whether the
+# floor VALUES are hurting those six is the obvious next measurement and has
+# not been taken.
+ANCHOR_FLOOR_COUNTS = False
 
 
 def ensure_priority_anchor_brain_rules(brain: Dict[str, object]) -> None:
