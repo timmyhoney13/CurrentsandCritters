@@ -426,6 +426,158 @@ _LIVE_COUNTS_WARM = warm_cache.WarmCache("live-counts", ttl=_LIVE_COUNTS_TTL_SEC
                                          hard_ttl=600.0)
 
 
+# ── The Terms of Service version a sign-up is recorded against ────────────
+# Must match CC_TERMS_VERSION in multiplayer/client/js/preview-app.js and the
+# `updated` date in js/terms-of-service.js. test_signup_consent_server.py pins
+# the client and the server together, because an acceptance recorded against a
+# version that was never published is worse than no record at all.
+CC_TERMS_VERSION = "2026-10-09"
+
+# Bounds for what a sign-up may write here. Every one of these is a string a
+# caller chooses, on an endpoint that writes to the database, so none of them
+# is allowed to be unbounded.
+_CONSENT_VERSION_MAX = 64
+_CONSENT_TEXT_MAX = 300
+
+
+def _consent_from_body(raw):
+    """Validate a sign-up's consent block.
+
+    Returns (fields_to_write, None) or (None, "why not").
+
+    The age answer must be a REAL boolean True. Accepting the string "false"
+    because it is a non-empty string is the classic way a check like this
+    fails open, so `is True` is the test and nothing looser.
+
+    The date of birth is deliberately not read, not validated and not stored.
+    The client works out an age from it and discards it; if one arrives here
+    anyway it is dropped on the floor with everything else unrecognised,
+    because only the four fields below are ever written.
+    """
+    if not isinstance(raw, dict):
+        return None, "consent required"
+    version = raw.get("terms_version")
+    if not isinstance(version, str) or not version.strip():
+        return None, "consent requires a terms_version"
+    if raw.get("age_13_plus") is not True:
+        return None, "consent requires age_13_plus"
+    text = raw.get("terms_text")
+    if not isinstance(text, str):
+        text = ""
+    return {
+        "terms_version":        version.strip()[:_CONSENT_VERSION_MAX],
+        "terms_accepted_text":  text.strip()[:_CONSENT_TEXT_MAX],
+        "age_attested_13_plus": True,
+    }, None
+
+
+# ── Consent to immediate supply of digital content ────────────────────────
+# ONE real-money product on this site is immediately-delivered digital
+# content: Critter Coins, granted by the Stripe webhook the moment payment is
+# confirmed. For an EU or UK consumer, the 14-day right of withdrawal on that
+# kind of purchase is only lost if the buyer gave express consent to supply
+# starting inside the withdrawal period AND acknowledged losing the right,
+# BEFORE delivery. Section 4 of the Refund Policy stated the acknowledgement;
+# nothing ever collected it.
+#
+# It is collected now, on our own page, BEFORE the buyer is sent to Stripe,
+# which is necessarily before delivery. Stripe Payment Links cannot carry a
+# custom checkbox, so this is the only place it can be captured without
+# replacing Payment Links with server-created Checkout Sessions.
+#
+# ⚠️ WHAT THIS DOES NOT DO: it does not make the withdrawal right go away.
+# Whether a waiver holds is a question about each buyer's jurisdiction and
+# about whether a court reads this flow as express consent. Mandatory consumer
+# rights are not waivable by wording, and the Refund Policy says so.
+_PURCHASE_ACK_TEXT_MAX = 400
+_PURCHASE_PRODUCT_MAX = 80
+
+
+def _purchase_consent_from_body(raw):
+    """Validate a pre-checkout acknowledgement.
+
+    Returns (fields_to_write, None) or (None, "why not"). The acknowledgement
+    must be a real boolean True, and the exact wording shown to the buyer must
+    come with it: a bare boolean records that somebody ticked something, which
+    is not evidence of what they were told.
+    """
+    if not isinstance(raw, dict):
+        return None, "consent required"
+    if raw.get("ack_immediate_supply") is not True:
+        return None, "consent requires ack_immediate_supply"
+    text = raw.get("ack_text")
+    if not isinstance(text, str) or not text.strip():
+        return None, "consent requires ack_text"
+    product = raw.get("product")
+    if not isinstance(product, str):
+        product = ""
+    return {
+        "ack_immediate_supply": True,
+        "ack_text":             text.strip()[:_PURCHASE_ACK_TEXT_MAX],
+        "product":              product.strip()[:_PURCHASE_PRODUCT_MAX],
+    }, None
+
+
+def _record_purchase_consent(uid, fields):
+    """Append one acknowledgement to the buyer's record.
+
+    A SUBCOLLECTION, not a field on the account: there is one of these per
+    purchase and the previous one must not be overwritten, because the record
+    that matters is the one taken before THAT order.
+
+    Firestore rather than the disk, for the same reason as terms acceptance:
+    the Render service is free tier and its disk does not persist.
+
+    Returns True only if the write really landed. The caller tells the client,
+    and the client does not send the buyer to Stripe on a False: an
+    unrecorded acknowledgement is the thing this whole endpoint exists to
+    prevent.
+    """
+    try:
+        db = _get_firestore()
+        if db is None:
+            return False
+        from firebase_admin import firestore as _fs
+        stamp = getattr(_fs, "SERVER_TIMESTAMP", None)
+        payload = dict(fields)
+        payload["at"] = stamp if stamp is not None else int(time.time())
+        payload["terms_version"] = CC_TERMS_VERSION
+        (db.collection("users").document(uid)
+           .collection("purchase_consents").document(str(int(time.time() * 1000)))
+           .set(payload))
+        return True
+    except Exception as exc:
+        print(f"[consent] could not record purchase consent for {uid}: {exc}", flush=True)
+        return False
+
+
+def _record_terms_acceptance(uid, fields):
+    """Write a sign-up's acceptance onto the account document.
+
+    FIRESTORE, not the disk. The Render service is on the free tier and its
+    disk does not persist, which is why the public site stats reset; a consent
+    record kept beside them would evaporate the same way.
+
+    Never raises. A lost player is worse than a late record, so the caller
+    registers them either way and the failure is logged.
+    """
+    try:
+        db = _get_firestore()
+        if db is None:
+            return False
+        from firebase_admin import firestore as _fs
+        stamp = getattr(_fs, "SERVER_TIMESTAMP", None)
+        payload = dict(fields)
+        # The server's clock, not the browser's: the timestamp is the one part
+        # of this record the accepting party must not be able to choose.
+        payload["terms_accepted_at"] = stamp if stamp is not None else int(time.time())
+        db.collection("users").document(uid).set(payload, merge=True)
+        return True
+    except Exception as exc:
+        print(f"[consent] could not record acceptance for {uid}: {exc}", flush=True)
+        return False
+
+
 def _get_firestore():
     """Return a cached Firestore client, or None if Firebase isn't configured."""
     global _FIRESTORE_DB, _FIRESTORE_INIT_DONE
@@ -16056,6 +16208,19 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "valid idToken required"},
                                 status=HTTPStatus.UNAUTHORIZED)
                 return
+            # ── Terms acceptance, before anything else happens ──────────
+            # Checked AFTER the token so an unverified caller never gets an
+            # acceptance recorded for a uid they do not own, and BEFORE the
+            # counter so a client that forgets to ask is loud rather than
+            # silently unrecorded. 400, not 401: the caller is who they say
+            # they are, they just did not agree to anything.
+            consent_fields, consent_err = _consent_from_body(body.get("consent"))
+            if consent_err:
+                self._send_json({"ok": False, "error": consent_err},
+                                status=HTTPStatus.BAD_REQUEST)
+                return
+            # Never allowed to fail the sign-up. See _record_terms_acceptance.
+            consent_saved = _record_terms_acceptance(uid_val, consent_fields)
             # A brand-new account joins the dev's friends roster right away, so
             # "everyone is a friend" is true the moment they sign up rather
             # than at the next full sync. Off the request thread and wrapped:
@@ -16082,9 +16247,38 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                         stats["registered_players"] = int(stats.get("registered_players", 0)) + 1
                         stats["seen_uids"] = list(seen)
                         atomic_write_json(STATS_PATH, stats)
-                    self._send_json({"ok": True, "registered_players": stats["registered_players"]})
+                    self._send_json({"ok": True, "registered_players": stats["registered_players"],
+                                     "consent_recorded": bool(consent_saved)})
             except Exception as exc:
                 self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
+        # Record a buyer's acknowledgement that their Critter Coins are
+        # supplied as soon as payment is confirmed, and what that costs them
+        # under EU/UK withdrawal rules. Called by the Store BEFORE the buyer
+        # leaves for Stripe, so it is necessarily before delivery.
+        # Body: { "idToken": "...", "consent": { ack_immediate_supply, ack_text, product } }
+        if parsed.path == "/api/purchase/consent":
+            claims_pc = _verify_firebase_id_token(
+                body.get("idToken") if isinstance(body.get("idToken"), str) else "")
+            uid_pc = str((claims_pc or {}).get("uid") or "").strip()[:256]
+            if not uid_pc:
+                self._send_json({"ok": False, "error": "valid idToken required"},
+                                status=HTTPStatus.UNAUTHORIZED)
+                return
+            pc_fields, pc_err = _purchase_consent_from_body(body.get("consent"))
+            if pc_err:
+                self._send_json({"ok": False, "error": pc_err},
+                                status=HTTPStatus.BAD_REQUEST)
+                return
+            # Unlike a sign-up, a FAILED WRITE HERE IS FATAL to the flow. The
+            # client holds the buyer back rather than selling them something
+            # on an acknowledgement nobody kept.
+            if not _record_purchase_consent(uid_pc, pc_fields):
+                self._send_json({"ok": False, "error": "could not record consent"},
+                                status=HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            self._send_json({"ok": True})
             return
 
         # Reserve a unique Currents and Critters username. Requires a verified

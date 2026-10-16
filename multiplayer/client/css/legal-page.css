@@ -471,3 +471,75 @@
     padding: 22px; text-align: center; color: var(--muted);
     font-weight: 600;
   }
+
+
+  /* ================================================================
+     KEYBOARD: WHERE YOU ARE, AND GETTING PAST THE NAV
+     ----------------------------------------------------------------
+     The Accessibility Statement used to admit both of these as gaps:
+     there was no skip link on any page, and no custom :focus style
+     anywhere, so focus visibility was whatever ring the browser drew.
+     On this palette, cream paper with gold rules, the default ring is a
+     thin dark line that is genuinely hard to find.
+
+     NAVY, not gold. Gold on cream is the one pairing this palette
+     cannot use for a thin line: #c89320 on #fef5e6 is about 2.4:1,
+     which is below the 3:1 that WCAG 2.1 asks of a focus indicator.
+     Navy #15325c on the same paper is about 11.8:1.
+
+     3px and offset, so the ring reads as a ring rather than as a
+     border the element always had.
+     ================================================================ */
+  .skip-link {
+    position: absolute;
+    left: 8px;
+    top: 8px;
+    z-index: 9999;
+    padding: 10px 16px;
+    border-radius: 0 0 10px 10px;
+    background: var(--paper, #fef5e6);
+    color: var(--ink-deep, #15325c);
+    font-weight: 800;
+    font-size: 15px;
+    text-decoration: none;
+    box-shadow: 0 4px 14px rgba(21, 50, 92, 0.28);
+    /* Out of sight, still in the tab order. Not display:none, which would
+       take it out of the tab order and make it useless. */
+    transform: translateY(calc(-100% - 12px));
+    transition: transform .14s ease-out;
+  }
+  .skip-link:focus,
+  .skip-link:focus-visible {
+    transform: translateY(0);
+    outline: 3px solid var(--ink-deep, #15325c);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skip-link { transition: none; }
+  }
+
+  /* Every interactive thing on these pages. Listed rather than using a bare
+     :focus-visible so the ring cannot land on the <main> that the skip link
+     moves focus to: that target carries tabindex="-1" purely to receive
+     focus, and ringing the whole document would look like a rendering bug. */
+  a:focus-visible,
+  button:focus-visible,
+  summary:focus-visible,
+  [tabindex="0"]:focus-visible {
+    outline: 3px solid var(--ink-deep, #15325c);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+  /* The one exception: inside the dark top bar and footer, navy on navy is
+     invisible, so the ring is the paper colour there. */
+  .topbar a:focus-visible,
+  .topbar button:focus-visible,
+  .foot a:focus-visible,
+  .foot button:focus-visible {
+    outline-color: var(--paper, #fef5e6);
+  }
+  /* The skip target needs no override: a browser does not match
+     :focus-visible on a non-interactive tabindex="-1" element that was
+     focused programmatically, so moving focus to #doc draws nothing. Adding
+     `outline: none` here would be the one rule on these pages that takes a
+     focus ring away, and it is not needed. */

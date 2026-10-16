@@ -898,18 +898,34 @@
                reach the owner of an account. Nothing else is ever sent here.
                It can be added later in Settings; it is offered now because now
                is when somebody has one to hand. -->
-          <div class="ao-lbl-row">
-            <label class="ao-lbl" for="ao-new-email">Email</label>
-            <span class="ao-optional">Optional</span>
+          <!-- Folded, for the same reason the friend code below is: the two
+               required controls at the foot of this pane (date of birth and
+               the Terms agreement) cost it about 150px, and CREATE ACCOUNT
+               has to stay reachable without scrolling on a 1024x768 laptop.
+               test_account_signin.js measures exactly that at three window
+               sizes.
+
+               The toggle says RECOMMENDED rather than "optional", because
+               folding this away without saying so would quietly cost people
+               the only way back into a username-and-password account. The
+               consequence is stated on the toggle itself, not only inside
+               it, so it is readable while the block is still shut. -->
+          <button type="button" class="ao-more" id="ao-email-toggle"
+                  aria-expanded="false" aria-controls="ao-email-wrap">+ Add a recovery email (recommended: it is the only way to reset a forgotten password)</button>
+          <div id="ao-email-wrap" style="display:none">
+            <div class="ao-lbl-row">
+              <label class="ao-lbl" for="ao-new-email">Email</label>
+              <span class="ao-optional">Optional</span>
+            </div>
+            <div class="ao-field">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                   stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.4"/><path d="m3.6 7 8.4 6 8.4-6"/></svg>
+              <input id="ao-new-email" type="email" placeholder="you@example.com" maxlength="190"
+                     autocomplete="email" autocapitalize="off" spellcheck="false" />
+            </div>
+            <p class="ao-hint" id="ao-email-hint">Link it and you can reset a forgotten password. Leave it
+              empty and nothing can be reset: an account here has no email of its own.</p>
           </div>
-          <div class="ao-field">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-                 stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.4"/><path d="m3.6 7 8.4 6 8.4-6"/></svg>
-            <input id="ao-new-email" type="email" placeholder="you@example.com" maxlength="190"
-                   autocomplete="email" autocapitalize="off" spellcheck="false" />
-          </div>
-          <p class="ao-hint" id="ao-email-hint">Link it and you can reset a forgotten password. Leave it
-            empty and nothing can be reset: an account here has no email of its own.</p>
 
           <!-- Folded away until asked for. Leaving it open cost the column
                70px of height, which pushed CREATE ACCOUNT off the bottom of a
@@ -929,6 +945,39 @@
             <span>Your guest XP, level, games and critters come with you.</span>
           </div>
 
+
+          <!-- ── Age, and the agreement ───────────────────────────────
+               NOTHING here is preselected, and CREATE ACCOUNT
+               stays disabled until both are answered. The two are separate
+               controls on purpose: bundling "I am old enough" into "I accept
+               the terms" makes one tick stand for two different statements,
+               and neither is then worth much.
+
+               The date of birth is READ AND THROWN AWAY. ccArmConsent works
+               out an age from it and records the boolean answer; the date
+               itself is never written to the profile and never posted to the
+               server. That is why the hint says so out loud: a date field with
+               no explanation reads as data collection. -->
+          <div class="ao-consent">
+            <div class="ao-lbl-row">
+              <label class="ao-lbl" for="ao-new-dob">Date of birth</label>
+              <span class="ao-optional">13+, date not stored</span>
+            </div>
+            <div class="ao-field">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                   stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="14" rx="2.4"/><path d="M3.5 10h17"/><path d="M8 3.5v4"/><path d="M16 3.5v4"/></svg>
+              <input id="ao-new-dob" type="date" autocomplete="bday" />
+            </div>
+
+            <label class="ao-check" for="ao-new-terms">
+              <input type="checkbox" id="ao-new-terms" />
+              <span>I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of
+                Service</a> and acknowledge the <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy
+                Policy</a>.</span>
+            </label>
+
+            <div class="auth-err auth-note" id="ao-new-consent-err" role="status" aria-live="polite"></div>
+          </div>
           <button type="button" id="ao-new-go" class="ao-primary">Create Account →</button>
 
           <div class="ao-or" aria-hidden="true">or</div>
@@ -1057,6 +1106,39 @@
               Critter Coins</strong>.</span>
           </div>
 
+
+          <!-- ── Age, and the agreement ───────────────────────────────
+               NOTHING here is preselected, and CREATE USERNAME
+               stays disabled until both are answered. The two are separate
+               controls on purpose: bundling "I am old enough" into "I accept
+               the terms" makes one tick stand for two different statements,
+               and neither is then worth much.
+
+               The date of birth is READ AND THROWN AWAY. ccArmConsent works
+               out an age from it and records the boolean answer; the date
+               itself is never written to the profile and never posted to the
+               server. That is why the hint says so out loud: a date field with
+               no explanation reads as data collection. -->
+          <div class="ao-consent">
+            <div class="ao-lbl-row">
+              <label class="ao-lbl" for="ao-nick-dob">Date of birth</label>
+              <span class="ao-optional">13+, date not stored</span>
+            </div>
+            <div class="ao-field">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                   stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="14" rx="2.4"/><path d="M3.5 10h17"/><path d="M8 3.5v4"/><path d="M16 3.5v4"/></svg>
+              <input id="ao-nick-dob" type="date" autocomplete="bday" />
+            </div>
+
+            <label class="ao-check" for="ao-nick-terms">
+              <input type="checkbox" id="ao-nick-terms" />
+              <span>I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of
+                Service</a> and acknowledge the <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy
+                Policy</a>.</span>
+            </label>
+
+            <div class="auth-err auth-note" id="ao-nick-consent-err" role="status" aria-live="polite"></div>
+          </div>
           <button type="button" id="auth-nick-go-btn" class="pv-btn gold full ao-gold">Create Username &rarr;</button>
         </div>
 

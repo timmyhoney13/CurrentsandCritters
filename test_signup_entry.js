@@ -200,6 +200,22 @@ if (!CHROME) {
   // "Can the player see this?" is the only question this file asks, so it is
   // asked properly: laid out, not display:none anywhere up the tree, not
   // transparent, and actually of a size.
+  // ── Satisfy the sign-up gate, the way a player does ────────────────
+  // Since 2026-10-15 both account panes carry a date of birth and a Terms
+  // checkbox, and the primary button is DISABLED until both are answered
+  // (ccArmConsent in preview-app.js). A probe that clicks the button without
+  // filling them is clicking a disabled button, so nothing happens and every
+  // assertion about what happens next fails. This fills them first.
+  //
+  // It is deliberately NOT a way around the gate: it sets exactly what a
+  // person would set. The gate's own behaviour is proved separately, by
+  // test_signup_consent.js and test_consent_in_browser.js.
+  function consent(pre) {
+    var d = document.getElementById(pre + "-dob");
+    var c = document.getElementById(pre + "-terms");
+    if (d) { d.value = "1990-01-01"; d.dispatchEvent(new Event("input", { bubbles: true })); }
+    if (c) { c.checked = true; c.dispatchEvent(new Event("change", { bubbles: true })); }
+  }
   function seen(id) {
     var e = document.getElementById(id);
     if (!e) return { there: false };
@@ -289,6 +305,7 @@ if (!CHROME) {
         inp.dispatchEvent(new Event("input"));
         setTimeout(function () {
           // The real handler, writing the real message into the real line.
+          consent("ao-nick");
           document.getElementById("auth-nick-go-btn").click();
           setTimeout(function () {
             log.panes = pane();
@@ -372,6 +389,7 @@ if (!CHROME) {
       const r = run("_su_phone.html", `
         window.__fishGoToSignIn({ pane: "nickname" });
         setTimeout(function () {
+          consent("ao-nick");
           document.getElementById("auth-nick-go-btn").click();
           setTimeout(function () {
             var btn = document.getElementById("auth-nick-go-btn");

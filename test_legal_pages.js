@@ -55,6 +55,97 @@ const PAGES = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
+console.log("\n0a. The DMCA agent registration nobody has done yet");
+// ═══════════════════════════════════════════════════════════════════════════
+// Publishing a designated agent is necessary for §512 safe harbour and is not
+// sufficient: the agent also has to be registered with the Copyright Office,
+// which is a separate act on dmca.copyright.gov that EXPIRES EVERY THREE
+// YEARS. Until somebody does it, the page must not imply otherwise.
+{
+  const dmca = read(CLIENT + "/js/copyright-dmca.js");
+  check(/var CC_DMCA_AGENT_REGISTERED = (true|false);/.test(dmca),
+        "the registration status is a flag, not a guess");
+  const registered = /var CC_DMCA_AGENT_REGISTERED = true;/.test(dmca);
+
+  // Whatever the flag says, no registration NUMBER is ever invented.
+  check(!/\b(registration|certificate)\s*(no|number|#)\s*[:.]?\s*\d/i.test(dmca),
+        "no registration number is published");
+
+  if (!registered) {
+    check(/not yet completed the separate agent registration/.test(dmca),
+          "while unregistered, the page says so plainly");
+    check(!/\bis registered with the United States Copyright Office\b(?![\s\S]{0,40}\?)/
+            .test(dmca.replace(/CC_DMCA_AGENT_REGISTERED\s*\n?\s*\?[\s\S]*?:\s*callout/, "")),
+          "…and claims no safe harbour it does not have");
+    check(/CC_DMCA_AGENT_RENEW_BY/.test(dmca),
+          "the three-year renewal is tracked, so it cannot lapse unnoticed");
+  }
+
+  // The two registrations that get confused must be named apart.
+  check(/COPYRIGHT REGISTRATION of the cards, artwork and rulebook/.test(dmca),
+        "agent registration is distinguished from registering ownership");
+
+  // A rights holder must have a route that works.
+  check(/Designated Copyright Agent/.test(dmca)
+        && /916A South Douglas Avenue/.test(dmca),
+        "a postal address for the agent is published");
+  check(/under penalty of perjury/.test(dmca),
+        "the notice requirements are stated");
+  check(/Counter-Notice|Counter-notice/.test(dmca),
+        "there is a counter-notice route");
+  check(/Repeat Infringers/.test(dmca),
+        "there is a repeat-infringer policy");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("\n0. Getting to the document, and seeing where you are");
+// ═══════════════════════════════════════════════════════════════════════════
+// The Accessibility Statement used to admit two gaps out loud:
+//   ✗ no skip-to-content link on any page
+//   ✗ no custom :focus style anywhere, so focus was the browser default ring
+// Both are closed here, on all EIGHT pages (the seven plus /privacy). The
+// statement is only allowed to stop admitting them once this passes.
+{
+  const ALL = ["privacy.html", ...PAGES.map((p) => p.file)];
+  for (const f of ALL) {
+    const page = read(CLIENT + "/" + f);
+
+    // A skip link has to be the FIRST thing a keyboard reaches, or it is not
+    // a skip link: landing on it after the whole nav defeats the purpose.
+    const bodyAt = page.indexOf("<body>");
+    const skipAt = page.indexOf('class="skip-link"');
+    const navAt  = page.indexOf("<header");
+    check(skipAt > bodyAt, `${f} has a skip link`);
+    check(skipAt > -1 && skipAt < navAt, `${f} puts the skip link before the nav`);
+
+    // It must point at something that exists.
+    const target = (/class="skip-link" href="#([a-z-]+)"/.exec(page) || [])[1];
+    check(!!target, `${f}'s skip link names a target`);
+    if (target) {
+      check(new RegExp(`id="${target}"`).test(page),
+            `${f} has the element the skip link points at (#${target})`);
+      // Focus has to actually move, which needs the target focusable.
+      check(new RegExp(`id="${target}"[^>]*tabindex="-1"`).test(page)
+            || new RegExp(`tabindex="-1"[^>]*id="${target}"`).test(page),
+            `${f}'s skip target can take focus`);
+    }
+  }
+
+  // Visible focus, defined once in the shared stylesheet.
+  // Comments stripped: the stylesheet carries a note explaining why it does
+  // NOT use `outline: none`, and a check that reads comments would fail on
+  // the very note that keeps the rule out.
+  const css = read(CLIENT + "/css/legal-page.css").replace(/\/\*[\s\S]*?\*\//g, "");
+  check(/:focus-visible/.test(css), "the shared stylesheet defines a focus ring");
+  check(/outline:\s*3px/.test(css), "…and it is thick enough to see");
+  check(/outline-offset/.test(css), "…and stands off the text it rings");
+  check(!/outline:\s*none/.test(css) && !/outline:\s*0/.test(css),
+        "nothing in the shared stylesheet removes a focus ring");
+  check(/\.skip-link/.test(css), "the skip link is styled, and reveals itself on focus");
+  check(/\.skip-link:focus/.test(css), "…specifically on focus");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log("\n1. The seven documents");
 // ═══════════════════════════════════════════════════════════════════════════
 // Run the real modules the way a browser would: they only touch `window`.
@@ -176,14 +267,14 @@ console.log("3. The promises");
     legal: [
       "916A South Douglas Avenue",
       "Nashville, Tennessee 37204-2021",
-      "5% of every purchase to ocean conservation",
+      "5% to ocean conservation",
       "not sponsored by, endorsed by, or officially partnered with the Surfrider Foundation",
       "a purchase is not a tax-deductible charitable contribution",
     ],
     accessibility: [
       "WCAG 2.1 Level AA",
       "We are not claiming that we currently conform",
-      "There is no skip-to-content link",
+      "We have not had a screen-reader pass done",
     ],
   };
 

@@ -7573,6 +7573,67 @@
       color: #8aa6c0;
     }
 
+    /* ── Age, and the agreement ─────────────────────────────────────
+       The one block on these panes that GATES the button rather than just
+       feeding it, so it is set apart by a rule above it: the fields above are
+       things you are choosing, this is a condition you are meeting.
+
+       The checkbox gets a 20px hit area and the whole row is the <label>, so
+       the sentence is the target and not just the box. Tapping a 13px square
+       on a phone is the kind of thing that makes somebody tick the wrong one
+       and then not know why the button is still grey. */
+    #auth-step-choose .ao-consent {
+      margin-top: 7px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(138, 166, 192, 0.22);
+    }
+    /* Takes no room until it has something to say. An always-reserved line
+       here is 18px of nothing, and 18px is the difference between CREATE
+       ACCOUNT being reachable on a 768px-tall laptop and not. */
+    #auth-step-choose .ao-consent .auth-note:empty { display: none; margin: 0; padding: 0; }
+    #auth-step-choose .ao-consent .ao-hint { margin-top: 5px; }
+    #auth-step-choose .ao-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 8px;
+      cursor: pointer;
+      font-size: clamp(12px, .95vw, 13.5px);
+      font-weight: 500;
+      line-height: 1.5;
+      color: #c6d8e8;
+    }
+    #auth-step-choose .ao-check input[type="checkbox"] {
+      flex: 0 0 auto;
+      width: 20px; height: 20px;
+      margin: 0;
+      accent-color: var(--cr-gold, #e8b84b);
+      cursor: pointer;
+    }
+    #auth-step-choose .ao-check a { color: var(--cr-aqua, #5dd6f7); text-decoration: underline; }
+    #auth-step-choose .ao-check a:hover { color: #fff; }
+    /* Keyboard: the ring has to be visible against the dark column, and the
+       browser default is a thin dark outline that vanishes on this palette. */
+    #auth-step-choose .ao-check input[type="checkbox"]:focus-visible,
+    #auth-step-choose .ao-consent input[type="date"]:focus-visible {
+      outline: 3px solid var(--cr-gold, #e8b84b);
+      outline-offset: 2px;
+    }
+    /* A date input is not a text input: Safari and Chrome both give it their
+       own internal padding and a light-scheme calendar glyph. */
+    #auth-step-choose .ao-consent input[type="date"] {
+      color-scheme: dark;
+      font-family: inherit;
+    }
+    /* A disabled primary says why it is disabled through the note below it,
+       so it has to look disabled rather than merely be disabled. */
+    #auth-step-choose .ao-primary[disabled],
+    #auth-step-choose .ao-gold[disabled] {
+      opacity: .45;
+      cursor: not-allowed;
+      filter: saturate(.6);
+    }
+
     /* ── The strength bar ───────────────────────────────────────────
        Four steps, and the colour IS the message: a red sliver, an amber half,
        then green once the password is genuinely hard to guess. Create Account
@@ -15516,7 +15577,7 @@
     .gal-tile:hover .gal-tile-img-ring { border-color: rgba(34,216,248,.75); }
     .gal-tile.gal-locked { border: 0; background: none; }
     .gal-tile.gal-locked:hover { background: rgba(188,221,230,.4); }
-    .gal-tile.gal-locked .gal-tile-img { filter: grayscale(.72) opacity(.82); }
+    .gal-tile.gal-locked .gal-tile-img { filter: grayscale(.85) brightness(.78) contrast(.9); }
     .gal-tile.gal-locked .gal-tile-img-ring {
       background: radial-gradient(circle, rgba(246,241,230,.9) 0%, rgba(221,224,222,.85) 100%);
       border-color: rgba(255,255,255,.8);
@@ -15553,7 +15614,7 @@
     .gal-tile-water {
       position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
       height: calc(var(--gal-prog, 0) * 100%);
-      background: linear-gradient(180deg, rgba(95,179,214,.52), rgba(44,90,138,.46));
+      background: linear-gradient(180deg, rgba(95,179,214,.72), rgba(44,90,138,.62));
       border-top: 2px solid rgba(255,255,255,.95);
       pointer-events: none;
       transition: height .5s cubic-bezier(.3,0,.2,1);
@@ -15561,7 +15622,7 @@
     .gal-tile-pct {
       position: absolute; left: 0; right: 0; bottom: 5px; z-index: 3;
       text-align: center; font-size: .62rem; font-weight: 900;
-      color: #fff; text-shadow: 0 1px 2px rgba(21,50,92,.95), 0 0 7px rgba(21,50,92,.75);
+      color: #fff; text-shadow: 0 1px 3px rgba(21,50,92,.85);
       pointer-events: none;
     }
     /* Background tiles: rounded-rectangle preview instead of a round avatar */
@@ -15615,11 +15676,10 @@
       order: -1;
       flex: 1 1 54%; width: auto; min-width: 0;
       border-left: none;
-      /* A cream veil, lightest at the top so the painting still reads behind
-         the critter and heaviest under the text, which is the only thing on
-         this side that needs a surface to sit on. */
-      background: linear-gradient(180deg,
-        rgba(254,245,230,.1) 0%, rgba(254,245,230,.42) 52%, rgba(254,245,230,.72) 100%);
+      background:
+        radial-gradient(ellipse 54% 40% at 50% 34%, rgba(58,150,214,.4) 0%, transparent 70%),
+        linear-gradient(180deg, rgba(14,58,102,.6) 0%, rgba(7,26,48,.85) 48%, rgba(4,16,30,.92) 100%);
+      backdrop-filter: blur(8px);
       overflow-y: auto; padding: 22px 26px 28px;
       display: flex; flex-direction: column; align-items: center;
       /* "safe" keeps the top of a tall critter reachable on a short window;
@@ -15628,14 +15688,11 @@
       justify-content: safe center;
       gap: 11px;
     }
-    .gal-detail.gal-detail-empty { justify-content: center; color: var(--cr-ink-soft); text-align: center; font-size: .92rem; }
+    .gal-detail.gal-detail-empty { justify-content: center; color: #6f93b6; text-align: center; font-size: .92rem; }
     .gal-detail-img-wrap {
-      position: relative; width: min(40vh, 320px); height: min(40vh, 320px);
-      flex-shrink: 0; border-radius: 50%; overflow: hidden;
+      position: relative; width: min(38vh, 300px); height: min(38vh, 300px);
+      flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
-      background: radial-gradient(circle, rgba(255,255,255,.92) 0%, rgba(188,221,230,.88) 62%, rgba(149,201,219,.85) 100%);
-      border: 3px solid rgba(255,255,255,.95);
-      box-shadow: inset 0 -14px 26px rgba(44,90,138,.14), 0 10px 30px rgba(21,50,92,.22);
     }
     /* On stage the art is alive: each kind of creature moves its own way. */
     .gal-detail-img { animation: none; }
@@ -15661,68 +15718,64 @@
     }
     /* The same water as the chips, at stage size: the critter is submerged
        until the unlock is done. */
-    /* The water sits INSIDE the circle, exactly as it does in a roster chip:
-       the critter is in a bowl of ocean filled to however far along you are. */
     .gal-detail-tank {
-      position: absolute; inset: 0; border-radius: 50%; overflow: hidden;
+      position: absolute; inset: 0; border-radius: 18px; overflow: hidden;
       z-index: 3; pointer-events: none;
     }
     .gal-detail-water {
       position: absolute; left: 0; right: 0; bottom: 0;
       height: calc(var(--gal-prog, 0) * 100%);
-      background: linear-gradient(180deg, rgba(95,179,214,.44) 0%, rgba(44,90,138,.4) 100%);
-      border-top: 3px solid rgba(255,255,255,.95);
-      box-shadow: 0 -10px 24px rgba(44,90,138,.2);
+      background: linear-gradient(180deg, rgba(90,210,255,.22) 0%, rgba(124,58,237,.14) 100%);
+      border-top: 2px solid rgba(190,245,255,.8);
+      box-shadow: 0 -12px 30px rgba(34,216,248,.16);
       transition: height .6s cubic-bezier(.3,0,.2,1);
     }
     .gal-detail-glow {
       position: absolute; inset: -4%; border-radius: 50%;
-      background: radial-gradient(circle, rgba(255,255,255,.55), rgba(188,221,230,.2) 52%, transparent 72%);
+      background: radial-gradient(circle, rgba(34,216,248,.4), rgba(47,126,224,.12) 50%, transparent 70%);
       filter: blur(8px); animation: gal-glow-pulse 3.4s ease-in-out infinite;
     }
     @keyframes gal-glow-pulse { 0%,100%{transform:scale(.92);opacity:.7;} 50%{transform:scale(1.06);opacity:1;} }
-    .gal-detail-img { position: relative; z-index: 2; width: 76%; height: 76%; object-fit: contain;
-      filter: drop-shadow(0 10px 18px rgba(21,50,92,.35)); }
-    .gal-detail.gal-locked-detail .gal-detail-img { filter: grayscale(.62) opacity(.88) drop-shadow(0 8px 14px rgba(21,50,92,.3)); }
-    .gal-detail-name { font-family: "Cinzel", serif; font-size: clamp(1.6rem, 3.4vw, 2.5rem); font-weight: 900; color: var(--cr-navy); text-align: center; line-height: 1.05; text-shadow: 0 2px 0 rgba(255,255,255,.95), 0 6px 18px rgba(255,255,255,.6); }
-    .gal-detail-species { font-size: .72rem; color: var(--cr-ink-soft); text-transform: uppercase; letter-spacing: .12em; font-weight: 800; margin-top: -4px; }
+    .gal-detail-img { position: relative; z-index: 2; width: 84%; height: 84%; object-fit: contain;
+      filter: drop-shadow(0 10px 22px rgba(0,0,0,.5)); }
+    .gal-detail.gal-locked-detail .gal-detail-img { filter: grayscale(.7) brightness(.65) drop-shadow(0 8px 16px rgba(0,0,0,.5)); }
+    .gal-detail-name { font-family: "Cinzel", serif; font-size: clamp(1.6rem, 3.4vw, 2.5rem); font-weight: 900; color: #fff; text-align: center; line-height: 1.05; text-shadow: 0 4px 26px rgba(34,216,248,.28); }
+    .gal-detail-species { font-size: .72rem; color: #8fb8da; text-transform: uppercase; letter-spacing: .12em; font-weight: 800; margin-top: -4px; }
     .gal-detail-status {
       font-size: .8rem; font-weight: 800; padding: 4px 12px; border-radius: 8px;
     }
-    .gal-status-unlocked { background: rgba(214,243,228,.95); color: #19694a; border: 1.5px solid rgba(25,105,74,.35); }
-    .gal-status-locked  { background: rgba(255,255,255,.9); color: var(--cr-ink-soft); border: 1.5px solid var(--cr-edge-soft); }
-    .gal-status-equipped { background: rgba(255,240,205,.95); color: var(--cr-gold-ink); border: 1.5px solid rgba(200,147,32,.5); }
-    .gal-detail-facts { font-size: .88rem; color: var(--cr-ink); line-height: 1.55; text-align: center; max-width: 46ch; text-shadow: 0 1px 0 rgba(255,255,255,.6); }
+    .gal-status-unlocked { background: rgba(45,189,130,.2); color: #6ff0b8; border: 1px solid rgba(45,189,130,.45); }
+    .gal-status-locked  { background: rgba(120,80,255,.16); color: #c9b3ff; border: 1px solid rgba(120,80,255,.4); }
+    .gal-status-equipped { background: rgba(255,211,107,.2); color: #ffe2a0; border: 1px solid rgba(255,211,107,.5); }
+    .gal-detail-facts { font-size: .88rem; color: #c5ddf2; line-height: 1.55; text-align: center; max-width: 46ch; }
     .gal-detail-reqbox {
-      width: 100%; max-width: 420px; background: var(--cr-surface);
-      border: 1.5px solid var(--cr-edge); border-radius: 12px; padding: 12px 14px;
-      box-shadow: var(--cr-lift);
+      width: 100%; max-width: 420px; background: rgba(120,80,255,.1);
+      border: 1px solid rgba(120,80,255,.28); border-radius: 12px; padding: 12px 14px;
     }
-    .gal-req-label { font-size: .72rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: var(--cr-gold-ink); margin-bottom: 4px; }
-    .gal-req-text { font-size: .85rem; color: var(--cr-ink); line-height: 1.45; }
-    .gal-earned-box { background: rgba(224,245,234,.97); border-color: rgba(25,105,74,.3); }
-    .gal-earned-box .gal-req-label { color: #19694a; }
-    .gal-earned-box .gal-req-text { color: #14543c; }
+    .gal-req-label { font-size: .72rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: #b39aff; margin-bottom: 4px; }
+    .gal-req-text { font-size: .85rem; color: #dcd2ff; line-height: 1.45; }
+    .gal-earned-box { background: rgba(80,220,150,.1); border-color: rgba(80,220,150,.32); }
+    .gal-earned-box .gal-req-label { color: #7fe0ab; }
+    .gal-earned-box .gal-req-text { color: #d3f3e2; }
     /* "You traded this away" note under the requirement, amber so it reads as a
        state change rather than a plain requirement. */
-    .gal-req-reearn { margin-top: 7px; color: var(--cr-gold-ink); font-weight: 700; }
+    .gal-req-reearn { margin-top: 7px; color: #ffd28a; font-weight: 700; }
     .gal-prog-row { display: flex; justify-content: space-between; align-items: baseline; margin: 10px 0 5px; }
-    .gal-prog-label { font-size: .72rem; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: var(--cr-gold-ink); }
-    .gal-prog-val { font-size: .82rem; font-weight: 800; color: var(--cr-ink); }
-    .gal-prog-track { height: 9px; background: rgba(188,221,230,.7); border-radius: 6px; overflow: hidden; border: 1px solid var(--cr-edge-soft); }
-    .gal-prog-fill { height: 100%; background: linear-gradient(90deg,#5fb3d6,#3a8fb5 60%,#2c5a8a); border-radius: 6px; transition: width .5s ease; }
-    .gal-rarity { font-size: .76rem; color: var(--cr-ink-soft); font-weight: 700; margin-top: 2px; }
+    .gal-prog-label { font-size: .72rem; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: #b39aff; }
+    .gal-prog-val { font-size: .82rem; font-weight: 800; color: #eaf4ff; }
+    .gal-prog-track { height: 9px; background: rgba(120,80,255,.16); border-radius: 6px; overflow: hidden; border: 1px solid rgba(120,80,255,.22); }
+    .gal-prog-fill { height: 100%; background: linear-gradient(90deg,#7c3aed,#a855f7 55%,#22d8f8); border-radius: 6px; transition: width .5s ease; }
+    .gal-rarity { font-size: .76rem; color: #8fb8da; font-weight: 700; margin-top: 2px; }
     /* Ownership % pill shown above the portrait in the detail panel. */
     .gal-rarity-top {
       margin: 0; padding: 4px 13px; border-radius: 999px;
-      background: rgba(255,255,255,.85); border: 1.5px solid var(--cr-edge-soft);
-      color: var(--cr-ink); text-align: center; white-space: nowrap;
+      background: rgba(47,126,224,.16); border: 1px solid rgba(95,179,214,.34);
+      color: #bfe0f7; text-align: center; white-space: nowrap;
     }
-    .gal-equip-q { font-size: .92rem; color: var(--cr-ink); font-weight: 800; text-align: center; margin-top: 6px;
-      text-shadow: 0 1px 0 rgba(255,255,255,.7); }
+    .gal-equip-q { font-size: .92rem; color: #fff; font-weight: 800; text-align: center; margin-top: 6px; }
     .gal-equip-row { display: flex; gap: 12px; width: 100%; max-width: 420px; margin-top: 2px; }
     .gal-equip-row .pv-btn { flex: 1; }
-    .gal-equip-confirm { font-size: .85rem; font-weight: 800; color: #19694a; text-align: center; }
+    .gal-equip-confirm { font-size: .85rem; font-weight: 800; color: #6ff0b8; text-align: center; }
     @media (max-width: 760px) {
       .gal-body { flex-direction: column; }
       .gal-detail {
@@ -17706,3 +17759,252 @@
         scroll-behavior: auto !important;
       }
     }
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE ONE-TIME TERMS RECHECK
+   ----------------------------------------------------------------------
+   Shown once to an account made before the sign-up gate existed, built by
+   ccTermsRecheck() in preview-app.js. Reef palette, same as the rest of the
+   signed-in chrome: a dark navy scrim would make this the only part of the
+   product that looks like a cookie banner.
+   ══════════════════════════════════════════════════════════════════════ */
+.cc-terms-recheck {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(8, 36, 58, 0.72);
+  backdrop-filter: blur(3px);
+}
+.cc-terms-recheck .cc-tr-card {
+  width: 100%;
+  max-width: 420px;
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  padding: 22px 22px 20px;
+  border-radius: 18px;
+  background: var(--cr-cream, #fdf6e7);
+  border: 2px solid var(--cr-gold, #e8b84b);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
+  color: var(--cr-navy, #0d3b57);
+  font-family: inherit;
+}
+.cc-terms-recheck h2 {
+  margin: 0 0 6px;
+  font-size: 21px;
+  font-weight: 800;
+  color: var(--cr-navy, #0d3b57);
+}
+.cc-terms-recheck .cc-tr-sub {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #3b6b86;
+}
+.cc-terms-recheck .cc-tr-lbl {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: #3b6b86;
+}
+.cc-terms-recheck input[type="date"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--cr-navy, #0d3b57);
+  background: #fff;
+  border: 1.5px solid rgba(13, 59, 87, 0.28);
+  border-radius: 10px;
+}
+.cc-terms-recheck .cc-tr-hint {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #4d7a93;
+}
+.cc-terms-recheck .cc-tr-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 16px 0 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.cc-terms-recheck .cc-tr-check input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 20px; height: 20px;
+  margin: 0;
+  accent-color: var(--cr-gold, #e8b84b);
+  cursor: pointer;
+}
+.cc-terms-recheck a { color: #10658c; text-decoration: underline; }
+.cc-terms-recheck .cc-tr-msg {
+  min-height: 18px;
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: #a4442a;
+}
+.cc-terms-recheck .cc-tr-go {
+  width: 100%;
+  margin-top: 14px;
+  padding: 13px 16px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--cr-navy, #0d3b57);
+  background: var(--cr-gold, #e8b84b);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.cc-terms-recheck .cc-tr-go[disabled] {
+  opacity: .45;
+  cursor: not-allowed;
+}
+/* Keyboard: a gold ring on cream needs the dark outline, not the light one. */
+.cc-terms-recheck input:focus-visible,
+.cc-terms-recheck .cc-tr-go:focus-visible,
+.cc-terms-recheck a:focus-visible {
+  outline: 3px solid var(--cr-navy, #0d3b57);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cc-terms-recheck { backdrop-filter: none; }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE PRE-CHECKOUT ACKNOWLEDGMENT
+   ----------------------------------------------------------------------
+   Built by ccPurchaseConsent() in preview-app.js and shown once per
+   purchase, before the buyer leaves for Stripe. Same reef card as the
+   terms recheck above, because it is the same kind of moment: one
+   decision, taken deliberately, on a cream card over the table.
+
+   Two buttons here, not one, so Cancel gets equal weight. A dialog that
+   asks you to give something up and offers only a way forward is not
+   really asking.
+   ══════════════════════════════════════════════════════════════════════ */
+.cc-purchase-ack {
+  position: fixed;
+  inset: 0;
+  z-index: 100001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(8, 36, 58, 0.72);
+  backdrop-filter: blur(3px);
+}
+.cc-purchase-ack .cc-pc-card {
+  width: 100%;
+  max-width: 440px;
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  padding: 22px 22px 20px;
+  border-radius: 18px;
+  background: var(--cr-cream, #fdf6e7);
+  border: 2px solid var(--cr-gold, #e8b84b);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
+  color: var(--cr-navy, #0d3b57);
+  font-family: inherit;
+}
+.cc-purchase-ack h2 {
+  margin: 0 0 10px;
+  font-size: 21px;
+  font-weight: 800;
+  color: var(--cr-navy, #0d3b57);
+}
+.cc-purchase-ack .cc-pc-what {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(13, 59, 87, 0.07);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.cc-purchase-ack .cc-pc-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  cursor: pointer;
+}
+.cc-purchase-ack .cc-pc-check input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 20px; height: 20px;
+  margin: 0;
+  accent-color: var(--cr-gold, #e8b84b);
+  cursor: pointer;
+}
+.cc-purchase-ack .cc-pc-fine {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #4d7a93;
+}
+.cc-purchase-ack a { color: #10658c; text-decoration: underline; }
+.cc-purchase-ack .cc-pc-msg {
+  min-height: 0;
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: #a4442a;
+}
+.cc-purchase-ack .cc-pc-msg:empty { margin: 0; }
+.cc-purchase-ack .cc-pc-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+.cc-purchase-ack .cc-pc-row button {
+  flex: 1 1 0;
+  padding: 13px 14px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.cc-purchase-ack .cc-pc-cancel {
+  color: var(--cr-navy, #0d3b57);
+  background: transparent;
+  border: 2px solid rgba(13, 59, 87, 0.32);
+}
+.cc-purchase-ack .cc-pc-cancel:hover { background: rgba(13, 59, 87, 0.07); }
+.cc-purchase-ack .cc-pc-go {
+  color: var(--cr-navy, #0d3b57);
+  background: var(--cr-gold, #e8b84b);
+  border: none;
+}
+.cc-purchase-ack .cc-pc-go[disabled] {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.cc-purchase-ack input:focus-visible,
+.cc-purchase-ack button:focus-visible,
+.cc-purchase-ack a:focus-visible {
+  outline: 3px solid var(--cr-navy, #0d3b57);
+  outline-offset: 2px;
+}
+@media (max-width: 420px) {
+  .cc-purchase-ack .cc-pc-row { flex-direction: column-reverse; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cc-purchase-ack { backdrop-filter: none; }
+}

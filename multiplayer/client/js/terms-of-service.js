@@ -38,7 +38,8 @@
     lede:
       "The agreement between you and Bearded Seal Studios LLC. What you can do, what we will not " +
       "allow, and what each of us is on the hook for. Play fair and look after your account, and " +
-      "most of this page will never matter to you.",
+      "most of this page will never matter to you. You agree to these Terms when you create an " +
+      "account, and we record which version you agreed to and when.",
     appliesHead: "These Terms apply to:",
     appliesTo: [
       "currentsandcritters.com",
@@ -62,6 +63,7 @@
         title: "Who May Use Currents and Critters",
         body:
           "<p>Currents and Critters and our related online services are not directed to children under 13.</p>" +
+          "<p><strong>You must be 13 or older to create an online account.</strong> When you sign up we ask for your date of birth, work out your age from it, and keep only the answer. We do not keep the date itself. This is an age screen and not age verification, and we rely on you answering it honestly.</p>" +
           "<p>A person under 13 should not create an account, join the newsletter, make a purchase, or submit personal information through our services without the involvement of a parent or legal guardian.</p>" +
           "<p>If you are under the age of majority where you live, you may use our services only with the involvement of a parent or legal guardian, who accepts these Terms with you and is responsible for your use of the services.</p>" +
           "<p>You may use our services only if you can form a binding agreement with us and are not barred from doing so under applicable law.</p>",
@@ -273,7 +275,8 @@
           "<p>We may update these Terms as Currents and Critters and our services change.</p>" +
           "<p>When we update them, we will change the “Last updated” date at the top of this page.</p>" +
           "<p>If we make a significant change, we will give additional notice through the website, the online game, your account, or email where that is appropriate or legally required, before the change takes effect where we reasonably can.</p>" +
-          "<p>The updated Terms apply from the date they are posted unless a different effective date is stated. If you keep using our services after a change takes effect, you accept the updated Terms. If you do not accept them, please stop using the services and you may ask us to close your account.</p>",
+          "<p>The updated Terms apply from the date they are posted unless a different effective date is stated. If you keep using our services after a change takes effect, you accept the updated Terms. If you do not accept them, please stop using the services and you may ask us to close your account.</p>" +
+          "<p>For changes we think are material, we will also ask you to agree to these Terms again the next time you sign in, and we record which version you agreed to and when. If your account was created before we began recording that, we will ask you once.</p>",
       },
       {
         title: "The Whole Agreement, and Contacting Us",

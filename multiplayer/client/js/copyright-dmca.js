@@ -13,6 +13,16 @@
  * Until that registration exists, this page is a courtesy takedown process,
  * not a safe harbour. Nothing in here claims otherwise, deliberately.
  *
+ * ⚠️ TWO DIFFERENT REGISTRATIONS, OFTEN CONFUSED. Nothing below is about
+ * registering ownership of the game:
+ *   • DMCA DESIGNATED AGENT registration (dmca.copyright.gov). What the flag
+ *     below tracks. It is about being able to RECEIVE takedown notices with
+ *     safe-harbour protection for user-posted material. Renews every 3 years.
+ *   • COPYRIGHT REGISTRATION of the cards, artwork and rulebook
+ *     (eco.copyright.gov). A completely separate filing, about being able to
+ *     SUE and to claim statutory damages. Not tracked here, not required for
+ *     safe harbour, and not something this page should ever imply exists.
+ *
  * ⚠️ Also worth a lawyer's time: the repeat-infringer policy in section 7 has
  * to be real and actually applied for safe harbour to hold, and section 5's
  * fan-content permission is a licence the studio is granting, so it should be
@@ -24,6 +34,29 @@
   var K = window.ccLegalKit;
   var ul = K.ul, callout = K.callout, mailto = K.mailto;
   var EMAIL = K.EMAIL;
+
+  // ── THE ADMINISTRATIVE REMINDER ──────────────────────────────────────
+  // Flip to true ONLY once the designated-agent registration really exists
+  // in the Copyright Office directory, and put the date it was filed beside
+  // it. Until then the page tells a rights holder the honest thing: that
+  // this is a takedown process they can rely on us to follow, and not a
+  // claim of statutory safe harbour.
+  //
+  // Do NOT set this because the page looks finished. The registration is a
+  // separate act on dmca.copyright.gov, it costs a small fee, and it EXPIRES
+  // EVERY THREE YEARS. A lapsed registration is the same as none.
+  //
+  // test_legal_pages.js asserts that while this is false the page makes no
+  // safe-harbour claim, so turning it on is the only way to publish one.
+  var CC_DMCA_AGENT_REGISTERED = false;
+  var CC_DMCA_AGENT_REGISTERED_ON = "";   // "YYYY-MM-DD", when the flag went true
+  var CC_DMCA_AGENT_RENEW_BY = "";        // "YYYY-MM-DD", three years after that
+
+  window.CC_DMCA = {
+    agentRegistered: CC_DMCA_AGENT_REGISTERED,
+    registeredOn:    CC_DMCA_AGENT_REGISTERED_ON,
+    renewBy:         CC_DMCA_AGENT_RENEW_BY,
+  };
 
   window.CC_LEGAL = window.CC_LEGAL || {};
   window.CC_LEGAL.copyright = {
@@ -101,7 +134,18 @@
           ]) +
           "<p><strong>Email:</strong> " + mailto(EMAIL) + "</p>" +
           callout("Please put “Copyright Notice” in the subject line so it is not missed. Email reaches us fastest.") +
-          "<p>A notice that leaves out the items above may not be effective. Knowingly sending a false notice can make you liable for damages, including costs and legal fees, so please be sure before you send one.</p>",
+          "<p>A notice that leaves out the items above may not be effective. Knowingly sending a false notice can make you liable for damages, including costs and legal fees, so please be sure before you send one.</p>" +
+          (CC_DMCA_AGENT_REGISTERED
+            ? "<p>Our designated agent is registered with the United States Copyright Office."
+              + (CC_DMCA_AGENT_REGISTERED_ON
+                  ? " The registration was filed on " + CC_DMCA_AGENT_REGISTERED_ON + "."
+                  : "")
+              + "</p>"
+            : callout("Being straight with you about where this stands: we have published our designated "
+              + "agent above, and we will follow the process on this page. "
+              + "We have not yet completed the separate agent registration with the United States "
+              + "Copyright Office, so we are not claiming the statutory safe harbour that registration "
+              + "provides. It changes nothing about how we will handle your notice.")),
       },
       {
         title: "What We Do With a Notice",

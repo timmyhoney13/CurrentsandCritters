@@ -19,10 +19,16 @@
 
   <!-- The chrome, shared by all seven of these pages, and the document body
        styles, shared with /privacy and the in-game reader. -->
-  <link rel="stylesheet" href="/css/legal-page.css?v=2026-10-12.5" />
-  <link rel="stylesheet" href="/css/privacy.css?v=2026-10-12.5" />
+  <link rel="stylesheet" href="/css/legal-page.css?v=2026-10-15.3" />
+  <link rel="stylesheet" href="/css/privacy.css?v=2026-10-15.3" />
 </head>
 <body>
+
+<!-- The first thing a keyboard reaches on every one of these pages. It sits
+     ahead of the top bar on purpose: a skip link that comes after the nav has
+     already made you walk through the nav. Invisible until focused, then it
+     parks itself over the top-left corner. -->
+<a class="skip-link" href="#doc">Skip to the document</a>
 
 <!-- ============ TOP BAR ============ -->
 <header class="topbar">
@@ -50,7 +56,7 @@
   </div>
 </section>
 
-<main class="wrap">
+<main class="wrap" id="doc" tabindex="-1">
   <div class="cols">
 
     <!-- Contents, desktop rail -->
@@ -118,11 +124,11 @@
 </footer>
 
 <!-- The kit first, then this page's document, then render it. -->
-<script src="/js/legal-kit.js?v=2026-10-12.5"></script>
-<script src="/js/community-guidelines.js?v=2026-10-12.5"></script>
+<script src="/js/legal-kit.js?v=2026-10-15.3"></script>
+<script src="/js/community-guidelines.js?v=2026-10-15.3"></script>
 <!-- The phone reading bar. Reads the rendered document, so it is loaded
      after it and works the same on all eight pages. -->
-<script defer src="/js/legal-mobile.js?v=2026-10-12.5"></script>
+<script defer src="/js/legal-mobile.js?v=2026-10-15.3"></script>
 <script>
   // Leaves the fallback message in place if either script failed to load.
   if (window.ccLegalRender) { window.ccLegalRender("community-guidelines"); }

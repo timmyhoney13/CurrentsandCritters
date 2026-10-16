@@ -88,6 +88,8 @@
           "Your name and email address",
           "Information provided through Google Sign-In",
           "Your username, account information, and profile settings",
+          "A record that you accepted our Terms of Service: which version of them, and when",
+          "A record that you told us you are 13 or older. We ask for a date of birth to work out your age and then discard it, so the date itself is not stored",
           "A recovery email address, if you choose to add one to a username-and-password account",
           "Your selected avatar, clan, achievements, rankings, and leaderboard information",
           "Game progress, statistics, match history, rewards, and activity",
@@ -671,7 +673,9 @@
       body:
         "<p>Currents and Critters and our related online services are not directed to children under 13. The game is a strategy card game intended for a general audience of teenagers and adults, and we do not advertise it to children, use child-focused characters or themes to attract them, or run it on channels aimed at children.</p>" +
         "<p><strong>You must be at least 13 to create an account</strong>, join the newsletter, or make a purchase. If you are under 18, you should have your parent or legal guardian's permission before you do any of those things.</p>" +
-        "<p>We do not knowingly collect personal information from a child under 13. We do not ask for a date of birth, so we rely on the age requirement above and on anything we are told or notice.</p>" +
+        "<p>When you create an account we ask for your date of birth, work out your age from it, and keep only the answer: a single yes-or-no record that you told us you were 13 or older, together with the date and version of the Terms you accepted. <strong>We do not keep the date of birth itself.</strong> It is used for the age screen and nothing else, it is never written to your account, and it is never sent to our game server.</p>" +
+        "<p>Please be clear about what that age screen is and is not. It is an age screen, and it is the ordinary standard of care for a service meant for a general audience. It is not age verification, and we do not claim it makes us compliant with the Children\u2019s Online Privacy Protection Act: somebody determined to get past it can type any date. What it does is make the age requirement something you are actually asked about, and something we hold a record of, rather than a rule written only in this document.</p>" +
+        "<p>We do not knowingly collect personal information from a child under 13. Beyond that age screen we rely on the age requirement above and on anything we are told or notice.</p>" +
         "<p>If we learn that an account belongs to a child under 13, we will close that account and delete the personal information on it, unless a parent or legal guardian gives the consent that applicable law requires for us to keep it.</p>" +
         "<p><strong>Parents and guardians.</strong> If you believe a child under 13 has created an account or sent us personal information, contact us and we will look into it and act promptly. You may ask us to show you what we hold about your child, to delete it, and to close the account. You do not need to prove anything about the game first; just tell us the username or the email address involved.</p>" +
         "<p>Please also be aware that clan chat and table chat are places where players talk to each other, and that what a player writes there is seen by other players.</p>" +

@@ -397,15 +397,55 @@ console.log("6. The in-game reader (Settings → Legal)");
 // ═══════════════════════════════════════════════════════════════════════════
 console.log("7. First sign-in is one screen");
 // ═══════════════════════════════════════════════════════════════════════════
-// The scroll-to-the-bottom Terms gate used to stand between a new player and
-// their first game, on account creation AND on every single guest dive. It is
-// gone; nothing may re-introduce a gate on the way in.
+// The SCROLL-TO-THE-BOTTOM Terms gate used to stand between a new player and
+// their first game, on account creation AND on every single guest dive. That
+// one is gone and must stay gone.
+//
+// ⚠️ UPDATED 2026-10-15. A Terms gate is back, by the owner's explicit
+// instruction, and it is a DIFFERENT THING. What was wrong with the old one
+// was not that it asked; it was that it made you scroll a legal document to
+// the bottom, and that it did it TO GUESTS, who are not making an account and
+// have nothing recorded about them. The new one is a single unticked checkbox
+// plus a date of birth, on the two panes that create an ACCOUNT, and it does
+// not touch guest play at all.
+//
+// So the list below no longer forbids a terms version being recorded, which
+// is now required (see test_signup_consent.js). It still forbids every piece
+// of the scroll gate, and the checks after it pin the thing that actually
+// mattered: THE GUEST DOOR IS NOT GATED.
 {
-  for (const dead of ["ccShowTerms", "__ccShowTerms", "TERMS_VERSION", "hasAgreedToTerms",
+  for (const dead of ["ccShowTerms", "__ccShowTerms", "hasAgreedToTerms",
                       "persistTermsAgreement", "markGuestTermsAgreed", "consumeGuestTermsAgreed",
-                      "GUEST_TERMS_OK_KEY", "terms_version", "terms_agreed_at"]) {
+                      "GUEST_TERMS_OK_KEY", "terms_agreed_at"]) {
     check(!APP.includes(dead), `the retired Terms gate leaves no '${dead}' behind`);
   }
+
+  // ── The guest door stays open ──────────────────────────────────────────
+  // A guest types a nickname and dives. No checkbox, no date of birth, no
+  // acceptance recorded, because there is no account to record it against.
+  {
+    const i = HTML.indexOf('id="ao-pane-guest"');
+    const rest = HTML.slice(i);
+    const nxt = rest.indexOf('<div class="ao-pane"', 10);
+    const guestPane = nxt < 0 ? rest.slice(0, 6000) : rest.slice(0, nxt);
+    check(i > -1, "the guest pane is still there");
+    check(!/type="checkbox"/.test(guestPane), "the guest pane has no terms checkbox");
+    check(!/type="date"/.test(guestPane), "the guest pane asks a guest for no date of birth");
+    check(/id="auth-guest-go-btn"/.test(guestPane), "and its one button is still the way in");
+    // The gate is armed on the two account panes and nowhere else.
+    check(!/ccArmConsent\("auth-guest/.test(APP),
+          "nothing arms a consent gate on the guest door");
+  }
+
+  // ── And the new gate is on the account doors ───────────────────────────
+  check(/ccArmConsent\("ao-new",\s*"ao-new-go"\)/.test(APP),
+        "the create pane is gated");
+  check(/ccArmConsent\("ao-nick",\s*"auth-nick-go-btn"\)/.test(APP),
+        "the username pane is gated");
+  // Still ONE screen: the gate is two controls on a pane that already
+  // existed, not a second screen in front of it.
+  check(!/auth-step-terms|ao-pane-terms/.test(HTML),
+        "no new step was inserted on the way in");
   for (const dead of ["terms-modal", "terms-scroll", "terms-agree-btn", "settings-terms-btn"]) {
     check(!HTML.includes(dead), `the retired Terms markup leaves no '${dead}' behind`);
     check(!CSS.includes(dead), `the retired Terms styles leave no '${dead}' behind`);

@@ -20,9 +20,16 @@
  *   1. EU/UK/consumer withdrawal rights. For digital content delivered
  *      immediately, the 14-day right of withdrawal can be lost only if the
  *      consumer gave express consent AND acknowledged losing it, BEFORE
- *      delivery. Section 4 states that acknowledgement, but the CHECKOUT
- *      itself should capture it for the waiver to hold. Stripe Payment Links
- *      can carry a custom confirmation checkbox; it is not configured today.
+ *      delivery. ADDRESSED 2026-10-15: the acknowledgement is now CAPTURED,
+ *      unticked by default, on our own page before the buyer leaves for
+ *      Stripe, and recorded server-side with the exact wording and a server
+ *      timestamp (/api/purchase/consent, users/<uid>/purchase_consents). It
+ *      is taken on our page rather than on Stripe's because a Payment Link
+ *      cannot carry a custom checkbox; moving to server-created Checkout
+ *      Sessions would allow it to sit on the payment page itself.
+ *      STILL FOR A LAWYER: whether this flow reads as express consent in a
+ *      given jurisdiction, and whether the waiver holds at all. Section 4
+ *      now says out loud that mandatory rights survive it.
  *   2. Whether any state-level "virtual currency" or gift-card rules reach
  *      Critter Coins. They are non-transferable out of the game and have no
  *      cash value, which is the usual reason such rules do not apply, but it
@@ -78,7 +85,9 @@
         body:
           "<p>Some countries, including in the European Union and the United Kingdom, give consumers a period in which to change their mind about an online purchase.</p>" +
           "<p>That right can be lost for digital content that is delivered immediately, where the buyer asked for immediate delivery and understood that the right would be lost by accepting it.</p>" +
-          "<p>Critter Coins are delivered immediately by design: you buy them in order to use them straight away. By buying them you are asking us to deliver them at once.</p>" +
+          "<p>Critter Coins are delivered immediately by design: you buy them in order to use them straight away.</p>" +
+          "<p><strong>So we now ask you, before you pay.</strong> When you buy Critter Coins, the Store shows you a short step before you are sent to Stripe to pay. It asks you to tick, unticked by default, that you want your Coins delivered as soon as your payment is confirmed and that you understand you lose your right to cancel once they are delivered. We record the exact wording you were shown and the moment you agreed to it. If you do not tick it, you are not sent to payment and nothing is charged.</p>" +
+          callout("Ticking that box does not sign away rights that cannot be signed away. If you are a consumer somewhere that gives you a mandatory withdrawal or cooling-off right, you may still have it, and we will honour what the law requires whatever this page says.") +
           "<p>If you are a consumer in a country with a statutory withdrawal or cooling-off right and you believe it applies to your purchase, contact us and we will honour what the law requires. We would rather apply the law correctly than rely on a clause.</p>",
       },
       {

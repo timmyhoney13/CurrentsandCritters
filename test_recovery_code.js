@@ -116,8 +116,12 @@ console.log("\nit is shown once, and the screen is built to be believed");
 // ══════════════════════════════════════════════════════════════════════════
 console.log("\neverybody who can be locked out gets one");
 {
+  // The window was 6000 and the real distance is now 6844: the terms-and-age
+  // gate added at the top of finishNicknameSetup on 2026-10-15 pushed this
+  // further down the function. The check is about WHERE the call lives, not
+  // how many characters precede it, so the window is generous on purpose.
   check("a brand-new account is given one at sign-up",
-        /async function finishNicknameSetup\(nick, opts\)[\s\S]{0,6000}?void ccEnsureRecoveryCode\(\);/.test(APP));
+        /async function finishNicknameSetup\(nick, opts\)[\s\S]{0,12000}?void ccEnsureRecoveryCode\(\);/.test(APP));
   check("…and an account that predates the feature gets one on its next sign-in",
         /function revealRegisteredLobby[\s\S]{0,1900}?void ccEnsureRecoveryCode\(\);/.test(APP));
   check("…only once per page load, and never twice over",

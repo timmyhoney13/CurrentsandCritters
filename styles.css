@@ -1787,3 +1787,69 @@ body.motion-none .cloud, body.motion-none .seagull, body.motion-none .snap-scanl
   .l60-door { padding: 36px 22px 34px; }
   .l60-door-btn { width: 100%; justify-content: center; }
 }
+
+
+/* ============================================================
+   KEYBOARD: THE SKIP LINK AND A VISIBLE FOCUS RING
+   ------------------------------------------------------------
+   Added 2026-10-15. The marketing pages had neither: no way past
+   the nav, and focus visibility was whatever ring the browser
+   drew. These pages are light (--paper #f7fbff, --sky-low
+   #d8f0ff), so the ring is INK (--ink-deep #093349), which is
+   about 11:1 against both and clears the 3:1 that WCAG 2.1 asks
+   of a focus indicator. The brand cyan would not: a mid-cyan on
+   pale blue is nowhere near 3:1.
+   ============================================================ */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 10000;
+  padding: 10px 16px;
+  border-radius: 0 0 10px 10px;
+  background: var(--paper, #f7fbff);
+  color: var(--ink-deep, #093349);
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 15px;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(9, 51, 73, 0.3);
+  /* Off-screen but still in the tab order: display:none would take it out
+     of the tab order and make it useless. */
+  transform: translateY(calc(-100% - 12px));
+  transition: transform .14s ease-out;
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 3px solid var(--ink-deep, #093349);
+  outline-offset: 2px;
+}
+
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex="0"]:focus-visible {
+  outline: 3px solid var(--ink-deep, #093349);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+/* On the dark bands (the beta bar, the footer, the Kickstarter bar) ink on
+   near-black is invisible, so the ring goes pale there. */
+.beta-bar a:focus-visible,
+.ks-bar a:focus-visible,
+footer a:focus-visible,
+footer button:focus-visible {
+  outline-color: var(--paper, #f7fbff);
+}
+
+/* The skip targets carry tabindex="-1" only so focus can land on them. A
+   browser does not match :focus-visible on those, so nothing is ringed. */
+
+@media (prefers-reduced-motion: reduce) {
+  .skip-link { transition: none; }
+  html { scroll-behavior: auto; }
+}

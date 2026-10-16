@@ -1217,9 +1217,15 @@ class TestEverythingIsBackExceptTheTiers(unittest.TestCase):
         self.assertNotIn("Donated to Ocean Conservation", self.home)
         self.assertIn("Money Raised", self.home)
         self.assertNotIn("Donation Goal", self.home)
-        # Same number, same claim, on the Shop's impact note.
+        # Same number, same claim, on the Shop's impact note. The note used to
+        # read "Help us hit our 2026 goal: $25k raised" over a $0 wall, which
+        # states the target AS the total on the one page a buyer reads with
+        # their card out. The shop now names the target as a target and keeps
+        # no running figure at all; the live bar has one home, the home page.
         self.assertNotIn("$25k donated", self.shop)
-        self.assertIn("$25k raised", self.shop)
+        self.assertNotIn("$25k raised", self.shop)
+        self.assertNotIn("$25,000", self.shop)
+        self.assertIn("We are raising $15,000", self.shop)
         # The pledge itself is still stated, just not as a running total.
         self.assertIn("5% goes to ocean conservation", self.home)
 
@@ -1239,9 +1245,29 @@ class TestEverythingIsBackExceptTheTiers(unittest.TestCase):
         self.assertIn('"play_seconds": play_seconds', server)
         self.assertIn("data.play_seconds", self.home)
 
-    # ── the shop page is back ───────────────────────────────────────────
-    def test_the_shop_takes_orders_again(self):
-        for marker in ('id="addToCart"', 'id="buyNow"', 'id="qtyN"', 'id="toast"'):
+    # ── the shop page shows the game and takes no orders ────────────────
+    def test_the_shop_does_not_pretend_to_take_orders(self):
+        """UPDATED 2026-10-15. This used to require id="addToCart" and
+        id="buyNow", and the test below admitted what they did: ADD TO CART
+        raised a toast and BUY NOW raised "Pre-order confirmed - thanks for
+        making waves". No payment, no order, no record, on a page showing a
+        $24.99 price, while the Refund Policy stated that no preorders are
+        taken on this site.
+
+        A confirmation of a purchase that did not happen is the single most
+        expensive sentence a shop page can carry, so both buttons are gone and
+        the page offers the one true next step: the launch mailing list. The
+        product, the price and the quantity control stay, because showing a
+        price is not the same as taking money for it."""
+        self.assertNotIn('id="addToCart"', self.shop)
+        self.assertNotIn('id="buyNow"', self.shop)
+        self.assertNotIn("Pre-order confirmed", self.shop)
+        # What replaced them.
+        self.assertIn('id="notifyMe"', self.shop)
+        self.assertIn("/newsletter/join", self.shop)
+        self.assertIn("Kickstarter", self.shop)
+        # Still a shop page, not a closed sign.
+        for marker in ('id="qtyN"', 'id="toast"'):
             self.assertIn(marker, self.shop, marker)
         self.assertNotIn("shop-closed", self.shop, "the shop still says it is shut")
         self.assertNotIn("Coming Soon", self.shop, "the shop still says Coming Soon")
@@ -1343,11 +1369,22 @@ class TestEverythingIsBackExceptTheTiers(unittest.TestCase):
     def test_both_surfaces_carry_the_conservation_pledge(self):
         for name, src in (("index.html", self.home), ("the Store", self.store)):
             self.assertIn("Every Purchase Makes Waves!", src, name)
-            self.assertIn("%d%% of every purchase supports ocean conservation"
+            # ONE basis, said the same way everywhere. "of every purchase" was
+            # one of three different bases the site stated, and no reader could
+            # tell which transactions the 5% came off. The basis itself is
+            # drafted and waiting on the owner (business-legal.js,
+            # CC_PLEDGE_BASIS_APPROVED), so the marketing line states the
+            # commitment and sends the reader to /legal for the arithmetic.
+            self.assertIn("%d%% goes to ocean conservation"
                           % ms.CONSERVATION_SHARE_PCT, src, name)
-            self.assertIn("Surfrider Foundation", src, name)
-            self.assertIn("independent supporter and is not sponsored by or "
-                          "officially partnered with the Surfrider Foundation", src, name)
+            # No charity is named beside a percentage on a selling surface:
+            # that is the charitable-sales-promotion trigger, and "including
+            # donations to X" asserted a transfer nothing verifies. The
+            # specific Surfrider denial stays on /legal, where it disclaims
+            # rather than claims.
+            self.assertNotIn("Surfrider", src, name)
+            self.assertIn("is not sponsored by, endorsed by, or officially "
+                          "partnered with any conservation organisation", src, name)
 
     def test_the_webhook_still_honours_a_tier_that_arrives_anyway(self):
         """The lock is on ASKING, not on receiving. Someone with an old tab or a

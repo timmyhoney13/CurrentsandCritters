@@ -373,11 +373,17 @@ check("the names and prices match the homepage exactly", () => {
 });
 
 check("the pledge is stated in the same words the homepage and the Store use", () => {
-  const SENTENCE = "5% of every purchase supports ocean conservation, including donations to the Surfrider Foundation.";
+  // ONE basis, stated the same way on all three surfaces. The old sentence
+  // carried two problems at once: a basis ("of every purchase") that the
+  // other surfaces did not share, and a named charity presented as receiving
+  // donations. Both are gone; what this check is really for, that the three
+  // surfaces cannot drift apart, is unchanged.
+  const SENTENCE = "5% goes to ocean conservation.";
   ok(HTML.includes(SENTENCE), "the pledge sentence has drifted from the homepage's wording");
   ok(INDEX.includes(SENTENCE), "the homepage no longer says it this way: update both or neither");
-  ok(HTML.includes("is not sponsored by or officially partnered with the Surfrider Foundation"),
-    "the Surfrider disclaimer must travel with the claim");
+  ok(!/Surfrider/.test(HTML), "the launch page names no conservation charity");
+  ok(HTML.includes("is not sponsored by, endorsed by, or officially partnered with any conservation organisation"),
+    "the independence disclaimer must travel with the claim");
 });
 
 // ══════════════════════════════════════════════════════════════════════════

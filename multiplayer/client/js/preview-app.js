@@ -25551,6 +25551,192 @@
     // re-assert the captured account first, because revealLobby() reads
     // _authUser to decide account-vs-guest and would otherwise fall through to
     // a guest "Player" session.
+    // ── Consent to immediate supply, before any money moves ───────────
+    // Critter Coins are the one real-money product here that is delivered the
+    // instant the webhook confirms payment. For an EU or UK consumer the
+    // 14-day right of withdrawal on that is only lost if they expressly
+    // agreed to supply starting inside the withdrawal period AND acknowledged
+    // losing the right, BEFORE delivery.
+    //
+    // Stripe Payment Links cannot carry a custom checkbox, so this is taken
+    // on our own page and recorded server-side before the buyer leaves. If
+    // the server cannot record it, THE BUYER DOES NOT GO: selling
+    // immediately-delivered digital content on an acknowledgement nobody kept
+    // is the exact hole this closes.
+    //
+    // Per purchase, not once per session. The acknowledgement is about a
+    // specific order, and a stored "they agreed in March" is not consent to
+    // today's one.
+    const CC_PURCHASE_ACK_TEXT =
+      "I want my Critter Coins delivered as soon as my payment is confirmed, and I "
+      + "understand that once they are delivered I lose my right to cancel this purchase.";
+
+    function ccPurchaseConsent(productLabel, onAgree) {
+      if (_ccPurchaseAckOpen) return;
+      _ccPurchaseAckOpen = true;
+
+      const wrap = document.createElement("div");
+      wrap.className = "cc-purchase-ack";
+      wrap.setAttribute("role", "dialog");
+      wrap.setAttribute("aria-modal", "true");
+      wrap.setAttribute("aria-labelledby", "cc-pc-h");
+      wrap.innerHTML =
+          '<div class="cc-pc-card">'
+        +   '<h2 id="cc-pc-h">Before you pay</h2>'
+        +   '<p class="cc-pc-what">You are buying: <strong>' + escapeHtml(String(productLabel || "Critter Coins")) + '</strong></p>'
+        +   '<label class="cc-pc-check" for="cc-pc-ack">'
+        +     '<input type="checkbox" id="cc-pc-ack" />'
+        +     '<span>' + escapeHtml(CC_PURCHASE_ACK_TEXT) + '</span>'
+        +   '</label>'
+        +   '<p class="cc-pc-fine">Billing errors, duplicate charges and anything we fail to deliver '
+        +     'are always put right. Your statutory rights are not affected. '
+        +     '<a href="/refunds" target="_blank" rel="noopener noreferrer">Refund Policy</a></p>'
+        +   '<div class="cc-pc-msg" role="status" aria-live="polite"></div>'
+        +   '<div class="cc-pc-row">'
+        +     '<button type="button" class="cc-pc-cancel">Cancel</button>'
+        +     '<button type="button" class="cc-pc-go" disabled>Continue to payment</button>'
+        +   '</div>'
+        + '</div>';
+      document.body.appendChild(wrap);
+
+      const box = wrap.querySelector("#cc-pc-ack");
+      const go  = wrap.querySelector(".cc-pc-go");
+      const no  = wrap.querySelector(".cc-pc-cancel");
+      const msg = wrap.querySelector(".cc-pc-msg");
+
+      function close() { wrap.remove(); _ccPurchaseAckOpen = false; }
+      box.addEventListener("change", () => { go.disabled = !box.checked; });
+      no.addEventListener("click", close);
+      try { box.focus(); } catch (_) {}
+
+      go.addEventListener("click", async () => {
+        if (!box.checked) return;
+        go.disabled = true;
+        msg.textContent = "One moment\u2026";
+        try {
+          const token = await _authUser.getIdToken();
+          const resp = await fetch("/api/purchase/consent", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              idToken: token,
+              consent: {
+                ack_immediate_supply: true,
+                ack_text: CC_PURCHASE_ACK_TEXT,
+                product: String(productLabel || ""),
+              },
+            }),
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok || !data.ok) throw new Error(data.error || ("HTTP " + resp.status));
+          close();
+          onAgree();
+        } catch (e) {
+          // Held back on purpose. Nothing is sold on an unrecorded
+          // acknowledgement, and the buyer is told why rather than being
+          // dropped somewhere without an explanation.
+          ccReport("purchase_consent_failed", ccErrDetail(e), "warn");
+          go.disabled = false;
+          msg.textContent = "We could not save that just now, so we have not sent you to "
+                          + "payment. Please try again in a moment.";
+        }
+      });
+    }
+
+    // ── An account that predates the gate ─────────────────────────────
+    // Every account made before 2026-10-15 carries no terms_version and no
+    // age answer. Gating only NEW sign-ups would have left the whole existing
+    // player base outside the thing the gate is for, so the signed-in path
+    // asks once, records the answer, and never asks that account again.
+    //
+    // Built in JS rather than added to preview.html because it is shown to an
+    // account at most once in the life of a terms version, and a permanent
+    // element in the markup for that is a permanent element to keep hidden.
+    //
+    // THE FAILURE MODE IS DELIBERATE: if the write fails, the player is let
+    // through with a toast and asked again next time. Somebody who agreed
+    // must never be stuck outside their own account because Firestore
+    // blinked.
+    function ccTermsRecheck(profile) {
+      if (!profile || typeof profile !== "object") return;
+      if (!_authUser || !_db) return;
+      if (String(profile.terms_version || "") === CC_TERMS_VERSION) return;
+      if (_ccTermsRecheckOpen) return;
+      _ccTermsRecheckOpen = true;
+
+      const wrap = document.createElement("div");
+      wrap.className = "cc-terms-recheck";
+      wrap.setAttribute("role", "dialog");
+      wrap.setAttribute("aria-modal", "true");
+      wrap.setAttribute("aria-labelledby", "cc-tr-h");
+      wrap.innerHTML =
+          '<div class="cc-tr-card">'
+        +   '<h2 id="cc-tr-h">Two quick things</h2>'
+        +   '<p class="cc-tr-sub">We have published a Terms of Service and a Privacy Policy, and we '
+        +     'need to ask your age once. This is the only time you will see this.</p>'
+        +   '<label class="cc-tr-lbl" for="cc-tr-dob">Date of birth</label>'
+        +   '<input id="cc-tr-dob" type="date" autocomplete="bday" />'
+        +   '<p class="cc-tr-hint">An online account needs you to be 13 or older. We work out your '
+        +     'age from this and keep only the answer, never the date itself.</p>'
+        +   '<label class="cc-tr-check" for="cc-tr-terms">'
+        +     '<input type="checkbox" id="cc-tr-terms" />'
+        +     '<span>I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of '
+        +       'Service</a> and acknowledge the <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy '
+        +       'Policy</a>.</span>'
+        +   '</label>'
+        +   '<div class="cc-tr-msg" role="status" aria-live="polite"></div>'
+        +   '<button type="button" class="cc-tr-go" disabled>Agree and Continue</button>'
+        + '</div>';
+      document.body.appendChild(wrap);
+
+      const dob = wrap.querySelector("#cc-tr-dob");
+      const box = wrap.querySelector("#cc-tr-terms");
+      const go  = wrap.querySelector(".cc-tr-go");
+      const msg = wrap.querySelector(".cc-tr-msg");
+
+      function paint() {
+        const age = ccAgeOnDate(dob.value, ccTodayISO());
+        const oldEnough = age !== null && age >= CC_MIN_AGE;
+        go.disabled = !(oldEnough && box.checked);
+        if (dob.value && age === null) {
+          msg.textContent = "That date does not look right. Check the year.";
+        } else if (age !== null && !oldEnough) {
+          msg.textContent = "An online account is for players 13 and older. "
+                          + "Please contact us at the address on our Privacy Policy.";
+        } else {
+          msg.textContent = "";
+        }
+      }
+      dob.addEventListener("input", paint);
+      dob.addEventListener("change", paint);
+      box.addEventListener("change", paint);
+      // Focus the first control, so a keyboard player is not left hunting.
+      try { dob.focus(); } catch (_) {}
+
+      go.addEventListener("click", async () => {
+        go.disabled = true;
+        msg.textContent = "Saving\u2026";
+        try {
+          await _db.collection("users").doc(_authUser.uid).set({
+            terms_version:        CC_TERMS_VERSION,
+            terms_accepted_text:  CC_TERMS_TEXT,
+            terms_accepted_at:    firebase.firestore.FieldValue.serverTimestamp(),
+            age_attested_13_plus: true,
+          }, { merge: true });
+          if (_activeProfile) _activeProfile.terms_version = CC_TERMS_VERSION;
+          wrap.remove();
+          _ccTermsRecheckOpen = false;
+        } catch (e) {
+          // Let them in. Asked again next time.
+          ccReport("terms_recheck_save_failed", ccErrDetail(e), "warn");
+          wrap.remove();
+          _ccTermsRecheckOpen = false;
+          showToast("We could not save that just now, so we will ask again next time. "
+                  + "Nothing is wrong with your account.", "warn", 6000);
+        }
+      });
+    }
+
     function revealRegisteredLobby(nickname, code, profile, user) {
       const acct = _authUser || user || null;
       if (!_authUser && acct) { _authUser = acct; ccNoteAuthUser(); _ccHadAccountUser = true; _guestSessionActive = false; }
@@ -25578,6 +25764,12 @@
       // sign-in is the only moment we are sure it is really them. Does nothing
       // for a Google account, or for one that already has a code.
       try { void ccEnsureRecoveryCode(); } catch (_) {}
+      // Accounts made before the sign-up gate existed carry no terms version
+      // and no age answer. Asked once, here, on the one screen we are sure it
+      // is really them. Wrapped: this must never be the reason a sign-in
+      // fails, and ccTermsRecheck itself returns immediately for an account
+      // that is already current.
+      try { ccTermsRecheck(profile); } catch (_) {}
     }
 
     // Ends the guest session in this page. It deliberately does NOT erase what
@@ -28546,6 +28738,19 @@
       // Wrapped, not passed directly: the listener would hand the Event in as
       // the field ids now that this function takes some.
       $a("ao-new-pass").addEventListener("input", () => ccPaintPwMeter());
+      // The recovery email's disclosure. Same pattern as the friend code
+      // below it; see the comment on the toggle in preview.html for why this
+      // one is folded at all.
+      $a("ao-email-toggle").addEventListener("click", () => {
+        const wrap = $a("ao-email-wrap"), btn = $a("ao-email-toggle");
+        const open = wrap.style.display !== "none";
+        wrap.style.display = open ? "none" : "";
+        btn.setAttribute("aria-expanded", open ? "false" : "true");
+        btn.textContent = open
+          ? "+ Add a recovery email (recommended: it is the only way to reset a forgotten password)"
+          : "\u2212 Never mind the recovery email";
+        if (!open) setTimeout(() => { try { $a("ao-new-email").focus(); } catch (_) {} }, 40);
+      });
       $a("ao-ref-toggle").addEventListener("click", () => {
         const wrap = $a("ao-ref-wrap"), btn = $a("ao-ref-toggle");
         const open = wrap.style.display !== "none";
@@ -28643,8 +28848,132 @@
     // in the same tab can never inherit the first one's email.
     let _pendingLinkEmail = "";
 
+    // ════════════════════════════════════════════════════════════════
+    // TERMS ACCEPTANCE AND THE 13+ AGE SCREEN
+    // ----------------------------------------------------------------
+    // Until 2026-10-15 nothing here ever asked a new player to accept the
+    // Terms of Service, and the 13+ rule the Privacy Policy states appeared
+    // nowhere in the interface. Both doors that end in an account now ask,
+    // and finishNicknameSetup below REFUSES TO WRITE A PROFILE without the
+    // answer. The gate is on that function rather than on the two buttons on
+    // purpose: a third door added later inherits it instead of forgetting it.
+    //
+    // WHAT IS STORED: a version string, the exact sentence that was agreed
+    // to, a server timestamp, and one boolean. WHAT IS NOT: the date of
+    // birth. It is read, turned into an age, and dropped on the floor.
+    //
+    // WHAT THIS IS NOT: COPPA compliance. It is an age screen. A player can
+    // type any date. It is the ordinary standard of care for a general
+    // audience service and it is not a safe harbour, and neither the
+    // policies nor these comments pretend otherwise.
+    // ════════════════════════════════════════════════════════════════
+
+    // Must match terms-of-service.js's `updated` date. test_signup_consent.js
+    // pins the two together, because recording acceptance of a version that
+    // was never published is worse than recording nothing.
+    const CC_TERMS_VERSION = "2026-10-09";
+    const CC_TERMS_TEXT =
+      "I agree to the Terms of Service and acknowledge the Privacy Policy.";
+    const CC_MIN_AGE = 13;
+
+    // Pure, and deliberately self-contained so the test can slice it out and
+    // run it with no page around it. Both arguments are "YYYY-MM-DD".
+    // Returns a whole-years age, or null if the input is not a usable past
+    // date. Calendar-correct: a birthday later in the current year has not
+    // happened yet, which a year-only screen gets wrong for up to a year.
+    function ccAgeOnDate(dob, today) {
+      const re = /^(\d{4})-(\d{2})-(\d{2})$/;
+      const a = re.exec(String(dob || ""));
+      const b = re.exec(String(today || ""));
+      if (!a || !b) return null;
+      const by = +a[1], bm = +a[2], bd = +a[3];
+      const ty = +b[1], tm = +b[2], td = +b[3];
+      if (bm < 1 || bm > 12 || bd < 1 || bd > 31) return null;
+      if (by < 1900) return null;
+      // A date in the future is not an age, it is a typo.
+      if (by > ty || (by === ty && (bm > tm || (bm === tm && bd > td)))) return null;
+      let age = ty - by;
+      if (tm < bm || (tm === bm && td < bd)) age -= 1;
+      return age;
+    }
+
+    // Set by ccArmConsent the moment both controls are satisfied, cleared the
+    // moment either stops being. finishNicknameSetup reads it and nothing
+    // else writes it.
+    let _ccSignupConsent = null;
+    let _ccTermsRecheckOpen = false;
+    let _ccPurchaseAckOpen = false;
+
+    function ccTodayISO() {
+      const d = new Date();
+      const p = (n) => String(n).padStart(2, "0");
+      return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+    }
+
+    // Arms one pane. `pre` is the id prefix ("ao-new" or "ao-nick"), `btnId`
+    // the primary it gates. Idempotent and safe to call before the elements
+    // exist, so wiring order never matters.
+    function ccArmConsent(pre, btnId) {
+      const dob  = $a(pre + "-dob");
+      const box  = $a(pre + "-terms");
+      const btn  = $a(btnId);
+      if (!dob || !box || !btn) return;
+
+      function paint() {
+        const age = ccAgeOnDate(dob.value, ccTodayISO());
+        const oldEnough = age !== null && age >= CC_MIN_AGE;
+        const ready = oldEnough && box.checked;
+
+        // One sentence, and only when there is something to say. An empty
+        // form is not an error: somebody who has not typed yet is not doing
+        // anything wrong and should not be told off for it.
+        let msg = "", tone = false;
+        if (dob.value && age === null) {
+          msg = "That date does not look right. Check the year.";
+        } else if (age !== null && !oldEnough) {
+          // TERMINAL, and it does not invite a second answer. It names the
+          // one thing that IS available instead, which is true and is the
+          // only useful thing to say here.
+          msg = "An online account is for players 13 and older. You can still "
+              + "play as a guest on this device.";
+        } else if (dob.value && oldEnough && !box.checked) {
+          msg = "Please agree to the Terms of Service to continue.";
+          tone = true;
+        }
+        setAuthMsg(pre + "-consent-err", msg, tone);
+
+        btn.disabled = !ready;
+        _ccSignupConsent = ready
+          ? { terms_version: CC_TERMS_VERSION, terms_text: CC_TERMS_TEXT,
+              age_13_plus: true, accepted_at_client: new Date().toISOString() }
+          : null;
+      }
+
+      dob.addEventListener("input",  paint);
+      dob.addEventListener("change", paint);
+      box.addEventListener("change", paint);
+      paint();
+    }
+
     async function finishNicknameSetup(nick, opts) {
       if (!_authUser) { setAuthMsg("auth-nick-err", "Not signed in.", false); return; }
+      // ── The gate ──────────────────────────────────────────────────
+      // Before anything is written. Both doors arm _ccSignupConsent through
+      // ccArmConsent, so reaching here without it means either a door that
+      // was never wired up or a console call, and in both cases the right
+      // answer is to create nothing at all.
+      if (!_ccSignupConsent || !_ccSignupConsent.age_13_plus
+          || !_ccSignupConsent.terms_version) {
+        setAuthMsg("auth-nick-err",
+          "Please confirm your date of birth and agree to the Terms of Service.", false);
+        if (opts && opts.surfacePane) {
+          const _inp = $a("auth-nick-input");
+          if (_inp) _inp.value = nick;
+          paintNickCount();
+          showStep("auth-step-nickname");
+        }
+        return;
+      }
       setAuthMsg("auth-nick-err", "Saving…", true);
       try {
         // A synthetic login address is not an email anybody can be reached
@@ -28652,9 +28981,20 @@
         // shows a player when they ask "what do I type to get back in?", and
         // it never changes, even when the name everybody else sees does.
         const isPasswordAccount = String(_authUser.email || "").toLowerCase().endsWith("@" + CC_LOGIN_DOMAIN);
+        // What was agreed, when, and in what words. terms_accepted_at is a
+        // SERVER timestamp: a client clock is the one part of this a player
+        // can set themselves. There is deliberately no date of birth here.
+        const consentFields = {
+          terms_version:        _ccSignupConsent.terms_version,
+          terms_accepted_text:  _ccSignupConsent.terms_text,
+          terms_accepted_at:    firebase.firestore.FieldValue.serverTimestamp(),
+          age_attested_13_plus: true,
+        };
         const code = await saveNewProfile(_authUser.uid, nick,
           isPasswordAccount ? "" : (_authUser.email || ""), "",
-          isPasswordAccount ? { login_username: nick, auth_provider: "password" } : { auth_provider: "google" });
+          isPasswordAccount
+            ? { login_username: nick, auth_provider: "password", ...consentFields }
+            : { auth_provider: "google", ...consentFields });
         // ── The guest session that walked in here, if there was one ────
         // Only ever onto a profile that was just created; never merged into
         // an account that already has a history behind it.
@@ -28670,7 +29010,17 @@
           fetch("/api/user/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ idToken: _regToken }),
+            body: JSON.stringify({
+              idToken: _regToken,
+              // The server records this against the uid in the VERIFIED
+              // token, so the acceptance cannot be filed under somebody
+              // else's account. See /api/user/register in multiplayer_server.
+              consent: {
+                terms_version: _ccSignupConsent.terms_version,
+                terms_text:    _ccSignupConsent.terms_text,
+                age_13_plus:   true,
+              },
+            }),
           }).catch((e) => {
             ccReport("api_fetch_failed", {
               path: "/api/user/register",
@@ -28755,6 +29105,12 @@
       }
     }
     $a("auth-nick-input").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-nick-go-btn").click(); });
+
+    // Both doors, armed. Disabled-until-answered is set by the first paint()
+    // inside ccArmConsent, so neither primary is ever clickable before the
+    // two controls have been looked at.
+    ccArmConsent("ao-new",  "ao-new-go");
+    ccArmConsent("ao-nick", "auth-nick-go-btn");
 
     // The username field is capped by maxlength, which stops the 16th character
     // without ever saying why. This is the counter that says why. It reads the
@@ -33057,15 +33413,24 @@
         // Open a Stripe Payment Link in the SAME tab. Require sign-in first so
         // the purchase is tied to a Google account (otherwise the webhook has
         // no one to credit and the coins/tier can't be delivered).
-        function _phstGoToStripe(baseUrl) {
+        // Every coin pack and every tier card leaves for Stripe through here,
+        // which is why the acknowledgement is taken here and not on each
+        // button: a product added later inherits the gate instead of
+        // forgetting it.
+        function _phstGoToStripe(baseUrl, productLabel) {
           if (!baseUrl) return;
           if (!_authUser) {
             if (typeof showToast === "function")
               showToast("Sign in or create an account first so your purchase is added to it.", "info");
             return;
           }
-          _phstRememberReturn();
-          window.location.href = _phstStripeUrl(baseUrl);
+          // Recorded server-side BEFORE the buyer leaves, so it is
+          // necessarily before delivery. ccPurchaseConsent only calls back
+          // once the server has confirmed it kept the record.
+          ccPurchaseConsent(productLabel, () => {
+            _phstRememberReturn();
+            window.location.href = _phstStripeUrl(baseUrl);
+          });
         }
 
         window._phstGoToStripe = _phstGoToStripe;
@@ -33262,8 +33627,8 @@
         </div>`;
         html += `<div class="phst-waves">
           <div class="phst-waves-title">Every Purchase Makes Waves!</div>
-          <div class="phst-waves-desc">5% of every purchase supports ocean conservation, including donations to the Surfrider Foundation. Together, we can Change the Tide!</div>
-          <div class="phst-waves-fine">Currents and Critters is an independent supporter and is not sponsored by or officially partnered with the Surfrider Foundation.</div>
+          <div class="phst-waves-desc">5% goes to ocean conservation. Together, we can Change the Tide!</div>
+          <div class="phst-waves-fine">Currents and Critters is an independent supporter of ocean conservation and is not sponsored by, endorsed by, or officially partnered with any conservation organisation.</div>
         </div>`;
 
         // ── 1) Critter Coins ──────────────────────────────────────────
@@ -33297,7 +33662,7 @@
             <div class="phst-coin-amt-label">Critter Coins</div>
             ${pb > 0 ? `<div class="phst-coin-bonus" style="color:#1c70cc">${phstFmtCoins(p.coins)} + <strong>${phstFmtCoins(pb)} Prestige Bonus</strong></div>` : ""}
             <div class="phst-coin-bonus">${p.bonus > 0 ? `+${p.bonus}% bonus` : "Base rate"}</div>
-            <button class="phst-coin-buy" data-stripe="${esc(p.link)}">$${p.usd.toFixed(2)}</button>
+            <button class="phst-coin-buy" data-stripe="${esc(p.link)}" data-product="${esc(phstFmtCoins(p.coins))} Critter Coins for $${p.usd.toFixed(2)}">$${p.usd.toFixed(2)}</button>
           </div>`;
         }
         html += `</div>`;
@@ -33485,7 +33850,7 @@
             <div class="phst-tier-fine">${esc(t.note)}</div>
             ${(t.soon || PHST_TIERS_KICKSTARTER_ONLY)
               ? `<button class="phst-tier-buy phst-tier-soon" type="button" disabled>${PHST_TIERS_KICKSTARTER_ONLY ? "On Kickstarter soon" : "Opening soon"}</button>`
-              : `<button class="phst-tier-buy" data-stripe="${esc(t.link)}">Become ${/^[aeiou]/i.test(t.name) ? "an" : "a"} ${esc(t.name)}</button>`}
+              : `<button class="phst-tier-buy" data-stripe="${esc(t.link)}" data-product="${esc(t.name)} supporter tier">Become ${/^[aeiou]/i.test(t.name) ? "an" : "a"} ${esc(t.name)}</button>`}
           </div>`;
         }
         html += `</div>`;
@@ -33527,7 +33892,7 @@
                 <div class="phst-card-name">${esc(item.name)}</div>
                 <div class="phst-card-footer">
                   <div class="phst-card-price">$${Number(item.usd).toFixed(2)}</div>
-                  <button class="phst-card-buy" data-stripe="${esc(item.link)}">Buy</button>
+                  <button class="phst-card-buy" data-stripe="${esc(item.link)}" data-product="${esc(item.name || "Currents and Critters")}">Buy</button>
                 </div>
               </div>
             </div>`;
@@ -33540,7 +33905,8 @@
         // Wire every coin-pack / tier / physical Buy button to its Stripe-hosted
         // Payment Link. Opens in the SAME tab (window.location.href in _phstGoToStripe).
         el.querySelectorAll("[data-stripe]").forEach((btn) => {
-          btn.addEventListener("click", () => window._phstGoToStripe(btn.getAttribute("data-stripe")));
+          btn.addEventListener("click", () => window._phstGoToStripe(
+            btn.getAttribute("data-stripe"), btn.getAttribute("data-product") || ""));
         });
         // The over-$100 template, opened from the big card and from the
         // "email us" line under each tier that has no link yet.

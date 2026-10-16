@@ -129,7 +129,12 @@ class TestTheFivePercent(_Base):
     def test_the_pledge_on_the_page_is_the_pledge_in_the_code(self):
         """The Store and the home page both print this number."""
         self.assertEqual(ms.CONSERVATION_SHARE_PCT, 5)
-        pledge = ("%d%% of every purchase supports ocean conservation"
+        # ONE wording, everywhere. "of every purchase" was one of three
+        # different bases the site stated; the basis itself is drafted and
+        # waiting on the owner behind CC_PLEDGE_BASIS_APPROVED in
+        # business-legal.js, so the marketing line states the commitment and
+        # sends the reader to /legal for the arithmetic.
+        pledge = ("%d%% goes to ocean conservation"
                   % ms.CONSERVATION_SHARE_PCT)
         for path in ("multiplayer/client/js/preview-app.js", "index.html"):
             with io.open(path, encoding="utf-8") as fh:

@@ -26,10 +26,17 @@
  *   ✓ Keyboard order walked at 1280px: Tab lands on the brand link, then the
  *     nav, then every contents entry in document order, then the document,
  *     then the footer. 28 focusable elements, no tabindex tricks.
- *   ✗ There is NO skip-to-content link on any page. Checked; absent.
- *   ✗ No custom :focus style exists anywhere in these pages' stylesheets, so
- *     focus visibility is the BROWSER DEFAULT ring. Nothing removes it
- *     (no `outline: none` rules), so this is adequate rather than good.
+ *   ✓ A SKIP-TO-CONTENT LINK on all eight pages, added 2026-10-15. It is the
+ *     first thing in <body>, ahead of the top bar, invisible until focused,
+ *     and it points at <main id="doc" tabindex="-1"> so focus really moves
+ *     rather than only the scroll position. test_legal_pages.js section 0
+ *     pins the link, its position ahead of the nav, and its target.
+ *   ✓ A CUSTOM FOCUS RING, added 2026-10-15: 3px solid, offset 2px, on every
+ *     link, button and <summary>. NAVY, not gold: gold #c89320 on cream
+ *     #fef5e6 is about 2.4:1, under the 3:1 WCAG 2.1 asks of a focus
+ *     indicator, while navy #15325c on the same paper is about 11.8:1. The
+ *     ring flips to paper-colour inside the dark top bar and footer, where
+ *     navy on navy would be invisible. Nothing anywhere removes a ring.
  *   ✗ No screen-reader pass, no axe/Lighthouse run, no keyboard-only run of
  *     the GAME itself. The game is a drag-and-drop card table and is the
  *     least accessible part of the product.
@@ -70,6 +77,8 @@
           "<p>On our websites and policy pages:</p>" +
           ul([
             "Pages declare their language, and use real headings in order, so a screen reader can move through a document by heading",
+            "Every page starts with a skip-to-content link, ahead of the navigation, so a keyboard user does not have to walk through the top bar to reach the document",
+            "Links, buttons and expanders draw a thick navy focus ring, so you can see where you are without hunting for a thin default outline",
             "Each long document has a contents list, and every entry is a working link to a real section",
             "Pages reflow to a narrow phone screen without sideways scrolling, and they survive being zoomed in",
             "Links and buttons are real links and buttons, so they work with a keyboard and are announced properly",
@@ -91,8 +100,7 @@
         body:
           "<p>Being honest about this is the point of the page.</p>" +
           ul([
-            "<strong>There is no skip-to-content link</strong> on our pages, so a keyboard or screen-reader user has to pass the navigation on every page. We intend to add one.",
-            "<strong>We rely on your browser’s own focus ring</strong> rather than drawing a clearer one of our own. Nothing on our pages removes it, so you can always see where you are, but a stronger focus style would be easier to follow.",
+            "<strong>We have not had a screen-reader pass done</strong> on these pages by somebody who uses one. The structure was checked by hand, which is not the same thing.",
             "<strong>The game itself is the least accessible part of the product.</strong> It is a card table built around dragging cards, reading a board, and spotting symbols and colours at a glance. It has not been tested with a screen reader, and it is not currently playable without sight.",
             "<strong>We have not done a keyboard-only pass of the game.</strong> Some actions at the table may be reachable only by pointer or touch.",
             "<strong>Snap &amp; Score needs a camera</strong> and the ability to frame a physical board in a photograph, which will not work for everybody. The board can always be scored by hand instead, using the printed Rules of the Ocean.",

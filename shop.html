@@ -245,9 +245,19 @@
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .toast .check { color: var(--brand-mint); font-weight: 800; }
+  .preorder-note {
+    margin: 14px 0 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--muted-strong);
+  }
+  .preorder-note strong { color: var(--ink-deep); }
 </style>
 </head>
 <body>
+
+<!-- First thing a keyboard reaches, ahead of the nav. -->
+<a class="skip-link" href="#shop-main">Skip to the main content</a>
 
 <nav class="nav">
   <a class="brand" href="index.html">
@@ -264,11 +274,11 @@
   <a class="nav-cta" href="shop.html">Buy the Game →</a>
 </nav>
 
-<div class="shop-wrap">
+<div class="shop-wrap" id="shop-main" tabindex="-1">
   <a class="back-link" href="index.html">← Back to home</a>
 
   <div class="shop-head">
-    <span class="eyebrow">Pre-Order · Ships May 2026</span>
+    <span class="eyebrow">Coming to Kickstarter</span>
     <h1>Currents and Critters</h1>
     <p>The full base game · 161 cards · 8 oceans · 2–8 players</p>
   </div>
@@ -293,10 +303,9 @@
       <div class="subtitle">Educational Strategic Card Game</div>
       <div class="price-row">
         <div class="price">$24.99</div>
-        <div class="price-strike">$29.99</div>
-        <div class="save-badge">Save 17%</div>
+        <div class="save-badge">Planned price</div>
       </div>
-      <div class="stock"><span class="dot"></span>In stock · Free US shipping on orders over $35</div>
+      <div class="stock"><span class="dot"></span>Launching on Kickstarter · not yet on sale</div>
 
       <ul class="feats">
         <li>161 hand-illustrated cards across 9 species groups</li>
@@ -316,13 +325,25 @@
         <div style="margin-left:auto; font-size:15px; color:var(--muted-strong); font-weight:700;">Total: <span id="totalPrice" style="color:var(--ink-deep);">$24.99</span></div>
       </div>
 
+      <!-- ── Not for sale here, and the page now says so ──────────────
+           These two buttons used to raise a toast confirming a pre-order,
+           and another saying N copies had been added to a cart. There is no
+           cart, no order and no payment behind either of them, and the Refund
+           Policy states that no preorders are taken on this site: the
+           physical game is being backed through Kickstarter. A page that
+           confirms a purchase that did not happen is the most expensive
+           sentence a shop can carry, so the buttons now do the one true
+           thing there is to do, which is to take an email address for
+           the launch. -->
       <div class="add-row">
-        <button class="btn btn-mint btn-lg" id="addToCart" type="button">Add to Cart</button>
-        <button class="btn btn-primary btn-lg" id="buyNow" type="button">Buy Now →</button>
+        <a class="btn btn-primary btn-lg" id="notifyMe" href="/newsletter/join">Get Launch Updates</a>
       </div>
+      <p class="preorder-note">The physical game is not on sale yet. It is being backed through
+        <strong>Kickstarter</strong>, and we are not taking preorders or payments on this page.
+        Leave your email and we will tell you the day it goes live.</p>
 
       <div class="impact-note">
-        <strong>★ Your purchase makes waves.</strong> 5% goes to ocean conservation. Help us hit our 2026 goal: $25k raised.
+        <strong>★ Your purchase makes waves.</strong> 5% goes to ocean conservation. We are raising $15,000 to fund manufacturing, advertising and launch costs.
       </div>
     </div>
   </div>
@@ -330,13 +351,13 @@
   <div class="trust">
     <div class="trust-item">
       <div class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M3 8l9-5 9 5"/></svg></div>
-      <div class="h">Free US Shipping</div>
-      <div class="p">On orders over $35</div>
+      <div class="h">Shipping</div>
+      <div class="p">Rates and terms will be set on the Kickstarter</div>
     </div>
     <div class="trust-item">
       <div class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21V3m0 18l-7-7m7 7l7-7"/></svg></div>
-      <div class="h">30-Day Returns</div>
-      <div class="p">Love it or get a refund</div>
+      <div class="h">Returns</div>
+      <div class="p">Our Refunds &amp; Shipping policy covers every order</div>
     </div>
     <div class="trust-item">
       <div class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-4.5-7-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 5.5-7 10-7 10z"/></svg></div>
@@ -361,7 +382,7 @@
   </section>
 </div>
 
-<div class="toast" id="toast"><span class="check">✓</span><span id="toastMsg">Added to cart</span></div>
+<div class="toast" id="toast"><span class="check">✓</span><span id="toastMsg"></span></div>
 
 <script>
 let qty = 1;
@@ -380,8 +401,10 @@ function showToast(msg) {
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 2400);
 }
-document.getElementById('addToCart').addEventListener('click', () => showToast(`Added ${qty} × Currents and Critters to cart`));
-document.getElementById('buyNow').addEventListener('click', () => showToast('Pre-order confirmed - thanks for making waves'));
+// Nothing is confirmed here, because nothing is sold here. The quantity
+// control and the running total are kept: they are what the Kickstarter will
+// be priced against, and showing the price is not the same as taking money
+// for it.
 </script>
 
 </body>

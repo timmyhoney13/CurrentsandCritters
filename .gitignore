@@ -589,6 +589,12 @@
 # one that only applies to them: a document may only use markup
 # css/privacy.css already styles, or it renders unstyled in the in-game reader.
 !test_legal_pages.js
+# The 2026-10-15 fundraising, consent and purchase work.
+!test_fundraising_claims.js
+!test_signup_consent.js
+!test_signup_consent_server.py
+!test_purchase_consent.js
+!test_consent_in_browser.js
 !test_thanks_page.js
 # The two screens you click before you have an account. The device gate and the
 # sign-in chooser paint their buttons in the same place, so choosing a device

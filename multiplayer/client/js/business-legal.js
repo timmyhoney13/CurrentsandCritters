@@ -43,6 +43,40 @@
   var ul = K.ul, callout = K.callout, mailto = K.mailto;
   var EMAIL = K.EMAIL;
 
+  // ── THE CALCULATION BASIS, AND THE ONE SWITCH THAT PUBLISHES IT ──────
+  // The audit in this file's header asked the owner to settle what the 5% is
+  // 5% OF. He proposed, 2026-10-15:
+  //
+  //   5% of the actual product sale price, after discounts and refunds,
+  //   excluding separately charged sales tax and shipping, before
+  //   payment-processing fees.
+  //
+  // That wording is drafted below and is NOT PUBLISHED. It is a business
+  // policy, not a detail, and publishing a basis the owner has not confirmed
+  // is the same mistake as the three contradictory bases it replaces.
+  //
+  // TO PUBLISH IT: set this to true. Nothing else needs changing; the page
+  // and test_fundraising_claims.js both read this flag.
+  // Until then the page states the commitment and says the basis is being
+  // settled, which is true and is the only thing here that is.
+  var CC_PLEDGE_BASIS_APPROVED = false;
+
+  var PLEDGE_BASIS_DRAFT =
+    "<p>We work the 5% out on <strong>the actual product sale price, after discounts and refunds, " +
+    "excluding separately charged sales tax and shipping, and before payment-processing fees</strong>.</p>" +
+    "<p>What that means in practice:</p>" +
+    ul([
+      "Discounts come off first. The 5% is taken on what you actually paid, not on a list price.",
+      "A refunded sale is taken back out. If an order is refunded in full it counts for nothing, and a partial refund reduces it by the refunded amount.",
+      "Sales tax and shipping charged as separate lines are not part of the sale price and are not included.",
+      "Payment-processing fees are ours to carry. They are not deducted before the 5% is worked out, so the pledge is not quietly reduced by what Stripe charges us.",
+    ]);
+
+  var PLEDGE_BASIS_PENDING =
+    "<p>We are still settling the exact basis in writing, so that the figure published here means one " +
+    "thing and keeps meaning it. Until that is done we are not going to publish a formula we might " +
+    "have to restate. If you want to know how a particular purchase was treated, email us and ask.</p>";
+
   window.CC_LEGAL = window.CC_LEGAL || {};
   window.CC_LEGAL.legal = {
     title: "Business Contact and Legal Information",
@@ -115,7 +149,8 @@
       {
         title: "Ocean Conservation",
         body:
-          "<p>Currents and Critters pledges <strong>5% of every purchase to ocean conservation</strong>. It is a commitment Bearded Seal Studios LLC makes on its own behalf, out of what it earns.</p>" +
+          "<p>Currents and Critters pledges <strong>5% to ocean conservation</strong>. It is a commitment Bearded Seal Studios LLC makes on its own behalf, out of what it earns.</p>" +
+          (CC_PLEDGE_BASIS_APPROVED ? PLEDGE_BASIS_DRAFT : PLEDGE_BASIS_PENDING) +
           "<p>Some things worth being plain about:</p>" +
           ul([
             "The pledge does not change the price you pay. You are buying a product from us, not making a donation to a charity.",

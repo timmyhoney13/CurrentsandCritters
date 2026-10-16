@@ -144,10 +144,16 @@ check(/Every Purchase Makes Waves!/.test(HTML), "the pledge headline is there");
 check(/<svg class="phst-ks-ico"[^>]*viewBox="0 0 24 24"/.test(HTML),
       "the strip carries the Kickstarter mark, not an emoji");
 check(!/\u{1F680}/u.test(HTML), "no rocket emoji is left on the shelf");
-check(/5% of every purchase supports ocean conservation/.test(HTML),
+check(/5% goes to ocean conservation/.test(HTML),
       "the pledge says 5%");
-check(/Surfrider Foundation/.test(HTML), "and names the Surfrider Foundation");
-check(/independent supporter and is not sponsored by or officially partnered with the Surfrider Foundation/.test(HTML),
+// NAMING A CHARITY NEXT TO A PERCENTAGE is what can turn a marketing line
+// into a charitable sales promotion, and "including donations to X" asserts a
+// transfer no verified record backs. So the shelf names no organisation at
+// all now. The specific Surfrider denial still lives on /legal, where it is a
+// disclaimer rather than a claim (test_legal_pages.js pins it there).
+check(!/Surfrider/.test(HTML),
+      "the shelf names no conservation charity");
+check(/is not sponsored by, endorsed by, or officially partnered with any conservation organisation/.test(HTML),
       "the independence disclaimer is on the shelf, not just in the commit");
 // The banner must come BEFORE the first thing for sale, or it is a footnote.
 check(HTML.indexOf("Every Purchase Makes Waves!") < HTML.indexOf("phst-coin-grid"),

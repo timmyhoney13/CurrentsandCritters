@@ -142,6 +142,31 @@
 
   /* Donation goal bar - sits between the live impact stats and the supporter tiers. */
   .donation-goal { max-width: 720px; margin: 0 auto; text-align: center; }
+  /* The campaign ask. It opens the band, above the bar, because the bar is
+     the ANSWER to it: a progress track with no question attached read as a
+     number the page wanted credit for rather than a target being aimed at. */
+  .donation-goal-ask {
+    margin: 0 0 6px;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(19px, 3.4vw, 25px);
+    line-height: 1.25;
+    color: #fff;
+  }
+  .donation-goal-blurb {
+    margin: 0 0 18px;
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.78);
+  }
+  .donation-goal-tide {
+    margin: 14px 0 0;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.4px;
+    color: var(--brand-mint);
+  }
   .donation-goal-head {
     display: flex;
     align-items: baseline;
@@ -904,6 +929,9 @@
 </head>
 <body>
 
+<!-- First thing a keyboard reaches, ahead of the nav. -->
+<a class="skip-link" href="#home">Skip to the main content</a>
+
 <!-- ============ BETA ANNOUNCEMENT BAR ============ -->
 <div class="beta-bar">
   <span class="beta-tag">Now in Beta</span>
@@ -929,7 +957,7 @@
 </nav>
 
 <!-- ============ HERO ============ -->
-<section class="hero" id="home">
+<section class="hero" id="home" tabindex="-1">
   <div class="sun-rays"></div>
   <div class="sun"></div>
   <div class="cloud c1"></div>
@@ -1001,7 +1029,7 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7 -4.5 -7 -11a5 5 0 0 1 9 -3a5 5 0 0 1 9 3c0 6.5 -7 11 -7 11"/></svg>
       </div>
       <h4>5% to the Ocean</h4>
-      <p>5% goes to ocean conservation on every game sold. Receipts published.</p>
+      <p>5% goes to ocean conservation. How we work it out is on our Business and Legal page.</p>
     </div>
   </div>
 
@@ -1238,7 +1266,7 @@
     <div class="section-head">
       <span class="eyebrow">★ Partner With Us</span>
       <h2>Protect the Waters That Inspired the Game</h2>
-      <p>5% goes to ocean conservation on every game sold. Want to make an even bigger impact? Partner with Currents and Critters to help protect the waters that inspired the game.</p>
+      <p>5% goes to ocean conservation. Want to make an even bigger impact? Partner with Currents and Critters to help protect the waters that inspired the game.</p>
     </div>
 
     <!-- Four live numbers, straight from the game server. See the "Live stats
@@ -1279,15 +1307,21 @@
     </div>
 
     <div class="donation-goal">
+      <h3 class="donation-goal-ask">Help Us Raise $15,000 to Bring Currents and Critters to Life!</h3>
+      <p class="donation-goal-blurb">We are raising $15,000 to help bring Currents and Critters to players
+        everywhere. Your support will help fund the manufacturing of our physical card game, advertising
+        campaigns, prototypes and production, and other essential launch expenses. Every contribution brings
+        us one step closer to making Currents and Critters a reality.</p>
       <div class="donation-goal-head">
         <span class="donation-goal-label">★ Fundraising Goal</span>
-        <span class="donation-goal-amount"><span data-donation="raised">$0</span> / <span data-donation="goal">$25,000</span></span>
+        <span class="donation-goal-amount">Amount Raised: <span data-donation="raised">$0</span> / <span data-donation="goal">$15,000</span></span>
       </div>
       <div class="donation-goal-track">
         <div class="donation-goal-fill"></div>
       </div>
-      <p class="donation-goal-remaining"><strong data-donation="remaining">$25,000</strong> left to reach the goal</p>
-      <p class="donation-goal-note">If we hit our <strong>$25,000</strong> goal, every player signed up before we reach it gets <strong>5 free levels</strong>!</p>
+      <p class="donation-goal-remaining"><strong data-donation="remaining">$15,000</strong> left to reach the goal</p>
+      <p class="donation-goal-note">If we hit our <strong>$15,000</strong> goal, every player signed up before we reach it gets <strong>5 free levels</strong>!</p>
+      <p class="donation-goal-tide">Play the Game. Protect the Ocean. Change the Tide.</p>
     </div>
 
     <div class="tier-intro">
@@ -1305,8 +1339,8 @@
     </div>
     <div class="tier-waves">
       <div class="tier-waves-title">Every Purchase Makes Waves!</div>
-      <div class="tier-waves-desc">5% of every purchase supports ocean conservation, including donations to the Surfrider Foundation. Together, we can Change the Tide!</div>
-      <div class="tier-waves-fine">Currents and Critters is an independent supporter and is not sponsored by or officially partnered with the Surfrider Foundation.</div>
+      <div class="tier-waves-desc">5% goes to ocean conservation. Together, we can Change the Tide!</div>
+      <div class="tier-waves-fine">Currents and Critters is an independent supporter of ocean conservation and is not sponsored by, endorsed by, or officially partnered with any conservation organisation.</div>
     </div>
 
     <div class="tiers">
@@ -1933,7 +1967,7 @@ updateBetaBarClear();
   // 5% of this is what goes to ocean conservation. refreshSupporterWall
   // below feeds the real total in; until it returns we show the last cached
   // value (or $0) so the bar never flashes a wrong number.
-  const DONATION_GOAL = 25000;
+  const DONATION_GOAL = 15000;
   function renderDonationGoal(donatedDollars) {
     const donated   = Math.max(0, Number(donatedDollars) || 0);
     const raised    = document.querySelector('[data-donation="raised"]');
