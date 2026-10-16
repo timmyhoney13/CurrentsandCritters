@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-16.1";
+  const APP_BUILD   = "2026-10-16.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -21642,7 +21642,7 @@
       unlock:{ type:"comp_wins", goal:20, label:"Win 20 Competitive games." } },
     { id:"sardine", name:"Sardine", species:"Bait Fish", img:"/avatars/sardine.png",
       facts:"The fish got their name from the Italian island of Sardinia, where they were once incredibly abundant.",
-      unlock:{ type:"secret", label:"Find and click the hidden Sardine.", unlockedLabel:"You found and clicked the hidden Sardine." } },
+      unlock:{ type:"secret", label:"Finish a trade with another player.", unlockedLabel:"You finished a trade with another player." } },
     { id:"flying-fish", name:"Flying Fish", species:"Bait Fish", img:"/avatars/flying-fish.png",
       facts:"If they start to lose altitude, flying fish can briefly touch their tails back to the water's surface to kick themselves forward and extend their flight.",
       unlock:{ type:"event", event:"nothing_but_deck", label:"Nothing But Deck, win a game without drawing from the Pool." } },
@@ -21722,7 +21722,7 @@
     // ── Mammals ──────────────────────────────────────────────────
     { id:"spinner-dolphin", name:"Spinner Dolphin", species:"Mammals", img:"/avatars/spinner-dolphin.png",
       facts:"Spinner dolphins can leap up to 10 feet and spin several times in the air, though scientists still do not fully know why they do it.",
-      unlock:{ type:"achievement", achId:"saving_the_invertebrates", label:"Saving the Invertebrates, Find the hidden invertebrates, learn their numbers, and enter the code in the order they appear in the Avatar Gallery." } },
+      unlock:{ type:"achievement", achId:"saving_the_invertebrates", label:"Saving the Invertebrates, Find the hidden invertebrates, learn their numbers, and enter the code in the order the rulebook's Encyclopedia lists them." } },
     { id:"bottlenose-dolphin", name:"Bottlenose Dolphin", species:"Mammals", img:"/avatars/bottlenose-dolphin.png",
       facts:"Bottlenose dolphins develop a signature whistle (their version of a name) that they use to introduce themselves and identify other pod members.",
       unlock:{ type:"rank", tier:"diamond", label:"Reach Diamond rank in Competitive." } },
@@ -39300,12 +39300,23 @@
         const rawCode = ($a("ph-add-friend-input").value || "").trim();
         if (!rawCode) { setAuthMsg("ph-friend-err", "Enter a friend code.", false); return; }
 
-        // ── Hidden easter egg: "Saving the Invertebrates" (code 3197) ──
-        // The four hidden invertebrate digits, in avatar-gallery order:
-        // Orange Tube Sponge 3 · Johnson's Sea Cucumber 1 · Sea Urchin 9 · Common Sea Star 7.
+        // ── Hidden easter egg: "Saving the Invertebrates" ──
+        // The four hidden invertebrate digits:
+        // Orange Tube Sponge 3 · Sea Urchin 9 · Common Sea Star 7 · Johnson's Sea Cucumber 1.
+        //
+        // TWO spellings of those four digits are accepted, and both have to be.
+        // The requirement tells the player to enter them in the order the
+        // Encyclopedia lists the Invertebrates, and that order is fixed and
+        // printed: Sponge, Urchin, Star, Cucumber → 3971. That is the code a
+        // player who reads the hint and obeys it will type, so it has to work.
+        // (It used to point at the Avatar Gallery, which cannot be obeyed: that
+        // roster re-sorts itself per player, unlocked first and then closest to
+        // unlocking, so the four never sit in one fixed order.)
+        // 3197 is the original and keeps working, so nobody who already learned
+        // it is locked out.
         // This intercepts BEFORE any friend lookup, so the regular Add Friends
-        // flow is never touched for this code; any other input falls through.
-        if (rawCode === "3197") {
+        // flow is never touched for either code; any other input falls through.
+        if (rawCode === "3197" || rawCode === "3971") {
           $a("ph-add-friend-input").value = "";
           // Complete the hidden achievement. unlockAchievement() shows the
           // achievement popup, awards its XP, and pushes a notification.
