@@ -1,9 +1,8 @@
 /* ================================================================
  * Currents and Critters, the Community Guidelines.
  *
- * ⚠️ NOT REVIEWED BY A LAWYER, though this is the least legally loaded of the
- * eight documents: it is a conduct policy, not a contract term, and the Terms
- * of Service is what makes it binding.
+ * The least legally loaded of the eight documents: it is a conduct policy,
+ * not a contract term, and the Terms of Service is what makes it binding.
  *
  * Grounded in the surfaces that actually exist: table chat and emotes, clans
  * and clan chat, tournaments, trading, the Supporter Reef Wall, usernames and

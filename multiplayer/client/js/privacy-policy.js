@@ -48,7 +48,7 @@
   // Raising that ceiling therefore has to happen in the same diff as the
   // sentence below that it would contradict. Keep it that way.
   //
-  // STILL WORTH A LAWYER'S EYE:
+  // STILL OPEN:
   //   • CalOPPA (Cal. Bus. & Prof. Code 22575) wants a conspicuous policy
   //     link on the first significant page. play.currentsandcritters.com's
   //     sign-in screen has none; the owner was told, and chose to leave the

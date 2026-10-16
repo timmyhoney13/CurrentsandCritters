@@ -1,8 +1,8 @@
 /* ================================================================
  * Currents and Critters, the Terms of Service.
  *
- * ⚠️ NOT REVIEWED BY A LAWYER. This document was drafted on 2026-10-09 from
- * what the code actually does plus four decisions the owner made that day:
+ * Drafted on 2026-10-09 from what the code actually does, plus four
+ * decisions the owner made that day:
  *   • Critter Coins: no refunds once delivered, billing errors and anything
  *     the law requires still honoured. (See js/refund-policy.js.)
  *   • Disputes: Tennessee law, courts in Davidson County. No arbitration
@@ -11,7 +11,7 @@
  *     through Kickstarter, so nothing here promises a ship date.
  *   • Age: mirrors the Privacy Policy exactly (not directed to under 13).
  *
- * THE SECTIONS A LICENSED ATTORNEY SHOULD READ FIRST, because they are the
+ * THE SECTIONS TO CHECK BEFORE RELYING ON ANY OF THIS, because they are the
  * ones that allocate risk and are most likely to be wrong or unenforceable:
  *   14 Disclaimers, 15 Limitation of Liability, 16 Indemnity,
  *   17 Governing Law and Disputes.

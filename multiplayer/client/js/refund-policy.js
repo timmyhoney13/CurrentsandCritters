@@ -1,7 +1,7 @@
 /* ================================================================
  * Currents and Critters, the Refund, Shipping, and Preorder Policy.
  *
- * ⚠️ NOT REVIEWED BY A LAWYER. Drafted 2026-10-09 on the owner's explicit
+ * Drafted 2026-10-09 on the owner's explicit
  * decisions, taken that day:
  *   • Critter Coins: NO refunds once delivered, because they are delivered
  *     the moment payment is confirmed. Billing errors, duplicate charges,
@@ -16,7 +16,7 @@
  *     checkout on either surface (a deliberate display lock, see
  *     _standby/README.md), so nothing physical currently ships from the site.
  *
- * ⚠️ FOR A LAWYER, the two live questions:
+ * ⚠️ TWO LIVE QUESTIONS:
  *   1. EU/UK/consumer withdrawal rights. For digital content delivered
  *      immediately, the 14-day right of withdrawal can be lost only if the
  *      consumer gave express consent AND acknowledged losing it, BEFORE
@@ -27,7 +27,7 @@
  *      is taken on our page rather than on Stripe's because a Payment Link
  *      cannot carry a custom checkbox; moving to server-created Checkout
  *      Sessions would allow it to sit on the payment page itself.
- *      STILL FOR A LAWYER: whether this flow reads as express consent in a
+ *      STILL OPEN: whether this flow reads as express consent in a
  *      given jurisdiction, and whether the waiver holds at all. Section 4
  *      now says out loud that mandatory rights survive it.
  *   2. Whether any state-level "virtual currency" or gift-card rules reach

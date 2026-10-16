@@ -1,7 +1,7 @@
 /* ================================================================
  * Currents and Critters, the Copyright and DMCA Policy.
  *
- * ⚠️ NOT REVIEWED BY A LAWYER, and this one has a HARD PREREQUISITE.
+ * ⚠️ THIS ONE HAS A HARD PREREQUISITE.
  *
  * ⚠️⚠️ ACTION REQUIRED BEFORE THIS PROTECTS YOU:
  * The owner chose (2026-10-09) to act as the designated agent at the business
@@ -23,7 +23,7 @@
  *     SUE and to claim statutory damages. Not tracked here, not required for
  *     safe harbour, and not something this page should ever imply exists.
  *
- * ⚠️ Also worth a lawyer's time: the repeat-infringer policy in section 7 has
+ * ⚠️ Also still open: the repeat-infringer policy in section 7 has
  * to be real and actually applied for safe harbour to hold, and section 5's
  * fan-content permission is a licence the studio is granting, so it should be
  * granted on purpose rather than inherited from a template.

@@ -1,7 +1,7 @@
 /* ================================================================
  * Currents and Critters, the Cookie Notice.
  *
- * ⚠️ NOT REVIEWED BY A LAWYER. Drafted 2026-10-09 from an actual audit of the
+ * Drafted 2026-10-09 from an actual audit of the
  * client and the server, not from a template. What the audit found:
  *   • The SERVER sets no cookies at all. `grep -rn "Set-Cookie" *.py` is empty.
  *   • The CLIENT never writes document.cookie. Not once.
@@ -16,7 +16,7 @@
  *     multiplayer/client/*.html. Analytics is first-party and admin-only
  *     (analytics_server.py), computed server-side from the accounts.
  *
- * ⚠️ THE JURISDICTION QUESTION A LAWYER SHOULD ANSWER: everything we store is
+ * ⚠️ THE OPEN JURISDICTION QUESTION: everything we store is
  * either strictly necessary (sign-in, security, game state) or a functional
  * preference the player set themselves, which is why this notice does not ship
  * a consent banner. Under the EU ePrivacy Directive and the UK PECR, consent is

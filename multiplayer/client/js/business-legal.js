@@ -1,8 +1,6 @@
 /* ================================================================
  * Currents and Critters, the Business Contact and Legal Information page.
  *
- * ⚠️ NOT REVIEWED BY A LAWYER.
- *
  * Confirmed by the owner 2026-10-09: the entity name, the mailing address and
  * the contact email. The same address is published by
  * newsletter_email.BUSINESS_ADDRESS_LINES and client/unsubscribe.html, so all
@@ -21,7 +19,7 @@
  *   • "5% goes to ocean conservation on every game sold.
  *      Receipts published."                                 (index.html:945)
  *   • "Help us hit our 2026 goal: $25k raised."             (a figure)
- * Three problems a lawyer and the owner need to settle:
+ * Three problems still to settle:
  *   1. "every purchase" and "every game sold" are different bases, and
  *      neither says gross or net of fees, refunds and taxes.
  *   2. "Receipts published" is not true today. donation_report.py is an

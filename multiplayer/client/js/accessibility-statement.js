@@ -1,9 +1,9 @@
 /* ================================================================
  * Currents and Critters, the Accessibility Statement.
  *
- * ⚠️ NOT REVIEWED BY A LAWYER, and more importantly NOT the product of a
- * formal accessibility audit. Everything claimed below was checked by hand on
- * 2026-10-09 and nothing is claimed that was not:
+ * ⚠️ NOT the product of a formal accessibility audit. Everything claimed
+ * below was checked by hand on 2026-10-09, and nothing is claimed that was
+ * not:
  *   ✓ prefers-reduced-motion is honoured: 8 stylesheets, 12 occurrences in
  *     css/preview.css alone.
  *   ✓ <html lang="en"> and aria-label landmarks on the published pages.
@@ -44,7 +44,7 @@
  * doing the work first: an accessibility statement that overclaims is worse
  * than none, because disabled players rely on it to decide whether to bother.
  *
- * ⚠️ For a lawyer: ADA Title III web obligations for a commercial site, and
+ * ⚠️ Still open: ADA Title III web obligations for a commercial site, and
  * whether a VPAT or formal WCAG 2.1 AA conformance claim is wanted. This page
  * states a GOAL of WCAG 2.1 AA and does not claim conformance.
  * ================================================================ */
