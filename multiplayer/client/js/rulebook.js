@@ -384,9 +384,11 @@
   //   = 161 cards, the number on the box and on the website.
   //   The 12 strategy cards were dropped from the product on 2026-10-11, so
   //   161 is the whole box. The shop's "What's in the box" agrees.
+  //   The score pad was dropped on 2026-10-15: there is no score pad in the
+  //   box, so the printed rulebook must not promise one.
   var COMPONENTS = [
     "48 horizontal cards", "44 vertical cards", "68 oceans", "1 end game card",
-    "161 cards in all", "1 score pad", "1 game board (the pool)",
+    "161 cards in all", "1 game board (the pool)",
   ];
 
   var SECTIONS = [
