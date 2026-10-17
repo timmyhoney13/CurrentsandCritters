@@ -724,6 +724,39 @@ def main() -> int:
                 except Exception as exc:
                     log(f"  !! measure failed: {exc!r}")
                 save_state(st)
+            # ARE THE GAMES STILL GAMES? Asked before anything else, because a
+            # run that keeps selecting bots on broken games is worse than a run
+            # that stopped: the champions it crowns are real champions of
+            # something that is not this game, and every log line on the way
+            # there looks healthy. If this fails the night ends here.
+            #
+            # The check that matters most is that reef_planner.fast_points
+            # still agrees exactly with final_points. It is a hand-written copy
+            # of the scorer and the planner picks every move by it, so if the
+            # two ever drift apart then grades A and up are optimising a game
+            # nobody is playing -- and they would still look like they were
+            # winning, because they would be winning the game they think they
+            # are in.
+            try:
+                out = subprocess.run([sys.executable, "check_games_valid.py",
+                                      "--games", "6", "--counts", COUNTS, "--quiet"],
+                                     cwd=HERE, capture_output=True, text=True,
+                                     timeout=1800)
+                for line in (out.stdout or out.stderr or "").strip().splitlines():
+                    if line.strip():
+                        log(f"  valid: {line.rstrip()}")
+                if out.returncode != 0:
+                    STOPPING["now"] = True
+                    log("  !! THE GAMES ARE NOT VALID. Stopping rather than "
+                        "training on them. Nothing has been promoted this cycle "
+                        "that was not already proved; the brain and champions on "
+                        "disk are whatever the last good cycle left.")
+            except Exception as exc:
+                # A check that cannot run is not a pass. It does not stop the
+                # night on its own, because a timeout here is far more likely
+                # than a broken deck, but it is said plainly.
+                log(f"  !! validity check could not run: {exc!r}")
+
             # DID ANYTHING ACTUALLY CHANGE? Asked by value, not by counting map
             # entries, and printed with the evidence each change came with.
             # This is the check the supervisor cannot do from the inside: a

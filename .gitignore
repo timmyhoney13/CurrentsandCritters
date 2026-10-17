@@ -107,6 +107,11 @@
 #                         whether the brain / champions / plan values actually
 #                         moved, and prints the proof each change came with
 !check_updating.py
+#   check_games_valid.py  the deck, the scorer, the artifacts training keeps
+#                         rewriting, and a handful of fresh games. Exits
+#                         non-zero so the run can stop rather than select bots
+#                         on games that are no longer valid
+!check_games_valid.py
 # The animal/strategy grid the brain points at, and the measured plan values
 # the planner reads over its hand-written ones.
 !animal_synergy_grid.json
