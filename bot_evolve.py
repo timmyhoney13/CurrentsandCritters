@@ -397,6 +397,31 @@ PLANNER_BOUNDS: Dict[str, Tuple[float, float]] = dict(_reef.TUNABLE_BOUNDS)
 # has been measured and found wanting at one grade. What has changed is that
 # the budget is no longer POINTED at them.
 PLANNER_FOCUS: Tuple[str, ...] = (
+    # HOW MUCH THE MEASURED PLAN VALUES COUNT. Added 2026-10-17, and the reason
+    # it was absent before is the reason it belongs now.
+    #
+    # family_prior_weight scales reef_planner.FAMILY_PRIOR into a plan's score.
+    # It sat at 0.134, and leaving it out of this list was right while that
+    # prior was a September census of what the planner chose and then scored --
+    # a quantity a census cannot measure, taken at temperature 6.0. A tuner
+    # that pushes a knob scaling noise down to a tenth is not malfunctioning.
+    #
+    # The prior is no longer that. Eight plans now carry a value measured by
+    # forcing a seat onto the plan against free planners, paired against the
+    # identical deal with that seat free, deterministic, and written only when
+    # the interval cleared zero:
+    #
+    #   birds_of_a_feather -3.44   coral_cephalopods -2.67   game_fish  -2.61
+    #   coral              -2.56   invertebrates     -2.19   cephalopods -1.66
+    #   birds_crustaceans  -1.21   baitfish_barrage  +1.37
+    #
+    # At 0.134 the largest of those moves a plan's score by 0.46 points, which
+    # is why turning the whole overlay off measured -0.09 [-0.96,+0.77] and
+    # then +0.09 [-0.83,+1.02]: no proof either way, because it is scaled to
+    # near-irrelevance. Eight measured numbers the bots barely consult is the
+    # one clear waste in the night's work, and this is the knob that fixes it.
+    # Its range is already (0.0, 3.0), so the tournament has room to find out.
+    "family_prior_weight",
     # measured neutral, so still a real question, and it changes 53% of moves
     "final_sweep",
     # the only knob measured BETTER tonight: +1.17 [+0.13,+2.22] over 3000
