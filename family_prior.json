@@ -39,13 +39,20 @@
       },
       "measurement": "plans_20261017_054227.json",
       "when": "2026-10-17 06:18:00"
+    },
+    {
+      "changed": {
+        "birds_of_a_feather": -2.5904
+      },
+      "measurement": "plans_20261017_112001.json",
+      "when": "2026-10-17 11:46:11"
     }
   ],
   "note": "Measured by ab_plan.py, shrunk by apply_family_prior.py. An overlay over reef_planner.FAMILY_PRIOR -- delete this file to put the bots back as they were.",
   "prior": {
     "baitfish_barrage": 1.3649,
     "birds_crustaceans": -1.2137,
-    "birds_of_a_feather": -3.4441,
+    "birds_of_a_feather": -2.5904,
     "cephalopods": -1.6571,
     "coral": -2.56,
     "coral_cephalopods": -2.6658,
@@ -53,5 +60,5 @@
     "invertebrates": -2.1874
   },
   "shrink": 0.5,
-  "written": "2026-10-17 06:18:00"
+  "written": "2026-10-17 11:46:11"
 }

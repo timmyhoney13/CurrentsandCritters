@@ -442,13 +442,30 @@ def phase_priors(st: Dict[str, Any], a: argparse.Namespace) -> None:
     except Exception as exc:
         log(f"  priors: could not rank the plans ({exc!r}); falling back to round-robin")
     if order:
-        # Still rotate, so a plan at the bottom of the ranking is measured
-        # eventually rather than never: take this visit's slice of the ranked
-        # order, not its head every time.
-        pi = int(st.get("prior_plan_index", 0)) % len(order)
-        chosen = [order[(pi + k) % len(order)] for k in range(min(per_visit, len(order)))]
-        st["prior_plan_index"] = (pi + per_visit) % len(order)
-        log(f"  priors: ranked by mispricing, worst first: {' '.join(order[:6])} ...")
+        # UNMEASURED FIRST, then rotate. Taking a rolling slice of the ranked
+        # order was not enough: king_salmon sat at the head of the ranking --
+        # played 9% of the time and winning 0.397 against a 0.182 share, the
+        # largest signal on the board -- and the index was carried over from the
+        # old round-robin, so three visits in a row measured plans further down
+        # and skipped it. A plan with no measured value at all is worth more
+        # information than a refresh of one that has one, so those go first in
+        # ranked order; the rest of the visit rotates through the plans that do
+        # have a value, which is what keeps a stale number from living for ever.
+        try:
+            with open(os.path.join(HERE, "family_prior.json"), encoding="utf-8") as fh:
+                have = set((json.load(fh).get("prior") or {}).keys())
+        except Exception:
+            have = set()
+        fresh = [p for p in order if p not in have]
+        stale = [p for p in order if p in have]
+        chosen = fresh[:per_visit]
+        if len(chosen) < per_visit and stale:
+            si = int(st.get("prior_plan_index", 0)) % len(stale)
+            for k in range(per_visit - len(chosen)):
+                chosen.append(stale[(si + k) % len(stale)])
+            st["prior_plan_index"] = (si + per_visit - len(fresh[:per_visit])) % len(stale)
+        log(f"  priors: ranked by mispricing, worst first: {' '.join(order[:6])} ..."
+            + (f" · {len(fresh)} never measured" if fresh else " · all measured once"))
     else:
         pi = int(st.get("prior_plan_index", 0)) % len(ALL_PLANS)
         chosen = [ALL_PLANS[(pi + k) % len(ALL_PLANS)] for k in range(per_visit)]
