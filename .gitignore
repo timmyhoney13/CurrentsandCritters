@@ -103,6 +103,10 @@
 #                         into weights-only and maps-only, so a pass that
 #                         benchmarks badly can be attributed to one half
 !split_learning.py
+#   check_updating.py     asks, by value rather than by counting map entries,
+#                         whether the brain / champions / plan values actually
+#                         moved, and prints the proof each change came with
+!check_updating.py
 # The animal/strategy grid the brain points at, and the measured plan values
 # the planner reads over its hand-written ones.
 !animal_synergy_grid.json

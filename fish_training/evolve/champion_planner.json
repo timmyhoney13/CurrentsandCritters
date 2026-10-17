@@ -2,17 +2,15 @@
   "count": 4,
   "counts": [
     2,
-    3,
     4,
-    5,
     6
   ],
   "strategy": null,
   "planner_grade": "eugenie_clark",
-  "generation": 2,
+  "generation": 1,
   "weights": {
     "turn_value": 3.0,
-    "plan_discount": 1.0548004873411005,
+    "plan_discount": 0.7811111652376608,
     "loyalty": 1.5,
     "crowding": 0.25,
     "crowding_points": 0.0,
@@ -30,16 +28,21 @@
     "turn_value_floor": 0.5,
     "denial_per_rival": 0.0,
     "rival_weight_per_rival": 0.03398517187620826,
-    "plan_discount_per_rival": 0.0,
+    "plan_discount_per_rival": 0.054672686721034834,
     "turn_value_per_rival": -0.9992418739191875,
     "survival_per_rival": 0.0,
     "crowding_per_rival": 0.0,
-    "switch_margin": 4.0
+    "switch_margin": 4.0,
+    "opp_growth": 1.0,
+    "opp_growth_per_rival": -2.0,
+    "plan_game_fish": 0.0
   },
-  "margin_edge": 2.82357875,
-  "margin_edge_low": 0.651023901867744,
-  "win_edge": 0.015,
-  "games": 800,
+  "margin_edge": 2.2145799999999998,
+  "margin_edge_low": 0.24575806410880796,
+  "win_edge": 0.0175,
+  "games": 200,
   "chooser": "engine",
-  "grade": "eugenie_clark"
+  "grade": "eugenie_clark",
+  "deterministic": true,
+  "temperature": 0.0
 }

@@ -174,6 +174,10 @@ PARAMS: Dict[str, float] = {
     # plan is new, and a new plan added at 1.0 would change every planner bot
     # in the game on nothing but an argument about card text.
     "plan_game_fish": 0.0,
+    # On: the four values in family_prior.json were each measured with an
+    # interval clear of zero and halved on the way in. Whether the planner
+    # PLAYS better with them is a separate question, which is now measurable.
+    "use_measured_priors": 1.0,
 }
 
 # knob -> the per-rival term that shifts it, and the range the result is held to.
@@ -259,6 +263,11 @@ TUNABLE_BOUNDS: Dict[str, Tuple[float, float]] = {
     # and the step off zero is a cliff. Here so the tournament can promote it
     # on its own evidence, not because the range means anything.
     "plan_game_fish": (0.0, 1.0),
+    # Also a switch: whether the measured plan values in family_prior.json are
+    # used in place of the hand-written ones. Not in PLANNER_FOCUS -- it is
+    # here so a paired measurement can turn the overlay off in one arm, not so
+    # the tournament can wander into it.
+    "use_measured_priors": (0.0, 1.0),
 }
 
 # The table size the planner's numbers were measured at. A table this size gets
@@ -949,7 +958,28 @@ STRATEGY_FAMILIES_SET: frozenset = frozenset(STRATEGY_FAMILIES)
 # Merge whatever ab_plan.py has measured over the hand-written priors. Done
 # once, at import, so nothing on the decision path pays for it.
 FAMILY_PRIOR_MEASURED: Dict[str, float] = _load_family_prior_overlay()
-FAMILY_PRIOR.update(FAMILY_PRIOR_MEASURED)
+
+
+def family_prior(fam: str, params: Dict[str, float]) -> float:
+    """What committing to `fam` is worth, in points, before the weight.
+
+    Kept as a lookup rather than merged into FAMILY_PRIOR at import so that one
+    process can play both sides of a paired deal -- the measured values in one
+    seat and the hand-written ones in the other. Without that, the overlay
+    those values live in could not be measured at all: it is read once at
+    import, and ab.py needs the two arms in the same pool.
+
+    That mattered. Four plans had been written into family_prior.json from
+    measurements of what committing to them is worth against the planner's own
+    choice, they were live, and nothing had checked end to end that the
+    planner PLAYS better with them -- which is a different question from
+    whether each number is right.
+    """
+    if float(params.get("use_measured_priors", 1.0)) > 0.0:
+        got = FAMILY_PRIOR_MEASURED.get(fam)
+        if got is not None:
+            return float(got)
+    return float(FAMILY_PRIOR.get(fam, 0.0))
 
 
 def family_offered(family: str, params: Dict[str, float]) -> bool:
@@ -1057,7 +1087,7 @@ def choose_family(gs: GameState, ms: MatchState, player: PlayerState, params: Di
             # A plan's ceiling only counts for a hand that can start it.
             held = sum(1 for e in player.hand
                        if any(family_of_uid(gs, f) in accept for f in entry_faces(ms, e)))
-            value += prior_w * FAMILY_PRIOR.get(fam, 0.0) * min(1.0, float(held))
+            value += prior_w * family_prior(fam, params) * min(1.0, float(held))
         value -= float(params.get("crowding", 0.25)) * abs(value) * crowd.get(fam, 0)
         value -= float(params.get("crowding_points", 0.0)) * crowd.get(fam, 0)
         results[fam] = value

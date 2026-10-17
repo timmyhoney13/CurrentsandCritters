@@ -49,8 +49,15 @@ PASS = 0
 FAIL = 0
 
 NEW_WEIGHTS = ("future_urgency", "tempo_urgency", "crowd_cost", "pool_greed")
-PER_RIVAL = ("denial_per_rival", "rival_weight_per_rival", "plan_discount_per_rival",
-             "turn_value_per_rival", "survival_per_rival", "crowding_per_rival")
+# DERIVED, not listed. This was a hand-written tuple of six names, and a
+# seventh per-rival knob (opp_growth_per_rival) was added to the planner
+# afterwards without anyone adding it here. Nothing failed until training set
+# that knob to a nonzero value, at which point the "nothing changes while the
+# per-rival knobs are zero" check below started zeroing six of seven knobs and
+# reporting a change it had caused itself. COUNT_SHAPED is the planner's own
+# map of knob -> its per-rival term, so reading it means a new one cannot slip
+# past this test again.
+PER_RIVAL = tuple(sorted(per for _knob, (per, _lo, _hi) in rp.COUNT_SHAPED.items()))
 
 
 def check(cond, name, extra=""):

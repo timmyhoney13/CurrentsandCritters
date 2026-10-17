@@ -1,7 +1,36 @@
 {
-  "note": "Measured plan values, written by apply_family_prior.py from an ab_plan.py measurement. An OVERLAY over reef_planner.FAMILY_PRIOR: an empty 'prior' means the bots play with the hand-written numbers in that module, which is what they have always played with. Delete the file and the same is true. Committed empty so the Dockerfile COPY always has a file to copy, the same reason fish_training/evolve/champion_planner.json is committed holding the knobs the module already ships with.",
-  "shrink": 0.5,
   "blend": 0.5,
-  "prior": {},
-  "history": []
+  "history": [
+    {
+      "changed": {
+        "coral": -2.56
+      },
+      "measurement": "plans_20261015_143415.json",
+      "when": "2026-10-15 15:12:37"
+    },
+    {
+      "changed": {
+        "birds_of_a_feather": -3.4441,
+        "game_fish": -3.6167
+      },
+      "measurement": "plans_20261016_121117.json",
+      "when": "2026-10-16 12:33:14"
+    },
+    {
+      "changed": {
+        "coral_cephalopods": -2.6658
+      },
+      "measurement": "plans_20261016_141137.json",
+      "when": "2026-10-16 14:41:26"
+    }
+  ],
+  "note": "Measured by ab_plan.py, shrunk by apply_family_prior.py. An overlay over reef_planner.FAMILY_PRIOR -- delete this file to put the bots back as they were.",
+  "prior": {
+    "birds_of_a_feather": -3.4441,
+    "coral": -2.56,
+    "coral_cephalopods": -2.6658,
+    "game_fish": -3.6167
+  },
+  "shrink": 0.5,
+  "written": "2026-10-16 14:41:26"
 }

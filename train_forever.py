@@ -75,6 +75,31 @@ ALL_PLANS: List[str] = MAINS + ["invertebrates"] + COMBOS
 
 PHASES = ("learn", "strategy", "planner", "priors")
 
+# THREE PLAYERS AND UP, EVERYWHERE. Two-player games are excluded from every
+# phase and every measurement. They were also where the one proven harm from
+# map learning lived (-5.2 points, replicated three times), so dropping them
+# removes that cell as well as honouring how the game is actually played.
+COUNTS = "3,4,6"
+# bot_evolve shares a generation's deals out between the sizes given, so a
+# vector is measured at every size it will be played at rather than at one.
+EVOLVE_COUNTS = "3,4,5,6"
+EVOLVE_COUNTS_BIG = "5,6"          # Invertebrates only unlocks at five
+
+# How long each phase gets, in minutes of work actually done. Not equal,
+# because the phases do not buy equal amounts:
+#   planner  the Reef Planner's shared knobs, which grades A, S, S+ and GS all
+#            play with -- four rungs, and the top of the ladder is the flat
+#            part. Highest leverage per minute.
+#   priors   which plan to commit to, also read by every planner grade. The
+#            census found the planner choosing Crustaceans (67 points) seven
+#            times as often as Shooting the Moon.
+#   strategy per-plan weight vectors, which reach exactly ONE rung (B), and a
+#            single generation costs an hour. Lowest leverage per minute, so
+#            it gets its hour but not a quarter of the night.
+#   learn    regression learning, measured at about a point in a direction
+#            nobody can establish. Every fourth cycle.
+PHASE_MINUTES = {"learn": 35.0, "strategy": 62.0, "planner": 38.0, "priors": 38.0}
+
 # How many of the learning pipeline's own 5.8MB brain backups to keep. It
 # writes one per promotion attempt and prunes none of them, which over a night
 # of cycles is gigabytes of files whose whole purpose is "the last few states".
@@ -138,7 +163,7 @@ def _end(proc: "subprocess.Popen", why: str, t0: float) -> Dict[str, Any]:
             proc.kill()
         except Exception:
             pass
-    return {"ok": True, "rc": None, "secs": time.time() - t0, "note": why}
+    return {"ok": True, "rc": None, "secs": time.monotonic() - t0, "note": why}
 
 
 def run(cmd: List[str], logfile: str, minutes: float) -> Dict[str, Any]:
@@ -152,7 +177,12 @@ def run(cmd: List[str], logfile: str, minutes: float) -> Dict[str, Any]:
     out. Measured: a stop took 7 minutes and began training a plan nobody
     asked for.
     """
-    t0 = time.time()
+    # MONOTONIC, not wall clock. A Mac that goes to sleep mid-phase comes back
+    # with time.time() hours further on and the budget already blown, which is
+    # how a 40-minute strategy phase came to report "budget reached ... in
+    # 3854s". time.monotonic() does not advance while the machine is asleep on
+    # Darwin, so a budget measures the time the work actually got.
+    t0 = time.monotonic()
     with open(logfile, "a", encoding="utf-8") as fh:
         fh.write(f"\n===== {time.strftime('%F %T')}  {' '.join(cmd)} =====\n")
         fh.flush()
@@ -165,11 +195,11 @@ def run(cmd: List[str], logfile: str, minutes: float) -> Dict[str, Any]:
         while True:
             rc = proc.poll()
             if rc is not None:
-                return {"ok": rc == 0, "rc": rc, "secs": time.time() - t0,
+                return {"ok": rc == 0, "rc": rc, "secs": time.monotonic() - t0,
                         "note": "finished" if rc == 0 else f"exit {rc}"}
             if STOPPING["now"]:
                 return _end(proc, "stopped on request", t0)
-            if time.time() > deadline:
+            if time.monotonic() > deadline:
                 return _end(proc, "budget reached, asked to stop", t0)
             time.sleep(2.0)
 
@@ -236,7 +266,7 @@ def phase_learn(st: Dict[str, Any], a: argparse.Namespace) -> None:
     # run actually finished, which is also when a new seed is wanted.
     resume = bool(st.get("learn_unfinished"))
     cmd = [sys.executable, "fish_game_all_in_one.py", "--train-all-player-counts",
-           "--min-players", "2", "--max-players", "8",
+           "--min-players", "3", "--max-players", "8",
            "--games-per-player-count", str(n),
            "--benchmark-games", str(bench),
            "--jobs", str(a.jobs),
@@ -244,12 +274,12 @@ def phase_learn(st: Dict[str, Any], a: argparse.Namespace) -> None:
     if not resume:
         cmd += ["--fresh", "--seed", str(int(time.time()) & 0x7FFFFFFF)]
     log(f"  learn: {'resuming' if resume else 'new run'}, {n} games/count over "
-        f"2..8 players, {bench} bench/count")
-    res = run(cmd, os.path.join(OUT, "learn.log"), a.phase_minutes)
+        f"3..8 players, {bench} bench/count")
+    res = run(cmd, os.path.join(OUT, "learn.log"), PHASE_MINUTES["learn"])
     st["seconds"]["learn"] += res["secs"]
     st["learn_unfinished"] = res.get("rc") != 0
     if res.get("rc") == 0:
-        st["games_played"]["learn"] += n * 7
+        st["games_played"]["learn"] += n * 6
     log(f"  learn: {res['note']} in {res['secs']:.0f}s")
 
     # Size the next visit from what this one actually cost, so the phase fills
@@ -257,13 +287,24 @@ def phase_learn(st: Dict[str, Any], a: argparse.Namespace) -> None:
     # below 20 a count has too few games to learn anything from, and above 400
     # one visit crowds out the other two phases.
     if res.get("rc") == 0 and res["secs"] > 1.0:
-        target = a.phase_minutes * 60.0 * 0.85
+        target = PHASE_MINUTES["learn"] * 60.0 * 0.85
         scaled = n * (target / res["secs"])
         st["learn_games_per_count"] = int(max(20, min(400, scaled)))
     elif res["note"].startswith("budget"):
         st["learn_games_per_count"] = int(max(20, n * 0.6))
 
+    # ONLY IF THIS RUN FINISHED. train_summary.json is left behind by whichever
+    # learn run last completed, and --fresh does not delete it, so a phase the
+    # budget cut short would read the previous run's verdict and log it as its
+    # own. Caught in a smoke test: a 126-second phase that could not have
+    # benchmarked anything reported "promoted counts [4]" off a summary written
+    # hours earlier.
     summary = os.path.join(HERE, "fish_training", "forever", "run", "train_summary.json")
+    if res.get("rc") != 0:
+        log("  learn: cut short, so no verdict of its own this visit "
+            "(the summary on disk belongs to an earlier run)")
+        prune_train_backups()
+        return
     try:
         with open(summary, encoding="utf-8") as f:
             s = json.load(f)
@@ -285,37 +326,43 @@ def phase_strategy(st: Dict[str, Any], a: argparse.Namespace) -> None:
     """One plan per visit, round-robin, so every plan keeps improving and none
     starves. A plan trains against the CURRENT champion of all the others, so
     the table gets harder as the night goes on."""
-    budget_end = time.time() + a.phase_minutes * 60.0
+    budget = PHASE_MINUTES["strategy"]
+    budget_end = time.monotonic() + budget * 60.0
     trained: List[str] = []
-    while time.time() < budget_end and not STOPPING["now"]:
+    while time.monotonic() < budget_end and not STOPPING["now"]:
         idx = int(st.get("plan_index", 0)) % len(ALL_PLANS)
         plan = ALL_PLANS[idx]
-        st["plan_index"] = (idx + 1) % len(ALL_PLANS)
-        count = 6 if plan in AT_SIX else 4
-        left = (budget_end - time.time()) / 60.0
-        if left < 3.0:
+        counts = EVOLVE_COUNTS_BIG if plan in AT_SIX else EVOLVE_COUNTS
+        left = (budget_end - time.monotonic()) / 60.0
+        if left < 8.0:
             break
-        cmd = [sys.executable, "bot_evolve.py", "--count", str(count),
+        cmd = [sys.executable, "bot_evolve.py", "--counts", counts,
                "--strategy", plan, "--generations", "1",
                "--chooser", "live", "--grade", "william_beebe",
                "--mutants", "8", "--screen-games", "40",
                "--confirm-games", "150", "--max-confirm-games", "450",
                "--jobs", str(a.jobs)]
-        log(f"  strategy: {plan} at {count}P (budget {left:.0f} min left)")
+        log(f"  strategy: {plan} at {counts}P (budget {left:.0f} min left)")
         res = run(cmd, os.path.join(OUT, f"strategy_{plan}.log"), left)
         st["seconds"]["strategy"] += res["secs"]
         trained.append(plan)
         log(f"  strategy: {plan} {res['note']} in {res['secs']:.0f}s")
-        if res.get("rc") != 0:
-            # bot_evolve writes its champion at the END of a generation, so a
-            # run that was cut short produced nothing. Put the plan back at the
-            # front of the queue rather than moving on to the next one: with 14
-            # plans and one visit each per cycle, silently skipping a plan whose
-            # generation was interrupted means it waits a full cycle for the
-            # generation it never got.
-            st["plan_index"] = idx
-            save_state(st)
-            break
+        # ALWAYS ADVANCE. bot_evolve writes its champion at the END of a
+        # generation, so a run the budget cut short produced nothing, and the
+        # first version of this put the plan back at the front of the queue so
+        # it would get another go. That was a trap: if a plan's generation
+        # never fits the budget it is retried for ever. Measured -- fourteen
+        # cycles and 11.2 hours of this phase, every one of them spent on
+        # goby_moon_shot, and the other thirteen plans never trained once.
+        # One retry, then the queue moves on and the plan comes round again
+        # next cycle.
+        retries = int(st.get("plan_retries", 0))
+        if res.get("rc") != 0 and retries < 1:
+            st["plan_retries"] = retries + 1
+            log(f"  strategy: {plan} produced nothing; one more go at it")
+        else:
+            st["plan_retries"] = 0
+            st["plan_index"] = (idx + 1) % len(ALL_PLANS)
         save_state(st)
 
     # A champion is dead on disk until this writes it into the brain the game
@@ -341,12 +388,12 @@ def phase_planner(st: Dict[str, Any], a: argparse.Namespace) -> None:
     that then picks loosely.
     """
     cmd = [sys.executable, "bot_evolve.py", "--planner", "eugenie_clark",
-           "--deterministic", "--counts", "2,4,6", "--generations", "1",
+           "--deterministic", "--counts", COUNTS, "--generations", "1",
            "--mutants", "8", "--screen-games", "40",
            "--confirm-games", "200", "--max-confirm-games", "600",
            "--jobs", str(a.jobs)]
     log("  planner: tuning the shared knobs at a deterministic grade A")
-    res = run(cmd, os.path.join(OUT, "planner.log"), a.phase_minutes)
+    res = run(cmd, os.path.join(OUT, "planner.log"), PHASE_MINUTES["planner"])
     st["seconds"]["planner"] += res["secs"]
     log(f"  planner: {res['note']} in {res['secs']:.0f}s")
 
@@ -372,8 +419,19 @@ def phase_priors(st: Dict[str, Any], a: argparse.Namespace) -> None:
     stamp = time.strftime("%Y%m%d_%H%M%S")
     out_json = os.path.join(OUT, f"plans_{stamp}.json")
     games = int(st.get("prior_games", 60))
+    # A FEW PLANS PER VISIT, round-robin. ab_plan is not resumable, so a visit
+    # the budget cuts short writes nothing at all -- and all fourteen plans at
+    # three table sizes and two arms is 84 games per deal, which never fitted.
+    # Measured: 8.95 hours in this phase across fourteen cycles, and it
+    # reported "no measurement written" every time but three. Four plans a
+    # visit finishes, and every plan still comes round.
+    per_visit = max(1, int(a.priors_per_visit))
+    pi = int(st.get("prior_plan_index", 0)) % len(ALL_PLANS)
+    chosen = [ALL_PLANS[(pi + k) % len(ALL_PLANS)] for k in range(per_visit)]
+    st["prior_plan_index"] = (pi + per_visit) % len(ALL_PLANS)
     cmd = [sys.executable, "ab_plan.py", "--games", str(games),
-           "--counts", "2,4,6", "--plans", "all", "--grade", "eugenie_clark",
+           "--counts", COUNTS, "--plans", ",".join(chosen),
+           "--grade", "eugenie_clark",
            "--temperature", "0.0", "--seed", str(31415 + st["cycle"]),
            "--jobs", str(a.jobs), "--out", out_json]
     # 60 deals at each of three table sizes is 180 paired deals a plan, where
@@ -382,20 +440,22 @@ def phase_priors(st: Dict[str, Any], a: argparse.Namespace) -> None:
     # keeps that from accumulating is apply_family_prior's shrink and blend,
     # which between them move a prior only a quarter of the way to a single
     # measurement, so a fluke is undone by the next two cycles that disagree.
-    log(f"  priors: {games} forced-plan deals per plan per table size")
-    res = run(cmd, os.path.join(OUT, "priors.log"), a.phase_minutes)
+    log(f"  priors: {games} forced-plan deals per table size for "
+        f"{', '.join(chosen)}")
+    res = run(cmd, os.path.join(OUT, "priors.log"), PHASE_MINUTES["priors"])
     st["seconds"].setdefault("priors", 0.0)
     st["seconds"]["priors"] += res["secs"]
     log(f"  priors: {res['note']} in {res['secs']:.0f}s")
 
-    # Size the next visit from what this one cost. 14 plans x 3 sizes x 2 arms
-    # is 84 games per deal-count, so this phase is the most expensive of the
-    # four and the sizing matters most here.
+    # Size the next visit from what this one cost, with a floor of 120 deals a
+    # plan: below that the interval is wider than the effects being looked for
+    # and apply_family_prior's own --min-n would throw the measurement away
+    # anyway, so a smaller visit is not a cheaper measurement, it is none.
     if res.get("rc") == 0 and res["secs"] > 1.0:
-        target = a.phase_minutes * 60.0 * 0.85
-        st["prior_games"] = int(max(20, min(400, games * (target / res["secs"]))))
+        target = PHASE_MINUTES["priors"] * 60.0 * 0.85
+        st["prior_games"] = int(max(40, min(400, games * (target / res["secs"]))))
     elif res["note"].startswith("budget"):
-        st["prior_games"] = int(max(20, games * 0.6))
+        st["prior_games"] = int(max(40, games * 0.6))
 
     if not os.path.exists(out_json):
         log("  priors: no measurement written (cut short before it reported)")
@@ -427,7 +487,7 @@ def phase_measure(st: Dict[str, Any], a: argparse.Namespace) -> None:
     stamp = time.strftime("%Y%m%d_%H%M%S")
     out_json = os.path.join(OUT, f"measure_{stamp}.json")
     cmd = [sys.executable, "ab_brain.py", "--games", str(a.measure_games),
-           "--counts", "2,4,6", "--old", base, "--new", "fish_ai_brain.json",
+           "--counts", COUNTS, "--old", base, "--new", "fish_ai_brain.json",
            "--grade", "william_beebe",
            "--label", f"cycle{st['cycle']}-vs-baseline",
            "--seed", str(90000 + st["cycle"]),
@@ -450,6 +510,46 @@ def phase_measure(st: Dict[str, Any], a: argparse.Namespace) -> None:
         })
     except Exception as exc:
         log(f"  measure: no verdict ({exc}); {res['note']}")
+
+    # AND AT A PLANNER GRADE. ab_brain plays grade B, which is where the
+    # brain's learned weights are read -- and the plan priors this run keeps
+    # writing are read by the PLANNER, grades A through GS, which grade B
+    # never touches. So the one part of the night with four measured results
+    # to its name was invisible to the only progress check there was.
+    #
+    # This turns the measured plan values off in one seat and on in every
+    # other, on the same deals, at a deterministic grade A. It answers the
+    # question the per-plan measurements do not: whether the planner PLAYS
+    # better with them, which is not the same as whether each number is right.
+    if not os.path.exists(os.path.join(HERE, "family_prior.json")):
+        return
+    pj = os.path.join(OUT, f"priors_live_{stamp}.json")
+    cmd = [sys.executable, os.path.join("fish_training", "ab", "ab.py"),
+           "--games", str(max(120, a.measure_games // 2)), "--counts", COUNTS,
+           "--grade", "eugenie_clark",
+           "--base", '{"temperature": 0.0}',
+           "--variant", '{"temperature": 0.0, "use_measured_priors": 0.0}',
+           "--label", f"cycle{st['cycle']}-priors-OFF-vs-ON",
+           "--seed", str(70000 + st["cycle"]),
+           "--jobs", str(a.jobs), "--out", pj]
+    log("  measure: the learned plan values, off vs on, at a deterministic grade A")
+    run(cmd, os.path.join(OUT, "measure_priors.log"), a.measure_minutes)
+    try:
+        with open(pj, encoding="utf-8") as f:
+            m = json.load(f)
+        lo, hi = m["ci"]
+        # The VARIANT is priors OFF, so a negative mean means turning them off
+        # is worse, i.e. the learned values are helping.
+        verdict = ("the learned values HELP" if hi < 0 else
+                   "the learned values HURT" if lo > 0 else "no proof either way")
+        log(f"  MEASURED plan values: turning them off scores {m['mean']:+.2f} "
+            f"95% CI [{lo:+.2f},{hi:+.2f}] n={m['n']} => {verdict}")
+        st.setdefault("prior_checks", []).append({
+            "cycle": st["cycle"], "when": time.strftime("%F %T"),
+            "off_minus_on": m["mean"], "ci": m["ci"], "n": m["n"],
+            "verdict": verdict})
+    except Exception as exc:
+        log(f"  measure: no plan-value verdict ({exc})")
 
 
 def status() -> int:
@@ -487,8 +587,11 @@ def status() -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--phase-minutes", type=float, default=40.0,
-                    help="wall-clock budget per phase before it yields to the next")
+    ap.add_argument("--budget-scale", type=float, default=1.0,
+                    help="multiply every phase budget, for smoke-testing the "
+                         "rotation without waiting an hour for one generation")
+    ap.add_argument("--priors-per-visit", type=int, default=4,
+                    help="how many plans the plan-value phase measures per visit")
     ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 4) - 2))
     ap.add_argument("--learn-every", type=int, default=4,
                     help="run the regression-learning phase every Nth cycle "
@@ -511,6 +614,9 @@ def main() -> int:
     os.makedirs(OUT, exist_ok=True)
     if a.status:
         return status()
+    if a.budget_scale != 1.0:
+        for k in list(PHASE_MINUTES):
+            PHASE_MINUTES[k] = max(0.5, PHASE_MINUTES[k] * a.budget_scale)
 
     # One at a time. Two supervisors would write the same brain from two
     # phases at once, and the loser's learning would be silently thrown away.
@@ -544,8 +650,9 @@ def main() -> int:
     signal.signal(signal.SIGINT, _stop)
 
     log("=" * 72)
-    log(f"train_forever started: {a.phase_minutes:.0f} min per phase, {a.jobs} jobs, "
-        f"measuring every {a.measure_every} cycle(s) against {a.baseline}")
+    log(f"train_forever started: {a.jobs} jobs, {COUNTS}-player tables, budgets "
+        + " ".join(f"{k} {v:.0f}m" for k, v in sorted(PHASE_MINUTES.items()))
+        + f", learn every {a.learn_every}, measuring every {a.measure_every}")
     log(f"brain at start: {brain_facts()}")
     log("stop with:  pkill -f train_forever")
     log("=" * 72)
@@ -617,7 +724,22 @@ def main() -> int:
                 except Exception as exc:
                     log(f"  !! measure failed: {exc!r}")
                 save_state(st)
-            log(f"cycle {st['cycle']} done · brain: {brain_facts()}")
+            # DID ANYTHING ACTUALLY CHANGE? Asked by value, not by counting map
+            # entries, and printed with the evidence each change came with.
+            # This is the check the supervisor cannot do from the inside: a
+            # phase retrying one unit of work that never fits its budget logs
+            # a healthy-looking line every time round.
+            try:
+                out = subprocess.run([sys.executable, "check_updating.py",
+                                      "--snapshot", "--quiet-if-moving"],
+                                     cwd=HERE, capture_output=True, text=True,
+                                     timeout=600)
+                for line in (out.stdout or out.stderr or "").strip().splitlines():
+                    if line.strip():
+                        log(f"  check: {line.rstrip()}")
+            except Exception as exc:
+                log(f"  !! update check failed: {exc!r}")
+            log(f"cycle {st['cycle']} done")
     finally:
         save_state(st)
         try:
