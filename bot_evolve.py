@@ -336,6 +336,18 @@ for _lab in list(STRATEGY_FOCUS):
 # about what a knob may be would write files the planner then refuses to read.
 PLANNER_BOUNDS: Dict[str, Tuple[float, float]] = dict(_reef.TUNABLE_BOUNDS)
 
+# The knobs the planner reads as `> 0.0` and nothing more. Audited against
+# every use of every knob in TUNABLE_BOUNDS (see the note on the four that are
+# "switches wearing a continuous range"): these carry no magnitude at all, so a
+# step from 0.4 to 0.7 on one of them is not a smaller change, it is no change,
+# while the step off zero is a cliff a hill-climber cannot see.
+#   adaptive_turn_value  engine_draws  final_sweep  survival   reef_planner
+#   plan_game_fish       use_measured_priors                   gates added here
+BOOLEAN_KNOBS: frozenset = frozenset((
+    "adaptive_turn_value", "engine_draws", "final_sweep", "survival",
+    "plan_game_fish", "use_measured_priors",
+))
+
 # What a planner run aims mutations at.
 #
 # Chosen by measurement, not by taste. Each knob was moved half its legal range
@@ -476,6 +488,18 @@ def _mutate_params(p: Dict[str, float], rng: random.Random, sigma: float,
             chosen.append(k)
     for k in chosen:
         lo, hi = PLANNER_BOUNDS[k]
+        if k in BOOLEAN_KNOBS:
+            # A SWITCH IS FLIPPED, NOT NUDGED. The planner reads these as
+            # `params.get(k, 0.0) > 0.0` and nothing more, so every positive
+            # value means the same thing and a gaussian step on one is a coin
+            # flip dressed as a measurement. Caught in the wild: a promoted
+            # champion carried final_sweep at 0.0294, which is not "slightly
+            # on", it is on, arrived at by a mutation that could not know it
+            # had crossed a cliff. Flipping the switch instead means a champion
+            # carrying one carries it visibly, and the trainer spends its steps
+            # on the twenty-two knobs that really are magnitudes.
+            out[k] = 0.0 if float(out.get(k, 0.0)) > 0.0 else 1.0
+            continue
         # Step from the knob's own size, with a floor from its range, so a knob
         # sitting at exactly zero -- which every per-rival term does on day one
         # -- can still be moved off it.

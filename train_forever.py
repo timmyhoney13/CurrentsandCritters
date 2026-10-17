@@ -426,9 +426,33 @@ def phase_priors(st: Dict[str, Any], a: argparse.Namespace) -> None:
     # reported "no measurement written" every time but three. Four plans a
     # visit finishes, and every plan still comes round.
     per_visit = max(1, int(a.priors_per_visit))
-    pi = int(st.get("prior_plan_index", 0)) % len(ALL_PLANS)
-    chosen = [ALL_PLANS[(pi + k) % len(ALL_PLANS)] for k in range(per_visit)]
-    st["prior_plan_index"] = (pi + per_visit) % len(ALL_PLANS)
+    # WHICH PLANS, aimed by the finished boards rather than by position in a
+    # list. analyze_game.py ranks the plans by the gap between how often the
+    # planner commits to one and how well it then does, worst first, with
+    # plans carrying no measured value yet breaking ties in their own favour.
+    # Round-robin spent its budget alphabetically while King Salmon -- played
+    # 9% of the time and winning 0.397 against a 0.182 share -- sat unmeasured
+    # for three days.
+    order: List[str] = []
+    try:
+        out = subprocess.run([sys.executable, "analyze_game.py", "--suggest"],
+                             cwd=HERE, capture_output=True, text=True, timeout=600)
+        if out.returncode == 0:
+            order = [w for w in (out.stdout or "").split() if w in ALL_PLANS]
+    except Exception as exc:
+        log(f"  priors: could not rank the plans ({exc!r}); falling back to round-robin")
+    if order:
+        # Still rotate, so a plan at the bottom of the ranking is measured
+        # eventually rather than never: take this visit's slice of the ranked
+        # order, not its head every time.
+        pi = int(st.get("prior_plan_index", 0)) % len(order)
+        chosen = [order[(pi + k) % len(order)] for k in range(min(per_visit, len(order)))]
+        st["prior_plan_index"] = (pi + per_visit) % len(order)
+        log(f"  priors: ranked by mispricing, worst first: {' '.join(order[:6])} ...")
+    else:
+        pi = int(st.get("prior_plan_index", 0)) % len(ALL_PLANS)
+        chosen = [ALL_PLANS[(pi + k) % len(ALL_PLANS)] for k in range(per_visit)]
+        st["prior_plan_index"] = (pi + per_visit) % len(ALL_PLANS)
     cmd = [sys.executable, "ab_plan.py", "--games", str(games),
            "--counts", COUNTS, "--plans", ",".join(chosen),
            "--grade", "eugenie_clark",

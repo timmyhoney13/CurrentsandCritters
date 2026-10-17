@@ -112,6 +112,9 @@
 #                         non-zero so the run can stop rather than select bots
 #                         on games that are no longer valid
 !check_games_valid.py
+#   analyze_game.py       what actually wins, read off every finished board on
+#                         disk, and a plan order for the measurement budget
+!analyze_game.py
 # The animal/strategy grid the brain points at, and the measured plan values
 # the planner reads over its hand-written ones.
 !animal_synergy_grid.json

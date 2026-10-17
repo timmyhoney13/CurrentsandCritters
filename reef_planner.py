@@ -315,6 +315,18 @@ TUNED_PARAMS_PATH = os.environ.get(
 )
 
 
+# The knobs this module reads as `> 0.0` and nothing more. A value of 0.0294 in
+# one of these is not "slightly on", it is on -- and it is on because a tuner
+# took a gaussian step over a cliff it could not see rather than because
+# anything measured it there. Folded to 0 or 1 on the way in, which changes no
+# behaviour (the planner only ever asks whether they exceed zero) and makes the
+# file say what the bots are actually doing.
+SWITCH_KNOBS: Tuple[str, ...] = (
+    "adaptive_turn_value", "engine_draws", "final_sweep", "survival",
+    "plan_game_fish", "use_measured_priors",
+)
+
+
 def load_tuned_params(path: Optional[str] = None,
                       into: Optional[Dict[str, float]] = None) -> List[str]:
     """Fold the measured knobs into `into` (PARAMS by default). Returns the
@@ -336,6 +348,8 @@ def load_tuned_params(path: Optional[str] = None,
         lo, hi = TUNABLE_BOUNDS[k]
         v = float(v)
         v = lo if v < lo else (hi if v > hi else v)
+        if k in SWITCH_KNOBS:
+            v = 1.0 if v > 0.0 else 0.0
         if v != float(target.get(k, 0.0)):
             target[k] = v
             changed.append(k)

@@ -377,9 +377,60 @@ for _k in _understanding:
 # quarters of every generation at directions that can only lose is a
 # mechanical reason a night of selection keeps reporting "settled". They stay
 # in TUNABLE_BOUNDS, so the quarter of mutations that roam still visits them.
+# READ OFF THE SOURCE, not off rp.PARAMS. reef_planner updates PARAMS from
+# champion_planner.json at import, so PARAMS is "what training has proved",
+# which is a different thing from "what the module ships" -- and it is the
+# second one this check is about. Asserting the first broke the moment a
+# promoted champion carried final_sweep at 0.0294, which is not a hand edit
+# sneaking a harmful knob back on, it is the tournament doing its job.
+import re as _re
+
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                       "reef_planner.py"), encoding="utf-8") as _fh:
+    _SRC = _fh.read()
+def _dict_block(src, header):
+    """The text of a top-level dict literal, found by matching its braces.
+
+    Slicing to the next mention of the following symbol looked simpler and was
+    wrong: "COUNT_SHAPED" appears in a COMMENT inside PARAMS, so the slice
+    stopped after four knobs and every later default read as absent.
+    """
+    i = src.index(header)
+    start = src.index("{", i)
+    depth = 0
+    for j in range(start, len(src)):
+        if src[j] == "{":
+            depth += 1
+        elif src[j] == "}":
+            depth -= 1
+            if depth == 0:
+                return src[start:j + 1]
+    raise AssertionError(f"unbalanced braces after {header!r}")
+
+
+_PBLOCK = _dict_block(_SRC, "PARAMS: Dict[str, float] = {")
+SHIPS = {m.group(1): float(m.group(2))
+         for m in _re.finditer(r'"([a-z_]+)":\s*(-?[\d.]+)', _PBLOCK)}
+
 for _k in ("adaptive_turn_value", "rival_weight", "denial", "final_sweep"):
-    check(float(rp.PARAMS[_k]) == 0.0, f"{_k} still ships switched off")
+    check(SHIPS.get(_k, -1.0) == 0.0, f"{_k} still ships switched off",
+          f"source default is {SHIPS.get(_k)}")
     check(_k in rp.TUNABLE_BOUNDS, f"{_k} is still reachable by a tuning run")
+
+# A SWITCH MUST BE PROMOTED AS A SWITCH. adaptive_turn_value, engine_draws,
+# final_sweep and survival are read as `> 0.0` and nothing else, so a champion
+# holding one at 0.0294 is holding it fully on by accident -- a gaussian step
+# that crossed a cliff it could not see. bot_evolve flips them instead.
+check(_be.BOOLEAN_KNOBS >= {"adaptive_turn_value", "engine_draws",
+                            "final_sweep", "survival"},
+      "the tuner knows which knobs are switches")
+for _k in sorted(_be.BOOLEAN_KNOBS):
+    check(_k in rp.TUNABLE_BOUNDS, f"{_k} is a real planner knob")
+    _live = float(rp.PARAMS.get(_k, 0.0))
+    check(_live in (0.0, 1.0) or _k not in SHIPS,
+          f"{_k} is on or off, never part way",
+          f"live value is {_live} -- a switch carrying a fraction means it was "
+          f"nudged across its cliff rather than flipped")
 for _k in ("adaptive_turn_value", "rival_weight", "denial"):
     check(_k not in _be.PLANNER_FOCUS,
           f"{_k} measured harmful, so the budget is no longer aimed at it")
