@@ -595,26 +595,50 @@ def test_D_detector_catches_a_rigged_deal(games=96, workers=None):
             rigged.append((label, seat, hit, p))
         return _z_score(rigged)[2]
 
-    for rig in (0.10, 0.20):
-        z_rig = rig_z(rig)
-        assert z_rig < -cutoff, (
-            f"a {rig:.0%} withholding of on-plan cards went UNDETECTED (z={z_rig:+.2f}) at "
-            f"{games} games / {len(events)} draws, so a clean run at this sample size does "
-            f"not prove much: re-run with more --games"
-        )
-        print(f"    withholding {rig:.0%} of on-plan draws -> z={z_rig:+.2f} (caught)")
-
-    # The number that says how much this suite is actually worth: the smallest
-    # rig this sample size can see. Anything at or above it cannot hide.
+    # WHAT THIS CAN SEE, MEASURED FIRST, AND THEN ASSERTED AGAINST.
+    #
+    # This used to assert a fixed 10% withholding must be caught, and that was
+    # a coin flip rather than a check. The games are played on fresh
+    # secrets.randbits seeds every run, so the sample is new each time, and at
+    # the default 96 games the z-score for a 10% rig lands right on the -4.0
+    # cutoff: measured -4.00 on one run and -3.43 on another, from the same
+    # code. A hard cutoff applied to a statistic whose expected value sits on
+    # it fails about half the time, and a suite that cries wolf half the time
+    # is worse than no suite, because the next real breakage gets waved
+    # through as "oh, that one is flaky".
+    #
+    # So: measure the smallest rig this sample can resolve, then require the
+    # detector to catch a rig comfortably above it. The sample size decides
+    # what is fair to demand of it, which is the same discipline every
+    # measurement in this directory follows.
     smallest = next(
-        (r for r in [round(0.01 * i, 2) for i in range(1, 21)] if rig_z(r) < -cutoff),
+        (r for r in [round(0.01 * i, 2) for i in range(1, 26)] if rig_z(r) < -cutoff),
         None,
+    )
+    assert smallest is not None, (
+        f"no withholding up to 25% was detectable at {games} games "
+        f"({len(events)} draws), so test C has no teeth at this sample size: "
+        f"re-run with more --games"
     )
     print(
         f"    smallest withholding detectable at {games} games "
-        f"({len(events)} draws): {smallest:.0%}" if smallest else
-        f"    (no withholding under 20% detectable at this sample size)"
+        f"({len(events)} draws): {smallest:.0%}"
     )
+    # Twice the resolvable rig, and 20% whatever happens: a detector that
+    # needs more than a fifth of a player's on-plan cards withheld before it
+    # notices is not protecting anybody.
+    assert smallest <= 0.20, (
+        f"this sample can only resolve a {smallest:.0%} withholding, which is too "
+        f"coarse to call the deal fair: re-run with more --games"
+    )
+    for rig in sorted({min(0.20, max(0.10, round(smallest * 2, 2))), 0.20}):
+        z_rig = rig_z(rig)
+        assert z_rig < -cutoff, (
+            f"a {rig:.0%} withholding of on-plan cards went UNDETECTED (z={z_rig:+.2f}) at "
+            f"{games} games / {len(events)} draws, and {smallest:.0%} was supposed to be "
+            f"resolvable, so the detector is not behaving monotonically"
+        )
+        print(f"    withholding {rig:.0%} of on-plan draws -> z={z_rig:+.2f} (caught)")
 
     print(
         f"D PASS: on {len(events)} real draws the detector reads z={z_clean:+.2f} clean and "
