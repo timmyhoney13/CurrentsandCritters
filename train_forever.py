@@ -152,6 +152,23 @@ def fresh_state() -> Dict[str, Any]:
 STOPPING = {"now": False}
 
 
+def _slept(res: Dict[str, Any]) -> str:
+    """How much wall-clock time a phase spent with the machine asleep.
+
+    Budgets are in monotonic time, which on Darwin does not advance across
+    sleep -- the right choice, because a budget should measure the work a phase
+    actually got. The cost is that a sleeping laptop is INVISIBLE: a 62-minute
+    phase can span ten hours of wall clock, every log line looks healthy, and
+    the only way to find out is pmset. Measured once, the hard way: a run slept
+    from 12:18 to 22:06 on battery after the lid closed, and nine hours and
+    forty-eight minutes of the night went missing without a word in the log.
+    """
+    gap = float(res.get("asleep", 0.0) or 0.0)
+    if gap < 300.0:
+        return ""
+    return f" · the machine was asleep for {gap/3600.0:.1f}h of that"
+
+
 def _end(proc: "subprocess.Popen", why: str, t0: float) -> Dict[str, Any]:
     """Ask a child to stop, then insist. SIGTERM first, because the tools that
     write a champion or a brain get to finish doing it."""
@@ -164,6 +181,10 @@ def _end(proc: "subprocess.Popen", why: str, t0: float) -> Dict[str, Any]:
         except Exception:
             pass
     return {"ok": True, "rc": None, "secs": time.monotonic() - t0, "note": why}
+
+
+def _wall(res: Dict[str, Any]) -> str:
+    return _slept(res)
 
 
 def run(cmd: List[str], logfile: str, minutes: float) -> Dict[str, Any]:
@@ -183,6 +204,7 @@ def run(cmd: List[str], logfile: str, minutes: float) -> Dict[str, Any]:
     # 3854s". time.monotonic() does not advance while the machine is asleep on
     # Darwin, so a budget measures the time the work actually got.
     t0 = time.monotonic()
+    w0 = time.time()
     with open(logfile, "a", encoding="utf-8") as fh:
         fh.write(f"\n===== {time.strftime('%F %T')}  {' '.join(cmd)} =====\n")
         fh.flush()
@@ -196,6 +218,7 @@ def run(cmd: List[str], logfile: str, minutes: float) -> Dict[str, Any]:
             rc = proc.poll()
             if rc is not None:
                 return {"ok": rc == 0, "rc": rc, "secs": time.monotonic() - t0,
+                        "asleep": max(0.0, (time.time() - w0) - (time.monotonic() - t0)),
                         "note": "finished" if rc == 0 else f"exit {rc}"}
             if STOPPING["now"]:
                 return _end(proc, "stopped on request", t0)
@@ -280,7 +303,7 @@ def phase_learn(st: Dict[str, Any], a: argparse.Namespace) -> None:
     st["learn_unfinished"] = res.get("rc") != 0
     if res.get("rc") == 0:
         st["games_played"]["learn"] += n * 6
-    log(f"  learn: {res['note']} in {res['secs']:.0f}s")
+    log(f"  learn: {res['note']} in {res['secs']:.0f}s{_slept(res)}")
 
     # Size the next visit from what this one actually cost, so the phase fills
     # its budget instead of a number somebody guessed. Held between 20 and 400:
@@ -346,7 +369,7 @@ def phase_strategy(st: Dict[str, Any], a: argparse.Namespace) -> None:
         res = run(cmd, os.path.join(OUT, f"strategy_{plan}.log"), left)
         st["seconds"]["strategy"] += res["secs"]
         trained.append(plan)
-        log(f"  strategy: {plan} {res['note']} in {res['secs']:.0f}s")
+        log(f"  strategy: {plan} {res['note']} in {res['secs']:.0f}s{_slept(res)}")
         # ALWAYS ADVANCE. bot_evolve writes its champion at the END of a
         # generation, so a run the budget cut short produced nothing, and the
         # first version of this put the plan back at the front of the queue so
@@ -395,7 +418,7 @@ def phase_planner(st: Dict[str, Any], a: argparse.Namespace) -> None:
     log("  planner: tuning the shared knobs at a deterministic grade A")
     res = run(cmd, os.path.join(OUT, "planner.log"), PHASE_MINUTES["planner"])
     st["seconds"]["planner"] += res["secs"]
-    log(f"  planner: {res['note']} in {res['secs']:.0f}s")
+    log(f"  planner: {res['note']} in {res['secs']:.0f}s{_slept(res)}")
 
 
 def phase_priors(st: Dict[str, Any], a: argparse.Namespace) -> None:
@@ -486,7 +509,7 @@ def phase_priors(st: Dict[str, Any], a: argparse.Namespace) -> None:
     res = run(cmd, os.path.join(OUT, "priors.log"), PHASE_MINUTES["priors"])
     st["seconds"].setdefault("priors", 0.0)
     st["seconds"]["priors"] += res["secs"]
-    log(f"  priors: {res['note']} in {res['secs']:.0f}s")
+    log(f"  priors: {res['note']} in {res['secs']:.0f}s{_slept(res)}")
 
     # Size the next visit from what this one cost, with a floor of 120 deals a
     # plan: below that the interval is wider than the effects being looked for
