@@ -337,6 +337,14 @@
 # header wearing their name and their critter after the gallery closed.
 !test_gallery_identity_leak.js
 
+# The gallery's stage is the reef and the critter stands in a circle. The
+# redesign shipped its markup and its roster and left the `.gal-*` half of
+# preview.css uncommitted in a shared checkout, so main served the stage in
+# the old dark palette for four days: a cream roster beside a navy slab, with
+# no circle around your own critter. Nothing 404'd and nothing threw, so only
+# the stylesheet itself can be asked.
+!test_gallery_reef_look.js
+
 # Equipping an icon must SAVE THAT ICON. Ownership is string equality against
 # unlocked_icons, and sanitizeSelectableAvatar answers "you do not own this"
 # with Mullet, so one entry stored as "/avatars/x.png?v=1" (the server has
