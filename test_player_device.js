@@ -209,8 +209,10 @@ function page() {
                     "bmAnimalFor", "bmAnimalForRank", "bmAvatarForRank",
                     "bmGradeBlurb",
                     // A bot spot also introduces itself: who it is named after,
-                    // which century it sailed in, and what it is remembered for.
-                    "_wrExplorerBio"].map(f => grabFn(f)).join("\n\n");
+                    // which century it sailed in, and what it is remembered for,
+                    // under the explorer's full name, which is the lobby's name
+                    // for it and not the surname the seat wears in game.
+                    "_wrExplorerBio", "_wrExplorerFullName"].map(f => grabFn(f)).join("\n\n");
   const gameFns = ["pvSeatHash", "pvSeatDefaultAvatar", "_applyAvBg",
                    "_pvSeatRankKey",
                    "renderPlayerSeats"].map(f => grabFn(f)).join("\n\n");
@@ -308,6 +310,19 @@ ${(() => {
     else if (APP[j] === "}" && --d === 0) return APP.slice(m.index, j + 2);
   }
   throw new Error("unbalanced const: WR_EXPLORER_BIOS");
+})()}
+// And the first names the lobby puts in front of them, lifted for that same
+// reason: the surname the server sends is the only key tying the two together.
+${(() => {
+  const m = /^  const WR_EXPLORER_FULL_NAMES = \{/m.exec(APP);
+  if (!m) throw new Error("missing const: WR_EXPLORER_FULL_NAMES");
+  const i = APP.indexOf("{", m.index);
+  let d = 0;
+  for (let j = i; j < APP.length; j++) {
+    if (APP[j] === "{") d++;
+    else if (APP[j] === "}" && --d === 0) return APP.slice(m.index, j + 2);
+  }
+  throw new Error("unbalanced const: WR_EXPLORER_FULL_NAMES");
 })()}
 // The grade ladder, as /api/bot_grades serves it.
 const _bmGrades = [

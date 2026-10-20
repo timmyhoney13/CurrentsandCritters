@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-19.1";
+  const APP_BUILD   = "2026-10-20.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -3119,6 +3119,77 @@
     return WR_EXPLORER_BIOS[String(name || "").trim().toLowerCase()] || "";
   }
 
+  // ── The same explorer, with a first name on ───────────────────────────
+  // The server hands out SURNAMES, and that is the right call at a table:
+  // fish_game_all_in_one.py cut this pool down to one word each because a seat
+  // label sits under an avatar in a row of up to six, and the long name is the
+  // thing that wraps or clips. The lobby is the other situation. A seat card
+  // there is wide, it is where you meet the bot before the game starts, and it
+  // already carries the explorer's own introduction, so it is the one place
+  // the whole person fits. In game it goes back to the surname, untouched.
+  //
+  // First and last only, which is why "James Clark Ross" is here as "James
+  // Ross" and "Matthew Fontaine Maury" as "Matthew Maury": Timothy asked for
+  // two words, and uniform beats complete on a label this size. The French
+  // particle goes the same way ("Louis Bougainville", not "Louis de
+  // Bougainville") because the surname the server sends, and the one the seat
+  // wears in game, is "Bougainville" -- the two have to be the same person at
+  // a glance, and a "de" that appears in one place and not the other is the
+  // kind of difference a player reads as a bug.
+  //
+  // Four of them never had a first name to give back. Pytheas sailed a
+  // thousand years before family names reached Greece and is one word in every
+  // source there is. Zheng He and Ahmad ibn Majid are already a full name,
+  // family part and given part both, just not in that order. And Piri Reis was
+  // Piri, with "Reis" a rank -- the form every reader knows him by, so it is
+  // the form he gets. Each is listed with the name it ships, not left out, so
+  // the test below can hold this map to the server's pool entry for entry.
+  //
+  // Keyed by the surname the server actually sends, lower-cased, exactly like
+  // WR_EXPLORER_BIOS above. A seat whose name is not in here (the "Bot 1"
+  // fallback past the end of the pool, or a name added to the pool after this
+  // build shipped) keeps the name it came with rather than an invented one.
+  const WR_EXPLORER_FULL_NAMES = {
+    pytheas:      "Pytheas",
+    zheng:        "Zheng He",
+    majid:        "Ahmad ibn Majid",
+    piri:         "Piri Reis",
+    magellan:     "Ferdinand Magellan",
+    elcano:       "Juan Elcano",
+    barentsz:     "Willem Barentsz",
+    hudson:       "Henry Hudson",
+    tasman:       "Abel Tasman",
+    dampier:      "William Dampier",
+    bering:       "Vitus Bering",
+    cook:         "James Cook",
+    laperouse:    "Jean Laperouse",
+    forster:      "Georg Forster",
+    vancouver:    "George Vancouver",
+    banks:        "Joseph Banks",
+    flinders:     "Matthew Flinders",
+    bougainville: "Louis Bougainville",
+    anning:       "Mary Anning",
+    scoresby:     "William Scoresby",
+    ross:         "James Ross",
+    fitzroy:      "Robert FitzRoy",
+    maury:        "Matthew Maury",
+    thomson:      "Charles Thomson",
+    dohrn:        "Anton Dohrn",
+    chun:         "Carl Chun",
+    murray:       "John Murray",
+    agassiz:      "Alexander Agassiz",
+    shackleton:   "Ernest Shackleton",
+    buchanan:     "John Buchanan",
+    nansen:       "Fridtjof Nansen",
+    hjort:        "Johan Hjort",
+  };
+  // The lobby's name for a bot: the explorer with a first name where there is
+  // one, and the name it arrived with otherwise. Never used in game.
+  function _wrExplorerFullName(name) {
+    const raw = String(name || "").trim();
+    return WR_EXPLORER_FULL_NAMES[raw.toLowerCase()] || raw;
+  }
+
   // ── one seat ──────────────────────────────────────────────────────────
   function _wrSeatCard(s, ctx) {
     const isAI = s.kind === "ai";
@@ -3172,7 +3243,7 @@
     const idBox = _wrEl("div", "wr-seat-id");
     const nameRow = _wrEl("div", "wr-seat-name");
     nameRow.appendChild(_wrEl("span", null, isAI
-      ? (s.claimed_name || `Bot ${s.index + 1}`)
+      ? (_wrExplorerFullName(s.claimed_name) || `Bot ${s.index + 1}`)
       : (s.claimed_name || (pair ? pair.label : "Open seat"))));
     if (!isAI && s.claimed_name) {
       const pl = _wrPrestigeByName[String(s.claimed_name).trim().toLowerCase()];

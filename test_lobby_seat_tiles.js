@@ -244,6 +244,49 @@ console.log("\nevery bot the server can name can say who it is");
   keys.forEach(k => check(pool.some(n => n.toLowerCase() === k),
                           `${k} is a name the server can actually hand out`));
 
+  // ── and can say it with a first name on ──
+  // The lobby prints the explorer's first and last name; in game it goes back
+  // to the surname the server sent. That makes WR_EXPLORER_FULL_NAMES a third
+  // list to keep in step with the pool, and the failure is silent either way:
+  // a name missing from the map falls back to the bare surname that the lobby
+  // was supposed to stop showing, and a name in the map that the server cannot
+  // hand out is dead text nobody ever sees.
+  const fullSrc = APP.slice(APP.indexOf("const WR_EXPLORER_FULL_NAMES = {"),
+                            APP.indexOf("function _wrExplorerFullName"));
+  const full = {};
+  for (const m of fullSrc.matchAll(/^\s{4}([a-z_]+):\s*"([^"]*)",$/gm)) full[m[1]] = m[2];
+  const fullKeys = Object.keys(full);
+  check(fullKeys.length === pool.length,
+        "one full name per name in the pool",
+        `pool ${pool.length}, full names ${fullKeys.length}`);
+  pool.forEach(name => check(!!full[name.toLowerCase()],
+                             `${name} has a first name to show in the lobby`));
+  fullKeys.forEach(k => check(pool.some(n => n.toLowerCase() === k),
+                              `${k} is a name the server can actually hand out`));
+  // Two words, because that is what was asked for: a first name and a last
+  // one, not the three-part form history writes for James Clark Ross. The four
+  // who never had a first name to give back are named here rather than waved
+  // through by a loose rule, so adding a fifth has to be a decision.
+  // Four of them never had a first name to give back, and each is spelled out
+  // with the length it ships at rather than waved through by a loose rule, so
+  // that adding a fifth has to be a decision somebody makes on purpose:
+  //   Pytheas        one word in every source there is
+  //   Zheng He       family name first, already whole at two
+  //   Ahmad ibn Majid  the patronymic IS the family part, so three
+  //   Piri Reis      "Reis" was his rank, and the form he is known by
+  const WORDS = { pytheas: 1, zheng: 2, majid: 3, piri: 2 };
+  Object.entries(full).forEach(([k, name]) => {
+    check(name.trim() === name && name.length > 0, `${k} has a name at all`, name);
+    const words = name.split(" ").length;
+    check(words === (WORDS[k] || 2),
+          `${k} reads as a first and last name`, `"${name}" is ${words} word(s)`);
+    // Whatever first name goes on, the surname the server sent has to survive
+    // it: the in-game label is that surname, and the two have to be the same
+    // person at a glance.
+    check(name.toLowerCase().includes(k),
+          `${k} keeps the surname the server sent`, name);
+  });
+
   // The shape the tile promises: first person, the century, the trade, and a
   // year, so no bot introduces itself with a deed and no date on it.
   Object.entries(bios).forEach(([k, line]) => {
@@ -264,6 +307,24 @@ console.log("\nevery bot the server can name can say who it is");
         "a seat whose name is not an explorer's gets no line");
   check(/const bio = _wrExplorerBio\(s\.claimed_name\);\s*\n\s*if \(bio\)/.test(APP),
         "…and the tile draws nothing for it");
+  // The same fallback, for the name itself: past the end of the pool the seat
+  // keeps the name the server sent rather than going blank.
+  check(/WR_EXPLORER_FULL_NAMES\[raw\.toLowerCase\(\)\] \|\| raw/.test(APP),
+        "a seat whose name is not an explorer's keeps the name it came with");
+
+  // ── and the first name stops at the lobby door ──
+  // This is the half of the rule that has no screen to fail on: the lobby
+  // introduces "Fridtjof Nansen", the table seats "Nansen", and the only thing
+  // keeping the table short is that the in-game renderer never learned the
+  // lookup. Somebody tidying up by "using the full name everywhere" would put
+  // a nineteen-character name under an avatar in a row of up to six, which is
+  // the exact clipping fish_game_all_in_one.py cut the pool to surnames to
+  // avoid. So the in-game seat painter is held to not knowing about it.
+  const inGame = APP.slice(APP.indexOf("function renderPlayerSeats("),
+                           APP.indexOf("async function _sendVote("));
+  check(inGame.length > 500, "the in-game seat painter was found", String(inGame.length));
+  check(!/_wrExplorerFullName|WR_EXPLORER_FULL_NAMES/.test(inGame),
+        "in game a bot is still just its surname");
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -406,7 +467,9 @@ function page() {
                // A bot spot wears its RANK'S animal, the one Head to Head
                // stands that rank on, so _wrSeatAvatarUrl reaches these.
                "bmAnimalFor", "bmAnimalForRank", "bmAvatarForRank",
-               "_wrExplorerBio",
+               // ...and is introduced by its whole name, which only the lobby
+               // does: _wrExplorerFullName is the surname-to-full-name lookup.
+               "_wrExplorerBio", "_wrExplorerFullName",
                "_wrSeatCard", "_wrAddCard", "_wrRenderCapacity", "renderSeatTilesInto",
                "_wrRankChip", "_wrLoadCompRanks", "_wrResetCompRanks", "renderCompLobbyInto",
                "renderTeamLobbyInto", "teamName", "teamHex",
@@ -523,6 +586,9 @@ ${grabConst("BM_TIERS")}
 // The bot introductions, lifted out of the app rather than copied here: a
 // second copy is a second answer to "who is Nansen" that nothing keeps in step.
 ${grabObjConst("WR_EXPLORER_BIOS")}
+// And the first names the lobby puts in front of them, lifted for the same
+// reason: the surname the server sends is the only key tying the two together.
+${grabObjConst("WR_EXPLORER_FULL_NAMES")}
 // The story gate. A seat tile draws a locked grade differently, so the tile
 // under test needs to know what is locked. No story finished here.
 function bmStoryUnlocked() { return false; }
@@ -734,6 +800,21 @@ function measure(w) {
   [...d.querySelectorAll(".wr-seat-name")].forEach((el, i) => {
     ok(r(el).right <= r(el.closest(".wr-seat")).right + 1, "name " + i + " stays inside its spot");
   });
+
+  // ── a bot is introduced by its whole name ──
+  // In the lobby the explorer gets a first name; in game the seat goes back to
+  // the surname. The two bots seated here are Nansen and Shackleton, so the
+  // lobby has to be showing Fridtjof and Ernest.
+  const botNames = [...d.querySelectorAll(".wr-seat-bot .wr-seat-name > span:first-child")];
+  ok(botNames.length === 2, "both bot spots are named (" + botNames.length + ")");
+  ok(botNames.some(el => el.textContent.trim() === "Fridtjof Nansen")
+     && botNames.some(el => el.textContent.trim() === "Ernest Shackleton"),
+     "…with a first name and a last one, not the bare surname");
+  // The span ellipsises, so "stays inside its spot" passes just as happily on
+  // "Fridtjof Nan…". The only question worth asking is whether the name the
+  // lobby went to the trouble of printing is actually readable.
+  botNames.forEach(el => ok(el.scrollWidth <= el.clientWidth + 1,
+    "…and " + el.textContent.trim() + " is not cut off (" + el.scrollWidth + " in " + el.clientWidth + ")"));
   [...d.querySelectorAll(".wr-seat-stat, .wr-xp-txt")].forEach((el, i) => {
     ok(r(el).right <= r(el.closest(".wr-seat")).right + 1, "stat line " + i + " stays inside its spot");
   });
