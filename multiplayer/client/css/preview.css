@@ -2752,6 +2752,54 @@
     }
     .pv-hand-card.discard-selected .pv-card-inner { border-color: var(--red); box-shadow: 0 0 16px rgba(232,64,87,.55); }
 
+    /* ★ FREE PLAY: the cards this window is actually offering.
+       Gold, like everything else a ★ touches, but BREATHING, because this is
+       the one highlight that has to be found in a fanned hand of ten without
+       anybody hovering anything. The tag names it in words, so the glow never
+       has to be guessed at: a hand can already be gold for a ★ payment.
+       Cards overlap by 28px of their RIGHT edge (.pv-hand-card margin-left),
+       so the tag lives on the left, in the strip that is never covered.
+
+       It yields to every state that is an action ALREADY IN PROGRESS: the
+       card you are hovering, paying with, discarding, or picking as a ★
+       payment. Those are what you are doing; this is only what you could do.
+       The :not() chain is doing real work here and is not decoration: a CSS
+       animation beats a plain declaration in the cascade, so without it this
+       glow would keep breathing straight over the cyan hover and the red
+       discard, and a free-play card would stop responding to the mouse. */
+    .pv-hand-card.free-play-pick:not(.hovered):not(.selected):not(.pay-selected):not(.discard-selected):not(.star-sym-match) .pv-card-inner {
+      border-color: var(--gold);
+      animation: free-play-breathe 1.9s ease-in-out infinite;
+    }
+    @keyframes free-play-breathe {
+      0%, 100% { box-shadow: 0 0 12px rgba(240,200,64,.45), 0 0 24px rgba(240,200,64,.18); }
+      50%      { box-shadow: 0 0 20px rgba(240,200,64,.9),  0 0 42px rgba(240,200,64,.4); }
+    }
+    .pv-hand-card.free-play-pick::after {
+      content: "FREE";
+      position: absolute; top: -9px; left: 2px; z-index: 6;
+      padding: 1px 6px; border-radius: 7px;
+      font-family: "Nunito", sans-serif; font-size: 9px; font-weight: 900;
+      letter-spacing: .6px; line-height: 1.5;
+      color: var(--cr-gold-ink); background: linear-gradient(180deg, #ffe08a, #f0c840);
+      border: 1px solid rgba(120,85,0,.45);
+      box-shadow: 0 2px 6px rgba(0,0,0,.45);
+      pointer-events: none;
+    }
+    /* Once the card is spoken for, the word goes too: a gold FREE tag on a
+       card you have just chosen to discard says the opposite of the truth. */
+    .pv-hand-card.free-play-pick.pay-selected::after,
+    .pv-hand-card.free-play-pick.discard-selected::after { display: none; }
+    /* A permanent animation keeps the compositor awake (see #pv-game::before,
+       where a forever-drifting background was removed for exactly that), so
+       this one stands down the moment the player asks for less motion. */
+    @media (prefers-reduced-motion: reduce) {
+      .pv-hand-card.free-play-pick .pv-card-inner {
+        animation: none;
+        box-shadow: 0 0 16px rgba(240,200,64,.7), 0 0 32px rgba(240,200,64,.3);
+      }
+    }
+
 /* symbol pip, top-right */
     .pv-sym-pip {
       position: absolute; top: 4px; right: 4px;
@@ -3013,6 +3061,109 @@
     }
 
     /* ── TOASTS ─────────────────────────────────────────────────── */
+    /* ── BOARD ANNOUNCEMENT: YOUR TURN / ★ FREE PLAY ────────────────
+       One announcement for the whole board, in the pale aqua of every other
+       in-game dialog (#end-turn-box, #move-confirm-box) rather than a dark
+       slab, so it belongs to the same table as the cards under it.
+
+       It arrives the way everything arrives in this game: on water. The panel
+       rides up on a swell, a band of foam-light sweeps across it, it holds
+       long enough to read, and the tide draws it back out. ONE animation owns
+       the whole life of it, so nothing in JS has to guess at a duration and a
+       slow frame cannot leave it stranded on the board.
+
+       It takes no clicks and never waits for one. */
+    #pv-turn-flash {
+      position: fixed; left: 50%; top: 36%;
+      z-index: 10002; pointer-events: none;
+      opacity: 0; visibility: hidden;
+      text-align: center; white-space: nowrap;
+      padding: 13px 34px; border-radius: 22px;
+      /* The in-game dialog's own shell: pale aqua, gold-free, soft lift. */
+      background: linear-gradient(160deg, #e4f5fb 0%, #cae9f7 65%, #b0dbf1 100%);
+      border: 2px solid rgba(95,179,214,.6);
+      box-shadow: 0 14px 50px rgba(8,22,58,.28), inset 0 1px 0 rgba(255,255,255,.75);
+      /* Only transform and opacity are animated, so it never costs a layout. */
+      transform: translate(-50%, -50%);
+      overflow: hidden;
+    }
+    /* will-change ONLY while it is actually on screen. Left on permanently it
+       pins a compositor layer for the whole match for something that shows for
+       a second and a half a turn, which is the cost #pv-game::before was
+       rewritten to stop paying. */
+    #pv-turn-flash.show { visibility: visible; will-change: transform, opacity; }
+    #pv-turn-flash .tf-title {
+      font-family: "Cinzel", serif; font-weight: 900;
+      font-size: clamp(19px, 3.4vw, 31px); letter-spacing: 2.5px;
+      color: var(--cr-navy);
+      text-shadow: 0 1px 0 rgba(255,255,255,.85);
+    }
+    #pv-turn-flash .tf-line {
+      margin-top: 5px;
+      font-family: "Nunito", sans-serif; font-weight: 800;
+      font-size: clamp(11.5px, 1.8vw, 15px); letter-spacing: .3px;
+      color: var(--cr-teal-deep);
+      white-space: normal; max-width: 70vw;
+    }
+    /* The foam-light that sweeps the panel as the swell passes under it. Same
+       light-sweep the cards use, slowed down and softened. */
+    #pv-turn-flash::after {
+      content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 45%;
+      background: linear-gradient(100deg, rgba(255,255,255,0),
+                  rgba(255,255,255,.72) 50%, rgba(255,255,255,0));
+      pointer-events: none;
+      /* Travelled with transform, not `left`: the sweep is then a composited
+         paint and never asks the panel to lay itself out again mid-animation. */
+      transform: translateX(-160%) skewX(-18deg);
+    }
+    #pv-turn-flash.show::after { animation: tf-foam 1s ease-out .08s both; }
+    @keyframes tf-foam {
+      from { transform: translateX(-160%) skewX(-18deg); }
+      to   { transform: translateX(300%)  skewX(-18deg); }
+    }
+
+    /* YOUR TURN: every turn, so it is in and out again quickly and sits
+       slightly higher than a star, clear of the board's middle. */
+    #pv-turn-flash.tf-turn { animation: tf-swell 1600ms linear both; }
+    /* A ★: rarer and bigger news, so it holds a beat longer and wears the
+       table's gold on its edge. */
+    #pv-turn-flash.tf-star {
+      border-color: var(--cr-gold);
+      box-shadow: 0 14px 50px rgba(8,22,58,.3), 0 0 26px rgba(232,179,74,.45),
+                  inset 0 1px 0 rgba(255,255,255,.8);
+      animation: tf-swell 2600ms linear both;
+    }
+    #pv-turn-flash.tf-star .tf-title { color: var(--cr-gold-ink); }
+
+    /* Rides up on the swell, overshoots a hair, settles, HOLDS, and is drawn
+       back out. The easing lives inside the keyframes, one curve per leg,
+       and the animation itself runs linear: a single curve stretched over
+       all five stops warps the hold as well as the entrance, so the
+       percentages stop meaning what they say. At 1600ms this is a 224ms
+       rise, settled by 352ms, held to 1248ms, gone by 1600ms. */
+    @keyframes tf-swell {
+      0%   { opacity: 0; transform: translate(-50%, calc(-50% + 26px)) scale(.92);
+             animation-timing-function: cubic-bezier(.2,.9,.3,1.15); }
+      14%  { opacity: 1; transform: translate(-50%, calc(-50% - 4px))  scale(1.015);
+             animation-timing-function: ease-out; }
+      22%  { opacity: 1; transform: translate(-50%, -50%) scale(1);
+             animation-timing-function: linear; }
+      78%  { opacity: 1; transform: translate(-50%, -50%) scale(1);
+             animation-timing-function: ease-in; }
+      100% { opacity: 0; transform: translate(-50%, calc(-50% - 20px)) scale(.97); }
+    }
+
+    /* Reduced motion: it still says its piece, it just does not travel. */
+    @media (prefers-reduced-motion: reduce) {
+      #pv-turn-flash.tf-turn { animation: tf-fade 1600ms linear both; }
+      #pv-turn-flash.tf-star { animation: tf-fade 2600ms linear both; }
+      #pv-turn-flash.show::after { animation: none; }
+      @keyframes tf-fade {
+        0%, 100% { opacity: 0; transform: translate(-50%, -50%); }
+        10%, 85% { opacity: 1; transform: translate(-50%, -50%); }
+      }
+    }
+
     #pv-toasts {
       /* Below the top bar, not on top of the Menu button it used to cover. */
       position: fixed; top: 44px; right: 18px;
@@ -5029,6 +5180,17 @@
       0%   { opacity: 0; }
       40%  { opacity: .6; }
       100% { opacity: 0; }
+    }
+
+    /* Ocean flip: the deck card an Ocean turns face-up on its way to the Pool.
+       It swells to 200% and holds there to be read, so it wears the gold of a
+       reveal rather than the blue of a card simply in flight. The animation
+       itself is driven from JS (flipOutFromDeck), because where it holds
+       depends on where the deck and the Pool slot are on this screen. */
+    .pv-anim-card.ocean-flip {
+      border-color: var(--gold);
+      box-shadow: 0 18px 46px rgba(0,0,0,.5), 0 0 34px var(--glow-gold);
+      z-index: 2;
     }
 
     /* ── Tide sweep: Pool board-clear ────────────────────────────────
@@ -14148,8 +14310,23 @@
       box-shadow: 0 10px 48px rgba(8,50,130,.22), 0 2px 8px rgba(8,50,130,.10);
       padding: 28px 26px 22px; width: 100%; max-width: 500px;
       position: relative; display: flex; flex-direction: column; gap: 22px;
-      overflow: hidden;
+      /* The box is centred in a fixed overlay that does not scroll, so without
+         a ceiling it simply grows past both edges of a short screen and
+         `overflow: hidden` cuts the ends off. Generate Current is the LAST
+         thing in it, so the end that got cut was the only way forward: on a
+         phone held sideways (and in Team / Private, which add two more rows)
+         the button was below the bottom edge of a box that could not be
+         scrolled. It reads as "the Generate Current button is gone".
+         dvh second, so browsers that have it use the real visible height. */
+      max-height: calc(100vh - 32px);
+      max-height: calc(100dvh - 32px);
+      overflow-x: hidden; overflow-y: auto;
     }
+    /* The box is a flex column, so the moment it has a ceiling its rows start
+       SHRINKING to fit instead of overflowing, and nothing ever scrolls: the
+       82px button squashed to 16px and the art with it. Every row keeps its
+       own height, and the box scrolls. */
+    #new-current-box > * { flex-shrink: 0; }
     #new-current-box::before {
       content: "";
       position: absolute; inset: 0; pointer-events: none;
@@ -14230,7 +14407,16 @@
     #nc-create-btn {
       position: relative; z-index: 1;
       width: 100%; height: 82px;
-      background: url("/nc-btn-full.png") center/cover no-repeat;
+      /* The art is ONE baked PNG with "Generate Current →" painted into it,
+         which is why the label below is transparent: printing the words again
+         on top would double them. The cost of that is a button with no fill,
+         no border and no readable text if the art ever fails to paint, and an
+         82px hole is not a button players can find. So the art is the TOP
+         layer over a gold fill of its own: when it arrives nothing changes,
+         and when it does not there is still a button there. The words come
+         back separately, from .nc-no-art below. */
+      background: url("/nc-btn-full.png") center/cover no-repeat,
+                  linear-gradient(100deg, #fbbf58 0%, #fdc964 50%, #fcc55c 100%);
       border: none; border-radius: 18px;
       font-family: "Cinzel", serif; font-size: 1.2rem; font-weight: 700;
       color: transparent; letter-spacing: .5px;
@@ -14245,6 +14431,14 @@
     #nc-create-btn.generating {
       background: linear-gradient(100deg, #fbbf58 0%, #fdc964 50%, #fcc55c 100%);
       color: #0c2858;
+    }
+    /* The art did not load. Set from the image's own error event (see
+       preview-app.js), never guessed: the gold fill underneath is already
+       showing, so all this has to do is hand the lettering back, in the same
+       navy the art uses, so the button still says what it does. */
+    #nc-create-btn.nc-no-art {
+      color: #0c2858;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, .35);
     }
     #nc-create-btn .nc-btn-label {
       position: relative; z-index: 1; color: inherit;

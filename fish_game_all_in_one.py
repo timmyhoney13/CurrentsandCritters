@@ -260,7 +260,7 @@ def trigger_end_game(gs_or_ms, maybe_gs: Optional[GameState] = None) -> None:
         if ms.end_game_triggered:
             return
         ms.end_game_triggered = True
-        # The drawer still gets this turn, then each player gets one final turn total.
+        # Drawer/flipper still gets this turn, then each player gets one final turn total.
         ms.final_turns_remaining = len(gs.players)
         gs.log.append("END GAME revealed: each player (including revealer) gets one final turn.")
         return
@@ -534,9 +534,11 @@ def _execute_main_pattern(
         player.score += int(m.group(1))
 
     # Register reactive draw listeners ("when ... is played") as persistent board effects.
-    if "draw one when you play a yellowfin tuna" in t:
-        player.flags["trigger_draw_on_yellowfin"] = int(player.flags.get("trigger_draw_on_yellowfin", 0)) + 1
-        gs.log.append(f"{player.name} enables: draw 1 when they play a Yellowfin Tuna ({card.name}).")
+    if ("draw one when you play a game fish" in t
+            or "draw one when a game fish is played" in t
+            or "draw one when a gamefish is played" in t):
+        player.flags["trigger_draw_on_game_fish"] = int(player.flags.get("trigger_draw_on_game_fish", 0)) + 1
+        gs.log.append(f"{player.name} enables: draw 1 when they play a Game Fish ({card.name}).")
     if "draw one when you play an animal on the ocean surface" in t:
         player.flags["trigger_draw_on_surface_play"] = int(player.flags.get("trigger_draw_on_surface_play", 0)) + 1
         gs.log.append(f"{player.name} enables: draw 1 when they play on ocean surface ({card.name}).")
@@ -859,10 +861,12 @@ def resolve_reactive_draw_triggers(
     species = card_species_lc(played_card)
     direction = normalize_direction(played_card.direction)
 
-    # Johnson's Sea Cucumber draws on a YELLOWFIN TUNA, not on any game fish.
-    # It used to read "a game fish", which is 44 cards in the deck rather than
-    # the 14 Yellowfin, so it drew about three times as often as the card says.
-    is_yellowfin_play = card_name_lc(played_card) == "yellowfin tuna"
+    # Johnson's Sea Cucumber draws on ANY Game Fish, by species: the Mahi Mahi,
+    # Blue Marlin, Sailfish, Tarpon, Goliath Grouper, Roosterfish, King Salmon
+    # and Barracuda as much as the Yellowfin Tuna. It was narrowed to the
+    # Yellowfin by name on 2026-09-12 on a guess about what the card meant, and
+    # the guess was wrong, so the other 30 game-fish faces drew nothing at all.
+    is_game_fish_play = species == "game fish"
     is_cephalopod_play = species == "cephalopod"
     is_surface_play = action_kind == "play_to_ocean" and direction == "up"
     is_floor_play = action_kind == "play_to_ocean" and direction == "down"
@@ -876,17 +880,18 @@ def resolve_reactive_draw_triggers(
                     f"{owner.name} draws {n} from reactive trigger (cephalopod played)."
                 )
 
-        if owner is played_by and is_yellowfin_play:
-            # Skip the reactive draw if the played card already draws itself.
-            _main_text, _ = split_main_and_star(played_card.text)
-            _card_draws = any(k in _main_text.lower() for k in ("draw one", "draw two", "draw 2", "draw three"))
-            if not _card_draws:
-                n = int(owner.flags.get("trigger_draw_on_yellowfin", 0))
-                if n > 0:
-                    draw(gs, owner, n, ms)
-                    gs.log.append(
-                        f"{owner.name} draws {n} from reactive trigger (Yellowfin Tuna played)."
-                    )
+        if owner is played_by and is_game_fish_play:
+            # One draw per Cucumber on the board, and a game fish that draws on
+            # its OWN text still fires it: the Goliath Grouper's "Draw one" and
+            # the Cucumber's are two separate abilities and both land. There was
+            # once a branch here skipping the Cucumber for any game fish whose
+            # main text contained a draw, which the card gives no basis for.
+            n = int(owner.flags.get("trigger_draw_on_game_fish", 0))
+            if n > 0:
+                draw(gs, owner, n, ms)
+                gs.log.append(
+                    f"{owner.name} draws {n} from reactive trigger (Game Fish played)."
+                )
 
         if owner is played_by and is_surface_play:
             n = int(owner.flags.get("trigger_draw_on_surface_play", 0))
@@ -917,15 +922,17 @@ def resolve_reactive_draw_triggers(
 
 def sync_reactive_trigger_flags(gs: GameState, player: PlayerState) -> None:
     """Rebuild reactive listener counts from the player's current board state."""
-    yellowfin = 0
+    game_fish = 0
     surface = 0
     floor = 0
     cephalopod = 0
     for uid in all_board_cards(player):
         c = gs.card_db[uid]
         t = c.text.lower()
-        if "draw one when you play a yellowfin tuna" in t:
-            yellowfin += 1
+        if ("draw one when you play a game fish" in t
+                or "draw one when a game fish is played" in t
+                or "draw one when a gamefish is played" in t):
+            game_fish += 1
         if "draw one when you play an animal on the ocean surface" in t:
             surface += 1
         if "draw one when you play a card on the ocean floor" in t:
@@ -933,10 +940,10 @@ def sync_reactive_trigger_flags(gs: GameState, player: PlayerState) -> None:
         if "draw one when you play a cephalopod" in t:
             cephalopod += 1
 
-    if yellowfin > 0:
-        player.flags["trigger_draw_on_yellowfin"] = yellowfin
+    if game_fish > 0:
+        player.flags["trigger_draw_on_game_fish"] = game_fish
     else:
-        player.flags.pop("trigger_draw_on_yellowfin", None)
+        player.flags.pop("trigger_draw_on_game_fish", None)
 
     if surface > 0:
         player.flags["trigger_draw_on_surface_play"] = surface
@@ -1091,6 +1098,11 @@ class MatchState:
     final_turns_remaining: int = 0
     pair_primary_to_faces: Dict[int, Tuple[int, int]] = field(default_factory=dict)
     face_to_primary: Dict[int, int] = field(default_factory=dict)
+    # Entry uids the Ocean flip put into the Pool. The rules do not care where a
+    # Pool card came from, so nothing in the engine reads this back; it is here
+    # so the live payload can tell the client which Pool arrival came off the
+    # deck, which is the one that flips out big on screen.
+    ocean_flip_uids: List[int] = field(default_factory=list)
 
 
 BRAIN_PATH = "fish_ai_brain.json"
@@ -1231,6 +1243,7 @@ def clone_match_state(src: MatchState) -> MatchState:
     # Values are tuples of ints, so the outer dict is the only mutable layer.
     out.pair_primary_to_faces = dict(src.pair_primary_to_faces)
     out.face_to_primary = dict(src.face_to_primary)
+    out.ocean_flip_uids = src.ocean_flip_uids[:]
     return out
 
 
@@ -2868,7 +2881,10 @@ PRIORITY_CARD_SYNERGY: Dict[str, set[str]] = {
     "reef trigger fish": {"common octopus", "bobtail squid", "cuttlefish", "giant squid"},
     "california gull": {"lobster", "spiny lobster", "mantis shrimp", "king crab", "hermit crab"},
     "great white shark": {"spinner dolphin", "bottlenose dolphin", "narwhal"},
-    "johnson's sea cucumber": {"yellowfin tuna", "bigeye tuna", "big eye tuna"},
+    # Every Game Fish in the deck, because the Cucumber draws off all of them.
+    # Not the Bigeye or the Whale Shark: those are Crosscurrent and do not fire it.
+    "johnson's sea cucumber": {"yellowfin tuna", "mahi mahi", "blue marlin", "sailfish", "tarpon",
+                               "goliath grouper", "roosterfish", "king salmon", "barracuda"},
     "common sea star": {"mandarin goby", "spiny lobster", "lobster", "mantis shrimp", "king crab", "hermit crab"},
     "sea star": {"mandarin goby", "spiny lobster", "lobster", "mantis shrimp", "king crab", "hermit crab"},
     "sea urchin": {"emperor penguin", "horned puffin", "california gull", "peruvian pelican", "great albatross", "osprey", "mullet", "bunker", "sardine", "flying fish", "bonito"},
@@ -3800,9 +3816,9 @@ def action_future_value_bonus(gs: GameState, ms: MatchState, player: PlayerState
         crust_support = sum(1 for s in board_species if s == "crustacean") + hand_species_counts.get("crustacean", 0)
         bonus += min(3.0, 0.60 * crust_support)
     if cname == "johnson's sea cucumber":
-        yellowfin_support = (board_names.count("yellowfin tuna")
-                             + hand_name_counts.get("yellowfin tuna", 0))
-        bonus += min(2.2, 0.48 * yellowfin_support)
+        # Worth what there is to draw off, which is every Game Fish, not just
+        # the Yellowfin line.
+        bonus += min(2.2, 0.48 * gamefish_support)
     if cname == "loggerhead sea turtle":
         cheap_hand = 0
         for entry_uid in player.hand:
@@ -9480,6 +9496,87 @@ def validate_end_game_placement(gs: GameState, ms: MatchState, where: str = "") 
     return [f"[{where}] {p}" for p in problems] if where else problems
 
 
+def card_census(gs: GameState, ms: MatchState) -> Dict[int, List[str]]:
+    """Where every card of the match currently sits: entry uid -> [zone, ...].
+
+    One entry = one physical card, so the two faces of a two-sided card are
+    counted once, under the primary face (see build_non_ocean_pair_maps). A
+    healthy match has all 161 entries listed exactly once between them: the
+    deck, the pool, the face-down discard pile, and each player's hand,
+    discard, oceans and the four lanes around every ocean. Zones are named so a
+    duplicate reads as "which two places is it in".
+    """
+    seen: Dict[int, List[str]] = {}
+
+    def add(uids, zone: str) -> None:
+        for raw in list(uids or []):
+            if not isinstance(raw, int):
+                continue
+            seen.setdefault(canonical_entry_uid(ms, int(raw)), []).append(zone)
+
+    add(gs.deck, "deck")
+    add(getattr(ms, "pool", []), "pool")
+    add(getattr(ms, "discard_pile", []), "discard pile")
+    for i, p in enumerate(gs.players):
+        who = f"P{i + 1}"
+        add(p.hand, f"{who} hand")
+        add(p.discard, f"{who} discard")
+        add(p.board_oceans, f"{who} oceans")
+        for ocean_uid, slots in (p.ocean_slots or {}).items():
+            if not isinstance(slots, OceanSlots):
+                continue
+            for direction in ("up", "down", "left", "right"):
+                add(getattr(slots, direction, []), f"{who} ocean {ocean_uid} {direction}")
+    return seen
+
+
+def validate_card_census(gs: GameState, ms: MatchState, where: str = "") -> List[str]:
+    """Debug/validation: confirm the match still holds EVERY card, exactly once.
+
+    The deck is built from the whole card_db (every printed card, once), so a
+    card that is unaccounted for here has gone missing from the game: it can
+    never be drawn, and whatever it was worth is off the table for everybody.
+    Returns a list of problem strings (empty = every card accounted for).
+    Read-only and never raises, so it is safe to call after deck creation,
+    dealing, mulligans, every turn, undo and save/load.
+
+    Nothing is repaired here on purpose. A card that looks missing to a census
+    taken mid-action may simply be in flight, and "helpfully" putting it back
+    in the deck would print a second copy of a card somebody already holds.
+    Call this at a turn boundary, where the state is settled, and report.
+    """
+    problems: List[str] = []
+    try:
+        expected = {uid for uid in gs.card_db if canonical_entry_uid(ms, uid) == uid}
+        if not expected:
+            return []
+        seen = card_census(gs, ms)
+
+        missing = sorted(expected - set(seen))
+        if missing:
+            names = ", ".join(entry_short_label(ms, gs, uid) for uid in missing[:6])
+            more = f" (+{len(missing) - 6} more)" if len(missing) > 6 else ""
+            problems.append(
+                f"{len(missing)} of {len(expected)} cards are in NO zone at all: {names}{more}"
+            )
+
+        dupes = sorted(uid for uid, zones in seen.items() if len(zones) > 1)
+        for uid in dupes[:6]:
+            problems.append(
+                f"card {entry_short_label(ms, gs, uid)} is in {len(seen[uid])} places at once: "
+                f"{', '.join(seen[uid])}"
+            )
+        if len(dupes) > 6:
+            problems.append(f"+{len(dupes) - 6} more duplicated card(s)")
+
+        unknown = sorted(set(seen) - expected)
+        if unknown:
+            problems.append(f"card uid(s) not in the deck at all: {unknown[:8]}")
+    except Exception as exc:  # never crash the engine over a validation
+        problems.append(f"validation error: {exc}")
+    return [f"[{where}] {p}" for p in problems] if where else problems
+
+
 def draw_from_deck(gs: GameState, ms: MatchState, player: PlayerState, n: int) -> List[int]:
     drew: List[int] = []
     while len(drew) < n:
@@ -10739,10 +10836,25 @@ def _apply_action_uncommitted(
             player.ocean_slots[play_face_uid] = OceanSlots()
             if verbose:
                 print(f"{player.name} plays ocean {card.uid}:{card.name}")
-            # Playing an Ocean takes nothing off the deck. It used to flip the
-            # top card into the Pool (and could reveal END GAME that way); that
-            # rule is gone in every mode, so only paid and discarded cards
-            # reach the Pool and END GAME only ever turns up on a draw.
+            # Ocean play flips one card from draw pile to pool.
+            if gs.deck:
+                flipped = gs.deck.pop(0)
+                if ms.end_game_uid is not None and flipped == ms.end_game_uid:
+                    trigger_end_game(ms, gs)
+                    ms.discard_pile.append(flipped)
+                    if verbose:
+                        print("Ocean flip revealed END GAME (not added to pool). Final round starts.")
+                else:
+                    add_to_pool(ms, flipped)
+                    # Noted for the client's big flip-out reveal, never read by
+                    # the rules. Pruned to what is in the Pool right now first,
+                    # so a card that was flipped out, drawn from the Pool and
+                    # later PAID back into it does not flip out a second time
+                    # (and so the list cannot grow with the game).
+                    ms.ocean_flip_uids = [u for u in ms.ocean_flip_uids if u in ms.pool]
+                    ms.ocean_flip_uids.append(flipped)
+                    if verbose:
+                        print(f"Ocean flip to pool: {entry_short_label(ms, gs, flipped)}")
             before_hand = len(player.hand)
             run_main_ability(
                 gs,
@@ -11181,7 +11293,9 @@ def action_features(
         else:
             base_plus += min(5, 2 * goby_total)
 
-    if "draw one when a game fish is played" in t:
+    if ("draw one when you play a game fish" in t
+            or "draw one when a game fish is played" in t
+            or "draw one when a gamefish is played" in t):
         game_fish_total = sum(1 for c in board if c.species.lower() == "game fish") + hand_species_counts.get("game fish", 0)
         if game_fish_total <= 0:
             base_plus -= 3
@@ -13224,6 +13338,17 @@ def run_match(
         if live_recorder is not None:
             try: live_recorder.event(f"⚠ END GAME PLACEMENT: {_p}")
             except Exception: pass
+    # Every card, every game: the deck is built from the whole card_db, so the
+    # dealt table must still hold all 161 of them (deck + hands + pool, plus
+    # anything a mulligan put in the discard pile). Checked here, after the
+    # deal, the mulligans and the final reshuffle, and again at every turn
+    # below, so a card that goes missing says so instead of simply never
+    # turning up. See validate_card_census.
+    for _p in validate_card_census(gs, ms, where="post-setup"):
+        gs.log.append(f"CARD CENSUS: {_p}")
+        if live_recorder is not None:
+            try: live_recorder.event(f"CARD CENSUS: {_p}")
+            except Exception: pass
 
     assigned_archetypes: List[Tuple[str, str, float]] = []
     if player_archetype_profiles:
@@ -13273,6 +13398,9 @@ def run_match(
     turns = 0
     stalled_turns = 0
     sanitize_log_budget = 40
+    # A missing card is the same missing card every turn after it vanishes, so
+    # the per-turn census reports the first few and then stops shouting.
+    census_log_budget = 6
     move_histories: Dict[int, List[Dict[str, float]]] = {i: [] for i in range(len(gs.players))}
     # Per-player immediate rewards, kept in lockstep with move_histories so the
     # end-of-game pass can compute n-step returns (multi-step credit assignment).
@@ -13313,6 +13441,20 @@ def run_match(
                 if extra > 0 and sanitize_log_budget > 0:
                     live_recorder.event(f"State sanitizer: +{extra} additional fixes")
                     sanitize_log_budget -= 1
+        # The sanitizer above can only see a card that is in two places; it
+        # cannot see one that is in none. Census the whole table at the top of
+        # every turn (a settled state, nothing in flight) so a card that leaves
+        # the game is reported the turn it happens, not guessed at afterwards.
+        # Costs one pass over ~161 ints, far below the cost of one bot decision.
+        if census_log_budget > 0:
+            for _p in validate_card_census(gs, ms, where=f"turn {turns + 1}"):
+                if census_log_budget <= 0:
+                    break
+                gs.log.append(f"CARD CENSUS: {_p}")
+                if live_recorder is not None:
+                    try: live_recorder.event(f"CARD CENSUS: {_p}")
+                    except Exception: pass
+                census_log_budget -= 1
         p = gs.current_player()
         if p.flags.get(OUT_OF_GAME_FLAG):
             # Removed from the match: this seat has no turn any more. No draw,
@@ -13551,7 +13693,7 @@ def run_match(
             # decrement counted the revealer's own turn and the revealer LOST their
             # guaranteed final turn ("I didn't get to play my last turn when the end
             # game card got drawn"). Capturing it right after apply_action is
-            # break-proof for every trigger path (1st draw, 2nd draw, ability draw, pool).
+            # break-proof for every trigger path (1st draw, 2nd draw, ocean-flip, pool).
             if not _eg_before and ms.end_game_triggered:
                 eg_triggered_this_turn = True
 

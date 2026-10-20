@@ -135,7 +135,7 @@ console.log("\nthe lettering is in the picture, so it is not drawn twice");
         /<h1 class="ao-title">Currents and Critters<\/h1>/.test(HTML));
   check("…saying what the picture says, word for word",
         /Build Your Ocean\. Rule the Current\./.test(HTML)
-        && /Play Animals\. Combine Species\. Build Ecosystems\. Rule The Ocean\./.test(HTML));
+        && /Play Animals\. Combine Families\. Build Ecosystems\. Rule The Ocean\./.test(HTML));
   check("…and hidden from the eye, not from the reader",
         /#auth-step-choose > \.ao-copy \{[\s\S]{0,400}?clip-path: inset\(50%\);/.test(CSS));
   check("…so the title is never painted over the painting's own title",

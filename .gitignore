@@ -403,6 +403,10 @@
 # spot where an ocean goes is drawn even on an empty board with nothing legal.
 # Runs the real renderMyBoard against the real preview.css in headless Chrome.
 !test_ocean_center_dropzone.js
+# Pool: the card an Ocean flips off the deck flips OUT at 200% on its way in,
+# face-up, on screen, and the Pool slot stays empty until it lands. Measures
+# the real flipOutFromDeck against the real preview.css in headless Chrome.
+!test_ocean_flip_reveal.js
 # Board peek: the hover preview of another player's board must never get stuck
 # on screen, a removed anchor fires no mouseleave, so every dismissal path
 # (pointer off, click, scroll, tab away, game over, leaving the game) is pinned.
@@ -875,6 +879,9 @@ multiplayer/client/_gate_*.html
 # a finally; five of them were sitting untracked after a killed run.
 multiplayer/client/_acc_*.html
 multiplayer/client/_ss_*.html
+# And from the consent harness (test_consent_in_browser.js,
+# test_consent_asked_once.js), which writes the same kind of copy.
+multiplayer/client/_consent_*.html
 
 # The public-surface tests: what a stranger can download from the server, and
 # what the in-game admin door does when nobody set a key. It boots the real
@@ -917,10 +924,11 @@ multiplayer/client/_ss_*.html
 # backwards. Test-only, no Dockerfile COPY.
 !test_hours_played.py
 
-# Playing an Ocean takes nothing off the deck: the old flip-a-card-into-the-Pool
-# rule is gone from both engines, every mode and both rules texts, and this is
-# what keeps it gone. Test-only, no Dockerfile COPY.
-!test_ocean_play_no_flip.py
+# Playing an Ocean flips the top card of the deck into the Pool: the rule is
+# back in both engines, every mode and both rules texts (2026-10-19), and this
+# is what keeps it there, reveal animation and all. Test-only, no Dockerfile
+# COPY.
+!test_ocean_play_flip.py
 
 # What came in this month and the 5% of it that owes to ocean conservation.
 # donation_report.py reads /api/admin/donations (in multiplayer_server.py, behind
@@ -943,3 +951,59 @@ multiplayer/client/_ss_*.html
 # Kickstarter; without that entry this copy hands out the four checkouts anyway.
 !_standby/
 !_standby/**
+
+# "Generate Current →" is ONE baked PNG with its lettering painted in, and its
+# <span> is color: transparent so the words are not printed twice. A button
+# with no fill, no border and no readable text is NOTHING when that art fails
+# to paint, which is how it got reported as "the Generate Current button is
+# gone". This keeps a painted button under the art, the words behind a load
+# check, and the box scrollable on a short screen. Test-only, no Dockerfile
+# COPY.
+!test_new_current_button.js
+
+# A free play has to point at the cards it means: the window announces itself
+# once, and the Mammals / Baitfish / Yellowfin Tuna it is offering light up in
+# the hand. Test-only, no Dockerfile COPY.
+!test_free_play_hand.js
+
+# Every free play the engine grants is one the client is TOLD about. Reads
+# is_free_play_eligible() out of the engine, so a new free-play card fails here
+# instead of shipping with nothing on screen to say so. Test-only, no
+# Dockerfile COPY.
+!test_free_play_species.py
+
+# The board announcement: YOUR TURN, and the ★ that outranks it. One element,
+# one function, the pale aqua of every other in-game dialog, transform and
+# opacity only, and one css animation that owns its own ending. Test-only, no
+# Dockerfile COPY.
+!test_turn_flash.js
+
+# Johnson's Sea Cucumber draws on ANY Game Fish, one card per Cucumber on the
+# board. It was narrowed to the Yellowfin Tuna by name in September on a guess
+# about what the card meant, which quietly changed what the deck does for five
+# weeks; this is what keeps the card's own words in charge. Test-only, no
+# Dockerfile COPY.
+!test_sea_cucumber_draw.py
+
+# The table still holds every card it started with. Builds the deck 5000 times
+# and censuses real games turn by turn, so a card that leaves the game says so
+# here instead of simply never turning up. Test-only, no Dockerfile COPY.
+!test_deck_completeness.py
+
+# Clicking a card in the Pool's Inspect window draws it, and double-clicking
+# zooms it. The grid used to be rebuilt between the press and the release, so
+# the click landed on nothing at all. Test-only, no Dockerfile COPY.
+!test_pool_inspect_draw.js
+!test_surf_spam.js
+
+# Surf's Up!! is one line in the log per player, not one per press. Leaning on
+# the button used to bury the conversation and push it out of the capped window
+# every client is sent. Throttled in the browser and refused again server-side,
+# which is what the .py half checks. Test-only, no Dockerfile COPY.
+!test_surf_spam.py
+
+# The policy is asked for ONCE per account. A profile read issued before the
+# agreement was saved could land after the dialog closed and ask a second time,
+# from a dialog whose own copy says it is the only time. Test-only, no
+# Dockerfile COPY.
+!test_consent_asked_once.js

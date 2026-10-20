@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-20.3";
+  const APP_BUILD   = "2026-10-20.4";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -109,6 +109,20 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { date: "Oct 20, 2026", title: "The board tells you when it is your turn", items: [
+      "YOUR TURN now rides across the middle of the board as the turn reaches you, so on a phone you notice it instead of missing it.",
+      "When a star hands you an extra turn or a free play, that is announced the same way, and the cards it means light up gold in your hand with a FREE tag, so there is nothing to hunt for.",
+      "Johnson's Sea Cucumber draws off any Game Fish again, not just the Yellowfin Tuna, and two of them on your board draw you two cards.",
+      "Surf's Up!! no longer fills the chat when the button is pressed over and over, and the chat panel no longer stops updating in a long, talkative game.",
+      "What a card's bottom-right corner says is now called its family, everywhere, which is the word the printed poster and the rulebook use.",
+    ]},
+    { date: "Oct 19, 2026", title: "Playing an Ocean flips a card into the Pool again", items: [
+      "Put down an Ocean and the top card of the deck turns face-up into the Pool, the way the printed rulebook has always said. It is back in every mode: Casual, Head to Head, Competitive, Team, tournaments and the tutorials.",
+      "The flipped card does not just appear in the Pool. It turns face-up out of the deck at double size and holds there, long enough to read, before it settles into its slot.",
+      "If the card that flips out is END GAME, the final round starts right there, and every player still gets one last turn, including whoever played the Ocean.",
+      "Because the deck burns a card per Ocean again, games run a little shorter than they have since September.",
+      "The Rules page and the Full Rulebook say so again too.",
+    ]},
     { date: "Oct 7, 2026", title: "Watching a player means watching their hand", items: [
       "Click a player's icon along the bottom of the table and you now watch that player, not just their board. Their hand is laid out underneath it, card for card.",
       "You see their cursor too. It travels over their hand and their board as they move it, and the card they are hovering lifts and glows gold, so you can watch somebody weigh up a play before they make it.",
@@ -1228,6 +1242,12 @@
   })();
 
   // ── Pool overview modal ────────────────────────────────────────
+  // One timer for the whole modal, not one per card. It separates a single
+  // click (draw this card) from a double-click (zoom it), and the grid can be
+  // redrawn between the two clicks of a double-click: a timer owned by a card
+  // that no longer exists cannot be cancelled by the card that replaced it, so
+  // the player got the zoom AND a card they never asked to draw.
+  let _pmClickTimer = null;
   function openPoolModal() {
     document.getElementById("pv-pool-modal").classList.add("open");
     renderPoolModal();
@@ -1241,7 +1261,10 @@
     const pool = _latestPool;
     const actions = _latestPoolActions;
     const drawActions = actions.filter(a => a.kind === "draw");
-    const canDrawPool = drawActions.some(a => Number(a.draw_from_pool) > 0);
+    // === 1, the same test renderPool() and _drawFromPool() use. A pool draw is
+    // one card; an action that is not draw_from_pool === 1 is one _drawFromPool()
+    // will refuse, so a looser gate here only wires a click up to a toast.
+    const canDrawPool = drawActions.some(a => Number(a.draw_from_pool) === 1);
     const titleEl = document.getElementById("pv-pm-title");
     const hintEl  = document.getElementById("pv-pm-hint");
     const gridEl  = document.getElementById("pv-pm-grid");
@@ -1256,10 +1279,29 @@
     }
     if (!pool.length) {
       gridEl.innerHTML = "";
+      gridEl.dataset.poolSig = "";
       emptyEl.style.display = "";
       return;
     }
     emptyEl.style.display = "none";
+    // The grid is what the player is aiming at, so it is rebuilt only when it
+    // would come out different. renderPool() calls this on every state render:
+    // the 1s poll, 2.5s plus every push on SSE. A browser fires `click` only on
+    // the element that saw both the press and the release, so a rebuild in that
+    // gap sent the click to #pv-pm-grid, where nothing is listening, and the
+    // player clicked a card in Inspect and nothing happened at all, no draw, no
+    // zoom, no toast.
+    const sig = JSON.stringify([
+      pool.map(entry => {
+        const f = (Array.isArray(entry.faces) && entry.faces.length > 0) ? entry.faces[0] : entry;
+        return Number(f.uid ?? entry.entry_uid ?? entry.uid);
+      }),
+      canDrawPool && canInteract,
+    ]);
+    if (gridEl.dataset.poolSig === sig && gridEl.children.length === pool.length) return;
+    gridEl.dataset.poolSig = sig;
+    // These cards are about to stop existing, so nothing they armed may fire.
+    clearTimeout(_pmClickTimer);
     gridEl.innerHTML = "";
     pool.forEach(entry => {
       const face = (Array.isArray(entry.faces) && entry.faces.length > 0) ? entry.faces[0] : entry;
@@ -1279,18 +1321,20 @@
       card.appendChild(imgWrap);
       card.appendChild(nameEl);
       if (canDrawPool && canInteract) {
-        let _pmTimer = null;
         card.addEventListener("dblclick", e => {
           e.stopPropagation();
-          clearTimeout(_pmTimer);
+          clearTimeout(_pmClickTimer);
           openZoom(faceUid, face.name, face.text, face.species);
         });
         card.addEventListener("click", e => {
           e.stopPropagation();
-          clearTimeout(_pmTimer);
-          _pmTimer = setTimeout(() => {
+          clearTimeout(_pmClickTimer);
+          _pmClickTimer = setTimeout(() => {
             closePoolModal();
-            _drawFromPool(drawActions, faceUid);
+            // _poolDrawActions, not the snapshot this card was built from: a
+            // card now outlives the render that made it, and the strip's own
+            // click handler reads the live list for the same reason.
+            _drawFromPool(_poolDrawActions || drawActions, faceUid);
           }, 200);
         });
       } else {
@@ -6261,6 +6305,23 @@
   function closeNewCurrentModal() {
     document.getElementById("new-current-modal").classList.remove("open");
   }
+  // Generate Current is a single baked PNG with its own lettering painted in,
+  // and the <span> inside it is transparent so the words are not printed twice
+  // over the art. That means a button with NOTHING to show if the art never
+  // arrives: no fill, no border, no text, just an 82px gap where the only way
+  // out of the modal should be. The CSS keeps a gold fill under the art for
+  // that case; this hands the lettering back, so the button still says what it
+  // does. Driven by the image's own error event, so it is a fact and not a
+  // timeout guess, and the class is cleared again if a retry succeeds.
+  (function watchNewCurrentArt() {
+    const btn = document.getElementById("nc-create-btn");
+    if (!btn) return;
+    const url = "/nc-btn-full.png";
+    const probe = new Image();
+    probe.addEventListener("error", () => btn.classList.add("nc-no-art"));
+    probe.addEventListener("load",  () => btn.classList.remove("nc-no-art"));
+    probe.src = url;
+  })();
   // Mode selector: switch between Normal / Competitive / Team on the fly.
   document.getElementById("nc-mode").addEventListener("change", (e) => {
     // Tournament Mode takes over its own create flow (its own overlay). Reset the
@@ -7354,7 +7415,7 @@
             _gameAchTracker.seaStarDraws = (_gameAchTracker.seaStarDraws || 0) + countOnBoard("common sea star");
           // Johnson's Sea Cucumber, draw one (per Cucumber) when you play a Game Fish.
           if (invSpecies === "game fish")
-            _gameAchTracker.seaCucumberDraws = (_gameAchTracker.seaCucumberDraws || 0) + countOnBoard("johnson's johnson's sea cucumber");
+            _gameAchTracker.seaCucumberDraws = (_gameAchTracker.seaCucumberDraws || 0) + countOnBoard("johnson's sea cucumber");
           // Red Beaded Anemone, its ★ ability draws one card when activated (legacy draw count).
           if (invName === "red beaded anemone" && action.use_star)
             _gameAchTracker.seaAnemoneDraws = (_gameAchTracker.seaAnemoneDraws || 0) + 1;
@@ -7362,7 +7423,7 @@
           if (invName === "red beaded anemone")
             _gameAchTracker.seaAnemonePlayedThisGame = (_gameAchTracker.seaAnemonePlayedThisGame || 0) + 1;
           // Johnson's Sea Cucumber, count every one played this game (avatar: 25 lifetime plays).
-          if (invName === "johnson's johnson's sea cucumber")
+          if (invName === "johnson's sea cucumber")
             _gameAchTracker.seaCucumberPlayedThisGame = (_gameAchTracker.seaCucumberPlayedThisGame || 0) + 1;
           // Frigatebird avatar: 7 Coral cards played onto a Coral Reef ocean in one game.
           if (invSpecies === "coral") {
@@ -7530,7 +7591,7 @@
   }
   // Small colour key shown at the top of the Strategies panel so new players
   // instantly learn which colour means which animal family.
-  //    Named and ordered like the printed List of Species poster, with Oceans
+  //    Named and ordered like the printed List of Families poster, with Oceans
   //    appended because the game colours those too.
   const _FAMILY_LEGEND = [
     ["Bait Fish", "baitfish"], ["Birds", "bird"], ["Cephalopods", "cephalopod"],
@@ -9764,6 +9825,12 @@
     const freePlaySpecies = Array.isArray(lw.free_play_species) ? lw.free_play_species : [];
     const tarponActive = Boolean(lw.tarpon_discard_active);
 
+    // Announce an extra turn, or a free play, across the middle of the board
+    // as it opens. Here, rather than in the banner branch above, because this
+    // is where the species list has been read and `me` is in hand to count
+    // what the player is actually holding.
+    maybeFlashFreePlay(lw, me, isMyTurn, freePlaySpecies, state.turn_index);
+
     // Tarpon avatar: count discard cycles where a full 9–10 card hand was
     // emptied into the Pool via Tarpon.
     try {
@@ -9884,6 +9951,7 @@
           oldPoolRects: _animOldPoolRects,
           removedPoolUids: _animDiff.removedPoolUids,
           addedPoolUids:   _animDiff.addedPoolUids,
+          oceanFlipUids:   Array.isArray(state.ocean_flip_uids) ? state.ocean_flip_uids : [],
           handDeltas:      _animDiff.handDeltas,
           prevHandUIDs:    _animPrevHandUIDs,
           players, myIdx,
@@ -10055,13 +10123,14 @@
   let _pendingDrawAction = null;     // the draw action awaiting user confirmation
 
   // ══ Card-movement animation module ════════════════════════════════
-  // Hook Reveal (deck), pool-to-player fly, Ripple Reveal (pool entry).
+  // Hook Reveal (deck), pool-to-player fly, Ripple Reveal (pool entry),
+  // Ocean flip (the deck card an Ocean turns face-up, out at 200%).
   // State diff in renderPayload feeds the animation queue.
   const _pvAnim = (function () {
     const layer = () => document.getElementById("pv-anim-layer");
     let running = 0;
     let _suppressFlipIn = false;
-    const pendingPoolReveals = new Map();   // faceUid → true (cards to ripple in)
+    const pendingPoolReveals = new Map();   // faceUid → ms to hold it back for
 
     function isBusy() { return running > 0; }
 
@@ -10181,7 +10250,7 @@
       const wrap = document.getElementById("pv-pool-wrap");
       if (!wrap) { pendingPoolReveals.clear(); return; }
       let delay = 0;
-      pendingPoolReveals.forEach((_v, uid) => {
+      pendingPoolReveals.forEach((hold, uid) => {
         const el = wrap.querySelector(`.pv-pool-card[data-face-uid="${uid}"]`);
         if (!el) return;
         el.classList.remove("flip-in");
@@ -10192,13 +10261,101 @@
           el.style.opacity = "";
           el.classList.add("surfacing");
           el.addEventListener("animationend", () => el.classList.remove("surfacing"), { once: true });
-        }, delay);
+        }, Math.max(delay, Number(hold) || 0));
         delay += 110;
       });
       pendingPoolReveals.clear();
     }
 
-    function queuePoolReveal(uid) { pendingPoolReveals.set(Number(uid), true); }
+    function queuePoolReveal(uid, holdMs) {
+      pendingPoolReveals.set(Number(uid), Math.max(0, Number(holdMs) || 0));
+    }
+
+    // ── Ocean flip: the deck card an Ocean turns face-up ───────────────
+    // Play an Ocean and the top card of the deck goes face-up into the Pool.
+    // It is the one card on the table nobody has seen, so it does not just
+    // slide across: it turns out of the deck at 200%, holds there long enough
+    // to read, and only then settles into its Pool slot. The Pool card itself
+    // stays hidden until it lands (queuePoolReveal's hold), so the reveal
+    // happens once, out in the open, instead of twice.
+    const OCEAN_FLIP_OUT = 280, OCEAN_FLIP_HOLD = 420, OCEAN_FLIP_IN = 300;
+    const OCEAN_FLIP_MS = OCEAN_FLIP_OUT + OCEAN_FLIP_HOLD + OCEAN_FLIP_IN;
+
+    function flipOutFromDeck(fromRect, toRect, opts = {}) {
+      return new Promise((resolve) => {
+        if (!fromRect || !toRect) { resolve(); return; }
+        const faceUid = opts.faceUid || 0;
+        const host = layer();
+        if (!host) { resolve(); return; }
+
+        const vw = window.innerWidth || 900, vh = window.innerHeight || 700;
+        // 200% of the card, unless the screen is too small to hold it: a phone
+        // clamps to what fits rather than flipping a card off its own edges.
+        const big = Math.max(1.15, Math.min(2, (vw * .72) / 90, (vh * .52) / 126));
+        const endScale = Math.max(.4, Math.min(1, (toRect.width || 70) / 90));
+
+        const fromCx = fromRect.left + fromRect.width / 2;
+        const fromCy = fromRect.top  + fromRect.height / 2;
+        const toCx   = toRect.left   + toRect.width  / 2;
+        const toCy   = toRect.top    + toRect.height / 2;
+        // Hold it between the deck and the slot it is headed for, pulled back
+        // on screen so the swollen card is never clipped.
+        const halfW = (90 * big) / 2 + 10, halfH = (126 * big) / 2 + 10;
+        const holdCx = Math.max(halfW, Math.min(vw - halfW, (fromCx + toCx) / 2));
+        const holdCy = Math.max(halfH, Math.min(vh - halfH, (fromCy + toCy) / 2 - 20));
+
+        const card = makeAnimCard(faceUid, true);   // leaves the deck face-down
+        card.style.left = (fromCx - 45) + "px";
+        card.style.top  = (fromCy - 63) + "px";
+        card.style.transform = "scale(1) rotateY(0deg)";
+        card.style.opacity = "1";
+        card.classList.add("ocean-flip");
+        host.appendChild(card);
+        // Deliberately NOT counted in `running`: isBusy() gates the deck and
+        // Pool click handlers, and this flight is nearly four times as long as
+        // a card fly. Counting it would leave a player who has just played an
+        // Ocean clicking a dead deck for a second. Nothing waits on the
+        // reveal, so a draw landing mid-flight only means the clone finishes
+        // its arc over a Pool that has already moved on.
+
+        const dxH = holdCx - fromCx, dyH = holdCy - fromCy;
+        const dxT = toCx - fromCx,   dyT = toCy - fromCy;
+        const out = OCEAN_FLIP_OUT / OCEAN_FLIP_MS;
+        const held = (OCEAN_FLIP_OUT + OCEAN_FLIP_HOLD) / OCEAN_FLIP_MS;
+
+        requestAnimationFrame(() => {
+          // rotateY ends at 180deg, which is face-UP: the face is built
+          // pre-flipped on a face-down card (see .pv-anim-card.face-down).
+          // The easing goes on the keyframes, NOT on the animation: one
+          // easing across the whole flight warps the offsets, and the hold
+          // then starts late and shrinks early (measured: the card reached
+          // 1.89x and was already on its way out where 2x should have been
+          // sitting still). Per-keyframe easing keeps each leg's timing the
+          // milliseconds it says it is.
+          const keyframes = [
+            { transform: "translate(0,0) scale(1) rotateY(0deg)", opacity: 1, offset: 0,
+              easing: "cubic-bezier(.33,.0,.66,.6)" },
+            { transform: `translate(${dxH * .55}px,${dyH * .55 - 14}px) scale(${(1 + big) / 2}) rotateY(90deg)`,
+              opacity: 1, offset: out * .6, easing: "cubic-bezier(.2,.7,.3,1)" },
+            { transform: `translate(${dxH}px,${dyH}px) scale(${big}) rotateY(180deg)`, opacity: 1, offset: out,
+              easing: "ease-in-out" },
+            { transform: `translate(${dxH}px,${dyH - 6}px) scale(${big}) rotateY(180deg)`, opacity: 1, offset: held,
+              easing: "cubic-bezier(.4,.05,.4,1)" },
+            { transform: `translate(${dxT}px,${dyT}px) scale(${endScale}) rotateY(180deg)`, opacity: 1, offset: 1 },
+          ];
+          const anim = card.animate(keyframes, {
+            duration: OCEAN_FLIP_MS,
+            easing: "linear",
+            fill: "forwards",
+          });
+          anim.onfinish = () => {
+            card.style.transition = "opacity .16s ease";
+            card.style.opacity = "0";
+            setTimeout(() => { card.remove(); resolve(); }, 160);
+          };
+        });
+      });
+    }
 
     // Ripple ring at each newly-arrived hand card. Card surfacing comes from
     // the .deal-in class on the card itself (handSurfaceIn keyframes).
@@ -10217,7 +10374,7 @@
     }
 
     return { flyCard, playRippleAt, queuePoolReveal, applyPendingRippleReveals,
-             rippleNewHandCards,
+             rippleNewHandCards, flipOutFromDeck, OCEAN_FLIP_MS,
              isBusy, deckRect, poolWrapRect, playerAnchorRect, rectOf,
              get _suppressFlipIn() { return _suppressFlipIn; },
              set _suppressFlipIn(v) { _suppressFlipIn = !!v; } };
@@ -10398,7 +10555,7 @@
   let _prevHandCountsForAnim = {};
 
   // Run all pending draw animations for this state transition.
-  function _runDrawAnimations({ oldPoolRects, removedPoolUids, addedPoolUids, handDeltas, prevHandUIDs, players, myIdx, prevTurnIdx, curTurnIdx }) {
+  function _runDrawAnimations({ oldPoolRects, removedPoolUids, addedPoolUids, oceanFlipUids, handDeltas, prevHandUIDs, players, myIdx, prevTurnIdx, curTurnIdx }) {
     if (!removedPoolUids.length && !addedPoolUids.length) return;
 
     // The player who just acted: previous turn index (their hand grew this poll).
@@ -10447,8 +10604,29 @@
       requestAnimationFrame(() => _pvAnim.rippleNewHandCards(prevHandUIDs || _prevHandUIDs));
     }
 
-    // 4) Pool entries: queue ripple-reveal for any added pool cards.
-    addedPoolUids.forEach(uid => _pvAnim.queuePoolReveal(uid));
+    // 4) Pool entries. A card an Ocean flipped off the deck flips OUT at 200%
+    //    on its way in (the server names those in ocean_flip_uids); paid and
+    //    discarded cards came from a hand in plain sight, so they just ripple.
+    const flipSet = new Set((oceanFlipUids || []).map(Number));
+    let calm = false;
+    try { calm = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }
+    catch (_) { calm = false; }
+    const wrap = document.getElementById("pv-pool-wrap");
+    let flips = 0;
+    addedPoolUids.forEach(uid => {
+      if (calm || !flipSet.has(Number(uid))) { _pvAnim.queuePoolReveal(uid); return; }
+      const slot = wrap && wrap.querySelector(`.pv-pool-card[data-face-uid="${uid}"]`);
+      const toR = _pvAnim.rectOf(slot) || _pvAnim.poolWrapRect();
+      const fromR = _pvAnim.deckRect() || toR;
+      // One poll can carry two Oceans (a client that missed a poll), and two
+      // cards flipping out of the same deck at the same moment read as one
+      // mistake, so the second is led in behind the first.
+      const lead = flips * 260;
+      flips += 1;
+      if (lead) setTimeout(() => _pvAnim.flipOutFromDeck(fromR, toR, { faceUid: uid }), lead);
+      else _pvAnim.flipOutFromDeck(fromR, toR, { faceUid: uid });
+      _pvAnim.queuePoolReveal(uid, lead + _pvAnim.OCEAN_FLIP_MS - 80);
+    });
   }
 
   function _drawFromDeck(drawActions) {
@@ -13982,6 +14160,18 @@
   let _myBoardRenderKey   = "";
   let _handCardEls  = [];  // live array of .pv-hand-card elements, refreshed by renderHand
   let _handHoverIdx = -1;  // index of the currently hovered card, -1 = none
+  // What the player can play for FREE at this exact moment, lower-cased for
+  // comparison. The server sends `free_play_species`, which is mostly species
+  // ("Mammal", "Baitfish", "Game Fish"…) but also carries the one free play
+  // granted by card NAME, the Yellowfin Tuna, so a card matches on either.
+  // Read off latestPayload rather than passed in, the way renderHand already
+  // reads the Tarpon flag, so no caller's signature has to change.
+  function freePlayPicksNow() {
+    const lw = (latestPayload && latestPayload.legal_actions) || {};
+    const list = Array.isArray(lw.free_play_species) ? lw.free_play_species : [];
+    return new Set(list.map(s => String(s || "").trim().toLowerCase()).filter(Boolean));
+  }
+
   function renderHand(me, actions, mustDiscard, discardExcess) {
     _handRenderData = { me, actions, mustDiscard, discardExcess };
     // Tarpon "discard and draw that many" reuses the discard-selection machinery,
@@ -13993,6 +14183,11 @@
     // the cache key so swapping the staged play repaints the borders even when
     // the hand and the selection are byte-identical.
     const _starPay = starPayInfo(pendingPayAction);
+    // The free-play window, if one is open. Part of the cache key below for
+    // the same reason as the gold payment highlight: the window can open and
+    // close between two byte-identical hands, and without this the cards it
+    // names would not light up until something else forced a redraw.
+    const _freePlayPicks = freePlayPicksNow();
     // The hand being drawn, and its own saved arrangement. In competitive this
     // flips between my two seats; everywhere else it is the one constant seat.
     const handSeatKey = handOrderKeyFor(me);
@@ -14001,6 +14196,7 @@
     const key = JSON.stringify({ hand: me?.hand, legalUids: actions?.map(a=>a.card_uid), mustDiscard, discardExcess, tarponActive,
       selPay: [...selectedPayment].sort().join(","), selDis: [...selectedDiscard].sort().join(","),
       starPay: _starPay.fires ? `${pendingPayAction?.card_uid}:${_starPay.sym}` : "",
+      freePlay: [..._freePlayPicks].sort().join(","),
       handSeat: handSeatKey,
       handOrder: handOrder.join(",") });
     if (key === _handRenderKey && zone.children.length > 0) return;
@@ -14052,6 +14248,17 @@
       card.dataset.idx      = i;
 
       card.dataset.species = face.species || "";
+      // ★ FREE PLAY: this is one of the cards the window is talking about.
+      // Species or name, because the Yellowfin Tuna is granted by name. Both
+      // faces of a two-sided card count, the same way the ★ payment match
+      // does: you may play either one.
+      if (_freePlayPicks.size) {
+        const facesHere = (Array.isArray(entry.faces) && entry.faces.length) ? entry.faces : [face];
+        const isFree = facesHere.some(f =>
+          _freePlayPicks.has(String((f && f.species) || "").trim().toLowerCase()) ||
+          _freePlayPicks.has(String((f && f.name)    || "").trim().toLowerCase()));
+        if (isFree) card.classList.add("free-play-pick");
+      }
       // A two-sided card counts as a ★ card if EITHER face carries the star.
       const allFacesForStar = (Array.isArray(entry.faces) && entry.faces.length) ? entry.faces : [face];
       if (allFacesForStar.some(f => starText(f && f.text || ""))) card.classList.add("has-star");
@@ -14500,8 +14707,11 @@
       const speciesStr = freePlaySpecies.join(" or ");
       const playActions = actions.filter(a => a.kind !== "draw" && a.kind !== "end_turn" && a.kind !== "discard_to_pool" && a.kind !== "discard_batch_to_pool");
       if (playActions.length > 0) {
+        // Name the species, then point at the cards themselves: they are lit
+        // gold in the hand (.free-play-pick), which is the thing a player can
+        // actually act on without reading a dropdown of every legal move.
         bar.innerHTML = `<div class="guide-step">
-          <span class="gs active" style="color:#ffd700">★ FREE PLAY, pick a <strong>${speciesStr}</strong> from the dropdown below and play it for free, or click ✓ End Turn to skip.</span>
+          <span class="gs active" style="color:#ffd700">★ FREE PLAY, your <strong>${speciesStr}</strong> cards are lit up in your hand. Play one for free, or click ✓ End Turn to skip.</span>
         </div>`;
       } else {
         bar.innerHTML = `<div class="guide-step">
@@ -14607,6 +14817,116 @@
     const endBtn = document.getElementById("pv-end-turn-inline");
     if (endBtn && !endBtn.disabled) endBtn.click();
   });
+
+  // ── ★ "You get to play again" / "Play a free Mammal" flash ─────
+  // The ★ abilities that hand you something extra used to arrive as one line
+  // of small text in the guide bar, above a hand of ten overlapping cards,
+  // and players walked past them and ended the turn. This says it once, big,
+  // across the middle of the board, as the window opens, and says how many of
+  // the cards it is talking about are actually in your hand. The cards
+  // themselves light up for as long as the window lasts: see
+  // .free-play-pick in renderHand().
+  let _prevFreePlayKey = "";
+  let _prevTurnAnnounced = "";
+
+  // ONE announcement for the whole board, so a turn can never be announced by
+  // two different-looking things at once. It is a tide: the words ride in on a
+  // swell, hold long enough to read, and are drawn back out. Water is the
+  // game's own idiom for a thing arriving (see the Pool's tide sweep), and the
+  // panel is the pale aqua of every other in-game dialog, not a dark slab.
+  //
+  // The whole life of it is ONE css animation, so nothing here has to guess at
+  // durations: the class comes off at animationend. Two variants, because
+  // these are not the same size of news:
+  //   • .tf-turn  your turn has come round. Every turn, so it is quick and
+  //               quiet, and it never covers the board for long.
+  //   • .tf-star  a ★ handed you an extra turn or a free play. Rare, gold,
+  //               and it takes precedence: you only get one announcement.
+  function flashBoard(variant, title, line) {
+    const el = document.getElementById("pv-turn-flash");
+    if (!el) return;
+    cl(el);
+    const t = document.createElement("div");
+    t.className = "tf-title";
+    t.textContent = title;
+    el.appendChild(t);
+    if (line) {
+      const s2 = document.createElement("div");
+      s2.className = "tf-line";
+      s2.textContent = line;
+      el.appendChild(s2);
+    }
+    // Restart cleanly even if one is still on screen: drop every state class,
+    // force a reflow so the browser sees a real change, then re-add.
+    el.classList.remove("show", "tf-turn", "tf-star");
+    void el.offsetWidth;
+    el.classList.add("show", variant);
+  }
+  // The animation owns its own ending, so a slow frame cannot leave the
+  // announcement stuck on the board.
+  document.getElementById("pv-turn-flash")?.addEventListener("animationend", (e) => {
+    if (e.target === e.currentTarget) e.currentTarget.classList.remove("show");
+  });
+
+  // Fires on the CHANGE, never on the poll. The state is keyed, so the same
+  // open window seen a hundred times over a hundred seconds announces once.
+  function maybeFlashFreePlay(lw, me, isMyTurn, freePlaySpecies, turnIndex) {
+    const species = Array.isArray(freePlaySpecies) ? freePlaySpecies : [];
+    const replay  = Boolean(lw && lw.is_replay_turn);
+    // The turn is in the key so that a ★ which hands you a SECOND extra turn
+    // straight after the first one announces itself again. Without it the two
+    // turns look identical (same flags, nobody else played in between) and the
+    // second one would arrive in silence. Within one turn the key is stable,
+    // so the 1s poll still only ever announces once.
+    const key = (isMyTurn ? "1" : "0") + "|" + (replay ? "R" : "")
+              + "|" + species.join(",") + "|" + String(turnIndex ?? "");
+    if (key === _prevFreePlayKey) return;
+    const firstSeen = _prevFreePlayKey === "";
+    _prevFreePlayKey = key;
+    if (!isMyTurn) return;
+    const turnKey = String(turnIndex ?? "");
+    // Whatever is announced below, this turn has now had its announcement.
+    // Both branches set it, and that is what stops a free play CLOSING from
+    // reading as a fresh turn: spend the free Mammal and the species list
+    // empties, which is a change, and without this the board would say YOUR
+    // TURN again in the middle of the turn you are already taking.
+    const sameTurn = turnKey === _prevTurnAnnounced;
+    _prevTurnAnnounced = turnKey;
+
+    // A ★ outranks the plain turn announcement: one piece of news at a time.
+    if (!replay && species.length === 0) {
+      // An ordinary turn, announced as it ARRIVES. Not on the very first
+      // payload after joining, where it would fire for a turn that may have
+      // been yours for a while already, and not twice for one turn.
+      if (!firstSeen && !sameTurn) flashBoard("tf-turn", "YOUR TURN", "");
+      return;
+    }
+
+    if (species.length === 0) {
+      flashBoard("tf-star", "★ PLAY AGAIN", "You get to take another turn.");
+      return;
+    }
+    // How many of those cards are really in hand. A free play nobody can take
+    // should say so rather than send the player hunting through the fan.
+    const want = new Set(species.map(s2 => String(s2 || "").trim().toLowerCase()));
+    let held = 0;
+    const hand = (me && Array.isArray(me.hand)) ? me.hand : [];
+    for (const entry of hand) {
+      const faces = (Array.isArray(entry.faces) && entry.faces.length) ? entry.faces : [entry];
+      if (faces.some(f => want.has(String((f && f.species) || "").trim().toLowerCase())
+                       || want.has(String((f && f.name)    || "").trim().toLowerCase()))) held++;
+    }
+    const what = species.join(" or ");
+    const line = held === 0
+      ? `No ${what} in your hand. Click End Turn to carry on.`
+      : held === 1
+        ? `1 in your hand, lit up below. Play it for free.`
+        : `${held} in your hand, lit up below. Play one for free.`;
+    flashBoard("tf-star",
+               replay ? `★ PLAY AGAIN, AND A FREE ${what.toUpperCase()}`
+                      : `★ FREE ${what.toUpperCase()}`,
+               line);
+  }
 
   // ── Action bar renderer ────────────────────────────────────────
   function renderActionBar(actions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive) {
@@ -15186,6 +15506,7 @@
     if (_drawNotifTimer) { clearTimeout(_drawNotifTimer); _drawNotifTimer=null; }
     const _dnEl = document.getElementById("draw-notif"); if (_dnEl) _dnEl.classList.remove("visible", "hiding");
     _chatSeenCount = 0; _chatLastCount = -1; _chatRoomTotal = 0; _chatLastAvatarKey = "";
+    _chatLastFingerprint = "";
     _chatPanelOpen = false;
     // Leaving / starting a fresh match resets the panel back to Current Game Chat.
     _chatView = "room"; _chatConv = null;
@@ -19365,19 +19686,47 @@
 
   let _chatLastCount = -1;
   let _chatLastAvatarKey = "";   // faces the painted lines are wearing
+  let _chatLastFingerprint = ""; // what is in the window the panel last painted
   function renderChatMessages(messages) {
     const msgs = Array.isArray(messages) ? messages : [];
     _chatRoomTotal = msgs.length;
-    // Message count alone can't tell us the panel is up to date: the lines
-    // wear the senders' CURRENT faces, so someone changing their icon has to
-    // repaint them even though nobody has said anything since.
+    // Message count alone can't tell us the panel is up to date, for two
+    // separate reasons:
+    //   • the lines wear the senders' CURRENT faces, so someone changing
+    //     their icon has to repaint them even though nobody has said anything;
+    //   • the server sends a WINDOW, not the whole log (chat_messages[-80:]).
+    //     Past 80 messages the array stops growing and starts sliding, so the
+    //     length is pinned at 80 for ever. A length-only guard matched on
+    //     every poll from that moment on and the panel froze for the rest of
+    //     the game, with no way back. Mashing Surf's Up!! was the quickest way
+    //     to 80; a long chatty game got there on its own.
+    // So the guard is a fingerprint of what is actually in the window. The
+    // ends of the window plus its size pin a slide, and the count of distinct
+    // timestamps catches a burst that lands inside the same second.
+    // Deliberately computed inline: three suites lift this function out of
+    // the file and run it alone, so it must not call a helper defined
+    // elsewhere here.
     const _avKey = pvLiveAvatarKey();
-    if (msgs.length === _chatLastCount && _avKey === _chatLastAvatarKey) {
-      // no new messages and nobody changed their face, just refresh the badges
+    let _fp = msgs.length + "|" + _avKey;
+    if (msgs.length) {
+      const _a = msgs[0], _b = msgs[msgs.length - 1];
+      let _tsSeen = 0, _prevTs = null;
+      for (let i = 0; i < msgs.length; i++) {
+        const t = msgs[i] && msgs[i].ts;
+        if (t !== _prevTs) { _tsSeen++; _prevTs = t; }
+      }
+      _fp += "|" + (_a.ts || "") + "~" + (_a.sender || "") + "~" + (_a.message || "").length
+           + "|" + (_b.ts || "") + "~" + (_b.sender || "") + "~" + (_b.message || "")
+           + "|" + _tsSeen;
+    }
+    if (_fp === _chatLastFingerprint) {
+      // nothing in the window moved and nobody changed their face, just
+      // refresh the badges
       if (_chatPanelOpen && _chatView === "room") _chatSeenCount = msgs.length;
       pvcUpdateBadges();
       return;
     }
+    _chatLastFingerprint = _fp;
     _chatLastCount = msgs.length;
     _chatLastAvatarKey = _avKey;
     const el = document.getElementById("pv-chat-messages");
@@ -21479,10 +21828,32 @@
   function resetIdleTimer() { /* idle timer removed, no-op */ }
 
   // Surf's Up!! button
+  // Two guards, for two different things. _surfBtnInFlight stops a second
+  // request going out while one is still open. That alone was not enough: the
+  // moment each reply landed the button was live again, so holding it down
+  // still fired as fast as the round trip allowed, and every press announced
+  // itself in the room's (capped) chat. SURF_COOLDOWN_MS is the real limit and
+  // matches GameRoom.SURF_TOGGLE_MIN_INTERVAL, which refuses the same presses
+  // server-side for the clients that don't ask nicely.
+  const SURF_COOLDOWN_MS = 3000;
   let _surfBtnInFlight = false;
+  let _surfLastPress = 0;
+  let _surfCooldownTimer = null;
   document.getElementById("pv-surf-btn")?.addEventListener("click", async () => {
     if (!roomId) return;
     if (_surfBtnInFlight) return;
+
+    // Only going Away waits. The button says "I'm Back" when you are Away,
+    // and that press is never held up: Away cannot play a single card and the
+    // table is sitting waiting for you. The server draws the same line.
+    const _sinceLast = Date.now() - _surfLastPress;
+    if (!_imAway && _sinceLast < SURF_COOLDOWN_MS) {
+      const wait = Math.max(1, Math.ceil((SURF_COOLDOWN_MS - _sinceLast) / 1000));
+      try {
+        showToast(`Surf's Up!! was just used. Wait ${wait} second${wait === 1 ? "" : "s"} and try again.`, "warn");
+      } catch {}
+      return;
+    }
 
     // Resolve the correct seat token, competitive mode may have a token per seat
     let token;
@@ -21504,6 +21875,7 @@
     const want = !_imAway;
     const btn = document.getElementById("pv-surf-btn");
     _surfBtnInFlight = true;
+    if (want) _surfLastPress = Date.now();   // only stepping away starts the clock
     if (btn) { btn.disabled = true; btn.style.opacity = "0.6"; }
     try {
       const r = await apiPost(`/api/rooms/${roomId}/away`, { seat_token: token, away: want }, { timeoutMs: 10000 });
@@ -21524,7 +21896,22 @@
       try { showToast("Could not reach server, check your connection.", "err"); } catch {}
     } finally {
       _surfBtnInFlight = false;
-      if (btn) { btn.disabled = false; btn.style.opacity = ""; }
+      // Stay visibly unavailable for what is left of the cooldown instead of
+      // springing back and answering the next click with a toast. A button
+      // that looks pressable and isn't invites exactly the mashing this is
+      // here to stop.
+      const left = _imAway
+        ? 0                                   // "I'm Back" is always ready
+        : Math.max(0, SURF_COOLDOWN_MS - (Date.now() - _surfLastPress));
+      if (btn && left > 0) {
+        clearTimeout(_surfCooldownTimer);
+        _surfCooldownTimer = setTimeout(() => {
+          const b = document.getElementById("pv-surf-btn");
+          if (b && !_surfBtnInFlight) { b.disabled = false; b.style.opacity = ""; }
+        }, left);
+      } else if (btn) {
+        btn.disabled = false; btn.style.opacity = "";
+      }
     }
   });
 
@@ -22257,7 +22644,7 @@
     { id:"back_to_back_diver",      name:"Back-to-Back Diver",        icon:"", cat:"All Modes",   xp:1000,  desc:"Win without using the Pool in both a Casual and Competitive game back to back." },
     { id:"board_fixer",             name:"Board Fixer",               icon:"", cat:"All Modes",   xp:1000,  desc:"Move an animal on your final turn and win." },
     { id:"first_ocean_master",      name:"First Ocean Master",        icon:"", cat:"All Modes",   xp:1000,  desc:"Win once with every Ocean type as your first Ocean." },
-    { id:"circle_of_life",          name:"Circle of Life",            icon:"", cat:"All Modes",   xp:1000,  desc:"Win with 8 different species on your board." },
+    { id:"circle_of_life",          name:"Circle of Life",            icon:"", cat:"All Modes",   xp:1000,  desc:"Win with 8 different families on your board." },
     { id:"shot_the_moon",           name:"Shot the Moon",             icon:"", cat:"Special",     xp:1500,  desc:"Clear the pool while one of your cards is a Mandarin Goby, and another player has the other 3 Mandarin Gobies on their board." },
     { id:"reef_rally",              name:"Reef Rally",                icon:"", cat:"Friends",     xp:1500,  desc:"Add 15 friends." },
     { id:"emerald_emperor_penguin", name:"Emerald Emperor Penguin",   icon:"", cat:"Rank",        xp:1500,  desc:"Reach Emerald rank." },
@@ -25733,6 +26120,28 @@
       if (!_authUser || !_db) return;
       if (String(profile.terms_version || "") === CC_TERMS_VERSION) return;
       if (_ccTermsRecheckOpen) return;
+      // ── ONCE PER ACCOUNT, AND THE PROFILE ALONE CANNOT PROMISE THAT ──
+      // The version check above used to be the whole guard, and it reads a
+      // profile fetched at some earlier moment. onAuthStateChanged re-runs on
+      // every token refresh and re-reads the profile, so a read issued BEFORE
+      // the agreement was saved can arrive AFTER the dialog closed: no
+      // terms_version on it, nothing open, and the player is asked a second
+      // time by a dialog whose own copy says it is the only time they will see
+      // it. A second window on the same account is the same story without the
+      // race.
+      //
+      // So the answer is remembered in two more places. The DEVICE MARKER is
+      // written only on a save Firestore accepted, which makes it a record of
+      // a fact rather than of an intention: when it says this account agreed,
+      // a profile that disagrees is the stale half, so the write is quietly
+      // repeated instead of the question. The PER-PAGE SET remembers that an
+      // account was ASKED, whatever came of it, so a failed save still backs
+      // off until the next page load, which is what the player was told would
+      // happen.
+      const uid = String(_authUser.uid || "");
+      if (ccTermsAcked(uid)) { ccHealTermsVersion(uid); return; }
+      if (_ccTermsAsked.has(uid)) return;
+      _ccTermsAsked.add(uid);
       _ccTermsRecheckOpen = true;
 
       const wrap = document.createElement("div");
@@ -25759,6 +26168,17 @@
         +   '<button type="button" class="cc-tr-go" disabled>Agree and Continue</button>'
         + '</div>';
       document.body.appendChild(wrap);
+
+      // The one way this dialog goes away. Published so another window that
+      // agrees on the same account can take this copy down (see the storage
+      // listener beside CC_TERMS_ACK_PREFIX), and so the open flag can never
+      // be cleared without the element going with it.
+      function close() {
+        try { wrap.remove(); } catch (_) {}
+        _ccTermsRecheckOpen = false;
+        if (_ccTermsRecheckClose === close) _ccTermsRecheckClose = null;
+      }
+      _ccTermsRecheckClose = close;
 
       const dob = wrap.querySelector("#cc-tr-dob");
       const box = wrap.querySelector("#cc-tr-terms");
@@ -25795,13 +26215,17 @@
             age_attested_13_plus: true,
           }, { merge: true });
           if (_activeProfile) _activeProfile.terms_version = CC_TERMS_VERSION;
-          wrap.remove();
-          _ccTermsRecheckOpen = false;
+          // Recorded BEFORE the dialog goes, so no re-read can land in the gap
+          // between the two. From here on this account is never asked again on
+          // this device, and any other window on it closes its own copy.
+          ccMarkTermsAcked(uid);
+          close();
         } catch (e) {
-          // Let them in. Asked again next time.
+          // Let them in. Asked again next time: no device marker, because
+          // nothing was saved, and _ccTermsAsked keeps it to NEXT time rather
+          // than the next token refresh a minute from now.
           ccReport("terms_recheck_save_failed", ccErrDetail(e), "warn");
-          wrap.remove();
-          _ccTermsRecheckOpen = false;
+          close();
           showToast("We could not save that just now, so we will ask again next time. "
                   + "Nothing is wrong with your account.", "warn", 6000);
         }
@@ -28973,6 +29397,73 @@
     // else writes it.
     let _ccSignupConsent = null;
     let _ccTermsRecheckOpen = false;
+    // Closes whichever recheck dialog is open right now, if any. Held at this
+    // level so another window agreeing on the same account can take this one
+    // down; null when nothing is open.
+    let _ccTermsRecheckClose = null;
+    // Accounts already ASKED in this page load, whatever came of it, keyed by
+    // uid so signing out and into a different account still asks that one.
+    const _ccTermsAsked = new Set();
+    // The device's record of an agreement Firestore accepted: one key per
+    // account, holding the version that was accepted. localStorage and not
+    // sessionStorage on purpose, the whole point is that it outlives the
+    // window. It is a version string against a uid and nothing else, so it
+    // says no more about the player than the caches already beside it.
+    const CC_TERMS_ACK_PREFIX = "cc_terms_ack_v1::";
+    function ccTermsAckKey(uid) { return CC_TERMS_ACK_PREFIX + String(uid || ""); }
+    function ccTermsAcked(uid) {
+      if (!uid) return false;
+      // A browser with storage switched off answers false and we fall back to
+      // the profile, which is the behaviour this replaced: never an exception
+      // on the sign-in path.
+      try { return localStorage.getItem(ccTermsAckKey(uid)) === CC_TERMS_VERSION; }
+      catch (_) { return false; }
+    }
+    function ccMarkTermsAcked(uid) {
+      if (!uid) return;
+      try { localStorage.setItem(ccTermsAckKey(uid), CC_TERMS_VERSION); } catch (_) {}
+    }
+    // The device says this account agreed, a profile read says it did not. The
+    // device only says so after a save Firestore confirmed, so the read is the
+    // wrong one: put the version back without involving the player. A failure
+    // is silence, because there is nothing here to tell them, and
+    // terms_accepted_at is deliberately NOT rewritten: the real acceptance
+    // time is already on the document and a fresh timestamp would replace a
+    // fact with the time we noticed it.
+    //
+    // Once per account per page load, and the SET is the point: two accounts
+    // can both need this in one page load on a shared computer, and the second
+    // one must not be skipped because the first one went first.
+    const _ccTermsHealed = new Set();
+    function ccHealTermsVersion(uid) {
+      if (!uid || !_db || _ccTermsHealed.has(uid)) return;
+      _ccTermsHealed.add(uid);
+      // Only if the profile in hand is actually this account's.
+      if (_activeProfile && String(_activeProfile.uid || uid) === uid) {
+        _activeProfile.terms_version = CC_TERMS_VERSION;
+      }
+      try {
+        void _db.collection("users").doc(uid).set({
+          terms_version:        CC_TERMS_VERSION,
+          terms_accepted_text:  CC_TERMS_TEXT,
+          age_attested_13_plus: true,
+        }, { merge: true }).catch(() => {});
+      } catch (_) {}
+    }
+    // One account, one agreement, however many windows are open on it. A
+    // storage event fires in the OTHER windows only, which is exactly who
+    // needs telling.
+    try {
+      window.addEventListener("storage", (e) => {
+        if (!e || String(e.key || "").indexOf(CC_TERMS_ACK_PREFIX) !== 0) return;
+        if (e.newValue !== CC_TERMS_VERSION) return;
+        const uid = String(e.key).slice(CC_TERMS_ACK_PREFIX.length);
+        if (!uid || !_authUser || String(_authUser.uid || "") !== uid) return;
+        _ccTermsAsked.add(uid);
+        if (_activeProfile) _activeProfile.terms_version = CC_TERMS_VERSION;
+        if (typeof _ccTermsRecheckClose === "function") _ccTermsRecheckClose();
+      });
+    } catch (_) {}
     let _ccPurchaseAckOpen = false;
 
     function ccTodayISO() {
@@ -35487,8 +35978,8 @@
         + `<div class="htp-step-body"><h3 class="htp-h3">${title}</h3>${body}</div></div>`;
     }
 
-    // ── List of Species ─────────────────────────────────────────────
-    // The printed "List of Species" poster, rebuilt as live cards. The portrait
+    // ── List of Families ────────────────────────────────────────────
+    // The printed "List of Families" poster, rebuilt as live cards. The portrait
     // is the gallery art (/avatars/*.png) so each family is recognisable at a
     // glance the way the poster's icons are; `n` is counted off the real deck
     // lists, and the colour is the one the game glows that family in.
@@ -35513,20 +36004,20 @@
           + `</div></article>`;
       }).join("");
       // Oceans get their own strip rather than a tenth tile: they are not a
-      // species, they are the thing the other nine hang off.
+      // family, they are the thing the other nine hang off.
       const oceanStrip = `<div class="htp-spec-ocean" style="--sc:${familyColor("ocean")};--si:${familyInk("ocean")}">`
         + `<span class="htp-spec-ocean-art">`
         +   `<img src="${imagePathForUid(217)}" alt="Coral Reef ocean card" loading="lazy">`
         + `</span>`
         + `<div class="htp-spec-body">`
-        +   `<h3 class="htp-spec-name">Oceans <span class="htp-spec-note">not a species, the foundation</span></h3>`
+        +   `<h3 class="htp-spec-name">Oceans <span class="htp-spec-note">not a family, the foundation</span></h3>`
         +   `<div class="htp-spec-meta"><span class="htp-spec-n">68 cards</span>`
         +     `<span class="htp-spec-slot">8 kinds of ocean</span></div>`
         +   `<p class="htp-spec-txt">Every animal above has to attach to one of these. Oceans go down left to right, `
         +     `never move again, and each kind scores by its own rule, a Coral Reef pays more the more reefs you `
         +     `own, an Artificial Reef pays for every card hanging off it, a Tide Pool just counts your oceans.</p>`
         + `</div></div>`;
-      return '<div class="htp-sec-head">List of species</div>'
+      return '<div class="htp-sec-head">List of families</div>'
         + '<p class="htp-p htp-p-lead">Every animal in the game belongs to one of these nine families. Each family '
         +   'has its own colour, and that is the colour the game lights a card up in once you switch on a strategy: '
         +   'in your hand and in the pool alike. The small mark beside each name is the family’s symbol, the one '
@@ -35635,7 +36126,7 @@
         +     'with their own kind without limit.</p></div>'
         +   '<div class="htp-col"><h3 class="htp-h3">Reading a card</h3>'
         +     '<p class="htp-p"><b>Hover</b> a card to read its ability, <b>double-click</b> to zoom it full size. '
-        +     'Cost sits top-left, symbol top-right, name and species along the bottom, points and ability in the '
+        +     'Cost sits top-left, symbol top-right, name and family along the bottom, points and ability in the '
         +     'bottom box.</p></div>'
         +   '<div class="htp-col"><h3 class="htp-h3">Ten cards, no more</h3>'
         +     '<p class="htp-p">If you finish a turn holding more than 10 cards, the game asks you to discard down to '
@@ -36532,7 +37023,7 @@
       { id: "kelp_start",        name: "Kelp Start",                 req: "Play a Kelp Forest as your first Ocean.",                        target: 1,   xp: 50 },
       { id: "tide_pool_start",   name: "Tide Pool Start",            req: "Play a Tide Pool as your first Ocean.",                          target: 1,   xp: 50 },
       { id: "artificial_start",  name: "Artificial Start",           req: "Play an Artificial Reef as your first Ocean.",                   target: 1,   xp: 50 },
-      { id: "mini_ecosystem",    name: "Mini Ecosystem",             req: "Play 4 different species groups in one game.",                   target: 4,   xp: 150 },
+      { id: "mini_ecosystem",    name: "Mini Ecosystem",             req: "Play 4 different families in one game.",                   target: 4,   xp: 150 },
       { id: "surface_life",      name: "Surface Life",               req: "Play 3 cards on top spaces in a row.",                           target: 3,   xp: 75 },
       { id: "ocean_floor",       name: "Ocean Floor",                req: "Play 3 cards on bottom spaces in a row.",                        target: 3,   xp: 75 },
       { id: "star_spark",        name: "Star Spark",                 req: "Activate 2 ★ abilities.",                                        target: 2,   xp: 75 },
@@ -36595,7 +37086,7 @@
       { id: "mammal_week",           name: "Mammal Week",              req: "Play 27 Mammals this week.",                                   target: 27, xp: 1500 },
       { id: "invertebrate_week",     name: "Invertebrate Week",        req: "Play 27 Invertebrates this week.",                             target: 27, xp: 1500 },
       { id: "crosscurrent_week",     name: "Crosscurrent Week",        req: "Play 30 Crosscurrent cards this week.",                        target: 30, xp: 1500 },
-      { id: "balanced_ocean",        name: "Balanced Ocean",           req: "Play 6 different species groups in one game.",                 target: 6,  xp: 1250 },
+      { id: "balanced_ocean",        name: "Balanced Ocean",           req: "Play 6 different families in one game.",                 target: 6,  xp: 1250 },
       { id: "critter_collector",     name: "Critter Collector",        req: "Play 50 total animal cards this week.",                        target: 50, xp: 1500 },
       { id: "all_blue_week",         name: "All Blue Week",            req: "Win using the Ocean-heavy strategy combo 4 times.",            target: 4,  xp: 1000 },
       { id: "tuna_week",             name: "Tuna Week",                req: "Win using Yellowfin Tuna stacking combo 4 times.",             target: 4,  xp: 1000 },

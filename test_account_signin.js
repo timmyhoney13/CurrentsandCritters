@@ -88,7 +88,7 @@ console.log("\nthe artwork is scenery, and every way in is real markup");
         /#auth-step-choose > \.ao-copy \{[\s\S]{0,400}?clip-path: inset\(50%\);/.test(CSS));
   check("…and the tagline is the game's own line, word for word off the picture",
         />Build Your Ocean\. Rule the Current\.</.test(HTML)
-        && />Play Animals\. Combine Species\. Build Ecosystems\. Rule The Ocean\.</.test(HTML));
+        && />Play Animals\. Combine Families\. Build Ecosystems\. Rule The Ocean\.</.test(HTML));
   check("every way in is on the one screen",
         /id="ao-user"/.test(HTML) && /id="ao-pass"/.test(HTML)
         && /id="ao-signin"/.test(HTML) && /id="auth-choose-google-btn"/.test(HTML)

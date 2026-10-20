@@ -745,7 +745,7 @@ function audit(label, res) {
         console.log(`\n${name}, ${dev} (${w}x${h})`);
         // Budget per tour. The Game grew from 23 steps to 29 when it picked up
         // the rules a first-time player actually needs (what the sand dollars
-        // are, what the Pool does, that a species symbol restricts nothing), so
+        // are, what the Pool does, that a family symbol restricts nothing), so
         // it gets more than the short Online tour: this is a REAL match against
         // a real server, and every extra step is a real popup the driver has to
         // read and press through.

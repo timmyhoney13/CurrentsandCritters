@@ -137,6 +137,44 @@ def _ranked_floor_error() -> str:
     """The one sentence every door that turns a small competitive table away
     says, so the host is told the same thing wherever they hit it."""
     return f"a competitive game needs at least {COMP_FFA_MIN_PLAYERS} people"
+
+
+# Every free play the engine can hand a player, in the words the client puts on
+# screen. The client matches a card in the hand against this list on its SPECIES
+# or its NAME, lights those cards up, and names them in the guide bar and in the
+# flash across the board, so a name that is not a real species is fine here as
+# long as it is a real card name.
+#
+# The flags are the engine's own, set by star abilities in
+# fish_game_all_in_one.py and read back by is_free_play_eligible(). Keep the two
+# in step: a flag the engine honours and this does not is a free play the player
+# is holding with nothing on screen to say so. That is exactly what happened to
+# the Yellowfin Tuna, which is granted by card NAME (and as a COUNT, normally
+# two) rather than by species, and so fell through a species-only list.
+# test_free_play_species.py and test_free_play_hand.js both read
+# is_free_play_eligible() out of the engine and fail if this list drifts from it.
+_FREE_PLAY_SPECIES_FLAGS: List[Tuple[str, Tuple[str, ...]]] = [
+    ("Mammal",         ("free_mammal",)),
+    ("Baitfish",       ("free_baitfish", "free_baitfish_chain")),
+    ("Game Fish",      ("free_game_fish",)),
+    ("Cephalopod",     ("free_cephalopods", "free_cephalopod_once")),
+    ("Crustacean",     ("free_crustacean",)),
+    ("Invertebrate",   ("free_invertebrate",)),
+    ("Coral",          ("free_coral",)),
+    ("Yellowfin Tuna", ("free_yellowfin_tuna",)),
+]
+
+
+def free_play_species_for(player) -> List[str]:
+    """What this player can play for free right now, or an empty list."""
+    flags = getattr(player, "flags", None) or {}
+    out: List[str] = []
+    for label, keys in _FREE_PLAY_SPECIES_FLAGS:
+        # A count flag (free_yellowfin_tuna) is spent down to 0, and 0 is not a
+        # free play; a plain bool flag is just truthy.
+        if any(flags.get(k) for k in keys):
+            out.append(label)
+    return out
 # Team Mode: the fixed team roster. A team's index (0..3) maps to its color
 # name and swatch. A team game starts with 2 teams (Red vs Blue) and the host
 # can open up to 4 (adding Green, then Yellow).
@@ -6012,6 +6050,13 @@ class Seat:
 
 
 class GameRoom:
+    # Shortest gap between two REAL Surf's Up!! toggles by the same person.
+    # A player leaning on the button used to append one System chat line per
+    # press, which buried the conversation and pushed it out of the capped
+    # window every client is sent. Stepping away and coming back is a thing
+    # people do once in a while, never twice in a second.
+    SURF_TOGGLE_MIN_INTERVAL = 3.0
+
     def __init__(
         self,
         room_id: str,
@@ -6184,6 +6229,7 @@ class GameRoom:
         self.afk_immune_until: Dict[int, float] = {}  # seat_index -> time.time() until Surf's Up immunity ends
         self.AFK_CHALLENGE_SECONDS = 20.0
         self.AFK_SURF_IMMUNE_SECONDS = 600.0          # 10 minutes
+        self.last_away_toggle: Dict[int, float] = {}  # seat_index -> time.time() of last REAL Surf's Up toggle
 
         self.game_thread: Optional[threading.Thread] = None
         self.action_history: List[Dict[str, Any]] = []
@@ -9345,6 +9391,28 @@ class GameRoom:
             private_hands[seat_idx] = hand_payload
 
         pool_payload = [entry_to_dict(ms, gs, uid) for uid in list(ms.pool) if isinstance(uid, int)]
+        # Which of those the Ocean flip put there, for the client's big
+        # flip-out reveal. Named BOTH ways, entry uid and first face uid,
+        # because the client matches a Pool card on the face it draws and a
+        # paired entry's face uid is not its entry uid. It stays named for as
+        # long as the card is in the Pool, so a client that missed the poll it
+        # arrived on still plays the reveal, and a Pool clear drops it with the
+        # card itself.
+        flipped_uids = {int(u) for u in getattr(ms, "ocean_flip_uids", []) if isinstance(u, int)}
+        ocean_flip_uids: List[int] = []
+        if flipped_uids:
+            for entry in pool_payload:
+                try:
+                    entry_id = int(entry.get("entry_uid", -1))
+                except Exception:
+                    continue
+                if entry_id not in flipped_uids:
+                    continue
+                ocean_flip_uids.append(entry_id)
+                faces = entry.get("faces") or []
+                face_uid = faces[0].get("uid") if faces and isinstance(faces[0], dict) else None
+                if isinstance(face_uid, int) and face_uid != entry_id:
+                    ocean_flip_uids.append(int(face_uid))
         current_player = None
         if gs.players:
             try:
@@ -9400,6 +9468,7 @@ class GameRoom:
             "pool_count": len(ms.pool),
             "discard_pile_count": len(ms.discard_pile),
             "pool": pool_payload,
+            "ocean_flip_uids": ocean_flip_uids,
             "players": players_public,
             "end_game": {
                 "triggered": bool(ms.end_game_triggered),
@@ -9662,6 +9731,10 @@ class GameRoom:
             _eg_probs = fish.validate_end_game_placement(gs_restore, ms_restore, where="post-undo-restore-flag")
             for _p in _eg_probs:
                 self._record_event(f"END GAME PLACEMENT: {_p}")
+            # An undo rewinds every zone at once, so it is also the moment to
+            # confirm the table still holds every card it started with.
+            for _p in fish.validate_card_census(gs_restore, ms_restore, where="post-undo-restore-flag"):
+                self._record_event(f"CARD CENSUS: {_p}")
         except Exception:
             pass
         gs.__dict__.clear()
@@ -9803,22 +9876,9 @@ class GameRoom:
                     is_open_play_window = bool(fish.has_multi_play_window(player))
                 except Exception:
                     is_open_play_window = False
-                # Build a list of species the player can currently play for free.
-                free_play_species: List[str] = []
-                if player.flags.get("free_mammal"):
-                    free_play_species.append("Mammal")
-                if player.flags.get("free_baitfish") or player.flags.get("free_baitfish_chain"):
-                    free_play_species.append("Baitfish")
-                if player.flags.get("free_game_fish"):
-                    free_play_species.append("Game Fish")
-                if player.flags.get("free_cephalopods") or player.flags.get("free_cephalopod_once"):
-                    free_play_species.append("Cephalopod")
-                if player.flags.get("free_crustacean"):
-                    free_play_species.append("Crustacean")
-                if player.flags.get("free_invertebrate"):
-                    free_play_species.append("Invertebrate")
-                if player.flags.get("free_coral"):
-                    free_play_species.append("Coral")
+                # What the player can play for free right now, in the words
+                # the client shows and matches hand cards against.
+                free_play_species: List[str] = free_play_species_for(player)
                 try:
                     legal_payload = self._serialize_legal_actions(gs, ms, player, actions)
                     legal_payload["is_replay_turn"] = is_replay_turn
@@ -9950,6 +10010,8 @@ class GameRoom:
                             _eg_probs = fish.validate_end_game_placement(gs_restore, ms_restore, where="post-undo-restore")
                             for _p in _eg_probs:
                                 self._record_event(f"END GAME PLACEMENT: {_p}")
+                            for _p in fish.validate_card_census(gs_restore, ms_restore, where="post-undo-restore"):
+                                self._record_event(f"CARD CENSUS: {_p}")
                         except Exception:
                             pass
                         gs.__dict__.clear()
@@ -13316,6 +13378,35 @@ class GameRoom:
             # the hand that happened to be active left the other hand "present"
             # for a player who had walked away.
             owned = self._owned_seats_locked(seat)
+
+            # Nothing to do: they are already on the state they asked for. Say
+            # so and stop. This used to fall through and announce the unchanged
+            # state into chat anyway, so a client re-sending the same value (or
+            # a player mashing the button) wrote a System line per call.
+            # set_inactive_eligible below has always short-circuited this way.
+            if bool(new_val) == bool(seat.is_away):
+                return {"ok": True, "is_away": seat.is_away, "unchanged": True}
+
+            # A REAL change. Going Away is rate limited, coming back NEVER is:
+            # an Away player cannot make a single move and the turn loop waits
+            # on them, so refusing "I'm Back" would strand the player and stall
+            # the whole table. Limiting one direction is enough, since a toggle
+            # loop has to pass through it. Refuse before anything is mutated,
+            # so a refused press costs the player nothing they already earned
+            # (notably the 10-minute AFK immunity granted below).
+            now = time.time()
+            if new_val:
+                last = max((self.last_away_toggle.get(s.index, 0.0) for s in owned),
+                           default=0.0)
+                if now - last < self.SURF_TOGGLE_MIN_INTERVAL:
+                    wait = max(1, int(round(self.SURF_TOGGLE_MIN_INTERVAL - (now - last))))
+                    return {
+                        "ok": False,
+                        "error": "Surf's Up!! was just used. Wait %d second%s and try again."
+                                 % (wait, "" if wait == 1 else "s"),
+                    }
+                for s in owned:
+                    self.last_away_toggle[s.index] = now
             for s in owned:
                 s.is_away = bool(new_val)
             # Pressing Surf's Up grants 10 minutes of AFK-vote immunity, this
@@ -13347,12 +13438,28 @@ class GameRoom:
             # "Otter 2 is on Surf's Up" when Otter stepped away.
             display = owned[0].claimed_name or owned[0].label
             note = f"{display} is on Surf's Up, Away" if seat.is_away else f"{display} is back."
-            self.chat_messages.append({
-                "sender": "System",
-                "target": "Everyone",
-                "message": note,
-                "ts": time.time(),
-            })
+            # One player stepping out and back is ONE entry in the log, not a
+            # running commentary. If the newest line in the room is already
+            # this player's own Surf's Up line, rewrite it in place rather
+            # than appending another: the room still reads their true current
+            # state, and someone toggling repeatedly can never cost the
+            # conversation more than that single line. Only ever the newest
+            # line, so nothing already sitting above other people's messages
+            # is edited after the fact.
+            prev = self.chat_messages[-1] if self.chat_messages else None
+            if (isinstance(prev, dict)
+                    and prev.get("sender") == "System"
+                    and prev.get("surf_seat") == owned[0].index):
+                prev["message"] = note
+                prev["ts"] = now
+            else:
+                self.chat_messages.append({
+                    "sender": "System",
+                    "target": "Everyone",
+                    "message": note,
+                    "ts": now,
+                    "surf_seat": owned[0].index,
+                })
             if len(self.chat_messages) > 200:
                 self.chat_messages = self.chat_messages[-200:]
             self.status_note = note

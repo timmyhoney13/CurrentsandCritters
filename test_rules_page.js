@@ -236,8 +236,8 @@ check("every ocean strategy states the goal its recommendation is measured again
   eq(byLabel("Piers").goal, { most: true }, "Piers is a contest");
 });
 
-check("the species guide covers the nine animal families", () => {
-  eq(W.CC_SPECIES_GUIDE.length, 9, "species guide should hold nine families");
+check("the family guide covers the nine animal families", () => {
+  eq(W.CC_SPECIES_GUIDE.length, 9, "family guide should hold nine families");
   W.CC_SPECIES_GUIDE.forEach(s => {
     assert(W.CC_FAMILY_COLORS[s.key], s.name + ": " + s.key + " is not a colour-table family");
     assert(s.art && s.n && s.slot && s.txt, s.name + " is missing a field");
@@ -254,9 +254,9 @@ const symsFor = (i) => W.CC_STRAT_SYMBOLS(i, W.CC_BUILTIN_STRATEGIES[i]);
 
 check("there is a symbol for each of the nine animal families, and no tenth", () => {
   eq(Object.keys(W.CC_FAMILY_SYMBOL).sort(), W.CC_SPECIES_GUIDE.map(s => s.key).sort(),
-    "FAMILY_SYMBOL must match the nine families on the List of Species");
+    "FAMILY_SYMBOL must match the nine families on the List of Families");
   assert(!("ocean" in W.CC_FAMILY_SYMBOL),
-    "an ocean is not a species and has no printed symbol, it must not get one here");
+    "an ocean is not a family and has no printed symbol, it must not get one here");
 });
 
 check("every family symbol names a file that exists, and a name to read out", () => {
@@ -350,7 +350,7 @@ check("every ocean strategy wears the picture of its own ocean card", () => {
     const i = W.CC_BUILTIN_STRATEGIES.indexOf(s);
     const syms = symsFor(i);
     eq(syms.length, 1, s.label + " wears one picture");
-    assert(!syms[0].sym, s.label + " must not claim a species symbol");
+    assert(!syms[0].sym, s.label + " must not claim a family symbol");
     eq(OCEAN_NAMES[syms[0].cardUid], want[s.label], s.label + " shows the wrong ocean card");
     assert(s.uids.indexOf(syms[0].cardUid) !== -1, s.label + " shows a card it does not list");
     const page = syms[0].cardUid - 200;
@@ -531,7 +531,9 @@ check("the plans Timothy retuned on 2026-10-14 stayed retuned", () => {
   for (const c of ["Lobster", "Spiny Lobster", "Mantis Shrimp"]) {
     assert(names("Birds").indexOf(c) === -1, "Birds should not list " + c);
   }
-  // Johnson's Sea Cucumber draws on a YELLOWFIN TUNA, so it is no help here.
+  // Johnson's Sea Cucumber draws on a GAME FISH, and a baitfish is not one, so
+  // it is no help here. The Yellowfin Tuna is a game fish, and 14 of the deck's
+  // 44 game-fish faces are Yellowfin, so the stack is still where it belongs.
   assert(names("Baitfish Barrage").indexOf("Johnson's Sea Cucumber") === -1,
     "Baitfish Barrage should not list Johnson's Sea Cucumber");
   assert(names("Yellowfin Tuna Stack").indexOf("Johnson's Sea Cucumber") !== -1,

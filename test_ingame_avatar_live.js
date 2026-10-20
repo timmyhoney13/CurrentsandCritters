@@ -139,7 +139,7 @@ function harness() {
     "let _seatsRenderKey = null;" +
     "let _latestSeatsForSurf = [];" +
     "let canInteract = false;" +
-    "let _chatLastCount = -1, _chatLastAvatarKey = '';" +
+    "let _chatLastCount = -1, _chatLastAvatarKey = '', _chatLastFingerprint = '';" +
     "let _chatRoomTotal = 0, _chatSeenCount = 0, _chatPanelOpen = false, _chatView = 'room';" +
     "let latestPayload = { viewer: { name: ctx.myName } };" +
     // Collaborators, stubbed to the smallest thing that still exercises the code.

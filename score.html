@@ -329,7 +329,7 @@ const CARD_DB = [
   { id:'tarpon',            name:'Tarpon',            type:'gamefish',   base:5, rule:'flat',        ruleNote:'+5 base. Discard & draw that many cards', img:'assets/cards/vertical_02.png' },
   { id:'mahi-mahi',         name:'Mahi Mahi',         type:'gamefish',   base:4, rule:'flat',        ruleNote:'+4 base', img:'assets/cards/vertical_04.png' },
   { id:'blue-tang',         name:'Blue Tang',         type:'baitfish',   base:2, rule:'flat',        ruleNote:'+2 base', img:'assets/cards/vertical_05.png' },
-  { id:'octopus',           name:'Octopus',           type:'cephalopod', base:3, rule:'per-type',    ruleNote:'+3 per unique species type', img:'assets/cards/vertical_07.png' },
+  { id:'octopus',           name:'Octopus',           type:'cephalopod', base:3, rule:'per-type',    ruleNote:'+3 per unique family', img:'assets/cards/vertical_07.png' },
   { id:'sea-turtle',        name:'Sea Turtle',        type:'mammal',     base:4, rule:'flat',        ruleNote:'+4 base', img:'assets/cards/vertical_10.png' },
   { id:'emperor-penguin',   name:'Emperor Penguin',   type:'bird',       base:0, rule:'per-bird',    ruleNote:'+2 per Bird in hand', img:'assets/cards/horizontal_01.png' },
   { id:'staghorn-coral',    name:'Staghorn Coral',    type:'coral',      base:0, rule:'per-coral',   ruleNote:'+3 per Coral in hand', img:'assets/cards/horizontal_05.png' },
@@ -403,7 +403,7 @@ function renderResults(result) {
   `).join('');
 
   const synergyRow = result.synergyBonus
-    ? `<div class="detected"><div class="thumb" style="background:var(--brand-mint-soft);color:var(--brand-mint-deep)">★</div><div class="info"><div class="name">Diversity Bonus</div><div class="note">${result.uniqueTypes} unique species types</div></div><div class="pts">+${result.synergyBonus}</div></div>`
+    ? `<div class="detected"><div class="thumb" style="background:var(--brand-mint-soft);color:var(--brand-mint-deep)">★</div><div class="info"><div class="name">Diversity Bonus</div><div class="note">${result.uniqueTypes} unique families</div></div><div class="pts">+${result.synergyBonus}</div></div>`
     : '';
 
   resultsBody.innerHTML = `
