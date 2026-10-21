@@ -739,6 +739,12 @@ serviceAccountKey.json
 # network therefore cost the player their XP, streak and game history on a
 # screen that showed all three. Pins the watchdog and the three save states.
 !test_endgame_save_retry.js
+# Whose score did you just save? saveGameStats found the player's own row in
+# final_scores by NAME, and nothing makes a name unique inside a room, so two
+# guests both called "Player" at one table each saved the SAME row: one took
+# the other's score, placement and XP. Runs the real resolution chain, sliced
+# out of the app, over a table where two seats share one name.
+!test_endgame_my_entry.js
 # Game Night pays 1.75x XP, and the whole feature is "at the right hour": the
 # schedule and the multiplier live in ONE module, so this sweeps a year of
 # Saturdays a minute at a time (DST included) and runs the app's real prestigeXp

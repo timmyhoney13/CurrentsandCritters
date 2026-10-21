@@ -18,6 +18,7 @@ import secrets
 import socket
 import string
 import subprocess
+import sys
 import threading
 import time
 import traceback
@@ -4706,6 +4707,21 @@ def list_room_state_files() -> List[str]:
     out: List[str] = []
     for name in names:
         if not str(name).endswith(".json"):
+            continue
+        # Only files that are actually rooms. room_state_path names them after
+        # the room id and nothing else ("<ROOMID>.json", uppercase letters and
+        # digits), but this directory is also where the other modules keep
+        # their own state: site_stats.json lives here by default (STATS_PATH)
+        # and so does snap_sessions.json (snap_score.init gets this very
+        # directory). Every one of those was being opened at boot, parsed as a
+        # room checkpoint, rejected, and counted as a RECOVERY FAILURE: a
+        # freshly created state directory reported "1 failed" with nothing in
+        # it but site_stats.json, and on the live server at least two. That
+        # number is the only signal anybody has that rooms did not come back
+        # after a restart, and it was never zero, so a genuine failure had
+        # nothing to stand out against.
+        stem = str(name)[: -len(".json")]
+        if not ROOM_ID_RE.fullmatch(stem):
             continue
         out.append(os.path.join(ROOM_STATE_DIR, str(name)))
     out.sort()
@@ -14063,11 +14079,6 @@ class RoomManager:
         with self.lock:
             return self._active_room_locked()
 
-    def _active_rank(self, room: GameRoom) -> tuple[int, int]:
-        started = int(room.started_unix or 0)
-        created = int(room.created_unix or 0)
-        return started, created
-
     def load_persisted_rooms(self, card_db: Dict[int, fish.CardDef]) -> Dict[str, int]:
         loaded = 0
         resumed = 0
@@ -14093,18 +14104,31 @@ class RoomManager:
             seen_ids.add(room.room_id)
             candidates.append(room)
 
-        keep_active_id: Optional[str] = None
-        active_candidates = [room for room in candidates if room.phase in {"lobby", "running"}]
-        if active_candidates:
-            keep_active_id = max(active_candidates, key=self._active_rank).room_id
-
+        # EVERY game that was in progress comes back, not just one.
+        #
+        # This used to keep the single most recently started lobby/running room
+        # and force every other one to phase "ended" with the note "Archived
+        # room from previous server session." That is left over from when the
+        # server served one table at a time (it dates to the first Render
+        # deploy, alongside active_room()). Rooms have been independent for a
+        # long time: 10 concurrent games with 60 people in them is a measured,
+        # supported load.
+        #
+        # Against that, archiving was straightforwardly destructive. A restart
+        # is not rare: the host redeploys on every push (autoDeploy), the
+        # process can be restarted under it, and a crash restarts it too. One
+        # restart during a busy session ended every game but one, mid-play,
+        # for everybody in them. And an archived room never reaches the code
+        # that publishes final_scores, so none of those players' games were
+        # ever saved either: no score, no XP, no streak, no history. The one
+        # surviving table could not tell anything had happened.
+        #
+        # So every restored room keeps the phase it was saved with, and the
+        # loop below resumes each one that was running. The only thing the old
+        # cap was protecting was an assumption that no longer exists.
         resume_rooms: List[GameRoom] = []
         with self.lock:
             for room in candidates:
-                if room.phase in {"lobby", "running"} and keep_active_id and room.room_id != keep_active_id:
-                    room.phase = "ended"
-                    room.ended_unix = room.ended_unix or now_unix()
-                    room.status_note = "Archived room from previous server session."
                 if room.room_id in self.rooms:
                     skipped += 1
                     continue
@@ -14381,6 +14405,36 @@ class StableThreadingHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
     request_queue_size = 128
+
+    # A player closing their tab is not a server error.
+    #
+    # Every client holds an SSE stream open plus a keep-alive polling
+    # connection, so when they leave, the socket this server is waiting on
+    # resets. socketserver's default handle_error prints a full traceback for
+    # that, and BaseHTTPRequestHandler.handle_one_request does not catch it, so
+    # ONE person closing a tab writes a traceback to the log. Sixty people
+    # leaving at the end of a session wrote sixty, interleaved from sixty
+    # threads into each other (measured: 60 people across 10 games produced 57
+    # of these and nothing else). On a host whose log is the only thing that
+    # says whether the service is healthy, that is worse than noise: a real
+    # traceback has to be found in the middle of them, and the garbled ones
+    # read like a crash when nothing has gone wrong at all.
+    #
+    # So the disconnect family is dropped silently and EVERYTHING else still
+    # prints exactly as before. The connection is already gone in these cases,
+    # there was never anything to do about it.
+    _QUIET_REQUEST_ERRORS = (
+        ConnectionResetError,     # the client reset the socket (tab closed)
+        ConnectionAbortedError,
+        BrokenPipeError,          # we were mid-write when they went away
+        TimeoutError,             # socket timeout waiting for a request line
+    )
+
+    def handle_error(self, request, client_address):  # type: ignore[override]
+        exc = sys.exc_info()[1]
+        if isinstance(exc, self._QUIET_REQUEST_ERRORS):
+            return
+        super().handle_error(request, client_address)
 
 
 class MultiplayerHandler(SimpleHTTPRequestHandler):

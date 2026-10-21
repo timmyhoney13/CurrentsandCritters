@@ -520,5 +520,185 @@ class StateViewDoesNotLeakBetweenViewers(unittest.TestCase):
         self.assertNotIn("avatar", room.latest_public_state["players"][0])
 
 
+class RecoveryCounterCountsOnlyRooms(unittest.TestCase):
+    """"Recovered rooms: … N failed" has to mean something.
+
+    The state directory is not only rooms. site_stats.json lives there by
+    default (STATS_PATH) and so does snap_sessions.json (snap_score.init is
+    handed this very directory). Every .json in it was opened at boot and
+    parsed as a room checkpoint, so each of those counted as a recovery
+    FAILURE: a brand-new state directory reported "1 failed" holding nothing
+    but site_stats.json. That counter is the only thing that says whether
+    games came back after a restart, and it could never read zero.
+    """
+
+    def setUp(self):
+        self._saved_rooms = dict(mp.ROOMS.rooms)
+        mp.ROOMS.rooms.clear()
+        for name in os.listdir(mp.ROOM_STATE_DIR):
+            os.remove(os.path.join(mp.ROOM_STATE_DIR, name))
+
+    def tearDown(self):
+        for name in os.listdir(mp.ROOM_STATE_DIR):
+            os.remove(os.path.join(mp.ROOM_STATE_DIR, name))
+        mp.ROOMS.rooms.clear()
+        mp.ROOMS.rooms.update(self._saved_rooms)
+
+    def _write(self, name, payload):
+        with open(os.path.join(mp.ROOM_STATE_DIR, name), "w", encoding="utf-8") as f:
+            json.dump(payload, f)
+
+    def test_the_other_modules_state_files_are_not_rooms(self):
+        self._write("site_stats.json", {"games_played": 101})
+        self._write("snap_sessions.json", {"sessions": {}})
+        room = mp.GameRoom("ABCDE", "Otter", 4, 1, 3)
+        room.persist_now()
+
+        listed = [os.path.basename(p) for p in mp.list_room_state_files()]
+        self.assertEqual(listed, ["ABCDE.json"])
+
+    def test_a_directory_of_only_sibling_files_recovers_zero_failures(self):
+        self._write("site_stats.json", {"games_played": 101})
+        self._write("snap_sessions.json", {"sessions": {}})
+
+        out = mp.ROOMS.load_persisted_rooms(mp.CARD_DB)
+        self.assertEqual(out["failed"], 0)
+        self.assertEqual(out["loaded"], 0)
+
+    def test_a_room_that_really_is_broken_is_still_counted(self):
+        """The whole point of quietening the others: a real failure shows."""
+        with open(os.path.join(mp.ROOM_STATE_DIR, "BROKE.json"), "w", encoding="utf-8") as f:
+            f.write("{not json at all")
+        self._write("site_stats.json", {"games_played": 101})
+
+        out = mp.ROOMS.load_persisted_rooms(mp.CARD_DB)
+        self.assertEqual(out["failed"], 1)
+
+
+class EveryGameSurvivesARestart(unittest.TestCase):
+    """A restart must not end the games it is not resuming.
+
+    load_persisted_rooms used to keep the single most recently started
+    lobby/running room and set every other one to "ended" with the note
+    "Archived room from previous server session." That is from when the server
+    served one table at a time. With 10 concurrent games and 60 people in them
+    (a measured load), one redeploy ended nine of them mid-play, and because an
+    archived room never reaches the code that publishes final_scores, nobody in
+    those nine had their game saved either.
+    """
+
+    def setUp(self):
+        self._saved_rooms = dict(mp.ROOMS.rooms)
+        mp.ROOMS.rooms.clear()
+        for name in os.listdir(mp.ROOM_STATE_DIR):
+            os.remove(os.path.join(mp.ROOM_STATE_DIR, name))
+
+    def tearDown(self):
+        for name in os.listdir(mp.ROOM_STATE_DIR):
+            os.remove(os.path.join(mp.ROOM_STATE_DIR, name))
+        mp.ROOMS.rooms.clear()
+        mp.ROOMS.rooms.update(self._saved_rooms)
+
+    def _checkpoint(self, rid, phase, started_ago):
+        """Write one room's state file the way a live server would have."""
+        room = mp.GameRoom(rid, "Otter", total_players=4,
+                           human_players=4, ai_players=0)
+        now = mp.now_unix()
+        room.phase = phase
+        room.created_unix = now - started_ago - 5
+        room.started_unix = (now - started_ago) if phase != "lobby" else None
+        room.persist_now()
+        return room
+
+    def test_ten_lobbies_all_come_back_as_lobbies(self):
+        for i in range(10):
+            self._checkpoint(f"LOBB{i}", "lobby", started_ago=60 + i)
+        mp.ROOMS.rooms.clear()
+
+        out = mp.ROOMS.load_persisted_rooms(mp.CARD_DB)
+
+        self.assertEqual(out["loaded"], 10)
+        self.assertEqual(out["failed"], 0)
+        phases = sorted(r.phase for r in mp.ROOMS.rooms.values())
+        self.assertEqual(phases, ["lobby"] * 10,
+                         "a restart must not close nine of ten lobbies")
+
+    def test_no_room_is_marked_archived_any_more(self):
+        for i in range(4):
+            self._checkpoint(f"ARCH{i}", "lobby", started_ago=10 * i)
+        mp.ROOMS.rooms.clear()
+
+        mp.ROOMS.load_persisted_rooms(mp.CARD_DB)
+
+        notes = [str(r.status_note or "") for r in mp.ROOMS.rooms.values()]
+        self.assertFalse(
+            any("previous server session" in n for n in notes),
+            f"a restored room was archived instead of restored: {notes}",
+        )
+
+    def test_a_room_that_had_already_ended_stays_ended(self):
+        """Restoring everything must not reopen a finished game."""
+        room = self._checkpoint("DONE1", "ended", started_ago=600)
+        with room.cond:
+            room.ended_unix = mp.now_unix() - 30
+            room.final_scores = [{"name": "Otter", "score": 12, "seat_index": 0}]
+            # _bump_locked, not a bare persist_now: the checkpoint is only
+            # rewritten when something has marked the room dirty, which is what
+            # every real mutation does.
+            room._bump_locked(force_persist=True)
+        mp.ROOMS.rooms.clear()
+
+        mp.ROOMS.load_persisted_rooms(mp.CARD_DB)
+
+        back = mp.ROOMS.rooms["DONE1"]
+        self.assertEqual(back.phase, "ended")
+        self.assertEqual(back.final_scores, [{"name": "Otter", "score": 12, "seat_index": 0}])
+
+
+class DisconnectsAreNotServerErrors(unittest.TestCase):
+    """A player closing their tab must not write a traceback.
+
+    Every client holds an SSE stream plus a keep-alive polling connection, so
+    leaving resets a socket this server is waiting on.
+    BaseHTTPRequestHandler.handle_one_request does not catch that, so
+    socketserver's handle_error printed a full traceback per departure:
+    measured at 57 of them, interleaved from 57 threads, for one 60-person
+    session across 10 games. On a host where the log is the only health signal,
+    a real traceback then has to be found among them.
+    """
+
+    def setUp(self):
+        # Port 0: the OS picks a free one. Bound only so handle_error has a
+        # real instance to call super() on, never served.
+        self.server = mp.StableThreadingHTTPServer(("127.0.0.1", 0), mp.MultiplayerHandler)
+
+    def tearDown(self):
+        self.server.server_close()
+
+    def _stderr_for(self, exc):
+        import contextlib
+        import io
+        buf = io.StringIO()
+        try:
+            raise exc
+        except Exception:
+            with contextlib.redirect_stderr(buf):
+                self.server.handle_error(None, ("127.0.0.1", 54321))
+        return buf.getvalue()
+
+    def test_a_reset_connection_says_nothing(self):
+        for exc in (ConnectionResetError("tab closed"),
+                    BrokenPipeError("mid-write"),
+                    ConnectionAbortedError("aborted"),
+                    TimeoutError("idle keep-alive")):
+            with self.subTest(exc=type(exc).__name__):
+                self.assertEqual(self._stderr_for(exc), "")
+
+    def test_a_real_bug_is_still_loud(self):
+        out = self._stderr_for(ValueError("a real bug in a handler"))
+        self.assertIn("a real bug in a handler", out)
+        self.assertIn("Exception occurred during processing of request", out)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

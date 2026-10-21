@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-21.2";
+  const APP_BUILD   = "2026-10-21.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -17343,8 +17343,28 @@
       return !!(lp && (lp.kind === "ai" || lp.is_ai === true || lp.bot === true));
     };
     let myEntry =
+      // 0) MY SEAT. Every final_scores row the server builds carries the
+      //    seat_index it belongs to, on purpose ("so results stay mappable
+      //    without trusting the name"), and myIdx is viewer.seat_index: the
+      //    same number. Every step below resolves by NAME instead, and two
+      //    seats at one table may share one, because nothing makes a name
+      //    unique within a room and a guest who types nothing is "Player".
+      //    When that happened both players saved the SAME row: one of them
+      //    took the other's score, placement and XP and neither could tell.
+      //    The seat is the only answer that cannot be ambiguous, so it is
+      //    asked first and the name steps stay as the fallback for a payload
+      //    that has no seat_index.
+      //
+      //    Competitive 1v1 is the one mode where a person owns TWO seats
+      //    ({0,1} or {2,3}, see _competitive_same_owner) and so has two rows
+      //    of their own; the hands are named apart there ("Otter", "Otter 2")
+      //    and the nickname already picks the right one, so that mode keeps
+      //    the name path exactly as it was.
+      ((typeof compMode === "undefined" || !compMode) && Number.isInteger(myIdx)
+        ? _fs.find(p => Number.isInteger(p.seat_index) && Number(p.seat_index) === Number(myIdx))
+        : null)
       // 1) exact nickname
-      _fs.find(p => p.name === myNick)
+      || _fs.find(p => p.name === myNick)
       // 2) case-insensitive nickname
       || (nickLower ? _fs.find(p => String(p.name||"").trim().toLowerCase() === nickLower) : null)
       // 3) seat index → name from the latest state snapshot
