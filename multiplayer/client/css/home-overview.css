@@ -660,17 +660,21 @@ body.ph-expanded #auth-stats-lobby #ph-panel-competitive .ph-comp-more-note {
 }
 #auth-stats-lobby .ph-rank-comp .ph-rank-val {
   grid-column: 2; grid-row: 2; margin-top: 1px;
-  font-size: 1.26rem; font-weight: 900; line-height: 1.1;
+  font-size: 1.42rem; font-weight: 900; line-height: 1.1;
+  /* preview.css centres the rank name inside any .ph-rank-comp badge, which
+     on a plate this wide left it floating a few pixels off the word above
+     it. One left edge for the label, the name and the divisions. */
+  text-align: left;
   color: var(--tier-ink); white-space: nowrap;
 }
 #auth-stats-lobby .ph-rank-comp .ph-rank-pips {
-  grid-column: 2; grid-row: 3; display: flex; gap: 5px; margin-top: 6px;
+  grid-column: 2; grid-row: 3; display: flex; gap: 7px; margin-top: 7px;
 }
 /* Empty for King and for a player with no rank, and an empty flex row has
    no height, so the plate closes up on its own. */
 #auth-stats-lobby .ph-rank-comp .ph-rank-pips:empty { display: none; }
 #auth-stats-lobby .ph-rank-comp .ph-rank-pip {
-  width: 24px; height: 5px; border-radius: 999px; background: #d7e0e8;
+  width: 34px; height: 8px; border-radius: 999px; background: #c4d2df;
 }
 #auth-stats-lobby .ph-rank-comp .ph-rank-pip.is-done { background: var(--tier-pip); }
 
@@ -714,9 +718,9 @@ body.ph-expanded #auth-stats-lobby #ph-panel-competitive .ph-comp-more-note {
   }
   #auth-stats-lobby .ph-rank-comp .ph-rank-comp-ico,
   #auth-stats-lobby .ph-rank-comp .ph-rank-comp-ico img { width: 40px; height: 40px; }
-  #auth-stats-lobby .ph-rank-comp .ph-rank-val { font-size: 1.05rem; white-space: normal; }
-  #auth-stats-lobby .ph-rank-comp .ph-rank-pips { margin-top: 5px; }
-  #auth-stats-lobby .ph-rank-comp .ph-rank-pip { width: 20px; }
+  #auth-stats-lobby .ph-rank-comp .ph-rank-val { font-size: 1.18rem; white-space: normal; }
+  #auth-stats-lobby .ph-rank-comp .ph-rank-pips { margin-top: 6px; }
+  #auth-stats-lobby .ph-rank-comp .ph-rank-pip { width: 28px; height: 7px; }
 }
 
 /* ── OP over your ranked games ────────────────────────────────────────
