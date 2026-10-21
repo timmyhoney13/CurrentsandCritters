@@ -636,6 +636,42 @@ class EveryGameSurvivesARestart(unittest.TestCase):
             f"a restored room was archived instead of restored: {notes}",
         )
 
+    def test_a_restored_room_can_take_a_human_turn(self):
+        """The per-game live state has to exist on EVERY room, not just new ones.
+
+        _launch_game_locked was the only place these were ever assigned, and a
+        restored room does not go through it (resume_after_restore starts the
+        match thread directly). _wait_for_action calls
+        _drain_admin_mods_locked on every human turn, which reads
+        _admin_mod_queue, so every human turn in a resumed game raised
+        AttributeError; the policy wrapper caught it and played a "safe
+        fallback action" instead. Five games restarted mid-play logged it on
+        every turn and finished on fallback moves without one player getting a
+        turn, and one was so degraded it was dropped for having no board
+        cards, losing those four players' game.
+        """
+        live_state = [
+            "_live_gs", "_live_ms", "_admin_deck_entries", "_admin_discards",
+            "_admin_pool_entries", "_admin_endgame", "_bot_brain",
+            "_admin_active", "_admin_mod_queue", "_bot_override",
+            "_current_turn_descs", "_last_turn_scores", "_forfeit_result",
+        ]
+        room = self._checkpoint("RESUM", "running", started_ago=120)
+        payload = json.load(open(os.path.join(mp.ROOM_STATE_DIR, "RESUM.json")))
+        restored = mp.GameRoom.from_checkpoint(payload)
+        self.assertIsNotNone(restored)
+
+        absent = [a for a in live_state if not hasattr(restored, a)]
+        self.assertEqual(absent, [], f"a restored room is missing {absent}")
+
+        # The exact call every human turn makes, on a room that never launched.
+        with restored.cond:
+            restored._drain_admin_mods_locked()
+
+        # And the same must hold for a room nobody has even persisted.
+        plain = mp.GameRoom("PLAIN", "Otter", 4, 4, 0)
+        self.assertEqual([a for a in live_state if not hasattr(plain, a)], [])
+
     def test_a_room_that_had_already_ended_stays_ended(self):
         """Restoring everything must not reopen a finished game."""
         room = self._checkpoint("DONE1", "ended", started_ago=600)

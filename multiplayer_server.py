@@ -6352,6 +6352,45 @@ class GameRoom:
         # the same identity every other room rule is written against.
         self.kicked_names: set = set()
 
+        # ── Per-game live state, declared HERE so every room has it ──────
+        # These are the Current Controller's capture buffers, the bot-decision
+        # record, the turn-description cache and the forfeit result. All of
+        # them are (re)set by _launch_game_locked, which is how a NEW game
+        # starts clean, and that used to be the only place they were ever
+        # assigned.
+        #
+        # A room that is RESTORED from a checkpoint never goes through
+        # _launch_game_locked: resume_after_restore starts the match thread
+        # directly. So a resumed room had none of these attributes, and
+        # _drain_admin_mods_locked (which _wait_for_action calls on EVERY
+        # human turn) reads _admin_mod_queue. Every human turn in a resumed
+        # game therefore raised AttributeError, the policy wrapper caught it
+        # and played a "safe fallback action" instead, and the game sprinted
+        # to the end on fallback moves without any player getting a turn.
+        # Measured: five games restarted mid-play, every turn after the
+        # restart logged "'GameRoom' object has no attribute
+        # '_admin_mod_queue'", and one of the five finished so degraded that
+        # it was dropped with "no player has board cards", losing those four
+        # players' game entirely.
+        #
+        # resume_after_restore already set _forfeit_result = None by hand,
+        # which is the same bug patched once at the call site. Declaring the
+        # whole set on the room itself fixes it for every way a room can come
+        # into existence, including from_checkpoint and tests.
+        self._live_gs = None
+        self._live_ms = None
+        self._admin_deck_entries: List[Any] = []
+        self._admin_discards: Dict[int, Any] = {}
+        self._admin_pool_entries: List[Any] = []
+        self._admin_endgame: Dict[str, Any] = {}
+        self._bot_brain: Dict[int, Any] = {}
+        self._admin_active = False
+        self._admin_mod_queue: List[Dict[str, Any]] = []
+        self._bot_override: Dict[int, Any] = {}
+        self._current_turn_descs: Dict[int, Any] = {}
+        self._last_turn_scores: Dict[int, Any] = {}
+        self._forfeit_result: Optional[Dict[str, Any]] = None
+
     # ── Spectator helpers ────────────────────────────────────────────
     def spectator_join(self, name: str, avatar: Any = "", background: Any = "") -> Dict[str, Any]:
         """Add a spectator. Returns {ok, spectator_token} or {ok:False, error}."""
