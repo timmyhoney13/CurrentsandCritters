@@ -4602,6 +4602,30 @@ ROOM_ID_LENGTH = 5
 # A player who leaves a running game keeps their seat RESERVED for this long;
 # only they (they hold the seat token) can rejoin it, into the same seat.
 REJOIN_WINDOW_SEC = 8 * 60
+# How long a seat in a LOBBY may go without polling before it is given back to
+# the table.
+#
+# A seat is taken when seat.token is set, and that token was only ever cleared
+# by an explicit /leave, a rejoin reservation expiring on a RUNNING game, the
+# host resizing the table, or a kick vote. None of those is "they closed the
+# tab", and the client cannot cover it: its beforeunload beacon posts /leave
+# only for the Head to Head queue, and it must not do more, because a page
+# REFRESH fires beforeunload exactly like a close and a refresh must never
+# cost a player their seat.
+#
+# So lobbies silently filled up with seats held by nobody, permanently. Two
+# people opening a 4-seat lobby and closing the tab was enough: the room then
+# counted as full, disappeared from the public list, and answered everyone who
+# had the code with "no open human seats", for as long as anybody real stayed
+# in it (the room janitor only reaps a WHOLE room once EVERY seat has been
+# silent for two hours). That is the "sometimes it won't let me join" bug.
+#
+# The window has to be generously longer than any real poll gap, because
+# taking a seat from somebody who is still there is far worse than holding one
+# too long: a visible tab polls every second and a HIDDEN one every 15 (see
+# POLL_MS_HIDDEN), so two minutes is eight missed background polls. A player
+# whose phone dozed keeps their seat; a tab that is gone gives it back.
+LOBBY_SEAT_IDLE_SEC = max(90, int(os.environ.get("FISH_LOBBY_SEAT_IDLE_SEC", "120") or "120"))
 # A home-screen Head to Head client polls its queued room every few seconds.
 # Ignore abandoned one-player queues after this window so a new player is
 # never matched with a tab that has been closed or disconnected.
@@ -6352,44 +6376,32 @@ class GameRoom:
         # the same identity every other room rule is written against.
         self.kicked_names: set = set()
 
-        # ── Per-game live state, declared HERE so every room has it ──────
-        # These are the Current Controller's capture buffers, the bot-decision
-        # record, the turn-description cache and the forfeit result. All of
-        # them are (re)set by _launch_game_locked, which is how a NEW game
-        # starts clean, and that used to be the only place they were ever
-        # assigned.
+        # ── The rest of the per-game live state ──────────────────────────
+        # The Current Controller's hidden-state capture buffers and its mod
+        # queue. Like _admin_active and the bot maps above, these are (re)set
+        # by _launch_game_locked, which is how a NEW game starts clean; unlike
+        # them, they were declared NOWHERE else, so a room that never launched
+        # a game simply did not have them.
         #
-        # A room that is RESTORED from a checkpoint never goes through
-        # _launch_game_locked: resume_after_restore starts the match thread
-        # directly. So a resumed room had none of these attributes, and
-        # _drain_admin_mods_locked (which _wait_for_action calls on EVERY
-        # human turn) reads _admin_mod_queue. Every human turn in a resumed
-        # game therefore raised AttributeError, the policy wrapper caught it
-        # and played a "safe fallback action" instead, and the game sprinted
-        # to the end on fallback moves without any player getting a turn.
-        # Measured: five games restarted mid-play, every turn after the
-        # restart logged "'GameRoom' object has no attribute
-        # '_admin_mod_queue'", and one of the five finished so degraded that
-        # it was dropped with "no player has board cards", losing those four
-        # players' game entirely.
-        #
-        # resume_after_restore already set _forfeit_result = None by hand,
-        # which is the same bug patched once at the call site. Declaring the
-        # whole set on the room itself fixes it for every way a room can come
-        # into existence, including from_checkpoint and tests.
+        # A room RESTORED from a checkpoint is exactly that room:
+        # resume_after_restore starts the match thread directly and never goes
+        # through _launch_game_locked. _drain_admin_mods_locked, which
+        # _wait_for_action calls on EVERY human turn, reads _admin_mod_queue.
+        # So every human turn in a resumed game raised AttributeError, the
+        # policy's fallback wrapper caught it and played a "safe fallback
+        # action" on the player's behalf, and the game ran itself to the end
+        # without anybody getting a move. Measured: five games restarted
+        # mid-play, every turn logging "'GameRoom' object has no attribute
+        # '_admin_mod_queue'", and one of the five so degraded by the end that
+        # it was thrown away with "no player has board cards", losing those
+        # four players' game and their stats with it.
         self._live_gs = None
         self._live_ms = None
-        self._admin_deck_entries: List[Any] = []
-        self._admin_discards: Dict[int, Any] = {}
-        self._admin_pool_entries: List[Any] = []
+        self._admin_deck_entries: List[Dict[str, Any]] = []
+        self._admin_discards: Dict[int, List[Dict[str, Any]]] = {}
+        self._admin_pool_entries: List[Dict[str, Any]] = []
         self._admin_endgame: Dict[str, Any] = {}
-        self._bot_brain: Dict[int, Any] = {}
-        self._admin_active = False
         self._admin_mod_queue: List[Dict[str, Any]] = []
-        self._bot_override: Dict[int, Any] = {}
-        self._current_turn_descs: Dict[int, Any] = {}
-        self._last_turn_scores: Dict[int, Any] = {}
-        self._forfeit_result: Optional[Dict[str, Any]] = None
 
     # ── Spectator helpers ────────────────────────────────────────────
     def spectator_join(self, name: str, avatar: Any = "", background: Any = "") -> Dict[str, Any]:
@@ -6951,6 +6963,73 @@ class GameRoom:
             active[0].is_host = True
             self.status_note = f"{active[0].claimed_name or active[0].label} is now host."
         self._bump_locked()
+
+    def release_idle_lobby_seats(self) -> int:
+        """Give back any LOBBY seat whose player has stopped polling.
+
+        Called wherever seat availability is about to be read or acted on: a
+        player's poll (state_view), the public room list, and the join itself.
+        Returns how many seats were freed, for the caller's logging.
+        """
+        with self.cond:
+            return self._release_idle_lobby_seats_locked()
+
+    def _release_idle_lobby_seats_locked(self) -> int:
+        """See LOBBY_SEAT_IDLE_SEC for why this exists.
+
+        LOBBY ONLY. A seat going quiet mid-game is the rejoin reservation's
+        business (REJOIN_WINDOW_SEC / _expire_left_seats_locked): that player
+        still has a hand, a board and a score, and freeing their seat would
+        throw all three away. Here there is no game yet, so a seat nobody is
+        sitting in is just a seat.
+        """
+        if self.phase != "lobby":
+            return 0
+        now = time.time()
+        freed = 0
+        new_host: Optional[str] = None
+        for seat in self.seats:
+            if seat.kind != "human" or seat.token is None:
+                continue
+            # A seat that left explicitly is already handled, and is RESERVED
+            # for its holder: leave it to _expire_left_seats_locked.
+            if seat.left_at is not None:
+                continue
+            # claim_seat stamps last_seen, so a seat that was claimed and never
+            # polled has a real clock. created_unix is the fallback for seats
+            # restored from an older checkpoint that has no stamp, which is the
+            # same fallback sweep_finished_rooms uses.
+            last = seat.last_seen
+            if last is None:
+                last = float(self.created_unix or now)
+            if (now - float(last)) <= LOBBY_SEAT_IDLE_SEC:
+                continue
+            seat.claimed_name = None
+            seat.token = None
+            seat.last_seen = None
+            # A Head to Head seat carries the searcher's ticket, which is how
+            # quick_play_join hands a retrying client its original seat back.
+            # A freed seat must not keep one: the ticket is the identity of a
+            # search that is over.
+            seat.quick_play_ticket = None
+            was_host = seat.is_host
+            seat.is_host = False
+            freed += 1
+            if was_host:
+                # Somebody present has to be able to press Start.
+                active = [s for s in self.seats
+                          if s.kind == "human" and s.token is not None]
+                if active:
+                    active[0].is_host = True
+                    new_host = active[0].claimed_name or active[0].label
+        if freed:
+            seats_word = "seat" if freed == 1 else "seats"
+            note = f"{freed} {seats_word} opened up again (nobody there)."
+            if new_host:
+                note += f" {new_host} is now host."
+            self.status_note = note
+            self._bump_locked()
+        return freed
 
     def leave_room(self, body: Dict[str, Any], card_db: Optional[Dict[int, "fish.CardDef"]] = None) -> Dict[str, Any]:
         seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
@@ -7571,6 +7650,15 @@ class GameRoom:
                         "reconnected": True,
                     }
 
+            # Hand back any seat nobody is sitting in before looking for one.
+            #
+            # Deliberately AFTER the token-reconnect path above: a player who
+            # comes back still holds their seat even if they were quiet long
+            # enough to have lost it, so a backgrounded tab or a reload is
+            # never punished. It is only when somebody ELSE needs a seat that
+            # the abandoned ones are collected.
+            self._release_idle_lobby_seats_locked()
+
             # Voted out of this room already: no seat, by any route.
             if self.kicked_names and existing_seat is None:
                 _want = safe_name(player_name, "").strip().lower()
@@ -7663,6 +7751,10 @@ class GameRoom:
                 existing_seat.token = None
             target.claimed_name = safe_name(player_name, target.label)
             target.token = secrets.token_urlsafe(18)
+            # Sitting down counts as being here. Without this a seat that was
+            # claimed and never polled has last_seen None, and the lobby idle
+            # release (see LOBBY_SEAT_IDLE_SEC) has no clock to measure it by.
+            target.last_seen = time.time()
             self.status_note = f"{target.claimed_name} claimed {target.label}."
             self._bump_locked()
             return {"ok": True, "seat_index": target.index, "seat_token": target.token, "reconnected": False}
@@ -12290,6 +12382,9 @@ class GameRoom:
         with self.cond:
             # Lazily expire any rejoin reservations whose window has passed.
             self._expire_left_seats_locked()
+            # …and hand back lobby seats whose player has stopped polling, so
+            # everyone watching the lobby sees the real seat count.
+            self._release_idle_lobby_seats_locked()
             # Team Mode: drop swap offers that timed out or became invalid so the
             # target's popup clears itself on the next poll.
             if self.team_mode and self._prune_swap_requests_locked():
@@ -14023,6 +14118,10 @@ class RoomManager:
                 if room.phase != "lobby" or room.quick_play:
                     continue
                 with room.cond:
+                    # Count the people, not the ghosts: a room held full by
+                    # seats nobody is sitting in was dropping off this list
+                    # entirely, so it could not even be found, let alone joined.
+                    room._release_idle_lobby_seats_locked()
                     filled, total = room._human_seat_counts_locked()
                 if filled >= total:
                     continue  # full

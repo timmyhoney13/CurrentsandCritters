@@ -75,6 +75,12 @@
 # window sizes. Test-only, so these need this entry and no Dockerfile COPY.
 !test_lobby_seat_tiles.py
 !test_lobby_seat_tiles.js
+# "Sometimes it does not let me join games." A seat is taken when seat.token is
+# set, and nothing ever cleared it for somebody who just closed the tab, so
+# lobbies silently filled with seats held by nobody and then refused everyone
+# with "no open human seats", permanently. Pins the release AND the thing that
+# matters more: a seat is never taken from a player who is still polling.
+!test_lobby_seat_release.py
 !test_bot_grades.py
 # What a bot is CALLED and what it LOOKS LIKE: the explorer pool is one-word
 # surnames that cannot collide with the ladder's own people, and every rank
