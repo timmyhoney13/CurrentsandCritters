@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-21.1";
+  const APP_BUILD   = "2026-10-21.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -37149,6 +37149,88 @@
       }, 60000);
     }
 
+    // ── The critter in each challenge's porthole ───────────────────
+    // Every challenge wears the animal it is actually about: the Ocean it
+    // names (Mangrove -> Tarpon), the family it counts (Bait Fish -> Bunker),
+    // or the behaviour it describes (Pool Cleaner -> Cleaner Wrasse, Better
+    // Spot -> Hermit Crab, Deny the Setup -> the frigatebird, which makes its
+    // living robbing other birds' catches). A few animals carry more than one
+    // challenge where the meaning is the same; that is on purpose.
+    //
+    // NO CEPHALOPODS. The Common Octopus, Bobtail Squid, Cuttlefish and Giant
+    // Squid are the hidden unlocks in js/hidden-cephalopods.js: a player finds
+    // one tucked into the UI and clicks it. Printing one on a challenge card
+    // would hand out a false lead at best and spoil the hunt at worst, so the
+    // two cephalopod-named challenges take a stand-in (see cephalopod_week).
+    // The seasonal skins, the Sardine (granted by a completed trade) and
+    // king-of-the-critters (King rank only) stay out for the same reason.
+    const _CS_CRITTER = {
+      // ── daily ──
+      login_current:      "mandarin-goby",        clean_finish:       "loggerhead-sea-turtle",
+      casual_current:     "blue-tang",            ranked_ripple:      "barracuda",
+      still_swimming:     "amberjack",            daily_splash:       "spinner-dolphin",
+      almost_there:       "bonito",               play_again_endgame: "razorbill-auk",
+      final_current:      "great-albatross",      pool_watcher:       "osprey",
+      pool_patience:      "emperor-penguin",      pool_cleaner:       "cleaner-wrasse",
+      fresh_current:      "sailfish",             discard_duty:       "sea-cucumber",
+      coral_start:        "clownfish",            deep_start:         "whale-shark",
+      mangrove_start:     "tarpon",               pier_start:         "california-gull",
+      arctic_start:       "narwhal",              kelp_start:         "sea-urchin",
+      tide_pool_start:    "mantis-shrimp",        artificial_start:   "sea-sponge",
+      mini_ecosystem:     "grooved-brain-coral",  surface_life:       "flying-fish",
+      ocean_floor:        "lobster",              star_spark:         "sea-star",
+      star_surfer:        "sea-star",             symbol_match:       "reef-triggerfish",
+      combo_current:      "great-white-shark",    star_finish:        "sea-star",
+      no_star_needed:     "goliath-grouper",      better_spot:        "hermit-crab",
+      last_turn_move:     "manta-ray",            no_moving_needed:   "elkhorn-coral",
+      current_lite:       "mullet",               board_fixer:        "king-crab",
+      strategy_switch:    "mahi-mahi",            ranked_warmup:      "yellowfin-tuna",
+      one_hand_strong:    "roosterfish",          double_handed:      "spiny-lobster",
+      set_it_up:          "peruvian-pelican",     deny_the_setup:     "magnificent-frigatebird",
+      ranked_win_day:     "king-salmon",          friend_tide:        "bottlenose-dolphin",
+      table_talk:         "horned-puffin",        good_sport:         "cleaner-wrasse",
+      host_harbor:        "sea-anemone",          join_current:       "bunker",
+      no_bots_today:      "bottlenose-dolphin",   new_face:           "razorbill-auk",
+      // ── weekly ──
+      weekly_finisher:    "loggerhead-sea-turtle", ocean_regular:     "amberjack",
+      reef_grinder:       "sea-urchin",           seven_seas:         "blue-marlin",
+      weekend_wave:       "spinner-dolphin",      no_quit_week:       "goliath-grouper",
+      casual_week:        "blue-tang",            competitive_week:   "barracuda",
+      weekly_winner:      "king-crab",            casual_champion:    "mahi-mahi",
+      ranked_current:     "great-white-shark",    mixed_waters:       "manta-ray",
+      back_to_back_current: "bonito",             three_wave_streak:  "sailfish",
+      big_winner:         "whale-shark",          table_topper:       "roosterfish",
+      big_splash_weekly:  "bottlenose-dolphin",   tidal_wave_weekly:  "whale-shark",
+      point_surge:        "sailfish",             breaker_turn:       "mantis-shrimp",
+      consistent_current: "yellowfin-tuna",       the_all_blue_weekly: "great-albatross",
+      one_ocean_weekly:   "elkhorn-coral",        bird_week:          "horned-puffin",
+      crustacean_week:    "spiny-lobster",        coral_week:         "staghorn-coral",
+      game_fish_week:     "blue-marlin",          bait_fish_week:     "bunker",
+      mammal_week:        "bottlenose-dolphin",   invertebrate_week:  "sea-star",
+      crosscurrent_week:  "manta-ray",            balanced_ocean:     "grooved-brain-coral",
+      critter_collector:  "hermit-crab",          all_blue_week:      "great-albatross",
+      tuna_week:          "yellowfin-tuna",       mammal_pod_week:    "spinner-dolphin",
+      baitfish_barrage_week: "mullet",            b_lob_week:         "lobster",
+      coral_b_week:       "elkhorn-coral",
+      // Coral/Cephalopods: the coral half stands for the pair, because the
+      // cephalopod half is a hidden unlock.
+      c_c_week:           "staghorn-coral",
+      // "Play 30 Cephalopods": the Mantis Shrimp is the reef's other famous
+      // ambush hunter and is not a cephalopod, so the hunt stays intact.
+      cephalopod_week:    "mantis-shrimp",
+      off_meta_week:      "reef-triggerfish",     counter_current_week: "magnificent-frigatebird",
+      nothing_but_deck_weekly: "emperor-penguin", star_storm:         "sea-star",
+      free_animal_week:   "flying-fish",          ranked_week:        "barracuda",
+      ranked_tidal_wave:  "great-white-shark",    stolen_setup:       "magnificent-frigatebird",
+      ranked_back_to_back: "bonito",              friendly_waters:    "bottlenose-dolphin",
+      no_bots_needed:     "spinner-dolphin",      join_week:          "bunker",
+      good_sport_week:    "cleaner-wrasse",       friend_streak:      "clownfish",
+      new_currents:       "mandarin-goby",
+    };
+    // A challenge this map has never heard of still gets a face rather than an
+    // empty ring: the Mullet is the game's own default avatar.
+    const _CS_CRITTER_FALLBACK = "mullet";
+
     function _csCardHtml(c, isWeekly) {
       // ── Weekly Swap ────────────────────────────────────────────────
       // A Level Pass reward: spend one token and swapping is unlimited for the
@@ -37167,23 +37249,42 @@
       const completed = Boolean(c.completed);
       const classes   = ["ph-cs-card", isWeekly ? "is-weekly" : "is-daily"];
       if (completed)  classes.push("is-completed");
+      // ── The porthole ──────────────────────────────────────
+      // Progress is the water behind the critter, so the card answers "how
+      // close am I" before a number is read. Two rules make it honest:
+      //
+      //   nothing yet  -> dry. An empty porthole has to mean an untouched
+      //                   challenge, or a full one means nothing either.
+      //   started      -> at least a visible band. 1 of 25 is 4% , which at
+      //                   62px is two pixels and reads as dry, so the first
+      //                   step always shows: the point of this is that the
+      //                   porthole fills the moment you begin.
+      //
+      // Floor and true percentage meet at 25%, so from a quarter of the way
+      // in the water IS the fraction and never overstates it.
+      const CS_WATER_FLOOR = 16;
+      const water = completed ? 100
+                  : cur <= 0  ? 0
+                  : Math.max(CS_WATER_FLOOR, pct);
+      const critter = _CS_CRITTER[String(c.id || "")] || _CS_CRITTER_FALLBACK;
+      const poHtml = `
+          <span class="ph-cs-po" aria-hidden="true">
+            <span class="ph-cs-po-water" style="height:${water}%"></span>
+            <img src="/avatars/${critter}.png" alt="" draggable="false">
+          </span>`;
       const footHtml = completed
         ? `
-          <div class="ph-cs-card-bar"><div class="ph-cs-card-fill" style="width:100%"></div></div>
-          <span class="ph-cs-card-completed-badge">✓ Completed</span>
-          <span class="ph-cs-card-next">${isWeekly ? "New one Monday" : "New one at midnight"}</span>`
+          <span class="ph-cs-card-completed-badge">✓ Done</span>
+          <span class="ph-cs-card-next">${isWeekly ? "Back Monday" : "Back at midnight"}</span>`
         : `
-          <div class="ph-cs-card-bar"><div class="ph-cs-card-fill" style="width:${pct}%"></div></div>
-          <span class="ph-cs-card-progress">${cur}/${target}</span>
+          <span class="ph-cs-card-progress">${cur}</span>
+          <span class="ph-cs-card-of">of ${target}</span>
           <span class="ph-cs-card-xp">+${xpFmt} XP</span>`;
+      // No DAILY / WEEKLY eyebrow on the card: the header names the set once,
+      // and it was printing the same word three more times under it.
       return `
-        <div class="${classes.join(" ")}">
-          <div class="ph-cs-card-top">
-            <div class="ph-cs-card-meta">
-              <div class="ph-cs-card-type">${isWeekly ? "WEEKLY" : "DAILY"}</div>
-              <div class="ph-cs-card-name" title="${escapeHtml(c.name || "")}">${escapeHtml(c.name || "")}</div>
-            </div>
-          </div>
+        <div class="${classes.join(" ")}">${poHtml}
+          <div class="ph-cs-card-name" title="${escapeHtml(c.name || "")}">${escapeHtml(c.name || "")}</div>
           <div class="ph-cs-card-req" title="${escapeHtml(c.req || "")}">${escapeHtml(c.req || "")}</div>
           <div class="ph-cs-card-foot">${footHtml}</div>
           ${swapHtml}

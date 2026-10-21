@@ -765,3 +765,265 @@ body.ph-expanded #auth-stats-lobby #ph-panel-competitive .ph-comp-more-note {
 #auth-stats-lobby .ph-opc-dot.is-win  { fill: #27a877; }
 #auth-stats-lobby .ph-opc-dot.is-loss { fill: #d7584a; }
 #auth-stats-lobby .ph-opc-dot.is-draw { fill: #8ba6bd; }
+
+/* ══ Daily and Weekly Challenges: the porthole plate ═══════════════════
+   The strip used to be three identical pale boxes in a row, each with a
+   tracked DAILY under a header that already said it, a 6px grey bar, and a
+   green tint when finished, which is a colour the reef palette does not own.
+   Nothing on it looked like this game.
+
+   It is one cream plate now, the same cream as the rank plate above it:
+   the header is a band across the top, the three challenges are columns
+   divided by a hairline, and the reward is the plate's foot. Each challenge
+   carries the critter it is actually about (_CS_CRITTER in preview-app.js)
+   in a porthole, and the water behind the critter rises with the progress.
+
+   Lives here and not in preview.css for the usual reason: that file is 800KB
+   and several sessions edit it at once. Every rule is under #auth-stats-lobby,
+   so it outranks the base .ph-cs-* rules and reaches no other screen. */
+
+#auth-stats-lobby .ph-cs-strip {
+  display: block;              /* was a flex ROW: header left, cards right */
+  padding: 0;
+  gap: 0;
+  background: linear-gradient(176deg, #fffdf7 0%, #fef5e6 68%, #f5e8d0 100%);
+  border: 1px solid #e3d3b4;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 10px 28px -12px rgba(26, 45, 90, .3);
+}
+
+/* ── the header band ───────────────────────────────────────────────── */
+#auth-stats-lobby .ph-cs-header {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  flex: 0 0 auto;
+  padding: 13px 20px 12px;
+  border-right: 0;
+  border-bottom: 1px solid rgba(188, 221, 230, .9);
+  gap: 13px;
+}
+#auth-stats-lobby .ph-cs-strip.is-collapsed .ph-cs-header {
+  padding: 13px 20px 12px;
+  border-bottom: 0;
+}
+#auth-stats-lobby .ph-cs-title {
+  font-family: "Cinzel", serif; font-weight: 800; font-size: 1.16rem;
+  color: #1a2d5a; letter-spacing: .2px;
+}
+#auth-stats-lobby .ph-cs-sub { color: #6f8fae; font-weight: 700; }
+/* The calendar keeps its job as the daily/weekly switch; it just stops being
+   a blue chip on cream. */
+#auth-stats-lobby .ph-cs-icon-btn {
+  background: #f6fcfe; border-color: #bcdde6;
+}
+#auth-stats-lobby .ph-cs-icon-btn.is-weekly {
+  background: #fdf3dd; border-color: #e6c98a;
+}
+#auth-stats-lobby .ph-cs-chev { color: #8a5c00; }
+
+#auth-stats-lobby .ph-cs-body {
+  display: block;              /* was a flex row holding cards + reward */
+  flex: 0 0 auto;
+}
+/* preview.css closes the strip with `.ph-cs-strip.is-collapsed .ph-cs-body
+   { display: none }`, which the rule above outranks on specificity: without
+   this line the strip can never be shut again, and it opens with its three
+   challenges already showing. */
+#auth-stats-lobby .ph-cs-strip.is-collapsed .ph-cs-body { display: none; }
+
+/* ── the three columns ─────────────────────────────────────────────── */
+#auth-stats-lobby .ph-cs-cards {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+}
+#auth-stats-lobby .ph-cs-card {
+  /* porthole in column one, spanning the name, the line and the reading */
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 14px;
+  row-gap: 0;
+  align-items: start;
+  padding: 16px 20px 15px;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  position: relative;
+}
+#auth-stats-lobby .ph-cs-card + .ph-cs-card {
+  border-left: 1px solid rgba(188, 221, 230, .9);
+}
+/* The hover lift belonged to a card with edges. On a column of a plate it
+   moved the text and left the hairline behind, so the plate itself answers
+   instead. */
+#auth-stats-lobby .ph-cs-card:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: rgba(188, 221, 230, .9);
+  background: rgba(255, 255, 255, .42);
+}
+
+/* ── the porthole ──────────────────────────────────────────────────── */
+#auth-stats-lobby .ph-cs-po {
+  grid-column: 1; grid-row: 1 / span 3; align-self: center;
+  position: relative; width: 62px; height: 62px; border-radius: 50%;
+  background: #f3fbfe; border: 2px solid #bcdde6; overflow: hidden;
+  flex: 0 0 auto;
+}
+#auth-stats-lobby .ph-cs-po-water {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(180deg, rgba(95, 179, 214, .92), rgba(44, 90, 138, .92));
+  /* The water answers a finished game, so it rises rather than jumping. */
+  transition: height .45s cubic-bezier(.33, .9, .4, 1);
+}
+/* The surface: a pale ellipse sitting on top of the water, so a half-full
+   porthole reads as a water line instead of a bar chart. */
+#auth-stats-lobby .ph-cs-po-water::before {
+  content: ""; position: absolute; left: -10%; right: -10%; top: -5px;
+  height: 9px; border-radius: 50%; background: rgba(255, 255, 255, .55);
+}
+#auth-stats-lobby .ph-cs-po-water[style*="height:0%"]::before { display: none; }
+/* The critter sits ON the art, never under a tint: the water is behind it. */
+#auth-stats-lobby .ph-cs-po img {
+  position: absolute; inset: 0; margin: auto;
+  width: 52px; height: 52px; object-fit: contain; display: block;
+}
+#auth-stats-lobby .ph-cs-card.is-weekly .ph-cs-po { border-color: #e6c98a; }
+#auth-stats-lobby .ph-cs-card.is-weekly .ph-cs-po-water {
+  background: linear-gradient(180deg, rgba(232, 179, 74, .92), rgba(200, 147, 32, .95));
+}
+#auth-stats-lobby .ph-cs-card.is-completed .ph-cs-po { border-color: #e8b34a; }
+
+/* ── the reading ───────────────────────────────────────────────────── */
+#auth-stats-lobby .ph-cs-card-name {
+  grid-column: 2; grid-row: 1;
+  font-size: 1.02rem; font-weight: 800; color: #1a2d5a; line-height: 1.2;
+  white-space: normal;
+}
+#auth-stats-lobby .ph-cs-card-req {
+  grid-column: 2; grid-row: 2; margin-top: 3px;
+  font-size: .83rem; font-weight: 600; color: #6b89a6; line-height: 1.35;
+  -webkit-line-clamp: 2;
+}
+#auth-stats-lobby .ph-cs-card-foot {
+  grid-column: 2; grid-row: 3; margin-top: 9px;
+  align-items: baseline; gap: 4px 9px;
+  /* Three columns inside a narrow window leave a card about 200px wide, and
+     "Done" plus "Back at midnight" is wider than that. preview.css holds both
+     on one nowrap line, so it used to push out of the card; here the foot
+     wraps and the countdown takes its own line. */
+  flex-wrap: wrap;
+}
+/* The count is the number the player came for, so it is set in the game's
+   display face at the size the old 6px bar should have been. */
+#auth-stats-lobby .ph-cs-card-progress {
+  font-family: "Cinzel", serif; font-weight: 800; font-size: 1.18rem;
+  color: #2c5a8a; line-height: 1;
+}
+#auth-stats-lobby .ph-cs-card.is-weekly .ph-cs-card-progress { color: #8a5c00; }
+#auth-stats-lobby .ph-cs-card-of {
+  font-size: .76rem; font-weight: 700; color: #8aa6bf;
+}
+#auth-stats-lobby .ph-cs-card-xp {
+  margin-left: auto;
+  font-family: "Cinzel", serif; font-weight: 800; font-size: .95rem; color: #8a5c00;
+}
+/* Finished: a gold rim and a full porthole, not a green card. */
+#auth-stats-lobby .ph-cs-card.is-completed {
+  background: none;
+  border-color: rgba(188, 221, 230, .9);
+}
+#auth-stats-lobby .ph-cs-card.is-completed .ph-cs-card-name { color: #8a5c00; }
+#auth-stats-lobby .ph-cs-card-completed-badge {
+  font-size: .8rem; font-weight: 800; color: #8a5c00; letter-spacing: 0;
+}
+#auth-stats-lobby .ph-cs-card-next {
+  margin-left: 0; font-size: .78rem; font-weight: 700; color: #a2895a;
+  white-space: normal;
+}
+/* Swap sat in a card corner; the column has no corner, so it goes under the
+   reading where it cannot cover the requirement. */
+#auth-stats-lobby .ph-cs-swap {
+  grid-column: 2; grid-row: 4; justify-self: start; margin-top: 7px;
+}
+
+/* ── the sweep, the plate's foot ───────────────────────────────────── */
+#auth-stats-lobby .ph-cs-reward {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 16px;
+  padding: 11px 20px 13px;
+  background: rgba(245, 232, 208, .5);
+  border: 0;
+  border-top: 1px solid rgba(188, 221, 230, .9);
+  border-radius: 0;
+  box-shadow: none;
+}
+#auth-stats-lobby .ph-cs-reward:hover {
+  background: rgba(245, 232, 208, .78);
+  transform: none;
+  box-shadow: none;
+}
+#auth-stats-lobby .ph-cs-reward-info {
+  display: grid; grid-template-columns: auto auto minmax(90px, 170px);
+  justify-content: start;
+  align-items: center; column-gap: 13px; row-gap: 3px;
+}
+#auth-stats-lobby .ph-cs-reward-label {
+  grid-column: 1; grid-row: 1;
+  font-family: "Cinzel", serif; font-weight: 800; font-size: .95rem; color: #8a5c00;
+}
+#auth-stats-lobby .ph-cs-reward-count {
+  grid-column: 2; grid-row: 1; justify-self: start;
+  font-size: .8rem; font-weight: 800; color: #a2895a;
+}
+/* Three of them, so the bar is read at a glance and does not need to be a
+   metre long. Spanning the plate made the widest thing on it a grey rule. */
+#auth-stats-lobby .ph-cs-reward-bar {
+  grid-column: 3; grid-row: 1;
+  height: 7px; background: rgba(26, 45, 90, .14);
+}
+#auth-stats-lobby .ph-cs-reward-fill {
+  background: linear-gradient(90deg, #e8b34a, #c89320);
+}
+#auth-stats-lobby .ph-cs-reward-sub {
+  grid-column: 1 / -1; grid-row: 2;
+  font-size: .78rem; font-weight: 700; color: #a2895a;
+}
+
+/* ── narrow ────────────────────────────────────────────────────────── */
+/* One column below 1000px, not below 720px as preview.css has it.
+   Player Home spends about 290px on the sidebar and the page padding, so a
+   720px window leaves the strip ~430px: three columns of 143px, and a card
+   that wide has 27px left for its name once the porthole and the padding are
+   taken, which is nothing. Three columns need a 230px card, so a 690px strip,
+   so a 980px window. The porthole stays at full size all the way down: it is
+   the one thing on the card that does not have to be READ, so shrinking it
+   would cost the art and save no room worth having. */
+@media (max-width: 1000px) {
+  #auth-stats-lobby .ph-cs-cards { grid-template-columns: 1fr; gap: 0; }
+  #auth-stats-lobby .ph-cs-card + .ph-cs-card {
+    border-left: 0;
+    border-top: 1px solid rgba(188, 221, 230, .9);
+  }
+  #auth-stats-lobby .ph-cs-card { padding: 13px 16px; }
+  #auth-stats-lobby .ph-cs-header { padding: 12px 16px 11px; }
+  #auth-stats-lobby .ph-cs-reward { padding: 11px 16px 12px; }
+  /* The sweep's three parts on one line have a min-content width of about
+     430px, which on a phone is not a wrapped line but a plate wider than the
+     screen: the cards then hang off the right edge and take their XP with
+     them. The label keeps the first line and the count and bar share the
+     second. */
+  #auth-stats-lobby .ph-cs-reward-info {
+    grid-template-columns: auto minmax(60px, 1fr);
+    min-width: 0;
+  }
+  #auth-stats-lobby .ph-cs-reward-label { grid-column: 1 / -1; grid-row: 1; }
+  #auth-stats-lobby .ph-cs-reward-count { grid-column: 1; grid-row: 2; }
+  #auth-stats-lobby .ph-cs-reward-bar   { grid-column: 2; grid-row: 2; }
+  #auth-stats-lobby .ph-cs-reward-sub   { grid-column: 1 / -1; grid-row: 3; }
+}

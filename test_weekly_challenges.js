@@ -29,6 +29,9 @@ const read   = (p) => fs.readFileSync(path.join(CLIENT, p), "utf8");
 const APP  = read("js/preview-app.js");
 const HTML = read("preview.html");
 const CSS  = read("css/preview.css");
+// The plate's own look lives here, scoped to #auth-stats-lobby. Loading only
+// preview.css renders the OLD three-box strip, which is not what ships.
+const HOME = read("css/home-overview.css");
 const TUT  = read("js/tutorials.js");
 
 let pass = 0, fail = 0;
@@ -260,6 +263,118 @@ check("the tour opens the strip by its header", TUT.includes('target: "#ph-cs-he
 check("the tour waits for it to actually open", TUT.includes("gtChallengesOpen"));
 check("no Daily Challenges step is left", !/badge: "Daily Challenges"/.test(TUT));
 
+// ── The porthole: one critter per challenge, water for progress ───────
+console.log("\nthe porthole");
+
+// Lift the map and the card builder out of the app rather than restating them.
+function liftConst(name) {
+  const at = APP.indexOf(`const ${name} = {`);
+  if (at < 0) throw new Error("no such const: " + name);
+  let d = 0, i = APP.indexOf("{", at);
+  for (let j = i; j < APP.length; j++) {
+    if (APP[j] === "{") d++;
+    else if (APP[j] === "}") { d--; if (!d) return APP.slice(at, j + 2); }
+  }
+  throw new Error("unbalanced: " + name);
+}
+function liftFn(name) {
+  const at = APP.indexOf(`function ${name}(`);
+  if (at < 0) throw new Error("no such function: " + name);
+  let d = 0, i = APP.indexOf("{", at);
+  for (let j = i; j < APP.length; j++) {
+    if (APP[j] === "{") d++;
+    else if (APP[j] === "}") { d--; if (!d) return APP.slice(at, j + 1); }
+  }
+  throw new Error("unbalanced: " + name);
+}
+
+const CRITTER = (new Function(`${liftConst("_CS_CRITTER")} return _CS_CRITTER;`))();
+const idsOf = (name) => {
+  const at = APP.indexOf(`const ${name} = [`);
+  const end = APP.indexOf("\n    ];", at);
+  return [...APP.slice(at, end).matchAll(/id: "([a-z_0-9]+)"/g)].map(m => m[1]);
+};
+const DAILY_IDS  = idsOf("_DAILY_CHALLENGES");
+const WEEKLY_IDS = idsOf("_WEEKLY_CHALLENGES");
+
+check(`both pools were read (${DAILY_IDS.length} daily, ${WEEKLY_IDS.length} weekly)`,
+      DAILY_IDS.length > 40 && WEEKLY_IDS.length > 40);
+
+const missing = [...DAILY_IDS, ...WEEKLY_IDS].filter(id => !CRITTER[id]);
+check(`every challenge has its own critter${missing.length ? ": missing " + missing.join(", ") : ""}`,
+      missing.length === 0);
+
+// The cephalopods are the hidden unlocks in js/hidden-cephalopods.js: a player
+// finds one tucked into the UI and clicks it. One printed on a challenge card
+// is a false lead, so none of them may appear here, not even on the two
+// challenges that are ABOUT cephalopods.
+const CEPHS = ["common-octopus", "bobtail-squid", "cuttlefish", "giant-squid"];
+const cephHits = Object.entries(CRITTER).filter(([, a]) => CEPHS.includes(a));
+check(`no cephalopod is used as a challenge icon${cephHits.length ? ": " + cephHits.map(h => h.join("=")).join(", ") : ""}`,
+      cephHits.length === 0);
+check("the two cephalopod challenges still have an icon",
+      !!CRITTER.cephalopod_week && !!CRITTER.c_c_week);
+
+// Avatars that mean something else: a trade reward, a rank, a seasonal skin,
+// and the default placeholder nobody chose.
+const RESERVED = ["sardine", "king-of-the-critters", "fourth-of-july",
+                  "summer-skin-goby", "summer-skin-gull", "summer-skin-hermit-crab"];
+const reservedHits = Object.entries(CRITTER).filter(([, a]) => RESERVED.includes(a));
+check(`no reserved avatar is used${reservedHits.length ? ": " + reservedHits.map(h => h.join("=")).join(", ") : ""}`,
+      reservedHits.length === 0);
+
+// Every one of them has to be a file that exists, or the porthole is an empty
+// ring on a live account.
+const avatarDir = path.join(CLIENT, "avatars");
+const gone = [...new Set(Object.values(CRITTER))].filter(a => !fs.existsSync(path.join(avatarDir, a + ".png")));
+check(`every critter has art${gone.length ? ": missing " + gone.join(", ") : ""} ` +
+      `(${new Set(Object.values(CRITTER)).size} distinct)`, gone.length === 0);
+
+// A few the mapping would be wrong without. These are the whole point of
+// doing it by hand instead of hashing the id.
+check("Pool Cleaner is the Cleaner Wrasse", CRITTER.pool_cleaner === "cleaner-wrasse");
+check("Mangrove Start is the Tarpon", CRITTER.mangrove_start === "tarpon");
+check("Arctic Start is the Narwhal", CRITTER.arctic_start === "narwhal");
+check("Bait Fish Week is the Bunker", CRITTER.bait_fish_week === "bunker");
+check("Tuna Week is the Yellowfin Tuna", CRITTER.tuna_week === "yellowfin-tuna");
+check("the ★ challenges are the Sea Star",
+      CRITTER.star_spark === "sea-star" && CRITTER.star_storm === "sea-star");
+
+// ── The water, which is the thing the player watches ───────────────────────
+// Run the shipped builder over made-up progress and read the height back out
+// of the markup it returns.
+const cardHtml = (new Function("c", "isWeekly", `
+  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, ch =>
+    ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch]));
+  const _csSwapUnlocked = () => false;
+  ${liftConst("_CS_CRITTER")}
+  const _CS_CRITTER_FALLBACK = "mullet";
+  ${liftFn("_csCardHtml")}
+  return _csCardHtml(c, isWeekly);`));
+const waterOf = (c, weekly) => {
+  const m = /ph-cs-po-water" style="height:([\d.]+)%/.exec(cardHtml(c, !!weekly));
+  return m ? Number(m[1]) : null;
+};
+
+check("nothing done yet leaves the porthole dry",
+      waterOf({ id: "bird_week", target: 30, progress: 0, xp: 1000 }, true) === 0);
+check("one game in, the water is already visible (1 of 25 -> 16%, not 4%)",
+      waterOf({ id: "reef_grinder", target: 25, progress: 1, xp: 2500 }, true) === 16);
+check("half way is half full",
+      waterOf({ id: "still_swimming", target: 2, progress: 1, xp: 150 }) === 50);
+check("past a quarter the water IS the fraction (4 of 7 -> 57%)",
+      waterOf({ id: "seven_seas", target: 7, progress: 4, xp: 2500 }, true) === 57);
+check("a completed challenge is full",
+      waterOf({ id: "coral_start", target: 1, progress: 1, xp: 50, completed: true }) === 100);
+check("a one-step challenge not yet taken is dry",
+      waterOf({ id: "coral_start", target: 1, progress: 0, xp: 50 }) === 0);
+check("the critter in the markup is the mapped one",
+      /\/avatars\/tarpon\.png/.test(cardHtml({ id: "mangrove_start", target: 1, progress: 0, xp: 50 }, false)));
+check("an unknown challenge still gets a face",
+      /\/avatars\/mullet\.png/.test(cardHtml({ id: "not_a_real_challenge", target: 1, progress: 0, xp: 50 }, false)));
+check("the DAILY / WEEKLY eyebrow is off the cards",
+      !/ph-cs-card-type/.test(cardHtml({ id: "still_swimming", target: 2, progress: 1, xp: 150 }, false)));
+
 // ── Render: what the player sees ────────────────────────────────────────────
 const CHROME = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -277,16 +392,15 @@ if (!CHROME) {
   const end   = HTML.indexOf('<div class="ph-main">', start);
   const STRIP = HTML.slice(start, end);
 
-  const CARD = `<div class="ph-cs-card is-weekly"><div class="ph-cs-card-top">
-    <div class="ph-cs-card-meta">
-    <div class="ph-cs-card-type">WEEKLY</div><div class="ph-cs-card-name">Weekly Finisher</div>
-    </div></div><div class="ph-cs-card-req">Finish 10 games this week.</div>
-    <div class="ph-cs-card-foot"><div class="ph-cs-card-bar"><div class="ph-cs-card-fill" style="width:40%"></div></div>
-    <span class="ph-cs-card-progress">4/10</span><span class="ph-cs-card-xp">+1,000 XP</span></div></div>`;
+  // The card the app builds, from the app: a stand-in would stop measuring
+  // the shipped markup the first time the builder changes.
+  const CARD = cardHtml(
+    { id: "weekly_finisher", name: "Weekly Finisher", req: "Finish 10 games this week.",
+      target: 10, progress: 4, xp: 1000 }, true);
 
   // The lobby and its panels are hidden until sign-in picks one; force the two
   // wrappers visible so the strip is measured, and change nothing else.
-  const page = `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style>
+  const page = `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style><style>${HOME}</style>
 <style>#auth-stats-lobby{display:block!important}.ph-panel{display:block!important}body{margin:0}</style>
 </head><body><div id="auth-stats-lobby"><div class="ph-panel">${STRIP}</div></div>
 <div id="out">RUNNING</div>
@@ -319,6 +433,21 @@ if (!CHROME) {
     // 26px sliver you cannot read a single word of.
     cardWs: [...cards.querySelectorAll(".ph-cs-card")]
       .map(c => Math.round(c.getBoundingClientRect().width)),
+    hdrBottom:  Math.round(hdr.getBoundingClientRect().bottom),
+    cardsTop:   Math.round(cards.getBoundingClientRect().top),
+    // The porthole is 62px of art; if the plate squeezes it, it is not the
+    // feature any more.
+    poSizes: [...cards.querySelectorAll(".ph-cs-po")]
+      .map(p => Math.round(p.getBoundingClientRect().height)),
+    // The water as a share of the porthole, read off the painted pixels
+    // rather than the style attribute: 4 of 10 is 40%.
+    waterPct: (() => {
+      const po = cards.querySelector(".ph-cs-po");
+      const w  = po && po.querySelector(".ph-cs-po-water");
+      if (!w) return -1;
+      const inner = po.getBoundingClientRect().height - 4;   // 2px rim each side
+      return Math.round((w.getBoundingClientRect().height / inner) * 100);
+    })(),
     rewardTop:  Math.round(rew.getBoundingClientRect().top),
     cardsBottom: Math.round(cards.getBoundingClientRect().bottom),
     // \\s, not \\s: this string is a Node template literal, so a lone \\s would
@@ -349,7 +478,18 @@ if (!CHROME) {
   check("closed: the strip is one bar tall", r.closed && r.closed.stripH < 110);
   check("open: all three challenges are visible", r.open && r.open.cardsSeen === 3);
   check("open: the strip grew to hold them", r.open && r.open.stripH > r.closed.stripH);
-  check("open: the header steps aside for the cards", r.open && r.open.hdrW < r.closed.hdrW);
+  // It used to: the strip was a flex ROW and the header was a 280px column on
+  // its left. The plate puts the header across the top as a title band, so the
+  // cards sit UNDER it at full width instead of beside it.
+  check("open: the header still spans the plate", r.open && r.open.hdrW > r.open.stripW - 60);
+  check("open: the cards sit under the header, not beside it",
+        r.open && r.open.cardsTop >= r.open.hdrBottom - 2);
+  check("open: every challenge is wide enough to read (>= 230px)",
+        r.open && r.open.cardWs.length === 3 && r.open.cardWs.every(w => w >= 230));
+  check("open: each porthole is on screen at full size",
+        r.open && r.open.poSizes.length === 3 && r.open.poSizes.every(d => d === 62));
+  check(`open: the water stands at the progress (${r.open && r.open.waterPct}%)`,
+        r.open && r.open.waterPct >= 38 && r.open.waterPct <= 42);
   // The bug this file did not catch: the challenges appeared and the reward
   // they are for did not, because of an inline display:none nothing cleared.
   check("closed: the reward is put away with the cards", r.closed && r.closed.rewardSeen === false);
@@ -385,7 +525,7 @@ if (!CHROME) {
     throw new Error("unbalanced: " + name);
   }
 
-  const switchPage = `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style>
+  const switchPage = `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style><style>${HOME}</style>
 <style>#auth-stats-lobby{display:block!important}.ph-panel{display:block!important}body{margin:0}
 *,*::before,*::after{transition:none!important;animation:none!important}</style>
 </head><body><div id="auth-stats-lobby"><div class="ph-panel">${STRIP}</div></div>
