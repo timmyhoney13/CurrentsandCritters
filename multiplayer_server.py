@@ -140,6 +140,48 @@ def _ranked_floor_error() -> str:
     return f"a competitive game needs at least {COMP_FFA_MIN_PLAYERS} people"
 
 
+# ── The turn clock ──────────────────────────────────────────────────────────
+# A room can be given a limit on how long ONE TURN may take. 0 means no clock
+# at all, which is what an ordinary game has unless the host asks for one.
+#
+# The ladder is 5-second steps, with a 2-second rung underneath the bottom of
+# it: 2 is the fastest a turn can be set to, and it is the only value that is
+# not a multiple of five. The client offers exactly this list, and the server
+# is the one that decides, so a hand-made request cannot ask for 7 seconds or
+# for 4 hours.
+TURN_LIMIT_CHOICES: Tuple[int, ...] = (2, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60)
+# Both competitive modes (Competitive and Competitive 1v1) ALWAYS run a clock,
+# and it is never slower than this. Inside that ceiling the host still chooses,
+# including the rungs under five seconds.
+TURN_LIMIT_COMP_MAX = 10
+TURN_LIMIT_COMP_DEFAULT = 10
+# Never park a clocked seat for less than this. Once the clock has run out the
+# forced move is taken, and a turn that still is not finished (an over-full
+# hand takes one discard at a time) comes straight back here with a deadline
+# already in the past: without a floor that loop would spin as fast as the
+# engine can serialize a move.
+TURN_CLOCK_MIN_WAIT_SEC = 0.5
+
+
+def normalize_turn_limit(value: Any, competitive: bool) -> int:
+    """Snap a requested per-turn clock onto the ladder the mode allows.
+
+    Returns seconds, or 0 for "no clock". A competitive room never gets 0 and
+    never gets more than TURN_LIMIT_COMP_MAX, whatever was asked for: the clock
+    is part of that mode, not an option inside it.
+    """
+    try:
+        want = int(float(value))
+    except (TypeError, ValueError):
+        want = 0
+    if want <= 0:
+        return TURN_LIMIT_COMP_DEFAULT if competitive else 0
+    choices = [c for c in TURN_LIMIT_CHOICES if not competitive or c <= TURN_LIMIT_COMP_MAX]
+    # Nearest rung, ties going to the faster one: a request for 4 lands on 5,
+    # a request for 3 lands on 2, and anything over the ceiling lands on it.
+    return min(choices, key=lambda c: (abs(c - want), c))
+
+
 # Every free play the engine can hand a player, in the words the client puts on
 # screen. The client matches a card in the hand against this list on its SPECIES
 # or its NAME, lights those cards up, and names them in the guide bar and in the
@@ -6113,6 +6155,7 @@ class GameRoom:
         team_mode: bool = False,
         team_count: int = 2,
         ranked: bool = False,
+        turn_limit_seconds: int = 0,
     ) -> None:
         self.room_id = room_id
         self.total_players = total_players
@@ -6136,6 +6179,24 @@ class GameRoom:
         self.team_mode = bool(team_mode)
         self.team_count = max(2, min(4, int(team_count))) if team_mode else 2
         self.swap_requests: List[Dict[str, Any]] = []
+        # ── The turn clock ───────────────────────────────────────────────
+        # How long one turn may take, in seconds, or 0 for "as long as you
+        # like", which is every game unless the host asked for a clock. Both
+        # competitive modes always have one (see normalize_turn_limit), so this
+        # is never 0 in a competitive room.
+        self.turn_limit_seconds = normalize_turn_limit(
+            turn_limit_seconds, bool(competitive) or bool(ranked)
+        )
+        # The live clock: which seat it is counting down for, and the wall time
+        # it runs out at. Armed by _human_policy at the start of each human
+        # turn and read by the state payload, which hands the browser the
+        # deadline rather than a number of seconds left, so a slow poll cannot
+        # make the clock on screen disagree with the one the server keeps.
+        # Deliberately NOT persisted: a room restored from a checkpoint starts
+        # the turn it comes back on with a full clock rather than one that ran
+        # out while the process was down.
+        self._turn_clock_seat: Optional[int] = None
+        self._turn_clock_deadline: Optional[float] = None
         # Tutorial games rig the human's opening hand so the guided "play an
         # ocean, then two creatures" walkthrough always works. Never set for
         # normal matches. ``tutorial_variant`` selects which rig: None/"" = the
@@ -6619,10 +6680,12 @@ class GameRoom:
                     "share_url": self.room_link(host_header, proto_hint),
                     "team_mode": bool(self.team_mode), "team_count": int(self.team_count),
                     "competitive": bool(self.competitive), "ranked": bool(self.ranked),
+                    "turn_limit_seconds": int(self.turn_limit_seconds),
                     "music_epoch_ms": self._music_epoch_ms_locked(),
                 },
                 "server_now_ms": int(time.time() * 1000),
                 "status_note": self.status_note,
+                "turn_timer": self._turn_timer_payload_locked(),
                 "seats": self.seat_snapshot_locked(),
                 "viewer": {"seat_index": None, "can_act": False, "spectator": True},
                 "state": state_obj,
@@ -6744,6 +6807,7 @@ class GameRoom:
             "quick_play": bool(self.quick_play),
             "team_mode": bool(self.team_mode),
             "team_count": int(self.team_count),
+            "turn_limit_seconds": int(self.turn_limit_seconds),
             "swap_requests": [dict(r) for r in self.swap_requests],
             "visibility": str(self.visibility),
             "password_hash": self.password_hash,
@@ -7218,6 +7282,10 @@ class GameRoom:
         quick_play = bool(payload.get("quick_play", False))
         team_mode = bool(payload.get("team_mode", False))
         team_count = clamp_int(payload.get("team_count"), 2, 2, 4)
+        # A room saved before the turn clock existed has no field here, and a
+        # casual room's 0 is a real answer, so this is read as-is and only the
+        # competitive floor is re-applied (inside the constructor).
+        turn_limit_seconds = clamp_int(payload.get("turn_limit_seconds"), 0, 0, max(TURN_LIMIT_CHOICES))
         vis_raw = str(payload.get("visibility") or "public").strip().lower()
         visibility = vis_raw if vis_raw in {"public", "private"} else "public"
         pw_hash = payload.get("password_hash") if isinstance(payload.get("password_hash"), str) else None
@@ -7234,6 +7302,7 @@ class GameRoom:
             quick_play=quick_play,
             team_mode=team_mode,
             team_count=team_count,
+            turn_limit_seconds=turn_limit_seconds,
         )
         with room.cond:
             room.seed = clamp_int(payload.get("seed"), room.seed, 0, 2**64 - 1)
@@ -10068,6 +10137,8 @@ class GameRoom:
                         # New active player → reset AFK votes/nominations and drop
                         # any stale challenge so each player starts fresh each turn.
                         self._afk_reset_turn_locked()
+                        # …and start this turn's clock, if the room runs one.
+                        self._arm_turn_clock_locked(seat_index)
                     self.active_action_seat = seat_index
                     only_discards = bool(actions) and all(a.kind in {"discard_to_pool", "discard_batch_to_pool"} for a in actions)
                     is_tarpon_phase = bool(player.flags.get("_tarpon_discard_active", False))
@@ -10107,6 +10178,12 @@ class GameRoom:
                     a.kind in {"discard_to_pool", "discard_batch_to_pool"} for a in actions
                 )
                 wait_sec = 1800.0
+                # A room on a clock parks for what is LEFT of this turn
+                # instead. Re-read every pass, because several moves can be
+                # made inside one turn and they all spend the same budget.
+                clock_deadline = self._turn_clock_deadline_for(seat_index)
+                if clock_deadline is not None:
+                    wait_sec = max(TURN_CLOCK_MIN_WAIT_SEC, clock_deadline - time.time())
                 cmd = self._wait_for_action(seat_index, timeout_sec=wait_sec)
                 if cmd is not None and cmd.get("kind") == "__kicked__":
                     # A player was removed by vote while we were parked here:
@@ -10296,6 +10373,66 @@ class GameRoom:
                     seat_obj = self.seats[seat_index] if 0 <= seat_index < len(self.seats) else None
                     if seat_obj is not None and getattr(seat_obj, "is_away", False):
                         continue
+                    # The TURN CLOCK ran out (a room the host put on a limit),
+                    # as opposed to the half-hour abandoned-table fallback
+                    # below. This is a rule of the table everyone sat down to,
+                    # so unlike the away path it does finish the turn: the
+                    # player keeps the two cards the turn owes them and loses
+                    # only what they did not get around to playing, which is
+                    # exactly what the AFK vote already does. Away still wins
+                    # (checked above): Surf's Up is an explicit "wait for me".
+                    if clock_deadline is not None and time.time() >= clock_deadline:
+                        forced: Optional[fish.Action] = None
+                        for action in actions:
+                            if action.kind == "end_turn":
+                                forced = action
+                                break
+                        if forced is None:
+                            # Still in the draw phase: take the plain deck draw
+                            # and arm the force-end flag, so the next pass ends
+                            # the turn instead of waiting out another window.
+                            # A pool draw only if the deck cannot answer, since
+                            # it takes a card off the table everyone can see.
+                            for action in actions:
+                                if action.kind == "draw" and int(getattr(action, "draw_from_pool", 0)) == 0:
+                                    forced = action
+                                    break
+                            if forced is None:
+                                forced = next((a for a in actions if a.kind == "draw"), None)
+                            if forced is not None:
+                                force_end_turn_next[0] = True
+                        if forced is None:
+                            # Over the hand limit: one discard at a time, which
+                            # comes straight back here with the deadline still
+                            # in the past until the hand is legal again.
+                            for action in actions:
+                                if action.kind == "discard_to_pool":
+                                    forced = action
+                                    break
+                        if forced is not None:
+                            verb = {"end_turn": "ending the turn",
+                                    "draw": "drawing and passing"}.get(forced.kind, "discarding a card")
+                            with self.cond:
+                                self.status_note = (
+                                    f"{player.name} ran out of time "
+                                    f"({self.turn_limit_seconds}s a turn): {verb}."
+                                )
+                                self._bump_locked()
+                            self._record_event(
+                                f"{player.name} (seat {seat_index}) hit the "
+                                f"{self.turn_limit_seconds}s turn limit: {verb}."
+                            )
+                            return forced
+                        # Nothing the clock is willing to take on its own:
+                        # every remaining move is a PLAY, and a clock must not
+                        # choose a card for you. Give the turn a fresh budget
+                        # and fall through to the ordinary park-and-wait, so
+                        # the loop paces itself at the limit instead of
+                        # spinning on a deadline that is already past.
+                        with self.cond:
+                            self._arm_turn_clock_locked(seat_index)
+                            self._bump_locked()
+
                     # Timeout = the player is AFK / disconnected / not responding.
                     # CRITICAL: never auto-draw cards for them. _safe_timeout_action
                     # only ends the turn (if it can be passed without drawing) or
@@ -12528,6 +12665,7 @@ class GameRoom:
                     "quick_play": bool(self.quick_play),
                     "team_mode": bool(self.team_mode),
                     "team_count": int(self.team_count),
+                    "turn_limit_seconds": int(self.turn_limit_seconds),
                     "swap_requests": [dict(r) for r in self.swap_requests],
                     "human_seats_filled": human_filled,
                     "human_seats_total": human_total,
@@ -12548,6 +12686,10 @@ class GameRoom:
                 "server_now_ms": int(time.time() * 1000),
                 "spectators": self.spectator_list(),
                 "status_note": self.status_note,
+                # The live turn clock, as a DEADLINE rather than as seconds
+                # left: a poll that takes 400ms to arrive would otherwise hand
+                # the browser a number that is already wrong.
+                "turn_timer": self._turn_timer_payload_locked(),
                 "error": self.error_message,
                 "ai_speed": str(self.ai_speed or "normal"),
                 "public_links": load_public_links(),
@@ -12703,6 +12845,57 @@ class GameRoom:
             return f"P{int(seat.index) + 1}"
         except Exception:
             return str(getattr(seat, "label", "?"))
+
+    # ── The turn clock ─────────────────────────────────────────────────
+    def _arm_turn_clock_locked(self, seat_index: int) -> None:
+        """Start this seat's clock for the turn that is beginning.
+
+        One clock per TURN, not per move: a player who draws and then plays
+        two cards spends one budget on all of it, which is what "ten seconds a
+        turn" means. Called from the turn-boundary branch of _human_policy, so
+        a ★ play-again turn (a fresh turn for the same player) is armed afresh
+        and a second action inside one turn is not."""
+        if not self.turn_limit_seconds:
+            self._turn_clock_seat = None
+            self._turn_clock_deadline = None
+            return
+        self._turn_clock_seat = int(seat_index)
+        self._turn_clock_deadline = time.time() + float(self.turn_limit_seconds)
+
+    def _turn_clock_deadline_for(self, seat_index: int) -> Optional[float]:
+        """The wall time this seat's turn runs out at, or None if no clock is
+        running for it."""
+        with self.cond:
+            if (
+                not self.turn_limit_seconds
+                or self._turn_clock_seat != seat_index
+                or self._turn_clock_deadline is None
+            ):
+                return None
+            return float(self._turn_clock_deadline)
+
+    def _turn_timer_payload_locked(self) -> Optional[Dict[str, Any]]:
+        """What the browser draws the clock from: the seat it belongs to and
+        the moment it runs out, in server milliseconds (read against
+        server_now_ms, which every payload already carries).
+
+        None whenever there is nothing to draw: no clock set for the room, the
+        game not running, or the clock belonging to a seat that is no longer
+        the one being waited on (every turn_start clears active_action_seat, so
+        a bot's turn shows no clock rather than the last human's)."""
+        if (
+            not self.turn_limit_seconds
+            or self.phase != "running"
+            or self._turn_clock_seat is None
+            or self._turn_clock_deadline is None
+            or self.active_action_seat != self._turn_clock_seat
+        ):
+            return None
+        return {
+            "seat": int(self._turn_clock_seat),
+            "limit": int(self.turn_limit_seconds),
+            "deadline_ms": int(self._turn_clock_deadline * 1000),
+        }
 
     def _afk_reset_turn_locked(self) -> None:
         """Clear all per-turn AFK state and cancel any live challenge.
@@ -13899,6 +14092,7 @@ class RoomManager:
         team_mode: bool = False,
         team_count: int = 2,
         ranked: bool = False,
+        turn_limit_seconds: int = 0,
     ) -> GameRoom:
         with self.lock:
             if replace_active:
@@ -13933,6 +14127,7 @@ class RoomManager:
                     quick_play=quick_play,
                     team_mode=team_mode,
                     team_count=team_count,
+                    turn_limit_seconds=turn_limit_seconds,
                 )
                 self.rooms[rid] = room
                 room.persist_now()
@@ -13955,6 +14150,7 @@ class RoomManager:
                         quick_play=quick_play,
                         team_mode=team_mode,
                         team_count=team_count,
+                        turn_limit_seconds=turn_limit_seconds,
                     )
                     self.rooms[rid] = room
                     room.persist_now()
@@ -14137,6 +14333,10 @@ class RoomManager:
                     "filled": filled,
                     "visibility": room.visibility,
                     "has_password": room.password_hash is not None,
+                    # On a clock, and how fast. A browser deciding which open
+                    # table to sit at should not have to join to find out it
+                    # gives you two seconds a turn.
+                    "turn_limit_seconds": int(room.turn_limit_seconds),
                     "created_unix": room.created_unix,
                     "created_ago": _ago(now - room.created_unix),
                 })
@@ -16874,6 +17074,15 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             tutorial_variant = body.get("tutorial_variant") if isinstance(body.get("tutorial_variant"), str) else None
             vis_raw = str(body.get("visibility") or "public").strip().lower()
             visibility = vis_raw if vis_raw in {"public", "private"} else "public"
+            # The per-turn clock. normalize_turn_limit has the last word: it
+            # snaps the request onto the ladder and gives both competitive
+            # modes a clock whether or not one was asked for. A TUTORIAL never
+            # gets one: the tour opens the same modal as a real game, and a
+            # walkthrough that passes your turn while it is still telling you
+            # what to click is not a walkthrough.
+            turn_limit_seconds = 0 if tutorial else normalize_turn_limit(
+                body.get("turn_limit_seconds"), competitive or ranked
+            )
             password_plain = body.get("password") if isinstance(body.get("password"), str) else None
             if visibility == "private" and password_plain:
                 password_hash: Optional[str] = hashlib.sha256(password_plain.strip().encode()).hexdigest()
@@ -16895,6 +17104,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     tutorial_variant=tutorial_variant,
                     team_mode=team_mode,
                     team_count=team_count,
+                    turn_limit_seconds=turn_limit_seconds,
                 )
             except ValueError as exc:
                 self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.BAD_REQUEST)

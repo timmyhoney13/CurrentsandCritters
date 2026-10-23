@@ -2143,6 +2143,13 @@
   window.__ccPrestigeAppearance = openAppearance;
   window.__ccPrestigeCelebrate = celebrate;
   window.__ccPrestigeScene = buildScene;
+  // Which way a critter's art points, for anything else that swims one across
+  // the screen. The turn clock above the hand (preview-app.js) reads this
+  // rather than keeping a second copy of a table that was checked against the
+  // actual PNGs, so a critter never swims tail-first in one place and the
+  // right way round in another. Returns "", " faces-right" or " faces-none",
+  // the same class suffix the scenes use.
+  window.__ccCritterFacing = facingClass;
   window.__ccPrestigeTitle = titleFor;
   window.__ccPrestigeState = () => S.state;
   // Warm the cache as soon as the app has an account, so the FIRST paint of a

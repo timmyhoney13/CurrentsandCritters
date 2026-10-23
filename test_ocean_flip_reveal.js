@@ -30,6 +30,11 @@
  *   F. The Pool slot the card is headed for stays hidden until the flight is
  *      over, while an ordinary Pool arrival (a paid or discarded card) ripples
  *      in straight away.
+ *   G. It is smooth: nowhere in the flight does the card change speed with a
+ *      snap. The arc this replaced changed easing half way out of the deck,
+ *      from a curve that was slowing down to one that starts fast, and the
+ *      card went from 19px per sample to 62px in a single 8ms step: 70% of
+ *      its own top speed, instantly. That is the hitch "smoother" meant.
  */
 "use strict";
 
@@ -173,6 +178,7 @@ const PAGE = '<!doctype html><html><head><meta charset="utf-8"><title>ocean flip
 + '    ok(total === OCEAN_FLIP_MS, "the flight lasts the whole reveal (" + total + "ms)");\n'
 + '\n'
 + '    function at(ms) { anim.currentTime = ms; return card.getBoundingClientRect(); }\n'
++ '    function ctr(r) { return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }\n'
 + '    function m11At(ms) {\n'
 + '      anim.currentTime = ms;\n'
 + '      var m = new DOMMatrixReadOnly(getComputedStyle(card).transform);\n'
@@ -235,6 +241,26 @@ const PAGE = '<!doctype html><html><head><meta charset="utf-8"><title>ocean flip
 + '    ok((getComputedStyle(card).boxShadow || "").split("rgb").length >= 3,\n'
 + '       "and it carries its own glow");\n'
 + '    plain.remove();\n'
++ '\n'
++ '    // ── G. Smooth: no snap anywhere in the flight ───────────────\n'
++ '    // Sampled every 8ms, about half a frame. One curve carries the card out\n'
++ '    // of the deck, so travel, turn and swell cannot hand over to each other\n'
++ '    // mid-flight; the hold is still; and the drop into the slot starts and\n'
++ '    // ends at rest. Nothing in that can change speed abruptly.\n'
++ '    var speeds = [], prevC = ctr(at(0));\n'
++ '    for (var ms = 8; ms <= OCEAN_FLIP_MS; ms += 8) {\n'
++ '      var cc = ctr(at(ms));\n'
++ '      speeds.push(Math.hypot(cc.x - prevC.x, cc.y - prevC.y));\n'
++ '      prevC = cc;\n'
++ '    }\n'
++ '    var peak = Math.max.apply(null, speeds), snap = 0, snapAt = 0;\n'
++ '    for (var si = 1; si < speeds.length; si++) {\n'
++ '      var dd = Math.abs(speeds[si] - speeds[si - 1]);\n'
++ '      if (dd > snap) { snap = dd; snapAt = si * 8; }\n'
++ '    }\n'
++ '    ok(peak > 0 && snap <= peak * 0.25,\n'
++ '       "it never changes speed with a snap: the worst single step is "\n'
++ '       + (snap / peak * 100).toFixed(0) + "% of its own top speed, at " + snapAt + "ms");\n'
 + '\n'
 + '    // ── F. The Pool slot waits for it ──────────────────────────────\n'
 + '    queuePoolReveal(101, OCEAN_FLIP_MS - 80);   // the flipped card\n'

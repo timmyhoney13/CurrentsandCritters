@@ -413,6 +413,11 @@
 # face-up, on screen, and the Pool slot stays empty until it lands. Measures
 # the real flipOutFromDeck against the real preview.css in headless Chrome.
 !test_ocean_flip_reveal.js
+# Pool: the card you pick UP travels to your hand, lifting out of the Pool
+# slot (or turning over off the deck) and handing over to the real hand card
+# where that card is actually painted. Measures the real pickUpToHand against
+# the real preview.css in headless Chrome. Test-only, no Dockerfile COPY.
+!test_card_pickup.js
 # Board peek: the hover preview of another player's board must never get stuck
 # on screen, a removed anchor fires no mouseleave, so every dismissal path
 # (pointer off, click, scroll, tab away, game over, leaving the game) is pinned.
@@ -1019,3 +1024,21 @@ multiplayer/client/_consent_*.html
 # from a dialog whose own copy says it is the only time. Test-only, no
 # Dockerfile COPY.
 !test_consent_asked_once.js
+
+# The turn clock: a room can be given a limit on how long one turn may take.
+# The ladder is 5-second steps with a 2-second rung under it, both competitive
+# modes always run a clock and never one slower than 10 seconds, and running
+# out draws your two cards and passes. Drives a REAL two-second match on the
+# real engine thread and watches the turns go round untouched. Test-only, no
+# Dockerfile COPY.
+!test_turn_limit.py
+# …and the two halves of it you can see: the Turn Limit control offering
+# exactly the rungs the server will accept, and the critter swimming the bar
+# above the hand (small, mirrored the right way round, gone when the clock
+# is). Test-only, no Dockerfile COPY.
+!test_turn_limit_ui.js
+# Every strategy, and every card in it, says what FAMILY it is: the names come
+# off the one table js/gamedata.js publishes, a plan wears the same one or two
+# its symbol art shows, and the longest of them ("Invertebrates") still fits a
+# card tile at every width the panel opens at. Test-only, no Dockerfile COPY.
+!test_strategy_families.js

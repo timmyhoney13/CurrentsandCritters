@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-21.3";
+  const APP_BUILD   = "2026-10-22.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -2128,6 +2128,7 @@
     _specSetPresence(null);
     try { window._igcpSetVisible?.(false); } catch {}
     try { window._bsSetVisible?.(false); } catch {}
+    try { _turnClockApply(null); } catch (e) {}
     document.getElementById("pv-game").style.display = "none";
     stopThemeSong();
     if (typeof window.__fishShowStatsLobby === "function") window.__fishShowStatsLobby();
@@ -3969,6 +3970,20 @@
     // The Current Controller row, wherever the table has got to with it.
     try { _ccLobbyRender(); } catch (_) {}
 
+    // On a clock? Say so at the top of the lobby, not after the first turn
+    // has already run out. The host chose this before the room existed and
+    // nobody can change it now, so everyone who walks in is told once.
+    try {
+      const clockEl = document.getElementById("wr-clock-note");
+      if (clockEl) {
+        const limit = Number(_room.turn_limit_seconds) || 0;
+        clockEl.style.display = limit > 0 ? "" : "none";
+        clockEl.textContent = limit > 0
+          ? `On a clock: ${turnLimitLabel(limit)}. Run out and the game draws your two cards and passes for you.`
+          : "";
+      }
+    } catch (_) {}
+
     const list = document.getElementById("wr-players-list");
     updateQuickPlaySetup(seats, isHost, isQuickPlay);
 
@@ -4548,12 +4563,18 @@
       const sizeLabel = `${room.filled}/${room.total_players} players`;
       const aiCount = (room.total_players - room.human_players);
       const aiLabel = aiCount > 0 ? ` · ${aiCount} AI` : "";
+      // A table on a clock says so on its card. Two seconds a turn is not
+      // something to find out about after you have sat down.
+      const clockSecs = Number(room.turn_limit_seconds) || 0;
+      const clockBadge = clockSecs > 0
+        ? `<span class="room-badge clocked">${clockSecs}s a turn</span>`
+        : "";
 
       card.innerHTML = `
         <div class="room-card-info">
           <div class="room-card-host">${lockIcon}${escHtml(room.host_name || "Unknown")}</div>
           <div class="room-card-meta">${sizeLabel}${aiLabel} · ${escHtml(room.created_ago || "")}</div>
-          ${modeBadge}
+          ${modeBadge}${clockBadge}
         </div>
         <button class="room-card-join pv-btn gold" data-rid="${escHtml(room.room_id)}">Join →</button>`;
 
@@ -6206,6 +6227,56 @@
   let _ncIsRanked = false;      // tracks whether the modal was opened for a Competitive (free-for-all) game
   let _ncMode = "normal";       // 'normal' | 'ranked' | 'competitive' | 'team'
   let _ncTeamCount = 2;         // 2..4 (team mode only)
+  // ── Turn limit: how long one turn may take ──────────────────────
+  // The ladder is 5-second steps with a 2-second rung underneath it: 2 is the
+  // fastest a turn can be set to and the only value that is not a multiple of
+  // five. Both competitive modes ALWAYS run a clock and never one slower than
+  // 10 seconds, so there a host chooses inside 2 / 5 / 10 and cannot pick Off.
+  //
+  // The server owns this rule (normalize_turn_limit in multiplayer_server.py);
+  // these are the same numbers so the modal offers exactly what will be
+  // accepted. A request outside them is snapped there, never here.
+  const TURN_LIMIT_CHOICES = [2, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
+  const TURN_LIMIT_COMP_MAX = 10;
+  const TURN_LIMIT_COMP_DEFAULT = 10;
+  // "10 seconds a turn" / "No turn limit", in the words the lobby and the
+  // Open Currents list both use for it.
+  function turnLimitLabel(seconds) {
+    const s = Number(seconds) || 0;
+    return s > 0 ? `${s} second${s === 1 ? "" : "s"} a turn` : "No turn limit";
+  }
+  // Rebuild the Turn Limit list for the mode now selected, keeping the host's
+  // own pick where the new mode still allows it. Called from applyNcMode, so
+  // it runs on every open of the modal and on every change of Mode.
+  function _ncFillTurnLimit(isComp) {
+    const sel = document.getElementById("nc-turn-limit");
+    if (!sel) return;
+    const had = Number(sel.value);
+    const choices = TURN_LIMIT_CHOICES.filter(c => !isComp || c <= TURN_LIMIT_COMP_MAX);
+    sel.innerHTML = (isComp ? "" : `<option value="0">Off</option>`)
+      + choices.map(c => `<option value="${c}">${c} seconds</option>`).join("");
+    let want;
+    if (isComp) want = choices.indexOf(had) >= 0 ? had : TURN_LIMIT_COMP_DEFAULT;
+    else want = (had > 0 && TURN_LIMIT_CHOICES.indexOf(had) >= 0) ? had : 0;
+    sel.value = String(want);
+    _ncTurnLimitNote(isComp);
+  }
+  function _ncTurnLimitNote(isComp) {
+    const note = document.getElementById("nc-turn-limit-note");
+    const sel = document.getElementById("nc-turn-limit");
+    if (!note || !sel) return;
+    const secs = Number(sel.value) || 0;
+    if (isComp) {
+      note.textContent = `Competitive games are always on a clock, and never slower than `
+        + `${TURN_LIMIT_COMP_MAX} seconds. You can go faster: ${secs} seconds a turn.`;
+    } else if (secs > 0) {
+      note.textContent = `Every player gets ${secs} second${secs === 1 ? "" : "s"} for a whole turn. `
+        + `Run out and the game draws your two cards and passes for you.`;
+    } else {
+      note.textContent = "";
+    }
+  }
+
   // Apply the chosen Mode to the setup modal.
   //  • Normal     : a fully customizable game (all settings editable).
   //  • Ranked     : "Competitive", an ordinary 3–8 player game that pays
@@ -6285,6 +6356,10 @@
     lock("nc-field-humans",  totalEl, _ncIsCompetitive);
     lock("nc-field-ai",      aiEl,    _ncIsCompetitive || _ncIsRanked);
     lock("nc-field-privacy", visEl,   _ncIsCompetitive);
+    // The clock is never locked: it is REQUIRED in both competitive modes, but
+    // which of 2 / 5 / 10 seconds it runs at is still the host's call, so the
+    // control stays live and only loses the rungs the mode does not allow.
+    _ncFillTurnLimit(_ncIsCompetitive || _ncIsRanked);
   }
 
   function openNewCurrentModal(opts) {
@@ -6453,6 +6528,10 @@
     if (e.target.value !== "private") document.getElementById("nc-password").value = "";
   });
 
+  document.getElementById("nc-turn-limit").addEventListener("change", () => {
+    _ncTurnLimitNote(_ncIsCompetitive || _ncIsRanked);
+  });
+
   document.getElementById("nc-create-btn").addEventListener("click", async () => {
     const btn = document.getElementById("nc-create-btn");
     const errEl = document.getElementById("nc-current-err");
@@ -6465,6 +6544,15 @@
     // ranked room anyway; zeroing here means the request it refuses is never sent.
     const ai    = (_ncIsCompetitive || _ncIsRanked) ? 0 : Math.max(0, Number(document.getElementById("nc-ai").value) || 0);
     const total = human + ai;
+    // The turn clock. A competitive table always has one, so an unreadable or
+    // missing control there falls back to the mode's own default rather than
+    // to "off", which the server would refuse to honour anyway.
+    const _tlRaw = Number(document.getElementById("nc-turn-limit")?.value);
+    const _tlComp = (_ncIsCompetitive || _ncIsRanked);
+    let turnLimitSeconds = (Number.isFinite(_tlRaw) && TURN_LIMIT_CHOICES.indexOf(_tlRaw) >= 0) ? _tlRaw : 0;
+    if (_tlComp && (turnLimitSeconds <= 0 || turnLimitSeconds > TURN_LIMIT_COMP_MAX)) {
+      turnLimitSeconds = TURN_LIMIT_COMP_DEFAULT;
+    }
     if (_ncIsRanked && (human < COMP_FFA_MIN_PLAYERS || human > 8)) {
       errEl.textContent = `A competitive game needs ${COMP_FFA_MIN_PLAYERS} to 8 people.`;
       return;
@@ -6483,6 +6571,11 @@
     // opening-hand rig to apply. One-shot, consumed here like the tutorial flag.
     const _tutVariant = _isTutGame ? String(window.__ccTutorialVariant || "") : "";
     window.__ccTutorialVariant = "";
+    // A TUTORIAL is never on a clock. The tour opens this very modal, so a
+    // limit the host picked for their last real game was still sitting in the
+    // control, and a walkthrough that passes your turn for you while the tour
+    // is still telling you what to click is not a walkthrough.
+    if (_isTutGame) turnLimitSeconds = 0;
     let visibility = document.getElementById("nc-visibility").value;
     let password = "";
     let rid = Math.random().toString(36).slice(2,7).toUpperCase();
@@ -6533,6 +6626,7 @@
         competitive: _ncIsCompetitive, ranked: _ncIsRanked,
         tutorial: _isTutGame, tutorial_variant: _tutVariant,
         team: isTeam, team_count: teamCount,
+        turn_limit_seconds: turnLimitSeconds,
       }, { timeoutMs:10000 });
     } catch (e) {
       btn.disabled = false;
@@ -7605,6 +7699,48 @@
       `</div>`;
   }
 
+  // ── What family is this? ────────────────────────────────────────
+  // The panel has always tinted a plan and its cards by FAMILY, which only
+  // helps a player who already knows the ten colours by heart. This prints the
+  // family's NAME next to the colour, in the same chip the legend above uses,
+  // so a tile answers "what family is this one?" on the spot instead of
+  // sending you back to the key. Names come off window.CC_FAMILY_LABEL
+  // (js/gamedata.js), the one table /rules and the printed book name families
+  // from, so a family is called the same thing in all three places.
+  function _famChipHtml(species, cls) {
+    const key = _normFamily(species);
+    const label = (window.CC_FAMILY_LABEL || {})[key] || String(species || "").trim();
+    if (!label) return "";
+    return `<span class="hs-fam-chip${cls ? " " + cls : ""}" style="--lc:${familyColor(key)}">`
+      + `${_hesc(label)}</span>`;
+  }
+  // The family (or, for a combo, the two families) a PLAN is built on, in
+  // words. Deliberately the same one or two the tile's symbol art already
+  // shows, straight off window.CC_STRAT_SYMBOLS, so the chip is the caption
+  // for the mark beside it rather than a second, longer answer.
+  //
+  // Not every family its card list touches: Crustaceans alone reaches four
+  // and a combo reaches eight, which turns the question "what family is this
+  // plan?" back into the list it was asked instead of. Each CARD says its own
+  // family on its own tile in the detail view, which is where that belongs.
+  function _stratFamiliesHtml(i, s, cls) {
+    let keys = [];
+    // Fail soft, exactly like _stratArtHtml: a stale cached gamedata.js must
+    // cost a caption, never the panel.
+    if (typeof window.CC_STRAT_SYMBOLS === "function") {
+      for (const e of (window.CC_STRAT_SYMBOLS(i, s) || [])) {
+        const k = _normFamily(e && e.key);
+        if (k && keys.indexOf(k) < 0) keys.push(k);
+      }
+    }
+    if (!keys.length) {
+      const fallback = _normFamily((s && s.group === "ocean") ? "ocean" : _STRAT_PRIMARY[i]);
+      if (fallback) keys = [fallback];
+    }
+    if (!keys.length) return "";
+    return `<div class="hs-fam-row">` + keys.map(k => _famChipHtml(k, cls)).join("") + `</div>`;
+  }
+
   function starText(text) { const m=/\*([^*]+)\*/g.exec(text||""); return m ? m[1].trim():""; }
   function mainText(text) {
     return String(text||"").replace(/\*[^*]+\*/g,"").replace(/\|\s*\|/g,"|")
@@ -8620,6 +8756,7 @@
             <span class="help-tier ${badge.cls} hs2-card-tag">${badge.text}</span>
             <div class="hs2-card-body">
               <div class="hs2-card-name">${_hesc(s.label)}</div>
+              ${_stratFamiliesHtml(i, s)}
               <div class="hs2-card-blurb">${_hesc(s.blurb)}</div>
               <div class="hs2-card-foot">
                 <span class="hs2-card-view" data-detail="${i}">View cards & plan ›</span>
@@ -8677,6 +8814,7 @@
             <div class="hs2-combo-body">
               ${pairTag}
               <div class="hs2-combo-name">${_hesc(s.label)}</div>
+              ${_stratFamiliesHtml(i, s)}
               <div class="hs2-combo-why">${_hesc(s.blurb)}</div>
               <div class="hs2-combo-foot">
                 <span class="hs2-combo-view" data-detail="${i}">View combo details ›</span>
@@ -8738,6 +8876,7 @@
         <div class="hd-card-tile${hasImg ? "" : " no-img"}" ${hasImg ? `data-uid="${c.repUid}"` : ""} title="${_hesc(c.name)} ×${c.count}${hasImg ? " · click to zoom" : ""}">
           <div class="hd-card-img">${imgInner}${c.count > 1 ? `<span class="hd-card-count">×${c.count}</span>` : ""}</div>
           <div class="hd-card-name">${_hesc(c.name)}</div>
+          ${_famChipHtml(c.species, "hd-card-fam")}
           <div class="hd-card-text">${_hesc(c.text)}</div>
         </div>`;
       }).join("");
@@ -8747,7 +8886,7 @@
       const customTools  = s.custom ? `<div class="hd-custom-tools"><button id="hd-edit" class="hd-edit-btn" data-strat="${i}">Edit</button><button id="hd-delete" class="hd-delete-btn" data-strat="${i}">Delete</button></div>` : "";
       const badge = _tierBadge(i);
       detailEl.innerHTML = `
-        <div class="hd-head"><span class="help-tier ${badge.cls}">${badge.text}${_isCore(i) ? " strategy" : ""}</span></div>
+        <div class="hd-head"><span class="help-tier ${badge.cls}">${badge.text}${_isCore(i) ? " strategy" : ""}</span>${_stratFamiliesHtml(i, s)}</div>
         <p class="hd-blurb">${_hesc(s.blurb)}</p>
         <button id="hd-activate" class="${on ? "on" : ""}" data-strat="${i}">${on ? "✓ You're Playing This Strategy · Stop" : "I'm Playing This Strategy"}</button>
         <div class="hd-activate-hint">${on ? "Matching cards are lit up in your hand and the pool. You can turn on more than one strategy at once." : "Turn this on and matching cards will light up in your hand and the pool. You can combine strategies."}</div>
@@ -9862,7 +10001,7 @@
     // pool/hand counts so we can fly removed pool cards, hook-reveal deck
     // draws, and ripple-reveal newly-added pool cards after render.
     const _animOldPoolRects = _snapshotPoolRectsForAnim();
-    const _animDiff = _computeDrawAnimDiff(players, Array.isArray(state.pool) ? state.pool : []);
+    const _animDiff = _computeDrawAnimDiff(players, Array.isArray(state.pool) ? state.pool : [], deckNum);
     // Board-clear tide: when the Pool overflows every card is washed out to the
     // discard pile in one step. Detect that from the discard-pile count jumping
     // by ≥10 (see _poolOverflowCleared, reliable even when the Pool lands
@@ -9926,6 +10065,11 @@
       }
     } catch (e) {}
 
+    // ── Turn clock ───────────────────────────────────────────────
+    // Shown for whoever is on it, not only for me: a table on a ten-second
+    // clock wants to see the other player running out of it too.
+    try { _turnClockApply(payload); } catch (e) {}
+
     renderPool(Array.isArray(state.pool) ? state.pool : [], legalActions);
     _pvAnim._suppressFlipIn = false;
     renderOpponents(players.filter(p => p.index !== myIdx), state.turn_index);
@@ -9953,6 +10097,7 @@
           addedPoolUids:   _animDiff.addedPoolUids,
           oceanFlipUids:   Array.isArray(state.ocean_flip_uids) ? state.ocean_flip_uids : [],
           handDeltas:      _animDiff.handDeltas,
+          deckDelta:       _animDiff.deckDelta,
           prevHandUIDs:    _animPrevHandUIDs,
           players, myIdx,
           prevTurnIdx: _prevTurnIdx,
@@ -9962,6 +10107,7 @@
         if (_tideSnap) _playTideSweep(_tideSnap);
       } catch (e) { /* never block render on animation issues */ }
       _prevHandCountsForAnim = _animDiff.newHandCounts;
+      if (_animDiff.deckNow != null) _prevDeckForAnim = _animDiff.deckNow;
     });
     // undo button: always visible; disabled+dimmed when not eligible
     const undoInfo = payload.undo || {};
@@ -10278,7 +10424,7 @@
     // to read, and only then settles into its Pool slot. The Pool card itself
     // stays hidden until it lands (queuePoolReveal's hold), so the reveal
     // happens once, out in the open, instead of twice.
-    const OCEAN_FLIP_OUT = 280, OCEAN_FLIP_HOLD = 420, OCEAN_FLIP_IN = 300;
+    const OCEAN_FLIP_OUT = 230, OCEAN_FLIP_HOLD = 330, OCEAN_FLIP_IN = 240;
     const OCEAN_FLIP_MS = OCEAN_FLIP_OUT + OCEAN_FLIP_HOLD + OCEAN_FLIP_IN;
 
     function flipOutFromDeck(fromRect, toRect, opts = {}) {
@@ -10332,15 +10478,20 @@
           // 1.89x and was already on its way out where 2x should have been
           // sitting still). Per-keyframe easing keeps each leg's timing the
           // milliseconds it says it is.
+          //
+          // One keyframe per leg, and none half way out of the deck. The old
+          // arc changed easing at 90deg, from a curve that was slowing down to
+          // one that starts fast, and a card cannot slow down and speed up in
+          // the same instant without a hitch you can see. Travel, turn and
+          // swell now ride a single curve from the deck to the hold, so there
+          // is nothing to hand over mid-flight.
           const keyframes = [
             { transform: "translate(0,0) scale(1) rotateY(0deg)", opacity: 1, offset: 0,
-              easing: "cubic-bezier(.33,.0,.66,.6)" },
-            { transform: `translate(${dxH * .55}px,${dyH * .55 - 14}px) scale(${(1 + big) / 2}) rotateY(90deg)`,
-              opacity: 1, offset: out * .6, easing: "cubic-bezier(.2,.7,.3,1)" },
+              easing: "cubic-bezier(.32,.24,.26,1)" },
             { transform: `translate(${dxH}px,${dyH}px) scale(${big}) rotateY(180deg)`, opacity: 1, offset: out,
               easing: "ease-in-out" },
-            { transform: `translate(${dxH}px,${dyH - 6}px) scale(${big}) rotateY(180deg)`, opacity: 1, offset: held,
-              easing: "cubic-bezier(.4,.05,.4,1)" },
+            { transform: `translate(${dxH}px,${dyH - 5}px) scale(${big}) rotateY(180deg)`, opacity: 1, offset: held,
+              easing: "cubic-bezier(.42,.03,.32,1)" },
             { transform: `translate(${dxT}px,${dyT}px) scale(${endScale}) rotateY(180deg)`, opacity: 1, offset: 1 },
           ];
           const anim = card.animate(keyframes, {
@@ -10354,6 +10505,90 @@
             setTimeout(() => { card.remove(); resolve(); }, 160);
           };
         });
+      });
+    }
+
+    // ── Pick-up: the card you take travels to your hand ───────────────
+    // Picking a card up used to be two unrelated events: the Pool slot you
+    // clicked emptied, and somewhere else entirely your hand grew by one. This
+    // is the third of a second in between. It is the commonest animation in
+    // the game, so it is deliberately short: the card lifts out of wherever it
+    // came from, sweeps to its place in your hand, and hands over to the real
+    // card as it arrives.
+    //
+    // The hand card is held back until the clone lands, because it is the same
+    // card and two of it is a bug you can see. It is held back by visibility,
+    // not opacity: its own deal-in keyframes animate opacity, and a running
+    // animation beats an inline style. visibility also leaves deal-in to run
+    // and END untouched, which matters, because applyHandLayout waits for that
+    // animation to finish before it puts the card into the fan at all.
+    const PICKUP_LIFT = 110, PICKUP_FLY = 200;
+    const PICKUP_MS = PICKUP_LIFT + PICKUP_FLY;
+
+    function pickUpToHand(fromRect, toRect, cardEl, opts = {}) {
+      return new Promise((resolve) => {
+        const host = layer();
+        if (!host || !fromRect || !toRect || !cardEl || !(toRect.width > 0)) { resolve(); return; }
+        const flip  = !!opts.flip;              // off the deck: face-down, turns over on the way
+        const delay = Math.max(0, Number(opts.delay) || 0);
+        const card  = makeAnimCard(opts.faceUid || 0, flip);
+        card.classList.add("pv-pickup");
+
+        const fromCx = fromRect.left + fromRect.width / 2;
+        const fromCy = fromRect.top  + fromRect.height / 2;
+        const toCx   = toRect.left   + toRect.width  / 2;
+        const toCy   = toRect.top    + toRect.height / 2;
+        const startScale = Math.max(.3, Math.min(1.5, (fromRect.width || 70) / 90));
+        const endScale   = Math.max(.3, Math.min(1.5, (toRect.width   || 90) / 90));
+
+        card.style.left = (fromCx - 45) + "px";
+        card.style.top  = (fromCy - 63) + "px";
+        card.style.transform = `scale(${startScale}) rotateY(0deg)`;
+        card.style.opacity = "1";
+        host.appendChild(card);
+
+        // Hidden from this frame on: _runDrawAnimations runs inside the
+        // render's own rAF, so this beats the new card to its first paint.
+        cardEl.style.visibility = "hidden";
+        let landed = false;
+        const land = () => {
+          if (landed) return;
+          landed = true;
+          cardEl.style.visibility = "";
+          playRippleAt(rectOf(cardEl) || toRect);
+        };
+        // The card comes back, and the clone goes, whatever became of the
+        // flight: a hidden tab is given no frames, so it may never have begun,
+        // and a card you cannot see is worse than an animation you did not
+        // get. By this point the flight is 160ms past due either way.
+        setTimeout(() => { land(); card.remove(); resolve(); }, delay + PICKUP_MS + 160);
+
+        const fly = () => {
+          // Deliberately NOT counted in `running`: isBusy() gates the deck and
+          // Pool click handlers, and a draw turn is two picks in a row.
+          // Counting this one would make the second pick miss.
+          const lift = PICKUP_LIFT / PICKUP_MS;
+          const keyframes = [
+            { transform: `translate(0,0) scale(${startScale}) rotate(0deg) rotateY(0deg)`,
+              offset: 0, easing: "cubic-bezier(.22,.72,.3,1)" },
+            // Up out of the water first, and a touch bigger: a card is picked
+            // up before it is carried anywhere.
+            { transform: `translate(0,-15px) scale(${startScale * 1.16}) rotate(-2.5deg) rotateY(${flip ? 40 : 0}deg)`,
+              offset: lift, easing: "cubic-bezier(.38,.04,.3,1)" },
+            // ...and then one sweep into your hand, arriving soft and face-up.
+            { transform: `translate(${toCx - fromCx}px,${toCy - fromCy}px) scale(${endScale}) rotate(0deg) rotateY(${flip ? 180 : 0}deg)`,
+              offset: 1 },
+          ];
+          const anim = card.animate(keyframes, { duration: PICKUP_MS, easing: "linear", fill: "forwards" });
+          anim.onfinish = () => {
+            land();
+            card.style.transition = "opacity .11s ease";
+            card.style.opacity = "0";
+            setTimeout(() => { card.remove(); resolve(); }, 120);
+          };
+        };
+        if (delay) setTimeout(() => requestAnimationFrame(fly), delay);
+        else requestAnimationFrame(fly);
       });
     }
 
@@ -10375,6 +10610,7 @@
 
     return { flyCard, playRippleAt, queuePoolReveal, applyPendingRippleReveals,
              rippleNewHandCards, flipOutFromDeck, OCEAN_FLIP_MS,
+             pickUpToHand, PICKUP_MS,
              isBusy, deckRect, poolWrapRect, playerAnchorRect, rectOf,
              get _suppressFlipIn() { return _suppressFlipIn; },
              set _suppressFlipIn(v) { _suppressFlipIn = !!v; } };
@@ -10534,7 +10770,7 @@
 
   // Compute hand-count deltas vs previous render and pick most-likely recipient
   // for each removed pool card. Returns { handDeltas, removedPoolUids, addedPoolUids }.
-  function _computeDrawAnimDiff(players, currentPool) {
+  function _computeDrawAnimDiff(players, currentPool, deckNum) {
     const newHandCounts = {};
     (players || []).forEach(p => {
       newHandCounts[p.index] = Number(p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0));
@@ -10550,13 +10786,66 @@
     }));
     const removed = _prevPoolUids.filter(u => !newPoolUids.has(u));
     const added   = [...newPoolUids].filter(u => !_prevPoolUids.includes(u));
-    return { handDeltas, newHandCounts, removedPoolUids: removed, addedPoolUids: added };
+    // How many cards came off the deck since the last render. COUNTED off the
+    // deck, never inferred from hands: a card can reach a hand without the
+    // deck moving (a trade), and the deck can move without any hand growing
+    // (the card an Ocean flips into the Pool), so the deck's own count is the
+    // only honest answer to "did that card come off the deck".
+    const deck = Number(deckNum);
+    const deckDelta = (_prevDeckForAnim != null && Number.isFinite(deck))
+      ? Math.max(0, _prevDeckForAnim - deck) : 0;
+    return { handDeltas, newHandCounts, removedPoolUids: removed, addedPoolUids: added,
+             deckDelta, deckNow: Number.isFinite(deck) ? deck : null };
   }
   let _prevHandCountsForAnim = {};
+  let _prevDeckForAnim = null;
+
+  // Fly every card that has just arrived in YOUR hand in from wherever it came
+  // from: the Pool slot you clicked, or the deck. Answers whether it took the
+  // job on, so the caller can fall back to the plain ripple when it did not.
+  function _pickUpNewHandCards(oldPoolRects, deckDrew) {
+    const cards = Array.from(document.querySelectorAll("#pv-hand .pv-hand-card.deal-in"));
+    // A draw is one card, or two. More than that is an opening deal or, in
+    // Competitive, the switch to your other hand: neither is a card being
+    // picked up, and neither should look like one.
+    if (!cards.length || cards.length > 2) return false;
+    let delay = 0;
+    cards.forEach((el) => {
+      const uid   = Number(el.dataset.faceUid || 0);
+      const poolR = oldPoolRects && oldPoolRects.get(uid);
+      const fromR = poolR || (deckDrew ? _pvAnim.deckRect() : null);
+      const toR   = handCardLandingRect(el);
+      // Nowhere to fly it from (a traded card, say) keeps the plain ripple.
+      if (!fromR || !toR) {
+        const r = toR || _pvAnim.rectOf(el);
+        if (r) _pvAnim.playRippleAt(r);
+        return;
+      }
+      // No Pool slot it came from means it came off the deck, face-down, so it
+      // turns over on the way in: you see what you drew as it reaches you.
+      _pvAnim.pickUpToHand(fromR, toR, el, { faceUid: uid, flip: !poolR, delay });
+      delay += 90;
+    });
+    return true;
+  }
 
   // Run all pending draw animations for this state transition.
-  function _runDrawAnimations({ oldPoolRects, removedPoolUids, addedPoolUids, oceanFlipUids, handDeltas, prevHandUIDs, players, myIdx, prevTurnIdx, curTurnIdx }) {
-    if (!removedPoolUids.length && !addedPoolUids.length) return;
+  function _runDrawAnimations({ oldPoolRects, removedPoolUids, addedPoolUids, oceanFlipUids, handDeltas, prevHandUIDs, deckDelta, players, myIdx, prevTurnIdx, curTurnIdx }) {
+    // Your own draw straight off the deck moves nothing in the Pool, so the
+    // Pool alone cannot tell us anything happened, and a deck draw would get
+    // no animation at all. The deck having shrunk by at least as many cards as
+    // your hand grew is the signal, and it keeps out what is not a draw: a
+    // trade grows a hand without touching the deck, and the opening deal
+    // arrives with no previous hand for its cards to be new against.
+    const myGrowth = (myIdx != null && handDeltas) ? Math.max(0, handDeltas[myIdx] || 0) : 0;
+    const deckOff  = Math.max(0, Number(deckDelta) || 0);
+    const myDeckDraw = myGrowth > 0 && myGrowth <= 2 && deckOff >= myGrowth
+                       && !!(prevHandUIDs && prevHandUIDs.size);
+    if (!removedPoolUids.length && !addedPoolUids.length && !myDeckDraw) return;
+
+    let calm = false;
+    try { calm = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }
+    catch (_) { calm = false; }
 
     // The player who just acted: previous turn index (their hand grew this poll).
     // Fall back to whoever's hand grew the most.
@@ -10575,9 +10864,9 @@
     const recipientIsLocal = (recipientIdx != null && recipientIdx === myIdx);
 
     // 1) Pool draws.
-    //    Local recipient: skip the fly, the new hand cards will ripple in (handled by renderHand's .deal-in)
-    //    plus we add a ripple ring at each landing spot. The leaving pool slot
-    //    already disappears via the next render; a quick lift-off would feel jittery.
+    //    Local recipient: not here. Your own card is picked up and carried to
+    //    your hand in (3), which starts from this same slot and has to hide the
+    //    hand card it is flying toward, so it cannot also be flown from here.
     //    Other recipients: fly the actual pool card image toward their avatar.
     removedPoolUids.forEach((uid) => {
       if (recipientIsLocal) return;
@@ -10598,19 +10887,20 @@
       }
     }
 
-    // 3) Local hand ripple: ripple ring at each newly arrived hand card position.
+    // 3) Your own cards: picked up, and carried to your hand.
+    //    No deferring a frame: renderHand has already placed the new cards
+    //    (this whole function runs inside the render's own rAF), and that
+    //    matters, because the pick-up hides the card it is flying toward. A
+    //    frame later would be a frame of that card showing first.
     if (recipientIsLocal) {
-      // Defer to next frame so renderHand has placed the new cards in the DOM.
-      requestAnimationFrame(() => _pvAnim.rippleNewHandCards(prevHandUIDs || _prevHandUIDs));
+      const taken = calm ? false : _pickUpNewHandCards(oldPoolRects, deckOff > 0);
+      if (!taken) _pvAnim.rippleNewHandCards(prevHandUIDs || _prevHandUIDs);
     }
 
     // 4) Pool entries. A card an Ocean flipped off the deck flips OUT at 200%
     //    on its way in (the server names those in ocean_flip_uids); paid and
     //    discarded cards came from a hand in plain sight, so they just ripple.
     const flipSet = new Set((oceanFlipUids || []).map(Number));
-    let calm = false;
-    try { calm = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }
-    catch (_) { calm = false; }
     const wrap = document.getElementById("pv-pool-wrap");
     let flips = 0;
     addedPoolUids.forEach(uid => {
@@ -10621,7 +10911,7 @@
       // One poll can carry two Oceans (a client that missed a poll), and two
       // cards flipping out of the same deck at the same moment read as one
       // mistake, so the second is led in behind the first.
-      const lead = flips * 260;
+      const lead = flips * 220;
       flips += 1;
       if (lead) setTimeout(() => _pvAnim.flipOutFromDeck(fromR, toR, { faceUid: uid }), lead);
       else _pvAnim.flipOutFromDeck(fromR, toR, { faceUid: uid });
@@ -14027,6 +14317,26 @@
     return idx >= 0 ? (_handCardEls[idx] || null) : null;
   }
 
+  // Where a card that has just arrived in the hand is PAINTED, so that a card
+  // flying toward it knows where to hand over. That is its LAYOUT box, not its
+  // place in the fan: applyHandLayout waits for a new card's deal-in animation
+  // to END before it writes the fan transform, so for nearly half a second the
+  // card sits square in its slot and only then slides into the arc. Handing
+  // over at the fanned position instead would make the card jump the height of
+  // that arc, better than 20px at the end of a full hand, at the one moment
+  // the clone vanishes. Its live rect is no use either: mid deal-in the card
+  // is scaled to little over half size and still rising.
+  function handCardLandingRect(el) {
+    const zone = document.getElementById("pv-hand");
+    if (!zone || !el) return null;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    if (!w || !h) return null;
+    // Same basis as _handHitTestIdx: the hand zone's own rect plus the card's
+    // offsets inside it.
+    const zr = zone.getBoundingClientRect();
+    return { left: zr.left + el.offsetLeft, top: zr.top + el.offsetTop, width: w, height: h };
+  }
+
   // ── Fit the fan to the width the hand actually has ─────────────────────────
   // Cards overlap by a fixed -28px margin (see .pv-hand-card), so a full hand
   // is 98 + 9×70 = 728px wide no matter how much room there is. On a phone, or
@@ -15503,6 +15813,7 @@
     _prevCurrentPlayer=""; _shotTheMoonName=null; _prevGobyMap={};
     _drawTurnStartPool=null; _drawTurnStartBoards={}; _drawTurnStartDeck=null; _drawPrevPlayer="";
     _prevDiscardCount=null;  // tide-sweep baseline resets per game/room
+    _prevDeckForAnim=null;   // and so does the deck the pick-up counts against
     if (_drawNotifTimer) { clearTimeout(_drawNotifTimer); _drawNotifTimer=null; }
     const _dnEl = document.getElementById("draw-notif"); if (_dnEl) _dnEl.classList.remove("visible", "hiding");
     _chatSeenCount = 0; _chatLastCount = -1; _chatRoomTotal = 0; _chatLastAvatarKey = "";
@@ -15532,6 +15843,7 @@
     try { _endSaveReset(); } catch (_) {}
     try { window._igcpSetVisible?.(false); } catch {}
     try { window._bsSetVisible?.(false); } catch {}
+    try { _turnClockApply(null); } catch (e) {}
     _prevPoolUids = []; _prevHandUIDs = new Set(); _prevBoardCards = new Set(); _handOrders.clear(); _handDragSrc = null; _boardMoveDragSrc = null;
     document.getElementById("pv-game").style.display="none";
     pvLogVisible = false;
@@ -21635,6 +21947,129 @@
   // that nothing ends up under the bottom edge. Still a card, still a line.
   const _FIT_HAND_HARD_FLOOR = 68;
   const _FIT_HINT_HARD_FLOOR = 20;
+  // ── THE TURN CLOCK ─────────────────────────────────────────────
+  // Only in a room the host put a turn limit on. The server sends a DEADLINE
+  // (payload.turn_timer.deadline_ms, in its own clock) rather than a number
+  // of seconds left, because a poll takes time to arrive and seconds-left
+  // would already be stale when it got here. serverNowMs() carries the skew
+  // between the two clocks, so every player watches the same countdown.
+  //
+  // What moves is a critter: the one the ACTIVE player is wearing, swimming
+  // the bar left to right, with the water he has crossed filling in behind
+  // him. The number on the right is for the last few seconds, when "about
+  // here" stops being good enough.
+  //
+  // The state is hung off the function rather than kept in a module-level
+  // const: the layout tests lift these functions out of this file by name and
+  // run them on their own, and a bare `const` beside them is not lifted.
+  function _turnClockState() {
+    if (!_turnClockState.s) {
+      _turnClockState.s = { raf: 0, deadline: 0, limit: 0, seat: null, src: "", shown: false };
+    }
+    return _turnClockState.s;
+  }
+  // The slug in "/avatars/spinner-dolphin.png", for the facing rule.
+  function _turnClockSlug(src) {
+    const m = /\/avatars\/([a-z0-9-]+)\.(?:png|webp)/i.exec(String(src || ""));
+    return m ? m[1].toLowerCase() : "";
+  }
+  function _turnClockShow(on) {
+    const s = _turnClockState();
+    const el = document.getElementById("pv-turn-timer");
+    if (!el || s.shown === !!on) return;
+    s.shown = !!on;
+    el.classList.toggle("on", s.shown);
+    // The bar is a row of the game column, so the column has to be measured
+    // again the moment it appears or goes away, or the hand keeps the height
+    // it had without it. fitGameColumn only redoes the work when one of its
+    // own inputs moved, and this is not one of them, hence the force.
+    try { fitGameColumn(true); } catch (e) {}
+    try { updateBottomDockOffset(); } catch (e) {}
+  }
+  // Read the clock off a state payload. Called on every poll; cheap, and it
+  // only touches the DOM when something actually changed.
+  //
+  // The strip's presence follows the ROOM, not the live countdown. Between
+  // every two turns there is a moment with no active seat (a turn_start
+  // clears it, and a whole bot turn never sets one), so a strip that came and
+  // went with the countdown would appear and disappear at every handoff and
+  // shunt the board and the hand 27px each time. It stays up for the whole
+  // match instead, and simply sits idle when the clock is not running.
+  function _turnClockApply(payload) {
+    const s = _turnClockState();
+    const el = document.getElementById("pv-turn-timer");
+    if (!el) return;
+    const room = (payload && payload.room) || null;
+    const roomLimit = Number(room && room.turn_limit_seconds) || 0;
+    const inPlay = !!room && String(room.phase || "") === "running";
+    const t = payload && payload.turn_timer;
+    const deadline = Number(t && t.deadline_ms);
+    if (!t || !Number.isFinite(deadline) || deadline <= 0) {
+      // Idle: the room is on a clock but nobody is on it this instant.
+      s.deadline = 0; s.limit = 0; s.seat = null;
+      if (s.raf) { cancelAnimationFrame(s.raf); s.raf = 0; }
+      if (roomLimit > 0 && inPlay) {
+        el.classList.add("idle");
+        el.classList.remove("warn", "low");
+        el.style.setProperty("--ptt-pct", "0%");
+        const out = el.querySelector(".ptt-secs");
+        if (out) out.textContent = roomLimit + "s";
+        _turnClockShow(true);
+      } else {
+        _turnClockShow(false);
+      }
+      return;
+    }
+    el.classList.remove("idle");
+    s.deadline = deadline;
+    s.limit = Math.max(1, Number(t.limit) || 0);
+    // Whose critter is swimming: the player actually on the clock, so the
+    // whole table watches the same animal run out of time, not their own.
+    const seat = Number(t.seat);
+    if (seat !== s.seat) {
+      s.seat = seat;
+      const seats = Array.isArray(payload.seats) ? payload.seats : [];
+      const row = seats.find(x => x && Number(x.index) === seat);
+      const url = String((row && row.avatar) || "") || "/avatars/mullet.png";
+      if (url !== s.src) {
+        s.src = url;
+        const img = el.querySelector(".ptt-critter");
+        if (img) {
+          img.src = _avSrc(url);
+          img.onerror = function () { this.onerror = null; this.src = _avSrc("/avatars/mullet.png"); };
+          const face = (typeof window.__ccCritterFacing === "function")
+            ? window.__ccCritterFacing(_turnClockSlug(url)) : "";
+          img.className = "ptt-critter" + face;
+        }
+      }
+    }
+    _turnClockShow(true);
+    if (!s.raf) s.raf = requestAnimationFrame(_turnClockFrame);
+  }
+  function _turnClockFrame() {
+    const s = _turnClockState();
+    s.raf = 0;
+    const el = document.getElementById("pv-turn-timer");
+    if (!el || !s.deadline) return;
+    const leftMs = s.deadline - serverNowMs();
+    const total = s.limit * 1000;
+    // Clamped at both ends: a clock that has run out sits the critter on the
+    // far edge rather than swimming him off it, and a deadline that arrives
+    // before its own turn does never shows a bar fuller than empty.
+    const spent = Math.min(1, Math.max(0, 1 - (leftMs / total)));
+    el.style.setProperty("--ptt-pct", (spent * 100).toFixed(2) + "%");
+    const secs = Math.max(0, leftMs / 1000);
+    // Whole seconds above ten, tenths under it: at a two-second limit a whole
+    // number spends half the turn saying the same thing.
+    const txt = secs >= 10 ? Math.ceil(secs) + "s" : secs.toFixed(1) + "s";
+    const out = el.querySelector(".ptt-secs");
+    if (out && out.textContent !== txt) out.textContent = txt;
+    const frac = leftMs / total;
+    el.classList.toggle("warn", frac <= 0.5 && frac > 0.25);
+    el.classList.toggle("low", frac <= 0.25);
+    s.raf = requestAnimationFrame(_turnClockFrame);
+  }
+
   const _FIT_ADVISORY = ["pv-guide-bar", "pv-pool-pick-hint", "pv-discard-banner"];
   let _fitColKey = "";
 

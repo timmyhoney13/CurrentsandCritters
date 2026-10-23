@@ -174,7 +174,11 @@ const DEVICES = [
 // "discard" stands in for the pool-pick prompt too: they are the same banner
 // height, and discard is the harder of the two because it also renders EVERY
 // card in hand rather than capping at twelve.
-const PHASES = ["plain", "discard"];
+// "clock" is the tightest the column ever gets: the discard banner AND the
+// turn-clock strip, which a room with a turn limit flies all game, both in
+// flow above a full hand. A phone is where 26px of new furniture between the
+// action bar and the cards would show up first.
+const PHASES = ["plain", "discard", "clock"];
 
 function widened(w, h) {
   const zo = Math.min(w, h) >= 700 ? 1.9 : 1.5;
@@ -224,9 +228,13 @@ ${ZOOM_HTML}
   guide.innerHTML = '<div class="guide-step"><span class="gs done">1. Draw a card</span>' +
     '<span class="gs active">2. Play a card to an ocean</span>' +
     '<span class="gs">3. Pay its cost with symbols</span><span class="gs">4. End your turn</span></div>';
-  ${c.phase === "discard" ? `var db = document.getElementById("pv-discard-banner");
+  ${(c.phase === "discard" || c.phase === "clock") ? `var db = document.getElementById("pv-discard-banner");
       db.className = "visible";
       db.textContent = "Hand limit reached: choose 3 cards to discard, then press Confirm Discard";` : ""}
+  ${c.phase === "clock" ? `var tt = document.getElementById("pv-turn-timer");
+      tt.classList.add("on");
+      tt.style.setProperty("--ptt-pct", "62%");
+      tt.querySelector(".ptt-secs").textContent = "3.8s";` : ""}
   ${c.phase === "poolpick" ? `var ph = document.getElementById("pv-pool-pick-hint");
       ph.className = "visible";
       ph.textContent = "Draw phase: take a card from the Pool, or draw from the Deck";` : ""}
@@ -315,6 +323,26 @@ window.__measure = function () {
   if (off.length) out.fail.push(off.length + " of " + cards.length + " hand cards off screen (" + off.join(",") + ")");
   if (stolen.length) out.fail.push(stolen.length + " hand cards covered: " + stolen.join("; "));
   out.info.cardW = cards.length ? Math.round(cards[0].getBoundingClientRect().width) : 0;
+
+  // 3b. THE TURN CLOCK: whether it is a row of the column or (on a short
+  // screen) a float over the top of the action bar, it has to be WHOLLY on
+  // screen and it must never be the thing covering a card. A clock you cannot
+  // see is the same as no clock, and a clock that eats a card is worse.
+  var clock = document.getElementById("pv-turn-timer");
+  if (clock && getComputedStyle(clock).display !== "none") {
+    var cr = clock.getBoundingClientRect();
+    out.info.clock = Math.round(cr.height) + "px"
+      + (getComputedStyle(clock).position === "fixed" ? " floating" : " in flow");
+    if (cr.height < 8) out.fail.push("the turn clock is only " + Math.round(cr.height) + "px tall");
+    if (cr.bottom > VH + TOL || cr.top < -TOL || cr.left < -TOL || cr.right > VW + TOL) {
+      out.fail.push("the turn clock is off screen (" + Math.round(cr.top) + " to "
+                    + Math.round(cr.bottom) + " in " + VH + ")");
+    }
+    var handZone = document.getElementById("pv-hand-zone").getBoundingClientRect();
+    if (cr.bottom > handZone.top + TOL) out.fail.push("the turn clock overlaps the hand");
+    var crit = clock.querySelector(".ptt-critter").getBoundingClientRect();
+    if (crit.height > 24) out.fail.push("the critter is " + Math.round(crit.height) + "px tall");
+  }
 
   // 4. ZOOM: the one place a card is readable. Longest real rules text.
   var modal = document.getElementById("pv-zoom-modal");

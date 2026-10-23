@@ -1288,6 +1288,41 @@
       vertical-align: middle; box-shadow: 0 0 0 1px rgba(26,45,90,.35);
     }
 
+    /* ── "What family is this?" ──────────────────────────────────────
+       The same chip as the legend above, printed ON a strategy tile and on
+       every card in a plan, so the family is named where you are reading
+       rather than only in the key. Smaller than the legend's, because a
+       combo wears two of them on a tile that also holds a blurb. */
+    .hs-fam-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+    .hs-fam-chip {
+      font-size: 10px; font-weight: 800; color: var(--cr-navy);
+      padding: 1px 7px 1px 5px; border-radius: 999px;
+      background: #fff; white-space: nowrap; line-height: 1.5;
+      border: 1px solid color-mix(in srgb, var(--lc, #b388ff) 62%, #1a2d5a);
+    }
+    .hs-fam-chip::before {
+      content: ""; display: inline-block; width: 7px; height: 7px;
+      border-radius: 50%; background: var(--lc, #b388ff); margin-right: 4px;
+      vertical-align: middle; box-shadow: 0 0 0 1px rgba(26,45,90,.35);
+    }
+    /* On a card tile in the detail view the chip is centred under the name, so
+       a column of cards reads as a column of families rather than a ragged
+       left edge. A tile is a grid cell with an 86px floor and the longest name
+       ("Invertebrates") is one unbreakable word, so it is set a size smaller
+       here, and the ellipsis is the belt to that braces: a font this page has
+       not finished loading yet can measure wider than the one it will settle
+       on, and a name that spilled would paint over the tile beside it. */
+    .hd-card-fam {
+      align-self: center; font-size: 9px; padding: 0 5px;
+      max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+      /* The hue is in the ring, not in a dot. Measured: the dot and its
+         margin are 9px of an 85px tile, and "Invertebrates" needs every one
+         of them. The ring is the same colour the dot would have been, so
+         nothing is lost but the duplication. */
+      border-width: 1.5px;
+    }
+    .hd-card-fam::before { display: none; }
+
     /* ── SEAT PICKER ─────────────────────────────────────────────── */
     #pv-seat-picker { display: none; flex-direction: column; gap: 10px; }
     .seat-grid { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
@@ -1405,6 +1440,12 @@
     }
     .room-badge.ranked {
       background: linear-gradient(135deg, #e0a53c, #b4761a);
+    }
+    /* On a clock. Coral, the colour the clock itself turns in the last
+       quarter of a turn, so the two read as the same thing. */
+    .room-badge.clocked {
+      background: linear-gradient(135deg, #f4a574, #d0683a);
+      margin-left: 5px; letter-spacing: .6px;
     }
     /* Your own name gives up room before anything else does. A name can be 15
        characters, and 15 wide ones ("WWWWWWWWWWWWWWW") plus the room code, the
@@ -1822,7 +1863,12 @@
       border-radius: 16px;
       box-shadow: 0 20px 60px rgba(0,0,0,.7);
       width: min(96vw, 800px);
-      max-height: 82vh;
+      /* Room for both rows of a full Pool. Five columns is 10 cards in two
+         rows, and at 82vh a 768-tall laptop cut the bottom row's names off
+         and asked the player to scroll for them. dvh where it exists, for the
+         same reason the in-game screen uses it. */
+      max-height: 90vh;
+      max-height: 90dvh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -1860,8 +1906,11 @@
     }
     #pv-pm-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 18px;
+      /* The Pool washes at 10 cards, so five columns is exactly two rows when
+         it is full, and the gap narrows with the screen rather than the cards
+         so a phone keeps the same 5 x 2 shape. */
+      grid-template-columns: repeat(5, 1fr);
+      gap: clamp(7px, 1.4vw, 18px);
     }
     .pv-pm-card {
       display: flex;
@@ -2461,6 +2510,100 @@
       clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
     }
 
+    /* ── TURN CLOCK ─────────────────────────────────────────────────
+       The bar above your cards in a room with a turn limit on. One critter
+       swims it from the left edge to the right across the turn; the water
+       behind him is the time already spent. He is deliberately small (20px,
+       a fifth the width of the hand card under him) because this strip sits
+       between the action bar and the hand, and every pixel it takes is a
+       pixel the board or the cards give up.
+
+       Same cream-and-shallow-water palette as the guide bar directly above
+       it, so the bottom of the screen still reads as one piece of furniture.
+       --ptt-pct is written by the clock itself, every frame. */
+    #pv-turn-timer {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 3px 16px 4px;
+      flex-shrink: 0;
+      background: linear-gradient(90deg, rgba(254,245,230,0) 0%, rgba(254,245,230,.94) 10%, rgba(220,238,245,.96) 50%, rgba(254,245,230,.94) 90%, rgba(254,245,230,0) 100%);
+    }
+    #pv-turn-timer.on { display: flex; }
+    .ptt-track {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      height: 9px;
+      border-radius: 999px;
+      background: rgba(44,90,138,.17);
+      box-shadow: inset 0 1px 2px rgba(21,50,92,.22);
+    }
+    /* The water already crossed. Left-anchored so it grows with the swimmer
+       rather than draining towards him from the far end. */
+    .ptt-spent {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      width: var(--ptt-pct, 0%);
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--cr-teal), var(--cr-teal-deep));
+    }
+    #pv-turn-timer.warn .ptt-spent { background: linear-gradient(90deg, var(--cr-gold), var(--cr-gold-deep)); }
+    #pv-turn-timer.low  .ptt-spent { background: linear-gradient(90deg, var(--cr-coral), var(--cr-coral-deep)); }
+    /* Most of the deck's art is drawn facing LEFT, and he is swimming right,
+       so the default is mirrored. .faces-right is set for the handful drawn
+       the other way and .faces-none for the ones with no front to speak of
+       (corals, a sea star), exactly the rule the prestige scenes use. */
+    .ptt-critter {
+      position: absolute;
+      left: var(--ptt-pct, 0%);
+      top: 50%;
+      height: 20px; width: auto;
+      transform: translate(-50%, -50%) scaleX(-1);
+      filter: drop-shadow(0 2px 3px rgba(21,50,92,.45));
+      pointer-events: none;
+    }
+    .ptt-critter.faces-right,
+    .ptt-critter.faces-none { transform: translate(-50%, -50%); }
+    .ptt-secs {
+      font-family: "Nunito", sans-serif;
+      font-size: 12px; font-weight: 900; letter-spacing: .3px;
+      color: var(--cr-navy);
+      min-width: 34px; text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    #pv-turn-timer.low .ptt-secs { color: #b23c17; }
+    /* Between two turns, and through a bot's whole turn, there is nobody on
+       the clock. The strip holds its place (so the column never jumps) and
+       says what the limit is, dimmed, with the critter back at the start. */
+    #pv-turn-timer.idle { opacity: .5; }
+    /* A phone held sideways is ~390px tall, and the column there has nothing
+       left to give: measured, a full hand plus the discard banner already
+       leaves the board 2px, and a strip of ANY height on top of that pushed
+       the bottom of the hand off the screen, where a page whose html/body is
+       overflow:hidden can never scroll it back.
+
+       So on a short screen the clock stops being a row and becomes a float,
+       pinned to the top edge of the action bar (--pv-bottom-ui is the real
+       measured height of the action bar plus the hand, published by
+       updateBottomDockOffset). Out of flow means fitGameColumn no longer
+       counts it, so the column is exactly the column it was without a clock,
+       and the strip lies over the bottom of the board, which on this shape is
+       the one part of the screen with nothing in it. It shrinks too: a clock
+       read out of the corner of your eye is the whole job here. */
+    @media (max-height: 470px) {
+      #pv-turn-timer { padding: 0 10px 1px; gap: 7px; }
+      .ptt-track { height: 6px; }
+      .ptt-critter { height: 13px; }
+      .ptt-secs { font-size: 10px; min-width: 27px; }
+      #pv-turn-timer.on {
+        position: fixed; left: 0; right: 0;
+        bottom: var(--pv-bottom-ui, 302px);
+        /* Over the three phase bands (60), under the hand (70), so a lifted
+           card and its tooltip still paint across it. */
+        z-index: 65;
+      }
+    }
+
     /* ── HAND ZONE ──────────────────────────────────────────────── */
     #pv-hand-zone {
       background: linear-gradient(0deg, rgba(6,18,48,.99) 0%, rgba(10,30,68,.55) 100%);
@@ -2728,15 +2871,23 @@
     .pv-card-inner::before {
       content: "";
       position: absolute;
-      top: 0; left: -80%;
+      top: 0; left: 0;
       width: 60%; height: 100%;
       background: linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent);
-      transform: skewX(-15deg);
+      transform: translateX(-133.3333%) skewX(-15deg);
       animation: shimmer 4s ease-in-out infinite;
       pointer-events: none;
       z-index: 3;
     }
-    @keyframes shimmer { 0% { left: -80%; } 100% { left: 160%; } }
+    /* Same sweep, same path, same timing: the strip is 60% of the card wide,
+       so the old left -80% -> 160% (read against the card) is translateX
+       -133.333% -> 266.667% (read against the strip). Sliding it with a
+       transform keeps the sweep off the layout path, so a full hand of cards
+       stops reflowing sixty times a second for the whole game. */
+    @keyframes shimmer {
+      0%   { transform: translateX(-133.3333%) skewX(-15deg); }
+      100% { transform: translateX(266.6667%)  skewX(-15deg); }
+    }
 
     .pv-hand-card.hovered .pv-card-inner { border-color: var(--cyan); box-shadow: 0 0 22px var(--glow-c), 0 10px 28px rgba(0,0,0,.7); }
     .pv-hand-card.selected .pv-card-inner { border-color: var(--gold); box-shadow: 0 0 22px var(--glow-gold), 0 10px 28px rgba(0,0,0,.7); }
@@ -3465,6 +3616,15 @@
     }
     .wr-head-titles { text-align: left; flex: 1; min-width: 200px; }
     .wr-head-titles .wr-subtitle { margin: 4px 0 0; font-size: 13.5px; }
+    /* "On a clock", under the subtitle. Gold, because it is the one line in
+       this header that changes how the game is played. */
+    .wr-clock {
+      margin: 6px 0 0; font-size: 12.5px; font-weight: 800; line-height: 1.4;
+      color: var(--cr-gold-ink);
+    }
+    #pv-waiting-room[data-wide="1"] .wr-head-titles .wr-clock {
+      color: #ffdf9a; text-shadow: 0 2px 8px rgba(6,32,68,.6);
+    }
     .wr-head-tools { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
     #pv-waiting-room .wr-head .wr-code {
       width: auto; font-size: 1.55rem; letter-spacing: 6px;
@@ -5191,6 +5351,17 @@
       border-color: var(--gold);
       box-shadow: 0 18px 46px rgba(0,0,0,.5), 0 0 34px var(--glow-gold);
       z-index: 2;
+    }
+
+    /* Pick-up: the card you have just taken, on its way to your hand. It wears
+       the cyan of your own cards, not the gold of a reveal, because you have
+       already seen this one: what it says is where it went, not what it is.
+       It rides above the Ocean flip, since a card in your hand is yours and
+       nothing should pass in front of it. */
+    .pv-anim-card.pv-pickup {
+      border-color: rgba(130,215,242,.95);
+      box-shadow: 0 14px 30px rgba(0,0,0,.5), 0 0 22px rgba(95,179,214,.55);
+      z-index: 3;
     }
 
     /* ── Tide sweep: Pool board-clear ────────────────────────────────
@@ -7627,6 +7798,23 @@
       font-size: 15px; font-weight: 800; color: #5ec8ff;
     }
     #auth-step-choose .ao-new button:hover { color: #9fe0ff; }
+    /* The website line, under the account door. It sits a weight quieter than
+       CREATE AN ACCOUNT on purpose: both are ways out of this screen, and the
+       account is the one the screen is for. */
+    #auth-step-choose .ao-site {
+      margin: 8px 0 0;
+      text-align: center;
+      font-size: 14px; font-weight: 600;
+    }
+    #auth-step-choose .ao-site a {
+      font-family: "Nunito", sans-serif;
+      font-weight: 700; color: #88a6c2;
+      text-decoration: none;
+    }
+    #auth-step-choose .ao-site a:hover { color: #cfe6ff; text-decoration: underline; }
+    #auth-step-choose .ao-site a:focus-visible {
+      outline: 2px solid #7ee2ff; outline-offset: 3px; border-radius: 6px;
+    }
 
     /* ── The column's status line ───────────────────────────────────
        A dressed note rather than the bare red line the cards use, because it
@@ -14355,6 +14543,14 @@
       border-color: rgba(140,200,240,.4);
       color: #5a7bb0;
     }
+    /* One line under the fields saying what the chosen turn limit means, and
+       why a competitive table cannot turn it off. Empty most of the time, so
+       it takes no height until it has something to say. */
+    #nc-turn-limit-note {
+      font-size: 12px; font-weight: 700; line-height: 1.45;
+      color: #2050a0; margin-top: 10px; position: relative; z-index: 1;
+    }
+    #nc-turn-limit-note:empty { display: none; }
     #new-current-box .nc-field.nc-locked .nc-field-label { color: #6a86b6; }
     #new-current-box .nc-field.nc-locked .nc-field-label::after {
       content: " (locked)"; font-size: 11px;

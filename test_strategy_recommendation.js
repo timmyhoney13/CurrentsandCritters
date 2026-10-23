@@ -569,6 +569,17 @@ if (!CHROME) {
     const titleEl = {}, introEl = { innerHTML: "" }, listEl = { innerHTML: "" };
     function _getMostPlayedStrategyLocal() { return "Birds"; }
     function _familyLegendHtml() { return ""; }
+    // The REAL family chips, not a stand-in: they are a row of their own on
+    // every tile in the panel, so the fit measurements below have to be taken
+    // with them there. (The symbol ART still stands in as an empty frame: it
+    // is one fixed-size box and loading 130 PNGs off disk to prove that is
+    // not what this section is about.)
+    const FAMILY_COLORS = window.CC_FAMILY_COLORS;
+    const _STRAT_PRIMARY = window.CC_STRAT_PRIMARY;
+    ${grabFn("_normFamily")}
+    ${grabFn("familyColor")}
+    ${grabFn("_famChipHtml")}
+    ${grabFn("_stratFamiliesHtml")}
     ${grabFn("renderList")}
     function listHtml(showAll) { _hsShowAllCombos = !!showAll; renderList(); return listEl.innerHTML; }
   `, sandbox);
