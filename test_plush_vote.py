@@ -450,6 +450,24 @@ class TestWiring(unittest.TestCase):
             self.assertIn('id="%s"' % ident, self.html, "missing element " + ident)
         self.assertEqual(self.html.count('class="plush-slot"'), pv.MAX_PICKS)
 
+    def test_a_pick_is_drawn_as_a_critter_card_and_can_be_taken_back(self):
+        """The slots use the same card as the grid: art tile, name, rank
+        badge. And a filled one is a real button, so a pick can be removed
+        from the bar instead of hunting for its tile again."""
+        bar = self.html[self.html.index('id="plushSlots"'):]
+        bar = bar[:bar.index('id="plushClear"')]
+        self.assertEqual(bar.count('<button class="plush-slot"'), pv.MAX_PICKS,
+                         "every slot is a button, not a div with a click handler")
+        self.assertEqual(bar.count("disabled"), pv.MAX_PICKS,
+                         "an empty slot is not focusable or clickable")
+        for part in ('class="rank"', 'class="art"', 'class="who"'):
+            self.assertEqual(bar.count(part), pv.MAX_PICKS, "every slot needs " + part)
+        self.assertIn("getElementById('plushSlots').addEventListener('click'", self.html)
+        self.assertIn("picks.splice(i, 1)", self.html)
+        css = open(os.path.join(ROOT, "styles.css"), encoding="utf-8").read()
+        self.assertIn(".plush-slot .art", css)
+        self.assertIn(".plush-slot .rank", css)
+
     def test_the_tabs_match_the_families_on_the_ballot(self):
         block = self.html[self.html.index('id="plushTabs"'):]
         block = block[:block.index("</div>")]

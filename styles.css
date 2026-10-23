@@ -2047,44 +2047,125 @@ footer button:focus-visible {
   padding: 12px 14px;
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
 }
-.plush-slots { display: flex; gap: 8px; flex: 1 1 320px; min-width: 0; }
+/* The three picks, drawn as the SAME card as the critters in the grid above:
+   art on the pale reef tile, the name under it in the display face, the gold
+   rank badge in the corner. A pick should look like the thing that was
+   picked, not like a form field with a thumbnail glued to it.
+   A filled slot is a button: tapping it takes that pick back off, so a
+   change of mind does not mean scrolling back to find the tile. */
+.plush-slots { display: flex; gap: 10px; flex: 1 1 300px; min-width: 0; }
 .plush-slot {
+  position: relative;
+  /* Card-shaped, like the tiles in the grid: it may shrink on a narrow
+     screen but never stretch into a wide band, because a stretched card
+     stops reading as a card. */
   flex: 1 1 0;
   min-width: 0;
+  max-width: 132px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  border: 1px dashed rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
-  padding: 6px 10px;
-  min-height: 44px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.55);
+  gap: 7px;
+  font: inherit;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px dashed rgba(255, 255, 255, 0.26);
+  border-radius: var(--r-xl);
+  padding: 9px 9px 10px;
+  cursor: default;
+  transition: transform var(--dur-base) var(--ease-out), background var(--dur-base) var(--ease-out);
 }
 .plush-slot.filled {
   border-style: solid;
   border-color: var(--brand-sun);
-  background: rgba(255, 193, 7, 0.12);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+  cursor: pointer;
 }
-.plush-slot b {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  color: var(--brand-sun);
-  flex: 0 0 auto;
+.plush-slot.filled:hover { transform: translateY(-2px); background: rgba(255, 255, 255, 0.22); }
+.plush-slot:focus-visible { outline: 3px solid var(--brand-sun); outline-offset: 2px; }
+.plush-slot .art {
+  width: 100%;
+  height: 76px;
+  border-radius: 10px;
+  background: linear-gradient(160deg, var(--brand-cyan-soft), #b8e4f9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 4px;
 }
-.plush-slot .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.plush-slot img {
-  width: 30px;
-  height: 30px;
+.plush-slot:not(.filled) .art {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+}
+.plush-slot .art img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
   object-fit: contain;
-  flex: 0 0 auto;
   background: none;
   padding: 0;
   box-shadow: none;
 }
+.plush-slot .who {
+  width: 100%;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plush-slot:not(.filled) .who {
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.5);
+}
+.plush-slot .rank {
+  position: absolute;
+  top: -9px;
+  left: -9px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--brand-sun);
+  color: #3a2300;
+  font-family: var(--font-display);
+  font-size: 12px;
+  border: 2px solid #0b3a52;
+}
+.plush-slot:not(.filled) .rank {
+  background: rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.55);
+  border-color: rgba(11, 58, 82, 0.9);
+}
+.plush-slot .drop {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: none;
+  place-items: center;
+  background: #0b3a52;
+  color: #fff;
+  border: 2px solid var(--brand-sun);
+  font-size: 13px;
+  line-height: 1;
+}
+.plush-slot.filled:hover .drop, .plush-slot.filled:focus-visible .drop { display: grid; }
 .plush-send {
   flex: 0 0 auto;
   background: var(--brand-sun);

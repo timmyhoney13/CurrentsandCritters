@@ -1273,9 +1273,18 @@
 
     <div class="plush-bar">
       <div class="plush-slots" id="plushSlots">
-        <div class="plush-slot" data-slot="0"><b>1st</b><span class="who">Tap a critter</span></div>
-        <div class="plush-slot" data-slot="1"><b>2nd</b><span class="who">Optional</span></div>
-        <div class="plush-slot" data-slot="2"><b>3rd</b><span class="who">Optional</span></div>
+        <button class="plush-slot" type="button" data-slot="0" disabled>
+          <span class="rank" aria-hidden="true">1</span><span class="drop" aria-hidden="true">&times;</span>
+          <span class="art"></span><span class="who">Tap a critter</span>
+        </button>
+        <button class="plush-slot" type="button" data-slot="1" disabled>
+          <span class="rank" aria-hidden="true">2</span><span class="drop" aria-hidden="true">&times;</span>
+          <span class="art"></span><span class="who">Optional</span>
+        </button>
+        <button class="plush-slot" type="button" data-slot="2" disabled>
+          <span class="rank" aria-hidden="true">3</span><span class="drop" aria-hidden="true">&times;</span>
+          <span class="art"></span><span class="who">Optional</span>
+        </button>
       </div>
       <button class="plush-clear" id="plushClear" type="button">Clear</button>
       <button class="plush-send" id="plushSend" type="button" disabled>Send my vote</button>
@@ -2041,10 +2050,19 @@ renderCritters('all');
   function paintSlots() {
     slots.forEach((slot, i) => {
       const slug = picks[i];
+      const empty = i === 0 ? 'Tap a critter' : 'Optional';
       slot.classList.toggle('filled', !!slug);
-      slot.innerHTML = '<b>' + ORDINALS[i] + '</b>' + (slug
-        ? `<img src="assets/critters/${slug}.png" alt=""/><span class="who">${NAME[slug]}</span>`
-        : `<span class="who">${i === 0 ? 'Tap a critter' : 'Optional'}</span>`);
+      slot.disabled = !slug;
+      slot.setAttribute('aria-label', slug
+        ? ORDINALS[i] + ' pick: ' + NAME[slug] + '. Tap to remove.'
+        : ORDINALS[i] + ' pick, empty.');
+      slot.title = slug ? 'Tap to remove ' + NAME[slug] : '';
+      slot.innerHTML =
+        '<span class="rank" aria-hidden="true">' + (i + 1) + '</span>' +
+        '<span class="drop" aria-hidden="true">&times;</span>' +
+        '<span class="art">' + (slug
+          ? `<img src="assets/critters/${slug}.png" alt=""/>` : '') + '</span>' +
+        '<span class="who">' + (slug ? NAME[slug] : empty) + '</span>';
     });
     const samePicks = picks.length === sent.length && picks.every((p, i) => p === sent[i]);
     const same = samePicks && contact.value.trim() === sentContact && !joinBox.checked;
@@ -2123,6 +2141,21 @@ renderCritters('all');
     say.textContent = '';
     paintGrid();
     paintSlots();
+  });
+
+  // Tapping a pick in the bar takes it off, so changing your mind never means
+  // scrolling back through 53 tiles to find the one you tapped.
+  document.getElementById('plushSlots').addEventListener('click', e => {
+    const slot = e.target.closest('.plush-slot');
+    if (!slot || slot.disabled) return;
+    const i = Number(slot.dataset.slot);
+    if (i >= 0 && i < picks.length) {
+      picks.splice(i, 1);
+      say.className = 'plush-say';
+      say.textContent = '';
+      paintGrid();
+      paintSlots();
+    }
   });
 
   clear.addEventListener('click', () => {
