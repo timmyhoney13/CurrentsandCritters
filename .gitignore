@@ -259,6 +259,19 @@
 # fallback that keeps a message that failed to send. Test-only, so it needs
 # this entry and no Dockerfile COPY.
 !test_partner_form.js
+# The Vercel Function that actually MAILS the enquiry, so the form no longer
+# has to wake the hibernating Render container to send anything. Both entries
+# are needed: git never looks inside an ignored directory, so without `!api/`
+# the file below is invisible to every clone, and an invisible Function is a
+# form posting to a 404. Vercel builds its Functions from this directory.
+!api/
+!api/partner-contact.js
+# Its tests, offline and browserless: the ONE list of partnership kinds agreeing
+# with both the <select> and partner_contact.py, the recipient never coming from
+# the request, the acknowledgement quoting nothing a caller typed, the
+# header-injection refusals, all four providers' payload shapes, and a failed
+# send being reported with somewhere else to write rather than swallowed.
+!test_partner_contact_api.js
 
 # Purchase redemption codes. Module-scope import again, same consequence if it
 # goes missing. It is what lets somebody who donated on the WEBSITE reach their

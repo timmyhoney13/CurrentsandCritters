@@ -1645,12 +1645,14 @@
     </p>
 
     <!-- ============ PARTNER WITH US FORM ============
-         The enquiry form itself. It posts to the GAME server (Vercel serves
-         this page and cannot send mail; play.currentsandcritters.com already
-         holds the only configured email transport, see partner_contact.py),
-         and every failure path ends at the mailto: below with everything the
-         reader typed still in it, so a message can never be lost to a server
-         that is asleep or a mail provider that is down. -->
+         The enquiry form itself. It posts to this site's OWN endpoint,
+         /api/partner-contact (api/partner-contact.js), which mails the enquiry
+         to Timothy itself. It used to post to the game server on Render, the
+         only host that had a mail transport; Render's free tier hibernates, so
+         the most valuable message on the website was the one that had to sit
+         through a 30-second cold start first. Every failure path still ends at
+         the mailto: below with everything the reader typed still in it, so a
+         message can never be lost to a mail provider having a bad afternoon. -->
     <div class="partner-form-band" id="partner-form">
       <span class="eyebrow">★ Partner With Us</span>
       <h3>Tell us what you have in mind</h3>
@@ -2678,13 +2680,18 @@ updateBetaBarClear();
 <script>
 /* The Partner With Us enquiry form.
  *
- * WHY IT POSTS SOMEWHERE ELSE
- * This page is served by Vercel, which is static hosting: it cannot send an
- * email. The game server on Render is the one thing in the whole system with a
- * configured mail transport (it sends the newsletter, the account resets and
- * the purchase codes), so the enquiry is posted there, to
- * /api/partner/contact, and partner_contact.py turns it into mail to Timothy with
- * the sender on Reply-To.
+ * WHERE IT POSTS, AND WHY NOT TO THE GAME SERVER ANY MORE
+ * To /api/partner-contact on THIS host: a Vercel Function (api/partner-contact.js)
+ * that talks to the same email provider the newsletter uses and mails the
+ * enquiry to Timothy with the sender on Reply-To.
+ *
+ * It used to post to play.currentsandcritters.com, because the game server was
+ * the only host with a configured mail transport. That server is on Render's
+ * free tier and HIBERNATES: the first request after a quiet spell pays a
+ * 30-60 second cold start and sometimes never answers at all, so the one
+ * message on the site worth real money was the one that had to wake a sleeping
+ * container before it could be sent. A Function on this host is a few hundred
+ * milliseconds cold, same origin, and does not touch Render at all.
  *
  * WHY THE mailto: DID NOT SIMPLY STAY
  * A mailto: opens nothing at all on a phone with no mail app configured, and
@@ -2704,9 +2711,9 @@ updateBetaBarClear();
   var form = document.getElementById("pf-form");
   if (!form) return;
 
-  // The game server. Same host as the live stats above, and the only one that
-  // can send mail.
-  var API_BASE = "https://play.currentsandcritters.com";
+  // Same origin: this site's own mail endpoint. Relative on purpose, so a
+  // preview deployment posts to its own copy rather than to production.
+  var ENDPOINT = "/api/partner-contact";
   var INBOX = "currentsandcritters@gmail.com";
 
   var elName    = document.getElementById("pf-name");
@@ -2902,17 +2909,18 @@ updateBetaBarClear();
     elStatus.className = "pf-status";
     elStatus.textContent = "Sending your message...";
 
-    // Render's free tier sleeps, and a cold start is around 30 seconds. Say so
-    // rather than letting a spinner look like a hang.
+    // Nothing here waits on a sleeping server any more, so a send is a second
+    // or two: this says "still going" rather than "a container is waking up",
+    // and gives up long before a reader would.
     var slow = setTimeout(function () {
-      if (busy) elStatus.textContent = "Still sending. The game server may be waking up, this can take up to 30 seconds...";
-    }, 6000);
+      if (busy) elStatus.textContent = "Still sending, hang on...";
+    }, 5000);
 
     // AbortSignal.timeout is not in Safari < 16.4.
     var ctrl = new AbortController();
-    var kill = setTimeout(function () { ctrl.abort(); }, 45000);
+    var kill = setTimeout(function () { ctrl.abort(); }, 20000);
 
-    fetch(API_BASE + "/api/partner/contact", {
+    fetch(ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

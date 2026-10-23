@@ -19,8 +19,8 @@
  *      NEVER overwrites words somebody typed themselves.
  *   3. THE REFUSALS happen in the browser, before a round trip: no name, a bad
  *      address, and a message that is still the template with its blanks in.
- *   4. THE POST is the exact JSON partner_contact.py validates, sent to the
- *      GAME server (this page is on Vercel, which cannot send mail), and it
+ *   4. THE POST is the exact JSON api/partner-contact.js validates, sent to
+ *      this site's OWN endpoint and not to the hibernating game server, and it
  *      carries the honeypot field.
  *   5. A FAILED SEND KEEPS THE MESSAGE: the fallback is a mailto: with every
  *      field already in it, and the address is on the page in plain text.
@@ -71,8 +71,12 @@ const ok = (cond, label) => lines.push((cond ? "PASS " : "FAIL ") + label);
    Static checks: things that must be true of the file itself.
    ══════════════════════════════════════════════════════════════════════ */
 ok(/id="partner-form"/.test(INDEX), "index.html: the form band exists");
-ok(/API_BASE \+ "\/api\/partner\/contact"/.test(INDEX),
-   "index.html: it posts to the game server's /api/partner/contact");
+ok(/var ENDPOINT = "\/api\/partner-contact"/.test(INDEX),
+   "index.html: it posts to this site's own /api/partner-contact");
+// The whole point of the endpoint moving: a form submission must not have to
+// wake Render's free-tier container before it can send anything.
+ok(!/play\.currentsandcritters\.com\/api\/partner/.test(INDEX),
+   "index.html: ...and nothing in the form still posts to the game server");
 ok(/name="company_site"/.test(INDEX), "index.html: the honeypot field is present");
 ok(/class="pf-hp"/.test(INDEX) && !/\.pf-hp\s*\{[^}]*display:\s*none/.test(INDEX),
    "index.html: the honeypot is off-screen, not display:none (bots skip hidden inputs)");
@@ -267,8 +271,8 @@ const SCENARIOS = {
 
     ok(!!seen, "submitting posts");
     ok(calls === 1, "a double click sends one enquiry, not two (" + calls + ")");
-    ok(seen && seen.url === "https://play.currentsandcritters.com/api/partner/contact",
-       "...to the game server, the only host that can send mail: " + (seen && seen.url));
+    ok(seen && seen.url === "/api/partner-contact",
+       "...to this site's own mail endpoint, which never wakes Render: " + (seen && seen.url));
     ok(seen && seen.opts.method === "POST" && /application\\/json/.test(seen.opts.headers["Content-Type"]),
        "...as JSON");
     var body = seen ? JSON.parse(seen.opts.body) : {};

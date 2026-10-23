@@ -59,6 +59,33 @@ Important:
 - To point the Vercel frontend at your backend API, open the app with `?api_base=...` once (it is saved in `localStorage`):
   - `https://your-vercel-site.vercel.app/?api_base=https://your-backend-host`
 
+### The one Vercel env var: the Partner With Us form
+
+`api/partner-contact.js` is the only server-side code on Vercel. It mails the
+Partner With Us enquiry straight to the inbox, so an enquiry no longer has to
+wake the hibernating Render container to be sent. It needs the SAME mail
+provider key Render already has (Vercel → Settings → Environment Variables,
+Production + Preview):
+
+| Variable | Required | Notes |
+|---|---|---|
+| `NEWSLETTER_API_KEY` | **Yes** | Copy the value out of Render. Nothing is sent without it |
+| `NEWSLETTER_HTTP_PROVIDER` | If not Resend | `brevo` / `resend` / `postmark` / `sendgrid`, same as Render |
+| `ADMIN_EMAIL` | No | Where enquiries land. Defaults to `timothy.honey@beardedsealstudios.com` |
+| `NEWSLETTER_FROM_EMAIL` | No | The verified From address. Defaults to the same |
+
+Check it from anywhere, without sending anything:
+
+```bash
+curl -s https://currentsandcritters.com/api/partner-contact
+# {"ok":true,"enabled":true,"provider":"Brevo","inboxes":1,"from":"..."}
+```
+
+`enabled:false` means the key is missing on this deployment: the form then
+refuses honestly and the page falls back to a prefilled `mailto:` with
+everything the sender typed still in it. Nothing is ever silently dropped, and
+`node test_partner_contact_api.js` covers all of it offline.
+
 ## 4) Install As App (PWA)
 
 - Open the deployed site in Chrome/Edge/Safari.
