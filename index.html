@@ -1961,6 +1961,7 @@ renderCritters('all');
   const ID_KEY = 'cc-plush-voter';
   const PICKS_KEY = 'cc-plush-picks';
   const CONTACT_KEY = 'cc-plush-contact';
+  const PENDING_KEY = 'cc-plush-pending';
   const ORDINALS = ['1st', '2nd', '3rd'];
 
   const grid   = document.getElementById('plushGrid');
@@ -2092,6 +2093,45 @@ renderCritters('all');
     panel.classList.add('on');
   }
 
+  // One place where a counted vote lands, whether it was just sent or was
+  // held on the device since the server was last away.
+  function applyVote(data, wasHeld) {
+    sent = (data.yours || picks).slice();
+    picks = sent.slice();
+    writeLocal(PICKS_KEY, JSON.stringify(sent));
+    // The server decides what a usable address looks like, so the box shows
+    // what it actually kept, not what was typed.
+    sentContact = typeof data.contact === 'string' ? data.contact : '';
+    contact.value = sentContact;
+    writeLocal(CONTACT_KEY, sentContact);
+    applyTally(data);
+
+    // The newsletter is a separate answer from the vote, so it gets its own
+    // sentence. A tick that could not be honoured is never silently dropped:
+    // the voter is told, with the box left on so they can fix the address and
+    // send again.
+    const opened = wasHeld
+      ? 'Your saved vote has been counted. '
+      : (data.changed ? 'Vote updated. ' : 'Vote counted. ');
+    if (data.newsletterError) {
+      say.className = 'plush-say bad';
+      say.textContent = opened + data.newsletterError;
+    } else if (data.contactError) {
+      say.className = 'plush-say bad';
+      say.textContent = opened + data.contactError;
+    } else {
+      joinBox.checked = false;   // done, and not a standing instruction
+      say.className = 'plush-say good';
+      say.textContent = opened
+        + (data.newsletter
+            ? data.newsletter + ' You will hear who wins too.'
+            : (sentContact
+                ? 'You will hear from us when the winner is picked.'
+                : 'Thank you. You can change it any time.'));
+    }
+    paintSlots();
+  }
+
   function applyTally(data) {
     if (!data || !data.counts) return;
     counts = data.counts;
@@ -2108,13 +2148,40 @@ renderCritters('all');
     const slow = setTimeout(() => {
       if (busy) say.textContent = 'Still sending. The server may be waking up, this can take up to 30 seconds...';
     }, 6000);
+    // The STATUS comes back with the body, because "the server refused this
+    // vote" and "this server has no vote in it yet" are different answers and
+    // only one of them is the voter's problem.
     return fetch(API + url, {
       method: payload ? 'POST' : 'GET',
       headers: payload ? { 'Content-Type': 'application/json' } : undefined,
       body: payload ? JSON.stringify(payload) : undefined,
       signal: ctrl.signal
-    }).then(r => r.json().catch(() => null))
-      .finally(() => { clearTimeout(kill); clearTimeout(slow); });
+    }).then(r => r.json().catch(() => null).then(data => ({ status: r.status, data: data })),
+            () => ({ status: 0, data: null }))
+      .then(res => { clearTimeout(kill); clearTimeout(slow); return res; });
+  }
+
+  // A deploy can leave the website live and the vote server a version behind,
+  // which is a 404 on a page that looks perfectly finished. A vote lost to
+  // that is a real vote lost, so it is kept here and sent on the next visit
+  // rather than thrown away with an apology.
+  function serverNotReady(res) {
+    return !res || res.status === 0 || res.status === 404 || res.status === 502 ||
+           res.status === 503 || res.data === null;
+  }
+  function holdVote(payload) {
+    writeLocal(PENDING_KEY, JSON.stringify(payload));
+  }
+  function heldVote() {
+    try {
+      const raw = readLocal(PENDING_KEY);
+      if (!raw) return null;
+      const v = JSON.parse(raw);
+      return v && Array.isArray(v.picks) && v.picks.length ? v : null;
+    } catch (err) { return null; }
+  }
+  function dropHeldVote() {
+    try { localStorage.removeItem(PENDING_KEY); } catch (err) { /* nothing to do */ }
   }
 
   tabs.addEventListener('click', e => {
@@ -2185,44 +2252,30 @@ renderCritters('all');
     say.className = 'plush-say';
     say.textContent = 'Counting your vote...';
 
-    post('/api/plush/vote', {
+    const ballot = {
       voter: voter,
-      picks: picks,
+      picks: picks.slice(),
       contact: contact.value.trim(),
       newsletter: joinBox.checked
-    }).then(data => {
+    };
+
+    post('/api/plush/vote', ballot).then(res => {
       busy = false;
+      const data = res && res.data;
       if (data && data.ok) {
-        sent = (data.yours || picks).slice();
-        picks = sent.slice();
+        dropHeldVote();
+        applyVote(data, false);
+      } else if (serverNotReady(res)) {
+        // Not the voter's fault and not their problem to solve: hold the
+        // ballot and send it the next time they open the page.
+        holdVote(ballot);
+        sent = picks.slice();
         writeLocal(PICKS_KEY, JSON.stringify(sent));
-        // The server is the one that decides what a usable address looks
-        // like, so the box shows what it actually kept, not what was typed.
-        sentContact = typeof data.contact === 'string' ? data.contact : '';
-        contact.value = sentContact;
+        sentContact = ballot.contact;
         writeLocal(CONTACT_KEY, sentContact);
-        applyTally(data);
-        // The newsletter is a separate answer from the vote, so it gets its
-        // own sentence. A tick that could not be honoured is never silently
-        // dropped: the voter is told, with the box left on so they can fix
-        // the address and send again.
-        const opened = data.changed ? 'Vote updated. ' : 'Vote counted. ';
-        if (data.newsletterError) {
-          say.className = 'plush-say bad';
-          say.textContent = opened + data.newsletterError;
-        } else if (data.contactError) {
-          say.className = 'plush-say bad';
-          say.textContent = opened + data.contactError;
-        } else {
-          joinBox.checked = false;   // done, and not a standing instruction
-          say.className = 'plush-say good';
-          say.textContent = opened
-            + (data.newsletter
-                ? data.newsletter + ' You will hear who wins too.'
-                : (sentContact
-                    ? 'You will hear from us when the winner is picked.'
-                    : 'Thank you. You can change it any time.'));
-        }
+        say.className = 'plush-say';
+        say.textContent = 'Your picks are saved on this device. The vote server is '
+          + 'updating right now, so this will be sent the next time you open the page.';
       } else {
         say.className = 'plush-say bad';
         say.textContent = (data && data.message)
@@ -2231,8 +2284,10 @@ renderCritters('all');
       paintSlots();
     }).catch(() => {
       busy = false;
-      say.className = 'plush-say bad';
-      say.textContent = 'Could not reach the vote. Check your connection and try again.';
+      holdVote(ballot);
+      say.className = 'plush-say';
+      say.textContent = 'Could not reach the vote just now. Your picks are saved on this '
+        + 'device and will be sent the next time you open the page.';
       paintSlots();
     });
   });
@@ -2240,12 +2295,28 @@ renderCritters('all');
   drawGrid('all');
   paintSlots();
 
-  // Somebody who has already voted gets the standings back when they return.
-  // A first-time reader is asked before they are shown how everyone else
-  // answered, which is also why this page makes no request until it needs one.
-  if (sent.length) {
-    post('/api/plush/tally').then(data => {
-      if (data && data.ok) applyTally(data);
+  // A vote held from a visit when the server was away goes first, and
+  // quietly: it was already acknowledged on screen last time, so this is
+  // finishing the job, not asking again.
+  const held = heldVote();
+  if (held) {
+    held.voter = voter;
+    post('/api/plush/vote', held).then(res => {
+      const data = res && res.data;
+      if (data && data.ok) {
+        dropHeldVote();
+        applyVote(data, true);
+      } else if (!serverNotReady(res)) {
+        dropHeldVote();   // refused on its merits; holding it forever helps nobody
+      }
+    }).catch(() => { /* still away: it keeps until next time */ });
+  } else if (sent.length) {
+    // Somebody who has already voted gets the standings back when they
+    // return. A first-time reader is asked before they are shown how everyone
+    // else answered, which is also why this page makes no request until it
+    // needs one.
+    post('/api/plush/tally').then(res => {
+      if (res && res.data && res.data.ok) applyTally(res.data);
     }).catch(() => { /* asleep or offline: the ballot still works */ });
   }
 })();

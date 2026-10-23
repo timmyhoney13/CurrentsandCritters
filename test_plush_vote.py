@@ -488,6 +488,36 @@ class TestWiring(unittest.TestCase):
         init = self.srv[self.srv.index("plush_vote.init("):]
         self.assertIn("get_firestore=_get_firestore", init[:400])
 
+    def test_a_vote_survives_a_server_that_is_a_deploy_behind(self):
+        """The website and the vote server deploy separately, so the page can
+        be live hours before the API is. A vote lost to that is a real vote
+        lost: it is held on the device and sent on the next visit, and the
+        reader is told that plainly instead of being shown an error they can
+        do nothing about."""
+        js = self.html[self.html.index("// ── Plushy vote ─"):]
+        js = js[:js.index("// ── Auto-hide nav")]
+        self.assertIn("cc-plush-pending", js, "the held ballot needs somewhere to live")
+        self.assertIn("function serverNotReady", js)
+        for code in ("404", "502", "503"):
+            self.assertIn(code, js, "a %s is the server, not the voter" % code)
+        self.assertIn("holdVote(ballot)", js)
+        self.assertIn("saved on this device", js)
+        # ...and it really is sent again, not just stored and forgotten.
+        self.assertIn("heldVote()", js)
+        self.assertIn("applyVote(data, true)", js)
+        self.assertIn("dropHeldVote()", js)
+        # A ballot the server REFUSED on its merits is not held forever.
+        self.assertIn("} else if (!serverNotReady(res)) {", js)
+
+    def test_the_status_code_comes_back_with_the_body(self):
+        """"That vote is wrong" and "that server has no vote in it" are
+        different answers, and the page cannot tell them apart from the body
+        alone."""
+        js = self.html[self.html.index("function post(url, payload)"):]
+        js = js[:js.index("tabs.addEventListener")]
+        self.assertIn("status: r.status", js)
+        self.assertIn("status: 0", js, "a network failure needs a status of its own")
+
     def test_no_em_dashes_in_what_the_reader_sees(self):
         """House rule: em dashes do not go on screen."""
         start = self.html.index('id="plushy"')
