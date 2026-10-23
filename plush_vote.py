@@ -49,20 +49,33 @@ collection once per visitor.
 
 from __future__ import annotations
 
+import csv
+import io
 import re
 import threading
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import newsletter_email as nl_email
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  WIRING
 # ═══════════════════════════════════════════════════════════════════════════
 _get_firestore: Callable[[], Any] = lambda: None
+# The newsletter's own public-signup function, injected rather than imported:
+# newsletter_server imports THIS module for the admin tab, so importing it
+# back would be a cycle. Injection also keeps the consent rules where they
+# belong, in the module that owns the list.
+_public_signup: Optional[Callable[..., Dict[str, Any]]] = None
+_newsletter_source: str = "Plushy Vote"
 
 
-def init(*, get_firestore) -> None:
-    global _get_firestore
+def init(*, get_firestore, public_signup=None, newsletter_source: str = "") -> None:
+    global _get_firestore, _public_signup, _newsletter_source
     _get_firestore = get_firestore
+    _public_signup = public_signup
+    if newsletter_source:
+        _newsletter_source = newsletter_source
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -142,6 +155,17 @@ MAX_PICKS = 3            # "pick up to three, favourite first"
 NOTE_MAX = 400           # the optional "why that one", for the dev to read
 NAME_MAX = 40            # the optional "who are you", same
 VOTER_RE = re.compile(r"^[a-f0-9]{16,40}$")
+
+# The optional "tell me who wins" box takes an email address or a phone
+# number, whichever the voter would rather give. An email is judged by
+# newsletter_email.normalize_email, the one definition of an address this
+# codebase has, so the plushy list and the newsletter can never disagree about
+# what an address is. A phone number is kept as digits (with the + if they
+# typed one), which is what makes "(615) 555-0100" and "615-555-0100" one
+# person rather than two.
+CONTACT_MAX = 160
+PHONE_MIN_DIGITS = 7      # the shortest real subscriber number
+PHONE_MAX_DIGITS = 15     # E.164's ceiling, country code included
 
 # A browser may change its mind as often as it likes; what is capped is how
 # many NEW ballots one address can open. The per-minute cap is the only one an
@@ -230,6 +254,37 @@ def clean_picks(raw: Any) -> List[str]:
         if len(out) >= MAX_PICKS:
             break
     return out
+
+
+def _truthy(value: Any) -> bool:
+    """A checkbox as it arrives over JSON: true, "true", "on", 1. Anything
+    else, including the string "false" that a hand-rolled form can send, is
+    NOT consent. When in doubt the answer is no."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value == 1
+    return str(value or "").strip().lower() in ("true", "on", "yes", "1")
+
+
+def clean_contact(raw: Any) -> Tuple[str, str]:
+    """(value, kind) for the optional "tell me who wins" box, where kind is
+    "email", "phone" or "" for nothing usable.
+
+    An unusable answer comes back as ("", ""), and the caller TELLS the voter
+    rather than dropping it quietly: somebody who typed their number wrong and
+    was thanked anyway is somebody who thinks they are on the list and is not.
+    """
+    s = str(raw if raw is not None else "").strip()[:CONTACT_MAX]
+    if not s:
+        return "", ""
+    if "@" in s:
+        email = nl_email.normalize_email(s)
+        return (email, "email") if email else ("", "")
+    digits = re.sub(r"\D", "", s)
+    if PHONE_MIN_DIGITS <= len(digits) <= PHONE_MAX_DIGITS:
+        return ("+" if s.startswith("+") else "") + digits, "phone"
+    return "", ""
 
 
 def enabled() -> bool:
@@ -359,10 +414,32 @@ def cast(body: Dict[str, Any], client: str = "") -> Dict[str, Any]:
             return {"ok": False, "error": "poll_full",
                     "message": "This poll has all the votes it can hold. Thank you anyway."}
 
+    # The "tell me who wins" box. A body with NO contact key at all leaves
+    # whatever is on file alone (an older page, a retry); a key that is there
+    # and empty is the voter clearing it, because the box the page shows is
+    # pre-filled with what they last sent and emptying it has to mean
+    # something. Anything unusable is refused loudly below.
+    had = str((existing or {}).get("contact") or "")
+    had_kind = str((existing or {}).get("contactKind") or "")
+    contact, kind, contact_error = had, had_kind, ""
+    if "contact" in body:
+        raw = str(body.get("contact") or "").strip()
+        if not raw:
+            contact, kind = "", ""
+        else:
+            contact, kind = clean_contact(raw)
+            if not kind:
+                contact, kind = had, had_kind
+                contact_error = ("That did not look like an email address or a "
+                                 "phone number, so the vote counted but the "
+                                 "reminder did not.")
+
     doc = {
         "picks": picks,
         "note": _many_lines(body.get("note"), NOTE_MAX),
         "name": _one_line(body.get("name"), NAME_MAX),
+        "contact": contact,
+        "contactKind": kind,
         "ip": _one_line(client, 64),
         "updated": now,
         "created": int((existing or {}).get("created") or now),
@@ -374,13 +451,157 @@ def cast(body: Dict[str, Any], client: str = "") -> Dict[str, Any]:
         return {"ok": False, "error": "unavailable",
                 "message": "That vote did not save. Try again in a minute."}
 
-    print("[plush] ballot %s %s: %s" % (voter[:8], "updated" if existing else "cast",
-                                        ", ".join(picks)))
+    # The newsletter box, which is a SEPARATE question from the contact box
+    # and is never ticked for anybody. Leaving a way to be told who wins does
+    # not put somebody on the mailing list; this tick is the only thing that
+    # does, and it goes through the newsletter's own public signup so that the
+    # address is validated, recorded and welcomed exactly as it would be from
+    # the newsletter form itself.
+    joined, join_error = "", ""
+    if _truthy(body.get("newsletter")):
+        if kind != "email":
+            join_error = ("The newsletter goes out by email, so add an email address "
+                          "if you would like it.")
+        elif _public_signup is None:
+            join_error = "The newsletter is not reachable right now, so that part did not happen."
+        else:
+            try:
+                res = _public_signup(contact, source=_newsletter_source,
+                                     note="Ticked the newsletter box on the plushy vote.")
+            except Exception as exc:  # noqa: BLE001
+                print("[plush] newsletter signup failed: %s" % exc)
+                res = {"ok": False, "error": "Could not sign you up just now."}
+            if res.get("ok"):
+                joined = str(res.get("message") or "You are on the newsletter list.")
+            else:
+                join_error = str(res.get("error") or "Could not sign you up just now.")
+
+    print("[plush] ballot %s %s: %s%s%s" % (voter[:8], "updated" if existing else "cast",
+                                            ", ".join(picks),
+                                            " (+%s)" % kind if kind else "",
+                                            " (+newsletter)" if joined else ""))
     out = tally(force=True)
     out["ok"] = True
     out["yours"] = picks
     out["changed"] = existing is not None
+    # Echoed back so the page can re-fill the box on a browser that has lost
+    # its local copy, and so it can say WHICH of the two it saved.
+    out["contact"] = contact
+    out["contactKind"] = kind
+    if contact_error:
+        out["contactError"] = contact_error
+    if joined:
+        out["newsletter"] = joined
+    if join_error:
+        out["newsletterError"] = join_error
     return out
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  THE ADMIN SIDE: who asked to be told who won
+# ═══════════════════════════════════════════════════════════════════════════
+# These people gave an address or a number for ONE purpose, which the box they
+# typed it into states: to be told which critter wins. They are NOT newsletter
+# subscribers, they have not consented to a newsletter, and nothing here puts
+# them in newsletterSubscribers. They are shown on their own tab of the
+# newsletter admin because that is where Tim already goes to look at a list of
+# people, and the tab says what the list is for.
+#
+# Everything below is read by a route that has already verified an admin ID
+# token. None of it is reachable from /api/plush/*, which is public.
+_CSV_DANGEROUS = ("=", "+", "-", "@", "\t")
+
+
+def _csv_safe(value: Any) -> str:
+    """A cell a spreadsheet will not execute. A phone number typed with a
+    leading + is the everyday case here, so the guard matters more on this
+    list than on most."""
+    s = "" if value is None else str(value)
+    s = s.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
+    if s and s[0] in _CSV_DANGEROUS:
+        return "'" + s
+    return s
+
+
+def contact_rows(limit: int = 5000) -> List[Dict[str, Any]]:
+    """Every ballot that left a way to be reached, newest first, one row per
+    contact. The same person voting from their phone and their laptop gives
+    two ballots and one row: whoever is sent the result should be told once."""
+    db = None
+    try:
+        db = _get_firestore()
+    except Exception as exc:  # noqa: BLE001
+        print("[plush] firestore unavailable: %s" % exc)
+    if db is None:
+        return []
+
+    best: Dict[str, Dict[str, Any]] = {}
+    for snap in db.collection(BALLOTS_COLLECTION).stream():
+        data = snap.to_dict() or {}
+        contact = str(data.get("contact") or "").strip()
+        if not contact:
+            continue
+        kind = str(data.get("contactKind") or "")
+        picks = clean_picks(data.get("picks"))
+        row = {
+            "contact": contact[:CONTACT_MAX],
+            "kind": kind if kind in ("email", "phone") else "",
+            "picks": [NAMES[p] for p in picks],
+            "name": _one_line(data.get("name"), NAME_MAX),
+            "note": _many_lines(data.get("note"), NOTE_MAX),
+            "at": int(data.get("updated") or data.get("created") or 0),
+        }
+        row["atIso"] = (time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime(row["at"]))
+                        if row["at"] else "")
+        key = contact.lower()
+        if key not in best or row["at"] >= best[key]["at"]:
+            best[key] = row
+    rows = sorted(best.values(), key=lambda r: r["at"], reverse=True)
+    return rows[:max(1, int(limit))]
+
+
+def admin_view(limit: int = 5000) -> Dict[str, Any]:
+    """What the Plushy Vote tab draws: the standings, and the people who asked
+    to hear the result."""
+    counted = tally()
+    rows = contact_rows(limit)
+    ranked = sorted(
+        [s for s in SLUGS if counted.get("counts", {}).get(s)],
+        key=lambda s: (-counted["counts"][s], -counted.get("firsts", {}).get(s, 0), NAMES[s]),
+    )
+    standings = [{"slug": s, "name": NAMES[s], "family": FAMILIES[s],
+                  "votes": counted["counts"][s],
+                  "firsts": counted.get("firsts", {}).get(s, 0)} for s in ranked]
+    return {
+        "enabled": bool(counted.get("enabled")),
+        "ballots": int(counted.get("ballots") or 0),
+        "standings": standings,
+        "contacts": rows,
+        "emails": sum(1 for r in rows if r["kind"] == "email"),
+        "phones": sum(1 for r in rows if r["kind"] == "phone"),
+        "updated": int(counted.get("updated") or 0),
+    }
+
+
+def contacts_csv(rows: List[Dict[str, Any]]) -> str:
+    """The list as a file. Carries no voter ids and no IP addresses: a voter
+    id is the cursor that lets a browser change its own ballot, and nothing
+    outside the server has any business holding one."""
+    buf = io.StringIO()
+    w = csv.writer(buf, quoting=csv.QUOTE_ALL, lineterminator="\n")
+    w.writerow(["Contact", "Kind", "Name", "First pick", "Second", "Third",
+                "Note", "Voted (UTC)"])
+    for r in rows:
+        picks = list(r.get("picks") or []) + ["", "", ""]
+        at = int(r.get("at") or 0)
+        w.writerow([
+            _csv_safe(r.get("contact")), _csv_safe(r.get("kind")),
+            _csv_safe(r.get("name")),
+            _csv_safe(picks[0]), _csv_safe(picks[1]), _csv_safe(picks[2]),
+            _csv_safe(r.get("note")),
+            time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime(at)) if at else "",
+        ])
+    return buf.getvalue()
 
 
 # ═══════════════════════════════════════════════════════════════════════════

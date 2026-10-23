@@ -1587,6 +1587,50 @@ class TestPublicSignup(Base):
             self.assertFalse(h.last.get("ok"), bad)
         self.assertEqual(len(self.subs()), 0)
 
+    # ── the same door, from the plushy vote's own opt-in box ────────────
+    # The vote is a different page with a different form, and it joins the
+    # list through public_signup exactly as this form does. What is pinned
+    # here is that arriving from there changes only the record of WHERE the
+    # person said yes, never the rules about whether they did.
+    def test_the_plushy_box_joins_through_the_same_door(self):
+        out = ns.public_signup("Voter@Example.com", source=ns.SOURCE_PLUSHY,
+                               note="Ticked the newsletter box on the plushy vote.")
+        self.assertTrue(out["ok"])
+        self.drain()
+        sub = self.sub_for("voter@example.com")
+        self.assertEqual(sub["status"], ns.STATUS_ACTIVE)
+        self.assertEqual(sub["source"], ns.SOURCE_PLUSHY)
+        self.assertIn("plushy", sub["consentNote"].lower(),
+                      "the consent record has to say where they ticked it")
+        self.assertEqual(len(self.box.to("voter@example.com")), 1, "one welcome")
+
+    def test_the_plushy_box_obeys_the_same_refusals(self):
+        for bad in ("", "notanemail", "a@b", "a b@x.com"):
+            out = ns.public_signup(bad, source=ns.SOURCE_PLUSHY)
+            self.assertFalse(out["ok"], bad)
+        self.assertEqual(len(self.subs()), 0)
+
+    def test_ticking_it_twice_sends_one_welcome(self):
+        ns.public_signup("twice@example.com", source=ns.SOURCE_PLUSHY)
+        self.drain()
+        self.box.messages.clear()
+        out = ns.public_signup("twice@example.com", source=ns.SOURCE_PLUSHY)
+        self.drain()
+        self.assertTrue(out["ok"], "a returning address is not an error")
+        self.assertEqual(len(self.box.to("twice@example.com")), 0, "no second welcome")
+
+    def test_an_unsubscriber_who_ticks_it_again_comes_back(self):
+        ns.public_signup("back@example.com", source=ns.SOURCE_PLUSHY)
+        sid = ns._subscriber_id("back@example.com")
+        ns._unsubscribe_by_id(sid, actor="test", reason="test")
+        self.box.messages.clear()
+        out = ns.public_signup("back@example.com", source=ns.SOURCE_PLUSHY)
+        self.drain()
+        self.assertTrue(out["ok"])
+        self.assertEqual(self.sub_for("back@example.com")["status"], ns.STATUS_ACTIVE)
+        self.assertEqual(len(self.box.to("back@example.com")), 1,
+                         "a deliberate re-join is welcomed again")
+
     def test_the_form_is_rate_limited(self):
         oks = 0
         for i in range(14):

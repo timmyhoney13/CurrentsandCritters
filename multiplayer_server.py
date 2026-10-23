@@ -18147,7 +18147,15 @@ def main() -> None:
     # The website's plushy poll. Same injected Firestore accessor as
     # everything else: the ballots are documents, not a file on a disk that
     # does not survive a redeploy.
-    plush_vote.init(get_firestore=_get_firestore)
+    # The poll also carries the newsletter's own opt-in box, so it is handed
+    # the newsletter's public signup rather than importing it: newsletter_server
+    # already imports plush_vote for the admin tab, and the consent rules stay
+    # in the module that owns the list.
+    plush_vote.init(
+        get_firestore=_get_firestore,
+        public_signup=newsletter_server.public_signup,
+        newsletter_source=newsletter_server.SOURCE_PLUSHY,
+    )
     if plush_vote.enabled():
         print(f"[plush] plushy poll ON: {len(plush_vote.SLUGS)} critters on the ballot, "
               f"up to {plush_vote.MAX_PICKS} picks each, "

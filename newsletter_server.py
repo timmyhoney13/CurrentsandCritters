@@ -72,6 +72,12 @@ import traceback
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 import newsletter_email as nl_email
+# The plushy poll's own list. It is read here and nowhere else in this module:
+# the admin page is one page with one sign-in, so the tab that shows who asked
+# to hear the vote result goes through the same verified-token door as every
+# other tab. Nothing in this module writes to that list, and nothing in that
+# list is a subscriber.
+import plush_vote
 
 # ── Injected by init() (no circular import with multiplayer_server) ─────────
 _get_firestore: Optional[Callable[[], Any]] = None
@@ -115,6 +121,11 @@ WELCOME_SKIPPED = "skipped"
 SOURCE_STRIPE = "Stripe Checkout"
 SOURCE_MANUAL = "Manual Admin Addition"
 SOURCE_WEBSITE = "Website Signup"
+# The plushy vote's own opt-in box, under Meet the Critters. A separate source
+# so the Subscribers list can answer "where did these people come from?", and
+# so a signup made beside a vote is never mistaken for one made at the
+# newsletter form.
+SOURCE_PLUSHY = "Plushy Vote"
 
 # Campaign / recipient states.
 CAMP_DRAFT, CAMP_SENDING, CAMP_SENT, CAMP_FAILED = "draft", "sending", "sent", "failed"
@@ -1234,7 +1245,8 @@ def resolve_unsub_token(token: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def request_subscription(email_lower: str, *, source: str = SOURCE_WEBSITE) -> Dict[str, Any]:
+def request_subscription(email_lower: str, *, source: str = SOURCE_WEBSITE,
+                         note: str = "") -> Dict[str, Any]:
     """A PUBLIC signup, in one step. The address joins the list immediately and
     the caller queues the welcome email. There is no confirmation click.
 
@@ -1249,7 +1261,12 @@ def request_subscription(email_lower: str, *, source: str = SOURCE_WEBSITE) -> D
     Returns the same shape as every other subscribe path:
     {"result": ..., "subscriber": {...}, "sendWelcome": bool}.
     """
-    note = "Signed up on the Currents and Critters website form."
+    # The consent note is the RECORD OF CONSENT: what this person did, in
+    # their own part of the site, that put them on the list. A caller that
+    # signed somebody up from somewhere other than the newsletter form says so
+    # here, because "Website Signup" alone cannot answer "where exactly?" when
+    # somebody asks why they are receiving this.
+    note = note or "Signed up on the Currents and Critters website form."
 
     # FAST PATH: one write, no transaction.
     #
@@ -1287,6 +1304,62 @@ def request_subscription(email_lower: str, *, source: str = SOURCE_WEBSITE) -> D
                      consent_note=note)
     _invalidate_subs_cache()
     return out
+
+
+def public_signup(raw_email: Any, *, source: str = SOURCE_WEBSITE,
+                  note: str = "") -> Dict[str, Any]:
+    """ONE public signup, from anywhere on the site that offers one.
+
+    The newsletter form posts /api/newsletter/subscribe; the plushy vote has
+    its own opt-in box beside the ballot. Both end up here, because the
+    consent rules are not a property of the form that was filled in: every
+    public signup validates the address the same way, refuses the same way
+    when unsubscribe links cannot be signed, queues exactly one welcome, and
+    answers IDENTICALLY whether or not the address was already on the list, so
+    that no form on this site can be used to test who is subscribed.
+
+    Returns {"ok", "status", "message"} or {"ok": False, "status", "error"}.
+    Rate limiting belongs to the caller, which knows what it is rationing.
+    """
+    email = nl_email.normalize_email(raw_email)
+    if not email:
+        return {"ok": False, "status": 400,
+                "error": "That doesn't look like a valid email address."}
+    if not unsub_secret_configured():
+        return {"ok": False, "status": 503,
+                "error": "Signups are temporarily unavailable."}
+    try:
+        out = request_subscription(email, source=source, note=note)
+    except Exception as exc:  # noqa: BLE001
+        print("[newsletter] public signup failed: %s" % exc)
+        return {"ok": False, "status": 500,
+                "error": "Could not sign you up just now. Please try again."}
+
+    sub = out.get("subscriber") or {}
+    # An address ALREADY on the list gets no second welcome and no different
+    # answer: the reply below is identical either way, so this form cannot be
+    # used to test whether somebody is a subscriber. `sendWelcome` is the
+    # transaction's own verdict (true for a brand-new signup and for a
+    # deliberate re-join after unsubscribing, false for a duplicate), so the
+    # "always send a welcome" promise is kept without ever mailing the same
+    # person twice for one click.
+    if out.get("sendWelcome"):
+        _queue_welcome(str(sub.get("id") or ""))
+        _wake_worker()
+    # Do not promise mail this server cannot send. If no transport is
+    # configured the signup is still real, their address is on the list and
+    # the welcome is queued for whenever sending is fixed, but telling
+    # somebody an email is on its way when nothing can leave the building is
+    # how a broken mail system stays invisible: they wait, nothing arrives,
+    # and they conclude the signup failed rather than reporting it.
+    if nl_email.transport():
+        msg = "You're on the list! A welcome email is on its way to your inbox."
+    else:
+        msg = ("You're on the list! (Email delivery is being set up, so your "
+               "welcome message will arrive a little later.)")
+        print("[newsletter] ⚠️  signup accepted but NO EMAIL TRANSPORT IS "
+              "CONFIGURED, nothing can be delivered")
+    return {"ok": True, "status": 200, "message": msg, "result": out.get("result", "")}
 
 
 def confirm_with_token(token: str) -> Dict[str, Any]:
@@ -2759,50 +2832,11 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
                                 "error": "Too many signups from here. Try again shortly."},
                                status=429)
             return True
-        email = nl_email.normalize_email(body.get("email"))
-        if not email:
-            handler._send_json({"ok": False, "error": "That doesn't look like a valid "
-                                                      "email address."}, status=400)
-            return True
-        if not unsub_secret_configured():
-            handler._send_json({"ok": False, "error": "Signups are temporarily "
-                                                      "unavailable."}, status=503)
-            return True
-        try:
-            out = request_subscription(email)
-        except Exception as exc:  # noqa: BLE001
-            print("[newsletter] public signup failed: %s" % exc)
-            handler._send_json({"ok": False, "error": "Could not sign you up just now. "
-                                                      "Please try again."}, status=500)
-            return True
-
-        sub = out.get("subscriber") or {}
-        # An address ALREADY on the list gets no second welcome and no
-        # different answer: the reply below is identical either way, so this
-        # form cannot be used to test whether somebody is a subscriber.
-        # `sendWelcome` is the transaction's own verdict (true for a brand-new
-        # signup and for a deliberate re-join after unsubscribing, false for a
-        # duplicate), so the "always send a welcome" promise is kept without
-        # ever mailing the same person twice for one click.
-        if out.get("sendWelcome"):
-            _queue_welcome(str(sub.get("id") or ""))
-            _wake_worker()
-        # Do not promise mail this server cannot send. If no transport is
-        # configured the signup is still real, their address is on the list and
-        # the welcome is queued for whenever sending is fixed, but telling
-        # somebody an email is on its way when nothing can leave the building
-        # is how a broken mail system stays invisible: they wait, nothing
-        # arrives, and they conclude the signup failed rather than reporting
-        # it. The reply is still identical for every address, so the form
-        # still cannot be used to test who is already subscribed.
-        if nl_email.transport():
-            msg = ("You're on the list! A welcome email is on its way to your inbox.")
+        out = public_signup(body.get("email"))
+        if out["ok"]:
+            handler._send_json({"ok": True, "message": out["message"]})
         else:
-            msg = ("You're on the list! (Email delivery is being set up, so your "
-                   "welcome message will arrive a little later.)")
-            print("[newsletter] ⚠️  signup accepted but NO EMAIL TRANSPORT IS "
-                  "CONFIGURED, nothing can be delivered")
-        handler._send_json({"ok": True, "message": msg})
+            handler._send_json({"ok": False, "error": out["error"]}, status=out["status"])
         return True
 
     # ── public: confirm a website signup ─────────────────────────────────
@@ -2942,6 +2976,32 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
                   summary="Exported %d subscriber row(s), filter=%s" % (len(filtered), status))
             handler._send_json({"ok": True, "csv": csv_text, "rows": len(filtered),
                                 "filename": "cc-newsletter-subscribers-%s.csv"
+                                            % time.strftime("%Y-%m-%d", time.gmtime())})
+            return True
+
+        # ── The plushy poll's tab ────────────────────────────────────────
+        # Read-only, and deliberately so: this module does not write to the
+        # poll, and the poll does not write to the subscriber list. The people
+        # on this tab asked to be told which critter won, which is not consent
+        # to a newsletter, so adding one as a subscriber stays a thing only
+        # subscriber-add can do, with its permission box ticked.
+        if action == "plushy":
+            handler._send_json({"ok": True, **plush_vote.admin_view()})
+            return True
+
+        if action == "plushy-export":
+            if not _rate_ok("export", client):
+                handler._send_json({"ok": False, "error": "too_many_requests"}, status=429)
+                return True
+            rows = plush_vote.contact_rows()
+            kind = str(body.get("kind") or "all").strip().lower()
+            if kind in ("email", "phone"):
+                rows = [r for r in rows if r.get("kind") == kind]
+            csv_text = plush_vote.contacts_csv(rows)
+            audit("plushy_csv_exported", admin=admin,
+                  summary="Exported %d plushy-vote contact(s), filter=%s" % (len(rows), kind))
+            handler._send_json({"ok": True, "csv": csv_text, "rows": len(rows),
+                                "filename": "cc-plushy-vote-contacts-%s.csv"
                                             % time.strftime("%Y-%m-%d", time.gmtime())})
             return True
 

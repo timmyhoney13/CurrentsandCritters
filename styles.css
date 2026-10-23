@@ -13,8 +13,14 @@ html, body {
   font-family: var(--font-body);
   color: var(--ink);
   background: var(--sky-low);
-  overflow-x: hidden;
 }
+/* The sideways-scroll guard lives on the ROOT only, never on body as well.
+   The root's overflow is what the viewport uses, so this still clips a wide
+   element exactly as before; putting it on body too additionally made body a
+   scroll container, and a scroll container is the scrollport for anything
+   sticky inside it. That is what stopped the plushy vote's pick bar sticking:
+   it pinned itself to a box that never scrolls, so it never moved. */
+html { overflow-x: hidden; }
 img { max-width: 100%; display: block; }
 button { font-family: inherit; }
 a { color: inherit; }
@@ -1872,7 +1878,11 @@ footer button:focus-visible {
   background: linear-gradient(180deg, var(--sea-mid) 0%, var(--sea-deep) 55%, var(--sea-night) 100%);
   color: #fff;
   position: relative;
-  overflow: hidden;
+  /* NO overflow: hidden here, unlike the critters band above. An ancestor
+     that clips makes itself the scrollport for anything sticky inside it,
+     and the pick bar at the bottom of this section is sticky: with it on,
+     the bar silently stopped sticking and Send was a scroll away again.
+     The stripe overlay below is inset: 0 on this box, so it cannot spill. */
 }
 .section.plushy::before {
   content: '';
@@ -2102,6 +2112,67 @@ footer button:focus-visible {
   cursor: pointer;
 }
 .plush-clear:hover { background: rgba(255, 255, 255, 0.12); }
+/* The optional "tell me who wins" box. It is a full-width row of its own in
+   the bar so the label can say plainly what the address is for, which is the
+   only honest way to ask a stranger for one. */
+.plush-ask {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  padding-top: 11px;
+  margin-top: 2px;
+}
+.plush-ask-lbl {
+  flex: 1 1 260px;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.72);
+}
+.plush-ask-in {
+  flex: 0 1 320px;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 14px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--r-pill);
+  padding: 10px 16px;
+}
+.plush-ask-in::placeholder { color: rgba(255, 255, 255, 0.45); }
+.plush-ask-in:focus-visible {
+  outline: 3px solid var(--brand-sun);
+  outline-offset: 1px;
+  background: rgba(255, 255, 255, 0.16);
+}
+/* The newsletter opt-in: its own row, its own sentence, never pre-ticked.
+   It sits under the contact box because it only means anything once there is
+   an email address in that box, and the two are deliberately separate
+   decisions. */
+.plush-join {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  padding-top: 2px;
+}
+.plush-join input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--brand-sun);
+  cursor: pointer;
+}
+.plush-join input:focus-visible { outline: 3px solid var(--brand-sun); outline-offset: 2px; }
 .plush-say {
   flex: 1 1 100%;
   margin: 0;

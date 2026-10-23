@@ -11,13 +11,13 @@
      multiplayer/client/, so both hosts render the identical banner from one
      source. Two copies of an event time is how a site ends up advertising
      last season's schedule on one of them. -->
-<link rel="stylesheet" href="/css/game-night.css?v=2026-10-22.1"/>
+<link rel="stylesheet" href="/css/game-night.css?v=2026-10-23.1"/>
 <!-- Clan Season Grand Prize band. Same arrangement as Game Night above: the
      markup is built by /js/clan-prize.js, which the GAME serves too, so one
      source states the prize on both hosts and the amount cannot drift between
      them. The script also reads the live standings from the game server's
      public clan leaderboard, so this band names the clan currently winning. -->
-<link rel="stylesheet" href="/css/clan-prize.css?v=2026-10-22.1"/>
+<link rel="stylesheet" href="/css/clan-prize.css?v=2026-10-23.1"/>
 <!-- Luckiest Guy: the chunky display font for the Supporter Reef Wall donor names
      (see .scn-name in the inline styles below). Loaded here, page-local, so it
      doesn't weigh down the game app which shares colors_and_type.css. -->
@@ -25,9 +25,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap"/>
 <script src="image-slot.js"></script>
-<script defer src="/js/game-night.js?v=2026-10-22.1"></script>
-<script defer src="/js/clan-prize.js?v=2026-10-22.1"></script>
-<script defer src="/js/film-captions.js?v=2026-10-22.1"></script>
+<script defer src="/js/game-night.js?v=2026-10-23.1"></script>
+<script defer src="/js/clan-prize.js?v=2026-10-23.1"></script>
+<script defer src="/js/film-captions.js?v=2026-10-23.1"></script>
 <style>
   /* ── OLD-SITE NOTICE BAR ─────────────────────────────────────────── */
   .oldsite-bar {
@@ -1279,6 +1279,18 @@
       </div>
       <button class="plush-clear" id="plushClear" type="button">Clear</button>
       <button class="plush-send" id="plushSend" type="button" disabled>Send my vote</button>
+      <label class="plush-ask" for="plushContact">
+        <span class="plush-ask-lbl">Want to hear who wins? Leave an email or a phone number. Optional, and it is only ever used to tell you the result.</span>
+        <input class="plush-ask-in" id="plushContact" type="text" name="plush-contact"
+               autocomplete="email" maxlength="160" placeholder="you@email.com, or 555 123 4567">
+      </label>
+      <!-- A SEPARATE question, never ticked for anybody. Leaving a way to be
+           told who wins is not the same as joining the mailing list, and the
+           server treats them as two decisions too. -->
+      <label class="plush-join" for="plushNews">
+        <input type="checkbox" id="plushNews" name="plush-newsletter">
+        <span>Also add me to the Currents and Critters newsletter. Game news and playtest invites, and you can unsubscribe from any email.</span>
+      </label>
       <p class="plush-say" id="plushSay" role="status" aria-live="polite"></p>
     </div>
   </div>
@@ -1939,6 +1951,7 @@ renderCritters('all');
   const MAX_PICKS = 3;
   const ID_KEY = 'cc-plush-voter';
   const PICKS_KEY = 'cc-plush-picks';
+  const CONTACT_KEY = 'cc-plush-contact';
   const ORDINALS = ['1st', '2nd', '3rd'];
 
   const grid   = document.getElementById('plushGrid');
@@ -1950,13 +1963,16 @@ renderCritters('all');
   const panel  = document.getElementById('plushResults');
   const board  = document.getElementById('plushBoard');
   const total  = document.getElementById('plushTotal');
-  if (!grid || !tabs || !send) return;
+  const contact = document.getElementById('plushContact');
+  const joinBox = document.getElementById('plushNews');
+  if (!grid || !tabs || !send || !contact || !joinBox) return;
 
   const NAME = {};
   CRITTERS.forEach(c => { NAME[c.f] = c.n; });
 
   let picks = [];
   let sent = [];          // what the server has on file for this browser
+  let sentContact = '';   // and the way to reach them it has on file
   let counts = null;      // {slug: votes} once a tally has been read
   let firsts = {};
   let ballots = 0;
@@ -1987,6 +2003,11 @@ renderCritters('all');
     if (Array.isArray(saved)) sent = saved.filter(s => NAME[s]).slice(0, MAX_PICKS);
   } catch (err) { sent = []; }
   picks = sent.slice();
+  // The box is pre-filled with whatever this browser last sent, because what
+  // is in it is what gets saved: leaving it empty is how somebody takes
+  // themselves back off the list.
+  sentContact = (readLocal(CONTACT_KEY) || '').slice(0, 160);
+  contact.value = sentContact;
 
   // ── the grid ──
   function drawGrid(filter) {
@@ -2025,7 +2046,8 @@ renderCritters('all');
         ? `<img src="assets/critters/${slug}.png" alt=""/><span class="who">${NAME[slug]}</span>`
         : `<span class="who">${i === 0 ? 'Tap a critter' : 'Optional'}</span>`);
     });
-    const same = picks.length === sent.length && picks.every((p, i) => p === sent[i]);
+    const samePicks = picks.length === sent.length && picks.every((p, i) => p === sent[i]);
+    const same = samePicks && contact.value.trim() === sentContact && !joinBox.checked;
     send.disabled = busy || picks.length === 0 || (sent.length > 0 && same);
     send.textContent = sent.length ? 'Update my vote' : 'Send my vote';
   }
@@ -2111,6 +2133,17 @@ renderCritters('all');
     paintSlots();
   });
 
+  // Typing in the box, or changing your mind about the newsletter, is a
+  // change worth sending, so the button comes back.
+  contact.addEventListener('input', paintSlots);
+  joinBox.addEventListener('change', () => {
+    if (joinBox.checked && contact.value.indexOf('@') === -1) {
+      say.className = 'plush-say';
+      say.textContent = 'The newsletter goes out by email, so put an email address in the box.';
+    }
+    paintSlots();
+  });
+
   send.addEventListener('click', () => {
     if (busy || !picks.length) return;
     busy = true;
@@ -2119,16 +2152,44 @@ renderCritters('all');
     say.className = 'plush-say';
     say.textContent = 'Counting your vote...';
 
-    post('/api/plush/vote', { voter: voter, picks: picks }).then(data => {
+    post('/api/plush/vote', {
+      voter: voter,
+      picks: picks,
+      contact: contact.value.trim(),
+      newsletter: joinBox.checked
+    }).then(data => {
       busy = false;
       if (data && data.ok) {
         sent = (data.yours || picks).slice();
         picks = sent.slice();
         writeLocal(PICKS_KEY, JSON.stringify(sent));
+        // The server is the one that decides what a usable address looks
+        // like, so the box shows what it actually kept, not what was typed.
+        sentContact = typeof data.contact === 'string' ? data.contact : '';
+        contact.value = sentContact;
+        writeLocal(CONTACT_KEY, sentContact);
         applyTally(data);
-        say.className = 'plush-say good';
-        say.textContent = (data.changed ? 'Vote updated. ' : 'Vote counted. ')
-          + 'Thank you. You can change it any time.';
+        // The newsletter is a separate answer from the vote, so it gets its
+        // own sentence. A tick that could not be honoured is never silently
+        // dropped: the voter is told, with the box left on so they can fix
+        // the address and send again.
+        const opened = data.changed ? 'Vote updated. ' : 'Vote counted. ';
+        if (data.newsletterError) {
+          say.className = 'plush-say bad';
+          say.textContent = opened + data.newsletterError;
+        } else if (data.contactError) {
+          say.className = 'plush-say bad';
+          say.textContent = opened + data.contactError;
+        } else {
+          joinBox.checked = false;   // done, and not a standing instruction
+          say.className = 'plush-say good';
+          say.textContent = opened
+            + (data.newsletter
+                ? data.newsletter + ' You will hear who wins too.'
+                : (sentContact
+                    ? 'You will hear from us when the winner is picked.'
+                    : 'Thank you. You can change it any time.'));
+        }
       } else {
         say.className = 'plush-say bad';
         say.textContent = (data && data.message)

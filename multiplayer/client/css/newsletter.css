@@ -484,3 +484,19 @@ table.n-table { width: 100%; border-collapse: collapse; font-size: .86rem; min-w
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   PLUSHY VOTE tab
+   A heading with a button on the right, and the little share bar in the
+   standings table. Nothing else on this tab needed anything new.
+   ══════════════════════════════════════════════════════════════════════ */
+.n-row-between {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin: 26px 0 8px;
+}
+.n-meter {
+  height: 8px; min-width: 70px; border-radius: 999px;
+  background: var(--n-sunk); border: 1px solid var(--n-line-soft);
+  overflow: hidden;
+}
+.n-meter-fill { height: 100%; border-radius: 999px; background: var(--n-blue); }

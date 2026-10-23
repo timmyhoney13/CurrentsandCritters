@@ -75,11 +75,11 @@ const TEXT = String(HTML_DOC || "")
 {
   check(typeof HTML_DOC === "string" && HTML_DOC.length > 5000,
         `the policy renders a substantial document (got ${String(HTML_DOC).length} chars)`);
-  check(Array.isArray(SECTIONS) && SECTIONS.length === 27,
-        `all 27 sections are published, got ${SECTIONS && SECTIONS.length}`);
-  check(win.CC_PRIVACY_UPDATED === "October 12, 2026",
+  check(Array.isArray(SECTIONS) && SECTIONS.length === 28,
+        `all 28 sections are published, got ${SECTIONS && SECTIONS.length}`);
+  check(win.CC_PRIVACY_UPDATED === "October 23, 2026",
         `the last-updated date is stated, got ${win.CC_PRIVACY_UPDATED}`);
-  check(TEXT.includes("Last updated: October 12, 2026"),
+  check(TEXT.includes("Last updated: October 23, 2026"),
         "the last-updated date is printed in the document, not just exported");
 
   // The contents list and the headings come from ONE array: prove it by
@@ -90,9 +90,9 @@ const TEXT = String(HTML_DOC || "")
     check(HTML_DOC.includes(`</span>${s.title}</h3>`),
           `section ${s.n}'s heading prints its own title`);
   }
-  // Numbering is 1..27 with no gaps, a gap means a section was deleted.
+  // Numbering is 1..28 with no gaps, a gap means a section was deleted.
   check((SECTIONS || []).every((s, i) => s.n === i + 1),
-        "sections are numbered 1 to 27 with no gaps");
+        "sections are numbered 1 to 28 with no gaps");
   // Numbering is positional now, so no entry can carry a stale hardcoded
   // number: prove the array has none left to drift.
   check(!/\n\s+n:\s*\d+,/.test(POLICY_SRC),

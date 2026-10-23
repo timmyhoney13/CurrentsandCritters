@@ -305,7 +305,23 @@ try:
     draft = case.admin_post("campaign-save", {
         "subject": "Draft in progress", "contentHtml": "<p>later</p>"}).last["id"]
 
+    # The Plushy Vote tab. Its payload comes from the real poll through the
+    # same Firestore stand-in its own suite uses, so the tab is rendered
+    # against what the server actually sends, not against a hand-written
+    # fixture that can quietly stop matching it.
+    import test_plush_vote as P
+    import plush_vote as pv
+    P.reset()
+    pv.cast({"voter": "a" * 24, "picks": ["narwhal", "lobster"],
+             "contact": "tim@example.com", "name": "Tim"}, "198.51.100.1")
+    pv.cast({"voter": "b" * 24, "picks": ["narwhal", "mantis-shrimp"],
+             "contact": "+447700900123"}, "198.51.100.2")
+    pv.cast({"voter": "c" * 24, "picks": ["clownfish"]}, "198.51.100.3")
+
     out = {
+        "plushy": dict(ok=True, **pv.admin_view()),
+        "plushy-export": {"ok": True, "rows": 2, "filename": "plushy.csv",
+                          "csv": pv.contacts_csv(pv.contact_rows())},
         "dashboard":  case.admin_post("dashboard").last,
         "subscribers": case.admin_post("subscribers", {"perPage": 50}).last,
         "campaign-list": case.admin_post("campaign-list").last,
@@ -452,10 +468,17 @@ function survey() {
   };
 }
 
+/* Navigate by SECTION ID, never by the nav button's position. The mobile
+   <select> carries the ids as option values and the module routes off it, so
+   this keeps working when a section is added: clicking btns[i] meant that
+   inserting one tab silently sent every later goto() to the wrong view, and
+   the failures showed up as "the editor is a rich-text field" rather than as
+   anything to do with the nav. */
 async function goto(id, wait) {
-  const btns = [...document.querySelectorAll(".n-nav-btn")];
-  const i = ["dashboard","subscribers","compose","drafts","sent","progress","audit","settings"].indexOf(id);
-  btns[i].click();
+  const sel = document.getElementById("navMobile");
+  sel.value = id;
+  if (sel.value !== id) throw new Error("no such section: " + id);
+  sel.dispatchEvent(new Event("change", { bubbles: true }));
   await sleep(wait || 320);
   return survey();
 }
@@ -489,7 +512,7 @@ async function goto(id, wait) {
     out.checks.scriptCountBefore = document.querySelectorAll("script").length;
 
     // ── 3. every section renders ───────────────────────────────────
-    for (const id of ["dashboard","subscribers","compose","drafts","sent","progress","audit","settings"]) {
+    for (const id of ["dashboard","subscribers","plushy","compose","drafts","sent","progress","audit","settings"]) {
       out.screens[id] = await goto(id, id === "compose" ? 800 : 420);
     }
 
@@ -692,7 +715,7 @@ function run(width, height) {
                         .replace(/&lt;/g, "<").replace(/&gt;/g, ">"));
 }
 
-const SECTIONS = ["dashboard", "subscribers", "compose", "drafts", "sent",
+const SECTIONS = ["dashboard", "subscribers", "plushy", "compose", "drafts", "sent",
                   "progress", "audit", "settings"];
 
 console.log("\ndesktop (1440×900):");
@@ -710,7 +733,8 @@ check("the SERVER decides access, the first call is whoami",
 check("every API call carries the ID token", D.checks.everyCallCarriesToken);
 check("the admin gets in", D.checks.appShown && D.checks.gateHidden);
 check("the signed-in account is shown in the header", D.checks.whoamiShown);
-check("there are 8 sections", D.checks.navCount === 8, "navCount=" + D.checks.navCount);
+check("there is a nav button per section", D.checks.navCount === SECTIONS.length,
+      "navCount=" + D.checks.navCount + " vs " + SECTIONS.length);
 
 // ── every section renders something real ──────────────────────────────────
 for (const id of SECTIONS) {
@@ -729,6 +753,20 @@ check("subscribers shows active AND unsubscribed counts",
       /Active/.test((D.screens.subscribers||{text:''}).text) &&
       /Unsubscribed/.test((D.screens.subscribers||{text:''}).text));
 check("audit shows entries", (D.screens.audit||{rows:0}).rows >= 3, "rows=" + (D.screens.audit||{rows:0}).rows);
+
+// ── the plushy vote tab ───────────────────────────────────────────────────
+const plushy = D.screens.plushy || { text: "", rows: 0, cards: 0 };
+check("plushy: shows the vote count and the leader", plushy.cards >= 4,
+      "cards=" + plushy.cards);
+check("plushy: ranks the critters", /Narwhal/.test(plushy.text),
+      plushy.text.slice(0, 120));
+check("plushy: lists the people who asked to be told",
+      /tim@example\.com/.test(plushy.text) && /\+447700900123/.test(plushy.text));
+check("plushy: a voter who left nothing is not on the list",
+      !/Clownfish/.test(plushy.text.split("Tell me who wins")[1] || ""));
+check("plushy: says they are not newsletter subscribers",
+      /not newsletter subscribers/i.test(plushy.text));
+check("plushy: both tables rendered", plushy.rows >= 4, "rows=" + plushy.rows);
 check("progress shows a per-status breakdown",
       /Sent/.test((D.screens.progress||{text:''}).text) && /Failed/.test((D.screens.progress||{text:''}).text) &&
       /Skipped/.test((D.screens.progress||{text:''}).text));

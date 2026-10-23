@@ -69,7 +69,7 @@
   //     deadline the code does not guarantee.
   // ────────────────────────────────────────────────────────────────────────
 
-  var UPDATED = "October 12, 2026";
+  var UPDATED = "October 23, 2026";
   var EMAIL   = "timothy.honey@beardedsealstudios.com";
 
   // ── The document ────────────────────────────────────────────────
@@ -414,6 +414,25 @@
           "Changes that significantly affect the operation of the service",
           "Direct responses to questions or support requests you send us",
         ]),
+    },
+    {
+      title: "The Plushy Vote",
+      body:
+        "<p>Our website asks which critter you would most like to see made as a plush toy. Voting takes no account and no sign-in.</p>" +
+        "<p>When you vote we store:</p>" +
+        ul([
+          "The critters you picked, and the order you picked them in",
+          "A random identifier your own browser generates and keeps, which lets you change your vote later and is not linked to your name, your account, or any other identifier we hold",
+          "The date and time you voted or last changed your vote",
+          "The network address the vote came from, used to limit automated voting",
+          "An email address or phone number, only if you choose to give one",
+        ]) +
+        "<p>The vote form includes an optional field asking for an email address or a phone number so that we can tell you which critter wins. Leaving it blank still counts your vote.</p>" +
+        "<p>If you do provide one, we use it for that purpose only. Giving it does not subscribe you to the Currents and Critters newsletter, and we do not send marketing to it.</p>" +
+        "<p>The vote form also has a separate checkbox, which is never ticked for you, offering to add you to the newsletter. Ticking that box, and only ticking that box, subscribes you. If you tick it we store your email address on the newsletter list as described in the Newsletter and Marketing Emails section, recorded as having been signed up from the plushy vote, and every newsletter we send carries a working unsubscribe link.</p>" +
+        "<p>The newsletter is sent by email, so ticking that box does nothing if you gave a phone number instead. We will tell you so rather than failing quietly.</p>" +
+        "<p>You can remove it yourself at any time by returning to the vote in the same browser, clearing the field, and sending your vote again. You can also email us and ask us to remove it.</p>" +
+        "<p>Vote totals are published on the page as counts only. Your email address, your phone number, and your network address are never shown publicly, and are never shown to other voters.</p>",
     },
     {
       title: "Messages and Communication",

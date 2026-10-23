@@ -123,6 +123,7 @@
   var SECTIONS = [
     { id: "dashboard",   icon: "◎", label: "Dashboard" },
     { id: "subscribers", label: "Subscribers" },
+    { id: "plushy",      label: "Plushy Vote" },
     { id: "compose",     icon: "✎", label: "Compose" },
     { id: "drafts",      icon: "▤", label: "Drafts" },
     { id: "sent",        icon: "✓", label: "Sent" },
@@ -211,7 +212,7 @@
     ({
       dashboard: viewDashboard, subscribers: viewSubscribers, compose: viewCompose,
       drafts: viewDrafts, sent: viewSent, progress: viewProgress,
-      audit: viewAudit, settings: viewSettings
+      audit: viewAudit, settings: viewSettings, plushy: viewPlushy
     }[state.section] || viewDashboard)(v);
   }
 
@@ -1380,6 +1381,127 @@
       });
       t.appendChild(tb); scroll.appendChild(t); wrap.appendChild(scroll);
       host.appendChild(wrap);
+    });
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     PLUSHY VOTE
+     The website's "which critter should be a plushy?" poll, under Meet
+     the Critters. Two things live on this tab: the standings, and the
+     people who ticked the box asking to be told who wins.
+
+     They are NOT subscribers and this tab never pretends otherwise.
+     They gave an address or a number for one stated purpose, so there is
+     no "add to newsletter" button here: putting somebody on the mailing
+     list stays something Subscribers > Add does, with its permission box.
+     ══════════════════════════════════════════════════════════════ */
+  function viewPlushy(v) {
+    v.appendChild(sectionHead("Plushy vote",
+      "Which critter the website wants made first, and everyone who asked to be told the result."));
+    var host = el("div"); v.appendChild(host);
+    loading(host);
+    var gen = renderGen;
+
+    api("plushy").then(function (d) {
+      if (stale(gen)) return;
+      host.innerHTML = "";
+      if (!d.ok) { host.appendChild(el("div", "n-empty", d.error || "Could not read the vote.")); return; }
+      if (!d.enabled) {
+        host.appendChild(el("div", "n-empty",
+          "The poll is not storing anything on this deploy: the server has no Firestore."));
+        return;
+      }
+
+      var cards = el("div", "n-cards");
+      cards.appendChild(card("Votes cast", num(d.ballots), "one per browser"));
+      cards.appendChild(card("Leader", d.standings.length ? d.standings[0].name : "-",
+        d.standings.length ? num(d.standings[0].votes) + " vote(s)" : "nothing yet"));
+      cards.appendChild(card("Email addresses", num(d.emails), "asked to hear the result"));
+      cards.appendChild(card("Phone numbers", num(d.phones), "asked to hear the result"));
+      host.appendChild(cards);
+
+      /* ── standings ── */
+      host.appendChild(el("h2", "n-h2", "Standings"));
+      if (!d.standings.length) {
+        host.appendChild(el("div", "n-empty", "No votes yet."));
+      } else {
+        var top = d.standings[0].votes || 1;
+        var sWrap = el("div", "n-table-wrap");
+        var sScroll = el("div", "n-scroll");
+        var st = el("table", "n-table");
+        st.innerHTML = "<thead><tr><th>#</th><th>Critter</th><th>Votes</th>" +
+                       "<th>First picks</th><th>Share</th></tr></thead>";
+        var stb = document.createElement("tbody");
+        d.standings.forEach(function (r, i) {
+          var tr = document.createElement("tr");
+          tr.appendChild(el("td", "n-when", String(i + 1)));
+          tr.appendChild(el("td", null, r.name));
+          tr.appendChild(el("td", null, num(r.votes)));
+          tr.appendChild(el("td", "n-when", num(r.firsts)));
+          var bar = el("td");
+          var track = el("div", "n-meter");
+          var fill = el("div", "n-meter-fill");
+          fill.style.width = Math.round((r.votes / top) * 100) + "%";
+          track.appendChild(fill); bar.appendChild(track);
+          tr.appendChild(bar);
+          stb.appendChild(tr);
+        });
+        st.appendChild(stb); sScroll.appendChild(st); sWrap.appendChild(sScroll);
+        host.appendChild(sWrap);
+      }
+
+      /* ── the people who want telling ── */
+      var head = el("div", "n-row-between");
+      head.appendChild(el("h2", "n-h2", "Tell me who wins (" + num(d.contacts.length) + ")"));
+      var exp = el("button", "n-btn small", "Export CSV");
+      exp.addEventListener("click", function () { doPlushyExport(exp); });
+      head.appendChild(exp);
+      host.appendChild(head);
+
+      host.appendChild(el("div", "n-note",
+        "These people asked to be told which critter wins, and nothing else. " +
+        "They are not newsletter subscribers and are not sent campaigns. " +
+        "To put one on the mailing list, use Subscribers and tick the permission box."));
+
+      if (!d.contacts.length) {
+        host.appendChild(el("div", "n-empty", "Nobody has left an address or a number yet."));
+        return;
+      }
+      var wrap = el("div", "n-table-wrap");
+      var scroll = el("div", "n-scroll");
+      var t = el("table", "n-table");
+      t.innerHTML = "<thead><tr><th>Contact</th><th>Kind</th><th>Their picks</th>" +
+                    "<th>Name</th><th>When</th></tr></thead>";
+      var tb = document.createElement("tbody");
+      d.contacts.forEach(function (r) {
+        var tr = document.createElement("tr");
+        tr.appendChild(el("td", null, r.contact));
+        var k = el("td");
+        k.appendChild(chip(r.kind === "email" ? "good" : "neutral",
+                           r.kind === "email" ? "Email" : "Phone"));
+        tr.appendChild(k);
+        tr.appendChild(el("td", null, (r.picks || []).join(", ") || "-"));
+        tr.appendChild(el("td", "n-when", r.name || "-"));
+        tr.appendChild(el("td", "n-when", r.atIso || "-"));
+        tb.appendChild(tr);
+      });
+      t.appendChild(tb); scroll.appendChild(t); wrap.appendChild(scroll);
+      host.appendChild(wrap);
+    });
+  }
+
+  function doPlushyExport(btn) {
+    btn.disabled = true; btn.textContent = "Exporting…";
+    api("plushy-export", {}).then(function (d) {
+      btn.disabled = false; btn.textContent = "Export CSV";
+      if (!d.ok) { toast(d.error || "Export failed.", "bad"); return; }
+      var blob = new Blob([d.csv], { type: "text/csv;charset=utf-8" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = d.filename || "plushy-vote-contacts.csv";
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      toast("Exported " + num(d.rows) + " row(s).", "good");
     });
   }
 
