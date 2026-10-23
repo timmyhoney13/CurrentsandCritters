@@ -1287,6 +1287,13 @@
         </button>
       </div>
       <button class="plush-clear" id="plushClear" type="button">Clear</button>
+      <!-- Hand-off: starts a fresh ballot on this device so a phone can go
+           round a table without the first person's vote locking everybody
+           else out. OFF for everybody by default. It appears only on a
+           device that has been switched on once by opening the page at
+           #passitround, which is remembered on that device and nowhere
+           else, so an ordinary visitor still gets one ballot. -->
+      <button class="plush-next" id="plushNext" type="button" hidden>Next person votes</button>
       <button class="plush-send" id="plushSend" type="button" disabled>Send my vote</button>
       <label class="plush-ask" for="plushContact">
         <span class="plush-ask-lbl">Want to hear who wins? Leave an email or a phone number. Optional, and it is only ever used to tell you the result.</span>
@@ -1975,7 +1982,8 @@ renderCritters('all');
   const total  = document.getElementById('plushTotal');
   const contact = document.getElementById('plushContact');
   const joinBox = document.getElementById('plushNews');
-  if (!grid || !tabs || !send || !contact || !joinBox) return;
+  const nextBtn = document.getElementById('plushNext');
+  if (!grid || !tabs || !send || !contact || !joinBox || !nextBtn) return;
 
   const NAME = {};
   CRITTERS.forEach(c => { NAME[c.f] = c.n; });
@@ -2000,12 +2008,29 @@ renderCritters('all');
   // this browser owns. A browser that cannot store it votes once and cannot
   // come back to change it, which is the right trade for not asking anybody
   // to make an account.
-  let voter = (readLocal(ID_KEY) || '').toLowerCase();
-  if (!/^[a-f0-9]{16,40}$/.test(voter)) {
+  function newVoterId() {
     const bytes = new Uint8Array(16);
     (window.crypto || window.msCrypto).getRandomValues(bytes);
-    voter = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  }
+  let voter = (readLocal(ID_KEY) || '').toLowerCase();
+  if (!/^[a-f0-9]{16,40}$/.test(voter)) {
+    voter = newVoterId();
     writeLocal(ID_KEY, voter);
+  }
+
+  // PASS-IT-ROUND MODE, off for everybody and remembered per device.
+  // Opening the page at #passitround switches it on for THAT device only
+  // (#passitround=off switches it back), which is how a phone being handed
+  // around a table gets a fresh ballot per person while every ordinary
+  // visitor still gets one. It is a convenience, not a security control:
+  // the real ceiling on ballots is the per-address limit on the server.
+  const HOST_KEY = 'cc-plush-passitround';
+  let passItRound = readLocal(HOST_KEY) === '1';
+  const flag = (location.hash || '').toLowerCase();
+  if (flag.indexOf('passitround') > -1) {
+    passItRound = flag.indexOf('off') === -1;
+    writeLocal(HOST_KEY, passItRound ? '1' : '0');
   }
 
   try {
@@ -2069,6 +2094,7 @@ renderCritters('all');
     const same = samePicks && contact.value.trim() === sentContact && !joinBox.checked;
     send.disabled = busy || picks.length === 0 || (sent.length > 0 && same);
     send.textContent = sent.length ? 'Update my vote' : 'Send my vote';
+    nextBtn.hidden = !(passItRound && sent.length > 0);
   }
 
   function drawBoard() {
@@ -2229,6 +2255,26 @@ renderCritters('all');
     picks = [];
     say.className = 'plush-say';
     say.textContent = '';
+    paintGrid();
+    paintSlots();
+  });
+
+  // Hand the device to the next person: a brand new ballot, so their picks
+  // are counted beside the last person's instead of replacing them. The one
+  // already sent stays exactly as it was; nothing here edits it.
+  nextBtn.addEventListener('click', () => {
+    voter = newVoterId();
+    writeLocal(ID_KEY, voter);
+    sent = [];
+    picks = [];
+    sentContact = '';
+    contact.value = '';
+    joinBox.checked = false;
+    writeLocal(PICKS_KEY, '[]');
+    writeLocal(CONTACT_KEY, '');
+    dropHeldVote();
+    say.className = 'plush-say good';
+    say.textContent = 'Ready for the next person. The last vote is counted and safe.';
     paintGrid();
     paintSlots();
   });

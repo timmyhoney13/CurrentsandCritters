@@ -509,6 +509,38 @@ class TestWiring(unittest.TestCase):
         # A ballot the server REFUSED on its merits is not held forever.
         self.assertIn("} else if (!serverNotReady(res)) {", js)
 
+    def test_passing_the_device_round_is_off_for_everybody_by_default(self):
+        """One phone going round a table should give one ballot per person,
+        but an ordinary visitor still gets one ballot. So the hand-off is a
+        per-device switch, shipped off, and the button is not even in the
+        page for anybody who has not turned it on."""
+        bar = self.html[self.html.index('id="plushNext"'):]
+        bar = bar[:bar.index(">") + 1]
+        self.assertIn("hidden", bar, "the hand-off button ships hidden")
+        js = self.html[self.html.index("// ── Plushy vote ─"):]
+        js = js[:js.index("// ── Auto-hide nav")]
+        self.assertIn("cc-plush-passitround", js, "the switch is remembered per device")
+        self.assertIn("passitround", js.lower())
+        self.assertIn("nextBtn.hidden = !(passItRound && sent.length > 0)", js,
+                      "shown only on a switched-on device, and only once a vote is in")
+        # The hand-off must mint a NEW ballot, not edit the one just sent.
+        hand = js[js.index("nextBtn.addEventListener"):]
+        hand = hand[:hand.index("});")]
+        self.assertIn("voter = newVoterId()", hand)
+        self.assertIn("sent = []", hand)
+        self.assertIn("dropHeldVote()", hand)
+
+    def test_the_limits_suit_a_device_being_passed_around(self):
+        """Every ballot at a table arrives from ONE address, so a ceiling set
+        for one-voter-per-address refuses real people holding a phone."""
+        self.assertGreaterEqual(pv.NEW_PER_HOUR, 20)
+        self.assertGreaterEqual(pv.NEW_PER_DAY, 80)
+        self.assertGreater(pv.NEW_PER_DAY, pv.NEW_PER_HOUR)
+        self.assertGreaterEqual(pv.VOTES_PER_MIN, 12)
+        # Still a ceiling, though: this is a poll, not an open socket.
+        self.assertLessEqual(pv.NEW_PER_HOUR, 60)
+        self.assertLessEqual(pv.VOTES_PER_MIN, 30)
+
     def test_the_status_code_comes_back_with_the_body(self):
         """"That vote is wrong" and "that server has no vote in it" are
         different answers, and the page cannot tell them apart from the body

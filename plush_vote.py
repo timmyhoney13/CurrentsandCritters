@@ -170,9 +170,15 @@ PHONE_MAX_DIGITS = 15     # E.164's ceiling, country code included
 # A browser may change its mind as often as it likes; what is capped is how
 # many NEW ballots one address can open. The per-minute cap is the only one an
 # honest voter can reach, and only by hammering submit.
-VOTES_PER_MIN = 10
-NEW_PER_HOUR = 12
-NEW_PER_DAY = 40
+#
+# These are set for a DEVICE BEING PASSED ROUND A TABLE, which the website
+# supports deliberately: one phone, one ballot per person, all from a single
+# address. A dozen an hour was the right ceiling when every address meant one
+# voter and is the wrong one now, and a refused vote at a table is a person
+# standing there holding a phone that says no.
+VOTES_PER_MIN = 15
+NEW_PER_HOUR = 25
+NEW_PER_DAY = 100
 
 # Past this the poll stops opening ballots. Reading the tally walks the
 # collection, so this is also what keeps that read cheap.

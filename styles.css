@@ -2193,6 +2193,21 @@ footer button:focus-visible {
   cursor: pointer;
 }
 .plush-clear:hover { background: rgba(255, 255, 255, 0.12); }
+/* Hand-off, shown only on a device that has switched pass-it-round on.
+   Quieter than Send so it never competes with it, louder than Clear so it
+   reads as the deliberate "that was me, here is the next person" step. */
+.plush-next {
+  flex: 0 0 auto;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  border: 1px solid var(--brand-sun);
+  border-radius: var(--r-pill);
+  padding: 11px 18px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+.plush-next:hover { background: rgba(245, 168, 0, 0.22); }
 /* The optional "tell me who wins" box. It is a full-width row of its own in
    the bar so the label can say plainly what the address is for, which is the
    only honest way to ask a stranger for one. */
