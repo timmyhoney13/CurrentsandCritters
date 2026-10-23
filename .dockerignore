@@ -26,6 +26,9 @@
 !welcome_server.py
 !account_email.py
 !partner_contact.py
+# The website's plushy poll. Imported at module scope like the rest of these,
+# so without it the COPY in the Dockerfile fails and nothing deploys at all.
+!plush_vote.py
 
 # Allow the AI brain and card data files.
 !fish_ai_brain.json

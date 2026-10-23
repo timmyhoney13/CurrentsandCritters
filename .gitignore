@@ -243,6 +243,17 @@
 # HTTP providers (not just the MIME path), and the ONE list of partnership
 # kinds that the <select> on the website and the server must both agree on.
 !test_partner_contact.py
+# The website's plushy poll, under Meet the Critters. Module-scope import in
+# multiplayer_server, so a missing entry here is a server that will not boot,
+# and the only store it has is Firestore, so a missing entry is also a vote
+# button that answers 404 on a page that still shows it.
+!plush_vote.py
+# Its tests: the ballot paper and the website's own CRITTERS table being ONE
+# list, a re-vote replacing rather than stacking, new ballots rate limited per
+# address while changing your mind never is, the public tally carrying counts
+# and nothing anybody typed, and the page and the server really being wired to
+# each other.
+!test_plush_vote.py
 # The browser half: the real form in the real index.html at five widths, its
 # template, its client-side refusals, the exact JSON it posts, and the mailto:
 # fallback that keeps a message that failed to send. Test-only, so it needs

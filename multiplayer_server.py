@@ -50,6 +50,7 @@ import referral_server
 import welcome_server
 import account_email
 import partner_contact
+import plush_vote
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -16097,6 +16098,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if partner_contact.handle_get(self, parsed):
             return
 
+        # The website's plushy poll (/api/plush/tally). Public, and public is
+        # the point: it is read by every visitor who scrolls past Meet the
+        # Critters, signed in or not. It answers counts only, never a word
+        # anybody typed into a ballot.
+        if plush_vote.handle_get(self, parsed):
+            return
+
         # Did the webhook already fulfil this checkout? Polled by /thanks so the
         # buyer sees a confirmation only once the payment is really recorded.
         if parsed.path == "/api/stripe/session-status":
@@ -16659,6 +16667,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # recipient is never in the request, only ADMIN_EMAIL, so nothing a
         # caller sends can make this relay mail to somebody else.
         if partner_contact.handle_post(self, parsed, body):
+            return
+
+        # The website's plushy poll (/api/plush/vote). No account, by design:
+        # the reader whose opinion this wants has never signed into anything.
+        # The ballot carries a random id the browser made for itself, which is
+        # a cursor and not a proof, so the ceiling is held on the address.
+        if plush_vote.handle_post(self, parsed, body):
             return
 
         # The email on a username-and-password account: link it, and the
@@ -18128,6 +18143,18 @@ def main() -> None:
               f"{len(account_email.CODE_ALPHABET)}-symbol alphabet, stored hashed, single use, "
               f"{account_email.REDEEM_MAX_FAILS} tries per "
               f"{account_email.REDEEM_FAIL_WINDOW_SEC // 60} min")
+
+    # The website's plushy poll. Same injected Firestore accessor as
+    # everything else: the ballots are documents, not a file on a disk that
+    # does not survive a redeploy.
+    plush_vote.init(get_firestore=_get_firestore)
+    if plush_vote.enabled():
+        print(f"[plush] plushy poll ON: {len(plush_vote.SLUGS)} critters on the ballot, "
+              f"up to {plush_vote.MAX_PICKS} picks each, "
+              f"{plush_vote.NEW_PER_HOUR} new ballots per address per hour")
+    else:
+        print("[plush] plushy poll OFF: no Firestore on this deploy, so votes "
+              "would have nowhere to go")
 
     print(f"[referral] friend-code reward ON: {referral_server.reward_coins()} coins each side, "
           f"1 background per {referral_server.background_every()} referrals, "

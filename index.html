@@ -949,6 +949,7 @@
   <div class="links">
     <a href="#how">How to Play</a>
     <a href="#critters">The Critters</a>
+    <a href="#plushy">Plushy Vote</a>
     <a href="#oceans">Oceans</a>
     <a href="https://score.currentsandcritters.com/">Snap &amp; Score</a>
     <a href="#sponsor">Partner</a>
@@ -1226,6 +1227,60 @@
     </div>
 
     <div class="critter-grid" id="critterGrid"></div>
+  </div>
+</section>
+
+<!-- ============ PLUSHY VOTE ============ -->
+<!-- Sits directly under Meet the Critters on purpose: the reader has just
+     scrolled the whole cast, so this is the moment they have an opinion
+     about which one they would want to hold. No account, no email: the
+     ballot carries a random id the browser keeps for itself, and the
+     server holds the abuse ceiling on the address. -->
+<section class="section plushy on-dark" id="plushy">
+  <div class="section-inner">
+    <div class="section-head">
+      <span class="eyebrow">★ You Decide</span>
+      <h2>Vote for the First Plushy</h2>
+      <p>One critter from the deck is getting made as a weighted plush, the heavy kind you can actually hold. Which one should it be?</p>
+    </div>
+
+    <ol class="plush-steps">
+      <li><b>1</b>Tap up to three, favorite first</li>
+      <li><b>2</b>Hit Send my vote</li>
+      <li><b>3</b>No sign-up, no email, no account</li>
+    </ol>
+
+    <div class="plush-results" id="plushResults">
+      <h3>Standings so far</h3>
+      <p class="total" id="plushTotal"></p>
+      <div class="plush-board" id="plushBoard"></div>
+    </div>
+
+    <div class="critter-tabs" id="plushTabs">
+      <button class="active" data-tab="all">All</button>
+      <button data-tab="bird">Birds</button>
+      <button data-tab="mammal">Mammals</button>
+      <button data-tab="gamefish">Game Fish</button>
+      <button data-tab="baitfish">Bait Fish</button>
+      <button data-tab="crustacean">Crustaceans</button>
+      <button data-tab="cephalopod">Cephalopods</button>
+      <button data-tab="coral">Coral</button>
+      <button data-tab="invert">Invertebrates</button>
+      <button data-tab="crosscurrent">Crosscurrents</button>
+    </div>
+
+    <div class="plush-grid" id="plushGrid"></div>
+
+    <div class="plush-bar">
+      <div class="plush-slots" id="plushSlots">
+        <div class="plush-slot" data-slot="0"><b>1st</b><span class="who">Tap a critter</span></div>
+        <div class="plush-slot" data-slot="1"><b>2nd</b><span class="who">Optional</span></div>
+        <div class="plush-slot" data-slot="2"><b>3rd</b><span class="who">Optional</span></div>
+      </div>
+      <button class="plush-clear" id="plushClear" type="button">Clear</button>
+      <button class="plush-send" id="plushSend" type="button" disabled>Send my vote</button>
+      <p class="plush-say" id="plushSay" role="status" aria-live="polite"></p>
+    </div>
   </div>
 </section>
 
@@ -1667,6 +1722,7 @@
       <ul>
         <li><a data-email-list href="mailto:currentsandcritters@gmail.com?subject=Add%20me%20to%20the%20email%20list">Join the Email List</a></li>
         <li><a href="#critters">Meet the Critters</a></li>
+        <li><a href="#plushy">Vote for the Plushy</a></li>
         <li><a href="#oceans">Eight Oceans</a></li>
       </ul>
     </div>
@@ -1871,6 +1927,234 @@ tabs.addEventListener('click', e => {
   renderCritters(btn.dataset.tab);
 });
 renderCritters('all');
+
+// ── Plushy vote ──────────────────────────────────────────────────
+// Reads the SAME CRITTERS table the gallery above renders, so the ballot can
+// never list an animal the deck does not have. A ballot is anonymous: the
+// browser makes itself a random id once and keeps it, which is what lets the
+// same person change their mind instead of voting twice. Nothing here needs
+// an account, and the page must still look finished if the server is asleep.
+(() => {
+  const API = 'https://play.currentsandcritters.com';
+  const MAX_PICKS = 3;
+  const ID_KEY = 'cc-plush-voter';
+  const PICKS_KEY = 'cc-plush-picks';
+  const ORDINALS = ['1st', '2nd', '3rd'];
+
+  const grid   = document.getElementById('plushGrid');
+  const tabs   = document.getElementById('plushTabs');
+  const slots  = Array.from(document.querySelectorAll('.plush-slot'));
+  const send   = document.getElementById('plushSend');
+  const clear  = document.getElementById('plushClear');
+  const say    = document.getElementById('plushSay');
+  const panel  = document.getElementById('plushResults');
+  const board  = document.getElementById('plushBoard');
+  const total  = document.getElementById('plushTotal');
+  if (!grid || !tabs || !send) return;
+
+  const NAME = {};
+  CRITTERS.forEach(c => { NAME[c.f] = c.n; });
+
+  let picks = [];
+  let sent = [];          // what the server has on file for this browser
+  let counts = null;      // {slug: votes} once a tally has been read
+  let firsts = {};
+  let ballots = 0;
+  let busy = false;
+
+  // ── storage, which is a convenience and never a requirement ──
+  function readLocal(key) {
+    try { return localStorage.getItem(key); } catch (err) { return null; }
+  }
+  function writeLocal(key, value) {
+    try { localStorage.setItem(key, value); } catch (err) { /* private window */ }
+  }
+
+  // The voter id is a cursor, not a credential: it only decides WHICH ballot
+  // this browser owns. A browser that cannot store it votes once and cannot
+  // come back to change it, which is the right trade for not asking anybody
+  // to make an account.
+  let voter = (readLocal(ID_KEY) || '').toLowerCase();
+  if (!/^[a-f0-9]{16,40}$/.test(voter)) {
+    const bytes = new Uint8Array(16);
+    (window.crypto || window.msCrypto).getRandomValues(bytes);
+    voter = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    writeLocal(ID_KEY, voter);
+  }
+
+  try {
+    const saved = JSON.parse(readLocal(PICKS_KEY) || '[]');
+    if (Array.isArray(saved)) sent = saved.filter(s => NAME[s]).slice(0, MAX_PICKS);
+  } catch (err) { sent = []; }
+  picks = sent.slice();
+
+  // ── the grid ──
+  function drawGrid(filter) {
+    const list = filter === 'all' ? CRITTERS : CRITTERS.filter(c => c.t === filter);
+    grid.innerHTML = list.map(c => `
+      <button class="plush-pick" type="button" data-f="${c.f}" aria-pressed="false">
+        <span class="rank" aria-hidden="true"></span>
+        <img src="assets/critters/${c.f}.png" alt="${c.n}" loading="lazy"/>
+        <span class="name">${c.n}</span>
+        <span class="tally"><span class="meter"><span style="width:0%"></span></span><span class="n"></span></span>
+      </button>`).join('');
+    paintGrid();
+  }
+
+  function paintGrid() {
+    const top = counts ? Math.max(1, ...Object.values(counts)) : 1;
+    grid.querySelectorAll('.plush-pick').forEach(tile => {
+      const slug = tile.dataset.f;
+      const at = picks.indexOf(slug);
+      tile.setAttribute('aria-pressed', at > -1 ? 'true' : 'false');
+      tile.querySelector('.rank').textContent = at > -1 ? String(at + 1) : '';
+      if (counts) {
+        const n = counts[slug] || 0;
+        tile.querySelector('.meter span').style.width = Math.round((n / top) * 100) + '%';
+        tile.querySelector('.tally .n').textContent = n === 1 ? '1 vote' : n + ' votes';
+      }
+    });
+    grid.classList.toggle('counted', !!counts);
+  }
+
+  function paintSlots() {
+    slots.forEach((slot, i) => {
+      const slug = picks[i];
+      slot.classList.toggle('filled', !!slug);
+      slot.innerHTML = '<b>' + ORDINALS[i] + '</b>' + (slug
+        ? `<img src="assets/critters/${slug}.png" alt=""/><span class="who">${NAME[slug]}</span>`
+        : `<span class="who">${i === 0 ? 'Tap a critter' : 'Optional'}</span>`);
+    });
+    const same = picks.length === sent.length && picks.every((p, i) => p === sent[i]);
+    send.disabled = busy || picks.length === 0 || (sent.length > 0 && same);
+    send.textContent = sent.length ? 'Update my vote' : 'Send my vote';
+  }
+
+  function drawBoard() {
+    if (!counts) return;
+    const ranked = Object.keys(counts)
+      .filter(slug => NAME[slug] && counts[slug] > 0)
+      .sort((a, b) => (counts[b] - counts[a]) || ((firsts[b] || 0) - (firsts[a] || 0))
+                      || NAME[a].localeCompare(NAME[b]))
+      .slice(0, 10);
+    const top = ranked.length ? counts[ranked[0]] : 1;
+    board.innerHTML = ranked.map((slug, i) => `
+      <div class="plush-row${sent.indexOf(slug) > -1 ? ' mine' : ''}">
+        <span class="pos">${i + 1}</span>
+        <img src="assets/critters/${slug}.png" alt=""/>
+        <span class="who">${NAME[slug]}</span>
+        <span class="meter"><span style="width:${Math.round((counts[slug] / top) * 100)}%"></span></span>
+        <span class="n">${counts[slug]}</span>
+      </div>`).join('');
+    total.textContent = ballots === 1
+      ? '1 vote in so far.'
+      : ballots + ' votes in so far.';
+    panel.classList.add('on');
+  }
+
+  function applyTally(data) {
+    if (!data || !data.counts) return;
+    counts = data.counts;
+    firsts = data.firsts || {};
+    ballots = data.ballots || 0;
+    paintGrid();
+    drawBoard();
+  }
+
+  // ── talking to the server, which is on a free tier and may be asleep ──
+  function post(url, payload) {
+    const ctrl = new AbortController();
+    const kill = setTimeout(() => ctrl.abort(), 45000);
+    const slow = setTimeout(() => {
+      if (busy) say.textContent = 'Still sending. The server may be waking up, this can take up to 30 seconds...';
+    }, 6000);
+    return fetch(API + url, {
+      method: payload ? 'POST' : 'GET',
+      headers: payload ? { 'Content-Type': 'application/json' } : undefined,
+      body: payload ? JSON.stringify(payload) : undefined,
+      signal: ctrl.signal
+    }).then(r => r.json().catch(() => null))
+      .finally(() => { clearTimeout(kill); clearTimeout(slow); });
+  }
+
+  tabs.addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    tabs.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    drawGrid(btn.dataset.tab);
+  });
+
+  grid.addEventListener('click', e => {
+    const tile = e.target.closest('.plush-pick');
+    if (!tile) return;
+    const slug = tile.dataset.f;
+    const at = picks.indexOf(slug);
+    if (at > -1) picks.splice(at, 1);
+    else if (picks.length < MAX_PICKS) picks.push(slug);
+    else {
+      say.className = 'plush-say';
+      say.textContent = 'Three is the limit. Tap one of your picks to swap it out.';
+      return;
+    }
+    say.className = 'plush-say';
+    say.textContent = '';
+    paintGrid();
+    paintSlots();
+  });
+
+  clear.addEventListener('click', () => {
+    picks = [];
+    say.className = 'plush-say';
+    say.textContent = '';
+    paintGrid();
+    paintSlots();
+  });
+
+  send.addEventListener('click', () => {
+    if (busy || !picks.length) return;
+    busy = true;
+    send.disabled = true;
+    send.textContent = 'Sending...';
+    say.className = 'plush-say';
+    say.textContent = 'Counting your vote...';
+
+    post('/api/plush/vote', { voter: voter, picks: picks }).then(data => {
+      busy = false;
+      if (data && data.ok) {
+        sent = (data.yours || picks).slice();
+        picks = sent.slice();
+        writeLocal(PICKS_KEY, JSON.stringify(sent));
+        applyTally(data);
+        say.className = 'plush-say good';
+        say.textContent = (data.changed ? 'Vote updated. ' : 'Vote counted. ')
+          + 'Thank you. You can change it any time.';
+      } else {
+        say.className = 'plush-say bad';
+        say.textContent = (data && data.message)
+          || 'That vote did not go through. Try again in a minute.';
+      }
+      paintSlots();
+    }).catch(() => {
+      busy = false;
+      say.className = 'plush-say bad';
+      say.textContent = 'Could not reach the vote. Check your connection and try again.';
+      paintSlots();
+    });
+  });
+
+  drawGrid('all');
+  paintSlots();
+
+  // Somebody who has already voted gets the standings back when they return.
+  // A first-time reader is asked before they are shown how everyone else
+  // answered, which is also why this page makes no request until it needs one.
+  if (sent.length) {
+    post('/api/plush/tally').then(data => {
+      if (data && data.ok) applyTally(data);
+    }).catch(() => { /* asleep or offline: the ballot still works */ });
+  }
+})();
 
 // ── Auto-hide nav on scroll-down, show on scroll-up ──────────────
 let lastY = 0;
