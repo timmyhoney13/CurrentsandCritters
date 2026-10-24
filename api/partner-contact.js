@@ -18,16 +18,36 @@
  * not involved, and is not woken.
  *
  * WHAT IT NEEDS IN THE VERCEL DASHBOARD (Settings -> Environment Variables)
- *   NEWSLETTER_API_KEY         the provider key, the same value Render has
- *   NEWSLETTER_HTTP_PROVIDER   brevo | resend | postmark | sendgrid
- *                              (optional; defaults to resend, as in Python)
+ * Whichever of the two the game server already has, copied across as-is. It
+ * reads the SAME variable names newsletter_email.py reads, so there is nothing
+ * to translate: copy the values out of Render and they work here.
+ *
+ *   EITHER an SMTP mailbox (what Render is set up with today):
+ *     SMTP_HOST SMTP_USERNAME SMTP_PASSWORD   and optionally SMTP_PORT (587),
+ *     SMTP_SECURITY (auto from the port), SMTP_TIMEOUT
+ *   OR an HTTPS email API:
+ *     NEWSLETTER_API_KEY, and NEWSLETTER_HTTP_PROVIDER when it is not Resend
+ *     (brevo | resend | postmark | sendgrid)
+ *
  *   ADMIN_EMAIL                optional, where enquiries land. Defaults to
  *                              timothy.honey@beardedsealstudios.com, exactly
  *                              as newsletter_email.py does.
- *   NEWSLETTER_FROM_EMAIL      optional, the verified From address.
- * With no key set, this answers 503 with a message naming the public inbox,
- * and the page falls back to a prefilled mailto: with everything typed still
- * in it. A form that cannot send must say so, never swallow a message.
+ *   NEWSLETTER_FROM_EMAIL      optional, the From address.
+ *
+ * SMTP IS WHY THIS HOST CAN DO IT AND RENDER CANNOT. Render blocks outbound
+ * ports 25 / 465 / 587 on its free tier, so smtp.gmail.com is unreachable from
+ * that container no matter how right the credentials are: the connection never
+ * leaves the box (newsletter_email.transport() and NEWSLETTER_SETUP.md both say
+ * so at length). A Vercel Function has ordinary outbound TCP, so the mailbox
+ * that was configured but could not be reached works from here.
+ *
+ * The Gmail OAuth transport is deliberately NOT ported: it is the one that
+ * needs a Google Cloud project, and between SMTP and four HTTPS APIs there is
+ * nothing left for it to be the only answer to.
+ *
+ * With nothing configured, this answers 503 with a message naming the public
+ * inbox, and the page falls back to a prefilled mailto: with everything typed
+ * still in it. A form that cannot send must say so, never swallow a message.
  *
  * THIS IS A DELIBERATE SECOND COPY of partner_contact.py's rules, in the one
  * language Vercel runs. The parts that MUST NOT drift are pinned by tests:
@@ -184,8 +204,65 @@ function apiKeyFor(provider) {
   return env("NEWSLETTER_API_KEY") || env(provider.toUpperCase() + "_API_KEY");
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  SMTP  (mirror of smtp_settings() in newsletter_email.py)
+// ═══════════════════════════════════════════════════════════════════════════
+function smtpSettings() {
+  const host = env("SMTP_HOST");
+  let port = parseInt(env("SMTP_PORT", "587"), 10);
+  if (!Number.isFinite(port) || port <= 0) port = 587;
+  let security = env("SMTP_SECURITY").toLowerCase();
+  // 465 implies implicit TLS. Auto-detecting it from the port is what stops a
+  // mismatched pair hanging for a whole timeout looking like a dead network.
+  if (!["starttls", "ssl", "none"].includes(security)) {
+    security = port === 465 ? "ssl" : "starttls";
+  }
+  let timeout = parseInt(env("SMTP_TIMEOUT", "12"), 10);
+  if (!Number.isFinite(timeout) || timeout < 3) timeout = 12;
+  return {
+    host, port, security,
+    username: env("SMTP_USERNAME"),
+    // Google shows an app password as four space-separated groups
+    // ("woff lfgo xgfb rhpv"), and that is what gets pasted into a dashboard.
+    // No provider has a password with a space in it, so strip all whitespace
+    // and never find out on the wire whether Gmail tolerates it.
+    password: env("SMTP_PASSWORD").replace(/\s+/g, ""),
+    timeoutMs: timeout * 1000,
+  };
+}
+
+function smtpConfigured() {
+  const cfg = smtpSettings();
+  return Boolean(cfg.host && cfg.username && cfg.password);
+}
+
+/* The active transport: "http" | "smtp" | "".
+ *
+ * HTTP WINS OVER SMTP WHEN BOTH ARE CONFIGURED, same as
+ * newsletter_email.transport(), and for the same reason: nobody sets an API
+ * key by accident, so setting one means "use this", and the SMTP values can
+ * stay in the dashboard underneath it. NEWSLETTER_TRANSPORT forces a choice.
+ */
+function transport() {
+  const forced = env("NEWSLETTER_TRANSPORT").toLowerCase().replace(/-/g, "_");
+  if (forced === "http" || forced === "smtp") {
+    return forced === "http" ? (providerName() ? "http" : "") : (smtpConfigured() ? "smtp" : "");
+  }
+  if (["resend", "postmark", "brevo", "sendgrid"].includes(forced) && providerName()) return "http";
+  if (providerName()) return "http";
+  if (smtpConfigured()) return "smtp";
+  return "";
+}
+
+function transportLabel() {
+  const t = transport();
+  if (t === "http") return PROVIDERS[providerName()].label;
+  if (t === "smtp") return "SMTP (" + smtpSettings().host + ")";
+  return "";
+}
+
 function enabled() {
-  return Boolean(providerName()) && adminEmails().length > 0;
+  return Boolean(transport()) && adminEmails().length > 0;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -364,28 +441,43 @@ const SENT_MESSAGE =
   "Thanks! Your message is on its way to Timothy, and a copy of the " +
   "confirmation is in your inbox. You'll get a reply at the address you gave.";
 
-/* One message to one recipient over the provider's HTTPS API. Throws with the
-   provider's own complaint attached: a 401 here means the key or the From
-   address, and that distinction is the whole of debugging mail. */
+/* One message to one recipient, over whichever transport is configured.
+   Throws with the provider's or the mail server's own complaint attached: a
+   401 (or a 535) here means the credentials or the From address, and that
+   distinction is the whole of debugging mail. */
 async function sendEmail({ to, subject, html, text, replyTo, timeoutMs = 9000 }) {
-  const name = providerName();
-  if (!name) throw new Error("No email API is configured (set NEWSLETTER_API_KEY).");
-  const spec = PROVIDERS[name];
-  const fromEmail = senderEmail();
-  const fromName = senderName();
-
-  const payload = spec.body({
+  const message = {
     to,
-    from: addressLine(fromName, fromEmail),
-    fromEmail,
-    fromName,
+    fromEmail: senderEmail(),
+    fromName: senderName(),
     subject: oneLine(subject, 900),
     html,
     text,
-    replyTo: normalizeEmail(replyTo) || fromEmail,
+    replyTo: normalizeEmail(replyTo) || senderEmail(),
     // Unique per message, so a mail client that collapses similar subjects
     // does not thread two unrelated enquiries together.
-    extraHeaders: { "X-Entity-Ref-ID": randomRef() },
+    ref: randomRef(),
+  };
+  const t = transport();
+  if (t === "http") return sendOverHttp(message, timeoutMs);
+  if (t === "smtp") return sendOverSmtp(message, timeoutMs);
+  throw new Error("No email transport is configured (set SMTP_HOST, SMTP_USERNAME " +
+                  "and SMTP_PASSWORD, or NEWSLETTER_API_KEY).");
+}
+
+async function sendOverHttp(m, timeoutMs) {
+  const name = providerName();
+  const spec = PROVIDERS[name];
+  const payload = spec.body({
+    to: m.to,
+    from: addressLine(m.fromName, m.fromEmail),
+    fromEmail: m.fromEmail,
+    fromName: m.fromName,
+    subject: m.subject,
+    html: m.html,
+    text: m.text,
+    replyTo: m.replyTo,
+    extraHeaders: { "X-Entity-Ref-ID": m.ref },
   });
 
   const res = await fetch(spec.url, {
@@ -399,6 +491,204 @@ async function sendEmail({ to, subject, html, text, replyTo, timeoutMs = 9000 })
   let detail = "";
   try { detail = (await res.text()).slice(0, 300); } catch (_) { /* nothing to add */ }
   throw new Error(spec.label + " refused the message (" + res.status + "): " + detail);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  THE MIME MESSAGE  (hand-rolled, house style: stdlib-only transport)
+// ═══════════════════════════════════════════════════════════════════════════
+/* RFC 2047 for anything that is not plain ASCII. A name with an accent in it
+   is not an edge case worth a mojibake From line. */
+function encodeHeaderValue(value) {
+  const clean = oneLine(value, 900);
+  if (!clean || /^[\x20-\x7e]*$/.test(clean)) return clean;
+  return "=?UTF-8?B?" + Buffer.from(clean, "utf8").toString("base64") + "?=";
+}
+
+function b64Lines(text) {
+  return (Buffer.from(String(text), "utf8").toString("base64").match(/.{1,76}/g) || []).join("\r\n");
+}
+
+/* Both bodies go out base64: no line-length limit to trip over, no
+   quoted-printable to get wrong, and no body line that can begin with a "."
+   and end the DATA block three paragraphs early. */
+function buildMime(m) {
+  const boundary = "cc-" + m.ref;
+  const domain = (m.fromEmail.split("@")[1] || "currentsandcritters.com");
+  const headers = [
+    "From: " + addressLine(encodeHeaderValue(m.fromName), m.fromEmail),
+    "To: " + m.to,
+    "Reply-To: " + m.replyTo,
+    "Subject: " + encodeHeaderValue(m.subject),
+    "Date: " + new Date().toUTCString().replace("GMT", "+0000"),
+    "Message-ID: <" + m.ref + "@" + domain + ">",
+    "X-Entity-Ref-ID: " + m.ref,
+    "MIME-Version: 1.0",
+    'Content-Type: multipart/alternative; boundary="' + boundary + '"',
+  ];
+  return headers.join("\r\n") + "\r\n\r\n" +
+    "--" + boundary + "\r\n" +
+    'Content-Type: text/plain; charset="utf-8"\r\n' +
+    "Content-Transfer-Encoding: base64\r\n\r\n" +
+    b64Lines(m.text) + "\r\n" +
+    "--" + boundary + "\r\n" +
+    'Content-Type: text/html; charset="utf-8"\r\n' +
+    "Content-Transfer-Encoding: base64\r\n\r\n" +
+    b64Lines(m.html) + "\r\n" +
+    "--" + boundary + "--\r\n";
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  THE SMTP CLIENT
+// ═══════════════════════════════════════════════════════════════════════════
+/* Reads one SMTP reply at a time off a socket, including the multi-line kind
+   ("250-SIZE", "250-STARTTLS", "250 AUTH ..."), and hands back {code, text}.
+   Every read is bounded: a mail server that accepts the connection and then
+   says nothing must fail inside the HTTP request, not outlive it. */
+function smtpChannel(socket, timeoutMs) {
+  let buffer = "";
+  let waiter = null;
+  let dead = null;
+
+  socket.setEncoding("utf8");
+  socket.on("data", chunk => { buffer += chunk; serve(); });
+  socket.on("error", err => { dead = dead || err; serve(); });
+  socket.on("close", () => {
+    dead = dead || new Error("the mail server closed the connection");
+    serve();
+  });
+
+  function take() {
+    const lines = buffer.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      // A reply ends at the first line whose code is followed by a space (or
+      // by nothing at all); "250-" lines are continuations.
+      if (/^\d{3}([ \t]|$)/.test(lines[i])) {
+        const used = lines.slice(0, i + 1);
+        buffer = lines.slice(i + 1).join("\n");
+        return { code: parseInt(lines[i].slice(0, 3), 10), text: used.join(" ").trim() };
+      }
+    }
+    return null;
+  }
+
+  function serve() {
+    if (!waiter) return;
+    const reply = take();
+    if (reply) { const w = waiter; waiter = null; w.ok(reply); return; }
+    if (dead) { const w = waiter; waiter = null; w.bad(dead); }
+  }
+
+  return {
+    read() {
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          if (waiter) { waiter = null; reject(new Error("the mail server stopped answering")); }
+        }, timeoutMs);
+        waiter = {
+          ok: reply => { clearTimeout(timer); resolve(reply); },
+          bad: err => { clearTimeout(timer); reject(err); },
+        };
+        serve();
+      });
+    },
+    write(data) { socket.write(data); },
+    detach() { socket.removeAllListeners("data"); socket.removeAllListeners("close"); },
+  };
+}
+
+async function smtpCmd(ch, line, expected, what) {
+  if (line !== null) ch.write(line + "\r\n");
+  const reply = await ch.read();
+  if (!expected.includes(Math.floor(reply.code / 100))) {
+    // Never echo the command back: AUTH lines carry the password.
+    throw new Error(what + " failed (" + reply.code + "): " + reply.text.slice(0, 200));
+  }
+  return reply;
+}
+
+function connectSocket(cfg) {
+  const net = require("net");
+  const tls = require("tls");
+  return new Promise((resolve, reject) => {
+    const socket = cfg.security === "ssl"
+      ? tls.connect({ host: cfg.host, port: cfg.port, servername: cfg.host })
+      : net.connect({ host: cfg.host, port: cfg.port });
+    const timer = setTimeout(() => {
+      socket.destroy();
+      // A host that BLOCKS the port drops the SYN rather than refusing it, so
+      // this is the branch a blocked port lands in, and it is worth saying so:
+      // it is exactly what Render does, and the reason this code runs here.
+      reject(new Error("could not reach " + cfg.host + ":" + cfg.port +
+                       " (the port may be blocked)"));
+    }, cfg.timeoutMs);
+    const good = () => { clearTimeout(timer); socket.setTimeout(0); resolve(socket); };
+    socket.once(cfg.security === "ssl" ? "secureConnect" : "connect", good);
+    socket.once("error", err => { clearTimeout(timer); reject(err); });
+  });
+}
+
+/* One message, one connection. No pooling: a Function instance handles one
+   request at a time and may be frozen the moment it answers, so a kept-open
+   socket is a socket that is dead by the next enquiry. */
+async function sendOverSmtp(m, timeoutMs) {
+  const tls = require("tls");
+  const cfg = smtpSettings();
+  if (!cfg.host || !cfg.username || !cfg.password) {
+    throw new Error("SMTP is not configured (need SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD).");
+  }
+  // Plaintext SMTP would hand the mailbox password to anything on the path, so
+  // it is allowed to a loopback address (where the tests run a fake server)
+  // and nowhere else. A dashboard typo must not quietly downgrade production.
+  const loopback = /^(127\.|::1$|localhost$)/.test(cfg.host);
+  if (cfg.security === "none" && !loopback) {
+    throw new Error("SMTP_SECURITY=none is only allowed against localhost; " +
+                    "use starttls (587) or ssl (465).");
+  }
+
+  const deadline = Math.max(cfg.timeoutMs, timeoutMs);
+  let socket = await connectSocket({ ...cfg, timeoutMs: deadline });
+  let ch = smtpChannel(socket, deadline);
+  const ehloName = (m.fromEmail.split("@")[1] || "currentsandcritters.com");
+
+  try {
+    await smtpCmd(ch, null, [2], "the mail server's greeting");
+    let hello = await smtpCmd(ch, "EHLO " + ehloName, [2], "EHLO");
+
+    if (cfg.security === "starttls") {
+      await smtpCmd(ch, "STARTTLS", [2], "STARTTLS");
+      ch.detach();
+      socket = await new Promise((resolve, reject) => {
+        const secure = tls.connect({ socket, servername: cfg.host }, () => resolve(secure));
+        secure.once("error", reject);
+      });
+      ch = smtpChannel(socket, deadline);
+      hello = await smtpCmd(ch, "EHLO " + ehloName, [2], "EHLO after STARTTLS");
+    }
+
+    // AUTH PLAIN in one round trip where it is offered, LOGIN where it is not.
+    // Gmail offers both; some providers only one.
+    if (/AUTH[^\n]*PLAIN/i.test(hello.text)) {
+      const plain = Buffer.from("\u0000" + cfg.username + "\u0000" + cfg.password, "utf8")
+        .toString("base64");
+      await smtpCmd(ch, "AUTH PLAIN " + plain, [2], "signing in to the mailbox");
+    } else {
+      await smtpCmd(ch, "AUTH LOGIN", [3], "signing in to the mailbox");
+      await smtpCmd(ch, Buffer.from(cfg.username, "utf8").toString("base64"), [3],
+                    "signing in to the mailbox");
+      await smtpCmd(ch, Buffer.from(cfg.password, "utf8").toString("base64"), [2],
+                    "signing in to the mailbox");
+    }
+
+    await smtpCmd(ch, "MAIL FROM:<" + m.fromEmail + ">", [2], "MAIL FROM");
+    await smtpCmd(ch, "RCPT TO:<" + m.to + ">", [2], "RCPT TO");
+    await smtpCmd(ch, "DATA", [3], "DATA");
+    ch.write(buildMime(m) + ".\r\n");
+    await smtpCmd(ch, null, [2], "the message itself");
+    try { ch.write("QUIT\r\n"); } catch (_) { /* it is already sent */ }
+    return true;
+  } finally {
+    try { socket.destroy(); } catch (_) { /* nothing to close */ }
+  }
 }
 
 function randomRef() {
@@ -514,11 +804,10 @@ async function submit(body, client) {
      curl https://currentsandcritters.com/api/partner-contact
    It names the provider and the number of inboxes, and no secret. */
 function state() {
-  const name = providerName();
   return {
     ok: true,
     enabled: enabled(),
-    provider: name ? PROVIDERS[name].label : "",
+    transport: transportLabel(),
     inboxes: adminEmails().length,
     from: senderEmail(),
   };
@@ -604,5 +893,6 @@ module.exports.__test = {
   KINDS, PROVIDERS, validate, normalizeEmail, oneLine, manyLines,
   buildEnquiry, addressLine, submit, state, providerName, adminEmails,
   publicInbox, senderEmail, ACK_TEXT, ACK_HTML, ACK_SUBJECT, SENT_MESSAGE,
+  transport, transportLabel, smtpSettings, buildMime, sendEmail,
   resetRateLimits: () => RL.clear(),
 };

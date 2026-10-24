@@ -57,6 +57,72 @@ function call(opts = {}) {
   }));
 }
 
+/* A fake SMTP server on loopback. It speaks just enough of the protocol to be
+   driven by a real client, and keeps every line it was sent so the test can
+   read what actually went on the wire rather than what the code meant. */
+function fakeSmtp({ authMode = "plain", failAuth = false } = {}) {
+  const net = require("net");
+  const sessions = [];
+  const sockets = new Set();
+  const server = net.createServer(sock => {
+    sockets.add(sock);
+    sock.on("close", () => sockets.delete(sock));
+    sock.on("error", () => {});
+    const session = { auth: [], from: "", to: [], data: "" };
+    sessions.push(session);
+    let buf = "", inData = false, expecting = "";
+    sock.setEncoding("utf8");
+    sock.write("220 fake.smtp ESMTP ready\r\n");
+    sock.on("data", chunk => {
+      buf += chunk;
+      let at;
+      while ((at = buf.indexOf("\r\n")) >= 0) {
+        const line = buf.slice(0, at);
+        buf = buf.slice(at + 2);
+        if (inData) {
+          if (line === ".") { inData = false; sock.write("250 2.0.0 OK queued\r\n"); }
+          else session.data += line + "\n";
+          continue;
+        }
+        const up = line.toUpperCase();
+        if (expecting) {
+          session.auth.push(Buffer.from(line, "base64").toString("utf8"));
+          if (expecting === "user") { expecting = "pass"; sock.write("334 UGFzc3dvcmQ6\r\n"); }
+          else { expecting = ""; sock.write(failAuth ? "535 5.7.8 Username and Password not accepted\r\n" : "235 2.7.0 Accepted\r\n"); }
+        } else if (up.startsWith("EHLO")) {
+          sock.write("250-fake.smtp\r\n250-SIZE 35882577\r\n250 AUTH " +
+                     (authMode === "login" ? "LOGIN" : "LOGIN PLAIN") + "\r\n");
+        } else if (up.startsWith("AUTH PLAIN")) {
+          session.auth.push(Buffer.from(line.slice(11), "base64").toString("utf8"));
+          sock.write(failAuth ? "535 5.7.8 Username and Password not accepted\r\n" : "235 2.7.0 Accepted\r\n");
+        } else if (up === "AUTH LOGIN") {
+          expecting = "user"; sock.write("334 VXNlcm5hbWU6\r\n");
+        } else if (up.startsWith("MAIL FROM")) {
+          session.from = line; sock.write("250 2.1.0 OK\r\n");
+        } else if (up.startsWith("RCPT TO")) {
+          session.to.push(line); sock.write("250 2.1.5 OK\r\n");
+        } else if (up === "DATA") {
+          inData = true; sock.write("354 Go ahead\r\n");
+        } else if (up === "QUIT") {
+          sock.write("221 2.0.0 Bye\r\n"); sock.end();
+        } else {
+          sock.write("250 OK\r\n");
+        }
+      }
+    });
+  });
+  return new Promise(resolve => {
+    server.listen(0, "127.0.0.1", () => resolve({
+      port: server.address().port,
+      sessions,
+      close: () => new Promise(done => {
+        for (const s of sockets) s.destroy();
+        server.close(() => done());
+      }),
+    }));
+  });
+}
+
 const GOOD = {
   name: "Alex Rivera",
   org: "Blue Harbor Aquarium",
@@ -89,6 +155,9 @@ const BASE_ENV = {
   NEWSLETTER_API_KEY: "re_test_key_do_not_use",
   NEWSLETTER_HTTP_PROVIDER: "",
   RESEND_API_KEY: "", POSTMARK_API_KEY: "", BREVO_API_KEY: "", SENDGRID_API_KEY: "",
+  SMTP_HOST: "", SMTP_PORT: "", SMTP_SECURITY: "",
+  SMTP_USERNAME: "", SMTP_PASSWORD: "", SMTP_TIMEOUT: "",
+  NEWSLETTER_TRANSPORT: "",
   ADMIN_EMAIL: "timothy.honey@beardedsealstudios.com",
   NEWSLETTER_FROM_EMAIL: "timothy.honey@beardedsealstudios.com",
   NEWSLETTER_FROM_NAME: "Currents and Critters",
@@ -130,16 +199,16 @@ ok(JSON.stringify(pyKinds) === JSON.stringify(T.KINDS),
 
   setEnv();
   r = await call({ method: "GET" });
-  ok(r.json && r.json.enabled === true && r.json.provider === "Resend",
-     "GET names the provider a bare NEWSLETTER_API_KEY implies: " + (r.json && r.json.provider));
+  ok(r.json && r.json.enabled === true && r.json.transport === "Resend",
+     "GET names the transport a bare NEWSLETTER_API_KEY implies: " + (r.json && r.json.transport));
   ok(!r.payload && !JSON.stringify(r.json).includes("re_test_key"),
      "...and never the key itself");
   ok(r.headers["cache-control"] === "no-store", "...and is not cached");
 
   setEnv({ NEWSLETTER_API_KEY: "", BREVO_API_KEY: "xkeysib-test" });
   r = await call({ method: "GET" });
-  ok(r.json && r.json.provider === "Brevo",
-     "a provider-named key alone picks that provider: " + (r.json && r.json.provider));
+  ok(r.json && r.json.transport === "Brevo",
+     "a provider-named key alone picks that provider: " + (r.json && r.json.transport));
 
   /* ── the happy path ─────────────────────────────────────────────────── */
   setEnv();
@@ -284,6 +353,141 @@ ok(JSON.stringify(pyKinds) === JSON.stringify(T.KINDS),
   setEnv();
   ok((await call({ body: GOOD, ip: "198.51.100.78" })).status === 200,
      "...and it was that address, not everyone");
+
+  /* ══════════════════════════════════════════════════════════════════
+     SMTP: the transport the game server was configured with and could not
+     reach. Render blocks outbound 25/465/587, so those credentials have been
+     sitting there unable to leave the container; from Vercel they work, which
+     is the whole reason this endpoint exists. Nothing below touches the real
+     Gmail: it talks to a fake SMTP server on loopback and reads back exactly
+     what went on the wire.
+     ══════════════════════════════════════════════════════════════════ */
+  {
+    const fake = await fakeSmtp();
+    setEnv({
+      NEWSLETTER_API_KEY: "",
+      SMTP_HOST: "127.0.0.1", SMTP_PORT: String(fake.port), SMTP_SECURITY: "none",
+      SMTP_USERNAME: "timothy.honey@beardedsealstudios.com",
+      // The four-group shape Google shows an app password in. It must not
+      // reach the wire with its spaces still in it.
+      SMTP_PASSWORD: "woff lfgo xgfb rhpv",
+    });
+    r = await call({ method: "GET" });
+    ok(r.json.enabled === true && r.json.transport === "SMTP (127.0.0.1)",
+       "SMTP alone is a working transport: " + (r.json && r.json.transport));
+
+    r = await call({ body: GOOD });
+    ok(r.status === 200 && r.json.ok === true, "an enquiry sends over SMTP: " + r.status);
+    ok(calls.length === 0, "...with no HTTPS provider involved at all");
+    ok(fake.sessions.length === 2, "two SMTP conversations: enquiry and ack (" + fake.sessions.length + ")");
+
+    const sess = fake.sessions[0];
+    ok(sess.auth.length === 1 && sess.auth[0] ===
+       "\u0000timothy.honey@beardedsealstudios.com\u0000wofflfgoxgfbrhpv",
+       "the app password is sent with its spaces stripped: " + JSON.stringify(sess.auth[0]));
+    ok(/MAIL FROM:<timothy\.honey@beardedsealstudios\.com>/.test(sess.from),
+       "MAIL FROM is the site's own address: " + sess.from);
+    ok(sess.to.length === 1 && /RCPT TO:<timothy\.honey@beardedsealstudios\.com>/.test(sess.to[0]),
+       "RCPT TO is ADMIN_EMAIL: " + sess.to.join(" "));
+
+    const head = sess.data.split("\n\n")[0];
+    ok(/^From: Currents and Critters <timothy\.honey@beardedsealstudios\.com>$/m.test(head),
+       "the From header names the game: " + (head.match(/^From:.*$/m) || [""])[0]);
+    ok(/^Reply-To: alex@blueharbor\.org$/m.test(head),
+       "Reply-To is the person who wrote in, so hitting reply answers THEM");
+    ok(/^Subject: Partner enquiry \(Ocean conservation partnership\): Blue Harbor Aquarium$/m.test(head),
+       "the subject survived: " + (head.match(/^Subject:.*$/m) || [""])[0]);
+    ok(/^Content-Type: multipart\/alternative; boundary="cc-[0-9a-f]+"$/m.test(head),
+       "it is a multipart message, so a plain-text client gets plain text");
+    ok(/^Message-ID: <[0-9a-f]+@beardedsealstudios\.com>$/m.test(head),
+       "...with a Message-ID from the sending domain");
+
+    const bodies = sess.data.split(/--cc-[0-9a-f]+/).slice(1, 3)
+      .map(part => Buffer.from(part.split("\n\n").slice(1).join("").replace(/\s+/g, ""), "base64")
+        .toString("utf8"));
+    ok(bodies[0].includes("coastal education program") && bodies[0].includes("Blue Harbor"),
+       "the plain-text part carries the enquiry");
+    ok(bodies[1].includes("coastal education program") && bodies[1].includes("<table"),
+       "...and the HTML part carries the same thing, laid out");
+    ok(bodies[1].includes("alex@blueharbor.org"),
+       "...with the address to reply to in the body as well");
+
+    const ack = fake.sessions[1];
+    ok(ack.to.length === 1 && /RCPT TO:<alex@blueharbor\.org>/.test(ack.to[0]),
+       "the acknowledgement goes to the sender: " + ack.to.join(" "));
+    const ackText = Buffer.from(
+      ack.data.split(/--cc-[0-9a-f]+/)[1].split("\n\n").slice(1).join("").replace(/\s+/g, ""),
+      "base64").toString("utf8");
+    ok(ackText === T.ACK_TEXT, "...and it is still the constant, byte for byte");
+    ok(!ackText.includes("Alex") && !ackText.includes("coastal"),
+       "...quoting nothing the caller typed");
+
+    await fake.close();
+  }
+
+  /* AUTH LOGIN, for a server that offers nothing else. */
+  {
+    const fake = await fakeSmtp({ authMode: "login" });
+    setEnv({
+      NEWSLETTER_API_KEY: "",
+      SMTP_HOST: "127.0.0.1", SMTP_PORT: String(fake.port), SMTP_SECURITY: "none",
+      SMTP_USERNAME: "tim", SMTP_PASSWORD: "secret",
+    });
+    r = await call({ body: GOOD });
+    ok(r.json.ok === true && fake.sessions[0].auth.join("|") === "tim|secret",
+       "a server that only offers AUTH LOGIN is signed into one line at a time: " +
+       fake.sessions[0].auth.join("|"));
+    await fake.close();
+  }
+
+  /* A mailbox that refuses the password. The reader is told it failed; the
+     password itself is never in the message, the log line or the response. */
+  {
+    const fake = await fakeSmtp({ failAuth: true });
+    setEnv({
+      NEWSLETTER_API_KEY: "",
+      SMTP_HOST: "127.0.0.1", SMTP_PORT: String(fake.port), SMTP_SECURITY: "none",
+      SMTP_USERNAME: "tim", SMTP_PASSWORD: "wrong-password-here",
+    });
+    r = await call({ body: GOOD });
+    ok(r.status === 503 && r.json.error === "send_failed",
+       "a rejected password is reported, not swallowed: " + r.status);
+    ok(/535/.test(r.json.detail || "") && !JSON.stringify(r.json).includes("wrong-password-here"),
+       "...with the server's code and NOT the password: " + r.json.detail);
+    await fake.close();
+  }
+
+  /* Plaintext SMTP to a real host would hand the mailbox password to anything
+     on the path. A dashboard typo must not be able to do that. */
+  setEnv({
+    NEWSLETTER_API_KEY: "",
+    SMTP_HOST: "smtp.gmail.com", SMTP_PORT: "587", SMTP_SECURITY: "none",
+    SMTP_USERNAME: "tim", SMTP_PASSWORD: "secret",
+  });
+  r = await call({ body: GOOD });
+  ok(r.status === 503 && /localhost/.test(r.json.detail || ""),
+     "SMTP_SECURITY=none is refused against a real host: " + r.json.detail);
+
+  /* Both configured: the API key wins, same as newsletter_email.transport(). */
+  {
+    const fake = await fakeSmtp();
+    setEnv({
+      SMTP_HOST: "127.0.0.1", SMTP_PORT: String(fake.port), SMTP_SECURITY: "none",
+      SMTP_USERNAME: "tim", SMTP_PASSWORD: "secret",
+    });
+    r = await call({ body: GOOD });
+    ok(r.json.ok === true && calls.length === 2 && fake.sessions.length === 0,
+       "with both set the HTTPS key wins and SMTP is left alone");
+    setEnv({
+      SMTP_HOST: "127.0.0.1", SMTP_PORT: String(fake.port), SMTP_SECURITY: "none",
+      SMTP_USERNAME: "tim", SMTP_PASSWORD: "secret",
+      NEWSLETTER_TRANSPORT: "smtp",
+    });
+    r = await call({ body: GOOD });
+    ok(r.json.ok === true && calls.length === 0 && fake.sessions.length === 2,
+       "...and NEWSLETTER_TRANSPORT=smtp forces it back");
+    await fake.close();
+  }
 
   /* ── the plumbing ───────────────────────────────────────────────────── */
   setEnv();

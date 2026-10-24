@@ -59,32 +59,49 @@ Important:
 - To point the Vercel frontend at your backend API, open the app with `?api_base=...` once (it is saved in `localStorage`):
   - `https://your-vercel-site.vercel.app/?api_base=https://your-backend-host`
 
-### The one Vercel env var: the Partner With Us form
+### Vercel env vars: the Partner With Us form
 
 `api/partner-contact.js` is the only server-side code on Vercel. It mails the
 Partner With Us enquiry straight to the inbox, so an enquiry no longer has to
-wake the hibernating Render container to be sent. It needs the SAME mail
-provider key Render already has (Vercel → Settings → Environment Variables,
-Production + Preview):
+wake the hibernating Render container to be sent.
+
+It reads the SAME variable names `newsletter_email.py` reads, so there is
+nothing to translate: copy the values Render already has into Vercel
+(Settings → Environment Variables, Production + Preview), whichever set it has.
+
+**Render is currently on SMTP** (`/api/partner/state` answers
+`"transport":"SMTP (smtp.gmail.com)"`), so that is the set to copy:
 
 | Variable | Required | Notes |
 |---|---|---|
-| `NEWSLETTER_API_KEY` | **Yes** | Copy the value out of Render. Nothing is sent without it |
-| `NEWSLETTER_HTTP_PROVIDER` | If not Resend | `brevo` / `resend` / `postmark` / `sendgrid`, same as Render |
-| `ADMIN_EMAIL` | No | Where enquiries land. Defaults to `timothy.honey@beardedsealstudios.com` |
-| `NEWSLETTER_FROM_EMAIL` | No | The verified From address. Defaults to the same |
+| `SMTP_HOST` | **Yes** | `smtp.gmail.com` |
+| `SMTP_USERNAME` | **Yes** | the mailbox that sends |
+| `SMTP_PASSWORD` | **Yes** | the Google App Password; spaces are stripped, so paste it as shown |
+| `SMTP_PORT` | No | defaults to 587 (465 implies implicit TLS and is auto-detected) |
+| `ADMIN_EMAIL` | No | where enquiries land, comma-separated. Render has **two**; Vercel defaults to `timothy.honey@beardedsealstudios.com` alone |
+| `NEWSLETTER_FROM_EMAIL` | No | the From address, defaults to the same |
 
-Check it from anywhere, without sending anything:
+**⚠️ This is also the reason the form was never really sending.** Render blocks
+outbound SMTP on ports 25 / 465 / 587, so `smtp.gmail.com` was unreachable from
+that container whatever the credentials said (see `transport()` in
+`newsletter_email.py` and §SMTP of NEWSLETTER_SETUP.md). A Vercel Function has
+ordinary outbound TCP, so the same four values work from here. The newsletter
+and the account emails still run on Render and still have that problem: an
+HTTPS API key (`NEWSLETTER_API_KEY`, Brevo's free tier needs no domain) is the
+fix for those, and this endpoint prefers it over SMTP the moment it is set.
+
+Either way, check it from anywhere without sending anything:
 
 ```bash
 curl -s https://currentsandcritters.com/api/partner-contact
-# {"ok":true,"enabled":true,"provider":"Brevo","inboxes":1,"from":"..."}
+# {"ok":true,"enabled":true,"transport":"SMTP (smtp.gmail.com)","inboxes":2,"from":"..."}
 ```
 
-`enabled:false` means the key is missing on this deployment: the form then
+`enabled:false` means nothing is configured on this deployment: the form then
 refuses honestly and the page falls back to a prefilled `mailto:` with
 everything the sender typed still in it. Nothing is ever silently dropped, and
-`node test_partner_contact_api.js` covers all of it offline.
+`node test_partner_contact_api.js` covers all of it offline, including the SMTP
+conversation against a fake mail server.
 
 ## 4) Install As App (PWA)
 
