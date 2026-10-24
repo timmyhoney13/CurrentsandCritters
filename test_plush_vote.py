@@ -7,8 +7,11 @@ refuses to do and what it never gives away:
   1. The ballot paper and the website's own critter table are the SAME list.
      A vote for a slug the deck does not have is refused, so a typo on either
      side would quietly throw real votes away. They are compared item for item.
-  2. One ballot per voter id, and a re-vote REPLACES. Reloading the page and
-     voting again must not count twice.
+  2. One ballot per ADDRESS (hashed, never a document id in the clear), and a
+     re-vote REPLACES. A phone going round a table is how this poll gets
+     answered, so keying the ballot on the device counted one vote for the
+     whole table; a vote with the box left empty is its own ballot, keyed by
+     the browser's random id.
   3. New ballots are rate limited per address; an UPDATE is not. Somebody
      changing their mind must never be told to come back tomorrow.
   4. The public tally is counts only. The optional note and name are for the
@@ -22,8 +25,9 @@ refuses to do and what it never gives away:
      section that posts nowhere is the failure nobody notices.
   8. The optional "tell me who wins" box takes an email OR a phone number,
      judged by the same rules the newsletter uses for an address, and an
-     answer it cannot use is REFUSED OUT LOUD. Somebody who mistyped their
-     number and was thanked anyway thinks they are on the list and is not.
+     answer it cannot use is REFUSED OUT LOUD while the vote still counts.
+     Somebody who mistyped their number and was thanked anyway thinks they are
+     on the list and is not.
   9. Those people are not subscribers. They gave an address for one stated
      purpose, so nothing here writes to newsletterSubscribers, and the admin
      tab that shows them says so.
@@ -618,8 +622,10 @@ class TestContactOnABallot(unittest.TestCase):
     def setUp(self):
         self.db = reset()
 
-    def ballot(self):
-        return self.db.store.get("plush_votes/" + VOTER_A) or {}
+    def ballot(self, contact="", kind=""):
+        """The ballot, wherever the address decided to put it."""
+        return self.db.store.get(
+            "plush_votes/" + pv.ballot_key(VOTER_A, contact, kind)) or {}
 
     def test_a_contact_is_saved_and_echoed_back(self):
         out = pv.cast({"voter": VOTER_A, "picks": ["narwhal"],
@@ -627,7 +633,8 @@ class TestContactOnABallot(unittest.TestCase):
         self.assertTrue(out["ok"])
         self.assertEqual(out["contact"], "tim@example.com")
         self.assertEqual(out["contactKind"], "email")
-        self.assertEqual(self.ballot()["contact"], "tim@example.com")
+        self.assertEqual(self.ballot("tim@example.com", "email")["contact"],
+                         "tim@example.com")
         self.assertNotIn("contactError", out)
 
     def test_a_vote_with_no_contact_still_counts(self):
@@ -637,6 +644,9 @@ class TestContactOnABallot(unittest.TestCase):
         self.assertEqual(self.ballot()["contact"], "")
 
     def test_an_unusable_contact_is_refused_out_loud(self):
+        """An answer nobody can read cannot name a ballot, so this vote is the
+        device's own, and the voter is told the reminder did not take. The VOTE
+        still counts: losing it over a typo in an optional box is worse."""
         out = pv.cast({"voter": VOTER_A, "picks": ["narwhal"],
                        "contact": "call me maybe"}, "198.51.100.1")
         self.assertTrue(out["ok"], "the VOTE still counts")
@@ -645,29 +655,48 @@ class TestContactOnABallot(unittest.TestCase):
         self.assertEqual(self.ballot()["picks"], ["narwhal"])
 
     def test_an_unusable_edit_never_wipes_a_good_contact(self):
+        """Their address-keyed ballot is not where this one lands, so it comes
+        through untouched: the address they gave is still on it."""
         pv.cast({"voter": VOTER_A, "picks": ["narwhal"], "contact": "tim@example.com"},
                 "198.51.100.1")
         out = pv.cast({"voter": VOTER_A, "picks": ["lobster"], "contact": "oops"},
                       "198.51.100.1")
+        self.assertTrue(out["ok"], "the vote counts")
         self.assertTrue(out["contactError"])
-        self.assertEqual(out["contact"], "tim@example.com")
-        self.assertEqual(self.ballot()["contact"], "tim@example.com")
+        theirs = self.ballot("tim@example.com", "email")
+        self.assertEqual(theirs["contact"], "tim@example.com")
+        self.assertEqual(theirs["picks"], ["narwhal"], "picks and all")
 
-    def test_clearing_the_box_takes_you_off_the_list(self):
+    def test_clearing_the_box_is_a_vote_with_no_address(self):
+        """Emptying the box cannot mean "take me off the list" any more: the
+        box is what says which ballot this is, so an empty one is an anonymous
+        vote of its own. That is the whole point, it is how the next pair of
+        hands votes. The address-keyed ballot is left exactly as it was."""
         pv.cast({"voter": VOTER_A, "picks": ["narwhal"], "contact": "tim@example.com"},
                 "198.51.100.1")
-        out = pv.cast({"voter": VOTER_A, "picks": ["narwhal"], "contact": ""}, "198.51.100.1")
+        out = pv.cast({"voter": VOTER_A, "picks": ["lobster"], "contact": ""},
+                      "198.51.100.1")
+        self.assertTrue(out["ok"])
         self.assertEqual(out["contact"], "")
-        self.assertEqual(self.ballot()["contact"], "")
+        self.assertEqual(out["ballots"], 2, "a second voter, not an edit")
+        self.assertEqual(self.ballot()["contact"], "", "the anonymous one has no address")
+        self.assertEqual(self.ballot("tim@example.com", "email")["contact"],
+                         "tim@example.com", "and theirs still has theirs")
 
     def test_a_body_with_no_contact_key_leaves_it_alone(self):
-        """An older cached page, or a retry, must not silently unsubscribe
-        somebody who asked to be told."""
-        pv.cast({"voter": VOTER_A, "picks": ["narwhal"], "contact": "tim@example.com"},
-                "198.51.100.1")
+        """An older cached page, or a ballot held on a device since before the
+        address decided the ballot, posts no contact key at all. It lands on
+        the device's own ballot and must not silently unsubscribe somebody who
+        asked to be told."""
+        self.db.store["plush_votes/" + VOTER_A] = {
+            "picks": ["narwhal"], "note": "", "name": "",
+            "contact": "tim@example.com", "contactKind": "email",
+            "ip": "198.51.100.1", "created": 1000, "updated": 1000,
+        }
         out = pv.cast({"voter": VOTER_A, "picks": ["lobster"]}, "198.51.100.1")
         self.assertEqual(out["contact"], "tim@example.com")
         self.assertEqual(self.ballot()["contact"], "tim@example.com")
+        self.assertEqual(out["ballots"], 1, "one ballot, updated in place")
 
     def test_the_public_tally_never_carries_a_contact(self):
         pv.cast({"voter": VOTER_A, "picks": ["narwhal"],
@@ -819,7 +848,9 @@ class TestNewsletterOptIn(unittest.TestCase):
                        "newsletter": True}, "198.51.100.1")
         self.assertTrue(out["ok"])
         self.assertTrue(out["newsletterError"])
-        self.assertEqual(self.db.store["plush_votes/" + VOTER_A]["picks"], ["narwhal"])
+        self.assertEqual(
+            self.db.store["plush_votes/" + pv.ballot_key(VOTER_A, "tim@example.com", "email")]
+            ["picks"], ["narwhal"], "the vote is stored under its address, and stored")
 
     def test_no_newsletter_wired_up_at_all(self):
         pv.init(get_firestore=lambda: self.db)
@@ -992,6 +1023,205 @@ class TestNewsletterTab(unittest.TestCase):
         self.assertIn("Optional", label)
         self.assertIn("result", label)
 
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  THE ADDRESS IS THE BALLOT, NOT THE DEVICE
+# ═══════════════════════════════════════════════════════════════════════════
+class TestTheAddressIsTheBallot(unittest.TestCase):
+    """One phone going round a table is the normal way this poll gets
+    answered, so the ballot cannot be the device: it was, and every person at
+    the table overwrote the last one. The rule is the one a reader can be told
+    in a sentence. One vote per address, a vote with the box empty is its own
+    vote, and the same address sent twice is somebody changing their mind."""
+
+    def setUp(self):
+        self.db = reset()
+
+    def ids(self):
+        return [k.split("/", 1)[1] for k in self.db.store if k.startswith("plush_votes/")]
+
+    def ballots(self):
+        return [v for k, v in self.db.store.items() if k.startswith("plush_votes/")]
+
+    def test_two_people_on_one_device_with_no_address_are_two_votes(self):
+        """The page mints a fresh id for each anonymous vote, so the next pair
+        of hands just taps and sends."""
+        pv.cast({"voter": VOTER_A, "picks": ["narwhal"], "contact": ""}, "198.51.100.1")
+        out = pv.cast({"voter": VOTER_B, "picks": ["lobster"], "contact": ""}, "198.51.100.1")
+        self.assertEqual(out["ballots"], 2)
+        self.assertEqual(out["counts"]["narwhal"], 1)
+        self.assertEqual(out["counts"]["lobster"], 1)
+
+    def test_two_addresses_on_one_device_are_two_votes(self):
+        """The same phone, two people, each with their own address: two votes,
+        not one person changing their mind."""
+        pv.cast({"voter": VOTER_A, "picks": ["narwhal"],
+                 "contact": "alex@example.com"}, "198.51.100.1")
+        out = pv.cast({"voter": VOTER_A, "picks": ["lobster"],
+                       "contact": "sam@example.com"}, "198.51.100.1")
+        self.assertEqual(out["ballots"], 2)
+        self.assertEqual(out["counts"]["narwhal"], 1)
+        self.assertEqual(out["counts"]["lobster"], 1)
+        self.assertFalse(out["changed"], "that is a new voter, not an edit")
+
+    def test_the_same_address_from_two_devices_is_one_vote(self):
+        pv.cast({"voter": VOTER_A, "picks": ["narwhal"],
+                 "contact": "alex@example.com"}, "198.51.100.1")
+        out = pv.cast({"voter": VOTER_B, "picks": ["lobster"],
+                       "contact": "alex@example.com"}, "198.51.100.9")
+        self.assertEqual(out["ballots"], 1, "one address, one vote, wherever it is cast")
+        self.assertTrue(out["changed"])
+        self.assertNotIn("narwhal", out["counts"])
+
+    def test_an_address_is_matched_the_way_the_newsletter_matches_it(self):
+        pv.cast({"voter": VOTER_A, "picks": ["narwhal"],
+                 "contact": "alex@example.com"}, "198.51.100.1")
+        out = pv.cast({"voter": VOTER_B, "picks": ["lobster"],
+                       "contact": "  Alex@Example.COM "}, "198.51.100.1")
+        self.assertEqual(out["ballots"], 1, "case and spacing are not a second person")
+
+    def test_a_phone_number_holds_a_ballot_too(self):
+        pv.cast({"voter": VOTER_A, "picks": ["narwhal"],
+                 "contact": "(615) 555-0100"}, "198.51.100.1")
+        out = pv.cast({"voter": VOTER_B, "picks": ["lobster"],
+                       "contact": "615-555-0100"}, "198.51.100.1")
+        self.assertEqual(out["ballots"], 1, "one number typed two ways is one person")
+
+    def test_an_address_and_a_number_are_different_ballots(self):
+        pv.cast({"voter": VOTER_A, "picks": ["narwhal"],
+                 "contact": "alex@example.com"}, "198.51.100.1")
+        out = pv.cast({"voter": VOTER_A, "picks": ["lobster"],
+                       "contact": "6155550100"}, "198.51.100.1")
+        self.assertEqual(out["ballots"], 2)
+
+    def test_the_address_is_never_a_document_id(self):
+        """A document id is not a secret: it turns up in logs and in error
+        messages. Nobody gave their address to have it printed in one."""
+        pv.cast({"voter": VOTER_A, "picks": ["narwhal"],
+                 "contact": "alex@example.com"}, "198.51.100.1")
+        for doc_id in self.ids():
+            self.assertNotIn("@", doc_id)
+            self.assertNotIn("alex", doc_id.lower())
+            self.assertRegex(doc_id, r"^[a-f0-9]{16,40}$",
+                             "a ballot id stays the shape the server insists on")
+        self.assertEqual(self.ballots()[0]["contact"], "alex@example.com",
+                         "...and the address is still IN the ballot, where it is needed")
+
+    def test_changing_your_mind_keeps_one_ballot_and_its_timestamp(self):
+        pv.cast({"voter": VOTER_A, "picks": ["narwhal"],
+                 "contact": "alex@example.com"}, "198.51.100.1")
+        first = self.ballots()[0]["created"]
+        out = pv.cast({"voter": VOTER_B, "picks": ["lobster", "narwhal"],
+                       "contact": "alex@example.com"}, "198.51.100.1")
+        self.assertEqual(out["ballots"], 1)
+        self.assertEqual(self.ballots()[0]["created"], first)
+
+    def test_emptying_the_box_clears_the_way_you_asked_to_be_told(self):
+        pv.cast({"voter": VOTER_A, "picks": ["narwhal"],
+                 "contact": "alex@example.com"}, "198.51.100.1")
+        pv.cast({"voter": VOTER_A, "picks": ["lobster"], "contact": ""}, "198.51.100.1")
+        device = self.db.store["plush_votes/" + VOTER_A]
+        self.assertEqual(device["contact"], "", "the empty box is an instruction")
+
+    def test_a_ballot_cast_before_this_change_stays_where_it_is(self):
+        """Every ballot that existed before the address decided the ballot has
+        to exist after it, in the same document, with the same address and the
+        same day on it. When that person votes again it is UPDATED IN PLACE:
+        nothing is moved to make room for the new rule, nothing is removed,
+        and they are not counted twice."""
+        self.db.store["plush_votes/" + VOTER_A] = {
+            "picks": ["narwhal"], "note": "it has the best face", "name": "Alex",
+            "contact": "alex@example.com", "contactKind": "email",
+            "ip": "198.51.100.1", "created": 1000, "updated": 1000,
+        }
+        out = pv.cast({"voter": VOTER_A, "picks": ["lobster"],
+                       "contact": "alex@example.com"}, "198.51.100.1")
+        self.assertEqual(out["ballots"], 1, "one ballot, not a second copy")
+        self.assertTrue(out["changed"], "it is the same person's earlier vote")
+        self.assertEqual(len(self.ids()), 1, "and there is only the one document")
+        kept = self.db.store["plush_votes/" + VOTER_A]
+        self.assertEqual(kept["created"], 1000, "they voted when they voted")
+        self.assertEqual(kept["picks"], ["lobster"])
+        self.assertEqual(kept["contact"], "alex@example.com", "address still on it")
+
+    def test_an_older_page_that_sends_no_contact_key_finds_its_own_ballot(self):
+        """A cached page, or a ballot held on a device since before this
+        change, posts no contact key at all. That must land on the device's own
+        ballot and leave the address alone, not open a second one."""
+        self.db.store["plush_votes/" + VOTER_A] = {
+            "picks": ["narwhal"], "note": "", "name": "",
+            "contact": "alex@example.com", "contactKind": "email",
+            "ip": "198.51.100.1", "created": 1000, "updated": 1000,
+        }
+        out = pv.cast({"voter": VOTER_A, "picks": ["lobster"]}, "198.51.100.1")
+        self.assertEqual(out["ballots"], 1)
+        kept = self.db.store["plush_votes/" + VOTER_A]
+        self.assertEqual(kept["contact"], "alex@example.com", "untouched")
+        self.assertEqual(kept["created"], 1000)
+
+    def test_every_address_already_collected_is_still_listed(self):
+        """The reason the box exists is the list of people to tell when a
+        winner is picked. Keying ballots by address must not drop one of them:
+        ballots written the old way are read, listed and counted exactly as
+        they were, beside the ones written the new way."""
+        self.db.store["plush_votes/" + VOTER_A] = {
+            "picks": ["narwhal"], "note": "", "name": "Alex",
+            "contact": "alex@example.com", "contactKind": "email",
+            "ip": "198.51.100.1", "created": 1000, "updated": 1000,
+        }
+        self.db.store["plush_votes/" + VOTER_B] = {
+            "picks": ["lobster"], "note": "", "name": "",
+            "contact": "6155550100", "contactKind": "phone",
+            "ip": "198.51.100.2", "created": 1001, "updated": 1001,
+        }
+        pv.cast({"voter": "c" * 24, "picks": ["common-octopus"],
+                 "contact": "sam@example.com"}, "198.51.100.3")
+        listed = sorted(r["contact"] for r in pv.contact_rows())
+        self.assertEqual(listed, ["6155550100", "alex@example.com", "sam@example.com"],
+                         "every address, old and new, is still on the list")
+        self.assertEqual(pv.tally(force=True)["ballots"], 3, "and all three are counted")
+
+    def test_nothing_in_the_collection_is_ever_removed(self):
+        """This change ADDS a way to key a ballot. It does not move, merge or
+        delete a vote anybody already cast, whatever is sent at it."""
+        before = {
+            "plush_votes/" + VOTER_A: {
+                "picks": ["narwhal"], "note": "keep me", "name": "Alex",
+                "contact": "alex@example.com", "contactKind": "email",
+                "ip": "198.51.100.1", "created": 1000, "updated": 1000,
+            },
+            "plush_votes/" + VOTER_B: {
+                "picks": ["lobster"], "note": "", "name": "",
+                "contact": "", "contactKind": "",
+                "ip": "198.51.100.2", "created": 1001, "updated": 1001,
+            },
+        }
+        self.db.store.update(copy.deepcopy(before))
+        for body in (
+            {"voter": "d" * 24, "picks": ["common-octopus"], "contact": ""},
+            {"voter": "d" * 24, "picks": ["common-octopus"], "contact": "sam@example.com"},
+            {"voter": "e" * 24, "picks": ["narwhal"], "contact": "sam@example.com"},
+            {"voter": "e" * 24, "picks": ["narwhal"], "contact": "nonsense"},
+            {"voter": VOTER_B, "picks": ["sardine"], "contact": ""},
+        ):
+            pv.cast(body, "198.51.100.9")
+        self.assertIn("plush_votes/" + VOTER_A, self.db.store,
+                      "the untouched ballot is untouched")
+        self.assertEqual(self.db.store["plush_votes/" + VOTER_A], before["plush_votes/" + VOTER_A])
+        self.assertIn("plush_votes/" + VOTER_B, self.db.store,
+                      "and the one that was voted on again is still in its own document")
+        self.assertEqual(self.db.store["plush_votes/" + VOTER_B]["created"], 1001,
+                         "with the day it was first cast")
+
+    def test_the_page_tells_the_reader_the_rule(self):
+        """A rule nobody is told is a rule that erases votes. The box has to
+        say what it decides."""
+        html = open(os.path.join(ROOT, "index.html"), encoding="utf-8").read()
+        label = html[html.index('class="plush-ask-lbl"'):]
+        label = label[:label.index("</span>")]
+        self.assertIn("One vote per address", label)
+        self.assertRegex(label, r"(?i)leave (the box|it) empty")
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

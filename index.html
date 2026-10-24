@@ -1247,7 +1247,7 @@
     <ol class="plush-steps">
       <li><b>1</b>Tap up to three, favorite first</li>
       <li><b>2</b>Hit Send my vote</li>
-      <li><b>3</b>No sign-up, no email, no account</li>
+      <li><b>3</b>No account. Pass it round, everyone gets a vote</li>
     </ol>
 
     <div class="plush-results" id="plushResults">
@@ -1296,7 +1296,7 @@
       <button class="plush-next" id="plushNext" type="button" hidden>Next person votes</button>
       <button class="plush-send" id="plushSend" type="button" disabled>Send my vote</button>
       <label class="plush-ask" for="plushContact">
-        <span class="plush-ask-lbl">Want to hear who wins? Leave an email or a phone number. Optional, and it is only ever used to tell you the result.</span>
+        <span class="plush-ask-lbl">Want to hear who wins? Leave an email or a phone number. Optional, and it is only ever used to tell you the result. One vote per address, so if you are sharing a phone, put in your own address or leave the box empty.</span>
         <input class="plush-ask-in" id="plushContact" type="text" name="plush-contact"
                autocomplete="email" maxlength="160" placeholder="you@email.com, or 555 123 4567">
       </label>
@@ -2120,15 +2120,35 @@ renderCritters('all');
   // One place where a counted vote lands, whether it was just sent or was
   // held on the device since the server was last away.
   function applyVote(data, wasHeld) {
-    sent = (data.yours || picks).slice();
-    picks = sent.slice();
-    writeLocal(PICKS_KEY, JSON.stringify(sent));
-    // The server decides what a usable address looks like, so the box shows
-    // what it actually kept, not what was typed.
-    sentContact = typeof data.contact === 'string' ? data.contact : '';
-    contact.value = sentContact;
-    writeLocal(CONTACT_KEY, sentContact);
+    // WHOSE VOTE WAS THAT? The address is the ballot: the server files the
+    // same address as the same person, from any device, and two addresses on
+    // one phone as two people. So a vote WITH an address stays this browser's
+    // to edit, and a vote with the box left empty belongs to nobody in
+    // particular, so the device is handed straight to the next pair of hands.
+    // That is how one phone takes a whole table's votes without anybody having
+    // to press anything first.
+    // The server decides what a usable address looks like, so this reads what
+    // it actually kept, never what was typed.
+    const kept = typeof data.contact === 'string' ? data.contact : '';
     applyTally(data);
+
+    if (kept) {
+      sent = (data.yours || picks).slice();
+      picks = sent.slice();
+      writeLocal(PICKS_KEY, JSON.stringify(sent));
+      sentContact = kept;
+      contact.value = kept;
+      writeLocal(CONTACT_KEY, kept);
+    } else {
+      voter = newVoterId();
+      writeLocal(ID_KEY, voter);
+      sent = [];
+      picks = [];
+      sentContact = '';
+      contact.value = '';
+      writeLocal(PICKS_KEY, '[]');
+      writeLocal(CONTACT_KEY, '');
+    }
 
     // The newsletter is a separate answer from the vote, so it gets its own
     // sentence. A tick that could not be honoured is never silently dropped:
@@ -2141,6 +2161,9 @@ renderCritters('all');
       say.className = 'plush-say bad';
       say.textContent = opened + data.newsletterError;
     } else if (data.contactError) {
+      // Only a server from before the address decided the ballot answers this
+      // way: it counted the vote and could not use the address. Render deploys
+      // behind this page, so that window is real and gets a true sentence.
       say.className = 'plush-say bad';
       say.textContent = opened + data.contactError;
     } else {
@@ -2149,10 +2172,11 @@ renderCritters('all');
       say.textContent = opened
         + (data.newsletter
             ? data.newsletter + ' You will hear who wins too.'
-            : (sentContact
+            : (kept
                 ? 'You will hear from us when the winner is picked.'
-                : 'Thank you. You can change it any time.'));
+                : 'The next person can vote now: leave the box empty, or put in their own email.'));
     }
+    paintGrid();
     paintSlots();
   }
 

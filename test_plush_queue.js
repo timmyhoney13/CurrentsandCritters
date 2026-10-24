@@ -56,7 +56,7 @@ if (INDEX.indexOf('id="plushy"') === -1) {
    survive the reload that is the whole point of the test. */
 const BOOT = `
 (() => {
-  const RECEIVED = "__cc_received", MODE = "__cc_mode";
+  const RECEIVED = "__cc_received", MODE = "__cc_mode", BALLOTS = "__cc_ballots";
   const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const set = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
   const reply = (status, data) => Promise.resolve({
@@ -68,6 +68,16 @@ const BOOT = `
   window.__cc = {
     mode: m => set(MODE, m),
     received: () => JSON.parse(get(RECEIVED) || "[]"),
+    ballots: () => Object.keys(JSON.parse(get(BALLOTS) || "{}")).length,
+    contact: v => {
+      const box = document.getElementById("plushContact");
+      box.value = v;
+      box.dispatchEvent(new Event("input"));     // the page watches for typing
+    },
+    contactValue: () => document.getElementById("plushContact").value,
+    sendLabel: () => document.getElementById("plushSend").textContent,
+    picked: () => Array.prototype.map.call(
+      document.querySelectorAll('.plush-pick[aria-pressed="true"]'), t => t.dataset.f),
     pending: () => get("cc-plush-pending"),
     voter: () => get("cc-plush-voter"),
     seed: (k, v) => set(k, v),
@@ -76,7 +86,7 @@ const BOOT = `
     // scenario's ballot.
     reset: () => {
       ["cc-plush-voter", "cc-plush-picks", "cc-plush-contact", "cc-plush-pending",
-       RECEIVED].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+       RECEIVED, BALLOTS].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
       set(MODE, "up");
     },
     pick: slug => {
@@ -102,15 +112,31 @@ const BOOT = `
                                               message: "That is a lot of votes at once." });
       if (mode === "400") return reply(400, { ok: false, error: "no_picks",
                                               message: "Pick at least one critter first." });
+      // An address nobody can read names no ballot: the server counts the
+      // vote as the device's and says the reminder did not take.
+      const unreadable = mode === "warn";
+      const contact = unreadable ? "" : String(body.contact || "").trim().toLowerCase();
       const all = JSON.parse(get(RECEIVED) || "[]");
-      all.push({ voter: body.voter, picks: body.picks, contact: body.contact || "" });
+      all.push({ voter: body.voter, picks: body.picks, contact: contact });
       set(RECEIVED, JSON.stringify(all));
+      // The real server keys a ballot by the ADDRESS when there is one and by
+      // the browser's own id when there is not (plush_vote.ballot_key), so the
+      // stub has to as well, or "how many votes are in" means nothing here.
+      const ballots = JSON.parse(get(BALLOTS) || "{}");
+      const key = contact || body.voter;
+      const changed = Object.prototype.hasOwnProperty.call(ballots, key);
+      ballots[key] = { picks: body.picks, contact: contact };
+      set(BALLOTS, JSON.stringify(ballots));
       const counts = {};
-      all.forEach(b => (b.picks || []).forEach(p => { counts[p] = (counts[p] || 0) + 1; }));
-      const ids = {};
-      all.forEach(b => { ids[b.voter] = 1; });
-      return reply(200, { ok: true, yours: body.picks, contact: body.contact || "",
-                          counts: counts, firsts: {}, ballots: Object.keys(ids).length });
+      Object.keys(ballots).forEach(k =>
+        (ballots[k].picks || []).forEach(p => { counts[p] = (counts[p] || 0) + 1; }));
+      const out = { ok: true, yours: body.picks, contact: contact, changed: changed,
+                    counts: counts, firsts: {}, ballots: Object.keys(ballots).length };
+      if (unreadable) {
+        out.contactError = "That did not look like an email address or a phone " +
+                           "number, so the vote counted but the reminder did not.";
+      }
+      return reply(200, out);
     }
     if (url.indexOf("/api/plush/tally") > -1) {
       const all = JSON.parse(get(RECEIVED) || "[]");
@@ -402,7 +428,7 @@ function queueOf(raw) {
        ══════════════════════════════════════════════════════════════════ */
     await s.ev("window.__cc.reset()");
     await s.ev(`window.__cc.seed("cc-plush-pending", JSON.stringify(
-        { voter: "abcdef0123456789abcd", picks: ["octopus", "sardine"], contact: "" }))`);
+        { voter: "abcdef0123456789abcd", picks: ["common-octopus", "sardine"], contact: "" }))`);
     await s.ev('window.__cc.mode("up")');
     await s.load();
     const legacy = await waitFor(async () => {
@@ -412,10 +438,89 @@ function queueOf(raw) {
     ok(legacy.length === 1 && legacy[0].voter === "abcdef0123456789abcd",
        "a ballot held in the OLD single-slot shape is still sent, under its own id: " +
        JSON.stringify(legacy[0] || null));
-    ok((legacy[0] && (legacy[0].picks || []).join("+")) === "octopus+sardine",
+    ok((legacy[0] && (legacy[0].picks || []).join("+")) === "common-octopus+sardine",
        "...with its picks intact");
     ok(queueOf(await s.ev("window.__cc.pending()")).length === 0,
        "...and is then cleared");
+    /* ══════════════════════════════════════════════════════════════════
+       THE ADDRESS IS THE BALLOT, so several people can vote on one phone:
+       no address, or their own. The server decides which ballot a vote is
+       (test_plush_vote.py pins that); what only a browser can show is what
+       the DEVICE does after each vote, which is the half that erased votes.
+       ══════════════════════════════════════════════════════════════════ */
+    await s.ev("window.__cc.reset()");
+    await s.load();
+    await s.ev('window.__cc.mode("up")');
+
+    const voter1 = await s.ev("window.__cc.voter()");
+    await s.ev('window.__cc.pick("sardine")');
+    await s.ev("window.__cc.send()");
+    await sleep(400);
+    ok((await s.ev("window.__cc.ballots()")) === 1, "a vote with the box empty counts");
+    const voter2 = await s.ev("window.__cc.voter()");
+    ok(voter2 && voter2 !== voter1,
+       "...and the phone is ready for the next person by itself");
+    ok((await s.ev("window.__cc.picked()")).length === 0,
+       "...with the last person's picks cleared off the board");
+    ok(/next person/i.test(await s.ev("window.__cc.say()")),
+       "...and it says so: " + (await s.ev("window.__cc.say()")));
+
+    // Person 2 just taps and sends. No button to find, no URL flag to know.
+    await s.ev('window.__cc.pick("lobster")');
+    await s.ev("window.__cc.send()");
+    await sleep(400);
+    ok((await s.ev("window.__cc.ballots()")) === 2,
+       "the second person on the same phone is a second vote (" +
+       (await s.ev("window.__cc.ballots()")) + ")");
+
+    // Person 3 leaves their own address, so their ballot stays theirs.
+    await s.ev('window.__cc.pick("manta-ray")');
+    await s.ev('window.__cc.contact("Alex@BlueHarbor.org")');
+    await s.ev("window.__cc.send()");
+    await sleep(400);
+    ok((await s.ev("window.__cc.ballots()")) === 3, "a vote with an address is a third vote");
+    ok((await s.ev("window.__cc.contactValue()")) === "alex@blueharbor.org",
+       "...the box keeps the address the server kept: " +
+       (await s.ev("window.__cc.contactValue()")));
+    ok(/update my vote/i.test(await s.ev("window.__cc.sendLabel()")),
+       "...and that ballot is still theirs to change: " +
+       (await s.ev("window.__cc.sendLabel()")));
+    ok((await s.ev("window.__cc.nextHidden()")) === false,
+       "...with the hand-off there for when they pass the phone on");
+
+    // ...and changing their mind is not a fourth vote.
+    await s.ev('window.__cc.pick("whale-shark")');
+    await s.ev("window.__cc.send()");
+    await sleep(400);
+    ok((await s.ev("window.__cc.ballots()")) === 3,
+       "the same address sending again is one person changing their mind (" +
+       (await s.ev("window.__cc.ballots()")) + ")");
+
+    // A different address on the same phone is somebody else.
+    await s.ev('window.__cc.contact("sam@blueharbor.org")');
+    await s.ev("window.__cc.send()");
+    await sleep(400);
+    ok((await s.ev("window.__cc.ballots()")) === 4,
+       "a different address on the same phone is another vote (" +
+       (await s.ev("window.__cc.ballots()")) + ")");
+    ok((await s.ev("window.__cc.received()")).length === 5,
+       "five sends, nothing retried and nothing lost");
+
+    /* An address nobody can read: the VOTE still counts, and the page says
+       the reminder did not take rather than thanking them for nothing. */
+    await s.ev("window.__cc.reset()");
+    await s.load();
+    await s.ev('window.__cc.mode("warn")');
+    await s.ev('window.__cc.pick("common-octopus")');
+    await s.ev('window.__cc.contact("call me maybe")');
+    await s.ev("window.__cc.send()");
+    await sleep(400);
+    ok((await s.ev("window.__cc.ballots()")) === 1, "the vote is counted anyway");
+    ok(/reminder did not/i.test(await s.ev("window.__cc.say()")),
+       "...and the voter is told the reminder did not: " +
+       (await s.ev("window.__cc.say()")));
+    ok(queueOf(await s.ev("window.__cc.pending()")).length === 0,
+       "...and nothing is left queued, because it was not a failure to send");
   } catch (err) {
     lines.push("FAIL the suite threw: " + (err && err.message || err));
   } finally {

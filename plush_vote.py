@@ -12,9 +12,12 @@ box every time the page is reloaded.
 That id is not a secret and not a proof of anything. It is a cursor, nothing
 more, so the abuse ceiling is held somewhere that does not depend on it:
 
-  1. ONE BALLOT PER VOTER ID, and a voter id is a hex string this module
-     insists on. A caller who makes up a fresh id gets a fresh ballot, which is
-     why rule 2 exists.
+  1. ONE BALLOT PER ADDRESS, and a vote with the box left empty is its own
+     ballot, keyed by the random id the browser made for itself. A caller who
+     makes up a fresh id gets a fresh ballot, which is why rule 2 exists. See
+     ballot_key() for why the address decides this and not the device: a phone
+     going round a table is how this poll gets answered, and keying on the
+     device meant each person at the table erased the one before.
   2. RATE LIMITED PER IP. A browser may update its own ballot freely, but the
      number of NEW ballots one address can open in an hour, and in a day, is
      capped. One household voting on four phones is fine; a script cycling
@@ -50,6 +53,7 @@ collection once per visitor.
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import re
 import threading
@@ -293,6 +297,43 @@ def clean_contact(raw: Any) -> Tuple[str, str]:
     return "", ""
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  WHOSE BALLOT IS THIS?
+# ═══════════════════════════════════════════════════════════════════════════
+# THE ADDRESS IS THE BALLOT. The device is only the fallback.
+#
+# One document per device meant one vote per device, and a phone going round a
+# table is how this poll actually gets answered: every person at the table
+# overwrote the one before, and real votes were lost that way. So the rule is
+# now the one a reader can be told in a sentence, which is also the rule the
+# box on the page states:
+#
+#   an address or a number  ->  the ballot is keyed by a hash of it. The same
+#                               address from a second device is the same person
+#                               changing their mind; two addresses on one phone
+#                               are two people.
+#   the box left empty      ->  keyed by the browser's own random id, which the
+#                               page mints fresh for every anonymous vote, so
+#                               the next pair of hands just taps and sends.
+#
+# The address is HASHED, never a document id in the clear. A document id is not
+# a secret: it turns up in logs, in error messages and in every stack trace,
+# and nobody gave their email address to have it printed in one. The address
+# itself is still stored IN the ballot, which is where it is needed.
+#
+# WHAT THIS DOES NOT DO is prove the address is yours. Anybody who knows it
+# could overwrite the vote cast with it, exactly as anybody holding your phone
+# could before. This is a poll about a plush toy, and the ceiling that matters
+# is the per-address rate limit above, not the identity of a ballot.
+def ballot_key(voter: str, contact: str = "", kind: str = "") -> str:
+    """The document id for one ballot: the address if there is one, else the
+    device. Hex either way, so it stays the shape VOTER_RE describes."""
+    if contact:
+        seed = "plush-ballot|%s|%s" % (kind, contact)
+        return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
+    return voter
+
+
 def enabled() -> bool:
     """Can this deploy actually record a vote? A poll that takes clicks and
     stores nothing looks perfectly healthy from the website, which is the whole
@@ -395,14 +436,37 @@ def cast(body: Dict[str, Any], client: str = "") -> Dict[str, Any]:
         return {"ok": False, "error": "unavailable",
                 "message": "The vote is not reachable right now. Try again in a minute."}
 
+    # WHOSE BALLOT (see ballot_key above). This is settled before the read,
+    # because it is what decides which document is read.
+    asked = "contact" in body
+    raw_contact = str(body.get("contact") or "").strip() if asked else ""
+    new_contact, new_kind = clean_contact(raw_contact) if raw_contact else ("", "")
+
+    doc_id = ballot_key(voter, new_contact, new_kind)
     try:
-        ref = db.collection(BALLOTS_COLLECTION).document(voter)
+        ref = db.collection(BALLOTS_COLLECTION).document(doc_id)
         snap = ref.get()
         existing = (snap.to_dict() or {}) if getattr(snap, "exists", False) else None
     except Exception as exc:  # noqa: BLE001
-        print("[plush] could not read ballot %s: %s" % (voter, exc))
+        print("[plush] could not read ballot %s: %s" % (doc_id[:8], exc))
         return {"ok": False, "error": "unavailable",
                 "message": "The vote is not reachable right now. Try again in a minute."}
+
+    # A ballot cast BEFORE the address decided the ballot is keyed by the
+    # device and already carries this same address. It STAYS WHERE IT IS and is
+    # updated in place: that person keeps one ballot, with the note they left
+    # and the day they voted, and nothing in the collection is moved or
+    # removed to make room for the new rule. Every ballot that existed before
+    # this change still exists after it, address and all.
+    if new_kind and existing is None and doc_id != voter:
+        try:
+            older = db.collection(BALLOTS_COLLECTION).document(voter)
+            older_snap = older.get()
+            was = (older_snap.to_dict() or {}) if getattr(older_snap, "exists", False) else None
+            if was and str(was.get("contact") or "") == new_contact:
+                ref, doc_id, existing = older, voter, was
+        except Exception as exc:  # noqa: BLE001
+            print("[plush] could not look for an earlier ballot: %s" % exc)
 
     now = int(time.time())
     if existing is None:
@@ -420,25 +484,28 @@ def cast(body: Dict[str, Any], client: str = "") -> Dict[str, Any]:
             return {"ok": False, "error": "poll_full",
                     "message": "This poll has all the votes it can hold. Thank you anyway."}
 
-    # The "tell me who wins" box. A body with NO contact key at all leaves
-    # whatever is on file alone (an older page, a retry); a key that is there
-    # and empty is the voter clearing it, because the box the page shows is
-    # pre-filled with what they last sent and emptying it has to mean
-    # something. Anything unusable is refused loudly below.
-    had = str((existing or {}).get("contact") or "")
-    had_kind = str((existing or {}).get("contactKind") or "")
-    contact, kind, contact_error = had, had_kind, ""
-    if "contact" in body:
-        raw = str(body.get("contact") or "").strip()
-        if not raw:
-            contact, kind = "", ""
-        else:
-            contact, kind = clean_contact(raw)
-            if not kind:
-                contact, kind = had, had_kind
-                contact_error = ("That did not look like an email address or a "
-                                 "phone number, so the vote counted but the "
-                                 "reminder did not.")
+    # The "tell me who wins" box. With a usable answer it IS the ballot, so
+    # there is nothing left to resolve. Without one the ballot is the device's
+    # and the rules are the ones that were always here: a body with NO contact
+    # key leaves whatever is on file alone (an older page, or a ballot held on
+    # a device since before this change), a key that is there and empty is the
+    # voter clearing it, because the box the page shows is pre-filled with what
+    # they last sent and emptying it has to mean something, and an answer
+    # nobody can read keeps what was on file and SAYS SO. The vote itself still
+    # counts: somebody who mistyped their number and was thanked anyway thinks
+    # they are on the list and is not, but refusing their vote over a typo in
+    # an optional box would lose the vote, which is worse.
+    contact_error = ""
+    if new_kind:
+        contact, kind = new_contact, new_kind
+    else:
+        had = str((existing or {}).get("contact") or "")
+        had_kind = str((existing or {}).get("contactKind") or "")
+        contact, kind = ("", "") if (asked and not raw_contact) else (had, had_kind)
+        if raw_contact:
+            contact_error = ("That did not look like an email address or a "
+                             "phone number, so the vote counted but the "
+                             "reminder did not.")
 
     doc = {
         "picks": picks,
@@ -453,7 +520,7 @@ def cast(body: Dict[str, Any], client: str = "") -> Dict[str, Any]:
     try:
         ref.set(doc)
     except Exception as exc:  # noqa: BLE001
-        print("[plush] could not store ballot %s: %s" % (voter, exc))
+        print("[plush] could not store ballot %s: %s" % (doc_id[:8], exc))
         return {"ok": False, "error": "unavailable",
                 "message": "That vote did not save. Try again in a minute."}
 
@@ -482,7 +549,7 @@ def cast(body: Dict[str, Any], client: str = "") -> Dict[str, Any]:
             else:
                 join_error = str(res.get("error") or "Could not sign you up just now.")
 
-    print("[plush] ballot %s %s: %s%s%s" % (voter[:8], "updated" if existing else "cast",
+    print("[plush] ballot %s %s: %s%s%s" % (doc_id[:8], "updated" if existing else "cast",
                                             ", ".join(picks),
                                             " (+%s)" % kind if kind else "",
                                             " (+newsletter)" if joined else ""))
