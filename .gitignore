@@ -269,6 +269,12 @@
 # is still running gets checked. Test-only, so it needs this entry and no
 # Dockerfile COPY.
 !test_plush_end_to_end.js
+# The four live numbers on the homepage, in a browser, against a stubbed
+# /api/stats. The thing it exists for cannot be seen any other way: the page
+# animated to the real figure and then walked back down to its own stale floor,
+# because two rAF loops wrote the same tile and the slower one finished last.
+# It also drives build.js, which keeps the floors fresh at every deploy.
+!test_site_stats.js
 # The browser half: the real form in the real index.html at five widths, its
 # template, its client-side refusals, the exact JSON it posts, and the mailto:
 # fallback that keeps a message that failed to send. Test-only, so it needs

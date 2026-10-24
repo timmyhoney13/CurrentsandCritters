@@ -2503,16 +2503,24 @@ updateBetaBarClear();
 // ── Live stats from Render server ────────────────────────────────
 (async () => {
   const RENDER_BASE = 'https://play.currentsandcritters.com';
-  // Current real baseline - shown immediately so the page never displays 0,
-  // em-dashes, or a stale low number while the Render free-tier server is waking
-  // up (a cold start can take ~30s, during which the fetch below hasn't returned
-  // yet). The server seed matches these values and always returns at least this
-  // much; the live fetch only ever revises them upward.
-  const FLOOR_GAMES   = 101;
-  const FLOOR_PLAYERS = 18;
-  // Hours has no separate floor: the server derives it from the same game
-  // records the games count comes from, so a floor here could only ever
-  // contradict it.
+  // THE REAL BASELINE, and what nearly every first-time visitor actually sees:
+  // the game server is on a free tier that hibernates, so the fetch below can
+  // take ~30s or never answer, and these are on screen the whole time.
+  //
+  // They are REFRESHED AT EVERY DEPLOY by build.js, which asks the live server
+  // and writes the answer in (upward only, and silently leaves them alone if
+  // the server is asleep). Hard-coding them by hand is what went wrong: these
+  // read 101 games and 18 players on 2026-10-24 while the server was serving
+  // 561 and 916 hours, so the public page published a number that was simply
+  // untrue to anybody who arrived while it was waking up.
+  //
+  // Hours USED to have no floor at all, on the reasoning that the server
+  // derives it from the same records as the games count, so a floor could only
+  // contradict it. What it actually did was publish a flat 0 next to a real
+  // games count, which is worse than contradicting anything.
+  const FLOOR_GAMES   = 561;
+  const FLOOR_PLAYERS = 106;
+  const FLOOR_HOURS   = 916;
   // Remember the last real numbers the server gave THIS browser, so a returning
   // visitor sees the true current counts instantly instead of the static floor
   // while the server cold-starts. Cleared values are ignored.
@@ -2530,7 +2538,21 @@ updateBetaBarClear();
   // genuine play on it published a zero, indistinguishable from a server
   // nobody had ever played, and it stayed that way until a full hour had
   // accumulated. Below 10 the tile carries one decimal place instead.
+  // ONE ANIMATION PER TILE, and the newest call owns it.
+  //
+  // Two of these used to run at once on the same element, the floor's 1400ms
+  // count-up and the live number's 600ms one, and because nothing cancelled
+  // the first, the SLOWER loop wrote last and decided what the page said. A
+  // frame by frame trace of the live homepage caught it exactly: the games
+  // tile reached the real 561 at 1080ms and was walked back down to the
+  // floor's 101 by 1497ms. The quicker the server answered, the more certainly
+  // its answer was thrown away, which is why this looked like "the stats never
+  // update" rather than like a race.
+  //
+  // The handle lives on the element, so this holds however many callers there
+  // are and whatever order they arrive in.
   function animateTo(el, target, duration, decimals) {
+    if (el.__ccAnim) { cancelAnimationFrame(el.__ccAnim); el.__ccAnim = 0; }
     const start = performance.now();
     const places = decimals || 0;
     const initial = Number(String(el.textContent || '').replace(/,/g, '')) || 0;
@@ -2541,16 +2563,27 @@ updateBetaBarClear();
       const eased = 1 - Math.pow(1 - t, 3);
       const v = initial + ((target - initial) * eased);
       el.textContent = fmt(places ? Math.round(v * 10) / 10 : Math.round(v));
-      if (t < 1) requestAnimationFrame(tick);
+      el.__ccAnim = t < 1 ? requestAnimationFrame(tick) : 0;
     }
-    requestAnimationFrame(tick);
+    el.__ccAnim = requestAnimationFrame(tick);
   }
+
+  // A FLOOR IS A FLOOR, not a starting point. A number that is already true
+  // cannot become less true, and the server's own counter has reset before now
+  // (it keeps its stats file on a disk that is not in force on this plan), so
+  // a live answer BELOW the floor is a reset, not news. Clamping here rather
+  // than at each call site means no future caller can publish a smaller
+  // number by accident. `donated` is deliberately absent: money is only ever
+  // the live total, never a floor.
+  const STAT_FLOORS = { games: FLOOR_GAMES, players: FLOOR_PLAYERS, hours: FLOOR_HOURS };
 
   function setStatEl(placeholder, value, fast) {
     const el = document.querySelector(`[data-placeholder="${placeholder}"]`);
     if (!el) return;
-    const target = Number(value);
+    let target = Number(value);
     if (!isFinite(target) || target < 0) return;
+    const floor = Number(STAT_FLOORS[placeholder]);
+    if (isFinite(floor)) target = Math.max(target, floor);
     // Small non-zero values keep a decimal so they cannot read as nothing.
     const decimals = (target > 0 && target < 10) ? 1 : 0;
     animateTo(el, target, fast ? 600 : 1400, decimals);
@@ -2560,9 +2593,11 @@ updateBetaBarClear();
   // otherwise the current baseline floors, so the page always has meaningful,
   // non-decreasing numbers even before the live fetch returns.
   const cached = readCachedStats();
-  setStatEl('games',   Math.max(FLOOR_GAMES,   Number(cached.games)   || 0), false);
-  setStatEl('players', Math.max(FLOOR_PLAYERS, Number(cached.players) || 0), false);
-  setStatEl('hours',   Number(cached.hours) || 0,                           false);
+  // setStatEl clamps each of these up to its floor, so a browser with no
+  // cache still opens on the real baseline rather than on 0.
+  setStatEl('games',   Number(cached.games)   || 0, false);
+  setStatEl('players', Number(cached.players) || 0, false);
+  setStatEl('hours',   Number(cached.hours)   || 0, false);
 
   // ── Donation goal ──────────────────────────────────────────────
   // The raised amount is the LIVE total of every name on the Supporter Reef
