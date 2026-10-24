@@ -261,6 +261,14 @@
 # and checks that THREE ballots arrive under three ids. Test-only, so it needs
 # this entry and no Dockerfile COPY.
 !test_plush_queue.js
+# The two halves TOGETHER, which is the only way to answer "did my friend's
+# vote actually get saved": the real index.html in Chrome against the real
+# plush_vote.py behind a real HTTP server, several people through one browser,
+# then the stored ballots read back out. Pass it a directory holding another
+# deploy's plush_vote.py and it tests THAT one, which is how the version Render
+# is still running gets checked. Test-only, so it needs this entry and no
+# Dockerfile COPY.
+!test_plush_end_to_end.js
 # The browser half: the real form in the real index.html at five widths, its
 # template, its client-side refusals, the exact JSON it posts, and the mailto:
 # fallback that keeps a message that failed to send. Test-only, so it needs
