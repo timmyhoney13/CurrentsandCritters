@@ -493,42 +493,70 @@ class TestWiring(unittest.TestCase):
         be live hours before the API is. A vote lost to that is a real vote
         lost: it is held on the device and sent on the next visit, and the
         reader is told that plainly instead of being shown an error they can
-        do nothing about."""
+        do nothing about.
+
+        The HOLDING PEN IS A QUEUE, one entry per ballot. It was a single slot
+        once, and that erased votes for real: at a table the second person's
+        held ballot overwrote the first person's. test_plush_queue.js drives
+        the whole thing in a browser across a reload; these are the anchors
+        that keep the shape from quietly going back."""
         js = self.html[self.html.index("// ── Plushy vote ─"):]
         js = js[:js.index("// ── Auto-hide nav")]
-        self.assertIn("cc-plush-pending", js, "the held ballot needs somewhere to live")
+        self.assertIn("cc-plush-pending", js, "the held ballots need somewhere to live")
         self.assertIn("function serverNotReady", js)
         for code in ("404", "502", "503"):
             self.assertIn(code, js, "a %s is the server, not the voter" % code)
         self.assertIn("holdVote(ballot)", js)
         self.assertIn("saved on this device", js)
-        # ...and it really is sent again, not just stored and forgotten.
-        self.assertIn("heldVote()", js)
+        # ...and they really are sent again, not just stored and forgotten.
+        self.assertIn("function heldVotes()", js)
+        self.assertIn("function flushHeld()", js)
         self.assertIn("applyVote(data, true)", js)
-        self.assertIn("dropHeldVote()", js)
-        # A ballot the server REFUSED on its merits is not held forever.
-        self.assertIn("} else if (!serverNotReady(res)) {", js)
+        # Several, each under its OWN id: re-stamping a held ballot with the
+        # device's current id files it as an edit of whoever is holding the
+        # phone now, which erases a vote at the other end too.
+        self.assertIn("Array.isArray(value) ? value : [value]", js,
+                      "a device still holding the old single-ballot shape keeps its vote")
+        self.assertIn("heldVotes().filter(v => v.voter !== payload.voter)", js,
+                      "re-sending replaces only that voter's own held ballot")
+        self.assertIn("dropHeldVote(ballot.voter)", js,
+                      "a sent ballot clears ITS entry, not the whole queue")
+        self.assertNotIn("held.voter = voter", js,
+                         "a held ballot must keep the id it was cast under")
+        # A ballot the server REFUSED on its merits is not held forever, but
+        # "busy, ask me later" (429) is not a refusal.
+        self.assertIn("} else if (!retryLater(res)) {", js)
+        self.assertIn("function retryLater", js)
+        retry = js[js.index("function retryLater"):]
+        self.assertIn("429", retry[:300], "a 429 means later, not never")
 
-    def test_passing_the_device_round_is_off_for_everybody_by_default(self):
-        """One phone going round a table should give one ballot per person,
-        but an ordinary visitor still gets one ballot. So the hand-off is a
-        per-device switch, shipped off, and the button is not even in the
-        page for anybody who has not turned it on."""
+    def test_passing_the_device_round_is_offered_to_everybody(self):
+        """One phone going round a table is the normal way this poll gets
+        voted on, and one device means one ballot: the second person to vote
+        UPDATES the first person's unless a new ballot is minted first. The
+        hand-off used to be hidden behind a #passitround URL flag, which
+        nobody at a table has ever typed, so three people voting on one phone
+        left one ballot and two erased votes. It is now offered to everybody
+        the moment a vote is in."""
         bar = self.html[self.html.index('id="plushNext"'):]
         bar = bar[:bar.index(">") + 1]
         self.assertIn("hidden", bar, "the hand-off button ships hidden")
         js = self.html[self.html.index("// ── Plushy vote ─"):]
         js = js[:js.index("// ── Auto-hide nav")]
-        self.assertIn("cc-plush-passitround", js, "the switch is remembered per device")
-        self.assertIn("passitround", js.lower())
-        self.assertIn("nextBtn.hidden = !(passItRound && sent.length > 0)", js,
-                      "shown only on a switched-on device, and only once a vote is in")
-        # The hand-off must mint a NEW ballot, not edit the one just sent.
+        self.assertIn("nextBtn.hidden = !(sent.length > 0)", js,
+                      "shown to anybody who has just voted, no flag to know about")
+        self.assertNotIn("cc-plush-passitround", js,
+                         "the per-device switch is gone, not left as dead config")
+        # The hand-off must mint a NEW ballot, and must not touch anybody's
+        # vote that is still waiting to be sent.
         hand = js[js.index("nextBtn.addEventListener"):]
-        hand = hand[:hand.index("});")]
+        hand = hand[:hand.index("paintGrid();")]
         self.assertIn("voter = newVoterId()", hand)
         self.assertIn("sent = []", hand)
-        self.assertIn("dropHeldVote()", hand)
+        self.assertNotIn("dropHeldVote", hand,
+                         "handing the phone on must not delete an unsent vote")
+        self.assertIn("heldVotes().length", hand,
+                      "...and it says so rather than claiming the vote is counted")
 
     def test_the_limits_suit_a_device_being_passed_around(self):
         """Every ballot at a table arrives from ONE address, so a ceiling set

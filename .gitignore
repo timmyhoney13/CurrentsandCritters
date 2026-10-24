@@ -254,6 +254,13 @@
 # and nothing anybody typed, and the page and the server really being wired to
 # each other.
 !test_plush_vote.py
+# The browser half of the vote, and the only thing that can see a vote being
+# erased: it serves the real index.html over http (a file:// page has no usable
+# localStorage, so a queue test there would pass while testing nothing), votes
+# as three people at one table with the vote API asleep, reloads with it back,
+# and checks that THREE ballots arrive under three ids. Test-only, so it needs
+# this entry and no Dockerfile COPY.
+!test_plush_queue.js
 # The browser half: the real form in the real index.html at five widths, its
 # template, its client-side refusals, the exact JSON it posts, and the mailto:
 # fallback that keeps a message that failed to send. Test-only, so it needs

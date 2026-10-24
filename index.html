@@ -2021,19 +2021,15 @@ renderCritters('all');
     writeLocal(ID_KEY, voter);
   }
 
-  // PASS-IT-ROUND MODE, off for everybody and remembered per device.
-  // Opening the page at #passitround switches it on for THAT device only
-  // (#passitround=off switches it back), which is how a phone being handed
-  // around a table gets a fresh ballot per person while every ordinary
-  // visitor still gets one. It is a convenience, not a security control:
-  // the real ceiling on ballots is the per-address limit on the server.
-  const HOST_KEY = 'cc-plush-passitround';
-  let passItRound = readLocal(HOST_KEY) === '1';
-  const flag = (location.hash || '').toLowerCase();
-  if (flag.indexOf('passitround') > -1) {
-    passItRound = flag.indexOf('off') === -1;
-    writeLocal(HOST_KEY, passItRound ? '1' : '0');
-  }
+  // PASSING THE PHONE ROUND IS THE NORMAL CASE, not an opt-in.
+  // One device, one ballot, so the second person to vote on a phone UPDATES
+  // the first person's ballot instead of opening their own: that is the right
+  // behaviour for somebody changing their mind and the wrong one for a table.
+  // The hand-off used to be hidden behind a #passitround URL flag, which
+  // nobody at a table has ever typed, so three people voting on one phone
+  // left one ballot and two erased votes. The button is now offered to
+  // everybody the moment a vote is in; the ceiling on ballots is where it
+  // always was, on the server, per address.
 
   try {
     const saved = JSON.parse(readLocal(PICKS_KEY) || '[]');
@@ -2096,7 +2092,7 @@ renderCritters('all');
     const same = samePicks && contact.value.trim() === sentContact && !joinBox.checked;
     send.disabled = busy || picks.length === 0 || (sent.length > 0 && same);
     send.textContent = sent.length ? 'Update my vote' : 'Send my vote';
-    nextBtn.hidden = !(passItRound && sent.length > 0);
+    nextBtn.hidden = !(sent.length > 0);
   }
 
   function drawBoard() {
@@ -2197,18 +2193,50 @@ renderCritters('all');
     return !res || res.status === 0 || res.status === 404 || res.status === 502 ||
            res.status === 503 || res.data === null;
   }
+  // Worth another try later, so the ballot is kept. A 429 belongs here: it
+  // means "ask me again in a minute", and a table voting quickly can reach it.
+  // Treating it as a refusal threw a real vote away.
+  function retryLater(res) {
+    return serverNotReady(res) || (res && res.status === 429);
+  }
+  // ONE ENTRY PER HELD BALLOT, never one slot for the device.
+  // This was a single slot, and it lost real votes: at a table, person 2's
+  // held ballot overwrote person 1's, and the hand-off button deleted whatever
+  // was in it. Each entry carries its OWN voter id and is sent under it; a
+  // held ballot re-stamped with whichever id the device is on now would be
+  // filed as an edit of the person holding the phone, which erases a vote at
+  // the other end as well.
+  const MAX_HELD = 40;
+
+  function heldVotes() {
+    const raw = readLocal(PENDING_KEY);
+    if (!raw) return [];
+    let value;
+    try { value = JSON.parse(raw); } catch (err) { return []; }
+    // Phones in the wild still hold the old single-ballot shape, and that is
+    // somebody's vote: it is read, not discarded.
+    const list = Array.isArray(value) ? value : [value];
+    return list.filter(v => v && /^[a-f0-9]{16,40}$/.test(String(v.voter || '')) &&
+                            Array.isArray(v.picks) && v.picks.length);
+  }
+  function writeHeld(list) {
+    if (!list.length) { dropAllHeld(); return; }
+    // The cap is a storage guard, not a policy: it keeps the NEWEST, because
+    // the oldest held ballot on a device that has been offline for weeks is
+    // the one least likely to still matter.
+    writeLocal(PENDING_KEY, JSON.stringify(list.slice(-MAX_HELD)));
+  }
   function holdVote(payload) {
-    writeLocal(PENDING_KEY, JSON.stringify(payload));
+    // The same person re-sending replaces their own entry; everybody else's
+    // stays exactly where it is.
+    const list = heldVotes().filter(v => v.voter !== payload.voter);
+    list.push(payload);
+    writeHeld(list);
   }
-  function heldVote() {
-    try {
-      const raw = readLocal(PENDING_KEY);
-      if (!raw) return null;
-      const v = JSON.parse(raw);
-      return v && Array.isArray(v.picks) && v.picks.length ? v : null;
-    } catch (err) { return null; }
+  function dropHeldVote(id) {
+    writeHeld(heldVotes().filter(v => v.voter !== (id || voter)));
   }
-  function dropHeldVote() {
+  function dropAllHeld() {
     try { localStorage.removeItem(PENDING_KEY); } catch (err) { /* nothing to do */ }
   }
 
@@ -2274,9 +2302,16 @@ renderCritters('all');
     joinBox.checked = false;
     writeLocal(PICKS_KEY, '[]');
     writeLocal(CONTACT_KEY, '');
-    dropHeldVote();
+    // NOTHING is dropped here. A ballot still waiting to be sent belongs to
+    // the person who just handed the phone over; deleting it while the screen
+    // said "counted and safe" is exactly how two real votes went missing.
+    const waiting = heldVotes().length;
     say.className = 'plush-say good';
-    say.textContent = 'Ready for the next person. The last vote is counted and safe.';
+    say.textContent = waiting
+      ? 'Ready for the next person. ' +
+        (waiting === 1 ? 'The last vote is' : waiting + ' votes are') +
+        ' saved on this device and will be sent as soon as the vote server answers.'
+      : 'Ready for the next person. The last vote is counted and safe.';
     paintGrid();
     paintSlots();
   });
@@ -2311,7 +2346,7 @@ renderCritters('all');
       busy = false;
       const data = res && res.data;
       if (data && data.ok) {
-        dropHeldVote();
+        dropHeldVote(ballot.voter);
         applyVote(data, false);
       } else if (serverNotReady(res)) {
         // Not the voter's fault and not their problem to solve: hold the
@@ -2324,6 +2359,15 @@ renderCritters('all');
         say.className = 'plush-say';
         say.textContent = 'Your picks are saved on this device. The vote server is '
           + 'updating right now, so this will be sent the next time you open the page.';
+      } else if (res && res.status === 429) {
+        // Busy, not wrong. Keep it: the flush on the next visit sends it, and
+        // the voter is told the truth either way.
+        holdVote(ballot);
+        sent = picks.slice();
+        writeLocal(PICKS_KEY, JSON.stringify(sent));
+        say.className = 'plush-say';
+        say.textContent = ((data && data.message) || 'That is a lot of votes at once.')
+          + ' It is saved on this device and will be sent shortly.';
       } else {
         say.className = 'plush-say bad';
         say.textContent = (data && data.message)
@@ -2343,21 +2387,43 @@ renderCritters('all');
   drawGrid('all');
   paintSlots();
 
-  // A vote held from a visit when the server was away goes first, and
-  // quietly: it was already acknowledged on screen last time, so this is
-  // finishing the job, not asking again.
-  const held = heldVote();
-  if (held) {
-    held.voter = voter;
-    post('/api/plush/vote', held).then(res => {
-      const data = res && res.data;
-      if (data && data.ok) {
-        dropHeldVote();
-        applyVote(data, true);
-      } else if (!serverNotReady(res)) {
-        dropHeldVote();   // refused on its merits; holding it forever helps nobody
+  // Votes held from a visit when the server was away go first, and quietly:
+  // they were already acknowledged on screen last time, so this is finishing
+  // the job, not asking again. One at a time and in the order they were cast,
+  // so the first person at the table is the first ballot in and a flush does
+  // not arrive looking like a burst to the server's own rate limit.
+  function flushHeld() {
+    const queue = heldVotes();
+    if (!queue.length) return Promise.resolve(0);
+    let counted = 0;
+    let mine = false;
+    return queue.reduce((chain, ballot) => chain.then(() =>
+      post('/api/plush/vote', ballot).then(res => {
+        const data = res && res.data;
+        if (data && data.ok) {
+          counted += 1;
+          dropHeldVote(ballot.voter);
+          applyTally(data);
+          // Only the ballot this device still owns may repaint the picks and
+          // the contact box: the rest belong to people who handed the phone on.
+          if (ballot.voter === voter) { mine = true; applyVote(data, true); }
+        } else if (!retryLater(res)) {
+          dropHeldVote(ballot.voter);   // refused on its merits
+        }
+      }).catch(() => { /* still away: it keeps until next time */ })
+    ), Promise.resolve()).then(() => {
+      if (counted && !(counted === 1 && mine)) {
+        say.className = 'plush-say good';
+        say.textContent = counted === 1
+          ? 'The vote saved on this device has been counted.'
+          : 'All ' + counted + ' votes saved on this device have been counted.';
       }
-    }).catch(() => { /* still away: it keeps until next time */ });
+      return counted;
+    });
+  }
+
+  if (heldVotes().length) {
+    flushHeld();
   } else if (sent.length) {
     // Somebody who has already voted gets the standings back when they
     // return. A first-time reader is asked before they are shown how everyone
