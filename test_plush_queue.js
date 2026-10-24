@@ -123,7 +123,9 @@ const BOOT = `
       // the browser's own id when there is not (plush_vote.ballot_key), so the
       // stub has to as well, or "how many votes are in" means nothing here.
       const ballots = JSON.parse(get(BALLOTS) || "{}");
-      const key = contact || body.voter;
+      // mode "old" is the server as Render is still running it: it keys every
+      // ballot by the device, whatever address the vote carries.
+      const key = (mode === "old" ? "" : contact) || body.voter;
       const changed = Object.prototype.hasOwnProperty.call(ballots, key);
       ballots[key] = { picks: body.picks, contact: contact };
       set(BALLOTS, JSON.stringify(ballots));
@@ -505,6 +507,30 @@ function queueOf(raw) {
        (await s.ev("window.__cc.ballots()")) + ")");
     ok((await s.ev("window.__cc.received()")).length === 5,
        "five sends, nothing retried and nothing lost");
+
+    /* THE DEPLOY WINDOW: this page is live on Vercel within a minute and the
+       vote server trails it by hours. Two people on one phone, each with their
+       own address, must still be two votes on a server that has never heard of
+       address-keyed ballots. */
+    await s.ev("window.__cc.reset()");
+    await s.load();
+    await s.ev('window.__cc.mode("old")');
+    await s.ev('window.__cc.pick("sardine")');
+    await s.ev('window.__cc.contact("alex@blueharbor.org")');
+    await s.ev("window.__cc.send()");
+    await sleep(400);
+    ok((await s.ev("window.__cc.ballots()")) === 1, "person 1 votes with their address");
+    await s.ev('window.__cc.contact("sam@blueharbor.org")');
+    await s.ev('window.__cc.pick("lobster")');
+    await s.ev("window.__cc.send()");
+    await sleep(400);
+    ok((await s.ev("window.__cc.ballots()")) === 2,
+       "a second address on one phone is a second vote even on the OLD server (" +
+       (await s.ev("window.__cc.ballots()")) + ")");
+    const old1 = (await s.ev("window.__cc.received()"))[0];
+    const old2 = (await s.ev("window.__cc.received()"))[1];
+    ok(old1.voter !== old2.voter,
+       "...because the page opens a new ballot the moment the address changes");
 
     /* An address nobody can read: the VOTE still counts, and the page says
        the reminder did not take rather than thanking them for nothing. */

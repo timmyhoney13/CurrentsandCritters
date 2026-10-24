@@ -2353,6 +2353,23 @@ renderCritters('all');
 
   send.addEventListener('click', () => {
     if (busy || !picks.length) return;
+
+    // A DIFFERENT answer in the box is a different person, so this vote must
+    // not go out under the ballot the last answer owns. The server keys a
+    // ballot by the address and would file it right whatever id it arrives
+    // with, but Render deploys BEHIND this page: on a server from before that
+    // rule the voter id is the only thing separating two people on one phone,
+    // and reusing it would overwrite the vote already in. Minting one here
+    // costs nothing once the server catches up, and it is also exactly what
+    // an emptied box means now: an anonymous vote of its own.
+    const typed = contact.value.trim();
+    if (sent.length && typed.toLowerCase() !== sentContact.toLowerCase()) {
+      voter = newVoterId();
+      writeLocal(ID_KEY, voter);
+      sent = [];
+      writeLocal(PICKS_KEY, '[]');
+    }
+
     busy = true;
     send.disabled = true;
     send.textContent = 'Sending...';
