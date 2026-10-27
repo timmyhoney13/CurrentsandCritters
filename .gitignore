@@ -280,6 +280,15 @@
 # fallback that keeps a message that failed to send. Test-only, so it needs
 # this entry and no Dockerfile COPY.
 !test_partner_form.js
+# The home page is a set of TABS: every band that used to be a stop on one
+# twelve-thousand-pixel scroll is its own page now, and one bar switches
+# between them. Checks that every tab opens its own page and only that one,
+# that the buttons are on screen and tappable at a phone width and a desktop
+# one, and that every #hash on the site still lands on a band you can see --
+# none of those links were rewritten, so the page answers a hash by opening
+# whichever tab holds it. Test-only, so it needs this entry and no Dockerfile
+# COPY.
+!test_page_tabs.js
 # The Vercel Function that actually MAILS the enquiry, so the form no longer
 # has to wake the hibernating Render container to send anything. Both entries
 # are needed: git never looks inside an ignored directory, so without `!api/`

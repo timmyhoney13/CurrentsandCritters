@@ -385,9 +385,13 @@ if (!CHROME) {
       + '<script src="/js/film-captions.js"></script>'
       + "</body></html>";
 
+    // The home page is a set of TABS now, and the film lives on the How to
+    // Play one. A band on a tab nobody opened is display:none, and every rect
+    // measured in it is 0x0, so the hash opens that page on load exactly as
+    // the footer's "How to Play" link does. The other two are single pages.
     const SURFACES = [
       { name: "/rules", url: "rules.html" },
-      { name: "the home page", url: "home.html" },
+      { name: "the home page", url: "home.html#how" },
       { name: "the game", url: write("__filmfsgame.html", gamePane) },
     ];
 

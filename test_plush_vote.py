@@ -436,6 +436,19 @@ class TestWiring(unittest.TestCase):
         self.srv = open(os.path.join(ROOT, "multiplayer_server.py"), encoding="utf-8").read()
         self.css = open(os.path.join(ROOT, "styles.css"), encoding="utf-8").read()
 
+    def plush_js(self):
+        """Just the plushy vote's own script out of index.html's big inline
+        block, so an assertion below cannot be answered by some other part of
+        the page that happens to use the same words.
+
+        It ends at the NEXT top-level section rule, whatever that section is
+        called. It used to end at one named comment, and renaming that comment
+        (the nav bar's, when the page became tabs) broke two tests here that
+        have nothing to do with the nav."""
+        js = self.html[self.html.index("// ── Plushy vote ─"):]
+        nxt = js.index("\n// ── ", 10)
+        return js[:nxt]
+
     def test_the_section_exists_below_meet_the_critters(self):
         critters = self.html.index('id="critters"')
         plushy = self.html.index('id="plushy"')
@@ -504,8 +517,7 @@ class TestWiring(unittest.TestCase):
         held ballot overwrote the first person's. test_plush_queue.js drives
         the whole thing in a browser across a reload; these are the anchors
         that keep the shape from quietly going back."""
-        js = self.html[self.html.index("// ── Plushy vote ─"):]
-        js = js[:js.index("// ── Auto-hide nav")]
+        js = self.plush_js()
         self.assertIn("cc-plush-pending", js, "the held ballots need somewhere to live")
         self.assertIn("function serverNotReady", js)
         for code in ("404", "502", "503"):
@@ -545,8 +557,7 @@ class TestWiring(unittest.TestCase):
         bar = self.html[self.html.index('id="plushNext"'):]
         bar = bar[:bar.index(">") + 1]
         self.assertIn("hidden", bar, "the hand-off button ships hidden")
-        js = self.html[self.html.index("// ── Plushy vote ─"):]
-        js = js[:js.index("// ── Auto-hide nav")]
+        js = self.plush_js()
         self.assertIn("nextBtn.hidden = !(sent.length > 0)", js,
                       "shown to anybody who has just voted, no flag to know about")
         self.assertNotIn("cc-plush-passitround", js,

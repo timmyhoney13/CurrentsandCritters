@@ -108,6 +108,12 @@ if (!CHROME) {
    ══════════════════════════════════════════════════════════════════════ */
 const SCENARIOS = {
   layout: `
+    // The home page is a set of TABS now and this form is on the Partner one.
+    // A band on a tab nobody opened is display:none, so every rect below
+    // would be 0x0 and every assertion here would pass by measuring nothing.
+    // window.ccTabs is the page's own switch (see "PAGE TABS" in index.html).
+    window.ccTabs.open("partner");
+    await sleep(150);
     var band = document.getElementById("partner-form");
     var VW = document.documentElement.clientWidth;
     var W = band.getBoundingClientRect();

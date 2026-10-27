@@ -925,12 +925,175 @@
   .l60-film-fs::before { content: "\26F6"; font-weight: 900; margin-right: 7px; }
   .l60-film-fs[hidden] { display: none; }
 
+  /* ── PAGE TABS ─────────────────────────────────────────────────────
+     This page used to be one scroll with every band stacked under the
+     last one, so the only way to the Oceans was past the whole cast of
+     critters. Every band is its own TAB now, and the bar below is both
+     the site nav and the tab list: one set of names to read, and the
+     lit one is the page you are on.
+
+     Page-local on purpose. .nav and .nav .links in styles.css are shared
+     with shop.html, launch.html and score.html, which are still ordinary
+     one-scroll pages, so every rule here hangs off .nav-tabbed and
+     cannot reach them.
+
+     The old bar dropped .links entirely under 900px, which left a phone
+     with no navigation at all. This row scrolls sideways instead, so the
+     buttons that switch pages are on screen at every width. */
+  .nav.nav-tabbed {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 7px;
+    width: min(1200px, calc(100vw - 20px));
+    max-width: calc(100vw - 20px);
+    padding: 9px 10px 10px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.86);
+    box-shadow: 0 10px 30px rgba(8, 52, 77, 0.13);
+  }
+  .nav.nav-tabbed .nav-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 0 4px 0 6px;
+  }
+  .nav.nav-tabbed .brand { margin: 0; padding: 0; }
+  .nav.nav-tabbed .brand img { width: 26px; height: 26px; }
+  .nav.nav-tabbed .brand .wordmark { font-size: 14px; }
+
+  /* The tab row. Pills, the same shape as the critter-family tabs inside
+     the Critters page, so the two read as one control at two sizes. */
+  .nav-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    border-radius: var(--r-pill);
+    background: rgba(214, 239, 252, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav-tabs::-webkit-scrollbar { display: none; }
+  /* A phone cannot fit eight pills, so the row scrolls. These fade whichever
+     end still has tabs behind it, so a half-cut pill reads as "there is more
+     this way" rather than as a mistake. Only the end that HAS more is faded,
+     set from the scroll position, so the first and last pills are never
+     dimmed for nothing. */
+  .nav-tabs.can-left.can-right {
+    mask-image: linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+  }
+  .nav-tabs.can-right:not(.can-left) {
+    mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent 100%);
+  }
+  .nav-tabs.can-left:not(.can-right) {
+    mask-image: linear-gradient(90deg, transparent 0, #000 22px);
+  }
+  .ptab {
+    flex: 1 1 auto;
+    min-width: max-content;
+    white-space: nowrap;
+    border: 0;
+    background: transparent;
+    color: var(--muted-strong);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    padding: 9px 15px;
+    border-radius: var(--r-pill);
+    cursor: pointer;
+    transition: background var(--dur-base) var(--ease-out),
+                color var(--dur-base) var(--ease-out),
+                box-shadow var(--dur-base) var(--ease-out);
+  }
+  .ptab:hover { background: rgba(255, 255, 255, 0.92); color: var(--ink-deep); }
+  .ptab:focus-visible { outline: 3px solid var(--brand-cyan); outline-offset: 2px; }
+  .ptab.is-on {
+    background: var(--grad-cyan-btn);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(12, 164, 203, 0.42);
+  }
+  .ptab.is-on:hover { color: #fff; }
+
+  /* Scrolled down, the bar keeps the tabs and drops the rest, so the way
+     between pages is never off screen. The old bar hid itself whole on
+     scroll-down, which is fine for a nav you use twice and wrong for the
+     thing holding the pages. */
+  .nav.nav-tabbed.is-compact { gap: 0; padding: 6px 8px; }
+  .nav.nav-tabbed.is-compact .nav-top { display: none; }
+  .nav.nav-tabbed.is-compact .ptab { padding: 7px 13px; font-size: 12.5px; }
+  /* Belt and braces: the shared scroll handler in styles.css can hide
+     .nav, and this bar is never allowed to leave. */
+  .nav.nav-tabbed.nav-hidden {
+    opacity: 1;
+    transform: translateX(-50%);
+    pointer-events: auto;
+  }
+
+  /* The pages themselves. One is on screen at a time; the rest are
+     display:none, markup and all.
+
+     NOTHING here may clip or scroll: an ancestor with overflow or a
+     transform becomes the scrollport for anything sticky inside it, and
+     the plushy ballot's pick bar is sticky (see .section.plushy). So no
+     overflow, no transform, no contain on .cc-panel. */
+  .cc-panel[hidden] { display: none; }
+  /* The first band of a page starts under the fixed bar, so it owns the
+     clearance. --cc-nav-h is measured off the real bar on load, because
+     it is two rows on a phone and one on a desk. The selectors below hit
+     exactly the first child of each page: .hero (Home), .learn60 (How to
+     Play) and .section (every other one). The sand band and the
+     supporter wall under the hero are neither, and keep their own. */
+  .cc-panel > .hero,
+  .cc-panel > .section,
+  .cc-panel > .learn60 { padding-top: calc(var(--cc-nav-h, 112px) + 34px); }
+  /* Jumping to an anchor inside a page (the footer's #partner-form,
+     launch.html's index.html#critters) must not park it under the bar. */
+  .cc-panel [id],
+  .cc-tabs { scroll-margin-top: calc(var(--cc-nav-h, 112px) + 20px); }
+  /* The skip link lands here and focuses it; it is a container, not a control,
+     so it must not draw a focus ring of its own. */
+  .cc-tabs:focus { outline: none; }
+
+  /* A page shorter than the window would otherwise show the site's sky
+     blue under its own band, and on a phone the rubber-band overscroll
+     shows it at both ends. Body takes the colour its page ends on. */
+  body[data-cctab="snap"]     { background: #0a4a64; }
+  body[data-cctab="critters"] { background: var(--sea-mid); }
+  body[data-cctab="plushy"]   { background: var(--sea-night); }
+  body[data-cctab="oceans"]   { background: var(--sea-night); }
+  body[data-cctab="sponsor"],
+  body[data-cctab="partner"]  { background: var(--abyss); }
+
+  @media (max-width: 900px) {
+    .nav.nav-tabbed {
+      width: calc(100vw - 16px);
+      max-width: calc(100vw - 16px);
+      padding: 8px;
+    }
+    .ptab { flex: 0 0 auto; }
+  }
+  @media (max-width: 560px) {
+    .nav.nav-tabbed .nav-cta { font-size: 11.5px; padding: 6px 10px; }
+    .ptab { font-size: 12.5px; padding: 8px 13px; }
+  }
+
   </style>
 </head>
 <body>
 
 <!-- First thing a keyboard reaches, ahead of the nav. -->
-<a class="skip-link" href="#home">Skip to the main content</a>
+<!-- Points at the pages themselves, not at #home: #home is the Home page now,
+     and skipping the bar from the Oceans page should not move you to a
+     different page. #ccTabs is whichever page is open, so this skips the bar
+     and lands in what the reader was already reading. -->
+<a class="skip-link" href="#ccTabs">Skip to the main content</a>
 
 <!-- ============ BETA ANNOUNCEMENT BAR ============ -->
 <div class="beta-bar">
@@ -940,22 +1103,48 @@
   </span>
 </div>
 
-<!-- ============ NAV ============ -->
-<nav class="nav">
-  <a class="brand" href="index.html">
-    <img src="assets/logo-icon.svg" alt="C&amp;C"/>
-    <span class="wordmark">Currents and Critters</span>
-  </a>
-  <div class="links">
-    <a href="#how">How to Play</a>
-    <a href="#critters">The Critters</a>
-    <a href="#plushy">Plushy Vote</a>
-    <a href="#oceans">Oceans</a>
-    <a href="https://score.currentsandcritters.com/">Snap &amp; Score</a>
-    <a href="#sponsor">Partner</a>
+<!-- ============ NAV, AND THE PAGE TABS ============
+     The tab buttons ARE the nav: every name in the old .links row is a
+     page of its own now, so there is one list of names on this page and
+     the lit one says where you are. "Snap & Score" used to leave for
+     score.currentsandcritters.com from here; it opens that page's own
+     tab instead, which carries the same link plus what it is. The
+     footer still links straight out to it. -->
+<nav class="nav nav-tabbed" id="siteNav">
+  <div class="nav-top">
+    <a class="brand" href="index.html">
+      <img src="assets/logo-icon.svg" alt="C&amp;C"/>
+      <span class="wordmark">Currents and Critters</span>
+    </a>
+    <a class="nav-cta" data-email-list href="mailto:currentsandcritters@gmail.com?subject=Add%20me%20to%20the%20email%20list">Join the Email List →</a>
   </div>
-  <a class="nav-cta" data-email-list href="mailto:currentsandcritters@gmail.com?subject=Add%20me%20to%20the%20email%20list">Join the Email List →</a>
+  <div class="nav-tabs" id="pageTabs" role="tablist" aria-label="Pages">
+    <button class="ptab is-on" type="button" role="tab" id="tabbtn-home"
+            data-tab="home" aria-controls="panel-home" aria-selected="true">Home</button>
+    <button class="ptab" type="button" role="tab" id="tabbtn-how"
+            data-tab="how" aria-controls="panel-how" aria-selected="false" tabindex="-1">How to Play</button>
+    <button class="ptab" type="button" role="tab" id="tabbtn-snap"
+            data-tab="snap" aria-controls="panel-snap" aria-selected="false" tabindex="-1">Snap &amp; Score</button>
+    <button class="ptab" type="button" role="tab" id="tabbtn-critters"
+            data-tab="critters" aria-controls="panel-critters" aria-selected="false" tabindex="-1">The Critters</button>
+    <button class="ptab" type="button" role="tab" id="tabbtn-plushy"
+            data-tab="plushy" aria-controls="panel-plushy" aria-selected="false" tabindex="-1">Plushy Vote</button>
+    <button class="ptab" type="button" role="tab" id="tabbtn-oceans"
+            data-tab="oceans" aria-controls="panel-oceans" aria-selected="false" tabindex="-1">Oceans</button>
+    <button class="ptab" type="button" role="tab" id="tabbtn-sponsor"
+            data-tab="sponsor" aria-controls="panel-sponsor" aria-selected="false" tabindex="-1">Support Us</button>
+    <button class="ptab" type="button" role="tab" id="tabbtn-partner"
+            data-tab="partner" aria-controls="panel-partner" aria-selected="false" tabindex="-1">Partner</button>
+  </div>
 </nav>
+
+<!-- ============ THE PAGES ============
+     One .cc-panel per tab. Everything that used to be a stop on the
+     scroll is a page here, in the order the tabs name them. -->
+<main class="cc-tabs" id="ccTabs" tabindex="-1">
+
+<div class="cc-panel" id="panel-home" data-panel="home" role="tabpanel"
+     aria-labelledby="tabbtn-home">
 
 <!-- ============ HERO ============ -->
 <section class="hero" id="home" tabindex="-1">
@@ -1065,6 +1254,11 @@
   <div class="people-care-names" id="supporter-names" aria-label="Supporter reef wall names" aria-live="polite"></div>
 </section>
 
+</div><!-- /panel-home -->
+
+<div class="cc-panel" id="panel-how" data-panel="how" role="tabpanel"
+     aria-labelledby="tabbtn-how">
+
 <!-- ============ HOW TO PLAY (Learn in 60 Seconds) ============
      Was a single flat JPEG of the rules. Now it is real text - the same
      three beats and the same four Quick Rules - and it ends at the door
@@ -1171,6 +1365,11 @@
   </div>
 </section>
 
+</div><!-- /panel-how -->
+
+<div class="cc-panel" id="panel-snap" data-panel="snap" role="tabpanel"
+     aria-labelledby="tabbtn-snap">
+
 <!-- ============ SNAP & SCORE ============ -->
 <section class="section snap" id="snap">
   <div class="section-inner">
@@ -1204,6 +1403,11 @@
   </div>
 </section>
 
+</div><!-- /panel-snap -->
+
+<div class="cc-panel" id="panel-critters" data-panel="critters" role="tabpanel"
+     aria-labelledby="tabbtn-critters">
+
 <!-- ============ MEET THE CRITTERS ============ -->
 <section class="section critters on-dark" id="critters">
   <div class="section-inner">
@@ -1230,12 +1434,18 @@
   </div>
 </section>
 
+</div><!-- /panel-critters -->
+
+<div class="cc-panel" id="panel-plushy" data-panel="plushy" role="tabpanel"
+     aria-labelledby="tabbtn-plushy">
+
 <!-- ============ PLUSHY VOTE ============ -->
-<!-- Sits directly under Meet the Critters on purpose: the reader has just
-     scrolled the whole cast, so this is the moment they have an opinion
-     about which one they would want to hold. No account, no email: the
-     ballot carries a random id the browser keeps for itself, and the
-     server holds the abuse ceiling on the address. -->
+<!-- The tab directly after The Critters on purpose: the reader has just been
+     through the whole cast, so this is the moment they have an opinion about
+     which one they would want to hold. It used to sit under that band on the
+     same scroll, for the same reason. No account, no email: the ballot
+     carries a random id the browser keeps for itself, and the server holds
+     the abuse ceiling on the address. -->
 <section class="section plushy on-dark" id="plushy">
   <div class="section-inner">
     <div class="section-head">
@@ -1312,6 +1522,11 @@
   </div>
 </section>
 
+</div><!-- /panel-plushy -->
+
+<div class="cc-panel" id="panel-oceans" data-panel="oceans" role="tabpanel"
+     aria-labelledby="tabbtn-oceans">
+
 <!-- ============ EXPLORE THE OCEANS ============ -->
 <section class="section oceans on-dark" id="oceans">
   <div class="section-inner">
@@ -1342,6 +1557,11 @@
     <p style="text-align:center;margin:24px 0 0;color:rgba(255,255,255,0.6);font-size:13px;">Four ocean environments are featured here, with four more waiting in the box: Kelp Forest · Mangrove · Pier · Deep Ocean</p>
   </div>
 </section>
+
+</div><!-- /panel-oceans -->
+
+<div class="cc-panel" id="panel-sponsor" data-panel="sponsor" role="tabpanel"
+     aria-labelledby="tabbtn-sponsor">
 
 <!-- ============ SPONSOR / CONSERVATION ============ -->
 <section class="section sponsor on-dark" id="sponsor">
@@ -1644,6 +1864,22 @@
       5% goes to ocean conservation.
     </p>
 
+  </div>
+</section>
+</div><!-- /panel-sponsor -->
+
+<div class="cc-panel" id="panel-partner" data-panel="partner" role="tabpanel"
+     aria-labelledby="tabbtn-partner">
+
+<!-- ============ PARTNER WITH US ============
+     The enquiry form and the story behind the game. These were the tail
+     of the Support Us band, which was long enough on its own; the tier
+     cards' "Email us a custom amount" and the footer's "Partner With Us"
+     both point at #partner-form and land here, because a #hash click is
+     answered by opening whichever page holds it. -->
+<section class="section sponsor on-dark" id="partner">
+  <div class="section-inner">
+
     <!-- ============ PARTNER WITH US FORM ============
          The enquiry form itself. It posts to this site's OWN endpoint,
          /api/partner-contact (api/partner-contact.js), which mails the enquiry
@@ -1730,6 +1966,10 @@
     </div>
   </div>
 </section>
+
+</div><!-- /panel-partner -->
+
+</main>
 
 <!-- ============ FOOTER ============ -->
 <footer class="foot">
@@ -2476,8 +2716,7 @@ renderCritters('all');
   }
 })();
 
-// ── Auto-hide nav on scroll-down, show on scroll-up ──────────────
-let lastY = 0;
+// ── The bar: clear of the beta bar, and never hidden ─────────────
 const nav = document.querySelector('.nav');
 const betaBar = document.querySelector('.beta-bar');
 
@@ -2490,15 +2729,204 @@ function updateBetaBarClear() {
   document.documentElement.style.setProperty('--beta-bar-clear', remaining + 'px');
 }
 
+// How tall the bar really is, for the top padding of whichever page is on
+// screen and for scroll-margin on anchors inside it. Measured, not assumed:
+// it is one row wide of a desk and two on a phone. Only ever measured while
+// it is at full height, so the compact bar cannot shrink the clearance and
+// make the first heading jump as you scroll.
+function updateNavHeight() {
+  if (!nav || nav.classList.contains('is-compact')) return;
+  const h = nav.offsetHeight;
+  if (h > 0) document.documentElement.style.setProperty('--cc-nav-h', h + 'px');
+}
+
+// Scrolled down: drop the brand row, keep the tabs. The bar used to hide
+// itself whole on scroll-down, which is right for a nav you use twice and
+// wrong for the thing holding the pages.
 window.addEventListener('scroll', () => {
-  const y = window.scrollY;
-  if (y > lastY && y > 160) nav.classList.add('nav-hidden');
-  else nav.classList.remove('nav-hidden');
-  lastY = y;
+  if (nav) nav.classList.toggle('is-compact', window.scrollY > 110);
   updateBetaBarClear();
 }, { passive: true });
-window.addEventListener('resize', updateBetaBarClear);
+window.addEventListener('resize', () => { updateBetaBarClear(); updateNavHeight(); });
 updateBetaBarClear();
+updateNavHeight();
+// Webfonts land after this runs and the tab row can rewrap on the way, so
+// the height is taken again once they are in.
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(updateNavHeight);
+
+// ── PAGE TABS ────────────────────────────────────────────────────
+// One .cc-panel is on screen, the rest are display:none. The tab bar is
+// the only control, and it is also the nav.
+//
+// EVERY #hash ON THE SITE STILL WORKS, and none of them had to be
+// rewritten: a click on an in-page link is answered by opening whichever
+// page holds that element and then scrolling to it. That is how the
+// footer's #critters, the hero's "Learn the Rules", launch.html's
+// index.html#partner-form and the tier card's "Email us a custom amount"
+// all land in the right place, including the two that now cross from one
+// page to another.
+(function () {
+  const bar = document.getElementById('pageTabs');
+  const panels = Array.prototype.slice.call(document.querySelectorAll('.cc-panel'));
+  if (!bar || !panels.length) return;
+  const buttons = Array.prototype.slice.call(bar.querySelectorAll('[data-tab]'));
+  const byName = {};
+  panels.forEach(p => { byName[p.getAttribute('data-panel')] = p; });
+
+  // Keep the open tab's pill on screen in a row that scrolls sideways.
+  function keepPillInView(b) {
+    if (bar.scrollWidth <= bar.clientWidth + 2) return;
+    const br = b.getBoundingClientRect(), r = bar.getBoundingClientRect();
+    if (br.left < r.left + 10) bar.scrollLeft -= (r.left + 10 - br.left);
+    else if (br.right > r.right - 10) bar.scrollLeft += (br.right - (r.right - 10));
+  }
+
+  // Which end of the row still has tabs behind it. Drives the fades.
+  function markScrollEnds() {
+    const over = bar.scrollWidth - bar.clientWidth;
+    bar.classList.toggle('can-left', over > 2 && bar.scrollLeft > 2);
+    bar.classList.toggle('can-right', over > 2 && bar.scrollLeft < over - 2);
+  }
+  bar.addEventListener('scroll', markScrollEnds, { passive: true });
+  window.addEventListener('resize', markScrollEnds);
+
+  // html carries scroll-behavior:smooth, which is right for an anchor jump
+  // and wrong for a page change: a tab should already be at its top when it
+  // appears, not slide there.
+  function jumpToTop() {
+    const html = document.documentElement, was = html.style.scrollBehavior;
+    html.style.scrollBehavior = 'auto';
+    window.scrollTo(0, 0);
+    html.style.scrollBehavior = was;
+  }
+
+  let open = null;
+
+  function show(name) {
+    const panel = byName[name];
+    if (!panel || name === open) return !!panel;
+    panels.forEach(p => { p.hidden = p !== panel; });
+    buttons.forEach(b => {
+      const on = b.getAttribute('data-tab') === name;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+      if (on) { b.removeAttribute('tabindex'); keepPillInView(b); markScrollEnds(); }
+      else b.setAttribute('tabindex', '-1');
+    });
+    document.body.setAttribute('data-cctab', name);
+    open = name;
+    updateNavHeight();
+    return true;
+  }
+
+  // Which page holds this id. Walks up from the element, so it answers for
+  // anything on the page and not only for the ids the tabs are named after.
+  function panelNameFor(id) {
+    let el = document.getElementById(id);
+    while (el && el !== document.body) {
+      if (el.classList && el.classList.contains('cc-panel')) return el.getAttribute('data-panel');
+      el = el.parentNode;
+    }
+    return null;
+  }
+
+  // Returns false when the hash means nothing here, so the caller can leave
+  // the link alone rather than swallow it.
+  function openForHash(hash, scroll) {
+    const id = String(hash || '').replace(/^#/, '');
+    if (!id) return false;
+    if (byName[id]) {                       // #how, #critters, #sponsor: a page
+      show(id);
+      if (scroll) jumpToTop();
+      return true;
+    }
+    const name = panelNameFor(id);          // #partner-form, #game-night: inside one
+    if (!name) return false;
+    const already = name === open;
+    show(name);
+    if (scroll) {
+      const el = document.getElementById(id);
+      // After the page is on screen, so the element has a position to go to.
+      if (el) setTimeout(() => el.scrollIntoView({ block: 'start',
+        behavior: already ? 'smooth' : 'auto' }), 0);
+    }
+    return true;
+  }
+
+  // Put the page we moved to in the address bar, so it can be linked and the
+  // Back button means something. A file:// document has an opaque origin and
+  // Chrome refuses a state change on one: both browser test suites open this
+  // page straight off disk, and a throw here would take the whole switch with
+  // it, so the address is the part allowed to fail.
+  function remember(hash) {
+    try { if (history.replaceState) { history.replaceState(null, '', hash); return; } } catch (_) {}
+    try { location.hash = hash; } catch (_) {}
+  }
+
+  bar.addEventListener('click', e => {
+    const b = e.target.closest ? e.target.closest('[data-tab]') : null;
+    if (!b || !bar.contains(b)) return;
+    e.preventDefault();
+    const name = b.getAttribute('data-tab');
+    show(name);
+    jumpToTop();
+    remember('#' + name);
+  });
+
+  // Left/right along the row, Home/End to the ends: what a tablist does.
+  bar.addEventListener('keydown', e => {
+    const i = buttons.indexOf(document.activeElement);
+    if (i < 0) return;
+    let j = null;
+    if (e.key === 'ArrowRight') j = (i + 1) % buttons.length;
+    else if (e.key === 'ArrowLeft') j = (i - 1 + buttons.length) % buttons.length;
+    else if (e.key === 'Home') j = 0;
+    else if (e.key === 'End') j = buttons.length - 1;
+    if (j === null) return;
+    e.preventDefault();
+    buttons[j].focus();
+    buttons[j].click();
+  });
+
+  // Every other in-page link on the page, wherever it points.
+  document.addEventListener('click', e => {
+    const a = e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a) return;
+    const href = a.getAttribute('href') || '';
+    if (href.charAt(0) !== '#' || href === '#') return;
+    // "Skip to the main content" points at the pages container, so that it
+    // cannot carry a keyboard reader off the page they were reading. Focus is
+    // moved by hand, and the address keeps naming the OPEN page rather than
+    // the container, so reloading after using it brings the same page back.
+    if (href === '#ccTabs') {
+      const main = document.getElementById('ccTabs');
+      if (!main) return;
+      e.preventDefault();
+      main.focus();
+      remember('#' + open);
+      return;
+    }
+    if (!openForHash(href, true)) return;
+    e.preventDefault();
+    remember(href);
+  });
+
+  window.addEventListener('hashchange', () => { openForHash(location.hash, true); });
+
+  // Arriving with a hash (a shared link, or index.html#oceans from another
+  // page of the site) opens that page; everything else opens Home.
+  if (!openForHash(location.hash, false)) show('home');
+  markScrollEnds();
+
+  // For the test suites, which measure a band that is only laid out while
+  // its page is open: window.ccTabs.open('how') before measuring the film.
+  window.ccTabs = {
+    open: show,
+    openFor: openForHash,
+    get current() { return open; },
+    names: buttons.map(b => b.getAttribute('data-tab'))
+  };
+})();
 
 // ── Live stats from Render server ────────────────────────────────
 (async () => {
@@ -2518,9 +2946,9 @@ updateBetaBarClear();
   // derives it from the same records as the games count, so a floor could only
   // contradict it. What it actually did was publish a flat 0 next to a real
   // games count, which is worse than contradicting anything.
-  const FLOOR_GAMES   = 561;
+  const FLOOR_GAMES   = 567;
   const FLOOR_PLAYERS = 106;
-  const FLOOR_HOURS   = 916;
+  const FLOOR_HOURS   = 919;
   // Remember the last real numbers the server gave THIS browser, so a returning
   // visitor sees the true current counts instantly instead of the static floor
   // while the server cold-starts. Cleared values are ignored.
