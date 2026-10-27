@@ -54,8 +54,22 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const INDEX = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 
-/* ── what the server is really serving, at the time of writing ─────────── */
-const REAL = { games: 561, players: 106, seconds: 3297600, hours: 916 };
+/* ── what the server was really serving, at the time of writing ─────────
+   Only the floor-sanity check below uses this: the committed floors may not
+   be BELOW a figure the server was known to be serving. It is a fixed
+   outside number on purpose, so it is worth updating when it is noticed. */
+const REAL = { games: 567, players: 106, seconds: 3308400, hours: 919 };
+
+/* ── and what the stub serves in the animation race ─────────────────────
+   DERIVED FROM THE COMMITTED FLOORS, never hard-coded. The race only means
+   anything when the live answer is bigger than the floor it has to beat,
+   and build.js raises those floors from the real server at EVERY DEPLOY. A
+   hard-coded live figure therefore goes stale by itself: these assertions
+   went red the first time a deploy pushed the floors past 561 games, which
+   says nothing at all about the race they are meant to be testing. */
+const LIVE = {
+  games: null, players: null, hours: null, seconds: null,
+};
 
 /* ══════════════════════════════════════════════════════════════════════
    1. THE FLOORS, read out of the page itself
@@ -261,8 +275,12 @@ const num = v => Number(String(v || "").replace(/[^0-9.]/g, ""));
     console.log("\nSKIP: no Chrome/Chromium found, the browser half did not run.");
     process.exit(lines.some(l => l.startsWith("FAIL")) ? 1 : 0);
   }
-  const live = { ok: true, games_played: REAL.games, players_total: REAL.players,
-                 registered_players: 77, play_seconds: REAL.seconds };
+  LIVE.games = FLOORS.games + 7;
+  LIVE.players = FLOORS.players + 2;
+  LIVE.hours = FLOORS.hours + 3;
+  LIVE.seconds = LIVE.hours * 3600;
+  const live = { ok: true, games_played: LIVE.games, players_total: LIVE.players,
+                 registered_players: 77, play_seconds: LIVE.seconds };
 
   try {
     /* ── build.js, before the browser work ──────────────────────────── */
@@ -285,14 +303,14 @@ const num = v => Number(String(v || "").replace(/[^0-9.]/g, ""));
 
     /* ── the race that lost the real numbers ────────────────────────── */
     let t = await tilesAfter({ stats: live, delayMs: 0, settleMs: 3000 });
-    ok(num(t.games) === REAL.games,
+    ok(num(t.games) === LIVE.games,
        "an instant answer survives the floor animation: games=" + t.games);
-    ok(num(t.players) === REAL.players, "...players=" + t.players);
-    ok(num(t.hours) === REAL.hours, "...hours=" + t.hours);
+    ok(num(t.players) === LIVE.players, "...players=" + t.players);
+    ok(num(t.hours) === LIVE.hours, "...hours=" + t.hours);
 
     /* ── and a slow one, which is the case that used to work ────────── */
     t = await tilesAfter({ stats: live, delayMs: 2000, settleMs: 4000 });
-    ok(num(t.games) === REAL.games && num(t.hours) === REAL.hours,
+    ok(num(t.games) === LIVE.games && num(t.hours) === LIVE.hours,
        "a slow answer lands too: games=" + t.games + " hours=" + t.hours);
 
     /* ── the server asleep: the floors are what a visitor sees ──────── */

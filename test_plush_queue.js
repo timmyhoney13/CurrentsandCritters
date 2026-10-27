@@ -86,7 +86,8 @@ const BOOT = `
     // scenario's ballot.
     reset: () => {
       ["cc-plush-voter", "cc-plush-picks", "cc-plush-contact", "cc-plush-pending",
-       RECEIVED, BALLOTS].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+       "cc-plush-tally", RECEIVED, BALLOTS, "__cc_tallies"]
+        .forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
       set(MODE, "up");
     },
     pick: slug => {
@@ -99,6 +100,18 @@ const BOOT = `
     next: () => document.getElementById("plushNext").click(),
     nextHidden: () => document.getElementById("plushNext").hidden,
     say: () => document.getElementById("plushSay").textContent,
+    // The standings panel, which has to be on screen for everybody and must
+    // never be emptied by anything that happens afterwards.
+    boardOn: () => document.getElementById("plushResults").classList.contains("on"),
+    boardRows: () => document.querySelectorAll(".plush-row").length,
+    boardTotal: () => document.getElementById("plushTotal").textContent,
+    boardTop: () => {
+      const row = document.querySelector(".plush-row .who");
+      return row ? row.textContent : "";
+    },
+    tallyCalls: () => Number(get("__cc_tallies") || 0),
+    // The fold the two optional questions live in.
+    moreOpen: () => document.getElementById("plushMore").open,
   };
 
   window.fetch = (url, opts) => {
@@ -141,6 +154,12 @@ const BOOT = `
       return reply(200, out);
     }
     if (url.indexOf("/api/plush/tally") > -1) {
+      set("__cc_tallies", String(Number(get("__cc_tallies") || 0) + 1));
+      // "asleep" and "404" are the server being away, and the page is
+      // required to keep showing the standings it already has rather than
+      // blanking them.
+      if (mode === "asleep") return Promise.reject(new Error("offline"));
+      if (mode === "404") return reply(404, null);
       const all = JSON.parse(get(RECEIVED) || "[]");
       const counts = {};
       all.forEach(b => (b.picks || []).forEach(p => { counts[p] = (counts[p] || 0) + 1; }));
@@ -547,6 +566,97 @@ function queueOf(raw) {
        (await s.ev("window.__cc.say()")));
     ok(queueOf(await s.ev("window.__cc.pending()")).length === 0,
        "...and nothing is left queued, because it was not a failure to send");
+
+    /* ══════════════════════════════════════════════════════════════════
+       THE STANDINGS ARE ALWAYS UP.
+
+       Timothy: "we had people vote before and it is not coming up." They
+       had. Twenty-three ballots were on the server, and the page asked for
+       them only when `sent.length` was non-zero, meaning only on a browser
+       that had voted AND still held its own ballot in localStorage. A first
+       visit showed nothing; so did a second visit after voting with the
+       address box left empty, because an empty box hands the device to the
+       next person and clears the local ballot. The result of the poll was
+       invisible from the page that collected it.
+
+       Three things have to hold, and none of them are visible from the
+       markup or from the server:
+         1. A BROWSER THAT HAS NEVER VOTED sees the standings.
+         2. A VOTE DOES NOT EMPTY THEM, it updates them.
+         3. A SERVER THAT IS AWAY LEAVES THEM UP. Nothing is ever replaced
+            by a blank board or a zero.
+       ══════════════════════════════════════════════════════════════════ */
+    await s.ev("window.__cc.reset()");
+    await s.load();
+    await sleep(400);
+
+    // 1. Never voted, and the board is up: the snapshot build.js writes into
+    //    index.html carries it before the server has said a word.
+    ok((await s.ev("window.__cc.boardOn()")) === true,
+       "a browser that has never voted still sees the standings");
+    const coldRows = await s.ev("window.__cc.boardRows()");
+    ok(coldRows > 0, "...with real rows on it (" + coldRows + ")");
+    ok(/vote/.test(await s.ev("window.__cc.boardTotal()")),
+       "...and how many votes are in: " + (await s.ev("window.__cc.boardTotal()")));
+    ok((await s.ev("window.__cc.tallyCalls()")) >= 1,
+       "...and it asked the server too, without being voted on first");
+
+    // 2. A vote updates them. The stub has had no ballots since the reset, so
+    //    the live answer is one ballot and the board must follow it exactly,
+    //    not keep showing the snapshot.
+    await s.ev('window.__cc.pick("mandarin-gobie")');
+    await s.ev("window.__cc.send()");
+    await sleep(400);
+    ok((await s.ev("window.__cc.boardOn()")) === true, "voting does not take the standings down");
+    ok(/^1 vote in so far/.test(await s.ev("window.__cc.boardTotal()")),
+       "...they follow the server: " + (await s.ev("window.__cc.boardTotal()")));
+    ok(/mandarin/i.test(await s.ev("window.__cc.boardTop()")),
+       "...and the vote just cast is on the board: " + (await s.ev("window.__cc.boardTop()")));
+
+    // 3. The server goes away. The board must hold what it has: this browser
+    //    cached the last live tally, so a cold start shows that and not a
+    //    blank panel or a zero.
+    await s.ev('window.__cc.mode("asleep")');
+    await s.load();
+    await sleep(500);
+    ok((await s.ev("window.__cc.boardOn()")) === true,
+       "a sleeping server leaves the standings up");
+    ok((await s.ev("window.__cc.boardRows()")) > 0,
+       "...with rows still on them (" + (await s.ev("window.__cc.boardRows()")) + ")");
+    ok(/^1 vote in so far/.test(await s.ev("window.__cc.boardTotal()")),
+       "...showing the last real figures this browser was given: " +
+       (await s.ev("window.__cc.boardTotal()")));
+
+    // A 404, which is the website live and the vote server a deploy behind.
+    await s.ev('window.__cc.mode("404")');
+    await s.load();
+    await sleep(500);
+    ok((await s.ev("window.__cc.boardOn()")) === true &&
+       (await s.ev("window.__cc.boardRows()")) > 0,
+       "a vote server a deploy behind leaves them up too");
+
+    /* ══════════════════════════════════════════════════════════════════
+       THE FOLD. The two optional questions are folded away so the pick bar
+       stops covering the critters, and that must never hide an address
+       somebody has already given from the person who gave it.
+       ══════════════════════════════════════════════════════════════════ */
+    await s.ev("window.__cc.reset()");
+    await s.load();
+    await sleep(300);
+    ok((await s.ev("window.__cc.moreOpen()")) === false,
+       "a first-time voter gets the short bar, with the questions folded");
+    await s.ev('window.__cc.pick("sardine")');
+    await s.ev('window.__cc.contact("reef@example.com")');
+    await s.ev("window.__cc.send()");
+    await sleep(400);
+    ok((await s.ev("window.__cc.moreOpen()")) === true,
+       "an address the server kept is shown, not folded away");
+    await s.load();
+    await sleep(400);
+    ok((await s.ev("window.__cc.contactValue()")) === "reef@example.com",
+       "...and it is still there on the next visit: " + (await s.ev("window.__cc.contactValue()")));
+    ok((await s.ev("window.__cc.moreOpen()")) === true,
+       "...with the fold opened for them, so they can see and change it");
   } catch (err) {
     lines.push("FAIL the suite threw: " + (err && err.message || err));
   } finally {

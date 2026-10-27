@@ -2056,22 +2056,24 @@ footer button:focus-visible {
 .plush-slots { display: flex; gap: 10px; flex: 1 1 300px; min-width: 0; }
 .plush-slot {
   position: relative;
-  /* Card-shaped, like the tiles in the grid: it may shrink on a narrow
-     screen but never stretch into a wide band, because a stretched card
-     stops reading as a card. */
+  /* A ROW, not a card. These were 132px-wide cards with a 76px art tile, and
+     three of them plus the two question rows under them made this bar nearly
+     a third of a phone screen tall: the thing you choose critters with was
+     covering the critters. Art on the left, name beside it, about 50px tall
+     instead of 130. */
   flex: 1 1 0;
   min-width: 0;
-  max-width: 132px;
+  max-width: 190px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font: inherit;
-  text-align: center;
+  text-align: left;
   background: rgba(255, 255, 255, 0.07);
   border: 1px dashed rgba(255, 255, 255, 0.26);
-  border-radius: var(--r-xl);
-  padding: 9px 9px 10px;
+  border-radius: var(--r-lg);
+  padding: 5px 9px 5px 5px;
   cursor: default;
   transition: transform var(--dur-base) var(--ease-out), background var(--dur-base) var(--ease-out);
 }
@@ -2084,9 +2086,10 @@ footer button:focus-visible {
 .plush-slot.filled:hover { transform: translateY(-2px); background: rgba(255, 255, 255, 0.22); }
 .plush-slot:focus-visible { outline: 3px solid var(--brand-sun); outline-offset: 2px; }
 .plush-slot .art {
-  width: 100%;
-  height: 76px;
-  border-radius: 10px;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
   background: linear-gradient(160deg, var(--brand-cyan-soft), #b8e4f9);
   display: flex;
   align-items: center;
@@ -2111,9 +2114,10 @@ footer button:focus-visible {
   box-shadow: none;
 }
 .plush-slot .who {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   font-family: var(--font-display);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -2132,17 +2136,17 @@ footer button:focus-visible {
 }
 .plush-slot .rank {
   position: absolute;
-  top: -9px;
-  left: -9px;
-  width: 26px;
-  height: 26px;
+  top: -8px;
+  left: -7px;
+  width: 19px;
+  height: 19px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: var(--brand-sun);
   color: #3a2300;
   font-family: var(--font-display);
-  font-size: 12px;
+  font-size: 10px;
   border: 2px solid #0b3a52;
 }
 .plush-slot:not(.filled) .rank {
@@ -2152,10 +2156,10 @@ footer button:focus-visible {
 }
 .plush-slot .drop {
   position: absolute;
-  top: -9px;
-  right: -9px;
-  width: 24px;
-  height: 24px;
+  top: -8px;
+  right: -7px;
+  width: 19px;
+  height: 19px;
   border-radius: 50%;
   display: none;
   place-items: center;
@@ -2208,18 +2212,56 @@ footer button:focus-visible {
   cursor: pointer;
 }
 .plush-next:hover { background: rgba(245, 168, 0, 0.22); }
+/* ── The two optional questions, folded away ─────────────────────────
+   The address question and the newsletter question are a row of explanation
+   each, and the bar they sit in is sticky at the foot of the ballot, so they
+   were two rows of critters nobody could see while choosing. Neither is
+   needed until somebody sends, so they live in a <details>: it opens on a
+   click or the keyboard with no script, and the script opens it by itself
+   for anybody who already has an address saved. Nothing is hidden from
+   anyone who wants it, and the words inside are unchanged. */
+.plush-more { flex: 1 1 100%; border-top: 1px solid rgba(255, 255, 255, 0.16); }
+.plush-more-sum {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 2px 2px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  list-style: none;
+}
+/* Safari still draws the default triangle through ::-webkit-details-marker. */
+.plush-more-sum::-webkit-details-marker { display: none; }
+.plush-more-sum::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid rgba(255, 255, 255, 0.6);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.plush-more[open] .plush-more-sum::after { transform: rotate(-135deg) translate(-3px, -3px); }
+.plush-more-sum:hover { color: #fff; }
+.plush-more-sum:focus-visible { outline: 3px solid var(--brand-sun); outline-offset: 2px; }
+.plush-more-opt {
+  margin-left: auto;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
 /* The optional "tell me who wins" box. It is a full-width row of its own in
    the bar so the label can say plainly what the address is for, which is the
    only honest way to ask a stranger for one. */
 .plush-ask {
-  flex: 1 1 100%;
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  border-top: 1px solid rgba(255, 255, 255, 0.16);
-  padding-top: 11px;
-  margin-top: 2px;
+  padding-top: 9px;
 }
 .plush-ask-lbl {
   flex: 1 1 260px;
@@ -2250,7 +2292,6 @@ footer button:focus-visible {
    an email address in that box, and the two are deliberately separate
    decisions. */
 .plush-join {
-  flex: 1 1 100%;
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -2258,7 +2299,7 @@ footer button:focus-visible {
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.72);
   cursor: pointer;
-  padding-top: 2px;
+  padding-top: 10px;
 }
 .plush-join input {
   flex: 0 0 auto;
@@ -2276,6 +2317,20 @@ footer button:focus-visible {
   color: rgba(255, 255, 255, 0.72);
   min-height: 17px;
 }
+/* Nothing to say yet: no row, no gap. It reserved its line so the bar would
+   not jump when a message arrived, but the bar is anchored to the BOTTOM of
+   the screen, so it grows upward and nothing the reader is looking at moves
+   anyway. A permanently blank line in a bar this size is 27px of critters. */
+.plush-say:empty { display: none; }
+
+/* ── Still choosing: three slots, and nothing else ──────────────────
+   Until there is a pick, Send is disabled, Clear has nothing to clear and
+   neither optional question has anything to attach to, so none of them earn
+   a row in a bar that is sitting on top of the ballot. They all arrive with
+   the first pick (see paintSlots in index.html). */
+.plush-bar:not(.has-picks) .plush-clear,
+.plush-bar:not(.has-picks) .plush-send,
+.plush-bar:not(.has-picks) .plush-more { display: none; }
 .plush-say.bad { color: #ffc9c9; }
 .plush-say.good { color: #bdf5d6; }
 
@@ -2355,12 +2410,57 @@ footer button:focus-visible {
 }
 .plush-row.mine .who { color: var(--brand-sun); }
 
+/* Opens the board from the top ten to every critter that has a vote.
+   The foot of the panel, not a pill floating in the middle of it: a button
+   the width of the thing it opens reads as part of the standings, and it is
+   the same chevron disclosure as the one on the pick bar, so the page has
+   one way of saying "there is more here" instead of two. */
+.plush-more10 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  margin: 16px 0 -4px;
+  padding: 11px 12px 2px;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.72);
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition: color var(--dur-base) var(--ease-out);
+}
+.plush-more10::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.plush-more10[aria-expanded="true"]::after { transform: rotate(-135deg) translate(-3px, -3px); }
+.plush-more10:hover { color: #fff; }
+.plush-more10:focus-visible { outline: 3px solid var(--brand-sun); outline-offset: 2px; }
+.plush-more10[hidden] { display: none; }
+
 @media (max-width: 1000px) { .plush-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 700px) {
   .plush-bar { gap: 10px; padding: 10px; }
-  .plush-slots { flex: 1 1 100%; }
+  .plush-slots { flex: 1 1 100%; justify-content: center; }
   .plush-send, .plush-clear { flex: 1 1 auto; }
   .plush-steps { margin-top: -14px; }
+  /* ART AND RANK ONLY. A slot is about 100px wide on a phone and roughly 45
+     of those are left for words, which turns "Mandarin Gobie" into "MAN..."
+     and the word "Optional" into "Opti...". The picture is what names the
+     critter anyway; the slot still carries the full name in its aria-label
+     for a screen reader and in its title on hover. */
+  .plush-slot .who { display: none; }
+  .plush-slot { max-width: 92px; padding: 5px; justify-content: center; }
 }
 @media (max-width: 560px) {
   .plush-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -67,7 +67,8 @@ const ok = (cond, label) => lines.push((cond ? "PASS " : "FAIL ") + label);
 
 // The pages, in the order the bar names them. Every one of these is a band
 // that used to be a stop on the scroll.
-const TABS = ["home", "how", "snap", "critters", "plushy", "oceans", "sponsor", "partner"];
+const TABS = ["home", "how", "snap", "critters", "plushy", "oceans",
+              "supporters", "sponsor", "partner"];
 
 for (const t of TABS) {
   ok(INDEX.includes(`data-panel="${t}"`), `index.html: there is a page for ${t}`);
@@ -293,7 +294,10 @@ const SCENARIOS = {
     var arrivals = [
       ["#how", "how", true], ["#critters", "critters", true], ["#oceans", "oceans", true],
       ["#plushy", "plushy", true], ["#snap", "snap", true], ["#sponsor", "sponsor", true],
-      ["#home", "home", true], ["#partner-form", "partner", true], ["#people-care", "home", true],
+      ["#home", "home", true], ["#partner-form", "partner", true],
+      // The supporter reef wall was the last band of Home and is its own page
+      // now, so every old link to it has to follow it there.
+      ["#people-care", "supporters", true],
       ["#game-night", "home", false], ["#partner", "partner", true]
     ];
     var wrong = [];
@@ -309,6 +313,22 @@ const SCENARIOS = {
       if (arrivals[i][2] && !visible(target)) wrong.push(arrivals[i][0] + " landed on something hidden");
     }
     ok(wrong.length === 0, "every shared link opens the page that holds it: " + wrong.join("; "));
+
+    // 1b. The address the tab bar itself writes. Clicking a tab puts #<name>
+    //     in the address bar, so that is the link people copy and the one a
+    //     reload comes back to. Every one of them has to open its own page,
+    //     including the two whose page is not named after a section id:
+    //     #supporters is the reef wall and #sponsor is Support Us.
+    var badOwn = [];
+    for (var n = 0; n < ${TABS_JS}.length; n++) {
+      var want = ${TABS_JS}[n];
+      window.ccTabs.open(want === "snap" ? "home" : "snap");
+      await sleep(40);
+      if (!window.ccTabs.openFor("#" + want, true)) { badOwn.push("#" + want + " means nothing"); continue; }
+      await sleep(80);
+      if (window.ccTabs.current !== want) badOwn.push("#" + want + " opened " + window.ccTabs.current);
+    }
+    ok(badOwn.length === 0, "every tab's own address reopens it: " + badOwn.join("; "));
 
     // 2. Every in-page link written anywhere on the page, clicked for real.
     //    This is the check that would have caught the tier card's "Email us a

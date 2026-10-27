@@ -96,7 +96,76 @@ async function refreshStatFloors() {
   }
 }
 
-refreshStatFloors().catch(err => {
-  // Belt and braces: nothing about three numbers may take the deploy down.
-  console.log('stat floors: skipped (' + ((err && err.message) || err) + ')');
-});
+// 4. Refresh the plushy vote's standings snapshot from the live server.
+//
+// TALLY_SNAPSHOT in index.html is what a reader sees in the first frame,
+// before the free-tier server has woken up and answered /api/plush/tally.
+// The page's three layers are snapshot -> this browser's cached tally ->
+// live, newest wins, so this one only ever has to be true at deploy time.
+//
+// Same two rules as the floors, for the same reasons:
+//
+//   NEVER GO BACKWARDS. A snapshot with FEWER ballots in it than the one in
+//   the repo is a server that has lost its records, not a poll that shrank,
+//   and publishing it would take real votes off a public page.
+//
+//   NEVER FAIL THE BUILD. A sleeping server leaves the committed snapshot
+//   alone and says so.
+async function refreshPlushSnapshot() {
+  let data = null;
+  try {
+    const ctrl = new AbortController();
+    const kill = setTimeout(() => ctrl.abort(), 25000);
+    const resp = await fetch(`${RENDER_URL}/api/plush/tally`, { signal: ctrl.signal });
+    clearTimeout(kill);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    data = await resp.json();
+  } catch (err) {
+    console.log('plush snapshot: left as committed (' + ((err && err.message) || err) + ')');
+    return;
+  }
+  if (!data || !data.ok || !data.counts || !Object.keys(data.counts).length) {
+    console.log('plush snapshot: left as committed (server has no counts to give)');
+    return;
+  }
+
+  const out = fs.readFileSync('index.html', 'utf8');
+  const found = out.match(/(const TALLY_SNAPSHOT = )(\{[\s\S]*?\});/);
+  if (!found) {
+    console.log('plush snapshot: no TALLY_SNAPSHOT in index.html');
+    return;
+  }
+  let have = { ballots: 0 };
+  try { have = JSON.parse(found[2]); } catch (_) { /* rewrite a broken one */ }
+  const live = Number(data.ballots) || 0;
+  if (live < (Number(have.ballots) || 0)) {
+    console.log('plush snapshot: stays at ' + have.ballots + ' ballots (live ' + live + ')');
+    return;
+  }
+
+  // Counts only. The tally endpoint is already the public shape, and never
+  // carries an address or anything anybody typed, but this writes the three
+  // fields the page reads and nothing else, so a future field on the
+  // endpoint cannot end up baked into a public page by accident.
+  const snap = JSON.stringify({
+    ballots: live, counts: data.counts, firsts: data.firsts || {}
+  });
+  if (snap === found[2]) {
+    console.log('plush snapshot: already current at ' + live + ' ballots');
+    return;
+  }
+  fs.writeFileSync('index.html', out.replace(found[0], found[1] + snap + ';'), 'utf8');
+  console.log('plush snapshot: ' + (have.ballots || 0) + ' -> ' + live + ' ballots refreshed.');
+}
+
+// In series, not in parallel: both rewrite index.html, and two reads of the
+// same file either side of one write lose whichever change was read first.
+refreshStatFloors()
+  .catch(err => {
+    // Belt and braces: nothing about three numbers may take the deploy down.
+    console.log('stat floors: skipped (' + ((err && err.message) || err) + ')');
+  })
+  .then(() => refreshPlushSnapshot())
+  .catch(err => {
+    console.log('plush snapshot: skipped (' + ((err && err.message) || err) + ')');
+  });

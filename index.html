@@ -1053,6 +1053,20 @@
   .cc-panel > .hero,
   .cc-panel > .section,
   .cc-panel > .learn60 { padding-top: calc(var(--cc-nav-h, 112px) + 34px); }
+  /* The Supporters page is one full-bleed illustration with its headline
+     painted into it, so the bar would sit straight on top of the words. The
+     clearance strip above it is painted with the ARTWORK'S OWN TOP EDGE,
+     sampled across the width of assets/backed-by-people.png, so the join is
+     invisible: the picture is always exactly as wide as the window and so is
+     this, and the two line up at every size. Nothing is drawn ON the art. */
+  .cc-panel > .people-care {
+    padding-top: calc(var(--cc-nav-h, 112px) + 16px);
+    background: linear-gradient(90deg,
+      #416699 0%, #4e8bc6 6.7%, #43c2f3 13.3%, #78ddfe 20%, #84dffd 26.7%,
+      #90e3fd 33.3%, #9ae5fd 40%, #a1e7fd 46.7%, #a1e7fd 53.3%, #9be5fd 60%,
+      #94e4fd 66.7%, #89e1fd 73.3%, #7adcfd 80%, #6edafe 86.7%, #60b9f1 93.3%,
+      #6772cc 100%);
+  }
   /* Jumping to an anchor inside a page (the footer's #partner-form,
      launch.html's index.html#critters) must not park it under the bar. */
   .cc-panel [id],
@@ -1068,6 +1082,8 @@
   body[data-cctab="critters"] { background: var(--sea-mid); }
   body[data-cctab="plushy"]   { background: var(--sea-night); }
   body[data-cctab="oceans"]   { background: var(--sea-night); }
+  /* The shallow water the supporter artwork ends on, read off its bottom edge. */
+  body[data-cctab="supporters"] { background: #a5ddf4; }
   body[data-cctab="sponsor"],
   body[data-cctab="partner"]  { background: var(--abyss); }
 
@@ -1131,6 +1147,8 @@
             data-tab="plushy" aria-controls="panel-plushy" aria-selected="false" tabindex="-1">Plushy Vote</button>
     <button class="ptab" type="button" role="tab" id="tabbtn-oceans"
             data-tab="oceans" aria-controls="panel-oceans" aria-selected="false" tabindex="-1">Oceans</button>
+    <button class="ptab" type="button" role="tab" id="tabbtn-supporters"
+            data-tab="supporters" aria-controls="panel-supporters" aria-selected="false" tabindex="-1">Supporters</button>
     <button class="ptab" type="button" role="tab" id="tabbtn-sponsor"
             data-tab="sponsor" aria-controls="panel-sponsor" aria-selected="false" tabindex="-1">Support Us</button>
     <button class="ptab" type="button" role="tab" id="tabbtn-partner"
@@ -1244,14 +1262,6 @@
   <div class="clan-prize-inner" id="clan-prize">
     <div id="cc-clan-prize" class="ccPrize"></div>
   </div>
-</section>
-
-<!-- ============ PEOPLE WHO CARE ============ -->
-<section class="people-care" id="people-care">
-  <img class="people-care-img" src="assets/backed-by-people.png" alt="Backed By People Who Care, these people help fund the launch of Currents and Critters and support our commitment: 5% goes to ocean conservation. The more you support, the bigger your name is." loading="lazy"/>
-  <!-- Live supporter names are injected here from the game server; each name is
-       sized by the donor's lifetime total. Empty until a supporter is approved. -->
-  <div class="people-care-names" id="supporter-names" aria-label="Supporter reef wall names" aria-live="polite"></div>
 </section>
 
 </div><!-- /panel-home -->
@@ -1464,6 +1474,10 @@
       <h3>Standings so far</h3>
       <p class="total" id="plushTotal"></p>
       <div class="plush-board" id="plushBoard"></div>
+      <!-- The board shows the top ten. This opens it to every critter that
+           has a vote, so nobody's vote is off the page. Hidden while ten is
+           all there is. -->
+      <button class="plush-more10" id="plushMore10" type="button" aria-expanded="false" hidden></button>
     </div>
 
     <div class="critter-tabs" id="plushTabs">
@@ -1505,6 +1519,21 @@
            else, so an ordinary visitor still gets one ballot. -->
       <button class="plush-next" id="plushNext" type="button" hidden>Next person votes</button>
       <button class="plush-send" id="plushSend" type="button" disabled>Send my vote</button>
+      <!-- BOTH OPTIONAL QUESTIONS, FOLDED AWAY until they are wanted.
+           The bar is sticky at the bottom of the ballot, so every row it
+           carries is a row of critters nobody can see while they choose. The
+           address question and the newsletter question are two full rows of
+           explanation each, and neither is needed until the moment somebody
+           sends. Nothing is hidden from anybody who wants it: this is a
+           <details>, so it opens on a click or the keyboard with no script at
+           all, and the script opens it by itself for anybody who already has
+           an address saved, so a returning voter can always see and edit the
+           one on file. Every word of both questions is unchanged. -->
+      <details class="plush-more" id="plushMore">
+        <summary class="plush-more-sum">
+          <span>Tell me who wins, or join the newsletter</span>
+          <span class="plush-more-opt">optional</span>
+        </summary>
       <label class="plush-ask" for="plushContact">
         <span class="plush-ask-lbl">Want to hear who wins? Leave an email or a phone number. Optional, and it is only ever used to tell you the result. One vote per address, so if you are sharing a phone, put in your own address or leave the box empty.</span>
         <input class="plush-ask-in" id="plushContact" type="text" name="plush-contact"
@@ -1517,6 +1546,7 @@
         <input type="checkbox" id="plushNews" name="plush-newsletter">
         <span>Also add me to the Currents and Critters newsletter. Game news and playtest invites, and you can unsubscribe from any email.</span>
       </label>
+      </details>
       <p class="plush-say" id="plushSay" role="status" aria-live="polite"></p>
     </div>
   </div>
@@ -1559,6 +1589,24 @@
 </section>
 
 </div><!-- /panel-oceans -->
+
+<div class="cc-panel" id="panel-supporters" data-panel="supporters" role="tabpanel"
+     aria-labelledby="tabbtn-supporters">
+
+<!-- ============ PEOPLE WHO CARE ============
+     Its own page, sitting between the Oceans and Support Us: the reef wall of
+     everyone who has backed the launch, then the page that says how to join
+     them. It used to be the last band of the Home page, where a name on the
+     wall was only ever seen by somebody who scrolled past the hero, the four
+     value props, Game Night and the clan prize to reach it. -->
+<section class="people-care" id="people-care">
+  <img class="people-care-img" src="assets/backed-by-people.png" alt="Backed By People Who Care, these people help fund the launch of Currents and Critters and support our commitment: 5% goes to ocean conservation. The more you support, the bigger your name is." loading="lazy"/>
+  <!-- Live supporter names are injected here from the game server; each name is
+       sized by the donor's lifetime total. Empty until a supporter is approved. -->
+  <div class="people-care-names" id="supporter-names" aria-label="Supporter reef wall names" aria-live="polite"></div>
+</section>
+
+</div><!-- /panel-supporters -->
 
 <div class="cc-panel" id="panel-sponsor" data-panel="sponsor" role="tabpanel"
      aria-labelledby="tabbtn-sponsor">
@@ -2211,7 +2259,31 @@ renderCritters('all');
   const PICKS_KEY = 'cc-plush-picks';
   const CONTACT_KEY = 'cc-plush-contact';
   const PENDING_KEY = 'cc-plush-pending';
+  const TALLY_KEY = 'cc-plush-tally';
   const ORDINALS = ['1st', '2nd', '3rd'];
+
+  // THE STANDINGS ARE ALWAYS ON THE PAGE, in three layers, newest wins.
+  //
+  // They used to be fetched only by a browser that had already voted AND
+  // still had its own ballot in localStorage, on the reasoning that a
+  // first-time reader should answer before being shown how everyone else
+  // did. What that actually did was hide the result from nearly everybody:
+  // a first visit showed nothing, and so did a second visit after voting
+  // with the address box left empty, because that hands the device on and
+  // clears the local ballot. Twenty-three real votes were sitting on the
+  // server with no way to see them from the page that collected them.
+  //
+  //   1. SNAPSHOT, written into this file by build.js at every deploy from
+  //      the live server, so something true is on screen in the first frame
+  //      even for a first-time reader and even while the free-tier server
+  //      takes its thirty seconds to wake up.
+  //   2. CACHE, the last live tally this browser was given, so a returning
+  //      reader sees the figures they last saw rather than the deploy's.
+  //   3. LIVE, fetched on every load, which replaces either of the above.
+  //
+  // Later data never loses to earlier data: the snapshot and the cache are
+  // applied synchronously here, before any request can come back.
+  const TALLY_SNAPSHOT = {"ballots":23,"counts":{"spinner-dolphin":3,"narwhal":3,"clownfish":1,"mahi-mahi":4,"mandarin-gobie":5,"elk-horn-coral":2,"loggerhead-sea-turtle":5,"spiny-lobster":2,"manta-ray":3,"razorbill-auk":1,"sardine":4,"giant-squid":3,"flying-fish":1,"barracuda":1,"johnsons-sea-cucumber":2,"sea-urchin":2,"common-sea-star":1,"grooved-brain-coral":1,"hermit-crab":2,"blue-marlin":2,"lobster":4,"emperor-penguin":1,"great-albatross":1,"humuhumunukunukuapuaa":1,"bobtail-squid":1,"horned-puffin":1,"whale-shark":3,"peruvian-pelican":2,"sailfish":2,"mantis-shrimp":2,"bottlenose-dolphin":1,"yellowfin-tuna":1,"king-crab":1},"firsts":{"spinner-dolphin":3,"mahi-mahi":2,"narwhal":1,"manta-ray":1,"spiny-lobster":1,"loggerhead-sea-turtle":3,"barracuda":1,"common-sea-star":1,"blue-marlin":2,"emperor-penguin":1,"sardine":2,"lobster":1,"peruvian-pelican":1,"whale-shark":1,"mantis-shrimp":1,"mandarin-gobie":1}};
 
   const grid   = document.getElementById('plushGrid');
   const tabs   = document.getElementById('plushTabs');
@@ -2222,10 +2294,12 @@ renderCritters('all');
   const panel  = document.getElementById('plushResults');
   const board  = document.getElementById('plushBoard');
   const total  = document.getElementById('plushTotal');
+  const more10 = document.getElementById('plushMore10');
   const contact = document.getElementById('plushContact');
   const joinBox = document.getElementById('plushNews');
   const nextBtn = document.getElementById('plushNext');
-  if (!grid || !tabs || !send || !contact || !joinBox || !nextBtn) return;
+  const bar = document.querySelector('.plush-bar');
+  if (!grid || !tabs || !send || !contact || !joinBox || !nextBtn || !bar) return;
 
   const NAME = {};
   CRITTERS.forEach(c => { NAME[c.f] = c.n; });
@@ -2237,6 +2311,7 @@ renderCritters('all');
   let firsts = {};
   let ballots = 0;
   let busy = false;
+  let gotLive = false;    // true once the server itself has answered
 
   // ── storage, which is a convenience and never a requirement ──
   function readLocal(key) {
@@ -2281,6 +2356,12 @@ renderCritters('all');
   // themselves back off the list.
   sentContact = (readLocal(CONTACT_KEY) || '').slice(0, 160);
   contact.value = sentContact;
+  // Somebody who has already left an address can always SEE the one on file,
+  // and change it: the fold is only a way to keep two rows of explanation off
+  // the ballot for everybody who has not. Folded shut it would be the one
+  // thing they cannot check.
+  const more = document.getElementById('plushMore');
+  if (more && sentContact) more.open = true;
 
   // ── the grid ──
   function drawGrid(filter) {
@@ -2333,17 +2414,30 @@ renderCritters('all');
     send.disabled = busy || picks.length === 0 || (sent.length > 0 && same);
     send.textContent = sent.length ? 'Update my vote' : 'Send my vote';
     nextBtn.hidden = !(sent.length > 0);
+    // WHILE YOU ARE STILL CHOOSING, THE BAR IS THREE EMPTY SLOTS AND NOTHING
+    // ELSE. It is sticky at the foot of the ballot, so every row it carries
+    // is a row of critters nobody can see, and until a pick is in, Send is
+    // disabled, Clear has nothing to clear and neither optional question has
+    // anything to attach to. They all arrive with the first pick.
+    bar.classList.toggle('has-picks', picks.length > 0 || sent.length > 0);
   }
+
+  const BOARD_TOP_N = 10;
+  let showAll = false;
 
   function drawBoard() {
     if (!counts) return;
     const ranked = Object.keys(counts)
       .filter(slug => NAME[slug] && counts[slug] > 0)
       .sort((a, b) => (counts[b] - counts[a]) || ((firsts[b] || 0) - (firsts[a] || 0))
-                      || NAME[a].localeCompare(NAME[b]))
-      .slice(0, 10);
+                      || NAME[a].localeCompare(NAME[b]));
+    // EVERY CRITTER ANYBODY VOTED FOR CAN BE SEEN. The board shows the top
+    // ten, because thirty-odd rows is a scroll and not a result, but a vote
+    // that is nowhere on the page is a vote the person who cast it cannot
+    // find. So the rest are one button away and the button says how many.
+    const shown = showAll ? ranked : ranked.slice(0, BOARD_TOP_N);
     const top = ranked.length ? counts[ranked[0]] : 1;
-    board.innerHTML = ranked.map((slug, i) => `
+    board.innerHTML = shown.map((slug, i) => `
       <div class="plush-row${sent.indexOf(slug) > -1 ? ' mine' : ''}">
         <span class="pos">${i + 1}</span>
         <img src="assets/critters/${slug}.png" alt=""/>
@@ -2351,9 +2445,15 @@ renderCritters('all');
         <span class="meter"><span style="width:${Math.round((counts[slug] / top) * 100)}%"></span></span>
         <span class="n">${counts[slug]}</span>
       </div>`).join('');
-    total.textContent = ballots === 1
-      ? '1 vote in so far.'
-      : ballots + ' votes in so far.';
+    total.textContent = (ballots === 1 ? '1 vote in so far' : ballots + ' votes in so far')
+      + (ranked.length ? ', across ' + ranked.length + ' critters.' : '.');
+    if (more10) {
+      more10.hidden = ranked.length <= BOARD_TOP_N;
+      more10.textContent = showAll
+        ? 'Show the top ' + BOARD_TOP_N
+        : 'Show all ' + ranked.length + ' critters';
+      more10.setAttribute('aria-expanded', showAll ? 'true' : 'false');
+    }
     panel.classList.add('on');
   }
 
@@ -2370,7 +2470,7 @@ renderCritters('all');
     // The server decides what a usable address looks like, so this reads what
     // it actually kept, never what was typed.
     const kept = typeof data.contact === 'string' ? data.contact : '';
-    applyTally(data);
+    applyTally(data, true);
 
     if (kept) {
       sent = (data.yours || picks).slice();
@@ -2397,6 +2497,13 @@ renderCritters('all');
     const opened = wasHeld
       ? 'Your saved vote has been counted. '
       : (data.changed ? 'Vote updated. ' : 'Vote counted. ');
+    // Anything the voter has to look at or fix is in the fold, so the fold
+    // opens: an address the server kept, an address it could not use, or a
+    // newsletter tick that did not take. A correction asked for behind a
+    // closed flap is a correction nobody makes.
+    const more = document.getElementById('plushMore');
+    if (more && (kept || data.contactError || data.newsletterError)) more.open = true;
+
     if (data.newsletterError) {
       say.className = 'plush-say bad';
       say.textContent = opened + data.newsletterError;
@@ -2420,13 +2527,47 @@ renderCritters('all');
     paintSlots();
   }
 
-  function applyTally(data) {
+  // `live` is false for the snapshot and the cache, true for an answer that
+  // has just come off the server. A stored figure may never overwrite a live
+  // one: applyTally runs synchronously at load for the first two, but a
+  // held vote being flushed can land a live tally before a slow one, and the
+  // older answer arriving second must not win.
+  function applyTally(data, live) {
     if (!data || !data.counts) return;
+    // AN ANSWER WITH NOTHING IN IT IS NOT AN ANSWER. plush_vote.tally()
+    // replies {ok: true, enabled: false, ballots: 0, counts: {}} when it
+    // cannot reach Firestore at all, and that is a 200 with ok:true, so the
+    // call site cannot tell it from a real result. Applying it would empty a
+    // board that was showing twenty-three real votes a moment earlier, which
+    // is the exact thing this whole arrangement exists to prevent. A poll
+    // that has genuinely been emptied keeps showing the last figures it had
+    // until a deploy writes a new snapshot; that is the right way round.
+    if (!Object.keys(data.counts).length) return;
+    if (gotLive && !live) return;
     counts = data.counts;
     firsts = data.firsts || {};
     ballots = data.ballots || 0;
+    if (live) {
+      gotLive = true;
+      // Kept for this browser's next visit, so the standings are on screen in
+      // the first frame instead of after a cold start.
+      writeLocal(TALLY_KEY, JSON.stringify({
+        ballots: ballots, counts: counts, firsts: firsts, at: Date.now()
+      }));
+    }
     paintGrid();
     drawBoard();
+  }
+
+  // The last live tally this browser was given. Anything unreadable, or
+  // without real counts in it, is ignored rather than drawn as an empty
+  // board: a wrong zero is worse than the deploy's snapshot.
+  function cachedTally() {
+    try {
+      const got = JSON.parse(readLocal(TALLY_KEY) || 'null');
+      if (got && got.counts && Object.keys(got.counts).length) return got;
+    } catch (err) { /* private window, or junk in the key */ }
+    return null;
   }
 
   // ── talking to the server, which is on a free tier and may be asleep ──
@@ -2582,6 +2723,7 @@ renderCritters('all');
 
   // Typing in the box, or changing your mind about the newsletter, is a
   // change worth sending, so the button comes back.
+  if (more10) more10.addEventListener('click', () => { showAll = !showAll; drawBoard(); });
   contact.addEventListener('input', paintSlots);
   joinBox.addEventListener('change', () => {
     if (joinBox.checked && contact.value.indexOf('@') === -1) {
@@ -2684,7 +2826,7 @@ renderCritters('all');
         if (data && data.ok) {
           counted += 1;
           dropHeldVote(ballot.voter);
-          applyTally(data);
+          applyTally(data, true);
           // Only the ballot this device still owns may repaint the picks and
           // the contact box: the rest belong to people who handed the phone on.
           if (ballot.voter === voter) { mine = true; applyVote(data, true); }
@@ -2703,17 +2845,24 @@ renderCritters('all');
     });
   }
 
-  if (heldVotes().length) {
-    flushHeld();
-  } else if (sent.length) {
-    // Somebody who has already voted gets the standings back when they
-    // return. A first-time reader is asked before they are shown how everyone
-    // else answered, which is also why this page makes no request until it
-    // needs one.
-    post('/api/plush/tally').then(res => {
-      if (res && res.data && res.data.ok) applyTally(res.data);
-    }).catch(() => { /* asleep or offline: the ballot still works */ });
-  }
+  // ── The standings go up now, and are never taken down ──
+  // Layers 1 and 2, both synchronous, so the board is painted in this frame
+  // whatever the server is doing. cachedTally() is applied second because it
+  // is this browser's own, and therefore never older than the deploy's.
+  applyTally(TALLY_SNAPSHOT, false);
+  applyTally(cachedTally(), false);
+
+  // Layer 3, the real thing, asked for on EVERY load and not only by somebody
+  // who happens to still hold a ballot on this device. A refusal, a sleeping
+  // server or no network at all leaves whatever is already on screen: the
+  // board is never emptied, only replaced by something newer.
+  post('/api/plush/tally').then(res => {
+    if (res && res.data && res.data.ok) applyTally(res.data, true);
+  }).catch(() => { /* asleep or offline: the standings above still stand */ });
+
+  // A vote held from a visit when the server was away is sent now, and brings
+  // a fresh tally back with it.
+  if (heldVotes().length) flushHeld();
 })();
 
 // ── The bar: clear of the beta bar, and never hidden ─────────────
